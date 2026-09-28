@@ -1,0 +1,7 @@
+# Deps offline (pré-téléchargées par fetch_offline_deps.sh) : VERSIONNÉES
+# depuis 2026-08-01 — dépôt de déploiement, on doit pouvoir installer l'agent
+# Windows sans réseau. Les environnements virtuels, eux, restent exclus.
+.venv/
+venv/
+__pycache__/
+*.pyc

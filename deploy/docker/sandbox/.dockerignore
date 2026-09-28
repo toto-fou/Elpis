@@ -1,0 +1,4 @@
+# Archives d'images produites par build_offline.sh (plusieurs Go) : jamais
+# dans le contexte de build. Motif ancré à la racine : les .tar.gz de
+# build_assets/ (gh, delta, geckodriver) restent COPYables.
+elpis-sandbox-*.tar.gz

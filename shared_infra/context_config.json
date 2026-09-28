@@ -1,0 +1,93 @@
+{
+  "meta": {
+    "version": 1,
+    "note": "Textes/réglages de contexte LLM éditables à froid. Chargé une fois au boot par llm_core/context_config.py (helper CTX). Convention: \"\"=>l'appelant garde son fallback (=texte actuel) ; {\"file\":\"x.md\"}=>charge un .md ; {\"inline\":\"...\"}=>texte inline ; clé absente=>fallback. Défauts = comportement ACTUEL (zéro changement tant que non édité), SAUF tool_gating.enabled (true : active seulement le kill-switch par outil tools.<nom>.enabled ; la map tool_gating.gated reste inerte).",
+    "wired": [
+      "tool_gating",
+      "tools.<name>.enabled (kill-switch)",
+      "tools.<name>.description",
+      "assembly.separator",
+      "skills.header",
+      "compression.reinjection_note",
+      "context.sandbox_prefix",
+      "context.compact_retry",
+      "vision.image_caption",
+      "result_formatting.fallback_wrapper",
+      "memory.header_template",
+      "errors.<code>",
+      "budgets"
+    ],
+    "roadmap_not_yet_wired": [],
+    "_status": "Externalisation 100% câblée (override-or-keep : défaut=texte actuel). ⚠ tool_gating.enabled=true ne câble QUE le kill-switch par outil (tools.<nom>.enabled) ; la map tool_gating.gated est INERTE — voir _WARNING_NOT_WIRED dans ce bloc. model_profiles.stop n'est pas câblé : aucune requête n'emporte de stop sequence.",
+    "not_wired": [
+      "model_profiles.stop"
+    ]
+  },
+  "budgets": {
+    "warn_system_total": 0,
+    "warn_compression_summary": 0,
+    "fail_on_overrun": false
+  },
+  "tool_gating": {
+    "enabled": true,
+    "_WARNING_NOT_WIRED": "⚠ 'gated' ci-dessous est INERTE : le gating par mots-clés n'est PAS câblé (décision assumée, cf. llm_core/_chat_with_tools.py:_gated_out). L'appelant ne passe jamais 'keywords_text', donc AUCUNE catégorie n'est masquée, quoi qu'on écrive ici. Raison : faire varier le set d'outils au fil des messages invaliderait le prefix-cache KV, pour un bénéfice déjà couvert par les toggles explicites du panneau Outils (persistés par chat). Un avertissement est émis au boot si cette map est non vide. Pour RETIRER un outil, utiliser tools.<nom>.enabled=false (câblé, lui). Les règles restent ici comme amorce d'un futur opt-in borné.",
+    "_comment": "Modèle SÛR 'drop-listed' : on ne masquerait QUE les catégories listées dans 'gated', et seulement si AUCUN de leurs mots-clés n'apparaît dans le dernier message user. Toute catégorie NON listée resterait TOUJOURS exposée. Catégories réelles du registre live (2026-08-08) : browser, chart, desktop, fs, git, memory, shell, skill, task. ('help' et 'firefox' n'existent pas / plus — 'firefox' était une entrée fantôme, les outils pw_* vivent dans la catégorie 'browser'.)",
+    "gated": {}
+  },
+  "tools": {
+    "_comment": "Override par outil (NOMS RÉELS du registre, ex: read_file, execute_shell, git_query, generate_chart, pw_act). 'enabled':false = kill-switch (retire l'outil, indépendant du gating). 'description':\"...\" remplace la docstring exposée au LLM (\"\" ou absent => docstring actuelle conservée). Exemples non-actifs ci-dessous.",
+    "read_file": {
+      "enabled": true
+    },
+    "execute_shell": {
+      "enabled": true
+    }
+  },
+  "system_prompt": {
+    "file": "system_prompts/CHATBOT_SYSTEM.md",
+    "_comment": "Déjà externalisé (config.py). Listé pour le comptage de budget au boot. Réécriture = éditer le .md."
+  },
+  "assembly": {
+    "separator": "",
+    "_comment": "\"\" => séparateur '\\n\\n---\\n\\n' actuel (_system_prompts.py). Mettre une valeur pour le changer."
+  },
+  "skills": {
+    "header": "",
+    "_comment": "\"\" => _SKILLS_HEADER actuel (_system_prompts.py:61). Index gardé en mode exhaustif (décision produit : on garde le mappage)."
+  },
+  "memory": {
+    "header_template": "",
+    "_comment": "\"\" => en-tête actuel AVEC télémétrie '## {label} ({chars}/{limit} chars · {pct}%)'. Mettre '## {label}' retire la télémétrie de quota vue par le modèle (non câblé ici, P2)."
+  },
+  "compression": {
+    "system_prompt": {
+      "file": "system_prompts/COMPRESSOR_SYSTEM.md"
+    },
+    "reinjection_note": "",
+    "_comment_note": "\"\" => note FR actuelle après le résumé (conversation_compressor.py). Placeholder {n}=nb de tours. Cible EN recommandée: 'Compressed memory of {n} earlier turns (authoritative). The most recent messages follow.'"
+  },
+  "context": {
+    "sandbox_prefix": "",
+    "_comment_prefix": "\"\" => préfixe <runtime_context> actuel (_chat_with_tools.py). Placeholder {root}=username sandbox. Mettre un texte (ou {file}) pour le remplacer.",
+    "compact_retry": "",
+    "_comment_compact": "\"\" => message 'relance compacte' FR actuel (_chat_with_tools.py)."
+  },
+  "vision": {
+    "image_caption": "",
+    "_comment": "\"\" => légende FR actuelle de la capture (_chat_with_tools.py). Mettre un texte pour la remplacer/raccourcir/traduire."
+  },
+  "result_formatting": {
+    "fallback_wrapper": "",
+    "_comment": "\"\" => wrapper actuel 'Result {tool}: {result}' (chemin non-natif, role:system). Placeholders {tool} {result}."
+  },
+  "model_profiles": {
+    "default": {
+      "stop": [],
+      "_comment": "stop=[] => aucune stop sequence n'est envoyee. ⚠ AUDIT 2026-08-23 : ce reglage est INERTE — ses deux seuls lecteurs (run_chat_with_forced_tool / run_chat_with_open_tools) etaient du code mort, supprime. Pour le rebrancher, le point d'envoi reel est providers/llamacpp.build_llama_payload."
+    },
+    "_comment": "stop=[] => stop sequences historiques (_chat_classic.py:_DEFAULT_STOP_SEQUENCES_TUPLE). Liste non vide => remplace (override-or-keep). Câblé."
+  },
+  "errors": {
+    "_comment": "Catalogue d'erreurs éditable à froid. Clé = code d'erreur (cf err(code,...) dans tools/_toolkit.py). Chaque entrée {message?, fix?} surcharge le wording de TOUTES les occurrences de ce code. Vide => messages d'origine. Exemple (désactivé, décommenter pour activer): \"path_outside_sandbox\": {\"message\": \"...\", \"fix\": \"...\"}."
+  }
+}

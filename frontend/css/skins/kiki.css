@@ -1,0 +1,352 @@
+/* ============================================================================
+ *  Skin « Kiki »  —  l'agence en costume noir
+ * ----------------------------------------------------------------------------
+ *  Tiré de la planche du trio (assets/mascotte/kiki_planche.png) : le papier
+ *  CRÈME du fond de la planche, le NOIR des costumes, l'ORANGE du nœud de la
+ *  grande, la braise du cigare et le laiton de la canne. Rien d'autre — une
+ *  couleur qui n'est pas dans la planche n'est pas dans le skin.
+ *
+ *    crème     #f4efe6   fond (celui de la planche, à un cheveu près)
+ *    costume   #1c1715   encre, rail
+ *    nœud      #e8711a   décor, rehaut du mot KIKI
+ *    orange AA #b4500c   fonds d'action (blanc dessus : 5,1:1)
+ *    laiton    #c99a3a   canne — privilège admin sur le rail
+ *
+ *  Le mot KIKI et le trio de l'accueil lisent `--cl-ink` / `--cl-clay` /
+ *  `--cl-muted` (accueil.js les relit chaque seconde) : les lettres sont en
+ *  costume, leur rehaut est le nœud.
+ *
+ *  Même contrat que les autres skins : tokens d'abord, sélecteurs ensuite et
+ *  seulement pour ce que le bridge ne couvre pas. Tout est scopé sous
+ *  ``body.elpis-skin-kiki`` → inerte tant que la classe n'est pas posée.
+ * ========================================================================== */
+
+/* ───────────────────────────── TOKENS — CLAIR ───────────────────────────── */
+body.elpis-skin-kiki {
+    --cl-bg:        #f4efe6;          /* le fond de la planche */
+    --cl-sidebar:   #171311;          /* le costume */
+    --cl-surface-2: #eee7db;
+    --cl-surface-3: #e8dfd1;
+    --cl-surface-4: #ddd2c1;
+    --cl-ink:       #1c1715;
+    --cl-ink-2:     #332b26;
+    --cl-muted:     #62574d;          /* 6,6:1 sur --surface */
+    --cl-border:    rgba(28, 23, 21, 0.13);
+    --cl-border-2:  rgba(28, 23, 21, 0.20);
+    --cl-clay:      #e8711a;          /* le nœud — DÉCOR seulement (2,7:1) */
+    --cl-clay-deep: #a94b0b;          /* texte accent (5,4:1) */
+    --cl-clay-fg:   #ffffff;
+    --cl-action:       #b4500c;       /* blanc dessus : 5,1:1 */
+    --cl-action-hover: #933f08;
+    --cl-user-bubble: #ebe2d3;
+
+    --danger-surface:     rgba(178, 34, 34, 0.07);
+    --danger-border:      #e6b3ad;
+    --danger-border-soft: #f0cfca;
+    --danger-text:        #b1261f;
+    --danger-strong:      #8c1d17;
+    --danger-icon-bg:     #f3d6d2;
+    --danger-icon-fg:     #c43a2f;
+
+    /* Coins francs : un costume est taillé, pas moulé. */
+    --radius:    0.5rem;
+    --radius-sm: calc(var(--radius) - 3px);
+    --radius-md: calc(var(--radius) - 1px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 3px);
+
+    --app-bg:    var(--cl-bg);
+    --surface:   #fbf8f3;
+    --surface-2: var(--cl-surface-2);
+    --surface-3: var(--cl-surface-3);
+    --surface-4: var(--cl-surface-4);
+    --surface-5: #cfc2ae;
+    --border:            var(--cl-border);
+    --border-soft:       rgba(28, 23, 21, 0.07);
+    --table-cell-border: rgba(28, 23, 21, 0.10);
+    --text-900: var(--cl-ink);
+    --text-800: var(--cl-ink);
+    --text-700: var(--cl-ink-2);
+    --text-600: #4d443d;
+    --text-500: var(--cl-muted);
+    --text-400: #766a5e;              /* 5,0:1 sur --surface */
+    --text-max: #0f0c0b;
+    --prose-body:       var(--cl-ink-2);
+    --prose-heading:    var(--cl-ink);
+    --prose-strong:     var(--cl-ink);
+    --prose-link:       var(--cl-clay-deep);
+    --prose-link-hover: var(--cl-action-hover);
+    --code-inline-bg:     #ebe2d3;
+    --code-inline-fg:     #9a430a;
+    --code-inline-border: var(--cl-border);
+    --scrollbar-thumb:        #d4c8b6;
+    --scrollbar-thumb-hover:  #b9a991;
+    --scrollbar-thumb-custom: #d4c8b6;
+
+    --accent:             var(--cl-action);
+    --accent-strong:      var(--cl-action-hover);
+    --accent-500:         var(--cl-action);
+    --accent-400:         var(--cl-clay);
+    --accent-300:         var(--cl-clay);
+    --accent-fg:          var(--cl-clay-fg);
+    --accent-text:        var(--cl-clay-deep);
+    --accent-text-strong: var(--cl-action-hover);
+    --accent-surface:     rgba(232, 113, 26, 0.08);
+    --accent-surface-2:   rgba(232, 113, 26, 0.15);
+    --accent-border:      var(--cl-clay);
+    --accent-ring:        var(--cl-clay);
+
+    /* Succès : un vert bouteille sourd, seul vert toléré à côté du noir. */
+    --ok:             #3f6b3a;
+    --ok-strong:      #325530;
+    --ok-soft:        #4d7a47;
+    --ok-400:         #6a9562;
+    --ok-text:        #3f6b3a;
+    --ok-text-strong: #2d4d2a;
+    --ok-surface:     rgba(63, 107, 58, 0.09);
+    --ok-surface-2:   rgba(63, 107, 58, 0.15);
+    --ok-border:      rgba(63, 107, 58, 0.38);
+    --ok-fg:          #ffffff;
+
+    /* Rail : le costume. Noir chaud, crème dessus, l'orange pour l'actif. */
+    --rail-bg:           var(--cl-sidebar);
+    --rail-bg-2:         #100d0c;
+    --rail-border:       #2a2320;
+    --rail-text:         #e9e1d6;
+    --rail-text-strong:  #fffaf2;
+    --rail-muted:        #a89c8f;     /* 6,9:1 */
+    --rail-hover:        rgba(244, 239, 230, 0.08);
+    --rail-chip:         rgba(244, 239, 230, 0.07);
+    --rail-active-bg:    rgba(232, 113, 26, 0.22);
+    --rail-input-bg:     rgba(244, 239, 230, 0.06);
+    --rail-input-border: rgba(244, 239, 230, 0.12);
+    --rail-ok:           #c99a3a;     /* le laiton de la canne */
+    --rail-ok-strong:    #e0b85e;
+
+    --toast-bg: #1c1715;
+    --toast-fg: #fffaf2;
+
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ───────────────────────────── TOKENS — SOMBRE ──────────────────────────── */
+/*  La nuit de l'agence : le costume devient le fond, le nœud reste allumé. */
+body.elpis-skin-kiki.elpis-app-dark {
+    --cl-bg:        #16120f;
+    --cl-sidebar:   #0f0c0a;
+    --cl-surface-2: #221c18;
+    --cl-surface-3: #2a231e;
+    --cl-surface-4: #362d27;
+    --cl-ink:       #f1e9dd;
+    --cl-ink-2:     #ddd3c5;
+    --cl-muted:     #a8998a;          /* 6,1:1 sur --surface-2 */
+    --cl-border:    rgba(244, 239, 230, 0.10);
+    --cl-border-2:  rgba(244, 239, 230, 0.17);
+    --cl-clay:      #f08a3c;
+    --cl-clay-deep: #f39a52;
+    --cl-clay-fg:   #1a1410;          /* encre sur orange : 7,3:1 */
+    --cl-action:       var(--cl-clay);
+    --cl-action-hover: #f5a061;
+    --cl-user-bubble: #2a231e;
+
+    --danger-surface:     rgba(239, 120, 104, 0.13);
+    --danger-border:      rgba(239, 120, 104, 0.36);
+    --danger-border-soft: rgba(239, 120, 104, 0.20);
+    --danger-text:        #f2a79c;
+    --danger-strong:      #f7c6be;
+    --danger-icon-bg:     rgba(239, 120, 104, 0.18);
+    --danger-icon-fg:     #ef7868;
+
+    --app-bg:    var(--cl-bg);
+    --surface:   #1c1714;
+    --surface-2: var(--cl-surface-2);
+    --surface-3: var(--cl-surface-3);
+    --surface-4: var(--cl-surface-4);
+    --surface-5: #44392f;
+    --border:            var(--cl-border);
+    --border-soft:       rgba(244, 239, 230, 0.06);
+    --table-cell-border: rgba(244, 239, 230, 0.08);
+    --text-900: var(--cl-ink);
+    --text-800: var(--cl-ink);
+    --text-700: var(--cl-ink-2);
+    --text-600: #c7bcad;
+    --text-500: var(--cl-muted);
+    --text-400: #a8998a;
+    --text-max: #fffaf2;
+    --prose-body:       var(--cl-ink-2);
+    --prose-heading:    var(--cl-ink);
+    --prose-strong:     #fffaf2;
+    --prose-link:       var(--cl-clay-deep);
+    --prose-link-hover: #f7b57f;
+    --code-inline-bg:     #2a231e;
+    --code-inline-fg:     #f5a766;
+    --code-inline-border: rgba(244, 239, 230, 0.09);
+    --scrollbar-thumb:        rgba(244, 239, 230, 0.13);
+    --scrollbar-thumb-hover:  rgba(244, 239, 230, 0.24);
+    --scrollbar-thumb-custom: rgba(244, 239, 230, 0.11);
+
+    --accent-text:        var(--cl-clay-deep);
+    --accent-text-strong: #f7b57f;
+    --accent-surface:     rgba(240, 138, 60, 0.11);
+    --accent-surface-2:   rgba(240, 138, 60, 0.18);
+
+    --ok:             #6a9562;
+    --ok-soft:        #7ba673;
+    --ok-text:        #93bd8a;
+    --ok-text-strong: #b0d3a8;
+    --ok-surface:     rgba(123, 166, 115, 0.13);
+    --ok-surface-2:   rgba(123, 166, 115, 0.19);
+    --ok-border:      rgba(123, 166, 115, 0.40);
+    --ok-fg:          #16120f;
+
+    --rail-bg:     var(--cl-sidebar);
+    --rail-bg-2:   #0a0807;
+    --rail-border: #241e1a;
+}
+
+/* ───────────────────────────── OMBRES ───────────────────────────────────── */
+/*  Courtes et nettes, comme l'ombre portée sous les pieds du trio. */
+body.elpis-skin-kiki .shadow-lg,
+body.elpis-skin-kiki .shadow-xl,
+body.elpis-skin-kiki .shadow-2xl { box-shadow: 0 6px 22px rgba(28, 23, 21, 0.12) !important; }
+body.elpis-skin-kiki .shadow,
+body.elpis-skin-kiki .shadow-sm,
+body.elpis-skin-kiki .shadow-md { box-shadow: 0 1px 2px rgba(28, 23, 21, 0.10) !important; }
+body.elpis-skin-kiki.elpis-app-dark .shadow-lg,
+body.elpis-skin-kiki.elpis-app-dark .shadow-xl,
+body.elpis-skin-kiki.elpis-app-dark .shadow-2xl { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5) !important; }
+
+/* ───────────────────────────── TITRES ───────────────────────────────────── */
+/*  Gras, serrés, en capitales pour les grands : l'en-tête d'un dossier. */
+body.elpis-skin-kiki .markdown-body h1,
+body.elpis-skin-kiki .markdown-body h2,
+body.elpis-skin-kiki .elpis-welcome h1,
+body.elpis-skin-kiki .elpis-welcome h2 {
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+body.elpis-skin-kiki .markdown-body h1 { text-transform: uppercase; letter-spacing: 0.02em; }
+/* Le trait orange sous les titres de niveau 2 : le nœud, en filet. */
+body.elpis-skin-kiki .markdown-body h2 {
+    border-bottom: 2px solid var(--cl-clay);
+    padding-bottom: 0.15em;
+}
+
+/* ─────────────────────────── ACCENT : INDIGO → ORANGE ────────────────────── */
+/*  Les BLEUS passent par le bridge (--accent-*). Restent les indigo et les
+ *  dégradés, hors familles. */
+body.elpis-skin-kiki .bg-indigo-600,
+body.elpis-skin-kiki .bg-indigo-500 {
+    background-color: var(--cl-action) !important;
+    color: var(--cl-clay-fg) !important;
+}
+body.elpis-skin-kiki .hover\:bg-indigo-700:hover,
+body.elpis-skin-kiki .hover\:bg-indigo-600:hover { background-color: var(--cl-action-hover) !important; }
+body.elpis-skin-kiki .text-indigo-600,
+body.elpis-skin-kiki .text-indigo-500 { color: var(--cl-clay-deep) !important; }
+body.elpis-skin-kiki .border-indigo-400 { border-color: var(--cl-clay) !important; }
+body.elpis-skin-kiki .ring-indigo-500,
+body.elpis-skin-kiki .focus\:ring-indigo-500:focus,
+body.elpis-skin-kiki .focus\:border-indigo-400:focus {
+    --tw-ring-color: var(--cl-clay);
+    border-color: var(--cl-clay) !important;
+}
+body.elpis-skin-kiki .bg-indigo-50 { background-color: var(--accent-surface) !important; }
+
+body.elpis-skin-kiki .from-blue-500,
+body.elpis-skin-kiki .from-blue-600,
+body.elpis-skin-kiki .from-indigo-500 {
+    --tw-gradient-from: var(--cl-clay) var(--tw-gradient-from-position, 0%) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(232, 113, 26, 0)) !important;
+}
+body.elpis-skin-kiki .to-indigo-500,
+body.elpis-skin-kiki .to-indigo-600,
+body.elpis-skin-kiki .to-purple-600,
+body.elpis-skin-kiki .to-blue-600 {
+    --tw-gradient-to: var(--cl-action) var(--tw-gradient-to-position, 100%) !important;
+}
+
+body.elpis-skin-kiki ::selection { background: rgba(232, 113, 26, 0.25); color: var(--cl-ink); }
+
+/* ───────────────────────────── RAIL ─────────────────────────────────────── */
+/*  Piloté par les --rail-*. Signature : le liseré orange à droite — la
+ *  pochette du costume — et le survol des icônes qui prend la couleur du
+ *  nœud. */
+body.elpis-skin-kiki aside.elpis-slide-panel { box-shadow: inset -2px 0 0 rgba(232, 113, 26, 0.55); }
+body.elpis-skin-kiki aside.elpis-slide-panel .hover\:text-white:hover { color: var(--cl-clay); }
+
+/* LE LOGO DU RAIL : le trio, en pied. Au repos il respire ; au survol de
+ * l'en-tête il se met en marche. Deux planches empilées plutôt qu'un état
+ * piloté en JS : le survol est une affaire de CSS, rien à synchroniser.
+ * La planche est carrée (72) et le trio large : une boîte de 44 le montre
+ * entier, pieds posés sur le bas de l'en-tête. */
+.elpis-kiki-logo {
+    position: relative;
+    display: inline-block;
+    width: 58px;
+    height: 58px;
+    margin: -10px -6px -8px -8px;
+    flex-shrink: 0;
+}
+.elpis-kiki-logo .socle-mascotte {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.elpis-kiki-logo .elpis-kiki-marche { visibility: hidden; }
+.elpis-kiki-hote:hover .elpis-kiki-logo .elpis-kiki-repos { visibility: hidden; }
+.elpis-kiki-hote:hover .elpis-kiki-logo .elpis-kiki-marche { visibility: visible; }
+/* Rail replié (48 px) : plus petit, même geste. */
+.elpis-kiki-logo--mini { width: 40px; height: 40px; margin: -4px; }
+
+/* ───────────────────────────── ACCUEIL ET PERCHOIR ───────────────────────── */
+/*  Le trio est le SUJET de l'accueil Kiki (source.json : `grandir` 1,3) : la
+ *  scène a besoin de plus de hauteur que les 208 px du bloc ordinaire. Le
+ *  bloc d'accueil fait 44dvh - 4rem, contenu en bas : 28dvh laissent la place
+ *  au « Bonjour » et au sous-titre. */
+body.elpis-skin-kiki .accueil--bloc { height: clamp(140px, 25dvh, 270px); }
+
+/*  Sur la barre de saisie, le trio en 96 px au lieu de 48 (la taille est
+ *  posée en ligne dans chat.html, d'où le !important). */
+body.elpis-skin-kiki .perchoir { width: 96px; height: 96px; margin-bottom: -10px; }
+body.elpis-skin-kiki .perchoir .socle-mascotte { width: 96px !important; height: 96px !important; }
+body.elpis-skin-kiki .perchoir-zzz { left: 70px; bottom: 58px; }
+
+/* ───────────────────────────── BULLES CHAT ──────────────────────────────── */
+/*  L'utilisateur parle sur une fiche crème, marquée à gauche d'un trait
+ *  orange — le dossier qu'on tend à l'agence. L'assistant, sans fond. */
+body.elpis-skin-kiki .elpis-msg-user > .flex-1 {
+    background: var(--cl-user-bubble);
+    border: 1px solid var(--cl-border);
+    border-left: 3px solid var(--cl-clay);
+    border-radius: var(--radius-lg);
+    padding: 0.6rem 1rem;
+}
+body.elpis-skin-kiki .elpis-msg-assistant > .flex-1 { background: transparent; }
+
+/* ───────────────────────────── ZONE DE SAISIE ───────────────────────────── */
+body.elpis-skin-kiki .elpis-compose-card {
+    background: var(--surface) !important;
+    border-color: var(--cl-border-2) !important;
+    border-radius: var(--radius-xl) !important;
+    box-shadow: 0 1px 0 rgba(28, 23, 21, 0.06), 0 6px 18px rgba(28, 23, 21, 0.07) !important;
+}
+body.elpis-skin-kiki .elpis-compose-card:focus-within { border-color: var(--cl-clay) !important; }
+body.elpis-skin-kiki .elpis-compose-card .bg-blue-600 {
+    background-color: var(--cl-action) !important;
+    color: var(--cl-clay-fg) !important;
+}
+body.elpis-skin-kiki .elpis-compose-card .hover\:bg-blue-700:hover { background-color: var(--cl-action-hover) !important; }
+
+/* Bloc « thinking » : la note de filature, en marge. */
+body.elpis-skin-kiki [data-think] {
+    background: var(--cl-surface-2);
+    border: 1px dashed var(--cl-border-2);
+    border-radius: var(--radius-md);
+    padding: 0.4rem 0.7rem;
+}
+
+body.elpis-skin-kiki input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+body.elpis-skin-kiki textarea,
+body.elpis-skin-kiki select { border-radius: var(--radius-md); }

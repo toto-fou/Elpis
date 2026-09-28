@@ -1,0 +1,246 @@
+<!--
+  includes/admin/tab_dashboard.html — Supervision › Métriques
+  ===========================================================
+  Refonte 2026-09-27 (lot 5) :
+    1. **Barre réduite** à la période et à un menu « ⋯ » (Widgets, Exporter,
+       Collecte Prometheus, cadences d'actualisation libellées). Plus de
+       compteurs « 5s / 3s » sans nom, plus d'« Auto-admin » (préférence du
+       menu du compte) ni de purge rouge au premier niveau (Système ›
+       Entretien › Zone sensible).
+    2. **Tous les indicateurs d'un coup**, rangés par groupe (Activité,
+       Volume…) — plus d'onglets de catégorie ; les graphes suivent, dans le
+       même ordre.
+    3. **Couleur = anomalie** : icônes monochromes ; seuls les indicateurs
+       dont le serveur signale ``state`` ('warn' | 'danger') se teintent.
+    4. **Graphes lisibles sans les voir** : chaque canvas porte un résumé
+       texte (chartSummary).
+
+  Set curé (``layout[].default``) et purge par widget (``layout[].purge``)
+  inchangés. Dépend de : dashboardData, dashboardScope, widgetPrefs,
+  kpiGroups / chartGroups, dashMenu, resetWidget, exportUsage, scrapeToken.
+-->
+                    <div v-if="adminTab==='dashboard'" class="adm-dash animate-[fadeIn_0.2s]">
+                        <!-- ═══════════ Barre : période + options ═══════════ -->
+                        <div class="adm-dash__bar">
+                            <!-- Fenêtre d'observation : propagée à TOUS les widgets -->
+                            <div class="adm-seg" role="group" aria-label="Période">
+                                <button v-for="s in [{h:24,l:'24 h'},{h:168,l:'7 j'},{h:720,l:'30 j'}]" :key="'sc'+s.h"
+                                        type="button" @click="setDashboardScope(s.h)"
+                                        :class="['adm-seg__btn', dashboardScope === s.h ? 'is-active' : '']"
+                                        :aria-pressed="dashboardScope === s.h ? 'true' : 'false'">{{ s.l }}</button>
+                            </div>
+
+                            <div class="relative" data-dash-menu>
+                                <button type="button" class="adm-btn adm-btn--icon adm-tool"
+                                        @click="dashMenu = dashMenu ? null : 'main'"
+                                        title="Options" aria-label="Options du tableau de bord"
+                                        aria-haspopup="dialog" :aria-expanded="dashMenu ? 'true' : 'false'">
+                                    <i class="ph ph-dots-three" aria-hidden="true"></i>
+                                </button>
+                                <div v-if="dashMenu" class="adm-pop adm-dash__menu" role="dialog" aria-label="Options du tableau de bord">
+                                    <!-- Vue principale -->
+                                    <template v-if="dashMenu === 'main'">
+                                        <div class="adm-pop__body">
+                                            <button type="button" class="adm-menu__item" @click="dashMenu = 'widgets'">
+                                                <i class="ph ph-squares-four" aria-hidden="true"></i> Widgets
+                                                <i class="ph ph-caret-right adm-menu__go" aria-hidden="true"></i>
+                                            </button>
+                                            <button type="button" class="adm-menu__item" @click="dashMenu = 'export'">
+                                                <i class="ph ph-export" aria-hidden="true"></i> Exporter
+                                                <i class="ph ph-caret-right adm-menu__go" aria-hidden="true"></i>
+                                            </button>
+                                            <button type="button" class="adm-menu__item" @click="dashMenu = 'collect'; loadScrapeToken()">
+                                                <i class="ph ph-plugs-connected" aria-hidden="true"></i> Collecte Prometheus
+                                                <i class="ph ph-caret-right adm-menu__go" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                        <div class="adm-pop__head"><span>Actualisation</span></div>
+                                        <div class="adm-pop__body">
+                                            <div class="adm-dash__rate">
+                                                <span title="Indicateurs, graphes et tableaux">Indicateurs</span>
+                                                <div class="adm-stepper">
+                                                    <button type="button" @click="pollFaster" class="adm-stepper__btn"
+                                                            :class="dashboardPollMs <= 2000 ? 'is-off' : ''" aria-label="Actualiser les indicateurs plus souvent">
+                                                        <i class="ph ph-minus" aria-hidden="true"></i>
+                                                    </button>
+                                                    <span class="adm-stepper__val tabular-nums">{{ pollLabel() }}</span>
+                                                    <button type="button" @click="pollSlower" class="adm-stepper__btn"
+                                                            :class="dashboardPollMs >= 60000 ? 'is-off' : ''" aria-label="Actualiser les indicateurs moins souvent">
+                                                        <i class="ph ph-plus" aria-hidden="true"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="adm-dash__rate">
+                                                <span title="Graphes processeur, mémoire et disque">Temps réel</span>
+                                                <div class="adm-stepper">
+                                                    <button type="button" @click="liveFaster" class="adm-stepper__btn"
+                                                            :class="livePollMs <= 500 ? 'is-off' : ''" aria-label="Actualiser le temps réel plus souvent">
+                                                        <i class="ph ph-minus" aria-hidden="true"></i>
+                                                    </button>
+                                                    <span class="adm-stepper__val tabular-nums">{{ livePollLabel() }}</span>
+                                                    <button type="button" @click="liveSlower" class="adm-stepper__btn"
+                                                            :class="livePollMs >= 10000 ? 'is-off' : ''" aria-label="Actualiser le temps réel moins souvent">
+                                                        <i class="ph ph-plus" aria-hidden="true"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Sous-vues : retour + contenu -->
+                                    <template v-else>
+                                        <div class="adm-pop__head">
+                                            <button type="button" class="adm-pop__back" @click="dashMenu = 'main'">
+                                                <i class="ph ph-caret-left" aria-hidden="true"></i>
+                                                {{ ({ widgets: 'Widgets', export: 'Exporter', collect: 'Collecte Prometheus' })[dashMenu] }}
+                                            </button>
+                                            <button v-if="dashMenu === 'widgets'" type="button" class="adm-btn adm-btn--quiet adm-btn--sm"
+                                                    @click="resetWidgetPrefs()" title="Revenir à la sélection par défaut">Défaut</button>
+                                        </div>
+
+                                        <div v-if="dashMenu === 'widgets'" class="adm-pop__body max-h-80 overflow-y-auto custom-scrollbar">
+                                            <button v-for="w in allWidgetsList()" :key="w.id" type="button"
+                                                    @click="toggleWidgetVisibility(w.id)" class="adm-pick"
+                                                    :aria-pressed="w.visible ? 'true' : 'false'">
+                                                <span class="adm-pick__box" :class="w.visible ? 'is-on' : ''">
+                                                    <i v-if="w.visible" class="ph ph-check" aria-hidden="true"></i>
+                                                </span>
+                                                <span class="adm-pick__label">{{ w.title }}</span>
+                                                <span v-if="w.isDefault" class="adm-tag" title="Affiché par défaut">défaut</span>
+                                                <span class="adm-tag adm-tag--soft">{{ w.type === 'value' ? 'Indicateur' : (w.type === 'table' ? 'Tableau' : 'Graphe') }}</span>
+                                            </button>
+                                        </div>
+
+                                        <div v-else-if="dashMenu === 'export'" class="adm-pop__body adm-dash__exports">
+                                            <span title="Registre de consommation (CSV)">Consommation</span>
+                                            <div class="flex gap-1">
+                                                <button v-for="d in [{d:1,l:'24 h'},{d:7,l:'7 j'},{d:30,l:'30 j'}]" :key="'eu'+d.d"
+                                                        type="button" class="adm-btn adm-tool adm-btn--sm"
+                                                        :aria-label="'Exporter la consommation sur ' + d.l"
+                                                        @click="exportUsage(d.d); dashMenu = null">{{ d.l }}</button>
+                                            </div>
+                                            <span title="Compteurs d'événements (CSV)">Compteurs</span>
+                                            <div class="flex gap-1">
+                                                <button v-for="d in [{d:1,l:'24 h'},{d:7,l:'7 j'},{d:30,l:'30 j'}]" :key="'em'+d.d"
+                                                        type="button" class="adm-btn adm-tool adm-btn--sm"
+                                                        :aria-label="'Exporter les compteurs sur ' + d.l"
+                                                        @click="exportMetrics(d.d); dashMenu = null">{{ d.l }}</button>
+                                            </div>
+                                        </div>
+
+                                        <div v-else-if="dashMenu === 'collect'" class="adm-pop__body space-y-3 p-3">
+                                            <div class="flex items-center gap-2">
+                                                <code class="adm-code flex-1 truncate">{{ prometheusUrl() }}</code>
+                                                <button type="button" class="adm-btn adm-btn--icon" @click="copyPrometheusUrl()" title="Copier l'URL" aria-label="Copier l'URL">
+                                                    <i class="ph ph-copy" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                            <p class="adm-row__hint" title="Un collecteur n'a pas de session : il s'authentifie par jeton.">Jeton : <code>Authorization: Bearer</code> ou <code>?token=</code></p>
+                                            <div v-if="scrapeToken.configured" class="flex items-center gap-2">
+                                                <code class="adm-code flex-1 truncate">{{ scrapeToken.token }}</code>
+                                                <button type="button" class="adm-btn adm-btn--icon" @click="copyScrapeToken()" title="Copier le jeton" aria-label="Copier le jeton">
+                                                    <i class="ph ph-copy" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <button type="button" class="adm-btn adm-tool" @click="setScrapeToken('generate')">
+                                                    <i class="ph ph-key" aria-hidden="true"></i>
+                                                    {{ scrapeToken.configured ? 'Régénérer' : 'Générer un jeton' }}
+                                                </button>
+                                                <button v-if="scrapeToken.configured" type="button" class="adm-btn adm-btn--danger" @click="setScrapeToken('revoke')">
+                                                    Révoquer
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ═══════════ Indicateurs : tous, rangés par groupe ═══════════ -->
+                        <section v-if="kpiGroups.length" class="adm-kpis" aria-labelledby="dash-kpis-h">
+                            <h2 id="dash-kpis-h" class="sr-only">Indicateurs</h2>
+                            <div v-for="g in kpiGroups" :key="'kg-' + g.id" class="adm-kpis__group">
+                                <h3 class="adm-kpis__label">{{ g.label }}</h3>
+                                <div class="adm-kpis__grid">
+                                    <div v-for="widget in g.items" :key="widget.id" class="adm-kpi"
+                                         :class="kpiState(widget.id) ? 'adm-kpi--' + kpiState(widget.id) : ''">
+                                        <div class="adm-kpi__icon">
+                                            <i class="ph" :class="(dashboardData.data[widget.id] && dashboardData.data[widget.id].icon) || 'ph-chart-bar'" aria-hidden="true"></i>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="adm-kpi__title" :title="widget.title">{{ widget.title }}<span v-if="kpiState(widget.id)" class="sr-only"> ({{ kpiState(widget.id) === 'danger' ? 'alerte' : 'à surveiller' }})</span></div>
+                                            <div class="adm-kpi__value">{{ (dashboardData.data[widget.id] && dashboardData.data[widget.id].value != null ? dashboardData.data[widget.id].value : '—') }}</div>
+                                            <div class="adm-kpi__unit">{{ (dashboardData.data[widget.id] && dashboardData.data[widget.id].unit) }}</div>
+                                            <!-- Détail : la décomposition qui évite d'aller chercher un 2e widget -->
+                                            <div v-if="dashboardData.data[widget.id] && dashboardData.data[widget.id].detail" class="adm-kpi__detail">
+                                                {{ dashboardData.data[widget.id].detail }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- ═══════════ Graphes et tableaux (même ordre de groupes) ═══════════ -->
+                        <section v-if="chartGroups.length" aria-labelledby="dash-charts-h">
+                            <h2 id="dash-charts-h" class="sr-only">Graphiques</h2>
+                            <div class="flex flex-wrap -mx-2">
+                                <template v-for="g in chartGroups" :key="'cg-' + g.id">
+                                    <div v-for="widget in g.items" :key="widget.id"
+                                         :class="{'w-full': widget.width==='full', 'w-full md:w-1/2': widget.width==='1/2', 'w-full md:w-1/4': widget.width==='1/4'}"
+                                         class="px-2 mb-4">
+                                        <div class="adm-card h-full flex flex-col">
+                                            <header class="adm-card__head">
+                                                <i class="ph adm-card__icon" :class="widget.type === 'table' ? 'ph-table' : 'ph-chart-line'" aria-hidden="true"></i>
+                                                <div><h3 class="adm-card__title">{{ widget.title }}</h3></div>
+                                                <div class="adm-card__actions">
+                                                    <button v-if="widget.purge" type="button" class="adm-btn adm-btn--icon adm-btn--icon-danger"
+                                                            @click="resetWidget(widget)" :title="'Réinitialiser « ' + widget.title + ' »'"
+                                                            :aria-label="'Réinitialiser « ' + widget.title + ' »'">
+                                                        <i class="ph ph-eraser" aria-hidden="true"></i>
+                                                    </button>
+                                                </div>
+                                            </header>
+
+                                            <!-- Tableau (pics par utilisateur…) -->
+                                            <div v-if="widget.type === 'table'" class="p-4 overflow-x-auto">
+                                                <p v-if="dashboardData.data[widget.id] && dashboardData.data[widget.id].error" class="adm-empty">{{ dashboardData.data[widget.id].error }}</p>
+                                                <p v-else-if="!(dashboardData.data[widget.id] && dashboardData.data[widget.id].rows && dashboardData.data[widget.id].rows.length)" class="adm-empty">Aucune donnée sur la période.</p>
+                                                <table v-else class="adm-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th v-for="col in dashboardData.data[widget.id].columns" :key="'h'+widget.id+col.key"
+                                                                :class="col.align === 'right' ? 'text-right' : ''">{{ col.label }}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr v-for="(row, ri) in dashboardData.data[widget.id].rows" :key="'r'+widget.id+ri">
+                                                            <td v-for="col in dashboardData.data[widget.id].columns" :key="'c'+widget.id+ri+col.key"
+                                                                :class="col.align === 'right' ? 'text-right tabular-nums' : ''">{{ row[col.key] }}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                                <p v-if="dashboardData.data[widget.id] && dashboardData.data[widget.id].meta && dashboardData.data[widget.id].meta.timezone"
+                                                   class="adm-row__hint mt-2">Heures en {{ dashboardData.data[widget.id].meta.timezone }}.</p>
+                                            </div>
+
+                                            <!-- Graphe : le canvas est muet, son résumé texte le double. -->
+                                            <div v-else class="relative flex-1 p-4" :style="widget.width==='1/4' ? 'min-height:180px' : 'min-height:220px'">
+                                                <div v-if="dashboardData.data[widget.id] && dashboardData.data[widget.id].error" class="absolute inset-0 flex items-center justify-center adm-empty adm-empty--error">{{ dashboardData.data[widget.id].error }}</div>
+                                                <div v-else-if="!dashboardData.data[widget.id]?.labels?.length" class="absolute inset-0 flex flex-col items-center justify-center gap-1">
+                                                    <i class="ph ph-chart-bar text-3xl adm-empty__icon" aria-hidden="true"></i>
+                                                    <span class="adm-empty">Aucune donnée</span>
+                                                </div>
+                                                <canvas :id="'chart_' + widget.id" role="img" :aria-label="chartSummary(widget)"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </section>
+
+                        <p v-if="(dashboardData.layout || []).length && !kpiGroups.length && !chartGroups.length" class="adm-empty">
+                            Aucun widget affiché · Options › Widgets
+                        </p>
+                    </div>

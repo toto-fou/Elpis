@@ -1,0 +1,77 @@
+# playbook.example.yml — playbook commenté : déploiement d'un service web.
+# Montre : become, vars, modules idempotents, command gardé par `creates`,
+# template + validate + notify, handlers, et un second play ciblé.
+#
+# Lancer :  ansible-playbook -i inventory.yml playbook.example.yml
+# Rejouer : le 2e run doit afficher changed=0 (idempotence).
+---
+- name: Déployer le service web
+  hosts: web
+  become: true
+  vars:
+    app_user: webapp
+    app_port: 8080
+    app_dir: /opt/webapp
+
+  tasks:
+    - name: Paquets requis présents
+      ansible.builtin.apt:
+        name: [nginx, python3-venv]
+        state: present
+        update_cache: true
+        cache_valid_time: 3600        # pas d'update apt à chaque run
+
+    - name: Utilisateur applicatif présent
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        system: true
+        home: "{{ app_dir }}"
+        create_home: false
+
+    - name: Arborescence applicative
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        mode: "0755"
+      loop:
+        - "{{ app_dir }}"
+        - "{{ app_dir }}/releases"
+
+    - name: Initialisation one-shot (gardée par un marqueur)
+      ansible.builtin.command: "{{ app_dir }}/bin/init.sh"
+      args:
+        creates: "{{ app_dir }}/.initialized"   # relance impossible par accident
+
+    - name: Config nginx à jour (validée AVANT remplacement)
+      ansible.builtin.template:
+        src: templates/nginx-site.conf.j2
+        dest: /etc/nginx/sites-available/webapp.conf
+        mode: "0644"
+        validate: nginx -t -c %s
+      notify: Recharger nginx
+
+    - name: Service nginx démarré et activé au boot
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+  handlers:
+    # Exécuté UNE fois en fin de play, seulement si une tâche l'a notifié.
+    - name: Recharger nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
+
+# Second play : autre groupe, autre élévation — un playbook = N plays.
+- name: Poser la crontab de purge sur les workers
+  hosts: workers
+  become: true
+  tasks:
+    - name: Purge nocturne des artefacts
+      ansible.builtin.cron:
+        name: purge-artifacts
+        minute: "0"
+        hour: "3"
+        job: "find /var/lib/worker/artifacts -mtime +7 -delete"

@@ -1,0 +1,16 @@
+# requirements-agpl-optional.txt — extras FACULTATIFS sous licence AGPL-3.0
+#
+# ⚠ Licence : PyMuPDF (et pdf2docx, qui en dépend) sont distribués sous
+# AGPL-3.0 (ou licence commerciale Artifex). Elpis est sous licence MIT et ne
+# les livre PAS. Les installer est un choix de l'opérateur : si vous exposez
+# le service à des tiers, les obligations de l'AGPL s'appliquent à ces
+# composants. Installation : ./install.sh --with-agpl
+#
+# Ce qu'ils ajoutent :
+#   - pdf2docx : conversion PDF → DOCX dans la console RAG ;
+#   - PyMuPDF  : rendu de pages OCR de secours (pypdfium2 est utilisé par défaut).
+
+-r requirements-rag.txt
+
+PyMuPDF==1.27.2.3
+pdf2docx==0.5.13

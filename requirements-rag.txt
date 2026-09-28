@@ -1,0 +1,14 @@
+# requirements-rag.txt — service RAG (rag_app/) : ingestion, recherche, OCR
+# S'installe dans le MÊME venv que requirements.txt (./install.sh).
+# Sans PyMuPDF ni pdf2docx (AGPL) : voir requirements-agpl-optional.txt.
+
+-r requirements.txt
+
+pandas==3.0.3
+openpyxl==3.1.5               # lecture/écriture .xlsx via pandas
+tabulate==0.9.0               # DataFrame.to_markdown
+pypdf==6.11.0
+pdfplumber==0.11.9            # tire pypdfium2 (rendu des pages pour l'OCR)
+pypdfium2==5.8.0
+fpdf2==2.8.7                  # LGPL-3.0, installé sans modification
+charset-normalizer==3.4.7

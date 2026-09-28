@@ -1,0 +1,7 @@
+# Généré par fetch_caddy_debs.sh — 2026-07-19T10:08:51Z
+caddy            2.6.2-12+b3              5c6c461e13c02916681f20faedf0132762afd59dd3637a2077ab534ec1a6e4be
+libnss3-tools    2:3.110-1+deb13u2        40923b53f37a16b69d8d34d84fb40aec66b3f40f9cde7fbc84779edb3cb72d00
+libzstd1         1.5.7+dfsg-1             2f6a2aeacfc925eba8b00ac9139bc4bfccf8cacb09eb93de067074b26948eef9
+media-types      13.0.0                   0788e4b0b72db1bcf74a19cb24c3511e7770ad0b341f0f30e361701c3072f53e
+passwd           1:4.17.4-2               c5eaef41c6947d2888fa3462f787a7e02158b997bd0119154283f425ba57b8b8
+# NON VENDORISÉ : libc6 (index périmé au fetch — supposé présent sur la cible)

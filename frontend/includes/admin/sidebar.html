@@ -1,0 +1,146 @@
+<!--
+  includes/admin/sidebar.html — Barre latérale de la console (refonte 2026-09-27)
+  ===============================================================================
+  Arborescence décrite par frontend/js/admin/_registry.js (adminNav) : une
+  entrée par domaine ; l'entrée ouverte déplie ses sous-pages, qui remplacent
+  l'ancienne barre d'ancres horizontale. Les modérateurs ne voient que la
+  supervision (filtrage dans adminNav).
+
+  Pied : retour au chat, bascule du mode sombre, menu « Compte et apparence »
+  (mode Système · Clair · Sombre, thème, ouverture automatique de la console,
+  déconnexion). Mode et thème sont les MÊMES réglages que Paramètres ›
+  Apparence, enregistrés tout de suite (setThemeMode / setAppSkin).
+
+  Couleurs : tokens --rail-* (style.css), redéfinis par chaque skin.
+  showSidebar est le ref racine partagé avec la barre du chat (préférence
+  repliée/dépliée conservée d'un contexte à l'autre).
+-->
+        <aside class="adm-rail h-full flex flex-col shrink-0 border-r z-50 overflow-hidden elpis-slide-panel"
+               :class="showSidebar ? 'adm-rail--open' : 'adm-rail--mini'" aria-label="Console d'administration">
+
+            <!-- ═════════ Vue réduite (icônes) ═════════ -->
+            <div v-show="!showSidebar" class="adm-rail__mini">
+                <button type="button" @click="showSidebar = true" class="adm-rail__icon" title="Déplier le panneau" aria-label="Déplier le panneau">
+                    <i class="ph ph-caret-double-right" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="adm-rail__icon" @click="openPalette" title="Rechercher (Ctrl K)"
+                        aria-label="Rechercher" aria-keyshortcuts="Control+K">
+                    <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                </button>
+                <nav class="adm-rail__mini-nav" aria-label="Console (réduite)">
+                    <button v-for="e in adminNav" :key="'m-' + e.id" type="button" class="adm-rail__icon"
+                            :class="{ 'is-active': adminPage.entry === e.id }" :title="e.label" :aria-label="e.label"
+                            :aria-current="adminPage.entry === e.id ? 'page' : null" @click="goAdminEntry(e)">
+                        <i class="ph" :class="e.icon" aria-hidden="true"></i>
+                        <span v-if="e.id === 'overview' && overviewAttention" class="adm-rail__dot" aria-hidden="true"></span>
+                    </button>
+                </nav>
+                <div class="adm-rail__mini-foot">
+                    <button type="button" class="adm-rail__icon" @click="toggleThemeMode"
+                            :title="appDark ? 'Passer en mode clair' : 'Passer en mode sombre'"
+                            :aria-label="appDark ? 'Passer en mode clair' : 'Passer en mode sombre'">
+                        <i class="ph" :class="appDark ? 'ph-sun' : 'ph-moon'" aria-hidden="true"></i>
+                    </button>
+                    <a :href="mainAppUrl || '/'" @click.prevent="goToMainApp" class="adm-rail__icon" title="Retour au chat" aria-label="Retour au chat">
+                        <i class="ph ph-arrow-u-up-left" aria-hidden="true"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- ═════════ Vue dépliée ═════════ -->
+            <div v-show="showSidebar" class="adm-rail__full">
+                <div class="adm-rail__brand">
+                    <div class="adm-rail__logo" aria-hidden="true"><i class="ph ph-shield-check"></i></div>
+                    <div class="min-w-0 flex-1">
+                        <div class="adm-rail__name truncate">{{ (settings && settings.assistant_name) || 'Elpis' }}</div>
+                        <div class="adm-rail__sub">Console admin</div>
+                    </div>
+                    <button type="button" @click="showSidebar = false" class="adm-rail__icon" title="Replier le panneau" aria-label="Replier le panneau">
+                        <i class="ph ph-caret-double-left" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <!-- Recherche (Ctrl+K) : pages, réglages, actions. -->
+                <button type="button" class="adm-rail__search" @click="openPalette" aria-keyshortcuts="Control+K">
+                    <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                    <span class="flex-1 text-left">Rechercher</span>
+                    <kbd>Ctrl K</kbd>
+                </button>
+
+                <nav class="adm-nav" aria-label="Console">
+                    <ul>
+                        <li v-for="e in adminNav" :key="e.id">
+                            <button type="button" class="adm-nav__entry" :class="{ 'is-open': adminPage.entry === e.id }"
+                                    :aria-current="(adminPage.entry === e.id && e.pages.length === 1) ? 'page' : null"
+                                    :aria-expanded="e.pages.length > 1 ? String(adminPage.entry === e.id) : null"
+                                    @click="goAdminEntry(e)">
+                                <i class="ph adm-nav__icon" :class="e.icon" aria-hidden="true"></i>
+                                <span class="adm-nav__label">{{ e.label }}</span>
+                                <!-- « À traiter » de la Vue d'ensemble, visible depuis toute page. -->
+                                <span v-if="e.id === 'overview' && overviewAttention" class="adm-nav__count"
+                                      :title="overviewAttention + ' à traiter'">{{ overviewAttention }}<span class="sr-only"> à traiter</span></span>
+                            </button>
+                            <ul v-if="e.pages.length > 1 && adminPage.entry === e.id" class="adm-nav__subs">
+                                <li v-for="p in e.pages" :key="p.id">
+                                    <button type="button" class="adm-nav__sub" :aria-current="adminTab === p.id ? 'page' : null"
+                                            @click="goAdminPage(p.id)">
+                                        <span class="adm-nav__label">{{ p.label }}</span>
+                                    </button>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </nav>
+
+                <div class="adm-rail__foot" data-adm-me>
+                    <a :href="mainAppUrl || '/'" @click.prevent="goToMainApp" class="adm-rail__link">
+                        <i class="ph ph-arrow-u-up-left" aria-hidden="true"></i> Retour au chat
+                    </a>
+                    <div class="adm-me">
+                        <img v-if="user && user.avatar" :src="'/avatars/' + user.avatar" class="adm-me__avatar object-cover" alt="">
+                        <div v-else class="adm-me__avatar" aria-hidden="true">{{ ((user && user.username) || '??').substring(0, 2).toUpperCase() }}</div>
+                        <div class="min-w-0 flex-1">
+                            <div class="adm-me__name truncate">{{ user && user.username }}</div>
+                            <div class="adm-me__role">{{ user && user.role === 'admin' ? 'Administrateur' : (user && user.role === 'moderator' ? 'Modérateur' : 'Utilisateur') }}</div>
+                        </div>
+                        <button type="button" class="adm-rail__icon" @click="toggleThemeMode"
+                                :title="appDark ? 'Passer en mode clair' : 'Passer en mode sombre'"
+                                :aria-label="appDark ? 'Passer en mode clair' : 'Passer en mode sombre'">
+                            <i class="ph" :class="appDark ? 'ph-sun' : 'ph-moon'" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="adm-rail__icon" aria-label="Compte et apparence" title="Compte et apparence"
+                                aria-haspopup="dialog" :aria-expanded="String(adminMeOpen)" @click="adminMeOpen = !adminMeOpen">
+                            <i class="ph ph-dots-three" aria-hidden="true"></i>
+                        </button>
+                    </div>
+
+                    <!-- Menu « Compte et apparence » -->
+                    <div v-if="adminMeOpen" class="adm-menu" role="dialog" aria-label="Compte et apparence">
+                        <div class="adm-menu__sec">Apparence</div>
+                        <div class="adm-menu__row">
+                            <div class="adm-seg adm-seg--sm" role="radiogroup" aria-label="Mode">
+                                <button type="button" role="radio" v-for="m in [{v:'system',l:'Système'},{v:'light',l:'Clair'},{v:'dark',l:'Sombre'}]" :key="m.v"
+                                        :aria-checked="String(themeMode === m.v)" class="adm-seg__btn" :class="themeMode === m.v ? 'is-active' : ''"
+                                        @click="setThemeMode(m.v)">{{ m.l }}</button>
+                            </div>
+                        </div>
+                        <button v-for="sk in APP_SKINS" :key="'skin-' + sk.id" type="button" class="adm-menu__item"
+                                :aria-pressed="String(((settings && settings.skin) || '') === sk.id)" :title="sk.desc" @click="setAppSkin(sk.id)">
+                            <span class="adm-swatch" aria-hidden="true" :style="{ '--sw-rail': sk.sw[0], '--sw-bg': sk.sw[1], '--sw-acc': sk.sw[2] }"></span>
+                            <span class="flex-1">{{ sk.label }}</span>
+                            <i v-if="((settings && settings.skin) || '') === sk.id" class="ph ph-check adm-menu__check" aria-hidden="true"></i>
+                        </button>
+                        <p class="adm-menu__note">Identique à vos Paramètres › Apparence.</p>
+                        <div class="adm-menu__sep" role="separator"></div>
+                        <button type="button" class="adm-menu__item" role="switch" :aria-checked="String(adminAutoOpen)" @click="toggleAdminAutoOpen">
+                            <i class="ph ph-squares-four" aria-hidden="true"></i>
+                            <span class="flex-1">Ouvrir la console à la connexion</span>
+                            <i v-if="adminAutoOpen" class="ph ph-check adm-menu__check" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="adm-menu__item" @click="adminMeOpen = false; adminConfirmLeave().then(ok => ok && logout())">
+                            <i class="ph ph-sign-out" aria-hidden="true"></i><span class="flex-1">Déconnexion</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>

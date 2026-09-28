@@ -1,0 +1,198 @@
+<!--
+  includes/main/panel_mcp.html — MCP servers side panel (DYNAMIC categories)
+
+  Toggled by settings.enable_mcp + a local UI state. Shows the list of
+  MCP servers this instance can reach, with per-server tool discovery
+  and enable/disable toggles. Distinct from the MCP Manager modal
+  (includes/modals/mcp.html) which is for admin-level configuration.
+
+  Categories are auto-discovered from the running MCP server by the
+  backend (see ``backend.services._mcp_categories``). Each tools/*.py
+  module declares a ``CATEGORY`` literal — adding a new module + a
+  ``register_*`` line in local_mcp_server.py is enough to make a new
+  toggle appear here, with no edit to this file.
+
+  The hardcoded fallback tile (``Web``) is kept ONLY for the AX-memory
+  link button — that bit is browser-specific and we want it to stay
+  visible even if the registry is mid-migration. The category itself
+  is sourced dynamically; the link is conditionally rendered when the
+  ``browser`` category exists.
+-->
+            <!-- UX : `.elpis-slide-panel` anime explicitement la width
+                 (transition-all CSS a été override pour ne plus animer width
+                 par défaut). Glisse fluidement de 280px vers 0 en 260ms. -->
+            <div v-if="settings.enable_mcp" class="elpis-slide-panel h-full shrink-0 flex flex-col bg-slate-50 z-20 border-l border-slate-200"
+                 :class="showMcpPanel ? 'w-[280px] opacity-100' : 'w-0 opacity-0 overflow-hidden pointer-events-none'">
+
+                <div class="h-16 flex items-center justify-between px-4 border-b border-slate-200 shrink-0 bg-white">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm"><i class="ph ph-plug text-blue-600 text-lg"></i> Outils</h3>
+                    <button @click="showMcpPanel = false" class="text-slate-400 hover:text-slate-800 p-1 hover:bg-slate-100 rounded-md transition-colors"><i class="ph ph-x text-base"></i></button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-6">
+                    <div class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="text-xs font-semibold text-slate-500 mb-3">Locaux</div>
+
+                        <!-- Empty state: registry returned 0 visible categories -->
+                        <div v-if="mcpUserCategories.length === 0" class="text-center py-3 text-xs text-slate-400 italic">
+                            Aucune catégorie d'outils active pour le moment.<br>Un administrateur peut en activer via la modale MCP (Paramètres → MCP).
+                        </div>
+
+                        <div v-else class="space-y-1.5">
+                            <!-- One toggle per dynamically-discovered category. The
+                                 ``browser`` category gets an extra AX-memory link;
+                                 every other category renders as a plain row. -->
+                            <template v-for="cat in mcpUserCategories" :key="cat.name">
+                                <!-- Special-cased browser row: keeps the AX-memory shortcut button -->
+                                <div v-if="cat.name === 'browser'" class="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded-lg transition-colors">
+                                    <div @click="localTools[cat.name] = !localTools[cat.name]"
+                                         class="text-xs font-semibold text-slate-700 flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
+                                        <div class="w-6 h-6 rounded flex items-center justify-center shrink-0"
+                                             :class="mcpCategoryBgClass(cat)">
+                                            <i class="ph text-sm" :class="cat.icon || 'ph-package'"></i>
+                                        </div>
+                                        <span>{{ cat.label || cat.name }}</span>
+                                    </div>
+                                    <span v-if="catToolsCount(cat)" class="text-[10px] text-slate-400 shrink-0">{{ catToolsCount(cat) }}</span>
+                                    <span v-if="localTools[cat.name] && (cat.tools || []).length"
+                                          role="button" tabindex="0" title="Choisir les outils"
+                                          @click.prevent.stop="toggleToolCatOpen(cat.name)"
+                                          @keydown.enter.prevent.stop="toggleToolCatOpen(cat.name)"
+                                          @keydown.space.prevent.stop="toggleToolCatOpen(cat.name)"
+                                          class="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0 cursor-pointer">
+                                        <i class="ph ph-caret-right text-sm transition-transform" :class="openToolCats[cat.name] ? 'rotate-90' : ''"></i>
+                                    </span>
+                                    <button v-if="localTools[cat.name]" type="button" @click="openAxModal()"
+                                            title="Voir la cartographie AX Memory"
+                                            class="w-6 h-6 flex items-center justify-center rounded hover:bg-blue-100 text-slate-400 hover:text-blue-600 transition-colors shrink-0">
+                                        <i class="ph ph-git-branch text-sm"></i>
+                                    </button>
+                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <input type="checkbox" v-model="localTools[cat.name]" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-slate-200 border border-slate-300 rounded-full peer peer-focus:outline-none transition-colors after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all after:shadow-sm peer-checked:after:translate-x-full peer-checked:after:border-white"
+                                             :class="mcpCategoryToggleClass(cat)"></div>
+                                    </label>
+                                </div>
+
+                                <!-- Generic row. La ligne RESTE un ``label`` (cliquer le
+                                     libellé bascule la catégorie, et les vérifs front la
+                                     trouvent par son texte) ; le chevron des outils y vit
+                                     avec ``.prevent.stop``, sans quoi l'ouvrir basculerait
+                                     la catégorie du même clic. -->
+                                <label v-else class="flex items-center gap-2 cursor-pointer group p-1.5 hover:bg-slate-50 rounded-lg transition-colors">
+                                    <span class="text-xs font-semibold text-slate-700 flex items-center gap-2.5 flex-1 min-w-0">
+                                        <div class="w-6 h-6 rounded flex items-center justify-center shrink-0"
+                                             :class="mcpCategoryBgClass(cat)">
+                                            <i class="ph text-sm" :class="cat.icon || 'ph-package'"></i>
+                                        </div>
+                                        <span class="truncate">{{ cat.label || cat.name }}</span>
+                                    </span>
+                                    <span v-if="catToolsCount(cat)" class="text-[10px] text-slate-400 shrink-0">{{ catToolsCount(cat) }}</span>
+                                    <!-- ⚠ ``span role=button`` et NON ``<button>`` : un bouton est
+                                         un élément LABELABLE, et le label s'associe à son
+                                         PREMIER descendant labelable. Un vrai bouton posé ici
+                                         volait l'association à la case de la catégorie —
+                                         cliquer le libellé ne basculait plus rien (vérif front
+                                         « catégorie éteinte : plus aucune exclusion »). -->
+                                    <span v-if="localTools[cat.name] && (cat.tools || []).length"
+                                          role="button" tabindex="0" title="Choisir les outils"
+                                          @click.prevent.stop="toggleToolCatOpen(cat.name)"
+                                          @keydown.enter.prevent.stop="toggleToolCatOpen(cat.name)"
+                                          @keydown.space.prevent.stop="toggleToolCatOpen(cat.name)"
+                                          class="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0 cursor-pointer">
+                                        <i class="ph ph-caret-right text-sm transition-transform" :class="openToolCats[cat.name] ? 'rotate-90' : ''"></i>
+                                    </span>
+                                    <span class="relative inline-flex items-center shrink-0">
+                                        <input type="checkbox" v-model="localTools[cat.name]" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-slate-200 border border-slate-300 rounded-full peer peer-focus:outline-none transition-colors after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all after:shadow-sm peer-checked:after:translate-x-full peer-checked:after:border-white"
+                                             :class="mcpCategoryToggleClass(cat)"></div>
+                                    </span>
+                                </label>
+
+                                <!-- Outils de la catégorie, un par un. Tous cochés par
+                                     défaut : seule une case décochée est mémorisée
+                                     (``-<outil>`` dans meta_json["tools"]). -->
+                                <div v-if="localTools[cat.name] && openToolCats[cat.name] && (cat.tools || []).length"
+                                     class="pl-9 pr-1.5 pb-2 -mt-0.5">
+                                    <div v-if="catToolsCount(cat)" class="flex items-center pb-1">
+                                        <button type="button" @click="resetCatTools(cat)"
+                                                class="text-[10px] text-slate-400 hover:text-blue-600 transition-colors">Tout</button>
+                                    </div>
+                                    <label v-for="t in cat.tools" :key="t.name"
+                                           class="flex items-center gap-2 py-0.5 cursor-pointer">
+                                        <input type="checkbox" :checked="isToolOn(t.name)" @change="toggleTool(t.name)"
+                                               class="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 cursor-pointer shrink-0">
+                                        <span class="text-[11px] truncate flex-1 min-w-0"
+                                              :class="isToolOn(t.name) ? 'text-slate-600' : 'text-slate-400 line-through'">{{ t.title || t.name }}</span>
+                                        <!-- ⚠ ``span role=button`` : un vrai ``<button>`` est LABELABLE
+                                             et volerait l'association de ce label à la case. -->
+                                        <span role="button" tabindex="0" title="Détail de l'outil"
+                                              @click.prevent.stop="openToolInfo(t, cat)"
+                                              @keydown.enter.prevent.stop="openToolInfo(t, cat)"
+                                              @keydown.space.prevent.stop="openToolInfo(t, cat)"
+                                              class="w-4 h-4 flex items-center justify-center rounded text-slate-300 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0 cursor-pointer">
+                                            <i class="ph ph-info text-[11px]"></i>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <!-- Sélecteur de machine cible pour « Contrôle d'écran » (si activé) -->
+                                <div v-if="cat.name === 'desktop' && localTools[cat.name]" class="pl-9 pr-1.5 pb-2 -mt-0.5">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[10px] text-slate-400 shrink-0">Cible</span>
+                                        <select v-model="desktopActiveTarget" @focus="ensureDesktopTargets()" @change="setDesktopActiveTarget(desktopActiveTarget)"
+                                                class="flex-1 min-w-0 text-[11px] bg-white border border-slate-200 rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-blue-500">
+                                            <option value="">(défaut)</option>
+                                            <option v-for="t in studioTargets" :key="t.name" :value="t.name">{{ t.name }} ({{ t.os }})</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- (2026-09-11) Serveurs déclarés dans mcp.json (rôle externe) -->
+                    <div v-if="manifestServers && manifestServers.length > 0" class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="text-xs font-semibold text-slate-500 mb-3">Déclarés</div>
+                        <div class="space-y-1">
+                            <label v-for="srv in manifestServers" :key="'mf-' + srv.name" class="flex items-center justify-between cursor-pointer group p-1.5 hover:bg-slate-50 rounded-lg transition-colors">
+                                <span class="text-xs font-semibold text-slate-700 flex items-center gap-2 truncate pr-2" :title="srv.description || srv.name">
+                                    <div class="w-6 h-6 rounded flex items-center justify-center bg-slate-50 text-slate-500 shrink-0"><i class="ph" :class="srv.type === 'stdio' ? 'ph-terminal-window' : 'ph-globe'"></i></div>
+                                    <span class="truncate">{{ srv.name }}</span>
+                                </span>
+                                <div class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" v-model="manifestTools[srv.name]" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-slate-200 border border-slate-300 rounded-full peer peer-checked:bg-blue-600 peer-checked:border-blue-600 peer-focus:outline-none transition-colors after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all after:shadow-sm peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-semibold text-slate-500">Externes</span>
+                            <div class="flex items-center gap-1">
+                                <span v-if="pinnedServers.length > 0" class="bg-blue-50 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded">{{ pinnedServers.length }}</span>
+                                <button @click="showMcpManagerModal = true; loadCustomMcpServers(); loadSharedMcpServers()" class="w-6 h-6 flex items-center justify-center rounded hover:bg-blue-100 text-slate-400 hover:text-blue-600 transition-colors" title="Gérer / ajouter un serveur">
+                                    <i class="ph ph-plus text-xs font-bold"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div v-if="pinnedServers.length > 0" class="space-y-1">
+                            <label v-for="srv in pinnedServers" :key="srv.id" class="flex items-center justify-between cursor-pointer group p-1.5 hover:bg-slate-50 rounded-lg transition-colors">
+                                <span class="text-xs font-semibold text-slate-700 flex items-center gap-2 truncate pr-2" :title="srv.shared ? srv.name + ' — publié pour tous' : srv.name">
+                                    <div class="w-6 h-6 rounded flex items-center justify-center bg-slate-50 text-slate-500 shrink-0"><i class="ph" :class="srv.type === 'stdio' ? 'ph-terminal-window' : 'ph-globe'"></i></div>
+                                    <span class="truncate">{{ srv.name }}</span>
+                                    <i v-if="srv.shared" class="ph ph-users-three text-slate-400 shrink-0" aria-hidden="true"></i>
+                                </span>
+                                <div class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" :checked="config.active_mcp_ids.includes(srv.id)" @change="activateExternalServer(srv.id)" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-slate-200 border border-slate-300 rounded-full peer peer-checked:bg-blue-600 peer-checked:border-blue-600 peer-focus:outline-none transition-colors after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all after:shadow-sm peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+                                </div>
+                            </label>
+                        </div>
+                        <div v-else class="text-center py-3 text-xs text-slate-400">Aucun serveur externe.</div>
+                    </div>
+                </div>
+            </div>

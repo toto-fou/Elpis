@@ -1,0 +1,489 @@
+<!--
+  includes/admin/tab_exec.html — Page « Sandbox »
+  ==============================================
+  Containers Docker d'exécution des utilisateurs.
+
+  Refonte 2026-08-01 : la page portait son propre en-tête (titre + Annuler +
+  Sauvegarder) et son propre patron de carte, différents de ceux des autres
+  pages de configuration. Les deux passent au vocabulaire commun :
+    * l'en-tête vient de includes/admin/page_head.html ;
+    * le bloc 'exec' est déclaré dans ADMIN_PAGE_STORES, donc le « Sauvegarder »
+      partagé le couvre et n'est actif que si quelque chose a changé — avant, le
+      bouton était toujours cliquable, y compris sans aucune modification.
+
+  Les ids des <section> DOIVENT correspondre à ADMIN_PAGE_SECTIONS.exec.
+
+  « Containers utilisateurs » reste une zone d'EXPLOITATION à actions
+  immédiates : elle n'entre pas dans le périmètre du bouton de sauvegarde, et
+  le dit.
+-->
+                    <div v-if="['sandbox-limits', 'sandbox-network', 'sandbox-toolhosts', 'sandbox-containers'].includes(adminTab)" class="animate-[fadeIn_0.2s]">
+                        <div class="space-y-6 min-w-0">
+
+                            <!-- ═══ Bandeau environnement (healthcheck) ═══ -->
+                            <div v-if="execHealthcheck"
+                                 :class="[
+                                    'rounded-lg px-4 py-2.5 text-xs flex items-center gap-3 flex-wrap border',
+                                    execHealthcheck.daemon_ok && execHealthcheck.image_loaded
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : execHealthcheck.daemon_ok
+                                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                            : 'bg-red-50 text-red-800 border-red-200'
+                                 ]">
+                                <i :class="[
+                                    'ph text-base',
+                                    execHealthcheck.daemon_ok && execHealthcheck.image_loaded
+                                        ? 'ph-check-circle' : execHealthcheck.daemon_ok ? 'ph-warning' : 'ph-x-circle'
+                                ]" aria-hidden="true"></i>
+                                <span>Docker <span class="font-mono">{{ execHealthcheck.server_version || '?' }}</span></span>
+                                <span class="opacity-30" aria-hidden="true">•</span>
+                                <span class="flex items-center gap-1.5 min-w-0">
+                                    <span class="truncate">Image <code class="font-mono">{{ execHealthcheck.image }}</code></span>
+                                    <i :class="execHealthcheck.image_loaded ? 'ph ph-check text-emerald-700' : 'ph ph-x text-red-600'"
+                                       :title="execHealthcheck.image_loaded ? 'Image chargée' : 'Image absente'"></i>
+                                </span>
+                                <button @click="loadExecConfig" title="Rafraîchir l'état"
+                                        class="ml-auto opacity-70 hover:opacity-100 transition-opacity">
+                                    <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+                                </button>
+                            </div>
+
+                            <div v-if="execHealthcheck && execHealthcheck.daemon_ok && !execHealthcheck.image_loaded"
+                                 class="text-xs text-amber-800 bg-amber-50/60 border border-amber-200 rounded-lg px-3 py-2 font-mono whitespace-pre-line">{{ execHealthcheck.image_hint }}</div>
+
+                            <!-- ═══════════ Limites ═══════════ -->
+                            <section v-if="adminTab==='sandbox-limits'" id="sandbox-limits" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-gauge adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Limites par container</h3>
+                                        <span class="sr-only">Mémoire, CPU et processus s'appliquent au prochain démarrage ; le délai vaut dès la commande suivante.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows">
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Plafond par container." for="sb-mem">Mémoire</label>
+                                            <span class="sr-only">Plafond par container.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="sb-mem" v-model.number="execConfig.limits.memory_mb" data-field="exec:limits.memory_mb" type="number" min="256" max="65536" class="set-input adm-num font-mono">
+                                            <span class="adm-unit">Mo</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="100 = un cœur complet." for="sb-cpu">Processeur</label>
+                                            <span class="sr-only">100 = un cœur complet.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="sb-cpu" v-model.number="execConfig.limits.cpu_quota_pct" data-field="exec:limits.cpu_quota_pct" type="number" min="10" max="1600" class="set-input adm-num font-mono">
+                                            <span class="adm-unit">%</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Garde-fou contre les fork bombs." for="sb-pids">Processus</label>
+                                            <span class="sr-only">Garde-fou contre les fork bombs.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="sb-pids" v-model.number="execConfig.limits.pids_max" data-field="exec:limits.pids_max" type="number" min="16" max="8192" class="set-input adm-num font-mono">
+                                            <span class="adm-unit">PIDs max</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Au-delà, la commande est interrompue." for="sb-timeout">Durée d'une commande</label>
+                                            <span class="sr-only">Au-delà, la commande est interrompue.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="sb-timeout" v-model.number="execConfig.limits.timeout_s" data-field="exec:limits.timeout_s" type="number" min="5" max="7200" class="set-input adm-num font-mono">
+                                            <span class="adm-unit">s</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Politique ═══════════ -->
+                            <section v-if="adminTab==='sandbox-limits'" id="sandbox-policy" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-shield adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Politique</h3>
+                                        <span class="sr-only">Ce que les utilisateurs peuvent choisir, et quand les containers sont recyclés.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows">
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Le mode dossier n'est plus proposé aux utilisateurs." for="sb-force-docker">Forcer Docker pour tous</label>
+                                            <span class="sr-only">Le mode dossier n'est plus proposé aux utilisateurs.</span>
+                                        </div>
+                                        <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                            <input id="sb-force-docker" type="checkbox" v-model="execConfig.force_user_docker" data-field="exec:force_user_docker" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                            <span class="text-sm text-slate-700">{{ execConfig.force_user_docker ? 'Imposé' : 'Au choix' }}</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Seuil utilisé par « Recycler les inactifs ». 0 = jamais." for="sb-idle">Arrêt d'inactivité</label>
+                                            <span class="sr-only">Seuil utilisé par « Recycler les inactifs ». 0 = jamais.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="sb-idle" v-model.number="execConfig.idle_kill_hours" data-field="exec:idle_kill_hours" type="number" min="0" max="168" class="set-input adm-num font-mono">
+                                            <span class="adm-unit">heures</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Réglages rares : repliés, mêmes rangées une fois ouverts. -->
+                                    <details class="adm-details adm-details--rows">
+                                        <summary title="Identité d'exécution, runtime, flags Docker, agent">Avancé</summary>
+                                        <div class="adm-row">
+                                            <div>
+                                                <label class="adm-row__label" title="UID:GID des exécutions. 0:0 = root dans le container. Effet immédiat." for="sb-exec-user">Identité</label>
+                                                <span class="sr-only">UID:GID des exécutions. 0:0 = root dans le container. Effet immédiat.</span>
+                                            </div>
+                                            <input id="sb-exec-user" v-model="execConfig.exec_user" data-field="exec:exec_user" placeholder="10001:10001" class="set-input font-mono text-xs max-w-[14rem]">
+                                        </div>
+                                        <div class="adm-row">
+                                            <div>
+                                                <label class="adm-row__label" title="gVisor (runsc), Kata… Vide = runtime Docker. Au redémarrage." for="sb-runtime">Runtime OCI</label>
+                                                <span class="sr-only">gVisor (runsc), Kata… Vide = runtime Docker. Au redémarrage.</span>
+                                            </div>
+                                            <input id="sb-runtime" v-model="execConfig.runtime" data-field="exec:runtime" placeholder="runsc" class="set-input font-mono text-xs max-w-[14rem]">
+                                        </div>
+                                        <div class="adm-row adm-row--top">
+                                            <div>
+                                                <label class="adm-row__label" title="Un par ligne, passés tels quels. Au redémarrage." for="sb-extra-args">Flags <code class="font-mono">docker run</code></label>
+                                                <span class="sr-only">Un par ligne, passés tels quels. Au redémarrage.</span>
+                                            </div>
+                                            <textarea id="sb-extra-args" v-model="execExtraArgsText" rows="3" placeholder="--cap-add=NET_ADMIN&#10;--shm-size=2g"
+                                                      class="set-textarea font-mono text-xs"></textarea>
+                                        </div>
+                                    </details>
+
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Profils réseau ═══════════
+                                 Refonte 2026-08-05 : les règles s'écrivaient dans
+                                 quatre champs « valeurs séparées par des virgules »
+                                 — une faute de frappe ne se voyait qu'au 400 du
+                                 serveur, à la sauvegarde. Chaque valeur est
+                                 maintenant une puce ajoutée/retirée une par une et
+                                 validée à la saisie, et le mode est un groupe de
+                                 trois boutons dont « Tout bloquer ». -->
+                            <section v-if="adminTab==='sandbox-network'" id="sandbox-network" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-network adm-card__icon" aria-hidden="true"></i>
+                                    <div class="min-w-0">
+                                        <h3 class="adm-card__title">Profils réseau <span class="font-normal text-slate-500">· {{ execConfig.network_profiles.length }}</span></h3>
+                                        <span class="sr-only">Chaque utilisateur choisit son profil — sauf si vous lui en imposez un depuis Utilisateurs. Le profil isolé ne peut pas être supprimé.</span>
+                                    </div>
+                                    <div class="adm-card__actions">
+                                        <button @click="addNetworkProfile" class="adm-btn adm-btn--primary">
+                                            <i class="ph ph-plus" aria-hidden="true"></i> Nouveau profil
+                                        </button>
+                                    </div>
+                                </header>
+
+                                <!-- Une carte par profil : repliée, elle tient sur une ligne
+                                     (badge de mode + résumé des règles) ; dépliée, elle
+                                     porte l'éditeur. -->
+                                <div class="px-5 py-3 space-y-2">
+                                    <div v-for="(prof, idx) in execConfig.network_profiles" :key="prof._uid || idx"
+                                         :class="['np-card', prof._open ? 'np-card--open' : '']">
+
+                                        <div class="np-card__head">
+                                            <button type="button" class="np-card__toggle" @click="toggleProfile(prof)"
+                                                    :aria-expanded="prof._open ? 'true' : 'false'"
+                                                    :aria-controls="'np-body-' + idx"
+                                                    :title="prof._open ? 'Replier' : 'Modifier ce profil'">
+                                                <i class="ph ph-caret-right np-card__chev" aria-hidden="true"></i>
+                                                <span :class="['np-badge', 'np-badge--' + netModeKey(prof)]">
+                                                    <i :class="['ph', netModeIcon(prof)]" aria-hidden="true"></i>{{ netModeLabel(prof) }}
+                                                </span>
+                                                <span class="np-card__name">{{ prof.name || 'Sans nom' }}</span>
+                                                <span class="np-card__id">{{ prof.id }}</span>
+                                                <span class="np-card__sum ml-auto pl-3">{{ netProfileSummary(prof) }}</span>
+                                                <i v-if="netProfileIssue(prof)" class="ph ph-warning-circle text-red-600 shrink-0"
+                                                   :title="netProfileIssue(prof)" aria-hidden="true"></i>
+                                            </button>
+                                            <button v-if="prof.id !== 'isolated'" @click="removeNetworkProfile(idx)"
+                                                    class="adm-btn adm-btn--icon adm-btn--icon-danger"
+                                                    :title="'Supprimer ' + (prof.name || prof.id)">
+                                                <i class="ph ph-x" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+
+                                        <div v-show="prof._open" :id="'np-body-' + idx" class="np-card__body">
+
+                                        <!-- Identité -->
+                                        <div class="flex items-center gap-2 flex-wrap mt-2.5">
+                                            <input v-model="prof.name" placeholder="Nom affiché" aria-label="Nom du profil"
+                                                   class="set-input set-control--sm w-48">
+                                            <input v-model="prof.id" :disabled="prof.id === 'isolated'" aria-label="Identifiant technique"
+                                                   title="Identifiant technique (minuscules, chiffres, _ ou -)"
+                                                   class="set-input set-control--sm font-mono w-32 disabled:opacity-60 disabled:cursor-not-allowed">
+                                            <input v-model="prof.description" placeholder="Description vue par l'utilisateur"
+                                                   aria-label="Description du profil" class="set-input set-control--sm flex-1 min-w-40">
+                                        </div>
+
+                                        <!-- Mode : trois boutons, du plus fermé au plus ouvert.
+                                             « isolated » est le repli fail-closed de tout le
+                                             code : son mode est verrouillé (et re-forcé côté
+                                             serveur). -->
+                                        <div class="np-seg mt-2.5" role="group" :aria-label="'Mode réseau de ' + (prof.name || prof.id)">
+                                            <button type="button" @click="setProfileMode(prof, 'none')"
+                                                    :disabled="prof.id === 'isolated'"
+                                                    :class="['np-seg__btn', prof.mode === 'none' ? 'is-on np-seg__btn--block' : '']"
+                                                    :aria-pressed="prof.mode === 'none' ? 'true' : 'false'"
+                                                    :title="prof.id === 'isolated' ? 'Profil de repli : toujours sans réseau' : 'Aucun réseau du tout : le conteneur démarre sans interface (--network=none)'">
+                                                <i class="ph ph-prohibit" aria-hidden="true"></i> Tout bloquer
+                                            </button>
+                                            <button type="button" @click="setProfileMode(prof, 'allowlist_ip')"
+                                                    :disabled="prof.id === 'isolated'"
+                                                    :class="['np-seg__btn', prof.mode === 'allowlist_ip' ? 'is-on np-seg__btn--filter' : '']"
+                                                    :aria-pressed="prof.mode === 'allowlist_ip' ? 'true' : 'false'"
+                                                    title="Seules les destinations listées ci-dessous sortent">
+                                                <i class="ph ph-funnel" aria-hidden="true"></i> Liste autorisée
+                                            </button>
+                                            <button type="button" @click="setProfileMode(prof, 'bridge')"
+                                                    :disabled="prof.id === 'isolated'"
+                                                    :class="['np-seg__btn', prof.mode === 'bridge' ? 'is-on np-seg__btn--open' : '']"
+                                                    :aria-pressed="prof.mode === 'bridge' ? 'true' : 'false'"
+                                                    title="Aucun filtrage : internet, LAN et métadonnées cloud">
+                                                <i class="ph ph-globe-hemisphere-west" aria-hidden="true"></i> Tout autoriser
+                                            </button>
+                                        </div>
+
+                                        <p v-if="prof.mode === 'bridge'"
+                                           class="mt-2 text-[11px] text-amber-700 flex items-center gap-1.5">
+                                            <i class="ph ph-warning shrink-0" aria-hidden="true"></i>
+                                            Accès total : internet, LAN et métadonnées cloud.
+                                        </p>
+                                        <p v-else-if="prof.mode === 'none'" class="mt-2 text-[11px] text-slate-500">
+                                            Aucune sortie réseau.
+                                        </p>
+
+                                        <!-- Règles du mode filtré : une puce par valeur -->
+                                        <div v-if="prof.mode === 'allowlist_ip'" class="mt-3 grid gap-x-5 gap-y-3 xl:grid-cols-2">
+                                            <div v-for="f in netFields" :key="f.key">
+                                                <div class="flex items-center gap-2 mb-1">
+                                                    <label :for="'np-' + f.key + '-' + idx" class="text-[11px] font-semibold text-slate-500">{{ f.label }}</label>
+                                                    <div v-if="f.key === 'ports'" class="np-seg np-seg--xs" role="group" aria-label="Politique de ports">
+                                                        <button type="button" @click="setPortsMode(prof, 'all')"
+                                                                :class="['np-seg__btn', netPortsMode(prof) === 'all' ? 'is-on' : '']"
+                                                                :aria-pressed="netPortsMode(prof) === 'all' ? 'true' : 'false'"
+                                                                title="Aucun filtrage par port">Tous</button>
+                                                        <button type="button" @click="setPortsMode(prof, 'list')"
+                                                                :class="['np-seg__btn', netPortsMode(prof) === 'list' ? 'is-on' : '']"
+                                                                :aria-pressed="netPortsMode(prof) === 'list' ? 'true' : 'false'"
+                                                                title="Seuls les ports TCP listés passent (image ≥ 1.6.0)">Liste</button>
+                                                    </div>
+                                                    <span class="text-[11px] text-slate-400 ml-auto" :title="f.title">{{ f.hint }}</span>
+                                                </div>
+
+                                                <div v-if="f.key !== 'ports' || netPortsMode(prof) === 'list'">
+                                                    <div class="np-chips">
+                                                        <span v-for="(val, vi) in (prof[f.key] || [])" :key="f.key + ':' + val" class="np-chip">
+                                                            <span class="np-chip__txt">{{ val }}</span>
+                                                            <button type="button" class="np-chip__x" @click="removeNetValue(prof, f.key, vi)"
+                                                                    :aria-label="'Retirer ' + val"><i class="ph ph-x" aria-hidden="true"></i></button>
+                                                        </span>
+                                                        <span v-if="!(prof[f.key] || []).length" class="np-chips__empty">Aucune entrée</span>
+                                                    </div>
+                                                    <div class="flex items-center gap-1.5 mt-1.5">
+                                                        <input :id="'np-' + f.key + '-' + idx" v-model="prof._draft[f.key]"
+                                                               @keydown.enter.prevent="commitNetValue(prof, f.key)"
+                                                               @blur="commitNetValue(prof, f.key)"
+                                                               :placeholder="f.ph" :aria-label="'Ajouter — ' + f.label"
+                                                               :title="f.title"
+                                                               class="set-input set-control--sm font-mono flex-1 min-w-0">
+                                                        <button type="button" @click="commitNetValue(prof, f.key)"
+                                                                :aria-label="'Ajouter à ' + f.label"
+                                                                class="adm-btn adm-btn--icon adm-tool">
+                                                            <i class="ph ph-plus" aria-hidden="true"></i>
+                                                        </button>
+                                                        <button v-for="q in (f.quick || [])" :key="q.label" type="button"
+                                                                @click="addNetPreset(prof, f.key, q.values)"
+                                                                :title="'Ajouter ' + q.values.join(', ')"
+                                                                class="adm-btn adm-tool adm-btn--sm">{{ q.label }}</button>
+                                                    </div>
+                                                    <p v-if="prof._err[f.key]" role="alert" class="mt-1 text-[11px] text-red-600 flex items-center gap-1">
+                                                        <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>{{ prof._err[f.key] }}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <p v-if="netProfileIssue(prof)"
+                                           role="alert" class="mt-2 text-[11px] text-red-600 flex items-center gap-1.5">
+                                            <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>
+                                            {{ netProfileIssue(prof) }}
+                                        </p>
+
+                                        </div><!-- /np-card__body -->
+                                    </div>
+                                </div>
+
+                                <!-- Dérive après sauvegarde : conteneurs en marche restés sur
+                                     les anciennes règles (recréation lazy au prochain accès,
+                                     ou immédiate ici). -->
+                                <div v-if="staleNetContainers.length" class="mx-5 mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
+                                    <p class="text-xs text-amber-800 font-medium flex items-center gap-1.5">
+                                        <i class="ph ph-warning" aria-hidden="true"></i>
+                                        {{ staleNetContainers.length }} conteneur(s) en marche utilisent encore les anciennes règles réseau.
+                                    </p>
+                                    <p class="text-[11px] text-amber-700 mt-0.5">Recréation automatique au prochain accès de leur utilisateur — ou tout de suite :</p>
+                                    <div class="mt-1.5 flex items-center gap-2 flex-wrap">
+                                        <span v-for="c in staleNetContainers" :key="c.container"
+                                              class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-white border border-amber-200 text-amber-800">{{ c.username || c.user_id }}</span>
+                                        <button @click="recreateStaleNetContainers" :disabled="staleNetBusy"
+                                                class="adm-btn adm-btn--warn adm-btn--sm">
+                                            <i class="ph" :class="staleNetBusy ? 'ph-spinner animate-spin' : 'ph-arrows-clockwise'" aria-hidden="true"></i>
+                                            Recréer maintenant
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <p class="px-5 py-2.5 border-t border-slate-100 text-xs text-slate-500">
+                                    Appliqué dans le conteneur à sa (re)création — rien n'est modifié sur l'hôte.
+                                </p>
+                            </section>
+
+                            <!-- ═══════════ Containers actifs ═══════════
+                                 Zone d'exploitation : actions immédiates, hors du
+                                 périmètre du bouton « Sauvegarder ». -->
+                            <!-- ═══════════ Hôtes d'outils (mcp.json › sandboxHosts) — 2026-09-12, P5 ═══════════ -->
+                            <section v-if="adminTab==='sandbox-toolhosts'" id="sandbox-toolhosts" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-hard-drives adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Hôtes d'outils <span v-if="toolhosts" class="font-normal text-slate-500">· {{ toolhosts.hosts.length }}</span></h3>
+                                        <span class="sr-only">Déclarés dans mcp.json (sandboxHosts, placement). Zone d'exploitation : actions immédiates.</span>
+                                    </div>
+                                    <button type="button" @click="loadToolhosts" class="ml-auto opacity-70 hover:opacity-100 transition-opacity" title="Rafraîchir">
+                                        <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+                                    </button>
+                                </header>
+                                <div v-if="!toolhosts" class="text-xs text-slate-400 px-4 py-3">Chargement…</div>
+                                <div v-else class="px-4 pb-3 space-y-3">
+                                    <div class="text-xs text-slate-500">Placement : <span class="font-mono">{{ toolhosts.placement.strategy || 'single' }}</span><span v-if="toolhosts.placement.host"> · défaut <span class="font-mono">{{ toolhosts.placement.host }}</span></span></div>
+                                    <table class="w-full text-xs">
+                                        <thead>
+                                            <tr class="text-left text-slate-500 border-b border-slate-200">
+                                                <th class="py-1.5 pr-3 font-semibold">Hôte</th>
+                                                <th class="py-1.5 pr-3 font-semibold">URL</th>
+                                                <th class="py-1.5 pr-3 font-semibold">État</th>
+                                                <th class="py-1.5 pr-3 font-semibold">Familles</th>
+                                                <th class="py-1.5 pr-3 font-semibold">Comptes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="h in toolhosts.hosts" :key="h.id" class="border-b border-slate-100 align-top">
+                                                <td class="py-1.5 pr-3 font-mono">{{ h.id }}</td>
+                                                <td class="py-1.5 pr-3 font-mono text-[11px] break-all">{{ h.url }}<span v-if="!h.has_token" class="ml-1 text-amber-700">⚠ sans jeton</span></td>
+                                                <td class="py-1.5 pr-3">
+                                                    <span v-if="h.reachable === true" class="text-emerald-700">joignable<span v-if="h.health && h.health.tools"> · {{ h.health.tools }} outils</span></span>
+                                                    <span v-else-if="h.reachable === false" class="text-red-700" :title="h.error || ''">injoignable</span>
+                                                    <span v-else class="text-slate-500">—</span>
+                                                </td>
+                                                <td class="py-1.5 pr-3 text-[11px]">{{ h.health && h.health.families ? h.health.families.join(', ') : '—' }}</td>
+                                                <td class="py-1.5 pr-3">{{ h.accounts }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div v-if="toolhosts.placement.strategy === 'by_user'">
+                                        <div class="text-xs font-semibold text-slate-600 mb-1">Affectations <span class="font-normal text-slate-500">· {{ toolhosts.placements.length }}</span></div>
+                                        <div v-if="toolhosts.placements.length === 0" class="text-xs text-slate-400">Aucune (affectation automatique à la première utilisation).</div>
+                                        <table v-else class="w-full text-xs">
+                                            <tbody>
+                                                <tr v-for="p in toolhosts.placements" :key="p.user_id" class="border-b border-slate-100">
+                                                    <td class="py-1 pr-3">{{ p.username || ('#' + p.user_id) }}</td>
+                                                    <td class="py-1 pr-3 font-mono">{{ p.host_id }}</td>
+                                                    <td class="py-1 pr-3">
+                                                        <select v-model="toolhostMoveTarget[p.user_id]" class="set-input text-[11px] py-0.5">
+                                                            <option value="">Vers…</option>
+                                                            <option v-for="h in toolhosts.hosts" :key="h.id" :value="h.id" :disabled="h.id === p.host_id">{{ h.id }}</option>
+                                                        </select>
+                                                    </td>
+                                                    <td class="py-1 pr-3 whitespace-nowrap">
+                                                        <button type="button" @click="migrateToolhostPlacement(p.user_id)" :disabled="!toolhostMoveTarget[p.user_id] || toolhostBusy" class="adm-btn adm-tool adm-btn--sm">Migrer</button>
+                                                        <button type="button" @click="assignToolhostPlacement(p.user_id)" :disabled="!toolhostMoveTarget[p.user_id] || toolhostBusy" class="adm-btn adm-tool adm-btn--sm" title="Réaffecter sans déplacer les fichiers">Affecter</button>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section v-if="adminTab==='sandbox-containers'" id="sandbox-containers" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-cube adm-card__icon" aria-hidden="true"></i>
+                                    <div class="min-w-0">
+                                        <h3 class="adm-card__title">Containers actifs <span class="font-normal text-slate-500">· {{ sandboxContainers.length }}</span></h3>
+                                        <span class="sr-only">État en direct. Ces actions s'appliquent tout de suite, sans passer par « Sauvegarder ».</span>
+                                    </div>
+                                    <div class="adm-card__actions">
+                                        <button @click="triggerSandboxGc" title="Stopper les containers inactifs au-delà du seuil"
+                                                class="adm-btn adm-tool">
+                                            <i class="ph ph-broom" aria-hidden="true"></i> Recycler les inactifs
+                                        </button>
+                                        <button @click="loadSandboxContainers" title="Rafraîchir la liste"
+                                                class="adm-btn adm-btn--icon">
+                                            <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </header>
+                                <div v-if="!sandboxContainers.length" class="px-5">
+                                    <p class="adm-empty">Aucun container actif.</p>
+                                </div>
+                                <div v-else class="overflow-x-auto">
+                                    <table class="w-full text-xs">
+                                        <thead class="text-slate-500 border-b border-slate-100">
+                                            <tr>
+                                                <th scope="col" class="text-left px-5 py-2 font-medium">Utilisateur</th>
+                                                <th scope="col" class="text-left px-2 py-2 font-medium">Container</th>
+                                                <th scope="col" class="text-left px-2 py-2 font-medium w-20">État</th>
+                                                <th scope="col" class="text-left px-2 py-2 font-medium">Statut</th>
+                                                <th class="w-20"><span class="sr-only">Actions</span></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="c in sandboxContainers" :key="c.id" class="border-t border-slate-100">
+                                                <td class="px-5 py-2 font-medium text-slate-800">{{ c.username || `#${c.user_id}` }}</td>
+                                                <td class="px-2 py-2 font-mono text-slate-600">{{ c.name }}</td>
+                                                <td class="px-2 py-2">
+                                                    <span :class="[
+                                                        'text-[11px] px-1.5 py-0.5 rounded-full border',
+                                                        c.state === 'running' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                                                        c.state === 'exited'  ? 'bg-slate-50 text-slate-600 border-slate-200' :
+                                                        'bg-amber-50 text-amber-800 border-amber-200'
+                                                    ]">{{ ({ running: 'En cours', exited: 'Arrêté', created: 'Créé', paused: 'En pause', restarting: 'Redémarrage' })[c.state] || c.state }}</span>
+                                                </td>
+                                                <td class="px-2 py-2 text-slate-500">{{ c.status }}</td>
+                                                <td class="px-2 py-2 text-right">
+                                                    <div class="flex items-center justify-end gap-1">
+                                                        <button v-if="c.state === 'running'" @click="adminStopUserSandbox(c.user_id)"
+                                                                class="adm-btn adm-btn--icon" title="Stopper">
+                                                            <i class="ph ph-stop-circle" aria-hidden="true"></i>
+                                                        </button>
+                                                        <button @click="adminDestroyUserSandbox(c.user_id)"
+                                                                class="adm-btn adm-btn--icon adm-btn--icon-danger" title="Détruire">
+                                                            <i class="ph ph-trash" aria-hidden="true"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+
+                        </div>
+                    </div>

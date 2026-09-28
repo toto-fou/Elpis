@@ -1,0 +1,136 @@
+<!--
+  includes/admin/shell.html — Coquille PARTAGÉE de la console d'administration
+  ============================================================================
+  Incluse telle quelle par admin.html (process admin dédié) et par la vue admin
+  embarquée d'index.html. Avant, les deux pages recopiaient ce bloc et il avait
+  divergé (badge « Admin » d'un côté seulement, ordre des includes…).
+
+  Chaque page garde SON conteneur (condition d'affichage différente) et ses
+  includes propres : admin.html ajoute les modales de transfert et de groupes,
+  qu'index.html inclut déjà au niveau global.
+-->
+        <!-- === Barre latérale (sombre, navigation) === -->
+        <!-- @include includes/admin/sidebar.html -->
+
+        <!-- === Colonne principale : en-tête fixe + page qui défile === -->
+        <div class="adm-main flex-1 flex flex-col min-w-0">
+
+            <!-- En-tête de page (toutes les pages) -->
+            <!-- @include includes/admin/page_head.html -->
+
+            <!-- Réglages lus au démarrage modifiés depuis : rien n'est appliqué
+                 tant que le serveur n'a pas redémarré — on le dit sur toutes les
+                 pages (la Vue d'ensemble le porte dans « À traiter »). -->
+            <div v-if="adminIsAdmin && restartPending.length && adminTab !== 'overview'" class="adm-restartbar" role="status">
+                <div class="adm-col adm-restartbar__in" :class="{ 'adm-col--wide': adminPage.wide }">
+                    <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+                    <span><b>Redémarrage nécessaire</b> · {{ restartPending.length }} réglage{{ restartPending.length > 1 ? 's' : '' }} en attente</span>
+                    <span class="flex-1"></span>
+                    <button type="button" class="adm-link" @click="goAdminPage('overview')">Détail</button>
+                    <button type="button" class="adm-btn adm-btn--warn adm-btn--sm" @click="restartServer()">Redémarrer</button>
+                </div>
+            </div>
+
+            <!-- Page : une colonne alignée sur l'en-tête (formulaire ou large,
+                 selon le registre). L'ordre des inclusions fixe l'ordre des
+                 sections d'une page qui en réunit plusieurs (ex. Données :
+                 sauvegardes puis base ; Vision & machines : vision, machines,
+                 puis mémoire AX). -->
+            <main ref="adminScroller" id="adm-main" class="adm-scroller custom-scrollbar" tabindex="-1">
+                <div class="adm-col adm-page" :class="{ 'adm-col--wide': adminPage.wide }">
+                    <!-- ===== Vue d'ensemble (page d'arrivée) ===== -->
+                    <!-- @include includes/admin/tab_overview.html -->
+
+                    <!-- ===== Supervision ===== -->
+                    <!-- @include includes/admin/tab_dashboard.html -->
+                    <!-- @include includes/admin/tab_report.html -->
+                    <!-- @include includes/admin/tab_observability.html -->
+
+                    <!-- ===== Configuration ===== -->
+                    <!-- @include includes/admin/tab_general.html -->
+                    <!-- @include includes/admin/tab_appearance.html -->
+                    <!-- @include includes/admin/tab_connections.html -->
+                    <!-- @include includes/admin/tab_llm.html -->
+                    <!-- @include includes/admin/tab_security.html -->
+                    <!-- @include includes/admin/tab_users.html -->
+                    <!-- @include includes/admin/tab_prompts.html -->
+                    <!-- @include includes/admin/tab_exec.html -->
+                    <!-- @include includes/admin/tab_maintenance.html -->
+                    <!-- @include includes/admin/tab_database.html -->
+                </div>
+            </main>
+
+            <!-- Barre d'enregistrement : visible SEULEMENT quand la page a des
+                 modifications. Un écran = un enregistrement ; quitter la page
+                 avant demande « Enregistrer · Ignorer · Rester ». -->
+            <transition name="adm-bar">
+                <div v-if="adminDirtyCount" class="adm-savebar" role="region" aria-label="Modifications non enregistrées">
+                    <div class="adm-col adm-savebar__in" :class="{ 'adm-col--wide': adminPage.wide }">
+                        <span class="adm-savebar__count" aria-live="polite">
+                            <span class="adm-savebar__dot" aria-hidden="true"></span>{{ adminDirtyCount }} modification{{ adminDirtyCount > 1 ? 's' : '' }}
+                        </span>
+                        <button type="button" class="adm-btn adm-btn--quiet adm-btn--sm" aria-controls="adm-changes"
+                                :aria-expanded="String(adminChangesOpen)" @click="adminChangesOpen = !adminChangesOpen">Voir</button>
+                        <span class="flex-1"></span>
+                        <kbd class="adm-kbd" title="Enregistrer au clavier">Ctrl S</kbd>
+                        <button type="button" class="adm-btn adm-btn--quiet" :disabled="isSavingAdminPage" @click="discardAdminPage()">Annuler</button>
+                        <button type="button" class="adm-btn adm-btn--primary" :disabled="isSavingAdminPage" @click="saveAdminPage()">
+                            <i class="ph text-base" :class="isSavingAdminPage ? 'ph-spinner-gap animate-spin' : 'ph-floppy-disk'" aria-hidden="true"></i>
+                            {{ isSavingAdminPage ? 'Enregistrement…' : 'Enregistrer' }}
+                        </button>
+                        <div v-if="adminChangesOpen" id="adm-changes" class="adm-changes" role="dialog" aria-label="Détail des modifications">
+                            <ul>
+                                <li v-for="c in adminPageChanges" :key="c.store + ':' + c.path" class="adm-changes__row">
+                                    <span class="adm-changes__lbl">{{ adminChangeLabel(c) }}<i v-if="adminChangeNeedsRestart(c)" class="ph ph-arrow-clockwise adm-changes__restart"
+                                           title="Pris en compte au redémarrage" aria-label="Pris en compte au redémarrage"></i></span>
+                                    <span class="adm-changes__vals" v-if="c.store !== 'prompt'">
+                                        <s>{{ adminChangeValue(c.before) }}</s> → <b>{{ adminChangeValue(c.after) }}</b>
+                                    </span>
+                                    <span class="adm-changes__vals" v-else>texte modifié</span>
+                                    <button type="button" v-if="adminChangeRevertable(c)" class="adm-btn adm-btn--icon"
+                                            :title="'Rétablir ' + adminChangeLabel(c)" :aria-label="'Rétablir ' + adminChangeLabel(c)"
+                                            @click="revertAdminChange(c)">
+                                        <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+        </div>
+
+        <!-- Voile — un clic hors du panneau le referme sur fenêtre étroite -->
+        <div v-if="showSidebar" class="fixed inset-0 bg-black/40 z-40 lg:hidden" @click="showSidebar=false"></div>
+
+        <!-- === Modales admin === -->
+        <!-- @include includes/admin/modals.html -->
+
+        <!-- === Recherche Ctrl+K : pages, réglages, actions ===
+             Index des réglages : frontend/js/admin/_fields.js (généré depuis
+             les gabarits). Flèches pour choisir, Entrée pour ouvrir, Échap. -->
+        <div v-if="paletteOpen" class="adm-palette-backdrop" @click.self="closePalette()">
+            <div class="adm-palette" role="dialog" aria-modal="true" aria-label="Rechercher dans la console" @keydown="onPaletteKey">
+                <div class="adm-palette__search">
+                    <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                    <input ref="paletteInput" v-model="paletteQuery" type="text" role="combobox"
+                           aria-expanded="true" aria-controls="adm-palette-list" aria-autocomplete="list"
+                           :aria-activedescendant="paletteResults.length ? 'adm-pal-' + paletteIndex : null"
+                           placeholder="Page, réglage ou action" autocomplete="off" spellcheck="false"
+                           aria-label="Rechercher une page, un réglage ou une action">
+                    <kbd class="adm-kbd">Échap</kbd>
+                </div>
+                <ul id="adm-palette-list" class="adm-palette__list" role="listbox" aria-label="Résultats">
+                    <li v-for="(r, i) in paletteResults" :key="r.key" :id="'adm-pal-' + i" role="option"
+                        :aria-selected="i === paletteIndex ? 'true' : 'false'"
+                        class="adm-palette__item" :class="{ 'is-active': i === paletteIndex }"
+                        @mousemove="paletteIndex = i" @click="runPaletteItem(r)">
+                        <i class="ph adm-palette__icon" :class="r.icon" aria-hidden="true"></i>
+                        <span class="adm-palette__label"><template v-for="(g, k) in r.segs" :key="k"><mark v-if="g.hit">{{ g.t }}</mark><template v-else>{{ g.t }}</template></template></span>
+                        <span v-if="r.meta" class="adm-palette__meta">{{ r.meta }}</span>
+                        <span class="adm-palette__kind">{{ r.kindLabel }}</span>
+                    </li>
+                    <li v-if="!paletteResults.length" class="adm-palette__empty" role="presentation">Aucun résultat</li>
+                </ul>
+            </div>
+        </div>

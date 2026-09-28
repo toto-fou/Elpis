@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elpis.local/schemas/mcp.schema.json",
+  "title": "Manifeste mcp.json — serveurs d'outils par défaut (Elpis)",
+  "description": "Format des clients MCP courants (mcpServers) + extension x-elpis par entrée. Une famille d'outils = une entrée = un endpoint par transport. Voir docs/mcp-endpoints-par-serveur-design-2026-09-12.md.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "mcpServers": {
+      "$ref": "#/$defs/servers"
+    },
+    "servers": {
+      "$ref": "#/$defs/servers"
+    },
+    "sandboxHosts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "families": {
+            "$ref": "#/$defs/familyList"
+          },
+          "serve": {
+            "$ref": "#/$defs/serve"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "placement": {
+      "type": "object",
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": [
+            "single",
+            "by_user",
+            "by_family"
+          ]
+        },
+        "host": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "toolHosts": {
+      "description": "Hôtes d'outils (alias de sandboxHosts) : origine, jeton de service, bloc serve.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "families": {
+            "$ref": "#/$defs/familyList"
+          },
+          "serve": {
+            "$ref": "#/$defs/serve"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "required": [
+        "mcpServers"
+      ]
+    },
+    {
+      "required": [
+        "servers"
+      ]
+    }
+  ],
+  "additionalProperties": true,
+  "$defs": {
+    "familyName": {
+      "type": "string",
+      "enum": [
+        "fs",
+        "shell",
+        "git",
+        "chart",
+        "memory",
+        "skill",
+        "skill_run",
+        "todo",
+        "browser",
+        "desktop"
+      ]
+    },
+    "familyList": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/familyName"
+          }
+        },
+        {
+          "type": "string",
+          "description": "grammaire all / a,b / all,-x"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    "servers": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/server"
+      }
+    },
+    "server": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "http",
+            "streamable-http",
+            "sse",
+            "stdio",
+            "inprocess",
+            "remote",
+            "local"
+          ]
+        },
+        "url": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "command": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "x-elpis": {
+          "type": "object",
+          "properties": {
+            "role": {
+              "type": "string",
+              "enum": [
+                "toolhost",
+                "app",
+                "external"
+              ]
+            },
+            "identity": {
+              "type": "string",
+              "enum": [
+                "meta",
+                "token"
+              ]
+            },
+            "families": {
+              "$ref": "#/$defs/familyList"
+            },
+            "default_on": {
+              "$ref": "#/$defs/familyList"
+            },
+            "opencode": {
+              "type": "object",
+              "properties": {
+                "families": {
+                  "$ref": "#/$defs/familyList"
+                },
+                "prefix": {
+                  "type": "string"
+                },
+                "publish": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "sandbox": {
+              "type": "string"
+            },
+            "fallback": {
+              "description": "Repli stdio. Absent sur une entrée toolhost réseau = dérivé (python -m toolhost --stdio --families …) ; false = aucun repli.",
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "stdio"
+                      ]
+                    },
+                    "command": {
+                      "type": "string"
+                    },
+                    "args": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "env": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "command"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "boolean",
+                  "const": false
+                }
+              ]
+            },
+            "probe": {
+              "type": "boolean"
+            },
+            "prompt_fragments": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "host": {
+              "type": "string",
+              "description": "Clé dans toolHosts / sandboxHosts."
+            },
+            "serve": {
+              "$ref": "#/$defs/serve"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "serve": {
+      "type": "object",
+      "properties": {
+        "transport": {
+          "type": "string",
+          "enum": [
+            "streamable-http",
+            "http",
+            "sse",
+            "stdio"
+          ]
+        },
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "transports": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "http",
+              "streamable-http",
+              "sse"
+            ]
+          },
+          "description": "Transports servis simultanément par l'hôte (défaut : http + sse)."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

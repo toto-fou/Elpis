@@ -1,0 +1,227 @@
+/* ============================================================================
+ *  Skin « Parchemin »
+ * ----------------------------------------------------------------------------
+ *  Ambiance éditoriale chaude : fond crème « papier », accent argile/corail,
+ *  sidebar crème, titres en serif, bulles douces. Calme, chaleureux, lisible.
+ *
+ *  Tout est scopé sous ``body.elpis-skin-parchemin`` → inerte tant que la classe
+ *  n'est pas posée (cf. _applyAppSkin, app-settings.js).
+ *  Offline-safe : Georgia (serif web-safe) pour les titres, sans système pour
+ *  le corps. Aucune police téléchargée.
+ * ========================================================================== */
+
+/* ───────────────────────────── TOKENS — CLAIR ───────────────────────────── */
+body.elpis-skin-parchemin {
+    --cl-bg:        #faf9f5;          /* papier crème principal */
+    --cl-sidebar:   #f0eee6;          /* crème un cran plus dense */
+    --cl-surface-2: #f3f1e9;
+    --cl-surface-3: #ece9df;
+    --cl-surface-4: #e3dfd2;
+    --cl-ink:       #1f1e1d;          /* brun-noir chaud */
+    --cl-ink-2:     #3d3a35;
+    --cl-muted:     #64615a;          /* assombri (AA : ex-#73706a promu en --text-400) */
+    --cl-border:    #e3ded2;
+    --cl-border-2:  #d9d3c4;
+    --cl-clay:      #d97757;          /* accent argile/corail signature */
+    --cl-clay-deep: #c2603f;
+    --cl-clay-fg:   #ffffff;
+    --cl-user-bubble: #efece2;
+
+    /* Danger — harmonisé à la palette chaude (rouge brique plutôt que rouge cru). */
+    --danger-surface:     rgba(176, 60, 42, 0.07);
+    --danger-border:      #e3b7ab;
+    --danger-border-soft: #eecfc6;
+    --danger-text:        #b0402a;
+    --danger-strong:      #8f3320;
+    --danger-icon-bg:     #f0d8ce;
+    --danger-icon-fg:     #c2603f;
+
+    --radius:    0.7rem;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+
+    --app-bg:    var(--cl-bg);
+    --surface:   #fffdf8;
+    --surface-2: var(--cl-surface-2);
+    --surface-3: var(--cl-surface-3);
+    --surface-4: var(--cl-surface-4);
+    --surface-5: #d6d0c0;
+    --border:            var(--cl-border);
+    --border-soft:       #efece2;
+    --table-cell-border: var(--cl-border);
+    --text-900: var(--cl-ink);
+    --text-800: var(--cl-ink);
+    --text-700: var(--cl-ink-2);
+    --text-600: #57534d;
+    --text-500: var(--cl-muted);
+    --text-400: #73706a;              /* AA 4.9:1 sur --surface (ex-#9a958c, 2.9:1) */
+    --text-max: #000000;
+    --prose-body:       var(--cl-ink-2);
+    --prose-heading:    var(--cl-ink);
+    --prose-strong:     var(--cl-ink);
+    --prose-link:       var(--cl-clay-deep);
+    --prose-link-hover: var(--cl-clay);
+    --code-inline-bg:     #efece2;
+    --code-inline-fg:     #ad5034;
+    --code-inline-border: var(--cl-border);
+    --scrollbar-thumb:        #cfc9ba;
+    --scrollbar-thumb-hover:  #b9b2a0;
+    --scrollbar-thumb-custom: #cfc9ba;
+
+    /* ── Famille ACCENT (correctif skins) : bridge → argile sur TOUTES les
+       nuances bleues (rings, chips, bordures, focus…). --ok/--warn gardent
+       les défauts (emerald/amber conviennent au papier crème). */
+    --accent:             var(--cl-clay);
+    --accent-strong:      var(--cl-clay-deep);
+    --accent-500:         var(--cl-clay);
+    --accent-400:         #e08a6a;
+    --accent-300:         #efa588;
+    --accent-fg:          var(--cl-clay-fg);
+    --accent-text:        var(--cl-clay-deep);
+    --accent-text-strong: #ad5034;
+    --accent-surface:     rgba(217, 119, 87, 0.10);
+    --accent-surface-2:   rgba(217, 119, 87, 0.16);
+    --accent-border:      rgba(217, 119, 87, 0.35);
+    --accent-ring:        var(--cl-clay);
+
+    /* ── Rail (sidebar crème) — tokens, remplace la pile de sélecteurs. */
+    --rail-bg:           var(--cl-sidebar);
+    --rail-bg-2:         var(--cl-surface-3);
+    --rail-border:       var(--cl-border-2);
+    --rail-text:         var(--cl-ink);
+    --rail-text-strong:  var(--cl-ink);
+    --rail-muted:        var(--cl-muted);
+    --rail-hover:        var(--cl-surface-3);
+    --rail-chip:         var(--cl-surface-3);
+    --rail-active-bg:    color-mix(in srgb, var(--cl-clay) 18%, transparent);
+    --rail-input-bg:     var(--surface);
+    --rail-input-border: var(--cl-border-2);
+    --rail-ok:           #059669;            /* vert lisible sur crème */
+    --rail-ok-strong:    #047857;
+
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", sans-serif;
+}
+
+/* ───────────────────────────── TOKENS — SOMBRE ──────────────────────────── */
+body.elpis-skin-parchemin.elpis-app-dark {
+    --cl-bg:        #262624;          /* brun chaud foncé */
+    --cl-sidebar:   #1f1e1d;
+    --cl-surface-2: #2f2e2b;
+    --cl-surface-3: #35332f;
+    --cl-surface-4: #403d38;
+    --cl-ink:       #f5f3ec;          /* crème clair */
+    --cl-ink-2:     #ddd9cf;
+    --cl-muted:     #a39e92;
+    --cl-border:    rgba(255,250,235,0.12);
+    --cl-border-2:  rgba(255,250,235,0.18);
+    --cl-clay:      #e08a6a;
+    --cl-clay-deep: #d97757;
+    --cl-clay-fg:   #1f1e1d;
+    --cl-user-bubble: #34322e;
+
+    /* Danger — mode sombre du skin : rouge clair chaud sur fond sépia sombre. */
+    --danger-surface:     rgba(224, 138, 106, 0.14);
+    --danger-border:      rgba(224, 138, 106, 0.36);
+    --danger-border-soft: rgba(224, 138, 106, 0.20);
+    --danger-text:        #eab3a1;
+    --danger-strong:      #f2ccbe;
+    --danger-icon-bg:     rgba(224, 138, 106, 0.18);
+    --danger-icon-fg:     #e08a6a;
+
+    --app-bg:    var(--cl-bg);
+    --surface:   #2b2a27;
+    --surface-2: var(--cl-surface-2);
+    --surface-3: var(--cl-surface-3);
+    --surface-4: var(--cl-surface-4);
+    --surface-5: #4a473f;
+    --border:            var(--cl-border);
+    --border-soft:       rgba(255,250,235,0.06);
+    --table-cell-border: rgba(255,250,235,0.08);
+    --text-900: var(--cl-ink);
+    --text-800: var(--cl-ink);
+    --text-700: var(--cl-ink-2);
+    --text-600: #c2bcae;
+    --text-500: var(--cl-muted);
+    --text-400: #9b9585;              /* AA 4.8:1 sur --surface (ex-#837e72, 3.6:1) */
+    --text-max: #ffffff;
+    --prose-body:       var(--cl-ink-2);
+    --prose-heading:    var(--cl-ink);
+    --prose-strong:     #ffffff;
+    --prose-link:       var(--cl-clay);
+    --prose-link-hover: #efa588;
+    --code-inline-bg:     #35332f;
+    --code-inline-fg:     #f0a87f;
+    --code-inline-border: rgba(255,250,235,0.10);
+    --scrollbar-thumb:        rgba(255,250,235,0.15);
+    --scrollbar-thumb-hover:  rgba(255,250,235,0.25);
+    --scrollbar-thumb-custom: rgba(255,250,235,0.12);
+
+    /* Accent argile — variante claire-sur-sombre (les tokens en var(--cl-*)
+       basculent déjà tout seuls ; on ajuste texte + teintes translucides). */
+    --accent-text:        var(--cl-clay);
+    --accent-text-strong: #efa588;
+    --accent-surface:     rgba(224, 138, 106, 0.14);
+    --accent-surface-2:   rgba(224, 138, 106, 0.20);
+    --accent-border:      rgba(224, 138, 106, 0.38);
+    /* Rail sombre : vert admin éclairci. */
+    --rail-ok:        #34d399;
+    --rail-ok-strong: #6ee7b7;
+}
+
+/* ───────────────────────────── DA / FORMES ──────────────────────────────── */
+body.elpis-skin-parchemin .shadow-lg,
+body.elpis-skin-parchemin .shadow-xl,
+body.elpis-skin-parchemin .shadow-2xl { box-shadow: 0 8px 28px rgba(60,45,30,0.10) !important; }
+body.elpis-skin-parchemin.elpis-app-dark .shadow-lg,
+body.elpis-skin-parchemin.elpis-app-dark .shadow-xl,
+body.elpis-skin-parchemin.elpis-app-dark .shadow-2xl { box-shadow: 0 8px 28px rgba(0,0,0,0.45) !important; }
+
+/* Titres en serif éditorial (Georgia, web-safe / offline). */
+body.elpis-skin-parchemin .markdown-body h1,
+body.elpis-skin-parchemin .markdown-body h2,
+body.elpis-skin-parchemin .markdown-body h3,
+body.elpis-skin-parchemin .elpis-welcome h1,
+body.elpis-skin-parchemin .elpis-welcome h2 {
+    font-family: Georgia, "Times New Roman", "Iowan Old Style", serif;
+    letter-spacing: -0.01em;
+}
+
+/* Accent ARGILE : utilitaires bleus → argile via le bridge + tokens
+   --accent-* du bloc ci-dessus (énumération historique retirée). */
+
+/* ───────────────────────────── SIDEBAR CRÈME ────────────────────────────── */
+/* Entièrement pilotée par les tokens --rail-* (pile historique retirée). */
+
+/* ───────────────────────────── BULLES CHAT ──────────────────────────────── */
+body.elpis-skin-parchemin .elpis-msg-user > .flex-1 {
+    background: var(--cl-user-bubble);
+    border: 1px solid var(--cl-border);
+    border-radius: var(--radius-lg);
+    padding: 0.55rem 0.95rem;
+}
+body.elpis-skin-parchemin .elpis-msg-assistant > .flex-1 { background: transparent; }
+
+/* ───────────────────────────── ZONE DE SAISIE ───────────────────────────── */
+body.elpis-skin-parchemin .elpis-compose-card {
+    background: var(--surface) !important;
+    border-color: var(--cl-border-2) !important;
+    border-radius: var(--radius-xl) !important;
+    box-shadow: 0 1px 2px rgba(60,45,30,0.05), 0 6px 16px rgba(60,45,30,0.06) !important;
+}
+body.elpis-skin-parchemin .elpis-compose-card .bg-blue-600 {
+    background-color: var(--cl-clay) !important;
+    color: var(--cl-clay-fg) !important;
+}
+body.elpis-skin-parchemin .elpis-compose-card .hover\:bg-blue-700:hover {
+    background-color: var(--cl-clay-deep) !important;
+}
+
+/* Bloc thinking : encadré crème */
+body.elpis-skin-parchemin [data-think] {
+    background: var(--cl-surface-3);
+    border: 1px solid var(--cl-border);
+    border-radius: var(--radius-md);
+    padding: 0.4rem 0.7rem;
+}

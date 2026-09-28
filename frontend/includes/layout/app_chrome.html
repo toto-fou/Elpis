@@ -1,0 +1,160 @@
+<!--
+  includes/layout/app_chrome.html -- App-wide UI chrome layer (extracted from index.html)
+
+  Four always-rendered overlay elements that live at the top of the
+  body and are accessible from every app view (login, admin, main):
+
+    * systemAlert      -- Full-screen "restart in progress" banner.
+                         Shown when the backend signals a restart via
+                         SSE; auto-reconnect spinner built in.
+    * toasts           -- Bottom-right stacked toast notifications
+                         (success + error flavours). Driven by the
+                         reactive toasts ref; supports optional actions.
+    * modalState       -- Unified confirm / prompt / info modal used
+                         everywhere via showToast, openConfirm,
+                         openPrompt. Single source of truth.
+    * custom-context-menu -- Right-click menu for chats, files, folders
+                         and the explorer background. Driven by the
+                         reactive contextMenu ref (uses v-show, not
+                         v-if, to keep the DOM warm for animation).
+
+  All four are independent of each other and of auth state.
+-->
+    <Transition name="modal">
+
+    <div v-if="systemAlert" role="alert" aria-live="assertive" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/80 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm text-center">
+            <i class="ph ph-arrows-clockwise text-5xl text-blue-500 mb-4 animate-spin"></i>
+            <h2 class="text-xl font-bold text-slate-800 mb-2">Redémarrage en cours</h2>
+            <p class="text-sm text-slate-500 mb-6">{{ systemAlert }}</p>
+            <div class="flex items-center justify-center gap-2 text-xs text-slate-400">
+                <i class="ph ph-spinner-gap animate-spin text-blue-500"></i>
+                <span>Reconnexion automatique...</span>
+            </div>
+        </div>
+    </div>
+
+    </Transition>
+
+    <!-- a11y (WCAG 4.1.3) — région live pour les toasts : canal de feedback
+         principal (erreurs réseau, session expirée, échecs de sauvegarde…).
+         ``role=status``/``aria-live=polite`` sur le conteneur ; chaque toast
+         d'erreur force ``role=alert`` (assertive) pour être annoncé sans délai. -->
+    <!-- a11y (AUDIT 2026-06) — annonceur sr-only centralisé : announce(msg)
+         pour les événements sans UI dédiée (fin de génération, sélection de
+         modèle, mutations de todo…). Complète les régions toasts/statuts. -->
+    <div id="elpis-announcer" class="sr-only" :aria-live="announcerAssertive ? 'assertive' : 'polite'" aria-atomic="true">{{ announcerText }}</div>
+
+    <!-- AUDIT 2026-08-02 (E6) — z-[9995] (au-dessus de la carte de login opaque
+         z-[9990], sous systemAlert z-[9999]). En z-[9000] le toast « Session
+         expirée — reconnectez-vous » (et « mot de passe à changer ») vivait ses
+         12 s ENTIÈREMENT caché sous le login : le feedback promis par S3/S4/S7
+         était muet. Ce conteneur doit rester visible sur la vue login. -->
+    <div role="status" aria-live="polite" aria-atomic="false" class="fixed bottom-6 right-6 z-[9995] flex flex-col gap-3 pointer-events-none">
+        <transition-group name="toast">
+            <!-- Le CARTON ne capte pas les clics (2026-09-17) : posé en bas à
+                 droite, il recouvre exactement le bouton « Envoyer » du
+                 composeur — un avertissement de 15 s rendait l'envoi
+                 inopérant tant qu'il durait. Seuls ses boutons (action et
+                 fermeture) restent cliquables. -->
+            <div v-for="t in toasts" :key="t.id" :role="['error','warning'].includes(t.type) ? 'alert' : 'status'" class="pointer-events-none flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl min-w-[300px] max-w-md" :class="t.type === 'error' ? 'elpis-toast--error' : 'elpis-toast'">
+                <i class="ph text-xl" :class="{
+                        'ph-warning-circle': t.type === 'error',
+                        'ph-warning text-amber-400': t.type === 'warning',
+                        'ph-info text-blue-400': t.type === 'info',
+                        'ph-check-circle text-green-400': !['error','warning','info'].includes(t.type)
+                    }"></i>
+                <div class="flex-1 text-sm font-medium">{{ t.message }}</div>
+                <button v-if="t.actionLabel" @click="t.onAction && t.onAction(); removeToast(t.id)" class="pointer-events-auto text-xs font-semibold text-blue-300 hover:text-white transition-colors px-2 py-0.5 rounded border border-blue-300/40 hover:border-white/60">{{ t.actionLabel }}</button>
+                <button @click="removeToast(t.id, true)" title="Fermer" aria-label="Fermer" class="pointer-events-auto opacity-60 hover:opacity-100 transition-opacity"><i class="ph ph-x"></i></button>
+            </div>
+        </transition-group>
+    </div>
+
+    <Transition name="modal">
+
+
+    <!-- a11y (AUDIT 2026-06) — piège Tab conteneur-scopé : Tab/Shift+Tab
+         cyclent dans le dialog au lieu de sortir vers la page sous l'overlay.
+         Le focus est restitué au déclencheur à la fermeture (elpisFocusGuard). -->
+    <div v-if="modalState.isOpen" @click.self="handleModalCancel" class="fixed inset-0 z-[7000] flex items-center justify-center bg-slate-900/80 p-4">
+        <div ref="modalDialogRef" @keydown.tab="onModalTabKey" role="dialog" aria-modal="true" aria-labelledby="app-modal-title" class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-900/5 w-full max-w-md overflow-hidden">
+            <div class="p-6">
+                <h3 id="app-modal-title" class="text-lg font-bold text-slate-800 mb-3 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-50" :class="modalState.isDanger ? 'text-red-500' : 'text-blue-600'">
+                        <i v-if="modalState.type === 'confirm' && modalState.isDanger" class="ph ph-warning-circle text-xl"></i>
+                        <i v-else-if="modalState.type === 'prompt'" class="ph ph-pencil-simple text-xl"></i>
+                        <i v-else class="ph ph-info text-xl"></i>
+                    </div>
+                    {{ modalState.title }}
+                </h3>
+                <p v-if="modalState.message" class="text-slate-600 text-sm mb-5">{{ modalState.message }}</p>
+                <div v-if="modalState.type === 'prompt'" class="mb-5">
+                    <input ref="modalInputRef" v-model="modalState.inputValue" @keydown.enter="handleModalSubmit" :placeholder="modalState.placeholder" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors placeholder:text-slate-500 text-slate-700">
+                </div>
+                <!-- Confirmation saisie (openTypedConfirm) : l'irréversible exige de recopier le mot. -->
+                <div v-else-if="modalState.type === 'confirm' && modalState.requireText" class="mb-5">
+                    <label for="app-modal-typed" class="block text-xs font-medium text-slate-600 mb-1.5">Saisissez <strong class="font-semibold text-slate-800">{{ modalState.requireText }}</strong> pour confirmer</label>
+                    <input id="app-modal-typed" ref="modalInputRef" v-model="modalState.inputValue" @keydown.enter="handleModalSubmit" autocomplete="off" spellcheck="false" :placeholder="modalState.placeholder" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors placeholder:text-slate-500 text-slate-700">
+                </div>
+                <div v-if="modalState.type === 'choice'" class="flex flex-wrap justify-end gap-2 mt-2">
+                    <button ref="modalCancelRef" @click="handleModalCancel" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors">{{ modalState.cancelLabel }}</button>
+                    <button v-for="c in (modalState.choices || [])" :key="c.id" @click="handleModalChoice(c.id)" :data-choice="c.id"
+                            :class="c.tone === 'primary' ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                                  : (c.tone === 'danger' ? 'bg-red-500 hover:bg-red-600 text-white shadow-sm'
+                                  : 'text-slate-700 bg-slate-100 hover:bg-slate-200')"
+                            class="px-4 py-2 rounded-lg text-sm font-medium transition-colors">{{ c.label }}</button>
+                </div>
+                <div v-else class="flex justify-end gap-2 mt-2">
+                    <button ref="modalCancelRef" @click="handleModalCancel" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors">{{ modalState.cancelLabel }}</button>
+                    <button @click="handleModalSubmit" :disabled="modalTypedBlocked()" :class="modalState.isDanger ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'" class="px-4 py-2 text-white rounded-lg text-sm font-medium shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{{ modalState.confirmLabel }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    </Transition>
+
+    <!-- a11y (WCAG 2.1.1) — menu contextuel : role=menu + role=menuitem, focus
+         déplacé sur le 1er item à l'ouverture (handleContextMenuOpened) et
+         navigation flèches haut/bas (onContextMenuKeydown). Échap le ferme
+         (chaîne onGlobalKeydown). Ouvrable aussi via le bouton "…" des lignes. -->
+    <Transition name="popover">
+    <div id="custom-context-menu" v-show="contextMenu.isOpen" role="menu" aria-label="Actions"
+         @keydown="onContextMenuKeydown"
+         class="fixed z-[8000] bg-white border border-slate-200 shadow-xl rounded-xl py-1 min-w-[180px]" :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }">
+        <div v-if="contextMenu.type === 'chat'" class="px-1">
+            <button role="menuitem" @click="handleContextAction('rename')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-pencil-simple text-slate-400"></i> Renommer</button>
+            <button role="menuitem" @click="handleContextAction('archive')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-archive text-slate-400"></i> Archiver</button>
+            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+            <button role="menuitem" @click="handleContextAction('delete')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-trash text-red-400"></i> Supprimer</button>
+        </div>
+        <div v-if="['file', 'folder', 'explorer-bg'].includes(contextMenu.type)" class="px-1">
+            <!-- Sélection multiple (Ctrl/Maj + clic) : actions de groupe seulement. -->
+            <template v-if="contextMenu.type !== 'explorer-bg' && explorerMultiCount(contextMenu.item) > 1">
+                <div class="px-3 pt-1 pb-1.5 text-xs font-semibold text-slate-500">{{ explorerMultiCount(contextMenu.item) }} éléments</div>
+                <button role="menuitem" @click="handleContextAction('attach_chat')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-paperclip text-slate-400"></i> Joindre au chat</button>
+                <button role="menuitem" @click="handleContextAction('download')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-download-simple text-slate-400"></i> Télécharger (zip)</button>
+                <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                <button role="menuitem" @click="handleContextAction('delete')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-trash text-red-400"></i> Supprimer</button>
+            </template>
+            <template v-else>
+            <button role="menuitem" @click="handleContextAction('new_file')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-file-plus text-blue-500"></i> Nouveau Fichier</button>
+            <button role="menuitem" @click="handleContextAction('new_folder')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-folder-plus text-blue-500"></i> Nouveau Dossier</button>
+            <button v-if="contextMenu.type === 'explorer-bg'" role="menuitem" @click="handleContextAction('collapse_all')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-arrows-in-line-vertical text-slate-400"></i> Tout replier</button>
+            <button role="menuitem" @click="handleContextAction('terminal_here')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-terminal-window text-slate-400"></i> Terminal ici</button>
+            <div v-if="contextMenu.type !== 'explorer-bg'" class="h-px bg-slate-100 my-1 mx-2"></div>
+            <div v-if="contextMenu.type !== 'explorer-bg'">
+                <button v-if="contextMenu.type === 'file'" role="menuitem" @click="handleContextAction('attach_chat')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-paperclip text-slate-400"></i> Joindre au chat</button>
+                <button role="menuitem" @click="handleContextAction('rename')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-pencil-simple text-slate-400"></i> Renommer<kbd class="ml-auto text-[10px] text-slate-400 font-mono">F2</kbd></button>
+                <button role="menuitem" @click="handleContextAction('duplicate')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-copy-simple text-slate-400"></i> Dupliquer</button>
+                <button role="menuitem" @click="handleContextAction('copy_path')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-copy text-slate-400"></i> Copier le chemin</button>
+                <button role="menuitem" @click="handleContextAction('download')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-download-simple text-slate-400"></i> Télécharger</button>
+                <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                <button role="menuitem" @click="handleContextAction('delete')" class="w-full text-left px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"><i class="ph ph-trash text-red-400"></i> Supprimer<kbd class="ml-auto text-[10px] text-red-300 font-mono">Suppr</kbd></button>
+            </div>
+            </template>
+        </div>
+    </div>
+    </Transition>

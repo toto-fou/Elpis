@@ -1,0 +1,10 @@
+{
+  "_doc": "Registre UNIQUE des mascottes proposées à l'accueil (ordre d'affichage). Lu par le serveur (shared_infra/appearance/skins.py, validation du réglage welcome_mascot) et par l'interface (Paramètres, console). « apercu »: false = absente des personnages de l'aperçu admin (accueil.js ne la fait pas tourner). Les mascottes propres à un skin (kiki) n'y figurent pas.",
+  "mascottes": [
+    {"id": "boite_or", "label": "Coffre"},
+    {"id": "flamme", "label": "Flamme"},
+    {"id": "flamme_bleue", "label": "Flamme bleue", "apercu": false},
+    {"id": "fantome", "label": "Fantôme"},
+    {"id": "elpis", "label": "Elpis"}
+  ]
+}

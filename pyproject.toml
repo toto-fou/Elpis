@@ -1,0 +1,26 @@
+[project]
+name = "elpis"
+version = "1.0.0"
+description = "Self-hosted LLM assistant: agentic chat, per-user sandbox, code editor, scheduled routines and RAG."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.11"
+authors = [{ name = "Elpis contributors" }]
+
+# Les dépendances sont installées par ./install.sh depuis les fichiers
+# requirements*.txt (cœur, RAG, optionnel AGPL) ; elles ne sont pas
+# redéclarées ici pour éviter deux sources de vérité.
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = ["venv", "node_modules", "user_*", "frontend/vendor"]
+
+[tool.ruff.lint]
+# Erreurs réelles d'abord : syntaxe, noms indéfinis, imports/variables inutilisés.
+select = ["E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["F401", "F841"]
+"**/__init__.py" = ["F401"]

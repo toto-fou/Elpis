@@ -1,0 +1,32 @@
+# =====================================================================
+#  Caddyfile — frontal TLS Elpis avec un NOM DE DOMAINE public
+#
+#  Écrit par « ./elpis configure » (HTTPS = domaine public) : __DOMAIN__
+#  est remplacé par le domaine saisi. Caddy obtient et renouvelle seul le
+#  certificat Let's Encrypt ; les ports 80 et 443 doivent être joignables
+#  depuis internet (défi HTTP-01).
+#
+#  Mêmes ports que Caddyfile.template (config.json › security.https) :
+#  443 = application, 8443 = administration, 8444 = RAG.
+# =====================================================================
+{
+	__EMAIL_LINE__
+}
+
+__DOMAIN__ {
+	reverse_proxy 127.0.0.1:8001 {
+		flush_interval -1
+	}
+}
+
+__DOMAIN__:8443 {
+	reverse_proxy 127.0.0.1:8002 {
+		flush_interval -1
+	}
+}
+
+__DOMAIN__:8444 {
+	reverse_proxy 127.0.0.1:8000 {
+		flush_interval -1
+	}
+}

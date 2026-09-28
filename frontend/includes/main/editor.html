@@ -1,0 +1,1828 @@
+<!--
+  includes/main/editor.html -- Code editor column (extracted from index.html)
+
+  Right-side column with the integrated Monaco editor and ancillary UI:
+
+    * resize handle (drag to change width vs chat column)
+    * editor toolbar: tabs, file path, dirty indicator, save/download,
+      diff toggle, terminal toggle, MD/SVG preview toggles, snapshots,
+      fullscreen toggle, close
+    * Monaco instance (normal + diff overlay)
+    * Markdown / SVG preview (split "rendu" view)
+    * FIM loading indicator
+    * xterm.js terminal (bottom panel, toggleable)
+
+  Massive section because Monaco + terminal + multiple overlays
+  all live here. Depends on the setupEditor module and its submodules
+  (editor/_git.js, _fim_ai.js, _sandbox_fs.js, _languages.js, _resize.js).
+-->
+            <div v-if="showEditor && settings.enable_editor && !editorFullscreen"
+                 @mousedown="editorSplitStart" @touchstart.prevent="editorSplitStart"
+                 class="w-1 hover:w-1.5 bg-slate-700 hover:bg-blue-500 cursor-col-resize flex-shrink-0 z-40 transition-colors group relative"
+                 :class="{ 'elpis-splitter-light': settings.editor_dark_mode === false }"
+                 title="Redimensionner">
+                <div class="absolute inset-y-0 -left-1 -right-1"></div>
+            </div>
+
+            <!--
+              UX — éditeur avec animation fluide (v3).
+
+              Bug précédent : la classe `.editor-fullscreen` posait
+              `width: 100% !important` qui court-circuitait la transition
+              du style inline. Résultat : width saute à 100%, le flex
+              recalcule, bord gauche de l'éditeur snap à 0, puis seule
+              la sidebar continue son animation → impression "jump +
+              étirement vers la droite".
+
+              Maintenant : `.editor-fullscreen` ne sert qu'à retirer la
+              bordure. Tout le sizing (width, flex-grow) est dans le
+              :style inline, qui est correctement transitionné par
+              `.elpis-slide-panel`.
+
+              `flexGrow: 1` en fullscreen force l'éditeur à prendre toute
+              la place que les siblings libèrent pendant leur animation.
+              Sans ça, flex-basis: auto (depuis width) avec shrink: 1
+              pourrait le compresser en dessous de 100% au frame 0.
+
+              Pendant un resize manuel à la souris, on coupe la
+              transition : chaque frame du drag ajoutait sinon 260ms de
+              latence, ça traînait visiblement.
+            -->
+            <div class="flex flex-col h-full bg-[#1e1e1e] relative z-30" data-editor-root
+                 :class="[
+                   showEditor && settings.enable_editor ? 'opacity-100' : 'w-0 opacity-0 border-none pointer-events-none',
+                   editorFullscreen ? 'editor-fullscreen' : '',
+                   editorSplitDragging ? '' : 'elpis-slide-panel',
+                   settings.editor_dark_mode === false ? 'elpis-editor-light' : ''
+                 ]"
+                 :style="{
+                   width: editorFullscreen ? '100%' : ((showEditor && settings.enable_editor) ? settings.editor_ratio + '%' : '0%'),
+                   flexGrow: editorFullscreen ? 1 : 0
+                 }">
+
+                <!-- AUDIT 2026-06 — affordance de sortie du plein écran : la
+                     sidebar disparaît en fullscreen, ce hint discret rappelle
+                     comment revenir. S'estompe après 2,5 s (showEscapeHint) ;
+                     cliquable pour quitter directement. Pas d'animate-pulse
+                     (respect de prefers-reduced-motion). -->
+                <button v-if="editorFullscreen && showEscapeHint" @click="toggleEditorFullscreen"
+                        title="Quitter le plein écran"
+                        class="absolute top-2.5 right-3 z-40 flex items-center gap-1.5 bg-slate-800/85 border border-white/10 text-slate-200 text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-lg backdrop-blur-sm hover:bg-slate-700/90 transition-colors">
+                    <i class="ph ph-keyboard text-xs"></i>
+                    <span><kbd class="font-mono font-semibold">Échap</kbd> pour quitter</span>
+                </button>
+
+                <div class="w-full h-full flex flex-col min-w-[300px]">
+                    <div class="h-9 bg-[#252526] flex items-center shrink-0 border-b border-black/20">
+                        <button @click="showExplorer=!showExplorer" aria-label="Basculer l'explorateur de fichiers" title="Explorateur de fichiers" class="w-9 h-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition border-r border-white/5"><i class="ph ph-sidebar-simple text-sm"></i></button>
+                        <div class="flex items-center h-full px-1 border-r border-white/5 gap-0.5">
+                            <button @click="editorMode='code'" :class="editorMode==='code'?'text-white bg-white/10':'text-slate-400 hover:bg-white/5'" class="px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 transition"><i class="ph ph-code"></i> Code</button>
+                            <button v-if="settings.enable_preview" @click="editorMode='preview'" :class="editorMode==='preview'?'text-blue-400 bg-blue-500/10':'text-slate-400 hover:bg-white/5'" class="px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 transition"><i class="ph ph-browser"></i> Web</button>
+                        </div>
+                        <!--
+                          A11y — barre d'onglets navigable au clavier.
+                          Chaque onglet est un role=tab dans un role=tablist
+                          (motif APG « tabs with manual activation »). Roving
+                          tabindex : seul l'onglet actif est tabbable (0), les
+                          autres sont -1 et atteints aux flèches gauche/droite.
+                          Enter/Espace activent ; Delete/Backspace ferment ;
+                          Shift+F10 / touche menu ouvrent le menu contextuel ;
+                          Ctrl+PageUp/PageDown cyclent (gérés sur le tablist
+                          pour fonctionner dès qu'un onglet a le focus).
+                          Le bouton « fermer », invisible au repos, redevient
+                          visible au focus clavier (group-focus-within /
+                          focus-visible).
+                          NB : un raccourci VRAIMENT global (hors focus de la
+                          barre) nécessiterait un listener window dans le JS
+                          (app-editor.js, hors périmètre de ce correctif).
+                        -->
+                        <div v-show="editorMode==='code'" role="tablist" aria-label="Onglets ouverts"
+                             ref="tabStripRef" @scroll.passive="updateHiddenTabs"
+                             @keydown.ctrl.page-down.prevent="() => { var i = openTabs.findIndex(t => t.path === activeTabPath); if (openTabs.length) switchTab(openTabs[(i + 1 + openTabs.length) % openTabs.length].path); }"
+                             @keydown.ctrl.page-up.prevent="() => { var i = openTabs.findIndex(t => t.path === activeTabPath); if (openTabs.length) switchTab(openTabs[(i - 1 + openTabs.length) % openTabs.length].path); }"
+                             class="flex-1 flex overflow-x-auto custom-scrollbar no-scrollbar items-end h-full px-1">
+                            <div v-for="tab in openTabs" :key="tab.path"
+                                 role="tab"
+                                 :aria-selected="activeTabPath === tab.path ? 'true' : 'false'"
+                                 :tabindex="activeTabPath === tab.path ? 0 : -1"
+                                 :data-path="tab.path"
+                                 draggable="true"
+                                 @dragstart="onTabDragStart($event, tab.path)"
+                                 @dragover="onTabDragOver($event, tab.path)"
+                                 @drop.prevent="onTabDrop($event, tab.path)"
+                                 @dragend="onTabDragEnd"
+                                 @click="onTabActivate(tab.path)"
+                                 @contextmenu="openTabCtxMenu($event, tab.path)"
+                                 @mouseup.middle.prevent="closeTab(tab.path, $event)"
+                                 @keydown.enter.prevent="switchTab(tab.path)"
+                                 @keydown.space.prevent="switchTab(tab.path)"
+                                 @keydown.right.prevent="$event.currentTarget.nextElementSibling && $event.currentTarget.nextElementSibling.getAttribute('role')==='tab' && ($event.currentTarget.nextElementSibling.focus(), switchTab($event.currentTarget.nextElementSibling.dataset.path))"
+                                 @keydown.left.prevent="$event.currentTarget.previousElementSibling && $event.currentTarget.previousElementSibling.getAttribute('role')==='tab' && ($event.currentTarget.previousElementSibling.focus(), switchTab($event.currentTarget.previousElementSibling.dataset.path))"
+                                 @keydown.delete.prevent="closeTab(tab.path, $event)"
+                                 @keydown.f10.shift.prevent="openTabCtxMenu(Object.assign($event, { clientX: $event.currentTarget.getBoundingClientRect().left, clientY: $event.currentTarget.getBoundingClientRect().bottom }), tab.path)"
+                                 @keydown.context-menu.prevent="openTabCtxMenu(Object.assign($event, { clientX: $event.currentTarget.getBoundingClientRect().left, clientY: $event.currentTarget.getBoundingClientRect().bottom }), tab.path)"
+                                 class="elpis-editor-tab group flex items-center px-3 py-1 cursor-pointer select-none text-[12px] transition-colors border-r border-white/5 h-full outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-blue-500"
+                                 :class="[
+                                   activeTabPath === tab.path ? 'bg-[#1e1e1e] text-white border-t-2 border-t-blue-500' : 'text-slate-500 hover:bg-white/5',
+                                   (splitView && splitTabPath === tab.path) ? 'border-b-2 border-b-blue-500' : '',
+                                   tabDropTarget === tab.path ? 'elpis-tab-drop' : '',
+                                   tab.pinned ? 'is-pinned' : ''
+                                 ]"
+                                 :title="tab.path + (tab.pinned ? ' (épinglé)' : '')">
+                                <!-- pastille panneau droit (vue scindée) -->
+                                <i v-if="splitView && splitTabPath === tab.path" class="ph ph-columns text-blue-400 text-[10px] mr-1 shrink-0"></i>
+                                <i v-if="tab.pinned" class="ph ph-push-pin-simple text-slate-400 text-[10px] mr-1 shrink-0" aria-label="Épinglé"></i>
+                                <i class="ph text-[12px] mr-1.5 shrink-0" :class="[tabIcon(tab).icon, tabIcon(tab).color]"></i>
+                                <!-- Nom en deux parts (tête coupée en ellipse au plafond, queue =
+                                     extension gardée) : aucun espace entre les deux spans, sinon
+                                     Vue en garde un. L'indice de dossier (homonymes) reste
+                                     entier, hors du texte coupé. -->
+                                <span class="elpis-editor-tab-label"><span class="elpis-editor-tab-head">{{ tabLabelParts(tab.name).head }}</span><span class="elpis-editor-tab-tail">{{ tabLabelParts(tab.name).tail }}</span><span v-if="tabHints[tab.path]" class="elpis-editor-tab-hint text-[10px] text-slate-500 font-mono">{{ tabHints[tab.path] }}</span></span>
+                                <!-- ● non sauvegardé : occupe la place de la croix hors survol
+                                     (permutation à la VSCode — la croix revient au hover/focus). -->
+                                <span v-if="dirtyTabs.has(tab.path)" title="Modifications non sauvegardées"
+                                      class="block w-2 h-2 rounded-full bg-amber-400 m-1 shrink-0 group-hover:hidden group-focus-within:hidden"></span>
+                                <button @click.stop="closeTab(tab.path, $event)" tabindex="-1" :aria-label="'Fermer ' + tab.name"
+                                        class="focus-visible:ring-1 focus-visible:ring-blue-500 hover:bg-white/20 rounded p-0.5"
+                                        :class="dirtyTabs.has(tab.path) ? 'hidden group-hover:block group-focus-within:block' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100'"><i class="ph ph-x text-[10px]"></i></button>
+                            </div>
+                        </div>
+                        <!-- Débordement d'onglets : badge « +X » (onglets entièrement hors
+                             de vue — la scrollbar de la barre est masquée) ; clic → liste
+                             de TOUS les onglets pour basculer directement. -->
+                        <div v-show="editorMode==='code' && hiddenTabsCount > 0" class="relative shrink-0 h-full flex items-center px-1 border-l border-white/5">
+                            <button @click="showTabsOverflow = !showTabsOverflow"
+                                    :title="hiddenTabsCount + ' onglet(s) hors de vue — voir tous les onglets'"
+                                    :aria-expanded="showTabsOverflow ? 'true' : 'false'" aria-haspopup="menu"
+                                    class="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white transition-colors">+{{ hiddenTabsCount }}</button>
+                            <div v-if="showTabsOverflow" class="fixed inset-0 z-40" @click="showTabsOverflow = false"></div>
+                            <div v-if="showTabsOverflow" role="menu" aria-label="Tous les onglets ouverts"
+                                 class="absolute right-0 top-full mt-1 z-50 w-64 max-h-72 overflow-y-auto custom-scrollbar bg-[#252526] border border-white/10 rounded-lg shadow-2xl py-1">
+                                <button v-for="tab in openTabs" :key="'ovf-' + tab.path" role="menuitem"
+                                        @click="pickTabFromOverflow(tab.path)"
+                                        class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors"
+                                        :class="activeTabPath === tab.path ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5'"
+                                        :title="tab.path">
+                                    <span class="w-1.5 h-1.5 rounded-full shrink-0"
+                                          :class="dirtyTabs.has(tab.path) ? 'bg-amber-400' : 'bg-transparent'"
+                                          :title="dirtyTabs.has(tab.path) ? 'Modifications non sauvegardées' : ''"></span>
+                                    <span class="truncate flex-1">{{ tab.name }}</span>
+                                    <span class="text-[10px] text-slate-500 font-mono truncate max-w-[80px]">{{ tab.path.includes('/') ? tab.path.slice(0, tab.path.lastIndexOf('/')) : '' }}</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-show="editorMode==='preview'" class="flex-1 flex px-3 items-center gap-1.5">
+                            <!-- Source de l'aperçu : fichier statique OU serveur du
+                                 conteneur (le VRAI état, via le proxy localhost). -->
+                            <div class="flex items-center rounded border border-white/10 overflow-hidden shrink-0 text-[10.5px]" role="group" aria-label="Source de l'aperçu">
+                                <button @click="previewSource='file'" title="Fichier de la sandbox (statique)"
+                                        :aria-pressed="previewSource==='file'"
+                                        class="px-2 py-0.5 flex items-center gap-1 transition-colors"
+                                        :class="previewSource==='file' ? 'bg-blue-500/20 text-blue-300' : 'text-slate-500 hover:text-slate-300'">
+                                    <i class="ph ph-file-html"></i> Fichier
+                                </button>
+                                <button @click="previewSource='server'" title="Serveur qui tourne dans la sandbox (localhost:port)"
+                                        :aria-pressed="previewSource==='server'"
+                                        class="px-2 py-0.5 flex items-center gap-1 border-l border-white/10 transition-colors"
+                                        :class="previewSource==='server' ? 'bg-blue-500/20 text-blue-300' : 'text-slate-500 hover:text-slate-300'">
+                                    <i class="ph ph-plugs-connected"></i> Serveur
+                                </button>
+                            </div>
+                            <div class="flex items-center bg-[#1e1e1e] w-full rounded border border-white/10 px-2 py-0.5 text-[11px] text-slate-400">
+                                <template v-if="previewSource==='file'">
+                                    <i class="ph ph-link mr-1.5"></i>
+                                    <input v-model="previewPath" aria-label="Chemin du fichier à prévisualiser" class="bg-transparent border-none outline-none flex-1 font-mono text-slate-300" placeholder="index.html">
+                                </template>
+                                <template v-else>
+                                    <i class="ph ph-globe-hemisphere-west mr-1.5"></i>
+                                    <!-- Adresse libre : « 8080 », « localhost:8080/x »
+                                         ou une URL complète collée depuis le terminal. -->
+                                    <input v-model="previewServerUrl"
+                                           aria-label="Adresse du serveur dans la sandbox"
+                                           placeholder="localhost:8080/ — ou 8080, ou http://localhost:5173/app"
+                                           @keydown.enter="commitPreviewServerUrl"
+                                           @blur="commitPreviewServerUrl"
+                                           class="bg-transparent border-none outline-none flex-1 font-mono text-slate-300">
+                                    <span v-if="previewServerHostWarn" class="shrink-0 text-amber-400 ml-1"
+                                          :title="'L’aperçu passe toujours par votre sandbox : l’hôte « ' + previewServerHostWarn + ' » a été ignoré, seuls le port et le chemin sont utilisés.'">
+                                        <i class="ph ph-warning"></i>
+                                    </span>
+                                </template>
+                                <button @click="reloadPreview" title="Recharger" class="hover:text-blue-400 ml-1.5"><i class="ph ph-arrows-clockwise"></i></button>
+                            </div>
+                        </div>
+                        <div class="flex items-center px-1 gap-0.5 h-full border-l border-white/5">
+                            <!-- Sandbox quota indicator -->
+                            <div v-if="sandboxQuota && sandboxQuota.quota_mb > 0" class="flex items-center gap-1.5 px-2 h-full" :title="`Sandbox : ${sandboxQuota.used_mb} Mo / ${sandboxQuota.quota_mb} Mo utilisés`">
+                                <div class="relative w-20 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                                    <div class="absolute inset-y-0 left-0 right-0 rounded-full transition-transform duration-500"
+                                         :class="sandboxQuota.pct >= 90 ? 'bg-red-500' : sandboxQuota.pct >= 70 ? 'bg-amber-400' : 'bg-emerald-500'"
+                                         :style="{ transformOrigin: 'left', transform: 'scaleX(' + (sandboxQuota.pct / 100) + ')' }"></div>
+                                </div>
+                                <span class="text-[10px] font-mono tabular-nums"
+                                      :class="sandboxQuota.pct >= 90 ? 'text-red-400' : sandboxQuota.pct >= 70 ? 'text-amber-400' : 'text-slate-500'">
+                                    {{ sandboxQuota.pct }}%
+                                </span>
+                            </div>
+                            <!--
+                              MENU « + » (UX 2026-07-25)
+                              --------------------------
+                              Toutes les actions de la barre sont regroupées ici
+                              pour gagner de la place — seuls Plein écran et
+                              Fermer restent en accès direct. Le bouton reprend
+                              la pastille spinner des snapshots quand une
+                              création/restauration tourne (affordance live
+                              conservée même repliée). Le panneau Snapshots
+                              reste ANCRÉ à ce conteneur (ouvert via son entrée
+                              de menu). aria-label distinct du menu « +X » des
+                              onglets (collision de sélecteurs harnais).
+                            -->
+                            <div class="relative h-full flex items-center" @keydown.escape.stop="showEditorMore=false">
+                                <button @click.stop="showEditorMore=!showEditorMore"
+                                        aria-haspopup="menu" :aria-expanded="showEditorMore ? 'true' : 'false'"
+                                        title="Plus d'actions"
+                                        class="text-slate-400 hover:text-white w-7 h-7 flex items-center justify-center rounded hover:bg-white/5"
+                                        :class="showEditorMore ? 'text-blue-400 bg-blue-500/10' : (snapshotBusy !== 'idle' ? (snapshotBusy === 'restore' ? 'text-amber-400 bg-amber-500/10' : 'text-blue-400 bg-blue-500/10') : '')">
+                                    <i class="ph text-sm" :class="snapshotBusy !== 'idle' ? 'ph-spinner-gap animate-spin' : 'ph-plus'"></i>
+                                </button>
+                                <div v-if="showEditorMore" class="fixed inset-0 z-40" @click="showEditorMore=false"></div>
+                                <Transition name="popover">
+                                    <div v-if="showEditorMore" role="menu" aria-label="Actions de l'éditeur"
+                                         class="absolute right-0 top-full mt-1 w-60 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1">
+                                        <button v-if="editorMode==='code' && (isCurrentFileMd || isCurrentFileSvg)" role="menuitem" @click="showEditorMore=false; toggleSplitRender()"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+                                                :class="splitView && splitMode==='render' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'">
+                                            <i class="ph ph-eye text-sm shrink-0"></i>
+                                            <span class="flex-1">{{ isCurrentFileMd ? 'Aperçu Markdown' : 'Aperçu SVG' }}</span>
+                                            <i v-if="splitView && splitMode==='render'" class="ph ph-check text-[10px]"></i>
+                                        </button>
+                                        <button v-if="editorMode==='code' && activeTabPath && canRunActive()" role="menuitem" @click="runActiveFile()"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5">
+                                            <i class="ph ph-play text-sm shrink-0 text-emerald-400"></i>
+                                            <span class="flex-1">Exécuter le fichier</span>
+                                        </button>
+                                        <button v-if="editorMode==='code'" role="menuitem" @click="showEditorMore=false; toggleTerminal()"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+                                                :class="showTerminal ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'">
+                                            <i class="ph ph-terminal-window text-sm shrink-0"></i>
+                                            <span class="flex-1">Terminal</span>
+                                            <i v-if="showTerminal" class="ph ph-check text-[10px]"></i>
+                                            <kbd v-else class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">Ctrl+`</kbd>
+                                        </button>
+                                        <button v-if="editorMode==='code' && !activeIsViewer" role="menuitem" @click="showEditorMore=false; toggleDiffMode('saved')"
+                                                :aria-pressed="isDiffView && diffBase==='saved'"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+                                                :class="isDiffView && diffBase==='saved' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'">
+                                            <i class="ph ph-arrows-left-right text-sm shrink-0"></i>
+                                            <span class="flex-1">Diff depuis la sauvegarde</span>
+                                            <i v-if="isDiffView && diffBase==='saved'" class="ph ph-check text-[10px]"></i>
+                                        </button>
+                                        <button v-if="editorMode==='code' && !activeIsViewer && activeInRepo" role="menuitem" @click="showEditorMore=false; toggleDiffMode('head')"
+                                                :aria-pressed="isDiffView && diffBase==='head'"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+                                                :class="isDiffView && diffBase==='head' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'">
+                                            <i class="ph ph-git-diff text-sm shrink-0"></i>
+                                            <span class="flex-1">Diff depuis le dernier commit</span>
+                                            <i v-if="isDiffView && diffBase==='head'" class="ph ph-check text-[10px]"></i>
+                                        </button>
+                                        <button v-if="editorMode==='code' && !activeIsViewer && activeTabPath" role="menuitem" @click="toggleOriginalDiff()"
+                                                :aria-pressed="isDiffView && diffBase==='history'"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+                                                :class="isDiffView && diffBase==='history' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'">
+                                            <i class="ph ph-flag text-sm shrink-0"></i>
+                                            <span class="flex-1">Diff depuis l'original</span>
+                                            <i v-if="isDiffView && diffBase==='history'" class="ph ph-check text-[10px]"></i>
+                                        </button>
+                                        <button role="menuitem" @click="openHistoryPanel()"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5">
+                                            <i class="ph ph-clock-counter-clockwise text-sm shrink-0"></i>
+                                            <span class="flex-1">Historique de la session</span>
+                                        </button>
+                                        <button v-if="editorMode==='code' && !activeIsViewer" role="menuitem" @click="showEditorMore=false; saveEditorContent()"
+                                                :disabled="isTypingEffect"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5 disabled:opacity-40">
+                                            <i class="ph ph-floppy-disk text-sm shrink-0"></i>
+                                            <span class="flex-1">Sauvegarder</span>
+                                            <kbd class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">Ctrl+S</kbd>
+                                        </button>
+                                        <button v-if="editorMode==='code'" role="menuitem" @click="saveAllTabs()" :disabled="!dirtyTabs.size"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5 disabled:opacity-40">
+                                            <i class="ph ph-floppy-disk-back text-sm shrink-0"></i>
+                                            <span class="flex-1">Tout enregistrer</span>
+                                            <kbd class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">Ctrl+Alt+S</kbd>
+                                        </button>
+                                        <button role="menuitem" @click="showEditorMore=false; openShortcutsModal()"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5">
+                                            <i class="ph ph-keyboard text-sm shrink-0"></i>
+                                            <span class="flex-1">Raccourcis clavier</span>
+                                            <kbd class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">Ctrl+/</kbd>
+                                        </button>
+                                        <button v-if="editorMode==='code'" role="menuitem" @click="showEditorMore=false; toggleSnapshotPanel()"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+                                                :class="snapshotBusy !== 'idle' ? (snapshotBusy === 'restore' ? 'text-amber-400 bg-amber-500/10' : 'text-blue-400 bg-blue-500/10') : 'text-slate-300 hover:bg-white/5'">
+                                            <i class="ph text-sm shrink-0" :class="snapshotBusy !== 'idle' ? 'ph-spinner-gap animate-spin' : 'ph-camera'"></i>
+                                            <span class="flex-1">{{ snapshotBusy === 'create' ? 'Snapshot… ' + (snapshotProgress.pct || 0) + '%' : (snapshotBusy === 'restore' ? 'Restauration… ' + (snapshotProgress.pct || 0) + '%' : 'Snapshots de la sandbox') }}</span>
+                                        </button>
+                                        <button v-if="editorMode==='code' && activeTabPath && !activeIsViewer" role="menuitem" @click="showEditorMore=false; toggleSplit()"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+                                                :class="splitView && splitMode==='code' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'">
+                                            <i class="ph ph-columns text-sm shrink-0"></i>
+                                            <span class="flex-1">{{ splitView && splitMode==='code' ? 'Fermer la vue scindée' : 'Vue scindée' }}</span>
+                                            <i v-if="splitView && splitMode==='code'" class="ph ph-check text-[10px]"></i>
+                                        </button>
+                                        <button v-if="editorMode==='code' && settings.enable_preview && !activeIsViewer" role="menuitem" @click="showEditorMore=false; toggleSplitPreview()"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+                                                :class="splitView && splitMode==='preview' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'">
+                                            <i class="ph ph-browsers text-sm shrink-0"></i>
+                                            <span class="flex-1">{{ splitView && splitMode==='preview' ? 'Fermer l\'aperçu côte à côte' : 'Aperçu à côté du code' }}</span>
+                                            <i v-if="splitView && splitMode==='preview'" class="ph ph-check text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                </Transition>
+
+                            <!--
+                              SANDBOX SNAPSHOTS
+                              -----------------
+                              Bouton + panneau pour figer l'état complet de la
+                              sandbox personnelle dans une archive serveur, puis
+                              y revenir si le LLM a fait n'importe quoi via les
+                              outils write_file / shell.
+
+                              Caché en team mode : la sandbox équipe a déjà un
+                              historique par fichier (cf. /sandbox/history) ; on
+                              ne le double-emploie pas ici. Le bouton est aussi
+                              hors UI quand le panneau d'overlay préfère un
+                              fullscreen (déjà géré en amont par editorMode).
+
+                              Pendant qu'une snapshot/restore est en cours, le
+                              bouton « + » affiche le spinner de phase ; le
+                              dropdown ci-dessous (déclenché par l'entrée de
+                              menu Snapshots) contient la barre de progression
+                              réelle ainsi que la liste. Il reste ancré au
+                              conteneur du menu « + ».
+                            -->
+                                <template v-if="showSnapshotPanel">
+                                    <div class="fixed inset-0 z-30" @click="showSnapshotPanel=false"></div>
+                                    <div class="absolute right-0 top-full mt-1 w-80 bg-[#252526] border border-white/10 rounded-xl shadow-2xl z-40 overflow-hidden">
+                                        <!-- Header -->
+                                        <div class="px-3 pt-3 pb-2 border-b border-white/5">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <div class="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                                                    <i class="ph ph-camera"></i> Snapshots de la sandbox
+                                                </div>
+                                                <span v-if="snapshots && snapshotsMax" class="text-[9px] text-slate-600 font-mono">{{ snapshots.length }}/{{ snapshotsMax }}</span>
+                                            </div>
+                                            <p class="text-[10px] text-slate-500 leading-relaxed">Capture l'ensemble de vos fichiers. Restaurer une snapshot remplace tout le contenu actuel.</p>
+                                        </div>
+
+                                        <!--
+                                          RESTAURATION INTERROMPUE
+                                          ------------------------
+                                          Le backend pose un marqueur dans /work entre le
+                                          vidage et la fin d'extraction. S'il survit, le
+                                          worker a été tué en plein vol : /work est PARTIEL.
+                                          Sans ce bandeau l'utilisateur n'en savait rien.
+                                        -->
+                                        <div v-if="restoreIncomplete" class="px-3 py-2 border-b border-white/5 bg-red-500/10">
+                                            <div class="flex items-start gap-2">
+                                                <i class="ph ph-warning-octagon text-red-400 text-sm mt-0.5 shrink-0"></i>
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="text-[11px] font-semibold text-red-300">Restauration interrompue</div>
+                                                    <p class="text-[10px] text-slate-400 leading-relaxed mt-0.5">
+                                                        Vos fichiers sont peut-être incomplets. Relancez la restauration<span v-if="restoreIncompleteWhen()"> (tentative du {{ restoreIncompleteWhen() }})</span>.
+                                                    </p>
+                                                    <button @click="dismissRestoreIncomplete()"
+                                                            class="mt-1 text-[10px] text-slate-500 hover:text-slate-300 underline">
+                                                        J'ai vérifié, ignorer
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Création -->
+                                        <div class="px-3 py-2 border-b border-white/5">
+                                            <input v-model="snapshotName"
+                                                   :disabled="snapshotBusy !== 'idle'"
+                                                   @keydown.enter="createSnapshot()"
+                                                   placeholder="Nom (optionnel)"
+                                                   maxlength="80"
+                                                   class="w-full bg-[#1e1e1e] text-slate-200 text-xs rounded-lg border border-white/10 px-3 py-1.5 focus:ring-1 focus:ring-blue-500 outline-none disabled:opacity-50">
+                                            <div class="flex justify-end mt-1.5">
+                                                <button @click="createSnapshot()"
+                                                        :disabled="snapshotBusy !== 'idle'"
+                                                        class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-[10px] font-bold px-3 py-1 rounded-lg flex items-center gap-1">
+                                                    <i class="ph ph-camera"></i> Créer une snapshot
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!--
+                                          PROGRESS BAR
+                                          ------------
+                                          Affichée seulement pendant create / restore.
+                                          - barre de fond + barre de remplissage avec
+                                            transition CSS sur la largeur (smooth)
+                                          - pastille de phase + % numérique + nom du
+                                            fichier en cours pour que l'user voie que
+                                            ça avance vraiment.
+                                        -->
+                                        <div v-if="snapshotBusy !== 'idle'" class="px-3 py-2 border-b border-white/5 bg-blue-500/5">
+                                            <div class="flex items-center justify-between text-xs mb-1">
+                                                <span class="font-semibold"
+                                                      :class="snapshotBusy === 'restore' ? 'text-amber-400' : 'text-blue-400'">
+                                                    <i class="ph" :class="snapshotBusy === 'restore' ? 'ph-clock-counter-clockwise' : 'ph-camera'"></i>
+                                                    {{ snapshotBusy === 'restore' ? (snapshotProgress.phase === 'clearing' ? 'Nettoyage...' : 'Restauration') : 'Création' }}
+                                                </span>
+                                                <span class="font-mono tabular-nums text-slate-300">{{ snapshotProgress.pct || 0 }}%</span>
+                                            </div>
+                                            <div class="relative w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                                                <div class="absolute inset-y-0 left-0 right-0 rounded-full transition-transform duration-150"
+                                                     :class="snapshotBusy === 'restore' ? 'bg-amber-400' : 'bg-blue-500'"
+                                                     :style="{ transformOrigin: 'left', transform: 'scaleX(' + ((snapshotProgress.pct || 0) / 100) + ')' }"></div>
+                                            </div>
+                                            <div class="flex items-center justify-between text-[9px] text-slate-500 mt-1 font-mono">
+                                                <span class="truncate flex-1 mr-2" :title="snapshotProgress.current_file">{{ snapshotProgress.current_file || '...' }}</span>
+                                                <span class="shrink-0 tabular-nums">{{ snapshotProgress.files_done || 0 }} / {{ snapshotProgress.total_files || 0 }}</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Liste -->
+                                        <div v-if="snapshots && snapshots.length" class="max-h-72 overflow-y-auto custom-scrollbar">
+                                            <div v-for="s in snapshots" :key="s.id" class="px-3 py-2 border-b border-white/5 group hover:bg-white/3">
+                                                <div class="flex items-start justify-between gap-2">
+                                                    <div class="flex-1 min-w-0">
+                                                        <div class="text-xs text-slate-200 font-semibold truncate" :title="s.name">{{ s.name }}</div>
+                                                        <div class="flex items-center gap-2 text-[9px] text-slate-500 font-mono mt-0.5">
+                                                            <span><i class="ph ph-file"></i> {{ s.file_count }}</span>
+                                                            <span><i class="ph ph-archive"></i> {{ Math.round((s.archive_bytes || 0) / 1024) }} Ko</span>
+                                                            <span class="truncate" :title="new Date((s.ts || 0) * 1000).toLocaleString('fr-FR')">{{ new Date((s.ts || 0) * 1000).toLocaleString('fr-FR') }}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex items-center gap-0.5 shrink-0">
+                                                        <button @click="restoreSnapshot(s.id, s.name)"
+                                                                :disabled="snapshotBusy !== 'idle'"
+                                                                class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                                                                title="Restaurer">
+                                                            <i class="ph ph-clock-counter-clockwise text-xs"></i>
+                                                        </button>
+                                                        <button @click="deleteSnapshot(s.id)"
+                                                                :disabled="snapshotBusy !== 'idle'"
+                                                                class="w-6 h-6 flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+                                                                title="Supprimer">
+                                                            <i class="ph ph-trash text-xs"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-else class="px-3 py-4 text-center text-slate-600 text-xs">Aucune snapshot pour le moment</div>
+                                    </div>
+                                </template>
+                            </div>
+                            <button @click="toggleEditorFullscreen" class="text-slate-400 hover:text-white w-7 h-7 flex items-center justify-center rounded hover:bg-white/5" :class="editorFullscreen ? 'text-yellow-400 bg-yellow-500/10' : ''" :title="editorFullscreen ? 'Quitter plein écran' : 'Plein écran'"><i class="ph text-sm" :class="editorFullscreen ? 'ph-arrows-in' : 'ph-arrows-out'"></i></button>
+                            <button @click="editorFullscreen=false; showEditor=false" class="text-slate-400 hover:text-white w-7 h-7 flex items-center justify-center rounded hover:bg-white/5" title="Fermer"><i class="ph ph-x text-sm"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Breadcrumb (AUDIT 2026-06) — chemin du fichier actif, segments
+                         cliquables : un dossier déplie sa hiérarchie dans l'arbre
+                         (revealFolderInTree). Affiché en mode Code uniquement. -->
+                    <nav v-if="editorMode==='code' && breadcrumbSegments.length" aria-label="Chemin du fichier"
+                         class="h-6 shrink-0 bg-[#1e1e1e] border-b border-black/20 flex items-center px-2 overflow-x-auto no-scrollbar text-[11px] text-slate-500 font-mono">
+                        <template v-for="(seg, i) in breadcrumbSegments" :key="seg.prefix">
+                            <i v-if="i > 0" class="ph ph-caret-right text-[8px] text-slate-600 mx-0.5 shrink-0"></i>
+                            <button v-if="!seg.isLast" @click="revealFolderInTree(seg.prefix)"
+                                    class="shrink-0 hover:text-slate-200 transition-colors px-0.5 rounded">{{ seg.name }}</button>
+                            <button v-else @click="revealActiveInTree()" title="Localiser dans l'arbre (Alt+L)"
+                                    class="shrink-0 text-slate-300 hover:text-white transition-colors px-0.5 rounded">{{ seg.name }}</button>
+                        </template>
+                    </nav>
+
+                    <!-- Barre de protection (2026-09-19) : le travail en cours n'est
+                         jamais écrasé en silence — on tranche ici. Dans le FLUX (et
+                         non en calque) : elle ne masque aucune ligne de code. -->
+                    <div v-if="editorMode==='code' && (aiProposal || activeBanner)" role="status"
+                         class="elpis-editor-banner shrink-0"
+                         :class="aiProposal ? 'elpis-editor-banner--ai' : ''">
+                        <template v-if="aiProposal">
+                            <i class="ph ph-sparkle text-sm shrink-0"></i>
+                            <span class="truncate flex-1" :title="aiProposal.label + ' : la proposition est à droite du diff'">{{ aiProposal.label }} — proposition à droite</span>
+                            <button @click="rejectAiProposal()" class="elpis-banner-btn">Rejeter</button>
+                            <button @click="acceptAiProposal()" class="elpis-banner-btn elpis-banner-btn--primary">Accepter</button>
+                        </template>
+                        <template v-else-if="activeBanner.kind === 'stash'">
+                            <i class="ph ph-lifebuoy text-sm shrink-0"></i>
+                            <span class="truncate flex-1" title="L'assistant a réécrit ce fichier ; vos modifications non enregistrées sont gardées à part">Réécrit par l'assistant — vos modifications sont gardées</span>
+                            <button @click="stashCompare()" class="elpis-banner-btn">Comparer</button>
+                            <button @click="stashRestore()" class="elpis-banner-btn elpis-banner-btn--primary">Restaurer</button>
+                            <button @click="stashDismiss()" class="elpis-banner-x" title="Garder la version de l'assistant" aria-label="Fermer"><i class="ph ph-x"></i></button>
+                        </template>
+                        <template v-else-if="activeBanner.kind === 'encoding'">
+                            <i class="ph ph-text-aa text-sm shrink-0"></i>
+                            <span class="truncate flex-1" title="Le fichier n'est pas en UTF-8 : l'enregistrer depuis l'éditeur remplacerait ses caractères accentués. Convertissez-le (iconv) depuis le terminal pour l'éditer.">Encodage non UTF-8 — lecture seule</span>
+                        </template>
+                        <template v-else>
+                            <i class="ph ph-warning text-sm shrink-0"></i>
+                            <span class="truncate flex-1" :title="activeBanner.kind === 'missing' ? 'Le fichier a été supprimé du disque ; vos modifications sont intactes dans l\'onglet' : 'Le fichier a changé sur le disque ; vos modifications sont intactes dans l\'onglet'">{{ activeBanner.kind === 'missing' ? 'Supprimé du disque' : 'Modifié sur le disque' }}</span>
+                            <button v-if="activeBanner.kind !== 'missing'" @click="conflictCompare()" class="elpis-banner-btn">Comparer</button>
+                            <button v-if="activeBanner.kind !== 'missing'" @click="conflictReload()" class="elpis-banner-btn">Recharger</button>
+                            <button @click="conflictOverwrite()" class="elpis-banner-btn elpis-banner-btn--primary">{{ activeBanner.kind === 'missing' ? 'Recréer' : 'Écraser' }}</button>
+                            <button @click="conflictDismiss()" class="elpis-banner-x" title="Masquer" aria-label="Fermer"><i class="ph ph-x"></i></button>
+                        </template>
+                    </div>
+
+                    <div class="flex-1 flex overflow-hidden">
+                        <div v-show="showExplorer" class="bg-[#252526] border-r border-black/20 flex flex-col shrink-0"
+                             :style="{ width: explorerWidth + 'px' }"
+                             :class="explorerDragOver ? 'ring-2 ring-inset ring-blue-500/40' : ''"
+                             @contextmenu.prevent="openContextMenu($event, 'explorer-bg', {path: ''})"
+                             @dragover.prevent="onExplorerDragOver" @dragleave="onExplorerDragLeave"
+                             @drop.prevent="handleExplorerDrop($event)">
+                            <div class="px-2 py-1.5 flex justify-between items-center shrink-0 border-b border-white/5">
+                                <!-- Barre d'outils de l'explorateur. (Le libellé « Personnel »
+                                     est parti le 2026-09-19 : la sandbox est toujours
+                                     personnelle, et il se réduisait à « P. » faute de place.) -->
+                                <div class="flex gap-0.5 flex-1 justify-end min-w-0 overflow-hidden">
+                                    <!-- Appel EXPLICITE sans argument : @click="createFile" (référence
+                                         de méthode) recevait le PointerEvent comme parentPath → création
+                                         dans un dossier littéral « [object PointerEvent] ». -->
+                                    <button @click="createFile()" title="Nouveau fichier" aria-label="Nouveau fichier" class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500"><i class="ph ph-file-plus text-sm"></i></button>
+                                    <button @click="createFolder()" title="Nouveau dossier" aria-label="Nouveau dossier" class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500"><i class="ph ph-folder-plus text-sm"></i></button>
+                                    <div class="relative">
+                                        <button @click.stop="showImportMenu = !showImportMenu" class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500" title="Importer" aria-label="Importer"><i class="ph ph-upload-simple text-sm"></i></button>
+                                        <template v-if="showImportMenu">
+                                            <div class="fixed inset-0 z-40" @click="showImportMenu = false"></div>
+                                            <div class="absolute right-0 top-full mt-1 w-36 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1 overflow-hidden">
+                                                <button @click="triggerSandboxImport('file')" class="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 flex items-center gap-2"><i class="ph ph-files text-blue-400"></i> Fichiers</button>
+                                                <button @click="triggerSandboxImport('folder')" class="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 flex items-center gap-2"><i class="ph ph-folder-open text-yellow-400"></i> Dossier</button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <button @click="toggleHiddenFiles()" :title="showHiddenFiles ? 'Masquer les fichiers cachés (.dotfiles)' : 'Afficher les fichiers cachés (.dotfiles)'" :aria-pressed="showHiddenFiles ? 'true' : 'false'" class="p-1 rounded hover:bg-white/5" :class="showHiddenFiles ? 'text-blue-400 hover:text-blue-300' : 'text-slate-500 hover:text-white'"><i class="ph text-sm" :class="showHiddenFiles ? 'ph-eye' : 'ph-eye-slash'"></i></button>
+                                    <button @click="revealActiveInTree()" :disabled="!activeTabPath" title="Localiser le fichier ouvert (Alt+L)" aria-label="Localiser le fichier ouvert" class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500 disabled:opacity-30"><i class="ph ph-crosshair text-sm"></i></button>
+                                    <button @click="collapseAllFolders()" title="Tout replier" aria-label="Tout replier" class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500"><i class="ph ph-arrows-in-line-vertical text-sm"></i></button>
+                                    <button @click="loadSandboxFiles" title="Actualiser" aria-label="Actualiser l'arborescence" class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500"><i class="ph ph-arrow-clockwise text-sm" :class="{'animate-spin': isLoadingFiles}"></i></button>
+                                </div>
+                            </div>
+                            <input type="file" ref="sandboxFileInput" @change="handleSandboxImport" class="hidden" multiple data-sandbox-import="files">
+                            <input type="file" ref="sandboxFolderInput" @change="handleSandboxImport" class="hidden" webkitdirectory data-sandbox-import="folder">
+                            <!-- Barre de progression d'import (gros dossiers). Calquée sur
+                                 la barre snapshot : pct + fichier courant + N/Total.
+                                 2026-09-16 : phase « Préparation » (parcours du dossier
+                                 déposé + pré-contrôle d'espace) et croix d'annulation. -->
+                            <div v-if="uploadProgress.active" class="px-3 py-2 border-b border-white/5 bg-blue-500/5" data-upload-progress>
+                                <div class="flex items-center justify-between text-xs mb-1">
+                                    <span class="font-semibold text-blue-400">
+                                        <i class="ph ph-upload-simple"></i> {{ uploadProgress.phase === 'prepare' ? 'Préparation…' : 'Import en cours' }}
+                                    </span>
+                                    <span class="flex items-center gap-1">
+                                        <span v-if="uploadProgress.phase !== 'prepare'" class="font-mono tabular-nums text-slate-300">{{ uploadProgress.pct || 0 }}%</span>
+                                        <button type="button" @click="cancelSandboxUpload()" title="Annuler l'import" aria-label="Annuler l'import"
+                                                class="p-0.5 rounded text-slate-500 hover:text-white hover:bg-white/5"><i class="ph ph-x text-sm"></i></button>
+                                    </span>
+                                </div>
+                                <div class="relative w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                                    <div v-if="uploadProgress.phase === 'prepare'" class="absolute inset-y-0 left-0 w-1/3 rounded-full bg-blue-500/60 animate-pulse"></div>
+                                    <div v-else class="absolute inset-y-0 left-0 right-0 rounded-full bg-blue-500 transition-transform duration-150"
+                                         :style="{ transformOrigin: 'left', transform: 'scaleX(' + ((uploadProgress.pct || 0) / 100) + ')' }"></div>
+                                </div>
+                                <div class="flex items-center justify-between text-[9px] text-slate-500 mt-1 font-mono">
+                                    <span class="truncate flex-1 mr-2" :title="uploadProgress.current_file">{{ uploadProgress.current_file || '...' }}</span>
+                                    <span v-if="uploadProgress.phase === 'prepare'" class="shrink-0 tabular-nums">{{ uploadProgress.total_files || 0 }}</span>
+                                    <span v-else class="shrink-0 tabular-nums">{{ uploadProgress.files_done || 0 }} / {{ uploadProgress.total_files || 0 }}</span>
+                                </div>
+                            </div>
+                            <!-- Sélecteur de vue de l'explorateur — UNE ligne : dropdown
+                                 Fichiers / Git (remplace l'ancienne barre à deux onglets).
+                                 Idiome dropdown local : backdrop fixed + panneau #1e1e1e
+                                 (cf. sélecteur de dépôt plus bas). Le badge de modifs Git
+                                 reste visible en vue Fichiers (clic = bascule directe). -->
+                            <div class="relative px-1.5 py-1 border-b border-white/5 shrink-0 flex items-center gap-1"
+                                 @keydown.escape.stop="showExplorerMenu=false">
+                                <button @click.stop="showExplorerMenu=!showExplorerMenu"
+                                        aria-haspopup="menu" :aria-expanded="showExplorerMenu ? 'true' : 'false'"
+                                        class="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5 transition text-left">
+                                    <i class="ph text-xs shrink-0" :class="explorerTab==='git' ? 'ph-git-branch text-orange-400' : (explorerTab==='history' ? 'ph-clock-counter-clockwise text-emerald-400' : 'ph-files text-blue-400')"></i>
+                                    <span class="text-xs font-semibold text-white truncate">{{ explorerTab==='git' ? 'Git' : (explorerTab==='history' ? 'Historique' : 'Fichiers') }}</span>
+                                    <i class="ph ph-caret-down text-[8px] text-slate-500 shrink-0 ml-auto"></i>
+                                </button>
+                                <button v-if="explorerTab!=='git' && gitStatus && gitStatus.is_repo && (gitStatus.modified.length + gitStatus.untracked.length + gitStatus.staged.length) > 0"
+                                        @click="gitOpenTab(); loadGitConnectors()"
+                                        :title="(gitStatus.modified.length + gitStatus.untracked.length + gitStatus.staged.length) + ' modification(s) — ouvrir la vue Git'"
+                                        class="bg-orange-500 hover:bg-orange-400 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center leading-none transition-colors shrink-0">{{ gitStatus.modified.length + gitStatus.untracked.length + gitStatus.staged.length }}</button>
+                                <template v-if="showExplorerMenu">
+                                    <div class="fixed inset-0 z-40" @click="showExplorerMenu=false"></div>
+                                    <div role="menu" aria-label="Vue de l'explorateur"
+                                         class="absolute left-1.5 right-1.5 top-full mt-1 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1">
+                                        <button role="menuitemradio" :aria-checked="explorerTab==='files' ? 'true' : 'false'"
+                                                @click="showExplorerMenu=false; explorerTab='files'"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+                                                :class="explorerTab==='files' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'">
+                                            <i class="ph ph-files text-xs"></i> <span class="flex-1">Fichiers</span>
+                                            <i v-if="explorerTab==='files'" class="ph ph-check text-[10px]"></i>
+                                        </button>
+                                        <button role="menuitemradio" :aria-checked="explorerTab==='git' ? 'true' : 'false'"
+                                                @click="showExplorerMenu=false; gitOpenTab(); loadGitConnectors()"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+                                                :class="explorerTab==='git' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'">
+                                            <i class="ph ph-git-branch text-xs text-orange-400"></i> <span class="flex-1">Git</span>
+                                            <span v-if="gitStatus && gitStatus.is_repo && (gitStatus.modified.length + gitStatus.untracked.length + gitStatus.staged.length) > 0"
+                                                  class="bg-orange-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center leading-none">{{ gitStatus.modified.length + gitStatus.untracked.length + gitStatus.staged.length }}</span>
+                                            <i v-else-if="explorerTab==='git'" class="ph ph-check text-[10px]"></i>
+                                        </button>
+                                        <button role="menuitemradio" :aria-checked="explorerTab==='history' ? 'true' : 'false'"
+                                                @click="showExplorerMenu=false; openHistoryPanel()"
+                                                class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+                                                :class="explorerTab==='history' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'">
+                                            <i class="ph ph-clock-counter-clockwise text-xs text-emerald-400"></i> <span class="flex-1">Historique</span>
+                                            <i v-if="explorerTab==='history'" class="ph ph-check text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                            <!-- === FILES CONTENT (v-show = DOM preserved) === -->
+                            <div v-show="explorerTab === 'files'" class="flex flex-col flex-1 min-h-0">
+                            <!-- Search bar + mode toggle -->
+                            <div class="px-2 pb-2 border-b border-white/5 space-y-1.5 shrink-0">
+                                <div class="relative">
+                                    <i class="ph ph-magnifying-glass text-[10px] text-slate-500 absolute left-2 top-1/2 -translate-y-1/2"></i>
+                                    <input id="elpis-file-search-input" v-model="sandboxSearch" placeholder="Rechercher..." type="search" autocomplete="off" data-1p-ignore data-lpignore="true" class="w-full bg-[#3c3c3c] text-white pl-6 pr-6 py-1 text-xs rounded outline-none border border-transparent focus:border-blue-500 transition-colors">
+                                    <button v-if="sandboxSearch" @click="sandboxSearch = ''" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white p-0.5 rounded hover:bg-white/10"><i class="ph ph-x text-[10px]"></i></button>
+                                </div>
+                                <!-- Options du mode Contenu : casse, regex, filtre de nom,
+                                     remplacement (aperçu d'abord). -->
+                                <div v-if="sandboxSearch && sandboxSearch.trim() && sandboxSearchMode === 'content'" class="flex items-center gap-1">
+                                    <button @click="searchCase = !searchCase" :aria-pressed="searchCase ? 'true' : 'false'" title="Respecter la casse"
+                                            class="h-5 px-1.5 rounded text-[10px] font-mono font-bold border transition-colors"
+                                            :class="searchCase ? 'bg-blue-600 border-blue-600 text-white' : 'border-white/10 text-slate-400 hover:text-white'">Aa</button>
+                                    <button @click="searchRegex = !searchRegex" :aria-pressed="searchRegex ? 'true' : 'false'" title="Expression régulière"
+                                            class="h-5 px-1.5 rounded text-[10px] font-mono font-bold border transition-colors"
+                                            :class="searchRegex ? 'bg-blue-600 border-blue-600 text-white' : 'border-white/10 text-slate-400 hover:text-white'">.*</button>
+                                    <input v-model="searchGlob" placeholder="*.py" aria-label="Filtrer par nom de fichier" title="Filtre de nom (ex. *.py)"
+                                           class="flex-1 min-w-0 h-5 bg-[#3c3c3c] text-white px-1.5 text-[10px] font-mono rounded outline-none border border-transparent focus:border-blue-500">
+                                    <button @click="showReplace = !showReplace" :aria-pressed="showReplace ? 'true' : 'false'" title="Remplacer dans les fichiers"
+                                            class="h-5 w-5 flex items-center justify-center rounded border transition-colors"
+                                            :class="showReplace ? 'bg-blue-600 border-blue-600 text-white' : 'border-white/10 text-slate-400 hover:text-white'"><i class="ph ph-swap text-[11px]"></i></button>
+                                </div>
+                                <div v-if="showReplace && sandboxSearch && sandboxSearch.trim() && sandboxSearchMode === 'content'" class="flex items-center gap-1">
+                                    <input v-model="replaceText" placeholder="Remplacer par…" aria-label="Texte de remplacement" @keydown.enter="previewReplace()"
+                                           class="flex-1 min-w-0 bg-[#3c3c3c] text-white px-2 py-1 text-xs rounded outline-none border border-transparent focus:border-blue-500">
+                                    <button @click="previewReplace()" :disabled="replaceBusy" title="Voir ce qui sera remplacé"
+                                            class="shrink-0 px-2 py-1 text-[10px] font-semibold rounded bg-white/10 text-slate-200 hover:bg-white/15 disabled:opacity-40">Aperçu</button>
+                                </div>
+                                <!-- Mode toggle: only visible when search is active -->
+                                <div v-if="sandboxSearch && sandboxSearch.trim()" class="flex rounded overflow-hidden border border-white/10 text-[10px] font-semibold">
+                                    <button @click="sandboxSearchMode = 'content'"
+                                            class="flex-1 py-0.5 transition-colors"
+                                            :class="sandboxSearchMode === 'content' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10'">
+                                        <i class="ph ph-file-text mr-1"></i>Contenu
+                                    </button>
+                                    <button @click="sandboxSearchMode = 'name'"
+                                            class="flex-1 py-0.5 transition-colors"
+                                            :class="sandboxSearchMode === 'name' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/10'">
+                                        <i class="ph ph-files mr-1"></i>Nom
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="flex-1 overflow-y-auto overflow-x-auto custom-scrollbar">
+                                <!-- Search results -->
+                                <template v-if="sandboxSearch && sandboxSearch.trim()">
+                                    <div v-if="isSearchingSandbox" class="px-3 py-3 text-center">
+                                        <i class="ph ph-spinner-gap animate-spin text-slate-500 text-sm"></i>
+                                    </div>
+                                    <template v-else-if="sandboxSearchMode === 'content' && replacePreview">
+                                        <!-- Aperçu du remplacement : un fichier par ligne, décochable ;
+                                             un onglet ouvert ET modifié est exclu (conflit). -->
+                                        <div class="px-2 py-1.5 flex items-center gap-2 border-b border-white/5 text-[10px] text-slate-400">
+                                            <span class="flex-1">{{ replaceSelectedCount }} occurrence(s) · {{ replacePreview.files.filter(f => f.on).length }} fichier(s)</span>
+                                            <button @click="replacePreview = null" class="text-slate-500 hover:text-white">Annuler</button>
+                                            <button @click="applyReplace()" :disabled="replaceBusy || !replaceSelectedCount"
+                                                    class="px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-semibold disabled:opacity-40">Remplacer</button>
+                                        </div>
+                                        <div v-for="f in replacePreview.files" :key="'rp:' + f.path" class="border-b border-white/[0.04]">
+                                            <label class="flex items-center gap-1.5 px-2 py-1 cursor-pointer" :title="f.dirty ? 'Onglet modifié non enregistré : exclu' : f.path">
+                                                <input type="checkbox" v-model="f.on" :disabled="f.dirty" class="accent-blue-500">
+                                                <span class="text-[10px] text-blue-400 font-mono truncate flex-1" :class="f.dirty ? 'line-through opacity-60' : ''">{{ f.path }}</span>
+                                                <span class="text-[9px] text-slate-500 font-mono shrink-0">{{ f.count }}</span>
+                                            </label>
+                                            <div v-for="smp in f.samples" :key="'rp:' + f.path + ':' + smp.line" class="pl-6 pr-2 pb-1 font-mono text-[10px] leading-relaxed">
+                                                <div class="truncate text-rose-300/80"><span class="text-slate-600 mr-1">{{ smp.line }}</span>− {{ smp.before }}</div>
+                                                <div class="truncate text-emerald-300/80"><span class="text-slate-600 mr-1">{{ smp.line }}</span>+ {{ smp.after }}</div>
+                                            </div>
+                                        </div>
+                                        <div v-if="replacePreview.truncated" class="px-3 py-2 text-center text-amber-300/80 text-[10px]">Recherche partielle — affinez le filtre</div>
+                                    </template>
+                                    <template v-else-if="sandboxSearchMode === 'content'">
+                                        <!-- Résultats groupés par fichier, occurrence surlignée -->
+                                        <div v-if="searchError" class="px-3 py-3 text-center text-rose-300 text-[11px]">{{ searchError }}</div>
+                                        <div v-else-if="!sandboxSearchResults.length" class="px-3 py-4 text-center text-slate-600 text-xs">Aucun résultat</div>
+                                        <div v-for="grp in searchResultGroups" :key="'sg:' + grp.path" class="border-b border-white/[0.04]">
+                                            <div class="flex items-center gap-1.5 px-2 pt-1.5 pb-0.5">
+                                                <i class="ph ph-file-code text-slate-500 text-[10px] shrink-0"></i>
+                                                <span class="text-[10px] text-blue-400 font-mono truncate flex-1" :title="grp.path">{{ grp.path }}</span>
+                                                <span class="text-[9px] text-slate-500 font-mono shrink-0">{{ grp.items.length }}</span>
+                                            </div>
+                                            <div v-for="item in grp.items" :key="item.path + ':' + item.line + ':' + item.col"
+                                                 @click="openFileAtLine(item.path, item.line, item.col)"
+                                                 class="pl-6 pr-2 py-0.5 hover:bg-white/5 cursor-pointer transition-colors group flex gap-1.5">
+                                                <span class="text-[9px] text-slate-600 font-mono shrink-0 w-7 text-right">{{ item.line }}</span>
+                                                <span class="text-[10px] text-slate-400 font-mono truncate leading-relaxed group-hover:text-slate-300">{{ item.pre }}<mark class="elpis-search-hit">{{ item.hit }}</mark>{{ item.post }}</span>
+                                            </div>
+                                        </div>
+                                        <div v-if="searchTruncated" class="px-3 py-2 text-center text-slate-600 text-[10px]">Résultats partiels -- affinez la recherche</div>
+                                    </template>
+                                    <template v-else>
+                                        <!-- Filename filter results -->
+                                        <div v-if="!sandboxSearchResults.length && !filteredFilesList.length" class="px-3 py-4 text-center text-slate-600 text-xs">Aucun résultat</div>
+                                        <ul class="space-y-0.5 px-1 mt-1">
+                                            <li v-for="item in (sandboxSearchResults.length ? sandboxSearchResults : filteredFilesList)" :key="item.path" class="select-none">
+                                                <div class="flex items-center gap-2 py-1 px-2 hover:bg-[rgba(255,255,255,0.08)] rounded-md cursor-pointer transition-colors" @click="item.type !== 'folder' && openFile(item.path)">
+                                                    <i class="ph text-sm shrink-0" :class="item.type === 'folder' ? 'ph-folder text-blue-400' : 'ph-file-code text-slate-400'"></i>
+                                                    <span class="text-xs text-slate-300 truncate flex-1 font-mono tracking-tight">{{ item.name }}</span>
+                                                    <span v-if="item.path !== item.name" class="text-[9px] text-slate-600 truncate max-w-[90px] font-mono" :title="item.path">{{ item.path }}</span>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </template>
+                                </template>
+                                <!-- Normal tree (no search active) -->
+                                <ul v-else role="tree" aria-label="Arborescence des fichiers" class="space-y-0.5 px-1 mt-1">
+                                    <!-- :key="item.path" (passe 3 2026-08-31) : clé par INDEX + isOpen local au composant = les plis/déplis se mélangeaient à chaque re-tri serveur (création, renommage, import, toggle fichiers cachés). --><tree-item v-for="item in sandboxFiles" :key="item.path" :item="item" @open-file="openFile" @download="downloadFile" @delete="deleteFile" @rename="renameItem" @context-menu="(e) => openContextMenu(e.event, e.item.type === 'folder' ? 'folder' : 'file', e.item)" @move-item="(e) => moveItem(e.oldPath, e.newParent)"></tree-item>
+                                </ul>
+                                <!-- Arborescence plafonnée côté serveur : on le DIT,
+                                     sinon l'utilisateur croit ses fichiers perdus. -->
+                                <div v-if="treeTruncated"
+                                     class="mx-2 my-1.5 px-2 py-1.5 rounded bg-amber-500/10 border border-amber-500/25 flex items-start gap-1.5"
+                                     :title="'Au-delà de ' + treeTruncated.max + ' entrées, l\'explorateur devient inutilisable dans le navigateur. Les fichiers non listés restent accessibles depuis le terminal et la recherche.'">
+                                    <i class="ph ph-warning text-amber-400 text-[11px] mt-px shrink-0"></i>
+                                    <span class="text-[10px] text-amber-200/90 leading-snug">Arborescence tronquée ({{ treeTruncated.max }} entrées max) — utilisez la recherche ou le terminal.</span>
+                                </div>
+                                <div v-show="explorerDragOver" class="mx-2 my-1.5 py-1.5 border border-dashed border-blue-400/40 rounded flex items-center justify-center gap-1 pointer-events-none">
+                                    <i class="ph ph-arrow-elbow-down-right text-blue-400/60 text-xs"></i>
+                                    <span class="text-[10px] text-blue-400/60 font-medium">Racine /</span>
+                                </div>
+                            </div>
+                            </div><!-- /files content wrapper -->
+
+                            <!-- === GIT PANEL (refonte passe 12 — "Source Control") === -->
+                            <!-- === HISTORIQUE DE LA SESSION (2026-09-23) ===
+                                 Original (état avant la 1re modification de la session) +
+                                 chaque version écrite depuis, quelle qu'en soit la source. -->
+                            <div v-if="explorerTab === 'history'" class="flex-1 flex flex-col min-h-0" data-history-panel>
+                                <div class="px-3 py-1.5 border-b border-white/5 flex items-center gap-2 shrink-0">
+                                    <span class="text-[11px] text-slate-400 flex-1 truncate"
+                                          :title="'Session ouverte à la connexion — ' + ((historySession && historySession.files.length) || 0) + ' fichier(s) modifié(s)'">
+                                        Session depuis {{ historySession && historySession.started ? historyTime(historySession.started) : '—' }}
+                                    </span>
+                                    <button @click="loadHistorySession()" :disabled="historyLoading" title="Actualiser" aria-label="Actualiser l'historique"
+                                            class="w-6 h-6 rounded text-slate-400 hover:text-white hover:bg-white/5 flex items-center justify-center disabled:opacity-40">
+                                        <i class="ph ph-arrows-clockwise text-xs" :class="historyLoading ? 'animate-spin' : ''"></i>
+                                    </button>
+                                </div>
+                                <div class="flex-1 overflow-y-auto custom-scrollbar py-1">
+                                    <p v-if="historySession && !historySession.files.length" class="px-3 py-4 text-xs text-slate-500">Aucune modification dans cette session</p>
+                                    <div v-for="f in (historySession ? historySession.files : [])" :key="f.path" class="text-xs">
+                                        <button @click="toggleHistoryFile(f.path)" :aria-expanded="historyEntries[f.path] ? 'true' : 'false'"
+                                                class="w-full flex items-center gap-1.5 px-2 py-1 hover:bg-white/5 text-left" :title="f.path">
+                                            <i class="ph text-[9px] text-slate-500 shrink-0" :class="historyEntries[f.path] ? 'ph-caret-down' : 'ph-caret-right'"></i>
+                                            <span class="truncate" :class="f.deleted ? 'text-slate-500 line-through' : 'text-slate-200'">{{ f.path.split('/').pop() }}</span>
+                                            <span class="truncate text-[10px] text-slate-500 min-w-0">{{ f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : '' }}</span>
+                                            <span v-if="!f.original_exists" class="text-[9px] text-emerald-400 shrink-0">nouveau</span>
+                                            <span class="ml-auto text-[10px] text-slate-500 shrink-0 tabular-nums">{{ f.versions }}</span>
+                                        </button>
+                                        <div v-if="historyEntries[f.path] === 'loading'" class="pl-6 py-1 text-[11px] text-slate-500">Chargement…</div>
+                                        <div v-else-if="historyEntries[f.path]" class="pl-4 pr-1 pb-1">
+                                            <div v-for="(v, i) in historyEntries[f.path].versions" :key="'v' + i"
+                                                 class="group flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-white/5">
+                                                <i class="ph text-[10px] shrink-0" :class="(v.source === 'assistant' || v.source === 'shell') ? 'ph-sparkle text-purple-400' : (v.source === 'restore' ? 'ph-arrow-counter-clockwise text-emerald-400' : 'ph-pencil-simple text-slate-400')"></i>
+                                                <span class="text-slate-300 truncate">{{ v.exists === false ? 'Supprimé' : (HISTORY_SOURCES[v.source] || v.source) }}</span>
+                                                <span v-if="i === 0" class="text-[9px] text-slate-500">actuel</span>
+                                                <span class="ml-auto text-[10px] text-slate-500 tabular-nums shrink-0">{{ historyTime(v.ts) }}</span>
+                                                <button v-if="v.exists !== false" @click="historyCompare(f.path, v)" title="Comparer à l'onglet" aria-label="Comparer cette version"
+                                                        class="opacity-0 group-hover:opacity-100 focus:opacity-100 w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center"><i class="ph ph-arrows-left-right text-[11px]"></i></button>
+                                                <button v-if="v.exists !== false" @click="historyRestore(f.path, v)" title="Restaurer cette version dans l'onglet" aria-label="Restaurer cette version"
+                                                        class="opacity-0 group-hover:opacity-100 focus:opacity-100 w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center"><i class="ph ph-arrow-counter-clockwise text-[11px]"></i></button>
+                                            </div>
+                                            <div class="group flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-white/5 border-t border-white/5 mt-0.5 pt-1">
+                                                <i class="ph ph-flag text-[10px] text-amber-400 shrink-0"></i>
+                                                <span class="text-slate-300">{{ historyEntries[f.path].original.exists ? 'Original' : 'Absent au départ' }}</span>
+                                                <span class="ml-auto text-[10px] text-slate-500 shrink-0">début</span>
+                                                <button v-if="historyEntries[f.path].original.exists" @click="historyCompare(f.path, historyEntries[f.path].original)" title="Comparer l'onglet à l'original" aria-label="Comparer à l'original"
+                                                        class="opacity-0 group-hover:opacity-100 focus:opacity-100 w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center"><i class="ph ph-arrows-left-right text-[11px]"></i></button>
+                                                <button v-if="historyEntries[f.path].original.exists" @click="historyRestore(f.path, historyEntries[f.path].original)" title="Restaurer l'original dans l'onglet" aria-label="Restaurer l'original"
+                                                        class="opacity-0 group-hover:opacity-100 focus:opacity-100 w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center"><i class="ph ph-arrow-counter-clockwise text-[11px]"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-if="explorerTab === 'git'" class="flex-1 flex flex-col min-h-0">
+                                <!-- No repos -->
+                                <div v-if="gitRepos.length === 0" class="flex-1 flex flex-col items-center justify-center px-4 space-y-3">
+                                    <i class="ph ph-git-branch text-3xl text-slate-600"></i>
+                                    <p class="text-xs text-slate-500">Aucun dépôt Git</p>
+                                    <button @click="showGitInitModal=true" class="w-full py-1.5 text-xs font-bold bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg transition flex items-center justify-center gap-1.5"><i class="ph ph-plus text-xs"></i> Initialiser</button>
+                                    <button @click="gitOpenCloneModal(); loadGitConnectors()" class="w-full py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition flex items-center justify-center gap-1.5"><i class="ph ph-download-simple text-xs"></i> Cloner</button>
+                                    <!-- Accès aux Connecteurs Git (tokens d'accès) — gérés dans Réglages, appliqués auto par host. -->
+                                    <button @click="openSettings(); settingsTab='connectors'; loadGitConnectors()" title="Tokens d'accès GitHub / GitLab / Gitea / Bitbucket — appliqués automatiquement au clone/push" class="w-full py-1.5 text-[11px] text-slate-400 hover:text-blue-400 transition flex items-center justify-center gap-1.5"><i class="ph ph-key text-xs"></i> Connecteurs Git<span v-if="gitConnectors && gitConnectors.length" class="text-slate-500"> · {{ gitConnectors.length }}</span></button>
+                                </div>
+                                <template v-if="gitRepos.length > 0">
+                                    <!-- Repo selector -->
+                                    <div class="px-2 py-1 border-b border-white/5 shrink-0">
+                                        <div class="relative">
+                                            <button @click.stop="showGitRepoMenu=!showGitRepoMenu" class="w-full flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5 transition text-left">
+                                                <i class="ph ph-folder-notch text-blue-400 text-xs shrink-0"></i>
+                                                <span class="text-[11px] text-slate-300 font-mono truncate flex-1">{{ gitCurrentRepo || '.' }}</span>
+                                                <i class="ph ph-caret-down text-[8px] text-slate-500 shrink-0"></i>
+                                            </button>
+                                            <template v-if="showGitRepoMenu">
+                                                <div class="fixed inset-0 z-40" @click="showGitRepoMenu=false"></div>
+                                                <div class="absolute left-0 right-0 top-full mt-1 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1 max-h-48 overflow-y-auto custom-scrollbar">
+                                                    <button v-for="rr in gitRepos" :key="rr.path" @click="gitSelectRepo(rr.path)" class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2" :class="rr.path===gitCurrentRepo?'text-blue-400 bg-blue-500/10':'text-slate-300 hover:bg-white/5'">
+                                                        <i class="ph ph-folder-notch text-[10px]" :class="rr.path===gitCurrentRepo?'text-blue-400':'text-slate-500'"></i>
+                                                        <span class="font-mono truncate flex-1">{{ rr.name }}</span>
+                                                        <span class="text-[9px] text-slate-600 font-mono">{{ rr.branch }}</span>
+                                                    </button>
+                                                    <div class="h-px bg-white/5 my-1"></div>
+                                                    <button @click="showGitRepoMenu=false; gitOpenCloneModal(); loadGitConnectors()" class="w-full text-left px-3 py-1.5 text-xs text-blue-400 hover:bg-white/5 flex items-center gap-2"><i class="ph ph-download-simple text-xs"></i> Cloner...</button>
+                                                    <button @click="showGitRepoMenu=false;showGitInitModal=true" class="w-full text-left px-3 py-1.5 text-xs text-orange-400 hover:bg-white/5 flex items-center gap-2"><i class="ph ph-plus text-xs"></i> Initialiser...</button>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <template v-if="gitStatus && gitStatus.is_repo">
+                                        <!-- ★ BARRE DE BRANCHE — branche + sync + actions -->
+                                        <div class="flex items-center gap-0.5 px-2 py-1.5 border-b border-white/5 shrink-0">
+                                            <div class="relative flex-1 min-w-0">
+                                                <button @click.stop="showGitBranchMenu=!showGitBranchMenu; if(showGitBranchMenu) gitLoadBranches()" class="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-white/5 transition text-left max-w-full w-full">
+                                                    <i class="ph ph-git-branch text-orange-400 text-sm shrink-0"></i>
+                                                    <span class="text-xs text-white font-mono truncate">{{ gitStatus.branch }}</span>
+                                                    <span v-if="gitStatus.ahead>0" class="text-[10px] text-green-400 font-mono shrink-0">↑{{ gitStatus.ahead }}</span>
+                                                    <span v-if="gitStatus.behind>0" class="text-[10px] text-yellow-400 font-mono shrink-0">↓{{ gitStatus.behind }}</span>
+                                                    <i class="ph ph-caret-down text-[8px] text-slate-500 shrink-0 ml-auto"></i>
+                                                </button>
+                                                <template v-if="showGitBranchMenu">
+                                                    <div class="fixed inset-0 z-40" @click="showGitBranchMenu=false"></div>
+                                                    <div class="absolute left-0 top-full mt-1 w-56 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto custom-scrollbar">
+                                                        <div class="px-2.5 py-1 text-xs font-semibold text-slate-500">Locales</div>
+                                                        <button v-for="b in gitBranches.local" :key="'l:'+b" @click="gitCheckout(b)" class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2" :class="b===gitBranches.current?'text-orange-400 bg-orange-500/10':'text-slate-300 hover:bg-white/5'"><i class="ph text-xs" :class="b===gitBranches.current?'ph-check-circle text-orange-400':'ph-git-branch text-slate-500'"></i><span class="truncate font-mono">{{ b }}</span></button>
+                                                        <template v-if="gitBranches.remote.length"><div class="h-px bg-white/5 my-1"></div><div class="px-2.5 py-1 text-xs font-semibold text-slate-500">Distantes</div>
+                                                            <button v-for="b in gitBranches.remote" :key="'r:'+b" @click="gitCheckout(b.replace('origin/', ''), false)" class="w-full text-left px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 flex items-center gap-2"><i class="ph ph-cloud text-xs text-slate-600"></i><span class="truncate font-mono">{{ b }}</span></button>
+                                                        </template>
+                                                        <div class="h-px bg-white/5 my-1"></div>
+                                                        <button @click="gitCreateBranch()" class="w-full text-left px-3 py-1.5 text-xs text-blue-400 hover:bg-white/5 flex items-center gap-2"><i class="ph ph-plus text-xs"></i> Nouvelle branche</button>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <button @click="gitRefresh(); gitLoadTree()" class="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded transition shrink-0" title="Actualiser"><i class="ph ph-arrow-clockwise text-sm" :class="gitLoading?'animate-spin':''"></i></button>
+                                            <button @click="gitPull(false)" class="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded transition shrink-0" title="Pull"><i class="ph ph-arrow-down text-sm"></i></button>
+                                            <button @click="gitPush(false)" class="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded transition shrink-0" title="Push"><i class="ph ph-arrow-up text-sm"></i></button>
+                                            <div class="relative shrink-0">
+                                                <button @click.stop="showGitMoreMenu=!showGitMoreMenu" class="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded transition" title="Plus d'actions"><i class="ph ph-dots-three text-base"></i></button>
+                                                <template v-if="showGitMoreMenu">
+                                                    <div class="fixed inset-0 z-40" @click="showGitMoreMenu=false"></div>
+                                                    <div class="absolute right-0 top-full mt-1 w-48 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1">
+                                                        <button @click="showGitMoreMenu=false;gitFetch()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-2.5"><i class="ph ph-cloud-arrow-down text-slate-500 text-sm"></i> Fetch</button>
+                                                        <button @click="showGitMoreMenu=false;gitPull(true)" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-2.5"><i class="ph ph-arrow-down text-slate-500 text-sm"></i> Pull (rebase)</button>
+                                                        <button @click="showGitMoreMenu=false;gitPush(true)" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-2.5"><i class="ph ph-arrow-fat-up text-yellow-500 text-sm"></i> Push (force)</button>
+                                                        <div class="h-px bg-white/5 my-1"></div>
+                                                        <button @click="gitPromptMerge()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-2.5"><i class="ph ph-git-merge text-slate-500 text-sm"></i> Merge</button>
+                                                        <button @click="gitPromptRebase()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-2.5"><i class="ph ph-git-pull-request text-slate-500 text-sm"></i> Rebase</button>
+                                                        <div class="h-px bg-white/5 my-1"></div>
+                                                        <button @click="showGitMoreMenu=false;gitStash('push')" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-2.5"><i class="ph ph-archive text-amber-400 text-sm"></i> Stash</button>
+                                                        <button @click="showGitMoreMenu=false;gitStash('pop')" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-2.5"><i class="ph ph-archive text-green-400 text-sm"></i> Stash Pop</button>
+                                                        <div class="h-px bg-white/5 my-1"></div>
+                                                        <button @click="showGitMoreMenu=false;showGitRemoteModal=true" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-2.5"><i class="ph ph-globe text-blue-400 text-sm"></i> Remote...</button>
+                                                        <button @click="showGitMoreMenu=false;gitSectionOpen.log=!gitSectionOpen.log; if(gitSectionOpen.log && !gitLog.length) gitLoadLog()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-2.5"><i class="ph ph-clock-counter-clockwise text-blue-400 text-sm"></i> Historique</button>
+                                                        <button @click="showGitMoreMenu=false;gitRevertLast()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-2.5"><i class="ph ph-arrow-counter-clockwise text-red-400 text-sm"></i> Annuler dernier commit</button>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+
+                                        <!-- ★ ZONE SCROLLABLE — commit + changements + sections -->
+                                        <div class="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                                            <!-- COMMIT ZONE -->
+                                            <div class="p-2.5 border-b border-white/5">
+                                                <div class="relative">
+                                                    <textarea v-model="gitCommitMsg" placeholder="Message de commit..." rows="2" class="w-full bg-[#3c3c3c] text-white text-xs rounded-md pl-2.5 pr-8 py-2 outline-none border border-transparent focus:border-orange-500 resize-none font-mono leading-relaxed" @keydown.ctrl.enter="gitCommit" @keydown.meta.enter="gitCommit"></textarea>
+                                                    <button @click="gitSuggestCommitMessage()" :disabled="gitCommitSuggesting || !gitStatus.staged.length"
+                                                            title="Proposer un message (IA, d'après les changements indexés)" aria-label="Proposer un message de commit"
+                                                            class="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-30">
+                                                        <i class="ph text-sm" :class="gitCommitSuggesting ? 'ph-spinner-gap animate-spin' : 'ph-sparkle'"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="flex gap-1.5 mt-1.5">
+                                                    <button @click="gitStage([])" class="px-3 py-1.5 text-[11px] font-bold bg-white/5 hover:bg-white/10 text-slate-300 rounded-md transition shrink-0">Tout indexer</button>
+                                                    <button @click="gitCommit" :disabled="!gitCommitMsg.trim()||gitStatus.staged.length===0" class="flex-1 py-1.5 text-[11px] font-bold rounded-md transition flex items-center justify-center gap-1.5" :class="gitCommitMsg.trim()&&gitStatus.staged.length>0?'bg-orange-600 hover:bg-orange-500 text-white':'bg-white/5 text-slate-600 cursor-not-allowed'"><i class="ph ph-check text-xs"></i> Commit ({{ gitStatus.staged.length }})</button>
+                                                </div>
+                                            </div>
+
+                                            <!-- CHANGEMENTS — groupes En conflit / Indexés / Modifiés / Non suivis -->
+                                            <div class="py-1">
+                                                <!-- En conflit (fusion) : résolution fichier par fichier -->
+                                                <template v-if="gitStatus.conflicted && gitStatus.conflicted.length">
+                                                    <div class="flex items-center gap-1.5 px-2.5 py-1.5">
+                                                        <span class="text-xs font-semibold text-rose-400 flex items-center gap-1"><i class="ph ph-warning-circle text-[11px]"></i> En conflit</span>
+                                                        <span class="text-[10px] text-slate-500 font-mono">{{ gitStatus.conflicted.length }}</span>
+                                                        <button @click="gitMergeAbort()" class="ml-auto text-[10px] text-slate-500 hover:text-white px-1 rounded hover:bg-white/5" title="Annuler la fusion">Annuler</button>
+                                                    </div>
+                                                    <div v-for="f in gitStatus.conflicted" :key="'c:'+f.path" class="group flex items-center gap-2 pl-3 pr-2 py-1 hover:bg-white/5 cursor-pointer border-l-2 border-rose-500 transition-colors" @click="gitOpenRepoFile(f.path)" :title="f.path">
+                                                        <i class="ph ph-file text-[12px] text-rose-400 shrink-0"></i>
+                                                        <span class="text-[12px] text-slate-200 truncate flex-1">{{ f.path.split('/').pop() }}</span>
+                                                        <button @click.stop="gitResolveFile('ours', f.path)" class="text-[10px] px-1 rounded text-slate-400 hover:text-white hover:bg-white/10" title="Garder la version de la branche courante">Mienne</button>
+                                                        <button @click.stop="gitResolveFile('theirs', f.path)" class="text-[10px] px-1 rounded text-slate-400 hover:text-white hover:bg-white/10" title="Prendre la version de la branche fusionnée">Leur</button>
+                                                    </div>
+                                                </template>
+                                                <!-- Indexés -->
+                                                <template v-if="gitStatus.staged.length">
+                                                    <div class="flex items-center gap-1.5 px-2.5 py-1.5">
+                                                        <span class="text-xs font-semibold text-green-400 flex items-center gap-1"><i class="ph ph-check-circle text-[11px]"></i> Indexés</span>
+                                                        <span class="text-[10px] text-slate-500 font-mono">{{ gitStatus.staged.length }}</span>
+                                                        <button @click="gitUnstage([])" class="ml-auto text-slate-500 hover:text-white p-0.5 rounded hover:bg-white/5 transition" title="Tout désindexer"><i class="ph ph-minus text-[11px]"></i></button>
+                                                    </div>
+                                                    <div v-for="f in gitStatus.staged" :key="'s:'+f.path" class="group flex items-center gap-2 pl-3 pr-2 py-1 hover:bg-white/5 cursor-pointer border-l-2 border-green-500 transition-colors" @click="gitOpenChange(f.path, f.status === 'A' ? 'U' : f.status)" :title="f.path + ' — voir le diff'">
+                                                        <i class="ph ph-file text-[12px] text-green-400 shrink-0"></i>
+                                                        <span class="text-[12px] text-slate-200 truncate flex-1">{{ f.path.split('/').pop() }}</span>
+                                                        <span v-if="f.add||f.del" class="text-[9px] font-mono shrink-0 flex gap-1"><span class="text-green-400">+{{ f.add }}</span><span class="text-red-400">-{{ f.del }}</span></span>
+                                                        <button @click.stop="gitUnstage([f.path])" class="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-slate-500 hover:text-white shrink-0 transition" title="Désindexer"><i class="ph ph-minus text-[11px]"></i></button>
+                                                    </div>
+                                                </template>
+                                                <!-- Modifiés -->
+                                                <template v-if="gitStatus.modified.length">
+                                                    <div class="flex items-center gap-1.5 px-2.5 py-1.5" :class="gitStatus.staged.length?'mt-1':''">
+                                                        <span class="text-xs font-semibold text-yellow-400 flex items-center gap-1"><i class="ph ph-pencil-simple text-[11px]"></i> Modifiés</span>
+                                                        <span class="text-[10px] text-slate-500 font-mono">{{ gitStatus.modified.length }}</span>
+                                                        <div class="ml-auto flex gap-0.5">
+                                                            <button @click="gitStage(gitStatus.modified.map(f=>f.path))" class="text-slate-500 hover:text-green-400 p-0.5 rounded hover:bg-white/5 transition" title="Tout indexer"><i class="ph ph-plus text-[11px]"></i></button>
+                                                            <button @click="gitDiscard(gitStatus.modified.map(f=>f.path))" class="text-slate-500 hover:text-red-400 p-0.5 rounded hover:bg-white/5 transition" title="Tout annuler"><i class="ph ph-arrow-counter-clockwise text-[11px]"></i></button>
+                                                        </div>
+                                                    </div>
+                                                    <div v-for="f in gitStatus.modified" :key="'m:'+f.path" class="group flex items-center gap-2 pl-3 pr-2 py-1 hover:bg-white/5 cursor-pointer border-l-2 border-yellow-500 transition-colors" @click="gitOpenChange(f.path, f.status)" :title="f.path + ' — voir le diff'">
+                                                        <i class="ph ph-file text-[12px] text-yellow-400 shrink-0"></i>
+                                                        <span class="text-[12px] text-slate-200 truncate flex-1">{{ f.path.split('/').pop() }}</span>
+                                                        <span v-if="f.add||f.del" class="text-[9px] font-mono shrink-0 flex gap-1"><span class="text-green-400">+{{ f.add }}</span><span class="text-red-400">-{{ f.del }}</span></span>
+                                                        <div class="flex opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 shrink-0 transition gap-0.5">
+                                                            <button @click.stop="gitStage([f.path])" class="text-slate-500 hover:text-green-400" title="Indexer"><i class="ph ph-plus text-[11px]"></i></button>
+                                                            <button @click.stop="gitDiscard([f.path])" class="text-slate-500 hover:text-red-400" title="Annuler"><i class="ph ph-arrow-counter-clockwise text-[11px]"></i></button>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                <!-- Non suivis -->
+                                                <template v-if="gitStatus.untracked.length">
+                                                    <div class="flex items-center gap-1.5 px-2.5 py-1.5" :class="(gitStatus.staged.length||gitStatus.modified.length)?'mt-1':''">
+                                                        <span class="text-xs font-semibold text-slate-400 flex items-center gap-1"><i class="ph ph-question text-[11px]"></i> Non suivis</span>
+                                                        <span class="text-[10px] text-slate-500 font-mono">{{ gitStatus.untracked.length }}</span>
+                                                        <button @click="gitStage(gitStatus.untracked.map(f=>f.path))" class="ml-auto text-slate-500 hover:text-green-400 p-0.5 rounded hover:bg-white/5 transition" title="Tout indexer"><i class="ph ph-plus text-[11px]"></i></button>
+                                                    </div>
+                                                    <div v-for="f in gitStatus.untracked" :key="'u:'+f.path" class="group flex items-center gap-2 pl-3 pr-2 py-1 hover:bg-white/5 cursor-pointer border-l-2 border-slate-600 transition-colors" @click="gitOpenRepoFile(f.path)" :title="f.path">
+                                                        <i class="ph ph-file text-[12px] text-slate-500 shrink-0"></i>
+                                                        <span class="text-[12px] text-slate-400 truncate flex-1">{{ f.path.split('/').pop() }}</span>
+                                                        <button @click.stop="gitStage([f.path])" class="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-slate-500 hover:text-green-400 shrink-0 transition" title="Indexer"><i class="ph ph-plus text-[11px]"></i></button>
+                                                    </div>
+                                                </template>
+                                                <!-- Empty state -->
+                                                <div v-if="gitStatus.staged.length===0&&gitStatus.modified.length===0&&gitStatus.untracked.length===0&&!(gitStatus.conflicted&&gitStatus.conflicted.length)" class="px-3 py-4 text-center text-[11px] text-slate-600 flex flex-col items-center gap-1.5">
+                                                    <i class="ph ph-check-circle text-2xl text-green-500/40"></i>
+                                                    Aucune modification
+                                                </div>
+                                            </div>
+
+                                            <!-- Commit diff file picker (shown when viewing a commit) -->
+                                            <div v-if="gitDiffData" class="border-t border-white/5 bg-blue-500/5">
+                                                <div class="flex items-center justify-between px-2.5 py-1.5">
+                                                    <span class="text-[10px] font-mono text-blue-400 font-bold truncate flex-1" :title="gitDiffData.message">{{ gitDiffData.hash.substring(0,8) }} — {{ gitDiffData.message }}</span>
+                                                    <div class="flex gap-1 shrink-0">
+                                                        <button @click="gitRestoreCommit(gitDiffData.hash)" class="text-[10px] text-amber-400 hover:text-amber-300 px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 transition font-bold" title="Restaurer"><i class="ph ph-clock-counter-clockwise"></i></button>
+                                                        <button @click="gitDiffData=null" class="text-slate-500 hover:text-white"><i class="ph ph-x text-xs"></i></button>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div v-for="cf in gitDiffData.files" :key="cf.path"
+                                                         @click="gitShowFileDiff(gitDiffData.hash, cf.path)"
+                                                         class="flex items-center gap-1.5 px-3 py-1 hover:bg-blue-500/10 cursor-pointer group text-[11px] transition">
+                                                        <span class="w-3 text-center text-[9px] font-bold shrink-0" :class="cf.status==='A'?'text-green-400':cf.status==='D'?'text-red-400':'text-yellow-400'">{{ cf.status }}</span>
+                                                        <span class="text-blue-300/80 font-mono truncate flex-1 group-hover:text-white">{{ cf.path }}</span>
+                                                        <i class="ph ph-arrows-left-right text-[9px] text-slate-600 group-hover:text-blue-400 shrink-0"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- SECTION : Arborescence du dépôt (repliable, repliée par défaut) -->
+                                            <div class="border-t border-white/5">
+                                                <button @click="gitSectionOpen.tree=!gitSectionOpen.tree; if(gitSectionOpen.tree && !gitTree.length) gitLoadTree()" class="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-white transition">
+                                                    <i class="ph text-[9px]" :class="gitSectionOpen.tree?'ph-caret-down':'ph-caret-right'"></i>
+                                                    <i class="ph ph-tree-structure text-[11px]"></i> Arborescence du dépôt
+                                                </button>
+                                                <div v-show="gitSectionOpen.tree" class="pb-1">
+                                                    <div v-if="!gitTree.length && !gitLoading" class="px-3 py-2 text-center text-[10px] text-slate-600">
+                                                        <button @click="gitLoadTree()" class="text-blue-400 hover:text-blue-300"><i class="ph ph-arrow-clockwise"></i> Charger</button>
+                                                    </div>
+                                                    <div v-else-if="gitLoading && !gitTree.length" class="px-3 py-2 text-center"><i class="ph ph-spinner-gap animate-spin text-slate-500"></i></div>
+                                                    <ul v-else role="tree" aria-label="Arborescence Git" class="space-y-0.5 px-1">
+                                                        <!-- :key="item.path" (passe 3) : l'onglet Git rafraîchit après CHAQUE enregistrement (_gitAutoRefresh) — clé par index = dossiers dépliés qui sautent à chaque Ctrl+S. --><tree-item v-for="item in gitTree" :key="item.path" :item="item"
+                                                            @open-file="openFile"
+                                                            @context-menu="(e) => openContextMenu(e.event, e.item.type === 'folder' ? 'folder' : 'file', e.item)"
+                                                            @download="downloadFile" @delete="deleteFile" @rename="renameItem"
+                                                            @move-item="(e) => moveItem(e.oldPath, e.newParent)"></tree-item>
+                                                    </ul>
+                                                </div>
+                                            </div>
+
+                                            <!-- SECTION : Historique (repliable) -->
+                                            <div v-if="gitSectionOpen.log" class="border-t border-white/5">
+                                                <div class="flex items-center justify-between px-2.5 py-1.5">
+                                                    <span class="text-xs font-semibold text-slate-400 flex items-center gap-1"><i class="ph ph-clock-counter-clockwise text-[11px]"></i> Historique</span>
+                                                    <div class="flex gap-1">
+                                                        <button @click="gitLoadLog()" class="text-slate-600 hover:text-white p-0.5 rounded hover:bg-white/5 transition" title="Actualiser"><i class="ph ph-arrow-clockwise text-[10px]"></i></button>
+                                                        <button @click="gitSectionOpen.log=false" class="text-slate-600 hover:text-white p-0.5 rounded hover:bg-white/5 transition" title="Fermer"><i class="ph ph-x text-xs"></i></button>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div v-for="c in gitLog" :key="c.hash"
+                                                         class="flex items-center gap-1.5 px-2.5 py-1 hover:bg-white/5 cursor-pointer group text-[11px] transition"
+                                                         :class="gitDiffData && gitDiffData.hash===c.hash ? 'bg-blue-500/10' : ''"
+                                                         @click="gitViewCommitDiff(c.hash)">
+                                                        <span class="font-mono shrink-0" :class="gitDiffData && gitDiffData.hash===c.hash ? 'text-blue-400' : 'text-blue-400/70 group-hover:text-blue-400'">{{ c.short }}</span>
+                                                        <span class="truncate flex-1" :class="gitDiffData && gitDiffData.hash===c.hash ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'">{{ c.message }}</span>
+                                                    </div>
+                                                    <div v-if="!gitLog.length" class="px-3 py-2 text-[10px] text-slate-600 text-center">Aucun commit</div>
+                                                </div>
+                                            </div>
+
+                                            <!-- SECTION : Authentification (repliable) -->
+                                            <div class="border-t border-white/5">
+                                                <button @click="gitSectionOpen.creds=!gitSectionOpen.creds" class="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-white transition">
+                                                    <i class="ph text-[9px]" :class="gitSectionOpen.creds?'ph-caret-down':'ph-caret-right'"></i>
+                                                    <i class="ph ph-key text-[11px]"></i> Authentification
+                                                    <i v-if="gitCredUser && gitCredToken" class="ph ph-check-circle text-green-400 text-[11px] ml-auto"></i>
+                                                </button>
+                                                <div v-show="gitSectionOpen.creds" class="px-2.5 pb-2 space-y-1.5">
+                                                    <input v-model="gitCredUser" placeholder="Utilisateur" class="w-full bg-[#3c3c3c] text-white text-xs px-2.5 py-1.5 rounded outline-none border border-transparent focus:border-blue-500 font-mono">
+                                                    <input v-model="gitCredToken" type="password" placeholder="Token / mot de passe" class="w-full bg-[#3c3c3c] text-white text-xs px-2.5 py-1.5 rounded outline-none border border-transparent focus:border-blue-500 font-mono">
+                                                </div>
+                                            </div>
+
+                                            <!-- Remote URL -->
+                                            <div v-if="gitStatus.remote_url" class="px-2.5 py-1.5 border-t border-white/5">
+                                                <div class="text-[10px] text-slate-600 font-mono truncate flex items-center gap-1" :title="gitStatus.remote_url"><i class="ph ph-globe text-[11px] shrink-0"></i> {{ gitStatus.remote_url }}</div>
+                                            </div>
+                                        </div>
+
+                                    </template>
+                                    <div v-else-if="gitLoading" class="flex-1 flex items-center justify-center"><i class="ph ph-spinner-gap animate-spin text-slate-500"></i></div>
+                                </template>
+                            </div>
+
+
+                        </div>
+                        <!-- Explorer resize handle -->
+                        <div v-show="showExplorer"
+                             @mousedown="explorerResizeStart" @touchstart.prevent="explorerResizeStart"
+                             class="w-1 hover:w-1.5 bg-transparent hover:bg-blue-500 cursor-col-resize flex-shrink-0 transition-colors relative group"
+                             title="Redimensionner l'explorateur">
+                            <div class="absolute inset-y-0 -left-1 -right-1"></div>
+                        </div>
+                        
+                        <div class="flex-1 flex flex-col bg-[#1e1e1e] min-w-0">
+                            <div class="flex-1 relative min-h-0">
+                                <div v-show="editorMode==='code'" class="w-full h-full flex overflow-hidden">
+                                  <!-- ═══ Panneau GAUCHE (éditeur principal + overlays) ═══ -->
+                                  <div class="relative h-full min-w-0"
+                                       :style="{ width: splitView ? ('calc(' + splitRatio + '% - 2px)') : '100%' }"
+                                       @mousedown="splitView && (activePane='left')"
+                                       :class="splitView && activePane==='left' ? 'elpis-pane-focus' : ''">
+                                    <div v-show="!activeTabPath" class="absolute inset-0 flex items-center justify-center text-slate-600 pointer-events-none select-none text-sm font-medium">Sélectionnez un fichier</div>
+                                    <div v-if="isTypingEffect && activeTabPath" class="absolute top-2 right-4 z-20 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow animate-pulse">ÉCRITURE...</div>
+                                    <div id="monaco-editor" class="editor-layer" :class="{'active': !isDiffView && !mdPreview && !svgPreview && !activeIsViewer}"></div>
+                                    <div id="monaco-diff-editor" class="editor-layer" :class="{'active': isDiffView && !mdPreview && !svgPreview && !activeIsViewer}"></div>
+
+                                    <!-- ═══════════ Image viewer (passe 11) ═══════════
+                                         Affiché à la place de Monaco quand l'onglet
+                                         actif est une image (png/jpg/gif/webp/bmp/ico).
+                                         Fond checkered pour les images avec alpha. -->
+                                    <div v-if="activeFileViewMode === 'image' && imageViewerPath" data-image-viewer
+                                         @wheel="onImageWheel"
+                                         class="absolute inset-0 z-10 overflow-auto custom-scrollbar flex p-6"
+                                         :class="imageZoom === 'fit' ? 'items-center justify-center' : ''"
+                                         style="background-image: linear-gradient(45deg, #2a2a2b 25%, transparent 25%), linear-gradient(-45deg, #2a2a2b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #2a2a2b 75%), linear-gradient(-45deg, transparent 75%, #2a2a2b 75%); background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0px; background-color: #1e1e1e;">
+                                        <img :src="imageViewerPath" :alt="activeTabPath" @load="onImageLoad"
+                                             class="max-w-full max-h-full shadow-2xl rounded m-auto" :style="imageStyle" style="image-rendering: -webkit-optimize-contrast;">
+                                    </div>
+                                    <!-- Zoom : Ctrl + molette, ou ces boutons. -->
+                                    <div v-if="activeFileViewMode === 'image' && imageViewerPath"
+                                         class="absolute bottom-3 right-3 z-20 flex items-center gap-0.5 rounded-lg bg-[#252526]/95 border border-white/10 shadow-lg px-1 py-0.5 text-[11px] text-slate-300">
+                                        <button @click="imageZoomBy(1 / 1.25)" class="w-6 h-6 rounded hover:bg-white/10 flex items-center justify-center" title="Dézoomer" aria-label="Dézoomer"><i class="ph ph-minus"></i></button>
+                                        <button @click="imageZoomSet(1)" class="min-w-[52px] h-6 px-1 rounded hover:bg-white/10 font-mono tabular-nums" title="Taille réelle (100 %)">{{ imageZoomLabel }}</button>
+                                        <button @click="imageZoomBy(1.25)" class="w-6 h-6 rounded hover:bg-white/10 flex items-center justify-center" title="Zoomer" aria-label="Zoomer"><i class="ph ph-plus"></i></button>
+                                        <button @click="imageZoomSet('fit')" class="w-6 h-6 rounded hover:bg-white/10 flex items-center justify-center" :class="imageZoom === 'fit' ? 'text-blue-300' : ''" title="Ajuster à la fenêtre" aria-label="Ajuster"><i class="ph ph-arrows-in"></i></button>
+                                    </div>
+
+                                    <!-- ═══════════ Hex viewer (passe 11) ═══════════
+                                         Affiché à la place de Monaco pour les fichiers
+                                         binaires (.bin/.exe/.so/etc). Premiers 4 KB
+                                         formattés offset / hex / ASCII (style hexdump). -->
+                                    <div v-if="activeFileViewMode === 'hex'"
+                                         class="absolute inset-0 z-10 bg-[#1e1e1e] overflow-auto custom-scrollbar p-3 font-mono text-[11.5px] leading-relaxed">
+                                        <div v-if="hexViewerLoading" class="flex items-center justify-center h-32">
+                                            <i class="ph ph-spinner-gap animate-spin text-slate-500 text-xl"></i>
+                                        </div>
+                                        <template v-else-if="hexViewerData && hexViewerData.path === activeTabPath">
+                                            <div class="text-[10px] text-slate-500 mb-2 px-1 flex items-center gap-2">
+                                                <i class="ph ph-binary"></i>
+                                                <span>Fichier binaire — {{ hexViewerData.size.toLocaleString('fr-FR') }} octets · affichage des 4 premiers Ko</span>
+                                            </div>
+                                            <div class="space-y-0.5">
+                                                <div v-for="(row, i) in hexViewerLines" :key="i"
+                                                     class="flex gap-4 text-slate-300 hover:bg-white/5 px-1 rounded">
+                                                    <span class="text-slate-500 shrink-0 select-none">{{ row.offset }}</span>
+                                                    <span class="text-amber-400 shrink-0 whitespace-pre">{{ row.hex }}</span>
+                                                    <span class="text-emerald-400 shrink-0 select-none">|{{ row.ascii }}|</span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <div v-else class="text-slate-500 text-center py-8">Aucun contenu</div>
+                                    </div>
+
+                                    <!-- ═══════════ Aperçu Office / PDF (2026-09-15) ═══════════
+                                         docx/pptx/xlsx convertis côté serveur, pdf servi
+                                         tel quel. Pages : visualiseur PDF NATIF du navigateur
+                                         (iframe v-if : démontée, sa mémoire est rendue).
+                                         xlsx : grille virtualisée (composant office-grid).
+                                         Cf. docs/editor-office-preview-design-2026-09-15.md -->
+                                    <div v-if="activeTabPath && activeFileViewMode === 'office' && officeActive"
+                                         class="absolute inset-0 z-10 flex flex-col bg-[#1e1e1e]" role="region" aria-label="Aperçu du document">
+                                        <div class="h-8 shrink-0 flex items-center gap-2 px-2 border-b border-white/10 bg-[#252526]">
+                                            <i class="ph text-sm shrink-0"
+                                               :class="{ docx: 'ph-file-doc text-blue-400', pptx: 'ph-file-ppt text-orange-400', xlsx: 'ph-file-xls text-emerald-400', pdf: 'ph-file-pdf text-rose-400' }[officeActive.kind]"></i>
+                                            <div v-if="officeActive.kind === 'xlsx'" class="flex items-center rounded bg-black/20 p-0.5" role="group" aria-label="Vue">
+                                                <button @click="officeSetView('grid')" :aria-pressed="officeActive.view === 'grid' ? 'true' : 'false'"
+                                                        class="h-6 px-2 rounded text-[11px] flex items-center gap-1"
+                                                        :class="officeActive.view === 'grid' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-200'"
+                                                        title="Valeurs des cellules"><i class="ph ph-table text-xs"></i>Grille</button>
+                                                <button @click="officeSetView('pages')" :aria-pressed="officeActive.view === 'pages' ? 'true' : 'false'"
+                                                        class="h-6 px-2 rounded text-[11px] flex items-center gap-1"
+                                                        :class="officeActive.view === 'pages' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-200'"
+                                                        title="Mise en page d'impression, graphiques compris"><i class="ph ph-file-text text-xs"></i>Pages</button>
+                                            </div>
+                                            <span v-if="officeActive.status === 'ready' && officeActive.pages && officeActive.pages.truncated"
+                                                  class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300"
+                                                  :title="'Aperçu limité aux ' + officeActive.pages.count + ' premières pages'">Tronqué</span>
+                                            <!-- Document lourd : les premières
+                                                 pages sont affichées pendant que
+                                                 le reste se convertit (l'aperçu
+                                                 se complète tout seul). -->
+                                            <span v-if="officeActive.status === 'ready' && officeActive.pages && officeActive.pages.partial"
+                                                  class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300"
+                                                  :title="'Premières pages affichées — le document complet se prépare'">Début</span>
+                                            <div class="flex-1"></div>
+                                            <button @click="officeReload()" :disabled="officeActive.status === 'loading'"
+                                                    class="w-7 h-7 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-40"
+                                                    title="Recharger l'aperçu" aria-label="Recharger l'aperçu"><i class="ph ph-arrows-clockwise text-sm"></i></button>
+                                            <button @click="downloadFile(activeTabPath)"
+                                                    class="w-7 h-7 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5"
+                                                    title="Télécharger l'original" aria-label="Télécharger l'original"><i class="ph ph-download-simple text-sm"></i></button>
+                                        </div>
+                                        <div class="flex-1 min-h-0 relative">
+                                            <div v-if="officeActive.status === 'loading'" class="absolute inset-0 flex items-center justify-center" aria-live="polite">
+                                                <div v-if="officeActive.spin" class="flex items-center gap-2 text-xs text-slate-400">
+                                                    <i class="ph ph-spinner-gap animate-spin text-base"></i>
+                                                    <span>{{ officeActive.kind === 'pdf' ? 'Chargement…' : 'Conversion…' }} {{ Math.max(0, Math.floor((officeNow - officeActive.startedAt) / 1000)) }} s</span>
+                                                </div>
+                                            </div>
+                                            <div v-else-if="officeActive.status === 'error'" class="absolute inset-0 flex flex-col items-center justify-center gap-3" role="alert">
+                                                <div class="flex items-center gap-2 text-sm text-slate-300">
+                                                    <i class="ph ph-warning-circle text-amber-400 text-lg"></i>
+                                                    <span :title="officeActive.error.message">{{ officeActive.error.message }}</span>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <button @click="officeReload()" class="h-7 px-3 rounded text-xs bg-blue-600 hover:bg-blue-500 text-white">Réessayer</button>
+                                                    <button @click="downloadFile(activeTabPath)" class="h-7 px-3 rounded text-xs text-slate-300 hover:bg-white/5 border border-white/10">Télécharger</button>
+                                                    <button v-if="officeActive.kind === 'docx' && officeActive.error.code === 'soffice_missing'" @click="officeUseText()"
+                                                            class="h-7 px-3 rounded text-xs text-slate-300 hover:bg-white/5 border border-white/10" title="Texte brut extrait du document">Texte</button>
+                                                </div>
+                                            </div>
+                                            <template v-else-if="officeActive.status === 'ready'">
+                                                <iframe v-if="officeActive.view === 'pages' && officeActive.pdfUrl"
+                                                        :key="officeActive.pdfUrl + ':' + officeActive.reloadSeq"
+                                                        :src="officeActive.pdfUrl + (officeActive.kind === 'pptx' ? '#view=Fit' : '#view=FitH')"
+                                                        title="Pages" class="absolute inset-0 w-full h-full border-0 bg-[#525659]"></iframe>
+                                                <office-grid v-else-if="officeActive.view === 'grid' && officeActive.grid"
+                                                             :key="activeTabPath + ':' + officeActive.key + ':' + officeActive.reloadSeq"
+                                                             :doc-key="officeActive.key"
+                                                             :sheets="officeActive.grid.sheets"
+                                                             :chunk-size="officeActive.grid.chunk"
+                                                             :fetch-chunk="officeFetchChunk"></office-grid>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <!-- ═══════════ Read-only indicator (passe 11) ═══════════
+                                         Banner discret pour les fichiers .docx ouverts
+                                         (texte extrait, save désactivé pour préserver
+                                         le binaire original). -->
+                                    <div v-if="activeTabPath && activeFileViewMode === 'docx'"
+                                         class="absolute top-2 left-1/2 -translate-x-1/2 z-20 bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5 backdrop-blur-sm">
+                                        <i class="ph ph-lock text-xs"></i> Lecture seule (.docx)
+                                    </div>
+                                    <!-- (2026-09-19) Les aperçus Markdown / SVG s'affichent À CÔTÉ du
+                                         code, en direct (panneau droit, mode « render »). -->
+                                    <!-- FIM loading indicator -->
+                                    <div v-if="fimLoading" class="absolute top-2 right-4 z-20 bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-lg flex items-center gap-1.5 animate-pulse">
+                                        <i class="ph ph-spinner-gap animate-spin text-xs"></i> Complétion...
+                                    </div>
+                                  </div><!-- /Panneau GAUCHE -->
+
+                                  <!-- ═══ Diviseur redimensionnable (vue scindée) ═══ -->
+                                  <div v-show="splitView" @mousedown="splitResizeStart" @touchstart.prevent="splitResizeStart"
+                                       class="w-1 hover:w-1.5 bg-slate-700 hover:bg-blue-500 cursor-col-resize shrink-0 z-30 transition-colors relative group"
+                                       title="Redimensionner les panneaux">
+                                    <div class="absolute inset-y-0 -left-1 -right-1"></div>
+                                  </div>
+
+                                  <!-- ═══ Panneau DROIT ═══
+                                       splitMode='code'    → 2e éditeur Monaco
+                                       splitMode='preview' → rendu web de la page,
+                                                             à côté de son code.
+                                       Le 2e Monaco reste MONTÉ dans les deux cas
+                                       (v-show, pas v-if) : le détruire/recréer
+                                       coûterait un re-init Monaco à chaque bascule
+                                       et ferait perdre l'état de la vue. -->
+                                  <div v-show="splitView" class="relative h-full min-w-0 flex flex-col bg-[#1e1e1e]"
+                                       :style="{ width: 'calc(' + (100 - splitRatio) + '% - 2px)' }"
+                                       @mousedown="splitMode==='code' && (activePane='right')"
+                                       :class="splitMode==='code' && activePane==='right' ? 'elpis-pane-focus' : ''">
+
+                                    <!-- En-tête : 2e éditeur -->
+                                    <div v-if="splitMode==='code'" class="h-6 shrink-0 bg-[#252526] border-b border-black/20 flex items-center gap-2 px-2 text-[11px] text-slate-400 select-none">
+                                        <i class="ph ph-columns text-[10px] text-blue-400 shrink-0"></i>
+                                        <span class="truncate font-mono flex-1" :title="splitTabPath">{{ splitTabPath ? splitTabPath.split('/').pop() : 'Cliquez un onglet →' }}</span>
+                                        <button @click="exitSplit" title="Fermer la vue scindée" class="hover:text-white shrink-0 w-4 h-4 flex items-center justify-center"><i class="ph ph-x text-[11px]"></i></button>
+                                    </div>
+
+                                    <!-- En-tête : aperçu Markdown / SVG en direct -->
+                                    <div v-else-if="splitMode==='render'" class="h-6 shrink-0 bg-[#252526] border-b border-black/20 flex items-center gap-2 px-2 text-[11px] text-slate-400 select-none">
+                                        <i class="ph ph-eye text-[10px] text-blue-400 shrink-0"></i>
+                                        <span class="truncate flex-1">{{ renderPaneKind === 'md' ? 'Aperçu Markdown' : (renderPaneKind === 'svg' ? 'Aperçu SVG' : 'Aperçu') }}</span>
+                                        <button @click="exitSplit" title="Fermer l'aperçu" class="hover:text-white shrink-0 w-4 h-4 flex items-center justify-center"><i class="ph ph-x text-[11px]"></i></button>
+                                    </div>
+
+                                    <!-- En-tête : aperçu (source, cible, live, recharger) -->
+                                    <div v-else class="h-7 shrink-0 bg-[#252526] border-b border-black/20 flex items-center gap-1.5 px-2 text-[11px] text-slate-400 select-none">
+                                        <div class="flex items-center bg-black/25 rounded p-0.5 shrink-0">
+                                            <button @click="previewSource='file'" title="Fichier de la sandbox (statique)"
+                                                    :aria-pressed="previewSource==='file'"
+                                                    class="px-1.5 py-0.5 rounded text-[10px] font-bold transition"
+                                                    :class="previewSource==='file' ? 'bg-blue-500/20 text-blue-300' : 'text-slate-500 hover:text-slate-300'">
+                                                <i class="ph ph-file-html"></i>
+                                            </button>
+                                            <button @click="previewSource='server'" title="Serveur qui tourne dans la sandbox (localhost:port)"
+                                                    :aria-pressed="previewSource==='server'"
+                                                    class="px-1.5 py-0.5 rounded text-[10px] font-bold transition"
+                                                    :class="previewSource==='server' ? 'bg-blue-500/20 text-blue-300' : 'text-slate-500 hover:text-slate-300'">
+                                                <i class="ph ph-hard-drives"></i>
+                                            </button>
+                                        </div>
+                                        <template v-if="previewSource==='file'">
+                                            <input v-model="previewPath" aria-label="Chemin du fichier à prévisualiser"
+                                                   placeholder="index.html"
+                                                   class="bg-black/25 rounded px-1.5 py-0.5 border-none outline-none flex-1 min-w-0 font-mono text-[10.5px] text-slate-300 focus:ring-1 focus:ring-blue-500/50">
+                                        </template>
+                                        <template v-else>
+                                            <!-- Même champ libre que l'onglet « Web » : port nu,
+                                                 hôte:port/chemin, ou URL complète collée. -->
+                                            <input v-model="previewServerUrl"
+                                                   aria-label="Adresse du serveur dans la sandbox"
+                                                   placeholder="localhost:8080/"
+                                                   @keydown.enter="commitPreviewServerUrl"
+                                                   @blur="commitPreviewServerUrl"
+                                                   class="bg-black/25 rounded px-1.5 py-0.5 border-none outline-none flex-1 min-w-0 font-mono text-[10.5px] text-slate-300 focus:ring-1 focus:ring-blue-500/50">
+                                            <span v-if="previewServerHostWarn" class="shrink-0 text-amber-400 text-[10px]"
+                                                  :title="'L’aperçu passe toujours par votre sandbox : l’hôte « ' + previewServerHostWarn + ' » a été ignoré, seuls le port et le chemin sont utilisés.'">
+                                                <i class="ph ph-warning"></i>
+                                            </span>
+                                        </template>
+                                        <!-- Live : enregistre le buffer puis recharge pendant la frappe.
+                                             Désactivé en mode serveur (c'est le serveur qui décide). -->
+                                        <button v-if="previewSource==='file'" @click="togglePreviewLive()"
+                                                :aria-pressed="previewLive"
+                                                :title="previewLive ? 'Live activé — enregistre et recharge pendant la frappe' : 'Live : enregistrer et recharger pendant la frappe'"
+                                                class="px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 flex items-center gap-1 transition"
+                                                :class="previewLive ? 'bg-emerald-500/20 text-emerald-300' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'">
+                                            <i class="ph" :class="previewLive ? 'ph-broadcast' : 'ph-pause'"></i> Live
+                                        </button>
+                                        <button @click="reloadPreview()" title="Recharger l'aperçu"
+                                                class="shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-white/5 hover:text-white"><i class="ph ph-arrow-clockwise text-[11px]"></i></button>
+                                        <button @click="openPreviewInNewTab()" title="Ouvrir dans un onglet du navigateur"
+                                                class="shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-white/5 hover:text-white"><i class="ph ph-arrow-square-out text-[11px]"></i></button>
+                                        <button @click="exitSplit" title="Fermer l'aperçu"
+                                                class="shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-white/5 hover:text-white"><i class="ph ph-x text-[11px]"></i></button>
+                                    </div>
+
+                                    <div class="flex-1 relative min-h-0">
+                                        <!-- 2e éditeur -->
+                                        <div v-show="splitMode==='code'" class="absolute inset-0">
+                                            <div id="monaco-editor-2" class="absolute inset-0"></div>
+                                            <div v-show="!splitTabPath" class="absolute inset-0 flex items-center justify-center text-slate-600 text-sm pointer-events-none select-none">Cliquez un onglet pour l'ouvrir ici</div>
+                                        </div>
+                                        <!-- Aperçu Markdown / SVG du fichier ACTIF, mis à jour pendant la frappe. -->
+                                        <div v-if="splitView && splitMode==='render'" class="absolute inset-0 overflow-auto custom-scrollbar"
+                                             :class="renderPaneKind === 'md' ? 'bg-white' : ''">
+                                            <div v-if="renderPaneKind === 'md'" class="markdown-body max-w-3xl mx-auto px-6 py-5" v-html="renderMarkdown(renderPaneSource)"></div>
+                                            <div v-else-if="renderPaneKind === 'svg'" class="min-h-full flex items-center justify-center p-6 elpis-svg-checker">
+                                                <div class="elpis-svg-preview-wrap" v-html="renderSvgSafe(renderPaneSource)"></div>
+                                            </div>
+                                            <div v-else class="absolute inset-0 flex items-center justify-center text-slate-500 text-xs">Aperçu disponible pour Markdown et SVG</div>
+                                        </div>
+                                        <!-- Rendu web — v-if (et pas v-show) : une iframe
+                                             cachée resterait montée et CHARGERAIT quand même
+                                             l'URL d'aperçu à chaque ouverture de l'éditeur. -->
+                                        <div v-if="splitView && splitMode==='preview'" class="absolute inset-0 bg-white">
+                                            <div v-if="previewSource==='file' && !previewPath"
+                                                 class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+                                                <i class="ph ph-browser text-3xl mb-2"></i>
+                                                <p class="text-xs">Indiquez un fichier .html</p>
+                                            </div>
+                                            <!-- Contenu de la sandbox = non fiable → iframe TOUJOURS
+                                                 sandboxée, fichier comme serveur (en plus du CSP `sandbox`
+                                                 posé par le serveur ; identité par jeton d'URL). -->
+                                            <iframe v-else :key="previewKey" :src="previewSrc"
+                                                    sandbox="allow-scripts allow-forms allow-popups allow-modals"
+                                                    title="Aperçu de la page"
+                                                    class="w-full h-full border-none bg-white"></iframe>
+                                        </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <!-- Editor AI Context Menu (right-click) -->
+                                <template v-if="editorCtxMenu.show">
+                                    <!-- Backdrop -->
+                                    <div class="fixed inset-0 z-[499]" @mousedown.prevent @click="closeEditorCtxMenu()" @contextmenu.prevent="closeEditorCtxMenu()"></div>
+                                    <!-- Panel -- @mousedown.stop.prevent is critical: prevents Monaco's
+                                         capture-phase listeners from stealing the event before Vue fires -->
+                                    <div class="fixed z-[500] w-64 bg-[#1e1e1e] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden select-none"
+                                         :style="{ top: editorCtxMenu.y + 'px', left: editorCtxMenu.x + 'px' }"
+                                         @mousedown.stop.prevent @click.stop>
+
+                                        <!-- Header: context info -->
+                                        <div class="px-3 py-2 bg-[#252526] border-b border-white/[0.06] flex items-center gap-2">
+                                            <i class="ph text-sm" :class="editorCtxMenu.hasSelection ? 'ph-text-select text-blue-400' : 'ph-cursor-text text-slate-500'"></i>
+                                            <span class="text-[11px] text-slate-400 font-medium truncate">
+                                                {{ editorCtxMenu.hasSelection
+                                                    ? editorCtxMenu.lineCount + ' ligne' + (editorCtxMenu.lineCount > 1 ? 's' : '') + ' sélectionnée' + (editorCtxMenu.lineCount > 1 ? 's' : '')
+                                                    : 'Position curseur' }}
+                                            </span>
+                                        </div>
+
+                                        <!-- -- Group 1: Actions IA -- -->
+                                        <div class="py-1 border-b border-white/[0.06]">
+                                            <p class="px-3 pt-1.5 pb-0.5 text-xs text-slate-500 font-semibold">Actions IA</p>
+                                            <button @mousedown.stop.prevent="editorCtxComplete()" :disabled="fimLoading"
+                                                class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer disabled:opacity-40">
+                                                <i class="ph text-base" :class="fimLoading ? 'ph-spinner-gap animate-spin text-slate-400' : 'ph-brain text-slate-400'"></i>
+                                                <span class="text-[13px] text-slate-200">{{ fimLoading ? 'En cours...' : 'Compléter ici' }}</span>
+                                                <kbd class="ml-auto text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">Alt+\</kbd>
+                                            </button>
+                                            <template v-if="editorCtxMenu.hasSelection">
+                                                <button @mousedown.stop.prevent="editorCtxRunAI('explain')"
+                                                    class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                    <i class="ph ph-question text-blue-400 text-base shrink-0"></i>
+                                                    <span class="text-[13px] text-slate-300">Expliquer ce code</span>
+                                                </button>
+                                                <button @mousedown.stop.prevent="editorCtxRunAI('comment')"
+                                                    class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                    <i class="ph ph-chat-dots text-sky-400 text-base shrink-0"></i>
+                                                    <span class="text-[13px] text-slate-300">Commenter (IA)</span>
+                                                </button>
+                                                <button @mousedown.stop.prevent="editorCtxRunAI('refactor')"
+                                                    class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                    <i class="ph ph-arrows-clockwise text-slate-400 text-base shrink-0"></i>
+                                                    <span class="text-[13px] text-slate-300">Refactoriser</span>
+                                                </button>
+                                                <button @mousedown.stop.prevent="editorCtxRunAI('bugs')"
+                                                    class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                    <i class="ph ph-bug text-red-400 text-base shrink-0"></i>
+                                                    <span class="text-[13px] text-slate-300">Chercher des bugs</span>
+                                                </button>
+                                                <button @mousedown.stop.prevent="editorCtxRunAI('optimize')"
+                                                    class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                    <i class="ph ph-lightning text-yellow-400 text-base shrink-0"></i>
+                                                    <span class="text-[13px] text-slate-300">Optimiser</span>
+                                                </button>
+                                                <button @mousedown.stop.prevent="editorCtxRunAI('docstring')"
+                                                    class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                    <i class="ph ph-note-pencil text-green-400 text-base shrink-0"></i>
+                                                    <span class="text-[13px] text-slate-300">Ajouter docstring</span>
+                                                </button>
+                                                <button @mousedown.stop.prevent="editorCtxRunAI('tests')"
+                                                    class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                    <i class="ph ph-test-tube text-slate-400 text-base shrink-0"></i>
+                                                    <span class="text-[13px] text-slate-300">Générer des tests</span>
+                                                </button>
+                                            </template>
+                                        </div>
+
+                                        <!-- -- Group 2: Chat et exécution -- -->
+                                        <div class="py-1 border-b border-white/[0.06]">
+                                            <button v-if="editorCtxMenu.hasSelection" @mousedown.stop.prevent="askChatAboutSelection()"
+                                                class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                <i class="ph ph-chat-circle-text text-blue-400 text-base shrink-0"></i>
+                                                <span class="text-[13px] text-slate-200">Demander au chat</span>
+                                            </button>
+                                            <button v-if="canRunActive()" @mousedown.stop.prevent="runActiveFile()"
+                                                class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                <i class="ph ph-play text-emerald-400 text-base shrink-0"></i>
+                                                <span class="text-[13px] text-slate-300">Exécuter le fichier</span>
+                                            </button>
+                                        </div>
+
+                                        <!-- -- Group 3: Edition -- -->
+                                        <div class="py-1 border-b border-white/[0.06]">
+                                            <p class="px-3 pt-1.5 pb-0.5 text-xs text-slate-500 font-semibold">Édition</p>
+                                            <button @mousedown.stop.prevent="editorCtxToggleComment()"
+                                                class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                <i class="ph ph-hash text-slate-400 text-base shrink-0"></i>
+                                                <span class="text-[13px] text-slate-300">Commenter / Décommenter</span>
+                                                <kbd class="ml-auto text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">Ctrl+/</kbd>
+                                            </button>
+                                            <button @mousedown.stop.prevent="editorCtxFormatDoc()"
+                                                class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                <i class="ph ph-magic-wand text-slate-400 text-base shrink-0"></i>
+                                                <span class="text-[13px] text-slate-300">Formater le document</span>
+                                                <kbd class="ml-auto text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">⇧Alt+F</kbd>
+                                            </button>
+                                            <button v-if="editorCtxMenu.hasSelection" @mousedown.stop.prevent="editorCtxCopy()"
+                                                class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                <i class="ph ph-copy text-slate-400 text-base shrink-0"></i>
+                                                <span class="text-[13px] text-slate-300">Copier la sélection</span>
+                                                <kbd class="ml-auto text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">Ctrl+C</kbd>
+                                            </button>
+                                        </div>
+
+                                        <!-- -- Group 4: Navigation -- -->
+                                        <div class="py-1">
+                                            <p class="px-3 pt-1.5 pb-0.5 text-xs text-slate-500 font-semibold">Navigation</p>
+                                            <button @mousedown.stop.prevent="editorCtxGoToDef()"
+                                                class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                <i class="ph ph-arrow-square-out text-slate-400 text-base shrink-0"></i>
+                                                <span class="text-[13px] text-slate-300">Aller à la définition</span>
+                                                <kbd class="ml-auto text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">F12</kbd>
+                                            </button>
+                                            <button @mousedown.stop.prevent="editorCtxFindRefs()"
+                                                class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                <i class="ph ph-magnifying-glass text-slate-400 text-base shrink-0"></i>
+                                                <span class="text-[13px] text-slate-300">Trouver les références</span>
+                                                <kbd class="ml-auto text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">⇧F12</kbd>
+                                            </button>
+                                            <button @mousedown.stop.prevent="editorCtxRename()"
+                                                class="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer">
+                                                <i class="ph ph-pencil-simple text-slate-400 text-base shrink-0"></i>
+                                                <span class="text-[13px] text-slate-300">Renommer le symbole</span>
+                                                <kbd class="ml-auto text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">F2</kbd>
+                                            </button>
+                                        </div>
+
+                                    </div>
+                                </template>
+
+                                <div v-if="editorMode==='preview'" class="w-full h-full bg-white relative">
+                                    <div v-if="previewSource==='file' && !previewPath" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-50"><i class="ph ph-browser text-4xl mb-2"></i><p class="text-sm">Aucun fichier</p></div>
+                                    <!-- Mode serveur : contenu du conteneur = non-fiable → iframe
+                                         sandboxée (en plus du CSP `sandbox` posé par le proxy). -->
+                                    <iframe v-else :key="previewKey" :src="previewSrc"
+                                            sandbox="allow-scripts allow-forms allow-popups allow-modals"
+                                            class="w-full h-full border-none bg-white"></iframe>
+                                </div>
+                            </div>
+                            <!-- Terminal panel (multi-session, VS-Code-style) -->
+                            <div v-show="showTerminal" class="flex flex-col bg-[#1e1e1e] shrink-0 relative rounded-tr-lg overflow-hidden" :style="{ height: terminalHeight + 'px' }">
+                                <!-- Overlay : init container Docker en cours -->
+                                <Transition name="modal">
+                                    <div v-if="terminalInitOverlay.visible"
+                                         class="absolute inset-0 z-30 bg-[#1e1e1e]/95 backdrop-blur-sm flex items-center justify-center p-6">
+                                        <div class="max-w-md w-full">
+                                            <div class="flex items-center gap-3 mb-4">
+                                                <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center shrink-0">
+                                                    <div v-if="!terminalInitOverlay.error" class="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                                                    <i v-else class="ph ph-warning-circle text-red-400 text-xl"></i>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="text-sm font-bold text-slate-100">{{ terminalInitOverlay.label || 'Démarrage…' }}</div>
+                                                    <div v-if="!terminalInitOverlay.error" class="text-[11px] text-slate-400">Préparation de l'environnement d'exécution…</div>
+                                                    <div v-else class="text-[11px] text-red-300 mt-0.5">Le terminal nécessite un container Docker démarré.</div>
+                                                </div>
+                                                <div class="text-2xl font-bold text-blue-400 tabular-nums shrink-0">{{ Math.round(terminalInitOverlay.progress) }}%</div>
+                                            </div>
+                                            <div class="h-1.5 bg-[#252526] rounded-full overflow-hidden border border-white/5">
+                                                <div :class="['h-full w-full transition-transform duration-500 ease-out rounded-full',
+                                                              terminalInitOverlay.error ? 'bg-red-500' : 'bg-blue-500']"
+                                                     :style="{ transformOrigin: 'left', transform: 'scaleX(' + (terminalInitOverlay.progress / 100) + ')' }"></div>
+                                            </div>
+                                            <div v-if="terminalInitOverlay.error" class="mt-3 text-[11px] font-mono bg-red-500/10 border border-red-500/30 text-red-200 rounded-lg p-2 max-h-32 overflow-y-auto whitespace-pre-wrap">{{ terminalInitOverlay.error }}</div>
+                                            <div v-if="terminalInitOverlay.error" class="mt-3 flex justify-end">
+                                                <button @click="dismissTerminalInitOverlay"
+                                                        class="px-3 py-1.5 text-[11px] rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-slate-200">
+                                                    Fermer
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Transition>
+                                <div class="h-1 bg-[#252526] cursor-ns-resize hover:bg-blue-500/40 transition-colors shrink-0 group flex items-center justify-center"
+                                     @mousedown="terminalResizeStart" @touchstart="terminalResizeStart">
+                                    <div class="w-8 h-0.5 rounded-full bg-slate-600 group-hover:bg-blue-400 transition-colors"></div>
+                                </div>
+                                <!-- ───────── Barre d'onglets du terminal ─────────
+                                     Onglets style navigateur : l'actif fusionne avec la
+                                     surface du terminal (rayons inversés en CSS, cf.
+                                     « ONGLETS DU PANNEAU TERMINAL » dans style.css).
+                                     Chaque onglet porte une pastille d'ÉTAT DE CONNEXION —
+                                     sans elle, un onglet dont le shell est mort (les lignes
+                                     de session vivent 7 jours) était indiscernable d'un
+                                     shell vivant. -->
+                                <div class="term-tabstrip flex items-end shrink-0 min-h-[30px] pt-1">
+                                    <div class="flex items-end gap-0.5 flex-1 min-w-0 overflow-x-auto no-scrollbar px-2">
+                                        <i class="ph ph-terminal-window text-green-400 text-xs shrink-0 mr-1 mb-1.5"></i>
+                                        <!-- Session tabs -->
+                                        <div v-for="s in termSessions" :key="s.id"
+                                             @click="termSwitchTo(s.id)"
+                                             @dblclick="termStartRename(s.id)"
+                                             class="term-tab"
+                                             :class="{ 'is-active': termActiveSid === s.id }"
+                                             :title="termSessionTitle(s.id)">
+                                            <template v-if="termRenamingSid === s.id">
+                                                <input type="text"
+                                                       v-model="termRenameValue"
+                                                       :data-term-rename-sid="s.id"
+                                                       @click.stop
+                                                       @keydown.enter.prevent="termCommitRename"
+                                                       @keydown.esc.prevent="termCancelRename"
+                                                       @blur="termCommitRename"
+                                                       maxlength="64"
+                                                       class="bg-[#111] text-white px-1 py-0 border border-blue-400/60 rounded text-[11.5px] w-28 focus:outline-none" />
+                                            </template>
+                                            <template v-else>
+                                                <span class="term-tab-dot"
+                                                      :class="'is-' + termSessionState(s.id)"></span>
+                                                <span class="truncate">{{ s.name }}</span>
+                                                <button v-if="termMultiSession"
+                                                        @click.stop="termCloseSession(s.id)"
+                                                        class="term-tab-close"
+                                                        title="Fermer ce terminal">
+                                                    <i class="ph ph-x text-[10px]"></i>
+                                                </button>
+                                            </template>
+                                        </div>
+                                        <!-- Add new terminal -->
+                                        <button v-if="termMultiSession"
+                                                @click="termNewSession"
+                                                :disabled="termSessions.length >= termMaxSessions"
+                                                class="flex items-center justify-center w-6 h-6 rounded-md hover:bg-white/10 text-slate-400 hover:text-white shrink-0 disabled:opacity-30 disabled:cursor-not-allowed transition-colors ml-1 mb-0.5"
+                                                :title="termSessions.length >= termMaxSessions
+                                                    ? 'Limite atteinte : ' + termSessions.length + '/' + termMaxSessions + ' terminaux. Fermez-en un (✕) pour en ouvrir un autre.'
+                                                    : 'Nouveau terminal (' + termSessions.length + '/' + termMaxSessions + ')'">
+                                            <i class="ph ph-plus text-xs"></i>
+                                        </button>
+                                        <!-- Compteur explicite : l'utilisateur ne découvrait
+                                             la limite qu'au moment du refus. -->
+                                        <span v-if="termMultiSession && termSessions.length >= termMaxSessions - 1"
+                                              class="text-[9px] font-mono text-slate-500 shrink-0 ml-1 mb-1.5 tabular-nums"
+                                              :class="termSessions.length >= termMaxSessions ? 'text-amber-400/80' : ''"
+                                              :title="'Limite de ' + termMaxSessions + ' terminaux simultanés par utilisateur'">{{ termSessions.length }}/{{ termMaxSessions }}</span>
+                                    </div>
+                                    <button @click="toggleTerminal"
+                                            class="text-slate-500 hover:text-white px-2 mb-1 rounded hover:bg-white/10 transition-colors shrink-0"
+                                            title="Masquer le panneau">
+                                        <i class="ph ph-x text-xs"></i>
+                                    </button>
+                                </div>
+                                <!-- Pane area: one container per session, only the active one visible -->
+                                <div class="flex-1 min-h-0 relative">
+                                    <div v-for="s in termSessions" :key="s.id"
+                                         :data-term-sid="s.id"
+                                         v-show="termActiveSid === s.id"
+                                         class="absolute inset-0 overflow-hidden"></div>
+                                </div>
+                            </div>
+
+                            <!-- ───────── Status bar ──────────────────────────────
+                                 Bandeau bas (~22px). Affiche position curseur,
+                                 nombre de lignes, langage, indentation. Visible
+                                 uniquement quand un fichier est ouvert. Placé
+                                 EN DERNIER enfant du right panel (flex-col),
+                                 pour qu'il colle bien en bas. -->
+                            <div v-if="activeTabPath"
+                                 class="elpis-statusbar shrink-0 h-6 flex items-center px-3 gap-3 text-[10px] font-mono select-none whitespace-nowrap overflow-hidden"
+                                 :class="settings.editor_dark_mode === false
+                                    ? 'bg-slate-50 text-slate-600 border-t border-slate-200'
+                                    : 'bg-[#252526] text-slate-400 border-t border-white/5'">
+                                <template v-if="activeIsViewer">
+                                    <span><i class="ph ph-lock-simple mr-1"></i>Lecture seule</span>
+                                </template>
+                                <template v-else>
+                                <!-- Branche : largeur plancher, jamais écrasée à zéro quand
+                                     la barre est étroite (éditeur à côté du chat). -->
+                                <button v-if="statusBranch" @click="gitOpenTab(); loadGitConnectors()" :title="'Branche Git ' + statusBranch + ' — ouvrir la vue Git'"
+                                        class="flex items-center gap-1 hover:text-white transition-colors shrink min-w-[48px] max-w-[140px]">
+                                    <i class="ph ph-git-branch shrink-0"></i><span class="truncate">{{ statusBranch }}</span>
+                                </button>
+                                <span class="shrink-0" :title="'Position du curseur — ' + statusLineCount + ' lignes'">
+                                    <i class="ph ph-cursor-text mr-1"></i>Ln {{ statusCursor.line }}, Col {{ statusCursor.col }}<span v-if="statusSelection" class="ml-1 text-slate-500 elpis-sb-opt">({{ statusSelection }})</span>
+                                </span>
+                                <!-- Problèmes (lint, analyse) : clic = liste, clic sur une ligne = y aller -->
+                                <span class="relative shrink-0">
+                                    <button @click="showProblems = !showProblems" :disabled="!activeProblems.length"
+                                            :title="activeProblems.length ? 'Problèmes du fichier' : 'Aucun problème'"
+                                            class="flex items-center gap-1.5 hover:text-white transition-colors disabled:hover:text-inherit">
+                                        <span class="flex items-center gap-0.5" :class="problemCounts.errors ? 'text-rose-400' : ''"><i class="ph ph-x-circle"></i>{{ problemCounts.errors }}</span>
+                                        <span class="flex items-center gap-0.5" :class="problemCounts.warnings ? 'text-amber-400' : ''"><i class="ph ph-warning"></i>{{ problemCounts.warnings }}</span>
+                                    </button>
+                                    <template v-if="showProblems && activeProblems.length">
+                                        <div class="fixed inset-0 z-40" @click="showProblems = false"></div>
+                                        <div role="listbox" aria-label="Problèmes"
+                                             class="fixed bottom-8 z-50 w-[420px] max-w-[70vw] max-h-64 overflow-y-auto custom-scrollbar bg-[#252526] border border-white/10 rounded-lg shadow-2xl py-1 font-sans whitespace-normal">
+                                            <button v-for="(pb, i) in activeProblems" :key="i" role="option" @click="goToProblem(pb)"
+                                                    class="w-full text-left px-3 py-1 flex items-start gap-2 text-[11px] text-slate-300 hover:bg-white/5">
+                                                <i class="ph shrink-0 mt-0.5" :class="pb.sev === 'error' ? 'ph-x-circle text-rose-400' : 'ph-warning text-amber-400'"></i>
+                                                <span class="flex-1 min-w-0 break-words">{{ pb.message }}</span>
+                                                <span class="shrink-0 text-slate-500 font-mono">{{ pb.line }}:{{ pb.col }}</span>
+                                            </button>
+                                        </div>
+                                    </template>
+                                </span>
+                                <span class="shrink-0 uppercase elpis-sb-opt" :title="'Langage : ' + statusLanguage">{{ statusLanguage }}</span>
+                                <span class="shrink-0 elpis-sb-opt" title="Indentation du fichier">{{ statusIndent }}</span>
+                                <span class="shrink-0 elpis-sb-opt2" :title="statusEolMixed ? 'Fins de ligne mixtes sur le disque, unifiées à l\'enregistrement — clic : convertir' : 'Encodage · fin de ligne — clic : convertir LF/CRLF'">{{ statusEncoding }} · <button type="button" @click="toggleEol" class="hover:underline">{{ statusEol }}<span v-if="statusEolMixed"> (mixtes)</span></button></span>
+                                <span class="ml-auto shrink-0" v-if="dirtyTabs.has(activeTabPath)"><i class="ph ph-circle-fill text-amber-500"></i> non sauvegardé</span>
+                                <span class="ml-auto shrink-0" v-else><i class="ph ph-check-circle text-emerald-500"></i> sauvegardé</span>
+                                </template>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═════════════════════ Quick Open palette (Ctrl+P) ═════════════════════
+                 Modal flottante centrée. Recherche fuzzy dans tous les fichiers
+                 de la sandbox. Esc pour fermer, ↑/↓ pour naviguer, Entrée pour
+                 ouvrir. Pas de backend call — la liste des fichiers vient du
+                 sandboxFiles déjà chargé en mémoire. -->
+            <div v-if="quickOpenVisible"
+                 class="fixed inset-0 z-[1000] flex items-start justify-center pt-24 px-4"
+                 @click.self="closeQuickOpen">
+                <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
+                <div class="relative w-full max-w-xl bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
+                    <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-200">
+                        <i class="ph ph-magnifying-glass text-slate-400"></i>
+                        <input id="elpis-quickopen-input"
+                               v-model="quickOpenQuery"
+                               @keydown="quickOpenKeyDown"
+                               type="text"
+                               placeholder="Ouvrir un fichier... (tapez quelques lettres du nom)"
+                               class="flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none"
+                               autocomplete="off">
+                        <kbd class="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">Esc</kbd>
+                    </div>
+                    <div class="max-h-80 overflow-y-auto custom-scrollbar">
+                        <div v-if="quickOpenResults.length === 0" class="px-4 py-6 text-center text-xs text-slate-400">
+                            <i class="ph ph-file-x text-2xl block mb-1"></i>
+                            Aucun fichier ne correspond
+                        </div>
+                        <div v-for="(p, i) in quickOpenResults" :key="p"
+                             @click="quickOpenSelect(p)"
+                             @mouseenter="quickOpenSelectedIdx = i"
+                             class="flex items-center gap-2 px-4 py-1.5 cursor-pointer text-xs transition-colors"
+                             :class="i === quickOpenSelectedIdx ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'">
+                            <i class="ph ph-file text-slate-400 shrink-0"></i>
+                            <span class="font-medium truncate">{{ p.split('/').pop() }}</span>
+                            <span class="text-slate-400 truncate flex-1 ml-2" v-if="p.includes('/')">{{ p.substring(0, p.lastIndexOf('/')) }}</span>
+                            <span v-else class="flex-1"></span>
+                            <span v-if="quickOpenRecent.has(p)" class="shrink-0 text-[10px] text-slate-400">récent</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between px-4 py-2 border-t border-slate-200 text-[10px] text-slate-400 bg-slate-50">
+                        <span><kbd class="bg-white px-1.5 py-0.5 rounded border border-slate-200">↑↓</kbd> naviguer • <kbd class="bg-white px-1.5 py-0.5 rounded border border-slate-200">Entrée</kbd> ouvrir</span>
+                        <span>{{ quickOpenResults.length }} résultat{{ quickOpenResults.length > 1 ? 's' : '' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═════════════════════ Tab context menu (clic droit) ═══════════════════
+                 Menu contextuel sur clic droit d'un onglet. Position floquée à
+                 la souris (clampée à la viewport dans openTabCtxMenu). Fermé sur
+                 click extérieur ou Esc.
+            -->
+            <div v-if="tabCtxMenu.show"
+                 class="fixed inset-0 z-[999]"
+                 @click="closeTabCtxMenu"
+                 @contextmenu.prevent="closeTabCtxMenu">
+                <div class="absolute min-w-[200px] bg-white border border-slate-200 rounded-md shadow-lg py-1 text-[12px]"
+                     :style="{ left: tabCtxMenu.x + 'px', top: tabCtxMenu.y + 'px' }"
+                     @click.stop>
+                    <button @click="closeTab(tabCtxMenu.path); closeTabCtxMenu()"
+                            class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                        <i class="ph ph-x text-slate-400"></i>Fermer
+                    </button>
+                    <button @click="closeOtherTabs(tabCtxMenu.path)"
+                            :disabled="openTabs.length <= 1"
+                            class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-slate-700 disabled:text-slate-300 disabled:hover:bg-transparent flex items-center gap-2">
+                        <i class="ph ph-x-circle text-slate-400"></i>Fermer les autres
+                    </button>
+                    <button @click="closeTabsToRight(tabCtxMenu.path)"
+                            class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                        <i class="ph ph-arrow-right text-slate-400"></i>Fermer ceux à droite
+                    </button>
+                    <button @click="closeAllTabs()"
+                            class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                        <i class="ph ph-x-square text-slate-400"></i>Tout fermer
+                    </button>
+                    <div v-if="!officeIsViewerPath(tabCtxMenu.path)" class="h-px bg-slate-200 my-1"></div>
+                    <button v-if="!officeIsViewerPath(tabCtxMenu.path)" @click="openInSplit(tabCtxMenu.path)"
+                            class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                        <i class="ph ph-columns text-slate-400"></i>Ouvrir à droite (vue scindée)
+                    </button>
+                    <button @click="copyTabPath(tabCtxMenu.path)"
+                            class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                        <i class="ph ph-copy text-slate-400"></i>Copier le chemin
+                    </button>
+                    <button @click="revealActiveInTree(tabCtxMenu.path)"
+                            class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                        <i class="ph ph-crosshair text-slate-400"></i>Localiser<kbd class="ml-auto text-[10px] text-slate-400 font-mono">Alt+L</kbd>
+                    </button>
+                    <button @click="togglePinTab(tabCtxMenu.path)"
+                            class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                        <i class="ph ph-push-pin text-slate-400"></i>{{ (openTabs.find(t => t.path === tabCtxMenu.path) || {}).pinned ? 'Désépingler' : 'Épingler' }}
+                    </button>
+                    <button v-if="!officeIsViewerPath(tabCtxMenu.path)" @click="attachToChat(tabCtxMenu.path)"
+                            class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                        <i class="ph ph-paperclip text-slate-400"></i>Joindre au chat
+                    </button>
+                    <div class="h-px bg-slate-200 my-1"></div>
+                    <button @click="saveAllTabs()" :disabled="!dirtyTabs.size"
+                            class="w-full text-left px-3 py-1.5 hover:bg-slate-100 text-slate-700 disabled:text-slate-300 disabled:hover:bg-transparent flex items-center gap-2">
+                        <i class="ph ph-floppy-disk-back text-slate-400"></i>Tout enregistrer<kbd class="ml-auto text-[10px] text-slate-400 font-mono">Ctrl+Alt+S</kbd>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ═════════════════════ Shortcuts help modal (Ctrl+/) ═══════════════════
+                 Modale flottante listant tous les raccourcis clavier de l'éditeur,
+                 groupés par catégorie. Construite à partir du tableau statique
+                 shortcutGroups défini dans app-editor.js. Esc pour fermer.
+            -->
+            <div v-if="shortcutsModalVisible"
+                 class="fixed inset-0 z-[1001] flex items-center justify-center px-4"
+                 @click.self="closeShortcutsModal"
+                 @keydown.esc="closeShortcutsModal">
+                <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
+                <div class="relative w-full max-w-2xl bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+                    <!-- Header -->
+                    <div class="flex items-center gap-3 px-5 py-3 border-b border-slate-200 shrink-0">
+                        <i class="ph ph-keyboard text-blue-500 text-lg"></i>
+                        <h3 class="text-sm font-bold text-slate-800 flex-1">Raccourcis clavier</h3>
+                        <kbd class="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">Esc</kbd>
+                        <button @click="closeShortcutsModal" class="text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded p-1 transition-colors">
+                            <i class="ph ph-x text-sm"></i>
+                        </button>
+                    </div>
+                    <!-- Body : grid 2 colonnes des catégories -->
+                    <div class="flex-1 overflow-y-auto custom-scrollbar px-5 py-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                            <div v-for="group in shortcutGroups" :key="group.title">
+                                <h4 class="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
+                                    <i class="ph text-xs" :class="{
+                                        'Navigation': 'ph-compass',
+                                        'Édition': 'ph-pencil',
+                                        'Affichage': 'ph-monitor',
+                                        'Onglets': 'ph-tabs',
+                                        'Arbre': 'ph-tree-structure',
+                                    }[group.title] || 'ph-circle-fill'"></i>
+                                    {{ group.title }}
+                                </h4>
+                                <ul class="space-y-1.5">
+                                    <li v-for="item in group.items" :key="item.desc"
+                                        class="flex items-center justify-between gap-3 text-[12px]">
+                                        <span class="text-slate-700 truncate">
+                                            {{ item.desc }}
+                                            <em v-if="item.note" class="text-[10px] text-slate-400 not-italic ml-1">({{ item.note }})</em>
+                                        </span>
+                                        <span class="shrink-0 flex items-center gap-1">
+                                            <template v-for="(k, ki) in item.keys" :key="ki">
+                                                <kbd class="text-[10px] font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 shadow-sm">{{ k }}</kbd>
+                                                <span v-if="ki < item.keys.length - 1" class="text-[10px] text-slate-400">+</span>
+                                            </template>
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Footer -->
+                    <div class="px-5 py-2 border-t border-slate-200 bg-slate-50 text-[10px] text-slate-500 shrink-0">
+                        Astuce : <kbd class="bg-white px-1.5 py-0.5 rounded border border-slate-200">Ctrl</kbd> + <kbd class="bg-white px-1.5 py-0.5 rounded border border-slate-200">/</kbd> rouvre cette aide à tout moment.
+                    </div>
+                </div>
+            </div>

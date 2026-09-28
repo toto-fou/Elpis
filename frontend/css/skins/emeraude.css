@@ -1,0 +1,187 @@
+/* ============================================================================
+ *  Skin « Émeraude »
+ * ----------------------------------------------------------------------------
+ *  Thème sombre gris/noir façon assistant conversationnel classique : fond
+ *  ardoise (#343541), sidebar plus sombre (#202123), lignes assistant
+ *  (#444654), texte clair, et un ACCENT VERT ÉMERAUDE (#10a37f) — bulle
+ *  utilisateur verte, bouton envoyer vert, avatar/accents verts.
+ *
+ *  Tout est scopé sous ``body.elpis-skin-emeraude`` → inerte tant que la
+ *  classe n'est pas posée (cf. _applyAppSkin, app-settings.js). Skin SOMBRE par
+ *  nature : ses blocs « clair » ET « sombre » sont gris/noir (sélectionner le
+ *  skin donne le look gris/noir+vert quel que soit le toggle mode sombre ;
+ *  ce dernier ne fait qu'approfondir un peu).
+ *  Offline-safe : police système. Aucune police téléchargée.
+ * ========================================================================== */
+
+/* ───────────────────────────── TOKENS (gris/noir + vert) ────────────────── */
+body.elpis-skin-emeraude {
+    --em-bg:        #343541;          /* fond chat ardoise */
+    --em-sidebar:   #202123;          /* sidebar sombre */
+    --em-row:       #3e3f4b;          /* surfaces secondaires */
+    --em-row-2:     #444654;          /* lignes assistant / panneaux */
+    --em-row-3:     #515260;
+    --em-ink:       #ececf1;          /* texte clair */
+    --em-ink-2:     #d1d5db;
+    --em-muted:     #b6b8c2;          /* éclairci (AA : ex-#9a9ba6, 3.4:1 sur --em-row-2) */
+    --em-border:    rgba(255,255,255,0.12);
+    --em-border-2:  rgba(255,255,255,0.18);
+    --em-green:     #10a37f;          /* vert émeraude (accent produit) */
+    --em-green-2:   #1a7f64;          /* vert foncé (hover) */
+    --em-green-3:   #19c37d;          /* vert clair (logo) */
+    --em-green-fg:  #ffffff;
+
+    /* Danger — skin SOMBRE par nature (fond ardoise) : famille rouge CLAIRE
+       (le rouge foncé de :root serait illisible sur #444654). Une seule
+       déclaration couvre le mode clair ET sombre du skin. */
+    --danger-surface:     rgba(248, 113, 113, 0.12);
+    --danger-border:      rgba(248, 113, 113, 0.34);
+    --danger-border-soft: rgba(248, 113, 113, 0.20);
+    --danger-text:        #fca5a5;
+    --danger-strong:      #fecaca;
+    --danger-icon-bg:     rgba(248, 113, 113, 0.16);
+    --danger-icon-fg:     #f87171;
+
+    --radius:    0.75rem;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 6px);
+
+    --app-bg:    var(--em-bg);
+    --surface:   var(--em-row);
+    --surface-2: var(--em-row-2);
+    --surface-3: var(--em-row);
+    --surface-4: var(--em-row-3);
+    --surface-5: #5d5e6c;
+    --border:            var(--em-border);
+    --border-soft:       rgba(255,255,255,0.07);
+    --table-cell-border: rgba(255,255,255,0.08);
+    --text-900: var(--em-ink);
+    --text-800: var(--em-ink);
+    --text-700: var(--em-ink-2);
+    --text-600: #b6b8c2;
+    --text-500: var(--em-muted);
+    --text-400: #a9aab5;              /* AA 4.5:1 sur --surface (ex-#7c7d88, 2.6:1) */
+    --text-max: #ffffff;
+    --prose-body:       var(--em-ink-2);
+    --prose-heading:    var(--em-ink);
+    --prose-strong:     #ffffff;
+    --prose-link:       var(--em-green-3);
+    --prose-link-hover: #54e0a8;
+    --code-inline-bg:     #2a2b33;
+    --code-inline-fg:     var(--em-green-3);
+    --code-inline-border: rgba(255,255,255,0.08);
+    --scrollbar-thumb:        rgba(255,255,255,0.15);
+    --scrollbar-thumb-hover:  rgba(255,255,255,0.25);
+    --scrollbar-thumb-custom: rgba(255,255,255,0.12);
+
+    /* ── Famille ACCENT (correctif skins) : le bridge de style.css re-mappe
+       les utilitaires bleus sur ces tokens → TOUTES les nuances (rings,
+       chips, bordures, focus…) passent au vert émeraude, plus seulement
+       les 9 sélecteurs historiques. Les familles --ok/--warn héritent du
+       bloc ``elpis-dark-surface`` (skin darkBase) : claire-sur-sombre. */
+    /* ⚠ Les surfaces d'accent PORTENT du texte blanc : #10a37f n'y donne
+       que 3,2:1 (sous AA). --em-green-2 (#1a7f64) donne 4,9:1 dans la même
+       famille. Le vert produit reste sur --accent-500 et la décoration. */
+    --accent:             var(--em-green-2);
+    --accent-strong:      #14664f;
+    --accent-500:         var(--em-green-3);
+    --accent-400:         #54e0a8;
+    --accent-300:         #7ce8bd;
+    --accent-fg:          var(--em-green-fg);
+    --accent-text:        var(--em-green-3);
+    --accent-text-strong: #54e0a8;
+    --accent-surface:     rgba(16, 163, 127, 0.14);
+    --accent-surface-2:   rgba(16, 163, 127, 0.20);
+    --accent-border:      rgba(16, 163, 127, 0.40);
+    --accent-ring:        var(--em-green);
+
+    /* ── Rail (sidebar) — tokens, remplace la pile de sélecteurs. */
+    --rail-bg:           var(--em-sidebar);
+    --rail-bg-2:         var(--em-sidebar);
+    --rail-border:       rgba(255,255,255,0.08);
+    --rail-text:         var(--em-ink);
+    --rail-text-strong:  #ffffff;
+    --rail-muted:        var(--em-muted);
+    --rail-hover:        rgba(255,255,255,0.08);
+    --rail-chip:         rgba(255,255,255,0.08);
+    --rail-active-bg:    rgba(16, 163, 127, 0.28);
+    --rail-input-bg:     var(--em-row);
+    --rail-input-border: var(--em-border);
+
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", sans-serif;
+}
+
+/* Mode sombre (toggle) : on approfondit légèrement les fonds. */
+body.elpis-skin-emeraude.elpis-app-dark {
+    --em-bg:      #2b2c36;
+    --em-sidebar: #1a1b1e;
+    --em-row:     #34353f;
+    --em-row-2:   #3b3c48;
+    --em-row-3:   #474856;
+    --app-bg:    var(--em-bg);
+    --surface:   var(--em-row);
+    --surface-2: var(--em-row-2);
+    --surface-3: var(--em-row);
+    --surface-4: var(--em-row-3);
+}
+
+/* ───────────────────────────── ACCENT VERT ──────────────────────────────── */
+/* Utilitaires bleus → verts : gérés par le bridge + tokens --accent-* du
+   bloc ci-dessus (l'énumération historique bg/hover/text/range est retirée).
+   Ne restent que les DÉGRADÉS (variables --tw-gradient-*, hors bridge). */
+body.elpis-skin-emeraude .from-blue-500,
+body.elpis-skin-emeraude .to-indigo-600 { --tw-gradient-from: var(--em-green) !important; --tw-gradient-to: var(--em-green-2) !important; }
+body.elpis-skin-emeraude [class*="bg-gradient"][class*="blue"] { background: var(--em-green) !important; }
+
+/* Ombres atténuées (UI plate). */
+body.elpis-skin-emeraude .shadow-lg,
+body.elpis-skin-emeraude .shadow-xl,
+body.elpis-skin-emeraude .shadow-2xl { box-shadow: 0 8px 26px rgba(0,0,0,0.45) !important; }
+
+/* ───────────────────────────── SIDEBAR SOMBRE ───────────────────────────── */
+/* Entièrement pilotée par les tokens --rail-* du bloc ci-dessus (la pile de
+   sélecteurs rail historique est retirée — cf. section rail de style.css). */
+
+/* ───────────────────────────── BULLE VERTE ──────────────────────────────── */
+/* Utilisateur = bulle VERTE pleine, à droite (avatar masqué). */
+body.elpis-skin-emeraude .elpis-msg-user > .shrink-0 { display: none; }
+body.elpis-skin-emeraude .elpis-msg-user > .flex-1 {
+    flex: 0 1 auto;
+    max-width: 78%;
+    margin-left: auto;
+    background: var(--em-green-2) !important;   /* AA avec le texte blanc ci-dessous */
+    border-radius: var(--radius-xl);
+    padding: 0.6rem 1rem;
+}
+/* texte de la bulle user → blanc lisible sur vert (tokens bridgés sinon clairs) */
+body.elpis-skin-emeraude .elpis-msg-user > .flex-1,
+body.elpis-skin-emeraude .elpis-msg-user > .flex-1 * { color: #ffffff !important; }
+body.elpis-skin-emeraude .elpis-msg-user > .flex-1 a { color: #d6fff0 !important; }
+/* Assistant = ligne pleine largeur, fond légèrement distinct (#444654-like). */
+body.elpis-skin-emeraude .elpis-msg-assistant > .flex-1 { background: transparent; }
+
+/* ───────────────────────────── ZONE DE SAISIE ───────────────────────────── */
+body.elpis-skin-emeraude .elpis-compose-card {
+    background: var(--em-row) !important;
+    border-color: var(--em-border-2) !important;
+    border-radius: var(--radius-xl) !important;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.35) !important;
+}
+/* Bouton envoyer = vert rond. */
+body.elpis-skin-emeraude .elpis-compose-card .bg-blue-600 {
+    background-color: var(--em-green) !important;
+    color: var(--em-green-fg) !important;
+    border-radius: 9999px !important;
+}
+body.elpis-skin-emeraude .elpis-compose-card .hover\:bg-blue-700:hover { background-color: var(--em-green-2) !important; }
+
+/* Bloc thinking : encadré sombre, accent vert. */
+body.elpis-skin-emeraude [data-think] {
+    background: var(--em-row-2);
+    border: 1px solid var(--em-border);
+    border-radius: var(--radius-md);
+    padding: 0.4rem 0.7rem;
+}
+body.elpis-skin-emeraude [data-think] [class*="text-violet"] { color: var(--em-green-3) !important; }

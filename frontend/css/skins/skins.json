@@ -1,0 +1,94 @@
+{
+  "_doc": "Skins INTÉGRÉS (registre unique, lu par shared_infra/appearance/skins.py et servi par GET /api/skins). Ajouter un skin intégré = une entrée ici + frontend/css/skins/<id>.css + un <link> dans index.html et admin.html. Les skins importés vivent dans SKINS_DIR (user_skins/).",
+  "skins": [
+    {
+      "id": "elpis",
+      "label": "Elpis",
+      "desc": "Ivoire chaud & or, titres serif, ambiance Grèce antique premium. Calme et lumineux.",
+      "sw": [
+        "#f3efe8",
+        "#fcfbf9",
+        "#b88a3d"
+      ],
+      "builtin": true,
+      "enabled_by_default": true
+    },
+    {
+      "id": "",
+      "label": "Ardoise",
+      "desc": "Thème clair/sombre bleu ardoise — l'apparence classique de l'application.",
+      "sw": [
+        "#0f172a",
+        "#f8fafc",
+        "#2563eb"
+      ],
+      "builtin": true,
+      "enabled_by_default": true
+    },
+    {
+      "id": "llamacpp",
+      "label": "llama.cpp",
+      "desc": "Monochrome épuré, colonne centrée, à la manière du WebUI llama.cpp.",
+      "sw": [
+        "#fafafa",
+        "#ffffff",
+        "#171717"
+      ],
+      "builtin": true,
+      "enabled_by_default": true
+    },
+    {
+      "id": "emeraude",
+      "label": "Émeraude",
+      "desc": "Thème sombre gris/noir avec accent vert émeraude et bulles vertes.",
+      "darkBase": true,
+      "sw": [
+        "#202123",
+        "#343541",
+        "#10a37f"
+      ],
+      "builtin": true,
+      "enabled_by_default": true
+    },
+    {
+      "id": "parchemin",
+      "label": "Parchemin",
+      "desc": "Papier crème chaud, accent argile, titres serif éditorial. Calme et lisible.",
+      "sw": [
+        "#f0eee6",
+        "#faf9f5",
+        "#d97757"
+      ],
+      "builtin": true,
+      "enabled_by_default": true
+    },
+    {
+      "id": "pingouins",
+      "label": "Pingouins",
+      "desc": "Loufoque : Comic Sans, couleurs criardes, bulles penchées. Chaos assumé mais utilisable.",
+      "sw": [
+        "#2b0a3d",
+        "#fff7fc",
+        "#ff2d95"
+      ],
+      "builtin": true,
+      "enabled_by_default": true
+    },
+    {
+      "id": "kiki",
+      "label": "Kiki",
+      "desc": "Crème, costume noir et nœud orange ; le trio anime le mot KIKI à l'accueil.",
+      "sw": [
+        "#171311",
+        "#f4efe6",
+        "#e8711a"
+      ],
+      "brand": {
+        "name": "Kiki"
+      },
+      "mascot": "kiki",
+      "builtin": true,
+      "enabled_by_default": false
+    }
+  ]
+}

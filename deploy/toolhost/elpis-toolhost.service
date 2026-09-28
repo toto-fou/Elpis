@@ -1,0 +1,21 @@
+[Unit]
+Description=Elpis — hôte d'outils (MCP + sandbox + terminal + actifs)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=elpis
+WorkingDirectory=/opt/elpis
+Environment=TOOLHOST_CONFIG=/opt/elpis/toolhost.json
+Environment=TOOLHOST_LOG_LEVEL=info
+ExecStart=/opt/elpis/venv/bin/python -m toolhost
+Restart=on-failure
+RestartSec=3
+# Le PTY et les sessions navigateur vivent dans CE processus : un seul.
+KillMode=mixed
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

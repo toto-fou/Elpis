@@ -1,0 +1,47 @@
+    <!-- ┌───────── Template de prompt : saisie des variables ─────────┐
+         (2026-09-21) Ouverte par « /template <nom> » ou « Insérer » dans
+         Paramètres → Prompts → Templates quand le template a des variables
+         {{…}}. Entrée insère (Ctrl+Entrée dans une zone multiligne), Échap
+         annule. Le texte est INSÉRÉ dans le composeur, jamais envoyé.
+         Logique : chat/_templates.js ; conception :
+         docs/templates-prompt-design-2026-09-21.md. -->
+    <div v-if="templateFill.open" data-template-fill role="dialog" aria-modal="true" aria-labelledby="tpl-fill-title"
+         class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4"
+         @click.self="cancelTemplateFill()">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-5 space-y-3"
+             @keydown.esc.stop.prevent="cancelTemplateFill()">
+            <div class="flex items-center gap-2 min-w-0">
+                <i class="ph ph-brackets-curly text-slate-400 text-xl shrink-0" aria-hidden="true"></i>
+                <h3 id="tpl-fill-title" class="font-semibold text-slate-900 text-sm truncate">{{ templateFill.template ? (templateFill.template.title || templateFill.template.name) : '' }}</h3>
+                <span v-if="templateFill.template" class="ml-auto shrink-0 text-[11px] font-mono text-slate-400">/template {{ templateFill.template.name }}</span>
+            </div>
+            <div class="space-y-2.5 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
+                <div v-for="f in templateFill.fields" :key="f.name" data-template-row>
+                    <label :for="'tpl-f-' + f.name" class="text-[11px] font-medium text-slate-500 block mb-1">
+                        {{ f.name.split('_').join(' ') }}<span v-if="f.required" class="text-red-400"> *</span>
+                    </label>
+                    <textarea v-if="f.type === 'textarea'" :id="'tpl-f-' + f.name" data-template-field rows="4"
+                              v-model="templateFill.values[f.name]" :placeholder="f.placeholder"
+                              @keydown="templateFillKeydown($event, f)"
+                              class="set-textarea" style="min-height: 5rem;"></textarea>
+                    <select v-else-if="f.type === 'select'" :id="'tpl-f-' + f.name" data-template-field
+                            v-model="templateFill.values[f.name]" @keydown="templateFillKeydown($event, f)"
+                            class="set-select">
+                        <option v-for="o in f.options" :key="o" :value="o">{{ o }}</option>
+                    </select>
+                    <input v-else :id="'tpl-f-' + f.name" data-template-field
+                           v-model="templateFill.values[f.name]" :placeholder="f.placeholder"
+                           @keydown="templateFillKeydown($event, f)"
+                           class="set-input">
+                </div>
+            </div>
+            <p v-if="templateFill.error" class="text-xs text-red-600" role="alert" data-template-error>{{ templateFill.error }}</p>
+            <div class="flex items-center justify-end gap-2 pt-1">
+                <button type="button" @click="cancelTemplateFill()" class="skl-btn skl-btn--secondary">Annuler</button>
+                <button type="button" @click="submitTemplateFill()" data-template-insert
+                        class="skl-btn bg-blue-600 text-white hover:bg-blue-700">
+                    <i class="ph ph-arrow-bend-down-left" aria-hidden="true"></i> Insérer
+                </button>
+            </div>
+        </div>
+    </div>

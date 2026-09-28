@@ -1,0 +1,403 @@
+<!--
+  includes/admin/tab_maintenance.html — Page « Maintenance »
+  =========================================================
+  Refonte 2026-08-01. Trois changements :
+
+  1. Sauvegarde / Restauration / Redémarrage étaient DUPLIQUÉS — ici en cartes,
+     et dans l'en-tête de l'ancien onglet « Réglages » sous forme de menus
+     déroulants. Deux chemins pour la même action, avec deux périmètres
+     différents (le menu de Réglages proposait « Serveurs MCP », pas cette
+     page) et un <input id="restore-file-input"> en double dans le DOM.
+     Il ne reste qu'un seul point d'entrée : celui-ci, avec le périmètre complet.
+
+  2. L'onglet « Mémoire AX » est absorbé comme section : c'est une donnée
+     technique qu'on purge, exactement la matière de cette page.
+
+  3. Même patron de carte que les autres pages de configuration (.adm-*).
+
+  Les ids des <section> DOIVENT correspondre à ADMIN_PAGE_SECTIONS.maintenance.
+-->
+                    <div v-if="['upkeep', 'data', 'vision'].includes(adminTab)" class="animate-[fadeIn_0.2s]">
+                        <div class="space-y-6 min-w-0">
+
+                            <!-- ═══════════ Entretien ═══════════
+                                 Passe quotidienne (shared_infra/ops/maintenance.py) : ses
+                                 réglages n'avaient pas d'écran. Le rapport se génère depuis
+                                 Supervision › Rapport (plus de doublon ici). -->
+                            <section v-if="adminTab==='upkeep' && configForm" id="upkeep" class="adm-card">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-broom adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title" title="Chaque jour, le serveur purge les données anciennes, compacte la base et envoie le rapport d'usage.">Passe quotidienne</h3>
+                                    </div>
+                                </header>
+                                <div class="adm-rows">
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" for="upk-hour" title="Heure locale de la passe quotidienne : purges, compactage de la base, rapport. Au redémarrage.">Heure</label>
+                                            <span class="sr-only">Heure locale de la passe quotidienne : purges, compactage de la base, rapport. Au redémarrage.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="upk-hour" type="number" min="0" max="23" v-model.number="configForm.maintenance.hour"
+                                                   data-field="config:maintenance.hour" class="set-input w-24 tabular-nums">
+                                            <span class="adm-row__hint">h</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" for="upk-metrics_retention_days" title="Événements de métriques. 0 = sans limite. Au redémarrage.">Compteurs</label>
+                                            <span class="sr-only">Événements de métriques. 0 = sans limite. Au redémarrage.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="upk-metrics_retention_days" type="number" min="0" v-model.number="configForm.maintenance.metrics_retention_days"
+                                                   data-field="config:maintenance.metrics_retention_days" class="set-input w-24 tabular-nums">
+                                            <span class="adm-row__hint">j</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" for="upk-usage_events_retention_days" title="Registre de consommation LLM (un tour par ligne). 0 = sans limite. Au redémarrage.">Consommation</label>
+                                            <span class="sr-only">Registre de consommation LLM (un tour par ligne). 0 = sans limite. Au redémarrage.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="upk-usage_events_retention_days" type="number" min="0" v-model.number="configForm.maintenance.usage_events_retention_days"
+                                                   data-field="config:maintenance.usage_events_retention_days" class="set-input w-24 tabular-nums">
+                                            <span class="adm-row__hint">j</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" for="upk-session_messages_retention_days" title="Historique indexé pour la recherche dans les conversations. 0 = sans limite. Au redémarrage.">Messages</label>
+                                            <span class="sr-only">Historique indexé pour la recherche dans les conversations. 0 = sans limite. Au redémarrage.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="upk-session_messages_retention_days" type="number" min="0" v-model.number="configForm.maintenance.session_messages_retention_days"
+                                                   data-field="config:maintenance.session_messages_retention_days" class="set-input w-24 tabular-nums">
+                                            <span class="adm-row__hint">j</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" for="upk-tool_metrics_retention_days" title="Journal des appels d’outils. 0 = sans limite. Au redémarrage.">Appels d'outils</label>
+                                            <span class="sr-only">Journal des appels d’outils. 0 = sans limite. Au redémarrage.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="upk-tool_metrics_retention_days" type="number" min="0" v-model.number="configForm.maintenance.tool_metrics_retention_days"
+                                                   data-field="config:maintenance.tool_metrics_retention_days" class="set-input w-24 tabular-nums">
+                                            <span class="adm-row__hint">j</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" for="upk-routine_runs_retention_days" title="Journal des exécutions de routines. 0 = sans limite. Au redémarrage.">Runs de routines</label>
+                                            <span class="sr-only">Journal des exécutions de routines. 0 = sans limite. Au redémarrage.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="upk-routine_runs_retention_days" type="number" min="0" v-model.number="configForm.maintenance.routine_runs_retention_days"
+                                                   data-field="config:maintenance.routine_runs_retention_days" class="set-input w-24 tabular-nums">
+                                            <span class="adm-row__hint">j</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" for="upk-daily_report_retention_days" title="Rapports quotidiens archivés. 0 = sans limite. Au redémarrage.">Rapports</label>
+                                            <span class="sr-only">Rapports quotidiens archivés. 0 = sans limite. Au redémarrage.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="upk-daily_report_retention_days" type="number" min="0" v-model.number="configForm.maintenance.daily_report_retention_days"
+                                                   data-field="config:maintenance.daily_report_retention_days" class="set-input w-24 tabular-nums">
+                                            <span class="adm-row__hint">j</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- Zone sensible : actions immédiates et perturbatrices, en fin de page. -->
+                            <section v-if="adminTab==='upkeep'" id="upkeep-danger" class="adm-card adm-zone" aria-labelledby="upkeep-zone-h">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-warning adm-card__icon" aria-hidden="true"></i>
+                                    <div><h3 id="upkeep-zone-h" class="adm-card__title">Zone sensible</h3></div>
+                                </header>
+                                <div class="adm-rows">
+                                    <div class="adm-row">
+                                        <div>
+                                            <span class="adm-row__label" title="Applique les réglages lus au démarrage. Les sessions actives se reconnectent seules.">Serveur</span>
+                                            <span class="sr-only">Applique les réglages lus au démarrage. Les sessions actives se reconnectent seules.</span>
+                                        </div>
+                                        <div>
+                                            <button type="button" @click="restartServer()" class="adm-btn adm-btn--danger">
+                                                <i class="ph ph-power" aria-hidden="true"></i> Redémarrer
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <div>
+                                            <span class="adm-row__label" title="Consommation, compteurs et appels d'outils. Le volume exact est annoncé avant confirmation ; runs de routines et rapports conservés.">Métriques</span>
+                                            <span class="sr-only">Consommation, compteurs et appels d'outils. Le volume exact est annoncé avant confirmation ; runs de routines et rapports conservés.</span>
+                                        </div>
+                                        <div>
+                                            <button type="button" @click="resetAllMetrics()" class="adm-btn adm-btn--danger">
+                                                <i class="ph ph-eraser" aria-hidden="true"></i> Remettre à zéro
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Sauvegarde ═══════════ -->
+                            <section v-if="adminTab==='data'" id="backup" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-download-simple adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Sauvegarde</h3>
+                                        <span class="sr-only">Télécharge une archive de l'instance sur ce poste.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows">
+                                    <div class="adm-row adm-row--top">
+                                        <div>
+                                            <span class="adm-row__label" title="« Complète » contient tout le reste.">Périmètre</span>
+                                            <span class="sr-only">« Complète » contient tout le reste.</span>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <button @click="downloadBackup('full')" class="adm-btn adm-tool"><i class="ph ph-archive" aria-hidden="true"></i> Complète</button>
+                                            <button @click="downloadBackup('db')" class="adm-btn adm-tool"><i class="ph ph-database" aria-hidden="true"></i> Base de données</button>
+                                            <button @click="downloadBackup('sandboxes')" class="adm-btn adm-tool"><i class="ph ph-folder" aria-hidden="true"></i> Sandboxes</button>
+                                            <button @click="downloadBackup('mcp')" class="adm-btn adm-tool"><i class="ph ph-plug" aria-hidden="true"></i> Serveurs MCP</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Sauvegarde distante ═══════════ -->
+                            <section v-if="adminTab==='data'" id="backup-remote" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-cloud-arrow-up adm-card__icon" aria-hidden="true"></i>
+                                    <div class="min-w-0">
+                                        <h3 class="adm-card__title">Sauvegarde distante</h3>
+                                        <span class="sr-only">Dépose l'archive sur un serveur ou un partage réseau, sans passer par ce poste.</span>
+                                    </div>
+                                    <div class="adm-card__actions">
+                                        <label class="relative inline-flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" v-model="remoteBackup.enabled" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                            <span class="text-sm text-slate-700">{{ remoteBackup.enabled ? 'Activée' : 'Désactivée' }}</span>
+                                        </label>
+                                    </div>
+                                </header>
+                                <div class="adm-rows">
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Et périmètre de l'archive envoyée." for="mnt-remote-conn">Destination</label>
+                                            <span class="sr-only">Et périmètre de l'archive envoyée.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <select id="mnt-remote-conn" v-model="remoteBackup.connector" class="set-select w-auto min-w-[14rem]">
+                                                <option value="sftp">SFTP / SSH (par clé)</option>
+                                                <option value="rsync">rsync</option>
+                                                <option value="mounted">Partage réseau / dossier monté</option>
+                                            </select>
+                                            <select v-model="remoteBackup.scope" aria-label="Périmètre" class="set-select w-auto min-w-[10rem]">
+                                                <option value="full">Complète</option>
+                                                <option value="db">Base de données</option>
+                                                <option value="sandboxes">Sandboxes</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- SFTP (clé) et rsync (mot de passe) : même serveur SSH.
+                                         rsync = adresse, port (22), utilisateur, chemin cible, mot de passe. -->
+                                    <template v-if="remoteBackup.connector === 'sftp' || remoteBackup.connector === 'rsync'">
+                                        <div class="adm-row" data-remote-server>
+                                            <div>
+                                                <label class="adm-row__label" title="Adresse IP, port SSH et utilisateur." for="mnt-remote-host">Serveur</label>
+                                                <span class="sr-only">Adresse IP, port SSH et utilisateur.</span>
+                                            </div>
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <input id="mnt-remote-host" v-model="remoteBackup.host" placeholder="10.0.0.20" aria-label="Adresse IP"
+                                                       class="set-input font-mono text-xs flex-1 min-w-[9rem]">
+                                                <input v-model.number="remoteBackup.port" type="number" placeholder="22" aria-label="Port" class="set-input adm-num--sm">
+                                                <input v-model="remoteBackup.user" placeholder="backup" aria-label="Utilisateur" class="set-input w-32">
+                                            </div>
+                                        </div>
+                                        <div class="adm-row">
+                                            <div>
+                                                <label class="adm-row__label" title="Doit exister et être accessible en écriture." for="mnt-remote-path">{{ remoteBackup.connector === 'rsync' ? 'Chemin cible' : 'Dossier distant' }}</label>
+                                                <span class="sr-only">Doit exister et être accessible en écriture.</span>
+                                            </div>
+                                            <input id="mnt-remote-path" v-model="remoteBackup.remote_path" placeholder="/srv/backups/elpis" class="set-input font-mono text-xs">
+                                        </div>
+                                        <div v-if="remoteBackup.connector === 'rsync'" class="adm-row" data-remote-rsync-password>
+                                            <div>
+                                                <label class="adm-row__label" title="Stocké à part sur le serveur, jamais réaffiché." for="mnt-remote-rsync-pwd">Mot de passe</label>
+                                                <span class="sr-only">Stocké à part sur le serveur, jamais réaffiché.</span>
+                                            </div>
+                                            <div class="flex items-center gap-3 flex-wrap">
+                                                <input id="mnt-remote-rsync-pwd" v-model="remoteRsyncPassword" type="password" autocomplete="new-password"
+                                                       :placeholder="remoteBackup.password_present ? 'Inchangé' : 'Mot de passe'" class="set-input w-48">
+                                                <span class="text-xs" :class="remoteBackup.password_present ? 'text-emerald-700' : 'text-slate-500'">
+                                                    <i class="ph" :class="remoteBackup.password_present ? 'ph-check-circle' : 'ph-warning-circle'" aria-hidden="true"></i>
+                                                    {{ remoteBackup.password_present ? 'Enregistré' : 'Aucun' }}
+                                                </span>
+                                                <button v-if="remoteBackup.password_present" type="button" @click="clearRsyncPassword()" :disabled="remoteBackupBusy"
+                                                        class="adm-link">Retirer</button>
+                                            </div>
+                                        </div>
+                                        <div v-if="remoteBackup.connector === 'sftp'" class="adm-row">
+                                            <div>
+                                                <span class="adm-row__label" title="Seule méthode d'authentification acceptée.">Clé privée SSH</span>
+                                                <span class="sr-only">Seule méthode d'authentification acceptée.</span>
+                                            </div>
+                                            <div class="flex items-center gap-3 flex-wrap">
+                                                <label class="inline-flex items-center gap-2 text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-50 transition-colors">
+                                                    <i class="ph ph-key text-slate-500" aria-hidden="true"></i> Téléverser une clé
+                                                    <input type="file" class="hidden" @change="uploadBackupKey($event)">
+                                                </label>
+                                                <span class="text-xs" :class="(remoteBackup.key_present || remoteKeyFp) ? 'text-emerald-700' : 'text-slate-500'">
+                                                    <i class="ph" :class="(remoteBackup.key_present || remoteKeyFp) ? 'ph-check-circle' : 'ph-warning-circle'" aria-hidden="true"></i>
+                                                    {{ remoteKeyFp || (remoteBackup.key_present ? 'Clé installée' : 'Aucune clé installée') }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <div v-if="remoteBackup.connector === 'mounted'" class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Chemin déjà monté sur le serveur." for="mnt-remote-dest">Dossier de destination</label>
+                                            <span class="sr-only">Chemin déjà monté sur le serveur.</span>
+                                        </div>
+                                        <input id="mnt-remote-dest" v-model="remoteBackup.dest_path" placeholder="/mnt/nas/backups/elpis" class="set-input font-mono text-xs">
+                                    </div>
+
+                                    <!-- Planification (2026-09-21) : envoi automatique toutes les N
+                                         heures/jours, sur le worker leader (backup_scheduler.py). -->
+                                    <div class="adm-row" data-remote-schedule>
+                                        <div>
+                                            <label class="adm-row__label" for="mnt-remote-every">Planification</label>
+                                            <p class="adm-row__hint">{{ remoteNextRunLabel }}</p>
+                                        </div>
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <label class="relative inline-flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" v-model="remoteBackup.schedule_enabled" class="sr-only peer" data-remote-schedule-toggle>
+                                                <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                                <span class="text-sm text-slate-700">Automatique</span>
+                                            </label>
+                                            <span class="text-sm text-slate-500">toutes les</span>
+                                            <input id="mnt-remote-every" v-model.number="remoteBackup.schedule_every" type="number" min="1" max="999"
+                                                   :disabled="!remoteBackup.schedule_enabled" aria-label="Intervalle" class="set-input adm-num--sm disabled:opacity-50">
+                                            <select v-model="remoteBackup.schedule_unit" :disabled="!remoteBackup.schedule_enabled" aria-label="Unité"
+                                                    class="set-select w-auto disabled:opacity-50">
+                                                <option value="hours">heures</option>
+                                                <option value="days">jours</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="adm-row adm-row--top">
+                                        <div>
+                                            <span class="adm-row__label" title="« Enregistrer » ne concerne que ce bloc.">Actions</span>
+                                            <span class="sr-only">« Enregistrer » ne concerne que ce bloc.</span>
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <button @click="sendRemoteBackup()" :disabled="remoteBackupBusy"
+                                                        type="button" class="adm-btn adm-tool">
+                                                    <i class="ph" :class="remoteBackupBusy ? 'ph-spinner animate-spin' : 'ph-cloud-arrow-up'" aria-hidden="true"></i> Envoyer maintenant
+                                                </button>
+                                                <button @click="testRemoteBackup()" :disabled="remoteBackupBusy"
+                                                        class="adm-btn adm-tool"><i class="ph ph-plugs" aria-hidden="true"></i> Tester</button>
+                                                <button @click="saveRemoteBackup()" :disabled="remoteBackupBusy"
+                                                        class="adm-btn adm-tool"><i class="ph ph-floppy-disk" aria-hidden="true"></i> Enregistrer</button>
+                                            </div>
+                                            <p v-if="remoteBackup.last_send && remoteBackup.last_send.at" class="text-xs mt-2"
+                                               :class="remoteBackup.last_send.ok ? 'text-emerald-700' : 'text-rose-700'">
+                                                Dernier envoi{{ remoteBackup.last_send.trigger === 'schedule' ? ' (automatique)' : '' }} : {{ remoteBackup.last_send.ok ? 'réussi' : ('échec — ' + (remoteBackup.last_send.error || '')) }}
+                                                · {{ remoteDateLabel(remoteBackup.last_send.at) }}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Mémoire AX ═══════════
+                                 Ex-onglet de premier niveau. C'est une donnée technique qu'on
+                                 inspecte et qu'on purge : sa place est ici. -->
+                            <section v-if="adminTab==='vision'" id="ax-memory" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-tree-structure adm-card__icon" aria-hidden="true"></i>
+                                    <div class="min-w-0">
+                                        <h3 class="adm-card__title">Mémoire AX <span v-if="axSites.length" class="font-normal text-slate-500">· {{ axSites.length }} site{{ axSites.length > 1 ? 's' : '' }}</span></h3>
+                                        <span class="sr-only">Arbres de pages appris pendant les sessions de navigation. Plus les compteurs sont élevés, plus la connaissance est fiable.</span>
+                                    </div>
+                                    <div class="adm-card__actions">
+                                        <button type="button" @click="loadAxSites()" :disabled="axLoading" title="Recharger depuis la base" aria-label="Recharger"
+                                                class="adm-btn adm-btn--icon">
+                                            <i class="ph ph-arrow-clockwise" :class="axLoading ? 'animate-spin' : ''" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </header>
+
+                                <div class="p-5 space-y-3">
+                                    <p v-if="axLoading" class="adm-empty py-2">Chargement…</p>
+                                    <p v-else-if="!axSites.length" class="adm-empty py-2">
+                                        Aucun site en mémoire. Lancez une session de navigation sur un site pour l'indexer.
+                                    </p>
+
+                                    <template v-else>
+                                        <div v-if="user.role === 'admin' || user.role === 'moderator'"
+                                             class="flex items-center gap-2 text-xs border-b border-slate-100 pb-3 flex-wrap">
+                                            <label class="flex items-center gap-1.5 text-slate-600 cursor-pointer">
+                                                <input type="checkbox" :checked="axSelected.length === axSites.length && axSites.length > 0"
+                                                       @change="toggleSelectAllAx($event)" class="rounded border-slate-300 text-blue-600">
+                                                <span>Tout sélectionner</span>
+                                            </label>
+                                            <span class="text-slate-500">{{axSelected.length}} sur {{axSites.length}} sélectionné(s)</span>
+                                            <div v-if="axSelected.length > 0" class="ml-auto flex items-center gap-2 flex-wrap">
+                                                <button @click="bulkMarkStale()" type="button" class="adm-btn adm-btn--warn adm-btn--sm"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i> Marquer périmé ({{axSelected.length}})</button>
+                                                <button @click="bulkDelete(false)" type="button" class="adm-btn adm-btn--danger adm-btn--sm"><i class="ph ph-trash" aria-hidden="true"></i> Supprimer ({{axSelected.length}})</button>
+                                                <button @click="bulkDelete(true)" type="button" class="adm-btn adm-btn--danger adm-btn--sm" title="Supprime aussi les identifiants enregistrés"><i class="ph ph-fire" aria-hidden="true"></i> Purge totale ({{axSelected.length}})</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="space-y-2">
+                                            <div v-for="site in axSites" :key="site.site"
+                                                 class="border border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 transition-colors">
+                                                <div class="flex items-center gap-3 p-2.5 bg-slate-50">
+                                                    <input v-if="user.role === 'admin' || user.role === 'moderator'" type="checkbox"
+                                                           :value="site.site" v-model="axSelected" :aria-label="'Sélectionner ' + site.site"
+                                                           class="rounded border-slate-300 text-blue-600 shrink-0">
+                                                    <button @click="toggleAxSite(site.site)" class="flex-1 text-left flex items-center gap-2 min-w-0"
+                                                            :aria-expanded="axExpanded[site.site] ? 'true' : 'false'">
+                                                        <i :class="['ph', axExpanded[site.site] ? 'ph-caret-down' : 'ph-caret-right', 'text-slate-400 text-sm shrink-0']" aria-hidden="true"></i>
+                                                        <span class="font-mono text-sm font-medium text-slate-800 truncate">{{site.site}}</span>
+                                                        <span v-if="site.has_credentials" class="text-[11px] px-1.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded font-medium shrink-0"><i class="ph ph-key text-[10px]" aria-hidden="true"></i> {{site.cred_username}}</span>
+                                                        <span class="text-xs text-slate-500 ml-1 shrink-0">{{site.elements}} éléments · {{site.paths}} pages · {{site.transitions}} transitions</span>
+                                                    </button>
+                                                    <div v-if="user.role === 'admin' || user.role === 'moderator'" class="flex gap-1 shrink-0">
+                                                        <button @click="markStale(site.site)" type="button" title="Forcer un ré-apprentissage au prochain usage" aria-label="Marquer périmé" class="adm-btn adm-btn--icon"><i class="ph ph-arrows-clockwise text-sm" aria-hidden="true"></i></button>
+                                                        <button v-if="site.has_credentials" @click="deleteCreds(site.site)" type="button" title="Supprimer les identifiants enregistrés" aria-label="Supprimer les identifiants" class="adm-btn adm-btn--icon adm-btn--icon-danger"><i class="ph ph-key-return text-sm" aria-hidden="true"></i></button>
+                                                        <button @click="deleteSite(site.site, false)" type="button" title="Supprimer le site (conserve les identifiants)" aria-label="Supprimer le site" class="adm-btn adm-btn--icon adm-btn--icon-danger"><i class="ph ph-trash text-sm" aria-hidden="true"></i></button>
+                                                    </div>
+                                                </div>
+                                                <div v-if="axExpanded[site.site]" class="bg-slate-950 text-slate-200 text-xs font-mono">
+                                                    <div v-if="axTreeLoading[site.site]" class="p-4 text-slate-400">Chargement…</div>
+                                                    <pre v-else-if="axTrees[site.site]" class="p-4 overflow-x-auto whitespace-pre leading-relaxed">{{axTrees[site.site]}}</pre>
+                                                    <div v-else class="p-4 text-slate-500">(vide)</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <div v-if="user.role === 'admin'" class="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+                                        <span class="adm-row__label" title="Tous les sites et identifiants enregistrés. Confirmation saisie.">Tout effacer</span>
+                                        <button type="button" @click="confirmWipeAll()" class="adm-btn adm-btn--danger">
+                                            <i class="ph ph-warning-octagon" aria-hidden="true"></i> Effacer la mémoire AX
+                                        </button>
+                                    </div>
+                                </div>
+                            </section>
+
+                        </div>
+                    </div>

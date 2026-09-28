@@ -1,0 +1,1173 @@
+
+/* De 0 a 100 % : le bord droit de la planche s'aligne sur le bord droit de la
+   boite. C'est ce qui rend l'animation INDEPENDANTE DE LA TAILLE d'affichage,
+   la ou un decalage en pixels imposerait une regle par taille. Chaque planche
+   porte pour cela une copie de sa premiere frame a la fin. */
+@keyframes socle-defile {
+    from { background-position-x: 0%; }
+    to   { background-position-x: 100%; }
+}
+
+.socle-mascotte[data-perso="boite_or"] {
+    background-image: url("boite_or/avatar-48.png");
+    background-size: 100% 100%;
+}
+.socle-mascotte[data-perso="flamme"] {
+    background-image: url("flamme/avatar-48.png");
+    background-size: 100% 100%;
+}
+.socle-mascotte[data-perso="flamme_bleue"] {
+    background-image: url("flamme_bleue/avatar-48.png");
+    background-size: 100% 100%;
+}
+.socle-mascotte[data-perso="fantome"] {
+    background-image: url("fantome/avatar-48.png");
+    background-size: 100% 100%;
+}
+.socle-mascotte[data-perso="elpis"] {
+    background-image: url("elpis/avatar-48.png");
+    background-size: 100% 100%;
+}
+.socle-mascotte[data-perso="kiki"] {
+    background-image: url("kiki/avatar-48.png");
+    background-size: 100% 100%;
+}
+
+/* AVEC `data-etat` : la planche defile. Cette regle vient APRES les avatars et
+   a la meme specificite -- c'est l'ordre qui la fait gagner. */
+.socle-mascotte[data-etat] {
+    background-size: auto 100%;
+    animation-name: socle-defile;
+    animation-iteration-count: infinite;
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="repos"] {
+    background-image: url("boite_or/idle.png");
+    animation-duration: 4600ms;
+    animation-timing-function: steps(23);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="reflexion"] {
+    background-image: url("boite_or/waiting.png");
+    animation-duration: 760ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="parole"] {
+    background-image: url("boite_or/bounce.png");
+    animation-duration: 720ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="sommeil"] {
+    background-image: url("boite_or/sleep.png");
+    animation-duration: 1280ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="salut"] {
+    background-image: url("boite_or/wave.png");
+    animation-duration: 1040ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="erreur"] {
+    background-image: url("boite_or/failed.png");
+    animation-duration: 800ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="chantier"] {
+    background-image: url("boite_or/chantier.png");
+    animation-duration: 760ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="reveil"] {
+    background-image: url("boite_or/jump.png");
+    animation-duration: 660ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="bounce"] {
+    background-image: url("boite_or/bounce.png");
+    animation-duration: 720ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="dance"] {
+    background-image: url("boite_or/dance.png");
+    animation-duration: 720ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="failed"] {
+    background-image: url("boite_or/failed.png");
+    animation-duration: 800ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="headbang"] {
+    background-image: url("boite_or/headbang.png");
+    animation-duration: 325ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="idle"] {
+    background-image: url("boite_or/idle.png");
+    animation-duration: 4600ms;
+    animation-timing-function: steps(23);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="jump"] {
+    background-image: url("boite_or/jump.png");
+    animation-duration: 660ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="look"] {
+    background-image: url("boite_or/look.png");
+    animation-duration: 1760ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="run-left"] {
+    background-image: url("boite_or/run-left.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="run-right"] {
+    background-image: url("boite_or/run-right.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="running"] {
+    background-image: url("boite_or/running.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="sleep"] {
+    background-image: url("boite_or/sleep.png");
+    animation-duration: 1280ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="waiting"] {
+    background-image: url("boite_or/waiting.png");
+    animation-duration: 760ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="boite_or"][data-etat="wave"] {
+    background-image: url("boite_or/wave.png");
+    animation-duration: 1040ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="repos"] {
+    background-image: url("flamme/idle.png");
+    animation-duration: 2400ms;
+    animation-timing-function: steps(12);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="reflexion"] {
+    background-image: url("flamme/waiting.png");
+    animation-duration: 1140ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="parole"] {
+    background-image: url("flamme/bounce.png");
+    animation-duration: 600ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="sommeil"] {
+    background-image: url("flamme/sleep.png");
+    animation-duration: 1280ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="salut"] {
+    background-image: url("flamme/wave.png");
+    animation-duration: 780ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="erreur"] {
+    background-image: url("flamme/failed.png");
+    animation-duration: 800ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="chantier"] {
+    background-image: url("flamme/chantier.png");
+    animation-duration: 1140ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="reveil"] {
+    background-image: url("flamme/jump.png");
+    animation-duration: 550ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="bounce"] {
+    background-image: url("flamme/bounce.png");
+    animation-duration: 600ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="dance"] {
+    background-image: url("flamme/dance.png");
+    animation-duration: 720ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="failed"] {
+    background-image: url("flamme/failed.png");
+    animation-duration: 800ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="headbang"] {
+    background-image: url("flamme/headbang.png");
+    animation-duration: 325ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="idle"] {
+    background-image: url("flamme/idle.png");
+    animation-duration: 2400ms;
+    animation-timing-function: steps(12);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="jump"] {
+    background-image: url("flamme/jump.png");
+    animation-duration: 550ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="look"] {
+    background-image: url("flamme/look.png");
+    animation-duration: 1760ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="run-left"] {
+    background-image: url("flamme/run-left.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="run-right"] {
+    background-image: url("flamme/run-right.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="running"] {
+    background-image: url("flamme/running.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="sleep"] {
+    background-image: url("flamme/sleep.png");
+    animation-duration: 1280ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="waiting"] {
+    background-image: url("flamme/waiting.png");
+    animation-duration: 1140ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="flamme"][data-etat="wave"] {
+    background-image: url("flamme/wave.png");
+    animation-duration: 780ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="repos"] {
+    background-image: url("flamme_bleue/idle.png");
+    animation-duration: 2400ms;
+    animation-timing-function: steps(12);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="reflexion"] {
+    background-image: url("flamme_bleue/waiting.png");
+    animation-duration: 1140ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="parole"] {
+    background-image: url("flamme_bleue/bounce.png");
+    animation-duration: 600ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="sommeil"] {
+    background-image: url("flamme_bleue/sleep.png");
+    animation-duration: 1280ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="salut"] {
+    background-image: url("flamme_bleue/wave.png");
+    animation-duration: 780ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="erreur"] {
+    background-image: url("flamme_bleue/failed.png");
+    animation-duration: 800ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="chantier"] {
+    background-image: url("flamme_bleue/chantier.png");
+    animation-duration: 1140ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="reveil"] {
+    background-image: url("flamme_bleue/jump.png");
+    animation-duration: 550ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="bounce"] {
+    background-image: url("flamme_bleue/bounce.png");
+    animation-duration: 600ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="dance"] {
+    background-image: url("flamme_bleue/dance.png");
+    animation-duration: 720ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="failed"] {
+    background-image: url("flamme_bleue/failed.png");
+    animation-duration: 800ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="headbang"] {
+    background-image: url("flamme_bleue/headbang.png");
+    animation-duration: 325ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="idle"] {
+    background-image: url("flamme_bleue/idle.png");
+    animation-duration: 2400ms;
+    animation-timing-function: steps(12);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="jump"] {
+    background-image: url("flamme_bleue/jump.png");
+    animation-duration: 550ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="look"] {
+    background-image: url("flamme_bleue/look.png");
+    animation-duration: 1760ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="run-left"] {
+    background-image: url("flamme_bleue/run-left.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="run-right"] {
+    background-image: url("flamme_bleue/run-right.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="running"] {
+    background-image: url("flamme_bleue/running.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="sleep"] {
+    background-image: url("flamme_bleue/sleep.png");
+    animation-duration: 1280ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="waiting"] {
+    background-image: url("flamme_bleue/waiting.png");
+    animation-duration: 1140ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="flamme_bleue"][data-etat="wave"] {
+    background-image: url("flamme_bleue/wave.png");
+    animation-duration: 780ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="repos"] {
+    background-image: url("fantome/idle.png");
+    animation-duration: 1200ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="reflexion"] {
+    background-image: url("fantome/waiting.png");
+    animation-duration: 760ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="parole"] {
+    background-image: url("fantome/bounce.png");
+    animation-duration: 840ms;
+    animation-timing-function: steps(7);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="sommeil"] {
+    background-image: url("fantome/sleep.png");
+    animation-duration: 1280ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="salut"] {
+    background-image: url("fantome/jump.png");
+    animation-duration: 550ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="erreur"] {
+    background-image: url("fantome/failed.png");
+    animation-duration: 640ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="chantier"] {
+    background-image: url("fantome/chantier.png");
+    animation-duration: 760ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="reveil"] {
+    background-image: url("fantome/jump.png");
+    animation-duration: 550ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="bounce"] {
+    background-image: url("fantome/bounce.png");
+    animation-duration: 840ms;
+    animation-timing-function: steps(7);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="dance"] {
+    background-image: url("fantome/dance.png");
+    animation-duration: 480ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="failed"] {
+    background-image: url("fantome/failed.png");
+    animation-duration: 640ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="headbang"] {
+    background-image: url("fantome/headbang.png");
+    animation-duration: 325ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="idle"] {
+    background-image: url("fantome/idle.png");
+    animation-duration: 1200ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="jump"] {
+    background-image: url("fantome/jump.png");
+    animation-duration: 550ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="look"] {
+    background-image: url("fantome/look.png");
+    animation-duration: 1760ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="run-left"] {
+    background-image: url("fantome/run-left.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="run-right"] {
+    background-image: url("fantome/run-right.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="running"] {
+    background-image: url("fantome/running.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="sleep"] {
+    background-image: url("fantome/sleep.png");
+    animation-duration: 1280ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="fantome"][data-etat="waiting"] {
+    background-image: url("fantome/waiting.png");
+    animation-duration: 760ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="repos"] {
+    background-image: url("elpis/idle.png");
+    animation-duration: 2000ms;
+    animation-timing-function: steps(10);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="reflexion"] {
+    background-image: url("elpis/waiting.png");
+    animation-duration: 1520ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="parole"] {
+    background-image: url("elpis/bounce.png");
+    animation-duration: 720ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="sommeil"] {
+    background-image: url("elpis/sleep.png");
+    animation-duration: 1280ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="salut"] {
+    background-image: url("elpis/wave.png");
+    animation-duration: 1040ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="erreur"] {
+    background-image: url("elpis/failed.png");
+    animation-duration: 640ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="chantier"] {
+    background-image: url("elpis/chantier.png");
+    animation-duration: 1520ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="reveil"] {
+    background-image: url("elpis/wake.png");
+    animation-duration: 750ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="bounce"] {
+    background-image: url("elpis/bounce.png");
+    animation-duration: 720ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="cheer"] {
+    background-image: url("elpis/cheer.png");
+    animation-duration: 480ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="dance"] {
+    background-image: url("elpis/dance.png");
+    animation-duration: 480ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="espoir"] {
+    background-image: url("elpis/espoir.png");
+    animation-duration: 900ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="failed"] {
+    background-image: url("elpis/failed.png");
+    animation-duration: 640ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="idle"] {
+    background-image: url("elpis/idle.png");
+    animation-duration: 2000ms;
+    animation-timing-function: steps(10);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="jump"] {
+    background-image: url("elpis/jump.png");
+    animation-duration: 660ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="look"] {
+    background-image: url("elpis/look.png");
+    animation-duration: 1760ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="run-left"] {
+    background-image: url("elpis/run-left.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="run-right"] {
+    background-image: url("elpis/run-right.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="running"] {
+    background-image: url("elpis/running.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="sleep"] {
+    background-image: url("elpis/sleep.png");
+    animation-duration: 1280ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="vol"] {
+    background-image: url("elpis/vol.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(4);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="waiting"] {
+    background-image: url("elpis/waiting.png");
+    animation-duration: 1520ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="wake"] {
+    background-image: url("elpis/wake.png");
+    animation-duration: 750ms;
+    animation-timing-function: steps(5);
+}
+
+.socle-mascotte[data-perso="elpis"][data-etat="wave"] {
+    background-image: url("elpis/wave.png");
+    animation-duration: 1040ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="kiki"] { image-rendering: auto; }
+
+.socle-mascotte[data-perso="kiki"][data-etat="repos"] {
+    background-image: url("kiki/idle.png");
+    animation-duration: 2160ms;
+    animation-timing-function: steps(12);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="reflexion"] {
+    background-image: url("kiki/idle.png");
+    animation-duration: 2160ms;
+    animation-timing-function: steps(12);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="parole"] {
+    background-image: url("kiki/running.png");
+    animation-duration: 1120ms;
+    animation-timing-function: steps(16);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="sommeil"] {
+    background-image: url("kiki/idle.png");
+    animation-duration: 2160ms;
+    animation-timing-function: steps(12);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="salut"] {
+    background-image: url("kiki/idle.png");
+    animation-duration: 2160ms;
+    animation-timing-function: steps(12);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="erreur"] {
+    background-image: url("kiki/idle.png");
+    animation-duration: 2160ms;
+    animation-timing-function: steps(12);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="chantier"] {
+    background-image: url("kiki/chantier.png");
+    animation-duration: 1120ms;
+    animation-timing-function: steps(16);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="reveil"] {
+    background-image: url("kiki/idle.png");
+    animation-duration: 2160ms;
+    animation-timing-function: steps(12);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="degaine"] {
+    background-image: url("kiki/degaine.png");
+    animation-duration: 495ms;
+    animation-timing-function: steps(9);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="idle"] {
+    background-image: url("kiki/idle.png");
+    animation-duration: 2160ms;
+    animation-timing-function: steps(12);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="rengaine"] {
+    background-image: url("kiki/rengaine.png");
+    animation-duration: 440ms;
+    animation-timing-function: steps(8);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="run-left"] {
+    background-image: url("kiki/run-left.png");
+    animation-duration: 1120ms;
+    animation-timing-function: steps(16);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="run-right"] {
+    background-image: url("kiki/run-right.png");
+    animation-duration: 1120ms;
+    animation-timing-function: steps(16);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="running"] {
+    background-image: url("kiki/running.png");
+    animation-duration: 1120ms;
+    animation-timing-function: steps(16);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="tir"] {
+    background-image: url("kiki/tir.png");
+    animation-duration: 270ms;
+    animation-timing-function: steps(6);
+}
+
+.socle-mascotte[data-perso="kiki"][data-etat="vise"] {
+    background-image: url("kiki/vise.png");
+    animation-duration: 880ms;
+    animation-timing-function: steps(8);
+}
+
+/* RALENTIE, PAS COUPEE -- et c'est une decision, pas un oubli.
+
+   Couper net paraissait le bon reflexe : mouvement decoratif, reglage systeme,
+   WCAG 2.3.3. Sauf qu'a l'usage une mascotte figee ne se lit pas comme une
+   preference respectee, elle se lit comme une image cassee -- c'est exactement
+   ce qui s'est passe, et c'est le meme arbitrage que `style.css` a deja tranche
+   deux fois pour la roue de chargement (`.animate-spin`, gardee a 2 s/tour) et
+   l'indicateur de frappe (`.elpis-typing`, ralenti a 2,4 s).
+
+   Le ralenti marche particulierement bien ici : ces planches sont deja les
+   animations CALMES du socle -- rien ne clignote, rien ne pulse, rien ne
+   tourne. A moitie vitesse elles respirent, elles ne saccadent pas.
+
+   ATTENTION AU PIEGE DE SPECIFICITE. Une media query N'EN AJOUTE PAS :
+   `.socle-mascotte` (0,1,0) perd contre `.socle-mascotte[data-etat]` (0,2,0)
+   declare plus haut. Ces regles-ci reprennent donc le selecteur COMPLET de
+   chaque etat (0,3,0) -- a egalite, c'est l'ordre qui tranche.
+
+   L'avatar sans `data-etat`, lui, n'a jamais bouge : rien a faire pour lui. */
+@media (prefers-reduced-motion: reduce) {
+    .socle-mascotte[data-perso="boite_or"][data-etat="repos"] {
+        animation-duration: 9200ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="reflexion"] {
+        animation-duration: 1520ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="parole"] {
+        animation-duration: 1440ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="sommeil"] {
+        animation-duration: 2560ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="salut"] {
+        animation-duration: 2080ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="erreur"] {
+        animation-duration: 1600ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="chantier"] {
+        animation-duration: 1520ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="reveil"] {
+        animation-duration: 1320ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="bounce"] {
+        animation-duration: 1440ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="dance"] {
+        animation-duration: 1440ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="failed"] {
+        animation-duration: 1600ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="headbang"] {
+        animation-duration: 650ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="idle"] {
+        animation-duration: 9200ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="jump"] {
+        animation-duration: 1320ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="look"] {
+        animation-duration: 3520ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="run-left"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="run-right"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="running"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="sleep"] {
+        animation-duration: 2560ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="waiting"] {
+        animation-duration: 1520ms;
+    }
+    .socle-mascotte[data-perso="boite_or"][data-etat="wave"] {
+        animation-duration: 2080ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="repos"] {
+        animation-duration: 4800ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="reflexion"] {
+        animation-duration: 2280ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="parole"] {
+        animation-duration: 1200ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="sommeil"] {
+        animation-duration: 2560ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="salut"] {
+        animation-duration: 1560ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="erreur"] {
+        animation-duration: 1600ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="chantier"] {
+        animation-duration: 2280ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="reveil"] {
+        animation-duration: 1100ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="bounce"] {
+        animation-duration: 1200ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="dance"] {
+        animation-duration: 1440ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="failed"] {
+        animation-duration: 1600ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="headbang"] {
+        animation-duration: 650ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="idle"] {
+        animation-duration: 4800ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="jump"] {
+        animation-duration: 1100ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="look"] {
+        animation-duration: 3520ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="run-left"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="run-right"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="running"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="sleep"] {
+        animation-duration: 2560ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="waiting"] {
+        animation-duration: 2280ms;
+    }
+    .socle-mascotte[data-perso="flamme"][data-etat="wave"] {
+        animation-duration: 1560ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="repos"] {
+        animation-duration: 4800ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="reflexion"] {
+        animation-duration: 2280ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="parole"] {
+        animation-duration: 1200ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="sommeil"] {
+        animation-duration: 2560ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="salut"] {
+        animation-duration: 1560ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="erreur"] {
+        animation-duration: 1600ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="chantier"] {
+        animation-duration: 2280ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="reveil"] {
+        animation-duration: 1100ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="bounce"] {
+        animation-duration: 1200ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="dance"] {
+        animation-duration: 1440ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="failed"] {
+        animation-duration: 1600ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="headbang"] {
+        animation-duration: 650ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="idle"] {
+        animation-duration: 4800ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="jump"] {
+        animation-duration: 1100ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="look"] {
+        animation-duration: 3520ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="run-left"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="run-right"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="running"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="sleep"] {
+        animation-duration: 2560ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="waiting"] {
+        animation-duration: 2280ms;
+    }
+    .socle-mascotte[data-perso="flamme_bleue"][data-etat="wave"] {
+        animation-duration: 1560ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="repos"] {
+        animation-duration: 2400ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="reflexion"] {
+        animation-duration: 1520ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="parole"] {
+        animation-duration: 1680ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="sommeil"] {
+        animation-duration: 2560ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="salut"] {
+        animation-duration: 1100ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="erreur"] {
+        animation-duration: 1280ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="chantier"] {
+        animation-duration: 1520ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="reveil"] {
+        animation-duration: 1100ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="bounce"] {
+        animation-duration: 1680ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="dance"] {
+        animation-duration: 960ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="failed"] {
+        animation-duration: 1280ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="headbang"] {
+        animation-duration: 650ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="idle"] {
+        animation-duration: 2400ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="jump"] {
+        animation-duration: 1100ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="look"] {
+        animation-duration: 3520ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="run-left"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="run-right"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="running"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="sleep"] {
+        animation-duration: 2560ms;
+    }
+    .socle-mascotte[data-perso="fantome"][data-etat="waiting"] {
+        animation-duration: 1520ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="repos"] {
+        animation-duration: 4000ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="reflexion"] {
+        animation-duration: 3040ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="parole"] {
+        animation-duration: 1440ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="sommeil"] {
+        animation-duration: 2560ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="salut"] {
+        animation-duration: 2080ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="erreur"] {
+        animation-duration: 1280ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="chantier"] {
+        animation-duration: 3040ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="reveil"] {
+        animation-duration: 1500ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="bounce"] {
+        animation-duration: 1440ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="cheer"] {
+        animation-duration: 960ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="dance"] {
+        animation-duration: 960ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="espoir"] {
+        animation-duration: 1800ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="failed"] {
+        animation-duration: 1280ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="idle"] {
+        animation-duration: 4000ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="jump"] {
+        animation-duration: 1320ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="look"] {
+        animation-duration: 3520ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="run-left"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="run-right"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="running"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="sleep"] {
+        animation-duration: 2560ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="vol"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="waiting"] {
+        animation-duration: 3040ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="wake"] {
+        animation-duration: 1500ms;
+    }
+    .socle-mascotte[data-perso="elpis"][data-etat="wave"] {
+        animation-duration: 2080ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="repos"] {
+        animation-duration: 4320ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="reflexion"] {
+        animation-duration: 4320ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="parole"] {
+        animation-duration: 2240ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="sommeil"] {
+        animation-duration: 4320ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="salut"] {
+        animation-duration: 4320ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="erreur"] {
+        animation-duration: 4320ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="chantier"] {
+        animation-duration: 2240ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="reveil"] {
+        animation-duration: 4320ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="degaine"] {
+        animation-duration: 990ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="idle"] {
+        animation-duration: 4320ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="rengaine"] {
+        animation-duration: 880ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="run-left"] {
+        animation-duration: 2240ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="run-right"] {
+        animation-duration: 2240ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="running"] {
+        animation-duration: 2240ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="tir"] {
+        animation-duration: 540ms;
+    }
+    .socle-mascotte[data-perso="kiki"][data-etat="vise"] {
+        animation-duration: 1760ms;
+    }
+}

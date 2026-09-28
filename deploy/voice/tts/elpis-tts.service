@@ -1,0 +1,43 @@
+[Unit]
+Description=Elpis — synthèse vocale (Piper)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=elpis
+WorkingDirectory=/opt/elpis-voice/tts
+Environment=ELPIS_TTS_VOICES_DIR=/opt/elpis-voice/voices
+Environment=ELPIS_TTS_VOICE=__VOIX__
+# 127.0.0.1 : Elpis sur cette même machine. Elpis ailleurs : IP privée ou
+# 0.0.0.0 (ELPIS_VOICE_HOST à l'installation, install_offline.sh --lan).
+Environment=ELPIS_TTS_HOST=127.0.0.1
+Environment=ELPIS_TTS_PORT=8091
+Environment=ELPIS_TTS_MAX_CHARS=4000
+Environment=ELPIS_TTS_MAX_CONCURRENT=2
+# Threads ONNX par synthèse. Absent = la moitié des cœurs (2 synthèses
+# simultanées remplissent la machine sans la surcharger) ; 0 = ONNX décide.
+#Environment=ELPIS_TTS_THREADS=4
+Environment=ELPIS_TTS_LOG=info
+# Jeton lu du FICHIER, jamais écrit dans l'unité : `systemctl cat` est lisible
+# par tout le monde. Videz cette ligne pour un service ouvert sur le LAN.
+EnvironmentFile=-/opt/elpis-voice/tts/token.env
+ExecStart=/opt/elpis-voice/tts/venv/bin/python -m uvicorn tts_service:app \
+          --host ${ELPIS_TTS_HOST} --port ${ELPIS_TTS_PORT} \
+          --log-level ${ELPIS_TTS_LOG}
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+
+# Durcissement : lecture des voix, aucune écriture, aucun accès au reste.
+# ProtectHome=true rend /home INVISIBLE : les voix doivent être sous
+# /opt/elpis-voice/voices (ELPIS_TTS_VOICES_DIR), pas dans un dossier
+# personnel — sinon « voix par défaut absente » au démarrage.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=
+
+[Install]
+WantedBy=multi-user.target

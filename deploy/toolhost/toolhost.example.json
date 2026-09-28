@@ -1,0 +1,30 @@
+{
+  "$schema": "../../docs/schemas/toolhost.schema.json",
+  "bind": {
+    "host": "127.0.0.1",
+    "port": 8765,
+    "transport": "streamable-http",
+    "transports": [
+      "http",
+      "sse"
+    ]
+  },
+  "token_file": "user_db/.local_mcp_token",
+  "families": [
+    "fs",
+    "shell",
+    "git",
+    "skill_run",
+    "browser",
+    "desktop"
+  ],
+  "sandbox_dir": "../user_sandboxes",
+  "db_path": "user_db/toolhost.db",
+  "app_url": "https://elpis.example.lan",
+  "playwright_api_url": "http://127.0.0.1:3000",
+  "assets": {
+    "pw_dir": "/var/lib/elpis/pw_screens",
+    "desktop_dir": "/var/lib/elpis/desktop_screens"
+  },
+  "identity_max_skew_s": 60
+}

@@ -1,0 +1,355 @@
+<!--
+  includes/modals/mcp.html -- MCP Manager modal (extracted from index.html)
+
+  Top-level modal toggled by showMcpManagerModal. Lets the user
+  browse, enable/disable, and inspect MCP servers connected to
+  this instance (list of servers, per-server tool list, enable
+  toggles, reload action). State lives in the main app's chat
+  module (setupChat module).
+
+  Included from index.html via the @include preprocessor directive.
+
+  UX FIX — Le modal animait son entrée via `animate-[fadeIn_0.1s]` et
+  `animate-[slideUp_0.15s]`, mais disparaissait brutalement à la
+  fermeture (``v-if=false`` retire l'élément sans transition).
+  Wrapping dans ``<Transition name="modal">`` (classes CSS définies
+  dans static/css/style.css) → entrée ET sortie animées de façon symétrique.
+  Les `animate-[...]` inline sont retirés pour ne pas se cumuler aux
+  transitions Vue.
+-->
+    <Transition name="modal">
+    <div v-if="showMcpManagerModal" data-a11y-modal role="dialog" aria-modal="true" aria-label="Serveurs MCP externes" @click.self="closeMcpManager" class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="p-5 border-b border-slate-200 flex justify-between items-center shrink-0">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2"><div class="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><i class="ph ph-plug"></i></div> Serveurs MCP externes</h3>
+                <button @click="closeMcpManager" aria-label="Fermer" class="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100 flex items-center justify-center transition-colors"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+
+                <div class="space-y-4">
+                    <div class="flex justify-between items-end">
+                        <h4 class="font-bold text-slate-800 text-sm">Connecteurs enregistrés</h4>
+                        <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{{ filteredMcpServers.length }} / {{ (settings.mcp_servers || []).length }}</span>
+                    </div>
+                    <div v-if="settings.mcp_servers && settings.mcp_servers.length > 4" class="relative">
+                        <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input v-model="mcpSearch" type="text" placeholder="Rechercher un serveur..."
+                               class="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs focus:border-blue-500 outline-none">
+                    </div>
+                    <div v-if="filteredMcpServers.length > 0" class="space-y-2 overflow-y-auto custom-scrollbar" style="max-height: 420px">
+                        <div v-for="srv in filteredMcpServers" :key="srv.id || srv._idx" class="flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-200 group">
+                            <div class="w-8 h-8 rounded-md bg-white flex items-center justify-center border border-slate-100 text-slate-500 shrink-0"><i class="ph text-lg" :class="srv.type === 'stdio' ? 'ph-terminal-window' : 'ph-globe'"></i></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-bold text-sm text-slate-800 truncate flex items-center gap-1.5" :class="!srv.visible && 'opacity-50'">
+                                    {{srv.name}}
+                                    <span v-if="mcpHasCreds(srv)" title="Identifiants gérés côté serveur" class="text-[9.5px] font-semibold px-1 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">auth</span>
+                                </div>
+                                <div class="text-[10px] text-slate-500 font-mono truncate" :class="!srv.visible && 'opacity-50'">{{ srv.type === 'stdio' ? '> ' + srv.command : srv.url }}</div>
+                            </div>
+                            <button @click="toggleServerVisibility(srv._idx)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-200 transition-colors" :class="srv.visible ? 'text-blue-600' : 'text-slate-400'"><i class="ph" :class="srv.visible ? 'ph-eye' : 'ph-eye-slash'"></i></button>
+                            <button v-if="user && user.role === 'admin'" @click="editMcpServer(srv._idx)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-all" title="Modifier (admin)"><i class="ph ph-pencil-simple"></i></button>
+                            <button v-if="user && user.role === 'admin'" @click="removeMcpServer(srv._idx)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-red-100 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-all" title="Supprimer (admin)"><i class="ph ph-trash"></i></button>
+                        </div>
+                    </div>
+                    <div v-else-if="mcpSearch" class="text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-xs text-slate-400">Aucun résultat pour "{{ mcpSearch }}".</div>
+                    <div v-else class="text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-xs text-slate-400">Aucun serveur enregistré.</div>
+                </div>
+
+                <!-- ═══ Bibliothèque partagée ═══
+                     Publiée par l'admin, lue par tous. L'œil ne change QUE
+                     l'affichage dans le panneau Outils de ce compte : rien
+                     n'apparaît tant qu'il n'a pas coché (demande explicite).
+                     Les identifiants d'accès restent côté serveur — le
+                     navigateur ne voit jamais qu'un badge « auth ». -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-end">
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-sm">Bibliothèque partagée</h4>
+                            <p class="text-[11px] text-slate-500">Publiée pour tous. L'œil l'affiche dans votre panneau Outils.</p>
+                        </div>
+                        <button v-if="user && user.role === 'admin'" @click="newSharedMcp()"
+                                class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors shrink-0">
+                            <i class="ph ph-plus"></i> Publier
+                        </button>
+                    </div>
+
+                    <div v-if="(sharedMcpServers || []).length" class="space-y-2">
+                        <div v-for="srv in sharedMcpServers" :key="srv.id" class="flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-200 group">
+                            <div class="w-8 h-8 rounded-md bg-white flex items-center justify-center border border-slate-100 text-slate-500 shrink-0"><i class="ph text-lg" :class="srv.type === 'stdio' ? 'ph-terminal-window' : 'ph-globe'"></i></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-bold text-sm text-slate-800 truncate flex items-center gap-1.5" :class="!isSharedVisible(srv.id) && 'opacity-50'">
+                                    {{ srv.name }}
+                                    <span v-if="mcpHasCreds(srv)" title="Identifiants gérés côté serveur" class="text-[9.5px] font-semibold px-1 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">auth</span>
+                                    <span v-if="!srv.enabled" class="text-[9.5px] font-semibold px-1 py-0.5 rounded bg-slate-200 text-slate-600">désactivé</span>
+                                </div>
+                                <!-- URL / commande : servies au seul admin (elles désignent le
+                                     point d'entrée interne du service). Pour les autres, le
+                                     type suffit à situer le serveur. -->
+                                <div class="text-[10px] text-slate-500 font-mono truncate" :class="!isSharedVisible(srv.id) && 'opacity-50'">{{ srv.url || srv.command || (srv.type === 'stdio' ? 'serveur local' : 'serveur distant') }}</div>
+                            </div>
+                            <button @click="toggleSharedVisibility(srv.id)"
+                                    :title="isSharedVisible(srv.id) ? 'Masquer du panneau Outils' : 'Afficher dans le panneau Outils'"
+                                    class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-200 transition-colors"
+                                    :class="isSharedVisible(srv.id) ? 'text-blue-600' : 'text-slate-400'"><i class="ph" :class="isSharedVisible(srv.id) ? 'ph-eye' : 'ph-eye-slash'"></i></button>
+                            <button v-if="user && user.role === 'admin'" @click="editSharedMcp(srv)" title="Modifier (admin)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-all"><i class="ph ph-pencil-simple"></i></button>
+                            <button v-if="user && user.role === 'admin'" @click="deleteSharedMcp(srv)" title="Dépublier (admin)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-red-100 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-all"><i class="ph ph-trash"></i></button>
+                        </div>
+                    </div>
+                    <div v-else class="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-xs text-slate-400">
+                        Aucun serveur publié.<span v-if="!(user && user.role === 'admin')"> Un administrateur peut en publier pour tout le monde.</span>
+                    </div>
+
+                    <!-- Formulaire admin (publication / édition) -->
+                    <div v-if="sharedMcpForm" class="bg-blue-50/50 p-3 rounded-xl border border-blue-100 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="text-xs font-semibold text-slate-600">{{ sharedMcpForm.id ? 'Modifier' : 'Publier un serveur' }}</div>
+                            <!-- Recettes : voir MCP_PRESETS (app-settings.js). Elles
+                                 vivaient en dur ici ET dans le JS, et les deux copies
+                                 avaient divergé. -->
+                            <select @change="applyMcpPreset('shared', $event.target.value); $event.target.value=''"
+                                    class="text-[10px] py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none text-slate-600">
+                                <option value="">Recette…</option>
+                                <option value="wikijs">Wiki.js</option>
+                                <option value="wikijs_local">Wiki.js local</option>
+                                <option value="jenkins">Jenkins</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-2">
+                            <input v-model="sharedMcpForm.name" placeholder="Nom (ex: Jenkins)" class="w-1/3 bg-white border border-slate-200 rounded-md p-1.5 text-xs focus:border-blue-500 outline-none">
+                            <select v-model="sharedMcpForm.type" class="w-1/4 bg-white border border-slate-200 rounded-md p-1.5 text-xs focus:border-blue-500 outline-none"><option value="http">HTTP</option><option value="sse">SSE</option><option value="stdio">Local</option></select>
+                            <input v-if="sharedMcpForm.type !== 'stdio'" v-model="sharedMcpForm.url" :placeholder="sharedMcpForm.type === 'http' ? 'http://…:4445/mcp' : 'https://…/mcp-server/sse'" class="flex-1 min-w-0 bg-white border border-slate-200 rounded-md p-1.5 text-xs font-mono focus:border-blue-500 outline-none">
+                            <input v-else v-model="sharedMcpForm.command" placeholder="Commande shell…" class="flex-1 min-w-0 bg-white border border-slate-200 rounded-md p-1.5 text-xs font-mono focus:border-blue-500 outline-none">
+                        </div>
+                        <div v-if="sharedMcpForm.type !== 'stdio'" class="bg-white border border-slate-200 rounded-md p-2">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="text-xs font-semibold text-slate-500">Authentification</span>
+                                <select v-model="sharedMcpForm.auth_mode" class="text-[10px] py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none">
+                                    <option value="">Aucune</option>
+                                    <option value="bearer">Bearer (jeton)</option>
+                                    <option value="basic">Basic (user + token)</option>
+                                    <option value="header">Clé d'API (en-tête)</option>
+                                    <option value="raw">Authorization brut</option>
+                                </select>
+                            </div>
+                            <div v-if="sharedMcpForm.auth_mode === 'basic'" class="flex gap-1.5">
+                                <input v-model="sharedMcpForm.auth_user" placeholder="username" class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                                <input v-model="sharedMcpForm.auth_secret" type="password" :placeholder="sharedMcpForm.has_auth ? 'inchangé' : 'API token / password'" class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                            </div>
+                            <div v-else-if="sharedMcpForm.auth_mode === 'bearer'" class="flex gap-1.5">
+                                <input v-model="sharedMcpForm.auth_secret" type="password" :placeholder="sharedMcpForm.has_auth ? 'inchangé' : 'jeton seul, sans « Bearer »'" class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                            </div>
+                            <div v-else-if="sharedMcpForm.auth_mode === 'header'" class="flex gap-1.5">
+                                <input v-model="sharedMcpForm.auth_user" placeholder="X-API-Key" class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                                <input v-model="sharedMcpForm.auth_secret" type="password" :placeholder="sharedMcpForm.has_auth ? 'inchangé' : 'valeur de la clé'" class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                            </div>
+                            <div v-else-if="sharedMcpForm.auth_mode === 'raw'" class="flex gap-1.5">
+                                <input v-model="sharedMcpForm.auth_secret" type="password" :placeholder="sharedMcpForm.has_auth ? 'inchangé' : 'Bearer eyJ… ou Basic dXNlcjpwYXNz'" class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                            </div>
+                            <div v-else class="text-[10px] text-slate-400 italic px-1">Aucun header d'auth envoyé.</div>
+
+                            <!-- En-têtes supplémentaires : CUMULABLES avec le mode
+                                 ci-dessus. Un service qui demande un jeton de
+                                 transport ET une clé applicative se configure ici. -->
+                            <div class="mt-2 pt-2 border-t border-slate-100">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-[11px] font-semibold text-slate-500">En-têtes</span>
+                                    <button @click="mcpAddPair(sharedMcpForm, 'headers')" type="button" title="Ajouter un en-tête"
+                                            class="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 border border-slate-200"><i class="ph ph-plus text-[10px]"></i></button>
+                                </div>
+                                <div v-for="(h, hi) in (sharedMcpForm.headers || [])" :key="'sh' + hi" class="flex gap-1.5 mb-1">
+                                    <input v-model="h.name" placeholder="X-API-Key" class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                                    <input v-model="h.value" type="password" :placeholder="h.has_value ? 'inchangé' : 'valeur'" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                                    <button @click="mcpRemovePair(sharedMcpForm, 'headers', hi)" type="button" title="Retirer"
+                                            class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-slate-400 hover:bg-red-50 hover:text-red-600"><i class="ph ph-x text-[10px]"></i></button>
+                                </div>
+                                <div v-if="!(sharedMcpForm.headers || []).length" class="text-[10px] text-slate-400 italic px-1">Aucun.</div>
+                            </div>
+                        </div>
+
+                        <!-- Serveur local : c'est l'environnement qui porte la
+                             configuration (jeton, URL du service…). -->
+                        <div v-else class="bg-white border border-slate-200 rounded-md p-2">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-semibold text-slate-500">Variables</span>
+                                <button @click="mcpAddPair(sharedMcpForm, 'env')" type="button" title="Ajouter une variable"
+                                        class="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 border border-slate-200"><i class="ph ph-plus text-[10px]"></i></button>
+                            </div>
+                            <div v-for="(e, ei) in (sharedMcpForm.env || [])" :key="'se' + ei" class="flex gap-1.5 mb-1">
+                                <input v-model="e.name" placeholder="WIKIJS_TOKEN" class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                                <input v-model="e.value" type="password" :placeholder="e.has_value ? 'inchangé' : 'valeur'" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                                <button @click="mcpRemovePair(sharedMcpForm, 'env', ei)" type="button" title="Retirer"
+                                        class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-slate-400 hover:bg-red-50 hover:text-red-600"><i class="ph ph-x text-[10px]"></i></button>
+                            </div>
+                            <div v-if="!(sharedMcpForm.env || []).length" class="text-[10px] text-slate-400 italic px-1">Aucune.</div>
+                        </div>
+                        <div class="flex items-center justify-between gap-2">
+                            <label class="flex items-center gap-2 text-[11px] text-slate-600 cursor-pointer">
+                                <input type="checkbox" v-model="sharedMcpForm.enabled" class="accent-blue-600">
+                                Actif
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <span v-if="mcpTest.scope === 'shared' && mcpTest.msg"
+                                      class="text-[11px] font-medium"
+                                      :class="mcpTest.ok ? 'text-emerald-700' : 'text-red-600'">
+                                    <i class="ph" :class="mcpTest.ok ? 'ph-check-circle' : 'ph-warning-circle'"></i>
+                                    {{ mcpTest.msg }}
+                                </span>
+                                <span v-if="sharedMcpError" class="text-[11px] text-red-600">{{ sharedMcpError }}</span>
+                                <button @click="testMcpServer('shared')" :disabled="mcpTest.busy"
+                                        class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50">
+                                    <i class="ph" :class="mcpTest.busy && mcpTest.scope === 'shared' ? 'ph-spinner' : 'ph-plugs-connected'"></i>
+                                    Tester
+                                </button>
+                                <button @click="cancelSharedMcp()" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100">Annuler</button>
+                                <button @click="saveSharedMcp()" :disabled="sharedMcpSaving" class="bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-slate-700 disabled:opacity-50 transition-colors">{{ sharedMcpSaving ? 'Publication…' : (sharedMcpForm.id ? 'Enregistrer' : 'Publier') }}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <div><h4 class="font-bold text-slate-800 text-sm">Serveurs Custom</h4><p class="text-[11px] text-slate-500">Hébergez vos propres outils.</p></div>
+                        <button @click="triggerMcpUpload" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"><i class="ph ph-upload-simple"></i> Uploader</button>
+                        <input type="file" ref="mcpFileInput" @change="handleMcpUpload" webkitdirectory directory multiple class="hidden">
+                    </div>
+                    <div v-if="customMcpList.length === 0" class="text-center py-3 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-xs text-slate-400">Aucun serveur installé.</div>
+                    <div v-else class="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto custom-scrollbar">
+                        <div v-for="srv in customMcpList" :key="srv.name" class="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-200 group">
+                            <div class="flex items-center gap-2"><i class="ph ph-folder text-orange-500"></i><span class="text-xs font-medium text-slate-700">{{ srv.name }}</span></div>
+                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                                <button @click="useCustomServer(srv)" class="w-6 h-6 bg-white rounded text-blue-600 border border-slate-200 hover:bg-blue-50 text-xs"><i class="ph ph-plus"></i></button>
+                                <button @click="deleteCustomServer(srv.name)" class="w-6 h-6 bg-white rounded text-red-500 border border-slate-200 hover:bg-red-50 text-xs"><i class="ph ph-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-xs font-semibold text-slate-500">{{ newMcp._idx != null ? 'Modifier' : 'Ajouter manuellement' }}</div>
+                        <!-- Recettes : remplit le formulaire avec une configuration
+                             connue. L'utilisateur n'a plus qu'à compléter l'URL réelle
+                             et les jetons. Définies dans MCP_PRESETS (app-settings.js) —
+                             elles étaient recopiées en dur ici, et les deux copies
+                             avaient divergé. -->
+                        <select @change="applyMcpPreset('perso', $event.target.value); $event.target.value=''"
+                                class="text-[10px] py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none text-slate-600">
+                            <option value="">Recette…</option>
+                            <option value="wikijs">Wiki.js</option>
+                            <option value="wikijs_local">Wiki.js local</option>
+                            <option value="jenkins">Jenkins</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2 mb-2">
+                        <input v-model="newMcp.name" placeholder="Nom (ex: Git)" class="w-1/3 bg-white border border-slate-200 rounded-md p-1.5 text-xs focus:border-blue-500 outline-none">
+                        <select v-model="newMcp.type" class="w-1/4 bg-white border border-slate-200 rounded-md p-1.5 text-xs focus:border-blue-500 outline-none"><option value="http">HTTP</option><option value="sse">SSE</option><option v-if="user && user.role === 'admin'" value="stdio">Local</option></select>
+                    </div>
+                    <div class="flex gap-2 mb-2">
+                        <input v-if="newMcp.type!=='stdio'" v-model="newMcp.url" :placeholder="newMcp.type === 'http' ? 'http://…:4445/mcp' : 'URL...'" class="flex-1 bg-white border border-slate-200 rounded-md p-1.5 text-xs font-mono focus:border-blue-500 outline-none">
+                        <input v-else v-model="newMcp.command" placeholder="Commande shell..." class="flex-1 bg-white border border-slate-200 rounded-md p-1.5 text-xs font-mono focus:border-blue-500 outline-none">
+                    </div>
+                    <!-- Authentification (transports HTTP/SSE). 5 modes, cumulables
+                         avec la liste d'en-têtes qui suit :
+                          • Aucune
+                          • Bearer — Authorization: Bearer <jeton>
+                          • Basic  — user + token (Jenkins, etc.)
+                          • Clé d'API — en-tête NOMMÉ par l'utilisateur (X-API-Key…)
+                          • Brut   — la valeur d'Authorization telle quelle
+                         Si rien n'est touché, aucun en-tête n'est envoyé. -->
+                    <div v-if="newMcp.type!=='stdio'"
+                         class="bg-white border border-slate-200 rounded-md p-2 mb-2">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-xs font-semibold text-slate-500">Authentification</span>
+                            <select v-model="newMcp.auth_mode"
+                                    class="text-[10px] py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none">
+                                <option value="">Aucune</option>
+                                <option value="bearer">Bearer (jeton)</option>
+                                <option value="basic">Basic (user + token)</option>
+                                <option value="header">Clé d'API (en-tête)</option>
+                                <option value="raw">Authorization brut</option>
+                            </select>
+                        </div>
+                        <div v-if="newMcp.auth_mode === 'basic'" class="flex gap-1.5">
+                            <input v-model="newMcp.auth_user" placeholder="username"
+                                   class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                            <input v-model="newMcp.auth_secret" type="password" :placeholder="newMcp.has_auth ? 'inchangé' : 'API token / password'"
+                                   class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                        </div>
+                        <div v-else-if="newMcp.auth_mode === 'bearer'" class="flex gap-1.5">
+                            <input v-model="newMcp.auth_secret" type="password" :placeholder="newMcp.has_auth ? 'inchangé' : 'jeton seul, sans « Bearer »'"
+                                   class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                        </div>
+                        <div v-else-if="newMcp.auth_mode === 'header'" class="flex gap-1.5">
+                            <input v-model="newMcp.auth_user" placeholder="X-API-Key"
+                                   class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                            <input v-model="newMcp.auth_secret" type="password" :placeholder="newMcp.has_auth ? 'inchangé' : 'valeur de la clé'"
+                                   class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                        </div>
+                        <div v-else-if="newMcp.auth_mode === 'raw'" class="flex gap-1.5">
+                            <input v-model="newMcp.auth_secret" type="password" :placeholder="newMcp.has_auth ? 'inchangé' : 'Bearer eyJ... ou Basic dXNlcjpwYXNz'"
+                                   class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                        </div>
+                        <div v-else class="text-[10px] text-slate-400 italic px-1">
+                            Aucun header d'auth envoyé.
+                        </div>
+
+                        <!-- En-têtes supplémentaires : cumulables avec le mode
+                             ci-dessus (jeton de transport + clé applicative). -->
+                        <div class="mt-2 pt-2 border-t border-slate-100">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[11px] font-semibold text-slate-500">En-têtes</span>
+                                <button @click="mcpAddPair(newMcp, 'headers')" type="button" title="Ajouter un en-tête"
+                                        class="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 border border-slate-200"><i class="ph ph-plus text-[10px]"></i></button>
+                            </div>
+                            <div v-for="(h, hi) in (newMcp.headers || [])" :key="'ph' + hi" class="flex gap-1.5 mb-1">
+                                <input v-model="h.name" placeholder="X-API-Key" class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                                <input v-model="h.value" type="password" :placeholder="h.has_value ? 'inchangé' : 'valeur'" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                                <button @click="mcpRemovePair(newMcp, 'headers', hi)" type="button" title="Retirer"
+                                        class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-slate-400 hover:bg-red-50 hover:text-red-600"><i class="ph ph-x text-[10px]"></i></button>
+                            </div>
+                            <div v-if="!(newMcp.headers || []).length" class="text-[10px] text-slate-400 italic px-1">Aucun.</div>
+                        </div>
+                    </div>
+
+                    <!-- Serveur local : la configuration passe par l'environnement
+                         du sous-processus (jeton, URL du service…). -->
+                    <div v-else class="bg-white border border-slate-200 rounded-md p-2 mb-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-semibold text-slate-500">Variables</span>
+                            <button @click="mcpAddPair(newMcp, 'env')" type="button" title="Ajouter une variable"
+                                    class="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 border border-slate-200"><i class="ph ph-plus text-[10px]"></i></button>
+                        </div>
+                        <div v-for="(e, ei) in (newMcp.env || [])" :key="'pe' + ei" class="flex gap-1.5 mb-1">
+                            <input v-model="e.name" placeholder="WIKIJS_TOKEN" class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                            <input v-model="e.value" type="password" :placeholder="e.has_value ? 'inchangé' : 'valeur'" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500">
+                            <button @click="mcpRemovePair(newMcp, 'env', ei)" type="button" title="Retirer"
+                                    class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-slate-400 hover:bg-red-50 hover:text-red-600"><i class="ph ph-x text-[10px]"></i></button>
+                        </div>
+                        <div v-if="!(newMcp.env || []).length" class="text-[10px] text-slate-400 italic px-1">Aucune.</div>
+                    </div>
+                    <div class="flex justify-end items-center gap-2">
+                        <span v-if="mcpTest.scope === 'perso' && mcpTest.msg"
+                              class="text-[11px] font-medium mr-auto"
+                              :class="mcpTest.ok ? 'text-emerald-700' : 'text-red-600'">
+                            <i class="ph" :class="mcpTest.ok ? 'ph-check-circle' : 'ph-warning-circle'"></i>
+                            {{ mcpTest.msg }}
+                        </span>
+                        <button @click="testMcpServer('perso')" :disabled="mcpTest.busy"
+                                class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50">
+                            <i class="ph" :class="mcpTest.busy && mcpTest.scope === 'perso' ? 'ph-spinner' : 'ph-plugs-connected'"></i>
+                            Tester
+                        </button>
+                        <button v-if="newMcp._idx != null" @click="cancelMcpEdit()" class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100">Annuler</button>
+                        <button @click="addMcpServer" class="bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-slate-700 transition-colors">
+                            <i class="ph" :class="newMcp._idx != null ? 'ph-check' : 'ph-plus'"></i> {{ newMcp._idx != null ? 'Enregistrer' : 'Ajouter' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-200 bg-white flex justify-end shrink-0">
+                <button @click="closeMcpManager" class="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-medium text-sm transition-colors shadow-sm">Fermer</button>
+            </div>
+        </div>
+    </div>
+    </Transition>

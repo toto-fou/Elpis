@@ -1,0 +1,48 @@
+# requirements.txt — application principale Elpis (chat, admin, hôte d'outils MCP)
+# Python 3.11+. Installé par ./install.sh (pip install -r requirements.txt).
+# Versions figées : celles de l'environnement validé par la suite de tests.
+
+# ---- Web & serveur ASGI ----
+fastapi==0.136.1
+starlette==1.0.0
+pydantic==2.13.4
+sse-starlette==3.4.4
+uvicorn[standard]==0.47.0     # uvloop + websockets importés par le code
+websockets==16.0
+gunicorn==26.0.0
+python-multipart==0.0.28      # formulaires / envois de fichiers (UploadFile)
+itsdangerous==2.2.0           # cookies de session (SessionMiddleware)
+
+# ---- Clients HTTP ----
+httpx==0.28.1
+requests==2.34.2
+
+# ---- MCP ----
+fastmcp==3.2.4
+mcp==1.27.1
+
+# ---- Données, sécurité, documents ----
+redis==7.4.0
+cryptography==48.0.0          # Fernet : clés API des connecteurs LLM
+PyYAML==6.0.3
+jsonschema==4.26.0
+psutil==7.2.2
+dpkt==1.9.8
+Pillow==12.2.0
+python-docx==1.2.0
+
+# ---- Base de données : moteurs serveur (facultatifs, SQLite par défaut) ----
+pg8000==1.31.5                # PostgreSQL, pur Python (+ scramp, asn1crypto, python-dateutil, six)
+PyMySQL==1.2.3                # MariaDB / MySQL, pur Python
+
+# ---- Intelligence de code (tree-sitter) ----
+tree-sitter==0.25.2
+tree-sitter-bash==0.25.1
+tree-sitter-javascript==0.25.0
+tree-sitter-typescript==0.23.2
+tree-sitter-robot==1.1.2
+
+# ---- Outils appelés en sous-processus ----
+ruff==0.15.13                 # lint de l'éditeur (/api/sandbox/lint)
+
+# ---- Tests ----

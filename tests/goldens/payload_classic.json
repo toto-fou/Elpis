@@ -1,0 +1,30 @@
+[
+  {
+    "cache_prompt": true,
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    },
+    "id_slot": -1,
+    "max_tokens": 16384,
+    "messages": [
+      {
+        "content": "SOCLE GOLDEN — identité de test stable, ne pas reformuler.",
+        "role": "system"
+      },
+      {
+        "content": "salut",
+        "role": "user"
+      }
+    ],
+    "model": "local-model",
+    "n_cache_reuse": 256,
+    "return_progress": true,
+    "sse_ping_interval": 15,
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "timings_per_token": true,
+    "user": "guest"
+  }
+]

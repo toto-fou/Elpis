@@ -1,0 +1,811 @@
+{
+  "fenetre": 48,
+  "echelle_planches": 1,
+  "etats": {
+    "repos": [
+      "idle"
+    ],
+    "reflexion": [
+      "waiting",
+      "review",
+      "look",
+      "idle"
+    ],
+    "parole": [
+      "bounce",
+      "dance",
+      "running"
+    ],
+    "sommeil": [
+      "sleep",
+      "idle"
+    ],
+    "salut": [
+      "wave",
+      "cheer",
+      "jump",
+      "idle"
+    ],
+    "erreur": [
+      "failed",
+      "idle"
+    ],
+    "chantier": [
+      "chantier"
+    ],
+    "reveil": [
+      "wake",
+      "jump",
+      "cheer",
+      "wave",
+      "idle"
+    ]
+  },
+  "mascottes": {
+    "boite_or": {
+      "cote_natif": 22,
+      "fenetre": 24,
+      "palette": {
+        "O": [
+          198,
+          156,
+          64
+        ],
+        "D": [
+          46,
+          33,
+          18
+        ],
+        "L": [
+          130,
+          94,
+          36
+        ],
+        "J": [
+          245,
+          190,
+          40
+        ],
+        "K": [
+          138,
+          92,
+          10
+        ],
+        "H": [
+          255,
+          228,
+          138
+        ],
+        "F": [
+          240,
+          186,
+          70
+        ],
+        "C": [
+          255,
+          244,
+          198
+        ]
+      },
+      "etats": {
+        "repos": "idle",
+        "reflexion": "waiting",
+        "parole": "bounce",
+        "sommeil": "sleep",
+        "salut": "wave",
+        "erreur": "failed",
+        "chantier": "chantier",
+        "reveil": "jump"
+      },
+      "anims": {
+        "bounce": {
+          "frames": 6,
+          "cadence": 120,
+          "cycle": 720
+        },
+        "chantier": {
+          "frames": 4,
+          "cadence": 190,
+          "cycle": 760
+        },
+        "dance": {
+          "frames": 6,
+          "cadence": 120,
+          "cycle": 720
+        },
+        "failed": {
+          "frames": 5,
+          "cadence": 160,
+          "cycle": 800
+        },
+        "headbang": {
+          "frames": 5,
+          "cadence": 65,
+          "cycle": 325
+        },
+        "idle": {
+          "frames": 23,
+          "cadence": 200,
+          "cycle": 4600
+        },
+        "jump": {
+          "frames": 6,
+          "cadence": 110,
+          "cycle": 660
+        },
+        "look": {
+          "frames": 8,
+          "cadence": 220,
+          "cycle": 1760
+        },
+        "run-left": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "run-right": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "running": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "sleep": {
+          "frames": 4,
+          "cadence": 320,
+          "cycle": 1280
+        },
+        "waiting": {
+          "frames": 4,
+          "cadence": 190,
+          "cycle": 760
+        },
+        "wave": {
+          "frames": 8,
+          "cadence": 130,
+          "cycle": 1040
+        }
+      }
+    },
+    "flamme": {
+      "cote_natif": 20,
+      "fenetre": 24,
+      "palette": {
+        "O": [
+          222,
+          78,
+          54
+        ],
+        "D": [
+          58,
+          22,
+          16
+        ],
+        "L": [
+          252,
+          169,
+          81
+        ],
+        "J": [
+          245,
+          190,
+          40
+        ],
+        "K": [
+          138,
+          92,
+          10
+        ],
+        "H": [
+          255,
+          228,
+          138
+        ],
+        "C": [
+          250,
+          178,
+          96
+        ]
+      },
+      "etats": {
+        "repos": "idle",
+        "reflexion": "waiting",
+        "parole": "bounce",
+        "sommeil": "sleep",
+        "salut": "wave",
+        "erreur": "failed",
+        "chantier": "chantier",
+        "reveil": "jump"
+      },
+      "anims": {
+        "bounce": {
+          "frames": 5,
+          "cadence": 120,
+          "cycle": 600
+        },
+        "chantier": {
+          "frames": 6,
+          "cadence": 190,
+          "cycle": 1140
+        },
+        "dance": {
+          "frames": 6,
+          "cadence": 120,
+          "cycle": 720
+        },
+        "failed": {
+          "frames": 5,
+          "cadence": 160,
+          "cycle": 800
+        },
+        "headbang": {
+          "frames": 5,
+          "cadence": 65,
+          "cycle": 325
+        },
+        "idle": {
+          "frames": 12,
+          "cadence": 200,
+          "cycle": 2400
+        },
+        "jump": {
+          "frames": 5,
+          "cadence": 110,
+          "cycle": 550
+        },
+        "look": {
+          "frames": 8,
+          "cadence": 220,
+          "cycle": 1760
+        },
+        "run-left": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "run-right": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "running": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "sleep": {
+          "frames": 4,
+          "cadence": 320,
+          "cycle": 1280
+        },
+        "waiting": {
+          "frames": 6,
+          "cadence": 190,
+          "cycle": 1140
+        },
+        "wave": {
+          "frames": 6,
+          "cadence": 130,
+          "cycle": 780
+        }
+      }
+    },
+    "flamme_bleue": {
+      "cote_natif": 20,
+      "fenetre": 24,
+      "palette": {
+        "O": [
+          72,
+          140,
+          226
+        ],
+        "D": [
+          16,
+          32,
+          64
+        ],
+        "L": [
+          252,
+          169,
+          81
+        ],
+        "J": [
+          245,
+          190,
+          40
+        ],
+        "K": [
+          138,
+          92,
+          10
+        ],
+        "H": [
+          255,
+          228,
+          138
+        ],
+        "C": [
+          178,
+          228,
+          255
+        ]
+      },
+      "etats": {
+        "repos": "idle",
+        "reflexion": "waiting",
+        "parole": "bounce",
+        "sommeil": "sleep",
+        "salut": "wave",
+        "erreur": "failed",
+        "chantier": "chantier",
+        "reveil": "jump"
+      },
+      "anims": {
+        "bounce": {
+          "frames": 5,
+          "cadence": 120,
+          "cycle": 600
+        },
+        "chantier": {
+          "frames": 6,
+          "cadence": 190,
+          "cycle": 1140
+        },
+        "dance": {
+          "frames": 6,
+          "cadence": 120,
+          "cycle": 720
+        },
+        "failed": {
+          "frames": 5,
+          "cadence": 160,
+          "cycle": 800
+        },
+        "headbang": {
+          "frames": 5,
+          "cadence": 65,
+          "cycle": 325
+        },
+        "idle": {
+          "frames": 12,
+          "cadence": 200,
+          "cycle": 2400
+        },
+        "jump": {
+          "frames": 5,
+          "cadence": 110,
+          "cycle": 550
+        },
+        "look": {
+          "frames": 8,
+          "cadence": 220,
+          "cycle": 1760
+        },
+        "run-left": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "run-right": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "running": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "sleep": {
+          "frames": 4,
+          "cadence": 320,
+          "cycle": 1280
+        },
+        "waiting": {
+          "frames": 6,
+          "cadence": 190,
+          "cycle": 1140
+        },
+        "wave": {
+          "frames": 6,
+          "cadence": 130,
+          "cycle": 780
+        }
+      }
+    },
+    "fantome": {
+      "cote_natif": 20,
+      "fenetre": 24,
+      "palette": {
+        "O": [
+          176,
+          186,
+          226
+        ],
+        "D": [
+          26,
+          24,
+          44
+        ],
+        "L": [
+          222,
+          228,
+          250
+        ],
+        "J": [
+          245,
+          190,
+          40
+        ],
+        "K": [
+          138,
+          92,
+          10
+        ],
+        "H": [
+          255,
+          228,
+          138
+        ]
+      },
+      "etats": {
+        "repos": "idle",
+        "reflexion": "waiting",
+        "parole": "bounce",
+        "sommeil": "sleep",
+        "salut": "jump",
+        "erreur": "failed",
+        "chantier": "chantier",
+        "reveil": "jump"
+      },
+      "anims": {
+        "bounce": {
+          "frames": 7,
+          "cadence": 120,
+          "cycle": 840
+        },
+        "chantier": {
+          "frames": 4,
+          "cadence": 190,
+          "cycle": 760
+        },
+        "dance": {
+          "frames": 4,
+          "cadence": 120,
+          "cycle": 480
+        },
+        "failed": {
+          "frames": 4,
+          "cadence": 160,
+          "cycle": 640
+        },
+        "headbang": {
+          "frames": 5,
+          "cadence": 65,
+          "cycle": 325
+        },
+        "idle": {
+          "frames": 6,
+          "cadence": 200,
+          "cycle": 1200
+        },
+        "jump": {
+          "frames": 5,
+          "cadence": 110,
+          "cycle": 550
+        },
+        "look": {
+          "frames": 8,
+          "cadence": 220,
+          "cycle": 1760
+        },
+        "run-left": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "run-right": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "running": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "sleep": {
+          "frames": 4,
+          "cadence": 320,
+          "cycle": 1280
+        },
+        "waiting": {
+          "frames": 4,
+          "cadence": 190,
+          "cycle": 760
+        }
+      }
+    },
+    "elpis": {
+      "cote_natif": 48,
+      "fenetre": 48,
+      "palette": {
+        "O": [
+          184,
+          138,
+          61
+        ],
+        "D": [
+          26,
+          11,
+          18
+        ],
+        "L": [
+          252,
+          169,
+          81
+        ],
+        "J": [
+          245,
+          190,
+          40
+        ],
+        "K": [
+          138,
+          92,
+          10
+        ],
+        "H": [
+          255,
+          228,
+          138
+        ],
+        "N": [
+          46,
+          36,
+          26
+        ],
+        "M": [
+          124,
+          94,
+          58
+        ],
+        "C": [
+          66,
+          46,
+          30
+        ],
+        "B": [
+          102,
+          73,
+          43
+        ],
+        "T": [
+          143,
+          106,
+          61
+        ],
+        "P": [
+          244,
+          219,
+          187
+        ],
+        "Q": [
+          206,
+          167,
+          128
+        ],
+        "X": [
+          255,
+          238,
+          212
+        ],
+        "I": [
+          246,
+          236,
+          217
+        ],
+        "V": [
+          206,
+          190,
+          160
+        ],
+        "U": [
+          158,
+          140,
+          112
+        ],
+        "G": [
+          236,
+          204,
+          133
+        ],
+        "E": [
+          126,
+          90,
+          36
+        ],
+        "W": [
+          255,
+          251,
+          228
+        ],
+        "F": [
+          255,
+          206,
+          92
+        ],
+        "A": [
+          232,
+          138,
+          44
+        ]
+      },
+      "etats": {
+        "repos": "idle",
+        "reflexion": "waiting",
+        "parole": "bounce",
+        "sommeil": "sleep",
+        "salut": "wave",
+        "erreur": "failed",
+        "chantier": "chantier",
+        "reveil": "wake"
+      },
+      "anims": {
+        "bounce": {
+          "frames": 6,
+          "cadence": 120,
+          "cycle": 720
+        },
+        "chantier": {
+          "frames": 8,
+          "cadence": 190,
+          "cycle": 1520
+        },
+        "cheer": {
+          "frames": 4,
+          "cadence": 120,
+          "cycle": 480
+        },
+        "dance": {
+          "frames": 4,
+          "cadence": 120,
+          "cycle": 480
+        },
+        "espoir": {
+          "frames": 6,
+          "cadence": 150,
+          "cycle": 900
+        },
+        "failed": {
+          "frames": 4,
+          "cadence": 160,
+          "cycle": 640
+        },
+        "idle": {
+          "frames": 10,
+          "cadence": 200,
+          "cycle": 2000
+        },
+        "jump": {
+          "frames": 6,
+          "cadence": 110,
+          "cycle": 660
+        },
+        "look": {
+          "frames": 8,
+          "cadence": 220,
+          "cycle": 1760
+        },
+        "run-left": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "run-right": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "running": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "sleep": {
+          "frames": 4,
+          "cadence": 320,
+          "cycle": 1280
+        },
+        "vol": {
+          "frames": 4,
+          "cadence": 110,
+          "cycle": 440
+        },
+        "waiting": {
+          "frames": 8,
+          "cadence": 190,
+          "cycle": 1520
+        },
+        "wake": {
+          "frames": 5,
+          "cadence": 150,
+          "cycle": 750
+        },
+        "wave": {
+          "frames": 8,
+          "cadence": 130,
+          "cycle": 1040
+        }
+      }
+    },
+    "kiki": {
+      "format": "atlas",
+      "etats": {
+        "repos": "idle",
+        "reflexion": "idle",
+        "parole": "running",
+        "sommeil": "idle",
+        "salut": "idle",
+        "erreur": "idle",
+        "chantier": "chantier",
+        "reveil": "idle"
+      },
+      "anims": {
+        "chantier": {
+          "frames": 16,
+          "cadence": 70,
+          "cycle": 1120
+        },
+        "degaine": {
+          "frames": 9,
+          "cadence": 55,
+          "cycle": 495
+        },
+        "idle": {
+          "frames": 12,
+          "cadence": 180,
+          "cycle": 2160
+        },
+        "rengaine": {
+          "frames": 8,
+          "cadence": 55,
+          "cycle": 440
+        },
+        "run-left": {
+          "frames": 16,
+          "cadence": 70,
+          "cycle": 1120
+        },
+        "run-right": {
+          "frames": 16,
+          "cadence": 70,
+          "cycle": 1120
+        },
+        "running": {
+          "frames": 16,
+          "cadence": 70,
+          "cycle": 1120
+        },
+        "salut": {
+          "frames": 14,
+          "cadence": 85,
+          "cycle": 1190
+        },
+        "tir": {
+          "frames": 6,
+          "cadence": 45,
+          "cycle": 270
+        },
+        "vise": {
+          "frames": 8,
+          "cadence": 110,
+          "cycle": 880
+        }
+      }
+    }
+  }
+}

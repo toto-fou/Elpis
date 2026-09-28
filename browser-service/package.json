@@ -1,0 +1,21 @@
+{
+  "name": "mcp-browser-service",
+  "version": "12.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Autonomous Playwright Server V12",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "playwright": "^1.40.0",
+    "uuid": "^9.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

@@ -1,0 +1,461 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# =============================================================================
+#  elpis — configurer, lancer et diagnostiquer Elpis
+# =============================================================================
+#
+#  ./elpis configure [options]   assistant par pages (LLM, cloud, HTTPS, RAG,
+#                                sandbox, voix, base, compte admin) ; avec des
+#                                options : sans assistant.  --yes = sans
+#                                question ; --help = toutes les options
+#  ./elpis start [--foreground]  démarre Qdrant, RAG, outils, app, admin, navigateur
+#  ./elpis stop                  arrête les services lancés par « elpis start »
+#  ./elpis restart
+#  ./elpis status                état des services et des ports
+#  ./elpis logs [SERVICE] [-f]   journaux (qdrant rag toolhost main admin browser)
+#  ./elpis service install       services systemd (sudo), démarrage au boot
+#  ./elpis service remove
+#  ./elpis service print         affiche les unités sans rien installer
+#  ./elpis doctor                diagnostic de l'installation
+#  ./elpis db info|check|transfer|use   base de données : état, test d'une
+#                                cible, copie vers une base vide, choix du
+#                                moteur (« ./elpis db use sqlite » = porte de
+#                                sortie si le serveur de base est tombé)
+# =============================================================================
+set -uo pipefail
+# « su » sans « - » garde le PATH de l'utilisateur, sans /usr/sbin ni /sbin :
+# runuser, usermod… y seraient introuvables en root.
+for d in /usr/local/sbin /usr/sbin /sbin; do
+    case ":$PATH:" in *":$d:"*) ;; *) PATH="$PATH:$d" ;; esac
+done
+export PATH
+
+ROOT="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+cd "$ROOT"
+VENV="$ROOT/venv"
+PY="$VENV/bin/python"
+RUN_DIR="$ROOT/user_db/run"
+LOG_DIR="$ROOT/logs"
+SERVICES=(qdrant rag toolhost main admin browser)
+UNIT_PREFIX="elpis"
+
+MAIN_PORT=8001; ADMIN_PORT=8002; RAG_PORT=8000; MCP_PORT="${LOCAL_MCP_PORT:-8765}"
+QDRANT_PORT=6333; BROWSER_PORT="${FIREFOX_SERVICE_PORT:-3000}"
+
+info() { printf '\033[1;34m[elpis]\033[0m %s\n' "$*"; }
+ok()   { printf '\033[1;32m[ ok  ]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[warn ]\033[0m %s\n' "$*" >&2; }
+die()  { printf '\033[1;31m[err  ]\033[0m %s\n' "$*" >&2; exit 1; }
+usage() { sed -n '/^#  \.\/elpis configure/,/^#                                sortie si/p' "$0" | sed 's/^# \{0,1\}//'; }
+
+need_venv() { [ -x "$PY" ] || die "venv/ absent : lancez d'abord ./install.sh"; }
+port_open() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null && { exec 3>&- 3<&-; return 0; }; return 1; }
+
+# =============================================================================
+#  configure
+# =============================================================================
+cmd_configure() {
+    need_venv
+    # Sans option, dans un terminal : assistant par pages (deploy/wizard.py) —
+    # toutes les réponses d'abord, puis application sans question. Avec des
+    # options, ou sans terminal : deploy/configure.py directement
+    # (« ./elpis configure --help »).
+    if [ $# -eq 0 ] && [ -t 0 ] && [ -t 1 ]; then
+        local ans="$ROOT/user_db/run/configure-answers.json" rc
+        mkdir -p "$ROOT/user_db/run" && chmod 700 "$ROOT/user_db" "$ROOT/user_db/run"
+        (
+            # Le fichier de réponses porte des secrets : supprimé quoi qu'il arrive.
+            trap 'rm -f "$ans"' EXIT
+            "$PY" "$ROOT/deploy/wizard.py" configure --out "$ans"
+            rc=$?
+            case $rc in
+                0) "$PY" "$ROOT/deploy/configure.py" --answers "$ans" ;;
+                1) info "Rien n'a été modifié." ;;
+                *) exit 3 ;;
+            esac
+        )
+        rc=$?
+        [ "$rc" -ne 3 ] && return "$rc"
+        warn "Assistant indisponible dans ce terminal : questions en lignes."
+    fi
+    "$PY" "$ROOT/deploy/configure.py" "$@"
+}
+
+# =============================================================================
+#  Définition des services (commande, dossier, environnement)
+# =============================================================================
+_bind_default() {
+    # Même règle que server/_bind_host.py : HTTPS → 127.0.0.1 ; config absente
+    # ou illisible → 127.0.0.1 ; security.listen « lan » → 0.0.0.0, « local »
+    # → 127.0.0.1 ; clé absente (config d'avant le réglage) → 0.0.0.0.
+    "$PY" - <<'PYEOF' 2>/dev/null || echo "127.0.0.1"
+import json, os
+p = os.environ.get("APP_CONFIG_PATH") or "config.json"
+if not os.path.exists(p):
+    print("127.0.0.1")
+else:
+    try:
+        sec = (json.load(open(p)).get("security") or {})
+        if (sec.get("https") or {}).get("enabled"):
+            print("127.0.0.1")
+        elif sec.get("listen") is None:
+            print("0.0.0.0")
+        else:
+            print("0.0.0.0" if str(sec["listen"]).strip().lower() == "lan" else "127.0.0.1")
+    except Exception:
+        print("127.0.0.1")
+PYEOF
+}
+
+# HTTPS actif (frontal Caddy) ? Distinct du bind : « listen local » donne aussi
+# 127.0.0.1 sans Caddy.
+_https_enabled() {
+    "$PY" - <<'PYEOF' 2>/dev/null
+import json, os, sys
+p = os.environ.get("APP_CONFIG_PATH") or "config.json"
+try:
+    sec = (json.load(open(p)).get("security") or {})
+    sys.exit(0 if (sec.get("https") or {}).get("enabled") else 1)
+except Exception:
+    sys.exit(1)
+PYEOF
+}
+
+# svc_spec NOM → définit SPEC_DIR, SPEC_CMD (tableau), SPEC_ENV (tableau K=V)
+svc_spec() {
+    SPEC_DIR="$ROOT"; SPEC_CMD=(); SPEC_ENV=("PYTHONDONTWRITEBYTECODE=1")
+    local mcp_url="http://127.0.0.1:${MCP_PORT}/mcp"
+    case "$1" in
+        qdrant)
+            SPEC_DIR="$ROOT/rag_app/qdrant"
+            SPEC_CMD=("$ROOT/rag_app/qdrant/qdrant" --config-path "$ROOT/rag_app/qdrant/config.yaml") ;;
+        rag)
+            SPEC_DIR="$ROOT/rag_app"
+            SPEC_CMD=("$VENV/bin/uvicorn" app:app --host "${RAG_HOST:-$BIND_DEFAULT}" --port "$RAG_PORT") ;;
+        toolhost)
+            SPEC_ENV+=(LOCAL_MCP_TRANSPORT=streamable-http "LOCAL_MCP_HOST=${LOCAL_MCP_HOST:-127.0.0.1}"
+                       "LOCAL_MCP_PORT=$MCP_PORT" "APP_SANDBOX_DIR=$SANDBOX_DIR")
+            SPEC_CMD=("$PY" -m toolhost) ;;
+        main)
+            SPEC_ENV+=(ENABLE_CLI=1 APP_MODE=main APP_SERVICE=main "LOCAL_MCP_URL=$mcp_url"
+                       "APP_SANDBOX_DIR=$SANDBOX_DIR" "MAIN_INTERNAL_URL=http://127.0.0.1:$MAIN_PORT"
+                       "ADMIN_PUBLIC_URL=${ADMIN_PUBLIC_URL:-http://localhost:$ADMIN_PORT/admin}"
+                       "PLAYWRIGHT_API_URL=${PLAYWRIGHT_API_URL:-http://127.0.0.1:$BROWSER_PORT}")
+            SPEC_CMD=("$VENV/bin/gunicorn" -c server/gunicorn_conf.py server.app:app) ;;
+        admin)
+            SPEC_ENV+=(APP_MODE=admin APP_SERVICE=admin "LOCAL_MCP_URL=$mcp_url"
+                       "APP_SANDBOX_DIR=$SANDBOX_DIR" "MAIN_INTERNAL_URL=http://127.0.0.1:$MAIN_PORT"
+                       "MAIN_PUBLIC_URL=${MAIN_PUBLIC_URL:-http://localhost:$MAIN_PORT/}")
+            SPEC_CMD=("$VENV/bin/gunicorn" -c server/gunicorn_admin_conf.py server.admin_app:app) ;;
+        browser)
+            SPEC_DIR="$ROOT/browser-service"
+            SPEC_ENV+=(PLAYWRIGHT_HEADLESS=true "FIREFOX_SERVICE_PORT=$BROWSER_PORT")
+            SPEC_CMD=("$(command -v node || echo node)" server.js) ;;
+        *) die "service inconnu : $1" ;;
+    esac
+}
+
+# Serveur de base sur CETTE machine (config.json / APP_DB_*) → son unité
+# systemd, que main, admin et l'hôte d'outils attendent au démarrage.
+_db_local_unit() {
+    "$PY" - <<'PYEOF' 2>/dev/null
+import json, os
+p = os.environ.get("APP_CONFIG_PATH") or "config.json"
+db = json.load(open(p)).get("database") or {}
+backend = (os.environ.get("APP_DB_BACKEND") or db.get("backend") or "sqlite").lower()
+host = os.environ.get("APP_DB_HOST") or db.get("host") or "127.0.0.1"
+if host in ("127.0.0.1", "localhost", "::1"):
+    for unit in {"postgres": ["postgresql.service"], "postgresql": ["postgresql.service"],
+                 "mysql": ["mariadb.service", "mysql.service"],
+                 "mariadb": ["mariadb.service", "mysql.service"]}.get(backend, []):
+        if any(os.path.exists(d + unit) for d in ("/lib/systemd/system/", "/usr/lib/systemd/system/",
+                                                  "/etc/systemd/system/")):
+            print(unit)
+            break
+PYEOF
+}
+
+svc_available() {
+    case "$1" in
+        qdrant)  [ -x "$ROOT/rag_app/qdrant/qdrant" ] ;;
+        browser) [ -d "$ROOT/browser-service/node_modules" ] && command -v node >/dev/null ;;
+        *)       return 0 ;;
+    esac
+}
+
+svc_port() {
+    case "$1" in
+        qdrant) echo "$QDRANT_PORT" ;; rag) echo "$RAG_PORT" ;; toolhost) echo "$MCP_PORT" ;;
+        main) echo "$MAIN_PORT" ;; admin) echo "$ADMIN_PORT" ;; browser) echo "$BROWSER_PORT" ;;
+    esac
+}
+
+load_runtime() {
+    need_venv
+    [ -f "$ROOT/config.json" ] || die "config.json absent : lancez ./elpis configure"
+    # .env : surcharges locales facultatives (KEY=VALUE, une par ligne).
+    if [ -f "$ROOT/.env" ]; then set -a; . "$ROOT/.env"; set +a; fi
+    BIND_DEFAULT="$(_bind_default)"
+    SANDBOX_DIR="${APP_SANDBOX_DIR:-$("$PY" -c 'from shared_infra.config import SANDBOX_DIR; print(SANDBOX_DIR)' 2>/dev/null || echo "$ROOT/user_sandboxes")}"
+    mkdir -p "$SANDBOX_DIR" "$RUN_DIR" "$LOG_DIR" "$ROOT/user_db/logs"
+}
+
+pid_of() { local f="$RUN_DIR/$1.pid"; [ -s "$f" ] && kill -0 "$(cat "$f")" 2>/dev/null && cat "$f"; }
+
+systemd_active() { command -v systemctl >/dev/null && systemctl is-active --quiet "${UNIT_PREFIX}.target" 2>/dev/null; }
+
+wait_port() {
+    local port="$1" n="${2:-40}"
+    for _ in $(seq 1 "$n"); do port_open "$port" && return 0; sleep 0.5; done
+    return 1
+}
+
+# =============================================================================
+#  start / stop / status / logs
+# =============================================================================
+cmd_start() {
+    local foreground=0
+    [ "${1:-}" = "--foreground" ] && foreground=1
+    systemd_active && die "Les services systemd ${UNIT_PREFIX}.target tournent déjà (systemctl status ${UNIT_PREFIX}.target)."
+    load_runtime
+    local s started=()
+    for s in "${SERVICES[@]}"; do
+        if ! svc_available "$s"; then warn "$s non installé : ignoré."; continue; fi
+        if pid_of "$s" >/dev/null; then info "$s tourne déjà (pid $(pid_of "$s"))."; continue; fi
+        svc_spec "$s"
+        info "Démarrage de $s…"
+        ( cd "$SPEC_DIR" && exec env "${SPEC_ENV[@]}" setsid "${SPEC_CMD[@]}" ) \
+            >>"$LOG_DIR/$s.log" 2>&1 </dev/null &
+        echo $! > "$RUN_DIR/$s.pid"
+        started+=("$s")
+        # Les suivants dépendent de Qdrant et de l'hôte d'outils : on les attend.
+        case "$s" in
+            qdrant|toolhost) wait_port "$(svc_port "$s")" 40 || warn "$s ne répond pas encore (voir ./elpis logs $s)." ;;
+        esac
+    done
+    sleep 2
+    cmd_status
+    local host="localhost"
+    if _https_enabled; then
+        info "Mode HTTPS : accès par le frontal Caddy (https://<hôte>/)."
+    else
+        info "Application : http://$host:$MAIN_PORT/   Administration : http://$host:$ADMIN_PORT/admin"
+        [ "$BIND_DEFAULT" = "127.0.0.1" ] && info "Écoute locale (security.listen) : joignable depuis ce serveur seulement."
+    fi
+    if [ "$foreground" -eq 1 ]; then
+        trap 'cmd_stop; exit 0' INT TERM
+        info "Premier plan : Ctrl-C arrête tout."
+        while :; do sleep 5; done
+    fi
+}
+
+cmd_stop() {
+    local i s pid
+    for (( i=${#SERVICES[@]}-1; i>=0; i-- )); do
+        s="${SERVICES[$i]}"
+        pid="$(pid_of "$s")" || { rm -f "$RUN_DIR/$s.pid"; continue; }
+        info "Arrêt de $s (pid $pid)…"
+        kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
+        for _ in $(seq 1 40); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+        kill -0 "$pid" 2>/dev/null && { kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null; }
+        rm -f "$RUN_DIR/$s.pid"
+    done
+    ok "Services arrêtés."
+}
+
+cmd_status() {
+    local s pid port state
+    if systemd_active; then info "Géré par systemd (${UNIT_PREFIX}.target)."; fi
+    printf '  %-10s %-8s %-7s %s\n' SERVICE PID PORT ÉTAT
+    for s in "${SERVICES[@]}"; do
+        pid="$(pid_of "$s" || true)"; port="$(svc_port "$s")"
+        if ! svc_available "$s"; then state="non installé"
+        elif port_open "$port"; then state="à l'écoute"
+        elif [ -n "$pid" ]; then state="démarrage…"
+        else state="arrêté"; fi
+        printf '  %-10s %-8s %-7s %s\n' "$s" "${pid:--}" "$port" "$state"
+    done
+}
+
+cmd_logs() {
+    local svc="" follow=0 a
+    for a in "$@"; do
+        case "$a" in -f|--follow) follow=1 ;; *) svc="$a" ;; esac
+    done
+    if systemd_active && [ -n "$svc" ]; then
+        exec journalctl -u "${UNIT_PREFIX}-$svc" $([ "$follow" -eq 1 ] && echo -f)
+    fi
+    local files=()
+    if [ -n "$svc" ]; then files=("$LOG_DIR/$svc.log"); else files=("$LOG_DIR"/*.log); fi
+    [ -e "${files[0]}" ] || die "Aucun journal dans $LOG_DIR."
+    if [ "$follow" -eq 1 ]; then exec tail -n 50 -F "${files[@]}"; else tail -n 50 "${files[@]}"; fi
+}
+
+# =============================================================================
+#  service install / remove (systemd)
+# =============================================================================
+# _render_units DOSSIER UTILISATEUR → écrit les unités, remplit UNITS_WANTS
+_render_units() {
+    local unit_dir="$1" run_user="$2" s e
+    UNITS_WANTS=()
+    load_runtime
+    local db_unit; db_unit="$(_db_local_unit)"
+    for s in "${SERVICES[@]}"; do
+        svc_available "$s" || { warn "$s non installé : pas d'unité."; continue; }
+        svc_spec "$s"
+        {
+            echo "[Unit]"
+            echo "Description=Elpis — $s"
+            echo "PartOf=${UNIT_PREFIX}.target"
+            case "$s" in
+                rag)        echo "After=${UNIT_PREFIX}-qdrant.service" ;;
+                toolhost)   echo "After=network-online.target docker.service${db_unit:+ $db_unit}" ;;
+                main|admin) echo "After=${UNIT_PREFIX}-toolhost.service ${UNIT_PREFIX}-rag.service${db_unit:+ $db_unit}" ;;
+            esac
+            case "$s" in
+                toolhost|main|admin) if [ -n "$db_unit" ]; then echo "Wants=$db_unit"; fi ;;
+            esac
+            echo
+            echo "[Service]"
+            echo "Type=simple"
+            echo "User=$run_user"
+            echo "WorkingDirectory=$SPEC_DIR"
+            for e in "${SPEC_ENV[@]}"; do printf 'Environment="%s"\n' "$e"; done
+            echo "EnvironmentFile=-$ROOT/.env"
+            printf 'ExecStart='; printf '%q ' "${SPEC_CMD[@]}"; echo
+            echo "Restart=on-failure"
+            echo "RestartSec=3"
+            echo "KillMode=mixed"
+            echo "TimeoutStopSec=30"
+            echo
+            echo "[Install]"
+            echo "WantedBy=${UNIT_PREFIX}.target"
+        } > "$unit_dir/${UNIT_PREFIX}-$s.service"
+        UNITS_WANTS+=("${UNIT_PREFIX}-$s.service")
+    done
+    # Unités installées à côté : Caddy (apt, --with-caddy) quand HTTPS est
+    # actif, moteur vocal local (deploy/voice). Démarrées et arrêtées avec
+    # le reste, sans qu'on écrive leurs fichiers.
+    local extra=()
+    if _https_enabled && [ -f /lib/systemd/system/caddy.service ]; then extra+=(caddy.service); fi
+    [ -f /etc/systemd/system/elpis-whisper.service ] && extra+=(elpis-whisper.service)
+    [ -f /etc/systemd/system/elpis-tts.service ] && extra+=(elpis-tts.service)
+    {
+        echo "[Unit]"
+        echo "Description=Elpis (tous les services)"
+        echo "Wants=${UNITS_WANTS[*]} ${extra[*]}"
+        echo "After=network-online.target"
+        echo
+        echo "[Install]"
+        echo "WantedBy=multi-user.target"
+    } > "$unit_dir/${UNIT_PREFIX}.target"
+}
+
+cmd_service() {
+    local action="${1:-}" unit_dir=/etc/systemd/system s
+    if [ "$action" = "print" ]; then
+        local tmp; tmp="$(mktemp -d)"
+        _render_units "$tmp" "${ELPIS_USER:-$(id -un)}"
+        for s in "$tmp"/*; do echo "### $(basename "$s")"; cat "$s"; echo; done
+        rm -rf "$tmp"
+        return 0
+    fi
+    [ "$(id -u)" -eq 0 ] || die "Lancez avec sudo : sudo ./elpis service ${action:-install}"
+    command -v systemctl >/dev/null || die "systemd absent."
+    case "$action" in
+        install)
+            local run_user="${ELPIS_USER:-${SUDO_USER:-}}" ans
+            if [ -z "${ELPIS_USER:-}" ] && [ -t 0 ]; then
+                read -r -p "  Utilisateur qui fera tourner les services [${run_user:-?}] : " ans || ans=""
+                run_user="${ans:-$run_user}"
+            fi
+            [ -n "$run_user" ] && [ "$run_user" != root ] \
+                || die "Utilisateur de service inconnu : lancez via sudo depuis votre compte, ou ELPIS_USER=nom."
+            id "$run_user" >/dev/null 2>&1 || die "Utilisateur $run_user inexistant (créez-le, ou ELPIS_USER=nom)."
+            # Il doit lire le dépôt et piloter Docker (sandbox).
+            sudo -u "$run_user" test -r "$ROOT/config.json" \
+                || die "$run_user ne peut pas lire $ROOT/config.json : choisissez le propriétaire du dépôt."
+            if getent group docker >/dev/null && ! id -nG "$run_user" | tr ' ' '\n' | grep -qx docker; then
+                usermod -aG docker "$run_user" && info "$run_user ajouté au groupe docker."
+            fi
+            _render_units "$unit_dir" "$run_user"
+            chown -R "$run_user" "$ROOT/user_db" "$LOG_DIR" 2>/dev/null || true
+            systemctl daemon-reload
+            systemctl enable "${UNITS_WANTS[@]}" "${UNIT_PREFIX}.target" >/dev/null
+            # Les processus lancés à la main laisseraient les ports occupés.
+            cmd_stop >/dev/null 2>&1 || true
+            systemctl restart "${UNIT_PREFIX}.target"
+            ok "Services installés et démarrés (utilisateur $run_user) : systemctl status ${UNIT_PREFIX}.target"
+            ;;
+        remove)
+            systemctl disable --now "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
+            for s in "${SERVICES[@]}"; do
+                systemctl disable --now "${UNIT_PREFIX}-$s.service" >/dev/null 2>&1 || true
+                rm -f "$unit_dir/${UNIT_PREFIX}-$s.service"
+            done
+            rm -f "$unit_dir/${UNIT_PREFIX}.target"
+            systemctl daemon-reload
+            ok "Services systemd retirés."
+            ;;
+        *) die "Usage : sudo ./elpis service install|remove   (ou ./elpis service print)" ;;
+    esac
+}
+
+# =============================================================================
+#  doctor
+# =============================================================================
+cmd_doctor() {
+    local bad=0
+    check() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else warn "$1 : NON ($3)"; bad=$((bad+1)); fi; }
+    check "venv Python" "[ -x '$PY' ]" "./install.sh"
+    check "dépendances Python" "'$PY' -c 'import fastapi, fastmcp, httpx, gunicorn, uvicorn'" "./install.sh"
+    check "dépendances RAG" "'$PY' -c 'import pandas, pdfplumber, pypdfium2'" "pip install -r requirements-rag.txt"
+    check "config.json" "[ -f '$ROOT/config.json' ]" "./elpis configure"
+    check "mcp.json" "[ -f '$ROOT/mcp.json' ]" "./elpis configure"
+    check "rag_config.json" "[ -f '$ROOT/rag_app/rag_config.json' ]" "./elpis configure"
+    check "jeton MCP" "[ -s '$ROOT/user_db/.local_mcp_token' ]" "./elpis configure"
+    check "Qdrant" "[ -x '$ROOT/rag_app/qdrant/qdrant' ]" "./install.sh"
+    check "Node.js" "command -v node" "apt install nodejs npm"
+    check "service navigateur" "[ -d '$ROOT/browser-service/node_modules' ]" "./install.sh"
+    check "Docker joignable" "docker info" "installer docker, groupe docker"
+    local image
+    image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
+    check "image sandbox $image" "docker image inspect '$image'" "./install.sh ou deploy/docker/sandbox/build_offline.sh"
+    check "LibreOffice (aperçus Office, facultatif)" "command -v soffice" "./install.sh --with-office"
+    if _https_enabled; then
+        check "Caddy actif (HTTPS)" "systemctl is-active --quiet caddy" "./install.sh --with-caddy puis ./elpis configure"
+    fi
+    if [ -f /etc/systemd/system/elpis-whisper.service ]; then
+        check "reconnaissance vocale (:8090)" "curl -fsS -m 3 -o /dev/null http://127.0.0.1:8090/health" "systemctl status elpis-whisper"
+        check "synthèse vocale (:8091)" "curl -fsS -m 3 -o /dev/null http://127.0.0.1:8091/health" "systemctl status elpis-tts"
+    fi
+    if [ -f "$ROOT/config.json" ] && [ -x "$PY" ]; then
+        check "base de données joignable" "'$PY' -m shared_infra.db info" \
+            "./elpis db info pour le détail ; ./elpis db use sqlite en secours"
+        local llm
+        llm="$("$PY" -c 'from shared_infra.config import LLAMA_URL; print(LLAMA_URL)' 2>/dev/null)"
+        if [ -n "$llm" ]; then
+            local base="${llm%%/v1/*}"
+            check "serveur LLM ($base)" "curl -fsS -m 5 -o /dev/null '$base/v1/models' || curl -fsS -m 5 -o /dev/null '$base/health'" "./elpis configure --llm-url …"
+        fi
+    fi
+    echo
+    cmd_status
+    [ "$bad" -eq 0 ] && ok "Aucun problème détecté." || warn "$bad point(s) à corriger."
+    return "$bad"
+}
+
+# =============================================================================
+case "${1:-}" in
+    configure) shift; cmd_configure "$@" ;;
+    start)     shift; cmd_start "$@" ;;
+    stop)      cmd_stop ;;
+    restart)   load_runtime; cmd_stop; cmd_start ;;
+    status)    cmd_status ;;
+    logs)      shift; cmd_logs "$@" ;;
+    service)   shift; cmd_service "$@" ;;
+    doctor)    cmd_doctor ;;
+    db)        shift; load_runtime; exec "$PY" -m shared_infra.db "$@" ;;
+    -h|--help|help|"") usage ;;
+    *) usage; exit 2 ;;
+esac

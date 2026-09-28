@@ -1,0 +1,532 @@
+<!--
+  includes/admin/tab_general.html — Page « Général »
+  =================================================
+  Refonte 2026-08-01. Reprend les sections « Identité & branding » de l'ancien
+  fourre-tout « Réglages », plus les deux blocs qui n'étaient nulle part
+  ailleurs à leur place (Fonctionnalités, Configuration applicative), fusionnés
+  en une section « Application ».
+
+  L'en-tête de page (titre + Sauvegarder + barre d'ancres) est rendu par
+  includes/admin/page_head.html, partagé par toutes les pages de configuration.
+  Les ids des <section> DOIVENT correspondre à ADMIN_PAGE_SECTIONS.general
+  dans app-admin.js — c'est ce que la barre d'ancres et le scrollspy observent.
+
+  Tous les champs vivent dans configForm (config.json) : la page n'a qu'un
+  seul bloc de sauvegarde ('config').
+-->
+                    <div v-if="['instance', 'rights'].includes(adminTab)" class="animate-[fadeIn_0.2s]">
+
+                        <!-- Squelette de chargement plutôt qu'un spinner centré :
+                             la page garde sa forme, rien ne saute au montage. -->
+                        <div v-if="!configForm" class="space-y-4">
+                            <div v-for="n in 3" :key="'gsk'+n" class="adm-card">
+                                <div class="adm-card__head"><div class="adm-skeleton w-40"></div></div>
+                                <div class="adm-rows">
+                                    <div class="adm-row" v-for="m in 3" :key="'gsr'+m">
+                                        <div class="adm-skeleton w-32"></div>
+                                        <div class="adm-skeleton w-full"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-else class="space-y-6 min-w-0">
+
+                            <!-- ═══════════ Identité ═══════════ -->
+                            <section v-if="adminTab==='instance'" id="app-info" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-identification-badge adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Identité</h3>
+                                        <span class="sr-only">Nom, version et pictogramme de l'instance.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="configForm.app_info">
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Panneau latéral, onglet du navigateur." for="cfg-app-name">Nom</label>
+                                            <span class="sr-only">Panneau latéral, onglet du navigateur.</span>
+                                        </div>
+                                        <input id="cfg-app-name" v-model="configForm.app_info.name" data-field="config:app_info.name" placeholder="Elpis" class="set-input">
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Format SemVer." for="cfg-app-version">Version</label>
+                                            <span class="sr-only">Format SemVer.</span>
+                                        </div>
+                                        <input id="cfg-app-version" v-model="configForm.app_info.version" data-field="config:app_info.version" placeholder="1.0.0" class="set-input max-w-[12rem]">
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Crédit affiché dans « À propos »." for="cfg-app-team">Équipe</label>
+                                            <span class="sr-only">Crédit affiché dans « À propos ».</span>
+                                        </div>
+                                        <input id="cfg-app-team" v-model="configForm.app_info.team_name" data-field="config:app_info.team_name" placeholder="Team" class="set-input">
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Libellé informatif d'« À propos ». Ne change aucun branchement." for="cfg-app-engine">Moteur affiché</label>
+                                            <span class="sr-only">Libellé informatif d'« À propos ». Ne change aucun branchement.</span>
+                                        </div>
+                                        <input id="cfg-app-engine" v-model="configForm.app_info.engine" data-field="config:app_info.engine" placeholder="llama.cpp" class="set-input">
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Texte court d'« À propos ». Facultatif." for="cfg-app-desc">Description</label>
+                                            <span class="sr-only">Texte court d'« À propos ». Facultatif.</span>
+                                        </div>
+                                        <input id="cfg-app-desc" v-model="configForm.app_info.description" data-field="config:app_info.description" placeholder="Facultatif" class="set-input">
+                                    </div>
+
+                                    <div class="adm-row adm-row--top">
+                                        <div>
+                                            <span class="adm-row__label" title="Panneau latéral et onglet du navigateur.">Icône</span>
+                                            <span class="sr-only">Panneau latéral et onglet du navigateur.</span>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <div class="flex items-center gap-3 flex-wrap">
+                                                <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                                                     :style="'background:' + (configForm.app_info.icon_bg || '#0f172a')">
+                                                    <i class="ph text-xl" :class="configForm.app_info.icon || 'ph-robot'"
+                                                       :style="'color:' + (configForm.app_info.icon_color || '#ffffff')" aria-hidden="true"></i>
+                                                </div>
+                                                <label class="text-xs font-medium text-slate-500 flex items-center gap-1.5">Fond
+                                                    <input type="color" v-model="configForm.app_info.icon_bg" data-field="config:app_info.icon_bg" class="w-7 h-7 rounded-md border border-slate-200 cursor-pointer p-0.5"></label>
+                                                <label class="text-xs font-medium text-slate-500 flex items-center gap-1.5">Trait
+                                                    <input type="color" v-model="configForm.app_info.icon_color" data-field="config:app_info.icon_color" class="w-7 h-7 rounded-md border border-slate-200 cursor-pointer p-0.5"></label>
+                                            </div>
+                                            <div class="grid grid-cols-8 gap-1 max-h-28 overflow-y-auto custom-scrollbar bg-slate-50 rounded-lg p-1.5 border border-slate-200">
+                                                <button v-for="ic in appIconPresets" :key="'ai_'+ic" type="button"
+                                                        @click="configForm.app_info.icon = ic"
+                                                        :aria-pressed="configForm.app_info.icon === ic ? 'true' : 'false'"
+                                                        :class="configForm.app_info.icon === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-white'"
+                                                        class="w-7 h-7 flex items-center justify-center rounded-md transition-colors" :title="ic">
+                                                    <i class="ph text-base" :class="ic + (configForm.app_info.icon === ic ? ' text-blue-600' : ' text-slate-400')" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <span class="adm-row__label" title="Remplace l'icône. Facultatif.">Logo</span>
+                                            <span class="sr-only">Remplace l'icône. Facultatif.</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <img v-if="configForm.app_info.logo_b64" :src="configForm.app_info.logo_b64" alt=""
+                                                 class="w-10 h-10 rounded-lg object-contain border border-slate-200 bg-slate-50">
+                                            <label class="text-sm text-blue-600 hover:text-blue-700 cursor-pointer font-medium">
+                                                <input type="file" accept="image/*" @change="handleAppInfoLogoUpload" class="hidden">
+                                                {{ configForm.app_info.logo_b64 ? 'Remplacer' : 'Choisir une image' }}
+                                            </label>
+                                            <button v-if="configForm.app_info.logo_b64" @click="configForm.app_info.logo_b64=''" type="button"
+                                                    class="adm-btn adm-btn--quiet adm-btn--danger-quiet adm-btn--sm">Retirer</button>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Écran d'accueil ═══════════ -->
+                            <section v-if="adminTab==='instance'" id="welcome" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-image adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Écran d'accueil</h3>
+                                        <span class="sr-only">Visuel affiché avant le premier message d'une conversation.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="configForm.welcome">
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Les couleurs suivent le skin actif." for="cfg-welcome-type">Type</label>
+                                            <span class="sr-only">Les couleurs suivent le skin actif.</span>
+                                        </div>
+                                        <select id="cfg-welcome-type" v-model="configForm.welcome.type" data-field="config:welcome.type" class="set-select w-full max-w-xs">
+                                            <option value="icon">Icône</option>
+                                            <option value="image">Image</option>
+                                        </select>
+                                    </div>
+
+                                    <div v-if="configForm.welcome.type === 'icon'" class="adm-row adm-row--top">
+                                        <div>
+                                            <span class="adm-row__label" title="Taille en pixels du visuel affiché.">Pictogramme</span>
+                                            <span class="sr-only">Taille en pixels du visuel affiché.</span>
+                                        </div>
+                                        <div class="space-y-3">
+                                            <div class="grid grid-cols-7 gap-1.5 max-h-32 overflow-y-auto custom-scrollbar bg-slate-50 rounded-lg p-2 border border-slate-200">
+                                                <button v-for="ic in appIconPresets" :key="'wl_'+ic" type="button"
+                                                        @click="configForm.welcome.icon = ic"
+                                                        :aria-pressed="(configForm.welcome.icon || '').replace(/ .*/,'') === ic ? 'true' : 'false'"
+                                                        :class="(configForm.welcome.icon || '').replace(/ .*/,'') === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-white'"
+                                                        class="w-8 h-8 flex items-center justify-center rounded-md transition-colors" :title="ic">
+                                                    <i class="ph text-lg" :class="ic + ((configForm.welcome.icon || '').replace(/ .*/,'') === ic ? ' text-blue-600' : ' text-slate-500')" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                            <label class="flex items-center gap-2 text-xs font-medium text-slate-500">Taille
+                                                <input v-model.number="configForm.welcome.width" data-field="config:welcome.width" type="number" min="16" max="2000" class="set-input adm-num">
+                                                <span class="adm-unit">px</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <template v-if="configForm.welcome.type === 'image'">
+                                        <div class="adm-row">
+                                            <div>
+                                                <span class="adm-row__label" title="PNG, JPG ou WebP — fond transparent conseillé.">Image</span>
+                                                <span class="sr-only">PNG, JPG ou WebP — fond transparent conseillé.</span>
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <img v-if="configForm.welcome.image_b64" :src="configForm.welcome.image_b64" alt=""
+                                                     class="w-16 h-12 rounded-lg object-contain border border-slate-200 bg-slate-50">
+                                                <label class="text-sm text-blue-600 hover:text-blue-700 cursor-pointer font-medium">
+                                                    <input type="file" accept="image/*" @change="handleAdminWelcomeUpload" class="hidden">
+                                                    {{ configForm.welcome.image_b64 ? 'Remplacer' : 'Choisir une image' }}
+                                                </label>
+                                                <button v-if="configForm.welcome.image_b64" type="button"
+                                                        @click="configForm.welcome.image_b64=''; configForm.welcome.type='icon'"
+                                                        class="adm-btn adm-btn--quiet adm-btn--danger-quiet adm-btn--sm">Retirer</button>
+                                            </div>
+                                        </div>
+                                        <div class="adm-row">
+                                            <div>
+                                                <span class="adm-row__label" title="Largeur et hauteur maximales, en pixels.">Dimensions</span>
+                                                <span class="sr-only">Largeur et hauteur maximales, en pixels.</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input v-model.number="configForm.welcome.width" data-field="config:welcome.width" type="number" min="16" max="2000" aria-label="Largeur"
+                                                       class="set-input adm-num" placeholder="Largeur">
+                                                <span class="text-slate-400" aria-hidden="true">×</span>
+                                                <input v-model.number="configForm.welcome.height" data-field="config:welcome.height" type="number" min="16" max="2000" aria-label="Hauteur"
+                                                       class="set-input adm-num" placeholder="Hauteur">
+                                                <span class="adm-unit">px</span>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- ═══ Mot animé ═══════════════════════
+                                         PAS une troisième valeur de « Type » :
+                                         le choix logo/mascotte appartient à
+                                         l'utilisateur (Paramètres › Apparence).
+                                         Ce bloc ne règle QUE le style du mot
+                                         quand une mascotte est choisie. -->
+                                    <div class="adm-row adm-row--top" v-if="configForm.welcome.scene">
+                                        <div>
+                                            <span class="adm-row__label" title="S'affiche à la place du visuel ci-dessus pour qui a choisi une mascotte dans ses paramètres. Aperçu à la taille réelle du bloc d'accueil.">Mot animé</span>
+                                            <span class="sr-only">S'affiche à la place du visuel ci-dessus pour qui a choisi une mascotte dans ses paramètres.</span>
+                                        </div>
+                                        <div class="space-y-3 w-full max-w-md">
+                                            <!-- ═══ L'INTERRUPTEUR MAÎTRE ═════
+                                                 En haut de la carte, pas au bas
+                                                 de la liste : il décide si tout
+                                                 le reste sert à quelque chose.
+                                                 Éteint, chaque compte retombe
+                                                 sur le visuel générique réglé
+                                                 plus haut — c'est le mode d'un
+                                                 déploiement public. -->
+                                            <label class="flex items-start gap-2.5 cursor-pointer rounded-lg
+                                                          bg-slate-50 border border-slate-200 px-3 py-2">
+                                                <input type="checkbox" class="mt-0.5 rounded border-slate-300 text-blue-600"
+                                                       :checked="configForm.welcome.scene.mascottes_on !== false"
+                                                       @change="configForm.welcome.scene.mascottes_on = $event.target.checked">
+                                                <span class="text-xs leading-snug">
+                                                    <span class="font-medium text-slate-700">Proposer les mascottes animées</span>
+                                                    <span class="block text-[11px] text-slate-500 mt-0.5">
+                                                        Décoché, l'écran d'accueil affiche le visuel générique
+                                                        ci-dessus pour <strong>tous</strong> les comptes, et le
+                                                        réglage disparaît de leurs paramètres.
+                                                    </span>
+                                                </span>
+                                            </label>
+
+                                            <!-- Ce qui suit ne règle qu'une
+                                                 scène qui ne s'affichera plus :
+                                                 on le rend INERTE plutôt que de
+                                                 le laisser paraître actif. -->
+                                            <div class="space-y-3"
+                                                 :class="configForm.welcome.scene.mascottes_on === false
+                                                         ? 'opacity-40 pointer-events-none select-none' : ''"
+                                                 :aria-hidden="configForm.welcome.scene.mascottes_on === false ? 'true' : 'false'">
+                                            <!-- L'aperçu D'ABORD : on règle ce qu'on voit. -->
+                                            <div class="rounded-lg border border-slate-200 overflow-hidden">
+                                                <div ref="apercuAccueil" class="accueil" style="height:170px"
+                                                     role="img" aria-label="Aperçu du mot ELPIS animé"></div>
+                                            </div>
+
+                                            <div class="flex items-center gap-2">
+                                                <label class="text-xs font-medium text-slate-500 w-24 shrink-0"
+                                                       for="cfg-scene-motif">Typographie</label>
+                                                <select id="cfg-scene-motif" v-model="configForm.welcome.scene.motif" data-field="config:welcome.scene.motif"
+                                                        class="set-select flex-1">
+                                                    <option value="or">Bloc rehaussé d'or</option>
+                                                    <option value="bloc">Bloc</option>
+                                                    <option value="arrondi">Arrondi</option>
+                                                    <option value="pochoir">Pochoir</option>
+                                                    <option value="neon_or">Néon doré</option>
+                                                    <option value="neon">Néon</option>
+                                                    <option value="fin_or">Fin et or</option>
+                                                    <option value="fin">Fin</option>
+                                                    <option value="epigraphe">Épigraphe</option>
+                                                    <option value="grec">Grec — ΕΛΠΙΣ</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="flex items-center gap-2">
+                                                <label class="text-xs font-medium text-slate-500 w-24 shrink-0"
+                                                       for="cfg-scene-mot">Taille du mot</label>
+                                                <input id="cfg-scene-mot" type="range" min="0.6" max="1.4" step="0.05"
+                                                       v-model.number="configForm.welcome.scene.word_scale" data-field="config:welcome.scene.word_scale"
+                                                       class="flex-1 accent-blue-600">
+                                                <span class="adm-unit w-12 text-right tabular-nums">{{ Math.round((configForm.welcome.scene.word_scale || 1) * 100) }}&nbsp;%</span>
+                                            </div>
+
+                                            <div class="flex items-center gap-2">
+                                                <label class="text-xs font-medium text-slate-500 w-24 shrink-0"
+                                                       for="cfg-scene-perso">Mascotte</label>
+                                                <input id="cfg-scene-perso" type="range" min="0.4" max="1.2" step="0.02"
+                                                       v-model.number="configForm.welcome.scene.mascot_scale" data-field="config:welcome.scene.mascot_scale"
+                                                       class="flex-1 accent-blue-600">
+                                                <span class="adm-unit w-12 text-right tabular-nums">{{ Math.round((configForm.welcome.scene.mascot_scale || 0.78) * 100) }}&nbsp;%</span>
+                                            </div>
+                                            <p class="text-[11px] text-slate-400 leading-snug">
+                                                La taille de la mascotte est relative au mot : la réduire resserre
+                                                la scène, donc agrandit le mot dans la même boîte.
+                                            </p>
+
+                                            <!-- ═══ Le jeu publié ═══════════
+                                                 Ce que l'admin met à
+                                                 disposition, et laquelle
+                                                 arrive par défaut. Le serveur
+                                                 refait la même validation :
+                                                 une mascotte désactivée puis
+                                                 encore choisie par un compte
+                                                 retombe sur le défaut. -->
+                                            <div class="pt-3 mt-1 border-t border-slate-200">
+                                                <div class="flex items-baseline justify-between mb-1.5">
+                                                    <span class="text-xs font-medium text-slate-600">Mascottes proposées</span>
+                                                    <span class="text-[11px] text-slate-400">cocher = disponible · cliquer le nom = par défaut</span>
+                                                </div>
+                                                <div class="grid grid-cols-2 gap-1">
+                                                    <div v-for="m in MASCOTTES_ADMIN" :key="m.id"
+                                                         class="flex items-center gap-2 px-1.5 py-1 rounded-lg"
+                                                         :class="configForm.welcome.scene.mascotte_defaut === m.id ? 'bg-blue-50 ring-1 ring-blue-400' : ''">
+                                                        <input type="checkbox" :checked="mascotteActive(m.id)"
+                                                               @change="basculerMascotte(m.id)"
+                                                               :aria-label="'Proposer ' + m.label"
+                                                               class="rounded border-slate-300 text-blue-600 shrink-0">
+                                                        <span class="socle-mascotte shrink-0" aria-hidden="true"
+                                                              style="width:28px;height:28px" :data-perso="m.id"></span>
+                                                        <button type="button"
+                                                                @click="mascotteActive(m.id) && (configForm.welcome.scene.mascotte_defaut = m.id)"
+                                                                :disabled="!mascotteActive(m.id)"
+                                                                :aria-pressed="configForm.welcome.scene.mascotte_defaut === m.id"
+                                                                class="text-xs text-left truncate flex-1 disabled:text-slate-300"
+                                                                :class="configForm.welcome.scene.mascotte_defaut === m.id ? 'font-semibold text-blue-700' : 'text-slate-600 hover:text-slate-900'">{{ m.label }}</button>
+                                                    </div>
+                                                </div>
+                                                <p class="text-[11px] text-slate-400 mt-1.5 leading-snug">
+                                                    Le défaut s'applique aux comptes qui n'ont rien choisi. Chacun
+                                                    reste libre de prendre une autre mascotte, ou le logo.
+                                                </p>
+                                            </div>
+
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs font-medium text-slate-500 w-24 shrink-0">Juger sur</span>
+                                                <div class="flex gap-1.5 flex-wrap">
+                                                    <button v-for="m in MASCOTTES_APERCU" :key="m.id" type="button"
+                                                            @click="apercuPerso = m.id"
+                                                            :aria-pressed="apercuPerso === m.id ? 'true' : 'false'"
+                                                            :class="apercuPerso === m.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'"
+                                                            class="px-2 py-1 rounded-md border text-xs font-medium transition-colors">{{ m.label }}</button>
+                                                </div>
+                                            </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Page de connexion ═══════════ -->
+                            <section v-if="adminTab==='instance'" id="login-page" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-sign-in adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Page de connexion</h3>
+                                        <span class="sr-only">Seul écran visible avant authentification.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="configForm.login_page">
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="En-tête de la carte de connexion." for="cfg-login-title">Titre</label>
+                                            <span class="sr-only">En-tête de la carte de connexion.</span>
+                                        </div>
+                                        <input id="cfg-login-title" v-model="configForm.login_page.title" data-field="config:login_page.title" placeholder="Connexion" class="set-input">
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Équipe, environnement… Facultatif." for="cfg-login-sub">Sous-titre</label>
+                                            <span class="sr-only">Équipe, environnement… Facultatif.</span>
+                                        </div>
+                                        <input id="cfg-login-sub" v-model="configForm.login_page.subtitle" data-field="config:login_page.subtitle" placeholder="Facultatif" class="set-input">
+                                    </div>
+
+                                    <div class="adm-row adm-row--top">
+                                        <div>
+                                            <span class="adm-row__label" title="Pictogramme central de la carte.">Icône</span>
+                                            <span class="sr-only">Pictogramme central de la carte.</span>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <div class="flex items-center gap-3 flex-wrap">
+                                                <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                                                     :style="'background:' + (configForm.login_page.icon_bg || '#2563eb')">
+                                                    <i class="ph text-xl" :class="configForm.login_page.icon || 'ph-robot'"
+                                                       :style="'color:' + (configForm.login_page.icon_color || '#ffffff')" aria-hidden="true"></i>
+                                                </div>
+                                                <label class="text-xs font-medium text-slate-500 flex items-center gap-1.5">Fond
+                                                    <input type="color" v-model="configForm.login_page.icon_bg" data-field="config:login_page.icon_bg" class="w-7 h-7 rounded-md border border-slate-200 cursor-pointer p-0.5"></label>
+                                                <label class="text-xs font-medium text-slate-500 flex items-center gap-1.5">Trait
+                                                    <input type="color" v-model="configForm.login_page.icon_color" data-field="config:login_page.icon_color" class="w-7 h-7 rounded-md border border-slate-200 cursor-pointer p-0.5"></label>
+                                            </div>
+                                            <div class="grid grid-cols-8 gap-1 max-h-24 overflow-y-auto custom-scrollbar bg-slate-50 rounded-lg p-1.5 border border-slate-200">
+                                                <button v-for="ic in appIconPresets" :key="'lp_'+ic" type="button"
+                                                        @click="configForm.login_page.icon = ic"
+                                                        :aria-pressed="configForm.login_page.icon === ic ? 'true' : 'false'"
+                                                        :class="configForm.login_page.icon === ic ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-white'"
+                                                        class="w-7 h-7 flex items-center justify-center rounded-md transition-colors" :title="ic">
+                                                    <i class="ph text-base" :class="ic + (configForm.login_page.icon === ic ? ' text-blue-600' : ' text-slate-400')" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <span class="adm-row__label" title="Remplace l'icône. Facultatif.">Logo</span>
+                                            <span class="sr-only">Remplace l'icône. Facultatif.</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <img v-if="configForm.login_page.logo_b64" :src="configForm.login_page.logo_b64" alt=""
+                                                 class="w-10 h-10 rounded-lg object-contain border border-slate-200 bg-slate-50">
+                                            <label class="text-sm text-blue-600 hover:text-blue-700 cursor-pointer font-medium">
+                                                <input type="file" accept="image/*" @change="handleLoginLogoUpload" class="hidden">
+                                                {{ configForm.login_page.logo_b64 ? 'Remplacer' : 'Choisir une image' }}
+                                            </label>
+                                            <button v-if="configForm.login_page.logo_b64" type="button"
+                                                    @click="configForm.login_page.logo_b64=''; configForm.login_page.icon_type='phosphor'"
+                                                    class="adm-btn adm-btn--quiet adm-btn--danger-quiet adm-btn--sm">Retirer</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="adm-row adm-row--top">
+                                        <div>
+                                            <span class="adm-row__label" title="Cet écran ne suit pas le skin : il s'affiche avant la session.">Couleurs</span>
+                                            <span class="sr-only">Cet écran ne suit pas le skin : il s'affiche avant la session.</span>
+                                        </div>
+                                        <div class="grid grid-cols-4 gap-3 max-w-md">
+                                            <label class="text-xs font-medium text-slate-500">Fond
+                                                <input type="color" v-model="configForm.login_page.bg_color" data-field="config:login_page.bg_color" class="mt-1 w-full h-8 rounded-md border border-slate-200 cursor-pointer p-0.5"></label>
+                                            <label class="text-xs font-medium text-slate-500">Carte
+                                                <input type="color" v-model="configForm.login_page.card_color" data-field="config:login_page.card_color" class="mt-1 w-full h-8 rounded-md border border-slate-200 cursor-pointer p-0.5"></label>
+                                            <label class="text-xs font-medium text-slate-500">Texte
+                                                <input type="color" v-model="configForm.login_page.text_color" data-field="config:login_page.text_color" class="mt-1 w-full h-8 rounded-md border border-slate-200 cursor-pointer p-0.5"></label>
+                                            <label class="text-xs font-medium text-slate-500">Bouton
+                                                <input type="color" v-model="configForm.login_page.btn_color" data-field="config:login_page.btn_color" class="mt-1 w-full h-8 rounded-md border border-slate-200 cursor-pointer p-0.5"></label>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Application ═══════════
+                                 Fusion des ex-sections « Fonctionnalités » (une
+                                 seule bascule : une carte entière pour un
+                                 interrupteur) et « Configuration applicative ». -->
+                            <section v-if="adminTab==='instance'" id="app-runtime" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-app-window adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Application</h3>
+                                        <span class="sr-only">Historique et emplacements sur disque.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows">
+
+                                    <template v-if="configForm.app">
+                                        <div class="adm-row">
+                                            <div>
+                                                <label class="adm-row__label" title="Au-delà, les plus anciennes sont archivées." for="cfg-recent">Conversations récentes</label>
+                                                <span class="sr-only">Au-delà, les plus anciennes sont archivées.</span>
+                                            </div>
+                                            <input id="cfg-recent" v-model.number="configForm.app.max_recent_chats" data-field="config:app.max_recent_chats" type="number" min="1" max="500" class="set-input adm-num">
+                                        </div>
+
+                                        <div class="adm-row">
+                                            <div>
+                                                <label class="adm-row__label" title="Fichiers joints par les utilisateurs." for="cfg-upload-dir">Dossier des envois</label>
+                                                <span class="sr-only">Fichiers joints par les utilisateurs.</span>
+                                            </div>
+                                            <input id="cfg-upload-dir" v-model="configForm.app.upload_dir" data-field="config:app.upload_dir" placeholder="user_db/uploads" class="set-input font-mono text-xs">
+                                        </div>
+
+                                        <div class="adm-row">
+                                            <div>
+                                                <label class="adm-row__label" title="Un sous-dossier par utilisateur." for="cfg-sandbox-dir">Dossier des sandboxes</label>
+                                                <span class="sr-only">Un sous-dossier par utilisateur.</span>
+                                            </div>
+                                            <input id="cfg-sandbox-dir" v-model="configForm.app.sandbox_dir" data-field="config:app.sandbox_dir" placeholder="../user_sandboxes" class="set-input font-mono text-xs">
+                                        </div>
+                                    </template>
+
+                                </div>
+                            </section>
+
+                            <!-- Droits par défaut › Fonctionnalités : surfaces ouvertes à
+                                 tous les utilisateurs (anciennement dans « Application »). -->
+                            <section v-if="adminTab==='rights'" id="features" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-toggle-right adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Fonctionnalités</h3>
+                                    </div>
+                                </header>
+                                <div class="adm-rows">
+
+                                    <div class="adm-row" v-if="configForm.features">
+                                        <div>
+                                            <label class="adm-row__label" title="Entrée du menu chat qui installe le CLI sur le poste de l'utilisateur." for="cfg-feat-opencode">OpenCode</label>
+                                            <span class="sr-only">Entrée du menu chat qui installe le CLI sur le poste de l'utilisateur.</span>
+                                        </div>
+                                        <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                            <input id="cfg-feat-opencode" type="checkbox" v-model="configForm.features.opencode" data-field="config:features.opencode" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                            <span class="text-sm text-slate-700">{{ configForm.features.opencode ? 'Activé' : 'Désactivé' }}</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="adm-row" v-if="configForm.features">
+                                        <div>
+                                            <label class="adm-row__label" title="Word, PowerPoint et Excel dans l'éditeur. Conversion LibreOffice isolée (bubblewrap) sur le serveur. Les PDF restent visibles même désactivé." for="cfg-feat-office">Aperçu Office</label>
+                                            <span class="sr-only">Word, PowerPoint et Excel dans l'éditeur. Conversion LibreOffice isolée (bubblewrap) sur le serveur. Les PDF restent visibles même désactivé.</span>
+                                        </div>
+                                        <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                            <input id="cfg-feat-office" type="checkbox" v-model="configForm.features.office_preview" data-field="config:features.office_preview" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                            <span class="text-sm text-slate-700">{{ configForm.features.office_preview ? 'Activé' : 'Désactivé' }}</span>
+                                        </label>
+                                    </div>
+
+                                </div>
+                            </section>
+
+                        </div>
+                    </div>

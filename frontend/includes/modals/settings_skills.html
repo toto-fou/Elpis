@@ -1,0 +1,417 @@
+<!--
+  includes/modals/settings_skills.html -- onglet SKILLS de la modal Paramètres.
+
+  DRILL-DOWN dans la taille de modale FIXE (max-w-4xl — la modale ne change
+  jamais de taille, cf. settings.html) :
+    * vue LISTE  (v-show="!skillEditMode") : toolbar + filtre + arbre pleine
+      largeur — montée en v-show pour que scroll/filtre/dépli survivent au
+      va-et-vient ;
+    * vue DÉTAIL/FORM (v-if="skillEditMode") : plein cadre, barre retour
+      « ← Skills » (backToSkillsList → _resetEditor, sans rechargement).
+  Le panneau de contenu de la modal passe en flex-col overflow-hidden sur cet
+  onglet (défilement interne par vue) — cf. settings.html.
+
+  Full CRUD inchangé :
+    * liste groupée par portée  : global / learned / perso (arbre skill-tree-node)
+    * détail                    : markdown RENDU (toggle Source), fichiers bundlés
+    * création / édition        : kit .set-*
+    * suppression / promotion   : scopées (learned/global admin)
+    * import                    : menu 3 sources (.zip / dossier / SKILL.md)
+                                  + drag-and-drop scopé à l'onglet ; 409 → confirm
+      la sélection auto post-import ouvre directement la vue détail.
+
+  Renommage anti-collision (2026-07-18) : showSkillImportMenu /
+  closeSkillImportMenu — l'éditeur exporte déjà ``showImportMenu`` et gagnait
+  au spread du root (app.js), cf. plan PLAN.md chantier 3.
+
+  State + handlers : js/chat/_skills_menu.js (setupSkillsMenu), spread root.
+  La modal de cadrage « Assistant » (skillAssistForm) vit dans modals/misc.html
+  (z-[6000], au-dessus de la modal Paramètres z-[5000]).
+-->
+                    <div v-if="settingsTab==='skills'"
+                         role="region" aria-label="Gestion des skills"
+                         class="flex-1 min-h-0 flex flex-col relative bg-white"
+                         @dragenter="onSkillsDragEnter" @dragover.prevent="onSkillsDragOver"
+                         @dragleave="onSkillsDragLeave" @drop.prevent="onSkillsDrop">
+
+                        <!-- Overlay drag-and-drop — v-if sec (reduced-motion-proof),
+                             SCOPÉ à l'onglet. pointer-events-none : dragleave/drop
+                             restent captés par le conteneur. -->
+                        <div v-if="skillsDragOver"
+                             class="absolute inset-0 z-10 pointer-events-none flex items-center justify-center"
+                             style="background: color-mix(in srgb, var(--surface) 62%, color-mix(in srgb, var(--accent) 30%, transparent));">
+                            <div class="bg-white border-2 border-dashed border-blue-500 rounded-xl px-8 py-6 text-center shadow-xl">
+                                <i class="ph ph-download-simple text-3xl text-blue-600 block mb-2"></i>
+                                <p class="text-sm font-semibold text-slate-800">Déposer pour importer</p>
+                                <p class="text-xs text-slate-500 mt-1">Archive .zip, dossier de skill ou fichier SKILL.md</p>
+                            </div>
+                        </div>
+
+                        <!-- ============ VUE LISTE (drill-down niveau 1) ============
+                             v-show : la liste reste montée pendant le détail →
+                             scroll, filtre et état de dépli conservés au retour.
+                             Les actions globales (Assistant / Nouveau / Importer /
+                             Rafraîchir) vivent ici uniquement. -->
+                        <div v-show="!skillEditMode" class="flex-1 min-h-0 flex flex-col">
+
+                        <!-- == Header — MÊME idiome que les autres onglets de la modal
+                             (h3 + description, pas de toolbar « page » ni d'icône
+                             décorative) ; actions à droite en hauteur de contrôle
+                             h-8 (kit .skl-btn). == -->
+                        <div class="shrink-0 flex items-start justify-between gap-3 px-6 pt-6 pb-4 border-b border-slate-200">
+                            <div class="min-w-0">
+                                <h3 class="text-base font-semibold text-slate-800 mb-1">Skills</h3>
+                                <p class="text-xs text-slate-500">Mémoire procédurale de l'assistant — injectée automatiquement, ou via <span class="font-mono">/</span> dans le chat.</p>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <!-- Création guidée : ouvre un chat pré-configuré (skill « creer-un-skill »
+                                     épinglé + outils skill/fs) où le LLM mène l'entretien puis enregistre. -->
+                                <button @click="startSkillAssistantChat" title="Créer un skill en dialoguant : l'assistant pose les questions, rédige, embarque les scripts et enregistre"
+                                        class="skl-btn skl-btn--secondary">
+                                    <i class="ph ph-sparkle"></i> Assistant
+                                </button>
+                                <button @click="startCreate" class="skl-btn bg-blue-600 text-white hover:bg-blue-700">
+                                    <i class="ph ph-plus"></i> Nouveau
+                                </button>
+                                <!-- Import : menu 3 sources. Inputs sr-only (focusables).
+                                     Backdrop transparent = fermeture au clic ailleurs ;
+                                     Échap referme le MENU seul (pré-check dans le handler
+                                     global d'app.js — la modal reste ouverte). -->
+                                <div class="relative" @keydown.escape="closeSkillImportMenu">
+                                    <button ref="importMenuBtn" @click="showSkillImportMenu = !showSkillImportMenu"
+                                            :disabled="!!skillsImporting"
+                                            :aria-busy="skillsImporting ? 'true' : 'false'"
+                                            :aria-expanded="showSkillImportMenu ? 'true' : 'false'" aria-haspopup="menu"
+                                            title="Importer un skill : archive .zip, dossier complet ou fichier SKILL.md"
+                                            class="skl-btn skl-btn--secondary"
+                                            :class="showSkillImportMenu && 'bg-slate-200'">
+                                        <i class="ph" :class="skillsImporting ? 'ph-spinner animate-spin' : 'ph-upload-simple'"></i> Importer
+                                        <i class="ph ph-caret-down text-[10px] text-slate-400"></i>
+                                    </button>
+                                    <div v-if="showSkillImportMenu" class="fixed inset-0 z-40" @click="closeSkillImportMenu"></div>
+                                    <Transition name="popover">
+                                    <div v-if="showSkillImportMenu" role="menu" aria-label="Sources d'import"
+                                         class="absolute right-0 top-full mt-1 z-50 w-72 bg-white border border-slate-200 rounded-lg shadow-xl py-1">
+                                        <label role="menuitem" class="skl-menu-item w-full flex items-start gap-2.5 px-3 py-2 cursor-pointer">
+                                            <i class="ph ph-file-zip text-slate-400 text-base mt-0.5 shrink-0"></i>
+                                            <span class="min-w-0">
+                                                <span class="block text-xs font-medium text-slate-700">Archive .zip</span>
+                                                <span class="block text-[11px] text-slate-500">Skill empaqueté ou package multi-skills</span>
+                                            </span>
+                                            <input type="file" accept=".zip,application/zip" class="sr-only"
+                                                   aria-label="Importer un skill .zip"
+                                                   @change="showSkillImportMenu = false; importSkillZip($event, 'user')">
+                                        </label>
+                                        <label role="menuitem" class="skl-menu-item w-full flex items-start gap-2.5 px-3 py-2 cursor-pointer">
+                                            <i class="ph ph-folder-open text-slate-400 text-base mt-0.5 shrink-0"></i>
+                                            <span class="min-w-0">
+                                                <span class="block text-xs font-medium text-slate-700">Dossier de skill</span>
+                                                <span class="block text-[11px] text-slate-500">SKILL.md + fichiers (scripts, références…)</span>
+                                            </span>
+                                            <input type="file" webkitdirectory class="sr-only"
+                                                   aria-label="Importer un dossier de skill"
+                                                   @change="showSkillImportMenu = false; importSkillFolder($event, 'user')">
+                                        </label>
+                                        <label role="menuitem" class="skl-menu-item w-full flex items-start gap-2.5 px-3 py-2 cursor-pointer">
+                                            <i class="ph ph-file-md text-slate-400 text-base mt-0.5 shrink-0"></i>
+                                            <span class="min-w-0">
+                                                <span class="block text-xs font-medium text-slate-700">Fichier SKILL.md</span>
+                                                <span class="block text-[11px] text-slate-500">Un markdown seul, sans fichiers joints</span>
+                                            </span>
+                                            <input type="file" accept=".md,.markdown,text/markdown" class="sr-only"
+                                                   aria-label="Importer un fichier SKILL.md"
+                                                   @change="showSkillImportMenu = false; importSkillMd($event, 'user')">
+                                        </label>
+                                    </div>
+                                    </Transition>
+                                </div>
+                                <button @click="loadAllSkills()" title="Rafraîchir"
+                                        class="skl-btn skl-btn--ghost skl-btn--icon">
+                                    <i class="ph ph-arrow-clockwise" :class="skillsLoading && 'animate-spin'"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                            <!-- Filtre : pleine largeur, input capé (max-w-sm) pour rester calme -->
+                                <div class="px-6 py-3 shrink-0">
+                                    <div class="relative max-w-sm">
+                                        <i class="ph ph-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-sm"></i>
+                                        <input v-model="skillsFilter" placeholder="Filtrer les skills…"
+                                               @keydown.escape="skillsFilter = ''"
+                                               class="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg pl-9 pr-8 py-1.5 outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-500 transition-colors">
+                                        <button v-if="skillsFilter" @click="skillsFilter = ''"
+                                                aria-label="Effacer le filtre" title="Effacer le filtre"
+                                                class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors">
+                                            <i class="ph ph-x text-xs"></i>
+                                        </button>
+                                    </div>
+                                    <p v-if="skillsFilter.trim()" aria-live="polite" class="text-[11px] text-slate-500 px-1 mt-1.5">
+                                        {{ filteredTotalCount }} résultat{{ filteredTotalCount > 1 ? 's' : '' }}
+                                    </p>
+                                </div>
+
+                                <div class="flex-1 overflow-y-auto px-6 pb-4 custom-scrollbar">
+                                    <!-- premier chargement : squelette STATIQUE (registre calme,
+                                         reduced-motion-proof). Les refreshs post-mutation gardent
+                                         la liste affichée (pas de re-squelette). -->
+                                    <div v-if="skillsLoading && totalSkillsCount === 0" aria-busy="true" class="pt-1 space-y-5">
+                                        <span class="sr-only">Chargement des skills…</span>
+                                        <div v-for="g in 2" :key="g" aria-hidden="true">
+                                            <div class="skl-skeleton h-3 w-16 mb-2"></div>
+                                            <div class="space-y-1.5">
+                                                <div v-for="i in 4" :key="i" class="skl-skeleton h-8 w-full"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- error -->
+                                    <div v-else-if="skillsError" class="text-center py-10">
+                                        <i class="ph ph-warning text-amber-500 text-2xl block mb-2"></i>
+                                        <p class="text-sm text-slate-500">{{ skillsError }}</p>
+                                        <button @click="loadAllSkills()" class="skl-btn skl-btn--secondary mt-3">Réessayer</button>
+                                    </div>
+                                    <!-- bibliothèque vide : état qui ENSEIGNE les 3 portes d'entrée -->
+                                    <div v-else-if="totalSkillsCount === 0" class="text-center py-10 px-2">
+                                        <i class="ph ph-graduation-cap text-slate-300 text-3xl block mb-2"></i>
+                                        <p class="text-sm font-medium text-slate-600 mb-1">Aucun skill pour l'instant</p>
+                                        <p class="text-xs text-slate-500 mb-3">Créez votre premier skill, importez un dossier existant, ou laissez l'assistant le rédiger avec vous.</p>
+                                        <div class="flex items-center justify-center gap-2">
+                                            <button @click="startCreate" class="skl-btn bg-blue-600 text-white hover:bg-blue-700">Créer un skill</button>
+                                            <button @click="showSkillImportMenu = true" class="skl-btn skl-btn--secondary">Importer…</button>
+                                        </div>
+                                    </div>
+                                    <!-- filtre sans correspondance (distinct du vide : icône + sortie) -->
+                                    <div v-else-if="filteredTotalCount === 0" class="text-center py-10 px-2">
+                                        <i class="ph ph-magnifying-glass text-slate-300 text-3xl block mb-2"></i>
+                                        <p class="text-sm font-medium text-slate-600 mb-1">Aucun résultat pour «&nbsp;{{ skillsFilter.trim() }}&nbsp;»</p>
+                                        <p class="text-xs text-slate-500 mb-3">La recherche couvre le nom, la description, le domaine et les tags.</p>
+                                        <button @click="skillsFilter = ''" class="skl-btn skl-btn--secondary">Effacer le filtre</button>
+                                    </div>
+
+                                    <!-- grouped : arbre réel (recherche active → liste plate des correspondances) -->
+                                    <template v-else>
+                                        <div v-for="scope in ['global','learned','user']" :key="scope">
+                                            <div v-if="filteredByScope[scope] && filteredByScope[scope].length"
+                                                 class="mt-3 first:mt-0">
+                                                <div class="text-[11px] font-semibold text-slate-500 px-1 mb-1.5 flex items-center gap-1.5">
+                                                    {{ scope === 'user' ? 'Perso' : (scope === 'learned' ? 'Learned' : 'Global') }}
+                                                    <span class="text-slate-400 font-normal">({{ filteredByScope[scope].length }})</span>
+                                                </div>
+                                                <!-- Recherche : correspondances à plat (l'arbre masquerait les enfants de parents non matchés) -->
+                                                <div v-if="skillsFilter.trim()">
+                                                    <button v-for="sk in filteredByScope[scope]" :key="scope + '/' + (sk.id || sk.name)"
+                                                            @click="viewSkill(sk)"
+                                                            class="w-full min-w-0 text-left px-2.5 py-2 rounded-lg mb-1 transition-colors group"
+                                                            :class="(skillDetail && (skillDetail.id || skillDetail.name) === (sk.id || sk.name) && (skillDetail.source||'user') === scope) ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-slate-50'">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="font-mono text-sm font-medium text-slate-800 truncate flex-1">
+                                                                <span v-if="sk.parent_id" class="text-slate-400 font-normal">{{ sk.parent_id }}/</span>{{ sk.name }}
+                                                            </span>
+                                                            <i v-if="sk.is_folder && (sk.files || []).length" title="Agent Skill : contient des fichiers/scripts" class="ph ph-paperclip text-[11px] text-slate-400 shrink-0"></i>
+                                                            <span v-if="sk.domain && (sk.depth || 0) === 0" class="text-[10px] text-slate-400 font-mono shrink-0">{{ sk.domain }}</span>
+                                                        </div>
+                                                        <p class="text-[11px] text-slate-500 mt-0.5 truncate">{{ sk.description || '(sans description)' }}</p>
+                                                    </button>
+                                                </div>
+                                                <!-- Arbre : domaines → skills → sous-skills → fichiers/scripts -->
+                                                <ul v-else role="tree" :aria-label="'Skills ' + scope" class="space-y-0.5">
+                                                    <skill-tree-node v-for="n in skillsTreeByScope[scope]" :key="n.key" :node="n"
+                                                                     :selected-key="selectedNodeKey" :active-file-key="activeFileNodeKey"
+                                                                     :collapsed="collapsedSkills"
+                                                                     @select-skill="viewSkill" @open-file="onTreeOpenFile"
+                                                                     @toggle="toggleCollapse"></skill-tree-node>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                        </div>
+
+                        <!-- ======== VUE DÉTAIL / FORMULAIRE (drill-down niveau 2) ==
+                             Plein cadre, v-if sec (la liste reste montée derrière en
+                             v-show). Retour = bouton « ← Skills » uniquement ; Échap
+                             garde son comportement global (menu import, puis modale). -->
+                        <div v-if="skillEditMode" class="flex-1 min-h-0 flex flex-col">
+
+                                <!-- Barre retour (aligne px-5 sur le contenu détail) -->
+                                <div class="shrink-0 px-5 pt-4 pb-1">
+                                    <button @click="backToSkillsList" aria-label="Retour à la liste des skills"
+                                            class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 px-1.5 py-1 -ml-1.5 rounded-md hover:bg-slate-100 transition-colors">
+                                        <i class="ph ph-arrow-left text-base"></i> Skills
+                                    </button>
+                                </div>
+
+                                <!-- VIEW detail -->
+                                <div v-if="skillEditMode === 'view' && skillDetail" class="flex-1 flex flex-col min-h-0">
+                                    <div class="p-5 overflow-y-auto custom-scrollbar flex-1 max-w-3xl w-full mx-auto">
+                                        <div class="flex items-start justify-between gap-2 mb-3">
+                                            <div class="min-w-0">
+                                                <!-- Breadcrumb du sous-skill : ancêtres cliquables (remonte au package) -->
+                                                <div v-if="skillBreadcrumb.length" class="flex items-center gap-1 text-[11px] font-mono text-slate-400 mb-0.5 flex-wrap">
+                                                    <template v-for="p in skillBreadcrumb" :key="p.id || p.name">
+                                                        <button @click="viewSkill(p)" class="hover:text-blue-600 hover:underline">{{ p.name }}</button>
+                                                        <i class="ph ph-caret-right text-[9px]"></i>
+                                                    </template>
+                                                    <span class="text-slate-500">{{ skillDetail.name }}</span>
+                                                </div>
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <h4 class="font-mono font-semibold text-slate-900 truncate">{{ skillDetail.name }}</h4>
+                                                    <span class="skl-badge" :class="(skillDetail.source) === 'learned' && 'skl-badge--learned'">
+                                                        {{ scopeLabel(skillDetail.source || 'user') }}
+                                                    </span>
+                                                </div>
+                                                <p class="text-xs text-slate-500 mt-1">{{ skillDetail.description || '(sans description)' }}</p>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex flex-wrap gap-1.5 mb-3">
+                                            <span v-if="skillDetail.domain" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">domaine: {{ skillDetail.domain }}</span>
+                                            <span v-for="t in (skillDetail.tags || [])" :key="t" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">#{{ t }}</span>
+                                        </div>
+
+                                        <!-- Sous-skills (enfants directs) → navigation -->
+                                        <div v-if="childSkills(skillDetail).length" class="mb-3">
+                                            <div class="text-[11px] font-semibold text-slate-500 mb-1 flex items-center gap-1"><i class="ph ph-tree-structure text-[11px]"></i> Sous-skills ({{ childSkills(skillDetail).length }})</div>
+                                            <div class="flex flex-wrap gap-1.5">
+                                                <button v-for="c in childSkills(skillDetail)" :key="c.id || c.name" @click="viewSkill(c)"
+                                                        class="text-[11px] font-mono px-2 py-1 rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-1">
+                                                    <i class="ph ph-arrow-bend-down-right text-[10px]"></i> {{ c.name }}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Fichiers/scripts groupés → cliquables (lecture) -->
+                                        <div v-if="skillDetail.is_folder && (skillDetail.files || []).length" class="mb-3">
+                                            <div class="text-[11px] font-semibold text-slate-500 mb-1 flex items-center gap-1"><i class="ph ph-paperclip text-[11px]"></i> Fichiers ({{ skillDetail.files.length }})</div>
+                                            <div class="bg-slate-50 border border-slate-200 rounded-lg p-1.5 max-h-44 overflow-y-auto custom-scrollbar">
+                                                <button v-for="f in skillDetail.files" :key="f" @click="openSkillFile(skillDetail, f)"
+                                                        class="w-full text-left text-[11px] font-mono px-2 py-1 rounded hover:bg-white text-slate-600 truncate flex items-center gap-1.5"
+                                                        :class="skillFileView && skillFileView.path === f ? 'bg-white ring-1 ring-blue-200 text-blue-700' : ''">
+                                                    <i class="ph ph-file-code text-[11px] shrink-0 text-slate-400"></i> {{ f }}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Lecteur de fichier (lecture seule) OU corps du SKILL.md.
+                                             Markdown RENDU par défaut (pipeline chat : marked +
+                                             DOMPurify + styles prose tokenisés), bascule Source. -->
+                                        <div v-if="skillFileView" class="mb-2">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <button @click="closeSkillFile" class="text-[11px] text-blue-600 hover:underline flex items-center gap-1">
+                                                    <i class="ph ph-arrow-left text-[10px]"></i> Retour au skill
+                                                </button>
+                                                <span class="text-[11px] font-mono text-slate-500 truncate flex-1">{{ skillFileView.path }}</span>
+                                                <div v-if="skillFileIsMd" class="inline-flex rounded-md border border-slate-200 overflow-hidden shrink-0" role="group" aria-label="Affichage du fichier">
+                                                    <button @click="skillBodyView = 'rendered'"
+                                                            class="text-[11px] px-2 py-0.5 transition-colors"
+                                                            :class="skillBodyView === 'rendered' ? 'bg-slate-100 text-slate-800 font-medium' : 'bg-white text-slate-500 hover:bg-slate-50'">Rendu</button>
+                                                    <button @click="skillBodyView = 'source'"
+                                                            class="text-[11px] px-2 py-0.5 transition-colors border-l border-slate-200"
+                                                            :class="skillBodyView === 'source' ? 'bg-slate-100 text-slate-800 font-medium' : 'bg-white text-slate-500 hover:bg-slate-50'">Source</button>
+                                                </div>
+                                            </div>
+                                            <div v-if="skillFileIsMd && skillBodyView === 'rendered' && !skillFileView.loading"
+                                                 class="markdown-body skl-md text-sm p-3 bg-slate-50 border border-slate-200 rounded-lg max-h-[60vh] overflow-y-auto custom-scrollbar"
+                                                 v-html="renderMarkdown(skillFileView.content)" @click="handleMarkdownClick"></div>
+                                            <pre v-else class="p-3 bg-slate-900 text-slate-100 border border-slate-700 rounded-lg text-[11px] font-mono whitespace-pre-wrap break-words max-h-[60vh] overflow-y-auto custom-scrollbar">{{ skillFileView.loading ? '…' : skillFileView.content }}</pre>
+                                        </div>
+                                        <div v-else>
+                                            <div class="flex items-center justify-between mb-1">
+                                                <span class="text-[11px] font-semibold text-slate-500 flex items-center gap-1"><i class="ph ph-book-open-text text-[11px]"></i> Corps</span>
+                                                <div class="inline-flex rounded-md border border-slate-200 overflow-hidden" role="group" aria-label="Affichage du corps">
+                                                    <button @click="skillBodyView = 'rendered'"
+                                                            class="text-[11px] px-2 py-0.5 transition-colors"
+                                                            :class="skillBodyView === 'rendered' ? 'bg-slate-100 text-slate-800 font-medium' : 'bg-white text-slate-500 hover:bg-slate-50'">Rendu</button>
+                                                    <button @click="skillBodyView = 'source'"
+                                                            class="text-[11px] px-2 py-0.5 transition-colors border-l border-slate-200"
+                                                            :class="skillBodyView === 'source' ? 'bg-slate-100 text-slate-800 font-medium' : 'bg-white text-slate-500 hover:bg-slate-50'">Source</button>
+                                                </div>
+                                            </div>
+                                            <div v-if="skillBodyView === 'rendered' && (skillDetail.body || '').trim()"
+                                                 class="markdown-body skl-md text-sm p-3 bg-slate-50 border border-slate-200 rounded-lg"
+                                                 v-html="renderMarkdown(skillDetail.body)" @click="handleMarkdownClick"></div>
+                                            <pre v-else class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-700 font-mono whitespace-pre-wrap break-words">{{ skillDetail.body || '(corps vide)' }}</pre>
+                                        </div>
+                                    </div>
+
+                                    <!-- action bar (hauteur de contrôle h-8, comme la toolbar) -->
+                                    <div class="border-t border-slate-200 p-3 flex items-center gap-2 shrink-0">
+                                        <button @click="exportSkillZip(skillDetail)" title="Télécharger ce skill en .zip"
+                                                class="skl-btn skl-btn--secondary">
+                                            <i class="ph ph-download-simple"></i> Exporter .zip
+                                        </button>
+                                        <button v-if="canEditScope(skillDetail.source || 'user')" @click="startEdit(skillDetail)"
+                                                class="skl-btn skl-btn--secondary">
+                                            <i class="ph ph-pencil-simple"></i> Éditer
+                                        </button>
+                                        <button v-if="(skillDetail.source) === 'learned' && isSkillAdmin" @click="promoteSkill(skillDetail)" :disabled="skillsBusy"
+                                                class="skl-btn skl-btn--secondary">
+                                            <i class="ph ph-arrow-up"></i> Promouvoir → global
+                                        </button>
+                                        <button v-if="canEditScope(skillDetail.source || 'user')" @click="deleteSkill(skillDetail)" :disabled="skillsBusy"
+                                                class="skl-btn skl-btn--danger ml-auto">
+                                            <i class="ph ph-trash"></i> Supprimer
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- CREATE / EDIT form (kit .set-* : neutres tokenisés, focus bleu) -->
+                                <div v-else class="flex-1 flex flex-col min-h-0">
+                                    <div class="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-2.5 max-w-3xl w-full mx-auto">
+                                        <h4 class="font-semibold text-sm text-slate-800">{{ skillEditMode === 'edit' ? 'Éditer le skill' : 'Nouveau skill' }}</h4>
+
+                                        <!-- scope selector (only meaningful when >1 scope editable) -->
+                                        <div>
+                                            <label class="text-[11px] font-medium text-slate-500 block mb-1">Portée</label>
+                                            <select v-model="skillForm.scope" :disabled="skillEditMode === 'edit'"
+                                                    class="set-select w-full disabled:opacity-60">
+                                                <option v-for="sc in editableScopes" :key="sc" :value="sc">{{ scopeLabel(sc) }}</option>
+                                            </select>
+                                            <p v-if="!isSkillAdmin" class="text-[10px] text-slate-500 mt-1">Les skills learned/global sont réservés aux administrateurs.</p>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="text-[11px] font-medium text-slate-500 block mb-1">Nom</label>
+                                                <input v-model="skillForm.name" :disabled="skillEditMode === 'edit'" placeholder="deploy-staging"
+                                                       class="set-input font-mono disabled:opacity-60">
+                                                <p v-if="skillEditMode === 'create'" class="text-[10px] text-slate-500 mt-1">Enregistré au format dossier <span class="font-mono">&lt;slug&gt;/SKILL.md</span> (Agent Skill).</p>
+                                            </div>
+                                            <div>
+                                                <label class="text-[11px] font-medium text-slate-500 block mb-1">Domaine (optionnel)</label>
+                                                <input v-model="skillForm.domain" placeholder="jenkins" :disabled="skillForm._depth > 0"
+                                                       class="set-input disabled:opacity-60">
+                                                <p v-if="skillForm._depth > 0" class="text-[10px] text-slate-500 mt-1">Sous-skill : hérité du package parent.</p>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label class="text-[11px] font-medium text-slate-500 block mb-1">Description <span class="text-slate-400">(sert au matching — soigne les mots-clés)</span></label>
+                                            <input v-model="skillForm.description" placeholder="Quand et comment déclencher ce skill…"
+                                                   class="set-input">
+                                        </div>
+
+                                        <div>
+                                            <label class="text-[11px] font-medium text-slate-500 block mb-1">Tags <span class="text-slate-400">(séparés par des virgules)</span></label>
+                                            <input v-model="skillForm.tags" placeholder="ci, deploy"
+                                                   class="set-input">
+                                        </div>
+
+                                        <div>
+                                            <label class="text-[11px] font-medium text-slate-500 block mb-1">Corps (markdown)</label>
+                                            <textarea v-model="skillForm.body" rows="14" placeholder="# Procédure&#10;## Étapes&#10;1. …"
+                                                      class="set-textarea font-mono"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <!-- action bar (hauteur de contrôle h-8, comme la toolbar) -->
+                                    <div class="border-t border-slate-200 p-3 flex items-center justify-end gap-2 shrink-0">
+                                        <button @click="cancelEdit" class="skl-btn skl-btn--secondary">Annuler</button>
+                                        <button @click="saveSkill" :disabled="skillsBusy"
+                                                class="skl-btn bg-blue-600 text-white hover:bg-blue-700">
+                                            <i class="ph" :class="skillsBusy ? 'ph-spinner animate-spin' : 'ph-floppy-disk'"></i>
+                                            {{ skillEditMode === 'edit' ? 'Enregistrer' : 'Créer' }}
+                                        </button>
+                                    </div>
+                                </div>
+                        </div>
+                    </div>

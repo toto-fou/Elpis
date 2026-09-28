@@ -1,0 +1,1639 @@
+{
+"configs": {
+"c109499c38cb": {
+"type": "bar",
+"data": {
+"labels": [
+"Q1",
+"Q2",
+"Q3",
+"Q4"
+],
+"datasets": [
+{
+"label": "Rev",
+"data": [
+100,
+150,
+180,
+210
+],
+"backgroundColor": "#3b82f6",
+"borderColor": "#3b82f6",
+"borderRadius": 4
+},
+{
+"label": "Cost",
+"data": [
+60,
+80,
+90,
+120
+],
+"backgroundColor": "#ef4444",
+"borderColor": "#ef4444",
+"borderRadius": 4
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Bar",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+},
+"datalabels": {
+"display": true,
+"color": "#475569",
+"font": {
+"size": 11,
+"weight": "bold"
+},
+"anchor": "end",
+"align": "end"
+}
+}
+}
+},
+"0fc8ddc48973": {
+"type": "bar",
+"data": {
+"labels": [
+"A",
+"B",
+"C",
+"D",
+"E"
+],
+"datasets": [
+{
+"label": "Serie 1",
+"data": [
+5,
+9,
+7,
+12,
+8
+],
+"backgroundColor": "#3b82f6",
+"borderColor": "#3b82f6",
+"borderRadius": 4
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Stagger",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+},
+"animation": {
+"duration": 600
+},
+"_anim": {
+"mode": "stagger",
+"step": 60,
+"dsStep": 120
+}
+}
+},
+"bc56fefe89e6": {
+"type": "line",
+"data": {
+"labels": [
+"Mon",
+"Tue",
+"Wed",
+"Thu",
+"Fri"
+],
+"datasets": [
+{
+"label": "Users",
+"data": [
+12,
+19,
+15,
+22,
+30
+],
+"borderColor": "#3b82f6",
+"backgroundColor": "rgba(59,130,246,0.05)",
+"tension": 0.4,
+"borderWidth": 2,
+"pointRadius": 3,
+"fill": false,
+"_gradient": true
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Progressive+Gradient",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+},
+"animation": {
+"duration": 600
+},
+"_anim": {
+"mode": "progressive",
+"step": 18
+}
+}
+},
+"dc0a8c7f6782": {
+"type": "line",
+"data": {
+"labels": [
+"J",
+"F",
+"M",
+"A"
+],
+"datasets": [
+{
+"label": "A",
+"data": [
+5,
+9,
+7,
+12
+],
+"borderColor": "#3b82f6",
+"backgroundColor": "rgba(59,130,246,0.12)",
+"tension": 0.4,
+"borderWidth": 2,
+"pointRadius": 3,
+"fill": "origin",
+"_gradient": true
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Area",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"08d676795421": {
+"type": "radar",
+"data": {
+"labels": [
+"Speed",
+"Power",
+"Range",
+"Cost",
+"UX"
+],
+"datasets": [
+{
+"label": "P1",
+"data": [
+4,
+3,
+5,
+2,
+4
+],
+"borderColor": "#3b82f6",
+"backgroundColor": "rgba(59,130,246,0.2)",
+"borderWidth": 2,
+"pointRadius": 3
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Radar",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"069238a50c45": {
+"type": "polarArea",
+"data": {
+"labels": [
+"a",
+"b",
+"c",
+"d"
+],
+"datasets": [
+{
+"label": "Serie 1",
+"data": [
+3,
+5,
+2,
+7
+],
+"backgroundColor": [
+"#3b82f6",
+"#ef4444",
+"#10b981",
+"#f59e0b"
+],
+"borderWidth": 2,
+"borderColor": "#ffffff"
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Polar",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"7e43637221b4": {
+"type": "line",
+"data": {
+"labels": [
+"a",
+"b",
+"c",
+"d"
+],
+"datasets": [
+{
+"label": "L",
+"data": [
+3,
+7,
+5,
+9
+],
+"borderColor": "#3b82f6",
+"backgroundColor": "rgba(59,130,246,0.05)",
+"tension": 0.4,
+"borderWidth": 2,
+"pointRadius": 3,
+"fill": false
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Annotations",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+},
+"annotation": {
+"annotations": {
+"a0": {
+"type": "line",
+"borderColor": "#ef4444",
+"borderWidth": 2,
+"borderDash": [
+6,
+6
+],
+"yMin": 6,
+"yMax": 6,
+"label": {
+"display": true,
+"content": "target",
+"position": "end",
+"backgroundColor": "#ef4444",
+"color": "#fff",
+"font": {
+"size": 10
+}
+}
+}
+}
+}
+}
+}
+},
+"a4e632103dbe": {
+"type": "line",
+"data": {
+"labels": [
+"2024-01-01",
+"2024-02-01",
+"2024-03-01"
+],
+"datasets": [
+{
+"label": "T",
+"data": [
+3,
+6,
+4
+],
+"borderColor": "#3b82f6",
+"backgroundColor": "rgba(59,130,246,0.05)",
+"tension": 0.4,
+"borderWidth": 2,
+"pointRadius": 3,
+"fill": false
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Time axis",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+},
+"scales": {
+"x": {
+"type": "time",
+"time": {
+"tooltipFormat": "PP",
+"displayFormats": {
+"day": "d MMM",
+"week": "d MMM",
+"month": "MMM yyyy",
+"year": "yyyy"
+}
+}
+}
+}
+}
+},
+"b73737073dfe": {
+"type": "pie",
+"data": {
+"labels": [
+"A",
+"B",
+"C"
+],
+"datasets": [
+{
+"label": "Serie 1",
+"data": [
+40,
+35,
+25
+],
+"backgroundColor": [
+"#3b82f6",
+"#ef4444",
+"#10b981"
+],
+"borderWidth": 2,
+"borderColor": "#ffffff"
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Pie",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+},
+"animation": {
+"animateRotate": true,
+"animateScale": false,
+"duration": 1100,
+"easing": "easeOutSine"
+}
+}
+},
+"71113df1fce7": {
+"type": "doughnut",
+"data": {
+"labels": [
+"X",
+"Y",
+"Z"
+],
+"datasets": [
+{
+"label": "Serie 1",
+"data": [
+10,
+20,
+30
+],
+"backgroundColor": [
+"#3b82f6",
+"#ef4444",
+"#10b981"
+],
+"borderWidth": 2,
+"borderColor": "#ffffff",
+"cutout": "60%"
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Doughnut grow",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+},
+"animation": {
+"animateScale": true,
+"animateRotate": true,
+"duration": 900
+}
+}
+},
+"8a3743ff52cd": {
+"type": "doughnut",
+"data": {
+"labels": [
+"Score",
+"Remaining"
+],
+"datasets": [
+{
+"data": [
+73.0,
+27.0
+],
+"backgroundColor": [
+"#3b82f6",
+"#e5e7eb"
+],
+"borderWidth": 0,
+"circumference": 180,
+"rotation": 270,
+"cutout": "75%"
+}
+]
+},
+"options": {
+"responsive": true,
+"plugins": {
+"legend": {
+"display": false
+},
+"tooltip": {
+"enabled": false
+},
+"centerText": {
+"text": "73%",
+"subtext": "/ 100%"
+},
+"title": {
+"display": true,
+"text": "Gauge",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"1cc0e4dd5d3f": {
+"type": "bar",
+"data": {
+"labels": [
+"Visits",
+"Leads",
+"Trials",
+"Sales"
+],
+"datasets": [
+{
+"label": "Funnel",
+"data": [
+1000.0,
+600.0,
+300.0,
+120.0
+],
+"backgroundColor": [
+"#ef4444",
+"#f97316",
+"#f59e0b",
+"#eab308"
+],
+"borderRadius": 4
+}
+]
+},
+"options": {
+"indexAxis": "y",
+"responsive": true,
+"plugins": {
+"legend": {
+"display": false
+},
+"title": {
+"display": true,
+"text": "Funnel",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"17a8073a6e9f": {
+"type": "bar",
+"data": {
+"labels": [
+"P1",
+"P2"
+],
+"datasets": [
+{
+"label": "Progress",
+"data": [
+75.0,
+40.0
+],
+"backgroundColor": "#3b82f6",
+"borderRadius": 6,
+"stack": "s"
+},
+{
+"label": "Remaining",
+"data": [
+25.0,
+60.0
+],
+"backgroundColor": "#e5e7eb",
+"stack": "s"
+}
+]
+},
+"options": {
+"indexAxis": "y",
+"responsive": true,
+"plugins": {
+"legend": {
+"display": false
+},
+"title": {
+"display": true,
+"text": "Progress",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+},
+"scales": {
+"x": {
+"stacked": true,
+"max": 100.0
+},
+"y": {
+"stacked": true
+}
+}
+}
+},
+"d19de263a1bb": {
+"type": "treemap",
+"data": {
+"datasets": [
+{
+"label": "Treemap",
+"tree": [
+{
+"name": "Alpha",
+"value": 40.0
+},
+{
+"name": "Beta",
+"value": 25.0
+},
+{
+"name": "Gamma",
+"value": 15.0
+},
+{
+"name": "Delta",
+"value": 8.0
+}
+],
+"key": "value",
+"borderWidth": 1,
+"borderColor": "#ffffff",
+"spacing": 1,
+"_treemap": {
+"vmin": 8.0,
+"vmax": 40.0,
+"gradient": [
+"#0a2540",
+"#1e3a8a",
+"#2563eb",
+"#3b82f6",
+"#60a5fa",
+"#93c5fd",
+"#dbeafe",
+"#fef3c7",
+"#fde68a",
+"#fcd34d",
+"#f59e0b",
+"#d97706",
+"#b45309",
+"#7c2d12"
+]
+}
+}
+]
+},
+"options": {
+"responsive": true,
+"plugins": {
+"legend": {
+"display": false
+},
+"title": {
+"display": true,
+"text": "Treemap",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"ec7d6ab1b926": {
+"type": "doughnut",
+"data": {
+"labels": [
+"A",
+"B"
+],
+"datasets": [
+{
+"data": [
+10.0,
+6.0
+],
+"backgroundColor": [
+"#3b82f6",
+"#10b981"
+],
+"borderWidth": 1,
+"borderColor": "#ffffff"
+},
+{
+"data": [
+6.0,
+4.0,
+6.0
+],
+"backgroundColor": [
+"#3b82f6",
+"#3b82f6",
+"#10b981"
+],
+"borderWidth": 1,
+"borderColor": "#ffffff"
+}
+]
+},
+"options": {
+"responsive": true,
+"cutout": "25%",
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom"
+},
+"title": {
+"display": true,
+"text": "Sunburst",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"2c963cec2804": {
+"_composite": "pie_of_pie",
+"variant": "pie_of_pie",
+"primary": {
+"type": "pie",
+"data": {
+"labels": [
+"A",
+"B",
+"Autres"
+],
+"datasets": [
+{
+"data": [
+50.0,
+30.0,
+20.0
+],
+"backgroundColor": [
+"#3b82f6",
+"#ef4444",
+"#94a3b8"
+],
+"borderColor": "#ffffff",
+"borderWidth": 2
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom"
+},
+"title": {
+"display": true,
+"text": "Pie of pie",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"secondary": {
+"type": "pie",
+"data": {
+"labels": [
+"C",
+"D",
+"E"
+],
+"datasets": [
+{
+"data": [
+10.0,
+6.0,
+4.0
+],
+"backgroundColor": [
+"#3b82f6",
+"#ef4444",
+"#10b981"
+],
+"borderColor": "#ffffff",
+"borderWidth": 2
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom"
+},
+"title": {
+"display": true,
+"text": "D\u00e9tail : Autres",
+"font": {
+"size": 12
+}
+}
+}
+}
+},
+"split": {
+"label": "Autres",
+"members": [
+{
+"label": "C",
+"value": 10.0
+},
+{
+"label": "D",
+"value": 6.0
+},
+{
+"label": "E",
+"value": 4.0
+}
+]
+}
+},
+"4f37e0cea6d3": {
+"_composite": "pie_of_pie",
+"variant": "bar_of_pie",
+"primary": {
+"type": "pie",
+"data": {
+"labels": [
+"A",
+"B",
+"Autres"
+],
+"datasets": [
+{
+"data": [
+50.0,
+30.0,
+20.0
+],
+"backgroundColor": [
+"#3b82f6",
+"#ef4444",
+"#94a3b8"
+],
+"borderColor": "#ffffff",
+"borderWidth": 2
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom"
+},
+"title": {
+"display": true,
+"text": "Bar of pie",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"secondary": {
+"type": "bar",
+"data": {
+"labels": [
+"C",
+"D",
+"E"
+],
+"datasets": [
+{
+"data": [
+10.0,
+6.0,
+4.0
+],
+"backgroundColor": [
+"#3b82f6",
+"#ef4444",
+"#10b981"
+],
+"borderRadius": 4
+}
+]
+},
+"options": {
+"indexAxis": "y",
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": false
+},
+"title": {
+"display": true,
+"text": "D\u00e9tail : Autres",
+"font": {
+"size": 12
+}
+}
+}
+}
+},
+"split": {
+"label": "Autres",
+"members": [
+{
+"label": "C",
+"value": 10.0
+},
+{
+"label": "D",
+"value": 6.0
+},
+{
+"label": "E",
+"value": 4.0
+}
+]
+}
+},
+"638284fb084b": {
+"type": "scatter",
+"data": {
+"labels": [],
+"datasets": [
+{
+"label": "S",
+"data": [
+{
+"x": 1,
+"y": 2
+},
+{
+"x": 3,
+"y": 5
+},
+{
+"x": 4,
+"y": 1
+}
+],
+"backgroundColor": "rgba(59,130,246,0.6)",
+"borderColor": "#3b82f6",
+"pointRadius": 5
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Scatter",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"473f6a95a0a9": {
+"type": "bubble",
+"data": {
+"labels": [],
+"datasets": [
+{
+"label": "B",
+"data": [
+{
+"x": 1,
+"y": 2,
+"r": 8
+},
+{
+"x": 3,
+"y": 5,
+"r": 14
+}
+],
+"backgroundColor": "rgba(59,130,246,0.6)",
+"borderColor": "#3b82f6"
+}
+]
+},
+"options": {
+"responsive": true,
+"maintainAspectRatio": false,
+"plugins": {
+"legend": {
+"display": true,
+"position": "bottom",
+"labels": {
+"font": {
+"size": 11
+}
+}
+},
+"title": {
+"display": true,
+"text": "Bubble",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"63a2e41c69fa": {
+"type": "matrix",
+"data": {
+"datasets": [
+{
+"label": "Heatmap",
+"data": [
+{
+"x": "c0",
+"y": "r0",
+"v": 5.0
+},
+{
+"x": "c1",
+"y": "r0",
+"v": 3.0
+},
+{
+"x": "c0",
+"y": "r1",
+"v": 8.0
+},
+{
+"x": "c1",
+"y": "r1",
+"v": 2.0
+},
+{
+"x": "c0",
+"y": "r2",
+"v": 6.0
+},
+{
+"x": "c1",
+"y": "r2",
+"v": 9.0
+}
+],
+"backgroundColor": [
+"#93c5fd",
+"#1e3a8a",
+"#d97706",
+"#0a2540",
+"#fef3c7",
+"#7c2d12"
+],
+"borderWidth": 0,
+"_heatmap": {
+"cols": 2,
+"rows": 3
+}
+}
+]
+},
+"options": {
+"responsive": true,
+"plugins": {
+"legend": {
+"display": false
+},
+"title": {
+"display": true,
+"text": "Heatmap",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+},
+"scales": {
+"x": {
+"type": "category",
+"labels": [
+"c0",
+"c1"
+],
+"offset": true,
+"ticks": {
+"display": true
+},
+"grid": {
+"display": false
+},
+"title": {
+"display": true,
+"text": "Column"
+}
+},
+"y": {
+"type": "category",
+"labels": [
+"r0",
+"r1",
+"r2"
+],
+"offset": true,
+"reverse": true,
+"ticks": {
+"display": true
+},
+"grid": {
+"display": false
+},
+"title": {
+"display": true,
+"text": "Row"
+}
+}
+}
+}
+},
+"6134a9fb2613": {
+"type": "boxplot",
+"data": {
+"labels": [
+"G1",
+"G2",
+"G3"
+],
+"datasets": [
+{
+"label": "S",
+"data": [
+[
+1,
+2,
+3,
+4,
+5,
+6
+],
+[
+2,
+4,
+4,
+4,
+6,
+8
+],
+[
+1,
+1,
+2,
+3,
+5,
+9
+]
+],
+"backgroundColor": "rgba(59,130,246,0.3)",
+"borderColor": "#3b82f6",
+"borderWidth": 1.5,
+"itemRadius": 2,
+"outlierBackgroundColor": "#3b82f6"
+}
+]
+},
+"options": {
+"responsive": true,
+"plugins": {
+"legend": {
+"display": false,
+"position": "bottom"
+},
+"title": {
+"display": true,
+"text": "Boxplot",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+},
+"4f5b5da8ed9e": {
+"type": "candlestick",
+"data": {
+"datasets": [
+{
+"label": "CANDLESTICK",
+"data": [
+{
+"x": "2024-01-02",
+"o": 10,
+"h": 12,
+"l": 9,
+"c": 11
+},
+{
+"x": "2024-01-03",
+"o": 11,
+"h": 13,
+"l": 10,
+"c": 10.5
+},
+{
+"x": "2024-01-04",
+"o": 10.5,
+"h": 11,
+"l": 9.5,
+"c": 11
+}
+]
+}
+]
+},
+"options": {
+"responsive": true,
+"plugins": {
+"legend": {
+"display": false
+},
+"title": {
+"display": true,
+"text": "Candlestick",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+},
+"scales": {
+"x": {
+"type": "time",
+"time": {
+"tooltipFormat": "PP",
+"displayFormats": {
+"day": "d MMM",
+"week": "d MMM",
+"month": "MMM yyyy",
+"year": "yyyy"
+}
+}
+},
+"y": {
+"beginAtZero": false
+}
+}
+}
+},
+"561e45d47be9": {
+"type": "bar",
+"data": {
+"labels": [
+"Start",
+"A",
+"B",
+"C"
+],
+"datasets": [
+{
+"label": "Waterfall",
+"data": [
+[
+0.0,
+100.0
+],
+[
+100.0,
+70.0
+],
+[
+70.0,
+90.0
+],
+[
+90.0,
+80.0
+]
+],
+"backgroundColor": [
+"#10b981",
+"#ef4444",
+"#10b981",
+"#ef4444"
+],
+"borderColor": [
+"#10b981",
+"#ef4444",
+"#10b981",
+"#ef4444"
+],
+"borderWidth": 1,
+"borderSkipped": false
+}
+]
+},
+"options": {
+"responsive": true,
+"plugins": {
+"legend": {
+"display": false
+},
+"title": {
+"display": true,
+"text": "Waterfall",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+},
+"scales": {
+"y": {
+"beginAtZero": true
+}
+}
+}
+},
+"380a2ec23e7e": {
+"type": "sankey",
+"data": {
+"datasets": [
+{
+"label": "Flow",
+"data": [
+{
+"from": "A",
+"to": "X",
+"flow": 5
+},
+{
+"from": "A",
+"to": "Y",
+"flow": 3
+},
+{
+"from": "B",
+"to": "Y",
+"flow": 4
+}
+],
+"colorMode": "gradient",
+"borderWidth": 0
+}
+]
+},
+"options": {
+"responsive": true,
+"plugins": {
+"legend": {
+"display": false
+},
+"title": {
+"display": true,
+"text": "Sankey",
+"font": {
+"size": 14,
+"weight": "bold"
+}
+}
+}
+}
+}
+},
+"order": [
+[
+"bar",
+"c109499c38cb"
+],
+[
+"bar_stagger",
+"0fc8ddc48973"
+],
+[
+"line_grad_prog",
+"bc56fefe89e6"
+],
+[
+"area",
+"dc0a8c7f6782"
+],
+[
+"radar",
+"08d676795421"
+],
+[
+"polarArea",
+"069238a50c45"
+],
+[
+"annotations",
+"7e43637221b4"
+],
+[
+"timeaxis",
+"a4e632103dbe"
+],
+[
+"pie",
+"b73737073dfe"
+],
+[
+"doughnut_grow",
+"71113df1fce7"
+],
+[
+"gauge",
+"8a3743ff52cd"
+],
+[
+"funnel",
+"1cc0e4dd5d3f"
+],
+[
+"progress",
+"17a8073a6e9f"
+],
+[
+"treemap",
+"d19de263a1bb"
+],
+[
+"sunburst",
+"ec7d6ab1b926"
+],
+[
+"pie_of_pie",
+"2c963cec2804"
+],
+[
+"bar_of_pie",
+"4f37e0cea6d3"
+],
+[
+"scatter",
+"638284fb084b"
+],
+[
+"bubble",
+"473f6a95a0a9"
+],
+[
+"heatmap",
+"63a2e41c69fa"
+],
+[
+"boxplot",
+"6134a9fb2613"
+],
+[
+"candlestick",
+"4f5b5da8ed9e"
+],
+[
+"waterfall",
+"561e45d47be9"
+],
+[
+"sankey",
+"380a2ec23e7e"
+]
+]
+}

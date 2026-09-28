@@ -1,0 +1,1 @@
+Read and transcribe ALL the visible text in this image, exactly as shown, preserving the reading order and line breaks. Do not translate, summarize, or add any comment. If there is no readable text, reply exactly: (no text).

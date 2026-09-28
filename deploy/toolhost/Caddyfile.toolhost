@@ -1,0 +1,16 @@
+# Frontal TLS de l'hôte d'outils (l'app le joint en HTTPS ; opencode passe
+# toujours par l'origine de l'app, jamais par cette adresse).
+#
+#   caddy run --config deploy/toolhost/Caddyfile.toolhost
+#
+toolhost.example.lan {
+    tls internal
+    reverse_proxy 127.0.0.1:8765 {
+        # Flux SSE (tools/call longs, terminal) : jamais tamponnés.
+        flush_interval -1
+        transport http {
+            read_timeout 0
+            write_timeout 0
+        }
+    }
+}

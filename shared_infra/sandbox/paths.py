@@ -1,0 +1,570 @@
+# SPDX-License-Identifier: MIT
+"""
+shared_infra/sandbox/paths.py — the ONE place that turns a model/route
+supplied path into a resolved, contained location under a per-user sandbox
+root.
+
+Why this exists
+---------------
+The same "normalize the container view of a path, then prove it does not
+escape the sandbox root" logic was reimplemented 6-8 times and DRIFTED:
+
+  * ``fs_tools._translate_container_path`` / ``_to_container`` / ``_safe_path``
+  * ``_exec_bridge._path_to_container``
+  * ``routes/_helpers._strip_work_prefix`` / ``_path_inside``
+  * ``routes/_sandbox_exec._validate_rel_path``  (pure-string ``..`` reject,
+    NO ``resolve()`` — strictly weaker than the tool-side check)
+  * ``shell_tools`` rolled its own copy
+
+A fix to one did not propagate, and the route check could be laxer than the
+tool check for the same logical operation. This module collapses them into a
+single, fuzz/property-tested resolver.
+
+Security note
+-------------
+On the host this is a *defense-in-depth* containment check and a UX
+normalizer, NOT the kernel security boundary — that is the per-user Docker
+container. ``resolve_under`` calls ``Path.resolve()`` so a symlink that
+points OUT of the sandbox root resolves to its target and is then rejected
+by the containment check (it never silently follows a link out). It uses
+``relative_to`` (not ``str.startswith``) so sibling-prefix names like
+``/sandbox/bob`` vs ``/sandbox/bob2`` cannot be confused.
+
+Path vocabulary
+---------------
+* ``rel``       — POSIX path relative to the sandbox root. ``""`` == the root.
+* ``host``      — absolute host path, guaranteed at/under the resolved root.
+* ``container`` — the in-container view: ``/work`` or ``/work/<rel>``.
+
+The model reasons in the container's path space (its shell runs in
+``/work``) and routinely re-emits paths as ``/work/x``, ``work/x`` or
+``./work/x``; all three collapse to ``rel == "x"``.
+"""
+from __future__ import annotations
+
+import errno
+import logging
+import os
+import secrets
+import shutil
+import stat
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
+from typing import Any, List, Optional
+
+try:
+    import fcntl  # POSIX only
+except ImportError:  # pragma: no cover - non-POSIX
+    fcntl = None  # type: ignore[assignment]
+
+logger = logging.getLogger("uvicorn.error")
+
+CONTAINER_ROOT = "/work"
+
+# The per-user host dir ``P`` is NO LONGER bind-mounted whole; only ``P/work``
+# is mounted as the container ``/work``. The reserved siblings below stay at
+# ``P`` (outside the mount) so the model can neither read nor delete them.
+WORK_SUBDIR = "work"
+_WORK_MARKER = ".work-migrated"
+_WORK_LOCK = ".work-migrating.lock"
+# Chaque nouvelle version du marqueur re-déclenche UNE passe ``chmod -R o+rwX``
+# par sandbox — c'est le levier de résorption du backlog, dans LES DEUX SENS
+# (o+rw ouvre aussi bien un arbre 10001 à l'hôte qu'un arbre host-owned au
+# conteneur) :
+#   v2 (2026-07-21) : clones faits dans le TERMINAL avant son wrapper umask.
+#   v3 (2026-07-30) : clones/init/pull host-side pendant que
+#                     ``sandbox_grant_access`` était inerte (il appelait
+#                     ``get_user_sandbox`` avec la mauvaise arité → TypeError
+#                     avalé → ni ACL, ni chmod, ni chown). Ces dépôts sont
+#                     restés en 0644/0755 à l'UID de l'app, donc non éditables
+#                     depuis le conteneur.
+_PERMS_MARKER = ".perms-reconciled-v3"
+_PERMS_MARKER_LEGACY = (".perms-reconciled", ".perms-reconciled-v2")
+# Entries kept at ``P`` (never moved into ``P/work`` and never exposed in the
+# container): the work subdir itself; the protected-skills mirror + its staging
+# dir; the long-term memory store; the legacy ``.sandboxd`` socket dir; the
+# optimistic-write lock sidecar; the cross-UID perms-repair marker; and the
+# migration bookkeeping files.
+_WORK_RESERVED = frozenset({
+    WORK_SUBDIR,
+    "skills",
+    ".skills-mirror.tmp",
+    "memory",       # long-term memory store (host-owned ``P/memory``)
+    ".memory",      # legacy store (orphaned, owned 10001) — keep reserved too
+    ".sandboxd",
+    ".write_locks",
+    _PERMS_MARKER,
+    _WORK_MARKER,
+    _WORK_LOCK,
+} | set(_PERMS_MARKER_LEGACY))   # toutes les générations du marqueur restent à P
+
+# The container-view prefixes the model emits for the sandbox root, longest
+# (most specific) first so prefix stripping is unambiguous.
+_WORK_PREFIXES = ("/work/", "./work/", "work/")
+_WORK_ROOTS = ("/work", "./work", "work")
+
+
+class SandboxPathError(ValueError):
+    """A path that cannot be safely resolved under the sandbox root.
+
+    Raised for: empty path when a path is required, NUL bytes, and any
+    target that escapes the sandbox root (``..``, an absolute path outside
+    it, or a symlink whose target is outside it).
+    """
+
+
+@dataclass(frozen=True)
+class ResolvedPath:
+    rel: str        # POSIX, relative to the sandbox root; "" == root
+    host: Path      # absolute host path at/under the root
+    container: str  # "/work" or "/work/<rel>"
+
+    @property
+    def is_root(self) -> bool:
+        return self.rel == ""
+
+
+def strip_work_prefix(path: str) -> str:
+    """Normalize the container view of a path (``/work``, ``work``,
+    ``./work`` with or without a trailing component) to a path relative to
+    the sandbox root. Idempotent for everything else.
+
+    ``"/work"`` / ``"work"`` / ``"./work"`` → ``""`` (the root).
+    ``"/work/src/x"`` / ``"work/src/x"`` / ``"./work/src/x"`` → ``"src/x"``.
+    A path that does not start with a work-prefix is returned stripped of
+    surrounding whitespace only.
+    """
+    if not path:
+        return ""
+    p = str(path).strip()
+    if p in _WORK_ROOTS:
+        return ""
+    for pfx in _WORK_PREFIXES:
+        if p.startswith(pfx):
+            return p[len(pfx):]
+    return p
+
+
+def to_container(rel: str) -> str:
+    """Map a sandbox-relative path to its in-container view.
+
+    ``""`` / ``"."`` → ``"/work"``; ``"src/x"`` → ``"/work/src/x"``.
+    """
+    r = (rel or "").strip().strip("/")
+    if r in ("", "."):
+        return CONTAINER_ROOT
+    return f"{CONTAINER_ROOT}/{r}"
+
+
+def resolve_under(base, user_path, *, allow_root: bool = True) -> ResolvedPath:
+    """Resolve ``user_path`` under sandbox root ``base`` and prove containment.
+
+    Args:
+        base:       the sandbox root (host path). Resolved with ``.resolve()``.
+        user_path:  a model/route supplied path. May be relative, a
+                    container-view path (``/work/...``), or (rejected unless
+                    it lands back under ``base``) absolute.
+        allow_root: if False, refuse a path that resolves to the root itself
+                    (used by destructive ops that must target a child, e.g.
+                    delete/rename).
+
+    Returns:
+        ResolvedPath(rel, host, container).
+
+    Raises:
+        SandboxPathError: empty (when a path is required), NUL byte, or any
+        target that escapes ``base`` (``..``, outside-absolute, symlink-out),
+        or the root when ``allow_root`` is False.
+    """
+    base_resolved = Path(base).resolve()
+
+    raw = "" if user_path is None else str(user_path)
+    if "\x00" in raw:
+        raise SandboxPathError("null byte in path")
+
+    rel_in = strip_work_prefix(raw)
+
+    # Empty after normalization → the sandbox root.
+    if rel_in.strip() in ("", "."):
+        if not allow_root:
+            raise SandboxPathError("operation requires a path inside the sandbox, not its root")
+        return ResolvedPath(rel="", host=base_resolved, container=CONTAINER_ROOT)
+
+    # AUDIT 2026-06 — ``~`` est mappé sur la RACINE SANDBOX, plus
+    # d'expanduser() : avant, ``~/x`` se résolvait vers le HOME de l'hôte
+    # puis était rejeté par le containment — pas un escape, mais une 403
+    # surprenante alors que le modèle veut dire « mon home conteneur »
+    # (la vue conteneur n'a qu'un home utile : /work). ``~autre`` (un
+    # utilisateur nommé) reste littéral, comme n'importe quel nom de fichier.
+    if rel_in == "~" or rel_in.startswith("~/"):
+        rel_in = rel_in[1:].lstrip("/") or "."
+    p = Path(rel_in)
+    candidate = (base_resolved / p if not p.is_absolute() else p).resolve()
+
+    # Containment via relative_to (NOT startswith): handles sibling-prefix
+    # names (bob vs bob2) and, because we resolved both sides, rejects ``..``
+    # escapes and symlinks whose target is outside the root.
+    if candidate != base_resolved:
+        try:
+            candidate.relative_to(base_resolved)
+        except ValueError:
+            raise SandboxPathError(f"path escapes the sandbox root: {raw!r}")
+
+    rel_out = "" if candidate == base_resolved else candidate.relative_to(base_resolved).as_posix()
+    if rel_out == "" and not allow_root:
+        raise SandboxPathError("operation requires a path inside the sandbox, not its root")
+
+    return ResolvedPath(rel=rel_out, host=candidate, container=to_container(rel_out))
+
+
+# ── Écriture SOUS la racine, sans jamais suivre de lien ─────────────────────
+#
+# AUDIT 2026-09-25 — ``resolve_under`` valide un chemin À UN INSTANT ; l'hôte
+# écrivait ensuite par un ``open()`` ordinaire, qui suit les liens. Or le
+# bac à sable est monté en écriture dans le conteneur : entre la validation et
+# l'écriture, un lien symbolique peut apparaître à la place de la cible (ou
+# d'un dossier du chemin) — posé par la commande shell dont on sauve la sortie,
+# ou déjà présent sur un chemin DÉRIVÉ jamais validé (``x.bak``, ``dest/nom``).
+# L'écriture partait alors hors du bac à sable, avec les droits de l'app.
+#
+# Ici, chaque composant est ouvert RELATIVEMENT au descripteur de son parent
+# avec ``O_NOFOLLOW`` : aucun lien n'est traversé, à aucun niveau, quel que
+# soit le moment où il apparaît. Le fichier est écrit dans un temporaire
+# exclusif puis renommé dans le MÊME dossier ouvert : un lien posé à la place
+# de la cible est remplacé, jamais suivi.
+
+_O_CLOEXEC = getattr(os, "O_CLOEXEC", 0)
+_O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+_O_DIRECTORY = getattr(os, "O_DIRECTORY", 0)
+
+
+def _rel_parts(rel: Any) -> List[str]:
+    """Composants d'un chemin RELATIF à la racine ; refuse l'absolu et ``..``."""
+    s = str(rel or "").replace("\\", "/")
+    if "\x00" in s:
+        raise SandboxPathError("null byte in path")
+    p = PurePosixPath(s)
+    if p.is_absolute():
+        raise SandboxPathError(f"absolute path refused: {s!r}")
+    parts = [x for x in p.parts if x not in ("", ".")]
+    if any(x == ".." for x in parts):
+        raise SandboxPathError(f"'..' component refused: {s!r}")
+    return parts
+
+
+def open_dir_beneath(base: Any, rel: Any = "", *, create: bool = False,
+                     dir_mode: Optional[int] = None) -> int:
+    """Descripteur du dossier ``base/rel``, ouvert composant par composant
+    SANS suivre de lien (``O_NOFOLLOW|O_DIRECTORY`` relatif au parent).
+
+    ``create`` : crée les dossiers manquants (``dir_mode`` posé par
+    ``fchmod`` sur ceux qu'on crée — le umask ne s'y applique donc pas).
+    Lève :class:`SandboxPathError` si un composant est un lien ou n'est pas
+    un dossier. L'appelant ferme le descripteur rendu."""
+    parts = _rel_parts(rel)
+    flags = os.O_RDONLY | _O_DIRECTORY | _O_NOFOLLOW | _O_CLOEXEC
+    fd = os.open(str(Path(base).resolve()), os.O_RDONLY | _O_DIRECTORY | _O_CLOEXEC)
+    try:
+        for name in parts:
+            created = False
+            try:
+                nfd = os.open(name, flags, dir_fd=fd)
+            except FileNotFoundError:
+                if not create:
+                    raise
+                try:
+                    os.mkdir(name, 0o777, dir_fd=fd)
+                    created = True
+                except FileExistsError:
+                    pass
+                nfd = os.open(name, flags, dir_fd=fd)
+            if created and dir_mode is not None:
+                try:
+                    os.fchmod(nfd, dir_mode)
+                except OSError:
+                    pass
+            os.close(fd)
+            fd = nfd
+    except OSError as e:
+        os.close(fd)
+        if e.errno in (errno.ELOOP, errno.ENOTDIR, errno.EMLINK):
+            raise SandboxPathError(
+                f"symlink or non-directory on the path: {'/'.join(parts)!r}") from e
+        raise
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
+
+
+def _short_leaf(leaf: str, max_bytes: int = 120) -> str:
+    """Préfixe de ``leaf`` d'au plus ``max_bytes`` octets UTF-8, sans couper
+    un caractère. Passe sandbox 2026-09-26 — la troncature en CARACTÈRES
+    (``leaf[:80]``) donnait jusqu'à 320 octets pour 80 caractères CJK : un nom
+    légal de 244 octets produisait un temporaire > 255 octets (ENAMETOOLONG)
+    et copie / .bak / save_stdout échouaient sur ce nom."""
+    b = leaf.encode("utf-8", "surrogateescape")[:max_bytes]
+    return b.decode("utf-8", "ignore")
+
+
+def write_beneath(base: Any, rel: Any, data: Any, *,
+                  file_mode: Optional[int] = None,
+                  default_mode: int = 0o644,
+                  dir_mode: Optional[int] = None,
+                  make_parents: bool = True,
+                  mtime_ns: Optional[int] = None) -> int:
+    """Écrit ``data`` (``bytes`` ou objet fichier binaire lisible) dans
+    ``base/rel`` sans jamais suivre de lien, dossiers intermédiaires compris.
+
+    Atomique : temporaire exclusif (``O_CREAT|O_EXCL|O_NOFOLLOW``) dans le
+    dossier final, puis ``rename`` relatif à ce dossier. Mode du fichier :
+    ``file_mode`` s'il est donné, sinon celui du fichier REMPLACÉ (régulier),
+    sinon ``default_mode``. ``mtime_ns`` : date de modification à reporter
+    (copie). Retourne le nombre d'octets écrits."""
+    parts = _rel_parts(rel)
+    if not parts:
+        raise SandboxPathError("a file path is required, not the root")
+    dfd = open_dir_beneath(base, "/".join(parts[:-1]), create=make_parents,
+                           dir_mode=dir_mode)
+    leaf = parts[-1]
+    written = 0
+    try:
+        mode = file_mode
+        if mode is None:
+            try:
+                st = os.stat(leaf, dir_fd=dfd, follow_symlinks=False)
+                if stat.S_ISREG(st.st_mode):
+                    mode = st.st_mode & 0o777
+            except FileNotFoundError:
+                pass
+        if mode is None:
+            mode = default_mode
+        tmp = f".{_short_leaf(leaf)}.{secrets.token_hex(6)}.tmp"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | _O_NOFOLLOW | _O_CLOEXEC,
+                     0o600, dir_fd=dfd)
+        try:
+            with os.fdopen(fd, "wb") as fh:
+                if isinstance(data, (bytes, bytearray, memoryview)):
+                    fh.write(data)
+                    written = len(data)
+                else:
+                    while True:
+                        chunk = data.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        fh.write(chunk)
+                        written += len(chunk)
+                fh.flush()
+                os.fchmod(fh.fileno(), mode & 0o777)
+                if mtime_ns is not None:
+                    os.utime(fh.fileno(), ns=(mtime_ns, mtime_ns))
+                try:
+                    os.fsync(fh.fileno())
+                except OSError:
+                    pass
+            os.replace(tmp, leaf, src_dir_fd=dfd, dst_dir_fd=dfd)
+        except BaseException:
+            try:
+                os.unlink(tmp, dir_fd=dfd)
+            except OSError:
+                pass
+            raise
+    finally:
+        os.close(dfd)
+    return written
+
+
+def copytree_beneath(src: Path, base: Any, dst_rel: Any, *,
+                     file_mode_fn=None, dir_mode: Optional[int] = None) -> int:
+    """Copie l'arbre ``src`` vers ``base/dst_rel`` (qui ne doit pas exister)
+    sans jamais suivre de lien CÔTÉ DESTINATION ; les liens de la source sont
+    recopiés TELS QUELS (comme ``copytree(symlinks=True)``), jamais
+    déréférencés. ``file_mode_fn(mode_source) -> mode`` : mode des fichiers
+    copiés. Retourne le nombre de fichiers copiés.
+
+    Passe sandbox 2026-09-26 :
+      • SOURCE parcourue par descripteurs (``os.fwalk``) et fichiers ouverts
+        en ``O_NOFOLLOW`` relatifs à leur dossier, inode contrôlé : un lien
+        substitué entre le test et l'ouverture (process concurrent dans le
+        conteneur) ne peut plus faire copier un fichier de l'HÔTE ;
+      • copie dans un dossier temporaire voisin, RENOMMÉ à la fin : un échec
+        en cours de route ne laisse plus d'arbre à moitié copié (qu'un nouvel
+        essai refusait ensuite comme « destination existante ») ;
+      • destination existante refusée D'EMBLÉE (``FileExistsError`` explicite,
+        y compris un fichier à la place du dossier) ; erreurs de parcours
+        remontées au lieu d'être avalées (sous-dossier illisible)."""
+    src = Path(src)
+    root_parts = _rel_parts(dst_rel)
+    if not root_parts:
+        raise SandboxPathError("a destination directory is required, not the root")
+    parent_rel = "/".join(root_parts[:-1])
+    name = root_parts[-1]
+    pfd = open_dir_beneath(base, parent_rel, create=True, dir_mode=dir_mode)
+    tmp = f".{_short_leaf(name)}.{secrets.token_hex(6)}.cptmp"
+    tmp_rel = f"{parent_rel}/{tmp}" if parent_rel else tmp
+    try:
+        try:
+            os.stat(name, dir_fd=pfd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise FileExistsError(errno.EEXIST, "destination already exists", str(dst_rel))
+        os.mkdir(tmp, 0o777, dir_fd=pfd)
+        n = 0
+        try:
+            if dir_mode is not None:
+                _dfd = os.open(tmp, os.O_RDONLY | _O_DIRECTORY | _O_NOFOLLOW | _O_CLOEXEC,
+                               dir_fd=pfd)
+                try:
+                    os.fchmod(_dfd, dir_mode)
+                finally:
+                    os.close(_dfd)
+            walk_errors: List[OSError] = []
+            for cur, dirs, files, sdfd in os.fwalk(src, follow_symlinks=False,
+                                                   onerror=walk_errors.append):
+                rel_cur = Path(cur).relative_to(src).as_posix()
+                dst_cur = tmp_rel if rel_cur in ("", ".") else f"{tmp_rel}/{rel_cur}"
+                for nm in list(dirs) + list(files):
+                    try:
+                        st = os.stat(nm, dir_fd=sdfd, follow_symlinks=False)
+                    except FileNotFoundError:
+                        continue                       # disparu entre-temps
+                    if stat.S_ISLNK(st.st_mode):
+                        dfd = open_dir_beneath(base, dst_cur, create=True, dir_mode=dir_mode)
+                        try:
+                            os.symlink(os.readlink(nm, dir_fd=sdfd), nm, dir_fd=dfd)
+                        finally:
+                            os.close(dfd)
+                        if nm in dirs:
+                            dirs.remove(nm)
+                    elif stat.S_ISDIR(st.st_mode):
+                        dfd = open_dir_beneath(base, f"{dst_cur}/{nm}", create=True,
+                                               dir_mode=dir_mode)
+                        os.close(dfd)
+                    elif stat.S_ISREG(st.st_mode):
+                        try:
+                            ffd = os.open(nm, os.O_RDONLY | _O_NOFOLLOW | _O_CLOEXEC,
+                                          dir_fd=sdfd)
+                        except OSError as e:
+                            if e.errno == errno.ELOOP:
+                                continue               # devenu un lien : ignoré
+                            raise
+                        with os.fdopen(ffd, "rb") as fh:
+                            fst = os.fstat(fh.fileno())
+                            if (fst.st_ino, fst.st_dev) != (st.st_ino, st.st_dev) \
+                                    or not stat.S_ISREG(fst.st_mode):
+                                continue               # substitué entre-temps
+                            mode = (file_mode_fn(fst.st_mode & 0o777) if file_mode_fn
+                                    else fst.st_mode & 0o777)
+                            write_beneath(base, f"{dst_cur}/{nm}", fh, file_mode=mode,
+                                          dir_mode=dir_mode, mtime_ns=fst.st_mtime_ns)
+                        n += 1
+            if walk_errors:
+                raise walk_errors[0]
+            os.rename(tmp, name, src_dir_fd=pfd, dst_dir_fd=pfd)
+        except BaseException:
+            shutil.rmtree(Path(base).resolve() / tmp_rel, ignore_errors=True)
+            raise
+    finally:
+        os.close(pfd)
+    return n
+
+
+def ensure_work_subdir(per_user_dir) -> Path:
+    """Return the mounted work root ``<per_user_dir>/work``, migrating a legacy
+    flat layout into it ONCE.
+
+    Historically the WHOLE per-user dir ``P`` was bind-mounted as the container
+    ``/work``, so ``P/skills`` (skills mirror) and ``P/.memory`` (long-term
+    memory) were exposed and ``rm``-deletable by the model. We now mount only
+    ``P/work``; the reserved siblings (:data:`_WORK_RESERVED`) stay at ``P``,
+    outside the mount. For an existing user this moves every top-level entry of
+    ``P`` — EXCEPT the reserved set — into ``P/work/``.
+
+    Idempotent and resumable: ``.work-migrated`` is written LAST, under an
+    exclusive ``flock`` on ``P/.work-migrating.lock`` (fail-open if ``fcntl``
+    is unavailable). Each move is an intra-filesystem rename, so an interrupted
+    run resumes naturally — an already-moved entry is no longer a top-level
+    sibling — and an existing destination is never overwritten.
+    """
+    P = Path(per_user_dir)
+    work = P / WORK_SUBDIR
+    marker = P / _WORK_MARKER
+
+    # Fast path: already migrated (no lock, no scan). Recreate the dir if it
+    # was removed out from under us (defensive).
+    if marker.exists():
+        work.mkdir(parents=True, exist_ok=True)
+        return work
+
+    P.mkdir(parents=True, exist_ok=True)
+
+    fh = None
+    try:
+        fh = open(P / _WORK_LOCK, "a")
+        if fcntl is not None:
+            try:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)  # blocking: peer waits
+            except OSError:
+                pass  # fail-open (lock unsupported on this FS)
+
+        # Re-check under the lock: a peer worker may have just finished.
+        if marker.exists():
+            work.mkdir(parents=True, exist_ok=True)
+            return work
+
+        # Collision guard: a pre-existing non-directory ``work`` with no marker
+        # is ambiguous (and effectively impossible — routes and the path
+        # normalizer both collapse ``work/`` to the root). Abort without
+        # touching any data.
+        if work.exists() and not work.is_dir():
+            logger.error("[sandbox] %s exists and is not a directory — "
+                         "skipping work-subdir migration", work)
+            return work
+
+        work.mkdir(parents=True, exist_ok=True)
+
+        for entry in list(P.iterdir()):
+            if entry.name in _WORK_RESERVED:
+                continue
+            dest = work / entry.name
+            if dest.exists():  # partial prior run / clash — never overwrite
+                logger.warning("[sandbox] work-subdir: destination exists, "
+                               "leaving %s in place", entry)
+                continue
+            try:
+                shutil.move(str(entry), str(dest))
+            except Exception as e:  # noqa: BLE001 - best-effort, keep going
+                logger.warning("[sandbox] work-subdir: could not move %s → %s: %s",
+                               entry, dest, e)
+
+        # Done-signal written LAST, so a crash mid-move never looks complete.
+        try:
+            marker.write_text("1", encoding="utf-8")
+        except OSError as e:  # pragma: no cover - disk full / perms
+            logger.warning("[sandbox] work-subdir: marker write failed (%s): %s",
+                           marker, e)
+        return work
+    finally:
+        if fh is not None:
+            try:
+                if fcntl is not None:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+            except Exception:
+                pass
+            fh.close()
+
+
+__all__ = [
+    "CONTAINER_ROOT",
+    "WORK_SUBDIR",
+    "ResolvedPath",
+    "SandboxPathError",
+    "copytree_beneath",
+    "ensure_work_subdir",
+    "open_dir_beneath",
+    "resolve_under",
+    "strip_work_prefix",
+    "to_container",
+    "write_beneath",
+]

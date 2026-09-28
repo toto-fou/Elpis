@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elpis.local/schemas/toolhost.schema.json",
+  "title": "toolhost.json — configuration de l'hôte d'outils Elpis",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "bind": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "transport": {
+          "type": "string",
+          "enum": [
+            "streamable-http",
+            "http",
+            "sse",
+            "stdio"
+          ]
+        },
+        "transports": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "http",
+              "streamable-http",
+              "sse"
+            ]
+          },
+          "description": "Transports réseau servis simultanément (défaut : http + sse)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "token_file": {
+      "type": "string"
+    },
+    "families": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "fs",
+          "shell",
+          "git",
+          "chart",
+          "memory",
+          "skill",
+          "skill_run",
+          "todo",
+          "browser",
+          "desktop"
+        ]
+      }
+    },
+    "sandbox_dir": {
+      "type": "string"
+    },
+    "db_path": {
+      "type": "string"
+    },
+    "app_url": {
+      "type": "string"
+    },
+    "playwright_api_url": {
+      "type": "string"
+    },
+    "assets": {
+      "type": "object",
+      "properties": {
+        "pw_dir": {
+          "type": "string"
+        },
+        "desktop_dir": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "identity_max_skew_s": {
+      "type": "number",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": true
+}

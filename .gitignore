@@ -1,0 +1,75 @@
+# ---- Python ----
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# ---- Node ----
+node_modules/
+
+# ---- Configuration locale (générée par `./elpis configure`) ----
+config.json
+config.json.bak*
+.env
+rag_app/rag_config.json
+mcp.json
+.claude/settings.local.json
+
+# ---- État d'exécution et données utilisateur ----
+user_*/
+logs/
+traces/
+screenshots/
+pages/
+Mo/
+.agent/
+.code/
+.opencode-runtime/
+.load-instance
+rag_app/DATA/
+rag_app/logs/
+rag_app/OCR_STORE/
+rag_app/rag_state.json
+rag_app/rag_ocr_state.json
+rag_app/rag_traces.json
+rag_app/app.log
+# Binaire et données de Qdrant (installés par install.sh) — ancré : la règle
+# « qdrant/ » avalait aussi deploy/qdrant/, dont install.sh a besoin.
+/rag_app/qdrant/
+/qdrant/
+bin/
+
+# ---- Service navigateur ----
+browser-service/.token
+browser-service/cookies/
+browser-service/downloads/
+browser-service/har/
+browser-service/screenshots/
+browser-service/videos/
+browser-service/traces/
+browser-service/offline/
+browser-service/baselines/
+
+# ---- Binaires : jamais versionnés (installés par ./install.sh) ----
+wheels/
+wheels-app/
+rag_app/wheels-rag/
+desktop-agent/wheels/
+desktop-agent/python-win/
+*.whl
+*.deb
+*.tar.gz
+*.tgz
+*.zip
+deploy/docker/**/build_assets/
+deploy/voice/offline/*
+!deploy/voice/offline/MANIFEST.txt
+dist/
+release/
+
+# ---- Verrous d’exécution ----
+*.lock
+!package-lock.json

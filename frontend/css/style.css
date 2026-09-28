@@ -1,0 +1,4293 @@
+/* static/style.css */
+
+/* ================================================================
+ *  DESIGN TOKENS  (moteur de skins)
+ * ================================================================
+ *  Toute l'app se thématise via ces variables CSS. Le THÈME PAR
+ *  DÉFAUT est défini ici :
+ *    - ``:root``               → valeurs du mode CLAIR (natives Tailwind,
+ *                                SAUF --text-400/500 recalibrés WCAG AA —
+ *                                cf. note sur la rampe de texte).
+ *    - ``body.elpis-app-dark`` → valeurs du mode SOMBRE (= les anciennes
+ *                                surcharges hardcodées, déplacées ici).
+ *
+ *  TROIS classes body pilotent le rendu (posées par app-settings.js) :
+ *    - ``elpis-skin-<id>``     → le skin choisi (fichier css/skins/<id>.css) ;
+ *    - ``elpis-app-dark``      → le TOGGLE mode sombre (bloc de tokens
+ *                                neutres ci-dessous + blocs sombres des skins) ;
+ *    - ``elpis-dark-surface``  → MARQUEUR « la surface de base est sombre » :
+ *                                posé si mode sombre ON **ou** skin à base
+ *                                sombre (``darkBase``, ex. Émeraude). TOUS les
+ *                                remaps utilitaires claire-sur-sombre de ce
+ *                                fichier sont gated dessus (et non plus sur le
+ *                                toggle) → Émeraude-clair les reçoit aussi.
+ *
+ *  Un SKIN = un fichier ``css/skins/<id>.css`` qui REDÉFINIT ces
+ *  variables sous ``body.elpis-skin-<id>`` (+ ``.elpis-app-dark`` pour
+ *  sa variante sombre). Spécificités : ``body.elpis-app-dark`` (0,2,0)
+ *  bat ``:root`` ; le skin (0,2,0, chargé après) bat ``:root`` ; le skin
+ *  sombre (0,3,0) bat le sombre par défaut. Skin et mode sombre se
+ *  composent donc orthogonalement.
+ *
+ *  Chaque token = UNE paire {clair-natif, sombre} distincte, pour
+ *  garantir la parité au pixel du thème par défaut tout en laissant un
+ *  skin recolorer les deux modes en une passe.
+ * ================================================================ */
+:root {
+    /* Rayons — échelle dérivée d'un rayon de base (un skin peut le pousser). */
+    --radius:    0.5rem;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+
+    /* Fond de page */
+    --app-bg: #f1f5f9;                       /* body (slate-100) */
+
+    /* Surfaces (background-color) — rampe du plus clair au plus foncé */
+    --surface:   #ffffff;                    /* bg-white  → cartes/panneaux */
+    --surface-2: #f8fafc;                    /* bg-slate-50 */
+    --surface-3: #f1f5f9;                    /* bg-slate-100 → muted / hover */
+    --surface-4: #e2e8f0;                    /* bg-slate-200 → accent */
+    --surface-5: #cbd5e1;                    /* bg-slate-300 */
+
+    /* Bordures */
+    --border:            #e2e8f0;            /* border-slate-200 / inputs */
+    --border-soft:       #f1f5f9;            /* border-slate-100 / divide-100 */
+    --table-cell-border: #e2e8f0;
+
+    /* Rampe de texte.
+       ⚠ 400/500 divergent des natifs Tailwind (slate-400 #94a3b8 = 2.56:1 sur
+       blanc) : calibrés WCAG AA — 400 ≥ 4.5:1 sur --surface, 500 un cran plus
+       sombre pour préserver l'échelon. La hiérarchie fine se joue par taille
+       et graisse, pas par des gris plus clairs (charte n°2). */
+    --text-900: #0f172a;                     /* text-slate-900 */
+    --text-800: #1e293b;                     /* text-slate-800 */
+    --text-700: #334155;                     /* text-slate-700 */
+    --text-600: #475569;                     /* text-slate-600 */
+    --text-500: #5b6a80;                     /* ex-slate-500, assombri (5.5:1) */
+    --text-400: #64748b;                     /* = slate-500 natif (4.76:1) */
+    --text-max: #0f172a;                     /* emphase hover (→ #fff en sombre) */
+
+    /* Prose (rendu markdown des messages) */
+    --prose-body:       #334155;
+    --prose-heading:    #0f172a;
+    --prose-strong:     #0f172a;
+    --prose-link:       #2563eb;
+    --prose-link-hover: #2563eb;
+
+    /* Code inline (simples backticks) */
+    --code-inline-bg:     #f1f5f9;
+    --code-inline-fg:     #ef4444;
+    --code-inline-border: #e2e8f0;
+
+    /* ── Bloc de code (fences) ────────────────────────────────────────────
+       Le bloc reste SOMBRE dans les DEUX modes : le seul thème highlight.js
+       vendorisé est github-dark (frontend/vendor/github-dark.min.css), chargé
+       sans condition. C'est une décision produit — mais le bloc doit alors se
+       lire comme UNE surface.
+
+       ⚠ Défaut corrigé le 2026-09-07 : le cadre était #1e1e1e (VS Code),
+       l'en-tête #252526 et la zone de code #0d1117 (github-dark, ré-imposé en
+       sombre) — trois gris empilés, donc une bordure parasite bien visible
+       entre le texte et le bloc. Les valeurs ci-dessous sont la palette
+       github-dark COMPLÈTE, celle pour laquelle les couleurs de coloration
+       syntaxique sont calibrées ; l'en-tête n'est qu'un relief de la même
+       famille. Un skin peut redéfinir ces cinq tokens. */
+    --code-bg:         #0d1117;   /* fond du bloc ET de la zone de code */
+    --code-fg:         #c9d1d9;   /* = .hljs color */
+    --code-border:     #30363d;
+    --code-header-bg:  #161b22;   /* relief, MÊME famille que --code-bg */
+    --code-header-fg:  #8b949e;
+
+    /* Danger / erreur — tokens SÉMANTIQUES (l'encart d'erreur les utilise au
+       lieu du rouge Tailwind cru, non adapté aux skins ni au sombre). Famille
+       CLAIRE : texte rouge foncé sur fond clair teinté. Les skins sombres et
+       le mode sombre redéfinissent ces tokens (famille CLAIRE-sur-sombre). */
+    --danger-surface:     rgba(239, 68, 68, 0.06);   /* teinte de fond de carte */
+    --danger-border:      #fecaca;                    /* red-200 */
+    --danger-border-soft: #fee2e2;                    /* red-100 (bloc détail) */
+    --danger-text:        #dc2626;                    /* red-600 (texte/bouton) */
+    --danger-strong:      #b91c1c;                    /* red-700 (titre) */
+    --danger-icon-bg:     #fee2e2;                    /* red-100 (avatar) */
+    --danger-icon-fg:     #ef4444;                    /* red-500 (icône avatar) */
+
+    /* Scrollbars */
+    --scrollbar-thumb:        #cbd5e1;
+    --scrollbar-thumb-hover:  #94a3b8;
+    --scrollbar-thumb-custom: #cbd5e1;
+
+    /* ── Familles SÉMANTIQUES (correctif skins 2026-07) ──────────────────
+       Même doctrine que --danger-* : valeur CLAIRE ici == couleur Tailwind
+       native (parité pixel en Ardoise clair), variante claire-sur-sombre
+       dans le bloc ``body.elpis-dark-surface`` plus bas, overrides par
+       skin dans frontend/css/skins/*.css. Le bridge (plus bas) re-mappe
+       les utilitaires Tailwind correspondants sur ces tokens → un skin
+       règle ~25 valeurs au lieu d'énumérer 60+ sélecteurs.
+       NB : pas de famille --info-* — le bleu EST l'accent (l'« info »
+       roule sur --accent-*) ; un skin qui veut les séparer ajoutera la
+       famille le jour venu. */
+
+    /* Accent (bleu Ardoise) — actions primaires, sélection, focus */
+    --accent:             #2563eb;           /* blue-600 (fonds pleins) */
+    --accent-strong:      #1d4ed8;           /* blue-700 (hover) */
+    --accent-500:         #3b82f6;
+    --accent-400:         #60a5fa;
+    --accent-300:         #93c5fd;
+    --accent-fg:          #ffffff;           /* texte posé sur fond accent */
+    --accent-text:        #2563eb;           /* text-blue-600 */
+    --accent-text-strong: #1d4ed8;           /* text-blue-700 */
+    --accent-surface:     #eff6ff;           /* bg-blue-50 */
+    --accent-surface-2:   #dbeafe;           /* bg-blue-100 */
+    --accent-border:      #bfdbfe;           /* border-blue-200 */
+    --accent-ring:        #3b82f6;           /* rings / focus */
+
+    /* OK / succès (emerald ; green-* fusionné dessus, dérive d'un cran
+       assumée) — états ON, statuts réussis, bouton Admin */
+    --ok:             #059669;               /* emerald-600 */
+    --ok-strong:      #047857;               /* emerald-700 (hover) */
+    --ok-soft:        #10b981;               /* emerald-500 */
+    --ok-400:         #34d399;               /* emerald-400 (stable 2 modes) */
+    --ok-text:        #059669;
+    --ok-text-strong: #047857;
+    --ok-surface:     #ecfdf5;               /* bg-emerald-50 */
+    --ok-surface-2:   #d1fae5;               /* bg-emerald-100 */
+    --ok-border:      #a7f3d0;               /* border-emerald-200 */
+    --ok-fg:          #ffffff;
+
+    /* Warn / attention (amber) — badge « learned », statuts en attente */
+    --warn:             #d97706;             /* amber-600 */
+    --warn-soft:        #f59e0b;             /* amber-500 */
+    --warn-text:        #d97706;
+    --warn-text-strong: #b45309;             /* amber-700 */
+    --warn-surface:     #fffbeb;             /* bg-amber-50 */
+    --warn-surface-2:   #fef3c7;             /* bg-amber-100 */
+    --warn-border:      #fde68a;             /* border-amber-200 */
+
+    /* Rôle admin (violet) — badge/ligne de rôle UNIQUEMENT (pas de bridge
+       violet global : le violet sert aussi à d'autres sémantiques, ex.
+       actions secret.* de l'observabilité). */
+    --role-admin-text:    #9333ea;           /* purple-600 */
+    --role-admin-surface: #faf5ff;           /* purple-50 */
+    --role-admin-border:  #e9d5ff;           /* purple-200 */
+
+    /* Rampe texte : cran « décor » (chevrons, séparateurs) — bridgé sur
+       text-slate-300 (phase rail du correctif). */
+    --text-300: #94a3b8;                     /* slate-400 natif */
+
+    /* Rail latéral (sidebar chat + console admin) — sombre en Ardoise dans
+       les DEUX modes ; chaque skin le re-teinte en redéfinissant ces ~12
+       valeurs (fini les piles de sélecteurs rail par skin).
+       NB : --rail-bg doit rester une COULEUR (offset d'anneau de focus,
+       badges ring-*) — un rail en dégradé passe par une règle skin dédiée
+       (cf. pingouins). */
+    --rail-bg:           #0f172a;            /* fond du rail (slate-900) */
+    --rail-bg-2:         #0b1120;            /* pied / bandeaux denses */
+    --rail-border:       #1e293b;            /* ex border-slate-800 */
+    --rail-text:         #cbd5e1;            /* texte courant (slate-300) */
+    --rail-text-strong:  #ffffff;
+    --rail-muted:        #94a3b8;            /* icônes/labels discrets — slate-400
+                                                NATIF : la rampe AA --text-400 est
+                                                calibrée pour surfaces claires et
+                                                tombait à ~3,7:1 sur le rail sombre */
+    --rail-hover:        rgba(255, 255, 255, 0.10);
+    --rail-chip:         rgba(255, 255, 255, 0.08);
+    --rail-active-bg:    rgba(37, 99, 235, 0.20);   /* item actif (ex bg-blue-600/20) */
+    --rail-input-bg:     rgba(255, 255, 255, 0.06);
+    --rail-input-border: rgba(255, 255, 255, 0.10);
+    --rail-ok:           #34d399;            /* privilège admin (emerald-400) */
+    --rail-ok-strong:    #6ee7b7;
+
+    /* Toasts — surface inversée STABLE deux modes (un toast flotte
+       au-dessus de tout, il ne suit pas la surface locale). */
+    --toast-bg:       #1e293b;               /* slate-800 */
+    --toast-fg:       #ffffff;
+    --toast-error-bg: #dc2626;               /* red-600 */
+    --toast-error-fg: #ffffff;
+
+    /* Surlignage des occurrences de recherche (marks) */
+    --hl-bg: #fef08a;                        /* yellow-200 */
+    --hl-fg: #713f12;                        /* yellow-900 */
+}
+
+body.elpis-app-dark {
+    --app-bg: #1e1e1e;
+    --surface:   #1e1e1e;
+    --surface-2: #252526;
+    --surface-3: #2a2a2b;
+    --surface-4: #3c3c3c;
+    --surface-5: #4a4a4b;
+    --border:            rgba(255, 255, 255, 0.10);
+    --border-soft:       rgba(255, 255, 255, 0.05);
+    --table-cell-border: rgba(255, 255, 255, 0.08);
+    --text-900: #f8fafc;
+    --text-800: #f1f5f9;
+    --text-700: #e2e8f0;
+    --text-600: #cbd5e1;
+    --text-500: #cbd5e1;                     /* bump WCAG volontaire (cf. note historique) */
+    --text-400: #94a3b8;
+    --text-max: #ffffff;
+    --prose-body:       #e2e8f0;
+    --prose-heading:    #f8fafc;
+    --prose-strong:     #ffffff;
+    --prose-link:       #60a5fa;
+    --prose-link-hover: #93c5fd;
+    --code-inline-bg:     #2a2a2b;
+    --code-inline-fg:     #f472b6;
+    --code-inline-border: rgba(255, 255, 255, 0.08);
+    /* Danger — famille CLAIRE-SUR-SOMBRE (texte rouge clair, teintes translucides
+       qui se posent sur n'importe quelle surface sombre). */
+    --danger-surface:     rgba(248, 113, 113, 0.10);
+    --danger-border:      rgba(248, 113, 113, 0.32);
+    --danger-border-soft: rgba(248, 113, 113, 0.18);
+    --danger-text:        #fca5a5;                    /* red-300 (WCAG sur sombre) */
+    --danger-strong:      #fecaca;                    /* red-200 */
+    --danger-icon-bg:     rgba(248, 113, 113, 0.15);
+    --danger-icon-fg:     #f87171;                    /* red-400 */
+    --scrollbar-thumb:        rgba(255, 255, 255, 0.15);
+    --scrollbar-thumb-hover:  rgba(255, 255, 255, 0.25);
+    --scrollbar-thumb-custom: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Familles sémantiques : valeurs CLAIRE-SUR-SOMBRE ────────────────────
+   Portées par ``elpis-dark-surface`` : classe MARQUEUR posée par
+   app-settings.js quand (mode sombre ON) OU (skin à base sombre, flag
+   ``darkBase`` dans APP_SKINS — ex. Émeraude). Distincte de
+   ``elpis-app-dark`` (le toggle) pour qu'Émeraude-clair reçoive ces
+   valeurs SANS hériter du bloc de tokens neutres du mode sombre
+   ci-dessus. */
+body.elpis-dark-surface {
+    --accent-text:        #60a5fa;
+    --accent-text-strong: #93c5fd;
+    --accent-surface:     rgba(59, 130, 246, 0.15);
+    --accent-surface-2:   rgba(59, 130, 246, 0.18);
+    --accent-border:      rgba(59, 130, 246, 0.40);
+    --ok-text:        #34d399;
+    --ok-text-strong: #6ee7b7;
+    --ok-surface:     rgba(16, 185, 129, 0.15);
+    --ok-surface-2:   rgba(16, 185, 129, 0.18);
+    --ok-border:      rgba(16, 185, 129, 0.40);
+    --warn-text:        #fbbf24;
+    --warn-text-strong: #fcd34d;
+    --warn-surface:     rgba(245, 158, 11, 0.15);
+    --warn-surface-2:   rgba(245, 158, 11, 0.18);
+    --warn-border:      rgba(245, 158, 11, 0.40);
+    --role-admin-text:    #d8b4fe;
+    --role-admin-surface: rgba(168, 85, 247, 0.15);
+    --role-admin-border:  rgba(168, 85, 247, 0.40);
+    --text-300: #64748b;
+    --hl-bg: rgba(234, 179, 8, 0.30);
+    --hl-fg: #fde047;
+}
+
+/* ================================================================
+ *  BRIDGE utilitaires Tailwind → tokens  (les deux modes)
+ * ================================================================
+ *  ``body .bg-white`` (0,1,1) bat le ``.bg-white`` de Tailwind (0,1,0)
+ *  quel que soit l'ordre d'injection du CDN runtime. La valeur du token
+ *  change selon le mode/skin → une seule règle couvre clair ET sombre.
+ *  Ne sont bridgés QUE les utilitaires « solides » dont la valeur claire
+ *  par défaut == la couleur native Tailwind (parité garantie — exception
+ *  assumée : text-slate-400/500, recalibrés AA via la rampe). Les
+ *  états hover/focus/disabled restent gérés dans le bloc sombre plus bas
+ *  (le mode clair y garde sa couleur native).
+ * ================================================================ */
+body .bg-white          { background-color: var(--surface); }
+body .bg-slate-50       { background-color: var(--surface-2); }
+body .bg-slate-100      { background-color: var(--surface-3); }
+body .bg-slate-200      { background-color: var(--surface-4); }
+body .bg-slate-300      { background-color: var(--surface-5); }
+body .border-slate-200  { border-color: var(--border); }
+body .border-slate-100  { border-color: var(--border-soft); }
+body .divide-slate-100 > * + * { border-color: var(--border-soft); }
+body .divide-slate-200 > * + * { border-color: var(--border); }
+body .text-slate-900    { color: var(--text-900); }
+body .text-slate-800    { color: var(--text-800); }
+body .text-slate-700    { color: var(--text-700); }
+body .text-slate-600    { color: var(--text-600); }
+body .text-slate-500    { color: var(--text-500); }
+body .text-slate-400    { color: var(--text-400); }
+body .text-slate-300    { color: var(--text-300); }
+/* Chrome ÉDITEUR (racine ``bg-[#1e1e1e]``, sombre par défaut) : la rampe
+   --text-300/400 est calibrée pour surfaces claires — on ré-asserte les
+   gris clairs d'origine. Le scope ``.elpis-editor-light`` (plus bas dans le
+   fichier, même spécificité donc gagnant) reprend la main en éditeur clair. */
+.bg-\[\#1e1e1e\] .text-slate-300 { color: #cbd5e1; }
+.bg-\[\#1e1e1e\] .text-slate-400 { color: #94a3b8; }
+
+/* ── Bridge SÉMANTIQUE (correctif skins 2026-07) ─────────────────────────
+   Utilitaires accent/statut re-mappés sur les familles --accent / --ok /
+   --warn / --danger (valeurs claires == Tailwind natif → parité pixel en
+   Ardoise clair ; valeurs sombres via ``body.elpis-dark-surface``). Les
+   skins n'ont plus qu'à redéfinir les tokens ; leurs énumérations
+   historiques (0,2,1) restent prioritaires là où elles subsistent.
+   Rings : on pilote ``--tw-ring-color`` (consommée par la box-shadow
+   ring de Tailwind). */
+/* Accent (bleu). Les fonds PLEINS portent aussi ``color: var(--accent-fg)`` :
+   parité en Ardoise (le markup paire déjà text-white, --accent-fg = #fff),
+   et indispensable aux skins dont l'accent s'inverse (llamacpp sombre :
+   primary CLAIR → texte encre) ou s'éclaircit (elpis or → texte ivoire). */
+body .bg-blue-600        { background-color: var(--accent); color: var(--accent-fg); }
+body .hover\:bg-blue-600:hover { background-color: var(--accent); }
+body .border-blue-600    { border-color: var(--accent); }
+body .accent-blue-600    { accent-color: var(--accent); }
+body .bg-blue-700        { background-color: var(--accent-strong); color: var(--accent-fg); }
+body .hover\:bg-blue-700:hover { background-color: var(--accent-strong); }
+body .bg-blue-500        { background-color: var(--accent-500); }
+body .hover\:bg-blue-500:hover { background-color: var(--accent-500); }
+body .border-blue-500    { border-color: var(--accent-500); }
+body .text-blue-500      { color: var(--accent-500); }
+body .focus\:border-blue-500:focus { border-color: var(--accent-500); }
+body .bg-blue-400        { background-color: var(--accent-400); }
+body .border-blue-400    { border-color: var(--accent-400); }
+body .text-blue-400      { color: var(--accent-400); }
+body .focus\:border-blue-400:focus { border-color: var(--accent-400); }
+body .text-blue-300      { color: var(--accent-300); }
+body .border-blue-300    { border-color: var(--accent-300); }
+body .hover\:border-blue-300:hover { border-color: var(--accent-300); }
+body .text-blue-600      { color: var(--accent-text); }
+body .hover\:text-blue-600:hover { color: var(--accent-text); }
+body .text-blue-700      { color: var(--accent-text-strong); }
+body .bg-blue-50         { background-color: var(--accent-surface); }
+body .bg-blue-100        { background-color: var(--accent-surface-2); }
+body .border-blue-100    { border-color: var(--accent-surface-2); }
+body .ring-blue-100      { --tw-ring-color: var(--accent-surface-2); }
+body .border-blue-200    { border-color: var(--accent-border); }
+body .ring-blue-200      { --tw-ring-color: var(--accent-border); }
+body .ring-blue-400      { --tw-ring-color: var(--accent-ring); }
+body .ring-blue-500      { --tw-ring-color: var(--accent-ring); }
+body .focus\:ring-blue-500:focus { --tw-ring-color: var(--accent-ring); }
+body .focus\:ring-blue-500\/30:focus { --tw-ring-color: color-mix(in srgb, var(--accent-ring) 30%, transparent); }
+/* Toggles (peer-checked) : classe compilée en (0,3,0) → préfixe ``body``
+   pour battre le CDN quel que soit l'ordre d'injection. Les deux formes
+   de markup (.peer explicite / input direct) sont couvertes. */
+body .peer:checked ~ .peer-checked\:bg-blue-600,
+body input:checked ~ .peer-checked\:bg-blue-600 { background-color: var(--accent); }
+body .peer:checked ~ .peer-checked\:border-blue-600,
+body input:checked ~ .peer-checked\:border-blue-600 { border-color: var(--accent); }
+body .peer:checked ~ .peer-checked\:bg-green-600,
+body input:checked ~ .peer-checked\:bg-green-600 { background-color: var(--ok); }
+/* OK / succès (emerald + green fusionnés) — fonds pleins : cf. note accent. */
+body .bg-emerald-600     { background-color: var(--ok); color: var(--ok-fg); }
+body .bg-green-600       { background-color: var(--ok); color: var(--ok-fg); }
+body .hover\:bg-emerald-700:hover { background-color: var(--ok-strong); }
+body .bg-emerald-500     { background-color: var(--ok-soft); }
+body .bg-green-500       { background-color: var(--ok-soft); }
+body .text-emerald-500   { color: var(--ok-soft); }
+body .text-emerald-400   { color: var(--ok-400); }
+body .text-green-400     { color: var(--ok-400); }
+body .text-emerald-600   { color: var(--ok-text); }
+body .text-green-600     { color: var(--ok-text); }
+body .text-emerald-700   { color: var(--ok-text-strong); }
+body .text-green-700     { color: var(--ok-text-strong); }
+body .bg-emerald-50      { background-color: var(--ok-surface); }
+body .bg-green-50        { background-color: var(--ok-surface); }
+body .bg-emerald-100     { background-color: var(--ok-surface-2); }
+body .bg-green-100       { background-color: var(--ok-surface-2); }
+body .border-emerald-200 { border-color: var(--ok-border); }
+body .border-green-200   { border-color: var(--ok-border); }
+/* Warn (amber) */
+body .bg-amber-600       { background-color: var(--warn); }
+body .bg-amber-500       { background-color: var(--warn-soft); }
+body .text-amber-500     { color: var(--warn-soft); }
+body .text-amber-600     { color: var(--warn-text); }
+body .text-amber-700     { color: var(--warn-text-strong); }
+body .bg-amber-50        { background-color: var(--warn-surface); }
+body .bg-amber-100       { background-color: var(--warn-surface-2); }
+body .border-amber-200   { border-color: var(--warn-border); }
+/* Danger (rouge) — mappé sur la famille --danger-* EXISTANTE (parité
+   exacte en clair ; en sombre les valeurs passent claire-sur-sombre). */
+body .text-red-700       { color: var(--danger-strong); }
+body .text-red-600       { color: var(--danger-text); }
+body .text-red-500       { color: var(--danger-icon-fg); }
+body .border-red-200     { border-color: var(--danger-border); }
+body .bg-red-100         { background-color: var(--danger-icon-bg); }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--app-bg);
+    /* Texte hérité : les <body> ne portent plus ``text-slate-800`` (une
+       classe Tailwind battrait cette règle et gèlerait le skin). */
+    color: var(--text-800);
+    /* Contrôles natifs (checkbox/radio/range/progress) sur l'accent du skin. */
+    accent-color: var(--accent);
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Indicateur d'activité « typing » — 3 points qui ondulent (vagues). Signale
+   qu'une génération est en cours (mini-chat Studio). Classe dédiée (PAS de
+   préfixe ``animate-``) → survit au neutraliseur reduced-motion ; c'est un
+   indicateur d'activité ESSENTIEL (cf. .animate-spin), juste ralenti sous
+   prefers-reduced-motion (voir le bloc dédié plus bas). */
+.elpis-typing { display: inline-flex; align-items: center; gap: 3px; line-height: 1; }
+.elpis-typing > span {
+    width: 5px; height: 5px; border-radius: 9999px;
+    background: currentColor; opacity: .35;
+    animation: elpisTyping 1.2s ease-in-out infinite;
+}
+.elpis-typing > span:nth-child(2) { animation-delay: .16s; }
+.elpis-typing > span:nth-child(3) { animation-delay: .32s; }
+@keyframes elpisTyping {
+    0%, 60%, 100% { transform: translateY(0);    opacity: .35; }
+    30%           { transform: translateY(-4px); opacity: 1;   }
+}
+
+/* ── Indicateur « écriture en mémoire » (transitoire, chat) ──────────────
+   Ligne de texte affichée pendant qu'un tour écrit en mémoire long-terme
+   (outil `memory`) : le `title` fourni, sur UNE ligne. Shimmer monochrome
+   « wave » qui balaie le texte (état de progression, sur la rampe de texte,
+   pas un dégradé décoratif), puis fondu de disparition (.mem-fade) quand le
+   tour est fini. Reduced-motion : shimmer ralenti (cf. bloc dédié). */
+.mem-wave {
+    background-image: linear-gradient(100deg,
+        var(--text-400) 0%, var(--text-400) 38%,
+        var(--text-800) 50%,
+        var(--text-400) 62%, var(--text-400) 100%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: mem-wave-sweep 1.7s linear infinite;
+}
+@keyframes mem-wave-sweep {
+    0%   { background-position: 130% 0; }
+    100% { background-position: -130% 0; }
+}
+
+.markdown-body { line-height: 1.6; color: var(--prose-body); font-size: 0.95rem; }
+.markdown-body p { margin-bottom: 1em; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3 { font-weight: 700; margin-top: 1.5em; margin-bottom: 0.75em; color: var(--prose-heading); letter-spacing: -0.01em; }
+.markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+.markdown-body ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 1rem; }
+.markdown-body strong { color: var(--prose-strong); font-weight: 600; }
+.markdown-body a { color: var(--prose-link); text-decoration: none; font-weight: 500; }
+.markdown-body a:hover { color: var(--prose-link-hover); text-decoration: underline; }
+
+/* Image EXTERNE neutralisée dans le markdown (anti-exfiltration, cf. utils.js
+   _neutralizeRemoteMedia) : rendue comme un chip-lien cliquable au lieu d'un
+   chargement automatique. Hérite des couleurs de lien du skin. */
+.elpis-ext-img {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.1rem 0.55rem;
+    border: 1px dashed currentColor;
+    border-radius: 0.5rem;
+    font-size: 0.8em;
+    opacity: 0.85;
+    vertical-align: baseline;
+    word-break: break-all;
+}
+.elpis-ext-img:hover { opacity: 1; }
+
+/* Accessibilité : label lu par les lecteurs d'écran mais invisible */
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+/* Wrapper du bloc de code. Pas de overflow:hidden (casserait le sticky). */
+.code-wrapper {
+    margin: 1.25rem 0;
+    border-radius: 0.75rem;
+    background: var(--code-bg);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--code-border);
+    overflow: visible !important;
+    position: relative;
+}
+
+/* Header statique (plus sticky) — contient juste le langage et le bouton preview
+   éventuel. Disparaît naturellement quand on scrolle. */
+.code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--code-header-bg);
+    padding: 0.5rem 1rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+    color: var(--code-header-fg);
+    border-bottom: 1px solid var(--code-border);
+    user-select: none;
+    border-top-left-radius: 0.75rem;
+    border-top-right-radius: 0.75rem;
+}
+
+.markdown-body pre {
+    margin: 1rem 0;
+    border-radius: 0.5rem;
+    background: var(--code-bg);
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: 0.9em;
+    border: 1px solid var(--code-border);
+}
+
+.code-wrapper pre {
+    margin: 0 !important;
+    border-radius: 0 0 0.75rem 0.75rem !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 1rem !important;
+    overflow-x: auto;
+    overflow-y: visible;
+}
+
+.markdown-body pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-family: "JetBrains Mono", Consolas, Monaco, "Andale Mono", monospace;
+}
+
+/* Le ``<code>`` d'un bloc n'a PAS de fond propre : il hérite de celui du bloc.
+   Le thème vendorisé pose ``.hljs { background: #0d1117 }`` — sans cette
+   ré-assertion, la zone de texte se repeint d'un gris différent de son cadre
+   et dessine une bordure parasite (défaut signalé le 2026-09-07). Il faut
+   ``pre code.hljs`` : ``pre code`` seul (0,0,2) perd contre ``.hljs`` (0,1,0).
+   Vaut dans les DEUX modes — le bloc est sombre dans les deux. */
+pre code.hljs,
+pre code {
+    background: transparent;
+    color: var(--code-fg);
+}
+
+.markdown-body code:not(pre code) {
+    background: var(--code-inline-bg);
+    padding: 0.2em 0.4em;
+    border-radius: 0.375rem;
+    font-size: 0.85em;
+    color: var(--code-inline-fg);
+    border: 1px solid var(--code-inline-border);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Narration intermédiaire (« journal de travail ») dans le conteneur
+   « Travail de l'assistant » : plus petite et grisée que la réponse
+   finale. Couleurs via tokens (--text-500) → dark + skins couverts. */
+.markdown-body--worklog { font-size: 0.83rem; color: var(--text-500); }
+.markdown-body--worklog p { margin-bottom: 0.5em; }
+.markdown-body--worklog h1, .markdown-body--worklog h2, .markdown-body--worklog h3,
+.markdown-body--worklog strong { color: var(--text-500); }
+
+/* =========================================================================
+   Boutons d'action des blocs de code — groupe FLOTTANT collé en haut à droite
+   (.copy-sticky), qui SUIT le scroll en restant DANS le bloc de code associé.
+   Contient [Aperçu] (HTML) + [Copier] côte à côte, dans un même flex → jamais
+   de chevauchement. Le header ne porte plus que le libellé du langage.
+   ========================================================================= */
+.copy-sticky {
+    position: sticky;
+    top: 0;
+    height: 0;
+    z-index: 10;
+    pointer-events: none;   /* laisse passer les clics vers le code */
+}
+.copy-sticky .code-actions {
+    pointer-events: auto;
+    position: absolute;
+    top: 0.25rem;
+    right: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.copy-sticky .code-actions button {
+    pointer-events: auto;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0 0.4rem;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    color: var(--code-fg);
+    /* Fond opaque (perf : pas de blur) → boutons lisibles par-dessus le code.
+       Même famille que l'en-tête : les actions appartiennent au bloc. */
+    background: var(--code-header-bg);
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    transition: color 0.15s, background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.copy-sticky .code-actions button > i,
+.copy-sticky .code-actions button > svg {
+    font-size: 0.85rem;
+    line-height: 1;
+    pointer-events: none;
+}
+.copy-sticky .code-actions button:hover {
+    color: #fff;
+    background: color-mix(in srgb, #ffffff 10%, var(--code-header-bg));
+    border-color: var(--code-border);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* Rendu HTML « en place » : remplace visuellement le <pre> (masqué) juste
+   sous le header. Redimensionnable verticalement. */
+/* ⚠ Fond BLANC assumé, dans les deux modes : l'iframe rend du HTML
+   arbitraire qui suppose presque toujours une page blanche — l'assombrir
+   casserait les couleurs du contenu, pas l'inverse. Tokenisé quand même pour
+   qu'un skin puisse trancher autrement. */
+.code-preview-frame {
+    display: block;
+    width: 100%;
+    height: 360px;
+    min-height: 160px;
+    border: none;
+    background: var(--preview-canvas-bg, #ffffff);
+    border-radius: 0 0 0.75rem 0.75rem;
+    resize: vertical;
+    overflow: auto;
+}
+/* Boutons qui restent dans le header (ex: Aperçu HTML) */
+.code-header button {
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: var(--code-header-fg);
+    width: 1.75rem;
+    height: 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 0.375rem;
+    transition: color 0.15s, background-color 0.15s;
+    font-size: 0;
+    line-height: 1;
+}
+.code-header button > i,
+.code-header button > svg {
+    font-size: 0.95rem;
+    line-height: 1;
+    pointer-events: none;
+}
+.code-header button:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* =========================================================================
+   TERMINAL EN DIRECT (live shell) — bloc de sortie d'``execute_shell``
+   streamé dans le fil de conversation. Même doctrine que .code-wrapper :
+   sombre EN DUR dans les 5 skins (un terminal est toujours sombre), palette
+   ANSI alignée sur le thème VS-Code Dark du terminal de l'éditeur
+   (_TERM_XTERM_OPTIONS, app-editor.js).
+   ========================================================================= */
+.shell-live {
+    border-radius: 0.75rem;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+.shell-live-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #252526;
+    padding: 0.4rem 0.75rem;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    color: #a1a1aa;
+    border-bottom: 1px solid #333;
+    user-select: none;
+}
+.shell-live-cmd { color: #d4d4d4; min-width: 0; }
+.shell-live-status { font-size: 0.68rem; color: #808080; }
+.shell-live-dot {
+    width: 7px; height: 7px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+}
+.shell-live-dot.is-running { background: #6cb6ff; animation: shellDotPulse 1.2s ease-in-out infinite; }
+.shell-live-dot.is-ok      { background: #73c991; }
+.shell-live-dot.is-err     { background: #f14c4c; }
+@keyframes shellDotPulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+}
+.shell-live-copy {
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 0.375rem;
+    transition: color 0.15s, background-color 0.15s;
+    flex-shrink: 0;
+}
+.shell-live-copy:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.shell-live-body {
+    margin: 0;
+    padding: 0.6rem 0.75rem;
+    max-height: 320px;
+    overflow-y: auto;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: "JetBrains Mono", "Fira Code", Consolas, Monaco, monospace;
+    font-size: 12.5px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+/* État vide (commande lancée, rien encore sorti) : garde une hauteur mini
+   pour que le bloc n'apparaisse pas comme un trait écrasé. */
+.shell-live-body:empty { min-height: 2.2rem; }
+.shell-live-body:empty::before { content: "…"; color: #6b6b6b; }
+/* Session de terminal : invite `$ cmd` en tête de chaque commande, curseur
+   sur la commande en cours, code retour ≠ 0 rappelé sous la sortie. */
+.shell-live-body .sh-prompt { color: #73c991; font-weight: 700; user-select: none; }
+.shell-live-body .sh-cmd    { color: #e8e8e8; font-weight: 600; }
+.shell-live-body .sh-rc     { color: #f14c4c; opacity: 0.9; }
+.shell-live-body .sh-cursor { color: #d4d4d4; animation: shellDotPulse 1.2s ease-in-out infinite; }
+.shell-live-note {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.68rem;
+    color: #a1a1aa;
+    background: #252526;
+    border-top: 1px solid #333;
+}
+/* Palette ANSI 16 couleurs (VS-Code Dark, cf. _TERM_XTERM_OPTIONS). Le blanc
+   0/7 est mappé sur le gris texte pour rester lisible sur #1e1e1e. */
+.shell-live-body .sh-b { font-weight: 700; }
+.shell-live-body .sh-d { opacity: 0.6; }
+.shell-live-body .sh-fg-0  { color: #808080; }
+.shell-live-body .sh-fg-1  { color: #f44747; }
+.shell-live-body .sh-fg-2  { color: #6a9955; }
+.shell-live-body .sh-fg-3  { color: #d7ba7d; }
+.shell-live-body .sh-fg-4  { color: #569cd6; }
+.shell-live-body .sh-fg-5  { color: #c586c0; }
+.shell-live-body .sh-fg-6  { color: #4ec9b0; }
+.shell-live-body .sh-fg-7  { color: #d4d4d4; }
+.shell-live-body .sh-fg-8  { color: #808080; }
+.shell-live-body .sh-fg-9  { color: #f14c4c; }
+.shell-live-body .sh-fg-10 { color: #73c991; }
+.shell-live-body .sh-fg-11 { color: #e2c08d; }
+.shell-live-body .sh-fg-12 { color: #6cb6ff; }
+.shell-live-body .sh-fg-13 { color: #d2a8ff; }
+.shell-live-body .sh-fg-14 { color: #58d1c9; }
+.shell-live-body .sh-fg-15 { color: #e8e8e8; }
+
+.markdown-body table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 1.5rem 0; border-radius: 0.5rem; overflow: hidden; border: 1px solid var(--border); }
+.markdown-body th, .markdown-body td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--table-cell-border); }
+.markdown-body th { background: var(--surface-2); font-weight: 600; text-align: left; color: var(--text-600); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.markdown-body tr:last-child td { border-bottom: none; }
+
+.custom-scrollbar::-webkit-scrollbar { width: 5px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb-custom); border-radius: 4px; }
+[v-cloak] { display: none; }
+
+/* ── Rail latéral (sidebar chat + console admin) — TOKENISÉ ─────────────
+   Ciblé sur `aside.elpis-slide-panel` : SEULS les rails chat/admin sont des
+   <aside> avec cette classe (les panneaux MCP/sampling/mémoire la partagent
+   mais sont des <div> clairs — on ne veut pas les toucher).
+   Correctif skins 2026-07 : le rail est piloté par les tokens --rail-*
+   (:root + skins) au lieu de ``bg-[#0f172a]`` en dur dans le markup et
+   d'une pile de sélecteurs par skin. Les remaps (0,2,1) couvrent les
+   utilitaires du markup hérités de l'époque « rail toujours slate-900 »
+   (text-white, white-alpha…), y compris sur les rails CLAIRS (elpis,
+   parchemin, llamacpp) où text-white était illisible.
+   Anneau de focus clavier visible (WCAG 2.4.7), auto-appliqué à TOUS les
+   focusables du rail ; l'offset suit le fond local via --sb-ring-offset. */
+aside.elpis-slide-panel {
+    --sb-ring-offset: var(--rail-bg);
+    background: var(--rail-bg);
+    color: var(--rail-text);
+    border-right-color: var(--rail-border);
+}
+aside.elpis-slide-panel :is(button, [role="button"], input):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--sb-ring-offset), 0 0 0 4px var(--accent-400);
+}
+/* Pied de rail (compte / barre bulk) : un cran plus dense. */
+aside.elpis-slide-panel .elpis-rail-foot {
+    background: var(--rail-bg-2);
+    --sb-ring-offset: var(--rail-bg-2);
+}
+/* Textes */
+aside.elpis-slide-panel .text-white { color: var(--rail-text-strong); }
+aside.elpis-slide-panel .text-slate-200,
+aside.elpis-slide-panel .text-slate-300 { color: var(--rail-text); }
+aside.elpis-slide-panel .text-slate-400,
+aside.elpis-slide-panel .text-slate-500 { color: var(--rail-muted); }
+aside.elpis-slide-panel .hover\:text-white:hover { color: var(--rail-text-strong); }
+aside.elpis-slide-panel .group:hover .group-hover\:text-slate-200 { color: var(--rail-text); }
+aside.elpis-slide-panel input::placeholder,
+aside.elpis-slide-panel .placeholder\:text-slate-400::placeholder { color: var(--rail-muted); }
+/* Surfaces de survol / chips / séparateurs (white-alpha du markup) */
+aside.elpis-slide-panel .hover\:bg-white\/10:hover,
+aside.elpis-slide-panel .hover\:bg-white\/5:hover,
+aside.elpis-slide-panel .hover\:bg-white\/\[0\.05\]:hover,
+aside.elpis-slide-panel .hover\:bg-white\/\[0\.06\]:hover,
+aside.elpis-slide-panel .hover\:bg-white\/\[0\.12\]:hover { background-color: var(--rail-hover); }
+aside.elpis-slide-panel .bg-white\/10,
+aside.elpis-slide-panel .bg-white\/\[0\.06\],
+aside.elpis-slide-panel .bg-white\/\[0\.08\] { background-color: var(--rail-chip); }
+aside.elpis-slide-panel .bg-slate-800 { background-color: var(--rail-chip); }
+/* Bordures / anneaux internes */
+aside.elpis-slide-panel .border-white\/5,
+aside.elpis-slide-panel .border-white\/10,
+aside.elpis-slide-panel .border-white\/\[0\.06\],
+aside.elpis-slide-panel .border-white\/\[0\.07\] { border-color: var(--rail-border); }
+aside.elpis-slide-panel .ring-white\/10 { --tw-ring-color: var(--rail-border); }
+aside.elpis-slide-panel .ring-\[\#0f172a\] { --tw-ring-color: var(--rail-bg); }
+aside.elpis-slide-panel .ring-\[\#0b1120\] { --tw-ring-color: var(--rail-bg-2); }
+/* Item / page ACTIF (teinte accent translucide) */
+aside.elpis-slide-panel .bg-blue-600\/20 { background-color: var(--rail-active-bg); }
+/* « Retour au chat » (rail admin) — alphas accent, parité rgb(37 99 235/α) */
+aside.elpis-slide-panel .bg-blue-600\/15 { background-color: color-mix(in srgb, var(--accent) 15%, transparent); }
+aside.elpis-slide-panel .hover\:bg-blue-600\/25:hover { background-color: color-mix(in srgb, var(--accent) 25%, transparent); }
+aside.elpis-slide-panel .border-blue-500\/20 { border-color: color-mix(in srgb, var(--accent-500) 20%, transparent); }
+aside.elpis-slide-panel .hover\:border-blue-500\/40:hover { border-color: color-mix(in srgb, var(--accent-500) 40%, transparent); }
+/* Fonds pleins accent dans le rail (« Nouveau chat », avatars initiales) :
+   le texte suit --accent-fg. Déclaré APRÈS le remap .text-white → gagne à
+   spécificité égale (le markup porte les deux classes sur l'élément). */
+aside.elpis-slide-panel .bg-blue-700,
+aside.elpis-slide-panel .bg-blue-600 { color: var(--accent-fg); }
+/* Champ de recherche du rail */
+aside.elpis-slide-panel input {
+    background-color: var(--rail-input-bg);
+    border-color: var(--rail-input-border);
+    color: var(--rail-text-strong);
+}
+aside.elpis-slide-panel .focus\:border-blue-500\/60:focus { border-color: color-mix(in srgb, var(--accent-500) 60%, transparent); }
+/* Bouton Admin (privilège, vert sémantique) — adapté au rail via --rail-ok */
+aside.elpis-slide-panel .text-emerald-400 { color: var(--rail-ok); }
+aside.elpis-slide-panel .hover\:text-emerald-300:hover { color: var(--rail-ok-strong); }
+/* Scrollbar discrète assortie au rail */
+aside.elpis-slide-panel .custom-scrollbar::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--rail-muted) 30%, transparent); }
+aside.elpis-slide-panel .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--rail-muted) 50%, transparent); }
+/* Popover notifications : enfant DOM du rail mais surface CLAIRE de l'app
+   (bg-white bridgé → --surface). Ré-assertion des tokens de surface pour
+   les classes que les remaps rail ci-dessus toucheraient (0,3,1 > 0,2,1).
+   Tenir cette liste alignée sur les remaps texte du rail. */
+aside.elpis-slide-panel .elpis-notif-pop .text-slate-300 { color: var(--text-300); }
+aside.elpis-slide-panel .elpis-notif-pop .text-slate-400 { color: var(--text-400); }
+aside.elpis-slide-panel .elpis-notif-pop .text-slate-500 { color: var(--text-500); }
+
+/* Fondu de scroll sur la liste d'historique : le contenu se dissout en haut/bas
+   au lieu d'être coupé net. Les classes .fade-top / .fade-bottom sont posées
+   par le script de fondu (index.html) SELON la position de scroll -> aucun
+   fondu quand on est tout en haut / tout en bas (la dernière ligne reste nette
+   une fois atteinte). @property rend la taille du fondu animable -> transition
+   douce à l'apparition/disparition. mask-image dégrade proprement (pas de fondu
+   sur très vieux navigateurs, jamais de contenu coupé pour autant). */
+@property --sb-fade-top    { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --sb-fade-bottom { syntax: '<length>'; inherits: false; initial-value: 0px; }
+.chat-history-scroll {
+  --sb-fade-top: 0px;
+  --sb-fade-bottom: 0px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--sb-fade-top), #000 calc(100% - var(--sb-fade-bottom)), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 var(--sb-fade-top), #000 calc(100% - var(--sb-fade-bottom)), transparent 100%);
+  transition: --sb-fade-top 0.18s ease, --sb-fade-bottom 0.18s ease;
+}
+.chat-history-scroll.fade-top    { --sb-fade-top: 22px; }
+.chat-history-scroll.fade-bottom { --sb-fade-bottom: 28px; }
+@media (prefers-reduced-motion: reduce) {
+  .chat-history-scroll { transition: none; }
+}
+
+/* ── En-tête de chat FLOTTANT ────────────────────────────────────────────
+ * Au lieu d'une barre pleine bordée (effet « sangle »), l'en-tête flotte : le
+ * contenu scrolle dessous et s'estompe dans la surface via ce dégradé. Tokenisé
+ * (var(--surface)) → s'adapte clair / sombre / skin sans règle par mode. */
+.elpis-chat-topfade {
+  background: linear-gradient(to bottom,
+      var(--surface) 0%,
+      var(--surface) 40%,
+      color-mix(in srgb, var(--surface) 55%, transparent) 70%,
+      transparent 100%);
+  pointer-events: none;
+}
+
+.editor-layer { position: absolute; top: 0; right: 0; bottom: 0; left: 0; visibility: hidden; z-index: 1; }
+.editor-layer.active { visibility: visible; z-index: 10; }
+/* Vue scindée : liseré discret sur le panneau focalisé (où vont les clics d'onglet). */
+.elpis-pane-focus { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent-500) 45%, transparent); }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ──────────────────────────────────────────────────────────────
+   Changed-lines flash highlight (Monaco decorations)
+   Applied by _flashChangedLines() after an LLM rewrite or any
+   minimal-diff edit — visible UNIQUEMENT si le réglage
+   ``editor_edit_highlight`` est actif (cf. app-editor.js). Deux
+   décorations s'animent en parallèle :
+     - une teinte ÉMERAUDE discrète sur tout le corps de la ligne
+       (sémantique « ligne éditée », cohérente avec les ajouts +N
+       de la carte diff) ;
+     - une barre verticale émeraude dans la gouttière (colonne des
+       numéros de ligne).
+   Les deux s'estompent sur 3 s. Le JS retire les décorations à
+   ~3,2 s pour garder le DOM léger. Teinte translucide → composite
+   correctement en clair ET en sombre (override d'alpha en sombre
+   ci-dessous pour le contraste).
+   ────────────────────────────────────────────────────────────── */
+@keyframes elpis-changed-fade {
+    0%, 66% { opacity: 1; }
+    100%    { opacity: 0; }
+}
+.elpis-changed-line-highlight {
+    background: rgba(16, 185, 129, 0.13);
+    animation: elpis-changed-fade 3s ease-out forwards;
+}
+.elpis-changed-line-gutter {
+    background: rgb(16, 185, 129);
+    width: 3px !important;
+    margin-left: 3px;
+    animation: elpis-changed-fade 3s ease-out forwards;
+}
+/* Sombre : remonte légèrement l'alpha de la teinte pour rester lisible
+   sur les surfaces foncées de l'éditeur. */
+body.elpis-dark-surface .elpis-changed-line-highlight {
+    background: rgba(16, 185, 129, 0.20);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Editor SVG preview — constrains the inlined SVG so it fits the
+   editor pane (the SVG itself may declare any size via viewBox;
+   these rules clamp it visually without distorting aspect ratio).
+   ────────────────────────────────────────────────────────────── */
+.elpis-svg-preview-wrap {
+    max-width: 100%;
+    max-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.elpis-svg-preview-wrap svg {
+    max-width: 100%;
+    max-height: 80vh;
+    width: auto;
+    height: auto;
+    display: block;
+    background: #fff;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   UX FIX — Transitions et animations
+   ═════════════════════════════════════════════════════════════════════
+
+   Le frontend utilisait `transition-all` (110 occurrences) sur une
+   immense majorité de composants interactifs. Problèmes :
+
+     1. `transition-all` anime TOUTES les propriétés qui changent, y
+        compris width/height/padding/margin/top/left/right/bottom qui
+        déclenchent du layout + paint à chaque frame → jank visible dès
+        que plusieurs propriétés changent simultanément sur hover (ex :
+        background + border + shadow + transform).
+
+     2. Sur les boutons avec `hover:w-1.5` ou `hover:h-28` (barre de
+        resize, indicateurs), l'animation de la dimension lutte contre
+        l'animation de couleur et produit un flottement.
+
+   Fix : on override `.transition-all` pour ne cibler QUE les
+   propriétés composite-friendly (GPU) + celles qui ont du sens pour un
+   effet hover (couleurs, opacité, ombre, transform). Width/height/
+   position etc. restent instantanées par DÉFAUT.
+
+   Les panneaux qui DOIVENT animer leur largeur (éditeur latéral,
+   panneau MCP, etc.) utilisent la classe utilitaire `.elpis-slide-panel`
+   qui rétablit la transition de `width` spécifiquement, sans revenir
+   au comportement catastrophique du `transition-all` global.
+   ═════════════════════════════════════════════════════════════════════ */
+.transition-all {
+    transition-property:
+        color, background-color, border-color, text-decoration-color,
+        fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter
+        !important;
+}
+
+/* Panneaux qui doivent glisser en largeur (éditeur, MCP, sidebar…).
+   Appliquer en complément de `.transition-all` ou seul.
+
+   - `width` est animé explicitement.
+   - `flex-basis` est animé aussi au cas où le parent est un flexbox
+     qui utilise flex-basis plutôt que width.
+   - Easing `cubic-bezier(0.4, 0, 0.2, 1)` = "material standard",
+     naturel pour l'œil, ni trop abrupt ni trop lent.
+   - Durée 260ms : assez long pour être perçu comme une animation,
+     assez court pour ne pas agacer à chaque toggle.
+   NB (perf vague 3) : pas de `will-change: width` — `width` n'est PAS
+   compositable, le hint promouvait un layer en pure perte (et le garder
+   en permanence fragmente la mémoire GPU). */
+.elpis-slide-panel {
+    transition-property: width, flex-basis, flex-grow, opacity, padding, margin;
+    transition-duration: 260ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Éditeur plein écran ─────────────────────────────────────────────
+   v3 — Transition fluide via inline style uniquement.
+
+   Les versions v1 (position: fixed + fade opacity) et v2 (flex + width
+   avec !important) avaient le même défaut : une valeur CSS appliquée
+   via `!important` dans une classe court-circuite la transition du
+   style inline. Le browser considère que c'est une NOUVELLE valeur
+   qui override, sans interpolation → width snappe instantanément à
+   100% → flex recalcule → bord gauche à 0 direct → seule la sidebar
+   continue son animation → impression "bord droit qui s'étire vers
+   la droite" après un jump à gauche.
+
+   Maintenant : la classe `.editor-fullscreen` ne sert plus qu'à
+   retirer la bordure et monter le z-index. Tout le reste (width,
+   flex-grow) passe par le :style inline du template, qui est
+   correctement transitionné par `.elpis-slide-panel`.
+   ──────────────────────────────────────────────────────────────────── */
+.editor-fullscreen {
+    border: none;
+    z-index: 60;
+}
+
+/* ─── Modal entrée/sortie fluide ──────────────────────────────────────
+   Les modaux utilisent `animate-[fadeIn_...]` / `animate-[slideUp_...]`
+   qui ne jouent qu'à l'ouverture. À la fermeture, `v-if=false` supprime
+   l'élément instantanément → effet "paf, disparu".
+
+   On fournit des classes Vue <Transition> réutilisables. Les templates
+   peuvent wrapper n'importe quel modal dans :
+     <Transition name="modal">
+       <div v-if="showX" class="...">...</div>
+     </Transition>
+
+   et l'entrée ET la sortie seront animées (fade + légère remontée).
+   ──────────────────────────────────────────────────────────────────── */
+.modal-enter-active,
+.modal-leave-active {
+    transition: opacity 180ms ease-out;
+}
+.modal-enter-active > *,
+.modal-leave-active > * {
+    transition: opacity 180ms ease-out, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.modal-enter-from,
+.modal-leave-to {
+    opacity: 0;
+}
+.modal-enter-from > *,
+.modal-leave-to > * {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+}
+
+/* ─── Transition « popover » réutilisable (menus / dropdowns / panneaux) ───
+   Entrée ET sortie animées (fondu + légère descente), symétrique. GPU-only
+   (opacity + transform). Cible 150 ms ease-out : assez rapide pour ne pas
+   retarder l'utilisateur en tâche, assez présent pour supprimer le « pop »
+   sec. À wrapper autour d'un <Transition name="popover"> sur un menu à
+   root unique. Neutralisée sous prefers-reduced-motion (liste plus bas). */
+.popover-enter-active,
+.popover-leave-active {
+    transition: opacity 150ms ease-out, transform 150ms ease-out;
+    transform-origin: top;
+}
+/* Un menu qui S'EN VA reste dans le DOM le temps de sa sortie : sans ça, il
+   continue d'intercepter le clic suivant pendant 150 ms — et l'utilisateur
+   qui referme un menu pour cliquer derrière retombe dessus. */
+.popover-leave-active,
+.popover-up-leave-active {
+    pointer-events: none;
+}
+.popover-enter-from,
+.popover-leave-to {
+    opacity: 0;
+    transform: translateY(-4px);
+}
+
+/* ─── Variante « popover-up » : menus ANCRÉS PAR LE BAS ────────────────────
+   Les menus du composeur (« + », RAG, partages, tâches) sont posés en
+   `bottom-full` : ils poussent vers le haut depuis leur bouton. Leur faire
+   jouer `popover`, qui descend de −4 px avec l'origine en haut, les fait
+   entrer À CONTRESENS de l'ouverture — le mouvement contredit la géométrie.
+   Mêmes durée et courbe, sens inversé et origine en bas. */
+.popover-up-enter-active,
+.popover-up-leave-active {
+    transition: opacity 150ms ease-out, transform 150ms ease-out;
+    transform-origin: bottom;
+}
+.popover-up-enter-from,
+.popover-up-leave-to {
+    opacity: 0;
+    transform: translateY(4px);
+}
+
+/* ─── Transition « model-load » : la barre de chargement rend sa place ─────
+   La barre de progression du chargement d'un modèle vit DANS la barre de
+   prompt : quand elle disparaît, tout ce qui la suit se décale d'un coup —
+   un « saut » signalé en usage. On fait donc collapser sa largeur au lieu de
+   la retirer sèchement. `max-width` plutôt que `width` : le contenu garde sa
+   taille naturelle pendant l'animation. */
+.model-load-enter-active,
+.model-load-leave-active {
+    transition: opacity 200ms ease-out, max-width 220ms ease-out, gap 220ms ease-out;
+    overflow: hidden;
+    max-width: 140px;
+}
+.model-load-enter-from,
+.model-load-leave-to {
+    opacity: 0;
+    max-width: 0;
+    gap: 0;
+}
+
+/* ─── Transition « toast » ─────────────────────────────────────────────────
+   AUDIT 2026-08-15 — `<transition-group name="toast">` était en place dans
+   app_chrome.html, mais AUCUNE classe `.toast-*` n'était définie : seule la
+   liste de neutralisation reduced-motion les mentionnait. Le groupe ne
+   faisait donc rien, et l'apparition tenait à un `animate-[slideUp_0.2s]`
+   qui, lui, ne compilait plus. Résultat à l'écran : les toasts surgissaient
+   et disparaissaient d'un coup — sur l'élément le plus fugace de l'interface,
+   celui où le mouvement porte l'information « quelque chose vient de se
+   passer / de se terminer ».
+
+   Ancrage bas-droite, empilement en colonne : on entre par le bas (sens de
+   la pile) et on sort par la droite (sens de la sortie d'écran). `.toast-move`
+   existe pour que les toasts restants GLISSENT vers leur nouvelle place
+   quand l'un d'eux part, au lieu de sauter. */
+.toast-enter-active,
+.toast-leave-active {
+    transition: opacity 200ms ease-out, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.toast-enter-from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+}
+.toast-leave-to {
+    opacity: 0;
+    transform: translateX(16px);
+}
+.toast-move {
+    transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ─── Respect du setting "prefers-reduced-motion" ─────────────────────
+   Utilisateurs qui ont activé la réduction des animations dans leur
+   système (accessibilité, nausée vestibulaire, batterie) : on coupe
+   les animations non essentielles mais on garde les transitions de
+   couleur pour le feedback visuel.
+   ──────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .transition-all,
+    [class*="duration-"],
+    [class*="transition-"] {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+    /* Neutralise toutes les animations Tailwind (.animate-spin =
+       "spin 1s linear infinite", .animate-[fadeIn_…], .animate-[slideUp_…])
+       qui, sans ça, continuaient de tourner indéfiniment (spinners plein
+       écran, spinners de connexion) malgré la demande de l'OS. WCAG 2.3.3. */
+    [class*="animate-"],
+    .queue-progress-bar,
+    .elpis-changed-line-highlight,
+    .elpis-changed-line-gutter {
+        animation: none !important;
+    }
+    /* La barre file d'attente se REMPLIT via l'animation queueProgressFill ;
+       animation coupée = barre figée à scaleX(0) = piste VIDE (perçue comme
+       cassée). On la fige REMPLIE et atténuée : état d'attente statique, la
+       durée réelle restant portée par le compte à rebours « ~Xs » à côté. */
+    .queue-progress-bar { transform: scaleX(1) !important; opacity: 0.5; }
+    /* …mais une roue de chargement FIGÉE est indiscernable d'un gel de
+       l'app : les indicateurs d'activité (.animate-spin) sont essentiels
+       (WCAG 2.3.3 ne vise que le mouvement décoratif). On garde la
+       rotation, simplement RALENTIE (2 s/tour au lieu de 1 s).
+       Keyframes à nous : ne dépend pas de l'ordre d'injection du CDN
+       Tailwind. Déclaré APRÈS [class*="animate-"] (même spécificité)
+       pour gagner la cascade. */
+    .animate-spin { animation: elpisSpinReduced 2s linear infinite !important; }
+    @keyframes elpisSpinReduced { to { transform: rotate(360deg); } }
+    /* Indicateur « typing » : essentiel comme le spinner → conservé, ralenti. */
+    .elpis-typing > span { animation-duration: 2.4s !important; }
+    /* Point d'activité + curseur du terminal en direct : indicateurs
+       essentiels (une commande tourne) → conservés, ralentis. */
+    .shell-live-dot.is-running { animation: shellDotPulse 3s ease-in-out infinite !important; }
+    .shell-live-body .sh-cursor { animation: shellDotPulse 3s ease-in-out infinite !important; }
+    /* Shimmer « écriture en mémoire » : indicateur d'activité → conservé, ralenti. */
+    .mem-wave { animation-duration: 3.4s !important; }
+    .editor-fullscreen { animation: none !important; }
+    /* AUDIT 2026-06 — les classes de <Transition> Vue NOMMÉES (.modal-*,
+       .toast-*, .fade-*, …) ne matchent PAS les sélecteurs [class*=…]
+       ci-dessus (pas de préfixe "transition-"/"animate-") : modales et
+       toasts continuaient d'animer malgré la préférence OS. Liste tenue
+       en phase avec les <Transition name="…"> du markup (fade, modal,
+       queue-widget, model-load, toast, tool-detail). */
+    .modal-enter-active, .modal-leave-active,
+    .modal-enter-active > *, .modal-leave-active > *,
+    .toast-enter-active, .toast-leave-active, .toast-move,
+    .fade-enter-active, .fade-leave-active,
+    .popover-enter-active, .popover-leave-active,
+    .popover-up-enter-active, .popover-up-leave-active,
+    .queue-widget-enter-active, .queue-widget-leave-active,
+    .model-load-enter-active, .model-load-leave-active,
+    .tool-detail-enter-active, .tool-detail-leave-active {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+    /* Flash de saut (outline / recherche) — pas de pulsation animée. */
+    .vs-jump-flash { animation: none !important; background-color: color-mix(in srgb, var(--accent-500) 10%, transparent) !important; }
+}
+
+/* ─── Flash de cible après scrollToMessage (sommaire, recherche) ──────
+   Surlignage bref du message vers lequel on a sauté (AUDIT 2026-06).
+   Posé/retiré par _virtual_scroll.js (classe .vs-jump-flash, ~1,2 s). */
+@keyframes elpisJumpFlash {
+    0%   { background-color: color-mix(in srgb, var(--accent-500) 16%, transparent); }
+    100% { background-color: transparent; }
+}
+.vs-jump-flash {
+    animation: elpisJumpFlash 1.2s ease-out;
+    border-radius: 0.5rem;
+}
+
+/* ─── Flash de renommage de chat (titre auto-généré par le modèle) ────
+   Posé 1,6 s par app-chat.js sur le titre du header ET l'entrée sidebar
+   quand l'event 'final' porte un `title` (re)généré — feedback visuel du
+   renommage. Même famille que .vs-jump-flash (pulse de fond, pas de
+   transform → sans danger vestibulaire ; version statique en
+   reduced-motion, la classe étant retirée par JS le fond se nettoie). */
+@keyframes elpisTitleFlash {
+    0%   { background-color: color-mix(in srgb, var(--accent-500) 30%, transparent); }
+    100% { background-color: transparent; }
+}
+.elpis-title-flash {
+    animation: elpisTitleFlash 1.6s ease-out;
+    border-radius: 0.375rem;
+}
+@media (prefers-reduced-motion: reduce) {
+    .elpis-title-flash {
+        animation: none !important;
+        background-color: color-mix(in srgb, var(--accent-500) 14%, transparent) !important;
+    }
+}
+
+/* ─── Widget file d'attente (passe 9) ─────────────────────────────────
+   Apparait/disparait sur event SSE "queue_status"/"queue_cleared".
+   Barre de progression animée qui se remplit sur la durée estimée
+   (--animation-duration passé via :style inline sur la barre).
+
+   Transition "queue-widget" : fade + slide vers le bas à l'entrée,
+   symétrique à la sortie. GPU-friendly (transform + opacity seulement).
+   Respecte prefers-reduced-motion : dégradé en simple fade sans slide.
+   ──────────────────────────────────────────────────────────────────── */
+/* Perf (vague 3) : ex-animation de `width` 0→100%. C'était la PIRE des
+   barres car elle anime en CONTINU pendant toute l'attente estimée (souvent
+   plusieurs secondes) → layout + paint à chaque frame. `transform: scaleX`
+   est compositable (GPU), aucun reflow. La barre occupe 100 % de la largeur
+   et se révèle par scale depuis la gauche — rendu visuel identique. */
+.queue-progress-bar {
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: left;
+    animation-name: queueProgressFill;
+    animation-timing-function: linear;
+    animation-iteration-count: 1;
+    animation-fill-mode: forwards;
+}
+@keyframes queueProgressFill {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+}
+
+.queue-widget-enter-active,
+.queue-widget-leave-active {
+    transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
+.queue-widget-enter-from,
+.queue-widget-leave-to {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+/* =========================================================================
+   DIFF ROWS : Une ligne par fichier modifié, layout 2 niveaux.
+
+     [icône]  filename.ext                                    [⬇ Download]
+              +X -Y · path/to/dir
+
+   Comportement (piloté par js/chat/_diff_card.js + chat.html) :
+     * settings.enable_editor === true  -> ligne entière cliquable, ouvre
+                                          la diff Monaco plein écran
+     * settings.enable_editor === false -> ligne non cliquable (curseur
+                                          par défaut)
+
+   Bouton Download : visible dans tous les modes, libellé textuel.
+   Bouton zip discret en bas si >= 2 fichiers (tous modes).
+
+   Convention : palette slate/white. Couleurs +/- (emerald/rose) UNIQUEMENT
+   sur les chiffres de stats. La carte est silencieuse, le contenu parle.
+   ========================================================================= */
+
+.diff-rows {
+    /* Animation d'apparition douce ; cohérent avec le reste du chat. */
+    animation: diffCardIn 180ms ease-out both;
+}
+
+@keyframes diffCardIn {
+    from { opacity: 0; transform: translateY(2px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Conteneur d'un fichier. Bordure discrète, coins arrondis, fond blanc :
+   ressemble aux items d'une liste de changements VS Code/Cline. */
+.diff-file-block {
+    border: 1px solid #e2e8f0;          /* slate-200 */
+    border-radius: 0.5rem;              /* rounded-lg */
+    background: #ffffff;
+    overflow: hidden;
+}
+
+/* ================================================================
+ *  ENCART D'ERREUR  (.elpis-error-*)  — cf. chat.html isError
+ * ----------------------------------------------------------------
+ *  Piloté par les tokens SÉMANTIQUES ``--danger-*`` (au lieu du rouge
+ *  Tailwind cru bg-red-*/text-red-*, qui n'était ni bridgé en sombre ni
+ *  décliné par skin → encart désaligné). Les parties NEUTRES (fond du bloc
+ *  détail et du bouton) reprennent ``--surface`` générique → elles suivent
+ *  automatiquement chaque skin ; seul l'ACCENT danger vient des tokens
+ *  ``--danger-*`` (redéfinis en sombre et par les skins sombres).
+ * ================================================================ */
+.elpis-error-card {
+    background-color: var(--danger-surface);
+    border: 1px solid var(--danger-border);
+}
+.elpis-error-title  { color: var(--danger-strong); }
+.elpis-error-detail {
+    color: var(--danger-text);
+    background-color: var(--surface);
+    border: 1px solid var(--danger-border-soft);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.elpis-error-btn {
+    background-color: var(--surface);
+    color: var(--danger-text);
+    border: 1px solid var(--danger-border);
+}
+.elpis-error-btn:hover { background-color: var(--danger-surface); }
+.elpis-error-avatar {
+    background-color: var(--danger-icon-bg);
+    color: var(--danger-icon-fg);
+    border: 1px solid var(--danger-border);
+}
+
+/* La ligne fichier : flex, alignement top (le bouton Download s'aligne
+   avec la PREMIÈRE ligne nom du fichier, pas centré entre les 2 lignes
+   -- ça paraît plus propre quand le dossier est long et wrappe). */
+.diff-row-flat {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    transition: background-color 120ms ease-out;
+}
+
+/* Mode éditeur activé : la ligne entière est cliquable -> ouvre Monaco. */
+.diff-row-flat--clickable {
+    cursor: pointer;
+}
+.diff-row-flat--clickable:hover {
+    background-color: #f8fafc;          /* slate-50 */
+}
+
+/* Mode éditeur désactivé : ligne info-only ; le curseur par défaut
+   (pas de feedback "cliquable") évite un faux signal. Le bouton
+   Download a son propre hover. */
+.diff-row-flat--readonly {
+    cursor: default;
+}
+.diff-row-flat--readonly:hover {
+    background-color: transparent;
+}
+
+/* Bouton Download : style outline doux. On veut qu'il soit clairement
+   identifiable comme bouton (donc bordure + libellé) sans dominer la
+   carte (pas de couleur primaire, pas de remplissage). */
+.diff-download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #475569;                    /* slate-600 */
+    background: #ffffff;
+    border: 1px solid #e2e8f0;         /* slate-200 */
+    border-radius: 6px;
+    transition: background-color 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out;
+    cursor: pointer;
+    line-height: 1;
+}
+.diff-download-btn:hover {
+    background: #f1f5f9;                /* slate-100 */
+    border-color: #cbd5e1;              /* slate-300 */
+    color: #1e293b;                     /* slate-800 */
+}
+.diff-download-btn:active {
+    background: #e2e8f0;                /* slate-200 -- feedback bref */
+}
+
+/* ── Page Code : diff inline (diffs unifiés DÉJÀ calculés par opencode) ──
+   Corps de la carte .diff-file-block côté page Code : lignes colorisées
+   +/− (emerald/rose, mêmes accents que les compteurs de l'encart fichiers),
+   replié au-delà de 12 lignes (bouton « Afficher les N lignes restantes »). */
+.elpis-code-diff {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    overflow-x: auto;
+    background: #ffffff;
+    color: #475569;                    /* lignes de contexte (slate-600) */
+}
+.elpis-code-diff > div { padding: 0 10px; white-space: pre; }
+.elpis-code-diff-add  { background: rgba(16, 185, 129, 0.08);  color: #047857; }  /* emerald */
+.elpis-code-diff-del  { background: rgba(244, 63, 94, 0.08);   color: #be123c; }  /* rose */
+.elpis-code-diff-hunk { background: #f8fafc;                   color: #94a3b8; }  /* slate  */
+body.elpis-dark-surface .elpis-code-diff      { background: var(--surface); color: var(--text-600); }
+body.elpis-dark-surface .elpis-code-diff-add  { background: rgba(16, 185, 129, 0.13); color: #34d399; }
+body.elpis-dark-surface .elpis-code-diff-del  { background: rgba(244, 63, 94, 0.13);  color: #fb7185; }
+body.elpis-dark-surface .elpis-code-diff-hunk { background: var(--surface-2);         color: var(--text-400); }
+
+/* ── Page Remote code : ligne d'un appel d'outil ─────────────────────────
+   La ligne que montre le TUI opencode : état, nom de l'outil, SUJET (fichier
+   édité, commande lancée, motif cherché) et métrique à droite. Une ligne
+   pleine largeur, pas une pastille : le sujet est souvent un chemin, et les
+   métriques d'appels successifs doivent s'aligner sur la même verticale. */
+.elpis-code-tool-row {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    background: #f8fafc;                /* slate-50 */
+    line-height: 1.4;
+}
+/* :not() — sinon la teinte d'erreur (classe simple) perdrait contre ce
+   sélecteur plus spécifique, et un outil en échec redeviendrait neutre. */
+body.elpis-dark-surface .elpis-code-tool-row:not(.elpis-code-tool-err) {
+    background: var(--surface-2);
+}
+/* Ligne qui cache un détail (paramètres, sortie brute) : cliquable en entier,
+   comme l'était la pastille qu'elle remplace. */
+.elpis-code-tool-row-btn { cursor: pointer; }
+.elpis-code-tool-row-btn:hover { border-color: var(--border); }
+/* Métrique qui porte un échec (code de sortie non nul). Token « texte » et
+   NON « strong » : en sombre, --danger-strong est un rouge très pâle (red-200,
+   fait pour des titres) qui, à 11 px, se lit comme du blanc. */
+.elpis-code-metric-err { color: var(--danger-text); }
+
+/* Pill/texte d'un tool call en ERREUR (page Code) — tokens sémantiques
+   --danger-* (cf. .elpis-error-*), jamais de rouge Tailwind cru. */
+.elpis-code-tool-err {
+    background-color: var(--danger-surface);
+    border-color: var(--danger-border);
+    color: var(--danger-strong);
+}
+.elpis-code-tool-errtext { color: var(--danger-text); }
+/* Bouton fantôme dont le hover signale une action destructive (dismiss). */
+.elpis-code-danger-hover:hover {
+    color: var(--danger-strong);
+    background-color: var(--danger-surface);
+}
+/* Jauge de contexte (header session) : ≥ 90 % — tokens sémantiques danger. */
+.elpis-code-ctx-high {
+    background-color: var(--danger-surface);
+    color: var(--danger-strong);
+}
+
+/* Réduit motion : pas d'animation d'entrée. */
+@media (prefers-reduced-motion: reduce) {
+    .diff-rows { animation: none; }
+}
+
+/* ================================================================
+ *  Editor light theme — overrides Tailwind dark utilities used in
+ *  static/includes/main/editor.html when the user toggles
+ *  "Thème sombre" OFF in Settings → Apparence.
+ *
+ *  Palette matches the rest of the app's white UI (cf. panel_mcp.html,
+ *  modals/settings.html) :
+ *    - panneau     #f8fafc  (slate-50)   ← chrome background
+ *    - cartes      #ffffff  (white)      ← editor area / cards
+ *    - bordures    #e2e8f0  (slate-200)  ← crisp, not alpha
+ *    - hover       #f1f5f9  (slate-100)  ← clean visible feedback
+ *    - texte       #334155 / #475569 / #64748b (slate 700/600/500)
+ *
+ *  No transparent overlays — they looked dirty on white. Solid
+ *  Tailwind palette colors only. Monaco's own editor area is
+ *  themed separately by ``monaco.editor.setTheme('vs')`` (see
+ *  app-editor.js watcher).
+ *
+ *  Specificity (0,2,0) > Tailwind base utilities (0,1,0), so no
+ *  !important needed.
+ * ================================================================ */
+
+/* — Backgrounds dark hardcoded → app's white palette ———————————— */
+.elpis-editor-light.bg-\[\#1e1e1e\],
+.elpis-editor-light .bg-\[\#1e1e1e\] {
+    background-color: #ffffff;          /* white — main editor area */
+}
+.elpis-editor-light .bg-\[\#252526\] {
+    background-color: #f8fafc;          /* slate-50 — tab bar / header */
+}
+.elpis-editor-light .bg-\[\#3c3c3c\] {
+    background-color: #ffffff;          /* white — search input in file tree */
+    border-color: #e2e8f0;               /* slate-200 — visible on white */
+}
+.elpis-editor-light input.bg-\[\#3c3c3c\]::placeholder {
+    color: #94a3b8;                      /* slate-400 — readable on white */
+}
+.elpis-editor-light .bg-\[\#1e1e1e\]\/95 {
+    background-color: rgb(255 255 255 / 0.95);
+}
+
+/* — Semi-transparent whites → solid app colors ————————————————— *
+ * In dark mode these were dim white tints over a black background.
+ * On white we use solid slate-50 / slate-100 so panels and pills
+ * actually show up, matching the app's existing white panels.       */
+.elpis-editor-light .bg-white\/5         { background-color: #f8fafc; } /* slate-50  */
+.elpis-editor-light .bg-white\/10        { background-color: #f1f5f9; } /* slate-100 */
+.elpis-editor-light .bg-white\/20        { background-color: #e2e8f0; } /* slate-200 */
+.elpis-editor-light .bg-white\/\[0\.07\] { background-color: #f8fafc; }
+
+/* — Hover states — clean slate-100 like the rest of the app ————— */
+.elpis-editor-light .hover\:bg-white\/3:hover         { background-color: #f8fafc; }
+.elpis-editor-light .hover\:bg-white\/5:hover         { background-color: #f1f5f9; }
+.elpis-editor-light .hover\:bg-white\/10:hover        { background-color: #f1f5f9; }
+.elpis-editor-light .hover\:bg-white\/20:hover        { background-color: #e2e8f0; }
+.elpis-editor-light .hover\:bg-white\/\[0\.06\]:hover { background-color: #f1f5f9; }
+
+/* — Black overlays (used as dim gradients) → very light slate ——— */
+.elpis-editor-light .bg-black\/20 { background-color: #f1f5f9; }
+.elpis-editor-light .bg-black\/40 { background-color: #e2e8f0; }
+
+/* — Text : white → slate-800/900 for readability on white ———————— */
+.elpis-editor-light .text-white     { color: #0f172a; } /* slate-900 */
+.elpis-editor-light .text-slate-100 { color: #334155; } /* slate-700 */
+.elpis-editor-light .text-slate-200 { color: #475569; } /* slate-600 */
+.elpis-editor-light .text-slate-300 { color: #64748b; } /* slate-500 */
+.elpis-editor-light .text-slate-400 { color: #64748b; } /* slate-500 — contre la
+                                       ré-assertion chrome sombre du bridge */
+
+/* — Hover text — keep contrast on white ———————————————————————— */
+.elpis-editor-light .hover\:text-white:hover        { color: #0f172a; }
+.elpis-editor-light .hover\:text-slate-300:hover    { color: #475569; }
+.elpis-editor-light .group:hover .group-hover\:text-white     { color: #0f172a; }
+.elpis-editor-light .group:hover .group-hover\:text-slate-300 { color: #475569; }
+
+/* — Borders : white-alpha → crisp slate-200 (matches app panels) — */
+.elpis-editor-light .border-white\/5,
+.elpis-editor-light .border-white\/10,
+.elpis-editor-light .border-white\/\[0\.04\],
+.elpis-editor-light .border-white\/\[0\.06\],
+.elpis-editor-light .border-white\/\[0\.08\] {
+    border-color: #e2e8f0;              /* slate-200 — crisp, no alpha */
+}
+.elpis-editor-light .border-white\/20 {
+    border-color: #cbd5e1;              /* slate-300 — slightly darker */
+}
+.elpis-editor-light .border-black\/20 {
+    border-color: #e2e8f0;
+}
+
+/* — Divide utilities (between rows) ——————————————————————————— */
+.elpis-editor-light .divide-white\/5 > * + *,
+.elpis-editor-light .divide-white\/10 > * + * {
+    border-color: #e2e8f0;
+}
+
+/* — Custom scrollbar : subtle slate thumb that fits the white UI — */
+.elpis-editor-light .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;          /* slate-300 */
+}
+.elpis-editor-light .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;          /* slate-400 */
+}
+
+/* ── Splitter chat ↔ editor — light mode ─────────────────────────
+ * Le séparateur vertical entre la sidebar chat et le panneau
+ * éditeur (cf. editor.html:23) utilise ``bg-slate-700`` (gris
+ * foncé) qui ressortait comme une bande noire entre deux panneaux
+ * blancs en mode clair. On le rend visuellement transparent au
+ * repos avec juste une fine bordure ``slate-200`` (matche les
+ * autres séparateurs de l'app), accent blue-500 au hover/drag pour
+ * conserver l'affordance "à attraper pour redimensionner".
+ *
+ * Sélecteur composé ``.bg-slate-700.elpis-splitter-light`` → 
+ * spécificité (0,2,0) qui bat Tailwind ``.bg-slate-700`` (0,1,0)
+ * sans avoir besoin de ``!important``. Le hover utilise (0,2,1)
+ * pour battre aussi notre propre règle de repos. */
+.bg-slate-700.elpis-splitter-light {
+    background-color: transparent;
+    border-left: 1px solid #e2e8f0;     /* slate-200 — séparateur fin pro */
+}
+.bg-slate-700.elpis-splitter-light:hover {
+    background-color: var(--accent-500); /* feedback hover/drag (accent skin) */
+    border-left-color: transparent;
+}
+
+/* ================================================================
+ *  SURFACE SOMBRE — remaps utilitaires (chat + sidebar + modaux)
+ * ================================================================
+ *  Gated sur ``elpis-dark-surface`` (marqueur posé par app-settings.js
+ *  si mode sombre ON **ou** skin à base sombre, ex. Émeraude) — et non
+ *  plus sur le toggle ``elpis-app-dark`` : Émeraude-clair reçoit ainsi
+ *  les remaps claire-sur-sombre sans hériter des tokens du toggle.
+ *
+ *  Stratégie : on prend l'app en thème clair par défaut (white +
+ *  slate) et on override les classes Tailwind les plus utilisées
+ *  pour pointer vers les teintes sombres existantes de l'éditeur
+ *  Monaco (#1e1e1e / #252526 / #3c3c3c). Cohérence visuelle : tout
+ *  le bandeau passe au "VS Code dark" quand on active.
+ *
+ *  Spécificité : sélecteur composé ``body.elpis-dark-surface .bg-white``
+ *  (0,2,1) > Tailwind ``.bg-white`` (0,1,0), pas besoin de !important.
+ *
+ *  Scope intentionnel : on N'override PAS les classes utilisées
+ *  dans l'éditeur Monaco (bg-[#1e1e1e]/[#252526]/[#3c3c3c]) — elles
+ *  sont déjà sombres par défaut, l'éditeur a son propre toggle.
+ * ================================================================ */
+
+/* ── Backgrounds ──────────────────────────────────────────────── *
+ * white → #1e1e1e (matche le fond Monaco)
+ * slate-50 → #252526 (matche la tab bar Monaco)
+ * slate-100/200/300 → teintes intermédiaires
+ *
+ * On utilise des sélecteurs composés ``body.elpis-dark-surface .bg-...``
+ * pour bumper la spécificité au-dessus de la classe Tailwind brute.
+ */
+/* Solides bg-white / bg-slate-50/100/200/300 : désormais gérés par le
+   BRIDGE token (haut du fichier), valable dans les deux modes. Ne restent
+   ici que les variantes d'OPACITÉ (non bridgées). */
+body.elpis-dark-surface .bg-white\/60           { background-color: rgba(30, 30, 30, 0.60); }
+body.elpis-dark-surface .bg-white\/70           { background-color: rgba(30, 30, 30, 0.70); }
+body.elpis-dark-surface .bg-white\/80           { background-color: rgba(30, 30, 30, 0.80); }
+body.elpis-dark-surface .bg-white\/90           { background-color: rgba(30, 30, 30, 0.90); }
+body.elpis-dark-surface .bg-white\/95           { background-color: rgba(30, 30, 30, 0.95); }
+body.elpis-dark-surface .bg-slate-50\/50        { background-color: rgba(37, 37, 38, 0.50); }
+body.elpis-dark-surface .bg-slate-50\/60        { background-color: rgba(37, 37, 38, 0.60); }
+body.elpis-dark-surface .bg-slate-50\/80        { background-color: rgba(37, 37, 38, 0.80); }
+
+/* Black-alpha (gradients, ombres) : reste sombre mais on adoucit */
+body.elpis-dark-surface .bg-black\/40           { background-color: rgba(0, 0, 0, 0.6); }
+body.elpis-dark-surface .bg-black\/20           { background-color: rgba(0, 0, 0, 0.4); }
+
+/* ── Hover backgrounds ──────────────────────────────────────── */
+body.elpis-dark-surface .hover\:bg-white:hover         { background-color: var(--surface-3); }
+body.elpis-dark-surface .hover\:bg-slate-50:hover      { background-color: var(--surface-3); }
+body.elpis-dark-surface .hover\:bg-slate-100:hover     { background-color: var(--surface-4); }
+body.elpis-dark-surface .hover\:bg-slate-200:hover     { background-color: var(--surface-5); }
+body.elpis-dark-surface .hover\:bg-white\/60:hover     { background-color: rgba(255, 255, 255, 0.04); }
+body.elpis-dark-surface .hover\:bg-white\/70:hover     { background-color: rgba(255, 255, 255, 0.05); }
+body.elpis-dark-surface .hover\:bg-white\/80:hover     { background-color: rgba(255, 255, 255, 0.06); }
+
+/* Focus background (formulaires) */
+body.elpis-dark-surface .focus\:bg-white:focus         { background-color: var(--surface); }
+
+/* ── Borders ──────────────────────────────────────────────────── *
+ * slate-100/200/300 → border-white/5 → /10 → /15 (subtil sur sombre)
+ * Garde l'affordance "panneau" sans contraster lourdement.
+ */
+/* border-slate-100/200 : bridgés (haut du fichier, deux modes). Restent
+   ici les variantes sans équivalent bridge. */
+body.elpis-dark-surface .border-slate-50        { border-color: rgba(255, 255, 255, 0.03); }
+body.elpis-dark-surface .border-slate-100\/80   { border-color: rgba(255, 255, 255, 0.04); }
+body.elpis-dark-surface .border-slate-300       { border-color: rgba(255, 255, 255, 0.15); }
+
+/* Hover borders */
+body.elpis-dark-surface .hover\:border-slate-200:hover  { border-color: rgba(255, 255, 255, 0.15); }
+body.elpis-dark-surface .hover\:border-slate-300:hover  { border-color: rgba(255, 255, 255, 0.20); }
+
+/* Divide utilities — divide-slate-100/200 bridgés (deux modes) ;
+   reste la variante /70 sans équivalent bridge. */
+body.elpis-dark-surface .divide-slate-200\/70 > * + *   { border-color: rgba(255, 255, 255, 0.07); }
+
+/* ── Text colors ──────────────────────────────────────────────── *
+ * Inversion du contraste : foncé → clair. On NE TOUCHE PAS aux
+ * couleurs sémantiques (blue, indigo, emerald, red, amber) qui
+ * doivent rester lisibles sur fond sombre (la plupart marchent ok).
+ *
+ * Échelle de contraste choisie pour passer WCAG AA sur fond #1e1e1e :
+ *   text-slate-900 → #f8fafc (12.4 contrast) — emphase max
+ *   text-slate-800 → #f1f5f9 (11.7 contrast) — titres et fortes
+ *   text-slate-700 → #e2e8f0 (10.4 contrast) — corps de texte primaire
+ *   text-slate-600 → #cbd5e1 (9.0 contrast)  — corps secondaire
+ *   text-slate-500 → #cbd5e1 (9.0 contrast)  — texte discret mais lisible
+ *   text-slate-400 → #94a3b8 (4.6 contrast)  — pour les hints subtils
+ *
+ * Le bump de text-slate-500/600 d'une crank par rapport à la palette
+ * "littérale" Tailwind est volontaire : sur fond sombre, le slate-500
+ * d'origine (#64748b) tombe à 3.9 contrast — sous l'AA et fatigant
+ * à l'œil. On préfère un texte lisible quitte à perdre un peu de la
+ * subtilité "discret" voulue en mode clair.                            */
+/* text-slate-400..900 : bridgés (deux modes, haut du fichier).
+   text-slate-100/200/300 : no-op (la valeur sombre == la native claire) →
+   retirés. black : token-drivé en sombre pour suivre un skin
+   (le mode clair garde la couleur native). */
+body.elpis-dark-surface .text-black            { color: var(--text-800); }
+
+/* Hover text */
+body.elpis-dark-surface .hover\:text-slate-600:hover  { color: var(--text-700); }
+body.elpis-dark-surface .hover\:text-slate-700:hover  { color: var(--text-800); }
+body.elpis-dark-surface .hover\:text-slate-800:hover  { color: var(--text-900); }
+body.elpis-dark-surface .hover\:text-slate-900:hover  { color: var(--text-max); }
+
+/* Placeholder readable sur fond sombre. #64748b tombait à ~3.5:1 sur #1e1e1e
+   (sous l'AA) ; #8b98a9 ≈ 5.7:1 tout en restant clairement en retrait du
+   corps de texte (--text-800 #f1f5f9). */
+body.elpis-dark-surface input::placeholder,
+body.elpis-dark-surface textarea::placeholder         { color: #8b98a9; }
+
+/* ── Inputs (souvent bg-slate-50 ou bg-white + border-slate-200) ── *
+ * Déjà couvert par les règles bg-* + border-* ci-dessus. On ajoute
+ * juste la couleur du texte saisi pour qu'elle soit claire sur sombre.
+ */
+body.elpis-dark-surface input,
+body.elpis-dark-surface textarea {
+    color: #e2e8f0;
+    color-scheme: dark;   /* native UI elements (date pickers, scrollbars) */
+}
+/* Mais on PRÉSERVE les inputs qui ont une couleur explicite (text-white déjà). */
+
+/* ── Scrollbars custom ──────────────────────────────────────── */
+body.elpis-dark-surface .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+body.elpis-dark-surface .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.20);
+}
+
+/* ── Body background : désormais piloté par ``body { background: var(--app-bg) }``
+   (token --app-bg = #1e1e1e en sombre). Ancien bloc retiré (redondant ;
+   la règle ``body.elpis-dark-surface html`` ne matchait jamais). ─ */
+
+/* ── Sidebar specifique : éviter de surcharger le séparateur ── */
+body.elpis-dark-surface .bg-slate-700.elpis-splitter-light {
+    background-color: transparent;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+body.elpis-dark-surface .bg-slate-700.elpis-splitter-light:hover {
+    background-color: var(--accent-500);
+    border-left-color: transparent;
+}
+
+/* ── Code blocks dans les messages (rendered markdown) ───────── *
+ * RETIRÉ le 2026-09-07. Cette règle repeignait le ``<code>`` en #0d1117
+ * alors que son cadre restait #1e1e1e et son en-tête #252526 : trois gris
+ * empilés, une bordure parasite visible entre le texte et le bloc. Elle
+ * datait d'une époque où le thème highlight.js clair était chargé en mode
+ * clair ; depuis, github-dark est le SEUL thème servi (index.html), donc le
+ * bloc est déjà sombre dans les deux modes. La couleur du bloc vient
+ * désormais des tokens --code-* (haut du fichier) et le ``<code>`` est
+ * transparent — voir « Le <code> d'un bloc n'a PAS de fond propre ».
+ */
+
+/* ── Anti-shadow excessif ─────────────────────────────────────
+ * Les ombres lourdes (shadow-lg, shadow-xl) sur fond sombre rendent
+ * mal — on les atténue pour conserver l'élévation perçue sans
+ * créer des "halos" noirs visibles.
+ */
+body.elpis-dark-surface .shadow-lg,
+body.elpis-dark-surface .shadow-xl,
+body.elpis-dark-surface .shadow-2xl {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* ================================================================
+ *  MODE SOMBRE — Markdown rendered content
+ * ================================================================
+ *  Le body des messages chat utilise la classe ``.markdown-body``
+ *  qui a des couleurs HARDCODÉES en CSS (couleurs slate-700/900
+ *  pour le texte et les headers). Ces règles ne sont PAS des
+ *  utilities Tailwind, donc les overrides bg-/text- précédents ne
+ *  les attrapent pas.
+ *
+ *  On override l'ENSEMBLE du rendu markdown pour qu'il devienne
+ *  lisible sur fond sombre :
+ *    - Texte courant : slate-200 (très lisible sur #1e1e1e)
+ *    - Headers : presque blanc (#f8fafc) pour la hiérarchie
+ *    - Strong : blanc pur (emphase)
+ *    - Liens : blue-400 (#60a5fa) — meilleur contraste que blue-600
+ *    - Code inline : background sombre, texte rose qui ressort
+ *    - Tables : bordures et headers en teintes sombres
+ * ================================================================ */
+
+/* Texte/headers/strong/liens/code-inline du markdown : désormais
+   token-drivés par les règles de base (--prose-*, --code-inline-*) qui
+   basculent automatiquement en sombre. Ne restent ici que blockquote et
+   hr, qui n'ont pas de style de base en clair. */
+
+/* Blockquote */
+body.elpis-dark-surface .markdown-body blockquote {
+    /* Tokens et non des valeurs en dur : #94a3b8 tombait à 4,5:1 sur les
+       surfaces sombres les plus CLAIRES (Émeraude) et ne suivait aucun skin. */
+    border-left-color: var(--border);
+    color: var(--text-500);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Tables markdown : token-drivées par les règles de base
+   (--border / --table-cell-border / --surface-2 / --text-600). */
+
+/* HR / séparateur */
+body.elpis-dark-surface .markdown-body hr {
+    border-top-color: rgba(255, 255, 255, 0.10);
+}
+
+/* Listes : héritent de la couleur de .markdown-body (--prose-body). */
+
+/* MODE SOMBRE — Sidebar : le rail est désormais entièrement piloté par les
+   tokens --rail-* (section « Rail latéral » plus haut), identiques dans les
+   deux modes en Ardoise. L'ancien bump gated dark (text-slate-400 → 300)
+   est remplacé par --rail-muted, actif aussi en mode clair (le rail était
+   déjà sombre en clair — le bump ne s'appliquait qu'en sombre, bug). */
+
+/* ================================================================
+ *  MODE SOMBRE — Lissage typographique
+ * ================================================================
+ *  Sur fond sombre, le subpixel rendering par défaut peut faire
+ *  paraître les fontes "grasses" et fuzzy. L'antialiasing
+ *  classique rend les bords plus nets et le texte plus reposant.
+ *
+ *  Appliqué sur ``body.elpis-dark-surface`` (mode sombre OU skin à
+ *  base sombre) — sur surface claire, on garde le subpixel rendering
+ *  (LCD) qui est techniquement plus net sur fond blanc.
+ * ================================================================ */
+body.elpis-dark-surface {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ================================================================
+ *  MODE SOMBRE — Diff card (fichiers modifiés sous les messages)
+ * ================================================================
+ *  La carte ".diff-file-block" (cf. chat.html:1126) utilise des
+ *  couleurs hardcodées en CSS pur (#ffffff bg, #e2e8f0 border,
+ *  #475569 text pour le bouton Download). En mode sombre la carte
+ *  apparaît blanche au milieu d'un chat sombre → contraste cassé.
+ *
+ *  Mapping vers les teintes Monaco existantes pour cohérence :
+ *    - card bg     : #252526 (matche tab bar Monaco)
+ *    - card border : rgba(255,255,255,0.10) (subtle)
+ *    - hover bg    : #2a2a2b (légèrement plus clair pour feedback)
+ *    - download btn: #1e1e1e bg + border subtle + texte clair
+ * ================================================================ */
+body.elpis-dark-surface .diff-file-block {
+    background: #252526;
+    border-color: rgba(255, 255, 255, 0.10);
+}
+body.elpis-dark-surface .diff-row-flat--clickable:hover {
+    background-color: #2a2a2b;
+}
+body.elpis-dark-surface .diff-download-btn {
+    background: #1e1e1e;
+    color: #cbd5e1;                         /* slate-300 — lisible */
+    border-color: rgba(255, 255, 255, 0.15);
+}
+body.elpis-dark-surface .diff-download-btn:hover {
+    background: #2a2a2b;
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #f1f5f9;                         /* slate-100 — emphase */
+}
+body.elpis-dark-surface .diff-download-btn:active {
+    background: #3c3c3c;
+}
+
+/* MODE SOMBRE — Scrollbars globales : désormais pilotées par les tokens
+   --scrollbar-thumb / --scrollbar-thumb-hover (haut du fichier), qui
+   basculent en rgba(255,255,255,0.15)/0.25 en sombre. Bloc retiré. */
+
+/* ================================================================
+ *  MODE SOMBRE — SVG preview wrapper
+ * ================================================================
+ *  .elpis-svg-preview-wrap (style.css:237) a un fond blanc dur
+ *  pour afficher le SVG sur fond clair. En mode sombre l'utilisateur
+ *  veut probablement voir le SVG sur fond clair quand même pour
+ *  ne pas casser le rendu (la plupart des SVG sont conçus pour fond
+ *  clair). On garde le bg blanc mais on ajoute un mini badge à
+ *  l'utilisateur pour qu'il sache que c'est intentionnel.
+ *
+ *  → Garde le bg blanc. Pas de modification ici. Si retour user
+ *    négatif, on remappe.
+ * ================================================================ */
+
+/* ================================================================
+ *  MODE SOMBRE — Code inline hors markdown
+ * ================================================================
+ *  Si du code inline ``<code>`` apparaît hors ``.markdown-body``
+ *  (par ex. dans les tooltips, panels…), il garde le fond clair.
+ *  Override général pour la cohérence.
+ * ================================================================ */
+body.elpis-dark-surface code:not(pre code):not(.markdown-body code) {
+    background: var(--code-inline-bg);
+    color: var(--code-inline-fg);
+    border-color: var(--code-inline-border);
+}
+
+/* ================================================================
+ *  MODE SOMBRE — Backgrounds accent légers
+ * ================================================================
+ *  Les classes bg-{color}-50 sont utilisées comme "états actifs" ou
+ *  "pills sélectionnées" (par ex. modèle sélectionné dans la dropdown,
+ *  hover boutons colorés). Sur fond clair, ce sont des teintes très
+ *  pâles (#eff6ff pour blue-50). En mode sombre, on les remplace par
+ *  des teintes opaques sombres avec la couleur d'accent (10% alpha)
+ *  pour préserver l'identité visuelle.
+ * ================================================================ */
+body.elpis-dark-surface .bg-indigo-50         { background-color: rgba(99, 102, 241, 0.15); }
+body.elpis-dark-surface .bg-purple-50         { background-color: rgba(168, 85, 247, 0.15); }
+body.elpis-dark-surface .bg-violet-50         { background-color: rgba(139, 92, 246, 0.15); }
+body.elpis-dark-surface .bg-red-50            { background-color: rgba(239, 68, 68, 0.15); }
+body.elpis-dark-surface .bg-rose-50           { background-color: rgba(244, 63, 94, 0.15); }
+body.elpis-dark-surface .bg-orange-50         { background-color: rgba(249, 115, 22, 0.15); }
+body.elpis-dark-surface .bg-teal-50           { background-color: rgba(20, 184, 166, 0.15); }
+body.elpis-dark-surface .bg-cyan-50           { background-color: rgba(6, 182, 212, 0.15); }
+body.elpis-dark-surface .bg-yellow-50         { background-color: rgba(234, 179, 8, 0.15); }
+body.elpis-dark-surface .bg-pink-50           { background-color: rgba(236, 72, 153, 0.15); }
+
+/* Hover variants pour boutons accent */
+body.elpis-dark-surface .hover\:bg-blue-50:hover     { background-color: rgba(59, 130, 246, 0.20); }
+body.elpis-dark-surface .hover\:bg-red-50:hover      { background-color: rgba(239, 68, 68, 0.20); }
+body.elpis-dark-surface .hover\:bg-green-50:hover    { background-color: rgba(34, 197, 94, 0.20); }
+body.elpis-dark-surface .hover\:bg-emerald-50:hover  { background-color: rgba(16, 185, 129, 0.20); }
+body.elpis-dark-surface .hover\:bg-amber-50:hover    { background-color: rgba(245, 158, 11, 0.20); }
+body.elpis-dark-surface .hover\:bg-purple-50:hover   { background-color: rgba(168, 85, 247, 0.20); }
+body.elpis-dark-surface .hover\:bg-orange-50:hover   { background-color: rgba(249, 115, 22, 0.20); }
+body.elpis-dark-surface .hover\:bg-rose-50:hover     { background-color: rgba(244, 63, 94, 0.20); }
+
+/* Pastilles de statut bg-*-100 + texte -*-700 : les teintes TOKENISÉES
+   (blue/emerald/green/red/amber) sont désormais gérées par le bridge +
+   familles sémantiques (les deux modes). Ne restent ici que les teintes
+   hors familles (indigo/purple). */
+body.elpis-dark-surface .bg-purple-100  { background-color: rgba(168, 85, 247, 0.18); }
+body.elpis-dark-surface .text-indigo-700  { color: #a5b4fc; }
+body.elpis-dark-surface .text-purple-700  { color: #d8b4fe; }
+
+/* Borders accent claires (bg-*-200) — utilisées pour les boutons outline */
+body.elpis-dark-surface .border-purple-200    { border-color: rgba(168, 85, 247, 0.40); }
+body.elpis-dark-surface .border-orange-200    { border-color: rgba(249, 115, 22, 0.40); }
+body.elpis-dark-surface .border-rose-200      { border-color: rgba(244, 63, 94, 0.40); }
+body.elpis-dark-surface .border-indigo-200    { border-color: rgba(99, 102, 241, 0.40); }
+
+/* Hover borders */
+body.elpis-dark-surface .hover\:border-blue-200:hover   { border-color: rgba(59, 130, 246, 0.60); }
+body.elpis-dark-surface .hover\:border-red-200:hover    { border-color: rgba(239, 68, 68, 0.60); }
+body.elpis-dark-surface .hover\:border-green-200:hover  { border-color: rgba(34, 197, 94, 0.60); }
+body.elpis-dark-surface .hover\:border-amber-200:hover  { border-color: rgba(245, 158, 11, 0.60); }
+body.elpis-dark-surface .hover\:border-purple-200:hover { border-color: rgba(168, 85, 247, 0.60); }
+
+/* Rings + teinte /60 (état sélection de l'arbre des skills) — non couverts
+   par les overrides ci-dessus (classes compilées distinctes). */
+body.elpis-dark-surface .bg-blue-50\/60   { background-color: rgba(59, 130, 246, 0.10); }
+
+/* ================================================================
+ *  MODE SOMBRE — Variantes Tailwind `disabled:` et autres états
+ * ================================================================
+ *  Les classes ``disabled:bg-slate-100``, ``disabled:text-slate-400``
+ *  etc. génèrent des sélecteurs Tailwind compilés avec le pseudo
+ *  ``.disabled\:bg-slate-100:disabled``. Mes overrides précédents
+ *  ne ciblent que ``.bg-slate-100`` (sans pseudo) → les boutons
+ *  désactivés gardent le slate-100 clair.
+ *
+ *  Cas concret : bouton "Envoyer" dans la barre de prompt
+ *  (chat.html:1759) — quand le textarea est vide, il est disabled
+ *  et apparaît BLANC sur fond sombre.
+ *
+ *  Fix : sélecteurs explicites pour les états disabled.
+ * ================================================================ */
+body.elpis-dark-surface .disabled\:bg-slate-50:disabled,
+body.elpis-dark-surface .disabled\:bg-slate-100:disabled {
+    background-color: var(--surface-3);
+}
+body.elpis-dark-surface .disabled\:bg-slate-200:disabled {
+    background-color: var(--surface-4);
+}
+body.elpis-dark-surface .disabled\:bg-slate-300:disabled {
+    background-color: var(--surface-5);
+}
+body.elpis-dark-surface .disabled\:bg-white:disabled {
+    background-color: var(--surface);
+}
+body.elpis-dark-surface .disabled\:text-slate-300:disabled,
+body.elpis-dark-surface .disabled\:text-slate-400:disabled,
+body.elpis-dark-surface .disabled\:text-slate-500:disabled {
+    color: #64748b;                         /* slate-500 — discret, pas blanc */
+}
+body.elpis-dark-surface .disabled\:border-slate-200:disabled {
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Variantes focus (utilisées dans les inputs avec focus:bg-white) */
+body.elpis-dark-surface .focus\:bg-white:focus {
+    background-color: var(--surface);
+}
+body.elpis-dark-surface .focus\:bg-slate-50:focus {
+    background-color: var(--surface-2);
+}
+body.elpis-dark-surface .focus\:bg-slate-100:focus {
+    background-color: var(--surface-3);
+}
+
+/* Variantes peer-checked (utilisées dans les toggles type radio/checkbox) */
+body.elpis-dark-surface .peer-checked\:bg-blue-600:checked ~ div,
+body.elpis-dark-surface input:checked ~ .peer-checked\:bg-blue-600 {
+    /* déjà bleu, OK ; on n'override pas — color préservée */
+}
+
+/* Group hover variants (les enfants stylés au hover du parent .group) */
+body.elpis-dark-surface .group:hover .group-hover\:bg-slate-50         { background-color: var(--surface-3); }
+body.elpis-dark-surface .group:hover .group-hover\:bg-slate-100        { background-color: var(--surface-4); }
+body.elpis-dark-surface .group:hover .group-hover\:text-slate-700      { color: var(--text-800); }
+body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: var(--text-900); }
+
+/* ================================================================
+ *  Modale de zoom des diagrammes (Mermaid) — passe 15
+ * ================================================================ */
+.elpis-zoom-btn {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.12s, transform 0.08s;
+    user-select: none;
+}
+.elpis-zoom-btn:hover  { background: rgba(255, 255, 255, 0.20); }
+.elpis-zoom-btn:active { transform: scale(0.94); }
+
+/* Le SVG dans la modale de zoom : pas de contrainte de largeur */
+.elpis-diagram-zoom-overlay svg {
+    max-width: none !important;
+}
+
+
+/* Anti scroll-trap du shell : le focus d'un élément clippé (checkbox `sr-only`
+   des toggles) peut faire défiler un ancêtre overflow:hidden — la colonne
+   principale restait alors tronquée (aucun reset). `overflow: clip` interdit
+   TOUT défilement (même programmatique) ; `hidden` posé avant sert de repli
+   pour les moteurs sans support de clip. Doublonne la classe Tailwind JIT
+   `overflow-clip` pour garantir le comportement même hors JIT. */
+.overflow-clip { overflow: hidden; overflow: clip; }
+
+/* ================================================================
+ *  COMPOSANTS PARAMÈTRES  (.set-*)
+ * ================================================================
+ *  Normalisation du panneau Paramètres (includes/modals/settings.html).
+ *  Règle : la GÉOMÉTRIE et les couleurs NEUTRES passent par les tokens
+ *  (→ se thématisent dans tous les skins + mode sombre, comme le bridge).
+ *  Les couleurs d'ACCENT (bleu) restent des utilitaires Tailwind sur le
+ *  markup (``bg-blue-600``, ``peer-checked:bg-blue-600``…) pour que les
+ *  skins (ex. llamacpp monochrome) continuent de les remapper.
+ * ================================================================ */
+
+/* Interrupteur (toggle) — la piste + la pastille en une classe. Le markup
+   garde ``peer-checked:bg-blue-600 peer-checked:border-blue-600`` (accent,
+   skin/dark déjà câblés) ; .set-switch-track ne porte QUE le neutre. */
+.set-switch-track {
+    position: relative;
+    width: 2.25rem;            /* w-9 */
+    height: 1.25rem;           /* h-5 */
+    flex-shrink: 0;
+    background: var(--surface-4);
+    border: 1px solid var(--surface-5);
+    border-radius: 9999px;
+    transition: background-color .15s ease, border-color .15s ease;
+}
+.set-switch-track::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 1rem;               /* w-4 */
+    height: 1rem;              /* h-4 */
+    background: var(--surface);
+    border: 1px solid var(--surface-5);
+    border-radius: 9999px;
+    transition: transform .15s ease;
+}
+.peer:checked ~ .set-switch-track::after { transform: translateX(100%); border-color: var(--surface); }
+/* Focus clavier visible (la case réelle est sr-only) — gain a11y. */
+.peer:focus-visible ~ .set-switch-track { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-500) 35%, transparent); }
+
+/* Champs — un seul padding (p-2.5), un seul focus, neutre tokenisé. */
+.set-input,
+.set-textarea,
+.set-select {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0.625rem;          /* p-2.5 */
+    font-size: 0.875rem;        /* text-sm */
+    line-height: 1.25rem;
+    color: var(--text-700);
+    outline: none;
+    transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.set-textarea { resize: vertical; min-height: 5rem; }
+.set-input:focus,
+.set-textarea:focus,
+.set-select:focus {
+    background: var(--surface);
+    border-color: var(--accent-500);
+    box-shadow: 0 0 0 1px var(--accent-500);
+}
+/* --text-500 (light #64748b ≈ 4.6:1) plutôt que --text-400 (#94a3b8 ≈ 2.9:1,
+   sous l'AA). En sombre, la règle body.elpis-dark-surface ::placeholder l'emporte. */
+.set-input::placeholder,
+.set-textarea::placeholder { color: var(--text-500); }
+.set-input,
+.set-textarea { width: 100%; }   /* selects : largeur via utilitaire (w-full) au cas par cas */
+/* Entrées de mémoire (Réglages → Mémoire, mode édition) : une entrée curée fait
+   une ou deux lignes, le min-height de 5rem de .set-textarea étirait chaque champ
+   à trois fois sa hauteur utile. Déclarée APRÈS .set-textarea : à spécificité
+   égale, c'est l'ordre qui tranche. */
+.mem-entry-input { min-height: 3rem; }
+/* Variante compacte (selects fins de l'accordéon « Plus d'options »). */
+.set-control--sm {
+    padding: 0.25rem 0.5rem;    /* px-2 py-1 */
+    font-size: 0.6875rem;       /* text-[11px] */
+    line-height: 1rem;
+}
+
+/* Curseur (range) — hauteur unique. */
+.set-range {
+    height: 0.375rem;
+    accent-color: var(--accent);
+    cursor: pointer;
+    border-radius: 9999px;
+}
+.set-range:disabled { cursor: not-allowed; opacity: .6; }
+
+/* Rangée label + icône + contrôle (le hover/cursor reste en utilitaire). */
+.set-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem;          /* p-3.5 ; l'arrondi reste en utilitaire (first/last) */
+    transition: background-color .15s ease;
+}
+/* Sous-item : indentation seule, SANS accent gauche bleu (anti-pattern banni). */
+.set-row--sub { padding: 0.625rem 0.875rem 0.625rem 2.25rem; }  /* py-2.5 pr-3.5 pl-9 */
+
+/* Bloc de regroupement — UNE seule couche de surface (pas de carte dans carte). */
+.set-block {
+    background: var(--surface-2);
+    border-radius: var(--radius-xl);
+    padding: 1rem;              /* p-4 */
+}
+/* Variante « liste » : le bloc ne porte plus le rembourrage, ce sont les
+   rangées (.set-row / .set-row--sub) qui l'ont, et un filet les sépare.
+   C'est ce qui permet de rendre un objet à plusieurs facettes — un statut,
+   un réglage, un repli de détails — SANS empiler une carte par facette. */
+/* ⚠ PAS d'`overflow: hidden` ici : un menu déroulant ancré dans une rangée
+   (profil réseau) serait CLIPPÉ par le bloc. Les rangées n'ont donc pas de
+   fond propre à rogner — une teinte d'état se pose sur un élément INTERNE
+   déjà arrondi, jamais sur la rangée pleine largeur. */
+.set-block--flush { padding: 0; }
+
+/* ================================================================
+ *  COMPOSANTS CONSOLE ADMIN  (.adm-*)
+ * ================================================================
+ *  Refonte des menus de Configuration (2026-08-01).
+ *  Même contrat que .set-* / .skl-* : la GÉOMÉTRIE et les couleurs
+ *  NEUTRES passent par les tokens (skins + mode sombre gratuits),
+ *  les couleurs d'ACCENT restent des utilitaires Tailwind sur le
+ *  markup pour que les skins puissent les remapper.
+ *
+ *  Ce qui a disparu au passage :
+ *    • les tuiles d'icône 40×40 colorées en tête de section (le code
+ *      couleur — slate/rouge/ambre/émeraude — ne portait aucune
+ *      information : décoration pure) ;
+ *    • le markup d'interrupteur de ~400 caractères répété une dizaine
+ *      de fois (→ .set-switch-track, déjà tokenisé) ;
+ *    • la double couche « bordure 1px + ombre portée large » sur les
+ *      cartes (bannie : on garde la bordure seule).
+ * ================================================================ */
+
+/* Carte de section. Une seule couche de surface, JAMAIS imbriquée. */
+.adm-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+}
+.adm-card__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;              /* gap-2.5 */
+    padding: 0.875rem 1.25rem;  /* py-3.5 px-5 */
+    border-bottom: 1px solid var(--border-soft);
+}
+/* Le bloc de texte occupe la place laissée par les actions — sans ça il se
+   dimensionne sur son contenu et l'aide se replie sur trois lignes au milieu
+   d'une carte à moitié vide. */
+.adm-card__head > div:not(.adm-card__actions) { flex: 1 1 auto; min-width: 0; }
+/* Icône : monochrome, alignée sur la ligne du titre (plus de tuile). */
+.adm-card__icon {
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+    font-size: 1rem;
+    line-height: 1.25rem;
+    color: var(--text-400);
+}
+.adm-card__title {
+    font-size: 0.875rem;        /* text-sm */
+    font-weight: 600;
+    line-height: 1.25rem;
+    color: var(--text-900);
+}
+.adm-card__hint {
+    margin-top: 0.125rem;
+    font-size: 0.75rem;         /* text-xs */
+    line-height: 1.125rem;
+    color: var(--text-500);
+    max-width: 68ch;            /* longueur de ligne lisible */
+}
+/* Actions alignées à droite dans l'en-tête (Ajouter, Télécharger…). */
+.adm-card__actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* Liste de champs : séparateurs internes, pas de bordure externe. */
+.adm-rows { padding: 0 1.25rem; }
+.adm-rows > * + * { border-top: 1px solid var(--border-soft); }
+
+/* Rangée de champ : libellé à gauche, contrôle à droite.
+   Colonne unique sous md — la console est desktop-first mais la
+   fenêtre peut être étroite à côté d'un chat. */
+.adm-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.625rem 0;
+    min-height: 3.25rem;
+    box-sizing: border-box;
+    align-items: center;
+}
+/* Libellés d'un ou deux mots (règle UX compacte) : la colonne n'a plus
+   à loger de phrase d'aide. */
+@media (min-width: 768px) {
+    .adm-row {
+        grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
+        column-gap: 1.5rem;
+    }
+}
+/* Variante : contrôle haut (textarea, liste, bloc d'actions). */
+.adm-row--top { align-items: start; }
+/* Variante : le contrôle occupe toute la largeur (tableaux, listes). */
+.adm-row--full { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 768px) {
+    .adm-row--full { grid-template-columns: minmax(0, 1fr); }
+}
+
+.adm-row__label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    color: var(--text-800);
+}
+/* Le détail d'un réglage vit dans l'infobulle (title=) du libellé ; le
+   pointillé dit qu'il y en a une (le texte existe aussi en sr-only). */
+.adm-row__label[title] {
+    width: fit-content;
+    text-decoration: underline dotted var(--text-300);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+    cursor: help;
+}
+.adm-row__hint {
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+    color: var(--text-500);
+    max-width: 46ch;
+}
+
+/* Champ numérique court (ports, timeouts, quotas). */
+.adm-num {
+    width: 8rem;
+    font-variant-numeric: tabular-nums;
+}
+.adm-num--sm { width: 6rem; }
+
+/* Unité / valeur dérivée à droite d'un champ (« secondes ≈ 24 h »). */
+.adm-unit {
+    font-size: 0.75rem;
+    color: var(--text-500);
+    white-space: nowrap;
+}
+
+/* ── Coquille de la console (refonte 2026-09-27) ────────────────────
+   L'en-tête de page vit HORS de la zone qui défile et partage la colonne
+   du contenu : formulaire (56rem) ou large (72rem, tableaux et graphiques),
+   selon le registre (frontend/js/admin/_registry.js › wide). L'ancien
+   en-tête collant débordait de −24 px (défilement horizontal sur les neuf
+   pages de configuration) et s'étalait sur 72rem au-dessus de cartes de
+   56rem : titre et boutons ne s'alignaient sur rien. */
+.adm-col {
+    width: 100%;
+    max-width: calc(56rem + 3rem);
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+    box-sizing: border-box;
+}
+.adm-col--wide { max-width: calc(72rem + 3rem); }
+.adm-main { background: var(--surface-2); }
+.adm-scroller { flex: 1 1 auto; min-height: 0; overflow-y: auto; outline: none; }
+/* Une page peut réunir des sections venues de plusieurs fichiers (ex.
+   Compression : service + règles) : c'est elle qui les espace. */
+.adm-page { padding-block: 1.25rem 3rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+.adm-page-head {
+    flex: none;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+}
+.adm-page-head__in {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-height: 4rem;
+    padding-block: 0.625rem;
+}
+.adm-page-head__titles { flex: 1 1 auto; min-width: 0; }
+.adm-page-head__parent {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+    color: var(--text-500);
+}
+.adm-page-head__title {
+    margin: 0;
+    font-size: 1.125rem;
+    line-height: 1.5rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: var(--text-900);
+    outline: none;
+}
+.adm-page-head__side {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* ── Barre d'enregistrement (bas de la colonne, page modifiée seulement) ──
+   Un écran = un enregistrement. Hors de la zone qui défile : toujours
+   visible, quelle que soit la position dans la page. */
+.adm-savebar {
+    flex: none;
+    position: relative;
+    z-index: 20;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.06);
+}
+.adm-savebar__in {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-height: 3.5rem;
+}
+.adm-savebar__count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-900);
+}
+.adm-savebar__dot { width: 0.5rem; height: 0.5rem; border-radius: 9999px; background: var(--accent); }
+.adm-kbd {
+    font: 500 0.6875rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding: 0.25rem 0.375rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface-3);
+    color: var(--text-500);
+    white-space: nowrap;
+}
+.adm-btn--sm { padding: 0.25rem 0.625rem; font-size: 0.8125rem; }
+/* Détail des modifications (« Voir ») : au-dessus de la barre. */
+.adm-changes {
+    position: absolute;
+    left: 1.5rem;
+    bottom: calc(100% + 0.5rem);
+    width: min(32rem, calc(100% - 3rem));
+    max-height: 18rem;
+    overflow-y: auto;
+    padding: 0.375rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+.adm-changes ul { list-style: none; margin: 0; padding: 0; }
+.adm-changes__row {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.25rem 0.25rem 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+}
+.adm-changes__lbl { flex: 0 0 auto; max-width: 45%; font-weight: 500; color: var(--text-900); }
+.adm-changes__vals { flex: 1 1 auto; min-width: 0; color: var(--text-600); overflow-wrap: anywhere; }
+.adm-changes__vals s { color: var(--text-400); }
+.adm-changes__vals b { font-weight: 600; color: var(--text-900); }
+.adm-bar-enter-active,
+.adm-bar-leave-active { transition: transform .18s cubic-bezier(.22, 1, .36, 1), opacity .18s ease; }
+.adm-bar-enter-from,
+.adm-bar-leave-to { transform: translateY(100%); opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+    .adm-bar-enter-active,
+    .adm-bar-leave-active { transition: none; }
+}
+/* Lien discret (renvoi vers une autre page de la console). */
+.adm-link {
+    font-size: 0.8125rem;
+    color: var(--accent-text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+}
+.adm-link:hover { color: var(--accent-text-strong); }
+.adm-link:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* ── Barre latérale : entrées + sous-pages de l'entrée ouverte ──────
+   Couleurs : tokens --rail-* (chaque skin les redéfinit) ; la sélection
+   se lit au fond (--rail-active-bg) et à la graisse, jamais à un liseré. */
+.adm-rail--open { width: 16rem; }
+.adm-rail--mini { width: 3.25rem; }
+.adm-rail__full {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 16rem;
+}
+.adm-rail__mini {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 0.25rem;
+    padding: 0.75rem 0;
+}
+.adm-rail__mini-nav { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.5rem; }
+.adm-rail__mini-foot { margin-top: auto; display: flex; flex-direction: column; gap: 0.25rem; }
+.adm-rail__icon {
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    border-radius: var(--radius-md);
+    color: var(--rail-muted);
+    font-size: 1.125rem;
+    transition: background-color .15s ease, color .15s ease;
+}
+.adm-rail__icon:hover { background: var(--rail-hover); color: var(--rail-text-strong); }
+.adm-rail__icon.is-active { background: var(--rail-active-bg); color: var(--rail-text-strong); }
+.adm-rail__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.875rem 0.75rem 0.75rem;
+}
+.adm-rail__logo {
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-lg);
+    background: var(--rail-chip);
+    border: 1px solid var(--rail-border);
+    color: var(--rail-text-strong);
+    font-size: 1rem;
+}
+.adm-rail__name { color: var(--rail-text-strong); font-weight: 600; font-size: 0.875rem; line-height: 1.2; }
+.adm-rail__sub { color: var(--rail-muted); font-size: 0.75rem; font-weight: 500; }
+
+.adm-nav { flex: 1 1 auto; overflow-y: auto; padding: 0.25rem 0.5rem 0.75rem; }
+.adm-nav ul { list-style: none; margin: 0; padding: 0; }
+.adm-nav__entry,
+.adm-nav__sub {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-md);
+    color: var(--rail-text);
+    text-align: left;
+    transition: background-color .15s ease, color .15s ease;
+}
+.adm-nav__entry { gap: 0.625rem; height: 2.125rem; padding: 0 0.625rem; font-size: 0.875rem; }
+.adm-nav__sub { height: 1.875rem; padding: 0 0.625rem 0 2.375rem; font-size: 0.8125rem; }
+.adm-nav__entry:hover,
+.adm-nav__sub:hover { background: var(--rail-hover); color: var(--rail-text-strong); }
+.adm-nav__icon { flex: none; font-size: 1.125rem; color: var(--rail-muted); }
+.adm-nav__entry.is-open,
+.adm-nav__entry.is-open .adm-nav__icon { color: var(--rail-text-strong); }
+.adm-nav__entry[aria-current="page"],
+.adm-nav__sub[aria-current="page"] { background: var(--rail-active-bg); color: var(--rail-text-strong); }
+.adm-nav__sub[aria-current="page"] { font-weight: 500; }
+.adm-nav__label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-nav .adm-nav__subs { margin: 0.125rem 0 0.5rem; }
+.adm-rail__icon:focus-visible,
+.adm-nav__entry:focus-visible,
+.adm-nav__sub:focus-visible,
+.adm-rail__link:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
+
+.adm-rail__foot {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.5rem 0.625rem 0.625rem;
+    border-top: 1px solid var(--rail-border);
+    background: var(--rail-bg-2);
+}
+.adm-rail__link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 1.875rem;
+    padding: 0 0.5rem;
+    border-radius: var(--radius-md);
+    color: var(--rail-muted);
+    font-size: 0.8125rem;
+}
+.adm-rail__link:hover { background: var(--rail-hover); color: var(--rail-text-strong); }
+.adm-me { display: flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.125rem 0; }
+.adm-me__avatar {
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 9999px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: 0.6875rem;
+    font-weight: 700;
+}
+.adm-me__name { color: var(--rail-text); font-size: 0.8125rem; font-weight: 500; line-height: 1.2; }
+.adm-me__role { color: var(--rail-muted); font-size: 0.75rem; }
+
+/* ── Menu « Compte et apparence » (pied de la barre latérale) ────── */
+.adm-menu {
+    position: absolute;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 100%;
+    margin-bottom: 0.25rem;
+    z-index: 60;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+    padding: 0.375rem;
+    background: var(--surface);
+    color: var(--text-800);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+.adm-menu__sec { padding: 0.375rem 0.625rem 0.25rem; font-size: 0.75rem; font-weight: 600; color: var(--text-500); }
+.adm-menu__row { display: flex; padding: 0.125rem 0.5rem 0.5rem; }
+.adm-menu__row .adm-seg { flex: 1 1 auto; }
+.adm-menu__row .adm-seg__btn { flex: 1 1 0; text-align: center; padding-inline: 0.25rem; }
+.adm-menu__item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.4375rem 0.625rem;
+    border-radius: var(--radius-md);
+    font-size: 0.8125rem;
+    color: var(--text-800);
+    text-align: left;
+}
+.adm-menu__item:hover { background: var(--surface-3); }
+.adm-menu__item:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
+.adm-menu__item > .ph { font-size: 1rem; color: var(--text-500); }
+.adm-menu__item > .adm-menu__check { color: var(--accent-text); }
+.adm-menu__note { margin: 0.25rem 0.625rem 0.375rem; font-size: 0.75rem; color: var(--text-500); }
+.adm-menu__sep { height: 1px; margin: 0.375rem 0.25rem; background: var(--border); }
+/* Aperçu d'un thème : rail | fond, pastille d'accent. Couleurs posées en
+   variables par le gabarit (APP_SKINS › sw), jamais composées en classe. */
+.adm-swatch {
+    position: relative;
+    flex: none;
+    width: 1.625rem;
+    height: 1.125rem;
+    box-sizing: border-box;
+    border-radius: 0.3125rem;
+    border: 1px solid var(--border);
+    background: linear-gradient(90deg, var(--sw-rail) 0 42%, var(--sw-bg) 42% 100%);
+}
+.adm-swatch::after {
+    content: "";
+    position: absolute;
+    right: 0.25rem;
+    top: 50%;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    margin-top: -0.21875rem;
+    border-radius: 9999px;
+    background: var(--sw-acc);
+}
+
+/* Boutons de l'en-tête de page. Tokenisés parce que la chaîne Tailwind
+   ``bg-slate-900 … disabled:bg-slate-300 text-white`` se retourne dans les
+   skins sombres : slate-300 y devient presque blanc, et le bouton DÉSACTIVÉ
+   ressortait davantage qu'un bouton actif. Ici l'état inactif descend d'un cran
+   sur la rampe de surface dans les deux modes. */
+.adm-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.875rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid transparent;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.adm-btn:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
+/* Primaire : l'accent (bleu Ardoise, redéfini par chaque skin), un seul par
+   écran — comme les dialogues de l'application. L'ancienne inversion de la
+   rampe (quasi-noir) faisait deux « primaires » différents sur la même page. */
+.adm-btn--primary { background: var(--accent); color: var(--accent-fg); }
+.adm-btn--primary:hover:not(:disabled) { background: var(--accent-strong); }
+.adm-btn--primary:disabled { background: var(--surface-3); color: var(--text-400); border-color: var(--border); cursor: not-allowed; }
+/* Secondaire : discret jusqu'au survol. */
+.adm-btn--quiet { color: var(--text-600); }
+.adm-btn--quiet:hover:not(:disabled) { background: var(--surface-3); color: var(--text-900); }
+.adm-btn--quiet:disabled { color: var(--text-400); cursor: not-allowed; }
+/* Icône seule (rafraîchir…). */
+.adm-btn--icon {
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    justify-content: center;
+    color: var(--text-500);
+}
+.adm-btn--icon:hover:not(:disabled) { background: var(--surface-3); color: var(--text-900); }
+
+/* Pastille « modifications non enregistrées ». Le point coloré reste un
+   utilitaire Tailwind sur le markup (accent remappé par les skins). */
+.adm-dirty {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-600);
+    white-space: nowrap;
+}
+
+/* Bloc replié (commandes d'installation, aides longues). */
+.adm-details {
+    border-top: 1px solid var(--border-soft);
+    padding: 0.75rem 0;
+}
+.adm-details > summary {
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-600);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+.adm-details > summary::-webkit-details-marker { display: none; }
+.adm-details > summary::before {
+    content: '\203A';           /* › */
+    display: inline-block;
+    transition: transform .15s ease;
+    font-size: 1rem;
+    line-height: 1;
+}
+.adm-details[open] > summary::before { transform: rotate(90deg); }
+.adm-details > summary:hover { color: var(--text-900); }
+.adm-details > summary:focus-visible {
+    outline: 2px solid var(--accent-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+/* « Avancé » dans une liste de rangées (refonte 2026-09-27) : le repli a
+   la hauteur d'une rangée, ses rangées gardent leur filet ; le filet du
+   haut vient déjà de .adm-rows. */
+.adm-details--rows { border-top: 0; padding: 0; }
+.adm-rows > * + .adm-details--rows { border-top: 1px solid var(--border-soft); }
+.adm-details--rows > summary { padding: 0.875rem 0; font-size: 0.8125rem; }
+.adm-details--rows > .adm-row { border-top: 1px solid var(--border-soft); }
+
+/* Commande à copier (bloc sombre monospace). Neutre indépendant du skin :
+   c'est un terminal, il reste sombre dans tous les thèmes. */
+.adm-cmd {
+    flex: 1;
+    min-width: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.6875rem;
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: var(--radius-md);
+    padding: 0.375rem 0.625rem;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+/* ── Profils réseau de la sandbox (page Sandbox) ──────────────────────
+   Deux primitives, tokenisées parce qu'elles vivent dans les cinq skins :
+     • .np-seg    — groupe de boutons exclusifs (mode réseau, politique de
+                    ports). Un <select> ne montrait pas que « Tout bloquer »
+                    est une décision à un clic ;
+     • .np-chip   — une valeur d'allowlist = une puce retirable, au lieu
+                    d'une chaîne « a, b, c » où une virgule oubliée ne se
+                    voyait qu'au refus du serveur.
+   L'état actif porte une couleur SÉMANTIQUE (rouge = bloqué, ambre =
+   ouvert) : c'est le seul endroit de la console où l'accent bleu unique
+   cède, parce que l'information EST le niveau de risque. */
+.np-seg {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--surface);
+}
+.np-seg__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.3125rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.125rem;
+    color: var(--text-500);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease;
+}
+.np-seg__btn + .np-seg__btn { border-left: 1px solid var(--border-soft); }
+.np-seg__btn:hover:not(.is-on):not(:disabled) { background: var(--surface-3); color: var(--text-800); }
+.np-seg__btn:disabled { cursor: not-allowed; opacity: .65; }
+.np-seg__btn:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
+.np-seg__btn.is-on { background: var(--surface-4); color: var(--text-900); font-weight: 600; }
+/* ⚠ Ces trois états portaient un rouge/bleu/ambre FONCÉ en dur (#b91c1c,
+   #1d4ed8, #b45309) sur un fond mélangé à --surface : en sombre le fond
+   devient quasi noir et le texte reste foncé — contraste ~1,5:1, illisible.
+   Ils passent par les familles sémantiques, qui ont déjà une déclinaison
+   claire-sur-sombre et suivent les skins. */
+.np-seg__btn--block.is-on  { background: var(--danger-surface); color: var(--danger-text); }
+.np-seg__btn--filter.is-on { background: var(--accent-surface); color: var(--accent-text); }
+.np-seg__btn--open.is-on   { background: var(--warn-surface);   color: var(--warn-text); }
+.np-seg--xs .np-seg__btn { padding: 0.125rem 0.5rem; font-size: 0.6875rem; }
+
+/* Carte de profil : repliée par défaut (badge de mode + résumé des règles),
+   dépliée pour l'édition. La liste à plat dépliait TOUT — quatre profils et
+   la page devenait un mur de champs où l'on ne voyait plus quel profil fait
+   quoi. */
+.np-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    overflow: hidden;
+    transition: border-color .15s ease;
+}
+.np-card:hover { border-color: var(--border-strong, var(--text-300, var(--border))); }
+.np-card--open { border-color: var(--accent-ring); }
+.np-card__head { display: flex; align-items: center; gap: 0.5rem; padding-right: 0.5rem; }
+/* Zone de dépliage : toute la ligne est cliquable, sauf les actions. */
+.np-card__toggle {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.625rem 0.5rem 0.625rem 0.875rem;
+    text-align: left;
+    cursor: pointer;
+}
+.np-card__toggle:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
+.np-card__name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-900);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.np-card__id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.6875rem;
+    color: var(--text-400);
+}
+.np-card__sum {
+    font-size: 0.6875rem;
+    color: var(--text-500);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.np-card__chev { color: var(--text-400); transition: transform .15s ease; flex-shrink: 0; }
+.np-card--open .np-card__chev { transform: rotate(90deg); }
+.np-card__body { padding: 0.25rem 0.875rem 0.875rem; border-top: 1px solid var(--border-soft); }
+
+/* Badge de mode : la couleur EST l'information (niveau de risque). */
+.np-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1rem;
+}
+/* Mêmes familles sémantiques que le segmenté ci-dessus (même défaut). */
+.np-badge--block  { background: var(--danger-surface); color: var(--danger-text); border-color: var(--danger-border); }
+.np-badge--filter { background: var(--accent-surface); color: var(--accent-text); border-color: var(--accent-border); }
+.np-badge--open   { background: var(--warn-surface);   color: var(--warn-text);   border-color: var(--warn-border); }
+
+.np-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 1.75rem;
+}
+.np-chips__empty { font-size: 0.6875rem; color: var(--text-400); font-style: italic; }
+.np-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.0625rem 0.25rem 0.0625rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.6875rem;
+    color: var(--text-700);
+    max-width: 100%;
+}
+.np-chip__txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-chip__x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: var(--radius-sm);
+    color: var(--text-400);
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease;
+}
+.np-chip__x:hover { background: color-mix(in srgb, #dc2626 12%, transparent); color: #dc2626; }
+.np-chip__x:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
+
+/* État vide d'une section (aucun agent, aucun groupe…). */
+.adm-empty {
+    padding: 1.25rem 0;
+    font-size: 0.8125rem;
+    color: var(--text-500);
+}
+
+.adm-empty--error { color: var(--danger-text); }
+.adm-empty__icon { color: var(--surface-4); }
+
+/* Chargement d'une section — squelette plutôt qu'un spinner au centre. */
+.adm-skeleton {
+    height: 0.75rem;
+    border-radius: var(--radius-sm);
+    background: var(--surface-3);
+    animation: adm-pulse 1.4s ease-in-out infinite;
+}
+@keyframes adm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) {
+    .adm-skeleton { animation: none; }
+}
+
+/* ================================================================
+ *  ZONE MÉTRIQUES  (.adm-seg / .adm-kpi / .adm-pop / .adm-table…)
+ * ================================================================
+ *  Cette zone était la dernière de la console à peindre ses surfaces en
+ *  dur (`bg-white`, `text-slate-*`) : elle ignorait donc les skins ET le
+ *  mode sombre — un tableau de bord blanc au milieu d'une application
+ *  sombre. Tout passe désormais par les tokens ; seule la sémantique de
+ *  statut (danger) garde ses variables dédiées.
+ * ================================================================ */
+
+/* Bouton secondaire (barre d'outils, actions de ligne) : même gabarit que
+   .adm-btn, avec un contour. Famille UNIQUE de la console (refonte
+   2026-09-27) : principal (accent, un par écran), secondaire (.adm-tool),
+   discret (--quiet), icône (--icon), danger, attention. */
+.adm-tool {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text-700);
+}
+.adm-tool:hover:not(:disabled) { background: var(--surface-2); color: var(--text-900); }
+.adm-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.adm-btn--primary:disabled { opacity: 1; }
+.adm-btn--icon-danger:hover:not(:disabled),
+.adm-btn--danger-quiet:hover:not(:disabled) { background: var(--danger-surface); color: var(--danger-text); }
+.adm-btn--warn { background: var(--surface); border-color: var(--warn-border); color: var(--warn-text-strong); }
+.adm-btn--warn:hover:not(:disabled) { background: var(--warn-surface); }
+.adm-btn--danger { color: var(--danger-text); border-color: var(--danger-border); }
+.adm-btn--danger:hover:not(:disabled) { background: var(--danger-surface); }
+
+/* Segmenté (fenêtre d'observation). */
+.adm-seg {
+    display: inline-flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+.adm-seg__btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-600);
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease;
+}
+.adm-seg__btn + .adm-seg__btn { border-left: 1px solid var(--border-soft); }
+.adm-seg__btn:hover:not(.is-active) { background: var(--surface-2); }
+/* --accent et non --accent-500 : blanc sur blue-500 = 3,7:1, sous l'AA. */
+.adm-seg__btn.is-active { background: var(--accent); color: var(--accent-fg); }
+.adm-seg__btn:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
+.adm-seg--sm .adm-seg__btn { padding: 0.25rem 0.625rem; font-size: 0.75rem; }
+
+/* ── Comptes : résumé en table + éditeur en ligne (2026-09-23) ──────
+   La table ne fait que LIRE (valeurs effectives) ; toute modification
+   passe par l'éditeur déplié sous la ligne, avec un seul Enregistrer. */
+.adm-users th { font-weight: 500; border-bottom: 1px solid var(--border); }
+.adm-users tbody tr + tr { border-top: 1px solid var(--border-soft); }
+.adm-users td { vertical-align: middle; }
+.adm-users__muted { color: var(--text-500); font-size: 0.75rem; }
+.adm-users__open { background: var(--surface-2); }
+.adm-pill {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    padding: 0.0625rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    font-size: 0.6875rem; line-height: 1.125rem; font-weight: 500;
+    color: var(--text-600); background: var(--surface);
+    white-space: nowrap;
+}
+.adm-pill--warn { color: var(--danger-text); border-color: var(--danger-border); }
+.adm-user-edit {
+    background: var(--surface-2);
+    border-top: 1px solid var(--border-soft);
+    padding: 1rem 1.25rem 0.875rem;
+}
+.adm-user-edit__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1.25rem 2rem;
+}
+.adm-user-edit__col { min-width: 0; display: flex; flex-direction: column; gap: 0.875rem; }
+.adm-user-edit__legend {
+    font-size: 0.8125rem; font-weight: 600; color: var(--text-900);
+    padding-bottom: 0.375rem; border-bottom: 1px solid var(--border-soft);
+    width: 100%;
+}
+.adm-field { display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
+.adm-field__label { font-size: 0.75rem; font-weight: 500; color: var(--text-600); }
+.adm-field__row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.adm-checks {
+    display: flex; flex-direction: column;
+    max-height: 11rem; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: var(--radius-lg);
+    background: var(--surface);
+}
+.adm-checks__item {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.375rem 0.625rem;
+    font-size: 0.8125rem; color: var(--text-800);
+    cursor: pointer;
+}
+.adm-checks__item + .adm-checks__item { border-top: 1px solid var(--border-soft); }
+.adm-checks__item:hover { background: var(--surface-2); }
+.adm-checks__item.is-locked { cursor: default; color: var(--text-500); }
+.adm-checks__item.is-locked:hover { background: transparent; }
+.adm-checks__meta { margin-left: auto; font-size: 0.6875rem; color: var(--text-500); white-space: nowrap; }
+.adm-checks__empty { padding: 0.5rem 0.625rem; font-size: 0.75rem; color: var(--text-500); }
+.adm-field__warn { font-size: 0.6875rem; color: var(--danger-text); }
+.adm-user-edit__foot {
+    display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;
+    margin-top: 1rem; padding-top: 0.75rem;
+    border-top: 1px solid var(--border-soft);
+}
+.adm-user-edit__foot .adm-users__muted { margin-right: auto; }
+/* Champs de l'éditeur : même corps (13 px) que les listes à cocher. */
+.adm-user-edit .set-select,
+.adm-user-edit .set-input { padding: 0.375rem 0.5rem; font-size: 0.8125rem; line-height: 1.25rem; }
+.adm-pill--mod { color: #92400e; border-color: #fde68a; background: #fffbeb; }
+body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252, 211, 77, .35); background: rgba(252, 211, 77, .08); }
+.adm-btn--icon.adm-btn--danger-hover:hover:not(:disabled) { color: var(--danger-text); background: var(--danger-surface); }
+
+/* Compteur de cadence (± intervalle). */
+.adm-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.125rem 0.375rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+.adm-stepper__btn {
+    width: 1.5rem; height: 1.5rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-sm);
+    color: var(--text-400);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease;
+}
+.adm-stepper__btn:hover { background: var(--surface-3); color: var(--text-900); }
+.adm-stepper__btn.is-off { opacity: .3; pointer-events: none; }
+.adm-stepper__val {
+    min-width: 2.5rem; text-align: center;
+    font-size: 0.6875rem; font-weight: 600; color: var(--text-500);
+}
+.adm-stepper__icon { color: var(--text-400); font-size: 0.875rem; margin-left: 0.125rem; }
+
+/* Popover de barre d'outils (widgets, collecte, export). */
+.adm-pop {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.25rem;
+    z-index: 50;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, .12);
+    overflow: hidden;
+}
+.adm-pop--left { right: auto; left: 0; }
+.adm-pop__head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 0.75rem; font-weight: 600; color: var(--text-500);
+}
+.adm-pop__head + .adm-pop__body { border-top: 0; }
+.adm-pop__body { padding: 0.375rem; }
+.adm-menu__item {
+    width: 100%;
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0.625rem;
+    border-radius: var(--radius-lg);
+    font-size: 0.8125rem; color: var(--text-700);
+    text-align: left; cursor: pointer;
+    transition: background-color .15s ease;
+}
+.adm-menu__item:hover { background: var(--surface-2); }
+.adm-menu__item i { color: var(--text-400); }
+
+/* Ligne du sélecteur de widgets. */
+.adm-pick {
+    width: 100%;
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.375rem 0.625rem;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: background-color .15s ease;
+}
+.adm-pick:hover { background: var(--surface-2); }
+.adm-pick__box {
+    width: 1rem; height: 1rem; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--surface-5);
+    border-radius: var(--radius-sm);
+    font-size: 0.625rem; color: var(--accent-fg);
+}
+.adm-pick__box.is-on { background: var(--accent-500); border-color: var(--accent-500); }
+.adm-pick__label {
+    flex: 1 1 auto; min-width: 0;
+    font-size: 0.75rem; color: var(--text-700);
+    text-align: left;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.adm-tag {
+    flex-shrink: 0;
+    padding: 0.0625rem 0.375rem;
+    border-radius: 9999px;
+    font-size: 0.5625rem; font-weight: 600;
+    background: color-mix(in srgb, var(--accent-500) 12%, transparent);
+    color: var(--accent-500);
+}
+.adm-tag--soft { background: var(--surface-3); color: var(--text-500); }
+
+/* ── Vue d'ensemble (page d'arrivée, lot 6) ─────────────────────────── */
+.adm-ov { display: flex; flex-direction: column; gap: 1.25rem; }
+.adm-ov__alerts { list-style: none; margin: 0; padding: 0; }
+.adm-ov__alert {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+}
+.adm-ov__alert + .adm-ov__alert { border-top: 1px solid var(--border-soft); }
+.adm-ov__alert-icon { flex: none; font-size: 1.125rem; }
+.adm-ov__alert[data-level="danger"] .adm-ov__alert-icon { color: var(--danger-text); }
+.adm-ov__alert[data-level="warn"] .adm-ov__alert-icon { color: var(--warn-text-strong); }
+.adm-ov__alert-title { font-size: 0.875rem; font-weight: 500; color: var(--text-900); }
+.adm-ov__alert-detail { font-size: 0.8125rem; color: var(--text-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-ov__calm {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.875rem 1.25rem; font-size: 0.875rem; color: var(--text-600);
+}
+.adm-ov__calm i { color: var(--ok-text); font-size: 1.125rem; }
+
+/* État d'un service : texte + icône ; la couleur n'appuie que l'anomalie
+   (vert discret pour « Joignable », rouge / ambre sinon, gris si éteint). */
+.adm-status { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 0.8125rem; white-space: nowrap; color: var(--text-600); }
+.adm-status i { font-size: 1rem; }
+.adm-status[data-state="ok"] i { color: var(--ok-text); }
+.adm-status[data-state="down"] { color: var(--danger-text); font-weight: 500; }
+.adm-status[data-state="warn"] { color: var(--warn-text-strong); font-weight: 500; }
+.adm-status[data-state="off"],
+.adm-status[data-state="unknown"] { color: var(--text-500); }
+.adm-table.adm-ov__svc th, .adm-table.adm-ov__svc td { padding: 0.5rem 1.25rem; vertical-align: middle; }
+/* Nom du service : en-tête de LIGNE (th scope=row) sans l'habit des en-têtes
+   de colonne de .adm-table. */
+.adm-ov__svc .adm-ov__svc-name {
+    width: 11rem; text-align: left;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 0.875rem; font-weight: 500; color: var(--text-900);
+}
+.adm-ov__svc tbody tr:last-child .adm-ov__svc-name { border-bottom: 0; }
+.adm-ov__svc tbody tr:hover .adm-ov__svc-name { background: var(--surface-2); }
+.adm-ov__svc-target { font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.75rem; color: var(--text-600); max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-ov__svc-detail { font-size: 0.8125rem; color: var(--text-500); }
+
+.adm-ov__kpis {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 1rem 1.5rem; margin: 0; padding: 1rem 1.25rem 1.125rem;
+}
+.adm-ov__kpis dt { font-size: 0.75rem; font-weight: 500; color: var(--text-600); }
+.adm-ov__kpis dd { margin: 0.125rem 0 0; font-size: 1.375rem; font-weight: 700; line-height: 1.75rem; color: var(--text-900); font-variant-numeric: tabular-nums; }
+.adm-ov__kpis .is-warn dd { color: var(--warn-text-strong); }
+.adm-ov__kpis .adm-ov__txt { font-size: 1rem; font-weight: 600; }
+.adm-ov__of { font-size: 0.8125rem; font-weight: 500; color: var(--text-500); }
+.adm-ov__shortcuts { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.adm-ov__setup > summary {
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.875rem 1.25rem; cursor: pointer; list-style: none;
+}
+.adm-ov__setup > summary::-webkit-details-marker { display: none; }
+.adm-ov__setup[open] > summary { border-bottom: 1px solid var(--border-soft); }
+.adm-ov__setup > summary:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; border-radius: var(--radius-xl); }
+.adm-ov__steps { list-style: none; margin: 0; padding: 0.375rem 1.25rem 0.75rem; }
+.adm-ov__steps li { display: flex; align-items: center; gap: 0.625rem; padding: 0.375rem 0; font-size: 0.875rem; color: var(--text-800); }
+.adm-ov__steps li i { font-size: 1.125rem; color: var(--text-400); }
+.adm-ov__steps li.is-done { color: var(--text-500); }
+.adm-ov__steps li.is-done i { color: var(--ok-text); }
+
+/* Bandeau « Redémarrage nécessaire » (toutes les pages sauf la Vue d'ensemble). */
+.adm-restartbar { background: var(--warn-surface); border-bottom: 1px solid var(--warn-border); }
+.adm-restartbar__in {
+    display: flex; align-items: center; gap: 0.625rem;
+    padding-block: 0.5rem; font-size: 0.8125rem; color: var(--warn-text-strong);
+}
+.adm-restartbar__in b { font-weight: 600; }
+.adm-changes__restart { margin-left: 0.375rem; font-size: 0.8125rem; color: var(--warn-text-strong); vertical-align: -0.125em; }
+.adm-page-head__meta { font-size: 0.75rem; color: var(--text-500); white-space: nowrap; }
+
+/* Compteur « À traiter » sur l'entrée Vue d'ensemble de la barre latérale. */
+.adm-nav__count {
+    flex: none; min-width: 1.25rem; height: 1.25rem; padding: 0 0.375rem;
+    display: inline-grid; place-items: center;
+    border-radius: 9999px; font-size: 0.6875rem; font-weight: 600;
+    background: var(--rail-active-bg); color: var(--rail-text-strong);
+}
+.adm-rail__icon { position: relative; }
+.adm-rail__dot {
+    position: absolute; top: 0.3125rem; right: 0.3125rem;
+    width: 0.4375rem; height: 0.4375rem; border-radius: 9999px;
+    background: var(--warn-text-strong);
+}
+
+/* ── Recherche Ctrl+K (lot 7) ─────────────────────────────────────────── */
+.adm-rail__search {
+    display: flex; align-items: center; gap: 0.5rem;
+    margin: 0 0.5rem 0.5rem; padding: 0.4375rem 0.625rem;
+    border: 1px solid color-mix(in srgb, var(--rail-muted) 35%, transparent); border-radius: var(--radius-md);
+    font-size: 0.8125rem; color: var(--rail-muted); background: transparent; cursor: pointer;
+    transition: background-color .15s ease, color .15s ease;
+}
+.adm-rail__search:hover { background: var(--rail-hover); color: var(--rail-text-strong); }
+.adm-rail__search:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
+.adm-rail__search kbd { font: inherit; font-size: 0.6875rem; opacity: .8; }
+.adm-palette-backdrop {
+    position: fixed; inset: 0; z-index: 6500;
+    background: rgba(15, 23, 42, .35);
+    display: flex; justify-content: center; align-items: flex-start;
+    padding: 12vh 1rem 1rem;
+    animation: adm-fade .12s ease-out;
+}
+.adm-palette {
+    width: min(40rem, 100%); max-height: 70vh;
+    display: flex; flex-direction: column;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); box-shadow: 0 8px 24px rgba(15, 23, 42, .18);
+    overflow: hidden;
+}
+.adm-palette__search {
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-soft);
+    color: var(--text-500);
+}
+.adm-palette__search input {
+    flex: 1 1 auto; min-width: 0; border: 0; outline: none; background: transparent;
+    font-size: 0.9375rem; color: var(--text-900);
+}
+.adm-palette__search input::placeholder { color: var(--text-500); }
+.adm-palette__list { list-style: none; margin: 0; padding: 0.375rem; overflow-y: auto; }
+.adm-palette__item {
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.5rem 0.625rem; border-radius: var(--radius-lg);
+    font-size: 0.875rem; color: var(--text-800); cursor: pointer;
+}
+.adm-palette__item.is-active { background: var(--surface-2); }
+.adm-palette__icon { flex: none; color: var(--text-500); }
+.adm-palette__label { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-palette__label mark { background: transparent; color: var(--accent); font-weight: 600; }
+.adm-palette__meta { flex: 1 1 auto; min-width: 0; font-size: 0.75rem; color: var(--text-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-palette__kind { flex: none; margin-left: auto; font-size: 0.6875rem; color: var(--text-500); }
+.adm-palette__empty { padding: 1rem; text-align: center; font-size: 0.875rem; color: var(--text-500); }
+
+/* Réglage atteint par la recherche : contour 1,5 s (statique si mouvement réduit). */
+.adm-flash { outline: 2px solid var(--accent-ring); outline-offset: 2px; border-radius: var(--radius-md); animation: adm-flash 1.5s ease-out; }
+@keyframes adm-flash { 0%, 60% { outline-color: var(--accent-ring); } 100% { outline-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { .adm-flash { animation: none; } .adm-palette-backdrop { animation: none; } }
+
+/* Tiroir d'objet (connecteur…) : panneau à droite, son propre
+   Enregistrer. Remplace la carte imbriquée dans la carte. */
+.adm-drawer-backdrop {
+    position: fixed; inset: 0; z-index: 6000;
+    background: rgba(15, 23, 42, .35);
+    display: flex; justify-content: flex-end;
+    animation: adm-fade .16s ease-out;
+}
+.adm-drawer {
+    width: min(28rem, 100vw); height: 100%;
+    display: flex; flex-direction: column;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    box-shadow: -8px 0 24px rgba(15, 23, 42, .12);
+    animation: adm-drawer-in .22s cubic-bezier(.22, 1, .36, 1);
+    outline: none;
+}
+.adm-drawer__head {
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--border-soft);
+}
+.adm-drawer__title { font-size: 0.9375rem; font-weight: 600; color: var(--text-900); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-drawer__body { flex: 1 1 auto; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+.adm-drawer__foot {
+    display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--border-soft);
+}
+@keyframes adm-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes adm-drawer-in { from { transform: translateX(1.5rem); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+    .adm-drawer-backdrop, .adm-drawer { animation: adm-fade .01s linear; }
+}
+
+
+/* Zone sensible : dernier bloc d'une page, actions destructrices ou
+   perturbatrices (restauration, purge, redémarrage). Bordure pleine en
+   teinte danger — pas de liseré latéral. */
+.adm-zone { border-color: var(--danger-border); }
+.adm-zone > .adm-card__head { border-bottom-color: var(--danger-border-soft); }
+.adm-zone .adm-card__icon,
+.adm-zone .adm-card__title { color: var(--danger-text); }
+
+/* Supervision › Métriques (refonte 2026-09-27) : barre = période + « ⋯ ». */
+.adm-dash { display: flex; flex-direction: column; gap: 1.25rem; }
+.adm-dash__bar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.adm-dash__menu { width: 20rem; }
+.adm-menu__go { margin-left: auto; font-size: 0.75rem; }
+.adm-pop__back {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    margin: -0.25rem -0.375rem; padding: 0.25rem 0.375rem;
+    border-radius: var(--radius-sm);
+    font: inherit; color: var(--text-700); cursor: pointer;
+}
+.adm-pop__back:hover { background: var(--surface-3); color: var(--text-900); }
+.adm-dash__rate {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    padding: 0.25rem 0.375rem 0.25rem 0.625rem;
+    font-size: 0.8125rem; color: var(--text-700);
+}
+.adm-dash__exports {
+    display: grid; grid-template-columns: 1fr auto; align-items: center;
+    gap: 0.5rem 0.75rem; padding: 0.625rem 0.75rem;
+    font-size: 0.8125rem; color: var(--text-700);
+}
+
+/* Indicateurs : un groupe par ligne, libellé à gauche, tuiles à droite. */
+.adm-kpis { display: flex; flex-direction: column; gap: 0.75rem; }
+.adm-kpis__group {
+    display: grid; grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: 1rem; align-items: start;
+}
+.adm-kpis__label {
+    padding-top: 0.875rem;
+    font-size: 0.8125rem; font-weight: 600; color: var(--text-700);
+}
+.adm-kpis__grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    gap: 0.75rem;
+}
+@media (max-width: 48rem) {
+    .adm-kpis__group { grid-template-columns: minmax(0, 1fr); gap: 0.375rem; }
+    .adm-kpis__label { padding-top: 0; }
+}
+
+/* Carte KPI. */
+.adm-kpi {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    padding: 0.875rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+}
+/* Icône monochrome : la teinte ne sert qu'à signaler une anomalie
+   (``state`` posé par le serveur), jamais à décorer. */
+.adm-kpi__icon {
+    width: 2.5rem; height: 2.5rem; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-lg);
+    font-size: 1.125rem;
+    background: var(--surface-2); color: var(--text-500);
+}
+.adm-kpi--warn { border-color: var(--warn-border); }
+.adm-kpi--warn .adm-kpi__icon { background: var(--warn-surface); color: var(--warn-text-strong); }
+.adm-kpi--danger { border-color: var(--danger-border); }
+.adm-kpi--danger .adm-kpi__icon { background: var(--danger-surface); color: var(--danger-text); }
+.adm-kpi--danger .adm-kpi__value { color: var(--danger-text); }
+.adm-kpi__title {
+    font-size: 0.75rem; font-weight: 500; color: var(--text-600);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.adm-kpi__value {
+    font-size: 1.375rem; font-weight: 700; line-height: 1.75rem;
+    color: var(--text-900);
+}
+/* 12 px et --text-500 : --text-400 sur surface claire tombait à 2,6:1. */
+.adm-kpi__unit { font-size: 0.75rem; color: var(--text-500); }
+.adm-kpi__detail {
+    margin-top: 0.25rem;
+    font-size: 0.75rem; line-height: 1rem; color: var(--text-500);
+}
+
+/* Tableau de widget (pics par utilisateur…). */
+.adm-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+/* En-têtes en casse normale : les micro-majuscules espacées sont une
+   anti-référence de la charte (PRODUCT.md). */
+.adm-table th {
+    padding: 0.375rem 0.625rem;
+    text-align: left;
+    font-size: 0.75rem; font-weight: 600;
+    color: var(--text-500);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+.adm-table td {
+    padding: 0.4375rem 0.625rem;
+    color: var(--text-700);
+    border-bottom: 1px solid var(--border-soft);
+    white-space: nowrap;
+}
+.adm-table tbody tr:last-child td { border-bottom: 0; }
+.adm-table tbody tr:hover td { background: var(--surface-2); }
+
+/* Texte secondaire dans un tableau (identifiants, horodatages). */
+.adm-muted { color: var(--text-500); }
+/* En-tête de tableau collant (listes longues : échecs d'outils, audit). */
+.adm-thead--sticky th {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--surface-2);
+}
+
+/* Statistique compacte (rapport quotidien, en-têtes de la page Outils). */
+.adm-stat {
+    padding: 0.5rem 0.75rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+}
+.adm-stat__label {
+    font-size: 0.6875rem; color: var(--text-500);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.adm-stat__value {
+    margin-top: 0.125rem;
+    font-size: 1.0625rem; font-weight: 600; color: var(--text-900);
+}
+.adm-stat--danger .adm-stat__value { color: var(--danger-text); }
+.adm-stat--warn .adm-stat__value { color: var(--warn-text, #b45309); }
+
+/* Valeur technique copiable (URL de scrape, jeton). */
+.adm-code {
+    display: block;
+    padding: 0.375rem 0.5rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-md);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.6875rem;
+    color: var(--text-700);
+}
+
+/* ================================================================
+ *  COMPOSANTS PAGE SKILLS  (.skl-*)
+ * ================================================================
+ *  Même règle que .set-* : la GÉOMÉTRIE et les couleurs NEUTRES passent
+ *  par les tokens (skins + mode sombre gratuits) ; les couleurs d'ACCENT
+ *  (primaire bleu) restent des utilitaires Tailwind sur le markup
+ *  (``bg-blue-600 text-white hover:bg-blue-700``) pour que les skins
+ *  continuent de les remapper.
+ * ================================================================ */
+
+/* Bouton h-8 (convention header Studio) — base neutre, tous les états. */
+.skl-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;              /* gap-1.5 */
+    height: 2rem;               /* h-8 */
+    padding: 0 0.75rem;         /* px-3 */
+    font-size: 0.75rem;         /* text-xs */
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    white-space: nowrap;
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.skl-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-500) 35%, transparent); }
+.skl-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* Variante icône seule (carré 32px) — évite le bras de fer de spécificité
+   avec les utilitaires w-8/px-0 injectés par le CDN runtime. */
+.skl-btn--icon { width: 2rem; padding: 0; }
+.skl-btn--secondary { background: var(--surface-3); color: var(--text-700); }
+.skl-btn--secondary:hover:not(:disabled) { background: var(--surface-4); }
+.skl-btn--ghost { background: transparent; color: var(--text-500); }
+.skl-btn--ghost:hover:not(:disabled) { background: var(--surface-3); color: var(--text-700); }
+/* Danger — même recette que .elpis-error-btn (tokens --danger-*). */
+.skl-btn--danger {
+    background: var(--surface);
+    color: var(--danger-text);
+    border: 1px solid var(--danger-border);
+}
+.skl-btn--danger:hover:not(:disabled) { background: var(--danger-surface); }
+
+/* Badge de portée (perso/global) — neutre ; learned = ambre, la SEULE couleur
+   de statut méritée ici (« en attente de promotion »). */
+.skl-badge {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 3px 6px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-3);
+    color: var(--text-600);
+}
+.skl-badge--learned { background: var(--warn-surface-2); color: var(--warn-text-strong); }
+
+/* Squelette de chargement — STATIQUE (registre calme, reduced-motion-proof). */
+.skl-skeleton { background: var(--surface-3); border-radius: var(--radius-sm); }
+
+/* Encart markdown du détail : neutralise les marges de bord du contenu rendu
+   (h1 first-child garde sinon son margin-top de 1.5em DANS l'encart). Scopé
+   .skl-md pour ne pas toucher au rendu des messages du chat. */
+.skl-md > :first-child { margin-top: 0; }
+.skl-md > :last-child  { margin-bottom: 0; }
+
+/* Rangée du menu Importer — hover ET focus clavier (l'input file est en
+   sr-only DANS la rangée : :focus-within éclaire la ligne au Tab). */
+.skl-menu-item { transition: background-color .15s ease; }
+.skl-menu-item:hover,
+.skl-menu-item:focus-within { background: var(--surface-3); }
+
+/* ================================================================
+ * Sous-agents (outil `task`) — lignes PERSISTANTES sous le thinking
+ *   Une ligne calme par agent : branche « └─ » vers l'agent principal,
+ *   icône d'ÉTAT (spinner en cours / check / warning — pas de mascotte),
+ *   nom de l'agent, compteur de tokens live, étape x/N puis bilan.
+ *   La ligne EST le statut live (aucune pill « task » en doublon).
+ * ================================================================ */
+.task-runs { margin: 0.25rem 0 0.5rem; }
+.task-run {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.15rem 0;
+    /* 680px : les libellés passent à 5-6 mots (UX 2026-07-24) — l'ellipse
+       du titre reste le garde-fou au-delà. */
+    max-width: min(680px, 88vw);
+    font-size: 13px;
+    color: var(--text-600);
+    user-select: none;
+}
+/* Branche « └─ » : le connecteur visuel vers l'agent principal (au-dessus). */
+.task-branch {
+    flex: none;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 13px;
+    line-height: 1;
+    color: var(--text-400);
+    transform: translateY(-1px);
+}
+/* Icône d'état : la couleur porte l'état (accent = en cours, vert = fini,
+   rouge = échec/timeout) — sémantique seulement, jamais décorative. */
+.task-run-ico { flex: none; font-size: 14px; }
+.task-run-ico.is-running { color: var(--accent); }
+.task-run-ico.is-done    { color: var(--ok-text); }
+.task-run-ico.is-error   { color: var(--danger-text); }
+.task-run-title {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--text-700);
+}
+/* Compteur de tokens : discret, accentué pendant qu'il monte en direct. */
+.task-run-tokens {
+    flex: none;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 11.5px;
+    color: var(--text-500);
+    padding: 0.05rem 0.35rem;
+    border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+}
+.task-run-tokens.is-live {
+    color: var(--accent-text);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.task-run-meta {
+    flex: none;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 11.5px;
+    color: var(--text-500);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.task-run-meta.is-error { color: var(--danger-text); }
+/* Arrêt de CET agent : bouton discret, visible pendant le run (affordance de
+   contrôle, pas de hover-reveal — découvrabilité d'abord). */
+.task-run-cancel {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: 0.15rem;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-400);
+    cursor: pointer;
+    font-size: 11px;
+    transition: color .15s ease, background-color .15s ease;
+}
+.task-run-cancel:hover,
+.task-run-cancel:focus-visible {
+    color: var(--danger-text);
+    background: color-mix(in srgb, var(--danger-text) 10%, transparent);
+}
+/* Œil « déroulé de l'agent » (UX 2026-07-24) : même gabarit que le ✕,
+   hover accent (consultation, pas destruction). Ouvre la modale transcript. */
+.task-run-eye {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: 0.15rem;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-400);
+    cursor: pointer;
+    font-size: 12px;
+    transition: color .15s ease, background-color .15s ease;
+}
+.task-run-eye:hover,
+.task-run-eye:focus-visible {
+    color: var(--accent-text);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* ================================================================
+ *  TOASTS / SURLIGNAGE / RÔLES — classes token-drivées (correctif skins)
+ * ================================================================ */
+/* Toast : surface inversée stable (un toast flotte au-dessus de tout, il
+   ne suit pas la surface locale). Les skins peuvent redéfinir --toast-*. */
+.elpis-toast        { background-color: var(--toast-bg); color: var(--toast-fg); }
+.elpis-toast--error { background-color: var(--toast-error-bg); color: var(--toast-error-fg); }
+/* Surlignage des occurrences de la recherche in-chat (balises <mark>). */
+.elpis-search-hl { background-color: var(--hl-bg); color: var(--hl-fg); }
+/* Rôle admin — texte seul (ligne de rôle) ou badge complet. */
+.elpis-role-admin       { color: var(--role-admin-text); }
+.elpis-role-admin-badge {
+    background-color: var(--role-admin-surface);
+    color: var(--role-admin-text);
+    border: 1px solid var(--role-admin-border);
+}
+
+/* ================================================================
+ *  ONGLETS DU PANNEAU TERMINAL — style navigateur (trapèze)
+ * ================================================================
+ *  L'onglet ACTIF fusionne avec la surface du terminal : coins hauts
+ *  arrondis, pas de bord bas, et deux raccords à rayon INVERSÉ qui
+ *  relient le pied de l'onglet au plan du terminal (la technique des
+ *  onglets Chrome / VS Code). Les raccords sont des pseudo-éléments
+ *  masqués par un radial-gradient — pas d'image, pas de SVG, et ça suit
+ *  automatiquement la couleur de surface.
+ *
+ *  Pourquoi une classe CSS et pas du Tailwind inline : les rayons
+ *  inversés exigent ::before/::after + mask, que les classes utilitaires
+ *  ne savent pas exprimer.
+ *
+ *  --term-surface est redéfinissable par un skin ; la valeur par défaut
+ *  reprend le fond du panneau terminal (bg-[#1e1e1e] dans editor.html).
+ * ================================================================ */
+:root {
+    --term-surface:      #1e1e1e;   /* plan du terminal (= bg du panneau) */
+    --term-strip-bg:     #141414;   /* barre d'onglets, EN RETRAIT du plan */
+    --term-tab-radius:   9px;
+    --term-tab-idle:     rgba(255, 255, 255, 0.045);
+    --term-tab-idle-hov: rgba(255, 255, 255, 0.09);
+}
+
+/* ⚠ La barre doit être plus SOMBRE que la surface du terminal : c'est le
+   contraste barre↔surface qui dessine l'onglet actif. Si les deux sont de la
+   même couleur (le cas au premier jet), l'onglet actif se fond dans le fond et
+   la forme d'onglet devient littéralement invisible — seuls les onglets
+   INACTIFS se voient, ce qui inverse la lecture. */
+.term-tabstrip {
+    position: relative;
+    background: var(--term-strip-bg);
+}
+
+.term-tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+    max-width: 190px;
+    padding: 0.28rem 0.6rem 0.3rem;
+    border-radius: var(--term-tab-radius) var(--term-tab-radius) 0 0;
+    font-size: 11.5px;
+    line-height: 1.25;
+    color: var(--text-400, #94a3b8);
+    background: transparent;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color .14s ease, color .14s ease;
+}
+
+/* Onglet INACTIF : légèrement enfoncé, séparateur discret à droite. */
+.term-tab:not(.is-active) {
+    background: var(--term-tab-idle);
+    margin-bottom: 1px;              /* laisse voir la ligne de fuite */
+}
+.term-tab:not(.is-active):hover {
+    background: var(--term-tab-idle-hov);
+    color: #e2e8f0;
+}
+
+/* Onglet ACTIF : même plan que le terminal, donc pas de bord bas. */
+.term-tab.is-active {
+    background: var(--term-surface);
+    color: #ffffff;
+    z-index: 2;
+}
+
+/* Les deux raccords à rayon inversé (gauche / droite) de l'onglet actif.
+   Chaque pseudo-élément est un carré de la couleur de surface dans lequel
+   on découpe un quart de disque : le vide obtenu forme la courbe rentrante. */
+.term-tab.is-active::before,
+.term-tab.is-active::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    width: var(--term-tab-radius);
+    height: var(--term-tab-radius);
+    background: var(--term-surface);
+    pointer-events: none;
+}
+.term-tab.is-active::before {
+    left: calc(-1 * var(--term-tab-radius));
+    -webkit-mask: radial-gradient(circle var(--term-tab-radius) at 0 0,
+                                  transparent 0 var(--term-tab-radius), #000 0);
+            mask: radial-gradient(circle var(--term-tab-radius) at 0 0,
+                                  transparent 0 var(--term-tab-radius), #000 0);
+}
+.term-tab.is-active::after {
+    right: calc(-1 * var(--term-tab-radius));
+    -webkit-mask: radial-gradient(circle var(--term-tab-radius) at 100% 0,
+                                  transparent 0 var(--term-tab-radius), #000 0);
+            mask: radial-gradient(circle var(--term-tab-radius) at 100% 0,
+                                  transparent 0 var(--term-tab-radius), #000 0);
+}
+
+/* Pastille d'état de connexion. Sans elle, un onglet dont le shell est mort
+   depuis des jours (les lignes de session vivent 7 jours) était visuellement
+   identique à un shell vivant. */
+.term-tab-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+    background: var(--text-400, #64748b);
+}
+.term-tab-dot.is-open         { background: #34d399; }                        /* connecté */
+.term-tab-dot.is-connecting,
+.term-tab-dot.is-reconnecting { background: #fbbf24; animation: term-dot-pulse 1.1s ease-in-out infinite; }
+.term-tab-dot.is-closed       { background: #f87171; }                        /* coupé */
+.term-tab-dot.is-idle         { background: transparent; box-shadow: inset 0 0 0 1px rgba(148,163,184,.55); }
+
+@keyframes term-dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) {
+    .term-tab-dot.is-connecting,
+    .term-tab-dot.is-reconnecting { animation: none; }
+}
+
+/* Bouton « fermer » de l'onglet — n'apparaît qu'au survol ou sur l'actif. */
+.term-tab-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-left: 0.1rem;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-400, #64748b);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .14s ease, background-color .14s ease, color .14s ease;
+}
+.term-tab:hover .term-tab-close,
+.term-tab.is-active .term-tab-close,
+.term-tab-close:focus-visible { opacity: 1; }
+.term-tab-close:hover {
+    background: rgba(248, 113, 113, 0.16);
+    color: #fca5a5;
+}
+
+/* ── Caret de streaming (AUDIT 2026-08-31) ──────────────────────────────
+ * Injecté DANS le dernier bloc rendu du message en cours (app-chat.js,
+ * _injectCaret) : un span frère d'un élément de bloc tomberait dans une
+ * boîte anonyme une ligne SOUS le texte (+1em de marge de paragraphe).
+ * Reprend le visuel historique w-1.5/h-4/bg-blue-500/animate-pulse, sur le
+ * token d'accent. */
+.elpis-stream-caret {
+  display: inline-block;
+  width: 0.375rem;
+  height: 1rem;
+  margin-left: 2px;
+  border-radius: 2px;
+  background: var(--accent-500, #3b82f6);
+  vertical-align: text-bottom;
+  animation: elpis-caret-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes elpis-caret-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .elpis-stream-caret { animation: none; }
+}
+
+/* =========================================================================
+   MODE SOMBRE — ZONES NON COUVERTES (audit 2026-09-07)
+   -------------------------------------------------------------------------
+   Trois familles de trous relevées par l'audit, toutes avec le même symptôme :
+   « certains éléments restent clairs en mode sombre ».
+
+     1. des surfaces peintes en dur hors de tout token (damier SVG, canevas de
+        capture, contrôles posés sur une image) ;
+     2. des VARIANTES d'utilitaires Tailwind absentes des remaps — une opacité
+        (`bg-blue-50/40`), un état (`hover:`, `focus:`, `focus-within:`) ou une
+        nuance (`-100` en hover) suffit à échapper au remap de la classe nue ;
+     3. des textes en nuances 800/900, et des teintes sans famille sémantique.
+
+   Doctrine du fichier respectée : quand une famille sémantique existe
+   (accent / ok / warn / danger), on passe par le TOKEN — la règle vaut alors
+   dans les deux modes ET suit les skins. Les teintes purement décoratives
+   (indigo, violet, rose, sky…) n'ont pas de token : elles sont remappées sous
+   `body.elpis-dark-surface`, comme leurs voisines déjà présentes.
+   ========================================================================= */
+
+/* ── 1. Surfaces peintes en dur ─────────────────────────────────────────── */
+
+/* Damier de transparence des aperçus SVG. Était en #f1f5f9 EN DUR dans le JS
+   (_rendering.js) : une dalle claire sous chaque illustration en sombre. */
+.svg-canvas {
+    background-image:
+        linear-gradient(45deg, var(--surface-3) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--surface-3) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--surface-3) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--surface-3) 75%);
+    background-size: 14px 14px;
+    background-position: 0 0, 0 7px, 7px -7px, -7px 0px;
+}
+
+/* Canevas d'une capture web (fond visible pendant le chargement et autour
+   d'une image plus étroite). Remplace `from-slate-100 to-slate-200` : aucun
+   bridge ne couvre les dégradés Tailwind (`--tw-gradient-*`), le fond restait
+   donc gris CLAIR en plein chat sombre. */
+.elpis-media-canvas {
+    background-image: linear-gradient(to bottom right, var(--surface-3), var(--surface-4));
+}
+
+/* Contrôles POSÉS SUR UNE IMAGE (flèches, pastilles de pagination, boutons
+   glass de la visionneuse). Ils doivent rester BLANCS dans les deux modes :
+   ils se lisent contre la photo, pas contre la surface de l'app. Le bridge
+   `bg-white → --surface` les faisait disparaître sur la pastille noire. */
+.elpis-on-media .bg-white            { background-color: #ffffff; }
+.elpis-on-media .bg-white\/80        { background-color: rgba(255, 255, 255, 0.80); }
+.elpis-on-media .bg-white\/70        { background-color: rgba(255, 255, 255, 0.70); }
+.elpis-on-media .bg-white\/50        { background-color: rgba(255, 255, 255, 0.50); }
+.elpis-on-media .bg-white\/20        { background-color: rgba(255, 255, 255, 0.20); }
+.elpis-on-media .hover\:bg-white:hover     { background-color: #ffffff; }
+.elpis-on-media .hover\:bg-white\/80:hover { background-color: rgba(255, 255, 255, 0.80); }
+.elpis-on-media .hover\:bg-white\/30:hover { background-color: rgba(255, 255, 255, 0.30); }
+.elpis-on-media .text-slate-700      { color: #334155; }
+
+/* ── 2. Variantes d'opacité et d'état absentes des remaps ───────────────── */
+
+/* Fonds translucides : mêmes valeurs que leurs voisines déjà remappées. */
+body.elpis-dark-surface .bg-white\/50            { background-color: rgba(30, 30, 30, 0.50); }
+body.elpis-dark-surface .bg-white\/20            { background-color: rgba(255, 255, 255, 0.06); }
+body.elpis-dark-surface .hover\:bg-white\/30:hover { background-color: rgba(255, 255, 255, 0.10); }
+body.elpis-dark-surface .bg-slate-50\/70         { background-color: rgba(37, 37, 38, 0.70); }
+body.elpis-dark-surface .bg-blue-50\/40          { background-color: rgba(59, 130, 246, 0.10); }
+body.elpis-dark-surface .bg-blue-50\/50          { background-color: rgba(59, 130, 246, 0.12); }
+body.elpis-dark-surface .bg-amber-50\/60         { background-color: rgba(245, 158, 11, 0.12); }
+
+/* Bordures translucides (le panneau d'échantillonnage en pose 11). */
+body.elpis-dark-surface .border-slate-200\/70    { border-color: rgba(255, 255, 255, 0.08); }
+body.elpis-dark-surface .border-slate-200\/80    { border-color: rgba(255, 255, 255, 0.10); }
+body.elpis-dark-surface .border-amber-200\/60    { border-color: rgba(245, 158, 11, 0.28); }
+body.elpis-dark-surface .border-amber-200\/70    { border-color: rgba(245, 158, 11, 0.32); }
+body.elpis-dark-surface .border-amber-300\/60    { border-color: rgba(245, 158, 11, 0.36); }
+body.elpis-dark-surface .border-emerald-100      { border-color: rgba(16, 185, 129, 0.22); }
+body.elpis-dark-surface .border-red-300          { border-color: rgba(239, 68, 68, 0.45); }
+
+/* Hovers en nuance 100/200 : seules les -50 étaient remappées. */
+body.elpis-dark-surface .hover\:bg-blue-100:hover     { background-color: rgba(59, 130, 246, 0.22); }
+body.elpis-dark-surface .hover\:bg-red-100:hover      { background-color: rgba(239, 68, 68, 0.22); }
+body.elpis-dark-surface .hover\:bg-red-200:hover      { background-color: rgba(239, 68, 68, 0.30); }
+body.elpis-dark-surface .hover\:bg-amber-100:hover    { background-color: rgba(245, 158, 11, 0.22); }
+body.elpis-dark-surface .hover\:bg-emerald-100:hover  { background-color: rgba(16, 185, 129, 0.22); }
+body.elpis-dark-surface .hover\:bg-violet-100:hover   { background-color: rgba(139, 92, 246, 0.22); }
+body.elpis-dark-surface .hover\:bg-slate-100\/70:hover { background-color: rgba(255, 255, 255, 0.06); }
+body.elpis-dark-surface .hover\:bg-slate-100\/80:hover { background-color: rgba(255, 255, 255, 0.07); }
+body.elpis-dark-surface .hover\:bg-slate-200\/60:hover { background-color: rgba(255, 255, 255, 0.09); }
+body.elpis-dark-surface .hover\:border-blue-100:hover  { border-color: rgba(59, 130, 246, 0.35); }
+
+/* États focus : la variante `focus:` / `focus-within:` échappait aux remaps. */
+body.elpis-dark-surface .focus\:bg-red-50:focus                 { background-color: rgba(239, 68, 68, 0.18); }
+body.elpis-dark-surface .focus-within\:border-slate-300:focus-within { border-color: rgba(255, 255, 255, 0.20); }
+
+/* Anneaux (`ring-*`) : aucun n'était couvert — bord clair net autour des
+   modales, des cartes et des champs en mode sombre. */
+body.elpis-dark-surface .ring-slate-200      { --tw-ring-color: rgba(255, 255, 255, 0.10); }
+body.elpis-dark-surface .ring-slate-500      { --tw-ring-color: rgba(255, 255, 255, 0.22); }
+body.elpis-dark-surface .ring-slate-900\/5   { --tw-ring-color: rgba(255, 255, 255, 0.06); }
+body.elpis-dark-surface .ring-slate-900\/10  { --tw-ring-color: rgba(255, 255, 255, 0.10); }
+body.elpis-dark-surface .ring-blue-300       { --tw-ring-color: rgba(59, 130, 246, 0.45); }
+body.elpis-dark-surface .ring-red-400        { --tw-ring-color: rgba(239, 68, 68, 0.45); }
+
+/* Fonds de pastille sans famille sémantique. */
+body.elpis-dark-surface .bg-sky-50       { background-color: rgba(14, 165, 233, 0.15); }
+body.elpis-dark-surface .bg-lime-50      { background-color: rgba(132, 204, 22, 0.15); }
+body.elpis-dark-surface .bg-fuchsia-50   { background-color: rgba(217, 70, 239, 0.15); }
+body.elpis-dark-surface .bg-rose-100     { background-color: rgba(244, 63, 94, 0.18); }
+
+/* ── 3. Textes en nuances profondes ─────────────────────────────────────── */
+
+/* Familles SÉMANTIQUES → token : vaut dans les deux modes et suit les skins,
+   comme les nuances 600/700 déjà bridgées plus haut. Le bridge s'arrêtait à
+   700 ; les nuances 800/900 restaient donc en Tailwind cru, illisibles sur
+   fond sombre. */
+body .text-blue-800      { color: var(--accent-text-strong); }
+body .text-blue-900      { color: var(--accent-text-strong); }
+body .text-emerald-800   { color: var(--ok-text-strong); }
+body .text-emerald-900   { color: var(--ok-text-strong); }
+body .text-amber-800     { color: var(--warn-text-strong); }
+body .text-amber-900     { color: var(--warn-text-strong); }
+body .text-red-800       { color: var(--danger-strong); }
+/* rose = famille destructive (conservée telle quelle par le skin llamacpp). */
+body .text-rose-600      { color: var(--danger-text); }
+body .text-rose-700      { color: var(--danger-strong); }
+body .text-rose-800      { color: var(--danger-strong); }
+body .text-rose-900      { color: var(--danger-strong); }
+
+/* Hovers qui plongeaient vers une nuance encore plus foncée. */
+body .hover\:text-blue-800:hover    { color: var(--accent-text-strong); }
+body .hover\:text-amber-800:hover   { color: var(--warn-text-strong); }
+body .hover\:text-amber-900:hover   { color: var(--warn-text-strong); }
+body .hover\:text-green-700:hover   { color: var(--ok-text-strong); }
+body .hover\:text-red-700:hover     { color: var(--danger-strong); }
+
+/* Teintes DÉCORATIVES sans famille sémantique : remap sombre seulement
+   (en clair, les valeurs Tailwind sont justes). */
+body.elpis-dark-surface .text-violet-600      { color: #c4b5fd; }
+body.elpis-dark-surface .text-violet-700      { color: #c4b5fd; }
+body.elpis-dark-surface .hover\:text-orange-800:hover { color: #fdba74; }
+
+/* ── 4. Écran de secours (avant que Vue ne monte) ───────────────────────── *
+ * `#vue-error-overlay` est peint avant que la moindre classe de thème soit
+ * posée sur `<body>` : il ne peut pas passer par les tokens. On lui donne au
+ * moins une variante qui suit la préférence système, pour ne pas jeter une
+ * page blanche à la figure d'un utilisateur en mode sombre. */
+@media (prefers-color-scheme: dark) {
+    #vue-error-overlay          { background: #16181d !important; }
+    #vue-error-overlay .box     { background: #1e1e1e !important; color: #e2e8f0 !important; }
+    #vue-error-overlay .tip     { color: #94a3b8 !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ÉDITEUR — PASSE UX 2026-09-19 (docs/editeur-ux-design-2026-09-19.md)
+   Classes propres (pas d'utilitaire Tailwind composé : la feuille
+   Tailwind est précompilée). Variantes « éditeur clair » en fin de bloc.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Marge Git : ajout / modification / suppression par rapport à HEAD. */
+.elpis-scm-added,
+.elpis-scm-modified {
+    width: 3px !important;
+    margin-left: 1px;
+}
+.elpis-scm-added    { background: #3fb950; }
+.elpis-scm-modified { background: #388bfd; }
+.elpis-scm-deleted {
+    width: 0 !important;
+    height: 0 !important;
+    margin-left: 1px;
+    border-left: 5px solid #f85149;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    transform: translateY(-4px);
+}
+
+/* Onglet survolé pendant un glisser (réordonner). */
+.elpis-tab-drop { box-shadow: inset 2px 0 0 #3b82f6; }
+
+/* Onglets de l'éditeur (2026-09-20) : largeur du NOM. Le plafond de 180 px
+   coupait l'extension et le suffixe (« test_editeur_ux_rou… ») alors que la
+   barre défile et que le badge « +N » liste les onglets cachés. Plafond de
+   sécurité à 360 px : au-delà, coupure au MILIEU — la tête porte l'ellipse,
+   la queue (extension + quelques caractères, cf. tabLabelParts) reste
+   entière. L'indice de dossier des homonymes n'est plus dans le texte coupé.
+   Épinglé : compact (un repère, pas un nom à lire). */
+/* flex-shrink 0 : sans lui, la barre pleine compressait chaque onglet à sa
+   largeur minimale (c'était le mécanisme de la troncature). */
+.elpis-editor-tab { flex: 0 0 auto; min-width: 100px; max-width: 360px; }
+.elpis-editor-tab.is-pinned { min-width: 70px; max-width: 150px; }
+.elpis-editor-tab-label { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; margin-right: 0.5rem; }
+.elpis-editor-tab-head { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.elpis-editor-tab-tail { flex: 0 0 auto; white-space: nowrap; }
+.elpis-editor-tab-hint { flex: 0 0 auto; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 0.375rem; }
+
+/* Barre de protection sous le fil d'Ariane (conflit disque, copie de
+   secours de l'assistant, proposition IA) — dans le flux, elle ne masque
+   aucune ligne de code. */
+.elpis-editor-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2rem;
+    padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+    background: rgb(245 158 11 / 0.12);
+    border-bottom: 1px solid rgb(245 158 11 / 0.28);
+    color: #fde68a;
+    font-size: 11.5px;
+    white-space: nowrap;
+}
+.elpis-editor-banner--ai {
+    background: rgb(59 130 246 / 0.14);
+    border-bottom-color: rgb(59 130 246 / 0.32);
+    color: #bfdbfe;
+}
+.elpis-banner-btn {
+    flex-shrink: 0;
+    padding: 0.15rem 0.55rem;
+    border-radius: 0.4rem;
+    background: rgb(255 255 255 / 0.08);
+    color: #e2e8f0;
+    font-weight: 600;
+    transition: background-color 120ms;
+}
+.elpis-banner-btn:hover { background: rgb(255 255 255 / 0.16); }
+.elpis-banner-btn--primary { background: #2563eb; color: #fff; }
+.elpis-banner-btn--primary:hover { background: #3b82f6; }
+.elpis-banner-x {
+    flex-shrink: 0;
+    width: 1.35rem;
+    height: 1.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.35rem;
+    color: #94a3b8;
+}
+.elpis-banner-x:hover { color: #fff; background: rgb(255 255 255 / 0.1); }
+
+/* Occurrence surlignée dans les résultats de recherche. */
+mark.elpis-search-hit {
+    background: rgb(234 179 8 / 0.35);
+    color: #fde68a;
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+/* Arbre : fichier actif, statut Git (couleurs de VS Code). */
+.elpis-tree-active { box-shadow: inset 2px 0 0 #3b82f6; }
+.elpis-git-m { color: #e2c08d !important; }
+.elpis-git-u { color: #73c991 !important; }
+.elpis-git-c { color: #f14c4c !important; }
+.elpis-git-d { color: #c74e39 !important; }
+
+/* Aperçu SVG à côté du code : damier clair (transparence visible). */
+.elpis-svg-checker {
+    background-color: #f8fafc;
+    background-image:
+        linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+        linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+        linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+/* Chat : chemin de fichier cliquable (ouvre l'éditeur à la ligne). */
+.markdown-body code.elpis-path-link { cursor: pointer; }
+.markdown-body code.elpis-path-link:hover {
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+}
+
+/* Éditeur en thème clair */
+.elpis-editor-light .elpis-editor-banner { background: #fffbeb; border-bottom-color: #fde68a; color: #92400e; }
+.elpis-editor-light .elpis-editor-banner--ai { background: #eff6ff; border-bottom-color: #bfdbfe; color: #1e40af; }
+.elpis-editor-light .elpis-banner-btn { background: #f1f5f9; color: #334155; }
+.elpis-editor-light .elpis-banner-btn:hover { background: #e2e8f0; }
+.elpis-editor-light .elpis-banner-btn--primary { background: #2563eb; color: #fff; }
+.elpis-editor-light .elpis-banner-x:hover { color: #0f172a; background: #f1f5f9; }
+.elpis-editor-light mark.elpis-search-hit { background: #fef08a; color: #713f12; }
+.elpis-editor-light .elpis-git-m { color: #9a6700 !important; }
+.elpis-editor-light .elpis-git-u { color: #1a7f37 !important; }
+
+/* Barre d'état étroite (éditeur à côté du chat) : les infos secondaires
+   cèdent la place d'abord — l'état « non sauvegardé » reste visible. */
+.elpis-statusbar { container-type: inline-size; }
+@container (max-width: 560px) { .elpis-sb-opt2 { display: none; } }
+@container (max-width: 470px) { .elpis-sb-opt { display: none; } }
+
+/* ================================================================
+ * CHAT — LIGNES D'EFFETS (2026-09-19) : mémoire
+ *   Écritures en mémoire, visibles dans le fil HORS du conteneur « Travail
+ *   de l'assistant » (les tâches vivent dans le chip de la barre de prompt,
+ *   2026-09-21). Registre calme (même gabarit que
+ *   les lignes de sous-agents) : icône + libellé au passé + extrait ; la
+ *   ligne mémoire se déplie (ajouté / retiré, Annuler, Gérer la mémoire).
+ *   Couleur = état seulement : rouge = échec, ambre = mémoire pleine.
+ * ================================================================ */
+.elpis-effects { margin: 0.25rem 0 0.5rem; display: flex; flex-direction: column; gap: 0.1rem; }
+.elpis-effect { max-width: min(680px, 88vw); font-size: 12.5px; color: var(--text-500); }
+.elpis-effect-head {
+    display: flex; align-items: center; gap: 0.4rem;
+    width: 100%; min-width: 0; padding: 0.1rem 0;
+    background: none; border: none; text-align: left;
+    color: inherit; font: inherit; cursor: pointer; user-select: none;
+}
+.elpis-effect-head:disabled { cursor: default; }
+.elpis-effect-head:not(:disabled):hover .elpis-effect-label { color: var(--text-700); }
+.elpis-effect-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.elpis-effect-ico { flex: none; font-size: 13px; color: var(--text-400); }
+.elpis-effect-label { flex: none; font-weight: 600; color: var(--text-600); white-space: nowrap; }
+.elpis-effect-store { flex: none; color: var(--text-400); white-space: nowrap; }
+.elpis-effect-title {
+    flex: 0 1 auto; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text-500);
+}
+.elpis-effect-tag {
+    flex: none; font-size: 11px; padding: 0 0.35rem; border-radius: 4px;
+    background: var(--surface-3); color: var(--text-500);
+}
+.elpis-effect-caret { flex: none; font-size: 9px; color: var(--text-300); transition: transform .15s ease; }
+.elpis-effect.is-open .elpis-effect-caret { transform: rotate(90deg); }
+.elpis-effect.is-error .elpis-effect-ico,
+.elpis-effect.is-error .elpis-effect-label { color: var(--danger-text); }
+.elpis-effect.is-full .elpis-effect-ico,
+.elpis-effect.is-full .elpis-effect-label { color: var(--warn-text); }
+.elpis-effect-body {
+    margin: 0.2rem 0 0.35rem 0.4rem; padding-left: 0.75rem;
+    border-left: 2px solid var(--border);
+    display: flex; flex-direction: column; gap: 0.25rem;
+}
+.elpis-effect-msg { margin: 0; color: var(--text-500); }
+.elpis-effect-msg.is-error { color: var(--danger-text); }
+.elpis-effect-entry {
+    padding: 0.3rem 0.55rem; border-radius: var(--radius-sm, 6px);
+    background: var(--surface-2); color: var(--text-700);
+    white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45;
+}
+.elpis-effect-entry.is-added { box-shadow: inset 2px 0 0 var(--ok-text); }
+.elpis-effect-entry.is-removed {
+    box-shadow: inset 2px 0 0 var(--danger-text);
+    color: var(--text-500); text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--danger-text) 60%, transparent);
+}
+.elpis-effect-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.elpis-effect-btn {
+    padding: 0.15rem 0.5rem; border-radius: 5px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-600); font-size: 12px; cursor: pointer;
+}
+.elpis-effect-btn:hover:not(:disabled) { background: var(--surface-3); color: var(--text-800); }
+.elpis-effect-btn:disabled { opacity: .55; cursor: default; }
+.elpis-effect-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Réglages → Mémoire : origine d'une note (date + chat qui l'a écrite). */
+.mem-origin { margin-top: 0.2rem; font-size: 11px; color: var(--text-400); }
+.mem-origin-link {
+    background: none; border: none; padding: 0; font: inherit; color: var(--text-500);
+    cursor: pointer; text-decoration: underline; text-decoration-style: dotted;
+    text-underline-offset: 2px;
+}
+.mem-origin-link:hover { color: var(--text-700); }
+.mem-origin-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
+
+/* ================================================================
+ *  CONSOLE › SYSTÈME › APPARENCE — éditeur de skin (2026-09-28)
+ * ================================================================
+ *  L'aperçu (.skn-prev) porte les jetons du skin édité en style
+ *  INLINE (frontend/js/admin/skins.js › skinPreviewStyle) : tout ce
+ *  qui suit ne lit que des var(), la page elle-même n'est pas touchée.
+ */
+.skn-ed { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1.25rem; padding: 1rem 1.25rem 1.25rem; }
+@media (max-width: 1100px) { .skn-ed { grid-template-columns: minmax(0, 1fr); } }
+.skn-ed__side { position: sticky; top: 1rem; align-self: start; }
+.skn-form { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 0.5rem 0.75rem; align-items: center; max-width: 36rem; }
+.skn-form__lbl { font-size: 0.75rem; font-weight: 500; color: var(--text-600); }
+.skn-toks { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.375rem 1rem; }
+.skn-tok { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.skn-tok__lbl { width: 5.5rem; flex: none; font-size: 0.75rem; color: var(--text-600); }
+.skn-tok__val { flex: 1 1 auto; min-width: 0; font-family: ui-monospace, monospace; font-size: 0.75rem; }
+.skn-color {
+    width: 1.75rem; height: 1.75rem; flex: none; padding: 0; cursor: pointer;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); background: none;
+}
+.skn-css textarea { width: 100%; }
+.skn-prev {
+    display: flex; min-height: 16rem; overflow: hidden;
+    border: 1px solid var(--border); border-radius: var(--radius-xl);
+    background: var(--app-bg); color: var(--text-900); font-size: 0.8125rem;
+}
+.skn-prev__rail {
+    width: 7.5rem; flex: none; display: flex; flex-direction: column; gap: 0.25rem;
+    padding: 0.75rem 0.5rem; background: var(--rail-bg); color: var(--rail-text);
+}
+.skn-prev__brand { font-weight: 600; padding: 0 0.5rem 0.5rem; color: var(--rail-text); }
+.skn-prev__item { padding: 0.3rem 0.5rem; border-radius: var(--radius-md); }
+.skn-prev__item--on { background: var(--rail-active-bg); font-weight: 600; }
+.skn-prev__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.625rem; padding: 0.875rem; }
+.skn-prev__word { font-family: Georgia, serif; font-weight: 700; letter-spacing: 0.08em; }
+.skn-prev__ink { color: var(--cl-ink, var(--text-900)); }
+.skn-prev__clay { color: var(--cl-clay, var(--accent)); }
+.skn-prev__mute { color: var(--cl-muted, var(--text-500)); font-weight: 400; letter-spacing: 0; font-size: 0.75rem; }
+.skn-prev__bubble {
+    align-self: flex-end; max-width: 80%; padding: 0.5rem 0.75rem;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-xl);
+}
+.skn-prev__card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 0.625rem 0.75rem; }
+.skn-prev__title { font-weight: 600; color: var(--text-900); }
+.skn-prev__sub { color: var(--text-700); }
+.skn-prev__muted { color: var(--text-500); font-size: 0.75rem; }
+.skn-prev__link { color: var(--prose-link); text-decoration: underline; }
+.skn-prev__chips { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.skn-prev__chip { padding: 0.05rem 0.5rem; border: 1px solid currentColor; border-radius: 9999px; font-size: 0.6875rem; font-weight: 600; }
+.skn-prev__chip--ok { color: var(--ok); }
+.skn-prev__chip--warn { color: var(--warn); }
+.skn-prev__chip--danger { color: var(--danger-text); }
+.skn-prev__btn {
+    align-self: flex-start; padding: 0.35rem 0.8rem; font-weight: 600;
+    background: var(--accent); color: var(--accent-fg); border-radius: var(--radius-md);
+}

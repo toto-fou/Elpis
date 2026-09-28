@@ -1,0 +1,15 @@
+# desktop-agent — Windows dependencies
+fastapi
+uvicorn[standard]
+Pillow
+mss
+# pyautogui est installé SANS ses dépendances (requirements-windows-nodeps.txt,
+# `pip install --no-deps`) : cela écarte mouseinfo et pymsgbox (GPL-3.0,
+# optionnels, jamais utilisés ici). Ses dépendances utiles sont listées ici :
+pyscreeze            # MIT
+pytweening           # MIT
+pygetwindow          # BSD-3-Clause
+pyrect               # BSD-3-Clause
+pyperclip            # BSD-3-Clause
+pywinauto            # UI Automation element tree + (fallback) input
+numpy                # elpis_auto : repli visuel (corrélation de vignette)

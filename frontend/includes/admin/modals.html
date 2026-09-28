@@ -1,0 +1,67 @@
+<!--
+  partials/admin/modals.html -- Admin-view-local modals (extracted from index.html)
+
+  Two small modals that logically belong to the admin view rather than
+  the global modal set:
+
+    * resetTarget       -- Password-reset prompt triggered from the users
+                          table's per-row "reset" action.
+    * showNewUserModal  -- New-user creation form (username, temporary
+                          password, role selector), triggered from the
+                          users tab toolbar.
+    * transferModal     -- Import/export progress (backup download, restore
+                          upload, metrics export). Règle UX 2026-07-19 : tout
+                          transfert de données admin passe par cette modale —
+                          progression in-app, jamais d'event navigateur
+                          (fetch/XHR + <a download> Blob, pas de window.open).
+
+  All sit at z-[6000] (same layer as model-props / MCP modals) and
+  stay scoped to the admin view DOM subtree.
+-->
+        <Transition name="modal">
+
+        <!-- (passe 6, F14/F15) — clic backdrop, Échap (cascade app.js), piège Tab
+             (data-a11y-modal), autofocus + Entrée : mêmes affordances que les
+             modales Git. -->
+        <div v-if="resetTarget" class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4" @click.self="resetTarget=null">
+            <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl border border-slate-200" role="dialog" aria-modal="true" aria-label="Modifier le mot de passe" tabindex="-1" data-a11y-modal>
+                <h3 class="font-bold mb-4 text-lg text-slate-800">Modifier <span class="text-blue-600">{{resetTarget.username}}</span></h3>
+                <input v-model="newPasswordInput" placeholder="Nouveau mot de passe" autofocus @keydown.enter="newPasswordInput && confirmReset()" class="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg mb-5 outline-none focus:ring-1 focus:ring-blue-500 font-medium text-sm text-slate-700 transition-colors">
+                <div class="flex justify-end gap-2">
+                    <button @click="resetTarget=null" class="adm-btn adm-btn--quiet">Annuler</button>
+                    <button @click="confirmReset" class="adm-btn adm-btn--primary">Appliquer</button>
+                </div>
+            </div>
+        </div>
+
+        </Transition>
+
+        <Transition name="modal">
+
+
+        <div v-if="showNewUserModal" class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4" @click.self="showNewUserModal=false">
+            <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl border border-slate-200" role="dialog" aria-modal="true" aria-label="Nouvel utilisateur" tabindex="-1" data-a11y-modal>
+                <h3 class="font-bold mb-4 text-lg text-slate-800 flex items-center gap-2"><i class="ph ph-user-plus text-blue-600"></i> Nouvel utilisateur</h3>
+                <input v-model="newUserForm.username" placeholder="Identifiant" autofocus @keydown.enter="$event.target.nextElementSibling?.focus()" class="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg mb-3 outline-none focus:ring-1 focus:ring-blue-500 font-medium text-sm text-slate-700">
+                <input v-model="newUserForm.password" placeholder="Mot de passe temporaire" type="text" @keydown.enter="newUserForm.username && newUserForm.password && createUserAdmin()" class="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg mb-3 outline-none focus:ring-1 focus:ring-blue-500 font-medium text-sm text-slate-700">
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Rôle</label>
+                    <select v-model="newUserForm.role" class="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg outline-none focus:ring-1 focus:ring-blue-500 font-medium text-sm text-slate-700">
+                        <option value="user">Utilisateur</option>
+                        <option value="moderator">Modérateur</option>
+                        <option value="admin">Administrateur</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button @click="showNewUserModal=false" class="adm-btn adm-btn--quiet">Annuler</button>
+                    <button @click="createUserAdmin" :disabled="!newUserForm.username || !newUserForm.password" class="adm-btn adm-btn--primary">Créer</button>
+                </div>
+            </div>
+        </div>
+
+
+        </Transition>
+
+        <!-- ═══ Modale de transfert : DÉPLACÉE au niveau global le 2026-07-21
+             (includes/modals/transfer.html). Incluse par index.html ET
+             admin.html. ═══ -->

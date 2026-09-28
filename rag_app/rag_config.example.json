@@ -1,0 +1,83 @@
+{
+  "state_file": "rag_state.json",
+  "qdrant_url": "http://127.0.0.1:6333",
+  "collection": "documents",
+  "embed_base_url": "http://127.0.0.1:8081",
+  "embed_model": "bge-m3",
+  "batch_embed": 32,
+  "allowed_ext": [
+    ".txt",
+    ".md",
+    ".pdf",
+    ".py",
+    ".json",
+    ".yml",
+    ".robot",
+    ".docx",
+    ".csv",
+    ".xlsx"
+  ],
+  "global_chunk_size": 1000,
+  "global_max_doc_length": 32000,
+  "global_chunk_overlap": 150,
+  "extension_rules": {
+    ".py": {
+      "method": "delimiter",
+      "value": "def"
+    }
+  },
+  "folder_rules": {},
+  "global_method": "delimiter",
+  "file_rules": {},
+  "global_value": "#",
+  "global_max_chunk_size": 512,
+  "reranker": {
+    "enabled": false,
+    "url": "",
+    "model": "bge-reranker-v2-m3",
+    "top_k_before": 30,
+    "top_k_after": 8,
+    "timeout": 10,
+    "api_key": "",
+    "min_score": 0
+  },
+  "sparse": {
+    "enabled": false,
+    "url": "",
+    "timeout": 30,
+    "prefetch_limit": 50
+  },
+  "contextual": {
+    "enabled": false,
+    "url": "",
+    "model": "",
+    "api_key": "",
+    "timeout": 30,
+    "max_doc_chars": 30000,
+    "max_tokens": 200,
+    "temperature": 0
+  },
+  "ocr": {
+    "enabled": false,
+    "host": "",
+    "port": 8083,
+    "endpoint_url": "",
+    "api_key": "",
+    "prompt": "",
+    "zone_prompt": "",
+    "default_model": "",
+    "timeout_sec": 180,
+    "max_tokens": 8192,
+    "max_side_px": 1280,
+    "max_upload_mb": 100,
+    "max_pages": 300,
+    "max_docs": 200,
+    "max_disk_mb": 8192,
+    "page_transition_ms": 800,
+    "store_dir": "OCR_STORE",
+    "collection": "ocr-documents",
+    "auto_index": true,
+    "state_file": "rag_ocr_state.json"
+  },
+  "chatbot_url": ""
+}

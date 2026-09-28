@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT
+# Configuration de Qdrant pour Elpis — copiée dans rag_app/qdrant/ par install.sh
+# si absente. Écoute locale uniquement : seul le service RAG l'interroge.
+log_level: INFO
+
+storage:
+  storage_path: ./storage
+  snapshots_path: ./storage/snapshots
+
+service:
+  host: 127.0.0.1
+  http_port: 6333
+  grpc_port: 6334
+  enable_cors: false
+
+cluster:
+  enabled: false
+
+telemetry_disabled: true

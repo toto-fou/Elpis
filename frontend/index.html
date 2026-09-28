@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elpis</title>
+    <!-- Icônes aux tailles RÉELLES d'affichage : elpis.png fait 500×500 pour
+         291 Ko, servi jusqu'ici en favicon 16 px et en avatar 32 px.
+         Dérivés régénérables en local (Pillow, déjà dans le venv) :
+           src.resize((n,n), LANCZOS).quantize(colors=256, method=FASTOCTREE)
+         Écart moyen mesuré face à l'original : < 2,2/255, imperceptible. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="static/elpis-32.png">
+    <link rel="apple-touch-icon" href="static/elpis-256.png">
+    <style>
+        [v-cloak] { display: none !important; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.2s, transform 0.2s; }
+        .tool-detail-enter-active, .tool-detail-leave-active { transition: opacity 0.15s ease, transform 0.15s ease, max-height 0.2s ease; max-height: 400px; overflow: hidden; }
+        .tool-detail-enter-from, .tool-detail-leave-to { opacity: 0; transform: translateY(-4px); max-height: 0; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(6px); }
+        /* Animations pre-content collapsible */
+        @keyframes pcSlideIn { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 300px; } }
+        .pc-details > .pc-body { overflow: hidden; }
+        .pc-details summary { transition: color 0.15s ease; }
+        /* Fallback : animation ouverture uniquement */
+        .pc-details[open] > .pc-body { animation: pcSlideIn 0.18s ease-out both; }
+        /* Progressive enhancement : ouverture ET fermeture animées (Chrome 131+, Firefox 131+) */
+        @supports (interpolate-size: allow-keywords) {
+            .pc-details { interpolate-size: allow-keywords; }
+            .pc-details[open] > .pc-body { animation: none; }
+            .pc-details::details-content {
+                height: 0; opacity: 0; overflow: clip;
+                transition: height 0.2s ease-out, opacity 0.15s ease-out, content-visibility 0.2s allow-discrete;
+            }
+            .pc-details[open]::details-content { height: auto; opacity: 1; }
+        }
+        #vue-error-overlay { display: none; position: fixed; inset: 0; z-index: 99999; background: #f8fafc; justify-content: center; align-items: center; font-family: system-ui, sans-serif; }
+        #vue-error-overlay.active { display: flex; }
+        #vue-error-overlay .box { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,.1); padding: 2rem; max-width: 560px; width: 90%; text-align: center; }
+        #vue-error-overlay h2 { font-size: 18px; font-weight: 700; color: #ef4444; margin-bottom: 12px; }
+        #vue-error-overlay pre { text-align: left; background: #1e293b; color: #e2e8f0; padding: 12px; border-radius: 8px; font-size: 12px; overflow: auto; max-height: 200px; margin-top: 12px; white-space: pre-wrap; word-break: break-all; }
+        #vue-error-overlay .tip { font-size: 13px; color: #64748b; margin-top: 16px; }
+        .editor-fullscreen { position: fixed !important; inset: 0 !important; z-index: 60 !important; width: 100% !important; border: none !important; }
+
+        /* -- File chips: forme de document avec coin plié, style épuré -- */
+        .file-chip {
+            clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+            position: relative;
+        }
+        /* Coin plié -- triangle discret en haut à droite */
+        .file-chip::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            /* ⚠ Tokens obligatoires : le CORPS du chip est bg-white, que le
+               bridge bascule en surface sombre — un triangle gris clair en
+               dur laissait un artefact clair sur chaque chip en mode sombre. */
+            background: var(--surface-3);
+            border-left: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .file-chip.file-chip-mention::before {
+            background: var(--accent-surface-2);
+            border-left-color: var(--accent-border);
+            border-bottom-color: var(--accent-border);
+        }
+    </style>
+    <script>
+        // ============================================================
+        //  SPLIT-MODE NAVIGATION BOOTSTRAP  (chat side)
+        // ============================================================
+        //  Mirror of the bootstrap script in admin.html. We seed
+        //  ``window.__ADMIN_APP_URL__`` *synchronously*, before any
+        //  module loads, so:
+        //   • The "Admin" button in the sidebar has a working URL even
+        //     before /api/public-config returns.
+        //   • The split-mode guard in app-auth.js login() / checkAuth()
+        //     can detect that we ARE in split mode and skip auto-opening
+        //     the legacy in-page admin overlay (the symptom: "à la
+        //     connexion la page admin pop alors qu'elle ne devrait plus").
+        //
+        //  Discovery order at runtime:
+        //   1. This bootstrap fallback (synchronous, always runs).
+        //   2. /api/public-config (async, overrides if backend has env
+        //      ADMIN_PUBLIC_URL set — and after our backend rewrites
+        //      "localhost" away when the client is remote, see
+        //      _rewrite_localhost_url in backend/routes/_legacy.py).
+        //
+        //  Strategy:
+        //   • If the chat is on a port we can confidently map to a peer
+        //     admin process (8001 → 8002), build the admin URL from the
+        //     current host plus the mapped port. Covers the default
+        //     ./elpis start layout out-of-the-box.
+        //   • Otherwise (port 80/443, custom port, no port at all) we
+        //     leave ``__ADMIN_APP_URL__`` UNSET on purpose. We can't tell
+        //     synchronously whether the deployment is split or full —
+        //     synthesizing ``<origin>/admin`` would break APP_MODE=full
+        //     installs (where /admin is 404) and proxy setups that don't
+        //     route /admin to an admin process. Without a synthesis here,
+        //     the chat falls back to the legacy in-page admin overlay
+        //     (full mode's intended behaviour) UNLESS /api/public-config
+        //     returns a valid ``admin_url`` from ADMIN_PUBLIC_URL — which
+        //     is exactly what split-mode deployments behind a reverse
+        //     proxy are expected to set. After the matching rewriter fix
+        //     in _rewrite_localhost_url, that env var is also robust to
+        //     being configured with "localhost" on a remote-accessed VM.
+        try {
+            const u = new URL(window.location.href);
+            if (u.port === '8001') {
+                window.__ADMIN_APP_URL__ = `${u.protocol}//${u.hostname}:8002/admin`;
+            }
+            // Custom non-default port → leave unset, env var must drive.
+        } catch(_) {
+            // Don't define the global at all on parse failure.
+        }
+    </script>
+    <script>
+        // Diagnostic: catch silent errors that prevent Vue from mounting
+        window.__vueErrors = [];
+        window.onerror = function(msg, src, line, col, err) {
+            window.__vueErrors.push({ msg: msg, src: src, line: line, err: err ? err.stack : '' });
+        };
+        window.addEventListener('unhandledrejection', function(e) {
+            window.__vueErrors.push({ msg: 'Promise: ' + (e.reason ? e.reason.message || e.reason : 'unknown'), err: e.reason ? e.reason.stack : '' });
+        });
+        // If Vue hasn't mounted after 4 seconds, show diagnostics
+        setTimeout(function() {
+            var app = document.getElementById('app');
+            if (app && app.hasAttribute('v-cloak')) {
+                var overlay = document.getElementById('vue-error-overlay');
+                var details = document.getElementById('vue-error-details');
+                if (overlay) {
+                    overlay.classList.add('active');
+                    // Montage TARDIF (poste lent, CPU chargé) : Vue peut
+                    // finir par monter après les 4 s. Sans ce watcher,
+                    // l'overlay restait affiché À TORT par-dessus une app
+                    // fonctionnelle et bloquait tous les clics (z-index
+                    // 99999). On le retire dès que v-cloak disparaît
+                    // (borné à 60 s : au-delà c'est un vrai échec).
+                    var _unstickTries = 0;
+                    var _unstick = setInterval(function() {
+                        if (!app.hasAttribute('v-cloak')) {
+                            overlay.classList.remove('active');
+                            clearInterval(_unstick);
+                        } else if (++_unstickTries > 120) {
+                            clearInterval(_unstick);
+                        }
+                    }, 500);
+                    var msgs = [];
+                    if (typeof Vue === 'undefined') msgs.push('[KO] Vue.js non chargé -- vérifiez static/vendor/vue.global.prod.js');
+                    else msgs.push('[OK] Vue.js chargé (v' + (Vue.version || '?') + ')');
+                    var checks = window.__scriptOk || {};
+                    var names = ['utils','app-auth','app-chat','app-editor','app-admin','app-settings'];
+                    names.forEach(function(n) {
+                        if (checks[n]) msgs.push('[OK] ' + n + '.js chargé');
+                        else msgs.push('[KO] ' + n + '.js -- fonction non définie (erreur de parsing JS ?)');
+                    });
+                    if (window.__vueErrors.length > 0) {
+                        msgs.push('\nErreurs JS capturées :');
+                        window.__vueErrors.forEach(function(e) { msgs.push('  → ' + e.msg + (e.src ? ' (' + e.src + ':' + e.line + ')' : '')); });
+                    } else {
+                        msgs.push('\nAucune erreur runtime capturée (les erreurs de parsing ne sont pas attrapables par window.onerror)');
+                    }
+                    msgs.push('\nActions à tenter :');
+                    msgs.push('  1. Ctrl+Shift+R (hard refresh sans cache)');
+                    msgs.push('  2. Ouvrir F12 → Console pour voir les erreurs rouges');
+                    msgs.push('  3. F12 → Réseau → cocher "Désactiver le cache" et recharger');
+                    if (details) details.textContent = msgs.join('\n');
+                }
+            }
+        }, 4000);
+    </script>
+    <script src="static/vendor/vue.global.prod.js"></script>
+    <script src="static/vendor/marked.min.js"></script>
+    <!-- BUG FIX (XSS hardening) — DOMPurify : utils.js#sanitizeHtml branche sur
+         window.DOMPurify si présent et tombe sinon sur un fallback DOMParser
+         strictement moins robuste (mutation-XSS, vecteurs SVG). -->
+    <script src="static/vendor/purify.min.js"></script>
+    
+    <!-- Chart.js, ses 8 greffons, mermaid et le loader monaco NE SONT PLUS
+         chargés ici : 3,3 Mo sur les 4,0 Mo de vendor ne servaient que dans
+         une minorité de sessions. Ils passent par window.ensureVendor(...)
+         (static/js/utils.js), appelé au premier besoin réel :
+           • mermaid  → _rendering.js, à la vue d'un bloc ```mermaid
+           • chart    → _rendering.js, à la vue d'un bloc de graphique
+           • monaco   → app-editor.js initMonaco()
+         L'enregistrement des greffons Chart.js, qui vivait ici en ligne,
+         est devenu window.elpisRegisterChartPlugins() et s'exécute avec le
+         chargement du groupe. mermaid.initialize() était redondant :
+         _rendering.js le rappelle à chaque rendu pour suivre le thème. -->
+    <link rel="stylesheet" href="static/vendor/src/regular/style.css">
+    <link rel="stylesheet" href="static/vendor/github-dark.min.css">
+    <link rel="stylesheet" href="static/css/style.css?v=1784227200">
+    <!-- Skins (habillages). Fichiers inertes tant que la classe
+         ``body.elpis-skin-<id>`` n'est pas posée (cf. _applyAppSkin dans
+         app-settings.js). Chargés APRÈS style.css pour gagner les égalités de
+         spécificité sur les tokens. Le ?v= est réécrit en BUILD_ID. -->
+    <link rel="stylesheet" href="static/css/skins/llamacpp.css?v=1784227200">
+    <link rel="stylesheet" href="static/css/skins/emeraude.css?v=1784227200">
+    <link rel="stylesheet" href="static/css/skins/parchemin.css?v=1784227200">
+    <link rel="stylesheet" href="static/css/skins/pingouins.css?v=1784227200">
+    <link rel="stylesheet" href="static/css/skins/elpis.css?v=1784227200">
+    <link rel="stylesheet" href="static/css/skins/kiki.css?v=1784227200">
+    <!-- Mascottes du bloc d'accueil. Feuille GÉNÉRÉE par
+         assets/mascotte/socle_mascottes.py — ne pas éditer : le nombre de
+         frames et la durée de cycle viennent du dessin. Ses url() sont
+         relatives à sa propre position, donc rien à réécrire ici. -->
+    <link rel="stylesheet" href="static/assets/mascotte/socle-mascottes.css?v=1784227200">
+    <!-- Accueil animé : le mot ELPIS et la scène du bloc « nouveau chat ».
+         Le JS, lui, est chargé À LA DEMANDE par chat/_mascotte.js — cette
+         feuille ne pèse que deux kilo-octets et doit être là avant le montage,
+         sinon la boîte a une hauteur nulle et la scène démarre à l'échelle
+         minimale. -->
+    <link rel="stylesheet" href="static/assets/mascotte/accueil.css?v=1784227200">
+    <!-- Feuille Tailwind PRÉCOMPILÉE. Remplace le « Play CDN » vendorisé,
+         qui était un COMPILATEUR tournant dans le navigateur : 398 Ko et
+         1 810 ms de CPU au premier rendu, plus un MutationObserver armé en
+         permanence — donc actif pendant tout le streaming de tokens.
+         Régénérer après ajout de classes utilitaires :
+             node tools/generate_tailwind_css.mjs
+         Parité prouvée par tests/frontend/tailwind-verify.mjs (0 écart de
+         style calculé face au CDN, chat et admin).
+         POSITION CRITIQUE : en FIN de <head>. Le compilateur ajoutait sa
+         <style> ici même, donc APRÈS Phosphor et style.css ; plus haut,
+         « .ph { line-height: 1 } » l'emporterait sur « text-lg ». -->
+    <link rel="stylesheet" href="static/css/style.tailwind.css?v=1784227200">
+</head>
+<!-- Fond/texte : tokens via la règle ``body`` de style.css (une classe
+     Tailwind sur <body> battrait la règle et gèlerait le skin). -->
+<body class="h-full antialiased overflow-hidden selection:bg-blue-100 selection:text-blue-900">
+
+<div id="vue-error-overlay">
+    <div class="box">
+        <h2>L'application n'a pas pu démarrer</h2>
+        <p style="color:#475569;font-size:14px">Vue.js n'a pas réussi à monter l'application. Consultez les détails ci-dessous et ouvrez la console du navigateur (F12) pour plus d'informations.</p>
+        <pre id="vue-error-details">Diagnostic en cours...</pre>
+        <p class="tip">Conseil : remplacez temporairement <code>vue.global.prod.js</code> par <code>vue.global.js</code> (build dev) pour voir les messages d'erreur détaillés.</p>
+    </div>
+</div>
+
+<div id="app" class="h-full w-full relative flex" v-cloak>
+
+    <!-- @include includes/layout/app_chrome.html -->
+
+    <!-- @include includes/layout/auth_cards.html -->
+
+    <div v-if="user && !mustChangePassword && isAdminView" class="h-full w-full flex bg-slate-50 overflow-hidden">
+
+        <!-- Coquille de la console (partagée avec admin.html). -->
+        <!-- @include includes/admin/shell.html -->
+    </div>
+
+    <div v-if="user && !mustChangePassword && !isAdminView" class="flex h-full w-full relative">
+        
+        <div v-if="showSidebar && !editorFullscreen" class="fixed inset-0 bg-black/40 z-40 lg:hidden" @click="showSidebar=false"></div>
+
+        <!-- @include includes/main/sidebar.html -->
+
+        <!-- overflow-CLIP (pas hidden) : le focus d'un élément clippé (checkbox
+             sr-only d'un toggle) peut faire défiler un conteneur overflow:hidden
+             et tronquer toute la colonne sans retour (scroll-trap). clip interdit
+             tout défilement ; repli hidden pour vieux moteurs dans style.css. -->
+        <div class="flex-1 flex min-w-0 bg-white overflow-clip relative z-40">
+            
+            <!-- @include includes/main/chat.html -->
+
+            <!-- @include includes/main/panel_mcp.html -->
+
+            <!-- @include includes/main/panel_sampling.html -->
+
+            <!-- @include includes/main/editor.html -->
+
+            <!-- La gestion des Skills vit désormais dans la modal Paramètres
+                 (onglet 'skills', includes/modals/settings_skills.html) —
+                 l'ex-page pleine skills_page.html a été supprimée (2026-07-18). -->
+
+            <!-- Full-page Routines view (currentView==='routines'). Sibling of
+                 chat/editor ; tâches récurrentes planifiées. -->
+            <!-- @include includes/main/routines_page.html -->
+
+            <!-- Full-page Annotation Studio (currentView==='studio'). Computer-use
+                 live view : annotations vision superposées sur l'écran cible. -->
+            <!-- @include includes/main/studio_page.html -->
+
+            <!-- Full-page Code view (currentView==='code'). Sessions opencode
+                 déportées côté serveur (à la Claude Code), pont /api/code/*. -->
+            <!-- @include includes/main/code_page.html -->
+        </div>
+    </div>
+
+    <!-- @include includes/modals/git.html -->
+
+    <!-- Modale de transfert (progression import/export) — GLOBALE : utilisée
+         par la vue admin (backup/restore/exports). -->
+    <!-- @include includes/modals/transfer.html -->
+
+    <!-- @include includes/modals/settings.html -->
+
+    <!-- @include includes/modals/mcp.html -->
+
+    <!-- @include includes/modals/groups.html -->
+
+    <!-- @include includes/modals/model_props.html -->
+
+    <!-- @include includes/modals/task_transcript.html -->
+
+    <!-- @include includes/modals/misc.html -->
+
+    <!-- @include includes/modals/template_fill.html -->
+
+</div>
+
+<script type="text/x-template" id="tree-item-template">
+    <li class="select-none py-0.5" @contextmenu.stop>
+        <div ref="rowRef" :data-path="item.path"
+             class="flex items-center gap-2 py-1 px-2 rounded-md cursor-pointer transition-colors group outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-blue-500"
+             :class="dragOver ? 'bg-blue-500/20 outline outline-1 outline-dashed outline-blue-400'
+                    : (isSelected ? 'bg-blue-500/25' : (isActive ? 'bg-white/10 elpis-tree-active' : 'hover:bg-[rgba(255,255,255,0.05)]'))"
+             role="treeitem" tabindex="0"
+             :aria-expanded="isFolder ? (isOpen ? 'true' : 'false') : null"
+             :aria-selected="(isSelected || isActive) ? 'true' : 'false'"
+             :aria-label="(isFolder ? 'Dossier ' : 'Fichier ') + item.name"
+             draggable="true" @dragstart.stop="onDragStart" @dragover.prevent="onDragOver" @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop.prevent="onDrop"
+             @click="handleClick" @contextmenu.prevent.stop="handleRightClick"
+             @keydown.enter.prevent="handleClick" @keydown.space.prevent="handleClick"
+             @keydown.f10.shift.prevent.stop="handleRightClick($event)"
+             @keydown.context-menu.prevent.stop="handleRightClick($event)"
+             @keydown="handleKeydown">
+            <span class="shrink-0 flex items-center justify-center w-5">
+                <i v-if="isFolder" class="ph text-slate-400 text-sm transition-transform" :class="isOpen ? 'ph-folder-open text-blue-400' : 'ph-folder'"></i>
+                <i v-else class="ph text-sm" :class="[meta.icon, meta.color]"></i>
+            </span>
+            <span class="text-xs truncate flex-1 font-mono tracking-tight"
+                  :class="[isFolder ? 'font-medium text-slate-200' : (isActive ? 'text-white' : 'text-slate-300'),
+                           gitCode === 'M' ? 'elpis-git-m' : (gitCode === 'U' || gitCode === 'A' ? 'elpis-git-u' : (gitCode === 'C' ? 'elpis-git-c' : ''))]">{{ item.name }}</span>
+            <span v-if="gitCode" class="shrink-0 text-[10px] font-mono font-bold w-3 text-center"
+                  :class="gitCode === 'M' ? 'elpis-git-m' : (gitCode === 'C' ? 'elpis-git-c' : (gitCode === 'D' ? 'elpis-git-d' : 'elpis-git-u'))"
+                  :title="{ M: 'Modifié', U: 'Non suivi', A: 'Ajouté', D: 'Supprimé', C: 'En conflit', '•': 'Contient des modifications' }[gitCode]">{{ gitCode }}</span>
+        </div>
+        <ul v-if="isFolder && isOpen" role="group" class="pl-3 border-l border-[rgba(255,255,255,0.05)] ml-2 mt-0.5 space-y-0.5 mb-1">
+            <tree-item v-for="child in item.children" :key="child.path" :item="child" @open-file="openFile" @download="downloadFile" @delete="deleteFile" @rename="renameFile" @context-menu="onContextMenu" @move-item="onMoveItem"></tree-item>
+        </ul>
+    </li>
+</script>
+
+<!-- Grille xlsx en lecture seule de l'éditeur (aperçus Office). Virtualisée en
+     lignes ET colonnes : le DOM ne contient que les cellules visibles.
+     Logique : js/editor/_office_grid.js (OfficeGrid). -->
+<script type="text/x-template" id="office-grid-template">
+    <div class="flex flex-col h-full min-h-0 bg-[#1e1e1e]">
+        <div ref="scroller" class="flex-1 min-h-0 overflow-auto custom-scrollbar outline-none" tabindex="0"
+             role="grid" :aria-label="sheet ? 'Feuille ' + sheet.name : 'Feuille'" @scroll.passive="onScroll">
+            <div v-if="sheet && sheet.rows" class="relative" :style="{ width: totalW + 'px', height: totalH + 'px' }">
+                <div class="sticky top-0 z-20 flex bg-[#252526] border-b border-white/10" :style="{ width: totalW + 'px', height: HEAD_H + 'px' }">
+                    <div class="sticky left-0 z-10 shrink-0 bg-[#252526] border-r border-white/10" :style="{ width: rownumW + 'px' }"></div>
+                    <div v-for="col in cols" :key="col.c" role="columnheader"
+                         class="absolute top-0 h-full flex items-center justify-center text-[10.5px] font-mono text-slate-400 border-r border-white/10 select-none"
+                         :style="{ left: col.left + 'px', width: col.width + 'px' }">{{ col.name }}</div>
+                </div>
+                <div v-for="row in visibleRows" :key="row.r" role="row" class="absolute left-0 flex"
+                     :style="{ top: row.top + 'px', width: totalW + 'px', height: ROW_H + 'px' }">
+                    <div class="sticky left-0 z-10 shrink-0 bg-[#252526] border-r border-b border-white/10 text-[10.5px] font-mono text-slate-500 flex items-center justify-end pr-2 select-none"
+                         :style="{ width: rownumW + 'px' }">{{ row.r + 1 }}</div>
+                    <div v-for="cell in row.cells" :key="cell.c" role="gridcell"
+                         class="absolute top-0 h-full px-[7px] flex items-center border-r border-b border-white/[0.06] text-[12px] text-slate-200 whitespace-nowrap overflow-hidden"
+                         :class="cell.num ? 'justify-end tabular-nums' : ''"
+                         :style="{ left: cell.left + 'px', width: cell.width + 'px' }"
+                         :title="cell.long ? cell.text : null"><span class="truncate">{{ cell.text }}</span></div>
+                </div>
+            </div>
+            <div v-else class="h-full flex items-center justify-center text-xs text-slate-500">Feuille vide</div>
+        </div>
+        <div v-if="sheets.length > 1 || (sheet && sheet.truncated)" role="tablist" aria-label="Feuilles"
+             class="shrink-0 h-8 flex items-center gap-1 px-2 border-t border-white/10 bg-[#252526] overflow-x-auto custom-scrollbar">
+            <button v-for="(s, i) in sheets" :key="i" role="tab" :aria-selected="i === sheetIdx ? 'true' : 'false'"
+                    @click="selectSheet(i)" :title="s.hidden ? 'Feuille masquée : ' + s.name : s.name"
+                    class="shrink-0 h-6 px-2.5 rounded text-[11px] flex items-center gap-1.5 max-w-[14rem]"
+                    :class="i === sheetIdx ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5'">
+                <i v-if="s.hidden" class="ph ph-eye-slash text-[11px]"></i>
+                <span class="truncate" :class="s.hidden ? 'italic' : ''">{{ s.name }}</span>
+            </button>
+            <span v-if="sheet && sheet.truncated" class="ml-auto shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300"
+                  title="Aperçu limité : 100 000 lignes, 512 colonnes, 1 000 caractères par cellule">Tronqué</span>
+        </div>
+    </div>
+</script>
+
+<!-- Carte diff de la page « Remote code ». UN composant pour les quatre
+     surfaces qui montrent un diff (bloc ```diff d'une réponse, outil
+     d'édition, sortie d'outil qui EST un diff, part patch) : le même bloc y
+     était copié quatre fois, et la troisième copie avait déjà divergé.
+     Logique : js/chat/_code_render.js (CodeDiffCard). -->
+<script type="text/x-template" id="code-diff-template">
+    <div class="diff-rows space-y-2 w-full">
+        <div v-for="(f, fi) in files" :key="fi" class="diff-file-block">
+            <div class="flex items-center gap-2 px-2.5 py-1.5 border-b border-slate-100">
+                <i class="ph ph-file-code text-slate-400 shrink-0"></i>
+                <span class="font-mono text-[11.5px] text-slate-700 truncate">{{ f.path || 'diff' }}</span>
+                <span class="ml-auto font-mono text-[11px] tabular-nums shrink-0">
+                    <span class="text-emerald-600">+{{ f.additions }}</span>
+                    <span class="text-rose-500 ml-1.5">−{{ f.deletions }}</span>
+                </span>
+            </div>
+            <div class="elpis-code-diff custom-scrollbar">
+                <div v-for="(l, li) in lines(f, fi)" :key="li" :class="lineClass(l.t)">{{ l.text }}</div>
+            </div>
+            <button v-if="hidden(f, fi)" @click="toggle(fi)"
+                    class="w-full px-2.5 py-1 text-[11px] text-slate-400 hover:text-slate-700 hover:bg-slate-50 border-t border-slate-100 flex items-center gap-1.5 transition-colors">
+                <i class="ph ph-caret-down" style="font-size:9px"></i>
+                Afficher les {{ hidden(f, fi) }} lignes restantes
+            </button>
+            <button v-else-if="isOpen(fi) && f.lines.length > fold" @click="toggle(fi)"
+                    class="w-full px-2.5 py-1 text-[11px] text-slate-400 hover:text-slate-700 hover:bg-slate-50 border-t border-slate-100 flex items-center gap-1.5 transition-colors">
+                <i class="ph ph-caret-up" style="font-size:9px"></i>
+                Replier le diff
+            </button>
+        </div>
+    </div>
+</script>
+
+<script type="text/x-template" id="skill-tree-node-template">
+    <li class="select-none">
+        <div class="flex items-center gap-1 py-1 px-1.5 rounded-md cursor-pointer transition-colors group outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-blue-500"
+             role="treeitem" tabindex="0"
+             :aria-expanded="isExpandable ? (isOpen ? 'true' : 'false') : null"
+             :aria-selected="isSelected ? 'true' : null"
+             :aria-label="(node.kind === 'domain' ? 'Domaine ' : (node.kind === 'file' ? 'Fichier ' : 'Skill ')) + node.label"
+             :class="rowClass"
+             @click="handleClick"
+             @keydown.enter.prevent="handleClick" @keydown.space.prevent="handleClick">
+            <button v-if="isExpandable" type="button" tabindex="-1"
+                    class="w-4 h-4 shrink-0 rounded text-slate-400 hover:text-slate-600 flex items-center justify-center"
+                    :title="isOpen ? 'Replier' : 'Déplier'"
+                    :aria-label="(isOpen ? 'Replier ' : 'Déplier ') + node.label"
+                    @click.stop="onToggle(node.key)">
+                <i class="ph text-[10px]" :class="isOpen ? 'ph-caret-down' : 'ph-caret-right'"></i>
+            </button>
+            <span v-else class="w-4 shrink-0"></span>
+            <span class="shrink-0 flex items-center justify-center w-5">
+                <i v-if="node.kind === 'domain'" class="ph text-sm text-amber-500" :class="isOpen ? 'ph-folder-open' : 'ph-folder'"></i>
+                <i v-else-if="node.kind === 'skill'" class="ph ph-graduation-cap text-sm" :class="isSelected ? 'text-blue-600' : 'text-slate-400'"></i>
+                <i v-else class="ph ph-file-code text-[13px]" :class="isFileActive ? 'text-blue-600' : 'text-slate-400'"></i>
+            </span>
+            <span class="min-w-0 flex-1 py-0.5">
+                <span class="flex items-center gap-1.5">
+                    <span class="truncate" :class="labelClass">{{ node.label }}</span>
+                    <span v-if="node.kind === 'skill' && node.childSkillCount" class="text-[10px] font-mono px-1 rounded bg-slate-100 text-slate-500 shrink-0" :title="node.childSkillCount + ' sous-skill(s)'">{{ node.childSkillCount }}</span>
+                    <i v-else-if="node.kind === 'skill' && node.skill && node.skill.is_folder && (node.skill.files || []).length" class="ph ph-paperclip text-[11px] text-slate-400 shrink-0" title="Agent Skill : contient des fichiers/scripts"></i>
+                </span>
+                <span v-if="node.kind === 'skill' && node.skill && node.skill.description"
+                      class="block text-[10.5px] text-slate-500 truncate leading-tight">{{ node.skill.description }}</span>
+            </span>
+        </div>
+        <ul v-if="isExpandable && isOpen" role="group" class="pl-2.5 border-l border-slate-200 ml-[15px] mt-0.5 space-y-0.5 mb-1">
+            <skill-tree-node v-for="c in node.children" :key="c.key" :node="c"
+                             :selected-key="selectedKey" :active-file-key="activeFileKey" :collapsed="collapsed"
+                             @select-skill="onSelectSkill" @open-file="onOpenFile" @toggle="onToggle"></skill-tree-node>
+        </ul>
+    </li>
+</script>
+
+
+<script type="text/x-template" id="ax-node-template">
+    <div class="select-none">
+        <div class="flex items-start gap-1.5 py-1 px-1.5 rounded hover:bg-slate-50 transition-colors text-xs font-mono"
+             :class="{'cursor-pointer': hasChildren}"
+             @click="hasChildren && toggle()">
+            <span class="shrink-0 w-3 text-center text-slate-400 pt-0.5">
+                <i v-if="hasChildren" class="ph text-[11px]" :class="isOpen ? 'ph-caret-down' : 'ph-caret-right'"></i>
+                <span v-else class="inline-block w-3"></span>
+            </span>
+            <span class="shrink-0 pt-0.5">
+                <i v-if="node.node_type === 'region'" class="ph ph-frame-corners text-slate-400 text-[12px]"></i>
+                <i v-else-if="node.role === 'button' || node.role === 'link'" class="ph ph-cursor-click text-blue-500 text-[12px]"></i>
+                <i v-else-if="node.role === 'textbox' || node.role === 'combobox'" class="ph ph-text-t text-slate-500 text-[12px]"></i>
+                <i v-else-if="node.role === 'checkbox'" class="ph ph-check-square text-slate-500 text-[12px]"></i>
+                <i v-else class="ph ph-dot-outline text-slate-400 text-[12px]"></i>
+            </span>
+            <span class="flex-1 min-w-0">
+                <span :class="{
+                    'text-slate-600 font-semibold': node.node_type === 'region',
+                    'text-slate-800': node.node_type === 'element',
+                    'line-through text-slate-400': node.stale
+                }">
+                    <span>{{ node.role }}</span><span v-if="node.name" class="text-slate-900 font-medium"> "{{ node.name }}"</span>
+                </span>
+                <span v-if="node.verified_count > 1" class="ml-1.5 text-[10px] px-1 bg-blue-50 text-blue-600 rounded font-medium">{{node.verified_count}}x</span>
+                <span v-if="node.stale" class="ml-1.5 text-[10px] px-1 bg-amber-100 text-amber-700 rounded">périmé</span>
+                <span v-if="hasChildren && !isOpen" class="ml-1.5 text-[10px] text-slate-400">· {{totalDescendants}} elt</span>
+            </span>
+        </div>
+        <div v-if="isElement && node.selectors && node.selectors.length > 0"
+             class="pl-8 pb-1 text-[10.5px] font-mono text-slate-500 space-y-0.5">
+            <div v-for="(s, idx) in node.selectors" :key="idx" class="flex items-center gap-1.5">
+                <span class="w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>
+                <span class="text-slate-500">{{s.strategy}}</span>
+                <span class="text-slate-400">=</span>
+                <span class="text-slate-700 truncate flex-1" :title="s.value">{{s.value}}</span>
+                <span v-if="s.success_count > 0 || s.failure_count > 0" class="shrink-0">
+                    <span class="text-green-600">{{s.success_count}}</span><span v-if="s.failure_count > 0" class="text-red-600">/{{s.failure_count}}</span>
+                </span>
+            </div>
+        </div>
+        <div v-if="hasChildren && isOpen" class="pl-4 border-l border-slate-100 ml-2">
+            <ax-node v-for="child in node.children" :key="child.id" :node="child" :depth="depth + 1" :force-open="forceOpen" :force-close="forceClose"></ax-node>
+        </div>
+    </div>
+</script>
+
+<script src="static/js/utils.js?v=1784227200"></script>
+<script>window.__scriptOk = window.__scriptOk || {}; window.__scriptOk['utils'] = typeof getFileMeta === 'function';</script>
+<script src="static/js/app-auth.js?v=1784227200"></script>
+<script>window.__scriptOk['app-auth'] = typeof setupAuth === 'function';</script>
+<script src="static/js/chat/_models.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-models'] = typeof setupChatModels === 'function';</script>
+<script src="static/js/chat/_dnd.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-dnd'] = typeof setupChatDnd === 'function';</script>
+<script src="static/js/chat/_system_sse.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-sse'] = typeof setupChatSystemSSE === 'function';</script>
+<script src="static/js/chat/_virtual_scroll.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-vs'] = typeof setupChatVirtualScroll === 'function';</script>
+<script src="static/js/chat/_rendering.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-rendering'] = typeof setupChatRendering === 'function';</script>
+<script src="static/js/chat/_sampling.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-sampling'] = typeof setupChatSampling === 'function';</script>
+<script src="static/js/chat/_compression_ui.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-compression-ui'] = typeof setupChatCompressionUI === 'function';</script>
+<script src="static/js/chat/_search.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-search'] = typeof setupChatSearch === 'function';</script>
+<script src="static/js/chat/_templates.js?v=1784227200"></script>
+<script src="static/js/chat/_slash.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-slash'] = typeof setupChatSlash === 'function';</script>
+<script src="static/js/chat/_compose.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-compose'] = typeof setupChatCompose === 'function';</script>
+<script src="static/js/chat/_webshot.js?v=1784227200"></script>
+<script src="static/js/voice/_compat.js?v=1784227200"></script>
+<script>window.__scriptOk['voice-compat'] = typeof window.voiceCompat === 'function';</script>
+<script src="static/js/voice/_micro.js?v=1784227200"></script>
+<script>window.__scriptOk['voice-micro'] = typeof window.createVoiceMic === 'function';</script>
+<script src="static/js/voice/_lecture.js?v=1784227200"></script>
+<script>window.__scriptOk['voice-lecture'] = typeof window.createVoicePlayer === 'function';</script>
+<script src="static/js/chat/_voice.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-voice'] = typeof setupChatVoice === 'function';</script>
+<script>window.__scriptOk['chat-webshot'] = typeof setupChatWebshot === 'function';</script>
+<script src="static/js/chat/_helpers_json.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-helpers-json'] = typeof setupChatHelpersJson === 'function';</script>
+<script src="static/js/chat/_message_edit.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-message-edit'] = typeof setupChatMessageEdit === 'function';</script>
+<script src="static/js/chat/_tool_segments.js?v=1784227200"></script>
+<script src="static/js/chat/_ansi.js?v=1784227200"></script>
+<script src="static/js/chat/_history.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-history'] = typeof setupChatHistory === 'function';</script>
+<script src="static/js/chat/_mascotte.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-mascotte'] = typeof setupMascotte === 'function';</script>
+<script src="static/js/chat/_helpers_misc.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-helpers-misc'] = typeof setupChatHelpersMisc === 'function';</script>
+<script src="static/js/chat/_diff_card.js?v=1784227200"></script>
+<script src="static/js/chat/_memory_card.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-diff-card'] = typeof setupChatDiffCard === 'function';</script>
+<script src="static/js/chat/_thinking_title.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-thinking-title'] = typeof setupChatThinkingTitle === 'function';</script>
+<script src="static/js/chat/_skills_menu.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-skills-menu'] = typeof setupSkillsMenu === 'function';</script>
+<script src="static/js/chat/_routines_menu.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-routines-menu'] = typeof setupRoutinesMenu === 'function';</script>
+<script src="static/js/chat/_studio_menu.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-studio-menu'] = typeof setupStudioMenu === 'function';</script>
+<script src="static/js/chat/_code_render.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-code-render'] = typeof setupCodeRender === 'function';</script>
+<script src="static/js/chat/_code_menu.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-code-menu'] = typeof setupCodeMenu === 'function';</script>
+<script src="static/js/chat/_scenario_model.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-scenario-model'] = typeof scenarioStepFromAct === 'function';</script>
+<script src="static/js/chat/_studio_chat.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-studio-chat'] = typeof setupStudioChat === 'function';</script>
+<script src="static/js/chat/_automation_model.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-automation-model'] = typeof automationToPython === 'function';</script>
+<script src="static/js/chat/_studio_automation.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-studio-automation'] = typeof setupStudioAutomation === 'function';</script>
+<script src="static/js/app-chat.js?v=1784227200"></script>
+<script>window.__scriptOk['app-chat'] = typeof setupChat === 'function';</script>
+<script src="static/js/editor/_languages.js?v=1784227200"></script>
+<script>window.__scriptOk['editor-languages'] = typeof setupEditorLanguages === 'function';</script>
+<script src="static/js/editor/_git.js?v=1784227200"></script>
+<script>window.__scriptOk['editor-git'] = typeof setupEditorGit === 'function';</script>
+<script src="static/js/editor/_resize.js?v=1784227200"></script>
+<script>window.__scriptOk['editor-resize'] = typeof setupEditorResize === 'function';</script>
+<script src="static/js/editor/_fim_ai.js?v=1784227200"></script>
+<script>window.__scriptOk['editor-fim-ai'] = typeof setupEditorFimAi === 'function';</script>
+<script src="static/js/editor/_office_model.js?v=1784227200"></script>
+<script>window.__scriptOk['editor-office-model'] = typeof elpisOffice === 'object';</script>
+<script src="static/js/editor/_office_grid.js?v=1784227200"></script>
+<script>window.__scriptOk['editor-office-grid'] = typeof OfficeGrid === 'object';</script>
+<script src="static/js/editor/_line_diff.js?v=1784227200"></script>
+<script src="static/js/editor/_minimal_edit.js?v=1784227200"></script>
+<script>window.__scriptOk['editor-line-diff'] = typeof elpisLineDiff === 'object';</script>
+<script src="static/js/editor/_sandbox_fs.js?v=1784227200"></script>
+<script>window.__scriptOk['editor-sandbox-fs'] = typeof setupEditorSandboxFs === 'function';</script>
+<script src="static/js/app-editor.js?v=1784227200"></script>
+<script>window.__scriptOk['app-editor'] = typeof setupEditor === 'function';</script>
+<script src="static/js/admin/_registry.js?v=1784227200"></script>
+<script src="static/js/admin/_fields.js?v=1790524800"></script>
+<script src="static/js/app-admin.js?v=1784227200"></script>
+<script src="static/js/admin/skins.js?v=1784227200"></script>
+<script>window.__scriptOk['app-admin'] = typeof setupAdmin === 'function';</script>
+<script src="static/js/app-settings.js?v=1784227200"></script>
+<script>window.__scriptOk['app-settings'] = typeof setupSettings === 'function';</script>
+<script src="static/js/app.js?v=1784227200"></script>
+<script>
+// Fondu de scroll de la liste d'historique (sidebar) : pose .fade-top /
+// .fade-bottom sur `.chat-history-scroll` selon la position de scroll ; le CSS
+// (.chat-history-scroll) applique le masque dégradé correspondant. Le conteneur
+// persiste (v-show, jamais recréé) -> on le câble une seule fois. ResizeObserver
+// (hauteur du panneau) + MutationObserver (chats ajoutés / recherche) couvrent
+// les recalculs ; rAF pour ne pas spammer pendant le scroll.
+(function () {
+  function wire(el) {
+    if (!el || el.__scrollFadeWired) return;
+    el.__scrollFadeWired = true;
+    var raf = null;
+    function apply() {
+      raf = null;
+      el.classList.toggle('fade-top', el.scrollTop > 6);
+      el.classList.toggle('fade-bottom', (el.scrollTop + el.clientHeight) < (el.scrollHeight - 6));
+    }
+    function schedule() { if (raf === null) raf = requestAnimationFrame(apply); }
+    el.addEventListener('scroll', schedule, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(schedule).observe(el);
+    if (window.MutationObserver) new MutationObserver(schedule).observe(el, { childList: true, subtree: true });
+    apply();
+  }
+  var tries = 0;
+  var iv = setInterval(function () {
+    var el = document.querySelector('.chat-history-scroll');
+    if (el) { wire(el); clearInterval(iv); }
+    else if (++tries > 100) clearInterval(iv);
+  }, 100);
+})();
+</script>
+</body>
+</html>

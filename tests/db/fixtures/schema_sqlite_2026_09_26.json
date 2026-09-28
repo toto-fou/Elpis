@@ -1,0 +1,539 @@
+{
+ "_": "Schéma SQLite produit par le code AVANT le schéma de référence (2026-09-26, elpis_project 1034565) : base neuve, toutes familles initialisées. Sert de témoin figé à test_schema_reference.",
+ "objects": [
+  [
+   "table",
+   "ax_credentials",
+   "ax_credentials",
+   "CREATE TABLE ax_credentials (\n                owner      TEXT NOT NULL DEFAULT '',\n                site       TEXT NOT NULL,\n                username   TEXT NOT NULL,\n                password   TEXT NOT NULL,\n                last_ok    REAL,\n                use_count  INTEGER NOT NULL DEFAULT 1,\n                PRIMARY KEY (owner, site)\n            )"
+  ],
+  [
+   "table",
+   "ax_nodes",
+   "ax_nodes",
+   "CREATE TABLE ax_nodes (\n                id             INTEGER PRIMARY KEY AUTOINCREMENT,\n                site           TEXT NOT NULL,\n                path           TEXT NOT NULL,\n                parent_id      INTEGER,\n                node_type      TEXT NOT NULL,\n                region_tag     TEXT,\n                role           TEXT NOT NULL,\n                name           TEXT NOT NULL,\n                node_key       TEXT NOT NULL,\n                verified_count INTEGER NOT NULL DEFAULT 0,\n                last_ok        REAL,\n                stale          INTEGER NOT NULL DEFAULT 0,\n                stale_at       REAL,\n                UNIQUE (site, path, parent_id, node_key),\n                FOREIGN KEY (parent_id) REFERENCES ax_nodes(id) ON DELETE CASCADE\n            )"
+  ],
+  [
+   "index",
+   "idx_ax_nodes_parent",
+   "ax_nodes",
+   "CREATE INDEX idx_ax_nodes_parent\n            ON ax_nodes(parent_id)\n        "
+  ],
+  [
+   "index",
+   "idx_ax_nodes_site_path",
+   "ax_nodes",
+   "CREATE INDEX idx_ax_nodes_site_path\n            ON ax_nodes(site, path, stale)\n        "
+  ],
+  [
+   "table",
+   "ax_selectors",
+   "ax_selectors",
+   "CREATE TABLE ax_selectors (\n                id              INTEGER PRIMARY KEY AUTOINCREMENT,\n                node_id         INTEGER NOT NULL,\n                strategy        TEXT NOT NULL,\n                value           TEXT NOT NULL,\n                success_count   INTEGER NOT NULL DEFAULT 0,\n                failure_count   INTEGER NOT NULL DEFAULT 0,\n                last_ok         REAL,\n                last_fail       REAL,\n                UNIQUE(node_id, strategy, value),\n                FOREIGN KEY (node_id) REFERENCES ax_nodes(id) ON DELETE CASCADE\n            )"
+  ],
+  [
+   "index",
+   "idx_ax_sel_node",
+   "ax_selectors",
+   "CREATE INDEX idx_ax_sel_node\n            ON ax_selectors(node_id)\n        "
+  ],
+  [
+   "table",
+   "ax_transitions",
+   "ax_transitions",
+   "CREATE TABLE ax_transitions (\n                id              INTEGER PRIMARY KEY AUTOINCREMENT,\n                site            TEXT NOT NULL,\n                from_path       TEXT NOT NULL,\n                action_node_id  INTEGER NOT NULL,\n                to_path         TEXT NOT NULL,\n                verified_count  INTEGER NOT NULL DEFAULT 1,\n                last_ok         REAL,\n                UNIQUE(site, from_path, action_node_id, to_path),\n                FOREIGN KEY (action_node_id) REFERENCES ax_nodes(id)\n                    ON DELETE CASCADE\n            )"
+  ],
+  [
+   "index",
+   "idx_ax_trans_from",
+   "ax_transitions",
+   "CREATE INDEX idx_ax_trans_from\n            ON ax_transitions(site, from_path)\n        "
+  ],
+  [
+   "index",
+   "idx_ax_trans_to",
+   "ax_transitions",
+   "CREATE INDEX idx_ax_trans_to\n            ON ax_transitions(site, to_path)\n        "
+  ],
+  [
+   "table",
+   "chats",
+   "chats",
+   "CREATE TABLE chats (\n          id TEXT PRIMARY KEY,\n          user_id INTEGER NOT NULL,\n          title TEXT NOT NULL,\n          messages_json TEXT NOT NULL,\n          updated_at REAL NOT NULL,\n          archived INTEGER NOT NULL DEFAULT 0,\n          archived_at REAL,\n          meta_json TEXT NOT NULL DEFAULT '{}',\n          FOREIGN KEY(user_id) REFERENCES users(id)\n        )"
+  ],
+  [
+   "index",
+   "idx_chats_user_archived",
+   "chats",
+   "CREATE INDEX idx_chats_user_archived ON chats(user_id, archived, updated_at DESC)"
+  ],
+  [
+   "index",
+   "idx_chats_user_updated",
+   "chats",
+   "CREATE INDEX idx_chats_user_updated ON chats(user_id, updated_at DESC)"
+  ],
+  [
+   "table",
+   "code_clients",
+   "code_clients",
+   "CREATE TABLE code_clients (\n                user_id INTEGER NOT NULL, client_id TEXT NOT NULL,\n                last_seen REAL NOT NULL DEFAULT 0,\n                plugin_version INTEGER NOT NULL DEFAULT 1,\n                directory TEXT NOT NULL DEFAULT '',\n                bye INTEGER NOT NULL DEFAULT 0,\n                PRIMARY KEY (user_id, client_id))"
+  ],
+  [
+   "table",
+   "code_commands",
+   "code_commands",
+   "CREATE TABLE code_commands (\n                id TEXT PRIMARY KEY, user_id INTEGER NOT NULL,\n                session_id TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL,\n                payload TEXT NOT NULL DEFAULT '{}', created_at REAL NOT NULL DEFAULT 0,\n                target TEXT NOT NULL DEFAULT '')"
+  ],
+  [
+   "index",
+   "idx_code_commands_user",
+   "code_commands",
+   "CREATE INDEX idx_code_commands_user\n                ON code_commands (user_id, created_at)"
+  ],
+  [
+   "table",
+   "code_messages",
+   "code_messages",
+   "CREATE TABLE code_messages (\n                user_id INTEGER NOT NULL, session_id TEXT NOT NULL, id TEXT NOT NULL,\n                info TEXT NOT NULL DEFAULT '{}', created REAL NOT NULL DEFAULT 0,\n                PRIMARY KEY (user_id, session_id, id))"
+  ],
+  [
+   "table",
+   "code_meta",
+   "code_meta",
+   "CREATE TABLE code_meta (\n                user_id INTEGER NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL,\n                PRIMARY KEY (user_id, key))"
+  ],
+  [
+   "table",
+   "code_notes",
+   "code_notes",
+   "CREATE TABLE code_notes (\n                user_id INTEGER NOT NULL, session_id TEXT NOT NULL, id TEXT NOT NULL,\n                kind TEXT NOT NULL DEFAULT 'command', label TEXT NOT NULL DEFAULT '',\n                detail TEXT NOT NULL DEFAULT '', created REAL NOT NULL DEFAULT 0,\n                PRIMARY KEY (user_id, session_id, id))"
+  ],
+  [
+   "table",
+   "code_pairings",
+   "code_pairings",
+   "CREATE TABLE code_pairings (id TEXT PRIMARY KEY, code TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', created_at REAL NOT NULL, expires_at REAL NOT NULL, confirmed_uid INTEGER, token TEXT)"
+  ],
+  [
+   "table",
+   "code_parts",
+   "code_parts",
+   "CREATE TABLE code_parts (\n                user_id INTEGER NOT NULL, session_id TEXT NOT NULL,\n                message_id TEXT NOT NULL, id TEXT NOT NULL,\n                part TEXT NOT NULL DEFAULT '{}', ts REAL NOT NULL DEFAULT 0,\n                PRIMARY KEY (user_id, session_id, message_id, id))"
+  ],
+  [
+   "table",
+   "code_permissions",
+   "code_permissions",
+   "CREATE TABLE code_permissions (\n                user_id INTEGER NOT NULL, session_id TEXT NOT NULL, id TEXT NOT NULL,\n                info TEXT NOT NULL DEFAULT '{}', created REAL NOT NULL DEFAULT 0,\n                PRIMARY KEY (user_id, session_id, id))"
+  ],
+  [
+   "table",
+   "code_questions",
+   "code_questions",
+   "CREATE TABLE code_questions (\n                user_id INTEGER NOT NULL, session_id TEXT NOT NULL, id TEXT NOT NULL,\n                info TEXT NOT NULL DEFAULT '{}', created REAL NOT NULL DEFAULT 0,\n                PRIMARY KEY (user_id, session_id, id))"
+  ],
+  [
+   "table",
+   "code_remote_tokens",
+   "code_remote_tokens",
+   "CREATE TABLE code_remote_tokens (user_id INTEGER PRIMARY KEY, token TEXT NOT NULL, created_at REAL)"
+  ],
+  [
+   "table",
+   "code_sessions",
+   "code_sessions",
+   "CREATE TABLE code_sessions (\n                user_id INTEGER NOT NULL, id TEXT NOT NULL,\n                info TEXT NOT NULL DEFAULT '{}', client_id TEXT NOT NULL DEFAULT '',\n                busy INTEGER NOT NULL DEFAULT 0, updated_at REAL NOT NULL DEFAULT 0,\n                last_model TEXT NOT NULL DEFAULT '', preview TEXT NOT NULL DEFAULT '',\n                PRIMARY KEY (user_id, id))"
+  ],
+  [
+   "table",
+   "daily_usage_reports",
+   "daily_usage_reports",
+   "CREATE TABLE daily_usage_reports (\n            date        TEXT    PRIMARY KEY,        -- \"YYYY-MM-DD\" (jour du rapport)\n            payload_json TEXT   NOT NULL,           -- snapshot structuré des KPI\n            created_at  REAL    NOT NULL\n        )"
+  ],
+  [
+   "index",
+   "idx_daily_reports_created",
+   "daily_usage_reports",
+   "CREATE INDEX idx_daily_reports_created ON daily_usage_reports(created_at DESC)"
+  ],
+  [
+   "table",
+   "editor_action_cache",
+   "editor_action_cache",
+   "CREATE TABLE editor_action_cache (\n            scope       TEXT    NOT NULL,\n            query_norm  TEXT    NOT NULL,\n            auto_id     TEXT    NOT NULL DEFAULT '',\n            role        TEXT    NOT NULL DEFAULT '',\n            center_x    INTEGER DEFAULT NULL,\n            center_y    INTEGER DEFAULT NULL,\n            hits        INTEGER NOT NULL DEFAULT 1,\n            updated_at  REAL    NOT NULL,\n            PRIMARY KEY (scope, query_norm)\n        )"
+  ],
+  [
+   "index",
+   "idx_action_cache_age",
+   "editor_action_cache",
+   "CREATE INDEX idx_action_cache_age ON editor_action_cache(updated_at)"
+  ],
+  [
+   "table",
+   "editor_routine_runs",
+   "editor_routine_runs",
+   "CREATE TABLE editor_routine_runs (\n            id                 INTEGER PRIMARY KEY AUTOINCREMENT,\n            routine_id         INTEGER NOT NULL,\n            owner_user_id      INTEGER NOT NULL,\n            status             TEXT    NOT NULL DEFAULT 'running',\n            trigger            TEXT    NOT NULL DEFAULT 'schedule',\n            started_at         REAL    NOT NULL,\n            ended_at           REAL    DEFAULT NULL,\n            duration_ms        INTEGER DEFAULT NULL,\n            input_tokens       INTEGER DEFAULT NULL,\n            output_tokens      INTEGER DEFAULT NULL,\n            summary            TEXT    DEFAULT NULL,\n            error              TEXT    DEFAULT NULL,\n            tool_limit_reached INTEGER NOT NULL DEFAULT 0,\n            worker_boot_id     TEXT    DEFAULT NULL,\n            heartbeat_at       REAL    DEFAULT NULL,\n            files              TEXT    NOT NULL DEFAULT '[]',\n            FOREIGN KEY(routine_id)    REFERENCES editor_routines(id) ON DELETE CASCADE,\n            FOREIGN KEY(owner_user_id) REFERENCES users(id)           ON DELETE CASCADE\n        )"
+  ],
+  [
+   "index",
+   "idx_editor_runs_routine",
+   "editor_routine_runs",
+   "CREATE INDEX idx_editor_runs_routine ON editor_routine_runs(routine_id, started_at DESC)"
+  ],
+  [
+   "index",
+   "idx_editor_runs_running",
+   "editor_routine_runs",
+   "CREATE INDEX idx_editor_runs_running ON editor_routine_runs(owner_user_id, status) WHERE status='running'"
+  ],
+  [
+   "table",
+   "editor_routines",
+   "editor_routines",
+   "CREATE TABLE editor_routines (\n            id               INTEGER PRIMARY KEY AUTOINCREMENT,\n            owner_user_id    INTEGER NOT NULL,\n            name             TEXT    NOT NULL,\n            cron_expr        TEXT    NOT NULL,\n            model            TEXT    DEFAULT NULL,\n            system_prompt    TEXT    NOT NULL DEFAULT '',\n            task_prompt      TEXT    NOT NULL DEFAULT '',\n            mcp_snapshot     TEXT    NOT NULL DEFAULT '[]',\n            skills           TEXT    NOT NULL DEFAULT '[]',\n            thinking_mode    INTEGER NOT NULL DEFAULT 0,\n            enabled          INTEGER NOT NULL DEFAULT 1,\n            created_at       REAL    NOT NULL,\n            updated_at       REAL    NOT NULL,\n            last_fire_minute TEXT    DEFAULT NULL,\n            runs_keep        INTEGER NOT NULL DEFAULT 0,\n            notify_on        TEXT    NOT NULL DEFAULT 'all',\n            notify_keep      INTEGER NOT NULL DEFAULT 0, webhook_enabled INTEGER NOT NULL DEFAULT 0, webhook_secret TEXT DEFAULT NULL, webhook_filter TEXT NOT NULL DEFAULT '{}', trigger_after_id INTEGER DEFAULT NULL, trigger_after_on TEXT NOT NULL DEFAULT 'ok', agents_enabled INTEGER NOT NULL DEFAULT 0, connector_id INTEGER DEFAULT NULL,\n            FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE\n        )"
+  ],
+  [
+   "index",
+   "idx_editor_routines_enabled",
+   "editor_routines",
+   "CREATE INDEX idx_editor_routines_enabled ON editor_routines(enabled) WHERE enabled=1"
+  ],
+  [
+   "index",
+   "idx_editor_routines_owner",
+   "editor_routines",
+   "CREATE INDEX idx_editor_routines_owner ON editor_routines(owner_user_id)"
+  ],
+  [
+   "table",
+   "editor_webhook_deliveries",
+   "editor_webhook_deliveries",
+   "CREATE TABLE editor_webhook_deliveries (\n            delivery_id  TEXT    NOT NULL,\n            routine_id   INTEGER NOT NULL,\n            received_at  REAL    NOT NULL,\n            PRIMARY KEY (delivery_id, routine_id)\n        )"
+  ],
+  [
+   "index",
+   "idx_editor_webhook_deliveries_received",
+   "editor_webhook_deliveries",
+   "CREATE INDEX idx_editor_webhook_deliveries_received ON editor_webhook_deliveries(received_at)"
+  ],
+  [
+   "table",
+   "git_connectors",
+   "git_connectors",
+   "CREATE TABLE git_connectors (\n            id            INTEGER PRIMARY KEY AUTOINCREMENT,\n            owner_user_id INTEGER NOT NULL,\n            provider_type TEXT NOT NULL,          -- github | gitlab | bitbucket-cloud\n                                                  -- | bitbucket-server | gitea | generic\n            host          TEXT NOT NULL,          -- lowercase (github.com, gitlab.acme.internal:8443)\n            api_base      TEXT NOT NULL DEFAULT '',\n            label         TEXT NOT NULL DEFAULT '',\n            username      TEXT NOT NULL DEFAULT '',\n            token_enc     TEXT NOT NULL,\n            token_scheme  TEXT NOT NULL DEFAULT 'plain',   -- 'plain' | 'fernet' (réservé)\n            created_at    REAL NOT NULL,\n            updated_at    REAL NOT NULL,\n            last_used     REAL,\n            FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE\n        )"
+  ],
+  [
+   "index",
+   "idx_gitconn_owner_host",
+   "git_connectors",
+   "CREATE INDEX idx_gitconn_owner_host ON git_connectors(owner_user_id, host)"
+  ],
+  [
+   "index",
+   "idx_gitconn_owner_host_label",
+   "git_connectors",
+   "CREATE UNIQUE INDEX idx_gitconn_owner_host_label ON git_connectors(owner_user_id, host, label)"
+  ],
+  [
+   "table",
+   "groups",
+   "groups",
+   "CREATE TABLE groups (\n          id INTEGER PRIMARY KEY AUTOINCREMENT,\n          name TEXT UNIQUE NOT NULL,\n          description TEXT,\n          created_at REAL NOT NULL\n        )"
+  ],
+  [
+   "table",
+   "llm_calls",
+   "llm_calls",
+   "CREATE TABLE llm_calls (\n            id                INTEGER PRIMARY KEY AUTOINCREMENT,\n            ts                REAL    NOT NULL,\n            req_id            TEXT    DEFAULT NULL,\n            user_id           INTEGER DEFAULT NULL,\n            chat_id           TEXT    DEFAULT NULL,\n            model             TEXT    DEFAULT NULL,\n            path              TEXT    DEFAULT NULL,          -- 'classic' | 'tools'\n            status            TEXT    NOT NULL DEFAULT 'ok', -- ok | error\n            finish_reason     TEXT    DEFAULT NULL,\n            prompt_tokens     INTEGER DEFAULT NULL,\n            completion_tokens INTEGER DEFAULT NULL,\n            duration_ms       INTEGER DEFAULT NULL,\n            n_messages        INTEGER DEFAULT NULL,\n            n_tool_calls      INTEGER DEFAULT NULL,\n            request_json      TEXT    DEFAULT NULL,\n            response_json     TEXT    DEFAULT NULL,\n            error             TEXT    DEFAULT NULL\n        )"
+  ],
+  [
+   "index",
+   "idx_llm_calls_status",
+   "llm_calls",
+   "CREATE INDEX idx_llm_calls_status ON llm_calls(status, ts DESC) WHERE status != 'ok'"
+  ],
+  [
+   "index",
+   "idx_llm_calls_ts",
+   "llm_calls",
+   "CREATE INDEX idx_llm_calls_ts ON llm_calls(ts DESC)"
+  ],
+  [
+   "index",
+   "idx_llm_calls_user",
+   "llm_calls",
+   "CREATE INDEX idx_llm_calls_user ON llm_calls(user_id, ts DESC)"
+  ],
+  [
+   "table",
+   "llm_connectors",
+   "llm_connectors",
+   "CREATE TABLE llm_connectors (\n            id            INTEGER PRIMARY KEY AUTOINCREMENT,\n            owner_user_id INTEGER,                       -- NULL ⇒ connecteur partagé (admin)\n            scope         TEXT NOT NULL DEFAULT 'user',  -- 'user' | 'shared'\n            provider_type TEXT NOT NULL,                 -- llamacpp | vllm | openai | anthropic\n                                                         -- | mistral | groq | openrouter | deepseek | generic\n            wire          TEXT NOT NULL DEFAULT 'openai',-- 'openai' | 'anthropic'\n            label         TEXT NOT NULL DEFAULT '',\n            base_url      TEXT NOT NULL DEFAULT '',\n            api_key_enc   TEXT NOT NULL DEFAULT '',\n            key_scheme    TEXT NOT NULL DEFAULT 'fernet',-- 'fernet' | 'plain'\n            default_model TEXT NOT NULL DEFAULT '',\n            models_json   TEXT NOT NULL DEFAULT '',      -- liste de modèles saisie à la main (repli)\n            enabled       INTEGER NOT NULL DEFAULT 1,\n            created_at    REAL NOT NULL,\n            updated_at    REAL NOT NULL,\n            last_used     REAL, context_window INTEGER, max_models INTEGER, max_concurrency INTEGER,\n            FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE\n        )"
+  ],
+  [
+   "index",
+   "idx_llmconn_owner",
+   "llm_connectors",
+   "CREATE INDEX idx_llmconn_owner ON llm_connectors(owner_user_id)"
+  ],
+  [
+   "index",
+   "idx_llmconn_scope",
+   "llm_connectors",
+   "CREATE INDEX idx_llmconn_scope ON llm_connectors(scope)"
+  ],
+  [
+   "table",
+   "llm_engine_policies",
+   "llm_engine_policies",
+   "CREATE TABLE llm_engine_policies (\n            principal_type     TEXT NOT NULL\n                               CHECK (principal_type IN ('user', 'group')),\n            principal_id       INTEGER NOT NULL,\n            engine_keys        TEXT NULL,       -- JSON list ; NULL = pas de restriction\n            can_manage_models  INTEGER NULL,    -- 1 / 0 ; NULL = non réglé\n            updated_at         REAL NOT NULL,\n            PRIMARY KEY (principal_type, principal_id)\n        )"
+  ],
+  [
+   "table",
+   "mcp_shared_servers",
+   "mcp_shared_servers",
+   "CREATE TABLE mcp_shared_servers (\n            id           INTEGER PRIMARY KEY AUTOINCREMENT,\n            name         TEXT NOT NULL DEFAULT '',\n            type         TEXT NOT NULL DEFAULT 'sse',   -- 'sse' | 'stdio'\n            url          TEXT NOT NULL DEFAULT '',      -- type='sse'\n            command      TEXT NOT NULL DEFAULT '',      -- type='stdio'\n            auth_mode    TEXT NOT NULL DEFAULT '',      -- '' | 'basic' | 'raw'\n            auth_user    TEXT NOT NULL DEFAULT '',      -- auth_mode='basic'\n            auth_enc     TEXT NOT NULL DEFAULT '',      -- token / header brut, chiffré\n            key_scheme   TEXT NOT NULL DEFAULT 'fernet',-- 'fernet' | 'plain'\n            enabled      INTEGER NOT NULL DEFAULT 1,\n            created_at   REAL NOT NULL,\n            updated_at   REAL NOT NULL\n        , headers_enc TEXT NOT NULL DEFAULT '', env_enc TEXT NOT NULL DEFAULT '', extra_scheme TEXT NOT NULL DEFAULT 'plain')"
+  ],
+  [
+   "index",
+   "idx_mcpshared_enabled",
+   "mcp_shared_servers",
+   "CREATE INDEX idx_mcpshared_enabled ON mcp_shared_servers(enabled)"
+  ],
+  [
+   "table",
+   "metric_events",
+   "metric_events",
+   "CREATE TABLE metric_events (\n          id INTEGER PRIMARY KEY AUTOINCREMENT,\n          event_type TEXT NOT NULL,\n          value REAL,\n          tags_json TEXT,\n          created_at REAL NOT NULL\n        , user_id INTEGER)"
+  ],
+  [
+   "index",
+   "idx_metrics_type_date",
+   "metric_events",
+   "CREATE INDEX idx_metrics_type_date ON metric_events(event_type, created_at DESC)"
+  ],
+  [
+   "table",
+   "notifications",
+   "notifications",
+   "CREATE TABLE notifications (\n            id            INTEGER PRIMARY KEY AUTOINCREMENT,\n            owner_user_id INTEGER NOT NULL,\n            kind          TEXT NOT NULL,\n            title         TEXT NOT NULL,\n            body          TEXT DEFAULT '',\n            ref_type      TEXT DEFAULT '',\n            ref_id        INTEGER,\n            read_at       REAL,\n            created_at    REAL NOT NULL,\n            FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE\n        )"
+  ],
+  [
+   "index",
+   "idx_notif_user_unread",
+   "notifications",
+   "CREATE INDEX idx_notif_user_unread ON notifications(owner_user_id, read_at, created_at)"
+  ],
+  [
+   "table",
+   "prompt_templates",
+   "prompt_templates",
+   "CREATE TABLE prompt_templates (\n            id          INTEGER PRIMARY KEY AUTOINCREMENT,\n            user_id     INTEGER NOT NULL,\n            name        TEXT NOT NULL,\n            title       TEXT NOT NULL,\n            content     TEXT NOT NULL,\n            created_at  REAL NOT NULL,\n            updated_at  REAL NOT NULL,\n            UNIQUE(user_id, name),\n            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE\n        )"
+  ],
+  [
+   "index",
+   "idx_prompt_templates_user",
+   "prompt_templates",
+   "CREATE INDEX idx_prompt_templates_user ON prompt_templates(user_id)"
+  ],
+  [
+   "table",
+   "revoked_sessions",
+   "revoked_sessions",
+   "CREATE TABLE revoked_sessions (  sid        TEXT PRIMARY KEY,  user_id    INTEGER,  revoked_at REAL NOT NULL)"
+  ],
+  [
+   "index",
+   "idx_revoked_sessions_at",
+   "revoked_sessions",
+   "CREATE INDEX idx_revoked_sessions_at ON revoked_sessions(revoked_at)"
+  ],
+  [
+   "table",
+   "sandbox_placements",
+   "sandbox_placements",
+   "CREATE TABLE sandbox_placements (\n            user_id    INTEGER PRIMARY KEY,\n            host_id    TEXT    NOT NULL,\n            created_at REAL    NOT NULL,\n            updated_at REAL    NOT NULL\n        )"
+  ],
+  [
+   "index",
+   "idx_sandbox_placements_host",
+   "sandbox_placements",
+   "CREATE INDEX idx_sandbox_placements_host ON sandbox_placements(host_id)"
+  ],
+  [
+   "table",
+   "saved_prompts",
+   "saved_prompts",
+   "CREATE TABLE saved_prompts (\n          id INTEGER PRIMARY KEY AUTOINCREMENT,\n          user_id INTEGER NOT NULL,\n          title TEXT NOT NULL,\n          content TEXT NOT NULL,\n          created_at REAL NOT NULL,\n          FOREIGN KEY(user_id) REFERENCES users(id)\n        )"
+  ],
+  [
+   "table",
+   "schema_migrations",
+   "schema_migrations",
+   "CREATE TABLE schema_migrations (\n            id          INTEGER PRIMARY KEY AUTOINCREMENT,\n            name        TEXT UNIQUE NOT NULL,\n            applied_at  REAL NOT NULL\n        )"
+  ],
+  [
+   "trigger",
+   "sm_ad",
+   "session_messages",
+   "CREATE TRIGGER sm_ad AFTER DELETE ON session_messages BEGIN\n                INSERT INTO session_messages_fts(session_messages_fts, rowid, content, user_id, app, session_id, role)\n                VALUES('delete', old.id, old.content, old.user_id, old.app, old.session_id, old.role);\n            END"
+  ],
+  [
+   "trigger",
+   "sm_ai",
+   "session_messages",
+   "CREATE TRIGGER sm_ai AFTER INSERT ON session_messages BEGIN\n                INSERT INTO session_messages_fts(rowid, content, user_id, app, session_id, role)\n                VALUES (new.id, new.content, new.user_id, new.app, new.session_id, new.role);\n            END"
+  ],
+  [
+   "trigger",
+   "sm_au",
+   "session_messages",
+   "CREATE TRIGGER sm_au AFTER UPDATE ON session_messages BEGIN\n                INSERT INTO session_messages_fts(session_messages_fts, rowid, content, user_id, app, session_id, role)\n                VALUES('delete', old.id, old.content, old.user_id, old.app, old.session_id, old.role);\n                INSERT INTO session_messages_fts(rowid, content, user_id, app, session_id, role)\n                VALUES (new.id, new.content, new.user_id, new.app, new.session_id, new.role);\n            END"
+  ],
+  [
+   "table",
+   "session_messages",
+   "session_messages",
+   "CREATE TABLE session_messages (\n            id          INTEGER PRIMARY KEY AUTOINCREMENT,\n            user_id     INTEGER NOT NULL,\n            app         TEXT    NOT NULL,           -- 'chat' | 'agentic'\n            session_id  TEXT    NOT NULL,           -- chat_id ou run_id\n            scope_key   TEXT    NOT NULL DEFAULT '',\n            role        TEXT    NOT NULL,           -- 'user' | 'assistant'\n            content     TEXT    NOT NULL,\n            ts          REAL    NOT NULL,\n            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE\n        )"
+  ],
+  [
+   "index",
+   "idx_sm_session",
+   "session_messages",
+   "CREATE INDEX idx_sm_session ON session_messages(user_id, app, session_id)"
+  ],
+  [
+   "index",
+   "idx_sm_ts",
+   "session_messages",
+   "CREATE INDEX idx_sm_ts ON session_messages(ts)"
+  ],
+  [
+   "index",
+   "idx_sm_user",
+   "session_messages",
+   "CREATE INDEX idx_sm_user ON session_messages(user_id, ts DESC)"
+  ],
+  [
+   "table",
+   "session_messages_fts",
+   "session_messages_fts",
+   "CREATE VIRTUAL TABLE session_messages_fts USING fts5(\n                content,\n                user_id    UNINDEXED,\n                app        UNINDEXED,\n                session_id UNINDEXED,\n                role       UNINDEXED,\n                content='session_messages',\n                content_rowid='id',\n                tokenize='unicode61 remove_diacritics 2'\n            )"
+  ],
+  [
+   "table",
+   "shared_prompts",
+   "shared_prompts",
+   "CREATE TABLE shared_prompts (\n          id INTEGER PRIMARY KEY AUTOINCREMENT,\n          from_user_id INTEGER NOT NULL,\n          to_user_id INTEGER NOT NULL,\n          title TEXT NOT NULL,\n          content TEXT NOT NULL,\n          created_at REAL NOT NULL,\n          FOREIGN KEY(from_user_id) REFERENCES users(id),\n          FOREIGN KEY(to_user_id) REFERENCES users(id)\n        )"
+  ],
+  [
+   "table",
+   "terminal_sessions",
+   "terminal_sessions",
+   "CREATE TABLE terminal_sessions (\n            id                 TEXT PRIMARY KEY,\n            uid                INTEGER NOT NULL,\n            tid                INTEGER,\n            name               TEXT NOT NULL DEFAULT 'Terminal',\n            created_at         INTEGER NOT NULL,\n            last_connected_at  INTEGER NOT NULL\n        )"
+  ],
+  [
+   "index",
+   "idx_term_sessions_uid",
+   "terminal_sessions",
+   "CREATE INDEX idx_term_sessions_uid ON terminal_sessions(uid, tid)"
+  ],
+  [
+   "table",
+   "tool_call_metrics",
+   "tool_call_metrics",
+   "CREATE TABLE tool_call_metrics (\n            id           INTEGER PRIMARY KEY AUTOINCREMENT,\n            run_id       TEXT    NOT NULL,\n            user_id      INTEGER NOT NULL,\n            pipeline_id  INTEGER DEFAULT NULL,\n            node_id      TEXT    DEFAULT NULL,\n            member_id    TEXT    DEFAULT NULL,\n            tool_name    TEXT    NOT NULL,\n            server_name  TEXT    DEFAULT NULL,\n            status       TEXT    NOT NULL DEFAULT 'success',\n            duration_ms  INTEGER NOT NULL DEFAULT 0,\n            error_short  TEXT    DEFAULT NULL,\n            ts           REAL    NOT NULL\n        )"
+  ],
+  [
+   "index",
+   "idx_tcm_run",
+   "tool_call_metrics",
+   "CREATE INDEX idx_tcm_run ON tool_call_metrics(run_id, ts)"
+  ],
+  [
+   "index",
+   "idx_tcm_status",
+   "tool_call_metrics",
+   "CREATE INDEX idx_tcm_status ON tool_call_metrics(status, ts DESC) WHERE status != 'success'"
+  ],
+  [
+   "index",
+   "idx_tcm_tool",
+   "tool_call_metrics",
+   "CREATE INDEX idx_tcm_tool ON tool_call_metrics(tool_name, ts DESC)"
+  ],
+  [
+   "index",
+   "idx_tcm_ts",
+   "tool_call_metrics",
+   "CREATE INDEX idx_tcm_ts ON tool_call_metrics(ts)"
+  ],
+  [
+   "index",
+   "idx_tcm_user",
+   "tool_call_metrics",
+   "CREATE INDEX idx_tcm_user ON tool_call_metrics(user_id, ts DESC)"
+  ],
+  [
+   "table",
+   "usage_events",
+   "usage_events",
+   "CREATE TABLE usage_events (\n            id                    INTEGER PRIMARY KEY AUTOINCREMENT,\n            ts                    REAL    NOT NULL,   -- epoch (UTC), fin de tour\n            user_id               INTEGER,            -- l'ID, JAMAIS le username\n            source                TEXT    NOT NULL DEFAULT 'unknown',\n            -- chat | routine | webhook | subagent | title | compression\n            -- | scenario | remote | unknown\n            origin_id             TEXT    NOT NULL DEFAULT '',\n            -- chat_id, run_chat_key(routine,run), child_id du sous-agent…\n            parent_id             TEXT    NOT NULL DEFAULT '',\n            -- sous-agent → origin_id du tour parent (chaînage de la conso)\n            model                 TEXT    NOT NULL DEFAULT '',\n            connector             TEXT    NOT NULL DEFAULT '',\n            path                  TEXT    NOT NULL DEFAULT '',\n            -- classic | tools | forced_tool | open_tools\n            input_tokens          INTEGER NOT NULL DEFAULT 0,\n            output_tokens         INTEGER NOT NULL DEFAULT 0,\n            submitted_tokens      INTEGER NOT NULL DEFAULT 0,\n            -- cumul des prompts de TOUTES les itérations d'outils (vérité\n            -- de facturation API), ≠ input_tokens du dernier appel\n            cache_read_tokens     INTEGER NOT NULL DEFAULT 0,\n            cache_creation_tokens INTEGER NOT NULL DEFAULT 0,\n            duration_ms           INTEGER NOT NULL DEFAULT 0,\n            iterations            INTEGER NOT NULL DEFAULT 0,\n            status                TEXT    NOT NULL DEFAULT 'ok',\n            -- ok | error | aborted | timeout | tool_limit\n            error_kind            TEXT    NOT NULL DEFAULT ''\n        , thinking_tokens INTEGER NOT NULL DEFAULT 0)"
+  ],
+  [
+   "index",
+   "idx_usage_model_ts",
+   "usage_events",
+   "CREATE INDEX idx_usage_model_ts ON usage_events(model, ts DESC)"
+  ],
+  [
+   "index",
+   "idx_usage_source_ts",
+   "usage_events",
+   "CREATE INDEX idx_usage_source_ts ON usage_events(source, ts DESC)"
+  ],
+  [
+   "index",
+   "idx_usage_status_ts",
+   "usage_events",
+   "CREATE INDEX idx_usage_status_ts ON usage_events(status, ts DESC) WHERE status != 'ok'"
+  ],
+  [
+   "index",
+   "idx_usage_ts",
+   "usage_events",
+   "CREATE INDEX idx_usage_ts ON usage_events(ts DESC)"
+  ],
+  [
+   "index",
+   "idx_usage_user_ts",
+   "usage_events",
+   "CREATE INDEX idx_usage_user_ts ON usage_events(user_id, ts DESC)"
+  ],
+  [
+   "table",
+   "user_groups",
+   "user_groups",
+   "CREATE TABLE user_groups (\n          user_id INTEGER NOT NULL,\n          group_id INTEGER NOT NULL,\n          PRIMARY KEY(user_id, group_id),\n          FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,\n          FOREIGN KEY(group_id) REFERENCES groups(id) ON DELETE CASCADE\n        )"
+  ],
+  [
+   "index",
+   "idx_user_groups_group",
+   "user_groups",
+   "CREATE INDEX idx_user_groups_group ON user_groups(group_id)"
+  ],
+  [
+   "index",
+   "idx_user_groups_user",
+   "user_groups",
+   "CREATE INDEX idx_user_groups_user ON user_groups(user_id)"
+  ],
+  [
+   "table",
+   "users",
+   "users",
+   "CREATE TABLE users (\n          id INTEGER PRIMARY KEY AUTOINCREMENT,\n          username TEXT UNIQUE NOT NULL,\n          pass_salt TEXT NOT NULL,\n          pass_hash TEXT NOT NULL,\n          created_at REAL NOT NULL,\n          is_admin INTEGER DEFAULT 0,\n          avatar TEXT,\n          settings_json TEXT,\n          must_change_pwd INTEGER DEFAULT 0,\n          session_min_ts REAL DEFAULT 0\n        )"
+  ]
+ ]
+}

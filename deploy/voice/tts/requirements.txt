@@ -1,0 +1,10 @@
+# Service de synthèse vocale Elpis — dépendances minimales.
+# Rien de tout ceci ne doit être installé sur l'hôte applicatif : ce venv vit
+# sur la machine de synthèse.
+
+fastapi                 # les quatre routes
+uvicorn[standard]       # serveur ASGI
+pydantic                # corps de requête (tiré par fastapi, épinglé ici pour mémoire)
+piper-tts>=1.8.0        # le moteur VITS
+onnxruntime>=1.20       # exécution du modèle (tiré par piper-tts, explicite ici)
+numpy>=1.26,<3          # assemblage des morceaux PCM

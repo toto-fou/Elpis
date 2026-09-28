@@ -1,0 +1,54 @@
+[Unit]
+Description=Elpis — reconnaissance vocale (whisper.cpp)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=elpis
+WorkingDirectory=/opt/elpis-voice
+# small-q5_1 par défaut : le build est CPU par défaut, et sur CPU les modèles
+# plus gros rendent la phrase après qu'on a fini de dire la suivante. Avec un
+# GPU (build cuda/vulkan/rocm), passez à ggml-large-v3-turbo-q5_0.bin.
+Environment=WHISPER_MODEL=/opt/elpis-voice/models/ggml-small-q5_1.bin
+# Adresse d'écoute. whisper-server n'a AUCUNE authentification et expose
+# `POST /load`, qui change le modèle chargé : n'importe qui qui le joint peut
+# le détourner. 127.0.0.1 par défaut (Elpis sur cette même machine). Elpis sur
+# une AUTRE machine : ELPIS_VOICE_HOST=<IP privée ou 0.0.0.0> à l'installation
+# (install_offline.sh --lan), de préférence l'IP de l'interface privée
+# (ex. 10.0.0.12), et le port limité à l'hôte Elpis au pare-feu :
+#   ufw allow from <IP-hôte-Elpis> to any port 8090 proto tcp
+#   nft add rule inet filter input tcp dport 8090 ip saddr != <IP-hôte-Elpis> drop
+Environment=WHISPER_HOST=127.0.0.1
+Environment=WHISPER_PORT=8090
+# Vide = autant de threads que de cœurs (`nproc`). Un nombre force la valeur.
+Environment=WHISPER_THREADS=
+Environment=WHISPER_LANG=fr
+Environment=LD_LIBRARY_PATH=/opt/elpis-voice/bin
+# --suppress-nst : whisper n'écrit plus « [musique] », « (bruit de fond) » — la
+#   moitié des hallucinations disparaît à la source.
+# -nt : pas d'horodatage dans le texte rendu.
+# audio_ctx et beam_size ne sont PAS ici : ils voyagent par requête, c'est ce
+#   qui rend ce serveur partageable entre appelants.
+# Passage par sh : c'est lui qui calcule `nproc` quand WHISPER_THREADS est vide
+#   (`$$` = un `$` littéral transmis au shell, systemd n'y touche pas).
+ExecStart=/bin/sh -c 'exec /opt/elpis-voice/bin/whisper-server \
+          --host "$${WHISPER_HOST:-127.0.0.1}" --port "$${WHISPER_PORT:-8090}" \
+          -m "$${WHISPER_MODEL}" -t "$${WHISPER_THREADS:-$$(nproc)}" -l "$${WHISPER_LANG:-fr}" \
+          -nt --suppress-nst'
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+
+# Durcissement : le service ne lit que ses modèles, n'écrit nulle part.
+# ProtectHome=true rend /home, /root et /run/user INVISIBLES : un modèle posé
+# dans un dossier personnel (~/models/…) donne « failed to open » au démarrage.
+# Rangez-le sous /opt/elpis-voice/models, ou passez à ProtectHome=read-only.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=
+
+[Install]
+WantedBy=multi-user.target

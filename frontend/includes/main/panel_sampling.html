@@ -1,0 +1,326 @@
+<!--
+  includes/main/panel_sampling.html — LLM sampling parameters panel.
+
+  Style "A · Lignes fines" : plus de cartes blanches bordées par paramètre.
+  Chaque réglage est une ligne séparée par un filet. Les réglages les plus
+  souvent modifiés sont en HAUT (« Fréquents », toujours visibles) ; les knobs
+  rarement touchés (top_p / top_k / min_p / repeat_penalty) et le budget de
+  réflexion numérique sont regroupés sous « Avancé » (repliable). Le panneau
+  reprend la classe utilitaire `.elpis-slide-panel` (comme panel_mcp).
+
+  Override : temperature, top_p, top_k, min_p, repeat_penalty, max_tokens,
+  max_tool_iterations, thinking_budget_tokens. Une clé laissée vide = on garde
+  la valeur du modèle (/props). Persistance : localStorage `sampling_override`
+  (cf. chat/_sampling.js) — les réglages survivent au rechargement, sinon ils
+  étaient à re-saisir à chaque session.
+
+  Mode DÉGRADÉ (effectiveParamsData.degraded) : modèle local non chargé ou
+  modèle d'un connecteur (cloud) — les valeurs /props sont indisponibles
+  (colonne « modèle » vide, fmtPropVal → « -- ») mais TOUS les overrides
+  restent éditables : ils s'appliquent sans /props (le backend les honore
+  pour tous les moteurs). Un bandeau explique le contexte. Avant, le panneau
+  entier était remplacé par un écran « Modèle non chargé » bloquant.
+
+  Réflexion : pour un modèle qui SUPPORTE le reasoning
+  (effectiveParamsData.supports_thinking), un interrupteur on/off (ACTIF par
+  défaut) pilote le tri-état `thinking_budget_tokens` — source de vérité unique
+  dont _doGenerate dérive thinking_mode = (budget > 0). En mode agent (outils)
+  seul cet état on/off compte ; la VALEUR du budget (champ « Avancé ») n'est
+  honorée qu'en chat simple. Le toggle est exposé par _sampling.js
+  (`thinkingEnabled`, computed get/set). En dégradé le support est INCONNU
+  (null) : le toggle est affiché pour un CONNECTEUR (les moteurs cloud ont des
+  modèles reasoning — choix produit 2026-07-27), éteint par défaut ; masqué
+  pour un modèle local non chargé (visible après chargement ▶).
+
+  Raisonnement conservé (preserve_reasoning) : kwarg de chat_template llama.cpp
+  qui garde le <think> des tours PASSÉS dans le prompt re-rendu. Le toggle
+  n'apparaît que si le serveur confirme la capacité pour le modèle CHARGÉ
+  (/props.chat_template_caps.supports_preserve_reasoning) — masqué pour un
+  connecteur et en vue dégradée. Tri-état : null = défaut du template (affiché
+  ON), true/false = choix explicite. Il change les BYTES du prompt : à réglage
+  stable le cache de préfixe est intact, mais le BASCULER en cours de
+  conversation invalide le préfixe dès le 1er message assistant (un seul
+  re-préfill, mesuré ~6x le préfill incrémental sur ce tour-là).
+
+  Défauts agent/reasoning : lus depuis effectiveParamsData.agent_defaults
+  (config backend) — plus de littéraux figés côté UI.
+
+  Sliders : classe partagée skin-aware `.set-range` (accents remappés par les
+  skins). Accents = famille bleue (remappée par tous les skins), jamais
+  purple/violet (que seul llamacpp remappe).
+
+  Toggled via showSamplingPanel. Largeur : 320px ouvert, 0 (caché) sinon.
+-->
+            <div class="elpis-slide-panel h-full shrink-0 flex flex-col bg-slate-50 z-20 border-l border-slate-200"
+                 :class="showSamplingPanel ? 'w-[320px] opacity-100' : 'w-0 opacity-0 overflow-hidden pointer-events-none'">
+
+                <!-- Header -->
+                <div class="h-16 flex items-center justify-between px-4 border-b border-slate-200 shrink-0 bg-white">
+                    <h3 class="font-bold text-slate-800 flex items-baseline gap-2 text-sm">
+                        <i class="ph ph-sliders-horizontal text-blue-600 text-lg self-center"></i> Réglages de génération
+                        <span class="text-[11px] font-normal text-slate-400">sampling</span>
+                    </h3>
+                    <button @click="showSamplingPanel = false" class="text-slate-400 hover:text-slate-800 p-1 hover:bg-slate-100 rounded-md transition-colors">
+                        <i class="ph ph-x text-base"></i>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto px-4 py-3 custom-scrollbar">
+
+                    <!-- Modèle ciblé — ligne discrète, sans cadre -->
+                    <div v-if="effectiveParamsData" class="flex items-baseline justify-between gap-3 pb-2.5 border-b border-slate-200/70">
+                        <span class="text-xs font-semibold text-slate-500 shrink-0">Modèle</span>
+                        <span class="text-[11px] font-mono text-slate-600 truncate" :title="effectiveParamsData.model_id">{{ effectiveParamsData.model_id }}</span>
+                    </div>
+
+                    <!-- Note explicative — une ligne calme -->
+                    <p class="flex gap-1.5 text-[10px] text-slate-400 leading-relaxed py-2.5 border-b border-slate-200/70">
+                        <i class="ph ph-info text-blue-500 text-xs mt-px shrink-0"></i>
+                        <span>Les valeurs en gris viennent du modèle (<span class="font-mono">/props</span>). Laisser un champ vide = garder la valeur du modèle.</span>
+                    </p>
+
+                    <!-- Bandeau mode DÉGRADÉ : valeurs /props indisponibles
+                         (connecteur cloud ou modèle non chargé) — les
+                         réglages restent éditables et s'appliquent. -->
+                    <div v-if="effectiveParamsData && effectiveParamsData.degraded"
+                         class="flex gap-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/60 rounded-md px-2.5 py-2 mt-2.5 leading-relaxed">
+                        <i class="ph text-xs mt-px shrink-0" :class="selectedConnector ? 'ph-plugs-connected' : 'ph-power'"></i>
+                        <span v-if="selectedConnector">Moteur externe : les valeurs internes du modèle ne sont pas exposées. <span class="font-medium">temperature</span>, <span class="font-medium">top_p</span>, <span class="font-medium">max_tokens</span> et <span class="font-medium">max_tool_iterations</span> s'appliquent ; les réglages propres à llama.cpp (grisés ci-dessous) sont ignorés par ce moteur.</span>
+                        <span v-else>Modèle non chargé : valeurs du modèle indisponibles (chargez-le avec ▶ pour les voir) — vos réglages s'appliquent quand même.</span>
+                    </div>
+
+                    <!-- Loading -->
+                    <div v-if="effectiveParamsLoading" class="py-10 text-center text-xs text-slate-400">
+                        <i class="ph ph-spinner-gap animate-spin text-xl"></i>
+                        <div class="mt-2">Chargement...</div>
+                    </div>
+
+                    <!-- Paramètres -->
+                    <div v-else-if="effectiveParamsData">
+
+                        <!-- ════ Fréquents (toujours visibles) ════ -->
+
+                        <!-- temperature -->
+                        <div class="py-2.5 border-b border-slate-200/70">
+                            <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                                <label class="text-[13px] text-slate-600">temperature</label>
+                                <div class="flex items-baseline gap-2 shrink-0">
+                                    <span class="text-[10px] text-slate-400 font-mono">{{ effectiveParamsData.props_unavailable ? 'défaut' : 'modèle' }} <span class="font-bold text-slate-500">{{ fmtPropVal(effectiveParamsData.sources?.props?.temperature) }}</span></span>
+                                    <input type="number" min="0" max="2" step="0.05" placeholder="auto"
+                                           v-model.number="samplingOverride.temperature"
+                                           class="w-16 text-[12px] text-right font-medium text-slate-800 bg-transparent border-0 border-b border-slate-200 px-1 py-0.5 focus:outline-none focus:border-blue-500 placeholder:text-slate-300 placeholder:font-normal">
+                                </div>
+                            </div>
+                            <input type="range" min="0" max="2" step="0.05"
+                                   :value="samplingOverride.temperature ?? effectiveParamsData.sources?.props?.temperature ?? 0.7"
+                                   @input="samplingOverride.temperature = parseFloat($event.target.value)"
+                                   class="set-range w-full">
+                        </div>
+
+                        <!-- Réflexion (toggle) — visible pour un modèle reasoning,
+                             et pour un CONNECTEUR en mode dégradé (support inconnu :
+                             les moteurs cloud ont des modèles reasoning — éteint par
+                             défaut, aucun pré-remplissage). Vue booléenne de
+                             thinking_budget_tokens : on/off en mode agent, la valeur
+                             (Avancé) n'agit qu'en chat simple. -->
+                        <div v-if="effectiveParamsData.supports_thinking || (effectiveParamsData.degraded && selectedConnector)" class="py-2.5 border-b border-slate-200/70">
+                            <label class="flex items-center justify-between gap-2 cursor-pointer">
+                                <span class="text-[13px] text-slate-600 flex items-center gap-1.5">
+                                    <i class="ph ph-brain text-[13px]" :class="thinkingEnabled ? 'text-blue-500' : 'text-slate-400'"></i>
+                                    <span>Réflexion</span>
+                                </span>
+                                <span class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" v-model="thinkingEnabled" class="sr-only peer">
+                                    <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                </span>
+                            </label>
+                            <p class="text-[10px] text-slate-400 mt-1 leading-tight">
+                                <template v-if="thinkingEnabled">Activée · budget dans « Avancé » (chat simple).</template>
+                                <template v-else>Désactivée.</template>
+                            </p>
+                        </div>
+
+                        <!-- Raisonnement conservé (toggle) — visible UNIQUEMENT si
+                             llama.cpp confirme la capacité sur le modèle chargé
+                             (/props.chat_template_caps.supports_preserve_reasoning).
+                             Masqué pour un connecteur et en dégradé (support inconnu). -->
+                        <div v-if="preserveReasoningSupported" class="py-2.5 border-b border-slate-200/70">
+                            <label class="flex items-center justify-between gap-2 cursor-pointer">
+                                <span class="text-[13px] text-slate-600 flex items-center gap-1.5">
+                                    <i class="ph ph-clock-counter-clockwise text-[13px]" :class="preserveReasoningEnabled ? 'text-blue-500' : 'text-slate-400'"></i>
+                                    <span>Raisonnement conservé</span>
+                                </span>
+                                <span class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" v-model="preserveReasoningEnabled" class="sr-only peer">
+                                    <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                </span>
+                            </label>
+                            <p class="text-[10px] text-slate-400 mt-1 leading-tight">
+                                <template v-if="preserveReasoningEnabled">Activé · la réflexion des tours passés reste dans le prompt. Plus cohérent, prompt plus long.</template>
+                                <template v-else>Désactivé · seule la réflexion du tour courant est gardée. Prompt plus court.</template>
+                                Changer en cours de conversation force un re-calcul du cache une fois.
+                            </p>
+                        </div>
+
+                        <!-- max_tokens (numérique seul) -->
+                        <div class="py-2.5 border-b border-slate-200/70">
+                            <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                                <label class="text-[13px] text-slate-600">max_tokens</label>
+                                <input type="number" min="1" max="24576" step="128" placeholder="illimité"
+                                       v-model.number="samplingOverride.max_tokens"
+                                       class="w-24 text-[12px] text-right font-medium text-slate-800 bg-transparent border-0 border-b border-slate-200 px-1 py-0.5 focus:outline-none focus:border-blue-500 placeholder:text-slate-300 placeholder:font-normal">
+                            </div>
+                            <p class="text-[10px] text-slate-400 leading-tight">Limite de réponse (vide = illimité) · plafonnée selon la fenêtre de contexte du modèle</p>
+                        </div>
+
+                        <!-- max_tool_iterations — défaut lu depuis la config backend
+                             (agent_defaults), plus de « 50 » codé en dur. Ne pilote
+                             que la boucle principale ; les sous-agents (task) ont
+                             leurs propres caps. -->
+                        <div class="py-2.5 border-b border-slate-200/70">
+                            <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                                <label class="text-[13px] text-slate-600" title="Nombre maximum de tours d'outils dans une même réponse. Un tour = un appel au modèle, qui peut lancer plusieurs outils en parallèle : le nombre d'appels d'outils peut dépasser ce budget.">max_tool_iterations</label>
+                                <div class="flex items-baseline gap-2 shrink-0">
+                                    <span class="text-[10px] text-slate-400 font-mono">défaut <span class="font-bold text-slate-500">{{ effectiveParamsData.agent_defaults?.max_tool_iterations ?? 200 }}</span></span>
+                                    <input type="number" min="1" max="500" step="1" placeholder="auto"
+                                           v-model.number="samplingOverride.max_tool_iterations"
+                                           class="w-16 text-[12px] text-right font-medium text-slate-800 bg-transparent border-0 border-b border-slate-200 px-1 py-0.5 focus:outline-none focus:border-blue-500 placeholder:text-slate-300 placeholder:font-normal">
+                                </div>
+                            </div>
+                            <input type="range" min="1" max="500" step="1"
+                                   :value="samplingOverride.max_tool_iterations ?? effectiveParamsData.agent_defaults?.max_tool_iterations ?? 200"
+                                   @input="samplingOverride.max_tool_iterations = parseInt($event.target.value)"
+                                   class="set-range w-full">
+                            <p class="text-[10px] text-slate-400 mt-1 leading-tight">Tours d'outils max — un tour peut lancer plusieurs outils (web scraping : 100-150)</p>
+                        </div>
+
+                        <!-- ════ Avancé (repliable) ════ -->
+                        <details class="group mt-4">
+                            <summary class="cursor-pointer text-xs font-semibold text-slate-500 hover:text-slate-700 select-none flex items-center gap-1 py-1">
+                                <i class="ph ph-caret-right group-open:rotate-90 transition-transform inline-block text-[9px]"></i>
+                                Avancé
+                            </summary>
+
+                            <div class="mt-1">
+                                <!-- top_p -->
+                                <div class="py-2.5 border-b border-slate-200/70">
+                                    <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                                        <label class="text-[13px] text-slate-600">top_p</label>
+                                        <div class="flex items-baseline gap-2 shrink-0">
+                                            <span class="text-[10px] text-slate-400 font-mono">{{ effectiveParamsData.props_unavailable ? 'défaut' : 'modèle' }} <span class="font-bold text-slate-500">{{ fmtPropVal(effectiveParamsData.sources?.props?.top_p) }}</span></span>
+                                            <input type="number" min="0" max="1" step="0.01" placeholder="auto"
+                                                   v-model.number="samplingOverride.top_p"
+                                                   class="w-16 text-[12px] text-right font-medium text-slate-800 bg-transparent border-0 border-b border-slate-200 px-1 py-0.5 focus:outline-none focus:border-blue-500 placeholder:text-slate-300 placeholder:font-normal">
+                                        </div>
+                                    </div>
+                                    <input type="range" min="0" max="1" step="0.01"
+                                           :value="samplingOverride.top_p ?? effectiveParamsData.sources?.props?.top_p ?? 0.9"
+                                           @input="samplingOverride.top_p = parseFloat($event.target.value)"
+                                           class="set-range w-full">
+                                </div>
+
+                                <!-- top_k -->
+                                <div class="py-2.5 border-b border-slate-200/70" :class="isIgnoredByEngine('top_k') ? 'opacity-45' : ''">
+                                    <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                                        <label class="text-[13px] text-slate-600">top_k</label>
+                                        <span v-if="isIgnoredByEngine('top_k')" class="text-[9px] font-medium text-amber-700 bg-amber-50 border border-amber-200/70 rounded px-1 py-px" title="Ce réglage est propre à llama.cpp : le moteur externe sélectionné l'ignore (retiré du payload).">sans effet</span>
+                                        <div class="flex items-baseline gap-2 shrink-0">
+                                            <span class="text-[10px] text-slate-400 font-mono">{{ effectiveParamsData.props_unavailable ? 'défaut' : 'modèle' }} <span class="font-bold text-slate-500">{{ fmtPropVal(effectiveParamsData.sources?.props?.top_k) }}</span></span>
+                                            <input type="number" min="0" max="1000" step="1" placeholder="auto"
+                                                   v-model.number="samplingOverride.top_k"
+                                                   :disabled="isIgnoredByEngine('top_k')"
+                                                   class="w-16 text-[12px] text-right font-medium text-slate-800 bg-transparent border-0 border-b border-slate-200 px-1 py-0.5 focus:outline-none focus:border-blue-500 placeholder:text-slate-300 placeholder:font-normal">
+                                        </div>
+                                    </div>
+                                    <input type="range" min="0" max="200" step="1"
+                                           :value="samplingOverride.top_k ?? effectiveParamsData.sources?.props?.top_k ?? 40"
+                                           @input="samplingOverride.top_k = parseInt($event.target.value)"
+                                                   :disabled="isIgnoredByEngine('top_k')"
+                                           class="set-range w-full">
+                                </div>
+
+                                <!-- min_p -->
+                                <div class="py-2.5 border-b border-slate-200/70" :class="isIgnoredByEngine('min_p') ? 'opacity-45' : ''">
+                                    <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                                        <label class="text-[13px] text-slate-600">min_p</label>
+                                        <span v-if="isIgnoredByEngine('min_p')" class="text-[9px] font-medium text-amber-700 bg-amber-50 border border-amber-200/70 rounded px-1 py-px" title="Ce réglage est propre à llama.cpp : le moteur externe sélectionné l'ignore (retiré du payload).">sans effet</span>
+                                        <div class="flex items-baseline gap-2 shrink-0">
+                                            <span class="text-[10px] text-slate-400 font-mono">{{ effectiveParamsData.props_unavailable ? 'défaut' : 'modèle' }} <span class="font-bold text-slate-500">{{ fmtPropVal(effectiveParamsData.sources?.props?.min_p) }}</span></span>
+                                            <input type="number" min="0" max="1" step="0.01" placeholder="auto"
+                                                   v-model.number="samplingOverride.min_p"
+                                                   :disabled="isIgnoredByEngine('min_p')"
+                                                   class="w-16 text-[12px] text-right font-medium text-slate-800 bg-transparent border-0 border-b border-slate-200 px-1 py-0.5 focus:outline-none focus:border-blue-500 placeholder:text-slate-300 placeholder:font-normal">
+                                        </div>
+                                    </div>
+                                    <input type="range" min="0" max="1" step="0.01"
+                                           :value="samplingOverride.min_p ?? effectiveParamsData.sources?.props?.min_p ?? 0.05"
+                                           @input="samplingOverride.min_p = parseFloat($event.target.value)"
+                                                   :disabled="isIgnoredByEngine('min_p')"
+                                           class="set-range w-full">
+                                </div>
+
+                                <!-- repeat_penalty -->
+                                <div class="py-2.5 border-b border-slate-200/70" :class="isIgnoredByEngine('repeat_penalty') ? 'opacity-45' : ''">
+                                    <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                                        <label class="text-[13px] text-slate-600">repeat_penalty</label>
+                                        <span v-if="isIgnoredByEngine('repeat_penalty')" class="text-[9px] font-medium text-amber-700 bg-amber-50 border border-amber-200/70 rounded px-1 py-px" title="Ce réglage est propre à llama.cpp : le moteur externe sélectionné l'ignore (retiré du payload).">sans effet</span>
+                                        <div class="flex items-baseline gap-2 shrink-0">
+                                            <span class="text-[10px] text-slate-400 font-mono">{{ effectiveParamsData.props_unavailable ? 'défaut' : 'modèle' }} <span class="font-bold text-slate-500">{{ fmtPropVal(effectiveParamsData.sources?.props?.repeat_penalty) }}</span></span>
+                                            <input type="number" min="0.5" max="2" step="0.01" placeholder="auto"
+                                                   v-model.number="samplingOverride.repeat_penalty"
+                                                   :disabled="isIgnoredByEngine('repeat_penalty')"
+                                                   class="w-16 text-[12px] text-right font-medium text-slate-800 bg-transparent border-0 border-b border-slate-200 px-1 py-0.5 focus:outline-none focus:border-blue-500 placeholder:text-slate-300 placeholder:font-normal">
+                                        </div>
+                                    </div>
+                                    <input type="range" min="0.5" max="2" step="0.01"
+                                           :value="samplingOverride.repeat_penalty ?? effectiveParamsData.sources?.props?.repeat_penalty ?? 1.0"
+                                           @input="samplingOverride.repeat_penalty = parseFloat($event.target.value)"
+                                                   :disabled="isIgnoredByEngine('repeat_penalty')"
+                                           class="set-range w-full">
+                                </div>
+
+                                <!-- Budget de réflexion (numérique) — n'a d'effet
+                                     qu'en chat simple. Bidirectionnel avec le toggle
+                                     Réflexion : budget > 0 ⇒ toggle ON. Défaut lu
+                                     depuis agent_defaults (config). Même visibilité
+                                     que le toggle (connecteur inclus en dégradé). -->
+                                <div v-if="effectiveParamsData.supports_thinking || (effectiveParamsData.degraded && selectedConnector)" class="py-2.5">
+                                    <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                                        <label class="text-[13px] text-slate-600 flex items-center gap-1.5">
+                                            <i class="ph ph-brain text-[13px] text-slate-400"></i>
+                                            <span>Budget de réflexion</span>
+                                        </label>
+                                        <div class="flex items-baseline gap-2 shrink-0">
+                                            <span class="text-[10px] text-slate-400 font-mono">défaut <span class="font-bold text-slate-500">{{ effectiveParamsData.agent_defaults?.thinking_budget_tokens ?? 8192 }}</span></span>
+                                            <input type="number" min="0" max="131072" step="512" placeholder="off"
+                                                   v-model.number="samplingOverride.thinking_budget_tokens"
+                                                   @change="clampThinkingBudget"
+                                                   class="w-20 text-[12px] text-right font-medium text-slate-800 bg-transparent border-0 border-b border-slate-200 px-1 py-0.5 focus:outline-none focus:border-blue-500 placeholder:text-slate-300 placeholder:font-normal">
+                                        </div>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 leading-tight">Taille du budget reasoning (tokens), min 512. N'a d'effet qu'en <em>chat simple</em> (sans outils) — en mode agent, seul l'interrupteur Réflexion s'applique. 0 = désactivé.</p>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Erreur / aucun modèle sélectionné. (Le cas « modèle non
+                         chargé » et le cas « connecteur » ne passent PLUS ici :
+                         loadEffectiveParams fournit une vue dégradée éditable —
+                         cf. bandeau plus haut — sans jamais lire /props d'un
+                         modèle non chargé.) -->
+                    <div v-else class="py-10 text-center text-xs text-slate-400">
+                        <i class="ph ph-warning-circle text-xl"></i>
+                        <div class="mt-2">Impossible de charger les paramètres</div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-4 py-3 border-t border-slate-200 bg-white flex items-center justify-between shrink-0">
+                    <button @click="resetSamplingOverride" class="text-[11px] text-slate-500 hover:text-red-600 transition-colors flex items-center gap-1">
+                        <i class="ph ph-arrow-counter-clockwise text-xs"></i>
+                        Réinitialiser
+                    </button>
+                    <span class="text-[11px] text-slate-500" title="Ces réglages ne s'appliquent qu'à la conversation en cours">Appliqué à ce chat</span>
+                </div>
+            </div>

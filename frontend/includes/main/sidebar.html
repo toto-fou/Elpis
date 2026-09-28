@@ -1,0 +1,438 @@
+<!--
+  includes/main/sidebar.html -- Left sidebar (extracted from index.html)
+
+  Refonte 2026-05 (impeccable, registre "product") — disposition à la claude.ai.
+  Architecture, de haut en bas (menu AU-DESSUS, chat EN DESSOUS) :
+    * Marque (assistant_name + icône neutre) + bouton réduire
+    * Bouton PRIMAIRE "Nouveau chat" (seul élément plein bleu)
+    * MENU vertical, items empilés les uns sous les autres :
+        - Skills : navigation pleine page (état = teinte bleue)
+        - MCP / Éditeur : toggles de panneau (état = teinte blanche + pastille)
+    * Séparateur
+    * Recherche (se replie en champ inline) + historique groupé par date (flex-1)
+    * Pied ancré : compte utilisateur + paramètres / admin / déconnexion
+
+  Sémantique couleur (un seul accent bleu) :
+    * bleu plein  = action primaire (Nouveau chat)
+    * bleu teinté = LOCALISATION (chat sélectionné, page Skills active)
+    * teinte blanche + pastille bleue = ÉTAT d'un toggle (MCP/Éditeur on)
+    * emerald = admin (privilège), rouge = déconnexion (sémantique, pas déco)
+
+  L'anneau de focus clavier est défini en CSS (aside.elpis-slide-panel
+  …focus-visible dans css/style.css), auto-appliqué à tous les focusables.
+
+  Shown/hidden on mobile via showSidebar ; always visible on lg+.
+  Largeur : 260px (déployé) / 48px (réduit) ; 0 en plein écran éditeur.
+-->
+        <!-- UX : au lieu de `hidden` (display:none instantané non animable)
+             quand fullscreen, on anime `width → 0`. La sidebar se rétracte
+             vers la gauche pendant que l'éditeur s'étend.
+             `overflow: hidden` empêche le contenu de déborder ; `pointer-
+             events-none` en fullscreen évite des clics sur une sidebar à 0. -->
+        <!-- Backdrop mobile : sous lg, la sidebar s'ouvre en overlay `fixed`
+             (z-50). Ce voile (z-40, donc derrière) assombrit le chat et la
+             referme au tap. Masqué en lg+ (sidebar en flux `relative`) et en
+             plein écran éditeur (sidebar animée à 0). -->
+        <div v-if="showSidebar && !editorFullscreen" @click="showSidebar=false"
+             aria-hidden="true"
+             class="lg:hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm"></div>
+        <!-- Fond/texte/bordure du rail : tokens --rail-* (style.css), plus de
+             bg-[#0f172a] en dur — chaque skin re-teinte via ses tokens. -->
+        <aside class="elpis-slide-panel h-full flex flex-col shrink-0 border-r z-50 overflow-hidden"
+               :class="[
+                 editorFullscreen ? 'pointer-events-none border-none' : '',
+                 !editorFullscreen && showSidebar ? 'fixed lg:relative shadow-2xl' : '',
+                 !editorFullscreen && !showSidebar ? 'hidden lg:flex' : ''
+               ]"
+               :style="{ width: editorFullscreen ? '0px' : (showSidebar ? '260px' : '48px') }">
+
+            <!-- ============================================================ -->
+            <!--  RAIL RÉDUIT (48px) — miroir compact, même ordre vertical.   -->
+            <!-- ============================================================ -->
+            <div v-show="!showSidebar" class="flex flex-col items-center py-3 flex-1 w-12 gap-1">
+                <button @click="showSidebar=true" title="Ouvrir le panneau" class="w-9 h-9 rounded-lg hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                    <i class="ph ph-caret-double-right text-lg"></i>
+                </button>
+                <button @click="showSidebar=true" :title="nomMarque" class="elpis-kiki-hote w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-transform hover:scale-105">
+                    <!-- Skin à mascotte « kiki » (registre des skins, champ ``mascot``) : le trio remplace l'icône, au repos, et se met en marche au survol (kiki.css). -->
+                    <span v-if="skinCourant.mascot === 'kiki' && !settings.assistant_avatar" class="elpis-kiki-logo elpis-kiki-logo--mini" aria-hidden="true">
+                        <span class="socle-mascotte elpis-kiki-repos" data-perso="kiki" data-etat="repos"></span>
+                        <span class="socle-mascotte elpis-kiki-marche" data-perso="kiki" data-etat="running"></span>
+                    </span>
+                    <img v-else-if="settings.assistant_avatar" :src="'/avatars/' + settings.assistant_avatar" class="w-8 h-8 rounded-lg object-cover shadow-sm">
+                    <span v-else class="w-8 h-8 rounded-lg bg-white/[0.06] ring-1 ring-inset ring-white/10 flex items-center justify-center text-slate-200"><i class="ph text-lg" :class="settings.assistant_icon || 'ph-robot'"></i></span>
+                </button>
+
+                <div class="w-6 h-px bg-white/10 my-1.5"></div>
+
+                <button @click="startNewChat" title="Nouveau chat (Ctrl+Maj+O)" class="w-9 h-9 rounded-lg bg-blue-700 hover:bg-blue-600 ring-1 ring-inset ring-white/10 text-white shadow-sm shadow-blue-950/50 flex items-center justify-center transition-colors">
+                    <i class="ph ph-plus text-base"></i>
+                </button>
+                <button @click="showSidebar=true; openChatSearch()" title="Rechercher" class="w-9 h-9 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors">
+                    <i class="ph ph-magnifying-glass text-base"></i>
+                </button>
+
+                <div class="w-6 h-px bg-white/10 my-1.5"></div>
+
+                <button v-if="settings.enable_mcp" @click="currentView='chat'; togglePanel('mcp')" :title="showMcpPanel ? 'Outils — activés' : 'Outils'" :aria-pressed="showMcpPanel ? 'true' : 'false'" class="relative w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+                        :class="showMcpPanel ? 'bg-white/[0.08] text-blue-300' : 'text-slate-400 hover:bg-white/10 hover:text-white'">
+                    <i class="ph ph-plug text-lg"></i>
+                    <span v-if="showMcpPanel" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                </button>
+                <button v-if="settings.enable_editor" @click="currentView='chat'; toggleEditor()" :title="showEditor ? 'Éditeur — ouvert' : 'Éditeur'" :aria-pressed="showEditor ? 'true' : 'false'" class="relative w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+                        :class="showEditor ? 'bg-white/[0.08] text-blue-300' : 'text-slate-400 hover:bg-white/10 hover:text-white'">
+                    <i class="ph ph-code-block text-lg"></i>
+                    <span v-if="showEditor" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                </button>
+                <button @click="openRoutinesPage" title="Routines" class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+                        :class="currentView==='routines' ? 'bg-blue-600/20 text-blue-300' : 'text-slate-400 hover:bg-white/10 hover:text-white'">
+                    <i class="ph ph-clock-countdown text-lg"></i>
+                </button>
+                <button @click="openStudio" title="Studio d'annotation — captures d'écran et annotation (vision)" class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+                        :class="currentView==='studio' ? 'bg-blue-600/20 text-blue-300' : 'text-slate-400 hover:bg-white/10 hover:text-white'">
+                    <i class="ph ph-bounding-box text-lg"></i>
+                </button>
+                <button v-if="features.opencode" @click="openCodePage" title="Remote code — sessions opencode déportées" class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+                        :class="currentView==='code' ? 'bg-blue-600/20 text-blue-300' : 'text-slate-400 hover:bg-white/10 hover:text-white'">
+                    <i class="ph ph-terminal-window text-lg"></i>
+                </button>
+                <div class="mt-auto flex flex-col items-center gap-1">
+                    <div class="w-6 h-px bg-white/10 my-0.5"></div>
+                    <button @click="showSidebar=true" title="Compte" class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0">
+                        <img v-if="user.avatar" :src="'/avatars/'+user.avatar" class="w-8 h-8 rounded-full object-cover shadow-sm ring-1 ring-white/10 hover:ring-blue-500/60 transition-all">
+                        <span v-else class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold shadow-sm ring-1 ring-white/10 hover:ring-blue-500/60 transition-all">{{user.username.substring(0,2).toUpperCase()}}</span>
+                    </button>
+                    <button @click="showSidebar=true; openNotifPanel()" :title="notifUnread ? notifUnread + ' notification(s) non lue(s)' : 'Notifications'" class="relative w-9 h-9 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors">
+                        <i class="ph text-lg" :class="notifUnread ? 'ph-bell-ringing' : 'ph-bell'"></i>
+                        <span v-if="notifUnread" role="status" :aria-label="notifUnread + ' notification(s) non lue(s)'" class="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none shadow-sm ring-1 ring-[#0f172a]">{{ notifUnread > 99 ? '99+' : notifUnread }}</span>
+                    </button>
+                    <button @click="openSettings" title="Paramètres" class="w-9 h-9 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors"><i class="ph ph-gear text-lg"></i></button>
+                    <!-- Vert privilège restauré (remontées users) : text-emerald-400 est
+                         remappé par le rail sur --rail-ok (olive sur elpis, vert ailleurs). -->
+                    <button v-if="user.is_admin || user.role === 'moderator'" @click="goToAdmin" title="Admin" class="w-9 h-9 rounded-lg hover:bg-white/10 text-emerald-400 hover:text-emerald-300 flex items-center justify-center transition-colors"><i class="ph ph-shield-check text-lg"></i></button>
+                    <button @click="logout" title="Déconnexion" class="w-9 h-9 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 flex items-center justify-center transition-colors"><i class="ph ph-sign-out text-lg"></i></button>
+                </div>
+            </div>
+
+            <!-- ============================================================ -->
+            <!--  VUE DÉPLOYÉE (260px)                                         -->
+            <!-- ============================================================ -->
+            <div v-show="showSidebar" class="w-[260px] flex flex-col flex-1 min-h-0">
+
+            <!-- En-tête : MARQUE (assistant). Icône en chip NEUTRE pour réserver
+                 le bleu plein au seul bouton d'action. Le compte utilisateur est
+                 en pied (pattern produit : app en haut, compte en bas). -->
+            <div class="px-3 h-16 flex justify-between items-center shrink-0 border-b border-white/[0.06]">
+                <div class="elpis-kiki-hote flex items-center gap-2.5 min-w-0">
+                    <img v-if="settings.assistant_avatar" :src="'/avatars/' + settings.assistant_avatar" class="w-8 h-8 rounded-lg object-cover shadow-sm shrink-0">
+                    <span v-else-if="skinCourant.mascot === 'kiki'" class="elpis-kiki-logo" aria-hidden="true">
+                        <span class="socle-mascotte elpis-kiki-repos" data-perso="kiki" data-etat="repos"></span>
+                        <span class="socle-mascotte elpis-kiki-marche" data-perso="kiki" data-etat="running"></span>
+                    </span>
+                    <img v-else src="static/elpis-256.png" alt="Elpis" class="w-8 h-8 rounded-lg object-cover shadow-sm shrink-0">
+                    <span class="font-semibold text-[15px] text-white tracking-tight truncate">{{ nomMarque }}</span>
+                </div>
+                <div class="flex items-center gap-0.5 shrink-0">
+                    <button @click="openChatSearch" title="Rechercher un chat" class="w-7 h-7 rounded-md hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"><i class="ph ph-magnifying-glass"></i></button>
+                    <button @click="showSidebar=false" title="Réduire le panneau" class="w-7 h-7 rounded-md hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"><i class="ph ph-caret-double-left"></i></button>
+                </div>
+            </div>
+
+            <!-- Action primaire + MENU vertical (items empilés, à la claude.ai).
+                 "Nouveau chat" = seul élément plein bleu (action principale).
+                 Puis Skills (nav page) et MCP / Éditeur (toggles) en
+                 lignes pleine largeur, même langage visuel, rythme serré.
+                 MCP/Éditeur basculent currentView -> 'chat' pour ne pas ouvrir
+                 le panneau caché derrière une vue pleine page. -->
+            <div class="p-3 shrink-0">
+                <button @click="startNewChat"
+                        title="Nouveau chat (Ctrl+Maj+O)"
+                        class="w-full px-3 py-2 mb-2 rounded-lg bg-blue-700 hover:bg-blue-600 active:scale-[0.99] ring-1 ring-inset ring-white/10 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-sm shadow-blue-950/50 transition-all">
+                    <i class="ph ph-plus text-base"></i>
+                    <span>Nouveau chat</span>
+                </button>
+
+                <div class="flex flex-col gap-0.5">
+                    <button v-if="settings.enable_mcp"
+                            @click="currentView='chat'; togglePanel('mcp')"
+                            :title="showMcpPanel ? 'Outils — activés' : 'Outils'"
+                            :aria-pressed="showMcpPanel ? 'true' : 'false'"
+                            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
+                            :class="showMcpPanel ? 'bg-white/[0.08] text-white' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'">
+                        <i class="ph ph-plug text-base shrink-0 transition-colors" :class="showMcpPanel ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'"></i>
+                        <span class="flex-1 truncate">Outils</span>
+                        <span class="w-2 h-2 rounded-full shrink-0 transition-colors" :class="showMcpPanel ? 'bg-blue-400' : 'bg-transparent ring-1 ring-inset ring-slate-500'"></span>
+                    </button>
+
+                    <button v-if="settings.enable_editor"
+                            @click="currentView='chat'; toggleEditor()"
+                            :title="showEditor ? 'Éditeur — ouvert' : 'Éditeur de code'"
+                            :aria-pressed="showEditor ? 'true' : 'false'"
+                            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
+                            :class="showEditor ? 'bg-white/[0.08] text-white' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'">
+                        <i class="ph ph-code-block text-base shrink-0 transition-colors" :class="showEditor ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'"></i>
+                        <span class="flex-1 truncate">Éditeur</span>
+                        <span class="w-2 h-2 rounded-full shrink-0 transition-colors" :class="showEditor ? 'bg-blue-400' : 'bg-transparent ring-1 ring-inset ring-slate-500'"></span>
+                    </button>
+
+                    <button @click="openRoutinesPage" title="Routines"
+                            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
+                            :class="currentView==='routines' ? 'bg-blue-600/20 text-white' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'">
+                        <i class="ph ph-clock-countdown text-base shrink-0 transition-colors" :class="currentView==='routines' ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'"></i>
+                        <span class="flex-1 truncate">Routines</span>
+                    </button>
+
+                    <button @click="openStudio" title="Studio d'annotation — captures d'écran et annotation (vision)"
+                            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
+                            :class="currentView==='studio' ? 'bg-blue-600/20 text-white' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'">
+                        <i class="ph ph-bounding-box text-base shrink-0 transition-colors" :class="currentView==='studio' ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'"></i>
+                        <span class="flex-1 truncate">Studio</span>
+                    </button>
+                    <button v-if="features.opencode" @click="openCodePage" title="Remote code — sessions opencode déportées"
+                            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
+                            :class="currentView==='code' ? 'bg-blue-600/20 text-white' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'">
+                        <i class="ph ph-terminal-window text-base shrink-0 transition-colors" :class="currentView==='code' ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'"></i>
+                        <span class="flex-1 truncate">Remote code</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Séparateur entre le menu et la recherche + l'historique. -->
+            <div class="mx-3 border-t border-white/[0.06] shrink-0"></div>
+
+            <!-- Recherche : déclenchée par l'icône loupe de l'en-tête (ou par le
+                 rail réduit). Pas de barre permanente au-dessus des chats — le
+                 champ n'apparaît QUE quand searchOpen. État : js/chat/_search.js. -->
+            <div v-show="searchOpen" class="px-3 pt-3 pb-1 shrink-0">
+                <div class="relative">
+                    <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 text-base"></i>
+                    <input ref="chatSearchRef" v-model="chatSearch"
+                           @keydown.escape="closeChatSearch"
+                           placeholder="Rechercher un chat…"
+                           class="w-full bg-white/[0.06] border border-white/10 text-white text-sm rounded-lg pl-9 pr-8 py-2 outline-none focus:bg-white/10 focus:border-blue-500/60 transition-colors placeholder:text-slate-400">
+                    <button @click="closeChatSearch" title="Fermer la recherche"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+                        <i class="ph ph-x text-xs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sélection multiple (bulk) — tri en masse des conversations.
+                 Masqué tant qu'aucun chat. État : chatSelectMode/chatSelected
+                 (chat/_history.js). -->
+            <div v-if="!chatSearch && groupedHistory.length > 0" class="px-3 pt-2 pb-0.5 shrink-0 flex items-center justify-between">
+                <button @click="toggleChatSelectMode()"
+                        class="text-[11px] font-medium text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+                    <i class="ph text-xs" :class="chatSelectMode ? 'ph-x' : 'ph-check-square'"></i>
+                    {{ chatSelectMode ? 'Terminer' : 'Sélectionner' }}
+                </button>
+                <span v-if="chatSelectMode" class="text-[11px] text-slate-500">{{ chatSelected.length }} sélectionné(s)</span>
+            </div>
+
+            <!-- Historique : contenu central (flex-1, scroll), texte le + clair.
+                 `chat-history-scroll` = masque dégradé haut/bas (fondu de
+                 scroll) ; les classes fade-top/fade-bottom sont posées par le
+                 petit script de fondu dans index.html selon la position. -->
+            <div class="chat-history-scroll flex-1 overflow-y-auto px-2 pt-2 custom-scrollbar pb-1 min-h-0">
+                <div v-if="chatSearch" class="mb-2 space-y-px">
+                    <div class="text-xs font-semibold text-slate-400 px-3 mb-1.5 mt-1">Résultats</div>
+                    <div v-if="isSearchingChats" class="text-center py-3"><i class="ph ph-spinner animate-spin text-slate-400 text-lg"></i></div>
+                    <div v-else-if="chatSearchResults.length===0" class="text-center py-3 text-xs text-slate-400 font-medium">Aucun résultat</div>
+                    <div v-for="chat in chatSearchResults" :key="'s'+chat.id"
+                         role="button" tabindex="0"
+                         @click="loadChat(chat.id)" @keydown.enter="loadChat(chat.id)"
+                         class="px-3 py-1.5 mx-1 text-slate-300 hover:bg-white/[0.05] hover:text-white rounded-lg cursor-pointer truncate flex items-center transition-colors select-none">
+                        <span class="truncate flex-1 font-medium text-sm">{{chat.title}}</span>
+                    </div>
+                </div>
+
+                <div v-else class="min-h-full flex flex-col space-y-px">
+                    <!-- Empty state centré : aucun chat (compte neuf ou tout
+                         archivé). On pointe vers le bouton "Nouveau chat". -->
+                    <div v-if="groupedHistory.length === 0" class="flex-1 flex flex-col items-center justify-center text-center px-5 pb-6">
+                        <div class="w-12 h-12 rounded-xl bg-white/[0.06] ring-1 ring-inset ring-white/10 flex items-center justify-center">
+                            <i class="ph ph-chat-circle-dots text-2xl text-slate-400"></i>
+                        </div>
+                        <p class="text-[13px] text-slate-300 mt-3 leading-relaxed">
+                            Aucune conversation pour l'instant.<br>
+                            Lancez-vous avec <span class="font-semibold text-white">Nouveau chat</span>.
+                        </p>
+                    </div>
+
+                    <!-- Liste groupée par date. groupedHistory (app.js) :
+                         [{ key, label, items: [chat,…] }, …] (buckets non-vides).
+                         Le label de groupe a clairement plus d'espace au-dessus
+                         que l'écart inter-item -> il sert d'épine dorsale. -->
+                    <!-- Historique des chats, regroupé par date. -->
+                    <template v-for="group in groupedHistory" :key="group.key">
+                        <div class="text-xs font-semibold text-slate-400 px-3 mt-4 mb-1 first:mt-1">{{ group.label }}</div>
+                        <!-- AUDIT 2026-09-01 (passe 5, F2) — v-memo : la sidebar vit dans
+                             le template RACINE, re-diffé à chaque flush de stream
+                             (40-120 ms). Sans memo, des centaines de lignes (2 handlers,
+                             :class ternaire, v-if spinner) étaient re-créées à chaque
+                             passe. Deps = tout ce que la ligne AFFICHE : l'objet chat
+                             (remplacé au rename — porte title/_renamed), l'état actif,
+                             le mode sélection + coche, et la pastille de run en cours. -->
+                        <div v-for="chat in group.items" :key="chat.id"
+                             v-memo="[chat, currentView==='chat' && currentChatId===chat.id,
+                                      chatSelectMode, chatSelectMode && chatSelected.includes(chat.id),
+                                      activeRunIds.includes(String(chat.id))]"
+                             role="button" tabindex="0"
+                             @click="chatSelectMode ? toggleChatSelect(chat.id) : loadChat(chat.id)"
+                             @keydown.enter="chatSelectMode ? toggleChatSelect(chat.id) : loadChat(chat.id)"
+                             @contextmenu.prevent="openContextMenu($event, 'chat', chat)"
+                             class="px-3 py-1.5 mx-1 rounded-lg cursor-pointer flex items-center gap-2 group transition-colors select-none"
+                             :class="(currentView==='chat' && currentChatId===chat.id && !chatSelectMode) ? 'bg-blue-600/20 text-white font-medium' : 'text-slate-300 hover:bg-white/[0.05] hover:text-white'">
+                            <!-- Case à cocher (mode sélection) -->
+                            <div v-if="chatSelectMode" @click.stop="toggleChatSelect(chat.id)"
+                                 class="shrink-0 w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-colors"
+                                 :class="chatSelected.includes(chat.id) ? 'bg-blue-600 border-blue-600' : 'border-white/25 hover:border-white/50'">
+                                <i v-if="chatSelected.includes(chat.id)" class="ph ph-check text-white text-[10px]"></i>
+                            </div>
+                            <span class="truncate flex-1 text-sm"
+                                  :class="chat._renamed ? 'elpis-title-flash' : ''">{{chat.title}}</span>
+                            <!-- Run en cours (tous onglets, tous appareils) : chantier C 2026-09-16. -->
+                            <i v-if="activeRunIds.includes(String(chat.id))"
+                               class="ph ph-spinner-gap animate-spin text-blue-400 text-xs shrink-0"
+                               title="Génération en cours…"></i>
+                            <!-- a11y (WCAG 2.1.1) — bouton "…" focusable : ouvre le MÊME menu
+                                 (Renommer / Archiver / Supprimer) que le clic droit, mais
+                                 atteignable au clavier et sur tablette (pas de clic droit).
+                                 @click.stop pour ne pas déclencher loadChat de la ligne. -->
+                            <button @click.stop="openContextMenu($event, 'chat', chat)"
+                                    @keydown.enter.stop.prevent="openContextMenu($event, 'chat', chat)"
+                                    title="Actions"
+                                    aria-label="Actions sur la conversation"
+                                    aria-haspopup="menu"
+                                    class="opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none shrink-0 w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all">
+                                <i class="ph ph-dots-three text-sm"></i>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Barre d'action bulk : visible quand au moins un chat est sélectionné. -->
+            <div v-if="chatSelectMode && chatSelected.length" class="elpis-rail-foot px-3 py-2 border-t border-white/[0.07] shrink-0 flex items-center gap-2">
+                <button @click="bulkArchiveChats()"
+                        class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium bg-white/[0.06] text-slate-200 hover:bg-white/[0.12] transition-colors">
+                    <i class="ph ph-archive text-sm"></i> Archiver ({{ chatSelected.length }})
+                </button>
+                <button @click="bulkDeleteChats()"
+                        class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium bg-red-600/15 text-red-300 hover:bg-red-600/25 transition-colors">
+                    <i class="ph ph-trash text-sm"></i> Supprimer
+                </button>
+            </div>
+
+            <!-- Pied ancré : compte utilisateur + réglages / admin / déconnexion.
+                 Fond un cran plus sombre ; --sb-ring-offset adapte l'anneau de
+                 focus à ce fond. -->
+            <div class="elpis-rail-foot px-3 py-2.5 border-t border-white/[0.07] flex items-center gap-2 shrink-0">
+                <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                    <img v-if="user.avatar" :src="'/avatars/'+user.avatar" class="w-8 h-8 rounded-full object-cover shadow-sm ring-1 ring-white/10 shrink-0">
+                    <div v-else class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-[11px] font-bold shadow-sm ring-1 ring-white/10 shrink-0">{{user.username.substring(0,2).toUpperCase()}}</div>
+                    <span class="truncate text-sm font-medium text-slate-200 min-w-0">{{ user.username }}</span>
+                </div>
+                <div class="flex items-center gap-0.5 shrink-0">
+                    <!-- Cloche notifications : badge non-lus + panneau déroulant
+                         ancré au-dessus (bottom-full). Le ref enveloppe bouton +
+                         panneau pour la fermeture au clic externe (app.js). -->
+                    <div class="relative" ref="notifDropdownRef">
+                        <button @click="toggleNotifPanel" :title="notifUnread ? notifUnread + ' notification(s) non lue(s)' : 'Notifications'"
+                                :aria-pressed="showNotifPanel ? 'true' : 'false'"
+                                class="relative w-8 h-8 rounded-md hover:bg-white/10 transition-colors flex items-center justify-center"
+                                :class="showNotifPanel ? 'bg-white/[0.08] text-white' : 'text-slate-400 hover:text-white'">
+                            <i class="ph text-base" :class="notifUnread ? 'ph-bell-ringing' : 'ph-bell'"></i>
+                            <span v-if="notifUnread" role="status" :aria-label="notifUnread + ' notification(s) non lue(s)'"
+                                  class="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none shadow-sm ring-1 ring-[#0b1120]">
+                                {{ notifUnread > 99 ? '99+' : notifUnread }}
+                            </span>
+                        </button>
+
+                        <!-- Panneau (light, cohérent avec les dropdowns memory/+/RAG).
+                             Positionné en FIXED ancré au coin bas-gauche du viewport :
+                             la cloche vit dans le pied de sidebar (bas-gauche) et un
+                             ancrage absolute right-0 faisait déborder les 320px du
+                             panneau hors de l'écran à gauche. Le panneau reste un
+                             enfant DOM du wrapper → la fermeture au clic externe
+                             (notifDropdownRef.contains) continue de fonctionner. -->
+                        <Transition name="popover">
+                        <!-- elpis-notif-pop : marqueur « surface claire de l'app » —
+                             les remaps rail de style.css ne doivent pas déteindre ici. -->
+                        <div v-if="showNotifPanel"
+                             class="elpis-notif-pop fixed bottom-16 left-3 w-80 max-w-[calc(100vw-1.5rem)] bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden">
+                            <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                                <span class="text-sm font-semibold text-slate-800">Notifications</span>
+                                <div class="flex items-center gap-1">
+                                    <button v-if="notifications.length" @click="markAllNotifsRead" title="Tout marquer comme lu"
+                                            class="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors"><i class="ph ph-checks text-sm"></i></button>
+                                    <button v-if="notifications.length" @click="clearNotifs" title="Tout effacer"
+                                            class="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-100 transition-colors"><i class="ph ph-trash text-sm"></i></button>
+                                </div>
+                            </div>
+                            <div class="max-h-[360px] overflow-y-auto custom-scrollbar py-1">
+                                <!-- Chargement initial -->
+                                <div v-if="notifLoading && !notifications.length" class="py-8 flex items-center justify-center text-slate-400">
+                                    <i class="ph ph-spinner-gap text-lg animate-spin"></i>
+                                </div>
+                                <!-- Erreur réseau -->
+                                <div v-else-if="notifError && !notifications.length" class="py-8 px-4 text-center text-xs text-slate-500">
+                                    <i class="ph ph-wifi-slash text-2xl text-slate-300"></i>
+                                    <p class="mt-2">Chargement impossible.</p>
+                                    <button @click="loadNotifications" class="mt-1.5 text-blue-600 hover:underline font-medium">Réessayer</button>
+                                </div>
+                                <!-- Vide (état utile) -->
+                                <div v-else-if="!notifications.length" class="py-8 px-5 text-center">
+                                    <i class="ph ph-bell-slash text-2xl text-slate-300"></i>
+                                    <p class="mt-2 text-xs text-slate-400 leading-relaxed">Vos routines, scénarios du Studio et rapports d'usage apparaîtront ici.</p>
+                                </div>
+                                <!-- Liste groupée par date -->
+                                <template v-for="g in groupedNotifications" :key="g.label">
+                                    <div class="px-4 pt-2.5 pb-1 text-xs font-semibold text-slate-500 select-none">{{ g.label }}</div>
+                                    <div v-for="n in g.items" :key="n.id"
+                                         role="button" tabindex="0"
+                                         @click="openNotifItem(n)" @keydown.enter="openNotifItem(n)"
+                                         class="flex items-start gap-2.5 px-4 py-2.5 hover:bg-slate-50 cursor-pointer group transition-colors"
+                                         :class="isNotifNew(n) ? 'bg-blue-50/40' : ''">
+                                        <span class="w-1.5 h-1.5 rounded-full mt-2 shrink-0" :class="isNotifNew(n) ? 'bg-blue-500' : 'bg-transparent'" aria-hidden="true"></span>
+                                        <span v-if="isNotifNew(n)" class="sr-only">Non lue :</span>
+                                        <i class="ph text-base mt-0.5 shrink-0" :class="notifIcon(n.kind) + ' ' + notifColor(n.kind)"></i>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="text-[13px] text-slate-800 truncate" :class="isNotifNew(n) ? 'font-semibold' : 'font-normal'">{{ n.title }}</div>
+                                            <div v-if="n.body" class="text-xs text-slate-500 line-clamp-2 mt-0.5">{{ n.body }}</div>
+                                            <div class="text-[11px] text-slate-400 mt-0.5">{{ notifTimeAgo(n.created_at, notifNowTick) }}</div>
+                                        </div>
+                                        <div class="flex items-center gap-0.5 shrink-0">
+                                            <button @click.stop="toggleNotifReadState(n)" :title="n.read_at ? 'Marquer comme non lu' : 'Marquer comme lu'"
+                                                    class="opacity-0 group-hover:opacity-100 focus:opacity-100 w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-blue-600 hover:bg-slate-100 transition-all">
+                                                <i class="ph text-xs" :class="n.read_at ? 'ph-circle' : 'ph-check'"></i>
+                                            </button>
+                                            <button @click.stop="deleteNotif(n.id)" title="Supprimer"
+                                                    class="opacity-0 group-hover:opacity-100 focus:opacity-100 w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-slate-100 transition-all">
+                                                <i class="ph ph-x text-xs"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <!-- Pagination -->
+                                <button v-if="notifHasMore" @click="loadMoreNotifs" :disabled="notifLoading"
+                                        class="w-full py-2 mt-1 text-[11px] font-medium text-blue-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
+                                    {{ notifLoading ? 'Chargement…' : 'Voir plus' }}
+                                </button>
+                            </div>
+                        </div>
+                        </Transition>
+                    </div>
+
+                    <button @click="openSettings" title="Paramètres" class="w-8 h-8 rounded-md hover:bg-white/10 text-slate-400 hover:text-white transition-colors flex items-center justify-center"><i class="ph ph-gear text-base"></i></button>
+                    <button v-if="user.is_admin || user.role === 'moderator'"
+                            @click="goToAdmin"
+                            title="Admin"
+                            class="w-8 h-8 rounded-md hover:bg-white/10 text-emerald-400 hover:text-emerald-300 transition-colors flex items-center justify-center">
+                        <i class="ph ph-shield-check text-base"></i>
+                    </button>
+                    <button @click="logout" title="Déconnexion" class="w-8 h-8 rounded-md hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors flex items-center justify-center"><i class="ph ph-sign-out text-base"></i></button>
+                </div>
+            </div>
+            </div>
+        </aside>

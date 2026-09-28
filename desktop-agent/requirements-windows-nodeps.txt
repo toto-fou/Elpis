@@ -1,0 +1,7 @@
+# desktop-agent — paquets installés SANS leurs dépendances :
+#   pip install --no-deps -r requirements-windows-nodeps.txt
+# pyautogui déclare mouseinfo et pymsgbox (GPL-3.0) et, sous Linux, python3-Xlib
+# (GPL-2.0). Ses imports de mouseinfo/pymsgbox sont optionnels (try/except) : sans
+# eux seuls alert/confirm/prompt/password et mouseInfo() lèvent une exception.
+# Les dépendances utiles, permissives, sont dans requirements-windows.txt.
+pyautogui==0.9.54

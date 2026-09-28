@@ -1,0 +1,21 @@
+# desktop-agent — Linux dependencies
+fastapi
+uvicorn[standard]
+Pillow
+mss
+# pyautogui (X11 input ; Wayland : `ydotool` système + ydotoold) est installé SANS
+# ses dépendances (requirements-linux-nodeps.txt, `pip install --no-deps`) : cela
+# écarte mouseinfo et pymsgbox (GPL-3.0, optionnels, jamais utilisés ici) et
+# python3-Xlib (GPL-2.0). Ses dépendances utiles sont listées ici :
+python-xlib          # module Xlib (LGPL-2.1+), remplace python3-Xlib
+pyscreeze            # MIT
+pytweening           # MIT
+pyperclip            # BSD-3-Clause, presse-papiers
+numpy                # elpis_auto : repli visuel (corrélation de vignette)
+
+# Accessibility tree (element roles/names) needs PyGObject + AT-SPI.
+# Best installed as SYSTEM packages, not pip, e.g. on Debian/Ubuntu:
+#   sudo apt install python3-gi gir1.2-atspi-2.0 at-spi2-core
+# and enable the bus:  gsettings set org.gnome.desktop.interface toolkit-accessibility true
+# Wayland screenshots: sudo apt install grim
+PyGObject            # optional; comment out if using the system python3-gi

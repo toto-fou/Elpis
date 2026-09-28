@@ -1,0 +1,169 @@
+{
+  "$schema": "docs/schemas/mcp.schema.json",
+  "version": 1,
+  "toolHosts": {
+    "main": {
+      "url": "http://127.0.0.1:8765",
+      "token": "${file:user_db/.local_mcp_token}",
+      "serve": {
+        "host": "127.0.0.1",
+        "port": 8765,
+        "transports": [
+          "http",
+          "sse"
+        ]
+      }
+    }
+  },
+  "mcpServers": {
+    "elpis-fs": {
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp/fs",
+      "headers": {
+        "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+      },
+      "description": "Fichiers du sandbox : lire, écrire, chercher, arborescence",
+      "x-elpis": {
+        "role": "toolhost",
+        "host": "main",
+        "families": [
+          "fs"
+        ]
+      }
+    },
+    "elpis-shell": {
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp/shell",
+      "headers": {
+        "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+      },
+      "description": "Terminal du sandbox : exécution de commandes, sortie live",
+      "x-elpis": {
+        "role": "toolhost",
+        "host": "main",
+        "families": [
+          "shell"
+        ]
+      }
+    },
+    "elpis-git": {
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp/git",
+      "headers": {
+        "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+      },
+      "description": "Dépôts Git du sandbox : état, diff, commit, branches, connecteurs",
+      "x-elpis": {
+        "role": "toolhost",
+        "host": "main",
+        "families": [
+          "git"
+        ],
+        "opencode": {
+          "publish": true
+        }
+      }
+    },
+    "elpis-browser": {
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp/browser",
+      "headers": {
+        "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+      },
+      "description": "Navigateur piloté : navigation, clics, saisie, captures",
+      "x-elpis": {
+        "role": "toolhost",
+        "host": "main",
+        "families": [
+          "browser"
+        ],
+        "opencode": {
+          "publish": true
+        }
+      }
+    },
+    "elpis-desktop": {
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp/desktop",
+      "headers": {
+        "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+      },
+      "description": "Contrôle d'écran : fenêtres, clics, clavier, trames",
+      "x-elpis": {
+        "role": "toolhost",
+        "host": "main",
+        "families": [
+          "desktop"
+        ],
+        "opencode": {
+          "publish": true
+        }
+      }
+    },
+    "elpis-skill-run": {
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp/skill_run",
+      "headers": {
+        "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+      },
+      "description": "Exécution des scripts de skills dans le sandbox",
+      "x-elpis": {
+        "role": "toolhost",
+        "host": "main",
+        "families": [
+          "skill_run"
+        ]
+      }
+    },
+    "elpis-chart": {
+      "type": "inprocess",
+      "description": "Graphiques et tableaux rendus dans le chat",
+      "x-elpis": {
+        "role": "app",
+        "families": [
+          "chart"
+        ]
+      }
+    },
+    "elpis-memory": {
+      "type": "inprocess",
+      "description": "Mémoire du compte et recherche dans l'historique",
+      "x-elpis": {
+        "role": "app",
+        "families": [
+          "memory"
+        ]
+      }
+    },
+    "elpis-skill": {
+      "type": "inprocess",
+      "description": "Bibliothèque de skills du compte",
+      "x-elpis": {
+        "role": "app",
+        "families": [
+          "skill"
+        ]
+      }
+    },
+    "elpis-todo": {
+      "type": "inprocess",
+      "description": "Liste de tâches du tour",
+      "x-elpis": {
+        "role": "app",
+        "families": [
+          "todo"
+        ]
+      }
+    }
+  },
+  "sandboxHosts": {
+    "main": {
+      "url": "http://127.0.0.1:8765",
+      "token": "${file:user_db/.local_mcp_token}"
+    }
+  },
+  "placement": {
+    "strategy": "single",
+    "host": "main"
+  }
+}

@@ -1,0 +1,2113 @@
+<!--
+  includes/modals/settings.html -- User settings modal (extracted from index.html)
+
+  Top-level modal toggled by showSettingsModal. Layout : sidebar verticale
+  à gauche (sections groupées sous "Compte" / "Données") + zone de contenu
+  à droite. Pattern moderne (macOS Settings, VS Code, Discord).
+
+  Sections (settingsTab values) :
+    Compte
+      profile        -- avatar + mot de passe
+      chat           -- prompt système + largeur
+      ai_models      -- moteur du chat + connecteurs LLM
+      appearance     -- apparence assistant (nom, icône, avatar)
+      features       -- toggles éditeur / RAG / MCP / aperçu
+      usage          -- statistiques d'utilisation
+    Données
+      memory         -- mémoire long terme (toggle + vue curée)
+      agents         -- sous-agents du tool task (+ agents custom)
+      prompts        -- bibliothèque de prompts sauvegardés
+      skills         -- gestion des skills (drill-down liste ↔ détail)
+      archives       -- conversations archivées
+      sandbox        -- container Docker + dossier de travail
+      connectors     -- connecteurs Git
+
+  Taille FIXE : max-w-4xl × h-[85vh] (cap 780px). La modale ne change JAMAIS
+  de taille au changement d'onglet (règle UX).
+
+  Libellés volontairement courts ("Éditeur" plutôt que "Éditeur synchronisé",
+  "RAG" plutôt que "Mode RAG", etc.) -- l'icône + la sous-ligne contextuelle
+  donnent le sens, le label porte le minimum.
+
+  Inclus depuis index.html via le préprocesseur @include.
+-->
+    <Transition name="modal">
+
+    <div v-if="showSettingsModal" data-a11y-modal role="dialog" aria-modal="true" aria-label="Paramètres" @click.self="closeSettings()" class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 p-4">
+        <!-- TAILLE FIXE (max-w-4xl × 85vh capée 780px) : la modale ne change
+             JAMAIS de taille, quel que soit l'onglet. Le panneau de contenu
+             (flex-1 min-h-0 overflow-y-auto) absorbe la variation via un
+             défilement interne ; l'onglet Skills drille liste ↔ détail dans
+             la même boîte (settings_skills.html). -->
+        <div ref="settingsDialogEl" tabindex="-1"
+             class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-full max-w-4xl overflow-hidden flex flex-col h-[85vh] max-h-[780px] focus:outline-none">
+
+            <!-- ══════ HEADER ══════════════════════════════════════════════ -->
+            <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
+                <h2 class="text-base font-semibold text-slate-800 flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600"><i class="ph ph-sliders text-base"></i></div>
+                    Paramètres
+                </h2>
+                <button @click="closeSettings()" aria-label="Fermer les paramètres" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center"><i class="ph ph-x text-lg" aria-hidden="true"></i></button>
+            </div>
+
+            <!-- ══════ BODY : SIDEBAR + CONTENT ════════════════════════════ -->
+            <div class="flex flex-1 min-h-0 overflow-hidden">
+
+                <!-- ── Sidebar nav ─────────────────────────────────────── -->
+                <aside class="w-52 shrink-0 bg-slate-50 border-r border-slate-200 overflow-y-auto custom-scrollbar p-3">
+
+                    <!-- Section : Compte -->
+                    <div class="text-[11px] font-semibold text-slate-500 px-2.5 mb-1.5 mt-1">Compte</div>
+                    <button @click="settingsTab='profile'"
+                            :class="settingsTab==='profile' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph text-base" :class="settingsTab==='profile' ? 'ph-user-circle' : 'ph-user'"></i> Profil
+                    </button>
+                    <button @click="settingsTab='chat'"
+                            :class="settingsTab==='chat' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-chat-circle text-base"></i> Chat
+                    </button>
+                    <button @click="settingsTab='compaction'"
+                            :class="settingsTab==='compaction' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-arrows-in-line-horizontal text-base"></i> Compaction
+                    </button>
+                    <button @click="settingsTab='ai_models'; loadLlmConnectors()"
+                            :class="settingsTab==='ai_models' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-sparkle text-base"></i> Modèles IA
+                    </button>
+                    <button @click="settingsTab='appearance'"
+                            :class="settingsTab==='appearance' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-palette text-base"></i> Apparence
+                    </button>
+                    <button @click="settingsTab='features'"
+                            :class="settingsTab==='features' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-toggle-right text-base"></i> Fonctionnalités
+                    </button>
+                    <button @click="settingsTab='usage'; loadUsageData()"
+                            :class="settingsTab==='usage' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-chart-line text-base"></i> Utilisation
+                    </button>
+
+                    <!-- Section : Données -->
+                    <div class="text-[11px] font-semibold text-slate-500 px-2.5 mt-4 mb-1.5">Données</div>
+                    <button @click="settingsTab='memory'; loadUserMemory()"
+                            :class="settingsTab==='memory' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-brain text-base"></i> Mémoire
+                    </button>
+                    <button @click="settingsTab='agents'; loadMcpUserCategories(); loadAgentTemplates()"
+                            :class="settingsTab==='agents' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-users-three text-base"></i> Agents
+                    </button>
+                    <button @click="settingsTab='prompts'; loadSavedPrompts(); loadPromptTemplates()"
+                            :class="settingsTab==='prompts' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-bookmarks-simple text-base"></i> Prompts
+                    </button>
+                    <button @click="settingsTab='skills'; openSkillsTab()"
+                            :class="settingsTab==='skills' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-graduation-cap text-base"></i> Skills
+                    </button>
+                    <button @click="settingsTab='archives'; loadArchives && loadArchives()"
+                            :class="settingsTab==='archives' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-archive text-base"></i> Archives
+                    </button>
+                    <button @click="settingsTab='sandbox'; loadSandboxState()"
+                            :class="settingsTab==='sandbox' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-cube text-base"></i> Sandbox
+                    </button>
+                    <button @click="settingsTab='connectors'; loadGitConnectors()"
+                            :class="settingsTab==='connectors' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-git-fork text-base"></i> Connecteurs
+                    </button>
+                </aside>
+
+                <!-- ── Content panel ───────────────────────────────────── -->
+                <!-- Onglet skills : colonnes à défilement indépendant (flex-col
+                     overflow-hidden) ; tous les autres onglets : défilement
+                     interne classique (p-6 overflow-y-auto), rendu inchangé. -->
+                <div class="flex-1 min-h-0 bg-white"
+                     :class="settingsTab==='skills' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto custom-scrollbar p-6'">
+
+                    <!-- ┌───────── SKILLS (onglet complet, 2 colonnes) ───┐ -->
+                    <!-- @include includes/modals/settings_skills.html -->
+
+                    <!-- ┌───────── MÉMOIRE LONG-TERME ────────────────────┐ -->
+                    <!-- Onglet dédié : (dés)activation + VUE en lecture seule de
+                         ce que l'assistant a curé (USER.md profil + MEMORY.md
+                         notes), via GET /api/memory/state. -->
+                    <div v-if="settingsTab==='memory'" class="space-y-5 max-w-2xl">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-base font-semibold text-slate-800 mb-1">Mémoire long-terme</h3>
+                                <p class="text-xs text-slate-500">Ce que l'assistant retient de vous entre les conversations. Il la cure lui-même ; « Éditer » corrige ou retire ce qu'il a mal retenu.</p>
+                            </div>
+                            <!-- Rafraîchir ↔ Éditer, puis Annuler / Enregistrer : un seul
+                                 jeu d'actions à la fois, jamais les deux mélangés. -->
+                            <div class="shrink-0 flex items-center gap-2">
+                                <template v-if="!memoryEditing">
+                                    <button @click="loadUserMemory()" :disabled="userMemoryLoading" aria-label="Rafraîchir la mémoire" class="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-md text-xs font-medium text-slate-600 transition-colors inline-flex items-center gap-1.5">
+                                        <i class="ph ph-arrow-clockwise" :class="userMemoryLoading ? 'animate-spin' : ''" aria-hidden="true"></i> Rafraîchir
+                                    </button>
+                                    <button v-if="userMemory" @click="startMemoryEdit()" data-mem-edit aria-label="Éditer la mémoire" class="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-md text-xs font-medium text-slate-600 transition-colors inline-flex items-center gap-1.5">
+                                        <i class="ph ph-pencil-simple" aria-hidden="true"></i> Éditer
+                                    </button>
+                                </template>
+                                <template v-else>
+                                    <button @click="cancelMemoryEdit()" :disabled="memorySaving" data-mem-cancel class="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 rounded-md text-xs font-medium text-slate-600 transition-colors">Annuler</button>
+                                    <button @click="saveMemoryEdit()" :disabled="memorySaving || memoryOverLimit" data-mem-save class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-md text-xs font-medium text-white transition-colors inline-flex items-center gap-1.5">
+                                        <i class="ph" :class="memorySaving ? 'ph-spinner-gap animate-spin' : 'ph-check'" aria-hidden="true"></i> Enregistrer
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Activation (source de vérité : settings.memory_enabled) -->
+                        <div class="bg-slate-50 rounded-xl">
+                            <label class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl">
+                                <i class="ph ph-notebook text-slate-400 text-lg w-5"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-slate-800">Activer la mémoire long-terme</div>
+                                    <div class="text-[11px] text-slate-500">Désactivée par défaut — rien n'est mémorisé tant qu'elle est éteinte. Une fois activée, l'assistant retient des faits durables (profil, préférences, notes).</div>
+                                </div>
+                                <div class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" v-model="settings.memory_enabled" @change="persistMemoryEnabled()" class="sr-only peer">
+                                    <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- États de chargement -->
+                        <div v-if="userMemoryLoading && !userMemory" class="text-center py-8 text-slate-400"><i class="ph ph-spinner-gap animate-spin text-xl" aria-hidden="true"></i></div>
+                        <div v-else-if="userMemoryError" class="text-xs text-amber-600 bg-amber-500/10 rounded-lg px-3 py-2">{{ userMemoryError }}</div>
+
+                        <template v-else-if="userMemory">
+                            <!-- Le compteur passe du STOCKÉ au BROUILLON en édition : voir la
+                                 limite se rapprocher pendant qu'on tape est la seule façon
+                                 d'éviter un refus serveur après coup. -->
+                            <!-- Profil utilisateur (USER.md) -->
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <div class="text-sm font-medium text-slate-700 flex items-center gap-2"><i class="ph ph-user-circle text-slate-400" aria-hidden="true"></i> Profil utilisateur</div>
+                                    <span class="text-[11px] font-mono tabular-nums" data-mem-count-user
+                                          :class="memoryOver('user') ? 'text-red-500 font-semibold' : 'text-slate-400'">{{ memoryEditing ? memoryDraftChars('user') : userMemory.user_md.chars }} / {{ userMemory.user_md.limit }}</span>
+                                </div>
+                                <template v-if="!memoryEditing">
+                                    <div v-if="userMemory.user_md.entries && userMemory.user_md.entries.length" class="space-y-1.5">
+                                        <div v-for="(e,i) in userMemory.user_md.entries" :key="'u'+i" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                            <div class="text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words" data-mem-text>{{ e }}</div>
+                                            <div v-if="memoryOrigin('user', i)" class="mem-origin" data-mem-origin>
+                                                {{ memoryOrigin('user', i).date }} ·
+                                                <button v-if="memoryOrigin('user', i).canOpen" type="button" class="mem-origin-link"
+                                                        :title="'Ouvrir le chat ' + memoryOrigin('user', i).label"
+                                                        @click="openMemoryOrigin('user', i)">{{ memoryOrigin('user', i).label }}</button>
+                                                <span v-else>{{ memoryOrigin('user', i).label }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div v-else class="text-xs text-slate-400 italic px-1 py-1.5">Rien pour l'instant.</div>
+                                </template>
+                                <div v-else class="space-y-1.5">
+                                    <div v-for="(e,i) in memoryDraft.user" :key="'du'+i" class="flex items-start gap-1.5">
+                                        <textarea v-model="memoryDraft.user[i]" rows="2" data-mem-entry-user
+                                                  aria-label="Entrée de profil"
+                                                  class="set-textarea mem-entry-input text-[13px] leading-relaxed"></textarea>
+                                        <button @click="removeMemoryEntry('user', i)" aria-label="Supprimer cette entrée"
+                                                class="shrink-0 mt-1 w-7 h-7 flex items-center justify-center bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-500 rounded-md transition-colors"><i class="ph ph-trash text-xs" aria-hidden="true"></i></button>
+                                    </div>
+                                    <button @click="addMemoryEntry('user')" data-mem-add-user
+                                            class="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-md text-xs font-medium text-slate-600 transition-colors inline-flex items-center gap-1.5"><i class="ph ph-plus" aria-hidden="true"></i> Ajouter</button>
+                                </div>
+                            </div>
+
+                            <!-- Notes de projet / environnement (MEMORY.md) -->
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <div class="text-sm font-medium text-slate-700 flex items-center gap-2"><i class="ph ph-note text-slate-400" aria-hidden="true"></i> Notes</div>
+                                    <span class="text-[11px] font-mono tabular-nums" data-mem-count-memory
+                                          :class="memoryOver('memory') ? 'text-red-500 font-semibold' : 'text-slate-400'">{{ memoryEditing ? memoryDraftChars('memory') : userMemory.memory_md.chars }} / {{ userMemory.memory_md.limit }}</span>
+                                </div>
+                                <template v-if="!memoryEditing">
+                                    <div v-if="userMemory.memory_md.entries && userMemory.memory_md.entries.length" class="space-y-1.5">
+                                        <div v-for="(e,i) in userMemory.memory_md.entries" :key="'m'+i" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                                            <div class="text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words" data-mem-text>{{ e }}</div>
+                                            <div v-if="memoryOrigin('memory', i)" class="mem-origin" data-mem-origin>
+                                                {{ memoryOrigin('memory', i).date }} ·
+                                                <button v-if="memoryOrigin('memory', i).canOpen" type="button" class="mem-origin-link"
+                                                        :title="'Ouvrir le chat ' + memoryOrigin('memory', i).label"
+                                                        @click="openMemoryOrigin('memory', i)">{{ memoryOrigin('memory', i).label }}</button>
+                                                <span v-else>{{ memoryOrigin('memory', i).label }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div v-else class="text-xs text-slate-400 italic px-1 py-1.5">Rien pour l'instant.</div>
+                                </template>
+                                <div v-else class="space-y-1.5">
+                                    <div v-for="(e,i) in memoryDraft.memory" :key="'dm'+i" class="flex items-start gap-1.5">
+                                        <textarea v-model="memoryDraft.memory[i]" rows="2" data-mem-entry-memory
+                                                  aria-label="Entrée de notes"
+                                                  class="set-textarea mem-entry-input text-[13px] leading-relaxed"></textarea>
+                                        <button @click="removeMemoryEntry('memory', i)" aria-label="Supprimer cette entrée"
+                                                class="shrink-0 mt-1 w-7 h-7 flex items-center justify-center bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-500 rounded-md transition-colors"><i class="ph ph-trash text-xs" aria-hidden="true"></i></button>
+                                    </div>
+                                    <button @click="addMemoryEntry('memory')" data-mem-add-memory
+                                            class="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-md text-xs font-medium text-slate-600 transition-colors inline-flex items-center gap-1.5"><i class="ph ph-plus" aria-hidden="true"></i> Ajouter</button>
+                                </div>
+                            </div>
+
+                            <!-- Refus serveur (dépassement de limite, verrou occupé) : on reste
+                                 en édition, le texte à corriger est encore là. -->
+                            <div v-if="memorySaveError" role="alert" data-mem-error
+                                 class="text-xs text-red-600 bg-red-500/10 rounded-lg px-3 py-2">{{ memorySaveError }}</div>
+
+                            <!-- Effacer la mémoire — action destructive (confirmation via openConfirm).
+                                 Masquée en édition : une suppression totale n'a rien à faire à
+                                 côté d'un formulaire non enregistré. -->
+                            <div v-if="!memoryEditing && (userMemory.user_md.chars || userMemory.memory_md.chars || (userMemory.scopes && userMemory.scopes.length))"
+                                 class="border-t border-slate-200 pt-4 flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <div class="text-sm font-medium text-slate-700">Effacer la mémoire</div>
+                                    <div class="text-[11px] text-slate-500">Supprime définitivement tout ce que l'assistant a retenu (profil, notes, scopes). Irréversible.</div>
+                                </div>
+                                <button @click="deleteUserMemory()" :disabled="userMemoryDeleting"
+                                        class="shrink-0 px-2.5 py-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-1.5">
+                                    <i class="ph" :class="userMemoryDeleting ? 'ph-spinner-gap animate-spin' : 'ph-trash'" aria-hidden="true"></i>
+                                    Effacer tout
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- ┌───────── AGENTS (sous-agents + customs) ────────┐ -->
+                    <!-- Toggle per-user (source de vérité : settings.agents_enabled,
+                         persist immédiat façon mémoire) + CRUD des agents custom
+                         (persist via le bouton Enregistrer global, façon mcp_servers). -->
+                    <div v-if="settingsTab==='agents'" class="space-y-5 max-w-2xl">
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800 mb-1">Agents</h3>
+                            <p class="text-xs text-slate-500">Sous-missions déléguées à des agents éphémères via l'outil <span class="font-mono">task</span>, et agents personnalisés façon OpenCode.</p>
+                        </div>
+
+                        <!-- Activation (source de vérité : settings.agents_enabled) -->
+                        <!-- Interrupteur MAÎTRE d'instance coupé (llm.task.enabled) : le
+                             serveur ignorera le toggle per-user — on le dit plutôt que
+                             de laisser croire à un réglage vivant. -->
+                        <p v-if="!features.agents" class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            Sous-agents désactivés sur cette instance (réglage administrateur).
+                        </p>
+                        <div class="bg-slate-50 rounded-xl">
+                            <label class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl">
+                                <i class="ph ph-users-three text-slate-400 text-lg w-5"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-slate-800">Activer les sous-agents</div>
+                                    <div class="text-[11px] text-slate-500">Désactivés par défaut. Une fois activés, l'assistant peut déléguer une sous-mission (explorer, implémenter, vérifier, chercher sur le web, ouvrir une PR) à un agent isolé via l'outil task.</div>
+                                </div>
+                                <div class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" v-model="settings.agents_enabled" @change="persistAgentsEnabled()" class="sr-only peer">
+                                    <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                </div>
+                            </label>
+                        </div>
+                        <!-- Activé mais banque entièrement désactivée : le serveur n'expose
+                             pas l'outil task (enum vide = grammaire invalide). -->
+                        <p v-if="settings.agents_enabled && agentBank.length && !agentBank.some(a => a.enabled)"
+                           class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2" data-agents-none-active>
+                            Aucun agent actif : outil task indisponible.
+                        </p>
+
+                        <!-- Banque d'agents : les intégrés sont des MODÈLES, listés avec
+                             les agents personnalisés dans UNE liste aux mêmes gestes.
+                             Une entrée de ``custom_agents`` qui porte un nom intégré est
+                             une surcharge (écarts seuls) — badge « modifié ». -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <div class="text-sm font-medium text-slate-700 flex items-center gap-2"><i class="ph ph-users-three text-slate-400" aria-hidden="true"></i> Banque d'agents</div>
+                                <span class="text-[11px] text-slate-400 font-mono" title="Agents personnalisés (les modèles ne comptent pas)">{{ agentCustomCount }} / {{ CUSTOM_AGENTS_MAX }}</span>
+                            </div>
+                            <div class="space-y-2" data-agent-bank>
+                                <div v-for="a in agentBank" :key="a.name" class="border border-slate-200 rounded-xl p-3.5"
+                                     :class="{ 'opacity-60': !a.enabled }" :data-agent-row="a.name">
+                                    <div class="flex items-center gap-3">
+                                        <i class="ph text-lg text-slate-400 shrink-0" :class="a.icon" aria-hidden="true"></i>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-2 min-w-0">
+                                                <span class="text-sm font-mono font-medium text-slate-800 truncate">{{ a.name }}</span>
+                                                <span v-if="a.template" class="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0"
+                                                      :class="a.modified ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'"
+                                                      :title="a.modified ? 'Modèle livré, personnalisé' : 'Modèle livré'"
+                                                      data-agent-badge>{{ a.modified ? 'modifié' : 'modèle' }}</span>
+                                            </div>
+                                            <div class="text-[11px] text-slate-500 truncate">{{ a.description }}</div>
+                                        </div>
+                                        <div class="flex items-center gap-1 shrink-0 max-w-[38%] overflow-hidden">
+                                            <span v-for="cat in a.tool_categories" :key="cat" class="text-[10.5px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 whitespace-nowrap">{{ ((mcpUserCategories || []).find(c => c.name === cat) || {}).label || cat }}</span>
+                                            <span v-for="sid in a.mcp_server_ids" :key="sid" class="text-[10.5px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 whitespace-nowrap inline-flex items-center gap-1"><i class="ph ph-plug text-[10px]" aria-hidden="true"></i>{{ ((agentMcpChoices || []).find(s => s.id === sid) || {}).name || sid }}</span>
+                                        </div>
+                                        <!-- ``label`` et pas ``span`` : la case est ``sr-only``, c'est le
+                                             clic sur la piste qui doit la basculer. -->
+                                        <label class="relative inline-flex items-center shrink-0 cursor-pointer" :title="a.enabled ? 'Actif' : 'Désactivé — absent du roster'">
+                                            <input type="checkbox" :checked="a.enabled" @change="toggleAgentEnabled(a)" class="sr-only peer"
+                                                   :aria-label="'Activer ' + a.name" :data-agent-enabled="a.name">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                        </label>
+                                        <button @click="startEditAgent(a)" title="Modifier" :aria-label="'Modifier ' + a.name" :data-agent-edit="a.name"
+                                                class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center shrink-0"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
+                                        <button @click="duplicateAgent(a)" title="Dupliquer" :aria-label="'Dupliquer ' + a.name" :data-agent-dup="a.name"
+                                                class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center shrink-0"><i class="ph ph-copy" aria-hidden="true"></i></button>
+                                        <button v-if="a.template && a.modified" @click="resetAgentToTemplate(a)" title="Réinitialiser" :aria-label="'Réinitialiser ' + a.name" :data-agent-reset="a.name"
+                                                class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center shrink-0"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+                                        <button v-if="!a.template" @click="deleteCustomAgent(a)" title="Supprimer" aria-label="Supprimer l'agent"
+                                                class="w-7 h-7 rounded-md text-slate-500 hover:bg-red-50 hover:text-red-600 flex items-center justify-center shrink-0"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <p v-if="!agentBank.length && !agentForm" class="text-sm text-slate-500 py-3 text-center">Aucun agent.</p>
+                        </div>
+
+                        <!-- Formulaire création / édition (validation serveur au PUT) -->
+                        <div v-if="agentForm" class="border border-blue-200 bg-blue-50/40 rounded-xl p-4 space-y-2.5">
+                            <div class="text-sm font-medium text-slate-700">{{ agentForm._template ? "Modifier le modèle" : (agentForm._idx >= 0 ? "Modifier l'agent" : "Nouvel agent") }}</div>
+                            <div>
+                                <label class="text-[11px] font-medium text-slate-500">Nom</label>
+                                <!-- Le nom d'un modèle est l'identité que l'assistant appelle :
+                                     il se lit, ne se saisit pas — une variante passe par « Dupliquer ». -->
+                                <div v-if="agentForm._template" class="set-input font-mono mt-0.5 bg-slate-50 text-slate-600 select-all" data-agent-name-locked>{{ agentForm.name }}</div>
+                                <input v-else v-model="agentForm.name" placeholder="docs-writer" class="set-input font-mono mt-0.5">
+                                <p class="text-[10.5px] text-slate-500 mt-1">{{ agentForm._template ? "Modèle livré — dupliquez-le pour une variante sous un autre nom." : "1-32 caractères : a-z, 0-9, tirets. C'est la valeur que le modèle passe à l'outil task." }}</p>
+                            </div>
+                            <div>
+                                <label class="text-[11px] font-medium text-slate-500">Description</label>
+                                <input v-model="agentForm.description" maxlength="200" :placeholder="agentForm._template ? (agentForm._tplSummary || 'description du modèle') : 'rédige la documentation du dépôt'" class="set-input mt-0.5">
+                                <p class="text-[10.5px] text-slate-500 mt-1">Une ligne — sert au modèle pour choisir cet agent.</p>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between gap-2">
+                                    <label class="text-[11px] font-medium text-slate-500">Prompt système</label>
+                                    <button v-if="agentFormPromptDiffers" @click="restoreTemplatePrompt()" data-agent-prompt-restore
+                                            title="Rendre la persona livrée avec ce modèle"
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-[11px] font-semibold transition-colors">
+                                        <i class="ph ph-arrow-counter-clockwise text-[13px]" aria-hidden="true"></i> Prompt livré
+                                    </button>
+                                    <button v-else-if="!(agentForm.prompt || '').trim()" @click="insertAgentTemplate()"
+                                            title="Insère la structure des agents intégrés : rôle, objectif, guidage outil, méthode, effort, contraintes, rapport, exemples"
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 text-[11px] font-semibold transition-colors">
+                                        <i class="ph ph-file-text text-[13px]" aria-hidden="true"></i> Gabarit
+                                    </button>
+                                </div>
+                                <textarea v-model="agentForm.prompt" rows="10" placeholder="Tu es un spécialiste de… — bouton Gabarit pour la structure recommandée" class="set-textarea font-mono mt-0.5 w-full"></textarea>
+                                <p class="text-[10.5px] text-slate-500 mt-1">{{ agentForm._template ? "Identique au livré = l'agent suit les mises à jour du modèle." : "Remplace le prompt de base pour cet agent." }}</p>
+                            </div>
+                            <!-- Pickers = MÊME vocabulaire que le panneau Outils du chat
+                                 (rangée tuile-icône + switch .set-switch-track) : l'utilisateur
+                                 retrouve l'affordance qu'il connaît déjà. -->
+                            <div>
+                                <label class="text-[11px] font-medium text-slate-500">Outils locaux</label>
+                                <div v-if="(mcpUserCategories || []).length === 0" class="text-[11px] text-slate-400 italic mt-1">Aucune catégorie d'outils disponible.</div>
+                                <div v-else class="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1">
+                                    <label v-for="cat in mcpUserCategories" :key="cat.name" class="flex items-center justify-between gap-2 cursor-pointer p-1.5 hover:bg-slate-50 rounded-lg transition-colors">
+                                        <span class="text-xs font-semibold text-slate-700 flex items-center gap-2.5 min-w-0">
+                                            <span class="w-6 h-6 rounded flex items-center justify-center shrink-0" :class="mcpCategoryBgClass(cat)">
+                                                <i class="ph text-sm" :class="cat.icon || 'ph-package'" aria-hidden="true"></i>
+                                            </span>
+                                            <span class="truncate">{{ cat.label || cat.name }}</span>
+                                        </span>
+                                        <span class="relative inline-flex items-center shrink-0">
+                                            <input type="checkbox" :checked="agentForm.tool_categories.includes(cat.name)" @change="toggleAgentCat(cat.name)" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                        </span>
+                                    </label>
+                                </div>
+                                <p class="text-[10.5px] text-slate-500 mt-1">{{ agentForm._template ? "Catégories entières. Aucune sélection = celles du modèle." : "Catégories entières. Aucune sélection = socle par défaut : Fichiers, Terminal, Git." }}</p>
+                            </div>
+                            <div v-if="(agentMcpChoices || []).length">
+                                <label class="text-[11px] font-medium text-slate-500">Serveurs MCP</label>
+                                <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1">
+                                    <label v-for="srv in agentMcpChoices" :key="srv.id" class="flex items-center justify-between gap-2 cursor-pointer p-1.5 hover:bg-slate-50 rounded-lg transition-colors">
+                                        <span class="text-xs font-semibold text-slate-700 flex items-center gap-2.5 min-w-0">
+                                            <span class="w-6 h-6 rounded bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                                                <i class="ph ph-plug text-sm" aria-hidden="true"></i>
+                                            </span>
+                                            <span class="truncate">{{ srv.name || srv.id }}</span>
+                                        </span>
+                                        <span class="relative inline-flex items-center shrink-0">
+                                            <input type="checkbox" :checked="agentForm.mcp_server_ids.includes(srv.id)" @change="toggleAgentMcp(srv.id)" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                        </span>
+                                    </label>
+                                </div>
+                                <p class="text-[10.5px] text-slate-500 mt-1">L'agent se connecte à ces serveurs en plus des outils locaux cochés — même s'ils ne sont pas actifs dans le chat.</p>
+                            </div>
+                            <div>
+                                <label class="text-[11px] font-medium text-slate-500">Budget d'itérations</label>
+                                <input v-model="agentForm.max_iters" type="number" min="1" :max="CUSTOM_ITERS_MAX"
+                                       :placeholder="agentForm._template && agentForm._tplIters ? String(agentForm._tplIters) : 'défaut'" class="set-input font-mono mt-0.5">
+                                <p class="text-[10.5px] text-slate-500 mt-1">Nombre d'appels d'outils avant arrêt. Vide = valeur par défaut.</p>
+                            </div>
+                            <div v-if="agentFormError" class="text-xs text-red-600 bg-red-500/10 rounded-lg px-3 py-2">{{ agentFormError }}</div>
+                            <div class="flex items-center gap-2 pt-1">
+                                <button @click="saveAgentForm()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">{{ (agentForm._template || agentForm._idx >= 0) ? 'Enregistrer' : 'Ajouter' }}</button>
+                                <button @click="cancelAgentForm()" class="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Annuler</button>
+                            </div>
+                        </div>
+                        <button v-if="!agentForm" @click="startCreateAgent()" class="w-full px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5"><i class="ph ph-plus"></i> Créer un agent</button>
+                    </div>
+
+                    <!-- ┌───────── CONNECTEURS GIT ──────────────────────┐ -->
+                    <div v-if="settingsTab==='connectors'" class="space-y-5 max-w-xl">
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800 mb-1">Connecteurs Git</h3>
+                            <p class="text-xs text-slate-500">Vos tokens Git (GitHub, GitLab, Bitbucket, Gitea), stockés côté serveur. Servent au push/pull et aux PR/MR authentifiés.</p>
+                        </div>
+
+                        <!-- Liste -->
+                        <div v-if="gitConnectors.length" class="space-y-2">
+                            <div v-for="c in gitConnectors" :key="c.id" class="border border-slate-200 rounded-xl p-3.5">
+                                <div class="flex items-center gap-3">
+                                    <i class="ph ph-git-branch text-lg text-slate-400 shrink-0"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm font-medium text-slate-800 truncate">{{ c.host }}<span v-if="c.label" class="text-slate-500 font-normal"> · {{ c.label }}</span></div>
+                                        <div class="text-[11px] text-slate-500">{{ c.provider_type }}<span v-if="c.username"> · {{ c.username }}</span></div>
+                                    </div>
+                                    <span v-if="gitConnTest[c.id]" class="text-[11px] shrink-0"
+                                          :class="gitConnTest[c.id].testing ? 'text-slate-500' : (gitConnTest[c.id].ok ? 'text-green-600' : 'text-red-500')">
+                                        {{ gitConnTest[c.id].testing ? '…' : (gitConnTest[c.id].ok ? ('✓ ' + (gitConnTest[c.id].login || 'OK')) : ('✗ ' + (gitConnTest[c.id].error || 'échec'))) }}
+                                    </span>
+                                    <button @click="testGitConnector(c)" title="Tester la connexion" class="px-2 py-1 text-[11px] rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0">Tester</button>
+                                    <button @click="editGitConnector(c)" title="Modifier" aria-label="Modifier le connecteur" class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center shrink-0"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
+                                    <button @click="deleteGitConnector(c)" title="Supprimer" aria-label="Supprimer le connecteur" class="w-7 h-7 rounded-md text-slate-500 hover:bg-red-50 hover:text-red-600 flex items-center justify-center shrink-0"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                                </div>
+                                <p v-if="gitConnTest[c.id] && gitConnTest[c.id].hint && !gitConnTest[c.id].ok" class="text-[10.5px] text-amber-600 mt-2 leading-snug">{{ gitConnTest[c.id].hint }}</p>
+                            </div>
+                        </div>
+                        <p v-else-if="!gitConnForm" class="text-sm text-slate-500 py-4 text-center">Aucun connecteur configuré.</p>
+
+                        <!-- Formulaire d'ajout / édition (adaptatif) -->
+                        <div v-if="gitConnForm" class="border border-blue-200 bg-blue-50/40 rounded-xl p-4 space-y-2.5">
+                            <div class="text-sm font-medium text-slate-700">{{ gitConnForm.id ? 'Modifier le connecteur' : 'Nouveau connecteur' }}</div>
+                            <!-- Type de service -->
+                            <div>
+                                <label class="text-[11px] font-medium text-slate-500">Service</label>
+                                <select v-model="gitConnForm.provider_type" @change="parseGitRepoUrl()" class="set-select w-full mt-0.5">
+                                    <option v-for="t in gitConnTypes" :key="t" :value="t">{{ t }}</option>
+                                </select>
+                            </div>
+                            <!-- URL du dépôt (extrait host/schéma/api_base auto) -->
+                            <div v-if="!gitConnForm.id">
+                                <label class="text-[11px] font-medium text-slate-500">URL du dépôt à cloner</label>
+                                <input v-model="gitConnForm.repo_url" @change="parseGitRepoUrl()" @blur="parseGitRepoUrl()"
+                                       placeholder="https://git.example.lan/team/repo.git"
+                                       class="set-input mt-0.5">
+                                <p v-if="gitConnForm.host" class="text-[10.5px] text-slate-500 mt-1">Host détecté : <span class="font-mono text-slate-600">{{ gitConnForm.host }}</span></p>
+                            </div>
+                            <!-- Identifiants -->
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <div>
+                                    <label class="text-[11px] font-medium text-slate-500">Login</label>
+                                    <input v-model="gitConnForm.username" placeholder="utilisateur" class="set-input mt-0.5">
+                                </div>
+                                <div>
+                                    <label class="text-[11px] font-medium text-slate-500">{{ gitConnForm.provider_type === 'github' ? 'Token (PAT)' : 'Mot de passe / token' }}</label>
+                                    <input v-model="gitConnForm.token" type="password" :placeholder="gitConnForm.id ? 'vide = inchangé' : (gitConnForm.provider_type === 'github' ? 'ghp_…' : 'mot de passe ou token')" class="set-input mt-0.5">
+                                </div>
+                            </div>
+                            <input v-model="gitConnForm.label" placeholder="Label (optionnel, ex. perso ou ci-bot)" class="set-input">
+                            <!-- + Avancé : overrides host / api_base -->
+                            <button @click="gitConnAdvanced = !gitConnAdvanced" type="button" class="text-[11px] text-slate-500 hover:text-slate-700 flex items-center gap-1">
+                                <i class="ph" :class="gitConnAdvanced ? 'ph-minus' : 'ph-plus'"></i> Paramètres avancés
+                            </button>
+                            <div v-if="gitConnAdvanced" class="space-y-2.5 pt-2 border-t border-blue-100">
+                                <div>
+                                    <label class="text-[11px] font-medium text-slate-500">host (override)</label>
+                                    <input v-model="gitConnForm.host" placeholder="git.example.lan:3000 (host:port, sans http://)" class="set-input mt-0.5">
+                                </div>
+                                <div>
+                                    <label class="text-[11px] font-medium text-slate-500">api_base (PR / test)</label>
+                                    <input v-model="gitConnForm.api_base" placeholder="http://git.example.lan:3000/api/v1 (Gitea/GitLab HTTP)" class="set-input mt-0.5">
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 pt-1">
+                                <button @click="saveGitConnector()" :disabled="gitConnBusy" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50">{{ gitConnForm.id ? 'Enregistrer' : 'Ajouter' }}</button>
+                                <button @click="cancelGitConnector()" class="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Annuler</button>
+                            </div>
+                        </div>
+                        <button v-if="!gitConnForm" @click="newGitConnector()" class="w-full px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5"><i class="ph ph-plus"></i> Ajouter un connecteur</button>
+                    </div>
+
+                    <!-- ┌───────── MODÈLES IA ───────────────────────────┐ -->
+                    <div v-if="settingsTab==='ai_models'" class="space-y-5 max-w-xl">
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800 mb-1">Modèles IA</h3>
+                            <p class="text-xs text-slate-500">Connectez des fournisseurs d'IA avec votre clé API : leurs modèles apparaissent dans le sélecteur de modèle du chat. Votre clé est chiffrée côté serveur et n'est jamais réaffichée.</p>
+                        </div>
+
+                        <!-- Fournis par l'administrateur (lecture seule) -->
+                        <div v-if="llmConnShared.length" class="set-block">
+                            <div class="flex items-center gap-2 mb-2.5">
+                                <i class="ph ph-broadcast text-slate-400 text-sm"></i>
+                                <span class="text-xs font-semibold text-slate-700">Fournis par l'administrateur</span>
+                            </div>
+                            <div class="space-y-1.5">
+                                <div v-for="c in llmConnShared" :key="'sh'+c.id" class="flex items-center gap-2.5 text-sm">
+                                    <i class="ph ph-plugs-connected text-slate-400 text-sm"></i>
+                                    <span class="font-medium text-slate-700 truncate">{{ c.label || llmPresetLabel(c.provider_type) }}</span>
+                                    <span class="text-[11px] text-slate-400">{{ llmPresetLabel(c.provider_type) }}</span>
+                                    <span v-if="c.default_model" class="ml-auto text-[11px] font-mono text-slate-400 truncate max-w-[45%]" :title="c.default_model">{{ c.default_model }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mes fournisseurs -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-semibold text-slate-700">Mes fournisseurs</span>
+                                <button v-if="!llmConnForm && llmConnectors.length && llmConnAllowed.length" @click="newLlmConnector()" class="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"><i class="ph ph-plus"></i> Ajouter</button>
+                            </div>
+
+                            <!-- Liste (surface unique, lignes séparées — pas de carte dans carte) -->
+                            <div v-if="llmConnectors.length" class="set-block !p-0 divide-y divide-slate-100 overflow-hidden">
+                                <div v-for="c in llmConnectors" :key="'lc'+c.id" class="group flex items-center gap-3 px-3.5 py-2.5">
+                                    <i class="ph ph-plugs-connected text-slate-400"></i>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-medium text-slate-800 truncate">{{ c.label || llmPresetLabel(c.provider_type) }}</span>
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">{{ llmPresetLabel(c.provider_type) }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400 min-w-0">
+                                            <span v-if="c.default_model" class="font-mono truncate" :title="c.default_model">{{ c.default_model }}</span>
+                                            <span v-else>Modèle choisi dans le chat</span>
+                                            <template v-if="llmConnTest[c.id]">
+                                                <span class="text-slate-300">·</span>
+                                                <span v-if="llmConnTest[c.id].testing" class="flex items-center gap-0.5 shrink-0"><i class="ph ph-spinner-gap animate-spin"></i> test…</span>
+                                                <span v-else-if="llmConnTest[c.id].ok" class="text-emerald-600 flex items-center gap-0.5 shrink-0"><i class="ph ph-check-circle"></i> {{ llmConnTest[c.id].models_count }} modèles</span>
+                                                <span v-else class="text-red-500 flex items-center gap-0.5 shrink-0" :title="llmConnTest[c.id].hint || llmConnTest[c.id].error"><i class="ph ph-warning-circle"></i> échec</span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity">
+                                        <button @click="testLlmConnector(c)" class="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Tester la connexion"><i class="ph ph-pulse"></i></button>
+                                        <button @click="editLlmConnector(c)" class="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Modifier"><i class="ph ph-pencil-simple"></i></button>
+                                        <button @click="deleteLlmConnector(c)" class="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Supprimer"><i class="ph ph-trash"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- État vide (pédagogique) -->
+                            <div v-else-if="!llmConnForm" class="set-block text-center py-7">
+                                <i class="ph ph-sparkle text-2xl text-slate-300"></i>
+                                <p class="text-sm text-slate-500 mt-2">Aucun fournisseur connecté.</p>
+                                <p class="text-xs text-slate-400 mt-0.5 mb-3.5 max-w-xs mx-auto">Ajoutez Anthropic, OpenAI ou un autre fournisseur avec votre clé pour utiliser ses modèles dans le chat.</p>
+                                <button v-if="llmConnAllowed.length" @click="newLlmConnector()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium inline-flex items-center gap-1.5 transition-colors"><i class="ph ph-plus"></i> Ajouter un fournisseur</button>
+                                <p v-else class="text-xs text-slate-400">Aucun fournisseur n'est autorisé par l'administrateur.</p>
+                            </div>
+
+                            <!-- Formulaire ajout / édition (inline) -->
+                            <div v-if="llmConnForm" class="set-block mt-2 space-y-3">
+                                <div class="flex items-center gap-2">
+                                    <i class="ph ph-plus-circle text-blue-500"></i>
+                                    <span class="text-sm font-semibold text-slate-700">{{ llmConnForm.id ? 'Modifier le fournisseur' : 'Nouveau fournisseur' }}</span>
+                                </div>
+                                <div v-if="!llmConnForm.id">
+                                    <label class="text-[11px] font-medium text-slate-500 block mb-1">Fournisseur</label>
+                                    <select v-model="llmConnForm.provider_type" class="set-select w-full">
+                                        <option v-for="pt in llmConnAllowed" :key="pt" :value="pt">{{ llmPresetLabel(pt) }}</option>
+                                    </select>
+                                    <p v-if="llmConnPresets[llmConnForm.provider_type]" class="text-[11px] text-slate-400 mt-1 font-mono truncate">→ {{ llmConnPresets[llmConnForm.provider_type].base_url }}</p>
+                                </div>
+                                <div>
+                                    <label class="text-[11px] font-medium text-slate-500 block mb-1">Clé API</label>
+                                    <input v-model="llmConnForm.api_key" type="password" :placeholder="llmConnForm.id ? 'Vide = clé inchangée' : 'sk-…'" class="set-input">
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="text-[11px] font-medium text-slate-500 block mb-1">Modèle par défaut <span class="text-slate-400 font-normal">(optionnel)</span></label>
+                                        <input v-model="llmConnForm.default_model" placeholder="ex. claude-sonnet-4-6" class="set-input">
+                                    </div>
+                                    <div>
+                                        <label class="text-[11px] font-medium text-slate-500 block mb-1">Nom <span class="text-slate-400 font-normal">(optionnel)</span></label>
+                                        <input v-model="llmConnForm.label" placeholder="ex. perso" class="set-input">
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 pt-0.5">
+                                    <button @click="saveLlmConnector()" :disabled="llmConnBusy" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 inline-flex items-center gap-1.5 transition-colors">
+                                        <i v-if="llmConnBusy" class="ph ph-spinner-gap animate-spin"></i>
+                                        {{ llmConnForm.id ? 'Enregistrer' : 'Ajouter' }}
+                                    </button>
+                                    <button @click="cancelLlmConnector()" class="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Annuler</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ┌───────── PROFIL ──────────────────────────────┐ -->
+                    <div v-if="settingsTab==='profile'" class="space-y-5 max-w-xl">
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800 mb-1">Profil</h3>
+                            <p class="text-xs text-slate-500">Vos informations de compte.</p>
+                        </div>
+
+                        <!-- Avatar + identité -->
+                        <div class="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
+                            <div class="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
+                                <img v-if="user.avatar" :src="'/avatars/'+user.avatar" class="w-full h-full object-cover">
+                                <div v-else class="w-full h-full bg-blue-600 flex items-center justify-center text-white font-bold text-xl">{{user.username.substring(0,2).toUpperCase()}}</div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-semibold text-slate-800">{{user.username}}</div>
+                                <div class="text-[11px] font-semibold mt-0.5" :class="user.role === 'admin' ? 'elpis-role-admin' : user.role === 'moderator' ? 'text-amber-600' : 'text-slate-500'">{{ user.role === 'admin' ? 'Administrateur' : user.role === 'moderator' ? 'Modérateur' : 'Utilisateur' }}</div>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <label class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-md text-xs font-medium text-slate-600 cursor-pointer transition-colors">Photo<input type="file" @change="uploadAvatar" class="hidden" accept="image/*"></label>
+                                <button v-if="user.avatar" @click="removeAvatar" aria-label="Supprimer la photo" class="px-2 py-1.5 bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-500 rounded-md text-xs transition-colors"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Mot de passe -->
+                        <div class="set-block">
+                            <div class="flex items-center justify-between cursor-pointer" @click="showPasswordChange = !showPasswordChange">
+                                <div class="flex items-center gap-2 text-sm font-medium text-slate-700">
+                                    <i class="ph ph-lock-key text-slate-400"></i> Mot de passe
+                                </div>
+                                <i class="ph text-slate-400 text-xs transition-transform" :class="showPasswordChange ? 'ph-caret-up' : 'ph-caret-down'"></i>
+                            </div>
+                            <div v-if="showPasswordChange" class="space-y-2.5 mt-3 pt-3 border-t border-slate-100">
+                                <input v-model="passwordForm.old_password" type="password" aria-label="Mot de passe actuel" placeholder="Mot de passe actuel" class="set-input">
+                                <input v-model="passwordForm.new_password" type="password" aria-label="Nouveau mot de passe" placeholder="Nouveau mot de passe" class="set-input">
+                                <input v-model="passwordForm.confirm_password" type="password" aria-label="Confirmation du mot de passe" placeholder="Confirmation" class="set-input">
+                                <p v-if="passwordForm.new_password && passwordForm.confirm_password && passwordForm.new_password !== passwordForm.confirm_password" role="alert" class="text-xs text-red-500">Les mots de passe ne correspondent pas.</p>
+                                <button @click="changeMyPassword" :disabled="passwordSaving || !passwordForm.old_password || !passwordForm.new_password || passwordForm.new_password !== passwordForm.confirm_password" class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white py-2 rounded-lg font-medium text-sm transition-colors inline-flex items-center justify-center gap-2">
+                                    <i v-if="passwordSaving" class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i>
+                                    {{ passwordSaving ? 'Mise à jour…' : 'Mettre à jour' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ┌───────── UTILISATION ─────────────────────────┐ -->
+                    <div v-if="settingsTab==='usage'" class="space-y-5 max-w-2xl">
+                        <div class="flex items-start justify-between gap-4 flex-wrap">
+                            <div>
+                                <h3 class="text-base font-semibold text-slate-800 mb-1">Utilisation</h3>
+                                <p class="text-xs text-slate-500">Votre activité sur la période sélectionnée.</p>
+                            </div>
+                            <!-- Sélecteur de période -->
+                            <div class="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5 text-xs font-medium shrink-0">
+                                <button v-for="d in [1,7,30,90]" :key="d" @click="setUsageDays(d)"
+                                        :class="usageDays === d ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                                        class="px-2.5 py-1 rounded-md transition-colors">{{ d }} j</button>
+                            </div>
+                        </div>
+
+                        <!-- Chargement -->
+                        <div v-if="usageLoading && !usageData" role="status" class="flex items-center gap-2 text-sm text-slate-500 py-8 justify-center">
+                            <i class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i> Chargement des métriques…
+                        </div>
+                        <!-- Erreur -->
+                        <div v-else-if="usageError && !usageData" role="alert" class="flex items-center gap-2 text-sm text-red-500 py-8 justify-center">
+                            <i class="ph ph-warning-circle" aria-hidden="true"></i> {{ usageError }}
+                        </div>
+
+                        <template v-else-if="usageData">
+                            <!-- Tokens soumis (= facturation API : chaque itération d'outils
+                                 re-soumet l'historique ; l'occupation du contexte, elle, se lit
+                                 sur la jauge du chat) -->
+                            <div class="set-block">
+                                <div class="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3">
+                                    <i class="ph ph-coins text-blue-500"></i>
+                                    <span title="Tokens soumis au modèle (cumul de toutes les requêtes, itérations d'outils comprises). Pour l'occupation du contexte d'une conversation, voir la jauge du chat.">Tokens soumis</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <div class="text-xl font-bold text-slate-800 tabular-nums">{{ (usageData.tokens.total || 0).toLocaleString('fr-FR') }}</div>
+                                        <div class="text-[11px] text-slate-500 mt-0.5">Total</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xl font-bold text-slate-700 tabular-nums">{{ (usageData.tokens.input || 0).toLocaleString('fr-FR') }}</div>
+                                        <div class="text-[11px] text-slate-500 mt-0.5">Entrée</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xl font-bold text-slate-700 tabular-nums">{{ (usageData.tokens.output || 0).toLocaleString('fr-FR') }}</div>
+                                        <div class="text-[11px] text-slate-500 mt-0.5">Sortie</div>
+                                    </div>
+                                </div>
+                                <!-- Découpe de la SORTIE. Le raisonnement était compté avec
+                                     la réponse et les appels d'outils : sur un modèle
+                                     thinking, l'essentiel du poste « Sortie » n'avait aucun
+                                     nom. Les deux valeurs se somment en Sortie — elles ne
+                                     s'ajoutent PAS au Total, qui les contient déjà.
+                                     Masqué tant que rien n'est mesuré (registre antérieur
+                                     à la mesure, ou modèle sans raisonnement). -->
+                                <div v-if="usageData.tokens.thinking > 0"
+                                     class="mt-3 pt-3 border-t border-slate-100 flex items-baseline gap-4 flex-wrap">
+                                    <div class="flex items-baseline gap-1.5">
+                                        <i class="ph ph-brain text-amber-500 text-[13px]"></i>
+                                        <span class="text-base font-bold text-slate-700 tabular-nums">{{ (usageData.tokens.thinking || 0).toLocaleString('fr-FR') }}</span>
+                                        <span class="text-[11px] text-slate-500">réflexion</span>
+                                    </div>
+                                    <div class="flex items-baseline gap-1.5">
+                                        <span class="text-base font-bold text-slate-700 tabular-nums">{{ (usageData.tokens.response || 0).toLocaleString('fr-FR') }}</span>
+                                        <span class="text-[11px] text-slate-500">réponse et outils</span>
+                                    </div>
+                                    <span class="text-[11px] text-slate-400">soit {{ usageThinkingPct }} % de la sortie</span>
+                                </div>
+                                <!-- Ventilation par origine : un total supérieur à ce que
+                                     montrent les conversations s'explique ici (routines
+                                     planifiées, sous-agents), au lieu d'être une surprise. -->
+                                <div v-if="usageData.tokens.by_source && usageData.tokens.by_source.length > 1"
+                                     class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1">
+                                    <span v-for="s in usageData.tokens.by_source" :key="'us-' + s.source"
+                                          class="text-[11px] text-slate-500">
+                                        {{ usageSourceLabel(s.source) }}
+                                        <span class="font-semibold text-slate-700 tabular-nums">{{ (s.tokens || 0).toLocaleString('fr-FR') }}</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Conversations + Messages -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="set-block">
+                                    <div class="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3">
+                                        <i class="ph ph-chats-circle text-blue-500"></i> Conversations
+                                    </div>
+                                    <div class="flex items-baseline gap-4">
+                                        <div><span class="text-xl font-bold text-slate-800 tabular-nums">{{ usageData.chats.active }}</span> <span class="text-[11px] text-slate-500">actives</span></div>
+                                        <div><span class="text-xl font-bold text-slate-600 tabular-nums">{{ usageData.chats.archived }}</span> <span class="text-[11px] text-slate-500">archivées</span></div>
+                                    </div>
+                                </div>
+                                <div class="set-block">
+                                    <div class="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3">
+                                        <i class="ph ph-paper-plane-tilt text-blue-500"></i> Messages
+                                    </div>
+                                    <div class="flex items-baseline gap-4">
+                                        <div><span class="text-xl font-bold text-slate-800 tabular-nums">{{ usageData.messages.sent }}</span> <span class="text-[11px] text-slate-500">envoyés</span></div>
+                                        <div><span class="text-xl font-bold text-slate-600 tabular-nums">{{ usageData.messages.received }}</span> <span class="text-[11px] text-slate-500">reçus</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bloc « Outils » RETIRÉ (2026-08-16, retour user) : des noms
+                                 d'outils internes (fs_read, shell_exec…) et leurs compteurs
+                                 ne disent rien de l'usage vu par l'utilisateur. Le détail
+                                 par outil reste disponible là où il a un sens : Administration
+                                 → Observabilité. Le payload a suivi (/api/usage/me). -->
+
+                            <!-- Routines (si activité) -->
+                            <div v-if="usageData.routines.runs > 0" class="set-block">
+                                <div class="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3">
+                                    <i class="ph ph-clock-countdown text-blue-500"></i> Routines
+                                </div>
+                                <div class="flex items-baseline gap-4 flex-wrap">
+                                    <div><span class="text-xl font-bold text-slate-800 tabular-nums">{{ usageData.routines.runs }}</span> <span class="text-[11px] text-slate-500">exécutions</span></div>
+                                    <div><span class="text-base font-bold text-emerald-600 tabular-nums">{{ usageData.routines.ok }}</span> <span class="text-[11px] text-slate-500">ok</span></div>
+                                    <div v-if="usageData.routines.error > 0"><span class="text-base font-bold text-red-500 tabular-nums">{{ usageData.routines.error }}</span> <span class="text-[11px] text-slate-500">erreurs</span></div>
+                                </div>
+                            </div>
+
+                            <p class="text-[11px] text-slate-500">Données agrégées localement, jamais transmises à l'extérieur.</p>
+                        </template>
+                    </div>
+
+                    <!-- ┌───────── CHAT ───────────────────────────────┐ -->
+                    <div v-if="settingsTab==='chat'" class="space-y-5 max-w-xl">
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800 mb-1">Chat</h3>
+                            <p class="text-xs text-slate-500">Comportement et présentation des conversations.</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1.5">Prompt système</label>
+                            <textarea v-model="settings.system_prompt" rows="4" placeholder="Instructions personnalisées pour l'assistant…" class="set-textarea"></textarea>
+                        </div>
+
+                        <div class="bg-slate-50 rounded-lg p-3.5" :class="settings.skin === 'llamacpp' ? 'opacity-50' : ''">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-sm text-slate-700">Largeur</span>
+                                <span class="text-[11px] font-mono text-blue-600 bg-white px-2 py-0.5 rounded border border-slate-200">{{ settings.chat_width }}%</span>
+                            </div>
+                            <input type="range" v-model.number="settings.chat_width" min="30" max="100" step="5" :disabled="settings.skin === 'llamacpp'" class="set-range w-full">
+                            <p v-if="settings.skin === 'llamacpp'" class="text-[10px] text-slate-500 mt-1.5">Largeur fixe (colonne centrée) imposée par l'habillage llama.cpp.</p>
+                        </div>
+
+                        <!-- Masquer les blocs de raisonnement (thinking) -->
+                        <div class="bg-slate-50 rounded-xl">
+                            <label class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl">
+                                <i class="ph ph-brain text-slate-400 text-lg w-5"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-slate-800">Masquer le raisonnement</div>
+                                    <div class="text-[11px] text-slate-500">Cache les blocs « thinking » des réponses. Le raisonnement reste produit, il n'est simplement plus affiché.</div>
+                                </div>
+                                <div class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" v-model="settings.hide_thinking" class="sr-only peer">
+                                    <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Terminal en direct : sortie des commandes shell de
+                             l'assistant streamée dans la conversation. -->
+                        <div class="bg-slate-50 rounded-xl">
+                            <label class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl">
+                                <i class="ph ph-terminal-window text-slate-400 text-lg w-5"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-slate-800">Terminal en direct</div>
+                                    <div class="text-[11px] text-slate-500">Affiche la sortie des commandes shell exécutées par l'assistant en temps réel, dans la conversation. Désactivé, la sortie reste visible dans le détail de l'outil.</div>
+                                </div>
+                                <div class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" v-model="settings.live_shell_enabled" @change="persistLiveShell" class="sr-only peer">
+                                    <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Voix : dictée et lecture. Deux bascules distinctes — on
+                             dicte souvent en silence, et on écoute souvent sans
+                             parler. Masquées quand l'instance n'a pas le service
+                             correspondant : une case qui ne fait rien est pire
+                             qu'une case absente. -->
+                        <div v-if="features.voice_stt || features.voice_tts"
+                             class="bg-slate-50 rounded-xl overflow-hidden divide-y divide-slate-200/70">
+                            <label v-if="features.voice_stt"
+                                   class="set-row cursor-pointer hover:bg-white/60 transition-colors">
+                                <i class="ph ph-microphone text-slate-400 text-lg w-5"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-slate-800">Dictée</div>
+                                    <div class="text-[11px] text-slate-500">Un bouton micro dans la zone de saisie. Le texte s'écrit phrase après phrase ; l'envoi reste manuel.</div>
+                                </div>
+                                <div class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" v-model="settings.voice_input_enabled" @change="persistVoiceInput" :disabled="!voiceMicSupported" class="sr-only peer">
+                                    <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                </div>
+                            </label>
+                            <label v-if="features.voice_tts"
+                                   class="set-row cursor-pointer hover:bg-white/60 transition-colors">
+                                <i class="ph ph-speaker-high text-slate-400 text-lg w-5"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-slate-800">Réponse vocale</div>
+                                    <div class="text-[11px] text-slate-500">Lit les réponses à voix haute pendant qu'elles s'écrivent. Le bouton « lire » de chaque message reste disponible sans cela.</div>
+                                </div>
+                                <div class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" v-model="settings.voice_reply_enabled" @change="persistVoiceReply" :disabled="!voiceReadSupported" class="sr-only peer">
+                                    <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                </div>
+                            </label>
+                            <!-- Sous-option : n'apparait que si la lecture automatique
+                                 est active. Une case qui ne peut rien faire est
+                                 une case en trop. -->
+                            <label v-if="features.voice_tts && settings.voice_reply_enabled"
+                                   class="set-row set-row--sub cursor-pointer hover:bg-white/60 transition-colors">
+                                <i class="ph ph-wrench text-slate-400 text-lg w-5"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-slate-800">Lire entre les outils</div>
+                                    <div class="text-[11px] text-slate-500">Lit aussi ce que l'assistant annonce avant chaque appel d'outil, pas seulement la réponse finale.</div>
+                                </div>
+                                <div class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" v-model="settings.voice_reply_tools_enabled" @change="persistVoiceReplyTools" class="sr-only peer">
+                                    <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                </div>
+                            </label>
+                            <!-- Diagnostic navigateur (voice/_compat.js) : la raison exacte, pas un message générique. -->
+                            <p v-if="features.voice_stt && !voiceMicSupported"
+                               class="text-[11px] text-amber-700 bg-amber-50 border-t border-amber-200 px-3 py-2">
+                                Micro indisponible : {{ voiceCompatInfo.dictee.raison }}
+                            </p>
+                            <p v-if="features.voice_tts && !voiceReadSupported"
+                               class="text-[11px] text-amber-700 bg-amber-50 border-t border-amber-200 px-3 py-2">
+                                {{ voiceCompatInfo.lecture.raison }}
+                            </p>
+                            <p v-if="voiceCompatInfo.avertissement && (voiceMicSupported || voiceReadSupported)"
+                               class="text-[11px] text-slate-500 border-t border-slate-200 px-3 py-2">
+                                {{ voiceCompatInfo.avertissement }}
+                            </p>
+                        </div>
+
+                        <!-- Notifications système (OS) : opt-in, par appareil.
+                             La préférence demande la permission du navigateur et
+                             n'émet que lorsque l'onglet est en arrière-plan. -->
+                        <div class="bg-slate-50 rounded-xl">
+                            <label class="set-row transition-colors rounded-xl"
+                                   :class="(notifyOSSupported && notifyOSSecure) ? 'cursor-pointer hover:bg-white/60' : 'opacity-50 cursor-not-allowed'">
+                                <i class="ph ph-bell-ringing text-slate-400 text-lg w-5"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-slate-800">Notifications système</div>
+                                    <div class="text-[11px] text-slate-500">Affiche une notification du système d'exploitation (routines, scénarios, rapports…) quand cette fenêtre n'est pas au premier plan.
+                                        <span v-if="!notifyOSSupported" class="text-amber-600">Non supporté par ce navigateur.</span>
+                                        <span v-else-if="!notifyOSSecure" class="text-amber-600">Indisponible : nécessite HTTPS ou http://localhost (page non sécurisée).</span>
+                                    </div>
+                                </div>
+                                <div class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" class="sr-only peer" :checked="notifyOSEnabled" :disabled="!notifyOSSupported || !notifyOSSecure" @change="toggleNotifyOS">
+                                    <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Effacer les conversations — déplacé depuis l'onglet
+                             Sandbox (2026-07-19) : c'est une action chat. -->
+                        <div class="bg-slate-50 rounded-xl px-3.5 py-3">
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="text-xs min-w-0">
+                                    <div class="font-medium text-slate-700">Effacer les conversations</div>
+                                    <div class="text-[11px] text-slate-500">Supprime tous les chats actifs — irréversible. Les archives ne sont pas affectées.</div>
+                                </div>
+                                <button @click="clearAllChats" class="shrink-0 px-3 py-1.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 rounded-md text-xs font-medium transition-colors flex items-center gap-1">
+                                    <i class="ph ph-trash"></i> Effacer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ┌───────── COMPACTION ─────────────────────────┐ -->
+                    <!-- Onglet dédié : la compaction a désormais deux réglages
+                         (l'interrupteur et le seuil, ce dernier en DEUX unités)
+                         plus une règle de déclenchement à expliquer. Quatre
+                         contrôles imbriqués dans une ligne de l'onglet Chat,
+                         c'était un sous-menu déguisé. -->
+                    <div v-if="settingsTab==='compaction'" class="space-y-5 max-w-xl">
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800 mb-1">Compaction</h3>
+                            <p class="text-xs text-slate-500">Quand l'assistant résume les anciens tours pour libérer du contexte.</p>
+                        </div>
+
+                        <!-- Interrupteur — déplacé depuis l'onglet Chat. Ne
+                             gouverne QUE l'automatique : /compact reste
+                             disponible dans les deux états. -->
+                        <div class="bg-slate-50 rounded-xl">
+                            <label class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl">
+                                <i class="ph ph-arrows-in-line-horizontal text-slate-400 text-lg w-5"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-slate-800">Compaction automatique</div>
+                                    <div class="text-[11px] text-slate-500">Désactivée par défaut. Une fois activée, l'assistant résume tout seul les anciens tours quand le contexte se remplit.</div>
+                                </div>
+                                <div class="relative inline-flex items-center shrink-0">
+                                    <input type="checkbox" v-model="settings.compression_enabled" @change="persistCompressionEnabled()" class="sr-only peer">
+                                    <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Seuil : « contexte max avant compaction ». Deux
+                             unités parce qu'aucune ne suffit seule — le % se
+                             transpose d'un modèle à l'autre (et c'est l'unité
+                             de la jauge live du composeur), les tokens sont le
+                             budget que l'utilisateur a en tête. Le sélecteur
+                             d'unité est un <select> : c'est l'affordance « un
+                             parmi N » déjà en place partout ailleurs dans ce
+                             panneau, pas un contrôle inventé pour l'occasion.
+                             Masqué quand l'automatique est coupé : sans lui, ce
+                             seuil ne règle rien. -->
+                        <div v-if="settings.compression_enabled" class="bg-slate-50 rounded-lg p-3.5">
+                            <div class="flex justify-between items-center gap-3">
+                                <label for="set-compact-unit" class="text-sm text-slate-700">Seuil</label>
+                                <select id="set-compact-unit" class="set-select set-control--sm shrink-0"
+                                        :value="compactionUnit" @change="setCompactionUnit($event.target.value)">
+                                    <option value="auto">Auto</option>
+                                    <option value="pct">Pourcentage</option>
+                                    <option value="tokens">Tokens</option>
+                                </select>
+                            </div>
+
+                            <!-- Pourcentage : curseur, même gabarit que « Largeur ». -->
+                            <div v-if="compactionUnit === 'pct'" class="mt-3">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-[11px] text-slate-500">Part de la fenêtre</span>
+                                    <span class="text-[11px] font-mono text-blue-600 bg-white px-2 py-0.5 rounded border border-slate-200">{{ compactionPct }} %</span>
+                                </div>
+                                <input type="range" min="30" max="95" step="5"
+                                       :value="compactionPct"
+                                       @input="setCompactionPct($event.target.value)"
+                                       @change="persistCompactionThreshold()"
+                                       class="set-range w-full">
+                            </div>
+
+                            <!-- Tokens : saisie directe, exemple en placeholder.
+                                 Champ BORNÉ en largeur (une valeur de 5-6
+                                 chiffres dans un champ pleine largeur se lit
+                                 comme un champ de texte), et le rendu abrégé
+                                 COLLÉ au champ : c'est un accusé de lecture
+                                 (« 80000 → 80k »), il n'a de sens qu'à côté de
+                                 ce qu'on vient de taper. 800000 tapé pour 80000
+                                 se voit alors immédiatement. -->
+                            <div v-else-if="compactionUnit === 'tokens'" class="mt-3">
+                                <label for="set-compact-tokens" class="block text-[11px] text-slate-500 mb-2">Tokens de contexte</label>
+                                <div class="flex items-center gap-2">
+                                    <input id="set-compact-tokens" type="number" min="2048" max="4000000" step="1000"
+                                           placeholder="80000"
+                                           :value="settings.compression_threshold_tokens || ''"
+                                           @input="setCompactionTokens($event.target.value)"
+                                           @change="persistCompactionThreshold()"
+                                           class="set-input max-w-[9rem]">
+                                    <span class="text-[11px] font-mono text-blue-600 bg-white px-2 py-0.5 rounded border border-slate-200">{{ compactionTokensLabel }}</span>
+                                </div>
+                            </div>
+
+                            <p class="text-[11px] text-slate-500 mt-2">{{ compactionThresholdHint }}</p>
+                        </div>
+
+                        <!-- Compactions max PAR CONVERSATION. Le réglage n'a
+                             de sens qu'à côté du seuil : compacter tôt =
+                             compacter souvent, et c'est ce plafond-là qui
+                             décide si une session de plusieurs heures continue
+                             d'être résumée ou finit en tours jetés. Même
+                             gabarit que le seuil (select + contrôle
+                             conditionnel) : deux réglages voisins qui se
+                             ressemblent se lisent d'un coup d'œil. -->
+                        <div v-if="settings.compression_enabled" class="bg-slate-50 rounded-lg p-3.5">
+                            <div class="flex justify-between items-center gap-3">
+                                <label for="set-compact-rounds" class="text-sm text-slate-700">Compactions max</label>
+                                <select id="set-compact-rounds" class="set-select set-control--sm shrink-0"
+                                        :value="compactionRoundsMode" @change="setCompactionRoundsMode($event.target.value)">
+                                    <option value="auto">Auto</option>
+                                    <option value="custom">Nombre</option>
+                                    <option value="unlimited">Illimité</option>
+                                </select>
+                            </div>
+
+                            <div v-if="compactionRoundsMode === 'custom'" class="mt-3">
+                                <label for="set-compact-rounds-n" class="block text-[11px] text-slate-500 mb-2">Par conversation</label>
+                                <input id="set-compact-rounds-n" type="number" min="1" max="200" step="1"
+                                       placeholder="24"
+                                       :value="settings.compression_max_rounds > 0 ? settings.compression_max_rounds : ''"
+                                       @input="setCompactionRounds($event.target.value)"
+                                       @change="persistCompactionMaxRounds()"
+                                       class="set-input max-w-[6rem]">
+                            </div>
+
+                            <p class="text-[11px] text-slate-500 mt-2">{{ compactionRoundsHint }}</p>
+                        </div>
+
+                        <!-- Ce que ces réglages font vraiment. La ligne « en
+                             cours de tâche » ne parle QUE quand un seuil
+                             existe : la laisser sous un interrupteur coupé
+                             décrirait un réglage absent de l'écran. Le rappel
+                             /compact, lui, vaut surtout dans cet état-là —
+                             d'où l'asymétrie. -->
+                        <div class="bg-slate-50 rounded-lg px-3.5 py-3 space-y-2">
+                            <div v-if="settings.compression_enabled" class="flex gap-2.5 text-[11px] text-slate-500">
+                                <i class="ph ph-infinity text-slate-400 text-base shrink-0"></i>
+                                <span>La compaction s'intercale entre deux appels d'outils : une tâche de plusieurs heures tient sans jamais saturer la fenêtre.</span>
+                            </div>
+                            <div class="flex gap-2.5 text-[11px] text-slate-500">
+                                <i class="ph ph-terminal text-slate-400 text-base shrink-0"></i>
+                                <span>La commande <span class="font-mono">/compact</span> reste disponible dans tous les cas, seuil ou pas.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ┌───────── APPARENCE ──────────────────────────┐ -->
+                    <div v-if="settingsTab==='appearance'" class="space-y-5 max-w-xl">
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800 mb-1">Apparence</h3>
+                            <p class="text-xs text-slate-500">Identité visuelle de l'assistant dans le chat.</p>
+                        </div>
+
+                        <!-- ════════════ Mode sombre (chat + éditeur unifiés) ════════════
+                             Toggle global du thème de TOUTE l'application : chat,
+                             sidebar, modaux ET éditeur Monaco. Implémenté en deux
+                             temps :
+                              1. Le watcher dans app-editor.js écoute dark_mode et
+                                 ajoute/retire ``elpis-app-dark`` sur ``<body>``.
+                              2. Le MÊME watcher synchronise ``editor_dark_mode``
+                                 sur la valeur de ``dark_mode`` pour le thème
+                                 Monaco (vs / vs-dark).
+
+                             La clé ``editor_dark_mode`` est gardée en DB pour
+                             compat mais le toggle séparé a été retiré (passe 11). -->
+                        <!-- Mode : Système (suit l'OS, dark_mode_auto) · Clair · Sombre.
+                             Même choix que le menu « Compte et apparence » de la
+                             console admin ; ici il n'est enregistré qu'au clic
+                             sur Enregistrer (applyThemeMode ne fait que muter). -->
+                        <div class="bg-slate-50 rounded-xl">
+                            <div class="set-row">
+                                <i class="ph ph-moon text-slate-400 text-lg w-5" aria-hidden="true"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div id="set-theme-mode-lbl" class="text-sm text-slate-800" title="Système suit la préférence du poste. S'applique à tout : chat, barre latérale, fenêtres et éditeur.">Mode</div>
+                                </div>
+                                <div class="adm-seg" role="radiogroup" aria-labelledby="set-theme-mode-lbl">
+                                    <button type="button" role="radio" v-for="m in [{v:'system',l:'Système'},{v:'light',l:'Clair'},{v:'dark',l:'Sombre'}]" :key="m.v"
+                                            :aria-checked="String(themeMode === m.v)" class="adm-seg__btn" :class="themeMode === m.v ? 'is-active' : ''"
+                                            @click="applyThemeMode(m.v)">{{ m.l }}</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ════════════ Skin (habillage visuel) ════════════
+                             Sélecteur d'habillage. Chaque option = une entrée du
+                             registre APP_SKINS (app-settings.js). Le watcher
+                             _applyAppSkin (app-settings.js) pose la classe
+                             ``elpis-skin-<id>`` sur <body> ; le mode sombre
+                             (toggle ci-dessus) se compose par-dessus, et le
+                             marqueur ``elpis-dark-surface`` suit (sombre OU
+                             skin darkBase).
+
+                             LISTE ET NON GRILLE : six pavés de description
+                             occupaient la moitié du panneau pour un choix qu'on
+                             fait une fois. La description reste — elle dit ce
+                             que le nom ne dit pas (« colonne centrée »,
+                             « Comic Sans ») — mais seulement celle du skin
+                             retenu, sous la liste.
+
+                             `:value`/`@change` plutôt que v-model : l'id du skin
+                             par défaut est la chaîne VIDE, et v-model sur une
+                             clé absente laisserait le select sur rien. -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-2" for="set-skin">Habillage</label>
+                            <select id="set-skin" class="set-select w-full"
+                                    :value="settings.skin || ''"
+                                    @change="settings.skin = $event.target.value">
+                                <option v-for="sk in APP_SKINS" :key="sk.id || 'defaut'" :value="sk.id">{{ sk.label }}</option>
+                            </select>
+                            <p class="text-[11px] text-slate-500 mt-1.5 leading-snug">{{ skinCourant.desc }}</p>
+                        </div>
+
+                        <!-- ════════════ Mascotte du bloc « nouveau chat » ════════════
+                             LISTE + UN SEUL APERÇU, à droite, sur le choix
+                             courant. Les six vignettes en grille servaient à
+                             comparer ; mais on ne compare pas six pixel arts de
+                             48 px côte à côte, on les regarde. Un seul, deux
+                             fois plus grand, se voit vraiment.
+
+                             96 px = 4 × la fenêtre de 24 : entre deux multiples
+                             entiers le pixel art bave (assets/mascotte/README.md).
+
+                             `data-etat` — donc ANIMÉ. La grille ne l'était pas,
+                             pour ne pas faire s'agiter six vignettes à la fois ;
+                             seul, l'aperçu peut vivre. Sous
+                             `prefers-reduced-motion` la feuille générée ne
+                             l'arrête pas, elle le RALENTIT de moitié : il reste
+                             visible pour qui a ce réglage. -->
+                        <!-- MASQUÉ QUAND L'ADMIN A COUPÉ LES MASCOTTES. Un
+                             sélecteur qui ne propose plus que « Logo » se lit
+                             comme une panne ; et laisser le réglage visible
+                             promettrait un choix que le serveur refuserait au
+                             PUT. Quand il n'y a rien à choisir, on ne montre
+                             pas de choix. -->
+                        <div v-if="mascottesOffertes">
+                            <label class="block text-xs font-medium text-slate-600 mb-2" for="set-mascotte">Mascotte</label>
+                            <div class="flex items-start gap-3">
+                                <div class="flex-1 min-w-0">
+                                    <select id="set-mascotte" class="set-select w-full"
+                                            :value="settings.welcome_mascot ?? 'boite_or'"
+                                            @change="settings.welcome_mascot = $event.target.value">
+                                        <option v-for="m in MASCOTTES" :key="m.id || 'logo'" :value="m.id">{{ m.label }}</option>
+                                    </select>
+                                    <!-- TOUJOURS VISIBLE, ET COCHÉE PAR DÉFAUT.
+                                         La version d'avant ne la montrait que si
+                                         le système demandait moins de mouvement :
+                                         celui qui voyait une image fixe devait
+                                         deviner que le remède existait, et où. Un
+                                         correctif qu'on doit trouver soi-même n'en
+                                         est pas un.
+
+                                         `:checked` sur `!== false` plutôt que
+                                         v-model sur la valeur brute : clé absente
+                                         = défaut = animé, et la case doit le DIRE.
+                                         Avec v-model, un `undefined` rendait une
+                                         case décochée sous une scène qui bouge.
+
+                                         Masquée sur « Logo » : il n'y a alors
+                                         aucune scène à animer, et une case sans
+                                         effet est une case qu'on croit cassée. -->
+                                    <label v-if="mascotteId" class="flex items-start gap-2 mt-2.5 cursor-pointer">
+                                        <input type="checkbox"
+                                               :checked="settings.welcome_mascot_anime !== false"
+                                               @change="settings.welcome_mascot_anime = $event.target.checked"
+                                               class="mt-0.5 rounded border-slate-300 text-blue-600">
+                                        <span class="text-[11px] text-slate-500 leading-snug">
+                                            Animer l'accueil.
+                                            <span v-if="mouvementReduit" class="text-slate-400">Ton système
+                                            demande moins de mouvement : décoche pour rendre la scène à
+                                            l'arrêt.</span>
+                                            <span v-else class="text-slate-400">La mascotte joue autour du
+                                            mot ; décoche pour une image fixe.</span>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <!-- Le carré. `mascotteId` vaut "" pour « Logo »
+                                     ET pour un id inconnu : on retombe alors sur
+                                     le visuel configuré par l'admin, ce que
+                                     l'accueil affichera réellement. -->
+                                <div class="w-24 h-24 shrink-0 rounded-xl border border-slate-200 bg-slate-50
+                                            flex items-center justify-center overflow-hidden">
+                                    <span v-if="mascotteId" class="socle-mascotte" aria-hidden="true"
+                                          style="width:96px;height:96px"
+                                          :data-perso="mascotteId" data-etat="repos"></span>
+                                    <img v-else-if="welcomeConfig && welcomeConfig.type === 'image' && welcomeConfig.image_b64"
+                                         :src="welcomeConfig.image_b64" alt="" aria-hidden="true"
+                                         class="w-16 h-16 object-contain">
+                                    <i v-else class="ph text-5xl text-blue-500" aria-hidden="true"
+                                       :class="(welcomeConfig && welcomeConfig.icon) || 'ph-sparkle'"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1.5">Nom</label>
+                            <input v-model="settings.assistant_name" type="text" placeholder="Assistant" class="set-input font-medium text-slate-800">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-2">Icône</label>
+                            <div class="flex flex-wrap gap-1.5">
+                                <button v-for="icon in ['ph-robot', 'ph-brain', 'ph-magic-wand', 'ph-cpu', 'ph-ghost', 'ph-alien', 'ph-cat', 'ph-dog', 'ph-terminal', 'ph-code']"
+                                        :key="icon" @click="settings.assistant_icon = icon; removeAssistantAvatar()"
+                                        :class="settings.assistant_icon === icon && !settings.assistant_avatar ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'"
+                                        class="w-9 h-9 rounded-lg border flex items-center justify-center text-lg transition-colors"><i class="ph" :class="icon"></i></button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-2">Image</label>
+                            <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                                <img v-if="settings.assistant_avatar" :src="'/avatars/' + settings.assistant_avatar" class="w-10 h-10 rounded-lg object-cover">
+                                <div v-else class="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-blue-500"><i class="ph text-xl" :class="settings.assistant_icon || 'ph-robot'"></i></div>
+                                <div class="flex items-center gap-1.5 ml-auto">
+                                    <label class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-xs font-medium text-slate-600 rounded-md cursor-pointer transition-colors">Charger<input type="file" @change="uploadAssistantAvatar" class="hidden" accept="image/*"></label>
+                                    <button v-if="settings.assistant_avatar" @click="removeAssistantAvatar" aria-label="Supprimer l'image" class="px-2 py-1.5 bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-500 rounded-md text-xs transition-colors"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ┌───────── FONCTIONNALITÉS ─────────────────────┐ -->
+                    <div v-if="settingsTab==='features'" class="space-y-5 max-w-xl">
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800 mb-1">Fonctionnalités</h3>
+                            <p class="text-xs text-slate-500">Ce que l'assistant peut faire. Chaque module s'active séparément.</p>
+                        </div>
+
+                        <!--
+                          REFONTE 2026-08-16 (retour user : « pas clair »).
+                          Avant : UNE seule liste où activer l'Éditeur injectait
+                          jusqu'à 13 réglages ENTRE « Éditeur » et « RAG » — les
+                          modules restants passaient sous la ligne de flottaison,
+                          et la question « qu'est-ce que je peux activer ? »
+                          n'avait plus de réponse visible. Les sous-items étaient
+                          par ailleurs répartis arbitrairement entre le premier
+                          niveau (Aperçu, Éditeur sombre…) et un accordéon
+                          « Plus d'options » fourre-tout.
+
+                          Maintenant : les MODULES tiennent leur propre bloc, en
+                          haut, toujours les mêmes trois lignes quel que soit
+                          l'état. Les réglages de l'éditeur vivent SOUS eux, dans
+                          deux groupes nommés (affichage / comportement), visibles
+                          seulement si l'éditeur est activé. Deux en-têtes qui
+                          disent ce qu'ils contiennent valent mieux qu'un
+                          accordéon qui ne dit rien — l'accordéon a donc disparu.
+
+                          Idiome de rangée, tenu partout ici :
+                            • interrupteur  → switch à droite ;
+                            • valeur        → contrôle à droite, jamais glissé
+                                              dans la ligne de description.
+                        -->
+
+                        <!-- ═════════ Modules ═════════
+                             Ordre par conséquence : couper « Outils » change ce
+                             que l'assistant PEUT faire, les deux autres ne
+                             changent que ce qu'il montre. Éditeur en dernier :
+                             ses réglages suivent immédiatement. -->
+                        <div>
+                            <div class="text-[11px] font-semibold text-slate-500 px-0.5 mb-1.5">Modules</div>
+                            <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
+                                <label class="set-row cursor-pointer hover:bg-white/60 transition-colors first:rounded-t-xl">
+                                    <i class="ph ph-plug text-slate-400 text-lg w-5"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm text-slate-800">Outils</div>
+                                        <div class="text-[11px] text-slate-500">Shell, fichiers, git, navigateur, serveurs MCP.</div>
+                                        <!-- La conséquence de la coupure ne s'affiche QUE coupée :
+                                             un paragraphe permanent se lit une fois puis devient
+                                             du bruit, l'avertissement contextuel se lit toujours. -->
+                                        <div v-if="!settings.enable_mcp" class="text-[11px] text-amber-600 mt-1 flex items-start gap-1">
+                                            <i class="ph ph-warning-circle mt-px shrink-0" aria-hidden="true"></i>
+                                            <span>L'assistant ne peut plus qu'écrire ; seule la mémoire reste.</span>
+                                        </div>
+                                    </div>
+                                    <div class="relative inline-flex items-center shrink-0">
+                                        <input type="checkbox" v-model="settings.enable_mcp" class="sr-only peer">
+                                        <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                    </div>
+                                </label>
+
+                                <label class="set-row cursor-pointer hover:bg-white/60 transition-colors">
+                                    <i class="ph ph-database text-slate-400 text-lg w-5"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm text-slate-800">RAG</div>
+                                        <div class="text-[11px] text-slate-500">Cherche dans vos documents pour enrichir les réponses.</div>
+                                    </div>
+                                    <div class="relative inline-flex items-center shrink-0">
+                                        <input type="checkbox" v-model="settings.enable_rag" class="sr-only peer">
+                                        <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                    </div>
+                                </label>
+
+                                <!-- L'ancienne description (« Ouvre l'IDE quand un fichier est
+                                     modifié ») décrivait en fait « Ouverture automatique », un
+                                     réglage distinct et désactivable : elle promettait donc au
+                                     module un comportement qui n'était pas le sien. -->
+                                <label class="set-row cursor-pointer hover:bg-white/60 transition-colors last:rounded-b-xl">
+                                    <i class="ph ph-code-block text-slate-400 text-lg w-5"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm text-slate-800">Éditeur</div>
+                                        <div class="text-[11px] text-slate-500">Panneau de code intégré, avec arborescence de fichiers.</div>
+                                    </div>
+                                    <div class="relative inline-flex items-center shrink-0">
+                                        <input type="checkbox" v-model="settings.enable_editor" class="sr-only peer">
+                                        <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- ═════════ Réglages de l'éditeur ═════════
+                             Tous appliqués à chaud (watcher app-editor.js), aucun
+                             rechargement. Invisibles tant que le module est coupé :
+                             qui n'utilise pas l'éditeur ne les voit jamais. -->
+                        <template v-if="settings.enable_editor">
+                            <div data-feat-editor-display>
+                                <div class="text-[11px] font-semibold text-slate-500 px-0.5 mb-1.5">Éditeur · affichage</div>
+                                <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
+                                    <!-- Thème INDÉPENDANT du mode sombre de la page : éditeur
+                                         sombre sur page claire (ou l'inverse) est un choix courant. -->
+                                    <label class="set-row cursor-pointer hover:bg-white/60 transition-colors first:rounded-t-xl">
+                                        <i class="ph ph-paint-roller text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-sm text-slate-800">Thème sombre</div>
+                                            <div class="text-[11px] text-slate-500">Indépendant du mode sombre de la page.</div>
+                                        </div>
+                                        <div class="relative inline-flex items-center shrink-0">
+                                            <input type="checkbox" v-model="settings.editor_dark_mode" class="sr-only peer">
+                                            <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                        </div>
+                                    </label>
+
+                                    <div class="set-row">
+                                        <i class="ph ph-text-aa text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0 text-sm text-slate-800">Taille de police</div>
+                                        <div class="shrink-0 flex items-center gap-2">
+                                            <input type="range" v-model.number="settings.editor_font_size" min="10" max="24" step="1"
+                                                   aria-label="Taille de police de l'éditeur" class="set-range w-28">
+                                            <span class="text-[11px] font-mono tabular-nums text-blue-600 bg-white px-1.5 rounded border border-slate-200">{{ settings.editor_font_size || 14 }}px</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="set-row">
+                                        <i class="ph ph-text-t text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0 text-sm text-slate-800">Police</div>
+                                        <select v-model="settings.editor_font_family" aria-label="Police de l'éditeur"
+                                                class="set-select set-control--sm shrink-0">
+                                            <option value="JetBrains Mono">JetBrains Mono</option>
+                                            <option value="Fira Code">Fira Code</option>
+                                            <option value="Cascadia Code">Cascadia Code</option>
+                                            <option value="Consolas">Consolas</option>
+                                            <option value="Menlo">Menlo</option>
+                                            <option value="Monaco">Monaco</option>
+                                            <option value="monospace">Système</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Trois radios alignées dans la ligne de description
+                                         devenaient illisibles : un select dit la même chose
+                                         en un contrôle, aligné comme les autres. -->
+                                    <div class="set-row">
+                                        <i class="ph ph-arrows-in-line-horizontal text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0 text-sm text-slate-800">Retour à la ligne</div>
+                                        <select v-model="settings.editor_word_wrap" aria-label="Retour à la ligne"
+                                                class="set-select set-control--sm shrink-0">
+                                            <option value="off">Aucun</option>
+                                            <option value="on">Activé</option>
+                                            <option value="bounded">Limité</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="set-row">
+                                        <i class="ph ph-arrow-bend-down-right text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0 text-sm text-slate-800">Indentation</div>
+                                        <div class="shrink-0 flex items-center gap-1.5">
+                                            <select v-model.number="settings.editor_tab_size" aria-label="Largeur d'indentation"
+                                                    class="set-select set-control--sm">
+                                                <option :value="2">2</option>
+                                                <option :value="4">4</option>
+                                                <option :value="8">8</option>
+                                            </select>
+                                            <select v-model="settings.editor_insert_spaces" aria-label="Caractère d'indentation"
+                                                    class="set-select set-control--sm">
+                                                <option :value="true">espaces</option>
+                                                <option :value="false">tabulations</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <label class="set-row cursor-pointer hover:bg-white/60 transition-colors">
+                                        <i class="ph ph-map-trifold text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-sm text-slate-800">Minimap</div>
+                                            <div class="text-[11px] text-slate-500">Aperçu du fichier dans la marge droite.</div>
+                                        </div>
+                                        <div class="relative inline-flex items-center shrink-0">
+                                            <input type="checkbox" v-model="settings.editor_minimap" class="sr-only peer">
+                                            <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                        </div>
+                                    </label>
+
+                                    <label class="set-row cursor-pointer hover:bg-white/60 transition-colors last:rounded-b-xl">
+                                        <i class="ph ph-list-numbers text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0 text-sm text-slate-800">Numéros de ligne</div>
+                                        <div class="relative inline-flex items-center shrink-0">
+                                            <input type="checkbox" v-model="settings.editor_line_numbers" class="sr-only peer">
+                                            <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div data-feat-editor-behavior>
+                                <div class="text-[11px] font-semibold text-slate-500 px-0.5 mb-1.5">Éditeur · comportement</div>
+                                <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
+                                    <label class="set-row cursor-pointer hover:bg-white/60 transition-colors first:rounded-t-xl">
+                                        <i class="ph ph-magic-wand text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-sm text-slate-800">Ouverture automatique</div>
+                                            <div class="text-[11px] text-slate-500">Ouvre l'éditeur quand l'assistant écrit un fichier.</div>
+                                        </div>
+                                        <div class="relative inline-flex items-center shrink-0">
+                                            <input type="checkbox" v-model="settings.auto_open_editor_on_write" class="sr-only peer">
+                                            <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                        </div>
+                                    </label>
+
+                                    <label class="set-row cursor-pointer hover:bg-white/60 transition-colors">
+                                        <i class="ph ph-eye text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-sm text-slate-800">Aperçu</div>
+                                            <div class="text-[11px] text-slate-500">Onglet d'exécution HTML/JS.</div>
+                                        </div>
+                                        <div class="relative inline-flex items-center shrink-0">
+                                            <input type="checkbox" v-model="settings.enable_preview" class="sr-only peer">
+                                            <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                        </div>
+                                    </label>
+
+                                    <label class="set-row cursor-pointer hover:bg-white/60 transition-colors">
+                                        <i class="ph ph-highlighter text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-sm text-slate-800">Surbrillance des modifications</div>
+                                            <div class="text-[11px] text-slate-500">Teinte brièvement les lignes éditées par l'assistant.</div>
+                                        </div>
+                                        <div class="relative inline-flex items-center shrink-0">
+                                            <input type="checkbox" v-model="settings.editor_edit_highlight" class="sr-only peer">
+                                            <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                        </div>
+                                    </label>
+
+                                    <div class="set-row">
+                                        <i class="ph ph-floppy-disk text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0 text-sm text-slate-800">Sauvegarde automatique</div>
+                                        <select v-model="settings.editor_auto_save" aria-label="Sauvegarde automatique"
+                                                class="set-select set-control--sm shrink-0">
+                                            <option value="off">Désactivée</option>
+                                            <option value="30s">Après 30 s sans frappe</option>
+                                            <option value="1min">Après 1 min sans frappe</option>
+                                            <option value="2min">Après 2 min sans frappe</option>
+                                            <option value="on_blur">À la perte du focus</option>
+                                        </select>
+                                    </div>
+
+                                    <label class="set-row cursor-pointer hover:bg-white/60 transition-colors">
+                                        <i class="ph ph-crosshair text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-sm text-slate-800">Suivre le fichier ouvert</div>
+                                            <div class="text-[11px] text-slate-500">L'arbre se positionne sur l'onglet actif.</div>
+                                        </div>
+                                        <div class="relative inline-flex items-center shrink-0">
+                                            <input type="checkbox" v-model="settings.editor_follow_active" class="sr-only peer">
+                                            <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                        </div>
+                                    </label>
+
+                                    <label class="set-row cursor-pointer hover:bg-white/60 transition-colors last:rounded-b-xl">
+                                        <i class="ph ph-browsers text-slate-400 text-lg w-5"></i>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-sm text-slate-800">Mémoriser les onglets</div>
+                                            <div class="text-[11px] text-slate-500">Rouvre ceux de la dernière session, curseur compris.</div>
+                                        </div>
+                                        <div class="relative inline-flex items-center shrink-0">
+                                            <input type="checkbox" v-model="settings.editor_persist_tabs" class="sr-only peer">
+                                            <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Deux modules ont leur propre onglet (ils portent des données,
+                             pas qu'un interrupteur). Sans ce renvoi, on les cherche ici —
+                             c'est la page qui s'appelle « Fonctionnalités ». -->
+                        <!-- Flux de texte INLINE (et non flex+gap) : le gap ajoutait un blanc
+                             avant le point final — « … Agents . ». -->
+                        <p class="text-[11px] text-slate-500"><i class="ph ph-info text-slate-400 align-middle mr-1" aria-hidden="true"></i>Mémoire et sous-agents s'activent depuis <button @click="settingsTab='memory'; loadUserMemory()" class="underline underline-offset-2 hover:text-slate-700 transition-colors">Mémoire</button> et <button @click="settingsTab='agents'; loadMcpUserCategories(); loadAgentTemplates()" class="underline underline-offset-2 hover:text-slate-700 transition-colors">Agents</button>.</p>
+                    </div>
+
+                    <!-- ┌───────── PROMPTS ─────────────────────────────┐ -->
+                    <!--
+                      REFONTE 2026-08-16 (demande user). Avant : une grille de
+                      cartes montrant 3 lignes de contenu tronquées et AUCUNE
+                      date — impossible de relire un prompt long sans l'insérer,
+                      ni de savoir lequel est le plus récent, ni d'en retrouver
+                      un dans une bibliothèque qui grossit.
+                      Maintenant : liste + date de sauvegarde + dépliage du
+                      contenu + recherche (titre ET contenu) + tri.
+                    -->
+                    <div v-if="settingsTab==='prompts'" class="space-y-4 max-w-2xl">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <h3 class="text-base font-semibold text-slate-800 mb-0.5">Prompts</h3>
+                                <p v-if="promptsView === 'saved'" class="text-xs text-slate-500" data-prompt-count>
+                                    <template v-if="promptSearch.trim()">{{ promptsAffiches.length }} sur {{ savedPromptsList.length }}.</template>
+                                    <template v-else>{{ savedPromptsList.length }} prompt{{ savedPromptsList.length > 1 ? 's' : '' }} sauvegardé{{ savedPromptsList.length > 1 ? 's' : '' }}.</template>
+                                </p>
+                                <p v-else class="text-xs text-slate-500" data-template-count>
+                                    <template v-if="templateSearch.trim()">{{ templatesAffiches.length }} sur {{ templatesList.length }}.</template>
+                                    <template v-else>{{ templatesList.length }} template{{ templatesList.length > 1 ? 's' : '' }} · <span class="font-mono">/template</span></template>
+                                </p>
+                            </div>
+                            <div class="shrink-0 flex items-center gap-2">
+                                <!-- Sauvegardés : extraits de conversation. Templates : raccourci
+                                     + variables {{…}}, appelés par « /template » (2026-09-21). -->
+                                <div role="tablist" aria-label="Type de prompts" class="inline-flex bg-slate-100 rounded-lg p-0.5" data-prompts-view>
+                                    <button type="button" role="tab" :aria-selected="promptsView === 'saved' ? 'true' : 'false'"
+                                            @click="promptsView = 'saved'" data-prompts-view-saved
+                                            :class="promptsView === 'saved' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                                            class="px-2.5 py-1 rounded-md text-xs font-medium transition-colors">Sauvegardés</button>
+                                    <button type="button" role="tab" :aria-selected="promptsView === 'templates' ? 'true' : 'false'"
+                                            @click="promptsView = 'templates'; loadPromptTemplates()" data-prompts-view-templates
+                                            :class="promptsView === 'templates' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                                            class="px-2.5 py-1 rounded-md text-xs font-medium transition-colors">Templates</button>
+                                </div>
+                                <button @click="promptsView === 'saved' ? loadSavedPrompts() : loadPromptTemplates()" aria-label="Rafraîchir" title="Rafraîchir"
+                                        class="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded-md hover:bg-slate-100 transition-colors flex items-center gap-1.5">
+                                    <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <template v-if="promptsView === 'saved'">
+                        <!-- Recherche + tri : rien à filtrer tant que la liste est vide. -->
+                        <div v-if="savedPromptsList.length" class="flex items-center gap-2">
+                            <div class="relative flex-1 min-w-0">
+                                <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none" aria-hidden="true"></i>
+                                <input v-model="promptSearch" type="search" data-prompt-search
+                                       placeholder="Rechercher un titre ou un contenu…" aria-label="Rechercher un prompt"
+                                       class="set-input set-control--sm pl-8">
+                            </div>
+                            <select v-model="promptSort" data-prompt-sort aria-label="Trier les prompts"
+                                    class="set-select set-control--sm shrink-0">
+                                <option value="recent">Plus récents</option>
+                                <option value="ancien">Plus anciens</option>
+                                <option value="titre">Titre A→Z</option>
+                            </select>
+                        </div>
+
+                        <div v-if="savedPromptsList.length === 0" class="text-center p-10 bg-slate-50 rounded-xl">
+                            <i class="ph ph-bookmark-simple text-3xl text-slate-300 block mb-2"></i>
+                            <p class="text-sm text-slate-500">Aucun prompt sauvegardé.</p>
+                        </div>
+                        <div v-else-if="promptsAffiches.length === 0" class="text-center p-8 bg-slate-50 rounded-xl" data-prompt-empty>
+                            <i class="ph ph-magnifying-glass text-2xl text-slate-300 block mb-2"></i>
+                            <p class="text-sm text-slate-500">Aucun prompt ne correspond à « {{ promptSearch.trim() }} ».</p>
+                        </div>
+                        <!-- overflow-hidden sur le conteneur : les rangées peintes au survol
+                             déborderaient sinon les coins arrondis. -->
+                        <div v-else class="bg-slate-50 rounded-xl divide-y divide-slate-200/70 overflow-hidden">
+                            <div v-for="p in promptsAffiches" :key="p.id" data-prompt-item>
+                                <div class="flex items-center gap-2.5 px-3 py-2.5 group cursor-pointer hover:bg-white/60 transition-colors"
+                                     role="button" tabindex="0" :aria-expanded="promptOpen[p.id] ? 'true' : 'false'"
+                                     @click="togglePrompt(p.id)"
+                                     @keydown.enter.prevent="togglePrompt(p.id)"
+                                     @keydown.space.prevent="togglePrompt(p.id)">
+                                    <i class="ph ph-caret-right text-slate-400 text-sm shrink-0 transition-transform"
+                                       :class="promptOpen[p.id] ? 'rotate-90' : ''" aria-hidden="true"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm text-slate-800 truncate">{{ p.title }}</div>
+                                        <!-- Extrait affiché SEULEMENT quand la correspondance est
+                                             dans le contenu : sinon la ligne aurait l'air d'un faux
+                                             positif (le titre, lui, est déjà visible). -->
+                                        <div v-if="promptExtrait(p)" class="text-[11px] text-slate-500 font-mono truncate" data-prompt-excerpt>{{ promptExtrait(p) }}</div>
+                                    </div>
+                                    <span class="text-[11px] text-slate-400 tabular-nums shrink-0" data-prompt-date
+                                          :title="promptDateFull(p.created_at)">{{ promptDate(p.created_at) }}</span>
+                                    <!-- pointer-events-none tant qu'invisible : sur une rangée
+                                         devenue cliquable, un bouton à opacité 0 reste cliquable et
+                                         « Supprimer » se déclencherait à l'aveugle. -->
+                                    <div class="flex gap-1 shrink-0 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity">
+                                        <button @click.stop="usePrompt(p.content)" title="Insérer" class="px-2 py-1 text-[11px] font-medium bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-600 rounded-md flex items-center gap-1 transition-colors"><i class="ph ph-arrow-bend-up-left text-[10px]" aria-hidden="true"></i> Insérer</button>
+                                        <!-- Copier : réutiliser un prompt AILLEURS que dans le chat.
+                                             Le presse-papier reçoit le texte source intact. -->
+                                        <button @click.stop="copyPrompt(p.content)" title="Copier" aria-label="Copier le prompt" data-prompt-copy class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-500 rounded-md transition-colors"><i class="ph ph-copy text-[10px]" aria-hidden="true"></i></button>
+                                        <button @click.stop="templateFromPrompt(p)" title="En faire un template" aria-label="En faire un template" data-prompt-to-template class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-500 rounded-md transition-colors"><i class="ph ph-brackets-curly text-[10px]" aria-hidden="true"></i></button>
+                                        <button @click.stop.prevent="openShareModal(p)" title="Partager" aria-label="Partager le prompt" class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-500 rounded-md transition-colors"><i class="ph ph-share-network text-[10px]" aria-hidden="true"></i></button>
+                                        <button @click.stop="deleteSavedPrompt(p.id, p.title)" title="Supprimer" aria-label="Supprimer le prompt" class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-500 rounded-md transition-colors"><i class="ph ph-trash text-[10px]" aria-hidden="true"></i></button>
+                                    </div>
+                                </div>
+                                <!-- Contenu SOURCE, jamais rendu en Markdown : `#`, `**`, les
+                                     accents graves et les balises littérales doivent survivre au
+                                     copier-coller. D'où l'interpolation ``{{ }}`` (jamais
+                                     ``v-html``/``renderMarkdown``) dans un ``<pre>`` — l'élément
+                                     qui DIT que le texte est préformaté, aux lecteurs d'écran
+                                     comme au prochain qui lira ce template. -->
+                                <div v-if="promptOpen[p.id]" class="px-3 pb-3 pl-9" data-prompt-body>
+                                    <pre class="m-0 bg-white border border-slate-200 rounded-lg p-2.5 text-[12px] leading-relaxed text-slate-700 font-mono whitespace-pre-wrap break-words max-h-72 overflow-y-auto custom-scrollbar">{{ p.content }}</pre>
+                                </div>
+                            </div>
+                        </div>
+                        </template>
+
+                        <!-- ┌───────── TEMPLATES (2026-09-21) ─────────┐
+                             Raccourci + variables {{…}} ; « /template <raccourci> » dans le
+                             chat, variables demandées à l'insertion. Logique : app-settings.js
+                             (section Templates) + chat/_templates.js. Syntaxe en infobulle. -->
+                        <template v-else>
+                            <div class="flex items-center gap-2">
+                                <div v-if="templatesList.length" class="relative flex-1 min-w-0">
+                                    <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none" aria-hidden="true"></i>
+                                    <input v-model="templateSearch" type="search" data-template-search
+                                           placeholder="Rechercher un template…" aria-label="Rechercher un template"
+                                           class="set-input set-control--sm pl-8">
+                                </div>
+                                <button v-if="!templateForm" type="button" @click="startNewTemplate()" data-template-new
+                                        class="ml-auto shrink-0 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-md text-xs font-medium text-white transition-colors inline-flex items-center gap-1.5">
+                                    <i class="ph ph-plus" aria-hidden="true"></i> Nouveau
+                                </button>
+                            </div>
+
+                            <!-- Formulaire : création ou édition -->
+                            <div v-if="templateForm" class="bg-slate-50 rounded-xl p-3 space-y-2.5" data-template-form>
+                                <div class="flex gap-2">
+                                    <div class="w-40 shrink-0">
+                                        <label for="tpl-name" class="text-[11px] font-medium text-slate-500 block mb-1">Raccourci</label>
+                                        <div class="relative">
+                                            <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono pointer-events-none" aria-hidden="true">/</span>
+                                            <input id="tpl-name" v-model="templateForm.name" data-template-name
+                                                   placeholder="resume" maxlength="40" autocomplete="off" spellcheck="false"
+                                                   class="set-input set-control--sm font-mono pl-6">
+                                        </div>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <label for="tpl-title" class="text-[11px] font-medium text-slate-500 block mb-1">Titre</label>
+                                        <input id="tpl-title" v-model="templateForm.title" @blur="templateTitleBlur()" data-template-title
+                                               placeholder="Résumé d'un texte" maxlength="120"
+                                               class="set-input set-control--sm">
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label for="tpl-content" class="text-[11px] font-medium text-slate-500">Contenu</label>
+                                        <i class="ph ph-question text-slate-400 text-sm cursor-default" :title="templateSyntaxHelp"
+                                           role="img" aria-label="Syntaxe des variables" data-template-help></i>
+                                    </div>
+                                    <textarea id="tpl-content" v-model="templateForm.content" rows="7" data-template-content
+                                              spellcheck="false"
+                                              placeholder='Résume {{texte | textarea}} en {{langue | select:options=["français","anglais"]}}.'
+                                              class="set-textarea font-mono text-[12px] leading-relaxed"></textarea>
+                                </div>
+                                <div class="flex items-center gap-1.5 flex-wrap text-[11px]" data-template-vars>
+                                    <span class="text-slate-500">Variables</span>
+                                    <span v-for="v in templateFormVars.vars" :key="'v' + v.name"
+                                          :title="v.type + (v.required ? ' · requis' : '')"
+                                          class="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono text-slate-600">{{ v.name }}</span>
+                                    <span v-for="k in templateFormVars.system" :key="'s' + k" title="Remplie automatiquement"
+                                          class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-mono">{{ k }}</span>
+                                    <span v-if="!templateFormVars.vars.length && !templateFormVars.system.length" class="text-slate-400">aucune</span>
+                                </div>
+                                <p v-if="templateFormError" class="text-xs text-red-600" role="alert" data-template-error>{{ templateFormError }}</p>
+                                <div class="flex justify-end gap-2">
+                                    <button type="button" @click="cancelTemplateEdit()" :disabled="templateSaving" data-template-cancel
+                                            class="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50 rounded-md text-xs font-medium text-slate-600 transition-colors">Annuler</button>
+                                    <button type="button" @click="saveTemplate()" :disabled="templateSaving" data-template-save
+                                            class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-md text-xs font-medium text-white transition-colors inline-flex items-center gap-1.5">
+                                        <i class="ph" :class="templateSaving ? 'ph-spinner-gap animate-spin' : 'ph-check'" aria-hidden="true"></i> Enregistrer
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div v-if="!templatesList.length && !templateForm" class="text-center p-10 bg-slate-50 rounded-xl" data-template-empty>
+                                <i class="ph ph-brackets-curly text-3xl text-slate-300 block mb-2" aria-hidden="true"></i>
+                                <p class="text-sm text-slate-500">Aucun template.</p>
+                            </div>
+                            <div v-else-if="templatesList.length && !templatesAffiches.length" class="text-center p-8 bg-slate-50 rounded-xl">
+                                <i class="ph ph-magnifying-glass text-2xl text-slate-300 block mb-2" aria-hidden="true"></i>
+                                <p class="text-sm text-slate-500">Aucun template ne correspond à « {{ templateSearch.trim() }} ».</p>
+                            </div>
+                            <div v-else-if="templatesAffiches.length" class="bg-slate-50 rounded-xl divide-y divide-slate-200/70 overflow-hidden">
+                                <div v-for="t in templatesAffiches" :key="t.id" data-template-item>
+                                    <div class="flex items-center gap-2.5 px-3 py-2.5 group cursor-pointer hover:bg-white/60 transition-colors"
+                                         role="button" tabindex="0" :aria-expanded="templateOpen[t.id] ? 'true' : 'false'"
+                                         @click="toggleTemplate(t.id)"
+                                         @keydown.enter.prevent="toggleTemplate(t.id)"
+                                         @keydown.space.prevent="toggleTemplate(t.id)">
+                                        <i class="ph ph-caret-right text-slate-400 text-sm shrink-0 transition-transform"
+                                           :class="templateOpen[t.id] ? 'rotate-90' : ''" aria-hidden="true"></i>
+                                        <span class="font-mono text-xs text-blue-600 shrink-0">/{{ t.name }}</span>
+                                        <span class="flex-1 min-w-0 text-sm text-slate-800 truncate">{{ t.title }}</span>
+                                        <span v-if="templateVarsOf(t).vars.length" class="text-[11px] text-slate-400 tabular-nums shrink-0"
+                                              :title="templateVarsOf(t).vars.map(v => v.name).join(', ')">{{ templateVarsOf(t).vars.length }} var.</span>
+                                        <div class="flex gap-1 shrink-0 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity">
+                                            <button @click.stop="insertTemplate(t)" title="Insérer" data-template-insert-row class="px-2 py-1 text-[11px] font-medium bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-600 rounded-md flex items-center gap-1 transition-colors"><i class="ph ph-arrow-bend-up-left text-[10px]" aria-hidden="true"></i> Insérer</button>
+                                            <button @click.stop="editTemplate(t)" title="Éditer" aria-label="Éditer le template" data-template-edit class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-500 rounded-md transition-colors"><i class="ph ph-pencil-simple text-[10px]" aria-hidden="true"></i></button>
+                                            <button @click.stop="deleteTemplate(t)" title="Supprimer" aria-label="Supprimer le template" data-template-delete class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-500 rounded-md transition-colors"><i class="ph ph-trash text-[10px]" aria-hidden="true"></i></button>
+                                        </div>
+                                    </div>
+                                    <div v-if="templateOpen[t.id]" class="px-3 pb-3 pl-9" data-template-body>
+                                        <pre class="m-0 bg-white border border-slate-200 rounded-lg p-2.5 text-[12px] leading-relaxed text-slate-700 font-mono whitespace-pre-wrap break-words max-h-72 overflow-y-auto custom-scrollbar">{{ t.content }}</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- ┌───────── ARCHIVES ────────────────────────────┐ -->
+                    <div v-if="settingsTab==='archives'" class="space-y-4 max-w-2xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-base font-semibold text-slate-800 mb-0.5">Archives</h3>
+                                <p class="text-xs text-slate-500">{{ archivesList.length }} conversation{{ archivesList.length > 1 ? 's' : '' }} archivée{{ archivesList.length > 1 ? 's' : '' }}.</p>
+                            </div>
+                            <div class="flex gap-1.5">
+                                <button v-if="archivesList.length > 0" @click="archiveSelectMode = !archiveSelectMode; archiveSelected = []"
+                                    class="text-xs px-2 py-1 rounded-md transition-colors"
+                                    :class="archiveSelectMode ? 'text-white bg-blue-600' : 'text-slate-500 hover:bg-slate-100'">
+                                    <i class="ph" :class="archiveSelectMode ? 'ph-x' : 'ph-check-square'"></i>
+                                    {{ archiveSelectMode ? 'Annuler' : 'Sélection' }}
+                                </button>
+                                <button v-if="archiveSelectMode && archiveSelected.length > 0" @click="unarchiveSelectedArchives"
+                                    class="text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-md transition-colors"
+                                    title="Restaurer la sélection" aria-label="Restaurer la sélection">
+                                    <i class="ph ph-arrow-u-up-left" aria-hidden="true"></i> Restaurer {{ archiveSelected.length }}
+                                </button>
+                                <button v-if="archiveSelectMode && archiveSelected.length > 0" @click="deleteSelectedArchives"
+                                    class="text-xs text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-md transition-colors"
+                                    title="Supprimer la sélection" aria-label="Supprimer la sélection">
+                                    <i class="ph ph-trash" aria-hidden="true"></i> Supprimer {{ archiveSelected.length }}
+                                </button>
+                                <button @click="loadArchives" aria-label="Rafraîchir les archives" class="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded-md hover:bg-slate-100 transition-colors">
+                                    <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="archivesList.length === 0" class="text-center p-10 bg-slate-50 rounded-xl">
+                            <i class="ph ph-archive text-3xl text-slate-300 block mb-2"></i>
+                            <p class="text-sm text-slate-500">Aucune archive.</p>
+                        </div>
+                        <div v-else class="space-y-1.5">
+                            <div v-for="c in archivesList" :key="c.id" class="bg-slate-50 hover:bg-white border rounded-lg p-3 flex items-center gap-3 group transition-colors"
+                                 :class="archiveSelected.includes(c.id) ? 'border-blue-300 bg-blue-50/50' : 'border-transparent hover:border-slate-200'">
+                                <div v-if="archiveSelectMode" class="shrink-0 cursor-pointer" @click="toggleArchiveSelect(c.id)">
+                                    <div class="w-5 h-5 rounded border flex items-center justify-center transition-colors"
+                                         :class="archiveSelected.includes(c.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300 hover:border-blue-400'">
+                                        <i v-if="archiveSelected.includes(c.id)" class="ph ph-check text-white text-xs"></i>
+                                    </div>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-medium text-slate-800 text-sm truncate">{{ c.title }}</div>
+                                    <div class="text-[11px] text-slate-500 mt-0.5">{{ new Date(c.updated_at * 1000).toLocaleString('fr-FR') }}</div>
+                                </div>
+                                <div v-if="!archiveSelectMode" class="flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                                    <button @click="restoreArchive(c.id)" title="Restaurer" aria-label="Restaurer la conversation" class="w-7 h-7 flex items-center justify-center bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-md text-xs transition-colors"><i class="ph ph-arrow-u-up-left" aria-hidden="true"></i></button>
+                                    <button @click="deleteArchive(c.id, c.title)" title="Supprimer" aria-label="Supprimer la conversation" class="w-7 h-7 flex items-center justify-center bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-500 rounded-md text-xs transition-colors"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ┌───────── SANDBOX ─────────────────────────────┐ -->
+                    <!-- Note : tab assez chargé (container Docker, profils réseau,    -->
+                    <!-- diagnostics). Markup interne préservé tel quel ; seuls les   -->
+                    <!-- titres de bloc sont simplifiés ("Dossier" au lieu de         -->
+                    <!-- "Dossier de travail", "Container" au lieu de "Sandbox        -->
+                    <!-- d'exécution"). Le wrapping bg-white p-5 rounded-xl border    -->
+                    <!-- est remplacé par bg-slate-50 plus discret pour mieux         -->
+                    <!-- s'intégrer dans le nouveau panneau (le content est lui-même   -->
+                    <!-- déjà sur fond blanc).                                         -->
+                    <!-- ══════ SANDBOX ═══════════════════════════════════════════
+                         Refonte 2026-08-30. Ce que l'onglet portait avant :
+                           • des CARTES DANS UNE CARTE — trois surfaces
+                             `bg-white border rounded-lg` empilées dans un
+                             `.set-block`, alors que le commentaire de
+                             `.set-block` (style.css) dit « UNE seule couche de
+                             surface (pas de carte dans carte) » ;
+                           • CINQ recettes fond/bordure différentes pour le
+                             MÊME emplacement de statut (rouge, bleu, ambre,
+                             blanc…), une par branche `v-else-if` ;
+                           • SIX tailles de texte (10, 11, 12, 14, 16, 20 px),
+                             dont 24 occurrences sur 46 à 11 px ou moins — la
+                             hiérarchie tenait sur un rapport de 1,4:1, donc
+                             sur rien ;
+                           • trois blocs titrés pour UN SEUL objet (le
+                             container, son réseau, ses limites).
+
+                         Ce qu'il porte maintenant : un objet, une surface. Le
+                         statut est calculé une fois côté JS (`sandboxStatus`)
+                         au lieu d'être six branches de gabarit, et les facettes
+                         sont des RANGÉES séparées par un filet — le vocabulaire
+                         `.set-row` / `.set-row--sub` déjà employé par les autres
+                         onglets. Trois tailles de texte, plus une seule. ══════ -->
+                    <div v-if="settingsTab==='sandbox'" class="max-w-2xl">
+                        <div class="mb-4">
+                            <h3 class="text-base font-semibold text-slate-800 mb-1">Sandbox</h3>
+                            <p class="text-xs text-slate-500">Container Docker isolé pour Robot Framework, les scripts et le shell. Votre dossier de travail y est monté sur <code class="font-mono">/work</code>.</p>
+                        </div>
+
+                        <!-- Transition en cours : la barre PORTE l'état, elle
+                             remplace le bloc au lieu de s'y ajouter (l'ancienne
+                             version affichait les deux, qui se contredisaient). -->
+                        <div v-if="transitionState.active" class="set-block">
+                            <div class="flex items-center gap-3 mb-2.5">
+                                <div v-if="!transitionState.error" class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true"></div>
+                                <i v-else class="ph ph-warning-circle text-red-500 text-lg shrink-0" aria-hidden="true"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-slate-800 truncate">{{ transitionState.label }}</div>
+                                    <div class="text-xs text-slate-500">Étape {{ transitionState.step }} sur {{ transitionState.total }}</div>
+                                </div>
+                                <div class="text-sm font-semibold text-slate-700 tabular-nums shrink-0">{{ Math.round(transitionState.progress) }} %</div>
+                            </div>
+                            <div class="h-1.5 bg-white rounded-full overflow-hidden" role="progressbar"
+                                 :aria-valuenow="Math.round(transitionState.progress)" aria-valuemin="0" aria-valuemax="100">
+                                <div :class="['h-full w-full rounded-full transition-transform duration-500 motion-reduce:transition-none', transitionState.error ? 'bg-red-400' : 'bg-blue-500']"
+                                     :style="{ transformOrigin: 'left', transform: 'scaleX(' + (transitionState.progress / 100) + ')' }"></div>
+                            </div>
+                            <p v-if="transitionState.error" role="alert" class="mt-2.5 text-xs text-red-700 flex items-start gap-1.5">
+                                <i class="ph ph-warning-circle mt-0.5 shrink-0" aria-hidden="true"></i>
+                                <span>{{ transitionState.error }}</span>
+                            </p>
+                            <details v-if="transitionState.containerLogs" class="mt-2.5">
+                                <summary class="cursor-pointer text-xs text-slate-500 hover:text-slate-700 transition-colors">Journal du container</summary>
+                                <pre class="mt-1.5 bg-slate-900 text-slate-100 p-2.5 rounded-lg font-mono text-[11px] leading-relaxed overflow-x-auto max-h-48 whitespace-pre-wrap">{{ transitionState.containerLogs }}</pre>
+                            </details>
+                        </div>
+
+                        <!-- Le container et ses actions : UN groupe. -->
+                        <div v-else class="space-y-2">
+                        <!-- UN objet, UNE surface, des rangées. -->
+                        <div class="set-block set-block--flush divide-y divide-slate-100">
+
+                            <!-- Rangée 1 — le statut. C'est la seule chose que
+                                 l'utilisateur vient chercher : elle est en tête,
+                                 en 14 px medium, et c'est le LIBELLÉ qui porte
+                                 l'information (la pastille ne fait que la
+                                 renforcer — jamais la couleur seule). -->
+                            <div class="set-row items-start">
+                                <div v-if="sandboxStatus.tone === 'busy'"
+                                     class="w-2.5 h-2.5 mt-1.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true"></div>
+                                <span v-else :class="['w-2.5 h-2.5 mt-1.5 rounded-full shrink-0', sandboxTone.dot]" aria-hidden="true"></span>
+
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-slate-800">{{ sandboxStatus.label }}</div>
+                                    <div v-if="sandboxStatus.mono" class="font-mono text-[11px] text-slate-500 truncate">{{ sandboxStatus.mono }}</div>
+                                    <div v-else-if="sandboxStatus.detail && !sandboxTone.alert" class="text-xs text-slate-500">{{ sandboxStatus.detail }}</div>
+                                </div>
+
+                                <button v-if="sandboxStatus.action" @click="sandboxStatus.action === 'start' ? restartSandboxContainer('start') : changeSandboxMode('docker')"
+                                        :disabled="sandboxBusy"
+                                        class="shrink-0 -mt-0.5 px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5">
+                                    <i class="ph ph-play" aria-hidden="true"></i> Démarrer
+                                </button>
+                                <button @click="loadSandboxState" :disabled="sandboxBusy" aria-label="Rafraîchir l'état de la sandbox"
+                                        class="shrink-0 -mt-1 w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white flex items-center justify-center transition-colors disabled:opacity-50">
+                                    <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+                                </button>
+                            </div>
+
+                            <!-- Rangée 1b — le détail d'un état ANORMAL. Teinte
+                                 sémantique, sans bordure : une rangée d'alerte,
+                                 pas une carte de plus. -->
+                            <div v-if="sandboxTone.alert && sandboxStatus.detail" role="alert"
+                                 class="set-row--sub pt-0">
+                                <span :class="['block rounded-lg px-2.5 py-1.5 text-xs whitespace-pre-wrap break-words', sandboxTone.alert]">{{ sandboxStatus.detail }}</span>
+                            </div>
+
+                            <!-- Rangée 2 — consommation réelle, seulement quand
+                                 il y a quelque chose à consommer. La valeur est
+                                 en medium, le libellé en gris : la hiérarchie
+                                 passe par la graisse, pas par une 4e taille. -->
+                            <div v-if="sandboxStatus.tone === 'ok' && sandboxState.stats" class="set-row text-xs">
+                                <span class="w-2.5 shrink-0" aria-hidden="true"></span>
+                                <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
+                                    <span v-if="sandboxState.stats.cpu" class="text-slate-500">CPU <span class="font-medium text-slate-700 tabular-nums">{{ sandboxState.stats.cpu }}</span></span>
+                                    <span v-if="sandboxState.stats.mem" class="text-slate-500">RAM <span class="font-medium text-slate-700 tabular-nums">{{ sandboxState.stats.mem }}</span></span>
+                                    <span v-if="sandboxState.stats.pids" class="text-slate-500">PIDs <span class="font-medium text-slate-700 tabular-nums">{{ sandboxState.stats.pids }}</span></span>
+                                </div>
+                            </div>
+
+                            <!-- Rangée 3 — réseau. Libellé à gauche, contrôle à
+                                 droite : l'idiome de toutes les autres rangées
+                                 de réglage de l'app. Le <select> natif a laissé
+                                 la place à un menu maison (mêmes rôles ARIA,
+                                 même transition, même contrat clavier que le
+                                 menu « effort » du composeur) : le natif ne se
+                                 style pas — il restait CLAIR en mode sombre —
+                                 et ne peut pas dire, sous chaque option, ce que
+                                 le profil implique. -->
+                            <div v-if="sandboxState.network_profiles && sandboxState.network_profiles.length > 1"
+                                 class="set-row" data-net-menu @keydown="onNetMenuKeydown">
+                                <span class="w-2.5 shrink-0" aria-hidden="true"></span>
+                                <span id="sandbox-net-label" class="text-sm text-slate-800 flex-1 min-w-0">
+                                    Réseau
+                                    <span v-if="sandboxState.network_profile_locked"
+                                          class="ml-1.5 inline-flex items-center gap-1 text-xs text-slate-500 align-middle"
+                                          title="Profil imposé par l'administrateur">
+                                        <i class="ph ph-lock-simple" aria-hidden="true"></i> Imposé
+                                    </span>
+                                </span>
+                                <div class="relative shrink-0">
+                                    <button type="button" id="sandbox-net-profile" @click="toggleNetMenu()"
+                                            :disabled="sandboxBusy || sandboxState.network_profile_locked"
+                                            aria-haspopup="listbox" aria-labelledby="sandbox-net-label"
+                                            :aria-expanded="netMenuOpen ? 'true' : 'false'"
+                                            class="flex items-center gap-2 w-56 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 hover:border-slate-300 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors">
+                                        <span class="flex-1 text-left truncate">{{ activeNetProfile ? activeNetProfile.name : '—' }}</span>
+                                        <span class="text-xs text-slate-500 shrink-0">{{ netProfileMode(activeNetProfile) }}</span>
+                                        <i class="ph ph-caret-down text-slate-400 shrink-0 transition-transform motion-reduce:transition-none"
+                                           :class="netMenuOpen && 'rotate-180'" aria-hidden="true"></i>
+                                    </button>
+                                    <Transition name="popover">
+                                    <!-- ⚠ Le corps de la modale défile
+                                         (overflow-y-auto) : un menu absolu y est
+                                         CLIPPÉ s'il déborde. `max-h-64` + défilement
+                                         interne garantissent qu'il n'a jamais besoin
+                                         d'en sortir, quel que soit le nombre de profils. -->
+                                    <div v-if="netMenuOpen" role="listbox" aria-labelledby="sandbox-net-label"
+                                         class="absolute right-0 top-full mt-2 w-80 max-h-64 overflow-y-auto custom-scrollbar bg-white rounded-xl shadow-2xl border border-slate-200 z-[200]">
+                                        <div v-for="prof in sandboxState.network_profiles" :key="prof.id"
+                                             role="option" tabindex="0"
+                                             :aria-selected="prof.id === sandboxState.network_profile_id ? 'true' : 'false'"
+                                             @click="pickNetProfile(prof.id)"
+                                             @keydown.enter.prevent="pickNetProfile(prof.id)"
+                                             @keydown.space.prevent="pickNetProfile(prof.id)"
+                                             class="px-3 py-2.5 cursor-pointer border-b border-slate-50 last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 transition-colors"
+                                             :class="prof.id === sandboxState.network_profile_id ? 'bg-blue-50' : 'hover:bg-slate-50'">
+                                            <div class="flex items-center gap-2">
+                                                <span class="w-1.5 h-1.5 rounded-full shrink-0"
+                                                      :class="prof.id === sandboxState.network_profile_id ? 'bg-blue-500' : 'bg-transparent'" aria-hidden="true"></span>
+                                                <span class="text-sm truncate"
+                                                      :class="prof.id === sandboxState.network_profile_id ? 'text-blue-700 font-medium' : 'text-slate-700'">{{ prof.name }}</span>
+                                                <span class="ml-auto text-xs text-slate-500 shrink-0">{{ netProfileMode(prof) }}</span>
+                                            </div>
+                                            <div class="text-xs text-slate-500 mt-0.5 pl-3.5">{{ netProfileDetail(prof) }}</div>
+                                        </div>
+                                    </div>
+                                    </Transition>
+                                </div>
+                            </div>
+
+                            <!-- Rangée 3b — ce que le profil choisi implique,
+                                 en clair. Indentée sous son réglage. -->
+                            <div v-if="activeNetProfile" class="set-row--sub text-xs text-slate-500">
+                                <span v-if="activeNetProfile.description">{{ activeNetProfile.description }}</span>
+                                <span v-else-if="activeNetProfile.mode === 'none'">Aucun accès réseau sortant.</span>
+                                <span v-else-if="activeNetProfile.mode === 'bridge'">Accès réseau complet.</span>
+                                <span v-else>Accès limité aux adresses listées.</span>
+                                <div v-if="activeNetProfile.mode === 'allowlist_ip' && (activeNetProfile.ips || []).length"
+                                     class="flex flex-wrap gap-1 mt-1.5">
+                                    <span v-for="ip in (activeNetProfile.ips || []).slice(0, 8)" :key="ip"
+                                          class="font-mono text-[11px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">{{ ip }}</span>
+                                    <span v-if="(activeNetProfile.ips || []).length > 8"
+                                          class="text-[11px] text-slate-500 px-1 self-center">+{{ (activeNetProfile.ips || []).length - 8 }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Rangée 4 — les faits techniques, VISIBLES.
+                                 Ils étaient repliés derrière un dépliant ; l'user
+                                 les veut d'emblée : une carte complète se lit
+                                 d'un regard, sans geste préalable. -->
+                            <div v-if="sandboxState.effective_mode === 'docker' && sandboxState.daemon_ok && sandboxState.image"
+                                 class="set-row items-start">
+                                <span class="w-2.5 shrink-0" aria-hidden="true"></span>
+                                <dl class="flex-1 min-w-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+                                    <dt class="text-slate-500">Image</dt>
+                                    <dd class="font-mono text-[11px] text-slate-700 truncate">{{ sandboxState.image }}</dd>
+                                    <template v-if="sandboxState.limits && sandboxState.limits.memory_mb">
+                                        <dt class="text-slate-500">RAM max</dt>
+                                        <dd class="text-slate-700 tabular-nums">{{ sandboxState.limits.memory_mb }} Mo</dd>
+                                    </template>
+                                    <template v-if="sandboxState.limits && sandboxState.limits.cpu_quota_pct">
+                                        <dt class="text-slate-500">CPU</dt>
+                                        <dd class="text-slate-700 tabular-nums">{{ sandboxState.limits.cpu_quota_pct }} %</dd>
+                                    </template>
+                                    <template v-if="sandboxState.limits && sandboxState.limits.pids_max">
+                                        <dt class="text-slate-500">PIDs max</dt>
+                                        <dd class="text-slate-700 tabular-nums">{{ sandboxState.limits.pids_max }}</dd>
+                                    </template>
+                                    <template v-if="sandboxState.limits && sandboxState.limits.timeout_s">
+                                        <dt class="text-slate-500">Timeout</dt>
+                                        <dd class="text-slate-700 tabular-nums">{{ sandboxState.limits.timeout_s }} s</dd>
+                                    </template>
+                                </dl>
+                            </div>
+                        </div>
+
+                        <!-- Actions du container — HORS de la surface d'état :
+                             on ne mélange pas ce qu'on lit et ce qu'on déclenche.
+                             Collées au bloc (8 px) : elles lui appartiennent.
+                             Elles n'existent que si un container tourne. -->
+                        <div v-if="sandboxStatus.tone === 'ok'" class="flex justify-end gap-2">
+                            <button @click="restartSandboxContainer('restart')" :disabled="sandboxBusy"
+                                    class="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 disabled:opacity-50 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5">
+                                <i class="ph ph-arrows-clockwise" aria-hidden="true"></i> Redémarrer
+                            </button>
+                            <button @click="destroySandboxContainer" :disabled="sandboxBusy"
+                                    class="px-3 py-1.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-50 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5">
+                                <i class="ph ph-trash" aria-hidden="true"></i> Détruire
+                            </button>
+                        </div>
+                        </div>
+
+                        <!-- Vos fichiers. Une rangée, une phrase, un bouton —
+                             au lieu d'un bloc titré « Nettoyage » suivi de
+                             « Action irréversible. » puis d'un libellé puis
+                             d'une description, soit quatre lignes pour un geste.
+                             « Effacer les conversations » vit dans l'onglet Chat
+                             (action chat, pas sandbox — déplacée 2026-07-19). -->
+                        <div class="set-block set-block--flush mt-8">
+                            <div class="set-row">
+                                <i class="ph ph-broom text-slate-400 text-lg w-5 shrink-0" aria-hidden="true"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-slate-800">Vider le dossier de travail</div>
+                                    <div class="text-xs text-slate-500">Supprime définitivement tous vos fichiers. Vos skills et votre mémoire ne sont pas concernés.</div>
+                                </div>
+                                <button @click="clearSandbox"
+                                        class="shrink-0 px-3 py-1.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5">
+                                    <i class="ph ph-trash" aria-hidden="true"></i> Vider
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ══════ FOOTER ══════════════════════════════════════════════ -->
+            <div class="px-5 py-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center gap-2 shrink-0">
+                <span v-if="settingsDirty || memoryDirty" role="status" class="text-[11px] text-slate-500 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full shrink-0 bg-amber-500" aria-hidden="true"></span> Modifications non enregistrées</span>
+                <span v-else aria-hidden="true"></span>
+                <div class="flex items-center gap-2">
+                    <button @click="closeSettings()" class="px-4 py-1.5 text-slate-600 hover:bg-slate-200/60 rounded-lg font-medium text-sm transition-colors">Fermer</button>
+                    <button @click="saveSettings()" :disabled="settingsSaving" class="px-5 py-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg font-medium text-sm transition-colors shadow-sm inline-flex items-center gap-2">
+                        <i v-if="settingsSaving" class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i>
+                        {{ settingsSaving ? 'Enregistrement…' : 'Enregistrer' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </Transition>

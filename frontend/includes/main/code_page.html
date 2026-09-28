@@ -1,0 +1,822 @@
+<!--
+  code_page.html — Page « Code » (currentView === 'code').
+
+  Sessions opencode remontées ET pilotables : dans opencode, /remote <jeton>
+  (plugin `elpis-remote`, servi par /api/code/plugin.ts) pousse les events vers
+  /api/code/ingest et tire les commandes de la page (long-poll /api/code/pull).
+
+  Deux vues : LANDING = liste centrée des sessions (en direct + historique,
+  badge par session) ; SESSION = transcript live plein écran (SSE — markdown,
+  thinking replié/animé, tool calls détaillés, diffs colorisés) + composer en
+  parité visuelle avec la barre de prompt du chat. Le « / » liste les commandes
+  de la CLI + les commandes app (/model → sélecteur de modèle, choix par
+  session transmis avec chaque prompt). Pas de skills ici.
+  Logique : frontend/js/chat/_code_menu.js ; rendu : _code_render.js.
+
+  100 % skin-aware : utilitaires Tailwind bridgés vers les tokens + classes
+  elpis-code-* (diff, états d'erreur --danger-*).
+-->
+<div v-if="currentView === 'code'" role="region" aria-label="Remote code — sessions opencode"
+     class="elpis-code-page absolute inset-0 z-[45] bg-white flex flex-col">
+
+    <!-- Header adaptatif : landing = identité de la page ; session = retour + titre -->
+    <header class="h-14 shrink-0 flex items-center justify-between px-3 sm:px-4 bg-white border-b border-slate-200 gap-2">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <button v-if="!codeActiveId" @click="closeCodePage" title="Retour au chat"
+                    class="w-8 h-8 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors flex items-center justify-center shrink-0">
+                <i class="ph ph-arrow-left text-lg"></i>
+            </button>
+            <button v-else @click="codeBackToList" title="Retour aux sessions"
+                    class="w-8 h-8 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors flex items-center justify-center shrink-0">
+                <i class="ph ph-arrow-left text-lg"></i>
+            </button>
+            <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
+                <i class="ph ph-terminal-window text-sm"></i>
+            </div>
+            <template v-if="!codeActiveId">
+                <h1 class="text-sm font-bold text-slate-900 truncate">Remote code</h1>
+                <span class="text-[11px] text-slate-400 truncate hidden md:block">sessions opencode</span>
+            </template>
+            <div v-else class="min-w-0 leading-tight">
+                <h1 class="text-sm font-bold text-slate-900 truncate">{{ (activeSession && activeSession.title) || 'Session' }}</h1>
+                <div v-if="activeSession && activeSession.directory"
+                     class="text-[10.5px] text-slate-400 font-mono truncate">{{ activeSession.directory }}</div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <button v-if="codePluginStale" @click="codeShowConnect = true"
+                    title="Une CLI connectée utilise un plugin plus ancien — tapez /remote update côté CLI."
+                    class="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-full bg-amber-500/15 text-amber-600 hover:bg-amber-500/25 transition-colors">
+                <i class="ph ph-arrow-circle-up"></i> plugin à mettre à jour
+            </button>
+            <!-- Mode courant (agent opencode) : plan = lecture seule, build = édite.
+                 Rappel permanent dans l'en-tête — savoir si la session peut écrire
+                 est la première chose à vérifier avant d'envoyer un prompt. -->
+            <span v-if="codeActiveId && codeAgentShow && codeAgentCur" :title="codeAgentDesc"
+                  class="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-full"
+                  :class="codeAgentCur === 'plan' ? 'bg-violet-500/15 text-violet-600' : 'bg-blue-500/15 text-blue-600'">
+                <i class="ph" :class="codeAgentCur === 'plan' ? 'ph-eye' : 'ph-pencil-simple'" style="font-size:11px"></i>
+                {{ codeAgentLabel(codeAgentCur) }}
+            </span>
+            <!-- Jauge de contexte de la session (tokens du dernier tour / limite modèle) -->
+            <span v-if="codeActiveId && codeCtx" :title="codeCtx.title"
+                  class="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-full font-mono tabular-nums"
+                  :class="codeCtx.pct >= 90 ? 'elpis-code-ctx-high' : codeCtx.pct >= 70 ? 'bg-amber-500/15 text-amber-600' : 'bg-slate-100 text-slate-500'">
+                <i class="ph ph-gauge" style="font-size:11px"></i>{{ codeCtx.label }}
+            </span>
+            <!-- Session ouverte : état de CETTE session ; landing : état global CLI -->
+            <span v-if="codeActiveId" class="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-full"
+                  :class="codeCanDrive ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 text-slate-500'">
+                <span class="w-1.5 h-1.5 rounded-full" :class="codeCanDrive ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                {{ codeCanDrive ? 'connecté' : 'hors ligne' }}
+            </span>
+            <span v-else class="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-full"
+                  :class="codeConnected ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 text-slate-500'">
+                <span class="w-1.5 h-1.5 rounded-full" :class="codeConnected ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                {{ codeConnected ? 'CLI connectée' : 'en attente' }}
+            </span>
+            <button v-if="!codeActiveId" @click="codeShowConnect = true"
+                    class="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                <i class="ph ph-plug"></i><span class="hidden sm:inline">Connecter</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Corps : landing (liste centrée des sessions) OU session plein écran -->
+    <div v-if="codeAvailable" class="flex-1 min-h-0 flex flex-col">
+
+        <!-- ── Landing : sessions en direct + historique récent, centrés ── -->
+        <div v-if="!codeActiveId" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+            <div class="max-w-2xl mx-auto px-6 py-10">
+
+                <!-- Chargement initial : squelettes (pas de spinner central) -->
+                <div v-if="codeLoading && !codeSessions.length" class="mt-2 space-y-3" aria-hidden="true">
+                    <div v-for="i in 3" :key="i" class="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-100">
+                        <div class="w-9 h-9 rounded-lg bg-slate-100 animate-pulse shrink-0"></div>
+                        <div class="flex-1 space-y-2">
+                            <div class="h-3 w-2/5 rounded bg-slate-100 animate-pulse"></div>
+                            <div class="h-2.5 w-3/5 rounded bg-slate-100 animate-pulse"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- État vide pédagogique -->
+                <!-- CLI connectée mais AUCUNE session publiée : opencode n'ouvre
+                     réellement la session qu'au premier message. Le dire, et
+                     proposer d'en créer une — sinon la page affiche « connecté »
+                     au-dessus d'un vide inexplicable. -->
+                <div v-else-if="!codeSessions.length && codeIdleClients.length" class="text-center py-14">
+                    <div class="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
+                        <i class="ph ph-plugs-connected text-2xl"></i>
+                    </div>
+                    <p class="text-base font-semibold text-slate-800 mt-4">
+                        {{ codeIdleClients.length > 1 ? codeIdleClients.length + ' CLI connectées' : 'CLI connectée' }},
+                        aucune session ouverte
+                    </p>
+                    <p class="text-sm text-slate-500 mt-1.5 max-w-md mx-auto leading-relaxed">
+                        opencode ne crée la session qu'au premier message. Écrivez-en un dans le terminal,
+                        ou créez la session depuis ici.
+                    </p>
+                    <div class="mt-4 space-y-2 max-w-md mx-auto">
+                        <div v-for="cl in codeIdleClients" :key="cl.id"
+                             class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-left">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                            <span class="flex-1 min-w-0 text-xs font-mono text-slate-500 truncate">{{ cl.directory || 'répertoire inconnu' }}</span>
+                            <button @click="codeNewSession(cl.id)"
+                                    class="shrink-0 h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors">
+                                <i class="ph ph-plus"></i> Nouvelle session
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div v-else-if="!codeSessions.length" class="text-center py-14">
+                    <div class="w-14 h-14 rounded-2xl bg-blue-600/10 text-blue-600 flex items-center justify-center mx-auto">
+                        <i class="ph ph-broadcast text-2xl"></i>
+                    </div>
+                    <p class="text-base font-semibold text-slate-800 mt-4">Aucune session pour l'instant</p>
+                    <p class="text-sm text-slate-500 mt-1.5 max-w-sm mx-auto leading-relaxed">
+                        Lancez <code class="bg-slate-100 rounded px-1">opencode</code>, tapez
+                        <code class="bg-slate-100 rounded px-1">/remote</code> : la session apparaît ici, pilotable en direct.
+                    </p>
+                    <button @click="codeShowConnect = true"
+                            class="mt-5 h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold inline-flex items-center gap-1.5 transition-colors">
+                        <i class="ph ph-plug"></i> Connecter opencode
+                    </button>
+                </div>
+
+                <!-- Liste des sessions groupée Connectées / Historique
+                     (clic = ouvre en plein écran ; crayon = renommage inline) -->
+                <template v-else>
+                    <div class="flex items-end justify-between gap-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-900">Sessions</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">Cliquez pour ouvrir et piloter.</p>
+                        </div>
+                        <button @click="codeRefreshSessions" title="Rafraîchir les sessions"
+                                class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors shrink-0">
+                            <i class="ph ph-arrows-clockwise" :class="codeRefreshing ? 'animate-spin' : ''"></i>
+                        </button>
+                    </div>
+                    <template v-for="grp in codeSessionGroups" :key="grp.key">
+                        <div class="mt-4 text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full" :class="grp.key === 'live' ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+                            {{ grp.label }}
+                        </div>
+                        <div class="mt-1.5 rounded-xl border border-slate-200 bg-white overflow-hidden">
+                        <div v-for="s in grp.sessions" :key="s.id" @click="codeSelectSession(s.id)"
+                             role="button" tabindex="0" @keydown.enter="codeSelectSession(s.id)"
+                             class="group w-full flex items-center gap-3 px-4 py-3 cursor-pointer text-left hover:bg-slate-50 focus-visible:bg-slate-50 outline-none transition-colors border-b border-slate-100 last:border-b-0">
+                            <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                                 :class="s.connected !== false ? 'bg-blue-600/10 text-blue-600' : 'bg-slate-100 text-slate-400'">
+                                <i class="ph ph-terminal-window text-lg"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <!-- Renommage inline : Entrée envoie à la CLI, Échap/blur annule -->
+                                    <input v-if="codeRenamingId === s.id" id="code-rename-input"
+                                           v-model="codeRenameText" maxlength="200" @click.stop
+                                           @keydown.enter.stop.prevent="codeSubmitRename"
+                                           @keydown.escape.stop.prevent="codeCancelRename"
+                                           @blur="codeCancelRename"
+                                           class="flex-1 min-w-0 text-sm font-medium text-slate-800 bg-white border border-blue-300 rounded-md px-1.5 py-0.5 outline-none focus:border-blue-500">
+                                    <span v-else class="text-sm font-medium text-slate-800 truncate">{{ s.title || 'Session ' + (s.slug || s.id.slice(0, 8)) }}</span>
+                                    <span v-if="codeBusy[s.id]" title="Génération en cours"
+                                          class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
+                                </div>
+                                <div class="text-[11px] text-slate-400 truncate mt-0.5">
+                                    <span v-if="s.directory" class="font-mono">{{ s.directory }}</span>
+                                    <span v-if="s.directory && s.time && s.time.updated"> · </span>
+                                    <span v-if="s.time && s.time.updated">{{ codeAgo(s.time.updated) }}</span>
+                                    <span v-if="s.msg_count"> · {{ s.msg_count }} message{{ s.msg_count > 1 ? 's' : '' }}</span>
+                                    <span v-if="s.last_model" class="font-mono"> · {{ s.last_model.split('/').pop() }}</span>
+                                </div>
+                                <div v-if="s.preview" class="text-[11px] text-slate-400/90 truncate mt-0.5 italic">{{ s.preview }}</div>
+                            </div>
+                            <span class="inline-flex items-center gap-1.5 text-[10.5px] font-medium px-2 py-0.5 rounded-full shrink-0"
+                                  :class="s.connected !== false ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 text-slate-500'">
+                                <span class="w-1 h-1 rounded-full" :class="s.connected !== false ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                                {{ s.connected !== false ? 'connecté' : 'hors ligne' }}
+                            </span>
+                            <!-- Renommer : session opencode vivante + plugin v5 (session.update) -->
+                            <button v-if="s.connected !== false && codePluginVersion >= 5 && codeRenamingId !== s.id"
+                                    @click.stop="codeStartRename(s)" title="Renommer la session"
+                                    class="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-all shrink-0">
+                                <i class="ph ph-pencil-simple text-xs"></i>
+                            </button>
+                            <button @click.stop="codeDismissSession(s.id)" title="Retirer de l'historique"
+                                    class="elpis-code-danger-hover opacity-0 group-hover:opacity-100 focus-visible:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 transition-all shrink-0">
+                                <i class="ph ph-x text-xs"></i>
+                            </button>
+                            <i class="ph ph-caret-right text-slate-300 shrink-0" style="font-size:12px"></i>
+                        </div>
+                        </div>
+                    </template>
+                </template>
+            </div>
+        </div>
+
+        <!-- ── Session ouverte : transcript plein écran + composer ── -->
+        <template v-else>
+            <div ref="transcriptEl" @scroll.passive="codeTranscriptScroll"
+                 class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-5">
+
+                <!-- Messages de la session — parts rendues par _code_render.js
+                     (codeSteps : items typés défensifs ; part inconnue = pill grise).
+                     Largeur : suit le réglage utilisateur, comme le chat classique. -->
+                <div class="mx-auto space-y-4" :style="{ maxWidth: settings.chat_width + '%' }">
+                    <div v-if="!codeMessages.length" class="text-center text-xs text-slate-400 py-8">
+                        En attente d'activité…
+                    </div>
+                    <!-- (passe 6, F3) v-memo : l'app est UN composant racine, chaque
+                         événement SSE re-rendait TOUT le transcript (codeSteps reparcourt
+                         les parts de chaque message, codeMsgError appelé 3×/message).
+                         ``m._rev`` est bumpé par _applyPart/_upsertMessage : seule la
+                         ligne réellement modifiée re-diffe.
+                         (passe 7, R1/R5) — TOUT état lu dans la ligne doit figurer
+                         ici, sinon il est gelé ET n'est plus tracké : bascules de
+                         détail d'outil (codeUi.tool, objet remplacé à chaque clic),
+                         horloge du statut « en cours » (codeNow, ligne live
+                         seulement), avatars. -->
+                    <div v-for="(m, mi) in codeMessages" :key="m.id" class="flex gap-3"
+                         v-memo="[m._rev, mi === codeLiveIdx, m.pending, codeUi.tool, (mi === codeLiveIdx) ? codeNow : 0, settings.assistant_avatar, user && user.avatar]"
+                         :class="m.role === 'user' ? 'flex-row-reverse' : ''">
+
+                        <!-- Trace de commande (« ce qui a été fait » : /cmd, /undo…) —
+                             pill centrée persistante, posée par l'app à l'envoi -->
+                        <div v-if="m.role === 'note'" class="flex-1 flex justify-center py-0.5">
+                            <span class="inline-flex items-center gap-1.5 max-w-full px-2.5 py-1 rounded-full border text-[11px] font-mono"
+                                  :class="m.info.note && m.info.note.kind === 'error'
+                                          ? 'elpis-code-tool-err border-transparent'
+                                          : 'bg-slate-50 border-slate-200 text-slate-500'"
+                                  :title="(m.info.note && m.info.note.detail) || ''">
+                                <i class="ph text-slate-400" style="font-size:11px"
+                                   :class="m.info.note && m.info.note.kind === 'error' ? 'ph-warning-circle' : 'ph-terminal'"></i>
+                                <span class="font-semibold shrink-0">{{ m.info.note ? m.info.note.label : '' }}</span>
+                                <span v-if="m.info.note && m.info.note.detail"
+                                      class="truncate max-w-[16rem] text-slate-400">{{ m.info.note.detail }}</span>
+                            </span>
+                        </div>
+
+                        <template v-else>
+                        <!-- Avatars : MÊMES que le chat principal (photo user / avatar
+                             assistant configuré, mêmes fallbacks) — cohérence visuelle -->
+                        <div class="shrink-0 mt-0.5">
+                            <div v-if="m.role === 'user'">
+                                <img v-if="user.avatar" :src="'/avatars/' + user.avatar"
+                                     class="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-sm"
+                                     :class="m.pending ? 'opacity-60' : ''">
+                                <div v-else class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold border border-slate-200"
+                                     :class="m.pending ? 'opacity-60' : ''"><i class="ph ph-user text-lg"></i></div>
+                            </div>
+                            <div v-else>
+                                <img v-if="settings.assistant_avatar" :src="'/avatars/' + settings.assistant_avatar"
+                                     class="w-9 h-9 rounded-full object-cover shadow-sm border border-slate-200">
+                                <div v-else class="w-9 h-9 rounded-full bg-blue-600 shadow-sm flex items-center justify-center text-white">
+                                    <i class="ph text-lg" :class="settings.assistant_icon || 'ph-robot'"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="min-w-0 flex-1 flex flex-col gap-1.5"
+                             :class="m.role === 'user' ? 'items-end' : 'items-start'">
+
+                            <!-- Message de compaction : opencode le marque `summary`, il ne
+                                 raconte pas le tour mais le résume. Le dire évite de le
+                                 lire comme une réponse. -->
+                            <span v-if="m.info && m.info.summary"
+                                  class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-[10.5px] text-slate-500">
+                                <i class="ph ph-arrows-in-line-horizontal" style="font-size:10px"></i>Résumé
+                            </span>
+
+                            <!-- Erreur du tour, telle que la CLI la rapporte. Elle n'était
+                                 qu'une toast fugace : le transcript n'en gardait aucune trace. -->
+                            <div v-if="m.info && m.info.error && codeMsgError(m)"
+                                 class="elpis-error-card w-full rounded-xl px-3 py-2 flex items-start gap-2">
+                                <i class="ph ph-warning-circle shrink-0 mt-0.5" style="font-size:13px"></i>
+                                <div class="min-w-0">
+                                    <div class="elpis-error-title text-[11.5px] font-semibold">{{ codeMsgError(m).name }}</div>
+                                    <div v-if="codeMsgError(m).message"
+                                         class="text-[11px] break-words whitespace-pre-wrap">{{ codeMsgError(m).message }}</div>
+                                </div>
+                            </div>
+
+                            <template v-for="item in codeSteps(m, mi === codeLiveIdx)"
+                                      :key="item.id">
+
+                                <!-- Texte user : bulle (écho optimiste = horloge + opacité réduite) -->
+                                <div v-if="item.kind === 'text' && m.role === 'user'"
+                                     class="max-w-full rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words text-left bg-blue-600 text-white"
+                                     :class="m.pending ? 'opacity-60' : ''"><i v-if="m.pending" class="ph ph-clock mr-1.5 opacity-80"></i>{{ item.text }}</div>
+
+                                <!-- Texte assistant : markdown (pipeline du chat : marked+hljs+sanitize) ;
+                                     garde-fou perf : gros texte encore en stream → brut échappé -->
+                                <div v-else-if="item.kind === 'text' && !item.heavy"
+                                     class="w-full text-left markdown-body" v-html="item.live ? renderMarkdownLive(item.text) : renderMarkdown(item.text)"></div>
+                                <div v-else-if="item.kind === 'text'"
+                                     class="w-full text-sm whitespace-pre-wrap break-words text-left text-slate-800">{{ item.text }}</div>
+
+                                <!-- Bloc ```diff du texte assistant : mêmes cartes que les
+                                     diffs d'outils (au lieu d'un bloc code markdown) -->
+                                <code-diff v-else-if="item.kind === 'diff'" :cid="item.id" :text="item.text"></code-diff>
+
+                                <!-- Activité en cours : UN seul signal, dans la colonne du
+                                     message que la CLI est en train d'écrire — donc aligné
+                                     avec son texte, sans padding magique. La phase est
+                                     réelle (réflexion / outil / rédaction), pas générique. -->
+                                <div v-else-if="item.kind === 'status'" data-code-status
+                                     role="status" aria-live="polite"
+                                     class="flex items-center gap-2 text-[12px] text-slate-500">
+                                    <span class="elpis-typing"><span></span><span></span><span></span></span>
+                                    <span class="mem-wave">{{ item.phase }}</span>
+                                    <span v-if="codeElapsed(item.since)"
+                                          class="font-mono text-[11px] text-slate-400 tabular-nums">· {{ codeElapsed(item.since) }}</span>
+                                </div>
+
+                                <!-- Thinking : replié par défaut, auto-ouvert au 1er chunk live,
+                                     libellé animé (.mem-wave) pendant l'activité — pattern du chat -->
+                                <details v-else-if="item.kind === 'think'" data-code-think
+                                         :open="!!codeUi.think[item.id]"
+                                         @toggle="codeUi.think[item.id] = $event.target.open"
+                                         class="group/think w-full">
+                                    <summary class="list-none flex items-center gap-1.5 cursor-pointer select-none w-fit py-0.5 text-slate-400 hover:text-slate-600 transition-colors">
+                                        <i class="ph ph-brain text-slate-400" style="font-size:11px"></i>
+                                        <span class="text-[12.5px] font-semibold" :class="item.done ? '' : 'mem-wave'">Thinking...</span>
+                                        <span v-if="item.meta" class="text-[11px] font-mono text-slate-400 font-normal tabular-nums">· {{ item.meta }}</span>
+                                        <i class="ph ph-caret-right text-slate-300 transition-transform group-open/think:rotate-90" style="font-size:9px"></i>
+                                    </summary>
+                                    <div class="mt-1 pl-3 border-l-2 border-slate-200 ml-0.5">
+                                        <pre class="text-[11.5px] text-slate-600 leading-relaxed whitespace-pre-wrap break-words font-mono max-h-52 overflow-y-auto custom-scrollbar m-0 bg-transparent">{{ item.text }}</pre>
+                                    </div>
+                                </details>
+
+                                <!-- Appel d'outil — la ligne du TUI : icône d'état, nom de
+                                     l'outil, SUJET réel (fichier édité, commande lancée,
+                                     motif cherché…) tiré des métadonnées opencode, et la
+                                     métrique à droite (+N/−N, exit, durée). Ce que l'outil
+                                     a fait se lit sans ouvrir quoi que ce soit ; le repli
+                                     ne sert qu'aux paramètres et à la sortie brute. -->
+                                <div v-else-if="item.kind === 'tool'" class="w-full">
+                                    <!-- Ligne entière cliquable quand il y a un détail (la
+                                         pastille l'était) ; le caret reste le repère visuel
+                                         ET la cible clavier. -->
+                                    <div class="elpis-code-tool-row"
+                                         :class="[item.error ? 'elpis-code-tool-err' : '',
+                                                  item.hasDetail ? 'elpis-code-tool-row-btn' : '']"
+                                         @click="item.hasDetail && codeToggleTool(item.id)">
+                                        <i v-if="item.running" class="ph ph-spinner-gap animate-spin text-blue-500 shrink-0"></i>
+                                        <i v-else-if="item.error" class="ph ph-x-circle shrink-0"></i>
+                                        <i v-else class="ph shrink-0 text-slate-400" :class="item.icon"></i>
+                                        <span class="font-mono text-[12px] font-semibold shrink-0"
+                                              :class="item.running ? 'text-blue-600' : ''">{{ item.tool }}</span>
+                                        <span v-if="item.subject" class="font-mono text-[11.5px] text-slate-500 truncate">{{ item.subject }}</span>
+                                        <span v-else class="text-[11px] text-slate-400 shrink-0">{{ codeToolLabel(item.status) }}</span>
+                                        <span v-if="item.metric" class="ml-auto pl-2 font-mono text-[11px] tabular-nums shrink-0"
+                                              :class="item.metricTone || 'text-slate-400'">{{ item.metric }}</span>
+                                        <button v-if="item.hasDetail" @click.stop="codeToggleTool(item.id)"
+                                                :title="codeUi.tool[item.id] ? 'Masquer le détail' : 'Paramètres et sortie'"
+                                                :class="item.metric ? '' : 'ml-auto'"
+                                                class="shrink-0 w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                                            <i class="ph ph-caret-down transition-transform"
+                                               :class="codeUi.tool[item.id] ? 'rotate-180' : ''" style="font-size:9px"></i>
+                                        </button>
+                                    </div>
+
+                                    <!-- Erreur d'outil : jamais repliée. Un tour qui échoue
+                                         doit se voir sans clic. -->
+                                    <pre v-if="item.errText"
+                                         class="elpis-code-tool-errtext mt-1.5 mb-0 ml-2 mr-0 text-[11px] whitespace-pre-wrap break-words font-mono max-h-32 overflow-y-auto custom-scrollbar bg-transparent">{{ item.errText }}</pre>
+
+                                    <!-- todowrite : la liste elle-même, comme le TUI -->
+                                    <ul v-if="item.todos" class="mt-1.5 ml-2 space-y-0.5">
+                                        <li v-for="(t, ti) in item.todos" :key="ti"
+                                            class="flex items-start gap-1.5 text-[11.5px]"
+                                            :class="t.status === 'completed' ? 'text-slate-400' : 'text-slate-600'">
+                                            <i class="ph shrink-0 mt-0.5" style="font-size:11px"
+                                               :class="t.status === 'completed' ? 'ph-check-square' : t.status === 'in_progress' ? 'ph-arrow-right' : 'ph-square'"></i>
+                                            <span :class="t.status === 'completed' ? 'line-through' : ''">{{ t.text }}</span>
+                                        </li>
+                                    </ul>
+
+                                    <transition name="tool-detail">
+                                        <div v-if="codeUi.tool[item.id]"
+                                             class="mt-2 rounded-xl border border-slate-200 bg-white/60 shadow-sm text-[11px] overflow-hidden">
+                                            <div class="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50/60">
+                                                <i class="ph ph-terminal-window text-slate-400"></i>
+                                                <span class="font-mono font-semibold text-slate-700">{{ item.tool }}</span>
+                                                <span class="text-slate-400">{{ codeToolLabel(item.status) }}<span v-if="item.dur"> · {{ item.dur }}</span></span>
+                                                <button @click="codeToggleTool(item.id)" title="Fermer"
+                                                        class="ml-auto w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+                                                    <i class="ph ph-x" style="font-size:10px"></i>
+                                                </button>
+                                            </div>
+                                            <div v-if="item.input" class="px-3 py-2 border-b border-slate-100">
+                                                <div class="text-xs font-semibold text-slate-500 mb-1">Paramètres</div>
+                                                <div class="grid grid-cols-[auto,1fr] gap-x-3 gap-y-0.5 font-mono">
+                                                    <template v-for="(v, k) in item.input" :key="k">
+                                                        <span class="text-slate-400">{{ k }}</span>
+                                                        <span class="text-slate-700 break-all whitespace-pre-wrap">{{ codeFmtVal(v) }}</span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                            <div class="px-3 py-2">
+                                                <div class="text-xs font-semibold text-slate-500 mb-1">Résultat</div>
+                                                <!-- Sortie qui EST un diff (ex. bash git diff) : cartes
+                                                     colorisées au lieu du <pre> brut -->
+                                                <div v-if="item.outDiff && !item.errText" class="max-h-64 overflow-y-auto custom-scrollbar">
+                                                    <code-diff :cid="item.id + ':out'" :text="item.outDiff"></code-diff>
+                                                </div>
+                                                <pre v-else-if="item.errText || item.output"
+                                                     class="m-0 whitespace-pre-wrap break-words font-mono max-h-48 overflow-y-auto custom-scrollbar bg-transparent"
+                                                     :class="item.errText ? 'elpis-code-tool-errtext' : 'text-slate-600'">{{ item.errText || item.output }}</pre>
+                                                <div v-else-if="item.running" class="flex items-center gap-1.5 text-slate-400">
+                                                    <i class="ph ph-circle-notch animate-spin"></i> en cours…
+                                                </div>
+                                                <div v-else class="text-slate-400">—</div>
+                                            </div>
+                                        </div>
+                                    </transition>
+
+                                    <!-- Diff de l'outil (edit, write, patch) : TOUJOURS visible,
+                                         jamais derrière un clic — c'est le résultat du tour. -->
+                                    <div v-if="item.diff" class="mt-2 w-full">
+                                        <code-diff :cid="item.id" :text="item.diff"></code-diff>
+                                    </div>
+                                </div>
+
+                                <!-- Séparateur d'étape (les tokens par étape sont retirés :
+                                     la jauge ctx du header porte l'info) -->
+                                <div v-else-if="item.kind === 'step'" aria-hidden="true"
+                                     class="w-full flex items-center py-0.5">
+                                    <span class="flex-1 border-t border-slate-100"></span>
+                                </div>
+
+                                <!-- Patch : pill dépliable — fichiers touchés + cartes diff
+                                     (réutilise les diffs des tool parts du même message) -->
+                                <div v-else-if="item.kind === 'patch'" class="w-full">
+                                    <button @click="codeToggleTool(item.id)"
+                                            class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 text-slate-500 font-mono max-w-full hover:bg-slate-100 transition-colors">
+                                        <i class="ph ph-git-diff text-slate-400 shrink-0"></i><span class="truncate">{{ item.label }}</span>
+                                        <i v-if="item.files && item.files.length" class="ph ph-caret-down text-slate-300 transition-transform shrink-0"
+                                           :class="codeUi.tool[item.id] ? 'rotate-180' : ''" style="font-size:9px"></i>
+                                    </button>
+                                    <div v-if="codeUi.tool[item.id] && item.files && item.files.length"
+                                         class="mt-2 space-y-2 w-full">
+                                        <div v-if="!item.diff" class="rounded-lg border border-slate-200 bg-white/60 px-3 py-2">
+                                            <div v-for="f in item.files" :key="f"
+                                                 class="flex items-center gap-1.5 text-[11.5px] font-mono text-slate-600 py-0.5">
+                                                <i class="ph ph-file-code text-slate-400 shrink-0"></i><span class="truncate">{{ f }}</span>
+                                            </div>
+                                        </div>
+                                        <code-diff v-else :cid="'patch:' + item.id" :text="item.diff"></code-diff>
+                                    </div>
+                                </div>
+
+                                <!-- Sous-agent lancé par la session (part `subtask`) : le TUI
+                                     ouvre un encadré, la page affichait « subtask » en gris. -->
+                                <div v-else-if="item.kind === 'subtask'" class="w-full">
+                                    <div class="elpis-code-tool-row"
+                                         :class="item.prompt ? 'elpis-code-tool-row-btn' : ''"
+                                         @click="item.prompt && codeToggleTool(item.id)">
+                                        <i class="ph ph-robot text-slate-400 shrink-0"></i>
+                                        <span class="font-mono text-[12px] font-semibold text-slate-600 shrink-0">{{ item.agent }}</span>
+                                        <span v-if="item.desc" class="text-[11.5px] text-slate-500 truncate">{{ item.desc }}</span>
+                                        <span v-if="item.model" class="ml-auto pl-2 font-mono text-[11px] text-slate-400 shrink-0 truncate max-w-[10rem]">{{ item.model }}</span>
+                                        <button v-if="item.prompt" @click.stop="codeToggleTool(item.id)" title="Consigne du sous-agent"
+                                                :class="item.model ? '' : 'ml-auto'"
+                                                class="shrink-0 w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                                            <i class="ph ph-caret-down transition-transform"
+                                               :class="codeUi.tool[item.id] ? 'rotate-180' : ''" style="font-size:9px"></i>
+                                        </button>
+                                    </div>
+                                    <pre v-if="codeUi.tool[item.id] && item.prompt"
+                                         class="mt-1.5 m-0 px-3 py-2 rounded-lg border border-slate-200 bg-white/60 text-[11px] text-slate-600 whitespace-pre-wrap break-words font-mono max-h-48 overflow-y-auto custom-scrollbar">{{ item.prompt }}</pre>
+                                </div>
+
+                                <!-- Compaction : c'est ce qui explique qu'un historique
+                                     « disparaisse » côté CLI. Le dire, comme le TUI. -->
+                                <div v-else-if="item.kind === 'compaction'" class="w-full flex justify-center py-0.5">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-200 bg-slate-50 text-[11px] text-slate-500">
+                                        <i class="ph ph-arrows-in-line-horizontal text-slate-400" style="font-size:11px"></i>{{ item.label }}
+                                    </span>
+                                </div>
+
+                                <!-- Nouvelle tentative du modèle (quota, coupure réseau…) -->
+                                <div v-else-if="item.kind === 'retry'" class="w-full">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-amber-500/15 text-amber-600"
+                                          :title="item.detail">
+                                        <i class="ph ph-arrows-clockwise" style="font-size:11px"></i>Tentative {{ item.attempt }}
+                                    </span>
+                                </div>
+
+                                <div v-else-if="item.kind === 'file'"
+                                     class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 text-slate-500 font-mono max-w-full">
+                                    <i class="ph ph-paperclip text-slate-400 shrink-0"></i><span class="truncate">{{ item.filename }}</span>
+                                </div>
+                                <div v-else-if="item.kind === 'unknown'"
+                                     class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10.5px] bg-slate-50 border border-slate-100 text-slate-400 font-mono">{{ item.type }}</div>
+                            </template>
+                        </div>
+                        </template>
+                    </div>
+
+                    <!-- La CLI travaille mais n'a encore rien écrit (aucun message
+                         assistant ouvert) : même gabarit qu'un message — avatar +
+                         colonne — pour que le statut tombe sur la même verticale
+                         que le texte qui va le remplacer. -->
+                    <div v-if="codeBusyActive && codeLiveIdx === -1" class="flex gap-3">
+                        <div class="shrink-0 mt-0.5">
+                            <img v-if="settings.assistant_avatar" :src="'/avatars/' + settings.assistant_avatar"
+                                 class="w-9 h-9 rounded-full object-cover shadow-sm border border-slate-200">
+                            <div v-else class="w-9 h-9 rounded-full bg-blue-600 shadow-sm flex items-center justify-center text-white">
+                                <i class="ph text-lg" :class="settings.assistant_icon || 'ph-robot'"></i>
+                            </div>
+                        </div>
+                        <div class="min-w-0 flex-1 flex items-center gap-2 text-[12px] text-slate-500"
+                             data-code-status role="status" aria-live="polite">
+                            <span class="elpis-typing"><span></span><span></span><span></span></span>
+                            <span class="mem-wave">Génération</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Composer : pilote la session opencode à distance — parité visuelle
+                 avec la barre de prompt du chat (.elpis-compose-card : saisie en
+                 haut, barre d'outils en bas, stop remplace envoyer pendant la
+                 génération). Chip « modèle » à gauche = commande /model. -->
+            <div class="shrink-0 px-4 pb-4 pt-2">
+                <div class="mx-auto relative" :style="{ maxWidth: settings.chat_width + '%' }">
+
+                    <!-- Demandes de validation opencode : la CLI attend une réponse —
+                         Autoriser (once) / Toujours (always) / Refuser (reject) -->
+                    <div v-if="codeCanDrive && codePerms.length" class="mb-2 space-y-2">
+                        <div v-for="perm in codePerms" :key="perm.id"
+                             class="rounded-xl border border-amber-300/60 bg-amber-500/10 px-3 py-2.5 flex items-start gap-2.5">
+                            <i class="ph ph-shield-warning text-amber-500 text-lg shrink-0 mt-0.5"></i>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs font-semibold text-slate-800 break-words">{{ perm.title || 'Demande de validation' }}</div>
+                                <div class="text-[10.5px] text-slate-500 font-mono truncate mt-0.5">
+                                    {{ perm.type }}<span v-if="perm.pattern"> · {{ perm.pattern }}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button @click="codeReplyPermission(perm, 'once')"
+                                        class="h-7 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold transition-colors">Autoriser</button>
+                                <button @click="codeReplyPermission(perm, 'always')" title="Autoriser et ne plus demander pour ce motif"
+                                        class="h-7 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors">Toujours</button>
+                                <button @click="codeReplyPermission(perm, 'reject')"
+                                        class="elpis-code-danger-hover h-7 px-2.5 rounded-lg text-[11px] font-semibold text-slate-500 transition-colors">Refuser</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Questions de l'outil `question` (greffon v14) : la CLI attend une
+                         réponse — options (choix unique / multiple) + saisie libre, ou Refuser -->
+                    <div v-if="codeCanDrive && codeQuestions.length" class="mb-2 space-y-2" data-code-questions>
+                        <div v-for="q in codeQuestions" :key="q.id"
+                             class="rounded-xl border border-blue-300/60 bg-blue-500/10 px-3 py-2.5 flex items-start gap-2.5">
+                            <i class="ph ph-question text-blue-500 text-lg shrink-0 mt-0.5"></i>
+                            <div class="flex-1 min-w-0 space-y-2">
+                                <div v-for="(sq, qi) in q.questions" :key="q.id + ':' + qi">
+                                    <div class="text-xs font-semibold text-slate-800 break-words">
+                                        <span v-if="sq.header" class="text-[10px] uppercase tracking-wide text-blue-600 mr-1.5">{{ sq.header }}</span>{{ sq.question }}
+                                    </div>
+                                    <div v-if="sq.options && sq.options.length" class="flex flex-wrap gap-1.5 mt-1.5">
+                                        <button v-for="o in sq.options" :key="o.label" type="button"
+                                                @click="codeToggleAnswer(q, qi, o.label)" :title="o.description || ''"
+                                                :class="codeQuestionPicked(q, qi, o.label)
+                                                    ? 'bg-blue-600 text-white border-blue-600'
+                                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'"
+                                                class="h-7 px-2.5 rounded-lg border text-[11px] font-semibold transition-colors">{{ o.label }}</button>
+                                    </div>
+                                    <input v-if="sq.custom" v-model="codeQText[q.id + ':' + qi]" type="text"
+                                           :placeholder="sq.options && sq.options.length ? 'Autre réponse' : 'Votre réponse'"
+                                           @keydown.enter.prevent="codeAnswerQuestion(q)"
+                                           class="mt-1.5 w-full h-7 px-2 rounded-lg border border-slate-200 bg-white text-[11px] text-slate-800 focus:outline-none focus:border-blue-400">
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button @click="codeAnswerQuestion(q)" :disabled="!codeQuestionReady(q)"
+                                        class="h-7 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] font-semibold transition-colors">Répondre</button>
+                                <button @click="codeAnswerQuestion(q, true)" title="Refuser de répondre : le tour reprend sans réponse"
+                                        class="elpis-code-danger-hover h-7 px-2.5 rounded-lg text-[11px] font-semibold text-slate-500 transition-colors">Refuser</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Picker /session : reprendre une autre session de la même CLI -->
+                    <transition name="fade">
+                    <div v-if="codeSessionOpen"
+                         class="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden">
+                        <div class="px-3 py-2 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                            <i class="ph ph-terminal-window text-blue-500"></i>
+                            <span class="text-xs font-semibold text-slate-700">Reprendre une session</span>
+                            <span class="ml-auto text-[10px] text-slate-300">↑↓ Entrée · Échap</span>
+                        </div>
+                        <div v-if="!codeSessionPickList.length" class="py-5 px-4 text-center text-xs text-slate-400 leading-relaxed">
+                            Aucune autre session sur cette CLI.<br><code class="bg-slate-100 rounded px-1">/new</code> en crée une.
+                        </div>
+                        <ul v-else id="code-session-list" class="max-h-64 overflow-y-auto custom-scrollbar py-1">
+                            <li v-for="(r, i) in codeSessionPickList" :key="r.id" data-code-session-row
+                                @click="codePickSession(r)" @mouseover="codeSetSessionIdx(i)"
+                                :class="codeSessionIdx === i ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'"
+                                class="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer transition-colors">
+                                <i class="shrink-0 ph ph-terminal-window text-slate-300" style="font-size:13px"></i>
+                                <div class="flex-1 min-w-0 leading-tight">
+                                    <div class="text-xs font-medium truncate">{{ r.title || 'Session ' + (r.slug || r.id.slice(0, 8)) }}
+                                        <span v-if="codeBusy[r.id]" class="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse ml-1"></span>
+                                    </div>
+                                    <div class="text-[10px] text-slate-400 font-mono truncate">
+                                        {{ r.directory }}<span v-if="r.time && r.time.updated"> · {{ codeAgo(r.time.updated) }}</span>
+                                    </div>
+                                </div>
+                                <i v-if="codeSessionIdx === i" class="ph ph-arrow-bend-down-left text-blue-400 text-xs shrink-0"></i>
+                            </li>
+                        </ul>
+                    </div>
+                    </transition>
+
+                    <!-- Dropdown « / » : commandes app (/model…) + commandes de la CLI,
+                         filtrées/triées en tapant (calquée sur le dropdown /skill du chat) -->
+                    <transition name="fade">
+                    <div v-if="codeSlashOpen"
+                         class="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden">
+                        <div class="px-3 py-2 text-xs font-semibold text-slate-500 border-b border-slate-100 flex items-center gap-2 bg-slate-50">
+                            <i class="ph ph-terminal-window text-blue-500"></i>
+                            Commandes opencode
+                            <span v-if="codeSlashQuery" class="text-blue-600 font-mono">/{{ codeSlashQuery }}</span>
+                            <span class="ml-auto text-slate-300 font-normal">↑↓ Entrée · Échap</span>
+                        </div>
+                        <div v-if="codeSlashList.length === 0" class="py-5 text-center text-xs text-slate-400">Aucune commande trouvée</div>
+                        <ul v-else id="code-slash-list" class="max-h-52 overflow-y-auto custom-scrollbar py-1">
+                            <li v-for="(c, i) in codeSlashList" :key="c.name" data-code-slash-row
+                                @click="codeSelectSlash(c)"
+                                @mouseover="codeSetSlashIdx(i)"
+                                :class="codeSlashIdx === i ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'"
+                                class="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer transition-colors text-sm">
+                                <i class="shrink-0 ph" :class="c.app ? 'ph-sliders text-blue-500' : 'ph-slash-forward text-blue-400'" style="font-size:14px"></i>
+                                <div class="flex-1 min-w-0 leading-tight">
+                                    <div class="font-mono text-xs font-medium truncate">/{{ c.name }}
+                                        <span v-if="c.has_args" class="text-[9.5px] text-slate-400 font-normal">⟨args⟩</span>
+                                    </div>
+                                    <div class="text-[10px] text-slate-400 truncate">{{ c.description }}</div>
+                                </div>
+                                <span v-if="c.app" class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 text-[9.5px] font-semibold shrink-0">app</span>
+                                <span v-if="c.agent" class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[9.5px] font-semibold shrink-0">{{ c.agent }}</span>
+                                <span v-if="c.model" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[9.5px] font-mono shrink-0 max-w-[9rem] truncate">{{ c.model }}</span>
+                                <i v-if="codeSlashIdx === i" class="ph ph-arrow-bend-down-left text-blue-400 text-xs shrink-0"></i>
+                            </li>
+                        </ul>
+                    </div>
+                    </transition>
+
+                    <!-- Sélecteur /model : modèles remontés par la CLI (plugin v3),
+                         groupés par provider ; choix mémorisé pour la session -->
+                    <transition name="fade">
+                    <div v-if="codeModelOpen"
+                         class="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden">
+                        <div class="px-3 py-2 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                            <i class="ph ph-cpu text-blue-500"></i>
+                            <span class="text-xs font-semibold text-slate-700">Modèle de la session</span>
+                            <span class="ml-auto text-[10px] text-slate-300">↑↓ Entrée · Échap</span>
+                        </div>
+                        <div v-if="codeModelList.length <= 1" class="py-5 px-4 text-center text-xs text-slate-400 leading-relaxed">
+                            Aucun modèle remonté par la CLI.<br>Mettez le plugin à jour&nbsp;: <code class="bg-slate-100 rounded px-1">/remote update</code>.
+                        </div>
+                        <ul v-else id="code-model-list" class="max-h-64 overflow-y-auto custom-scrollbar py-1">
+                            <template v-for="(r, i) in codeModelList" :key="(r.providerID || 'def') + '/' + r.modelID">
+                                <li v-if="r.provider && (i === 1 || codeModelList[i-1].provider !== r.provider)"
+                                    class="px-3 pt-2 pb-0.5 text-[10.5px] font-semibold text-slate-400">{{ r.provider }}</li>
+                                <li data-code-model-row @click="codeSelectModel(r)" @mouseover="codeSetModelIdx(i)"
+                                    :class="codeModelIdx === i ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'"
+                                    class="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer transition-colors">
+                                    <i class="shrink-0 text-slate-300 ph" :class="r.def ? 'ph-arrow-counter-clockwise' : 'ph-cpu'" style="font-size:13px"></i>
+                                    <div class="flex-1 min-w-0 leading-tight">
+                                        <div class="text-xs font-medium truncate">{{ r.name }}</div>
+                                        <div v-if="!r.def" class="text-[10px] text-slate-400 font-mono truncate">{{ r.modelID }}</div>
+                                    </div>
+                                    <span v-if="!r.def && codeModelsDefault[r.providerID] === r.modelID"
+                                          class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[9.5px] font-semibold shrink-0">défaut</span>
+                                    <i v-if="!r.def && codeModelSel[codeActiveId] && codeModelSel[codeActiveId].modelID === r.modelID && codeModelSel[codeActiveId].providerID === r.providerID"
+                                       class="ph ph-check text-blue-500 shrink-0" style="font-size:13px"></i>
+                                    <i v-else-if="codeModelIdx === i" class="ph ph-arrow-bend-down-left text-blue-400 text-xs shrink-0"></i>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                    </transition>
+
+                    <div class="elpis-compose-card relative bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200 focus-within:border-slate-300 transition-colors flex flex-col">
+                        <div class="flex flex-col w-full p-1.5 gap-1">
+                            <textarea v-model="codePrompt" ref="codeInputRef" rows="1"
+                                      @keydown="codePromptKeydown"
+                                      @input="codePromptInput"
+                                      :disabled="!codeCanDrive"
+                                      :placeholder="codeCanDrive ? 'Envoyer un prompt — « / » pour les commandes…' : 'CLI hors ligne — relancez opencode puis /remote'"
+                                      class="w-full bg-transparent px-3 py-2 outline-none resize-none max-h-40 text-slate-800 placeholder:text-slate-400 disabled:opacity-50 text-sm font-medium"
+                                      style="min-height: 40px;"></textarea>
+                            <div class="flex items-center w-full gap-1">
+                                <!-- Mode courant (agent opencode). On CHANGE de mode avec les
+                                     commandes /plan et /build ; cette pastille est là pour
+                                     répondre à « dans quel mode suis-je ? » à l'endroit exact
+                                     où l'on s'apprête à écrire. Cliquer bascule sur le mode
+                                     suivant — même effet que la commande. -->
+                                <button v-if="codeAgentShow" @click="codeCycleAgent()"
+                                        :disabled="!codeCanDrive" :title="codeAgentDesc"
+                                        class="shrink-0 h-8 px-2.5 flex items-center gap-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40"
+                                        :class="codeAgentCur === 'plan' ? 'text-violet-700 bg-violet-50 hover:bg-violet-100'
+                                                                        : 'text-blue-700 bg-blue-50 hover:bg-blue-100'">
+                                    <i class="ph text-base" :class="codeAgentCur === 'plan' ? 'ph-eye' : 'ph-pencil-simple'"></i>
+                                    <span>{{ codeAgentLabel(codeAgentCur) }}</span>
+                                </button>
+                                <!-- Chip modèle (= /model) : état vide discret, choix mis en avant -->
+                                <div class="shrink-0 flex items-center rounded-lg" :class="codeModelChip ? 'bg-blue-50' : ''">
+                                    <button @click="codeModelOpen ? codeModelOpen = false : codeOpenModelPicker()"
+                                            :disabled="!codeCanDrive"
+                                            title="Modèle d'inférence de la session (/model)"
+                                            class="h-8 px-2.5 flex items-center gap-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40"
+                                            :class="codeModelChip ? 'text-blue-700 hover:bg-blue-100' : 'text-slate-400 hover:text-blue-600 hover:bg-slate-100'">
+                                        <i class="ph ph-cpu text-base"></i>
+                                        <span class="max-w-[11rem] truncate">{{ codeModelChip || 'Modèle' }}</span>
+                                    </button>
+                                    <button v-if="codeModelChip" @click="codeClearModel" title="Revenir au modèle par défaut"
+                                            class="h-8 w-6 flex items-center justify-center text-blue-300 hover:text-blue-700 transition-colors">
+                                        <i class="ph ph-x" style="font-size:11px"></i>
+                                    </button>
+                                </div>
+                                <div class="flex-1"></div>
+                                <!-- Stop pendant la génération, sinon Envoyer (parité chat) -->
+                                <button v-if="codeBusyActive" @click="codeAbortSession" title="Interrompre la génération"
+                                        class="elpis-error-btn h-8 w-8 shrink-0 flex items-center justify-center rounded-lg transition-colors">
+                                    <i class="ph ph-stop-circle text-lg"></i>
+                                </button>
+                                <button v-else @click="codeSendPrompt" :disabled="!codeCanDrive || !codePrompt.trim() || codeSending" title="Envoyer"
+                                        class="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
+                                    <i :class="codeSending ? 'ph ph-circle-notch animate-spin text-sm' : 'ph ph-paper-plane-right text-sm'"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- OpenCode indisponible -->
+    <div v-else class="flex-1 flex items-center justify-center p-6">
+        <div class="max-w-md text-center px-5 py-6 rounded-2xl bg-slate-50 border border-slate-200">
+            <i class="ph ph-warning-circle text-3xl text-amber-500"></i>
+            <p class="text-base font-bold text-slate-800 mt-2">OpenCode désactivé</p>
+            <p class="text-sm text-slate-500 mt-1.5">Activez OpenCode dans l'administration.</p>
+        </div>
+    </div>
+
+    <!-- Drawer « Connecter opencode » -->
+    <div v-if="codeShowConnect" class="absolute inset-0 z-20 flex justify-end bg-slate-900/40" @click.self="codeShowConnect = false">
+        <div class="w-full max-w-md h-full bg-white border-l border-slate-200 shadow-2xl flex flex-col">
+            <div class="h-14 shrink-0 flex items-center justify-between px-4 border-b border-slate-200">
+                <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2"><i class="ph ph-plug text-blue-600"></i> Connecter opencode</h2>
+                <button @click="codeShowConnect = false" class="w-8 h-8 rounded-lg text-slate-500 hover:bg-slate-100 flex items-center justify-center"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 space-y-4 text-sm text-slate-700">
+                <div>
+                    <div class="text-xs font-semibold text-slate-600 mb-1">1 · Installer opencode</div>
+                    <p class="text-xs text-slate-500">L'installeur pose le binaire, la config et le plugin. Déjà installé : relancez-le pour mettre à jour.</p>
+                    <button @click="codeShowConnect = false; showOpenCodeModal = true"
+                            class="mt-2 h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                        <i class="ph ph-terminal"></i> Ouvrir l'installeur
+                    </button>
+                </div>
+
+                <div>
+                    <div class="text-xs font-semibold text-slate-600 mb-1">2 · Appairer le poste</div>
+                    <p class="text-xs text-slate-500">
+                        L'installeur propose de connecter votre compte&nbsp;: c'est fait, rien à saisir ici. Sinon, dans opencode, tapez <code class="bg-slate-100 rounded px-1">/remote login</code> et reportez le code&nbsp;:
+                    </p>
+                    <form @submit.prevent="codeSubmitPairCode" class="mt-2 flex items-center gap-2">
+                        <input v-model="codePairCode" maxlength="7" autocomplete="off" spellcheck="false"
+                               placeholder="ABC-123" aria-label="Code d'appairage"
+                               class="w-32 h-8 px-2.5 rounded-lg border border-slate-200 bg-white text-sm font-mono tracking-widest uppercase text-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                        <button type="submit" :disabled="codePairBusy"
+                                class="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                            <i :class="codePairBusy ? 'ph ph-circle-notch animate-spin' : 'ph ph-check'"></i> Appairer
+                        </button>
+                    </form>
+                    <p class="mt-2.5 text-[11px] text-slate-400">Ou collez directement votre jeton dans opencode&nbsp;:</p>
+                    <div class="relative mt-1 bg-slate-900 rounded-lg p-2.5 pr-10 font-mono text-[11px] text-green-300 overflow-x-auto">
+                        <code class="whitespace-pre">{{ codeRemoteCmd }}</code>
+                        <button @click="codeCopy(codeRemoteCmd)" title="Copier" class="absolute top-1.5 right-1.5 w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center"><i class="ph ph-copy text-xs"></i></button>
+                    </div>
+                    <button @click="codeRotateToken" class="mt-1 text-[11px] text-slate-400 hover:text-red-500 flex items-center gap-1 transition-colors">
+                        <i class="ph ph-arrows-clockwise"></i> Régénérer le jeton (invalide l'ancien)
+                    </button>
+                </div>
+
+                <div>
+                    <div class="text-xs font-semibold text-slate-600 mb-1">3 · Piloter</div>
+                    <p class="text-xs text-slate-500">
+                        La session apparaît ici en direct, historique compris. <code class="bg-slate-100 rounded px-1">/remote</code> coupe ou réactive la remontée du projet courant, <code class="bg-slate-100 rounded px-1">/remote status</code> en donne l'état.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

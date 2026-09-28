@@ -1,0 +1,194 @@
+/* ============================================================================
+ *  Skin « Pingouins 🐧 » (loufoque / troll)
+ * ----------------------------------------------------------------------------
+ *  Chaos ASSUMÉ mais utilisable : Comic Sans partout, couleurs criardes
+ *  (rose fluo / vert citron / cyan / jaune), bulles légèrement penchées,
+ *  carte de saisie multicolore, bloc « réflexion » encadré citron.
+ *
+ *  Tout est scopé sous ``body.elpis-skin-pingouins`` → inerte tant que la classe
+ *  n'est pas posée (cf. _applyAppSkin, app-settings.js).
+ *
+ *  Purement CSS : aucun JS, aucun pseudo-élément décoratif animé. Les seules
+ *  transformations sont des ``rotate`` statiques (pas de mouvement), sans
+ *  ``clip-path`` sur des conteneurs de contenu (on ne rogne jamais de texte).
+ *  Offline-safe : aucune police téléchargée (Comic Sans = web-safe).
+ * ========================================================================== */
+
+/* ───────────────────────────── TOKENS — CLAIR ───────────────────────────── */
+body.elpis-skin-pingouins {
+    --tr-pink:   #ff2d95;
+    --tr-lime:   #8ad400;
+    --tr-cyan:   #00b8d4;
+    --tr-yellow: #ffd400;
+    --tr-violet: #b026ff;
+    --tr-ink:    #1a1030;
+
+    --radius:    1.1rem;             /* tout est bien rond et rebondi */
+    --radius-sm: 0.6rem;
+    --radius-md: 0.8rem;
+    --radius-lg: var(--radius);
+    --radius-xl: 1.4rem;
+
+    --app-bg:    #fff7fc;            /* rose très pâle */
+    --surface:   #ffffff;
+    --surface-2: #fdf0fa;
+    --surface-3: #eafcff;           /* cyan pâle */
+    --surface-4: #f3ffd6;           /* citron pâle */
+    --surface-5: #ffe3f3;
+    --border:            var(--tr-cyan);
+    --border-soft:       #ffd0ec;
+    --table-cell-border: var(--tr-cyan);
+    --text-900: var(--tr-ink);
+    --text-800: var(--tr-ink);
+    --text-700: #2c1d4d;
+    --text-600: #4a3570;
+    --text-500: #6b4f93;
+    --text-400: #7a5fa8;             /* AA 5.2:1 sur blanc (ex-#9a7fc0, 3.4:1) */
+    --text-max: #000000;
+    --prose-body:       #2c1d4d;
+    --prose-heading:    var(--tr-pink);
+    --prose-strong:     var(--tr-violet);
+    --prose-link:       var(--tr-pink);
+    --prose-link-hover: var(--tr-violet);
+    --code-inline-bg:     #fff0b3;
+    --code-inline-fg:     #d6006e;
+    --code-inline-border: var(--tr-yellow);
+    --scrollbar-thumb:        var(--tr-pink);
+    --scrollbar-thumb-hover:  var(--tr-violet);
+    --scrollbar-thumb-custom: var(--tr-cyan);
+
+    /* ── Famille ACCENT (correctif skins) : bridge → rose fluo partout
+       (rings cyan pour le contraste criard assumé). */
+    --accent:             var(--tr-pink);
+    /* Violet ÉCLAIRCI pour cet usage : --accent-strong est un FOND qui porte
+       l'encre --accent-fg. Le #b026ff de la signature n'y donnait que 3,9:1 ;
+       il reste inchangé pour le texte et la décoration (--prose-strong…). */
+    --accent-strong:      #c86bff;
+    --accent-500:         var(--tr-pink);
+    --accent-400:         var(--tr-cyan);
+    --accent-300:         var(--tr-cyan);
+    --accent-fg:          #1a1030;   /* encre foncée du skin : 5,2:1 sur le rose
+                                        fluo, contre 3,5:1 en blanc. Le rose est
+                                        l'identité du skin, pas le blanc. */
+    --accent-text:        var(--tr-pink);
+    --accent-text-strong: #d6006e;
+    --accent-surface:     #ffe3f3;
+    --accent-surface-2:   #ffd0ec;
+    --accent-border:      var(--tr-pink);
+    --accent-ring:        var(--tr-cyan);
+
+    /* ── Rail (sidebar néon) — tokens. --rail-bg reste une COULEUR (offset
+       d'anneau de focus) ; le DÉGRADÉ du rail est posé par la règle skin
+       dédiée plus bas. */
+    --rail-bg:           #2b0a3d;
+    --rail-bg-2:         #2b0a3d;
+    --rail-border:       rgba(255, 45, 149, 0.35);
+    --rail-text:         #fff7fc;
+    --rail-text-strong:  #ffffff;
+    --rail-muted:        var(--tr-cyan);
+    --rail-hover:        rgba(255, 45, 149, 0.25);
+    --rail-chip:         rgba(255, 45, 149, 0.25);
+    --rail-active-bg:    rgba(138, 212, 0, 0.30);
+
+    font-family: "Comic Sans MS", "Comic Neue", "Chalkboard SE", "Segoe Print", cursive;
+}
+
+/* ───────────────────────────── TOKENS — SOMBRE ──────────────────────────── */
+body.elpis-skin-pingouins.elpis-app-dark {
+    --tr-ink:    #ffffff;
+    --app-bg:    #140d22;            /* violet nuit néon */
+    --surface:   #1f1438;
+    --surface-2: #271a45;
+    --surface-3: #102a33;
+    --surface-4: #2a2a12;
+    --surface-5: #3a1f52;
+    --border:            var(--tr-cyan);
+    --border-soft:       rgba(255,45,149,0.35);
+    --table-cell-border: var(--tr-cyan);
+    --text-900: #ffffff;
+    --text-800: #ffffff;
+    --text-700: #f0e6ff;
+    --text-600: #d3c2f5;
+    --text-500: #b59be0;
+    --text-400: #ab93d8;             /* éclairci 2026-09-07 : 4,2:1 mesuré à 10px */
+    --text-max: #ffffff;
+    --prose-body:       #f0e6ff;
+    --prose-heading:    var(--tr-pink);
+    --prose-strong:     var(--tr-lime);
+    --prose-link:       var(--tr-cyan);
+    --prose-link-hover: var(--tr-lime);
+    --code-inline-bg:     #2a1a0a;
+    --code-inline-fg:     var(--tr-yellow);
+    --code-inline-border: var(--tr-pink);
+    --scrollbar-thumb:        var(--tr-pink);
+    --scrollbar-thumb-hover:  var(--tr-lime);
+    --scrollbar-thumb-custom: var(--tr-cyan);
+
+    /* Accent néon sur nuit violette : teintes translucides + texte éclairci. */
+    --accent-text-strong: #ff7ab8;
+    --accent-surface:     rgba(255, 45, 149, 0.18);
+    --accent-surface-2:   rgba(255, 45, 149, 0.25);
+}
+
+/* ───────────────────────────── ACCENTS CRIARDS ──────────────────────────── */
+/* Bleus de marque → rose fluo : gérés par le bridge + tokens --accent-* du
+   bloc ci-dessus (énumération historique retirée). */
+
+/* Cartes / panneaux : bordure cyan épaisse + ombre colorée. */
+body.elpis-skin-pingouins .shadow-lg,
+body.elpis-skin-pingouins .shadow-xl,
+body.elpis-skin-pingouins .shadow-2xl { box-shadow: 5px 5px 0 var(--tr-yellow), 9px 9px 0 var(--tr-cyan) !important; }
+
+/* ───────────────────────────── SIDEBAR CRIARDE ──────────────────────────── */
+/* Couleurs pilotées par les tokens --rail-* du bloc ci-dessus. Restent ici
+   le DÉGRADÉ (hors token : --rail-bg doit rester une couleur pour les
+   anneaux de focus) et la bordure lime en pointillés (largeur + style). */
+body.elpis-skin-pingouins aside.elpis-slide-panel {
+    background: linear-gradient(160deg, #2b0a3d 0%, #0a2b3d 100%) !important;
+    border-right: 3px dashed var(--tr-lime) !important;
+}
+
+/* ───────────────────────────── BULLES PENCHÉES ──────────────────────────── */
+body.elpis-skin-pingouins .elpis-msg-user > .flex-1 {
+    background: linear-gradient(135deg, #fff0fa, #eafcff) !important;
+    border: 3px solid var(--tr-pink);
+    border-radius: 1.2rem 1.2rem 0.3rem 1.2rem;
+    padding: 0.55rem 0.95rem;
+    transform: rotate(1.5deg);
+}
+/* ⚠ Le dégradé ci-dessus est CLAIR et n'avait pas de variante sombre : en
+   mode sombre --prose-body passe au blanc cassé, donc texte presque blanc sur
+   rose/cyan pâle. On garde les deux teintes de la signature, en version
+   profonde, et on ré-assombrit l'encre. */
+body.elpis-skin-pingouins.elpis-app-dark .elpis-msg-user > .flex-1 {
+    background: linear-gradient(135deg, #3d0f33, #0b2f3d) !important;
+    color: var(--text-800);
+}
+body.elpis-skin-pingouins .elpis-msg-assistant > .flex-1 {
+    background: transparent;
+    transform: rotate(-1deg);
+}
+
+/* ───────────────────────────── ZONE DE SAISIE ───────────────────────────── */
+body.elpis-skin-pingouins .elpis-compose-card {
+    background: var(--surface) !important;
+    border: 3px solid var(--tr-cyan) !important;
+    border-radius: var(--radius-xl) !important;
+    box-shadow: 4px 4px 0 var(--tr-yellow), 8px 8px 0 var(--tr-pink) !important;
+    transform: rotate(-0.6deg);
+}
+body.elpis-skin-pingouins .elpis-compose-card .bg-blue-600 {
+    background-color: var(--tr-lime) !important;
+    color: #1a1030 !important;
+    border-radius: 9999px !important;
+}
+body.elpis-skin-pingouins .elpis-compose-card .hover\:bg-blue-700:hover { background-color: var(--tr-cyan) !important; }
+
+/* Bloc thinking : encadré citron */
+body.elpis-skin-pingouins [data-think] {
+    background: var(--surface-4);
+    border: 2px dashed var(--tr-violet);
+    border-radius: var(--radius-md);
+    padding: 0.4rem 0.7rem;
+}
+

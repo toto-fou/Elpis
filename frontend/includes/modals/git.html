@@ -1,0 +1,288 @@
+<!--
+  includes/modals/git.html -- Git workflow modals (extracted from index.html)
+
+  Contains the 5 Git UI modals, all toggled via v-if on top-level showGit* flags:
+    * showGitCloneModal    -- Clone a remote repo into the sandbox
+    * showGitInitModal     -- Initialize an empty repo in the current folder
+    * showGitRemoteModal   -- Add/edit the origin remote URL
+    * showGitPushAuth      -- Credentials prompt on first push (user/token)
+    * showGitMergeModal    -- Merge preview with conflict resolution UI
+
+  Design system : ces 5 modales suivent le MÊME socle que la modale Paramètres
+  (includes/modals/settings.html) → surfaces/bordures/texte via les TOKENS
+  (utilitaires bridgés bg-white/bg-slate-*/border-slate-*/text-slate-* +
+  classes .set-input/.set-select), donc elles se thématisent en clair, sombre
+  ET dans les skins. Seul l'ACCENT (icône d'en-tête + bouton primaire + statut)
+  reste une couleur sémantique Tailwind (bleu = action, rouge/ambre = état…),
+  que les skins remappent. a11y : role="dialog" aria-modal, Échap pour fermer,
+  autofocus, libellés de boutons icône. Contrat JS (showGit*, gitClone,
+  gitCloneForm, gitConnectors, handlers…) INCHANGÉ. z-index 5000 = niveau modal.
+-->
+<Transition name="modal">
+
+<div v-if="showGitCloneModal" class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4" @click.self="showGitCloneModal=false" @keydown.esc="showGitCloneModal=false">
+        <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-96 max-w-full overflow-hidden" role="dialog" aria-modal="true" aria-label="Cloner un dépôt Git" tabindex="-1" data-a11y-modal>
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-slate-800 flex items-center gap-2.5">
+                    <span class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-blue-500 shrink-0"><i class="ph ph-download-simple text-base" aria-hidden="true"></i></span>
+                    Cloner un dépôt
+                </h2>
+                <button @click="showGitCloneModal=false" aria-label="Fermer" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center shrink-0"><i class="ph ph-x text-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="p-4 space-y-3">
+                <!-- Picker « cloner depuis un connecteur » : sélectionne un connecteur,
+                     liste ses dépôts (API du provider), un clic pré-remplit l'URL. -->
+                <div v-if="gitConnectors && gitConnectors.length">
+                    <label class="text-xs font-medium text-slate-500 block mb-1">Cloner depuis un connecteur</label>
+                    <select v-model="gitCloneConnectorId" @change="gitLoadConnectorRepos(gitCloneConnectorId)" class="set-select w-full">
+                        <option value="">— choisir un connecteur —</option>
+                        <option v-for="c in gitConnectors" :key="c.id" :value="c.id">{{ c.host }}<template v-if="c.label"> · {{ c.label }}</template></option>
+                    </select>
+                </div>
+                <div v-if="gitCloneConnectorId">
+                    <div v-if="gitCloneReposLoading" class="text-center py-3 text-slate-400"><i class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i></div>
+                    <div v-else-if="gitCloneReposError" class="text-[11px] text-amber-600 bg-amber-500/10 rounded-lg px-3 py-2">{{ gitCloneReposError }}</div>
+                    <template v-else-if="gitCloneRepos.length">
+                        <div class="relative mb-2">
+                            <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" aria-hidden="true"></i>
+                            <input v-model="gitCloneRepoFilter" placeholder="Filtrer les dépôts..." aria-label="Filtrer les dépôts" class="w-full bg-slate-50 text-slate-700 text-sm pl-7 pr-3 py-2 rounded-lg outline-none border border-slate-200 focus:border-blue-500 focus:bg-white transition-colors placeholder:text-slate-400">
+                        </div>
+                        <div class="bg-slate-50 rounded-lg max-h-48 overflow-y-auto custom-scrollbar border border-slate-200">
+                            <button v-for="r in gitFilteredCloneRepos" :key="r.full_name" @click="gitPickRepo(r)" type="button"
+                                    class="w-full text-left px-2.5 py-1.5 border-b border-slate-100 last:border-0 hover:bg-slate-100 transition flex items-start gap-2"
+                                    :class="gitCloneForm.url === r.clone_url ? 'bg-blue-500/10' : ''">
+                                <i class="ph text-sm mt-0.5 shrink-0" :class="r.private ? 'ph-lock-simple text-amber-500' : 'ph-git-branch text-slate-400'" aria-hidden="true"></i>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block text-xs text-slate-700 font-mono truncate">{{ r.full_name }}</span>
+                                    <span v-if="r.description" class="block text-[10px] text-slate-500 truncate">{{ r.description }}</span>
+                                </span>
+                                <i v-if="gitCloneForm.url === r.clone_url" class="ph ph-check text-blue-600 text-sm shrink-0 mt-0.5" aria-hidden="true"></i>
+                            </button>
+                            <div v-if="!gitFilteredCloneRepos.length" class="px-2.5 py-2 text-[11px] text-slate-500">Aucun dépôt ne correspond.</div>
+                        </div>
+                        <div class="text-[10px] text-slate-400 mt-1">~100 dépôts les plus récents. Sinon, colle l'URL ci-dessous.</div>
+                    </template>
+                </div>
+                <div><label class="text-xs font-medium text-slate-500 block mb-1">URL du dépôt</label><input v-model="gitCloneForm.url" placeholder="https://github.com/user/repo.git" autofocus class="set-input font-mono"></div>
+                <!-- Connecteurs Git : credentials appliqués AUTOMATIQUEMENT par host du remote (gérés dans Réglages). -->
+                <div class="text-[11px] leading-snug">
+                    <template v-if="gitConnectors && gitConnectors.length">
+                        <span class="text-slate-500"><i class="ph ph-key" aria-hidden="true"></i> Connecteurs : </span><span v-for="(c,i) in gitConnectors" :key="c.id"><span v-if="i > 0" class="text-slate-400">, </span><span class="font-mono text-slate-600">{{ c.host }}</span></span><span class="text-slate-500"> — auth auto par host. </span><a @click="showGitCloneModal=false; openSettings(); settingsTab='connectors'; loadGitConnectors()" class="text-blue-600 hover:underline cursor-pointer font-medium">Gérer</a>
+                    </template>
+                    <template v-else>
+                        <span class="text-slate-500">Dépôt privé ? </span><a @click="showGitCloneModal=false; openSettings(); settingsTab='connectors'; loadGitConnectors()" class="text-blue-600 hover:underline cursor-pointer font-medium">Ajoutez un connecteur Git</a><span class="text-slate-500"> pour vous authentifier.</span>
+                    </template>
+                </div>
+                <div><label class="text-xs font-medium text-slate-500 block mb-1">Sous-dossier (optionnel)</label><input v-model="gitCloneForm.dir" placeholder="Nom auto-détecté depuis l'URL" class="set-input font-mono"></div>
+                <div v-if="gitError" class="text-xs text-rose-600 bg-rose-500/10 rounded-lg px-3 py-2 font-mono break-all">{{ gitError }}</div>
+                <button @click="gitClone" :disabled="!gitCloneForm.url||gitLoading" class="w-full py-2.5 text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2" :class="gitLoading ? 'bg-blue-600/70 text-white cursor-wait' : (!gitCloneForm.url ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white')"><i v-if="gitLoading" class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i><i v-else class="ph ph-download-simple" aria-hidden="true"></i> {{ gitLoading?'Clonage...':'Cloner' }}</button>
+            </div>
+        </div>
+    </div>
+
+</Transition>
+    <Transition name="modal">
+
+    <div v-if="showGitInitModal" class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4" @click.self="showGitInitModal=false" @keydown.esc="showGitInitModal=false">
+        <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-96 max-w-full overflow-hidden" role="dialog" aria-modal="true" aria-label="Initialiser un dépôt Git" tabindex="-1" data-a11y-modal>
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-slate-800 flex items-center gap-2.5">
+                    <span class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-orange-500 shrink-0"><i class="ph ph-git-branch text-base" aria-hidden="true"></i></span>
+                    Initialiser Git
+                </h2>
+                <button @click="showGitInitModal=false" aria-label="Fermer" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center shrink-0"><i class="ph ph-x text-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div><label class="text-xs font-medium text-slate-500 block mb-1">Sous-dossier</label><input v-model="gitInitForm.dir" placeholder="mon-projet (vide = racine)" autofocus class="set-input font-mono"></div>
+                <div><label class="text-xs font-medium text-slate-500 block mb-1">Nom (optionnel)</label><input v-model="gitInitForm.user_name" placeholder="Votre nom" class="set-input"></div>
+                <div><label class="text-xs font-medium text-slate-500 block mb-1">Email (optionnel)</label><input v-model="gitInitForm.user_email" placeholder="vous@example.com" class="set-input font-mono"></div>
+                <button @click="gitInit" :disabled="gitLoading" class="w-full py-2.5 text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2" :class="gitLoading ? 'bg-orange-600/70 text-white cursor-wait' : 'bg-orange-600 hover:bg-orange-500 text-white'"><i v-if="gitLoading" class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i><i v-else class="ph ph-plus" aria-hidden="true"></i> Initialiser</button>
+            </div>
+        </div>
+    </div>
+
+    </Transition>
+    <Transition name="modal">
+
+    <div v-if="showGitRemoteModal" class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4" @click.self="showGitRemoteModal=false" @keydown.esc="showGitRemoteModal=false">
+        <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-96 max-w-full overflow-hidden" role="dialog" aria-modal="true" aria-label="Configurer le remote Git" tabindex="-1" data-a11y-modal>
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-slate-800 flex items-center gap-2.5">
+                    <span class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-blue-500 shrink-0"><i class="ph ph-globe text-base" aria-hidden="true"></i></span>
+                    Configurer le remote
+                </h2>
+                <button @click="showGitRemoteModal=false" aria-label="Fermer" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center shrink-0"><i class="ph ph-x text-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div><label class="text-xs font-medium text-slate-500 block mb-1">URL origin</label><input v-model="gitRemoteForm.url" :placeholder="gitStatus&&gitStatus.remote_url?gitStatus.remote_url:'https://github.com/user/repo.git'" autofocus class="set-input font-mono"></div>
+                <button @click="gitSetRemote" :disabled="!gitRemoteForm.url||gitLoading" class="w-full py-2.5 text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2" :class="gitLoading ? 'bg-blue-600/70 text-white cursor-wait' : (!gitRemoteForm.url ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white')"><i v-if="gitLoading" class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i><i v-else class="ph ph-check" aria-hidden="true"></i> Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    </Transition>
+
+    <!-- Push auth modal -->
+    <Transition name="modal">
+
+    <div v-if="showGitPushAuth" class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4" @click.self="showGitPushAuth=false" @keydown.esc="showGitPushAuth=false">
+        <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-96 max-w-full overflow-hidden" role="dialog" aria-modal="true" aria-label="Authentification Git" tabindex="-1" data-a11y-modal>
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-slate-800 flex items-center gap-2.5">
+                    <span class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-amber-500 shrink-0"><i class="ph ph-key text-base" aria-hidden="true"></i></span>
+                    Authentification Git
+                </h2>
+                <button @click="showGitPushAuth=false" aria-label="Fermer" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center shrink-0"><i class="ph ph-x text-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="p-4 space-y-3">
+                <p class="text-[11px] text-slate-500">Identifiants requis pour push vers le remote HTTPS.</p>
+                <div>
+                    <label class="text-xs font-medium text-slate-500 block mb-1">Utilisateur</label>
+                    <!-- BUG FIX — la garde `$event.target.nextElementSibling` était toujours null (l'input est seul dans son div), court-circuitant le focus du champ token et faisant qu'Entrée ne faisait rien. On déroule directement le chemin réel avec optional chaining. -->
+                    <input v-model="gitCredUser" placeholder="Nom d'utilisateur GitHub / GitLab" autofocus class="set-input font-mono" @keydown.enter="$event.target.parentElement?.nextElementSibling?.querySelector('input')?.focus()">
+                </div>
+                <div>
+                    <label class="text-xs font-medium text-slate-500 block mb-1">Token / Mot de passe</label>
+                    <div class="relative">
+                        <input v-model="gitCredToken" :type="gitCredShowPwd ? 'text' : 'password'" placeholder="Token d'accès ou mot de passe" class="set-input font-mono" style="padding-right:2.25rem" @keydown.enter="gitPushAfterAuth()">
+                        <button @click="gitCredShowPwd=!gitCredShowPwd" type="button" :aria-label="gitCredShowPwd ? 'Masquer le token' : 'Afficher le token'" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
+                            <i class="ph text-sm" :class="gitCredShowPwd ? 'ph-eye-slash' : 'ph-eye'" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                <button @click="gitPushAfterAuth()" :disabled="!gitCredUser || !gitCredToken || gitLoading"
+                        class="w-full py-2.5 text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2"
+                        :class="(gitCredUser && gitCredToken && !gitLoading) ? 'bg-blue-600 hover:bg-blue-500 text-white' : (gitLoading ? 'bg-blue-600/70 text-white cursor-wait' : 'bg-slate-100 text-slate-400 cursor-not-allowed')">
+                    <i v-if="gitLoading" class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i><i v-else class="ph ph-arrow-up" aria-hidden="true"></i> Push
+                </button>
+                <p class="text-[10px] text-slate-400 text-center">Les identifiants sont conservés pour cette session uniquement.</p>
+            </div>
+        </div>
+    </div>
+
+    </Transition>
+
+    <!-- Merge modal -->
+    <Transition name="modal">
+
+    <div v-if="showGitMergeModal" class="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4" @click.self="showGitMergeModal=false" @keydown.esc="showGitMergeModal=false">
+        <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-[480px] max-w-full max-h-[80vh] flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-label="Merger une branche Git" tabindex="-1" data-a11y-modal>
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <h2 class="text-sm font-semibold text-slate-800 flex items-center gap-2.5">
+                    <span class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-blue-500 shrink-0"><i class="ph ph-git-merge text-base" aria-hidden="true"></i></span>
+                    Merger une branche
+                </h2>
+                <button @click="showGitMergeModal=false" aria-label="Fermer" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center shrink-0"><i class="ph ph-x text-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="p-4 space-y-3 overflow-y-auto custom-scrollbar">
+                <div>
+                    <label class="text-xs font-medium text-slate-500 block mb-1.5">Branche à merger dans {{ gitStatus ? gitStatus.branch : '' }}</label>
+                    <!-- (passe 4, F14) autofocus : sans focus DANS la modale, le
+                         @keydown.esc du backdrop ne recevait jamais l'événement
+                         (parité avec les modales clone/init/remote qui l'ont). -->
+                    <select v-model="gitMergeBranch" @change="gitLoadMergePreview(gitMergeBranch)" autofocus class="set-select w-full font-mono">
+                        <option value="" disabled>Sélectionner une branche...</option>
+                        <option v-for="b in gitBranches.local.filter(b => b !== (gitStatus && gitStatus.branch))" :key="b" :value="b">{{ b }}</option>
+                    </select>
+                </div>
+                <!-- Preview -->
+                <template v-if="gitMergePreview">
+                    <!-- Summary -->
+                    <div class="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                        <div class="text-center">
+                            <div class="text-lg font-bold text-slate-800">{{ gitMergePreview.commits.length }}</div>
+                            <div class="text-xs font-semibold text-slate-500">Commits</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-lg font-bold text-slate-800">{{ gitMergePreview.files.length }}</div>
+                            <div class="text-xs font-semibold text-slate-500">Fichiers</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-lg font-bold text-emerald-600">+{{ gitMergePreview.total_add }}</div>
+                            <div class="text-xs font-semibold text-slate-500">Ajouts</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-lg font-bold text-rose-500">-{{ gitMergePreview.total_del }}</div>
+                            <div class="text-xs font-semibold text-slate-500">Suppr.</div>
+                        </div>
+                    </div>
+                    <!-- Commits -->
+                    <div v-if="gitMergePreview.commits.length">
+                        <div class="text-xs font-medium text-slate-500 mb-1">Commits à intégrer</div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg max-h-32 overflow-y-auto custom-scrollbar">
+                            <div v-for="c in gitMergePreview.commits" :key="c.short" class="flex items-center gap-2 px-2.5 py-1 text-[11px] border-b border-slate-100 last:border-0">
+                                <span class="text-blue-600 font-mono shrink-0">{{ c.short }}</span>
+                                <span class="text-slate-700 truncate flex-1">{{ c.message }}</span>
+                                <span class="text-[9px] text-slate-400 shrink-0">{{ c.author }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Files -->
+                    <div v-if="gitMergePreview.files.length">
+                        <div class="text-xs font-medium text-slate-500 mb-1">Fichiers modifiés</div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
+                            <div v-for="f in gitMergePreview.files" :key="f.path" class="flex items-center gap-2 px-2.5 py-1 text-[11px] border-b border-slate-100 last:border-0">
+                                <span class="text-slate-700 font-mono truncate flex-1">{{ f.path }}</span>
+                                <span class="text-emerald-600 text-[10px] font-mono font-bold shrink-0">+{{ f.add }}</span>
+                                <span class="text-rose-500 text-[10px] font-mono font-bold shrink-0">-{{ f.del }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="!gitMergePreview.commits.length && !gitMergePreview.files.length && !gitMergePreview.conflicts" class="text-center py-3 text-xs text-slate-500">
+                        <i class="ph ph-check-circle text-emerald-600" aria-hidden="true"></i> Déjà à jour -- rien à merger
+                    </div>
+                    <!-- = CONFLICT RESOLUTION = -->
+                    <div v-if="gitMergePreview.conflicts && gitMergePreview.conflicts.length" class="space-y-3">
+                        <div class="bg-rose-500/10 border border-rose-500/20 rounded-lg p-3">
+                            <div class="text-sm font-semibold text-rose-600 flex items-center gap-2 mb-2"><i class="ph ph-warning-circle" aria-hidden="true"></i> {{ gitMergePreview.conflicts.length }} conflit(s) détecté(s)</div>
+                            <div class="text-[11px] text-rose-500 mb-3">Choisissez une version par fichier, ou pour tous en bas.</div>
+                            <div class="bg-white/60 rounded max-h-32 overflow-y-auto custom-scrollbar">
+                                <div v-for="f in gitMergePreview.conflicts" :key="f" class="flex items-center gap-2 px-2.5 py-1 text-[11px] border-b border-rose-500/10 last:border-0">
+                                    <i class="ph ph-warning text-rose-500 text-xs" aria-hidden="true"></i>
+                                    <span class="text-rose-600 font-mono truncate flex-1">{{ f }}</span>
+                                    <!-- Résolution fichier par fichier (2026-09-19) -->
+                                    <button @click="gitResolveFile('theirs', f)" :disabled="gitLoading" class="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600" :title="'Prendre la version de ' + gitMergeBranch">{{ gitMergeBranch || 'Leur' }}</button>
+                                    <button @click="gitResolveFile('ours', f)" :disabled="gitLoading" class="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600" :title="'Garder la version de ' + (gitStatus ? gitStatus.branch : '')">{{ gitStatus ? gitStatus.branch : 'Mienne' }}</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button @click="gitMergeResolve('theirs')" :disabled="gitLoading"
+                                    class="py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition flex items-center justify-center gap-1.5">
+                                <i class="ph ph-arrow-left text-sm" aria-hidden="true"></i> Garder {{ gitMergeBranch }}
+                            </button>
+                            <button @click="gitMergeResolve('ours')" :disabled="gitLoading"
+                                    class="py-2 text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition flex items-center justify-center gap-1.5">
+                                <i class="ph ph-shield text-sm" aria-hidden="true"></i> Garder {{ gitStatus ? gitStatus.branch : '' }}
+                            </button>
+                        </div>
+                        <button @click="gitMergeAbort" :disabled="gitLoading"
+                                class="w-full py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition flex items-center justify-center gap-1.5">
+                            <i class="ph ph-x text-sm" aria-hidden="true"></i> Annuler le merge
+                        </button>
+                    </div>
+                </template>
+                <div v-else-if="gitLoading && gitMergeBranch" class="text-center py-4"><i class="ph ph-spinner-gap animate-spin text-slate-400 text-xl" aria-hidden="true"></i></div>
+                <!-- Action buttons (when no conflicts) -->
+                <div v-if="!gitMergePreview || !gitMergePreview.conflicts || !gitMergePreview.conflicts.length" class="space-y-2">
+                    <button @click="gitExecuteMerge('')" :disabled="!gitMergeBranch || gitLoading || (gitMergePreview && !(gitMergePreview.commits && gitMergePreview.commits.length) && !(gitMergePreview.conflicts && gitMergePreview.conflicts.length))"
+                            class="w-full py-2.5 text-sm font-semibold rounded-lg transition flex items-center justify-center gap-2"
+                            :class="gitMergeBranch ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'">
+                        <i class="ph ph-git-merge" aria-hidden="true"></i> Merger {{ gitMergeBranch }} → {{ gitStatus ? gitStatus.branch : '' }}
+                    </button>
+                    <div v-if="gitMergeBranch" class="flex gap-2">
+                        <button @click="gitExecuteMerge('theirs')" :disabled="gitLoading"
+                                class="flex-1 py-1.5 text-[10px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition" title="En cas de conflit, prendre la version de la branche mergée">
+                            Priorité {{ gitMergeBranch }}
+                        </button>
+                        <button @click="gitExecuteMerge('ours')" :disabled="gitLoading"
+                                class="flex-1 py-1.5 text-[10px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition" title="En cas de conflit, garder la version actuelle">
+                            Priorité {{ gitStatus ? gitStatus.branch : '' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </Transition>

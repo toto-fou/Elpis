@@ -1,0 +1,79 @@
+<!--
+  includes/admin/tab_report.html — Rapport quotidien d'usage IA d'équipe.
+
+  Rendu quand adminTab === 'report'. Snapshot curé des KPI (zone Métriques),
+  alimenté par /api/admin/report/daily. « Générer » notifie les administrateurs.
+
+  Passée à l'idiome `.adm-*` avec le reste de la zone Métriques (cartes à
+  en-tête, rangées de réglage, boutons tokenisés) au lieu de son patron ad hoc.
+  Structure et contrat JS inchangés (dailyReport, reportValueSections,
+  reportTitle, reportVal, generateDailyReport, printDailyReport…).
+-->
+                    <div v-if="adminTab==='report'" class="animate-[fadeIn_0.2s] space-y-4">
+
+                        <!-- En-tête + actions -->
+                        <section class="adm-card">
+                            <header class="adm-card__head">
+                                <i class="ph ph-file-text adm-card__icon" aria-hidden="true"></i>
+                                <div>
+                                    <h3 class="adm-card__title">Rapport du jour</h3>
+                                    <p class="adm-card__hint">
+                                        Usage de l'IA sur les dernières 24 h<span v-if="dailyReport && dailyReport.date"> · {{ dailyReport.date }}</span>
+                                    </p>
+                                </div>
+                                <div class="adm-card__actions">
+                                    <select v-if="reportHistory && reportHistory.length"
+                                            @change="loadDailyReport($event.target.value || null)"
+                                            class="set-select text-sm" aria-label="Jour du rapport">
+                                        <option value="">Aujourd'hui</option>
+                                        <option v-for="r in reportHistory" :key="r.date" :value="r.date">{{ r.date }}</option>
+                                    </select>
+                                    <button type="button" @click="printDailyReport()" class="adm-btn adm-btn--quiet adm-tool">
+                                        <i class="ph ph-printer" aria-hidden="true"></i> Imprimer
+                                    </button>
+                                    <button type="button" @click="generateDailyReport()" :disabled="dailyReportGenerating"
+                                            class="adm-btn adm-btn--primary">
+                                        <i class="ph" :class="dailyReportGenerating ? 'ph-spinner animate-spin' : 'ph-paper-plane-tilt'" aria-hidden="true"></i>
+                                        Générer
+                                    </button>
+                                </div>
+                            </header>
+                            <div class="adm-rows">
+                                <div class="adm-row">
+                                    <div>
+                                        <span class="adm-row__label" title="Chaque jour, aux administrateurs.">Envoi automatique</span>
+                                        <span class="sr-only">Chaque jour, aux administrateurs.</span>
+                                    </div>
+                                    <div>
+                                        <label class="flex items-center gap-2 text-sm cursor-pointer w-fit">
+                                            <span class="relative inline-flex items-center shrink-0">
+                                                <input type="checkbox" class="sr-only peer" :checked="dailyDigestAuto" @change="setDailyDigestAuto($event.target.checked)">
+                                                <span class="set-switch-track"></span>
+                                            </span>
+                                            <span class="adm-row__label">{{ dailyDigestAuto ? 'Activé' : 'Désactivé' }}</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Chargement -->
+                        <div v-if="dailyReportLoading && !dailyReport" class="adm-card p-12 text-center">
+                            <i class="ph ph-spinner animate-spin text-3xl mb-2 block adm-empty__icon" aria-hidden="true"></i>
+                            <span class="adm-empty">Chargement du rapport…</span>
+                        </div>
+
+                        <!-- Sections de KPI (valeurs) -->
+                        <section v-for="sec in reportValueSections" :key="sec.id" class="adm-card">
+                            <header class="adm-card__head">
+                                <div><h3 class="adm-card__title">{{ sec.label }}</h3></div>
+                            </header>
+                            <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div v-for="wid in sec.widgets" :key="wid" class="adm-stat">
+                                    <div class="adm-stat__label">{{ reportTitle(wid) }}</div>
+                                    <div class="adm-stat__value tabular-nums">{{ reportVal(wid) }}</div>
+                                </div>
+                            </div>
+                        </section>
+
+                    </div>

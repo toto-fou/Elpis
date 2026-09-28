@@ -1,0 +1,62 @@
+<!--
+  includes/admin/page_head.html — En-tête de TOUTES les pages de la console
+  ==========================================================================
+  Refonte 2026-09-27 : une seule forme d'en-tête (les pages de métriques
+  avaient une barre à part), hors de la zone qui défile, alignée sur la colonne
+  de contenu de la page (formulaire ou large, selon le registre).
+
+  De gauche à droite : entrée parente, titre (h1 — reçoit le focus à chaque
+  changement de page), actions propres à la page. Plus de badge « Admin » (la
+  barre latérale dit déjà « Console admin »), plus de phrase d'aide sous le
+  titre (règle UX compacte : le détail est dans l'infobulle des libellés), plus
+  de barre d'ancres (les sous-pages sont courtes). Pas de bouton d'aide : le
+  site /docs n'est pas livré avec elpis.
+-->
+        <header class="adm-page-head">
+            <div class="adm-col adm-page-head__in" :class="{ 'adm-col--wide': adminPage.wide }">
+                <!-- Révélateur du panneau latéral sur fenêtre étroite. -->
+                <button type="button" @click="showSidebar = !showSidebar" class="lg:hidden adm-btn adm-btn--icon -ml-2"
+                        title="Afficher ou masquer le panneau" aria-label="Afficher ou masquer le panneau">
+                    <i class="ph ph-list text-lg" aria-hidden="true"></i>
+                </button>
+                <div class="adm-page-head__titles">
+                    <div v-if="adminPage.entryLabel && adminPage.entryLabel !== adminPage.label" class="adm-page-head__parent">{{ adminPage.entryLabel }}</div>
+                    <h1 ref="adminH1" tabindex="-1" class="adm-page-head__title">{{ adminPage.label }}</h1>
+                </div>
+
+                <div class="adm-page-head__side">
+                    <!-- ── Comptes : filtre, rechargement, création ── -->
+                    <template v-if="adminTab === 'accounts'">
+                        <div class="relative">
+                            <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" aria-hidden="true"></i>
+                            <input v-model="usersSearch" placeholder="Nom ou groupe" aria-label="Filtrer les comptes"
+                                   class="set-input w-56 pl-8">
+                        </div>
+                        <button type="button" @click="loadUsers(true)" title="Recharger la liste" aria-label="Recharger la liste"
+                                class="adm-btn adm-btn--icon">
+                            <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" @click="showNewUserModal = true" class="adm-btn adm-btn--primary">
+                            <i class="ph ph-user-plus text-base" aria-hidden="true"></i> Créer un compte
+                        </button>
+                    </template>
+
+                    <!-- ── Vue d'ensemble : fraîcheur de la tournée + actualisation ── -->
+                    <template v-else-if="adminTab === 'overview'">
+                        <span v-if="overviewAge" class="adm-page-head__meta" aria-live="off">Actualisé {{ overviewAge }}</span>
+                        <button type="button" class="adm-btn adm-btn--icon" :disabled="overviewLoading"
+                                @click="loadOverview(adminIsAdmin)" title="Actualiser" aria-label="Actualiser">
+                            <i class="ph ph-arrow-clockwise" :class="overviewLoading ? 'animate-spin' : ''" aria-hidden="true"></i>
+                        </button>
+                    </template>
+
+                    <!-- ── Prompts : l'éditeur porte son propre Enregistrer ── -->
+                    <template v-else-if="adminTab === 'prompts'">
+                        <button type="button" @click="loadSystemPrompts()" :disabled="promptsLoading" class="adm-btn adm-btn--quiet">
+                            <i class="ph ph-arrow-clockwise" :class="promptsLoading ? 'animate-spin' : ''" aria-hidden="true"></i> Recharger
+                        </button>
+                    </template>
+
+                </div>
+            </div>
+        </header>

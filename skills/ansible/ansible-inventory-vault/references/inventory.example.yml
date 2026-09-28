@@ -1,0 +1,47 @@
+# inventory.example.yml — inventaire YAML commenté.
+# Contrôle : ansible-inventory -i inventory.example.yml --graph
+#            ansible-inventory -i inventory.example.yml --host web1
+#
+# Les variables volumineuses vivent dans group_vars/<groupe>.yml et
+# host_vars/<hôte>.yml À CÔTÉ de ce fichier (chargement automatique par nom) ;
+# les secrets dans group_vars/all/vault.yml chiffré (voir le skill).
+---
+all:
+  vars:
+    # Défauts globaux — écrasés par group_vars puis host_vars puis -e.
+    ansible_user: deploy
+    ansible_python_interpreter: /usr/bin/python3
+
+  children:
+    web:
+      hosts:
+        web1:
+          ansible_host: 10.0.1.11    # nom logique découplé de l'IP
+        web2:
+          ansible_host: 10.0.1.12
+      vars:
+        app_port: 8080
+
+    workers:
+      hosts:
+        worker[1:3]:                 # plage : worker1, worker2, worker3
+          ansible_host: 10.0.2.1
+
+    db:
+      hosts:
+        db1:
+          ansible_host: 10.0.3.10
+          ansible_port: 2222         # SSH non standard sur cet hôte
+
+    # Groupe de groupes : cible "production" = web + workers + db.
+    production:
+      children:
+        web:
+        workers:
+        db:
+
+    # Bac à sable isolé — mêmes rôles, autres machines.
+    staging:
+      hosts:
+        staging1:
+          ansible_host: 10.9.0.5

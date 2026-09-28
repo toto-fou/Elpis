@@ -1,0 +1,319 @@
+<!--
+  includes/modals/misc.html -- Grab-bag of small top-level modals (extracted from index.html)
+
+  Five independent, mostly-static modals grouped here because each
+  is too small to warrant its own partial and none depend on the
+  others:
+
+    * showInfoModal        -- About / version / build info.
+    * showOpenCodeModal   -- OpenCode CLI installation instructions (téléchargement LAN).
+    * showHelpModal        -- Keyboard shortcuts + quick help.
+    * imgZoom              -- Fullscreen image viewer (triggered from
+                             chat images, diagram SVGs, etc.).
+    * showAxModal          -- Alignment-aware (AX) picker -- experimental.
+    * toolInfo             -- Fiche d'un outil (bouton « i » du panneau Outils).
+
+  Included from index.html via the @include preprocessor directive.
+-->
+    <Transition name="modal">
+
+    <div v-if="showInfoModal" data-a11y-modal role="dialog" aria-modal="true" aria-label="À propos" class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4" @click.self="showInfoModal = false">
+        <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-full max-w-sm overflow-hidden">
+            <div class="p-4 flex justify-end"><button @click="showInfoModal = false" aria-label="Fermer" class="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100 flex items-center justify-center transition-colors"><i class="ph ph-x"></i></button></div>
+            <div class="px-6 pb-8 text-center -mt-2">
+                <div class="mx-auto mb-5 flex items-center justify-center">
+                    <img v-if="appInfo.iconType === 'image' && appInfo.logoBb64"
+                        :src="appInfo.logoBb64" class="w-20 h-20 rounded-[20px] object-cover shadow-lg">
+                    <img v-else src="static/elpis-256.png" alt="Elpis"
+                        class="w-20 h-20 rounded-[20px] object-cover shadow-lg">
+                </div>
+                <h4 class="font-bold text-xl text-slate-900 tracking-tight">{{ appInfo.name }}</h4>
+                <p v-if="appInfo.description" class="text-sm text-slate-500 mt-1.5 px-2">{{ appInfo.description }}</p>
+                <div class="mt-2 inline-block px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-[11px] font-semibold border border-slate-200">v{{ appInfo.version }}</div>
+                <div class="mt-5 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-left space-y-3">
+                    <div v-if="appInfo.teamName" class="flex justify-between items-center">
+                        <span class="text-slate-500 font-medium text-xs">Équipe</span>
+                        <span class="font-semibold text-slate-800 text-xs">{{ appInfo.teamName }}</span>
+                    </div>
+                    <div v-if="appInfo.teamName" class="h-px bg-slate-200 w-full"></div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-500 font-medium text-xs">Moteur LLM</span>
+                        <span class="font-bold text-blue-600 text-xs bg-blue-50 px-1.5 py-0.5 rounded">{{ appInfo.engine }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </Transition>
+
+    <Transition name="modal">
+
+
+    <div v-if="showOpenCodeModal && features.opencode" data-a11y-modal role="dialog" aria-modal="true" aria-label="OpenCode" @click.self="showOpenCodeModal = false" class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4">
+        <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+                        <i class="ph ph-terminal text-lg"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900">OpenCode</h3>
+                </div>
+                <button @click="showOpenCodeModal = false" aria-label="Fermer" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors flex items-center justify-center">
+                    <i class="ph ph-x text-lg"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div class="grid grid-cols-3 gap-2">
+                    <button @click="openCodePlatform = 'linux'" :class="openCodePlatform === 'linux' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'" class="py-2.5 rounded-lg border-2 transition-all flex flex-col items-center gap-1">
+                        <i class="ph ph-linux-logo text-xl"></i>
+                        <span class="text-xs font-semibold">Linux</span>
+                    </button>
+                    <button @click="openCodePlatform = 'windows'" :class="openCodePlatform === 'windows' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'" class="py-2.5 rounded-lg border-2 transition-all flex flex-col items-center gap-1">
+                        <i class="ph ph-windows-logo text-xl"></i>
+                        <span class="text-xs font-semibold">Windows</span>
+                    </button>
+                    <button @click="openCodePlatform = 'macos'" :class="openCodePlatform === 'macos' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'" class="py-2.5 rounded-lg border-2 transition-all flex flex-col items-center gap-1">
+                        <i class="ph ph-apple-logo text-xl"></i>
+                        <span class="text-xs font-semibold">macOS</span>
+                    </button>
+                </div>
+                <!-- Blocs de commande UNIQUEMENT (demande user 2026-09-03) : libellé
+                     court, code, bouton Copier — aucun texte explicatif. -->
+                <div>
+                    <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Installer · mettre à jour</div>
+                    <div class="relative bg-slate-900 rounded-lg p-3 pr-20 font-mono text-xs text-green-300 overflow-x-auto border border-slate-800">
+                        <code class="break-all">{{ openCodeCommand }}</code>
+                        <button @click="copyOpenCodeCommand('install')" aria-label="Copier la commande d'installation" class="absolute top-1.5 right-1.5 px-2 py-0.5 text-xs bg-slate-800 hover:bg-slate-700 text-white rounded border border-slate-700 flex items-center gap-1 transition-colors">
+                            <i :class="openCodeCopied === 'install' ? 'ph ph-check text-green-400' : 'ph ph-copy'"></i>
+                            {{ openCodeCopied === 'install' ? 'Copié' : 'Copier' }}
+                        </button>
+                    </div>
+                </div>
+                <!-- Une entrée MCP par famille d'outils côté opencode = une bascule
+                     chacune dans son TUI. Ce choix-ci est celui qui DURE : celui du
+                     TUI n'est pas persisté et un re-sync réécrit la config. -->
+                <div v-if="openCodeFamilies.length">
+                    <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Outils</div>
+                    <div class="flex flex-wrap gap-2">
+                        <button v-for="f in openCodeFamilies" :key="f.name" type="button"
+                                @click="toggleOpencodeFamily(f.name)"
+                                :aria-pressed="opencodeFamilyOn(f.name) ? 'true' : 'false'"
+                                :class="opencodeFamilyOn(f.name) ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'"
+                                class="px-3 py-1.5 rounded-lg border-2 text-xs font-semibold transition-colors flex items-center gap-1.5">
+                            <i :class="opencodeFamilyOn(f.name) ? 'ph ph-check-circle' : 'ph ph-circle'"></i>
+                            {{ f.label }}
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Config seule</div>
+                    <div class="relative bg-slate-900 rounded-lg p-3 pr-20 font-mono text-xs text-green-300 overflow-x-auto border border-slate-800">
+                        <code class="break-all">{{ openCodeSyncCommand }}</code>
+                        <button @click="copyOpenCodeCommand('sync')" aria-label="Copier la commande de mise à jour de la config" class="absolute top-1.5 right-1.5 px-2 py-0.5 text-xs bg-slate-800 hover:bg-slate-700 text-white rounded border border-slate-700 flex items-center gap-1 transition-colors">
+                            <i :class="openCodeCopied === 'sync' ? 'ph ph-check text-green-400' : 'ph ph-copy'"></i>
+                            {{ openCodeCopied === 'sync' ? 'Copié' : 'Copier' }}
+                        </button>
+                    </div>
+                </div>
+                <button @click="downloadOpenCodeBundle" class="w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                    <i class="ph ph-download-simple"></i>
+                    Archive {{ openCodePlatform === 'windows' ? '.zip' : '.tar.gz' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    </Transition>
+
+    <Transition name="modal">
+
+
+    <div v-if="showHelpModal" data-a11y-modal role="dialog" aria-modal="true" aria-label="Documentation" @click.self="showHelpModal = false" class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4">
+        <div class="bg-slate-50 rounded-2xl shadow-2xl ring-1 ring-slate-200 w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="p-5 border-b border-slate-200 flex justify-between items-center gap-3 bg-white shrink-0">
+                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 min-w-0"><div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 shrink-0"><i class="ph ph-book-open text-lg"></i></div> <span class="truncate">Documentation</span></h2>
+                <div class="flex items-center gap-3 shrink-0">
+                    <!-- Bascule guide utilisateur / doc développeur -->
+                    <div class="flex items-center gap-1 bg-slate-100 rounded-lg p-1" role="tablist" aria-label="Type de documentation">
+                        <button @click="switchHelpDoc('user')" role="tab" :aria-selected="helpDoc==='user' ? 'true' : 'false'"
+                                :class="helpDoc==='user' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                                class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"><i class="ph ph-book-open"></i> Utilisateur</button>
+                        <button @click="switchHelpDoc('dev')" role="tab" :aria-selected="helpDoc==='dev' ? 'true' : 'false'"
+                                :class="helpDoc==='dev' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                                class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"><i class="ph ph-code"></i> Développeur</button>
+                    </div>
+                    <button @click="showHelpModal = false" aria-label="Fermer" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors flex items-center justify-center"><i class="ph ph-x text-lg"></i></button>
+                </div>
+            </div>
+            <div ref="helpBodyRef" class="flex-1 overflow-y-auto p-6 md:p-10 bg-white custom-scrollbar relative">
+                <div v-if="isLoadingReadme" class="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 text-slate-400"><i class="ph ph-spinner-gap animate-spin text-4xl mb-3"></i><p class="font-medium text-sm">Chargement...</p></div>
+                <div class="markdown-body max-w-4xl mx-auto" v-html="renderMarkdown(readmeContent)" @click="handleMarkdownClick"></div>
+            </div>
+        </div>
+    </div>
+
+
+    </Transition>
+
+    <!-- Image zoom modal -- must be INSIDE #app so Vue can bind imgZoom -->
+    <Transition name="modal">
+
+    <div v-if="imgZoom"
+         class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-zoom-out"
+         @click="imgZoom = null">
+        <img :src="imgZoom"
+             class="max-w-[92vw] max-h-[92vh] object-contain rounded-xl shadow-2xl cursor-default"
+             @click.stop>
+        <button @click="imgZoom = null"
+                class="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors backdrop-blur-sm">
+            <i class="ph ph-x text-lg"></i>
+        </button>
+    </div>
+
+    </Transition>
+
+    <Transition name="modal">
+
+
+    <div v-if="showAxModal" data-a11y-modal role="dialog" aria-modal="true" aria-label="AX Memory" class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4" @click.self="showAxModal = false">
+        <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center"><i class="ph ph-tree-structure"></i></div>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm">AX Memory -- Cartographie connue du LLM</h3>
+                        <p class="text-[10px] text-slate-400">Arbres DOM appris lors des sessions Playwright. {{axSites.length}} site(s) indexe(s).</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button @click="loadAxSites()" title="Rafraichir" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors flex items-center justify-center"><i class="ph ph-arrow-clockwise"></i></button>
+                    <button @click="showAxModal = false" aria-label="Fermer" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors flex items-center justify-center"><i class="ph ph-x text-lg"></i></button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 custom-scrollbar">
+                <div v-if="axLoading" class="flex items-center justify-center py-12">
+                    <i class="ph ph-spinner-gap animate-spin text-2xl text-blue-500"></i>
+                </div>
+                <div v-else-if="axSites.length === 0" class="text-center py-12 text-slate-500 text-sm italic">
+                    <i class="ph ph-tree-structure text-4xl text-slate-300 block mb-2"></i>
+                    Aucun site dans la memoire AX pour l'instant.<br>
+                    Lance une session Playwright sur un site pour l'indexer.
+                </div>
+                <div v-else class="space-y-2">
+                    <div v-for="site in axSites" :key="site.site"
+                         class="border border-slate-200 rounded-lg overflow-hidden hover:border-slate-300 transition-colors">
+                        <div class="flex items-center gap-3 p-3 bg-slate-50">
+                            <button @click="toggleAxSite(site.site)" class="flex-1 text-left flex items-center gap-2 min-w-0">
+                                <i :class="['ph', axExpanded[site.site] ? 'ph-caret-down' : 'ph-caret-right', 'text-slate-400 text-sm shrink-0']"></i>
+                                <span class="font-mono text-sm font-semibold text-slate-800 truncate">{{site.site}}</span>
+                                <span v-if="site.has_credentials" class="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-medium shrink-0"><i class="ph ph-key text-[9px]"></i> {{site.cred_username}}</span>
+                                <span class="text-xs text-slate-500 ml-2 shrink-0">{{site.elements}} elements · {{site.paths}} pages · {{site.transitions}} transitions</span>
+                            </button>
+                        </div>
+                        <div v-if="axExpanded[site.site]" class="bg-slate-950 text-slate-200 text-xs font-mono">
+                            <div v-if="axTreeLoading[site.site]" class="p-4 text-slate-400 italic">Chargement...</div>
+                            <pre v-else-if="axTrees[site.site]" class="p-4 overflow-x-auto whitespace-pre leading-relaxed">{{axTrees[site.site]}}</pre>
+                            <div v-else class="p-4 text-slate-500 italic">(vide)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div v-if="user.role === 'admin' || user.role === 'moderator'" class="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
+                <div class="text-[11px] text-slate-500"><i class="ph ph-info"></i> Actions de suppression disponibles dans le panel admin.</div>
+                <!-- La mémoire AX vit désormais dans Maintenance (refonte
+                     2026-08-01) : section « Mémoire AX », accessible depuis la
+                     barre d'ancres de la page. -->
+                <button @click="showAxModal = false; goToAdmin('vision')" class="text-[11px] px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md transition-colors font-medium">Gérer <i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+            </div>
+        </div>
+    </div>
+
+
+    </Transition>
+
+    <!-- Cadrage de l'assistant de création de skill : les bases (sujet/objectif/
+         domaine/scripts) sont posées AVANT d'ouvrir le chat — l'entretien LLM
+         démarre informé. Déclenché depuis l'onglet Skills des Paramètres
+         (startSkillAssistantChat, état dans app-chat.js). z-[6000] : passe
+         AU-DESSUS de la modal Paramètres (z-[5000]) ; launchSkillAssistantChat
+         ferme les Paramètres avant d'ouvrir le chat pré-configuré. Hors du
+         <Transition> ci-dessus : ce cadrage n'a jamais été animé (v-if sec).
+         PAS de data-a11y-modal : l'union _anyBigModalOpen fait un premier-match
+         querySelector — l'ajouter ici casserait le focus-trap des Paramètres
+         quand les deux sont ouvertes. -->
+    <div v-if="skillAssistForm.open" role="dialog" aria-modal="true" aria-label="Créer un skill avec l'assistant"
+         class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4"
+         @click.self="skillAssistForm.open = false">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-3">
+            <div class="flex items-center gap-2">
+                <i class="ph ph-sparkle text-slate-400 text-xl"></i>
+                <h3 class="font-semibold text-slate-900 text-sm">Créer un skill avec l'assistant</h3>
+            </div>
+            <p class="text-xs text-slate-500">Pose les bases ici — l'assistant complétera par des questionnaires interactifs dans le chat, puis rédigera et enregistrera le skill.</p>
+            <div>
+                <label class="text-[11px] font-medium text-slate-500 block mb-1">Sujet <span class="text-red-400">*</span></label>
+                <input v-model="skillAssistForm.sujet" placeholder="Déployer l'app sur le serveur de staging"
+                       class="set-input">
+            </div>
+            <div>
+                <label class="text-[11px] font-medium text-slate-500 block mb-1">Objectif / résultat attendu <span class="text-slate-400">(optionnel)</span></label>
+                <textarea v-model="skillAssistForm.objectif" rows="2" placeholder="À la fin, l'app tourne sur staging et le smoke-test passe."
+                          class="set-textarea" style="min-height: 3.5rem;"></textarea>
+            </div>
+            <div class="flex gap-3">
+                <div class="flex-1">
+                    <label class="text-[11px] font-medium text-slate-500 block mb-1">Domaine <span class="text-slate-400">(optionnel)</span></label>
+                    <input v-model="skillAssistForm.domaine" placeholder="jenkins, qdrant…"
+                           class="set-input">
+                </div>
+                <div class="shrink-0">
+                    <label class="text-[11px] font-medium text-slate-500 block mb-1">Scripts à embarquer ?</label>
+                    <div class="flex gap-1">
+                        <button v-for="opt in ['oui', 'non', 'à voir']" :key="opt" type="button"
+                                @click="skillAssistForm.scripts = (skillAssistForm.scripts === opt ? '' : opt)"
+                                class="text-[11px] px-2 py-1.5 rounded-md border transition-colors"
+                                :class="skillAssistForm.scripts === opt ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'">
+                            {{ opt }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-2 pt-1">
+                <button @click="skillAssistForm.open = false" class="skl-btn skl-btn--secondary">Annuler</button>
+                <button @click="launchSkillAssistantChat" class="skl-btn bg-blue-600 text-white hover:bg-blue-700">
+                    <i class="ph ph-sparkle"></i> Commencer l'entretien
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fiche d'un outil — ouverte par le bouton « i » d'une case du panneau
+         Outils. Elle vit ICI et non dans le panneau : celui-ci passe en
+         ``overflow-hidden`` quand il glisse, et clipperait tout débordement.
+         Le texte vient du registre MCP (description déclarée par le serveur,
+         bornée à 220 caractères) — rien n'est inventé côté navigateur. -->
+    <div v-if="toolInfo" data-a11y-modal role="dialog" aria-modal="true" aria-label="Détail de l'outil"
+         class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4" @click.self="closeToolInfo()">
+        <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
+                <div class="min-w-0">
+                    <h3 class="font-bold text-slate-800 text-sm truncate">{{ toolInfo.title || toolInfo.name }}</h3>
+                    <p class="text-[10px] text-slate-400 truncate">
+                        <span class="font-mono">{{ toolInfo.name }}</span>
+                        <span v-if="toolInfo.cat"> · {{ toolInfo.cat }}</span>
+                        <span v-if="toolInfo.read_only"> · lecture seule</span>
+                    </p>
+                </div>
+                <button @click="closeToolInfo()" aria-label="Fermer"
+                        class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors flex items-center justify-center shrink-0">
+                    <i class="ph ph-x text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto px-5 py-4 custom-scrollbar">
+                <p v-if="toolInfo.description" class="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{{ toolInfo.description }}</p>
+                <p v-else class="text-xs text-slate-400 italic">Cet outil ne déclare pas de description.</p>
+            </div>
+        </div>
+    </div>

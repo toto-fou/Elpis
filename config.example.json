@@ -1,0 +1,53 @@
+{
+  "llama": {
+    "url": "",
+    "ip": "127.0.0.1",
+    "port": "8080",
+    "model": "local-model",
+    "engine": "llamacpp"
+  },
+  "app": {
+    "db_path": "user_db/app.db",
+    "session_secret": "",
+    "upload_dir": "user_db/uploads",
+    "sandbox_dir": "user_sandboxes",
+    "enable_model_selector": true
+  },
+  "database": {
+    "backend": "sqlite",
+    "host": "127.0.0.1",
+    "port": 0,
+    "name": "elpis",
+    "user": "elpis",
+    "tls": "off",
+    "pool_max": 8
+  },
+  "app_info": {
+    "name": "Elpis",
+    "engine": "llama.cpp"
+  },
+  "security": {
+    "session": {
+      "cookie_name": "elpis_session",
+      "same_site": "lax",
+      "https_only": false
+    },
+    "https": {
+      "enabled": false,
+      "main_port": 443,
+      "admin_port": 8443,
+      "rag_port": 8444
+    },
+    "listen": "local"
+  },
+  "rag": {
+    "enabled": true,
+    "service_url": "http://127.0.0.1:8000",
+    "service_token": ""
+  },
+  "skins": {
+    "dir": "user_skins",
+    "enabled": { "kiki": false },
+    "default": "elpis"
+  }
+}

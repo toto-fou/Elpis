@@ -1,0 +1,57 @@
+# Lot hors-ligne du moteur vocal Elpis
+# produit le 2026-09-22T23:38:13+02:00 sur Linux 6.12.85+deb13-amd64 x86_64
+# whisper.cpp a44e078 compilé pour : cpu
+# compilé dans : debian:bookworm-slim — Debian GNU/Linux 12 (bookworm) (glibc 2.36)
+# python des roues : Python 3.11.2
+
+66d1c5842a2ebf215c6fb6b756b5c0adb3b995466e8d24dd28df68f3ad6f82d6  bin/libggml-base.so
+66d1c5842a2ebf215c6fb6b756b5c0adb3b995466e8d24dd28df68f3ad6f82d6  bin/libggml-base.so.0
+66d1c5842a2ebf215c6fb6b756b5c0adb3b995466e8d24dd28df68f3ad6f82d6  bin/libggml-base.so.0.24.0
+64360da556e5814c628b1b33d095e500454b2311cb98cf607bb4d01221e9f2cc  bin/libggml-cpu.so
+64360da556e5814c628b1b33d095e500454b2311cb98cf607bb4d01221e9f2cc  bin/libggml-cpu.so.0
+64360da556e5814c628b1b33d095e500454b2311cb98cf607bb4d01221e9f2cc  bin/libggml-cpu.so.0.24.0
+b9a9c83c38a13197812cbbc5ba82e3fcb8287813fe08c21bbb455d32c9dee4cd  bin/libggml.so
+b9a9c83c38a13197812cbbc5ba82e3fcb8287813fe08c21bbb455d32c9dee4cd  bin/libggml.so.0
+b9a9c83c38a13197812cbbc5ba82e3fcb8287813fe08c21bbb455d32c9dee4cd  bin/libggml.so.0.24.0
+f9a9ad78a8dc39c0e90a265ffa551fae6c92a40f360889b44a7e141f9a2adfb1  bin/libgomp.so.1
+b376060e1a22cb72cd3d5e0ae10421b0e2ea89497e25557227e13357935c98bd  bin/libwhisper.so
+b376060e1a22cb72cd3d5e0ae10421b0e2ea89497e25557227e13357935c98bd  bin/libwhisper.so.1
+b376060e1a22cb72cd3d5e0ae10421b0e2ea89497e25557227e13357935c98bd  bin/libwhisper.so.1.9.4
+f29017bfc52fd3f3c0227c2ff834de039e7db7483b8a8cf02f782a77adafd102  bin/whisper-server
+d75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1  models/ggml-large-v3-q5_0.bin
+394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2  models/ggml-large-v3-turbo-q5_0.bin
+ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb  models/ggml-small-q5_1.bin
+0ed223f78466917f2bae05ee90096ce69ab1fdeb251f55590d0e7422d234e162  voices/fr_FR-mls-medium.onnx
+252b0b0a6e4cc4949e23eccb956f9c779986c32f934f2f7e2191e5fdc2edca61  voices/fr_FR-mls-medium.onnx.json
+641d1ab097da2b81128c076810edb052b385decc8be3381814802a64a73baf99  voices/fr_FR-siwis-medium.onnx
+39479916c2db192b5ac9764daddd0c744d83e023ad890c6976c0633ae4df8959  voices/fr_FR-siwis-medium.onnx.json
+bf65074ccdeeeeaa832e75edb1c0a513c01c9a972bdf085ff8a6e71ea234fd41  voices/fr_FR-tom-medium.onnx
+2f7f885ad5a0aad802e3cc24e4f57239febdcb142b4876de5d238094674361cc  voices/fr_FR-tom-medium.onnx.json
+9abb3800c199148897a9ed64e100d224f3de83579f100044174ad19418f1786f  voices/fr_FR-upmc-medium.onnx
+e8636ec15dfd5d72db37a02cb5320a20f2b8d339f2a0e4337da64c58a33a5868  voices/fr_FR-upmc-medium.onnx.json
+117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101  wheels/annotated_doc-0.0.5-py3-none-any.whl
+f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0  wheels/annotated_types-0.8.0-py3-none-any.whl
+6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101  wheels/anyio-4.15.1-py3-none-any.whl
+255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360  wheels/click-8.5.0-py3-none-any.whl
+bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3  wheels/fastapi-0.141.1-py3-none-any.whl
+7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4  wheels/flatbuffers-25.12.19-py2.py3-none-any.whl
+63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86  wheels/h11-0.16.0-py3-none-any.whl
+57278e6fa0424c42a8a3e454828ab4f0aff27b40cddf9679579b98c6dce6a376  wheels/httptools-0.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl
+ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c  wheels/idna-3.20-py3-none-any.whl
+89cd468399cfd2504718f0ba50e410dca55a170b61a02ad92bb18c8a65186e93  wheels/numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+fd54b314ea385bcecac69ab431f020ba503e3878dad4ebb645fec5a24b041242  wheels/onnxruntime-1.30.0-cp311-cp311-manylinux_2_28_x86_64.whl
+d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c  wheels/packaging-26.3-py3-none-any.whl
+5263baab691f8e1af96092fa5137ee17df5bdfbd6cff1fcac4d6ef4bc2e1735f  wheels/pathvalidate-3.3.1-py3-none-any.whl
+25b4d3f31ff70c8fa7151908e00aaa5650cbdf16bca8fcf21299f3941b89a7d3  wheels/piper_tts-1.8.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl
+89f23aa53c24553a2416fd4fd1ec06f74fa42b14b546d8883128813f775bbfd2  wheels/protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl
+346a034f080da3755d8e9cb5e00e8b07de1d39e4f6e2c87d8ab7cafa0b269a73  wheels/pydantic-2.13.5-py3-none-any.whl
+49776eab08766a08dfff7012f8b422dcd7e25e43b316eedf0477c24fcfa84b7c  wheels/pydantic_core-2.46.5-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+904552145e8bfed22162c09dab1c2b9b54fefa7b23ba780f4f26ca0316b0f0d9  wheels/python_dotenv-1.2.3-py3-none-any.whl
+b8bb0864c5a28024fac8a632c443c87c5aa6f215c0b126c449ae1a150412f31d  wheels/pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c  wheels/starlette-1.6.0-py3-none-any.whl
+481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8  wheels/typing_extensions-4.16.0-py3-none-any.whl
+65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147  wheels/typing_inspection-0.4.4-py3-none-any.whl
+e8dca71ec86dce5f04e333f0d56cdedf942446e6643b9cea1af0d6d3a02cb03e  wheels/uvicorn-0.53.0-py3-none-any.whl
+56a2d1fae65fd82197cb8c53c367310b3eabe1bbb9fb5a04d28e3e3520e4f702  wheels/uvloop-0.22.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+b5768b49e426fd5b550b012c866db347cdf15c398ef98dc557b6e6b72fa74cd1  wheels/watchfiles-1.3.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+0c84bdef916556cbe1d5a43b423398be4dd3cba6522b463e53d848578b920695  wheels/websockets-17.1-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl

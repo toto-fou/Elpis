@@ -1,0 +1,161 @@
+/* ===========================================================================
+ *  Écran d'accueil animé — habillage.
+ *
+ *  Le canevas est TRANSPARENT : le fond vient d'ici, donc des jetons de
+ *  l'application. C'est ce qui fait suivre le thème clair/sombre sans que le
+ *  JavaScript ait à connaître la moindre couleur.
+ * ======================================================================== */
+
+.accueil {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    background: var(--cl-bg, #f8f5f0);
+    color: var(--cl-ink, #262626);
+    overflow: hidden;
+}
+
+/* Plein écran : la variante que l'on regarde pour juger. */
+.accueil--plein {
+    height: 100dvh;
+    height: 100vh;   /* repli pour les navigateurs sans dvh */
+}
+
+/* Dans le bloc d'accueil de l'application. La hauteur s'adapte à la fenêtre :
+   le bloc fait `44dvh - 4rem` et son contenu est collé en bas, donc la place
+   existe — le logo fixe ne s'en servait simplement pas. Bornée en haut pour
+   que le « Bonjour » ne descende pas sous la barre de saisie sur un grand
+   écran, en bas pour que le mot reste lisible sur un téléphone. */
+.accueil--bloc {
+    height: clamp(112px, 21dvh, 208px);
+    background: transparent;   /* le bloc vit sur le fond de la conversation */
+}
+.accueil--bloc::before { display: none; }   /* pas de lueur : le fond est déjà là */
+
+/* Une lueur chaude, très basse, sous le mot. Rien d'autre : la charte dit
+   « calme », et un dégradé de plus ferait décor. */
+.accueil::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        62% 48% at 50% 46%,
+        color-mix(in srgb, var(--cl-clay, #b88a3d) 11%, transparent) 0%,
+        transparent 72%);
+    pointer-events: none;
+}
+
+.accueil-toile {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* nearest-neighbour : sans ça le navigateur lisse le pixel art à
+       l'agrandissement, et tout l'intérêt du dessin disparaît */
+    image-rendering: pixelated;
+}
+
+.accueil-soustitre {
+    position: absolute;
+    left: 50%;
+    bottom: 12%;
+    transform: translateX(-50%);
+    margin: 0;
+    /* Georgia : la serif du skin Elpis, web-safe, aucune police téléchargée */
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(0.9rem, 1.6vw, 1.2rem);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cl-muted, #615c52);
+    white-space: nowrap;
+    animation: accueil-apparait 900ms 1.6s both ease-out;
+}
+
+@keyframes accueil-apparait {
+    from { opacity: 0; transform: translate(-50%, 6px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Le dessin n'a pas pu être lu : on le DIT, plutôt que de laisser un carré
+   vide qu'on prendrait pour un temps de chargement infini. */
+.accueil-erreur::after {
+    content: attr(data-erreur);
+    position: absolute;
+    inset: auto 0 8% 0;
+    text-align: center;
+    font: 13px/1.5 ui-monospace, Menlo, monospace;
+    color: var(--danger-text, #b0402a);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .accueil-soustitre { animation: none; }
+}
+
+/* ===========================================================================
+ *  LE PERCHOIR — la mascotte qui vient dormir sur la barre de saisie.
+ *
+ *  Le sprite lui-même vient de socle-mascottes.css (feuille GÉNÉRÉE, à ne pas
+ *  éditer) ; ici on ne pose que son ancrage et ses « z ». Le conteneur porte
+ *  la position, le sprite ne porte que sa taille : c'est ce qui permet aux z
+ *  de le suivre pendant sa marche, sans un second calcul de position.
+ * ======================================================================== */
+.perchoir {
+    position: absolute;
+    bottom: 100%;
+    /* Mesuré : le vide sous les pieds va de 0 px (elpis remplit sa fenêtre) à
+       7 px (souris et dragon, 34 dans une fenêtre de 48). Une seule valeur ne
+       peut pas convenir aux huit — celle-ci fait mordre les plus grands sur le
+       bord, ce qui se lit mieux qu'un personnage en lévitation. */
+    margin-bottom: -8px;
+    width: 48px;
+    height: 48px;
+    /* Elle ne vole jamais un clic à la saisie. */
+    pointer-events: none;
+    z-index: 5;
+}
+
+.perchoir-zzz {
+    position: absolute;
+    left: 34px;
+    bottom: 22px;
+    width: 0;
+    height: 0;
+}
+
+.perchoir-zzz i {
+    position: absolute;
+    font-style: normal;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--cl-ink, #3b3128);
+    opacity: 0;
+    /* 4,2 s de cycle décalées de 1,4 : il en part un toutes les 1,4 s, et
+       chacun vit 2,6 s. Ce sont les chiffres de `zzz()` dans accueil.js —
+       recopier le rythme plutôt que d'en inventer un second garde les deux
+       endroits cohérents quand on regarde l'écran d'accueil puis la barre. */
+    animation: perchoir-z 4.2s ease-out infinite;
+}
+.perchoir-zzz i:nth-child(1) { font-size: 10px; animation-delay: 0s; }
+.perchoir-zzz i:nth-child(2) { font-size: 12px; animation-delay: 1.4s; }
+.perchoir-zzz i:nth-child(3) { font-size: 15px; animation-delay: 2.8s; }
+
+/* Ils montent EN S'ÉCARTANT, comme ceux de la scène : trois z qui montent
+   droit se lisent comme une colonne, pas comme un souffle. */
+@keyframes perchoir-z {
+    0%   { transform: translate(0, 0) rotate(-10deg); opacity: 0; }
+    12%  { opacity: .85; }
+    62%  { opacity: .6; }
+    /* 62 % de 4,2 s = 2,6 s : la durée de vie d'un z dans la scène. Au-delà
+       il ne reste que le temps d'attente avant le suivant. */
+    64%  { opacity: 0; }
+    100% { transform: translate(15px, -27px) rotate(14deg); opacity: 0; }
+}
+
+/* Comme la feuille générée, on RALENTIT de moitié plutôt que d'arrêter : le
+   personnage reste lisible pour qui demande moins de mouvement. */
+@media (prefers-reduced-motion: reduce) {
+    .perchoir-zzz i { animation-duration: 8.4s; }
+}

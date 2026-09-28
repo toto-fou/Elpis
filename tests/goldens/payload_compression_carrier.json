@@ -1,0 +1,66 @@
+[
+  {
+    "cache_prompt": true,
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    },
+    "id_slot": -1,
+    "max_tokens": 16384,
+    "messages": [
+      {
+        "content": "SOCLE GOLDEN — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo\n\n[COMPRESSION_META v=1 round=1 covered_turns=4]\n[COMPRESSED_SUMMARY_V1]\n<context>résumé antérieur : projet golden.</context>\n[/COMPRESSED_SUMMARY_V1]\n\n(Compressed memory of 4 earlier turns. The facts above are the source of truth for that period. The messages that follow are the most recent, up-to-date ones.)",
+        "role": "system"
+      },
+      {
+        "content": "Continue le travail.",
+        "role": "user"
+      }
+    ],
+    "model": "golden-model",
+    "n_cache_reuse": 256,
+    "return_progress": true,
+    "sse_ping_interval": 15,
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "timings_per_token": true,
+    "tool_choice": "auto",
+    "tools": [
+      {
+        "function": {
+          "description": "Additionne a et b (outil de test golden).",
+          "name": "alpha_add",
+          "parameters": {
+            "properties": {
+              "a": {
+                "type": "number"
+              },
+              "b": {
+                "type": "number"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Renvoie ses arguments (outil de test golden).",
+          "name": "zeta_echo",
+          "parameters": {
+            "properties": {
+              "msg": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "function"
+      }
+    ],
+    "user": "golden"
+  }
+]

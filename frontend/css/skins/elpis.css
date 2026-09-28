@@ -1,0 +1,341 @@
+/* ============================================================================
+ *  Skin « Elpis »  —  habillage par défaut
+ * ----------------------------------------------------------------------------
+ *  Identité visuelle « musée / premium » : ivoire chaud + or, titres serif
+ *  éditoriaux, ambiance Grèce antique, lumière chaude, ombres presque
+ *  invisibles. Réf. : elpis_design.md.  Espoir · Sagesse · Calme · Luxe.
+ *
+ *  Contrainte forte du design : SKIN UNIQUEMENT. On ne touche qu'aux couleurs,
+ *  à la typo, aux bordures, aux ombres et aux rayons. Aucun changement de DOM,
+ *  de mise en page, d'interaction ni de logique.
+ *
+ *  Tout est scopé sous ``body.elpis-skin-elpis`` → inerte tant que la classe
+ *  n'est pas posée (cf. _applyAppSkin, app-settings.js). Le token override
+ *  suffit à reteinter tout l'app via le BRIDGE utilitaire→token de style.css ;
+ *  seul l'ACCENT (bleu/indigo, non tokenisé) est remappé explicitement en or.
+ *  Offline-safe : Georgia (serif web-safe) pour les titres, sans-serif système
+ *  pour le corps. Aucune police téléchargée.
+ * ========================================================================== */
+
+/* ───────────────────────────── TOKENS — CLAIR ───────────────────────────── */
+body.elpis-skin-elpis {
+    --cl-bg:        #f8f5f0;          /* ivoire chaud principal */
+    --cl-sidebar:   #f3efe8;          /* surface secondaire, un cran plus dense */
+    --cl-surface-2: #f3efe8;
+    --cl-surface-3: #efeae1;
+    --cl-surface-4: #e7e0d3;
+    --cl-ink:       #262626;          /* encre chaude, jamais noir pur */
+    --cl-ink-2:     #3a3833;
+    --cl-muted:     #615c52;          /* assombri (AA : ex-#706b63 promu en --text-400) */
+    --cl-border:    rgba(184,138,61,0.22);   /* liseré or décoratif, basse opacité */
+    --cl-border-2:  rgba(184,138,61,0.30);
+    --cl-clay:      #b88a3d;          /* OR — accent signature (décor, bordures, pastilles) */
+    --cl-clay-deep: #8d6834;          /* or foncé (liens, texte accent) */
+    --cl-clay-fg:   #fbf8f2;          /* texte ivoire sur or plein */
+    /* Fonds d'ACTION (boutons pleins) : l'or signature #b88a3d ne tient que
+       2.9:1 sous l'ivoire → les fills utilisent l'or profond (4.76:1), le
+       hover un cran plus sombre. Le décor garde --cl-clay. */
+    --cl-action:       var(--cl-clay-deep);
+    --cl-action-hover: #74542a;
+    --cl-user-bubble: #f1eadd;        /* beige doux (carte message user) */
+
+    /* Danger — harmonisé à la palette chaude (brique plutôt que rouge cru). */
+    --danger-surface:     rgba(176, 60, 42, 0.07);
+    --danger-border:      #e3b7ab;
+    --danger-border-soft: #eecfc6;
+    --danger-text:        #b0402a;
+    --danger-strong:      #8f3320;
+    --danger-icon-bg:     #f0d8ce;
+    --danger-icon-fg:     #c2603f;
+
+    --radius:    0.85rem;             /* coins « large », design */
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+
+    --app-bg:    var(--cl-bg);
+    --surface:   #fcfbf9;             /* cartes — papier presque blanc */
+    --surface-2: var(--cl-surface-2);
+    --surface-3: var(--cl-surface-3);
+    --surface-4: var(--cl-surface-4);
+    --surface-5: #ddd3c0;
+    --border:            var(--cl-border);
+    --border-soft:       rgba(184,138,61,0.12);
+    --table-cell-border: rgba(184,138,61,0.16);
+    --text-900: var(--cl-ink);
+    --text-800: var(--cl-ink);
+    --text-700: var(--cl-ink-2);
+    --text-600: #5c564d;
+    --text-500: var(--cl-muted);
+    --text-400: #706b63;              /* AA 5.1:1 sur --surface (ex-#9a948a, 2.9:1) */
+    --text-max: #1a1a1a;
+    --prose-body:       var(--cl-ink-2);
+    --prose-heading:    var(--cl-ink);
+    --prose-strong:     var(--cl-ink);
+    --prose-link:       var(--cl-clay-deep);
+    --prose-link-hover: var(--cl-clay);
+    --code-inline-bg:     #f1eadd;
+    --code-inline-fg:     #9a6a2e;
+    --code-inline-border: var(--cl-border);
+    --scrollbar-thumb:        #ddd3c0;
+    --scrollbar-thumb-hover:  #c9bca0;
+    --scrollbar-thumb-custom: #ddd3c0;
+
+    /* ── Famille ACCENT (correctif skins) : bridge → or sur TOUTES les
+       nuances bleues. Fills = or d'action (AA), décor/texte = or profond. */
+    --accent:             var(--cl-action);
+    --accent-strong:      var(--cl-action-hover);
+    --accent-500:         var(--cl-action);
+    --accent-400:         var(--cl-clay);
+    --accent-300:         var(--cl-clay);
+    --accent-fg:          var(--cl-clay-fg);
+    --accent-text:        var(--cl-clay-deep);
+    --accent-text-strong: var(--cl-clay-deep);
+    --accent-surface:     rgba(184, 138, 61, 0.08);
+    --accent-surface-2:   rgba(184, 138, 61, 0.14);
+    --accent-border:      var(--cl-clay);
+    --accent-ring:        var(--cl-clay);
+
+    /* ── Succès → OLIVE doux (« never use saturated colors »). */
+    --ok:             #8a8b52;
+    --ok-strong:      #6f7040;
+    --ok-soft:        #7c7a45;
+    --ok-400:         #9fa065;
+    --ok-text:        #7c7a45;
+    --ok-text-strong: #666636;
+    --ok-surface:     rgba(124, 122, 69, 0.10);
+    --ok-surface-2:   rgba(124, 122, 69, 0.16);
+    --ok-border:      rgba(124, 122, 69, 0.40);
+    --ok-fg:          #fbf8f2;
+
+    /* ── Rail (sidebar ivoire) — tokens, remplace la pile de sélecteurs. */
+    --rail-bg:           var(--cl-sidebar);
+    --rail-bg-2:         var(--cl-surface-3);
+    --rail-border:       var(--cl-border-2);
+    --rail-text:         var(--cl-ink);
+    --rail-text-strong:  var(--cl-ink);
+    --rail-muted:        var(--cl-muted);
+    --rail-hover:        var(--cl-surface-3);
+    --rail-chip:         var(--cl-surface-3);
+    --rail-active-bg:    rgba(184, 138, 61, 0.16);
+    --rail-input-bg:     var(--surface);
+    --rail-input-border: var(--cl-border-2);
+    --rail-ok:           #7c7a45;            /* admin = olive sur ivoire */
+    --rail-ok-strong:    #666636;
+
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", sans-serif;
+
+    /* Lumière chaude diffuse (« golden hour ») — radial très subtil depuis le
+       haut, jamais une texture qui distrait. */
+    background-image: radial-gradient(115% 80% at 50% -12%, rgba(184,138,61,0.06), transparent 62%);
+    background-attachment: fixed;
+}
+
+/* ───────────────────────────── TOKENS — SOMBRE ──────────────────────────── */
+/*  Le design est clair ; le pendant sombre reste CHAUD (« expresso + laiton »),
+ *  jamais froid ni bleu. Spécificité (0,2,1) → bat le sombre par défaut. */
+body.elpis-skin-elpis.elpis-app-dark {
+    --cl-bg:        #211e1a;          /* expresso profond, chaud */
+    --cl-sidebar:   #1b1917;
+    --cl-surface-2: #2b2825;
+    --cl-surface-3: #322e29;
+    --cl-surface-4: #3d3833;
+    --cl-ink:       #f5f1e8;          /* ivoire clair */
+    --cl-ink-2:     #e4ded2;
+    --cl-muted:     #a39c8d;
+    --cl-border:    rgba(216,178,122,0.16);
+    --cl-border-2:  rgba(216,178,122,0.26);
+    --cl-clay:      #d8b27a;          /* or clair sur sombre */
+    --cl-clay-deep: #c69a5a;
+    --cl-clay-fg:   #211e1a;
+    /* Sur sombre, l'or clair tient largement l'AA avec l'encre expresso :
+       les fills gardent l'or signature. */
+    --cl-action:       var(--cl-clay);
+    --cl-action-hover: var(--cl-clay-deep);
+    --cl-user-bubble: #322e29;
+
+    /* Danger — mode sombre chaud : rouge clair sur fond sépia sombre. */
+    --danger-surface:     rgba(224, 138, 106, 0.14);
+    --danger-border:      rgba(224, 138, 106, 0.36);
+    --danger-border-soft: rgba(224, 138, 106, 0.20);
+    --danger-text:        #eab3a1;
+    --danger-strong:      #f2ccbe;
+    --danger-icon-bg:     rgba(224, 138, 106, 0.18);
+    --danger-icon-fg:     #e08a6a;
+
+    --app-bg:    var(--cl-bg);
+    --surface:   #262320;
+    --surface-2: var(--cl-surface-2);
+    --surface-3: var(--cl-surface-3);
+    --surface-4: var(--cl-surface-4);
+    --surface-5: #4a443d;
+    --border:            var(--cl-border);
+    --border-soft:       rgba(216,178,122,0.09);
+    --table-cell-border: rgba(216,178,122,0.12);
+    --text-900: var(--cl-ink);
+    --text-800: var(--cl-ink);
+    --text-700: var(--cl-ink-2);
+    --text-600: #c9c2b4;
+    --text-500: var(--cl-muted);
+    --text-400: #a89e8a;              /* éclairci 2026-09-07 : 4,4:1 MESURÉ sur
+                                         --surface-2/-3 (le calcul d'origine ne
+                                         visait que --surface, la plus sombre) */
+    --text-max: #fffdf8;
+    --prose-body:       var(--cl-ink-2);
+    --prose-heading:    var(--cl-ink);
+    --prose-strong:     #fffdf8;
+    --prose-link:       var(--cl-clay);
+    --prose-link-hover: #e6c892;
+    --code-inline-bg:     #322e29;
+    --code-inline-fg:     #e6b87a;
+    --code-inline-border: rgba(216,178,122,0.12);
+    --scrollbar-thumb:        rgba(216,178,122,0.15);
+    --scrollbar-thumb-hover:  rgba(216,178,122,0.28);
+    --scrollbar-thumb-custom: rgba(216,178,122,0.12);
+
+    /* Accent or — variante sombre : les tokens en var(--cl-*) basculent déjà
+       (action = or clair) ; textes accent alignés sur l'or clair, teintes
+       translucides laiton. */
+    --accent-text:        var(--cl-clay);
+    --accent-text-strong: var(--cl-clay);
+    --accent-surface:     rgba(216, 178, 122, 0.10);
+    --accent-surface-2:   rgba(216, 178, 122, 0.16);
+
+    /* Olive — variante claire-sur-sombre. */
+    --ok:             #9fa065;
+    --ok-soft:        #9fa065;
+    --ok-text:        #b9b878;
+    --ok-text-strong: #cfcf94;
+    --ok-surface:     rgba(185, 184, 120, 0.12);
+    --ok-surface-2:   rgba(185, 184, 120, 0.18);
+    --ok-border:      rgba(185, 184, 120, 0.40);
+    --ok-fg:          #211e1a;
+    --rail-ok:        #b9b878;
+    --rail-ok-strong: #cfcf94;
+
+    background-image: radial-gradient(115% 80% at 50% -12%, rgba(216,178,122,0.05), transparent 62%);
+}
+
+/* ───────────────────────────── OMBRES DOUCES ────────────────────────────── */
+/*  L'interface repose sur la lumière, pas sur les ombres : presque invisibles,
+ *  floues, chaudes. */
+body.elpis-skin-elpis .shadow-lg,
+body.elpis-skin-elpis .shadow-xl,
+body.elpis-skin-elpis .shadow-2xl { box-shadow: 0 8px 30px rgba(140,104,52,0.08) !important; }
+body.elpis-skin-elpis .shadow,
+body.elpis-skin-elpis .shadow-sm,
+body.elpis-skin-elpis .shadow-md { box-shadow: 0 1px 3px rgba(140,104,52,0.06) !important; }
+body.elpis-skin-elpis.elpis-app-dark .shadow-lg,
+body.elpis-skin-elpis.elpis-app-dark .shadow-xl,
+body.elpis-skin-elpis.elpis-app-dark .shadow-2xl { box-shadow: 0 8px 30px rgba(0,0,0,0.42) !important; }
+
+/* ───────────────────────────── TITRES SERIF ─────────────────────────────── */
+/*  Serif éditorial fin, chasse large. Georgia = web-safe / offline. */
+body.elpis-skin-elpis .markdown-body h1,
+body.elpis-skin-elpis .markdown-body h2,
+body.elpis-skin-elpis .markdown-body h3,
+body.elpis-skin-elpis .elpis-welcome h1,
+body.elpis-skin-elpis .elpis-welcome h2 {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    font-weight: 500;
+    letter-spacing: 0.005em;
+}
+
+/* ─────────────────────────── ACCENT : BLEU/INDIGO → OR ───────────────────── */
+/*  Les utilitaires BLEUS passent par le bridge + tokens --accent-* du bloc
+ *  ci-dessus (énumération historique retirée). Restent ici : les INDIGO
+ *  (hors familles — trop rares pour un token) et les dégradés. */
+body.elpis-skin-elpis .bg-indigo-600,
+body.elpis-skin-elpis .bg-indigo-500 {
+    background-color: var(--cl-action) !important;
+    color: var(--cl-clay-fg) !important;
+}
+body.elpis-skin-elpis .hover\:bg-indigo-700:hover,
+body.elpis-skin-elpis .hover\:bg-indigo-600:hover {
+    background-color: var(--cl-action-hover) !important;
+}
+body.elpis-skin-elpis .text-indigo-600,
+body.elpis-skin-elpis .text-indigo-500 { color: var(--cl-clay-deep) !important; }
+body.elpis-skin-elpis.elpis-app-dark .text-indigo-600,
+body.elpis-skin-elpis.elpis-app-dark .text-indigo-500 { color: var(--cl-clay) !important; }
+body.elpis-skin-elpis .border-indigo-400 { border-color: var(--cl-clay) !important; }
+body.elpis-skin-elpis .ring-indigo-500,
+body.elpis-skin-elpis .focus\:ring-indigo-500:focus,
+body.elpis-skin-elpis .focus\:border-indigo-400:focus {
+    --tw-ring-color: var(--cl-clay);
+    border-color: var(--cl-clay) !important;
+}
+body.elpis-skin-elpis .bg-indigo-50 { background-color: rgba(184,138,61,0.08) !important; }
+
+/* Dégradés accent → or (« No gradients / avoid blue » : avatars, badges,
+   pastilles d'initiales). On reteinte les variables de dégradé Tailwind. */
+body.elpis-skin-elpis .from-blue-500,
+body.elpis-skin-elpis .from-blue-600,
+body.elpis-skin-elpis .from-indigo-500 {
+    --tw-gradient-from: var(--cl-clay) var(--tw-gradient-from-position, 0%) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(184,138,61,0)) !important;
+}
+body.elpis-skin-elpis .to-indigo-500,
+body.elpis-skin-elpis .to-indigo-600,
+body.elpis-skin-elpis .to-purple-600,
+body.elpis-skin-elpis .to-blue-600 {
+    --tw-gradient-to: var(--cl-clay-deep) var(--tw-gradient-to-position, 100%) !important;
+}
+
+/* Contrôles natifs : suivent ``body { accent-color: var(--accent) }`` (or
+   d'action, AA) — règles dédiées retirées. Sélection de texte conservée. */
+body.elpis-skin-elpis ::selection { background: rgba(184,138,61,0.22); color: var(--cl-ink); }
+
+/* Toggles « peer » : gérés par le bridge (peer-checked:bg-blue-600 → --accent
+   = or d'action, AA). Énumération historique retirée. */
+
+/* ─────────────────────────── SUCCÈS → OLIVE DOUX ─────────────────────────── */
+/*  « Never use saturated colors » : porté par la famille --ok-* (bloc tokens
+ *  ci-dessus) via le bridge. Énumération historique retirée. */
+
+/* ───────────────────────────── SIDEBAR IVOIRE ───────────────────────────── */
+/*  Pilotée par les tokens --rail-* du bloc ci-dessus (pile historique
+ *  retirée). On ne garde que la petite signature elpis : le hover des
+ *  icônes passe à l'or profond plutôt qu'au « strong » neutre. */
+body.elpis-skin-elpis aside.elpis-slide-panel .hover\:text-white:hover { color: var(--cl-clay-deep); }
+
+/* ───────────────────────────── BULLES CHAT ──────────────────────────────── */
+/*  « Never messenger bubbles » : cartes d'information élégantes, beige doux,
+ *  fin liseré or, coins arrondis. Assistant sans fond. */
+body.elpis-skin-elpis .elpis-msg-user > .flex-1 {
+    background: var(--cl-user-bubble);
+    border: 1px solid var(--cl-border);
+    border-radius: var(--radius-lg);
+    padding: 0.6rem 1rem;
+}
+body.elpis-skin-elpis .elpis-msg-assistant > .flex-1 { background: transparent; }
+
+/* ───────────────────────────── ZONE DE SAISIE ───────────────────────────── */
+body.elpis-skin-elpis .elpis-compose-card {
+    background: var(--surface) !important;
+    border-color: var(--cl-border-2) !important;
+    border-radius: var(--radius-xl) !important;
+    box-shadow: 0 1px 2px rgba(140,104,52,0.05), 0 8px 20px rgba(140,104,52,0.06) !important;
+}
+body.elpis-skin-elpis .elpis-compose-card .bg-blue-600 {
+    background-color: var(--cl-action) !important;
+    color: var(--cl-clay-fg) !important;
+}
+body.elpis-skin-elpis .elpis-compose-card .hover\:bg-blue-700:hover {
+    background-color: var(--cl-action-hover) !important;
+}
+
+/* Bloc « thinking » : encadré ivoire discret. */
+body.elpis-skin-elpis [data-think] {
+    background: var(--cl-surface-3);
+    border: 1px solid var(--cl-border);
+    border-radius: var(--radius-md);
+    padding: 0.4rem 0.7rem;
+}
+
+/* Inputs — grand rayon, liseré or (le fond/bordure viennent déjà des tokens
+   via le bridge ; on ne pousse ici que le rayon « large » du design). */
+body.elpis-skin-elpis input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+body.elpis-skin-elpis textarea,
+body.elpis-skin-elpis select { border-radius: var(--radius-md); }

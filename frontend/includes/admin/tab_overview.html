@@ -1,0 +1,165 @@
+<!--
+  includes/admin/tab_overview.html — Vue d'ensemble (page d'arrivée de la console)
+  ===============================================================================
+  Refonte 2026-09-27, lot 6. Avant, l'état de l'instance (services joignables,
+  âge de la dernière sauvegarde, HTTPS, réglages en attente de redémarrage)
+  était éparpillé sur six écrans. Ici, d'un regard :
+
+    1. **À traiter** — chaque alerte porte son geste (Redémarrer, Télécharger
+       une sauvegarde, Ouvrir la page). Vide = « Rien à signaler ».
+    2. **Services** — inventaire de toutes les adresses (ce que l'ancienne page
+       « Connexions » réunissait), état et lien vers la page qui les règle.
+    3. **Dernières 24 h** — quatre chiffres et la dernière sauvegarde.
+    4. **Raccourcis** et **Installation** (repliée, masquée une fois complète).
+
+  Données : GET /api/admin/overview (shared_infra/routes/admin/overview.py),
+  tournée en cache 15 s côté serveur, relue toutes les 30 s ici. Un modérateur
+  la lit sans gestes (le serveur les retire, adminCanOpen masque les liens).
+-->
+                    <div v-if="adminTab==='overview'" class="adm-ov animate-[fadeIn_0.2s]">
+
+                        <div v-if="!overview && overviewLoading" class="adm-card p-6" aria-busy="true">
+                            <div class="adm-skeleton w-64 mb-3"></div>
+                            <div class="adm-skeleton w-96"></div>
+                        </div>
+                        <p v-else-if="!overview && overviewFailed" class="adm-empty adm-empty--error">
+                            Vue d’ensemble indisponible ·
+                            <button type="button" class="adm-link" @click="loadOverview()">Réessayer</button>
+                        </p>
+
+                        <template v-if="overview">
+                            <!-- ═══════════ À traiter ═══════════ -->
+                            <section class="adm-card" aria-labelledby="ov-todo-h">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-bell adm-card__icon" aria-hidden="true"></i>
+                                    <div class="flex items-center gap-2">
+                                        <h2 id="ov-todo-h" class="adm-card__title">À traiter</h2>
+                                        <span v-if="overview.alerts.length" class="adm-pill">{{ overview.alerts.length }}</span>
+                                    </div>
+                                </header>
+                                <ul v-if="overview.alerts.length" class="adm-ov__alerts">
+                                    <li v-for="a in overview.alerts" :key="a.id" class="adm-ov__alert" :data-level="a.level">
+                                        <i class="ph adm-ov__alert-icon" :class="a.level === 'danger' ? 'ph-warning-octagon' : 'ph-warning'" aria-hidden="true"></i>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="adm-ov__alert-title">
+                                                <span class="sr-only">{{ a.level === 'danger' ? 'Alerte : ' : 'Attention : ' }}</span>{{ a.title }}
+                                            </div>
+                                            <div v-if="overviewAlertDetail(a)" class="adm-ov__alert-detail">{{ overviewAlertDetail(a) }}</div>
+                                        </div>
+                                        <button v-if="a.action === 'restart'" type="button" class="adm-btn adm-btn--warn adm-btn--sm"
+                                                @click="runOverviewAction(a)">
+                                            <i class="ph ph-power" aria-hidden="true"></i> Redémarrer
+                                        </button>
+                                        <button v-else-if="a.action === 'backup'" type="button" class="adm-btn adm-tool adm-btn--sm"
+                                                @click="runOverviewAction(a)">
+                                            <i class="ph ph-download-simple" aria-hidden="true"></i> Télécharger une sauvegarde
+                                        </button>
+                                        <button v-else-if="a.action === 'page' && adminCanOpen(a.page)" type="button"
+                                                class="adm-btn adm-btn--quiet adm-btn--sm" @click="runOverviewAction(a)"
+                                                :aria-label="'Ouvrir : ' + a.title">
+                                            Ouvrir <i class="ph ph-arrow-right" aria-hidden="true"></i>
+                                        </button>
+                                    </li>
+                                </ul>
+                                <p v-else class="adm-ov__calm">
+                                    <i class="ph ph-check-circle" aria-hidden="true"></i> Rien à signaler
+                                </p>
+                            </section>
+
+                            <!-- ═══════════ Services ═══════════ -->
+                            <section class="adm-card" aria-labelledby="ov-svc-h">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-plugs-connected adm-card__icon" aria-hidden="true"></i>
+                                    <div><h2 id="ov-svc-h" class="adm-card__title">Services</h2></div>
+                                    <div class="adm-card__actions">
+                                        <button v-if="adminIsAdmin" type="button" class="adm-btn adm-tool adm-btn--sm"
+                                                :disabled="overviewLoading" @click="loadOverview(true)"
+                                                title="Relancer toutes les sondes maintenant">
+                                            <i class="ph ph-arrows-clockwise" :class="overviewLoading ? 'animate-spin' : ''" aria-hidden="true"></i> Tout tester
+                                        </button>
+                                    </div>
+                                </header>
+                                <table class="adm-table adm-ov__svc">
+                                    <caption class="sr-only">État des services</caption>
+                                    <thead class="sr-only">
+                                        <tr><th scope="col">Service</th><th scope="col">Adresse</th><th scope="col">État</th><th scope="col">Détail</th><th scope="col">Page</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="s in overview.services" :key="s.id">
+                                            <th scope="row" class="adm-ov__svc-name">{{ s.label }}</th>
+                                            <td class="adm-ov__svc-target">{{ s.target || '—' }}</td>
+                                            <td>
+                                                <span class="adm-status" :data-state="s.state">
+                                                    <i class="ph" :class="overviewStateIcon(s.state)" aria-hidden="true"></i>
+                                                    {{ overviewStateLabel(s.state) }}
+                                                </span>
+                                            </td>
+                                            <td class="adm-ov__svc-detail" :title="s.hint || null">{{ s.detail === overviewStateLabel(s.state) ? '' : s.detail }}</td>
+                                            <td class="text-right">
+                                                <button v-if="s.page && adminCanOpen(s.page)" type="button" class="adm-btn adm-btn--icon"
+                                                        :title="'Régler : ' + s.label" :aria-label="'Régler : ' + s.label"
+                                                        @click="goAdminPage(s.page)">
+                                                    <i class="ph ph-arrow-right" aria-hidden="true"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </section>
+
+                            <!-- ═══════════ Dernières 24 h ═══════════ -->
+                            <section class="adm-card" aria-labelledby="ov-24-h">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-clock-counter-clockwise adm-card__icon" aria-hidden="true"></i>
+                                    <div><h2 id="ov-24-h" class="adm-card__title">Dernières 24 h</h2></div>
+                                    <div class="adm-card__actions">
+                                        <button type="button" class="adm-btn adm-btn--quiet adm-btn--sm" @click="goAdminPage('dashboard')">
+                                            Métriques <i class="ph ph-arrow-right" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </header>
+                                <dl class="adm-ov__kpis">
+                                    <div><dt>Utilisateurs actifs</dt><dd>{{ fmtCompact(overview.kpis.users) }}</dd></div>
+                                    <div><dt title="Tours de conversation (question → réponse)">Tours</dt><dd>{{ fmtCompact(overview.kpis.turns) }}</dd></div>
+                                    <div><dt>Tokens</dt><dd>{{ fmtCompact(overview.kpis.tokens) }}</dd></div>
+                                    <div :class="{ 'is-warn': overview.kpis.tool_failures > 0 }">
+                                        <dt>Échecs d’outils</dt>
+                                        <dd>{{ fmtCompact(overview.kpis.tool_failures) }}<span class="adm-ov__of"> / {{ fmtCompact(overview.kpis.tool_calls) }}</span></dd>
+                                    </div>
+                                    <div><dt>Dernière sauvegarde</dt><dd class="adm-ov__txt">{{ overviewBackupLabel() }}</dd></div>
+                                </dl>
+                            </section>
+
+                            <!-- ═══════════ Raccourcis (administrateurs) ═══════════ -->
+                            <nav v-if="adminIsAdmin" class="adm-ov__shortcuts" aria-label="Raccourcis">
+                                <button type="button" class="adm-btn adm-tool adm-btn--sm" @click="overviewShortcut('account')">
+                                    <i class="ph ph-user-plus" aria-hidden="true"></i> Créer un compte
+                                </button>
+                                <button type="button" class="adm-btn adm-tool adm-btn--sm" @click="overviewShortcut('engine')">
+                                    <i class="ph ph-plugs" aria-hidden="true"></i> Ajouter un moteur
+                                </button>
+                                <button type="button" class="adm-btn adm-tool adm-btn--sm" @click="overviewShortcut('logs')">
+                                    <i class="ph ph-terminal-window" aria-hidden="true"></i> Journaux
+                                </button>
+                                <button type="button" class="adm-btn adm-tool adm-btn--sm" @click="overviewShortcut('backup')">
+                                    <i class="ph ph-download-simple" aria-hidden="true"></i> Sauvegarde
+                                </button>
+                            </nav>
+
+                            <!-- ═══════════ Installation (masquée une fois complète) ═══════════ -->
+                            <details v-if="adminIsAdmin && overviewSetupLeft" class="adm-card adm-ov__setup">
+                                <summary>
+                                    <i class="ph ph-list-checks adm-card__icon" aria-hidden="true"></i>
+                                    <span class="adm-card__title">Installation</span>
+                                    <span class="adm-pill">{{ overview.setup.length - overviewSetupLeft }} / {{ overview.setup.length }}</span>
+                                </summary>
+                                <ul class="adm-ov__steps">
+                                    <li v-for="st in overview.setup" :key="st.id" :class="{ 'is-done': st.done }">
+                                        <i class="ph" :class="st.done ? 'ph-check-circle' : 'ph-circle'" aria-hidden="true"></i>
+                                        <span class="flex-1">{{ st.label }}<span class="sr-only">{{ st.done ? ' : fait' : ' : à faire' }}</span></span>
+                                        <button v-if="!st.done" type="button" class="adm-link" @click="goAdminPage(st.page)">Régler</button>
+                                    </li>
+                                </ul>
+                            </details>
+                        </template>
+                    </div>

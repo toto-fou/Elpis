@@ -1,0 +1,4 @@
+# Artefacts OpenCode (binaires) : VERSIONNÉS depuis 2026-08-01 — ils sont
+# servis aux clients par /api/cli, et ce dépôt doit permettre de cloner puis
+# lancer sans réseau. Seuls les artefacts d'extraction locale restent exclus.
+*.tgz

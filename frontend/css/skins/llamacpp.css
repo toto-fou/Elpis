@@ -1,0 +1,504 @@
+/* ============================================================================
+ *  Skin « llama.cpp WebUI »
+ * ----------------------------------------------------------------------------
+ *  Reproduit l'apparence du WebUI officiel de llama-server : monochrome
+ *  (gris purs, zéro couleur de marque), rayon 10px, colonne de lecture
+ *  centrée ~768px, bulles côté UTILISATEUR seulement, assistant pleine
+ *  largeur sans bulle, zone de saisie en carte arrondie, scrollbars fines.
+ *  Spec : docs/llama-cpp-webui-skin.md.
+ *
+ *  Tout est scopé sous ``body.elpis-skin-llamacpp`` → fichier 100% inerte
+ *  tant que la classe n'est pas posée (cf. _applyAppSkin, app-settings.js).
+ *
+ *  Deux leviers :
+ *    1. REDÉFINITION DES TOKENS de base (--surface, --text-*, --border,
+ *       --app-bg, --prose-*, --radius…) → recolore TOUTE l'app via le
+ *       bridge token de style.css, sans nouveau sélecteur.
+ *    2. SURCHARGES DE LAYOUT (enracinées, jamais d'utilitaire nu) pour la
+ *       refonte de mise en page propre au look llama.cpp.
+ *
+ *  Décisions :
+ *    - On garde le ROUGE destructif et les couleurs d'état fonctionnelles
+ *      (jauge KV, item actif bleu en sombre) — cf. spec §1/§5.
+ *    - Les blocs de code restent sombres (thème highlight.js github-dark) ;
+ *      on neutralise juste l'entourage. Déviation assumée vs §12.
+ *    - La colonne fixe 768px neutralise le réglage chat_width (cf. §17).
+ * ========================================================================== */
+
+/* ───────────────────────────── TOKENS — CLAIR ───────────────────────────── */
+body.elpis-skin-llamacpp {
+    /* Palette llama.cpp (référence, réutilisée par les règles de layout) */
+    --lc-background: oklch(1 0 0);
+    --lc-foreground: oklch(0.145 0 0);
+    --lc-card: oklch(1 0 0);
+    --lc-primary: oklch(0.205 0 0);
+    --lc-primary-foreground: oklch(0.985 0 0);
+    --lc-secondary: oklch(0.95 0 0);
+    --lc-muted: oklch(0.97 0 0);
+    --lc-muted-foreground: oklch(0.556 0 0);
+    --lc-accent: oklch(0.95 0 0);
+    --lc-destructive: oklch(0.577 0.245 27.325);
+    --lc-border: oklch(0.875 0 0);
+    --lc-input: oklch(0.92 0 0);
+    --lc-ring: oklch(0.708 0 0);
+    --lc-sidebar: oklch(0.987 0 0);
+    --lc-sidebar-foreground: oklch(0.205 0 0);
+    --lc-sidebar-muted: oklch(0.556 0 0);
+    --lc-sidebar-primary: oklch(0.205 0 0);
+    --lc-sidebar-primary-foreground: oklch(0.985 0 0);
+    --lc-sidebar-accent: oklch(0.95 0 0);
+    --lc-sidebar-accent-foreground: oklch(0.205 0 0);
+    --lc-sidebar-border: oklch(0.922 0 0);
+
+    /* Rayons (échelle dérivée REDÉFINIE ici : --radius-lg etc. sont calculés
+       au point de DÉCLARATION ; il faut donc les re-déclarer sous le skin
+       pour qu'ils suivent le nouveau --radius). */
+    --radius:    0.625rem;                   /* 10px */
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);  /* 14px */
+
+    /* Remap des tokens de base de l'app → palette llama.cpp (clair) */
+    --app-bg:       oklch(0.97 0 0);
+    --surface:      var(--lc-card);
+    --surface-2:    var(--lc-secondary);
+    --surface-3:    var(--lc-muted);
+    --surface-4:    var(--lc-accent);
+    --surface-5:    oklch(0.90 0 0);
+    --border:            var(--lc-border);
+    --border-soft:       oklch(0.92 0 0);
+    --table-cell-border: var(--lc-border);
+    --text-900: var(--lc-foreground);
+    --text-800: oklch(0.205 0 0);
+    --text-700: oklch(0.27 0 0);
+    --text-600: var(--lc-muted-foreground);
+    --text-500: var(--lc-muted-foreground);
+    --text-400: oklch(0.556 0 0);     /* AA ~4.6:1 sur blanc (ex-0.65, ~3:1) */
+    --text-max: var(--lc-foreground);
+    --prose-body:       oklch(0.27 0 0);
+    --prose-heading:    var(--lc-foreground);
+    --prose-strong:     var(--lc-foreground);
+    --prose-link:       var(--lc-foreground);
+    --prose-link-hover: var(--lc-foreground);
+    --code-inline-bg:     var(--lc-muted);
+    --code-inline-fg:     var(--lc-foreground);
+    --code-inline-border: var(--lc-border);
+
+    /* ── Familles sémantiques (correctif skins) : accent/warn/rôle → GRIS
+       via le bridge de style.css. Le VERT (--ok-*) garde ses défauts :
+       llama.cpp conserve les couleurs PORTEUSES DE SENS (états). Les
+       nuances intermédiaires (300/400/500) restent énumérées plus bas :
+       texte → muted-foreground mais bordures → --lc-border, un token ne
+       peut pas porter les deux. */
+    --accent:             var(--lc-primary);
+    --accent-strong:      var(--lc-primary);
+    --accent-fg:          var(--lc-primary-foreground);
+    --accent-text:        var(--lc-foreground);
+    --accent-text-strong: var(--lc-foreground);
+    --accent-surface:     var(--lc-muted);
+    --accent-surface-2:   var(--lc-muted);
+    --accent-border:      var(--lc-border);
+    --accent-ring:        var(--lc-ring);
+    --warn:             var(--lc-primary);
+    --warn-soft:        var(--lc-muted-foreground);
+    --warn-text:        var(--lc-foreground);
+    --warn-text-strong: var(--lc-foreground);
+    --warn-surface:     var(--lc-muted);
+    --warn-surface-2:   var(--lc-muted);
+    --warn-border:      var(--lc-border);
+    --role-admin-text:    var(--lc-foreground);
+    --role-admin-surface: var(--lc-muted);
+    --role-admin-border:  var(--lc-border);
+
+    /* ── Rail (sidebar) — tokens --lc-sidebar-*. */
+    --rail-bg:           var(--lc-sidebar);
+    --rail-bg-2:         var(--lc-sidebar);
+    --rail-border:       var(--lc-sidebar-border);
+    --rail-text:         var(--lc-sidebar-foreground);
+    --rail-text-strong:  var(--lc-sidebar-foreground);
+    --rail-muted:        var(--lc-sidebar-muted);
+    --rail-hover:        var(--lc-sidebar-accent);
+    --rail-chip:         var(--lc-sidebar-accent);
+    --rail-active-bg:    var(--lc-sidebar-accent);
+    --rail-input-bg:     var(--lc-card);
+    --rail-input-border: var(--lc-border);
+    --rail-ok:           #059669;            /* vert état lisible sur clair */
+    --rail-ok-strong:    #047857;
+}
+
+/* ───────────────────────────── TOKENS — SOMBRE ──────────────────────────── */
+body.elpis-skin-llamacpp.elpis-app-dark {
+    --lc-background: oklch(0.16 0 0);
+    --lc-foreground: oklch(0.985 0 0);
+    --lc-card: oklch(0.205 0 0);
+    --lc-primary: oklch(0.922 0 0);
+    --lc-primary-foreground: oklch(0.205 0 0);
+    --lc-secondary: oklch(0.29 0 0);
+    --lc-muted: oklch(0.269 0 0);
+    --lc-muted-foreground: oklch(0.708 0 0);
+    --lc-accent: oklch(0.269 0 0);
+    --lc-destructive: oklch(0.704 0.191 22.216);
+    --lc-border: oklch(1 0 0 / 14%);
+    --lc-input: oklch(1 0 0 / 16%);
+    --lc-ring: oklch(0.556 0 0);
+    --lc-sidebar: oklch(0.19 0 0);
+    --lc-sidebar-foreground: oklch(0.985 0 0);
+    --lc-sidebar-muted: oklch(0.708 0 0);
+    --lc-sidebar-primary: oklch(0.488 0.243 264.376);   /* ⚠️ bleu : item actif en sombre */
+    --lc-sidebar-primary-foreground: oklch(0.985 0 0);
+    --lc-sidebar-accent: oklch(0.269 0 0);
+    --lc-sidebar-accent-foreground: oklch(0.985 0 0);
+    --lc-sidebar-border: oklch(1 0 0 / 10%);
+
+    --app-bg:       var(--lc-background);
+    --surface:      var(--lc-card);
+    --surface-2:    oklch(0.225 0 0);
+    --surface-3:    var(--lc-muted);
+    --surface-4:    var(--lc-secondary);
+    --surface-5:    oklch(0.32 0 0);
+    --border:            var(--lc-border);
+    --border-soft:       oklch(1 0 0 / 8%);
+    --table-cell-border: oklch(1 0 0 / 8%);
+    --text-900: var(--lc-foreground);
+    --text-800: oklch(0.95 0 0);
+    --text-700: oklch(0.90 0 0);
+    --text-600: var(--lc-muted-foreground);
+    --text-500: oklch(0.708 0 0);
+    --text-400: oklch(0.655 0 0);   /* éclairci 2026-09-07 : 4,3:1 mesuré à 10px */
+    --text-max: oklch(1 0 0);
+    --prose-body:       oklch(0.90 0 0);
+    --prose-heading:    var(--lc-foreground);
+    --prose-strong:     oklch(1 0 0);
+    --prose-link:       var(--lc-foreground);
+    --prose-link-hover: oklch(0.85 0 0);
+    --code-inline-bg:     var(--lc-muted);
+    --code-inline-fg:     oklch(0.875 0 0);
+    --code-inline-border: oklch(1 0 0 / 10%);
+
+    /* Rail sombre : vert état éclairci. Le reste suit les --lc-* redéfinis. */
+    --rail-ok:        #34d399;
+    --rail-ok-strong: #6ee7b7;
+}
+
+/* ===== MONOCHROME — généré : neutralise tous les accents (sauf red/rose) ===== */
+  /* fonds accent clairs/translucides → muted */
+body.elpis-skin-llamacpp .bg-amber-500\/10,
+body.elpis-skin-llamacpp .bg-amber-500\/15,
+body.elpis-skin-llamacpp .bg-amber-500\/20,
+body.elpis-skin-llamacpp .bg-blue-300\/70,
+body.elpis-skin-llamacpp .bg-blue-50\/40,
+body.elpis-skin-llamacpp .bg-blue-50\/50,
+body.elpis-skin-llamacpp .bg-blue-500\/10,
+body.elpis-skin-llamacpp .bg-blue-500\/20,
+body.elpis-skin-llamacpp .bg-blue-500\/40,
+body.elpis-skin-llamacpp .bg-blue-500\/5,
+body.elpis-skin-llamacpp .bg-blue-600\/20,
+body.elpis-skin-llamacpp .bg-indigo-100,
+body.elpis-skin-llamacpp .bg-indigo-50,
+body.elpis-skin-llamacpp .bg-orange-500\/10,
+body.elpis-skin-llamacpp .bg-purple-100,
+body.elpis-skin-llamacpp .bg-purple-50,
+body.elpis-skin-llamacpp .bg-purple-50\/60,
+body.elpis-skin-llamacpp .bg-purple-500\/10,
+body.elpis-skin-llamacpp .bg-purple-500\/5,
+body.elpis-skin-llamacpp .bg-teal-100,
+body.elpis-skin-llamacpp .bg-teal-50,
+body.elpis-skin-llamacpp .bg-violet-100,
+body.elpis-skin-llamacpp .bg-violet-50,
+body.elpis-skin-llamacpp .bg-yellow-500\/10 { background-color: var(--lc-muted) !important; }
+
+  /* fonds accent moyens → accent */
+body.elpis-skin-llamacpp .bg-blue-300 { background-color: var(--lc-accent) !important; }
+
+  /* fonds pleins (boutons) → primary + texte lisible */
+body.elpis-skin-llamacpp .bg-amber-400,
+body.elpis-skin-llamacpp .bg-amber-500,
+body.elpis-skin-llamacpp .bg-amber-600,
+body.elpis-skin-llamacpp .bg-amber-700,
+body.elpis-skin-llamacpp .bg-blue-400,
+body.elpis-skin-llamacpp .bg-blue-500,
+body.elpis-skin-llamacpp .bg-blue-800,
+body.elpis-skin-llamacpp .bg-indigo-600,
+body.elpis-skin-llamacpp .bg-indigo-700,
+body.elpis-skin-llamacpp .bg-orange-500,
+body.elpis-skin-llamacpp .bg-orange-600,
+body.elpis-skin-llamacpp .bg-purple-500,
+body.elpis-skin-llamacpp .bg-purple-600,
+body.elpis-skin-llamacpp .bg-purple-700,
+body.elpis-skin-llamacpp .bg-teal-500,
+body.elpis-skin-llamacpp .bg-violet-600 { background-color: var(--lc-primary) !important; color: var(--lc-primary-foreground) !important; }
+
+  /* textes accent clairs → muted-foreground */
+body.elpis-skin-llamacpp .text-amber-300,
+body.elpis-skin-llamacpp .text-amber-400,
+body.elpis-skin-llamacpp .text-blue-300\/80,
+body.elpis-skin-llamacpp .text-blue-400\/60,
+body.elpis-skin-llamacpp .text-blue-400\/70,
+body.elpis-skin-llamacpp .text-cyan-400,
+body.elpis-skin-llamacpp .text-indigo-400,
+body.elpis-skin-llamacpp .text-lime-500,
+body.elpis-skin-llamacpp .text-orange-400,
+body.elpis-skin-llamacpp .text-orange-500,
+body.elpis-skin-llamacpp .text-purple-400,
+body.elpis-skin-llamacpp .text-purple-400\/70,
+body.elpis-skin-llamacpp .text-purple-500,
+body.elpis-skin-llamacpp .text-purple-500\/80,
+body.elpis-skin-llamacpp .text-sky-400,
+body.elpis-skin-llamacpp .text-violet-300,
+body.elpis-skin-llamacpp .text-violet-400,
+body.elpis-skin-llamacpp .text-violet-400\/80,
+body.elpis-skin-llamacpp .text-violet-500,
+body.elpis-skin-llamacpp .text-yellow-400,
+body.elpis-skin-llamacpp .text-yellow-500 { color: var(--lc-muted-foreground) !important; }
+
+  /* textes accent foncés → foreground */
+body.elpis-skin-llamacpp .text-amber-800,
+body.elpis-skin-llamacpp .text-amber-900,
+body.elpis-skin-llamacpp .text-blue-600\/70,
+body.elpis-skin-llamacpp .text-blue-800,
+body.elpis-skin-llamacpp .text-blue-900,
+body.elpis-skin-llamacpp .text-indigo-600,
+body.elpis-skin-llamacpp .text-purple-600,
+body.elpis-skin-llamacpp .text-purple-700,
+body.elpis-skin-llamacpp .text-purple-800,
+body.elpis-skin-llamacpp .text-teal-600,
+body.elpis-skin-llamacpp .text-teal-700,
+body.elpis-skin-llamacpp .text-teal-800,
+body.elpis-skin-llamacpp .text-teal-900,
+body.elpis-skin-llamacpp .text-violet-600,
+body.elpis-skin-llamacpp .text-violet-700,
+body.elpis-skin-llamacpp .text-violet-900\/70 { color: var(--lc-foreground) !important; }
+
+  /* bordures accent → border */
+body.elpis-skin-llamacpp .border-amber-300,
+body.elpis-skin-llamacpp .border-amber-400,
+body.elpis-skin-llamacpp .border-amber-500\/30,
+body.elpis-skin-llamacpp .border-amber-600,
+body.elpis-skin-llamacpp .border-blue-300,
+body.elpis-skin-llamacpp .border-blue-300\/40,
+body.elpis-skin-llamacpp .border-blue-400,
+body.elpis-skin-llamacpp .border-blue-400\/40,
+body.elpis-skin-llamacpp .border-blue-400\/60,
+body.elpis-skin-llamacpp .border-blue-500,
+body.elpis-skin-llamacpp .border-blue-500\/30,
+body.elpis-skin-llamacpp .border-blue-500\/60,
+body.elpis-skin-llamacpp .border-blue-600,
+body.elpis-skin-llamacpp .border-indigo-200,
+body.elpis-skin-llamacpp .border-indigo-500,
+body.elpis-skin-llamacpp .border-indigo-600,
+body.elpis-skin-llamacpp .border-orange-500,
+body.elpis-skin-llamacpp .border-purple-100,
+body.elpis-skin-llamacpp .border-purple-200,
+body.elpis-skin-llamacpp .border-purple-200\/70,
+body.elpis-skin-llamacpp .border-purple-400,
+body.elpis-skin-llamacpp .border-purple-500,
+body.elpis-skin-llamacpp .border-purple-600,
+body.elpis-skin-llamacpp .border-teal-200,
+body.elpis-skin-llamacpp .border-violet-200,
+body.elpis-skin-llamacpp .border-violet-200\/60,
+body.elpis-skin-llamacpp .border-yellow-500,
+body.elpis-skin-llamacpp .outline-blue-400 { border-color: var(--lc-border) !important; }
+
+  /* anneaux accent → ring */
+body.elpis-skin-llamacpp .ring-amber-400,
+body.elpis-skin-llamacpp .ring-amber-500,
+body.elpis-skin-llamacpp .ring-blue-500\/20,
+body.elpis-skin-llamacpp .ring-blue-500\/40,
+body.elpis-skin-llamacpp .ring-blue-500\/60,
+body.elpis-skin-llamacpp .ring-indigo-500,
+body.elpis-skin-llamacpp .ring-purple-500 { --tw-ring-color: var(--lc-ring) !important; }
+
+  /* stops de dégradé accent → gris foncé (texte blanc lisible) */
+body.elpis-skin-llamacpp .from-blue-500,
+body.elpis-skin-llamacpp .to-indigo-400,
+body.elpis-skin-llamacpp .to-indigo-500,
+body.elpis-skin-llamacpp .to-indigo-600,
+body.elpis-skin-llamacpp .to-purple-600 { --tw-gradient-from: #2e2e2e !important; --tw-gradient-to: #1c1c1c !important; --tw-gradient-stops: #2e2e2e, #1c1c1c !important; }
+
+  /* accent-color (range/checkbox) → primary (accent-blue-600 : via bridge) */
+body.elpis-skin-llamacpp .accent-purple-500,
+body.elpis-skin-llamacpp .accent-purple-600 { accent-color: var(--lc-primary) !important; }
+
+
+/* ════════════════════════ DIRECTION ARTISTIQUE (formes) ═════════════════════
+ *  Au-delà des couleurs : on prend toute la DA (rayons, ombres, dégradés,
+ *  valeurs arbitraires) pour le look « shadcn / llama.cpp » plat et arrondi.
+ * ========================================================================== */
+
+/* Rayons : échelle llama.cpp (base 10px) normalisée sur toute l'app.
+ * rounded-full conservé (avatars, pastilles, toggles, switches). */
+body.elpis-skin-llamacpp .rounded     { border-radius: var(--radius-sm) !important; }
+body.elpis-skin-llamacpp .rounded-md  { border-radius: var(--radius-md) !important; }
+body.elpis-skin-llamacpp .rounded-lg  { border-radius: var(--radius-lg) !important; }
+body.elpis-skin-llamacpp .rounded-xl  { border-radius: var(--radius-lg) !important; }
+body.elpis-skin-llamacpp .rounded-2xl { border-radius: var(--radius-xl) !important; }
+
+/* Ombres : llama.cpp est PLAT → on atténue fortement (pas de halos). */
+body.elpis-skin-llamacpp .shadow-sm,
+body.elpis-skin-llamacpp .shadow,
+body.elpis-skin-llamacpp .shadow-md   { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important; }
+body.elpis-skin-llamacpp .shadow-lg,
+body.elpis-skin-llamacpp .shadow-xl,
+body.elpis-skin-llamacpp .shadow-2xl  { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important; }
+body.elpis-skin-llamacpp.elpis-app-dark .shadow-lg,
+body.elpis-skin-llamacpp.elpis-app-dark .shadow-xl,
+body.elpis-skin-llamacpp.elpis-app-dark .shadow-2xl { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45) !important; }
+
+/* Valeurs arbitraires : le navy du rail et le bg-[#f8fafc] admin ont disparu
+ * du markup (tokens --rail-* + bg-slate-50 bridgé).
+ * On NE touche PAS les arbitraires #1e1e1e/#252526/#3c3c3c (chrome Monaco). */
+body.elpis-skin-llamacpp .bg-\[rgba\(255\2c 255\2c 255\2c 0\.05\)\],
+body.elpis-skin-llamacpp .bg-\[rgba\(255\2c 255\2c 255\2c 0\.08\)\] { background-color: var(--lc-accent) !important; }
+
+/* Inputs / selects : forme outline arrondie cohérente. */
+body.elpis-skin-llamacpp input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+body.elpis-skin-llamacpp textarea,
+body.elpis-skin-llamacpp select { border-radius: var(--radius-md); }
+
+/* Anneau de focus : on monochrome UNIQUEMENT les ring (box-shadow, via le
+ * bucket --tw-ring-color du bloc généré). On NE force PLUS ``outline-color``
+ * globalement : ``outline-none`` de Tailwind = un outline 2px TRANSPARENT, et
+ * le forcer en gris faisait apparaître une « box » visible autour du textarea
+ * au focus (bug). Les focus pertinents passent par les ring, déjà grisés. */
+
+/* ════════════════════════════ LAYOUT / RELAYOUT ═════════════════════════════
+ *  Sélecteurs ENRACINÉS uniquement (jamais d'utilitaire nu) pour ne pas
+ *  toucher l'éditeur Monaco ni les autres surfaces hors chat.
+ * ========================================================================== */
+
+/* §A — Colonne de lecture centrée ~768px. Le :style inline (maxWidth) bat le
+ * CSS sans !important → on force. Neutralise volontairement chat_width. */
+body.elpis-skin-llamacpp .elpis-chat-col,
+body.elpis-skin-llamacpp .elpis-compose-col { max-width: 48rem !important; }
+
+/* §7 — Bulle UTILISATEUR (à droite) / assistant pleine largeur sans bulle.
+ * La rangée = ``.flex.gap-4`` avec avatar (.shrink-0) + contenu (.flex-1).
+ * On masque l'avatar côté user et on transforme le contenu en pill. */
+body.elpis-skin-llamacpp .elpis-msg-user > .shrink-0 { display: none; }
+body.elpis-skin-llamacpp .elpis-msg-user > .flex-1 {
+    flex: 0 1 auto;
+    max-width: 80%;
+    margin-left: auto;
+    background: var(--lc-secondary);
+    border: 1px solid var(--lc-border);
+    border-radius: var(--radius-lg);
+    padding: 0.5rem 0.9rem;
+}
+body.elpis-skin-llamacpp .elpis-msg-assistant > .flex-1 { background: transparent; }
+
+/* §9 — Zone de saisie : carte arrondie 14px, bordure --input, ombre douce.
+ * Le textarea interne est déjà transparent/sans bordure (rien à faire). */
+body.elpis-skin-llamacpp .elpis-compose-card {
+    background: var(--lc-card) !important;
+    border-color: var(--lc-input) !important;
+    border-radius: var(--radius-xl) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+/* Bouton envoyer = --primary plein (scopé à la carte pour ne pas toucher les
+ * autres boutons bleus de l'app). Le bouton stop reste rouge (destructif). */
+body.elpis-skin-llamacpp .elpis-compose-card .bg-blue-600 {
+    background-color: var(--lc-primary) !important;
+    color: var(--lc-primary-foreground) !important;
+}
+body.elpis-skin-llamacpp .elpis-compose-card .hover\:bg-blue-700:hover {
+    background-color: var(--lc-primary) !important;
+    filter: brightness(1.15);
+}
+
+/* §5 — Sidebar : couleurs pilotées par les tokens --rail-* (bloc tokens
+ * ci-dessus) via la section rail de style.css. Restent ici les SIGNATURES
+ * llama.cpp que les tokens ne peuvent pas porter : bouton « Nouveau chat »
+ * en --sidebar-primary (s'INVERSE en sombre) et item actif BLEU en sombre
+ * (seule couleur du skin, cf. spec §5). */
+body.elpis-skin-llamacpp aside.elpis-slide-panel .bg-blue-700 {
+    background-color: var(--lc-sidebar-primary) !important;
+    color: var(--lc-sidebar-primary-foreground) !important;
+}
+body.elpis-skin-llamacpp aside.elpis-slide-panel .hover\:bg-blue-600:hover {
+    background-color: var(--lc-sidebar-primary) !important;
+    filter: brightness(1.25);
+}
+body.elpis-skin-llamacpp.elpis-app-dark aside.elpis-slide-panel .bg-blue-600\/20 {
+    background-color: var(--lc-sidebar-primary) !important;
+    color: var(--lc-sidebar-primary-foreground) !important;
+}
+
+/* §8 — Bloc « thinking » repliable (hook existant [data-think]). */
+body.elpis-skin-llamacpp [data-think] {
+    background: var(--lc-muted);
+    border: 1px solid var(--lc-border);
+    border-radius: var(--radius-md);
+    padding: 0.4rem 0.7rem;
+    margin: 0.4rem 0;
+}
+body.elpis-skin-llamacpp [data-think] [class*="text-violet"] { color: var(--lc-muted-foreground) !important; }
+body.elpis-skin-llamacpp [data-think] [class*="border-violet"] { border-color: var(--lc-border) !important; }
+
+/* §12 — Blocs de code : laissés sombres ; on harmonise juste le rayon. */
+body.elpis-skin-llamacpp .code-wrapper { border-radius: var(--radius-md); }
+
+/* §10 — Drag-over : remplace le voile bleu (style inline) par un voile gris. */
+body.elpis-skin-llamacpp .elpis-dragover { background: color-mix(in oklab, var(--lc-foreground) 7%, transparent) !important; }
+body.elpis-skin-llamacpp .elpis-dragover .border-blue-500 { border-color: var(--lc-ring) !important; }
+
+/* §11 — Primitives : sliders/checkbox suivent ``body { accent-color }``
+ * (→ --accent = --lc-primary via le bridge). Règle dédiée retirée. */
+
+/* §14 — Scrollbars « signature » : fines (6px), invisibles au repos, grises au
+ * survol du conteneur. Surclasse les scrollbars de base par spécificité. */
+body.elpis-skin-llamacpp * { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+body.elpis-skin-llamacpp *:hover { scrollbar-color: color-mix(in oklab, var(--lc-muted-foreground) 40%, transparent) transparent; }
+body.elpis-skin-llamacpp *::-webkit-scrollbar { width: 6px; height: 6px; }
+body.elpis-skin-llamacpp *::-webkit-scrollbar-track { background: transparent; }
+body.elpis-skin-llamacpp *::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; transition: background 0.2s ease; }
+body.elpis-skin-llamacpp *:hover::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--lc-muted-foreground) 35%, transparent); }
+body.elpis-skin-llamacpp *::-webkit-scrollbar-thumb:hover { background: color-mix(in oklab, var(--lc-muted-foreground) 55%, transparent); }
+
+/* ═══════════════════ COULEURS D'ÉTAT (statuts) — Routines ═══════════════════
+ *  llama.cpp garde les couleurs PORTEUSES DE SENS (cf. spec §1/§5). Un statut
+ *  doit rester lisible « d'un coup d'œil » : succès=vert, en cours=bleu,
+ *  orphelin=ambre, erreur=rouge.
+ *
+ *  - Le VERT (emerald/green) est désormais conservé GLOBALEMENT (retiré du bloc
+ *    monochrome) : dans cette app il ne sert qu'aux états (actif/ok/en ligne).
+ *  - Le ROUGE (erreur) n'a jamais été grisé (destructif).
+ *  - Le BLEU (en cours) et l'AMBRE (orphelin) sont décoratifs ailleurs → on ne
+ *    les ressort QUE sur la page Routines (.elpis-routines-page), pour ne pas
+ *    casser le monochrome du reste de l'app. Spécificité 0,3,1 > généré 0,2,1.
+ * ========================================================================== */
+/* « En cours » — badge + point + libellé bleus */
+body.elpis-skin-llamacpp .elpis-routines-page .bg-blue-100  { background-color: #dbeafe !important; }
+body.elpis-skin-llamacpp .elpis-routines-page .bg-blue-500  { background-color: #3b82f6 !important; }
+body.elpis-skin-llamacpp .elpis-routines-page .text-blue-700 { color: #1d4ed8 !important; }
+body.elpis-skin-llamacpp .elpis-routines-page .text-blue-600 { color: #2563eb !important; }
+/* « Orphelin / interrompu » — badge ambre */
+body.elpis-skin-llamacpp .elpis-routines-page .bg-amber-100  { background-color: #fef3c7 !important; }
+body.elpis-skin-llamacpp .elpis-routines-page .text-amber-700 { color: #b45309 !important; }
+
+/* ⚠ Les six règles ci-dessus n'avaient AUCUN gate : en mode sombre elles
+   posaient des fonds très clairs (#dbeafe, #fef3c7) et des textes foncés
+   (#1d4ed8, #b45309) au milieu d'une page sombre — les statuts de routines
+   devenaient illisibles. La signature colorée est conservée, mais déclinée
+   claire-sur-sombre (fond translucide, texte clair). */
+body.elpis-skin-llamacpp.elpis-app-dark .elpis-routines-page .bg-blue-100   { background-color: rgba(59, 130, 246, 0.18) !important; }
+body.elpis-skin-llamacpp.elpis-app-dark .elpis-routines-page .text-blue-700 { color: #93c5fd !important; }
+body.elpis-skin-llamacpp.elpis-app-dark .elpis-routines-page .text-blue-600 { color: #60a5fa !important; }
+body.elpis-skin-llamacpp.elpis-app-dark .elpis-routines-page .bg-amber-100  { background-color: rgba(245, 158, 11, 0.18) !important; }
+body.elpis-skin-llamacpp.elpis-app-dark .elpis-routines-page .text-amber-700 { color: #fcd34d !important; }
+
+/* ═══════════════════════ Correctifs UX (lisibilité) ════════════════════════ */
+/* (span.text-white du rail : couvert par le remap rail .text-white →
+ *  --rail-text-strong = --lc-sidebar-foreground. Règle dédiée retirée.) */
+
+/* Avatar utilisateur (initiales) : llama.cpp garde des avatars EN COULEUR.
+ * Le bloc monochrome grise les stops `from-blue-500/to-indigo-500` (vars
+ * --tw-gradient-*) → on REPOSE le dégradé bleu→indigo directement en
+ * background-image (sélecteur enraciné = seul cet avatar le porte). */
+body.elpis-skin-llamacpp .bg-gradient-to-tr.from-blue-500.to-indigo-500 {
+    background-image: linear-gradient(to top right, #3b82f6, #6366f1) !important;
+}
+
+/* Logo de l'écran d'accueil : on garde ses couleurs (les logos restent en
+ * couleur côté llama.cpp), juste un léger retrait d'opacité pour l'intégrer. */
+body.elpis-skin-llamacpp .elpis-welcome img { filter: none; opacity: 0.95; }

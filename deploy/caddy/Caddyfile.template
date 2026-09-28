@@ -1,0 +1,75 @@
+# =====================================================================
+#  Caddyfile — frontal TLS Elpis (LAN, sans domaine, « actionless »)
+#
+#  Sites en CATCH-ALL (:443/:8443/:8444) : n'importe quelle IP ou nom
+#  qui atteint la machine fonctionne — aucune adresse à configurer ici.
+#  Ce fichier est copié tel quel par install_caddy.sh (pas de sed).
+#
+#  TLS : certificat STABLE généré par install_caddy.sh (CA locale +
+#  cert serveur 10 ans, SANs = IPs détectées) — volontairement PAS
+#  ``tls internal`` : Caddy ferait tourner la leaf toutes les 12 h et
+#  l'exception « Accepter le risque » mémorisée par les navigateurs
+#  sauterait à chaque rotation. Avec un cert stable, le client clique
+#  UNE fois par poste/port et ne revoit plus d'avertissement.
+#
+#  Ports upstream : alignés avec config.json › security.https.* (garde
+#  anti-lockout du toggle admin) et les binds gunicorn/uvicorn.
+#
+#  PAS de header HSTS et redirect :80 en 302 : le toggle admin permet
+#  de revenir en HTTP direct — un HSTS mémorisé rendrait ce retour
+#  impossible. Ne pas « améliorer ».
+#
+#  flush_interval -1 : streaming NDJSON du chat token-par-token (Caddy
+#  ne désactive son buffering tout seul que pour text/event-stream).
+#  Les WebSockets (/ws/terminal) passent nativement.
+# =====================================================================
+
+:443 {
+	tls /etc/caddy/elpis-pki/fullchain.pem /etc/caddy/elpis-pki/server.key
+	reverse_proxy 127.0.0.1:8001 {
+		flush_interval -1
+	}
+}
+
+:8443 {
+	tls /etc/caddy/elpis-pki/fullchain.pem /etc/caddy/elpis-pki/server.key
+	reverse_proxy 127.0.0.1:8002 {
+		flush_interval -1
+	}
+}
+
+:8444 {
+	tls /etc/caddy/elpis-pki/fullchain.pem /etc/caddy/elpis-pki/server.key
+	reverse_proxy 127.0.0.1:8000 {
+		flush_interval -1
+	}
+}
+
+# Port 80 : l'utilisateur peut taper juste l'IP (http) → redirigé en
+# https. /ca.crt reste dispo pour l'import OPTIONNEL de la CA locale
+# (supprime l'avertissement navigateur pour qui veut le cadenas propre).
+#
+# EXCEPTION @bootstrap — l'AMORÇAGE d'installation reste servi EN CLAIR.
+# Un one-liner d'install tourne sur une machine qui ne connaît pas encore
+# la CA locale : en https il fallait donc désactiver la vérification du
+# certificat AVANT même de télécharger le script (préambule PowerShell de
+# ~400 caractères, cassant selon la version de .NET / TLS 1.2), d'où des
+# commandes longues et instables. Ces routes sont PUBLIQUES et sans
+# secret (scripts d'install, binaire opencode, zip de l'agent, plugin) :
+# les laisser joignables en http rend la commande triviale
+# — `curl -fsSL http://<ip>/opencode | bash`. Le script téléchargé, lui,
+# épingle ensuite la CA locale (http://<ip>/ca.crt) pour tout ce qui
+# parlera à l'app en https. Ne RIEN ajouter ici qui demande une session.
+:80 {
+	handle /ca.crt {
+		root * /etc/caddy/elpis-pki
+		file_server
+	}
+	@bootstrap path /opencode /opencode.ps1 /agent /agent.ps1 /api/cli/* /api/code/plugin.ts /api/code/plugin.js /api/desktop/install.sh /api/desktop/install.ps1 /api/desktop/agent-bundle
+	handle @bootstrap {
+		reverse_proxy 127.0.0.1:8001
+	}
+	handle {
+		redir https://{host}{uri} 302
+	}
+}

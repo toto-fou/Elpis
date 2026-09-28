@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<!--
+  static/admin.html — Admin Console standalone page
+  =================================================
+
+  Served by the dedicated admin process (admin_app.py / APP_MODE=admin) at
+  ``/`` and ``/admin``. The MAIN process (chat-facing port) does NOT serve
+  this file — it just renders a soft-handoff redirect at ``/admin``.
+
+  Why a separate file (vs reusing index.html)
+  -------------------------------------------
+  * **Defence-in-depth**: even if a misconfiguration ever re-mounted chat
+    routes on the admin port, the admin HTML carries no chat/editor DOM,
+    so the JS setup of those modules has nothing to bind to.
+  * **Smaller surface**: this page does not load Monaco (~13 MB), Drawflow,
+    or xterm — saves bandwidth on the admin port,
+    and an XSS in those libraries cannot land here.
+  * **Clearer audit**: ``grep -l '/api/admin' static/`` now resolves to
+    *one* HTML entry point instead of being mixed into the chat page.
+
+  Why we still load app-auth / app-admin / app.js
+  -----------------------------------------------
+  Those three are the canonical implementations of authentication, the
+  admin tabs, and the Vue bootstrap. Re-using them keeps a SINGLE source
+  of truth — fixes to the login form / admin dashboard / global hotkeys
+  apply to both the main and admin pages without manual sync.
+
+  The chat / editor module factories (``setupChat``, ``setupEditor``) are
+  also loaded because ``app.js`` calls them unconditionally; in admin-only
+  mode their refs are created but their templates are absent, so no API
+  call is ever wired through. ``window.__ADMIN_ONLY_MODE__`` further
+  protects against any mount-time fetch (see app.js / app-auth.js
+  conditionals).
+-->
+<html lang="fr" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elpis — Administration</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="static/elpis-32.png">
+    <link rel="apple-touch-icon" href="static/elpis-256.png">
+    <style>
+        [v-cloak] { display: none !important; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.2s, transform 0.2s; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(6px); }
+        #vue-error-overlay { display: none; position: fixed; inset: 0; z-index: 99999; background: #f8fafc; justify-content: center; align-items: center; font-family: system-ui, sans-serif; }
+        #vue-error-overlay.active { display: flex; }
+        #vue-error-overlay .box { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,.1); padding: 2rem; max-width: 560px; width: 90%; text-align: center; }
+        #vue-error-overlay h2 { font-size: 18px; font-weight: 700; color: #ef4444; margin-bottom: 12px; }
+        #vue-error-overlay pre { text-align: left; background: #1e293b; color: #e2e8f0; padding: 12px; border-radius: 8px; font-size: 12px; overflow: auto; max-height: 200px; margin-top: 12px; white-space: pre-wrap; word-break: break-all; }
+
+        /* Admin process visual identifier — kept SUBTLE in the redesign:
+           the dark sidebar (with its slate-800 shield icon and "Console
+           admin" sub-label) is the primary differentiator. The previous
+           3px red top border created a "warning banner" feel that was at
+           odds with the calm slate/blue palette used everywhere else in
+           the chatbot. Removed.
+           If a future audit/compliance need brings back a visual flag,
+           prefer a small badge near the brand name over a full-width bar. */
+    </style>
+    <script>
+        // ============================================================
+        //  ADMIN-ONLY MODE FLAG
+        // ============================================================
+        //  Tells app.js / app-auth.js to:
+        //   • lock isAdminView=true after auth (no chat fallback)
+        //   • skip _restoreSession() in onMounted (it hits /api/saved/chats
+        //     which doesn't exist on the admin port)
+        //   • change the "Quitter" button into a navigation back to the
+        //     main app (configured via window.__MAIN_APP_URL__ below)
+        //
+        //  Set BEFORE any module script tags so the modules see it during
+        //  their setup() factories — this is read again later by various
+        //  guards but having it set early avoids a "first-paint admin tab
+        //  shows chat for a frame then snaps to admin" flicker.
+        window.__ADMIN_ONLY_MODE__ = true;
+
+        // The "Quitter" button uses this URL. The admin process can't know
+        // its peer's address by itself; it's injected via the env var
+        // MAIN_PUBLIC_URL → exposed at /api/public-config → read by the
+        // frontend during checkAuth(). As a fallback we synthesize one
+        // from the current host, with the same port-mapping heuristics
+        // used on the chat side (index.html bootstrap):
+        //   • port 8002 → swap to 8001 (./elpis start default).
+        //   • port 80 / 443 / empty (proxy in front) → fall back to
+        //     "<origin>/" — the proxy is expected to route the chat at
+        //     the root and /admin to this admin process.
+        //   • other custom ports → leave the bootstrap pointing at "/"
+        //     (still better than nothing) and rely on MAIN_PUBLIC_URL
+        //     to correct after /api/public-config returns.
+        //
+        // Earlier versions only handled the 8002 case. On a proxy-fronted
+        // deployment with no env var, the fallback computed a URL with
+        // an empty port → still valid. The case that broke was: env var
+        // points at "http://localhost:8001/" and the rewriter on the
+        // backend can't find a public hostname → it now returns "" so
+        // this bootstrap value sticks. (Cf. _rewrite_localhost_url.)
+        try {
+            const u = new URL(window.location.href);
+            let fallback;
+            if (u.port === '8002') {
+                fallback = `${u.protocol}//${u.hostname}:8001/`;
+            } else if (u.port === '' || u.port === '80' || u.port === '443') {
+                fallback = `${u.origin}/`;
+            } else {
+                // Unknown custom port — best guess is the same host
+                // without port, which a proxy may route correctly.
+                fallback = `${u.protocol}//${u.hostname}/`;
+            }
+            window.__MAIN_APP_URL__ = fallback;
+        } catch(_) {
+            window.__MAIN_APP_URL__ = '/';
+        }
+
+        // -- Diagnostics (same pattern as index.html) ---------------
+        window.__vueErrors = [];
+        window.onerror = function(msg, src, line, col, err) {
+            window.__vueErrors.push({ msg: msg, src: src, line: line, err: err ? err.stack : '' });
+        };
+        window.addEventListener('unhandledrejection', function(e) {
+            window.__vueErrors.push({ msg: 'Promise: ' + (e.reason ? e.reason.message || e.reason : 'unknown'), err: e.reason ? e.reason.stack : '' });
+        });
+        setTimeout(function() {
+            var app = document.getElementById('app');
+            if (app && app.hasAttribute('v-cloak')) {
+                var overlay = document.getElementById('vue-error-overlay');
+                var details = document.getElementById('vue-error-details');
+                if (overlay) {
+                    overlay.classList.add('active');
+                    // Montage tardif (poste lent) : retirer l'overlay dès que
+                    // Vue finit par monter, sinon il bloque l'app à tort
+                    // (même fix que index.html, borné à 60 s).
+                    var _unstickTries = 0;
+                    var _unstick = setInterval(function() {
+                        if (!app.hasAttribute('v-cloak')) {
+                            overlay.classList.remove('active');
+                            clearInterval(_unstick);
+                        } else if (++_unstickTries > 120) {
+                            clearInterval(_unstick);
+                        }
+                    }, 500);
+                    var msgs = [];
+                    if (typeof Vue === 'undefined') msgs.push('[KO] Vue.js non chargé');
+                    else msgs.push('[OK] Vue.js chargé (v' + (Vue.version || '?') + ')');
+                    if (window.__vueErrors.length > 0) {
+                        msgs.push('\nErreurs JS capturées :');
+                        window.__vueErrors.forEach(function(e) { msgs.push('  → ' + e.msg + (e.src ? ' (' + e.src + ':' + e.line + ')' : '')); });
+                    }
+                    if (details) details.textContent = msgs.join('\n');
+                }
+            }
+        }, 4000);
+    </script>
+
+    <!--
+      Library bundle — note Monaco is INTENTIONALLY ABSENT.
+      The admin console doesn't need it (we don't open files / run editors
+      on this surface), so we save ~13 MB on every cold load AND remove
+      Monaco's quite-large worker script as a potential XSS sink.
+    -->
+    <script src="static/vendor/vue.global.prod.js"></script>
+    <script src="static/vendor/purify.min.js"></script>
+    <script src="static/vendor/marked.min.js"></script>
+    <link rel="stylesheet" href="static/vendor/src/regular/style.css">
+    <link rel="stylesheet" href="static/vendor/github-dark.min.css">
+    <link rel="stylesheet" href="static/css/style.css?v=1783300021">
+    <!-- Skins (correctif 2026-07) : la console admin suit désormais le skin
+         de l'utilisateur — mêmes fichiers qu'index.html, chargés APRÈS
+         style.css. Classes posées par app-settings.js (chargé plus bas). -->
+    <link rel="stylesheet" href="static/css/skins/llamacpp.css?v=1783300021">
+    <link rel="stylesheet" href="static/css/skins/emeraude.css?v=1783300021">
+    <link rel="stylesheet" href="static/css/skins/parchemin.css?v=1783300021">
+    <link rel="stylesheet" href="static/css/skins/pingouins.css?v=1783300021">
+    <link rel="stylesheet" href="static/css/skins/elpis.css?v=1783300021">
+    <link rel="stylesheet" href="static/css/skins/kiki.css?v=1783300021">
+    <!-- L'aperçu du mot animé, carte « Écran d'accueil » : le canevas est
+         transparent, tout l'habillage (fond, rendu pixellisé) vient d'ici. -->
+    <link rel="stylesheet" href="static/assets/mascotte/accueil.css?v=1783300021">
+    <!-- Les vignettes de la liste « Mascottes proposées ». Sans elle, les
+         `.socle-mascotte` de la carte sont des trous. -->
+    <link rel="stylesheet" href="static/assets/mascotte/socle-mascottes.css?v=1783300021">
+    <!-- Feuille Tailwind PRÉCOMPILÉE. Remplace le « Play CDN » vendorisé,
+         qui était un COMPILATEUR tournant dans le navigateur : 398 Ko et
+         1 810 ms de CPU au premier rendu, plus un MutationObserver armé en
+         permanence — donc actif pendant tout le streaming de tokens.
+         Régénérer après ajout de classes utilitaires :
+             node tools/generate_tailwind_css.mjs
+         Parité prouvée par tests/frontend/tailwind-verify.mjs (0 écart de
+         style calculé face au CDN, chat et admin).
+         POSITION CRITIQUE : en FIN de <head>. Le compilateur ajoutait sa
+         <style> ici même, donc APRÈS Phosphor et style.css ; plus haut,
+         « .ph { line-height: 1 } » l'emporterait sur « text-lg ». -->
+    <link rel="stylesheet" href="static/css/style.tailwind.css?v=1783300021">
+</head>
+<!-- Fond/texte : tokens via la règle ``body`` de style.css (une classe
+     Tailwind sur <body> battrait la règle et gèlerait le skin). -->
+<body class="h-full antialiased overflow-hidden selection:bg-blue-100 selection:text-blue-900">
+
+<div id="vue-error-overlay">
+    <div class="box">
+        <h2>La console admin n'a pas pu démarrer</h2>
+        <pre id="vue-error-details">Diagnostic en cours...</pre>
+    </div>
+</div>
+
+<div id="app" class="h-full w-full relative flex" v-cloak>
+
+    <!-- === APP CHROME (alerts / toasts / modal / context menu) === -->
+    <!-- @include includes/layout/app_chrome.html -->
+
+    <!-- === AUTH CARDS (login / change-password) === -->
+    <!-- @include includes/layout/auth_cards.html -->
+
+    <!-- ========================================================
+         ADMIN VIEW — locked to isAdminView=true via the flag.
+         Layout (post-redesign):
+              ┌──────────┬────────────────────────────────────────┐
+              │  dark    │  light header (active tab title)       │
+              │  sidebar ├────────────────────────────────────────┤
+              │  (240px) │  scrollable content area               │
+              │  240/48  │  (tab_*.html partials render here)     │
+              └──────────┴────────────────────────────────────────┘
+         The sidebar partial is shared with index.html's in-page admin
+         view. See includes/admin/sidebar.html for rationale.
+         ======================================================== -->
+    <div v-else class="h-full w-full flex bg-slate-50 overflow-hidden">
+
+        <!-- === Coquille de la console (partagée avec index.html) === -->
+        <!-- @include includes/admin/shell.html -->
+        <!-- Modale de transfert (extraite au niveau global pour la page
+             Documents ; l'admin split la charge ici). -->
+        <!-- @include includes/modals/transfer.html -->
+
+        <!-- Group management modals (create/edit, members, user-assign).
+             Shared with index.html — without this include the Groupes tab
+             buttons set groupModal.show=true on a modal that has no DOM. -->
+        <!-- @include includes/modals/groups.html -->
+    </div>
+
+</div>
+
+<!--
+  Script bundle — same set as index.html EXCEPT the editor sub-bundles
+  AND ``app-editor.js`` itself. ``app-editor.js`` calls
+  ``window.setupEditorLanguages()`` at setup time, which is defined in
+  ``editor/_languages.js`` (not loaded here for footprint reasons). Loading
+  app-editor.js without its sub-bundles throws "setupEditorLanguages is not
+  a function" inside Vue setup() and cascades into a swarm of
+  "X is undefined" template errors.
+  
+  ``app.js`` accommodates the absence: ``_safeSetup('setupEditor', …)``
+  detects the missing factory, logs an informational message and falls
+  back to ``editorMod = {}``. The cross-module getters in ctx
+  (``get fileInput()``, ``get monacoRef()`` …) already return null when
+  editorMod is empty, and admin.html includes no editor templates.
+  
+  ``app-chat.js`` is still loaded because ``connectSystemEvents()`` —
+  which drives the live Logs console — lives in it. ALL the chat
+  sub-bundles whose factories setupChat() invokes UNGUARDED at setup
+  time (setupChatModels, setupChatSampling, setupChatCompressionUI,
+  setupChatSearch, setupChatCompose, setupChatWebshot,
+  setupChatHelpersJson, setupChatMessageEdit, setupChatHistory,
+  setupChatHelpersMisc, setupChatThinkingTitle, …) are mandatory:
+  one missing file → setupChat throws → _safeSetup falls back to
+  chatMod={} → connectSystemEvents disappears → live logs + restart
+  banner silently die. Keep this list in sync with index.html
+  (only the typeof-guarded menu factories — _skills_menu,
+  _routines_menu, _studio_menu — may be omitted).
+-->
+<script src="static/js/utils.js?v=1783300021"></script>
+<script>window.__scriptOk = window.__scriptOk || {}; window.__scriptOk['utils'] = typeof getFileMeta === 'function';</script>
+<script src="static/js/app-auth.js?v=1783300021"></script>
+<script>window.__scriptOk['app-auth'] = typeof setupAuth === 'function';</script>
+<script src="static/js/chat/_models.js?v=1783300021"></script>
+<script src="static/js/chat/_dnd.js?v=1783300021"></script>
+<script src="static/js/chat/_system_sse.js?v=1783300021"></script>
+<script src="static/js/chat/_virtual_scroll.js?v=1783300021"></script>
+<script src="static/js/chat/_rendering.js?v=1783300021"></script>
+<script src="static/js/chat/_sampling.js?v=1783300021"></script>
+<script src="static/js/chat/_compression_ui.js?v=1783300021"></script>
+<script src="static/js/chat/_search.js?v=1783300021"></script>
+<script src="static/js/chat/_compose.js?v=1783300021"></script>
+<script src="static/js/chat/_webshot.js?v=1783300021"></script>
+<script src="static/js/chat/_voice.js?v=1784227200"></script>
+<script src="static/js/chat/_helpers_json.js?v=1783300021"></script>
+<script src="static/js/chat/_message_edit.js?v=1783300021"></script>
+<script src="static/js/chat/_history.js?v=1783300021"></script>
+<script src="static/js/chat/_helpers_misc.js?v=1783300021"></script>
+<script src="static/js/chat/_diff_card.js?v=1783300021"></script>
+<script src="static/js/chat/_memory_card.js?v=1783300021"></script>
+<script src="static/js/chat/_thinking_title.js?v=1783300021"></script>
+<script src="static/js/app-chat.js?v=1783300021"></script>
+<script>window.__scriptOk['app-chat'] = typeof setupChat === 'function';</script>
+<!-- ``app-editor.js`` and its editor/* sub-bundles intentionally absent. -->
+<script src="static/js/admin/_registry.js?v=1783300021"></script>
+<script src="static/js/admin/_fields.js?v=1790524800"></script>
+<script src="static/js/app-admin.js?v=1783300021"></script>
+<script src="static/js/admin/skins.js?v=1783300021"></script>
+<script>window.__scriptOk['app-admin'] = typeof setupAdmin === 'function';</script>
+<script src="static/js/app-settings.js?v=1783300021"></script>
+<script>window.__scriptOk['app-settings'] = typeof setupSettings === 'function';</script>
+<script src="static/js/app.js?v=1783300021"></script>
+</body>
+</html>

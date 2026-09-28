@@ -1,0 +1,975 @@
+<!--
+  includes/admin/tab_connections.html — Page « Connexions »
+  ========================================================
+  Refonte 2026-08-01. Le menu qui répond au reproche initial : « les conf de
+  endpoint models sont éparpillées ». AVANT, les six adresses de services
+  externes vivaient dans deux onglets et trois sous-onglets sans lien entre
+  eux :
+
+    Moteurs                     → moteur local, connecteurs, endpoint compression
+    Réglages › Intégrations     → service RAG, serveur MCP
+    Réglages › Vision & Desktop → endpoint d'annotation, agents de contrôle
+
+  APRÈS : une seule page, ordonnée du plus utilisé au plus rare, avec les trois
+  endpoints d'inférence en tête (moteur, compression, annotation) puis les
+  trois services (RAG, MCP, agents de contrôle).
+
+  Deux stores : config.json (configForm.llama / vision / rag / mcp / desktop) et
+  la config de compression. Le bouton « Sauvegarder » de l'en-tête partagé
+  n'appelle que ceux qui ont bougé.
+
+  EXCEPTION au bouton unique : le CRUD des connecteurs partagés (lignes en base,
+  avec suppression) garde ses propres actions — un bouton de page ne peut pas
+  exprimer « supprimer cet objet ». Le panneau est donc encadré et étiqueté.
+
+  Les ids des <section> DOIVENT correspondre à ADMIN_PAGE_SECTIONS.connections.
+-->
+                    <div v-if="['inference', 'compression', 'vision', 'rag', 'voice', 'images', 'mcp'].includes(adminTab)" class="animate-[fadeIn_0.2s]">
+                        <div class="space-y-6 min-w-0">
+
+                            <!-- ═══════════ Moteur d'inférence ═══════════ -->
+                            <section v-if="adminTab==='inference'" id="engine" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-cpu adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Moteur d'inférence</h3>
+                                        <span class="sr-only">Le serveur intégré et les connecteurs partagés par tous les utilisateurs.</span>
+                                    </div>
+                                </header>
+
+                                <!-- Moteurs disponibles — LISTE, pas menu déroulant (2026-09-12).
+                                     Un <select> mélangeait trois natures d'entrée (le moteur
+                                     intégré, N connecteurs, une ACTION « ajouter »), n'affichait
+                                     qu'une ligne à la fois et ne pouvait porter ni adresse, ni
+                                     état de clé, ni bouton par objet. Même grammaire que la
+                                     liste des archives de la modale Paramètres : une ligne par
+                                     objet, titre + adresse, actions au survol. -->
+                                <div class="adm-rows">
+                                    <div class="adm-row adm-row--full adm-row--top">
+                                        <div class="w-full min-w-0">
+                                            <div class="flex items-end justify-between gap-3 mb-2">
+                                                <div>
+                                                    <span class="adm-row__label" title="Le serveur intégré ou l'un des connecteurs partagés." id="cnx-engine-lbl">Moteur à configurer</span>
+                                                    <span class="sr-only">Le serveur intégré ou l'un des connecteurs partagés.</span>
+                                                </div>
+                                                <button type="button" @click="engineSel='__new__'; onEngineSelect()"
+                                                        class="adm-btn adm-tool adm-btn--sm"
+                                                        :class="engineSel==='__new__' ? 'border-blue-300 bg-blue-50 text-blue-700' : ''">
+                                                    <i class="ph ph-plus" aria-hidden="true"></i> Ajouter
+                                                </button>
+                                            </div>
+
+                                            <div class="space-y-1.5" role="listbox" aria-labelledby="cnx-engine-lbl">
+                                                <!-- Moteur intégré -->
+                                                <div role="option" tabindex="0"
+                                                     :aria-selected="engineSel==='__local__' ? 'true' : 'false'"
+                                                     @click="engineSel='__local__'; onEngineSelect()"
+                                                     @keydown.enter.prevent="engineSel='__local__'; onEngineSelect()"
+                                                     @keydown.space.prevent="engineSel='__local__'; onEngineSelect()"
+                                                     class="bg-slate-50 hover:bg-white border rounded-lg p-3 flex items-center gap-3 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                                     :class="engineSel==='__local__' ? 'border-blue-300 bg-blue-50/50' : 'border-transparent hover:border-slate-200'">
+                                                    <i class="ph ph-cpu text-base shrink-0" :class="engineSel==='__local__' ? 'text-blue-500' : 'text-slate-400'" aria-hidden="true"></i>
+                                                    <div class="min-w-0 flex-1">
+                                                        <div class="font-medium text-slate-800 text-sm truncate">Moteur local (intégré)</div>
+                                                        <div class="text-[11px] text-slate-500 mt-0.5 font-mono truncate">
+                                                            {{ (configForm && configForm.llama)
+                                                                ? ((configForm.llama.url || '').trim() || ((configForm.llama.ip || '127.0.0.1') + ':' + (configForm.llama.port || 8080)))
+                                                                : '—' }}
+                                                        </div>
+                                                    </div>
+                                                    <span class="text-[11px] text-slate-400 shrink-0">par défaut</span>
+                                                </div>
+
+                                                <!-- Connecteurs partagés -->
+                                                <div v-for="c in admLlmConnectors" :key="'eng'+c.id" role="option" tabindex="0"
+                                                     :aria-selected="String(engineSel)===String(c.id) ? 'true' : 'false'"
+                                                     @click="engineSel=c.id; onEngineSelect()"
+                                                     @keydown.enter.prevent="engineSel=c.id; onEngineSelect()"
+                                                     @keydown.space.prevent="engineSel=c.id; onEngineSelect()"
+                                                     class="bg-slate-50 hover:bg-white border rounded-lg p-3 flex items-center gap-3 group cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                                     :class="String(engineSel)===String(c.id) ? 'border-blue-300 bg-blue-50/50' : 'border-transparent hover:border-slate-200'">
+                                                    <i class="ph ph-plugs-connected text-base shrink-0" :class="String(engineSel)===String(c.id) ? 'text-blue-500' : 'text-slate-400'" aria-hidden="true"></i>
+                                                    <div class="min-w-0 flex-1">
+                                                        <div class="flex items-center gap-1.5 min-w-0">
+                                                            <span class="font-medium text-slate-800 text-sm truncate">{{ c.label || admLlmLabel(c.provider_type) }}</span>
+                                                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-white text-slate-500 border border-slate-200 shrink-0">{{ c.provider_type }}</span>
+                                                            <span v-if="c.has_key" class="text-[10px] text-emerald-700 shrink-0" title="Clé API enregistrée"><i class="ph ph-key" aria-hidden="true"></i></span>
+                                                            <span v-if="c.enabled === false" class="text-[10px] text-amber-700 shrink-0">désactivé</span>
+                                                        </div>
+                                                        <div class="text-[11px] mt-0.5 font-mono truncate"
+                                                             :class="admLlmTest[c.id] && !admLlmTest[c.id].testing && !admLlmTest[c.id].ok ? 'text-red-600' : 'text-slate-500'">
+                                                            <template v-if="admLlmTest[c.id] && admLlmTest[c.id].testing"><i class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i> test en cours…</template>
+                                                            <template v-else-if="admLlmTest[c.id] && admLlmTest[c.id].ok">{{ admLlmTest[c.id].models_count }} modèle(s) · {{ c.base_url }}</template>
+                                                            <template v-else-if="admLlmTest[c.id]">{{ admLlmTest[c.id].hint || admLlmTest[c.id].error || 'échec' }}</template>
+                                                            <template v-else>{{ c.base_url || '—' }}</template>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex gap-1 shrink-0">
+                                                        <button type="button" @click.stop="testAdmLlmConnector(c)" title="Tester la connexion" aria-label="Tester la connexion"
+                                                                class="adm-btn adm-btn--icon adm-tool"><i class="ph ph-pulse" aria-hidden="true"></i></button>
+                                                        <button type="button" @click.stop="deleteAdmLlmConnector(c)" title="Supprimer" aria-label="Supprimer le connecteur"
+                                                                class="adm-btn adm-btn--icon adm-tool adm-btn--icon-danger"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                                                    </div>
+                                                </div>
+
+                                                <div v-if="!admLlmConnectors.length" class="text-center px-4 py-5 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                                    <i class="ph ph-plugs text-2xl text-slate-300 block mb-1" aria-hidden="true"></i>
+                                                    <p class="text-xs text-slate-500">Aucun connecteur partagé. « Ajouter » en crée un.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ── (A) Moteur intégré : champs de config.json ───── -->
+                                <div class="border-t border-slate-100">
+                                    <div class="adm-rows" v-if="configForm && configForm.llama">
+
+                                        <div class="adm-row">
+                                            <div>
+                                                <label class="adm-row__label" title="Hors llama.cpp, l'app parle en OpenAI standard. Pris en compte au redémarrage." for="cnx-llama-engine">Type</label>
+                                                <span class="sr-only">Hors llama.cpp, l'app parle en OpenAI standard. Pris en compte au redémarrage.</span>
+                                            </div>
+                                            <select id="cnx-llama-engine" v-model="configForm.llama.engine" data-field="config:llama.engine" class="set-select w-full max-w-sm">
+                                                <option value="llamacpp">llama.cpp — optimisé (KV-cache, slots)</option>
+                                                <option value="vllm">vLLM — OpenAI standard</option>
+                                                <option value="generic">OpenAI-compatible (TGI, Ollama, LM Studio…)</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="adm-row">
+                                            <div>
+                                                <span class="adm-row__label" title="Hôte, port, et délai maximal d'une requête.">Adresse</span>
+                                                <span class="sr-only">Hôte, port, et délai maximal d'une requête.</span>
+                                            </div>
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <input v-model="configForm.llama.ip" data-field="config:llama.ip" placeholder="127.0.0.1" aria-label="Hôte"
+                                                       class="set-input font-mono text-xs flex-1 min-w-[10rem]">
+                                                <input v-model.number="configForm.llama.port" data-field="config:llama.port" type="number" min="1" max="65535" placeholder="Port" aria-label="Port"
+                                                       class="set-input adm-num--sm">
+                                                <input v-model.number="configForm.llama.timeout_sec" data-field="config:llama.timeout_sec" type="number" min="1" max="3600" placeholder="Délai" aria-label="Délai en secondes"
+                                                       class="set-input adm-num--sm">
+                                                <span class="adm-unit">s</span>
+                                                <!-- L'URL complète (repliée dans Avancé) prime sur hôte et port :
+                                                     le dire ici, sinon l'adresse affichée ment. -->
+                                                <span v-if="(configForm.llama.url || '').trim()" class="adm-pill"
+                                                      title="L'URL complète (Avancé) remplace l'hôte et le port.">URL complète active</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="adm-row">
+                                            <div>
+                                                <label class="adm-row__label" title="Modèle par défaut : identifiant transmis à l'API (champ « model » de la requête)." for="cnx-llama-model">Modèle</label>
+                                                <span class="sr-only">Modèle par défaut : identifiant transmis à l'API (champ « model » de la requête).</span>
+                                            </div>
+                                            <input id="cnx-llama-model" v-model="configForm.llama.model" data-field="config:llama.model" placeholder="local-model" class="set-input">
+                                        </div>
+
+                                        <!-- Réglages rares, repliés : adresse complète, reprises, capacité. -->
+                                        <details class="adm-details adm-details--rows">
+                                            <summary>Avancé</summary>
+                                            <div class="adm-row">
+                                                <div>
+                                                    <label class="adm-row__label" title="Si renseignée, remplace hôte et port." for="cnx-llama-url">URL complète</label>
+                                                    <span class="sr-only">Si renseignée, remplace hôte et port.</span>
+                                                </div>
+                                                <input id="cnx-llama-url" v-model="configForm.llama.url" data-field="config:llama.url" placeholder="http://hote:port/v1/chat/completions"
+                                                       class="set-input font-mono text-xs">
+                                            </div>
+
+                                            <div class="adm-row">
+                                                <div>
+                                                    <span class="adm-row__label" title="Nombre de tentatives et délai initial (doublé à chaque essai).">Reprise sur échec</span>
+                                                    <span class="sr-only">Nombre de tentatives et délai initial (doublé à chaque essai).</span>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <input v-model.number="configForm.llama.retries" data-field="config:llama.retries" type="number" min="0" max="20" aria-label="Tentatives"
+                                                           class="set-input adm-num--sm">
+                                                    <span class="adm-unit">tentatives, délai</span>
+                                                    <input v-model.number="configForm.llama.retry_backoff_sec" data-field="config:llama.retry_backoff_sec" type="number" step="0.1" min="0" max="60" aria-label="Délai initial en secondes"
+                                                           class="set-input adm-num--sm">
+                                                    <span class="adm-unit">s</span>
+                                                </div>
+                                            </div>
+
+                                            <div v-if="(configForm.llama.engine || 'llamacpp') === 'llamacpp'" class="adm-row">
+                                                <div>
+                                                    <span class="adm-row__label" title="Propre à llama.cpp : modèles chargés en parallèle, conversations par modèle.">Capacité</span>
+                                                    <span class="sr-only">Propre à llama.cpp : modèles chargés en parallèle, conversations par modèle.</span>
+                                                </div>
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <input v-model.number="configForm.llama.max_models" data-field="config:llama.max_models" type="number" min="1" max="32" aria-label="Modèles simultanés"
+                                                           class="set-input adm-num--sm">
+                                                    <span class="adm-unit">modèles,</span>
+                                                    <input v-model.number="configForm.llama.max_concurrency" data-field="config:llama.max_concurrency" type="number" min="1" max="64" aria-label="Conversations par modèle"
+                                                           class="set-input adm-num--sm">
+                                                    <span class="adm-unit">conversations / modèle</span>
+                                                </div>
+                                            </div>
+                                        </details>
+
+                                    </div>
+                                    <div v-else class="px-5 py-6">
+                                        <div class="adm-skeleton w-48"></div>
+                                    </div>
+                                </div>
+
+                                <!-- ── (B) Connecteur partagé : édité dans un TIROIR ──
+                                     Objet en base, avec son propre Enregistrer : il ne se mêle
+                                     pas à la barre d'enregistrement de l'écran. Échap ferme. -->
+                                <teleport to="body">
+                                <div v-if="admLlmForm && adminTab==='inference'" class="adm-drawer-backdrop" @click.self="closeEngineDrawer()">
+                                    <aside ref="engineDrawer" class="adm-drawer" role="dialog" aria-modal="true" aria-labelledby="cnx-drawer-title"
+                                           tabindex="-1" @keydown.tab="onEngineDrawerKey">
+                                        <header class="adm-drawer__head">
+                                            <i class="ph ph-plugs-connected adm-card__icon" aria-hidden="true"></i>
+                                            <h2 id="cnx-drawer-title" class="adm-drawer__title">
+                                                {{ admLlmForm.id ? (engineConnector ? (engineConnector.label || admLlmLabel(engineConnector.provider_type)) : 'Connecteur') : 'Nouveau connecteur' }}
+                                            </h2>
+                                            <span v-if="admLlmForm.id && engineConnector" class="adm-pill">{{ engineConnector.provider_type }}</span>
+                                            <button type="button" class="adm-btn adm-btn--icon ml-auto" @click="closeEngineDrawer()" aria-label="Fermer" title="Fermer (Échap)">
+                                                <i class="ph ph-x" aria-hidden="true"></i>
+                                            </button>
+                                        </header>
+
+                                        <div class="adm-drawer__body">
+                                            <p v-if="admLlmForm.id && engineConnector && admLlmTest[engineConnector.id]" class="text-xs" role="status"
+                                               :class="admLlmTest[engineConnector.id].testing ? 'text-slate-500' : (admLlmTest[engineConnector.id].ok ? 'text-emerald-700' : 'text-red-600')">
+                                                <span v-if="admLlmTest[engineConnector.id].testing"><i class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i> Test en cours…</span>
+                                                <span v-else-if="admLlmTest[engineConnector.id].ok"><i class="ph ph-check-circle" aria-hidden="true"></i> Joignable · {{ admLlmTest[engineConnector.id].models_count }} modèle(s)</span>
+                                                <span v-else><i class="ph ph-warning-circle" aria-hidden="true"></i> {{ admLlmTest[engineConnector.id].hint || admLlmTest[engineConnector.id].error || 'Échec' }}</span>
+                                            </p>
+
+                                            <label v-if="!admLlmForm.id" class="adm-field">
+                                                <span class="adm-field__label">Fournisseur</span>
+                                                <select v-model="admLlmForm.provider_type" class="set-select w-full">
+                                                    <option v-for="pt in admLlmAllProviders" :key="pt" :value="pt">{{ admLlmLabel(pt) }}</option>
+                                                </select>
+                                            </label>
+                                            <label class="adm-field">
+                                                <span class="adm-field__label" title="Vide = adresse officielle du fournisseur.">Adresse</span>
+                                                <input v-model="admLlmForm.base_url" placeholder="http://llm.example.lan:8000/v1" class="set-input font-mono text-xs">
+                                            </label>
+                                            <label class="adm-field">
+                                                <span class="adm-field__label">Clé API</span>
+                                                <input v-model="admLlmForm.api_key" type="password" autocomplete="new-password"
+                                                       :placeholder="admLlmForm.id ? (engineConnector && engineConnector.has_key ? 'Enregistrée · vide = inchangée' : 'Aucune') : 'Facultative en local'" class="set-input">
+                                            </label>
+                                            <div class="grid grid-cols-2 gap-3">
+                                                <label class="adm-field">
+                                                    <span class="adm-field__label">Modèle</span>
+                                                    <input v-model="admLlmForm.default_model" placeholder="qwen3-coder-30b" title="Modèle par défaut" class="set-input">
+                                                </label>
+                                                <label class="adm-field">
+                                                    <span class="adm-field__label">Libellé</span>
+                                                    <input v-model="admLlmForm.label" placeholder="vLLM interne" class="set-input">
+                                                </label>
+                                            </div>
+                                            <!-- Capacité d'un serveur llama.cpp : vide = lu sur le serveur (/props). -->
+                                            <div v-if="admLlmForm.provider_type === 'llamacpp'" class="grid grid-cols-3 gap-3">
+                                                <label class="adm-field">
+                                                    <span class="adm-field__label">Contexte</span>
+                                                    <input v-model.number="admLlmForm.context_window" type="number" min="0" placeholder="auto" title="Tokens par requête — vide : lu sur le serveur" class="set-input">
+                                                </label>
+                                                <label class="adm-field">
+                                                    <span class="adm-field__label">Modèles</span>
+                                                    <input v-model.number="admLlmForm.max_models" type="number" min="0" placeholder="1" title="Modèles simultanés en mémoire sur ce serveur" class="set-input">
+                                                </label>
+                                                <label class="adm-field">
+                                                    <span class="adm-field__label">Requêtes</span>
+                                                    <input v-model.number="admLlmForm.max_concurrency" type="number" min="0" placeholder="auto" title="Requêtes simultanées par modèle — vide : slots du serveur" class="set-input">
+                                                </label>
+                                            </div>
+                                            <details class="adm-details">
+                                                <summary>Avancé</summary>
+                                                <label class="adm-field mt-2">
+                                                    <span class="adm-field__label" title="Repli si le fournisseur n'expose pas la liste.">Modèles (un par ligne)</span>
+                                                    <textarea v-model="admLlmForm.models_json" rows="3" placeholder="model-a&#10;model-b" class="set-textarea"></textarea>
+                                                </label>
+                                            </details>
+                                        </div>
+
+                                        <footer class="adm-drawer__foot">
+                                            <button v-if="admLlmForm.id && engineConnector" type="button" @click="deleteAdmLlmConnector(engineConnector)"
+                                                    class="adm-btn adm-btn--quiet adm-btn--danger-quiet mr-auto">
+                                                <i class="ph ph-trash" aria-hidden="true"></i> Supprimer
+                                            </button>
+                                            <button v-if="admLlmForm.id && engineConnector" type="button" @click="testAdmLlmConnector(engineConnector)"
+                                                    class="adm-btn adm-tool">Tester</button>
+                                            <button type="button" @click="closeEngineDrawer()" class="adm-btn adm-btn--quiet">Annuler</button>
+                                            <button type="button" @click="saveAdmLlmConnector()" :disabled="admLlmBusy" class="adm-btn adm-btn--primary">
+                                                {{ admLlmForm.id ? 'Enregistrer' : 'Ajouter' }}
+                                            </button>
+                                        </footer>
+                                    </aside>
+                                </div>
+                                </teleport>
+                            </section>
+
+                            <!-- ═══════════ Endpoint de compression ═══════════ -->
+                            <section v-if="adminTab==='compression'" id="compression-endpoint" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-arrows-in-line-vertical adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Service</h3>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="compressionCfg">
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Vide = le moteur d'inférence principal s'en charge." for="cnx-comp-url">Adresse</label>
+                                            <span class="sr-only">Vide = le moteur d'inférence principal s'en charge.</span>
+                                        </div>
+                                        <input id="cnx-comp-url" v-model="compressionCfg.endpoint_url" data-field="compression:endpoint_url" placeholder="http://hote:port"
+                                               class="set-input font-mono text-xs">
+                                    </div>
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Un petit modèle rapide suffit." for="cnx-comp-model">Modèle</label>
+                                            <span class="sr-only">Un petit modèle rapide suffit.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <input id="cnx-comp-model" v-model="compressionCfg.endpoint_model" data-field="compression:endpoint_model" placeholder="modèle"
+                                                   class="set-input font-mono text-xs flex-1 min-w-[10rem]">
+                                            <input v-model.number="compressionCfg.endpoint_timeout_sec" data-field="compression:endpoint_timeout_sec" type="number" min="10" max="600" aria-label="Délai en secondes"
+                                                   class="set-input adm-num--sm">
+                                            <span class="adm-unit">s</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-else class="px-5 py-6"><div class="adm-skeleton w-48"></div></div>
+                            </section>
+
+                            <!-- ═══════════ Annotation visuelle ═══════════ -->
+                            <section v-if="adminTab==='vision'" id="vision" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-scan adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Annotation visuelle</h3>
+                                        <span class="sr-only">Détecteur qui repère les éléments d'interface sur une capture d'écran.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="configForm && configForm.vision">
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Vide = annotation désactivée, seul l'arbre d'accessibilité est utilisé." for="cnx-vision-url">Adresse</label>
+                                            <span class="sr-only">Vide = annotation désactivée, seul l'arbre d'accessibilité est utilisé.</span>
+                                        </div>
+                                        <input id="cnx-vision-url" v-model="configForm.vision.endpoint_url" data-field="config:vision.endpoint_url" placeholder="http://hote:port/parse"
+                                               class="set-input font-mono text-xs">
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Comment lire les cadres renvoyés par le détecteur." for="cnx-vision-format">Format de réponse</label>
+                                            <span class="sr-only">Comment lire les cadres renvoyés par le détecteur.</span>
+                                        </div>
+                                        <select id="cnx-vision-format" v-model="configForm.vision.format" data-field="config:vision.format" class="set-select w-full max-w-sm">
+                                            <option value="omniparser">OmniParser</option>
+                                            <option value="florence">Florence-2</option>
+                                            <option value="grounding-dino">Grounding DINO</option>
+                                            <option value="nvidia-locate-anything">NVIDIA LocateAnything</option>
+                                            <option value="llm-chat">LLM multimodal (chat/completions)</option>
+                                            <option value="custom">Personnalisé</option>
+                                        </select>
+                                    </div>
+
+                                    <div v-if="configForm.vision.format === 'llm-chat'" class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Indispensable avec le routeur llama.cpp pour viser le modèle vision." for="cnx-vision-model">Modèle</label>
+                                            <span class="sr-only">Indispensable avec le routeur llama.cpp pour viser le modèle vision.</span>
+                                        </div>
+                                        <input id="cnx-vision-model" v-model="configForm.vision.model" data-field="config:vision.model" placeholder="qwen3-vl-8b" class="set-input font-mono text-xs max-w-sm">
+                                    </div>
+
+                                    <div v-if="configForm.vision.format === 'llm-chat'" class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Les petites icônes de la barre système n'apparaissent qu'à la seconde passe." for="cnx-vision-passes">Passes de détection</label>
+                                            <span class="sr-only">Les petites icônes de la barre système n'apparaissent qu'à la seconde passe.</span>
+                                        </div>
+                                        <select id="cnx-vision-passes" v-model.number="configForm.vision.passes" data-field="config:vision.passes" class="set-select w-full max-w-[16rem]">
+                                            <option :value="1">1 — rapide</option>
+                                            <option :value="2">2 — exhaustif (défaut)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="adm-row adm-row--top">
+                                        <div>
+                                            <label class="adm-row__label" title="Vide = balayage exhaustif. Renseigné, la détection devient une recherche ciblée." for="cnx-vision-prompt">Indice de recherche</label>
+                                            <span class="sr-only">Vide = balayage exhaustif. Renseigné, la détection devient une recherche ciblée.</span>
+                                        </div>
+                                        <textarea id="cnx-vision-prompt" v-model="configForm.vision.prompt" data-field="config:vision.prompt" rows="2" placeholder="all clickable UI elements"
+                                                  class="set-textarea"></textarea>
+                                    </div>
+
+                                    <details class="adm-details">
+                                        <summary>Où sont les prompts de détection ?</summary>
+                                        <p class="text-xs text-slate-500 mt-2 max-w-[68ch]">
+                                            Dans la page <button type="button" @click="goAdminPage('prompts')" class="adm-link">Prompts</button>,
+                                            entrées <code class="font-mono">VISION_DETECT</code>, <code class="font-mono">VISION_DETECT_EDGE</code> et <code class="font-mono">VISION_DETECT_QUERY</code>.
+                                            En mode LLM multimodal, prévoyez un délai large (60 à 120 s).
+                                        </p>
+                                    </details>
+
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Service RAG ═══════════ -->
+                            <section v-if="adminTab==='rag'" id="rag-service" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-database adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Service RAG</h3>
+                                        <span class="sr-only">Service séparé interrogé par les outils de recherche documentaire.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="configForm && configForm.rag">
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Sans barre oblique finale." for="cnx-rag-url">Adresse</label>
+                                            <span class="sr-only">Sans barre oblique finale.</span>
+                                        </div>
+                                        <input id="cnx-rag-url" v-model="configForm.rag.service_url" data-field="config:rag.service_url" placeholder="http://127.0.0.1:8000"
+                                               class="set-input font-mono text-xs">
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Vide si le service est en accès ouvert." for="cnx-rag-token">Jeton</label>
+                                            <span class="sr-only">Vide si le service est en accès ouvert.</span>
+                                        </div>
+                                        <input id="cnx-rag-token" v-model="configForm.rag.service_token" data-field="config:rag.service_token" type="password" autocomplete="new-password"
+                                               placeholder="facultatif" class="set-input font-mono text-xs">
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Au-delà, l'outil renvoie une erreur récupérable." for="cnx-rag-timeout">Délai maximal</label>
+                                            <span class="sr-only">Au-delà, l'outil renvoie une erreur récupérable.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="cnx-rag-timeout" v-model.number="configForm.rag.service_timeout" data-field="config:rag.service_timeout" type="number" min="1" max="300" class="set-input adm-num">
+                                            <span class="adm-unit">s</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="adm-row adm-row--top">
+                                        <div>
+                                            <span class="adm-row__label" title="Teste les valeurs ci-dessus sans les enregistrer.">Vérification</span>
+                                            <span class="sr-only">Teste les valeurs ci-dessus sans les enregistrer.</span>
+                                        </div>
+                                        <div>
+                                            <button type="button" @click="testRagServiceConnection" :disabled="ragServiceTest.state === 'busy'"
+                                                    class="adm-btn adm-tool">
+                                                <i class="ph" :class="ragServiceTest.state === 'busy' ? 'ph-circle-notch animate-spin' : 'ph-pulse'" aria-hidden="true"></i>
+                                                {{ ragServiceTest.state === 'busy' ? 'Test en cours…' : 'Tester la connexion' }}
+                                            </button>
+
+                                            <div v-if="ragServiceTest.state === 'ok'" class="mt-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                                                <div class="flex items-start gap-2">
+                                                    <i class="ph ph-check-circle text-emerald-600 text-base shrink-0 mt-0.5" aria-hidden="true"></i>
+                                                    <div class="min-w-0">
+                                                        <div class="text-sm font-medium text-emerald-900">Connexion établie</div>
+                                                        <dl class="mt-1.5 text-xs grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-emerald-800">
+                                                            <dt class="font-medium">Service</dt><dd class="font-mono">{{ ragServiceTest.detail.service || '—' }}</dd>
+                                                            <dt class="font-medium">Version</dt><dd class="font-mono">{{ ragServiceTest.detail.version || '—' }}</dd>
+                                                            <dt class="font-medium">Collection</dt><dd class="font-mono">{{ ragServiceTest.detail.collection || '(par défaut)' }}</dd>
+                                                            <dt class="font-medium">Accès</dt><dd>{{ ragServiceTest.detail.auth_required ? 'jeton requis' : 'ouvert' }}</dd>
+                                                            <template v-if="ragServiceTest.detail.qdrant_ok !== undefined">
+                                                                <dt class="font-medium">Qdrant</dt><dd>{{ ragServiceTest.detail.qdrant_ok ? 'joignable' : 'injoignable' }}</dd>
+                                                            </template>
+                                                        </dl>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div v-else-if="ragServiceTest.state === 'err'" class="mt-3 p-3 rounded-lg bg-rose-50 border border-rose-200">
+                                                <div class="flex items-start gap-2">
+                                                    <i class="ph ph-x-circle text-rose-600 text-base shrink-0 mt-0.5" aria-hidden="true"></i>
+                                                    <div class="min-w-0">
+                                                        <div class="text-sm font-medium text-rose-900">Connexion impossible</div>
+                                                        <p class="mt-1 text-xs text-rose-800 break-words">{{ ragServiceTest.detail }}</p>
+                                                        <p class="mt-1.5 text-xs text-rose-700/90">Vérifiez que le service tourne à cette adresse, que le port est ouvert, et que le jeton correspond.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Moteur vocal ═══════════ -->
+                            <section v-if="adminTab==='voice'" id="voice" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-microphone adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Moteur vocal</h3>
+                                        <span class="sr-only">Deux services distincts : la dictée et la lecture des réponses.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="configForm && configForm.voice">
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Ouvre les réglages vocaux aux utilisateurs. Chaque utilisateur choisit ensuite, dans ses paramètres, s'il veut dicter et se faire lire les réponses." for="cnx-voice-on">Activation</label>
+                                            <span class="sr-only">Ouvre les réglages vocaux aux utilisateurs. Chaque utilisateur choisit ensuite, dans ses paramètres, s'il veut dicter et se faire lire les réponses.</span>
+                                        </div>
+                                        <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                            <input id="cnx-voice-on" type="checkbox" v-model="configForm.voice.enabled" data-field="config:voice.enabled" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                            <span class="text-sm text-slate-700">{{ configForm.voice.enabled ? 'Activé' : 'Désactivé' }}</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="adm-row adm-row--full" v-if="configForm.voice.stt">
+                                        <span class="text-xs uppercase tracking-wide text-slate-500">Reconnaissance</span>
+                                    </div>
+
+                                    <template v-if="configForm.voice.stt">
+                                        <div class="adm-row">
+                                            <label class="adm-row__label" for="cnx-voice-stt-url">Adresse</label>
+                                            <input id="cnx-voice-stt-url" v-model="configForm.voice.stt.endpoint_url" data-field="config:voice.stt.endpoint_url"
+                                                   placeholder="http://machine-stt:8090" title="Serveur whisper.cpp. Vide = dictée désactivée."
+                                                   class="set-input font-mono text-xs">
+                                        </div>
+
+                                        <div class="adm-row">
+                                            <label class="adm-row__label" for="cnx-voice-stt-fmt">Format</label>
+                                            <select id="cnx-voice-stt-fmt" v-model="configForm.voice.stt.format" data-field="config:voice.stt.format" class="set-select w-full max-w-sm">
+                                                <option value="whisper.cpp">whisper.cpp</option>
+                                                <option value="openai">Compatible OpenAI</option>
+                                                <option value="llama-audio">llama-server (GGUF audio)</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="adm-row">
+                                            <label class="adm-row__label" for="cnx-voice-lang">Langue</label>
+                                            <input id="cnx-voice-lang" v-model="configForm.voice.stt.language" data-field="config:voice.stt.language" placeholder="fr"
+                                                   title="Code ISO à deux lettres. « auto » laisse le modèle deviner, au prix d'un peu de latence."
+                                                   class="set-input adm-num font-mono text-xs">
+                                        </div>
+
+                                        <!-- Modèle : lu sur le serveur, jamais saisi. whisper.cpp n'en a qu'un,
+                                             chargé à son démarrage : on l'indique seulement. -->
+                                        <div class="adm-row" v-if="configForm.voice.stt.endpoint_url">
+                                            <div>
+                                                <label class="adm-row__label" title="Lu sur le serveur." for="cnx-voice-stt-model">Modèle</label>
+                                                <span class="sr-only">Lu sur le serveur.</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span v-if="configForm.voice.stt.format === 'whisper.cpp'" class="text-sm text-slate-600"
+                                                      :title="voiceModels.stt.detail">
+                                                    {{ voiceModels.stt.state === 'err' ? voiceModels.stt.error : 'Celui chargé au démarrage du serveur' }}
+                                                </span>
+                                                <template v-else>
+                                                    <select v-if="voiceModels.stt.models.length" id="cnx-voice-stt-model"
+                                                            v-model="configForm.voice.stt.model" data-field="config:voice.stt.model" class="set-select w-full max-w-sm font-mono text-xs">
+                                                        <option v-if="configForm.voice.stt.model && !voiceModels.stt.models.some(m => m.id === configForm.voice.stt.model)"
+                                                                :value="configForm.voice.stt.model">{{ configForm.voice.stt.model }} (absent du serveur)</option>
+                                                        <option v-for="m in voiceModels.stt.models" :key="m.id" :value="m.id">{{ m.label || m.id }}</option>
+                                                    </select>
+                                                    <input v-else id="cnx-voice-stt-model" v-model="configForm.voice.stt.model" data-field="config:voice.stt.model" placeholder="whisper-1"
+                                                           :title="voiceModels.stt.error || 'Liste indisponible : saisie manuelle.'"
+                                                           class="set-input font-mono text-xs">
+                                                </template>
+                                                <button type="button" @click="loadVoiceModels('stt')" :disabled="voiceModels.stt.state === 'busy'"
+                                                        class="adm-btn adm-btn--icon" title="Relire sur le serveur" aria-label="Relire les modèles">
+                                                    <i class="ph ph-arrows-clockwise" :class="voiceModels.stt.state === 'busy' ? 'animate-spin' : ''" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="adm-row" v-if="configForm.voice.stt.endpoint_url && configForm.voice.stt.endpoint_url.startsWith('https')">
+                                            <label class="adm-row__label" for="cnx-voice-stt-verify">Certificat</label>
+                                            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                                <input id="cnx-voice-stt-verify" type="checkbox" v-model="configForm.voice.stt.verify" data-field="config:voice.stt.verify" class="sr-only peer">
+                                                <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                                <span class="text-sm text-slate-700">{{ configForm.voice.stt.verify ? 'Vérifié' : 'Non vérifié (auto-signé)' }}</span>
+                                            </label>
+                                        </div>
+
+                                        <div class="adm-row adm-row--top">
+                                            <div>
+                                                <label class="adm-row__label" title="Termes à reconnaître, séparés par des virgules. Noms propres, jargon métier, sigles. Sur des termes spécialisés, ce champ divise le taux d'erreur par trois." for="cnx-voice-prompt">Vocabulaire</label>
+                                                <span class="sr-only">Termes à reconnaître, séparés par des virgules. Noms propres, jargon métier, sigles. Sur des termes spécialisés, ce champ divise le taux d'erreur par trois.</span>
+                                            </div>
+                                            <textarea id="cnx-voice-prompt" v-model="configForm.voice.stt.prompt" data-field="config:voice.stt.prompt" rows="2"
+                                                      placeholder="Elpis, Qdrant, bubblewrap" class="set-textarea font-mono text-xs"></textarea>
+                                        </div>
+
+                                        <div class="adm-row">
+                                            <label class="adm-row__label" for="cnx-voice-stt-token">Jeton</label>
+                                            <input id="cnx-voice-stt-token" v-model="configForm.voice.stt.token" data-field="config:voice.stt.token" type="password" autocomplete="new-password"
+                                                   placeholder="facultatif" class="set-input font-mono text-xs">
+                                        </div>
+                                    </template>
+
+                                    <div class="adm-row adm-row--full" v-if="configForm.voice.tts">
+                                        <span class="text-xs uppercase tracking-wide text-slate-500">Synthèse</span>
+                                    </div>
+
+                                    <template v-if="configForm.voice.tts">
+                                        <div class="adm-row">
+                                            <label class="adm-row__label" for="cnx-voice-tts-url">Adresse</label>
+                                            <input id="cnx-voice-tts-url" v-model="configForm.voice.tts.endpoint_url" data-field="config:voice.tts.endpoint_url"
+                                                   placeholder="http://machine-tts:8091" title="Service Piper de deploy/voice/tts. Vide = lecture désactivée."
+                                                   class="set-input font-mono text-xs">
+                                        </div>
+
+                                        <div class="adm-row">
+                                            <label class="adm-row__label" for="cnx-voice-tts-fmt">Format</label>
+                                            <select id="cnx-voice-tts-fmt" v-model="configForm.voice.tts.format" data-field="config:voice.tts.format" class="set-select w-full max-w-sm">
+                                                <option value="elpis-tts">Service Elpis (Piper)</option>
+                                                <option value="piper-http">Piper (piper.http_server)</option>
+                                                <option value="openai">Compatible OpenAI</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Format OpenAI : le MODÈLE se choisit dans /v1/models, la voix reste libre
+                                             (l'API ne la liste pas). Piper : la liste donne les VOIX installées. -->
+                                        <div class="adm-row" v-if="configForm.voice.tts.format === 'openai'">
+                                            <label class="adm-row__label" for="cnx-voice-tts-model">Modèle</label>
+                                            <div class="flex items-center gap-2">
+                                                <select v-if="voiceModels.tts.models.length" id="cnx-voice-tts-model"
+                                                        v-model="configForm.voice.tts.model" data-field="config:voice.tts.model" class="set-select w-full max-w-sm font-mono text-xs">
+                                                    <option v-if="!configForm.voice.tts.model" value="" disabled>Choisir…</option>
+                                                    <option v-for="m in voiceModels.tts.models" :key="m.id" :value="m.id">{{ m.label || m.id }}</option>
+                                                </select>
+                                                <input v-else id="cnx-voice-tts-model" v-model="configForm.voice.tts.model" data-field="config:voice.tts.model" placeholder="tts-1"
+                                                       :title="voiceModels.tts.error || 'Liste indisponible : saisie manuelle.'"
+                                                       class="set-input font-mono text-xs">
+                                                <button type="button" @click="loadVoiceModels('tts')" :disabled="voiceModels.tts.state === 'busy'"
+                                                        class="adm-btn adm-btn--icon" title="Relire sur le serveur" aria-label="Relire les modèles">
+                                                    <i class="ph ph-arrows-clockwise" :class="voiceModels.tts.state === 'busy' ? 'animate-spin' : ''" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="adm-row">
+                                            <div>
+                                                <label class="adm-row__label" for="cnx-voice-voix">Voix</label>
+                                                <p class="adm-row__hint" v-if="configForm.voice.tts.format !== 'openai'">Lue sur le serveur.</p>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <select v-if="configForm.voice.tts.format !== 'openai' && voiceModels.tts.models.length" id="cnx-voice-voix"
+                                                        v-model="configForm.voice.tts.voice" data-field="config:voice.tts.voice" class="set-select w-full max-w-sm font-mono text-xs">
+                                                    <option v-if="configForm.voice.tts.voice && !voiceModels.tts.models.some(m => m.id === configForm.voice.tts.voice)"
+                                                            :value="configForm.voice.tts.voice">{{ configForm.voice.tts.voice }} (absente du serveur)</option>
+                                                    <option v-for="m in voiceModels.tts.models" :key="m.id" :value="m.id">{{ m.label || m.id }}</option>
+                                                </select>
+                                                <input v-else id="cnx-voice-voix" v-model="configForm.voice.tts.voice" data-field="config:voice.tts.voice"
+                                                       :placeholder="configForm.voice.tts.format === 'openai' ? 'alloy' : 'fr_FR-siwis-medium'"
+                                                       :title="configForm.voice.tts.format === 'openai' ? 'Nom de voix du service.' : (voiceModels.tts.error || 'Liste indisponible : saisie manuelle.')"
+                                                       class="set-input font-mono text-xs">
+                                                <button v-if="configForm.voice.tts.format !== 'openai'" type="button" @click="loadVoiceModels('tts')"
+                                                        :disabled="voiceModels.tts.state === 'busy'"
+                                                        class="adm-btn adm-btn--icon" title="Relire sur le serveur" aria-label="Relire les voix">
+                                                    <i class="ph ph-arrows-clockwise" :class="voiceModels.tts.state === 'busy' ? 'animate-spin' : ''" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="adm-row">
+                                            <label class="adm-row__label" for="cnx-voice-vitesse">Vitesse</label>
+                                            <div class="flex items-center gap-2">
+                                                <input id="cnx-voice-vitesse" v-model.number="configForm.voice.tts.speed" data-field="config:voice.tts.speed" type="number"
+                                                       min="0.5" max="2" step="0.1" title="Entre 0,5 et 2. Au-delà, la voix se dégrade."
+                                                       class="set-input adm-num">
+                                                <span class="adm-unit">×</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="adm-row">
+                                            <label class="adm-row__label" for="cnx-voice-tts-token">Jeton</label>
+                                            <input id="cnx-voice-tts-token" v-model="configForm.voice.tts.token" data-field="config:voice.tts.token" type="password" autocomplete="new-password"
+                                                   placeholder="facultatif" title="Service Elpis : contenu de token.env sur la machine de synthèse."
+                                                   class="set-input font-mono text-xs">
+                                        </div>
+                                        <div class="adm-row" v-if="configForm.voice.tts.endpoint_url && configForm.voice.tts.endpoint_url.startsWith('https')">
+                                            <label class="adm-row__label" for="cnx-voice-tts-verify">Certificat</label>
+                                            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                                <input id="cnx-voice-tts-verify" type="checkbox" v-model="configForm.voice.tts.verify" data-field="config:voice.tts.verify" class="sr-only peer">
+                                                <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                                <span class="text-sm text-slate-700">{{ configForm.voice.tts.verify ? 'Vérifié' : 'Non vérifié (auto-signé)' }}</span>
+                                            </label>
+                                        </div>
+                                    </template>
+
+                                    <div class="adm-row adm-row--top">
+                                        <div>
+                                            <span class="adm-row__label" title="Teste les valeurs ci-dessus sans les enregistrer.">Vérification</span>
+                                            <span class="sr-only">Teste les valeurs ci-dessus sans les enregistrer.</span>
+                                        </div>
+                                        <div>
+                                            <button type="button" @click="testVoiceConnection" :disabled="voiceTest.state === 'busy'"
+                                                    class="adm-btn adm-tool">
+                                                <i class="ph" :class="voiceTest.state === 'busy' ? 'ph-circle-notch animate-spin' : 'ph-pulse'" aria-hidden="true"></i>
+                                                {{ voiceTest.state === 'busy' ? 'Test en cours…' : 'Tester les deux services' }}
+                                            </button>
+
+                                            <div v-if="voiceTest.state === 'done'" class="mt-3 space-y-2">
+                                                <div v-for="part in voiceTest.parts" :key="part.id"
+                                                     class="p-3 rounded-lg border"
+                                                     :class="part.ok ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'">
+                                                    <div class="flex items-start gap-2">
+                                                        <i class="ph text-base shrink-0 mt-0.5"
+                                                           :class="part.ok ? 'ph-check-circle text-emerald-600' : 'ph-x-circle text-rose-600'" aria-hidden="true"></i>
+                                                        <div class="min-w-0">
+                                                            <div class="text-sm font-medium" :class="part.ok ? 'text-emerald-900' : 'text-rose-900'">{{ part.title }}</div>
+                                                            <p class="mt-1 text-xs break-words" :class="part.ok ? 'text-emerald-800' : 'text-rose-800'">{{ part.detail }}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <p v-if="!voiceTest.allOk" class="text-xs text-slate-500">Vérifiez que le service tourne à cette adresse, que le port est ouvert, et que le jeton correspond.</p>
+                                                <ul v-if="voiceTest.warnings && voiceTest.warnings.length"
+                                                    class="p-3 rounded-lg bg-amber-50 border border-amber-200 space-y-1">
+                                                    <li v-for="w in voiceTest.warnings" :key="w" class="flex items-start gap-2 text-xs text-amber-800">
+                                                        <i class="ph ph-warning shrink-0 mt-0.5" aria-hidden="true"></i><span>{{ w }}</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+
+                                            <div v-else-if="voiceTest.state === 'err'" class="mt-3 p-3 rounded-lg bg-rose-50 border border-rose-200">
+                                                <p class="text-xs text-rose-800 break-words">{{ voiceTest.error }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Serveur MCP ═══════════ -->
+                            <section v-if="adminTab==='mcp'" id="mcp" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-plug adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Serveur MCP</h3>
+                                        <span class="sr-only">Pont Model Context Protocol lancé par l'application.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="configForm && configForm.mcp">
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Exécutable lancé en sous-processus." for="cnx-mcp-cmd">Commande</label>
+                                            <span class="sr-only">Exécutable lancé en sous-processus.</span>
+                                        </div>
+                                        <input id="cnx-mcp-cmd" v-model="configForm.mcp.server_cmd" data-field="config:mcp.server_cmd" class="set-input font-mono text-xs">
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Scanné au démarrage pour les serveurs MCP téléversés." for="cnx-mcp-dir">Dossier des serveurs ajoutés</label>
+                                            <span class="sr-only">Scanné au démarrage pour les serveurs MCP téléversés.</span>
+                                        </div>
+                                        <input id="cnx-mcp-dir" v-model="configForm.mcp.servers_dir" data-field="config:mcp.servers_dir" placeholder="../mcp_custom_servers" class="set-input font-mono text-xs">
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="0 = relire à chaque appel." for="cnx-mcp-ttl">Cache de la liste d'outils</label>
+                                            <span class="sr-only">0 = relire à chaque appel.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="cnx-mcp-ttl" v-model.number="configForm.mcp.tools_cache_ttl_sec" data-field="config:mcp.tools_cache_ttl_sec" type="number" min="0" max="86400" class="set-input adm-num">
+                                            <span class="adm-unit">s</span>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Outils par défaut (mcp.json) — 2026-09-11 ═══════════ -->
+                            <section v-if="adminTab==='mcp'" id="mcp-manifest" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-toolbox adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Outils par défaut</h3>
+                                        <span class="sr-only">Un serveur par famille dans mcp.json, chacun avec son endpoint. Retirer l'entrée retire ses outils.</span>
+                                    </div>
+                                    <div class="ml-auto flex items-center gap-1.5">
+                                        <select v-model="mcpExportTransport" aria-label="Transport de l'export"
+                                                class="text-xs px-2 py-1 rounded-md border border-slate-200 bg-white">
+                                            <option value="http">HTTP</option>
+                                            <option value="sse">SSE</option>
+                                            <option value="stdio">stdio</option>
+                                        </select>
+                                        <label class="text-xs text-slate-600 flex items-center gap-1" title="Insérer le jeton de service dans l'export">
+                                            <input type="checkbox" v-model="mcpExportToken" class="accent-blue-600"> jeton
+                                        </label>
+                                        <button type="button" @click="copyMcpExport" :disabled="mcpManifestBusy"
+                                                class="adm-btn adm-tool adm-btn--sm"
+                                                title="Copier un bloc mcpServers prêt à coller dans un autre applicatif">
+                                            <i class="ph ph-copy" aria-hidden="true"></i> Exporter
+                                        </button>
+                                        <button type="button" @click="reloadMcpManifest" :disabled="mcpManifestBusy"
+                                                class="adm-btn adm-tool adm-btn--sm"
+                                                title="Relire mcp.json et réinitialiser le pool d'outils">
+                                            <i class="ph ph-arrow-clockwise" aria-hidden="true"></i> Recharger
+                                        </button>
+                                    </div>
+                                </header>
+                                <div v-if="!mcpManifest" class="text-xs text-slate-400 px-4 py-3">Chargement…</div>
+                                <div v-else class="adm-rows">
+                                    <div class="adm-row">
+                                        <div>
+                                            <span class="adm-row__label">Source</span>
+                                            <p class="adm-row__hint font-mono text-[11px] break-all">{{ mcpManifest.source === 'file' ? mcpManifest.path : 'config héritée (aucun fichier)' }}</p>
+                                        </div>
+                                        <span class="text-xs" :class="mcpManifest.source === 'file' ? 'text-emerald-700' : 'text-amber-700'">{{ mcpManifest.source === 'file' ? 'fichier' : 'synthèse' }}</span>
+                                    </div>
+                                    <div v-if="mcpManifest.errors && mcpManifest.errors.length" class="adm-row">
+                                        <div>
+                                            <span class="adm-row__label text-red-700">Erreurs</span>
+                                            <ul class="adm-row__hint font-mono text-[11px]"><li v-for="e in mcpManifest.errors" :key="e">{{ e }}</li></ul>
+                                        </div>
+                                    </div>
+                                    <div v-if="mcpManifest.warnings && mcpManifest.warnings.length" class="adm-row">
+                                        <div>
+                                            <span class="adm-row__label text-amber-700">Avertissements</span>
+                                            <ul class="adm-row__hint font-mono text-[11px]"><li v-for="w in mcpManifest.warnings" :key="w">{{ w }}</li></ul>
+                                        </div>
+                                    </div>
+                                    <div class="px-4 pb-3 overflow-x-auto">
+                                        <table class="w-full text-xs">
+                                            <thead>
+                                                <tr class="text-left text-slate-500 border-b border-slate-200">
+                                                    <th class="py-1.5 pr-3 font-semibold">Nom</th>
+                                                    <th class="py-1.5 pr-3 font-semibold">Rôle</th>
+                                                    <th class="py-1.5 pr-3 font-semibold">Endpoints</th>
+                                                    <th class="py-1.5 pr-3 font-semibold">Familles</th>
+                                                    <th class="py-1.5 pr-3 font-semibold">Défaut</th>
+                                                    <th class="py-1.5 pr-3 font-semibold">État</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="s in mcpManifest.servers" :key="s.name" class="border-b border-slate-100 align-top" :class="s.enabled ? '' : 'opacity-50'">
+                                                    <td class="py-1.5 pr-3 font-mono" :title="s.description">{{ s.name }}</td>
+                                                    <td class="py-1.5 pr-3">{{ mcpManifestRoleLabel(s.role) }}</td>
+                                                    <td class="py-1.5 pr-3 font-mono text-[11px] break-all">
+                                                        <template v-if="s.endpoints && (s.endpoints.http || s.endpoints.sse)">
+                                                            <div v-if="s.endpoints.http">{{ s.endpoints.http }}</div>
+                                                            <div v-if="s.endpoints.sse" class="text-slate-500">{{ s.endpoints.sse }}</div>
+                                                            <div v-if="s.endpoints.stdio" class="text-slate-500">stdio · {{ s.endpoints.stdio.args.join(' ') }}</div>
+                                                        </template>
+                                                        <template v-else>{{ s.type }}<span v-if="s.url"> · {{ s.url }}</span><span v-else-if="s.command"> · {{ s.command }}</span></template>
+                                                    </td>
+                                                    <td class="py-1.5 pr-3 text-[11px]">{{ s.families && s.families.length ? s.families.join(', ') : '—' }}</td>
+                                                    <td class="py-1.5 pr-3 text-[11px]">{{ s.role === 'external' ? (s.default_on_self ? 'oui' : 'non') : (s.default_on && s.default_on.length ? s.default_on.join(', ') : '—') }}</td>
+                                                    <td class="py-1.5 pr-3">
+                                                        <span v-if="!s.enabled" class="text-slate-500">désactivé</span>
+                                                        <span v-else-if="s.reachable === true" class="text-emerald-700">joignable</span>
+                                                        <span v-else-if="s.reachable === false" class="text-red-700">injoignable<span v-if="s.fallback"> · repli stdio</span></span>
+                                                        <span v-else class="text-slate-500">—</span>
+                                                        <span v-if="s.enabled && s.type !== 'stdio' && !s.has_token" class="ml-1 text-amber-700" title="Aucun jeton : loopback seul, rien de publié">⚠ sans jeton</span>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- ═══════════ Agents de contrôle ═══════════ -->
+                            <section v-if="adminTab==='vision'" id="desktop-targets" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-desktop adm-card__icon" aria-hidden="true"></i>
+                                    <div class="min-w-0">
+                                        <h3 class="adm-card__title">Agents de contrôle</h3>
+                                        <span class="sr-only">Machines pilotables à distance (Windows ou Linux).</span>
+                                    </div>
+                                    <div class="adm-card__actions">
+                                        <button type="button" @click="addDesktopTarget"
+                                                class="adm-btn adm-tool">
+                                            <i class="ph ph-plus" aria-hidden="true"></i> Ajouter
+                                        </button>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="configForm && configForm.desktop">
+
+                                    <div class="adm-row adm-row--full adm-row--top">
+                                        <div v-if="!configForm.desktop.targets.length" class="adm-empty">
+                                            Aucune machine déclarée. Installez l'agent sur la machine cible (voir plus bas), puis « Ajouter » pour saisir son adresse.
+                                        </div>
+                                        <div v-else class="space-y-2">
+                                            <div v-for="(t, i) in configForm.desktop.targets" :key="i"
+                                                 class="grid grid-cols-1 md:grid-cols-12 gap-2 items-center border border-slate-200 rounded-lg p-2.5">
+                                                <input v-model="t.name" placeholder="win-vm-01" aria-label="Nom de la machine" class="md:col-span-2 set-input">
+                                                <select v-model="t.os" aria-label="Système" class="md:col-span-2 set-select w-full">
+                                                    <option value="win">Windows</option>
+                                                    <option value="linux">Linux</option>
+                                                </select>
+                                                <input v-model="t.agent_url" placeholder="http://10.0.0.5:8765" aria-label="Adresse de l'agent"
+                                                       class="md:col-span-3 set-input font-mono text-xs">
+                                                <!-- Accès (2026-09-23) : « Liste » = administrateurs + comptes
+                                                     cochés dans Utilisateurs → Modifier → Machines. -->
+                                                <select :value="t.access || 'all'" @change="t.access = $event.target.value; if (!Array.isArray(t.allowed_users)) t.allowed_users = []"
+                                                        aria-label="Accès à la machine" class="md:col-span-2 set-select w-full"
+                                                        :title="(t.access || 'all') === 'list' ? ((t.allowed_users || []).length ? 'Comptes : ' + t.allowed_users.join(', ') : 'Administrateurs seulement') : 'Tout compte connecté'">
+                                                    <option value="all">Tous</option>
+                                                    <option value="list">Liste ({{ (t.allowed_users || []).length }})</option>
+                                                </select>
+                                                <div class="md:col-span-3 flex items-center justify-end gap-2">
+                                                    <label class="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer" title="Machine utilisée par défaut">
+                                                        <input type="radio" name="desktop_default" :checked="t.default" @change="setDefaultTarget(i)"
+                                                               class="text-blue-600 focus:ring-blue-500"> défaut
+                                                    </label>
+                                                    <button type="button" @click="removeDesktopTarget(i)" title="Retirer cette machine"
+                                                            class="adm-btn adm-btn--icon adm-btn--icon-danger">
+                                                        <i class="ph ph-trash text-sm" aria-hidden="true"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="JPEG allège fortement le transport ; l'OCR reste en PNG." for="cnx-shot-format">Format des captures</label>
+                                            <span class="sr-only">JPEG allège fortement le transport ; l'OCR reste en PNG.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <select id="cnx-shot-format" v-model="configForm.desktop.screenshot_format" data-field="config:desktop.screenshot_format" class="set-select w-auto min-w-[9rem]">
+                                                <option value="png">PNG</option>
+                                                <option value="jpeg">JPEG</option>
+                                            </select>
+                                            <template v-if="configForm.desktop.screenshot_format === 'jpeg'">
+                                                <span class="adm-unit">qualité</span>
+                                                <input type="number" min="40" max="95" v-model.number="configForm.desktop.screenshot_quality" data-field="config:desktop.screenshot_quality"
+                                                       aria-label="Qualité JPEG" class="set-input adm-num--sm">
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <details class="adm-details">
+                                        <summary>Installer l'agent sur une machine cible</summary>
+                                        <div class="mt-2 space-y-2">
+                                            <p class="text-xs text-slate-500 max-w-[68ch]">
+                                                À exécuter sur la machine à piloter. Volontairement en clair : elle ne connaît pas encore le certificat local.
+                                            </p>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs font-medium text-slate-500 w-16 shrink-0">Linux</span>
+                                                <code class="adm-cmd">{{ installShCmd }}</code>
+                                                <button type="button" @click="copyInstallCmd(installShCmd)" title="Copier la commande"
+                                                        class="adm-btn adm-btn--icon"><i class="ph ph-copy text-sm" aria-hidden="true"></i></button>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs font-medium text-slate-500 w-16 shrink-0">Windows</span>
+                                                <code class="adm-cmd">{{ installPs1Cmd }}</code>
+                                                <button type="button" @click="copyInstallCmd(installPs1Cmd)" title="Copier la commande"
+                                                        class="adm-btn adm-btn--icon"><i class="ph ph-copy text-sm" aria-hidden="true"></i></button>
+                                            </div>
+                                            <button type="button" @click="downloadAgentBundle"
+                                                    class="adm-link inline-flex items-center gap-1.5">
+                                                <i class="ph ph-download-simple" aria-hidden="true"></i> Ou télécharger l'archive à installer manuellement
+                                            </button>
+                                        </div>
+                                    </details>
+
+                                </div>
+                            </section>
+
+                        </div>
+                    </div>

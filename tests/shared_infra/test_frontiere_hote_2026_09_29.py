@@ -219,16 +219,23 @@ def test_mkdir_sous_un_dossier_non_listable(fs):
 
 
 def test_historique_ne_lit_pas_a_travers_un_lien(tmp_path):
-    from shared_infra.sandbox.file_history import read_before
+    """Contenu d'avant pour l'historique : lu par l'agent, jamais à travers un
+    lien qui sort de /work."""
+    import asyncio
+
+    import shared_infra.sandbox.routes_files as sf
+    from shared_infra.sandbox.executors import get_user_sandbox
     hote = tmp_path / "hote"
     hote.mkdir()
     (hote / "s.txt").write_text(SECRET)
-    work = tmp_path / "work"
-    work.mkdir()
+    work = tmp_path / "u" / "work"
+    work.mkdir(parents=True)
     os.symlink(hote, work / "d")
     os.symlink(hote / "s.txt", work / "f.txt")
-    assert read_before(work, "d/s.txt") is None
-    assert read_before(work, "f.txt") is None
+    agent = get_user_sandbox(1, "u", work).agent
+    st = {"kind": "file", "size": len(SECRET)}
+    assert asyncio.run(sf._hist_avant(agent, "d/s.txt", st)) is None
+    assert asyncio.run(sf._hist_avant(agent, "f.txt", st)) is None
 
 
 # ── Routes de l'éditeur ─────────────────────────────────────────────────────

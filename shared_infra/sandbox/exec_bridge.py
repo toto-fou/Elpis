@@ -302,14 +302,16 @@ async def sandbox_write_bytes(user_id: int, rel_path: str, data: bytes) -> None:
     await _agent(user_id, "Upload", lambda a: a.write(rp, data, parents=True))
 
 
-async def sandbox_append_chunk(user_id: int, rel_path: str, data: bytes, *, truncate: bool) -> None:
+async def sandbox_append_chunk(user_id: int, rel_path: str, data: bytes, *, truncate: bool) -> int:
     """Un morceau d'un import par morceaux, écrit par l'agent dans le fichier
     provisoire : ni le client ni le serveur ne gardent le fichier entier en
     mémoire. ``truncate`` : 1er morceau (dossiers créés, fichier vidé) ;
-    sinon ajout. Jamais rejoué une fois envoyé (F24)."""
+    sinon ajout au fichier existant (absent : 404). Jamais rejoué une fois
+    envoyé (F24). Rend la taille du fichier provisoire."""
     rp = _validate_rel_path(rel_path)
-    await _agent(user_id, "Upload (chunk)",
-                 lambda a: a.append(rp, data, parents=truncate, truncate=truncate))
+    r = await _agent(user_id, "Upload (chunk)",
+                     lambda a: a.append(rp, data, parents=truncate, truncate=truncate))
+    return int(r.get("size") or 0)
 
 
 async def sandbox_mkdir(user_id: int, rel_path: str) -> None:

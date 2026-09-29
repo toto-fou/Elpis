@@ -9,9 +9,6 @@ refuse ensuite de sauvegarder.
 """
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
 # Extensions prévisualisées (aperçu Office / PDF) → type.
 OFFICE_KINDS = {
     ".docx": "docx",
@@ -50,26 +47,3 @@ def looks_binary(head: bytes) -> bool:
         return True
     return head.startswith(BINARY_MAGICS)
 
-
-def existing_file_is_binary(path: Path) -> bool:
-    """Lit l'en-tête d'un fichier EXISTANT et applique :func:`looks_binary`.
-
-    ``O_NOFOLLOW`` : on juge le fichier désigné, pas la cible d'un lien posé
-    entre-temps ; ``O_NONBLOCK`` : un FIFO ne bloque pas le worker. Absent,
-    non régulier ou illisible → ``False`` (la route décidera elle-même).
-    """
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) \
-        | getattr(os, "O_CLOEXEC", 0)
-    try:
-        fd = os.open(str(path), flags)
-    except OSError:
-        return False
-    try:
-        import stat as _stat
-        if not _stat.S_ISREG(os.fstat(fd).st_mode):
-            return False
-        return looks_binary(os.read(fd, SNIFF_BYTES))
-    except OSError:
-        return False
-    finally:
-        os.close(fd)

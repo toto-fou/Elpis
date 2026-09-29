@@ -155,14 +155,6 @@ async def _file_lock(path: Path):
         cm.__exit__(None, None, None)
 
 
-async def _hist_before(root: Path, path: Path):
-    """Contenu AVANT écriture, pour l'historique de session (jamais bloquant)."""
-    try:
-        return await asyncio.to_thread(_fh.read_before, root, path)
-    except Exception:                                           # noqa: BLE001
-        return None
-
-
 async def _hist_write(user_id: int, rel: str, before, after, source: str) -> None:
     """``file_history.record_write`` hors boucle ; n'échoue jamais."""
     try:
@@ -275,6 +267,14 @@ async def _stat_un(agent, rel: str, libelle: str) -> dict:
     if e.get("kind") == "error":
         raise agent_http(AgentError(str(e.get("error") or "io_error"), ""), libelle)
     return e
+
+
+async def _stats_lots(agent, rels: list) -> list:
+    """``stat`` de l'agent par lots (10 000 chemins au plus par requête)."""
+    out: list = []
+    for i in range(0, len(rels), 10_000):
+        out += await agent.stat(rels[i:i + 10_000])
+    return out
 
 
 async def _binaire_existant(agent, rel: str) -> bool:
@@ -1053,7 +1053,6 @@ async def api_upload_sandbox_files(
     # → OOM du worker + freeze event loop.
     from shared_infra.config import MAX_UPLOAD_BYTES
     from shared_infra.files.uploads import read_upload_bounded
-    from shared_infra.sandbox.exec_bridge import sandbox_write_bytes
     saved = 0
     skipped = []
     mtimes = {}   # PASSE 14 — mtime par fichier sauvé, idem que /save
@@ -1070,16 +1069,27 @@ async def api_upload_sandbox_files(
         sandbox_usage_bytes, user_id, root,
         quota_bytes=_quota_mb_up * 1024 * 1024)) if _quota_mb_up > 0 else 0
     _usage_delta = 0        # cumul écrit, reporté au cache en fin de batch
+    agent = agent_for(user_id)
+    # Chemins résolus sans lire le disque, états pris en une requête.
+    rels: dict = {}
+    for rel_path in paths:
+        try:
+            rels[rel_path] = _rel_editeur(root, rel_path)
+        except HTTPException:
+            rels[rel_path] = None
+    valides = sorted({r for r in rels.values() if r})
+    try:
+        etats = dict(zip(valides, await _stats_lots(agent, valides)))
+    except AgentError as ex:
+        raise agent_http(ex, "Upload") from None
     for file, rel_path in zip(files, paths):
-        # rel_path comes from webkitRelativePath or just filename
-        safe = (root / _strip_work_prefix(rel_path)).resolve()
-        # SECURITY FIX : cf. _path_inside (anti path-traversal cross-users).
-        if not _path_inside(safe, root):
+        rel = rels.get(rel_path)
+        if not rel:
             skipped.append({"path": rel_path, "reason": "path_escape"})
             continue
-        # Un DOSSIER porte déjà ce nom : ``mv tmp "$1"`` (exec_bridge) rangerait
-        # le fichier À L'INTÉRIEUR sous un nom temporaire au lieu de le poser.
-        if safe.is_dir():
+        e = etats.get(rel) or {"kind": "missing"}
+        # Un DOSSIER porte déjà ce nom : jamais remplacé.
+        if e.get("kind") == "dir":
             skipped.append({"path": rel_path, "reason": "is_directory"})
             continue
         try:
@@ -1092,40 +1102,31 @@ async def api_upload_sandbox_files(
         # Sérialise par-uid avec api_save_sandbox_file pour empêcher
         # qu'un upload+save concurrent dépasse silencieusement le quota.
         async with _quota_lock_for(user_id):
-            _existing_up = 0
-            if _quota_mb_up > 0:
-                # ``is_file`` et non ``exists`` : un DOSSIER du même nom a un
-                # ``st_size`` de bloc (4096) qui n'est pas un écrasement.
-                _existing_up = safe.stat().st_size if safe.is_file() else 0
-                if _running_used + len(file_bytes) - _existing_up > _quota_mb_up * 1024 * 1024:
-                    skipped.append({"path": rel_path, "reason": "quota_exceeded"})
-                    continue
-            # PASSE 15 — écriture via docker exec (UID 10001). Le helper
-            # gère mkdir -p du parent, l'atomicité (write tmp + mv), et
-            # l'umask 0002 pour donner mode 0664 (cross-readable).
+            # Un DOSSIER du même nom n'est pas un écrasement.
+            _existing_up = int(e.get("size") or 0) if e.get("kind") == "file" else 0
+            if _quota_mb_up > 0 and \
+                    _running_used + len(file_bytes) - _existing_up > _quota_mb_up * 1024 * 1024:
+                skipped.append({"path": rel_path, "reason": "quota_exceeded"})
+                continue
             try:
                 # Audit éditeur 2026-09-23 : verrou du fichier (partagé avec
                 # l'assistant) + historique de session (source « upload »).
-                async with _file_lock(safe):
-                    _before = await _hist_before(root, safe)
-                    await sandbox_write_bytes(user_id, rel_path, file_bytes)
-                    try:
-                        mtimes[rel_path] = safe.stat().st_mtime
-                    except OSError:
-                        pass
+                async with _file_lock(root / rel):
+                    _before = await _hist_avant(agent, rel, e)
+                    r = await agent.write(rel, file_bytes, parents=True)
+                if r.get("mtime_ns"):
+                    mtimes[rel_path] = _mtime_s(int(r["mtime_ns"]))
                 hashes[rel_path] = sha256_bytes(file_bytes)
                 saved += 1
                 _usage_delta += len(file_bytes) - _existing_up
                 if _quota_mb_up > 0:
                     _running_used += len(file_bytes) - _existing_up
-                await _hist_write(user_id, _strip_work_prefix(rel_path), _before,
-                                  file_bytes, "upload")
-            except HTTPException as he:
-                # Container down ou autre erreur exec — on ne casse pas
-                # tout le batch ; ce fichier est skipped, les suivants
-                # ré-essaient (la 1re tentative aura déclenché ensure_running
-                # si possible, donc les suivantes voient un container up).
-                skipped.append({"path": rel_path, "reason": f"exec_failed: {he.detail}"})
+                await _hist_write(user_id, rel, _before, file_bytes, "upload")
+            except AgentError as ex:
+                # Conteneur arrêté ou autre refus : ce fichier est ignoré, les
+                # suivants réessaient (l'agent redémarre au besoin).
+                skipped.append({"path": rel_path,
+                                "reason": f"exec_failed: {agent_http(ex, 'Upload').detail}"})
     # Delta connu → on ajuste le compteur au lieu de l'invalider : la jauge
     # est juste immédiatement, sans relancer de ``du`` sur tout l'arbre.
     if _usage_delta:
@@ -1161,16 +1162,6 @@ def _upload_tmp_rel(rel_path: str, upload_id: str) -> str:
             raise HTTPException(400, "upload_id invalide")
         return f"{rel_path}.{upload_id}{UPLOAD_TMP_SUFFIX}"
     return rel_path + UPLOAD_TMP_SUFFIX
-
-
-def _host_file_size(p: Path):
-    """Taille vue de l'HÔTE, ou ``None`` si le fichier n'y est pas visible
-    (absent, dossier, droits). ``None`` ≠ 0 : les gardes de taille ne tranchent
-    que sur ce qu'elles voient vraiment — jamais sur un stat raté."""
-    try:
-        return p.stat().st_size if p.is_file() else None
-    except OSError:
-        return None
 
 
 def _fmt_octets(n: int) -> str:
@@ -1219,33 +1210,24 @@ async def api_upload_sandbox_chunk(request: Request):
     if not rel_path or total < 1 or index < 0 or index >= total or total_size < 0:
         raise HTTPException(400, "Paramètres chunk invalides")
 
-    rel_norm = _strip_work_prefix(rel_path)
-    safe = (root / rel_norm).resolve()
-    # SECURITY : anti path-traversal cross-users (cf. _path_inside).
-    if not _path_inside(safe, root):
-        raise HTTPException(403, "Hors sandbox")
-    # IMPORTANT — pass the ORIGINAL rel_path (not the pre-stripped rel_norm)
-    # to the _sandbox_exec helpers: they strip the /work prefix exactly once
-    # internally (like every other editor route). Passing rel_norm caused a
-    # SECOND strip, so for a user with a real top-level folder named 'work'
-    # the chunk landed at the sandbox root while the host check used
-    # rel_norm — host and container diverged. tmp = "<rel>"+SUFFIX so the
-    # single strip yields "<rel_norm>"+SUFFIX at the same dir as the final.
+    rel = _rel_editeur(root, rel_path)
+    # Le fichier provisoire est désigné par le chemin du client + suffixe :
+    # exec_bridge retire le préfixe /work UNE fois, comme pour le fichier final.
     tmp_rel = _upload_tmp_rel(rel_path, qp.get("upload_id") or "")
-    tmp_host = (root / _strip_work_prefix(tmp_rel)).resolve()
-    if not _path_inside(tmp_host, root):
-        raise HTTPException(403, "Hors sandbox")
+    tmp = _rel_editeur(root, tmp_rel)
 
     data = await request.body()
     if len(data) > _UPLOAD_CHUNK_HARD_CAP:
         raise HTTPException(413, "Chunk trop volumineux")
 
     from shared_infra.sandbox.exec_bridge import sandbox_append_chunk, sandbox_delete, sandbox_rename
+    agent = agent_for(user_id)
 
     if index == 0:
-        # Un DOSSIER porte ce nom : ``mv`` rangerait le fichier dedans au lieu
-        # de le poser (et le ``.part`` ne serait jamais promu).
-        if safe.is_dir():
+        e, e_tmp = await _stats_lots(agent, [rel, tmp])
+        # Un DOSSIER porte ce nom : jamais remplacé (et le ``.part`` ne
+        # serait jamais promu).
+        if e.get("kind") == "dir":
             raise HTTPException(409, "Un dossier porte déjà ce nom")
         # Quota vérifié UNE fois (au 1er chunk), SOUS LE VERROU de quota comme
         # ``/upload`` et ``/save`` : sans lui, deux onglets passaient le
@@ -1255,8 +1237,8 @@ async def api_upload_sandbox_chunk(request: Request):
             # Octets que ce fichier AJOUTE : l'écrasé et un ``.part`` laissé par
             # une tentative précédente (tronqué ci-dessous) sont déjà comptés
             # dans l'usage.
-            _net = total_size - (_host_file_size(safe) or 0)
-            _stale_part = _host_file_size(tmp_host) or 0
+            _net = total_size - (int(e.get("size") or 0) if e.get("kind") == "file" else 0)
+            _stale_part = int(e_tmp.get("size") or 0) if e_tmp.get("kind") == "file" else 0
             if cap["limit_bytes"] is not None and _net > cap["limit_bytes"]:
                 raise HTTPException(
                     413, f"Import trop volumineux (limite {_fmt_octets(cap['limit_bytes'])}, "
@@ -1267,20 +1249,21 @@ async def api_upload_sandbox_chunk(request: Request):
                         413, f"Quota sandbox dépassé ({cap['quota_bytes'] // (1024 * 1024)} Mo)")
             elif cap["remaining_bytes"] is not None and _net > cap["remaining_bytes"]:
                 raise HTTPException(413, "Espace disque insuffisant")
-            await sandbox_append_chunk(user_id, tmp_rel, data, truncate=True)
+            _received = await sandbox_append_chunk(user_id, tmp_rel, data, truncate=True)
     else:
-        # Import ANNULÉ entre deux chunks (``DELETE`` ci-dessous) : un append
-        # recréerait un ``.part`` orphelin avec ce seul morceau. On ne tranche
-        # que si le dossier parent est visible de l'hôte (sinon : pas de garde).
-        if tmp_host.parent.is_dir() and not tmp_host.exists():
-            raise HTTPException(409, "Import interrompu")
-        await sandbox_append_chunk(user_id, tmp_rel, data, truncate=False)
+        # Import ANNULÉ entre deux chunks (``DELETE`` ci-dessous) : l'agent
+        # n'ajoute qu'à un fichier provisoire existant.
+        try:
+            _received = await sandbox_append_chunk(user_id, tmp_rel, data, truncate=False)
+        except HTTPException as he:
+            if he.status_code == 404:
+                raise HTTPException(409, "Import interrompu") from None
+            raise
 
     # Le cumul reçu ne dépasse JAMAIS la taille déclarée : sinon un client
     # annonçait 1 octet au contrôle de quota puis en envoyait 1 Go.
-    _received = await asyncio.to_thread(_host_file_size, tmp_host)
     _last = index >= total - 1
-    if _received is not None and (_received > total_size or (_last and _received != total_size)):
+    if _received > total_size or (_last and _received != total_size):
         try:
             await sandbox_delete(user_id, tmp_rel)
         except HTTPException:
@@ -1294,8 +1277,8 @@ async def api_upload_sandbox_chunk(request: Request):
         # quota et ``/upload-precheck`` comptent déjà l'écrasement ; seul un
         # dossier homonyme reste refusé). En cas d'échec, le ``.part`` est
         # retiré au lieu de rester sur disque (arbre, quota).
-        async with _file_lock(safe):
-            _before = await _hist_before(root, safe)
+        async with _file_lock(root / rel):
+            _before = await _hist_avant(agent, rel, await _etat_agent(agent, rel, sha_max=0))
             try:
                 await sandbox_rename(user_id, tmp_rel, rel_path, overwrite=True)
             except HTTPException:
@@ -1305,15 +1288,13 @@ async def api_upload_sandbox_chunk(request: Request):
                     pass
                 invalidate_sandbox_usage(user_id)
                 raise
-            _st = await asyncio.to_thread(_file_state, root, safe, sha_max=_DOWNLOAD_SHA_MAX)
-        new_mtime = _st.get("mtime")
+            _st = await _etat_agent(agent, rel, sha_max=_DOWNLOAD_SHA_MAX)
         # Historique (source « upload ») : contenu relu (fichier ≤ 5 Mo gardé).
-        await _hist_write(user_id, _strip_work_prefix(rel_path), _before,
-                          await _hist_before(root, safe), "upload")
+        await _hist_write(user_id, rel, _before, await _hist_avant(agent, rel, _st), "upload")
         # Taille finale réelle (on ne connaît pas l'ancienne : le fichier a été
         # écrasé) → invalidation plutôt que bump.
         invalidate_sandbox_usage(user_id)
-        return {"ok": True, "done": True, "path": rel_path, "mtime": new_mtime,
+        return {"ok": True, "done": True, "path": rel_path, "mtime": _st.get("mtime"),
                 "sha256": _st.get("sha256")}
     return {"ok": True, "done": False}
 
@@ -1331,10 +1312,8 @@ async def api_abort_sandbox_chunk(request: Request, path: str = "", upload_id: s
         raise HTTPException(400, "Chemin requis")
     root = _get_work_path(user_id)
     tmp_rel = _upload_tmp_rel(path, upload_id)
-    tmp_host = (root / _strip_work_prefix(tmp_rel)).resolve()
-    if not _path_inside(tmp_host, root):
-        raise HTTPException(403, "Hors sandbox")
-    if not tmp_host.exists():
+    tmp = _rel_editeur(root, tmp_rel)
+    if (await _stat_un(agent_for(user_id), tmp, "Annulation"))["kind"] == "missing":
         return {"ok": True, "removed": False}
     from shared_infra.sandbox.exec_bridge import sandbox_delete
     await sandbox_delete(user_id, tmp_rel)
@@ -1378,22 +1357,31 @@ async def api_upload_precheck(request: Request):
     except (TypeError, ValueError):
         raise HTTPException(400, "total_bytes invalide")
 
+    detailed = 0 < len(files) <= _PRECHECK_MAX_ENTRIES
+    demandes = []                                   # (taille annoncée, rel)
+    escaped = 0
+    if detailed:
+        for f in files:
+            if not isinstance(f, dict) or not isinstance(f.get("path"), str):
+                continue
+            try:
+                size = max(0, int(f.get("size") or 0))
+            except (TypeError, ValueError):
+                size = 0
+            try:
+                demandes.append((size, _rel_editeur(root, f["path"])))
+            except HTTPException:
+                escaped += 1                        # ``/upload`` les ignorera aussi
+    try:
+        etats = await _stats_lots(agent_for(user_id), [r for _s, r in demandes])
+    except AgentError as ex:
+        raise agent_http(ex, "Pré-contrôle") from None
+
     def _mesure() -> dict:
-        detailed = 0 < len(files) <= _PRECHECK_MAX_ENTRIES
-        total = needed = overwrite = escaped = 0
+        total = needed = overwrite = 0
         if detailed:
-            for f in files:
-                if not isinstance(f, dict) or not isinstance(f.get("path"), str):
-                    continue
-                try:
-                    size = max(0, int(f.get("size") or 0))
-                except (TypeError, ValueError):
-                    size = 0
-                safe = (root / _strip_work_prefix(f["path"])).resolve()
-                if not _path_inside(safe, root):
-                    escaped += 1          # ``/upload`` les ignorera aussi
-                    continue
-                existing = _host_file_size(safe) or 0
+            for (size, _rel), e in zip(demandes, etats):
+                existing = int(e.get("size") or 0) if e.get("kind") == "file" else 0
                 total += size
                 overwrite += min(existing, size)
                 needed += max(0, size - existing)

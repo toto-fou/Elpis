@@ -209,23 +209,6 @@ def get_blob(uid: int, sha: str) -> Optional[bytes]:
     return None
 
 
-def read_before(root, path) -> Optional[bytes]:
-    """Contenu actuel de ``path`` (relatif à la zone de travail ``root``, ou
-    chemin hôte déjà résolu dessous), à lire AVANT de l'écrire : octets,
-    ``None`` s'il n'existe pas ou n'est pas un fichier régulier, ``TOO_BIG``
-    au-delà de ``MAX_FILE``. Lu sans suivre de lien (2026-09-29) : sinon un
-    lien posé depuis le conteneur ferait entrer un fichier de l'hôte dans
-    l'historique, que l'utilisateur peut relire."""
-    from shared_infra.sandbox.paths import SandboxPathError, open_beneath, rel_under
-    try:
-        with os.fdopen(open_beneath(root, rel_under(root, path)), "rb") as f:
-            if os.fstat(f.fileno()).st_size > MAX_FILE:
-                return TOO_BIG
-            return f.read()
-    except (OSError, SandboxPathError):
-        return None
-
-
 class _TooBig(bytes):
     """Marqueur : fichier existant mais trop gros pour être gardé."""
 
@@ -355,5 +338,5 @@ def file_entry(uid: int, rel: str) -> Optional[Dict[str, Any]]:
 
 
 __all__ = ["MAX_FILE", "SOURCES", "TOO_BIG", "UNKNOWN", "sha_of", "start_session", "current_session", "norm_rel",
-           "read_before", "record_write", "record_move",
+           "record_write", "record_move",
            "session_info", "file_entry", "get_blob"]

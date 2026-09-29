@@ -35,46 +35,14 @@ MO = 1024 * 1024
 def env(tmp_path, monkeypatch):
     root = tmp_path / "work"
     root.mkdir()
-    state = {"quota_mb": 10, "calls": []}
-
-    def _host(rel):
-        return root / sf._strip_work_prefix(rel)
-
-    async def _append(uid, rel, data, *, truncate):
-        state["calls"].append(("append", rel, len(data), truncate))
-        p = _host(rel)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        with open(p, "wb" if truncate else "ab") as fh:
-            fh.write(data)
-
-    async def _rename(uid, old, new, *, overwrite=False):
-        # Audit éditeur 2026-09-23 (E4) : la promotion du ``.part`` écrase.
-        state["calls"].append(("rename", old, new))
-        _host(new).parent.mkdir(parents=True, exist_ok=True)
-        _host(old).replace(_host(new))
-
-    async def _delete(uid, rel):
-        state["calls"].append(("delete", rel))
-        p = _host(rel)
-        if p.is_dir():
-            shutil.rmtree(p)
-        else:
-            p.unlink(missing_ok=True)
-
-    async def _write_bytes(uid, rel, data):
-        state["calls"].append(("write", rel, len(data)))
-        p = _host(rel)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_bytes(data)
+    from tests.conftest import editeur_sur_agent
+    # Écritures par l'agent en thread, relevées : (opération, chemin).
+    state = {"quota_mb": 10, "calls": editeur_sur_agent(monkeypatch, root)}
 
     monkeypatch.setattr(sf, "require_user_id", lambda request: 1)
     monkeypatch.setattr(sf, "_get_work_path", lambda uid: root)
     monkeypatch.setattr(sf, "get_user_settings",
                         lambda uid: {"sandbox_quota_mb": state["quota_mb"]})
-    monkeypatch.setattr(xb, "sandbox_append_chunk", _append)
-    monkeypatch.setattr(xb, "sandbox_rename", _rename)
-    monkeypatch.setattr(xb, "sandbox_delete", _delete)
-    monkeypatch.setattr(xb, "sandbox_write_bytes", _write_bytes)
     monkeypatch.setattr(cfg, "sandbox_import_max_pct", lambda: 60)
     reset_sandbox_usage_cache()
 
@@ -352,7 +320,7 @@ def test_chunk_taille_finale_incoherente_pas_de_promotion(env):
     assert r.status_code == 400
     assert not (root / "f.bin").exists()
     assert not (root / ("f.bin.imp1" + sf.UPLOAD_TMP_SUFFIX)).exists()
-    assert not any(c[0] == "rename" for c in state["calls"])
+    assert ("fsop", "rename") not in state["calls"]
 
 
 def test_chunk_vers_un_dossier_homonyme_refuse(env):

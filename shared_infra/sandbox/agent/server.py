@@ -620,17 +620,19 @@ class Agent:
     def ajouter(self, rel: str, corps: Iterable[bytes], *, parents: bool = False,
                 tronquer: bool = False) -> Dict[str, Any]:
         """Ajoute ``corps`` à la fin du fichier ``rel`` (``tronquer`` : le crée
-        ou le vide d'abord). Pour l'import par morceaux dans un fichier
-        provisoire, promu ensuite par ``rename`` : pas de remplacement
-        atomique ici."""
+        ou le vide d'abord ; sinon il doit exister — un import annulé entre
+        deux morceaux ne renaît pas). Pour l'import par morceaux dans un
+        fichier provisoire, promu ensuite par ``rename`` : pas de
+        remplacement atomique ici."""
         if not rel:
             raise Refus(400, "bad_path", "chemin de fichier requis")
         p = self.reel(rel)
         try:
             if parents:
                 _creer_dossier(os.path.dirname(p))
-            drapeaux = os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC | os.O_NOFOLLOW
-            fd = os.open(p, drapeaux | (os.O_TRUNC if tronquer else os.O_APPEND), _MODE_FICHIER)
+            drapeaux = os.O_WRONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+            fd = os.open(p, drapeaux | (os.O_CREAT | os.O_TRUNC if tronquer else os.O_APPEND),
+                         _MODE_FICHIER)
         except OSError as e:
             raise _refus_os(e) from None
         try:

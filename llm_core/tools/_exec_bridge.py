@@ -563,9 +563,9 @@ def run_shell_via_executor(
     import tempfile as _tempfile
     _spool_out = _spool_err = None
     if save_stdout_host is not None or auto_spill_host is not None:
-        _spool_out = _tempfile.SpooledTemporaryFile(max_size=4 << 20)
+        _spool_out = _tempfile.SpooledTemporaryFile(max_size=4 << 20)  # noqa: SIM115 (relu puis fermé plus bas)
         if save_stdout_host is None:
-            _spool_err = _tempfile.SpooledTemporaryFile(max_size=4 << 20)
+            _spool_err = _tempfile.SpooledTemporaryFile(max_size=4 << 20)  # noqa: SIM115 (relu puis fermé plus bas)
 
     def _on_chunk(stream: str, data: bytes) -> None:
         if batcher is not None:

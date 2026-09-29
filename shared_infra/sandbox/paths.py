@@ -810,7 +810,7 @@ def ensure_work_subdir(per_user_dir) -> Path:
 
     fh = None
     try:
-        fh = open(P / _WORK_LOCK, "a")
+        fh = open(P / _WORK_LOCK, "a")  # noqa: SIM115 (verrou flock tenu)
         if fcntl is not None:
             try:
                 fcntl.flock(fh.fileno(), fcntl.LOCK_EX)  # blocking: peer waits

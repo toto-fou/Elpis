@@ -20,9 +20,11 @@ extend-exclude = ["venv", "node_modules", "user_*", "frontend/vendor"]
 [tool.ruff.lint]
 # Phase 1 (2026-09-29) : erreurs réelles (syntaxe, noms indéfinis, imports et
 # variables inutilisés), pièges courants (B), appels bloquants dans le code
-# asynchrone (ASYNC), imports triés (I). ``BLE`` attendra : ~1 500
-# ``except Exception`` souvent voulus (« ne jamais faire échouer l'appel »).
-select = ["E9", "F", "B", "ASYNC", "I"]
+# asynchrone (ASYNC), imports triés (I). Phase 2 : tâches asyncio sans
+# référence, attributs de classe mutables, ``Optional`` implicite, fichiers
+# ouverts hors ``with``. ``BLE`` et les règles de style ``SIM`` attendront
+# (~1 500 ``except Exception`` souvent voulus ; réécritures sans gain).
+select = ["E9", "F", "B", "ASYNC", "I", "RUF006", "RUF012", "RUF013", "SIM115"]
 ignore = [
     "B008",      # Depends(…) de FastAPI en valeur par défaut
     "B904",      # « raise … from err » : à reprendre à part
@@ -36,7 +38,7 @@ combine-as-imports = true
 
 [tool.ruff.lint.per-file-ignores]
 # ASYNC : un test asynchrone peut bloquer sa propre boucle.
-"tests/**" = ["F401", "F841", "ASYNC"]
+"tests/**" = ["F401", "F841", "ASYNC", "RUF012", "SIM115"]
 "**/__init__.py" = ["F401"]
 # Ordre d'import = ordre d'enregistrement des routes, ou de chargement des
 # sous-modules : jamais trié.
@@ -45,10 +47,10 @@ combine-as-imports = true
 "llm_core/__init__.py" = ["F401", "I001"]
 "shared_infra/memory/ax/__init__.py" = ["F401", "I001"]
 "toolhost/app.py" = ["I001"]
-# Signatures d'outils MCP : le défaut ``[]`` est dans le schéma vu par le
-# modèle, et FastMCP (pydantic) en passe une copie à chaque appel ; aucun
-# outil ne modifie ses arguments (vérifié le 2026-09-29).
-"llm_core/tools/*.py" = ["B006"]
+# Signatures d'outils MCP : défauts (``[]``, ``None``) et types sont dans le
+# schéma vu par le modèle, et FastMCP (pydantic) passe une copie des défauts à
+# chaque appel ; aucun outil ne modifie ses arguments (vérifié le 2026-09-29).
+"llm_core/tools/*.py" = ["B006", "RUF013"]
 # Crochets optionnels d'un fournisseur de mémoire, vides par défaut.
 "llm_core/memory/_provider.py" = ["B027"]
 # Fixtures pytest importées d'un autre module de tests, puis reçues en paramètre.

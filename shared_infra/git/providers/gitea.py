@@ -9,7 +9,7 @@ identifiants ».
 """
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, ClassVar, Dict
 
 from shared_infra.git._http import basic_auth_header
 from shared_infra.git.providers.base import GitProvider, Http, _err
@@ -60,7 +60,7 @@ class GiteaProvider(GitProvider):
     # remontait un « HTTP 404 » cryptique. On détecte ce cas et on renvoie un
     # message ACTIONNABLE. (Un 404 sur le POST/GET pulls d'un repo accessible =
     # PR désactivées ; un vrai « repo introuvable » aurait 404 dès /repos.)
-    _PR_DISABLED = {
+    _PR_DISABLED: ClassVar[Dict[str, Any]] = {     # copié à chaque réponse
         "ok": False, "error_code": "pull_requests_disabled",
         "error": ("Les Pull Requests sont DÉSACTIVÉES sur ce dépôt Gitea. "
                   "Activez-les : dépôt → Paramètres → onglet « Unités » "

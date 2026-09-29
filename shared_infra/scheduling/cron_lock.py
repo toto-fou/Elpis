@@ -85,7 +85,7 @@ def try_acquire_cron_lock() -> bool:
         # — typiquement le PID du leader actuel — reste lisible pour debug.
         # Si on devient leader on écrit notre PID en append (pas idéal mais
         # acceptable, le fichier reste petit).
-        fd = open(_LOCK_PATH, "a")
+        fd = open(_LOCK_PATH, "a")  # noqa: SIM115 (verrou de leader tenu)
         fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         # Maintenant qu'on détient le lock, on peut truncate proprement et
         # écrire NOTRE PID. Sécurité : on truncate APRÈS le flock, donc

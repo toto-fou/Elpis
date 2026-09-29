@@ -308,7 +308,7 @@ def _http_4xx(err: Exception) -> bool:
 async def llama_chat_stream_tokens(
     messages: List[Dict[str, str]],
     user_id: str = "guest",
-    model_override: str = None,
+    model_override: str | None = None,
     on_thinking_token: Optional[Callable[[str], Awaitable[None]]] = None,
     on_content_token: Optional[Callable[[str], Awaitable[None]]] = None,
     thinking_mode: bool = False,
@@ -979,7 +979,7 @@ async def llama_chat_stream_tokens(
 async def llama_chat(
     messages: List[Dict[str, str]],
     user_id: str = "guest",
-    model_override: str = None,
+    model_override: str | None = None,
     thinking_mode: bool = False,
     is_cancelled: Optional[Callable[[], bool]] = None,
     sampling_override: Optional[Dict[str, Any]] = None,

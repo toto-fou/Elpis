@@ -246,7 +246,7 @@ def _worker_snapshot():
         return _worker_state["op"], _worker_state["since"]
 
 
-async def _run_uia(op_name: str, thunk, *, timeout_s: float = None):
+async def _run_uia(op_name: str, thunk, *, timeout_s: float | None = None):
     """Exécute ``thunk`` (→ dict réponse, peut lever HTTPException) sur le worker
     UIA sérialisé, avec garde d'occupation et timeout. 503 ``agent_busy`` si le
     worker est figé (op en cours trop longue) ou si la file est saturée."""

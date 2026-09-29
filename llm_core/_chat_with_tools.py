@@ -33,6 +33,7 @@ import secrets
 import time
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import httpx
@@ -2641,7 +2642,7 @@ async def _ensure_local_asset(user_id: Optional[int], local_path: str, relay_pat
         return False
     try:
         os.makedirs(os.path.dirname(local_path) or ".", exist_ok=True)
-        await asyncio.to_thread(lambda: open(local_path, "wb").write(data))
+        await asyncio.to_thread(Path(local_path).write_bytes, data)
         return True
     except Exception:                                            # noqa: BLE001
         return False

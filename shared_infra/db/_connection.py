@@ -575,7 +575,7 @@ def _schema_lock():
         import fcntl as _fcntl
         path = _Path(DB_PATH).parent / ".init_db.lock"
         path.parent.mkdir(parents=True, exist_ok=True)
-        fh = open(path, "a+")
+        fh = open(path, "a+")  # noqa: SIM115 (verrou flock tenu)
         _fcntl.flock(fh.fileno(), _fcntl.LOCK_EX)
     except (OSError, ImportError) as exc:
         logger.warning("[init_db] verrou de schéma indisponible : %s", exc)
@@ -657,7 +657,7 @@ def _run_startup_cleanup() -> None:
 
     lock_path = _Path(DB_PATH).parent / ".startup_cleanup.lock"
     try:
-        lf = open(lock_path, "w")
+        lf = open(lock_path, "w")  # noqa: SIM115 (verrou flock tenu)
         try:
             # LOCK_EX | LOCK_NB : échoue immédiatement si déjà pris
             _fcntl.flock(lf.fileno(), _fcntl.LOCK_EX | _fcntl.LOCK_NB)
@@ -755,7 +755,7 @@ def _uid_for_username(name: Any) -> Optional[int]:
     return uid
 
 
-def log_metric(event_type: str, value: float = 1.0, tags: Dict[str, Any] = None,
+def log_metric(event_type: str, value: float = 1.0, tags: Dict[str, Any] | None = None,
                user_id: Optional[int] = None):
     """
     Append one row to ``metric_events``. Best-effort : une métrique ne doit

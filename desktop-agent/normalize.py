@@ -58,9 +58,9 @@ def derive_patterns(state_names, role: str):
 
 
 def make_node(role: str, name: str, x: int, y: int, w: int, h: int,
-              value: Any = None, states: List[str] = None, depth: int = 0,
+              value: Any = None, states: List[str] | None = None, depth: int = 0,
               auto_id: str = "", runtime_id: str = "", class_name: str = "",
-              patterns: List[str] = None) -> Dict[str, Any]:
+              patterns: List[str] | None = None) -> Dict[str, Any]:
     # ``auto_id`` = identifiant STABLE posé par le développeur de l'app (UIA
     # AutomationId / AT-SPI accessible-id). Bien plus robuste qu'un label OCR
     # pour ré-ancrer une action entre deux exécutions (titres/positions varient).

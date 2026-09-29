@@ -551,7 +551,7 @@ async def api_admin_restore(request: Request, file: UploadFile = File(...), scop
     # tout le zip en RAM. Avant : ``await file.read()`` chargeait l'ENTIER
     # zip (potentiellement plusieurs Go pour un full backup) avant même
     # de valider sa taille, OOM garanti.
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")  # noqa: SIM115 (fermé aussitôt, seul le nom sert)
     tmp.close()
     tmp_path = Path(tmp.name)
     try:

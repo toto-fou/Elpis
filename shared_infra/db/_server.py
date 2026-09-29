@@ -35,7 +35,7 @@ import functools
 import logging
 import re
 import sqlite3
-from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, ClassVar, Dict, Iterable, List, Optional, Sequence, Tuple
 
 log = logging.getLogger("uvicorn.error")
 
@@ -72,7 +72,7 @@ class ElpisRow(tuple):
     """Ligne de résultat : tuple + accès par nom, comme ``sqlite3.Row``."""
     __slots__ = ()
     _keys: Tuple[str, ...] = ()
-    _index: dict = {}
+    _index: ClassVar[Dict[str, int]] = {}
 
     def __getitem__(self, key):
         if isinstance(key, str):

@@ -1021,7 +1021,7 @@ import subprocess as _sp_git
 
 
 def _git_run(repo_dir: Path, *args, timeout: int = 30,
-             env_extra: dict = None) -> _sp_git.CompletedProcess:
+             env_extra: dict | None = None) -> _sp_git.CompletedProcess:
     """Execute a git command inside a specific repo directory.
 
     Environnement : ``host_git_env`` (liste blanche, HOME de l'app, hooks et

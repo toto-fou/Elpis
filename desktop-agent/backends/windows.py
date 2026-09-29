@@ -811,7 +811,7 @@ def _sendinput(descriptors):
                         ("time", wintypes.DWORD), ("dwExtraInfo", ULONG_PTR)]
 
         class _IU(ctypes.Union):
-            _fields_ = [("ki", KEYBDINPUT), ("mi", MOUSEINPUT)]
+            _fields_ = [("ki", KEYBDINPUT), ("mi", MOUSEINPUT)]  # noqa: RUF012 (ctypes)
 
         class INPUT(ctypes.Structure):
             _anonymous_ = ("u",)

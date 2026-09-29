@@ -39,6 +39,9 @@ class Espace:
     def lire(self, rel: str, **kw: Any) -> AgentRead:
         return _run_async(self._agent.read(rel, **kw))
 
+    def lire_plusieurs(self, rels: Iterable[str], **kw: Any) -> Dict[str, Optional[bytes]]:
+        return _run_async(self._agent.read_many(rels, **kw))
+
     def ecrire(self, rel: str, data: bytes, **kw: Any) -> Dict[str, Any]:
         return _run_async(self._agent.write(rel, data, **kw))
 

@@ -125,11 +125,14 @@ def test_avant_inconnu_si_non_releve(hist, monkeypatch):
     assert e["new_sha256"] == _sha(b"1" * 100)
 
 
-def test_chemins_du_releve_verifies():
-    """Chemins rendus par l'agent : relatifs et normalisés seulement."""
-    assert WC._rel_sur("a/b.txt") == "a/b.txt" and WC._rel_sur("work/x") == "work/x"
-    for bad in ("", "/etc/x", "../x", "a/../b", "a//b", "./a", "a\x00b", None, 3):
-        assert WC._rel_sur(bad) is None, bad
+def test_chemins_rendus_par_l_agent_verifies():
+    """Chemins rendus par l'agent (listes, relevés) : relatifs, normalisés,
+    sous la base demandée."""
+    from shared_infra.sandbox.agent_client import _rel_sous
+    assert _rel_sous("a/b.txt", "") and _rel_sous("work/x", "") and _rel_sous("d/x", "d")
+    for bad, base in (("", ""), ("/etc/x", ""), ("../x", ""), ("a/../b", ""), ("a//b", ""),
+                      ("./a", ""), ("a\x00b", ""), (None, ""), (3, ""), ("e/x", "d"), ("d", "d")):
+        assert not _rel_sous(bad, base), (bad, base)
 
 
 # ── manage_files ─────────────────────────────────────────────────────────────

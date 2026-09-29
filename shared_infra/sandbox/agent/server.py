@@ -36,6 +36,9 @@ corps de requête par Content-Length seulement :
   PUT  /v1/write  ?path= &mode= &parents=1 &if_absent=1 &if_sha256= &if_mtime_ns=
                   (corps = contenu)  → {"size", "sha256", "mtime_ns", "created"}
   POST /v1/fsop   {"op": "mkdir|remove|rename|copy|chmod", ...}
+  POST /v1/readmany {"paths": [...], "max_file", "max_total"} → NDJSON
+                  {"path", "b64"} ou {"path", "skip": code}, dans l'ordre, arrêté
+                  avant de dépasser max_total ; dernière ligne {"done": true}
   POST /v1/changes/begin {"skip": [noms], "max_entries", "deadline_s"}
                   → {"id", "complete", "files"} (relevé avant une commande)
   POST /v1/changes/end {"id", "max_files", "max_bytes", "max_file"} → NDJSON
@@ -75,7 +78,10 @@ _MODE_FICHIER, _MODE_DOSSIER = 0o666, 0o777   # umask 0 : l'hôte y accède enco
 _ACTIVITE_S = 10                     # mtime de la racine = activité (GC d'inactivité)
 _RELEVE_GARDE = 512 * 1024           # relevé : contenu gardé par fichier
 _RELEVE_CACHE = 24 << 20             # relevé : contenus gardés en tout
-_RELEVES_OUVERTS = 8                 # relevés ouverts en même temps
+_RELEVES_OUVERTS = 16                # relevés ouverts en même temps
+_RELEVE_DUREE_S = 3600               # un relevé jamais clos est oublié
+_PROFONDEUR_MAX = 4096               # list : profondeur (au-delà, PATH_MAX)
+_SIGNE_S = 2.0                       # flux NDJSON : signe de vie au moins toutes les 2 s
 _INCONNU, _TROP_GROS = object(), object()
 Cle = Tuple[int, int, int]           # (mtime_ns, taille, inode)
 
@@ -247,6 +253,26 @@ def _creer_dossier(p: str, parents: bool = True) -> None:
         raise FileExistsError(errno.EEXIST, "pas un dossier", p)
 
 
+def _elargir(p: str) -> None:
+    """Droits de ``p`` (et de son contenu) élargis pour l'autre UID : fichiers
+    0666, dossiers 0777, bits x gardés, bits spéciaux retirés ; aucun lien
+    suivi."""
+    st = os.lstat(p)
+    if stat.S_ISREG(st.st_mode):
+        os.chmod(p, (stat.S_IMODE(st.st_mode) & 0o777) | 0o666)
+    if not stat.S_ISDIR(st.st_mode):
+        return
+    os.chmod(p, 0o777)
+    for racine, dossiers, fichiers in os.walk(p):        # les liens ne sont pas descendus
+        for nom in dossiers + fichiers:
+            q = os.path.join(racine, nom)
+            s = os.lstat(q)
+            if stat.S_ISDIR(s.st_mode):
+                os.chmod(q, 0o777)
+            elif stat.S_ISREG(s.st_mode):
+                os.chmod(q, (stat.S_IMODE(s.st_mode) & 0o777) | 0o666)
+
+
 def _supprimer(p: str) -> None:
     """Supprime ``p`` : un dossier récursivement, un lien comme lui-même."""
     if _est_dossier(p):
@@ -357,7 +383,11 @@ class Agent:
         pile = [(base, rel, 1)]
         n = erreurs = illisibles = 0
         tronque = False
+        signe = time.monotonic()
         while pile and not tronque:
+            if time.monotonic() - signe > _SIGNE_S:
+                signe = time.monotonic()
+                yield {"tick": True}
             dossier, drel, niveau = pile.pop()
             try:
                 with os.scandir(dossier) as it:
@@ -403,7 +433,11 @@ class Agent:
         ``{"file"}`` par fichier trouvé (comme ``grep -l``)."""
         cherche = aiguille if casse else aiguille.lower()
         trouves = gros = binaires = 0
+        signe = time.monotonic()
         for c in chemins:
+            if time.monotonic() - signe > _SIGNE_S:
+                signe = time.monotonic()
+                yield {"tick": True}                     # longue recherche sans résultat
             rel = normaliser(c)
             try:
                 fd = _ouvrir_fichier(self.reel(rel))
@@ -437,6 +471,37 @@ class Agent:
                 os.close(fd)
         yield {"done": True, "hits_truncated": False, "skipped_large": gros,
                "skipped_binary": binaires}
+
+    def lire_plusieurs(self, chemins: Iterable[Any], max_fichier: int,
+                       max_total: int) -> Iterator[Dict[str, Any]]:
+        """Contenu des fichiers ordinaires de ``chemins``, dans l'ordre (liens
+        suivis sous la racine) : ``{"path", "b64"}``, sinon ``{"path",
+        "skip": code}`` (absent, spécial, hors racine, plus de
+        ``max_fichier`` octets). S'arrête avant le fichier qui dépasserait
+        ``max_total`` : l'hôte redemande la suite."""
+        reste = max_total
+        for c in chemins:
+            demande = c if isinstance(c, str) else ""    # rendu tel que demandé
+            try:
+                fd = _ouvrir_fichier(self.reel(normaliser(c)))
+            except Refus as r:
+                yield {"path": demande, "skip": r.code}
+                continue
+            try:
+                with os.fdopen(fd, "rb") as f:
+                    taille = os.fstat(f.fileno()).st_size
+                    data = f.read(min(max_fichier, reste) + 1) if taille <= max_fichier else b""
+            except OSError as e:
+                yield {"path": demande, "skip": _refus_os(e).code}
+                continue
+            if taille > max_fichier or len(data) > max_fichier:
+                yield {"path": demande, "skip": "too_large"}
+                continue
+            if taille > reste or len(data) > reste:
+                break
+            reste -= len(data)
+            yield {"path": demande, "b64": base64.b64encode(data).decode("ascii")}
+        yield {"done": True}
 
     # ── écriture ───────────────────────────────────────────────────────────
     def ecrire(self, rel: str, corps: Iterable[bytes], *, mode: Any = None,
@@ -527,7 +592,8 @@ class Agent:
             if op in ("rename", "copy"):
                 return self._deplacer(op, normaliser(d.get("src")), normaliser(d.get("dst")),
                                       _vrai(d.get("overwrite")), _vrai(d.get("parents")),
-                                      op == "copy" and _vrai(d.get("follow")))
+                                      op == "copy" and _vrai(d.get("follow")),
+                                      op == "copy" and _vrai(d.get("widen")))
             if op == "chmod":
                 if "mode" not in d:
                     raise Refus(400, "bad_request", "chmod : mode requis")
@@ -537,12 +603,14 @@ class Agent:
             raise _refus_os(e) from None
         raise Refus(400, "bad_request", f"opération inconnue : {op!r}")
 
-    def _deplacer(self, op: str, src: str, dst: str, ecraser: bool,
-                  parents: bool, suivre: bool = False) -> Dict[str, Any]:
-        """``rename`` ou ``copy``. Une destination écrasée est mise de côté et
-        restaurée si l'opération échoue ; un fichier est remplacé d'un coup.
-        ``suivre`` (copie) : une source qui est un lien est copiée depuis sa
-        cible, sous la racine."""
+    def _deplacer(self, op: str, src: str, dst: str, ecraser: bool, parents: bool,
+                  suivre: bool = False, elargir: bool = False) -> Dict[str, Any]:
+        """``rename`` ou ``copy``, sans suivre de lien à la destination. Un
+        dossier n'est jamais remplacé, ni rien par un dossier : seul un
+        fichier ou un lien est écrasé (``ecraser``), d'un coup. ``suivre``
+        (copie) : une source qui est un lien est copiée depuis sa cible, sous
+        la racine. ``elargir`` (copie) : droits de la copie élargis pour
+        l'autre UID tant que l'hôte accède à /work."""
         if not src or not dst:
             raise Refus(400, "bad_path", "src et dst requis, hors racine")
         ps, pd = (self.reel(src) if suivre else self.entree(src)), self.entree(dst)
@@ -553,36 +621,31 @@ class Agent:
             raise Refus(409, "inside", "l'un est dans l'autre")
         if parents:
             _creer_dossier(os.path.dirname(pd))
-        ecart = None
         if os.path.lexists(pd):
             if not ecraser:
                 raise Refus(409, "exists", "la destination existe")
-            if _est_dossier(pd) or _est_dossier(ps):     # ne se remplace pas d'un coup
-                ecart = _nom_provisoire(os.path.dirname(pd))
-                os.rename(pd, ecart)
+            if _est_dossier(pd):
+                raise Refus(409, "is_dir", "un dossier n'est jamais remplacé")
+            if _est_dossier(ps):
+                raise Refus(409, "exists", "un dossier ne remplace pas un fichier")
+        if op == "rename":
+            os.rename(ps, pd)
+            return {"ok": True}
+        tmp = _nom_provisoire(os.path.dirname(pd))
         try:
-            if op == "rename":
-                os.rename(ps, pd)
+            if os.path.islink(ps):
+                os.symlink(os.readlink(ps), tmp)
+            elif _est_dossier(ps):
+                shutil.copytree(ps, tmp, symlinks=True)
             else:
-                tmp = _nom_provisoire(os.path.dirname(pd))
-                try:
-                    if os.path.islink(ps):
-                        os.symlink(os.readlink(ps), tmp)
-                    elif _est_dossier(ps):
-                        shutil.copytree(ps, tmp, symlinks=True)
-                    else:
-                        shutil.copy2(ps, tmp)
-                    os.replace(tmp, pd)
-                except BaseException:
-                    if os.path.lexists(tmp):
-                        _supprimer(tmp)
-                    raise
+                shutil.copy2(ps, tmp)
+            if elargir:
+                _elargir(tmp)
+            os.replace(tmp, pd)                          # un dossier apparu entre-temps : refus
         except BaseException:
-            if ecart is not None:
-                os.rename(ecart, pd)                     # la destination revient
+            if os.path.lexists(tmp):
+                _supprimer(tmp)
             raise
-        if ecart is not None:
-            _supprimer(ecart)
         return {"ok": True}
 
 
@@ -664,7 +727,10 @@ class Agent:
             vus, complet = self._parcourir(sautes, max_entrees, delai_s)
             self._rafraichir(vus)
             ident = secrets.token_hex(8)
-            self._releves[ident] = (vus, complet, sautes, max_entrees, delai_s)
+            maintenant = time.monotonic()
+            for k in [k for k, v in self._releves.items() if maintenant - v[5] > _RELEVE_DUREE_S]:
+                del self._releves[k]
+            self._releves[ident] = (vus, complet, sautes, max_entrees, delai_s, maintenant)
             while len(self._releves) > _RELEVES_OUVERTS:
                 del self._releves[next(iter(self._releves))]     # le plus ancien
         return {"id": ident, "complete": complet, "files": len(vus)}
@@ -678,7 +744,7 @@ class Agent:
             debut = self._releves.pop(ident, None)
             if debut is None:
                 raise Refus(404, "not_found", "relevé inconnu ou expiré")
-            avant, complet_avant, sautes, max_entrees, delai_s = debut
+            avant, complet_avant, sautes, max_entrees, delai_s, _t = debut
             apres, complet = self._parcourir(sautes, max_entrees, delai_s)
             changes = []
             for rel, cle in apres.items():
@@ -790,7 +856,7 @@ class _Gestionnaire(BaseHTTPRequestHandler):
             if not isinstance(elaguer, list) or not isinstance(exclure, list):
                 raise Refus(400, "bad_request", "prune, exclude : listes attendues")
             lignes = agent.lister(
-                normaliser(d.get("path")), max(1, min(int(d.get("depth") or 1), 64)),
+                normaliser(d.get("path")), max(1, min(int(d.get("depth") or 1), _PROFONDEUR_MAX)),
                 max(1, min(int(d.get("max_entries") or 20000), 200000)),
                 _vrai(d.get("hidden", True)), [str(x) for x in elaguer],
                 float(d.get("deadline_s") or 30), [str(x) for x in exclure])
@@ -808,6 +874,14 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                 chemins, aiguille, not _vrai(d.get("ignore_case", True)),
                 int(d.get("max_file_bytes") or 20 << 20), max(1, int(d.get("max_hits") or 2000)),
                 fichiers_seuls=_vrai(d.get("files_only"))))
+        elif cle == ("POST", "/v1/readmany"):
+            d = self._corps_json()
+            chemins = d.get("paths") or []
+            if not isinstance(chemins, list) or len(chemins) > 10000:
+                raise Refus(400, "bad_request", "paths : liste de 10 000 fichiers au plus")
+            self._ndjson({"started": True}, agent.lire_plusieurs(
+                chemins, max(0, int(d.get("max_file") or 1 << 20)),
+                max(0, int(d.get("max_total") or 32 << 20))))
         elif cle == ("PUT", "/v1/write"):
             self._json(200, agent.ecrire(
                 normaliser(q.get("path")), self._corps(_entier(q, "max", _MAX_ECRITURE)),
@@ -907,12 +981,14 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                 yield {"error": r.code, "message": r.message}
             except Exception as e:                       # noqa: BLE001
                 yield {"error": "internal", "message": f"{type(e).__name__}: {e}"}
+        vide = time.monotonic()
         for obj in lignes():
             b = json.dumps(obj, separators=(",", ":")).encode() + b"\n"
             tampon.append(b)
             taille += len(b)
-            if taille >= 65536:
+            if taille >= 65536 or time.monotonic() - vide >= 1.0:
                 vider()
+                vide = time.monotonic()
         vider()
         self.wfile.write(b"0\r\n\r\n")
 

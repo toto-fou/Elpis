@@ -734,11 +734,12 @@ def _write_atomic(esp, root, rel, content, max_b):
 
 def _history_before(esp, rel):
     """Contenu avant écriture, pour l'historique de session (2026-09-23) :
-    octets, ``None`` (absent, lien, pas un fichier ordinaire), ``TOO_BIG``."""
+    octets, ``None`` (absent, pas un fichier ordinaire), ``TOO_BIG``. Un lien
+    sous /work est suivi, comme par l'écriture."""
     from shared_infra.sandbox.file_history import MAX_FILE, TOO_BIG
     try:
         e = esp.stat(rel)
-        if e["kind"] != "file" or e.get("link"):
+        if e["kind"] != "file":
             return None
         if int(e.get("size") or 0) > MAX_FILE:
             return TOO_BIG
@@ -841,7 +842,9 @@ def _load_repo_policy(username: str, root: Path, rp: Path) -> Dict[str, Any]:
     Le fichier vit dans le dépôt, donc à portée de l'agent (2026-09-29) : il
     AJOUTE des branches protégées et RESTREINT les préfixes de push de l'agent
     (intersection avec les valeurs par défaut). Lu par l'agent de la sandbox
-    (64 Kio au plus) ; absent, illisible ou mal formé : valeurs par défaut."""
+    (64 Kio au plus) ; absent, illisible ou mal formé : valeurs par défaut.
+    Agent injoignable : ``ValueError`` — la politique ne s'assouplit jamais
+    parce qu'elle n'a pas pu être lue."""
     pol = {
         "protected_branches":     list(DEFAULT_PROTECTED_BRANCHES),
         "allowed_agent_prefixes": list(DEFAULT_AGENT_BRANCH_PREFIXES),
@@ -850,6 +853,11 @@ def _load_repo_policy(username: str, root: Path, rp: Path) -> Dict[str, Any]:
         rel = posixpath.join(rel_under(root, rp), ".git-tool-policy.json")
         brut = Espace(username, root).lire(rel, max_bytes=64 * 1024).data
         user_pol = json.loads(brut.decode("utf-8", errors="replace"))
+    except AgentError as e:
+        if e.code in ("not_found", "is_dir", "not_file", "too_large", "denied", "outside_root"):
+            return pol
+        raise ValueError(f"policy_unreadable: {e.code} — the branch policy of this repo "
+                         "could not be read; retry in a moment") from None
     except Exception:         # JSON trop imbriqué (RecursionError) compris
         return pol
     if not isinstance(user_pol, dict):
@@ -1174,10 +1182,10 @@ def register(mcp: FastMCP, root_base: Path) -> None:
             if act == "files":
                 cap = max(1, min(max_count, MAX_FILES))
                 pat = pattern or "**/*"
-                from .fs_tools import MAX_WALK, _cle_parcours
+                from .fs_tools import _PROFONDEUR, MAX_WALK, _cle_parcours
                 base = rel_under(root, rp)
                 base = "" if base == "." else base
-                liste = Espace(_username, root).lister(base, depth=64, max_entries=MAX_WALK,
+                liste = Espace(_username, root).lister(base, depth=_PROFONDEUR, max_entries=MAX_WALK,
                                                        hidden=True, exclude=[".git"])
                 out = []
                 # fichiers et liens, pas les FIFO/sockets ; ordre du parcours

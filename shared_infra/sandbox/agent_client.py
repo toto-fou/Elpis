@@ -25,6 +25,7 @@ créé par boucle.
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import json
 import logging
@@ -54,6 +55,7 @@ _DEMARRAGE_S = 10.0
 _ECHEC_S = 30.0                                 # démarrage raté : mémorisé
 _SONDE_S = 2.0                                  # hello, lecture comprise
 _PETIT = 1 << 16                                # hello, write, fsop, erreurs
+_DELAI_TOTAL_S = 600.0                          # une opération, flux compris
 _LIGNE_MAX = 1 << 15                            # une ligne NDJSON
 _EN_TETES = {"Accept-Encoding": "identity"}     # aucun corps compressé à décoder
 
@@ -144,6 +146,8 @@ class AgentClient:
                                         int(obj.get("errors") or 0))
                 if len(entries) >= max_entries:
                     raise AgentError("bad_response", "plus d'entrées que demandé")
+                if not _rel_sous(obj.get("path"), path):
+                    raise AgentError("bad_response", "chemin hors de la liste demandée")
                 entries.append(obj)
         raise AgentError("bad_response", "liste interrompue")
 
@@ -154,6 +158,7 @@ class AgentClient:
         ``skipped_binary``) dans les fichiers ``paths`` ; ``files_only`` : un
         ``{"file"}`` par fichier trouvé."""
         chemins = list(paths)
+        demandes = set(chemins)
         trouves: List[Dict[str, Any]] = []
         async with self._flux("POST", "/v1/grep", json={
                 "paths": chemins, "needle": needle, "ignore_case": ignore_case,
@@ -167,8 +172,45 @@ class AgentClient:
                 if "file" in obj:
                     if len(trouves) >= max_hits:
                         raise AgentError("bad_response", "plus de lignes que demandé")
+                    if obj["file"] not in demandes:
+                        raise AgentError("bad_response", "fichier non demandé")
                     trouves.append(obj)
         raise AgentError("bad_response", "recherche interrompue")
+
+    async def read_many(self, paths: Iterable[str], *, max_file: int = 1 << 20,
+                        max_total: int = 32 << 20) -> Dict[str, Optional[bytes]]:
+        """{chemin: octets, ou ``None`` : absent, spécial, trop gros} des
+        premiers fichiers de ``paths``, en un appel ; l'agent s'arrête avant de
+        dépasser ``max_total`` (les chemins absents du résultat sont à
+        redemander)."""
+        chemins = [_chemin(p) for p in paths]
+        demandes = set(chemins)
+        rendu: Dict[str, Optional[bytes]] = {}
+        maxi = (1 << 20) + len(chemins) * 1024 + max_total * 4 // 3
+        async with self._flux("POST", "/v1/readmany", json={
+                "paths": chemins, "max_file": max_file, "max_total": max_total}) as r:
+            async for obj in _lignes(r, maxi, _LIGNE_MAX + max_file * 4 // 3):
+                if "error" in obj:
+                    raise AgentError(str(obj["error"]), str(obj.get("message") or ""))
+                if obj.get("done"):
+                    return rendu
+                if obj.get("started"):
+                    continue
+                p = obj.get("path")
+                if p not in demandes or p in rendu:
+                    raise AgentError("bad_response", "fichier non demandé")
+                b64 = obj.get("b64")
+                if not isinstance(b64, str):
+                    rendu[p] = None
+                    continue
+                try:
+                    data = base64.b64decode(b64, validate=True)
+                except ValueError:
+                    raise AgentError("bad_response", "base64 invalide") from None
+                if len(data) > max_file:
+                    raise AgentError("bad_response", "fichier plus gros que demandé")
+                rendu[p] = data
+        raise AgentError("bad_response", "lecture interrompue")
 
     async def write(self, path: str, data: Union[bytes, IO[bytes]], *,
                     mode: Optional[str] = None, parents: bool = False,
@@ -225,6 +267,8 @@ class AgentClient:
                     return vus, obj
                 if len(vus) >= max_files:
                     raise AgentError("bad_response", "plus de fichiers que demandé")
+                if not _rel_sous(obj.get("path"), ""):
+                    raise AgentError("bad_response", "chemin de relevé invalide")
                 vus.append(obj)
         raise AgentError("bad_response", "relevé interrompu")
 
@@ -252,27 +296,35 @@ class AgentClient:
         if "json" in kw:                                 # échappé : un nom non UTF-8 part
             kw["content"] = json.dumps(kw.pop("json"), separators=(",", ":")).encode()
             en_tetes["Content-Type"] = "application/json"   # (et l'agent le refuse)
-        for essai in (1, 2):
-            rendu = False
-            try:
-                async with self._connexion() as c, \
-                        c.stream(methode, route, headers=en_tetes, **kw) as r:
-                    if r.status_code >= 400:
-                        await _refus(r)
-                    rendu = True
-                    yield r
-                return
-            except _Absent:
-                if essai == 2:
-                    raise AgentError("agent_unavailable", "aucun agent à joindre") from None
-                await self._demarrer()
-            except httpx.TransportError as e:            # corps incomplet compris
-                if isinstance(e, httpx.TimeoutException):
-                    self._version_ok = False             # re-sonder au prochain appel
-                if isinstance(e, httpx.ConnectError) and not rendu and essai == 1:
-                    await self._demarrer()
-                    continue
-                raise AgentError("transport", f"{type(e).__name__}: {e}") from None
+        # Borne TOTALE de l'opération, lecture du flux comprise (un agent qui
+        # répond au compte-gouttes ne retient pas le thread de l'outil).
+        try:
+            async with asyncio.timeout(_DELAI_TOTAL_S):
+                for essai in (1, 2):
+                    rendu = False
+                    try:
+                        async with self._connexion() as c, \
+                                c.stream(methode, route, headers=en_tetes, **kw) as r:
+                            if r.status_code >= 400:
+                                await _refus(r)
+                            rendu = True
+                            yield r
+                        return
+                    except _Absent:
+                        if essai == 2:
+                            raise AgentError("agent_unavailable", "aucun agent à joindre") from None
+                        await self._demarrer()
+                    except httpx.TransportError as e:            # corps incomplet compris
+                        if isinstance(e, httpx.TimeoutException):
+                            self._version_ok = False             # re-sonder au prochain appel
+                            raise AgentError("timeout", f"agent muet : {type(e).__name__}") from None
+                        if isinstance(e, httpx.ConnectError) and not rendu and essai == 1:
+                            await self._demarrer()
+                            continue
+                        raise AgentError("transport", f"{type(e).__name__}: {e}") from None
+        except TimeoutError:
+            self._version_ok = False
+            raise AgentError("timeout", f"opération de plus de {_DELAI_TOTAL_S:.0f} s") from None
 
     @contextlib.asynccontextmanager
     async def _connexion(self) -> AsyncIterator[httpx.AsyncClient]:
@@ -374,6 +426,15 @@ def _chemin(p: str) -> str:
     return p
 
 
+def _rel_sous(p: Any, base: str) -> bool:
+    """``p`` (chemin rendu par l'agent) : relatif, normalisé, sous ``base``."""
+    if not isinstance(p, str) or not p or "\x00" in p or p.startswith("/"):
+        return False
+    if any(c in ("", ".", "..") for c in p.split("/")):
+        return False
+    return not base or p.startswith(base.rstrip("/") + "/")
+
+
 def _objet(brut: bytes) -> Optional[Dict[str, Any]]:
     try:
         d = json.loads(brut)
@@ -407,22 +468,33 @@ async def _borne(r: httpx.Response, maxi: int) -> bytes:
 
 async def _lignes(r: httpx.Response, maxi: int,
                   ligne_max: int = _LIGNE_MAX) -> AsyncIterator[Dict[str, Any]]:
-    """Objets d'un flux NDJSON : lignes et total bornés."""
-    tampon, total = b"", 0
+    """Objets d'un flux NDJSON : lignes et total bornés, signes de vie
+    (``{"tick"}``) ignorés ; chaque octet n'est parcouru qu'une fois."""
+    tampon, total = bytearray(), 0
     async for b in r.aiter_raw():
         total += len(b)
         if total > maxi:
-            raise AgentError("too_large", f"liste de plus de {maxi} octets")
+            raise AgentError("too_large", f"réponse de plus de {maxi} octets")
+        depuis = len(tampon)
         tampon += b
-        *completes, tampon = tampon.split(b"\n")
-        if len(tampon) > ligne_max:
-            raise AgentError("bad_response", "ligne NDJSON trop longue")
-        for ligne in completes:
+        debut = 0
+        i = tampon.find(b"\n", depuis)
+        while i >= 0:
+            if i - debut > ligne_max:
+                raise AgentError("bad_response", "ligne NDJSON trop longue")
+            ligne = bytes(tampon[debut:i])
+            debut = i + 1
             if ligne.strip():
                 obj = _objet(ligne)
                 if obj is None:
                     raise AgentError("bad_response", "ligne NDJSON invalide")
-                yield obj
+                if "tick" not in obj:
+                    yield obj
+            i = tampon.find(b"\n", debut)
+        if debut:
+            del tampon[:debut]
+        if len(tampon) > ligne_max:
+            raise AgentError("bad_response", "ligne NDJSON trop longue")
 
 
 async def _refus(r: httpx.Response) -> None:

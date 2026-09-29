@@ -25,7 +25,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 
 from fastmcp import Context, FastMCP
 
@@ -358,33 +358,51 @@ def _instantane_agent(esp: Espace, sb: Path, rel: str, e: Dict[str, Any],
                       max_files: int = 200, max_total: int = 32 * 1024 * 1024
                       ) -> List[Tuple[Path, bytes]]:
     """[(fichier, octets)] des fichiers ordinaires sous ``rel`` (ou ``rel``
-    lui-même), lus par l'agent pour l'historique (avant une suppression,
-    après une copie). Borné en nombre et en volume ; au-delà de ``MAX_FILE``,
-    la version est notée sans son contenu."""
+    lui-même), lus par l'agent en une requête pour l'historique (avant une
+    suppression, après une copie). Borné en nombre et en volume ; au-delà de
+    ``MAX_FILE``, la version est notée sans son contenu."""
     from shared_infra.sandbox.file_history import MAX_FILE, TOO_BIG
     out: List[Tuple[Path, bytes]] = []
     try:
         if e.get("kind") == "file":
             fichiers = [(rel, int(e.get("size") or 0))]
         elif e.get("kind") == "dir":
-            liste = esp.lister(rel, depth=64, max_entries=max_files * 4, hidden=True)
+            liste = esp.lister(rel, depth=_PROFONDEUR, max_entries=max_files * 4, hidden=True)
             fichiers = [(x["path"], int(x.get("size") or 0)) for x in liste.entries
                         if x["kind"] == "file"][:max_files]
         else:
             return out
-        total = 0
+        petits = [f for f, taille in fichiers if taille <= MAX_FILE]
+        lus = esp.lire_plusieurs(petits, max_file=MAX_FILE, max_total=max_total) if petits else {}
         for f, taille in fichiers:
             if taille > MAX_FILE:
                 out.append((sb / f, TOO_BIG))
-                continue
-            b = esp.lire(f, max_bytes=MAX_FILE).data
-            total += len(b)
-            if total > max_total:
-                break
-            out.append((sb / f, b))
+            elif lus.get(f) is not None:            # au-delà de max_total : non relu
+                out.append((sb / f, lus[f]))
     except AgentError:
         pass
     return out
+
+
+def _lire_lots(esp: Espace, chemins: List[str], max_fichier: int,
+               budget: int = 32 * 1024 * 1024) -> Iterator[Tuple[str, Optional[bytes]]]:
+    """(chemin, octets ou ``None``) de chaque fichier, dans l'ordre, par
+    requêtes groupées d'au plus ``budget`` octets."""
+    max_fichier = min(max_fichier, budget)
+    i = 0
+    while i < len(chemins):
+        lot = chemins[i:i + 1000]
+        lus = esp.lire_plusieurs(lot, max_file=max_fichier, max_total=budget)
+        n = 0
+        for c in lot:
+            if c not in lus:
+                break                               # hors budget : requête suivante
+            yield c, lus[c]
+            n += 1
+        if n == 0:
+            raise AgentError("bad_response", "lecture groupée sans progrès")
+        i += n
+
 
 _ERREURS_AGENT = {
     "not_found": ("not_found", "Check the path."),
@@ -396,21 +414,38 @@ _ERREURS_AGENT = {
     "read_only": ("permission_denied", "Read-only location."),
     "no_space": ("no_space", "The sandbox disk is full."),
     "too_large": ("too_large", "Read a range (offset/length, head, tail) instead."),
+    "timeout": ("timeout", "The sandbox took too long to answer: narrow the request "
+                "(path, pattern) and retry."),
     "inside": ("dest_inside_source", "Cannot copy or move a directory into itself."),
 }
 
 
-def _actuel(esp: Espace, rel: str, e: Optional[Dict[str, Any]] = None
-            ) -> Tuple[Dict[str, Any], Optional[bytes], str]:
+# Contenu relu avant de remplacer un fichier (au-delà : TOO_BIG, empreinte
+# calculée par l'agent) ; empreinte calculée par l'agent jusqu'à _HASH_MAX
+# (au-delà : précondition sur le mtime).
+_CONTENU_MAX = 64 * 1024 * 1024
+_HASH_MAX = 1 << 30
+
+
+def _actuel(esp: Espace, rel: str, e: Optional[Dict[str, Any]] = None,
+            max_contenu: Optional[int] = None) -> Tuple[Dict[str, Any], Optional[bytes], str]:
     """(entrée ``stat``, contenu, sha256) du fichier ``rel`` avant de le
-    remplacer ; absent : ``(e, None, "")``. Un dossier ou un fichier spécial
-    lève ``AgentError``. ``e`` : entrée déjà lue."""
+    remplacer. Absent, ou lien pendant sous /work (l'écriture crée sa
+    cible) : ``(e, None, "")``. Au-delà de ``max_contenu`` octets, le contenu
+    n'est pas relu (``TOO_BIG``). Un dossier, un fichier spécial ou un lien
+    qui sort de /work lève ``AgentError``."""
+    from shared_infra.sandbox.file_history import TOO_BIG
+    max_contenu = _CONTENU_MAX if max_contenu is None else max_contenu
     e = e if e is not None else esp.stat(rel)
-    if e["kind"] == "missing":
+    if e["kind"] == "missing" or (e["kind"] == "link" and not e.get("outside")):
         return e, None, ""
     if e["kind"] != "file":
-        raise AgentError("is_dir" if e["kind"] == "dir" else "not_file", str(e["kind"]))
-    data = esp.lire(rel, max_bytes=int(e.get("size") or 0) + (1 << 20)).data
+        code = "is_dir" if e["kind"] == "dir" else "outside_root" if e.get("outside") else "not_file"
+        raise AgentError(code, str(e["kind"]))
+    if int(e.get("size") or 0) > max_contenu:
+        h = esp.stat(rel, hash=True, hash_max=_HASH_MAX)
+        return h, TOO_BIG, str(h.get("sha256") or "")
+    data = esp.lire(rel, max_bytes=max_contenu).data
     return e, data, _sha256_bytes(data)
 
 
@@ -448,7 +483,9 @@ def _ecrire_garde(esp: Espace, username: str, sb: Path, p: Path, rel: str, data:
                 return None, _err("hash_mismatch",
                                   hint="File changed since read (concurrent write). Re-read then retry.",
                                   expected=expected_sha256, actual=base_sha)
-            condition = {"if_sha256": base_sha} if base_sha else {"if_absent": True}
+            condition: Dict[str, Any] = (
+                {"if_absent": True} if base is None else {"if_sha256": base_sha} if base_sha
+                else {"if_mtime_ns": int(e_actuel.get("mtime_ns") or 0)})   # trop gros pour être haché
             try:
                 r = esp.ecrire(rel, data, parents=True, mode=_mode_ecrit(e_actuel), **condition)
             except AgentError as e:
@@ -473,6 +510,43 @@ def _ecrire_garde(esp: Espace, username: str, sb: Path, p: Path, rel: str, data:
             return r, None
     return None, _err("concurrent_modification", hint="The file kept changing; retry.",
                       expected=base_sha)
+
+
+_PROFONDEUR = 4096                   # « sans limite » : l'agent borne à PATH_MAX
+_GREP_LOT = 5000                     # chemins par requête : corps JSON borné par l'agent
+
+
+def _grep_lots(esp: Espace, chemins: List[str], aiguille: str, *, max_hits: int,
+               **kw: Any) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """``esp.grep`` par lots de chemins ; même résultat et même bilan qu'un
+    seul appel."""
+    trouves: List[Dict[str, Any]] = []
+    bilan: Dict[str, Any] = {"hits_truncated": False, "skipped_large": 0, "skipped_binary": 0}
+    for i in range(0, len(chemins), _GREP_LOT):
+        t, b = esp.grep(chemins[i:i + _GREP_LOT], aiguille, max_hits=max_hits - len(trouves), **kw)
+        trouves += t
+        bilan["skipped_large"] += int(b.get("skipped_large") or 0)
+        bilan["skipped_binary"] += int(b.get("skipped_binary") or 0)
+        if b.get("hits_truncated") or len(trouves) >= max_hits:
+            bilan["hits_truncated"] = bool(b.get("hits_truncated"))
+            break
+    return trouves, bilan
+
+
+def _sauvegarde(esp: Espace, rel: str) -> Optional[Dict[str, Any]]:
+    """``<rel>.bak`` : copie du contenu actuel (un lien : sa cible), droits
+    élargis comme une écriture ; ``_err`` si un dossier porte ce nom (l'agent
+    ne le remplace jamais)."""
+    try:
+        esp.fsop("copy", src=rel, dst=rel + ".bak", overwrite=True, follow=True,
+                 widen=not use_agent("fs.write"))
+    except AgentError as e:
+        if e.code == "is_dir":
+            return _err("backup_is_directory",
+                        hint=f"{to_container(rel + '.bak')} is a directory: rename it or "
+                             "pass backup=False. Nothing was written.")
+        raise
+    return None
 
 
 def _err_agent(e: AgentError, p: Path, sb: Path) -> Dict[str, Any]:
@@ -1852,7 +1926,7 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
             # ── BINARY ──────────────────────────────────────────────────
             if not is_text and not as_base64:
                 info["sha256"] = (_sha256_bytes(raw) if raw is not None
-                                  else esp.stat(rel, hash=True, hash_max=st_size).get("sha256", ""))
+                                  else esp.stat(rel, hash=True, hash_max=_HASH_MAX).get("sha256", ""))
                 if offset or length:
                     n = min(length or MAX_FILE_BIN, MAX_FILE_BIN)
                     debut_b = max(0, offset)
@@ -2166,6 +2240,9 @@ For surgical edits on large files, prefer edit_file."""
             # Optimistic lock for existing files
             _etat = _actuel(esp, rel)
             _e, old_raw, old_sha = _etat
+            from shared_infra.sandbox.file_history import TOO_BIG as _TOO_BIG
+            _gros = old_raw is _TOO_BIG             # trop gros pour être relu
+            _avant_n = int(_e.get("size") or 0) if old_raw is not None else 0
             if old_sha:
                 if expected_sha256 and expected_sha256 != old_sha:
                     return _err("hash_mismatch",
@@ -2184,10 +2261,10 @@ For surgical edits on large files, prefer edit_file."""
                 new_sha = _sha256_bytes(data)
                 if dry_run:
                     return _ok(path=_to_container(p, sb), action="b64_write", dry_run=True,
-                               bytes_before=len(old_raw) if old_raw is not None else 0,
+                               bytes_before=_avant_n,
                                bytes_after=len(data), old_sha256=old_sha, new_sha256=new_sha)
-                if backup and old_raw is not None:
-                    esp.fsop("copy", src=rel, dst=rel + ".bak", overwrite=True)
+                if backup and old_raw is not None and (_bk := _sauvegarde(esp, rel)):
+                    return _bk
                 # Précondition vérifiée par l'agent au remplacement (ferme le
                 # TOCTOU du contrôle de tête) ; verrou partagé avec l'éditeur.
                 _r, _lock_err = _ecrire_garde(esp, _username, sb, p, rel, data, etat=_etat,
@@ -2219,6 +2296,9 @@ For surgical edits on large files, prefer edit_file."""
             # `old`). En mode 'write' sur un fichier existant on le lit ici.
             # Pour un nouveau fichier, old_text reste "" -> stats=(N, 0).
             old_text_for_stats = ""
+            if mode == "append" and _gros:
+                return _err("too_large", hint="File too large to append in place: use "
+                            "execute_shell (>>) instead. Nothing was written.", bytes=_avant_n)
             if mode == "append" and old_raw is not None:
                 # AUDIT 2026-08-23 — l'append n'ajoute pas : il RELIT tout,
                 # concatène et RÉÉCRIT le fichier entier. La relecture se
@@ -2251,7 +2331,7 @@ For surgical edits on large files, prefer edit_file."""
                     _conv["line_endings"] = "crlf"
                 new_content = old + content
                 old_text_for_stats = old
-            elif mode == "write" and old_raw is not None:
+            elif mode == "write" and old_raw is not None and not _gros:
                 # Audit éditeur 2026-09-23 (E16) : l'écrasement complet
                 # retirait BOM et CRLF (le modèle émet du LF sans BOM), et
                 # réécrivait en UTF-8 un fichier latin-1 dont il n'avait lu
@@ -2308,7 +2388,7 @@ For surgical edits on large files, prefer edit_file."""
                 # En dry-run on calcule aussi les stats : utile pour preview.
                 la, lr = _line_diff_stats(old_text_for_stats, new_content)
                 return _ok(path=_to_container(p, sb), action=mode, dry_run=True,
-                           bytes_before=len(old_raw) if old_raw is not None else 0,
+                           bytes_before=_avant_n,
                            bytes_after=len(new_bytes),
                            old_sha256=old_sha, new_sha256=new_sha,
                            lines_added=la, lines_removed=lr, **_conv)
@@ -2326,7 +2406,7 @@ For surgical edits on large files, prefer edit_file."""
             if mode == "write" and old_raw is not None and new_sha == old_sha:
                 return _ok(
                     path=_to_container(p, sb), action="noop", unchanged=True,
-                    bytes=len(old_raw),
+                    bytes=_avant_n,
                     old_sha256=old_sha, new_sha256=new_sha,
                     next_expected_sha256=new_sha,
                     lines_added=0, lines_removed=0,
@@ -2336,8 +2416,8 @@ For surgical edits on large files, prefer edit_file."""
                           "with the same content: move on to the next step."),
                 )
 
-            if backup and old_raw is not None:
-                esp.fsop("copy", src=rel, dst=rel + ".bak", overwrite=True)
+            if backup and old_raw is not None and (_bk := _sauvegarde(esp, rel)):
+                return _bk
             # Précondition vérifiée par l'agent au remplacement ; en append, la
             # nouvelle version est calculée depuis l'ancienne (stricte).
             _r, _lock_err = _ecrire_garde(esp, _username, sb, p, rel, new_bytes, etat=_etat,
@@ -2456,7 +2536,7 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
             if int(_e.get("size") or 0) > MAX_EDIT_BYTES:
                 return _err("too_large", size=int(_e["size"]), max=MAX_EDIT_BYTES,
                             hint="Split the edit or use write_file to replace whole file.")
-            _etat = _actuel(esp, rel, _e)
+            _etat = _actuel(esp, rel, _e, max_contenu=MAX_EDIT_BYTES)
             _e, raw, old_sha = _etat
             if raw is None:
                 return _err("not_found", path=_to_container(p, sb), hint="Create with write_file first.")
@@ -2784,7 +2864,7 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
             # segment l'était. Borne DURE du walk : MAX_WALK entrées. Liens non
             # montrés, comme avant ; ordre du parcours d'avant (cf.
             # ``_cle_parcours``), dont les tris stables héritent.
-            listing = esp.lister(rel_root, depth=64 if (recursive or search_text) else 1,
+            listing = esp.lister(rel_root, depth=_PROFONDEUR if (recursive or search_text) else 1,
                                  max_entries=MAX_WALK, hidden=include_hidden,
                                  exclude=exclude_pats)
             walk_capped = listing.truncated
@@ -2800,9 +2880,9 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                 # lecture ligne à ligne jusqu'à 20 Mo, dans l'agent.
                 fichiers = [prefixe + r for r, x in entrees
                             if x["kind"] == "file" and (not pattern or _glob_match(r, pattern))]
-                trouves, bilan = esp.grep(fichiers, search_text, ignore_case=ignore_case,
-                                          max_file_bytes=_SEARCH_MAX_BYTES,
-                                          max_hits=min(cap, MAX_GREP))
+                trouves, bilan = _grep_lots(esp, fichiers, search_text, ignore_case=ignore_case,
+                                            max_file_bytes=_SEARCH_MAX_BYTES,
+                                            max_hits=min(cap, MAX_GREP))
                 hits = [{"file": h["file"][len(prefixe):], "line": h["line"], "text": h["text"]}
                         for h in trouves]
                 if bilan.get("hits_truncated"):
@@ -2958,20 +3038,22 @@ Safety:
             _track = _history_uid(_username) is not None
             rel = ""
 
-            def _enlever(rel: str, e: Dict[str, Any]) -> List[Tuple[Path, bytes]]:
+            def _enlever(rel: str, e: Dict[str, Any], missing_ok: bool = False
+                         ) -> Optional[List[Tuple[Path, bytes]]]:
                 """Supprime ``rel`` par l'agent et rend les fichiers supprimés
-                (pour l'historique). Un lien est supprimé lui-même."""
+                (pour l'historique) ; ``None`` si ``rel`` avait déjà disparu
+                (``missing_ok``). Un lien est supprimé lui-même."""
                 if e.get("link"):
-                    esp.fsop("remove", path=rel)
-                    return []
+                    r = esp.fsop("remove", path=rel, missing_ok=missing_ok)
+                    return [] if r.get("removed", 1) else None
                 with _locks_for(sb / rel) if e["kind"] == "file" else contextlib.nullcontext():
                     snap = _instantane_agent(esp, sb, rel, e) if _track else []
-                    esp.fsop("remove", path=rel, recursive=True)
-                return snap
+                    r = esp.fsop("remove", path=rel, recursive=True, missing_ok=missing_ok)
+                return snap if r.get("removed", 1) else None
 
-            def _noter_suppressions(snap: List[Tuple[Path, bytes]],
+            def _noter_suppressions(snap: Optional[List[Tuple[Path, bytes]]],
                                     fc: List[Dict[str, Any]]) -> None:
-                for _f, _b in snap:
+                for _f, _b in snap or []:
                     _history_record(_username, sb, _f, _b, None)
                     if len(fc) < _FC_MAX:
                         fc.append(_fc_entry(_f, sb, "deleted", _b, None))
@@ -3011,7 +3093,12 @@ Safety:
                     if _type(e) == "dir" and not recursive:
                         return _err("is_dir", hint=f"{to_container(rel)} is dir; pass recursive=True.",
                                     already_deleted=deleted)
-                    _noter_suppressions(_enlever(rel, e), _fc)
+                    # Un chemin déjà emporté plus haut dans le lot (dossier
+                    # parent, doublon) n'est ni une erreur ni une suppression.
+                    snap = _enlever(rel, e, missing_ok=True)
+                    if snap is None:
+                        continue
+                    _noter_suppressions(snap, _fc)
                     deleted.append(to_container(rel))
                 return _ok(action="batch_delete", deleted=deleted, count=len(deleted),
                            **({"files_changed": _fc} if _fc else {}))
@@ -3067,7 +3154,7 @@ Safety:
                 if dry_run:
                     info: Dict[str, Any] = {"path": _to_container(p, sb), "type": _type(e)}
                     if e["kind"] == "dir":
-                        liste = esp.lister(rel, depth=64, max_entries=MAX_WALK, hidden=True)
+                        liste = esp.lister(rel, depth=_PROFONDEUR, max_entries=MAX_WALK, hidden=True)
                         info["items_inside"] = len(liste.entries)
                         if liste.truncated:
                             info["truncated"] = True
@@ -3143,14 +3230,26 @@ Safety:
                 avant: List[Tuple[Path, bytes]] = []
                 apres: List[Tuple[Path, bytes]] = []
                 with _locks_for(p, pdst) if fichier else contextlib.nullcontext():
-                    if act == "copy":
-                        if fichier and _track:
-                            avant = [] if ed.get("link") else _instantane_agent(esp, sb, drel, ed)
-                            apres = _instantane_agent(esp, sb, rel, e)
-                        esp.fsop("copy", src=rel, dst=drel, overwrite=True, parents=True,
-                                 follow=True)
-                    else:
-                        esp.fsop("rename", src=rel, dst=drel, overwrite=True, parents=True)
+                    try:
+                        if act == "copy":
+                            if fichier and _track:
+                                avant = [] if ed.get("link") else _instantane_agent(esp, sb, drel, ed)
+                                apres = _instantane_agent(esp, sb, rel, e)
+                            esp.fsop("copy", src=rel, dst=drel, overwrite=True, parents=True,
+                                     follow=True, widen=not use_agent("fs.write"))
+                        else:
+                            esp.fsop("rename", src=rel, dst=drel, overwrite=True, parents=True)
+                    except AgentError as ex:
+                        # Un dossier apparu entre-temps à la destination : l'agent
+                        # refuse, comme le contrôle ci-dessus.
+                        if ex.code == "is_dir":
+                            return _err("dest_is_directory", dest=_dest_label,
+                                        hint="Refusing to replace an existing directory.")
+                        if ex.code == "exists":
+                            return _err("dest_is_file" if src_dossier else "dest_exists",
+                                        dest=_dest_label,
+                                        hint="The destination appeared meanwhile; retry.")
+                        raise
                 if lien:
                     return _ok(action="move", symlink=True, dest=_dest_label, **_warn)
                 # Historique de session : une copie écrit la destination, un
@@ -3318,7 +3417,7 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
             # Même règle que list_files : motifs confrontés au nom et au chemin
             # à chaque niveau (un dossier exclu n'est pas descendu), dossiers
             # cachés sautés, socle des dossiers de dépendances par défaut.
-            liste = esp.lister(srel, depth=64 if recursive else 1, max_entries=MAX_WALK,
+            liste = esp.lister(srel, depth=_PROFONDEUR if recursive else 1, max_entries=MAX_WALK,
                                hidden=False, exclude=exclude_l or list(DEFAULT_DEP_EXCLUDES))
             fichiers = []
             for x in liste.entries:
@@ -3336,17 +3435,25 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
             # contient pas, à la casse près, le plus long fragment
             # alphanumérique du symbole ne peut pas le définir ni le citer
             # (Robot compare sans casse ni « _ », « - », espace).
+            # Préfiltre par l'agent : un fichier qui ne contient pas le symbole
+            # (Robot : son plus long fragment alphanumérique, sans casse — les
+            # mots-clés se comparent sans casse ni « _ », « - », espace) ne
+            # peut ni le définir ni le citer. Seuls les candidats sont lus.
             fragment = max(re.split(r"[\W_]+", symbol), key=len)
-            candidats = fichiers
-            if fragment and fichiers:
-                retenus: set = set()
-                for i in range(0, len(fichiers), 5000):      # corps de requête borné
-                    lot = [f[1] for f in fichiers[i:i + 5000]]
-                    trouves, _bilan = esp.grep(lot, fragment, ignore_case=True,
-                                               max_file_bytes=MAX_EDIT_BYTES, max_hits=len(lot),
-                                               files_only=True)
-                    retenus.update(t["file"] for t in trouves)
-                candidats = [f for f in fichiers if f[1] in retenus]
+            retenus: set = set()
+            for robot in (False, True):
+                lot = [f[1] for f in fichiers if (f[2] == "robot") is robot]
+                aiguille = fragment if robot else symbol
+                if not lot:
+                    continue
+                if not aiguille:
+                    retenus.update(lot)
+                    continue
+                trouves, _bilan = _grep_lots(esp, lot, aiguille, ignore_case=robot,
+                                             max_file_bytes=MAX_EDIT_BYTES, max_hits=len(lot),
+                                             files_only=True)
+                retenus.update(t["file"] for t in trouves)
+            candidats = [f for f in fichiers if f[1] in retenus]
 
             def _fin(truncated: bool) -> Dict[str, Any]:
                 return _ok(action=act, query=symbol, count=len(hits),
@@ -3354,11 +3461,12 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
                            **({"walk_truncated": True} if liste.truncated else {}))
 
             hits: List[Dict[str, Any]] = []
-            for rel, chemin, lang in candidats:
-                try:
-                    text = esp.lire(chemin, max_bytes=MAX_EDIT_BYTES).data.decode("utf-8", errors="replace")
-                except AgentError:
+            par_chemin = {f[1]: f for f in candidats}
+            for chemin, data in _lire_lots(esp, list(par_chemin), MAX_EDIT_BYTES):
+                if data is None:
                     continue
+                rel, _c, lang = par_chemin[chemin]
+                text = data.decode("utf-8", errors="replace")
                 if act == "definition":
                     found = _ci.find_definition(text, lang, symbol)
                 else:

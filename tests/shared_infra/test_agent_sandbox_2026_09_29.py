@@ -219,29 +219,83 @@ def test_liens(sb):
 
 
 def test_ecrasement_sans_perte(sb):
-    (sb.sandbox_path / "a" / "b").mkdir(parents=True)
-    (sb.sandbox_path / "a" / "b" / "f").write_bytes(b"source")
-    (sb.sandbox_path / "d").mkdir()
-    (sb.sandbox_path / "d" / "garde").write_bytes(b"destination")
-    os.mkfifo(sb.sandbox_path / "a" / "tube")            # la copie de a échouera
+    """Un dossier n'est jamais remplacé, ni rien par un dossier ; une copie
+    qui échoue ne laisse rien ; un fichier est remplacé d'un coup."""
+    w = sb.sandbox_path
+    (w / "a" / "b").mkdir(parents=True)
+    (w / "a" / "b" / "f").write_bytes(b"source")
+    (w / "d").mkdir()
+    (w / "d" / "garde").write_bytes(b"destination")
+    os.mkfifo(w / "a" / "tube")                          # la copie de a échouera
     c = AgentClient(sb)
 
     async def scenario():
         e = await _attendre_refus(c.fsop("rename", src="a/b", dst="a", overwrite=True))
         assert e.code == "inside"                        # la destination contient la source
-        assert (sb.sandbox_path / "a" / "b" / "f").read_bytes() == b"source"
-        await _attendre_refus(c.fsop("copy", src="a", dst="d", overwrite=True))
-        assert (sb.sandbox_path / "d" / "garde").read_bytes() == b"destination"
-        await c.fsop("rename", src="a/b", dst="d", overwrite=True)   # dossier remplacé
-        assert os.listdir(sb.sandbox_path / "d") == ["f"]
+        for op in ("rename", "copy"):
+            e = await _attendre_refus(c.fsop(op, src="a/b", dst="d", overwrite=True))
+            assert e.code == "is_dir", op                # dossier jamais remplacé
+        assert (w / "d" / "garde").read_bytes() == b"destination"
+        await _attendre_refus(c.fsop("copy", src="a", dst="neuf"))
+        assert not (w / "neuf").exists()                 # copie ratée : rien ne reste
         await c.write("x", b"x")
-        e = await _attendre_refus(c.fsop("copy", src="d/f", dst="x"))
+        e = await _attendre_refus(c.fsop("rename", src="a/b", dst="x", overwrite=True))
+        assert e.code == "exists"                        # un dossier ne remplace pas un fichier
+        e = await _attendre_refus(c.fsop("copy", src="a/b/f", dst="x"))
         assert (e.code, e.status) == ("exists", 409)
-        await c.fsop("copy", src="d/f", dst="x", overwrite=True)     # fichier : d'un coup
-        assert (sb.sandbox_path / "x").read_bytes() == b"source"
+        await c.fsop("copy", src="a/b/f", dst="x", overwrite=True)   # fichier : d'un coup
+        assert (w / "x").read_bytes() == b"source"
+        await c.fsop("rename", src="x", dst="a/b/f", overwrite=True)
+        assert (w / "a" / "b" / "f").read_bytes() == b"source" and not (w / "x").exists()
     asyncio.run(scenario())
-    restes = [n for n in os.listdir(sb.sandbox_path) if n.startswith(".elpis-tmp")]
+    restes = [n for n in os.listdir(w) if n.startswith(".elpis-tmp")]
     assert restes == []
+
+
+def test_copie_elargie_et_lecture_groupee(sb):
+    """``widen`` : droits élargis sur la copie ; ``read_many`` borné par le
+    budget, dans l'ordre, arrêté avant de le dépasser."""
+    w = sb.sandbox_path
+    (w / "d" / "s").mkdir(parents=True)
+    (w / "d" / "f").write_bytes(b"12345")
+    os.chmod(w / "d" / "f", 0o640)
+    os.chmod(w / "d" / "s", 0o750)
+    (w / "g").write_bytes(b"678")
+    (w / "h").write_bytes(b"9999")
+    (w / "gros").write_bytes(b"0" * 10)
+    c = AgentClient(sb)
+
+    async def scenario():
+        await c.fsop("copy", src="d", dst="e", widen=True)
+        await c.fsop("copy", src="d", dst="sans", widen=False)
+        lus = await c.read_many(["d/f", "absent", "gros", "g", "h"], max_file=6, max_total=8)
+        assert lus == {"d/f": b"12345", "absent": None, "gros": None, "g": b"678"}  # h : suite
+        assert await c.read_many(["h"], max_file=6, max_total=100) == {"h": b"9999"}
+    asyncio.run(scenario())
+    assert (w / "e" / "f").stat().st_mode & 0o777 == 0o666
+    assert (w / "e" / "s").stat().st_mode & 0o777 == 0o777
+    assert (w / "sans" / "f").stat().st_mode & 0o777 == 0o640
+
+
+def test_flux_ndjson_lineaire_et_signes_de_vie():
+    """Lignes coupées sur plusieurs blocs, signes de vie ignorés, ligne trop
+    longue refusée même reçue d'un bloc."""
+    class _R:
+        def __init__(self, blocs):
+            self.blocs = blocs
+
+        async def aiter_raw(self):
+            for b in self.blocs:
+                yield b
+
+    async def lire(blocs, **kw):
+        return [o async for o in AC._lignes(_R(blocs), 1 << 20, **kw)]
+
+    long = b'{"a":"' + b"x" * 5000 + b'"}\n'
+    blocs = [long[:100], long[100:4000], long[4000:] + b'{"tick":true}\n{"b":1}\n']
+    assert asyncio.run(lire(blocs)) == [{"a": "x" * 5000}, {"b": 1}]
+    with pytest.raises(AgentError):
+        asyncio.run(lire([long], ligne_max=1000))
 
 
 def test_lectures_bornees(sb):
@@ -623,3 +677,27 @@ def test_dossiers_crees_au_mode_de_l_agent(sb):
         os.umask(ancien)
     for d in ("a", "a/b", "p", "p/q", "s", "s/t"):
         assert (w / d).stat().st_mode & 0o777 == S._MODE_DOSSIER, d
+
+
+def test_releve_incomplet_et_trop_gros(sb):
+    """Parcours incomplet : rien de créé ni de supprimé n'est déduit ; un
+    fichier au-delà de ``max_file`` : l'état seul."""
+    w = sb.sandbox_path
+    for i in range(5):
+        (w / f"f{i}").write_bytes(b"x")
+    c = AgentClient(sb)
+
+    async def scenario():
+        d = await c.changes_begin([], max_entries=2)
+        assert not d["complete"]
+        (w / "neuf").write_bytes(b"n")
+        for i in range(5):
+            (w / f"f{i}").unlink()
+        vus, bilan = await c.changes_end(d["id"])
+        assert not bilan["complete"] and vus == []
+        (w / "f1").write_bytes(b"x")
+        d = await c.changes_begin([])
+        (w / "f1").write_bytes(b"y" * 100)
+        vus, _ = await c.changes_end(d["id"], max_file=10)
+        assert [(v["path"], v["after"]) for v in vus] == [("f1", {"state": "too_big"})]
+    asyncio.run(scenario())

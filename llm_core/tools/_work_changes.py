@@ -26,6 +26,7 @@ relevé raté ne doit pas faire échouer la commande.
 from __future__ import annotations
 
 import base64
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -41,14 +42,7 @@ MAX_RETURNED = 32 * 1024 * 1024   # contenus rendus par l'agent pour une command
 MAX_RECORDED = 200           # fichiers notés dans l'historique par commande
 MAX_REPORTED = 50            # entrées ``files_changed`` renvoyées
 
-
-def _rel_sur(p: Any) -> Optional[str]:
-    """Chemin rendu par l'agent, accepté seulement relatif et normalisé."""
-    if not isinstance(p, str) or not p or "\x00" in p or p.startswith("/"):
-        return None
-    if any(c in ("", ".", "..") for c in p.split("/")):
-        return None
-    return p
+logger = logging.getLogger(__name__)
 
 
 def _contenu(d: Any) -> Optional[bytes]:
@@ -128,8 +122,15 @@ class WorkChanges:
         if self._id is None:
             return
         from shared_infra.sandbox import file_history as fh
-        entrees, bilan = self._esp.releve_fin(self._id, max_files=MAX_RECORDED,
-                                              max_bytes=MAX_RETURNED, max_file=fh.MAX_FILE)
+        from shared_infra.sandbox.agent_client import AgentError
+        try:
+            # Chemins vérifiés par le client : relatifs et normalisés.
+            entrees, bilan = self._esp.releve_fin(self._id, max_files=MAX_RECORDED,
+                                                  max_bytes=MAX_RETURNED, max_file=fh.MAX_FILE)
+        except AgentError as e:
+            logger.info("[work_changes] relevé %s non clos (%s) : pas de files_changed",
+                        self.source, e.code)
+            return
         self.total = int(bilan.get("total") or 0)
         if not entrees:
             return
@@ -139,8 +140,8 @@ class WorkChanges:
             except Exception:                                   # noqa: BLE001
                 pass
         for ent in entrees:
-            rel, kind = _rel_sur(ent.get("path")), ent.get("change")
-            if rel is None or kind not in ("created", "modified", "deleted"):
+            rel, kind = ent["path"], ent.get("change")
+            if kind not in ("created", "modified", "deleted"):
                 continue
             before = None if kind == "created" else _contenu(ent.get("before"))
             after_b = None if kind == "deleted" else _contenu(ent.get("after"))

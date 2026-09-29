@@ -26,8 +26,10 @@ Security
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import re
+import tempfile
 from pathlib import Path
 
 from fastapi import HTTPException, Request
@@ -269,15 +271,23 @@ async def admin_put_system_prompt(category: str, request: Request):
     # Atomic write — same pattern as memory_tools / memory routes — hors de la
     # boucle d'événements (``fsync``).
     def _write() -> None:
-        tmp = p.with_suffix(".md.tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            f.write(content)
-            try:
-                f.flush()
-                os.fsync(f.fileno())
-            except OSError:
-                pass
-        os.replace(tmp, p)
+        # Temporaire unique : deux enregistrements simultanés (threads ou
+        # workers) ne partagent plus le même fichier intermédiaire.
+        fd, tmp = tempfile.mkstemp(dir=str(p.parent), prefix=f".{p.name}.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+                try:
+                    f.flush()
+                    os.fsync(f.fileno())
+                except OSError:
+                    pass
+            os.chmod(tmp, 0o644)
+            os.replace(tmp, p)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
+            raise
     try:
         await asyncio.to_thread(_write)
     except OSError as e:

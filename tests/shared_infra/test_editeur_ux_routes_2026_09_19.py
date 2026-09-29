@@ -546,8 +546,8 @@ def git_env(tmp_path, monkeypatch):
     return TestClient(app), root
 
 
-def _git(cwd, *args):
-    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True,
+def _git(cwd, *args, check=True):
+    subprocess.run(["git", *args], cwd=cwd, check=check, capture_output=True,
                    env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
                         "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"})
 
@@ -566,7 +566,7 @@ def _conflit(root):
     (root / "f.txt").write_text("main\n")
     (root / "g.txt").write_text("main\n")
     _git(root, "commit", "-qam", "main")
-    subprocess.run(["git", "merge", "autre"], cwd=root, capture_output=True)
+    _git(root, "merge", "autre", check=False)          # conflit : code retour 1
 
 
 def test_status_liste_les_conflits_a_part(git_env):

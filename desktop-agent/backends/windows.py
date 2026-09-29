@@ -2106,7 +2106,7 @@ class WindowsBackend(DesktopBackend):
                     # le menu, ou le laisse affiché après l'action).
                     menu = str(control_type or "").strip().lower() == "menuitem"
                     t_act = time.monotonic()
-                    if not menu and _try_pattern_call(lambda: ctrl.invoke()):
+                    if not menu and _try_pattern_call(lambda: ctrl.invoke()):  # noqa: B023 (même itération)
                         return {"method": "invoke", "auto_id": auto_id, "name": name}
                     if time.monotonic() - t_act >= _SLOW_PATTERN_S:
                         return _uncertain("invoke", "Invoke a expiré", auto_id=auto_id, name=name)

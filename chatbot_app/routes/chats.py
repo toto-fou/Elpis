@@ -542,8 +542,8 @@ async def _drain_coalesced(q, *, window_ms: float = 25.0,
                         nxt = q.get_nowait()
                     except asyncio.QueueEmpty:
                         return False
-                    if _key(nxt) == key:
-                        group.append(nxt)
+                    if _key(nxt) == key:  # noqa: B023 (même itération)
+                        group.append(nxt)  # noqa: B023 (même itération)
                     else:
                         pending = nxt
                         return True

@@ -747,7 +747,7 @@ async def _run_queue() -> None:
             d = None   # supprimé pendant l'attente : soldé « canceled »
         if d is not None:
             if item.get("model"):
-                await _safe_update(d, lambda m: m.__setitem__("model", item["model"]))
+                await _safe_update(d, lambda m: m.__setitem__("model", item["model"]))  # noqa: B023 (même itération)
             task = asyncio.create_task(_run_job(doc_id, notify=False))
             _register(_TASKS, doc_id, task)
             try:

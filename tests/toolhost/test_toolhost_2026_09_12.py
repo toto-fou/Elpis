@@ -64,7 +64,7 @@ def test_from_meta():
 
 @pytest.fixture
 def guarded_app():
-    from fastapi import FastAPI, Request
+    from fastapi import Request
     from fastapi.testclient import TestClient
 
     from shared_infra.security.deps import require_user_id
@@ -107,7 +107,6 @@ def test_porte_refuse_sans_preuves_et_laisse_health_mcp(guarded_app):
 
 
 def test_porte_sans_jeton_ferme_l_api(guarded_app):
-    from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     from toolhost.auth import ToolhostAuthASGI
@@ -190,7 +189,6 @@ def test_hote_de_sandbox_local_ou_distant(manifest_hosts):
 
 
 def test_relais_transparent_en_mode_local(manifest_hosts):
-    from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     from shared_infra.sandbox.relay import SandboxRelayASGI
@@ -235,7 +233,7 @@ def _serve(app):
 @pytest.fixture
 def upstream():
     """Un faux hôte d'outils : porte d'entrée réelle + échos HTTP et WS."""
-    from fastapi import FastAPI, Request, WebSocket
+    from fastapi import Request, WebSocket
 
     from toolhost.auth import ToolhostAuthASGI
     up = FastAPI()
@@ -269,7 +267,6 @@ def upstream():
 
 
 def test_relais_http_et_ws_vers_un_hote_distant(manifest_hosts, upstream, monkeypatch):
-    from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     from shared_infra.sandbox import relay as R
@@ -297,7 +294,6 @@ def test_relais_http_et_ws_vers_un_hote_distant(manifest_hosts, upstream, monkey
 
 
 def test_relais_hote_injoignable_repond_502(manifest_hosts, monkeypatch):
-    from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     from shared_infra.sandbox import relay as R
@@ -311,7 +307,6 @@ def test_relais_hote_injoignable_repond_502(manifest_hosts, monkeypatch):
 # ── 5. Routes internes (rappels de l'hôte) ──────────────────────────────────
 
 def test_routes_internes_exigent_le_jeton_de_service(monkeypatch):
-    from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     import shared_infra.toolhost.routes_internal as RI

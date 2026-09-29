@@ -26,6 +26,7 @@ def _locks(tmp_path, monkeypatch):
 
 def test_argv_prison_filtre_force_et_sortie(tmp_path, monkeypatch):
     monkeypatch.setattr(oc.shutil, "which", lambda n: f"/usr/bin/{n}")
+    monkeypatch.setattr(oc.bwrap, "binary", lambda: "/usr/bin/bwrap")     # poste sans bwrap
     argv = oc.build_argv(isolation="bwrap", soffice="/usr/lib/libreoffice/program/soffice",
                          profile_dir=tmp_path / "p", job_dir=tmp_path / "j", kind="docx",
                          in_name="in.docx", convert_to="pdf", timeout_s=60)

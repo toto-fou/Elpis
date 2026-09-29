@@ -420,22 +420,22 @@ def transfer(source: Dict[str, Any], target: Dict[str, Any], *, dry_run: bool = 
             keep_keys = [rc for (tb, rc) in referenced if tb == t.name]
 
             def accept(r: tuple) -> Optional[tuple]:
-                for fk in fks:
-                    if fk.table == t.name:
+                for fk in fks:  # noqa: B023 (même itération)
+                    if fk.table == t.name:  # noqa: B023 (même itération)
                         continue
-                    val = tuple(r[cols.index(c)] for c in fk.cols)
+                    val = tuple(r[cols.index(c)] for c in fk.cols)  # noqa: B023 (même itération)
                     if any(v is None for v in val):
                         continue
                     parent = copied_keys.get(f"{fk.table}:{','.join(fk.ref_cols)}")
                     if parent is not None and val not in parent:
-                        info["orphans"] += 1
+                        info["orphans"] += 1  # noqa: B023 (même itération)
                         return None
                 try:
-                    return tuple(_coerce(v, k) for v, k in zip(r, kinds))
+                    return tuple(_coerce(v, k) for v, k in zip(r, kinds))  # noqa: B023 (même itération)
                 except (TypeError, ValueError) as exc:
-                    info["rejected"] += 1
-                    if info["rejected"] <= 5:
-                        log.warning("[transfer] %s : ligne rejetée (%s)", t.name, exc)
+                    info["rejected"] += 1  # noqa: B023 (même itération)
+                    if info["rejected"] <= 5:  # noqa: B023 (même itération)
+                        log.warning("[transfer] %s : ligne rejetée (%s)", t.name, exc)  # noqa: B023 (même itération)
                     return None
 
             batches = _pages(src, t, cols)

@@ -136,6 +136,7 @@ def test_listage_d_un_dossier_remplace_par_un_lien_pendant_le_parcours(ops, monk
     (ops.work / "d").mkdir()
     (ops.work / "d" / "leurre.txt").write_text("x\n")
     vrai_fwalk = os.fwalk
+    bascule = []
 
     def fwalk_bascule(*a, **k):
         for i, item in enumerate(vrai_fwalk(*a, **k)):
@@ -143,9 +144,11 @@ def test_listage_d_un_dossier_remplace_par_un_lien_pendant_le_parcours(ops, monk
                 (ops.work / "d" / "leurre.txt").unlink()
                 (ops.work / "d").rmdir()
                 os.symlink(ops.hote, ops.work / "d")
+                bascule.append(True)
             yield item
     monkeypatch.setattr(paths.os, "fwalk", fwalk_bascule)
     r = ops.listing()
+    assert bascule, "le listage ne passe plus par le parcours surveillé"
     assert "secret.txt" not in str(r)
 
 
@@ -178,10 +181,13 @@ def _repo(path):
     return path
 
 
-def test_sous_module_local_jamais_rapatrie(depots, tmp_path):
+def test_sous_module_local_jamais_rapatrie(depots, tmp_path, monkeypatch):
     """Refusé par la prison (dépôt hors zone invisible) comme, sans elle, par
-    ``protocol.file.allow=never``."""
+    ``protocol.file.allow=never``. ``GIT_ALLOW_PROTOCOL=file`` dans
+    l'environnement du service : un git qui en hériterait rapatrierait le
+    sous-module (git récent le refuse sinon de lui-même)."""
     from shared_infra.sandbox.git_env import host_git_env, run_host_git
+    monkeypatch.setenv("GIT_ALLOW_PROTOCOL", "file")
     dehors = _repo(tmp_path / "dehors")                  # hors de la zone de travail
     repo = _repo(depots / "repo")
     _git(repo, "-c", "protocol.file.allow=always", "submodule", "add", "-q", str(dehors), "sub")

@@ -4403,27 +4403,27 @@ async def _run_chat_multi_mcp_impl(
             _now = time.monotonic()
             # Cadence : au plus un événement par demi-seconde, mais le dernier
             # (100 %) passe toujours — sans quoi la barre resterait figée.
-            if _final or (_now - _pp_last_emit[0]) >= 0.5:
-                _pp_last_emit[0] = _now
+            if _final or (_now - _pp_last_emit[0]) >= 0.5:  # noqa: B023 (même itération)
+                _pp_last_emit[0] = _now  # noqa: B023 (même itération)
                 await _emit(on_event, {
                     "type": "prompt_progress",
                     "total": _total, "processed": _done, "cache": _cache,
                     "time_ms": int(pp.get("time_ms") or 0),
-                    "iter": iteration,
+                    "iter": iteration,  # noqa: B023 (même itération)
                 })
-            if _final and not _pp_logged[0] and _total > 0:
-                _pp_logged[0] = True
+            if _final and not _pp_logged[0] and _total > 0:  # noqa: B023 (même itération)
+                _pp_logged[0] = True  # noqa: B023 (même itération)
                 logger.info(
                     "[run_chat_multi_mcp] pré-remplissage iter %d : %d tokens, "
                     "%d réutilisés du cache KV (%.0f %%), %.1f s",
-                    iteration, _total, _cache, 100.0 * _cache / _total,
+                    iteration, _total, _cache, 100.0 * _cache / _total,  # noqa: B023 (même itération)
                     (pp.get("time_ms") or 0) / 1000.0)
                 with swallow("harness.kv_reuse_metric"):
                     await asyncio.to_thread(
                         log_metric, "kv_prefix_reuse_pct",
                         int(100.0 * _cache / _total), {
                             "model": model or LLAMA_MODEL or "",
-                            "iteration": iteration,
+                            "iteration": iteration,  # noqa: B023 (même itération)
                         })
 
         # Demande d'auto-reprise CONSOMMÉE par cet appel (cf. plus bas) :
@@ -6644,15 +6644,15 @@ async def _run_chat_multi_mcp_impl(
         _mode_tag = "optimized" if _inline_semaphore else "classic"
 
         def _write_end_of_turn_metrics() -> None:
-            log_metric("write_tps",   metrics.get("write_tps", 0), {"model": _real_model})
-            log_metric("llm_latency", time.time() - start_time,    {"model": _real_model})
+            log_metric("write_tps",   metrics.get("write_tps", 0), {"model": _real_model})  # noqa: B023 (même itération)
+            log_metric("llm_latency", time.time() - start_time,    {"model": _real_model})  # noqa: B023 (même itération)
             # Observabilité scheduling : permet de comparer classic vs optimized
             # sur wait_time et tool_iterations au fil du temps.
             log_metric(
                 "llm_scheduling_mode", 1,
                 {
-                    "model": _real_model,
-                    "mode": _mode_tag,
+                    "model": _real_model,  # noqa: B023 (même itération)
+                    "mode": _mode_tag,  # noqa: B023 (même itération)
                     "user": username,
                 },
             )
@@ -6661,8 +6661,8 @@ async def _run_chat_multi_mcp_impl(
             # ``iteration + 1`` (= hard_iter+1, TOUS les tours) → la métrique
             # d'observabilité et le compteur exposé divergeaient pour la même conv.
             log_metric(
-                "llm_tool_iterations", effective_iter,
-                {"model": _real_model, "mode": _mode_tag},
+                "llm_tool_iterations", effective_iter,  # noqa: B023 (même itération)
+                {"model": _real_model, "mode": _mode_tag},  # noqa: B023 (même itération)
             )
 
         with swallow("harness.run_chat_multi_mcp_impl.9"):

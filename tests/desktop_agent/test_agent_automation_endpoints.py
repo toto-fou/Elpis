@@ -120,3 +120,33 @@ def test_une_note_avec_fleche_ne_detourne_pas_le_dossier_de_rapport(client, srv)
             break
         time.sleep(0.15)
     assert st["report_dir"] == "rapports/vrai-1" and st["summary"].startswith("OK"), st
+
+
+async def test_deux_lancements_simultanes_un_seul_passe(client, srv, monkeypatch):
+    """Une exécution à la fois, même quand deux demandes arrivent ensemble :
+    rien ne doit s'intercaler entre le contrôle et l'enregistrement."""
+    import asyncio
+
+    import httpx
+    client.post("/put_file", json={"path": "attente.py", "content": "import time\ntime.sleep(30)\n"})
+    for _ in range(50):                            # exécutions des tests précédents finies
+        if all(r.get("code") is not None or r["proc"].poll() is not None
+               for r in srv._RUNS.values()):
+            break
+        time.sleep(0.1)
+    vrai = srv._subprocess.Popen
+
+    def lent(*a, **k):
+        time.sleep(0.05)                           # élargit la fenêtre
+        return vrai(*a, **k)
+    monkeypatch.setattr(srv._subprocess, "Popen", lent)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=srv.app),
+                                 base_url="http://agent") as ac:
+        reps = await asyncio.gather(*(ac.post("/run_script", json={"name": "attente.py"})
+                                      for _ in range(2)))
+    try:
+        assert sorted(r.status_code for r in reps) == [200, 409]
+    finally:
+        for r in reps:
+            if r.status_code == 200:
+                client.post("/run_stop", json={"run_id": r.json()["run_id"]})

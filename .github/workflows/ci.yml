@@ -137,6 +137,11 @@ jobs:
           python-version: "3.13"
           cache: pip
           cache-dependency-path: requirements*.txt
+      - name: Prison bubblewrap (Git côté serveur, aperçus)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: pip install -r requirements-rag.txt -r requirements-dev.txt
       - name: Tests
         run: |

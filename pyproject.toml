@@ -35,9 +35,8 @@ ignore = [
 combine-as-imports = true
 
 [tool.ruff.lint.per-file-ignores]
-# F811 : fixtures pytest importées puis reçues en paramètre. ASYNC : un test
-# asynchrone peut bloquer sa propre boucle.
-"tests/**" = ["F401", "F811", "F841", "ASYNC"]
+# ASYNC : un test asynchrone peut bloquer sa propre boucle.
+"tests/**" = ["F401", "F841", "ASYNC"]
 "**/__init__.py" = ["F401"]
 # Ordre d'import = ordre d'enregistrement des routes, ou de chargement des
 # sous-modules : jamais trié.
@@ -52,15 +51,11 @@ combine-as-imports = true
 "llm_core/tools/*.py" = ["B006"]
 # Crochets optionnels d'un fournisseur de mémoire, vides par défaut.
 "llm_core/memory/_provider.py" = ["B027"]
-# Fermetures appelées dans l'itération qui les définit (revues le
-# 2026-09-29) : la valeur courante de la boucle est celle qu'on veut.
-"chatbot_app/routes/chats.py" = ["B023"]
-"desktop-agent/backends/windows.py" = ["B023"]
-"llm_core/_chat_with_tools.py" = ["B023"]
-"rag_app/ocr/convert.py" = ["B023"]
-"rag_app/ocr/jobs.py" = ["B023"]
-"shared_infra/db/transfer.py" = ["B023"]
-"tests/perf/backend/bench_loop_hotpath.py" = ["B023"]
+# Fixtures pytest importées d'un autre module de tests, puis reçues en paramètre.
+"tests/llm_core/test_agent_tooling_missions_2026_08_08.py" = ["F811"]
+"tests/llm_core/test_pw_gwt_dropdowns_2026_08_08.py" = ["F811"]
+"tests/llm_core/test_pw_naming_harmonization_2026_08_08.py" = ["F811"]
+"tests/llm_core/test_pw_robustesse_2026_09_05.py" = ["F811"]
 
 [tool.mypy]
 # Typage (2026-09-29) : un premier périmètre, élargi au fil des lots.

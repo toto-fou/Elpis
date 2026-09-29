@@ -99,7 +99,6 @@ logger = logging.getLogger("uvicorn.error")
 # valeur EXACTE sans passer par le cache.
 from shared_infra.routes._helpers import (  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
     TREE_MAX_ENTRIES,
-    _build_file_tree,
     _get_work_path,
     _no_cache,
     _path_inside,
@@ -312,22 +311,59 @@ async def _hist_avant(agent, rel: str, st: dict):
 # ─────────────────────────────────────────────────────────────────────────────
 #  DISCOVERY
 # ─────────────────────────────────────────────────────────────────────────────
+def _arbre(entrees: list) -> list:
+    """Arbre de l'explorateur depuis la liste de l'agent (chemins relatifs à
+    la racine) : liens ni listés ni suivis, à chaque niveau les dossiers puis
+    les noms sans casse. Items ``{name, path, type, children | size}``."""
+    noeuds: dict = {}
+    for e in entrees:
+        kind = e.get("kind")
+        if kind == "link":
+            continue
+        chemin = e["path"]
+        item: dict = {"name": chemin.rsplit("/", 1)[-1], "path": chemin,
+                      "type": "folder" if kind == "dir" else "file"}
+        if kind == "dir":
+            item["children"] = []
+        else:
+            item["size"] = int(e.get("size") or 0)
+        noeuds[chemin] = item
+    racine: list = []
+    for chemin, item in noeuds.items():
+        parent = chemin.rsplit("/", 1)[0] if "/" in chemin else ""
+        if not parent:
+            racine.append(item)
+        elif parent in noeuds:
+            noeuds[parent]["children"].append(item)
+
+    def trier(items: list) -> None:
+        items.sort(key=lambda i: (i["type"] != "folder", i["name"].lower(), i["name"]))
+        for i in items:
+            if "children" in i:
+                trier(i["children"])
+    trier(racine)
+    return racine
+
+
 @router.get("/api/sandbox/tree")
-def api_get_sandbox_tree(request: Request, include_hidden: bool = False):
+async def api_get_sandbox_tree(request: Request, include_hidden: bool = False):
     user_id = require_user_id(request)
     root = _get_work_path(user_id)
     # Dotfiles masqués par défaut (explorateur propre) ; ré-inclus via le
     # toggle « Afficher les fichiers cachés ». Le terminal n'est pas concerné.
     #
-    # ``budget`` plafonne le nombre TOTAL d'entrées : une sandbox avec un
-    # ``node_modules`` produisait sinon un JSON de plusieurs Mo à chaque
-    # ouverture de l'éditeur et après chaque opération de fichier, ce qui
-    # figeait l'explorateur côté navigateur. La troncature est SIGNALÉE.
-    budget = {"left": TREE_MAX_ENTRIES, "truncated": False}
-    tree = _build_file_tree(root, root, include_hidden=include_hidden, _budget=budget)
+    # ``TREE_MAX_ENTRIES`` plafonne le nombre TOTAL d'entrées : une sandbox
+    # avec un ``node_modules`` produisait sinon un JSON de plusieurs Mo à
+    # chaque ouverture de l'éditeur. La troncature est SIGNALÉE. Une seule
+    # requête à l'agent, qui parcourt sans suivre de lien.
+    try:
+        liste = await agent_for(user_id).list("", depth=41, max_entries=TREE_MAX_ENTRIES,
+                                              hidden=include_hidden, deadline_s=10)
+    except AgentError as ex:
+        raise agent_http(ex, "Arborescence") from None
     return JSONResponse(
-        {"root": str(root.name), "items": tree,
-         "truncated": budget["truncated"], "max_entries": TREE_MAX_ENTRIES},
+        {"root": str(root.name), "items": _arbre(liste.entries),
+         "truncated": liste.truncated, "max_entries": TREE_MAX_ENTRIES},
         headers={"Cache-Control": "no-cache"},
     )
 

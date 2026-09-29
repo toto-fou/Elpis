@@ -285,8 +285,8 @@ async def _grant_after_git(uid: int, sb, repo) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 #  Parcours d'arborescence — helpers DURCIS (audit 2026-08-08)
 # ─────────────────────────────────────────────────────────────────────────────
-# Ces deux helpers portent le durcissement que ``_helpers._build_file_tree``
-# avait déjà reçu (correctif F6) et qui manquait ici. Deux défauts mesurés :
+# Ces deux helpers portent le durcissement que l'arbre de l'éditeur avait
+# déjà reçu (correctif F6 ; depuis L4.3, parcours par l'agent) et qui manquait ici. Deux défauts mesurés :
 #
 #  * ``entry.is_dir()`` / ``entry.stat()`` / ``Path.exists()`` DÉRÉFÉRENCENT les
 #    symlinks. Un ``ln -s /un/dossier/hote x`` posé depuis le terminal sandbox

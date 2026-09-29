@@ -406,3 +406,20 @@ def editeur_sur_agent(monkeypatch, root, username="alice"):
             return await _vrai(self, *a, **k)
         monkeypatch.setattr(AC.AgentClient, nom, espion)
     return ops
+
+
+def arbre_editeur(monkeypatch, root, include_hidden=False):
+    """Réponse JSON de ``GET /api/sandbox/tree`` pour la sandbox de racine
+    ``root`` (agent en thread)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    import shared_infra.sandbox.routes_files as sf
+    editeur_sur_agent(monkeypatch, root)
+    monkeypatch.setattr(sf, "require_user_id", lambda r: 1)
+    monkeypatch.setattr(sf, "_get_work_path", lambda uid: root)
+    app = FastAPI()
+    app.include_router(sf.router)
+    r = TestClient(app).get("/api/sandbox/tree", params={"include_hidden": include_hidden})
+    assert r.status_code == 200, r.text
+    return r.json()

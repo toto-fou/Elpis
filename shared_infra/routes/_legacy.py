@@ -91,7 +91,6 @@ from shared_infra.routes._helpers import (  # noqa: F401, E402
     RAG_CONFIG_PATH,
     ROLE_LABELS,
     USER_CONFIG_DIR,
-    _build_file_tree,
     _get_sandbox_path,
     _get_session_cfg,
     _get_work_path,

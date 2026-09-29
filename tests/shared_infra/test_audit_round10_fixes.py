@@ -6,7 +6,7 @@ Verrouille les correctifs :
   - F1  : révocation/clear de session PERSISTÉE (db_conn ne commit pas seul).
   - F16 : validation du charset username (injectivité dossier sandbox/mémoire).
   - F2  : concurrence optimiste sur upsert_chat (ne clobbere pas un tour concurrent).
-  - F6  : _build_file_tree ne suit pas les symlinks (cross-tenant + récursion).
+  - F6  : l'arbre de l'éditeur ne suit pas les symlinks (cross-tenant + récursion).
 """
 from __future__ import annotations
 
@@ -120,14 +120,15 @@ def test_f2_cross_user_collision_still_raises(db):
         upsert_chat(2, "cC", "hijack", [], 200.0)   # autre user, même id
 
 
-# ── F6 — _build_file_tree ne suit pas les symlinks ───────────────────────────
-def test_f6_tree_skips_symlinks_no_infinite_recursion(tmp_path):
-    from shared_infra.routes._helpers import _build_file_tree
-    (tmp_path / "real.txt").write_text("hi")
-    (tmp_path / "sub").mkdir()
-    (tmp_path / "sub" / "a.txt").write_text("a")
-    os.symlink(tmp_path, tmp_path / "loop")          # boucle
-    os.symlink("/etc", tmp_path / "escape")          # dossier hors sandbox
-    os.symlink("/etc/hostname", tmp_path / "leak")   # fichier hors sandbox
-    names = sorted(i["name"] for i in _build_file_tree(tmp_path, tmp_path))
+# ── F6 — l'arbre de l'éditeur ne suit pas les symlinks ────────────────────────
+def test_f6_tree_skips_symlinks_no_infinite_recursion(tmp_path, monkeypatch):
+    from tests.conftest import arbre_editeur
+    root = tmp_path / "w"
+    (root / "sub").mkdir(parents=True)
+    (root / "real.txt").write_text("hi")
+    (root / "sub" / "a.txt").write_text("a")
+    os.symlink(root, root / "loop")                  # boucle
+    os.symlink("/etc", root / "escape")              # dossier hors sandbox
+    os.symlink("/etc/hostname", root / "leak")       # fichier hors sandbox
+    names = sorted(i["name"] for i in arbre_editeur(monkeypatch, root)["items"])
     assert names == ["real.txt", "sub"]              # symlinks exclus, pas de crash

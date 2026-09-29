@@ -56,7 +56,7 @@ from shared_infra.config import (
     config_view,
 )
 from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git, unsafe_git_dir
-from shared_infra.sandbox.paths import SandboxPathError, open_dir_beneath, open_leaf, rel_under, walk_beneath
+from shared_infra.sandbox.paths import SandboxPathError, open_leaf, walk_beneath
 from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
@@ -730,7 +730,7 @@ def reset_sandbox_usage_cache() -> None:
     _usage_cache.clear()
 
 
-# Plafond d'entrées remontées par ``_build_file_tree`` (audit perf 2026-08-08).
+# Plafond d'entrées de l'arbre de l'éditeur (audit perf 2026-08-08).
 # L'explorateur sérialise l'arbre ENTIER à chaque ouverture de l'éditeur et
 # après chaque opération de fichier. Une sandbox avec ``node_modules``
 # (100 k+ entrées) produisait un JSON de plusieurs Mo : coût serveur, transfert,
@@ -738,77 +738,6 @@ def reset_sandbox_usage_cache() -> None:
 # On borne le nombre total d'entrées et on le SIGNALE (``truncated``) au lieu de
 # tronquer en silence.
 TREE_MAX_ENTRIES = int(os.environ.get("SANDBOX_TREE_MAX_ENTRIES", "20000"))
-
-
-def _build_file_tree(path: Path, relative_root: Path, include_hidden: bool = False,
-                     _budget: "dict | None" = None) -> list:
-    """Arbre des fichiers du sandbox. Par défaut, les entrées cachées (nom
-    commençant par ``.`` : ``.git``, ``.venv``, ``.env``…) sont MASQUÉES de
-    l'explorateur — elles restent accessibles/éditables via le terminal.
-    ``include_hidden=True`` les ré-inclut (toggle « Afficher les fichiers cachés »).
-
-    SECURITY (F6, puis 2026-09-29) : aucun lien suivi. Chaque dossier est
-    ouvert RELATIVEMENT au descripteur de son parent, en ``O_NOFOLLOW`` : un
-    ``ln -s /srv/elpis/user_sandboxes/<victime>/work /work/x``, posé avant ou
-    PENDANT le parcours, n'est jamais listé ; ``ln -s . loop`` ne boucle pas.
-    Profondeur bornée. ``path`` et ``relative_root`` désignent la racine.
-
-    ``_budget`` : dict ``{"left": N, "truncated": bool}`` partagé par toute la
-    récursion, qui plafonne le NOMBRE TOTAL d'entrées (cf.
-    :data:`TREE_MAX_ENTRIES`) ; l'appelant y lit ``truncated``.
-
-    Coût (audit charge 2026-08-14) : route la plus appelée du panneau éditeur,
-    et SYNCHRONE. Ni ``resolve()`` ni ``relative_to`` par entrée : le chemin
-    relatif s'assemble au fil de la descente, et les descripteurs évitent de
-    re-parcourir le chemin à chaque dossier.
-    """
-    if _budget is None:
-        _budget = {"left": TREE_MAX_ENTRIES, "truncated": False}
-    try:
-        fd = open_dir_beneath(relative_root, rel_under(relative_root, path), readable=True)
-    except (OSError, ValueError):
-        return []
-    return _tree_level(fd, "", include_hidden, _budget, 0)
-
-
-def _tree_level(dfd: int, rel_prefix: str, include_hidden: bool,
-                budget: dict, depth: int) -> list:
-    """Un niveau de :func:`_build_file_tree` ; ferme ``dfd``."""
-    items = []
-    try:
-        if depth > 40:
-            return items
-        try:
-            entries = sorted(os.scandir(dfd),
-                             key=lambda e: (not e.is_dir(follow_symlinks=False), e.name.lower()))
-        except OSError:
-            # PermissionError, conteneur mort…
-            return items
-        for entry in entries:
-            try:
-                if budget["left"] <= 0:
-                    budget["truncated"] = True
-                    break
-                if not include_hidden and entry.name.startswith("."):
-                    continue
-                if entry.is_symlink():                  # liens : ni suivis ni listés
-                    continue
-                rel_path = f"{rel_prefix}/{entry.name}" if rel_prefix else entry.name
-                is_dir = entry.is_dir(follow_symlinks=False)
-                budget["left"] -= 1
-                item = {"name": entry.name, "path": rel_path, "type": "folder" if is_dir else "file"}
-                if is_dir:
-                    cfd = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-                                  | os.O_CLOEXEC, dir_fd=dfd)
-                    item["children"] = _tree_level(cfd, rel_path, include_hidden, budget, depth + 1)
-                else:
-                    item["size"] = entry.stat(follow_symlinks=False).st_size
-                items.append(item)
-            except OSError:
-                continue
-    finally:
-        os.close(dfd)
-    return items
 
 
 # ─────────────────────────────────────────────────────────────────────────────

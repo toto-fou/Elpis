@@ -77,6 +77,18 @@ import subprocess as _sp
 import pytest
 
 
+def _git_hote(repo, *args):
+    """L'ancien chemin des routes (``_git_run``, retiré en L4.4 : git tourne
+    dans la sandbox) : contrôle du dépôt, puis git hôte en prison."""
+    from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git
+    env = host_git_env(cwd=repo)
+    bad = repo_refusal(repo, env)
+    if bad:
+        return _sp.CompletedProcess(["git", *args], 1, "", f"Dépôt refusé : {bad[1]}")
+    return run_host_git(["git", *args], cwd=repo, env=env, capture_output=True, text=True,
+                        timeout=30)
+
+
 def _repo(tmp_path, *cfg):
     r = tmp_path / "r"
     _sp.run(["git", "init", "-q", str(r)], check=True)
@@ -92,8 +104,7 @@ def test_filter_clean_refuse_et_non_execute(tmp_path):
     (r / ".gitattributes").write_text("* filter=x\n")
     (r / "a.txt").write_text("a")
     assert unsafe_repo_config(r) == "filter.x.clean"
-    from shared_infra.routes._helpers import _git_run
-    out = _git_run(r, "add", "-A")
+    out = _git_hote(r, "add", "-A")
     assert out.returncode == 1 and "filter.x.clean" in out.stderr
     assert not marque.exists(), "la commande du filtre a tourné sur l'hôte"
 
@@ -128,13 +139,12 @@ def test_depot_ordinaire_accepte(tmp_path):
 def test_gitconfig_du_depot_pas_lu_comme_global(tmp_path):
     """C1 : ``HOME=<dépôt>`` faisait lire ``<dépôt>/.gitconfig`` en portée
     globale, hors du contrôle ; le filtre s'exécutait sur l'hôte."""
-    from shared_infra.routes._helpers import _git_run
     marque = tmp_path / "PWNED"
     r = _repo(tmp_path)
     (r / ".gitconfig").write_text(f'[filter "x"]\n\tclean = touch {marque}\n')
     (r / ".gitattributes").write_text("* filter=x\n")
     (r / "a.txt").write_text("a")
-    _git_run(r, "add", "-A")
+    _git_hote(r, "add", "-A")
     assert not marque.exists(), "le .gitconfig du dépôt a été lu comme config globale"
 
 
@@ -167,14 +177,13 @@ def test_cles_2026_09_22_refusees(tmp_path, cle, val):
 
 
 def test_git_lien_symbolique_refuse(tmp_path):
-    from shared_infra.routes._helpers import _git_run
     from shared_infra.sandbox.git_env import unsafe_git_dir
     autre = _repo(tmp_path)
     d = tmp_path / "d"
     d.mkdir()
     (d / ".git").symlink_to(autre / ".git")
     assert "lien" in unsafe_git_dir(d)
-    assert _git_run(d, "status").returncode == 1
+    assert _git_hote(d, "status").returncode == 1
 
 
 @pytest.mark.parametrize("prep", ["gitdir", "alternates", "objets"])

@@ -55,7 +55,6 @@ from shared_infra.config import (
     SANDBOX_DIR,
     config_view,
 )
-from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git, unsafe_git_dir
 from shared_infra.sandbox.paths import SandboxPathError, open_leaf, walk_beneath
 from shared_infra.security.deps import require_user_id
 
@@ -941,84 +940,3 @@ def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
     except Exception:                                        # noqa: BLE001
         logger.warning("[backup] date de sauvegarde non enregistrée", exc_info=True)
     return tmp_name, f"backup_{label}_{ts}.zip"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  GIT WRAPPERS
-# ─────────────────────────────────────────────────────────────────────────────
-import subprocess as _sp_git
-
-
-def _git_run(repo_dir: Path, *args, timeout: int = 30,
-             env_extra: dict | None = None) -> _sp_git.CompletedProcess:
-    """Execute a git command inside a specific repo directory.
-
-    Environnement : ``host_git_env`` (liste blanche, HOME de l'app, hooks et
-    signature coupés — audit 2026-09-22, C1). Dépôt refusé si ``.git`` sort du
-    dépôt ou si sa config déclare une commande exécutable (``repo_refusal``).
-    """
-    env = host_git_env(env_extra, cwd=repo_dir)
-    bad = repo_refusal(repo_dir, env)
-    if bad:
-        kind, detail = bad
-        msg = (f"Dépôt refusé : sa configuration déclare « {detail} », une commande que git "
-               f"exécuterait sur le serveur. Retirez-la depuis le terminal du bac à sable "
-               f"(git config --unset {detail}).") if kind == "config" else (
-               f"Dépôt refusé : {detail}. Git lirait des données hors du dépôt.")
-        return _sp_git.CompletedProcess(["git"] + list(args), 1, "", msg)
-    return run_host_git(["git"] + list(args), cwd=repo_dir, env=env,
-                        capture_output=True, text=True, timeout=timeout)
-
-
-def _git_resolve_repo(sandbox: Path, repo_rel: str) -> Path:
-    """Resolve a repo path within the sandbox. Raises HTTPException if invalid."""
-    if not repo_rel:
-        raise HTTPException(400, "Paramètre 'repo' requis (chemin du dépôt)")
-    repo_dir = (sandbox / repo_rel).resolve()
-    # SECURITY FIX : ``startswith`` est vulnérable aux préfixes communs
-    # (cf. _path_inside docstring). On utilise relative_to via le helper.
-    if not _path_inside(repo_dir, sandbox):
-        raise HTTPException(403, "Chemin hors sandbox")
-    if not repo_dir.is_dir():
-        raise HTTPException(404, f"Dossier introuvable : {repo_rel}")
-    if not os.path.lexists(repo_dir / ".git"):
-        raise HTTPException(400, f"'{repo_rel}' n'est pas un dépôt Git")
-    _git_refuse_foreign_dir(repo_dir)
-    return repo_dir
-
-
-def _git_refuse_foreign_dir(repo_dir: Path) -> None:
-    """403 si ``.git`` est un lien, un fichier ``gitdir:``, ou pointe hors du
-    dépôt (alternates…) — audit 2026-09-22, H5. ``_git_run`` refuse aussi,
-    ceci donne un code HTTP propre dès la résolution."""
-    why = unsafe_git_dir(repo_dir)
-    if why:
-        raise HTTPException(403, f"Dépôt refusé : {why}")
-
-
-def _git_resolve_repo_or_root(sandbox: Path, repo_rel: str) -> Path:
-    """Like _git_resolve_repo but allows empty repo_rel if sandbox root IS a repo."""
-    if repo_rel:
-        return _git_resolve_repo(sandbox, repo_rel)
-    # Fallback: check if sandbox root is a repo
-    if os.path.lexists(sandbox / ".git"):
-        _git_refuse_foreign_dir(sandbox)
-        return sandbox
-    raise HTTPException(400, "Paramètre 'repo' requis (chemin du dépôt)")
-
-
-def _git_run_with_creds(repo_dir: Path, *args, username: str = "", token: str = "",
-                        timeout: int = 60) -> _sp_git.CompletedProcess:
-    """Run a git command with optional HTTPS credentials via GIT_ASKPASS.
-
-    Le token transite UNIQUEMENT par une variable d'environnement lue par un
-    script askpass STATIQUE (jamais ``argv`` ni ``.git/config``) — implémentation
-    PARTAGÉE avec le chemin MCP via ``shared_infra.git.askpass.git_askpass_env``
-    (source unique ; ``subprocess`` sans shell → zéro expansion).
-    """
-    from shared_infra.git.askpass import AskpassError, git_askpass_env
-    try:
-        with git_askpass_env(username, token) as env_extra:
-            return _git_run(repo_dir, *args, timeout=timeout, env_extra=env_extra)
-    except AskpassError as e:
-        raise HTTPException(400, f"Caractère de contrôle interdit dans les credentials : {e}")

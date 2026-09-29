@@ -544,14 +544,12 @@ def git_env(tmp_path, monkeypatch):
     if not shutil.which("git"):
         pytest.skip("git absent")
     import shared_infra.sandbox.routes_git as sg
+    from tests.conftest import editeur_sur_agent
     root = tmp_path / "work"
     root.mkdir()
+    editeur_sur_agent(monkeypatch, root)                 # git par l'agent (L4.4)
     monkeypatch.setattr(sg, "require_user_id", lambda request: 1)
     monkeypatch.setattr(sg, "_get_work_path", lambda uid: root)
-
-    async def _grant(*a, **k):
-        return None
-    monkeypatch.setattr(sg, "_grant_after_git", _grant)
     from shared_infra.routes._state import router
     app = FastAPI()
     app.include_router(router)

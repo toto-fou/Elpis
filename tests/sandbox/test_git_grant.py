@@ -1,68 +1,9 @@
 # SPDX-License-Identifier: MIT
-"""``_grant_after_git`` — reconcile ownership/perms after a host-side git op.
-
-git runs on the HOST (UID 1000); pull/checkout/merge/discard/resolve rewrite
-the working tree as host-owned files the container (UID 10001) then can't edit.
-The helper forwards the repo's path (relative to the work root) to
-``sandbox_grant_access``. These tests lock the rel-path computation without the
-full route stack (sandbox_grant_access is stubbed).
+"""``sandbox_grant_access`` — réalignement des droits d'un chemin écrit par
+l'hôte (repli chmod sans setfacl ni Docker, résolution de la sandbox). Le git
+de l'éditeur ne s'en sert plus : il tourne dans la sandbox (L4.4).
 """
 import pytest
-
-import shared_infra.sandbox.routes_git as gitmod
-
-
-@pytest.mark.asyncio
-async def test_grant_after_git_forwards_repo_rel(tmp_path, monkeypatch):
-    work = tmp_path / "work"
-    (work / "myrepo").mkdir(parents=True)
-    calls = []
-
-    async def _fake_grant(uid, rel):
-        calls.append((uid, rel))
-
-    monkeypatch.setattr(
-        "shared_infra.sandbox.exec_bridge.sandbox_grant_access", _fake_grant
-    )
-    await gitmod._grant_after_git(7, work, work / "myrepo")
-    assert calls == [(7, "myrepo")]
-
-
-@pytest.mark.asyncio
-async def test_grant_after_git_root_repo_uses_empty_rel(tmp_path, monkeypatch):
-    work = tmp_path / "work"
-    work.mkdir()
-    calls = []
-
-    async def _fake_grant(uid, rel):
-        calls.append((uid, rel))
-
-    monkeypatch.setattr(
-        "shared_infra.sandbox.exec_bridge.sandbox_grant_access", _fake_grant
-    )
-    # repo == work root → rel "" → sandbox_grant_access reconciles all of /work.
-    await gitmod._grant_after_git(7, work, work)
-    assert calls == [(7, "")]
-
-
-@pytest.mark.asyncio
-async def test_grant_after_git_out_of_root_falls_back_to_empty_rel(tmp_path, monkeypatch):
-    work = tmp_path / "work"
-    work.mkdir()
-    outside = tmp_path / "elsewhere"
-    outside.mkdir()
-    calls = []
-
-    async def _fake_grant(uid, rel):
-        calls.append((uid, rel))
-
-    monkeypatch.setattr(
-        "shared_infra.sandbox.exec_bridge.sandbox_grant_access", _fake_grant
-    )
-    # repo not under work → relative_to() raises → helper falls back to "".
-    await gitmod._grant_after_git(7, work, outside)
-    assert calls == [(7, "")]
-
 
 # ── Fallback chmod host-side (audit 2026-07-26, retour n°3) ──────────────
 # setfacl est souvent absent et le chown docker exige un container UP : le

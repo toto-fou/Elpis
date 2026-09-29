@@ -15,6 +15,9 @@ les liens. Trois défauts mesurés, tous reproduits ci-dessous :
   3. ``ln -s /root x`` → ``Path.exists()`` n'avale que ENOENT/ENOTDIR/EBADF/
      ELOOP, donc EACCES REMONTAIT → HTTP 500 DÉFINITIF sur ``/git/repos``,
      route appelée à chaque ouverture de l'éditeur (panneau Git mort).
+
+Depuis L4.4, l'agent de la sandbox liste (en ``lstat``, sous /work) et git y
+tourne : ces garanties tiennent sans contrôle côté hôte.
 """
 import os
 
@@ -32,9 +35,12 @@ class _Req:
 
 @pytest.fixture
 def work(tmp_path, monkeypatch):
-    """Racine de travail (``P/work``) branchée sur les routes."""
-    w = tmp_path / "work"
-    w.mkdir()
+    """Racine de travail (``P/work``) branchée sur les routes, servie par
+    l'agent en thread."""
+    from tests.conftest import editeur_sur_agent
+    w = tmp_path / "sb" / "u" / "work"
+    w.mkdir(parents=True)
+    editeur_sur_agent(monkeypatch, w)
     monkeypatch.setattr(gitmod, "require_user_id", lambda request: 7)
     monkeypatch.setattr(gitmod, "_get_work_path", lambda uid: w)
     return w
@@ -48,7 +54,7 @@ def _mk_repo(parent, name):
 
 # ── /git/tree ────────────────────────────────────────────────────────────
 
-def test_tree_ne_liste_pas_a_travers_un_symlink_sortant(work, tmp_path):
+async def test_tree_ne_liste_pas_a_travers_un_symlink_sortant(work, tmp_path):
     """Le lien vers un dossier HÔTE ne doit produire AUCUNE entrée."""
     outside = tmp_path / "host_secrets"
     (outside / "sub").mkdir(parents=True)
@@ -58,40 +64,40 @@ def test_tree_ne_liste_pas_a_travers_un_symlink_sortant(work, tmp_path):
     (repo / "reel.py").write_text("ok")
     os.symlink(str(outside), repo / "fuite")
 
-    items = gitmod.api_git_tree(_Req(repo="proj"))["items"]
+    items = (await gitmod.api_git_tree(_Req(repo="proj")))["items"]
     assert [i["name"] for i in items] == ["reel.py"]
     # Aucune trace du contenu hôte, à aucune profondeur.
     assert "credentials.txt" not in repr(items)
 
 
-def test_tree_survit_a_une_boucle_de_symlink(work):
+async def test_tree_survit_a_une_boucle_de_symlink(work):
     """``ln -s . loop`` levait OSError ELOOP → 500. Doit être ignoré."""
     repo = _mk_repo(work, "proj")
     (repo / "a.txt").write_text("x")
     os.symlink(".", repo / "loop")
 
-    items = gitmod.api_git_tree(_Req(repo="proj"))["items"]
+    items = (await gitmod.api_git_tree(_Req(repo="proj")))["items"]
     assert [i["name"] for i in items] == ["a.txt"]
 
 
-def test_tree_survit_a_un_lien_mort(work):
+async def test_tree_survit_a_un_lien_mort(work):
     """``ln -s /cible/morte x`` levait FileNotFoundError sur stat() → 500."""
     repo = _mk_repo(work, "proj")
     (repo / "a.txt").write_text("x")
     os.symlink("/nexiste/pas", repo / "dangling")
 
-    items = gitmod.api_git_tree(_Req(repo="proj"))["items"]
+    items = (await gitmod.api_git_tree(_Req(repo="proj")))["items"]
     assert [i["name"] for i in items] == ["a.txt"]
 
 
-def test_tree_liste_toujours_l_arbre_legitime(work):
+async def test_tree_liste_toujours_l_arbre_legitime(work):
     """Non-régression : le durcissement ne doit rien masquer de légitime."""
     repo = _mk_repo(work, "proj")
     (repo / "src").mkdir()
     (repo / "src" / "main.py").write_text("print(1)")
     (repo / "README.md").write_text("# hi")
 
-    items = gitmod.api_git_tree(_Req(repo="proj"))["items"]
+    items = (await gitmod.api_git_tree(_Req(repo="proj")))["items"]
     par_nom = {i["name"]: i for i in items}
     assert set(par_nom) == {"src", "README.md"}
     assert par_nom["src"]["type"] == "folder"
@@ -99,7 +105,7 @@ def test_tree_liste_toujours_l_arbre_legitime(work):
     assert par_nom["README.md"]["size"] == len("# hi")
 
 
-def test_tree_borne_la_profondeur(work, monkeypatch):
+async def test_tree_borne_la_profondeur(work, monkeypatch):
     """Garde-fou de profondeur, même si un lien échappait au filtre."""
     monkeypatch.setattr(gitmod, "_TREE_MAX_DEPTH", 3)
     repo = _mk_repo(work, "proj")
@@ -108,7 +114,7 @@ def test_tree_borne_la_profondeur(work, monkeypatch):
         deep = deep / f"n{i}"
     deep.mkdir(parents=True)
 
-    items = gitmod.api_git_tree(_Req(repo="proj"))["items"]
+    items = (await gitmod.api_git_tree(_Req(repo="proj")))["items"]
 
     def profondeur(nodes, d=1):
         enfants = [c for n in nodes for c in n.get("children", [])]
@@ -119,42 +125,40 @@ def test_tree_borne_la_profondeur(work, monkeypatch):
 
 # ── /git/repos ───────────────────────────────────────────────────────────
 
-def test_repos_ne_plante_pas_sur_un_lien_illisible(work, monkeypatch):
+async def test_repos_ne_plante_pas_sur_un_lien_illisible(work):
     """``ln -s /root x`` faisait remonter EACCES → 500 définitif."""
-    monkeypatch.setattr(gitmod, "_git_run",
-                        lambda *a, **k: type("R", (), {"stdout": "main", "returncode": 0})())
     _mk_repo(work, "projet")
     os.symlink("/root", work / "x")
 
-    out = gitmod.api_git_repos(_Req())
+    out = await gitmod.api_git_repos(_Req())
     assert [r["path"] for r in out["repos"]] == ["projet"]
 
 
-def test_repos_n_execute_pas_git_hors_sandbox(work, tmp_path, monkeypatch):
-    """Un lien vers un dépôt HÔTE ne doit jamais devenir un `_git_run` cwd."""
+async def test_repos_n_execute_pas_git_hors_sandbox(work, tmp_path, monkeypatch):
+    """Un lien vers un dépôt HÔTE n'est ni listé ni un dossier où git tourne."""
+    from shared_infra.sandbox import agent_client as AC
     outside = _mk_repo(tmp_path, "depot_hote")
     os.symlink(str(outside), work / "innocent")
 
     cwds = []
+    vrai = AC.AgentClient.git
 
-    def _fake_git_run(repo_dir, *args, **kw):
-        cwds.append(str(repo_dir))
-        return type("R", (), {"stdout": "main", "returncode": 0})()
+    async def espion(self, cwd, *a, **k):
+        cwds.append(cwd)
+        return await vrai(self, cwd, *a, **k)
+    monkeypatch.setattr(AC.AgentClient, "git", espion)
 
-    monkeypatch.setattr(gitmod, "_git_run", _fake_git_run)
-
-    out = gitmod.api_git_repos(_Req())
+    out = await gitmod.api_git_repos(_Req())
     assert out["repos"] == []
     assert cwds == [], f"git a tourné hors sandbox : {cwds}"
 
 
-def test_repos_trouve_toujours_les_depots_reels(work, monkeypatch):
+async def test_repos_trouve_toujours_les_depots_reels(work):
     """Non-régression : racine, niveau 1 et niveau 2 restent détectés."""
-    monkeypatch.setattr(gitmod, "_git_run",
-                        lambda *a, **k: type("R", (), {"stdout": "main", "returncode": 0})())
     (work / ".git").mkdir()
     _mk_repo(work, "niveau1")
     _mk_repo(work / "conteneur", "niveau2")
+    _mk_repo(work / ".cache", "cache")                   # dossier caché : non listé
 
-    paths = {r["path"] for r in gitmod.api_git_repos(_Req())["repos"]}
+    paths = {r["path"] for r in (await gitmod.api_git_repos(_Req()))["repos"]}
     assert paths == {".", "niveau1", os.path.join("conteneur", "niveau2")}

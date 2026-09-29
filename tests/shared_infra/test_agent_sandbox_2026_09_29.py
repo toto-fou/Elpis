@@ -601,3 +601,25 @@ def test_releve_avant_apres(sb):
         assert e.code == "not_found"
         assert (await c.changes_end(ids[-1]))[1]["total"] == 0
     asyncio.run(scenario())
+
+
+def test_dossiers_crees_au_mode_de_l_agent(sb):
+    """Les dossiers créés ont ``_MODE_DOSSIER`` quel que soit l'umask ; un
+    fichier existant n'est pas pris pour un dossier."""
+    w = sb.sandbox_path
+    (w / "f").write_bytes(b"x")
+    c = AgentClient(sb)
+    ancien = os.umask(0o022)
+    try:
+        async def scenario():
+            await c.fsop("mkdir", path="a/b")
+            await c.write("p/q/r.txt", b"x", parents=True)
+            await c.fsop("copy", src="f", dst="s/t/f", parents=True)
+            for e in ("f", "f/g"):
+                err = await _attendre_refus(c.fsop("mkdir", path=e))
+                assert err.code in ("exists", "not_dir"), (e, err.code)
+        asyncio.run(scenario())
+    finally:
+        os.umask(ancien)
+    for d in ("a", "a/b", "p", "p/q", "s", "s/t"):
+        assert (w / d).stat().st_mode & 0o777 == S._MODE_DOSSIER, d

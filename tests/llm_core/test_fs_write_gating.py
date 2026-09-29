@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Step 4 gate: the cross-UID widening is active in host-write mode and
 skipped when fs writes are agent-backed (single UID owns /work)."""
+import os
 
 from llm_core.tools import fs_tools
 
@@ -21,8 +22,9 @@ def test_mode_ecrit_keeps_mode_in_agent_mode(monkeypatch):
 
 
 def test_write_file_widened_in_host_mode(tmp_path, monkeypatch):
-    """What write_file creates stays writable by the other UID while the host
-    still reaches /work (explicit mode: independent of the agent's umask)."""
+    """What write_file creates (file and parents) stays writable by the other
+    UID while the host still reaches /work — explicit modes, whatever the
+    process umask."""
     base = tmp_path / "sandboxes"
     work = base / "guest" / "work"
     work.mkdir(parents=True)
@@ -40,7 +42,13 @@ def test_write_file_widened_in_host_mode(tmp_path, monkeypatch):
     mcp = _MCP()
     fs_tools.register(mcp, base)
     assert mcp.tools["write_file"](None, path="sub/x.txt", content="x")["ok"]
+    ancien = os.umask(0o022)
+    try:
+        assert mcp.tools["write_file"](None, path="sub2/y.txt", content="y")["ok"]
+    finally:
+        os.umask(ancien)
     assert (work / "sub" / "x.txt").stat().st_mode & 0o777 == 0o666
+    assert (work / "sub2").stat().st_mode & 0o777 == 0o777
 
 
 def test_executable_mode_cross_uid_in_host_mode(monkeypatch):

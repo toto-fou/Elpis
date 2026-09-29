@@ -502,6 +502,28 @@ def test_git_write_preserve_crlf_et_refuse_le_non_utf8(git):
     assert (work / "proj" / "latin.txt").read_bytes() == "café\n".encode("latin-1")
 
 
+def test_git_fichiers_par_l_agent_sans_lien_sortant(git, tmp_path):
+    """git_write, git_query read / files : par l'agent, un lien qui sort de
+    /work n'est ni lu ni écrit ; files liste fichiers et liens, sans .git."""
+    tools, work = git
+    assert _d(tools["git_action"](None, repo="proj", action="init")).get("ok")
+    ailleurs = tmp_path / "ailleurs"
+    ailleurs.mkdir()
+    (ailleurs / "s.txt").write_text("hors")
+    (work / "proj" / "lien").symlink_to(ailleurs, target_is_directory=True)
+    (work / "proj" / "b").mkdir()
+    (work / "proj" / "b" / "c.txt").write_text("c")
+    (work / "proj" / "a.txt").write_text("a")
+    r = _d(tools["git_write"](None, repo="proj", action="write", path="lien/n.txt", content="x"))
+    assert not r.get("ok") and not (ailleurs / "n.txt").exists(), r
+    r = _d(tools["git_query"](None, repo="proj", action="read", target="lien/s.txt"))
+    assert not r.get("ok"), r
+    r = _d(tools["git_write"](None, repo="proj", action="write", path="d/e/f.txt", content="f"))
+    assert r.get("ok") and (work / "proj" / "d" / "e" / "f.txt").read_text() == "f", r
+    r = _d(tools["git_query"](None, repo="proj", action="files"))
+    assert r["items"] == ["a.txt", "lien", "b/c.txt", "d/e/f.txt"], r
+
+
 def test_git_write_regex_garde_anti_redos(git):
     tools, work = git
     tools["git_action"](None, repo="proj", action="init")

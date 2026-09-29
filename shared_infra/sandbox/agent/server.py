@@ -224,6 +224,29 @@ def _genre(mode: int) -> str:
     return "other"
 
 
+def _creer_dossier(p: str, parents: bool = True) -> None:
+    """Crée ``p`` (et ses parents manquants) : chaque dossier CRÉÉ reçoit
+    ``_MODE_DOSSIER``, quel que soit l'umask du processus."""
+    manquants = []
+    d = p
+    while parents and not os.path.isdir(d):
+        manquants.append(d)
+        haut = os.path.dirname(d)
+        if haut == d:
+            break
+        d = haut
+    for d in reversed(manquants or [p]):
+        try:
+            os.mkdir(d, _MODE_DOSSIER)
+        except FileExistsError:
+            if parents:
+                continue
+            raise
+        os.chmod(d, _MODE_DOSSIER)
+    if not os.path.isdir(p):
+        raise FileExistsError(errno.EEXIST, "pas un dossier", p)
+
+
 def _supprimer(p: str) -> None:
     """Supprime ``p`` : un dossier récursivement, un lien comme lui-même."""
     if _est_dossier(p):
@@ -428,7 +451,7 @@ class Agent:
         droits = None if mode in (None, "", "keep") else _mode(mode)
         try:
             if parents:
-                os.makedirs(dossier, mode=_MODE_DOSSIER, exist_ok=True)
+                _creer_dossier(dossier)
             tmp = _nom_provisoire(dossier)
             fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC, 0o600)
         except OSError as e:
@@ -485,10 +508,7 @@ class Agent:
         try:
             if op == "mkdir":
                 p = self.reel(normaliser(d.get("path")))
-                if _vrai(d.get("parents", True)):
-                    os.makedirs(p, mode=_MODE_DOSSIER, exist_ok=True)
-                else:
-                    os.mkdir(p, _MODE_DOSSIER)
+                _creer_dossier(p, parents=_vrai(d.get("parents", True)))
                 return {"ok": True}
             if op == "remove":
                 rel = normaliser(d.get("path"))
@@ -532,7 +552,7 @@ class Agent:
         if (pd + os.sep).startswith(ps + os.sep) or (ps + os.sep).startswith(pd + os.sep):
             raise Refus(409, "inside", "l'un est dans l'autre")
         if parents:
-            os.makedirs(os.path.dirname(pd), mode=_MODE_DOSSIER, exist_ok=True)
+            _creer_dossier(os.path.dirname(pd))
         ecart = None
         if os.path.lexists(pd):
             if not ecraser:

@@ -54,7 +54,6 @@ import os
 import posixpath
 import re
 import secrets as _sec
-import stat
 import subprocess
 import time
 from pathlib import Path
@@ -63,11 +62,10 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from fastmcp import Context, FastMCP
 
 from llm_core.tools._exec_bridge import run_shell_via_executor
+from shared_infra.sandbox.agent_client import AgentError
 from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git, unsafe_git_dir
 from shared_infra.sandbox.paths import (
     SandboxPathError,
-    leaf_mode,
-    open_beneath,
     open_dir_beneath,
     read_leaf,
     rel_under,
@@ -75,6 +73,7 @@ from shared_infra.sandbox.paths import (
 )
 from shared_infra.sandbox.policy import use_agent
 
+from ._espace import Espace
 from ._models import (
     ErrEnvelope,
     GitAbandonResult,
@@ -667,73 +666,84 @@ def _run_git_network(sb, cmd, username, *, timeout=120, env_extra=None):
         audit_kind="tools.git.network",
     )
 
-def _repo_file(rp, rel):
+def _repo_file(root, rp, rel) -> str:
+    """Chemin relatif à la sandbox du fichier ``rel`` du dépôt ``rp``, sans
+    lire le disque : les liens sont résolus par l'agent, sous /work."""
     s = _safe_rel(rel)
-    p = (rp / s).resolve()
-    if rp not in p.parents and p != rp:
+    base = rel_under(root, rp)
+    base = "" if base == "." else base
+    r = posixpath.normpath(posixpath.join(base, s) if base else s)
+    if r in (".", "..") or r.startswith("../") or (base and r != base and not r.startswith(base + "/")):
         raise ValueError("path outside repo")
-    return p
+    return r
 
-# Contenu d'un fichier de dépôt : toujours lu sur son inode, ouvert sans
-# suivre de lien, et écrit par ``write_beneath`` (2026-09-29) — un dossier du
-# chemin remplacé par un lien depuis le conteneur ne peut plus faire lire ou
-# écrire hors du bac à sable.
-def _read_bytes_under(root, p, max_b) -> bytes:
+
+# Contenu d'un fichier de dépôt : lu et écrit par l'agent de la sandbox
+# (L4.2), comme les outils fichiers.
+def _read_bytes_under(esp, rel, max_b) -> bytes:
     try:
-        f = os.fdopen(open_beneath(root, rel_under(root, p)), "rb")
-    except FileNotFoundError:
-        raise FileNotFoundError("not_found") from None
-    except IsADirectoryError:
-        raise IsADirectoryError("is_dir") from None
-    with f:
-        size = os.fstat(f.fileno()).st_size
+        e = esp.stat(rel)
+        if e["kind"] == "missing":
+            raise FileNotFoundError("not_found")
+        if e["kind"] == "dir":
+            raise IsADirectoryError("is_dir")
+        size = int(e.get("size") or 0)
         if size > max_b:
             raise ValueError(f"too_large: {size}B")
-        return f.read()
+        return esp.lire(rel, max_bytes=max_b).data
+    except AgentError as ex:
+        raise ValueError(ex.code) from None
 
 
-def _read_text(root, p, max_b):
+def _read_text(esp, rel, max_b):
     """Lecture tolérante (``git_query read``) : remplacement des octets non
     UTF-8, fins de ligne normalisées en ``\\n``."""
-    text = _read_bytes_under(root, p, max_b).decode("utf-8", errors="replace")
+    text = _read_bytes_under(esp, rel, max_b).decode("utf-8", errors="replace")
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
-def _read_text_exact(root, p, max_b):
+def _read_text_exact(esp, rel, max_b):
     """Lecture pour une RÉÉCRITURE (``git_write`` replace/append) : octets
     décodés en UTF-8 STRICT, fins de ligne conservées. AUDIT 2026-09-26 — la
     lecture tolérante (``errors="replace"``, sauts de ligne universels)
     réécrivait tout octet non UTF-8 en U+FFFD (fichier Latin-1 corrompu) et
     convertissait un fichier CRLF entier en LF."""
     try:
-        return _read_bytes_under(root, p, max_b).decode("utf-8")
+        return _read_bytes_under(esp, rel, max_b).decode("utf-8")
     except UnicodeDecodeError:
         raise ValueError("not_utf8: this file is not UTF-8 text — rewriting it "
                          "would corrupt it; use execute_shell (iconv, sed) instead")
 
 
-def _write_atomic(root, p, content, max_b):
-    """Écriture atomique de ``git_write`` (audit éditeur 2026-09-23) : verrou
-    par fichier PARTAGÉ avec l'éditeur et les outils fs (E7), mode du fichier
-    existant CONSERVÉ (E18) et élargi pour le conteneur, aucun lien suivi."""
+def _write_atomic(esp, root, rel, content, max_b):
+    """Écriture atomique de ``git_write`` par l'agent (audit éditeur
+    2026-09-23) : verrou par fichier PARTAGÉ avec l'éditeur et les outils fs
+    (E7), mode du fichier existant CONSERVÉ (E18) et élargi pour l'autre UID
+    tant que l'hôte accède à /work."""
     from shared_infra.sandbox.file_lock import file_write_lock
-    from shared_infra.sandbox.paths import write_beneath
+
+    from .fs_tools import _mode_ecrit
     b = content.encode("utf-8", errors="replace")
     if len(b) > max_b: raise ValueError(f"too_large: {len(b)}B")
-    with file_write_lock(os.path.realpath(p)):
-        try:
-            st = os.lstat(p)
-            mode = ((st.st_mode & 0o777) | 0o666) if stat.S_ISREG(st.st_mode) else 0o666
-        except OSError:
-            mode = 0o666
-        write_beneath(root, rel_under(root, p), b, file_mode=mode, dir_mode=0o777)
-
-def _history_before(root, p):
-    """Contenu avant écriture, pour l'historique de session (2026-09-23)."""
     try:
-        from shared_infra.sandbox.file_history import read_before
-        return read_before(root, p)
-    except Exception:
+        with file_write_lock(os.path.realpath(Path(root) / rel)):
+            esp.ecrire(rel, b, parents=True, mode=_mode_ecrit(esp.stat(rel)))
+    except AgentError as ex:
+        raise ValueError(ex.code) from None
+
+
+def _history_before(esp, rel):
+    """Contenu avant écriture, pour l'historique de session (2026-09-23) :
+    octets, ``None`` (absent, lien, pas un fichier ordinaire), ``TOO_BIG``."""
+    from shared_infra.sandbox.file_history import MAX_FILE, TOO_BIG
+    try:
+        e = esp.stat(rel)
+        if e["kind"] != "file" or e.get("link"):
+            return None
+        if int(e.get("size") or 0) > MAX_FILE:
+            return TOO_BIG
+        return esp.lire(rel, max_bytes=MAX_FILE).data
+    except Exception:                                           # noqa: BLE001
         return None
 
 
@@ -820,7 +830,7 @@ def _head_is_pristine(rp) -> bool:
 #  credentials, git config bootstrap.
 # ───────────────────────────────────────────────────────────────────────
 
-def _load_repo_policy(root: Path, rp: Path) -> Dict[str, Any]:
+def _load_repo_policy(username: str, root: Path, rp: Path) -> Dict[str, Any]:
     """Politique de branches du dépôt : valeurs par défaut
     (``DEFAULT_PROTECTED_BRANCHES`` / ``DEFAULT_AGENT_BRANCH_PREFIXES``),
     que ``.git-tool-policy.json`` peut RENFORCER, jamais assouplir.
@@ -830,17 +840,16 @@ def _load_repo_policy(root: Path, rp: Path) -> Dict[str, Any]:
 
     Le fichier vit dans le dépôt, donc à portée de l'agent (2026-09-29) : il
     AJOUTE des branches protégées et RESTREINT les préfixes de push de l'agent
-    (intersection avec les valeurs par défaut). Lu depuis la racine du bac à
-    sable sans suivre de lien ; absent, illisible ou mal formé : valeurs par
-    défaut."""
+    (intersection avec les valeurs par défaut). Lu par l'agent de la sandbox
+    (64 Kio au plus) ; absent, illisible ou mal formé : valeurs par défaut."""
     pol = {
         "protected_branches":     list(DEFAULT_PROTECTED_BRANCHES),
         "allowed_agent_prefixes": list(DEFAULT_AGENT_BRANCH_PREFIXES),
     }
     try:
         rel = posixpath.join(rel_under(root, rp), ".git-tool-policy.json")
-        with os.fdopen(open_beneath(root, rel), "rb") as f:
-            user_pol = json.loads(f.read(64 * 1024).decode("utf-8", errors="replace"))
+        brut = Espace(username, root).lire(rel, max_bytes=64 * 1024).data
+        user_pol = json.loads(brut.decode("utf-8", errors="replace"))
     except Exception:         # JSON trop imbriqué (RecursionError) compris
         return pol
     if not isinstance(user_pol, dict):
@@ -1165,19 +1174,21 @@ def register(mcp: FastMCP, root_base: Path) -> None:
             if act == "files":
                 cap = max(1, min(max_count, MAX_FILES))
                 pat = pattern or "**/*"
+                from .fs_tools import MAX_WALK, _cle_parcours
+                base = rel_under(root, rp)
+                base = "" if base == "." else base
+                liste = Espace(_username, root).lister(base, depth=64, max_entries=MAX_WALK,
+                                                       hidden=True, exclude=[".git"])
                 out = []
-                for sub, dirs, names, dfd in walk_under(root, rp):
-                    dirs[:] = [d for d in dirs if d != ".git"]
-                    for nm in names:
-                        rel = f"{sub}/{nm}" if sub else nm
-                        if nm == ".git" or not glob_match(rel, pat):
-                            continue
-                        mode = leaf_mode(dfd, nm)   # fichiers et liens, pas les FIFO/sockets
-                        if stat.S_ISREG(mode) or stat.S_ISLNK(mode):
-                            out.append(rel)
-                            if len(out) >= cap: break
-                    if len(out) >= cap: break
-                return _ok(items=out, count=len(out), glob=pat, truncated=len(out) >= cap)
+                # fichiers et liens, pas les FIFO/sockets ; ordre du parcours
+                for rel in sorted((x["path"][len(base) + 1:] if base else x["path"]
+                                   for x in liste.entries if x["kind"] in ("file", "link")),
+                                  key=lambda r: _cle_parcours(r, False)):
+                    if glob_match(rel, pat):
+                        out.append(rel)
+                        if len(out) >= cap: break
+                return _ok(items=out, count=len(out), glob=pat,
+                           truncated=len(out) >= cap or liste.truncated)
 
             if act == "find_text":
                 if not pattern: return _err("pattern required", hint="pattern=<text to search>")
@@ -1217,8 +1228,8 @@ def register(mcp: FastMCP, root_base: Path) -> None:
 
             if act == "read":
                 if not target: return _err("target=filepath required")
-                p = _repo_file(rp, target)
-                text = _read_text(root, p, MAX_FILE_READ)
+                text = _read_text(Espace(_username, root), _repo_file(root, rp, target),
+                                  MAX_FILE_READ)
                 lines = text.splitlines()
                 s = max(start_line - 1, 0)
                 chunk = lines[s:s + max(1, min(max_lines, 2000))]
@@ -1256,32 +1267,35 @@ def register(mcp: FastMCP, root_base: Path) -> None:
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
             act = (action or "").strip().lower()
-            p = _repo_file(rp, path)
+            rel = _repo_file(root, rp, path)
+            p = root / rel
+            esp = Espace(_username, root)
 
             if act == "write":
                 mode = (mode or "overwrite").strip().lower()
                 if mode not in ("overwrite", "append"):
                     return _err("invalid_mode", hint="Use: overwrite|append")
                 new_content = content or ""
-                if mode == "append" and p.exists():
-                    new_content = _read_text_exact(root, p, MAX_FILE_READ) + new_content
+                _existe = esp.stat(rel)["kind"] != "missing"
+                if mode == "append" and _existe:
+                    new_content = _read_text_exact(esp, rel, MAX_FILE_READ) + new_content
                 new_bytes = new_content.encode("utf-8", errors="replace")
                 if len(new_bytes) > MAX_FILE_WRITE:
                     return _err("too_large", hint=f"Max {MAX_FILE_WRITE} bytes.")
                 if dry_run:
                     return _ok(path=path, action=mode, dry_run=True,
                                bytes_after=len(new_bytes),
-                               exists_before=p.exists())
-                _before = _history_before(root, p)
-                _write_atomic(root, p, new_content, MAX_FILE_WRITE)
-                _after = _history_before(root, p)       # octets réellement écrits
+                               exists_before=_existe)
+                _before = _history_before(esp, rel)
+                _write_atomic(esp, root, rel, new_content, MAX_FILE_WRITE)
+                _after = _history_before(esp, rel)      # octets réellement écrits
                 _history_after(_username, root, p, _before, _after)
                 return _ok(path=path, bytes=len(new_bytes), action=mode,
                            **_git_write_fc(root, p, _before, _after))
 
             if act == "replace":
                 if not find: return _err("find required")
-                text = _read_text_exact(root, p, MAX_FILE_READ)
+                text = _read_text_exact(esp, rel, MAX_FILE_READ)
                 if not regex:
                     cnt = text.count(find)
                     if cnt == 0:
@@ -1303,9 +1317,9 @@ def register(mcp: FastMCP, root_base: Path) -> None:
                     return _ok(path=path, action="replace", dry_run=True,
                                replacements=cnt, bytes_before=len(text.encode()),
                                bytes_after=len(new.encode()))
-                _before = _history_before(root, p)
-                _write_atomic(root, p, new, MAX_FILE_WRITE)
-                _after = _history_before(root, p)
+                _before = _history_before(esp, rel)
+                _write_atomic(esp, root, rel, new, MAX_FILE_WRITE)
+                _after = _history_before(esp, rel)
                 _history_after(_username, root, p, _before, _after)
                 return _ok(path=path, replacements=cnt, changed=True,
                            **_git_write_fc(root, p, _before, _after))
@@ -1927,7 +1941,7 @@ Use this BEFORE any write op to know where you stand."""
             rp = _safe_repo(repo, root)
             br = _current_branch(rp) or ""
             base = _default_base_branch(rp)
-            pol = _load_repo_policy(root, rp)
+            pol = _load_repo_policy(_username, root, rp)
             is_prot = _is_protected(br, pol)
             is_agent = _is_agent_branch(br, pol)
 
@@ -2059,7 +2073,7 @@ branches off other agent branches — keeps history clean)."""
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
             intent = _validate_intent_slug((branch_intent or "").strip().lower())
-            pol = _load_repo_policy(root, rp)
+            pol = _load_repo_policy(_username, root, rp)
 
             # 1) Bootstrap git config
             _ensure_git_config(rp, _username)
@@ -2200,7 +2214,7 @@ Returns::
 
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
-            pol = _load_repo_policy(root, rp)
+            pol = _load_repo_policy(_username, root, rp)
             br = _current_branch(rp) or ""
             # Bootstrap identity here too — the fresh-repo path (init → commit)
             # legitimately never goes through git_start_work.
@@ -2352,7 +2366,7 @@ Returns (PR already open)::
 
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
-            pol = _load_repo_policy(root, rp)
+            pol = _load_repo_policy(_username, root, rp)
             br = _current_branch(rp) or ""
 
             if _is_protected(br, pol):
@@ -2614,7 +2628,7 @@ Returns::
         try:
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
-            pol = _load_repo_policy(root, rp)
+            pol = _load_repo_policy(_username, root, rp)
             br = _current_branch(rp) or ""
 
             if _is_protected(br, pol):

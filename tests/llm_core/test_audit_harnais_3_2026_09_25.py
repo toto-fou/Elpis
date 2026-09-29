@@ -111,17 +111,22 @@ def test_backup_de_write_file_ne_suit_pas_un_lien(fs):
     assert (work / "x.py").read_text() == "v2\n"
 
 
-def test_git_write_atomique_temporaire_imprevisible(tmp_path):
+def test_git_write_atomique_temporaire_imprevisible(tmp_path, monkeypatch):
+    from llm_core.tools._espace import Espace
     from llm_core.tools.git_tools import _write_atomic
-    p = tmp_path / "f.txt"
+    base = tmp_path / "sandboxes"
+    work = base / "guest" / "work"
+    work.mkdir(parents=True)
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
+    p = work / "f.txt"
     p.write_text("a")
     os.chmod(p, 0o644)
     # L'ancien nom prévisible, occupé par un lien, n'est plus utilisé.
     cible = tmp_path / "hors.txt"
     cible.write_text("intact")
     os.chmod(cible, 0o600)
-    (tmp_path / f"f.txt.{os.getpid()}.tmp").symlink_to(cible)
-    _write_atomic(tmp_path, p, "b", 10_000)
+    (work / f"f.txt.{os.getpid()}.tmp").symlink_to(cible)
+    _write_atomic(Espace("guest", work), work, "f.txt", "b", 10_000)
     assert p.read_text() == "b"
     assert cible.read_text() == "intact"
     assert (cible.stat().st_mode & 0o777) == 0o600

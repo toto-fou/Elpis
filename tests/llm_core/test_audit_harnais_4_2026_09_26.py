@@ -465,13 +465,12 @@ def test_ecriture_ne_suit_pas_un_dossier_lien(fs, tmp_path):
     (work / "d").mkdir()
     p = work / "d" / "f.txt"
     p.write_text("v1")
-    # Écriture directe du helper, dossier remplacé par un lien APRÈS validation.
+    # Dossier remplacé par un lien qui sort de /work : l'agent refuse.
     (work / "d" / "f.txt").unlink()
     (work / "d").rmdir()
     (work / "d").symlink_to(ailleurs, target_is_directory=True)
-    from shared_infra.sandbox.paths import SandboxPathError
-    with pytest.raises(SandboxPathError):
-        fs_tools._atomic_write_bytes(p, b"v2", work.parent.parent / "guest" / "work")
+    r = tools["write_file"](None, path="d/f.txt", content="v2")
+    assert r["ok"] is False and r["error"] == "outside_sandbox", r
     assert not (ailleurs / "f.txt").exists()
 
 

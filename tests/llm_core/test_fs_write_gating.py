@@ -1,43 +1,46 @@
 # SPDX-License-Identifier: MIT
-"""Step 4 gate: the cross-UID chmod widening is active in host-write mode
-and skipped when fs writes are agent-backed (single UID owns /work)."""
-import os
+"""Step 4 gate: the cross-UID widening is active in host-write mode and
+skipped when fs writes are agent-backed (single UID owns /work)."""
 
 from llm_core.tools import fs_tools
 
 
-def test_chmod_widens_in_host_mode(monkeypatch, tmp_path):
+def test_mode_ecrit_widens_in_host_mode(monkeypatch):
+    # The host still reaches /work: what the agent writes stays writable by
+    # the other UID (x bits of the replaced file kept).
     monkeypatch.setattr(fs_tools, "use_agent", lambda op: False)
-    f = tmp_path / "a.txt"
-    f.write_text("x")
-    os.chmod(f, 0o600)
-    fs_tools._chmod_cross_writable(tmp_path, f)
-    assert (f.stat().st_mode & 0o777) == 0o666
+    assert fs_tools._mode_ecrit({"kind": "missing"}) == "666"
+    assert fs_tools._mode_ecrit({"kind": "file", "mode": 0o600}) == "666"
+    assert fs_tools._mode_ecrit({"kind": "file", "mode": 0o755}) == "777"
 
 
-def test_chmod_skipped_in_agent_mode(monkeypatch, tmp_path):
+def test_mode_ecrit_keeps_mode_in_agent_mode(monkeypatch):
     monkeypatch.setattr(fs_tools, "use_agent", lambda op: True)
-    f = tmp_path / "a.txt"
-    f.write_text("x")
-    os.chmod(f, 0o600)
-    fs_tools._chmod_cross_writable(tmp_path, f)
-    assert (f.stat().st_mode & 0o777) == 0o600  # untouched
+    assert fs_tools._mode_ecrit({"kind": "missing"}) is None      # agent default
+    assert fs_tools._mode_ecrit({"kind": "file", "mode": 0o600}) == "600"
 
 
-def test_parents_created_widened_in_host_mode(monkeypatch, tmp_path):
+def test_write_file_widened_in_host_mode(tmp_path, monkeypatch):
+    """What write_file creates stays writable by the other UID while the host
+    still reaches /work (explicit mode: independent of the agent's umask)."""
+    base = tmp_path / "sandboxes"
+    work = base / "guest" / "work"
+    work.mkdir(parents=True)
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
     monkeypatch.setattr(fs_tools, "use_agent", lambda op: False)
-    target = tmp_path / "sub" / "x.txt"
-    fs_tools._atomic_write_bytes(target, b"x", tmp_path)
-    assert (target.parent.stat().st_mode & 0o777) == 0o777
-    assert (target.stat().st_mode & 0o777) == 0o666
 
+    class _MCP:
+        tools: dict = {}
 
-def test_parents_not_widened_in_agent_mode(monkeypatch, tmp_path):
-    monkeypatch.setattr(fs_tools, "use_agent", lambda op: True)
-    target = tmp_path / "sub2" / "x.txt"
-    fs_tools._atomic_write_bytes(target, b"x", tmp_path)
-    assert target.read_bytes() == b"x"
-    assert (target.parent.stat().st_mode & 0o777) != 0o777  # not force-widened
+        def tool(self, **kw):
+            def deco(fn):
+                self.tools[fn.__name__] = fn
+                return fn
+            return deco
+    mcp = _MCP()
+    fs_tools.register(mcp, base)
+    assert mcp.tools["write_file"](None, path="sub/x.txt", content="x")["ok"]
+    assert (work / "sub" / "x.txt").stat().st_mode & 0o777 == 0o666
 
 
 def test_executable_mode_cross_uid_in_host_mode(monkeypatch):

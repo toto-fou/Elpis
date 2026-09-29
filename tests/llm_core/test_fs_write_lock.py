@@ -2,9 +2,9 @@
 """tests/llm_core/test_fs_write_lock.py — verrou optimiste flock de
 write_file/edit_file (AUDIT 2026-06, calqué sur test_skills_write_lock.py).
 
-Couvre : exclusion cross-process réelle, re-check du sha sous verrou
-(_guarded_write), fail-open (désactivé / contention / base absente),
-et inactivité totale sans expected_sha256.
+Couvre : exclusion cross-process réelle, précondition sha vérifiée par
+l'agent sous le verrou (_ecrire_garde), fail-open (désactivé / contention /
+base absente), et inactivité totale sans expected_sha256.
 """
 from __future__ import annotations
 
@@ -92,62 +92,69 @@ def test_lock_fail_open_on_contention(tmp_path, locks_base):
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# _guarded_write — re-check sous verrou
+# _ecrire_garde — précondition vérifiée par l'agent, sous le verrou partagé
 # ──────────────────────────────────────────────────────────────────────────
 
-def test_guarded_write_detects_concurrent_change(tmp_path, locks_base):
-    """Le scénario exact du bug : sha lu AVANT, fichier modifié ENTRE-temps,
-    l'écriture doit être refusée au re-check sous verrou."""
-    target = tmp_path / "f.txt"
-    target.write_text("v1")
-    sha_v1 = F._sha256_of_file(target)
-
-    target.write_text("v2-concurrent")               # écriture concurrente
-
-    res = F._guarded_write(tmp_path, target, sha_v1, lambda: target.write_text("v3"))
-    assert res is not None                            # err hash_mismatch
-    assert target.read_text() == "v2-concurrent"      # rien écrasé
+@pytest.fixture()
+def esp(tmp_path, monkeypatch):
+    from llm_core.tools._espace import Espace
+    base = tmp_path / "sandboxes"
+    work = base / "guest" / "work"
+    work.mkdir(parents=True)
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
+    return Espace("guest", work), work
 
 
-def test_guarded_write_passes_when_unchanged(tmp_path, locks_base):
-    target = tmp_path / "f.txt"
-    target.write_text("v1")
-    sha_v1 = F._sha256_of_file(target)
-    res = F._guarded_write(tmp_path, target, sha_v1, lambda: target.write_text("v2"))
-    assert res is None
-    assert target.read_text() == "v2"
+def _ecrire(esp_, work, rel, data, etat, expected=""):
+    return F._ecrire_garde(esp_, "guest", work, work / rel, rel, data, etat=etat,
+                           expected_sha256=expected)
 
 
-def test_guarded_write_no_expected_still_locks(tmp_path, locks_base):
+def test_ecriture_detecte_un_changement_concurrent(esp, locks_base):
+    """sha lu AVANT, fichier modifié ENTRE-temps : l'écriture est refusée."""
+    esp_, work = esp
+    (work / "f.txt").write_text("v1")
+    etat = F._actuel(esp_, "f.txt")
+    (work / "f.txt").write_text("v2-concurrent")      # écriture concurrente
+    r, err = _ecrire(esp_, work, "f.txt", b"v3", etat, expected=etat[2])
+    assert r is None and err["error"] == "hash_mismatch"
+    assert (work / "f.txt").read_text() == "v2-concurrent"   # rien écrasé
+
+
+def test_ecriture_passe_si_inchange(esp, locks_base):
+    esp_, work = esp
+    (work / "f.txt").write_text("v1")
+    etat = F._actuel(esp_, "f.txt")
+    r, err = _ecrire(esp_, work, "f.txt", b"v2", etat, expected=etat[2])
+    assert err is None and (work / "f.txt").read_text() == "v2"
+
+
+def test_ecriture_sans_expected_prend_le_verrou(esp, locks_base):
     """Audit éditeur 2026-09-23 (E7) : le verrou est pris à CHAQUE écriture,
-    même sans ``expected_sha256`` (avant : aucun verrou → l'enregistrement de
-    l'éditeur et l'écriture de l'agent ne se voyaient pas)."""
-    target = tmp_path / "f.txt"
-    res = F._guarded_write(tmp_path, target, "", lambda: target.write_text("x"))
-    assert res is None
-    assert target.read_text() == "x"
-    assert _lockfile_for(target, locks_base).exists()
+    même sans ``expected_sha256`` (l'éditeur et l'agent se voient)."""
+    esp_, work = esp
+    r, err = _ecrire(esp_, work, "f.txt", b"x", ({"kind": "missing"}, None, ""))
+    assert err is None and (work / "f.txt").read_text() == "x"
+    assert _lockfile_for(work / "f.txt", locks_base).exists()
 
 
-def test_guarded_write_serializes_two_threads(tmp_path, locks_base):
+def test_deux_ecrivains_un_seul_gagne(esp, locks_base):
     """Deux écrivains 'optimistes' avec le même sha de départ : exactement
-    UN gagne, l'autre reçoit hash_mismatch (avant : les deux gagnaient)."""
-    target = tmp_path / "f.txt"
-    target.write_text("base")
-    sha0 = F._sha256_of_file(target)
+    UN gagne, l'autre reçoit hash_mismatch."""
+    esp_, work = esp
+    (work / "f.txt").write_text("base")
+    etat = F._actuel(esp_, "f.txt")
     results = []
 
     def writer(tag):
-        def _do():
-            time.sleep(0.05)                          # élargit la fenêtre
-            target.write_text(f"by-{tag}")
-        results.append((tag, F._guarded_write(tmp_path, target, sha0, _do)))
+        results.append((tag, _ecrire(esp_, work, "f.txt", f"by-{tag}".encode(), etat,
+                                     expected=etat[2])[1]))
 
     t1 = threading.Thread(target=writer, args=("a",))
     t2 = threading.Thread(target=writer, args=("b",))
     t1.start(); t2.start(); t1.join(); t2.join()
 
-    winners = [tag for tag, r in results if r is None]
-    losers = [tag for tag, r in results if r is not None]
+    winners = [tag for tag, e in results if e is None]
+    losers = [tag for tag, e in results if e is not None]
     assert len(winners) == 1 and len(losers) == 1, f"results: {results}"
-    assert target.read_text() == f"by-{winners[0]}"
+    assert (work / "f.txt").read_text() == f"by-{winners[0]}"

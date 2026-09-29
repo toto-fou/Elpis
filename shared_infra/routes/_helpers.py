@@ -416,7 +416,7 @@ def _strip_work_prefix(path: str) -> str:
     """Normalise la vue conteneur d'un chemin (``/work``, ``work``, ``./work``)
     en chemin RELATIF à la racine sandbox.
 
-    Miroir de ``tools/fs_tools._translate_container_path`` : l'agent raisonne
+    Mêmes formes que ``paths.lexical_rel`` (outils fichiers) : l'agent raisonne
     dans l'espace de chemins du conteneur (``/work/src/x`` car son shell tourne
     dans ``/work``) et renvoie souvent ces chemins tels quels. Sans cette
     normalisation, les routes faisaient ``root / "/work/src/x"`` — or un chemin

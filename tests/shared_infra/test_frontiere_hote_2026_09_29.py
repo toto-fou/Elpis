@@ -197,10 +197,11 @@ def test_grep_ne_suit_pas_un_dossier_remplace_pendant_le_parcours(fs, monkeypatc
 
 def test_suppression_ne_traverse_pas_un_dossier_remplace(fs, monkeypatch):
     tools, work, hote = fs
-    # ``delete`` valide deux fois (chemin, puis refus de la racine) : la
-    # bascule suit le DERNIER contrôle.
-    _course_apres(monkeypatch, fs_tools, "_safe_path", work, hote, appel=2)
-    tools["manage_files"](None, action="delete", path="d/secret.txt")
+    # Bascule entre le ``stat`` de l'agent et la suppression : l'agent
+    # résout de nouveau le chemin à la suppression.
+    _course_apres(monkeypatch, fs_tools.Espace, "stat", work, hote)
+    r = tools["manage_files"](None, action="delete", path="d/secret.txt")
+    assert r["ok"] is False, r
     assert (hote / "secret.txt").read_text() == SECRET + "\n"
 
 

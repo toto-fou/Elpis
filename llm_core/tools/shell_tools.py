@@ -134,7 +134,7 @@ def register(mcp: FastMCP, root_base: Path) -> None:
     def _translate_container_path(rel: str, sb: Path) -> str:
         """Map container view ``/work/...`` to the host equivalent.
 
-        Mirrors fs_tools._translate_container_path — including the
+        Same forms as ``paths.lexical_rel`` (fs tools) — including the
         normalization of the slash-dropped ``work/...`` form. The LLM
         reasons in the container's path space (``/work/foo.py``) and
         routinely re-emits it without the leading slash (``work/foo.py``);

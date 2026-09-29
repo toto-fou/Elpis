@@ -13,7 +13,8 @@ Pièges couverts (une régression sur l'un d'eux rouvre l'évasion) :
 * le grant (``exec_bridge``) — ``os.walk(followlinks=False)`` n'empêche que la
   RÉCURSION : un lien-vers-dossier reste listé dans ``dirnames`` et le
   ``chmod`` déréférence. C'était le finding C1 de l'audit 2026-08-01.
-* ``fs_tools._chmod_cross_writable`` — après une copie ou un déplacement.
+* ``manage_files chmod`` (par l'agent, L4.2) — un lien qui sort de /work
+  est refusé.
 * ``chart_tools._chmod_cross_writable`` — cache des graphiques (hors /work).
 * ``paths.widen_beneath`` (2026-09-29) — la primitive commune : entrée saisie
   par ``O_PATH | O_NOFOLLOW``, plus de fenêtre entre le contrôle et le chmod ;
@@ -101,17 +102,35 @@ def test_grant_access_ne_chmode_pas_a_travers_un_lien_vers_fichier(tree, monkeyp
 
 # ── 2. Les helpers « cross-writable » ──────────────────────────────────────
 
-def test_fs_tools_chmod_cross_writable_saute_les_liens(tree, monkeypatch):
-    root, outside, outside_file = tree
+def test_manage_files_chmod_refuse_un_lien_sortant(tmp_path, monkeypatch):
     from llm_core.tools import fs_tools
-    monkeypatch.setattr(fs_tools, "use_agent", lambda op: False)
 
-    os.symlink(outside_file, root / "leak")
-    fs_tools._chmod_cross_writable(root, root / "leak")
-    assert _mode(outside_file) == 0o600
+    class _MCP:
+        tools: dict = {}
 
-    os.symlink(outside, root / "leakdir")
-    fs_tools._chmod_cross_writable(root, root / "leakdir", recursive=True)
+        def tool(self, **kw):
+            def deco(fn):
+                self.tools[fn.__name__] = fn
+                return fn
+            return deco
+    base = tmp_path / "sandboxes"
+    work = base / "guest" / "work"
+    work.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "secret.txt"
+    secret.write_text("x")
+    os.chmod(outside, OUTSIDE_MODE)
+    os.chmod(secret, 0o600)
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
+    mcp = _MCP()
+    fs_tools.register(mcp, base)
+    os.symlink(secret, work / "leak")
+    os.symlink(outside, work / "leakdir")
+    for rel in ("leak", "leakdir"):
+        r = mcp.tools["manage_files"](None, action="chmod", path=rel)
+        assert r["ok"] is False, r
+    assert _mode(secret) == 0o600
     assert _mode(outside) == OUTSIDE_MODE
 
 

@@ -22,7 +22,6 @@ import mimetypes
 import os
 import re
 import shutil
-import stat as _stat_mod
 import subprocess
 import time
 from pathlib import Path
@@ -36,15 +35,9 @@ from fastmcp import Context, FastMCP
 from shared_infra.sandbox.agent_client import AgentError
 from shared_infra.sandbox.paths import (
     SandboxPathError,
-    leaf_mode,
     lexical_rel,
-    open_beneath,
-    pinned_beneath,
     rel_under,
-    resolve_under,
     to_container,
-    walk_beneath,
-    widen_beneath,
 )
 
 # OP_BACKEND policy: when fs writes are agent-backed (single UID 10001 inside
@@ -201,100 +194,32 @@ def _validate_path_str(path: str):
             raise ValueError("control character in path")
 
 
-def _translate_container_path(path: str, base: Path) -> str:
-    """Map the container view of a path to its host equivalent.
-
-    The agent typically reasons about files using the container view
-    (``/work/...``) since shell tools execute inside the container, while
-    fs_tools resolve paths on the HOST. Without this translation, every
-    cross-tool reference like ``read_file("/work/main.py")`` after a
-    successful ``execute_shell(command="touch /work/main.py")`` fails
-    with "outside sandbox" — wasting a turn re-discovering the host path.
-
-    The sandbox volume is mounted at ``/work`` in the container, so the
-    agent legitimately writes the mount prefix in several equivalent forms.
-    We normalize ALL of them to the sandbox root so the same file is
-    reachable no matter which the model picks:
-
-        /work, /work/x          canonical container-absolute
-        work,  work/x           leading slash dropped — a VERY common LLM
-                                slip (it sees ``/work/...`` in shell output
-                                and re-emits it relative). Taken literally
-                                this used to create a spurious nested
-                                ``<sandbox>/work/`` dir, after which the
-                                correct ``src/x`` form failed → the model
-                                got stuck always prefixing ``work/``.
-        ./work/x                same, dot-relative.
-
-    Trade-off: a literal top-level directory actually named ``work`` inside
-    the sandbox can no longer be addressed (it collapses to the root). That
-    collision is virtually always the mount-prefix confusion above, and
-    avoiding the retry loop is worth far more than supporting a folder named
-    exactly ``work``.
-
-    Idempotent for everything else: any other path is returned unchanged.
-    """
-    if not path:
-        return path
-    if path in ("/work", "work", "./work"):
-        return str(base)
-    for pfx in ("/work/", "work/", "./work/"):
-        if path.startswith(pfx):
-            return str(base / path[len(pfx):])
-    return path
-
-
 def _to_container(p: Any, base: Path) -> str:
-    """Render a host path under ``base`` as its container view (``/work/...``).
+    """Render a host path under ``base`` as its container view (``/work/...``),
+    without reading the disk (links stay as written).
 
-    The inverse of :func:`_translate_container_path`. fs_tools run on the
-    HOST and resolve everything to host-absolute paths, but the agent
-    reasons in the container's path space (its shell runs in ``/work``).
-    Echoing host paths like ``/srv/elpis/user_sandboxes/alice/src/x.py`` back
-    in tool results gave the model a form it can't reuse — it would
-    improvise the mount prefix (``work/...``) and get stuck. Returning
-    ``/work/src/x.py`` instead hands it a path it can copy verbatim into the
-    next call, which ``_translate_container_path`` maps straight back.
+    The agent reasons in the container's path space (its shell runs in
+    ``/work``): echoing host paths like ``/srv/elpis/user_sandboxes/alice/src/x.py``
+    gave the model a form it can't reuse. ``/work/src/x.py`` can be copied
+    verbatim into the next call (``_rel`` maps it back).
 
     Falls back to the plain string for anything not under ``base`` (defensive
     — every fs path is validated under the sandbox first, so this is rare).
     """
     try:
-        rel = Path(p).resolve().relative_to(Path(base).resolve()).as_posix()
-    except (ValueError, TypeError, OSError):
+        rel = rel_under(base, p)
+    except (SandboxPathError, TypeError):
         return str(p)
     return to_container(rel)  # shared: "" / "." -> "/work"; else "/work/<rel>"
 
 
 def _rel(base: Path, path: str, *, allow_root: bool = True) -> str:
     """Chemin relatif à la sandbox d'un chemin fourni par le modèle, sans lire
-    le disque : mêmes tolérance (guillemets) et refus (contrôle, NUL, vide)
-    que :func:`_safe_path` ; les liens sont résolus par l'agent."""
+    le disque : guillemets tolérés (``unquote``), caractères de contrôle, NUL
+    et chemin vide refusés ; les liens sont résolus par l'agent."""
     path = unquote(path)
     _validate_path_str(path)
     return lexical_rel(base, path, allow_root=allow_root)
-
-
-def _safe_path(path: str, base: Path, *, allow_root: bool = True) -> Path:
-    # Input tolerance (tools/_toolkit.unquote): models routinely wrap a
-    # path in extra quotes — '"src/main.py"' -> src/main.py. One spot
-    # here covers every fs tool, since they all resolve through _safe_path.
-    path = unquote(path)
-    _validate_path_str(path)            # null byte + control chars (fs-specific)
-    # /work normalization + containment now live in ONE place
-    # (shared_infra.sandbox.paths). Containment is parents/relative_to based
-    # — identical to the previous inline check — so sibling-prefix names
-    # (alice vs alice2) and symlink-out targets are still rejected, but the
-    # rule no longer drifts from the route-side validator.
-    # ``allow_root=False`` : la RACINE du bac à sable n'est pas une cible
-    # valide. AUDIT 2026-08-23 — ``resolve_under`` porte ce garde-fou depuis
-    # toujours (« used by destructive ops that must target a child, e.g.
-    # delete/rename »), mais AUCUN appelant ne le passait : ``manage_files``
-    # acceptait donc ``delete /work`` — et « /work », « work », « ./work » et
-    # « . » se collapsent tous sur la racine — puis faisait ``shutil.rmtree``
-    # sur l'arbre ENTIER de l'utilisateur, en rendant ``ok: true``. Or « . »
-    # est le défaut de ``list_files`` : le modèle l'écrit spontanément.
-    return resolve_under(base, path, allow_root=allow_root).host
 
 
 # Dossiers de DÉPENDANCES/BUILD écartés par défaut par ``list_files`` quand
@@ -315,26 +240,6 @@ DEFAULT_DEP_EXCLUDES: tuple = (
 )
 
 
-def _child_is_safe(p: Path, root_resolved: Path) -> bool:
-    """Vrai si ``p`` (issu d'un ``rglob``/``iterdir`` sous une racine DÉJÀ
-    validée) peut être lu sans franchir la sandbox.
-
-    ``_safe_path`` ne valide que la RACINE : les enfants d'un walk récursif ne
-    repassent PAS par ``resolve_under``, or ``is_file()``/``read_text()``
-    SUIVENT les symlinks. Un ``ln -s /etc/passwd x`` (ou vers la base SQLite,
-    le secret de session, la sandbox d'un autre user) serait donc lu à travers.
-    Même durcissement que les routes ``/search`` et ``/grep`` (skip symlink +
-    containment sur le chemin RÉSOLU). Toute erreur FS → non sûr (on saute)."""
-    try:
-        if p.is_symlink():
-            return False
-        rp = p.resolve()
-        rp.relative_to(root_resolved)
-        return True
-    except (OSError, ValueError, RuntimeError):
-        return False
-
-
 _TEXT_BYTES = frozenset(range(32, 127)) | {7, 8, 9, 10, 11, 12, 13, 27}
 
 
@@ -349,46 +254,12 @@ def _is_text_bytes(chunk: bytes) -> bool:
     return (non_text / len(chunk)) < 0.30
 
 
-def _is_text(p: Path, sniff: int = 8192) -> bool:
-    try:
-        with p.open("rb") as f:
-            return _is_text_bytes(f.read(sniff))
-    except Exception:
-        return False
-
 def _mime(p: Path) -> str:
     m, _ = mimetypes.guess_type(str(p))
     return m or "application/octet-stream"
 
 def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
-
-def _sha256_of_file(p: Path, bufsize: int = 65536) -> str:
-    h = hashlib.sha256()
-    with p.open("rb") as f:
-        for chunk in iter(lambda: f.read(bufsize), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-# Lectures d'un fichier de la sandbox par l'hôte (2026-09-29) : toujours sur
-# l'inode ouvert sans suivre de lien (``shared_infra.sandbox.paths``), jamais
-# en rouvrant ``p`` par son nom — un lien posé entre-temps depuis le conteneur
-# ferait lire un fichier hors du bac à sable.
-def _read_under(sb: Path, p: Path) -> bytes:
-    """Octets du fichier régulier ``p`` (résolu sous ``sb``)."""
-    with os.fdopen(open_beneath(sb, rel_under(sb, p)), "rb") as f:
-        return f.read()
-
-
-def _sha_under(sb: Path, p: Path) -> Optional[str]:
-    """sha256 du fichier régulier ``p``, ``None`` s'il n'existe pas (ou n'est
-    pas un fichier régulier)."""
-    try:
-        with pinned_beneath(sb, p) as fp:
-            return _sha256_of_file(fp)
-    except (FileNotFoundError, IsADirectoryError, SandboxPathError):
-        return None
 
 _BOMS = (b"\xef\xbb\xbf", b"\xff\xfe", b"\xfe\xff")
 
@@ -438,14 +309,6 @@ def _encodage(tete: bytes) -> str:
     return "utf-8"
 
 
-def _detect_encoding(p: Path) -> str:
-    try:
-        with p.open("rb") as _f:        # ``with`` ferme le fd (l'ancien open().read() fuyait un descripteur par appel)
-            return _encodage(_f.read(4))
-    except Exception:
-        return "utf-8"
-
-
 # ── Accès par l'agent de la sandbox (L4.2) ──────────────────────────────────
 # Les outils ne lisent ni n'écrivent plus eux-mêmes dans le dossier de la
 # sandbox : l'agent du conteneur le fait (``_espace.Espace``). ``p`` (chemin
@@ -481,7 +344,6 @@ def _stat_entree(p: Path, base: Path, e: Dict[str, Any]) -> Dict[str, Any]:
             "mtime": int(e.get("mtime_ns") or 0) // 1_000_000_000,
             "mode": oct(int(e.get("mode") or 0) & 0o777),
             "rel": rel_under(base, p) if p != base else ""}
-
 
 
 def _cle_parcours(rel: str, est_dossier: bool) -> List[Tuple[int, str]]:
@@ -554,8 +416,8 @@ def _actuel(esp: Espace, rel: str, e: Optional[Dict[str, Any]] = None
 
 def _mode_ecrit(e: Dict[str, Any]) -> Optional[str]:
     """Mode d'une écriture : celui du fichier remplacé (bits x gardés, E18),
-    élargi pour l'autre UID tant que l'hôte accède encore à /work (cf.
-    ``_chmod_cross_writable``) ; ``None`` : défaut de l'agent."""
+    élargi pour l'autre UID tant que l'hôte accède encore à /work ;
+    ``None`` : défaut de l'agent."""
     cur = int(e.get("mode") or 0) & 0o777 if e.get("kind") == "file" else None
     if use_agent("fs.write"):
         return None if cur is None else format(cur, "o")
@@ -639,43 +501,6 @@ def _check_regex_safe(pattern: str) -> None:
     if _REDOS_NESTED.search(pattern):
         raise re.error("motif à risque de backtracking catastrophique (quantificateur imbriqué)")
 
-def _stat(p: Path, base: Path = None, st: Optional[os.stat_result] = None) -> Dict[str, Any]:
-    """Métadonnées de ``p`` ; ``st`` : stat déjà prise sur l'inode figé."""
-    if st is None:
-        st = p.stat()
-        kind = "dir" if p.is_dir() else ("symlink" if p.is_symlink() else "file")
-    else:
-        kind = "dir" if _stat_mod.S_ISDIR(st.st_mode) else "file"
-    d = {
-        "name": p.name,
-        # Container view (/work/...) when we know the sandbox base, so the
-        # path is reusable as-is in the agent's next tool call; host string
-        # only as a defensive fallback when base is unknown.
-        "path": _to_container(p, base) if base else str(p),
-        "type": kind,
-        "size": st.st_size,
-        "mtime": int(st.st_mtime),
-        "mode": oct(st.st_mode & 0o777),
-    }
-    if base:
-        try: d["rel"] = p.relative_to(base).as_posix()
-        except Exception: pass
-    return d
-
-def _chmod_cross_writable(sb: Path, p: Path, *, recursive: bool = False) -> None:
-    """Droits de ``p`` (et de son contenu si ``recursive``) élargis pour l'UID
-    du conteneur : l'hôte et le conteneur partagent /work sans groupe commun,
-    ce que l'hôte crée doit être 0666 / 0777 (bits x conservés). Aucun lien
-    suivi (``widen_beneath``). No-op quand les écritures passent par l'agent :
-    un seul UID possède alors /work."""
-    if use_agent("fs.write"):
-        return
-    try:
-        widen_beneath(sb, rel_under(sb, p), recursive=recursive)
-    except SandboxPathError:
-        pass
-
-
 def _executable_mode(cur: int) -> int:
     """Target mode for the ``chmod`` action: make the path executable and —
     unless fs writes are agent-backed (a single UID owns /work) — cross-UID
@@ -685,91 +510,11 @@ def _executable_mode(cur: int) -> int:
     owner-only ``+x`` would leave a script the model just made executable
     un-runnable by the OTHER side. We therefore bridge via the "other" class:
     ``+x`` for all (0o111) and ``o+rw`` (0o666) so whichever UID runs or edits
-    it can — same rationale as umask 0000 / :func:`_chmod_cross_writable`. In
+    it can — same rationale as the agent's umask 0000. In
     the agent-backed single-UID model, owner ``+x`` (0o100) is enough."""
     if use_agent("fs.write"):
         return cur | 0o100
     return cur | 0o111 | 0o666
-
-
-def _name_prefix_bytes(name: str, limit: int) -> str:
-    """Préfixe de ``name`` d'au plus ``limit`` OCTETS UTF-8, coupé sur un
-    caractère entier. AUDIT 2026-09-26 — le temporaire reprenait le nom
-    ENTIER + ~20 octets : au-delà de ~235 octets (nom légal, ex. CJK),
-    ``ENAMETOOLONG`` — écriture et édition impossibles sur ce fichier."""
-    b = name.encode("utf-8", errors="surrogateescape")
-    if len(b) <= limit:
-        return name
-    return b[:limit].decode("utf-8", errors="ignore")
-
-
-def _cross_file_mode() -> int:
-    """Mode d'un fichier créé par l'hôte dans le bac à sable : réécrivable par
-    l'UID du conteneur (cf. ``_chmod_cross_writable``), sauf écritures
-    déléguées à l'agent (un seul UID)."""
-    return 0o644 if use_agent("fs.write") else 0o666
-
-
-def _symlink_leaf(path: str, sb: Path) -> Optional[Path]:
-    """Chemin NON résolu de ``path`` quand sa DERNIÈRE composante est un lien
-    symbolique (dossier parent validé dans le bac à sable) ; sinon None.
-
-    AUDIT 2026-09-25 — ``_safe_path`` résout les liens : ``delete`` et
-    ``move`` agissaient donc sur la CIBLE du lien (``rmtree`` d'un dossier
-    réel pour « supprimer un raccourci »), et un lien pointant hors du bac à
-    sable ne pouvait même pas être supprimé. Un lien se supprime et se
-    déplace lui-même."""
-    try:
-        from shared_infra.sandbox.paths import strip_work_prefix
-        raw = strip_work_prefix(unquote(path)).rstrip("/")
-        if not raw or raw in (".", "~"):
-            return None
-        parent, _, leaf = raw.rpartition("/")
-        if leaf in ("", ".", ".."):
-            return None
-        par = resolve_under(sb, parent or ".", allow_root=True).host
-        cand = par / leaf
-        return cand if os.path.islink(cand) else None
-    except Exception:                                           # noqa: BLE001
-        return None
-
-
-def _backup_copy(p: Path, sb: Path) -> None:
-    """Copie de sauvegarde ``<fichier>.bak`` (option ``backup`` de write_file).
-
-    AUDIT 2026-09-25 — c'était ``shutil.copyfile(p, p.with_suffix(...))`` :
-    le chemin ``.bak``, DÉRIVÉ, n'était jamais validé, et ``copyfile`` suit un
-    lien symbolique à la destination. Un lien posé à ce nom dans le bac à
-    sable envoyait donc l'écriture HORS du bac à sable. Écriture par
-    ``write_beneath`` : aucun lien suivi, un lien existant est remplacé."""
-    from shared_infra.sandbox.paths import write_beneath
-    root = Path(sb).resolve()
-    rel = p.relative_to(root).as_posix()
-    # Données seules, comme copyfile : pas de report du mode d'origine
-    # (pas de bit setuid/setgid recopié sur la sauvegarde). Source lue sans
-    # suivre de lien, comme la destination est écrite (2026-09-29).
-    with os.fdopen(open_beneath(root, rel), "rb") as src:
-        write_beneath(root, rel + ".bak", src, default_mode=_cross_file_mode())
-
-
-def _atomic_write_bytes(p: Path, data: bytes, sb: Path):
-    """Écriture atomique de ``p`` (résolu sous ``sb``) par ``write_beneath`` :
-    dossiers ouverts composant par composant (``O_NOFOLLOW``), temporaire
-    exclusif puis ``rename`` dans le même dossier (AUDIT 2026-09-26). Mode du
-    fichier remplacé conservé (E18) et élargi pour le conteneur, sauf en mode
-    agent."""
-    from shared_infra.sandbox.paths import write_beneath
-    root = Path(sb).resolve()
-    rel = rel_under(root, p)
-    try:
-        st = os.lstat(p)
-        cur = (st.st_mode & 0o777) if _stat_mod.S_ISREG(st.st_mode) else None
-    except OSError:
-        cur = None
-    agent = use_agent("fs.write")
-    mode = cur if agent else ((cur if cur is not None else 0o644) | 0o666) & 0o777
-    write_beneath(root, rel, data, file_mode=mode, default_mode=_cross_file_mode(),
-                  dir_mode=None if agent else 0o777)
 
 
 # ── Verrou optimiste cross-worker (AUDIT 2026-06) ─────────────────────────
@@ -816,78 +561,6 @@ def _optimistic_write_lock(p: Path, enabled: bool = True, timeout_s: float = 3.0
         yield got
 
 
-def _guarded_write(sb: Path, p: Path, expected_sha256: str, write_fn, *,
-                   base_sha: Optional[str] = None, history=None):
-    """Écrit SOUS le verrou de fichier partagé (toujours, E7), après avoir
-    re-vérifié les préconditions :
-
-    - ``expected_sha256`` (verrou optimiste demandé par le modèle) ;
-    - ``base_sha`` : hash du contenu à partir duquel la nouvelle version a
-      été CALCULÉE (edit_file, append). S'il a changé depuis la lecture
-      (enregistrement de l'éditeur, shell, autre agent), on refuse au lieu
-      d'écraser ce changement.
-
-    ``history`` : ``callable(before_bytes)`` appelé après une écriture
-    réussie, avec le contenu lu SOUS le verrou juste avant l'écriture.
-    Retourne un ``_err`` en cas de mismatch, ``None`` si l'écriture a eu lieu.
-    """
-    before = None
-    with _optimistic_write_lock(p, True):
-        cur = _sha_under(sb, p) if (expected_sha256 or base_sha is not None) else None
-        if expected_sha256 and cur is not None and cur != expected_sha256:
-            return _err("hash_mismatch",
-                        hint="File changed since read (concurrent write). Re-read then retry.",
-                        expected=expected_sha256, actual=cur)
-        if base_sha is not None:
-            now = cur or ""
-            if now != base_sha:
-                return _err("concurrent_modification",
-                            hint=("The file changed while this edit was being computed "
-                                  "(editor save, shell or another agent). Nothing was "
-                                  "written: re-read the file then retry."),
-                            expected=base_sha, actual=now)
-        if history is not None:
-            try:
-                from shared_infra.sandbox.file_history import read_before
-                before = read_before(sb, p)
-            except Exception:
-                before = None
-        write_fn()
-    if history is not None:
-        try:
-            history(before)
-        except Exception:
-            pass
-    return None
-
-def _guarded_write_healing(username: str, sb_root: Path, p: Path,
-                           expected_sha256: str, write_fn, **kw):
-    """``_guarded_write`` + auto-réparation des permissions croisées.
-
-    Un sous-arbre créé CÔTÉ CONTENEUR avec des modes restrictifs (``git
-    clone`` tapé dans un terminal antérieur au wrapper umask 0000, ``tar -x``
-    qui préserve les modes de l'archive…) appartient à l'UID 10001 : le
-    process hôte n'est ni owner ni groupe → ``PermissionError`` sur l'écriture
-    (et l'hôte ne peut pas chmod ce qu'il ne possède pas). On répare via un
-    ``chmod -R o+rwX`` root DANS le conteneur (bridge), puis retry UNE fois.
-    Si la réparation échoue, l'erreur d'origine remonte telle quelle.
-    """
-    try:
-        return _guarded_write(sb_root, p, expected_sha256, write_fn, **kw)
-    except PermissionError:
-        try:
-            rel = str(p.resolve().relative_to(Path(sb_root).resolve()))
-        except Exception:
-            rel = None
-        if rel is None:
-            raise               # hors racine sandbox → erreur d'origine telle quelle
-        from ._exec_bridge import repair_work_perms
-        if not repair_work_perms(username=username, sandbox_root=Path(sb_root),
-                                 rel_path=rel):
-            raise
-        return _guarded_write(sb_root, p, expected_sha256, write_fn, **kw)
-
-
 # ── Historique de session des fichiers modifiés (2026-09-23) ──────────────
 # Chaque écriture / suppression / déplacement réussi de l'assistant est noté
 # dans ``shared_infra.sandbox.file_history`` (original + chaque version), pour
@@ -926,7 +599,7 @@ def _history_rel(p: Path, sb: Path) -> Optional[str]:
 
 
 def _history_writer(username: str, sb: Path, p: Path, after: Optional[bytes]):
-    """``callable(before)`` pour ``_guarded_write(history=…)``, ou ``None``
+    """``callable(before)`` qui note l'écriture dans l'historique, ou ``None``
     si le compte ou le chemin ne sont pas résolus."""
     uid = _history_uid(username)
     rel = _history_rel(p, sb) if uid is not None else None
@@ -951,39 +624,6 @@ def _history_record(username: str, sb: Path, p: Path,
             rec(before)
         except Exception:
             pass
-
-
-def _snapshot_tree(sb: Path, p: Path, max_files: int = 200,
-                   max_total: int = 32 * 1024 * 1024):
-    """[(fichier, octets)] des fichiers réguliers sous ``p`` (ou ``p`` lui-même),
-    lus AVANT une suppression pour l'historique, sans suivre de lien. Borné
-    (nombre et volume) : au-delà, les fichiers ne sont simplement pas
-    historisés."""
-    out = []
-    try:
-        from shared_infra.sandbox.file_history import read_before
-        root = Path(sb).resolve()
-        rel = rel_under(root, p)
-        files = [rel]
-        if p.is_dir() and not p.is_symlink():
-            files = []
-            for rel_dir, _dirs, names, dfd in walk_beneath(root, rel):
-                files += [f"{rel_dir}/{n}" if rel_dir else n for n in names
-                          if _stat_mod.S_ISREG(leaf_mode(dfd, n))]
-                if len(files) >= max_files:
-                    break
-        total = 0
-        for f in files[:max_files]:
-            b = read_before(root, f)        # None : absent, lien ou fichier spécial
-            if b is None:
-                continue
-            total += len(b)
-            if total > max_total:
-                break
-            out.append((root / f, b))
-    except Exception:
-        pass
-    return out
 
 
 @contextlib.contextmanager
@@ -1483,7 +1123,6 @@ def _try_format(path: Path, content: str) -> Tuple[str, str]:
 
 
 # ── Symlink-safe write (defense in depth) ───────────────────────────────────
-
 
 
 # ── Core edit engine (shared by edit_file single + multi) ────────────────────
@@ -3011,7 +2650,7 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
                     f"({_lone_lf} lines). The diff above does not show this "
                     f"whole-file end-of-line change.")
             if not dry_run:
-                # AUDIT 2026-06 — re-check du sha SOUS flock (cf. _guarded_write).
+                # AUDIT 2026-06 — sha re-vérifié au remplacement (_ecrire_garde).
                 # ``new_bytes`` : CRLF et BOM d'origine restaurés.
                 # E7 : verrou partagé avec l'éditeur, TOUJOURS, et le contenu
                 # dont l'édition est partie (old_sha) est re-vérifié dessous :

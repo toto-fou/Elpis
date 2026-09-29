@@ -116,14 +116,11 @@ def _outils_fs(tmp_path, monkeypatch):
 
 
 def test_to_container_est_bien_relatif_a_la_sandbox(tmp_path):
-    """Le contrat de _stat : `path` doit être réutilisable tel quel."""
-    from llm_core.tools.fs_tools import _stat
+    """Le contrat de _stat_entree : `path` doit être réutilisable tel quel."""
+    from llm_core.tools.fs_tools import _stat_entree
     sb = tmp_path
-    sub = tmp_path / "a" / "b"
-    sub.mkdir(parents=True)
-    f = sub / "out.bin"
-    f.write_text("x")
-    d = _stat(f, sb)
+    f = sb / "a" / "b" / "out.bin"
+    d = _stat_entree(f, sb, {"kind": "file", "size": 1, "mtime_ns": 0, "mode": 0o644})
     assert d["path"] == "/work/a/b/out.bin", d["path"]
     assert d["rel"] == "a/b/out.bin", d["rel"]
 

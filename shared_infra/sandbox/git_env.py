@@ -80,7 +80,7 @@ _HARDENING = (
     # /work est partagé entre l'UID app (hôte) et l'UID conteneur (10001 par
     # défaut) qui n'ont AUCUN groupe commun : l'invariant du volume est
     # « cross-writable » = fichiers 0666 / dossiers 0777 (cf. wrapper umask
-    # 0000 des exec conteneur et _chmod_cross_writable des fs tools). Sans
+    # 0000 des exec conteneur et de l'agent de la sandbox). Sans
     # cette clé, les fichiers de .git écrits par le git HÔTE sortaient en
     # 0644/0755 → le shell in-container ne pouvait ni écrire (index.lock:
     # Permission denied) ni même supprimer le repo (rm -rf impossible).

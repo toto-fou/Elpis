@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: MIT
 """tests/llm_core/test_fs_perm_heal.py — auto-réparation des permissions
-croisées conteneur→hôte (``_guarded_write_healing``, 2026-07-21).
+croisées conteneur→hôte (``_ecrire_garde``, 2026-07-21 ; par l'agent
+depuis L4.2).
 
 Contexte : un sous-arbre créé CÔTÉ CONTENEUR avec des modes restrictifs
 (``git clone`` tapé dans un terminal antérieur au wrapper umask 0000,
 ``tar -x`` qui préserve les modes de l'archive…) appartient à l'UID 10001 :
-le process hôte (outils fs write/edit) se prend un ``PermissionError``.
-``_guarded_write_healing`` déclenche alors ``repair_work_perms`` (chmod root
-DANS le conteneur, via le bridge) puis retente UNE fois.
+l'écriture est refusée (``denied``). ``_ecrire_garde`` déclenche alors
+``repair_work_perms`` (chmod root DANS le conteneur, via le bridge) puis
+retente UNE fois.
 
 Sans Docker ici : ``repair_work_perms`` est monkeypatché ; on valide le
 protocole (déclenchement, arguments, retry unique, propagation d'échec).
@@ -18,6 +19,7 @@ import pytest
 
 import llm_core.tools._exec_bridge as B
 import llm_core.tools.fs_tools as F
+from shared_infra.sandbox.agent_client import AgentError
 
 
 @pytest.fixture()
@@ -26,23 +28,27 @@ def no_flock(monkeypatch):
     monkeypatch.setattr(F, "_FSTOOLS_FLOCK", False)
 
 
-def _flaky_writer(target, fail_times: int):
-    """write_fn qui échoue en PermissionError ``fail_times`` fois puis écrit."""
-    calls = {"n": 0}
+class _EspRefus:
+    """Espace dont les ``refus`` premières écritures sont refusées (``code``)."""
 
-    def _fn():
-        calls["n"] += 1
-        if calls["n"] <= fail_times:
-            raise PermissionError(13, "Permission denied", str(target))
-        target.write_text("ok", encoding="utf-8")
+    def __init__(self, refus: int, code: str = "denied"):
+        self.refus, self.code, self.ecritures = refus, code, 0
 
-    return _fn, calls
+    def ecrire(self, rel, data, **kw):
+        self.ecritures += 1
+        if self.ecritures <= self.refus:
+            raise AgentError(self.code, "refusé")
+        return {"size": len(data), "created": True}
+
+
+_ABSENT = ({"kind": "missing"}, None, "")
+
+
+def _ecrire(esp, root, rel):
+    return F._ecrire_garde(esp, "alice", root, root / rel, rel, b"ok", etat=_ABSENT)
 
 
 def test_heal_repairs_then_retries_once(tmp_path, monkeypatch, no_flock):
-    root = tmp_path / "work"
-    (root / "repo" / "sub").mkdir(parents=True)
-    target = root / "repo" / "sub" / "f.txt"
     seen = {}
 
     def _repair(*, username, sandbox_root, rel_path=""):
@@ -50,51 +56,36 @@ def test_heal_repairs_then_retries_once(tmp_path, monkeypatch, no_flock):
         return True
 
     monkeypatch.setattr(B, "repair_work_perms", _repair)
-    write_fn, calls = _flaky_writer(target, fail_times=1)
-
-    out = F._guarded_write_healing("alice", root, target, "", write_fn)
-
-    assert out is None                       # écriture réussie au retry
-    assert calls["n"] == 2                   # 1 échec + 1 retry
-    assert target.read_text(encoding="utf-8") == "ok"
+    esp = _EspRefus(1)
+    r, err = _ecrire(esp, tmp_path / "work", "repo/sub/f.txt")
+    assert err is None and r["created"]     # écriture réussie au retry
+    assert esp.ecritures == 2               # 1 refus + 1 retry
     assert seen["username"] == "alice"
     # rel_path : relatif à la racine sandbox → premier segment = le dépôt.
     assert seen["rel_path"].split("/")[0] == "repo"
 
 
 def test_heal_propagates_when_repair_fails(tmp_path, monkeypatch, no_flock):
-    root = tmp_path / "work"
-    root.mkdir()
-    target = root / "repo" / "f.txt"
     monkeypatch.setattr(B, "repair_work_perms",
                         lambda **kw: False)   # conteneur indisponible
-    write_fn, calls = _flaky_writer(target, fail_times=99)
-
-    with pytest.raises(PermissionError):
-        F._guarded_write_healing("alice", root, target, "", write_fn)
-    assert calls["n"] == 1                   # pas de retry si la réparation échoue
+    esp = _EspRefus(99)
+    with pytest.raises(AgentError):
+        _ecrire(esp, tmp_path / "work", "repo/f.txt")
+    assert esp.ecritures == 1               # pas de retry si la réparation échoue
 
 
 def test_heal_single_retry_only(tmp_path, monkeypatch, no_flock):
-    # La réparation « réussit » mais l'écriture échoue toujours (autre cause,
+    # La réparation « réussit » mais l'écriture reste refusée (autre cause,
     # ex. read-only fs) : l'erreur d'origine remonte après UN seul retry.
-    root = tmp_path / "work"
-    root.mkdir()
-    target = root / "repo" / "f.txt"
     monkeypatch.setattr(B, "repair_work_perms", lambda **kw: True)
-    write_fn, calls = _flaky_writer(target, fail_times=99)
-
-    with pytest.raises(PermissionError):
-        F._guarded_write_healing("alice", root, target, "", write_fn)
-    assert calls["n"] == 2
+    esp = _EspRefus(99)
+    with pytest.raises(AgentError):
+        _ecrire(esp, tmp_path / "work", "repo/f.txt")
+    assert esp.ecritures == 2
 
 
 def test_heal_outside_root_propagates(tmp_path, monkeypatch, no_flock):
-    # Cible hors racine sandbox (défense en profondeur) : pas de réparation.
-    root = tmp_path / "work"
-    root.mkdir()
-    outside = tmp_path / "elsewhere" / "f.txt"
-    outside.parent.mkdir()
+    # Refus de confinement (lien hors de /work) : pas de réparation.
     called = {"n": 0}
 
     def _repair(**kw):
@@ -102,10 +93,8 @@ def test_heal_outside_root_propagates(tmp_path, monkeypatch, no_flock):
         return True
 
     monkeypatch.setattr(B, "repair_work_perms", _repair)
-    write_fn, _ = _flaky_writer(outside, fail_times=99)
-
-    with pytest.raises(PermissionError):
-        F._guarded_write_healing("alice", root, outside, "", write_fn)
+    with pytest.raises(AgentError):
+        _ecrire(_EspRefus(99, "outside_root"), tmp_path / "work", "lien/f.txt")
     assert called["n"] == 0
 
 

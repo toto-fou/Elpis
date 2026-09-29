@@ -31,6 +31,9 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Écoute réseau explicite** (`security.listen`) : l'installeur demande
   « ce serveur seulement » ou « réseau local » ; une installation neuve
   écoute en local par défaut.
+- **Intégration continue** (GitHub Actions) : lint (Ruff), typage (mypy),
+  suite complète sur SQLite (Python 3.11 et 3.13), PostgreSQL 17 et
+  MariaDB 11.4, tests front compris.
 
 ### Modifications
 
@@ -107,6 +110,10 @@ selon [SemVer](https://semver.org/lang/fr/).
   (`.git-credentials.json.imported`) est supprimé de la sandbox.
 - **Audit** : les révocations de sessions (toutes, ou d'un compte) sont
   inscrites au journal d'audit.
+- **Journal d'exécution** : le plafond `llm.run_journal_max_mb` est appliqué
+  (il était ignoré, 64 Mo toujours).
+- **Prompts système** : deux enregistrements simultanés d'une même catégorie
+  aboutissent tous deux.
 
 ## 1.0.0 — 2026-09-24
 

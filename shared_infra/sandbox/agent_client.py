@@ -41,7 +41,7 @@ import time
 import weakref
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Any, AsyncIterator, Dict, Iterable, List, Optional, Tuple, Union
+from typing import IO, Any, AsyncIterator, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import httpx
 
@@ -64,6 +64,8 @@ _SONDE_S = 2.0                                  # hello, lecture comprise
 _PETIT = 1 << 16                                # hello, write, fsop, erreurs
 _DELAI_TOTAL_S = 600.0                          # une opération, flux compris
 _ATTENTE_S = 60.0                               # silence toléré en lisant une réponse
+_DELAI_ARCHIVE_S = 3600.0                       # archive ou extraction d'un /work entier
+_TRAME_D, _TRAME_J = 1 << 22, 1 << 18           # trames d'archive : octets, objet JSON
 _LIGNE_MAX = 1 << 15                            # une ligne NDJSON
 _EN_TETES = {"Accept-Encoding": "identity"}     # aucun corps compressé à décoder
 _PASSIF = {"X-Elpis-Passive": "1"}               # l'agent ne compte pas l'appel comme activité
@@ -95,6 +97,47 @@ class AgentListing:
     entries: List[Dict[str, Any]]
     truncated: bool
     errors: int
+
+
+class AgentArchive:
+    """Archive produite par l'agent, en flux : ``debut`` (son plan :
+    ``files``, ``dirs``, ``bytes``, ``truncated``), puis ``async for`` rend les
+    octets de l'archive ou des objets (``{"progress"}``, et en format ``raw``
+    ``{"entry"}`` avant les octets de chaque fichier) ; ``fin`` : le bilan
+    (``files``, ``bytes``, ``skipped``…), une fois le flux lu en entier."""
+
+    def __init__(self, trames: AsyncIterator[Tuple[bytes, bytes]]) -> None:
+        self._trames = trames
+        self.debut: Dict[str, Any] = {}
+        self.fin: Optional[Dict[str, Any]] = None
+
+    async def _ouvrir(self) -> None:
+        genre, corps = await anext(self._trames, (b"", b""))
+        d = _objet(corps) if genre == b"J" else None
+        if d is None or not d.get("start"):
+            raise AgentError("bad_response", "début d'archive attendu")
+        self.debut = d
+
+    def __aiter__(self) -> AsyncIterator[Union[bytes, Dict[str, Any]]]:
+        return self._suite()
+
+    async def _suite(self) -> AsyncIterator[Union[bytes, Dict[str, Any]]]:
+        async for genre, corps in self._trames:
+            if genre == b"D":
+                yield corps
+                continue
+            d = _objet(corps)
+            if d is None:
+                raise AgentError("bad_response", "trame JSON invalide")
+            if "error" in d:
+                raise AgentError(str(d["error"])[:64], str(d.get("message") or "")[:500])
+            if d.get("done"):
+                self.fin = d
+                return
+            if "entry" in d and not _rel_sous(d["entry"], ""):
+                raise AgentError("bad_response", "nom d'entrée invalide")
+            yield d
+        raise AgentError("bad_response", "archive interrompue")
 
 
 class AgentClient:
@@ -348,6 +391,50 @@ class AgentClient:
                 "truncated": bool(d.get("truncated")), "timed_out": bool(d.get("timed_out")),
                 "duration_ms": int(d.get("duration_ms") or 0)}
 
+    @contextlib.asynccontextmanager
+    async def archive(self, paths: Iterable[str] = ("",), *, max_bytes: int, max_files: int,
+                      format: str = "zip", base: str = "", prefix: str = "", dirs: bool = False,
+                      walk: bool = True, strict: bool = True,
+                      deadline_s: float = 30.0) -> AsyncIterator[AgentArchive]:
+        """Archive ``zip``, ``tgz`` ou ``raw`` de ``paths`` (noms relatifs à
+        ``base``, précédés de ``prefix``), produite par l'agent : liens et
+        fichiers spéciaux omis dans les dossiers parcourus. ``strict`` : au-delà
+        des bornes (octets des fichiers, entrées), ``too_large`` avant le
+        premier octet ; sinon l'archive s'arrête là (``truncated``)."""
+        chemins = [_chemin(p) for p in paths]
+        # Données incompressibles : l'archive dépasse un peu les fichiers
+        # (en-têtes, noms jusqu'à 4 Kio par entrée).
+        maxi = max_bytes + max_bytes // 64 + max_files * 10240 + (1 << 20)
+        async with self._flux("POST", "/v1/archive", delai_s=_DELAI_ARCHIVE_S, json={
+                "paths": chemins, "base": base, "prefix": prefix, "format": format,
+                "dirs": dirs, "walk": walk, "strict": strict, "max_bytes": max_bytes,
+                "max_files": max_files, "deadline_s": deadline_s}) as r:
+            flux = AgentArchive(_trames(r, maxi))
+            await flux._ouvrir()
+            yield flux
+
+    async def extract(self, path: str, data: Union[bytes, IO[bytes]], *, max_bytes: int,
+                      max_file: int, max_members: int, keep: str = "", leave: str = "",
+                      on_sent: Optional[Callable[[int], None]] = None) -> Dict[str, Any]:
+        """Remplace le contenu du dossier ``path`` par l'archive tar (gzip ou
+        non) ``data`` : extraite par l'agent dans un dossier provisoire, bornes
+        vérifiées AVANT de toucher au contenu (``too_large``, ``bad_archive``),
+        puis l'ancien contenu supprimé — ou déplacé dans ``keep`` —, sauf les
+        entrées dont le nom correspond au motif ``leave``. ``on_sent(n)`` :
+        octets envoyés. Rend ``files``, ``dirs``, ``bytes``, ``omitted``,
+        ``conflicts``."""
+        corps, taille = _corps_envoi(data, on_sent)
+        params: Dict[str, Any] = {"path": _chemin(path), "max": taille, "max_bytes": max_bytes,
+                                  "max_file": max_file, "max_members": max_members}
+        if keep:
+            params["keep"] = keep
+        if leave:
+            params["leave"] = leave
+        # La réponse vient une fois tout extrait et mis en place.
+        return await self._json("PUT", "/v1/extract", maxi=_PETIT, params=params, content=corps,
+                                headers={"Content-Length": str(taille)}, delai_s=_DELAI_ARCHIVE_S,
+                                timeout=httpx.Timeout(_DELAI_ARCHIVE_S, connect=5))
+
     # ── transport ──────────────────────────────────────────────────────────
     async def _json(self, methode: str, route: str, *, maxi: int, **kw: Any) -> Dict[str, Any]:
         async with self._flux(methode, route, **kw) as r:
@@ -359,11 +446,13 @@ class AgentClient:
 
     @contextlib.asynccontextmanager
     async def _flux(self, methode: str, route: str, *, passif: bool = False,
-                    **kw: Any) -> AsyncIterator[httpx.Response]:
+                    delai_s: Optional[float] = None, **kw: Any) -> AsyncIterator[httpx.Response]:
         """Réponse (≥ 400 : ``AgentError``) d'un agent démarré au besoin et
         de la bonne version. Un échec de CONNEXION (requête pas envoyée) est
         réessayé après démarrage ; rien d'autre. ``passif`` : conteneur
-        arrêté laissé tel quel, requête non comptée comme une activité."""
+        arrêté laissé tel quel, requête non comptée comme une activité.
+        ``delai_s`` : borne totale (défaut ``_DELAI_TOTAL_S``)."""
+        delai = delai_s or _DELAI_TOTAL_S
         if not self._version_ok and route != "/v1/hello":
             await self._verifier_version(passif)
         en_tetes = dict(_EN_TETES, **kw.pop("headers", {}))
@@ -375,7 +464,7 @@ class AgentClient:
         # Borne TOTALE de l'opération, lecture du flux comprise (un agent qui
         # répond au compte-gouttes ne retient pas le thread de l'outil).
         try:
-            async with asyncio.timeout(_DELAI_TOTAL_S):
+            async with asyncio.timeout(delai):
                 for essai in (1, 2):
                     rendu = False
                     try:
@@ -400,7 +489,7 @@ class AgentClient:
                         raise AgentError("transport", f"{type(e).__name__}: {e}") from None
         except TimeoutError:
             self._version_ok = False
-            raise AgentError("timeout", f"opération de plus de {_DELAI_TOTAL_S:.0f} s") from None
+            raise AgentError("timeout", f"opération de plus de {delai:.0f} s") from None
 
     @contextlib.asynccontextmanager
     async def _connexion(self) -> AsyncIterator[httpx.AsyncClient]:
@@ -521,19 +610,24 @@ def _objet(brut: bytes) -> Optional[Dict[str, Any]]:
     return d if isinstance(d, dict) else None
 
 
-def _corps_envoi(data: Union[bytes, IO[bytes]]) -> Tuple[Any, int]:
+def _corps_envoi(data: Union[bytes, IO[bytes]],
+                 rapport: Optional[Callable[[int], None]] = None) -> Tuple[Any, int]:
     """(corps de requête, taille) : octets tels quels, ou fichier ouvert
-    envoyé par blocs depuis sa position (jamais chargé en entier)."""
+    envoyé par blocs depuis sa position (jamais chargé en entier) ;
+    ``rapport(n)`` après chaque bloc lu."""
     if isinstance(data, (bytes, bytearray, memoryview)):
         b = bytes(data)
+        if rapport is not None:
+            rapport(len(b))
         return b, len(b)
     debut = data.tell()
     taille = data.seek(0, os.SEEK_END) - debut
     data.seek(debut)
-    return _par_blocs(data, taille), taille
+    return _par_blocs(data, taille, rapport=rapport), taille
 
 
-async def _par_blocs(f: IO[bytes], taille: int, bloc: int = 1 << 20) -> AsyncIterator[bytes]:
+async def _par_blocs(f: IO[bytes], taille: int, bloc: int = 1 << 20,
+                     rapport: Optional[Callable[[int], None]] = None) -> AsyncIterator[bytes]:
     """``taille`` octets de ``f`` par blocs : corps de requête en flux (sa
     longueur est annoncée par ``Content-Length``)."""
     reste = taille
@@ -542,6 +636,8 @@ async def _par_blocs(f: IO[bytes], taille: int, bloc: int = 1 << 20) -> AsyncIte
         if not b:
             return
         reste -= len(b)
+        if rapport is not None:
+            rapport(len(b))
         yield b
 
 
@@ -587,6 +683,34 @@ async def _lignes(r: httpx.Response, maxi: int,
             raise AgentError("bad_response", "ligne NDJSON trop longue")
 
 
+async def _trames(r: httpx.Response, maxi: int) -> AsyncIterator[Tuple[bytes, bytes]]:
+    """Trames ``(genre, corps)`` d'une archive de l'agent : ``D`` (octets,
+    ``maxi`` en tout) ou ``J`` (objet JSON), chacune de taille bornée."""
+    tampon, donnees = bytearray(), 0
+    async for b in r.aiter_raw():
+        tampon += b
+        debut = 0
+        while len(tampon) - debut >= 5:
+            genre, n = bytes(tampon[debut:debut + 1]), int.from_bytes(tampon[debut + 1:debut + 5], "big")
+            if n > (_TRAME_D if genre == b"D" else _TRAME_J if genre == b"J" else -1):
+                raise AgentError("bad_response", "trame invalide")
+            if len(tampon) - debut < 5 + n:
+                break
+            corps = bytes(tampon[debut + 5:debut + 5 + n])
+            debut += 5 + n
+            if genre == b"D":
+                donnees += n
+                if donnees > maxi:
+                    raise AgentError("too_large", f"archive de plus de {maxi} octets")
+            yield genre, corps
+        if debut:
+            del tampon[:debut]
+        if len(tampon) > _TRAME_D + 5:
+            raise AgentError("bad_response", "trame trop longue")
+    if tampon:
+        raise AgentError("bad_response", "trame tronquée")
+
+
 async def _refus(r: httpx.Response) -> None:
     brut = b""
     with contextlib.suppress(AgentError):
@@ -597,4 +721,5 @@ async def _refus(r: httpx.Response) -> None:
 
 
 __all__ = ["AGENT_DIR", "AGENT_MOUNT", "AGENT_RUN_DIR", "AGENT_SOCKET", "RELAY_DIR",
-           "RELAY_MOUNT", "AgentClient", "AgentError", "AgentListing", "AgentRead"]
+           "RELAY_MOUNT", "AgentArchive", "AgentClient", "AgentError", "AgentListing",
+           "AgentRead"]

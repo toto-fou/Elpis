@@ -53,6 +53,17 @@ corps de requête par Content-Length seulement :
                   "duration_ms"} ; git durci (_GIT_CONFIG), sortie en UTF-8
                   (octets invalides remplacés) ; « relay » : réseau par le
                   relais de l'hôte, le temps de la commande (cf. _Relais)
+  POST /v1/archive {"paths": [...], "base", "prefix", "format": "zip|tgz|raw",
+                   "dirs", "walk", "strict", "max_bytes", "max_files", "deadline_s"}
+                  → trames (octet de genre, longueur sur 4 octets, corps) : J
+                  {"start", "files", "dirs", "bytes", "truncated"}, puis D (octets
+                  de l'archive) et J {"progress"} ; en ``raw``, J {"entry", "kind",
+                  "size", "mtime_ns", "mode"} avant les octets de chaque fichier ;
+                  dernière trame J {"done", "files", "bytes", "skipped", …} ou
+                  {"error"}. ``strict`` : au-delà des bornes, 413 avant tout octet.
+  PUT  /v1/extract ?path= &keep= &leave= &max_bytes= &max_file= &max_members=
+                  (corps = archive tar, gzip ou non) → {"files", "dirs", "bytes",
+                  "omitted", "conflicts"} : le contenu de path est remplacé
   POST /v1/shutdown {"if_version": v}
 
 En-tête ``X-Elpis-Passive: 1`` : requête de l'hôte qui ne compte pas comme une
@@ -66,7 +77,9 @@ import contextlib
 import errno
 import fcntl
 import fnmatch
+import gzip
 import hashlib
+import io
 import json
 import os
 import re
@@ -78,8 +91,11 @@ import socketserver
 import stat
 import subprocess
 import sys
+import tarfile
 import threading
 import time
+import zipfile
+import zlib
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Dict, Iterable, Iterator, Optional, Tuple
 from urllib.parse import parse_qs, urlsplit
@@ -99,6 +115,8 @@ _RELEVES_OUVERTS = 16                # relevés ouverts en même temps
 _RELEVE_DUREE_S = 3600               # un relevé jamais clos est oublié
 _PROFONDEUR_MAX = 4096               # list : profondeur (au-delà, PATH_MAX)
 _SIGNE_S = 2.0                       # flux NDJSON : signe de vie au moins toutes les 2 s
+_PROGRES_S = 0.5                     # archive : progression au moins toutes les 0,5 s
+_OMIS_DETAILLES = 100                # archive : entrées omises détaillées dans le bilan
 _INCONNU, _TROP_GROS = object(), object()
 Cle = Tuple[int, int, int]           # (mtime_ns, taille, inode)
 
@@ -309,6 +327,206 @@ def _supprimer(p: str) -> None:
         shutil.rmtree(p)                                 # ne suit aucun lien
     else:
         os.unlink(p)
+
+
+def _nom_simple(v: Any) -> str:
+    """Un nom d'entrée (un seul composant), ou ``""``."""
+    nom = normaliser(v or "")
+    if "/" in nom:
+        raise Refus(400, "bad_path", "un nom sans « / » attendu")
+    return nom
+
+
+# ── archives ───────────────────────────────────────────────────────────────
+class _Sortie:
+    """Réponse en trames, en HTTP chunked : ``D`` (octets de l'archive,
+    regroupés par blocs de 1 Mio) ou ``J`` (un objet JSON) ; genre sur un
+    octet, longueur sur quatre (gros-boutiste), corps."""
+
+    def __init__(self, wfile: Any) -> None:
+        self._w = wfile
+        self._tampon = bytearray()
+
+    def write(self, b: Any) -> int:
+        self._tampon += b
+        if len(self._tampon) >= _BLOC:
+            self._vider()
+        return len(b)
+
+    def flush(self) -> None:
+        pass
+
+    def close(self) -> None:                              # zipfile : rien à fermer ici
+        pass
+
+    def json(self, obj: Dict[str, Any]) -> None:
+        self._vider()
+        self._trame(b"J", json.dumps(obj, separators=(",", ":")).encode())
+
+    def fermer(self) -> None:
+        self._vider()
+        self._w.write(b"0\r\n\r\n")
+
+    def _vider(self) -> None:
+        if self._tampon:
+            self._trame(b"D", bytes(self._tampon))
+            self._tampon.clear()
+
+    def _trame(self, genre: bytes, corps: bytes) -> None:
+        t = genre + len(corps).to_bytes(4, "big") + corps
+        self._w.write(b"%x\r\n%s\r\n" % (len(t), t))
+
+
+def _copier(fd: int, dest: Any, taille: int) -> int:
+    """Au plus ``taille`` octets de ``fd`` vers ``dest`` ; rend le nombre copié."""
+    n = 0
+    while n < taille:
+        b = os.read(fd, min(_BLOC, taille - n))
+        if not b:
+            break
+        dest.write(b)
+        n += len(b)
+    return n
+
+
+class _Exact(io.RawIOBase):
+    """``taille`` octets exactement de ``fd`` (en-tête tar déjà écrit) : un
+    fichier raccourci entre-temps est complété par des octets nuls
+    (``complete`` à faux)."""
+
+    def __init__(self, fd: int, taille: int) -> None:
+        self._fd, self._reste, self.complete = fd, taille, True
+
+    def readable(self) -> bool:
+        return True
+
+    def readinto(self, b: Any) -> int:
+        n, lu = min(len(b), self._reste), 0         # toujours n octets : tarfile
+        while lu < n and self.complete:              # refuse une lecture courte
+            morceau = os.read(self._fd, n - lu)
+            if not morceau:
+                self.complete = False
+                break
+            b[lu:lu + len(morceau)] = morceau
+            lu += len(morceau)
+        b[lu:n] = bytes(n - lu)
+        self._reste -= n
+        return n
+
+
+def _date_zip(t: float) -> Tuple[int, int, int, int, int, int]:
+    """Date d'une entrée zip, bornée à la plage du format (1980-2107)."""
+    a, mo, j, h, mi, s = min(max(time.localtime(t)[:6], (1980, 1, 1, 0, 0, 0)),
+                             (2107, 12, 31, 23, 59, 58))
+    return a, mo, j, h, mi, s
+
+
+class _Zip:
+    def __init__(self, sortie: _Sortie) -> None:
+        self._zf = zipfile.ZipFile(sortie, "w", zipfile.ZIP_DEFLATED)
+
+    def dossier(self, nom: str, st: os.stat_result) -> None:
+        zi = zipfile.ZipInfo(nom + "/", _date_zip(st.st_mtime))
+        zi.external_attr = (stat.S_IFDIR | stat.S_IMODE(st.st_mode)) << 16 | 0x10
+        self._zf.writestr(zi, b"")
+
+    def fichier(self, nom: str, st: os.stat_result, fd: int) -> Tuple[int, bool]:
+        zi = zipfile.ZipInfo(nom, _date_zip(st.st_mtime))
+        zi.compress_type = zipfile.ZIP_DEFLATED
+        zi.external_attr = (st.st_mode & 0xFFFF) << 16
+        with self._zf.open(zi, "w", force_zip64=st.st_size >= zipfile.ZIP64_LIMIT) as w:
+            return _copier(fd, w, st.st_size), True
+
+    def fermer(self) -> None:
+        self._zf.close()
+
+
+class _Tar:
+    def __init__(self, sortie: _Sortie) -> None:
+        self._gz = gzip.GzipFile(fileobj=sortie, mode="wb", compresslevel=6)
+        self._tf = tarfile.open(fileobj=self._gz, mode="w|",   # noqa: SIM115 — fermé par fermer()
+                                format=tarfile.PAX_FORMAT)
+
+    def _info(self, nom: str, st: os.stat_result) -> tarfile.TarInfo:
+        ti = tarfile.TarInfo(nom)
+        ti.mode, ti.mtime = stat.S_IMODE(st.st_mode), int(st.st_mtime)
+        return ti
+
+    def dossier(self, nom: str, st: os.stat_result) -> None:
+        ti = self._info(nom, st)
+        ti.type = tarfile.DIRTYPE
+        self._tf.addfile(ti)
+
+    def fichier(self, nom: str, st: os.stat_result, fd: int) -> Tuple[int, bool]:
+        ti = self._info(nom, st)
+        ti.size = st.st_size
+        src = _Exact(fd, st.st_size)
+        self._tf.addfile(ti, src)
+        return st.st_size, src.complete
+
+    def fermer(self) -> None:
+        self._tf.close()
+        self._gz.close()
+
+
+class _Brut:
+    """Chaque entrée en trame ``J {"entry"}``, suivie des octets d'un fichier."""
+
+    def __init__(self, sortie: _Sortie) -> None:
+        self._s = sortie
+
+    def _entree(self, nom: str, genre: str, st: os.stat_result) -> None:
+        self._s.json({"entry": nom, "kind": genre, "size": st.st_size if genre == "file" else 0,
+                      "mtime_ns": st.st_mtime_ns, "mode": stat.S_IMODE(st.st_mode)})
+
+    def dossier(self, nom: str, st: os.stat_result) -> None:
+        self._entree(nom, "dir", st)
+
+    def fichier(self, nom: str, st: os.stat_result, fd: int) -> Tuple[int, bool]:
+        self._entree(nom, "file", st)
+        n = _copier(fd, self._s, st.st_size)
+        return n, n == st.st_size
+
+    def fermer(self) -> None:
+        pass
+
+
+_FORMATS: Dict[str, Any] = {"zip": _Zip, "tgz": _Tar, "raw": _Brut}
+
+
+def _args_archive(d: Dict[str, Any]) -> Dict[str, Any]:
+    chemins = d.get("paths", [""])
+    if not isinstance(chemins, list) or not chemins or len(chemins) > 10000:
+        raise Refus(400, "bad_request", "paths : liste de 1 à 10 000 chemins")
+    genre = d.get("format") or "zip"
+    if genre not in _FORMATS:
+        raise Refus(400, "bad_request", f"format inconnu : {genre!r}")
+    prefixe = normaliser(d.get("prefix") or "")
+    return {"paths": chemins, "base": normaliser(d.get("base") or ""),
+            "prefix": prefixe + "/" if prefixe else "", "format": genre,
+            "dirs": _vrai(d.get("dirs")), "walk": _vrai(d.get("walk", True)),
+            "strict": _vrai(d.get("strict", True)),
+            "max_bytes": max(0, int(d.get("max_bytes") or 1 << 30)),
+            "max_files": max(0, int(d.get("max_files") or 20000)),
+            "deadline_s": max(0.1, min(float(d.get("deadline_s") or 30), 300.0))}
+
+
+class _Lecteur(io.RawIOBase):
+    """Les blocs du corps de la requête, lus comme un fichier."""
+
+    def __init__(self, blocs: Iterable[bytes]) -> None:
+        self._blocs, self._bloc, self._pos = iter(blocs), b"", 0
+
+    def readable(self) -> bool:
+        return True
+
+    def readinto(self, b: Any) -> int:
+        if self._pos >= len(self._bloc):
+            self._bloc, self._pos = next(self._blocs, b""), 0
+        n = min(len(b), len(self._bloc) - self._pos)
+        b[:n] = memoryview(self._bloc)[self._pos:self._pos + n]
+        self._pos += n
+        return n
 
 
 class Agent:
@@ -1027,6 +1245,291 @@ class Agent:
                 os.unlink(tmp)
 
 
+    # ── archives ───────────────────────────────────────────────────────────
+    def entrees_archive(self, a: Dict[str, Any], omettre: Any
+                        ) -> Iterator[Tuple[str, str, os.stat_result]]:
+        """(nom dans l'archive, chemin, stat) : fichiers ordinaires — et
+        dossiers si ``dirs`` — des chemins demandés, dans leur ordre, puis par
+        nom ; noms relatifs à ``base``. Un chemin demandé qui est un lien sous
+        la racine est suivi ; dans un dossier parcouru (``walk``), liens,
+        fichiers spéciaux et noms non UTF-8 sont omis : ``omettre(nom, code)``."""
+        base, vus = a["base"], set()
+        for c in a["paths"]:
+            rel = normaliser(c)
+            if base and rel != base and not rel.startswith(base + "/"):
+                raise Refus(400, "bad_path", "chemin hors de la base de l'archive")
+            nom = rel[len(base):].lstrip("/") if base else rel
+            if (nom, rel) in vus:
+                continue
+            vus.add((nom, rel))
+            try:
+                p = self.reel(rel)
+                st = os.stat(p)
+            except Refus as r:
+                omettre(nom or rel, r.code)
+                continue
+            except OSError as e:
+                omettre(nom or rel, _refus_os(e).code)
+                continue
+            if stat.S_ISREG(st.st_mode):
+                yield nom or os.path.basename(p), p, st
+            elif not stat.S_ISDIR(st.st_mode):
+                omettre(nom, "special")
+            elif not a["walk"]:
+                omettre(nom, "is_dir")
+            else:
+                if nom and a["dirs"]:
+                    yield nom, p, st
+                yield from self._sous_arbre(p, nom, a["dirs"], omettre)
+
+    def _sous_arbre(self, p: str, nom: str, dossiers: bool, omettre: Any
+                    ) -> Iterator[Tuple[str, str, os.stat_result]]:
+        pile = [(p, nom)]
+        while pile:
+            dossier, dnom = pile.pop()
+            try:
+                with os.scandir(dossier) as it:
+                    enfants = sorted(it, key=lambda x: x.name)
+            except OSError as err:
+                omettre(dnom or ".", _refus_os(err).code)
+                continue
+            sous = []
+            for e in enfants:
+                try:
+                    e.name.encode("utf-8")
+                except UnicodeEncodeError:
+                    omettre(f"{dnom}/{e.name.encode('utf-8', 'surrogateescape').decode('utf-8', 'replace')}",
+                            "undecodable")
+                    continue
+                enom = f"{dnom}/{e.name}" if dnom else e.name
+                try:
+                    st = e.stat(follow_symlinks=False)
+                except OSError as x:
+                    omettre(enom, _refus_os(x).code)
+                    continue
+                if stat.S_ISDIR(st.st_mode):
+                    if dossiers:
+                        yield enom, e.path, st
+                    sous.append((e.path, enom))
+                elif stat.S_ISREG(st.st_mode):
+                    yield enom, e.path, st
+                else:
+                    omettre(enom, "link" if stat.S_ISLNK(st.st_mode) else "special")
+            pile.extend(reversed(sous))
+
+    def plan_archive(self, a: Dict[str, Any]) -> Dict[str, Any]:
+        """Ce que l'archive contiendra : ``files``, ``dirs``, ``bytes`` ;
+        au-delà des bornes (entrées, octets) ou du délai : refus si
+        ``strict``, sinon ``truncated``."""
+        fichiers = dossiers = octets = 0
+        tronque = False
+        echeance = time.monotonic() + a["deadline_s"]
+        for _nom, _p, st in self.entrees_archive(a, lambda *_: None):
+            if time.monotonic() > echeance:
+                if a["strict"]:
+                    raise Refus(504, "timeout", "parcours de l'arborescence trop long")
+                tronque = True
+                break
+            est_fichier = stat.S_ISREG(st.st_mode)
+            if (fichiers + dossiers >= a["max_files"]
+                    or est_fichier and octets + st.st_size > a["max_bytes"]):
+                if a["strict"]:
+                    raise Refus(413, "too_large", "archive trop volumineuse",
+                                max_files=a["max_files"], max_bytes=a["max_bytes"])
+                tronque = True
+                break
+            if est_fichier:
+                fichiers, octets = fichiers + 1, octets + st.st_size
+            else:
+                dossiers += 1
+        return {"start": True, "files": fichiers, "dirs": dossiers, "bytes": octets,
+                "truncated": tronque}
+
+    def ecrire_archive(self, sortie: _Sortie, a: Dict[str, Any], plan: Dict[str, Any]
+                       ) -> Dict[str, Any]:
+        """L'archive dans ``sortie`` (mêmes bornes que le plan), progression
+        toutes les ``_PROGRES_S`` ; rend le bilan. Chaque fichier est lu sur
+        son inode ouvert sans suivre de lien."""
+        omis: list = []
+        n_omis = 0
+
+        def omettre(nom: str, code: str) -> None:
+            nonlocal n_omis
+            n_omis += 1
+            if len(omis) < _OMIS_DETAILLES:
+                omis.append({"path": nom[:512], "error": code})
+        ecrivain = _FORMATS[a["format"]](sortie)
+        fichiers = dossiers = octets = 0
+        tronque = bool(plan["truncated"])
+        signe = time.monotonic()
+        prefixe = a["prefix"]
+        for nom, p, st in self.entrees_archive(a, omettre):
+            if fichiers + dossiers >= a["max_files"] or tronque and fichiers + dossiers >= \
+                    plan["files"] + plan["dirs"]:
+                if a["strict"]:
+                    raise Refus(413, "too_large", "archive trop volumineuse")
+                tronque = True
+                break
+            if stat.S_ISDIR(st.st_mode):
+                ecrivain.dossier(prefixe + nom, st)
+                dossiers += 1
+                continue
+            try:
+                fd = os.open(p, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC)
+            except OSError as e:
+                omettre(nom, _refus_os(e).code)
+                continue
+            try:
+                st = os.fstat(fd)
+                if not stat.S_ISREG(st.st_mode):
+                    omettre(nom, "special")
+                    continue
+                if octets + st.st_size > a["max_bytes"]:
+                    if a["strict"]:
+                        raise Refus(413, "too_large", "archive trop volumineuse")
+                    tronque = True
+                    break
+                n, entier = ecrivain.fichier(prefixe + nom, st, fd)
+            finally:
+                os.close(fd)
+            if not entier:
+                omettre(nom, "changed")                  # raccourci pendant la lecture
+            fichiers, octets = fichiers + 1, octets + n
+            if time.monotonic() - signe >= _PROGRES_S:
+                signe = time.monotonic()
+                sortie.json({"progress": True, "files": fichiers, "dirs": dossiers,
+                             "bytes": octets, "current": nom[:512]})
+        ecrivain.fermer()
+        return {"done": True, "files": fichiers, "dirs": dossiers, "bytes": octets,
+                "truncated": tronque, "omitted": n_omis, "skipped": omis}
+
+    def extraire(self, rel: str, corps: Iterable[bytes], *, garder: str, laisser: str,
+                 max_octets: int, max_fichier: int, max_membres: int) -> Dict[str, Any]:
+        """Remplace le contenu du dossier ``rel`` par une archive tar (gzip ou
+        non) reçue en flux. Extraite d'abord dans un dossier provisoire :
+        fichiers ordinaires et dossiers seulement, noms contenus, bornes
+        vérifiées avant de toucher au contenu. Puis, sous verrou, l'ancien
+        contenu est supprimé — ou déplacé dans ``garder`` — sauf les entrées
+        dont le nom correspond au motif ``laisser``."""
+        cible = self.reel(rel)
+        if not _est_dossier(cible):
+            raise Refus(409, "not_dir", "pas un dossier")
+        tmp = _nom_provisoire(cible)
+        try:
+            _creer_dossier(tmp, parents=False)
+            bilan = self._extraire_dans(tmp, corps, max_octets, max_fichier, max_membres)
+            with self._verrou:
+                bilan["conflicts"] += self._remplacer(cible, tmp, garder, laisser)
+        except OSError as e:
+            raise _refus_os(e) from None
+        finally:
+            if os.path.lexists(tmp):
+                shutil.rmtree(tmp, ignore_errors=True)
+        return bilan
+
+    def _extraire_dans(self, dest: str, corps: Iterable[bytes], max_octets: int,
+                       max_fichier: int, max_membres: int) -> Dict[str, Any]:
+        n = d = total = membres = omis = conflits = 0
+        dates = []
+        try:
+            with tarfile.open(fileobj=_Lecteur(corps), mode="r|*") as tf:
+                for m in tf:
+                    membres += 1
+                    if membres > max_membres:
+                        raise Refus(413, "too_large", "trop d'entrées", limit="count",
+                                    max=max_membres)
+                    parties = [x for x in m.name.split("/") if x not in ("", ".")]
+                    if (not parties or ".." in parties or m.name.startswith("/")
+                            or "\x00" in m.name or not (m.isfile() or m.isdir())):
+                        omis += 1                        # lien, fichier spécial, nom hors de dest
+                        continue
+                    try:
+                        m.name.encode("utf-8")
+                    except UnicodeEncodeError:
+                        omis += 1
+                        continue
+                    p = os.path.join(dest, *parties)
+                    if m.isdir():
+                        try:
+                            _creer_dossier(p)
+                        except OSError:
+                            conflits += 1                # un fichier porte déjà ce nom
+                            continue
+                        dates.append((p, m.mtime))
+                        d += 1
+                        continue
+                    if m.size > max_fichier:
+                        raise Refus(413, "too_large", "fichier trop volumineux", limit="member",
+                                    max=max_fichier)
+                    total += m.size
+                    if total > max_octets:
+                        raise Refus(413, "too_large", "archive trop volumineuse", limit="total",
+                                    max=max_octets)
+                    try:
+                        _creer_dossier(os.path.dirname(p))
+                        fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW
+                                     | os.O_CLOEXEC, 0o600)
+                    except OSError:
+                        conflits += 1
+                        continue
+                    try:
+                        src = tf.extractfile(m)
+                        while src is not None:
+                            b = src.read(_BLOC)
+                            if not b:
+                                break
+                            vue = memoryview(b)
+                            while vue:
+                                vue = vue[os.write(fd, vue):]
+                        # Quel que soit l'umask ; exécutable : tous les bits x.
+                        os.fchmod(fd, _MODE_FICHIER | (0o111 if m.mode & 0o111 else 0))
+                        try:
+                            os.utime(fd, (m.mtime, m.mtime))
+                        except (OverflowError, ValueError):
+                            pass
+                    finally:
+                        os.close(fd)
+                    n += 1
+        except (tarfile.TarError, EOFError, zlib.error) as e:
+            raise Refus(400, "bad_archive", f"archive illisible : {e}"[:300]) from None
+        for p, t in reversed(dates):                     # dossiers après leur contenu
+            try:
+                os.utime(p, (t, t))
+            except (OSError, OverflowError, ValueError):
+                pass
+        return {"files": n, "dirs": d, "bytes": total, "omitted": omis, "conflicts": conflits}
+
+    def _remplacer(self, cible: str, tmp: str, garder: str, laisser: str) -> int:
+        """Contenu de ``cible`` remplacé par celui de ``tmp``, entrée par
+        entrée, sans s'arrêter en chemin : rend le nombre d'entrées qui n'ont
+        pu être retirées ou mises en place (droits, nom déjà pris)."""
+        nom_tmp = os.path.basename(tmp)
+        anciens = [n for n in os.listdir(cible)
+                   if n != nom_tmp and not (laisser and fnmatch.fnmatchcase(n, laisser))]
+        if garder:
+            dossier = os.path.join(cible, garder)
+            _creer_dossier(dossier, parents=False)       # déjà là : refus, rien de touché
+        conflits = 0
+        for n in anciens:
+            try:
+                if garder:
+                    os.rename(os.path.join(cible, n), os.path.join(dossier, n))
+                else:
+                    _supprimer(os.path.join(cible, n))
+            except FileNotFoundError:
+                pass
+            except OSError:
+                conflits += 1
+        for n in os.listdir(tmp):
+            try:
+                if os.path.lexists(os.path.join(cible, n)):
+                    raise FileExistsError(n)
+                os.rename(os.path.join(tmp, n), os.path.join(cible, n))
+            except OSError:
+                conflits += 1
+        return conflits
+
+
 # ── git ───────────────────────────────────────────────────────────────────
 # Clés imposées à chaque git de l'agent (portée « command », au-dessus de la
 # config du dépôt et de /work/.gitconfig) : ni hook, ni moniteur, ni
@@ -1358,6 +1861,22 @@ class _Gestionnaire(BaseHTTPRequestHandler):
             self._ndjson(premiere, lignes)
         elif cle == ("POST", "/v1/git"):
             self._json(200, agent.git(self._corps_json()))
+        elif cle == ("POST", "/v1/archive"):
+            a = _args_archive(self._corps_json())
+            plan = agent.plan_archive(a)                 # un refus part AVANT l'en-tête 200
+            self._trames(plan, lambda sortie: agent.ecrire_archive(sortie, a, plan))
+        elif cle == ("PUT", "/v1/extract"):
+            corps = self._corps(_entier(q, "max"))
+            try:
+                self._json(200, agent.extraire(
+                    normaliser(q.get("path")), corps, garder=_nom_simple(q.get("keep")),
+                    laisser=q.get("leave") or "", max_octets=_entier(q, "max_bytes", 1 << 30) or 0,
+                    max_fichier=_entier(q, "max_file", 1 << 30) or 0,
+                    max_membres=_entier(q, "max_members", 100000) or 0))
+            except Refus:
+                for _bloc in corps:                      # lu jusqu'au bout : l'erreur part
+                    pass                                 # sur une connexion synchronisée
+                raise
         elif cle == ("POST", "/v1/shutdown"):
             attendue = self._corps_json().get("if_version")
             if attendue and attendue != VERSION:         # déjà remplacé par un autre
@@ -1444,6 +1963,30 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                 vide = time.monotonic()
         vider()
         self.wfile.write(b"0\r\n\r\n")
+
+    def _trames(self, debut: Dict[str, Any], ecrire: Any) -> None:
+        """Réponse en trames (``_Sortie``) : ``debut``, ce qu'écrit
+        ``ecrire(sortie)``, puis le bilan qu'elle rend — ou, en cours de flux,
+        une dernière trame ``{"error"}``."""
+        self.send_response(200)
+        self.send_header("Content-Type", "application/x-elpis-frames")
+        self.send_header("Transfer-Encoding", "chunked")
+        self.end_headers()
+        sortie = _Sortie(self.wfile)
+        sortie.json(debut)
+        try:
+            fin = ecrire(sortie)
+        except (BrokenPipeError, ConnectionResetError):
+            raise
+        except Refus as r:
+            fin = {"error": r.code, "message": r.message}
+        except OSError as e:
+            refus = _refus_os(e)
+            fin = {"error": refus.code, "message": refus.message}
+        except Exception as e:                           # noqa: BLE001
+            fin = {"error": "internal", "message": f"{type(e).__name__}: {e}"}
+        sortie.json(fin)
+        sortie.fermer()
 
     def _lire(self, agent: Agent, q: Dict[str, str]) -> None:
         fd = _ouvrir_fichier(agent.reel(normaliser(q.get("path"))))

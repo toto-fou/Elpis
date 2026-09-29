@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
-# Intégration continue : lint et typage, puis la suite complète sur SQLite (Python 3.11,
-# le minimum supporté, et 3.13) et sur un serveur PostgreSQL / MariaDB jetable.
+# Intégration continue : lint et typage, puis la suite complète sur SQLite
+# (Python 3.11, le minimum supporté, et 3.13) et sur un serveur PostgreSQL /
+# MariaDB jetable.
 # Les tests front (Node) passent par tests/frontend/test_js_units.py ; les bancs
 # Playwright restent manuels.
 name: CI

@@ -1,5 +1,7 @@
 # Elpis
 
+[![CI](https://github.com/toto-fou/Elpis/actions/workflows/ci.yml/badge.svg)](https://github.com/toto-fou/Elpis/actions/workflows/ci.yml)
+
 > **English summary.** Elpis is a self-hosted LLM assistant: an agentic chat
 > (tools, sub-agents, long-term memory, skills), a code editor with a per-user
 > Docker sandbox and terminal, scheduled routines, a RAG service and an admin

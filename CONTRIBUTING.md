@@ -18,8 +18,11 @@ or English.
 ## Avant d'ouvrir une pull request
 
 - Tests Python : `venv/bin/pip install -r requirements-dev.txt` une fois, puis `venv/bin/pytest` (le pytest du venv, pas celui du PATH). La suite tourne en parallèle (`-n auto`) ; `venv/bin/pytest -n0` pour la lancer en série.
-- Tests unitaires front : `node tests/frontend/<fichier>.js`.
-- Lint : `venv/bin/ruff check .`
+- Tests unitaires front : `node tests/frontend/<fichier>.js` (aussi lancés
+  par pytest).
+- Lint et typage : `venv/bin/ruff check .` et `venv/bin/mypy`.
+- La CI (GitHub Actions) rejoue tout cela sur Python 3.11 et 3.13, puis la
+  suite complète sur PostgreSQL et MariaDB.
 - Après avoir ajouté des classes utilitaires Tailwind :
   `node tools/generate_tailwind_css.mjs`.
 - Une pull request = un sujet ; décrivez le comportement avant/après.

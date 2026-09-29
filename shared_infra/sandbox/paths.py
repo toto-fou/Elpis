@@ -425,6 +425,40 @@ def rel_under(base: Any, target: Any) -> str:
         raise SandboxPathError(f"path outside the sandbox root: {str(target)!r}") from None
 
 
+
+def lexical_rel(base: Any, user_path: Any, *, allow_root: bool = True) -> str:
+    """Chemin relatif à ``base`` d'un chemin fourni (modèle, route), SANS lire
+    le disque : préfixe ``/work`` retiré, ``~`` = la racine, ``.`` et ``..``
+    résolus sur le texte. Les liens, eux, sont résolus par l'agent de la
+    sandbox, qui les garde sous ``/work`` (L4). Sortie de la racine, NUL, ou
+    racine alors que ``allow_root`` est faux : :class:`SandboxPathError`."""
+    raw = "" if user_path is None else str(user_path)
+    if "\x00" in raw:
+        raise SandboxPathError("null byte in path")
+    s = strip_work_prefix(raw)
+    if s == "~" or s.startswith("~/"):
+        s = s[1:].lstrip("/")
+    if s.startswith("/"):                               # chemin hôte sous la racine
+        for b in (str(Path(base)), str(Path(base).resolve())):
+            if s == b or s.startswith(b + "/"):
+                s = s[len(b):]
+                break
+        else:
+            raise SandboxPathError(f"path outside the sandbox root: {raw!r}")
+    parties: List[str] = []
+    for c in s.split("/"):
+        if c in ("", "."):
+            continue
+        if c == "..":
+            if not parties:
+                raise SandboxPathError(f"path outside the sandbox root: {raw!r}")
+            parties.pop()
+        else:
+            parties.append(c)
+    if not parties and not allow_root:
+        raise SandboxPathError("operation requires a path inside the sandbox, not its root")
+    return "/".join(parties)
+
 @contextmanager
 def pinned_beneath(base: Any, target: Any, *, allow_dir: bool = False) -> Iterator[Path]:
     """``/proc/self/fd/<n>`` de ``base/target`` ouvert par :func:`open_beneath` :

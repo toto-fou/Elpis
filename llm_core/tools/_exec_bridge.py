@@ -189,6 +189,34 @@ def _path_to_container(host_path: Path, sandbox_root: Path) -> str:
     return f"/work/{rel_str}"
 
 
+# ─── Sandbox d'un compte ─────────────────────────────────────────────────
+
+def user_id_for(username: str) -> int:
+    """Id numérique du compte : l'enveloppe d'identité d'abord (hôte
+    d'outils), sinon la base ; 0 si inconnu."""
+    try:
+        from shared_infra.accounts.identity import resolve_user as _ident
+        _i = _ident(username)
+        if _i is not None and _i.user_id:
+            return int(_i.user_id)
+    except Exception:                                           # noqa: BLE001
+        pass
+    try:
+        row = _get_user(username)
+        return int(row["id"]) if row else 0
+    except Exception:                                           # noqa: BLE001
+        return 0
+
+
+def sandbox_for(username: str, sandbox_root: Path):
+    """La sandbox du compte, sous son profil réseau effectif — celle de
+    l'exécution de commandes et de l'agent."""
+    from shared_infra.sandbox.executors import resolve_network_profile_id
+    user_id = user_id_for(username)
+    profile_id = resolve_network_profile_id(get_user_settings(user_id) or {})
+    return get_user_sandbox(user_id, username, sandbox_root, network_profile_id=profile_id)
+
+
 # ─── Sync → async wrapper ────────────────────────────────────────────────
 
 import asyncio

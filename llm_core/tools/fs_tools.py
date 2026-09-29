@@ -17,6 +17,7 @@ import base64
 import difflib
 import fnmatch
 import hashlib
+import io
 import json
 import mimetypes
 import os
@@ -33,10 +34,12 @@ from fastmcp import Context, FastMCP
 # Single source of truth for /work normalization + sandbox containment.
 # resolve_under raises SandboxPathError (a ValueError subclass) on escape,
 # so the existing `except ValueError` call sites keep working unchanged.
+from shared_infra.sandbox.agent_client import AgentError
 from shared_infra.sandbox.paths import (
     SandboxPathError,
     chmod_beneath,
     leaf_mode,
+    lexical_rel,
     open_beneath,
     open_dir_beneath,
     open_leaf,
@@ -57,6 +60,7 @@ from shared_infra.sandbox.paths import (
 # the container), the host-side cross-UID chmod widening is unnecessary.
 from shared_infra.sandbox.policy import use_agent
 
+from ._espace import Espace
 from ._models import (
     CodeNavigateResult,
     CodeOutlineResult,
@@ -427,16 +431,81 @@ def _text_conventions(raw: bytes, text: str, enc: str, explicit: bool = False) -
     return out
 
 
+def _encodage(tete: bytes) -> str:
+    """Encodage d'après la marque d'ordre des octets du début du fichier."""
+    if tete.startswith(b"\xef\xbb\xbf"): return "utf-8-sig"
+    if tete.startswith(b"\xff\xfe\x00\x00") or tete.startswith(b"\x00\x00\xfe\xff"): return "utf-32"
+    if tete.startswith(b"\xff\xfe") or tete.startswith(b"\xfe\xff"): return "utf-16"
+    return "utf-8"
+
+
 def _detect_encoding(p: Path) -> str:
     try:
         with p.open("rb") as _f:        # ``with`` ferme le fd (l'ancien open().read() fuyait un descripteur par appel)
-            raw = _f.read(4)
+            return _encodage(_f.read(4))
     except Exception:
         return "utf-8"
-    if raw.startswith(b"\xef\xbb\xbf"): return "utf-8-sig"
-    if raw.startswith(b"\xff\xfe\x00\x00") or raw.startswith(b"\x00\x00\xfe\xff"): return "utf-32"
-    if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"): return "utf-16"
-    return "utf-8"
+
+
+# ── Accès par l'agent de la sandbox (L4.2) ──────────────────────────────────
+# Les outils ne lisent ni n'écrivent plus eux-mêmes dans le dossier de la
+# sandbox : l'agent du conteneur le fait (``_espace.Espace``). ``p`` (chemin
+# hôte) ne sert plus qu'aux noms et aux chemins affichés.
+
+class _FluxAgent(io.RawIOBase):
+    """Lecture séquentielle d'un fichier de la sandbox par plages : un gros
+    fichier n'est jamais chargé en entier."""
+
+    def __init__(self, esp: Espace, rel: str) -> None:
+        self._esp, self._rel, self._pos = esp, rel, 0
+
+    def readable(self) -> bool:
+        return True
+
+    def readinto(self, b) -> int:
+        data = self._esp.lire(self._rel, offset=self._pos, length=len(b),
+                              max_bytes=len(b)).data
+        b[:len(data)] = data
+        self._pos += len(data)
+        return len(data)
+
+
+def _flux(esp: Espace, rel: str) -> io.BufferedReader:
+    return io.BufferedReader(_FluxAgent(esp, rel), buffer_size=4 << 20)
+
+
+def _stat_entree(p: Path, base: Path, e: Dict[str, Any]) -> Dict[str, Any]:
+    """Même forme que :func:`_stat`, depuis une entrée ``stat`` de l'agent."""
+    return {"name": p.name, "path": _to_container(p, base),
+            "type": "dir" if e.get("kind") == "dir" else "file",
+            "size": int(e.get("size") or 0),
+            "mtime": int(e.get("mtime_ns") or 0) // 1_000_000_000,
+            "mode": oct(int(e.get("mode") or 0) & 0o777),
+            "rel": rel_under(base, p) if p != base else ""}
+
+
+_ERREURS_AGENT = {
+    "not_found": ("not_found", "Check the path."),
+    "is_dir": ("is_directory", "Use list_files for directories."),
+    "not_file": ("not_a_regular_file", "FIFOs, sockets and device files are not read."),
+    "outside_root": ("outside_sandbox", "A symlink on this path leaves /work."),
+    "bad_path": ("bad_path", "Use a path relative to /work."),
+    "denied": ("permission_denied", "The sandbox user cannot access this path."),
+    "read_only": ("permission_denied", "Read-only location."),
+    "no_space": ("no_space", "The sandbox disk is full."),
+    "too_large": ("too_large", "Read a range (offset/length, head, tail) instead."),
+}
+
+
+def _err_agent(e: AgentError, p: Path, sb: Path) -> Dict[str, Any]:
+    """Refus de l'agent → enveloppe d'erreur de l'outil."""
+    code, hint = _ERREURS_AGENT.get(e.code, (None, ""))
+    if code is None:
+        if e.code in ("agent_unavailable", "container_down", "transport", "bad_response"):
+            return _err("sandbox_unavailable", hint="The sandbox container could not be "
+                        "reached; retry in a moment.", detail=e.message[:200])
+        code, hint = e.code, e.message[:200]
+    return _err(code, hint=hint, path=_to_container(p, sb))
 
 
 # Garde-fou ReDoS : le module ``regex`` (timeout) n'est pas dispo, et un thread ne
@@ -856,7 +925,7 @@ def _format_lines(lines: List[str], start: int, with_numbers: bool) -> str:
 _STREAM_READ_OVER = 16 * 1024 * 1024
 
 
-def _read_large_text(p: Path, info: Dict[str, Any], *, enc: str, head: int,
+def _read_large_text(ouvrir, info: Dict[str, Any], *, enc: str, head: int,
                      tail: int, start_line: int, end_line: int, grep: str,
                      grep_context: int, ignore_case: bool,
                      with_line_numbers: bool, max_chars: int) -> Dict[str, Any]:
@@ -875,7 +944,7 @@ def _read_large_text(p: Path, info: Dict[str, Any], *, enc: str, head: int,
     total = 0
     last = b""
     _h = _hl.sha256()
-    with open(p, "rb") as fb:
+    with ouvrir() as fb:
         for block in iter(lambda: fb.read(1 << 20), b""):
             _h.update(block)
             total += block.count(b"\n")
@@ -896,7 +965,7 @@ def _read_large_text(p: Path, info: Dict[str, Any], *, enc: str, head: int,
         ``\r`` isolé — barres de progression pip/tqdm/docker — et décalait
         tous les numéros suivants). Ligne trop longue : coupée au plafond,
         le reste est sauté et signalé."""
-        with open(p, "rb") as fb:
+        with ouvrir() as fb:
             i = 0
             while True:
                 raw = fb.readline(_line_cap)
@@ -1926,6 +1995,7 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
         include_outline = False
         try:
             sb = _sandbox(_username)
+            esp = Espace(_username, sb)
             # Coercition « modèle imparfait » : liste JSON-encodée en string.
             line_ranges = as_list(line_ranges) or []
             paths = as_list(paths) or []
@@ -1950,7 +2020,7 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
                         pth, max_chars, start_line, end_line, head, tail,
                         grep, grep_context, ignore_case, with_line_numbers,
                         line_ranges, offset, length, encoding, format,
-                        as_base64, summary, include_outline, sb,
+                        as_base64, summary, include_outline, sb, esp,
                     )
                     files_out[pth] = res
                     if res.get("ok"):
@@ -1968,7 +2038,7 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
                 path, max_chars, start_line, end_line, head, tail,
                 grep, grep_context, ignore_case, with_line_numbers,
                 line_ranges, offset, length, encoding, format,
-                as_base64, summary, include_outline, sb,
+                as_base64, summary, include_outline, sb, esp,
             )
         except ValueError as e:
             return _err(str(e), hint="Verify path & params.")
@@ -1996,69 +2066,75 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
         summary: bool,
         include_outline: bool,
         sb: Path,
+        esp: Espace,
     ) -> Dict[str, Any]:
-        p = _safe_path(path, sb)
-        # Contenu lu sur l'inode FIGÉ (``fp``), sans suivre de lien ; ``p`` ne
-        # sert plus qu'aux noms (2026-09-29).
+        rel = lexical_rel(sb, path)
+        p = sb / rel if rel else sb
         try:
-            with pinned_beneath(sb, p) as fp:
-                info = _stat(p, sb, st=fp.stat())
-                info["mime"] = _mime(p)
-                st_size = info["size"]
-                is_text = _is_text(fp)
-                info["type"] = "text" if is_text else "binary"
+            e = esp.stat(rel)
+            if e["kind"] == "missing":
+                parent = os.path.dirname(rel)
+                existe = not parent or esp.stat(parent)["kind"] == "dir"
+                return _err("not_found", hint=f"Check path; nearest existing parent: {_to_container(p.parent if existe else sb, sb)}", path=_to_container(p, sb))
+            if e["kind"] == "dir":
+                return _err("is_directory", hint="Use list_files for directories.", path=_to_container(p, sb))
+            if e["kind"] != "file":
+                return _err("not_a_regular_file",
+                            hint="FIFOs, sockets, device files and symlinks leaving /work are not read.",
+                            path=_to_container(p, sb))
+            info = _stat_entree(p, sb, e)
+            info["mime"] = _mime(p)
+            st_size = info["size"]
+            # Jusqu'à _STREAM_READ_OVER : le fichier en un aller-retour ; au-delà,
+            # l'en-tête seul, puis des plages (jamais chargé en entier).
+            raw = esp.lire(rel, max_bytes=_STREAM_READ_OVER).data if st_size <= _STREAM_READ_OVER else None
+            tete = raw[:8192] if raw is not None else esp.lire(rel, length=8192, max_bytes=8192).data
+            is_text = _is_text_bytes(tete)
+            info["type"] = "text" if is_text else "binary"
 
-                # ── BINARY ──────────────────────────────────────────────
-                if not is_text and not as_base64:
-                    info["sha256"] = _sha256_of_file(fp)
-                    if offset or length:
-                        n = min(length or MAX_FILE_BIN, MAX_FILE_BIN)
-                        with fp.open("rb") as f:
-                            f.seek(max(0, offset))
-                            data = f.read(n)
-                        return _ok(**info, format="bytes_range",
-                                   offset=offset, length=len(data),
-                                   b64=base64.b64encode(data).decode("ascii"))
-                    if st_size <= MAX_FILE_BIN:
-                        data = fp.read_bytes()
-                        return _ok(**info, format="base64",
-                                   b64=base64.b64encode(data).decode("ascii"))
-                    with fp.open("rb") as f:
-                        preview = f.read(BIN_PREVIEW_BYTES)
-                    return _ok(**info, format="preview",
-                               hint=f"Binary too large ({st_size} B). Use offset/length for range reads.",
-                               preview_bytes=len(preview),
-                               preview_hex=preview.hex(),
-                               preview_b64=base64.b64encode(preview).decode("ascii"))
+            # ── BINARY ──────────────────────────────────────────────────
+            if not is_text and not as_base64:
+                info["sha256"] = (_sha256_bytes(raw) if raw is not None
+                                  else esp.stat(rel, hash=True, hash_max=st_size).get("sha256", ""))
+                if offset or length:
+                    n = min(length or MAX_FILE_BIN, MAX_FILE_BIN)
+                    debut_b = max(0, offset)
+                    data = (raw[debut_b:debut_b + n] if raw is not None
+                            else esp.lire(rel, offset=debut_b, length=n, max_bytes=n).data)
+                    return _ok(**info, format="bytes_range",
+                               offset=offset, length=len(data),
+                               b64=base64.b64encode(data).decode("ascii"))
+                if raw is not None and len(raw) <= MAX_FILE_BIN:
+                    return _ok(**info, format="base64",
+                               b64=base64.b64encode(raw).decode("ascii"))
+                preview = tete[:BIN_PREVIEW_BYTES]
+                return _ok(**info, format="preview",
+                           hint=f"Binary too large ({st_size} B). Use offset/length for range reads.",
+                           preview_bytes=len(preview),
+                           preview_hex=preview.hex(),
+                           preview_b64=base64.b64encode(preview).decode("ascii"))
 
-                # ── TEXT ────────────────────────────────────────────────
-                enc = encoding or _detect_encoding(fp)
-                info["encoding"] = enc
-                # AUDIT 2026-09-25 — gros fichier texte : lecture en FLUX (cf.
-                # _read_large_text), jamais chargé en entier.
-                if st_size > _STREAM_READ_OVER:
-                    if as_base64 or format or line_ranges:
-                        return _err("too_large_for_mode",
-                                    hint=(f"File is {st_size} bytes: as_base64/format/line_ranges "
-                                          "need the whole file. Use head, tail, start_line/end_line "
-                                          "or grep (streamed)."), **info)
-                    try:
-                        return _read_large_text(
-                            fp, info, enc=enc, head=head, tail=tail, start_line=start_line,
-                            end_line=end_line, grep=grep, grep_context=grep_context,
-                            ignore_case=ignore_case, with_line_numbers=with_line_numbers,
-                            max_chars=max_chars)
-                    except re.error as e:
-                        return _err(f"bad_regex: {e}", hint="Escape special chars with \\ .", **info)
-                raw = fp.read_bytes()
-        except FileNotFoundError:
-            return _err("not_found", hint=f"Check path; nearest existing parent: {_to_container(p.parent if p.parent.exists() else sb, sb)}", path=_to_container(p, sb))
-        except IsADirectoryError:
-            return _err("is_directory", hint="Use list_files for directories.", path=_to_container(p, sb))
-        except SandboxPathError:
-            return _err("not_a_regular_file",
-                        hint="Symlinks, FIFOs, sockets and device files are not read.",
-                        path=_to_container(p, sb))
+            # ── TEXT ────────────────────────────────────────────────────
+            enc = encoding or _encodage(tete)
+            info["encoding"] = enc
+            # AUDIT 2026-09-25 — gros fichier texte : lecture en FLUX (cf.
+            # _read_large_text), jamais chargé en entier.
+            if raw is None:
+                if as_base64 or format or line_ranges:
+                    return _err("too_large_for_mode",
+                                hint=(f"File is {st_size} bytes: as_base64/format/line_ranges "
+                                      "need the whole file. Use head, tail, start_line/end_line "
+                                      "or grep (streamed)."), **info)
+                try:
+                    return _read_large_text(
+                        lambda: _flux(esp, rel), info, enc=enc, head=head, tail=tail,
+                        start_line=start_line, end_line=end_line, grep=grep,
+                        grep_context=grep_context, ignore_case=ignore_case,
+                        with_line_numbers=with_line_numbers, max_chars=max_chars)
+                except re.error as e:
+                    return _err(f"bad_regex: {e}", hint="Escape special chars with \\ .", **info)
+        except AgentError as e:
+            return _err_agent(e, p, sb)
         try:
             text = raw.decode(enc, errors="replace")
         except Exception as e:

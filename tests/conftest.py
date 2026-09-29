@@ -39,6 +39,8 @@ import pytest
 def pytest_configure(config):
     config.addinivalue_line(
         "markers", "sqlite_only: test propre au moteur SQLite (fichier, PRAGMA, sqlite_master…)")
+    config.addinivalue_line(
+        "markers", "agent_reel: vrais ensure_running / start_agent (pas d'agent en thread)")
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -323,3 +325,63 @@ def real_tool_registry(_real_tool_list, tmp_path, monkeypatch):
     cats.ingest_tools(_real_tool_list, source="tests")
     yield cats
     cats._registry, cats._sources, cats._disk_cache = avant
+
+
+@pytest.fixture(autouse=True)
+def agent_en_thread(request):
+    """Toute la suite : les sandboxes sont servies par un agent en thread, ni
+    Docker ni conteneur (L4) — aucun test ne crée de conteneur par mégarde.
+    ``ensure_running`` répond « en marche », ``start_agent`` lance l'agent
+    sur ``P/work``. Le socket est lié dans un dossier court (un chemin de
+    socket unix tient en 108 octets) puis lié en dur à sa place,
+    ``P/.elpis-agent/agent.sock``. Marqueur ``agent_reel`` : les vraies
+    méthodes (un test de leur argv, Docker simulé par le test). Sans
+    ``monkeypatch`` : demandé ici, il changerait l'ordre de démontage des
+    fixtures de chaque test."""
+    if request.node.get_closest_marker("agent_reel"):
+        yield []
+        return
+    import contextlib
+    import shutil
+    import tempfile
+    import threading
+
+    from shared_infra.sandbox.agent import server as agent_server
+    from shared_infra.sandbox.agent_client import AGENT_RUN_DIR
+    from shared_infra.sandbox.executors import _user_sandbox as us
+
+    court: list = []
+    serveurs: list = []
+
+    async def en_marche(self):
+        return us.SandboxStatus(exists=True, running=True, container_name=self.container_name)
+
+    async def demarrer(self, replace=False):
+        if not court:
+            court.append(tempfile.mkdtemp(prefix="ag-"))
+        cible = Path(self.sandbox_path).parent / AGENT_RUN_DIR / "agent.sock"
+        cible.parent.mkdir(parents=True, exist_ok=True)
+        lie = os.path.join(court[0], str(len(serveurs)))
+        srv = agent_server.servir(str(self.sandbox_path), lie)
+        with contextlib.suppress(FileNotFoundError):
+            cible.unlink()
+        os.link(lie, cible)
+        fil = threading.Thread(target=srv.serve_forever, kwargs={"poll_interval": 0.05},
+                               daemon=True)
+        fil.start()
+        serveurs.append((srv, fil))
+
+    vrais = (us.UserSandbox.ensure_running, us.UserSandbox.start_agent)
+    us.UserSandbox.ensure_running, us.UserSandbox.start_agent = en_marche, demarrer
+    us.reset_user_sandbox_cache()                        # une sandbox par test : pas de chemin périmé
+    try:
+        yield serveurs
+    finally:
+        us.UserSandbox.ensure_running, us.UserSandbox.start_agent = vrais
+        for srv, fil in serveurs:
+            srv.shutdown()
+            fil.join(5)
+            srv.server_close()
+        us.reset_user_sandbox_cache()
+        for d in court:
+            shutil.rmtree(d, ignore_errors=True)

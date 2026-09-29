@@ -168,11 +168,13 @@ def test_releve_des_commandes_ne_bloque_pas_sur_une_fifo(tmp_path):
 # ── Outils fichiers ─────────────────────────────────────────────────────────
 
 def test_read_file_ne_suit_pas_un_dossier_remplace(fs, monkeypatch):
+    """Le chemin calculé, le dossier devient un lien vers l'hôte avant que
+    l'agent n'ouvre : l'agent refuse le lien, qui sort de /work (L4.2)."""
     tools, work, hote = fs
-    _course_apres(monkeypatch, fs_tools, "_safe_path", work, hote)
+    _course_apres(monkeypatch, fs_tools, "lexical_rel", work, hote)
     r = tools["read_file"](None, path="d/secret.txt")
     assert SECRET not in str(r)
-    assert r.get("ok") is False
+    assert r.get("ok") is False and r.get("error") == "outside_sandbox"
 
 
 def test_grep_ne_suit_pas_un_dossier_remplace_pendant_le_parcours(fs, monkeypatch):

@@ -55,24 +55,6 @@ def _user_work_dir(username: str) -> Path:
     return ensure_work_subdir(_user_sandbox_dir(username))
 
 
-def _user_id_for(username: str) -> int:
-    """Best-effort id numérique du user (pour le bridge d'exécution).
-    (2026-09-11, P4) enveloppe d'identité d'abord (hôte d'outils)."""
-    try:
-        from shared_infra.accounts.identity import resolve_user as _ident
-        _i = _ident(username)
-        if _i is not None and _i.user_id:
-            return int(_i.user_id)
-    except Exception:                                           # noqa: BLE001
-        pass
-    try:
-        from shared_infra.accounts.users import get_user
-        row = get_user(username)
-        return int(row["id"]) if row else 0
-    except Exception:
-        return 0
-
-
 def _resolve_skill_spec(username: str, name: str):
     """Résout un skill par name dans les skills VISIBLES par l'appelant
     (perso > global ; learned exclu = sas admin). Renvoie ``(spec | None)``.
@@ -716,7 +698,7 @@ Supported interpreters: .py→python3, .sh/.bash→bash, .js→node, .pl→perl.
         tokens = ["bash", "-c", runner, "skill_run", interp, rel, *arg_list]
         sandbox_root = _user_work_dir(username)
 
-        from llm_core.tools._exec_bridge import run_shell_via_executor
+        from llm_core.tools._exec_bridge import run_shell_via_executor, user_id_for
         # (2026-09-11, P3) sortie en direct comme ``execute_shell`` : le chat
         # pose ``live_shell: "1"`` dans le meta MCP ; le front rend les
         # ``shell_output`` au step par ``call_id`` quel que soit l'outil.
@@ -731,7 +713,7 @@ Supported interpreters: .py→python3, .sh/.bash→bash, .js→node, .pl→perl.
                 run_shell_via_executor,
                 tokens=tokens, workdir_host=sandbox_root, sandbox_root=sandbox_root,
                 env_extra=env_map, timeout_s=to, max_output=_SKILL_RUN_MAX_OUTPUT,
-                stdin_bytes=tar_bytes, user_id=_user_id_for(username),
+                stdin_bytes=tar_bytes, user_id=user_id_for(username),
                 username=username, audit_kind="tools.skill_run", ctx=ctx,
                 stream_live=_live,
             )

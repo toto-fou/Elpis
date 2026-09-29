@@ -392,7 +392,7 @@ def _rd(p, **k):
     base = dict(enc="utf-8", head=0, tail=0, start_line=0, end_line=0, grep="",
                 grep_context=0, ignore_case=False, with_line_numbers=True, max_chars=20_000)
     base.update(k)
-    return _d(fs_tools._read_large_text(p, {"size": p.stat().st_size}, **base))
+    return _d(fs_tools._read_large_text(lambda: open(p, "rb"), {"size": p.stat().st_size}, **base))
 
 
 def test_flux_une_seule_ligne_geante_bornee(tmp_path):

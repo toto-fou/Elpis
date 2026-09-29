@@ -258,7 +258,10 @@ class AgentClient:
                 return d
             if time.monotonic() < self._echec_jusqua:
                 raise AgentError("agent_unavailable", "démarrage échoué il y a peu")
-            st = await self._sb.ensure_running()
+            try:
+                st = await self._sb.ensure_running()
+            except Exception as e:                       # noqa: BLE001 — image absente, Docker arrêté…
+                raise AgentError("container_down", str(e)[:300]) from e
             if not getattr(st, "running", False):
                 raise AgentError("container_down", "le conteneur de la sandbox ne tourne pas")
             await self._sb.start_agent(replace=fige)

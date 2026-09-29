@@ -1627,13 +1627,15 @@ async def gc_idle_containers(idle_hours: int | None = None) -> list[str]:
     return stopped
 
 
-_USER_SANDBOXES: dict[int, UserSandbox] = {}
+#: Clé (id, nom) : deux comptes que l'identité n'a pas résolus (id 0) ne
+#: partagent jamais la même sandbox.
+_USER_SANDBOXES: dict[tuple[int, str], UserSandbox] = {}
 
 
 def get_user_sandbox(user_id: int, username: str,
                      sandbox_path: Path,
                      network_profile_id: Optional[str] = None) -> UserSandbox:
-    cached = _USER_SANDBOXES.get(user_id)
+    cached = _USER_SANDBOXES.get((int(user_id), username))
     if cached is not None:
         cached.cfg = load_admin_config()
         # Update profile_id si fourni — le user a peut-être changé son choix
@@ -1642,7 +1644,7 @@ def get_user_sandbox(user_id: int, username: str,
         return cached
     sb = UserSandbox(user_id, username, sandbox_path,
                      network_profile_id=network_profile_id)
-    _USER_SANDBOXES[user_id] = sb
+    _USER_SANDBOXES[(int(user_id), username)] = sb
     return sb
 
 
@@ -1657,7 +1659,8 @@ def reset_user_sandbox_cache(user_id: Optional[int] = None) -> None:
     if user_id is None:
         _USER_SANDBOXES.clear()
     else:
-        _USER_SANDBOXES.pop(int(user_id), None)
+        for cle in [c for c in _USER_SANDBOXES if c[0] == int(user_id)]:
+            _USER_SANDBOXES.pop(cle, None)
 
 
 __all__ = [

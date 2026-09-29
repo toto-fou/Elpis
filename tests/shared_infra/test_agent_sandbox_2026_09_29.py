@@ -443,6 +443,7 @@ def test_refus_du_protocole(brut):
 
 # ── câblage du conteneur ────────────────────────────────────────────────────
 
+@pytest.mark.agent_reel
 def test_montages_et_lancement_de_l_agent(tmp_path):
     from shared_infra.sandbox.executors._user_sandbox import SandboxAdminConfig, UserSandbox
     sbx = UserSandbox(1, "alice", tmp_path / "alice" / "work", cfg=SandboxAdminConfig.from_dict({}))
@@ -501,3 +502,28 @@ def test_agent_autonome_une_seule_instance(tmp_path):
     finally:
         if premier.poll() is None:
             premier.kill()
+
+
+def test_liens_hors_de_work_jamais_suivis(sb, tmp_path):
+    """Un lien qui sort de /work n'est pas suivi : dans le conteneur il
+    mènerait aux fichiers système, et l'API ne parle que de /work."""
+    dehors = tmp_path / "dehors"
+    dehors.mkdir()
+    (dehors / "secret").write_bytes(b"hors de la sandbox")
+    os.symlink(dehors, sb.sandbox_path / "sortie")
+    (sb.sandbox_path / "f").write_bytes(b"dedans")
+    c = AgentClient(sb)
+
+    async def scenario():
+        for appel in (c.read("sortie/secret"), c.write("sortie/x", b"x"),
+                      c.fsop("mkdir", path="sortie/y"), c.list("sortie"),
+                      c.fsop("rename", src="f", dst="sortie/f"),
+                      c.fsop("chmod", path="sortie/secret", mode=0o777)):
+            e = await _attendre_refus(appel)
+            assert (e.code, e.status) == ("outside_root", 403)
+        (e,) = await c.stat(["sortie"])
+        assert e["link"] and e.get("outside") and "size" not in e
+        await c.fsop("remove", path="sortie")            # le lien seul
+    asyncio.run(scenario())
+    assert (dehors / "secret").read_bytes() == b"hors de la sandbox"
+    assert sorted(os.listdir(dehors)) == ["secret"] and not (sb.sandbox_path / "sortie").exists()

@@ -14,9 +14,10 @@ relance un agent d'une autre version.
 L'agent n'a pas plus de droits que les processus du conteneur (même UID) : il
 ne vérifie donc pas qui l'appelle. Chemins relatifs à la racine (``/work``,
 préfixe accepté), en UTF-8 ; « .. », chemins absolus et NUL refusés, ``\\``
-est un caractère comme un autre. Lire et écrire suivent les liens, comme tout
-programme du conteneur ; ``remove``, ``rename`` et ``copy`` traitent un lien
-comme lui-même.
+est un caractère comme un autre. Les liens sont suivis tant qu'ils restent
+sous la racine (``outside_root`` sinon : l'API ne parle que de ``/work``) ;
+``remove``, ``rename`` et ``copy`` traitent le dernier composant comme
+lui-même.
 
 API — corps et réponses JSON, erreurs ``{"error": code, "message": …}`` ;
 corps de requête par Content-Length seulement :
@@ -214,6 +215,21 @@ class Agent:
     def chemin(self, rel: str) -> str:
         return os.path.join(self.racine, rel) if rel else self.racine
 
+    def reel(self, rel: str) -> str:
+        """Chemin résolu, liens suivis : il doit rester sous la racine."""
+        p = os.path.realpath(self.chemin(rel))
+        if p != self.racine and not p.startswith(self.racine + os.sep):
+            raise Refus(403, "outside_root", "un lien sort de /work")
+        return p
+
+    def entree(self, rel: str) -> str:
+        """Le dernier composant tel quel (un lien reste un lien), ses dossiers
+        parents résolus et contenus."""
+        if not rel:
+            return self.racine
+        parent, nom = os.path.split(rel)
+        return os.path.join(self.reel(parent), nom)
+
     def signaler_activite(self) -> None:
         """Le ramasse-miettes d'inactivité lit le mtime de la racine."""
         maintenant = time.monotonic()
@@ -226,7 +242,7 @@ class Agent:
 
     # ── lecture ────────────────────────────────────────────────────────────
     def stat(self, rel: str, hacher: bool = False, hash_max: int = 64 << 20) -> Dict[str, Any]:
-        p = self.chemin(rel)
+        p = self.entree(rel)
         try:
             lst = os.lstat(p)
         except FileNotFoundError:
@@ -235,6 +251,11 @@ class Agent:
         d: Dict[str, Any] = {"path": rel, "link": lien}
         if lien:
             d["target"] = os.readlink(p)
+            try:
+                p = self.reel(rel)
+            except Refus:
+                d.update(kind="link", outside=True)      # hors de /work : non suivi
+                return d
         try:
             st = os.stat(p) if lien else lst
         except OSError:
@@ -260,7 +281,7 @@ class Agent:
 
     def lister(self, rel: str, profondeur: int, max_entrees: int, caches: bool,
                elaguer: Iterable[str], delai_s: float) -> Iterator[Dict[str, Any]]:
-        base = self.chemin(rel)
+        base = self.reel(rel)
         try:
             est_dossier = stat.S_ISDIR(os.stat(base).st_mode)
         except OSError as e:
@@ -312,7 +333,7 @@ class Agent:
         puis préconditions vérifiées et remplacement fait sous verrou."""
         if not rel:
             raise Refus(400, "bad_path", "chemin de fichier requis")
-        p = os.path.realpath(self.chemin(rel))           # écrit à travers un lien
+        p = self.reel(rel)                               # écrit à travers un lien
         dossier = os.path.dirname(p)
         droits = None if mode in (None, "", "keep") else _mode(mode)
         try:
@@ -373,7 +394,7 @@ class Agent:
         op = d.get("op")
         try:
             if op == "mkdir":
-                p = self.chemin(normaliser(d.get("path")))
+                p = self.reel(normaliser(d.get("path")))
                 if _vrai(d.get("parents", True)):
                     os.makedirs(p, mode=_MODE_DOSSIER, exist_ok=True)
                 else:
@@ -383,7 +404,7 @@ class Agent:
                 rel = normaliser(d.get("path"))
                 if not rel:
                     raise Refus(400, "bad_path", "la racine ne se supprime pas")
-                p = self.chemin(rel)
+                p = self.entree(rel)
                 if not os.path.lexists(p):
                     if _vrai(d.get("missing_ok")):
                         return {"ok": True, "removed": 0}
@@ -399,7 +420,7 @@ class Agent:
             if op == "chmod":
                 if "mode" not in d:
                     raise Refus(400, "bad_request", "chmod : mode requis")
-                os.chmod(self.chemin(normaliser(d.get("path"))), _mode(d["mode"]))
+                os.chmod(self.reel(normaliser(d.get("path"))), _mode(d["mode"]))
                 return {"ok": True}
         except OSError as e:
             raise _refus_os(e) from None
@@ -411,7 +432,7 @@ class Agent:
         restaurée si l'opération échoue ; un fichier est remplacé d'un coup."""
         if not src or not dst:
             raise Refus(400, "bad_path", "src et dst requis, hors racine")
-        ps, pd = self.chemin(src), self.chemin(dst)
+        ps, pd = self.entree(src), self.entree(dst)
         os.lstat(ps)                                     # source absente : 404
         if src == dst:
             return {"ok": True}
@@ -619,7 +640,7 @@ class _Gestionnaire(BaseHTTPRequestHandler):
         self.wfile.write(b"0\r\n\r\n")
 
     def _lire(self, agent: Agent, q: Dict[str, str]) -> None:
-        fd = _ouvrir_fichier(agent.chemin(normaliser(q.get("path"))))
+        fd = _ouvrir_fichier(agent.reel(normaliser(q.get("path"))))
         try:
             st = os.fstat(fd)
             infos = {"size": st.st_size, "mtime_ns": st.st_mtime_ns, "ino": st.st_ino,

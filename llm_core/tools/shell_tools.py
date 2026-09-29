@@ -47,8 +47,7 @@ from typing import Any, Dict, Optional, Union
 from fastmcp import Context, FastMCP
 
 from llm_core.context.budget import BUDGET as _BUDGET
-from llm_core.tools._exec_bridge import run_shell_via_executor
-from shared_infra.accounts.users import get_user as _get_user
+from llm_core.tools._exec_bridge import run_shell_via_executor, user_id_for
 
 from ._models import BackgroundShellResult, ErrEnvelope, ExecuteShellResult
 from ._toolkit import (
@@ -191,22 +190,6 @@ def register(mcp: FastMCP, root_base: Path) -> None:
         if not pp.is_dir():
             raise ValueError(f"cwd not a directory: {pp}")
         return pp
-
-    def _user_id_for(username: str) -> int:
-        """Best-effort lookup of the user's numeric id (for the bridge audit).
-        (2026-09-11, P4) enveloppe d'identité d'abord (hôte d'outils)."""
-        try:
-            from shared_infra.accounts.identity import resolve_user as _ident
-            _i = _ident(username)
-            if _i is not None and _i.user_id:
-                return int(_i.user_id)
-        except Exception:                                       # noqa: BLE001
-            pass
-        try:
-            row = _get_user(username)
-            return int(row["id"]) if row else 0
-        except Exception:
-            return 0
 
     # ── execute_shell ─────────────────────────────────────────────────
     @mcp.tool(**_TOOL_KW_MUT_OW)
@@ -363,7 +346,7 @@ Returns: {ok, cmd, cwd, returncode, truncated, duration_ms, executor,
             # après pour l'historique et les diffs du chat. Pas en
             # background : la commande n'a encore rien fait au retour.
             from llm_core.tools._work_changes import WorkChanges as _WC
-            _uid_wc = _user_id_for(_username) or None
+            _uid_wc = user_id_for(_username) or None
             _wc = None if background else _WC(_uid_wc, _username, sb, "shell")
             if _wc is not None:
                 _wc.__enter__()
@@ -376,7 +359,7 @@ Returns: {ok, cmd, cwd, returncode, truncated, duration_ms, executor,
                     timeout_s=bg_timeout,
                     max_output=DEFAULT_MAX_OUTPUT,
                     stdin_bytes=stdin_bytes,
-                    user_id=_user_id_for(_username),
+                    user_id=user_id_for(_username),
                     username=_username,
                     ctx=ctx,
                     stream_live=_live,

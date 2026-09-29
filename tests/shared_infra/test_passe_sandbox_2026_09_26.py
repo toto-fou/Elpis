@@ -138,10 +138,10 @@ def test_copie_d_arbre_echec_ne_laisse_rien(tmp_path, monkeypatch):
 def test_reset_cache_d_un_seul_compte():
     from shared_infra.sandbox.executors import _user_sandbox as us
     us._USER_SANDBOXES.clear()
-    us._USER_SANDBOXES[1] = object()
-    us._USER_SANDBOXES[2] = object()
+    us._USER_SANDBOXES[(1, "alice")] = object()
+    us._USER_SANDBOXES[(2, "bob")] = object()
     us.reset_user_sandbox_cache(1)
-    assert list(us._USER_SANDBOXES) == [2]
+    assert list(us._USER_SANDBOXES) == [(2, "bob")]
     us.reset_user_sandbox_cache()
     assert us._USER_SANDBOXES == {}
 
@@ -215,3 +215,17 @@ async def test_grant_tue_le_process_au_delai():
     t0 = time.monotonic()
     await _run_bounded(["sleep", "30"], 0.3)
     assert time.monotonic() - t0 < 5
+
+
+def test_deux_comptes_non_resolus_ne_partagent_pas_la_sandbox(tmp_path):
+    """Id 0 (identité non résolue) : la clé porte aussi le nom — sinon le
+    second compte recevait la sandbox, et le dossier, du premier."""
+    from shared_infra.sandbox.executors import _user_sandbox as us
+    us.reset_user_sandbox_cache()
+    try:
+        a = us.get_user_sandbox(0, "alice", tmp_path / "alice" / "work")
+        b = us.get_user_sandbox(0, "bob", tmp_path / "bob" / "work")
+        assert a is not b and b.sandbox_path == tmp_path / "bob" / "work"
+        assert us.get_user_sandbox(0, "alice", tmp_path / "x") is a
+    finally:
+        us.reset_user_sandbox_cache()

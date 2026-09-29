@@ -28,7 +28,11 @@ corps de requête par Content-Length seulement :
   GET  /v1/read   ?path= &offset= &length= &max= &expect_size= &expect_mtime_ns=
                   → octets, en-tête X-Elpis-Stat
   POST /v1/list   {"path", "depth", "max_entries", "hidden", "prune": [...],
-                   "deadline_s"}  → NDJSON, dernière ligne {"done": true, …}
+                   "exclude": [motifs], "deadline_s"}  → NDJSON, dernière
+                   ligne {"done": true, …}
+  POST /v1/grep   {"paths": [...], "needle", "ignore_case", "max_file_bytes",
+                   "max_hits"}  → NDJSON {"file", "line", "text"}, dernière
+                   ligne {"done": true, …}
   PUT  /v1/write  ?path= &mode= &parents=1 &if_absent=1 &if_sha256= &if_mtime_ns=
                   (corps = contenu)  → {"size", "sha256", "mtime_ns", "created"}
   POST /v1/fsop   {"op": "mkdir|remove|rename|copy|chmod", ...}
@@ -39,6 +43,7 @@ from __future__ import annotations
 import argparse
 import errno
 import fcntl
+import fnmatch
 import hashlib
 import json
 import os
@@ -184,6 +189,20 @@ def _ouvrir_fichier(p: str) -> int:
     return fd
 
 
+_OCTETS_TEXTE = frozenset(range(32, 127)) | {7, 8, 9, 10, 11, 12, 13, 27}
+
+
+def _est_texte(debut: bytes) -> bool:
+    """Début de fichier plausible pour du texte : pas de NUL, moins de 30 %
+    d'octets de contrôle (même règle que les outils de l'hôte)."""
+    if not debut:
+        return True
+    if b"\x00" in debut:
+        return False
+    autres = sum(1 for b in debut if b not in _OCTETS_TEXTE and b < 128)
+    return autres / len(debut) < 0.30
+
+
 def _genre(mode: int) -> str:
     if stat.S_ISREG(mode):
         return "file"
@@ -280,8 +299,13 @@ class Agent:
         return rendu
 
     def lister(self, rel: str, profondeur: int, max_entrees: int, caches: bool,
-               elaguer: Iterable[str], delai_s: float) -> Iterator[Dict[str, Any]]:
+               elaguer: Iterable[str], delai_s: float,
+               exclure: Iterable[str] = ()) -> Iterator[Dict[str, Any]]:
+        """Arborescence sous ``rel``. ``exclure`` : motifs (fnmatch) sur le
+        nom ou le chemin relatif au dossier listé — ni rendu ni descendu ;
+        ``elaguer`` : noms rendus mais non descendus."""
         base = self.reel(rel)
+        exclure = tuple(exclure)
         try:
             est_dossier = stat.S_ISDIR(os.stat(base).st_mode)
         except OSError as e:
@@ -314,6 +338,11 @@ class Agent:
                             erreurs += 1
                             continue
                         erel = f"{drel}/{entree.name}" if drel else entree.name
+                        if exclure:
+                            sous = erel[len(rel) + 1:] if rel else erel
+                            if any(fnmatch.fnmatchcase(entree.name, m) or fnmatch.fnmatchcase(sous, m)
+                                   for m in exclure):
+                                continue
                         genre = _genre(st.st_mode)
                         yield {"path": erel, "kind": genre, "size": st.st_size,
                                "mtime_ns": st.st_mtime_ns, "mode": stat.S_IMODE(st.st_mode)}
@@ -324,6 +353,45 @@ class Agent:
                 erreurs += 1
         yield {"done": True, "truncated": tronque, "errors": erreurs,
                "undecodable": illisibles, "count": n}
+
+    def grep(self, chemins: Iterable[Any], aiguille: str, casse: bool, max_octets: int,
+             max_trouves: int, largeur: int = 260) -> Iterator[Dict[str, Any]]:
+        """Lignes de ``chemins`` (fichiers ordinaires) qui contiennent
+        ``aiguille`` ; découpe au seul ``\\n`` (comme ``grep -n``). Fichiers
+        trop gros ou binaires sautés et comptés."""
+        cherche = aiguille if casse else aiguille.lower()
+        trouves = gros = binaires = 0
+        for c in chemins:
+            rel = normaliser(c)
+            try:
+                fd = _ouvrir_fichier(self.reel(rel))
+            except Refus:
+                continue                                 # disparu, lien, spécial
+            try:
+                if os.fstat(fd).st_size > max_octets:
+                    gros += 1
+                    continue
+                with os.fdopen(os.dup(fd), "rb") as f:
+                    if not _est_texte(f.read(8192)):
+                        binaires += 1
+                        continue
+                    f.seek(0)
+                    for i, brut in enumerate(f, 1):
+                        ligne = brut.rstrip(b"\n").rstrip(b"\r").decode("utf-8", "replace")
+                        if cherche in (ligne if casse else ligne.lower()):
+                            trouves += 1
+                            yield {"file": rel, "line": i, "text": ligne if len(ligne) <= largeur
+                                   else ligne[:largeur] + "…"}
+                            if trouves >= max_trouves:
+                                yield {"done": True, "hits_truncated": True,
+                                       "skipped_large": gros, "skipped_binary": binaires}
+                                return
+            except OSError:
+                continue
+            finally:
+                os.close(fd)
+        yield {"done": True, "hits_truncated": False, "skipped_large": gros,
+               "skipped_binary": binaires}
 
     # ── écriture ───────────────────────────────────────────────────────────
     def ecrire(self, rel: str, corps: Iterable[bytes], *, mode: Any = None,
@@ -536,16 +604,27 @@ class _Gestionnaire(BaseHTTPRequestHandler):
             self._lire(agent, q)
         elif cle == ("POST", "/v1/list"):
             d = self._corps_json()
-            elaguer = d.get("prune") or []
-            if not isinstance(elaguer, list):
-                raise Refus(400, "bad_request", "prune : liste attendue")
+            elaguer, exclure = d.get("prune") or [], d.get("exclude") or []
+            if not isinstance(elaguer, list) or not isinstance(exclure, list):
+                raise Refus(400, "bad_request", "prune, exclude : listes attendues")
             lignes = agent.lister(
                 normaliser(d.get("path")), max(1, min(int(d.get("depth") or 1), 64)),
                 max(1, min(int(d.get("max_entries") or 20000), 200000)),
                 _vrai(d.get("hidden", True)), [str(x) for x in elaguer],
-                float(d.get("deadline_s") or 30))
+                float(d.get("deadline_s") or 30), [str(x) for x in exclure])
             premiere = next(lignes)                      # un refus part AVANT l'en-tête 200
             self._ndjson(premiere, lignes)
+        elif cle == ("POST", "/v1/grep"):
+            d = self._corps_json()
+            chemins = d.get("paths") or []
+            if not isinstance(chemins, list) or len(chemins) > 100000:
+                raise Refus(400, "bad_request", "paths : liste de 100 000 fichiers au plus")
+            aiguille = str(d.get("needle") or "")
+            if not aiguille:
+                raise Refus(400, "bad_request", "needle requis")
+            self._ndjson({"started": True}, agent.grep(
+                chemins, aiguille, not _vrai(d.get("ignore_case", True)),
+                int(d.get("max_file_bytes") or 20 << 20), max(1, int(d.get("max_hits") or 2000))))
         elif cle == ("PUT", "/v1/write"):
             self._json(200, agent.ecrire(
                 normaliser(q.get("path")), self._corps(_entier(q, "max", _MAX_ECRITURE)),

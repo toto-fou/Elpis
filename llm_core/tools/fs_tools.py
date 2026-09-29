@@ -42,7 +42,6 @@ from shared_infra.sandbox.paths import (
     lexical_rel,
     open_beneath,
     open_dir_beneath,
-    open_leaf,
     pinned_beneath,
     read_leaf,
     rel_under,
@@ -483,6 +482,14 @@ def _stat_entree(p: Path, base: Path, e: Dict[str, Any]) -> Dict[str, Any]:
             "mode": oct(int(e.get("mode") or 0) & 0o777),
             "rel": rel_under(base, p) if p != base else ""}
 
+
+
+def _cle_parcours(rel: str, est_dossier: bool) -> List[Tuple[int, str]]:
+    """Ordre du parcours d'avant (``os.fwalk`` trié, de haut en bas) : à
+    chaque niveau les dossiers puis les fichiers, avant le contenu des
+    sous-dossiers. Les tris qui suivent sont stables : à égalité, cet ordre."""
+    parties = rel.split("/")
+    return [(2, x) for x in parties[:-1]] + [(0 if est_dossier else 1, parties[-1])]
 
 _ERREURS_AGENT = {
     "not_found": ("not_found", "Check the path."),
@@ -3042,247 +3049,134 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
         _username = get_username(ctx)
         try:
             sb = _sandbox(_username)
-            root = _safe_path(path, sb)
-            if not root.exists(): return _err("not_found", path=_to_container(root, sb))
+            esp = Espace(_username, sb)
+            rel_root = lexical_rel(sb, path)
+            root = sb / rel_root if rel_root else sb
+            e_root = esp.stat(rel_root)
+            if e_root["kind"] == "missing": return _err("not_found", path=_to_container(root, sb))
 
             cap = max(1, min(max_results, MAX_LIST))
 
             # ── path = FICHIER : stat (absorbe l'ex-stat_path) ou grep ────
-            if not root.is_dir():
-                # Contenu lu sur l'inode figé, sans suivre de lien (2026-09-29).
-                try:
-                    with pinned_beneath(sb, root) as fp:
-                        size = fp.stat().st_size
-                        if search_text:
-                            needle = search_text.lower() if ignore_case else search_text
-                            if size > 300_000 or not _is_text(fp):
-                                return _err("not_greppable",
-                                            hint="Fichier binaire ou > 300 Ko — utilise read_file(grep=…) ou execute_shell grep.")
-                            data = fp.read_text("utf-8", errors="replace")
-                            hits = []
-                            for i, line in enumerate(data.splitlines(), 1):
-                                hay = line.lower() if ignore_case else line
-                                if needle in hay:
-                                    hits.append({"file": root.name, "line": i, "text": (line if len(line) <= 260 else line[:260] + "…")})
-                                    if len(hits) >= min(cap, MAX_GREP):
-                                        return _ok(action="grep", count=len(hits),
-                                                   hits=hits, truncated=True)
-                            return _ok(action="grep", count=len(hits), hits=hits, truncated=False)
-                        info = _stat(root, sb, st=fp.stat())
-                        info["mime"] = _mime(root)
-                        _is_txt = _is_text(fp)
-                        info["content_type"] = "text" if _is_txt else "binary"
-                        if _is_txt:
-                            info["encoding"] = _detect_encoding(fp)
-                        if details and size <= 10_000_000:
-                            info["sha256"] = _sha256_of_file(fp)
-                        return _ok(action="stat", **info)
-                except SandboxPathError:
+            if e_root["kind"] != "dir":
+                if e_root["kind"] != "file":
                     return _err("not_a_regular_file",
-                                hint="Symlinks, FIFOs, sockets and device files are not read.")
-                except OSError as e:
-                    return _err(f"read_failed: {e}")
+                                hint="FIFOs, sockets, device files and symlinks leaving /work are not read.")
+                size = int(e_root.get("size") or 0)
+                tete = esp.lire(rel_root, length=8192, max_bytes=8192).data
+                if search_text:
+                    needle = search_text.lower() if ignore_case else search_text
+                    if size > 300_000 or not _is_text_bytes(tete):
+                        return _err("not_greppable",
+                                    hint="Fichier binaire ou > 300 Ko — utilise read_file(grep=…) ou execute_shell grep.")
+                    data = esp.lire(rel_root, max_bytes=300_000 + (1 << 16)).data.decode(
+                        "utf-8", errors="replace")
+                    hits = []
+                    for i, line in enumerate(data.splitlines(), 1):
+                        hay = line.lower() if ignore_case else line
+                        if needle in hay:
+                            hits.append({"file": root.name, "line": i, "text": (line if len(line) <= 260 else line[:260] + "…")})
+                            if len(hits) >= min(cap, MAX_GREP):
+                                return _ok(action="grep", count=len(hits),
+                                           hits=hits, truncated=True)
+                    return _ok(action="grep", count=len(hits), hits=hits, truncated=False)
+                info = _stat_entree(root, sb, e_root)
+                info["mime"] = _mime(root)
+                _is_txt = _is_text_bytes(tete)
+                info["content_type"] = "text" if _is_txt else "binary"
+                if _is_txt:
+                    info["encoding"] = _encodage(tete)
+                if details and size <= 10_000_000:
+                    info["sha256"] = esp.stat(rel_root, hash=True, hash_max=10_000_000).get("sha256", "")
+                return _ok(action="stat", **info)
             # AUDIT AGENTS 2026-08-08 (mesuré en direct) — sans ``exclude``, un
             # ``include_hidden=True`` ramenait 500 chemins de
             # ``.venv/lib/pythonX/site-packages/...`` : +9 000 tokens de contexte
-            # en UN appel, pour zéro information utile. Comme le contexte est
-            # renvoyé au modèle à CHAQUE itération, ce seul appel a plus que
-            # doublé le coût de la mission.
-            #
-            # On applique donc un socle d'exclusions de dossiers de DÉPENDANCES
-            # quand l'appelant n'a rien précisé — et on le DIT dans la réponse
-            # (``excluded_default``), pour qu'aucune omission ne soit silencieuse :
-            # le modèle voit ce qui a été écarté et peut relancer avec
-            # ``exclude=[]`` s'il veut vraiment tout voir.
-            # ``.git`` n'y figure PAS : c'est un dossier légitimement inspecté,
-            # et il est déjà masqué par le défaut ``include_hidden=False``.
+            # en UN appel, pour zéro information utile. On applique donc un
+            # socle d'exclusions de dossiers de DÉPENDANCES quand l'appelant n'a
+            # rien précisé — et on le DIT dans la réponse (``excluded_default``).
+            # ``.git`` n'y figure PAS : il est déjà masqué par le défaut
+            # ``include_hidden=False``.
             _default_excl = not [e for e in (exclude or []) if e]
             exclude_pats = ([e for e in (exclude or []) if e]
                             or list(DEFAULT_DEP_EXCLUDES))
-
-            def _excluded(rel: str, name: str) -> bool:
-                if not include_hidden and (name.startswith(".") or any(part.startswith(".") for part in rel.split("/"))):
-                    return True
-                # BUG 2026-08-08 — le motif n'était confronté qu'au chemin
-                # RELATIF COMPLET et au nom de l'entrée. Donc ``exclude=
-                # ['node_modules']`` — l'exemple canonique de la docstring —
-                # n'écartait QUE l'entrée du dossier lui-même : tout son
-                # contenu (``node_modules/pkg/index.js``) passait au travers.
-                # La promesse « skip matching paths/names » n'était pas tenue,
-                # et un agent qui tentait de se protéger d'un flot de contexte
-                # n'y arrivait pas. On confronte donc aussi chaque SEGMENT.
-                segs = rel.split("/")
-                for pat in exclude_pats:
-                    if fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(name, pat):
-                        return True
-                    if any(fnmatch.fnmatch(s, pat) for s in segs):
-                        return True
-                return False
+            # AUDIT 2026-09-25 — un motif qui porte un chemin (``src/**/*.ts``,
+            # ``**/*.py``) implique la récursion.
+            if pattern and ("/" in pattern or "**" in pattern):
+                recursive = True
+            # Parcours ÉLAGUÉ par l'agent (AUDIT 2026-09-26 : descendre dans
+            # node_modules, .venv… épuisait la borne MAX_WALK avant le
+            # projet) : un dossier exclu ou caché n'est ni rendu ni descendu —
+            # motifs confrontés au nom et au chemin relatif, comme chaque
+            # segment l'était. Borne DURE du walk : MAX_WALK entrées. Liens non
+            # montrés, comme avant ; ordre du parcours d'avant (cf.
+            # ``_cle_parcours``), dont les tris stables héritent.
+            listing = esp.lister(rel_root, depth=64 if (recursive or search_text) else 1,
+                                 max_entries=MAX_WALK, hidden=include_hidden,
+                                 exclude=exclude_pats)
+            walk_capped = listing.truncated
+            prefixe = rel_root + "/" if rel_root else ""
+            entrees = sorted(((x["path"][len(prefixe):], x) for x in listing.entries
+                              if x["kind"] != "link"),
+                             key=lambda rx: _cle_parcours(rx[0], rx[1]["kind"] == "dir"))
 
             # ── search_text (grep mode) ────────────────────────────
             if search_text:
-                needle = search_text.lower() if ignore_case else search_text
-                hits = []
-                # AUDIT 2026-09-25 :
-                # - parcours ÉLAGUÉ : les dossiers exclus (node_modules, .venv,
-                #   cachés…) ne sont plus descendus — ``rglob`` les parcourait
-                #   en entier (52 000 fichiers mesurés : 3,5 s pour rien) ;
-                # - fichiers écartés COMPTÉS et signalés : un fichier source de
-                #   plus de 300 Ko était sauté en silence (``count=0``,
-                #   ``truncated=False``) — le modèle concluait « aucun usage »
-                #   avant un renommage. Lecture ligne à ligne jusqu'à 20 Mo.
-                _skipped_large = _skipped_binary = 0
-                _visited_g = 0
-                _walk_capped_g = False
-                # Parcours par descripteurs et lecture sur l'inode, sans suivre
-                # de lien (2026-09-29) : liens et fichiers spéciaux sautés.
-                for _rel_cur, _dirs, _files, _dfd in walk_under(sb, root):
-                    _dirs[:] = sorted(
-                        d for d in _dirs
-                        if not _excluded(f"{_rel_cur}/{d}" if _rel_cur else d, d))
-                    for _fn in sorted(_files):
-                        _visited_g += 1
-                        if _visited_g > MAX_WALK:
-                            _walk_capped_g = True
-                            break
-                        rel = f"{_rel_cur}/{_fn}" if _rel_cur else _fn
-                        if _excluded(rel, _fn): continue
-                        if pattern and not _glob_match(rel, pattern): continue
-                        try:
-                            _fh = os.fdopen(open_leaf(_dfd, _fn), "rb")
-                        except (OSError, SandboxPathError):
-                            continue                    # lien, fichier spécial, disparu
-                        try:
-                            if os.fstat(_fh.fileno()).st_size > _SEARCH_MAX_BYTES:
-                                _skipped_large += 1
-                                continue
-                            if not _is_text_bytes(_fh.read(8192)):
-                                _skipped_binary += 1
-                                continue
-                            _fh.seek(0)
-                            # Lignes découpées au SEUL « \n » (AUDIT 2026-09-26) :
-                            # la lecture texte coupait aussi sur un « \r »
-                            # isolé (barres de progression) et les numéros
-                            # rendus ne correspondaient plus à ``read_file``
-                            # ni à ``grep -n``.
-                            for i, _raw in enumerate(_fh, 1):
-                                line = _raw.rstrip(b"\n").rstrip(b"\r").decode(
-                                    "utf-8", errors="replace")
-                                hay = line.lower() if ignore_case else line
-                                if needle in hay:
-                                    hits.append({"file": rel, "line": i, "text": (line if len(line) <= 260 else line[:260] + "…")})
-                                    if len(hits) >= min(cap, MAX_GREP):
-                                        return _ok(action="grep", count=len(hits),
-                                                   hits=hits, truncated=True,
-                                                   hint="Refine with pattern= or smaller search_text.")
-                        except (OSError, UnicodeDecodeError): continue  # fichier illisible : on saute
-                        finally:
-                            _fh.close()
-                    if _walk_capped_g:
-                        break
+                # AUDIT 2026-09-25 : fichiers écartés COMPTÉS et signalés (un
+                # fichier source de plus de 300 Ko était sauté en silence) ;
+                # lecture ligne à ligne jusqu'à 20 Mo, dans l'agent.
+                fichiers = [prefixe + r for r, x in entrees
+                            if x["kind"] == "file" and (not pattern or _glob_match(r, pattern))]
+                trouves, bilan = esp.grep(fichiers, search_text, ignore_case=ignore_case,
+                                          max_file_bytes=_SEARCH_MAX_BYTES,
+                                          max_hits=min(cap, MAX_GREP))
+                hits = [{"file": h["file"][len(prefixe):], "line": h["line"], "text": h["text"]}
+                        for h in trouves]
+                if bilan.get("hits_truncated"):
+                    return _ok(action="grep", count=len(hits), hits=hits, truncated=True,
+                               hint="Refine with pattern= or smaller search_text.")
                 _extra: Dict[str, Any] = {}
-                if _skipped_large or _skipped_binary or _walk_capped_g:
-                    if _skipped_large:
-                        _extra["skipped_large"] = _skipped_large
-                    if _skipped_binary:
-                        _extra["skipped_binary"] = _skipped_binary
-                    if _walk_capped_g:
-                        _extra["walk_truncated"] = True
+                if bilan.get("skipped_large"):
+                    _extra["skipped_large"] = bilan["skipped_large"]
+                if bilan.get("skipped_binary"):
+                    _extra["skipped_binary"] = bilan["skipped_binary"]
+                if walk_capped:
+                    _extra["walk_truncated"] = True
+                if _extra:
                     _extra["hint"] = (
                         "Some files were NOT searched (see skipped_large / "
                         "skipped_binary / walk_truncated): narrow path= or use "
                         "execute_shell with grep -rn for them.")
                 return _ok(action="grep", count=len(hits), hits=hits,
-                           truncated=_walk_capped_g, **_extra)
+                           truncated=walk_capped, **_extra)
 
             # ── list / glob ────────────────────────────────────────
             since_cutoff = _parse_since(since) if since else None
-            items = []
-            # AUDIT 2026-09-25 — un motif qui porte un chemin (``src/**/*.ts``,
-            # ``**/*.py``) implique la récursion.
-            if pattern and ("/" in pattern or "**" in pattern):
-                recursive = True
-            def _pruned_walk():
-                """Parcours récursif ÉLAGUÉ (AUDIT 2026-09-26) : ``rglob``
-                descendait dans node_modules, .venv… en entier — un
-                ``**/*.py`` s'arrêtait sur la borne MAX_WALK avant d'atteindre
-                les fichiers du projet, et chaque page du curseur re-parcourait
-                les mêmes 50 000 premières entrées. Mêmes exclusions que
-                search_text ; les entrées exclues ne sont plus visitées.
-                Descente par descripteurs, sans suivre de lien (2026-09-29)."""
-                for _rc, _dirs, _files, _dfd in walk_under(sb, root):
-                    _dirs[:] = sorted(
-                        d for d in _dirs
-                        if not _excluded(f"{_rc}/{d}" if _rc else d, d))
-                    _base = root / _rc if _rc else root
-                    for _d in _dirs:
-                        yield _base / _d
-                    for _f in sorted(_files):
-                        yield _base / _f
-                    if not recursive:
-                        _dirs[:] = []           # premier niveau seulement
+            items = [(r, x) for r, x in entrees
+                     if (not pattern or _glob_match(r, pattern))
+                     and (since_cutoff is None or int(x.get("mtime_ns") or 0) / 1e9 >= since_cutoff)]
 
-            walker = _pruned_walk()
-            # Cursor resumption (skip paths lexicographically <= cursor)
-            skip_until = cursor or ""
-            _root_res = root.resolve()
-            _visited = 0
-            walk_capped = False
-            for child in walker:
-                # Borne DURE du walk (cf. MAX_WALK) : compte TOUTES les entrées
-                # visitées (y compris exclues) pour borner RAM+syscalls même sur
-                # un arbre massivement exclu (100k fichiers dans node_modules).
-                _visited += 1
-                if _visited > MAX_WALK:
-                    walk_capped = True
-                    break
-                # SECURITY (F3/F6) : ne pas exposer noms/tailles d'entrées
-                # symlinkées ou atteintes via un dossier symlinké hors sandbox.
-                if not _child_is_safe(child, _root_res): continue
-                rel = child.relative_to(root).as_posix()
-                # AUDIT 2026-08-23 — la reprise ne se fait PLUS ici. Comparer
-                # ``rel <= skip_until`` (lexicographique, sur le chemin) avant
-                # le tri était incohérent avec l'ordre de page réel (dossiers
-                # d'abord + nom, ou -taille, ou -mtime) : toute entrée
-                # lexicographiquement ≤ au curseur mais classée APRÈS lui
-                # était écartée à jamais, sans le moindre signal. La reprise
-                # est faite APRÈS le tri, par identité (cf. plus bas).
-                if _excluded(rel, child.name): continue
-                if pattern and not _glob_match(rel, pattern): continue
-                # Time filter (after exclude/glob, before sort, on the cheap path).
-                if since_cutoff is not None:
-                    try:
-                        if child.stat().st_mtime < since_cutoff:
-                            continue
-                    except OSError:
-                        continue
-                items.append(child)
-
-            # Sort
+            # Sort (stable : à égalité, l'ordre du parcours)
             if sort_by == "size":
-                items.sort(key=lambda x: (0 if x.is_dir() else -x.stat().st_size), reverse=False)
+                items.sort(key=lambda rx: 0 if rx[1]["kind"] == "dir" else -int(rx[1].get("size") or 0))
             elif sort_by == "mtime":
-                items.sort(key=lambda x: -x.stat().st_mtime)
+                items.sort(key=lambda rx: -int(rx[1].get("mtime_ns") or 0))
             else:
-                items.sort(key=lambda x: (0 if x.is_dir() else 1, x.name.lower()))
+                items.sort(key=lambda rx: (0 if rx[1]["kind"] == "dir" else 1,
+                                           rx[0].rsplit("/", 1)[-1].lower()))
 
-            # Reprise par IDENTITÉ dans l'ordre de page : on repart juste
-            # APRÈS l'entrée nommée par le curseur. Le tri étant déterministe
-            # pour un arbre stable, l'union des pages est exacte et sans
-            # doublon — ce que la comparaison lexicographique d'avant ne
-            # pouvait pas garantir. Curseur inconnu (entrée disparue entre
-            # deux pages) ⇒ on repart du début plutôt que de tout perdre.
+            # Reprise par IDENTITÉ dans l'ordre de page (AUDIT 2026-08-23) :
+            # on repart juste APRÈS l'entrée nommée par le curseur. Curseur
+            # inconnu (entrée disparue entre deux pages) ⇒ depuis le début.
             start = 0
-            if skip_until:
-                for _i, _c in enumerate(items):
-                    if _c.relative_to(root).as_posix() == skip_until:
+            if cursor:
+                for _i, (_r, _x) in enumerate(items):
+                    if _r == cursor:
                         start = _i + 1
                         break
             page = items[start:start + cap]
             truncated = walk_capped or len(items) > start + cap
-            next_cursor = ""
-            if truncated and page:
-                next_cursor = page[-1].relative_to(root).as_posix()
+            next_cursor = page[-1][0] if truncated and page else ""
 
             # Optional: fetch git status map once (bounded, cf. _git_status_map)
             git_status, git_status_error = (_git_status_map(sb, root) if include_git_status
@@ -3290,30 +3184,16 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
 
             if details:
                 out = []
-                for c in page:
-                    # ⚠ BUG 2026-08-08 (trouvé en faisant tourner l'agent ``pr``) —
-                    # la base passée ici était ``root``, c'est-à-dire le dossier
-                    # LISTÉ, alors que ``_stat`` construit ``path`` comme la vue
-                    # CONTENEUR (« /work/… ») et documente qu'elle doit être
-                    # « reusable as-is in the agent's next tool call ». Sur un
-                    # listing de sous-dossier, ``list_files(path="a/b")``
-                    # renvoyait donc ``path="/work/out.bin"`` pour un fichier
-                    # réellement situé en ``/work/a/b/out.bin`` : l'agent qui
-                    # réinjectait ce chemin dans ``read_file`` récoltait un
-                    # « not_found ». Les deux autres appels à ``_stat`` passaient
-                    # déjà ``sb`` — celui-ci était le seul incohérent.
-                    # ``rel`` devient sandbox-relatif, comme le rend ``read_file``.
-                    info_d = _stat(c, sb)
-                    if include_git_status:
-                        rel_p = c.relative_to(root).as_posix()
-                        if rel_p in git_status:
-                            info_d["git_status"] = git_status[rel_p]
+                for r, x in page:
+                    # ``path`` : vue conteneur réutilisable telle quelle, ``rel``
+                    # relatif à la sandbox (BUG 2026-08-08 : relatif au dossier
+                    # listé, il menait read_file à « not_found »).
+                    info_d = _stat_entree(sb / (prefixe + r), sb, x)
+                    if include_git_status and r in git_status:
+                        info_d["git_status"] = git_status[r]
                     out.append(info_d)
             else:
-                out = [c.relative_to(root).as_posix() + ("/" if c.is_dir() else "") for c in page]
-                # Without details=True, still expose git_status separately as a
-                # path→code map (LLM-friendly: doesn't bloat each item).
-                # (le statut est exposé plus bas, en map séparée)
+                out = [r + ("/" if x["kind"] == "dir" else "") for r, x in page]
 
             result = _ok(action="list", path=_to_container(root, sb), count=len(out),
                          items=out, truncated=truncated)
@@ -3329,18 +3209,16 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                 result["since_cutoff"] = since_cutoff
             if include_git_status:
                 # Always include the status map (only paths we paginated over)
-                page_paths = {c.relative_to(root).as_posix() for c in page}
-                visible_status = {p: c for p, c in git_status.items() if p in page_paths}
-                result["git_status"] = visible_status
+                page_paths = {r for r, _x in page}
+                result["git_status"] = {q: c for q, c in git_status.items() if q in page_paths}
                 if git_status_error:
                     result["git_status_error"] = git_status_error
             if next_cursor:
                 result["next_cursor"] = next_cursor
                 result["hint"] = "Call again with cursor=next_cursor for more results."
             if walk_capped:
-                # Signale explicitement que l'ARBRE a été trop grand pour être
-                # parcouru en entier (≠ simple pagination) → narrow avec
-                # pattern=/exclude= plutôt que de paginer à l'infini.
+                # L'ARBRE a été trop grand pour être parcouru en entier (≠
+                # simple pagination) → narrow avec pattern=/exclude=.
                 result["walk_truncated"] = True
                 result["hint"] = (f"Tree too large (>{MAX_WALK} entries scanned); "
                                   "results are partial. Narrow with pattern= or "
@@ -3349,16 +3227,15 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
             # ── summary ────────────────────────────────────────────
             if summary:
                 total_bytes = 0
-                ext_counts = {}
+                ext_counts: Dict[str, int] = {}
                 n_files = n_dirs = 0
-                for c in items:
-                    if c.is_dir():
+                for r, x in items:
+                    if x["kind"] == "dir":
                         n_dirs += 1
                     else:
                         n_files += 1
-                        try: total_bytes += c.stat().st_size
-                        except OSError: pass
-                        ext = c.suffix.lower() or "(none)"
+                        total_bytes += int(x.get("size") or 0)
+                        ext = Path(r).suffix.lower() or "(none)"
                         ext_counts[ext] = ext_counts.get(ext, 0) + 1
                 result["summary"] = {
                     "total_items": len(items),
@@ -3368,6 +3245,8 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                     "extensions": dict(sorted(ext_counts.items(), key=lambda kv: -kv[1])[:20]),
                 }
             return result
+        except AgentError as e:
+            return _err_agent(e, root if "root" in locals() else sb, sb)
         except ValueError as e:
             return _err(str(e))
         except Exception as e:

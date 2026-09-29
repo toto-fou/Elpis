@@ -178,17 +178,21 @@ def test_read_file_ne_suit_pas_un_dossier_remplace(fs, monkeypatch):
 
 
 def test_grep_ne_suit_pas_un_dossier_remplace_pendant_le_parcours(fs, monkeypatch):
+    """Parcours et lecture dans l'agent (L4.2) : le dossier devenu lien vers
+    l'hôte pendant le parcours n'est ni descendu ni lu."""
+    from shared_infra.sandbox.agent import server as agent_server
     tools, work, hote = fs
-    vrai_fwalk = os.fwalk
+    vrai_scandir = agent_server.os.scandir
+    bascule = []
 
-    def fwalk_bascule(*a, **k):
-        for i, item in enumerate(vrai_fwalk(*a, **k)):
-            if i == 0:
-                _basculer(work, hote)
-            yield item
-    monkeypatch.setattr(paths.os, "fwalk", fwalk_bascule)
+    def scandir_bascule(chemin):
+        if not bascule:
+            bascule.append(True)                 # avant : _basculer parcourt aussi
+            _basculer(work, hote)
+        return vrai_scandir(chemin)
+    monkeypatch.setattr(agent_server.os, "scandir", scandir_bascule)
     r = tools["list_files"](None, path=".", search_text="SECRET")
-    assert SECRET not in str(r)
+    assert bascule and SECRET not in str(r)
 
 
 def test_suppression_ne_traverse_pas_un_dossier_remplace(fs, monkeypatch):

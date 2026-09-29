@@ -478,23 +478,25 @@ def test_lecriture_reste_stricte_dans_lautre_sens(tmp_path):
 #  45 — La pagination de list_files ne perd plus d'entrées
 # ═════════════════════════════════════════════════════════════════════════════
 
-def test_la_reprise_de_pagination_se_fait_apres_le_tri():
+def test_la_reprise_de_pagination_se_fait_apres_le_tri(tmp_path, monkeypatch):
     """Le filtre lexicographique appliqué PENDANT le walk était incohérent
-    avec l'ordre de page (dossiers d'abord + nom, ou -taille, ou -mtime) :
-    toute entrée ≤ au curseur mais classée après lui disparaissait."""
-    import inspect
-    F = _fs_tools()
-    src = inspect.getsource(F)
-    # Le corps du WALK ne doit plus connaître le curseur du tout.
-    i = src.index("for child in walker:")
-    j = src.index("# Sort", i)
-    # Commentaires retirés : la note qui EXPLIQUE le défaut le nomme.
-    walk = "\n".join(l for l in src[i:j].splitlines()
-                     if not l.strip().startswith("#"))
-    assert "skip_until" not in walk, \
-        "la reprise est de retour DANS le walk, avant le tri"
-    assert "page = items[start:start + cap]" in src[j:], \
-        "la page n'est plus découpée à partir de la position de reprise"
+    avec l'ordre de page (dossiers d'abord + nom) : ``a/zz.txt`` (≤ au
+    curseur « y.txt » mais classé après) disparaissait. L'union des pages
+    rend chaque entrée une fois."""
+    sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent))
+    from test_agent_tooling_missions_2026_08_08 import _outils_fs
+    tools, work = _outils_fs(tmp_path, monkeypatch)
+    (work / "a").mkdir()
+    (work / "a" / "zz.txt").write_text("1")
+    (work / "y.txt").write_text("2")
+    vus, curseur = [], ""
+    for _ in range(5):
+        r = tools["list_files"](None, path=".", recursive=True, max_results=2, cursor=curseur)
+        vus += r["items"]
+        curseur = r.get("next_cursor", "")
+        if not curseur:
+            break
+    assert sorted(vus) == ["a/", "a/zz.txt", "y.txt"]
 
 
 def test_lunion_des_pages_est_exacte_sur_larbre_du_constat():

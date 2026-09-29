@@ -45,6 +45,9 @@ class Espace:
     def lister(self, rel: str = "", **kw: Any) -> AgentListing:
         return _run_async(self._agent.list(rel, **kw))
 
+    def grep(self, rels: Iterable[str], needle: str, **kw: Any):
+        return _run_async(self._agent.grep(rels, needle, **kw))
+
     def fsop(self, op: str, **kw: Any) -> Dict[str, Any]:
         return _run_async(self._agent.fsop(op, **kw))
 

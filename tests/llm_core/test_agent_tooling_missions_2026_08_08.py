@@ -81,18 +81,38 @@ def test_git_inspect_utilise_bien_les_colonnes():
 
 # ── 2. list_files : path réutilisable ────────────────────────────────────
 
-def test_stat_recoit_la_racine_sandbox_pas_le_dossier_liste():
-    import inspect
+def test_stat_recoit_la_racine_sandbox_pas_le_dossier_liste(tmp_path, monkeypatch):
+    """Un listing de sous-dossier rend des chemins réutilisables tels quels :
+    ``path`` = vue conteneur de l'emplacement réel, ``rel`` relatif à la
+    sandbox (relatifs au dossier listé, read_file répondait « not_found »)."""
+    tools, work = _outils_fs(tmp_path, monkeypatch)
+    (work / "a" / "b").mkdir(parents=True)
+    (work / "a" / "b" / "out.bin").write_text("x")
+    r = tools["list_files"](None, path="a/b", details=True)
+    (item,) = r["items"]
+    assert item["path"] == "/work/a/b/out.bin" and item["rel"] == "a/b/out.bin"
 
+
+def _outils_fs(tmp_path, monkeypatch):
+    """Outils fichiers réels sur une sandbox de test (agent en thread)."""
     from llm_core.tools import fs_tools
-    src = inspect.getsource(fs_tools)
-    i = src.index("if details:")
-    corps = src[i:i + 1400]
-    code = "\n".join(l for l in corps.splitlines() if not l.lstrip().startswith("#"))
-    assert "_stat(c, sb)" in code, \
-        "la base repasse au dossier listé : les chemins renvoyés par un " \
-        "listing de sous-dossier redeviennent inutilisables"
-    assert "_stat(c, root)" not in code
+
+    class _MCP:
+        def __init__(self):
+            self.tools = {}
+
+        def tool(self, **kw):
+            def deco(fn):
+                self.tools[fn.__name__] = fn
+                return fn
+            return deco
+    base = tmp_path / "sandboxes"
+    work = base / "guest" / "work"
+    work.mkdir(parents=True)
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
+    mcp = _MCP()
+    fs_tools.register(mcp, base)
+    return mcp.tools, work
 
 
 def test_to_container_est_bien_relatif_a_la_sandbox(tmp_path):

@@ -133,20 +133,22 @@ def test_noms_decomposes_bidirectionnels_et_trop_longs(ops):
 # ── Courses ─────────────────────────────────────────────────────────────────
 
 def test_listage_d_un_dossier_remplace_par_un_lien_pendant_le_parcours(ops, monkeypatch):
+    """Le parcours se fait dans l'agent (L4.2) : le dossier devenu lien
+    pendant le parcours n'est pas descendu."""
+    from shared_infra.sandbox.agent import server as agent_server
     (ops.work / "d").mkdir()
     (ops.work / "d" / "leurre.txt").write_text("x\n")
-    vrai_fwalk = os.fwalk
+    vrai_scandir = agent_server.os.scandir
     bascule = []
 
-    def fwalk_bascule(*a, **k):
-        for i, item in enumerate(vrai_fwalk(*a, **k)):
-            if i == 0:
-                (ops.work / "d" / "leurre.txt").unlink()
-                (ops.work / "d").rmdir()
-                os.symlink(ops.hote, ops.work / "d")
-                bascule.append(True)
-            yield item
-    monkeypatch.setattr(paths.os, "fwalk", fwalk_bascule)
+    def scandir_bascule(chemin):
+        if not bascule:
+            (ops.work / "d" / "leurre.txt").unlink()
+            (ops.work / "d").rmdir()
+            os.symlink(ops.hote, ops.work / "d")
+            bascule.append(True)
+        return vrai_scandir(chemin)
+    monkeypatch.setattr(agent_server.os, "scandir", scandir_bascule)
     r = ops.listing()
     assert bascule, "le listage ne passe plus par le parcours surveillé"
     assert "secret.txt" not in str(r)

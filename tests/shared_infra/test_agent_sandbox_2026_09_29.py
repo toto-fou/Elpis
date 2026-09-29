@@ -527,3 +527,31 @@ def test_liens_hors_de_work_jamais_suivis(sb, tmp_path):
     asyncio.run(scenario())
     assert (dehors / "secret").read_bytes() == b"hors de la sandbox"
     assert sorted(os.listdir(dehors)) == ["secret"] and not (sb.sandbox_path / "sortie").exists()
+
+
+def test_liste_avec_exclusions_non_descendues(sb):
+    (sb.sandbox_path / "node_modules" / "p").mkdir(parents=True)
+    for i in range(50):
+        (sb.sandbox_path / "node_modules" / "p" / f"{i}.js").write_bytes(b"")
+    (sb.sandbox_path / "src").mkdir()
+    (sb.sandbox_path / "src" / "a.py").write_bytes(b"")
+    (sb.sandbox_path / "src" / "a.pyc").write_bytes(b"")
+    c = AgentClient(sb)
+    liste = asyncio.run(c.list("", depth=9, max_entries=10, exclude=["node_modules", "*.pyc"]))
+    assert {x["path"] for x in liste.entries} == {"src", "src/a.py"} and not liste.truncated
+    liste = asyncio.run(c.list("src", depth=9, exclude=["a.py"]))   # relatif au dossier listé
+    assert {x["path"] for x in liste.entries} == {"src/a.pyc"}
+
+
+def test_grep_sur_place(sb):
+    (sb.sandbox_path / "a.txt").write_bytes(b"une ligne\nla CIBLE ici\r\nautre\n")
+    (sb.sandbox_path / "b.bin").write_bytes(b"\x00cible binaire")
+    (sb.sandbox_path / "gros.txt").write_bytes(b"cible\n" * 1000)
+    c = AgentClient(sb)
+    trouves, bilan = asyncio.run(c.grep(["a.txt", "b.bin", "gros.txt", "absent"], "cible",
+                                        max_file_bytes=1000))
+    assert trouves == [{"file": "a.txt", "line": 2, "text": "la CIBLE ici"}]
+    assert (bilan["skipped_binary"], bilan["skipped_large"]) == (1, 1)
+    trouves, bilan = asyncio.run(c.grep(["gros.txt"], "cible", max_hits=3))
+    assert len(trouves) == 3 and bilan["hits_truncated"]
+    assert asyncio.run(c.grep(["a.txt"], "cible", ignore_case=False))[0] == []

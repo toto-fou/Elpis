@@ -130,12 +130,12 @@ class AgentClient:
             return AgentRead(data, infos if isinstance(infos, dict) else {})
 
     async def list(self, path: str = "", *, depth: int = 1, max_entries: int = 20000,
-                   hidden: bool = True, prune: Iterable[str] = (),
+                   hidden: bool = True, prune: Iterable[str] = (), exclude: Iterable[str] = (),
                    deadline_s: float = 30.0) -> AgentListing:
         entries: List[Dict[str, Any]] = []
         async with self._flux("POST", "/v1/list", json={
                 "path": path, "depth": depth, "max_entries": max_entries, "hidden": hidden,
-                "prune": list(prune), "deadline_s": deadline_s}) as r:
+                "prune": list(prune), "exclude": list(exclude), "deadline_s": deadline_s}) as r:
             async for obj in _lignes(r, (1 << 20) + max_entries * 1024):
                 if "error" in obj:
                     raise AgentError(str(obj["error"]), str(obj.get("message") or ""))
@@ -146,6 +146,27 @@ class AgentClient:
                     raise AgentError("bad_response", "plus d'entrées que demandé")
                 entries.append(obj)
         raise AgentError("bad_response", "liste interrompue")
+
+    async def grep(self, paths: Iterable[str], needle: str, *, ignore_case: bool = True,
+                   max_file_bytes: int = 20 << 20, max_hits: int = 2000
+                   ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """(lignes trouvées, bilan : ``hits_truncated``, ``skipped_large``,
+        ``skipped_binary``) dans les fichiers ``paths``."""
+        chemins = list(paths)
+        trouves: List[Dict[str, Any]] = []
+        async with self._flux("POST", "/v1/grep", json={
+                "paths": chemins, "needle": needle, "ignore_case": ignore_case,
+                "max_file_bytes": max_file_bytes, "max_hits": max_hits}) as r:
+            async for obj in _lignes(r, (1 << 20) + max_hits * 2048):
+                if "error" in obj:
+                    raise AgentError(str(obj["error"]), str(obj.get("message") or ""))
+                if obj.get("done"):
+                    return trouves, obj
+                if "file" in obj:
+                    if len(trouves) >= max_hits:
+                        raise AgentError("bad_response", "plus de lignes que demandé")
+                    trouves.append(obj)
+        raise AgentError("bad_response", "recherche interrompue")
 
     async def write(self, path: str, data: bytes, *, mode: Optional[str] = None,
                     parents: bool = False, if_absent: bool = False,

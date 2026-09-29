@@ -57,7 +57,8 @@ selon [SemVer](https://semver.org/lang/fr/).
 ### Sécurité
 
 - **Frontière hôte ↔ sandbox** : l'hôte n'accède plus au contenu de `/work`
-  (outils fichiers, routes de l'éditeur, historique, instantanés, exports)
+  (outils fichiers, routes de l'éditeur, historique, instantanés, exports,
+  sauvegardes)
   que par des descripteurs ouverts sans suivre de lien — lectures,
   parcours, suppressions, renommages et élargissement des droits. Seuls les
   fichiers réguliers sont lus.

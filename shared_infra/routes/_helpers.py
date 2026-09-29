@@ -40,6 +40,7 @@ import shutil
 import sqlite3
 import subprocess
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -55,7 +56,8 @@ from shared_infra.config import (
 from shared_infra.accounts.users import get_user_by_id, get_username_by_id
 from shared_infra.security.deps import require_user_id
 from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git, unsafe_git_dir
-from shared_infra.sandbox.paths import open_dir_beneath, rel_under
+from shared_infra.sandbox.paths import (SandboxPathError, open_dir_beneath, open_leaf, rel_under,
+                                        walk_beneath)
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -838,6 +840,18 @@ def _snapshot_sqlite(src: Path, dst: Path) -> None:
         source.close()
 
 
+def _zip_copy(zf: zipfile.ZipFile, arcname: str, src, st: Optional[os.stat_result] = None) -> None:
+    """Copie en flux le fichier ouvert ``src`` dans ``zf`` : date bornée à la
+    plage du format zip (1980-2107), mode conservé."""
+    st = st or os.fstat(src.fileno())
+    zi = zipfile.ZipInfo(arcname, min(max(time.localtime(st.st_mtime)[:6], (1980, 1, 1, 0, 0, 0)),
+                                      (2107, 12, 31, 23, 59, 58)))
+    zi.compress_type = zipfile.ZIP_DEFLATED
+    zi.external_attr = (st.st_mode & 0xFFFF) << 16
+    with zf.open(zi, "w", force_zip64=st.st_size >= zipfile.ZIP64_LIMIT) as dst:
+        shutil.copyfileobj(src, dst, 1 << 20)
+
+
 def _make_backup_zip(scope: str) -> tuple:
     """Build an admin backup zip on-the-fly.
 
@@ -877,6 +891,24 @@ def _make_backup_zip(scope: str) -> tuple:
                     if exclus and abs_p.resolve() in exclus:
                         continue
                     _safe_write(abs_p, arcroot + "/" + abs_p.relative_to(p).as_posix())
+
+        def _add_beneath(p: Path, arcroot: str):
+            # Arbre écrit par les conteneurs : parcouru et lu par descripteurs,
+            # sans suivre de lien (2026-09-29) ; liens et fichiers spéciaux
+            # sont consignés, jamais lus.
+            if not p.is_dir():
+                return
+            try:
+                for rel_dir, _dirs, names, dfd in walk_beneath(p):
+                    for name in names:
+                        rel = f"{rel_dir}/{name}" if rel_dir else name
+                        try:
+                            with os.fdopen(open_leaf(dfd, name), "rb") as src:
+                                _zip_copy(zf, f"{arcroot}/{rel}", src)
+                        except (OSError, SandboxPathError) as e:
+                            skipped.append(f"{p / rel} — {e.__class__.__name__}: {e}")
+            except (OSError, SandboxPathError) as e:
+                skipped.append(f"{p} — {e.__class__.__name__}: {e}")
 
         if scope in ("full", "db"):
             db_file = Path(_DB_PATH)
@@ -924,7 +956,7 @@ def _make_backup_zip(scope: str) -> tuple:
                 _add_path(user_db_dir, "user_db", exclus=frozenset(exclus))
 
         if scope in ("full", "sandboxes"):
-            _add_path(_SANDBOX_DIR, "sandboxes")
+            _add_beneath(Path(_SANDBOX_DIR), "sandboxes")
 
         if scope in ("full", "mcp"):
             _add_path(_MCP_DIR, "mcp_custom_servers")

@@ -39,6 +39,7 @@ from shared_infra.routes._legacy import (
     _make_backup_zip,
 )
 from shared_infra.routes._helpers import _DB_ANNEXES, _HOST_ONLY
+from shared_infra.sandbox.paths import write_beneath
 
 # Routers — owned by ``_state``. We import them so endpoint decorators
 # below register on the SAME singleton router instances mounted by
@@ -453,13 +454,19 @@ def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
     fichiers_base = {db_path.name + s for s in ("",) + _DB_ANNEXES}
 
     def _ecrire(entry: str, base: Path, rel: str, data: bytes,
-                prive: bool = False) -> None:
+                prive: bool = False, beneath: bool = False) -> None:
         try:
-            dest = _dest_under(base, rel)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(data)
-            if prive:
-                os.chmod(dest, 0o600)
+            if beneath:
+                # Arbre écrit par les conteneurs : sans suivre de lien, dossiers
+                # intermédiaires compris (2026-09-29).
+                base.mkdir(parents=True, exist_ok=True)
+                write_beneath(base, rel, data)
+            else:
+                dest = _dest_under(base, rel)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(data)
+                if prive:
+                    os.chmod(dest, 0o600)
             restored.append(entry)
         except (OSError, ValueError) as e:
             errors.append(f"{entry}: {e}")
@@ -508,7 +515,7 @@ def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
             for entry in names:
                 if entry.startswith("sandboxes/"):
                     _ecrire(entry, sandbox_dir, entry[len("sandboxes/"):],
-                            zf.read(entry))
+                            zf.read(entry), beneath=True)
 
         if scope in ("full", "mcp"):
             for entry in names:

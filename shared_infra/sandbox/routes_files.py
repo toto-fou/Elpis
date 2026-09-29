@@ -81,7 +81,7 @@ logger = logging.getLogger("uvicorn.error")
 
 # Helpers shared with ``_legacy``. Importing through the module reference
 # means we always observe the live values.
-from shared_infra.routes._helpers import _build_file_tree, _get_work_path, _no_cache, _path_inside, _quota_lock_for, _strip_work_prefix  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+from shared_infra.routes._helpers import _build_file_tree, _get_work_path, _no_cache, _path_inside, _quota_lock_for, _strip_work_prefix, _zip_copy  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
 # Compteur d'usage disque mis en cache + single-flight (audit perf 2026-08-08).
 # ``_sandbox_size_bytes`` reste importé pour les rares chemins qui veulent la
 # valeur EXACTE sans passer par le cache.
@@ -734,14 +734,8 @@ def _spool_zip(root: Path, entries, *, max_bytes: int, max_files: int, strict: b
                         if strict:
                             raise _ZipTooBig()
                         break
-                    zi = zipfile.ZipInfo(arc, min(max(time.localtime(st.st_mtime)[:6],
-                                                      (1980, 1, 1, 0, 0, 0)),
-                                                  (2107, 12, 31, 23, 59, 58)))
-                    zi.compress_type = zipfile.ZIP_DEFLATED
-                    zi.external_attr = (st.st_mode & 0xFFFF) << 16
                     try:
-                        with zf.open(zi, "w", force_zip64=st.st_size >= zipfile.ZIP64_LIMIT) as dst:
-                            shutil.copyfileobj(src, dst, 1 << 20)
+                        _zip_copy(zf, arc, src, st)
                     except OSError:
                         continue
                 total += st.st_size

@@ -277,3 +277,20 @@ def test_sauvegarde_d_une_base_serveur_passe_par_un_instantane(instance, monkeyp
         os.unlink(tmp)
     assert appels and appels[0]["backend"] == "sqlite"
     assert data.startswith(b"SQLite format 3") and "user_db/app.db" not in noms
+
+
+def test_restauration_des_sandboxes_ne_suit_aucun_lien(instance, tmp_path):
+    """Un dossier de sandbox remplacé par un lien ne fait rien écrire ailleurs :
+    l'entrée est refusée, le reste restauré."""
+    dehors = tmp_path / "dehors"
+    dehors.mkdir()
+    (instance["sb"] / "alice").mkdir()
+    os.symlink(dehors, instance["sb"] / "alice" / "work")
+    zip_path = _zip(tmp_path / "b.zip", {
+        "sandboxes/alice/work/f.txt": b"x",
+        "sandboxes/bob/work/g.txt": b"ok",
+    })
+    restaures, erreurs, _base = _restaurer(instance, zip_path, "sandboxes")
+    assert restaures == ["sandboxes/bob/work/g.txt"] and len(erreurs) == 1
+    assert list(dehors.iterdir()) == []
+    assert (instance["sb"] / "bob" / "work" / "g.txt").read_bytes() == b"ok"

@@ -316,3 +316,30 @@ async def test_restauration_interrompue_garde_l_arbre_modifiable(tmp_path, monke
             break
         await anyio.sleep(0.05)
     assert os.stat(sandbox / "a.txt").st_mode & 0o777 == 0o666
+
+
+def test_sauvegarde_des_sandboxes_ne_suit_aucun_lien(tmp_path, monkeypatch):
+    """Sauvegarde admin : l'arbre des sandboxes est lu par descripteurs ; un
+    lien ou un fichier spécial est consigné dans backup-warnings.txt, pas lu."""
+    import zipfile
+
+    from shared_infra import config
+    from shared_infra.routes import _helpers as H
+    sb = tmp_path / "sandboxes"
+    work = sb / "alice" / "work"
+    work.mkdir(parents=True)
+    (work / "ok.txt").write_text("contenu\n")
+    (tmp_path / "dehors.txt").write_text(SECRET)
+    os.symlink(tmp_path / "dehors.txt", work / "lien.txt")
+    os.mkfifo(work / "fifo")
+    monkeypatch.setattr(config, "SANDBOX_DIR", sb)
+    archive, _nom = H._make_backup_zip("sandboxes")
+    try:
+        with zipfile.ZipFile(archive) as z:
+            noms = z.namelist()
+            assert "sandboxes/alice/work/ok.txt" in noms
+            assert not any(SECRET.encode() in z.read(n) for n in noms)
+            avertis = z.read("backup-warnings.txt").decode()
+            assert "lien.txt" in avertis and "fifo" in avertis
+    finally:
+        os.unlink(archive)

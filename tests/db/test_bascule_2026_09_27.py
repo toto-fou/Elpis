@@ -107,13 +107,34 @@ def test_enregistrer_sans_basculer_puis_basculer(env):
          "tls": "require", "password": "s3cret"}
     assert write_database_config(t, switch=False) == 0
     db = _cfg(env)["database"]
-    assert db == {"host": "db", "port": 5432, "name": "e", "user": "u", "tls": "require"}
-    pw = env["dir"] / ".db_password"
+    assert db == {"pending": {"backend": "postgres", "host": "db", "port": 5432, "name": "e",
+                              "user": "u", "tls": "require"}}
+    pw = env["dir"] / ".db_password.pending"
     assert pw.read_text() == "s3cret" and stat.S_IMODE(pw.stat().st_mode) == 0o600
+    assert not (env["dir"] / ".db_password").exists()
     assert "s3cret" not in env["config"].read_text()
+    t.pop("password")                         # la bascule reprend celui en attente
     assert write_database_config(t, switch=True) == 1
-    assert _cfg(env)["database"]["backend"] == "postgres"
-    assert _cfg(env)["database"]["generation"] == 1
+    db = _cfg(env)["database"]
+    assert db["backend"] == "postgres" and db["generation"] == 1 and db["host"] == "db"
+    assert "pending" not in db and not pw.exists()
+    assert (env["dir"] / ".db_password").read_text() == "s3cret"
+
+
+def test_enregistrer_ne_touche_pas_la_base_active(env):
+    """Sur un serveur actif, « Enregistrer » une autre cible ne change ni ses
+    réglages ni son mot de passe (sinon le pool perd l'authentification)."""
+    from shared_infra.ops.db_switch import write_database_config
+    a = {"backend": "postgres", "host": "a", "port": 5432, "name": "e", "user": "ua",
+         "tls": "off", "password": "pa"}
+    write_database_config(a, switch=True)
+    b = {"backend": "mysql", "host": "b", "port": 3306, "name": "e", "user": "ub",
+         "tls": "off", "password": "pb"}
+    write_database_config(b, switch=False)
+    db = _cfg(env)["database"]
+    assert (db["backend"], db["host"], db["user"]) == ("postgres", "a", "ua")
+    assert db["pending"]["host"] == "b"
+    assert (env["dir"] / ".db_password").read_text() == "pa"
 
 
 # ── Routes admin ─────────────────────────────────────────────────────────────
@@ -138,8 +159,10 @@ def test_etat_et_reglages(client, env, monkeypatch):
     assert r["job"] == {"state": "idle"}
     assert r["active"]["backend"] in ("sqlite", "postgres", "mysql"), r["active"]
     body = {"backend": "mariadb", "host": "h", "name": "e", "user": "u", "password": "x"}
-    assert client.post("/api/admin/database/save", json=body).json()["saved"]["password_present"]
-    assert _cfg(env)["database"]["port"] == 3306 and "backend" not in _cfg(env)["database"]
+    saved = client.post("/api/admin/database/save", json=body).json()["saved"]
+    assert saved["password_present"] and saved["pending"] and saved["backend"] == "mysql"
+    assert _cfg(env)["database"]["pending"]["port"] == 3306
+    assert "backend" not in _cfg(env)["database"]
 
 
 def test_formulaire_invalide_et_env_impose(client, monkeypatch):

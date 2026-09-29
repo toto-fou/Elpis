@@ -816,7 +816,7 @@ def _tree_level(dfd: int, rel_prefix: str, include_hidden: bool,
 _DB_ANNEXES = ("-wal", "-shm", "-journal")
 # Fichiers de ``user_db/`` propres à l'hôte : ni sauvegardés ni restaurés
 # (restaurer la sauvegarde d'un autre hôte ne doit pas couper l'accès à la base).
-_HOST_ONLY = (".db_password", ".db_maintenance", ".db_job.json",
+_HOST_ONLY = (".db_password", ".db_password.pending", ".db_maintenance", ".db_job.json",
               ".config_boot.json")   # empreinte « lu au démarrage » (ops/restart_pending.py)
 
 

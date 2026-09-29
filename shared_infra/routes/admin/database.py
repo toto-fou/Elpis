@@ -34,13 +34,17 @@ def _saved() -> Dict[str, Any]:
     from pathlib import Path
 
     from shared_infra import config as cfg
-    db = (cfg.read_config_json().get("database") or {})
+    active = (cfg.read_config_json().get("database") or {})
+    # Cible enregistrée sans bascule (``database.pending``), sinon la base active.
+    db = active.get("pending") or active
     backend = db.get("backend") or "sqlite"
+    pw_file = ".db_password.pending" if active.get("pending") else ".db_password"
     return {"backend": backend, "host": db.get("host") or "127.0.0.1",
             "port": int(db.get("port") or 0) or None, "name": db.get("name") or "elpis",
             "user": db.get("user") or "elpis", "tls": db.get("tls") or "off",
+            "pending": bool(active.get("pending")),
             "password_present": bool(os.environ.get("APP_DB_PASSWORD"))
-            or (Path(cfg.DB_PATH).parent / ".db_password").is_file()}
+            or (Path(cfg.DB_PATH).parent / pw_file).is_file()}
 
 
 def _target(body: Dict[str, Any]) -> Dict[str, Any]:
@@ -150,8 +154,9 @@ async def admin_database_migrate(request: Request):
     from shared_infra.ops import db_switch
     from shared_infra.db._connection import DB_BACKEND
     if not target.get("password"):
+        # Mot de passe de la cible enregistrée, sinon celui de la base active.
         from shared_infra import config as cfg
-        pw = cfg.db_password()
+        pw = db_switch.pending_password() or cfg.db_password()
         if pw:
             target["password"] = pw
     if os.environ.get("APP_DB_BACKEND"):

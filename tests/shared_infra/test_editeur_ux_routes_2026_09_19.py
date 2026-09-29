@@ -224,6 +224,20 @@ def test_copy_quota_depasse_refuse(env, monkeypatch):
     assert ops == []
 
 
+def test_delete_d_un_lien_sortant_retire_le_lien(env, tmp_path):
+    client, root, ops = env
+    dehors = tmp_path / "dehors"
+    dehors.mkdir()
+    (dehors / "garde.txt").write_text("intact")
+    os.symlink(dehors, root / "lien")
+    r = client.delete("/api/sandbox/delete", params={"path": "lien"})
+    assert r.status_code == 200, r.text
+    assert not os.path.lexists(root / "lien")
+    assert (dehors / "garde.txt").read_text() == "intact"
+    r = client.delete("/api/sandbox/delete", params={"path": "../dehors"})
+    assert r.status_code == 403
+
+
 def test_copy_source_absente_404(env):
     client, root, ops = env
     r = client.post("/api/sandbox/copy", json={"src": "rien.py", "dst": "x.py"})

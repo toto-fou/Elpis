@@ -401,7 +401,8 @@ def editeur_sur_agent(monkeypatch, root, username="alice"):
         vrai = getattr(AC.AgentClient, nom)
 
         async def espion(self, *a, _vrai=vrai, _nom=nom, **k):
-            ops.append((_nom, a[0] if a else k.get("path")))
+            if not (_nom == "fsop" and a and a[0] == "du"):      # lecture seule
+                ops.append((_nom, a[0] if a else k.get("path")))
             return await _vrai(self, *a, **k)
         monkeypatch.setattr(AC.AgentClient, nom, espion)
     return ops

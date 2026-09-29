@@ -36,7 +36,7 @@ corps de requête par Content-Length seulement :
   PUT  /v1/write  ?path= &mode= &parents=1 &if_absent=1 &if_sha256= &if_mtime_ns=
                   (corps = contenu)  → {"size", "sha256", "mtime_ns", "created"}
   PUT  /v1/append ?path= &parents=1 &truncate=1 (corps = morceau) → {"size"}
-  POST /v1/fsop   {"op": "mkdir|remove|rename|copy|chmod|clear", ...}
+  POST /v1/fsop   {"op": "mkdir|remove|rename|copy|chmod|clear|du", ...}
   POST /v1/readmany {"paths": [...], "max_file", "max_total"} → NDJSON
                   {"path", "b64"} ou {"path", "skip": code}, dans l'ordre, arrêté
                   avant de dépasser max_total ; dernière ligne {"done": true}
@@ -624,6 +624,9 @@ class Agent:
                 else:
                     _supprimer(p)
                 return {"ok": True, "removed": 1}
+            if op == "du":                               # taille d'un fichier ou d'un arbre
+                return self._taille(self.entree(normaliser(d.get("path"))),
+                                    max(0.1, min(float(d.get("deadline_s") or 10), 60.0)))
             if op == "clear":                            # tout /work, pas /work lui-même
                 n = 0
                 with os.scandir(self.racine) as it:
@@ -648,6 +651,34 @@ class Agent:
         except OSError as e:
             raise _refus_os(e) from None
         raise Refus(400, "bad_request", f"opération inconnue : {op!r}")
+
+    def _taille(self, p: str, delai_s: float) -> Dict[str, Any]:
+        """Octets de ``p`` (lstat : un lien compte pour lui-même, n'est pas
+        suivi) et de son contenu ; ``complete`` à faux si le délai a coupé."""
+        st = os.lstat(p)
+        if not stat.S_ISDIR(st.st_mode):
+            return {"ok": True, "bytes": st.st_size, "entries": 1, "complete": True}
+        total = n = 0
+        echeance = time.monotonic() + delai_s
+        pile = [p]
+        while pile:
+            if time.monotonic() > echeance:
+                return {"ok": True, "bytes": total, "entries": n, "complete": False}
+            try:
+                with os.scandir(pile.pop()) as it:
+                    for e in it:
+                        try:
+                            s = e.stat(follow_symlinks=False)
+                        except OSError:
+                            continue
+                        n += 1
+                        if stat.S_ISDIR(s.st_mode):
+                            pile.append(e.path)
+                        else:
+                            total += s.st_size
+            except OSError:
+                continue
+        return {"ok": True, "bytes": total, "entries": n, "complete": True}
 
     def _deplacer(self, op: str, src: str, dst: str, ecraser: bool, parents: bool,
                   suivre: bool = False, elargir: bool = False) -> Dict[str, Any]:

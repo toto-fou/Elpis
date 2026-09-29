@@ -219,7 +219,7 @@ _HTTP_AGENT = {
     "not_file": (409, {"code": "not_file",
                        "message": "Ce chemin n'est pas un fichier ordinaire"}),
     "outside_root": (403, "Lien symbolique hors sandbox : écriture refusée"),
-    "inside": (409, "Un dossier ne peut pas aller dans lui-même"),
+    "inside": (400, "Impossible de copier ou déplacer un dossier dans lui-même"),
     "denied": (403, "Accès refusé dans la sandbox"),
     "read_only": (403, "Emplacement en lecture seule"),
     "no_space": (507, "Espace disque de la sandbox épuisé"),

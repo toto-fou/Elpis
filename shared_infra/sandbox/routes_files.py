@@ -270,6 +270,18 @@ async def _etat_agent(agent, rel: str, *, sha_max: int) -> dict:
             "readable": sha is not None or taille > sha_max}
 
 
+async def _stat_un(agent, rel: str, libelle: str) -> dict:
+    """Entrée ``stat`` de ``rel`` par l'agent (un lien sous /work suivi) ;
+    un refus (lien qui sort de /work, droits…) en ``HTTPException``."""
+    try:
+        (e,) = await agent.stat([rel])
+    except AgentError as ex:
+        raise agent_http(ex, libelle) from None
+    if e.get("kind") == "error":
+        raise agent_http(AgentError(str(e.get("error") or "io_error"), ""), libelle)
+    return e
+
+
 async def _binaire_existant(agent, rel: str) -> bool:
     """Vrai si ``rel`` est un fichier existant qui ne s'édite pas comme texte
     (en-tête lu par l'agent) ; absent, spécial ou illisible : faux."""
@@ -1635,27 +1647,21 @@ async def api_delete_sandbox_item(request: Request, path: str):
     """
     user_id = require_user_id(request)
     root = _get_work_path(user_id)
-    target_path = (root / _strip_work_prefix(path)).resolve()
-    # SECURITY FIX : cf. _path_inside (anti path-traversal cross-users).
-    if not _path_inside(target_path, root):
-        raise HTTPException(403, "Access denied")
-    # Le exists() vit côté host — fonctionne pour tout fichier au moins
-    # 0644 (le défaut via umask 0000 du container donne 0666 → OK). Si
-    # l'host n'a pas le droit de stat (très rare — dossier 0700), on
-    # laisse passer au docker exec qui répondra "No such file" et on
-    # mappe en 404 ci-dessous.
-    if not target_path.exists():
+    rel = _rel_editeur(root, path)
+    agent = agent_for(user_id)
+    e = await _stat_un(agent, rel, "Suppression")
+    if e["kind"] == "missing":
         raise HTTPException(404, "Not found")
     from shared_infra.sandbox.exec_bridge import sandbox_delete
     # Historique de session (audit éditeur 2026-09-23) : la suppression d'un
-    # FICHIER est notée (contenu d'avant gardé) ; un dossier, non.
-    _is_file = target_path.is_file() and not (root / _strip_work_prefix(path)).is_symlink()
-    _before = await _hist_before(root, target_path) if _is_file else None
+    # FICHIER est notée (contenu d'avant gardé) ; un dossier ou un lien, non.
+    _is_file = e["kind"] == "file" and not e.get("link")
+    _before = await _hist_avant(agent, rel, e) if _is_file else None
     try:
         await sandbox_delete(user_id, path)
         invalidate_sandbox_usage(user_id)   # taille supprimée inconnue
         if _is_file:
-            await _hist_write(user_id, _strip_work_prefix(path), _before, None, "editor")
+            await _hist_write(user_id, rel, _before, None, "editor")
         return {"ok": True}
     except HTTPException:
         raise
@@ -1693,12 +1699,7 @@ async def api_create_folder(request: Request):
     rel_path = data.get("path")
     if not rel_path:
         raise HTTPException(400, "Path required")
-    root = _get_work_path(user_id)
-    target_path = (root / _strip_work_prefix(rel_path)).resolve()
-    # SECURITY FIX : cf. _path_inside (anti path-traversal cross-users).
-    if not _path_inside(target_path, root):
-        raise HTTPException(403, "Access denied")
-    # PASSE 15 — docker exec mkdir -p, owned UID 10001.
+    _rel_editeur(_get_work_path(user_id), rel_path)     # 403 hors de la sandbox
     from shared_infra.sandbox.exec_bridge import sandbox_mkdir
     try:
         await sandbox_mkdir(user_id, rel_path)
@@ -1718,30 +1719,20 @@ async def api_rename_item(request: Request):
     if not old_rel or not new_rel:
         raise HTTPException(400, "Old and new paths required")
     root = _get_work_path(user_id)
-    old_path = (root / _strip_work_prefix(old_rel)).resolve()
-    new_path = (root / _strip_work_prefix(new_rel)).resolve()
-    # SECURITY FIX : cf. _path_inside (anti path-traversal cross-users).
-    if not _path_inside(old_path, root) or not _path_inside(new_path, root):
-        raise HTTPException(403, "Access denied")
-    if not old_path.exists():
+    old, new = _rel_editeur(root, old_rel), _rel_editeur(root, new_rel)
+    agent = agent_for(user_id)
+    if (await _stat_un(agent, old, "Renommage"))["kind"] == "missing":
         raise HTTPException(404, "Source not found")
-    # ``mv`` écrase une cible existante sans rien dire : renommer a.py en b.py
-    # (ou déposer un fichier dans un dossier qui a déjà le même nom) détruisait
-    # b.py. On refuse, le front affiche le message.
-    if new_path != old_path and (new_path.exists() or new_path.is_symlink()):
+    # Une cible existante n'est jamais écrasée (renommer a.py en b.py
+    # détruisait b.py) ; l'agent le vérifie de nouveau au renommage.
+    if new != old and (await _stat_un(agent, new, "Renommage"))["kind"] != "missing":
         raise HTTPException(409, "Un élément porte déjà ce nom à cet endroit")
-    # PASSE 15 — docker exec mv. mkdir -p du parent inclus dans le shell
-    # script du helper. Même UID que le créateur d'origine si déjà 10001,
-    # sinon mv préserve l'ownership existant (rename atomique sans copie
-    # tant qu'on reste sur le même FS — le bind-mount /work est sur un
-    # seul FS).
     from shared_infra.sandbox.exec_bridge import sandbox_rename
     try:
         await sandbox_rename(user_id, old_rel, new_rel)
         # L'historique de session suit le fichier (ou le dossier) renommé.
         try:
-            await asyncio.to_thread(_fh.record_move, user_id,
-                                    _strip_work_prefix(old_rel), _strip_work_prefix(new_rel))
+            await asyncio.to_thread(_fh.record_move, user_id, old, new)
         except Exception:                                       # noqa: BLE001
             logger.exception("[sandbox] historique : renommage non noté")
         return {"ok": True}
@@ -1749,23 +1740,6 @@ async def api_rename_item(request: Request):
         raise
     except Exception as e:
         raise HTTPException(500, f"Rename error: {str(e)}")
-
-
-def _tree_size_bytes(p: Path) -> int:
-    """Taille cumulée d'un fichier ou d'un dossier (liens non suivis)."""
-    if p.is_symlink() or p.is_file():
-        try:
-            return p.lstat().st_size
-        except OSError:
-            return 0
-    total = 0
-    for dirpath, _dirs, files in os.walk(p, followlinks=False):
-        for f in files:
-            try:
-                total += os.lstat(os.path.join(dirpath, f)).st_size
-            except OSError:
-                pass
-    return total
 
 
 @router.post("/api/sandbox/copy")
@@ -1781,25 +1755,30 @@ async def api_copy_item(request: Request):
     if not src_rel or not dst_rel:
         raise HTTPException(400, "Source et destination requises")
     root = _get_work_path(user_id)
-    src_path = (root / _strip_work_prefix(src_rel)).resolve()
-    dst_path = (root / _strip_work_prefix(dst_rel)).resolve()
-    if not _path_inside(src_path, root) or not _path_inside(dst_path, root):
-        raise HTTPException(403, "Access denied")
-    if not src_path.exists():
+    src, dst = _rel_editeur(root, src_rel), _rel_editeur(root, dst_rel)
+    agent = agent_for(user_id)
+    e = await _stat_un(agent, src, "Copie")
+    if e["kind"] == "missing":
         raise HTTPException(404, "Source introuvable")
-    if dst_path.exists() or dst_path.is_symlink():
+    if (await _stat_un(agent, dst, "Copie"))["kind"] != "missing":
         raise HTTPException(409, "Un élément porte déjà ce nom à cet endroit")
-    if dst_path == src_path or _path_inside(dst_path, src_path):
+    if not src or dst == src or dst.startswith(src + "/"):
         raise HTTPException(400, "Impossible de copier un dossier dans lui-même")
     from shared_infra.sandbox.exec_bridge import sandbox_copy
     async with _quota_lock_for(user_id):
-        size = await asyncio.to_thread(_tree_size_bytes, src_path)
         _user_settings = get_user_settings(user_id)
         if "sandbox_quota_mb" in _user_settings:
             _quota_mb = int(_user_settings["sandbox_quota_mb"])
         else:
             _quota_mb = int((config_view() or {}).get("app", {}).get("sandbox_quota_mb", 5120))
+        try:
+            du = await agent.fsop("du", path=src, deadline_s=30)
+        except AgentError as ex:
+            raise agent_http(ex, "Copie") from None
+        size = int(du.get("bytes") or 0)
         if _quota_mb > 0:
+            if not du.get("complete"):
+                raise HTTPException(413, "Arborescence trop grande pour vérifier le quota")
             used = await asyncio.to_thread(
                 sandbox_usage_bytes, user_id, root,
                 quota_bytes=_quota_mb * 1024 * 1024)
@@ -1808,10 +1787,10 @@ async def api_copy_item(request: Request):
         await sandbox_copy(user_id, src_rel, dst_rel)
         bump_sandbox_usage(user_id, size)
     # Historique de session : une copie de FICHIER est une création.
-    if src_path.is_file():
-        _after = await _hist_before(root, dst_path)
+    if e["kind"] == "file" and not e.get("link"):
+        _after = await _hist_avant(agent, dst, e)
         if _after is not None:
-            await _hist_write(user_id, _strip_work_prefix(dst_rel), None, _after, "editor")
+            await _hist_write(user_id, dst, None, _after, "editor")
     return {"ok": True, "path": dst_rel}
 
 

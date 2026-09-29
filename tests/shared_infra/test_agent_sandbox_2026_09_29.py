@@ -701,3 +701,24 @@ def test_releve_incomplet_et_trop_gros(sb):
         vus, _ = await c.changes_end(d["id"], max_file=10)
         assert [(v["path"], v["after"]) for v in vus] == [("f1", {"state": "too_big"})]
     asyncio.run(scenario())
+
+
+def test_taille_d_un_arbre(sb, tmp_path):
+    """``du`` : octets d'un fichier ou d'un arbre, un lien compté pour
+    lui-même (jamais suivi)."""
+    w = sb.sandbox_path
+    (w / "d" / "s").mkdir(parents=True)
+    (w / "d" / "a").write_bytes(b"x" * 100)
+    (w / "d" / "s" / "b").write_bytes(b"y" * 50)
+    dehors = tmp_path / "dehors"
+    dehors.mkdir()
+    (dehors / "gros").write_bytes(b"z" * 10_000)
+    os.symlink(dehors, w / "d" / "lien")
+    c = AgentClient(sb)
+
+    async def scenario():
+        d = await c.fsop("du", path="d")
+        taille_lien = os.lstat(w / "d" / "lien").st_size
+        assert d["complete"] and d["bytes"] == 150 + taille_lien and d["entries"] == 4
+        assert (await c.fsop("du", path="d/a"))["bytes"] == 100
+    asyncio.run(scenario())

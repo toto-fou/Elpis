@@ -15,6 +15,23 @@ or English.
   agents de code, valable pour tout le monde.
 - Interface : [PRODUCT.md](PRODUCT.md) et [DESIGN.md](DESIGN.md).
 
+## Où ranger quoi
+
+| Je modifie… | Dossier |
+|---|---|
+| une route HTTP | le sous-paquet de sa famille dans `shared_infra/` (routes du chat : `chatbot_app/routes/`) ; l'ordre d'enregistrement est dans `shared_infra/routes/__init__.py` |
+| la boucle de chat, le contexte, l'ordonnancement | `llm_core/` (`_chat_with_tools.py`, `context/`, `_scheduling/`) |
+| un outil de l'agent | `llm_core/tools/` ; sa famille dans `shared_infra/mcp/families.py` |
+| l'accès de l'hôte aux fichiers d'une sandbox | uniquement les primitives de `shared_infra/sandbox/paths.py` |
+| Git côté serveur | `shared_infra/sandbox/git_env.py` (`run_host_git`) |
+| la base de données | `shared_infra/db/` (schéma, migrations, dialectes) |
+| l'interface | `frontend/` (fragments dans `includes/`, scripts dans `js/`) |
+| l'installation, le lancement | `install.sh`, `elpis`, `deploy/` |
+| la documentation d'exploitation | `docs/exploitation.md`, `docs/configuration.md` |
+
+Détail des paquets : [ARCHITECTURE.md](ARCHITECTURE.md) ; conventions et
+pièges : [AGENTS.md](AGENTS.md).
+
 ## Avant d'ouvrir une pull request
 
 - Tests Python : `venv/bin/pip install -r requirements-dev.txt` une fois, puis `venv/bin/pytest` (le pytest du venv, pas celui du PATH). La suite tourne en parallèle (`-n auto`) ; `venv/bin/pytest -n0` pour la lancer en série.

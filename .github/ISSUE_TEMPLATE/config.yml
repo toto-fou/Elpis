@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Faille de sécurité
+    url: https://github.com/toto-fou/Elpis/security/advisories/new
+    about: Signalement privé (voir SECURITY.md), jamais en ticket public.

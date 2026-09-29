@@ -290,3 +290,38 @@ def _reset_tokenize_backoff():
     yield
     _llama_http._TOKENIZE_DOWN_UNTIL.clear()
     _tok._SHORT_TOKEN_MEMO.clear()
+
+
+@pytest.fixture(scope="session")
+def _real_tool_list():
+    """Liste d'outils du vrai service MCP (toutes les familles disponibles),
+    construite en processus : ce que le pool ingère quand une instance se
+    connecte."""
+    import asyncio
+
+    from fastmcp import Client, FastMCP
+
+    import server.local_mcp_server as S
+    target = FastMCP("registre-des-tests")
+    S.register_families_on(target, [name for name, _module, _root in S.TOOL_FAMILIES])
+
+    async def _list():
+        async with Client(target) as client:
+            return await client.list_tools()
+    return asyncio.run(_list())
+
+
+@pytest.fixture
+def real_tool_registry(_real_tool_list, tmp_path, monkeypatch):
+    """Registre des catégories peuplé depuis le vrai service. Un checkout neuf
+    (la CI) n'a pas le cache qu'écrit une instance en marche : sans lui, tout
+    outil tombe dans « other » et les tests de prompt ne vérifient rien.
+    Globales et cache cross-worker isolés, restaurés à la sortie."""
+    from llm_core import _mcp_categories as cats
+    monkeypatch.setattr(cats, "_CACHE_PATH", tmp_path / "categories.json")
+    avant = (cats._registry, dict(cats._sources), dict(cats._disk_cache))
+    cats._registry, cats._sources = None, {}
+    cats._disk_cache = {"at": 0.0, "reg": None}
+    cats.ingest_tools(_real_tool_list, source="tests")
+    yield cats
+    cats._registry, cats._sources, cats._disk_cache = avant

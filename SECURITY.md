@@ -59,8 +59,9 @@ run Elpis on a dedicated machine or VM. Details below, in French.
   actifs (HTML, SVG) sont servis depuis une origine opaque.
 - Utilisateur ↔ utilisateur : données filtrées par compte côté serveur ; une
   sandbox et un conteneur par compte.
-- Sandbox ↔ hôte : le conteneur est la frontière (sans `MKNOD`, limites
-  mémoire, CPU et processus, réseau par profil). Côté hôte, le contenu de
+- Sandbox ↔ hôte : le conteneur est la frontière (seules les capacités
+  nécessaires — ni `NET_RAW`, ni `MKNOD` —, limites mémoire, CPU et
+  processus, réseau par profil). Côté hôte, le contenu de
   `/work` n'est lu ou écrit que par des descripteurs qui ne suivent aucun
   lien ; Git côté serveur tourne dans une prison `bubblewrap` ; les
   identifiants Git restent sur l'hôte.
@@ -102,4 +103,16 @@ HTTPS (Caddy) dès que l'instance est ouverte au réseau.
 
 **Compte de service** : il pilote Docker ; membre du groupe `docker`, il est
 de fait **proche de root** sur l'hôte. Réservez à Elpis une machine ou une VM
-dédiée, et protégez le compte, `user_db/` et `backups/`.
+dédiée, et protégez le compte, `user_db/` et `backups/`. `user_sandboxes/`
+lui est réservé (0700) : le root d'un conteneur peut y poser des fichiers
+setuid ; un point de montage dédié `nosuid,nodev` les neutralise aussi pour
+le compte de service.
+
+**Isolation renforcée**, non couverte par nos tests :
+
+- un runtime à noyau applicatif, gVisor (`executors.runtime = "runsc"`) :
+  l'option la plus isolante pour une instance multi-utilisateurs ;
+- le remappage d'UID du démon Docker (`userns-remap`) ou Docker rootless : le
+  root du conteneur n'est plus root sur l'hôte. Réglages du démon, qui
+  s'appliquent à tous ses conteneurs ; sur l'hôte, les fichiers de `/work`
+  appartiennent alors à des UID décalés.

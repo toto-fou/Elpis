@@ -12,7 +12,7 @@
 #  -----
 #    ./load_image.sh                       Charge la .tar.gz la plus RÉCENTE
 #                                          du dossier courant (auto-détection).
-#    ./load_image.sh elpis-sandbox-1.6.0.tar.gz   Charge cette archive précise.
+#    ./load_image.sh elpis-sandbox-1.7.0.tar.gz   Charge cette archive précise.
 #    ./load_image.sh /chemin/vers/archive.tar.gz
 #
 #  Sécurité : une ancienne version encore référencée par un conteneur (même

@@ -8,10 +8,10 @@ Architecture
 ``execute_shell`` runs inside the user's per-user Docker container
 (``UserSandbox``), isolated at the kernel level :
 
-    --user 10001:10001  --network=none (or a profile)   -v <sandbox>:/work:rw
-    --memory ... --cpus ... --pids-limit ...
-    default Docker capabilities minus the dangerous ones (no SYS_ADMIN/
-    NET_ADMIN/PTRACE); no --read-only (the model "permissif mais cloisonné":
+    docker exec -u 10001:10001  --network=none (or a profile)
+    -v <sandbox>:/work:rw  --memory ... --cpus ... --pids-limit ...
+    --cap-drop ALL + the few capabilities sudo and apt need (``CAPABILITIES``);
+    no --read-only (the model "permissif mais cloisonné":
     full power INSIDE a disposable per-user container, locked OUT of the host)
 
 There is no host access and no network unless the admin attaches a profile.

@@ -12,6 +12,8 @@ import types
 import pytest
 from fastapi import HTTPException
 
+from shared_infra.sandbox.executors import DEFAULT_IMAGE, configured_image
+
 
 class _Req:
     """Request minimal : state + body JSON async."""
@@ -211,14 +213,17 @@ async def test_post_preserve_image_de_config_json(monkeypatch):
     assert store["executors"]["limits"]["memory_mb"] == 4096
 
 
-async def test_post_pose_le_defaut_si_config_json_muet(monkeypatch):
-    """Sans image déclarée, on retombe sur le défaut de l'app."""
-    store = {}
-    ex = _patch(monkeypatch, store)
-
-    await ex.admin_executors_post(_Req({"executors": dict(_BASE_BODY)}))
-
-    assert store["executors"]["image"] == ex.DEFAULT_IMAGE
+async def test_post_n_inscrit_jamais_l_image_livree(monkeypatch):
+    """L'image livrée suit la version de l'app : l'inscrire dans config.json
+    (sans image déclarée, ou d'une version antérieure) y figerait l'instance
+    à la mise à jour suivante (2026-09-29)."""
+    for avant in ({}, {"executors": {"image": "elpis/sandbox:1.6.0"}},
+                  {"executors": {"image": DEFAULT_IMAGE}}):
+        store = dict(avant)
+        ex = _patch(monkeypatch, store)
+        await ex.admin_executors_post(_Req({"executors": dict(_BASE_BODY)}))
+        assert "image" not in store["executors"], avant
+        assert ex.admin_executors_get(_Req({}))["image"] == DEFAULT_IMAGE
 
 
 async def test_post_enchaine_sans_deriver(monkeypatch):
@@ -242,13 +247,14 @@ def test_get_expose_l_image_reelle(monkeypatch):
     assert ex.admin_executors_get(_Req({}))["image"] == "elpis/sandbox-maison:2.0.0"
 
     ex = _patch(monkeypatch, {})
-    assert ex.admin_executors_get(_Req({}))["image"] == ex.DEFAULT_IMAGE
+    assert ex.admin_executors_get(_Req({}))["image"] == DEFAULT_IMAGE
 
 
-def test_image_vide_ou_blanche_retombe_sur_le_defaut(monkeypatch):
-    """Une valeur vide dans config.json ne doit pas produire une image ''."""
-    ex = _patch(monkeypatch, {})
-    assert ex._configured_image({"image": ""}) == ex.DEFAULT_IMAGE
-    assert ex._configured_image({"image": "   "}) == ex.DEFAULT_IMAGE
-    assert ex._configured_image(None) == ex.DEFAULT_IMAGE
-    assert ex._configured_image({"image": " elpis/sandbox-maison:2.0.0 "}) == "elpis/sandbox-maison:2.0.0"
+def test_image_configuree():
+    """Vide, blanche ou ``elpis/sandbox`` d'une autre version : l'image
+    livrée ; une image tierce (registre à port compris) : elle-même."""
+    for val in ("", "   ", None, "elpis/sandbox:1.6.0", "elpis/sandbox", DEFAULT_IMAGE):
+        assert configured_image(val) == DEFAULT_IMAGE, val
+    for val in ("elpis/sandbox-maison:2.0.0", "registre:5000/elpis/sandbox:1.6.0",
+                "registre:5000/equipe/image"):
+        assert configured_image(f" {val} ") == val

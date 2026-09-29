@@ -87,14 +87,24 @@ selon [SemVer](https://semver.org/lang/fr/).
   `apt install bubblewrap`**, sans quoi Git côté serveur est refusé
   (`./elpis doctor`). Sur Ubuntu, l'installeur pose un profil AppArmor s'il
   est bloqué. Réglage `executors.git_isolation`.
-- **Conteneurs** : sans la capacité `MKNOD`. Les conteneurs existants sont
-  recréés à leur prochain usage (label `elpis.spec`) : ce qui y avait été
-  installé hors de `/work` est perdu.
+- **Conteneurs** : seules les capacités nécessaires (`--cap-drop ALL`, puis
+  celles qu'exigent l'entrypoint, sudo et apt) : plus de `NET_RAW`,
+  `SETFCAP`, `SYS_CHROOT` ni `MKNOD`. Image `elpis/sandbox:1.7.0` (`ping`
+  sans capacité fichier), construite par `./install.sh`. Les conteneurs
+  existants sont recréés à leur prochain usage (label `elpis.spec`, ou image
+  changée) : ce qui y avait été installé hors de `/work` est perdu. Tant que
+  la nouvelle image manque, ils restent tels quels (ancienne image, anciennes
+  capacités). Le dossier `user_sandboxes/` est réservé au compte de service
+  (0700).
 - **Politique Git d'un dépôt** : `.git-tool-policy.json` ne peut plus que
   renforcer les protections par défaut.
 
 ### Corrections et sécurité
 
+- **Image de sandbox** : la console n'inscrit plus l'image livrée dans
+  `config.json`. Une instance dont l'onglet Sandbox avait été enregistré
+  restait figée sur l'image de l'époque ; seule une image tierce y est
+  désormais conservée.
 - **Installeur** : root via `su` sans tiret (runuser introuvable, faux
   « python3-venv ? »), client Docker sur Debian 13, mot de passe admin généré
   jamais écrit dans le journal.

@@ -12,9 +12,9 @@ Architecture
 
 Sécurité côté docker
 --------------------
-Container démarré avec --read-only --cap-drop=ALL --user 10001:10001
---network=none (ou profil admin) + limites mémoire/cpu/pids. Pas de
-shell_policy : l'isolation kernel suffit.
+Options de lancement : ``UserSandbox._build_run_args`` (capacités réduites
+à ``CAPABILITIES``, réseau coupé par défaut, limites mémoire/cpu/pids). Pas
+de shell_policy : l'isolation kernel suffit.
 
 Public API
 ----------
@@ -44,10 +44,12 @@ from shared_infra.sandbox.executors._image_loader import (
     reset_state as reset_image_load_state,
 )
 from shared_infra.sandbox.executors._user_sandbox import (
+    DEFAULT_IMAGE,
     NetworkProfile,
     SandboxAdminConfig,
     SandboxStatus,
     UserSandbox,
+    configured_image,
     gc_idle_containers,
     get_user_sandbox,
     load_admin_config,
@@ -59,6 +61,7 @@ from shared_infra.sandbox.executors._user_sandbox import (
 __all__ = [
     "ResourceLimits", "ExecSpec", "ExecResult", "ExecError",
     "SandboxAdminConfig", "SandboxStatus", "UserSandbox",
+    "DEFAULT_IMAGE", "configured_image",
     "load_admin_config", "get_user_sandbox", "reset_user_sandbox_cache",
     "gc_idle_containers",
     "NetworkProfile", "resolve_network_profile_id", "user_network_profile_id",

@@ -314,8 +314,8 @@ def open_dir_beneath(base: Any, rel: Any = "", *, create: bool = False,
 # Même fenêtre qu'à l'écriture (cf. plus bas) : l'hôte validait un chemin puis
 # le rouvrait par son nom ; un dossier du chemin remplacé par un lien entre les
 # deux faisait lire, avec les droits de l'app, un fichier hors du bac à sable.
-# Et un nœud de périphérique posé dans /work (root du conteneur a MKNOD) aurait
-# été lu tel quel. Ici l'entrée est saisie par ``O_PATH | O_NOFOLLOW`` — ce qui
+# Et un nœud de périphérique posé dans /work (quand le root du conteneur avait
+# MKNOD) aurait été lu tel quel. Ici l'entrée est saisie par ``O_PATH | O_NOFOLLOW`` — ce qui
 # n'ouvre rien —, son type est vérifié sur ce descripteur, puis elle est
 # rouverte par ``/proc/self/fd`` : le même inode, quoi qu'il arrive au chemin.
 

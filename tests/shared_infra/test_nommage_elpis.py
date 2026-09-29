@@ -43,13 +43,15 @@ def test_noms_et_etiquettes_du_sandbox():
 def test_config_sandbox_garde_l_image_configuree():
     from shared_infra.sandbox.executors._user_sandbox import SandboxAdminConfig
     assert SandboxAdminConfig.from_dict({"image": " maison/sb:2 "}).image == "maison/sb:2"
-    assert SandboxAdminConfig.from_dict({}).image == "elpis/sandbox:1.6.0"
+    from shared_infra.sandbox.executors import DEFAULT_IMAGE
+    assert SandboxAdminConfig.from_dict({}).image == DEFAULT_IMAGE
+    assert DEFAULT_IMAGE.startswith("elpis/sandbox:")
 
 
 def test_image_loader_archive_elpis():
     from shared_infra.sandbox.executors import _image_loader as il
-    names = {p.name for p in il._candidate_tar_paths("elpis/sandbox:1.6.0")}
-    assert {"elpis-sandbox-1.6.0.tar.gz", "elpis-sandbox-1.6.0.tar"} <= names
+    names = {p.name for p in il._candidate_tar_paths("elpis/sandbox:1.7.0")}
+    assert {"elpis-sandbox-1.7.0.tar.gz", "elpis-sandbox-1.7.0.tar"} <= names
 
 
 class _FakeCLI:
@@ -60,7 +62,7 @@ class _FakeCLI:
     async def call(self, *args, timeout=None):
         self.calls.append(args)
         if args[:2] == ("container", "inspect") and args[2] in self.existing:
-            return 0, f"cid|/{args[2]}|true|elpis/sandbox:1.6.0|2026-01-01".encode(), b""
+            return 0, f"cid|/{args[2]}|true|elpis/sandbox:1.7.0|2026-01-01".encode(), b""
         return 1, b"", b"No such container"
 
 
@@ -80,3 +82,20 @@ def test_status_conteneur_elpis():
 def test_marqueur_de_restauration(tmp_path):
     from shared_infra.sandbox import routes_snapshots as rs
     assert rs._restore_marker(tmp_path).name == ".elpis_restore_incomplete"
+
+
+def test_image_livree_une_seule_version():
+    """DEFAULT_IMAGE, le script de construction et l'étiquette du Dockerfile
+    donnent la même version : sinon ./install.sh construit une image que
+    l'app ne lance pas."""
+    import re
+    from pathlib import Path
+
+    from shared_infra.sandbox.executors import DEFAULT_IMAGE
+    racine = Path(__file__).resolve().parents[2] / "deploy" / "docker" / "sandbox"
+    script = (racine / "build_offline.sh").read_text(encoding="utf-8")
+    version = DEFAULT_IMAGE.rpartition(":")[2]
+    assert re.search(r'^IMAGE="([^"]+)"', script, re.M).group(1) == DEFAULT_IMAGE
+    assert re.search(r'^ARCHIVE="([^"]+)"', script, re.M).group(1) == f"elpis-sandbox-{version}.tar.gz"
+    dockerfile = (racine / "Dockerfile").read_text(encoding="utf-8")
+    assert re.search(r'image\.version="([^"]+)"', dockerfile).group(1) == version

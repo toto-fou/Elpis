@@ -318,10 +318,10 @@ def _spawn_terminal(uid: int, sid: str = DEFAULT_SID) -> dict:
     # via stdin/stdout. Notre PTY hôte sert juste de canal de transport
     # vers xterm.js. Le sandbox enforcement hôte est inutile : le container
     # EST la sandbox (UID 10001 non-root, volume /work cloisonné, iptables
-    # in-container, pas de docker.sock). ⚠ Le modèle 1.2.0 est PERMISSIF
-    # dedans — ni --cap-drop=ALL, ni no-new-privileges, ni --read-only, et
-    # sudo NOPASSWD (cf. UserSandbox._build_run_args) : c'est précisément
-    # pourquoi le retrait de net_admin ci-dessous est nécessaire.
+    # in-container, pas de docker.sock). ⚠ Le modèle est PERMISSIF dedans —
+    # ni no-new-privileges, ni --read-only, et sudo NOPASSWD (cf.
+    # UserSandbox._build_run_args) : c'est précisément pourquoi le retrait de
+    # net_admin ci-dessous est nécessaire.
     _probe_privdrop(container_name)
     docker_cmd = _build_pty_docker_cmd(container_name)
 

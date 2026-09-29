@@ -823,6 +823,7 @@ esac
 [ "$WITH_CADDY" -eq 1 ] && install_caddy
 [ "$WITH_VOICE" -eq 1 ] && install_voice
 mkdir -p "$ROOT/user_db/logs" "$ROOT/user_sandboxes" "$ROOT/logs"
+chmod 700 "$ROOT/user_sandboxes"   # /work est 0777 : la racine seule isole les sandboxes
 chmod +x "$ROOT/elpis" 2>/dev/null || true
 
 # =============================================================================

@@ -14,9 +14,9 @@ L'admin règle :
      client ne les envoie pas, la valeur en place dans config.json est
      CONSERVÉE (avant 2026-07-19, chaque sauvegarde admin les effaçait).
 
-L'IMAGE EST FIGÉE par l'app : ``elpis/sandbox:1.6.0`` est buildée par
-le développeur et chargée automatiquement par l'app au premier usage.
-L'admin n'a rien à faire pour la gérer.
+L'IMAGE SUIT LA VERSION de l'app (``DEFAULT_IMAGE``), construite par
+``./install.sh`` ou chargée depuis son archive au premier usage. Seule une
+image TIERCE posée à la main dans ``config.json`` la remplace.
 
 Endpoints
 ---------
@@ -41,6 +41,8 @@ from shared_infra.config import read_config_json, write_config_json
 from shared_infra.routes._legacy import _require_admin
 from shared_infra.routes.admin._state import admin_router
 from shared_infra.sandbox.executors import (
+    DEFAULT_IMAGE,
+    configured_image,
     find_image_archive,
     gc_idle_containers,
     get_image_load_state,
@@ -51,26 +53,6 @@ from shared_infra.sandbox.executors import (
 from shared_infra.security.audit import audit_event
 
 logger = logging.getLogger("uvicorn.error")
-
-# Image utilisée quand ``config.json`` n'en nomme aucune. Ce n'est PAS une
-# valeur figée : ``config.json`` › ``executors.image`` fait foi, et doit
-# survivre aux enregistrements de l'onglet Sandbox (cf. _configured_image).
-# Reste alignée sur SandboxAdminConfig.image (_user_sandbox.py).
-DEFAULT_IMAGE = "elpis/sandbox:1.6.0"
-
-
-def _configured_image(block: dict | None) -> str:
-    """Image effective : celle de ``config.json``, sinon le défaut.
-
-    L'UI n'expose pas de champ « image » — c'est un réglage de déploiement,
-    posé à la main dans ``config.json`` (instance équipée d'une image
-    sandbox autre que celle livrée par défaut). L'admin doit pouvoir régler
-    mémoire, réseau ou profils SANS l'écraser au passage : avant, chaque
-    POST réinscrivait le défaut en dur et faisait silencieusement repasser
-    l'instance sur l'image standard au prochain conteneur créé.
-    """
-    return str((block or {}).get("image") or "").strip() or DEFAULT_IMAGE
-
 
 def _docker_bin() -> str:
     return shutil.which("docker") or "/usr/bin/docker"
@@ -100,7 +82,7 @@ def admin_executors_get(request: Request):
             "runtime": str(block.get("runtime") or ""),
             "extra_run_args": [str(x) for x in (block.get("extra_run_args") or []) if str(x).strip()],
         },
-        "image": _configured_image(block),
+        "image": configured_image(block.get("image")),
     }
 
 
@@ -108,8 +90,8 @@ def admin_executors_get(request: Request):
 async def admin_executors_post(request: Request):
     """Met à jour la config admin.
 
-    L'image n'est pas modifiable DEPUIS L'UI, mais celle que ``config.json``
-    déclare est préservée telle quelle (elle n'est pas dans le POST).
+    L'image n'est pas modifiable DEPUIS L'UI : une image tierce déclarée
+    dans ``config.json`` est conservée, l'image livrée n'y est jamais inscrite.
     """
     _require_admin(request)
     body = await request.json()
@@ -244,10 +226,6 @@ async def admin_executors_post(request: Request):
         raise HTTPException(400, "extra_run_args : trop d'arguments (max 32)")
 
     sanitized = {
-        # `cur` = le bloc executors AVANT écriture : on repart de l'image
-        # déjà configurée. Écrire DEFAULT_IMAGE ici écrasait le réglage de
-        # déploiement à chaque enregistrement de l'onglet Sandbox.
-        "image": _configured_image(cur),
         "limits": {
             "memory_mb": int((new.get("limits") or {}).get("memory_mb", 2048)),
             "cpu_quota_pct": int((new.get("limits") or {}).get("cpu_quota_pct", 100)),
@@ -261,6 +239,12 @@ async def admin_executors_post(request: Request):
         "extra_run_args": extra_run_args,
         "network_profiles": sanitized_profiles,
     }
+    # L'UI n'expose pas l'image : une image tierce, posée à la main dans
+    # config.json, est conservée ; l'image livrée n'y est jamais inscrite
+    # (elle y figerait l'instance à chaque mise à jour).
+    image = configured_image(cur.get("image"))
+    if image != DEFAULT_IMAGE:
+        sanitized["image"] = image
 
     if sanitized["limits"]["memory_mb"] < 256 or sanitized["limits"]["memory_mb"] > 65536:
         raise HTTPException(400, "memory_mb doit être entre 256 et 65536")

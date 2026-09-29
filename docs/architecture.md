@@ -2012,8 +2012,8 @@ Toutes les opérations sont confinées à la sandbox de l'utilisateur
 exécution **dans le conteneur Docker de l'utilisateur** via `bash -c`.
 
 **Aucune policy applicative.** La gate de validation shell a été **retirée** :
-le conteneur *est* la frontière (`--user 10001:10001`, réseau selon profil,
-capacités par défaut Docker moins les dangereuses, limites mémoire/CPU/PIDs).
+le conteneur *est* la frontière (`docker exec -u 10001:10001`, réseau selon profil,
+seules les capacités nécessaires, limites mémoire/CPU/PIDs).
 Un registre in-process d'autorisations serait de toute façon faux en
 multi-worker. Toutes les fonctionnalités bash sont disponibles.
 

@@ -365,7 +365,7 @@ Sections :
 | `llm` | `scheduling_mode`, `compression.*`, `compaction.*`, `prune.*`, `task.*` (sous-agents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
 | `memory` | `enabled`, `memory_char_limit`, `user_char_limit` |
 | `skills` | `dir`, `user_dir`, `top_n`, `min_score`, `char_budget`, `index_max` |
-| `executors` | `image`, `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]`, `git_isolation` (`auto` \| `none`, voir [Git côté serveur](#git-côté-serveur)) |
+| `executors` | `image` (image tierce seulement ; sans elle, celle de la version), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]`, `git_isolation` (`auto` \| `none`, voir [Git côté serveur](#git-côté-serveur)) |
 | `security` | `password_policy.*`, `session.*` (cookie, `max_age_sec`, `same_site`, `https_only`, `global_min_ts`), `https.*` (`enabled`, ports, `ca_file`), `listen` (`local` \| `lan`, voir [Écoute](#écoute-securitylisten)) — ⚠ `https.*` + `listen` + `session.https_only` + `session.global_min_ts` appartiennent à leurs endpoints, l'éditeur brut ne les écrit pas |
 | `vision` / `desktop` | Endpoint d'annotation, format, modèle, passes ; cibles desktop, scopes, budgets |
 | `rag` | `service_url`, `service_token`, collection par défaut, `top_k`, seuils |

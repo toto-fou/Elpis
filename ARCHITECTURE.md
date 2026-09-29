@@ -179,7 +179,7 @@ enregistrées, archives, recherche.
   `user_db/.local_mcp_token` + en-tête d'identité signé.
 - `rag_app/` : service RAG autonome (sans `shared_infra`).
 - `browser-service/`, `desktop-agent/` : voir le tableau des process.
-- `deploy/` : Caddy, image sandbox (`docker/sandbox/`, `elpis/sandbox:1.6.0`),
+- `deploy/` : Caddy, image sandbox (`docker/sandbox/`, `elpis/sandbox:1.7.0`),
   Qdrant, toolhost distant, voix (whisper.cpp :8090, Piper :8091),
   assistant de configuration (`configure.py`, `wizard.py`, `tui.py`).
 - `install.sh`, `elpis` (CLI d'exploitation), `make_release.sh` (paquet hors
@@ -216,7 +216,8 @@ importés), `logs/`, et
 Un conteneur Docker **par utilisateur** (`elpis-sb-<utilisateur>`, étiquettes
 `elpis.*`), image `elpis/sandbox`,
 dossier de l'utilisateur monté sur `/work`, réseau coupé sauf profil réseau
-attribué, limites mémoire / CPU / processus, sans la capacité `MKNOD`. Le
+attribué, limites mémoire / CPU / processus, seules les capacités nécessaires
+(`CAPABILITIES`, sans `NET_RAW` ni `MKNOD`). Le
 conteneur est la frontière de sécurité. Côté hôte, tout accès au contenu de
 `/work` passe par les primitives `*_beneath` de `sandbox/paths.py`
 (`open_beneath`, `stat_beneath`, `walk_beneath`, `write_beneath`…) : chaque

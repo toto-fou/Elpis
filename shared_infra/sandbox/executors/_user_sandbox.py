@@ -24,10 +24,11 @@ Sécurité (modèle 1.2.0 — « permissif mais cloisonné »)
 ------------------------------------------------------
 Le container démarre avec (``_build_run_args``, seule référence à jour) :
   --security-opt no-new-privileges:false   (voulu : sudo doit marcher)
-  capacités par défaut de Docker moins MKNOD (--cap-drop MKNOD ; ni SYS_ADMIN
-  ni NET_ADMIN ; NET_ADMIN est AJOUTÉ en profil « liste blanche IP » pour que
-  l'entrypoint pose iptables, puis retiré du bounding set : setpriv pour
-  PID 1, ``_privdrop`` pour chaque ``docker exec``)
+  --cap-drop ALL, puis ``CAPABILITIES`` seulement : ce qu'exigent
+  l'entrypoint, sudo et apt (ni NET_RAW, ni SETFCAP, ni SYS_CHROOT, ni MKNOD).
+  NET_ADMIN est AJOUTÉ en profil « liste blanche IP » pour que l'entrypoint
+  pose iptables, puis retiré du bounding set : setpriv pour PID 1,
+  ``_privdrop`` pour chaque ``docker exec``
   --network none (sauf profil)  --memory --cpus --pids-limit
   -v <sandbox>:/work:rw
 Pas de ``--user`` : l'entrypoint démarre en root (chown de /work, règles
@@ -41,7 +42,7 @@ volontaire — un container par user est jetable et cloisonné.
 Ce qui protège l'HÔTE et les AUTRES users reste en place :
   - pas de /var/run/docker.sock monté  → pas d'évasion DinD
   - seccomp + AppArmor par défaut de Docker actifs
-  - pas de SYS_ADMIN ni des autres capabilities hors défaut Docker
+  - capacités réduites à ``CAPABILITIES`` (ni SYS_ADMIN, ni NET_RAW…)
   - 1 container isolé par user, volume /work cloisonné
   - réseau coupé par défaut (profil réseau explicite requis)
   - limites mémoire / CPU / PIDs
@@ -58,7 +59,6 @@ Configuration ``config.json`` :
 
     {
       "executors": {
-        "image": "elpis/sandbox:1.6.0",
         "limits": {
           "memory_mb": 2048, "cpu_quota_pct": 100,
           "pids_max": 512,   "timeout_s": 600
@@ -68,6 +68,9 @@ Configuration ``config.json`` :
         "idle_kill_hours":   24
       }
     }
+
+``image`` : seulement pour une image TIERCE ; sans elle, celle livrée avec
+cette version (``DEFAULT_IMAGE``).
 
 ``exec_user`` : UID:GID des ``docker exec``. Défaut ``10001:10001``
 (l'user a sudo pour repasser root au besoin). Mettre ``"0:0"`` fait
@@ -195,6 +198,9 @@ import weakref as _weakref
 _lifecycle_locks: "_weakref.WeakKeyDictionary" = _weakref.WeakKeyDictionary()
 _LIFECYCLE_FLOCK_WAIT_S = 120.0
 
+#: Recréation reportée faute d'image (``_stale``) : délai avant de réessayer.
+_CONFIG_RETRY_S = 60.0
+
 
 def _loop_lock(user_id: int) -> asyncio.Lock:
     loop = asyncio.get_running_loop()
@@ -207,6 +213,20 @@ def _loop_lock(user_id: int) -> asyncio.Lock:
         lk = asyncio.Lock()
         per_loop[user_id] = lk
     return lk
+
+
+def _racine_privee(racine: Path) -> None:
+    """Racine des sandboxes réservée au compte de service (0700). Chaque
+    ``/work`` est 0777 et le root d'un conteneur peut y poser un exécutable
+    setuid : ce dossier seul le tient hors de portée des autres comptes de
+    l'hôte. Docker monte ``/work`` sans traverser ses parents."""
+    try:
+        racine.mkdir(mode=0o700, parents=True, exist_ok=True)
+        st = racine.stat()
+        if st.st_uid == os.getuid() and st.st_mode & 0o077:
+            os.chmod(racine, 0o700)
+    except OSError as e:
+        logger.warning("[sandbox] %s : droits non restreints (%s)", racine, e)
 
 
 def _lifecycle_flock_acquire(user_id: int) -> Optional[int]:
@@ -333,10 +353,43 @@ class NetworkProfile:
         )
 
 
+#: Image livrée avec cette version d'Elpis (``deploy/docker/sandbox``).
+DEFAULT_IMAGE = "elpis/sandbox:1.7.0"
+
+
+def _image_repo(ref: str) -> str:
+    """``elpis/sandbox:1.7.0`` → ``elpis/sandbox`` (registre à port compris)."""
+    ref = ref.split("@", 1)[0]
+    head, sep, tail = ref.rpartition(":")
+    return head if sep and "/" not in tail else ref
+
+
+def configured_image(value: Any) -> str:
+    """Image des conteneurs : celle de ``config.json`` si c'est une image
+    TIERCE, sinon ``DEFAULT_IMAGE``. Une étiquette ``elpis/sandbox:<x>``
+    inscrite par une version antérieure (la console l'écrivait à chaque
+    enregistrement) ne fige donc pas l'instance sur une ancienne image."""
+    image = str(value or "").strip()
+    if image and _image_repo(image) != _image_repo(DEFAULT_IMAGE):
+        return image
+    return DEFAULT_IMAGE
+
+
+#: Seules capacités du conteneur (``--cap-drop ALL`` puis celles-ci), mesurées
+#: sur l'image : l'entrypoint (chown de /work, setpriv), les ``docker exec``
+#: (setpriv), sudo, apt et dpkg (propriétaires, bits setgid), ``sudo kill``.
+#: Retirées du défaut de Docker : NET_RAW (paquets forgés sur le réseau du
+#: conteneur ; ping passe par les sockets ICMP ordinaires), SETFCAP, SYS_CHROOT,
+#: MKNOD (un nœud de périphérique créé dans /work resterait ouvrable depuis
+#: l'hôte). Un outil qui en a besoin : ``extra_run_args`` (console › Sandbox).
+CAPABILITIES = ("CHOWN", "DAC_OVERRIDE", "FOWNER", "FSETID", "SETUID", "SETGID",
+                "SETPCAP", "KILL", "AUDIT_WRITE", "NET_BIND_SERVICE")
+
 #: Version des options de ``docker run`` qui touchent à la sécurité, posée en
 #: label ``elpis.spec`` : la changer fait recréer les conteneurs existants au
-#: premier exec (2 : ``--cap-drop MKNOD``, 2026-09-29).
-RUN_SPEC = "2"
+#: premier exec (2 : ``--cap-drop MKNOD`` ; 3 : ``--cap-drop ALL`` +
+#: ``CAPABILITIES``, 2026-09-29).
+RUN_SPEC = "3"
 
 
 def netcfg_hash(profile: "NetworkProfile") -> str:
@@ -426,7 +479,7 @@ def user_network_profile_id(user_id: int) -> str:
 
 @dataclass
 class SandboxAdminConfig:
-    image:     str = "elpis/sandbox:1.6.0"
+    image:     str = DEFAULT_IMAGE
     memory_mb: int = 2048
     cpu_quota_pct: int = 100
     pids_max:  int = 512
@@ -478,7 +531,7 @@ class SandboxAdminConfig:
             profiles.insert(0, _default_profiles()[0])
 
         return cls(
-            image=str(d.get("image") or "").strip() or "elpis/sandbox:1.6.0",
+            image=configured_image(d.get("image")),
             memory_mb=int(limits.get("memory_mb", 2048)),
             cpu_quota_pct=int(limits.get("cpu_quota_pct", 100)),
             pids_max=int(limits.get("pids_max", 512)),
@@ -592,6 +645,7 @@ class UserSandbox:
         # marche sur les vieilles règles iptables indéfiniment, et un
         # durcissement des options de lancement ne touchait que les nouveaux.
         self._config_verified = False
+        self._config_retry_at = 0.0
 
     @property
     def container_name(self) -> str:
@@ -695,9 +749,9 @@ class UserSandbox:
 
     async def _config_matches(self) -> bool:
         """True si le conteneur a été créé avec les options de lancement
-        actuelles (label ``elpis.spec`` = ``RUN_SPEC``) et la config réseau du
-        profil ACTUEL (label ``elpis.netcfg``). Fail-open sur toute
-        incertitude (inspect KO).
+        actuelles (label ``elpis.spec`` = ``RUN_SPEC``), l'image configurée
+        et la config réseau du profil ACTUEL (label ``elpis.netcfg``).
+        Fail-open sur toute incertitude (inspect KO).
 
         ``netcfg`` absent (conteneur d'avant la fonctionnalité) : recréation
         seulement si le profil courant est ``allowlist_ip`` — c'est le cas
@@ -706,33 +760,54 @@ class UserSandbox:
         profile = self.network_profile
         rc, out, _ = await self._cli.call(
             "inspect", "--format",
-            _naming.label_tpl("netcfg") + "|" + _naming.label_tpl("spec"),
+            _naming.label_tpl("netcfg") + "|" + _naming.label_tpl("spec") + "|{{.Config.Image}}",
             self.container_name, timeout=5,
         )
         if rc != 0:
             return True
-        cur, _sep, spec = out.decode("utf-8", errors="replace").strip().partition("|")
-        if spec != RUN_SPEC:
+        cur, spec, image = (out.decode("utf-8", errors="replace").strip().split("|") + ["", ""])[:3]
+        if spec != RUN_SPEC or (image and image != self.cfg.image):
             return False
         if not cur or cur == "<no value>":
             return profile.mode != "allowlist_ip"
         return cur == netcfg_hash(profile)
 
-    async def _reconcile_config(self, st: SandboxStatus) -> SandboxStatus:
-        """Recrée le conteneur si ses options de lancement ont été durcies ou
-        si sa config réseau a dérivé du profil courant (l'admin a édité le
-        profil après création). Une tentative par conteneur et par process ;
-        fail-open sur incertitude — même contrat que
-        ``_reconcile_work_mount``."""
-        self._config_verified = True           # attempt once, whatever the outcome
+    async def _stale(self) -> bool:
+        """À recréer : options de lancement, image ou profil réseau périmés,
+        ET image configurée disponible. Sans elle, recréer supprimerait le
+        conteneur sans pouvoir le remplacer : on garde l'ancien jusqu'à ce
+        que l'image soit là (``./install.sh``)."""
         if await self._config_matches():
-            return st
+            return False
+        try:
+            await self._ensure_image()
+        except ExecError as e:
+            logger.warning("[sandbox] %s : options périmées, recréation reportée (%s)",
+                           self.container_name, e)
+            self._config_verified = False              # réexaminé plus tard
+            self._config_retry_at = time.monotonic() + _CONFIG_RETRY_S
+            return False
+        return True
+
+    async def _reconcile_config(self, st: SandboxStatus) -> SandboxStatus:
+        """Recrée le conteneur si ses options de lancement ont été durcies,
+        si son image n'est plus celle configurée ou si sa config réseau a
+        dérivé du profil courant (l'admin a édité le profil après création).
+        Une tentative par conteneur et par process ; fail-open sur
+        incertitude — même contrat que ``_reconcile_work_mount``."""
+        self._config_verified = True           # une fois, sauf recréation reportée
+        try:
+            if not await self._stale():
+                return st
+        except asyncio.CancelledError:
+            self._config_verified = False
+            raise
         logger.info("[sandbox] %s : options de lancement ou config réseau (profil %r) "
                     "périmées → recréation",
                     self.container_name, self.network_profile_id or "isolated")
         async with _lifecycle_lock(self.user_id):
             cur = await self.status()
-            if cur.running and not await self._config_matches():
+            if cur.running and await self._stale():
                 await self._cli.call("rm", "-fv", self.container_name, timeout=10)
                 await self._create()
             return await self.status()
@@ -831,7 +906,8 @@ class UserSandbox:
             # Dérive réseau ou options de lancement durcies : même modèle
             # une-fois que le mont /work (l'admin a pu éditer le profil
             # pendant que le conteneur tournait).
-            if st.running and not self._config_verified:
+            if (st.running and not self._config_verified
+                    and time.monotonic() >= self._config_retry_at):
                 st = await self._reconcile_config(st)
             if st.running:
                 await self._reconcile_work_perms()
@@ -884,7 +960,7 @@ class UserSandbox:
             # Options de lancement durcies ou profil réseau modifié depuis sa
             # création : recréé ici plutôt que redémarré puis recréé au
             # premier exec suivant (``_reconcile_config``).
-            stale = exit_code == 0 and not await self._config_matches()
+            stale = exit_code == 0 and await self._stale()
 
             if exit_code != 0 or stale:
                 logger.info(
@@ -915,14 +991,12 @@ class UserSandbox:
         (``resolve_profile_domains`` dans ``_create`` — la résolution est de
         l'I/O, elle n'a pas sa place ici).
 
-        Modèle 1.2.0 « permissif DANS le container » : pas de ``--read-only``
-        ni ``--cap-drop=ALL``/``no-new-privileges:true`` (sudo doit marcher) ;
-        l'isolation hôte vient des namespaces + seccomp/apparmor par défaut +
-        pas de docker.sock. Seule ``MKNOD`` est retirée (2026-09-29) : un nœud
-        de périphérique créé dans /work par le root du conteneur resterait
-        ouvrable depuis l'hôte, hors du cgroup de périphériques du conteneur. Les ``docker exec`` forcent l'UID via
-        ``self.cfg.exec_user``, donc pas de ``--user`` ici (l'entrypoint passe
-        root→10001 via setpriv).
+        Modèle « permissif DANS le container » : pas de ``--read-only`` ni de
+        ``no-new-privileges:true`` (sudo doit marcher) ; capacités réduites à
+        ``CAPABILITIES`` ; l'isolation hôte vient des namespaces +
+        seccomp/apparmor par défaut + pas de docker.sock. Les ``docker exec``
+        forcent l'UID via ``self.cfg.exec_user``, donc pas de ``--user`` ici
+        (l'entrypoint passe root→10001 via setpriv).
         """
         run_args = [
             "run", "-d",
@@ -930,7 +1004,8 @@ class UserSandbox:
             "--label", _naming.label("user_id", self.user_id),
             "--label", _naming.label("username", self.username),
             "--security-opt", "no-new-privileges:false",
-            "--cap-drop", "MKNOD",
+            "--cap-drop", "ALL",
+            *(a for cap in CAPABILITIES for a in ("--cap-add", cap)),
             "--tmpfs", "/run:rw,size=10m,mode=755",
             "--shm-size", "1g",
             "--memory", f"{self.cfg.memory_mb}m",
@@ -1010,21 +1085,9 @@ class UserSandbox:
         run_args.extend([self.cfg.image, "sleep", "infinity"])
         return run_args
 
-    async def _create(self) -> None:
-        # Cleanup défensif CONDITIONNEL : on ne supprime que si un container du
-        # même nom existe ET n'est PAS running. Avant, le ``rm -fv`` était
-        # inconditionnel → sur deux _create concurrents (boucles asyncio
-        # distinctes, cf. _lifecycle_lock), le rm de l'un détruisait le
-        # container que l'autre venait de créer et utilisait (audit CRIT-4).
-        pre = await self.status()
-        if pre.running:
-            # Une coroutine/boucle concurrente a déjà créé+démarré le container.
-            # Idempotent : on le réutilise tel quel.
-            return
-        if pre.exists:
-            await self._cli.call("rm", "-fv", self.container_name, timeout=10)
-
-        # Vérifier image présente, sinon tenter de la charger
+    async def _ensure_image(self) -> None:
+        """Image configurée présente, sinon chargée depuis son archive ;
+        ``ExecError`` si elle reste indisponible."""
         rc_img, _, _ = await self._cli.call(
             "image", "inspect", self.cfg.image, timeout=10
         )
@@ -1055,7 +1118,26 @@ class UserSandbox:
                     f"{state.error or state.progress_msg}"
                 )
 
+    async def _create(self) -> None:
+        # Cleanup défensif CONDITIONNEL : on ne supprime que si un container du
+        # même nom existe ET n'est PAS running. Avant, le ``rm -fv`` était
+        # inconditionnel → sur deux _create concurrents (boucles asyncio
+        # distinctes, cf. _lifecycle_lock), le rm de l'un détruisait le
+        # container que l'autre venait de créer et utilisait (audit CRIT-4).
+        pre = await self.status()
+        if pre.running:
+            # Une coroutine/boucle concurrente a déjà créé+démarré le container.
+            # Idempotent : on le réutilise tel quel.
+            return
+        if pre.exists:
+            await self._cli.call("rm", "-fv", self.container_name, timeout=10)
+
+        await self._ensure_image()
+
         # Sandbox folder doit exister + être accessible par UID 10001
+        from shared_infra.config import SANDBOX_DIR
+        if Path(SANDBOX_DIR) in self.sandbox_path.parents:
+            _racine_privee(Path(SANDBOX_DIR))
         self.sandbox_path.mkdir(parents=True, exist_ok=True)
         try:
             import os
@@ -1063,10 +1145,9 @@ class UserSandbox:
             # missing) — the previous "only chmod if not world-writable"
             # check skipped folders that were 0o775, which keeps the
             # container UID 10001 from creating files at the root if the
-            # operator's UID doesn't match. The folder is per-user and
-            # already isolated by the parent directory's perms (or by the
-            # OS-level user separation if SANDBOX_DIR is per-user); 0o777
-            # at this level is the simplest cross-UID arrangement.
+            # operator's UID doesn't match. The folder is isolated by the
+            # sandbox root, kept 0700 (``_racine_privee``); 0o777 at this
+            # level is the simplest cross-UID arrangement.
             os.chmod(self.sandbox_path, 0o777)
         except OSError as e:
             logger.warning("[sandbox] chmod %s impossible : %s",

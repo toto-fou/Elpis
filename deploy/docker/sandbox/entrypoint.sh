@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# entrypoint.sh — Entrypoint du container elpis/sandbox:1.6.0
+# entrypoint.sh — Entrypoint du container elpis/sandbox
 #
 # Phase 1 (ROOT, brèves millisecondes) :
 #   Si la variable ELPIS_ALLOWLIST contient des IPs/CIDRs, on configure

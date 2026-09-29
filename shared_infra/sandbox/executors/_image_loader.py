@@ -2,7 +2,7 @@
 """
 agentic/executors/_image_loader.py — Auto-chargement de l'image sandbox.
 
-L'image ``elpis/sandbox:1.6.0`` est buildée UNE FOIS sur une machine
+L'image livrée (``DEFAULT_IMAGE``) est buildée UNE FOIS sur une machine
 connectée à Internet (cf. ``deploy/docker/sandbox/build_offline.sh``)
 puis l'archive ``.tar.gz`` est commitée dans le repo de l'app.
 
@@ -105,8 +105,8 @@ def reset_state() -> None:
 
 def _candidate_tar_paths(image_name: str) -> list[Path]:
     """Liste des chemins possibles pour l'archive de l'image, par priorité."""
-    # ``image_name`` typique : ``elpis/sandbox:1.6.0``
-    # On en dérive un nom de fichier : ``elpis-sandbox-1.6.0.tar.gz``
+    # ``image_name`` typique : ``elpis/sandbox:1.7.0``
+    # On en dérive un nom de fichier : ``elpis-sandbox-1.7.0.tar.gz``
     safe = image_name.replace(":", "-").replace("/", "-")
     file_candidates = [f"{safe}.tar.gz", f"{safe}.tar"]
 

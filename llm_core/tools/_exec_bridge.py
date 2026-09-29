@@ -14,16 +14,16 @@ Why no shell_policy here ?
 For SHELL execution the container is the security boundary. Commands run
 through ``docker exec`` as ``exec_user`` (10001:10001), with NET_ADMIN
 dropped from their bounding set (``_privdrop``). The container itself has
-Docker's default capabilities, ``--network none`` (or the per-profile
-network), memory/CPU/PIDs limits and no ``--read-only``: see
+a reduced capability set, ``--network none`` (or the per-profile network),
+memory/CPU/PIDs limits and no ``--read-only``: see
 ``UserSandbox._build_run_args``, the only up-to-date reference.
 
 The model is "permissive inside": sudo NOPASSWD lets the LLM become root IN
 its container (``no-new-privileges:false`` on purpose). There is NO user
 namespace remapping, so container root is UID 0 for files on the /work bind
 mount. What keeps the host safe is the mount/network/pid namespaces, the
-cgroup limits, Docker's default seccomp + AppArmor profiles and the absence
-of docker.sock. The shell allowlist that v2 used was a belt over the
+cgroup limits, the reduced capability set (``CAPABILITIES``), Docker's
+default seccomp + AppArmor profiles and the absence of docker.sock. The shell allowlist that v2 used was a belt over the
 parachute and was removed in v3 (see shell_tools v3 module docstring).
 
 SCOPE — what actually goes through this bridge

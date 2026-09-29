@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # ─────────────────────────────────────────────────────────────────────
-#  build_offline.sh — Build de elpis/sandbox:1.6.0
+#  build_offline.sh — Build de elpis/sandbox:1.7.0
 #
 #  Deux modes :
 #    • EN LIGNE (défaut, utilisé par ./install.sh) : télécharge les binaires
@@ -34,8 +34,8 @@
 # ─────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-IMAGE="elpis/sandbox:1.6.0"
-ARCHIVE="elpis-sandbox-1.6.0.tar.gz"
+IMAGE="elpis/sandbox:1.7.0"
+ARCHIVE="elpis-sandbox-1.7.0.tar.gz"
 # Version mikefarah de yq (Go binary, ~5 MB). Bumper si une CVE sort.
 YQ_VERSION="v4.44.3"
 # Binaires DX / DB vendorisés en 1.5.0 (Go/Rust statiques). Bumper au besoin.
@@ -200,7 +200,7 @@ mkdir -p build_assets/wheels
 
 cat > build_assets/requirements.txt << 'REQEOF'
 # ════════════════════════════════════════════════════════════════════
-#  requirements.txt — elpis/sandbox:1.6.0
+#  requirements.txt — elpis/sandbox:1.7.0
 #  Tout est wheel-able en cp311 / manylinux (compilé par build_offline.sh).
 # ════════════════════════════════════════════════════════════════════
 

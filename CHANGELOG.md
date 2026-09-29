@@ -98,6 +98,9 @@ selon [SemVer](https://semver.org/lang/fr/).
   (elles échouaient à chaque démarrage) ; « Enregistrer » de la page Base ne
   modifie plus la base active (cible rangée à part jusqu'à la bascule) ; la
   vérification d'un transfert ne dépend plus de la collation du serveur.
+- **Métriques llama.cpp** : les noms publiés (`llamacpp:…`) sont reconnus ;
+  avant un chargement ou un déchargement de modèle, l'attente des créneaux au
+  repos voit de nouveau les requêtes en cours quand `/health` ne répond pas.
 
 ## 1.0.0 — 2026-09-24
 

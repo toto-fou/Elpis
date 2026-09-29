@@ -128,3 +128,21 @@ async def test_le_repli_metrics_compte_comme_joignable(monkeypatch):
     _brancher(monkeypatch, [None] * 50,
               metrics="llamacpp:requests_processing 0\n")
     assert await ml.wait_for_slots_idle() is True
+
+
+@pytest.mark.asyncio
+async def test_le_repli_metrics_voit_une_requete_en_cours(monkeypatch):
+    """llama-server publie ``llamacpp:requests_processing`` (deux-points) :
+    une requête en vol n'est plus lue « au repos » (2026-09-29)."""
+    appels = _brancher(monkeypatch, [None] * 50,
+                       metrics="# TYPE llamacpp:requests_processing gauge\n"
+                               "llamacpp:requests_processing 2\n")
+    assert await ml.wait_for_slots_idle(max_wait_sec=0.2, poll_interval=0.05) is False
+    assert appels["metrics"] >= 2
+
+
+def test_noms_prometheus_normalises():
+    from llm_core._health import _parse_prometheus_metrics
+    pm = _parse_prometheus_metrics(
+        "# HELP x\nllamacpp:kv_cache_tokens 42\nllamacpp:requests_deferred{slot=\"0\"} 1\n")
+    assert pm == {"llamacpp_kv_cache_tokens": 42.0, "llamacpp_requests_deferred": 1.0}

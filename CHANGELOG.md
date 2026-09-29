@@ -57,6 +57,11 @@ selon [SemVer](https://semver.org/lang/fr/).
   KV stable, comptage de contexte et télémétrie, client RAG.
 - **Moteur d'événements** : bus fichier sans perte, flux revalidés,
   contre-pression du terminal.
+- **Contrats du harnais** : une seule source décide si un outil est sériel,
+  rejouable, en lecture seule ou mutant (politique et annotations déclarées
+  par le serveur, replis prudents sinon) ; le résumé de compression ne
+  compte plus les outils de lecture du navigateur parmi les modifications.
+  Registre unique des événements du flux de chat, vérifié contre l'interface.
 - **Chat** : diffs relus dans l'historique ; carte « Fichiers modifiés »
   affichée quand l'éditeur est désactivé.
 - **Ancien nom du projet** : compatibilité retirée (conteneurs, étiquettes,

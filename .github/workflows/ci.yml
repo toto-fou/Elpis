@@ -71,7 +71,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: "20"
-      - name: Prison bubblewrap (Git côté serveur, aperçus)
+      - name: Prison bubblewrap (aperçus Office)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq bubblewrap
@@ -137,7 +137,7 @@ jobs:
           python-version: "3.13"
           cache: pip
           cache-dependency-path: requirements*.txt
-      - name: Prison bubblewrap (Git côté serveur, aperçus)
+      - name: Prison bubblewrap (aperçus Office)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq bubblewrap

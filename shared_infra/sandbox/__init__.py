@@ -9,10 +9,9 @@ Today this package holds:
   * ``paths``   — ``resolve_under()`` / ``ResolvedPath``: the ONE host-side
     path normalizer + containment check, replacing the 6-8 drifting copies
     of "strip ``/work`` then check it doesn't escape the sandbox root".
-  * ``git_env`` — ``hardened_git_env()``: the ONE place that builds a safe
-    environment for running ``git`` on the host (hooks disabled, no
-    interactive credential prompt), used by both ``llm_core.tools.git_tools``
-    and ``shared_infra.routes._helpers``.
+  * ``git_ops`` — git of a sandbox, run by its in-container agent; network
+    operations through the authenticating relay (``git_relay``), for both
+    ``llm_core.tools.git_tools`` and the editor's Git routes.
 
 IMPORTANT — on the HOST these are defense-in-depth + UX, NOT the security
 boundary. The real isolation boundary for untrusted/model-driven work is the
@@ -23,7 +22,6 @@ behind the container.
 """
 from __future__ import annotations
 
-from shared_infra.sandbox.git_env import hardened_git_env
 from shared_infra.sandbox.paths import (
     CONTAINER_ROOT,
     WORK_SUBDIR,
@@ -45,7 +43,6 @@ __all__ = [
     "resolve_under",
     "strip_work_prefix",
     "to_container",
-    "hardened_git_env",
     "Backend",
     "backend_for",
     "use_agent",

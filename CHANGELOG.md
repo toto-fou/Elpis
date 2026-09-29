@@ -84,14 +84,17 @@ selon [SemVer](https://semver.org/lang/fr/).
   que par des descripteurs ouverts sans suivre de lien — lectures,
   parcours, suppressions, renommages et élargissement des droits. Seuls les
   fichiers réguliers sont lus.
-- **Git côté serveur** : exécuté dans une prison bubblewrap qui ne voit que
-  la zone de travail de l'utilisateur ; le réseau ne sert qu'au transfert
-  (`clone` sans extraction, `pull` = `fetch` puis fusion hors réseau),
-  protocoles `https`, `http` et `git` seulement (`ssh` retiré).
-  `bubblewrap` devient un paquet de base — **installations existantes :
-  `apt install bubblewrap`**, sans quoi Git côté serveur est refusé
-  (`./elpis doctor`). Sur Ubuntu, l'installeur pose un profil AppArmor s'il
-  est bloqué. Réglage `executors.git_isolation`.
+- **Git dans la sandbox** : les commandes Git des outils et du panneau Git
+  de l'éditeur tournent dans le conteneur de l'utilisateur, par son agent.
+  Leurs opérations réseau passent par un relais authentifiant de l'hôte :
+  un ticket par opération, seul le dépôt de l'opération joignable,
+  identifiant du connecteur ajouté par l'hôte (jamais dans la sandbox),
+  push limité aux branches demandées ; `https` et `http` seulement (`ssh`
+  et `git://` retirés). Fonctionne avec un profil réseau isolé.
+  `bubblewrap` (aperçus Office) devient un paquet de base —
+  **installations existantes : `apt install bubblewrap`** (`./elpis
+  doctor`) ; sur Ubuntu, l'installeur pose un profil AppArmor s'il est
+  bloqué.
 - **Conteneurs** : seules les capacités nécessaires (`--cap-drop ALL`, puis
   celles qu'exigent l'entrypoint, sudo et apt) : plus de `NET_RAW`,
   `SETFCAP`, `SYS_CHROOT` ni `MKNOD`. Image `elpis/sandbox:1.7.0` (`ping`

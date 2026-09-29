@@ -76,30 +76,31 @@ Installation : `./install.sh --with-office`.
   interrupteur admin « Aperçu Office » (`features.office_preview`). Cache :
   `user_sandboxes/.office-cache` (élagué par la maintenance).
 
-### Git côté serveur
+### Git d'une sandbox
 
-Les commandes Git que le serveur lance sur un dépôt de sandbox (outils Git de
-l'agent, panneau Git de l'éditeur) tournent dans la même prison `bubblewrap` :
-elles ne voient que la zone de travail de l'utilisateur, `/usr` et le strict
-nécessaire de `/etc` en lecture. Le réseau ne sert qu'au transfert (`clone`,
-`fetch`, `push`, `ls-remote` ; protocoles `https`, `http`, `git`) : `clone`
-rapatrie sans extraire et `pull` n'est qu'un `fetch`, l'extraction et la fusion
-suivent dans une prison sans réseau. Sans `bwrap` utilisable, ces commandes sont
-refusées ; `executors.git_isolation = "none"` rétablit l'ancien comportement,
-sans isolation (`shared_infra/sandbox/git_env.py`). `./elpis doctor` vérifie la
-prison.
+Les commandes Git des outils de l'agent et du panneau Git de l'éditeur
+tournent dans le conteneur de l'utilisateur, par son agent et sous son UID :
+ce qu'un dépôt fait exécuter reste dans la sandbox (les hooks restent
+désactivés pour ces commandes). Les opérations réseau lancées par Elpis
+(`clone`, `fetch`, `pull`, `push`, `ls-remote` ; `https` et `http`
+seulement) passent par le relais de l'hôte, y compris avec un profil réseau
+isolé : un ticket par opération, le seul dépôt de l'opération joignable,
+l'identifiant du connecteur Git ajouté par l'hôte (jamais dans la sandbox),
+la garde anti-SSRF refaite à chaque requête et, au push, seules les
+branches demandées. Le terminal de la sandbox n'a pas accès au relais.
 
-Certificats TLS : ceux de `/etc/ssl`, `/etc/pki` et `/etc/ca-certificates`, ou
-un fichier désigné par `SSL_CERT_FILE`, `SSL_CERT_DIR`, `GIT_SSL_CAINFO` ou
-`GIT_SSL_CAPATH` (un `http.sslCAInfo` de `/etc/gitconfig` doit pointer dans ces
-dossiers).
+Le relais écoute sur `user_sandboxes/.elpis-relay/<pid>.sock` (un socket par
+processus de l'app), dossier monté en lecture seule dans les conteneurs.
+Certificats TLS : le magasin du système (`/etc/ssl`, `SSL_CERT_FILE`,
+`SSL_CERT_DIR`), plus `GIT_SSL_CAINFO` / `GIT_SSL_CAPATH` s'ils sont définis
+pour le service ; proxy : `HTTPS_PROXY` / `NO_PROXY` du service.
 
 Ubuntu ≥ 23.10 réserve les user namespaces aux programmes munis d'un profil
 AppArmor. Si `bwrap` est bloqué, l'installeur (sauf `--skip-system`) pose
 `/etc/apparmor.d/elpis-bwrap`. Compromis : ce profil vaut pour tout compte
 de la machine qui lance `bwrap`, et rouvre donc pour lui la surface du noyau que
 la restriction réduit. Le retirer (`apparmor_parser -R`, puis supprimer le
-fichier) désactive la prison, donc Git côté serveur.
+fichier) désactive la prison des aperçus Office.
 
 ---
 
@@ -365,7 +366,7 @@ Sections :
 | `llm` | `scheduling_mode`, `compression.*`, `compaction.*`, `prune.*`, `task.*` (sous-agents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
 | `memory` | `enabled`, `memory_char_limit`, `user_char_limit` |
 | `skills` | `dir`, `user_dir`, `top_n`, `min_score`, `char_budget`, `index_max` |
-| `executors` | `image` (image tierce seulement ; sans elle, celle de la version), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]`, `git_isolation` (`auto` \| `none`, voir [Git côté serveur](#git-côté-serveur)) |
+| `executors` | `image` (image tierce seulement ; sans elle, celle de la version), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]` |
 | `security` | `password_policy.*`, `session.*` (cookie, `max_age_sec`, `same_site`, `https_only`, `global_min_ts`), `https.*` (`enabled`, ports, `ca_file`), `listen` (`local` \| `lan`, voir [Écoute](#écoute-securitylisten)) — ⚠ `https.*` + `listen` + `session.https_only` + `session.global_min_ts` appartiennent à leurs endpoints, l'éditeur brut ne les écrit pas |
 | `vision` / `desktop` | Endpoint d'annotation, format, modèle, passes ; cibles desktop, scopes, budgets |
 | `rag` | `service_url`, `service_token`, collection par défaut, `top_k`, seuils |

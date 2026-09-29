@@ -195,12 +195,10 @@ résumé, une modification ne doit jamais :
 - réorganiser le gestionnaire du flux de chat (`chatbot_app/routes/chats.py`)
   sans relire ses invariants d'ordre (annulation, enregistrement, protocole
   NDJSON), documentés en tête du fichier ;
-- présenter les outils fichiers et Git comme isolés : seul le shell tourne
-  dans le conteneur ;
 - toucher au contenu de `/work` depuis l'hôte autrement que par les
   primitives `*_beneath` de `shared_infra/sandbox/paths.py` (`open_beneath`,
-  `stat_beneath`, `walk_beneath`, `write_beneath`…), ou lancer `git` côté
-  hôte hors de `git_env.run_host_git` : un `open`, `os.walk`, `chmod` ou
+  `stat_beneath`, `walk_beneath`, `write_beneath`…), ou lancer `git` sur un
+  dépôt de sandbox ailleurs que par `git_ops` (agent) : un `open`, `os.walk`, `chmod` ou
   `unlink` sur un chemin suit les liens que le conteneur peut poser à tout
   moment.
 

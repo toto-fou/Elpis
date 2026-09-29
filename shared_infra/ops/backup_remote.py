@@ -274,7 +274,7 @@ def build_send_argv(cfg: Dict[str, Any], local_path: str, filename: str) -> List
 
 # Script ASKPASS statique : ssh l'appelle pour chaque invite (« Password: »,
 # keyboard-interactive…) ; il imprime le mot de passe lu dans l'environnement,
-# sans jamais l'évaluer. Même principe que ``shared_infra.git.askpass``.
+# sans jamais l'évaluer.
 _SSH_ASKPASS_BODY = '#!/bin/sh\nprintf \'%s\\n\' "$ELPIS_BACKUP_SSH_PASS"\n'
 
 

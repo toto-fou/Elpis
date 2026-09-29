@@ -207,16 +207,17 @@ def test_gitea_uses_basic_auth_not_token():
     assert base64.b64decode(cap["auth"].split(" ", 1)[1]).decode() == "ghp_x:"
 
 
-def test_askpass_token_only():
-    from shared_infra.git.askpass import git_askpass_env
-    with git_askpass_env("", "ghp_tok") as env:    # token sans login → injecté
-        assert env.get("GIT_ASKPASS")
-        assert env["GIT_ASKPASS_USER"] == "ghp_tok"
-        assert env["GIT_ASKPASS_PASS"] == "ghp_tok"
-    with git_askpass_env("alice", "pw") as env2:
-        assert env2["GIT_ASKPASS_USER"] == "alice" and env2["GIT_ASKPASS_PASS"] == "pw"
-    with git_askpass_env("alice", "") as env3:     # pas de token → rien
-        assert env3 == {}
+def test_relais_identifiant_token_only():
+    """Le relais Git ajoute ``Basic`` comme le faisait l'askpass : le jeton
+    sert d'identifiant quand le login est vide."""
+    import base64
+
+    from shared_infra.sandbox.git_relay import basic_auth
+
+    def dec(h):
+        return base64.b64decode(h.split(" ", 1)[1]).decode()
+    assert dec(basic_auth("", "ghp_tok")) == "ghp_tok:ghp_tok"
+    assert dec(basic_auth("alice", "pw")) == "alice:pw"
 
 
 def test_test_connection_mocked():

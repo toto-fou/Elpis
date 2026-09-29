@@ -23,7 +23,7 @@ or English.
 | la boucle de chat, le contexte, l'ordonnancement | `llm_core/` (`_chat_with_tools.py`, `context/`, `_scheduling/`) |
 | un outil de l'agent | `llm_core/tools/` ; sa famille dans `shared_infra/mcp/families.py` |
 | l'accès de l'hôte aux fichiers d'une sandbox | uniquement les primitives de `shared_infra/sandbox/paths.py` |
-| Git côté serveur | `shared_infra/sandbox/git_env.py` (`run_host_git`) |
+| Git d'une sandbox | `shared_infra/sandbox/git_ops.py` (par l'agent), `git_relay.py` (réseau) |
 | la base de données | `shared_infra/db/` (schéma, migrations, dialectes) |
 | l'interface | `frontend/` (fragments dans `includes/`, scripts dans `js/`) |
 | l'installation, le lancement | `install.sh`, `elpis`, `deploy/` |

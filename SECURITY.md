@@ -63,7 +63,8 @@ run Elpis on a dedicated machine or VM. Details below, in French.
   nécessaires — ni `NET_RAW`, ni `MKNOD` —, limites mémoire, CPU et
   processus, réseau par profil). Côté hôte, le contenu de
   `/work` n'est lu ou écrit que par des descripteurs qui ne suivent aucun
-  lien ; Git côté serveur tourne dans une prison `bubblewrap` ; les
+  lien ; Git tourne dans la sandbox, et ses opérations réseau lancées par
+  Elpis passent par un relais de l'hôte qui y ajoute l'identifiant : les
   identifiants Git restent sur l'hôte.
 - Serveur ↔ réseau : adresses des dépôts Git et des serveurs MCP vérifiées
   et résolues côté serveur (voir les limites ci-dessous).
@@ -78,11 +79,11 @@ run Elpis on a dedicated machine or VM. Details below, in French.
 
 **Limites connues**
 
-- La configuration d'un dépôt de la sandbox est contrôlée avant chaque
-  commande Git côté serveur ; une modification faite par le conteneur entre
-  ce contrôle et la commande reste confinée à la prison `bubblewrap`, mais
-  peut encore influer sur un transfert réseau. Exécuter Git dans la sandbox
-  (feuille de route) fermera cette fenêtre.
+- Pendant une opération Git réseau lancée par Elpis (au plus sa durée), le
+  relais accepte les requêtes Git venues de la sandbox pour le seul dépôt et
+  le seul service de l'opération ; un push n'y modifie que les refs
+  demandées, sans suppression. Le terminal de la sandbox n'a pas accès au
+  relais.
 - Serveur MCP distant : son adresse est vérifiée quand il est enregistré, pas
   à chaque résolution DNS.
 
@@ -97,8 +98,8 @@ run Elpis on a dedicated machine or VM. Details below, in French.
 | Administration | comptes, connecteurs et leurs clés, sauvegardes |
 
 **Configurations supportées** : Debian 12/13 ou Ubuntu 24.04 ; Docker et
-`bubblewrap` de la distribution (`./elpis doctor`), prison Git active
-(`executors.git_isolation = "auto"`, le défaut) ; écoute locale par défaut,
+`bubblewrap` de la distribution (`./elpis doctor`, aperçus Office isolés) ;
+écoute locale par défaut,
 HTTPS (Caddy) dès que l'instance est ouverte au réseau.
 
 **Compte de service** : il pilote Docker ; membre du groupe `docker`, il est

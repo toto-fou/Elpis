@@ -15,9 +15,17 @@ from fastapi.testclient import TestClient
 import shared_infra.sandbox.routes_git as sg
 from shared_infra.sandbox import agent_client as AC, git_ops
 from shared_infra.sandbox.agent_client import AgentError
-from tests.shared_infra.test_git_relais_2026_09_29 import BASIC, JETON, _git, amont  # noqa: F401
+from tests._git_amont import BASIC, JETON, _git, demarrer_amont
 
 IDS = {"cred_user": "u", "cred_token": JETON}
+
+
+@pytest.fixture()
+def amont(tmp_path):
+    srv = demarrer_amont(tmp_path)
+    yield srv
+    srv.shutdown()
+    srv.server_close()
 
 
 @pytest.fixture()

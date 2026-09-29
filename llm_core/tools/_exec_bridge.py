@@ -30,16 +30,11 @@ SCOPE — what actually goes through this bridge
 ----------------------------------------------
 This bridge routes ``execute_shell`` (and the human terminal/editor write
 routes have their OWN container path via ``routes/_sandbox_exec.py``). It is
-NOT a universal funnel: today ``fs_tools`` (read/write/edit/list/grep) and
-``git_tools`` still run HOST-DIRECT (Python ``os``/``shutil`` + host
-``subprocess``), as the app's account — they do NOT come through here and
-are NOT inside the container. What confines them is ``resolve_under``
-(``sandbox/paths.py`` : resolve + relative_to, symlinks leaving the root
-refused, ``O_NOFOLLOW`` writes) and, for git, the filtered environment and
-the refused config keys of ``sandbox/git_env.py``. So the kernel boundary above applies
-to shell, not to every tool. Unifying those host-direct paths behind the
-container is a tracked migration; until then this docstring must not be read
-as "all tools are sandboxed at the kernel level".
+NOT a universal funnel: ``fs_tools`` and ``git_tools`` go through the
+sandbox's in-container agent instead (``_espace.Espace``, ``git_ops``), under
+the same container UID; network git goes through the host's authenticating
+relay (``sandbox/git_relay.py``). The remaining host accesses to ``/work``
+(archives, backups) are a tracked migration.
 
 Folder-mode legacy
 ------------------

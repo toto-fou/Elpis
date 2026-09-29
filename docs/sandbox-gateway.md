@@ -1,58 +1,82 @@
-# Passerelle sandbox — outils locaux et conteneur utilisateur
+# Passerelle sandbox — l'agent du conteneur et le relais Git
 
-Comment les *outils locaux* du LLM agissent sur la sandbox d'un utilisateur :
-ce qui est livré, et ce qui reste une proposition.
+Comment Elpis agit sur la sandbox d'un utilisateur : le conteneur est la
+frontière ; l'hôte demande à un agent du conteneur ce qu'il faut faire plutôt
+que de toucher lui-même au contenu de `/work`.
 
-## Deux chemins d'accès
-
-Les effets des outils atteignent le conteneur Docker de l'utilisateur
-(`elpis-sb-<user>`, `/work` monté depuis l'hôte) par deux chemins :
+## Chemins d'accès
 
 | Appelant | Chemin | Frontière |
 |---|---|---|
-| `execute_shell`, terminal, routes d'écriture de l'éditeur | `docker exec` | noyau / conteneur |
-| `fs_tools`, lectures de l'éditeur | direct sur l'hôte (`os`, `shutil`) | résolution de chemin sous la racine de la sandbox, puis ouverture par descripteurs sans suivre de lien |
-| `git_tools`, routes Git de l'éditeur | `git` sur l'hôte dans une prison `bwrap` | la prison ne voit que la zone de travail de l'utilisateur |
+| `execute_shell`, terminal | `docker exec`, UID 10001 | noyau / conteneur |
+| outils fichiers ; éditeur (arbre, lecture, écriture, recherche, aperçus, imports) | agent du conteneur | conteneur |
+| outils Git, panneau Git de l'éditeur | agent du conteneur (`git`) | conteneur |
+| réseau Git lancé par Elpis (`clone`, `fetch`, `pull`, `push`, `ls-remote`) | agent, puis relais de l'hôte | ticket par opération |
+| archives, instantanés, sauvegardes | hôte, par descripteurs (`shared_infra/sandbox/paths.py`) — migration en cours | résolution sous la racine, sans suivre de lien |
 
-Côté hôte, la sûreté repose donc sur la résolution de chemin, les accès par
-descripteurs et, pour git, sur la prison et le durcissement de sa
-configuration. L'hôte et le conteneur (UID 10001) partageant le même
-volume, les fichiers écrits par l'hôte sont élargis en écriture (`0o666` /
-`0o777`) pour rester modifiables depuis le conteneur.
+Tant que l'hôte écrit encore dans `/work`, les fichiers y restent ouverts à
+l'autre UID (`0o666` / `0o777`) ; cet élargissement disparaîtra avec les
+derniers accès de l'hôte.
 
-## Composants livrés
+## L'agent
 
-| Composant | Fichier | Rôle |
-|---|---|---|
-| Résolution de chemin (`resolve_under`, `write_beneath`) | `shared_infra/sandbox/paths.py` | refuse `..`, NUL, préfixe voisin, lien symbolique sortant ; écriture composant par composant (`O_NOFOLLOW`) |
-| Durcissement git (`hardened_git_env`, `repo_refusal`) | `shared_infra/sandbox/git_env.py` | `GIT_TERMINAL_PROMPT=0`, hooks désactivés (`core.hooksPath=/dev/null`), dépôt refusé si sa config déclare une commande |
-| Prison des git hôte (`run_host_git`) | `shared_infra/sandbox/git_env.py`, `bwrap.py` | seule la zone de travail montée ; réseau pour le seul transfert (extraction et fusion hors réseau) ; `executors.git_isolation` |
-| Table de politique `OP_BACKEND` | `shared_infra/sandbox/policy.py` | choix hôte / conteneur par opération, défaut `host` |
-| Cache de disponibilité (`ReadinessCache`) | `shared_infra/sandbox/executors/_readiness.py` | état « conteneur démarré » alimenté par `docker events` |
-| Profil d'exécution durci (optionnel) | `shared_infra/sandbox/executors/_user_sandbox.py` (`_build_run_args`) | `executors.runtime` (ex. gVisor `runsc`) et `executors.extra_run_args`, vides par défaut |
+- `shared_infra/sandbox/agent/server.py` : bibliothèque standard,
+  Python ≥ 3.9. Code monté en lecture seule (`/opt/elpis/agent`), lancé à la
+  demande par `docker exec -d` sous l'UID du conteneur, sans capacités, et
+  relancé si sa version (empreinte du fichier) diffère de celle de
+  l'application.
+- Canal : HTTP/1.1 sur `/run/elpis/agent.sock` (sur l'hôte :
+  `<utilisateur>/.elpis-agent/agent.sock`). L'hôte ouvre le socket sans
+  suivre de lien et tient toute réponse pour non fiable : tailles et délais
+  bornés, jamais un chemin de l'hôte tiré d'une réponse
+  (`shared_infra/sandbox/agent_client.py`).
+- Appel passif (sondages de l'éditeur) : ne redémarre pas un conteneur
+  arrêté et ne compte pas comme une activité de la sandbox.
+- API `/v1` : `hello`, `stat`, `read`, `list`, `grep`, `readmany`, `write`,
+  `append`, `fsop` (`mkdir`, `remove`, `rename`, `copy`, `chmod`, `clear`,
+  `du`), `changes/begin` et `changes/end`, `git`, `shutdown` ; le détail est
+  en tête de `server.py`.
+
+## Git
+
+- `git` tourne dans le conteneur (`shared_infra/sandbox/git_ops.py`) : UID de
+  la sandbox, `HOME=/work` ; pour les commandes d'Elpis, ni hooks, ni
+  moniteur, ni signature, ni invite d'identifiants ; identité par défaut
+  « Elpis », que la configuration de l'utilisateur remplace.
+- Réseau (`shared_infra/sandbox/git_relay.py`) :
+  - chaque processus de l'app écoute sur
+    `user_sandboxes/.elpis-relay/<pid>.sock`, dossier monté en lecture
+    seule sur `/run/elpis-relay` ;
+  - une opération réseau d'Elpis reçoit un ticket (jeton aléatoire gardé
+    en mémoire par le processus qui le délivre) : compte, dépôt amont,
+    service Git, refs permises au push, échéance ; il est révoqué en fin
+    d'opération ;
+  - pour la durée de la commande, l'agent ouvre `127.0.0.1:<port>` dans le
+    conteneur et relaie chaque connexion vers ce socket, précédée d'une
+    ligne qui porte le ticket ; `git` y est dirigé par
+    `url.<relais>.insteadOf` (l'URL du remote ne change pas) ;
+  - le relais n'accepte que le protocole Git « smart HTTP » du dépôt du
+    ticket, filtre les en-têtes, ajoute l'identifiant du connecteur, refait
+    la garde anti-SSRF et parle TLS à l'amont ; au push, il lit les
+    commandes et refuse une ref hors du ticket ou une suppression ;
+  - la sortie de Git et `FETCH_HEAD` reprennent l'URL d'origine ; `pull` =
+    `fetch` par le relais, puis fusion dans le conteneur.
+- Le terminal de la sandbox n'a pas accès au relais (pas de ticket) : il
+  n'a que le réseau de son profil.
 
 ## Table `OP_BACKEND`
 
 `opération → host | agent`, surchargée par `SANDBOX_GATEWAY_<OP>=agent|host`
-(`<OP>` = nom en majuscules, `.` → `_`). Une valeur non reconnue est ignorée
-avec un avertissement. Toutes les opérations valent `host` par défaut.
-
-| Opération | Effet de `agent` aujourd'hui |
-|---|---|
-| `fs.write` | plus d'élargissement des droits (`0o644`, pas de `0o777`) : un seul UID possède `/work` |
-| `git.network` | clone / fetch / push exécutés dans le conteneur (`docker exec`, UID 10001) sous le profil réseau de l'utilisateur ; profil isolé → erreur `network_isolated` ; identifiants (askpass) refusés → `credentials_not_supported_in_container` |
-| `fs.read`, `fs.list`, `fs.grep`, `fs.stat`, `git.read`, `exec.shell`, `snapshot` | aucun : déclarées dans la table, sans lecteur dans le code |
-
-## Non livré (proposition)
-
-Un agent résident dans le conteneur, joint par un socket authentifié monté
-depuis l'hôte, ferait du conteneur la frontière unique de toutes les
-opérations (lecture, écriture, git, exec, instantanés). Il n'existe pas dans
-le code : les opérations `agent` ci-dessus passent par `docker exec`, et le
-répertoire `.sandboxd` n'est plus qu'un nom réservé dans `paths.py`.
+(`shared_infra/sandbox/policy.py`). Seule `fs.write` a encore un effet :
+`agent` supprime l'élargissement des droits des écritures de l'hôte.
 
 ## Tests
 
-`tests/shared_infra/` : `test_sandbox_paths.py`, `test_git_env.py`,
-`test_readiness_cache.py`, `test_sandbox_policy.py`, `test_run_args.py`,
-`test_sandbox_exec_recovery.py` ; `tests/llm_core/test_fs_path_helpers.py`.
+`tests/shared_infra/` : `test_agent_sandbox_2026_09_29.py` (agent et
+client), `test_git_relais_2026_09_29.py` (git et relais de bout en bout,
+avec `git http-backend`), `test_relecture_editeur_agent_2026_09_29.py`,
+`test_adversarial_sandbox_2026_09_29.py`, `test_sandbox_paths.py`,
+`test_sandbox_policy.py`, `test_run_args.py` ;
+`tests/sandbox/test_git_routes_agent_2026_09_29.py` (routes Git de
+l'éditeur), `tests/llm_core/test_git_network_backend.py` (outils Git par le
+relais), `tests/llm_core/test_relecture_agent_fichiers_2026_09_29.py`.

@@ -35,6 +35,7 @@ def test_invalid_env_value_ignored(monkeypatch):
 
 
 def test_all_ops_reflects_override(monkeypatch):
-    monkeypatch.setenv("SANDBOX_GATEWAY_GIT_NETWORK", "agent")
+    monkeypatch.setenv("SANDBOX_GATEWAY_FS_WRITE", "agent")
     table = all_ops()
-    assert table["git.network"] is Backend.AGENT
+    assert table["fs.write"] is Backend.AGENT
+    assert "git.network" not in table              # git passe toujours par l'agent (L4.4)

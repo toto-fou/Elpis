@@ -45,8 +45,6 @@ _DEFAULTS: Dict[str, Backend] = {
     "fs.list":      Backend.HOST,
     "fs.grep":      Backend.HOST,
     "fs.stat":      Backend.HOST,
-    "git.read":     Backend.HOST,
-    "git.network":  Backend.HOST,
     "exec.shell":   Backend.HOST,
     "snapshot":     Backend.HOST,
 }

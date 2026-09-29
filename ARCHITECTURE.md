@@ -61,9 +61,10 @@ Un tour de chat, de la requête au dernier événement :
    L'identité de l'utilisateur voyage dans `_meta`.
 7. **Exécution.** Les commandes shell tournent dans le conteneur de
    l'utilisateur (`docker exec`, privilèges abaissés à l'UID 10001). Les outils
-   fichiers agissent côté hôte, par descripteurs qui ne suivent aucun lien
-   (`shared_infra/sandbox/paths.py`) ; Git côté hôte tourne dans une prison
-   `bwrap` qui ne voit que la zone de travail (`git_env.run_host_git`).
+   fichiers, l'éditeur et Git passent par l'agent de ce conteneur
+   (`shared_infra/sandbox/agent/`), sous le même UID ; les opérations Git
+   réseau lancées par Elpis passent par le relais authentifiant de l'hôte
+   (`shared_infra/sandbox/git_relay.py`).
 8. **Fin de tour.** Le tour est enregistré (`shared_infra/chat/store.py`,
    contrôle optimiste sur `updated_at` : un conflit est signalé, rien n'est
    écrasé), puis les événements `kv_cache` et `final` partent. La
@@ -223,9 +224,11 @@ conteneur est la frontière de sécurité. Côté hôte, tout accès au contenu 
 (`open_beneath`, `stat_beneath`, `walk_beneath`, `write_beneath`…) : chaque
 composant est ouvert relativement à son dossier, sans suivre de lien, même
 posé pendant l'opération, et le type d'une entrée est vérifié avant de
-l'ouvrir en lecture. Git côté hôte passe par
-`sandbox/git_env.py::run_host_git`, dans une prison `bwrap`
-(`sandbox/bwrap.py`, réglage `executors.git_isolation`).
+l'ouvrir en lecture. Git tourne dans le conteneur, par l'agent
+(`sandbox/git_ops.py`) ; ses opérations réseau passent par le relais
+authentifiant de l'hôte (`sandbox/git_relay.py`) : un ticket par opération,
+le seul dépôt de l'opération joignable, l'identifiant du connecteur ajouté
+par l'hôte, jamais dans la sandbox.
 
 Dans chaque conteneur, un **agent** (`sandbox/agent/server.py`, bibliothèque
 standard) exécute les opérations sur `/work` que l'hôte lui demande : HTTP sur
@@ -271,12 +274,13 @@ passent par lui au fil de la migration.
   une migration met aussi à jour `_schema.py` et `BASELINE_COVERS`.
 - **Tâches planifiées** (routines, entretien, sauvegardes) : sur le seul
   worker leader (`scheduling/cron_lock.py`), jamais dans le process admin.
-- **Sandbox** : le conteneur est la barrière ; les outils fichiers ne sont pas
-  isolés par le noyau : l'hôte n'accède au contenu de `/work` que par les
+- **Sandbox** : le conteneur est la barrière ; outils fichiers, éditeur et Git
+  passent par l'agent du conteneur (`sandbox/agent_client.py`, `git_ops.py`) ;
+  ce qui touche encore `/work` depuis l'hôte n'y accède que par les
   primitives de `sandbox/paths.py`, jamais par `open`, `os.walk`, `chmod` ou
-  `unlink` sur un chemin ; `git` côté hôte seulement par `run_host_git` ; tout
-  conteneur passe par la résolution du profil réseau (un profil imposé par
-  l'administrateur l'emporte).
+  `unlink` sur un chemin ; aucun `git` côté hôte sur un dépôt de sandbox ;
+  tout conteneur passe par la résolution du profil réseau (un profil imposé
+  par l'administrateur l'emporte).
 
 ## Tests
 

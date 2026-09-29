@@ -1432,8 +1432,9 @@ service depuis une URL), `POST /{id}/test`, `GET /{id}/repos`.
 - Providers : `github`, `gitlab`, `bitbucket-cloud`, `bitbucket-server`,
   `gitea`, `generic`. Chacun sait ouvrir une PR/MR.
 - **Anti-SSRF** (`shared_infra/git/ssrf.py`) sur les URLs distantes.
-- L'authentification passe par un helper `askpass` — aucun identifiant n'est
-  écrit dans la sandbox.
+- L'authentification est ajoutée par le relais Git de l'hôte
+  (`shared_infra/sandbox/git_relay.py`) — aucun identifiant n'entre dans la
+  sandbox.
 
 ---
 

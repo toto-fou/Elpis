@@ -404,8 +404,8 @@ def amont(url: str) -> tuple:
 
 
 def basic_auth(username: str, token: str) -> str:
-    """Authorization que produirait l'askpass : identifiant (le jeton s'il
-    est vide) et jeton."""
+    """``Basic`` de l'identifiant (le jeton s'il est vide) et du jeton, comme
+    git le construit à partir d'un identifiant."""
     brut = f"{username or token}:{token}".encode("utf-8")
     return "Basic " + base64.b64encode(brut).decode("ascii")
 

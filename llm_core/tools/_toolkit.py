@@ -824,6 +824,12 @@ def unicode_twin_warning(target, root, max_scan: int = 500) -> Optional[str]:
         except OSError:
             pass
         parent = cur
+    return twin_message(twins)
+
+
+def twin_message(twins) -> Optional[str]:
+    """Avertissement pour des paires ``(existant, nouveau)`` de noms qui ne
+    diffèrent que par les accents ou la casse ; ``None`` sans paire."""
     if not twins:
         return None
     pairs = "; ".join(f"'{new}' ≈ existing '{old}'" for old, new in twins[:3])

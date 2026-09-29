@@ -12,11 +12,12 @@ Les refus de l'agent remontent en ``AgentError``.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 from shared_infra.sandbox.agent_client import AgentError, AgentListing, AgentRead
 
 from ._exec_bridge import _run_async, sandbox_for
+from ._toolkit import _fold_confusable, twin_message
 
 
 class Espace:
@@ -46,6 +47,25 @@ class Espace:
 
     def fsop(self, op: str, **kw: Any) -> Dict[str, Any]:
         return _run_async(self._agent.fsop(op, **kw))
+
+    def jumeau_unicode(self, rel: str, max_scan: int = 500) -> Optional[str]:
+        """Avertissement si créer ``rel`` introduit un nom qui ne diffère d'un
+        voisin que par les accents ou la casse (cf. ``_toolkit.twin_message``).
+        Seul le premier composant absent est comparé à son dossier ; jamais
+        bloquant (erreur → ``None``)."""
+        parties = [c for c in rel.split("/") if c]
+        try:
+            entrees = self.stats(["/".join(parties[:i + 1]) for i in range(len(parties))])
+            i = next((k for k, e in enumerate(entrees) if e.get("kind") == "missing"), None)
+            if i is None:
+                return None
+            parent = "/".join(parties[:i])
+            plie = _fold_confusable(parties[i])
+            voisins = self.lister(parent, max_entries=max_scan).entries
+        except AgentError:
+            return None
+        return twin_message([(nom, parties[i]) for nom in (v["path"].rsplit("/", 1)[-1] for v in voisins)
+                             if nom != parties[i] and _fold_confusable(nom) == plie])
 
 
 __all__ = ["AgentError", "Espace"]

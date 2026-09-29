@@ -300,12 +300,12 @@ def test_edit_refused_when_file_changed_under_it(fs, monkeypatch):
     t, w = fs
     f = w / "c.txt"
     f.write_text("base\n")
-    real = F._guarded_write
+    real = F._ecrire_garde
 
-    def racy(sb, p, expected, fn, **kw):
+    def racy(*a, **kw):
         f.write_text("editor save\n")            # l'éditeur passe entre-temps
-        return real(sb, p, expected, fn, **kw)
-    monkeypatch.setattr(F, "_guarded_write", racy)
+        return real(*a, **kw)                    # l'agent refuse au remplacement
+    monkeypatch.setattr(F, "_ecrire_garde", racy)
     r = t["edit_file"](None, path="c.txt", action="str_replace",
                        old_str="base", new_str="agent")
     assert r["ok"] is False and "concurrent_modification" in json.dumps(r)

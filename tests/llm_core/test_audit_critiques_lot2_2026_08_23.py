@@ -450,7 +450,7 @@ def test_append_sur_un_fichier_latin1_echoue_sans_rien_detruire(tmp_path):
 
     import inspect
     src = inspect.getsource(F)
-    i = src.index('if mode == "append" and p.exists():')
+    i = src.index('if mode == "append" and old_raw is not None:')
     # Bornes serrées sur la SEULE branche append : la branche ``write``
     # voisine lit elle aussi en ``errors="replace"``, mais uniquement pour
     # les statistiques +X/-Y — elle ne réécrit jamais ce qu'elle a lu.

@@ -497,6 +497,81 @@ _ERREURS_AGENT = {
 }
 
 
+def _actuel(esp: Espace, rel: str, e: Optional[Dict[str, Any]] = None
+            ) -> Tuple[Dict[str, Any], Optional[bytes], str]:
+    """(entrée ``stat``, contenu, sha256) du fichier ``rel`` avant de le
+    remplacer ; absent : ``(e, None, "")``. Un dossier ou un fichier spécial
+    lève ``AgentError``. ``e`` : entrée déjà lue."""
+    e = e if e is not None else esp.stat(rel)
+    if e["kind"] == "missing":
+        return e, None, ""
+    if e["kind"] != "file":
+        raise AgentError("is_dir" if e["kind"] == "dir" else "not_file", str(e["kind"]))
+    data = esp.lire(rel, max_bytes=int(e.get("size") or 0) + (1 << 20)).data
+    return e, data, _sha256_bytes(data)
+
+
+def _mode_ecrit(e: Dict[str, Any]) -> Optional[str]:
+    """Mode d'une écriture : celui du fichier remplacé (bits x gardés, E18),
+    élargi pour l'autre UID tant que l'hôte accède encore à /work (cf.
+    ``_chmod_cross_writable``) ; ``None`` : défaut de l'agent."""
+    cur = int(e.get("mode") or 0) & 0o777 if e.get("kind") == "file" else None
+    if use_agent("fs.write"):
+        return None if cur is None else format(cur, "o")
+    return format(((cur if cur is not None else 0o644) | 0o666) & 0o777, "o")
+
+
+def _ecrire_garde(esp: Espace, username: str, sb: Path, p: Path, rel: str, data: bytes, *,
+                  etat: Tuple[Dict[str, Any], Optional[bytes], str], expected_sha256: str = "",
+                  strict: bool = False) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Remplace ``rel`` par ``data`` par l'agent : ``(réponse, None)`` ou
+    ``(None, _err)``.
+
+    ``etat`` (cf. :func:`_actuel`) : le fichier tel que l'appelant l'a lu
+    (contenu ``None`` / sha ``""`` : absent). L'agent vérifie AU REMPLACEMENT que le fichier est toujours
+    celui-là : ``strict`` (la nouvelle version est calculée depuis ``base`` :
+    édition, ajout) → ``concurrent_modification`` ; sinon (écrasement) le
+    fichier est relu puis l'écriture réessayée — le dernier écrivain gagne,
+    comme avant. ``expected_sha256`` (verrou optimiste du modèle) : comparé au
+    contenu actuel s'il existe. Sous le verrou de fichier partagé avec
+    l'éditeur (E7) ; historique noté avec le contenu remplacé ; droits
+    réparés une fois si l'agent est refusé."""
+    from shared_infra.sandbox.file_history import MAX_FILE, TOO_BIG
+    e_actuel, base, base_sha = etat
+    repare = False
+    with _optimistic_write_lock(p, True):
+        for _essai in range(3):
+            if expected_sha256 and base_sha and base_sha != expected_sha256:
+                return None, _err("hash_mismatch",
+                                  hint="File changed since read (concurrent write). Re-read then retry.",
+                                  expected=expected_sha256, actual=base_sha)
+            condition = {"if_sha256": base_sha} if base_sha else {"if_absent": True}
+            try:
+                r = esp.ecrire(rel, data, parents=True, mode=_mode_ecrit(e_actuel), **condition)
+            except AgentError as e:
+                if e.code == "denied" and not repare:
+                    repare = True
+                    from ._exec_bridge import repair_work_perms
+                    if repair_work_perms(username=username, sandbox_root=sb, rel_path=rel):
+                        continue
+                if e.code not in ("changed", "exists"):
+                    raise
+                if strict:
+                    return None, _err(
+                        "concurrent_modification",
+                        hint=("The file changed while this edit was being computed "
+                              "(editor save, shell or another agent). Nothing was "
+                              "written: re-read the file then retry."),
+                        expected=base_sha, actual=str(e.data.get("sha256") or ""))
+                e_actuel, base, base_sha = _actuel(esp, rel)   # écrasement : on repart du fichier actuel
+                continue
+            avant = base if base is None or len(base) <= MAX_FILE else TOO_BIG
+            _history_record(username, sb, p, avant, data)
+            return r, None
+    return None, _err("concurrent_modification", hint="The file kept changing; retry.",
+                      expected=base_sha)
+
+
 def _err_agent(e: AgentError, p: Path, sb: Path) -> Dict[str, Any]:
     """Refus de l'agent → enveloppe d'erreur de l'outil."""
     code, hint = _ERREURS_AGENT.get(e.code, (None, ""))
@@ -1324,10 +1399,12 @@ def _try_format(path: Path, content: str) -> Tuple[str, str]:
     fmt = ""
     try:
         if ext == ".py" and _has_formatter("black"):
+            # Nom seul depuis un cwd neutre : black ne lit ni le
+            # pyproject.toml ni le .gitignore de la sandbox (L4.2).
             r = subprocess.run(
-                ["black", "--quiet", "--stdin-filename", str(path), "-"],
+                ["black", "--quiet", "--stdin-filename", path.name, "-"],
                 input=content, capture_output=True, text=True,
-                timeout=10, check=False,
+                timeout=10, check=False, cwd="/",
             )
             if r.returncode == 0 and r.stdout:
                 return r.stdout, "black"
@@ -2389,12 +2466,14 @@ For surgical edits on large files, prefer edit_file."""
         _username = get_username(ctx)
         try:
             sb = _sandbox(_username)
-            p = _safe_path(path, sb)
+            esp = Espace(_username, sb)
+            rel = lexical_rel(sb, path)
+            p = sb / rel if rel else sb
             mode = (mode or "write").strip().lower()
             # Avant toute création : détecte un « jumeau unicode » (nom ne
             # différant que par accents/casse d'un frère existant) sur les
             # composants encore inexistants du chemin. Averti, jamais bloquant.
-            _twin = unicode_twin_warning(p, sb)
+            _twin = esp.jumeau_unicode(rel)
             _twin_kw = {"warning": _twin} if _twin else {}
 
             if mode == "mkdir":
@@ -2405,7 +2484,8 @@ For surgical edits on large files, prefer edit_file."""
                                  "write_file crée de toute façon les dossiers parents.")
 
             # Optimistic lock for existing files
-            old_sha = _sha_under(sb, p) or ""
+            _etat = _actuel(esp, rel)
+            _e, old_raw, old_sha = _etat
             if old_sha:
                 if expected_sha256 and expected_sha256 != old_sha:
                     return _err("hash_mismatch",
@@ -2424,18 +2504,17 @@ For surgical edits on large files, prefer edit_file."""
                 new_sha = _sha256_bytes(data)
                 if dry_run:
                     return _ok(path=_to_container(p, sb), action="b64_write", dry_run=True,
-                               bytes_before=p.stat().st_size if p.exists() else 0,
+                               bytes_before=len(old_raw) if old_raw is not None else 0,
                                bytes_after=len(data), old_sha256=old_sha, new_sha256=new_sha)
-                if backup and p.exists(): _backup_copy(p, sb)  # données seules, sans suivre de lien (AUDIT 2026-09-25)
-                # AUDIT 2026-06 — re-check du sha SOUS flock juste avant
-                # l'écriture (ferme le TOCTOU du check optimiste de tête).
-                # E7 : verrou de fichier partagé avec l'éditeur, toujours.
-                _lock_err = _guarded_write_healing(
-                    _username, sb, p, expected_sha256, lambda: _atomic_write_bytes(p, data, sb),
-                    history=_history_writer(_username, sb, p, data))
+                if backup and old_raw is not None:
+                    esp.fsop("copy", src=rel, dst=rel + ".bak", overwrite=True)
+                # Précondition vérifiée par l'agent au remplacement (ferme le
+                # TOCTOU du contrôle de tête) ; verrou partagé avec l'éditeur.
+                _r, _lock_err = _ecrire_garde(esp, _username, sb, p, rel, data, etat=_etat,
+                                              expected_sha256=expected_sha256)
                 if _lock_err is not None:
                     return _lock_err
-                return _ok(path=_to_container(p, sb), bytes=p.stat().st_size,
+                return _ok(path=_to_container(p, sb), bytes=_r["size"],
                            action="b64_write", old_sha256=old_sha, new_sha256=new_sha,
                            next_expected_sha256=new_sha, **_twin_kw)
 
@@ -2460,7 +2539,7 @@ For surgical edits on large files, prefer edit_file."""
             # `old`). En mode 'write' sur un fichier existant on le lit ici.
             # Pour un nouveau fichier, old_text reste "" -> stats=(N, 0).
             old_text_for_stats = ""
-            if mode == "append" and p.exists():
+            if mode == "append" and old_raw is not None:
                 # AUDIT 2026-08-23 — l'append n'ajoute pas : il RELIT tout,
                 # concatène et RÉÉCRIT le fichier entier. La relecture se
                 # faisait en ``errors="replace"`` : sur un fichier latin-1 /
@@ -2472,7 +2551,7 @@ For surgical edits on large files, prefer edit_file."""
                 # STRICT et on échoue proprement, symétriquement à la garde
                 # d'écriture ci-dessous.
                 try:
-                    old = _read_under(sb, p).decode(encoding)
+                    old = old_raw.decode(encoding)
                 except (UnicodeDecodeError, LookupError) as _dec_err:
                     _off = getattr(_dec_err, "start", None)
                     return _err(
@@ -2492,12 +2571,12 @@ For surgical edits on large files, prefer edit_file."""
                     _conv["line_endings"] = "crlf"
                 new_content = old + content
                 old_text_for_stats = old
-            elif mode == "write" and p.exists() and p.is_file():
+            elif mode == "write" and old_raw is not None:
                 # Audit éditeur 2026-09-23 (E16) : l'écrasement complet
                 # retirait BOM et CRLF (le modèle émet du LF sans BOM), et
                 # réécrivait en UTF-8 un fichier latin-1 dont il n'avait lu
                 # qu'une version « réparée » (U+FFFD).
-                _old_raw = _read_under(sb, p)
+                _old_raw = old_raw
                 _is_utf8 = encoding.lower().replace("_", "-") in ("utf-8", "utf8")
                 _had_bom = _is_utf8 and _old_raw.startswith(b"\xef\xbb\xbf")
                 try:
@@ -2549,7 +2628,7 @@ For surgical edits on large files, prefer edit_file."""
                 # En dry-run on calcule aussi les stats : utile pour preview.
                 la, lr = _line_diff_stats(old_text_for_stats, new_content)
                 return _ok(path=_to_container(p, sb), action=mode, dry_run=True,
-                           bytes_before=p.stat().st_size if p.exists() else 0,
+                           bytes_before=len(old_raw) if old_raw is not None else 0,
                            bytes_after=len(new_bytes),
                            old_sha256=old_sha, new_sha256=new_sha,
                            lines_added=la, lines_removed=lr, **_conv)
@@ -2564,10 +2643,10 @@ For surgical edits on large files, prefer edit_file."""
             # budget d'itérations. `action:"noop"` + `unchanged:true` +
             # une note explicite lui disent clairement de passer à la
             # suite.
-            if mode == "write" and p.exists() and p.is_file() and new_sha == old_sha:
+            if mode == "write" and old_raw is not None and new_sha == old_sha:
                 return _ok(
                     path=_to_container(p, sb), action="noop", unchanged=True,
-                    bytes=p.stat().st_size,
+                    bytes=len(old_raw),
                     old_sha256=old_sha, new_sha256=new_sha,
                     next_expected_sha256=new_sha,
                     lines_added=0, lines_removed=0,
@@ -2577,14 +2656,13 @@ For surgical edits on large files, prefer edit_file."""
                           "with the same content: move on to the next step."),
                 )
 
-            if backup and p.exists(): _backup_copy(p, sb)  # données seules, sans suivre de lien (AUDIT 2026-09-25)
-            # AUDIT 2026-06 — re-check du sha SOUS flock (cf. _guarded_write).
-            # E7 : verrou partagé avec l'éditeur, toujours ; en append, le
-            # contenu de départ est re-vérifié sous le verrou (base_sha).
-            _lock_err = _guarded_write_healing(
-                _username, sb, p, expected_sha256, lambda: _atomic_write_bytes(p, new_bytes, sb),
-                base_sha=_base_sha,
-                history=_history_writer(_username, sb, p, new_bytes))
+            if backup and old_raw is not None:
+                esp.fsop("copy", src=rel, dst=rel + ".bak", overwrite=True)
+            # Précondition vérifiée par l'agent au remplacement ; en append, la
+            # nouvelle version est calculée depuis l'ancienne (stricte).
+            _r, _lock_err = _ecrire_garde(esp, _username, sb, p, rel, new_bytes, etat=_etat,
+                                          expected_sha256=expected_sha256,
+                                          strict=_base_sha is not None)
             if _lock_err is not None:
                 return _lock_err
 
@@ -2593,11 +2671,13 @@ For surgical edits on large files, prefer edit_file."""
             # est désactivé (pas de snapshot client-side disponible).
             lines_added, lines_removed = _line_diff_stats(old_text_for_stats, new_content)
 
-            return _ok(path=_to_container(p, sb), bytes=p.stat().st_size, action=mode,
+            return _ok(path=_to_container(p, sb), bytes=_r["size"], action=mode,
                        old_sha256=old_sha, new_sha256=new_sha,
                        next_expected_sha256=new_sha,
                        lines_added=lines_added, lines_removed=lines_removed,
                        **_conv, **_twin_kw)
+        except AgentError as e:
+            return _err_agent(e, p, sb)
         except ValueError as e:
             return _err(str(e))
         except Exception as e:
@@ -2687,15 +2767,19 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
         _username = get_username(ctx)
         try:
             sb = _sandbox(_username)
-            p = _safe_path(path, sb)
-            if not p.exists(): return _err("not_found", path=_to_container(p, sb), hint="Create with write_file first.")
-            if p.is_dir(): return _err("is_directory", path=_to_container(p, sb))
-
-            raw = _read_under(sb, p)
-            if len(raw) > MAX_EDIT_BYTES:
-                return _err("too_large", size=len(raw), max=MAX_EDIT_BYTES,
+            esp = Espace(_username, sb)
+            rel = lexical_rel(sb, path)
+            p = sb / rel if rel else sb
+            _e = esp.stat(rel)
+            if _e["kind"] == "missing": return _err("not_found", path=_to_container(p, sb), hint="Create with write_file first.")
+            if _e["kind"] == "dir": return _err("is_directory", path=_to_container(p, sb))
+            if int(_e.get("size") or 0) > MAX_EDIT_BYTES:
+                return _err("too_large", size=int(_e["size"]), max=MAX_EDIT_BYTES,
                             hint="Split the edit or use write_file to replace whole file.")
-            old_sha = _sha256_bytes(raw)
+            _etat = _actuel(esp, rel, _e)
+            _e, raw, old_sha = _etat
+            if raw is None:
+                return _err("not_found", path=_to_container(p, sb), hint="Create with write_file first.")
             if expected_sha256 and expected_sha256 != old_sha:
                 return _err("hash_mismatch", expected=expected_sha256, actual=old_sha,
                             hint="File changed since read. Re-read then retry.")
@@ -2842,10 +2926,6 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
             if auto_format and not dry_run:
                 new_text, formatter_used = _try_format(p, new_text)
 
-            try:
-                rel = p.relative_to(sb).as_posix()
-            except Exception:
-                rel = p.name
             diff = _make_diff(old_text, new_text, rel)
 
             # ── Restauration des conventions du fichier (CRLF / BOM) ─────
@@ -2896,13 +2976,13 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
                 # dont l'édition est partie (old_sha) est re-vérifié dessous :
                 # un enregistrement de l'éditeur intervenu entre-temps n'est
                 # plus écrasé.
-                _lock_err = _guarded_write_healing(
-                    _username, sb, p, expected_sha256, lambda: _atomic_write_bytes(p, new_bytes, sb),
-                    base_sha=old_sha,
-                    history=_history_writer(_username, sb, p, new_bytes))
+                _r, _lock_err = _ecrire_garde(esp, _username, sb, p, rel, new_bytes, etat=_etat,
+                                              expected_sha256=expected_sha256, strict=True)
                 if _lock_err is not None:
                     return _lock_err
             return _ok(**result)
+        except AgentError as e:
+            return _err_agent(e, p, sb)
         except ValueError as e:
             return _err(str(e))
         except Exception as e:

@@ -1,56 +1,26 @@
 # SPDX-License-Identifier: MIT
 """
-backend.services._chat_with_tools — Tool-calling chat orchestration (MCP + builtins).
+llm_core._chat_with_tools — la boucle agentique : chat avec outils (MCP et
+intégrés).
 
-This is the heart of the agentic chat loop. It owns:
+Pièces principales :
 
-  - ``pick_tool_payload(tool_result)`` — best-effort decode of an MCP tool
-                                          result into a Python value the LLM
-                                          can consume.
-  - ``_clean_json_text(...)``          — strip trailing junk/garbage that some
-                                          models emit after a JSON tool call.
-  - ``_looks_like_pure_tool_call_text(...)`` — heuristic: does this assistant
-                                          message look like a tool call dressed
-                                          up as text?
-  - ``_llama_chat_with_tools_stream(...)`` — STREAMING tool-calling LLM call
-                                          with the OpenAI-native tools[] +
-                                          tool_choice="auto" payload, plus
-                                          a fallback to non-streaming and
-                                          finally to text-parse if llama-server
-                                          can't handle the model.
-  - ``_select_prune_keys(...)`` — sélection FIN DE TOUR des vieux
-                                          tool_results (memo par run,
-                                          byte-stable → préfixe KV préservé)
-                                          pour contenir la fenêtre sur un
-                                          long run agentique.
-  - ``_collect_mcp_tools(...)``        — fan out to all configured MCP servers
-                                          (stdio + SSE + HTTP) and aggregate
-                                          their tools into a single OpenAI
-                                          payload.
-  - ``_build_runtime_sandbox_context(...)`` — generate the sandbox-aware
-                                          system prompt prefix the LLM uses
-                                          to know which file roots / shell
-                                          tools are available.
-  - ``_inject_ax_memory_into_messages(...)`` — splice the user's accessibility
-                                          memory (long-term notes) into the
-                                          LLM payload as a system message.
-  - ``_execute_single_tool_call(...)`` — dispatch one tool_call to the right
-                                          MCP / builtin executor and return
-                                          the result for the next LLM turn.
-  - ``run_chat_multi_mcp(...)``        — main loop. Iterates LLM ↔ tools up
-                                          to ``LLAMA_MAX_TOOL_ITERATIONS`` times,
-                                          handling cancellation, vision
-                                          screenshot injection, and per-turn
-                                          metrics. ~830 lines.
-  - ``run_chat_multi_mcp_v2(...)``     — alternative loop used in the
-                                          ``optimized`` scheduling mode that
-                                          releases the LLM slot during tool
-                                          execution.
+  - ``run_chat_multi_mcp(...)`` — la boucle : LLM ↔ outils jusqu'au budget
+    d'itérations, annulation, capture d'écran pour la vision, métriques du
+    tour ; ``run_chat_multi_mcp_v2`` force le mode ``optimized`` (créneau LLM
+    rendu pendant l'exécution des outils).
+  - ``_llama_chat_with_tools_stream(...)`` — un appel LLM en flux avec
+    ``tools[]`` (replis : sans flux, puis analyse du texte).
+  - ``_collect_mcp_tools(...)`` — outils de tous les serveurs MCP configurés,
+    réunis en une charge utile.
+  - ``_execute_single_tool_call(...)`` — un appel d'outil (MCP ou intégré) ;
+    les lots passent par ``engine.tool_exec``, en série ou en parallèle selon
+    ``_tool_traits``.
+  - ``pick_tool_payload``, ``_clean_json_text``,
+    ``_looks_like_pure_tool_call_text`` — décodage des résultats et des appels.
 
-Module-level constants
-----------------------
-- ``TOOL_RESULT_MAX_OLD`` (200): plancher/filet du niveau d'élagage de
-  ``select_prune_keys`` (harnais v4 : marques persistées, unités tokens).
+Élagage des vieux résultats : ``context.pruning`` ; mémoire d'accessibilité et
+contexte de la sandbox : ``context.assembly``.
 """
 from __future__ import annotations
 
@@ -5532,10 +5502,10 @@ async def _run_chat_multi_mcp_impl(
             #     LLM original — critique pour que le LLM matche bien
             #     ses tool_calls avec les tool_results au tour suivant.
             # ── Exécution du lot (série/parallèle) → engine.tool_exec ─────
-            # Harness PARTAGÉE avec le canal legacy (retire ~110 lignes de
-            # duplication). Ordonnancement : outils mutants sérialisés, outils
-            # sûrs batchés en parallèle, ordre LLM préservé. Le post-traitement
-            # ordonné (events tool_result, append, vision) suit ci-dessous.
+            # Harness PARTAGÉE avec le canal legacy. Ordonnancement : outils
+            # sériels (``_tool_traits``) un par un, les autres en parallèle,
+            # ordre LLM préservé. Le post-traitement ordonné (events
+            # tool_result, append, vision) suit ci-dessous.
             _batch_partial = {}
             _batch_prepared = prepared
             results_by_idx = await _execute_tool_batch(

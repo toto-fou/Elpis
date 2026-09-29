@@ -22,13 +22,23 @@ Endpoints
                                        * conversation compression hook
                                        * persistent partial-save on cancel
 
-The huge ``api_chat_saved_stream3`` body is kept verbatim from the old
-``_legacy.py`` location — it has subtle invariants around variable capture,
-ordering of the cancel ↔ persist sequence, and the NDJSON event protocol
-that any reflow risks breaking. The only changes are:
-  - imports moved to the top of this module
-  - module-level helpers now imported directly from
-    ``backend.routes._helpers`` and ``backend.routes._events_bus``
+Invariants que ``api_chat_saved_stream3`` tient, et qu'une refonte doit
+garder :
+
+  - un tour à la fois par conversation : verrou ``flock`` valable pour tous
+    les workers (``shared_infra/runtime/chat_locks.py``) ; compaction ou
+    génération déjà en cours → 409, trop d'exécutions du compte → 429 ;
+  - adresses des serveurs MCP résolues côté serveur, jamais reprises du
+    client ;
+  - annulation publiée sur le bus d'annulation (tous les workers), partiel
+    enregistré ;
+  - navigateur déconnecté : l'exécution continue détachée dès qu'un outil a
+    tourné (ou si la reprise est activée), sinon elle s'arrête en
+    enregistrant le partiel ; tout worker peut la rejoindre
+    (``GET /api/chat/{id}/run/events``) ;
+  - enregistrement optimiste sur ``updated_at`` : un conflit est signalé,
+    rien n'est écrasé ;
+  - types du flux NDJSON : registre ``llm_core/engine/stream_events.py``.
 """
 from __future__ import annotations
 

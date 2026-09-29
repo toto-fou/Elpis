@@ -225,9 +225,18 @@ _HTTP_AGENT = {
     "no_space": (507, "Espace disque de la sandbox épuisé"),
     "too_large": (413, "Contenu trop volumineux"),
     "bad_path": (400, "Chemin invalide"),
+    "name_too_long": (400, "Nom trop long"),
+    "invalid": (400, "Nom ou chemin invalide"),
+    "loop": (400, "Trop de liens symboliques imbriqués"),
+    "bad_regex": (400, "Expression régulière invalide"),
+    "bad_request": (400, "Requête invalide"),
+    "not_empty": (409, "Dossier non vide"),
+    "cross_device": (409, "Déplacement impossible entre deux volumes"),
     "changed": (412, {"code": "conflict", "message": "Le fichier a changé sur le disque"}),
 }
-_INDISPONIBLE = ("agent_unavailable", "container_down", "transport", "bad_response")
+_INDISPONIBLE = ("agent_unavailable", "container_down", "transport")
+#: Pannes de l'agent ou du conteneur — pas un refus portant sur le chemin demandé.
+PANNES_AGENT = _INDISPONIBLE + ("bad_response", "timeout")
 
 
 def agent_http(e: AgentError, err_label: str) -> HTTPException:
@@ -235,6 +244,8 @@ def agent_http(e: AgentError, err_label: str) -> HTTPException:
     if e.code in _INDISPONIBLE:
         return HTTPException(503, "Environnement sandbox arrêté — "
                                   "nouvelle tentative dans quelques instants.")
+    if e.code == "bad_response":
+        return HTTPException(502, f"{err_label} : réponse invalide de l'environnement sandbox")
     if e.code == "timeout":
         return HTTPException(504, f"{err_label} : délai dépassé")
     statut, detail = _HTTP_AGENT.get(e.code, (500, f"{err_label} : {e.code}"))
@@ -354,8 +365,12 @@ async def sandbox_copy(user_id: int, src_rel: str, dst_rel: str) -> None:
 
 
 async def sandbox_clear(user_id: int) -> int:
-    """Vide /work (pas /work lui-même) ; nombre d'entrées retirées."""
+    """Vide /work (pas /work lui-même), au mieux : ce qui résiste reste en
+    place (journalisé) ; nombre d'entrées retirées."""
     r = await _agent(user_id, "Vidage sandbox", lambda a: a.fsop("clear"))
+    if r.get("failed"):
+        logger.warning("[sandbox] vidage de la sandbox %s : %s entrée(s) non supprimée(s)",
+                       user_id, r.get("failed"))
     return int(r.get("removed") or 0)
 
 

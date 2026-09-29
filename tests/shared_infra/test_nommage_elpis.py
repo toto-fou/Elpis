@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 
 def test_env_lit_la_variable(monkeypatch):
     from shared_infra.env_compat import env
@@ -66,6 +68,7 @@ class _FakeCLI:
         return 1, b"", b"No such container"
 
 
+@pytest.mark.agent_reel
 def test_status_conteneur_elpis():
     from shared_infra.sandbox.executors._user_sandbox import UserSandbox
     sb = UserSandbox.__new__(UserSandbox)

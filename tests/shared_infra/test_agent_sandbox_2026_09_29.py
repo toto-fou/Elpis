@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import errno
 import hashlib
 import os
 import socket
@@ -38,6 +39,9 @@ class _Sandbox:
         self.running, self.demarrages, self.remplacements, self.serveurs = True, 0, 0, []
 
     async def ensure_running(self):
+        return types.SimpleNamespace(running=self.running)
+
+    async def status(self):
         return types.SimpleNamespace(running=self.running)
 
     async def start_agent(self, replace: bool = False) -> None:
@@ -218,7 +222,7 @@ def test_liens(sb):
     asyncio.run(scenario())
 
 
-def test_ecrasement_sans_perte(sb):
+def test_ecrasement_sans_perte(sb, monkeypatch):
     """Un dossier n'est jamais remplacé, ni rien par un dossier ; une copie
     qui échoue ne laisse rien ; un fichier est remplacé d'un coup."""
     w = sb.sandbox_path
@@ -226,7 +230,14 @@ def test_ecrasement_sans_perte(sb):
     (w / "a" / "b" / "f").write_bytes(b"source")
     (w / "d").mkdir()
     (w / "d" / "garde").write_bytes(b"destination")
-    os.mkfifo(w / "a" / "tube")                          # la copie de a échouera
+    (w / "a" / "casse").write_bytes(b"x")                # la copie de a échouera
+    vraie_copie = S._copier_entree
+
+    def copie(src, dst):
+        if src.endswith("/casse"):
+            raise OSError(errno.EIO, "échec simulé")
+        vraie_copie(src, dst)
+    monkeypatch.setattr(S, "_copier_entree", copie)
     c = AgentClient(sb)
 
     async def scenario():

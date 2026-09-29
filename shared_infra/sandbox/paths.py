@@ -427,17 +427,20 @@ def rel_under(base: Any, target: Any) -> str:
 
 
 
-def lexical_rel(base: Any, user_path: Any, *, allow_root: bool = True) -> str:
+def lexical_rel(base: Any, user_path: Any, *, allow_root: bool = True,
+                tilde: bool = True) -> str:
     """Chemin relatif à ``base`` d'un chemin fourni (modèle, route), SANS lire
-    le disque : préfixe ``/work`` retiré, ``~`` = la racine, ``.`` et ``..``
-    résolus sur le texte. Les liens, eux, sont résolus par l'agent de la
-    sandbox, qui les garde sous ``/work`` (L4). Sortie de la racine, NUL, ou
-    racine alors que ``allow_root`` est faux : :class:`SandboxPathError`."""
+    le disque : préfixe ``/work`` retiré, ``.`` et ``..`` résolus sur le
+    texte, ``~`` = la racine (vue du modèle ; ``tilde=False`` pour l'éditeur,
+    dont les chemins viennent de l'arbre : ``~`` y est un nom). Les liens,
+    eux, sont résolus par l'agent de la sandbox, qui les garde sous
+    ``/work`` (L4). Sortie de la racine, NUL, ou racine alors que
+    ``allow_root`` est faux : :class:`SandboxPathError`."""
     raw = "" if user_path is None else str(user_path)
     if "\x00" in raw:
         raise SandboxPathError("null byte in path")
     s = strip_work_prefix(raw)
-    if s == "~" or s.startswith("~/"):
+    if tilde and (s == "~" or s.startswith("~/")):
         s = s[1:].lstrip("/")
     if s.startswith("/"):                               # chemin hôte sous la racine
         for b in (str(Path(base)), str(Path(base).resolve())):

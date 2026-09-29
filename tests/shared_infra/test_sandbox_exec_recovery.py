@@ -12,14 +12,17 @@ from shared_infra.sandbox.agent_client import AgentError
 
 @pytest.mark.parametrize("code,statut", [
     ("agent_unavailable", 503), ("container_down", 503), ("transport", 503),
-    ("bad_response", 503), ("timeout", 504), ("io_error", 500),
+    ("bad_response", 502), ("timeout", 504), ("io_error", 500),
     ("exists", 409), ("is_dir", 409), ("outside_root", 403), ("not_found", 404),
+    ("name_too_long", 400), ("invalid", 400), ("loop", 400), ("bad_regex", 400),
 ])
 def test_refus_de_l_agent_en_statut_http(code, statut):
     e = sx.agent_http(AgentError(code, "détail"), "Sauvegarde")
     assert e.status_code == statut
-    if statut == 500:
+    if statut in (500, 502):
         assert "Sauvegarde" in e.detail
+    if code == "bad_response":
+        assert "arrêté" not in e.detail
 
 
 @pytest.fixture()

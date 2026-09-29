@@ -21,6 +21,11 @@ client : après une mise à jour du code, l'agent en marche date d'avant.
 Un client httpx par opération (0,02 ms avec un contexte TLS partagé) : rien
 de lié à une boucle d'événements n'est gardé hors du verrou de démarrage,
 créé par boucle.
+
+Appel « passif » (``passive=True``, sondage périodique de l'éditeur) : un
+conteneur arrêté n'est pas redémarré (``container_down``) — l'agent, lui,
+est lancé au besoin dans un conteneur en marche — et l'agent ne compte pas
+l'appel comme une activité de la sandbox.
 """
 from __future__ import annotations
 
@@ -56,8 +61,10 @@ _ECHEC_S = 30.0                                 # démarrage raté : mémorisé
 _SONDE_S = 2.0                                  # hello, lecture comprise
 _PETIT = 1 << 16                                # hello, write, fsop, erreurs
 _DELAI_TOTAL_S = 600.0                          # une opération, flux compris
+_ATTENTE_S = 60.0                               # silence toléré en lisant une réponse
 _LIGNE_MAX = 1 << 15                            # une ligne NDJSON
 _EN_TETES = {"Accept-Encoding": "identity"}     # aucun corps compressé à décoder
+_PASSIF = {"X-Elpis-Passive": "1"}               # l'agent ne compte pas l'appel comme activité
 
 
 class AgentError(Exception):
@@ -90,7 +97,8 @@ class AgentListing:
 
 class AgentClient:
     """L'agent d'UNE sandbox. ``sandbox`` : ``sandbox_path`` (``P/work``),
-    ``ensure_running()``, ``start_agent(replace=…)`` — ``UserSandbox``."""
+    ``ensure_running()``, ``status()``, ``start_agent(replace=…)`` —
+    ``UserSandbox``."""
 
     def __init__(self, sandbox: Any) -> None:
         self._sb = sandbox
@@ -106,21 +114,24 @@ class AgentClient:
         return await self._json("GET", "/v1/hello", maxi=_PETIT)
 
     async def stat(self, paths: Iterable[str], *, hash: bool = False,
-                   hash_max: int = 64 << 20) -> List[Dict[str, Any]]:
+                   hash_max: int = 64 << 20, passive: bool = False) -> List[Dict[str, Any]]:
         chemins = list(paths)
         # L'agent renvoie chaque chemin tel quel (échappé : ≤ 6 octets par
         # caractère) avec ~300 octets d'attributs.
         maxi = _PETIT + sum(6 * len(c) + 512 for c in chemins)
-        d = await self._json("POST", "/v1/stat", maxi=maxi, json={
+        d = await self._json("POST", "/v1/stat", maxi=maxi, passif=passive, json={
             "paths": chemins, "hash": hash, "hash_max": hash_max})
         return list(d.get("entries") or [])
 
     async def read(self, path: str, *, offset: int = 0, length: Optional[int] = None,
                    max_bytes: int = 64 << 20, expect_size: Optional[int] = None,
-                   expect_mtime_ns: Optional[int] = None) -> AgentRead:
+                   expect_mtime_ns: Optional[int] = None,
+                   expect_ino: Optional[int] = None) -> AgentRead:
+        """``expect_*`` : la version lue (taille, mtime, inode) doit être
+        celle-là, sinon ``changed``."""
         params: Dict[str, Any] = {"path": _chemin(path), "offset": offset, "max": max_bytes}
         for cle, val in (("length", length), ("expect_size", expect_size),
-                         ("expect_mtime_ns", expect_mtime_ns)):
+                         ("expect_mtime_ns", expect_mtime_ns), ("expect_ino", expect_ino)):
             if val is not None:
                 params[cle] = val
         async with self._flux("GET", "/v1/read", params=params) as r:
@@ -133,12 +144,16 @@ class AgentClient:
 
     async def list(self, path: str = "", *, depth: int = 1, max_entries: int = 20000,
                    hidden: bool = True, prune: Iterable[str] = (), exclude: Iterable[str] = (),
-                   deadline_s: float = 30.0, name_contains: str = "") -> AgentListing:
+                   deadline_s: float = 30.0, name_contains: str = "",
+                   kinds: Iterable[str] = (), name_glob: str = "") -> AgentListing:
+        """``kinds``, ``name_glob``, ``name_contains`` : seules ces entrées sont
+        rendues — et comptées dans ``max_entries`` ; tout est parcouru."""
         entries: List[Dict[str, Any]] = []
         async with self._flux("POST", "/v1/list", json={
                 "path": path, "depth": depth, "max_entries": max_entries, "hidden": hidden,
                 "prune": list(prune), "exclude": list(exclude), "deadline_s": deadline_s,
-                "name_contains": name_contains}) as r:
+                "name_contains": name_contains, "kinds": list(kinds),
+                "name_glob": name_glob}) as r:
             async for obj in _lignes(r, (1 << 20) + max_entries * 1024):
                 if "error" in obj:
                     raise AgentError(str(obj["error"]), str(obj.get("message") or ""))
@@ -285,8 +300,18 @@ class AgentClient:
                                 headers={"Content-Length": str(taille)})
 
     async def fsop(self, op: str, **args: Any) -> Dict[str, Any]:
-        """``mkdir``, ``remove``, ``rename``, ``copy``, ``chmod``."""
-        return await self._json("POST", "/v1/fsop", maxi=_PETIT, json={"op": op, **args})
+        """``mkdir``, ``remove``, ``rename``, ``copy``, ``chmod``, ``clear``,
+        ``du``. Suppression, copie et vidage d'un gros arbre tiennent en une
+        réponse : attendue jusqu'à la borne d'une opération ; ``du``, jusqu'à
+        son échéance."""
+        if op in ("remove", "copy", "clear"):
+            attente: Optional[float] = _DELAI_TOTAL_S
+        elif op == "du":
+            attente = float(args.get("deadline_s") or 10) + 10
+        else:
+            attente = None
+        kw = {"timeout": httpx.Timeout(attente, connect=5)} if attente else {}
+        return await self._json("POST", "/v1/fsop", maxi=_PETIT, json={"op": op, **args}, **kw)
 
     # ── transport ──────────────────────────────────────────────────────────
     async def _json(self, methode: str, route: str, *, maxi: int, **kw: Any) -> Dict[str, Any]:
@@ -298,13 +323,17 @@ class AgentClient:
         return d
 
     @contextlib.asynccontextmanager
-    async def _flux(self, methode: str, route: str, **kw: Any) -> AsyncIterator[httpx.Response]:
+    async def _flux(self, methode: str, route: str, *, passif: bool = False,
+                    **kw: Any) -> AsyncIterator[httpx.Response]:
         """Réponse (≥ 400 : ``AgentError``) d'un agent démarré au besoin et
         de la bonne version. Un échec de CONNEXION (requête pas envoyée) est
-        réessayé après démarrage ; rien d'autre."""
+        réessayé après démarrage ; rien d'autre. ``passif`` : conteneur
+        arrêté laissé tel quel, requête non comptée comme une activité."""
         if not self._version_ok and route != "/v1/hello":
-            await self._verifier_version()
+            await self._verifier_version(passif)
         en_tetes = dict(_EN_TETES, **kw.pop("headers", {}))
+        if passif:
+            en_tetes.update(_PASSIF)
         if "json" in kw:                                 # échappé : un nom non UTF-8 part
             kw["content"] = json.dumps(kw.pop("json"), separators=(",", ":")).encode()
             en_tetes["Content-Type"] = "application/json"   # (et l'agent le refuse)
@@ -325,13 +354,13 @@ class AgentClient:
                     except _Absent:
                         if essai == 2:
                             raise AgentError("agent_unavailable", "aucun agent à joindre") from None
-                        await self._demarrer()
+                        await self._demarrer(passif)
                     except httpx.TransportError as e:            # corps incomplet compris
                         if isinstance(e, httpx.TimeoutException):
                             self._version_ok = False             # re-sonder au prochain appel
                             raise AgentError("timeout", f"agent muet : {type(e).__name__}") from None
                         if isinstance(e, httpx.ConnectError) and not rendu and essai == 1:
-                            await self._demarrer()
+                            await self._demarrer(passif)
                             continue
                         raise AgentError("transport", f"{type(e).__name__}: {e}") from None
         except TimeoutError:
@@ -349,17 +378,18 @@ class AgentClient:
                 raise _Absent()                          # lien, fichier… : pas l'agent
             transport = httpx.AsyncHTTPTransport(uds=f"/proc/self/fd/{fd}", verify=_TLS)
             async with httpx.AsyncClient(transport=transport, base_url="http://agent",
-                                         timeout=httpx.Timeout(60, connect=5)) as c:
+                                         timeout=httpx.Timeout(_ATTENTE_S, connect=5)) as c:
                 yield c
         finally:
             os.close(fd)
 
     async def _sonder(self) -> Tuple[Optional[Dict[str, Any]], bool]:
         """(``hello``, figé) sans démarrage : ``(None, False)`` si personne
-        n'écoute, ``(None, True)`` si un processus écoute sans répondre."""
+        n'écoute, ``(None, True)`` si un processus écoute sans répondre. Une
+        sonde n'est pas une activité de la sandbox."""
         async def appel() -> Optional[Dict[str, Any]]:
             async with self._connexion() as c, \
-                    c.stream("GET", "/v1/hello", headers=_EN_TETES) as r:
+                    c.stream("GET", "/v1/hello", headers={**_EN_TETES, **_PASSIF}) as r:
                 if r.status_code != 200:
                     return None
                 return _objet(await _borne(r, _PETIT))
@@ -377,7 +407,8 @@ class AgentClient:
             v = self._verrous[boucle] = asyncio.Lock()
         return v
 
-    async def _demarrer(self) -> Dict[str, Any]:
+    async def _demarrer(self, passif: bool = False) -> Dict[str, Any]:
+        """Agent lancé ; conteneur démarré au besoin, sauf ``passif``."""
         async with self._verrou():
             d, fige = await self._sonder()               # un autre l'a peut-être fait
             if d is not None:
@@ -385,7 +416,7 @@ class AgentClient:
             if time.monotonic() < self._echec_jusqua:
                 raise AgentError("agent_unavailable", "démarrage échoué il y a peu")
             try:
-                st = await self._sb.ensure_running()
+                st = await (self._sb.status() if passif else self._sb.ensure_running())
             except Exception as e:                       # noqa: BLE001 — image absente, Docker arrêté…
                 raise AgentError("container_down", str(e)[:300]) from e
             if not getattr(st, "running", False):
@@ -402,8 +433,8 @@ class AgentClient:
                                      "l'agent n'a pas démarré (python3 absent de l'image ?)")
                 await asyncio.sleep(0.05)
 
-    async def _verifier_version(self) -> None:
-        d = (await self._sonder())[0] or await self._demarrer()
+    async def _verifier_version(self, passif: bool = False) -> None:
+        d = (await self._sonder())[0] or await self._demarrer(passif)
         async with self._verrou():
             if self._version_ok:                         # vérifiée entre-temps
                 return
@@ -421,7 +452,7 @@ class AgentClient:
                         break
                     await asyncio.sleep(0.05)
         if not self._version_ok:
-            d = (await self._sonder())[0] or await self._demarrer()
+            d = (await self._sonder())[0] or await self._demarrer(passif)
             if d.get("version") != _VERSION_ATTENDUE:
                 logger.warning("[agent] %s : version %.32s, attendue %s (code mis à jour "
                                "sans redémarrage de l'app ?)", self.socket_path,

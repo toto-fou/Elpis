@@ -40,7 +40,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "sqlite_only: test propre au moteur SQLite (fichier, PRAGMA, sqlite_master…)")
     config.addinivalue_line(
-        "markers", "agent_reel: vrais ensure_running / start_agent (pas d'agent en thread)")
+        "markers", "agent_reel: vrais ensure_running / status / start_agent (pas d'agent en thread)")
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -331,8 +331,8 @@ def real_tool_registry(_real_tool_list, tmp_path, monkeypatch):
 def agent_en_thread(request):
     """Toute la suite : les sandboxes sont servies par un agent en thread, ni
     Docker ni conteneur (L4) — aucun test ne crée de conteneur par mégarde.
-    ``ensure_running`` répond « en marche », ``start_agent`` lance l'agent
-    sur ``P/work``. Le socket est lié dans un dossier court (un chemin de
+    ``ensure_running`` et ``status`` répondent « en marche », ``start_agent``
+    lance l'agent sur ``P/work``. Le socket est lié dans un dossier court (un chemin de
     socket unix tient en 108 octets) puis lié en dur à sa place,
     ``P/.elpis-agent/agent.sock``. Marqueur ``agent_reel`` : les vraies
     méthodes (un test de leur argv, Docker simulé par le test). Sans
@@ -378,13 +378,14 @@ def agent_en_thread(request):
         fil.start()
         serveurs.append((srv, fil))
 
-    vrais = (us.UserSandbox.ensure_running, us.UserSandbox.start_agent)
-    us.UserSandbox.ensure_running, us.UserSandbox.start_agent = en_marche, demarrer
+    vrais = (us.UserSandbox.ensure_running, us.UserSandbox.status, us.UserSandbox.start_agent)
+    us.UserSandbox.ensure_running = us.UserSandbox.status = en_marche
+    us.UserSandbox.start_agent = demarrer
     us.reset_user_sandbox_cache()                        # une sandbox par test : pas de chemin périmé
     try:
         yield serveurs
     finally:
-        us.UserSandbox.ensure_running, us.UserSandbox.start_agent = vrais
+        us.UserSandbox.ensure_running, us.UserSandbox.status, us.UserSandbox.start_agent = vrais
         for srv, fil in serveurs:
             srv.shutdown()
             fil.join(5)

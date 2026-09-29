@@ -26,10 +26,10 @@ corps de requête par Content-Length seulement :
   POST /v1/stat   {"paths": [...], "hash": bool, "hash_max": n}
                   → {"entries": [...]} ; une entrée en échec : kind "error"
   GET  /v1/read   ?path= &offset= &length= &max= &expect_size= &expect_mtime_ns=
-                  → octets, en-tête X-Elpis-Stat
+                  &expect_ino=  → octets, en-tête X-Elpis-Stat
   POST /v1/list   {"path", "depth", "max_entries", "hidden", "prune": [motifs],
-                   "exclude": [motifs], "deadline_s", "name_contains"}  → NDJSON, dernière
-                   ligne {"done": true, …}
+                   "exclude": [motifs], "deadline_s", "name_contains", "kinds": [genres],
+                   "name_glob"}  → NDJSON, dernière ligne {"done": true, …}
   POST /v1/grep   {"paths": [...], "needle", "ignore_case", "max_file_bytes",
                    "max_hits", "files_only", "width", "deadline_s", "regex",
                    "context", "max_line"} → {"file", "line", "col", "text"
@@ -48,11 +48,15 @@ corps de requête par Content-Length seulement :
                   {"path", "change", "before", "after"} ({"b64"} ou {"state"}),
                   dernière ligne {"done": true, "total", "complete"}
   POST /v1/shutdown {"if_version": v}
+
+En-tête ``X-Elpis-Passive: 1`` : requête de l'hôte qui ne compte pas comme une
+activité de la sandbox (sondage périodique de l'éditeur).
 """
 from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import errno
 import fcntl
 import fnmatch
@@ -104,7 +108,8 @@ _ERRNO = {errno.ENOENT: (404, "not_found"), errno.EACCES: (403, "denied"),
           errno.ENOTDIR: (409, "not_dir"), errno.ENOTEMPTY: (409, "not_empty"),
           errno.ELOOP: (409, "loop"), errno.EXDEV: (409, "cross_device"),
           errno.EINVAL: (400, "invalid"), errno.ENAMETOOLONG: (400, "name_too_long"),
-          errno.ENOSPC: (507, "no_space"), errno.EDQUOT: (507, "no_space")}
+          errno.ENOSPC: (507, "no_space"), errno.EDQUOT: (507, "no_space"),
+          errno.ENXIO: (409, "not_file")}
 
 
 def _refus_os(e: OSError) -> Refus:
@@ -277,6 +282,18 @@ def _elargir(p: str) -> None:
                 os.chmod(q, (stat.S_IMODE(s.st_mode) & 0o777) | 0o666)
 
 
+def _copier_entree(src: str, dst: str) -> None:
+    """Copie d'une entrée qui n'est ni un dossier ni un lien, comme ``cp -a`` :
+    fichier ordinaire (contenu, droits, dates), FIFO et socket recréés ;
+    un périphérique est laissé de côté (jamais de nœud créé dans /work)."""
+    st = os.lstat(src)
+    if stat.S_ISREG(st.st_mode):
+        shutil.copy2(src, dst)
+    elif stat.S_ISFIFO(st.st_mode) or stat.S_ISSOCK(st.st_mode):
+        os.mknod(dst, stat.S_IFMT(st.st_mode) | stat.S_IMODE(st.st_mode))
+        os.utime(dst, ns=(st.st_atime_ns, st.st_mtime_ns), follow_symlinks=False)
+
+
 def _supprimer(p: str) -> None:
     """Supprime ``p`` : un dossier récursivement, un lien comme lui-même."""
     if _est_dossier(p):
@@ -370,12 +387,15 @@ class Agent:
 
     def lister(self, rel: str, profondeur: int, max_entrees: int, caches: bool,
                elaguer: Iterable[str], delai_s: float,
-               exclure: Iterable[str] = (), contient: str = "") -> Iterator[Dict[str, Any]]:
+               exclure: Iterable[str] = (), contient: str = "",
+               genres: Iterable[str] = (), motif: str = "") -> Iterator[Dict[str, Any]]:
         """Arborescence sous ``rel``. ``exclure`` : motifs (fnmatch) sur le
         nom ou le chemin relatif au dossier listé — ni rendu ni descendu ;
         ``elaguer`` : motifs sur le nom des dossiers rendus mais non
-        descendus ; ``contient`` : seules les entrées dont le nom le contient
-        (sans casse) sont rendues, tout est parcouru."""
+        descendus. Filtres de rendu (tout est parcouru ; seules les entrées
+        rendues comptent dans ``max_entrees``) : ``contient`` (nom qui le
+        contient, sans casse), ``genres`` (``file``, ``dir``, ``link``,
+        ``other``), ``motif`` (nom qui correspond, fnmatch)."""
         base = self.reel(rel)
         exclure = tuple(exclure)
         try:
@@ -386,6 +406,7 @@ class Agent:
             raise Refus(409, "not_dir", "pas un dossier")
         elaguer = tuple(elaguer)
         contient = contient.lower()
+        genres = frozenset(genres)
         echeance = time.monotonic() + delai_s
         pile = [(base, rel, 1)]
         n = erreurs = illisibles = 0
@@ -428,7 +449,9 @@ class Agent:
                                    for m in exclure):
                                 continue
                         genre = _genre(st.st_mode)
-                        if not contient or contient in entree.name.lower():
+                        if ((not contient or contient in entree.name.lower())
+                                and (not genres or genre in genres)
+                                and (not motif or fnmatch.fnmatchcase(entree.name, motif))):
                             yield {"path": erel, "kind": genre, "size": st.st_size,
                                    "mtime_ns": st.st_mtime_ns, "mode": stat.S_IMODE(st.st_mode)}
                             n += 1
@@ -630,7 +653,9 @@ class Agent:
         try:
             if parents:
                 _creer_dossier(os.path.dirname(p))
-            drapeaux = os.O_WRONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+            # O_NONBLOCK : une FIFO à ce nom ne bloque pas le fil (ENXIO) ;
+            # sans effet sur un fichier ordinaire.
+            drapeaux = os.O_WRONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK
             fd = os.open(p, drapeaux | (os.O_CREAT | os.O_TRUNC if tronquer else os.O_APPEND),
                          _MODE_FICHIER)
         except OSError as e:
@@ -676,16 +701,23 @@ class Agent:
                 return self._taille(self.entree(normaliser(d.get("path"))),
                                     max(0.1, min(float(d.get("deadline_s") or 10), 60.0)))
             if op == "clear":                            # tout /work, pas /work lui-même
-                n = 0
+                # Au mieux, comme ``rm -rf /work/* || true`` : ce qui ne se
+                # supprime pas est compté, le reste est supprimé.
+                n = echecs = 0
                 with os.scandir(self.racine) as it:
                     noms = [e.name for e in it]
                 for nom in noms:
-                    try:
-                        _supprimer(os.path.join(self.racine, nom))
+                    q = os.path.join(self.racine, nom)
+                    if _est_dossier(q):
+                        shutil.rmtree(q, ignore_errors=True)
+                    else:
+                        with contextlib.suppress(OSError):
+                            os.unlink(q)
+                    if os.path.lexists(q):
+                        echecs += 1
+                    else:
                         n += 1
-                    except FileNotFoundError:
-                        continue
-                return {"ok": True, "removed": n}
+                return {"ok": True, "removed": n, "failed": echecs}
             if op in ("rename", "copy"):
                 return self._deplacer(op, normaliser(d.get("src")), normaliser(d.get("dst")),
                                       _vrai(d.get("overwrite")), _vrai(d.get("parents")),
@@ -761,9 +793,11 @@ class Agent:
             if os.path.islink(ps):
                 os.symlink(os.readlink(ps), tmp)
             elif _est_dossier(ps):
-                shutil.copytree(ps, tmp, symlinks=True)
+                shutil.copytree(ps, tmp, symlinks=True, copy_function=_copier_entree)
             else:
-                shutil.copy2(ps, tmp)
+                _copier_entree(ps, tmp)
+                if not os.path.lexists(tmp):
+                    raise Refus(409, "not_file", "un périphérique ne se copie pas")
             if elargir:
                 _elargir(tmp)
             os.replace(tmp, pd)                          # un dossier apparu entre-temps : refus
@@ -945,7 +979,8 @@ class _Gestionnaire(BaseHTTPRequestHandler):
         self._entetes_partis = False
         self._corps_lu = self.command == "GET"
         agent = self.server.agent
-        agent.signaler_activite()
+        if self.headers.get("X-Elpis-Passive") != "1":
+            agent.signaler_activite()
         try:
             url = urlsplit(self.path)
             q = {k: v[-1] for k, v in parse_qs(url.query, keep_blank_values=True,
@@ -978,14 +1013,16 @@ class _Gestionnaire(BaseHTTPRequestHandler):
         elif cle == ("POST", "/v1/list"):
             d = self._corps_json()
             elaguer, exclure = d.get("prune") or [], d.get("exclude") or []
-            if not isinstance(elaguer, list) or not isinstance(exclure, list):
-                raise Refus(400, "bad_request", "prune, exclude : listes attendues")
+            genres = d.get("kinds") or []
+            if not all(isinstance(x, list) for x in (elaguer, exclure, genres)):
+                raise Refus(400, "bad_request", "prune, exclude, kinds : listes attendues")
             lignes = agent.lister(
                 normaliser(d.get("path")), max(1, min(int(d.get("depth") or 1), _PROFONDEUR_MAX)),
                 max(1, min(int(d.get("max_entries") or 20000), 200000)),
                 _vrai(d.get("hidden", True)), [str(x) for x in elaguer],
                 float(d.get("deadline_s") or 30), [str(x) for x in exclure],
-                str(d.get("name_contains") or ""))
+                str(d.get("name_contains") or ""), [str(x) for x in genres],
+                str(d.get("name_glob") or ""))
             premiere = next(lignes)                      # un refus part AVANT l'en-tête 200
             self._ndjson(premiere, lignes)
         elif cle == ("POST", "/v1/grep"):
@@ -1140,7 +1177,8 @@ class _Gestionnaire(BaseHTTPRequestHandler):
             infos = {"size": st.st_size, "mtime_ns": st.st_mtime_ns, "ino": st.st_ino,
                      "dev": st.st_dev, "mode": stat.S_IMODE(st.st_mode)}
             if (_entier(q, "expect_size") not in (None, st.st_size)
-                    or _entier(q, "expect_mtime_ns", mini=None) not in (None, st.st_mtime_ns)):
+                    or _entier(q, "expect_mtime_ns", mini=None) not in (None, st.st_mtime_ns)
+                    or _entier(q, "expect_ino") not in (None, st.st_ino)):
                 raise Refus(412, "changed", "fichier modifié entre-temps", stat=infos)
             debut = min(_entier(q, "offset", 0) or 0, st.st_size)
             n = st.st_size - debut

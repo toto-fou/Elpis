@@ -176,7 +176,7 @@ def key_dir(user_dir: str, key: str) -> Path:
 # ─────────────────────────────────────────────────────────────────────────────
 # État de la source vu par l'agent (mêmes noms que ``os.stat_result``).
 _Etat = collections.namedtuple("_Etat", "st_size st_mtime_ns st_mtime st_dev st_ino")
-_INDISPONIBLE = ("agent_unavailable", "container_down", "transport", "bad_response", "timeout")
+_INDISPONIBLE = ("agent_unavailable", "container_down", "transport", "timeout")
 
 
 class Source:
@@ -195,6 +195,8 @@ def _refus_agent(e: AgentError) -> OfficeError:
     if e.code in _INDISPONIBLE:
         return OfficeError("unavailable", 503, "Environnement sandbox arrêté — "
                                               "nouvelle tentative dans quelques instants.")
+    if e.code == "bad_response":
+        return OfficeError("unavailable", 502, "Réponse invalide de l'environnement sandbox")
     if e.code == "changed":
         return OfficeError("changed", 409, "Fichier en cours de modification, réessayez")
     return OfficeError("not_found", 404, "Fichier introuvable")
@@ -205,7 +207,7 @@ async def open_source(agent, root: Path, user_path: str) -> Source:
     suivi que sous /work) : fichier ordinaire, format pris en charge, taille
     bornée. ``root`` ne sert qu'à la forme du chemin (aucune lecture)."""
     try:
-        rel = lexical_rel(root, user_path, allow_root=False)
+        rel = lexical_rel(root, user_path, allow_root=False, tilde=False)
     except SandboxPathError:
         raise OfficeError("not_found", 404, "Fichier introuvable")
     ext = PurePosixPath(rel).suffix.lower()
@@ -233,8 +235,8 @@ def cache_key(uid: int, rel: str, st: os.stat_result, version: str) -> str:
 
 async def snapshot_to(src: Source, dest: Path) -> None:
     """Copie le contenu lu par l'agent bloc par bloc, sur la version vue à
-    l'ouverture (taille et mtime vérifiés par l'agent à chaque bloc) : un
-    fichier en cours d'écriture est refusé."""
+    l'ouverture (taille, mtime et inode vérifiés par l'agent à chaque bloc) :
+    un fichier en cours d'écriture ou remplacé est refusé."""
     taille, pos = src.st.st_size, 0
     out = await asyncio.to_thread(open, dest, "wb")          # cache de l'hôte, hors /work
     try:
@@ -242,7 +244,8 @@ async def snapshot_to(src: Source, dest: Path) -> None:
             n = min(1 << 20, taille - pos)
             try:
                 r = await src.agent.read(src.rel, offset=pos, length=n, max_bytes=n,
-                                         expect_size=taille, expect_mtime_ns=src.st.st_mtime_ns)
+                                         expect_size=taille, expect_mtime_ns=src.st.st_mtime_ns,
+                                         expect_ino=src.st.st_ino or None)
             except AgentError as ex:
                 raise _refus_agent(ex) from None
             if not r.data:

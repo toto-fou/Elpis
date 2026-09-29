@@ -72,7 +72,7 @@ from shared_infra.db import (
 from shared_infra.routes._state import router
 from shared_infra.sandbox import file_history as _fh
 from shared_infra.sandbox.agent_client import AgentError
-from shared_infra.sandbox.exec_bridge import agent_for, agent_http
+from shared_infra.sandbox.exec_bridge import PANNES_AGENT, agent_for, agent_http
 from shared_infra.sandbox.file_lock import file_write_lock, sha256_bytes
 from shared_infra.sandbox.paths import (
     SandboxPathError,
@@ -225,9 +225,10 @@ def _mtime_s(ns: int) -> float:
 
 def _rel_editeur(root: Path, rel_path: str) -> str:
     """Chemin relatif à la sandbox d'un chemin reçu par une route, sans lire
-    le disque ; hors de la sandbox : 403."""
+    le disque (``~`` est un nom : les chemins viennent de l'arbre) ; hors de
+    la sandbox : 403."""
     try:
-        return lexical_rel(root, rel_path)
+        return lexical_rel(root, rel_path, tilde=False)
     except SandboxPathError:
         raise HTTPException(403, "Access denied") from None
 
@@ -245,7 +246,13 @@ async def _etat_agent(agent, rel: str, *, sha_max: int) -> dict:
     if kind == "missing":
         return {"kind": "missing"}
     if kind == "error":
-        return {"kind": "not_dir" if e.get("error") == "not_dir" else "unreadable"}
+        code = str(e.get("error") or "")
+        if code == "not_dir":
+            return {"kind": "not_dir"}
+        if code in ("denied", "io_error"):
+            return {"kind": "unreadable"}
+        # Chemin lui-même refusé (nom trop long, lien hors de /work…).
+        raise agent_http(AgentError(code, str(e.get("message") or "")), "Lecture")
     ns = int(e.get("mtime_ns") or 0)
     if kind == "dir":
         return {"kind": "dir", "mtime": _mtime_s(ns)}
@@ -284,8 +291,7 @@ async def _binaire_existant(agent, rel: str) -> bool:
     try:
         r = await agent.read(rel, length=SNIFF_BYTES, max_bytes=SNIFF_BYTES)
     except AgentError as ex:
-        if ex.code in ("agent_unavailable", "container_down", "transport", "bad_response",
-                       "timeout"):
+        if ex.code in PANNES_AGENT:
             raise agent_http(ex, "Lecture") from None
         return False
     return looks_binary(r.data)
@@ -354,7 +360,8 @@ async def api_get_sandbox_tree(request: Request, include_hidden: bool = False):
     # requête à l'agent, qui parcourt sans suivre de lien.
     try:
         liste = await agent_for(user_id).list("", depth=41, max_entries=TREE_MAX_ENTRIES,
-                                              hidden=include_hidden, deadline_s=10)
+                                              hidden=include_hidden, deadline_s=10,
+                                              kinds=("dir", "file", "other"))
     except AgentError as ex:
         raise agent_http(ex, "Arborescence") from None
     return JSONResponse(
@@ -529,11 +536,14 @@ def _plage(entete: Optional[str], taille: int):
     return (debut, fin) if debut < taille and debut < fin else "invalide"
 
 
-def _reponse_agent(request: Request, agent, rel: str, e: dict, media_type: str):
+async def _reponse_agent(request: Request, agent, rel: str, e: dict, media_type: str):
     """Réponse d'un fichier lu par l'agent par blocs (jamais chargé en
-    entier), toutes les plages lues sur la MÊME version (taille et mtime
-    vérifiés par l'agent) : ETag / Last-Modified comme ``FileResponse``, 304
-    sur ``If-None-Match``, une plage ``Range`` (206, ``If-Range`` respecté).
+    entier), toutes les plages lues sur la MÊME version (taille, mtime et
+    inode vérifiés par l'agent) : ETag / Last-Modified comme ``FileResponse``,
+    304 sur ``If-None-Match``, une plage ``Range`` (206, ``If-Range``
+    respecté). Le premier bloc est lu AVANT l'envoi du statut : un fichier
+    changé depuis ``e`` est repris une fois sur son nouvel état (encore
+    changé : 503) ; changé pendant le transfert, celui-ci s'interrompt.
 
     ``Cache-Control`` : sans en-tête explicite, l'``ETag`` seul ne force PAS
     la revalidation — le navigateur pouvait resservir l'ancien ``.css``/
@@ -541,35 +551,58 @@ def _reponse_agent(request: Request, agent, rel: str, e: dict, media_type: str):
     from email.utils import formatdate
 
     from fastapi.responses import Response, StreamingResponse
-    taille, ns = int(e.get("size") or 0), int(e.get("mtime_ns") or 0)
-    mtime = _mtime_s(ns)
-    etag = '"' + hashlib.md5(f"{mtime}-{taille}".encode(), usedforsecurity=False).hexdigest() + '"'
-    entetes = {"etag": etag, "last-modified": formatdate(mtime, usegmt=True),
-               "accept-ranges": "bytes", "cache-control": "no-cache, must-revalidate"}
-    _security_headers(entetes, media_type)
-    if etag in [x.strip() for x in (request.headers.get("if-none-match") or "").split(",")]:
-        return Response(status_code=304, headers=entetes)
-    debut, fin, statut = 0, taille, 200
-    if request.headers.get("if-range") in (None, etag):
-        plage = _plage(request.headers.get("range"), taille)
-        if plage == "invalide":
-            return Response(status_code=416, headers={**entetes, "content-range": f"bytes */{taille}"})
-        if plage:
-            (debut, fin), statut = plage, 206
-            entetes["content-range"] = f"bytes {debut}-{fin - 1}/{taille}"
-    entetes["content-length"] = str(fin - debut)
+    for essai in (1, 2):
+        taille, ns = int(e.get("size") or 0), int(e.get("mtime_ns") or 0)
+        ino = e.get("ino") if isinstance(e.get("ino"), int) else None
+        version = {"expect_size": taille, "expect_mtime_ns": ns, "expect_ino": ino}
+        mtime = _mtime_s(ns)
+        # L'inode en plus : un remplacement de même taille et même mtime
+        # change l'ETag (304 et ``If-Range`` ne mêlent pas deux versions).
+        etag = '"' + hashlib.md5(f"{mtime}-{taille}-{ino}".encode(),
+                                 usedforsecurity=False).hexdigest() + '"'
+        entetes = {"etag": etag, "last-modified": formatdate(mtime, usegmt=True),
+                   "accept-ranges": "bytes", "cache-control": "no-cache, must-revalidate"}
+        _security_headers(entetes, media_type)
+        if etag in [x.strip() for x in (request.headers.get("if-none-match") or "").split(",")]:
+            return Response(status_code=304, headers=entetes)
+        debut, fin, statut = 0, taille, 200
+        if request.headers.get("if-range") in (None, etag):
+            plage = _plage(request.headers.get("range"), taille)
+            if plage == "invalide":
+                return Response(status_code=416, headers={**entetes, "content-range": f"bytes */{taille}"})
+            if plage:
+                (debut, fin), statut = plage, 206
+                entetes["content-range"] = f"bytes {debut}-{fin - 1}/{taille}"
+        entetes["content-length"] = str(fin - debut)
+        try:
+            n = min(_BLOC_REPONSE, fin - debut)
+            premier = (await agent.read(rel, offset=debut, length=n, max_bytes=n, **version)).data \
+                if n > 0 else b""
+        except AgentError as ex:
+            if ex.code != "changed":
+                raise agent_http(ex, "Lecture") from None
+            if essai == 2:
+                break
+            try:
+                (e,) = await agent.stat([rel])
+            except AgentError as ex2:
+                raise agent_http(ex2, "Lecture") from None
+            if e.get("kind") != "file":
+                raise HTTPException(404, "Not found") from None
+            continue
 
-    async def corps():
-        pos = debut
-        while pos < fin:
-            n = min(_BLOC_REPONSE, fin - pos)
-            r = await agent.read(rel, offset=pos, length=n, max_bytes=n,
-                                 expect_size=taille, expect_mtime_ns=ns)
-            if not r.data:
-                return
-            yield r.data
-            pos += len(r.data)
-    return StreamingResponse(corps(), status_code=statut, media_type=media_type, headers=entetes)
+        async def corps(premier=premier, pos=debut + len(premier), fin=fin, version=version):
+            yield premier
+            while pos < fin:
+                n = min(_BLOC_REPONSE, fin - pos)
+                r = await agent.read(rel, offset=pos, length=n, max_bytes=n, **version)
+                if not r.data:
+                    return
+                yield r.data
+                pos += len(r.data)
+        return StreamingResponse(corps(), status_code=statut, media_type=media_type, headers=entetes)
+    raise HTTPException(503, "Fichier en cours de modification — réessayez.",
+                        headers={"Retry-After": "1"})
 
 
 async def _fichier_agent(user_id: int, path: str):
@@ -598,7 +631,7 @@ async def api_serve_sandbox(request: Request, path: str):
         raise HTTPException(404, "Not found")
     agent, rel, e = trouve
     mt = mimetypes.guess_type(PurePosixPath(rel).name)[0] or "text/plain"
-    return _reponse_agent(request, agent, rel, e, mt)
+    return await _reponse_agent(request, agent, rel, e, mt)
 
 
 @router.get("/api/sandbox/preview-token")
@@ -662,17 +695,18 @@ async def api_preview_sandbox(request: Request, token: str, path: str):
     mt = mimetypes.guess_type(PurePosixPath(rel).name)[0] or "text/plain"
     kind = mt.split(";")[0].strip().lower()
     if kind not in ("text/html", "text/css") or int(e.get("size") or 0) > rw.MAX_REWRITE_BYTES:
-        return _preview_cors(_reponse_agent(request, agent, rel, e, mt))
+        return _preview_cors(await _reponse_agent(request, agent, rel, e, mt))
     try:
         data = (await agent.read(rel, max_bytes=rw.MAX_REWRITE_BYTES)).data
     except AgentError as ex:
         if ex.code in ("not_found", "is_dir", "not_file", "too_large", "outside_root"):
             raise HTTPException(404, "Not found") from None
         raise agent_http(ex, "Lecture") from None
-    text = data.decode("utf-8", errors="replace")
     doc_dir = PurePosixPath(rel).parent.as_posix()
     base = rw.resolver_base(f"{PREVIEW_URL_PREFIX}{token}/", "" if doc_dir == "." else doc_dir)
-    body = rw.rewrite_html(text, base) if kind == "text/html" else rw.rewrite_css(text, base)
+    reecrire = rw.rewrite_html if kind == "text/html" else rw.rewrite_css
+    # Jusqu'à MAX_REWRITE_BYTES de texte réécrit : hors de la boucle d'événements.
+    body = await asyncio.to_thread(lambda: reecrire(data.decode("utf-8", errors="replace"), base))
     from fastapi.responses import Response
     resp = Response(body, media_type=mt)
     resp.headers["Cache-Control"] = "no-cache, must-revalidate"
@@ -714,11 +748,11 @@ async def api_search_sandbox(request: Request, q: str, mode: str = "content"):
     if mode == "name":
         try:
             liste = await agent.list("", depth=4096, max_entries=MAX_HITS, hidden=True,
-                                     deadline_s=3.0, name_contains=q)
+                                     deadline_s=3.0, name_contains=q, kinds=("file", "other"))
         except AgentError as ex:
             raise agent_http(ex, "Recherche") from None
         items = [{"path": e["path"], "name": e["path"].rsplit("/", 1)[-1], "type": "file"}
-                 for e in liste.entries if e.get("kind") in ("file", "other")]
+                 for e in liste.entries]
         return {"items": items, "errors": liste.errors, "truncated": liste.truncated}
 
     # mode=content — dossiers cachés, node_modules et __pycache__ non
@@ -728,31 +762,36 @@ async def api_search_sandbox(request: Request, q: str, mode: str = "content"):
                  '.gz', '.bin', '.exe', '.so', '.pyc', '.db', '.sqlite'}
     MAX_FILE = 512 * 1024   # 512 KB
     MAX_FILES_SCANNED = 5000  # même ordre que /grep
+    APERCU = 120            # caractères de l'aperçu
     try:
         liste = await agent.list("", depth=4096, max_entries=50_000, hidden=True,
-                                 prune=[".*", "node_modules", "__pycache__"], deadline_s=3.0)
+                                 prune=[".*", "node_modules", "__pycache__"], deadline_s=3.0,
+                                 kinds=("file",))
         fichiers = [e["path"] for e in liste.entries
-                    if e.get("kind") == "file" and int(e.get("size") or 0) <= MAX_FILE
+                    if int(e.get("size") or 0) <= MAX_FILE
                     and PurePosixPath(e["path"]).suffix.lower() not in SKIP_EXTS]
         truncated = liste.truncated or len(fichiers) > MAX_FILES_SCANNED
         fichiers = fichiers[:MAX_FILES_SCANNED]
+        # Fenêtre de la ligne autour de la première occurrence (``col`` : sa
+        # colonne dans la ligne entière, même très longue).
         trouves, bilan = (await agent.grep(
             fichiers, q, ignore_case=True, max_file_bytes=MAX_FILE, max_hits=MAX_HITS,
-            width=2000, deadline_s=max(0.5, echeance - time.monotonic()))
+            context=APERCU, deadline_s=max(0.5, echeance - time.monotonic()))
             if fichiers else ([], {}))
     except AgentError as ex:
         raise agent_http(ex, "Recherche") from None
     truncated = truncated or bool(bilan.get("hits_truncated") or bilan.get("timed_out"))
-    q_lower = q.lower()
     results = []
     for h in trouves:
-        line = h["text"]
-        col = line.lower().find(q_lower) + 1 or 1
+        fenetre, col = h["text"], int(h.get("col") or 1)
+        decalage = col - 1 - int(h.get("match_start") or 0)   # début de la fenêtre dans la ligne
+        entiere = decalage == 0 and len(fenetre) - int(h.get("match_end") or 0) < APERCU
         # Aperçu court centré sur la première occurrence.
-        preview = line.strip()
-        if len(preview) > 120:
+        preview = fenetre.strip()
+        if not entiere or len(preview) > APERCU:
             start = max(0, col - 40)
-            preview = ('…' if start > 0 else '') + line[start:start + 120].strip() + '…'
+            preview = (('…' if start > 0 else '')
+                       + fenetre[start - decalage:start - decalage + APERCU].strip() + '…')
         results.append({"path": h["file"], "name": h["file"].rsplit("/", 1)[-1],
                         "line": h["line"], "col": col, "preview": preview})
     return {"items": results, "errors": liste.errors, "truncated": truncated}
@@ -1114,19 +1153,24 @@ async def api_upload_sandbox_files(
                 async with _file_lock(root / rel):
                     _before = await _hist_avant(agent, rel, e)
                     r = await agent.write(rel, file_bytes, parents=True)
-                if r.get("mtime_ns"):
-                    mtimes[rel_path] = _mtime_s(int(r["mtime_ns"]))
-                hashes[rel_path] = sha256_bytes(file_bytes)
-                saved += 1
-                _usage_delta += len(file_bytes) - _existing_up
-                if _quota_mb_up > 0:
-                    _running_used += len(file_bytes) - _existing_up
-                await _hist_write(user_id, rel, _before, file_bytes, "upload")
-            except AgentError as ex:
-                # Conteneur arrêté ou autre refus : ce fichier est ignoré, les
+            except (AgentError, HTTPException) as ex:
+                # Conteneur arrêté, fichier en cours d'écriture par
+                # l'assistant (409 du verrou)… : ce fichier est ignoré, les
                 # suivants réessaient (l'agent redémarre au besoin).
-                skipped.append({"path": rel_path,
-                                "reason": f"exec_failed: {agent_http(ex, 'Upload').detail}"})
+                refus = agent_http(ex, "Upload") if isinstance(ex, AgentError) else ex
+                detail = refus.detail
+                if isinstance(detail, dict):
+                    detail = detail.get("message") or detail.get("code")
+                skipped.append({"path": rel_path, "reason": f"exec_failed: {detail}"})
+                continue
+            if r.get("mtime_ns"):
+                mtimes[rel_path] = _mtime_s(int(r["mtime_ns"]))
+            hashes[rel_path] = sha256_bytes(file_bytes)
+            saved += 1
+            _usage_delta += len(file_bytes) - _existing_up
+            if _quota_mb_up > 0:
+                _running_used += len(file_bytes) - _existing_up
+            await _hist_write(user_id, rel, _before, file_bytes, "upload")
     # Delta connu → on ajuste le compteur au lieu de l'invalider : la jauge
     # est juste immédiatement, sans relancer de ``du`` sur tout l'arbre.
     if _usage_delta:
@@ -1224,7 +1268,10 @@ async def api_upload_sandbox_chunk(request: Request):
     agent = agent_for(user_id)
 
     if index == 0:
-        e, e_tmp = await _stats_lots(agent, [rel, tmp])
+        try:
+            e, e_tmp = await _stats_lots(agent, [rel, tmp])
+        except AgentError as ex:
+            raise agent_http(ex, "Upload (chunk)") from None
         # Un DOSSIER porte ce nom : jamais remplacé (et le ``.part`` ne
         # serait jamais promu).
         if e.get("kind") == "dir":
@@ -1955,7 +2002,6 @@ async def api_sandbox_grep(request: Request):
 
     Returns the structured response described in the module-level docstring.
     """
-    import fnmatch
     import re as _re
     import time as _t
 
@@ -1991,13 +2037,13 @@ async def api_sandbox_grep(request: Request):
     agent = agent_for(user_id)
     started = _t.monotonic()
     try:
-        # Dossiers ignorés (et cachés, sauf demande) non parcourus.
+        # Dossiers ignorés (et cachés, sauf demande) non parcourus ; seuls
+        # les fichiers au nom voulu sont rendus (et comptés).
         liste = await agent.list(
-            "", depth=4096, max_entries=_GREP_MAX_FILES_SCANNED * 4, hidden=include_hidden,
-            prune=sorted(_GREP_IGNORED_DIRS), deadline_s=_GREP_TIMEOUT_SEC)
-        fichiers = [e["path"] for e in liste.entries if e.get("kind") == "file"
-                    and (not glob_pattern
-                         or fnmatch.fnmatch(e["path"].rsplit("/", 1)[-1], glob_pattern))]
+            "", depth=4096, max_entries=_GREP_MAX_FILES_SCANNED + 1, hidden=include_hidden,
+            prune=sorted(_GREP_IGNORED_DIRS), deadline_s=_GREP_TIMEOUT_SEC,
+            kinds=("file",), name_glob=glob_pattern)
+        fichiers = [e["path"] for e in liste.entries]
         truncated = liste.truncated or len(fichiers) > _GREP_MAX_FILES_SCANNED
         fichiers = fichiers[:_GREP_MAX_FILES_SCANNED]
         reste = _GREP_TIMEOUT_SEC - (_t.monotonic() - started)
@@ -2099,6 +2145,22 @@ def _remplacement(e: dict, raw: Optional[bytes], pat, repl):
     return text, new_text, n, samples
 
 
+def _remplacements_lot(lot: list, lus: dict, pat, repl, place: int, echeance: float) -> list:
+    """``[(chemin, _remplacement(…))]`` des fichiers lus de ``lot``, dans
+    l'ordre ; arrêt à ``place`` fichiers modifiables ou à ``echeance``
+    (``time.monotonic``). Tourne dans un fil : une expression coûteuse
+    n'occupe pas la boucle d'événements."""
+    out: list = []
+    for rel in lot:
+        if place <= 0 or time.monotonic() > echeance:
+            break
+        res = _remplacement({"kind": "file"}, lus[rel], pat, repl)
+        out.append((rel, res))
+        if isinstance(res, tuple):
+            place -= 1
+    return out
+
+
 def _replace_path_in_scope(rel: str, include_hidden: bool, glob_pattern: str) -> bool:
     """Mêmes règles d'exclusion que le parcours de l'aperçu, pour un chemin
     fourni par le client à l'application."""
@@ -2115,7 +2177,6 @@ def _replace_path_in_scope(rel: str, include_hidden: bool, glob_pattern: str) ->
 
 @router.post("/api/sandbox/replace")
 async def api_sandbox_replace(request: Request):
-    import fnmatch
     import re as _re
     import time as _t
 
@@ -2171,11 +2232,10 @@ async def api_sandbox_replace(request: Request):
         started = _t.monotonic()
         try:
             liste = await agent.list(
-                "", depth=4096, max_entries=_GREP_MAX_FILES_SCANNED * 4, hidden=include_hidden,
-                prune=sorted(_GREP_IGNORED_DIRS), deadline_s=_REPLACE_SCAN_TIMEOUT_SEC)
-            entrees = [e for e in liste.entries if e.get("kind") != "dir"
-                       and (not glob_pattern
-                            or fnmatch.fnmatch(e["path"].rsplit("/", 1)[-1], glob_pattern))]
+                "", depth=4096, max_entries=_GREP_MAX_FILES_SCANNED + 1, hidden=include_hidden,
+                prune=sorted(_GREP_IGNORED_DIRS), deadline_s=_REPLACE_SCAN_TIMEOUT_SEC,
+                kinds=("file", "link", "other"), name_glob=glob_pattern)
+            entrees = liste.entries
             truncated = liste.truncated or len(entrees) > _GREP_MAX_FILES_SCANNED
             entrees = entrees[:_GREP_MAX_FILES_SCANNED]
             for e in entrees:
@@ -2200,11 +2260,18 @@ async def api_sandbox_replace(request: Request):
                 lot = candidats[n_lus:n_lus + 200]
                 lus = await agent.read_many(lot, max_file=_GREP_MAX_FILE_BYTES,
                                             max_total=32 * 1024 * 1024)
-                for rel in lot:
-                    if rel not in lus:
-                        break                           # hors budget : lot suivant
-                    n_lus += 1
-                    res = _remplacement({"kind": "file"}, lus[rel], pat, repl)
+                lot = lot[:next((i for i, rel in enumerate(lot) if rel not in lus), len(lot))]
+                if not lot:
+                    truncated = True
+                    break
+                n_lus += len(lot)                       # le reste : au lot suivant
+                # Expressions et remplacements hors de la boucle d'événements.
+                resultats = await asyncio.to_thread(
+                    _remplacements_lot, lot, lus, pat, repl, _REPLACE_MAX_FILES - len(files),
+                    started + _REPLACE_SCAN_TIMEOUT_SEC)
+                if len(resultats) < len(lot):
+                    truncated = True
+                for rel, res in resultats:
                     if res is None:
                         continue
                     # Le pont d'écriture normalise ``work/…`` (et les blancs de
@@ -2266,11 +2333,14 @@ async def api_sandbox_replace(request: Request):
                     if (e.get("kind") == "file" and not e.get("link")
                             and int(e.get("size") or 0) <= _GREP_MAX_FILE_BYTES):
                         raw = (await agent.read(rel, max_bytes=_GREP_MAX_FILE_BYTES + 1)).data
-                except AgentError:
-                    continue                            # disparu ou illisible
+                except AgentError as ex:
+                    if ex.code not in PANNES_AGENT:
+                        continue                        # disparu, illisible, modifié…
+                    failed = {"path": rel, "error": str(agent_http(ex, "Remplacement").detail)}
+                    break
                 if e.get("kind") in ("missing", "error"):
                     continue
-                res = _remplacement(e, raw, pat, repl)
+                res = await asyncio.to_thread(_remplacement, e, raw, pat, repl)
                 if res is None:
                     continue
                 if isinstance(res, str):
@@ -2428,7 +2498,11 @@ async def api_sandbox_read_docx(request: Request, path: str):
 async def api_sandbox_check_mtimes(request: Request):
     """Compare l'état connu du frontend (mtime, taille, hash) avec le disque,
     en deux requêtes groupées à l'agent : les états, puis les empreintes
-    utiles seulement (fichiers ≤ ``_CHECK_SHA_MAX``)."""
+    utiles seulement (fichiers ≤ ``_CHECK_SHA_MAX``).
+
+    Sondage périodique de l'éditeur : appels passifs — un conteneur arrêté
+    n'est pas redémarré (503, que le front ignore : aucun onglet fermé) et
+    le sondage ne retient pas la sandbox contre l'arrêt pour inactivité."""
     user_id = require_user_id(request)
     try:
         body = await request.json()
@@ -2468,7 +2542,7 @@ async def api_sandbox_check_mtimes(request: Request):
 
     agent = agent_for(user_id)
     try:
-        etats = await agent.stat([d[1] for d in demandes])
+        etats = await agent.stat([d[1] for d in demandes], passive=True)
     except AgentError as ex:
         raise agent_http(ex, "Vérification") from None
     stale: List[dict] = []
@@ -2494,7 +2568,7 @@ async def api_sandbox_check_mtimes(request: Request):
     if a_hacher:
         try:
             empreintes = await agent.stat([r for _n, r in a_hacher], hash=True,
-                                          hash_max=_CHECK_SHA_MAX)
+                                          hash_max=_CHECK_SHA_MAX, passive=True)
         except AgentError as ex:
             raise agent_http(ex, "Vérification") from None
         for (n, _r), e in zip(a_hacher, empreintes):

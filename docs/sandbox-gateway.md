@@ -26,7 +26,7 @@ volume, les fichiers écrits par l'hôte sont élargis en écriture (`0o666` /
 |---|---|---|
 | Résolution de chemin (`resolve_under`, `write_beneath`) | `shared_infra/sandbox/paths.py` | refuse `..`, NUL, préfixe voisin, lien symbolique sortant ; écriture composant par composant (`O_NOFOLLOW`) |
 | Durcissement git (`hardened_git_env`, `repo_refusal`) | `shared_infra/sandbox/git_env.py` | `GIT_TERMINAL_PROMPT=0`, hooks désactivés (`core.hooksPath=/dev/null`), dépôt refusé si sa config déclare une commande |
-| Prison des git hôte (`run_host_git`) | `shared_infra/sandbox/git_env.py`, `bwrap.py` | seule la zone de travail montée ; réseau pour `clone`/`fetch`/`pull`/`push` seulement ; `executors.git_isolation` |
+| Prison des git hôte (`run_host_git`) | `shared_infra/sandbox/git_env.py`, `bwrap.py` | seule la zone de travail montée ; réseau pour le seul transfert (extraction et fusion hors réseau) ; `executors.git_isolation` |
 | Table de politique `OP_BACKEND` | `shared_infra/sandbox/policy.py` | choix hôte / conteneur par opération, défaut `host` |
 | Cache de disponibilité (`ReadinessCache`) | `shared_infra/sandbox/executors/_readiness.py` | état « conteneur démarré » alimenté par `docker events` |
 | Profil d'exécution durci (optionnel) | `shared_infra/sandbox/executors/_user_sandbox.py` (`_build_run_args`) | `executors.runtime` (ex. gVisor `runsc`) et `executors.extra_run_args`, vides par défaut |

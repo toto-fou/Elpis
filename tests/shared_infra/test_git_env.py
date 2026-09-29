@@ -58,7 +58,9 @@ def test_neutralizes_fixed_name_rce_keys():
 
 def test_bounds_child_git_protocols():
     env = hardened_git_env()
-    assert env["GIT_ALLOW_PROTOCOL"] == "http:https:git:ssh"
+    assert env["GIT_ALLOW_PROTOCOL"] == "http:https:git"
+    from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES
+    assert set(env["GIT_ALLOW_PROTOCOL"].split(":")) == GIT_REMOTE_SCHEMES
     # ext:: (RCE) et file:// implicite exclus
     assert "ext" not in env["GIT_ALLOW_PROTOCOL"].split(":")
 
@@ -190,3 +192,13 @@ def test_git_hors_depot_refuse(tmp_path, prep):
         (r / ".git/objects/ab").symlink_to(tmp_path)
     assert unsafe_git_dir(r)
     assert unsafe_git_dir(_repo(tmp_path / "ok")) is None
+
+
+def test_proxy_et_askpass_du_depot_neutralises():
+    """``core.gitProxy`` / ``core.askPass`` d'un dépôt ne lancent rien, même
+    posés après le contrôle : variable vide prioritaire, clé forcée à vide."""
+    env = hardened_git_env({})
+    assert env["GIT_PROXY_COMMAND"] == ""
+    n = int(env["GIT_CONFIG_COUNT"])
+    pairs = {env[f"GIT_CONFIG_KEY_{i}"]: env[f"GIT_CONFIG_VALUE_{i}"] for i in range(n)}
+    assert pairs["core.askPass"] == ""

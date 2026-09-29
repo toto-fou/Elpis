@@ -421,8 +421,9 @@ cmd_doctor() {
     local image
     image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
     check "image sandbox $image" "docker image inspect '$image'" "./install.sh ou deploy/docker/sandbox/build_offline.sh"
-    check "bubblewrap (git et aperçus isolés)" "bwrap --unshare-all --ro-bind /usr /usr --symlink usr/lib /lib --symlink usr/lib64 /lib64 --symlink usr/bin /bin /usr/bin/true" \
-        "apt install bubblewrap ; user namespaces autorisés"
+    check "bubblewrap (git et aperçus isolés)" \
+        "'$PY' -c 'import sys; from shared_infra.sandbox.bwrap import probe; sys.exit(not probe(force=True))'" \
+        "apt install bubblewrap ; user namespaces autorisés ; venv requis"
     check "LibreOffice (aperçus Office, facultatif)" "command -v soffice" "./install.sh --with-office"
     if _https_enabled; then
         check "Caddy actif (HTTPS)" "systemctl is-active --quiet caddy" "./install.sh --with-caddy puis ./elpis configure"

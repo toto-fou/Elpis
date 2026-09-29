@@ -758,22 +758,23 @@ install_caddy() {
     $SUDO "$ROOT/deploy/caddy/install_caddy.sh" || note_warn "Installation de Caddy incomplète."
 }
 
-# Git côté serveur et aperçus Office tournent dans une prison bubblewrap.
-# Ubuntu ≥ 23.10 réserve les user namespaces aux programmes qui ont un profil
-# AppArmor : on en pose un pour bwrap, seulement s'il est bloqué.
+# Git côté serveur et aperçus Office tournent dans une prison bubblewrap ;
+# la sonde est celle de l'application (shared_infra/sandbox/bwrap.py), comme
+# ./elpis doctor. Ubuntu ≥ 23.10 réserve les user namespaces aux programmes
+# qui ont un profil AppArmor : avec les droits système, on en pose un pour
+# bwrap, seulement s'il est bloqué (compromis : docs/configuration.md).
 bwrap_ok() {
-    as_app bwrap --unshare-all --ro-bind /usr /usr --symlink usr/lib /lib \
-        --symlink usr/lib64 /lib64 --symlink usr/bin /bin /usr/bin/true >/dev/null 2>&1
+    as_app "$VENV/bin/python" -c 'import sys; from shared_infra.sandbox.bwrap import probe; sys.exit(not probe(force=True))' >/dev/null 2>&1
 }
 
 ensure_bwrap() {
     if ! have bwrap; then
-        note_warn "bubblewrap absent : Git côté serveur et aperçus Office indisponibles."
+        note_warn "bubblewrap absent : Git côté serveur et aperçus Office indisponibles (apt install bubblewrap)."
         return 0
     fi
     if bwrap_ok; then ok "bubblewrap utilisable (Git côté serveur, aperçus Office)."; return 0; fi
-    if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ] \
-            && have apparmor_parser; then
+    if [ "$DO_SYSTEM" -eq 1 ] && have apparmor_parser \
+            && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ]; then
         printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' '' \
             'profile elpis-bwrap /usr/bin/bwrap flags=(unconfined) {' '  userns,' \
             '  include if exists <local/elpis-bwrap>' '}' \
@@ -809,8 +810,9 @@ install_voice() {
 }
 
 # =============================================================================
-[ "$DO_SYSTEM" -eq 1 ] && install_system && ensure_bwrap
+[ "$DO_SYSTEM" -eq 1 ] && install_system
 install_python
+ensure_bwrap
 setup_database
 [ "$WITH_BROWSER" -eq 1 ] && install_browser
 install_qdrant

@@ -197,11 +197,11 @@ résumé, une modification ne doit jamais :
 - présenter les outils fichiers et Git comme isolés : seul le shell tourne
   dans le conteneur ;
 - toucher au contenu de `/work` depuis l'hôte autrement que par les
-  primitives de `shared_infra/sandbox/paths.py` (`open_beneath`,
-  `walk_beneath`, `write_beneath`, `remove_beneath`, `rename_beneath`,
-  `widen_beneath`), ou lancer `git` côté hôte hors de
-  `git_env.run_host_git` : un `open`, `os.walk`, `chmod` ou `unlink` sur un
-  chemin suit les liens que le conteneur peut poser à tout moment.
+  primitives `*_beneath` de `shared_infra/sandbox/paths.py` (`open_beneath`,
+  `stat_beneath`, `walk_beneath`, `write_beneath`…), ou lancer `git` côté
+  hôte hors de `git_env.run_host_git` : un `open`, `os.walk`, `chmod` ou
+  `unlink` sur un chemin suit les liens que le conteneur peut poser à tout
+  moment.
 
 ## Git et pull requests
 

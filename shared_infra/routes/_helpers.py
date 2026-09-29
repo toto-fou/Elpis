@@ -762,7 +762,7 @@ def _build_file_tree(path: Path, relative_root: Path, include_hidden: bool = Fal
     if _budget is None:
         _budget = {"left": TREE_MAX_ENTRIES, "truncated": False}
     try:
-        fd = open_dir_beneath(relative_root, rel_under(relative_root, path))
+        fd = open_dir_beneath(relative_root, rel_under(relative_root, path), readable=True)
     except (OSError, ValueError):
         return []
     return _tree_level(fd, "", include_hidden, _budget, 0)

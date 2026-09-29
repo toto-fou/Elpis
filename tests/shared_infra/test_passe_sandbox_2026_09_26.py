@@ -190,7 +190,10 @@ async def test_conteneur_arrete_par_le_gc_est_redemarre(monkeypatch, tmp_path):
     async def fausse_cli(*args, **kw):
         appels.append(args[0])
         if args[0] == "inspect":
-            return 0, b"137|false", b""
+            if "ExitCode" in args[2]:
+                return 0, b"137|false", b""
+            # Labels à jour : rien n'impose de le recréer.
+            return 0, f"{us.netcfg_hash(sb.network_profile)}|{us.RUN_SPEC}".encode(), b""
         return 0, b"", b""
 
     async def create():

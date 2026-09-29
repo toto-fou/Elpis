@@ -698,6 +698,19 @@ async def _restore_snapshot_stream(user_id: int, snap_id: str) -> AsyncGenerator
                 return tarfile.open(str(archive), "r:gz")
 
             tf = await asyncio.to_thread(_open_tar)
+
+            def _close_and_widen():
+                # Invariant /work « cross-writable » (PASSE 15 B7, AUDIT
+                # 2026-08-02 C2) : membres extraits avec les modes du snapshot
+                # (parfois 0600) et dossiers recréés en 0755 par l'hôte — le
+                # conteneur (UID 10001, « other », aucun groupe commun) ne
+                # pourrait plus rien modifier. Tout l'arbre passe en 0666/0777
+                # (bits x conservés), sans suivre de lien.
+                try:
+                    tf.close()
+                finally:
+                    widen_beneath(sandbox_root, "", recursive=True)
+
             try:
                 # Important : itérer sur ``safe_members`` (déjà filtrés)
                 # plutôt que sur tf — on ne veut PAS rejouer les membres
@@ -733,15 +746,10 @@ async def _restore_snapshot_stream(user_id: int, snap_id: str) -> AsyncGenerator
                                 "current_file": m.name,
                             })
             finally:
-                await asyncio.to_thread(tf.close)
-
-            # Invariant /work « cross-writable » (PASSE 15 B7, AUDIT 2026-08-02 C2) :
-            # membres extraits avec les modes du snapshot (parfois 0600) et
-            # dossiers recréés en 0755 par l'hôte — le conteneur (UID 10001,
-            # « other », aucun groupe commun) ne pourrait plus rien modifier.
-            # Tout l'arbre passe en 0666/0777 (bits x conservés), sans suivre
-            # de lien (``widen_beneath``, 2026-09-29).
-            await asyncio.to_thread(widen_beneath, sandbox_root, "", recursive=True)
+                # Un seul travail, protégé de l'annulation : une déconnexion du
+                # client annule le flux, et l'annulation revient à CHAQUE
+                # ``await`` — un second n'aurait jamais tourné (2026-09-29).
+                await asyncio.shield(asyncio.to_thread(_close_and_widen))
 
             # Extraction terminée → le marqueur d'incomplétude est levé (W6).
             try:

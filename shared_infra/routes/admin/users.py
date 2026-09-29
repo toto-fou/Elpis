@@ -516,7 +516,7 @@ async def api_admin_set_network_profile(target_id: int, request: Request):
     after = resolve_network_profile_id(get_user_settings(target_id) or {})
 
     # Le conteneur en marche tourne encore sous les anciennes règles iptables.
-    # ``_reconcile_network`` le recréerait au prochain exec (label elpis.netcfg
+    # ``_reconcile_config`` le recréerait au prochain exec (label elpis.netcfg
     # périmé) ; on n'attend pas : une restriction imposée doit mordre tout de
     # suite. Best-effort — un échec laisse la recréation paresseuse faire.
     recreated = False

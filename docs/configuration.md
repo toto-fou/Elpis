@@ -80,11 +80,26 @@ Installation : `./install.sh --with-office`.
 
 Les commandes Git que le serveur lance sur un dépôt de sandbox (outils Git de
 l'agent, panneau Git de l'éditeur) tournent dans la même prison `bubblewrap` :
-elles ne voient que la zone de travail de l'utilisateur, `/usr` et `/etc` en
-lecture, et le réseau seulement pour `clone`, `fetch`, `pull`, `push`. Sans
-`bwrap` utilisable, ces commandes sont refusées ;
-`executors.git_isolation = "none"` rétablit l'ancien comportement, sans
-isolation (`shared_infra/sandbox/git_env.py`).
+elles ne voient que la zone de travail de l'utilisateur, `/usr` et le strict
+nécessaire de `/etc` en lecture. Le réseau ne sert qu'au transfert (`clone`,
+`fetch`, `push`, `ls-remote` ; protocoles `https`, `http`, `git`) : `clone`
+rapatrie sans extraire et `pull` n'est qu'un `fetch`, l'extraction et la fusion
+suivent dans une prison sans réseau. Sans `bwrap` utilisable, ces commandes sont
+refusées ; `executors.git_isolation = "none"` rétablit l'ancien comportement,
+sans isolation (`shared_infra/sandbox/git_env.py`). `./elpis doctor` vérifie la
+prison.
+
+Certificats TLS : ceux de `/etc/ssl`, `/etc/pki` et `/etc/ca-certificates`, ou
+un fichier désigné par `SSL_CERT_FILE`, `SSL_CERT_DIR`, `GIT_SSL_CAINFO` ou
+`GIT_SSL_CAPATH` (un `http.sslCAInfo` de `/etc/gitconfig` doit pointer dans ces
+dossiers).
+
+Ubuntu ≥ 23.10 réserve les user namespaces aux programmes munis d'un profil
+AppArmor. Si `bwrap` est bloqué, l'installeur (sauf `--skip-system`) pose
+`/etc/apparmor.d/elpis-bwrap`. Compromis : ce profil vaut pour tout compte
+de la machine qui lance `bwrap`, et rouvre donc pour lui la surface du noyau que
+la restriction réduit. Le retirer (`apparmor_parser -R`, puis supprimer le
+fichier) désactive la prison, donc Git côté serveur.
 
 ---
 

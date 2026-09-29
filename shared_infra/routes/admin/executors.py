@@ -289,7 +289,7 @@ async def _find_stale_network_containers(profiles: list) -> list:
     profil de leur utilisateur (après une sauvegarde admin).
 
     ``ensure_running`` recréera de toute façon au prochain exec
-    (``_reconcile_network``) — la liste sert à l'UI pour PROPOSER une
+    (``_reconcile_config``) — la liste sert à l'UI pour PROPOSER une
     recréation immédiate au lieu de laisser des règles périmées tourner
     jusqu'au prochain usage. Best-effort : toute erreur → liste vide.
     """
@@ -333,7 +333,7 @@ async def _find_stale_network_containers(profiles: list) -> list:
             if label == expected:
                 continue
             # Label absent : dérive avérée seulement si le profil courant est
-            # filtrant (même règle que _netcfg_matches côté sandbox).
+            # filtrant (même règle que _config_matches côté sandbox).
             if not label and prof.mode != "allowlist_ip":
                 continue
             stale.append({"user_id": uid, "username": uname or None,

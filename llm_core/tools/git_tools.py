@@ -48,13 +48,13 @@ Signature: register(mcp, root_base)   # unchanged
 from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Any, List, Literal, Optional, Union
-import os, subprocess, time, re, ast, fnmatch, json, stat, secrets as _sec
+import os, posixpath, subprocess, time, re, ast, fnmatch, json, stat, secrets as _sec
 from fastmcp import Context, FastMCP
 
 from ._toolkit import (
     ok as _ok, err, tool_kw, unquote, get_username,
     tool_kw_readonly, tool_kw_mutating, tool_kw_destructive, tool_kw_openworld,
-    unicode_twin_warning,
+    unicode_twin_warning, glob_match,
 )
 from ._models import (
     GitQueryResult, GitWriteResult, GitActionResult, GitRfResult,
@@ -63,7 +63,8 @@ from ._models import (
     ErrEnvelope,
 )
 from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git, unsafe_git_dir
-from shared_infra.sandbox.paths import open_beneath, read_leaf, rel_under, walk_under
+from shared_infra.sandbox.paths import (SandboxPathError, leaf_mode, open_beneath,
+                                        open_dir_beneath, read_leaf, rel_under, walk_under)
 from shared_infra.sandbox.policy import use_agent
 from llm_core.tools._exec_bridge import run_shell_via_executor
 
@@ -783,7 +784,7 @@ def _head_is_pristine(rp) -> bool:
 #  credentials, git config bootstrap.
 # ───────────────────────────────────────────────────────────────────────
 
-def _load_repo_policy(rp: Path) -> Dict[str, Any]:
+def _load_repo_policy(root: Path, rp: Path) -> Dict[str, Any]:
     """Politique de branches du dépôt : valeurs par défaut
     (``DEFAULT_PROTECTED_BRANCHES`` / ``DEFAULT_AGENT_BRANCH_PREFIXES``),
     que ``.git-tool-policy.json`` peut RENFORCER, jamais assouplir.
@@ -793,16 +794,18 @@ def _load_repo_policy(rp: Path) -> Dict[str, Any]:
 
     Le fichier vit dans le dépôt, donc à portée de l'agent (2026-09-29) : il
     AJOUTE des branches protégées et RESTREINT les préfixes de push de l'agent
-    (intersection avec les valeurs par défaut). Lu sans suivre de lien ;
-    absent ou mal formé : valeurs par défaut."""
+    (intersection avec les valeurs par défaut). Lu depuis la racine du bac à
+    sable sans suivre de lien ; absent, illisible ou mal formé : valeurs par
+    défaut."""
     pol = {
         "protected_branches":     list(DEFAULT_PROTECTED_BRANCHES),
         "allowed_agent_prefixes": list(DEFAULT_AGENT_BRANCH_PREFIXES),
     }
     try:
-        with os.fdopen(open_beneath(rp, ".git-tool-policy.json"), "rb") as f:
+        rel = posixpath.join(rel_under(root, rp), ".git-tool-policy.json")
+        with os.fdopen(open_beneath(root, rel), "rb") as f:
             user_pol = json.loads(f.read(64 * 1024).decode("utf-8", errors="replace"))
-    except (OSError, ValueError):
+    except Exception:         # JSON trop imbriqué (RecursionError) compris
         return pol
     if not isinstance(user_pol, dict):
         return pol
@@ -871,22 +874,20 @@ def _default_base_branch(rp: Path) -> str:
     to common names that exist locally.
 
     Order:
-      1. ``git remote show origin`` → "HEAD branch: <name>" line (most reliable)
+      1. ``refs/remotes/origin/HEAD`` (set by ``clone``) — local, no network
       2. Local presence of ``main``, then ``master``, then ``develop``
       3. Last resort: the currently checked-out branch (caller decides)
     """
-    # 1. Ask remote (works on cloned repos)
-    try:
-        r = _run_cmd(rp, ["git", "remote", "show", "origin"], timeout=8, max_out=4000)
-        if r.get("ok") and r.get("returncode") == 0:
-            for line in (r.get("stdout") or "").splitlines():
-                line = line.strip()
-                if line.startswith("HEAD branch:"):
-                    name = line.split(":", 1)[1].strip()
-                    if name and name != "(unknown)":
-                        return name
-    except Exception:
-        pass
+    # 1. HEAD distant mémorisé au clone. ``git remote show origin``
+    # interrogeait le serveur à chaque appel (2026-09-29).
+    # Sans ``--short`` : une branche locale « origin/main » le ferait
+    # répondre « remotes/origin/main ».
+    r = _run_cmd(rp, ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+                 timeout=4, max_out=200)
+    if r.get("ok") and r.get("returncode") == 0:
+        ref = (r.get("stdout") or "").strip()
+        if ref.startswith("refs/remotes/origin/") and len(ref) > 20:
+            return ref[20:]
 
     # 2. Probe local branches in priority order
     for cand in ("main", "master", "develop", "trunk"):
@@ -1129,13 +1130,16 @@ def register(mcp: FastMCP, root_base: Path) -> None:
                 cap = max(1, min(max_count, MAX_FILES))
                 pat = pattern or "**/*"
                 out = []
-                for sub, dirs, names, _dfd in walk_under(root, rp):
+                for sub, dirs, names, dfd in walk_under(root, rp):
                     dirs[:] = [d for d in dirs if d != ".git"]
                     for nm in names:
                         rel = f"{sub}/{nm}" if sub else nm
-                        if fnmatch.fnmatch(rel, pat):
+                        if nm == ".git" or not glob_match(rel, pat):
+                            continue
+                        mode = leaf_mode(dfd, nm)   # fichiers et liens, pas les FIFO/sockets
+                        if stat.S_ISREG(mode) or stat.S_ISLNK(mode):
                             out.append(rel)
-                        if len(out) >= cap: break
+                            if len(out) >= cap: break
                     if len(out) >= cap: break
                 return _ok(items=out, count=len(out), glob=pat, truncated=len(out) >= cap)
 
@@ -1371,11 +1375,13 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                         return _ok(dry_run=True, action="init", repo=repo,
                                    would_run=cmd, would_create=str(target_dir))
                     _twin = unicode_twin_warning(target_dir, root)
-                    target_dir.mkdir(parents=True, exist_ok=False)
+                    # Créé sans suivre de lien (un lien posé à ce nom mènerait
+                    # hors de /work), au mode de l'invariant /work
+                    # cross-writable (2026-09-29).
                     try:
-                        os.chmod(target_dir, 0o777)   # invariant /work cross-writable
-                    except OSError:
-                        pass
+                        os.close(open_dir_beneath(root, repo, create=True, dir_mode=0o777))
+                    except (OSError, SandboxPathError) as e:
+                        return _err(f"mkdir_failed: {e}", repo=repo)
                     # Run from root — `git init <path>` works without cd.
                     r = _run_cmd(root, cmd, env_extra=env)
                     if r.get("ok") and r.get("returncode") == 0:
@@ -1885,7 +1891,7 @@ Use this BEFORE any write op to know where you stand."""
             rp = _safe_repo(repo, root)
             br = _current_branch(rp) or ""
             base = _default_base_branch(rp)
-            pol = _load_repo_policy(rp)
+            pol = _load_repo_policy(root, rp)
             is_prot = _is_protected(br, pol)
             is_agent = _is_agent_branch(br, pol)
 
@@ -2017,7 +2023,7 @@ branches off other agent branches — keeps history clean)."""
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
             intent = _validate_intent_slug((branch_intent or "").strip().lower())
-            pol = _load_repo_policy(rp)
+            pol = _load_repo_policy(root, rp)
 
             # 1) Bootstrap git config
             _ensure_git_config(rp, _username)
@@ -2158,7 +2164,7 @@ Returns::
 
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
-            pol = _load_repo_policy(rp)
+            pol = _load_repo_policy(root, rp)
             br = _current_branch(rp) or ""
             # Bootstrap identity here too — the fresh-repo path (init → commit)
             # legitimately never goes through git_start_work.
@@ -2310,7 +2316,7 @@ Returns (PR already open)::
 
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
-            pol = _load_repo_policy(rp)
+            pol = _load_repo_policy(root, rp)
             br = _current_branch(rp) or ""
 
             if _is_protected(br, pol):
@@ -2571,7 +2577,7 @@ Returns::
         try:
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
-            pol = _load_repo_policy(rp)
+            pol = _load_repo_policy(root, rp)
             br = _current_branch(rp) or ""
 
             if _is_protected(br, pol):

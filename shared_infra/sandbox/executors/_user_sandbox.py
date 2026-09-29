@@ -331,6 +331,12 @@ class NetworkProfile:
         )
 
 
+#: Version des options de ``docker run`` qui touchent à la sécurité, posée en
+#: label ``elpis.spec`` : la changer fait recréer les conteneurs existants au
+#: premier exec (2 : ``--cap-drop MKNOD``, 2026-09-29).
+RUN_SPEC = "2"
+
+
 def netcfg_hash(profile: "NetworkProfile") -> str:
     """Empreinte STABLE (12 hex) de la config réseau d'un profil.
 
@@ -578,11 +584,12 @@ class UserSandbox:
         # side marker (``_PERMS_MARKER``) so the costly ``chmod -R`` runs once.
         self._perms_reconciled = False
         # One-shot guard (per container, per process): compare the container's
-        # ``elpis.netcfg`` label to the CURRENT profile hash and recreate on
-        # mismatch — sans ça, une édition admin du profil (IPs, domaines,
-        # ports, DNS) laissait les conteneurs en marche sur les vieilles
-        # règles iptables indéfiniment.
-        self._netcfg_verified = False
+        # ``elpis.netcfg`` / ``elpis.spec`` labels to the CURRENT profile hash
+        # and ``RUN_SPEC``, recreate on mismatch — sans ça, une édition admin
+        # du profil (IPs, domaines, ports, DNS) laissait les conteneurs en
+        # marche sur les vieilles règles iptables indéfiniment, et un
+        # durcissement des options de lancement ne touchait que les nouveaux.
+        self._config_verified = False
 
     @property
     def container_name(self) -> str:
@@ -684,39 +691,46 @@ class UserSandbox:
                 await self._create()
             return await self.status()
 
-    async def _netcfg_matches(self) -> bool:
-        """True si le label ``elpis.netcfg`` du conteneur correspond au hash
-        du profil ACTUEL. Fail-open sur toute incertitude (inspect KO).
+    async def _config_matches(self) -> bool:
+        """True si le conteneur a été créé avec les options de lancement
+        actuelles (label ``elpis.spec`` = ``RUN_SPEC``) et la config réseau du
+        profil ACTUEL (label ``elpis.netcfg``). Fail-open sur toute
+        incertitude (inspect KO).
 
-        Label absent (conteneur d'avant la fonctionnalité) : recréation
+        ``netcfg`` absent (conteneur d'avant la fonctionnalité) : recréation
         seulement si le profil courant est ``allowlist_ip`` — c'est le cas
         sécurité (règles potentiellement périmées) ; none/bridge n'ont pas
         de règles à dériver."""
         profile = self.network_profile
         rc, out, _ = await self._cli.call(
-            "inspect", "--format", _naming.label_tpl("netcfg"),
+            "inspect", "--format",
+            _naming.label_tpl("netcfg") + "|" + _naming.label_tpl("spec"),
             self.container_name, timeout=5,
         )
         if rc != 0:
             return True
-        cur = out.decode("utf-8", errors="replace").strip()
+        cur, _sep, spec = out.decode("utf-8", errors="replace").strip().partition("|")
+        if spec != RUN_SPEC:
+            return False
         if not cur or cur == "<no value>":
             return profile.mode != "allowlist_ip"
         return cur == netcfg_hash(profile)
 
-    async def _reconcile_network(self, st: SandboxStatus) -> SandboxStatus:
-        """Recrée le conteneur si sa config réseau a dérivé du profil courant
-        (l'admin a édité le profil après création). Une tentative par
-        conteneur et par process ; fail-open sur incertitude — même contrat
-        que ``_reconcile_work_mount``."""
-        self._netcfg_verified = True           # attempt once, whatever the outcome
-        if await self._netcfg_matches():
+    async def _reconcile_config(self, st: SandboxStatus) -> SandboxStatus:
+        """Recrée le conteneur si ses options de lancement ont été durcies ou
+        si sa config réseau a dérivé du profil courant (l'admin a édité le
+        profil après création). Une tentative par conteneur et par process ;
+        fail-open sur incertitude — même contrat que
+        ``_reconcile_work_mount``."""
+        self._config_verified = True           # attempt once, whatever the outcome
+        if await self._config_matches():
             return st
-        logger.info("[sandbox] %s : config réseau dérivée du profil %r → recréation",
+        logger.info("[sandbox] %s : options de lancement ou config réseau (profil %r) "
+                    "périmées → recréation",
                     self.container_name, self.network_profile_id or "isolated")
         async with _lifecycle_lock(self.user_id):
             cur = await self.status()
-            if cur.running and not await self._netcfg_matches():
+            if cur.running and not await self._config_matches():
                 await self._cli.call("rm", "-fv", self.container_name, timeout=10)
                 await self._create()
             return await self.status()
@@ -797,7 +811,7 @@ class UserSandbox:
         # the shortcut could serve the stale flat mount indefinitely. Until we've
         # verified the /work mount once (per process), fall through to status()
         # + reconcile. After that, the hot path is unchanged.
-        if (self._mount_verified and self._netcfg_verified
+        if (self._mount_verified and self._config_verified
                 and cache.confirmed_running(self.container_name)):
             return SandboxStatus(exists=True, running=True,
                                  container_name=self.container_name)
@@ -812,10 +826,11 @@ class UserSandbox:
             # une seule fois par container/process et on recrée avec le bon mont.
             if not self._mount_verified:
                 st = await self._reconcile_work_mount(st)
-            # Dérive réseau : même modèle une-fois que le mont /work (l'admin
-            # a pu éditer le profil pendant que le conteneur tournait).
-            if st.running and not self._netcfg_verified:
-                st = await self._reconcile_network(st)
+            # Dérive réseau ou options de lancement durcies : même modèle
+            # une-fois que le mont /work (l'admin a pu éditer le profil
+            # pendant que le conteneur tournait).
+            if st.running and not self._config_verified:
+                st = await self._reconcile_config(st)
             if st.running:
                 await self._reconcile_work_perms()
                 cache.record_running(self.container_name)
@@ -864,11 +879,15 @@ class UserSandbox:
             # redémarre ; un OOM reste traité comme un crash.
             if exit_code in (137, 143) and not oom:
                 exit_code = 0
+            # Options de lancement durcies ou profil réseau modifié depuis sa
+            # création : recréé ici plutôt que redémarré puis recréé au
+            # premier exec suivant (``_reconcile_config``).
+            stale = exit_code == 0 and not await self._config_matches()
 
-            if exit_code != 0:
+            if exit_code != 0 or stale:
                 logger.info(
-                    "[sandbox] container %s en état exited (code=%d) → destroy + recreate",
-                    self.container_name, exit_code,
+                    "[sandbox] container %s en état exited (code=%d%s) → destroy + recreate",
+                    self.container_name, exit_code, ", options périmées" if stale else "",
                 )
                 await self._cli.call("rm", "-fv", self.container_name, timeout=10)
                 await self._create()
@@ -940,9 +959,11 @@ class UserSandbox:
 
         # ─── Network mode (selon le profil choisi) ──────────────────────
         # Label netcfg : empreinte de la config réseau ACTUELLE du profil.
-        # ``_reconcile_network`` la compare au hash courant pour détecter la
-        # dérive (profil édité par l'admin après création du conteneur).
-        run_args.extend(["--label", _naming.label("netcfg", netcfg_hash(profile))])
+        # ``_reconcile_config`` la compare au hash courant pour détecter la
+        # dérive (profil édité par l'admin après création du conteneur), et
+        # ``elpis.spec`` à ``RUN_SPEC``.
+        run_args.extend(["--label", _naming.label("netcfg", netcfg_hash(profile)),
+                         "--label", _naming.label("spec", RUN_SPEC)])
         net_mode = profile.mode
         if net_mode == "none":
             run_args.extend(["--network", "none"])
@@ -1489,7 +1510,7 @@ def reset_user_sandbox_cache(user_id: Optional[int] = None) -> None:
 
     Passe sandbox 2026-09-26 — le changement de profil d'UN utilisateur (et
     l'échec de démarrage de SON conteneur) vidait le cache de TOUS : chacun
-    reperdait ses gardes une-fois (``_mount_verified``, ``_netcfg_verified``,
+    reperdait ses gardes une-fois (``_mount_verified``, ``_config_verified``,
     ``_perms_reconciled``) → rafale de ``docker inspect`` / réconciliations.
     Sans argument : tout (changement de configuration admin)."""
     if user_id is None:

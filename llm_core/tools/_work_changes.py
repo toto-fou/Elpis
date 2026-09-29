@@ -35,6 +35,8 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from shared_infra.sandbox.paths import SandboxPathError, open_beneath, walk_beneath
+
 SKIP_DIRS = frozenset({
     ".git", ".hg", ".svn", "node_modules", ".venv", "venv", "env", "__pycache__",
     ".mypy_cache", ".pytest_cache", ".ruff_cache", ".tox", ".cache", ".npm",
@@ -79,32 +81,29 @@ def _cache_for(key: str) -> _UserCache:
 
 def _scan(root: Path) -> Tuple[Dict[str, StatKey], bool]:
     """{chemin relatif POSIX: clé de stat} des fichiers réguliers ; bool =
-    parcours complet."""
+    parcours complet. Parcours par descripteurs, sans suivre de lien."""
     out: Dict[str, StatKey] = {}
     deadline = time.monotonic() + SCAN_BUDGET_S
-    stack = [("", str(root))]
     n = 0
-    while stack:
-        rel_dir, abs_dir = stack.pop()
-        try:
-            it = os.scandir(abs_dir)
-        except OSError:
-            continue
-        with it:
-            for e in it:
+    try:
+        for rel_dir, dirnames, filenames, dfd in walk_beneath(root):
+            dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+            n += len(dirnames)
+            if n > MAX_ENTRIES or time.monotonic() > deadline:
+                return out, False
+            for name in filenames:
                 n += 1
                 if n > MAX_ENTRIES or (n & 255) == 0 and time.monotonic() > deadline:
                     return out, False
                 try:
-                    st = e.stat(follow_symlinks=False)
+                    st = os.stat(name, dir_fd=dfd, follow_symlinks=False)
                 except OSError:
                     continue
-                rel = f"{rel_dir}/{e.name}" if rel_dir else e.name
-                if _stat.S_ISDIR(st.st_mode):
-                    if e.name not in SKIP_DIRS:
-                        stack.append((rel, e.path))
-                elif _stat.S_ISREG(st.st_mode):
+                if _stat.S_ISREG(st.st_mode):
+                    rel = f"{rel_dir}/{name}" if rel_dir else name
                     out[rel] = (st.st_mtime_ns, st.st_size, st.st_ino)
+    except (OSError, SandboxPathError):
+        return out, False
     return out, True
 
 
@@ -112,56 +111,19 @@ def _looks_text(data: bytes) -> bool:
     return b"\x00" not in data[:8192]
 
 
-def _open_dir_beneath(root: Path, rel_dir: str) -> Optional[int]:
-    """Descripteur de ``root/rel_dir`` ouvert composant par composant, sans
-    suivre de lien (``None`` si un composant manque, est un lien ou n'est pas
-    un dossier)."""
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0)
-    try:
-        fd = os.open(str(Path(root).resolve()), flags)
-    except OSError:
-        return None
-    for name in [x for x in rel_dir.split("/") if x]:
-        if name in (".", ".."):
-            os.close(fd)
-            return None
-        try:
-            nfd = os.open(name, flags | os.O_NOFOLLOW, dir_fd=fd)
-        except OSError:
-            os.close(fd)
-            return None
-        os.close(fd)
-        fd = nfd
-    return fd
-
-
 def _read(root: Path, rel: str, limit: int) -> Optional[bytes]:
-    """Octets de ``root/rel`` (``None`` : absent, illisible ou > ``limit``).
+    """Octets de ``root/rel`` (``None`` : absent, illisible, pas un fichier
+    régulier ou > ``limit``).
 
-    Ouvert SOUS la racine, composant par composant, sans suivre aucun lien :
-    le conteneur peut remplacer un dossier par un lien entre le parcours et
-    la lecture, et ce contenu finit dans l'historique (lisible du compte)."""
-    parent, _, leaf = rel.rpartition("/")
-    dfd = _open_dir_beneath(root, parent)
-    if dfd is None:
-        return None
+    Ouvert SOUS la racine sans suivre aucun lien, type contrôlé AVANT
+    l'ouverture en lecture : le conteneur peut remplacer un dossier par un
+    lien, ou le fichier par une FIFO (qui bloquerait l'ouverture), entre le
+    parcours et la lecture ; ce contenu finit dans l'historique."""
     try:
-        fd = os.open(leaf, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0), dir_fd=dfd)
-    except OSError:
-        return None
-    finally:
-        os.close(dfd)
-    try:
-        if not _stat.S_ISREG(os.fstat(fd).st_mode):
-            return None
-        with os.fdopen(fd, "rb") as f:
-            fd = -1
+        with os.fdopen(open_beneath(root, rel), "rb") as f:
             data = f.read(limit + 1)
-    except OSError:
+    except (OSError, SandboxPathError):
         return None
-    finally:
-        if fd >= 0:
-            os.close(fd)
     return data if len(data) <= limit else None
 
 

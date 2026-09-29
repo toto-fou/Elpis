@@ -140,3 +140,66 @@ def test_skills_not_mounted(tmp_path, monkeypatch):
     assert not any("/work/skills:" in a for a in args)
     # Le seul bind sur /work reste le dossier de travail (P/work) en RW.
     assert any(a.endswith(":/work:rw") for a in args)
+
+
+# ── Options de lancement durcies : conteneurs existants recréés (2026-09-29) ──
+
+class _FakeCLI:
+    """``docker`` factice : ``inspect`` rend ``inspect_out``, le reste réussit
+    et est noté."""
+
+    def __init__(self, inspect_out: bytes, rc: int = 0, exit_code: str = "137|false"):
+        self.inspect_out, self.rc, self.exit_code = inspect_out, rc, exit_code
+        self.calls = []
+
+    async def call(self, *args, **kw):
+        self.calls.append(args[0])
+        if args[0] == "inspect":
+            if "{{.State.ExitCode}}" in args[2]:
+                return 0, self.exit_code.encode(), b""
+            return self.rc, self.inspect_out, b""
+        return 0, b"", b""
+
+
+def test_spec_label_pose_et_compare():
+    import asyncio
+    from shared_infra.sandbox.executors._user_sandbox import RUN_SPEC
+    cfg = SandboxAdminConfig.from_dict({})
+    sb = _sandbox(cfg)
+    assert f"elpis.spec={RUN_SPEC}" in sb._build_run_args(sb.network_profile)
+    h = netcfg_hash(sb.network_profile)
+    for out, rc, attendu in ((f"{h}|{RUN_SPEC}", 0, True),
+                             (f"{h}|<no value>", 0, False),       # d'avant MKNOD
+                             (f"{h}|", 0, False),                 # idem, rendu de docker
+                             (f"{h}|1", 0, False),
+                             (f"<no value>|{RUN_SPEC}", 0, True),  # isolé : rien à dériver
+                             ("", 1, True)):                       # inspect KO : fail-open
+        sb._cli = _FakeCLI(out.encode(), rc)
+        assert asyncio.run(sb._config_matches()) is attendu, out
+
+
+def test_conteneur_arrete_perime_recree_plutot_que_redemarre(monkeypatch):
+    import asyncio
+    from shared_infra.sandbox.executors._user_sandbox import SandboxStatus
+    sb = _sandbox(SandboxAdminConfig.from_dict({}))
+    created = []
+
+    async def fake_create():
+        created.append(True)
+
+    async def fake_status():
+        return SandboxStatus(exists=True, running=True, container_name=sb.container_name)
+    monkeypatch.setattr(sb, "_create", fake_create)
+    monkeypatch.setattr(sb, "status", fake_status)
+    stopped = SandboxStatus(exists=True, running=False, container_name=sb.container_name)
+
+    h = netcfg_hash(sb.network_profile)
+    sb._cli = _FakeCLI(f"{h}|<no value>".encode())         # arrêté par le GC, d'avant MKNOD
+    asyncio.run(sb._ensure_running_locked(stopped))
+    assert "start" not in sb._cli.calls and "rm" in sb._cli.calls and created
+
+    from shared_infra.sandbox.executors._user_sandbox import RUN_SPEC
+    created.clear()
+    sb._cli = _FakeCLI(f"{h}|{RUN_SPEC}".encode())          # à jour : simple redémarrage
+    asyncio.run(sb._ensure_running_locked(stopped))
+    assert "start" in sb._cli.calls and "rm" not in sb._cli.calls and not created

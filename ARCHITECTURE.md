@@ -217,10 +217,11 @@ Un conteneur Docker **par utilisateur** (`elpis-sb-<utilisateur>`, étiquettes
 dossier de l'utilisateur monté sur `/work`, réseau coupé sauf profil réseau
 attribué, limites mémoire / CPU / processus, sans la capacité `MKNOD`. Le
 conteneur est la frontière de sécurité. Côté hôte, tout accès au contenu de
-`/work` passe par les primitives de `sandbox/paths.py` (`open_beneath`,
-`walk_beneath`, `write_beneath`, `remove_beneath`, `rename_beneath`,
-`widen_beneath`) : chaque composant est ouvert relativement à son dossier,
-sans suivre de lien, même posé pendant l'opération. Git côté hôte passe par
+`/work` passe par les primitives `*_beneath` de `sandbox/paths.py`
+(`open_beneath`, `stat_beneath`, `walk_beneath`, `write_beneath`…) : chaque
+composant est ouvert relativement à son dossier, sans suivre de lien, même
+posé pendant l'opération, et le type d'une entrée est vérifié avant de
+l'ouvrir en lecture. Git côté hôte passe par
 `sandbox/git_env.py::run_host_git`, dans une prison `bwrap`
 (`sandbox/bwrap.py`, réglage `executors.git_isolation`).
 

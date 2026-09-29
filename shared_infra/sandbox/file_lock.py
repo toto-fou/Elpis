@@ -81,19 +81,4 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def sha256_file(path, limit: int = 64 * 1024 * 1024) -> Optional[str]:
-    """sha256 du contenu, ``None`` si illisible ou plus gros que ``limit``."""
-    try:
-        p = Path(path)
-        if p.stat().st_size > limit:
-            return None
-        h = hashlib.sha256()
-        with open(p, "rb") as f:
-            for chunk in iter(lambda: f.read(1 << 20), b""):
-                h.update(chunk)
-        return h.hexdigest()
-    except OSError:
-        return None
-
-
-__all__ = ["file_write_lock", "lock_name", "sha256_bytes", "sha256_file"]
+__all__ = ["file_write_lock", "lock_name", "sha256_bytes"]

@@ -62,12 +62,16 @@ selon [SemVer](https://semver.org/lang/fr/).
   parcours, suppressions, renommages et élargissement des droits. Seuls les
   fichiers réguliers sont lus.
 - **Git côté serveur** : exécuté dans une prison bubblewrap qui ne voit que
-  la zone de travail de l'utilisateur (réseau pour `clone`, `fetch`, `pull`,
-  `push` seulement). `bubblewrap` devient un paquet de base ; sur Ubuntu,
-  l'installeur pose un profil AppArmor s'il est bloqué. Réglage
-  `executors.git_isolation`.
-- **Conteneurs** : sans la capacité `MKNOD` (conteneurs existants : les
-  recréer pour l'appliquer).
+  la zone de travail de l'utilisateur ; le réseau ne sert qu'au transfert
+  (`clone` sans extraction, `pull` = `fetch` puis fusion hors réseau),
+  protocoles `https`, `http` et `git` seulement (`ssh` retiré).
+  `bubblewrap` devient un paquet de base — **installations existantes :
+  `apt install bubblewrap`**, sans quoi Git côté serveur est refusé
+  (`./elpis doctor`). Sur Ubuntu, l'installeur pose un profil AppArmor s'il
+  est bloqué. Réglage `executors.git_isolation`.
+- **Conteneurs** : sans la capacité `MKNOD`. Les conteneurs existants sont
+  recréés à leur prochain usage (label `elpis.spec`) : ce qui y avait été
+  installé hors de `/work` est perdu.
 - **Politique Git d'un dépôt** : `.git-tool-policy.json` ne peut plus que
   renforcer les protections par défaut.
 

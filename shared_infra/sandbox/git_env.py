@@ -34,6 +34,7 @@ import logging
 import os
 import re
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -59,6 +60,7 @@ _HARDENING = (
     ("core.fsmonitor", "false"),
     ("protocol.file.allow", "never"),
     ("credential.helper", ""),
+    ("core.askPass", ""),              # GIT_ASKPASS (identifiants) passe devant
     ("core.pager", "cat"),
     # Audit 2026-09-22 (C2) : un dépôt qui pose ``commit.gpgsign=true`` +
     # ``gpg.format=ssh`` + ``gpg.ssh.defaultKeyCommand`` faisait exécuter une
@@ -104,7 +106,12 @@ def hardened_git_env(base: Optional[Dict[str, str]] = None) -> Dict[str, str]:
     env.setdefault("GIT_TERMINAL_PROMPT", "0")
     # AUDIT 2026-06 — borne les protocoles des git ENFANTS (submodules,
     # fetch récursifs) : pas de ext:: (RCE), pas de file:// implicite.
-    env.setdefault("GIT_ALLOW_PROTOCOL", "http:https:git:ssh")
+    # 2026-09-29 : ceux des remotes acceptés (``GIT_REMOTE_SCHEMES``), sans
+    # ssh — aucun remote ssh n'est accepté, et il lancerait ``ssh`` sur l'hôte.
+    env.setdefault("GIT_ALLOW_PROTOCOL", "http:https:git")
+    # Définie, même vide, elle prime sur ``core.gitProxy`` (commande lancée
+    # pour chaque connexion ``git://``, 2026-09-29).
+    env["GIT_PROXY_COMMAND"] = ""
 
     try:
         n = int(env.get("GIT_CONFIG_COUNT", "0") or "0")
@@ -291,10 +298,26 @@ def unsafe_repo_config(cwd, base_env: Optional[Dict[str, str]] = None) -> Option
 # l'utilisateur : ce qu'un dépôt fait exécuter reste confiné à ce que le
 # conteneur peut déjà faire. Le contrôle reste en place (message clair, et
 # garde-fou pour les commandes réseau).
-_NETWORK_SUBCOMMANDS = frozenset({"clone", "fetch", "pull", "push", "ls-remote", "submodule"})
+_NETWORK_SUBCOMMANDS = frozenset({"fetch", "push", "ls-remote"})   # + clone, pull : découpés
 _UNAVAILABLE = ("Git côté serveur indisponible : isolation bubblewrap absente ou bloquée "
                 "(./elpis doctor). executors.git_isolation = \"none\" rétablit l'ancien "
                 "comportement, sans isolation.")
+_OUTSIDE_WORK = "Git côté serveur : dossier hors de la zone de travail."
+# /etc réduit à ce dont git a besoin : comptes, bibliothèques, certificats et,
+# avec le réseau, résolution de noms.
+_ETC = ("passwd", "group", "nsswitch.conf", "localtime", "ld.so.cache", "alternatives",
+        "gitconfig", "ssl", "ca-certificates", "ca-certificates.conf", "pki",
+        "crypto-policies")
+_ETC_NET = ("resolv.conf", "hosts", "host.conf", "gai.conf")
+# Transfert et suite séparés : ce que la config d'un dépôt fait exécuter
+# (filtres, pilotes de fusion) ne tourne jamais dans une prison qui a le
+# réseau ni ne voit les identifiants. ``clone`` rapatrie sans extraire,
+# ``pull`` n'est que ``fetch`` ; extraction et fusion suivent hors réseau, en
+# tentatives successives : ``--rebase`` avance d'abord en rapide (branche non
+# née comprise, comme ``pull``), sinon rebase.
+_PULL_MODES = {"--ff-only": (("merge", "--ff-only"),),
+               "--no-rebase": (("merge", "--no-edit"),),
+               "--rebase": (("merge", "--ff-only"), ("rebase",))}
 _warned_none = False
 
 
@@ -315,63 +338,141 @@ def git_isolation() -> str:
     return "bwrap" if bwrap.probe() else "unavailable"
 
 
+def _subcommand_at(argv: List[str]) -> int:
+    """Position de la sous-commande dans ``git [-c k=v] [-C dir] <sous-commande> …``
+    (``-1`` s'il n'y en a pas)."""
+    i = 1
+    while i < len(argv):
+        if argv[i] in ("-c", "-C"):
+            i += 2
+        elif argv[i].startswith("-"):
+            i += 1
+        else:
+            return i
+    return -1
+
+
 def _subcommand(argv: List[str]) -> str:
-    """Sous-commande de ``git [-c k=v] [-C dir] <sous-commande> …``."""
-    it = iter(argv[1:])
-    for tok in it:
-        if tok in ("-c", "-C"):
-            next(it, None)
-        elif not tok.startswith("-"):
-            return tok
-    return ""
+    i = _subcommand_at(argv)
+    return argv[i] if i > 0 else ""
 
 
-def _jail_root(cwd: Path) -> Path:
+def _jail_root(cwd: Path) -> Optional[Path]:
     """Dossier monté : la zone de travail ``<SANDBOX_DIR>/<utilisateur>/work``
     qui contient ``cwd``, déduite du chemin (déjà résolu par l'appelant) SANS
-    le relire sur le disque ; ``cwd`` lui-même hors de ``SANDBOX_DIR``."""
+    le relire sur le disque. Ailleurs sous ``SANDBOX_DIR`` : ``None``, git n'a
+    rien à y faire. Hors de ``SANDBOX_DIR`` : ``cwd`` lui-même."""
     from shared_infra import config as _cfg
     for base in (Path(_cfg.SANDBOX_DIR), Path(_cfg.SANDBOX_DIR).resolve()):
         try:
             parts = cwd.relative_to(base).parts
         except ValueError:
             continue
-        if len(parts) >= 2:
-            return base / parts[0] / parts[1]
+        return base / parts[0] / "work" if parts[1:2] == ("work",) else None
     return cwd
 
 
-def _jail_argv(cwd: Path, env: Dict[str, str], *, network: bool) -> List[str]:
-    root = str(_jail_root(cwd))
-    argv = [bwrap.binary() or "bwrap", *bwrap.base_argv(network=network),
-            "--ro-bind", "/etc", "/etc"]
-    if network:      # /etc/resolv.conf pointe souvent vers systemd-resolved
-        argv += ["--ro-bind-try", "/run/systemd/resolve", "/run/systemd/resolve"]
-    # HOME de l'app (config globale), script askpass, certificats hors /etc.
+def _jail_argv(cwd: Path, root: Path, env: Dict[str, str], *, network: bool) -> List[str]:
+    argv = [bwrap.binary() or "bwrap", *bwrap.base_argv(network=network)]
+    for name in _ETC + (_ETC_NET if network else ()):
+        argv += ["--ro-bind-try", f"/etc/{name}", f"/etc/{name}"]
+    # HOME de l'app (config globale), script askpass, certificats (même sous
+    # /etc : seule une partie en est montée).
     for key in ("HOME", "GIT_ASKPASS", "SSL_CERT_FILE", "SSL_CERT_DIR",
                 "GIT_SSL_CAINFO", "GIT_SSL_CAPATH"):
         v = env.get(key) or ""
-        if os.path.isabs(v) and not v.startswith(("/usr/", "/etc/")):
+        if os.path.isabs(v) and not v.startswith("/usr/"):
             argv += ["--ro-bind-try", v, v]
-    return argv + ["--bind", root, root, "--chdir", str(cwd)]
+    return argv + ["--bind", str(root), str(root), "--chdir", str(cwd)]
+
+
+def _split_transfer(argv: List[str], cwd: Path):
+    """``(transfert, suites, cwd des suites)`` pour ``clone`` et ``pull``,
+    ``None`` pour le reste. ``suites`` : tentatives, la suivante seulement si
+    la précédente échoue.
+
+    Les appelants donnent la destination du clone en dernier argument ;
+    ``pull`` prend au plus un mode de ``_PULL_MODES`` (défaut ``--ff-only``,
+    le comportement de git sans ``pull.rebase``) et fusionne ce que ``pull``
+    fusionnerait : la branche demandée (``FETCH_HEAD``), sinon l'amont de la
+    branche courante (``@{upstream}`` : échec, comme ``pull``, s'il n'y en a
+    pas — la première ligne de ``FETCH_HEAD`` serait alors une branche
+    quelconque)."""
+    i = _subcommand_at(argv)
+    if i < 0 or argv[i] not in ("clone", "pull"):
+        return None
+    head, rest = argv[:i], argv[i + 1:]
+    if argv[i] == "clone":
+        return ([*head, "clone", "--no-checkout", *rest],
+                [[*head, "reset", "--hard", "-q"]], cwd / rest[-1])
+    opts = [a for a in rest if a.startswith("-")]
+    if len(opts) > 1 or not set(opts) <= _PULL_MODES.keys():
+        raise ValueError(f"git pull : options non prises en charge {opts}")
+    refs = [a for a in rest if not a.startswith("-")]
+    target = "FETCH_HEAD" if len(refs) >= 2 else "@{upstream}"
+    return ([*head, "fetch", *refs],
+            [[*head, *mode, target] for mode in _PULL_MODES[opts[0] if opts else "--ff-only"]],
+            cwd)
+
+
+def _failed(argv: List[str], kwargs: Dict[str, Any], msg: str) -> subprocess.CompletedProcess:
+    text = bool(kwargs.get("text") or kwargs.get("encoding") or kwargs.get("universal_newlines"))
+    return subprocess.CompletedProcess(argv, 1, "" if text else b"",
+                                       msg if text else msg.encode())
+
+
+def _joined(a, b):
+    return b if a is None else a if b is None else a + b
+
+
+def _jailed(argv: List[str], cwd: Path, root: Path, env: Dict[str, str], *, network: bool,
+            deadline: Optional[float] = None, **kwargs: Any) -> subprocess.CompletedProcess:
+    if deadline is not None:        # échéance commune aux deux temps
+        kwargs["timeout"] = max(0.1, deadline - time.monotonic())
+    return subprocess.run(_jail_argv(cwd, root, env, network=network) + list(argv),
+                          cwd="/", env=env, **kwargs)
 
 
 def run_host_git(argv: List[str], *, cwd: Any, env: Dict[str, str],
                  **kwargs: Any) -> subprocess.CompletedProcess:
     """Seul lanceur des ``git`` exécutés par l'hôte sur un dépôt de sandbox :
-    ``subprocess.run`` enfermé dans la prison (réseau pour les seules
-    sous-commandes qui en ont besoin). Isolation indisponible : rien n'est
-    lancé, code 1 et message dans ``stderr``."""
+    ``subprocess.run`` enfermé dans la prison, le réseau réservé au seul
+    transfert (``_split_transfer``). Isolation indisponible ou dossier hors
+    de la zone de travail : rien n'est lancé, code 1 et message dans
+    ``stderr``."""
     mode = git_isolation()
     if mode == "unavailable":
-        text = bool(kwargs.get("text") or kwargs.get("encoding"))
-        return subprocess.CompletedProcess(argv, 1, "" if text else b"",
-                                           _UNAVAILABLE if text else _UNAVAILABLE.encode())
+        return _failed(argv, kwargs, _UNAVAILABLE)
     if mode == "none":
         return subprocess.run(argv, cwd=str(cwd), env=env, **kwargs)
-    network = _subcommand(argv) in _NETWORK_SUBCOMMANDS
-    return subprocess.run(_jail_argv(Path(cwd), env, network=network) + list(argv),
-                          cwd="/", env=env, **kwargs)
+    cwd = Path(cwd)
+    root = _jail_root(cwd)
+    if root is None:
+        return _failed(argv, kwargs, _OUTSIDE_WORK)
+    split = _split_transfer(argv, cwd)
+    if split is None:
+        return _jailed(argv, cwd, root, env,
+                       network=_subcommand(argv) in _NETWORK_SUBCOMMANDS, **kwargs)
+    transfer, suites, local_cwd = split
+    check = kwargs.pop("check", False)
+    timeout = kwargs.pop("timeout", None)
+    deadline = time.monotonic() + timeout if timeout else None
+    first = last = _jailed(transfer, cwd, root, env, network=True, deadline=deadline, **kwargs)
+    if first.returncode == 0:
+        # Hors réseau et sans les identifiants : ce que la config du dépôt
+        # fait exécuter à l'extraction ou à la fusion n'a rien à emporter.
+        local_env = {k: v for k, v in env.items() if not k.startswith("GIT_ASKPASS")}
+        for suite in suites:
+            last = _jailed(suite, local_cwd, root, local_env, network=False,
+                           deadline=deadline, **kwargs)
+            if last.returncode == 0:
+                break
+    res = subprocess.CompletedProcess(argv, last.returncode,
+                                      _joined(first.stdout, None if last is first else last.stdout),
+                                      _joined(first.stderr, None if last is first else last.stderr))
+    if check:
+        res.check_returncode()
+    return res
 
 
 def repo_refusal(cwd, env: Optional[Dict[str, str]] = None):

@@ -23,7 +23,7 @@ import hashlib, difflib, mimetypes, json
 from ._toolkit import (
     ok as _ok, err, tool_kw, unquote, get_username, as_list,
     tool_kw_readonly, tool_kw_idempotent, tool_kw_mutating, tool_kw_destructive,
-    unicode_twin_warning,
+    unicode_twin_warning, glob_match as _glob_match,
 )
 from ._models import (
     ReadFileResult, WriteFileResult, EditFileResult,
@@ -35,9 +35,9 @@ from ._models import (
 # resolve_under raises SandboxPathError (a ValueError subclass) on escape,
 # so the existing `except ValueError` call sites keep working unchanged.
 from shared_infra.sandbox.paths import (
-    SandboxPathError, open_beneath, open_dir_beneath, open_leaf, pinned_beneath, read_leaf,
-    rel_under, remove_beneath, rename_beneath, resolve_under, to_container, walk_beneath,
-    walk_under, widen_beneath,
+    SandboxPathError, chmod_beneath, leaf_mode, open_beneath, open_dir_beneath, open_leaf,
+    pinned_beneath, read_leaf, rel_under, remove_beneath, rename_beneath, resolve_under,
+    stat_beneath, to_container, walk_beneath, walk_under, widen_beneath,
 )
 # OP_BACKEND policy: when fs writes are agent-backed (single UID 10001 inside
 # the container), the host-side cross-UID chmod widening is unnecessary.
@@ -271,44 +271,6 @@ DEFAULT_DEP_EXCLUDES: tuple = (
     ".venv", "venv", ".tox", ".nox", ".mypy_cache", ".pytest_cache",
     ".ruff_cache", ".gradle", "vendor", "target",
 )
-
-
-def _glob_match(rel: str, pattern: str) -> bool:
-    """Glob d'un chemin RELATIF (POSIX) — sémantique des outils usuels
-    (AUDIT 2026-09-25) :
-
-    - motif SANS ``/`` : appliqué au NOM, à toute profondeur (``*.py``) ;
-    - motif AVEC ``/`` : segment par segment ; ``*`` ne franchit pas ``/`` et
-      ``**`` couvre zéro ou plusieurs dossiers (``**/*.py`` inclut
-      ``main.py`` à la racine, ``src/**/*.ts`` inclut ``src/x.ts``).
-
-    Avant, ``fnmatch`` sur le chemin entier exigeait au moins un ``/`` pour
-    ``**/*.py`` : le modèle concluait que les fichiers n'existaient pas."""
-    if not pattern:
-        return True
-    pat = pattern.strip()
-    while pat.startswith("./"):
-        pat = pat[2:]
-    if "/" not in pat:
-        return fnmatch.fnmatch(rel.rsplit("/", 1)[-1], pat) or fnmatch.fnmatch(rel, pat)
-    psegs = [s for s in pat.strip("/").split("/") if s]
-    rsegs = [s for s in rel.split("/") if s]
-    memo: Dict[Tuple[int, int], bool] = {}
-
-    def _m(i: int, j: int) -> bool:
-        key = (i, j)
-        if key in memo:
-            return memo[key]
-        if i == len(psegs):
-            r = j == len(rsegs)
-        elif psegs[i] == "**":
-            r = any(_m(i + 1, k) for k in range(j, len(rsegs) + 1))
-        else:
-            r = (j < len(rsegs) and fnmatch.fnmatchcase(rsegs[j], psegs[i])
-                 and _m(i + 1, j + 1))
-        memo[key] = r
-        return r
-    return _m(0, 0)
 
 
 def _child_is_safe(p: Path, root_resolved: Path) -> bool:
@@ -781,8 +743,9 @@ def _snapshot_tree(sb: Path, p: Path, max_files: int = 200,
         files = [rel]
         if p.is_dir() and not p.is_symlink():
             files = []
-            for rel_dir, _dirs, names, _dfd in walk_beneath(root, rel):
-                files += [f"{rel_dir}/{n}" if rel_dir else n for n in names]
+            for rel_dir, _dirs, names, dfd in walk_beneath(root, rel):
+                files += [f"{rel_dir}/{n}" if rel_dir else n for n in names
+                          if _stat_mod.S_ISREG(leaf_mode(dfd, n))]
                 if len(files) >= max_files:
                     break
         total = 0
@@ -1118,11 +1081,12 @@ def _parse_since(value: str) -> Optional[float]:
     return None
 
 
-def _git_status_map(root: Path) -> Dict[str, str]:
-    """Run `git status --porcelain=v1` from inside `root`, return a map
-    of paths RELATIVE TO ``root`` → 2-char status code (' M', '??', 'A ').
-    Returns {} if not a git repo or git unavailable.
-    Bounded at 500ms timeout — never blocks list_files materially.
+def _git_status_map(sb: Path, root: Path) -> Tuple[Dict[str, str], Optional[str]]:
+    """Run `git status --porcelain=v1` from inside `root`: ``(map, None)``,
+    the map going from paths RELATIVE TO ``root`` to the 2-char status code
+    (' M', '??', 'A '), or ``({}, reason)`` when no status could be read (not
+    a repository, repository refused, git unavailable or too slow) — an
+    empty map alone would read as a clean tree. Bounded (2 s per git call).
 
     AUDIT 2026-08-23 — RÉ-ANCRAGE sur le dossier listé. Le format porcelain
     émet TOUJOURS des chemins relatifs à la RACINE DU DÉPÔT, jamais au cwd
@@ -1133,24 +1097,39 @@ def _git_status_map(root: Path) -> Dict[str, str]:
     silence et la map ressortait vide. L'agent en concluait que ``src/`` était
     propre, donc que ses modifications n'avaient pas été enregistrées, et les
     réappliquait. On retire donc le préfixe rendu par ``git rev-parse
-    --show-prefix`` (aucun second processus : ``-C`` groupe les deux).
+    --show-prefix``.
+
+    2026-09-29 — lancé comme tout git hôte sur un dépôt de sandbox : prison
+    ``run_host_git``, environnement ``host_git_env`` (pas de config globale
+    de l'hôte, pas de remontée au-dessus de la zone de travail) et dépôt
+    refusé d'emblée si sa config ferait exécuter une commande (``status``
+    lance ``core.fsmonitor``, les filtres…).
     """
     try:
-        _prefix = ""
-        _pp = subprocess.run(
+        from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git
+        env = host_git_env(cwd=sb)
+        refusal = repo_refusal(root, env)
+        if refusal:
+            return {}, f"repository refused ({refusal[0]}: {refusal[1]})"
+
+        def _why(p) -> str:
+            lines = (p.stderr or "").strip().splitlines()
+            return (lines[-1] if lines else f"git exited with {p.returncode}")[:200]
+        _pp = run_host_git(
             ["git", "rev-parse", "--show-prefix"],
-            cwd=str(root), capture_output=True, text=True,
-            timeout=0.5, check=False,
+            cwd=root, env=env, capture_output=True, text=True,
+            timeout=2, check=False,
         )
-        if _pp.returncode == 0:
-            _prefix = (_pp.stdout or "").strip()
-        proc = subprocess.run(
+        if _pp.returncode != 0:
+            return {}, _why(_pp)
+        _prefix = (_pp.stdout or "").strip()
+        proc = run_host_git(
             ["git", "status", "--porcelain=v1"],
-            cwd=str(root), capture_output=True, text=True,
-            timeout=0.5, check=False,
+            cwd=root, env=env, capture_output=True, text=True,
+            timeout=2, check=False,
         )
         if proc.returncode != 0:
-            return {}
+            return {}, _why(proc)
         out: Dict[str, str] = {}
         for line in (proc.stdout or "").splitlines():
             if len(line) < 4:
@@ -1166,9 +1145,11 @@ def _git_status_map(root: Path) -> Dict[str, str]:
                     continue          # hors du dossier listé
                 path = path[len(_prefix):]
             out[path] = code
-        return out
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        return {}
+        return out, None
+    except subprocess.TimeoutExpired:
+        return {}, "git status timed out"
+    except OSError as e:
+        return {}, f"git unavailable ({e.__class__.__name__})"
 
 
 # ── Helpers for anchor/indent edits ─────────────────────────────────────────
@@ -1243,10 +1224,14 @@ def _try_format(path: Path, content: str) -> Tuple[str, str]:
             if r.returncode == 0 and r.stdout:
                 return r.stdout, "black"
         elif ext in (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".json", ".md") and _has_formatter("prettier"):
+            # Ni config (``prettier.config.js`` = code exécuté sur l'hôte, et
+            # ses greffons) ni ``.editorconfig`` du bac à sable : seul le nom
+            # sert à choisir l'analyseur, depuis un cwd neutre (2026-09-29).
             r = subprocess.run(
-                ["prettier", "--stdin-filepath", str(path)],
+                ["prettier", "--no-config", "--no-editorconfig",
+                 f"--stdin-filepath={path.name}"],       # « -x.js » n'est pas une option
                 input=content, capture_output=True, text=True,
-                timeout=10, check=False,
+                timeout=10, check=False, cwd="/",
             )
             if r.returncode == 0 and r.stdout:
                 return r.stdout, "prettier"
@@ -2847,7 +2832,8 @@ Annotation:
     code (e.g. ' M', '??', 'A '). Only adds entries for files actually
     tracked or modified — clean files have no status field. Requires
     `details=True` to be visible (status is added to per-item dicts).
-    No-op if `path` is not inside a git repo.
+    If no status could be read (not a repo, repo refused, git unavailable),
+    `git_status_error` says why: the empty map then means nothing.
 
 Options:
   exclude=['node_modules','.git','*.pyc']  : skip matching paths/names.
@@ -3103,8 +3089,9 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
             if truncated and page:
                 next_cursor = page[-1].relative_to(root).as_posix()
 
-            # Optional: fetch git status map once (bounded ~500ms timeout)
-            git_status = _git_status_map(root) if include_git_status else {}
+            # Optional: fetch git status map once (bounded, cf. _git_status_map)
+            git_status, git_status_error = (_git_status_map(sb, root) if include_git_status
+                                            else ({}, None))
 
             if details:
                 out = []
@@ -3150,6 +3137,8 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                 page_paths = {c.relative_to(root).as_posix() for c in page}
                 visible_status = {p: c for p, c in git_status.items() if p in page_paths}
                 result["git_status"] = visible_status
+                if git_status_error:
+                    result["git_status_error"] = git_status_error
             if next_cursor:
                 result["next_cursor"] = next_cursor
                 result["hint"] = "Call again with cursor=next_cursor for more results."
@@ -3301,21 +3290,22 @@ Safety:
             p = _safe_path(path, sb)
 
             if act == "chmod":
-                # Sur l'inode ouvert sans suivre de lien (2026-09-29).
+                # Sur l'inode, sans suivre de lien ni exiger de pouvoir le
+                # lire (2026-09-29).
+                _crel = rel_under(sb, p)
                 try:
-                    _cfd = open_beneath(sb, rel_under(sb, p), allow_dir=True)
-                except FileNotFoundError:
-                    return _err("not_found")
-                try:
-                    cur = os.fstat(_cfd).st_mode
-                    new = _executable_mode(cur)
                     if dry_run:
+                        cur = stat_beneath(sb, _crel).st_mode
+                        if not (_stat_mod.S_ISREG(cur) or _stat_mod.S_ISDIR(cur)):
+                            return _err("not_a_regular_file")
                         return _ok(path=_to_container(p, sb), action="chmod", dry_run=True,
                                    current_mode=oct(cur & 0o777),
-                                   would_set=oct(new & 0o777))
-                    os.fchmod(_cfd, new)
-                finally:
-                    os.close(_cfd)
+                                   would_set=oct(_executable_mode(cur) & 0o777))
+                    _cur, new = chmod_beneath(sb, _crel, _executable_mode)
+                except FileNotFoundError:
+                    return _err("not_found")
+                except SandboxPathError:
+                    return _err("not_a_regular_file")
                 return _ok(path=_to_container(p, sb), action="chmod", mode=oct(new & 0o777))
 
             if act == "mkdir":
@@ -3350,8 +3340,15 @@ Safety:
                     if p.is_file():
                         info["size"] = p.stat().st_size
                     else:
-                        n = sum(1 for _ in p.rglob("*"))
-                        info["items_inside"] = n
+                        # Sans suivre de lien et borné (``rglob`` parcourait
+                        # tout, liens de dossiers compris).
+                        n = 0
+                        for _d, _dirs, _names, _dfd in walk_beneath(sb, rel_under(sb, p)):
+                            n += len(_dirs) + len(_names)
+                            if n > MAX_WALK:
+                                info["truncated"] = True
+                                break
+                        info["items_inside"] = min(n, MAX_WALK)
                     return _ok(action="delete", dry_run=True, **info)
                 _track = _history_uid(_username) is not None
                 if p.is_dir():
@@ -3472,6 +3469,7 @@ Safety:
                                     _root, _dst_rel, _src,
                                     file_mode=(_fst.st_mode & 0o777 & ~0o6000)
                                     | (0 if use_agent("fs.write") else 0o666),
+                                    dir_mode=None if use_agent("fs.write") else 0o777,
                                     mtime_ns=_fst.st_mtime_ns)
                     else:
                         # ``rename`` relatif aux dossiers ouverts sans suivre de

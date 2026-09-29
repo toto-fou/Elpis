@@ -237,11 +237,15 @@ def resolve_under(base, user_path, *, allow_root: bool = True) -> ResolvedPath:
 _O_CLOEXEC = getattr(os, "O_CLOEXEC", 0)
 _O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
 _O_DIRECTORY = getattr(os, "O_DIRECTORY", 0)
+_O_PATH = getattr(os, "O_PATH", 0)
 
 
 def _rel_parts(rel: Any) -> List[str]:
-    """Composants d'un chemin RELATIF à la racine ; refuse l'absolu et ``..``."""
-    s = str(rel or "").replace("\\", "/")
+    """Composants d'un chemin RELATIF à la racine ; refuse l'absolu et ``..``.
+    ``\\`` est un caractère de nom ordinaire (Linux) : le convertir en ``/``
+    faisait viser à ces primitives une autre entrée que celle contrôlée par
+    ``resolve_under`` (2026-09-29)."""
+    s = str(rel or "")
     if "\x00" in s:
         raise SandboxPathError("null byte in path")
     p = PurePosixPath(s)
@@ -254,19 +258,26 @@ def _rel_parts(rel: Any) -> List[str]:
 
 
 def open_dir_beneath(base: Any, rel: Any = "", *, create: bool = False,
-                     dir_mode: Optional[int] = None) -> int:
+                     dir_mode: Optional[int] = None, readable: bool = False) -> int:
     """Descripteur du dossier ``base/rel``, ouvert composant par composant
     SANS suivre de lien (``O_NOFOLLOW|O_DIRECTORY`` relatif au parent).
 
-    ``create`` : crée les dossiers manquants (``dir_mode`` posé par
-    ``fchmod`` sur ceux qu'on crée — le umask ne s'y applique donc pas).
-    Lève :class:`SandboxPathError` si un composant est un lien ou n'est pas
-    un dossier. L'appelant ferme le descripteur rendu."""
+    Tout est ouvert en ``O_PATH`` : il suffit du droit de traverser, pas de
+    lire — assez pour les appels ``*at()`` (ouvrir, créer, renommer,
+    supprimer une entrée) et pour ``os.fwalk``. ``readable=True`` ouvre le
+    dossier final en lecture, pour le lister directement (``os.scandir``).
+
+    ``create`` : crée les dossiers manquants (``dir_mode`` posé sur ceux
+    qu'on crée — le umask ne s'y applique donc pas). Lève
+    :class:`SandboxPathError` si un composant est un lien ou n'est pas un
+    dossier. L'appelant ferme le descripteur rendu."""
     parts = _rel_parts(rel)
-    flags = os.O_RDONLY | _O_DIRECTORY | _O_NOFOLLOW | _O_CLOEXEC
-    fd = os.open(str(Path(base).resolve()), os.O_RDONLY | _O_DIRECTORY | _O_CLOEXEC)
+    walk = (_O_PATH or os.O_RDONLY) | _O_DIRECTORY | _O_CLOEXEC
+    last = (os.O_RDONLY if readable else (_O_PATH or os.O_RDONLY)) | _O_DIRECTORY | _O_CLOEXEC
+    fd = os.open(str(Path(base).resolve()), walk if parts else last)
     try:
-        for name in parts:
+        for i, name in enumerate(parts):
+            flags = (last if i == len(parts) - 1 else walk) | _O_NOFOLLOW
             created = False
             try:
                 nfd = os.open(name, flags, dir_fd=fd)
@@ -281,7 +292,7 @@ def open_dir_beneath(base: Any, rel: Any = "", *, create: bool = False,
                 nfd = os.open(name, flags, dir_fd=fd)
             if created and dir_mode is not None:
                 try:
-                    os.fchmod(nfd, dir_mode)
+                    os.chmod(f"/proc/self/fd/{nfd}", dir_mode)
                 except OSError:
                     pass
             os.close(fd)
@@ -308,7 +319,30 @@ def open_dir_beneath(base: Any, rel: Any = "", *, create: bool = False,
 # n'ouvre rien —, son type est vérifié sur ce descripteur, puis elle est
 # rouverte par ``/proc/self/fd`` : le même inode, quoi qu'il arrive au chemin.
 
-_O_PATH = getattr(os, "O_PATH", 0)
+
+def open_path_at(dir_fd: int, name: str) -> int:
+    """Descripteur ``O_PATH`` de l'entrée ``name`` de ``dir_fd`` elle-même —
+    un lien est saisi, jamais suivi — : de quoi ``fstat``, changer ses droits
+    ou la rouvrir (:func:`reopen`) sans relire de chemin."""
+    return os.open(name, _O_PATH | _O_NOFOLLOW | _O_CLOEXEC, dir_fd=dir_fd)
+
+
+def reopen(pfd: int, flags: int = os.O_RDONLY) -> int:
+    """Rouvre l'inode d'un descripteur ``O_PATH`` (``/proc/self/fd``)."""
+    return os.open(f"/proc/self/fd/{pfd}", flags | _O_CLOEXEC)
+
+
+def open_path_beneath(base: Any, rel: Any) -> int:
+    """:func:`open_path_at` de ``base/rel`` (``rel`` vide : la racine),
+    dossiers du chemin ouverts sans suivre de lien. L'appelant le ferme."""
+    parts = _rel_parts(rel)
+    if not parts:
+        return open_dir_beneath(base)
+    dfd = open_dir_beneath(base, "/".join(parts[:-1]))
+    try:
+        return open_path_at(dfd, parts[-1])
+    finally:
+        os.close(dfd)
 
 
 def open_leaf(dir_fd: int, name: str, *, allow_dir: bool = False) -> int:
@@ -316,18 +350,16 @@ def open_leaf(dir_fd: int, name: str, *, allow_dir: bool = False) -> int:
     régulier, ou un dossier si ``allow_dir``. Un lien, une FIFO, un socket ou
     un périphérique lèvent :class:`SandboxPathError` sans avoir été ouverts ;
     un dossier non demandé lève ``IsADirectoryError``."""
-    pfd = os.open(name, _O_PATH | _O_NOFOLLOW | _O_CLOEXEC, dir_fd=dir_fd)
+    pfd = open_path_at(dir_fd, name)
     try:
         mode = os.fstat(pfd).st_mode
         if stat.S_ISREG(mode):
-            flags = os.O_RDONLY
-        elif stat.S_ISDIR(mode) and allow_dir:
-            flags = os.O_RDONLY | _O_DIRECTORY
-        elif stat.S_ISDIR(mode):
+            return reopen(pfd)
+        if stat.S_ISDIR(mode) and allow_dir:
+            return reopen(pfd, os.O_RDONLY | _O_DIRECTORY)
+        if stat.S_ISDIR(mode):
             raise IsADirectoryError(errno.EISDIR, "Is a directory", name)
-        else:
-            raise SandboxPathError(f"symlink or special file refused: {name!r}")
-        return os.open(f"/proc/self/fd/{pfd}", flags | _O_CLOEXEC)
+        raise SandboxPathError(f"symlink or special file refused: {name!r}")
     finally:
         os.close(pfd)
 
@@ -340,12 +372,39 @@ def open_beneath(base: Any, rel: Any, *, allow_dir: bool = False) -> int:
     if not parts:
         if not allow_dir:
             raise IsADirectoryError(errno.EISDIR, "Is a directory", str(base))
-        return open_dir_beneath(base)
+        return open_dir_beneath(base, readable=True)
     dfd = open_dir_beneath(base, "/".join(parts[:-1]))
     try:
         return open_leaf(dfd, parts[-1], allow_dir=allow_dir)
     finally:
         os.close(dfd)
+
+
+def stat_beneath(base: Any, rel: Any) -> os.stat_result:
+    """``lstat`` de ``base/rel`` — un lien lui-même, jamais sa cible —,
+    dossiers du chemin ouverts sans suivre de lien."""
+    pfd = open_path_beneath(base, rel)
+    try:
+        return os.fstat(pfd)
+    finally:
+        os.close(pfd)
+
+
+def chmod_beneath(base: Any, rel: Any, mode_fn) -> Tuple[int, int]:
+    """Applique ``mode_fn(mode actuel)`` au fichier régulier ou au dossier
+    ``base/rel`` (``rel`` vide : la racine) sans l'ouvrir en lecture ni
+    suivre de lien. Rend ``(ancien mode, nouveau mode)`` ; un lien ou un
+    fichier spécial lève :class:`SandboxPathError`."""
+    pfd = open_path_beneath(base, rel)
+    try:
+        mode = os.fstat(pfd).st_mode
+        if not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+            raise SandboxPathError(f"symlink or special file refused: {str(rel)!r}")
+        new = mode_fn(mode)
+        os.chmod(f"/proc/self/fd/{pfd}", new & 0o7777)
+        return mode, new
+    finally:
+        os.close(pfd)
 
 
 def rel_under(base: Any, target: Any) -> str:
@@ -379,11 +438,13 @@ def pinned_beneath(base: Any, target: Any, *, allow_dir: bool = False) -> Iterat
         os.close(fd)
 
 
-def _is_real_dir(name: str, dir_fd: int) -> bool:
+def leaf_mode(dir_fd: int, name: str) -> int:
+    """``st_mode`` de l'entrée ``name`` de ``dir_fd``, lien non suivi ; ``0``
+    si elle a disparu ou est inaccessible (entrée d'un parcours en cours)."""
     try:
-        return stat.S_ISDIR(os.stat(name, dir_fd=dir_fd, follow_symlinks=False).st_mode)
+        return os.stat(name, dir_fd=dir_fd, follow_symlinks=False).st_mode
     except OSError:
-        return False
+        return 0
 
 
 def read_leaf(dir_fd: int, name: str, max_bytes: int) -> Optional[bytes]:
@@ -416,7 +477,7 @@ def walk_beneath(base: Any, rel: Any = "", *,
     try:
         for cur, dirnames, filenames, dfd in os.fwalk(".", dir_fd=top, follow_symlinks=False,
                                                       onerror=onerror):
-            dirnames[:] = [d for d in dirnames if _is_real_dir(d, dfd)]
+            dirnames[:] = [d for d in dirnames if stat.S_ISDIR(leaf_mode(dfd, d))]
             sub = "" if cur == "." else cur[2:]
             yield "/".join(x for x in (top_rel, sub) if x), dirnames, filenames, dfd
     finally:
@@ -444,12 +505,15 @@ def _widen_fd(pfd: int) -> bool:
     else:
         return False
     if stat.S_IMODE(st.st_mode) != new:
-        os.chmod(f"/proc/self/fd/{pfd}", new)
+        try:
+            os.chmod(f"/proc/self/fd/{pfd}", new)
+        except OSError:
+            pass            # entrée étrangère (EPERM) : les autres sont élargies quand même
     return stat.S_ISDIR(st.st_mode)
 
 
 def _widen_entry(dir_fd: int, name: str) -> bool:
-    pfd = os.open(name, _O_PATH | _O_NOFOLLOW | _O_CLOEXEC, dir_fd=dir_fd)
+    pfd = open_path_at(dir_fd, name)
     try:
         return _widen_fd(pfd)
     finally:
@@ -462,18 +526,11 @@ def widen_beneath(base: Any, rel: Any = "", *, recursive: bool = False) -> None:
     une entrée absente, étrangère (EPERM) ou disparue est sautée."""
     parts = _rel_parts(rel)
     try:
-        if parts:
-            dfd = open_dir_beneath(base, "/".join(parts[:-1]))
-            try:
-                is_dir = _widen_entry(dfd, parts[-1])
-            finally:
-                os.close(dfd)
-        else:
-            dfd = open_dir_beneath(base)
-            try:
-                is_dir = _widen_fd(dfd)
-            finally:
-                os.close(dfd)
+        dfd = open_dir_beneath(base, "/".join(parts[:-1]) if parts else "")
+        try:
+            is_dir = _widen_entry(dfd, parts[-1]) if parts else _widen_fd(dfd)
+        finally:
+            os.close(dfd)
         if not (recursive and is_dir):
             return
         for _rel_dir, dirnames, filenames, wdfd in walk_beneath(base, "/".join(parts)):
@@ -809,20 +866,26 @@ def ensure_work_subdir(per_user_dir) -> Path:
 
 __all__ = [
     "CONTAINER_ROOT",
-    "WORK_SUBDIR",
     "ResolvedPath",
     "SandboxPathError",
+    "WORK_SUBDIR",
+    "chmod_beneath",
     "copytree_beneath",
     "ensure_work_subdir",
+    "leaf_mode",
     "open_beneath",
     "open_dir_beneath",
     "open_leaf",
+    "open_path_at",
+    "open_path_beneath",
     "pinned_beneath",
     "read_leaf",
     "rel_under",
     "remove_beneath",
     "rename_beneath",
+    "reopen",
     "resolve_under",
+    "stat_beneath",
     "strip_work_prefix",
     "to_container",
     "walk_beneath",

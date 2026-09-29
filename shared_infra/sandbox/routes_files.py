@@ -44,7 +44,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import errno
 import hashlib
 import io
 import logging
@@ -52,6 +51,7 @@ import mimetypes
 import os
 import re
 import shutil
+import stat as _stat
 import subprocess as _sp
 import time
 import zipfile
@@ -72,9 +72,10 @@ from shared_infra.accounts.users import (
 )
 from shared_infra.routes._state import router
 from shared_infra.sandbox import file_history as _fh
-from shared_infra.sandbox.file_lock import file_write_lock, sha256_bytes, sha256_file
-from shared_infra.sandbox.paths import (SandboxPathError, open_beneath, open_leaf, read_leaf,
-                                        rel_under, walk_beneath)
+from shared_infra.sandbox.file_lock import file_write_lock, sha256_bytes
+from shared_infra.sandbox.paths import (SandboxPathError, leaf_mode, open_beneath, open_leaf,
+                                        open_path_at, open_path_beneath, read_leaf, rel_under,
+                                        reopen, stat_beneath, walk_beneath)
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -155,43 +156,51 @@ async def _hist_write(user_id: int, rel: str, before, after, source: str) -> Non
         logger.exception("[sandbox] historique : écriture non notée (%s)", rel)
 
 
+def _sha_fd(pfd: int, limit: int) -> Optional[str]:
+    """sha256 du fichier régulier désigné par le descripteur ``O_PATH``
+    ``pfd`` ; ``None`` s'il est illisible ou dépasse ``limit``."""
+    try:
+        with os.fdopen(reopen(pfd), "rb") as f:
+            if os.fstat(f.fileno()).st_size > limit:
+                return None
+            h = hashlib.sha256()
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+            return h.hexdigest()
+    except OSError:
+        return None
+
+
 def _file_state(root: Path, p: Path, *, sha_max: int) -> dict:
     """État disque de ``p`` (sous ``root``), sans jamais lever : ``kind`` ∈
     ``missing``, ``dir``, ``file``, ``other`` (lien, fichier spécial),
     ``unreadable``, ``not_dir``. Pour un fichier : ``mtime``, ``size`` et
-    ``sha256`` (``None`` au-delà de ``sha_max`` ou si illisible). Lu sur
-    l'inode ouvert sans suivre de lien (2026-09-29)."""
+    ``sha256`` (``None`` au-delà de ``sha_max`` ou si le contenu est
+    illisible, ``readable`` à faux). Une seule ouverture ``O_PATH``, sans
+    suivre de lien : mtime, taille et empreinte décrivent le même inode
+    (2026-09-29)."""
     try:
-        fd = open_beneath(root, rel_under(root, p), allow_dir=True)
+        pfd = open_path_beneath(root, rel_under(root, p))
     except FileNotFoundError:
         return {"kind": "missing"}
-    except NotADirectoryError:
-        return {"kind": "not_dir"}
-    except SandboxPathError as e:
-        # Un composant du chemin est un fichier (ENOTDIR), ou lien / spécial.
-        if getattr(e.__cause__, "errno", None) == errno.ENOTDIR:
-            return {"kind": "not_dir"}
-        return {"kind": "other"}
+    except SandboxPathError:
+        return {"kind": "not_dir"}     # un composant du chemin n'est pas un dossier
     except OSError:
         return {"kind": "unreadable"}
-    import stat as _stat
     try:
-        st = os.fstat(fd)
+        st = os.fstat(pfd)
         if _stat.S_ISDIR(st.st_mode):
             return {"kind": "dir", "mtime": st.st_mtime}
+        if not _stat.S_ISREG(st.st_mode):
+            return {"kind": "other", "mtime": st.st_mtime, "size": st.st_size}
         out = {"kind": "file", "mtime": st.st_mtime, "size": st.st_size, "sha256": None,
                "readable": True}
         if st.st_size <= sha_max:
-            try:
-                h = hashlib.sha256()
-                for chunk in iter(lambda: os.read(fd, 1 << 20), b""):
-                    h.update(chunk)
-                out["sha256"] = h.hexdigest()
-            except OSError:
-                out["readable"] = False
+            out["sha256"] = _sha_fd(pfd, sha_max)
+            out["readable"] = out["sha256"] is not None
         return out
     finally:
-        os.close(fd)
+        os.close(pfd)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -346,6 +355,12 @@ class _PinnedFileResponse(FileResponse):
         self._fd = fd
 
     async def __call__(self, scope, receive, send):
+        # Sans ``pathsend`` : le serveur rouvrirait ``/proc/self/fd/<n>``
+        # après coup, descripteur fermé ou réattribué.
+        ext = scope.get("extensions") or {}
+        if "http.response.pathsend" in ext:
+            scope = {**scope, "extensions": {k: v for k, v in ext.items()
+                                             if k != "http.response.pathsend"}}
         try:
             await super().__call__(scope, receive, send)
         finally:
@@ -488,6 +503,9 @@ def _preview_cors(resp):
     return resp
 
 
+_UNREADABLE_ROOT = "Sandbox illisible (droits ou conteneur arrêté) — recherche impossible."
+
+
 @router.get("/api/sandbox/search")
 def api_search_sandbox(request: Request, q: str, mode: str = "content"):
     """Search inside the user sandbox.
@@ -536,10 +554,7 @@ def api_search_sandbox(request: Request, q: str, mode: str = "content"):
                 for name in names:
                     if q_lower not in name.lower():
                         continue
-                    try:
-                        if os.stat(name, dir_fd=dfd, follow_symlinks=False).st_mode & 0o170000 == 0o120000:
-                            continue
-                    except OSError:
+                    if _stat.S_ISLNK(leaf_mode(dfd, name)):
                         continue
                     results.append({"path": f"{rel_dir}/{name}" if rel_dir else name,
                                     "name": name, "type": "file"})
@@ -549,8 +564,7 @@ def api_search_sandbox(request: Request, q: str, mode: str = "content"):
         except OSError:
             _errs["root_failed"] = True
         if _errs["root_failed"]:
-            raise HTTPException(503, "Sandbox illisible (droits ou conteneur "
-                                     "arrêté) — recherche impossible.")
+            raise HTTPException(503, _UNREADABLE_ROOT)
         return {"items": results[:MAX_HITS], "errors": _errs["n"],
                 "truncated": _errs["truncated"]}
 
@@ -591,9 +605,16 @@ def api_search_sandbox(request: Request, q: str, mode: str = "content"):
             if Path(fname).suffix.lower() in SKIP_EXTS:
                 continue
             try:
-                # Lien, fichier spécial ou trop gros : ``None`` (jamais suivi).
-                data = read_leaf(dfd, fname, MAX_FILE)
-                if data is None:
+                # Lien, fichier spécial, disparu : ignoré (jamais suivi) ;
+                # illisible : compté (E7).
+                try:
+                    f = os.fdopen(open_leaf(dfd, fname), "rb")
+                except (SandboxPathError, IsADirectoryError, FileNotFoundError):
+                    continue
+                with f:
+                    data = (f.read(MAX_FILE + 1)
+                            if os.fstat(f.fileno()).st_size <= MAX_FILE else b"")
+                if not data or len(data) > MAX_FILE:
                     continue
                 text = data.decode("utf-8", errors="replace")
                 _scanned += 1
@@ -625,8 +646,7 @@ def api_search_sandbox(request: Request, q: str, mode: str = "content"):
                 _file_errs += 1                    # E7 : compté, plus avalé
 
     if _walk_errs["root_failed"]:
-        raise HTTPException(503, "Sandbox illisible (droits ou conteneur "
-                                 "arrêté) — recherche impossible.")
+        raise HTTPException(503, _UNREADABLE_ROOT)
     return {"items": results, "errors": _file_errs, "truncated": truncated}
 
 
@@ -714,7 +734,9 @@ def _spool_zip(root: Path, entries, *, max_bytes: int, max_files: int, strict: b
                         if strict:
                             raise _ZipTooBig()
                         break
-                    zi = zipfile.ZipInfo(arc, time.localtime(st.st_mtime)[:6])
+                    zi = zipfile.ZipInfo(arc, min(max(time.localtime(st.st_mtime)[:6],
+                                                      (1980, 1, 1, 0, 0, 0)),
+                                                  (2107, 12, 31, 23, 59, 58)))
                     zi.compress_type = zipfile.ZIP_DEFLATED
                     zi.external_attr = (st.st_mode & 0xFFFF) << 16
                     try:
@@ -815,6 +837,8 @@ def api_download_sandbox_file(request: Request, path: str):
     try:
         tmp, _n = _spool_zip(root, _entries(), max_bytes=_ZIP_DIR_MAX_BYTES,
                              max_files=_ZIP_DIR_MAX_FILES, strict=True)
+    except (OSError, SandboxPathError):
+        raise HTTPException(404, "Not found")
     except _ZipTooBig:
         raise HTTPException(
             413, "Dossier trop volumineux pour une archive "
@@ -1182,11 +1206,8 @@ async def api_upload_sandbox_chunk(request: Request):
             _st = await asyncio.to_thread(_file_state, root, safe, sha_max=_DOWNLOAD_SHA_MAX)
         new_mtime = _st.get("mtime")
         # Historique (source « upload ») : contenu relu (fichier ≤ 5 Mo gardé).
-        try:
-            await asyncio.to_thread(_fh.record_file_write, user_id,
-                                    _strip_work_prefix(rel_path), _before, root, "upload")
-        except Exception:                                       # noqa: BLE001
-            logger.exception("[sandbox] historique upload-chunk")
+        await _hist_write(user_id, _strip_work_prefix(rel_path), _before,
+                          await _hist_before(root, safe), "upload")
         # Taille finale réelle (on ne connaît pas l'ancienne : le fichier a été
         # écrasé) → invalidation plutôt que bump.
         invalidate_sandbox_usage(user_id)
@@ -1340,6 +1361,9 @@ def _save_conflict(root: Path, safe_path: Path, expected_mtime=None, expected_sh
             unreadable=True)
     if kind == "dir":
         return 409, {"code": "is_dir", "message": "Un dossier porte ce nom"}
+    if kind == "other":
+        return 409, {"code": "not_file",
+                     "message": "Ce chemin n'est pas un fichier ordinaire (lien ou fichier spécial)"}
     if expected_sha256 is not None:
         if st.get("sha256") is None and not st.get("readable", True):
             return 412, _conflict_detail(
@@ -1968,6 +1992,12 @@ async def api_sandbox_grep(request: Request):
     # Parcours par descripteurs + lecture de chaque fichier sur son inode,
     # sans suivre de lien (2026-09-29), en thread.
     def _grep_blocking():
+        try:
+            _grep_walk()
+        except (OSError, SandboxPathError):
+            raise HTTPException(503, _UNREADABLE_ROOT) from None
+
+    def _grep_walk():
         nonlocal files_seen, truncated
         for dirpath, dirnames, filenames, dfd in walk_beneath(root):
             if _too_late():
@@ -2090,27 +2120,37 @@ def _replace_in_text(text: str, pat, repl, max_samples: int = _REPLACE_MAX_SAMPL
     return "".join(out), count, samples
 
 
-def _replace_scan_file(root: Path, rel: str, pat, repl):
-    """Lit UN fichier (``rel`` sous ``root``, sur son inode, sans suivre de
-    lien) et calcule son remplacement.
+def _replace_scan_file(root: Path, rel: str, pat, repl, *, dir_fd: Optional[int] = None):
+    """Lit UN fichier (``rel`` sous ``root`` ; ``dir_fd`` : son dossier déjà
+    ouvert par le parcours) sur son inode, sans suivre de lien, et calcule son
+    remplacement.
 
     Rend ``(texte, nouveau_texte, n, échantillons, mtime_ns)``, ou une chaîne
     = raison d'ignorer, ou None (rien à remplacer / fichier hors champ).
     Un lien symbolique est ignoré : l'écriture (``mv tmp cible``) le
     remplacerait par une copie ordinaire."""
     try:
-        if os.path.islink(root / rel):
-            return "lien symbolique"
-        with os.fdopen(open_beneath(root, rel), "rb") as f:
-            st = os.fstat(f.fileno())
-            if st.st_size > _GREP_MAX_FILE_BYTES:
-                return None
-            raw = f.read(_GREP_MAX_FILE_BYTES + 1)
+        pfd = (open_path_at(dir_fd, PurePosixPath(rel).name) if dir_fd is not None
+               else open_path_beneath(root, rel))
     except SandboxPathError:
-        return "fichier spécial"
+        return "lien symbolique"          # un dossier du chemin est un lien
     except OSError:
         return None
-    if _is_likely_binary(raw[:512]):
+    try:
+        st = os.fstat(pfd)
+        if _stat.S_ISLNK(st.st_mode):
+            return "lien symbolique"
+        if not _stat.S_ISREG(st.st_mode):
+            return "fichier spécial"
+        if st.st_size > _GREP_MAX_FILE_BYTES:
+            return None
+        with os.fdopen(reopen(pfd), "rb") as f:
+            raw = f.read(_GREP_MAX_FILE_BYTES + 1)
+    except OSError:
+        return None
+    finally:
+        os.close(pfd)
+    if len(raw) > _GREP_MAX_FILE_BYTES or _is_likely_binary(raw[:512]):
         return None
     try:
         text = raw.decode("utf-8")
@@ -2196,7 +2236,7 @@ async def api_sandbox_replace(request: Request):
         def _preview():
             files, skipped, seen = [], [], 0
             started = _t.monotonic()
-            for dirpath, dirnames, filenames, _dfd in walk_beneath(root):
+            for dirpath, dirnames, filenames, dfd in walk_beneath(root):
                 dirnames[:] = [d for d in dirnames if d not in _GREP_IGNORED_DIRS
                                and (include_hidden or not d.startswith("."))]
                 for fname in filenames:
@@ -2209,7 +2249,7 @@ async def api_sandbox_replace(request: Request):
                     if (seen > _GREP_MAX_FILES_SCANNED or len(files) >= _REPLACE_MAX_FILES
                             or (_t.monotonic() - started) > _REPLACE_SCAN_TIMEOUT_SEC):
                         return files, skipped, True
-                    res = _replace_scan_file(root, rel, pat, repl)
+                    res = _replace_scan_file(root, rel, pat, repl, dir_fd=dfd)
                     if res is None:
                         continue
                     # Le pont d'écriture normalise ``work/…`` (et les blancs de
@@ -2227,7 +2267,10 @@ async def api_sandbox_replace(request: Request):
                     })
             return files, skipped, False
 
-        files, skipped, truncated = await asyncio.to_thread(_preview)
+        try:
+            files, skipped, truncated = await asyncio.to_thread(_preview)
+        except (OSError, SandboxPathError):
+            raise HTTPException(503, _UNREADABLE_ROOT) from None
         return {"files": files, "total": sum(f["count"] for f in files),
                 "truncated": truncated, "skipped": skipped}
 
@@ -2279,7 +2322,7 @@ async def api_sandbox_replace(request: Request):
                     failed = {"path": rel, "error": f"Quota sandbox dépassé ({_quota_mb} Mo)"}
                     break
                 try:
-                    if fpath.stat().st_mtime_ns != mtime_ns:
+                    if stat_beneath(root, rel).st_mtime_ns != mtime_ns:
                         skipped.append({"path": rel, "reason": "modifié pendant l'opération"})
                         continue
                     await sandbox_write_text(user_id, rel, new_text)
@@ -2290,8 +2333,8 @@ async def api_sandbox_replace(request: Request):
                     failed = {"path": rel, "error": str(e)}
                     break
                 try:
-                    mtime = fpath.stat().st_mtime
-                except OSError:
+                    mtime = stat_beneath(root, rel).st_mtime
+                except (OSError, SandboxPathError):
                     mtime = None
             bump_sandbox_usage(user_id, delta)
             _used += delta
@@ -2466,32 +2509,37 @@ async def api_sandbox_check_mtimes(request: Request):
                 continue
             if not _path_inside(full, root_resolved):
                 continue
+            # Une ouverture O_PATH, sans suivre de lien : l'état et
+            # l'empreinte décrivent le même inode (2026-09-29).
             try:
-                st = full.stat()
-            except (FileNotFoundError, NotADirectoryError):
+                pfd = open_path_beneath(root_resolved, rel_under(root_resolved, full))
+            except (FileNotFoundError, SandboxPathError):
                 stale.append({"path": path, "missing": True})
                 continue
             except OSError:
                 stale.append({"path": path, "unreadable": True})
                 continue
-            import stat as _stat
-            if not _stat.S_ISREG(st.st_mode):
-                stale.append({"path": path, "not_file": True})
-                continue
-            small = st.st_size <= _CHECK_SHA_MAX
-            same_mtime = abs(st.st_mtime - client_mtime) <= _SAVE_MTIME_EPS
-            changed = (not same_mtime
-                       or (client_size is not None and client_size != st.st_size))
-            disk_sha = None
-            if not changed and client_sha is not None and small:
-                disk_sha = sha256_file(full, limit=_CHECK_SHA_MAX)
-                if disk_sha is None:
-                    stale.append({"path": path, "unreadable": True})
+            try:
+                st = os.fstat(pfd)
+                if not _stat.S_ISREG(st.st_mode):
+                    stale.append({"path": path, "not_file": True})
                     continue
-                changed = disk_sha != client_sha
+                small = st.st_size <= _CHECK_SHA_MAX
+                same_mtime = abs(st.st_mtime - client_mtime) <= _SAVE_MTIME_EPS
+                changed = (not same_mtime
+                           or (client_size is not None and client_size != st.st_size))
+                disk_sha = None
+                if not changed and client_sha is not None and small:
+                    disk_sha = _sha_fd(pfd, _CHECK_SHA_MAX)
+                    if disk_sha is None:
+                        stale.append({"path": path, "unreadable": True})
+                        continue
+                    changed = disk_sha != client_sha
+                if changed and disk_sha is None and small:
+                    disk_sha = _sha_fd(pfd, _CHECK_SHA_MAX)
+            finally:
+                os.close(pfd)
             if changed:
-                if disk_sha is None and small:
-                    disk_sha = sha256_file(full, limit=_CHECK_SHA_MAX)
                 stale.append({
                     "path":      path,
                     "new_mtime": st.st_mtime,

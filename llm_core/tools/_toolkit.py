@@ -41,9 +41,10 @@ Keep it tight — the docstring is the only thing the model sees.
 """
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
 # ── Output budgets (env-configurable) ────────────────────────────────
@@ -748,6 +749,44 @@ def tag_kw(category: Dict[str, Any]) -> Dict[str, Any]:
 # Windows) — and are near-indistinguishable to a human or an LLM reading a
 # listing. Creation paths (write_file, mkdir, git init/clone) call this to
 # attach a warning when a new path component has such a twin sibling.
+
+def glob_match(rel: str, pattern: str) -> bool:
+    """Glob d'un chemin RELATIF (POSIX) — sémantique des outils usuels
+    (AUDIT 2026-09-25) :
+
+    - motif SANS ``/`` : appliqué au NOM, à toute profondeur (``*.py``) ;
+    - motif AVEC ``/`` : segment par segment ; ``*`` ne franchit pas ``/`` et
+      ``**`` couvre zéro ou plusieurs dossiers (``**/*.py`` inclut
+      ``main.py`` à la racine, ``src/**/*.ts`` inclut ``src/x.ts``).
+
+    Avant, ``fnmatch`` sur le chemin entier exigeait au moins un ``/`` pour
+    ``**/*.py`` : le modèle concluait que les fichiers n'existaient pas."""
+    if not pattern:
+        return True
+    pat = pattern.strip()
+    while pat.startswith("./"):
+        pat = pat[2:]
+    if "/" not in pat:
+        return fnmatch.fnmatch(rel.rsplit("/", 1)[-1], pat) or fnmatch.fnmatch(rel, pat)
+    psegs = [s for s in pat.strip("/").split("/") if s]
+    rsegs = [s for s in rel.split("/") if s]
+    memo: Dict[Tuple[int, int], bool] = {}
+
+    def _m(i: int, j: int) -> bool:
+        key = (i, j)
+        if key in memo:
+            return memo[key]
+        if i == len(psegs):
+            r = j == len(rsegs)
+        elif psegs[i] == "**":
+            r = any(_m(i + 1, k) for k in range(j, len(rsegs) + 1))
+        else:
+            r = (j < len(rsegs) and fnmatch.fnmatchcase(rsegs[j], psegs[i])
+                 and _m(i + 1, j + 1))
+        memo[key] = r
+        return r
+    return _m(0, 0)
+
 
 def _fold_confusable(s: str) -> str:
     """Accent-insensitive + case-insensitive canonical form of a name."""

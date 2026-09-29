@@ -186,9 +186,12 @@ def test_le_statut_git_est_reancre_sur_le_dossier_liste():
 
 
 @pytest.mark.skipif(not os.environ.get("PATH"), reason="git requis")
-def test_un_sous_dossier_remonte_bien_son_statut(tmp_path):
+def test_un_sous_dossier_remonte_bien_son_statut(tmp_path, monkeypatch):
     from llm_core.tools.fs_tools import _git_status_map
-    repo = tmp_path / "proj"
+    from shared_infra import config
+    monkeypatch.setattr(config, "SANDBOX_DIR", tmp_path)
+    sb = tmp_path / "alice" / "work"
+    repo = sb / "proj"
     (repo / "src").mkdir(parents=True)
     env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null",
            "GIT_CONFIG_SYSTEM": "/dev/null"}
@@ -205,14 +208,24 @@ def test_un_sous_dossier_remonte_bien_son_statut(tmp_path):
     (repo / "src" / "app.py").write_text("v2\n")
     (repo / "src" / "new.py").write_text("neuf\n")
 
-    depuis_la_racine = _git_status_map(repo)
+    depuis_la_racine, err = _git_status_map(sb, repo)
+    assert err is None
     assert "src/app.py" in depuis_la_racine
 
-    depuis_le_sous_dossier = _git_status_map(repo / "src")
+    depuis_le_sous_dossier, _err = _git_status_map(sb, repo / "src")
     assert "app.py" in depuis_le_sous_dossier, (
         f"map vide ou mal ancrée : {depuis_le_sous_dossier} — l'agent conclut "
         f"que src/ est propre et réapplique ses modifications")
     assert "new.py" in depuis_le_sous_dossier
+
+    # Une config qui ferait exécuter une commande à ``status`` : dépôt refusé.
+    witness = tmp_path / "fsmonitor-lance"
+    subprocess.run(["git", "config", "core.fsmonitor", f"touch {witness}; false"],
+                   cwd=repo, check=True, env=env, capture_output=True)
+    statut, err = _git_status_map(sb, repo)
+    assert statut == {} and "refused" in err          # jamais un « arbre propre »
+    assert not witness.exists()
+    assert _git_status_map(sb, sb)[1]                  # pas un dépôt : raison donnée
 
 
 # ── 55. skill_add_file rend un chemin résoluble ─────────────────────────

@@ -47,6 +47,12 @@ corps de requête par Content-Length seulement :
   POST /v1/changes/end {"id", "max_files", "max_bytes", "max_file"} → NDJSON
                   {"path", "change", "before", "after"} ({"b64"} ou {"state"}),
                   dernière ligne {"done": true, "total", "complete"}
+  POST /v1/git    {"cwd", "args": [...], "timeout_s", "max_out", "env": {…},
+                   "relay": {"socket", "ticket", "origin"}}
+                  → {"returncode", "stdout", "stderr", "truncated", "timed_out",
+                  "duration_ms"} ; git durci (_GIT_CONFIG), sortie en UTF-8
+                  (octets invalides remplacés) ; « relay » : réseau par le
+                  relais de l'hôte, le temps de la commande (cf. _Relais)
   POST /v1/shutdown {"if_version": v}
 
 En-tête ``X-Elpis-Passive: 1`` : requête de l'hôte qui ne compte pas comme une
@@ -66,8 +72,11 @@ import os
 import re
 import secrets
 import shutil
+import signal
+import socket
 import socketserver
 import stat
+import subprocess
 import sys
 import threading
 import time
@@ -305,8 +314,10 @@ def _supprimer(p: str) -> None:
 class Agent:
     """Les opérations, sans rien du transport HTTP."""
 
-    def __init__(self, racine: str) -> None:
+    def __init__(self, racine: str, relais: str = "", config_git: str = "") -> None:
         self.racine = os.path.realpath(racine)
+        self.relais = relais or RELAIS_DOSSIER
+        self.config_git = config_git
         # Vérification des préconditions + remplacement : atomiques entre
         # deux requêtes de l'hôte (le fichier provisoire s'écrit hors verrou).
         self._verrou = threading.Lock()
@@ -947,6 +958,232 @@ class Agent:
             self._rafraichir(apres)
         yield from rendu
         yield {"done": True, "total": len(changes), "complete": complet and complet_avant}
+    # ── git ────────────────────────────────────────────────────────────────
+    def git(self, d: Dict[str, Any]) -> Dict[str, Any]:
+        args = d.get("args")
+        if (not isinstance(args, list) or not args or len(args) > 4096
+                or not all(isinstance(a, str) and "\0" not in a for a in args)):
+            raise Refus(400, "bad_request", "args : liste de chaînes sans NUL")
+        cwd = self.reel(normaliser(d.get("cwd")))
+        if not _est_dossier(cwd):
+            raise Refus(404, "not_found", "dossier de travail absent")
+        delai_s = max(0.1, min(float(d.get("timeout_s") or 60), _GIT_DELAI_MAX_S))
+        maxi = max(1, min(int(d.get("max_out") or 1 << 20), _GIT_SORTIE_MAX))
+        env = _env_git(d.get("env"), self.config_git, self.racine)
+        config = list(_GIT_CONFIG)
+        relais = None
+        with contextlib.ExitStack() as pile:
+            if d.get("relay"):
+                relais = pile.enter_context(_Relais(self.relais, d["relay"]))
+                config.append((f"url.{relais.prefixe}.insteadOf", relais.origine))
+                env.update(GIT_ALLOW_PROTOCOL="http", GIT_LFS_SKIP_SMUDGE="1")
+            for i, (k, v) in enumerate(config):
+                env[f"GIT_CONFIG_KEY_{i}"], env[f"GIT_CONFIG_VALUE_{i}"] = k, v
+            env["GIT_CONFIG_COUNT"] = str(len(config))
+            res = _executer(["git", *args], cwd, env, delai_s, maxi)
+        if relais is not None:
+            for k in ("stdout", "stderr"):
+                res[k] = res[k].replace(relais.prefixe, relais.origine)
+            self._remettre_origine(cwd, env, relais)
+        return res
+
+    def _remettre_origine(self, cwd: str, env: Dict[str, str], relais: "_Relais") -> None:
+        """``FETCH_HEAD`` garde l'URL de la commande : celle du relais y
+        redevient celle du dépôt (messages de ``git merge FETCH_HEAD``)."""
+        r = _executer(["git", "rev-parse", "--absolute-git-dir"], cwd, env, 10.0, 4096)
+        if r["returncode"] != 0:
+            return
+        p = os.path.realpath(os.path.join(r["stdout"].strip(), "FETCH_HEAD"))
+        if not p.startswith(self.racine + os.sep):
+            return
+        avant, apres = relais.prefixe.encode(), relais.origine.encode()
+        try:
+            fd = _ouvrir_fichier(p)
+        except Refus:
+            return
+        with os.fdopen(fd, "rb") as f:
+            brut = f.read(_GIT_SORTIE_MAX + 1)
+        if len(brut) > _GIT_SORTIE_MAX or avant not in brut:
+            return
+        tmp = _nom_provisoire(os.path.dirname(p))
+        try:
+            with open(tmp, "xb") as f:
+                f.write(brut.replace(avant, apres))
+            os.replace(tmp, p)
+        except OSError:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
+
+
+# ── git ───────────────────────────────────────────────────────────────────
+# Clés imposées à chaque git de l'agent (portée « command », au-dessus de la
+# config du dépôt et de /work/.gitconfig) : ni hook, ni moniteur, ni
+# signature, ni identifiants demandés ; ``safe.directory`` : dépôts écrits
+# par l'ancien git de l'hôte (autre UID).
+_GIT_CONFIG = (("core.hooksPath", "/dev/null"), ("core.fsmonitor", "false"),
+               ("credential.helper", ""), ("core.askPass", ""), ("core.pager", "cat"),
+               ("commit.gpgsign", "false"), ("tag.gpgsign", "false"),
+               ("safe.directory", "*"))
+# Portée « system » (la plus basse) : identité par défaut des commits, puis
+# la config de l'image.
+_GIT_SYSTEME = "[user]\n\tname = Elpis\n\temail = elpis@localhost\n[include]\n\tpath = /etc/gitconfig\n"
+_GIT_ENV_PERMIS = frozenset({"GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE",
+                             "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL", "GIT_COMMITTER_DATE"})
+_GIT_SORTIE_MAX = 16 << 20                # sortie gardée, par flux
+_GIT_DELAI_MAX_S = 590.0                  # sous le délai total du client (600 s)
+RELAIS_DOSSIER = "/run/elpis-relay"       # sockets du relais Git de l'hôte (lecture seule)
+_NOM_SOCKET_RELAIS = re.compile(r"[0-9]{1,10}\.sock")
+_TICKET = re.compile(r"[A-Za-z0-9_-]{20,128}")
+_ORIGINE = re.compile(r"https?://([a-z0-9.-]+|\[[0-9a-f:.]+\])(:[0-9]{1,5})?/")
+
+
+def _env_git(extra: Any, config_systeme: str, racine: str) -> Dict[str, str]:
+    # HOME : la racine, comme dans le conteneur (config globale /work/.gitconfig).
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith("GIT_") and k != "XDG_CONFIG_HOME"}
+    env["HOME"] = racine
+    if extra:
+        if not isinstance(extra, dict):
+            raise Refus(400, "bad_request", "env : objet attendu")
+        for k, v in extra.items():
+            if k not in _GIT_ENV_PERMIS or not isinstance(v, str) or "\0" in v:
+                raise Refus(400, "bad_request", f"env : {k} refusée")
+            env[k] = v
+    env.update(GIT_TERMINAL_PROMPT="0", GIT_EDITOR="true", GIT_PAGER="cat")
+    if config_systeme:
+        env["GIT_CONFIG_SYSTEM"] = config_systeme
+    return env
+
+
+def _executer(argv: list, cwd: str, env: Dict[str, str], delai_s: float,
+              maxi: int) -> Dict[str, Any]:
+    """``argv`` sans shell ; ``maxi`` octets gardés par flux (le reste est lu
+    et jeté) ; à la fin, ce qui reste du groupe de processus est tué."""
+    debut = time.monotonic()
+    try:
+        p = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             start_new_session=True)
+    except OSError as e:
+        raise Refus(500, "exec_failed", f"{argv[0]} : {e.strerror or e}") from None
+    gardes: Dict[str, Tuple[bytes, bool]] = {}
+
+    def lire(nom: str, f: Any) -> None:
+        garde, total = bytearray(), 0
+        with f:
+            for b in iter(lambda: f.read1(1 << 16), b""):
+                total += len(b)
+                if len(garde) < maxi:
+                    garde += b[:maxi - len(garde)]
+        gardes[nom] = (bytes(garde), total > maxi)
+
+    fils = [threading.Thread(target=lire, args=(n, f), daemon=True)
+            for n, f in (("stdout", p.stdout), ("stderr", p.stderr))]
+    for t in fils:
+        t.start()
+    try:
+        rc, expire = p.wait(timeout=delai_s), False
+    except subprocess.TimeoutExpired:
+        rc, expire = 124, True
+    with contextlib.suppress(OSError):
+        os.killpg(p.pid, signal.SIGKILL)
+    p.wait()
+    for t in fils:
+        t.join(5)
+    out, t1 = gardes.get("stdout", (b"", False))
+    err, t2 = gardes.get("stderr", (b"", False))
+    return {"returncode": rc, "timed_out": expire, "truncated": t1 or t2,
+            "stdout": out.decode("utf-8", "replace"), "stderr": err.decode("utf-8", "replace"),
+            "duration_ms": int((time.monotonic() - debut) * 1000)}
+
+
+class _Relais:
+    """Réseau d'UNE commande git : ``127.0.0.1:<port éphémère>`` du conteneur
+    vers le socket du relais de l'hôte, chaque connexion précédée d'une ligne
+    qui porte le ticket de l'opération (ni argv, ni environnement, ni URL).
+    L'hôte n'accepte que le trafic Git que ce ticket permet, vers son amont."""
+
+    def __init__(self, dossier: str, spec: Any) -> None:
+        if not isinstance(spec, dict):
+            raise Refus(400, "bad_request", "relay : objet attendu")
+        nom, ticket, origine = (str(spec.get(k) or "") for k in ("socket", "ticket", "origin"))
+        if (not _NOM_SOCKET_RELAIS.fullmatch(nom) or not _TICKET.fullmatch(ticket)
+                or not _ORIGINE.fullmatch(origine)):
+            raise Refus(400, "bad_request", "relay : socket, ticket ou origin invalide")
+        self._dossier, self._nom, self.origine = dossier, nom, origine
+        self._entete = f"ELPIS-RELAY/1 {ticket}\r\n".encode()
+        self._ouvertes: set = set()
+        self._verrou = threading.Lock()
+        self._ecoute = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._ecoute.bind(("127.0.0.1", 0))
+        self._ecoute.listen(16)
+        self.prefixe = "http://127.0.0.1:%d/" % self._ecoute.getsockname()[1]
+        threading.Thread(target=self._accepter, daemon=True).start()
+
+    def __enter__(self) -> "_Relais":
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        with self._verrou:
+            for s in (self._ecoute, *self._ouvertes):
+                with contextlib.suppress(OSError):
+                    s.shutdown(socket.SHUT_RDWR)          # réveille accept et recv
+        self._ecoute.close()
+
+    def _accepter(self) -> None:
+        while True:
+            try:
+                c, _ = self._ecoute.accept()
+            except OSError:
+                return
+            threading.Thread(target=self._relayer, args=(c,), daemon=True).start()
+
+    def _relayer(self, c: socket.socket) -> None:
+        h = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        with c, h:
+            with self._verrou:
+                self._ouvertes.update((c, h))
+            try:
+                # Chemin court quelle que soit la longueur du dossier.
+                fd = os.open(self._dossier, os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC)
+                try:
+                    h.connect(f"/proc/self/fd/{fd}/{self._nom}")
+                finally:
+                    os.close(fd)
+                h.sendall(self._entete)
+                t = threading.Thread(target=_pomper, args=(c, h), daemon=True)
+                t.start()
+                _pomper(h, c)
+                t.join()
+            except OSError:
+                pass
+            finally:
+                with self._verrou:
+                    self._ouvertes.difference_update((c, h))
+
+
+def _pomper(de: socket.socket, vers: socket.socket) -> None:
+    with contextlib.suppress(OSError):
+        for b in iter(lambda: de.recv(1 << 16), b""):
+            vers.sendall(b)
+    with contextlib.suppress(OSError):
+        vers.shutdown(socket.SHUT_WR)
+
+
+def _ecrire_config_git(dossier: str) -> str:
+    """Config « system » des git de l'agent, dans le dossier de son socket."""
+    chemin = os.path.join(dossier, "gitconfig")
+    tmp = _nom_provisoire(dossier)
+    try:
+        with open(tmp, "x", encoding="utf-8") as f:
+            f.write(_GIT_SYSTEME)
+        os.replace(tmp, chemin)
+        return chemin
+    except OSError:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        return ""
+
 
 class _Gestionnaire(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -1083,6 +1320,8 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                 max(0, int(d.get("max_bytes") or 32 << 20)), max(0, int(d.get("max_file") or 5 << 20)))
             premiere = next(lignes)                      # relevé inconnu : refus AVANT l'en-tête 200
             self._ndjson(premiere, lignes)
+        elif cle == ("POST", "/v1/git"):
+            self._json(200, agent.git(self._corps_json()))
         elif cle == ("POST", "/v1/shutdown"):
             attendue = self._corps_json().get("if_version")
             if attendue and attendue != VERSION:         # déjà remplacé par un autre
@@ -1215,14 +1454,16 @@ class _Serveur(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
         os.chmod(chemin_socket, 0o666)                   # l'hôte n'a pas l'UID du conteneur
 
 
-def servir(racine: str, chemin_socket: str) -> _Serveur:
+def servir(racine: str, chemin_socket: str, relais: str = "") -> _Serveur:
     """Serveur lié à ``chemin_socket`` (remplace un socket orphelin) ; à faire
-    tourner par ``serve_forever``. L'appelant tient le verrou d'instance."""
+    tourner par ``serve_forever``. L'appelant tient le verrou d'instance.
+    ``relais`` : dossier des sockets du relais Git de l'hôte."""
     try:
         os.unlink(chemin_socket)
     except FileNotFoundError:
         pass
-    return _Serveur(chemin_socket, Agent(racine))
+    config_git = _ecrire_config_git(os.path.dirname(chemin_socket) or ".")
+    return _Serveur(chemin_socket, Agent(racine, relais, config_git))
 
 
 def _verrou_instance(dossier: str, attente_s: float) -> Optional[int]:
@@ -1250,6 +1491,7 @@ def main(argv: Optional[list] = None) -> int:
     ap = argparse.ArgumentParser(description="Agent de la sandbox Elpis")
     ap.add_argument("--root", default="/work")
     ap.add_argument("--socket", default="/run/elpis/agent.sock")
+    ap.add_argument("--relay-dir", default=RELAIS_DOSSIER)
     ap.add_argument("--lock-wait", type=float, default=10.0,
                     help="attente du verrou d'instance (s) : un agent qui s'arrête le tient encore")
     args = ap.parse_args(argv)
@@ -1257,7 +1499,7 @@ def main(argv: Optional[list] = None) -> int:
     if _verrou_instance(os.path.dirname(args.socket), args.lock_wait) is None:
         return 0
     # Le socket reste en place à l'arrêt : le suivant le remplace (servir).
-    servir(args.root, args.socket).serve_forever(poll_interval=0.2)
+    servir(args.root, args.socket, args.relay_dir).serve_forever(poll_interval=0.2)
     return 0
 
 

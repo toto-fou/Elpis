@@ -96,6 +96,8 @@ from shared_infra.sandbox.agent_client import (
     AGENT_MOUNT,
     AGENT_RUN_DIR,
     AGENT_SOCKET,
+    RELAY_DIR,
+    RELAY_MOUNT,
     AgentClient,
 )
 from shared_infra.sandbox.executors import _privdrop
@@ -396,8 +398,8 @@ CAPABILITIES = ("CHOWN", "DAC_OVERRIDE", "FOWNER", "FSETID", "SETUID", "SETGID",
 #: Version des options de ``docker run`` qui touchent à la sécurité, posée en
 #: label ``elpis.spec`` : la changer fait recréer les conteneurs existants au
 #: premier exec (2 : ``--cap-drop MKNOD`` ; 3 : ``--cap-drop ALL`` +
-#: ``CAPABILITIES`` ; 4 : montages de l'agent, 2026-09-29).
-RUN_SPEC = "4"
+#: ``CAPABILITIES`` ; 4 : montages de l'agent, 2026-09-29 ; 5 : relais Git).
+RUN_SPEC = "5"
 
 #: Empreinte du dossier de l'agent monté (étiquette ``elpis.agent``) :
 #: l'application déplacée, le conteneur est recréé avec le bon montage.
@@ -1037,6 +1039,8 @@ class UserSandbox:
             # dossier de son socket, que l'hôte joint (cf. agent_client).
             "-v", f"{self.sandbox_path.parent / AGENT_RUN_DIR}:/run/elpis:rw",
             "-v", f"{AGENT_DIR}:{AGENT_MOUNT}:ro",
+            # Relais Git de l'hôte (L4.4) : sockets de l'app, en lecture seule.
+            "-v", f"{self.sandbox_path.parent.parent / RELAY_DIR}:{RELAY_MOUNT}:ro",
             "--workdir", "/work",
         ]
 
@@ -1182,6 +1186,13 @@ class UserSandbox:
             os.chmod(dossier_agent, 0o777)
         except OSError as e:
             raise ExecError(f"Dossier de l'agent {dossier_agent} : {e}") from e
+        # Dossier du relais Git (monté en lecture seule) : à l'app, sinon
+        # Docker le créerait en root et le relais ne pourrait pas s'y lier.
+        dossier_relais = self.sandbox_path.parent.parent / RELAY_DIR
+        try:
+            dossier_relais.mkdir(mode=0o755, exist_ok=True)
+        except OSError as e:
+            raise ExecError(f"Dossier du relais Git {dossier_relais} : {e}") from e
 
         profile = self.network_profile
         net_mode = profile.mode

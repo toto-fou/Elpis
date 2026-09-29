@@ -347,7 +347,7 @@ def agent_en_thread(request):
     import threading
 
     from shared_infra.sandbox.agent import server as agent_server
-    from shared_infra.sandbox.agent_client import AGENT_RUN_DIR
+    from shared_infra.sandbox.agent_client import AGENT_RUN_DIR, RELAY_DIR
     from shared_infra.sandbox.executors import _user_sandbox as us
 
     court: list = []
@@ -369,7 +369,8 @@ def agent_en_thread(request):
         cible = Path(self.sandbox_path).parent / AGENT_RUN_DIR / "agent.sock"
         cible.parent.mkdir(parents=True, exist_ok=True)
         lie = os.path.join(court[0], str(len(serveurs)))
-        srv = agent_server.servir(str(self.sandbox_path), lie)
+        srv = agent_server.servir(str(self.sandbox_path), lie,
+                                  str(Path(self.sandbox_path).parent.parent / RELAY_DIR))
         with contextlib.suppress(FileNotFoundError):
             cible.unlink()
         os.link(lie, cible)

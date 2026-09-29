@@ -53,6 +53,8 @@ AGENT_DIR = Path(_serveur.__file__).resolve().parent
 AGENT_MOUNT = "/opt/elpis/agent"                # AGENT_DIR, monté en lecture seule
 AGENT_RUN_DIR = ".elpis-agent"                  # <P>/.elpis-agent monté sur /run/elpis
 AGENT_SOCKET = "/run/elpis/agent.sock"
+RELAY_DIR = ".elpis-relay"                      # <SANDBOX_DIR>/.elpis-relay : relais Git
+RELAY_MOUNT = _serveur.RELAIS_DOSSIER           # … monté en lecture seule
 
 _VERSION_ATTENDUE = _serveur.VERSION            # empreinte de server.py, à l'import
 _TLS = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)  # jamais servi (http://)
@@ -108,6 +110,12 @@ class AgentClient:
         self._echec_jusqua = 0.0
         self._verrous: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Lock]" = \
             weakref.WeakKeyDictionary()
+
+    @property
+    def relay_dir(self) -> Path:
+        """Dossier du relais Git de l'hôte (``RELAY_DIR``, frère des comptes),
+        monté sur ``RELAY_MOUNT``."""
+        return Path(self._sb.sandbox_path).parent.parent / RELAY_DIR
 
     # ── opérations ─────────────────────────────────────────────────────────
     async def hello(self) -> Dict[str, Any]:
@@ -312,6 +320,29 @@ class AgentClient:
             attente = None
         kw = {"timeout": httpx.Timeout(attente, connect=5)} if attente else {}
         return await self._json("POST", "/v1/fsop", maxi=_PETIT, json={"op": op, **args}, **kw)
+
+    async def git(self, cwd: str, args: Iterable[str], *, timeout_s: float = 60,
+                  max_out: int = 1 << 20, env: Optional[Dict[str, str]] = None,
+                  relay: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        """``git <args>`` dans ``cwd`` (relatif à /work), sous l'UID du
+        conteneur : ``{"returncode", "stdout", "stderr", "truncated",
+        "timed_out", "duration_ms"}``. ``relay`` : réseau par le relais Git
+        de l'hôte (``git_relay``)."""
+        corps: Dict[str, Any] = {"cwd": _chemin(cwd), "args": list(args),
+                                 "timeout_s": timeout_s, "max_out": max_out}
+        if env:
+            corps["env"] = env
+        if relay:
+            corps["relay"] = relay
+        # JSON : jusqu'à 6 octets par octet de sortie (\ufffd), deux flux.
+        d = await self._json("POST", "/v1/git", maxi=12 * max_out + _PETIT, json=corps,
+                             timeout=httpx.Timeout(timeout_s + 30, connect=5))
+        rc, out, err = d.get("returncode"), d.get("stdout"), d.get("stderr")
+        if not isinstance(rc, int) or not isinstance(out, str) or not isinstance(err, str):
+            raise AgentError("bad_response", "résultat git mal formé")
+        return {"returncode": rc, "stdout": out[:max_out], "stderr": err[:max_out],
+                "truncated": bool(d.get("truncated")), "timed_out": bool(d.get("timed_out")),
+                "duration_ms": int(d.get("duration_ms") or 0)}
 
     # ── transport ──────────────────────────────────────────────────────────
     async def _json(self, methode: str, route: str, *, maxi: int, **kw: Any) -> Dict[str, Any]:
@@ -561,5 +592,5 @@ async def _refus(r: httpx.Response) -> None:
                      str(d.get("message") or "")[:500], r.status_code, d)
 
 
-__all__ = ["AGENT_DIR", "AGENT_MOUNT", "AGENT_RUN_DIR", "AGENT_SOCKET", "AgentClient",
-           "AgentError", "AgentListing", "AgentRead"]
+__all__ = ["AGENT_DIR", "AGENT_MOUNT", "AGENT_RUN_DIR", "AGENT_SOCKET", "RELAY_DIR",
+           "RELAY_MOUNT", "AgentClient", "AgentError", "AgentListing", "AgentRead"]

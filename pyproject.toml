@@ -61,3 +61,19 @@ combine-as-imports = true
 "rag_app/ocr/jobs.py" = ["B023"]
 "shared_infra/db/transfer.py" = ["B023"]
 "tests/perf/backend/bench_loop_hotpath.py" = ["B023"]
+
+[tool.mypy]
+# Typage (2026-09-29) : un premier périmètre, élargi au fil des lots.
+python_version = "3.11"
+files = [
+    "shared_infra/sandbox/paths.py",
+    "shared_infra/sandbox/git_env.py",
+    "shared_infra/runtime",
+    "llm_core/context/tokens.py",
+    "llm_core/_scheduling",
+    "llm_core/engine",
+]
+explicit_package_bases = true
+follow_imports = "silent"
+ignore_missing_imports = true
+warn_unused_ignores = true

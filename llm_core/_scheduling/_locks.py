@@ -710,7 +710,7 @@ class DistributedModelExclusivityLock:
             if self._redis is not None or self._fallback_active:
                 return
             try:
-                import redis.asyncio as aioredis  # type: ignore
+                import redis.asyncio as aioredis
             except ImportError:
                 logger.warning(
                     "[MODEL_EXCL] redis.asyncio non disponible — fallback local "

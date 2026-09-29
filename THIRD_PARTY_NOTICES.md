@@ -89,6 +89,7 @@ and pinned versions are in `requirements.txt`, `requirements-rag.txt`,
 | PyMySQL (MariaDB / MySQL driver) | MIT |
 | ruff | MIT |
 | pytest, pytest-asyncio, pytest-xdist (tests) | MIT / Apache-2.0 / MIT |
+| mypy, mypy-extensions, librt, ast-serialize, typing-extensions, pathspec (typage, développement) | MIT / MIT / MIT / MIT / PSF-2.0 / MPL-2.0 |
 
 ### Python — RAG service
 

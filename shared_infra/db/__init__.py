@@ -22,7 +22,12 @@ ici que ce qui n'appartient à personne :
 
 # ``_connection`` porte ``db``, ``db_conn``, ``init_db``, ``log_metric``… que
 # tout le dépôt importe via cette façade. Alias ``_legacy`` conservé.
+from typing import TYPE_CHECKING
+
 from shared_infra.db import _connection as _legacy  # noqa: F401 — cœur SQLite
+
+if TYPE_CHECKING:          # le ré-export dynamique ci-dessous, vu du typage
+    from shared_infra.db._connection import *  # noqa: F403
 
 _SUBMODULES = (_legacy,)
 

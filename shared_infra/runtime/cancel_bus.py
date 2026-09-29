@@ -210,24 +210,26 @@ async def _tail_loop(apply_fn: Callable[[int, str, float], None],
                 line = raw.strip()
                 if not line:
                     continue
+                uid: Optional[int] = None
+                cid: Optional[str] = None
+                _who: Optional[str] = None
+                _child: Optional[str] = None
                 try:
                     payload = json.loads(line)
                     ts = float(payload.get("ts") or 0.0)
                     if payload.get("kind") == "child":
                         _who = str(payload["user"])
                         _child = str(payload["child"])
-                        uid = cid = None
                     else:
                         uid = int(payload["uid"])
                         cid = str(payload["cid"])
-                        _who = _child = None
                 except (json.JSONDecodeError, KeyError, TypeError, ValueError):
                     continue
                 try:
                     if _child is not None:
-                        if child_apply_fn is not None:
+                        if child_apply_fn is not None and _who is not None:
                             child_apply_fn(_who, _child, ts)
-                    else:
+                    elif uid is not None and cid is not None:
                         apply_fn(uid, cid, ts)
                 except Exception as exc:
                     logger.warning("[cancel_bus] application échouée: %r", exc)

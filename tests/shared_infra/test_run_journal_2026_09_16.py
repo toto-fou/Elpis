@@ -165,3 +165,14 @@ async def test_racine_ouverte_a_tous_desactive_le_journal(tmp_path, monkeypatch)
     j = rj.RunJournal(1, "c", "r")
     assert await j.open({}) is False
     assert rj.current_run(1, "c") is None
+
+
+def test_le_plafond_suit_le_reglage(monkeypatch):
+    """``llm.run_journal_max_mb`` était lu comme un attribut d'un dict : le
+    réglage n'avait aucun effet (64 Mo toujours)."""
+    from shared_infra import config
+    from shared_infra.runtime import run_journal
+    monkeypatch.setattr(config, "config_view", lambda: {"llm": {"run_journal_max_mb": 3}})
+    assert run_journal._max_bytes() == 3 * 1024 * 1024
+    monkeypatch.setattr(config, "config_view", lambda: {})
+    assert run_journal._max_bytes() == 64 * 1024 * 1024

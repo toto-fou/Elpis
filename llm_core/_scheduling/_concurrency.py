@@ -135,9 +135,11 @@ class LLMConcurrencyManager:
 
     GRACE_S: float = 8.0  # post-release-high window (synced with MODEL_EXCLUSIVITY)
 
-    def _ensure(self) -> None:
+    def _ensure(self) -> asyncio.Lock:
+        """Verrou de l'ordonnanceur, créé au premier usage."""
         if self._guard is None:
             self._guard = asyncio.Lock()
+        return self._guard
 
     @staticmethod
     def _key(model: Optional[str]) -> str:
@@ -226,7 +228,7 @@ class LLMConcurrencyManager:
         now = time.monotonic()
         self._grace = {k: v for k, v in self._grace.items() if v > now}
 
-        cleaned = deque()
+        cleaned: "deque[Tuple[str, str, asyncio.Future, float]]" = deque()
         for entry in self._slot_waiters:
             _prio, _wkey, wfut, _ts = entry
             if wfut.cancelled() or wfut.done():
@@ -370,7 +372,7 @@ class LLMConcurrencyManager:
             # UNE SEULE FOIS, hors boucle, pour que le plafond fonctionne.
             _wait_start = time.monotonic()
             while True:
-                async with self._guard:
+                async with self._ensure():
                     now = time.monotonic()
                     # GC des graces expirées
                     self._grace = {
@@ -395,7 +397,7 @@ class LLMConcurrencyManager:
                 if time.monotonic() - _wait_start > LOW_WAIT_CAP_S:
                     break
 
-        async with self._guard:
+        async with self._ensure():
             entry = self._active.get(key)
             if entry is not None:
                 # Modèle déjà actif → join immédiat (pas de file).
@@ -438,7 +440,7 @@ class LLMConcurrencyManager:
             return sem
         except (asyncio.CancelledError, BaseException):
             # Annulation : nettoyage et relance du drainage
-            async with self._guard:
+            async with self._ensure():
                 self._slot_waiters = deque(
                     e for e in self._slot_waiters if e[2] is not fut
                 )
@@ -459,8 +461,7 @@ class LLMConcurrencyManager:
             raise
 
     async def _release_model_slot(self, key: str) -> None:
-        self._ensure()
-        async with self._guard:
+        async with self._ensure():
             entry = self._active.get(key)
             if entry is None:
                 return
@@ -544,7 +545,7 @@ class LLMConcurrencyManager:
 
     async def _do_grace_redrain(self) -> None:
         """Re-drain les waiters sous le lock. Appelé par le timer de grâce."""
-        async with self._guard:
+        async with self._ensure():
             self._drain_waiters_unsafe()
 
 
@@ -585,8 +586,7 @@ class _LLMAcquisition:
             return
         deadline = time.monotonic() + 30.0
         while time.monotonic() < deadline:
-            self._mgr._ensure()
-            async with self._mgr._guard:
+            async with self._mgr._ensure():
                 has_waiting_high = any(
                     w[0] == "high"
                     and w[1] == self._model_key

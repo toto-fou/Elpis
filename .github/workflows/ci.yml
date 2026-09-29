@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Intégration continue : lint, puis la suite complète sur SQLite (Python 3.11,
+# Intégration continue : lint et typage, puis la suite complète sur SQLite (Python 3.11,
 # le minimum supporté, et 3.13) et sur un serveur PostgreSQL / MariaDB jetable.
 # Les tests front (Node) passent par tests/frontend/test_js_units.py ; les bancs
 # Playwright restent manuels.
@@ -37,6 +37,20 @@ jobs:
       - name: Ruff, à la version de requirements.txt
         run: pip install "$(grep -oE '^ruff==[0-9.]+' requirements.txt)"
       - run: ruff check .
+
+  typage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: mypy (périmètre de pyproject.toml)
+        run: mypy
 
   tests:
     name: tests (SQLite, Python ${{ matrix.python }})

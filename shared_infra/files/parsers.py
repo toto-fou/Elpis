@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import json
 import logging
+import socket
+import struct
 import subprocess
 import sys
-import struct
-import socket
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
@@ -107,7 +107,9 @@ def parse_pcap(data: bytes, filename: str) -> str:
     if not _ensure_dpkt():
         return json.dumps({"error": "Bibliothèque dpkt non disponible. pip install dpkt"})
 
-    import dpkt, io
+    import io
+
+    import dpkt
 
     reader = None
     try:

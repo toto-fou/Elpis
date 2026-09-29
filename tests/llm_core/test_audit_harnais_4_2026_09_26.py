@@ -48,6 +48,7 @@ def _d(r):
 def test_limiteur_de_debit_mcp_n_est_pas_une_panne_de_transport():
     from mcp.shared.exceptions import McpError
     from mcp.types import ErrorData
+
     from llm_core._mcp_pool import _is_transport_error
 
     assert not _is_transport_error(McpError(ErrorData(code=-32000, message="Rate limit exceeded")))
@@ -570,6 +571,7 @@ async def test_payload_tool_choice_none_garde_les_outils(monkeypatch):
 
 async def test_verrous_asynchrones_hors_boucle(tmp_path, monkeypatch):
     import threading
+
     from shared_infra.runtime import chat_locks as L
     monkeypatch.setattr(L, "LOCK_DIR", tmp_path / "locks")
     seen = []

@@ -80,8 +80,8 @@ def test_le_serveur_verifie_reellement(srv):
 # ── Client de l'app : Bearer seulement si le jeton de service est configuré ──
 
 def _resolve_local(monkeypatch, token: str):
-    import shared_infra.config as cfg
     import llm_core._mcp_wrappers as w
+    import shared_infra.config as cfg
     monkeypatch.setattr(cfg, "LOCAL_MCP_TOKEN", token)
     # (2026-09-05) La résolution lit l'URL À CHAUD sur ``shared_infra.config``
     # (le registre local la rend durable). URL EXPLICITE (is_derived=False) =
@@ -104,8 +104,8 @@ def test_client_sans_jeton_sans_en_tete(monkeypatch):
 def test_client_url_mcp_prend_le_transport_http_streamable(monkeypatch):
     """``LOCAL_MCP_URL=…/mcp`` → HTTP streamable (le transport d'opencode) :
     un seul service pour l'app et les clients externes."""
-    import shared_infra.config as cfg
     import llm_core._mcp_wrappers as w
+    import shared_infra.config as cfg
     monkeypatch.setattr(cfg, "LOCAL_MCP_TOKEN", "svc")
     monkeypatch.setattr(cfg, "LOCAL_MCP_URL", "http://127.0.0.1:8765/mcp")
     monkeypatch.setattr(cfg, "LOCAL_MCP_URL_IS_DERIVED", False)
@@ -122,6 +122,7 @@ def _ctx_with_meta(username: str):
 
 def _patch_token(monkeypatch, tok):
     import fastmcp.server.dependencies as deps
+
     import llm_core.tools._toolkit as tk
     monkeypatch.setattr(deps, "get_access_token", lambda: tok)
     return tk
@@ -247,8 +248,9 @@ def test_jeton_elpis_remote_verifie_en_base(monkeypatch, srv):
     assert asyncio.run(v.verify_token("svc")).claims["trusted_meta"] is True   # table statique intacte
     assert asyncio.run(v.verify_token("t1")).claims["username"] == "alice"
     # L'identité outil suit le jeton (même chemin que les jetons clients).
-    import llm_core.tools._toolkit as tk
     import fastmcp.server.dependencies as deps
+
+    import llm_core.tools._toolkit as tk
     monkeypatch.setattr(deps, "get_access_token", lambda: ok)
     assert tk.get_username(_ctx_with_meta("mallory")) == "hugo"
 

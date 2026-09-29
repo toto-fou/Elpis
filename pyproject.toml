@@ -20,9 +20,9 @@ extend-exclude = ["venv", "node_modules", "user_*", "frontend/vendor"]
 [tool.ruff.lint]
 # Phase 1 (2026-09-29) : erreurs réelles (syntaxe, noms indéfinis, imports et
 # variables inutilisés), pièges courants (B), appels bloquants dans le code
-# asynchrone (ASYNC). ``BLE`` attendra : ~1 500 ``except Exception`` souvent
-# voulus (« ne jamais faire échouer l'appel »).
-select = ["E9", "F", "B", "ASYNC"]
+# asynchrone (ASYNC), imports triés (I). ``BLE`` attendra : ~1 500
+# ``except Exception`` souvent voulus (« ne jamais faire échouer l'appel »).
+select = ["E9", "F", "B", "ASYNC", "I"]
 ignore = [
     "B008",      # Depends(…) de FastAPI en valeur par défaut
     "B904",      # « raise … from err » : à reprendre à part
@@ -31,11 +31,21 @@ ignore = [
     "ASYNC240",  # pathlib (stat, exists…) dans une coroutine : coût négligeable
 ]
 
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
 [tool.ruff.lint.per-file-ignores]
 # F811 : fixtures pytest importées puis reçues en paramètre. ASYNC : un test
 # asynchrone peut bloquer sa propre boucle.
 "tests/**" = ["F401", "F811", "F841", "ASYNC"]
 "**/__init__.py" = ["F401"]
+# Ordre d'import = ordre d'enregistrement des routes, ou de chargement des
+# sous-modules : jamais trié.
+"shared_infra/routes/__init__.py" = ["F401", "I001"]
+"shared_infra/routes/admin/__init__.py" = ["F401", "I001"]
+"llm_core/__init__.py" = ["F401", "I001"]
+"shared_infra/memory/ax/__init__.py" = ["F401", "I001"]
+"toolhost/app.py" = ["I001"]
 # Signatures d'outils MCP : le défaut ``[]`` est dans le schéma vu par le
 # modèle, et FastMCP (pydantic) en passe une copie à chaque appel ; aucun
 # outil ne modifie ses arguments (vérifié le 2026-09-29).

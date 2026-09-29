@@ -504,6 +504,7 @@ def test_ruff_trouve_a_cote_de_l_interpreteur_sans_path(monkeypatch, tmp_path):
     # Relecture 2026-09-19 (serveur réel lancé sans venv activé) : ``which``
     # ne voyait pas le ruff du venv → « Formater » en 501, lint muet.
     import sys
+
     import shared_infra.sandbox.routes_files as rf
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()

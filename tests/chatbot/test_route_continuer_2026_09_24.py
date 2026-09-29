@@ -32,8 +32,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from shared_infra.runtime import chat_locks
 from shared_infra.routes import _state
+from shared_infra.runtime import chat_locks
 
 DOCX = {"id": "server_docx", "name": "docx", "type": "sse",
         "url": "http://127.0.0.1:1/sse", "command": "", "visible": True,

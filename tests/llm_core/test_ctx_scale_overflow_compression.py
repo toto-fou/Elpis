@@ -30,7 +30,6 @@ from llm_core.conversation_compressor import (
     is_summary_carrier,
     maybe_compress_conversation,
 )
-
 from tests.llm_core.ctx_scale_harness import (
     CTX_1M,
     CTX_256K,

@@ -36,7 +36,12 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from shared_infra.db._dialect import (
-    MYSQL, POSTGRES, SQLITE, dialect_of, table_columns, table_names,
+    MYSQL,
+    POSTGRES,
+    SQLITE,
+    dialect_of,
+    table_columns,
+    table_names,
 )
 
 log = logging.getLogger("uvicorn.error")

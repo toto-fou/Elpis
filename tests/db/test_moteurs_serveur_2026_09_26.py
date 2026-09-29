@@ -19,10 +19,7 @@ import uuid
 
 import pytest
 
-from shared_infra.db import _dialect as D
-from shared_infra.db import _mysql as M
-from shared_infra.db import _server as S
-
+from shared_infra.db import _dialect as D, _mysql as M, _server as S
 
 # ── Unitaires ────────────────────────────────────────────────────────────────
 

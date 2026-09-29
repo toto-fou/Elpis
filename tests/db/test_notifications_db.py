@@ -17,6 +17,7 @@ import pytest
 @pytest.fixture()
 def N(tmp_path, monkeypatch):
     import importlib
+
     import shared_infra.db._connection as legacy
     monkeypatch.setattr(legacy, "DB_PATH", str(tmp_path / "app.db"))
     from shared_infra.db._connection import db_conn

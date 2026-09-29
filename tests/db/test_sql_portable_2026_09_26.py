@@ -76,8 +76,8 @@ def test_fusion_des_reglages_sous_verrou(base):
 
 
 def test_notifications_bornees_par_compte(base, monkeypatch):
-    from shared_infra.notifications import store as N
     from shared_infra.accounts.users import create_user
+    from shared_infra.notifications import store as N
     uid = create_user("alice", "pw-alice-1")
     monkeypatch.setattr(N, "_MAX_PER_USER", 3)
     ids = [N.create_notification(uid, "info", f"t{i}", "") for i in range(5)]

@@ -12,33 +12,33 @@ import logging
 
 from fastapi import HTTPException, Request
 
-from shared_infra.config import (
-    read_config_json,
-)
 from shared_infra.accounts.groups import (
     get_all_users_with_groups,
 )
+from shared_infra.accounts.passwd import run_password_op
 from shared_infra.accounts.users import (
-    get_user,
-    create_user,
-    get_username_by_id,
-    get_user_by_id,
-    reset_user_password,
     bump_session_min_ts,
-    get_user_settings,
-    merge_user_settings,
+    create_user,
     delete_user_full,
+    get_user,
+    get_user_by_id,
+    get_user_settings,
+    get_username_by_id,
+    merge_user_settings,
+    reset_user_password,
+)
+from shared_infra.config import (
+    read_config_json,
 )
 from shared_infra.observability.usage_store import (
     db_conn,
 )
-from shared_infra.security.audit import audit_event
-from shared_infra.security.deps import require_user_id
-from shared_infra.accounts.passwd import run_password_op
 
 # Helpers shared with _legacy. Single source of truth.
 from shared_infra.routes._legacy import (
-    _require_admin, _get_sandbox_path, _get_work_path,
+    _get_sandbox_path,
+    _get_work_path,
+    _require_admin,
     # AUDIT 2026-08-30 (S2) — manquait : la seule référence, plus bas, levait
     # donc un NameError à CHAQUE utilisateur, avalé par un ``except Exception``
     # qui rendait 0. La jauge d'espace sandbox de la liste admin affichait
@@ -52,6 +52,8 @@ from shared_infra.routes._legacy import (
 # below register on the SAME singleton router instances mounted by
 # ``app.py`` / ``admin_app.py``.
 from shared_infra.routes.admin._state import admin_router
+from shared_infra.security.audit import audit_event
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -87,6 +89,7 @@ def api_admin_delete_user(target_id: int, request: Request):
     # ligne, donc les requêtes HTTP du fantôme sont coupées au prochain passage.
     try:
         import time as _t
+
         from shared_infra.observability.metrics.broadcast import publish_event
         publish_event({"type": "session_revoked", "uid": int(target_id),
                        "ts": _t.time()})
@@ -107,7 +110,9 @@ def api_admin_delete_user(target_id: int, request: Request):
     sandbox_deleted = False
     sandbox_error = None
     if delete_sandbox and sb_path_to_remove is not None:
-        import shutil, os, stat as _stat
+        import os
+        import shutil
+        import stat as _stat
         # PASSE 15 (B4) — Retry-with-chmod sur PermissionError. Avant,
         # un sandbox contenant un dossier owned par UID 10001 avec
         # mode 0700 faisait échouer shutil.rmtree silencieusement
@@ -310,6 +315,7 @@ def _set_desktop_membership(username: str, names: set) -> list:
     """Place ``username`` dans ``allowed_users`` des machines ``names`` (en
     accès ``list``) et l'en retire ailleurs. Rend les machines modifiées."""
     import copy
+
     from shared_infra import config as _cfg
     cfg = copy.deepcopy(read_config_json() or {})
     targets = ((cfg.get("desktop") or {}).get("targets"))
@@ -388,8 +394,8 @@ async def _read_llm_access_body(request: Request, current: dict) -> dict:
 
 
 def _user_llm_access_view(target_id: int) -> dict:
-    from shared_infra.llm import engine_access as _ea
     from shared_infra.accounts.groups import get_user_groups
+    from shared_infra.llm import engine_access as _ea
     target = get_user_by_id(target_id)
     own = _ea.get_policy("user", target_id)
     groups = [_ea.get_policy("group", int(g["id"])) for g in get_user_groups(target_id)]
@@ -490,7 +496,9 @@ async def api_admin_set_network_profile(target_id: int, request: Request):
     profile_id = str(raw or "").strip()
 
     from shared_infra.sandbox.executors import (
-        load_admin_config, resolve_network_profile_id, reset_user_sandbox_cache,
+        load_admin_config,
+        reset_user_sandbox_cache,
+        resolve_network_profile_id,
     )
     cfg = load_admin_config()
     known = [p.id for p in (cfg.network_profiles or [])]
@@ -522,8 +530,8 @@ async def api_admin_set_network_profile(target_id: int, request: Request):
     recreated = False
     if after != before:
         try:
-            from shared_infra.sandbox.executors import get_user_sandbox
             from shared_infra.routes._helpers import _get_work_path
+            from shared_infra.sandbox.executors import get_user_sandbox
             sb = get_user_sandbox(target_id, target_username,
                                   _get_work_path(target_id),
                                   network_profile_id=before)

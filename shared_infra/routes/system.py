@@ -29,17 +29,18 @@ from typing import Any, Dict, Optional
 from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from shared_infra.config import (
-    AGENTS_ENABLED,
-    PROJECT_ROOT, config_view, https_enabled, https_ports,
-)
-from shared_infra.security.deps import require_user_id
 from shared_infra.chat.prompts_store import (
     list_shared_prompts,
 )
+from shared_infra.config import (
+    AGENTS_ENABLED,
+    PROJECT_ROOT,
+    config_view,
+    https_enabled,
+    https_ports,
+)
 from shared_infra.routes._state import router
-
-
+from shared_infra.security.deps import require_user_id
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  HTML PAGE ASSEMBLY HELPER
@@ -183,6 +184,7 @@ def _apply_includes_and_cachebust(content: str, _lus: "Optional[list]" = None) -
     """
     import json as _json
     import re as _re
+
     from shared_infra.config import BUILD_ID
 
     def _include(match):
@@ -595,7 +597,8 @@ def _welcome_image_parts():
     try:
         head, b64 = raw.split(",", 1)
         mime = head[5:].split(";")[0] or "image/png"
-        import base64 as _b64, hashlib as _hl
+        import base64 as _b64
+        import hashlib as _hl
         data = _b64.b64decode(b64, validate=False)
         return mime, data, _hl.blake2b(data, digest_size=8).hexdigest()
     except Exception:

@@ -17,8 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from shared_infra.git.providers import get_provider, compare_url_for
-
+from shared_infra.git.providers import compare_url_for, get_provider
 
 # ── #2 — api_base : schéma adaptatif ─────────────────────────────────────────
 

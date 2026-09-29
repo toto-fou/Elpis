@@ -1026,7 +1026,8 @@ def _strip_jsts_strings_comments(text: str) -> str:
 def _find_references_python(text: str, name: str,
                              max_results: int) -> List[Dict[str, Any]]:
     """Token-level scan via stdlib `tokenize` (skips strings/comments/numbers)."""
-    import tokenize, io
+    import io
+    import tokenize
     try:
         toks = list(tokenize.generate_tokens(io.StringIO(text).readline))
     except (tokenize.TokenizeError, IndentationError, SyntaxError):

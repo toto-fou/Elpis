@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlsplit
 
 from shared_infra.git import connectors as _gc
-from shared_infra.git.detect import detect_provider, default_provider_type, normalize_host
+from shared_infra.git.detect import default_provider_type, detect_provider, normalize_host
 from shared_infra.git.providers import get_provider
 
 logger = logging.getLogger("uvicorn.error")

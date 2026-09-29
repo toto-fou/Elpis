@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 import pytest
-from fastapi import FastAPI, Request, UploadFile, File
+from fastapi import FastAPI, File, Request, UploadFile
 
 from shared_infra.accounts import identity as I
 
@@ -50,7 +50,7 @@ def test_affectation_automatique_au_moins_charge(db):
 
 def test_relais_suit_le_placement_by_user(db, tmp_path, monkeypatch):
     from shared_infra.mcp import manifest as M
-    from shared_infra.sandbox import relay as R, placement as P
+    from shared_infra.sandbox import placement as P, relay as R
     doc = {"mcpServers": {"elpis-tools": {"type": "http", "url": "http://127.0.0.1:8765/mcp", "x-elpis": {"role": "toolhost"}}},
            "sandboxHosts": {"local": {"url": "http://127.0.0.1:8765", "token": "t"},
                             "vm": {"url": "https://vm:8765", "token": "t"}},
@@ -77,10 +77,11 @@ def _hdrs(uid=7, username="hugo", token="svc"):
 @pytest.fixture
 def sandbox_api(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
-    from toolhost.auth import ToolhostAuthASGI
+
     from shared_infra.routes import _helpers as H
-    from shared_infra.sandbox import routes_files  # noqa: F401
     from shared_infra.routes._state import router
+    from shared_infra.sandbox import routes_files  # noqa: F401
+    from toolhost.auth import ToolhostAuthASGI
     monkeypatch.setattr(H, "SANDBOX_DIR", tmp_path)
     app = FastAPI(); app.include_router(router)
     app.add_middleware(ToolhostAuthASGI, token="svc")
@@ -112,7 +113,10 @@ def _free_port() -> int:
 @pytest.fixture
 def fake_remote_host():
     """Un hôte distant minimal : reçoit l'import et enregistre ce qu'il a vu."""
-    import logging, uvicorn
+    import logging
+
+    import uvicorn
+
     from toolhost.auth import ToolhostAuthASGI
     seen = {}
     up = FastAPI()
@@ -171,9 +175,10 @@ def test_migration_local_vers_hote_distant(db, tmp_path, monkeypatch, fake_remot
 
 def test_routes_admin_toolhosts(db, tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
+
     import shared_infra.routes.admin.toolhosts as T
-    from shared_infra.routes.admin._state import admin_router
     from shared_infra.mcp import manifest as M
+    from shared_infra.routes.admin._state import admin_router
     from shared_infra.sandbox import placement as P
     monkeypatch.setattr(T, "_require_admin", lambda request: 1)
     monkeypatch.setattr(T, "audit_event", lambda *a, **k: None)

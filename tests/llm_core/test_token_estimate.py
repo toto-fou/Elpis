@@ -24,7 +24,6 @@ from llm_core._token_estimate import (
     image_token_cost,
 )
 
-
 # ──────────────────────────────────────────────────────────────────────────
 # Ratio unifié
 # ──────────────────────────────────────────────────────────────────────────
@@ -40,10 +39,9 @@ def _msg_texte_et_tools():
 
 
 def test_ratio_unique_partout():
-    from llm_core.context.tokens import (
-        est_tokens_message as autorite, measured_prompt_tokens)
-    from llm_core.conversation_compressor import _estimate_tokens
     import llm_core.context.tokens as tok
+    from llm_core.context.tokens import est_tokens_message as autorite, measured_prompt_tokens
+    from llm_core.conversation_compressor import _estimate_tokens
     tok._measured_ratio.clear()   # amorce froide déterministe
     m = _msg_texte_et_tools()
     attendu = est_tokens_message(m)
@@ -106,7 +104,7 @@ def test_image_forfait_tokens_helper():
 # ──────────────────────────────────────────────────────────────────────────
 
 async def test_count_messages_tokens_per_msg_ex_exact(monkeypatch):
-    import llm_core.context.tokens as cwt   # Phase 1 : autorité de comptage
+    import llm_core.context.tokens as cwt  # Phase 1 : autorité de comptage
 
     async def _fake_exact(text, model_id=None, timeout=None):
         return len(text)  # « tokenizer » déterministe
@@ -119,7 +117,7 @@ async def test_count_messages_tokens_per_msg_ex_exact(monkeypatch):
 
 
 async def test_count_messages_tokens_per_msg_ex_fallback(monkeypatch):
-    import llm_core.context.tokens as cwt   # Phase 1 : autorité de comptage
+    import llm_core.context.tokens as cwt  # Phase 1 : autorité de comptage
 
     async def _boom(text, model_id=None, timeout=None):
         raise RuntimeError("tokenize down")

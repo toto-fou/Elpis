@@ -50,8 +50,7 @@ def _ddl_des_fixtures_sur_serveur():
         yield
         return
     from shared_infra.db import _server
-    from tests._ddl_fixtures import (explicit_id_table, index_if_not_exists,
-                                     resync_identity, translate)
+    from tests._ddl_fixtures import explicit_id_table, index_if_not_exists, resync_identity, translate
     run, run_many = _server.ServerConnection._run, _server.ServerConnection._run_many
 
     def _apres(self, sql):
@@ -222,8 +221,7 @@ def _isolate_real_db(tmp_path_factory):
 def _isolate_shared_spools(tmp_path_factory):
     base = tmp_path_factory.mktemp("spools")
     from llm_core.tools import _task_resume
-    from shared_infra.runtime import cancel_bus
-    from shared_infra.runtime import chat_locks
+    from shared_infra.runtime import cancel_bus, chat_locks
 
     chat_locks.LOCK_DIR = base / "locks"
     _task_resume.STORE_DIR = base / "resume"

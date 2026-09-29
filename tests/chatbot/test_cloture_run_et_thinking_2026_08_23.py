@@ -32,8 +32,8 @@ import asyncio
 import pytest
 
 from chatbot_app.routes import chats as _chats
-from shared_infra.runtime import chat_locks
 from shared_infra.routes import _state
+from shared_infra.runtime import chat_locks
 
 
 @pytest.fixture(autouse=True)
@@ -154,7 +154,7 @@ def test_le_raisonnement_niche_dans_les_metriques_est_retire():
     """Le seul écrit-chemin des messages doit nettoyer les DEUX emplacements —
     y compris pour ``PUT /save-messages``, où le front renvoie ``m.metrics``
     tel qu'il l'a reçu de l'événement final."""
-    from shared_infra.chat.store import upsert_chat, get_chat
+    from shared_infra.chat.store import get_chat, upsert_chat
     uid = _un_utilisateur("cloture1")
 
     messages = [

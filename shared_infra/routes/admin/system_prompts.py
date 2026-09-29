@@ -32,17 +32,16 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request
 
-from shared_infra.routes.admin._state import admin_router
-from shared_infra.routes._legacy import _require_admin
-
 # Reuse the assembler's directory + helper functions so we always agree
 # on what counts as a "category file".
 from llm_core._system_prompts import (
     _SYSTEM_P_DIR,
-    list_known_categories,
     assemble_system_messages,
+    list_known_categories,
     preview as assemble_preview,
 )
+from shared_infra.routes._legacy import _require_admin
+from shared_infra.routes.admin._state import admin_router
 
 # Strict regex on category names — matches the file naming convention
 # (lowercase letters, digits, hyphens, underscores). Keeps ``..`` and

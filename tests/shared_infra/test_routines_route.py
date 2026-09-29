@@ -334,8 +334,8 @@ def test_files_column_migrates_on_existing_db(tmp_path, monkeypatch):
     """
     import shared_infra.db._connection as legacy
     monkeypatch.setattr(legacy, "DB_PATH", str(tmp_path / "old.db"))
-    from shared_infra.db._connection import db_conn
     import shared_infra.scheduling.routines_store as R
+    from shared_infra.db._connection import db_conn
 
     with db_conn() as conn:
         conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT)")
@@ -439,6 +439,7 @@ def test_stop_orphaned_run_direct_cancel(client):
     'cancelled' + réponse véridique — avant, « Arrêt demandé » menteur puis
     badge « Interrompu » à la réconciliation 5 min plus tard."""
     import time as _t
+
     import shared_infra.scheduling.routines_store as R
     from shared_infra.db._connection import db_conn
     rid = client.post("/api/routines", headers=_alice(), json=_body()).json()["id"]
@@ -457,6 +458,7 @@ def test_reconcile_orphans_sets_duration(client):
     """La réconciliation renseigne duration_ms (borne basse heartbeat−départ) —
     la colonne restait NULL et le journal affichait « — »."""
     import time as _t
+
     import shared_infra.scheduling.routines_store as R
     from shared_infra.db._connection import db_conn
     rid = client.post("/api/routines", headers=_alice(), json=_body()).json()["id"]
@@ -504,8 +506,8 @@ def test_agents_column_migrates_on_existing_db(tmp_path, monkeypatch):
     les routines déjà là restent en opt-out."""
     import shared_infra.db._connection as legacy
     monkeypatch.setattr(legacy, "DB_PATH", str(tmp_path / "old.db"))
-    from shared_infra.db._connection import db_conn
     import shared_infra.scheduling.routines_store as R
+    from shared_infra.db._connection import db_conn
 
     with db_conn() as conn:
         conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT)")
@@ -580,6 +582,7 @@ def test_delete_routine_removes_its_notifications_via_api(client):
     """Le « récap » (centre de notifications) suit la routine : DELETE emporte
     ses notifications ; un renommage réécrit leurs titres."""
     import importlib
+
     from shared_infra.db._connection import db_conn
     with db_conn() as conn:
         importlib.import_module(

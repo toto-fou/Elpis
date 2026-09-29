@@ -79,8 +79,8 @@ def agent(monkeypatch):
 
 @pytest.fixture()
 def client(monkeypatch, agent):
-    import shared_infra.routes  # noqa: F401 — chef d'orchestre d'abord (import circulaire)
     import shared_infra.desktop.routes as rt
+    import shared_infra.routes  # noqa: F401 — chef d'orchestre d'abord (import circulaire)
 
     def _fake_uid(request: Request):
         uid = request.headers.get("x-test-user")

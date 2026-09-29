@@ -31,9 +31,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from shared_infra.config import LLAMA_MODEL
-from shared_infra.scheduling.cron_lock import try_acquire_cron_lock
 from shared_infra.db import log_metric
 from shared_infra.observability.usage_ctx import set_usage_context
+from shared_infra.scheduling.cron_lock import try_acquire_cron_lock
 from shared_infra.scheduling.routines_store import (
     admit_and_insert_run,
     claim_minute_fire,
@@ -47,8 +47,8 @@ from shared_infra.scheduling.routines_store import (
     mark_run_error,
     mark_run_ok,
     mark_run_skipped,
-    routine_notification_title,
     reconcile_orphans,
+    routine_notification_title,
 )
 
 logger = logging.getLogger("uvicorn.error")
@@ -241,7 +241,10 @@ def _rehydrate_mcp_secrets(snapshot: List[Dict[str, Any]],
     posté par n'importe quel compte s'exécutait sur l'hôte, et qu'une ``url``
     interne rouvrait la SSRF fermée côté chat."""
     from shared_infra.mcp.servers import (
-        resolve_config, shared_id, personal_to_config, client_builtin_ref,
+        client_builtin_ref,
+        personal_to_config,
+        resolve_config,
+        shared_id,
     )
     user_servers = list((user_settings or {}).get("mcp_servers") or [])
     visible_shared = {str(v) for v in
@@ -449,7 +452,7 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
         )
 
         # Import tardif : évite un cycle au chargement + reflète l'état courant.
-        from shared_infra.accounts.users import get_username_by_id, get_user_settings, get_user_by_id
+        from shared_infra.accounts.users import get_user_by_id, get_user_settings, get_username_by_id
 
         username = await asyncio.to_thread(get_username_by_id, uid)
         if not username:
@@ -603,8 +606,10 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
         # Même contrat que la route chat (chatbot_app/routes/chats.py) : v2 si
         # mode "optimized" (sémaphore inline), sinon classic sous le guard.
         from llm_core import (
-            llm_scheduling_guard, resolve_scheduling_mode,
-            run_chat_multi_mcp, run_chat_multi_mcp_v2,
+            llm_scheduling_guard,
+            resolve_scheduling_mode,
+            run_chat_multi_mcp,
+            run_chat_multi_mcp_v2,
         )
         # Résolu UNE fois et réutilisé (sélection du runner ET mode passé aux
         # sous-agents), comme la route chat. ``resolve_scheduling_mode`` lit la

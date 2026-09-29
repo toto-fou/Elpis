@@ -34,7 +34,6 @@ from llm_core.context.pruning import (
     task_anchor_index,
 )
 
-
 # ── P0-1 — élagage intra-run ────────────────────────────────────────────────
 
 def test_apply_prune_marks_ne_mute_pas_et_efface_les_bonnes_sorties():
@@ -275,8 +274,8 @@ def test_transport_concurrency_sse_parallelise():
     """Service SSE partagé : c'est ce qui rend enfin EFFECTIF le parallélisme
     d'``execute_tool_batch`` — auparavant annulé par le verrou exclusif, tous
     les outils locaux partageant une seule entrée de pool."""
-    from llm_core._mcp_pool import _transport_concurrency
     from llm_core._constants import LLAMA_TOOL_PARALLELISM
+    from llm_core._mcp_pool import _transport_concurrency
 
     class MCPSSEWrapper:
         pass
@@ -292,7 +291,7 @@ def test_transport_concurrency_sse_parallelise():
 
 @pytest.mark.asyncio
 async def test_call_guard_sse_laisse_passer_en_parallele():
-    from llm_core._mcp_pool import _PoolEntry, _call_guard
+    from llm_core._mcp_pool import _call_guard, _PoolEntry
 
     entry = _PoolEntry(key="k", client=object(), max_concurrency=4,
                        call_sem=asyncio.Semaphore(4))
@@ -311,7 +310,7 @@ async def test_call_guard_sse_laisse_passer_en_parallele():
 
 @pytest.mark.asyncio
 async def test_call_guard_stdio_serialise_vraiment():
-    from llm_core._mcp_pool import _PoolEntry, _call_guard
+    from llm_core._mcp_pool import _call_guard, _PoolEntry
 
     entry = _PoolEntry(key="k", client=object(), max_concurrency=1)
     concurrent = {"n": 0, "peak": 0}
@@ -332,7 +331,7 @@ async def test_acquire_exclusive_attend_les_appels_en_vol():
     """La fermeture ne doit JAMAIS tuer le client sous un appel en cours
     (use-after-close) — c'est la garantie que le verrou exclusif historique
     apportait et que le sémaphore doit reproduire."""
-    from llm_core._mcp_pool import _PoolEntry, _call_guard, _acquire_exclusive, _release_exclusive
+    from llm_core._mcp_pool import _acquire_exclusive, _call_guard, _PoolEntry, _release_exclusive
 
     entry = _PoolEntry(key="k", client=object(), max_concurrency=3,
                        call_sem=asyncio.Semaphore(3))
@@ -359,7 +358,7 @@ async def test_acquire_exclusive_attend_les_appels_en_vol():
 async def test_acquire_exclusive_timeout_rend_les_permis():
     """Un échec d'acquisition ne doit pas fuiter de permis (sinon l'entrée
     devient inutilisable pour toujours)."""
-    from llm_core._mcp_pool import _PoolEntry, _call_guard, _acquire_exclusive
+    from llm_core._mcp_pool import _acquire_exclusive, _call_guard, _PoolEntry
 
     entry = _PoolEntry(key="k", client=object(), max_concurrency=2,
                        call_sem=asyncio.Semaphore(2))
@@ -404,6 +403,7 @@ def test_les_deux_entrees_de_boucle_ont_la_meme_signature():
     compter sur la relecture.
     """
     import inspect
+
     from llm_core._chat_with_tools import run_chat_multi_mcp, run_chat_multi_mcp_v2
 
     base = set(inspect.signature(run_chat_multi_mcp).parameters) - {"_inline_semaphore"}
@@ -441,6 +441,7 @@ def test_la_boucle_ne_force_jamais_auto_enabled():
     kill-switch admin. La boucle doit relayer la décision de l'appelant, pas
     la recalculer (défaut introduit puis corrigé pendant l'audit)."""
     import inspect
+
     from llm_core import _chat_with_tools as cwt
 
     src = inspect.getsource(cwt.run_chat_multi_mcp)

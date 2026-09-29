@@ -27,7 +27,6 @@ import stat
 
 import pytest
 
-
 OUTSIDE_MODE = 0o700
 
 

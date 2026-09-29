@@ -22,8 +22,8 @@ import json
 
 import pytest
 
-from llm_core.tools import desktop_tools as dt
 from llm_core import _desktop_session as ds
+from llm_core.tools import desktop_tools as dt
 
 FAKE_TGT = {"name": "t1", "agent_url": "http://agent", "os": "windows"}
 
@@ -325,7 +325,7 @@ def test_type_no_effect_check_skipped_on_studio_path(env, monkeypatch):
 
 
 def test_cycle_hardstop_constant_and_detection():
-    from llm_core._chat_with_tools import _detect_action_cycle, _CYCLE_HARDSTOP_MAX
+    from llm_core._chat_with_tools import _CYCLE_HARDSTOP_MAX, _detect_action_cycle
     assert isinstance(_CYCLE_HARDSTOP_MAX, int) and _CYCLE_HARDSTOP_MAX >= 1
     # Deux séries identiques → deux détections distinctes (le buffer est vidé à
     # chaque fire), de quoi atteindre le hard-stop sur un modèle réellement coincé.

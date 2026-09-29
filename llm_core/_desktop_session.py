@@ -22,13 +22,12 @@ Two independent registries, each touched by a different process:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
-
-import logging
 
 logger = logging.getLogger("uvicorn.error")
 

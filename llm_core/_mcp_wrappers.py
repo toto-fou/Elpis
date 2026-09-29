@@ -23,20 +23,21 @@ from typing import Any, Callable, Dict, List, Optional
 # MCP client library — soft-import here since it's optional for lean deploys.
 try:
     from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
     from mcp.client.sse import sse_client
+    from mcp.client.stdio import stdio_client
     from mcp.client.streamable_http import streamablehttp_client
 except ImportError:
     ClientSession = StdioServerParameters = None  # type: ignore
     stdio_client = sse_client = None  # type: ignore
     streamablehttp_client = None  # type: ignore
 
-from shared_infra.config import (
-    PROJECT_ROOT, MCP_SERVERS_DIR, SANDBOX_DIR,
-)
-
 # Shared helper still in _legacy.
 from llm_core._chat_classic import _dump
+from shared_infra.config import (
+    MCP_SERVERS_DIR,
+    PROJECT_ROOT,
+    SANDBOX_DIR,
+)
 
 logger = logging.getLogger("uvicorn.error")
 

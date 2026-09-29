@@ -23,18 +23,18 @@ from __future__ import annotations
 
 from fastapi import HTTPException, Request
 
-from shared_infra.security.audit import audit_event
 from shared_infra.config import read_config_json, write_config_json
-from shared_infra.llm import connectors as _lc
-from shared_infra.routes.admin._state import admin_router
-from shared_infra.routes._helpers import _require_admin
+
 # Source unique : helpers de validation/presets/allowlist du module user.
 # Import du MODULE (et non des noms) : les deux modules se citent l'un l'autre
 # via ``routes._state`` — un ``from … import <nom>`` échouait dès que le module
 # user était importé le premier (« partially initialized module », visible en
 # lançant tests/shared_infra/test_llm_connectors.py seul). Les attributs sont
 # résolus à l'APPEL, quand les deux modules sont complets.
-from shared_infra.llm import routes_connectors as _ur
+from shared_infra.llm import connectors as _lc, routes_connectors as _ur
+from shared_infra.routes._helpers import _require_admin
+from shared_infra.routes.admin._state import admin_router
+from shared_infra.security.audit import audit_event
 
 
 @admin_router.get("/api/admin/llm/connectors")

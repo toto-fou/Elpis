@@ -22,10 +22,8 @@ from pathlib import Path
 
 import pytest
 
-from shared_infra.sandbox import office_preview as op
-from shared_infra.sandbox import office_xlsx as ox
+from shared_infra.sandbox import office_preview as op, office_xlsx as ox
 from shared_infra.sandbox.office_convert import OfficeError
-
 from tests.shared_infra.test_office_preview import make_ooxml, mini_xlsx
 
 

@@ -17,8 +17,7 @@ import json
 import pytest
 
 from shared_infra.observability.file_bus import FileBus
-from shared_infra.runtime import chat_locks
-from shared_infra.runtime import run_journal as rj
+from shared_infra.runtime import chat_locks, run_journal as rj
 
 
 async def _drain(events, **kw):

@@ -112,8 +112,8 @@ def test_group_by_expose_la_reflexion_a_cote_des_tokens(db):
 # ── Widget admin ────────────────────────────────────────────────────────────
 
 def test_kpi_reflexion_rapporte_la_part_de_sortie(db):
-    from shared_infra.observability.usage_store import record_usage
     from shared_infra.observability.metrics._usage_providers import KPIUsageThinkingProvider
+    from shared_infra.observability.usage_store import record_usage
     record_usage(user_id=1, source="chat", input_tokens=5000,
                  output_tokens=1000, thinking_tokens=750)
     d = KPIUsageThinkingProvider().get_data(24)
@@ -126,15 +126,15 @@ def test_kpi_reflexion_rapporte_la_part_de_sortie(db):
 def test_kpi_reflexion_ne_pretend_pas_zero_sans_mesure(db):
     """Un registre sans mesure et un modèle qui ne raisonne pas se
     ressemblent : on ne tranche pas à leur place."""
-    from shared_infra.observability.usage_store import record_usage
     from shared_infra.observability.metrics._usage_providers import KPIUsageThinkingProvider
+    from shared_infra.observability.usage_store import record_usage
     record_usage(user_id=1, source="chat", input_tokens=10, output_tokens=100)
     assert KPIUsageThinkingProvider().get_data(24)["value"] == "—"
 
 
 def test_frise_reflexion_vs_reponse_a_deux_series(db):
-    from shared_infra.observability.usage_store import record_usage
     from shared_infra.observability.metrics._usage_providers import UsageThinkingTimelineProvider
+    from shared_infra.observability.usage_store import record_usage
     record_usage(user_id=1, source="chat", input_tokens=10,
                  output_tokens=100, thinking_tokens=70)
     chart = UsageThinkingTimelineProvider().get_data(24)

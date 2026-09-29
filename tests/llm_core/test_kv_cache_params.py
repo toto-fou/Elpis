@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import importlib
 
-from llm_core._constants import apply_kv_cache_params, LLAMA_CACHE_REUSE_TOKENS
+from llm_core._constants import LLAMA_CACHE_REUSE_TOKENS, apply_kv_cache_params
 
 
 def _run():

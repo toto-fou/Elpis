@@ -13,8 +13,7 @@ import time
 
 import pytest
 
-from rag_app.ocr import queue as Q
-from rag_app.ocr import store
+from rag_app.ocr import queue as Q, store
 
 
 @pytest.fixture

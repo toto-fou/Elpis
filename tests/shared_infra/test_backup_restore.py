@@ -252,8 +252,7 @@ def test_restauration_de_la_base_refusee_sur_un_serveur(instance, monkeypatch):
 def test_sauvegarde_d_une_base_serveur_passe_par_un_instantane(instance, monkeypatch):
     """Hors SQLite, le zip porte un instantané SQLite produit par le transfert,
     pas l'app.db inactif laissé sur le disque."""
-    from shared_infra.db import _connection
-    from shared_infra.db import transfer as T
+    from shared_infra.db import _connection, transfer as T
     monkeypatch.setattr(_connection, "DB_BACKEND", "postgres")
     instance["db"].write_text("PÉRIMÉE")
     appels = []

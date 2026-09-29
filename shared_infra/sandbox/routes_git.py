@@ -58,21 +58,28 @@ refactor (they are used by tests and by ``admin.py``).
 from __future__ import annotations
 
 import asyncio
-import re
 import os
+import re
 import shutil
 import time
 from pathlib import Path
 
 from fastapi import HTTPException, Request
 
-from shared_infra.security.deps import require_user_id
 from shared_infra.accounts.users import get_username_by_id
-from shared_infra.routes._state import router
 
 # Helpers shared with ``_legacy``. Live mutables (locks, dicts) need the
 # module reference so we read the current value, not a snapshot.
-from shared_infra.routes._helpers import _get_work_path, _git_resolve_repo, _git_resolve_repo_or_root, _git_run, _git_run_with_creds, _path_inside
+from shared_infra.routes._helpers import (
+    _get_work_path,
+    _git_resolve_repo,
+    _git_resolve_repo_or_root,
+    _git_run,
+    _git_run_with_creds,
+    _path_inside,
+)
+from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
 # Local aliases for the helpers most-used by the route bodies. Importing
 # them as plain names keeps the route bodies readable and matches the
@@ -156,6 +163,7 @@ def _paths_arg(paths) -> list:
 # AUDIT 2026-08-02 — source UNIQUE des schémas de remote git, partagée avec
 # ``llm_core.tools.git_tools`` (qui divergeait en https-only) via ``ssrf``.
 from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES as _ALLOWED_GIT_SCHEMES
+
 _BLOCKED_HOST_SUFFIXES = (".local", ".internal", ".lan", ".home", ".corp", ".intranet")
 # Hostnames littéraux qui résolvent vers loopback / réseau local sans
 # qu'on les attrape via ``ipaddress.ip_address`` (qui ne parse que les
@@ -186,8 +194,7 @@ def _resolved_push_creds(uid, repo, data) -> tuple:
         out = (getattr(r, "stdout", "") or "").strip()
         url = out.splitlines()[0] if (getattr(r, "returncode", 1) == 0 and out) else ""
         if url:
-            from shared_infra.git.resolver import (
-                resolve_git_credential, import_legacy_git_credentials)
+            from shared_infra.git.resolver import import_legacy_git_credentials, resolve_git_credential
             import_legacy_git_credentials(int(uid), _get_work_path(int(uid)))
             cred = resolve_git_credential(int(uid), url)
             if cred and cred.get("token"):
@@ -577,8 +584,7 @@ async def api_git_clone(request: Request):
         def _resolve_clone_cred():
             # DB + fichiers legacy → thread (passe 4, B1).
             try:
-                from shared_infra.git.resolver import (
-                    resolve_git_credential, import_legacy_git_credentials)
+                from shared_infra.git.resolver import import_legacy_git_credentials, resolve_git_credential
                 import_legacy_git_credentials(int(uid), sb)
                 return resolve_git_credential(int(uid), url)
             except Exception:

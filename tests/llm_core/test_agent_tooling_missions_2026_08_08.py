@@ -29,7 +29,6 @@ import pytest
 
 from tests.llm_core._pw_harness import CTX as _CTX, pw, pw_env, sent  # noqa: F401
 
-
 # ── 1. porcelain à colonnes fixes ────────────────────────────────────────
 
 def _parse(line):
@@ -68,6 +67,7 @@ def test_chemin_avec_espaces():
 
 def test_git_inspect_utilise_bien_les_colonnes():
     import inspect
+
     from llm_core.tools import git_tools
     src = inspect.getsource(git_tools)
     i = src.index("Dirty state via porcelain")
@@ -83,6 +83,7 @@ def test_git_inspect_utilise_bien_les_colonnes():
 
 def test_stat_recoit_la_racine_sandbox_pas_le_dossier_liste():
     import inspect
+
     from llm_core.tools import fs_tools
     src = inspect.getsource(fs_tools)
     i = src.index("if details:")

@@ -15,9 +15,7 @@ import asyncio
 
 import pytest
 
-from rag_app.ocr import client as ocr_client
-from rag_app.ocr import jobs, store
-from rag_app.ocr import queue as ocr_queue
+from rag_app.ocr import client as ocr_client, jobs, queue as ocr_queue, store
 from rag_app.ocr._common import OcrError
 
 fpdf = pytest.importorskip("fpdf", reason="fpdf2 requis pour la fixture")

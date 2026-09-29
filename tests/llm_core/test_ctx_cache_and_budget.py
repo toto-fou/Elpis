@@ -18,8 +18,8 @@ from unittest.mock import patch
 
 import pytest
 
-import llm_core._model_info as mi
 import llm_core._chat_with_tools as _cwt
+import llm_core._model_info as mi
 import llm_core.context.pruning as _pruning  # Phase 2 : budget dur extrait
 
 

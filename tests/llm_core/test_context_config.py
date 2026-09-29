@@ -153,6 +153,7 @@ def test_gated_out_court_circuite_sans_keywords_text():
     """Contrat explicite : sans ``keywords_text``, aucune catégorie n'est
     masquée — même une catégorie listée dans ``gated``."""
     import inspect
+
     import llm_core._chat_with_tools as cwt
 
     src = inspect.getsource(cwt._collect_mcp_tools)
@@ -188,6 +189,7 @@ def test_aucun_appelant_ne_passe_keywords_text():
 
 def test_avertissement_au_boot_quand_gated_est_non_vide(caplog):
     import logging
+
     from llm_core.context_config import ContextConfig
     cfg = ContextConfig({"tool_gating": {"enabled": True,
                                          "gated": {"git": "keyword:git"}}})
@@ -199,6 +201,7 @@ def test_avertissement_au_boot_quand_gated_est_non_vide(caplog):
 
 def test_pas_davertissement_quand_gated_est_vide(caplog):
     import logging
+
     from llm_core.context_config import ContextConfig
     cfg = ContextConfig({"tool_gating": {"enabled": True, "gated": {}}})
     with caplog.at_level(logging.WARNING, logger="uvicorn.error"):

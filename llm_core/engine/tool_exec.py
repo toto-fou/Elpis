@@ -27,9 +27,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from shared_infra.db import log_metric
 from llm_core._constants import LLAMA_TOOL_PARALLELISM, LLAMA_TOOL_SERIAL_PREFIXES
 from llm_core._scheduling._guard import _emit
+from shared_infra.db import log_metric
 
 # Attente maximale de la télémétrie d'un appel d'outil (cf. ``_exec_one``).
 _TELEMETRY_WAIT_S = 0.25

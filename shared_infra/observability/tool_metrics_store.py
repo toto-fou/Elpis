@@ -22,7 +22,6 @@ from typing import Any, Dict, List, Optional
 
 from shared_infra.db._connection import db_conn
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Init de la table — appelé depuis init_db() au démarrage de l'app.
 # Idempotent ; le DDL vient du schéma de référence (shared_infra/db/_schema.py).

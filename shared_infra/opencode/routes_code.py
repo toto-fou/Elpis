@@ -39,12 +39,12 @@ from shared_infra.config import feature_enabled
 from shared_infra.db import _connection as _dbc
 from shared_infra.db._connection import db_tx
 from shared_infra.db._dialect import is_missing_table
-from shared_infra.security.deps import require_user_id, stream_session_still_valid
-from shared_infra.opencode import store as _cstore
 from shared_infra.observability.events_bus import pipeline_events
-from shared_infra.routes._state import router
 from shared_infra.observability.routes_events import _make_sse_response
+from shared_infra.opencode import store as _cstore
 from shared_infra.opencode.routes_cli import _base_url
+from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id, stream_session_still_valid
 
 logger = logging.getLogger("uvicorn.error")
 

@@ -1,22 +1,23 @@
 # SPDX-License-Identifier: MIT
 import logging
+
 logger = logging.getLogger("uvicorn.error")
-import os
-import time
 import json
+import os
 import sqlite3
 import threading
+import time
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, Optional
-from shared_infra.config import DB_PATH, METRICS_RETENTION_DAYS
-# Moteur de la base (sqlite | postgres | mysql) — relu à chaque emprunt, les
-# tests le re-pointent comme DB_PATH.
-from shared_infra.config import DB_BACKEND
+
 # Importé sous alias : ce module expose tout son espace de noms via la façade
 # ``shared_infra.db``, et un nom aussi générique que ``swallow`` y deviendrait
 # public par accident.
 from pathlib import Path as _Path
-from shared_infra.config import PROJECT_ROOT as _PROJECT_ROOT
+from typing import Any, Dict, Iterator, Optional
+
+# Moteur de la base (sqlite | postgres | mysql) — relu à chaque emprunt, les
+# tests le re-pointent comme DB_PATH.
+from shared_infra.config import DB_BACKEND, DB_PATH, METRICS_RETENTION_DAYS, PROJECT_ROOT as _PROJECT_ROOT
 from shared_infra.observability.tracing import swallow as _swallow
 
 # ─────────────────────────────────────────────────────────────────────────────

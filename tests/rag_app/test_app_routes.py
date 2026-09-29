@@ -15,8 +15,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from rag_app import app as A
-from rag_app import rag_engine as E
+from rag_app import app as A, rag_engine as E
 
 
 def _ok_handler(request):

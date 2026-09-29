@@ -13,35 +13,74 @@ Signature: register(mcp, root_base, max_write_chars=2_000_000)
 """
 from __future__ import annotations
 
+import base64
+import difflib
+import fnmatch
+import hashlib
+import json
+import mimetypes
+import os
+import re
+import shutil
+import stat as _stat_mod
+import subprocess
+import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple, Literal, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+
 from fastmcp import Context, FastMCP
 
-import os, subprocess, time, base64, re, shutil, fnmatch, stat as _stat_mod
-import hashlib, difflib, mimetypes, json
-
-from ._toolkit import (
-    ok as _ok, err, tool_kw, unquote, get_username, as_list,
-    tool_kw_readonly, tool_kw_idempotent, tool_kw_mutating, tool_kw_destructive,
-    unicode_twin_warning, glob_match as _glob_match,
-)
-from ._models import (
-    ReadFileResult, WriteFileResult, EditFileResult,
-    ListFilesResult, ManageFilesResult,
-    CodeOutlineResult, CodeNavigateResult,
-    ErrEnvelope,
-)
 # Single source of truth for /work normalization + sandbox containment.
 # resolve_under raises SandboxPathError (a ValueError subclass) on escape,
 # so the existing `except ValueError` call sites keep working unchanged.
 from shared_infra.sandbox.paths import (
-    SandboxPathError, chmod_beneath, leaf_mode, open_beneath, open_dir_beneath, open_leaf,
-    pinned_beneath, read_leaf, rel_under, remove_beneath, rename_beneath, resolve_under,
-    stat_beneath, to_container, walk_beneath, walk_under, widen_beneath,
+    SandboxPathError,
+    chmod_beneath,
+    leaf_mode,
+    open_beneath,
+    open_dir_beneath,
+    open_leaf,
+    pinned_beneath,
+    read_leaf,
+    rel_under,
+    remove_beneath,
+    rename_beneath,
+    resolve_under,
+    stat_beneath,
+    to_container,
+    walk_beneath,
+    walk_under,
+    widen_beneath,
 )
+
 # OP_BACKEND policy: when fs writes are agent-backed (single UID 10001 inside
 # the container), the host-side cross-UID chmod widening is unnecessary.
 from shared_infra.sandbox.policy import use_agent
+
+from ._models import (
+    CodeNavigateResult,
+    CodeOutlineResult,
+    EditFileResult,
+    ErrEnvelope,
+    ListFilesResult,
+    ManageFilesResult,
+    ReadFileResult,
+    WriteFileResult,
+)
+from ._toolkit import (
+    as_list,
+    err,
+    get_username,
+    glob_match as _glob_match,
+    ok as _ok,
+    tool_kw,
+    tool_kw_destructive,
+    tool_kw_idempotent,
+    tool_kw_mutating,
+    tool_kw_readonly,
+    unicode_twin_warning,
+    unquote,
+)
 
 # ── Optional: code intelligence (multi-language outliner) ────────────────────
 # Imported lazily-friendly: if code_intel.py is missing, the extra
@@ -827,8 +866,8 @@ def _read_large_text(p: Path, info: Dict[str, Any], *, enc: str, head: int,
     Numérotation au saut de ligne ``\\n`` (celle de ``grep -n`` et des
     éditeurs). Modes : head, tail, plage start/end, grep (+contexte), et par
     défaut un aperçu tête + queue."""
-    from collections import deque
     import hashlib as _hl
+    from collections import deque
     info = dict(info)
     info["streamed"] = True
     # Empreinte et nombre de lignes en UNE passe (AUDIT 2026-09-26 : deux
@@ -3448,8 +3487,7 @@ Safety:
                         # un nom occupé par un lien écrivait À TRAVERS lui, hors
                         # du bac à sable. Les liens de la SOURCE sont recopiés
                         # tels quels (SECURITY F5 : jamais déréférencés).
-                        from shared_infra.sandbox.paths import (
-                            copytree_beneath, write_beneath)
+                        from shared_infra.sandbox.paths import copytree_beneath, write_beneath
                         # Source ouverte sans suivre de lien, elle aussi
                         # (2026-09-29) : dossier par descripteur, fichier lu
                         # sur son inode.

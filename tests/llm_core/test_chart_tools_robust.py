@@ -24,8 +24,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from llm_core.tools.chart_tools import (  # noqa: E402
-    _num, _c, _validate_datasets,
-    _build_gauge, _build_waterfall, _build_funnel, _build_progress, _build_heatmap,
+    _build_funnel,
+    _build_gauge,
+    _build_heatmap,
+    _build_progress,
+    _build_waterfall,
+    _c,
+    _num,
+    _validate_datasets,
 )
 
 COLORS = _c(8, "vibrant")

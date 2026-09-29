@@ -12,7 +12,7 @@ Tested at the method layer with a fake docker CLI — no Docker required.
 """
 import pytest
 
-from shared_infra.sandbox.executors._user_sandbox import UserSandbox, _PERMS_MARKER
+from shared_infra.sandbox.executors._user_sandbox import _PERMS_MARKER, UserSandbox
 
 
 class _FakeCli:
@@ -94,7 +94,9 @@ def test_every_marker_generation_stays_out_of_the_work_subdir():
     work-subdir les déplacerait dans ``P/work`` (visibles/supprimables depuis
     le conteneur)."""
     from shared_infra.sandbox.paths import (
-        _PERMS_MARKER as _cur, _PERMS_MARKER_LEGACY as _legacy, _WORK_RESERVED,
+        _PERMS_MARKER as _cur,
+        _PERMS_MARKER_LEGACY as _legacy,
+        _WORK_RESERVED,
     )
     assert _cur in _WORK_RESERVED
     for name in _legacy:

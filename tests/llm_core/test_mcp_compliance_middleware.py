@@ -16,7 +16,9 @@ if str(ROOT) not in sys.path:
 from fastmcp import Client, FastMCP  # noqa: E402
 
 from llm_core.tools._mcp_compliance_middleware import (  # noqa: E402
-    ToolRateLimit, TitleFiller, _titleize,
+    TitleFiller,
+    ToolRateLimit,
+    _titleize,
 )
 
 

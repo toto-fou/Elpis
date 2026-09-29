@@ -24,12 +24,17 @@ import logging
 import time
 from typing import Any, Dict, List, Tuple
 
-from shared_infra.observability.usage_store import db_conn
 from shared_infra.db._dialect import greatest, local_part_int
 from shared_infra.observability.metrics.engine import MetricProvider
 from shared_infra.observability.metrics.series import (
-    PALETTE, aggregate_series, granularity_for, plan_buckets, resolve_tz, to_chart,
+    PALETTE,
+    aggregate_series,
+    granularity_for,
+    plan_buckets,
+    resolve_tz,
+    to_chart,
 )
+from shared_infra.observability.usage_store import db_conn
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -104,7 +109,9 @@ def _usernames() -> Dict[int, str]:
 
 def business_hours_cfg() -> Tuple[int, int, List[int]]:
     from shared_infra.config import (
-        METRICS_BUSINESS_DAYS, METRICS_BUSINESS_END, METRICS_BUSINESS_START,
+        METRICS_BUSINESS_DAYS,
+        METRICS_BUSINESS_END,
+        METRICS_BUSINESS_START,
     )
     days: List[int] = []
     for part in str(METRICS_BUSINESS_DAYS or "").split(","):

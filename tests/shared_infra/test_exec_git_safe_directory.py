@@ -12,7 +12,9 @@ from pathlib import Path
 import pytest
 
 from shared_infra.sandbox.executors._user_sandbox import (
-    UserSandbox, SandboxAdminConfig, SandboxStatus,
+    SandboxAdminConfig,
+    SandboxStatus,
+    UserSandbox,
 )
 
 

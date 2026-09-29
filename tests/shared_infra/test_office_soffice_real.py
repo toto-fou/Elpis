@@ -20,8 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from shared_infra.sandbox import office_convert as oc
-from shared_infra.sandbox import office_preview as op
+from shared_infra.sandbox import office_convert as oc, office_preview as op
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("ELPIS_SOFFICE_TESTS") != "1" or not shutil.which("soffice"),

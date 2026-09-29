@@ -34,10 +34,10 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from shared_infra.security.audit import read_recent_audit_lines
 from shared_infra.accounts.users import get_user_by_id
-from shared_infra.security.deps import require_user_id
 from shared_infra.routes.admin._state import admin_router
+from shared_infra.security.audit import read_recent_audit_lines
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -122,6 +122,7 @@ def api_admin_obs_tool_failures(
         raise HTTPException(400, f"status must be one of {sorted(valid_statuses)}")
 
     import time as _time
+
     from shared_infra.observability.usage_store import db_conn
 
     since = _time.time() - hours * 3600
@@ -195,6 +196,7 @@ def api_admin_obs_tool_summary(
     limit = max(1, min(500, int(limit)))
 
     import time as _time
+
     from shared_infra.observability.usage_store import db_conn
 
     since = _time.time() - hours * 3600

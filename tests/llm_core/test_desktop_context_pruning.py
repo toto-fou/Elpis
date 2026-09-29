@@ -13,11 +13,11 @@ import copy
 import json
 
 from llm_core._chat_with_tools import (
-    _compact_desktop_elements,
-    _prune_old_vision_frames,
-    _action_cycle_signature,
-    _detect_action_cycle,
     _VISION_FRAME_PLACEHOLDER,
+    _action_cycle_signature,
+    _compact_desktop_elements,
+    _detect_action_cycle,
+    _prune_old_vision_frames,
 )
 
 

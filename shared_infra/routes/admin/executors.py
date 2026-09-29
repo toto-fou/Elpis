@@ -37,16 +37,18 @@ import shutil
 
 from fastapi import HTTPException, Request
 
-from shared_infra.security.audit import audit_event
 from shared_infra.config import read_config_json, write_config_json
 from shared_infra.routes._legacy import _require_admin
 from shared_infra.routes.admin._state import admin_router
-
 from shared_infra.sandbox.executors import (
-    find_image_archive, gc_idle_containers,
-    get_image_load_state, get_user_sandbox, load_admin_config,
+    find_image_archive,
+    gc_idle_containers,
+    get_image_load_state,
+    get_user_sandbox,
+    load_admin_config,
     reset_user_sandbox_cache,
 )
+from shared_infra.security.audit import audit_event
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -294,10 +296,12 @@ async def _find_stale_network_containers(profiles: list) -> list:
     jusqu'au prochain usage. Best-effort : toute erreur → liste vide.
     """
     try:
-        from shared_infra.sandbox.executors._user_sandbox import (
-            NetworkProfile, netcfg_hash, resolve_network_profile_id,
-        )
         from shared_infra.accounts.users import get_user_settings
+        from shared_infra.sandbox.executors._user_sandbox import (
+            NetworkProfile,
+            netcfg_hash,
+            resolve_network_profile_id,
+        )
         by_id = {p["id"]: NetworkProfile.from_dict(p) for p in profiles}
 
         from shared_infra.sandbox import naming as _naming

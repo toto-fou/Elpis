@@ -27,8 +27,8 @@ import logging
 import time
 from typing import Any, Dict
 
-from llm_core._llama_http import _llama_get, _llama_get_text, _llama_post
 from llm_core._health import _parse_prometheus_metrics
+from llm_core._llama_http import _llama_get, _llama_get_text, _llama_post
 from llm_core._model_info import (
     invalidate_context_size_cache,
     invalidate_total_slots_cache,

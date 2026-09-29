@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import pytest
 
-import llm_core.tools.fs_tools as F
 import llm_core.tools._exec_bridge as B
+import llm_core.tools.fs_tools as F
 
 
 @pytest.fixture()

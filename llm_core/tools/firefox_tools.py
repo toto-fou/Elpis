@@ -16,20 +16,41 @@ Companion tools (pw_expect, pw_chain, pw_mock, pw_recorder, pw_observe)
 live in firefox_tools_extras.py — register both for full feature set.
 """
 from __future__ import annotations
-import os, re, json, time, requests
-from typing import Dict, Any, List, Tuple, Union
+
+import json
+import os
+import re
+import time
+from typing import Any, Dict, List, Tuple, Union
+
+import requests
 from fastmcp import Context, FastMCP
 
-from ._toolkit import with_policy, Heartbeat  # politique par outil (P2), battement (P3)
-from ._toolkit import (
-    err as _tk_err, tool_kw, clip_text, get_username,
-    tool_kw_mutating, tool_kw_openworld,
-)
 from ._models import (
-    PWSessionResult, PWFindResult, PWActResult, PWPageResult,
-    PWExpectResult, PWWaitResult, PWChainResult, PWMockResult, PWRecorderResult,
-    PWObserveResult, PWMemoryResult, PWA11yResult, PWVisualResult,
     ErrEnvelope,
+    PWA11yResult,
+    PWActResult,
+    PWChainResult,
+    PWExpectResult,
+    PWFindResult,
+    PWMemoryResult,
+    PWMockResult,
+    PWObserveResult,
+    PWPageResult,
+    PWRecorderResult,
+    PWSessionResult,
+    PWVisualResult,
+    PWWaitResult,
+)
+from ._toolkit import (  # politique par outil (P2), battement (P3)
+    Heartbeat,
+    clip_text,
+    err as _tk_err,
+    get_username,
+    tool_kw,
+    tool_kw_mutating,
+    tool_kw_openworld,
+    with_policy,
 )
 
 # ── Category descriptor (see fs_tools.CATEGORY for the contract) ──────
@@ -130,10 +151,10 @@ def _clip_result(obj: Any, *, str_cap: int = 2000) -> Any:
 # n'est plus alimentée du tout — sans le moindre signal. On loggue donc
 # explicitement les deux cas, succès ET échec (avec l'exception).
 import logging as _ax_logging
+
 _ax_log = _ax_logging.getLogger("tools.firefox_tools.ax")
 try:
-    from shared_infra.memory.ax import record_action as _ax_record_action
-    from shared_infra.memory.ax import record_inspection as _ax_record_inspection
+    from shared_infra.memory.ax import record_action as _ax_record_action, record_inspection as _ax_record_inspection
     _AX_ENABLED = True
     _ax_log.info(
         "[ax] memory hooks ENABLED — record_action/record_inspection "

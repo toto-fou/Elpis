@@ -50,9 +50,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from . import client as ocr_client
-from . import convert as ocr_convert
-from . import store as ocr_store
+from . import client as ocr_client, convert as ocr_convert, store as ocr_store
 from ._common import OcrError
 from .config import apply_doc_model, get_ocr_config
 from .events import bus

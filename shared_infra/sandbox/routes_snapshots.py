@@ -70,13 +70,14 @@ from pathlib import Path
 from typing import AsyncGenerator, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, Request
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
-from shared_infra.config import SANDBOX_DIR, read_config_json
 from shared_infra.accounts.users import get_username_by_id
-from shared_infra.security.deps import require_user_id
+from shared_infra.config import SANDBOX_DIR, read_config_json
 from shared_infra.routes._state import router
 from shared_infra.sandbox.paths import SandboxPathError, open_beneath, widen_beneath
+from shared_infra.security.deps import require_user_id
+
 
 # ── Réutilisation du helper de path sandbox défini dans _legacy.
 #

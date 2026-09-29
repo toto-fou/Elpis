@@ -17,6 +17,7 @@ def base(tmp_path, monkeypatch):
     monkeypatch.setattr(legacy, "DB_PATH", str(tmp_path / "app.db"))
     legacy.init_db()
     from shared_infra.accounts.users import create_user
+
     # Clé étrangère vers users : les deux comptes existent (ids 7 et 8 forcés).
     from shared_infra.db._connection import db_conn
     for uid, name in ((7, "sept"), (8, "huit")):

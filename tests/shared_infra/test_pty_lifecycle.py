@@ -25,6 +25,7 @@ pytestmark = pytest.mark.skipif(sys.platform != "linux", reason="PTY = Linux onl
 # récupère alors le module STDLIB ``pty`` (importé ``as _pty`` ailleurs).
 # Import par nom qualifié via importlib (insensible au shadowing).
 import importlib
+
 ptymod = importlib.import_module("shared_infra.terminal.pty")
 
 

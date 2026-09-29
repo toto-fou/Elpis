@@ -23,12 +23,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import re as _re
 import time
 from typing import Any, Dict, Optional
 
-import logging
 logger = logging.getLogger("uvicorn.error")
 
 

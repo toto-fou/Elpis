@@ -271,6 +271,7 @@ def test_le_manifeste_de_reference_du_depot_est_valide():
 def routes_client(monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
     import shared_infra.mcp.panel as panel
     from shared_infra.routes._state import router
     from shared_infra.routes.admin._state import admin_router
@@ -332,7 +333,7 @@ def test_la_route_de_chat_joint_le_toolhost_du_manifeste():
 
 
 def test_socle_des_agents_custom_suit_default_on(manifest_file, monkeypatch):
-    from llm_core.tools.task_tool import custom_default_categories, CUSTOM_DEFAULT_CATEGORIES
+    from llm_core.tools.task_tool import CUSTOM_DEFAULT_CATEGORIES, custom_default_categories
     monkeypatch.setenv("APP_MCP_MANIFEST", "/nonexistent/mcp.json")
     assert custom_default_categories() == list(CUSTOM_DEFAULT_CATEGORIES)
     monkeypatch.setenv("T_MCP_TOKEN", "t")

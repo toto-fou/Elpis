@@ -151,6 +151,7 @@ def test_historique_garde_l_antislash(tmp_path):
 
 def test_releve_des_commandes_ne_bloque_pas_sur_une_fifo(tmp_path):
     import threading
+
     from llm_core.tools import _work_changes as wc
     os.mkfifo(tmp_path / "fifo")
     (tmp_path / "ok.txt").write_text("ok")

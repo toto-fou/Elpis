@@ -9,9 +9,9 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from shared_infra.env_compat import env  # noqa: F401  (réexporté)
-from typing import Any, Dict, List, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BACKEND_DIR = Path(__file__).resolve().parent

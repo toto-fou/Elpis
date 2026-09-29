@@ -17,7 +17,9 @@ import shutil
 from pathlib import Path
 
 from llm_core.memory._scope import (
-    MEMORY_SUBDIR, LEGACY_MEMORY_SUBDIR, safe_username,
+    LEGACY_MEMORY_SUBDIR,
+    MEMORY_SUBDIR,
+    safe_username,
 )
 
 logger = logging.getLogger("uvicorn.error")

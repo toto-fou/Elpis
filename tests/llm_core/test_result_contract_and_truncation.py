@@ -21,7 +21,6 @@ import pytest
 
 from llm_core.engine.result_contract import result_is_error
 
-
 # ── Q1 : classifieur partagé ─────────────────────────────────────────────
 
 def test_result_is_error_contract():
@@ -225,7 +224,7 @@ def test_flatten_tool_messages_preserve_la_queue():
 # ── Q2-S : marqueurs sur coupes silencieuses ─────────────────────────────
 
 def test_rag_excerpt_clip_marker():
-    from llm_core.tools.rag_tools import _clip_excerpt, _DEFAULT_SEARCH_MAX_CHARS
+    from llm_core.tools.rag_tools import _DEFAULT_SEARCH_MAX_CHARS, _clip_excerpt
     short = "z" * 100
     assert _clip_excerpt(short) == short
     long = "z" * (_DEFAULT_SEARCH_MAX_CHARS + 700)

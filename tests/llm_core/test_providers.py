@@ -14,9 +14,7 @@ import json
 import pytest
 
 from llm_core import _target as T
-from llm_core.providers import anthropic as A
-from llm_core.providers import discovery as D
-from llm_core.providers import openai_compat as OAI
+from llm_core.providers import anthropic as A, discovery as D, openai_compat as OAI
 
 
 # ── Fake httpx client (stream + get) ──────────────────────────────────────────
@@ -394,8 +392,7 @@ async def test_remote_llamacpp_keeps_payload_optimizations(monkeypatch):
     ``/props``, sondes envoyées à SA racine — jamais au ``LLAMA_URL`` local
     (l'ancien contrat « on saute tout » laissait un connecteur llama.cpp sans
     fenêtre réelle ni épinglage de slot)."""
-    from llm_core import _chat_classic, _llm_params
-    from llm_core import _llama_http as LH
+    from llm_core import _chat_classic, _llama_http as LH, _llm_params
     from llm_core._target import use_llm_target
     from llm_core.engines import current_engine
     from shared_infra.config import LLAMA_URL

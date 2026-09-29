@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import secrets
 import time
@@ -42,12 +43,18 @@ from typing import Any, Dict, Optional, Tuple
 from fastapi import HTTPException, Request  # noqa: F401  — kept for symmetry / future
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from shared_infra.security.deps import require_user_id
-from shared_infra.observability.tracing import swallow
-from shared_infra.observability.usage_ctx import set_usage_context, usage_scope
-from shared_infra.db import (
-    log_metric,
+from llm_core import (
+    apply_rag,
+    llama_chat,
+    llama_chat_stream_tokens,
+    run_chat_multi_mcp,
 )
+
+# Import au niveau MODULE : ce nom sert dans une clause ``except`` (cf. D2).
+# Importé dans le corps de la coroutine, il n'existerait pas si l'exception
+# survenait avant sa ligne d'import — le gestionnaire lèverait alors un
+# NameError en masquant l'erreur d'origine.
+from llm_core._scheduling import LLMQueueAborted
 from shared_infra.accounts.users import (
     get_user_settings,
     get_username_by_id,
@@ -59,18 +66,15 @@ from shared_infra.chat.store import (
     set_title_if_default,
     upsert_chat,
 )
-from llm_core import (
-    apply_rag,
-    llama_chat,
-    llama_chat_stream_tokens,
-    run_chat_multi_mcp,
+from shared_infra.db import (
+    log_metric,
 )
-# Import au niveau MODULE : ce nom sert dans une clause ``except`` (cf. D2).
-# Importé dans le corps de la coroutine, il n'existerait pas si l'exception
-# survenait avant sa ligne d'import — le gestionnaire lèverait alors un
-# NameError en masquant l'erreur d'origine.
-from llm_core._scheduling import LLMQueueAborted
+from shared_infra.observability.events_bus import CURRENT_LOADED_MODELS, _refresh_model_cache, system_events
+from shared_infra.observability.tracing import swallow
+from shared_infra.observability.usage_ctx import set_usage_context, usage_scope
+from shared_infra.routes._helpers import _msg_text, _ndjson_line, last_user_text, recent_user_text
 from shared_infra.routes._state import (
+    _active_chat_tasks,
     clear_chat_cancellation,
     is_chat_cancelled,
     is_generation_active,
@@ -78,13 +82,9 @@ from shared_infra.routes._state import (
     register_chat_task,
     router,
     unregister_chat_task,
-    _active_chat_tasks,
 )
+from shared_infra.security.deps import require_user_id
 
-from shared_infra.observability.events_bus import CURRENT_LOADED_MODELS, _refresh_model_cache, system_events
-from shared_infra.routes._helpers import _msg_text, _ndjson_line, last_user_text, recent_user_text
-
-import logging
 logger = logging.getLogger("uvicorn.error")
 
 # Références FORTES des tâches fire-and-forget de ce module (cf. M3 de l'audit
@@ -677,7 +677,8 @@ async def _cancel_engine_stream(user_id, chat_id: str) -> None:
             return
         from llm_core._client import _get_llm_client
         from llm_core.providers.llama_stream import (
-            cancel_stream, conversation_id,
+            cancel_stream,
+            conversation_id,
         )
         conv = conversation_id(user_id, chat_id)
         if not conv:
@@ -1807,8 +1808,7 @@ async def api_chat_run_events(chat_id: str, request: Request):
     le dossier est indexé par l'utilisateur de la SESSION : impossible de lire
     le run d'un autre compte."""
     user_id = require_user_id(request)
-    from shared_infra.runtime import run_journal as _rj
-    from shared_infra.runtime import chat_locks as _cl
+    from shared_infra.runtime import chat_locks as _cl, run_journal as _rj
     cur = await asyncio.to_thread(_rj.current_run, user_id, chat_id)
     run_id = (request.query_params.get("run_id") or "").strip() or (cur or {}).get("run_id")
     if not cur or not run_id or cur.get("run_id") != run_id:
@@ -1947,9 +1947,8 @@ def api_chat_compression_state(chat_id: str, request: Request):
     from shared_infra import config as _cfg
     with swallow("chat.api_chat_compression_state"):
         _cfg.reload_compression_config_from_disk()
-    from llm_core.conversation_compressor import (
-        _count_turns, apply_persisted_state, extract_compression_state)
     from llm_core.context.tokens import measured_prompt_tokens
+    from llm_core.conversation_compressor import _count_turns, apply_persisted_state, extract_compression_state
 
     _msgs = [m for m in (chat.get("messages") or [])
              if isinstance(m, dict) and m.get("role") != "system"]
@@ -2091,9 +2090,12 @@ async def api_chat_manual_compress(chat_id: str, request: Request):
         from llm_core.context.compaction_gate import resolve_max_rounds
         _user_max_rounds = resolve_max_rounds(get_user_settings(user_id))
         from llm_core.conversation_compressor import (
-            _strip_summary_messages, apply_persisted_state,
-            build_state_system_message, extract_compression_state,
-            maybe_compress_conversation)
+            _strip_summary_messages,
+            apply_persisted_state,
+            build_state_system_message,
+            extract_compression_state,
+            maybe_compress_conversation,
+        )
 
         persisted = chat.get("messages") or []
         prev_state = extract_compression_state(persisted)
@@ -2358,8 +2360,7 @@ async def api_chat_saved_stream3(request: Request):
     # utilisateur / groupe (``engine_access``) doit être appliquée ICI, pas
     # seulement dans la liste du sélecteur. Refus = 409 explicite que le front
     # affiche et qui lui fait purger la sélection.
-    from llm_core._target import EngineUnavailable as _EngineUnavailable
-    from llm_core._target import resolve_llm_target as _resolve_target
+    from llm_core._target import EngineUnavailable as _EngineUnavailable, resolve_llm_target as _resolve_target
     try:
         _cid_int = int(connector_id) if connector_id not in (None, "", 0, "0") else None
     except (TypeError, ValueError):
@@ -2449,8 +2450,10 @@ async def api_chat_saved_stream3(request: Request):
     # qu'un id ; l'URL et l'auth viennent toujours du magasin serveur.
     if active_mcp_servers:
         from shared_infra.mcp.servers import (
-            resolve_config as _resolve_shared, shared_id as _shared_id,
-            resolve_personal as _resolve_perso, client_builtin_ref as _builtin_ref,
+            client_builtin_ref as _builtin_ref,
+            resolve_config as _resolve_shared,
+            resolve_personal as _resolve_perso,
+            shared_id as _shared_id,
         )
         # Un serveur perso ``stdio`` n'est spawné que pour un administrateur
         # plein (2026-09-20, cf. servers.StdioNotAllowed).
@@ -2776,9 +2779,10 @@ async def api_chat_saved_stream3(request: Request):
         _mem_manager = None
         _memory_block = ""
 
-    from llm_core._system_prompts import assemble_system_messages
     # Date du jour en anglais (tête système full-EN ; indépendant de la locale).
     import datetime as _dt
+
+    from llm_core._system_prompts import assemble_system_messages
     _EN_MONTHS = ("January", "February", "March", "April", "May", "June", "July",
                   "August", "September", "October", "November", "December")
     _n = _dt.datetime.now()
@@ -2858,8 +2862,7 @@ async def api_chat_saved_stream3(request: Request):
     _baseline_title = ((_existing_chat or {}).get("title") or "") if _existing_chat else ""
     try:
         if _existing_chat:
-            from llm_core.conversation_compressor import (
-                apply_persisted_state, extract_compression_state)
+            from llm_core.conversation_compressor import apply_persisted_state, extract_compression_state
             _compr_prev_state = extract_compression_state(_existing_chat.get("messages") or [])
             if _compr_prev_state:
                 msgs_for_llm, _compr_prev_state = apply_persisted_state(
@@ -3126,8 +3129,7 @@ async def api_chat_saved_stream3(request: Request):
                 # généralement disparu).
                 if _chat_read_failed and _compr_prev_state is None:
                     try:
-                        from llm_core.conversation_compressor import (
-                            extract_compression_state as _extract_st)
+                        from llm_core.conversation_compressor import extract_compression_state as _extract_st
                         # Helper SYNC (chemin d'échec rare — la lecture
                         # initiale a raté) : lecture directe assumée.
                         _re = get_chat(user_id, chat_id)
@@ -3145,8 +3147,7 @@ async def api_chat_saved_stream3(request: Request):
                     _st = _compr_prev_state
                 if not _st:
                     return _full
-                from llm_core.conversation_compressor import (
-                    _strip_summary_messages, build_state_system_message)
+                from llm_core.conversation_compressor import _strip_summary_messages, build_state_system_message
                 _state_msg = build_state_system_message(
                     _st["summary_xml"],
                     int(_st.get("round") or 1),
@@ -3251,15 +3252,6 @@ async def api_chat_saved_stream3(request: Request):
                 metrics = {}
                 assistant = ""
 
-                from llm_core import llm_scheduling_guard, resolve_scheduling_mode, run_chat_multi_mcp_v2, record_llm_duration
-                # AUDIT 2026-08-23 — variante ASYNC. La SYNC ne voit ni le
-                # snapshot Redis (donc rien de ce que tiennent les autres
-                # workers) ni l'inventaire autoritaire du moteur : sous Redis
-                # elle rendait toujours « ready », et le front affichait
-                # « vous êtes 1er · ~15 s » à qui attendait derrière une
-                # mission de plusieurs heures sur un autre worker.
-                from llm_core._queue import get_queue_status_for_async
-
                 # AUDIT 2026-08-23 — on suit ce qui est RÉELLEMENT parti vers
                 # le client, pas ce que disait l'instantané. Celui-ci est pris
                 # AVANT le guard et ment volontiers : ``get_queue_status_for``
@@ -3281,7 +3273,21 @@ async def api_chat_saved_stream3(request: Request):
                 # « Chargement de <modèle>… » d'après l'état du serveur local,
                 # et surveillait son /models/sse. Contextvar : propre à cette
                 # tâche, la ré-affectation plus bas est idempotente.
-                from llm_core import set_llm_target as _set_target_early
+                from llm_core import (
+                    llm_scheduling_guard,
+                    record_llm_duration,
+                    resolve_scheduling_mode,
+                    run_chat_multi_mcp_v2,
+                    set_llm_target as _set_target_early,
+                )
+
+                # AUDIT 2026-08-23 — variante ASYNC. La SYNC ne voit ni le
+                # snapshot Redis (donc rien de ce que tiennent les autres
+                # workers) ni l'inventaire autoritaire du moteur : sous Redis
+                # elle rendait toujours « ready », et le front affichait
+                # « vous êtes 1er · ~15 s » à qui attendait derrière une
+                # mission de plusieurs heures sur un autre worker.
+                from llm_core._queue import get_queue_status_for_async
                 _set_target_early(_target)
                 _qstatus = await get_queue_status_for_async(selected_model)
                 if _qstatus.get("kind") != "ready":
@@ -3362,8 +3368,9 @@ async def api_chat_saved_stream3(request: Request):
                         _title_task = asyncio.create_task(_generate_chat_title(
                             selected_model, _title_content, "", chat_id=chat_id))
                     if not _use_mcp_path:
-                        from shared_infra.config import LLAMA_MODEL as _LLAMA_MODEL
                         import time as _time
+
+                        from shared_infra.config import LLAMA_MODEL as _LLAMA_MODEL
                         _start = _time.time()
                         # AUDIT 2026-08-02 (M3) — ``content_chunks`` supprimé :
                         # il accumulait CHAQUE token de la réponse (25 000
@@ -3396,11 +3403,11 @@ async def api_chat_saved_stream3(request: Request):
                                 _ctx_tok = 0
 
                         if _target.is_llamacpp:
-                            from llm_core.conversation_compressor import maybe_compress_conversation
                             # Chemin SANS outils : un seul appel LLM par tour,
                             # donc ce point EST la tête de tour — le seuil du
                             # compte s'applique pleinement (rien à couper).
                             from llm_core.context.compaction_gate import compaction_gate as _cgate
+                            from llm_core.conversation_compressor import maybe_compress_conversation
                             # ``thinking_mode=False`` : PARITÉ STRICTE avec le
                             # repli que ``maybe_compress_conversation`` faisait
                             # lui-même jusqu'ici sur ce chemin. À seuil « auto »

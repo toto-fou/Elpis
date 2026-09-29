@@ -56,11 +56,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
-from . import client as ocr_client
-from . import jobs as ocr_jobs
-from . import queue as ocr_queue
-from . import rag_index as ocr_rag
-from . import store as ocr_store
+from . import client as ocr_client, jobs as ocr_jobs, queue as ocr_queue, rag_index as ocr_rag, store as ocr_store
 from ._common import OcrError
 from ._uploads import save_upload_bounded
 from .config import apply_doc_model, get_ocr_config, ocr_feature_enabled

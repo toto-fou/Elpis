@@ -20,9 +20,8 @@ Audit 2026-08-08.
 """
 import inspect
 
-from shared_infra.routes import _helpers as H
 import shared_infra.routes.admin.users as AU
-
+from shared_infra.routes import _helpers as H
 
 # ── Vue admin ────────────────────────────────────────────────────────────
 

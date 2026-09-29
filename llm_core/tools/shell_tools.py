@@ -46,15 +46,18 @@ from typing import Any, Dict, Optional, Union
 
 from fastmcp import Context, FastMCP
 
-from ._toolkit import (
-    err, tool_kw, get_username,
-    tool_kw_mutating, _read_meta_field,
-)
-from ._models import ExecuteShellResult, BackgroundShellResult, ErrEnvelope
-
-from llm_core.tools._exec_bridge import run_shell_via_executor
 from llm_core.context.budget import BUDGET as _BUDGET
+from llm_core.tools._exec_bridge import run_shell_via_executor
 from shared_infra.accounts.users import get_user as _get_user
+
+from ._models import BackgroundShellResult, ErrEnvelope, ExecuteShellResult
+from ._toolkit import (
+    _read_meta_field,
+    err,
+    get_username,
+    tool_kw,
+    tool_kw_mutating,
+)
 
 DEFAULT_TIMEOUT_S = 120         # aligné OpenCode (builds/tests réels > 30 s)
 MAX_TIMEOUT_S     = 600         # long test suites need headroom

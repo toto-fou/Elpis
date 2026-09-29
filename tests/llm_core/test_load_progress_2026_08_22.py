@@ -32,8 +32,7 @@ from __future__ import annotations
 
 import pytest
 
-from llm_core.providers import llama_caps as lc
-from llm_core.providers import llama_models as lm
+from llm_core.providers import llama_caps as lc, llama_models as lm
 
 MODELE = "Qwen3.8-27B-long"
 

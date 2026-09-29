@@ -66,8 +66,8 @@ def test_active_account_session_is_valid(user_db):
 def test_deleted_account_session_is_rejected(user_db):
     """C1 : une fois la ligne ``users`` supprimée, toute session portant cet
     uid doit être rejetée (fail-closed), pas silencieusement tolérée."""
-    from shared_infra.security.deps import _session_validity_checks
     from shared_infra.db import _connection as _legacy
+    from shared_infra.security.deps import _session_validity_checks
 
     # Session valide tant que le compte existe…
     assert _session_validity_checks(

@@ -169,8 +169,7 @@ def test_titre_pose_au_debut_du_tour_sans_toucher_la_garde(base):
     import inspect
 
     import chatbot_app.routes.chats as ch
-    from shared_infra.chat.store import (get_chat, rename_chat,
-                                         set_title_if_default, upsert_chat)
+    from shared_infra.chat.store import get_chat, rename_chat, set_title_if_default, upsert_chat
 
     upsert_chat(1, "c1", "Nouveau chat", [], 1000.0)
     assert set_title_if_default(1, "c1", "Question LENT un") is True

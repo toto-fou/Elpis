@@ -151,8 +151,8 @@ async def admin_database_migrate(request: Request):
     _require_admin(request)
     body = await request.json()
     target = _target(body)
-    from shared_infra.ops import db_switch
     from shared_infra.db._connection import DB_BACKEND
+    from shared_infra.ops import db_switch
     if not target.get("password"):
         # Mot de passe de la cible enregistrée, sinon celui de la base active.
         from shared_infra import config as cfg

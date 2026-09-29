@@ -62,7 +62,7 @@ def _convert(srv: dict) -> tuple[dict, bool]:
             return srv, True
         return srv, False
 
-    from shared_infra.security.encryption import encrypt      # import tardif : clé lue ici
+    from shared_infra.security.encryption import encrypt  # import tardif : clé lue ici
     enc = encrypt(secret)
 
     srv.pop("basic_auth", None)

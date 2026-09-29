@@ -53,8 +53,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from shared_infra.mcp.families import (
-    FAMILY_CATEGORY, FAMILY_NAMES, DEFAULT_OPENCODE_EXCLUDE,
-    parse_families, parse_family_set,
+    DEFAULT_OPENCODE_EXCLUDE,
+    FAMILY_CATEGORY,
+    FAMILY_NAMES,
+    parse_families,
+    parse_family_set,
 )
 
 logger = logging.getLogger("uvicorn.error")

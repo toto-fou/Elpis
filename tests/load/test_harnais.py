@@ -22,7 +22,6 @@ if str(ROOT) not in sys.path:
 
 from tests.load import budgets, metrics, scenarios  # noqa: E402
 
-
 # ── Percentiles ─────────────────────────────────────────────────────────────
 
 def test_percentile_sur_une_serie_connue():

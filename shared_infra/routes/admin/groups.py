@@ -14,25 +14,24 @@ from fastapi import HTTPException, Request
 
 from shared_infra.accounts.groups import (
     create_group,
+    delete_group,
     get_group,
     list_groups,
-    update_group,
-    delete_group,
     set_user_groups,
+    update_group,
 )
 from shared_infra.accounts.users import (
     get_user_by_id,
 )
-from shared_infra.security.audit import audit_event
-from shared_infra.security.deps import require_user_id
 from shared_infra.routes._helpers import _require_admin
 
 # Helpers shared with _legacy. Single source of truth.
-
 # Routers — owned by ``_state``. We import them so endpoint decorators
 # below register on the SAME singleton router instances mounted by
 # ``app.py`` / ``admin_app.py``.
 from shared_infra.routes.admin._state import admin_router
+from shared_infra.security.audit import audit_event
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 

@@ -20,10 +20,14 @@ import pytest
 
 from shared_infra.sandbox.executors import _privdrop
 from shared_infra.sandbox.executors._user_sandbox import (
-    UserSandbox, SandboxAdminConfig, SandboxStatus,
+    SandboxAdminConfig,
+    SandboxStatus,
+    UserSandbox,
 )
 from shared_infra.terminal.pty import (
-    _build_pty_docker_cmd, _PTY_EXEC_USER, _PTY_PRIVDROP_WRAP,
+    _PTY_EXEC_USER,
+    _PTY_PRIVDROP_WRAP,
+    _build_pty_docker_cmd,
 )
 
 SETPRIV = ["setpriv", "--reuid=10001", "--regid=10001",

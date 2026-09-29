@@ -13,7 +13,6 @@ import pathlib
 
 import pytest
 
-
 HARNESS = pathlib.Path("llm_core/_chat_with_tools.py")
 TOOL_EXEC = pathlib.Path("llm_core/engine/tool_exec.py")
 

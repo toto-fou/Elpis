@@ -20,7 +20,6 @@ import json
 import pytest
 
 import llm_core._chat_with_tools as _cwt
-
 from tests.llm_core.goldens_harness import (
     assert_matches_golden,
     builtin_tools,

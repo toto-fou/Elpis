@@ -192,11 +192,11 @@ async def build_llama_payload(
         # (champ inconnu = ignoré, vérifié en live sur b10545) : aucun risque
         # de refus. Le bénéfice du doute leur revient donc — seul un build
         # LU et trop ancien les retire (cf. ``llama_caps``, ``_not_older``).
+        from llm_core.providers.llama_caps import engine_caps as _eng_caps
         from shared_infra.config import (
             LLAMA_RETURN_PROGRESS as _RET_PROG,
             LLAMA_SSE_PING_INTERVAL_S as _PING_S,
         )
-        from llm_core.providers.llama_caps import engine_caps as _eng_caps
         _caps = await _eng_caps()
         if _RET_PROG and _caps.payload_return_progress:
             payload["return_progress"] = True

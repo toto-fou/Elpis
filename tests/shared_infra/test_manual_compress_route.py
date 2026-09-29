@@ -43,7 +43,7 @@ def client(tmp_path, monkeypatch):
     assert create_user("alice", "pw-alice") == 1
 
     import chatbot_app.routes.chats as chats_mod
-    import chatbot_app.routes.saved_chats as saved_mod   # enregistre PUT save-messages
+    import chatbot_app.routes.saved_chats as saved_mod  # enregistre PUT save-messages
 
     def _fake_uid(request: Request):
         uid = request.headers.get("x-test-user")
@@ -327,8 +327,8 @@ def test_compress_manuel_disponible_meme_auto_desactivee(client, monkeypatch):
 def test_save_messages_garde_le_registre_d_artefacts(client):
     """(2026-09-21, B6) Le carry-forward de save-messages reconstruisait l'état
     SANS ``ledger_block`` : le registre d'artefacts disparaissait."""
-    from llm_core.conversation_compressor import build_state_system_message
     from llm_core.context.compression.serializer import render_artifact_ledger
+    from llm_core.conversation_compressor import build_state_system_message
     tc, _, get_chat, upsert = client
     bulles = _conv(8)
     ledger = render_artifact_ledger(["- write src/app.py (tour 3)"])

@@ -21,7 +21,6 @@ Cf. docs/editor-office-preview-design-2026-09-15.md
 from __future__ import annotations
 
 import asyncio
-
 import functools
 import hashlib
 import json
@@ -37,11 +36,10 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
-from shared_infra.sandbox import office_convert as oc
-from shared_infra.sandbox import office_xlsx as ox
+from shared_infra.observability.tracing import swallow
+from shared_infra.sandbox import office_convert as oc, office_xlsx as ox
 from shared_infra.sandbox.filetypes import OFFICE_KINDS
 from shared_infra.sandbox.office_convert import OfficeError
-from shared_infra.observability.tracing import swallow
 from shared_infra.sandbox.paths import SandboxPathError, resolve_under
 
 logger = logging.getLogger("uvicorn.error")

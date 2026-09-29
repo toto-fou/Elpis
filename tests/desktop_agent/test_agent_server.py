@@ -108,6 +108,7 @@ def test_encode_screenshot_default_png(srv):
 def test_gzip_response_header(srv):
     # gzip actif sur une réponse volumineuse quand le client l'accepte.
     import asyncio
+
     from httpx import ASGITransport, AsyncClient
 
     class _FB:

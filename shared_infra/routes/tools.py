@@ -30,19 +30,18 @@ were before)
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re as _re_pw
 
 import httpx
-
 from fastapi import File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 
-from shared_infra.security.deps import require_user_id
 from llm_core import get_pw_session_owner as _get_pw_owner
 from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
-import logging
 logger = logging.getLogger("uvicorn.error")
 
 
@@ -140,7 +139,7 @@ async def api_extract_text(request: Request, file: UploadFile = File(...)):
 @router.post("/api/tools/parse-file")
 async def api_parse_file(request: Request, file: UploadFile = File(...)):
     """Parse a binary file (pcap, etc.) into structured text for LLM analysis."""
-    from shared_infra.files.parsers import parse_file, SUPPORTED_EXTENSIONS
+    from shared_infra.files.parsers import SUPPORTED_EXTENSIONS, parse_file
     require_user_id(request)
     ext = ""
     if file.filename:

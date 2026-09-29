@@ -57,8 +57,14 @@ async def _main(args) -> int:
 
     import llm_core._chat_with_tools as _cwt
     from tests.llm_core.ctx_scale_harness import (
-        blob, compression_cfg, expected, fit_spy, hermetic_at_scale,
-        sse_final_scaled, sse_tool_call_scaled, tool_contents,
+        blob,
+        compression_cfg,
+        expected,
+        fit_spy,
+        hermetic_at_scale,
+        sse_final_scaled,
+        sse_tool_call_scaled,
+        tool_contents,
     )
 
     mp = _Patcher()

@@ -41,6 +41,7 @@ def client(monkeypatch):
     """Application FastAPI minimale portant la seule route testée."""
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
     import shared_infra.llm.routes as rl
 
     monkeypatch.setattr(rl, "require_user_id", lambda request: 1, raising=True)
@@ -146,6 +147,7 @@ def test_model_id_obligatoire(client, monkeypatch):
 def test_la_route_est_authentifiee(monkeypatch):
     from fastapi import FastAPI, HTTPException
     from fastapi.testclient import TestClient
+
     import shared_infra.llm.routes as rl
 
     def _refus(request):

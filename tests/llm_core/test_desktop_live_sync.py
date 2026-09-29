@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from llm_core.tools import desktop_tools as dt
 from llm_core import _desktop_replay as dr
+from llm_core.tools import desktop_tools as dt
 
 TGT = {"name": "t1", "agent_url": "http://agent", "os": "linux"}
 

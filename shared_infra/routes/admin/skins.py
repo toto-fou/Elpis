@@ -25,8 +25,8 @@ from fastapi import File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 
 from shared_infra.appearance import skins as S
-from shared_infra.routes.admin._state import admin_router
 from shared_infra.routes._helpers import _require_admin
+from shared_infra.routes.admin._state import admin_router
 
 
 def _payload() -> dict:

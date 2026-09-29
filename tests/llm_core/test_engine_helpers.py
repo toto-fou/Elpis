@@ -16,7 +16,6 @@ import json
 
 from llm_core._chat_with_tools import _result_is_error, _strip_tool_call_markup
 
-
 # ──────────────────────────────────────────────────────────────────────────
 # _result_is_error — l'incohérence natif/legacy corrigée
 # ──────────────────────────────────────────────────────────────────────────

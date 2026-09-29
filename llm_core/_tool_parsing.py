@@ -10,9 +10,10 @@ Handles the dialects emitted by different llama.cpp builds:
 from __future__ import annotations
 
 import json
-import re
 import logging
+import re
 from typing import Any, Dict, List, Optional, Tuple
+
 
 # ``_clean_json_text`` lives in ``_chat_with_tools``; importing it eagerly
 # at module load creates a cycle (``_chat_with_tools`` imports from us).

@@ -57,31 +57,29 @@ same names are also reachable via the package façade.
 from __future__ import annotations
 
 import asyncio
+import fcntl as _fcntl
 import logging
 import os
+import pty as _pty
 import re as _re_sid
 import secrets
+import struct as _struct
 import subprocess
-
-from shared_infra.sandbox.executors import _privdrop
+import termios as _termios
+import threading as _threading
 import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import pty as _pty
-import fcntl as _fcntl
-import struct as _struct
-import termios as _termios
-import threading as _threading
-
 from fastapi import HTTPException, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
-from shared_infra.config import read_config_json
 from shared_infra.accounts.users import (
     get_user_settings,
     get_username_by_id,
 )
+from shared_infra.config import read_config_json
+from shared_infra.sandbox.executors import _privdrop
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -717,8 +715,8 @@ def _insert_session_row(uid: int, tid: Optional[int], name: str) -> dict:
     _init_terminal_sessions_table()
     sid = _new_sid()
     now = int(time.time())
-    from shared_infra.observability.usage_store import db_conn
     from shared_infra.db._dialect import begin_write
+    from shared_infra.observability.usage_store import db_conn
     with db_conn() as conn:
         cur = conn.cursor()
         try:

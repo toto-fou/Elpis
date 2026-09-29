@@ -96,10 +96,10 @@ def _user_skills_dir(user_id: Optional[int]):
     if user_id is None:
         return None
     try:
-        from shared_infra.config import USER_SKILLS_DIR, safe_sandbox_name
-        from shared_infra.accounts.users import get_username_by_id
-        from shared_infra.routes._legacy import _get_sandbox_path
         from llm_core.skills import ensure_user_skills_store
+        from shared_infra.accounts.users import get_username_by_id
+        from shared_infra.config import USER_SKILLS_DIR, safe_sandbox_name
+        from shared_infra.routes._legacy import _get_sandbox_path
         username = get_username_by_id(user_id) or f"user_{user_id}"
         store = Path(USER_SKILLS_DIR) / safe_sandbox_name(username)
         try:
@@ -465,8 +465,8 @@ def _manifest_fragments() -> Dict[str, str]:
     nom de fichier simple (``system_prompts/<stem>.md``)."""
     out: Dict[str, str] = {}
     try:
-        from shared_infra.mcp.manifest import load as _mf_load
         from shared_infra.mcp.families import FAMILY_CATEGORY
+        from shared_infra.mcp.manifest import load as _mf_load
         for e in _mf_load().builtins():
             for k, stem in (e.prompt_fragments or {}).items():
                 stem = str(stem or "").strip()

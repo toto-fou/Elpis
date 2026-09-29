@@ -62,31 +62,28 @@ import re
 import secrets
 import time
 from contextlib import asynccontextmanager
-
-import httpx
 from contextvars import ContextVar
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from shared_infra.config import (
-    LLAMA_URL,
-    LLAMA_MODEL,
-    LLAMA_RESUMABLE_STREAM,
-    LLAMA_RETRIES,
-    LLAMA_TIMEOUT_SEC,
-)
-from shared_infra.db import log_metric
-from shared_infra.observability.tracing import swallow
-from shared_infra.observability.usage_ctx import record_turn_usage
-from llm_core._mcp_pool import mcp_pool, MCPQueueSaturated
+import httpx
+
+from llm_core import _tool_parsing  # module (lecture LAST_PARSE_DIAGNOSTIC, réaffecté)
 
 # Helpers from sibling submodules — the natural import targets after the
 # legacy split. We deliberately import through the canonical destination
 # rather than ``backend.services._legacy`` to avoid an import cycle.
 from llm_core._chat_classic import (
-    _coalesce_system_messages, _dump, _extract_thinking, _http_4xx,
+    _coalesce_system_messages,
+    _dump,
+    _extract_thinking,
+    _http_4xx,
     llama_chat,
 )
-from llm_core._think_resume import should_auto_resume, should_auto_resume_content
+from llm_core._desktop_session import (
+    _extract_desktop_frame,
+    desktop_frame_path,
+    register_desktop_frame_owner,
+)
 from llm_core._health import verify_llm_availability
 from llm_core._llm_retry import (
     KIND_CONTEXT_OVERFLOW as _KIND_CTX_OVERFLOW,
@@ -102,26 +99,28 @@ from llm_core._llm_retry import (
     llm_error_user_message as _llm_error_user_message,
     retry_pause as _llm_retry_pause,
 )
+from llm_core._mcp_pool import MCPQueueSaturated, mcp_pool
 from llm_core._mcp_wrappers import (
-    _resolve_mcp_client, mcp_tool_to_openai, _sanitize_schema_for_grammar,
+    _resolve_mcp_client,
+    _sanitize_schema_for_grammar,
     friendly_mcp_error as _friendly_mcp_error,
+    mcp_tool_to_openai,
 )
 from llm_core._metrics import calculate_metrics
 from llm_core._model_info import get_model_context_size
+from llm_core._pw_session import (
+    _extract_pw_screenshot_url,
+    _pw_verb_of,
+    _track_pw_session_ownership,
+)
+from llm_core._scheduling._guard import _emit
+from llm_core._stream_tag_parser import ThinkTagSplitter
+from llm_core._think_resume import should_auto_resume, should_auto_resume_content
 from llm_core._think_tokens import (
     measure_thinking_tokens,
     native_reasoning_tokens as _native_reasoning_tokens,
 )
-from llm_core._pw_session import (
-    _extract_pw_screenshot_url, _track_pw_session_ownership, _pw_verb_of,
-)
-from llm_core._desktop_session import (
-    _extract_desktop_frame, register_desktop_frame_owner, desktop_frame_path,
-)
-from llm_core._scheduling._guard import _emit
-from llm_core._stream_tag_parser import ThinkTagSplitter
 from llm_core._thinking_reconcile import reconcile_thinking_content
-from llm_core import _tool_parsing            # module (lecture LAST_PARSE_DIAGNOSTIC, réaffecté)
 from llm_core._tool_parsing import extract_tool_calls
 from llm_core._vision import (
     _clear_last_screenshot_for,
@@ -129,8 +128,16 @@ from llm_core._vision import (
     _model_supports_vision,
     _track_last_screenshot_for_vision,
 )
-
-
+from shared_infra.config import (
+    LLAMA_MODEL,
+    LLAMA_RESUMABLE_STREAM,
+    LLAMA_RETRIES,
+    LLAMA_TIMEOUT_SEC,
+    LLAMA_URL,
+)
+from shared_infra.db import log_metric
+from shared_infra.observability.tracing import swallow
+from shared_infra.observability.usage_ctx import record_turn_usage
 
 # Studio : un ``desktop_act`` du chat renvoie l'écran APRÈS l'action (sig + éléments).
 # ``result`` est coupé à 2000 caractères pour le panneau : le JSON est alors invalide
@@ -524,7 +531,9 @@ def _tool_is_internal(tool_name: str) -> bool:
 # Heuristique UNIQUE partagée par le chemin natif, le chemin legacy ET le
 # ledger de compression — source : ``engine.result_contract`` (l'historique
 # du BUG FIX natif/legacy vit dans la docstring du module partagé).
-from llm_core.engine.result_contract import result_is_error as _result_is_error  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+from llm_core.engine.result_contract import (
+    result_is_error as _result_is_error,  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+)
 
 
 def _result_is_tool_failure(result_content: Any) -> bool:
@@ -811,8 +820,8 @@ def _reasoning_cap_chars(payload: Dict[str, Any]) -> int:
         ``max_tokens`` — le cas de la réflexion volontairement non plafonnée
         en local — il n'y a pas de seuil du tout.
     """
-    from shared_infra.config import LLAMA_REASONING_SOFT_BUDGET_TOKENS as _soft
     from llm_core.context.tokens import CHARS_PER_TOKEN
+    from shared_infra.config import LLAMA_REASONING_SOFT_BUDGET_TOKENS as _soft
     caps = []
     if _soft and int(_soft) > 0:
         caps.append(int(_soft))
@@ -837,7 +846,9 @@ def _publish_completion(inner, sse, chat_id: Optional[str], model: str):
             return
         done[0] = True
         with swallow("harness.reasoning_control.note"):
+            from llm_core.engines import current_engine
             from shared_infra.llm.reasoning_control import note_completion
+
             # AUDIT 2026-09-01 (passe 6, B12) — l'écriture fichier (makedirs +
             # open + json.dump + os.replace) partait du callback de token, en
             # SYNC sur la boucle, une fois par itération de la boucle d'outils
@@ -848,7 +859,6 @@ def _publish_completion(inner, sse, chat_id: Optional[str], model: str):
             # de ``completion_id`` est capturée MAINTENANT, pas au moment où
             # le thread s'exécute.
             from shared_infra.runtime.ordered_io import submit_ordered
-            from llm_core.engines import current_engine
             _cid = sse.completion_id
             submit_ordered("reasoning_control.note", note_completion,
                            chat_id, _cid, model, current_engine().key)
@@ -977,10 +987,9 @@ async def _resume_cut_stream(client, target, conv_id: str, model: str,
     if isinstance(err, httpx.HTTPStatusError):
         return None
     base = _endpoint_base(getattr(target, "base_url", "") or LLAMA_URL)
-    from llm_core.providers.llama_stream import lookup_streams, resume_request
-    from llm_core.providers.llamacpp import consume_llama_sse, SseStreamResult
     from llm_core._stream_tag_parser import ThinkTagSplitter
-
+    from llm_core.providers.llama_stream import lookup_streams, resume_request
+    from llm_core.providers.llamacpp import SseStreamResult, consume_llama_sse
     from llm_core.providers.openai_compat import headers as _auth_headers
     _hdrs = _auth_headers(target)
     live = await lookup_streams(client, base, [conv_id], model, headers=_hdrs)
@@ -1170,16 +1179,17 @@ async def _llama_chat_with_tools_stream(
     # ``payload["thinking"]`` même en thinking_mode — thinking + tools[] → 400
     # côté llama.cpp ; le thinking passe par chat_template_kwargs (posé dans
     # build_llama_payload). Le ``task`` de sampling reflète quand même le mode.
-    from llm_core.providers.llamacpp import build_llama_payload as _build_payload
     from llm_core._llm_params import (
         sanitize_preserve_reasoning,
         sanitize_reasoning_effort,
     )
+
     # ── Transport selon la cible (connecteur) ─────────────────────────────
     # Défaut (llama.cpp intégré) : client partagé + LLAMA_URL + payload
     # inchangé. OpenAI-compatible distant : client dédié + URL chat/completions
     # + Bearer + retrait des champs llama-only (sinon 400 côté cloud).
     from llm_core.providers import openai_compat as _oai
+    from llm_core.providers.llamacpp import build_llama_payload as _build_payload
     client, _req_url, _req_headers = _oai.endpoint(_target)
     # ── Flux REPRENABLE (llama-server b10545+) ───────────────────────────────
     # Adosse la génération à une session nommée côté moteur : une coupure du
@@ -1195,7 +1205,6 @@ async def _llama_chat_with_tools_stream(
         # et surtout ``DELETE /v1/stream`` n'arrêterait rien, alors que tout
         # le contrat d'annulation repose dessus. Moteur non identifié ⇒ flux
         # non nommé, non reprenable : le comportement d'avant.
-        from llm_core.providers.llama_caps import engine_caps as _eng_caps
         # AUDIT 2026-08-23 — sonder la cible RÉELLE. Sans ``base_url``,
         # ``engine_caps`` retombe sur ``LLAMA_URL``, c'est-à-dire le moteur
         # LOCAL — alors que la garde d'entrée est ``_llama_native``, vraie
@@ -1208,9 +1217,11 @@ async def _llama_chat_with_tools_stream(
         # seule base : la sonde part avec l'en-tête d'auth (la base seule
         # rendait 401 sur un llama-server protégé par ``--api-key``).
         from llm_core.engines import current_engine as _cur_engine
+        from llm_core.providers.llama_caps import engine_caps as _eng_caps
         if (await _eng_caps(engine=_cur_engine())).resumable_stream:
             from llm_core.providers.llama_stream import (
-                conversation_id as _conv_of, headers_with_conv as _hdr_conv,
+                conversation_id as _conv_of,
+                headers_with_conv as _hdr_conv,
             )
             _conv_id = _conv_of(user_id, chat_id)
             _req_headers = _hdr_conv(_req_headers, _conv_id)
@@ -1480,7 +1491,8 @@ async def _llama_chat_with_tools_stream(
                 # l'identique. Le POST-traitement propre au chemin outils
                 # (récupération reasoning, forme de retour) reste ci-dessous.
                 from llm_core.providers.llamacpp import (
-                    consume_llama_sse, SseStreamResult,
+                    SseStreamResult,
+                    consume_llama_sse,
                 )
                 # ``sink`` dont les listes SONT nos buffers de garde
                 # (content_parts/thinking_parts) : consume_llama_sse les remplit
@@ -1563,8 +1575,7 @@ async def _llama_chat_with_tools_stream(
                     # sans effet si rien n'a été publié.
                     if chat_id and payload.get("reasoning_control"):
                         with swallow("harness.reasoning_control.clear"):
-                            from shared_infra.llm.reasoning_control import (
-                                clear_completion)
+                            from shared_infra.llm.reasoning_control import clear_completion
                             clear_completion(chat_id)
 
             # Le moteur a donné signe de vie pendant le silence du
@@ -2044,8 +2055,12 @@ def _length_cut_is_ctx_full(usage: Optional[Dict[str, Any]],
 # context_config.json → budgets.*). Depuis la bascule « réel seul »
 # (2026-07-12), la JAUGE de contexte n'estime plus rien : elle lit l'usage
 # réel renvoyé par le serveur en fin de requête (event kv_cache unique).
-from llm_core.context.budget import BUDGET as _BUDGET  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
-from llm_core.context.compaction_gate import CompactionThreshold  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+from llm_core.context.budget import (
+    BUDGET as _BUDGET,  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+)
+from llm_core.context.compaction_gate import (
+    CompactionThreshold,  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+)
 from llm_core.context.tokens import (  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
     # Point d'injection / ré-export (AUDIT 2026-08-30 / S6) — cf. le bloc
     # ``context.pruning`` plus bas : la suite s'adresse à ce module.
@@ -2075,26 +2090,28 @@ from llm_core.context.assembly import (  # noqa: E402 — import tardif voulu (d
     # d'entrée historique et la suite s'y adresse encore. Une passe de purge
     # automatique l'a retiré et a cassé la collecte de deux fichiers de tests —
     # d'où le ``noqa`` et cette note, pour que la prochaine s'arrête ici.
-    fold_operational_block as _fold_operational_block,          # noqa: F401
+    fold_operational_block as _fold_operational_block,  # noqa: F401
 )
 from llm_core.context.pruning import (  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+    _VISION_FRAME_PLACEHOLDER,  # noqa: F401
+    DESKTOP_TOOL_RESULT_MAX_CHARS as _DESKTOP_TOOL_RESULT_MAX_CHARS,  # noqa: F401
+    # Ré-exports — même raison que ci-dessus.
+    compact_desktop_elements as _compact_desktop_elements,  # noqa: F401
+    enforce_context_budget as _enforce_context_budget,  # noqa: F401
     ephemeral as _ephemeral_msg,
-    select_prune_keys as _select_prune_keys,
     fit_context as _fit_context,
     prepare_tool_result_for_model as _prepare_tool_result_for_model,
+    prune_old_vision_frames as _prune_old_vision_frames,  # noqa: F401
+    select_prune_keys as _select_prune_keys,
     strip_internal_keys as _strip_internal_keys,
     truncate_head_tail as _truncate_head_tail,
-    # Ré-exports — même raison que ci-dessus.
-    compact_desktop_elements as _compact_desktop_elements,      # noqa: F401
-    enforce_context_budget as _enforce_context_budget,          # noqa: F401
-    prune_old_vision_frames as _prune_old_vision_frames,        # noqa: F401
-    _VISION_FRAME_PLACEHOLDER,                                  # noqa: F401
-    DESKTOP_TOOL_RESULT_MAX_CHARS as _DESKTOP_TOOL_RESULT_MAX_CHARS,  # noqa: F401
 )
+
 # Harness d'exécution des tool_calls (série/parallèle) : PARTAGÉE par les deux
 # canaux natif/legacy (Phase 4 — retire ~110 lignes de duplication verbatim).
-from llm_core.engine.tool_exec import execute_tool_batch as _execute_tool_batch  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
-
+from llm_core.engine.tool_exec import (
+    execute_tool_batch as _execute_tool_batch,  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+)
 
 # Tools de la catégorie « memory » (Hermes) — gouvernées par un TOGGLE per-user
 # (défaut OFF), pas par le panneau d'outils ni le set caché toujours-actif.
@@ -4492,7 +4509,8 @@ async def _run_chat_multi_mcp_impl(
                         from shared_infra.config import reload_compression_config_from_disk
                         reload_compression_config_from_disk()
                     from llm_core.context.compaction_gate import (
-                        compaction_gate, gate_tokens,
+                        compaction_gate,
+                        gate_tokens,
                     )
                     _compr_gate = compaction_gate(
                         _ctx_size_for_compression,
@@ -4550,8 +4568,8 @@ async def _run_chat_multi_mcp_impl(
                         iteration, _occ, _usable_tok)
                 if _occ is not None and _occ >= _gate_tok:
                     from llm_core.conversation_compressor import (
-                        maybe_compress_conversation,
                         compression_was_attempted,
+                        maybe_compress_conversation,
                     )
                     async with _llm_slot():
                         working_messages, _compr_stats = await maybe_compress_conversation(
@@ -5181,8 +5199,7 @@ async def _run_chat_multi_mcp_impl(
             # recale la conversion utilisée pour matérialiser les coupes et
             # estimer les deltas sans I/O. Best-effort.
             with swallow("harness.run_chat_multi_mcp_impl.5"):
-                from llm_core.context.tokens import (
-                    count_image_blocks, note_real_usage, payload_chars)
+                from llm_core.context.tokens import count_image_blocks, note_real_usage, payload_chars
                 # Numérateur = chars des messages **+ schéma des outils**.
                 # Le dénominateur (``prompt_tokens``) facture tout le prompt,
                 # schéma d'outils compris (~30 Ko de JSON) : ne compter que
@@ -6322,8 +6339,8 @@ async def _run_chat_multi_mcp_impl(
                 # (le mémo négatif expire — cf. _llm_params, TTL des caches).
                 _cr_native_ok = False
                 with swallow("harness.content_resume_native_probe"):
-                    from llm_core._target import current_target as _ct3
                     from llm_core._llm_params import continue_final_support
+                    from llm_core._target import current_target as _ct3
                     _cr_native_ok = bool(
                         _ct3().is_llamacpp
                         and continue_final_support(
@@ -7084,6 +7101,7 @@ async def _run_chat_multi_mcp_impl(
 # suivent ``__wrapped__`` → l'iso-signature avec v2 et l'inspection de la
 # source de la boucle (tests longrun) voient la vraie impl, pas le wrapper.
 import functools as _functools  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+
 run_chat_multi_mcp = _functools.wraps(_run_chat_multi_mcp_impl)(_run_chat_multi_mcp_wrapper)
 
 

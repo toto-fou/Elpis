@@ -23,8 +23,6 @@ from typing import Any, Dict, List
 import pytest
 
 import llm_core._chat_with_tools as _cwt
-
-from tests.llm_core.goldens_harness import builtin_tools
 from tests.llm_core.ctx_scale_harness import (
     compression_cfg,
     hermetic_at_scale,
@@ -32,6 +30,7 @@ from tests.llm_core.ctx_scale_harness import (
     sse_final_scaled,
     sse_tool_call_scaled,
 )
+from tests.llm_core.goldens_harness import builtin_tools
 
 CTX = 32_768
 # n_ctx − cap de génération (0.4·n_ctx = 13 107) − buffer (0.10·n_ctx = 3 276).

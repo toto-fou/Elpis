@@ -29,6 +29,11 @@ from __future__ import annotations
 
 import pytest
 
+from llm_core._chat_with_tools import _flatten_tool_messages
+from llm_core.context.pruning import (
+    sanitize_message_history,
+    task_anchor_index,
+)
 from llm_core.conversation_compressor import (
     ConversationCompressor,
     _anchor_pin,
@@ -36,12 +41,6 @@ from llm_core.conversation_compressor import (
     _pin_task_anchor,
     _split_by_turn_index,
 )
-from llm_core.context.pruning import (
-    sanitize_message_history,
-    task_anchor_index,
-)
-from llm_core._chat_with_tools import _flatten_tool_messages
-
 
 _MISSION = ("Le but est de tester sur un long run les tools pour voir si le "
             "harness tient la route.")
@@ -237,7 +236,7 @@ def test_laplatissement_est_stable_quelle_que_soit_la_longueur(cycles):
 #  Ces filets vivent au point d'envoi parce que la queue de REPRISE est
 #  ajoutée APRÈS la vue d'envoi : un correctif posé plus haut ne la couvre pas.
 # ─────────────────────────────────────────────────────────────────────────────
-from llm_core.providers.llamacpp import (          # noqa: E402
+from llm_core.providers.llamacpp import (  # noqa: E402
     _coalesce_trailing_assistants,
     _ensure_user_query,
 )

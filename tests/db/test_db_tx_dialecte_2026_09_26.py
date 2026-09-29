@@ -9,8 +9,7 @@ l'appelant : ni commit forcé du travail d'autrui, ni autocommit qui fuit.
 """
 import pytest
 
-from shared_infra.db import _connection as _legacy
-from shared_infra.db import _dialect as D
+from shared_infra.db import _connection as _legacy, _dialect as D
 
 
 @pytest.fixture

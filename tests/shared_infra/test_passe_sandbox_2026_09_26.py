@@ -23,7 +23,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ── Archives ─────────────────────────────────────────────────────────────────
 
 def _tar(members):
@@ -61,8 +60,8 @@ def test_extraction_bornee_contenue(tmp_path):
 
 
 def test_zip_sur_disque_plafonne(tmp_path, monkeypatch):
-    from shared_infra.sandbox import routes_files as rf
     import shared_infra.config as cfg
+    from shared_infra.sandbox import routes_files as rf
     monkeypatch.setattr(cfg, "SANDBOX_DIR", tmp_path / "sb")
     src = tmp_path / "src"
     src.mkdir()
@@ -168,6 +167,7 @@ def test_verrou_de_cycle_de_vie_ne_fuit_pas(tmp_path, monkeypatch):
 
 async def test_verrou_inter_process_serialise(tmp_path, monkeypatch):
     import fcntl
+
     import shared_infra.config as cfg
     from shared_infra.sandbox.executors import _user_sandbox as us
     monkeypatch.setattr(cfg, "SANDBOX_DIR", tmp_path)
@@ -209,8 +209,9 @@ async def test_conteneur_arrete_par_le_gc_est_redemarre(monkeypatch, tmp_path):
 
 
 async def test_grant_tue_le_process_au_delai():
-    from shared_infra.sandbox.exec_bridge import _run_bounded
     import time
+
+    from shared_infra.sandbox.exec_bridge import _run_bounded
     t0 = time.monotonic()
     await _run_bounded(["sleep", "30"], 0.3)
     assert time.monotonic() - t0 < 5

@@ -31,10 +31,10 @@ from typing import Any, Dict, Optional
 
 from fastapi import HTTPException, Request
 
+from llm_core._rag_client import RagServiceError, ping
 from shared_infra.accounts.users import get_user_by_id
-from shared_infra.security.deps import require_user_id
 from shared_infra.routes.admin._state import admin_router
-from llm_core._rag_client import ping, RagServiceError
+from shared_infra.security.deps import require_user_id
 from shared_infra.voice.config import VOICE_DEFAULTS
 
 logger = logging.getLogger("uvicorn.error")

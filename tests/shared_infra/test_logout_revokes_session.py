@@ -27,6 +27,7 @@ def db(tmp_path, monkeypatch):
     test casse donc aussi si la migration diverge du code qui l'utilise.
     """
     import importlib
+
     import shared_infra.db._connection as legacy
 
     path = tmp_path / "test.db"
@@ -50,8 +51,7 @@ def db(tmp_path, monkeypatch):
 
 
 def test_revocation_ciblee_sur_une_seule_session(db):
-    from shared_infra.accounts.users import (
-        is_session_revoked, revoke_session_sid, purge_expired_revocations)
+    from shared_infra.accounts.users import is_session_revoked, purge_expired_revocations, revoke_session_sid
 
     sid_poste_a = "sid-appareil-A"
     sid_poste_b = "sid-appareil-B"
@@ -89,8 +89,7 @@ def test_sid_vide_ignore(db):
 
 
 def test_purge_des_revocations_perimees(db):
-    from shared_infra.accounts.users import (
-        is_session_revoked, revoke_session_sid, purge_expired_revocations)
+    from shared_infra.accounts.users import is_session_revoked, purge_expired_revocations, revoke_session_sid
 
     # Révocation ancienne (au-delà de max_age) → purgeable : la session
     # correspondante est de toute façon rejetée par le gate _login_ts.

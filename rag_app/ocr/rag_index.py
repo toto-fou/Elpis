@@ -51,7 +51,7 @@ def _engine():
     ``rag_app.rag_engine``).
     """
     try:
-        from rag_engine import RAGEngine          # service (cwd = rag_app/)
+        from rag_engine import RAGEngine  # service (cwd = rag_app/)
     except ImportError:
         from rag_app.rag_engine import RAGEngine  # tests (cwd = repo)
     cfg = get_ocr_config()
@@ -69,7 +69,7 @@ def _invalidate_query_cache() -> None:
     les outils du chatbot voient l'ajout/retrait tout de suite. Best-effort."""
     try:
         try:
-            from rag_query import invalidate_docs_cache          # service
+            from rag_query import invalidate_docs_cache  # service
         except ImportError:
             from rag_app.rag_query import invalidate_docs_cache  # tests
         invalidate_docs_cache()

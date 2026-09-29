@@ -18,7 +18,6 @@ import pytest
 
 from shared_infra.routes import system as S
 
-
 # ── Empreinte ───────────────────────────────────────────────────────────────
 
 def test_l_empreinte_est_stable_a_fichier_inchange():
@@ -125,6 +124,7 @@ def test_tous_les_bundles_differes_existent_sur_disque():
 def client(monkeypatch):
     monkeypatch.setenv("APP_SESSION_SECRET", "x" * 48)
     from starlette.testclient import TestClient
+
     from server.app import create_app
     with TestClient(create_app()) as c:
         yield c

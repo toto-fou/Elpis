@@ -20,7 +20,6 @@ from llm_core.context.pruning import (
     prepare_tool_result_for_model,
 )
 
-
 # ── Cap d'émission dérivé du n_ctx ───────────────────────────────────────────
 
 def test_emit_cap_derive_du_ctx():

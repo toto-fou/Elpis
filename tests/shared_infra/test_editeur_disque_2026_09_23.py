@@ -200,6 +200,7 @@ def test_save_script_refuse_un_dossier_meme_sans_la_garde_de_route(env):
     """Re-vérification DANS le conteneur (``exit 21``) : un dossier créé
     entre la garde de route et le ``mv`` n'avale pas le fichier."""
     import asyncio
+
     from fastapi import HTTPException
     client, root, _ = env
     (root / "d").mkdir()
@@ -261,6 +262,7 @@ def test_save_lien_symbolique_ecrit_la_cible_et_garde_le_lien(env):
 
 def test_ecriture_lien_hors_racine_refusee_dans_le_script(env, tmp_path):
     import asyncio
+
     from fastapi import HTTPException
     client, root, _ = env
     dehors = tmp_path / "dehors.txt"
@@ -276,6 +278,7 @@ def test_ecriture_lien_hors_racine_refusee_dans_le_script(env, tmp_path):
 
 def test_ecriture_echouee_ne_laisse_pas_de_temporaire(env, tmp_path, monkeypatch):
     import asyncio
+
     from fastapi import HTTPException
     client, root, sb = env
     fake = tmp_path / "bin"
@@ -400,6 +403,7 @@ def test_import_chunke_ecrase_un_fichier_existant(env):
 
 def test_rename_sans_overwrite_refuse_toujours(env):
     import asyncio
+
     from fastapi import HTTPException
     client, root, _ = env
     (root / "a").write_text("a")

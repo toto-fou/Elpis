@@ -19,8 +19,8 @@ else (the 60+ KPI provider classes, the ``BackgroundMonitor`` class) is
 internal to the engine — accessible via ``from backend.metrics.engine
 import …`` for the rare case where it's needed.
 """
-from shared_infra.observability.metrics.engine import registry, MetricsRegistry, BackgroundMonitor, sys_monitor
 from shared_infra.observability.metrics.broadcast import publish_event, start_metric_tailer
+from shared_infra.observability.metrics.engine import BackgroundMonitor, MetricsRegistry, registry, sys_monitor
 
 __all__ = [
     "registry",

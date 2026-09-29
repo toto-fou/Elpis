@@ -37,7 +37,9 @@ from __future__ import annotations
 # Surface de la famille pour le reste du code. Les modules de ROUTES ne sont
 # pas ré-exportés ici (cf. l'encadré ci-dessus) : on n'importe que ce qui est
 # consommable par d'autres familles.
-from shared_infra.mcp import families as families  # noqa: F401
-from shared_infra.mcp import servers as servers    # noqa: F401
+from shared_infra.mcp import (
+    families as families,  # noqa: F401
+    servers as servers,  # noqa: F401
+)
 
 __all__ = ["families", "servers"]

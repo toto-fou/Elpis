@@ -61,35 +61,52 @@ from typing import List, Optional
 from fastapi import File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from shared_infra.config import config_view
-from shared_infra.security.deps import require_user_id
-from shared_infra.db import (
-    log_metric,
-)
 from shared_infra.accounts.users import (
     get_user_settings,
     get_username_by_id,
 )
+from shared_infra.config import config_view
+from shared_infra.db import (
+    log_metric,
+)
 from shared_infra.routes._state import router
 from shared_infra.sandbox import file_history as _fh
 from shared_infra.sandbox.file_lock import file_write_lock, sha256_bytes
-from shared_infra.sandbox.paths import (SandboxPathError, leaf_mode, open_beneath, open_leaf,
-                                        open_path_at, open_path_beneath, read_leaf, rel_under,
-                                        reopen, stat_beneath, walk_beneath)
+from shared_infra.sandbox.paths import (
+    SandboxPathError,
+    leaf_mode,
+    open_beneath,
+    open_leaf,
+    open_path_at,
+    open_path_beneath,
+    read_leaf,
+    rel_under,
+    reopen,
+    stat_beneath,
+    walk_beneath,
+)
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 
 # Helpers shared with ``_legacy``. Importing through the module reference
 # means we always observe the live values.
-from shared_infra.routes._helpers import _build_file_tree, _get_work_path, _no_cache, _path_inside, _quota_lock_for, _strip_work_prefix, _zip_copy  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
 # Compteur d'usage disque mis en cache + single-flight (audit perf 2026-08-08).
 # ``_sandbox_size_bytes`` reste importé pour les rares chemins qui veulent la
 # valeur EXACTE sans passer par le cache.
-from shared_infra.routes._helpers import (  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
-    TREE_MAX_ENTRIES, bump_sandbox_usage, invalidate_sandbox_usage,
+from shared_infra.routes._helpers import (  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+    TREE_MAX_ENTRIES,
+    _build_file_tree,
+    _get_work_path,
+    _no_cache,
+    _path_inside,
+    _quota_lock_for,
+    _strip_work_prefix,
+    _zip_copy,
+    bump_sandbox_usage,
+    invalidate_sandbox_usage,
     sandbox_usage_bytes,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Verrou par fichier + historique de session (audit éditeur 2026-09-23)
@@ -790,8 +807,9 @@ def api_download_sandbox_file(request: Request, path: str):
             served = _read_consistent(root, target_path)
             if served is not None:
                 data, st = served
-                from fastapi.responses import Response
                 from urllib.parse import quote as _q
+
+                from fastapi.responses import Response
                 mt = mimetypes.guess_type(target_path.name)[0] or "text/plain"
                 resp = Response(data, media_type=mt)
                 fname = target_path.name
@@ -942,8 +960,8 @@ async def api_upload_sandbox_files(
     # Garde-fou contre un user qui upload un fichier de 5 Go par erreur :
     # sans limite on faisait ``await file.read()`` qui charge TOUT en RAM
     # → OOM du worker + freeze event loop.
-    from shared_infra.files.uploads import read_upload_bounded
     from shared_infra.config import MAX_UPLOAD_BYTES
+    from shared_infra.files.uploads import read_upload_bounded
     from shared_infra.sandbox.exec_bridge import sandbox_write_bytes
     saved = 0
     skipped = []
@@ -1131,8 +1149,7 @@ async def api_upload_sandbox_chunk(request: Request):
     if len(data) > _UPLOAD_CHUNK_HARD_CAP:
         raise HTTPException(413, "Chunk trop volumineux")
 
-    from shared_infra.sandbox.exec_bridge import (
-        sandbox_append_chunk, sandbox_delete, sandbox_rename)
+    from shared_infra.sandbox.exec_bridge import sandbox_append_chunk, sandbox_delete, sandbox_rename
 
     if index == 0:
         # Un DOSSIER porte ce nom : ``mv`` rangerait le fichier dedans au lieu
@@ -1473,7 +1490,7 @@ async def api_save_sandbox_file(request: Request):
     # créés depuis l'éditeur, et la suppression depuis l'éditeur
     # fonctionne sur les dossiers créés depuis le terminal — la classe
     # de bugs "Permission denied parfois" disparaît à la racine.
-    from shared_infra.sandbox.exec_bridge import sandbox_write_text, sandbox_write_bytes
+    from shared_infra.sandbox.exec_bridge import sandbox_write_bytes, sandbox_write_text
     try:
         # ── Quota check + écriture sous lock asyncio (anti-TOCTOU) ────
         # Avant ce fix, deux saves concurrentes du même user pouvaient

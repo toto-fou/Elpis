@@ -17,33 +17,34 @@ import zipfile
 from pathlib import Path
 
 import httpx
-from fastapi import HTTPException, Request, UploadFile, File, Form
+from fastapi import File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import (
-    FileResponse, JSONResponse,
+    FileResponse,
+    JSONResponse,
 )
 from starlette.background import BackgroundTask
 
+from shared_infra.accounts.users import (
+    get_user_by_id,
+    get_username_by_id,
+)
 from shared_infra.config import (
     PROJECT_ROOT,
 )
-from shared_infra.accounts.users import (
-    get_username_by_id,
-    get_user_by_id,
-)
-from shared_infra.security.deps import require_user_id
+from shared_infra.routes._helpers import _DB_ANNEXES, _HOST_ONLY
 
 # Helpers shared with _legacy. Single source of truth.
 from shared_infra.routes._legacy import (
-    system_events,
     _make_backup_zip,
+    system_events,
 )
-from shared_infra.routes._helpers import _DB_ANNEXES, _HOST_ONLY
-from shared_infra.sandbox.paths import write_beneath
 
 # Routers — owned by ``_state``. We import them so endpoint decorators
 # below register on the SAME singleton router instances mounted by
 # ``app.py`` / ``admin_app.py``.
 from shared_infra.routes.admin._state import admin_router, internal_router
+from shared_infra.sandbox.paths import write_beneath
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -539,7 +540,7 @@ async def api_admin_restore(request: Request, file: UploadFile = File(...), scop
     if not me or me["is_admin"] != 1: raise HTTPException(403, "Admin required")
     if scope not in ("full", "db", "sandboxes", "mcp"):
         raise HTTPException(400, "scope invalide")
-    from shared_infra.config import DB_PATH as _DB_PATH, SANDBOX_DIR as _SB_DIR, MCP_SERVERS_DIR as _MCP_DIR
+    from shared_infra.config import DB_PATH as _DB_PATH, MCP_SERVERS_DIR as _MCP_DIR, SANDBOX_DIR as _SB_DIR
     from shared_infra.files.uploads import save_upload_bounded
 
     # Plafond large pour un backup admin (500 Mo). Override via env si besoin.

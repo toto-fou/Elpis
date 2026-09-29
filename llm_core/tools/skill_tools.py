@@ -27,19 +27,17 @@ des paramètres @mcp.tool à la définition ; en mode PEP 563 (strings), les
 forward refs ``Optional[...]`` sont ré-évaluées dans un mauvais namespace au
 build du schéma → NameError.
 """
+import asyncio
+import os
+import re
+from pathlib import Path
 from typing import Any, List, Optional, Union
 
 from fastmcp import Context, FastMCP
 from pydantic import Field
 
-import asyncio
-import os
-import re
-from pathlib import Path
-
-from ._toolkit import tool_kw_mutating, tool_kw_readonly, as_str, as_list, get_username, with_policy, _read_meta_field
-from ._models import (AskUserResult, ErrEnvelope, SkillSaveResult,
-                      SkillGetResult, SkillFileResult, SkillRunResult)
+from ._models import AskUserResult, ErrEnvelope, SkillFileResult, SkillGetResult, SkillRunResult, SkillSaveResult
+from ._toolkit import _read_meta_field, as_list, as_str, get_username, tool_kw_mutating, tool_kw_readonly, with_policy
 
 
 def _user_sandbox_dir(username: str) -> Path:
@@ -148,8 +146,8 @@ def _user_skills_dir(username: str) -> Path:
     prochaines sessions du MÊME user — et de lui seul. Migre l'ancien
     emplacement sandbox à la première résolution.
     """
-    from shared_infra.config import USER_SKILLS_DIR, safe_sandbox_name
     from llm_core.skills import ensure_user_skills_store
+    from shared_infra.config import USER_SKILLS_DIR, safe_sandbox_name
     base = Path(os.environ.get("APP_USER_SKILLS_DIR") or str(USER_SKILLS_DIR)).resolve()
     return ensure_user_skills_store(base / safe_sandbox_name(username),
                                     _user_sandbox_dir(username))
@@ -224,7 +222,7 @@ Example:
         tags=["qdrant", "vectordb", "reset"])
 
 A personal skill may override a curated one of the same name (user > global)."""
-        from llm_core.skills import save_user_skill, SkillSaveError
+        from llm_core.skills import SkillSaveError, save_user_skill
 
         clean_name = as_str(name)[:_MAX_NAME_LEN]
         clean_desc = as_str(description)[:_MAX_DESC_LEN]
@@ -289,8 +287,7 @@ NOT use write_file for this: the sandbox copy (``skills/…``) is a disposable
 mirror, regenerated from the store, so anything written there directly is
 lost. Reference the file in the skill body by relative path (e.g.
 ``scripts/run.sh``); at usage time skill_get tells where to read/execute it."""
-        from llm_core.skills import (SkillSaveError, add_user_skill_file,
-                                     sync_user_skills_mirror)
+        from llm_core.skills import SkillSaveError, add_user_skill_file, sync_user_skills_mirror
 
         username = get_username(ctx)
         try:
@@ -644,7 +641,9 @@ Supported interpreters: .py→python3, .sh/.bash→bash, .js→node, .pl→perl.
         # ephemeral /tmp dir, runs the script there, and removes it. The size
         # scan + tar build (up to _SKILL_RUN_MAX_BYTES of disk I/O) run in a
         # thread so the MCP event loop is never blocked.
-        import io as _io, tarfile as _tf, asyncio as _aio
+        import asyncio as _aio
+        import io as _io
+        import tarfile as _tf
         skill_path = Path(skill_dir)
 
         def _build_tar():

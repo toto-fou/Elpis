@@ -324,8 +324,8 @@ _UID: "ContextVar[str | None]" = ContextVar("_UID", default=None)
 @pytest.fixture()
 def client(monkeypatch):
     import shared_infra.appearance.routes as R
-    import shared_infra.routes.admin.skins as A
     import shared_infra.routes.admin  # noqa: F401 — enregistre admin_router
+    import shared_infra.routes.admin.skins as A
     from shared_infra.routes._state import router
     from shared_infra.routes.admin._state import admin_router
 

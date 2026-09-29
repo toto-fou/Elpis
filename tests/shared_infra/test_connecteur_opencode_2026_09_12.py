@@ -24,7 +24,6 @@ from fastapi.testclient import TestClient
 
 from llm_core.providers import discovery as D
 
-
 # ── 1. Preset ────────────────────────────────────────────────────────────────
 
 def test_preset_opencode_expose_et_verrouille():
@@ -140,8 +139,8 @@ def uclient(tmp_path, monkeypatch):
     # ⚠ ordre d'import : ``shared_infra.routes`` est le chef d'orchestre ;
     # importer ``routes_connectors`` en premier crée un cycle avec le module
     # admin qui lui emprunte ses helpers.
-    import shared_infra.routes  # noqa: F401
     import shared_infra.llm.routes_connectors as routes
+    import shared_infra.routes  # noqa: F401
     monkeypatch.setattr(routes, "require_user_id", lambda request: 1)
     monkeypatch.setattr(routes, "audit_event", lambda **k: None)
     monkeypatch.setattr(routes, "read_config_json", lambda: {})
@@ -172,8 +171,8 @@ def test_le_refus_de_l_offre_gratuite_nomme_la_cle_a_mettre():
     Avant, elle arrivait en « la génération a échoué pour une raison
     inattendue » — la seule information utile de tout l'échange était jetée."""
     import httpx
-    from llm_core._llm_retry import (KIND_FORBIDDEN, llm_error_kind,
-                                     llm_error_user_message)
+
+    from llm_core._llm_retry import KIND_FORBIDDEN, llm_error_kind, llm_error_user_message
     req = httpx.Request("POST", "https://opencode.ai/zen/v1/chat/completions")
     body = ('{"type":"error","error":{"type":"MissingSessionID","message":'
             '"Error from provider (Console): OpenCode\'s free tier can only be '

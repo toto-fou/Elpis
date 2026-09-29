@@ -15,8 +15,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 import shared_infra.sandbox.routes_office as ro
-from shared_infra.sandbox import office_convert as oc
-from shared_infra.sandbox import office_preview as op
+from shared_infra.sandbox import office_convert as oc, office_preview as op
 
 CT_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
 CT_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"

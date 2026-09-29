@@ -319,8 +319,9 @@ def test_empty_cron_webhook_only(env):
     rid = _mk_routine(client, cron_expr="")
     detail = client.get(f"/api/routines/{rid}", headers=_alice()).json()
     assert detail["cron_expr"] == ""
-    from shared_infra.observability.events_bus import _cron_matches
     import datetime
+
+    from shared_infra.observability.events_bus import _cron_matches
     assert _cron_matches("", datetime.datetime.now()) is False
     # PUT peut aussi vider la planification…
     rid2 = _mk_routine(client, name="Autre")
@@ -461,7 +462,8 @@ def test_forget_webhook_delivery_is_scoped_and_best_effort(env):
     ``env`` est requis : il redirige ``DB_PATH`` vers la base temporaire du
     test (sans lui, ces écritures partiraient dans la base réelle)."""
     from shared_infra.scheduling.routines_store import (
-        forget_webhook_delivery, record_webhook_delivery,
+        forget_webhook_delivery,
+        record_webhook_delivery,
     )
     assert record_webhook_delivery("shared-id", 1) is True
     assert record_webhook_delivery("shared-id", 2) is True

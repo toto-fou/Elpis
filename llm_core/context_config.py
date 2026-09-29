@@ -43,12 +43,12 @@ from typing import Any, Dict
 
 from shared_infra.config import (  # réutilise l'infra existante (sens d'import déjà établi)
     PROJECT_ROOT,
-    _read_json_file,
-    _deep_get,
     _as_int,
     _as_str,
-    _resolve_rel,
+    _deep_get,
     _load_system_prompt_file,
+    _read_json_file,
+    _resolve_rel,
 )
 
 logger = logging.getLogger("uvicorn.error")

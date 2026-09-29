@@ -28,8 +28,8 @@ from typing import Optional
 from shared_infra.memory.ax._legacy import (
     _DB_LOCK,
     _conn,
-    normalize_url,
     log,
+    normalize_url,
 )
 
 

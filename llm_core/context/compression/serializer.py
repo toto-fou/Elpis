@@ -24,13 +24,12 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from llm_core.context.tokens import tokens_to_chars
-from llm_core.engine.result_contract import result_is_error
-
 # Préfixes d'outils MUTANTS — même liste que la sérialisation d'exécution de
 # la boucle (LLAMA_TOOL_SERIAL_PREFIXES) : ce qui doit s'exécuter en série est
 # précisément ce qui écrit quelque part.
 from llm_core._constants import LLAMA_TOOL_SERIAL_PREFIXES as _MUTATING_PREFIXES
+from llm_core.context.tokens import tokens_to_chars
+from llm_core.engine.result_contract import result_is_error
 
 LEDGER_START = "[ARTIFACTS v=1]"
 LEDGER_END = "[/ARTIFACTS]"

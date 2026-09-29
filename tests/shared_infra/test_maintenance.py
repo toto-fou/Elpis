@@ -36,8 +36,8 @@ def env(tmp_path, monkeypatch):
             "  event_type TEXT NOT NULL, value REAL, tags_json TEXT,"
             "  created_at REAL NOT NULL)")
         c.commit()
-    import shared_infra.observability.tool_metrics_store as am
     import shared_infra.observability.daily_reports_store as dr
+    import shared_infra.observability.tool_metrics_store as am
     import shared_infra.scheduling.routines_store as rt
     am.init_tool_metrics_db()
     rt.init_routines_db()

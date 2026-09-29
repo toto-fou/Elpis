@@ -11,7 +11,6 @@ import inspect
 
 import pytest
 
-
 # ── 12. Le splitter n'indexe plus une chaîne à partir d'une autre ───────────
 
 def test_un_caractere_dont_la_minuscule_change_de_longueur():

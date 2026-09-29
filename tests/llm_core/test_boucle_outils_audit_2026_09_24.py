@@ -29,7 +29,6 @@ import pytest
 
 from llm_core import _chat_with_tools as _cwt
 
-
 # ── Environnement commun ────────────────────────────────────────────────────
 
 async def _anoop(*_a, **_k):

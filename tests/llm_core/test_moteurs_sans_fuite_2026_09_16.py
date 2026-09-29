@@ -109,7 +109,7 @@ def trafic(monkeypatch):
 
     monkeypatch.setattr(httpx.AsyncClient, "send", _send)
     # Caches process-wide : partir d'un état neutre pour les deux serveurs.
-    from llm_core import _llama_http, _model_info, _llm_params
+    from llm_core import _llama_http, _llm_params, _model_info
     from llm_core.providers import llama_caps, llama_models
     _llama_http._TOKENIZE_CACHE.clear()
     _model_info.invalidate_all_model_caches()

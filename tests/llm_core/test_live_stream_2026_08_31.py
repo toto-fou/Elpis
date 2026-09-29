@@ -15,7 +15,6 @@ from llm_core._chat_with_tools import (
     _strip_tool_call_markup,
 )
 
-
 # ── _live_stream_rest ─────────────────────────────────────────────────────
 
 def test_rest_nominal_queue_de_fenetre():

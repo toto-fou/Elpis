@@ -97,7 +97,7 @@ def test_rejeu_depuis_la_politique(registry):
 
 
 def test_elagage_depuis_la_politique(registry):
-    from llm_core.context.pruning import prepare_tool_result_for_model, emit_cap_chars
+    from llm_core.context.pruning import emit_cap_chars, prepare_tool_result_for_model
     C.ingest_tools([_T("zz_build", {"prune": "head_tail"})])
     cap = emit_cap_chars(4096, None)
     big = "HEAD-" + ("x" * (cap * 2)) + "-TAIL"
@@ -170,7 +170,7 @@ def test_fragments_declares_par_le_manifeste(tmp_path, monkeypatch):
 # ── A14 : familles par jeton client ─────────────────────────────────────────
 
 def test_familles_par_jeton_client(monkeypatch):
-    from shared_infra.config import _parse_client_tokens, _parse_client_token_families
+    from shared_infra.config import _parse_client_token_families, _parse_client_tokens
     assert _parse_client_tokens("t1:alice:git+browser, t2:bob", None) == {"t1": "alice", "t2": "bob"}
     assert _parse_client_token_families("t1:alice:git+browser, t2:bob", None) == {"t1": ["git", "browser"]}
     assert _parse_client_tokens(None, {"t3": "carol:desktop"}) == {"t3": "carol"}

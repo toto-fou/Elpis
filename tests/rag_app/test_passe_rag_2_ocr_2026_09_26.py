@@ -26,14 +26,18 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from rag_app.ocr import _common
-from rag_app.ocr import client as ocr_client
-from rag_app.ocr import config as ocr_config
-from rag_app.ocr import convert as ocr_convert
-from rag_app.ocr import events as E
-from rag_app.ocr import jobs, lifecycle, store
-from rag_app.ocr import queue as Q
-from rag_app.ocr import rag_index as ocr_rag
+from rag_app.ocr import (
+    _common,
+    client as ocr_client,
+    config as ocr_config,
+    convert as ocr_convert,
+    events as E,
+    jobs,
+    lifecycle,
+    queue as Q,
+    rag_index as ocr_rag,
+    store,
+)
 from rag_app.ocr._common import OcrError
 
 fitz = pytest.importorskip("fitz", reason="PyMuPDF requis pour le raster")

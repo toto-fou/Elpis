@@ -38,13 +38,13 @@ import re
 import time
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
-from shared_infra.config import (
-    LLAMA_MODEL,
-    LLAMA_RETRIES,
+# These two constants are computed defensively in ``_legacy`` against
+# ``backend.config``; we re-import them through the module so any future
+# update to the defaults stays a single-source-of-truth change.
+from llm_core._constants import (
+    LLAMA_FORCE_IDLE_SLOT,
+    LLAMA_THINKING_BUDGET_TOKENS,
 )
-from shared_infra.observability.tracing import swallow
-from shared_infra.observability.usage_ctx import record_turn_usage
-
 from llm_core._llm_retry import (
     llm_error_detail as _llm_error_detail,
     llm_error_is_fatal as _llm_error_is_fatal,
@@ -53,14 +53,12 @@ from llm_core._llm_retry import (
 )
 from llm_core._stream_tag_parser import ThinkTagSplitter
 from llm_core._think_tokens import measure_thinking_tokens
-
-# These two constants are computed defensively in ``_legacy`` against
-# ``backend.config``; we re-import them through the module so any future
-# update to the defaults stays a single-source-of-truth change.
-from llm_core._constants import (
-    LLAMA_FORCE_IDLE_SLOT,
-    LLAMA_THINKING_BUDGET_TOKENS,
+from shared_infra.config import (
+    LLAMA_MODEL,
+    LLAMA_RETRIES,
 )
+from shared_infra.observability.tracing import swallow
+from shared_infra.observability.usage_ctx import record_turn_usage
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -292,6 +290,7 @@ def _http_4xx(err: Exception) -> bool:
     panne transitoire (retry) ou d'un vrai plantage (abandon)."""
     try:
         import httpx
+
         # Un refus arrivé DANS un flux 200 (événement d'erreur SSE) prouve au
         # contraire que la requête a été ACCEPTÉE : ce n'est jamais le refus
         # de ``continue_final_message`` (AUDIT 2026-09-24, n° 15).
@@ -391,11 +390,11 @@ async def llama_chat_stream_tokens(
     # skeleton + KV-cache + clamp de génération adaptatif au n_ctx (le clamp
     # des overrides explicites, absent ici avant — bug C2b — est désormais
     # garanti par la source partagée) + chat_template_kwargs + slot pinning.
-    from llm_core.providers.llamacpp import build_llama_payload as _build_payload
     from llm_core._llm_params import (
         sanitize_preserve_reasoning,
         sanitize_reasoning_effort,
     )
+    from llm_core.providers.llamacpp import build_llama_payload as _build_payload
     payload = await _build_payload(
         msgs, target_model=target_model, user_id=user_id,
         sampling_params=sampling_params, llama_native=_llama_native,
@@ -536,9 +535,9 @@ async def llama_chat_stream_tokens(
     _stream_to = None
     if _llamacpp_srv:
         try:
-            from shared_infra.config import LLAMA_TIMEOUT_SEC
             from llm_core._client import stream_timeout_for_ctx
             from llm_core._model_info import get_model_context_size
+            from shared_infra.config import LLAMA_TIMEOUT_SEC
             _cand = stream_timeout_for_ctx(
                 await get_model_context_size(target_model))
             if (_cand.read or 0) > float(LLAMA_TIMEOUT_SEC):
@@ -582,7 +581,8 @@ async def llama_chat_stream_tokens(
                     # anti-duplication (plus bas) voyait des buffers vides et
                     # autorisait un retry qui ré-émettait tout (régression Phase 5).
                     from llm_core.providers.llamacpp import (
-                        consume_llama_sse, SseStreamResult,
+                        SseStreamResult,
+                        consume_llama_sse,
                     )
                     _sse = SseStreamResult()
                     _sse.thinking_parts = thinking_buf
@@ -765,8 +765,7 @@ async def llama_chat_stream_tokens(
             # Ratio chars/token MESURÉ (harnais v4) — même recalage que la
             # boucle outils, depuis la réponse réelle du chemin classic.
             try:
-                from llm_core.context.tokens import (
-                    count_image_blocks, note_real_usage, payload_chars)
+                from llm_core.context.tokens import count_image_blocks, note_real_usage, payload_chars
                 note_real_usage(target_model or None, payload_chars(msgs), _in_tok,
                                 n_images=count_image_blocks(msgs))
             except Exception:

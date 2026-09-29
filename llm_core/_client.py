@@ -33,7 +33,6 @@ import httpx
 
 from shared_infra.config import LLAMA_MAX_CONCURRENCY, LLAMA_TIMEOUT_SEC
 
-
 _llm_client: Optional[httpx.AsyncClient] = None
 # Connecteurs LLM : un client par base_url cloud/distant, pour isoler le pool de
 # connexions de chaque fournisseur du pool (petit) du llama-server local — un

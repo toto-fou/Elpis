@@ -35,8 +35,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
-from ._common import (ID_RE, file_lock, new_id, write_json_atomic,
-                      write_text_atomic)
+from ._common import ID_RE, file_lock, new_id, write_json_atomic, write_text_atomic
 from .config import BASE_DIR, get_ocr_config
 
 logger = logging.getLogger("uvicorn.error")

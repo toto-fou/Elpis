@@ -303,6 +303,7 @@ def test_routine_sous_agents_passent_le_drapeau_stdio():
     """S3 : ``resolve_for_agents`` était appelé sans ``allow_stdio`` dans les
     routines (défaut permissif à l'époque)."""
     import inspect
+
     from shared_infra.scheduling import routines_scheduler
     src = inspect.getsource(routines_scheduler.execute_routine_run)
     assert "resolve_for_agents, user_settings, allow_stdio=_stdio_ok" in src

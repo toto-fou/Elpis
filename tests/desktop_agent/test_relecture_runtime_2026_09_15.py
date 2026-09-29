@@ -25,9 +25,13 @@ _HERE = str(Path(__file__).resolve().parent)
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
-from elpis_auto import Session, StepError, TargetNotFound  # noqa: E402
-from elpis_auto import session as S  # noqa: E402
-from test_elpis_auto import FakeBackend, NotSupported, _node, _calls  # noqa: E402
+from elpis_auto import (  # noqa: E402
+    Session,
+    StepError,
+    TargetNotFound,
+    session as S,  # noqa: E402
+)
+from test_elpis_auto import FakeBackend, NotSupported, _calls, _node  # noqa: E402
 
 
 class PartialInput(NotSupported):

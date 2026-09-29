@@ -16,12 +16,12 @@ import shutil
 import subprocess
 from typing import Any, Dict, List, Optional, Tuple
 
-from .base import DesktopBackend, NotSupported, png_size, encode_screenshot, tail_truncate, shell_disabled
+from .base import DesktopBackend, NotSupported, encode_screenshot, png_size, shell_disabled, tail_truncate
 
 try:
-    from normalize import make_node, keep_node, derive_patterns, center_in_region
+    from normalize import center_in_region, derive_patterns, keep_node, make_node
 except ImportError:  # pragma: no cover — when imported as a package
-    from ..normalize import make_node, keep_node, derive_patterns, center_in_region
+    from ..normalize import center_in_region, derive_patterns, keep_node, make_node
 
 
 def _session_type() -> str:
@@ -126,6 +126,7 @@ class LinuxBackend(DesktopBackend):
             data = out.stdout
             if is_jpeg:
                 import io as _io
+
                 from PIL import Image
                 with Image.open(_io.BytesIO(data)) as im:   # header seul, pas de re-encode
                     w, h = int(im.width), int(im.height)
@@ -568,7 +569,8 @@ class LinuxBackend(DesktopBackend):
             return pyperclip.paste() or ""
         except Exception:
             pass
-        import shutil, subprocess
+        import shutil
+        import subprocess
         for cmd in (["xclip", "-selection", "clipboard", "-o"], ["xsel", "-b", "-o"]):
             if shutil.which(cmd[0]):
                 try:
@@ -583,7 +585,8 @@ class LinuxBackend(DesktopBackend):
             pyperclip.copy(str(text or "")); return
         except Exception:
             pass
-        import shutil, subprocess
+        import shutil
+        import subprocess
         for cmd in (["xclip", "-selection", "clipboard"], ["xsel", "-b", "-i"]):
             if shutil.which(cmd[0]):
                 try:

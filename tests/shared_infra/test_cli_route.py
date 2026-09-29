@@ -101,8 +101,9 @@ def test_bundle_served_when_present(cli_client):
 def test_base_url_rejects_host_header_injection():
     # SÉCURITÉ — le Host header (request.base_url) ne doit JAMAIS contenir de
     # caractères pouvant casser les scripts install.sh/ps1 rendus (sinon RCE).
-    import shared_infra.opencode.routes_cli as cli
     from fastapi import HTTPException
+
+    import shared_infra.opencode.routes_cli as cli
 
     class _Req:
         def __init__(self, u):

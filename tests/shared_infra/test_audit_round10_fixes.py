@@ -51,8 +51,7 @@ def _smt(uid: int) -> float:
 
 # ── F1 — révocation / clear commitées ────────────────────────────────────────
 def test_f1_bump_then_clear_are_committed(db):
-    from shared_infra.accounts.users import (bump_session_min_ts, clear_session_min_ts,
-                                       create_user)
+    from shared_infra.accounts.users import bump_session_min_ts, clear_session_min_ts, create_user
     uid = create_user("alice", "pw")
     assert bump_session_min_ts(uid, 5000.0) is True
     assert _smt(uid) == 5000.0            # PERSISTÉ (échouait sans commit)

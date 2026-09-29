@@ -36,10 +36,9 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
+from backends import NotSupported, get_backend
 from fastapi import FastAPI, HTTPException, Request
 from starlette.middleware.gzip import GZipMiddleware
-
-from backends import get_backend, NotSupported
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("desktop-agent")
@@ -190,7 +189,7 @@ _worker_started = False
 def _worker_ensure_com() -> None:
     """Init COM (MTA) SUR le thread worker — idempotent, no-op hors Windows."""
     try:
-        from backends import windows as _win   # ImportError sous Linux (comtypes absent)
+        from backends import windows as _win  # ImportError sous Linux (comtypes absent)
         _win._ensure_com()
     except Exception:
         pass

@@ -76,6 +76,7 @@ def _session_validity_checks(request: Request, uid: int) -> bool:
          > 0; bumps a session-stored _last_activity_ts on success.
     """
     import time as _t
+
     # Lazy imports inside the hot path are fine — Python caches module
     # objects in sys.modules so the second call is just a dict lookup.
     from shared_infra.config import config_view
@@ -244,6 +245,7 @@ def stream_session_still_valid(uid: int, login_ts, sid) -> bool:
         est vue au prochain passage réussi (≤ ~60 s).
     """
     import time as _t
+
     from shared_infra.config import config_view
 
     if not login_ts:

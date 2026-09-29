@@ -2,22 +2,22 @@
 import contextlib
 import csv
 import gc
-import os
-import json
-import time
-import math
 import hashlib
-import re
 import io
+import json
 import logging
+import math
+import os
+import re
 import threading
+import time
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Generator, Optional
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import httpx
-import yaml
 import pandas as pd
-from docx import Document
+import yaml
+
 # ⚠ pdf2docx (→ cv2/opencv) est importé PARESSEUSEMENT au point d'usage
 # (conversion PDF→DOCX, plus bas) : son import au boot peut crasher en
 # Bus error selon l'environnement (SIGBUS natif cv2) et bloquait le
@@ -25,6 +25,7 @@ from docx import Document
 # pdf2docx dépend de PyMuPDF (AGPL) : il n'est PAS installé par défaut
 # (extra ``requirements-agpl-optional.txt`` / ``./install.sh --with-agpl``).
 from charset_normalizer import from_bytes
+from docx import Document
 
 logger = logging.getLogger("uvicorn.error")
 

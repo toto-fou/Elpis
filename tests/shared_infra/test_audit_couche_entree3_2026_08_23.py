@@ -26,7 +26,6 @@ import inspect
 
 import pytest
 
-
 # ── 9. Le marqueur d'annulation ne se fige pas dans la persistance ───────────
 
 def test_le_marqueur_d_annulation_ne_prefixe_pas_la_reprise():
@@ -88,8 +87,7 @@ def test_une_ligne_applicative_ne_part_qu_une_fois(monkeypatch, tmp_path):
 def test_log_event_live_par_defaut_et_forensique_marque():
     """``live=False`` (HTTP 2xx…) reste dans le fichier mais porte
     ``"live": false`` : la console staff ne le relaie pas."""
-    from shared_infra.observability import access_logging as A
-    from shared_infra.observability import events_bus as EB
+    from shared_infra.observability import access_logging as A, events_bus as EB
 
     sig = inspect.signature(A.log_event)
     assert sig.parameters["live"].default is True

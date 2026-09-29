@@ -23,8 +23,7 @@ import time
 
 import pytest
 
-from shared_infra.runtime import chat_locks
-from shared_infra.runtime import run_journal as rj
+from shared_infra.runtime import chat_locks, run_journal as rj
 
 
 @pytest.fixture(autouse=True)

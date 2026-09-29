@@ -22,7 +22,7 @@ ici que ce qui n'appartient à personne :
 
 # ``_connection`` porte ``db``, ``db_conn``, ``init_db``, ``log_metric``… que
 # tout le dépôt importe via cette façade. Alias ``_legacy`` conservé.
-from shared_infra.db import _connection as _legacy    # noqa: F401 — cœur SQLite
+from shared_infra.db import _connection as _legacy  # noqa: F401 — cœur SQLite
 
 _SUBMODULES = (_legacy,)
 

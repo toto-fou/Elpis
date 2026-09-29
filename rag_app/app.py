@@ -8,22 +8,21 @@ import os
 # shared_infra/runtime/pyruntime.py pour la mesure et l'échappatoire.
 os.environ.setdefault("PYDANTIC_DISABLE_PLUGINS", "1")
 
-import json
-import re
-import sys
-import shutil
 import asyncio
+import json
 import logging
+import re
+import shutil
+import sys
+from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, List, Optional
 
-from fastapi import FastAPI, UploadFile, File, Form, Body, HTTPException, Request, Depends
-from fastapi.responses import StreamingResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-
+from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Tâches de fond — garder une référence forte
@@ -50,13 +49,18 @@ def _spawn(coro) -> "asyncio.Task":
 # import en paquet ``rag_app.app`` — tests, outillage) ; même motif que
 # ``ocr/rag_index.py``.
 try:
-    from rag_engine import (RAGEngine, IngestionEnCours, ConfigInvalide,
-                            exclusive_index_op, request_cancel, clear_cancel)
     import rag_query as _rq
+    from rag_engine import ConfigInvalide, IngestionEnCours, RAGEngine, clear_cancel, exclusive_index_op, request_cancel
 except ImportError:
-    from rag_app.rag_engine import (RAGEngine, IngestionEnCours, ConfigInvalide,
-                                    exclusive_index_op, request_cancel, clear_cancel)
     from rag_app import rag_query as _rq
+    from rag_app.rag_engine import (
+        ConfigInvalide,
+        IngestionEnCours,
+        RAGEngine,
+        clear_cancel,
+        exclusive_index_op,
+        request_cancel,
+    )
 
 rag_search_only        = _rq.rag_search_only        # /api/search playground
 count_chunks_for_file  = _rq.count_chunks_for_file  # tool: rag_get_document (total exact)
@@ -382,6 +386,7 @@ async def console_login(request: Request, payload: dict = Body(...)):
 @app.post("/api/console/logout")
 def console_logout(request: Request):
     import time as _time
+
     from fastapi.responses import JSONResponse
     parsed = _parse_console_cookie(request.cookies.get(_CONSOLE_COOKIE, ""))
     if parsed:

@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from fastapi import HTTPException, Request
 
-from shared_infra.security.audit import audit_event
 from shared_infra.git import connectors as _gc
-from shared_infra.security.deps import require_user_id
 from shared_infra.routes._state import router
+from shared_infra.security.audit import audit_event
+from shared_infra.security.deps import require_user_id
 
 _MAX = 200  # garde-fou de longueur sur les champs texte
 
@@ -47,7 +47,8 @@ async def api_parse_git_repo_url(request: Request):
     if not url:
         return {"ok": False}
     from urllib.parse import urlsplit
-    from shared_infra.git.detect import detect_provider, normalize_host, default_provider_type
+
+    from shared_infra.git.detect import default_provider_type, detect_provider, normalize_host
     from shared_infra.git.providers import get_provider
     info = detect_provider(url)
     host = (info.get("host") or normalize_host(url) or "").lower()
@@ -140,9 +141,9 @@ def api_list_connector_repos(request: Request, cid: int):
     row = _gc.get_connector_secret(uid, cid)
     if not row:
         raise HTTPException(404, "Connecteur introuvable")
+    from shared_infra.git._http import http_json
     from shared_infra.git.providers import get_provider
     from shared_infra.git.ssrf import block_remote_url_reason
-    from shared_infra.git._http import http_json
 
     prov = get_provider(row["provider_type"])
     api_base = prov.api_base(row["host"], row.get("api_base") or "")
@@ -176,9 +177,9 @@ def api_test_git_connector(request: Request, cid: int):
     row = _gc.get_connector_secret(uid, cid)
     if not row:
         raise HTTPException(404, "Connecteur introuvable")
+    from shared_infra.git._http import http_json
     from shared_infra.git.providers import get_provider
     from shared_infra.git.ssrf import block_remote_url_reason
-    from shared_infra.git._http import http_json
 
     prov = get_provider(row["provider_type"])
     api_base = prov.api_base(row["host"], row.get("api_base") or "")

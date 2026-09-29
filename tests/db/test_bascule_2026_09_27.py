@@ -196,8 +196,7 @@ def test_cli_check_et_transfert(tmp_path, capsys):
 @pytest.mark.sqlite_only   # la base ACTIVE doit être le fichier SQLite du test
 @pytest.mark.skipif(not os.environ.get("ELPIS_TEST_PG"), reason="ELPIS_TEST_PG absent")
 def test_bascule_sqlite_vers_postgres(env, monkeypatch):
-    from shared_infra.db import _connection as C
-    from shared_infra.db import transfer as T
+    from shared_infra.db import _connection as C, transfer as T
     from shared_infra.ops import db_switch
     C.init_db()
     from shared_infra.accounts.users import create_user

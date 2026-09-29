@@ -24,10 +24,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from llm_core import _chat_classic as _ccl
-from llm_core import _llm_params
-from llm_core import _model_info
-from llm_core import _think_resume as tr
+from llm_core import _chat_classic as _ccl, _llm_params, _model_info, _think_resume as tr
 from llm_core.providers import openai_compat as _oai
 
 

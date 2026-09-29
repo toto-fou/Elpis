@@ -9,9 +9,9 @@ from pathlib import Path
 
 
 async def _run(handler_name, tmp_path, monkeypatch):
-    import shared_infra.routes.admin.executors as ex
     import shared_infra.db as db
     import shared_infra.routes._helpers as helpers
+    import shared_infra.routes.admin.executors as ex
 
     monkeypatch.setattr(ex, "_require_admin", lambda r: None)
     monkeypatch.setattr("shared_infra.accounts.users.get_username_by_id", lambda uid: "alice")

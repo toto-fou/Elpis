@@ -111,8 +111,8 @@ async def _probe_llm() -> Dict[str, Any]:
 
 
 async def _probe_connectors() -> List[Dict[str, Any]]:
-    from shared_infra.llm import connectors as _lc
     from llm_core.providers.discovery import test_connector
+    from shared_infra.llm import connectors as _lc
     rows = [r for r in await asyncio.to_thread(_lc.list_shared_connectors)
             if r.get("enabled", True)][:MAX_CONNECTORS]
 

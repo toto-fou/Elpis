@@ -66,9 +66,8 @@ from typing import Optional
 
 from fastapi import HTTPException
 
-from shared_infra.accounts.users import get_username_by_id
+from shared_infra.accounts.users import get_user_settings, get_username_by_id
 from shared_infra.sandbox.executors import get_user_sandbox
-from shared_infra.accounts.users import get_user_settings
 from shared_infra.sandbox.paths import strip_work_prefix
 
 logger = logging.getLogger("uvicorn.error")

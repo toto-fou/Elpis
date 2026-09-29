@@ -109,8 +109,8 @@ def host_for_user(user_id: int, hosts: Dict[str, Dict[str, Any]], default: str =
 
 # ── Migration entre hôtes ───────────────────────────────────────────────────
 def _host_spec(host_id: str):
-    from shared_infra.sandbox.relay import SandboxHost, _is_loopback
     from shared_infra.mcp import manifest as _mf
+    from shared_infra.sandbox.relay import SandboxHost, _is_loopback
     hosts = _mf.load().sandbox_hosts or {}
     spec = hosts.get(host_id) or {}
     url = str(spec.get("url") or "").strip()
@@ -142,6 +142,7 @@ def export_work(user_id: int, host_id: str, *, timeout_s: float = 600.0) -> byte
     if not host.relay:
         return _local_export(user_id)
     import httpx
+
     from shared_infra.sandbox.relay import relay_headers
     r = httpx.get(host.url + "/api/sandbox/export", headers=relay_headers(host, int(user_id)),
                   timeout=timeout_s)
@@ -156,6 +157,7 @@ def import_work(user_id: int, host_id: str, data: bytes, *, timeout_s: float = 6
     if not host.relay:
         return _local_import(user_id, data)
     import httpx
+
     from shared_infra.sandbox.relay import relay_headers
     r = httpx.post(host.url + "/api/sandbox/import", headers=relay_headers(host, int(user_id)),
                    files={"archive": ("work.tar.gz", data, "application/gzip")}, timeout=timeout_s)

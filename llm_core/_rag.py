@@ -22,10 +22,13 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from shared_infra.db import log_metric
 from llm_core._rag_client import (
-    call_tool, RagServiceError, RagToolError, is_configured,
+    RagServiceError,
+    RagToolError,
+    call_tool,
+    is_configured,
 )
+from shared_infra.db import log_metric
 
 logger = logging.getLogger("uvicorn.error")
 

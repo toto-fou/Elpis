@@ -61,7 +61,7 @@ logger = logging.getLogger("uvicorn.error")
 # des quatre canaux inter-process sans surcharge possible, donc le seul qu'un
 # déploiement ne pouvait pas déplacer — et ``/tmp`` est partagé par tous les
 # comptes de la machine.
-from shared_infra.runtime.runtime_dir import (                          # noqa: E402
+from shared_infra.runtime.runtime_dir import (  # noqa: E402
     ensure_runtime_dir as _ensure_runtime_dir,
     file_is_safe as _file_is_safe,
     runtime_path as _runtime_path,

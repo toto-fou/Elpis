@@ -34,17 +34,17 @@ import pytest
 
 from llm_core.context.compaction_gate import (
     AUTO,
+    MAX_ROUNDS_MAX,
+    MAX_ROUNDS_UNLIMITED,
     PCT_MAX,
     PCT_MIN,
+    RUN_COMPACTION_UNBOUNDED,
     TOKENS_MAX,
     TOKENS_MIN,
     CompactionThreshold,
+    clamp_max_rounds,
     clamp_threshold_pct,
     clamp_threshold_tokens,
-    MAX_ROUNDS_MAX,
-    MAX_ROUNDS_UNLIMITED,
-    RUN_COMPACTION_UNBOUNDED,
-    clamp_max_rounds,
     compaction_gate,
     gate_tokens,
     resolve_max_rounds,
@@ -297,6 +297,7 @@ def test_la_boucle_utilise_gate_tokens(cfg_neutre):
     réglage du compte, et aucun test fonctionnel ne le verrait à seuil
     « auto »."""
     import inspect
+
     from llm_core import _chat_with_tools as cwt
     src = inspect.getsource(cwt.run_chat_multi_mcp)
     assert "gate_tokens(_compr_gate)" in src
@@ -345,6 +346,7 @@ def test_la_boucle_branche_le_cap_du_compte(cfg_neutre):
     appels au compresseur. Oublier l'un des trois laisse un réglage qui a l'air
     de marcher — jusqu'à la mission longue, où il se tait."""
     import inspect
+
     from llm_core import _chat_with_tools as cwt
     src = inspect.getsource(cwt.run_chat_multi_mcp)
     assert "_run_budget(" in src
@@ -513,6 +515,7 @@ async def test_seuil_ignore_quand_la_compaction_auto_est_coupee(compr_env):
 
 def test_le_reglage_atteint_les_deux_entrees_de_la_boucle():
     import inspect
+
     from llm_core._chat_with_tools import run_chat_multi_mcp, run_chat_multi_mcp_v2
     for fn in (run_chat_multi_mcp, run_chat_multi_mcp_v2):
         assert "compaction_threshold" in inspect.signature(fn).parameters
@@ -525,6 +528,7 @@ def test_la_route_resout_le_seuil_et_le_propage():
     """Garde-fou source, même gabarit que ``compression_enabled`` : la route
     est la seule à connaître les settings du compte."""
     import inspect
+
     from chatbot_app.routes import chats as _chats
     src = inspect.getsource(_chats)
     assert "_compaction_threshold = _resolve_thr(user_settings)" in src
@@ -542,7 +546,6 @@ def test_la_route_resout_le_seuil_et_le_propage():
 # Un seuil à 50 % le ramène à 131 072 : entre les deux se trouve la « bande »
 # où tout se joue.
 
-from tests.llm_core.goldens_harness import builtin_tools, sse_final  # noqa: E402
 from tests.llm_core.ctx_scale_harness import (  # noqa: E402
     CTX_256K,
     blob,
@@ -553,6 +556,7 @@ from tests.llm_core.ctx_scale_harness import (  # noqa: E402
     sse_final_scaled,
     sse_tool_call_scaled,
 )
+from tests.llm_core.goldens_harness import builtin_tools, sse_final  # noqa: E402
 
 SOCLE_E2E = "SOCLE SEUIL — identité de test stable, ne pas reformuler."
 

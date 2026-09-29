@@ -35,6 +35,7 @@ def gc(tmp_path, monkeypatch):
             _schema.ensure_tables(conn, ["git_connectors"])
         conn.commit()
     import shared_infra.git.connectors as _gc
+
     # le résolveur dé-duplique l'import legacy par process → on réinitialise.
     import shared_infra.git.resolver as R
     R._imported_users.clear()
@@ -188,6 +189,7 @@ def test_gitea_uses_basic_auth_not_token():
     # Gitea : Basic (accepte mot de passe ET PAT) — PAS ``Authorization: token``
     # (qui n'accepte QU'un PAT → 401 avec un mot de passe). C'est le bug du 401.
     import base64
+
     from shared_infra.git.providers import get_provider
     cap = {}
     def http(url, method="GET", body=None, headers=None, timeout=12):

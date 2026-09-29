@@ -16,7 +16,7 @@ import sys as _sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from .base import DesktopBackend, NotSupported, PartialInput, encode_screenshot, tail_truncate, shell_disabled
+from .base import DesktopBackend, NotSupported, PartialInput, encode_screenshot, shell_disabled, tail_truncate
 
 # Apartment COM DÉTERMINISTE = MTA, fixé AVANT tout import comtypes/pywinauto (faits
 # paresseusement plus bas) : c'est le modèle RECOMMANDÉ par Microsoft pour un client
@@ -55,9 +55,9 @@ def _shellexecute_error(rc: int) -> str:
     return _SHELLEXEC_ERRORS.get(rc, "erreur ShellExecute %d" % rc)
 
 try:
-    from normalize import make_node, keep_node
+    from normalize import keep_node, make_node
 except ImportError:  # pragma: no cover
-    from ..normalize import make_node, keep_node
+    from ..normalize import keep_node, make_node
 
 
 def _ensure_dpi_aware() -> None:
@@ -2245,8 +2245,8 @@ class WindowsBackend(DesktopBackend):
         par un HTTP 500. Seul un échec ShellExecute EXPLICITE (code ≤ 32, ex.
         fichier introuvable) lève NotSupported → 501 avec un motif décodé."""
         import ctypes
-        from ctypes import wintypes
         import time
+        from ctypes import wintypes
 
         info: Dict[str, Any] = {"launched": str(target), "found": False}
         try:

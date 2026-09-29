@@ -31,7 +31,6 @@ import json
 
 import pytest
 
-
 # ── C4 — la racine du bac à sable n'est pas supprimable ──────────────────────
 
 def test_la_racine_du_bac_a_sable_est_refusee_a_la_suppression(tmp_path):
@@ -95,7 +94,7 @@ async def test_une_sortie_identique_recente_n_est_pas_effacee(monkeypatch):
 def test_marquer_une_sortie_unique_reste_possible():
     """La garde ne doit pas neutraliser l'élagage : une signature qui
     n'apparaît qu'une fois reste marquable."""
-    from llm_core.context.pruning import _prune_key, apply_prune_marks, PRUNE_CLEARED_MARKER
+    from llm_core.context.pruning import PRUNE_CLEARED_MARKER, _prune_key, apply_prune_marks
 
     msgs = [{"role": "tool", "tool_call_id": "call_0", "content": "A" * 100},
             {"role": "tool", "tool_call_id": "call_0", "content": "B" * 100}]

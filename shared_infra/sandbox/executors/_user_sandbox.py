@@ -78,20 +78,22 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import logging
+import os
 import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from shared_infra.sandbox.executors._base import (
-    ExecError, ExecResult, kill_process_group,
-)
-from shared_infra.sandbox.executors._readiness import get_readiness_cache
 from shared_infra.sandbox import naming as _naming
 from shared_infra.sandbox.executors import _privdrop
+from shared_infra.sandbox.executors._base import (
+    ExecError,
+    ExecResult,
+    kill_process_group,
+)
+from shared_infra.sandbox.executors._readiness import get_readiness_cache
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -1030,7 +1032,8 @@ class UserSandbox:
             # Tente l'auto-load (bloquant ici puisqu'on a besoin de l'image
             # pour créer le container)
             from shared_infra.sandbox.executors._image_loader import (
-                ensure_image_loaded, ImageLoadStatus,
+                ImageLoadStatus,
+                ensure_image_loaded,
             )
             state = await ensure_image_loaded(self.cfg.image, blocking=True)
             if state.status == ImageLoadStatus.LOADING:

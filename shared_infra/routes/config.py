@@ -39,12 +39,10 @@ import json
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from shared_infra.config import read_config_json
 from shared_infra.accounts.users import get_username_by_id
-from shared_infra.routes._state import router
-
+from shared_infra.config import read_config_json
 from shared_infra.routes._helpers import _read_json_file, _session_uid_any, _user_cfg_path, _write_json_atomic
-
+from shared_infra.routes._state import router
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  DEFAULTS

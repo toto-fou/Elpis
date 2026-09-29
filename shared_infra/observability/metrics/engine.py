@@ -1,15 +1,17 @@
 # SPDX-License-Identifier: MIT
+import collections
 import logging
 import os
-import time
-import psutil
-import collections
 import threading
-from concurrent.futures import ThreadPoolExecutor
+import time
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Iterable
-from shared_infra.observability.usage_store import db_conn
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, Iterable, List, Optional
+
+import psutil
+
 from shared_infra.db._dialect import json_get, local_strftime, round_
+from shared_infra.observability.usage_store import db_conn
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -750,7 +752,8 @@ def _proc_trend_chart(event_types_labels_colors, days=7):
     qui ressort (celui qui fuit). Une pente qui monte de façon monotone sur
     plusieurs jours == le coupable du redémarrage hebdomadaire."""
     from shared_infra.observability.metrics.process_sampler import (
-        gauge_union_params, gauge_union_sql,
+        gauge_union_params,
+        gauge_union_sql,
     )
 
     _BUCKET = local_strftime("%d/%m %Hh", "created_at")

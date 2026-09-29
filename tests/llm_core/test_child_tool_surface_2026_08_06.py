@@ -185,7 +185,8 @@ async def test_le_socle_par_defaut_est_ecrit_dans_lagent_pas_applique_en_douce()
     carte de l'agent l'affiche, et l'auteur peut le restreindre. Un défaut
     appliqué seulement au lancement serait invisible."""
     from llm_core.tools.task_tool import (
-        CUSTOM_DEFAULT_CATEGORIES, validate_custom_agents,
+        CUSTOM_DEFAULT_CATEGORIES,
+        validate_custom_agents,
     )
     out = validate_custom_agents([
         {"name": "redacteur", "prompt": "P.", "tool_categories": []},
@@ -253,6 +254,7 @@ async def test_le_panneau_dit_la_vraie_surface_via_les_modeles():
     (l'unité depuis 2026-08-06) — et qu'aucune infobulle en dur n'est revenue."""
     import re
     from pathlib import Path
+
     from llm_core.tools.task_tool import agent_templates
 
     tpl = {t["name"]: t for t in agent_templates()}

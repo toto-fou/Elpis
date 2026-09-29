@@ -48,8 +48,7 @@ def test_le_calendrier_couvre_toute_la_fenetre(db):
 
 def test_les_seaux_vides_valent_zero(db):
     """Une nuit calme doit se voir comme une ligne à 0, pas comme un trou."""
-    from shared_infra.observability.metrics.series import (
-        aggregate_series, plan_buckets, to_chart)
+    from shared_infra.observability.metrics.series import aggregate_series, plan_buckets, to_chart
     now = time.time()
     _seed([now, now - 3600])            # deux heures actives sur vingt-quatre
     plan = plan_buckets(now - 24 * 3600, now, "hour")
@@ -63,8 +62,7 @@ def test_les_seaux_vides_valent_zero(db):
 
 def test_une_fenetre_a_cheval_sur_minuit_ne_se_replie_pas(db):
     """Même heure, deux jours différents ⇒ deux points distincts."""
-    from shared_infra.observability.metrics.series import (
-        aggregate_series, plan_buckets, to_chart)
+    from shared_infra.observability.metrics.series import aggregate_series, plan_buckets, to_chart
     # Ancrage sur une heure locale connue : 14 h aujourd'hui et 14 h hier.
     aujourdhui = datetime.now().replace(minute=0, second=0, microsecond=0)
     h14 = aujourdhui.replace(hour=14).timestamp()
@@ -80,9 +78,8 @@ def test_une_fenetre_a_cheval_sur_minuit_ne_se_replie_pas(db):
 
 
 def test_series_par_groupe_et_metadonnees(db):
+    from shared_infra.observability.metrics.series import aggregate_series, plan_buckets, to_chart
     from shared_infra.observability.usage_store import record_usage
-    from shared_infra.observability.metrics.series import (
-        aggregate_series, plan_buckets, to_chart)
     now = time.time()
     record_usage(user_id=1, source="chat", input_tokens=100, ts=now)
     record_usage(user_id=1, source="routine", input_tokens=900, ts=now)

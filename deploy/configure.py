@@ -729,8 +729,8 @@ def step_secrets(cfg: Dict[str, Any], force: bool) -> None:
 def step_admin(p: Prompter, a: argparse.Namespace) -> None:
     title("8/8  Compte administrateur")
     sys.path.insert(0, str(ROOT))
-    from shared_infra.db import init_db
     from shared_infra.accounts import users as U
+    from shared_infra.db import init_db
 
     init_db()
     existing = U.get_all_users()

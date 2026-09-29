@@ -33,14 +33,15 @@ import time
 from collections import deque
 from typing import Any, Dict, Optional, Tuple
 
-from shared_infra.config import LLAMA_MAX_CONCURRENCY
-from llm_core._model_info import get_model_total_slots
 from llm_core import _model_info as _mi  # for live read of _mi._cached_total_slots
+from llm_core._model_info import get_model_total_slots
+from shared_infra.config import LLAMA_MAX_CONCURRENCY
 
 logger = logging.getLogger("uvicorn.error")
 
 # Defensive: LLAMA_MAX_MODELS may not be set in older configs.
 from shared_infra import config as _bk_config
+
 LLAMA_MAX_MODELS = int(getattr(_bk_config, "LLAMA_MAX_MODELS", 1) or 1)
 
 

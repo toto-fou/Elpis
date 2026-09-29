@@ -179,10 +179,10 @@ def test_restart_status_admin_seulement(ov):
 
 def test_archive_de_sauvegarde_datee(tmp_path, monkeypatch):
     import os
-    from shared_infra.routes import _helpers
-    from shared_infra.observability.usage_store import db_conn
 
     import shared_infra.config as _cfg
+    from shared_infra.observability.usage_store import db_conn
+    from shared_infra.routes import _helpers
     # Lu dans la fonction (``from shared_infra.config import MCP_SERVERS_DIR``).
     monkeypatch.setattr(_cfg, "MCP_SERVERS_DIR", tmp_path / "mcp")
     (tmp_path / "mcp").mkdir()

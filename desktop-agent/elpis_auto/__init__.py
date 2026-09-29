@@ -21,7 +21,13 @@ EXPLICITEMENT au démarrage tant qu'aucun Elpis n'est configuré — jamais en
 silence au milieu d'une exécution.
 """
 from .session import (  # noqa: F401
-    Session, Target, CheckFailed, NeedsVision, StepError, TargetNotFound, __version__,
+    CheckFailed,
+    NeedsVision,
+    Session,
+    StepError,
+    Target,
+    TargetNotFound,
+    __version__,
 )
 
 __all__ = ["Session", "Target", "CheckFailed", "NeedsVision", "StepError", "TargetNotFound", "__version__"]

@@ -90,6 +90,7 @@ _endpoint_client: Optional[httpx.AsyncClient] = None
 # avec un ``threading.Lock`` (rapide, pas de await à l'intérieur).
 import asyncio as _asyncio
 import threading as _threading
+
 _endpoint_client_lock: Optional[_asyncio.Lock] = None
 _endpoint_client_lock_create_guard = _threading.Lock()
 
@@ -1004,7 +1005,6 @@ from llm_core.context.compression.serializer import (
     serialize_for_compression as _serialize_for_compression,
 )
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Interface publique — ConversationCompressor
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1220,7 +1220,8 @@ class ConversationCompressor:
         # résultats). Endpoint distant / ctx inconnu → plancher historique.
         from llm_core.context.compression.serializer import (
             compute_serializer_budget_tokens,
-            compute_serializer_total_budget_tokens)
+            compute_serializer_total_budget_tokens,
+        )
         from llm_core.context.tokens import tokens_to_chars
         _ser_budget = tokens_to_chars(
             compute_serializer_budget_tokens(len(to_compress), None))
@@ -1573,8 +1574,8 @@ def _index_covered_turns_fts(
     ne lève jamais (la compression n'échoue pas sur un souci d'index).
     """
     try:
-        from shared_infra.memory.store import session_index_messages
         from shared_infra.accounts.users import get_user
+        from shared_infra.memory.store import session_index_messages
         row = get_user(username) if username else None
         if not row:
             return

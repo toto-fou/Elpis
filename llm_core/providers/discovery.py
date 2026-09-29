@@ -19,8 +19,7 @@ from typing import Any, Dict, List
 
 from llm_core._client import _get_llm_client
 from llm_core._target import LlmTarget
-from llm_core.providers import anthropic as _anthro
-from llm_core.providers import openai_compat as _oai
+from llm_core.providers import anthropic as _anthro, openai_compat as _oai
 
 logger = logging.getLogger("uvicorn.error")
 

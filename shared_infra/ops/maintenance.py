@@ -63,10 +63,10 @@ def run_maintenance_once() -> Dict[str, int]:
         USAGE_EVENTS_RETENTION_DAYS,
     )
     from shared_infra.db._connection import purge_old_metrics, wal_checkpoint
-    from shared_infra.observability.tool_metrics_store import purge_tool_call_metrics
     from shared_infra.observability.daily_reports_store import purge_daily_reports
-    from shared_infra.scheduling.routines_store import purge_routine_runs, purge_webhook_deliveries
+    from shared_infra.observability.tool_metrics_store import purge_tool_call_metrics
     from shared_infra.observability.usage_store import purge_usage_events
+    from shared_infra.scheduling.routines_store import purge_routine_runs, purge_webhook_deliveries
 
     out: Dict[str, int] = {"metric_events": 0, "usage_events": 0,
                            "tool_call_metrics": 0,

@@ -1392,7 +1392,8 @@ def build_task_builtin_tool(
         # optimized : le parent a RELÂCHÉ le sémaphore pendant le tool call →
         #             l'enfant l'acquiert par appel LLM → run_chat_multi_mcp_v2.
         from llm_core._chat_with_tools import (
-            run_chat_multi_mcp, run_chat_multi_mcp_v2,
+            run_chat_multi_mcp,
+            run_chat_multi_mcp_v2,
         )
         _runner = run_chat_multi_mcp_v2 if scheduling_mode == "optimized" else run_chat_multi_mcp
 

@@ -15,7 +15,6 @@ import sys
 
 import pytest
 
-
 # ── 30. Un wrapper MCP referme TOUJOURS son transport ──────────────────────
 
 class _QuiLeve:
@@ -94,6 +93,7 @@ def test_le_temporaire_du_cache_est_propre_au_process():
 
 def test_deux_ecrivains_concurrents_publient_un_json_valide(tmp_path, monkeypatch):
     import multiprocessing as mp
+
     from llm_core import _mcp_categories as C
     cible = tmp_path / "cats.json"
     monkeypatch.setattr(C, "_CACHE_PATH", cible)
@@ -322,5 +322,5 @@ def test_le_hint_de_debord_distingue_les_deux_causes():
 def test_la_bande_sans_troncature_existe_bel_et_bien():
     """Plancher de débord 7 920 caractères, troncature réelle à 20 000 :
     ]7920, 20000] est la bande où les deux messages se contredisaient."""
-    from llm_core.tools.shell_tools import _spill_floor_chars, DEFAULT_MAX_OUTPUT
+    from llm_core.tools.shell_tools import DEFAULT_MAX_OUTPUT, _spill_floor_chars
     assert _spill_floor_chars() < DEFAULT_MAX_OUTPUT

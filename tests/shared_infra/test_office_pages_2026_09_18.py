@@ -23,8 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from shared_infra.sandbox import office_convert as oc
-from shared_infra.sandbox import office_preview as op
+from shared_infra.sandbox import office_convert as oc, office_preview as op
 
 CT = {
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",

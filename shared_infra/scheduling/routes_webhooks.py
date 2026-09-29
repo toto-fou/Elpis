@@ -191,8 +191,10 @@ async def api_webhook_routine(routine_id: int, request: Request):
     raw = b"".join(chunks)
 
     import asyncio as _asyncio
+
     from shared_infra.scheduling.routines_store import (
-        get_routine_internal, get_routine_webhook_secret,
+        get_routine_internal,
+        get_routine_webhook_secret,
         record_webhook_delivery,
     )
     # AUDIT 2026-08-30 (S3b) — ``routine_id`` est typé ``int``, donc SANS borne
@@ -286,8 +288,9 @@ async def api_webhook_routine(routine_id: int, request: Request):
             record_webhook_delivery, delivery, int(routine_id)):
         return _ok(duplicate=True)
 
-    from shared_infra.scheduling.routines_scheduler import launch_run
     import asyncio as _aio
+
+    from shared_infra.scheduling.routines_scheduler import launch_run
     # (passe 5, B11) — la sérialisation d'un corps jusqu'à 1 Mo part en thread.
     context = await _aio.to_thread(_event_summary, event, payload)
     try:

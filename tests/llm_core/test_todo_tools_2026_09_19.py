@@ -18,8 +18,7 @@ import json
 import pytest
 
 from llm_core.tools import todo_tools
-from llm_core.tools.todo_tools import build_result, _normalize
-
+from llm_core.tools.todo_tools import _normalize, build_result
 
 # ── Schéma vu par la grammaire ───────────────────────────────────────────────
 

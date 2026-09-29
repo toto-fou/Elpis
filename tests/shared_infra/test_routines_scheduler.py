@@ -15,7 +15,6 @@ import pytest
 
 import shared_infra.scheduling.routines_scheduler as S
 
-
 _ROUTINE = {"id": 1, "owner_user_id": 1, "model": None, "system_prompt": "",
             "task_prompt": "do it", "mcp_snapshot": [], "thinking_mode": False,
             "enabled": True}

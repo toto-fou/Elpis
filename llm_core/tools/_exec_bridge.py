@@ -85,12 +85,12 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+from shared_infra.accounts.users import get_user as _get_user, get_user_settings
 from shared_infra.sandbox.executors import (
     ExecError,
     get_user_sandbox,
 )
 from shared_infra.security.audit import audit_code_exec
-from shared_infra.accounts.users import get_user_settings, get_user as _get_user
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -160,12 +160,14 @@ def _ctx_progress(ctx: Any, progress: float, total: Optional[float],
 # les familles sans sandbox — navigateur/desktop — pour le battement) ; les
 # noms historiques restent des alias : le middleware ``ServerLoopCapture`` du
 # serveur et les tests appellent ``register_server_loop`` / ``_schedule_ctx_coro``.
-from llm_core.tools._toolkit import (          # noqa: E402
-    register_server_loop, schedule_ctx_coro as _schedule_ctx_coro,
-    live_notify as _live_notify, Heartbeat,
-    LIVE_KIND_SHELL, LIVE_LOGGER_SHELL,
+from llm_core.tools._toolkit import (  # noqa: E402
+    LIVE_KIND_SHELL,
+    LIVE_LOGGER_SHELL,
+    Heartbeat,
+    live_notify as _live_notify,
+    register_server_loop,
+    schedule_ctx_coro as _schedule_ctx_coro,
 )
-
 
 # ─── Path helpers ────────────────────────────────────────────────────────
 

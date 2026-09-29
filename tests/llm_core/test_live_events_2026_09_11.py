@@ -14,8 +14,7 @@ from types import SimpleNamespace
 from typing import Any, Dict, List
 
 import pytest
-from fastmcp import Context, FastMCP     # au niveau module : annotations-chaînes des outils
-
+from fastmcp import Context, FastMCP  # au niveau module : annotations-chaînes des outils
 
 # ── Faux contextes ──────────────────────────────────────────────────────────
 
@@ -95,7 +94,7 @@ async def _run_add(b, stream, data):
 
 
 def test_batcher_repli_sentinelle_json_pour_un_context_ancien(server_loop):
-    from llm_core.tools._exec_bridge import _ShellStreamBatcher, _get_bridge_loop
+    from llm_core.tools._exec_bridge import _get_bridge_loop, _ShellStreamBatcher
     ctx = _CtxLegacy({"call_id": "c9"})
     b = _ShellStreamBatcher(ctx)
     asyncio.run_coroutine_threadsafe(_run_add(b, "stderr", b"x"), _get_bridge_loop()).result(2)
@@ -194,7 +193,7 @@ async def test_log_cb_traduit_extra_et_jette_le_battement():
 
 def test_battement_pendant_une_execution_silencieuse(server_loop, monkeypatch):
     from llm_core.tools import _toolkit as tk
-    from llm_core.tools._toolkit import Heartbeat, LIVE_KIND_HEARTBEAT, LIVE_LOGGER_HEARTBEAT
+    from llm_core.tools._toolkit import LIVE_KIND_HEARTBEAT, LIVE_LOGGER_HEARTBEAT, Heartbeat
     ctx = _CtxStructured({"call_id": "call_7", "log_token": "run:call_7"})
     with Heartbeat(ctx, interval_s=0.05) as hb:
         time.sleep(0.3)
@@ -244,7 +243,14 @@ def live_server():
     """Un FastMCP réel exposant un outil qui parle comme le pont d'exécution
     (notifications structurées + battement), servi en HTTP streamable."""
     import uvicorn
-    from llm_core.tools._toolkit import live_notify, LIVE_KIND_SHELL, LIVE_KIND_HEARTBEAT, LIVE_LOGGER_SHELL, LIVE_LOGGER_HEARTBEAT
+
+    from llm_core.tools._toolkit import (
+        LIVE_KIND_HEARTBEAT,
+        LIVE_KIND_SHELL,
+        LIVE_LOGGER_HEARTBEAT,
+        LIVE_LOGGER_SHELL,
+        live_notify,
+    )
 
     mcp = FastMCP("live-test")
 

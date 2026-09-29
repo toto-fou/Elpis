@@ -46,27 +46,61 @@ Credentials:
 Signature: register(mcp, root_base)   # unchanged
 """
 from __future__ import annotations
+
+import ast
+import fnmatch
+import json
+import os
+import posixpath
+import re
+import secrets as _sec
+import stat
+import subprocess
+import time
 from pathlib import Path
-from typing import Dict, Any, List, Literal, Optional, Union
-import os, posixpath, subprocess, time, re, ast, fnmatch, json, stat, secrets as _sec
+from typing import Any, Dict, List, Literal, Optional, Union
+
 from fastmcp import Context, FastMCP
 
-from ._toolkit import (
-    ok as _ok, err, tool_kw, unquote, get_username,
-    tool_kw_readonly, tool_kw_mutating, tool_kw_destructive, tool_kw_openworld,
-    unicode_twin_warning, glob_match,
-)
-from ._models import (
-    GitQueryResult, GitWriteResult, GitActionResult, GitRfResult,
-    GitInspectResult, GitStartWorkResult, GitCommitResult,
-    GitSubmitResult, GitAbandonResult, GitCloneResult,
-    ErrEnvelope,
-)
-from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git, unsafe_git_dir
-from shared_infra.sandbox.paths import (SandboxPathError, leaf_mode, open_beneath,
-                                        open_dir_beneath, read_leaf, rel_under, walk_under)
-from shared_infra.sandbox.policy import use_agent
 from llm_core.tools._exec_bridge import run_shell_via_executor
+from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git, unsafe_git_dir
+from shared_infra.sandbox.paths import (
+    SandboxPathError,
+    leaf_mode,
+    open_beneath,
+    open_dir_beneath,
+    read_leaf,
+    rel_under,
+    walk_under,
+)
+from shared_infra.sandbox.policy import use_agent
+
+from ._models import (
+    ErrEnvelope,
+    GitAbandonResult,
+    GitActionResult,
+    GitCloneResult,
+    GitCommitResult,
+    GitInspectResult,
+    GitQueryResult,
+    GitRfResult,
+    GitStartWorkResult,
+    GitSubmitResult,
+    GitWriteResult,
+)
+from ._toolkit import (
+    err,
+    get_username,
+    glob_match,
+    ok as _ok,
+    tool_kw,
+    tool_kw_destructive,
+    tool_kw_mutating,
+    tool_kw_openworld,
+    tool_kw_readonly,
+    unicode_twin_warning,
+    unquote,
+)
 
 # Legacy subdir — kept for backwards-compat resolution (warned, not errored).
 USER_GIT_SUBDIR = "git_repos"
@@ -90,7 +124,7 @@ def _clone_url_block_reason(url: str, allow_hosts=()) -> Optional[str]:
     LAN interne. Avant, un serveur git interne bloquait tout fetch/push/submit.
     Les routes UI et les API PR gardent, elles, le mode strict.
     """
-    from shared_infra.git.ssrf import block_remote_url_reason, GIT_REMOTE_SCHEMES
+    from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES, block_remote_url_reason
     return block_remote_url_reason(url, allow_schemes=GIT_REMOTE_SCHEMES,
                                    allow_hosts=allow_hosts, critical_only=True)
 
@@ -128,7 +162,9 @@ def _grant_sandbox_access(username: str, sandbox: Path, target: Path) -> None:
     via docker exec). Best-effort, ne lève jamais — l'op git a déjà réussi.
     """
     try:
-        import asyncio, threading
+        import asyncio
+        import threading
+
         from shared_infra.accounts.users import get_user
         from shared_infra.sandbox.exec_bridge import sandbox_grant_access
         row = get_user(username)
@@ -2354,8 +2390,7 @@ Returns (PR already open)::
             cred = None
             if _uid:
                 try:
-                    from shared_infra.git.resolver import (
-                        resolve_git_credential, import_legacy_git_credentials)
+                    from shared_infra.git.resolver import import_legacy_git_credentials, resolve_git_credential
                     import_legacy_git_credentials(_uid, sb)
                     cred = resolve_git_credential(_uid, remote_url)
                 except Exception:
@@ -2369,7 +2404,8 @@ Returns (PR already open)::
             if _blk:
                 return _err("blocked_remote", hint=f"Remote refused (anti-SSRF): {_blk}")
             from contextlib import nullcontext as _nullctx
-            from shared_infra.git.askpass import git_askpass_env, AskpassError
+
+            from shared_infra.git.askpass import AskpassError, git_askpass_env
             _push_timeout = 30
             _has_creds = bool(cred and cred.get("token"))
             try:
@@ -2444,7 +2480,7 @@ Returns (PR already open)::
             host = prov_info.get("host", "")
             owner = prov_info.get("owner", "")
             repo_name = prov_info.get("repo", "")
-            from shared_infra.git.providers import get_provider, compare_url_for
+            from shared_infra.git.providers import compare_url_for, get_provider
 
             # Pas de connecteur (ou token absent) → repli compare-URL manuel.
             if not cred or not cred.get("token"):
@@ -2504,6 +2540,7 @@ Returns (PR already open)::
                         provider_type=cred["provider_type"]),
                 )
             import functools as _ft
+
             from shared_infra.git._http import http_json as _hardened_http
             _http = _ft.partial(_hardened_http,
                                 ssrf_allow_hosts=({host} if host else set()),
@@ -2731,8 +2768,7 @@ Returns::
                 _clone_cred = {"username": (username or "").strip(), "token": token.strip()}
             elif _cuid:
                 try:
-                    from shared_infra.git.resolver import (
-                        resolve_git_credential, import_legacy_git_credentials)
+                    from shared_infra.git.resolver import import_legacy_git_credentials, resolve_git_credential
                     import_legacy_git_credentials(_cuid, sb)
                     _clone_cred = resolve_git_credential(_cuid, url)
                 except Exception:
@@ -2748,7 +2784,8 @@ Returns::
             cmd += [url, str(p)]
             _twin = unicode_twin_warning(target, sb)
             from contextlib import nullcontext as _nullctx
-            from shared_infra.git.askpass import git_askpass_env, AskpassError
+
+            from shared_infra.git.askpass import AskpassError, git_askpass_env
             _has_clone_cred = bool(_clone_cred and _clone_cred.get("token"))
             try:
                 _cm = (git_askpass_env(_clone_cred["username"], _clone_cred["token"])

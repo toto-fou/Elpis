@@ -11,6 +11,7 @@ import pytest
 # ── Façade : un symbole ne masque plus un sous-module ────────────────────────
 def test_import_du_sous_module_client_rend_un_module():
     import importlib
+
     import llm_core
     m = importlib.import_module("llm_core._client")
     assert llm_core._client is m and hasattr(m, "_get_llm_client")
@@ -117,8 +118,8 @@ async def test_texte_du_meme_delta_que_tool_calls_garde():
 
 # ── Anthropic chemin classique : relance, message lisible ────────────────────
 async def test_anthropic_classique_relance_un_529(monkeypatch):
-    from llm_core.providers import anthropic as A
     from llm_core import _llm_retry as R
+    from llm_core.providers import anthropic as A
     appels = []
 
     async def _consume(target, body, **k):
@@ -139,8 +140,8 @@ async def test_anthropic_classique_relance_un_529(monkeypatch):
 
 
 async def test_anthropic_classique_erreur_fatale_lisible(monkeypatch):
-    from llm_core.providers import anthropic as A
     from llm_core import _llm_retry as R
+    from llm_core.providers import anthropic as A
 
     async def _consume(target, body, **k):
         raise R.provider_http_error(401, '{"error":{"type":"authentication_error"}}')
@@ -182,9 +183,9 @@ async def test_forget_annule_la_tache_d_abonnement():
 
 # ── Préflight : erreur de transport typée ────────────────────────────────────
 async def test_preflight_leve_une_erreur_de_transport(monkeypatch):
-    from llm_core import _health as H
-    from llm_core._llm_retry import llm_error_kind, KIND_UNREACHABLE
     import llm_core._target as T
+    from llm_core import _health as H
+    from llm_core._llm_retry import KIND_UNREACHABLE, llm_error_kind
 
     class _C:
         async def get(self, *a, **k):

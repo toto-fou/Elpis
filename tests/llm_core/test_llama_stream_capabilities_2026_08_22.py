@@ -26,12 +26,17 @@ import asyncio
 import httpx
 import pytest
 
+from llm_core._chat_with_tools import (
+    _endpoint_base,
+    _reasoning_cap_chars,
+    _resume_cut_stream,
+    _skipping,
+)
 from llm_core.providers import llama_stream as ls
 from llm_core.providers.llamacpp import (
-    SseStreamResult, build_llama_payload, consume_llama_sse,
-)
-from llm_core._chat_with_tools import (
-    _endpoint_base, _reasoning_cap_chars, _resume_cut_stream, _skipping,
+    SseStreamResult,
+    build_llama_payload,
+    consume_llama_sse,
 )
 
 
@@ -246,15 +251,15 @@ def test_aucun_seuil_quand_la_reflexion_est_non_plafonnee(monkeypatch):
 
 
 def test_le_seuil_suit_le_plafond_de_generation(monkeypatch):
-    from shared_infra import config as cfg
     from llm_core.context.tokens import CHARS_PER_TOKEN
+    from shared_infra import config as cfg
     monkeypatch.setattr(cfg, "LLAMA_REASONING_SOFT_BUDGET_TOKENS", 0)
     assert _reasoning_cap_chars({"max_tokens": 1000}) == int(800 * CHARS_PER_TOKEN)
 
 
 def test_le_budget_explicite_gagne_sil_est_plus_bas(monkeypatch):
-    from shared_infra import config as cfg
     from llm_core.context.tokens import CHARS_PER_TOKEN
+    from shared_infra import config as cfg
     monkeypatch.setattr(cfg, "LLAMA_REASONING_SOFT_BUDGET_TOKENS", 100)
     assert _reasoning_cap_chars({"max_tokens": 1000}) == int(100 * CHARS_PER_TOKEN)
 

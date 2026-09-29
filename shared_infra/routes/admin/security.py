@@ -18,7 +18,8 @@ import httpx
 from fastapi import HTTPException, Request
 
 from shared_infra.config import (
-    read_config_json, write_config_json,
+    read_config_json,
+    write_config_json,
 )
 
 # Helpers shared with _legacy. Single source of truth.
@@ -139,8 +140,7 @@ def admin_security_revoke_user_sessions(user_id: int, request: Request):
     operator = request.session.get("user_id")
     new_ts = time.time()
     try:
-        from shared_infra.accounts.users import get_user_by_id
-        from shared_infra.accounts.users import bump_session_min_ts
+        from shared_infra.accounts.users import bump_session_min_ts, get_user_by_id
         u = get_user_by_id(user_id)
         if not u:
             raise HTTPException(404, "Utilisateur introuvable")

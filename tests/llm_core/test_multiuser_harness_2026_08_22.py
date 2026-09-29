@@ -28,8 +28,7 @@ import asyncio
 
 import pytest
 
-from llm_core import _mcp_pool as _pool
-from llm_core import _mcp_wrappers as _wrap
+from llm_core import _mcp_pool as _pool, _mcp_wrappers as _wrap
 
 
 # ─────────────────────────────────────────────────────────────────────────────

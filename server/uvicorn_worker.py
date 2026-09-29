@@ -46,8 +46,8 @@ import os
 # outillage). Le drain applicatif ci-dessous est de la logique ORDINAIRE et
 # doit rester importable — et donc testable — sans la pile de production.
 try:
-    from uvicorn.workers import UvicornWorker
     from uvicorn.server import Server
+    from uvicorn.workers import UvicornWorker
     _SERVER_STACK = True
 except Exception:                                               # noqa: BLE001
     UvicornWorker = object                                      # type: ignore

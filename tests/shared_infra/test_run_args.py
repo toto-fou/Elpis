@@ -4,7 +4,10 @@ hardening flags (gVisor runtime / extra args), default OFF = status quo."""
 from pathlib import Path
 
 from shared_infra.sandbox.executors._user_sandbox import (
-    UserSandbox, SandboxAdminConfig, NetworkProfile, netcfg_hash,
+    NetworkProfile,
+    SandboxAdminConfig,
+    UserSandbox,
+    netcfg_hash,
 )
 
 
@@ -163,6 +166,7 @@ class _FakeCLI:
 
 def test_spec_label_pose_et_compare():
     import asyncio
+
     from shared_infra.sandbox.executors._user_sandbox import RUN_SPEC
     cfg = SandboxAdminConfig.from_dict({})
     sb = _sandbox(cfg)
@@ -180,6 +184,7 @@ def test_spec_label_pose_et_compare():
 
 def test_conteneur_arrete_perime_recree_plutot_que_redemarre(monkeypatch):
     import asyncio
+
     from shared_infra.sandbox.executors._user_sandbox import SandboxStatus
     sb = _sandbox(SandboxAdminConfig.from_dict({}))
     created = []

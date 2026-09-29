@@ -6,8 +6,8 @@ lecture qui n'existe pas : aucune requête ne filtre ``metric_events`` sur
 ``user_id``, aucun appelant de ``log_metric`` ne renseigne la colonne.
 L'attribution par-utilisateur vit dans ``usage_events``, avec ses propres index.
 """
-import re
 import pathlib
+import re
 import sqlite3
 
 import pytest

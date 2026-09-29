@@ -15,12 +15,12 @@ aucune frappe), le calcul hors boucle d'événements, et le passage par le
 compteur en cache avec recalcul exact près de la limite.
 """
 import inspect
-
 import sys
 
 import pytest
 
 import shared_infra.terminal.pty  # noqa: F401  (peuple sys.modules)
+
 # ⚠ Passer par sys.modules : la boucle d'auto-export de ``routes/__init__.py``
 # recopie l'alias ``import pty as _pty``, donc l'attribut
 # ``shared_infra.terminal.pty`` pointe sur le module STDLIB.

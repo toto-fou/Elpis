@@ -18,10 +18,13 @@ _AGENT = str(Path(__file__).resolve().parents[2] / "desktop-agent")
 if _AGENT not in sys.path:
     sys.path.insert(0, _AGENT)
 
-from elpis_auto import Session, StepError  # noqa: E402
+from elpis_auto import (  # noqa: E402
+    Session,
+    StepError,
+    report as _report,  # noqa: E402
+)
 from elpis_auto.session import Target, _value_of  # noqa: E402
-from elpis_auto import report as _report  # noqa: E402
-from test_elpis_auto import FakeBackend, _node, _calls  # noqa: E402
+from test_elpis_auto import FakeBackend, _calls, _node  # noqa: E402
 
 
 def n(role, name, depth, x, y, w, h, auto_id="", states=(), value=None):

@@ -562,8 +562,13 @@ async def anthropic_chat_stream(
     # relance après des tokens les dupliquerait à l'écran) et que l'erreur
     # n'est pas définitive ; le message final passe par la taxonomie commune.
     from llm_core._llm_retry import (
-        KIND_UNKNOWN, llm_error_is_fatal, llm_error_kind, llm_error_user_message,
-        note_llm_success, retry_pause)
+        KIND_UNKNOWN,
+        llm_error_is_fatal,
+        llm_error_kind,
+        llm_error_user_message,
+        note_llm_success,
+        retry_pause,
+    )
     from shared_infra.config import LLAMA_RETRIES
     _streamed = [False]
 

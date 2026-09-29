@@ -29,11 +29,11 @@ from __future__ import annotations
 
 from fastapi import HTTPException, Request
 
-from shared_infra.security.audit import audit_event
 from shared_infra.config import read_config_json
 from shared_infra.llm import connectors as _lc
-from shared_infra.security.deps import require_user_id
 from shared_infra.routes._state import router
+from shared_infra.security.audit import audit_event
+from shared_infra.security.deps import require_user_id
 
 _MAX = 300
 

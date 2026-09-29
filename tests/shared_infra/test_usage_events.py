@@ -159,8 +159,7 @@ def test_aucun_chemin_ne_journalise_plus_de_tokens_dans_metric_events():
 # ── Agrégats ────────────────────────────────────────────────────────────────
 
 def test_totaux_et_regroupements(db):
-    from shared_infra.observability.usage_store import usage_group, usage_totals
-    from shared_infra.observability.usage_store import record_usage
+    from shared_infra.observability.usage_store import record_usage, usage_group, usage_totals
     now = time.time()
     record_usage(user_id=1, source="chat", model="a", input_tokens=100, output_tokens=10, ts=now)
     record_usage(user_id=2, source="routine", model="b", input_tokens=900, output_tokens=90, ts=now)
@@ -185,8 +184,7 @@ def test_fenetre_temporelle_bornee(db):
 
 def test_purge_par_fenetre_et_retention(db):
     from shared_infra.db._connection import db_conn
-    from shared_infra.observability.usage_store import (
-        delete_usage_events, purge_usage_events, record_usage)
+    from shared_infra.observability.usage_store import delete_usage_events, purge_usage_events, record_usage
 
     def count_usage_events():
         with db_conn() as conn:

@@ -160,8 +160,8 @@ def test_les_routes_mcp_sont_bien_enregistrees():
     disparaît : les décorateurs ne s'exécutent qu'à l'import. On vérifie donc
     les CHEMINS servis, pas la présence du fichier."""
     import shared_infra.routes  # noqa: F401 — enregistre tout
-    from shared_infra.routes._state import router
     from shared_infra.mcp.bridge import MCP_PROXY_PREFIX
+    from shared_infra.routes._state import router
 
     chemins = {getattr(r, "path", "") for r in router.routes}
     assert "/api/mcp/categories" in chemins        # panneau d'outils du chat

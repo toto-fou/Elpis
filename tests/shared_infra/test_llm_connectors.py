@@ -157,8 +157,8 @@ def test_user_test_and_models_endpoints_mocked(uclient, monkeypatch):
 # ── Routes ADMIN ──────────────────────────────────────────────────────────────
 @pytest.fixture()
 def aclient(lc, monkeypatch):
-    import shared_infra.routes.admin.llm_connectors as admin_routes
     import shared_infra.llm.routes_connectors as user_routes
+    import shared_infra.routes.admin.llm_connectors as admin_routes
     monkeypatch.setattr(admin_routes, "_require_admin", lambda request: 1)
     monkeypatch.setattr(admin_routes, "audit_event", lambda **k: None)
     monkeypatch.setattr(user_routes, "read_config_json", lambda: {})

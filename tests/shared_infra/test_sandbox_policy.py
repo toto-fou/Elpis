@@ -2,7 +2,7 @@
 """Tests for the OP_BACKEND policy table (the migration lever)."""
 import pytest
 
-from shared_infra.sandbox.policy import Backend, backend_for, use_agent, all_ops
+from shared_infra.sandbox.policy import Backend, all_ops, backend_for, use_agent
 
 
 def test_defaults_are_status_quo_host():

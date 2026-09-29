@@ -72,7 +72,9 @@ async def test_grant_after_git_out_of_root_falls_back_to_empty_rel(tmp_path, mon
 
 @pytest.mark.asyncio
 async def test_grant_access_chmod_fallback_without_setfacl_or_docker(tmp_path, monkeypatch):
-    import os, stat
+    import os
+    import stat
+
     import shared_infra.sandbox.exec_bridge as se
 
     work = tmp_path / "work"
@@ -122,6 +124,7 @@ async def test_grant_access_resolver_call_matches_real_signature(tmp_path, monke
     import inspect
     import os
     import stat
+
     import shared_infra.sandbox.exec_bridge as se
     from shared_infra.sandbox.executors import get_user_sandbox as _real_factory
 

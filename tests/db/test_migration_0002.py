@@ -12,6 +12,7 @@ from __future__ import annotations
 import importlib
 import json
 import sqlite3
+
 import pytest
 
 # Migration historique d'une base SQLite (une base serveur naît du schéma de référence).

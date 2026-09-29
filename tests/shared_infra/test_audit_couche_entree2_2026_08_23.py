@@ -30,7 +30,6 @@ import threading
 
 import pytest
 
-
 # ── 6. Le pool MCP épargne l'entrée partagée ─────────────────────────────────
 
 class _EntreeFactice:
@@ -174,8 +173,8 @@ def _un_run(nom: str) -> int:
 def test_mark_run_error_conserve_le_bilan():
     """Un échec après 40 itérations a produit un partiel, consommé des tokens
     et parfois écrit des fichiers : l'échec ne doit pas être une ligne vide."""
-    from shared_infra.scheduling.routines_store import mark_run_error
     from shared_infra.observability.usage_store import db_conn
+    from shared_infra.scheduling.routines_store import mark_run_error
 
     run_id = _un_run("routinier")
     assert mark_run_error(run_id, error="génération interrompue",
@@ -195,8 +194,8 @@ def test_mark_run_error_conserve_le_bilan():
 def test_mark_run_error_sans_bilan_reste_compatible():
     """Les appelants historiques ne passent que ``error`` : rien ne doit
     changer pour eux."""
-    from shared_infra.scheduling.routines_store import mark_run_error
     from shared_infra.observability.usage_store import db_conn
+    from shared_infra.scheduling.routines_store import mark_run_error
 
     run_id = _un_run("routinier2")
     assert mark_run_error(run_id, error="boum") is True
@@ -213,6 +212,7 @@ async def test_une_generation_interrompue_ne_passe_pas_pour_un_succes(monkeypatc
     ``ended_with_error`` au lieu de lever. La boucle de reprise ne voyait donc
     aucune exception et faisait « break # succès »."""
     import contextlib as _ctx
+
     import llm_core
     import shared_infra.db as db
     import shared_infra.scheduling.routines_scheduler as S

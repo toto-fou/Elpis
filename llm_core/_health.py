@@ -52,8 +52,11 @@ logger = logging.getLogger("uvicorn.error")
 # before ``_legacy`` finished its own re-export pass.
 from llm_core._client import _get_llm_client
 from llm_core._llama_http import (
-    _llama_base_url, _llama_get, _llama_get_text,
+    _llama_base_url,
+    _llama_get,
+    _llama_get_text,
 )
+
 # ``get_model_total_slots`` lives in ``_model_info`` which depends on
 # ``_health`` for ``_parse_prometheus_metrics``. To break that cycle we
 # import it lazily inside the one function that uses it.

@@ -41,7 +41,7 @@ def _parse_families(argv: "list[str]") -> "str | None":
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     from shared_infra.mcp.families import parse_families
-    from toolhost.config import load, apply_environment
+    from toolhost.config import apply_environment, load
     tc = load()
     fams = _parse_families(argv)
     if fams is not None:

@@ -30,8 +30,8 @@ import pytest
 from fastapi import HTTPException
 
 from chatbot_app.routes import chats as _chats
-from shared_infra.runtime import chat_locks
 from shared_infra.routes import _state
+from shared_infra.runtime import chat_locks
 
 
 @pytest.fixture(autouse=True)

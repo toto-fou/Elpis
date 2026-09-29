@@ -17,6 +17,7 @@ Tools registered: chart_trend, chart_proportion, chart_distribution,
                   chart_financial (all over a shared _core), generate_table
 """
 from __future__ import annotations
+
 import hashlib
 import json
 import math
@@ -24,14 +25,19 @@ import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+
 from fastmcp import Context, FastMCP
 
+from ._models import ErrEnvelope, GenerateChartResult, GenerateTableResult
 from ._toolkit import (
-    ok, err, tool_kw, tag_kw, get_username,
+    err,
+    get_username,
+    ok,
+    tag_kw,
+    tool_kw,
     tool_kw_idempotent,
 )
-from ._models import GenerateChartResult, GenerateTableResult, ErrEnvelope
 
 # ── Category descriptor (see fs_tools.CATEGORY for the contract) ──────
 CATEGORY = {

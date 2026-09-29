@@ -5,8 +5,8 @@ Tables: ``saved_prompts``, ``shared_prompts``.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 import time
+from typing import Any, Dict, List, Optional
 
 from shared_infra.db._connection import db_conn
 from shared_infra.db._dialect import insert_id

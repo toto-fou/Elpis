@@ -28,7 +28,7 @@ if _AGENT not in sys.path:
 from backends import windows as W  # noqa: E402
 from backends.base import NotSupported, PartialInput  # noqa: E402
 from test_clics_gestes_2026_09_14 import Ctrl, _be, _fake_windll, _Fn  # noqa: E402
-from test_uia_comtypes_fallback_2026_09_13 import El, Mod, Found  # noqa: E402
+from test_uia_comtypes_fallback_2026_09_13 import El, Found, Mod  # noqa: E402
 
 
 # ── backend : repli coordonnées réservé aux clics ─────────────────────────────
@@ -187,7 +187,7 @@ def test_glisser_relache_le_bouton_sur_erreur(monkeypatch):
 
 
 # ── serveur ───────────────────────────────────────────────────────────────────
-from test_agent_worker import _fresh_server, _cleanup, _FakeBackend  # noqa: E402
+from test_agent_worker import _cleanup, _FakeBackend, _fresh_server  # noqa: E402
 
 
 @pytest.fixture

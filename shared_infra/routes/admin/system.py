@@ -13,11 +13,13 @@ import time
 
 from fastapi import Request
 
-
 # Helpers shared with _legacy. Single source of truth.
 from shared_infra.routes._legacy import (
-    _require_admin, _terminals, _term_global_lock,
-    _PTY_IDLE_TIMEOUT_SEC, MAX_SESSIONS_PER_USER,
+    _PTY_IDLE_TIMEOUT_SEC,
+    MAX_SESSIONS_PER_USER,
+    _require_admin,
+    _term_global_lock,
+    _terminals,
 )
 
 # Routers — owned by ``_state``. We import them so endpoint decorators

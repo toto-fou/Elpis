@@ -35,11 +35,11 @@ def _db_conn(store):
 
 
 def _client(monkeypatch, tmp_path, enabled=True, uid=1):
-    import shared_infra.opencode.routes_code as code
-    import shared_infra.opencode.store as cstore
     # La page Code passe par le pool commun (2026-09-26) : une seule base à
     # rediriger, celle de ``shared_infra.db._connection``.
     import shared_infra.config as _config
+    import shared_infra.opencode.routes_code as code
+    import shared_infra.opencode.store as cstore
     from shared_infra.db import _connection
     monkeypatch.setattr(_connection, "DB_PATH", str(tmp_path / "t.db"))
     monkeypatch.setattr(_config, "DB_PATH", str(tmp_path / "t.db"))
@@ -773,8 +773,9 @@ def test_sessions_expose_connected_flag(monkeypatch, tmp_path):
         {"type": "session.created", "properties": {"info": {"id": "s2", "time": {"updated": 1}}}}]})
     assert [s["connected"] for s in client.get("/api/code/sessions").json()] == [True, True]
     # le client c2 meurt (last_seen trop vieux) → s2 passe « hors ligne », s1 reste
-    import shared_infra.opencode.store as cstore
     import time as _t
+
+    import shared_infra.opencode.store as cstore
     with cstore._db() as c:
         c.execute("UPDATE code_clients SET last_seen=? WHERE client_id='c2'",
                   (_t.time() - 10 * cstore.CLIENT_TTL,))

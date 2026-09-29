@@ -36,7 +36,6 @@ sys.path.insert(0, str(REPO / "deploy"))
 import tui as T  # noqa: E402
 import wizard as W  # noqa: E402
 
-
 # ── Clavier et rendu ─────────────────────────────────────────────────────────
 
 def test_touches():

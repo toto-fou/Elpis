@@ -242,6 +242,7 @@ def test_list_runs_owner_gated(R):
 def _notif_table():
     """Table ``notifications`` (migration réelle) dans la DB temp du test."""
     import importlib
+
     from shared_infra.db._connection import db_conn
     from shared_infra.db._dialect import SQLITE, dialect_of
     with db_conn() as conn:

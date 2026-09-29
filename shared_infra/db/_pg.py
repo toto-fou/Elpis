@@ -30,16 +30,20 @@ from collections import OrderedDict
 from typing import Any, Optional
 
 from shared_infra.db._server import (
-    ServerConnection, ServerDataError, ServerError, ServerIntegrityError,
-    ServerOperationalError, ServerProgrammingError,
+    ServerConnection,
+    ServerDataError,
+    ServerError,
+    ServerIntegrityError,
+    ServerOperationalError,
+    ServerProgrammingError,
 )
 
 _PREPARED_MAX = 256
 
 
 def _pg8000():
-    import pg8000.dbapi  # noqa: F401 — import paresseux : pilote facultatif
     import pg8000.converters
+    import pg8000.dbapi  # noqa: F401 — import paresseux : pilote facultatif
     import pg8000.exceptions
     return pg8000
 

@@ -15,17 +15,24 @@ from pathlib import Path
 
 import pytest
 
+from chatbot_app.routes.chats import _task_runs_for_persist
 from llm_core._constants import (
-    TASK_MAX_ITERS_CUSTOM, TASK_MAX_ITERS_EXPLORE, TASK_MAX_ITERS_IMPLEMENT,
-    TASK_MAX_ITERS_PR, TASK_MAX_ITERS_VERIFY, TASK_MAX_ITERS_WEB,
+    TASK_MAX_ITERS_CUSTOM,
+    TASK_MAX_ITERS_EXPLORE,
+    TASK_MAX_ITERS_IMPLEMENT,
+    TASK_MAX_ITERS_PR,
+    TASK_MAX_ITERS_VERIFY,
+    TASK_MAX_ITERS_WEB,
     TASK_RESULT_PERSIST_CAP,
 )
 from llm_core.tools.task_tool import (
-    CUSTOM_AGENTS_MAX, CUSTOM_ITERS_MAX, _AGENTS, _norm_max_iters,
-    _specs_from_custom, validate_custom_agents,
+    _AGENTS,
+    CUSTOM_AGENTS_MAX,
+    CUSTOM_ITERS_MAX,
+    _norm_max_iters,
+    _specs_from_custom,
+    validate_custom_agents,
 )
-from chatbot_app.routes.chats import _task_runs_for_persist
-
 from tests.llm_core.test_task_tool import FakeRunner, _factory
 
 ROOT = Path(__file__).resolve().parents[2]

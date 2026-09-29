@@ -13,6 +13,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+
 # Au niveau module : ``from __future__ import annotations`` rend les annotations
 # des handlers FastAPI (``request: Request``) des CHAÎNES résolues dans les
 # globals du module — importées localement, FastAPI les prenait pour des
@@ -20,7 +21,6 @@ import pytest
 from fastapi import FastAPI, Request, WebSocket
 
 from shared_infra.accounts import identity as I
-
 
 # ── 1. Enveloppe d'identité ──────────────────────────────────────────────────
 
@@ -66,8 +66,9 @@ def test_from_meta():
 def guarded_app():
     from fastapi import FastAPI, Request
     from fastapi.testclient import TestClient
-    from toolhost.auth import ToolhostAuthASGI
+
     from shared_infra.security.deps import require_user_id
+    from toolhost.auth import ToolhostAuthASGI
     app = FastAPI()
 
     @app.get("/health")
@@ -108,6 +109,7 @@ def test_porte_refuse_sans_preuves_et_laisse_health_mcp(guarded_app):
 def test_porte_sans_jeton_ferme_l_api(guarded_app):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
     from toolhost.auth import ToolhostAuthASGI
     app = FastAPI()
 
@@ -190,6 +192,7 @@ def test_hote_de_sandbox_local_ou_distant(manifest_hosts):
 def test_relais_transparent_en_mode_local(manifest_hosts):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
     from shared_infra.sandbox.relay import SandboxRelayASGI
     manifest_hosts({"main": {"url": "http://127.0.0.1:8765", "token": "t"}})
     app = FastAPI()
@@ -207,7 +210,9 @@ def _free_port() -> int:
 
 def _serve(app):
     """Serveur uvicorn de test dans un thread (logging global préservé)."""
-    import logging, uvicorn
+    import logging
+
+    import uvicorn
     names = ("uvicorn", "uvicorn.error", "uvicorn.access")
     levels = {n: logging.getLogger(n).level for n in names}
     port = _free_port()
@@ -231,6 +236,7 @@ def _serve(app):
 def upstream():
     """Un faux hôte d'outils : porte d'entrée réelle + échos HTTP et WS."""
     from fastapi import FastAPI, Request, WebSocket
+
     from toolhost.auth import ToolhostAuthASGI
     up = FastAPI()
 
@@ -265,6 +271,7 @@ def upstream():
 def test_relais_http_et_ws_vers_un_hote_distant(manifest_hosts, upstream, monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
     from shared_infra.sandbox import relay as R
     manifest_hosts({"vm": {"url": f"http://127.0.0.1:{upstream}", "token": "svc-remote", "relay": True}})
     monkeypatch.setattr(R.SandboxRelayASGI, "_session_uid", staticmethod(lambda scope: 7))
@@ -292,6 +299,7 @@ def test_relais_http_et_ws_vers_un_hote_distant(manifest_hosts, upstream, monkey
 def test_relais_hote_injoignable_repond_502(manifest_hosts, monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
     from shared_infra.sandbox import relay as R
     manifest_hosts({"vm": {"url": "http://127.0.0.1:1", "token": "t", "relay": True}})
     monkeypatch.setattr(R.SandboxRelayASGI, "_session_uid", staticmethod(lambda scope: 7))
@@ -305,6 +313,7 @@ def test_relais_hote_injoignable_repond_502(manifest_hosts, monkeypatch):
 def test_routes_internes_exigent_le_jeton_de_service(monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
     import shared_infra.toolhost.routes_internal as RI
     from shared_infra.routes._state import router
     monkeypatch.setattr(RI, "_service_token", lambda: "svc")
@@ -332,6 +341,7 @@ def test_hote_compose_mcp_et_api_sandbox(tmp_path, monkeypatch):
     """``build_app`` : /health ouvert, API sandbox derrière la porte, /mcp servi
     par FastMCP avec le Bearer de service, ``/manifest`` auto-descriptif."""
     from fastapi.testclient import TestClient
+
     from toolhost import config as TC
     tc = TC.ToolhostConfig(host="127.0.0.1", port=1, transport="streamable-http", token="svc",
                            families=["fs", "chart"], sandbox_dir=str(tmp_path / "sb"),

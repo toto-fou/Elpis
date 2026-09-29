@@ -24,10 +24,8 @@ import json
 import pytest
 
 import llm_core._chat_with_tools as _cwt
-from llm_core import _chat_classic as _ccl
-from llm_core import _llm_params
+from llm_core import _chat_classic as _ccl, _llm_params
 from llm_core.providers import openai_compat as _oai
-
 from tests.llm_core.goldens_harness import (
     FakeClient,
     assert_matches_golden,

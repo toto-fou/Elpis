@@ -31,8 +31,8 @@ Pattern correct :
     qui retentent acquièrent ou non sur le MÊME inode.
 """
 import fcntl
-import os
 import logging
+import os
 
 logger = logging.getLogger("uvicorn.error")
 

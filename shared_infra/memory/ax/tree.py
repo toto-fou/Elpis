@@ -12,8 +12,8 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-from shared_infra.memory.ax._connection import _conn
 from shared_infra.db._dialect import ci_like, nulls_first
+from shared_infra.memory.ax._connection import _conn
 from shared_infra.memory.ax.selectors import _top_selectors
 
 

@@ -34,7 +34,6 @@ from typing import Any, Dict, List, Optional
 import pytest
 
 from llm_core.context.tokens import CHARS_PER_TOKEN, approx_prompt_tokens
-
 from tests.llm_core.goldens_harness import FakeClient, patch_hermetic
 
 # ── Échelles ────────────────────────────────────────────────────────────────
@@ -318,8 +317,8 @@ def compression_cfg(monkeypatch, **overrides):
     neutralisé EN PREMIER (sinon il ré-écrase les monkeypatchs à CHAQUE
     ``maybe_compress``), valeurs figées, indexation FTS neutralisée (aucune
     écriture DB). Surcharges par kwargs (``COMPRESSION_ENABLED=False``…)."""
-    from shared_infra import config as cfg
     import llm_core.conversation_compressor as cc
+    from shared_infra import config as cfg
 
     monkeypatch.setattr(cfg, "reload_compression_config_from_disk",
                         lambda force=False: False)

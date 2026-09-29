@@ -128,6 +128,7 @@ def test_normalize_ignores_non_string_resume_thinking():
 # ── (c) upsert_chat : thinking strippé, resume_thinking conservé ─────────────
 def test_save_chat_strips_thinking_keeps_resume_thinking(tmp_path, monkeypatch):
     import json
+
     from shared_infra.chat import store as dbchats
 
     saved = {}

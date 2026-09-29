@@ -47,17 +47,16 @@ from typing import Any, Dict, Optional
 
 from fastapi import HTTPException, Request
 
+from shared_infra.accounts.users import get_user_by_id, get_username_by_id
 from shared_infra.config import (
     CONFIG_JSON_PATH,
     PROJECT_ROOT,
     SANDBOX_DIR,
     config_view,
 )
-from shared_infra.accounts.users import get_user_by_id, get_username_by_id
-from shared_infra.security.deps import require_user_id
 from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git, unsafe_git_dir
-from shared_infra.sandbox.paths import (SandboxPathError, open_dir_beneath, open_leaf, rel_under,
-                                        walk_beneath)
+from shared_infra.sandbox.paths import SandboxPathError, open_dir_beneath, open_leaf, rel_under, walk_beneath
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -444,10 +443,10 @@ def _get_sandbox_path(user_id: int) -> Path:
     de compte). Pour les opérations de fichiers visibles par l'agent, passer
     par :func:`_get_work_path`.
     """
-    from shared_infra.config import safe_sandbox_name
     # (2026-09-11, P4) l'enveloppe d'identité (hôte d'outils : pas de base des
     # comptes) prime ; sinon la base, comme avant.
     from shared_infra.accounts.identity import resolve_username as _ident_name
+    from shared_infra.config import safe_sandbox_name
     username = _ident_name(user_id) or get_username_by_id(user_id) or f"user_{user_id}"
     safe_name = safe_sandbox_name(username)
     sb_path = (SANDBOX_DIR / safe_name).resolve()
@@ -492,6 +491,7 @@ def _get_work_path(user_id: int) -> Path:
 import asyncio as _aio_quota
 import contextlib as _ctx_quota
 import fcntl as _fcntl_quota
+
 _quota_locks: "dict[int, _aio_quota.Lock]" = {}
 
 
@@ -859,8 +859,9 @@ def _make_backup_zip(scope: str) -> tuple:
     a specific subset of disk state to bundle. Returns ``(tmp_path, filename)``;
     callers stream the file then unlink it.
     """
-    from shared_infra.config import DB_PATH as _DB_PATH, SANDBOX_DIR as _SANDBOX_DIR, MCP_SERVERS_DIR as _MCP_DIR
     import time as _time
+
+    from shared_infra.config import DB_PATH as _DB_PATH, MCP_SERVERS_DIR as _MCP_DIR, SANDBOX_DIR as _SANDBOX_DIR
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
     tmp.close()
     ts = int(_time.time())
@@ -1057,7 +1058,7 @@ def _git_run_with_creds(repo_dir: Path, *args, username: str = "", token: str = 
     PARTAGÉE avec le chemin MCP via ``shared_infra.git.askpass.git_askpass_env``
     (source unique ; ``subprocess`` sans shell → zéro expansion).
     """
-    from shared_infra.git.askpass import git_askpass_env, AskpassError
+    from shared_infra.git.askpass import AskpassError, git_askpass_env
     try:
         with git_askpass_env(username, token) as env_extra:
             return _git_run(repo_dir, *args, timeout=timeout, env_extra=env_extra)

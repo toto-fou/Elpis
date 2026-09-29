@@ -18,14 +18,14 @@ import json
 import pytest
 
 from shared_infra import config as cfg
-from shared_infra.db._connection import db_conn
+from shared_infra.accounts.users import create_user
 from shared_infra.chat.store import (
     enforce_recent_chats_cap,
     list_chats,
     search_chats,
     upsert_chat,
 )
-from shared_infra.accounts.users import create_user
+from shared_infra.db._connection import db_conn
 
 _SEQ = itertools.count(1)
 

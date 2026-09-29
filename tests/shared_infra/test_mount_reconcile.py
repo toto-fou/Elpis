@@ -8,7 +8,9 @@ container we can't introspect).
 from pathlib import Path
 
 from shared_infra.sandbox.executors._user_sandbox import (
-    UserSandbox, SandboxAdminConfig, SandboxStatus,
+    SandboxAdminConfig,
+    SandboxStatus,
+    UserSandbox,
 )
 
 

@@ -26,8 +26,8 @@ supplies a URL (SSRF guard), mirroring the Playwright screenshot route.
 from __future__ import annotations
 
 import base64
-import json
 import io
+import json
 import logging
 import os
 import secrets
@@ -38,19 +38,31 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from fastmcp import Context, FastMCP
 
-from ._toolkit import with_policy, Heartbeat  # politique par outil (P2), battement (P3)
-from ._toolkit import (
-    ok, err, get_username,
-    tool_kw_openworld, tool_kw_mutating,
-)
-
 import shared_infra.config as _cfg
-from llm_core._detection_client import detect, read_text as _ocr
 from llm_core._desktop_session import (
-    desktop_frame_path, ensure_screens_dir, prune_frames, register_desktop_frame_owner,
-    register_desktop_observation, resolve_element, _resolve_element_impl,
-    assign_stable_ids, set_screen_dims, get_screen_dims, validate_point,
+    _resolve_element_impl,
     ambiguous_query_candidates,
+    assign_stable_ids,
+    desktop_frame_path,
+    ensure_screens_dir,
+    get_screen_dims,
+    prune_frames,
+    register_desktop_frame_owner,
+    register_desktop_observation,
+    resolve_element,
+    set_screen_dims,
+    validate_point,
+)
+from llm_core._detection_client import detect, read_text as _ocr
+
+from ._toolkit import (  # politique par outil (P2), battement (P3)
+    Heartbeat,
+    err,
+    get_username,
+    ok,
+    tool_kw_mutating,
+    tool_kw_openworld,
+    with_policy,
 )
 
 logger = logging.getLogger("uvicorn.error")
@@ -897,8 +909,9 @@ def _crop_for_region(png: bytes, box, pad: int = 6):
     de décalage du grounding ne s'applique pas. Retourne les octets PNG du crop
     ou le PNG d'origine si le crop échoue."""
     try:
-        from PIL import Image
         import io as _io
+
+        from PIL import Image
         with Image.open(_io.BytesIO(png)) as im:
             W, H = im.width, im.height
             x1 = max(0, int(box[0]) - pad); y1 = max(0, int(box[1]) - pad)
@@ -1695,7 +1708,7 @@ def wait_core(username: str, target: str = "", *, kind: str = "stable",
         expect["anchor"] = {"auto_id": auto_id}
     # 'stable' (et inconnu) : aucun champ requis.
     try:
-        from llm_core._desktop_replay import check_expect   # lazy → évite le cycle
+        from llm_core._desktop_replay import check_expect  # lazy → évite le cycle
         ok2, waited, detail = check_expect(username, tgt["name"], expect, int(timeout_ms or 8000))
     except Exception as e:
         return err("wait_failed", f"wait '{kind}' failed: {e}")

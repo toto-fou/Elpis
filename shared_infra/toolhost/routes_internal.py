@@ -84,8 +84,8 @@ async def api_internal_introspect(request: Request):
     tok = str((body or {}).get("token") or "").strip()
     if not tok:
         raise HTTPException(400, "token requis")
-    from shared_infra.opencode.routes_code import _resolve_token
     from shared_infra.config import feature_enabled
+    from shared_infra.opencode.routes_code import _resolve_token
     if not feature_enabled("opencode"):
         return {"ok": False, "reason": "opencode désactivé"}
     uid = _resolve_token(tok)

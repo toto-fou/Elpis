@@ -23,6 +23,7 @@ behind the container.
 """
 from __future__ import annotations
 
+from shared_infra.sandbox.git_env import hardened_git_env
 from shared_infra.sandbox.paths import (
     CONTAINER_ROOT,
     WORK_SUBDIR,
@@ -33,8 +34,7 @@ from shared_infra.sandbox.paths import (
     strip_work_prefix,
     to_container,
 )
-from shared_infra.sandbox.git_env import hardened_git_env
-from shared_infra.sandbox.policy import Backend, backend_for, use_agent, all_ops
+from shared_infra.sandbox.policy import Backend, all_ops, backend_for, use_agent
 
 __all__ = [
     "CONTAINER_ROOT",

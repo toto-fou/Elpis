@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from llm_core._scheduling._concurrency import LLMConcurrencyManager
 from llm_core._scheduling import _locks as locks_mod
+from llm_core._scheduling._concurrency import LLMConcurrencyManager
 
 
 @pytest.fixture()
@@ -101,6 +101,7 @@ async def test_low_same_model_ne_bloque_pas_sur_la_grace(monkeypatch):
     switch à empêcher. Il doit passer immédiatement ; un `low` vers un AUTRE
     modèle reste, lui, protégé par la grâce."""
     import time
+
     import llm_core._model_info as _mi
     monkeypatch.setattr(_mi, "_cached_total_slots", 2)   # court-circuite /props (réseau)
     monkeypatch.setenv("LLM_GRACE_SOURCE", "local")      # force la grâce locale
@@ -121,6 +122,7 @@ async def test_low_same_model_ne_bloque_pas_sur_la_grace(monkeypatch):
 @pytest.mark.asyncio
 async def test_low_other_model_reste_protege_par_la_grace(monkeypatch):
     import time
+
     import llm_core._model_info as _mi
     monkeypatch.setattr(_mi, "_cached_total_slots", 2)
     monkeypatch.setenv("LLM_GRACE_SOURCE", "local")

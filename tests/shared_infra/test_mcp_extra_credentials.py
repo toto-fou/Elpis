@@ -317,6 +317,7 @@ def test_le_bouton_tester_partage_reporte_les_valeurs_stockees(ms):
 
 def test_payload_partage_refuse_un_nom_reserve():
     from fastapi import HTTPException
+
     from shared_infra.mcp.panel import _shared_payload
     with pytest.raises(HTTPException) as e:
         _shared_payload({"name": "X", "type": "http", "url": "http://x/mcp",
@@ -326,6 +327,7 @@ def test_payload_partage_refuse_un_nom_reserve():
 
 def test_payload_partage_refuse_un_nom_dentete_dauth_invalide():
     from fastapi import HTTPException
+
     from shared_infra.mcp.panel import _shared_payload
     with pytest.raises(HTTPException) as e:
         _shared_payload({"name": "X", "type": "http", "url": "http://x/mcp",

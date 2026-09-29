@@ -32,7 +32,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
-
 logger = logging.getLogger("uvicorn.error")
 
 
@@ -105,6 +104,7 @@ async def detect_llama_capabilities(timeout_s: float = 3.0) -> Dict[str, Any]:
     copie pour utilisation immédiate.
     """
     import httpx
+
     from shared_infra.config import LLAMA_MODEL
 
     caps: Dict[str, Any] = {

@@ -65,7 +65,7 @@ def _c_pty_terminals() -> float:
 
 
 def _c_sse_clients() -> float:
-    from shared_infra.observability.events_bus import system_events, pipeline_events
+    from shared_infra.observability.events_bus import pipeline_events, system_events
     n = len(getattr(system_events, "clients", ()) or ())
     # pipeline_events.clients : dict[user_id -> set[Queue]]
     pe = getattr(pipeline_events, "clients", None)

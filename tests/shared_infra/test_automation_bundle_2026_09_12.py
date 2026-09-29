@@ -9,8 +9,8 @@ README. Le script seul reste un téléchargement client (runtime déjà en place
 from __future__ import annotations
 
 import io
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI, HTTPException, Request
@@ -22,8 +22,8 @@ def client(monkeypatch):
     # ⚠ Ordre d'import : ``shared_infra.routes`` (chef d'orchestre) AVANT le module
     # de famille, sinon import circulaire desktop.routes → opencode.routes_cli →
     # routes._state → routes/__init__ → routes_code → routes_cli (partiel).
-    import shared_infra.routes  # noqa: F401
     import shared_infra.desktop.routes as rt
+    import shared_infra.routes  # noqa: F401
 
     def _fake_uid(request: Request):
         uid = request.headers.get("x-test-user")
@@ -134,8 +134,9 @@ def test_bundle_embarque_lib_et_vignettes(client):
 
 def test_locate_par_la_vision(client, monkeypatch):
     import base64
-    import shared_infra.desktop.routes as rt
+
     import llm_core._detection_client as dc
+    import shared_infra.desktop.routes as rt
     monkeypatch.setattr(rt._cfg, "VISION_ENDPOINT_URL", "http://vision", raising=False)
     for k, v in (("VISION_FORMAT", "omniparser"), ("VISION_RESPONSE_MAP", {}), ("VISION_TIMEOUT_SEC", 5)):
         monkeypatch.setattr(rt._cfg, k, v, raising=False)

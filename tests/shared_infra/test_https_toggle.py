@@ -35,8 +35,8 @@ def _mk_app():
 def toggle_env(tmp_path, monkeypatch):
     """Config tmp + no-op admin gate + enregistreurs reload/broadcast."""
     import shared_infra.config as cfg
-    import shared_infra.routes.admin.security as sec
     import shared_infra.routes.admin.lifecycle as lifecycle
+    import shared_infra.routes.admin.security as sec
     from shared_infra.observability.metrics import broadcast as metric_broadcast
 
     p = tmp_path / "config.json"
@@ -181,8 +181,9 @@ def test_a_stale_form_save_cannot_reopen_the_public_bind(toggle_env, monkeypatch
     import runpy
     from pathlib import Path
 
-    import shared_infra.routes.admin.config as adm
     from fastapi.testclient import TestClient as _TC
+
+    import shared_infra.routes.admin.config as adm
 
     sec = toggle_env["sec"]
     path = toggle_env["path"]

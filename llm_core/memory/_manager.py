@@ -146,8 +146,8 @@ def build_default_manager(username: "str | None", scope_key: "str | None" = "use
     ``sandbox_dir`` et les limites sont lus depuis la config si non fournis
     (import local pour garder le moteur testable sans la config).
     """
-    from llm_core.memory._builtin_provider import MarkdownMemoryProvider
     from llm_core.memory import _scope
+    from llm_core.memory._builtin_provider import MarkdownMemoryProvider
 
     mem_limit = _scope.DEFAULT_MEMORY_LIMIT
     user_limit = _scope.DEFAULT_USER_LIMIT

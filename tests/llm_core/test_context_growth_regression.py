@@ -25,7 +25,6 @@ from collections import Counter
 
 from chatbot_app.routes.chats import _expand_history_for_llm, _tool_entry_sigs
 
-
 # ── Émulations de l'ANCIEN pipeline (fixtures legacy authentiques) ───────────
 
 def _old_expand(messages):

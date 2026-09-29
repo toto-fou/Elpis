@@ -16,7 +16,6 @@ from fastapi import FastAPI, Request
 
 from shared_infra.accounts import identity as I
 
-
 # ── Familles ────────────────────────────────────────────────────────────────
 
 def test_table_des_familles_scindee():
@@ -30,6 +29,7 @@ def test_table_des_familles_scindee():
 
 def test_skill_scindee_en_deux_enregistrements():
     from fastmcp import FastMCP
+
     from llm_core.tools import skill_tools as SK
     lib, run = FastMCP("lib"), FastMCP("run")
     SK.register_library(lib); SK.register_run(run)
@@ -92,7 +92,8 @@ def test_entree_app_devient_inprocess_et_la_sentinelle_se_developpe(app_manifest
 
 def test_sans_entree_app_la_sentinelle_reste_seule(monkeypatch):
     monkeypatch.setenv("APP_MCP_MANIFEST", "/nonexistent/mcp.json")
-    from shared_infra.mcp import manifest as M; M.reload()
+    from shared_infra.mcp import manifest as M
+    M.reload()
     from llm_core._chat_with_tools import _expand_builtin_configs
     cfg = {"type": "stdio", "name": "Outils Locaux", "command": "DEFAULT_LOCAL_PYTHON", "filter_categories": ["fs"]}
     out = _expand_builtin_configs([cfg])
@@ -118,7 +119,7 @@ def test_mcp_interne_sert_les_outils_graphiques_en_memoire(tmp_path, monkeypatch
     monkeypatch.setattr(C, "_registry", None)
     monkeypatch.setattr(C, "_disk_cache", {"at": 0.0, "reg": None})
     monkeypatch.setattr(C, "_sources", {})
-    from llm_core._mcp_wrappers import _resolve_mcp_client, MCPInProcessWrapper
+    from llm_core._mcp_wrappers import MCPInProcessWrapper, _resolve_mcp_client
     from llm_core.tools import app_mcp
     app_mcp.reset()
     w = _resolve_mcp_client({"type": "inprocess", "name": "elpis-app", "manifest": "elpis-app", "families": ["chart"]})
@@ -156,10 +157,11 @@ def test_racine_memoire_dediee_par_defaut_sandbox():
 
 def test_route_miroir_des_skills(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
-    from toolhost.auth import ToolhostAuthASGI
+
     from shared_infra.routes import _helpers as H
-    from shared_infra.sandbox import routes_files  # noqa: F401 — enregistre la route
     from shared_infra.routes._state import router
+    from shared_infra.sandbox import routes_files  # noqa: F401 — enregistre la route
+    from toolhost.auth import ToolhostAuthASGI
     monkeypatch.setattr(H, "SANDBOX_DIR", tmp_path)
     app = FastAPI(); app.include_router(router)
     app.add_middleware(ToolhostAuthASGI, token="svc")
@@ -177,7 +179,8 @@ def test_route_miroir_des_skills(tmp_path, monkeypatch):
 
 def test_push_du_miroir_inactif_en_local(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_MCP_MANIFEST", "/nonexistent/mcp.json")
-    from shared_infra.mcp import manifest as M; M.reload()
+    from shared_infra.mcp import manifest as M
+    M.reload()
     from shared_infra.sandbox.relay import push_skills_mirror
     assert push_skills_mirror(7, tmp_path) is False
 

@@ -179,6 +179,7 @@ class SandboxRelayASGI:
             # mode relais le handshake n'y arrive jamais — un site same-site
             # cross-origin ouvrait le terminal de la victime.
             from starlette.requests import HTTPConnection
+
             from shared_infra.security.csrf import ws_is_cross_site
             if ws_is_cross_site(HTTPConnection(scope)):
                 await send({"type": "websocket.close", "code": 4403})
@@ -190,6 +191,7 @@ class SandboxRelayASGI:
     def _session_uid(scope: dict) -> Optional[int]:
         try:
             from starlette.requests import HTTPConnection
+
             from shared_infra.security.deps import require_user_id
             conn = HTTPConnection(scope)
             return int(require_user_id(conn))  # type: ignore[arg-type]

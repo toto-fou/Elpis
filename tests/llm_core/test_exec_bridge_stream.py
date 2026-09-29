@@ -21,7 +21,6 @@ import pytest
 
 from llm_core.tools import _exec_bridge as bridge
 
-
 # ── Infra : une loop « serveur » dédiée par test ─────────────────────────
 
 @pytest.fixture()

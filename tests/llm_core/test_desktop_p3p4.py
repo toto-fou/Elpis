@@ -11,8 +11,8 @@ import io
 import pytest
 from PIL import Image
 
-from llm_core.tools import desktop_tools as dt
 from llm_core import _desktop_session as ds
+from llm_core.tools import desktop_tools as dt
 
 FAKE_TGT = {"name": "t1", "agent_url": "http://agent", "os": "windows"}
 

@@ -24,9 +24,8 @@ from __future__ import annotations
 import logging
 from typing import Dict, Iterable, List
 
-from shared_infra import config as _bk_config
-
 from llm_core.context.pruning import sanitize_message_history
+from shared_infra import config as _bk_config
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -175,10 +174,10 @@ def inject_ax_memory_into_messages(working_messages: List[Dict],
     """
     try:
         from shared_infra.memory.ax import (
-            detect_sites_from_text as _ax_detect,
             detect_session_url as _ax_session_url,
-            render_site_contextual as _ax_render,
+            detect_sites_from_text as _ax_detect,
             normalize_url as _ax_normalize,
+            render_site_contextual as _ax_render,
         )
         _recent_user_text = "\n".join(
             (m.get("content") or "") if isinstance(m.get("content"), str) else ""

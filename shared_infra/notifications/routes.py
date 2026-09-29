@@ -21,7 +21,6 @@ from typing import Optional
 
 from fastapi import Request
 
-from shared_infra.security.deps import require_user_id
 from shared_infra.notifications.store import (
     clear_all,
     count_unread,
@@ -32,6 +31,7 @@ from shared_infra.notifications.store import (
     mark_unread,
 )
 from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
 
 @router.get("/api/notifications")

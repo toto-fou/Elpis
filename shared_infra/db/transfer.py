@@ -37,8 +37,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from shared_infra.db import _schema
-from shared_infra.db._dialect import (MYSQL, POSTGRES, SQLITE, bytes_order, dialect_of, table_columns,
-                                       table_names)
+from shared_infra.db._dialect import MYSQL, POSTGRES, SQLITE, bytes_order, dialect_of, table_columns, table_names
 
 log = logging.getLogger("uvicorn.error")
 

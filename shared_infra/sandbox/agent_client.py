@@ -220,15 +220,7 @@ class AgentClient:
         remplacement : ``AgentError`` ``changed`` / ``exists`` (412).
         ``data`` : octets, ou fichier ouvert envoyé par blocs depuis sa
         position (jamais chargé en entier)."""
-        corps: Any
-        if isinstance(data, (bytes, bytearray, memoryview)):
-            corps = bytes(data)
-            taille = len(corps)
-        else:
-            debut = data.tell()
-            taille = data.seek(0, os.SEEK_END) - debut
-            data.seek(debut)
-            corps = _par_blocs(data, taille)
+        corps, taille = _corps_envoi(data)
         params: Dict[str, Any] = {"path": _chemin(path), "max": taille}
         if mode is not None:
             params["mode"] = mode
@@ -271,6 +263,19 @@ class AgentClient:
                     raise AgentError("bad_response", "chemin de relevé invalide")
                 vus.append(obj)
         raise AgentError("bad_response", "relevé interrompu")
+
+    async def append(self, path: str, data: Union[bytes, IO[bytes]], *,
+                     parents: bool = False, truncate: bool = False) -> Dict[str, Any]:
+        """Ajoute ``data`` à la fin du fichier (``truncate`` : le crée ou le
+        vide d'abord) : import par morceaux. Jamais rejoué une fois envoyé."""
+        corps, taille = _corps_envoi(data)
+        params: Dict[str, Any] = {"path": _chemin(path), "max": taille}
+        if parents:
+            params["parents"] = 1
+        if truncate:
+            params["truncate"] = 1
+        return await self._json("PUT", "/v1/append", maxi=_PETIT, params=params, content=corps,
+                                headers={"Content-Length": str(taille)})
 
     async def fsop(self, op: str, **args: Any) -> Dict[str, Any]:
         """``mkdir``, ``remove``, ``rename``, ``copy``, ``chmod``."""
@@ -441,6 +446,18 @@ def _objet(brut: bytes) -> Optional[Dict[str, Any]]:
     except (ValueError, RecursionError):
         return None
     return d if isinstance(d, dict) else None
+
+
+def _corps_envoi(data: Union[bytes, IO[bytes]]) -> Tuple[Any, int]:
+    """(corps de requête, taille) : octets tels quels, ou fichier ouvert
+    envoyé par blocs depuis sa position (jamais chargé en entier)."""
+    if isinstance(data, (bytes, bytearray, memoryview)):
+        b = bytes(data)
+        return b, len(b)
+    debut = data.tell()
+    taille = data.seek(0, os.SEEK_END) - debut
+    data.seek(debut)
+    return _par_blocs(data, taille), taille
 
 
 async def _par_blocs(f: IO[bytes], taille: int, bloc: int = 1 << 20) -> AsyncIterator[bytes]:

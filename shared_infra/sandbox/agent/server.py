@@ -35,7 +35,8 @@ corps de requête par Content-Length seulement :
                    ligne {"done": true, …}
   PUT  /v1/write  ?path= &mode= &parents=1 &if_absent=1 &if_sha256= &if_mtime_ns=
                   (corps = contenu)  → {"size", "sha256", "mtime_ns", "created"}
-  POST /v1/fsop   {"op": "mkdir|remove|rename|copy|chmod", ...}
+  PUT  /v1/append ?path= &parents=1 &truncate=1 (corps = morceau) → {"size"}
+  POST /v1/fsop   {"op": "mkdir|remove|rename|copy|chmod|clear", ...}
   POST /v1/readmany {"paths": [...], "max_file", "max_total"} → NDJSON
                   {"path", "b64"} ou {"path", "skip": code}, dans l'ordre, arrêté
                   avant de dépasser max_total ; dernière ligne {"done": true}
@@ -539,6 +540,8 @@ class Agent:
                 except FileNotFoundError:
                     ancien = None
                 if ancien is not None and not stat.S_ISREG(ancien.st_mode):
+                    if stat.S_ISDIR(ancien.st_mode):
+                        raise Refus(409, "is_dir", "un dossier porte ce nom")
                     raise Refus(409, "not_file", "pas un fichier ordinaire")
                 if si_absent and ancien is not None:
                     raise Refus(412, "exists", "le fichier existe déjà")
@@ -568,6 +571,38 @@ class Agent:
         return {"size": st.st_size, "sha256": h.hexdigest(), "mtime_ns": st.st_mtime_ns,
                 "created": ancien is None, "written": taille}
 
+    def ajouter(self, rel: str, corps: Iterable[bytes], *, parents: bool = False,
+                tronquer: bool = False) -> Dict[str, Any]:
+        """Ajoute ``corps`` à la fin du fichier ``rel`` (``tronquer`` : le crée
+        ou le vide d'abord). Pour l'import par morceaux dans un fichier
+        provisoire, promu ensuite par ``rename`` : pas de remplacement
+        atomique ici."""
+        if not rel:
+            raise Refus(400, "bad_path", "chemin de fichier requis")
+        p = self.reel(rel)
+        try:
+            if parents:
+                _creer_dossier(os.path.dirname(p))
+            drapeaux = os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC | os.O_NOFOLLOW
+            fd = os.open(p, drapeaux | (os.O_TRUNC if tronquer else os.O_APPEND), _MODE_FICHIER)
+        except OSError as e:
+            raise _refus_os(e) from None
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                raise Refus(409, "not_file", "pas un fichier ordinaire")
+            if tronquer:
+                os.fchmod(fd, _MODE_FICHIER)             # quel que soit l'umask
+            for bloc in corps:
+                vue = memoryview(bloc)
+                while vue:
+                    vue = vue[os.write(fd, vue):]
+            taille = os.fstat(fd).st_size
+        except OSError as e:
+            raise _refus_os(e) from None
+        finally:
+            os.close(fd)
+        return {"size": taille}
+
     def fsop(self, d: Dict[str, Any]) -> Dict[str, Any]:
         op = d.get("op")
         try:
@@ -589,6 +624,17 @@ class Agent:
                 else:
                     _supprimer(p)
                 return {"ok": True, "removed": 1}
+            if op == "clear":                            # tout /work, pas /work lui-même
+                n = 0
+                with os.scandir(self.racine) as it:
+                    noms = [e.name for e in it]
+                for nom in noms:
+                    try:
+                        _supprimer(os.path.join(self.racine, nom))
+                        n += 1
+                    except FileNotFoundError:
+                        continue
+                return {"ok": True, "removed": n}
             if op in ("rename", "copy"):
                 return self._deplacer(op, normaliser(d.get("src")), normaliser(d.get("dst")),
                                       _vrai(d.get("overwrite")), _vrai(d.get("parents")),
@@ -888,6 +934,10 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                 mode=q.get("mode"), parents=_vrai(q.get("parents")),
                 si_absent=_vrai(q.get("if_absent")), si_sha256=q.get("if_sha256") or "",
                 si_mtime_ns=_entier(q, "if_mtime_ns", mini=None)))
+        elif cle == ("PUT", "/v1/append"):
+            self._json(200, agent.ajouter(
+                normaliser(q.get("path")), self._corps(_entier(q, "max", _MAX_ECRITURE)),
+                parents=_vrai(q.get("parents")), tronquer=_vrai(q.get("truncate"))))
         elif cle == ("POST", "/v1/fsop"):
             self._json(200, agent.fsop(self._corps_json()))
         elif cle == ("POST", "/v1/changes/begin"):

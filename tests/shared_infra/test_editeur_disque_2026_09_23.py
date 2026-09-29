@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Audit éditeur 2026-09-23 — disque, préconditions, écritures concurrentes.
 
-TestClient sur le VRAI routeur ; les écritures passent par les VRAIS scripts
-shell de ``exec_bridge`` (le conteneur est remplacé par ``sh`` lancé dans la
-racine de travail), donc le lien symbolique, le dossier homonyme et
-l'écrasement à la promotion d'un import sont vérifiés sur le script réel.
+TestClient sur le VRAI routeur ; les écritures passent par ``exec_bridge`` et
+l'agent de la sandbox (servi en thread par la suite de tests), donc le lien
+symbolique, le dossier homonyme et l'écrasement à la promotion d'un import
+sont vérifiés sur l'agent réel.
 
 Couvre : E4, E5, E6, E7 (contrat), E17, E25, E26, E27, E28, E29, E30, et
 l'historique de session (écritures + routes de lecture).
@@ -34,25 +34,6 @@ def _sha(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
 
-class _LocalSB:
-    """« Conteneur » local : ``sh`` lancé dans la racine de travail."""
-
-    def __init__(self, root, env=None):
-        self.root = root
-        self.env = env
-        self.cmds = []
-
-    async def ensure_running(self):
-        return SandboxStatus(exists=True, running=True, container_name="local")
-
-    async def exec(self, cmd, stdin_bytes=None, timeout_s=60, **_kw):
-        self.cmds.append(cmd)
-        p = subprocess.run(cmd, cwd=self.root, input=stdin_bytes or b"",
-                           capture_output=True, timeout=timeout_s, env=self.env)
-        return ExecResult(returncode=p.returncode, stdout=p.stdout, stderr=p.stderr,
-                          duration_s=0.0)
-
-
 @pytest.fixture()
 def env(tmp_path, monkeypatch):
     root = tmp_path / "work"
@@ -64,9 +45,9 @@ def env(tmp_path, monkeypatch):
     # et attend le délai de 5 s (fail-open) — défaut signalé à part.
     H.start_session(1)
     H.start_session(2)
-    sb = _LocalSB(root)
+    from shared_infra.sandbox.executors import get_user_sandbox
+    sb = get_user_sandbox(1, "alice", root)             # servie par l'agent en thread
     monkeypatch.setattr(xb, "_get_sandbox_for_user", lambda uid: sb)
-    monkeypatch.setattr(xb, "_CONTAINER_ROOT", str(root))
     monkeypatch.setattr(sf, "require_user_id", lambda request: 1)
     monkeypatch.setattr(sf, "_get_work_path", lambda uid: root)
     monkeypatch.setattr(sf, "get_user_settings", lambda uid: {"sandbox_quota_mb": 0})
@@ -276,32 +257,27 @@ def test_ecriture_lien_hors_racine_refusee_dans_le_script(env, tmp_path):
 
 # ── E29 : temporaire nettoyé ────────────────────────────────────────────────
 
-def test_ecriture_echouee_ne_laisse_pas_de_temporaire(env, tmp_path, monkeypatch):
+def test_ecriture_echouee_ne_laisse_pas_de_temporaire(env, monkeypatch):
     import asyncio
+    import errno
 
     from fastapi import HTTPException
-    client, root, sb = env
-    fake = tmp_path / "bin"
-    fake.mkdir()
-    (fake / "mv").write_text("#!/bin/sh\necho 'mv en panne' >&2\nexit 1\n")
-    (fake / "mv").chmod(0o755)
-    sb.env = dict(os.environ, PATH=f"{fake}:{os.environ.get('PATH', '')}")
+
+    from shared_infra.sandbox.agent import server as agent_server
+    client, root, _sb = env
+    vrai = agent_server.os.replace
+
+    def en_panne(src, dst, *a, **k):
+        if str(src).startswith(str(root)) and ".elpis-tmp" in str(src):
+            raise OSError(errno.EIO, "remplacement en panne")
+        return vrai(src, dst, *a, **k)
+    monkeypatch.setattr(agent_server.os, "replace", en_panne)
     (root / "a.txt").write_text("v1")
     with pytest.raises(HTTPException) as ei:
         asyncio.run(xb.sandbox_write_text(1, "a.txt", "v2"))
     assert ei.value.status_code == 500
     assert sorted(p.name for p in root.iterdir()) == ["a.txt"]
     assert (root / "a.txt").read_text() == "v1"
-
-
-def test_script_de_nettoyage_retire_le_seul_temporaire_exact(env):
-    client, root, _ = env
-    (root / "a.txt.tmp.TOK").write_text("orphelin")
-    (root / "a.txt.tmp.AUTRE").write_text("à garder")
-    p = subprocess.run(["sh", "-c", xb._WRITE_CLEANUP_SCRIPT, "_", "a.txt", str(root), "TOK"],
-                       cwd=root, capture_output=True)
-    assert p.returncode == 0, p.stderr
-    assert sorted(x.name for x in root.iterdir()) == ["a.txt.tmp.AUTRE"]
 
 
 # ── /check-mtimes (E5, E6, E30) ─────────────────────────────────────────────

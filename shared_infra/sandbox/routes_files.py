@@ -79,12 +79,9 @@ from shared_infra.sandbox.paths import (
     lexical_rel,
     open_beneath,
     open_leaf,
-    open_path_at,
     open_path_beneath,
-    read_leaf,
     rel_under,
     reopen,
-    stat_beneath,
     walk_beneath,
 )
 from shared_infra.security.deps import require_user_id
@@ -1946,117 +1943,43 @@ async def api_sandbox_grep(request: Request):
     if glob_pattern and (not isinstance(glob_pattern, str) or len(glob_pattern) > 200):
         raise HTTPException(400, "glob invalide")
 
-    # Build the matcher closure.
+    # Expression validée ici (400 lisible) ; la recherche elle-même tourne
+    # dans l'agent de la sandbox — une expression coûteuse n'occupe que le
+    # conteneur de l'utilisateur, plus un thread partagé de l'hôte.
     if use_regex:
         try:
-            flags = 0 if case_sensitive else _re.IGNORECASE
-            pat = _re.compile(query, flags)
+            _re.compile(query, 0 if case_sensitive else _re.IGNORECASE)
         except _re.error as e:
             raise HTTPException(400, f"Regex invalide : {e}")
-        def _scan_line(line: str):
-            if len(line) > _GREP_MAX_LINE_CHARS:
-                return None
-            return pat.search(line)
-    else:
-        needle = query if case_sensitive else query.lower()
-        def _scan_line(line: str):
-            hay = line if case_sensitive else line.lower()
-            i = hay.find(needle)
-            if i < 0:
-                return None
-            # Synthetise a re.Match-like duck object via a simple class
-            class _M:
-                def __init__(self, s, e): self._s, self._e = s, e
-                def start(self): return self._s
-                def end(self):   return self._e
-            return _M(i, i + len(needle))
 
-    root = _get_work_path(user_id)
-    if not root.exists():
-        return {"matches": [], "total_files_scanned": 0, "truncated": False, "elapsed_ms": 0}
-
-    matches    = []
-    files_seen = 0
-    truncated  = False
-    started    = _t.monotonic()
-
-    def _too_late() -> bool:
-        return (_t.monotonic() - started) > _GREP_TIMEOUT_SEC
-
-    # Parcours par descripteurs + lecture de chaque fichier sur son inode,
-    # sans suivre de lien (2026-09-29), en thread.
-    def _grep_blocking():
-        try:
-            _grep_walk()
-        except (OSError, SandboxPathError):
-            raise HTTPException(503, _UNREADABLE_ROOT) from None
-
-    def _grep_walk():
-        nonlocal files_seen, truncated
-        for dirpath, dirnames, filenames, dfd in walk_beneath(root):
-            if _too_late():
-                truncated = True
-                return
-            # Prune hidden dirs in-place (os.walk respects modifications).
-            if not include_hidden:
-                dirnames[:] = [
-                    d for d in dirnames
-                    if d not in _GREP_IGNORED_DIRS and not d.startswith(".")
-                ]
-            else:
-                dirnames[:] = [d for d in dirnames if d not in _GREP_IGNORED_DIRS]
-
-            for fname in filenames:
-                if not include_hidden and fname.startswith("."):
-                    continue
-                if glob_pattern and not fnmatch.fnmatch(fname, glob_pattern):
-                    continue
-                files_seen += 1
-                if files_seen > _GREP_MAX_FILES_SCANNED:
-                    truncated = True
-                    return
-                if len(matches) >= _GREP_MAX_RESULTS:
-                    truncated = True
-                    return
-                if _too_late():
-                    truncated = True
-                    return
-
-                data = read_leaf(dfd, fname, _GREP_MAX_FILE_BYTES)
-                if data is None or _is_likely_binary(data[:512]):
-                    continue
-                text = data.decode("utf-8", errors="replace")
-                rel = f"{dirpath}/{fname}" if dirpath else fname
-                for lineno, line in enumerate(text.splitlines(), start=1):
-                    m = _scan_line(line)
-                    if not m:
-                        continue
-                    s, e = m.start(), m.end()
-                    snip_start = max(0, s - _GREP_SNIPPET_RADIUS)
-                    snip_end   = min(len(line), e + _GREP_SNIPPET_RADIUS)
-                    snippet = line[snip_start:snip_end]
-                    matches.append({
-                        "path":        rel,
-                        "line":        lineno,
-                        "col":         s + 1,
-                        "snippet":     snippet,
-                        "match_start": s - snip_start,
-                        "match_end":   e - snip_start,
-                    })
-                    if len(matches) >= _GREP_MAX_RESULTS:
-                        truncated = True
-                        return
-                    if _too_late():
-                        truncated = True
-                        return
-
-    await asyncio.to_thread(_grep_blocking)
-    elapsed_ms = int((_t.monotonic() - started) * 1000)
+    agent = agent_for(user_id)
+    started = _t.monotonic()
+    try:
+        # Dossiers ignorés (et cachés, sauf demande) non parcourus.
+        liste = await agent.list(
+            "", depth=4096, max_entries=_GREP_MAX_FILES_SCANNED * 4, hidden=include_hidden,
+            prune=sorted(_GREP_IGNORED_DIRS), deadline_s=_GREP_TIMEOUT_SEC)
+        fichiers = [e["path"] for e in liste.entries if e.get("kind") == "file"
+                    and (not glob_pattern
+                         or fnmatch.fnmatch(e["path"].rsplit("/", 1)[-1], glob_pattern))]
+        truncated = liste.truncated or len(fichiers) > _GREP_MAX_FILES_SCANNED
+        fichiers = fichiers[:_GREP_MAX_FILES_SCANNED]
+        reste = _GREP_TIMEOUT_SEC - (_t.monotonic() - started)
+        trouves, bilan = (await agent.grep(
+            fichiers, query, ignore_case=not case_sensitive, regex=use_regex,
+            max_file_bytes=_GREP_MAX_FILE_BYTES, max_hits=_GREP_MAX_RESULTS,
+            context=_GREP_SNIPPET_RADIUS, max_line=_GREP_MAX_LINE_CHARS,
+            deadline_s=max(0.5, reste)) if fichiers else ([], {}))
+    except AgentError as ex:
+        raise agent_http(ex, "Recherche") from None
+    matches = [{"path": h["file"], "line": h["line"], "col": h["col"], "snippet": h["text"],
+                "match_start": h["match_start"], "match_end": h["match_end"]} for h in trouves]
     return {
         "matches":             matches,
-        "total_files_scanned": files_seen,
-        "truncated":           truncated,
-        "elapsed_ms":          elapsed_ms,
+        "total_files_scanned": len(fichiers),
+        "truncated":           truncated or bool(bilan.get("hits_truncated")
+                                                 or bilan.get("timed_out")),
+        "elapsed_ms":          int((_t.monotonic() - started) * 1000),
     }
 
 
@@ -2114,37 +2037,19 @@ def _replace_in_text(text: str, pat, repl, max_samples: int = _REPLACE_MAX_SAMPL
     return "".join(out), count, samples
 
 
-def _replace_scan_file(root: Path, rel: str, pat, repl, *, dir_fd: Optional[int] = None):
-    """Lit UN fichier (``rel`` sous ``root`` ; ``dir_fd`` : son dossier déjà
-    ouvert par le parcours) sur son inode, sans suivre de lien, et calcule son
-    remplacement.
+def _remplacement(e: dict, raw: Optional[bytes], pat, repl):
+    """Remplacement dans UN fichier lu par l'agent (``e`` : son entrée de
+    liste ou de ``stat``, ``raw`` : son contenu).
 
-    Rend ``(texte, nouveau_texte, n, échantillons, mtime_ns)``, ou une chaîne
-    = raison d'ignorer, ou None (rien à remplacer / fichier hors champ).
-    Un lien symbolique est ignoré : l'écriture (``mv tmp cible``) le
-    remplacerait par une copie ordinaire."""
-    try:
-        pfd = (open_path_at(dir_fd, PurePosixPath(rel).name) if dir_fd is not None
-               else open_path_beneath(root, rel))
-    except SandboxPathError:
-        return "lien symbolique"          # un dossier du chemin est un lien
-    except OSError:
-        return None
-    try:
-        st = os.fstat(pfd)
-        if _stat.S_ISLNK(st.st_mode):
-            return "lien symbolique"
-        if not _stat.S_ISREG(st.st_mode):
-            return "fichier spécial"
-        if st.st_size > _GREP_MAX_FILE_BYTES:
-            return None
-        with os.fdopen(reopen(pfd), "rb") as f:
-            raw = f.read(_GREP_MAX_FILE_BYTES + 1)
-    except OSError:
-        return None
-    finally:
-        os.close(pfd)
-    if len(raw) > _GREP_MAX_FILE_BYTES or _is_likely_binary(raw[:512]):
+    Rend ``(texte, nouveau_texte, n, échantillons)``, ou une chaîne = raison
+    d'ignorer, ou None (rien à remplacer / fichier hors champ : binaire, pas
+    de l'UTF-8 strict, trop gros). Un lien symbolique est ignoré, comme avant
+    l'agent."""
+    if e.get("kind") == "link" or e.get("link"):
+        return "lien symbolique"
+    if e.get("kind") != "file":
+        return "fichier spécial"
+    if raw is None or len(raw) > _GREP_MAX_FILE_BYTES or _is_likely_binary(raw[:512]):
         return None
     try:
         text = raw.decode("utf-8")
@@ -2155,7 +2060,7 @@ def _replace_scan_file(root: Path, rel: str, pat, repl, *, dir_fd: Optional[int]
         return None
     if len(new_text) > _GREP_MAX_FILE_BYTES:
         return "résultat trop gros"
-    return text, new_text, n, samples, st.st_mtime_ns
+    return text, new_text, n, samples
 
 
 def _replace_path_in_scope(rel: str, include_hidden: bool, glob_pattern: str) -> bool:
@@ -2221,29 +2126,49 @@ async def api_sandbox_replace(request: Request):
         raise HTTPException(400, f"Remplacement invalide : {e}")
 
     root = _get_work_path(user_id)
-    if not root.exists():
-        return {"files": [], "total": 0, "truncated": False}
+    agent = agent_for(user_id)
 
-    # ── Aperçu : parcours borné (fichiers, temps), rien n'est gardé en mémoire
-    #    au-delà du compte et de quelques lignes d'exemple par fichier.
+    # ── Aperçu : liste et présélection par l'agent (une recherche groupée),
+    #    puis les seuls candidats lus par lots ; bornes de fichiers et de temps.
     if dry_run:
-        def _preview():
-            files, skipped, seen = [], [], 0
-            started = _t.monotonic()
-            for dirpath, dirnames, filenames, dfd in walk_beneath(root):
-                dirnames[:] = [d for d in dirnames if d not in _GREP_IGNORED_DIRS
-                               and (include_hidden or not d.startswith("."))]
-                for fname in filenames:
-                    if not include_hidden and fname.startswith("."):
-                        continue
-                    if glob_pattern and not fnmatch.fnmatch(fname, glob_pattern):
-                        continue
-                    rel = f"{dirpath}/{fname}" if dirpath else fname
-                    seen += 1
-                    if (seen > _GREP_MAX_FILES_SCANNED or len(files) >= _REPLACE_MAX_FILES
-                            or (_t.monotonic() - started) > _REPLACE_SCAN_TIMEOUT_SEC):
-                        return files, skipped, True
-                    res = _replace_scan_file(root, rel, pat, repl, dir_fd=dfd)
+        files, skipped = [], []
+        started = _t.monotonic()
+        try:
+            liste = await agent.list(
+                "", depth=4096, max_entries=_GREP_MAX_FILES_SCANNED * 4, hidden=include_hidden,
+                prune=sorted(_GREP_IGNORED_DIRS), deadline_s=_REPLACE_SCAN_TIMEOUT_SEC)
+            entrees = [e for e in liste.entries if e.get("kind") != "dir"
+                       and (not glob_pattern
+                            or fnmatch.fnmatch(e["path"].rsplit("/", 1)[-1], glob_pattern))]
+            truncated = liste.truncated or len(entrees) > _GREP_MAX_FILES_SCANNED
+            entrees = entrees[:_GREP_MAX_FILES_SCANNED]
+            for e in entrees:
+                if e["kind"] != "file":
+                    skipped.append({"path": e["path"], "reason": _remplacement(e, None, pat, repl)})
+            fichiers = [e["path"] for e in entrees if e["kind"] == "file"
+                        and int(e.get("size") or 0) <= _GREP_MAX_FILE_BYTES]
+            trouves, bilan = (await agent.grep(
+                fichiers, query, ignore_case=not case_sensitive, regex=use_regex,
+                files_only=True, max_hits=len(fichiers), max_file_bytes=_GREP_MAX_FILE_BYTES,
+                max_line=_GREP_MAX_FILE_BYTES,
+                deadline_s=max(0.5, _REPLACE_SCAN_TIMEOUT_SEC - (_t.monotonic() - started)))
+                if fichiers else ([], {}))
+            truncated = truncated or bool(bilan.get("timed_out"))
+            candidats = [h["file"] for h in trouves]
+            n_lus = 0
+            while n_lus < len(candidats):
+                if (len(files) >= _REPLACE_MAX_FILES
+                        or (_t.monotonic() - started) > _REPLACE_SCAN_TIMEOUT_SEC):
+                    truncated = True
+                    break
+                lot = candidats[n_lus:n_lus + 200]
+                lus = await agent.read_many(lot, max_file=_GREP_MAX_FILE_BYTES,
+                                            max_total=32 * 1024 * 1024)
+                for rel in lot:
+                    if rel not in lus:
+                        break                           # hors budget : lot suivant
+                    n_lus += 1
+                    res = _remplacement({"kind": "file"}, lus[rel], pat, repl)
                     if res is None:
                         continue
                     # Le pont d'écriture normalise ``work/…`` (et les blancs de
@@ -2253,25 +2178,23 @@ async def api_sandbox_replace(request: Request):
                     if isinstance(res, str):
                         skipped.append({"path": rel, "reason": res})
                         continue
-                    _text, _new, n, samples, _m = res
+                    _text, _new, n, samples = res
                     files.append({
                         "path": rel, "count": n,
                         "samples": [{"line": ln, "before": b[:300], "after": a[:300]}
                                     for ln, b, a in samples],
                     })
-            return files, skipped, False
-
-        try:
-            files, skipped, truncated = await asyncio.to_thread(_preview)
-        except (OSError, SandboxPathError):
-            raise HTTPException(503, _UNREADABLE_ROOT) from None
+                    if len(files) >= _REPLACE_MAX_FILES:
+                        break
+        except AgentError as ex:
+            raise agent_http(ex, "Remplacement") from None
         return {"files": files, "total": sum(f["count"] for f in files),
                 "truncated": truncated, "skipped": skipped}
 
     # ── Application : fichier par fichier, SOUS le verrou du compte. Chaque
     #    fichier est relu juste avant d'être écrit (jamais un texte lu pendant
-    #    l'aperçu), et ignoré s'il a bougé entre sa lecture et son écriture.
-    from shared_infra.sandbox.exec_bridge import sandbox_write_text
+    #    l'aperçu) ; l'agent n'écrit que si le contenu est encore celui relu
+    #    (sinon ignoré : modifié entre sa lecture et son écriture).
     done, skipped, failed = [], [], None
     seen_paths = set()
     async with _quota_lock_for(user_id):
@@ -2298,17 +2221,26 @@ async def api_sandbox_replace(request: Request):
             if not _replace_path_in_scope(rel, include_hidden, glob_pattern):
                 skipped.append({"path": raw_rel, "reason": "hors champ"})
                 continue
-            fpath = root / rel
             # E7 — relecture, contrôle et écriture sous le verrou du fichier,
             # commun avec les outils de l'assistant.
-            async with _file_lock(fpath.resolve()):
-                res = await asyncio.to_thread(_replace_scan_file, root, rel, pat, repl)
+            async with _file_lock(root / rel):
+                try:
+                    (e,) = await agent.stat([rel])
+                    raw = None
+                    if (e.get("kind") == "file" and not e.get("link")
+                            and int(e.get("size") or 0) <= _GREP_MAX_FILE_BYTES):
+                        raw = (await agent.read(rel, max_bytes=_GREP_MAX_FILE_BYTES + 1)).data
+                except AgentError:
+                    continue                            # disparu ou illisible
+                if e.get("kind") in ("missing", "error"):
+                    continue
+                res = _remplacement(e, raw, pat, repl)
                 if res is None:
                     continue
                 if isinstance(res, str):
                     skipped.append({"path": rel, "reason": res})
                     continue
-                text, new_text, n, _samples, mtime_ns = res
+                text, new_text, n, _samples = res
                 old_bytes = text.encode("utf-8")
                 new_bytes = new_text.encode("utf-8")
                 delta = len(new_bytes) - len(old_bytes)
@@ -2316,20 +2248,14 @@ async def api_sandbox_replace(request: Request):
                     failed = {"path": rel, "error": f"Quota sandbox dépassé ({_quota_mb} Mo)"}
                     break
                 try:
-                    if stat_beneath(root, rel).st_mtime_ns != mtime_ns:
+                    r = await agent.write(rel, new_bytes, if_sha256=sha256_bytes(old_bytes))
+                except AgentError as ex:
+                    if ex.code == "changed":
                         skipped.append({"path": rel, "reason": "modifié pendant l'opération"})
                         continue
-                    await sandbox_write_text(user_id, rel, new_text)
-                except HTTPException as e:
-                    failed = {"path": rel, "error": str(e.detail)}
+                    failed = {"path": rel, "error": str(agent_http(ex, "Remplacement").detail)}
                     break
-                except OSError as e:
-                    failed = {"path": rel, "error": str(e)}
-                    break
-                try:
-                    mtime = stat_beneath(root, rel).st_mtime
-                except (OSError, SandboxPathError):
-                    mtime = None
+                mtime = _mtime_s(int(r["mtime_ns"])) if r.get("mtime_ns") else None
             bump_sandbox_usage(user_id, delta)
             _used += delta
             # Historique de session (source « replace ») : le texte relu sous

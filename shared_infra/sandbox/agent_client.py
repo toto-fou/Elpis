@@ -154,8 +154,9 @@ class AgentClient:
 
     async def grep(self, paths: Iterable[str], needle: str, *, ignore_case: bool = True,
                    max_file_bytes: int = 20 << 20, max_hits: int = 2000,
-                   files_only: bool = False, width: int = 260,
-                   deadline_s: float = 600.0) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+                   files_only: bool = False, width: int = 260, deadline_s: float = 600.0,
+                   regex: bool = False, context: int = 0,
+                   max_line: int = 20000) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """(lignes trouvées, bilan : ``hits_truncated``, ``skipped_large``,
         ``skipped_binary``) dans les fichiers ``paths`` ; ``files_only`` : un
         ``{"file"}`` par fichier trouvé."""
@@ -165,9 +166,12 @@ class AgentClient:
         async with self._flux("POST", "/v1/grep", json={
                 "paths": chemins, "needle": needle, "ignore_case": ignore_case,
                 "max_file_bytes": max_file_bytes, "max_hits": max_hits,
-                "files_only": files_only, "width": width, "deadline_s": deadline_s}) as r:
-            async for obj in _lignes(r, (1 << 20) + max_hits * (width * 6 + 1024),
-                                     max(_LIGNE_MAX, width * 6 + 1024)):
+                "files_only": files_only, "width": width, "deadline_s": deadline_s,
+                "regex": regex, "context": context, "max_line": max_line}) as r:
+            # Une ligne rendue : ``width`` caractères, ou la correspondance et
+            # son contexte (en expression régulière, jusqu'à ``max_line``).
+            ligne = (max(width, max_line + 2 * context) if context else width) * 6 + 1024
+            async for obj in _lignes(r, (1 << 20) + max_hits * ligne, max(_LIGNE_MAX, ligne)):
                 if "error" in obj:
                     raise AgentError(str(obj["error"]), str(obj.get("message") or ""))
                 if obj.get("done"):

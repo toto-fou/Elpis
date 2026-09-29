@@ -31,7 +31,9 @@ corps de requête par Content-Length seulement :
                    "exclude": [motifs], "deadline_s", "name_contains"}  → NDJSON, dernière
                    ligne {"done": true, …}
   POST /v1/grep   {"paths": [...], "needle", "ignore_case", "max_file_bytes",
-                   "max_hits", "files_only", "width", "deadline_s"}  → NDJSON {"file", "line", "text"}, dernière
+                   "max_hits", "files_only", "width", "deadline_s", "regex",
+                   "context", "max_line"} → {"file", "line", "col", "text"
+                   [, "match_start", "match_end"]}  → NDJSON {"file", "line", "text"}, dernière
                    ligne {"done": true, …}
   PUT  /v1/write  ?path= &mode= &parents=1 &if_absent=1 &if_sha256= &if_mtime_ns=
                   (corps = contenu)  → {"size", "sha256", "mtime_ns", "created"}
@@ -57,6 +59,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import socketserver
@@ -388,11 +391,18 @@ class Agent:
         n = erreurs = illisibles = 0
         tronque = False
         signe = time.monotonic()
+        premier = True
         while pile and not tronque:
             if time.monotonic() - signe > _SIGNE_S:
                 signe = time.monotonic()
                 yield {"tick": True}
             dossier, drel, niveau = pile.pop()
+            if premier:                                  # le dossier demandé lui-même
+                premier = False                          # illisible : refus, pas une liste vide
+                try:
+                    os.close(os.open(dossier, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC))
+                except OSError as e:
+                    raise _refus_os(e) from None
             try:
                 with os.scandir(dossier) as it:
                     for entree in it:
@@ -432,20 +442,28 @@ class Agent:
 
     def grep(self, chemins: Iterable[Any], aiguille: str, casse: bool, max_octets: int,
              max_trouves: int, largeur: int = 260, fichiers_seuls: bool = False,
-             delai_s: float = 600.0) -> Iterator[Dict[str, Any]]:
+             delai_s: float = 600.0, motif: Optional["re.Pattern[str]"] = None,
+             contexte: int = 0, max_ligne: int = 20000) -> Iterator[Dict[str, Any]]:
         """Lignes de ``chemins`` (fichiers ordinaires) qui contiennent
-        ``aiguille`` ; découpe au seul ``\\n`` (comme ``grep -n``). Fichiers
-        trop gros ou binaires sautés et comptés. ``fichiers_seuls`` : un
-        ``{"file"}`` par fichier trouvé (comme ``grep -l``). Au-delà de
-        ``delai_s`` : arrêt, ``timed_out`` dans le bilan."""
+        ``aiguille`` — ou où ``motif`` (expression régulière) trouve — ;
+        découpe au seul ``\\n`` (comme ``grep -n``), ``col`` = début de la
+        première correspondance. ``contexte`` : ``text`` réduit à ``contexte``
+        caractères autour d'elle, positions ``match_start``/``match_end`` dans
+        ``text`` ; en expression régulière, une ligne de plus de ``max_ligne``
+        caractères est sautée. Fichiers trop gros ou binaires sautés et
+        comptés. ``fichiers_seuls`` : un ``{"file"}`` par fichier trouvé
+        (comme ``grep -l``). Au-delà de ``delai_s`` : arrêt, ``timed_out``."""
         cherche = aiguille if casse else aiguille.lower()
         trouves = gros = binaires = 0
         signe = time.monotonic()
         echeance = signe + delai_s
+
+        def bilan(**en_plus: Any) -> Dict[str, Any]:
+            return {"done": True, "hits_truncated": False, "skipped_large": gros,
+                    "skipped_binary": binaires, **en_plus}
         for c in chemins:
             if time.monotonic() > echeance:
-                yield {"done": True, "hits_truncated": False, "timed_out": True,
-                       "skipped_large": gros, "skipped_binary": binaires}
+                yield bilan(timed_out=True)
                 return
             if time.monotonic() - signe > _SIGNE_S:
                 signe = time.monotonic()
@@ -465,24 +483,41 @@ class Agent:
                         continue
                     f.seek(0)
                     for i, brut in enumerate(f, 1):
+                        if (i & 255) == 0 and time.monotonic() > echeance:
+                            yield bilan(timed_out=True)
+                            return
                         ligne = brut.rstrip(b"\n").rstrip(b"\r").decode("utf-8", "replace")
-                        if cherche in (ligne if casse else ligne.lower()):
-                            trouves += 1
-                            yield {"file": rel} if fichiers_seuls else {
-                                "file": rel, "line": i,
-                                "text": ligne if len(ligne) <= largeur else ligne[:largeur] + "…"}
-                            if trouves >= max_trouves:
-                                yield {"done": True, "hits_truncated": True,
-                                       "skipped_large": gros, "skipped_binary": binaires}
-                                return
-                            if fichiers_seuls:
-                                break
+                        if motif is not None:
+                            m = motif.search(ligne) if len(ligne) <= max_ligne else None
+                            if m is None:
+                                continue
+                            debut, fin = m.start(), m.end()
+                        else:
+                            debut = (ligne if casse else ligne.lower()).find(cherche)
+                            if debut < 0:
+                                continue
+                            fin = debut + len(cherche)
+                        trouves += 1
+                        if fichiers_seuls:
+                            yield {"file": rel}
+                        elif contexte:
+                            d = max(0, debut - contexte)
+                            yield {"file": rel, "line": i, "col": debut + 1,
+                                   "text": ligne[d:fin + contexte],
+                                   "match_start": debut - d, "match_end": fin - d}
+                        else:
+                            yield {"file": rel, "line": i, "col": debut + 1,
+                                   "text": ligne if len(ligne) <= largeur else ligne[:largeur] + "…"}
+                        if trouves >= max_trouves:
+                            yield bilan(hits_truncated=True)
+                            return
+                        if fichiers_seuls:
+                            break
             except OSError:
                 continue
             finally:
                 os.close(fd)
-        yield {"done": True, "hits_truncated": False, "skipped_large": gros,
-               "skipped_binary": binaires}
+        yield bilan()
 
     def lire_plusieurs(self, chemins: Iterable[Any], max_fichier: int,
                        max_total: int) -> Iterator[Dict[str, Any]]:
@@ -959,12 +994,21 @@ class _Gestionnaire(BaseHTTPRequestHandler):
             aiguille = str(d.get("needle") or "")
             if not aiguille:
                 raise Refus(400, "bad_request", "needle requis")
+            casse = not _vrai(d.get("ignore_case", True))
+            motif = None
+            if _vrai(d.get("regex")):
+                try:
+                    motif = re.compile(aiguille, 0 if casse else re.IGNORECASE)
+                except (re.error, RecursionError) as e:
+                    raise Refus(400, "bad_regex", str(e)[:200]) from None
             self._ndjson({"started": True}, agent.grep(
-                chemins, aiguille, not _vrai(d.get("ignore_case", True)),
+                chemins, aiguille, casse,
                 int(d.get("max_file_bytes") or 20 << 20), max(1, int(d.get("max_hits") or 2000)),
                 largeur=max(40, min(int(d.get("width") or 260), 4096)),
                 fichiers_seuls=_vrai(d.get("files_only")),
-                delai_s=max(0.1, min(float(d.get("deadline_s") or 600), 600.0))))
+                delai_s=max(0.1, min(float(d.get("deadline_s") or 600), 600.0)),
+                motif=motif, contexte=max(0, min(int(d.get("context") or 0), 1000)),
+                max_ligne=max(1, int(d.get("max_line") or 20000))))
         elif cle == ("POST", "/v1/readmany"):
             d = self._corps_json()
             chemins = d.get("paths") or []

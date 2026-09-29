@@ -400,13 +400,14 @@ def test_replace_echec_en_cours_de_route_rend_les_fichiers_deja_ecrits(env, monk
     client, root, ops = env
     for n in ("a.txt", "b.txt", "c.txt"):
         (root / n).write_text("foo\n")
-    real = xb.sandbox_write_text
+    from shared_infra.sandbox import agent_client as AC
+    real = AC.AgentClient.write
 
-    async def _flaky(uid, rel, content):
-        if rel == "b.txt":
-            raise sf.HTTPException(503, "Environnement sandbox arrêté")
-        await real(uid, rel, content)
-    monkeypatch.setattr(xb, "sandbox_write_text", _flaky)
+    async def _flaky(self, path, data, **kw):
+        if path == "b.txt":
+            raise AC.AgentError("agent_unavailable", "conteneur arrêté")
+        return await real(self, path, data, **kw)
+    monkeypatch.setattr(AC.AgentClient, "write", _flaky)
     r = client.post("/api/sandbox/replace", json={
         "query": "foo", "replacement": "bar", "paths": ["a.txt", "b.txt", "c.txt"]})
     assert r.status_code == 200, r.text
@@ -414,6 +415,28 @@ def test_replace_echec_en_cours_de_route_rend_les_fichiers_deja_ecrits(env, monk
     assert [f["path"] for f in d["files"]] == ["a.txt"]
     assert d["failed"]["path"] == "b.txt" and "sandbox" in d["failed"]["error"]
     assert (root / "c.txt").read_text() == "foo\n"                # arrêt net
+
+
+def test_replace_fichier_modifie_entre_relecture_et_ecriture(env, monkeypatch):
+    """L'agent n'écrit que si le contenu est encore celui relu."""
+    client, root, ops = env
+    (root / "a.txt").write_text("foo\n")
+    from shared_infra.sandbox import agent_client as AC
+    real = AC.AgentClient.read
+
+    async def _lu_puis_modifie(self, path, **kw):
+        r = await real(self, path, **kw)
+        if path == "a.txt":
+            (root / "a.txt").write_text("foo modifié ailleurs\n")
+        return r
+    monkeypatch.setattr(AC.AgentClient, "read", _lu_puis_modifie)
+    r = client.post("/api/sandbox/replace", json={
+        "query": "foo", "replacement": "bar", "paths": ["a.txt"]})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["files"] == [] and d["skipped"] == [{"path": "a.txt",
+                                                  "reason": "modifié pendant l'opération"}]
+    assert (root / "a.txt").read_text() == "foo modifié ailleurs\n"
 
 
 def test_replace_quota_verifie(env, monkeypatch):

@@ -259,15 +259,14 @@ def test_etat_d_un_fichier_illisible_et_d_un_lien(tmp_path):
         os.chmod(tmp_path / "f", 0o644)
     assert sf._file_state(tmp_path, tmp_path / "lien", sha_max=1 << 20)["kind"] == "other"
     assert sf._file_state(tmp_path, tmp_path / "f" / "x", sha_max=1)["kind"] == "not_dir"
-    dfd = paths.open_dir_beneath(tmp_path)
-    try:
-        assert sf._replace_scan_file(tmp_path, "lien", None, "", dir_fd=dfd) == "lien symbolique"
-    finally:
-        os.close(dfd)
+    assert sf._remplacement({"kind": "link"}, None, None, "") == "lien symbolique"
+    assert sf._remplacement({"kind": "file", "link": True}, b"x", None, "") == "lien symbolique"
 
 
 def _client(monkeypatch, work):
     import shared_infra.sandbox.routes_files as sf
+    from tests.conftest import editeur_sur_agent
+    editeur_sur_agent(monkeypatch, work)
     monkeypatch.setattr(sf, "require_user_id", lambda request: 1)
     monkeypatch.setattr(sf, "_get_work_path", lambda uid: work)
     from shared_infra.routes._state import router
@@ -285,14 +284,16 @@ def test_zip_d_un_fichier_date_au_dela_de_2107(fs, monkeypatch):
 
 
 def test_grep_sur_une_racine_illisible(fs, monkeypatch):
+    """E7 : une racine illisible donne une erreur explicite, jamais une liste
+    vide « propre »."""
     _tools, work, _hote = fs
     sf, client = _client(monkeypatch, work)
-
-    def illisible(*a, **k):
-        raise PermissionError("racine")
-        yield                                                   # pragma: no cover
-    monkeypatch.setattr(sf, "walk_beneath", illisible)
-    assert client.post("/api/sandbox/grep", json={"query": "x"}).status_code == 503
+    os.chmod(work, 0o311)                                       # traversable, pas listable
+    try:
+        assert client.post("/api/sandbox/grep", json={"query": "x"}).status_code == 403
+        assert client.get("/api/sandbox/search", params={"q": "x"}).status_code == 403
+    finally:
+        os.chmod(work, 0o755)
 
 
 async def test_restauration_interrompue_garde_l_arbre_modifiable(tmp_path, monkeypatch):

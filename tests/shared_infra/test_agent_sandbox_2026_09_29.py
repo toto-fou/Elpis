@@ -609,7 +609,7 @@ def test_grep_sur_place(sb):
     c = AgentClient(sb)
     trouves, bilan = asyncio.run(c.grep(["a.txt", "b.bin", "gros.txt", "absent"], "cible",
                                         max_file_bytes=1000))
-    assert trouves == [{"file": "a.txt", "line": 2, "text": "la CIBLE ici"}]
+    assert trouves == [{"file": "a.txt", "line": 2, "col": 4, "text": "la CIBLE ici"}]
     assert (bilan["skipped_binary"], bilan["skipped_large"]) == (1, 1)
     trouves, bilan = asyncio.run(c.grep(["gros.txt"], "cible", max_hits=3))
     assert len(trouves) == 3 and bilan["hits_truncated"]
@@ -721,4 +721,21 @@ def test_taille_d_un_arbre(sb, tmp_path):
         taille_lien = os.lstat(w / "d" / "lien").st_size
         assert d["complete"] and d["bytes"] == 150 + taille_lien and d["entries"] == 4
         assert (await c.fsop("du", path="d/a"))["bytes"] == 100
+    asyncio.run(scenario())
+
+
+def test_grep_expression_et_contexte(sb):
+    """Expression régulière : colonne, contexte autour de la correspondance,
+    ligne trop longue sautée, expression invalide refusée."""
+    (sb.sandbox_path / "a.txt").write_text("début foo123 fin\n" + "x" * 30000 + "foo9\n")
+    c = AgentClient(sb)
+
+    async def scenario():
+        trouves, bilan = await c.grep(["a.txt"], r"foo\d+", regex=True, ignore_case=False,
+                                      context=3)
+        assert trouves == [{"file": "a.txt", "line": 1, "col": 7, "text": "ut foo123 fi",
+                            "match_start": 3, "match_end": 9}]
+        assert not bilan.get("timed_out")
+        e = await _attendre_refus(c.grep(["a.txt"], "(", regex=True))
+        assert e.code == "bad_regex"
     asyncio.run(scenario())

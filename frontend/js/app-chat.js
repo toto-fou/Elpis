@@ -3194,9 +3194,6 @@ function setupChat(vue, sharedRefs, ctx) {
                 );
             }
 
-        } else if (data.type === 'delta') {
-            isThinking.value = false; typeQueue += data.text || ''; startTypewriter();
-
         } else if (data.type === 'tool_thinking') {
             _stopThinkFlush();          // s'assurer que thinking_token est arrêté
             _preContentBuf += data.text || '';

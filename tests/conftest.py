@@ -356,7 +356,14 @@ def agent_en_thread(request):
     async def en_marche(self):
         return us.SandboxStatus(exists=True, running=True, container_name=self.container_name)
 
+    depot = Path(__file__).resolve().parents[1]
+
     async def demarrer(self, replace=False):
+        # Une sandbox du dépôt (``user_sandboxes/`` par défaut) : le test a
+        # oublié de rediriger la racine — refus bruyant plutôt qu'un agent
+        # dans l'arbre de travail.
+        if Path(self.sandbox_path).resolve().is_relative_to(depot):
+            raise AssertionError(f"agent démarré sur une sandbox du dépôt : {self.sandbox_path}")
         if not court:
             court.append(tempfile.mkdtemp(prefix="ag-"))
         cible = Path(self.sandbox_path).parent / AGENT_RUN_DIR / "agent.sock"

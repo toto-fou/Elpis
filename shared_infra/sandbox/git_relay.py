@@ -43,6 +43,7 @@ logger = logging.getLogger("uvicorn.error")
 UPLOAD, RECEIVE = "git-upload-pack", "git-receive-pack"
 _PREAMBULE = re.compile(rb"ELPIS-RELAY/1 ([A-Za-z0-9_-]{20,128})\r\n")
 _COMMANDES_MAX = 1 << 20              # début d'un push lu avant relais (commandes)
+_CONNEXIONS_MAX = 8                   # requêtes servies en même temps, par ticket
 _ENTETES_REQUETE = frozenset({"accept", "accept-encoding", "accept-language", "content-type",
                               "content-encoding", "git-protocol", "user-agent", "pragma"})
 _ENTETES_REPONSE = frozenset({"content-type", "content-encoding", "content-length",
@@ -70,6 +71,7 @@ class _Ticket:
     garde: Callable[[], Optional[str]]  # garde anti-SSRF, refaite à chaque requête
     echeance: float
     refus: List[str] = field(default_factory=list)
+    actives: int = 0
 
 
 class _Registre:
@@ -90,10 +92,19 @@ class _Registre:
         with self._verrou:
             self._tickets.pop(jeton, None)
 
-    def valide(self, jeton: str) -> Optional[_Ticket]:
+    def entrer(self, jeton: str) -> Optional[_Ticket]:
+        """Le ticket valide de ``jeton``, une requête de plus comptée ; ``None``
+        s'il est inconnu, échu, ou à sa limite de requêtes simultanées."""
         with self._verrou:
             t = self._tickets.get(jeton)
-        return t if t is not None and t.echeance >= time.monotonic() else None
+            if t is None or t.echeance < time.monotonic() or t.actives >= _CONNEXIONS_MAX:
+                return None
+            t.actives += 1
+            return t
+
+    def sortir(self, t: _Ticket) -> None:
+        with self._verrou:
+            t.actives -= 1
 
 
 _registre = _Registre()
@@ -172,11 +183,14 @@ class _Gestionnaire(BaseHTTPRequestHandler):
 
     def handle(self) -> None:
         m = _PREAMBULE.fullmatch(self.rfile.readline(256))
-        self.ticket = _registre.valide(m.group(1).decode("ascii")) if m else None
+        self.ticket = _registre.entrer(m.group(1).decode("ascii")) if m else None
         if self.ticket is None:
             return                                      # fermé sans réponse
-        self.close_connection = True
-        self.handle_one_request()
+        try:
+            self.close_connection = True
+            self.handle_one_request()
+        finally:
+            _registre.sortir(self.ticket)
 
     def do_GET(self) -> None:
         self._relayer()

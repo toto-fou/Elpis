@@ -203,3 +203,45 @@ def test_origine_telle_qu_ecrite():
             ("http://[FD00::1]:3000/r.git/", "http://[fd00::1]:3000", "/r", "http://[FD00::1]:3000/")):
         assert git_relay.amont(url) == (amont, depot, origine)
         assert S._ORIGINE.fullmatch(origine)
+
+
+def _attendre(cond, delai=5.0):
+    import time
+    fin = time.monotonic() + delai
+    while not cond():
+        assert time.monotonic() < fin
+        time.sleep(0.01)
+
+
+def test_connexions_simultanees_bornees(tmp_path, amont):
+    """Relais : au plus ``_CONNEXIONS_MAX`` requêtes à la fois par ticket ;
+    agent : au plus ``_RELAIS_CONNEXIONS`` connexions relayées par commande."""
+    from shared_infra.sandbox.agent import server as S
+    dossier = tmp_path / "relais"
+    ligne = "GET /depot.git/info/refs?service=git-upload-pack HTTP/1.1"
+    with git_relay.ticket(dossier, uid=1, url=amont.url, service=git_relay.UPLOAD,
+                          auth=BASIC) as (relay, _refus):
+        t = git_relay._registre._tickets[relay["ticket"]]
+        muettes = []
+        for _ in range(git_relay._CONNEXIONS_MAX):
+            s = socket.socket(socket.AF_UNIX)
+            s.connect(str(dossier / relay["socket"]))
+            s.sendall(f"ELPIS-RELAY/1 {relay['ticket']}\r\n".encode())
+            muettes.append(s)
+        _attendre(lambda: t.actives == git_relay._CONNEXIONS_MAX)
+        assert _requete(dossier, relay["socket"], relay["ticket"], ligne) == b""
+        for s in muettes:
+            s.close()
+        _attendre(lambda: t.actives == 0)
+        assert _requete(dossier, relay["socket"], relay["ticket"], ligne).startswith(b"HTTP/1.1 200")
+
+        with S._Relais(str(dossier), relay) as r:
+            port = int(r.prefixe.rsplit(":", 1)[1].rstrip("/"))
+            ouvertes = [socket.create_connection(("127.0.0.1", port)) for _ in range(S._RELAIS_CONNEXIONS)]
+            _attendre(lambda: r._actives == S._RELAIS_CONNEXIONS)
+            de_trop = socket.create_connection(("127.0.0.1", port))
+            de_trop.settimeout(5)
+            assert de_trop.recv(1) == b""                # fermée d'emblée
+            de_trop.close()
+            for s in ouvertes:
+                s.close()

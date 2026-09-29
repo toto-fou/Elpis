@@ -1032,6 +1032,7 @@ _GIT_ENV_PERMIS = frozenset({"GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_
 _GIT_SORTIE_MAX = 16 << 20                # sortie gardée, par flux
 _GIT_DELAI_MAX_S = 590.0                  # sous le délai total du client (600 s)
 RELAIS_DOSSIER = "/run/elpis-relay"       # sockets du relais Git de l'hôte (lecture seule)
+_RELAIS_CONNEXIONS = 8                    # connexions relayées en même temps, par commande
 _NOM_SOCKET_RELAIS = re.compile(r"[0-9]{1,10}\.sock")
 _TICKET = re.compile(r"[A-Za-z0-9_-]{20,128}")
 _ORIGINE = re.compile(r"https?://([A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(:[0-9]{1,5})?/")
@@ -1115,6 +1116,7 @@ class _Relais:
         self._dossier, self._nom, self.origine = dossier, nom, origine
         self._entete = f"ELPIS-RELAY/1 {ticket}\r\n".encode()
         self._ouvertes: set = set()
+        self._actives = 0
         self._verrou = threading.Lock()
         self._ecoute = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._ecoute.bind(("127.0.0.1", 0))
@@ -1138,6 +1140,12 @@ class _Relais:
                 c, _ = self._ecoute.accept()
             except OSError:
                 return
+            with self._verrou:
+                libre = self._actives < _RELAIS_CONNEXIONS
+                self._actives += libre
+            if not libre:
+                c.close()
+                continue
             threading.Thread(target=self._relayer, args=(c,), daemon=True).start()
 
     def _relayer(self, c: socket.socket) -> None:
@@ -1162,6 +1170,7 @@ class _Relais:
             finally:
                 with self._verrou:
                     self._ouvertes.difference_update((c, h))
+                    self._actives -= 1
 
 
 def _pomper(de: socket.socket, vers: socket.socket) -> None:

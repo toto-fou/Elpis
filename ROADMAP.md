@@ -1,16 +1,8 @@
 # Feuille de route
 
 Les grandes étapes à venir, sans date. Le détail avance lot par lot dans les
-pull requests ; ce qui est livré est dans [CHANGELOG.md](CHANGELOG.md).
-
-## Prochaine version
-
-- Frontière hôte ↔ sandbox durcie ; Git côté serveur dans une prison
-  `bubblewrap`.
-- Intégration continue : lint, typage, suite complète sur SQLite, PostgreSQL
-  et MariaDB.
-- Exploitation : `./elpis backup`, `./elpis upgrade`,
-  [docs/exploitation.md](docs/exploitation.md).
+pull requests ; ce qui est fait, publié ou non, est dans
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Ensuite
 

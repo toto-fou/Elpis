@@ -2,17 +2,21 @@
 """shared_infra.ops.backup_cli — sauvegarde en ligne de commande
 (``./elpis backup``, et première étape de ``./elpis upgrade``).
 
-Même archive que la console (Maintenance › Sauvegarde) : ``full`` (base,
-``user_db/``, sandboxes, serveurs MCP, skins), ``db``, ``sandboxes`` ou
-``mcp``. Écrite dans ``backups/`` à la racine du dépôt (hors de ce que la
-sauvegarde complète emporte), lisible du seul compte de l'application : elle
-contient les secrets de ``user_db/``.
+Même archive que la console (Système › Données › Sauvegarde) : ``full``
+(base, ``user_db/``, sandboxes, serveurs MCP, skins), ``db``, ``sandboxes`` ou
+``mcp``. Construite directement dans ``backups/`` à la racine du dépôt (hors
+de ce que la sauvegarde complète emporte), lisible du seul compte de
+l'application : elle contient les secrets de ``user_db/``.
+
+Code de sortie non nul si une archive ``full`` ou ``db`` ne contient pas la
+base ; les fichiers ignorés sont listés sur la sortie d'erreur.
 """
 from __future__ import annotations
 
 import argparse
 import os
-import shutil
+import sys
+import zipfile
 from pathlib import Path
 
 SCOPES = ("full", "db", "sandboxes", "mcp")
@@ -28,13 +32,20 @@ def main(argv=None) -> int:
     from shared_infra.config import PROJECT_ROOT
     from shared_infra.routes._helpers import _make_backup_zip
     dest = Path(args.dest) if args.dest else Path(PROJECT_ROOT) / "backups"
-    dest.mkdir(parents=True, exist_ok=True)
-    os.chmod(dest, 0o700)
-    tmp, name = _make_backup_zip(args.scope)
+    if not dest.is_dir():
+        dest.mkdir(parents=True)
+        os.chmod(dest, 0o700)          # créé ici : lisible du seul compte
+    tmp, name = _make_backup_zip(args.scope, directory=str(dest))   # mkstemp : 0600
     target = dest / name
-    shutil.move(tmp, target)
-    os.chmod(target, 0o600)
+    os.replace(tmp, target)
+    with zipfile.ZipFile(target) as zf:
+        noms = zf.namelist()
+        if "backup-warnings.txt" in noms:
+            sys.stderr.write(zf.read("backup-warnings.txt").decode("utf-8", "replace"))
     print(target)
+    if args.scope in ("full", "db") and not any(n.startswith("db/") for n in noms):
+        print("sauvegarde incomplète : la base n'y est pas", file=sys.stderr)
+        return 1
     return 0
 
 

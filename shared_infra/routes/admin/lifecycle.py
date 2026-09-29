@@ -31,7 +31,7 @@ from shared_infra.accounts.users import (
 from shared_infra.config import (
     PROJECT_ROOT,
 )
-from shared_infra.routes._helpers import _DB_ANNEXES, _HOST_ONLY
+from shared_infra.routes._helpers import _DB_ANNEXES, _HOST_ONLY, _RUNTIME_DIRS
 
 # Helpers shared with _legacy. Single source of truth.
 from shared_infra.routes._legacy import (
@@ -505,7 +505,7 @@ def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
                 if not entry.startswith("user_db/"):
                     continue
                 rel = entry[len("user_db/"):]
-                if rel in fichiers_base or rel in _HOST_ONLY:
+                if rel in fichiers_base or rel in _HOST_ONLY or rel.split("/", 1)[0] in _RUNTIME_DIRS:
                     continue
                 # Secrets compris (clé de chiffrement, secret de session) :
                 # jamais lisibles hors du compte de l'app.
@@ -524,11 +524,12 @@ def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
                             zf.read(entry))
 
         if scope == "full":
-            from shared_infra.config import SKINS_DIR as _SKINS_DIR
-            for entry in names:
-                if entry.startswith("user_skins/"):
-                    _ecrire(entry, Path(_SKINS_DIR), entry[len("user_skins/"):],
-                            zf.read(entry))
+            from shared_infra.config import SKINS_DIR as _SKINS_DIR, USER_SKILLS_DIR as _USER_SKILLS_DIR
+            for prefix, base in (("user_skins/", Path(_SKINS_DIR)),
+                                 ("user_skills/", Path(_USER_SKILLS_DIR))):
+                for entry in names:
+                    if entry.startswith(prefix):
+                        _ecrire(entry, base, entry[len(prefix):], zf.read(entry))
 
     return restored, errors, db_replaced
 

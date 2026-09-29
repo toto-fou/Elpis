@@ -64,8 +64,8 @@ run Elpis on a dedicated machine or VM. Details below, in French.
   `/work` n'est lu ou écrit que par des descripteurs qui ne suivent aucun
   lien ; Git côté serveur tourne dans une prison `bubblewrap` ; les
   identifiants Git restent sur l'hôte.
-- Serveur ↔ réseau : adresses des dépôts Git vérifiées avant tout accès,
-  adresses des serveurs MCP résolues côté serveur.
+- Serveur ↔ réseau : adresses des dépôts Git et des serveurs MCP vérifiées
+  et résolues côté serveur (voir les limites ci-dessous).
 
 **Hors périmètre**
 
@@ -74,6 +74,16 @@ run Elpis on a dedicated machine or VM. Details below, in French.
   eux-mêmes.
 - Un `desktop-agent` ou un hôte d'outils exposé sans authentification ; une
   instance ouverte au réseau sans HTTPS.
+
+**Limites connues**
+
+- La configuration d'un dépôt de la sandbox est contrôlée avant chaque
+  commande Git côté serveur ; une modification faite par le conteneur entre
+  ce contrôle et la commande reste confinée à la prison `bubblewrap`, mais
+  peut encore influer sur un transfert réseau. Exécuter Git dans la sandbox
+  (feuille de route) fermera cette fenêtre.
+- Serveur MCP distant : son adresse est vérifiée quand il est enregistré, pas
+  à chaque résolution DNS.
 
 **Responsabilités**
 
@@ -86,8 +96,9 @@ run Elpis on a dedicated machine or VM. Details below, in French.
 | Administration | comptes, connecteurs et leurs clés, sauvegardes |
 
 **Configurations supportées** : Debian 12/13 ou Ubuntu 24.04 ; Docker et
-`bubblewrap` de la distribution (`./elpis doctor`) ; écoute locale par
-défaut, HTTPS (Caddy) dès que l'instance est ouverte au réseau.
+`bubblewrap` de la distribution (`./elpis doctor`), prison Git active
+(`executors.git_isolation = "auto"`, le défaut) ; écoute locale par défaut,
+HTTPS (Caddy) dès que l'instance est ouverte au réseau.
 
 **Compte de service** : il pilote Docker ; membre du groupe `docker`, il est
 de fait **proche de root** sur l'hôte. Réservez à Elpis une machine ou une VM

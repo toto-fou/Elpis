@@ -206,6 +206,7 @@ load_runtime() {
 pid_of() { local f="$RUN_DIR/$1.pid"; [ -s "$f" ] && kill -0 "$(cat "$f")" 2>/dev/null && cat "$f"; }
 
 systemd_active() { command -v systemctl >/dev/null && systemctl is-active --quiet "${UNIT_PREFIX}.target" 2>/dev/null; }
+systemd_installed() { [ -f "/etc/systemd/system/${UNIT_PREFIX}.target" ]; }
 
 wait_port() {
     local port="$1" n="${2:-40}"
@@ -410,6 +411,8 @@ cmd_service() {
 cmd_doctor() {
     local bad=0
     check() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else warn "$1 : NON ($3)"; bad=$((bad+1)); fi; }
+    # Facultatif : signalé, sans compter comme un problème.
+    check_opt() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else info "$1 : absent ($3)"; fi; }
     check "venv Python" "[ -x '$PY' ]" "./install.sh"
     check "dépendances Python" "'$PY' -c 'import fastapi, fastmcp, httpx, gunicorn, uvicorn'" "./install.sh"
     check "dépendances RAG" "'$PY' -c 'import pandas, pdfplumber, pypdfium2'" "pip install -r requirements-rag.txt"
@@ -427,7 +430,7 @@ cmd_doctor() {
     check "bubblewrap (git et aperçus isolés)" \
         "'$PY' -c 'import sys; from shared_infra.sandbox.bwrap import probe; sys.exit(not probe(force=True))'" \
         "apt install bubblewrap ; user namespaces autorisés ; venv requis"
-    check "LibreOffice (aperçus Office, facultatif)" "command -v soffice" "./install.sh --with-office"
+    check_opt "LibreOffice (aperçus Office, facultatif)" "command -v soffice" "./install.sh --with-office"
     if _https_enabled; then
         check "Caddy actif (HTTPS)" "systemctl is-active --quiet caddy" "./install.sh --with-caddy puis ./elpis configure"
     fi
@@ -475,12 +478,19 @@ cmd_upgrade() {
     info "Dépendances Python…"
     "$PY" -m pip install -q -r "$req" || die "Échec pip : relancez ./elpis upgrade --no-backup une fois corrigé."
     info "Redémarrage (les migrations de la base s'appliquent au démarrage)…"
-    if systemd_active; then
+    if systemd_installed; then
         sudo systemctl restart "${UNIT_PREFIX}.target" || die "Redémarrage systemd échoué."
     else
         cmd_stop; cmd_start
     fi
-    cmd_doctor
+    { wait_port "$MAIN_PORT" 120 && wait_port "$ADMIN_PORT" 60; } \
+        || die "L'application ne répond pas après la mise à jour : ./elpis logs main"
+    local pending
+    pending="$("$PY" -c 'from shared_infra.db._connection import db_info; print(" ".join(db_info().get("pending_migrations") or []))' 2>/dev/null)" \
+        || die "Base injoignable après la mise à jour : ./elpis db info"
+    [ -z "$pending" ] || die "Migrations non appliquées ($pending) : ./elpis logs main"
+    ok "Mise à jour appliquée ; diagnostic :"
+    cmd_doctor || true
 }
 
 # =============================================================================

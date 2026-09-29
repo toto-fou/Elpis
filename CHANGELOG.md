@@ -120,6 +120,10 @@ selon [SemVer](https://semver.org/lang/fr/).
   (il était ignoré, 64 Mo toujours).
 - **Prompts système** : deux enregistrements simultanés d'une même catégorie
   aboutissent tous deux.
+- **Sauvegardes** : l'archive complète inclut le magasin des skills
+  personnels (absent jusqu'ici, donc perdu à la restauration) ; journaux et
+  fichiers PID ne sont plus ni sauvegardés ni restaurés ; une sauvegarde
+  sans la base n'est plus comptée comme récente.
 
 ## 1.0.0 — 2026-09-24
 

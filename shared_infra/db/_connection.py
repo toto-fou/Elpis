@@ -391,6 +391,9 @@ def db_info() -> Dict[str, Any]:
             out["migrations"], out["last_migration"] = int(row[0]), row[1]
         else:
             out["migrations"], out["last_migration"] = 0, None
+        from shared_infra.db import _migrations as _mig
+        done = _mig._applied(conn) if has_table(conn, "schema_migrations") else set()
+        out["pending_migrations"] = [n for n in _mig._discover() if n not in done]
     out["pool"] = pool_stats()
     return out
 

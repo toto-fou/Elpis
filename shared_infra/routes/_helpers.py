@@ -32,6 +32,7 @@ the auto-export loop in ``__init__.py`` walks every submodule.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -852,21 +853,37 @@ def _zip_copy(zf: zipfile.ZipFile, arcname: str, src, st: Optional[os.stat_resul
         shutil.copyfileobj(src, dst, 1 << 20)
 
 
-def _make_backup_zip(scope: str) -> tuple:
+# Sous-dossiers de ``user_db/`` propres à l'exécution en cours (journaux,
+# PID) : ni sauvegardés ni restaurés.
+_RUNTIME_DIRS = ("logs", "run")
+
+
+def _make_backup_zip(scope: str, directory: Optional[str] = None) -> tuple:
     """Build an admin backup zip on-the-fly.
 
     ``scope`` is one of "full", "db", "sandboxes", "mcp" — each picks
     a specific subset of disk state to bundle. Returns ``(tmp_path, filename)``;
-    callers stream the file then unlink it.
+    callers stream the file then unlink it. ``directory`` : where the archive
+    is built (default: the system temp dir) — removed if building fails.
     """
+    fd, tmp_name = tempfile.mkstemp(suffix=".zip", dir=directory)
+    os.close(fd)
+    try:
+        return _build_backup_zip(scope, tmp_name)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_name)
+        raise
+
+
+def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
     import time as _time
 
     from shared_infra.config import DB_PATH as _DB_PATH, MCP_SERVERS_DIR as _MCP_DIR, SANDBOX_DIR as _SANDBOX_DIR
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
-    tmp.close()
     ts = int(_time.time())
     skipped: list = []
-    with zipfile.ZipFile(tmp.name, 'w', zipfile.ZIP_DEFLATED) as zf:
+    db_ok = False
+    with zipfile.ZipFile(tmp_name, 'w', zipfile.ZIP_DEFLATED) as zf:
         def _safe_write(abs_p: Path, arcname: str):
             # Les sandboxes contiennent des fichiers créés DANS le container
             # (UID 10001, parfois sans o+r — caches, .pickle…), des liens
@@ -880,13 +897,16 @@ def _make_backup_zip(scope: str) -> tuple:
             except (PermissionError, OSError) as e:
                 skipped.append(f"{abs_p} — {e.__class__.__name__}: {e}")
 
-        def _add_path(p: Path, arcroot: str, exclus: frozenset = frozenset()):
+        def _add_path(p: Path, arcroot: str, exclus: frozenset = frozenset(),
+                      skip_dirs: tuple = ()):
             if not p.exists():
                 return
             if p.is_file():
                 _safe_write(p, arcroot + "/" + p.name)
                 return
-            for root, _, files in os.walk(p):
+            for root, dirs, files in os.walk(p):
+                if skip_dirs and root == str(p):
+                    dirs[:] = [d for d in dirs if d not in skip_dirs]
                 for file in files:
                     abs_p = Path(root) / file
                     if exclus and abs_p.resolve() in exclus:
@@ -926,6 +946,7 @@ def _make_backup_zip(scope: str) -> tuple:
                     if not rep.get("ok"):
                         raise RuntimeError("; ".join(rep.get("mismatches") or []) or "vérification")
                     _safe_write(Path(snap), f"db/{db_file.name}")
+                    db_ok = f"db/{db_file.name}" in zf.namelist()
                 except Exception as e:
                     skipped.append(f"base {_backend} — instantané impossible : {e}")
                 finally:
@@ -936,6 +957,7 @@ def _make_backup_zip(scope: str) -> tuple:
                 try:
                     _snapshot_sqlite(db_file, Path(snap))
                     _safe_write(Path(snap), f"db/{db_file.name}")
+                    db_ok = f"db/{db_file.name}" in zf.namelist()
                 except sqlite3.Error as e:
                     skipped.append(f"{db_file} — instantané impossible : {e}")
                 finally:
@@ -954,7 +976,8 @@ def _make_backup_zip(scope: str) -> tuple:
                 if base.parent.exists():
                     exclus |= {q.resolve() for q in base.parent.glob(base.name + ".bak-*")}
                     exclus |= {q.resolve() for q in base.parent.glob(base.name + ".new-*")}
-                _add_path(user_db_dir, "user_db", exclus=frozenset(exclus))
+                _add_path(user_db_dir, "user_db", exclus=frozenset(exclus),
+                          skip_dirs=_RUNTIME_DIRS)
 
         if scope in ("full", "sandboxes"):
             _add_beneath(Path(_SANDBOX_DIR), "sandboxes")
@@ -963,9 +986,11 @@ def _make_backup_zip(scope: str) -> tuple:
             _add_path(_MCP_DIR, "mcp_custom_servers")
 
         if scope == "full":
-            # Skins importés ou créés depuis la console (hors du code).
-            from shared_infra.config import SKINS_DIR as _SKINS_DIR
+            # Skins importés ou créés depuis la console (hors du code), et le
+            # magasin des skills personnels (leur source de vérité).
+            from shared_infra.config import SKINS_DIR as _SKINS_DIR, USER_SKILLS_DIR as _USER_SKILLS_DIR
             _add_path(Path(_SKINS_DIR), "user_skins")
+            _add_path(Path(_USER_SKILLS_DIR), "user_skills")
 
         if skipped:
             zf.writestr(
@@ -973,16 +998,20 @@ def _make_backup_zip(scope: str) -> tuple:
                 "Fichiers ignorés (illisibles depuis l'hôte) :\n" + "\n".join(skipped) + "\n")
 
     label = {"full": "complet", "db": "db", "sandboxes": "sandboxes", "mcp": "mcp"}.get(scope, scope)
+    if scope in ("full", "db") and not db_ok:
+        # Sans la base, ce n'est pas une sauvegarde : la console ne doit pas
+        # la compter comme récente.
+        return tmp_name, f"backup_{label}_{ts}.zip"
     # Date de la dernière sauvegarde, lue par la Vue d'ensemble de la console
     # (« aucune sauvegarde depuis N jours »). Couvre le téléchargement ET
     # l'envoi distant, qui passent tous deux par ici.
     try:
         from shared_infra.db import log_metric
         log_metric("backup_created", 1, {"scope": scope, "skipped": len(skipped),
-                                         "bytes": os.path.getsize(tmp.name)})
+                                         "bytes": os.path.getsize(tmp_name)})
     except Exception:                                        # noqa: BLE001
         logger.warning("[backup] date de sauvegarde non enregistrée", exc_info=True)
-    return tmp.name, f"backup_{label}_{ts}.zip"
+    return tmp_name, f"backup_{label}_{ts}.zip"
 
 
 # ─────────────────────────────────────────────────────────────────────────────

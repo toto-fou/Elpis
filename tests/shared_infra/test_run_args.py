@@ -182,7 +182,11 @@ def test_spec_label_pose_et_compare():
     sb = _sandbox(cfg)
     assert f"elpis.spec={RUN_SPEC}" in sb._build_run_args(sb.network_profile)
     h = netcfg_hash(sb.network_profile)
+    from shared_infra.sandbox.executors._user_sandbox import _AGENT_EMPREINTE
     for out, rc, attendu in ((f"{h}|{RUN_SPEC}|{DEFAULT_IMAGE}", 0, True),
+                             (f"{h}|{RUN_SPEC}|{DEFAULT_IMAGE}|{_AGENT_EMPREINTE}", 0, True),
+                             (f"{h}|{RUN_SPEC}|{DEFAULT_IMAGE}|autre", 0, False),     # app déplacée
+                             (f"{h}|{RUN_SPEC}|{DEFAULT_IMAGE}|<no value>", 0, False),
                              (f"{h}|{RUN_SPEC}|elpis/sandbox:1.6.0", 0, False),  # image changée
                              (f"{h}|{RUN_SPEC}|", 0, True),       # image illisible : fail-open
                              (f"{h}|<no value>", 0, False),       # d'avant MKNOD

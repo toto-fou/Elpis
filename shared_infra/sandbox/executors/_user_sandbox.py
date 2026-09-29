@@ -80,6 +80,7 @@ si le LLM oublie de préfixer ``sudo``.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -90,6 +91,13 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from shared_infra.sandbox import naming as _naming
+from shared_infra.sandbox.agent_client import (
+    AGENT_DIR,
+    AGENT_MOUNT,
+    AGENT_RUN_DIR,
+    AGENT_SOCKET,
+    AgentClient,
+)
 from shared_infra.sandbox.executors import _privdrop
 from shared_infra.sandbox.executors._base import (
     ExecError,
@@ -388,8 +396,12 @@ CAPABILITIES = ("CHOWN", "DAC_OVERRIDE", "FOWNER", "FSETID", "SETUID", "SETGID",
 #: Version des options de ``docker run`` qui touchent à la sécurité, posée en
 #: label ``elpis.spec`` : la changer fait recréer les conteneurs existants au
 #: premier exec (2 : ``--cap-drop MKNOD`` ; 3 : ``--cap-drop ALL`` +
-#: ``CAPABILITIES``, 2026-09-29).
-RUN_SPEC = "3"
+#: ``CAPABILITIES`` ; 4 : montages de l'agent, 2026-09-29).
+RUN_SPEC = "4"
+
+#: Empreinte du dossier de l'agent monté (étiquette ``elpis.agent``) :
+#: l'application déplacée, le conteneur est recréé avec le bon montage.
+_AGENT_EMPREINTE = hashlib.sha256(str(AGENT_DIR).encode()).hexdigest()[:12]
 
 
 def netcfg_hash(profile: "NetworkProfile") -> str:
@@ -646,6 +658,7 @@ class UserSandbox:
         # durcissement des options de lancement ne touchait que les nouveaux.
         self._config_verified = False
         self._config_retry_at = 0.0
+        self._agent: Optional[AgentClient] = None
 
     @property
     def container_name(self) -> str:
@@ -760,13 +773,16 @@ class UserSandbox:
         profile = self.network_profile
         rc, out, _ = await self._cli.call(
             "inspect", "--format",
-            _naming.label_tpl("netcfg") + "|" + _naming.label_tpl("spec") + "|{{.Config.Image}}",
+            "|".join((_naming.label_tpl("netcfg"), _naming.label_tpl("spec"),
+                      "{{.Config.Image}}", _naming.label_tpl("agent"))),
             self.container_name, timeout=5,
         )
         if rc != 0:
             return True
-        cur, spec, image = (out.decode("utf-8", errors="replace").strip().split("|") + ["", ""])[:3]
-        if spec != RUN_SPEC or (image and image != self.cfg.image):
+        cur, spec, image, agent = (out.decode("utf-8", errors="replace").strip().split("|")
+                                   + ["", "", ""])[:4]
+        if (spec != RUN_SPEC or (image and image != self.cfg.image)
+                or agent not in ("", _AGENT_EMPREINTE)):
             return False
         if not cur or cur == "<no value>":
             return profile.mode != "allowlist_ip"
@@ -1017,6 +1033,10 @@ class UserSandbox:
             "-e", "TZ=UTC",
             "-e", "MOZ_HEADLESS=1",
             "-v", f"{self.sandbox_path}:/work:rw",
+            # Agent de la sandbox (L4) : son code en lecture seule, et le
+            # dossier de son socket, que l'hôte joint (cf. agent_client).
+            "-v", f"{self.sandbox_path.parent / AGENT_RUN_DIR}:/run/elpis:rw",
+            "-v", f"{AGENT_DIR}:{AGENT_MOUNT}:ro",
             "--workdir", "/work",
         ]
 
@@ -1040,7 +1060,8 @@ class UserSandbox:
         # dérive (profil édité par l'admin après création du conteneur), et
         # ``elpis.spec`` à ``RUN_SPEC``.
         run_args.extend(["--label", _naming.label("netcfg", netcfg_hash(profile)),
-                         "--label", _naming.label("spec", RUN_SPEC)])
+                         "--label", _naming.label("spec", RUN_SPEC),
+                         "--label", _naming.label("agent", _AGENT_EMPREINTE)])
         net_mode = profile.mode
         if net_mode == "none":
             run_args.extend(["--network", "none"])
@@ -1152,6 +1173,15 @@ class UserSandbox:
         except OSError as e:
             logger.warning("[sandbox] chmod %s impossible : %s",
                            self.sandbox_path, e)
+        # Dossier du socket de l'agent, que l'UID du conteneur doit pouvoir
+        # écrire. Absent, Docker le créerait en root : l'agent ne démarrerait
+        # jamais.
+        dossier_agent = self.sandbox_path.parent / AGENT_RUN_DIR
+        try:
+            dossier_agent.mkdir(exist_ok=True)
+            os.chmod(dossier_agent, 0o777)
+        except OSError as e:
+            raise ExecError(f"Dossier de l'agent {dossier_agent} : {e}") from e
 
         profile = self.network_profile
         net_mode = profile.mode
@@ -1280,6 +1310,33 @@ class UserSandbox:
         except Exception:                                   # pragma: no cover
             rc = 1
         _privdrop.remember(self.container_name, exec_user, rc == 0)
+
+    @property
+    def agent(self) -> AgentClient:
+        """Client de l'agent de cette sandbox (démarré au premier appel)."""
+        if self._agent is None:
+            self._agent = AgentClient(self)
+        return self._agent
+
+    async def start_agent(self, replace: bool = False) -> None:
+        """Lance l'agent dans le conteneur, détaché, sous ``exec_user`` et sans
+        net_admin (chaîne ``_privdrop``). Deux lancements concurrents sont sans
+        danger : l'agent tient un verrou d'instance. ``replace`` : un agent
+        figé est d'abord tué. ``python3 -I -S`` : ni ``PYTHON*`` ni les
+        paquets de l'utilisateur (``/work/.local``) dans l'agent."""
+        if replace:
+            await self._cli.call("exec", "--user", "0:0", self.container_name,
+                                 "pkill", "-KILL", "-f", f"{AGENT_MOUNT}/server.py", timeout=10)
+        exec_user = self.cfg.exec_user or "10001:10001"
+        await self._ensure_privdrop_probed(exec_user)
+        docker_user, prefix = _privdrop.resolve(self.container_name, exec_user)
+        rc, _out, err = await self._cli.call(
+            "exec", "-d", "--user", docker_user, self.container_name, *prefix,
+            "python3", "-I", "-S", f"{AGENT_MOUNT}/server.py", "--root", "/work",
+            "--socket", AGENT_SOCKET, timeout=15)
+        if rc != 0:
+            raise ExecError(f"Agent non démarré dans {self.container_name} : "
+                            f"{err.decode('utf-8', 'replace').strip()[:300]}")
 
     async def exec(self,
                    cmd: list[str],

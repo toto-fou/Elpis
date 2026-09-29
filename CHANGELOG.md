@@ -43,6 +43,11 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifications
 
+- **Agent de la sandbox** : un agent HTTP (bibliothèque standard) tourne dans
+  chaque conteneur, démarré à la demande, pour que l'hôte n'accède plus
+  lui-même au contenu de `/work`. Son code est monté en lecture seule et suit
+  la version de l'application : aucune reconstruction d'image pour le faire
+  évoluer. Nouveaux montages : les conteneurs existants sont recréés.
 - **Licence MIT** : Elpis passe de la licence Apache-2.0 à la licence MIT
   (`LICENSE`, `NOTICE`, en-têtes SPDX, `pyproject.toml`). Les textes de licence
   des composants vendorisés sont reproduits dans `LICENSES/`.

@@ -93,6 +93,7 @@ _WORK_RESERVED = frozenset({
     "memory",       # long-term memory store (host-owned ``P/memory``)
     ".memory",      # legacy store (orphaned, owned 10001) — keep reserved too
     ".sandboxd",
+    ".elpis-agent",  # socket de l'agent (agent_client.AGENT_RUN_DIR)
     ".write_locks",
     _PERMS_MARKER,
     _WORK_MARKER,

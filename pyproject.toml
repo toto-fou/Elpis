@@ -65,6 +65,8 @@ python_version = "3.11"
 files = [
     "shared_infra/sandbox/paths.py",
     "shared_infra/sandbox/git_env.py",
+    "shared_infra/sandbox/agent",
+    "shared_infra/sandbox/agent_client.py",
     "shared_infra/runtime",
     "llm_core/_tool_traits.py",
     "llm_core/context/tokens.py",

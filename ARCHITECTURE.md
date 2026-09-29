@@ -227,6 +227,15 @@ l'ouvrir en lecture. Git côté hôte passe par
 `sandbox/git_env.py::run_host_git`, dans une prison `bwrap`
 (`sandbox/bwrap.py`, réglage `executors.git_isolation`).
 
+Dans chaque conteneur, un **agent** (`sandbox/agent/server.py`, bibliothèque
+standard) exécute les opérations sur `/work` que l'hôte lui demande : HTTP sur
+`/run/elpis/agent.sock` (dossier `<utilisateur>/.elpis-agent` monté), code monté en
+lecture seule depuis l'application, démarré à la demande sous l'UID du
+conteneur, relancé s'il n'a pas la version de l'application. L'hôte le joint
+par `sandbox/agent_client.py`, qui saisit le socket sans suivre de lien et
+tient toute réponse pour non fiable. Les accès de l'hôte au contenu de `/work`
+passent par lui au fil de la migration.
+
 ## Invariants
 
 - **Séparation des process.** Les routes d'administration sont **montées**

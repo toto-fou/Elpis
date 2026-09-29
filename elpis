@@ -17,6 +17,9 @@
 #  ./elpis service remove
 #  ./elpis service print         affiche les unités sans rien installer
 #  ./elpis doctor                diagnostic de l'installation
+#  ./elpis backup [full|db|sandboxes|mcp]   sauvegarde dans backups/ (0600)
+#  ./elpis upgrade [--no-backup] sauvegarde, git pull --ff-only, dépendances,
+#                                redémarrage (migrations au démarrage), doctor
 #  ./elpis db info|check|transfer|use   base de données : état, test d'une
 #                                cible, copie vers une base vide, choix du
 #                                moteur (« ./elpis db use sqlite » = porte de
@@ -449,6 +452,38 @@ cmd_doctor() {
 }
 
 # =============================================================================
+#  backup / upgrade
+# =============================================================================
+cmd_backup() { load_runtime; "$PY" -m shared_infra.ops.backup_cli "$@"; }
+
+cmd_upgrade() {
+    local backup=1 req="$ROOT/requirements-rag.txt"
+    case "${1:-}" in --no-backup) backup=0 ;; "") ;; *) die "Usage : ./elpis upgrade [--no-backup]" ;; esac
+    load_runtime
+    git -C "$ROOT" diff --quiet HEAD -- \
+        || die "Modifications locales dans le dépôt (git status) : mise à jour annulée."
+    if [ "$backup" -eq 1 ]; then
+        info "Sauvegarde complète…"
+        cmd_backup full || die "Sauvegarde échouée : mise à jour annulée (--no-backup pour passer outre)."
+    fi
+    local before; before="$(git -C "$ROOT" rev-parse --short HEAD)"
+    info "Code (git pull --ff-only)…"
+    git -C "$ROOT" pull --ff-only || die "git pull --ff-only a échoué : rien n'a été modifié."
+    info "Code : $before → $(git -C "$ROOT" rev-parse --short HEAD)"
+    # Extras AGPL déjà installés : ils restent à jour.
+    "$PY" -c 'import fitz' >/dev/null 2>&1 && req="$ROOT/requirements-agpl-optional.txt"
+    info "Dépendances Python…"
+    "$PY" -m pip install -q -r "$req" || die "Échec pip : relancez ./elpis upgrade --no-backup une fois corrigé."
+    info "Redémarrage (les migrations de la base s'appliquent au démarrage)…"
+    if systemd_active; then
+        sudo systemctl restart "${UNIT_PREFIX}.target" || die "Redémarrage systemd échoué."
+    else
+        cmd_stop; cmd_start
+    fi
+    cmd_doctor
+}
+
+# =============================================================================
 case "${1:-}" in
     configure) shift; cmd_configure "$@" ;;
     start)     shift; cmd_start "$@" ;;
@@ -458,6 +493,8 @@ case "${1:-}" in
     logs)      shift; cmd_logs "$@" ;;
     service)   shift; cmd_service "$@" ;;
     doctor)    cmd_doctor ;;
+    backup)    shift; cmd_backup "$@" ;;
+    upgrade)   shift; cmd_upgrade "$@" ;;
     db)        shift; load_runtime; exec "$PY" -m shared_infra.db "$@" ;;
     -h|--help|help|"") usage ;;
     *) usage; exit 2 ;;

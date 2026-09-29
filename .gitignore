@@ -10,6 +10,9 @@ __pycache__/
 # ---- Node ----
 node_modules/
 
+# ---- Sauvegardes locales (`./elpis backup`, `./elpis upgrade`) ----
+backups/
+
 # ---- Configuration locale (générée par `./elpis configure`) ----
 config.json
 config.json.bak*

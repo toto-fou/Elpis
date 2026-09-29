@@ -82,6 +82,8 @@ def env(tmp_path, monkeypatch):
 
     monkeypatch.setattr(ro, "require_user_id", _auth)
     monkeypatch.setattr(ro, "_get_work_path", lambda uid: root)
+    from tests.conftest import editeur_sur_agent
+    editeur_sur_agent(monkeypatch, root)
     monkeypatch.setattr(ro, "feature_enabled", lambda name, default=True: state["feature"])
     monkeypatch.setattr(oc, "soffice_bin", lambda: "/usr/lib/libreoffice/program/soffice")
     monkeypatch.setattr(oc, "lo_version_token", lambda s: "t")

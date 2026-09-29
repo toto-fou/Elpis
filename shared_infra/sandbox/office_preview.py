@@ -21,6 +21,7 @@ Cf. docs/editor-office-preview-design-2026-09-15.md
 from __future__ import annotations
 
 import asyncio
+import collections
 import functools
 import hashlib
 import json
@@ -38,9 +39,10 @@ from urllib.parse import quote
 
 from shared_infra.observability.tracing import swallow
 from shared_infra.sandbox import office_convert as oc, office_xlsx as ox
+from shared_infra.sandbox.agent_client import AgentError
 from shared_infra.sandbox.filetypes import OFFICE_KINDS
 from shared_infra.sandbox.office_convert import OfficeError
-from shared_infra.sandbox.paths import SandboxPathError, resolve_under
+from shared_infra.sandbox.paths import SandboxPathError, lexical_rel
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -172,59 +174,56 @@ def key_dir(user_dir: str, key: str) -> Path:
 # ─────────────────────────────────────────────────────────────────────────────
 #  Source
 # ─────────────────────────────────────────────────────────────────────────────
+# État de la source vu par l'agent (mêmes noms que ``os.stat_result``).
+_Etat = collections.namedtuple("_Etat", "st_size st_mtime_ns st_mtime st_dev st_ino")
+_INDISPONIBLE = ("agent_unavailable", "container_down", "transport", "bad_response", "timeout")
+
+
 class Source:
-    __slots__ = ("fd", "rel", "host", "kind", "ext", "st")
+    """Fichier de la sandbox à prévisualiser, lu par l'agent (L4.3)."""
+    __slots__ = ("agent", "rel", "kind", "ext", "st")
 
-    def __init__(self, fd: int, rel: str, host: Path, kind: str, ext: str, st: os.stat_result):
-        self.fd, self.rel, self.host, self.kind, self.ext, self.st = fd, rel, host, kind, ext, st
-
-    def close(self) -> None:
-        if self.fd >= 0:
-            try:
-                os.close(self.fd)
-            except OSError:
-                pass
-            self.fd = -1
+    def __init__(self, agent, rel: str, kind: str, ext: str, st: _Etat):
+        self.agent, self.rel, self.kind, self.ext, self.st = agent, rel, kind, ext, st
 
 
 def kind_of(path: str) -> Optional[str]:
     return OFFICE_KINDS.get(PurePosixPath(str(path or "")).suffix.lower())
 
 
-def open_source(root: Path, user_path: str) -> Source:
-    """Ouvre le fichier de la sandbox SANS suivre de lien et prouve, sur le
-    descripteur même, qu'il est un fichier régulier situé sous ``root``."""
+def _refus_agent(e: AgentError) -> OfficeError:
+    if e.code in _INDISPONIBLE:
+        return OfficeError("unavailable", 503, "Environnement sandbox arrêté — "
+                                              "nouvelle tentative dans quelques instants.")
+    if e.code == "changed":
+        return OfficeError("changed", 409, "Fichier en cours de modification, réessayez")
+    return OfficeError("not_found", 404, "Fichier introuvable")
+
+
+async def open_source(agent, root: Path, user_path: str) -> Source:
+    """Le fichier ``user_path`` de la sandbox vu par l'agent (un lien n'est
+    suivi que sous /work) : fichier ordinaire, format pris en charge, taille
+    bornée. ``root`` ne sert qu'à la forme du chemin (aucune lecture)."""
     try:
-        rp = resolve_under(root, user_path, allow_root=False)
+        rel = lexical_rel(root, user_path, allow_root=False)
     except SandboxPathError:
         raise OfficeError("not_found", 404, "Fichier introuvable")
-    ext = rp.host.suffix.lower()
+    ext = PurePosixPath(rel).suffix.lower()
     kind = OFFICE_KINDS.get(ext)
     if not kind:
         raise OfficeError("unsupported", 415, "Format non pris en charge")
-    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | getattr(os, "O_CLOEXEC", 0)
     try:
-        fd = os.open(str(rp.host), flags)
-    except OSError:
+        (e,) = await agent.stat([rel])
+    except AgentError as ex:
+        raise _refus_agent(ex) from None
+    if e.get("kind") != "file":
         raise OfficeError("not_found", 404, "Fichier introuvable")
-    try:
-        st = os.fstat(fd)
-        if not _stat.S_ISREG(st.st_mode):
-            raise OfficeError("not_found", 404, "Fichier introuvable")
-        proc_fd = f"/proc/self/fd/{fd}"
-        if os.path.exists(proc_fd):
-            real = Path(os.path.realpath(proc_fd))
-            try:
-                real.relative_to(Path(root).resolve())
-            except ValueError:
-                raise OfficeError("not_found", 404, "Fichier introuvable")
-        if st.st_size > max_bytes(kind):
-            raise OfficeError("too_large", 413,
-                              f"Fichier trop lourd (max {max_bytes(kind) // (1024 * 1024)} Mo)")
-    except BaseException:
-        os.close(fd)
-        raise
-    return Source(fd, rp.rel, rp.host, kind, ext, st)
+    ns = int(e.get("mtime_ns") or 0)
+    st = _Etat(int(e.get("size") or 0), ns, ns / 1e9, int(e.get("dev") or 0), int(e.get("ino") or 0))
+    if st.st_size > max_bytes(kind):
+        raise OfficeError("too_large", 413,
+                          f"Fichier trop lourd (max {max_bytes(kind) // (1024 * 1024)} Mo)")
+    return Source(agent, rel, kind, ext, st)
 
 
 def cache_key(uid: int, rel: str, st: os.stat_result, version: str) -> str:
@@ -232,28 +231,26 @@ def cache_key(uid: int, rel: str, st: os.stat_result, version: str) -> str:
     return hashlib.sha256(raw.encode("utf-8", "surrogateescape")).hexdigest()[:40]
 
 
-def snapshot_to(src: Source, dest: Path) -> None:
-    """Copie le contenu DEPUIS LE DESCRIPTEUR (pas de réouverture par nom :
-    un lien posé entre-temps ne peut rien substituer). Un fichier en cours
-    d'écriture (taille/mtime qui bougent) est refusé."""
-    copied = 0
-    with open(dest, "wb") as out:
-        os.lseek(src.fd, 0, os.SEEK_SET)
-        while True:
-            block = os.read(src.fd, 1 << 20)
-            if not block:
-                break
-            out.write(block)
-            copied += len(block)
-            if copied > src.st.st_size:
-                break
+async def snapshot_to(src: Source, dest: Path) -> None:
+    """Copie le contenu lu par l'agent bloc par bloc, sur la version vue à
+    l'ouverture (taille et mtime vérifiés par l'agent à chaque bloc) : un
+    fichier en cours d'écriture est refusé."""
+    taille, pos = src.st.st_size, 0
+    out = await asyncio.to_thread(open, dest, "wb")          # cache de l'hôte, hors /work
     try:
-        now = os.fstat(src.fd)
-    except OSError:
-        now = None
-    if (copied != src.st.st_size or now is None
-            or now.st_size != src.st.st_size or now.st_mtime_ns != src.st.st_mtime_ns):
-        raise OfficeError("changed", 409, "Fichier en cours de modification, réessayez")
+        while pos < taille:
+            n = min(1 << 20, taille - pos)
+            try:
+                r = await src.agent.read(src.rel, offset=pos, length=n, max_bytes=n,
+                                         expect_size=taille, expect_mtime_ns=src.st.st_mtime_ns)
+            except AgentError as ex:
+                raise _refus_agent(ex) from None
+            if not r.data:
+                raise OfficeError("changed", 409, "Fichier en cours de modification, réessayez")
+            await asyncio.to_thread(out.write, r.data)
+            pos += len(r.data)
+    finally:
+        await asyncio.to_thread(out.close)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -735,31 +732,27 @@ def _normalize_view(kind: str, view: Optional[str]) -> str:
     return "pages"
 
 
-def _fast_path(uid: int, user_dir: str, root: Path, path: str, view: Optional[str]):
-    src = open_source(root, path)
-    try:
-        version = "pdf" if src.kind == "pdf" else oc.lo_version_token(oc.soffice_bin())
-        key = cache_key(uid, src.rel, src.st, version)
-        v = _normalize_view(src.kind, view)
-        d = user_cache_dir(user_dir) / key
-        m = read_manifest(d)
-        if m and m.get(v):
-            _touch(d)
-            src.close()
-            return None, _payload(m, v)
-        return (src, key, v, d), None
-    except BaseException:
-        src.close()
-        raise
+def _fast_path(uid: int, user_dir: str, src: Source, view: Optional[str]):
+    version = "pdf" if src.kind == "pdf" else oc.lo_version_token(oc.soffice_bin())
+    key = cache_key(uid, src.rel, src.st, version)
+    v = _normalize_view(src.kind, view)
+    d = user_cache_dir(user_dir) / key
+    m = read_manifest(d)
+    if m and m.get(v):
+        _touch(d)
+        return None, _payload(m, v)
+    return (key, v, d), None
 
 
 async def prepare(*, uid: int, user_dir: str, root: Path, path: str,
                   view: Optional[str] = None) -> Dict[str, Any]:
     """Rend le manifeste de l'aperçu demandé, en convertissant au besoin."""
-    state, ready = await oc.run_cpu(_fast_path, uid, user_dir, root, path, view)
+    from shared_infra.sandbox.exec_bridge import agent_for
+    src = await open_source(agent_for(uid), root, path)
+    state, ready = await oc.run_cpu(_fast_path, uid, user_dir, src, view)
     if ready is not None:
         return ready
-    src, key, v, d = state
+    key, v, d = state
     wait_s = float(oc._int_cfg("wait_s", 1, 120))
     deadline = time.monotonic() + wait_s
     key_fd = None
@@ -773,7 +766,6 @@ async def prepare(*, uid: int, user_dir: str, root: Path, path: str,
             return _payload(m, v)
         return await _build(uid, user_dir, src, key, v, d, m, time.monotonic() + wait_s)
     finally:
-        src.close()
         oc.release_lock(key_fd)
 
 
@@ -808,7 +800,7 @@ async def _build(uid: int, user_dir: str, src: Source, key: str, v: str, d: Path
     job = await oc.run_cpu(_new_job_dir, user_dir, key)
     try:
         in_name = f"in{src.ext}"
-        await oc.run_cpu(snapshot_to, src, job / in_name)
+        await snapshot_to(src, job / in_name)
         manifest = _base_manifest(src, key, previous)
 
         if src.kind == "pdf":

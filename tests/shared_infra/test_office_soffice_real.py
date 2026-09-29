@@ -85,6 +85,8 @@ def real(tmp_path, monkeypatch):
     d.save(root / "rapport.docx")
     _xlsx(root / "calcul.xlsx")
     shutil.copy(FIXTURES / "deux-diapos.pptx", root / "deux-diapos.pptx")
+    from tests.conftest import editeur_sur_agent
+    editeur_sur_agent(monkeypatch, root)
     return root
 
 

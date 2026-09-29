@@ -165,6 +165,8 @@ def bac(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_OFFICE_CACHE_DIR", str(tmp_path / "cache"))
     root = tmp_path / "alice" / "work"
     root.mkdir(parents=True)
+    from tests.conftest import editeur_sur_agent
+    editeur_sur_agent(monkeypatch, root)
     return root
 
 

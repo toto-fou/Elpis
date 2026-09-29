@@ -8,6 +8,7 @@ Cf. docs/editor-office-preview-design-2026-09-15.md
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import time
@@ -111,30 +112,33 @@ def sb(tmp_path):
     return root
 
 
+def _ouvrir(sb, chemin):
+    """``open_source`` par l'agent de la sandbox ``sb`` (servi en thread)."""
+    from shared_infra.sandbox.executors import get_user_sandbox
+    return asyncio.run(op.open_source(get_user_sandbox(1, "alice", sb).agent, sb, chemin))
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Ouverture de la source
 # ─────────────────────────────────────────────────────────────────────────────
 def test_open_source_ok_et_chemin_canonique(sb):
     make_ooxml(sb / "docs" / "a.docx", "docx")
-    src = op.open_source(sb, "/work/docs/a.docx")
-    try:
-        assert src.rel == "docs/a.docx" and src.kind == "docx" and src.ext == ".docx"
-        assert src.st.st_size == (sb / "docs" / "a.docx").stat().st_size
-    finally:
-        src.close()
+    src = _ouvrir(sb, "/work/docs/a.docx")
+    assert src.rel == "docs/a.docx" and src.kind == "docx" and src.ext == ".docx"
+    assert src.st.st_size == (sb / "docs" / "a.docx").stat().st_size
 
 
 @pytest.mark.parametrize("p", ["../secret.docx", "docs/../../secret.docx", "docs/a\x00.docx", "", "absent.docx"])
 def test_open_source_refuse_hors_sandbox_ou_absent(sb, p):
     with pytest.raises(OfficeError) as e:
-        op.open_source(sb, p)
+        _ouvrir(sb, p)
     assert e.value.code == "not_found" and e.value.status == 404
 
 
 def test_open_source_lien_vers_l_exterieur(sb, tmp_path):
     os.symlink(tmp_path / "secret.docx", sb / "docs" / "lien.docx")
     with pytest.raises(OfficeError) as e:
-        op.open_source(sb, "docs/lien.docx")
+        _ouvrir(sb, "docs/lien.docx")
     assert e.value.code == "not_found"
 
 
@@ -144,14 +148,14 @@ def test_open_source_dossier_intermediaire_lien_sortant(sb, tmp_path):
     make_ooxml(outside / "b.docx", "docx")
     os.symlink(outside, sb / "evasion")
     with pytest.raises(OfficeError):
-        op.open_source(sb, "evasion/b.docx")
+        _ouvrir(sb, "evasion/b.docx")
 
 
 def test_open_source_fifo_ne_bloque_pas(sb):
     os.mkfifo(sb / "docs" / "tube.docx")
     t0 = time.monotonic()
     with pytest.raises(OfficeError) as e:
-        op.open_source(sb, "docs/tube.docx")
+        _ouvrir(sb, "docs/tube.docx")
     assert e.value.code == "not_found"
     assert time.monotonic() - t0 < 2
 
@@ -159,11 +163,11 @@ def test_open_source_fifo_ne_bloque_pas(sb):
 def test_open_source_dossier_et_extension(sb):
     (sb / "docs" / "d.docx").mkdir()
     with pytest.raises(OfficeError) as e:
-        op.open_source(sb, "docs/d.docx")
+        _ouvrir(sb, "docs/d.docx")
     assert e.value.code == "not_found"
     (sb / "docs" / "x.txt").write_text("x")
     with pytest.raises(OfficeError) as e:
-        op.open_source(sb, "docs/x.txt")
+        _ouvrir(sb, "docs/x.txt")
     assert e.value.code == "unsupported" and e.value.status == 415
 
 
@@ -171,7 +175,7 @@ def test_open_source_taille_max(sb, monkeypatch):
     (sb / "docs" / "gros.pdf").write_bytes(b"%PDF-" + b"0" * (2 * 1024 * 1024))
     monkeypatch.setattr(oc, "cfg", lambda k, d=None: {"docx": 1, "pdf": 1} if k == "max_mb" else d)
     with pytest.raises(OfficeError) as e:
-        op.open_source(sb, "docs/gros.pdf")
+        _ouvrir(sb, "docs/gros.pdf")
     assert e.value.code == "too_large" and e.value.status == 413
 
 
@@ -190,28 +194,26 @@ def test_cache_key_change_avec_chaque_composante(sb):
     assert op.cache_key(1, "docs/a.pdf", os.stat(f), "v") != base
 
 
-def test_snapshot_par_descripteur_et_fichier_qui_bouge(sb, tmp_path):
+def test_snapshot_par_l_agent_et_fichier_qui_bouge(sb, tmp_path):
+    """Copie sur la version vue à l'ouverture : un fichier remplacé ou qui
+    grandit entre-temps est refusé (409), jamais copié à moitié."""
     f = sb / "docs" / "a.pdf"
     f.write_bytes(b"%PDF-1.4 contenu")
-    src = op.open_source(sb, "docs/a.pdf")
-    try:
-        # Le nom est remplacé après l'ouverture : le snapshot lit l'ANCIEN inode.
-        os.replace(tmp_path / "secret.docx", f)
-        op.snapshot_to(src, tmp_path / "copie.pdf")
-        assert (tmp_path / "copie.pdf").read_bytes() == b"%PDF-1.4 contenu"
-    finally:
-        src.close()
+    src = _ouvrir(sb, "docs/a.pdf")
+    asyncio.run(op.snapshot_to(src, tmp_path / "copie.pdf"))
+    assert (tmp_path / "copie.pdf").read_bytes() == b"%PDF-1.4 contenu"
+    os.replace(tmp_path / "secret.docx", f)             # le nom est remplacé
+    with pytest.raises(OfficeError) as e:
+        asyncio.run(op.snapshot_to(src, tmp_path / "copie1.pdf"))
+    assert e.value.code == "changed" and e.value.status == 409
     g = sb / "docs" / "b.pdf"
     g.write_bytes(b"%PDF-1.4 debut")
-    src = op.open_source(sb, "docs/b.pdf")
-    try:
-        with open(g, "ab") as h:
-            h.write(b" suite")                    # même inode, taille qui change
-        with pytest.raises(OfficeError) as e:
-            op.snapshot_to(src, tmp_path / "copie2.pdf")
-        assert e.value.code == "changed" and e.value.status == 409
-    finally:
-        src.close()
+    src = _ouvrir(sb, "docs/b.pdf")
+    with open(g, "ab") as h:
+        h.write(b" suite")                              # même inode, taille qui change
+    with pytest.raises(OfficeError) as e:
+        asyncio.run(op.snapshot_to(src, tmp_path / "copie2.pdf"))
+    assert e.value.code == "changed" and e.value.status == 409
 
 
 # ─────────────────────────────────────────────────────────────────────────────

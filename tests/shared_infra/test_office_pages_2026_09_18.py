@@ -74,6 +74,8 @@ def bac(tmp_path, monkeypatch):
     monkeypatch.setattr(op, "_schedule_full_pdf", lambda *a, **k: None)
     root = tmp_path / "alice" / "work"
     root.mkdir(parents=True)
+    from tests.conftest import editeur_sur_agent
+    editeur_sur_agent(monkeypatch, root)
     return root, etat
 
 

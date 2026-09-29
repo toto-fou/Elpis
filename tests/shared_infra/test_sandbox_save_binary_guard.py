@@ -24,23 +24,14 @@ from shared_infra.sandbox.filetypes import existing_file_is_binary, looks_binary
 def env(tmp_path, monkeypatch):
     root = tmp_path / "work"
     root.mkdir()
-    writes = []
-
-    async def _write_text(uid, rel, content):
-        writes.append(("text", rel, content))
-        (root / rel).write_text(content)
-
-    async def _write_bytes(uid, rel, data):
-        writes.append(("bytes", rel, data))
-        (root / rel).write_bytes(data)
+    from tests.conftest import editeur_sur_agent
+    writes = editeur_sur_agent(monkeypatch, root)
 
     monkeypatch.setattr(sf, "require_user_id", lambda request: 1)
     monkeypatch.setattr(sf, "_get_work_path", lambda uid: root)
     monkeypatch.setattr(sf, "get_user_settings", lambda uid: {"sandbox_quota_mb": 0})
     monkeypatch.setattr(sf, "get_username_by_id", lambda uid: "alice")
     monkeypatch.setattr(sf, "log_metric", lambda *a, **k: None)
-    monkeypatch.setattr(xb, "sandbox_write_text", _write_text)
-    monkeypatch.setattr(xb, "sandbox_write_bytes", _write_bytes)
 
     from shared_infra.routes._state import router
     app = FastAPI()

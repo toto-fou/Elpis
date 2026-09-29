@@ -71,10 +71,13 @@ from shared_infra.db import (
 )
 from shared_infra.routes._state import router
 from shared_infra.sandbox import file_history as _fh
+from shared_infra.sandbox.agent_client import AgentError
+from shared_infra.sandbox.exec_bridge import agent_for, agent_http
 from shared_infra.sandbox.file_lock import file_write_lock, sha256_bytes
 from shared_infra.sandbox.paths import (
     SandboxPathError,
     leaf_mode,
+    lexical_rel,
     open_beneath,
     open_leaf,
     open_path_at,
@@ -218,6 +221,80 @@ def _file_state(root: Path, p: Path, *, sha_max: int) -> dict:
         return out
     finally:
         os.close(pfd)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Accès par l'agent de la sandbox (L4.3)
+# ─────────────────────────────────────────────────────────────────────────────
+# Les routes ne lisent plus le dossier de la sandbox : l'agent du conteneur
+# le fait. ``root`` (chemin hôte) ne sert plus qu'aux noms, aux verrous et au
+# quota ; les liens sont résolus par l'agent, sous /work.
+
+def _mtime_s(ns: int) -> float:
+    """mtime en secondes, calculé comme ``os.stat().st_mtime`` (au bit près :
+    le front compare les valeurs rendues)."""
+    return float(ns // 1_000_000_000) + (ns % 1_000_000_000) * 1e-9
+
+
+def _rel_editeur(root: Path, rel_path: str) -> str:
+    """Chemin relatif à la sandbox d'un chemin reçu par une route, sans lire
+    le disque ; hors de la sandbox : 403."""
+    try:
+        return lexical_rel(root, rel_path)
+    except SandboxPathError:
+        raise HTTPException(403, "Access denied") from None
+
+
+async def _etat_agent(agent, rel: str, *, sha_max: int) -> dict:
+    """État de ``rel`` par l'agent, même forme que :func:`_file_state` :
+    ``kind`` ∈ missing, dir, file, other, unreadable, not_dir ; pour un
+    fichier ``mtime`` (s), ``mtime_ns``, ``size``, ``sha256`` (``None`` au-delà
+    de ``sha_max``). Un lien sous /work est suivi (l'écriture écrit sa cible)."""
+    try:
+        (e,) = await agent.stat([rel], hash=sha_max > 0, hash_max=max(sha_max, 1))
+    except AgentError as ex:
+        raise agent_http(ex, "Lecture") from None
+    kind = e.get("kind")
+    if kind == "missing":
+        return {"kind": "missing"}
+    if kind == "error":
+        return {"kind": "not_dir" if e.get("error") == "not_dir" else "unreadable"}
+    ns = int(e.get("mtime_ns") or 0)
+    if kind == "dir":
+        return {"kind": "dir", "mtime": _mtime_s(ns)}
+    if kind != "file":
+        return {"kind": "other", "mtime": _mtime_s(ns), "size": int(e.get("size") or 0)}
+    taille = int(e.get("size") or 0)
+    sha = e.get("sha256") if isinstance(e.get("sha256"), str) else None
+    return {"kind": "file", "mtime": _mtime_s(ns), "mtime_ns": ns, "size": taille, "sha256": sha,
+            "readable": sha is not None or taille > sha_max}
+
+
+async def _binaire_existant(agent, rel: str) -> bool:
+    """Vrai si ``rel`` est un fichier existant qui ne s'édite pas comme texte
+    (en-tête lu par l'agent) ; absent, spécial ou illisible : faux."""
+    from shared_infra.sandbox.filetypes import SNIFF_BYTES, looks_binary
+    try:
+        r = await agent.read(rel, length=SNIFF_BYTES, max_bytes=SNIFF_BYTES)
+    except AgentError as ex:
+        if ex.code in ("agent_unavailable", "container_down", "transport", "bad_response",
+                       "timeout"):
+            raise agent_http(ex, "Lecture") from None
+        return False
+    return looks_binary(r.data)
+
+
+async def _hist_avant(agent, rel: str, st: dict):
+    """Contenu AVANT écriture pour l'historique (jamais bloquant) : octets,
+    ``None`` (absent, pas un fichier), ``TOO_BIG`` au-delà de ``MAX_FILE``."""
+    if st.get("kind") != "file":
+        return None
+    if int(st.get("size") or 0) > _fh.MAX_FILE:
+        return _fh.TOO_BIG
+    try:
+        return (await agent.read(rel, max_bytes=_fh.MAX_FILE)).data
+    except AgentError:
+        return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1347,9 +1424,9 @@ def _conflict_detail(missing: bool, state: Optional[dict], message: str, **extra
     return d
 
 
-def _save_conflict(root: Path, safe_path: Path, expected_mtime=None, expected_sha256=None):
-    """Détail du 412 si le fichier a changé (ou disparu) depuis la version de
-    référence de l'onglet, sinon None.
+def _save_conflict(st: dict, expected_mtime=None, expected_sha256=None):
+    """Détail du 412 si le fichier (état ``st``, cf. :func:`_etat_agent`) a
+    changé ou disparu depuis la version de référence de l'onglet, sinon None.
 
     Audit éditeur 2026-09-23 :
     * E6 — ``expected_sha256`` (hash du CONTENU) fait autorité quand il est
@@ -1359,7 +1436,6 @@ def _save_conflict(root: Path, safe_path: Path, expected_mtime=None, expected_sh
     * E26 — un ``stat`` qui lève ``PermissionError``/``NotADirectoryError``
       ne vaut plus « pas de précondition » : refus explicite.
     """
-    st = _file_state(root, safe_path, sha_max=_DOWNLOAD_SHA_MAX)
     kind = st["kind"]
     if kind == "missing":
         return 412, _conflict_detail(True, None, "Le fichier a été supprimé du disque")
@@ -1445,23 +1521,17 @@ async def api_save_sandbox_file(request: Request):
         raise HTTPException(413, "Contenu trop volumineux pour l'éditeur "
                                  f"({_SAVE_MAX_BYTES // (1024 * 1024)} Mo max)")
     root = _get_work_path(user_id)
-    safe_path = (root / _strip_work_prefix(rel_path)).resolve()
-    # SECURITY FIX : cf. _path_inside (anti path-traversal cross-users).
-    if not _path_inside(safe_path, root):
-        raise HTTPException(403, "Access denied")
+    rel = _rel_editeur(root, rel_path)
+    agent = agent_for(user_id)
     # Garde anti-corruption : du TEXTE ne remplace jamais un binaire existant
     # (xlsx/pdf/zip ouverts par erreur dans Monaco puis sauvegardés). Le
     # ``content_b64`` (binaire explicite) n'est pas concerné.
-    if raw_bytes is None:
-        from shared_infra.sandbox.filetypes import existing_file_is_binary
-        if await asyncio.to_thread(existing_file_is_binary, safe_path):
-            raise HTTPException(409, "Fichier binaire : sauvegarde refusée")
+    if raw_bytes is None and await _binaire_existant(agent, rel):
+        raise HTTPException(409, "Fichier binaire : sauvegarde refusée")
     # Création seule (« Nouveau fichier ») : un nom déjà pris n'est JAMAIS
     # vidé en silence. Détail structuré : le front propose d'ouvrir l'existant.
     _if_absent = bool(data.get("if_absent"))
-    if _if_absent and safe_path.exists():
-        raise HTTPException(409, {"code": "exists",
-                                  "message": "Un fichier porte déjà ce nom"})
+    _existe = {"code": "exists", "message": "Un fichier porte déjà ce nom"}
     # Précondition (2026-09-19) : ``expected_mtime`` = mtime de la version sur
     # laquelle l'onglet est fondé. Si le disque a bougé depuis (terminal,
     # outil de l'assistant, git), on refuse au lieu d'écraser en silence ;
@@ -1481,45 +1551,28 @@ async def api_save_sandbox_file(request: Request):
             raise HTTPException(400, "expected_sha256 invalide (64 caractères hexadécimaux)")
         expected_sha = expected_sha.lower()
     _source = "restore" if data.get("source") == "restore" else "editor"
-    # PASSE 15 — Tous les writes passent désormais par ``docker exec
-    # --user 10001:10001`` (cf. _sandbox_exec.sandbox_write_text). Cela
-    # garantit l'uniformité de l'ownership UID=10001 sur TOUT le contenu
-    # de la sandbox : files créés par le terminal, par le LLM (via les
-    # MCPs), et par l'éditeur ont désormais le même propriétaire.
-    # Conséquence : "rm" depuis le terminal fonctionne sur les fichiers
-    # créés depuis l'éditeur, et la suppression depuis l'éditeur
-    # fonctionne sur les dossiers créés depuis le terminal — la classe
-    # de bugs "Permission denied parfois" disparaît à la racine.
-    from shared_infra.sandbox.exec_bridge import sandbox_write_bytes, sandbox_write_text
     try:
-        # ── Quota check + écriture sous lock asyncio (anti-TOCTOU) ────
-        # Avant ce fix, deux saves concurrentes du même user pouvaient
-        # toutes deux passer le check puis toutes deux écrire → quota
-        # dépassé en silence. Le lock sérialise quota+écriture par-uid.
-        #
-        # Audit éditeur 2026-09-23 (E7) — EN PLUS, verrou du FICHIER, commun
-        # avec les outils fs de l'assistant : une écriture de l'agent ne peut
-        # plus tomber entre la précondition et le ``mv`` (ni le mtime rendu
-        # être celui d'une écriture concurrente).
-        async with _quota_lock_for(user_id), _file_lock(safe_path):
-            # Précondition vérifiée SOUS les verrous.
+        # Quota + écriture sous le verrou du compte (anti-TOCTOU du quota) et
+        # sous celui du FICHIER, commun avec les outils de l'assistant (E7).
+        # L'état vérifié ici l'est de nouveau par l'agent au remplacement
+        # (``if_sha256`` / ``if_mtime_ns`` / ``if_absent``) : une écriture du
+        # terminal entre les deux est refusée, pas écrasée.
+        async with _quota_lock_for(user_id), _file_lock(root / rel):
+            st = await _etat_agent(agent, rel, sha_max=_DOWNLOAD_SHA_MAX)
+            condition: dict = {}
             if expected_sha is not None or expected_mtime is not None:
-                _conflict = await asyncio.to_thread(
-                    _save_conflict, root, safe_path, expected_mtime, expected_sha)
+                _conflict = _save_conflict(st, expected_mtime, expected_sha)
                 if _conflict is not None:
                     raise HTTPException(*_conflict)
-            else:
-                # E25 — sans précondition aussi : un DOSSIER porte ce nom →
-                # refus (``mv`` y rangeait le fichier, réponse 200).
-                if safe_path.is_dir():
-                    raise HTTPException(409, {"code": "is_dir",
-                                              "message": "Un dossier porte ce nom"})
-            # ``if_absent`` RE-vérifié sous le verrou : deux créations
-            # simultanées du même nom passaient toutes deux le contrôle
-            # d'entrée, la seconde vidait le fichier de la première.
-            if _if_absent and safe_path.exists():
-                raise HTTPException(409, {"code": "exists",
-                                          "message": "Un fichier porte déjà ce nom"})
+                condition = ({"if_sha256": st["sha256"]} if st.get("sha256")
+                             else {"if_mtime_ns": st["mtime_ns"]})
+            elif st["kind"] == "dir":
+                # E25 — un DOSSIER porte ce nom : refus, même sans précondition.
+                raise HTTPException(409, {"code": "is_dir", "message": "Un dossier porte ce nom"})
+            if _if_absent:
+                if st["kind"] != "missing":
+                    raise HTTPException(409, _existe)
+                condition = {"if_absent": True}
             # ── Quota check (per-user override wins) ─────────────────
             _user_settings = get_user_settings(user_id)
             if "sandbox_quota_mb" in _user_settings:
@@ -1527,7 +1580,7 @@ async def api_save_sandbox_file(request: Request):
             else:
                 _cfg = config_view() or {}
                 _quota_mb = int(_cfg.get("app", {}).get("sandbox_quota_mb", 5120))
-            _existing = safe_path.stat().st_size if safe_path.is_file() else 0
+            _existing = int(st.get("size") or 0) if st["kind"] == "file" else 0
             _net_new = len(_payload) - _existing
             if _quota_mb > 0:
                 # Cache + single-flight : sans ça, CHAQUE autosave relançait un
@@ -1538,32 +1591,26 @@ async def api_save_sandbox_file(request: Request):
                     quota_bytes=_quota_mb * 1024 * 1024)
                 if _used_bytes + _net_new > _quota_mb * 1024 * 1024:
                     raise HTTPException(413, f"Quota sandbox dépassé ({_quota_mb} Mo)")
-            # ─────────────────────────────────────────────────────────
             # Historique de session : contenu AVANT l'écriture.
-            _before = await _hist_before(root, safe_path)
+            _before = await _hist_avant(agent, rel, st)
             _t = time.time()
-            # Écriture via docker exec — pas de mkdir explicite, le helper
-            # le fait dans le même shell-script (atomique côté FS via
-            # write-tmp + mv).
-            if raw_bytes is not None:
-                await sandbox_write_bytes(user_id, rel_path, raw_bytes)
-            else:
-                await sandbox_write_text(user_id, rel_path, content)
+            try:
+                r = await agent.write(rel, _payload, parents=True, **condition)
+            except AgentError as ex:
+                if ex.code == "changed":
+                    st2 = await _etat_agent(agent, rel, sha_max=_DOWNLOAD_SHA_MAX)
+                    raise HTTPException(412, _conflict_detail(
+                        st2["kind"] == "missing", st2, "Le fichier a changé sur le disque")) from None
+                if ex.code == "exists":
+                    raise HTTPException(409, _existe) from None
+                raise agent_http(ex, "Sauvegarde") from None
             bump_sandbox_usage(user_id, _net_new)   # delta connu → pas de ``du``
             write_dur = round(time.time() - _t, 4)
-            # PASSE 14 — Retourne le mtime serveur pour que le frontend
-            # puisse mettre à jour fileMtimes sans avoir à deviner avec
-            # Date.now() (qui causait des faux positifs "modifié sur
-            # disque" en cas de dérive d'horloge navigateur/serveur).
-            # Stat SOUS le verrou du fichier (E7) : c'est le mtime de NOTRE
-            # écriture. Le ``sha256`` vient des octets envoyés, pas d'une
-            # relecture.
-            try:
-                new_mtime = safe_path.stat().st_mtime
-            except OSError:
-                new_mtime = None
-        await _hist_write(user_id, _strip_work_prefix(rel_path), _before, _payload, _source)
-        ext = safe_path.suffix.lstrip(".")
+            # mtime serveur de NOTRE écriture (PASSE 14 : pas de Date.now()
+            # côté navigateur) ; ``sha256`` des octets envoyés.
+            new_mtime = _mtime_s(int(r["mtime_ns"])) if r.get("mtime_ns") else None
+        await _hist_write(user_id, rel, _before, _payload, _source)
+        ext = PurePosixPath(rel).suffix.lstrip(".")
         username = get_username_by_id(user_id) or f"user_{user_id}"
         log_metric("code_write_time", write_dur, {"ext": ext, "size": len(_payload), "user": username})
         log_metric("sandbox_write", 1, {"ext": ext, "size": len(_payload), "user": username})

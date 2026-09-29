@@ -385,3 +385,23 @@ def agent_en_thread(request):
         us.reset_user_sandbox_cache()
         for d in court:
             shutil.rmtree(d, ignore_errors=True)
+
+
+def editeur_sur_agent(monkeypatch, root, username="alice"):
+    """Branche ``exec_bridge`` sur une sandbox de racine ``root`` servie par
+    l'agent en thread ; rend la liste des écritures demandées à l'agent
+    (``(opération, chemin)``) pour vérifier qu'un refus n'a rien écrit."""
+    import shared_infra.sandbox.exec_bridge as xb
+    from shared_infra.sandbox import agent_client as AC
+    from shared_infra.sandbox.executors import get_user_sandbox
+    sb = get_user_sandbox(1, username, root)
+    monkeypatch.setattr(xb, "_get_sandbox_for_user", lambda uid: sb)
+    ops: list = []
+    for nom in ("write", "append", "fsop"):
+        vrai = getattr(AC.AgentClient, nom)
+
+        async def espion(self, *a, _vrai=vrai, _nom=nom, **k):
+            ops.append((_nom, a[0] if a else k.get("path")))
+            return await _vrai(self, *a, **k)
+        monkeypatch.setattr(AC.AgentClient, nom, espion)
+    return ops

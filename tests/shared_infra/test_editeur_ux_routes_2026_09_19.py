@@ -31,36 +31,14 @@ import shared_infra.sandbox.routes_files as sf
 def env(tmp_path, monkeypatch):
     root = tmp_path / "work"
     root.mkdir()
-    ops = []
-
-    async def _write_text(uid, rel, content):
-        ops.append(("write", rel))
-        p = root / rel
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
-
-    async def _rename(uid, old, new):
-        ops.append(("mv", old, new))
-        (root / new).parent.mkdir(parents=True, exist_ok=True)
-        os.rename(root / old, root / new)
-
-    async def _copy(uid, src, dst):
-        ops.append(("cp", src, dst))
-        s, d = root / src, root / dst
-        d.parent.mkdir(parents=True, exist_ok=True)
-        if s.is_dir():
-            shutil.copytree(s, d)
-        else:
-            shutil.copy2(s, d)
+    from tests.conftest import editeur_sur_agent
+    ops = editeur_sur_agent(monkeypatch, root)
 
     monkeypatch.setattr(sf, "require_user_id", lambda request: 1)
     monkeypatch.setattr(sf, "_get_work_path", lambda uid: root)
     monkeypatch.setattr(sf, "get_user_settings", lambda uid: {"sandbox_quota_mb": 0})
     monkeypatch.setattr(sf, "get_username_by_id", lambda uid: "alice")
     monkeypatch.setattr(sf, "log_metric", lambda *a, **k: None)
-    monkeypatch.setattr(xb, "sandbox_write_text", _write_text)
-    monkeypatch.setattr(xb, "sandbox_rename", _rename)
-    monkeypatch.setattr(xb, "sandbox_copy", _copy)
 
     from shared_infra.routes._state import router
     app = FastAPI()
@@ -449,20 +427,17 @@ def test_replace_bornes_d_entree(env):
 
 
 def test_save_if_absent_reverifie_sous_verrou(env, monkeypatch):
-    # Deux « Nouveau fichier » simultanés : le second ne vide pas le premier.
+    # Deux « Nouveau fichier » simultanés : le second ne vide pas le premier,
+    # même créé après le contrôle (l'agent vérifie « absent » au remplacement).
     client, root, ops = env
-    real_exists = sf.Path.exists
-    calls = {"n": 0}
+    vrai = sf._etat_agent
 
-    def _exists(self):
-        if self.name == "neuf.py":
-            calls["n"] += 1
-            if calls["n"] == 1:
-                return False                       # contrôle d'entrée : libre
+    async def _etat(agent, rel, **kw):
+        st = await vrai(agent, rel, **kw)
+        if rel == "neuf.py" and st["kind"] == "missing":
             (root / "neuf.py").write_text("déjà là")   # créé entre-temps
-            return True
-        return real_exists(self)
-    monkeypatch.setattr(sf.Path, "exists", _exists)
+        return st
+    monkeypatch.setattr(sf, "_etat_agent", _etat)
     r = client.post("/api/sandbox/save",
                     json={"path": "neuf.py", "content": "", "if_absent": True})
     assert r.status_code == 409, r.text

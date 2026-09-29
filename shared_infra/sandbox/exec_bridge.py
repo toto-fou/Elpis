@@ -365,4 +365,6 @@ async def sandbox_stat_mtime(user_id: int, rel_path: str) -> Optional[float]:
     except (AgentError, ValueError):
         return None
     ns = e.get("mtime_ns")
-    return ns / 1e9 if isinstance(ns, int) else None
+    if not isinstance(ns, int):
+        return None
+    return float(ns // 1_000_000_000) + (ns % 1_000_000_000) * 1e-9   # comme st_mtime

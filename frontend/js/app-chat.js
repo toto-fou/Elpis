@@ -1242,6 +1242,13 @@ function setupChat(vue, sharedRefs, ctx) {
         if (m.taskRuns && m.taskRuns.length) o.task_runs = m.taskRuns;
         // Fichiers modifiés par les outils (lignes « fichiers modifiés »).
         if (m.files_changed && m.files_changed.length) o.files_changed = m.files_changed;
+        // Pied du message (modèle, durée, débits) : sans aller-retour, il
+        // disparaissait au tour suivant. Sans le raisonnement ni les outils
+        // qu'un événement live peut y porter (le serveur les écarte aussi).
+        if (m.metrics && typeof m.metrics === 'object') {
+            const { thinking, tool_history, ...pied } = m.metrics;
+            o.metrics = pied;
+        }
         // isTruncated pilote SEUL le bouton « Continuer » (chat.html) : sans
         // round-trip, un tour coupé par le plafond d'itérations devient
         // irrécupérable après un simple rechargement de page.

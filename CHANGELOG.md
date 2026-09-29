@@ -71,6 +71,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   robuste ; passe de robustesse complète — cœur, recherche, OCR, console.
 - **Sandbox** : archives sur disque et bornées, cycle de vie fiable, copie sans
   lien.
+- **Chat** : le pied d'un message (modèle, durée, débits) reste affiché après
+  les tours suivants ; il disparaissait au tour suivant.
+- **Git** : l'ancien fichier d'identifiants importé
+  (`.git-credentials.json.imported`) est supprimé de la sandbox.
+- **Audit** : les révocations de sessions (toutes, ou d'un compte) sont
+  inscrites au journal d'audit.
 
 ## 1.0.0 — 2026-09-24
 

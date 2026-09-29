@@ -594,6 +594,27 @@ def _drop_event_after_cancel(evt_type, cancelled: bool, status=None) -> bool:
     return not (evt_type == "task_step" and status == "final")
 
 
+def _metrics_for_persist(met) -> dict:
+    """Pied d'un message (modèle, durée, débits, jetons, contexte) renvoyé par
+    le client pour les tours PRÉCÉDENTS : valeurs simples et bornées
+    seulement, jamais de copie du raisonnement ni des outils (2026-09-29 —
+    sans cet aller-retour, le pied disparaissait au tour suivant)."""
+    if not isinstance(met, dict):
+        return {}
+    out = {}
+    for k, v in list(met.items())[:40]:
+        if k in ("tool_history", "thinking") or not isinstance(k, str):
+            continue
+        if v is None or isinstance(v, (bool, int, float)):
+            out[k] = v
+        elif isinstance(v, str) and len(v) <= 200:
+            out[k] = v
+        elif k == "kv_cache" and isinstance(v, dict):
+            out[k] = {x: v[x] for x in ("used", "total", "pct")
+                      if isinstance(v.get(x), (int, float))}
+    return out
+
+
 def _task_runs_for_persist(runs):
     """Records ``task_runs`` persistés SANS le champ ``tools`` : le déroulé
     outil-par-outil n'est plus rendu depuis la refonte carte agent
@@ -1367,6 +1388,9 @@ def _normalize_client_messages(messages: list) -> tuple[list, list]:
             _runs_rt = _task_runs_for_persist(m["task_runs"])
             if _runs_rt:
                 _mm["task_runs"] = _runs_rt
+        _met = _metrics_for_persist(m.get("metrics"))
+        if _met:
+            _mm["metrics"] = _met
         if m.get("role") == "notice":
             for _k in _NOTICE_FIELDS:
                 if m.get(_k) is not None:

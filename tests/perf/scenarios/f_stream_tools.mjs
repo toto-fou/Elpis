@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Scénario (f) — boucle AGENTIC : R rounds tool_call/tool_result (résultats
-// 2-8 Ko, narration tool_thinking entre les rounds) puis réponse finale
+// 2-8 Ko, narration en content_token entre les rounds) puis réponse finale
 // streamée. C'est le chemin réel dominant en usage outillé — coût côté
 // front : un patch Vue par step (toolSteps recopié), parse JSON du result,
 // flush preContent 40 ms. Fenêtre : envoi → fin de stream.

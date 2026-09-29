@@ -1045,7 +1045,8 @@ async def _llama_chat_with_tools_stream(
     le modèle peut conclure sa réflexion PUIS appeler un outil.
 
     Reconstruit les tool_calls depuis les deltas SSE.
-    Émet thinking_token / tool_thinking en temps réel.
+    Relaie raisonnement et réponse en temps réel (``on_thinking_token``,
+    ``on_content_token``).
 
     ``on_tool_call_delta(index, name_delta, args_delta)`` : callback appelé à
     chaque fragment d'argument / nom reçu depuis llama.cpp AVANT que le tool
@@ -5485,28 +5486,14 @@ async def _run_chat_multi_mcp_impl(
                     _tc_evt["internal"] = True
                 await _emit(on_event, _tc_evt)
 
-            # ── Exécution : sérielle pour les tools mutants, parallèle sinon ──
-            # Stratégie :
-            #   - Outils dont le nom commence par un préfixe de
-            #     ``LLAMA_TOOL_SERIAL_PREFIXES`` (write_file, edit_file,
-            #     sandbox_*, git_*) → sérialisés (effets de bord sur
-            #     état partagé : sandbox FS, repo git…).
-            #   - Le reste (read_file, search, query, fetch, …) → batché
-            #     en parallèle, capé par ``LLAMA_TOOL_PARALLELISM``
-            #     (sémaphore).
-            #   - L'ordre original est préservé : un tool mutant casse le
-            #     batch courant pour respecter les barriers de
-            #     synchronisation implicites ("read → write → read"
-            #     reste linéaire). Au sein d'un batch parallèle, les
-            #     exec sont concurrentes mais le post-traitement (event
-            #     tool_result, ajout au working_messages) suit l'ordre
-            #     LLM original — critique pour que le LLM matche bien
-            #     ses tool_calls avec les tool_results au tour suivant.
             # ── Exécution du lot (série/parallèle) → engine.tool_exec ─────
-            # Harness PARTAGÉE avec le canal legacy. Ordonnancement : outils
-            # sériels (``_tool_traits``) un par un, les autres en parallèle,
-            # ordre LLM préservé. Le post-traitement ordonné (events
-            # tool_result, append, vision) suit ci-dessous.
+            # Harness PARTAGÉE avec le canal legacy. Outils sériels
+            # (``_tool_traits``) un par un, chacun coupant le lot en cours
+            # (« lecture → écriture → lecture » reste linéaire) ; les autres
+            # en parallèle, plafonnés par ``LLAMA_TOOL_PARALLELISM``. Le
+            # post-traitement (events tool_result, append, vision) suit
+            # l'ordre LLM, ci-dessous : le modèle apparie ainsi appels et
+            # résultats au tour suivant.
             _batch_partial = {}
             _batch_prepared = prepared
             results_by_idx = await _execute_tool_batch(

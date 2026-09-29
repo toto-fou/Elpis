@@ -3,12 +3,16 @@
 d'un tour de chat (2026-09-29).
 
 Un type par ligne, avec son rôle. Émetteurs : la boucle agentique et ses
-outils (``LOOP_EVENTS``), la route de chat (``chatbot_app/routes/chats.py``),
-le rattachement à une exécution en cours. Lecteur : ``handleStreamEvent`` de
-``frontend/js/app-chat.js`` et sa boucle de lecture.
-``tests/llm_core/test_stream_events_2026_09_29.py`` vérifie qu'aucun type
-n'est émis ni lu hors de ce registre, et que chaque type a un lecteur ou
-figure dans ``NOT_DISPLAYED``.
+outils (``LOOP_EVENTS``), la route de chat (``chatbot_app/routes/chats.py``)
+et le journal d'exécution rejoué au rattachement
+(``shared_infra/runtime/run_journal.py``). Lecteurs, dans
+``frontend/js/app-chat.js`` : ``handleStreamEvent`` et la boucle de lecture
+du rattachement (``attachRun``).
+
+``tests/llm_core/test_stream_events_2026_09_29.py`` vérifie que l'interface
+ne lit, et que la route et le journal n'émettent, aucun type hors registre
+(pour la boucle : les goldens de ``test_event_contract.py``) ; que chaque
+type a un émetteur ; et qu'il a un lecteur ou figure dans ``NOT_DISPLAYED``.
 """
 from __future__ import annotations
 
@@ -24,7 +28,6 @@ STREAM_EVENTS: Dict[str, str] = {
     "content_token": "jeton de la réponse",
     "content_replace": "texte affiché remplacé (nettoyage de fin)",
     # Outils
-    "tool_thinking": "texte du modèle avant un appel d'outil",
     "tool_call": "appel d'outil décidé",
     "tool_call_delta": "arguments d'un appel en cours de génération",
     "tool_result": "résultat d'un outil",
@@ -61,6 +64,7 @@ STREAM_EVENTS: Dict[str, str] = {
     "replay_done": "fin du rejeu, suite en direct",
     "run_end": "fin de l'exécution",
     "run_lost": "exécution introuvable (worker redémarré)",
+    "journal_truncated": "journal plein : seuls les événements structurants suivent",
     "session_expired": "session expirée pendant le flux",
 }
 
@@ -68,7 +72,7 @@ STREAM_EVENTS: Dict[str, str] = {
 LOOP_EVENTS = frozenset({
     "mode", "iteration", "thinking", "thinking_token", "thinking_content",
     "content_token", "content_replace",
-    "tool_thinking", "tool_call", "tool_call_delta", "tool_result", "tool_progress",
+    "tool_call", "tool_call_delta", "tool_result", "tool_progress",
     "tool_log", "tool_limit", "tool_history_partial", "shell_output", "task_step",
     "todo_updated", "annotation_frame",
     "prompt_progress", "kv_cache", "compression_start", "compression_done",
@@ -80,7 +84,7 @@ LOOP_EVENTS = frozenset({
 # d'émettre. ``compression_state`` est lu par la route, pas par l'interface.
 NOT_DISPLAYED = frozenset({
     "iteration", "tool_limit", "tool_history_partial", "prune_state", "llm_user_suffix",
-    "compression_state", "rag_sources", "log",
+    "compression_state", "rag_sources", "log", "journal_truncated",
 })
 
 __all__ = ["LOOP_EVENTS", "NOT_DISPLAYED", "STREAM_EVENTS"]

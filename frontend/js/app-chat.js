@@ -727,8 +727,6 @@ function setupChat(vue, sharedRefs, ctx) {
     // content_token.
     let _streamToolPhase = false;
     let _streamFlushTimer = null;
-    let typeQueue         = '';
-    let typeInterval      = null;
     const MAX_RETRIES     = 2;
 
     // ── Coalescing de la console shell (AUDIT 2026-08-31) ───────────────
@@ -1269,8 +1267,7 @@ function setupChat(vue, sharedRefs, ctx) {
         _stopStreamFlush();
         if (_thinkFlushTimer)      { clearInterval(_thinkFlushTimer);      _thinkFlushTimer      = null; }
         if (_preContentFlushTimer) { clearInterval(_preContentFlushTimer); _preContentFlushTimer = null; }
-        if (typeInterval)          { clearInterval(typeInterval);          typeInterval          = null; }
-        _streamBuf = ''; _thinkBuf = ''; _preContentBuf = ''; typeQueue = '';
+        _streamBuf = ''; _thinkBuf = ''; _preContentBuf = '';
         _streamToolPhase = false;
         _toolsExecutedThisTurn = false;
         _pendingAskUser = null;
@@ -1862,30 +1859,6 @@ function setupChat(vue, sharedRefs, ctx) {
             m => m.content && m.content.toLowerCase().includes(q)).length;
     });
 
-
-    function startTypewriter() {
-        if (typeInterval) return;
-        typeInterval = setInterval(() => {
-            if (typeQueue.length > 0) {
-                const chunk = typeQueue.substring(0, Math.max(2, Math.ceil(typeQueue.length / 15)));
-                typeQueue = typeQueue.substring(chunk.length);
-                const msgs = _getStreamMsgs();
-                const i = _streamIdx(msgs);             // (passe 9, F2)
-                const last = msgs[i];
-                if (last && last.role === 'assistant') {
-                    // Remplacement d'objet (pas de mutation in-place) : même
-                    // pattern que _patch — prérequis du v-memo (vague 2) qui
-                    // se fie à l'identité de l'objet message pour re-rendre.
-                    // Même rendu live incrémental que le flush content_token.
-                    msgs[i] = Object.assign({}, last, _applyStreamRender(last, (last.content || '') + chunk));
-                    _scheduleStreamScroll();
-                }
-            } else if (!isStreaming.value) {
-                clearInterval(typeInterval); typeInterval = null;
-                nextTick(() => { scrollToBottom(); addCodeCopyButtons(); if (user.value) ctx.loadChatsList(); });
-            }
-        }, 30);
-    }
 
     // ===========================================================
     //  STREAM EVENT HANDLER
@@ -3194,13 +3167,6 @@ function setupChat(vue, sharedRefs, ctx) {
                 );
             }
 
-        } else if (data.type === 'tool_thinking') {
-            _stopThinkFlush();          // s'assurer que thinking_token est arrêté
-            _preContentBuf += data.text || '';
-            if (!_preContentFlushTimer)
-                _preContentFlushTimer = setInterval(_flushPreContentBuf, 40);
-            isThinking.value = true;
-
         } else if (data.type === 'tool_call_delta' && data.reset) {
             // (passe 7, H2) — itération rejouée/abandonnée côté backend : purge
             // des accumulateurs de cette itération (cf. _resetToolStreamsForIter).
@@ -3335,8 +3301,8 @@ function setupChat(vue, sharedRefs, ctx) {
 
             const _srcMsg          = msgs[idx];
             // -- Segments entrelacés (UX 2026-07-20) -------------------------
-            // La narration du round (content streamé + _pendingPreContent
-            // re-émis en tool_thinking) OUVRE un nouveau segment ; les tool
+            // La narration du round (content streamé + _pendingPreContent,
+            // la ligne live de la phase outils) OUVRE un nouveau segment ; les tool
             // calls suivants du même round trouvent des buffers vides et
             // rejoignent donc le segment courant (segTexts.length - 1).
             const _narrParts = [];
@@ -4306,7 +4272,6 @@ function setupChat(vue, sharedRefs, ctx) {
         _stopThinkFlush();
         _stopPreContentFlush();  // vider le buffer preContent
         _stopStreamFlush();
-        if (typeInterval)      { clearInterval(typeInterval);      typeInterval = null; }
         if (typeof _cancelPendingChatSearch === 'function') {
             _cancelPendingChatSearch();
         }
@@ -4353,8 +4318,8 @@ function setupChat(vue, sharedRefs, ctx) {
         }
         _toolStreamStates.clear();
 
-        const rem = typeQueue + _streamBuf;
-        typeQueue = ''; _streamBuf = '';
+        const rem = _streamBuf;
+        _streamBuf = '';
 
         // Flush remaining into the correct messages array
         const msgs    = _getStreamMsgs();
@@ -4543,9 +4508,7 @@ function setupChat(vue, sharedRefs, ctx) {
         _stopThinkFlush();
         _stopPreContentFlush();
         _stopStreamFlush();
-        if (typeInterval)      { clearInterval(typeInterval);      typeInterval = null; }
         _streamBuf = '';
-        typeQueue  = '';
 
         // 3. Annoter le message assistant avec le marqueur de prefill.
         //    Le marqueur est consommé (lu + effacé) lors de la prochaine
@@ -4864,7 +4827,6 @@ function setupChat(vue, sharedRefs, ctx) {
         _streamBuf      = '';
         _thinkBuf       = '';
         _preContentBuf  = '';
-        typeQueue       = '';
         _seedLiveCtx();   // démarre la jauge ctx LIVE (croît à chaque token)
         // Reset des tool streams — les clés `${chatId}:${iter}:${index}` se
         // recyclent entre prompts (iter repart à 0). Si un state survivait
@@ -4886,7 +4848,6 @@ function setupChat(vue, sharedRefs, ctx) {
         statusText.value      = '';
         isUserScrolling.value = false;
         if (ctx._lockAutoScroll) ctx._lockAutoScroll();
-        typeQueue             = '';
         }
 
         if (!isContinue) {
@@ -4936,7 +4897,7 @@ function setupChat(vue, sharedRefs, ctx) {
                         isError: false, errorMessage: '', isTruncated: false,
                     }, _STREAM_RENDER_CLEAR, _PRE_RENDER_CLEAR);
                 }
-                _streamBuf = ''; typeQueue = '';
+                _streamBuf = '';
                 // (2026-09-02) un tool_call_delta a pu poser la phase outils
                 // avant l'erreur (coupure en pleine génération des args) : le
                 // tour rejoué repart corps markdown.
@@ -5379,9 +5340,7 @@ function setupChat(vue, sharedRefs, ctx) {
             _reattachOrFollow(_rid);
         }
 
-        if (!typeInterval) {
-            nextTick(() => { addCodeCopyButtons(); if (user.value) loadChatsList(); });
-        }
+        nextTick(() => { addCodeCopyButtons(); if (user.value) loadChatsList(); });
 
         } catch (e) {
             // Erreur précoce (avant le reset nominal en fin de génération) : on

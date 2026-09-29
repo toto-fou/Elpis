@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Registre des événements du flux NDJSON (llm_core/engine/stream_events.py) :
-rien n'est émis ni lu hors registre, et chaque type a un lecteur dans
-l'interface ou figure dans NOT_DISPLAYED (2026-09-29)."""
+rien n'est lu par l'interface, ni émis par la route ou le journal
+d'exécution, hors registre ; chaque type a un émetteur, et un lecteur dans
+l'interface ou une place dans NOT_DISPLAYED (2026-09-29)."""
 from __future__ import annotations
 
 import re
@@ -10,20 +11,29 @@ from pathlib import Path
 from llm_core.engine.stream_events import LOOP_EVENTS, NOT_DISPLAYED, STREAM_EVENTS
 
 ROOT = Path(__file__).resolve().parents[2]
+# Émetteurs hors boucle ; ceux de la boucle sont vérifiés par les goldens
+# de test_event_contract.py.
+EMETTEURS = ("chatbot_app/routes/chats.py", "shared_infra/runtime/run_journal.py")
+
+
+def _corps(src: str, entete: str) -> str:
+    """Corps d'une fonction de premier niveau d'app-chat.js (indentation 4)."""
+    debut = src.index(entete)
+    return src[debut:src.index("\n    }\n", debut)]
 
 
 def _lus_par_l_interface() -> set:
     src = (ROOT / "frontend" / "js" / "app-chat.js").read_text(encoding="utf-8")
-    debut = src.index("    async function handleStreamEvent(data) {")
-    fin = src.index("\n    }\n", debut)
-    lus = set(re.findall(r"data\.type === '([a-z_]+)'", src[debut:fin]))
-    lus |= set(re.findall(r"\bt === '([a-z_]+)'", src))          # boucle de lecture
+    lus = set(re.findall(r"data\.type === '([a-z_]+)'",
+                         _corps(src, "    async function handleStreamEvent(data) {")))
+    lus |= set(re.findall(r"\bt === '([a-z_]+)'",
+                          _corps(src, "    async function attachRun(")))
     return lus
 
 
-def _emis_par_la_route() -> set:
-    src = (ROOT / "chatbot_app" / "routes" / "chats.py").read_text(encoding="utf-8")
-    return set(re.findall(r'"type": "([a-z_]+)"', src))
+def _emis_hors_boucle() -> set:
+    return {t for f in EMETTEURS
+            for t in re.findall(r'"type": "([a-z_]+)"', (ROOT / f).read_text(encoding="utf-8"))}
 
 
 def test_groupes_inclus_dans_le_registre():
@@ -35,8 +45,19 @@ def test_l_interface_ne_lit_que_des_types_du_registre():
     assert _lus_par_l_interface() - STREAM_EVENTS.keys() == set()
 
 
-def test_la_route_n_emet_que_des_types_du_registre():
-    assert _emis_par_la_route() - STREAM_EVENTS.keys() == set()
+def test_route_et_journal_n_emettent_que_des_types_du_registre():
+    assert _emis_hors_boucle() - STREAM_EVENTS.keys() == set()
+
+
+def test_chaque_type_est_cite_hors_du_registre():
+    """Un type que plus aucun module Python ne cite n'est plus émis : le
+    garder au registre (et son lecteur dans l'interface) est du code mort."""
+    registre = ROOT / "llm_core" / "engine" / "stream_events.py"
+    src = "\n".join(p.read_text(encoding="utf-8")
+                    for d in ("llm_core", "chatbot_app", "shared_infra")
+                    for p in (ROOT / d).rglob("*.py") if p != registre)
+    morts = {t for t in STREAM_EVENTS if f'"{t}"' not in src and f"'{t}'" not in src}
+    assert morts == set(), f"{sorted(morts)} : plus aucun émetteur"
 
 
 def test_chaque_type_a_un_lecteur_ou_est_declare_non_affiche():

@@ -1,26 +1,29 @@
 # SPDX-License-Identifier: MIT
 """
-chatbot_app.routes.chats — Chat lifecycle endpoints (cancel, deprecated compress,
-streaming generation).
+chatbot_app.routes.chats — cycle de vie d'un tour de chat : génération en
+flux, annulation, rattachement à une exécution en cours, compression.
 
-Endpoints
----------
-- POST /api/chat/cancel             — request immediate cancellation of an
-                                       in-flight ``/api/chat-saved-stream3``
-                                       run. Triple action: flag set, task
-                                       cancelled, llama-server socket closed.
-- POST /api/chat/compress           — DEPRECATED no-op (compression is now
-                                       backend-only and automatic). Returns
-                                       ``{compressed: false, deprecated: true}``
-                                       so old frontends don't crash.
-- POST /api/chat-saved-stream3      — main NDJSON streaming endpoint that
-                                       drives the chat UI. Owns:
-                                       * tool_history expansion for Continue
-                                       * RAG enablement (tools or classic)
-                                       * MCP server orchestration
-                                       * LLM scheduling (queue widget UX)
-                                       * conversation compression hook
-                                       * persistent partial-save on cancel
+Routes
+------
+- POST /api/chat-saved-stream3          — génération en flux NDJSON : le tour
+                                          entier (RAG, outils MCP, file du
+                                          moteur, compaction, partiel
+                                          enregistré à l'annulation) ;
+- POST /api/chat/cancel                 — arrêt immédiat du tour (drapeau,
+                                          tâche annulée, connexion au moteur
+                                          coupée) ;
+- POST /api/chat/task-cancel            — arrêt d'un sous-agent, sans le tour ;
+- POST /api/chat/reasoning-end          — « Répondre maintenant » : coupe le
+                                          raisonnement en cours ;
+- GET  /api/chat/{id}/generation-status — génération en cours ou non ;
+- GET  /api/chats/active-runs           — conversations dont un tour tourne,
+                                          tous workers confondus ;
+- GET  /api/chat/{id}/run/events        — rejeu puis suite en direct d'une
+                                          exécution (NDJSON) ;
+- GET  /api/chat/{id}/compression-state — état de compression (bouton manuel) ;
+- POST /api/chat/{id}/compress          — compression manuelle, hors flux ;
+- POST /api/chat/compress               — obsolète, sans effet (anciens
+                                          clients).
 
 Invariants que ``api_chat_saved_stream3`` tient, et qu'une refonte doit
 garder :
@@ -32,9 +35,11 @@ garder :
     client ;
   - annulation publiée sur le bus d'annulation (tous les workers), partiel
     enregistré ;
-  - navigateur déconnecté : l'exécution continue détachée dès qu'un outil a
-    tourné (ou si la reprise est activée), sinon elle s'arrête en
-    enregistrant le partiel ; tout worker peut la rejoindre
+  - navigateur déconnecté : l'exécution continue détachée si un outil a
+    tourné, si la requête est ``resumable`` ou si
+    ``llm.detach_run_on_disconnect`` (``DETACH_RUN_ON_DISCONNECT``) est
+    actif, sinon elle s'arrête en enregistrant le partiel ; un Stop explicite
+    l'arrête toujours ; tout worker peut la rejoindre
     (``GET /api/chat/{id}/run/events``) ;
   - enregistrement optimiste sur ``updated_at`` : un conflit est signalé,
     rien n'est écrasé ;

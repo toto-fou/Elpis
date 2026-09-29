@@ -88,8 +88,9 @@ def test_serialisation_depuis_la_politique_puis_prefixes(registry):
 def test_rejeu_depuis_la_politique(registry):
     from llm_core._tool_traits import tool_traits
     C.ingest_tools([_T("zz_mut", {"serial": True}), _T("zz_idem", {"replay_safe": True}),
-                    _T("run_x", {"replay_safe": True})])
+                    _T("run_x", {"replay_safe": True}), _T("git_log", {"serial": False})])
     assert tool_traits("zz_mut").replay_safe is False
+    assert tool_traits("git_log").replay_safe is False                    # préfixe sériel : rejeu à déclarer
     assert tool_traits("zz_idem").replay_safe is True
     assert tool_traits("run_x").replay_safe is True                       # politique > heuristique de nom
     assert tool_traits("execute_shell").replay_safe is False              # repli heuristique

@@ -217,7 +217,8 @@ def _extract_annotations(tool: Any) -> Dict[str, Any]:
     les déclare dans ``annotations`` (spec MCP). Sert au panneau d'outils :
     une case à cocher a besoin d'un libellé, et le témoin « lecture seule »
     dit d'un coup d'œil ce qui ne peut rien abîmer. Absent → ``{}``, le
-    panneau retombe sur le nom brut."""
+    panneau retombe sur le nom brut. Lu aussi par ``_tool_traits`` (lecture
+    seule, mutant)."""
     ann = _get(tool, "annotations") or {}
     if not isinstance(ann, dict):
         ann = {k: getattr(ann, k, None) for k in ("title", "readOnlyHint", "read_only_hint")}

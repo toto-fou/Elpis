@@ -12,19 +12,20 @@ propres replis :
   ``_mcp_pool`` ;
 - ``read_only``   : admis en mode lecture seule (« /plan ») ;
 - ``mutates``     : ses cibles (``path``…) sont notées comme artefacts dans le
-  résumé de compression.
+  résumé de compression. Suit la déclaration de l'outil (ex-préfixes seuls) :
+  un outil annoté en lecture seule n'y figure plus, même à préfixe sériel.
 
 Sources : la politique (``meta.policy``) et les annotations MCP déclarées par
-le serveur — ``tools/_toolkit.py`` pour les outils locaux. Non déclaré
-(serveur externe, registre vide) : replis prudents par nom — jamais en
-lecture seule (fail-fermé), sériel et mutant selon
-``LLAMA_TOOL_SERIAL_PREFIXES``, pas rejouable s'il est sériel ou s'il pilote
-un shell, un écran ou un navigateur.
+le serveur — ``llm_core/tools/_toolkit.py`` pour les outils locaux. Non
+déclaré (serveur externe, registre vide ou illisible) : replis prudents par
+nom — jamais en lecture seule (fail-fermé), sériel et mutant selon
+``LLAMA_TOOL_SERIAL_PREFIXES``, pas rejouable s'il est sériel, s'il porte l'un
+de ces préfixes, ou s'il pilote un shell, un écran ou un navigateur.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from llm_core._constants import LLAMA_TOOL_SERIAL_PREFIXES
 
@@ -40,37 +41,25 @@ class ToolTraits:
     mutates: bool
 
 
-def read_only_hint(tool: Any) -> Optional[bool]:
-    """``readOnlyHint`` d'un objet de ``list_tools()`` (ou de son dict),
-    ``None`` s'il n'est pas déclaré. Défensif : la forme des annotations a
-    varié selon les versions de FastMCP."""
-    ann = getattr(tool, "annotations", None)
-    if ann is None and isinstance(tool, dict):
-        ann = tool.get("annotations")
-    if ann is None:
-        return None
-    for key in ("readOnlyHint", "read_only_hint"):
-        val = getattr(ann, key, None)
-        if val is None and isinstance(ann, dict):
-            val = ann.get(key)
-        if val is not None:
-            return bool(val)
-    return None
-
-
 def tool_traits(name: str, tool: Any = None) -> ToolTraits:
     """Traits de l'outil ``name``. ``tool`` : l'objet issu de ``list_tools()``
     quand on l'a sous la main (ses annotations font foi) ; sinon celles du
     registre ingéré à la connexion du pool."""
-    from llm_core._mcp_categories import tool_info, tool_policy
+    from llm_core import _mcp_categories as cats
     name = (name or "").strip()
-    pol = tool_policy(name)
-    ro = read_only_hint(tool) if tool is not None else tool_info(name).get("read_only")
-    serial = bool(pol["serial"]) if "serial" in pol else name.startswith(LLAMA_TOOL_SERIAL_PREFIXES)
+    try:
+        pol = cats.tool_policy(name)
+        ann = cats._extract_annotations(tool) if tool is not None else cats.tool_info(name)
+    except Exception:                                    # noqa: BLE001 — registre illisible
+        pol, ann = {}, {}
+    ro = ann.get("read_only")
+    prefixed = name.startswith(LLAMA_TOOL_SERIAL_PREFIXES)
+    serial = bool(pol["serial"]) if "serial" in pol else prefixed
     if "replay_safe" in pol:
         replay_safe = bool(pol["replay_safe"])
     else:
-        replay_safe = bool(name) and not serial and not name.startswith(_REPLAY_UNSAFE_PREFIXES)
+        replay_safe = (bool(name) and not serial and not prefixed
+                       and not name.startswith(_REPLAY_UNSAFE_PREFIXES))
     return ToolTraits(
         serial=serial,
         replay_safe=replay_safe,
@@ -80,4 +69,4 @@ def tool_traits(name: str, tool: Any = None) -> ToolTraits:
     )
 
 
-__all__ = ["ToolTraits", "read_only_hint", "tool_traits"]
+__all__ = ["ToolTraits", "tool_traits"]

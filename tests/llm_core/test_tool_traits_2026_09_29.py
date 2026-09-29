@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from llm_core._tool_traits import read_only_hint, tool_traits
+from llm_core._tool_traits import tool_traits
 
 
 def test_traits_declares_par_le_service(real_tool_registry):
@@ -39,7 +39,15 @@ def test_replis_prudents_sans_declaration(registre_vide):
 
 
 def test_l_objet_de_list_tools_fait_foi(registre_vide):
-    obj = {"name": "zz", "annotations": {"readOnlyHint": True}}
-    assert tool_traits("zz", tool=obj).read_only
-    assert read_only_hint({"annotations": {"read_only_hint": False}}) is False
-    assert read_only_hint(object()) is None
+    assert tool_traits("zz", tool={"name": "zz", "annotations": {"readOnlyHint": True}}).read_only
+    ecrit = tool_traits("zz", tool={"annotations": {"read_only_hint": False}})
+    assert not ecrit.read_only and ecrit.mutates
+    muet = tool_traits("zz", tool=object())                 # rien de déclaré : replis
+    assert not muet.read_only and not muet.mutates
+
+
+def test_registre_illisible_replis(monkeypatch):
+    from llm_core import _mcp_categories as cats
+    monkeypatch.setattr(cats, "_get_registry", lambda: {"tool_policy": ["pas un dict"]})
+    commit = tool_traits("git_commit")
+    assert commit.serial and commit.mutates and not commit.replay_safe and not commit.read_only

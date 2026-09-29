@@ -6,7 +6,7 @@
 //
 // - POST /api/chat-saved-stream3 rejoue un flux NDJSON canonique :
 //   thinking ×2 → round A (2 tools SANS narration → segment '' en tête) →
-//   tool_thinking (narration) → round B (1 tool) → content → final.
+//   narration → round B (1 tool) → content → final.
 // - GET /api/saved/chats/c1 : chat PERSISTÉ avec DEUX messages assistant
 //   tooled dont le 2e porte une tool_history CUMULATIVE (préfixe = celle du
 //   1er) → teste la reconstruction sans duplication (_tool_segments.js).
@@ -38,9 +38,8 @@ function json(res, obj, status = 200) {
 
 // Séquence NDJSON du tour live. Fidèle à la boucle réelle : au sein d'un
 // round les tool_call partent d'abord (ordre LLM) puis les tool_result ;
-// la narration inter-rounds est re-émise en tool_thinking (le backend
-// bufferise le content pendant les rounds) ; seul le texte FINAL streame
-// en content_token.
+// tout le contenu d'itération part en content_token, narration du round
+// suivant comme réponse finale (cf. pretool-server.mjs).
 const STREAM = [
     { type: 'iteration', n: 1 },
     { type: 'thinking_token', text: 'Je réfléchis au plan ' },
@@ -51,8 +50,8 @@ const STREAM = [
     { type: 'tool_result', name: 'read_file', result: 'def main(): ...' },
     { type: 'tool_result', name: 'execute_shell', result: 'app.py\nutil.py' },
     // Narration inter-rounds → doit apparaître DANS LE FLUX, entre les groupes
-    { type: 'tool_thinking', text: 'Je vais maintenant ' },
-    { type: 'tool_thinking', text: 'corriger le bug.' },
+    { type: 'content_token', text: 'Je vais maintenant ' },
+    { type: 'content_token', text: 'corriger le bug.' },
     // Round B
     { type: 'tool_call', name: 'write_file', args: { path: 'src/app.py', content: 'fix' } },
     { type: 'tool_result', name: 'write_file', result: '{"ok": true}' },

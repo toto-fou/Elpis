@@ -34,33 +34,47 @@ import pytest
 # ── C4 — la racine du bac à sable n'est pas supprimable ──────────────────────
 
 def test_la_racine_du_bac_a_sable_est_refusee_a_la_suppression(tmp_path):
-    from llm_core.tools.fs_tools import _safe_path
+    from llm_core.tools.fs_tools import _rel
 
     sb = tmp_path / "work"
-    (sb / "projet").mkdir(parents=True)
-    (sb / "projet" / "main.py").write_text("x", encoding="utf-8")
-
     for variante in ("/work", "work", "./work", ".", ""):
         with pytest.raises(ValueError):
-            _safe_path(variante, sb, allow_root=False)
+            _rel(sb, variante, allow_root=False)
 
     # …et un enfant reste évidemment résoluble.
-    assert _safe_path("projet/main.py", sb, allow_root=False).name == "main.py"
+    assert _rel(sb, "projet/main.py", allow_root=False) == "projet/main.py"
     # Le défaut historique n'a pas bougé (list_files, read_file…).
-    assert _safe_path(".", sb) == sb.resolve()
+    assert _rel(sb, ".") == ""
 
 
-def test_les_branches_destructrices_passent_bien_allow_root_false():
-    """La garde doit être POSÉE, pas seulement disponible — c'est précisément
-    parce que personne ne la passait qu'elle n'a jamais servi."""
-    import inspect
-
+def test_les_branches_destructrices_refusent_la_racine(tmp_path, monkeypatch):
+    """delete, move et batch_delete refusent la racine ; rien n'est touché."""
     from llm_core.tools import fs_tools
 
-    src = inspect.getsource(fs_tools)
-    assert src.count("allow_root=False") >= 3, (
-        "delete, batch_delete et move doivent tous refuser la racine ; "
-        f"trouvé {src.count('allow_root=False')} garde(s)")
+    class _MCP:
+        tools: dict = {}
+
+        def tool(self, **kw):
+            def deco(fn):
+                self.tools[fn.__name__] = fn
+                return fn
+            return deco
+    base = tmp_path / "sandboxes"
+    work = base / "guest" / "work"
+    (work / "projet").mkdir(parents=True)
+    (work / "projet" / "main.py").write_text("x", encoding="utf-8")
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
+    mcp = _MCP()
+    fs_tools.register(mcp, base)
+    mf = mcp.tools["manage_files"]
+
+    for variante in ("/work", "work", "./work", "."):
+        for act in ("delete", "move"):
+            r = mf(None, action=act, path=variante, dest="ailleurs", recursive=True)
+            assert r["ok"] is False and r["error"] == "refus_racine", (act, variante, r)
+    r = mf(None, action="batch_delete", paths=["projet/main.py", "."], recursive=True)
+    assert r["ok"] is False and r["error"].startswith("bad_path")
+    assert (work / "projet" / "main.py").read_text(encoding="utf-8") == "x"
 
 
 # ── C5 — une signature ambiguë n'est jamais marquée ──────────────────────────

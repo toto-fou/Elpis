@@ -484,7 +484,8 @@ class Agent:
                 return {"ok": True, "removed": 1}
             if op in ("rename", "copy"):
                 return self._deplacer(op, normaliser(d.get("src")), normaliser(d.get("dst")),
-                                      _vrai(d.get("overwrite")), _vrai(d.get("parents")))
+                                      _vrai(d.get("overwrite")), _vrai(d.get("parents")),
+                                      op == "copy" and _vrai(d.get("follow")))
             if op == "chmod":
                 if "mode" not in d:
                     raise Refus(400, "bad_request", "chmod : mode requis")
@@ -495,17 +496,19 @@ class Agent:
         raise Refus(400, "bad_request", f"opération inconnue : {op!r}")
 
     def _deplacer(self, op: str, src: str, dst: str, ecraser: bool,
-                  parents: bool) -> Dict[str, Any]:
+                  parents: bool, suivre: bool = False) -> Dict[str, Any]:
         """``rename`` ou ``copy``. Une destination écrasée est mise de côté et
-        restaurée si l'opération échoue ; un fichier est remplacé d'un coup."""
+        restaurée si l'opération échoue ; un fichier est remplacé d'un coup.
+        ``suivre`` (copie) : une source qui est un lien est copiée depuis sa
+        cible, sous la racine."""
         if not src or not dst:
             raise Refus(400, "bad_path", "src et dst requis, hors racine")
-        ps, pd = self.entree(src), self.entree(dst)
+        ps, pd = (self.reel(src) if suivre else self.entree(src)), self.entree(dst)
         os.lstat(ps)                                     # source absente : 404
-        if src == dst:
+        if ps == pd:
             return {"ok": True}
-        if (dst + "/").startswith(src + "/") or (src + "/").startswith(dst + "/"):
-            raise Refus(400, "bad_path", "l'un est dans l'autre")
+        if (pd + os.sep).startswith(ps + os.sep) or (ps + os.sep).startswith(pd + os.sep):
+            raise Refus(409, "inside", "l'un est dans l'autre")
         if parents:
             os.makedirs(os.path.dirname(pd), mode=_MODE_DOSSIER, exist_ok=True)
         ecart = None

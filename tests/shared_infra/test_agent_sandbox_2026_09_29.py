@@ -206,6 +206,11 @@ def test_liens(sb):
         assert entrees["lien"] == "link" and "lien/f" not in entrees  # pas de descente
         await c.fsop("copy", src="lien", dst="lien2")
         assert os.readlink(sb.sandbox_path / "lien2") == "cible"     # copié tel quel
+        await c.fsop("copy", src="lien", dst="copie", follow=True)   # copié depuis la cible
+        assert not os.path.islink(sb.sandbox_path / "copie")
+        assert (sb.sandbox_path / "copie" / "f").exists()
+        e = await _attendre_refus(c.fsop("copy", src="lien", dst="cible/x", follow=True))
+        assert e.code == "inside"                        # la cible contiendrait sa copie
         await c.fsop("remove", path="lien", recursive=True)          # le lien seul
         assert (sb.sandbox_path / "cible" / "f").exists()
         (e,) = await c.stat(["lien2"])
@@ -223,7 +228,7 @@ def test_ecrasement_sans_perte(sb):
 
     async def scenario():
         e = await _attendre_refus(c.fsop("rename", src="a/b", dst="a", overwrite=True))
-        assert e.code == "bad_path"                      # la destination contient la source
+        assert e.code == "inside"                        # la destination contient la source
         assert (sb.sandbox_path / "a" / "b" / "f").read_bytes() == b"source"
         await _attendre_refus(c.fsop("copy", src="a", dst="d", overwrite=True))
         assert (sb.sandbox_path / "d" / "garde").read_bytes() == b"destination"

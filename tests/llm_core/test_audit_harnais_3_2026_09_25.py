@@ -215,6 +215,48 @@ def test_move_d_un_lien_deplace_le_lien(fs):
     assert (work / "reel.txt").read_text() == "1"
 
 
+
+def test_batch_delete_d_un_lien_retire_le_lien_pas_la_cible(fs):
+    tools, work, _ = fs
+    (work / "reel").mkdir()
+    (work / "reel" / "f.txt").write_text("1")
+    (work / "lien").symlink_to(work / "reel", target_is_directory=True)
+    r = tools["manage_files"](None, action="batch_delete", paths=["lien"], dry_run=True)
+    assert r["plan"][0]["type"] == "symlink"
+    r = tools["manage_files"](None, action="batch_delete", paths=["lien"])
+    assert r["ok"] and r["count"] == 1 and "files_changed" not in r, r
+    assert not os.path.lexists(work / "lien")
+    assert (work / "reel" / "f.txt").read_text() == "1"
+
+
+def test_copie_d_un_lien_copie_sa_cible(fs):
+    tools, work, _ = fs
+    (work / "reel.txt").write_text("contenu")
+    (work / "l").symlink_to("reel.txt")
+    r = tools["manage_files"](None, action="copy", path="l", dest="copie.txt")
+    assert r["ok"], r
+    assert not (work / "copie.txt").is_symlink()
+    assert (work / "copie.txt").read_text() == "contenu"
+
+
+def test_copie_d_un_dossier_dans_lui_meme_par_un_lien_refusee(fs):
+    tools, work, _ = fs
+    (work / "d" / "sous").mkdir(parents=True)
+    (work / "raccourci").symlink_to(work / "d" / "sous", target_is_directory=True)
+    r = tools["manage_files"](None, action="copy", path="d", dest="raccourci/copie")
+    assert r["ok"] is False and r["error"] == "dest_inside_source", r
+    assert sorted(os.listdir(work / "d" / "sous")) == []
+
+
+def test_chemins_entre_guillemets_et_caracteres_de_controle(fs):
+    tools, work, _ = fs
+    (work / "a.txt").write_text("x")
+    assert tools["read_file"](None, path='"a.txt"')["ok"]
+    r = tools["manage_files"](None, action="copy", path="'a.txt'", dest='"b.txt"')
+    assert r["ok"] and (work / "b.txt").read_text() == "x", r
+    r = tools["manage_files"](None, action="mkdir", path="x\x01y")
+    assert r["ok"] is False and r["error"] == "control_character_in_path", r
+
 # ── edit_file : moteur d'édition ────────────────────────────────────────────
 
 def test_multi_numeros_de_ligne_du_fichier_lu(fs):

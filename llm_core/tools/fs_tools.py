@@ -37,18 +37,13 @@ from fastmcp import Context, FastMCP
 from shared_infra.sandbox.agent_client import AgentError
 from shared_infra.sandbox.paths import (
     SandboxPathError,
-    chmod_beneath,
     leaf_mode,
     lexical_rel,
     open_beneath,
-    open_dir_beneath,
     pinned_beneath,
     read_leaf,
     rel_under,
-    remove_beneath,
-    rename_beneath,
     resolve_under,
-    stat_beneath,
     to_container,
     walk_beneath,
     walk_under,
@@ -81,7 +76,6 @@ from ._toolkit import (
     tool_kw_idempotent,
     tool_kw_mutating,
     tool_kw_readonly,
-    unicode_twin_warning,
     unquote,
 )
 
@@ -273,6 +267,15 @@ def _to_container(p: Any, base: Path) -> str:
     except (ValueError, TypeError, OSError):
         return str(p)
     return to_container(rel)  # shared: "" / "." -> "/work"; else "/work/<rel>"
+
+
+def _rel(base: Path, path: str, *, allow_root: bool = True) -> str:
+    """Chemin relatif à la sandbox d'un chemin fourni par le modèle, sans lire
+    le disque : mêmes tolérance (guillemets) et refus (contrôle, NUL, vide)
+    que :func:`_safe_path` ; les liens sont résolus par l'agent."""
+    path = unquote(path)
+    _validate_path_str(path)
+    return lexical_rel(base, path, allow_root=allow_root)
 
 
 def _safe_path(path: str, base: Path, *, allow_root: bool = True) -> Path:
@@ -491,6 +494,39 @@ def _cle_parcours(rel: str, est_dossier: bool) -> List[Tuple[int, str]]:
     parties = rel.split("/")
     return [(2, x) for x in parties[:-1]] + [(0 if est_dossier else 1, parties[-1])]
 
+
+def _instantane_agent(esp: Espace, sb: Path, rel: str, e: Dict[str, Any],
+                      max_files: int = 200, max_total: int = 32 * 1024 * 1024
+                      ) -> List[Tuple[Path, bytes]]:
+    """[(fichier, octets)] des fichiers ordinaires sous ``rel`` (ou ``rel``
+    lui-même), lus par l'agent pour l'historique (avant une suppression,
+    après une copie). Borné en nombre et en volume ; au-delà de ``MAX_FILE``,
+    la version est notée sans son contenu."""
+    from shared_infra.sandbox.file_history import MAX_FILE, TOO_BIG
+    out: List[Tuple[Path, bytes]] = []
+    try:
+        if e.get("kind") == "file":
+            fichiers = [(rel, int(e.get("size") or 0))]
+        elif e.get("kind") == "dir":
+            liste = esp.lister(rel, depth=64, max_entries=max_files * 4, hidden=True)
+            fichiers = [(x["path"], int(x.get("size") or 0)) for x in liste.entries
+                        if x["kind"] == "file"][:max_files]
+        else:
+            return out
+        total = 0
+        for f, taille in fichiers:
+            if taille > MAX_FILE:
+                out.append((sb / f, TOO_BIG))
+                continue
+            b = esp.lire(f, max_bytes=MAX_FILE).data
+            total += len(b)
+            if total > max_total:
+                break
+            out.append((sb / f, b))
+    except AgentError:
+        pass
+    return out
+
 _ERREURS_AGENT = {
     "not_found": ("not_found", "Check the path."),
     "is_dir": ("is_directory", "Use list_files for directories."),
@@ -501,6 +537,7 @@ _ERREURS_AGENT = {
     "read_only": ("permission_denied", "Read-only location."),
     "no_space": ("no_space", "The sandbox disk is full."),
     "too_large": ("too_large", "Read a range (offset/length, head, tail) instead."),
+    "inside": ("dest_inside_source", "Cannot copy or move a directory into itself."),
 }
 
 
@@ -2152,7 +2189,7 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
         sb: Path,
         esp: Espace,
     ) -> Dict[str, Any]:
-        rel = lexical_rel(sb, path)
+        rel = _rel(sb, path)
         p = sb / rel if rel else sb
         try:
             e = esp.stat(rel)
@@ -2474,7 +2511,7 @@ For surgical edits on large files, prefer edit_file."""
         try:
             sb = _sandbox(_username)
             esp = Espace(_username, sb)
-            rel = lexical_rel(sb, path)
+            rel = _rel(sb, path)
             p = sb / rel if rel else sb
             mode = (mode or "write").strip().lower()
             # Avant toute création : détecte un « jumeau unicode » (nom ne
@@ -2775,7 +2812,7 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
         try:
             sb = _sandbox(_username)
             esp = Espace(_username, sb)
-            rel = lexical_rel(sb, path)
+            rel = _rel(sb, path)
             p = sb / rel if rel else sb
             _e = esp.stat(rel)
             if _e["kind"] == "missing": return _err("not_found", path=_to_container(p, sb), hint="Create with write_file first.")
@@ -3050,7 +3087,7 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
         try:
             sb = _sandbox(_username)
             esp = Espace(_username, sb)
-            rel_root = lexical_rel(sb, path)
+            rel_root = _rel(sb, path)
             root = sb / rel_root if rel_root else sb
             e_root = esp.stat(rel_root)
             if e_root["kind"] == "missing": return _err("not_found", path=_to_container(root, sb))
@@ -3280,289 +3317,216 @@ Safety:
         _username = get_username(ctx)
         try:
             sb = _sandbox(_username)
+            esp = Espace(_username, sb)
             act = (action or "").strip().lower()
+            _track = _history_uid(_username) is not None
+            rel = ""
+
+            def _enlever(rel: str, e: Dict[str, Any]) -> List[Tuple[Path, bytes]]:
+                """Supprime ``rel`` par l'agent et rend les fichiers supprimés
+                (pour l'historique). Un lien est supprimé lui-même."""
+                if e.get("link"):
+                    esp.fsop("remove", path=rel)
+                    return []
+                with _locks_for(sb / rel) if e["kind"] == "file" else contextlib.nullcontext():
+                    snap = _instantane_agent(esp, sb, rel, e) if _track else []
+                    esp.fsop("remove", path=rel, recursive=True)
+                return snap
+
+            def _noter_suppressions(snap: List[Tuple[Path, bytes]],
+                                    fc: List[Dict[str, Any]]) -> None:
+                for _f, _b in snap:
+                    _history_record(_username, sb, _f, _b, None)
+                    if len(fc) < _FC_MAX:
+                        fc.append(_fc_entry(_f, sb, "deleted", _b, None))
+
+            def _type(e: Dict[str, Any]) -> str:
+                return "symlink" if e.get("link") else ("dir" if e["kind"] == "dir" else "file")
 
             if act == "batch_delete":
                 if not paths: return _err("paths_required", hint="Pass paths=[...].")
                 if len(paths) > 500:
                     return _err("too_many_paths", hint="Max 500 per call.")
-                resolved = []
+                rels = []
                 for rp in paths:
                     try:
-                        pp = _safe_path(rp, sb, allow_root=False)
-                        resolved.append(pp)
+                        rels.append(_rel(sb, rp, allow_root=False))
                     except Exception as e:
                         return _err(f"bad_path '{rp}': {e}")
+                entrees = esp.stats(rels)
+                for rp, e in zip(paths, entrees):
+                    if e["kind"] == "error":
+                        return _err(f"bad_path '{rp}': {e.get('message') or e.get('error')}")
                 plan = []
-                for pp in resolved:
-                    if not pp.exists():
-                        plan.append({"path": _to_container(pp, sb), "status": "not_found"})
+                for rel, e in zip(rels, entrees):
+                    if e["kind"] == "missing":
+                        plan.append({"path": to_container(rel), "status": "not_found"})
                         continue
-                    plan.append({"path": _to_container(pp, sb),
-                                 "type": "dir" if pp.is_dir() else "file",
-                                 "size": pp.stat().st_size if pp.is_file() else None,
+                    plan.append({"path": to_container(rel), "type": _type(e),
+                                 "size": e.get("size") if _type(e) == "file" else None,
                                  "status": "would_delete" if dry_run else "pending"})
                 if dry_run:
                     return _ok(action="batch_delete", dry_run=True, plan=plan)
-                deleted = []
+                deleted: List[str] = []
                 _fc: List[Dict[str, Any]] = []
-                _track = _history_uid(_username) is not None
-                for pp in resolved:
-                    if not pp.exists(): continue
-                    if pp.is_dir():
-                        if not recursive:
-                            return _err("is_dir", hint=f"{_to_container(pp, sb)} is dir; pass recursive=True.",
-                                        already_deleted=deleted)
-                        _snap = _snapshot_tree(sb, pp) if _track else []
-                        remove_beneath(sb, rel_under(sb, pp), recursive=True)
-                    else:
-                        with _locks_for(pp):          # E7 : verrou partagé
-                            _snap = _snapshot_tree(sb, pp) if _track else []
-                            remove_beneath(sb, rel_under(sb, pp))
-                    for _f, _b in _snap:
-                        _history_record(_username, sb, _f, _b, None)
-                        if len(_fc) < _FC_MAX:
-                            _fc.append(_fc_entry(_f, sb, "deleted", _b, None))
-                    deleted.append(_to_container(pp, sb))
+                for rel, e in zip(rels, entrees):
+                    if e["kind"] == "missing":
+                        continue
+                    if _type(e) == "dir" and not recursive:
+                        return _err("is_dir", hint=f"{to_container(rel)} is dir; pass recursive=True.",
+                                    already_deleted=deleted)
+                    _noter_suppressions(_enlever(rel, e), _fc)
+                    deleted.append(to_container(rel))
                 return _ok(action="batch_delete", deleted=deleted, count=len(deleted),
                            **({"files_changed": _fc} if _fc else {}))
 
             if not path:
                 return _err("path_required")
-            # AUDIT 2026-09-25 — un LIEN symbolique se supprime / se déplace
-            # lui-même, jamais sa cible (cf. _symlink_leaf).
-            _lien = _symlink_leaf(path, sb) if act in ("delete", "move") else None
-            if _lien is not None:
-                if act == "delete":
-                    if dry_run:
-                        return _ok(action="delete", dry_run=True,
-                                   path=to_container(_lien.relative_to(Path(sb).resolve()).as_posix()),
-                                   type="symlink")
-                    remove_beneath(sb, rel_under(sb, _lien))
-                    return _ok(action="delete", symlink=True,
-                               path=to_container(_lien.relative_to(Path(sb).resolve()).as_posix()))
-                if not dest:
-                    return _err("dest_required")
-                pdst = _safe_path(dest, sb)
-                _cible = pdst / _lien.name if pdst.is_dir() else pdst
-                if os.path.lexists(_cible):
-                    if not overwrite:
-                        return _err("dest_exists", hint="Pass overwrite=True to replace.",
-                                    dest=_to_container(_cible.parent, sb) + "/" + _cible.name)
-                    if os.path.isdir(_cible) and not os.path.islink(_cible):
-                        return _err("dest_is_directory",
-                                    hint="Refusing to replace a directory: delete it first "
-                                         "or choose another destination.",
-                                    dest=_to_container(_cible.parent, sb) + "/" + _cible.name)
-                if dry_run:
-                    return _ok(action="move", dry_run=True, symlink=True,
-                               dest=_to_container(_cible.parent, sb) + "/" + _cible.name)
-                rename_beneath(sb, rel_under(sb, _lien), rel_under(sb, _cible),
-                               dir_mode=None if use_agent("fs.write") else 0o777)   # le LIEN, sans le suivre
-                return _ok(action="move", symlink=True,
-                           dest=_to_container(_cible.parent, sb) + "/" + _cible.name)
-            p = _safe_path(path, sb)
+            rel = _rel(sb, path)
+            p = sb / rel if rel else sb
+            if act in ("delete", "move") and not rel:
+                return _err("refus_racine",
+                            hint="Agissez sur un élément DANS le bac à sable, "
+                                 "pas sur le bac à sable lui-même.")
+            e = esp.stat(rel)
 
             if act == "chmod":
-                # Sur l'inode, sans suivre de lien ni exiger de pouvoir le
-                # lire (2026-09-29).
-                _crel = rel_under(sb, p)
-                try:
-                    if dry_run:
-                        cur = stat_beneath(sb, _crel).st_mode
-                        if not (_stat_mod.S_ISREG(cur) or _stat_mod.S_ISDIR(cur)):
-                            return _err("not_a_regular_file")
-                        return _ok(path=_to_container(p, sb), action="chmod", dry_run=True,
-                                   current_mode=oct(cur & 0o777),
-                                   would_set=oct(_executable_mode(cur) & 0o777))
-                    _cur, new = chmod_beneath(sb, _crel, _executable_mode)
-                except FileNotFoundError:
+                if e["kind"] == "missing":
                     return _err("not_found")
-                except SandboxPathError:
+                if e["kind"] not in ("file", "dir"):
                     return _err("not_a_regular_file")
-                return _ok(path=_to_container(p, sb), action="chmod", mode=oct(new & 0o777))
+                cur = int(e.get("mode") or 0)
+                new = _executable_mode(cur) & 0o777
+                if dry_run:
+                    return _ok(path=_to_container(p, sb), action="chmod", dry_run=True,
+                               current_mode=oct(cur & 0o777), would_set=oct(new))
+                esp.fsop("chmod", path=rel, mode=new)
+                return _ok(path=_to_container(p, sb), action="chmod", mode=oct(new))
 
             if act == "mkdir":
-                if p.exists() and not p.is_dir():
+                if e["kind"] not in ("missing", "dir"):
                     return _err("exists_not_dir",
                                 hint=f"{_to_container(p, sb)} already exists and is not a directory.")
-                _existed = p.exists()
-                _twin = unicode_twin_warning(p, sb)
+                _existed = e["kind"] == "dir"
+                _twin = esp.jumeau_unicode(rel)
                 if dry_run:
                     return _ok(path=_to_container(p, sb), action="mkdir", dry_run=True,
                                would_create=not _existed,
                                **({"warning": _twin} if _twin else {}))
-                os.close(open_dir_beneath(sb, rel_under(sb, p), create=True,
-                                          dir_mode=None if use_agent("fs.write") else 0o777))
-                # Élargit aussi un dossier qui existait déjà (0o755…).
-                _chmod_cross_writable(sb, p)
+                esp.fsop("mkdir", path=rel, parents=True)
                 return _ok(path=_to_container(p, sb), action="mkdir", created=not _existed,
                            **({"warning": _twin} if _twin else {}))
 
             if act == "delete":
-                try:
-                    _safe_path(path, sb, allow_root=False)
-                except ValueError:
-                    return _err("refus_racine",
-                                hint="Supprimez un élément DANS le bac à sable, "
-                                     "pas le bac à sable lui-même.")
-                if not p.exists(): return _err("not_found")
-                if p.is_dir() and not recursive:
+                if e["kind"] == "missing":
+                    return _err("not_found")
+                if e.get("link"):
+                    if dry_run:
+                        return _ok(action="delete", dry_run=True, path=to_container(rel),
+                                   type="symlink")
+                    esp.fsop("remove", path=rel)
+                    return _ok(action="delete", symlink=True, path=to_container(rel))
+                if e["kind"] == "dir" and not recursive:
                     return _err("is_dir", hint="Pass recursive=True to delete directory.")
                 if dry_run:
-                    info = {"path": _to_container(p, sb), "type": "dir" if p.is_dir() else "file"}
-                    if p.is_file():
-                        info["size"] = p.stat().st_size
+                    info: Dict[str, Any] = {"path": _to_container(p, sb), "type": _type(e)}
+                    if e["kind"] == "dir":
+                        liste = esp.lister(rel, depth=64, max_entries=MAX_WALK, hidden=True)
+                        info["items_inside"] = len(liste.entries)
+                        if liste.truncated:
+                            info["truncated"] = True
                     else:
-                        # Sans suivre de lien et borné (``rglob`` parcourait
-                        # tout, liens de dossiers compris).
-                        n = 0
-                        for _d, _dirs, _names, _dfd in walk_beneath(sb, rel_under(sb, p)):
-                            n += len(_dirs) + len(_names)
-                            if n > MAX_WALK:
-                                info["truncated"] = True
-                                break
-                        info["items_inside"] = min(n, MAX_WALK)
+                        info["size"] = int(e.get("size") or 0)
                     return _ok(action="delete", dry_run=True, **info)
-                _track = _history_uid(_username) is not None
-                if p.is_dir():
-                    _snap = _snapshot_tree(sb, p) if _track else []
-                    remove_beneath(sb, rel_under(sb, p), recursive=True)
-                else:
-                    with _locks_for(p):               # E7 : verrou partagé
-                        _snap = _snapshot_tree(sb, p) if _track else []
-                        remove_beneath(sb, rel_under(sb, p))
-                # Historique de session : l'original reste restaurable.
                 _fc = []
-                for _f, _b in _snap:
-                    _history_record(_username, sb, _f, _b, None)
-                    if len(_fc) < _FC_MAX:
-                        _fc.append(_fc_entry(_f, sb, "deleted", _b, None))
+                _noter_suppressions(_enlever(rel, e), _fc)
                 return _ok(path=_to_container(p, sb), action="delete",
                            **({"files_changed": _fc} if _fc else {}))
 
             if act in ("copy", "move"):
                 if not dest: return _err("dest_required")
-                if act == "move":
-                    # Déplacer la racine revient à la supprimer de sa place.
-                    try:
-                        _safe_path(path, sb, allow_root=False)
-                    except ValueError:
-                        return _err("refus_racine",
-                                    hint="Déplacez un élément DANS le bac à "
-                                         "sable, pas le bac à sable lui-même.")
-                pdst = _safe_path(dest, sb)
-                if not p.exists(): return _err("not_found", path=_to_container(p, sb))
-                # AUDIT 2026-09-25 — sémantique du shell : une destination qui
-                # est un DOSSIER EXISTANT veut dire « dedans » (``mv f docs/``).
-                # Avant, ``dest`` était toujours le nom final et, overwrite
-                # étant vrai par défaut, un dossier existant était effacé par
-                # ``rmtree`` puis remplacé — ``move notes.txt → docs/`` détruisait
-                # docs/ en rendant ``ok``.
-                if ((pdst.is_dir() and p.resolve() != pdst.resolve())
-                        or (str(dest).rstrip().endswith("/") and not pdst.exists())):
-                    pdst = pdst / p.name
-                # Garde-fou : src et dest identiques (même nom, ou variantes de
-                # préfixe /work qui se résolvent au même chemin).
-                if os.path.lexists(pdst) and p.resolve() == pdst.resolve():
+                # Un lien se déplace lui-même ; une copie suit la source.
+                lien = act == "move" and bool(e.get("link"))
+                if e["kind"] == "missing" or (not lien and e["kind"] == "link"):
+                    return _err("outside_sandbox" if e.get("outside") else "not_found",
+                                path=_to_container(p, sb))
+                drel = _rel(sb, dest)
+
+                def _meme(ed: Dict[str, Any]) -> bool:
+                    if lien:
+                        return drel == rel
+                    return ed["kind"] != "missing" and "ino" in e and \
+                        (e.get("ino"), e.get("dev")) == (ed.get("ino"), ed.get("dev"))
+
+                ed = esp.stat(drel)
+                # Sémantique du shell : un dossier existant (ou « dest/ »)
+                # veut dire « dedans ».
+                if not _meme(ed) and (ed["kind"] == "dir" or (
+                        str(dest).rstrip().endswith("/") and ed["kind"] == "missing")):
+                    nom = rel.rsplit("/", 1)[-1]
+                    drel = f"{drel}/{nom}" if drel else nom
+                    ed = esp.stat(drel)
+                pdst = sb / drel if drel else sb
+                _dest_label = to_container(drel)
+                if _meme(ed):
                     return _ok(src=_to_container(p, sb), dest=_to_container(pdst, sb),
                                action=act, noop=True,
                                hint="Source and destination are identical: nothing was done.")
-                if p.is_dir():
-                    try:
-                        pdst.resolve().relative_to(p.resolve())
-                        return _err("dest_inside_source",
-                                    hint="Cannot copy or move a directory into itself.")
-                    except ValueError:
-                        pass
-                _dest_label = _to_container(pdst.parent, sb) + "/" + pdst.name
-                if os.path.lexists(pdst):
+                src_dossier = e["kind"] == "dir" and not lien
+                if src_dossier and (not rel or drel.startswith(rel + "/")):
+                    return _err("dest_inside_source",
+                                hint="Cannot copy or move a directory into itself.")
+                ecrase = ed["kind"] != "missing"
+                if ecrase:
                     if not overwrite:
                         return _err("dest_exists", hint="Pass overwrite=True to replace.",
                                     dest=_dest_label)
-                    # Jamais d'effacement IMPLICITE d'un dossier : c'est une
-                    # suppression, elle doit être demandée comme telle.
-                    if pdst.is_dir() and not pdst.is_symlink():
+                    # Jamais d'effacement implicite d'un dossier.
+                    if ed["kind"] == "dir" and not ed.get("link"):
                         return _err("dest_is_directory",
                                     hint="Refusing to replace an existing directory: delete "
                                          "it first (manage_files delete, recursive=True) or "
                                          "choose another destination.",
                                     dest=_dest_label)
-                    # Dossier SUR un fichier (ou un lien) existant : la copie
-                    # levait une erreur interne (« unexpected ») et le
-                    # déplacement échouait selon la plateforme (AUDIT
-                    # 2026-09-26). Refus explicite, même règle que ci-dessus.
-                    if p.is_dir() and not p.is_symlink():
+                    if src_dossier:
                         return _err("dest_is_file",
                                     hint="Refusing to replace an existing file with a "
                                          "directory: delete it first or choose another "
                                          "destination.",
                                     dest=_dest_label)
 
-                _twin = unicode_twin_warning(pdst, sb)
+                _twin = esp.jumeau_unicode(drel)
+                _warn = {"warning": _twin} if _twin else {}
                 if dry_run:
+                    if lien:
+                        return _ok(action="move", dry_run=True, symlink=True, dest=_dest_label, **_warn)
                     return _ok(action=act, dry_run=True, src=_to_container(p, sb), dest=_dest_label,
-                               overwrite_target=os.path.lexists(pdst),
-                               **({"warning": _twin} if _twin else {}))
+                               overwrite_target=ecrase, **_warn)
 
-                _src_file = p.is_file() and not p.is_symlink()
-                _dst_before = None
-                _track = _src_file and _history_uid(_username) is not None
-                _lk = _locks_for(p, pdst) if _src_file else contextlib.nullcontext()
-                _root = Path(sb).resolve()
-                _dst_rel = pdst.parent.resolve().relative_to(_root).as_posix()
-                _dst_rel = f"{_dst_rel}/{pdst.name}" if _dst_rel not in ("", ".") else pdst.name
-                with _lk:                           # E7 : verrou partagé (fichiers)
-                    if _track and act == "copy":
-                        from shared_infra.sandbox.file_history import read_before as _rb
-                        _dst_before = _rb(sb, pdst)
+                fichier = e["kind"] == "file" and not lien
+                avant: List[Tuple[Path, bytes]] = []
+                apres: List[Tuple[Path, bytes]] = []
+                with _locks_for(p, pdst) if fichier else contextlib.nullcontext():
                     if act == "copy":
-                        # AUDIT 2026-09-25 — copies écrites SANS suivre de lien
-                        # côté destination (``write_beneath``) : ``copy2`` vers
-                        # un nom occupé par un lien écrivait À TRAVERS lui, hors
-                        # du bac à sable. Les liens de la SOURCE sont recopiés
-                        # tels quels (SECURITY F5 : jamais déréférencés).
-                        from shared_infra.sandbox.paths import copytree_beneath, write_beneath
-                        # Source ouverte sans suivre de lien, elle aussi
-                        # (2026-09-29) : dossier par descripteur, fichier lu
-                        # sur son inode.
-                        _src_fd = open_beneath(_root, rel_under(_root, p), allow_dir=True)
-                        if _stat_mod.S_ISDIR(os.fstat(_src_fd).st_mode):
-                            try:
-                                copytree_beneath(
-                                    _src_fd, _root, _dst_rel,
-                                    file_mode_fn=lambda m: m | (0 if use_agent("fs.write") else 0o666),
-                                    dir_mode=None if use_agent("fs.write") else 0o777)
-                            finally:
-                                os.close(_src_fd)
-                        else:
-                            with os.fdopen(_src_fd, "rb") as _src:
-                                _fst = os.fstat(_src.fileno())
-                                write_beneath(
-                                    _root, _dst_rel, _src,
-                                    file_mode=(_fst.st_mode & 0o777 & ~0o6000)
-                                    | (0 if use_agent("fs.write") else 0o666),
-                                    dir_mode=None if use_agent("fs.write") else 0o777,
-                                    mtime_ns=_fst.st_mtime_ns)
+                        if fichier and _track:
+                            avant = [] if ed.get("link") else _instantane_agent(esp, sb, drel, ed)
+                            apres = _instantane_agent(esp, sb, rel, e)
+                        esp.fsop("copy", src=rel, dst=drel, overwrite=True, parents=True,
+                                 follow=True)
                     else:
-                        # ``rename`` relatif aux dossiers ouverts sans suivre de
-                        # lien : remplace l'entrée de destination (fichier ou
-                        # lien) sans jamais la suivre.
-                        rename_beneath(_root, rel_under(_root, p), _dst_rel,
-                                       dir_mode=None if use_agent("fs.write") else 0o777)
-                # Historique de session : une copie est une écriture de la
-                # destination, un déplacement emporte l'historique du fichier.
+                        esp.fsop("rename", src=rel, dst=drel, overwrite=True, parents=True)
+                if lien:
+                    return _ok(action="move", symlink=True, dest=_dest_label, **_warn)
+                # Historique de session : une copie écrit la destination, un
+                # déplacement emporte l'historique du fichier.
                 _fc = []
-                if act == "copy" and _track:
-                    from shared_infra.sandbox.file_history import read_before as _rb
-                    _after = _rb(sb, pdst)
-                    _history_record(_username, sb, pdst, _dst_before, _after)
-                    _fc.append(_fc_entry(pdst, sb, "created" if _dst_before is None else "modified",
-                                         _dst_before, _after))
-                elif act == "copy" and p.is_dir() and _history_uid(_username) is not None:
-                    # Dossier copié : chaque fichier créé est une écriture
-                    # (borné comme une suppression).
-                    for _f, _b in _snapshot_tree(sb, pdst):
+                if act == "copy" and fichier and _track:
+                    _b = avant[0][1] if avant else None
+                    _a = apres[0][1] if apres else None
+                    _history_record(_username, sb, pdst, _b, _a)
+                    _fc.append(_fc_entry(pdst, sb, "created" if _b is None else "modified", _b, _a))
+                elif act == "copy" and src_dossier and _track:
+                    for _f, _b in _instantane_agent(esp, sb, drel, {"kind": "dir"}):
                         _history_record(_username, sb, _f, None, _b)
                         if len(_fc) < _FC_MAX:
                             _fc.append(_fc_entry(_f, sb, "created", None, _b))
@@ -3570,14 +3534,12 @@ Safety:
                     _history_move(_username, sb, p, pdst)
                     _fc.append({"path": _to_container(pdst, sb), "change": "moved",
                                 "from": _to_container(p, sb)})
-                # Widen perms on the result so the container can also
-                # read/write the moved/copied content.
-                _chmod_cross_writable(sb, pdst, recursive=True)
                 return _ok(src=_to_container(p, sb), dest=_to_container(pdst, sb), action=act,
-                           **({"warning": _twin} if _twin else {}),
-                           **({"files_changed": _fc} if _fc else {}))
+                           **_warn, **({"files_changed": _fc} if _fc else {}))
 
             return _err("invalid_action", hint="Use: copy|move|delete|chmod|mkdir|batch_delete")
+        except AgentError as e:
+            return _err_agent(e, sb / rel if rel else sb, sb)
         except ValueError as e:
             return _err(str(e))
         except Exception as e:

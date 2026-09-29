@@ -1034,7 +1034,7 @@ _GIT_DELAI_MAX_S = 590.0                  # sous le délai total du client (600 
 RELAIS_DOSSIER = "/run/elpis-relay"       # sockets du relais Git de l'hôte (lecture seule)
 _NOM_SOCKET_RELAIS = re.compile(r"[0-9]{1,10}\.sock")
 _TICKET = re.compile(r"[A-Za-z0-9_-]{20,128}")
-_ORIGINE = re.compile(r"https?://([a-z0-9.-]+|\[[0-9a-f:.]+\])(:[0-9]{1,5})?/")
+_ORIGINE = re.compile(r"https?://([A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(:[0-9]{1,5})?/")
 
 
 def _env_git(extra: Any, config_systeme: str, racine: str) -> Dict[str, str]:

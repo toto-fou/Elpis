@@ -191,3 +191,15 @@ async def test_git_passif_ne_redemarre_pas_le_conteneur(sandbox, monkeypatch):
     assert e.value.code == "container_down" and appels == []
     assert (await git_ops.run(agent, "", ["--version"])).ok     # actif : démarré au besoin
     assert appels == ["ensure_running"]
+
+
+def test_origine_telle_qu_ecrite():
+    """``insteadOf`` compare des préfixes, casse comprise : l'origine réécrite
+    reprend l'URL telle qu'écrite ; l'amont, lui, est normalisé."""
+    from shared_infra.sandbox.agent import server as S
+    for url, amont, depot, origine in (
+            ("https://GitHub.com/Org/Depot.git", "https://github.com", "/Org/Depot",
+             "https://GitHub.com/"),
+            ("http://[FD00::1]:3000/r.git/", "http://[fd00::1]:3000", "/r", "http://[FD00::1]:3000/")):
+        assert git_relay.amont(url) == (amont, depot, origine)
+        assert S._ORIGINE.fullmatch(origine)

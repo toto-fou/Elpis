@@ -384,7 +384,9 @@ def amont(url: str) -> tuple:
     hote = p.hostname.lower()
     hote = f"[{hote}]" if ":" in hote else hote
     netloc = f"{hote}:{port}" if port else hote
-    return f"{p.scheme}://{netloc}", depot, f"{p.scheme}://{netloc}/"
+    # Origine telle qu'écrite dans l'URL : ``insteadOf`` compare des préfixes,
+    # casse comprise.
+    return f"{p.scheme}://{netloc}", depot, f"{p.scheme}://{p.netloc}/"
 
 
 def basic_auth(username: str, token: str) -> str:

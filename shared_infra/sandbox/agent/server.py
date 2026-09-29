@@ -27,11 +27,11 @@ corps de requête par Content-Length seulement :
                   → {"entries": [...]} ; une entrée en échec : kind "error"
   GET  /v1/read   ?path= &offset= &length= &max= &expect_size= &expect_mtime_ns=
                   → octets, en-tête X-Elpis-Stat
-  POST /v1/list   {"path", "depth", "max_entries", "hidden", "prune": [...],
-                   "exclude": [motifs], "deadline_s"}  → NDJSON, dernière
+  POST /v1/list   {"path", "depth", "max_entries", "hidden", "prune": [motifs],
+                   "exclude": [motifs], "deadline_s", "name_contains"}  → NDJSON, dernière
                    ligne {"done": true, …}
   POST /v1/grep   {"paths": [...], "needle", "ignore_case", "max_file_bytes",
-                   "max_hits", "files_only"}  → NDJSON {"file", "line", "text"}, dernière
+                   "max_hits", "files_only", "width", "deadline_s"}  → NDJSON {"file", "line", "text"}, dernière
                    ligne {"done": true, …}
   PUT  /v1/write  ?path= &mode= &parents=1 &if_absent=1 &if_sha256= &if_mtime_ns=
                   (corps = contenu)  → {"size", "sha256", "mtime_ns", "created"}
@@ -367,10 +367,12 @@ class Agent:
 
     def lister(self, rel: str, profondeur: int, max_entrees: int, caches: bool,
                elaguer: Iterable[str], delai_s: float,
-               exclure: Iterable[str] = ()) -> Iterator[Dict[str, Any]]:
+               exclure: Iterable[str] = (), contient: str = "") -> Iterator[Dict[str, Any]]:
         """Arborescence sous ``rel``. ``exclure`` : motifs (fnmatch) sur le
         nom ou le chemin relatif au dossier listé — ni rendu ni descendu ;
-        ``elaguer`` : noms rendus mais non descendus."""
+        ``elaguer`` : motifs sur le nom des dossiers rendus mais non
+        descendus ; ``contient`` : seules les entrées dont le nom le contient
+        (sans casse) sont rendues, tout est parcouru."""
         base = self.reel(rel)
         exclure = tuple(exclure)
         try:
@@ -379,7 +381,8 @@ class Agent:
             raise _refus_os(e) from None
         if not est_dossier:
             raise Refus(409, "not_dir", "pas un dossier")
-        elaguer = frozenset(elaguer)
+        elaguer = tuple(elaguer)
+        contient = contient.lower()
         echeance = time.monotonic() + delai_s
         pile = [(base, rel, 1)]
         n = erreurs = illisibles = 0
@@ -415,10 +418,12 @@ class Agent:
                                    for m in exclure):
                                 continue
                         genre = _genre(st.st_mode)
-                        yield {"path": erel, "kind": genre, "size": st.st_size,
-                               "mtime_ns": st.st_mtime_ns, "mode": stat.S_IMODE(st.st_mode)}
-                        n += 1
-                        if genre == "dir" and niveau < profondeur and entree.name not in elaguer:
+                        if not contient or contient in entree.name.lower():
+                            yield {"path": erel, "kind": genre, "size": st.st_size,
+                                   "mtime_ns": st.st_mtime_ns, "mode": stat.S_IMODE(st.st_mode)}
+                            n += 1
+                        if genre == "dir" and niveau < profondeur and not any(
+                                fnmatch.fnmatchcase(entree.name, m) for m in elaguer):
                             pile.append((entree.path, erel, niveau + 1))
             except OSError:
                 erreurs += 1
@@ -426,16 +431,22 @@ class Agent:
                "undecodable": illisibles, "count": n}
 
     def grep(self, chemins: Iterable[Any], aiguille: str, casse: bool, max_octets: int,
-             max_trouves: int, largeur: int = 260,
-             fichiers_seuls: bool = False) -> Iterator[Dict[str, Any]]:
+             max_trouves: int, largeur: int = 260, fichiers_seuls: bool = False,
+             delai_s: float = 600.0) -> Iterator[Dict[str, Any]]:
         """Lignes de ``chemins`` (fichiers ordinaires) qui contiennent
         ``aiguille`` ; découpe au seul ``\\n`` (comme ``grep -n``). Fichiers
         trop gros ou binaires sautés et comptés. ``fichiers_seuls`` : un
-        ``{"file"}`` par fichier trouvé (comme ``grep -l``)."""
+        ``{"file"}`` par fichier trouvé (comme ``grep -l``). Au-delà de
+        ``delai_s`` : arrêt, ``timed_out`` dans le bilan."""
         cherche = aiguille if casse else aiguille.lower()
         trouves = gros = binaires = 0
         signe = time.monotonic()
+        echeance = signe + delai_s
         for c in chemins:
+            if time.monotonic() > echeance:
+                yield {"done": True, "hits_truncated": False, "timed_out": True,
+                       "skipped_large": gros, "skipped_binary": binaires}
+                return
             if time.monotonic() - signe > _SIGNE_S:
                 signe = time.monotonic()
                 yield {"tick": True}                     # longue recherche sans résultat
@@ -936,7 +947,8 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                 normaliser(d.get("path")), max(1, min(int(d.get("depth") or 1), _PROFONDEUR_MAX)),
                 max(1, min(int(d.get("max_entries") or 20000), 200000)),
                 _vrai(d.get("hidden", True)), [str(x) for x in elaguer],
-                float(d.get("deadline_s") or 30), [str(x) for x in exclure])
+                float(d.get("deadline_s") or 30), [str(x) for x in exclure],
+                str(d.get("name_contains") or ""))
             premiere = next(lignes)                      # un refus part AVANT l'en-tête 200
             self._ndjson(premiere, lignes)
         elif cle == ("POST", "/v1/grep"):
@@ -950,7 +962,9 @@ class _Gestionnaire(BaseHTTPRequestHandler):
             self._ndjson({"started": True}, agent.grep(
                 chemins, aiguille, not _vrai(d.get("ignore_case", True)),
                 int(d.get("max_file_bytes") or 20 << 20), max(1, int(d.get("max_hits") or 2000)),
-                fichiers_seuls=_vrai(d.get("files_only"))))
+                largeur=max(40, min(int(d.get("width") or 260), 4096)),
+                fichiers_seuls=_vrai(d.get("files_only")),
+                delai_s=max(0.1, min(float(d.get("deadline_s") or 600), 600.0))))
         elif cle == ("POST", "/v1/readmany"):
             d = self._corps_json()
             chemins = d.get("paths") or []

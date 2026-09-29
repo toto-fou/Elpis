@@ -76,7 +76,6 @@ from shared_infra.sandbox.exec_bridge import agent_for, agent_http
 from shared_infra.sandbox.file_lock import file_write_lock, sha256_bytes
 from shared_infra.sandbox.paths import (
     SandboxPathError,
-    leaf_mode,
     lexical_rel,
     open_beneath,
     open_leaf,
@@ -649,147 +648,69 @@ _UNREADABLE_ROOT = "Sandbox illisible (droits ou conteneur arrêté) — recherc
 
 
 @router.get("/api/sandbox/search")
-def api_search_sandbox(request: Request, q: str, mode: str = "content"):
-    """Search inside the user sandbox.
+async def api_search_sandbox(request: Request, q: str, mode: str = "content"):
+    """Search inside the user sandbox, by the sandbox agent (links never
+    followed).
 
-    mode=name    → filename filter (fast, existing behaviour)
-    mode=content → full-text grep with line numbers and preview (new)
+    mode=name    → filename filter
+    mode=content → full-text search with line numbers and preview
     """
     user_id = require_user_id(request)
-    root = _get_work_path(user_id)
     if not q:
         return {"items": []}
-
-    # AUDIT 2026-08-02 (E7) — une racine illisible (conteneur arrêté, /work
-    # démonté, ACL manquante) retournait ``{"items": []}`` en HTTP 200 :
-    # l'utilisateur concluait que son fichier n'existe pas alors que la
-    # recherche n'a RIEN pu lire. Racine en échec → 503 explicite ; les
-    # erreurs par-fichier restent tolérées mais sont comptées dans la
-    # réponse (``errors``) au lieu d'être avalées.
-    if not root.is_dir():
-        raise HTTPException(503, "Sandbox inaccessible (conteneur arrêté ?) — "
-                                 "réessayez après l'avoir démarrée.")
-
-    # Passe sandbox 2026-09-26 — bornes de parcours. Le ``break`` à 200
-    # résultats ne sortait que de la boucle des fichiers d'UN dossier : le
-    # parcours continuait sur tout l'arbre, et une recherche sans résultat
-    # lisait chaque fichier ≤ 512 Ko du dépôt. Chaque frappe (après debounce)
-    # occupait ainsi un thread du pool partagé (/tree, /download…) plusieurs
-    # secondes. Arrêt dès MAX_HITS, plafond de fichiers lus, échéance de 3 s ;
-    # ``truncated`` le signale au client.
-    _deadline = time.monotonic() + 3.0
+    agent = agent_for(user_id)
+    # Passe sandbox 2026-09-26 — bornes : arrêt à MAX_HITS résultats, plafond
+    # de fichiers lus, échéance de 3 s (liste et recherche comprises) ;
+    # ``truncated`` le signale au client. Un agent injoignable : 503 (E7 :
+    # jamais un résultat vide « propre » quand rien n'a pu être lu).
+    echeance = time.monotonic() + 3.0
     MAX_HITS = 200
 
     if mode == "name":
-        q_lower = q.lower()
-        results = []
-        _errs = {"n": 0, "root_failed": False, "truncated": False}
-
-        # Parcours par descripteurs, sans suivre de lien (dossier remplacé par
-        # un lien pendant le parcours compris) ; les liens ne sont pas listés.
         try:
-            for rel_dir, _dirs, names, dfd in walk_beneath(
-                    root, onerror=lambda _e: _errs.__setitem__("n", _errs["n"] + 1)):
-                if len(results) >= MAX_HITS or time.monotonic() > _deadline:
-                    _errs["truncated"] = True
-                    break
-                for name in names:
-                    if q_lower not in name.lower():
-                        continue
-                    if _stat.S_ISLNK(leaf_mode(dfd, name)):
-                        continue
-                    results.append({"path": f"{rel_dir}/{name}" if rel_dir else name,
-                                    "name": name, "type": "file"})
-                    if len(results) >= MAX_HITS:
-                        _errs["truncated"] = True
-                        break
-        except OSError:
-            _errs["root_failed"] = True
-        if _errs["root_failed"]:
-            raise HTTPException(503, _UNREADABLE_ROOT)
-        return {"items": results[:MAX_HITS], "errors": _errs["n"],
-                "truncated": _errs["truncated"]}
+            liste = await agent.list("", depth=4096, max_entries=MAX_HITS, hidden=True,
+                                     deadline_s=3.0, name_contains=q)
+        except AgentError as ex:
+            raise agent_http(ex, "Recherche") from None
+        items = [{"path": e["path"], "name": e["path"].rsplit("/", 1)[-1], "type": "file"}
+                 for e in liste.entries if e.get("kind") in ("file", "other")]
+        return {"items": items, "errors": liste.errors, "truncated": liste.truncated}
 
-    # mode=content — grep-like full-text search
-    results = []
-    q_lower = q.lower()
+    # mode=content — dossiers cachés, node_modules et __pycache__ non
+    # parcourus ; fichiers cachés, eux, lus.
     SKIP_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.svg',
                  '.woff', '.woff2', '.ttf', '.eot', '.pdf', '.zip', '.tar',
                  '.gz', '.bin', '.exe', '.so', '.pyc', '.db', '.sqlite'}
     MAX_FILE = 512 * 1024   # 512 KB
     MAX_FILES_SCANNED = 5000  # même ordre que /grep
-    _scanned = 0
-    truncated = False
-
-    _file_errs = 0
-    _walk_errs = {"root_failed": False}
-
-    def _walk():
-        # E7 — une racine illisible ne doit pas produire un résultat vide
-        # « propre ». Parcours par descripteurs, sans suivre de lien.
-        try:
-            yield from walk_beneath(root)
-        except OSError:
-            _walk_errs["root_failed"] = True
-
-    for dirpath, dirnames, filenames, dfd in _walk():
-        if (len(results) >= MAX_HITS or _scanned >= MAX_FILES_SCANNED
-                or time.monotonic() > _deadline):
-            truncated = True
-            break
-        # Skip hidden / node_modules / __pycache__
-        dirnames[:] = [d for d in dirnames
-                       if not d.startswith('.') and d not in ('node_modules', '__pycache__', '.git')]
-        for fname in filenames:
-            if len(results) >= MAX_HITS or _scanned >= MAX_FILES_SCANNED:
-                truncated = True
-                break
-            if Path(fname).suffix.lower() in SKIP_EXTS:
-                continue
-            try:
-                # Lien, fichier spécial, disparu : ignoré (jamais suivi) ;
-                # illisible : compté (E7).
-                try:
-                    f = os.fdopen(open_leaf(dfd, fname), "rb")
-                except (SandboxPathError, IsADirectoryError, FileNotFoundError):
-                    continue
-                with f:
-                    data = (f.read(MAX_FILE + 1)
-                            if os.fstat(f.fileno()).st_size <= MAX_FILE else b"")
-                if not data or len(data) > MAX_FILE:
-                    continue
-                text = data.decode("utf-8", errors="replace")
-                _scanned += 1
-                # Filtre rapide : la très grande majorité des fichiers ne
-                # contient pas la chaîne — un seul ``in`` sur le texte entier
-                # évite de découper et de minusculiser chaque ligne.
-                if q_lower not in text.lower():
-                    continue
-                rel = f"{dirpath}/{fname}" if dirpath else fname
-                for lineno, line in enumerate(text.splitlines(), 1):
-                    if q_lower in line.lower():
-                        # Find column of first match
-                        col = line.lower().index(q_lower) + 1
-                        # Short preview centred on the match
-                        preview = line.strip()
-                        if len(preview) > 120:
-                            start = max(0, col - 40)
-                            preview = ('…' if start > 0 else '') + line[start:start + 120].strip() + '…'
-                        results.append({
-                            "path":    rel,
-                            "name":    fname,
-                            "line":    lineno,
-                            "col":     col,
-                            "preview": preview,
-                        })
-                        if len(results) >= MAX_HITS:
-                            break
-            except Exception:
-                _file_errs += 1                    # E7 : compté, plus avalé
-
-    if _walk_errs["root_failed"]:
-        raise HTTPException(503, _UNREADABLE_ROOT)
-    return {"items": results, "errors": _file_errs, "truncated": truncated}
+    try:
+        liste = await agent.list("", depth=4096, max_entries=50_000, hidden=True,
+                                 prune=[".*", "node_modules", "__pycache__"], deadline_s=3.0)
+        fichiers = [e["path"] for e in liste.entries
+                    if e.get("kind") == "file" and int(e.get("size") or 0) <= MAX_FILE
+                    and PurePosixPath(e["path"]).suffix.lower() not in SKIP_EXTS]
+        truncated = liste.truncated or len(fichiers) > MAX_FILES_SCANNED
+        fichiers = fichiers[:MAX_FILES_SCANNED]
+        trouves, bilan = (await agent.grep(
+            fichiers, q, ignore_case=True, max_file_bytes=MAX_FILE, max_hits=MAX_HITS,
+            width=2000, deadline_s=max(0.5, echeance - time.monotonic()))
+            if fichiers else ([], {}))
+    except AgentError as ex:
+        raise agent_http(ex, "Recherche") from None
+    truncated = truncated or bool(bilan.get("hits_truncated") or bilan.get("timed_out"))
+    q_lower = q.lower()
+    results = []
+    for h in trouves:
+        line = h["text"]
+        col = line.lower().find(q_lower) + 1 or 1
+        # Aperçu court centré sur la première occurrence.
+        preview = line.strip()
+        if len(preview) > 120:
+            start = max(0, col - 40)
+            preview = ('…' if start > 0 else '') + line[start:start + 120].strip() + '…'
+        results.append({"path": h["file"], "name": h["file"].rsplit("/", 1)[-1],
+                        "line": h["line"], "col": col, "preview": preview})
+    return {"items": results, "errors": liste.errors, "truncated": truncated}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2539,7 +2460,9 @@ def api_sandbox_read_docx(request: Request, path: str):
 # ─────────────────────────────────────────────────────────────────────────────
 @router.post("/api/sandbox/check-mtimes")
 async def api_sandbox_check_mtimes(request: Request):
-    """Compare l'état connu du frontend (mtime, taille, hash) avec le disque."""
+    """Compare l'état connu du frontend (mtime, taille, hash) avec le disque,
+    en deux requêtes groupées à l'agent : les états, puis les empreintes
+    utiles seulement (fichiers ≤ ``_CHECK_SHA_MAX``)."""
     user_id = require_user_id(request)
     try:
         body = await request.json()
@@ -2552,76 +2475,80 @@ async def api_sandbox_check_mtimes(request: Request):
     truncated = len(files) > _CHECK_MAX_FILES
     files = files[:_CHECK_MAX_FILES]
 
-    # AUDIT 2026-08-31 (passe 2) — ``resolve()`` + ``stat()`` (+ hash) hors
-    # de la boucle d'événements : threadpool.
-    def _scan():
-        root = _get_work_path(user_id)
-        if not root.exists():
-            return []
-        root_resolved = root.resolve()
-        stale = []
-        for item in files:
-            if not isinstance(item, dict):
-                continue
-            path = item.get("path")
-            client_mtime = item.get("mtime")
-            if not isinstance(path, str) or len(path) > 1024:
-                continue
-            if not isinstance(client_mtime, (int, float)) or isinstance(client_mtime, bool):
-                continue
-            client_size = item.get("size")
-            if not isinstance(client_size, int) or isinstance(client_size, bool):
-                client_size = None
-            client_sha = item.get("sha256")
-            client_sha = (client_sha.lower() if isinstance(client_sha, str)
-                          and _SHA_RE.match(client_sha.lower()) else None)
-            try:
-                full = (root / _strip_work_prefix(path)).resolve()
-            except (OSError, RuntimeError):
-                stale.append({"path": path, "unreadable": True})
-                continue
-            if not _path_inside(full, root_resolved):
-                continue
-            # Une ouverture O_PATH, sans suivre de lien : l'état et
-            # l'empreinte décrivent le même inode (2026-09-29).
-            try:
-                pfd = open_path_beneath(root_resolved, rel_under(root_resolved, full))
-            except (FileNotFoundError, SandboxPathError):
-                stale.append({"path": path, "missing": True})
-                continue
-            except OSError:
-                stale.append({"path": path, "unreadable": True})
-                continue
-            try:
-                st = os.fstat(pfd)
-                if not _stat.S_ISREG(st.st_mode):
-                    stale.append({"path": path, "not_file": True})
-                    continue
-                small = st.st_size <= _CHECK_SHA_MAX
-                same_mtime = abs(st.st_mtime - client_mtime) <= _SAVE_MTIME_EPS
-                changed = (not same_mtime
-                           or (client_size is not None and client_size != st.st_size))
-                disk_sha = None
-                if not changed and client_sha is not None and small:
-                    disk_sha = _sha_fd(pfd, _CHECK_SHA_MAX)
-                    if disk_sha is None:
-                        stale.append({"path": path, "unreadable": True})
-                        continue
-                    changed = disk_sha != client_sha
-                if changed and disk_sha is None and small:
-                    disk_sha = _sha_fd(pfd, _CHECK_SHA_MAX)
-            finally:
-                os.close(pfd)
-            if changed:
-                stale.append({
-                    "path":      path,
-                    "new_mtime": st.st_mtime,
-                    "size":      st.st_size,
-                    "sha256":    disk_sha,
-                })
-        return stale
+    root = _get_work_path(user_id)
+    demandes = []                  # (chemin du client, rel, mtime, taille, sha)
+    for item in files:
+        if not isinstance(item, dict):
+            continue
+        path = item.get("path")
+        client_mtime = item.get("mtime")
+        if not isinstance(path, str) or len(path) > 1024:
+            continue
+        if not isinstance(client_mtime, (int, float)) or isinstance(client_mtime, bool):
+            continue
+        client_size = item.get("size")
+        if not isinstance(client_size, int) or isinstance(client_size, bool):
+            client_size = None
+        client_sha = item.get("sha256")
+        client_sha = (client_sha.lower() if isinstance(client_sha, str)
+                      and _SHA_RE.match(client_sha.lower()) else None)
+        try:
+            rel = _rel_editeur(root, path)
+        except HTTPException:
+            continue                                # hors de la sandbox : ignoré
+        demandes.append((path, rel, client_mtime, client_size, client_sha))
+    if not demandes:
+        return {"stale": [], "truncated": truncated}
 
-    return {"stale": await asyncio.to_thread(_scan), "truncated": truncated}
+    agent = agent_for(user_id)
+    try:
+        etats = await agent.stat([d[1] for d in demandes])
+    except AgentError as ex:
+        raise agent_http(ex, "Vérification") from None
+    stale: List[dict] = []
+    a_hacher = []                                   # (indice, rel)
+    for n, ((path, rel, client_mtime, client_size, client_sha), e) in enumerate(zip(demandes, etats)):
+        kind = e.get("kind")
+        if kind == "missing" or (kind == "error" and e.get("error") == "not_dir"):
+            stale.append({"path": path, "missing": True})
+            continue
+        if kind == "error":
+            stale.append({"path": path, "unreadable": True})
+            continue
+        if kind != "file":
+            stale.append({"path": path, "not_file": True})
+            continue
+        taille, mtime = int(e.get("size") or 0), _mtime_s(int(e.get("mtime_ns") or 0))
+        changed = (abs(mtime - client_mtime) > _SAVE_MTIME_EPS
+                   or (client_size is not None and client_size != taille))
+        if taille <= _CHECK_SHA_MAX and (changed or client_sha is not None):
+            a_hacher.append((n, rel))
+        stale.append({"path": path, "new_mtime": mtime, "size": taille, "sha256": None,
+                      "_changed": changed, "_sha": client_sha})
+    if a_hacher:
+        try:
+            empreintes = await agent.stat([r for _n, r in a_hacher], hash=True,
+                                          hash_max=_CHECK_SHA_MAX)
+        except AgentError as ex:
+            raise agent_http(ex, "Vérification") from None
+        for (n, _r), e in zip(a_hacher, empreintes):
+            d = stale[n]
+            sha = e.get("sha256") if e.get("kind") == "file" else None
+            if sha is None:
+                if not d["_changed"]:               # empreinte nécessaire pour trancher
+                    stale[n] = {"path": d["path"], "unreadable": True}
+                continue
+            d["sha256"] = sha
+            if not d["_changed"] and d["_sha"] is not None:
+                d["_changed"] = sha != d["_sha"]
+    rendu = []
+    for d in stale:
+        if "_changed" in d:
+            if not d.pop("_changed"):
+                continue
+            d.pop("_sha")
+        rendu.append(d)
+    return {"stale": rendu, "truncated": truncated}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

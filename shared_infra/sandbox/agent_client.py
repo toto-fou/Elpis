@@ -133,11 +133,12 @@ class AgentClient:
 
     async def list(self, path: str = "", *, depth: int = 1, max_entries: int = 20000,
                    hidden: bool = True, prune: Iterable[str] = (), exclude: Iterable[str] = (),
-                   deadline_s: float = 30.0) -> AgentListing:
+                   deadline_s: float = 30.0, name_contains: str = "") -> AgentListing:
         entries: List[Dict[str, Any]] = []
         async with self._flux("POST", "/v1/list", json={
                 "path": path, "depth": depth, "max_entries": max_entries, "hidden": hidden,
-                "prune": list(prune), "exclude": list(exclude), "deadline_s": deadline_s}) as r:
+                "prune": list(prune), "exclude": list(exclude), "deadline_s": deadline_s,
+                "name_contains": name_contains}) as r:
             async for obj in _lignes(r, (1 << 20) + max_entries * 1024):
                 if "error" in obj:
                     raise AgentError(str(obj["error"]), str(obj.get("message") or ""))
@@ -153,7 +154,8 @@ class AgentClient:
 
     async def grep(self, paths: Iterable[str], needle: str, *, ignore_case: bool = True,
                    max_file_bytes: int = 20 << 20, max_hits: int = 2000,
-                   files_only: bool = False) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+                   files_only: bool = False, width: int = 260,
+                   deadline_s: float = 600.0) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """(lignes trouvées, bilan : ``hits_truncated``, ``skipped_large``,
         ``skipped_binary``) dans les fichiers ``paths`` ; ``files_only`` : un
         ``{"file"}`` par fichier trouvé."""
@@ -163,8 +165,9 @@ class AgentClient:
         async with self._flux("POST", "/v1/grep", json={
                 "paths": chemins, "needle": needle, "ignore_case": ignore_case,
                 "max_file_bytes": max_file_bytes, "max_hits": max_hits,
-                "files_only": files_only}) as r:
-            async for obj in _lignes(r, (1 << 20) + max_hits * 2048):
+                "files_only": files_only, "width": width, "deadline_s": deadline_s}) as r:
+            async for obj in _lignes(r, (1 << 20) + max_hits * (width * 6 + 1024),
+                                     max(_LIGNE_MAX, width * 6 + 1024)):
                 if "error" in obj:
                     raise AgentError(str(obj["error"]), str(obj.get("message") or ""))
                 if obj.get("done"):

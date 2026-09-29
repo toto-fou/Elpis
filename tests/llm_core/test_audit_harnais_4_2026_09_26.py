@@ -478,7 +478,6 @@ def test_ecriture_ne_suit_pas_un_dossier_lien(fs, tmp_path):
 def git(tmp_path, monkeypatch):
     import llm_core.tools.git_tools as git_tools
     monkeypatch.setenv("APP_SANDBOX_DIR", str(tmp_path))
-    monkeypatch.setattr(git_tools, "_grant_sandbox_access", lambda *a, **k: None)
     mcp = _FakeMCP()
     git_tools.register(mcp, tmp_path)
     work = tmp_path / "guest" / "work"

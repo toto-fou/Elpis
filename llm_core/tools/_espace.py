@@ -14,6 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
+from shared_infra.sandbox import git_ops
 from shared_infra.sandbox.agent_client import AgentError, AgentListing, AgentRead
 
 from ._exec_bridge import _run_async, sandbox_for
@@ -60,6 +61,24 @@ class Espace:
 
     def fsop(self, op: str, **kw: Any) -> Dict[str, Any]:
         return _run_async(self._agent.fsop(op, **kw))
+
+    # git, exécuté par l'agent (``shared_infra.sandbox.git_ops``, L4.4)
+    def git(self, rel: str, args: Iterable[str], **kw: Any) -> "git_ops.GitResult":
+        return _run_async(git_ops.run(self._agent, rel, args, **kw))
+
+    def git_reseau(self, rel: str, args: Iterable[str], **kw: Any) -> "git_ops.GitResult":
+        """Commande réseau par le relais authentifiant (``git_ops.run_network``)."""
+        return _run_async(git_ops.run_network(self._agent, rel, args, **kw))
+
+    def git_pull(self, rel: str, remote: str, branch: str, mode: str,
+                 **kw: Any) -> "git_ops.GitResult":
+        return _run_async(git_ops.pull(self._agent, rel, remote, branch, mode, **kw))
+
+    def git_remote_url(self, rel: str, remote: str, *, push: bool = False) -> str:
+        return _run_async(git_ops.remote_url(self._agent, rel, remote, push=push))
+
+    def git_depots(self, **kw: Any) -> List[str]:
+        return _run_async(git_ops.find_repos(self._agent, **kw))
 
     def jumeau_unicode(self, rel: str, max_scan: int = 500) -> Optional[str]:
         """Avertissement si créer ``rel`` introduit un nom qui ne diffère d'un

@@ -39,8 +39,6 @@ class _FakeMCP:
 @pytest.fixture()
 def git(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_SANDBOX_DIR", str(tmp_path))
-    # Le ré-alignement d'ownership (docker exec) n'a pas sa place en test.
-    monkeypatch.setattr(git_tools, "_grant_sandbox_access", lambda *a, **k: None)
     mcp = _FakeMCP()
     git_tools.register(mcp, tmp_path)
     work = tmp_path / "guest" / "work"
@@ -59,6 +57,7 @@ def _init_repo(tools, name="proj"):
 def test_current_branch_on_unborn_head(tmp_path):
     rp = tmp_path / "r"
     subprocess.run(["git", "init", "-q", "-b", "main", str(rp)], check=True)
+    git_tools._remember_work_root(tmp_path, "guest")   # git par l'agent de cette racine
     assert git_tools._head_is_unborn(rp) is True
     assert git_tools._current_branch(rp) == "main"
     subprocess.run(["git", "switch", "-q", "-c", "agent/probe"], cwd=rp, check=True)
@@ -234,20 +233,6 @@ def test_init_error_hints_no_longer_mention_git_repos(git):
     assert "git_repos" not in (dup.get("fix") or "")
 
 
-# ── ownership : le grant est bien déclenché sur les écritures host-side ──
-
-def test_grant_called_on_init_and_commit(git, monkeypatch):
-    tools, work = git
-    calls = []
-    monkeypatch.setattr(git_tools, "_grant_sandbox_access",
-                        lambda u, sb, t: calls.append(Path(t).name))
-    _init_repo(tools)
-    assert calls == ["proj"]
-    (work / "proj" / "a.txt").write_text("v1\n")
-    tools["git_commit"](None, repo="proj", message="Init")
-    assert calls == ["proj", "proj"]
-
-
 # ── doublon unicode signalé à l'init ─────────────────────────────────────
 
 def test_init_warns_on_unicode_twin(git):
@@ -291,6 +276,11 @@ def test_start_work_local_succeeds_despite_ssrf_blocked_remote(git):
 
 # ── AUDIT 2026-08-02 — git_submit : erreur de push EXPLICITE (jamais vide) ────
 
+def _branche(work):
+    return subprocess.run(["git", "branch", "--show-current"], cwd=(work / "proj"),
+                          capture_output=True, text=True).stdout.strip()
+
+
 def _prep_agent_branch_with_remote(tools, work, remote="http://10.0.0.9/r.git"):
     _init_repo(tools)
     (work / "proj" / "a.txt").write_text("v1\n")
@@ -311,12 +301,10 @@ def test_submit_push_timeout_is_explicit(git, monkeypatch):
     tools, work = git
     _prep_agent_branch_with_remote(tools, work)
 
-    orig = git_tools._run_cmd
-    def fake_run(cwd, cmd, *a, **kw):
-        if len(cmd) >= 2 and cmd[0] == "git" and cmd[1] == "push":
-            return git_tools._err("timeout", hint="Exceeded 30s.", cmd=cmd, returncode=124)
-        return orig(cwd, cmd, *a, **kw)
-    monkeypatch.setattr(git_tools, "_run_cmd", fake_run)
+    def fake_net(cwd, args, username, **kw):
+        assert args[0] == "push" and kw["push_refs"] == {"refs/heads/" + _branche(work)}
+        return git_tools._err("timeout", hint="Exceeded 30s.", cmd=["git", *args], returncode=124)
+    monkeypatch.setattr(git_tools, "_run_network", fake_net)
 
     r = tools["git_submit"](None, repo="proj", title="Ship it")
     assert not r.get("ok"), r
@@ -333,12 +321,9 @@ def test_submit_push_failure_never_empty(git, monkeypatch):
     tools, work = git
     _prep_agent_branch_with_remote(tools, work)
 
-    orig = git_tools._run_cmd
-    def fake_run(cwd, cmd, *a, **kw):
-        if len(cmd) >= 2 and cmd[0] == "git" and cmd[1] == "push":
-            return git_tools._ok(cmd=cmd, returncode=1, stdout="", stderr="", duration_ms=1)
-        return orig(cwd, cmd, *a, **kw)
-    monkeypatch.setattr(git_tools, "_run_cmd", fake_run)
+    def fake_net(cwd, args, username, **kw):
+        return git_tools._ok(cmd=["git", *args], returncode=1, stdout="", stderr="", duration_ms=1)
+    monkeypatch.setattr(git_tools, "_run_network", fake_net)
 
     r = tools["git_submit"](None, repo="proj", title="Ship it")
     assert not r.get("ok"), r
@@ -348,21 +333,21 @@ def test_submit_push_failure_never_empty(git, monkeypatch):
     assert ("aucune sortie" in fix) or ("silencieux" in fix), r
 
 
-# ── AUDIT 2026-08-02 (Part B) — git_clone : credentials via connecteur (askpass)
+# ── AUDIT 2026-08-02 (Part B) — git_clone : credentials via connecteur
 # Le modèle ne saisit JAMAIS de token : il est résolu depuis les Connecteurs Git
-# et injecté via GIT_ASKPASS, jamais dans l'URL/argv.
+# et ajouté par le relais de l'hôte (L4.4), jamais dans l'URL, l'argv ni la
+# sandbox.
 
 def _mock_net_capture(monkeypatch, returncode=0, stdout="", stderr=""):
     cap = {}
-    def fake_net(sb, cmd, username, *, timeout=120, env_extra=None):
-        cap["cmd"] = list(cmd)
-        cap["env"] = dict(env_extra or {})
+    def fake_net(cwd, args, username, *, url, push_refs=None, auth=None, timeout=120):
+        cap.update(args=list(args), auth=auth, url=url)
         return git_tools._ok(returncode=returncode, stdout=stdout, stderr=stderr)
-    monkeypatch.setattr(git_tools, "_run_git_network", fake_net)
+    monkeypatch.setattr(git_tools, "_run_network", fake_net)
     return cap
 
 
-def test_clone_injects_connector_credentials_via_askpass(git, monkeypatch):
+def test_clone_uses_connector_credentials_through_the_relay(git, monkeypatch):
     tools, work = git
     import shared_infra.db as _db
     import shared_infra.git.resolver as _resolver
@@ -378,14 +363,12 @@ def test_clone_injects_connector_credentials_via_askpass(git, monkeypatch):
     r = tools["git_clone"](None, url="http://10.0.0.42:3000/bob/repo.git",
                            into_path="clone_a")
     assert r.get("ok"), r
-    # Token injecté par GIT_ASKPASS, présent NI dans l'URL NI dans l'argv.
-    assert cap["env"].get("GIT_ASKPASS")
-    assert cap["env"].get("GIT_ASKPASS_PASS") == "SEKRIT-TOKEN"
-    assert cap["env"].get("GIT_ASKPASS_USER") == "bob"
-    assert "SEKRIT-TOKEN" not in " ".join(cap["cmd"])
+    # Token remis au relais de l'hôte, présent NI dans l'URL NI dans l'argv.
+    assert cap["auth"] == ("bob", "SEKRIT-TOKEN")
+    assert "SEKRIT-TOKEN" not in " ".join(cap["args"])
 
 
-def test_clone_without_connector_has_no_askpass(git, monkeypatch):
+def test_clone_without_connector_has_no_credentials(git, monkeypatch):
     tools, work = git
     import shared_infra.db as _db
     monkeypatch.setattr("shared_infra.accounts.users.get_user", lambda u: None)   # pas d'user → pas de cred
@@ -394,8 +377,7 @@ def test_clone_without_connector_has_no_askpass(git, monkeypatch):
     r = tools["git_clone"](None, url="http://10.0.0.42:3000/bob/pub.git",
                            into_path="clone_b")
     assert r.get("ok"), r
-    assert "GIT_ASKPASS" not in cap["env"]
-    assert cap["env"].get("GIT_TERMINAL_PROMPT") == "0"
+    assert cap["auth"] is None
 
 
 def test_clone_private_repo_error_points_to_connector(git, monkeypatch):
@@ -429,9 +411,9 @@ def test_clone_with_explicit_token_uses_and_saves(git, monkeypatch):
                            into_path="clone_tok", username="alice", token="TOK-XYZ")
     assert r.get("ok"), r
     assert r.get("credentials_saved") is True
-    # token injecté via askpass, ABSENT de l'URL/argv
-    assert cap["env"].get("GIT_ASKPASS_PASS") == "TOK-XYZ"
-    assert "TOK-XYZ" not in " ".join(cap["cmd"])
+    # token remis au relais, ABSENT de l'URL/argv
+    assert cap["auth"] == ("alice", "TOK-XYZ")
+    assert "TOK-XYZ" not in " ".join(cap["args"])
     # persisté keyé sur l'URL, pour ce user
     assert saved.get("tok") == "TOK-XYZ" and saved.get("uid") == 5
     assert "10.0.0.42:3000" in saved.get("url", "")

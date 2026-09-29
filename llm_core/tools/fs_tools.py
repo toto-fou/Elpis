@@ -1019,12 +1019,12 @@ def _parse_since(value: str) -> Optional[float]:
     return None
 
 
-def _git_status_map(sb: Path, root: Path) -> Tuple[Dict[str, str], Optional[str]]:
+def _git_status_map(esp: Espace, sb: Path, root: Path) -> Tuple[Dict[str, str], Optional[str]]:
     """Run `git status --porcelain=v1` from inside `root`: ``(map, None)``,
     the map going from paths RELATIVE TO ``root`` to the 2-char status code
     (' M', '??', 'A '), or ``({}, reason)`` when no status could be read (not
-    a repository, repository refused, git unavailable or too slow) — an
-    empty map alone would read as a clean tree. Bounded (2 s per git call).
+    a repository, git unavailable or too slow) — an empty map alone would
+    read as a clean tree. Bounded (2 s per git call).
 
     AUDIT 2026-08-23 — RÉ-ANCRAGE sur le dossier listé. Le format porcelain
     émet TOUJOURS des chemins relatifs à la RACINE DU DÉPÔT, jamais au cwd
@@ -1032,62 +1032,45 @@ def _git_status_map(sb: Path, root: Path) -> Tuple[Dict[str, str], Optional[str]
     indexent avec ``c.relative_to(root)`` — le dossier LISTÉ. Dès que ``root``
     n'était pas la racine du dépôt (le cas nominal : lister un sous-dossier de
     code), aucune clé ne pouvait correspondre : l'annotation disparaissait en
-    silence et la map ressortait vide. L'agent en concluait que ``src/`` était
-    propre, donc que ses modifications n'avaient pas été enregistrées, et les
-    réappliquait. On retire donc le préfixe rendu par ``git rev-parse
-    --show-prefix``.
+    silence et la map ressortait vide. On retire donc le préfixe rendu par
+    ``git rev-parse --show-prefix``.
 
-    2026-09-29 — lancé comme tout git hôte sur un dépôt de sandbox : prison
-    ``run_host_git``, environnement ``host_git_env`` (pas de config globale
-    de l'hôte, pas de remontée au-dessus de la zone de travail) et dépôt
-    refusé d'emblée si sa config ferait exécuter une commande (``status``
-    lance ``core.fsmonitor``, les filtres…).
+    L4.4 — git tourne dans la sandbox, par son agent (``Espace.git``).
     """
-    try:
-        from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git
-        env = host_git_env(cwd=sb)
-        refusal = repo_refusal(root, env)
-        if refusal:
-            return {}, f"repository refused ({refusal[0]}: {refusal[1]})"
+    rel = rel_under(sb, root)
+    rel = "" if rel == "." else rel
 
-        def _why(p) -> str:
-            lines = (p.stderr or "").strip().splitlines()
-            return (lines[-1] if lines else f"git exited with {p.returncode}")[:200]
-        _pp = run_host_git(
-            ["git", "rev-parse", "--show-prefix"],
-            cwd=root, env=env, capture_output=True, text=True,
-            timeout=2, check=False,
-        )
-        if _pp.returncode != 0:
-            return {}, _why(_pp)
-        _prefix = (_pp.stdout or "").strip()
-        proc = run_host_git(
-            ["git", "status", "--porcelain=v1"],
-            cwd=root, env=env, capture_output=True, text=True,
-            timeout=2, check=False,
-        )
+    def _why(r) -> str:
+        if r.timed_out:
+            return "git status timed out"
+        lines = (r.stderr or "").strip().splitlines()
+        return (lines[-1] if lines else f"git exited with {r.returncode}")[:200]
+    try:
+        pp = esp.git(rel, ["rev-parse", "--show-prefix"], timeout_s=2, max_out=1 << 16)
+        if pp.returncode != 0:
+            return {}, _why(pp)
+        _prefix = pp.stdout.strip()
+        proc = esp.git(rel, ["status", "--porcelain=v1"], timeout_s=2, max_out=4 << 20)
         if proc.returncode != 0:
             return {}, _why(proc)
-        out: Dict[str, str] = {}
-        for line in (proc.stdout or "").splitlines():
-            if len(line) < 4:
-                continue
-            code = line[:2]
-            path = line[3:].strip()
-            # Handle renames: "R  old -> new"
-            if " -> " in path:
-                path = path.split(" -> ", 1)[1]
-            # Ré-ancrage : le porcelain parle depuis la racine du dépôt.
-            if _prefix:
-                if not path.startswith(_prefix):
-                    continue          # hors du dossier listé
-                path = path[len(_prefix):]
-            out[path] = code
-        return out, None
-    except subprocess.TimeoutExpired:
-        return {}, "git status timed out"
-    except OSError as e:
-        return {}, f"git unavailable ({e.__class__.__name__})"
+    except AgentError as e:
+        return {}, f"git unavailable ({e.code})"
+    out: Dict[str, str] = {}
+    for line in proc.stdout.splitlines():
+        if len(line) < 4:
+            continue
+        code = line[:2]
+        path = line[3:].strip()
+        # Handle renames: "R  old -> new"
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        # Ré-ancrage : le porcelain parle depuis la racine du dépôt.
+        if _prefix:
+            if not path.startswith(_prefix):
+                continue          # hors du dossier listé
+            path = path[len(_prefix):]
+        out[path] = code
+    return out, None
 
 
 # ── Helpers for anchor/indent edits ─────────────────────────────────────────
@@ -2932,7 +2915,7 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
             next_cursor = page[-1][0] if truncated and page else ""
 
             # Optional: fetch git status map once (bounded, cf. _git_status_map)
-            git_status, git_status_error = (_git_status_map(sb, root) if include_git_status
+            git_status, git_status_error = (_git_status_map(esp, sb, root) if include_git_status
                                             else ({}, None))
 
             if details:

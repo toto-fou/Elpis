@@ -184,11 +184,11 @@ def _repo(path):
 
 
 def test_sous_module_local_jamais_rapatrie(depots, tmp_path, monkeypatch):
-    """Refusé par la prison (dépôt hors zone invisible) comme, sans elle, par
-    ``protocol.file.allow=never``. ``GIT_ALLOW_PROTOCOL=file`` dans
-    l'environnement du service : un git qui en hériterait rapatrierait le
-    sous-module (git récent le refuse sinon de lui-même)."""
-    from shared_infra.sandbox.git_env import host_git_env, run_host_git
+    """git tourne dans la sandbox (L4.4) sans l'environnement ``GIT_*`` du
+    service : avec ``GIT_ALLOW_PROTOCOL=file`` hérité, il rapatrierait un
+    sous-module local ; git refuse alors de lui-même ``file://`` pour un
+    sous-module."""
+    from llm_core.tools._espace import Espace
     monkeypatch.setenv("GIT_ALLOW_PROTOCOL", "file")
     dehors = _repo(tmp_path / "dehors")                  # hors de la zone de travail
     repo = _repo(depots / "repo")
@@ -196,8 +196,7 @@ def test_sous_module_local_jamais_rapatrie(depots, tmp_path, monkeypatch):
     _git(repo, "commit", "-qm", "sous-module")
     shutil.rmtree(repo / "sub")
     shutil.rmtree(repo / ".git" / "modules")
-    r = run_host_git(["git", "submodule", "update", "--init"], cwd=repo,
-                     env=host_git_env(cwd=depots), capture_output=True, text=True, timeout=30)
+    r = Espace("alice", depots).git("repo", ["submodule", "update", "--init"], timeout_s=30)
     assert r.returncode != 0
     assert not (repo / "sub" / "a.txt").exists()
 
@@ -206,5 +205,6 @@ def test_pilote_gitattributes_absent_ne_casse_pas_le_statut(depots):
     repo = _repo(depots / "repo")
     (repo / ".gitattributes").write_text("*.txt filter=absent diff=absent\n")
     (repo / "a.txt").write_text("deux\n")
-    statut, err = fs_tools._git_status_map(depots, repo)
+    from llm_core.tools._espace import Espace
+    statut, err = fs_tools._git_status_map(Espace("alice", depots), depots, repo)
     assert err is None and statut.get("a.txt") == " M"

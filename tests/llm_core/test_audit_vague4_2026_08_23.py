@@ -187,6 +187,7 @@ def test_le_statut_git_est_reancre_sur_le_dossier_liste():
 
 @pytest.mark.skipif(not os.environ.get("PATH"), reason="git requis")
 def test_un_sous_dossier_remonte_bien_son_statut(tmp_path, monkeypatch):
+    from llm_core.tools._espace import Espace
     from llm_core.tools.fs_tools import _git_status_map
     from shared_infra import config
     monkeypatch.setattr(config, "SANDBOX_DIR", tmp_path)
@@ -208,24 +209,26 @@ def test_un_sous_dossier_remonte_bien_son_statut(tmp_path, monkeypatch):
     (repo / "src" / "app.py").write_text("v2\n")
     (repo / "src" / "new.py").write_text("neuf\n")
 
-    depuis_la_racine, err = _git_status_map(sb, repo)
+    esp = Espace("alice", sb)
+    depuis_la_racine, err = _git_status_map(esp, sb, repo)
     assert err is None
     assert "src/app.py" in depuis_la_racine
 
-    depuis_le_sous_dossier, _err = _git_status_map(sb, repo / "src")
+    depuis_le_sous_dossier, _err = _git_status_map(esp, sb, repo / "src")
     assert "app.py" in depuis_le_sous_dossier, (
         f"map vide ou mal ancrée : {depuis_le_sous_dossier} — l'agent conclut "
         f"que src/ est propre et réapplique ses modifications")
     assert "new.py" in depuis_le_sous_dossier
 
-    # Une config qui ferait exécuter une commande à ``status`` : dépôt refusé.
+    # ``core.fsmonitor`` du dépôt : neutralisé par l'agent (L4.4), le statut
+    # reste lisible et la commande n'est pas lancée.
     witness = tmp_path / "fsmonitor-lance"
     subprocess.run(["git", "config", "core.fsmonitor", f"touch {witness}; false"],
                    cwd=repo, check=True, env=env, capture_output=True)
-    statut, err = _git_status_map(sb, repo)
-    assert statut == {} and "refused" in err          # jamais un « arbre propre »
+    statut, err = _git_status_map(esp, sb, repo)
+    assert err is None and "src/app.py" in statut
     assert not witness.exists()
-    assert _git_status_map(sb, sb)[1]                  # pas un dépôt : raison donnée
+    assert _git_status_map(esp, sb, sb)[1]             # pas un dépôt : raison donnée
 
 
 # ── 55. skill_add_file rend un chemin résoluble ─────────────────────────

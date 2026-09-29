@@ -155,5 +155,22 @@ async def pull(agent: Any, cwd: str, remote: str, branch: str = "", mode: str = 
                      f.duration_ms + last.duration_ms)
 
 
-__all__ = ["REMOTE_SCHEMES", "GitResult", "RelayRefused", "connector_hosts", "pull",
-           "remote_block_reason", "remote_url", "remote_urls", "run", "run_network"]
+_NON_PARCOURUS = ("node_modules", "__pycache__", ".venv", "venv")
+
+
+async def find_repos(agent: Any, *, depth: int = 3, limit: int = 50) -> List[str]:
+    """Dépôts (dossier qui contient ``.git``) jusqu'à ``depth`` niveaux sous
+    /work, racine exclue ; un dépôt dans un dépôt n'est pas rendu. Chemins
+    relatifs à /work, triés, ``limit`` au plus."""
+    liste = await agent.list("", depth=depth + 1, max_entries=20000, hidden=True,
+                             prune=[".git"], exclude=list(_NON_PARCOURUS),
+                             name_contains=".git", deadline_s=10)
+    depots = sorted({e["path"].rsplit("/", 1)[0] for e in liste.entries
+                     if "/" in e["path"] and e["path"].rsplit("/", 1)[1] == ".git"
+                     and e["kind"] in ("dir", "file")})
+    hauts = [d for d in depots if not any(d.startswith(o + "/") for o in depots)]
+    return hauts[:limit]
+
+
+__all__ = ["REMOTE_SCHEMES", "GitResult", "RelayRefused", "connector_hosts", "find_repos",
+           "pull", "remote_block_reason", "remote_url", "remote_urls", "run", "run_network"]

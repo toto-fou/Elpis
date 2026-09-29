@@ -34,6 +34,12 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Intégration continue** (GitHub Actions) : lint (Ruff), typage (mypy),
   suite complète sur SQLite (Python 3.11 et 3.13), PostgreSQL 17 et
   MariaDB 11.4, tests front compris.
+- **Exploitation** : `./elpis backup` (archive de la console, écrite dans
+  `backups/`) et `./elpis upgrade` (sauvegarde, `git pull --ff-only`,
+  dépendances, redémarrage, diagnostic) ;
+  [docs/exploitation.md](docs/exploitation.md) (retour arrière, sauvegardes,
+  supervision, compatibilité), [ROADMAP.md](ROADMAP.md), modèle de menace
+  dans [SECURITY.md](SECURITY.md).
 
 ### Modifications
 

@@ -405,7 +405,9 @@ class AgentClient:
         # Données incompressibles : l'archive dépasse un peu les fichiers
         # (en-têtes, noms jusqu'à 4 Kio par entrée).
         maxi = max_bytes + max_bytes // 64 + max_files * 10240 + (1 << 20)
-        async with self._flux("POST", "/v1/archive", delai_s=_DELAI_ARCHIVE_S, json={
+        # Le plan (parcours de ``deadline_s`` au plus) précède le premier octet.
+        attente = httpx.Timeout(max(_ATTENTE_S, deadline_s + 30), connect=5)
+        async with self._flux("POST", "/v1/archive", delai_s=_DELAI_ARCHIVE_S, timeout=attente, json={
                 "paths": chemins, "base": base, "prefix": prefix, "format": format,
                 "dirs": dirs, "walk": walk, "strict": strict, "max_bytes": max_bytes,
                 "max_files": max_files, "deadline_s": deadline_s}) as r:

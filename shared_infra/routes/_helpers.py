@@ -55,7 +55,8 @@ from shared_infra.config import (
     SANDBOX_DIR,
     config_view,
 )
-from shared_infra.sandbox.paths import SandboxPathError, open_leaf, walk_beneath
+from shared_infra.sandbox.agent_client import AGENT_RUN_DIR, RELAY_DIR
+from shared_infra.sandbox.paths import WORK_SUBDIR, SandboxPathError, open_leaf, walk_beneath
 from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
@@ -769,12 +770,16 @@ def _snapshot_sqlite(src: Path, dst: Path) -> None:
         source.close()
 
 
+def _date_zip(t: float) -> Any:
+    """Date d'une entrée zip, bornée à la plage du format (1980-2107)."""
+    return min(max(time.localtime(t)[:6], (1980, 1, 1, 0, 0, 0)), (2107, 12, 31, 23, 59, 58))
+
+
 def _zip_copy(zf: zipfile.ZipFile, arcname: str, src, st: Optional[os.stat_result] = None) -> None:
     """Copie en flux le fichier ouvert ``src`` dans ``zf`` : date bornée à la
     plage du format zip (1980-2107), mode conservé."""
     st = st or os.fstat(src.fileno())
-    zi = zipfile.ZipInfo(arcname, min(max(time.localtime(st.st_mtime)[:6], (1980, 1, 1, 0, 0, 0)),
-                                      (2107, 12, 31, 23, 59, 58)))
+    zi = zipfile.ZipInfo(arcname, _date_zip(st.st_mtime))
     zi.compress_type = zipfile.ZIP_DEFLATED
     zi.external_attr = (st.st_mode & 0xFFFF) << 16
     with zf.open(zi, "w", force_zip64=st.st_size >= zipfile.ZIP64_LIMIT) as dst:
@@ -784,6 +789,69 @@ def _zip_copy(zf: zipfile.ZipFile, arcname: str, src, st: Optional[os.stat_resul
 # Sous-dossiers de ``user_db/`` propres à l'exécution en cours (journaux,
 # PID) : ni sauvegardés ni restaurés.
 _RUNTIME_DIRS = ("logs", "run")
+
+# /work d'un compte sauvegardé par l'agent de sa sandbox (L4.5), en flux : la
+# borne n'est là que pour l'agent (rien n'est gardé en mémoire).
+_BACKUP_WORK_MAX_BYTES = 1 << 40
+_BACKUP_WORK_MAX_ENTREES = 5_000_000
+
+
+def _comptes_des_sandboxes() -> Dict[str, int]:
+    """Dossier de sandbox (``safe_sandbox_name``) → identifiant du compte ;
+    vide si la base des comptes est illisible."""
+    from shared_infra.accounts.users import get_all_users
+    from shared_infra.config import safe_sandbox_name
+    try:
+        return {safe_sandbox_name(u["username"]): int(u["id"]) for u in get_all_users()}
+    except Exception:                                        # noqa: BLE001
+        logger.warning("[backup] comptes illisibles : aucun /work par l'agent", exc_info=True)
+        return {}
+
+
+def _zip_work(zf: zipfile.ZipFile, user_id: int, arcroot: str, skipped: list) -> None:
+    """Fichiers ordinaires du /work d'un compte, lus par l'agent de sa
+    sandbox (démarrée au besoin), écrits dans ``zf`` sous ``arcroot`` ;
+    liens, fichiers spéciaux et illisibles consignés dans ``skipped``.
+    Appelé hors boucle d'événements (thread de la sauvegarde, CLI)."""
+    from shared_infra.sandbox.agent_client import AgentError
+    from shared_infra.sandbox.exec_bridge import agent_for
+
+    async def copier() -> dict:
+        dest = None
+        try:
+            async with agent_for(user_id).archive(
+                    [""], format="raw", strict=False, max_bytes=_BACKUP_WORK_MAX_BYTES,
+                    max_files=_BACKUP_WORK_MAX_ENTREES, deadline_s=240) as flux:
+                async for x in flux:
+                    if isinstance(x, bytes):
+                        if dest is None:
+                            raise AgentError("bad_response", "octets hors d'une entrée")
+                        dest.write(x)
+                    elif "entry" in x:
+                        if dest is not None:
+                            dest.close()
+                        zi = zipfile.ZipInfo(f"{arcroot}/{x['entry']}",
+                                             _date_zip(int(x.get("mtime_ns") or 0) / 1e9))
+                        zi.compress_type = zipfile.ZIP_DEFLATED
+                        zi.external_attr = (0o100000 | int(x.get("mode") or 0) & 0o7777) << 16
+                        dest = zf.open(zi, "w",
+                                       force_zip64=int(x.get("size") or 0) >= zipfile.ZIP64_LIMIT)
+                return flux.fin or {}
+        finally:
+            if dest is not None:
+                dest.close()
+    try:
+        fin = asyncio.run(copier())
+    except AgentError as e:
+        skipped.append(f"{arcroot} — {e.code}: {e.message}")
+        return
+    for omis in fin.get("skipped") or []:
+        skipped.append(f"{arcroot}/{omis.get('path')} — {omis.get('error')}")
+    reste = int(fin.get("omitted") or 0) - len(fin.get("skipped") or [])
+    if reste > 0:
+        skipped.append(f"{arcroot} — {reste} autre(s) entrée(s) omise(s)")
+    if fin.get("truncated"):
+        skipped.append(f"{arcroot} — sauvegarde tronquée ({_BACKUP_WORK_MAX_ENTREES} entrées au plus)")
 
 
 def _make_backup_zip(scope: str, directory: Optional[str] = None) -> tuple:
@@ -841,14 +909,26 @@ def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
                         continue
                     _safe_write(abs_p, arcroot + "/" + abs_p.relative_to(p).as_posix())
 
-        def _add_beneath(p: Path, arcroot: str):
-            # Arbre écrit par les conteneurs : parcouru et lu par descripteurs,
-            # sans suivre de lien (2026-09-29) ; liens et fichiers spéciaux
-            # sont consignés, jamais lus.
+        def _add_sandboxes(p: Path, arcroot: str):
+            # Ce que l'hôte possède (miroir des skills, mémoire, snapshots…)
+            # est parcouru et lu par descripteurs, sans suivre de lien
+            # (2026-09-29) ; liens et fichiers spéciaux sont consignés, jamais
+            # lus. Le /work de chaque compte (``P/work``) passe par l'agent de
+            # sa sandbox (L4.5), jamais par l'hôte ; le dossier du socket de
+            # l'agent n'est pas sauvegardé.
             if not p.is_dir():
                 return
+            travaux = []
             try:
-                for rel_dir, _dirs, names, dfd in walk_beneath(p):
+                for rel_dir, dirs, names, dfd in walk_beneath(p):
+                    if not rel_dir and RELAY_DIR in dirs:
+                        dirs.remove(RELAY_DIR)                    # sockets du relais Git
+                    if rel_dir and "/" not in rel_dir:            # P = <racine>/<compte>
+                        for d in (WORK_SUBDIR, AGENT_RUN_DIR):
+                            if d in dirs:
+                                dirs.remove(d)
+                                if d == WORK_SUBDIR:
+                                    travaux.append(rel_dir)
                     for name in names:
                         rel = f"{rel_dir}/{name}" if rel_dir else name
                         try:
@@ -858,6 +938,12 @@ def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
                             skipped.append(f"{p / rel} — {e.__class__.__name__}: {e}")
             except (OSError, SandboxPathError) as e:
                 skipped.append(f"{p} — {e.__class__.__name__}: {e}")
+            comptes = _comptes_des_sandboxes() if travaux else {}
+            for nom in travaux:
+                if nom in comptes:
+                    _zip_work(zf, comptes[nom], f"{arcroot}/{nom}/{WORK_SUBDIR}", skipped)
+                else:
+                    skipped.append(f"{p / nom / WORK_SUBDIR} — compte inconnu : /work non sauvegardé")
 
         if scope in ("full", "db"):
             db_file = Path(_DB_PATH)
@@ -908,7 +994,7 @@ def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
                           skip_dirs=_RUNTIME_DIRS)
 
         if scope in ("full", "sandboxes"):
-            _add_beneath(Path(_SANDBOX_DIR), "sandboxes")
+            _add_sandboxes(Path(_SANDBOX_DIR), "sandboxes")
 
         if scope in ("full", "mcp"):
             _add_path(_MCP_DIR, "mcp_custom_servers")

@@ -43,7 +43,8 @@ from shared_infra.routes._legacy import (
 # below register on the SAME singleton router instances mounted by
 # ``app.py`` / ``admin_app.py``.
 from shared_infra.routes.admin._state import admin_router, internal_router
-from shared_infra.sandbox.paths import write_beneath
+from shared_infra.sandbox.agent_client import AGENT_RUN_DIR, AgentError
+from shared_infra.sandbox.paths import WORK_SUBDIR, write_beneath
 from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
@@ -441,6 +442,28 @@ def _restore_db_from(source: Path, db_path: Path) -> None:
         src.close()
 
 
+def _restaurer_work(zf: zipfile.ZipFile, user_id: int, lot: list, restored: list,
+                    errors: list) -> None:
+    """Fichiers ``(entrée, chemin sous /work)`` du /work d'un compte, écrits
+    par l'agent de sa sandbox (démarrée au besoin), jamais par l'hôte. Appelé
+    hors boucle d'événements (thread de la restauration)."""
+    from shared_infra.sandbox.exec_bridge import agent_for
+
+    async def ecrire() -> None:
+        agent = agent_for(user_id)
+        for i, (entry, rel) in enumerate(lot):
+            try:
+                await agent.write(rel, zf.read(entry), parents=True)
+                restored.append(entry)
+            except AgentError as e:
+                if e.status:                              # refus sur ce fichier
+                    errors.append(f"{entry}: {e.code}")
+                    continue
+                errors.extend(f"{n}: {e.code}" for n, _r in lot[i:])   # agent injoignable
+                return
+    asyncio.run(ecrire())
+
+
 def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
                       user_db_dir: Path, sandbox_dir: Path,
                       mcp_dir: Path) -> tuple:
@@ -512,10 +535,26 @@ def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
                 _ecrire(entry, user_db_dir, rel, zf.read(entry), prive=True)
 
         if scope in ("full", "sandboxes"):
+            # Le /work de chaque compte (``sandboxes/<compte>/work/…``) est écrit
+            # par l'agent de sa sandbox (L4.5) ; le reste appartient à l'hôte.
+            # Comptes lus APRÈS la base : ceux de la sauvegarde en « full ».
+            from shared_infra.routes._helpers import _comptes_des_sandboxes
+            comptes = _comptes_des_sandboxes()
+            travaux: dict = {}
             for entry in names:
-                if entry.startswith("sandboxes/"):
-                    _ecrire(entry, sandbox_dir, entry[len("sandboxes/"):],
-                            zf.read(entry), beneath=True)
+                if not entry.startswith("sandboxes/"):
+                    continue
+                rel = entry[len("sandboxes/"):]
+                parts = rel.split("/")
+                if len(parts) > 2 and parts[1] == WORK_SUBDIR:
+                    if parts[0] in comptes:
+                        travaux.setdefault(comptes[parts[0]], []).append((entry, "/".join(parts[2:])))
+                    else:
+                        errors.append(f"{entry}: compte inconnu, /work non restauré")
+                elif not (len(parts) > 1 and parts[1] == AGENT_RUN_DIR):
+                    _ecrire(entry, sandbox_dir, rel, zf.read(entry), beneath=True)
+            for uid, lot in travaux.items():
+                _restaurer_work(zf, uid, lot, restored, errors)
 
         if scope in ("full", "mcp"):
             for entry in names:

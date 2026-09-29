@@ -278,18 +278,27 @@ def test_sauvegarde_d_une_base_serveur_passe_par_un_instantane(instance, monkeyp
     assert data.startswith(b"SQLite format 3") and "user_db/app.db" not in noms
 
 
-def test_restauration_des_sandboxes_ne_suit_aucun_lien(instance, tmp_path):
-    """Un dossier de sandbox remplacé par un lien ne fait rien écrire ailleurs :
-    l'entrée est refusée, le reste restauré."""
+def test_restauration_des_sandboxes_par_l_agent(instance, tmp_path, monkeypatch):
+    """Le /work d'un compte est écrit par l'agent de sa sandbox (L4.5) ; une
+    entrée de /work sans compte connu est refusée. Ce que l'hôte possède est
+    écrit sans suivre de lien : un dossier remplacé par un lien refuse
+    l'entrée, rien n'est écrit ailleurs."""
+    from tests.conftest import sandboxes_sur_agent
     dehors = tmp_path / "dehors"
     dehors.mkdir()
+    (instance["sb"] / "bob" / "work").mkdir(parents=True)
     (instance["sb"] / "alice").mkdir()
-    os.symlink(dehors, instance["sb"] / "alice" / "work")
+    os.symlink(dehors, instance["sb"] / "alice" / "skills")
+    sandboxes_sur_agent(monkeypatch, instance["sb"], ["alice", "bob"])
     zip_path = _zip(tmp_path / "b.zip", {
-        "sandboxes/alice/work/f.txt": b"x",
-        "sandboxes/bob/work/g.txt": b"ok",
+        "sandboxes/alice/skills/s.md": b"x",
+        "sandboxes/bob/work/src/g.txt": b"ok",
+        "sandboxes/zoe/work/h.txt": b"?",
+        "sandboxes/bob/.elpis-agent/agent.sock": b"",
     })
     restaures, erreurs, _base = _restaurer(instance, zip_path, "sandboxes")
-    assert restaures == ["sandboxes/bob/work/g.txt"] and len(erreurs) == 1
+    assert restaures == ["sandboxes/bob/work/src/g.txt"] and len(erreurs) == 2, erreurs
     assert list(dehors.iterdir()) == []
-    assert (instance["sb"] / "bob" / "work" / "g.txt").read_bytes() == b"ok"
+    assert (instance["sb"] / "bob" / "work" / "src" / "g.txt").read_bytes() == b"ok"
+    assert not (instance["sb"] / "zoe").exists()
+    assert not (instance["sb"] / "bob" / ".elpis-agent" / "agent.sock").is_file()

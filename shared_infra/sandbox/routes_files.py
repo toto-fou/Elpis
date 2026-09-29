@@ -51,15 +51,13 @@ import mimetypes
 import os
 import re
 import shutil
-import stat as _stat
 import subprocess as _sp
 import time
-import zipfile
 from pathlib import Path, PurePosixPath
 from typing import List, Optional
 
 from fastapi import File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from shared_infra.accounts.users import (
     get_user_settings,
@@ -77,12 +75,6 @@ from shared_infra.sandbox.file_lock import file_write_lock, sha256_bytes
 from shared_infra.sandbox.paths import (
     SandboxPathError,
     lexical_rel,
-    open_beneath,
-    open_leaf,
-    open_path_beneath,
-    rel_under,
-    reopen,
-    walk_beneath,
 )
 from shared_infra.security.deps import require_user_id
 
@@ -97,10 +89,8 @@ from shared_infra.routes._helpers import (  # noqa: E402 — import tardif voulu
     TREE_MAX_ENTRIES,
     _get_work_path,
     _no_cache,
-    _path_inside,
     _quota_lock_for,
     _strip_work_prefix,
-    _zip_copy,
     bump_sandbox_usage,
     invalidate_sandbox_usage,
     sandbox_usage_bytes,
@@ -163,53 +153,6 @@ async def _hist_write(user_id: int, rel: str, before, after, source: str) -> Non
         logger.exception("[sandbox] historique : écriture non notée (%s)", rel)
 
 
-def _sha_fd(pfd: int, limit: int) -> Optional[str]:
-    """sha256 du fichier régulier désigné par le descripteur ``O_PATH``
-    ``pfd`` ; ``None`` s'il est illisible ou dépasse ``limit``."""
-    try:
-        with os.fdopen(reopen(pfd), "rb") as f:
-            if os.fstat(f.fileno()).st_size > limit:
-                return None
-            h = hashlib.sha256()
-            for chunk in iter(lambda: f.read(1 << 20), b""):
-                h.update(chunk)
-            return h.hexdigest()
-    except OSError:
-        return None
-
-
-def _file_state(root: Path, p: Path, *, sha_max: int) -> dict:
-    """État disque de ``p`` (sous ``root``), sans jamais lever : ``kind`` ∈
-    ``missing``, ``dir``, ``file``, ``other`` (lien, fichier spécial),
-    ``unreadable``, ``not_dir``. Pour un fichier : ``mtime``, ``size`` et
-    ``sha256`` (``None`` au-delà de ``sha_max`` ou si le contenu est
-    illisible, ``readable`` à faux). Une seule ouverture ``O_PATH``, sans
-    suivre de lien : mtime, taille et empreinte décrivent le même inode
-    (2026-09-29)."""
-    try:
-        pfd = open_path_beneath(root, rel_under(root, p))
-    except FileNotFoundError:
-        return {"kind": "missing"}
-    except SandboxPathError:
-        return {"kind": "not_dir"}     # un composant du chemin n'est pas un dossier
-    except OSError:
-        return {"kind": "unreadable"}
-    try:
-        st = os.fstat(pfd)
-        if _stat.S_ISDIR(st.st_mode):
-            return {"kind": "dir", "mtime": st.st_mtime}
-        if not _stat.S_ISREG(st.st_mode):
-            return {"kind": "other", "mtime": st.st_mtime, "size": st.st_size}
-        out = {"kind": "file", "mtime": st.st_mtime, "size": st.st_size, "sha256": None,
-               "readable": True}
-        if st.st_size <= sha_max:
-            out["sha256"] = _sha_fd(pfd, sha_max)
-            out["readable"] = out["sha256"] is not None
-        return out
-    finally:
-        os.close(pfd)
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 #  Accès par l'agent de la sandbox (L4.3)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -234,7 +177,7 @@ def _rel_editeur(root: Path, rel_path: str) -> str:
 
 
 async def _etat_agent(agent, rel: str, *, sha_max: int) -> dict:
-    """État de ``rel`` par l'agent, même forme que :func:`_file_state` :
+    """État de ``rel`` par l'agent (un refus sur le fichier n'est pas levé) :
     ``kind`` ∈ missing, dir, file, other, unreadable, not_dir ; pour un
     fichier ``mtime`` (s), ``mtime_ns``, ``size``, ``sha256`` (``None`` au-delà
     de ``sha_max``). Un lien sous /work est suivi (l'écriture écrit sa cible)."""
@@ -487,35 +430,6 @@ def _security_headers(headers, media_type: str) -> None:
     headers["X-Content-Type-Options"] = "nosniff"
     if media_type.split(";")[0].strip().lower() in _ACTIVE_TYPES:
         headers["Content-Security-Policy"] = PREVIEW_CSP
-
-
-# Téléchargements (L4.5 : par l'agent à leur tour).
-class _PinnedFileResponse(FileResponse):
-    """``FileResponse`` d'un inode déjà ouvert (``/proc/self/fd/<n>``) : ni
-    relecture du chemin d'origine, ni lien suivi ; en-têtes, ETag et requêtes
-    ``Range`` de ``FileResponse`` conservés. Le descripteur est fermé une fois
-    la réponse envoyée ou abandonnée."""
-
-    def __init__(self, fd: int, **kwargs):
-        super().__init__(f"/proc/self/fd/{fd}", stat_result=os.fstat(fd), **kwargs)
-        self._fd = fd
-
-    async def __call__(self, scope, receive, send):
-        # Sans ``pathsend`` : le serveur rouvrirait ``/proc/self/fd/<n>``
-        # après coup, descripteur fermé ou réattribué.
-        ext = scope.get("extensions") or {}
-        if "http.response.pathsend" in ext:
-            scope = {**scope, "extensions": {k: v for k, v in ext.items()
-                                             if k != "http.response.pathsend"}}
-        try:
-            await super().__call__(scope, receive, send)
-        finally:
-            os.close(self._fd)
-
-
-def _pinned_file_response(root: Path, target: Path, **kwargs) -> "_PinnedFileResponse":
-    """Réponse fichier de ``target`` (sous ``root``), ouvert sans suivre de lien."""
-    return _PinnedFileResponse(open_beneath(root, rel_under(root, target)), **kwargs)
 
 
 _BLOC_REPONSE = 1 << 20
@@ -800,193 +714,128 @@ async def api_search_sandbox(request: Request, q: str, mode: str = "content"):
 # ─────────────────────────────────────────────────────────────────────────────
 #  READ / WRITE
 # ─────────────────────────────────────────────────────────────────────────────
-def _read_consistent(root: Path, p: Path, attempts: int = 3):
+async def _lecture_stable(agent, rel: str, essais: int = 3):
     """``(octets, stat)`` d'un fichier ≤ ``_DOWNLOAD_SHA_MAX`` lus d'un seul
-    tenant (stat identique avant et après la lecture), ou ``None`` (trop gros,
-    illisible, ou réécrit en place à chaque tentative → repli en flux)."""
-    for _ in range(attempts):
+    tenant (même inode, taille et mtime avant et après la lecture), ou
+    ``None`` : trop gros, illisible, ou réécrit en place à chaque essai
+    (servi alors en flux)."""
+    for _ in range(essais):
         try:
-            with os.fdopen(open_beneath(root, rel_under(root, p)), "rb") as f:
-                st1 = os.fstat(f.fileno())
-                if st1.st_size > _DOWNLOAD_SHA_MAX:
-                    return None
-                data = f.read(_DOWNLOAD_SHA_MAX + 1)
-                st2 = os.fstat(f.fileno())
-        except (OSError, SandboxPathError):
+            r = await agent.read(rel, max_bytes=_DOWNLOAD_SHA_MAX)
+            (apres,) = await agent.stat([rel])
+        except AgentError as ex:
+            if ex.code in PANNES_AGENT:
+                raise agent_http(ex, "Téléchargement") from None
             return None
-        if len(data) > _DOWNLOAD_SHA_MAX:
-            return None
-        if (st1.st_mtime_ns == st2.st_mtime_ns and st1.st_size == st2.st_size
-                and len(data) == st2.st_size):
-            return data, st2
+        if (apres.get("kind") == "file" and len(r.data) == r.stat.get("size")
+                and all(apres.get(k) == r.stat.get(k) for k in ("ino", "size", "mtime_ns"))):
+            return r.data, r.stat
     return None
 
 
-# ── Archives de téléchargement : sur DISQUE, jamais en mémoire ──────────────
-# Passe sandbox 2026-09-26 — les deux routes de zip construisaient l'archive
-# dans un ``io.BytesIO`` : un dossier de 3 Go (dataset, node_modules)
-# télécharge « en un clic » = 3 Go de RAM du worker (OOM possible ; quelques
-# clics en parallèle suffisaient), sans aucun plafond côté dossier. L'archive
-# est désormais écrite dans un fichier temporaire sous SANDBOX_DIR (disque ; le
-# /tmp de la machine est un tmpfs, donc de la RAM), servi puis supprimé.
+def _en_piece_jointe(resp, nom: str) -> None:
+    from urllib.parse import quote as _q
+    qn = _q(nom)
+    resp.headers["Content-Disposition"] = (
+        f"attachment; filename*=utf-8''{qn}" if qn != nom else f'attachment; filename="{nom}"')
+
+
+def _entetes_telechargement(resp, nom: str, st: dict, exposes: str):
+    """PASSE 11 — ``X-Mtime`` / ``X-Size`` : le front détecte ensuite les
+    modifications externes (cf. ``/api/sandbox/check-mtimes``)."""
+    _en_piece_jointe(resp, nom)
+    _no_cache(resp)
+    resp.headers["X-Mtime"] = str(_mtime_s(int(st.get("mtime_ns") or 0)))
+    resp.headers["X-Size"] = str(int(st.get("size") or 0))
+    resp.headers["Access-Control-Expose-Headers"] = exposes
+    return resp
+
+
+# ── Archives : produites par l'agent, relayées en flux ──────────────────────
+# Passe sandbox 2026-09-26 : jamais en mémoire (un dossier de 3 Go téléchargé
+# « en un clic ») ; L4.5 : ni sur le disque de l'hôte — l'agent parcourt et
+# compresse dans le conteneur, la route relaie.
 _ZIP_DIR_MAX_BYTES = 1024 * 1024 * 1024        # 1 Gio de fichiers source
 _ZIP_DIR_MAX_FILES = 20_000                     # aligné sur le plafond de /tree
 
 
-class _ZipTooBig(Exception):
-    pass
-
-
-def _zip_spool_dir() -> Path:
-    from shared_infra.config import SANDBOX_DIR
-    d = Path(SANDBOX_DIR) / ".dl_spool"
-    d.mkdir(mode=0o700, parents=True, exist_ok=True)
-    # Restes d'un worker tué en plein envoi : purgés au passage (> 1 h).
+async def _ouvrir_archive(agent, chemins: list, *, libelle: str, trop: str, **archive):
+    """``(pile, flux)`` d'une archive de l'agent ; ses refus arrivent ici,
+    avant toute réponse (bornes dépassées en ``strict`` : 413 ``trop``)."""
+    pile = contextlib.AsyncExitStack()
     try:
-        cutoff = time.time() - 3600
-        for f in d.iterdir():
-            try:
-                if f.is_file() and f.stat().st_mtime < cutoff:
-                    f.unlink()
-            except OSError:
-                pass
-    except OSError:
-        pass
-    return d
+        flux = await pile.enter_async_context(agent.archive(chemins, **archive))
+    except AgentError as ex:
+        if ex.code == "too_large":
+            raise HTTPException(413, trop) from None
+        raise agent_http(ex, libelle) from None
+    return pile, flux
 
 
-def _spool_zip(root: Path, entries, *, max_bytes: int, max_files: int, strict: bool):
-    """Écrit ``entries`` (itérable de ``(chemin relatif à root, nom dans
-    l'archive)``) dans un zip temporaire sur disque ; seuls les fichiers
-    réguliers sont lus, sans suivre de lien. Retourne ``(chemin_zip,
-    nb_fichiers)``.
-
-    ``strict`` : au-delà des plafonds, lève ``_ZipTooBig`` (dossier : une
-    archive tronquée en silence tromperait l'utilisateur) ; sinon s'arrête et
-    rend ce qui est déjà écrit (multi-fichiers : comportement historique)."""
-    import tempfile
-    fd, tmp = tempfile.mkstemp(prefix="dl-", suffix=".zip", dir=str(_zip_spool_dir()))
-    os.close(fd)
-    total = written = 0
-    try:
-        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-            for rel, arc in entries:
-                try:
-                    src = os.fdopen(open_beneath(root, rel), "rb")
-                except (OSError, SandboxPathError):
-                    continue                          # lien, fichier spécial, disparu
-                with src:
-                    st = os.fstat(src.fileno())
-                    if total + st.st_size > max_bytes or written + 1 > max_files:
-                        if strict:
-                            raise _ZipTooBig()
-                        break
-                    try:
-                        _zip_copy(zf, arc, src, st)
-                    except OSError:
-                        continue
-                total += st.st_size
-                written += 1
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
-    return tmp, written
-
-
-def _zip_response(tmp: str, filename: str, extra_headers=None) -> FileResponse:
+def _relayer(pile, flux, nom: str, media_type: str, entetes: Optional[dict] = None):
+    """Réponse en flux de l'archive ouverte par :func:`_ouvrir_archive` ;
+    le flux de l'agent est fermé à la fin de la réponse ou à l'abandon du
+    client. Interrompue en route, la réponse est coupée (le navigateur voit
+    un téléchargement en échec, pas une archive tronquée)."""
     from starlette.background import BackgroundTask
-    headers = dict(extra_headers or {})
-    return FileResponse(tmp, media_type="application/zip", filename=filename,
-                        headers=headers, background=BackgroundTask(_unlink_quiet, tmp))
 
-
-def _unlink_quiet(p: str) -> None:
-    try:
-        os.unlink(p)
-    except OSError:
-        pass
+    async def corps():
+        try:
+            async for x in flux:
+                if isinstance(x, bytes):
+                    yield x
+        except AgentError as ex:
+            logger.warning("[sandbox] archive %s interrompue : %s", nom, ex)
+            raise
+        finally:
+            await pile.aclose()
+    resp = StreamingResponse(corps(), media_type=media_type, headers=entetes,
+                             background=BackgroundTask(pile.aclose))
+    _en_piece_jointe(resp, nom)
+    return resp
 
 
 @router.get("/api/sandbox/download")
-def api_download_sandbox_file(request: Request, path: str):
+async def api_download_sandbox_file(request: Request, path: str):
+    """Fichier servi tel quel ; dossier : archive zip. Lus par l'agent de la
+    sandbox (un lien n'est suivi que sous /work)."""
     user_id = require_user_id(request)
     root = _get_work_path(user_id)
-    target_path = (root / _strip_work_prefix(path)).resolve()
-    # SECURITY FIX : cf. _path_inside (anti path-traversal cross-users).
-    if not _path_inside(target_path, root):
-        raise HTTPException(403, "Access denied")
-    if not target_path.exists():
-        raise HTTPException(404, "Not found")
-
-    # If it's a file, serve directly
-    if target_path.is_file():
-        # PASSE 11 — expose le mtime du fichier via header custom pour
-        # que le frontend puisse détecter les modifications externes
-        # ultérieures (cf. /api/sandbox/check-mtimes).
-        #
-        # Audit éditeur 2026-09-23 (E6) — ``X-Sha256`` et ``X-Size`` décrivent
-        # les MÊMES octets que ceux servis : lecture unique par un descripteur
-        # (un ``mv`` concurrent remplace l'inode, pas notre lecture) et
-        # ``fstat`` avant/après ; une écriture EN PLACE pendant la lecture
-        # relance la lecture. Requête ``Range`` (visionneuse hex) ou fichier
-        # > 64 Mio : servi en flux comme avant, sans ``X-Sha256``.
-        if "range" not in request.headers:
-            served = _read_consistent(root, target_path)
-            if served is not None:
-                data, st = served
-                from urllib.parse import quote as _q
-
-                from fastapi.responses import Response
-                mt = mimetypes.guess_type(target_path.name)[0] or "text/plain"
-                resp = Response(data, media_type=mt)
-                fname = target_path.name
-                qn = _q(fname)
-                resp.headers["Content-Disposition"] = (
-                    f"attachment; filename*=utf-8''{qn}" if qn != fname
-                    else f'attachment; filename="{fname}"')
-                _no_cache(resp)
-                resp.headers["X-Mtime"] = str(st.st_mtime)
-                resp.headers["X-Size"] = str(len(data))
-                resp.headers["X-Sha256"] = sha256_bytes(data)
-                resp.headers["Access-Control-Expose-Headers"] = "X-Mtime, X-Sha256, X-Size"
-                return resp
-        try:
-            resp = _pinned_file_response(root, target_path, filename=target_path.name)
-        except (OSError, SandboxPathError):
-            raise HTTPException(404, "Not found")
-        _no_cache(resp)
-        resp.headers["X-Mtime"] = str(resp.stat_result.st_mtime)
-        resp.headers["X-Size"] = str(resp.stat_result.st_size)
-        resp.headers["Access-Control-Expose-Headers"] = "X-Mtime, X-Size"
-        return resp
-
-    # If it's a folder, zip it (on disk) and serve
-    folder_name = target_path.name or "folder"
-    folder_rel = rel_under(root, target_path)
-
-    def _entries():
-        # Parcours par descripteurs : ni lien suivi, ni dossier remplacé par
-        # un lien pendant le parcours ; ``_spool_zip`` ne lit que des fichiers
-        # réguliers, ouverts sans suivre de lien.
-        for rel_dir, _dirs, names, _dfd in walk_beneath(root, folder_rel):
-            for fn in names:
-                rel = f"{rel_dir}/{fn}" if rel_dir else fn
-                yield rel, f"{folder_name}/{PurePosixPath(rel).relative_to(folder_rel)}"
-
-    try:
-        tmp, _n = _spool_zip(root, _entries(), max_bytes=_ZIP_DIR_MAX_BYTES,
-                             max_files=_ZIP_DIR_MAX_FILES, strict=True)
-    except (OSError, SandboxPathError):
-        raise HTTPException(404, "Not found")
-    except _ZipTooBig:
-        raise HTTPException(
-            413, "Dossier trop volumineux pour une archive "
+    rel = _rel_editeur(root, path)
+    agent = agent_for(user_id)
+    e = await _stat_un(agent, rel, "Téléchargement")
+    if e.get("kind") == "dir":
+        nom = PurePosixPath(rel).name or root.name
+        pile, flux = await _ouvrir_archive(
+            agent, [rel], libelle="Archive", base=rel, prefix=nom, format="zip",
+            max_bytes=_ZIP_DIR_MAX_BYTES, max_files=_ZIP_DIR_MAX_FILES,
+            trop="Dossier trop volumineux pour une archive "
                  f"(> {_ZIP_DIR_MAX_BYTES // (1024 * 1024)} Mo ou "
                  f"{_ZIP_DIR_MAX_FILES} fichiers) — téléchargez-le par parties.")
-    return _zip_response(tmp, f"{folder_name}.zip")
+        return _relayer(pile, flux, f"{nom}.zip", "application/zip")
+    if e.get("kind") != "file":
+        if e.get("outside"):
+            raise HTTPException(403, "Access denied")
+        raise HTTPException(404, "Not found")
+    nom = PurePosixPath(rel).name
+    mt = mimetypes.guess_type(nom)[0] or "text/plain"
+    # Audit éditeur 2026-09-23 (E6) — ``X-Sha256`` et ``X-Size`` décrivent
+    # les MÊMES octets que ceux servis (lecture d'un seul tenant). Requête
+    # ``Range`` (visionneuse hex) ou fichier > 64 Mio : servi en flux, sans
+    # ``X-Sha256``.
+    if "range" not in request.headers and int(e.get("size") or 0) <= _DOWNLOAD_SHA_MAX:
+        lu = await _lecture_stable(agent, rel)
+        if lu is not None:
+            from fastapi.responses import Response
+            data, st = lu
+            resp = Response(data, media_type=mt)
+            resp.headers["X-Sha256"] = sha256_bytes(data)
+            return _entetes_telechargement(resp, nom, st, "X-Mtime, X-Sha256, X-Size")
+        e = await _stat_un(agent, rel, "Téléchargement")    # réécrit entre-temps : l'état du moment
+        if e.get("kind") != "file":
+            raise HTTPException(404, "Not found")
+    return _entetes_telechargement(await _reponse_agent(request, agent, rel, e, mt), nom, e,
+                                   "X-Mtime, X-Size")
 
 
 @router.post("/api/sandbox/download-multi")
@@ -1003,16 +852,15 @@ async def api_download_multi_sandbox_files(request: Request):
 
     Comportement
     ------------
-      * silently skip les paths qui sortent de la sandbox (anti
-        path-traversal cross-users) ou qui n'existent plus -- on
-        ne casse pas tout le téléchargement parce qu'un fichier
+      * silently skip les paths qui sortent de la sandbox ou qui n'existent
+        plus -- on ne casse pas tout le téléchargement parce qu'un fichier
         a été supprimé entre-temps.
       * dossiers ignorés (le endpoint single ``download`` les zippe
         déjà ; ici on est strictement multi-FILE).
-      * collisions de basename résolues côté zip via le path relatif
-        à la sandbox (preserve la structure d'arborescence).
-      * limite raisonnable de 500 fichiers/200 MB pour éviter qu'un
-        client malicieux n'explose la mémoire serveur.
+      * noms dans l'archive : chemins relatifs à la sandbox (préserve la
+        structure d'arborescence).
+      * au plus 500 fichiers / 200 Mo : au-delà, l'archive s'arrête là
+        (``X-Files-Zipped`` : nombre de fichiers retenus).
     """
     user_id = require_user_id(request)
     root = _get_work_path(user_id)
@@ -1030,41 +878,20 @@ async def api_download_multi_sandbox_files(request: Request):
     if len(paths) > 500:
         raise HTTPException(413, "Too many paths (max 500)")
 
-    MAX_TOTAL_BYTES = 200 * 1024 * 1024     # 200 MB cumulés
-
-    # AUDIT 2026-09-01 (passe 5, B3) — jusqu'à 500 fichiers / 200 Mo lus +
-    # compressés (DEFLATE) : construction en thread. Passe sandbox 2026-09-26 :
-    # l'archive est écrite sur DISQUE (``_spool_zip``) au lieu d'un BytesIO de
-    # 200 Mo par requête.
-    def _entries():
-        for raw in paths:
-            if not isinstance(raw, str) or not raw:
-                continue
-            try:
-                target_path = (root / _strip_work_prefix(raw)).resolve()
-            except Exception:
-                continue
-            # SECURITY : pas de path-traversal cross-users.
-            if not _path_inside(target_path, root):
-                continue
-            try:
-                rel = rel_under(root, target_path)
-            except ValueError:
-                continue
-            yield rel, rel
-
-    # Au-delà de la limite : on renvoie ce qui est déjà écrit (succès partiel,
-    # comportement historique) ; un fichier illisible est sauté.
-    tmp, written = await asyncio.to_thread(
-        _spool_zip, root, _entries(), max_bytes=MAX_TOTAL_BYTES, max_files=500, strict=False)
-
-    if written == 0:
-        _unlink_quiet(tmp)
-        raise HTTPException(404, "No file could be added to the archive")
-
-    # Indication informative : nb fichiers réellement zippés
-    # (parfois < len(paths) si des fichiers ont disparu).
-    return _zip_response(tmp, "files.zip", {"X-Files-Zipped": str(written)})
+    rels = []
+    for raw in paths:
+        if isinstance(raw, str) and raw:
+            with contextlib.suppress(HTTPException):         # hors sandbox : sauté
+                rels.append(_rel_editeur(root, raw))
+    if rels:
+        pile, flux = await _ouvrir_archive(
+            agent_for(user_id), rels, libelle="Archive", trop="", format="zip", walk=False,
+            strict=False, max_bytes=200 * 1024 * 1024, max_files=500)
+        if flux.debut.get("files"):
+            return _relayer(pile, flux, "files.zip", "application/zip",
+                            {"X-Files-Zipped": str(flux.debut["files"])})
+        await pile.aclose()
+    raise HTTPException(404, "No file could be added to the archive")
 
 
 @router.post("/api/sandbox/upload")
@@ -2612,15 +2439,13 @@ async def api_sandbox_history_file(request: Request, path: str = ""):
     ent = await asyncio.to_thread(_fh.file_entry, user_id, path)
     if not ent:
         raise HTTPException(404, "Aucun historique pour ce fichier")
-    root = _get_work_path(user_id)
     current = {"exists": False, "sha256": None, "size": None, "mtime": None}
     try:
-        full = (root / _strip_work_prefix(path)).resolve()
-        inside = _path_inside(full, root)
-    except (OSError, RuntimeError):
-        inside = False
-    if inside:
-        st = await asyncio.to_thread(_file_state, root, full, sha_max=_DOWNLOAD_SHA_MAX)
+        rel: Optional[str] = _rel_editeur(_get_work_path(user_id), path)
+    except HTTPException:
+        rel = None                                   # hors sandbox : pas d'état courant
+    if rel is not None:
+        st = await _etat_agent(agent_for(user_id), rel, sha_max=_DOWNLOAD_SHA_MAX)
         if st["kind"] == "file":
             current = {"exists": True, "sha256": st.get("sha256"),
                        "size": st.get("size"), "mtime": st.get("mtime")}
@@ -2691,7 +2516,14 @@ async def api_sandbox_skills_mirror(request: Request, archive: UploadFile = File
 # ─────────────────────────────────────────────────────────────────────────────
 #  Export / import de ``/work`` (migration entre hôtes d'outils, 2026-09-12, P5)
 # ─────────────────────────────────────────────────────────────────────────────
+# Par l'agent de la sandbox (L4.5) : l'archive est produite ou extraite dans le
+# conteneur, jamais lue ni écrite par l'hôte ; le conteneur d'un compte arrêté
+# est démarré pour l'occasion. (``_extract_tar_bounded`` ne sert plus qu'au
+# miroir des skills, dossier de l'hôte hors du conteneur.)
 _IMPORT_MAX_BYTES = 2 * 1024 * 1024 * 1024
+_WORK_MAX_BYTES = 8 * 1024 * 1024 * 1024        # /work exporté : fichiers source
+_WORK_MAX_ENTREES = 500_000
+_WORK_PARCOURS_S = 240.0                        # parcours de /work avant le premier octet
 
 
 class _ArchiveTooBig(Exception):
@@ -2749,107 +2581,59 @@ def _extract_tar_bounded(fileobj, tmp: Path, *, max_total: int, max_members: int
     return n
 
 
-def export_work_archive(root: Path, fileobj) -> None:
-    """Écrit dans ``fileobj`` une archive tar.gz des fichiers RÉGULIERS de
-    ``root`` (``/work``), chacun lu sur son inode ouvert sans suivre de lien
-    (2026-09-29) ; liens et fichiers spéciaux sont omis."""
-    import tarfile as _tarfile
-    with _tarfile.open(fileobj=fileobj, mode="w:gz") as tf:
-        for rel_dir, dirnames, names, dfd in walk_beneath(root):
-            dirnames.sort()
-            for name in sorted(names):
-                try:
-                    src = os.fdopen(open_leaf(dfd, name), "rb")
-                except (OSError, SandboxPathError):
-                    continue
-                with src:
-                    tf.addfile(tf.gettarinfo(arcname=f"{rel_dir}/{name}" if rel_dir else name,
-                                             fileobj=src), src)
+_TROP_WORK = ("/work trop volumineux pour une archive "
+              f"(> {_WORK_MAX_BYTES >> 30} Gio ou {_WORK_MAX_ENTREES} fichiers)")
 
 
-def import_work_archive(user_id: int, data, *, max_total: Optional[int] = None) -> int:
-    """Remplace le contenu de ``/work`` du compte par celui d'une archive
-    tar.gz (membres contenus : ni ``..``, ni absolu, ni lien). Retourne le
-    nombre de fichiers écrits. Utilisé par la route ``/api/sandbox/import`` et
-    par une migration locale. ``data`` : octets ou fichier binaire (la route
-    passe le fichier d'upload tel quel, sans le recopier en mémoire).
-    ``max_total`` : plafond de la taille DÉCOMPRESSÉE (défaut : quota du compte)."""
-    import io as _io
-    root = Path(_get_work_path(user_id))
-    tmp = root.parent / ".work-import.tmp"
-    if tmp.exists():
-        shutil.rmtree(tmp, ignore_errors=True)
-    tmp.mkdir(parents=True, exist_ok=True)
+async def exporter_work(user_id: int) -> bytes:
+    """Archive tar.gz des fichiers ordinaires de ``/work`` du compte (sans
+    liens ni fichiers spéciaux), produite par l'agent."""
+    data = bytearray()
+    async with agent_for(user_id).archive([""], format="tgz", max_bytes=_WORK_MAX_BYTES,
+                                          max_files=_WORK_MAX_ENTREES,
+                                          deadline_s=_WORK_PARCOURS_S) as flux:
+        async for x in flux:
+            if isinstance(x, bytes):
+                data += x
+    return bytes(data)
+
+
+async def importer_work(user_id: int, data, *, max_total: Optional[int] = None) -> int:
+    """Remplace le contenu de ``/work`` du compte par une archive tar(.gz),
+    extraite par l'agent : membres contenus (ni ``..``, ni absolu, ni lien),
+    bornes vérifiées avant de toucher à ``/work``, l'ancien contenu gardé
+    dans ``/work/.work-before-import-<ts>``. ``data`` : octets ou fichier
+    binaire (envoyé par blocs). ``max_total`` : plafond de la taille
+    DÉCOMPRESSÉE (défaut : quota du compte). Rend le nombre de fichiers."""
     if max_total is None:
         max_total = _user_quota_bytes(user_id)
-    fileobj = _io.BytesIO(data) if isinstance(data, (bytes, bytearray)) else data
-    try:
-        n = _extract_tar_bounded(fileobj, tmp, max_total=max_total, max_members=500_000)
-    except BaseException:
-        shutil.rmtree(tmp, ignore_errors=True)
-        raise
-    # bascule : l'ancien /work est renommé, jamais supprimé ici
-    old = root.parent / f".work-before-import-{int(time.time())}"
-    if root.exists():
-        root.rename(old)
-    tmp.rename(root)
-    return n
-
-
-async def grant_work_access(user_id: int) -> None:
-    """Remet ``/work`` au modèle d'ownership du sandbox après une écriture
-    host-side (import d'archive).
-
-    AUDIT 2026-09-16 (A1) — ``sandbox_grant_access`` est une coroutine, et elle
-    était appelée SANS ``await`` depuis ``import_work_archive`` (fonction
-    synchrone lancée en thread) : la coroutine n'était jamais exécutée
-    (« coroutine was never awaited »), donc ni ACL ni chown — un /work importé
-    restait la propriété de l'UID de l'app et le container ne pouvait plus
-    l'éditer. L'appel vit désormais dans la route, qui est asynchrone."""
-    try:
-        from shared_infra.sandbox.exec_bridge import sandbox_grant_access
-        await sandbox_grant_access(user_id, "")
-    except Exception:                                            # noqa: BLE001
-        logger.warning("[sandbox] remise des droits de /work échouée user=%s",
-                       user_id, exc_info=True)
+    res = await agent_for(user_id).extract(
+        "", data, keep=f".work-before-import-{int(time.time())}",
+        leave=".work-before-import-*", max_bytes=max_total, max_file=max_total,
+        max_members=_WORK_MAX_ENTREES)
+    invalidate_sandbox_usage(user_id)
+    return int(res.get("files") or 0)
 
 
 @router.get("/api/sandbox/export")
 async def api_sandbox_export(request: Request):
-    """Archive tar.gz de ``/work`` du compte (fichiers réguliers, sans liens)."""
+    """Archive tar.gz de ``/work`` du compte (fichiers ordinaires, sans
+    liens), produite par l'agent et relayée en flux."""
     user_id = require_user_id(request)
-    root = Path(_get_work_path(user_id))
-
-    # Passe sandbox 2026-09-26 — l'archive de TOUT /work était construite dans
-    # un BytesIO puis servie d'un bloc : un /work de quelques Go = autant de
-    # RAM du worker. Elle est écrite sur disque (même dépôt que les zips) et
-    # supprimée une fois servie.
-    def _build() -> str:
-        import tempfile
-        fd, tmp = tempfile.mkstemp(prefix="export-", suffix=".tar.gz",
-                                   dir=str(_zip_spool_dir()))
-        try:
-            with os.fdopen(fd, "wb") as fh:
-                export_work_archive(root, fh)
-        except BaseException:
-            _unlink_quiet(tmp)
-            raise
-        return tmp
-    tmp = await asyncio.to_thread(_build)
-    from starlette.background import BackgroundTask
-    return FileResponse(tmp, media_type="application/gzip", filename="work.tar.gz",
-                        headers={"Cache-Control": "no-store"},
-                        background=BackgroundTask(_unlink_quiet, tmp))
+    pile, flux = await _ouvrir_archive(
+        agent_for(user_id), [""], libelle="Export", trop=_TROP_WORK, format="tgz",
+        max_bytes=_WORK_MAX_BYTES, max_files=_WORK_MAX_ENTREES, deadline_s=_WORK_PARCOURS_S)
+    return _relayer(pile, flux, "work.tar.gz", "application/gzip", {"Cache-Control": "no-store"})
 
 
 @router.post("/api/sandbox/import")
 async def api_sandbox_import(request: Request, archive: UploadFile = File(...)):
     """Remplace ``/work`` du compte par une archive tar.gz (migration entre
-    hôtes). L'ancien ``/work`` est conservé à côté (``.work-before-import-<ts>``)."""
+    hôtes). L'ancien contenu est gardé dans ``/work/.work-before-import-<ts>``."""
     user_id = require_user_id(request)
     # Passe sandbox 2026-09-26 — plus de ``archive.read()`` : jusqu'à 2 Go
     # recopiés en RAM avant même le contrôle de taille. Starlette a déjà
-    # spoolé l'upload ; on en mesure la taille puis on l'extrait EN FLUX.
+    # spoolé l'upload ; on en mesure la taille puis on l'envoie EN FLUX.
     try:
         archive.file.seek(0, os.SEEK_END)
         size = archive.file.tell()
@@ -2859,10 +2643,12 @@ async def api_sandbox_import(request: Request, archive: UploadFile = File(...)):
     if size > _IMPORT_MAX_BYTES:
         raise HTTPException(413, "archive trop volumineuse")
     try:
-        n = await asyncio.to_thread(import_work_archive, user_id, archive.file)
-    except _ArchiveTooBig:
-        raise HTTPException(413, "archive trop volumineuse une fois décompressée "
-                                 "(quota du compte ou nombre de fichiers dépassé)")
-    await grant_work_access(user_id)
+        n = await importer_work(user_id, archive.file)
+    except AgentError as e:
+        if e.code == "too_large":
+            raise HTTPException(413, "archive trop volumineuse une fois décompressée "
+                                     "(quota du compte ou nombre de fichiers dépassé)") from None
+        if e.code == "bad_archive":
+            raise HTTPException(400, "archive invalide") from None
+        raise agent_http(e, "Import") from None
     return {"ok": True, "files": n}
-

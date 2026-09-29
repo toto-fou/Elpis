@@ -96,13 +96,15 @@ def test_export_puis_import_de_work(sandbox_api):
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/gzip")
     with tarfile.open(fileobj=io.BytesIO(r.content), mode="r:gz") as tf:
         assert sorted(tf.getnames()) == ["README", "src/a.py"]
-    # import chez « zoe » (autre compte) : /work remplacé, l'ancien conservé à côté
+    # import chez « zoe » (autre compte) : /work remplacé par l'agent, l'ancien
+    # contenu gardé dans /work/.work-before-import-<ts>
     zwork = root / "zoe" / "work"; zwork.mkdir(parents=True); (zwork / "old.txt").write_text("x", encoding="utf-8")
     r2 = c.post("/api/sandbox/import", headers=_hdrs(uid=8, username="zoe"),
                 files={"archive": ("work.tar.gz", r.content, "application/gzip")})
     assert r2.status_code == 200 and r2.json()["files"] == 2, r2.text
     assert (zwork / "src" / "a.py").read_text(encoding="utf-8") == "print(1)" and not (zwork / "old.txt").exists()
-    assert any(p.name.startswith(".work-before-import-") for p in (root / "zoe").iterdir())
+    (garde,) = [p for p in zwork.iterdir() if p.name.startswith(".work-before-import-")]
+    assert (garde / "old.txt").read_text(encoding="utf-8") == "x"
     assert c.get("/api/sandbox/export").status_code == 401
 
 

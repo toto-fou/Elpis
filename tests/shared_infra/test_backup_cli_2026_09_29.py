@@ -20,6 +20,8 @@ def test_sauvegarde_en_ligne_de_commande(tmp_path, monkeypatch, capsys):
     (sb / "alice" / "work").mkdir(parents=True)
     (sb / "alice" / "work" / "f.txt").write_text("x")
     monkeypatch.setattr(config, "SANDBOX_DIR", sb)
+    from tests.conftest import sandboxes_sur_agent
+    sandboxes_sur_agent(monkeypatch, sb, ["alice"])          # /work lu par l'agent
     dest = tmp_path / "backups"
     assert backup_cli.main(["sandboxes", "--dest", str(dest)]) == 0
     archive = Path(capsys.readouterr().out.strip())

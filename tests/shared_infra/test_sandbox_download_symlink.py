@@ -1,11 +1,10 @@
 # SPDX-License-Identifier: MIT
 """tests/shared_infra/test_sandbox_download_symlink.py
 
-Le téléchargement d'un DOSSIER zippe son contenu via ``os.walk``. Comme les
-traversées sœurs (/search, /grep, taille), il doit SAUTER les symlinks : sans
-ça un user peut planter ``ln -s /etc/passwd leak`` (ou pointer vers la base
-SQLite / le sandbox d'un autre user) et exfiltrer des fichiers hôte via le zip,
-puisque le backend lit en UID hôte. Régression du fix sandbox_files.py:250.
+Le téléchargement d'un DOSSIER zippe son contenu. Comme les traversées sœurs
+(/search, /grep, taille), il doit SAUTER les symlinks : l'archive ne contient
+que des fichiers ordinaires de la sandbox. Depuis L4.5, l'agent de la sandbox
+produit l'archive dans le conteneur ; le contrat reste le même.
 """
 from __future__ import annotations
 
@@ -36,6 +35,8 @@ def box(tmp_path):
 
 def _client(monkeypatch, root):
     import shared_infra.sandbox.routes_files as sf
+    from tests.conftest import editeur_sur_agent
+    editeur_sur_agent(monkeypatch, root)
     monkeypatch.setattr(sf, "require_user_id", lambda r: 1)
     monkeypatch.setattr(sf, "_get_work_path", lambda uid: root)
     from fastapi import FastAPI
@@ -75,7 +76,7 @@ def test_single_file_download_still_works(box, monkeypatch):
 
 
 def test_single_file_download_rejects_symlink_escape(box, monkeypatch):
-    """Le download fichier unique refusait déjà l'échappement (resolve + _path_inside)."""
+    """Un lien qui sort de la sandbox n'est pas suivi : 403."""
     c = _client(monkeypatch, box)
     resp = c.get("/api/sandbox/download", params={"path": "f/leak"})
     assert resp.status_code == 403

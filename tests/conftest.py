@@ -417,3 +417,18 @@ def arbre_editeur(monkeypatch, root, include_hidden=False):
     r = TestClient(app).get("/api/sandbox/tree", params={"include_hidden": include_hidden})
     assert r.status_code == 200, r.text
     return r.json()
+
+
+def sandboxes_sur_agent(monkeypatch, racine, noms):
+    """Comptes ``noms`` (identifiants 1, 2, …) dont les sandboxes
+    ``racine/<nom>/work`` sont servies par l'agent en thread : la sauvegarde
+    et la restauration des sandboxes passent par eux. Rend ``{nom: id}``."""
+    import shared_infra.sandbox.exec_bridge as xb
+    from shared_infra.routes import _helpers as H
+    from shared_infra.sandbox.executors import get_user_sandbox
+    comptes = {nom: i for i, nom in enumerate(noms, 1)}
+    noms_par_id = {i: nom for nom, i in comptes.items()}
+    monkeypatch.setattr(H, "_comptes_des_sandboxes", lambda: dict(comptes))
+    monkeypatch.setattr(xb, "_get_sandbox_for_user", lambda uid: get_user_sandbox(
+        uid, noms_par_id[uid], Path(racine) / noms_par_id[uid] / "work"))
+    return comptes

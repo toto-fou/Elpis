@@ -240,32 +240,43 @@ def test_historique_ne_lit_pas_a_travers_un_lien(tmp_path):
 
 # ── Routes de l'éditeur ─────────────────────────────────────────────────────
 
-def test_telechargement_ne_suit_pas_un_dossier_remplace(fs, monkeypatch):
-    import shared_infra.sandbox.routes_files as sf
+def test_telechargement_ne_suit_pas_un_lien_hors_de_la_sandbox(fs, monkeypatch):
+    """L4.5 — le téléchargement passe par l'agent, qui ne suit un lien que
+    sous /work : un dossier devenu lien vers l'hôte donne 403, et l'archive
+    d'un dossier n'emporte pas la cible d'un lien."""
     _tools, work, hote = fs
-    monkeypatch.setattr(sf, "require_user_id", lambda request: 1)
-    monkeypatch.setattr(sf, "_get_work_path", lambda uid: work)
-    _course_apres(monkeypatch, sf, "_path_inside", work, hote)
-    from shared_infra.routes._state import router
-    app = FastAPI()
-    app.include_router(router)
-    r = TestClient(app).get("/api/sandbox/download", params={"path": "d/secret.txt"})
-    assert SECRET not in r.text
-    assert r.status_code == 404
+    _basculer(work, hote)
+    (work / "e").mkdir()
+    os.symlink(hote / "secret.txt", work / "e" / "lien.txt")
+    _sf, client = _client(monkeypatch, work)
+    r = client.get("/api/sandbox/download", params={"path": "d/secret.txt"})
+    assert r.status_code == 403 and SECRET not in r.text
+    r = client.get("/api/sandbox/download", params={"path": "e"})
+    assert r.status_code == 200 and SECRET.encode() not in r.content
 
 
 def test_etat_d_un_fichier_illisible_et_d_un_lien(tmp_path):
+    import asyncio
+
     import shared_infra.sandbox.routes_files as sf
-    (tmp_path / "f").write_text("x")
-    os.chmod(tmp_path / "f", 0o000)
-    os.symlink("f", tmp_path / "lien")
+    from shared_infra.sandbox.executors import get_user_sandbox
+    if os.geteuid() == 0:
+        pytest.skip("root lit tout — chmod 000 inopérant")
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "f").write_text("x")
+    os.chmod(work / "f", 0o000)
+    os.symlink("f", work / "lien")
+    agent = get_user_sandbox(1, "u", work).agent
+
+    async def etats():
+        return [await sf._etat_agent(agent, rel, sha_max=1 << 20) for rel in ("f", "lien", "f/x")]
     try:
-        st = sf._file_state(tmp_path, tmp_path / "f", sha_max=1 << 20)
-        assert st["kind"] == "file" and st["readable"] is False and st["size"] == 1
+        fichier, lien, sous = asyncio.run(etats())
     finally:
-        os.chmod(tmp_path / "f", 0o644)
-    assert sf._file_state(tmp_path, tmp_path / "lien", sha_max=1 << 20)["kind"] == "other"
-    assert sf._file_state(tmp_path, tmp_path / "f" / "x", sha_max=1)["kind"] == "not_dir"
+        os.chmod(work / "f", 0o644)
+    assert fichier["kind"] == lien["kind"] == "unreadable"      # lien suivi sous /work
+    assert sous["kind"] == "not_dir"
     assert sf._remplacement({"kind": "link"}, None, None, "") == "lien symbolique"
     assert sf._remplacement({"kind": "file", "link": True}, b"x", None, "") == "lien symbolique"
 
@@ -303,17 +314,21 @@ def test_grep_sur_une_racine_illisible(fs, monkeypatch):
         os.chmod(work, 0o755)
 
 
-async def test_restauration_interrompue_garde_l_arbre_modifiable(tmp_path, monkeypatch):
-    """Client parti pendant l'extraction : l'annulation revient à chaque
-    ``await`` du ``finally`` ; l'élargissement doit tourner quand même."""
+async def test_restauration_interrompue_va_a_son_terme(tmp_path, monkeypatch):
+    """Client parti pendant la restauration : elle va à son terme dans le
+    conteneur (arbre modifiable, droits élargis tant que l'hôte y accède),
+    puis le marqueur est levé et les verrous rendus."""
     import io
     import tarfile
 
     import anyio
 
     import shared_infra.sandbox.routes_snapshots as snap
-    sandbox = tmp_path / "sandbox"
-    sandbox.mkdir()
+    from shared_infra.sandbox import agent_client as AC
+    from tests.conftest import editeur_sur_agent
+    work = tmp_path / "work"
+    work.mkdir()
+    editeur_sur_agent(monkeypatch, work)
     archive = tmp_path / "snap.tar.gz"
     with tarfile.open(str(archive), "w:gz") as tf:
         for name in ("a.txt", "b.txt"):
@@ -321,7 +336,13 @@ async def test_restauration_interrompue_garde_l_arbre_modifiable(tmp_path, monke
             info.size, info.mode = 1, 0o600
             tf.addfile(info, io.BytesIO(b"x"))
     monkeypatch.setattr(snap, "_archive_path", lambda uid, sid: archive)
-    monkeypatch.setattr(snap, "_sandbox_root_for", lambda uid: sandbox)
+    monkeypatch.setattr(snap, "_user_snap_dir", lambda uid: tmp_path)
+    vrai = AC.AgentClient.extract
+
+    async def lent(self, *a, **k):
+        await anyio.sleep(0.6)                   # au moins une progression avant la fin
+        return await vrai(self, *a, **k)
+    monkeypatch.setattr(AC.AgentClient, "extract", lent)
 
     gen = snap._restore_snapshot_stream(1, "a" * 32)
     with anyio.CancelScope() as scope:
@@ -329,19 +350,23 @@ async def test_restauration_interrompue_garde_l_arbre_modifiable(tmp_path, monke
             if '"progress"' in line:
                 scope.cancel()                   # comme Starlette à la déconnexion
     for _ in range(100):
-        if os.stat(sandbox / "a.txt").st_mode & 0o777 == 0o666:
+        if not snap._get_user_lock(1).locked():
             break
         await anyio.sleep(0.05)
-    assert os.stat(sandbox / "a.txt").st_mode & 0o777 == 0o666
+    assert not snap._get_user_lock(1).locked()
+    assert os.stat(work / "a.txt").st_mode & 0o777 == 0o666
+    assert not (tmp_path / snap._RESTORE_MARKER_NAME).exists()
 
 
 def test_sauvegarde_des_sandboxes_ne_suit_aucun_lien(tmp_path, monkeypatch):
-    """Sauvegarde admin : l'arbre des sandboxes est lu par descripteurs ; un
-    lien ou un fichier spécial est consigné dans backup-warnings.txt, pas lu."""
+    """Sauvegarde admin : le /work d'un compte est lu par l'agent de sa
+    sandbox ; un lien ou un fichier spécial est consigné dans
+    backup-warnings.txt, pas lu."""
     import zipfile
 
     from shared_infra import config
     from shared_infra.routes import _helpers as H
+    from tests.conftest import sandboxes_sur_agent
     sb = tmp_path / "sandboxes"
     work = sb / "alice" / "work"
     work.mkdir(parents=True)
@@ -350,13 +375,17 @@ def test_sauvegarde_des_sandboxes_ne_suit_aucun_lien(tmp_path, monkeypatch):
     os.symlink(tmp_path / "dehors.txt", work / "lien.txt")
     os.mkfifo(work / "fifo")
     monkeypatch.setattr(config, "SANDBOX_DIR", sb)
+    sandboxes_sur_agent(monkeypatch, sb, ["alice"])
     archive, _nom = H._make_backup_zip("sandboxes")
     try:
         with zipfile.ZipFile(archive) as z:
             noms = z.namelist()
             assert "sandboxes/alice/work/ok.txt" in noms
+            assert z.read("sandboxes/alice/work/ok.txt") == b"contenu\n"
             assert not any(SECRET.encode() in z.read(n) for n in noms)
+            assert not any(".elpis-agent" in n for n in noms)
             avertis = z.read("backup-warnings.txt").decode()
             assert "lien.txt" in avertis and "fifo" in avertis
     finally:
         os.unlink(archive)
+

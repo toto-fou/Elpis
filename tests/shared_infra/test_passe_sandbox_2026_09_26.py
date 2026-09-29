@@ -3,8 +3,8 @@
 optimisation de la sandbox (2026-09-26).
 
 Verrouille :
-  • archives : extraction bornée (bombe tar), zip de dossier écrit sur disque
-    et plafonné ;
+  • archives : extraction bornée (bombe tar) — le zip de dossier, plafonné,
+    est produit par l'agent de la sandbox (test_archives_agent_2026_09_29) ;
   • paths : nom temporaire tronqué en octets, copie d'arbre atomique et sans
     suivi de lien ;
   • cycle de vie : cache par compte,
@@ -57,29 +57,6 @@ def test_extraction_bornee_contenue(tmp_path):
                                 max_total=10 ** 6, max_members=100)
     assert n == 1 and (dest / "ok" / "a.txt").read_bytes() == b"A"
     assert not (tmp_path / "evil").exists()
-
-
-def test_zip_sur_disque_plafonne(tmp_path, monkeypatch):
-    import shared_infra.config as cfg
-    from shared_infra.sandbox import routes_files as rf
-    monkeypatch.setattr(cfg, "SANDBOX_DIR", tmp_path / "sb")
-    src = tmp_path / "src"
-    src.mkdir()
-    for i in range(5):
-        (src / f"f{i}").write_bytes(b"z" * 100)
-    entries = [(p.name, p.name) for p in sorted(src.iterdir())]
-    tmp, n = rf._spool_zip(src, iter(entries), max_bytes=10 ** 6, max_files=100, strict=True)
-    try:
-        assert n == 5 and Path(tmp).parent == tmp_path / "sb" / ".dl_spool"
-        assert len(zipfile.ZipFile(tmp).namelist()) == 5
-    finally:
-        os.unlink(tmp)
-    with pytest.raises(rf._ZipTooBig):
-        rf._spool_zip(src, iter(entries), max_bytes=250, max_files=100, strict=True)
-    assert list((tmp_path / "sb" / ".dl_spool").iterdir()) == [], "zip partiel laissé sur disque"
-    tmp, n = rf._spool_zip(src, iter(entries), max_bytes=250, max_files=100, strict=False)
-    os.unlink(tmp)
-    assert n == 2
 
 
 # ── paths ────────────────────────────────────────────────────────────────────

@@ -82,9 +82,10 @@ def test_status_conteneur_elpis():
     assert not any(c[0] == "rename" for c in sb._cli.calls)
 
 
-def test_marqueur_de_restauration(tmp_path):
+def test_marqueur_de_restauration(tmp_path, monkeypatch):
     from shared_infra.sandbox import routes_snapshots as rs
-    assert rs._restore_marker(tmp_path).name == ".elpis_restore_incomplete"
+    monkeypatch.setattr(rs, "_user_snap_dir", lambda uid: tmp_path)
+    assert rs._restore_marker(1).name == ".elpis_restore_incomplete"
 
 
 def test_image_livree_une_seule_version():

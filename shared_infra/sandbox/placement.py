@@ -19,10 +19,9 @@ Un hôte de sandbox est aussi bien un hôte distant (relais) que local.
 """
 from __future__ import annotations
 
-import io
+import asyncio
 import logging
 import time
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("uvicorn.error")
@@ -122,16 +121,15 @@ def _host_spec(host_id: str):
 
 
 def _local_export(user_id: int) -> bytes:
-    from shared_infra.routes._helpers import _get_work_path
-    from shared_infra.sandbox.routes_files import export_work_archive
-    buf = io.BytesIO()
-    export_work_archive(Path(_get_work_path(user_id)), buf)
-    return buf.getvalue()
+    """Archive de ``/work`` sur cet hôte, produite par l'agent de la sandbox
+    (appelé hors boucle d'événements : thread de la route, ou test)."""
+    from shared_infra.sandbox.routes_files import exporter_work
+    return asyncio.run(exporter_work(user_id))
 
 
 def _local_import(user_id: int, data: bytes) -> int:
-    from shared_infra.sandbox.routes_files import import_work_archive
-    return import_work_archive(user_id, data)
+    from shared_infra.sandbox.routes_files import importer_work
+    return asyncio.run(importer_work(user_id, data))
 
 
 def export_work(user_id: int, host_id: str, *, timeout_s: float = 600.0) -> bytes:

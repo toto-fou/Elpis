@@ -2,9 +2,10 @@
 """Backup admin résilient (régression 2026-07-19).
 
 Un backup full/sandboxes plantait en 500 sur le PREMIER fichier illisible
-depuis l'hôte (créés dans le container en UID 10001 sans o+r — caches black,
-pickles…). _make_backup_zip doit maintenant IGNORER ces fichiers et lister
-les ignorés dans backup-warnings.txt à la racine du zip.
+(créés dans le container sans droit de lecture — caches black, pickles…).
+_make_backup_zip doit IGNORER ces fichiers et lister les ignorés dans
+backup-warnings.txt à la racine du zip. Depuis L4.5, le /work d'un compte est
+lu par l'agent de sa sandbox ; un /work sans compte connu n'est pas lu.
 """
 import os
 import zipfile
@@ -26,6 +27,8 @@ def sandbox_root(tmp_path, monkeypatch):
     os.chmod(bad, 0o000)                     # illisible pour l'hôte (non-root)
     (root / "alice" / "work" / "dead-link").symlink_to(root / "absent")
     monkeypatch.setattr(cfg, "SANDBOX_DIR", root)
+    from tests.conftest import sandboxes_sur_agent
+    sandboxes_sur_agent(monkeypatch, root, ["alice"])
     yield root
     os.chmod(bad, 0o644)                     # cleanup tmp_path
 
@@ -60,5 +63,25 @@ def test_backup_clean_tree_has_no_manifest(tmp_path, monkeypatch):
             names = zf.namelist()
             assert "sandboxes/bob/a.txt" in names
             assert "backup-warnings.txt" not in names
+    finally:
+        Path(tmp_zip).unlink(missing_ok=True)
+
+
+def test_work_sans_compte_connu_non_lu(tmp_path, monkeypatch):
+    import shared_infra.config as cfg
+    from tests.conftest import sandboxes_sur_agent
+    root = tmp_path / "user_sandboxes"
+    (root / "orphelin" / "work").mkdir(parents=True)
+    (root / "orphelin" / "work" / "f.txt").write_text("x")
+    (root / "orphelin" / "notes.txt").write_text("hôte")
+    monkeypatch.setattr(cfg, "SANDBOX_DIR", root)
+    sandboxes_sur_agent(monkeypatch, root, [])
+    tmp_zip, _ = _make_backup_zip("sandboxes")
+    try:
+        with zipfile.ZipFile(tmp_zip) as zf:
+            names = zf.namelist()
+            assert "sandboxes/orphelin/notes.txt" in names
+            assert not any(n.startswith("sandboxes/orphelin/work") for n in names)
+            assert "compte inconnu" in zf.read("backup-warnings.txt").decode()
     finally:
         Path(tmp_zip).unlink(missing_ok=True)

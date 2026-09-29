@@ -9,16 +9,15 @@ pour le conteneur : après un restore, le terminal ne pouvait plus modifier ses
 propres fichiers (« permission denied » sur tout l'arbre restauré).
 
 L'invariant /work est 0666/0777 (bit « other »), comme partout ailleurs :
-wrapper ``umask 0000`` des exec conteneur, ``fs_tools._chmod_cross_writable``,
-``_sandbox_exec._chmod_walk`` du grant.
+wrapper ``umask 0000`` des exec conteneur, et ``paths.widen_beneath`` pour tout
+ce que l'hôte écrit (outils fichiers, restore, grant).
 """
-import importlib
 import os
 import stat
 
 import pytest
 
-snapmod = importlib.import_module("shared_infra.sandbox.routes_snapshots")
+from shared_infra.sandbox.paths import widen_beneath
 
 
 def _mode(p):
@@ -29,7 +28,7 @@ def test_dir_becomes_other_writable(tmp_path):
     d = tmp_path / "src"
     d.mkdir()
     os.chmod(d, 0o775)                       # ancien comportement du restore
-    snapmod._widen_cross_writable(d)
+    widen_beneath(tmp_path, "src")
     assert _mode(d) == 0o777, "sans le bit other, le conteneur ne peut pas écrire"
 
 
@@ -38,7 +37,7 @@ def test_regular_file_becomes_other_writable(tmp_path, initial):
     f = tmp_path / "a.txt"
     f.write_text("x")
     os.chmod(f, initial)
-    snapmod._widen_cross_writable(f)
+    widen_beneath(tmp_path, "a.txt")
     assert _mode(f) == 0o666
 
 
@@ -47,10 +46,10 @@ def test_executable_bit_is_preserved(tmp_path, initial):
     s = tmp_path / "run.sh"
     s.write_text("#!/bin/sh\n")
     os.chmod(s, initial)
-    snapmod._widen_cross_writable(s)
+    widen_beneath(tmp_path, "run.sh")
     assert _mode(s) == 0o777, "scripts et hooks git doivent rester exécutables"
 
 
 def test_missing_path_is_a_noop(tmp_path):
     # Un membre skippé (extract en erreur) ne doit pas casser le restore.
-    snapmod._widen_cross_writable(tmp_path / "nope")
+    widen_beneath(tmp_path, "nope")

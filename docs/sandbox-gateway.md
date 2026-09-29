@@ -11,10 +11,12 @@ Les effets des outils atteignent le conteneur Docker de l'utilisateur
 | Appelant | Chemin | Frontière |
 |---|---|---|
 | `execute_shell`, terminal, routes d'écriture de l'éditeur | `docker exec` | noyau / conteneur |
-| `fs_tools`, `git_tools` | direct sur l'hôte (`os`, `shutil`, `subprocess`) | résolution de chemin sous la racine de la sandbox |
+| `fs_tools`, lectures de l'éditeur | direct sur l'hôte (`os`, `shutil`) | résolution de chemin sous la racine de la sandbox, puis ouverture par descripteurs sans suivre de lien |
+| `git_tools`, routes Git de l'éditeur | `git` sur l'hôte dans une prison `bwrap` | la prison ne voit que la zone de travail de l'utilisateur |
 
-Côté hôte, la sûreté repose donc sur la résolution de chemin et sur le
-durcissement de git. L'hôte et le conteneur (UID 10001) partageant le même
+Côté hôte, la sûreté repose donc sur la résolution de chemin, les accès par
+descripteurs et, pour git, sur la prison et le durcissement de sa
+configuration. L'hôte et le conteneur (UID 10001) partageant le même
 volume, les fichiers écrits par l'hôte sont élargis en écriture (`0o666` /
 `0o777`) pour rester modifiables depuis le conteneur.
 
@@ -23,7 +25,8 @@ volume, les fichiers écrits par l'hôte sont élargis en écriture (`0o666` /
 | Composant | Fichier | Rôle |
 |---|---|---|
 | Résolution de chemin (`resolve_under`, `write_beneath`) | `shared_infra/sandbox/paths.py` | refuse `..`, NUL, préfixe voisin, lien symbolique sortant ; écriture composant par composant (`O_NOFOLLOW`) |
-| Durcissement git (`hardened_git_env`) | `shared_infra/sandbox/git_env.py` | `GIT_TERMINAL_PROMPT=0`, hooks désactivés (`core.hooksPath=/dev/null`) |
+| Durcissement git (`hardened_git_env`, `repo_refusal`) | `shared_infra/sandbox/git_env.py` | `GIT_TERMINAL_PROMPT=0`, hooks désactivés (`core.hooksPath=/dev/null`), dépôt refusé si sa config déclare une commande |
+| Prison des git hôte (`run_host_git`) | `shared_infra/sandbox/git_env.py`, `bwrap.py` | seule la zone de travail montée ; réseau pour `clone`/`fetch`/`pull`/`push` seulement ; `executors.git_isolation` |
 | Table de politique `OP_BACKEND` | `shared_infra/sandbox/policy.py` | choix hôte / conteneur par opération, défaut `host` |
 | Cache de disponibilité (`ReadinessCache`) | `shared_infra/sandbox/executors/_readiness.py` | état « conteneur démarré » alimenté par `docker events` |
 | Profil d'exécution durci (optionnel) | `shared_infra/sandbox/executors/_user_sandbox.py` (`_build_run_args`) | `executors.runtime` (ex. gVisor `runsc`) et `executors.extra_run_args`, vides par défaut |

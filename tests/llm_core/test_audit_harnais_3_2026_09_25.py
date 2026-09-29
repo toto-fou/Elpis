@@ -118,7 +118,7 @@ def test_git_write_atomique_temporaire_imprevisible(tmp_path):
     cible.write_text("intact")
     os.chmod(cible, 0o600)
     (tmp_path / f"f.txt.{os.getpid()}.tmp").symlink_to(cible)
-    _write_atomic(p, "b", 10_000)
+    _write_atomic(tmp_path, p, "b", 10_000)
     assert p.read_text() == "b"
     assert cible.read_text() == "intact"
     assert (cible.stat().st_mode & 0o777) == 0o600

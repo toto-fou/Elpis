@@ -144,44 +144,11 @@ async def sandbox_grant_access(user_id: int, rel_path: str) -> None:
     # n'ont aucun groupe commun) — c'est CE qui rend le repo éditable et
     # supprimable par le shell in-container même si le chown de l'étape 2
     # n'a pas pu s'exécuter. Best-effort : fichiers d'autrui → skip.
-    def _chmod_walk(root_p: Path) -> None:
-        try:
-            if root_p.is_dir():
-                os.chmod(root_p, 0o777)
-                for dirpath, dirnames, filenames in os.walk(root_p):
-                    # Un lien-vers-dossier est classé dans ``dirnames`` (la
-                    # classification passe par ``entry.is_dir()``, qui
-                    # déréférence) ; ``followlinks=False`` n'empêche que la
-                    # RÉCURSION, pas le ``chmod``, qui déréférence lui aussi.
-                    # Sans ce filtre, ``ln -s /chemin/hote /work/x`` suivi de
-                    # n'importe quelle action git faisait passer la cible HORS
-                    # sandbox en 0777. On les retire de ``dirnames`` en place :
-                    # le walk ne les considère plus du tout.
-                    dirnames[:] = [
-                        d for d in dirnames
-                        if not os.path.islink(os.path.join(dirpath, d))
-                    ]
-                    for d in dirnames:
-                        try:
-                            os.chmod(os.path.join(dirpath, d), 0o777)
-                        except OSError:
-                            pass
-                    for f in filenames:
-                        fp = os.path.join(dirpath, f)
-                        try:
-                            st_mode = os.lstat(fp).st_mode
-                            # Jamais de chmod à travers un symlink (cible hors /work).
-                            if not os.path.islink(fp):
-                                # Préserve le bit exécutable (scripts, hooks).
-                                os.chmod(fp, 0o777 if (st_mode & 0o111) else 0o666)
-                        except OSError:
-                            pass
-            else:
-                os.chmod(root_p, 0o666)
-        except OSError:
-            pass
     try:
-        await asyncio.wait_for(asyncio.to_thread(_chmod_walk, target), timeout=120)
+        from shared_infra.sandbox.paths import widen_beneath
+        await asyncio.wait_for(asyncio.to_thread(
+            widen_beneath, root, target.relative_to(root).as_posix(), recursive=True),
+            timeout=120)
     except Exception:
         pass
 

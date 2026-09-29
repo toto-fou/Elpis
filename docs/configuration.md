@@ -68,12 +68,23 @@ suite, puis le document complet quand la conversion est terminée.
 Installation : `./install.sh --with-office`.
 
 - Ubuntu 24.04 restreint les user namespaces non privilégiés
-  (`kernel.apparmor_restrict_unprivileged_userns`) : sans profil AppArmor pour
-  `bwrap`, l'aperçu répond « Isolation indisponible ».
+  (`kernel.apparmor_restrict_unprivileged_userns`) : si `bwrap` est bloqué,
+  l'installeur pose le profil AppArmor `/etc/apparmor.d/elpis-bwrap` ; sinon
+  l'aperçu répond « Isolation indisponible ».
 - Réglages : `config.json › office_preview` (`isolation` `auto`|`none`,
   `timeout_s`, `slots`, `max_mb`, `max_pages`, `xlsx_max_rows`, `cache_mb`…) ;
   interrupteur admin « Aperçu Office » (`features.office_preview`). Cache :
   `user_sandboxes/.office-cache` (élagué par la maintenance).
+
+### Git côté serveur
+
+Les commandes Git que le serveur lance sur un dépôt de sandbox (outils Git de
+l'agent, panneau Git de l'éditeur) tournent dans la même prison `bubblewrap` :
+elles ne voient que la zone de travail de l'utilisateur, `/usr` et `/etc` en
+lecture, et le réseau seulement pour `clone`, `fetch`, `pull`, `push`. Sans
+`bwrap` utilisable, ces commandes sont refusées ;
+`executors.git_isolation = "none"` rétablit l'ancien comportement, sans
+isolation (`shared_infra/sandbox/git_env.py`).
 
 ---
 
@@ -336,7 +347,7 @@ Sections :
 | `llm` | `scheduling_mode`, `compression.*`, `compaction.*`, `prune.*`, `task.*` (sous-agents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
 | `memory` | `enabled`, `memory_char_limit`, `user_char_limit` |
 | `skills` | `dir`, `user_dir`, `top_n`, `min_score`, `char_budget`, `index_max` |
-| `executors` | `image`, `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]` |
+| `executors` | `image`, `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]`, `git_isolation` (`auto` \| `none`, voir [Git côté serveur](#git-côté-serveur)) |
 | `security` | `password_policy.*`, `session.*` (cookie, `max_age_sec`, `same_site`, `https_only`, `global_min_ts`), `https.*` (`enabled`, ports, `ca_file`), `listen` (`local` \| `lan`, voir [Écoute](#écoute-securitylisten)) — ⚠ `https.*` + `listen` + `session.https_only` + `session.global_min_ts` appartiennent à leurs endpoints, l'éditeur brut ne les écrit pas |
 | `vision` / `desktop` | Endpoint d'annotation, format, modèle, passes ; cibles desktop, scopes, budgets |
 | `rag` | `service_url`, `service_token`, collection par défaut, `top_k`, seuils |

@@ -33,7 +33,6 @@ import os
 import secrets
 import sys
 import time
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
@@ -838,9 +837,11 @@ def _load_sandbox_automation(username: str, name: str) -> str:
         row = get_user(username)
         if row is None:
             return ""
-        p = (Path(_get_work_path(int(row["id"]))) / "automations" / f"{_slug_auto(name)}.py").resolve()
-        if p.is_file():
-            return p.read_text(encoding="utf-8")
+        # Lu sur l'inode, sans suivre de lien (2026-09-29).
+        from shared_infra.sandbox.paths import open_beneath
+        rel = f"automations/{_slug_auto(name)}.py"
+        with os.fdopen(open_beneath(_get_work_path(int(row["id"])), rel), "rb") as f:
+            return f.read().decode("utf-8")
     except Exception:                         # noqa: BLE001 — pas de sandbox ici : le code doit être fourni
         return ""
     return ""

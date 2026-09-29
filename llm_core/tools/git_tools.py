@@ -48,7 +48,7 @@ Signature: register(mcp, root_base)   # unchanged
 from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Any, List, Literal, Optional, Union
-import os, subprocess, time, re, ast, fnmatch, json, secrets as _sec
+import os, subprocess, time, re, ast, fnmatch, json, stat, secrets as _sec
 from fastmcp import Context, FastMCP
 
 from ._toolkit import (
@@ -62,7 +62,8 @@ from ._models import (
     GitSubmitResult, GitAbandonResult, GitCloneResult,
     ErrEnvelope,
 )
-from shared_infra.sandbox.git_env import host_git_env, repo_refusal, unsafe_git_dir
+from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git, unsafe_git_dir
+from shared_infra.sandbox.paths import open_beneath, read_leaf, rel_under, walk_under
 from shared_infra.sandbox.policy import use_agent
 from llm_core.tools._exec_bridge import run_shell_via_executor
 
@@ -160,7 +161,8 @@ def _grant_sandbox_access(username: str, sandbox: Path, target: Path) -> None:
               file=__import__("sys").stderr)
 
 # v15 — Protected branch defaults (the patterns the agent cannot write/push to).
-# Override per-repo via ``.git-tool-policy.json`` at repo root.
+# A repo's ``.git-tool-policy.json`` can only ADD protected branches (and
+# narrow the agent prefixes) — see ``_load_repo_policy``.
 DEFAULT_PROTECTED_BRANCHES = [
     "main", "master", "develop", "dev", "trunk",
     "staging", "prod", "production",
@@ -501,9 +503,9 @@ def _run_cmd(cwd, cmd, timeout=TIMEOUT, max_out=MAX_OUT, env_extra=None,
         # non UTF-8 dans la sortie (``git diff`` d'un fichier Latin-1, ``show``
         # d'un binaire) levait UnicodeDecodeError, rendu en « unexpected »
         # opaque. Même politique que le chemin shell : remplacement.
-        p = subprocess.run(cmd, cwd=str(cwd), env=env, capture_output=True,
-                           text=True, encoding="utf-8", errors="replace",
-                           timeout=timeout, check=False, umask=0)
+        p = run_host_git(cmd, cwd=cwd, env=env, capture_output=True,
+                         text=True, encoding="utf-8", errors="replace",
+                         timeout=timeout, check=False, umask=0)
         dt = int((time.time()-t0)*1000)
         out, t1 = _trunc(p.stdout, max_out)
         err, t2 = _trunc(p.stderr, max_out)
@@ -635,74 +637,65 @@ def _repo_file(rp, rel):
         raise ValueError("path outside repo")
     return p
 
-def _read_text(p, max_b):
-    if not p.exists(): raise FileNotFoundError("not_found")
-    if p.is_dir(): raise IsADirectoryError("is_dir")
-    if p.stat().st_size > max_b: raise ValueError(f"too_large: {p.stat().st_size}B")
-    return p.read_text("utf-8", errors="replace")
+# Contenu d'un fichier de dépôt : toujours lu sur son inode, ouvert sans
+# suivre de lien, et écrit par ``write_beneath`` (2026-09-29) — un dossier du
+# chemin remplacé par un lien depuis le conteneur ne peut plus faire lire ou
+# écrire hors du bac à sable.
+def _read_bytes_under(root, p, max_b) -> bytes:
+    try:
+        f = os.fdopen(open_beneath(root, rel_under(root, p)), "rb")
+    except FileNotFoundError:
+        raise FileNotFoundError("not_found") from None
+    except IsADirectoryError:
+        raise IsADirectoryError("is_dir") from None
+    with f:
+        size = os.fstat(f.fileno()).st_size
+        if size > max_b:
+            raise ValueError(f"too_large: {size}B")
+        return f.read()
 
-def _read_text_exact(p, max_b):
+
+def _read_text(root, p, max_b):
+    """Lecture tolérante (``git_query read``) : remplacement des octets non
+    UTF-8, fins de ligne normalisées en ``\\n``."""
+    text = _read_bytes_under(root, p, max_b).decode("utf-8", errors="replace")
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _read_text_exact(root, p, max_b):
     """Lecture pour une RÉÉCRITURE (``git_write`` replace/append) : octets
     décodés en UTF-8 STRICT, fins de ligne conservées. AUDIT 2026-09-26 — la
     lecture tolérante (``errors="replace"``, sauts de ligne universels)
     réécrivait tout octet non UTF-8 en U+FFFD (fichier Latin-1 corrompu) et
     convertissait un fichier CRLF entier en LF."""
-    if not p.exists(): raise FileNotFoundError("not_found")
-    if p.is_dir(): raise IsADirectoryError("is_dir")
-    if p.stat().st_size > max_b: raise ValueError(f"too_large: {p.stat().st_size}B")
     try:
-        return p.read_bytes().decode("utf-8")
+        return _read_bytes_under(root, p, max_b).decode("utf-8")
     except UnicodeDecodeError:
         raise ValueError("not_utf8: this file is not UTF-8 text — rewriting it "
                          "would corrupt it; use execute_shell (iconv, sed) instead")
 
 
-def _write_atomic(p, content, max_b):
+def _write_atomic(root, p, content, max_b):
     """Écriture atomique de ``git_write`` (audit éditeur 2026-09-23) : verrou
     par fichier PARTAGÉ avec l'éditeur et les outils fs (E7), mode du fichier
-    existant CONSERVÉ — un script 0755 restait sinon non exécutable (E18) —,
-    fichier temporaire unique et retiré en cas d'échec."""
-    import os as _os
+    existant CONSERVÉ (E18) et élargi pour le conteneur, aucun lien suivi."""
     from shared_infra.sandbox.file_lock import file_write_lock
+    from shared_infra.sandbox.paths import write_beneath
     b = content.encode("utf-8", errors="replace")
     if len(b) > max_b: raise ValueError(f"too_large: {len(b)}B")
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with file_write_lock(_os.path.realpath(p)):
+    with file_write_lock(os.path.realpath(p)):
         try:
-            mode = (p.stat().st_mode & 0o7777 & ~0o6000) | 0o666
+            st = os.lstat(p)
+            mode = ((st.st_mode & 0o777) | 0o666) if stat.S_ISREG(st.st_mode) else 0o666
         except OSError:
             mode = 0o666
-        # AUDIT 2026-09-25 — le temporaire portait un nom PRÉVISIBLE (pid seul)
-        # et s'ouvrait par un ``write_bytes`` ordinaire, puis ``chmod`` : un
-        # lien posé à ce nom dans le dépôt était SUIVI (écriture et mode 0666
-        # appliqués à sa cible, hors du bac à sable). Nom aléatoire, création
-        # exclusive sans suivre de lien, mode posé sur le descripteur.
-        import secrets as _secrets
-        # Nom borné en OCTETS (≤ 255 avec le suffixe) : un nom légal long
-        # (CJK) dépassait NAME_MAX une fois préfixé/suffixé (AUDIT 2026-09-26).
-        _stem = p.name.encode("utf-8", errors="surrogateescape")[:200].decode(
-            "utf-8", errors="ignore")
-        tmp = p.with_name(f".{_stem}.{_secrets.token_hex(6)}.tmp")
-        try:
-            _fd = _os.open(str(tmp),
-                           _os.O_WRONLY | _os.O_CREAT | _os.O_EXCL
-                           | getattr(_os, "O_NOFOLLOW", 0) | getattr(_os, "O_CLOEXEC", 0),
-                           0o600)
-            with _os.fdopen(_fd, "wb") as _fh:
-                _fh.write(b)
-                _fh.flush()
-                _os.fchmod(_fh.fileno(), mode)
-            tmp.replace(p)
-        except BaseException:
-            try: tmp.unlink()
-            except OSError: pass
-            raise
+        write_beneath(root, rel_under(root, p), b, file_mode=mode, dir_mode=0o777)
 
-def _history_before(p):
+def _history_before(root, p):
     """Contenu avant écriture, pour l'historique de session (2026-09-23)."""
     try:
         from shared_infra.sandbox.file_history import read_before
-        return read_before(p)
+        return read_before(root, p)
     except Exception:
         return None
 
@@ -785,82 +778,44 @@ def _head_is_pristine(rp) -> bool:
     return bool(s.get("ok")) and (s.get("stdout") or "").strip() == _INIT_SCAFFOLD_MSG
 
 
-def _widen_cross_writable(p: Path, repo_root: Path) -> None:
-    """Best-effort : fichier 0666 + dossiers parents 0777 jusqu'à la racine du
-    repo — l'invariant /work « cross-writable » (l'UID hôte et l'UID conteneur
-    ne partagent aucun groupe)."""
-    # SÉCURITÉ : ``os.chmod`` DÉRÉFÉRENCE les symlinks (Linux n'a pas de
-    # ``lchmod``). ``p`` comme ses PARENTS peuvent être des liens posés par
-    # l'utilisateur dans /work, ou des chemins qui TRAVERSENT un tel lien —
-    # les chmoder ferait sortir les droits de la sandbox (l'app tourne en UID
-    # hôte : c'est elle qui franchit la frontière, pas le conteneur).
-    # Un test ``islink`` seul ne suffit pas : ``lien/sous-dossier`` n'est pas
-    # un lien. On exige donc que le chemin RÉSOLU reste sous le repo résolu.
-    try:
-        root_res = os.path.realpath(repo_root)
-    except OSError:
-        return
-
-    def _inside(path) -> bool:
-        try:
-            if os.path.islink(path):
-                return False
-            rp = os.path.realpath(path)
-            return rp == root_res or rp.startswith(root_res + os.sep)
-        except OSError:
-            return False
-
-    try:
-        if _inside(p):
-            os.chmod(p, 0o666)
-    except OSError:
-        pass
-    for parent in p.parents:
-        if parent == repo_root:
-            break
-        if not _inside(parent):
-            # Au-delà d'un lien, les « parents » ne sont plus ceux du repo.
-            break
-        try:
-            os.chmod(parent, 0o777)
-        except OSError:
-            pass
-
-
 # ───────────────────────────────────────────────────────────────────────
 #  v15 — Policy helpers: protected branches, agent branches, providers,
 #  credentials, git config bootstrap.
 # ───────────────────────────────────────────────────────────────────────
 
 def _load_repo_policy(rp: Path) -> Dict[str, Any]:
-    """Load per-repo policy from ``.git-tool-policy.json`` (optional).
+    """Politique de branches du dépôt : valeurs par défaut
+    (``DEFAULT_PROTECTED_BRANCHES`` / ``DEFAULT_AGENT_BRANCH_PREFIXES``),
+    que ``.git-tool-policy.json`` peut RENFORCER, jamais assouplir.
 
     Format::
-      {
-        "protected_branches":      ["main", "develop", "release/*"],
-        "allowed_agent_prefixes":  ["agent/", "fix/"],
-        "require_pr_for_merge_into": ["main"]
-      }
+      {"protected_branches": ["release/*"], "allowed_agent_prefixes": ["agent/"]}
 
-    Missing file → defaults from DEFAULT_PROTECTED_BRANCHES /
-    DEFAULT_AGENT_BRANCH_PREFIXES. Best-effort: malformed JSON falls back
-    to defaults rather than erroring out (the agent can still work).
-    """
-    pol_file = rp / ".git-tool-policy.json"
+    Le fichier vit dans le dépôt, donc à portée de l'agent (2026-09-29) : il
+    AJOUTE des branches protégées et RESTREINT les préfixes de push de l'agent
+    (intersection avec les valeurs par défaut). Lu sans suivre de lien ;
+    absent ou mal formé : valeurs par défaut."""
     pol = {
         "protected_branches":     list(DEFAULT_PROTECTED_BRANCHES),
         "allowed_agent_prefixes": list(DEFAULT_AGENT_BRANCH_PREFIXES),
     }
-    if pol_file.exists():
-        try:
-            user_pol = json.loads(pol_file.read_text("utf-8", errors="replace"))
-            if isinstance(user_pol, dict):
-                for k in ("protected_branches", "allowed_agent_prefixes"):
-                    v = user_pol.get(k)
-                    if isinstance(v, list) and all(isinstance(x, str) for x in v):
-                        pol[k] = v
-        except Exception:
-            pass  # silently fall back to defaults — best-effort
+    try:
+        with os.fdopen(open_beneath(rp, ".git-tool-policy.json"), "rb") as f:
+            user_pol = json.loads(f.read(64 * 1024).decode("utf-8", errors="replace"))
+    except (OSError, ValueError):
+        return pol
+    if not isinstance(user_pol, dict):
+        return pol
+
+    def _strings(key):
+        v = user_pol.get(key)
+        return v if isinstance(v, list) and all(isinstance(x, str) for x in v) else None
+
+    extra = _strings("protected_branches") or []
+    pol["protected_branches"] += [b for b in extra if b not in pol["protected_branches"]]
+    narrow = _strings("allowed_agent_prefixes")
+    if narrow is not None:
+        pol["allowed_agent_prefixes"] = [x for x in pol["allowed_agent_prefixes"] if x in narrow]
     return pol
 
 
@@ -1174,12 +1129,14 @@ def register(mcp: FastMCP, root_base: Path) -> None:
                 cap = max(1, min(max_count, MAX_FILES))
                 pat = pattern or "**/*"
                 out = []
-                for p in rp.rglob("*"):
-                    if not p.is_file() or ".git" in p.parts: continue
-                    rel = p.relative_to(rp).as_posix()
-                    if fnmatch.fnmatch(rel, pat):
-                        out.append(rel)
+                for sub, dirs, names, _dfd in walk_under(root, rp):
+                    dirs[:] = [d for d in dirs if d != ".git"]
+                    for nm in names:
+                        rel = f"{sub}/{nm}" if sub else nm
+                        if fnmatch.fnmatch(rel, pat):
+                            out.append(rel)
                         if len(out) >= cap: break
+                    if len(out) >= cap: break
                 return _ok(items=out, count=len(out), glob=pat, truncated=len(out) >= cap)
 
             if act == "find_text":
@@ -1221,7 +1178,7 @@ def register(mcp: FastMCP, root_base: Path) -> None:
             if act == "read":
                 if not target: return _err("target=filepath required")
                 p = _repo_file(rp, target)
-                text = _read_text(p, MAX_FILE_READ)
+                text = _read_text(root, p, MAX_FILE_READ)
                 lines = text.splitlines()
                 s = max(start_line - 1, 0)
                 chunk = lines[s:s + max(1, min(max_lines, 2000))]
@@ -1267,7 +1224,7 @@ def register(mcp: FastMCP, root_base: Path) -> None:
                     return _err("invalid_mode", hint="Use: overwrite|append")
                 new_content = content or ""
                 if mode == "append" and p.exists():
-                    new_content = _read_text_exact(p, MAX_FILE_READ) + new_content
+                    new_content = _read_text_exact(root, p, MAX_FILE_READ) + new_content
                 new_bytes = new_content.encode("utf-8", errors="replace")
                 if len(new_bytes) > MAX_FILE_WRITE:
                     return _err("too_large", hint=f"Max {MAX_FILE_WRITE} bytes.")
@@ -1275,17 +1232,16 @@ def register(mcp: FastMCP, root_base: Path) -> None:
                     return _ok(path=path, action=mode, dry_run=True,
                                bytes_after=len(new_bytes),
                                exists_before=p.exists())
-                _before = _history_before(p)
-                _write_atomic(p, new_content, MAX_FILE_WRITE)
-                _widen_cross_writable(p, rp)
-                _after = _history_before(p)       # octets réellement écrits
+                _before = _history_before(root, p)
+                _write_atomic(root, p, new_content, MAX_FILE_WRITE)
+                _after = _history_before(root, p)       # octets réellement écrits
                 _history_after(_username, root, p, _before, _after)
                 return _ok(path=path, bytes=len(new_bytes), action=mode,
                            **_git_write_fc(root, p, _before, _after))
 
             if act == "replace":
                 if not find: return _err("find required")
-                text = _read_text_exact(p, MAX_FILE_READ)
+                text = _read_text_exact(root, p, MAX_FILE_READ)
                 if not regex:
                     cnt = text.count(find)
                     if cnt == 0:
@@ -1307,10 +1263,9 @@ def register(mcp: FastMCP, root_base: Path) -> None:
                     return _ok(path=path, action="replace", dry_run=True,
                                replacements=cnt, bytes_before=len(text.encode()),
                                bytes_after=len(new.encode()))
-                _before = _history_before(p)
-                _write_atomic(p, new, MAX_FILE_WRITE)
-                _widen_cross_writable(p, rp)
-                _after = _history_before(p)
+                _before = _history_before(root, p)
+                _write_atomic(root, p, new, MAX_FILE_WRITE)
+                _after = _history_before(root, p)
                 _history_after(_username, root, p, _before, _after)
                 return _ok(path=path, replacements=cnt, changed=True,
                            **_git_write_fc(root, p, _before, _after))
@@ -1693,10 +1648,27 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
         if any(d in ("tests","test","spec") for d in parts[:-1]): return False
         return True
 
-    def _extract_kw_py(filepath, repo_root):
+    def _rf_sources(root, scan_root, repo_root):
+        """(chemin, texte) des fichiers candidats sous ``scan_root`` : parcours
+        par descripteurs, contenu lu sur l'inode, sans suivre de lien
+        (2026-09-29) ; au-delà de MAX_LIB_FILE_BYTES, ignoré."""
+        for sub, dirs, names, dfd in walk_under(root, scan_root):
+            dirs.sort()
+            for nm in sorted(names):
+                fp = scan_root / sub / nm if sub else scan_root / nm
+                if not _is_rf_candidate(fp, repo_root):
+                    continue
+                data = read_leaf(dfd, nm, MAX_LIB_FILE_BYTES)
+                if data is not None:
+                    yield fp, data.decode("utf-8", errors="replace")
+
+    def _extract_kw(filepath, repo_root, content):
+        if filepath.suffix.lower() == ".py":
+            return _extract_kw_py(filepath, repo_root, content)
+        return _extract_kw_robot(filepath, repo_root, content)
+
+    def _extract_kw_py(filepath, repo_root, content):
         try:
-            content = filepath.read_text("utf-8", errors="replace")
-            if len(content.encode()) > MAX_LIB_FILE_BYTES: return None
             tree = ast.parse(content)
         except Exception: return None
         name = filepath.stem
@@ -1725,11 +1697,7 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                 "recommended_import": mod if has_init else rel,
                 "keywords": kws, "keyword_count": len(kws)}
 
-    def _extract_kw_robot(filepath, repo_root):
-        try:
-            content = filepath.read_text("utf-8", errors="replace")
-            if len(content.encode()) > MAX_LIB_FILE_BYTES: return None
-        except Exception: return None
+    def _extract_kw_robot(filepath, repo_root, content):
         kws, imports, cur, section = [], [], None, None
         for line in content.splitlines():
             line = line.rstrip()
@@ -1791,9 +1759,8 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
 
             def _scan_libs(scan_root):
                 libs = []
-                for fp in sorted(scan_root.rglob("*")):
-                    if not fp.is_file() or not _is_rf_candidate(fp, rp): continue
-                    lib = _extract_kw_py(fp, rp) if fp.suffix.lower() == ".py" else _extract_kw_robot(fp, rp)
+                for fp, content in _rf_sources(root, scan_root, rp):
+                    lib = _extract_kw(fp, rp, content)
                     if lib: libs.append(lib)
                 return libs
 
@@ -1820,9 +1787,8 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                 norm = lambda s: s.lower().replace("_"," ").replace("-"," ").strip()
                 needle = norm(keyword_name)
                 matches = []
-                for fp in sorted(rp.rglob("*")):
-                    if not fp.is_file() or not _is_rf_candidate(fp, rp): continue
-                    lib = _extract_kw_py(fp, rp) if fp.suffix.lower() == ".py" else _extract_kw_robot(fp, rp)
+                for fp, content in _rf_sources(root, rp, rp):
+                    lib = _extract_kw(fp, rp, content)
                     if not lib: continue
                     for kw in lib.get("keywords", []):
                         kn = norm(kw["name"])

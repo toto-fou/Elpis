@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Literal, Union
 from fastmcp import Context, FastMCP
 
-import os, subprocess, time, base64, re, shutil, fnmatch
-import hashlib, difflib, mimetypes, json, uuid
+import os, subprocess, time, base64, re, shutil, fnmatch, stat as _stat_mod
+import hashlib, difflib, mimetypes, json
 
 from ._toolkit import (
     ok as _ok, err, tool_kw, unquote, get_username, as_list,
@@ -34,7 +34,11 @@ from ._models import (
 # Single source of truth for /work normalization + sandbox containment.
 # resolve_under raises SandboxPathError (a ValueError subclass) on escape,
 # so the existing `except ValueError` call sites keep working unchanged.
-from shared_infra.sandbox.paths import resolve_under, to_container
+from shared_infra.sandbox.paths import (
+    SandboxPathError, open_beneath, open_dir_beneath, open_leaf, pinned_beneath, read_leaf,
+    rel_under, remove_beneath, rename_beneath, resolve_under, to_container, walk_beneath,
+    walk_under, widen_beneath,
+)
 # OP_BACKEND policy: when fs writes are agent-backed (single UID 10001 inside
 # the container), the host-side cross-UID chmod widening is unnecessary.
 from shared_infra.sandbox.policy import use_agent
@@ -327,42 +331,24 @@ def _child_is_safe(p: Path, root_resolved: Path) -> bool:
         return False
 
 
-def _ensure_parent(p: Path):
-    # Step 4 gate: when writes are agent-backed, a single UID (10001) owns
-    # everything in /work, so the cross-UID 0o777 widening is unnecessary
-    # AND undesirable (world-writable dirs on a shared mount). Default
-    # (host writes) keeps the widening so the container can still write
-    # alongside host-created files.
-    if use_agent("fs.write"):
-        p.parent.mkdir(parents=True, exist_ok=True)
-        return
-    # Use 0o777 so any UID inside the per-user sandbox container (10001
-    # by default) can create files in dirs that were freshly created by
-    # the host process. The actual umask still narrows this on the host
-    # side; we re-chmod below.
-    p.parent.mkdir(parents=True, exist_ok=True, mode=0o777)
-    # Best-effort: ensure existing parent is also group/other-writable so
-    # the container UID 10001 can create new files alongside.
-    try:
-        parent_mode = p.parent.stat().st_mode & 0o777
-        if parent_mode != 0o777:
-            os.chmod(p.parent, 0o777)
-    except OSError:
-        pass
+_TEXT_BYTES = frozenset(range(32, 127)) | {7, 8, 9, 10, 11, 12, 13, 27}
+
+
+def _is_text_bytes(chunk: bytes) -> bool:
+    """Début de fichier plausible pour du texte (pas de NUL, < 30 % d'octets
+    de contrôle ; les octets ≥ 128 comptent comme texte)."""
+    if not chunk:
+        return True
+    if b"\x00" in chunk:
+        return False
+    non_text = sum(1 for b in chunk if b not in _TEXT_BYTES and b < 128)
+    return (non_text / len(chunk)) < 0.30
+
 
 def _is_text(p: Path, sniff: int = 8192) -> bool:
     try:
         with p.open("rb") as f:
-            chunk = f.read(sniff)
-        if not chunk:
-            return True
-        if b"\x00" in chunk:
-            return False
-        text_bytes = set(range(32, 127)) | {7, 8, 9, 10, 11, 12, 13, 27}
-        non_text = sum(1 for b in chunk if b not in text_bytes)
-        high = sum(1 for b in chunk if b >= 128)
-        non_text -= high
-        return (non_text / len(chunk)) < 0.30
+            return _is_text_bytes(f.read(sniff))
     except Exception:
         return False
 
@@ -379,6 +365,26 @@ def _sha256_of_file(p: Path, bufsize: int = 65536) -> str:
         for chunk in iter(lambda: f.read(bufsize), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+# Lectures d'un fichier de la sandbox par l'hôte (2026-09-29) : toujours sur
+# l'inode ouvert sans suivre de lien (``shared_infra.sandbox.paths``), jamais
+# en rouvrant ``p`` par son nom — un lien posé entre-temps depuis le conteneur
+# ferait lire un fichier hors du bac à sable.
+def _read_under(sb: Path, p: Path) -> bytes:
+    """Octets du fichier régulier ``p`` (résolu sous ``sb``)."""
+    with os.fdopen(open_beneath(sb, rel_under(sb, p)), "rb") as f:
+        return f.read()
+
+
+def _sha_under(sb: Path, p: Path) -> Optional[str]:
+    """sha256 du fichier régulier ``p``, ``None`` s'il n'existe pas (ou n'est
+    pas un fichier régulier)."""
+    try:
+        with pinned_beneath(sb, p) as fp:
+            return _sha256_of_file(fp)
+    except (FileNotFoundError, IsADirectoryError, SandboxPathError):
+        return None
 
 _BOMS = (b"\xef\xbb\xbf", b"\xff\xfe", b"\xfe\xff")
 
@@ -447,15 +453,20 @@ def _check_regex_safe(pattern: str) -> None:
     if _REDOS_NESTED.search(pattern):
         raise re.error("motif à risque de backtracking catastrophique (quantificateur imbriqué)")
 
-def _stat(p: Path, base: Path = None) -> Dict[str, Any]:
-    st = p.stat()
+def _stat(p: Path, base: Path = None, st: Optional[os.stat_result] = None) -> Dict[str, Any]:
+    """Métadonnées de ``p`` ; ``st`` : stat déjà prise sur l'inode figé."""
+    if st is None:
+        st = p.stat()
+        kind = "dir" if p.is_dir() else ("symlink" if p.is_symlink() else "file")
+    else:
+        kind = "dir" if _stat_mod.S_ISDIR(st.st_mode) else "file"
     d = {
         "name": p.name,
         # Container view (/work/...) when we know the sandbox base, so the
         # path is reusable as-is in the agent's next tool call; host string
         # only as a defensive fallback when base is unknown.
         "path": _to_container(p, base) if base else str(p),
-        "type": "dir" if p.is_dir() else ("symlink" if p.is_symlink() else "file"),
+        "type": kind,
         "size": st.st_size,
         "mtime": int(st.st_mtime),
         "mode": oct(st.st_mode & 0o777),
@@ -465,67 +476,17 @@ def _stat(p: Path, base: Path = None) -> Dict[str, Any]:
         except Exception: pass
     return d
 
-def _chmod_cross_writable(p: Path, is_dir: bool = False) -> None:
-    """Best-effort chmod so both the host process and the per-user docker
-    container (UID 10001 by default) can read AND write the file.
-
-    The host process and the container share the same /work bind-mount but
-    typically run under different UIDs. Default umask on either side
-    creates files at 0644 / dirs at 0755 — readable from the other side,
-    but NOT writable. The fix is to widen to 0666 / 0777 after each host
-    write. Container-side writes get their own treatment via the umask
-    wrapper in _user_sandbox.exec().
-
-    Failures are swallowed (the file may already be locked by another
-    process, the FS may not support chmod, etc.) — the write itself
-    already succeeded; widening perms is only an optimisation for the
-    next cross-process touch.
-
-    Step 4 gate: a no-op when fs writes are agent-backed — a single UID
-    owns /work then, so there is nothing to widen across.
-    """
+def _chmod_cross_writable(sb: Path, p: Path, *, recursive: bool = False) -> None:
+    """Droits de ``p`` (et de son contenu si ``recursive``) élargis pour l'UID
+    du conteneur : l'hôte et le conteneur partagent /work sans groupe commun,
+    ce que l'hôte crée doit être 0666 / 0777 (bits x conservés). Aucun lien
+    suivi (``widen_beneath``). No-op quand les écritures passent par l'agent :
+    un seul UID possède alors /work."""
     if use_agent("fs.write"):
         return
     try:
-        # SÉCURITÉ : ``os.chmod`` DÉRÉFÉRENCE les symlinks (Linux n'a pas de
-        # ``lchmod``), et cette fonction est appelée sur des enfants de
-        # ``rglob``/``copytree(symlinks=True)`` — donc sur des liens que
-        # l'utilisateur contrôle. Sans ce test, ``ln -s /chemin/hote x`` puis
-        # une copie faisait passer la cible HORS sandbox en 0666/0777.
-        if os.path.islink(p):
-            return
-        # Audit éditeur 2026-09-23 (E18) : on ÉLARGIT le mode existant au
-        # lieu de le forcer — un script 0755 garde ses bits x (0777), sinon
-        # ``run.sh`` réécrit par l'agent ne se lançait plus et git voyait un
-        # changement de mode. setuid/setgid/sticky sont retirés au passage.
-        cur = os.stat(p).st_mode & 0o777
-        new = cur | (0o777 if is_dir else 0o666)
-        if new != cur or (os.stat(p).st_mode & 0o7000):
-            os.chmod(p, new)
-    except OSError:
-        pass
-
-
-def _existing_file_mode(p: Path) -> Optional[int]:
-    """Bits de permission (0o777) du fichier régulier ``p`` s'il existe."""
-    try:
-        st = os.stat(p)
-        import stat as _stat
-        if _stat.S_ISREG(st.st_mode):
-            return st.st_mode & 0o777
-    except OSError:
-        pass
-    return None
-
-
-def _apply_mode(tmp: Path, mode: Optional[int]) -> None:
-    """Reporte le mode de l'ancien fichier sur le temporaire AVANT le rename
-    (E18) : le remplacement atomique crée un NOUVEL inode, au mode du umask."""
-    if mode is None:
-        return
-    try:
-        os.chmod(tmp, mode)
-    except OSError:
+        widen_beneath(sb, rel_under(sb, p), recursive=recursive)
+    except SandboxPathError:
         pass
 
 
@@ -545,22 +506,6 @@ def _executable_mode(cur: int) -> int:
     return cur | 0o111 | 0o666
 
 
-def _tmp_sibling(p: Path) -> Path:
-    """Chemin temporaire UNIQUE, voisin de ``p`` (même FS ⇒ rename atomique).
-
-    AUDIT 2026-08-01 (M2) — le temporaire était ``p.suffix + ".tmp"``, donc
-    DÉTERMINISTE : deux écrivains du même fichier (l'agent et son sous-agent
-    ``task``, ou deux workers) se le partageaient. Combiné à un ``finally`` qui
-    supprimait le ``.tmp`` même après un ``replace`` RÉUSSI, la séquence
-    « A replace → B crée son tmp → le finally de A le supprime → le replace de
-    B lève FileNotFoundError » faisait perdre silencieusement l'écriture de B.
-    Le verrou ne rattrapait rien : il n'est armé que si ``expected_sha256`` est
-    fourni (cf. ``_guarded_write``) et reste fail-open après 2 s.
-    """
-    return p.with_name(f"{_name_prefix_bytes(p.name, 200)}.{os.getpid()}."
-                       f"{uuid.uuid4().hex[:8]}.tmp")
-
-
 def _name_prefix_bytes(name: str, limit: int) -> str:
     """Préfixe de ``name`` d'au plus ``limit`` OCTETS UTF-8, coupé sur un
     caractère entier. AUDIT 2026-09-26 — le temporaire reprenait le nom
@@ -570,16 +515,6 @@ def _name_prefix_bytes(name: str, limit: int) -> str:
     if len(b) <= limit:
         return name
     return b[:limit].decode("utf-8", errors="ignore")
-
-
-def _open_tmp_exclusive(tmp: Path) -> int:
-    """Crée le temporaire d'une écriture atomique : EXCLUSIF et sans suivre
-    de lien (AUDIT 2026-09-25). ``open("w")`` suivait un lien qui aurait
-    occupé ce nom ; le nom est aléatoire, mais rien ne coûte de le garantir."""
-    return os.open(str(tmp),
-                   os.O_WRONLY | os.O_CREAT | os.O_EXCL
-                   | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
-                   0o666)
 
 
 def _cross_file_mode() -> int:
@@ -623,93 +558,32 @@ def _backup_copy(p: Path, sb: Path) -> None:
     ``write_beneath`` : aucun lien suivi, un lien existant est remplacé."""
     from shared_infra.sandbox.paths import write_beneath
     root = Path(sb).resolve()
-    rel = p.relative_to(root).as_posix() + ".bak"
+    rel = p.relative_to(root).as_posix()
     # Données seules, comme copyfile : pas de report du mode d'origine
-    # (pas de bit setuid/setgid recopié sur la sauvegarde).
-    with open(p, "rb") as src:
-        write_beneath(root, rel, src, default_mode=_cross_file_mode())
+    # (pas de bit setuid/setgid recopié sur la sauvegarde). Source lue sans
+    # suivre de lien, comme la destination est écrite (2026-09-29).
+    with os.fdopen(open_beneath(root, rel), "rb") as src:
+        write_beneath(root, rel + ".bak", src, default_mode=_cross_file_mode())
 
 
-def _atomic_write(p: Path, content: str, enc: str = "utf-8",
-                  sb: Optional[Path] = None):
-    # Racine connue : même chemin sûr que ``_atomic_write_bytes`` (AUDIT
-    # 2026-09-26 — dossier parent remplacé par un lien après validation).
-    # Texte écrit tel quel (``newline=""``), encodé comme la voie texte.
-    if sb is not None:
-        _atomic_write_bytes(p, content.encode(enc, errors="replace"), sb)
-        return
-    _ensure_parent(p)
-    tmp = _tmp_sibling(p)
-    replaced = False
-    _mode = _existing_file_mode(p)          # E18 : mode d'origine conservé
+def _atomic_write_bytes(p: Path, data: bytes, sb: Path):
+    """Écriture atomique de ``p`` (résolu sous ``sb``) par ``write_beneath`` :
+    dossiers ouverts composant par composant (``O_NOFOLLOW``), temporaire
+    exclusif puis ``rename`` dans le même dossier (AUDIT 2026-09-26). Mode du
+    fichier remplacé conservé (E18) et élargi pour le conteneur, sauf en mode
+    agent."""
+    from shared_infra.sandbox.paths import write_beneath
+    root = Path(sb).resolve()
+    rel = rel_under(root, p)
     try:
-        with os.fdopen(_open_tmp_exclusive(tmp), "w", encoding=enc,
-                       errors="replace", newline="") as f:
-            f.write(content)
-            f.flush()
-            try: os.fsync(f.fileno())
-            except OSError: pass
-        _apply_mode(tmp, _mode)
-        tmp.replace(p)
-        replaced = True
-        # Widen perms so the container's UID 10001 can also write this
-        # file later via execute_shell (e.g. `echo "log" >> file.log`).
-        _chmod_cross_writable(p, is_dir=False)
-    finally:
-        # Ne nettoyer QUE si le rename n'a pas eu lieu : après un replace
-        # réussi, ce chemin n'est plus le nôtre.
-        if not replaced and tmp.exists():
-            try: tmp.unlink()
-            except Exception: pass
-
-def _atomic_write_bytes(p: Path, data: bytes, sb: Optional[Path] = None):
-    # AUDIT 2026-09-26 — racine connue : écriture par ``write_beneath``
-    # (dossiers ouverts composant par composant, O_NOFOLLOW). Le chemin
-    # ``p`` a été validé AVANT l'écriture ; un dossier parent remplacé
-    # entre-temps par un lien (commande concurrente dans le conteneur)
-    # envoyait le temporaire et le ``rename`` hors du bac à sable.
-    if sb is not None:
-        try:
-            _root = Path(sb).resolve()
-            _rel = p.relative_to(_root).as_posix()
-        except ValueError:
-            _rel = None
-        if _rel:
-            from shared_infra.sandbox.paths import write_beneath
-            try:
-                _st = os.lstat(p)
-                import stat as _stat_mod
-                _cur = (_st.st_mode & 0o777) if _stat_mod.S_ISREG(_st.st_mode) else None
-            except OSError:
-                _cur = None
-            if use_agent("fs.write"):
-                _fm = _cur                      # mode conservé, sinon défaut
-            else:
-                # Même élargissement que ``_chmod_cross_writable`` (E18) :
-                # bits d'origine conservés (x compris), rw pour tous.
-                _fm = ((_cur if _cur is not None else 0o644) | 0o666) & 0o777
-            write_beneath(_root, _rel, data, file_mode=_fm,
-                          default_mode=_cross_file_mode(),
-                          dir_mode=(None if use_agent("fs.write") else 0o777))
-            return
-    _ensure_parent(p)
-    tmp = _tmp_sibling(p)
-    replaced = False
-    _mode = _existing_file_mode(p)          # E18 : mode d'origine conservé
-    try:
-        with os.fdopen(_open_tmp_exclusive(tmp), "wb") as f:
-            f.write(data)
-            f.flush()
-            try: os.fsync(f.fileno())
-            except OSError: pass
-        _apply_mode(tmp, _mode)
-        tmp.replace(p)
-        replaced = True
-        _chmod_cross_writable(p, is_dir=False)
-    finally:
-        if not replaced and tmp.exists():
-            try: tmp.unlink()
-            except Exception: pass
+        st = os.lstat(p)
+        cur = (st.st_mode & 0o777) if _stat_mod.S_ISREG(st.st_mode) else None
+    except OSError:
+        cur = None
+    agent = use_agent("fs.write")
+    mode = cur if agent else ((cur if cur is not None else 0o644) | 0o666) & 0o777
+    write_beneath(root, rel, data, file_mode=mode, default_mode=_cross_file_mode(),
+                  dir_mode=None if agent else 0o777)
 
 
 # ── Verrou optimiste cross-worker (AUDIT 2026-06) ─────────────────────────
@@ -756,7 +630,7 @@ def _optimistic_write_lock(p: Path, enabled: bool = True, timeout_s: float = 3.0
         yield got
 
 
-def _guarded_write(p: Path, expected_sha256: str, write_fn, *,
+def _guarded_write(sb: Path, p: Path, expected_sha256: str, write_fn, *,
                    base_sha: Optional[str] = None, history=None):
     """Écrit SOUS le verrou de fichier partagé (toujours, E7), après avoir
     re-vérifié les préconditions :
@@ -773,16 +647,13 @@ def _guarded_write(p: Path, expected_sha256: str, write_fn, *,
     """
     before = None
     with _optimistic_write_lock(p, True):
-        exists = p.exists() and p.is_file()
-        cur = None
-        if expected_sha256 and exists:
-            cur = _sha256_of_file(p)
-            if cur != expected_sha256:
-                return _err("hash_mismatch",
-                            hint="File changed since read (concurrent write). Re-read then retry.",
-                            expected=expected_sha256, actual=cur)
+        cur = _sha_under(sb, p) if (expected_sha256 or base_sha is not None) else None
+        if expected_sha256 and cur is not None and cur != expected_sha256:
+            return _err("hash_mismatch",
+                        hint="File changed since read (concurrent write). Re-read then retry.",
+                        expected=expected_sha256, actual=cur)
         if base_sha is not None:
-            now = (cur if cur is not None else _sha256_of_file(p)) if exists else ""
+            now = cur or ""
             if now != base_sha:
                 return _err("concurrent_modification",
                             hint=("The file changed while this edit was being computed "
@@ -792,7 +663,7 @@ def _guarded_write(p: Path, expected_sha256: str, write_fn, *,
         if history is not None:
             try:
                 from shared_infra.sandbox.file_history import read_before
-                before = read_before(p)
+                before = read_before(sb, p)
             except Exception:
                 before = None
         write_fn()
@@ -816,7 +687,7 @@ def _guarded_write_healing(username: str, sb_root: Path, p: Path,
     Si la réparation échoue, l'erreur d'origine remonte telle quelle.
     """
     try:
-        return _guarded_write(p, expected_sha256, write_fn, **kw)
+        return _guarded_write(sb_root, p, expected_sha256, write_fn, **kw)
     except PermissionError:
         try:
             rel = str(p.resolve().relative_to(Path(sb_root).resolve()))
@@ -828,7 +699,7 @@ def _guarded_write_healing(username: str, sb_root: Path, p: Path,
         if not repair_work_perms(username=username, sandbox_root=Path(sb_root),
                                  rel_path=rel):
             raise
-        return _guarded_write(p, expected_sha256, write_fn, **kw)
+        return _guarded_write(sb_root, p, expected_sha256, write_fn, **kw)
 
 
 # ── Historique de session des fichiers modifiés (2026-09-23) ──────────────
@@ -896,33 +767,33 @@ def _history_record(username: str, sb: Path, p: Path,
             pass
 
 
-def _snapshot_tree(p: Path, max_files: int = 200, max_total: int = 32 * 1024 * 1024):
+def _snapshot_tree(sb: Path, p: Path, max_files: int = 200,
+                   max_total: int = 32 * 1024 * 1024):
     """[(fichier, octets)] des fichiers réguliers sous ``p`` (ou ``p`` lui-même),
-    lus AVANT une suppression pour l'historique. Borné (nombre et volume) :
-    au-delà, les fichiers ne sont simplement pas historisés."""
+    lus AVANT une suppression pour l'historique, sans suivre de lien. Borné
+    (nombre et volume) : au-delà, les fichiers ne sont simplement pas
+    historisés."""
     out = []
     try:
         from shared_infra.sandbox.file_history import read_before
-        if p.is_file() and not p.is_symlink():
-            files = [p]
-        elif p.is_dir() and not p.is_symlink():
+        root = Path(sb).resolve()
+        rel = rel_under(root, p)
+        files = [rel]
+        if p.is_dir() and not p.is_symlink():
             files = []
-            for f in p.rglob("*"):
+            for rel_dir, _dirs, names, _dfd in walk_beneath(root, rel):
+                files += [f"{rel_dir}/{n}" if rel_dir else n for n in names]
                 if len(files) >= max_files:
                     break
-                if f.is_file() and not f.is_symlink():
-                    files.append(f)
-        else:
-            files = []
         total = 0
-        for f in files:
-            b = read_before(f)
+        for f in files[:max_files]:
+            b = read_before(root, f)        # None : absent, lien ou fichier spécial
             if b is None:
                 continue
             total += len(b)
             if total > max_total:
                 break
-            out.append((f, b))
+            out.append((root / f, b))
     except Exception:
         pass
     return out
@@ -2103,61 +1974,68 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
         sb: Path,
     ) -> Dict[str, Any]:
         p = _safe_path(path, sb)
-        if not p.exists():
-            return _err("not_found", hint=f"Check path; nearest existing parent: {_to_container(p.parent if p.parent.exists() else sb, sb)}", path=_to_container(p, sb))
-        if p.is_dir():
-            return _err("is_directory", hint="Use list_files for directories.", path=_to_container(p, sb))
-
-        info = _stat(p, sb)
-        info["mime"] = _mime(p)
-        st_size = info["size"]
-        is_text = _is_text(p)
-        info["type"] = "text" if is_text else "binary"
-
-        # ── BINARY ──────────────────────────────────────────────
-        if not is_text and not as_base64:
-            info["sha256"] = _sha256_of_file(p)
-            if offset or length:
-                n = min(length or MAX_FILE_BIN, MAX_FILE_BIN)
-                with p.open("rb") as f:
-                    f.seek(max(0, offset))
-                    data = f.read(n)
-                return _ok(**info, format="bytes_range",
-                           offset=offset, length=len(data),
-                           b64=base64.b64encode(data).decode("ascii"))
-            if st_size <= MAX_FILE_BIN:
-                data = p.read_bytes()
-                return _ok(**info, format="base64",
-                           b64=base64.b64encode(data).decode("ascii"))
-            with p.open("rb") as f:
-                preview = f.read(BIN_PREVIEW_BYTES)
-            return _ok(**info, format="preview",
-                       hint=f"Binary too large ({st_size} B). Use offset/length for range reads.",
-                       preview_bytes=len(preview),
-                       preview_hex=preview.hex(),
-                       preview_b64=base64.b64encode(preview).decode("ascii"))
-
-        # ── TEXT ────────────────────────────────────────────────
-        enc = encoding or _detect_encoding(p)
-        info["encoding"] = enc
-        # AUDIT 2026-09-25 — gros fichier texte : lecture en FLUX (cf.
-        # _read_large_text), jamais chargé en entier.
-        if st_size > _STREAM_READ_OVER:
-            if as_base64 or format or line_ranges:
-                return _err("too_large_for_mode",
-                            hint=(f"File is {st_size} bytes: as_base64/format/line_ranges "
-                                  "need the whole file. Use head, tail, start_line/end_line "
-                                  "or grep (streamed)."), **info)
-            try:
-                return _read_large_text(
-                    p, info, enc=enc, head=head, tail=tail, start_line=start_line,
-                    end_line=end_line, grep=grep, grep_context=grep_context,
-                    ignore_case=ignore_case, with_line_numbers=with_line_numbers,
-                    max_chars=max_chars)
-            except re.error as e:
-                return _err(f"bad_regex: {e}", hint="Escape special chars with \\ .", **info)
+        # Contenu lu sur l'inode FIGÉ (``fp``), sans suivre de lien ; ``p`` ne
+        # sert plus qu'aux noms (2026-09-29).
         try:
-            raw = p.read_bytes()
+            with pinned_beneath(sb, p) as fp:
+                info = _stat(p, sb, st=fp.stat())
+                info["mime"] = _mime(p)
+                st_size = info["size"]
+                is_text = _is_text(fp)
+                info["type"] = "text" if is_text else "binary"
+
+                # ── BINARY ──────────────────────────────────────────────
+                if not is_text and not as_base64:
+                    info["sha256"] = _sha256_of_file(fp)
+                    if offset or length:
+                        n = min(length or MAX_FILE_BIN, MAX_FILE_BIN)
+                        with fp.open("rb") as f:
+                            f.seek(max(0, offset))
+                            data = f.read(n)
+                        return _ok(**info, format="bytes_range",
+                                   offset=offset, length=len(data),
+                                   b64=base64.b64encode(data).decode("ascii"))
+                    if st_size <= MAX_FILE_BIN:
+                        data = fp.read_bytes()
+                        return _ok(**info, format="base64",
+                                   b64=base64.b64encode(data).decode("ascii"))
+                    with fp.open("rb") as f:
+                        preview = f.read(BIN_PREVIEW_BYTES)
+                    return _ok(**info, format="preview",
+                               hint=f"Binary too large ({st_size} B). Use offset/length for range reads.",
+                               preview_bytes=len(preview),
+                               preview_hex=preview.hex(),
+                               preview_b64=base64.b64encode(preview).decode("ascii"))
+
+                # ── TEXT ────────────────────────────────────────────────
+                enc = encoding or _detect_encoding(fp)
+                info["encoding"] = enc
+                # AUDIT 2026-09-25 — gros fichier texte : lecture en FLUX (cf.
+                # _read_large_text), jamais chargé en entier.
+                if st_size > _STREAM_READ_OVER:
+                    if as_base64 or format or line_ranges:
+                        return _err("too_large_for_mode",
+                                    hint=(f"File is {st_size} bytes: as_base64/format/line_ranges "
+                                          "need the whole file. Use head, tail, start_line/end_line "
+                                          "or grep (streamed)."), **info)
+                    try:
+                        return _read_large_text(
+                            fp, info, enc=enc, head=head, tail=tail, start_line=start_line,
+                            end_line=end_line, grep=grep, grep_context=grep_context,
+                            ignore_case=ignore_case, with_line_numbers=with_line_numbers,
+                            max_chars=max_chars)
+                    except re.error as e:
+                        return _err(f"bad_regex: {e}", hint="Escape special chars with \\ .", **info)
+                raw = fp.read_bytes()
+        except FileNotFoundError:
+            return _err("not_found", hint=f"Check path; nearest existing parent: {_to_container(p.parent if p.parent.exists() else sb, sb)}", path=_to_container(p, sb))
+        except IsADirectoryError:
+            return _err("is_directory", hint="Use list_files for directories.", path=_to_container(p, sb))
+        except SandboxPathError:
+            return _err("not_a_regular_file",
+                        hint="Symlinks, FIFOs, sockets and device files are not read.",
+                        path=_to_container(p, sb))
+        try:
             text = raw.decode(enc, errors="replace")
         except Exception as e:
             return _err(f"decode_failed: {e}",
@@ -2427,9 +2305,8 @@ For surgical edits on large files, prefer edit_file."""
                                  "write_file crée de toute façon les dossiers parents.")
 
             # Optimistic lock for existing files
-            old_sha = ""
-            if p.exists() and p.is_file():
-                old_sha = _sha256_of_file(p)
+            old_sha = _sha_under(sb, p) or ""
+            if old_sha:
                 if expected_sha256 and expected_sha256 != old_sha:
                     return _err("hash_mismatch",
                                 hint="File changed since read. Re-read then retry.",
@@ -2474,8 +2351,6 @@ For surgical edits on large files, prefer edit_file."""
                 return _err("too_large", hint=f"Max {limit} chars. Split into multiple writes or use edit_file.",
                             chars=len(content), max=limit)
 
-            _ensure_parent(p)
-
             _enc_out = encoding          # E16 : "utf-8-sig" si le BOM est conservé
             _conv: Dict[str, Any] = {}   # conventions conservées (bom, line_endings)
             _base_sha: Optional[str] = None   # append : contenu dont on part
@@ -2497,7 +2372,7 @@ For surgical edits on large files, prefer edit_file."""
                 # STRICT et on échoue proprement, symétriquement à la garde
                 # d'écriture ci-dessous.
                 try:
-                    old = p.read_bytes().decode(encoding)
+                    old = _read_under(sb, p).decode(encoding)
                 except (UnicodeDecodeError, LookupError) as _dec_err:
                     _off = getattr(_dec_err, "start", None)
                     return _err(
@@ -2522,7 +2397,7 @@ For surgical edits on large files, prefer edit_file."""
                 # retirait BOM et CRLF (le modèle émet du LF sans BOM), et
                 # réécrivait en UTF-8 un fichier latin-1 dont il n'avait lu
                 # qu'une version « réparée » (U+FFFD).
-                _old_raw = p.read_bytes()
+                _old_raw = _read_under(sb, p)
                 _is_utf8 = encoding.lower().replace("_", "-") in ("utf-8", "utf8")
                 _had_bom = _is_utf8 and _old_raw.startswith(b"\xef\xbb\xbf")
                 try:
@@ -2716,7 +2591,7 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
             if not p.exists(): return _err("not_found", path=_to_container(p, sb), hint="Create with write_file first.")
             if p.is_dir(): return _err("is_directory", path=_to_container(p, sb))
 
-            raw = p.read_bytes()
+            raw = _read_under(sb, p)
             if len(raw) > MAX_EDIT_BYTES:
                 return _err("too_large", size=len(raw), max=MAX_EDIT_BYTES,
                             hint="Split the edit or use write_file to replace whole file.")
@@ -2993,33 +2868,39 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
 
             # ── path = FICHIER : stat (absorbe l'ex-stat_path) ou grep ────
             if not root.is_dir():
-                if search_text:
-                    needle = search_text.lower() if ignore_case else search_text
-                    try:
-                        if root.stat().st_size > 300_000 or not _is_text(root):
-                            return _err("not_greppable",
-                                        hint="Fichier binaire ou > 300 Ko — utilise read_file(grep=…) ou execute_shell grep.")
-                        data = root.read_text("utf-8", errors="replace")
-                    except (OSError, UnicodeDecodeError) as e:
-                        return _err(f"read_failed: {e}")
-                    hits = []
-                    for i, line in enumerate(data.splitlines(), 1):
-                        hay = line.lower() if ignore_case else line
-                        if needle in hay:
-                            hits.append({"file": root.name, "line": i, "text": (line if len(line) <= 260 else line[:260] + "…")})
-                            if len(hits) >= min(cap, MAX_GREP):
-                                return _ok(action="grep", count=len(hits),
-                                           hits=hits, truncated=True)
-                    return _ok(action="grep", count=len(hits), hits=hits, truncated=False)
-                info = _stat(root, sb)
-                info["mime"] = _mime(root)
-                _is_txt = _is_text(root)
-                info["content_type"] = "text" if _is_txt else "binary"
-                if _is_txt:
-                    info["encoding"] = _detect_encoding(root)
-                if details and root.stat().st_size <= 10_000_000:
-                    info["sha256"] = _sha256_of_file(root)
-                return _ok(action="stat", **info)
+                # Contenu lu sur l'inode figé, sans suivre de lien (2026-09-29).
+                try:
+                    with pinned_beneath(sb, root) as fp:
+                        size = fp.stat().st_size
+                        if search_text:
+                            needle = search_text.lower() if ignore_case else search_text
+                            if size > 300_000 or not _is_text(fp):
+                                return _err("not_greppable",
+                                            hint="Fichier binaire ou > 300 Ko — utilise read_file(grep=…) ou execute_shell grep.")
+                            data = fp.read_text("utf-8", errors="replace")
+                            hits = []
+                            for i, line in enumerate(data.splitlines(), 1):
+                                hay = line.lower() if ignore_case else line
+                                if needle in hay:
+                                    hits.append({"file": root.name, "line": i, "text": (line if len(line) <= 260 else line[:260] + "…")})
+                                    if len(hits) >= min(cap, MAX_GREP):
+                                        return _ok(action="grep", count=len(hits),
+                                                   hits=hits, truncated=True)
+                            return _ok(action="grep", count=len(hits), hits=hits, truncated=False)
+                        info = _stat(root, sb, st=fp.stat())
+                        info["mime"] = _mime(root)
+                        _is_txt = _is_text(fp)
+                        info["content_type"] = "text" if _is_txt else "binary"
+                        if _is_txt:
+                            info["encoding"] = _detect_encoding(fp)
+                        if details and size <= 10_000_000:
+                            info["sha256"] = _sha256_of_file(fp)
+                        return _ok(action="stat", **info)
+                except SandboxPathError:
+                    return _err("not_a_regular_file",
+                                hint="Symlinks, FIFOs, sockets and device files are not read.")
+                except OSError as e:
+                    return _err(f"read_failed: {e}")
             # AUDIT AGENTS 2026-08-08 (mesuré en direct) — sans ``exclude``, un
             # ``include_hidden=True`` ramenait 500 chemins de
             # ``.venv/lib/pythonX/site-packages/...`` : +9 000 tokens de contexte
@@ -3061,7 +2942,6 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
             if search_text:
                 needle = search_text.lower() if ignore_case else search_text
                 hits = []
-                _root_res = root.resolve()
                 # AUDIT 2026-09-25 :
                 # - parcours ÉLAGUÉ : les dossiers exclus (node_modules, .venv,
                 #   cachés…) ne sont plus descendus — ``rglob`` les parcourait
@@ -3073,9 +2953,9 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                 _skipped_large = _skipped_binary = 0
                 _visited_g = 0
                 _walk_capped_g = False
-                for _cur, _dirs, _files in os.walk(root, followlinks=False):
-                    _rel_cur = Path(_cur).relative_to(root).as_posix()
-                    _rel_cur = "" if _rel_cur == "." else _rel_cur
+                # Parcours par descripteurs et lecture sur l'inode, sans suivre
+                # de lien (2026-09-29) : liens et fichiers spéciaux sautés.
+                for _rel_cur, _dirs, _files, _dfd in walk_under(sb, root):
                     _dirs[:] = sorted(
                         d for d in _dirs
                         if not _excluded(f"{_rel_cur}/{d}" if _rel_cur else d, d))
@@ -3084,37 +2964,39 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                         if _visited_g > MAX_WALK:
                             _walk_capped_g = True
                             break
-                        p = Path(_cur) / _fn
-                        # SECURITY (F3) : skip symlinks + fichiers atteints via un
-                        # dossier symlinké qui sortent de la sandbox.
-                        if not _child_is_safe(p, _root_res): continue
                         rel = f"{_rel_cur}/{_fn}" if _rel_cur else _fn
                         if _excluded(rel, _fn): continue
                         if pattern and not _glob_match(rel, pattern): continue
                         try:
-                            if p.stat().st_size > _SEARCH_MAX_BYTES:
+                            _fh = os.fdopen(open_leaf(_dfd, _fn), "rb")
+                        except (OSError, SandboxPathError):
+                            continue                    # lien, fichier spécial, disparu
+                        try:
+                            if os.fstat(_fh.fileno()).st_size > _SEARCH_MAX_BYTES:
                                 _skipped_large += 1
                                 continue
-                            if not _is_text(p):
+                            if not _is_text_bytes(_fh.read(8192)):
                                 _skipped_binary += 1
                                 continue
+                            _fh.seek(0)
                             # Lignes découpées au SEUL « \n » (AUDIT 2026-09-26) :
                             # la lecture texte coupait aussi sur un « \r »
                             # isolé (barres de progression) et les numéros
                             # rendus ne correspondaient plus à ``read_file``
                             # ni à ``grep -n``.
-                            with open(p, "rb") as _fh:
-                                for i, _raw in enumerate(_fh, 1):
-                                    line = _raw.rstrip(b"\n").rstrip(b"\r").decode(
-                                        "utf-8", errors="replace")
-                                    hay = line.lower() if ignore_case else line
-                                    if needle in hay:
-                                        hits.append({"file": rel, "line": i, "text": (line if len(line) <= 260 else line[:260] + "…")})
-                                        if len(hits) >= min(cap, MAX_GREP):
-                                            return _ok(action="grep", count=len(hits),
-                                                       hits=hits, truncated=True,
-                                                       hint="Refine with pattern= or smaller search_text.")
+                            for i, _raw in enumerate(_fh, 1):
+                                line = _raw.rstrip(b"\n").rstrip(b"\r").decode(
+                                    "utf-8", errors="replace")
+                                hay = line.lower() if ignore_case else line
+                                if needle in hay:
+                                    hits.append({"file": rel, "line": i, "text": (line if len(line) <= 260 else line[:260] + "…")})
+                                    if len(hits) >= min(cap, MAX_GREP):
+                                        return _ok(action="grep", count=len(hits),
+                                                   hits=hits, truncated=True,
+                                                   hint="Refine with pattern= or smaller search_text.")
                         except (OSError, UnicodeDecodeError): continue  # fichier illisible : on saute
+                        finally:
+                            _fh.close()
                     if _walk_capped_g:
                         break
                 _extra: Dict[str, Any] = {}
@@ -3145,19 +3027,21 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                 ``**/*.py`` s'arrêtait sur la borne MAX_WALK avant d'atteindre
                 les fichiers du projet, et chaque page du curseur re-parcourait
                 les mêmes 50 000 premières entrées. Mêmes exclusions que
-                search_text ; les entrées exclues ne sont plus visitées."""
-                for _cur, _dirs, _files in os.walk(root, followlinks=False):
-                    _rc = Path(_cur).relative_to(root).as_posix()
-                    _rc = "" if _rc == "." else _rc
+                search_text ; les entrées exclues ne sont plus visitées.
+                Descente par descripteurs, sans suivre de lien (2026-09-29)."""
+                for _rc, _dirs, _files, _dfd in walk_under(sb, root):
                     _dirs[:] = sorted(
                         d for d in _dirs
                         if not _excluded(f"{_rc}/{d}" if _rc else d, d))
+                    _base = root / _rc if _rc else root
                     for _d in _dirs:
-                        yield Path(_cur) / _d
+                        yield _base / _d
                     for _f in sorted(_files):
-                        yield Path(_cur) / _f
+                        yield _base / _f
+                    if not recursive:
+                        _dirs[:] = []           # premier niveau seulement
 
-            walker = _pruned_walk() if recursive else root.iterdir()
+            walker = _pruned_walk()
             # Cursor resumption (skip paths lexicographically <= cursor)
             skip_until = cursor or ""
             _root_res = root.resolve()
@@ -3366,12 +3250,12 @@ Safety:
                         if not recursive:
                             return _err("is_dir", hint=f"{_to_container(pp, sb)} is dir; pass recursive=True.",
                                         already_deleted=deleted)
-                        _snap = _snapshot_tree(pp) if _track else []
-                        shutil.rmtree(pp)
+                        _snap = _snapshot_tree(sb, pp) if _track else []
+                        remove_beneath(sb, rel_under(sb, pp), recursive=True)
                     else:
                         with _locks_for(pp):          # E7 : verrou partagé
-                            _snap = _snapshot_tree(pp) if _track else []
-                            pp.unlink()
+                            _snap = _snapshot_tree(sb, pp) if _track else []
+                            remove_beneath(sb, rel_under(sb, pp))
                     for _f, _b in _snap:
                         _history_record(_username, sb, _f, _b, None)
                         if len(_fc) < _FC_MAX:
@@ -3391,7 +3275,7 @@ Safety:
                         return _ok(action="delete", dry_run=True,
                                    path=to_container(_lien.relative_to(Path(sb).resolve()).as_posix()),
                                    type="symlink")
-                    os.unlink(_lien)
+                    remove_beneath(sb, rel_under(sb, _lien))
                     return _ok(action="delete", symlink=True,
                                path=to_container(_lien.relative_to(Path(sb).resolve()).as_posix()))
                 if not dest:
@@ -3410,21 +3294,28 @@ Safety:
                 if dry_run:
                     return _ok(action="move", dry_run=True, symlink=True,
                                dest=_to_container(_cible.parent, sb) + "/" + _cible.name)
-                _ensure_parent(_cible)
-                os.replace(_lien, _cible)          # renomme le LIEN, sans le suivre
+                rename_beneath(sb, rel_under(sb, _lien), rel_under(sb, _cible),
+                               dir_mode=None if use_agent("fs.write") else 0o777)   # le LIEN, sans le suivre
                 return _ok(action="move", symlink=True,
                            dest=_to_container(_cible.parent, sb) + "/" + _cible.name)
             p = _safe_path(path, sb)
 
             if act == "chmod":
-                if not p.exists(): return _err("not_found")
-                cur = p.stat().st_mode
-                new = _executable_mode(cur)
-                if dry_run:
-                    return _ok(path=_to_container(p, sb), action="chmod", dry_run=True,
-                               current_mode=oct(cur & 0o777),
-                               would_set=oct(new & 0o777))
-                os.chmod(p, new)
+                # Sur l'inode ouvert sans suivre de lien (2026-09-29).
+                try:
+                    _cfd = open_beneath(sb, rel_under(sb, p), allow_dir=True)
+                except FileNotFoundError:
+                    return _err("not_found")
+                try:
+                    cur = os.fstat(_cfd).st_mode
+                    new = _executable_mode(cur)
+                    if dry_run:
+                        return _ok(path=_to_container(p, sb), action="chmod", dry_run=True,
+                                   current_mode=oct(cur & 0o777),
+                                   would_set=oct(new & 0o777))
+                    os.fchmod(_cfd, new)
+                finally:
+                    os.close(_cfd)
                 return _ok(path=_to_container(p, sb), action="chmod", mode=oct(new & 0o777))
 
             if act == "mkdir":
@@ -3437,9 +3328,10 @@ Safety:
                     return _ok(path=_to_container(p, sb), action="mkdir", dry_run=True,
                                would_create=not _existed,
                                **({"warning": _twin} if _twin else {}))
-                p.mkdir(parents=True, exist_ok=True, mode=0o777)
-                # Élargit les droits du leaf (exist_ok peut avoir touché un dir 0o755)
-                _chmod_cross_writable(p, is_dir=True)
+                os.close(open_dir_beneath(sb, rel_under(sb, p), create=True,
+                                          dir_mode=None if use_agent("fs.write") else 0o777))
+                # Élargit aussi un dossier qui existait déjà (0o755…).
+                _chmod_cross_writable(sb, p)
                 return _ok(path=_to_container(p, sb), action="mkdir", created=not _existed,
                            **({"warning": _twin} if _twin else {}))
 
@@ -3463,12 +3355,12 @@ Safety:
                     return _ok(action="delete", dry_run=True, **info)
                 _track = _history_uid(_username) is not None
                 if p.is_dir():
-                    _snap = _snapshot_tree(p) if _track else []
-                    shutil.rmtree(p)
+                    _snap = _snapshot_tree(sb, p) if _track else []
+                    remove_beneath(sb, rel_under(sb, p), recursive=True)
                 else:
                     with _locks_for(p):               # E7 : verrou partagé
-                        _snap = _snapshot_tree(p) if _track else []
-                        p.unlink()
+                        _snap = _snapshot_tree(sb, p) if _track else []
+                        remove_beneath(sb, rel_under(sb, p))
                 # Historique de session : l'original reste restaurable.
                 _fc = []
                 for _f, _b in _snap:
@@ -3542,7 +3434,6 @@ Safety:
                                overwrite_target=os.path.lexists(pdst),
                                **({"warning": _twin} if _twin else {}))
 
-                _ensure_parent(pdst)
                 _src_file = p.is_file() and not p.is_symlink()
                 _dst_before = None
                 _track = _src_file and _history_uid(_username) is not None
@@ -3553,7 +3444,7 @@ Safety:
                 with _lk:                           # E7 : verrou partagé (fichiers)
                     if _track and act == "copy":
                         from shared_infra.sandbox.file_history import read_before as _rb
-                        _dst_before = _rb(pdst)
+                        _dst_before = _rb(sb, pdst)
                     if act == "copy":
                         # AUDIT 2026-09-25 — copies écrites SANS suivre de lien
                         # côté destination (``write_beneath``) : ``copy2`` vers
@@ -3562,42 +3453,45 @@ Safety:
                         # tels quels (SECURITY F5 : jamais déréférencés).
                         from shared_infra.sandbox.paths import (
                             copytree_beneath, write_beneath)
-                        if p.is_dir():
-                            copytree_beneath(
-                                p, _root, _dst_rel,
-                                file_mode_fn=lambda m: m | (0 if use_agent("fs.write") else 0o666),
-                                dir_mode=None if use_agent("fs.write") else 0o777)
+                        # Source ouverte sans suivre de lien, elle aussi
+                        # (2026-09-29) : dossier par descripteur, fichier lu
+                        # sur son inode.
+                        _src_fd = open_beneath(_root, rel_under(_root, p), allow_dir=True)
+                        if _stat_mod.S_ISDIR(os.fstat(_src_fd).st_mode):
+                            try:
+                                copytree_beneath(
+                                    _src_fd, _root, _dst_rel,
+                                    file_mode_fn=lambda m: m | (0 if use_agent("fs.write") else 0o666),
+                                    dir_mode=None if use_agent("fs.write") else 0o777)
+                            finally:
+                                os.close(_src_fd)
                         else:
-                            _st = p.stat()
-                            with open(p, "rb") as _src:
+                            with os.fdopen(_src_fd, "rb") as _src:
+                                _fst = os.fstat(_src.fileno())
                                 write_beneath(
                                     _root, _dst_rel, _src,
-                                    file_mode=(_st.st_mode & 0o777 & ~0o6000)
+                                    file_mode=(_fst.st_mode & 0o777 & ~0o6000)
                                     | (0 if use_agent("fs.write") else 0o666),
-                                    mtime_ns=_st.st_mtime_ns)
+                                    mtime_ns=_fst.st_mtime_ns)
                     else:
-                        # ``rename`` remplace l'entrée de destination (fichier ou
+                        # ``rename`` relatif aux dossiers ouverts sans suivre de
+                        # lien : remplace l'entrée de destination (fichier ou
                         # lien) sans jamais la suivre.
-                        try:
-                            os.replace(str(p), str(pdst))
-                        except OSError as _mv_err:
-                            import errno as _errno
-                            if _mv_err.errno != _errno.EXDEV:
-                                raise
-                            shutil.move(str(p), str(pdst))   # autre système de fichiers
+                        rename_beneath(_root, rel_under(_root, p), _dst_rel,
+                                       dir_mode=None if use_agent("fs.write") else 0o777)
                 # Historique de session : une copie est une écriture de la
                 # destination, un déplacement emporte l'historique du fichier.
                 _fc = []
                 if act == "copy" and _track:
                     from shared_infra.sandbox.file_history import read_before as _rb
-                    _after = _rb(pdst)
+                    _after = _rb(sb, pdst)
                     _history_record(_username, sb, pdst, _dst_before, _after)
                     _fc.append(_fc_entry(pdst, sb, "created" if _dst_before is None else "modified",
                                          _dst_before, _after))
                 elif act == "copy" and p.is_dir() and _history_uid(_username) is not None:
                     # Dossier copié : chaque fichier créé est une écriture
                     # (borné comme une suppression).
-                    for _f, _b in _snapshot_tree(pdst):
+                    for _f, _b in _snapshot_tree(sb, pdst):
                         _history_record(_username, sb, _f, None, _b)
                         if len(_fc) < _FC_MAX:
                             _fc.append(_fc_entry(_f, sb, "created", None, _b))
@@ -3607,14 +3501,7 @@ Safety:
                                 "from": _to_container(p, sb)})
                 # Widen perms on the result so the container can also
                 # read/write the moved/copied content.
-                try:
-                    if pdst.is_dir():
-                        for sub in [pdst, *pdst.rglob("*")]:
-                            _chmod_cross_writable(sub, is_dir=sub.is_dir())
-                    else:
-                        _chmod_cross_writable(pdst, is_dir=False)
-                except OSError:
-                    pass
+                _chmod_cross_writable(sb, pdst, recursive=True)
                 return _ok(src=_to_container(p, sb), dest=_to_container(pdst, sb), action=act,
                            **({"warning": _twin} if _twin else {}),
                            **({"files_changed": _fc} if _fc else {}))
@@ -3668,16 +3555,18 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
                 pp = _safe_path(rel_path, sb)
             except ValueError as e:
                 return _err(str(e), path=rel_path)
-            if not pp.exists():
+            try:
+                with pinned_beneath(sb, pp) as fp:
+                    size = fp.stat().st_size
+                    if size > MAX_EDIT_BYTES:
+                        return _err("too_large", size=size, max=MAX_EDIT_BYTES,
+                                    hint="File too large for outline.")
+                    text = fp.read_text("utf-8", errors="replace")
+            except FileNotFoundError:
                 return _err("not_found", path=_to_container(pp, sb))
-            if pp.is_dir():
+            except IsADirectoryError:
                 return _err("is_directory", path=_to_container(pp, sb),
                             hint="outline expects a single file.")
-            if pp.stat().st_size > MAX_EDIT_BYTES:
-                return _err("too_large", size=pp.stat().st_size, max=MAX_EDIT_BYTES,
-                            hint="File too large for outline.")
-            try:
-                text = pp.read_text("utf-8", errors="replace")
             except Exception as e:
                 return _err(f"read_failed: {e}")
             lang = _ci.detect_language(pp.name)
@@ -3728,9 +3617,10 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
                 if not path:
                     return _err("path_required", hint="path=<file> for symbols")
                 pp = _safe_path(path, sb)
-                if not pp.is_file():
+                try:
+                    text = _read_under(sb, pp).decode("utf-8", errors="replace")
+                except (OSError, SandboxPathError):
                     return _err("not_a_file", path=_to_container(pp, sb))
-                text = pp.read_text("utf-8", errors="replace")
                 lang = _ci.detect_language(pp.name)
                 if lang == "unknown":
                     return _ok(action="symbols", path=_to_container(pp, sb), language="unknown",
@@ -3771,43 +3661,29 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
                 return False
 
             def _code_walk():
-                if not recursive:
-                    yield from search_root.iterdir()
-                    return
-                for _cur, _dirs, _files in os.walk(search_root, followlinks=False):
-                    _rc = Path(_cur).relative_to(search_root).as_posix()
-                    _rc = "" if _rc == "." else _rc
+                """(chemin relatif, nom, descripteur du dossier) de chaque fichier :
+                parcours par descripteurs, sans suivre de lien (2026-09-29)."""
+                for _rc, _dirs, _files, _dfd in walk_under(sb, search_root):
                     _dirs[:] = sorted(
                         d for d in _dirs
-                        if not _excluded(f"{_rc}/{d}" if _rc else d, d))
+                        if not _excluded(f"{_rc}/{d}" if _rc else d, d)) if recursive else []
                     for _fn in sorted(_files):
-                        yield Path(_cur) / _fn
+                        yield (f"{_rc}/{_fn}" if _rc else _fn), _fn, _dfd
 
-            walker = _code_walk()
             hits: List[Dict[str, Any]] = []
             files_scanned = 0
-            _search_root_res = search_root.resolve()
-            for fp in walker:
-                if not fp.is_file():
-                    continue
-                # SECURITY (F3) : voir _child_is_safe — pas de lecture à travers
-                # un symlink sortant de la sandbox.
-                if not _child_is_safe(fp, _search_root_res):
-                    continue
-                rel = fp.relative_to(search_root).as_posix()
-                if _excluded(rel, fp.name):
+            for rel, name, dfd in _code_walk():
+                if _excluded(rel, name):
                     continue
                 if include_glob and not _glob_match(rel, include_glob):
                     continue
-                lang = _ci.detect_language(fp.name)
+                lang = _ci.detect_language(name)
                 if lang == "unknown":
                     continue
-                try:
-                    if fp.stat().st_size > 5_000_000:  # 5MB safety cap per file
-                        continue
-                    text = fp.read_text("utf-8", errors="replace")
-                except (OSError, UnicodeDecodeError):
+                data = read_leaf(dfd, name, 5_000_000)   # 5 Mo par fichier ; liens exclus
+                if data is None:
                     continue
+                text = data.decode("utf-8", errors="replace")
                 files_scanned += 1
                 if act == "definition":
                     found = _ci.find_definition(text, lang, symbol)

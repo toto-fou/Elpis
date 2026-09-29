@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Callable, List, Optional, TypeVar
 
 from shared_infra.runtime.runtime_dir import runtime_path as _runtime_path
+from shared_infra.sandbox import bwrap
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -139,30 +140,19 @@ def lo_version_token(soffice: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 #  Isolation
 # ─────────────────────────────────────────────────────────────────────────────
-_probe_lock = threading.Lock()
-_probe_cache: dict = {"at": 0.0, "ok": False, "bin": ""}
-_PROBE_TTL_S = 600.0
 _warned_none = False
 
 
 def _bwrap_base(install_dirs: List[str]) -> List[str]:
-    """Options bwrap communes : tout désolidarisé (réseau, PID, IPC, UTS…),
-    ``/usr`` en lecture seule (``/bin``, ``/lib`` sont des liens sur Debian à
-    ``/usr`` fusionné), polices et configuration LibreOffice.
+    """Prison commune (``bwrap.base_argv``), plus les polices et la
+    configuration LibreOffice.
 
     ⚠ ``/etc/libreoffice`` est indispensable : ``program/sofficerc`` y pointe
     (sans lui, abandon immédiat, code 134)."""
-    argv = [
-        "--unshare-all", "--die-with-parent", "--new-session", "--cap-drop", "ALL",
-        "--ro-bind", "/usr", "/usr",
-        "--symlink", "usr/bin", "/bin",
-        "--symlink", "usr/lib", "/lib",
-        "--symlink", "usr/lib64", "/lib64",
-        "--symlink", "usr/sbin", "/sbin",
+    argv = bwrap.base_argv() + [
         "--ro-bind-try", "/etc/fonts", "/etc/fonts",
         "--ro-bind-try", "/etc/libreoffice", "/etc/libreoffice",
         "--ro-bind-try", "/var/cache/fontconfig", "/var/cache/fontconfig",
-        "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
     ]
     for d in install_dirs:
         if d and not d.startswith("/usr/"):
@@ -175,30 +165,7 @@ def _install_dirs(soffice: str) -> List[str]:
     return [str(Path(soffice).parent.parent)] if soffice else []
 
 
-def probe_bwrap(force: bool = False) -> bool:
-    """bwrap utilisable ici ? (user namespaces autorisés, AppArmor…).
-    Résultat mis en cache 10 min par process."""
-    now = time.monotonic()
-    with _probe_lock:
-        if not force and _probe_cache["bin"] and now - _probe_cache["at"] < _PROBE_TTL_S:
-            return bool(_probe_cache["ok"])
-        bwrap = shutil.which("bwrap") or ""
-        ok = False
-        if bwrap and os.path.exists("/usr/bin/true"):
-            try:
-                proc = subprocess.run(
-                    [bwrap, *_bwrap_base([]), "/usr/bin/true"],
-                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                    stderr=subprocess.PIPE, timeout=5, env={"PATH": "/usr/bin:/bin"},
-                )
-                ok = proc.returncode == 0
-                if not ok:
-                    logger.warning("[office] bwrap inutilisable : %s",
-                                   (proc.stderr or b"").decode(errors="replace").strip()[-200:])
-            except (OSError, subprocess.SubprocessError) as exc:
-                logger.warning("[office] sonde bwrap échouée : %r", exc)
-        _probe_cache.update(at=now, ok=ok, bin=bwrap or "absent")
-        return ok
+probe_bwrap = bwrap.probe
 
 
 def isolation_mode() -> str:
@@ -406,8 +373,7 @@ def build_argv(*, isolation: str, soffice: str, profile_dir: Path, job_dir: Path
         argv += [prlimit, f"--cpu={int(timeout_s) * 2 + 30}",
                  f"--fsize={1024 * 1024 * 1024}", "--nofile=1024", "--"]
     if jailed:
-        bwrap = shutil.which("bwrap") or "bwrap"
-        argv += [bwrap, *_bwrap_base(_install_dirs(soffice)),
+        argv += [bwrap.binary() or "bwrap", *_bwrap_base(_install_dirs(soffice)),
                  "--bind", str(profile_dir), "/profile",
                  "--bind", str(job_dir), "/job",
                  "--setenv", "HOME", "/profile",

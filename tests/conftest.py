@@ -263,6 +263,21 @@ def _isolate_shared_spools(tmp_path_factory):
     yield
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _git_hote_selon_le_poste():
+    """Git hôte (2026-09-29) : la suite tourne dans la prison bwrap quand le
+    poste la permet ; sinon (CI sans user namespaces), en mode ``none``, comme
+    l'y mettrait l'opérateur. Les tests de la prison sont alors sautés."""
+    from shared_infra.sandbox import bwrap, git_env
+    if bwrap.probe():
+        yield
+        return
+    orig = git_env.git_isolation
+    git_env.git_isolation = lambda: "none"
+    yield
+    git_env.git_isolation = orig
+
+
 @pytest.fixture(autouse=True)
 def _reset_tokenize_backoff():
     """Le disjoncteur de ``/tokenize`` (OPTIM 2026-09-26) est un état de

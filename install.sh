@@ -406,7 +406,7 @@ fi
 
 yn() { [ "$1" -eq 1 ] && echo oui || echo non; }
 APT_PKGS=(python3 python3-venv python3-dev build-essential
-          git curl jq ca-certificates unzip openssl
+          git curl jq ca-certificates unzip openssl bubblewrap
           fonts-dejavu fonts-liberation)
 cat <<EOF
 
@@ -458,7 +458,7 @@ install_system() {
     have docker || pkgs+=(docker.io)
     [ "$WITH_OFFICE" -eq 1 ] && pkgs+=(libreoffice-writer-nogui libreoffice-calc-nogui
                                        libreoffice-impress-nogui fonts-crosextra-carlito
-                                       fonts-crosextra-caladea bubblewrap)
+                                       fonts-crosextra-caladea)
     [ "$WITH_VOICE" -eq 1 ] && pkgs+=(cmake pkg-config)
     # Serveurs de base : paquets de l'OS uniquement, jamais livrés par Elpis.
     [ "$DB_MODE" = postgres-local ] && pkgs+=(postgresql)
@@ -758,6 +758,32 @@ install_caddy() {
     $SUDO "$ROOT/deploy/caddy/install_caddy.sh" || note_warn "Installation de Caddy incomplète."
 }
 
+# Git côté serveur et aperçus Office tournent dans une prison bubblewrap.
+# Ubuntu ≥ 23.10 réserve les user namespaces aux programmes qui ont un profil
+# AppArmor : on en pose un pour bwrap, seulement s'il est bloqué.
+bwrap_ok() {
+    as_app bwrap --unshare-all --ro-bind /usr /usr --symlink usr/lib /lib \
+        --symlink usr/lib64 /lib64 --symlink usr/bin /bin /usr/bin/true >/dev/null 2>&1
+}
+
+ensure_bwrap() {
+    if ! have bwrap; then
+        note_warn "bubblewrap absent : Git côté serveur et aperçus Office indisponibles."
+        return 0
+    fi
+    if bwrap_ok; then ok "bubblewrap utilisable (Git côté serveur, aperçus Office)."; return 0; fi
+    if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ] \
+            && have apparmor_parser; then
+        printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' '' \
+            'profile elpis-bwrap /usr/bin/bwrap flags=(unconfined) {' '  userns,' \
+            '  include if exists <local/elpis-bwrap>' '}' \
+            | $SUDO tee /etc/apparmor.d/elpis-bwrap >/dev/null \
+            && $SUDO apparmor_parser -r /etc/apparmor.d/elpis-bwrap \
+            && bwrap_ok && { ok "bubblewrap autorisé (profil AppArmor elpis-bwrap)."; return 0; }
+    fi
+    note_warn "bubblewrap bloqué (user namespaces) : Git côté serveur et aperçus Office indisponibles (./elpis doctor)."
+}
+
 check_office() {
     if have soffice && have bwrap; then ok "LibreOffice + bubblewrap présents (aperçus Office)."
     else note_warn "LibreOffice/bubblewrap absents : aperçus Office indisponibles."; fi
@@ -783,7 +809,7 @@ install_voice() {
 }
 
 # =============================================================================
-[ "$DO_SYSTEM" -eq 1 ] && install_system
+[ "$DO_SYSTEM" -eq 1 ] && install_system && ensure_bwrap
 install_python
 setup_database
 [ "$WITH_BROWSER" -eq 1 ] && install_browser

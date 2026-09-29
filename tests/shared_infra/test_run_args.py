@@ -21,6 +21,8 @@ def test_default_profile_is_status_quo():
     assert "--runtime" not in args                 # no gVisor by default
     assert "--security-opt" in args
     assert "no-new-privileges:false" in args       # sudo must still work
+    i = args.index("--cap-drop")                    # no device node in /work
+    assert args[i + 1] == "MKNOD"
     assert "--network" in args and "none" in args  # isolated default
     assert args[-3:] == [cfg.image, "sleep", "infinity"]
     assert f"{cfg.memory_mb}m" in args

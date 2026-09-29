@@ -68,17 +68,17 @@ def test_zip_sur_disque_plafonne(tmp_path, monkeypatch):
     src.mkdir()
     for i in range(5):
         (src / f"f{i}").write_bytes(b"z" * 100)
-    entries = [(p, p.name) for p in sorted(src.iterdir())]
-    tmp, n = rf._spool_zip(iter(entries), max_bytes=10 ** 6, max_files=100, strict=True)
+    entries = [(p.name, p.name) for p in sorted(src.iterdir())]
+    tmp, n = rf._spool_zip(src, iter(entries), max_bytes=10 ** 6, max_files=100, strict=True)
     try:
         assert n == 5 and Path(tmp).parent == tmp_path / "sb" / ".dl_spool"
         assert len(zipfile.ZipFile(tmp).namelist()) == 5
     finally:
         os.unlink(tmp)
     with pytest.raises(rf._ZipTooBig):
-        rf._spool_zip(iter(entries), max_bytes=250, max_files=100, strict=True)
+        rf._spool_zip(src, iter(entries), max_bytes=250, max_files=100, strict=True)
     assert list((tmp_path / "sb" / ".dl_spool").iterdir()) == [], "zip partiel laissé sur disque"
-    tmp, n = rf._spool_zip(iter(entries), max_bytes=250, max_files=100, strict=False)
+    tmp, n = rf._spool_zip(src, iter(entries), max_bytes=250, max_files=100, strict=False)
     os.unlink(tmp)
     assert n == 2
 

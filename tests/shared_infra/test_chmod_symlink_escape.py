@@ -10,15 +10,14 @@ conteneur ne franchit pas le mount, mais il fait franchir l'app à sa place.
 
 Pièges couverts (une régression sur l'un d'eux rouvre l'évasion) :
 
-* ``_sandbox_exec._chmod_walk`` — ``os.walk(followlinks=False)`` n'empêche que
-  la RÉCURSION : un lien-vers-dossier reste listé dans ``dirnames`` (la
-  classification passe par ``entry.is_dir()``, qui déréférence) et le ``chmod``
-  déréférence lui aussi. C'était le finding C1 de l'audit 2026-08-01.
-* ``fs_tools._chmod_cross_writable`` — appelé sur les enfants d'un ``rglob``
-  après ``copytree(symlinks=True)``, donc sur des liens recopiés tels quels.
-* ``chart_tools._chmod_cross_writable`` — copie du helper précédent.
-* ``git_tools._widen_cross_writable`` — chmode le fichier ET ses PARENTS.
-* ``sandbox_snapshots._widen_cross_writable`` — restore d'archive.
+* le grant (``exec_bridge``) — ``os.walk(followlinks=False)`` n'empêche que la
+  RÉCURSION : un lien-vers-dossier reste listé dans ``dirnames`` et le
+  ``chmod`` déréférence. C'était le finding C1 de l'audit 2026-08-01.
+* ``fs_tools._chmod_cross_writable`` — après une copie ou un déplacement.
+* ``chart_tools._chmod_cross_writable`` — cache des graphiques (hors /work).
+* ``paths.widen_beneath`` (2026-09-29) — la primitive commune : entrée saisie
+  par ``O_PATH | O_NOFOLLOW``, plus de fenêtre entre le contrôle et le chmod ;
+  y compris un dossier remplacé par un lien PENDANT le parcours.
 """
 from __future__ import annotations
 
@@ -103,19 +102,17 @@ def test_grant_access_ne_chmode_pas_a_travers_un_lien_vers_fichier(tree, monkeyp
 
 # ── 2. Les helpers « cross-writable » ──────────────────────────────────────
 
-def test_fs_tools_chmod_cross_writable_saute_les_liens(tree):
+def test_fs_tools_chmod_cross_writable_saute_les_liens(tree, monkeypatch):
     root, outside, outside_file = tree
-    link = root / "leak"
-    os.symlink(outside_file, link)
-
     from llm_core.tools import fs_tools
+    monkeypatch.setattr(fs_tools, "use_agent", lambda op: False)
 
-    fs_tools._chmod_cross_writable(link, is_dir=False)
+    os.symlink(outside_file, root / "leak")
+    fs_tools._chmod_cross_writable(root, root / "leak")
     assert _mode(outside_file) == 0o600
 
-    dlink = root / "leakdir"
-    os.symlink(outside, dlink)
-    fs_tools._chmod_cross_writable(dlink, is_dir=True)
+    os.symlink(outside, root / "leakdir")
+    fs_tools._chmod_cross_writable(root, root / "leakdir", recursive=True)
     assert _mode(outside) == OUTSIDE_MODE
 
 
@@ -130,38 +127,45 @@ def test_chart_tools_chmod_cross_writable_saute_les_liens(tree):
     assert _mode(outside_file) == 0o600
 
 
-def test_git_tools_widen_saute_le_fichier_et_les_parents_lies(tree):
-    """``_widen_cross_writable`` remonte les PARENTS : un parent symlinké ne
-    doit ni être chmodé, ni laisser la remontée continuer au-delà."""
+def test_widen_beneath_saute_liens_et_parents_lies(tree):
+    """Ni le lien lui-même, ni un chemin qui TRAVERSE un lien (parent lié)."""
     root, outside, outside_file = tree
-    from llm_core.tools import git_tools
+    from shared_infra.sandbox.paths import widen_beneath
 
-    # (a) le chemin lui-même est un lien
-    link = root / "leak"
-    os.symlink(outside_file, link)
-    git_tools._widen_cross_writable(link, root)
+    os.symlink(outside_file, root / "leak")
+    widen_beneath(root, "leak")
     assert _mode(outside_file) == 0o600
 
-    # (b) un PARENT est un lien : outside/sub/f.txt atteint via sandbox/plink
     sub = outside / "sub"
     sub.mkdir()
-    target = sub / "f.txt"
-    target.write_text("x")
-    os.chmod(target, 0o600)
+    (sub / "f.txt").write_text("x")
+    os.chmod(sub / "f.txt", 0o600)
     os.chmod(sub, OUTSIDE_MODE)
-    plink = root / "plink"
-    os.symlink(outside, plink)
-    git_tools._widen_cross_writable(plink / "sub" / "f.txt", root)
+    os.symlink(outside, root / "plink")
+    widen_beneath(root, "plink/sub/f.txt")
+    widen_beneath(root, "plink", recursive=True)
     assert _mode(sub) == OUTSIDE_MODE, "un dossier parent hôte a été élargi"
+    assert _mode(sub / "f.txt") == 0o600
     assert _mode(outside) == OUTSIDE_MODE
 
 
-def test_snapshot_restore_chmod_saute_les_liens(tree):
+def test_widen_beneath_dossier_remplace_par_un_lien_pendant_le_parcours(tree, monkeypatch):
+    """Course : ``d`` est un vrai dossier quand le parcours le liste, puis un
+    lien vers l'hôte quand il y descend. Rien de l'hôte n'est élargi."""
     root, outside, outside_file = tree
-    link = root / "leak"
-    os.symlink(outside_file, link)
+    from shared_infra.sandbox import paths
+    (root / "d").mkdir()
+    (root / "d" / "f.txt").write_text("x")
+    vrai_fwalk = os.fwalk
 
-    from shared_infra.sandbox import routes_snapshots as snaps
-
-    snaps._widen_cross_writable(link)
+    def fwalk_avec_bascule(*a, **k):
+        for i, item in enumerate(vrai_fwalk(*a, **k)):
+            if i == 0:                             # après la liste de la racine
+                (root / "d" / "f.txt").unlink()
+                (root / "d").rmdir()
+                os.symlink(outside, root / "d")
+            yield item
+    monkeypatch.setattr(paths.os, "fwalk", fwalk_avec_bascule)
+    paths.widen_beneath(root, "", recursive=True)
+    assert _mode(outside) == OUTSIDE_MODE
     assert _mode(outside_file) == 0o600

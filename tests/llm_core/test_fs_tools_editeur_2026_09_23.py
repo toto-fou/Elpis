@@ -302,9 +302,9 @@ def test_edit_refused_when_file_changed_under_it(fs, monkeypatch):
     f.write_text("base\n")
     real = F._guarded_write
 
-    def racy(p, expected, fn, **kw):
+    def racy(sb, p, expected, fn, **kw):
         f.write_text("editor save\n")            # l'éditeur passe entre-temps
-        return real(p, expected, fn, **kw)
+        return real(sb, p, expected, fn, **kw)
     monkeypatch.setattr(F, "_guarded_write", racy)
     r = t["edit_file"](None, path="c.txt", action="str_replace",
                        old_str="base", new_str="agent")

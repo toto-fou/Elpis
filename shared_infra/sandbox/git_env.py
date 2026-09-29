@@ -30,11 +30,16 @@ host path until then and remains valid as belt-and-braces afterwards.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
+
+from shared_infra.sandbox import bwrap
+
+logger = logging.getLogger("uvicorn.error")
 
 # git config overrides applied to every host git invocation.
 #
@@ -46,9 +51,9 @@ from typing import Dict, Optional
 #     repo (un helper malveillant = exfiltration/RCE). Les routes qui passent
 #     des credentials utilisent GIT_ASKPASS via env_extra, prioritaire → OK.
 #   - core.pager          : git ne page pas en non-TTY, mais ceinture-bretelles
-# Limite connue : les clés à nom ARBITRAIRE (filter.*.smudge/clean,
-# diff.external) ne sont PAS neutralisables par env — c'est précisément ce
-# qui justifie la migration « git en conteneur » (Vague 3 de l'audit).
+# Les clés à nom ARBITRAIRE (filter.*.smudge/clean, diff.*.textconv) ne sont
+# PAS neutralisables par env : ``repo_refusal`` les refuse, et ``run_host_git``
+# enferme git dans une prison qui ne voit que la zone de travail.
 _HARDENING = (
     ("core.hooksPath", "/dev/null"),   # no repo hook can execute on the host
     ("core.fsmonitor", "false"),
@@ -255,9 +260,9 @@ def unsafe_repo_config(cwd, base_env: Optional[Dict[str, str]] = None) -> Option
     """
     env = hardened_git_env(dict(base_env)) if base_env else host_git_env(cwd=cwd)
     try:
-        p = subprocess.run(["git", "config", "--list", "--show-scope", "--includes", "-z"],
-                           cwd=str(cwd), env=env, capture_output=True, text=True,
-                           timeout=10, check=False)
+        p = run_host_git(["git", "config", "--list", "--show-scope", "--includes", "-z"],
+                         cwd=cwd, env=env, capture_output=True, text=True,
+                         timeout=10, check=False)
     except Exception:                                           # noqa: BLE001
         return "illisible"
     if p.returncode != 0:
@@ -276,6 +281,99 @@ def unsafe_repo_config(cwd, base_env: Optional[Dict[str, str]] = None) -> Option
     return None
 
 
+# ── Prison des git hôte (2026-09-29) ─────────────────────────────────────
+# ``repo_refusal`` contrôle la configuration dans un PREMIER process ; git la
+# relit dans le sien. Le conteneur, qui écrit dans le dépôt, peut la changer
+# entre les deux : un pilote ``filter``/``textconv``/``merge`` déclaré après le
+# contrôle s'exécuterait alors sur l'hôte. Même fenêtre pour ``cwd``, résolu
+# par l'appelant puis réutilisé. Plutôt que de courir après chaque relecture,
+# git tourne dans une prison bwrap qui ne voit que la zone de travail de
+# l'utilisateur : ce qu'un dépôt fait exécuter reste confiné à ce que le
+# conteneur peut déjà faire. Le contrôle reste en place (message clair, et
+# garde-fou pour les commandes réseau).
+_NETWORK_SUBCOMMANDS = frozenset({"clone", "fetch", "pull", "push", "ls-remote", "submodule"})
+_UNAVAILABLE = ("Git côté serveur indisponible : isolation bubblewrap absente ou bloquée "
+                "(./elpis doctor). executors.git_isolation = \"none\" rétablit l'ancien "
+                "comportement, sans isolation.")
+_warned_none = False
+
+
+def git_isolation() -> str:
+    """``"bwrap"``, ``"unavailable"``, ou ``"none"`` si c'est demandé
+    explicitement (``executors.git_isolation = "none"``)."""
+    global _warned_none
+    try:
+        from shared_infra.config import live_config_value
+        mode = str(live_config_value("executors.git_isolation", "auto") or "auto")
+    except Exception:                                           # noqa: BLE001
+        mode = "auto"
+    if mode.strip().lower() == "none":
+        if not _warned_none:
+            _warned_none = True
+            logger.warning("[git] git hôte SANS isolation (executors.git_isolation = \"none\")")
+        return "none"
+    return "bwrap" if bwrap.probe() else "unavailable"
+
+
+def _subcommand(argv: List[str]) -> str:
+    """Sous-commande de ``git [-c k=v] [-C dir] <sous-commande> …``."""
+    it = iter(argv[1:])
+    for tok in it:
+        if tok in ("-c", "-C"):
+            next(it, None)
+        elif not tok.startswith("-"):
+            return tok
+    return ""
+
+
+def _jail_root(cwd: Path) -> Path:
+    """Dossier monté : la zone de travail ``<SANDBOX_DIR>/<utilisateur>/work``
+    qui contient ``cwd``, déduite du chemin (déjà résolu par l'appelant) SANS
+    le relire sur le disque ; ``cwd`` lui-même hors de ``SANDBOX_DIR``."""
+    from shared_infra import config as _cfg
+    for base in (Path(_cfg.SANDBOX_DIR), Path(_cfg.SANDBOX_DIR).resolve()):
+        try:
+            parts = cwd.relative_to(base).parts
+        except ValueError:
+            continue
+        if len(parts) >= 2:
+            return base / parts[0] / parts[1]
+    return cwd
+
+
+def _jail_argv(cwd: Path, env: Dict[str, str], *, network: bool) -> List[str]:
+    root = str(_jail_root(cwd))
+    argv = [bwrap.binary() or "bwrap", *bwrap.base_argv(network=network),
+            "--ro-bind", "/etc", "/etc"]
+    if network:      # /etc/resolv.conf pointe souvent vers systemd-resolved
+        argv += ["--ro-bind-try", "/run/systemd/resolve", "/run/systemd/resolve"]
+    # HOME de l'app (config globale), script askpass, certificats hors /etc.
+    for key in ("HOME", "GIT_ASKPASS", "SSL_CERT_FILE", "SSL_CERT_DIR",
+                "GIT_SSL_CAINFO", "GIT_SSL_CAPATH"):
+        v = env.get(key) or ""
+        if os.path.isabs(v) and not v.startswith(("/usr/", "/etc/")):
+            argv += ["--ro-bind-try", v, v]
+    return argv + ["--bind", root, root, "--chdir", str(cwd)]
+
+
+def run_host_git(argv: List[str], *, cwd: Any, env: Dict[str, str],
+                 **kwargs: Any) -> subprocess.CompletedProcess:
+    """Seul lanceur des ``git`` exécutés par l'hôte sur un dépôt de sandbox :
+    ``subprocess.run`` enfermé dans la prison (réseau pour les seules
+    sous-commandes qui en ont besoin). Isolation indisponible : rien n'est
+    lancé, code 1 et message dans ``stderr``."""
+    mode = git_isolation()
+    if mode == "unavailable":
+        text = bool(kwargs.get("text") or kwargs.get("encoding"))
+        return subprocess.CompletedProcess(argv, 1, "" if text else b"",
+                                           _UNAVAILABLE if text else _UNAVAILABLE.encode())
+    if mode == "none":
+        return subprocess.run(argv, cwd=str(cwd), env=env, **kwargs)
+    network = _subcommand(argv) in _NETWORK_SUBCOMMANDS
+    return subprocess.run(_jail_argv(Path(cwd), env, network=network) + list(argv),
+                          cwd="/", env=env, **kwargs)
+
+
 def repo_refusal(cwd, env: Optional[Dict[str, str]] = None):
     """``(genre, détail)`` si git ne doit PAS tourner dans ``cwd``, sinon
     ``None``. ``genre`` : ``"gitdir"`` (structure de ``.git``) ou
@@ -289,5 +387,5 @@ def repo_refusal(cwd, env: Optional[Dict[str, str]] = None):
     return None
 
 
-__all__ = ["hardened_git_env", "host_git_env", "repo_refusal",
-           "unsafe_git_dir", "unsafe_repo_config"]
+__all__ = ["git_isolation", "hardened_git_env", "host_git_env", "repo_refusal",
+           "run_host_git", "unsafe_git_dir", "unsafe_repo_config"]

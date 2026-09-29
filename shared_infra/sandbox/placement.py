@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import io
 import logging
-import tarfile
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -124,12 +123,9 @@ def _host_spec(host_id: str):
 
 def _local_export(user_id: int) -> bytes:
     from shared_infra.routes._helpers import _get_work_path
-    root = Path(_get_work_path(user_id))
+    from shared_infra.sandbox.routes_files import export_work_archive
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
-        for p in sorted(root.rglob("*")):
-            if p.is_file() and not p.is_symlink():
-                tf.add(p, arcname=str(p.relative_to(root)))
+    export_work_archive(Path(_get_work_path(user_id)), buf)
     return buf.getvalue()
 
 

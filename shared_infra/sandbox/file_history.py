@@ -208,17 +208,20 @@ def get_blob(uid: int, sha: str) -> Optional[bytes]:
     return None
 
 
-def read_before(abs_path) -> Optional[bytes]:
-    """Contenu actuel d'un fichier, à lire AVANT de l'écrire : octets,
-    ``None`` s'il n'existe pas, ``TOO_BIG`` s'il dépasse ``MAX_FILE``."""
+def read_before(root, path) -> Optional[bytes]:
+    """Contenu actuel de ``path`` (relatif à la zone de travail ``root``, ou
+    chemin hôte déjà résolu dessous), à lire AVANT de l'écrire : octets,
+    ``None`` s'il n'existe pas ou n'est pas un fichier régulier, ``TOO_BIG``
+    au-delà de ``MAX_FILE``. Lu sans suivre de lien (2026-09-29) : sinon un
+    lien posé depuis le conteneur ferait entrer un fichier de l'hôte dans
+    l'historique, que l'utilisateur peut relire."""
+    from shared_infra.sandbox.paths import SandboxPathError, open_beneath, rel_under
     try:
-        p = Path(abs_path)
-        if not p.is_file():
-            return None
-        if p.stat().st_size > MAX_FILE:
-            return TOO_BIG
-        return p.read_bytes()
-    except OSError:
+        with os.fdopen(open_beneath(root, rel_under(root, path)), "rb") as f:
+            if os.fstat(f.fileno()).st_size > MAX_FILE:
+                return TOO_BIG
+            return f.read()
+    except (OSError, SandboxPathError):
         return None
 
 
@@ -300,11 +303,12 @@ def record_write(uid: int, rel: str, before: Optional[bytes], after: Optional[by
         logger.exception("[file_history] record_write uid=%s path=%s", uid, rel)
 
 
-def record_file_write(uid: int, rel: str, before: Optional[bytes], abs_path,
+def record_file_write(uid: int, rel: str, before: Optional[bytes], root,
                       source: str = "other") -> None:
-    """Variante : le contenu écrit est relu sur le disque (écritures faites
-    par un autre process : conteneur, outil)."""
-    record_write(uid, rel, before, read_before(abs_path), source)
+    """Variante : le contenu écrit est relu sur le disque, sous la zone de
+    travail ``root`` (écritures faites par un autre process : conteneur,
+    outil)."""
+    record_write(uid, rel, before, read_before(root, rel), source)
 
 
 def record_move(uid: int, old_rel: str, new_rel: str) -> None:

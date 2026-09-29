@@ -11,7 +11,7 @@ def test_chmod_widens_in_host_mode(monkeypatch, tmp_path):
     f = tmp_path / "a.txt"
     f.write_text("x")
     os.chmod(f, 0o600)
-    fs_tools._chmod_cross_writable(f)
+    fs_tools._chmod_cross_writable(tmp_path, f)
     assert (f.stat().st_mode & 0o777) == 0o666
 
 
@@ -20,22 +20,23 @@ def test_chmod_skipped_in_agent_mode(monkeypatch, tmp_path):
     f = tmp_path / "a.txt"
     f.write_text("x")
     os.chmod(f, 0o600)
-    fs_tools._chmod_cross_writable(f)
+    fs_tools._chmod_cross_writable(tmp_path, f)
     assert (f.stat().st_mode & 0o777) == 0o600  # untouched
 
 
-def test_ensure_parent_widens_in_host_mode(monkeypatch, tmp_path):
+def test_parents_created_widened_in_host_mode(monkeypatch, tmp_path):
     monkeypatch.setattr(fs_tools, "use_agent", lambda op: False)
     target = tmp_path / "sub" / "x.txt"
-    fs_tools._ensure_parent(target)
+    fs_tools._atomic_write_bytes(target, b"x", tmp_path)
     assert (target.parent.stat().st_mode & 0o777) == 0o777
+    assert (target.stat().st_mode & 0o777) == 0o666
 
 
-def test_ensure_parent_no_widen_in_agent_mode(monkeypatch, tmp_path):
+def test_parents_not_widened_in_agent_mode(monkeypatch, tmp_path):
     monkeypatch.setattr(fs_tools, "use_agent", lambda op: True)
     target = tmp_path / "sub2" / "x.txt"
-    fs_tools._ensure_parent(target)
-    assert target.parent.exists()
+    fs_tools._atomic_write_bytes(target, b"x", tmp_path)
+    assert target.read_bytes() == b"x"
     assert (target.parent.stat().st_mode & 0o777) != 0o777  # not force-widened
 
 

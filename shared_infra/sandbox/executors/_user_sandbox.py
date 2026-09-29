@@ -24,8 +24,8 @@ Sécurité (modèle 1.2.0 — « permissif mais cloisonné »)
 ------------------------------------------------------
 Le container démarre avec (``_build_run_args``, seule référence à jour) :
   --security-opt no-new-privileges:false   (voulu : sudo doit marcher)
-  capacités par défaut de Docker, sans --cap-drop (ni SYS_ADMIN ni
-  NET_ADMIN ; NET_ADMIN est AJOUTÉ en profil « liste blanche IP » pour que
+  capacités par défaut de Docker moins MKNOD (--cap-drop MKNOD ; ni SYS_ADMIN
+  ni NET_ADMIN ; NET_ADMIN est AJOUTÉ en profil « liste blanche IP » pour que
   l'entrypoint pose iptables, puis retiré du bounding set : setpriv pour
   PID 1, ``_privdrop`` pour chaque ``docker exec``)
   --network none (sauf profil)  --memory --cpus --pids-limit
@@ -897,7 +897,9 @@ class UserSandbox:
         Modèle 1.2.0 « permissif DANS le container » : pas de ``--read-only``
         ni ``--cap-drop=ALL``/``no-new-privileges:true`` (sudo doit marcher) ;
         l'isolation hôte vient des namespaces + seccomp/apparmor par défaut +
-        pas de docker.sock. Les ``docker exec`` forcent l'UID via
+        pas de docker.sock. Seule ``MKNOD`` est retirée (2026-09-29) : un nœud
+        de périphérique créé dans /work par le root du conteneur resterait
+        ouvrable depuis l'hôte, hors du cgroup de périphériques du conteneur. Les ``docker exec`` forcent l'UID via
         ``self.cfg.exec_user``, donc pas de ``--user`` ici (l'entrypoint passe
         root→10001 via setpriv).
         """
@@ -907,6 +909,7 @@ class UserSandbox:
             "--label", _naming.label("user_id", self.user_id),
             "--label", _naming.label("username", self.username),
             "--security-opt", "no-new-privileges:false",
+            "--cap-drop", "MKNOD",
             "--tmpfs", "/run:rw,size=10m,mode=755",
             "--shm-size", "1g",
             "--memory", f"{self.cfg.memory_mb}m",
@@ -1248,8 +1251,8 @@ class UserSandbox:
         # We therefore force umask 0000 → files 0666 / dirs 0777 (OTHER-
         # writable), making container-created paths writable by the host UID
         # regardless of group. This is symmetric with the host side, which
-        # already widens its own writes to 0666/0777 (fs_tools
-        # `_chmod_cross_writable` / `_ensure_parent`), so the /work volume is
+        # already widens its own writes to 0666/0777 (`write_beneath` modes,
+        # `paths.widen_beneath`), so the /work volume is
         # fully cross-writable in either direction. The per-user sandbox is
         # isolated (single user, `--network=none`), so world-writable bits
         # *within it* are not a new exposure. We use `sh -c 'umask 0000;

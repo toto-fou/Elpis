@@ -54,7 +54,8 @@ from shared_infra.config import (
 )
 from shared_infra.accounts.users import get_user_by_id, get_username_by_id
 from shared_infra.security.deps import require_user_id
-from shared_infra.sandbox.git_env import host_git_env, repo_refusal, unsafe_git_dir
+from shared_infra.sandbox.git_env import host_git_env, repo_refusal, run_host_git, unsafe_git_dir
+from shared_infra.sandbox.paths import open_dir_beneath, rel_under
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -737,96 +738,73 @@ TREE_MAX_ENTRIES = int(os.environ.get("SANDBOX_TREE_MAX_ENTRIES", "20000"))
 
 
 def _build_file_tree(path: Path, relative_root: Path, include_hidden: bool = False,
-                     _root_res: "Path | None" = None, _depth: int = 0,
-                     _budget: "dict | None" = None,
-                     _rel_prefix: str = "", _dir_res: "str | None" = None):
+                     _budget: "dict | None" = None) -> list:
     """Arbre des fichiers du sandbox. Par défaut, les entrées cachées (nom
     commençant par ``.`` : ``.git``, ``.venv``, ``.env``…) sont MASQUÉES de
     l'explorateur — elles restent accessibles/éditables via le terminal.
     ``include_hidden=True`` les ré-inclut (toggle « Afficher les fichiers cachés »).
 
-    SECURITY (F6) : on NE suit PAS les symlinks. ``entry.is_dir()``/``is_file()``
-    suivraient un ``ln -s /srv/elpis/user_sandboxes/<victime>/work /work/x`` (arbo
-    cross-tenant listée) ou boucleraient sur ``ln -s . loop`` (récursion infinie
-    → RecursionError/ENAMETOOLONG non attrapée → 500). On skippe les symlinks,
-    on borne la profondeur, et on confirme le containment sur le chemin résolu.
+    SECURITY (F6, puis 2026-09-29) : aucun lien suivi. Chaque dossier est
+    ouvert RELATIVEMENT au descripteur de son parent, en ``O_NOFOLLOW`` : un
+    ``ln -s /srv/elpis/user_sandboxes/<victime>/work /work/x``, posé avant ou
+    PENDANT le parcours, n'est jamais listé ; ``ln -s . loop`` ne boucle pas.
+    Profondeur bornée. ``path`` et ``relative_root`` désignent la racine.
 
-    ``_budget`` : dict interne ``{"left": N, "truncated": bool}`` partagé par
-    toute la récursion, qui plafonne le NOMBRE TOTAL d'entrées (cf.
-    :data:`TREE_MAX_ENTRIES`). Passer ``_budget`` explicitement permet à
-    l'appelant de lire ``truncated`` et de le signaler à l'utilisateur.
+    ``_budget`` : dict ``{"left": N, "truncated": bool}`` partagé par toute la
+    récursion, qui plafonne le NOMBRE TOTAL d'entrées (cf.
+    :data:`TREE_MAX_ENTRIES`) ; l'appelant y lit ``truncated``.
 
-    Coût (audit charge 2026-08-14)
-    ------------------------------
-    C'est la route la plus appelée du panneau éditeur, et elle est SYNCHRONE :
-    tout ce qu'elle consomme, elle le prend au GIL de son worker, donc à tous
-    les autres utilisateurs servis par ce worker. Deux dépenses par entrée ont
-    été supprimées, sans toucher aux garanties ci-dessus :
-
-    - ``entry_path.resolve()`` par entrée déclenchait un ``realpath()``, soit
-      **9 ``lstat`` par entrée** (46 670 appels pour 10 parcours de 520
-      entrées). Or le containment se démontre par récurrence : la racine est
-      résolue une fois, chaque entrée retenue n'est PAS un lien symbolique, et
-      un nom de dirent ne contient pas de séparateur — le chemin résolu d'un
-      enfant est donc exactement ``<parent résolu>/<nom>``. On propage ce
-      parent résolu (``_dir_res``) au lieu de le recalculer, et le contrôle de
-      containment est fait à l'entrée de chaque dossier plutôt qu'à chaque
-      fichier.
-    - ``entry_path.relative_to(relative_root).as_posix()`` pesait **60 % du
-      temps total** à lui seul (pathlib reconstruit et re-normalise les
-      segments). Le chemin relatif est désormais assemblé au fil de la
-      descente, ce qui produit la même chaîne.
-
-    Résultat sur un arbre de 520 entrées : **43,5 ms → 3,6 ms**.
+    Coût (audit charge 2026-08-14) : route la plus appelée du panneau éditeur,
+    et SYNCHRONE. Ni ``resolve()`` ni ``relative_to`` par entrée : le chemin
+    relatif s'assemble au fil de la descente, et les descripteurs évitent de
+    re-parcourir le chemin à chaque dossier.
     """
-    items = []
     if _budget is None:
         _budget = {"left": TREE_MAX_ENTRIES, "truncated": False}
-    # Borne de profondeur : garde-fou même si un symlink échappe au check
-    # (montage exotique) — un arbre sandbox légitime est bien moins profond.
-    if _depth > 40:
-        return items
-    if _root_res is None:
-        try:
-            _root_res = relative_root.resolve()
-        except OSError:
-            return items
-    if _dir_res is None:
-        # Premier appel : le dossier courant EST la racine résolue.
-        _dir_res = str(_root_res)
-    # Containment du DOSSIER courant (une fois, pas une fois par entrée).
-    elif not _path_inside(Path(_dir_res), _root_res):
-        return items
     try:
-        entries = sorted(os.scandir(path), key=lambda e: (not e.is_dir(follow_symlinks=False), e.name.lower()))
-    except OSError:
-        # PermissionError, ENAMETOOLONG (chaîne de symlinks), conteneur mort…
-        return items
-    for entry in entries:
+        fd = open_dir_beneath(relative_root, rel_under(relative_root, path))
+    except (OSError, ValueError):
+        return []
+    return _tree_level(fd, "", include_hidden, _budget, 0)
+
+
+def _tree_level(dfd: int, rel_prefix: str, include_hidden: bool,
+                budget: dict, depth: int) -> list:
+    """Un niveau de :func:`_build_file_tree` ; ferme ``dfd``."""
+    items = []
+    try:
+        if depth > 40:
+            return items
         try:
-            if _budget["left"] <= 0:
-                _budget["truncated"] = True
-                break
-            if not include_hidden and entry.name.startswith("."):
-                continue
-            # Skip symlinks (dirs ET fichiers) : is_symlink ne suit pas.
-            # C'est CE test qui permet de ne plus résoudre chaque entrée.
-            if entry.is_symlink():
-                continue
-            rel_path = f"{_rel_prefix}/{entry.name}" if _rel_prefix else entry.name
-            is_dir = entry.is_dir(follow_symlinks=False)
-            _budget["left"] -= 1
-            item = {"name": entry.name, "path": rel_path, "type": "folder" if is_dir else "file"}
-            if is_dir:
-                item["children"] = _build_file_tree(
-                    Path(entry.path), relative_root, include_hidden, _root_res,
-                    _depth + 1, _budget, rel_path,
-                    os.path.join(_dir_res, entry.name))
-            else:
-                item["size"] = entry.stat().st_size
-            items.append(item)
+            entries = sorted(os.scandir(dfd),
+                             key=lambda e: (not e.is_dir(follow_symlinks=False), e.name.lower()))
         except OSError:
-            continue
+            # PermissionError, conteneur mort…
+            return items
+        for entry in entries:
+            try:
+                if budget["left"] <= 0:
+                    budget["truncated"] = True
+                    break
+                if not include_hidden and entry.name.startswith("."):
+                    continue
+                if entry.is_symlink():                  # liens : ni suivis ni listés
+                    continue
+                rel_path = f"{rel_prefix}/{entry.name}" if rel_prefix else entry.name
+                is_dir = entry.is_dir(follow_symlinks=False)
+                budget["left"] -= 1
+                item = {"name": entry.name, "path": rel_path, "type": "folder" if is_dir else "file"}
+                if is_dir:
+                    cfd = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+                                  | os.O_CLOEXEC, dir_fd=dfd)
+                    item["children"] = _tree_level(cfd, rel_path, include_hidden, budget, depth + 1)
+                else:
+                    item["size"] = entry.stat(follow_symlinks=False).st_size
+                items.append(item)
+            except OSError:
+                continue
+    finally:
+        os.close(dfd)
     return items
 
 
@@ -997,12 +975,8 @@ def _git_run(repo_dir: Path, *args, timeout: int = 30,
                f"(git config --unset {detail}).") if kind == "config" else (
                f"Dépôt refusé : {detail}. Git lirait des données hors du dépôt.")
         return _sp_git.CompletedProcess(["git"] + list(args), 1, "", msg)
-    return _sp_git.run(
-        ["git"] + list(args),
-        cwd=str(repo_dir),
-        capture_output=True, text=True,
-        timeout=timeout, env=env,
-    )
+    return run_host_git(["git"] + list(args), cwd=repo_dir, env=env,
+                        capture_output=True, text=True, timeout=timeout)
 
 
 def _git_resolve_repo(sandbox: Path, repo_rel: str) -> Path:

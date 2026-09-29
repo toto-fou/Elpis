@@ -54,6 +54,23 @@ selon [SemVer](https://semver.org/lang/fr/).
   image, variables d'environnement, greffon opencode) ; les anciens conteneurs
   de sandbox d'avant le renommage sont à supprimer à la main.
 
+### Sécurité
+
+- **Frontière hôte ↔ sandbox** : l'hôte n'accède plus au contenu de `/work`
+  (outils fichiers, routes de l'éditeur, historique, instantanés, exports)
+  que par des descripteurs ouverts sans suivre de lien — lectures,
+  parcours, suppressions, renommages et élargissement des droits. Seuls les
+  fichiers réguliers sont lus.
+- **Git côté serveur** : exécuté dans une prison bubblewrap qui ne voit que
+  la zone de travail de l'utilisateur (réseau pour `clone`, `fetch`, `pull`,
+  `push` seulement). `bubblewrap` devient un paquet de base ; sur Ubuntu,
+  l'installeur pose un profil AppArmor s'il est bloqué. Réglage
+  `executors.git_isolation`.
+- **Conteneurs** : sans la capacité `MKNOD` (conteneurs existants : les
+  recréer pour l'appliquer).
+- **Politique Git d'un dépôt** : `.git-tool-policy.json` ne peut plus que
+  renforcer les protections par défaut.
+
 ### Corrections et sécurité
 
 - **Installeur** : root via `su` sans tiret (runuser introuvable, faux

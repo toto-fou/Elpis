@@ -76,6 +76,7 @@ from shared_infra.config import SANDBOX_DIR, read_config_json
 from shared_infra.accounts.users import get_username_by_id
 from shared_infra.security.deps import require_user_id
 from shared_infra.routes._state import router
+from shared_infra.sandbox.paths import SandboxPathError, open_beneath, widen_beneath
 
 # ── Réutilisation du helper de path sandbox défini dans _legacy.
 #
@@ -250,6 +251,14 @@ def _walk_sandbox(root: Path) -> Tuple[List[Tuple[Path, str, int]], int]:
             entries.append((full, rel, size))
             total += size
     return entries, total
+
+
+def _tar_add_beneath(tf, root: Path, rel: str) -> None:
+    """Ajoute à ``tf`` le fichier régulier ``rel`` (sous ``root``), lu sur son
+    inode ouvert sans suivre de lien : un dossier remplacé par un lien après
+    le parcours ne fait pas entrer un fichier de l'hôte dans l'instantané."""
+    with os.fdopen(open_beneath(root, rel), "rb") as f:
+        tf.addfile(tf.gettarinfo(arcname=rel, fileobj=f), f)
 
 
 def _read_meta(meta_path: Path) -> Optional[dict]:
@@ -442,9 +451,10 @@ async def _create_snapshot_stream(user_id: int, name: str) -> AsyncGenerator[str
                     for full, rel, size in entries:
                         try:
                             # arcname = chemin relatif posix → portable et
-                            # évite tout absolute path dans l'archive.
-                            await asyncio.to_thread(tf.add, str(full), arcname=rel, recursive=False)
-                        except (OSError, IOError):
+                            # évite tout absolute path dans l'archive. Contenu
+                            # lu sur l'inode, sans suivre de lien (2026-09-29).
+                            await asyncio.to_thread(_tar_add_beneath, tf, sandbox_root, rel)
+                        except (OSError, IOError, SandboxPathError):
                             # Fichier disparu pendant l'archivage (concurrent
                             # write par un MCP shell, par exemple). On le
                             # skippe silencieusement plutôt que d'avorter.
@@ -548,37 +558,6 @@ def _is_safe_member(member: tarfile.TarInfo, dest_root: Path) -> bool:
     dest_resolved = dest_root.resolve()
     return str(target) == str(dest_resolved) or \
            str(target).startswith(str(dest_resolved) + os.sep)
-
-
-def _widen_cross_writable(p: Path) -> None:
-    """Rétablit l'invariant /work « cross-writable » sur un chemin restauré.
-
-    Les membres de l'archive sont extraits CÔTÉ HÔTE (UID de l'app) avec les
-    modes du snapshot (parfois 0600, ou 0644/0755 par défaut). Or l'hôte et le
-    conteneur (UID 10001) ne partagent AUCUN groupe : le conteneur tombe dans
-    « other ». Un mode group-writable (0664/0775 — ce que faisait ce code) ne
-    lui donne donc que r-- / r-x et, après un restore, le terminal ne pouvait
-    plus modifier ses propres fichiers. Seul le bit « other » ouvre les deux
-    sens → 0666 / 0777, comme partout ailleurs (umask 0000 des exec conteneur,
-    ``fs_tools._chmod_cross_writable``, ``_sandbox_exec._chmod_walk``).
-
-    Le bit exécutable est PRÉSERVÉ (scripts, hooks git) au lieu d'être écrasé.
-    Best-effort : un membre non-chmodable ne doit pas casser le restore.
-    """
-    try:
-        # SÉCURITÉ (défense en profondeur) : ``is_dir()``/``is_file()`` et
-        # ``chmod`` DÉRÉFÉRENCENT les symlinks. ``_is_safe_member`` refuse
-        # déjà d'extraire un lien, et ``_clear_sandbox_contents`` vide l'arbre
-        # avant restore — mais si l'un des deux régresse, un lien vers un
-        # chemin hôte verrait sa cible passer en 0666/0777.
-        if p.is_symlink():
-            return
-        if p.is_dir():
-            p.chmod(0o777)
-        elif p.is_file():
-            p.chmod(0o777 if (p.stat().st_mode & 0o111) else 0o666)
-    except OSError:
-        pass
 
 
 def _clear_sandbox_contents(root: Path) -> None:
@@ -726,13 +705,6 @@ async def _restore_snapshot_stream(user_id: int, snap_id: str) -> AsyncGenerator
                 for m in safe_members:
                     try:
                         await asyncio.to_thread(tf.extract, m, str(sandbox_root))
-                        # PASSE 15 (B7) — Tar member modes peuvent être 0600
-                        # (snapshot pris quand le user avait chmod'd) → le
-                        # conteneur (UID 10001) ne peut plus rien modifier
-                        # après restore. On re-aligne sur l'invariant /work
-                        # « cross-writable » (cf. _widen_cross_writable :
-                        # 0666/0777 et NON 0664/0775 — aucun groupe commun).
-                        _widen_cross_writable(sandbox_root / m.name)
                     except (OSError, tarfile.TarError):
                         # Skip ce membre, continue le reste — l'user
                         # préfère un restore partiel à un échec total.
@@ -763,20 +735,13 @@ async def _restore_snapshot_stream(user_id: int, snap_id: str) -> AsyncGenerator
             finally:
                 await asyncio.to_thread(tf.close)
 
-            # AUDIT 2026-08-02 (C2) — les répertoires recréés par ``tf.extract``
-            # via ``os.makedirs`` prennent le mode 0755 host-owned, dans lequel
-            # le conteneur (UID 10001, tombe dans « other ») ne peut plus créer
-            # ni supprimer de fichiers → « Permission denied » sur ``touch``,
-            # ``rm``, ``git checkout`` après restore. ``_widen_cross_writable``
-            # n'était appelé que sur les FICHIERS (sa branche ``is_dir`` était
-            # morte). On ré-aligne donc TOUS les répertoires de l'arbre restauré
-            # (y compris les parents implicites) sur l'invariant /work 0777.
-            def _widen_all_dirs():
-                for _dp, _dnames, _ in os.walk(str(sandbox_root)):
-                    for _dn in _dnames:
-                        _widen_cross_writable(Path(_dp) / _dn)
-                _widen_cross_writable(sandbox_root)
-            await asyncio.to_thread(_widen_all_dirs)
+            # Invariant /work « cross-writable » (PASSE 15 B7, AUDIT 2026-08-02 C2) :
+            # membres extraits avec les modes du snapshot (parfois 0600) et
+            # dossiers recréés en 0755 par l'hôte — le conteneur (UID 10001,
+            # « other », aucun groupe commun) ne pourrait plus rien modifier.
+            # Tout l'arbre passe en 0666/0777 (bits x conservés), sans suivre
+            # de lien (``widen_beneath``, 2026-09-29).
+            await asyncio.to_thread(widen_beneath, sandbox_root, "", recursive=True)
 
             # Extraction terminée → le marqueur d'incomplétude est levé (W6).
             try:

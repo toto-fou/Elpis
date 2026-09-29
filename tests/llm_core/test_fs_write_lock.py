@@ -104,7 +104,7 @@ def test_guarded_write_detects_concurrent_change(tmp_path, locks_base):
 
     target.write_text("v2-concurrent")               # écriture concurrente
 
-    res = F._guarded_write(target, sha_v1, lambda: target.write_text("v3"))
+    res = F._guarded_write(tmp_path, target, sha_v1, lambda: target.write_text("v3"))
     assert res is not None                            # err hash_mismatch
     assert target.read_text() == "v2-concurrent"      # rien écrasé
 
@@ -113,7 +113,7 @@ def test_guarded_write_passes_when_unchanged(tmp_path, locks_base):
     target = tmp_path / "f.txt"
     target.write_text("v1")
     sha_v1 = F._sha256_of_file(target)
-    res = F._guarded_write(target, sha_v1, lambda: target.write_text("v2"))
+    res = F._guarded_write(tmp_path, target, sha_v1, lambda: target.write_text("v2"))
     assert res is None
     assert target.read_text() == "v2"
 
@@ -123,7 +123,7 @@ def test_guarded_write_no_expected_still_locks(tmp_path, locks_base):
     même sans ``expected_sha256`` (avant : aucun verrou → l'enregistrement de
     l'éditeur et l'écriture de l'agent ne se voyaient pas)."""
     target = tmp_path / "f.txt"
-    res = F._guarded_write(target, "", lambda: target.write_text("x"))
+    res = F._guarded_write(tmp_path, target, "", lambda: target.write_text("x"))
     assert res is None
     assert target.read_text() == "x"
     assert _lockfile_for(target, locks_base).exists()
@@ -141,7 +141,7 @@ def test_guarded_write_serializes_two_threads(tmp_path, locks_base):
         def _do():
             time.sleep(0.05)                          # élargit la fenêtre
             target.write_text(f"by-{tag}")
-        results.append((tag, F._guarded_write(target, sha0, _do)))
+        results.append((tag, F._guarded_write(tmp_path, target, sha0, _do)))
 
     t1 = threading.Thread(target=writer, args=("a",))
     t2 = threading.Thread(target=writer, args=("b",))

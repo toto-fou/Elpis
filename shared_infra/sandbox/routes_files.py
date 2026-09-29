@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import errno
 import hashlib
 import io
 import logging
@@ -72,6 +73,8 @@ from shared_infra.accounts.users import (
 from shared_infra.routes._state import router
 from shared_infra.sandbox import file_history as _fh
 from shared_infra.sandbox.file_lock import file_write_lock, sha256_bytes, sha256_file
+from shared_infra.sandbox.paths import (SandboxPathError, open_beneath, open_leaf, read_leaf,
+                                        rel_under, walk_beneath)
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -136,10 +139,10 @@ async def _file_lock(path: Path):
         cm.__exit__(None, None, None)
 
 
-async def _hist_before(path: Path):
+async def _hist_before(root: Path, path: Path):
     """Contenu AVANT écriture, pour l'historique de session (jamais bloquant)."""
     try:
-        return await asyncio.to_thread(_fh.read_before, path)
+        return await asyncio.to_thread(_fh.read_before, root, path)
     except Exception:                                           # noqa: BLE001
         return None
 
@@ -152,38 +155,43 @@ async def _hist_write(user_id: int, rel: str, before, after, source: str) -> Non
         logger.exception("[sandbox] historique : écriture non notée (%s)", rel)
 
 
-def _file_state(p: Path, *, sha_max: int) -> dict:
-    """État disque d'un chemin, sans jamais lever : ``kind`` ∈ ``missing``,
-    ``dir``, ``file``, ``other``, ``unreadable``, ``not_dir``. Pour un fichier :
-    ``mtime``, ``size`` et ``sha256`` (``None`` au-delà de ``sha_max`` ou si
-    le contenu est illisible)."""
+def _file_state(root: Path, p: Path, *, sha_max: int) -> dict:
+    """État disque de ``p`` (sous ``root``), sans jamais lever : ``kind`` ∈
+    ``missing``, ``dir``, ``file``, ``other`` (lien, fichier spécial),
+    ``unreadable``, ``not_dir``. Pour un fichier : ``mtime``, ``size`` et
+    ``sha256`` (``None`` au-delà de ``sha_max`` ou si illisible). Lu sur
+    l'inode ouvert sans suivre de lien (2026-09-29)."""
     try:
-        st = p.stat()
+        fd = open_beneath(root, rel_under(root, p), allow_dir=True)
     except FileNotFoundError:
         return {"kind": "missing"}
     except NotADirectoryError:
         return {"kind": "not_dir"}
-    except PermissionError:
-        return {"kind": "unreadable"}
+    except SandboxPathError as e:
+        # Un composant du chemin est un fichier (ENOTDIR), ou lien / spécial.
+        if getattr(e.__cause__, "errno", None) == errno.ENOTDIR:
+            return {"kind": "not_dir"}
+        return {"kind": "other"}
     except OSError:
         return {"kind": "unreadable"}
     import stat as _stat
-    if _stat.S_ISDIR(st.st_mode):
-        return {"kind": "dir", "mtime": st.st_mtime}
-    if not _stat.S_ISREG(st.st_mode):
-        return {"kind": "other", "mtime": st.st_mtime, "size": st.st_size}
-    out = {"kind": "file", "mtime": st.st_mtime, "size": st.st_size, "sha256": None,
-           "readable": True}
-    if st.st_size <= sha_max:
-        try:
-            h = hashlib.sha256()
-            with open(p, "rb") as f:
-                for chunk in iter(lambda: f.read(1 << 20), b""):
+    try:
+        st = os.fstat(fd)
+        if _stat.S_ISDIR(st.st_mode):
+            return {"kind": "dir", "mtime": st.st_mtime}
+        out = {"kind": "file", "mtime": st.st_mtime, "size": st.st_size, "sha256": None,
+               "readable": True}
+        if st.st_size <= sha_max:
+            try:
+                h = hashlib.sha256()
+                for chunk in iter(lambda: os.read(fd, 1 << 20), b""):
                     h.update(chunk)
-            out["sha256"] = h.hexdigest()
-        except OSError:
-            out["readable"] = False
-    return out
+                out["sha256"] = h.hexdigest()
+            except OSError:
+                out["readable"] = False
+        return out
+    finally:
+        os.close(fd)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -327,7 +335,29 @@ def _security_headers(headers, media_type: str) -> None:
         headers["Content-Security-Policy"] = PREVIEW_CSP
 
 
-def _preview_file_response(target: Path) -> FileResponse:
+class _PinnedFileResponse(FileResponse):
+    """``FileResponse`` d'un inode déjà ouvert (``/proc/self/fd/<n>``) : ni
+    relecture du chemin d'origine, ni lien suivi ; en-têtes, ETag et requêtes
+    ``Range`` de ``FileResponse`` conservés. Le descripteur est fermé une fois
+    la réponse envoyée ou abandonnée."""
+
+    def __init__(self, fd: int, **kwargs):
+        super().__init__(f"/proc/self/fd/{fd}", stat_result=os.fstat(fd), **kwargs)
+        self._fd = fd
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            os.close(self._fd)
+
+
+def _pinned_file_response(root: Path, target: Path, **kwargs) -> "_PinnedFileResponse":
+    """Réponse fichier de ``target`` (sous ``root``), ouvert sans suivre de lien."""
+    return _PinnedFileResponse(open_beneath(root, rel_under(root, target)), **kwargs)
+
+
+def _preview_file_response(root: Path, target: Path) -> FileResponse:
     """``FileResponse`` d'un fichier de sandbox.
 
     ``Cache-Control`` : sans en-tête explicite, l'``ETag`` seul ne force PAS
@@ -336,7 +366,7 @@ def _preview_file_response(target: Path) -> FileResponse:
     rien ne change).
     """
     mt, _ = mimetypes.guess_type(target.name)
-    resp = FileResponse(target, media_type=mt or "text/plain")
+    resp = _pinned_file_response(root, target, media_type=mt or "text/plain")
     resp.headers["Cache-Control"] = "no-cache, must-revalidate"
     # ``MutableHeaders`` n'a pas de ``.pop()`` — il faut passer par ``del``.
     if "expires" in resp.headers:
@@ -364,10 +394,14 @@ def api_serve_sandbox(request: Request, path: str):
     """Lecture d'un fichier (session). Pour l'AFFICHAGE d'une page, voir
     ``/api/sandbox/pv/`` : ici un document actif reçoit une origine opaque,
     ses sous-ressources n'auraient donc pas la session."""
-    target = _sandbox_file(require_user_id(request), path)
+    uid = require_user_id(request)
+    target = _sandbox_file(uid, path)
     if target is None:
         raise HTTPException(404, "Not found")
-    return _preview_file_response(target)
+    try:
+        return _preview_file_response(_get_work_path(uid), target)
+    except (OSError, SandboxPathError):
+        raise HTTPException(404, "Not found")
 
 
 @router.get("/api/sandbox/preview-token")
@@ -419,17 +453,22 @@ def api_preview_sandbox(token: str, path: str):
 
     mt = mimetypes.guess_type(target.name)[0] or "text/plain"
     kind = mt.split(";")[0].strip().lower()
-    try:
-        big = target.stat().st_size > rw.MAX_REWRITE_BYTES
-    except OSError:
-        raise HTTPException(404, "Not found")
-    if kind not in ("text/html", "text/css") or big:
-        return _preview_cors(_preview_file_response(target))
-    try:
-        text = target.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        raise HTTPException(404, "Not found")
     root = _get_work_path(uid).resolve()
+    text = None
+    if kind in ("text/html", "text/css"):
+        data = None
+        try:
+            with os.fdopen(open_beneath(root, rel_under(root, target)), "rb") as f:
+                data = f.read(rw.MAX_REWRITE_BYTES + 1)
+        except (OSError, SandboxPathError):
+            raise HTTPException(404, "Not found")
+        if len(data) <= rw.MAX_REWRITE_BYTES:
+            text = data.decode("utf-8", errors="replace")
+    if text is None:
+        try:
+            return _preview_cors(_preview_file_response(root, target))
+        except (OSError, SandboxPathError):
+            raise HTTPException(404, "Not found")
     doc_dir = target.parent.relative_to(root).as_posix() if target.parent != root else ""
     base = rw.resolver_base(f"{PREVIEW_URL_PREFIX}{token}/", doc_dir)
     body = rw.rewrite_html(text, base) if kind == "text/html" else rw.rewrite_css(text, base)
@@ -486,32 +525,29 @@ def api_search_sandbox(request: Request, q: str, mode: str = "content"):
         results = []
         _errs = {"n": 0, "root_failed": False, "truncated": False}
 
-        def walk(path, _is_root=False):
-            if len(results) >= MAX_HITS or time.monotonic() > _deadline:
-                _errs["truncated"] = True
-                return
-            try:
-                for entry in os.scandir(path):
+        # Parcours par descripteurs, sans suivre de lien (dossier remplacé par
+        # un lien pendant le parcours compris) ; les liens ne sont pas listés.
+        try:
+            for rel_dir, _dirs, names, dfd in walk_beneath(
+                    root, onerror=lambda _e: _errs.__setitem__("n", _errs["n"] + 1)):
+                if len(results) >= MAX_HITS or time.monotonic() > _deadline:
+                    _errs["truncated"] = True
+                    break
+                for name in names:
+                    if q_lower not in name.lower():
+                        continue
+                    try:
+                        if os.stat(name, dir_fd=dfd, follow_symlinks=False).st_mode & 0o170000 == 0o120000:
+                            continue
+                    except OSError:
+                        continue
+                    results.append({"path": f"{rel_dir}/{name}" if rel_dir else name,
+                                    "name": name, "type": "file"})
                     if len(results) >= MAX_HITS:
                         _errs["truncated"] = True
-                        return
-                    # SECURITY FIX : ne pas suivre les symlinks (ni dossiers ni
-                    # fichiers). Un fichier symlinké pointant vers l'hôte ou la
-                    # sandbox d'un autre user ne doit pas apparaître dans les
-                    # résultats (le path retourné deviendrait cliquable côté UI).
-                    if entry.is_symlink():
-                        continue
-                    if entry.is_dir(follow_symlinks=False):
-                        walk(entry.path)
-                    elif q_lower in entry.name.lower():
-                        rel = Path(entry.path).relative_to(root).as_posix()
-                        results.append({"path": rel, "name": entry.name, "type": "file"})
-            except Exception:
-                _errs["n"] += 1                    # E7 : compté, plus avalé
-                if _is_root:
-                    _errs["root_failed"] = True
-
-        walk(root, _is_root=True)
+                        break
+        except OSError:
+            _errs["root_failed"] = True
         if _errs["root_failed"]:
             raise HTTPException(503, "Sandbox illisible (droits ou conteneur "
                                      "arrêté) — recherche impossible.")
@@ -529,18 +565,18 @@ def api_search_sandbox(request: Request, q: str, mode: str = "content"):
     _scanned = 0
     truncated = False
 
-    root_resolved = root.resolve()
     _file_errs = 0
     _walk_errs = {"root_failed": False}
 
-    def _on_walk_error(err):
-        # E7 — os.walk avale les erreurs par défaut (onerror=None) : une
-        # racine illisible produisait un résultat vide « propre ».
-        if getattr(err, "filename", None) == str(root):
+    def _walk():
+        # E7 — une racine illisible ne doit pas produire un résultat vide
+        # « propre ». Parcours par descripteurs, sans suivre de lien.
+        try:
+            yield from walk_beneath(root)
+        except OSError:
             _walk_errs["root_failed"] = True
 
-    for dirpath, dirnames, filenames in os.walk(root, followlinks=False,
-                                                onerror=_on_walk_error):
+    for dirpath, dirnames, filenames, dfd in _walk():
         if (len(results) >= MAX_HITS or _scanned >= MAX_FILES_SCANNED
                 or time.monotonic() > _deadline):
             truncated = True
@@ -552,33 +588,21 @@ def api_search_sandbox(request: Request, q: str, mode: str = "content"):
             if len(results) >= MAX_HITS or _scanned >= MAX_FILES_SCANNED:
                 truncated = True
                 break
-            fpath = Path(dirpath) / fname
-            if fpath.suffix.lower() in SKIP_EXTS:
-                continue
-            # SECURITY FIX : os.walk(followlinks=False) bloque les RÉPERTOIRES
-            # symlinkés mais pas les FICHIERS symlinkés, que read_text() suit.
-            # Un user peut faire `ln -s /etc/passwd leak.txt` (ou pointer vers
-            # la sandbox d'un autre user) et lire des fichiers hôte/cross-tenant.
-            # On skippe les symlinks et on confirme via _path_inside que le
-            # fichier résolu reste sous la racine — comme le fait /grep.
-            try:
-                if fpath.is_symlink():
-                    continue
-                if not _path_inside(fpath.resolve(), root_resolved):
-                    continue
-            except (OSError, RuntimeError):
+            if Path(fname).suffix.lower() in SKIP_EXTS:
                 continue
             try:
-                if fpath.stat().st_size > MAX_FILE:
+                # Lien, fichier spécial ou trop gros : ``None`` (jamais suivi).
+                data = read_leaf(dfd, fname, MAX_FILE)
+                if data is None:
                     continue
-                text = fpath.read_text(encoding="utf-8", errors="replace")
+                text = data.decode("utf-8", errors="replace")
                 _scanned += 1
                 # Filtre rapide : la très grande majorité des fichiers ne
                 # contient pas la chaîne — un seul ``in`` sur le texte entier
                 # évite de découper et de minusculiser chaque ligne.
                 if q_lower not in text.lower():
                     continue
-                rel = fpath.relative_to(root).as_posix()
+                rel = f"{dirpath}/{fname}" if dirpath else fname
                 for lineno, line in enumerate(text.splitlines(), 1):
                     if q_lower in line.lower():
                         # Find column of first match
@@ -609,19 +633,19 @@ def api_search_sandbox(request: Request, q: str, mode: str = "content"):
 # ─────────────────────────────────────────────────────────────────────────────
 #  READ / WRITE
 # ─────────────────────────────────────────────────────────────────────────────
-def _read_consistent(p: Path, attempts: int = 3):
+def _read_consistent(root: Path, p: Path, attempts: int = 3):
     """``(octets, stat)`` d'un fichier ≤ ``_DOWNLOAD_SHA_MAX`` lus d'un seul
     tenant (stat identique avant et après la lecture), ou ``None`` (trop gros,
     illisible, ou réécrit en place à chaque tentative → repli en flux)."""
     for _ in range(attempts):
         try:
-            with open(p, "rb") as f:
+            with os.fdopen(open_beneath(root, rel_under(root, p)), "rb") as f:
                 st1 = os.fstat(f.fileno())
                 if st1.st_size > _DOWNLOAD_SHA_MAX:
                     return None
                 data = f.read(_DOWNLOAD_SHA_MAX + 1)
                 st2 = os.fstat(f.fileno())
-        except OSError:
+        except (OSError, SandboxPathError):
             return None
         if len(data) > _DOWNLOAD_SHA_MAX:
             return None
@@ -664,9 +688,11 @@ def _zip_spool_dir() -> Path:
     return d
 
 
-def _spool_zip(entries, *, max_bytes: int, max_files: int, strict: bool):
-    """Écrit ``entries`` (itérable de ``(chemin, nom_dans_l_archive)``) dans un
-    zip temporaire sur disque. Retourne ``(chemin_zip, nb_fichiers)``.
+def _spool_zip(root: Path, entries, *, max_bytes: int, max_files: int, strict: bool):
+    """Écrit ``entries`` (itérable de ``(chemin relatif à root, nom dans
+    l'archive)``) dans un zip temporaire sur disque ; seuls les fichiers
+    réguliers sont lus, sans suivre de lien. Retourne ``(chemin_zip,
+    nb_fichiers)``.
 
     ``strict`` : au-delà des plafonds, lève ``_ZipTooBig`` (dossier : une
     archive tronquée en silence tromperait l'utilisateur) ; sinon s'arrête et
@@ -677,20 +703,26 @@ def _spool_zip(entries, *, max_bytes: int, max_files: int, strict: bool):
     total = written = 0
     try:
         with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-            for abs_file, arc in entries:
+            for rel, arc in entries:
                 try:
-                    size = abs_file.stat().st_size
-                except OSError:
-                    continue
-                if total + size > max_bytes or written + 1 > max_files:
-                    if strict:
-                        raise _ZipTooBig()
-                    break
-                try:
-                    zf.write(abs_file, arcname=arc)
-                except OSError:
-                    continue
-                total += size
+                    src = os.fdopen(open_beneath(root, rel), "rb")
+                except (OSError, SandboxPathError):
+                    continue                          # lien, fichier spécial, disparu
+                with src:
+                    st = os.fstat(src.fileno())
+                    if total + st.st_size > max_bytes or written + 1 > max_files:
+                        if strict:
+                            raise _ZipTooBig()
+                        break
+                    zi = zipfile.ZipInfo(arc, time.localtime(st.st_mtime)[:6])
+                    zi.compress_type = zipfile.ZIP_DEFLATED
+                    zi.external_attr = (st.st_mode & 0xFFFF) << 16
+                    try:
+                        with zf.open(zi, "w", force_zip64=st.st_size >= zipfile.ZIP64_LIMIT) as dst:
+                            shutil.copyfileobj(src, dst, 1 << 20)
+                    except OSError:
+                        continue
+                total += st.st_size
                 written += 1
     except BaseException:
         try:
@@ -739,7 +771,7 @@ def api_download_sandbox_file(request: Request, path: str):
         # relance la lecture. Requête ``Range`` (visionneuse hex) ou fichier
         # > 64 Mio : servi en flux comme avant, sans ``X-Sha256``.
         if "range" not in request.headers:
-            served = _read_consistent(target_path)
+            served = _read_consistent(root, target_path)
             if served is not None:
                 data, st = served
                 from fastapi.responses import Response
@@ -758,44 +790,30 @@ def api_download_sandbox_file(request: Request, path: str):
                 resp.headers["Access-Control-Expose-Headers"] = "X-Mtime, X-Sha256, X-Size"
                 return resp
         try:
-            _st = target_path.stat()
-            mtime_header, size_header = str(_st.st_mtime), str(_st.st_size)
-        except OSError:
-            mtime_header = size_header = ""
-        resp = _no_cache(FileResponse(target_path, filename=target_path.name))
-        if mtime_header:
-            resp.headers["X-Mtime"] = mtime_header
-            resp.headers["X-Size"] = size_header
-            resp.headers["Access-Control-Expose-Headers"] = "X-Mtime, X-Size"
+            resp = _pinned_file_response(root, target_path, filename=target_path.name)
+        except (OSError, SandboxPathError):
+            raise HTTPException(404, "Not found")
+        _no_cache(resp)
+        resp.headers["X-Mtime"] = str(resp.stat_result.st_mtime)
+        resp.headers["X-Size"] = str(resp.stat_result.st_size)
+        resp.headers["Access-Control-Expose-Headers"] = "X-Mtime, X-Size"
         return resp
 
     # If it's a folder, zip it (on disk) and serve
     folder_name = target_path.name or "folder"
-    target_resolved = target_path.resolve()
+    folder_rel = rel_under(root, target_path)
 
     def _entries():
-        for dirpath, dirnames, filenames in os.walk(target_path, followlinks=False):
-            for fn in filenames:
-                abs_file = Path(dirpath) / fn
-                # SECURITY FIX : os.walk(followlinks=False) bloque les RÉPERTOIRES
-                # symlinkés mais pas les FICHIERS symlinkés, que zf.write() suit.
-                # Un user peut faire `ln -s /etc/passwd leak` (ou pointer vers la
-                # base SQLite / le sandbox d'un autre user) et exfiltrer des
-                # fichiers hôte/cross-tenant via le zip. On skippe les symlinks et
-                # on confirme via _path_inside que le fichier résolu reste sous la
-                # racine — comme le font /search et /grep.
-                try:
-                    if abs_file.is_symlink():
-                        continue
-                    if not _path_inside(abs_file.resolve(), target_resolved):
-                        continue
-                except (OSError, RuntimeError):
-                    continue
-                arc_name = str(abs_file.relative_to(target_path))
-                yield abs_file, f"{folder_name}/{arc_name}"
+        # Parcours par descripteurs : ni lien suivi, ni dossier remplacé par
+        # un lien pendant le parcours ; ``_spool_zip`` ne lit que des fichiers
+        # réguliers, ouverts sans suivre de lien.
+        for rel_dir, _dirs, names, _dfd in walk_beneath(root, folder_rel):
+            for fn in names:
+                rel = f"{rel_dir}/{fn}" if rel_dir else fn
+                yield rel, f"{folder_name}/{PurePosixPath(rel).relative_to(folder_rel)}"
 
     try:
-        tmp, _n = _spool_zip(_entries(), max_bytes=_ZIP_DIR_MAX_BYTES,
+        tmp, _n = _spool_zip(root, _entries(), max_bytes=_ZIP_DIR_MAX_BYTES,
                              max_files=_ZIP_DIR_MAX_FILES, strict=True)
     except _ZipTooBig:
         raise HTTPException(
@@ -863,17 +881,16 @@ async def api_download_multi_sandbox_files(request: Request):
             # SECURITY : pas de path-traversal cross-users.
             if not _path_inside(target_path, root):
                 continue
-            if not target_path.is_file():
-                continue
             try:
-                yield target_path, str(target_path.relative_to(root))
+                rel = rel_under(root, target_path)
             except ValueError:
                 continue
+            yield rel, rel
 
     # Au-delà de la limite : on renvoie ce qui est déjà écrit (succès partiel,
     # comportement historique) ; un fichier illisible est sauté.
     tmp, written = await asyncio.to_thread(
-        _spool_zip, _entries(), max_bytes=MAX_TOTAL_BYTES, max_files=500, strict=False)
+        _spool_zip, root, _entries(), max_bytes=MAX_TOTAL_BYTES, max_files=500, strict=False)
 
     if written == 0:
         _unlink_quiet(tmp)
@@ -963,7 +980,7 @@ async def api_upload_sandbox_files(
                 # Audit éditeur 2026-09-23 : verrou du fichier (partagé avec
                 # l'assistant) + historique de session (source « upload »).
                 async with _file_lock(safe):
-                    _before = await _hist_before(safe)
+                    _before = await _hist_before(root, safe)
                     await sandbox_write_bytes(user_id, rel_path, file_bytes)
                     try:
                         mtimes[rel_path] = safe.stat().st_mtime
@@ -1152,7 +1169,7 @@ async def api_upload_sandbox_chunk(request: Request):
         # dossier homonyme reste refusé). En cas d'échec, le ``.part`` est
         # retiré au lieu de rester sur disque (arbre, quota).
         async with _file_lock(safe):
-            _before = await _hist_before(safe)
+            _before = await _hist_before(root, safe)
             try:
                 await sandbox_rename(user_id, tmp_rel, rel_path, overwrite=True)
             except HTTPException:
@@ -1162,12 +1179,12 @@ async def api_upload_sandbox_chunk(request: Request):
                     pass
                 invalidate_sandbox_usage(user_id)
                 raise
-            _st = await asyncio.to_thread(_file_state, safe, sha_max=_DOWNLOAD_SHA_MAX)
+            _st = await asyncio.to_thread(_file_state, root, safe, sha_max=_DOWNLOAD_SHA_MAX)
         new_mtime = _st.get("mtime")
         # Historique (source « upload ») : contenu relu (fichier ≤ 5 Mo gardé).
         try:
             await asyncio.to_thread(_fh.record_file_write, user_id,
-                                    _strip_work_prefix(rel_path), _before, safe, "upload")
+                                    _strip_work_prefix(rel_path), _before, root, "upload")
         except Exception:                                       # noqa: BLE001
             logger.exception("[sandbox] historique upload-chunk")
         # Taille finale réelle (on ne connaît pas l'ancienne : le fichier a été
@@ -1298,7 +1315,7 @@ def _conflict_detail(missing: bool, state: Optional[dict], message: str, **extra
     return d
 
 
-def _save_conflict(safe_path: Path, expected_mtime=None, expected_sha256=None):
+def _save_conflict(root: Path, safe_path: Path, expected_mtime=None, expected_sha256=None):
     """Détail du 412 si le fichier a changé (ou disparu) depuis la version de
     référence de l'onglet, sinon None.
 
@@ -1310,7 +1327,7 @@ def _save_conflict(safe_path: Path, expected_mtime=None, expected_sha256=None):
     * E26 — un ``stat`` qui lève ``PermissionError``/``NotADirectoryError``
       ne vaut plus « pas de précondition » : refus explicite.
     """
-    st = _file_state(safe_path, sha_max=_DOWNLOAD_SHA_MAX)
+    st = _file_state(root, safe_path, sha_max=_DOWNLOAD_SHA_MAX)
     kind = st["kind"]
     if kind == "missing":
         return 412, _conflict_detail(True, None, "Le fichier a été supprimé du disque")
@@ -1453,7 +1470,7 @@ async def api_save_sandbox_file(request: Request):
             # Précondition vérifiée SOUS les verrous.
             if expected_sha is not None or expected_mtime is not None:
                 _conflict = await asyncio.to_thread(
-                    _save_conflict, safe_path, expected_mtime, expected_sha)
+                    _save_conflict, root, safe_path, expected_mtime, expected_sha)
                 if _conflict is not None:
                     raise HTTPException(*_conflict)
             else:
@@ -1488,7 +1505,7 @@ async def api_save_sandbox_file(request: Request):
                     raise HTTPException(413, f"Quota sandbox dépassé ({_quota_mb} Mo)")
             # ─────────────────────────────────────────────────────────
             # Historique de session : contenu AVANT l'écriture.
-            _before = await _hist_before(safe_path)
+            _before = await _hist_before(root, safe_path)
             _t = time.time()
             # Écriture via docker exec — pas de mkdir explicite, le helper
             # le fait dans le même shell-script (atomique côté FS via
@@ -1551,7 +1568,7 @@ async def api_delete_sandbox_item(request: Request, path: str):
     # Historique de session (audit éditeur 2026-09-23) : la suppression d'un
     # FICHIER est notée (contenu d'avant gardé) ; un dossier, non.
     _is_file = target_path.is_file() and not (root / _strip_work_prefix(path)).is_symlink()
-    _before = await _hist_before(target_path) if _is_file else None
+    _before = await _hist_before(root, target_path) if _is_file else None
     try:
         await sandbox_delete(user_id, path)
         invalidate_sandbox_usage(user_id)   # taille supprimée inconnue
@@ -1710,7 +1727,7 @@ async def api_copy_item(request: Request):
         bump_sandbox_usage(user_id, size)
     # Historique de session : une copie de FICHIER est une création.
     if src_path.is_file():
-        _after = await _hist_before(dst_path)
+        _after = await _hist_before(root, dst_path)
         if _after is not None:
             await _hist_write(user_id, _strip_work_prefix(dst_rel), None, _after, "editor")
     return {"ok": True, "path": dst_rel}
@@ -1948,13 +1965,11 @@ async def api_sandbox_grep(request: Request):
     def _too_late() -> bool:
         return (_t.monotonic() - started) > _GREP_TIMEOUT_SEC
 
-    # We iterate via os.walk + per-file open, blocking. For the size we
-    # cap (5k files × 5 MB), this stays under the 5s wall clock on
-    # commodity hardware. Pushing to a thread isn't necessary at these
-    # bounds and would only add overhead.
+    # Parcours par descripteurs + lecture de chaque fichier sur son inode,
+    # sans suivre de lien (2026-09-29), en thread.
     def _grep_blocking():
         nonlocal files_seen, truncated
-        for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        for dirpath, dirnames, filenames, dfd in walk_beneath(root):
             if _too_late():
                 truncated = True
                 return
@@ -1983,38 +1998,11 @@ async def api_sandbox_grep(request: Request):
                     truncated = True
                     return
 
-                fpath = Path(dirpath) / fname
-                # Defensive : confirm the file is actually under root
-                # (os.walk(followlinks=False) should prevent symlink escapes
-                # but a belt-and-suspenders check costs nothing).
-                try:
-                    if not _path_inside(fpath.resolve(), root.resolve()):
-                        continue
-                except (OSError, RuntimeError):
+                data = read_leaf(dfd, fname, _GREP_MAX_FILE_BYTES)
+                if data is None or _is_likely_binary(data[:512]):
                     continue
-
-                try:
-                    st = fpath.stat()
-                except OSError:
-                    continue
-                if st.st_size > _GREP_MAX_FILE_BYTES:
-                    continue
-
-                try:
-                    with open(fpath, "rb") as f:
-                        head = f.read(512)
-                        if _is_likely_binary(head):
-                            continue
-                        rest = f.read()
-                except OSError:
-                    continue
-
-                try:
-                    text = (head + rest).decode("utf-8", errors="replace")
-                except Exception:
-                    continue
-
-                rel = str(fpath.relative_to(root))
+                text = data.decode("utf-8", errors="replace")
+                rel = f"{dirpath}/{fname}" if dirpath else fname
                 for lineno, line in enumerate(text.splitlines(), start=1):
                     m = _scan_line(line)
                     if not m:
@@ -2102,22 +2090,24 @@ def _replace_in_text(text: str, pat, repl, max_samples: int = _REPLACE_MAX_SAMPL
     return "".join(out), count, samples
 
 
-def _replace_scan_file(fpath: Path, root_res: Path, pat, repl):
-    """Lit UN fichier et calcule son remplacement.
+def _replace_scan_file(root: Path, rel: str, pat, repl):
+    """Lit UN fichier (``rel`` sous ``root``, sur son inode, sans suivre de
+    lien) et calcule son remplacement.
 
     Rend ``(texte, nouveau_texte, n, échantillons, mtime_ns)``, ou une chaîne
     = raison d'ignorer, ou None (rien à remplacer / fichier hors champ).
     Un lien symbolique est ignoré : l'écriture (``mv tmp cible``) le
     remplacerait par une copie ordinaire."""
     try:
-        if fpath.is_symlink():
+        if os.path.islink(root / rel):
             return "lien symbolique"
-        if not fpath.is_file() or not _path_inside(fpath.resolve(), root_res):
-            return None
-        st = fpath.stat()
-        if st.st_size > _GREP_MAX_FILE_BYTES:
-            return None
-        raw = fpath.read_bytes()
+        with os.fdopen(open_beneath(root, rel), "rb") as f:
+            st = os.fstat(f.fileno())
+            if st.st_size > _GREP_MAX_FILE_BYTES:
+                return None
+            raw = f.read(_GREP_MAX_FILE_BYTES + 1)
+    except SandboxPathError:
+        return "fichier spécial"
     except OSError:
         return None
     if _is_likely_binary(raw[:512]):
@@ -2199,7 +2189,6 @@ async def api_sandbox_replace(request: Request):
     root = _get_work_path(user_id)
     if not root.exists():
         return {"files": [], "total": 0, "truncated": False}
-    root_res = root.resolve()
 
     # ── Aperçu : parcours borné (fichiers, temps), rien n'est gardé en mémoire
     #    au-delà du compte et de quelques lignes d'exemple par fichier.
@@ -2207,7 +2196,7 @@ async def api_sandbox_replace(request: Request):
         def _preview():
             files, skipped, seen = [], [], 0
             started = _t.monotonic()
-            for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+            for dirpath, dirnames, filenames, _dfd in walk_beneath(root):
                 dirnames[:] = [d for d in dirnames if d not in _GREP_IGNORED_DIRS
                                and (include_hidden or not d.startswith("."))]
                 for fname in filenames:
@@ -2215,13 +2204,12 @@ async def api_sandbox_replace(request: Request):
                         continue
                     if glob_pattern and not fnmatch.fnmatch(fname, glob_pattern):
                         continue
-                    fpath = Path(dirpath) / fname
-                    rel = str(fpath.relative_to(root))
+                    rel = f"{dirpath}/{fname}" if dirpath else fname
                     seen += 1
                     if (seen > _GREP_MAX_FILES_SCANNED or len(files) >= _REPLACE_MAX_FILES
                             or (_t.monotonic() - started) > _REPLACE_SCAN_TIMEOUT_SEC):
                         return files, skipped, True
-                    res = _replace_scan_file(fpath, root_res, pat, repl)
+                    res = _replace_scan_file(root, rel, pat, repl)
                     if res is None:
                         continue
                     # Le pont d'écriture normalise ``work/…`` (et les blancs de
@@ -2277,7 +2265,7 @@ async def api_sandbox_replace(request: Request):
             # E7 — relecture, contrôle et écriture sous le verrou du fichier,
             # commun avec les outils de l'assistant.
             async with _file_lock(fpath.resolve()):
-                res = await asyncio.to_thread(_replace_scan_file, fpath, root_res, pat, repl)
+                res = await asyncio.to_thread(_replace_scan_file, root, rel, pat, repl)
                 if res is None:
                     continue
                 if isinstance(res, str):
@@ -2355,16 +2343,17 @@ def api_sandbox_read_docx(request: Request, path: str):
     full = (root / _strip_work_prefix(path)).resolve()
     if not _path_inside(full, root.resolve()):
         raise HTTPException(403, "Hors sandbox")
-    if not full.exists() or not full.is_file():
-        raise HTTPException(404, "Fichier introuvable")
     if not full.name.lower().endswith(".docx"):
         raise HTTPException(400, "Pas un fichier .docx")
+    # Octets lus sur l'inode, sans suivre de lien (2026-09-29).
     try:
-        size = full.stat().st_size
-    except OSError:
-        raise HTTPException(500, "Lecture stat impossible")
-    if size > _DOCX_MAX_BYTES:
-        raise HTTPException(413, f"Fichier trop gros (max {_DOCX_MAX_BYTES // (1024*1024)} MB)")
+        with os.fdopen(open_beneath(root, rel_under(root, full)), "rb") as f:
+            size = os.fstat(f.fileno()).st_size
+            if size > _DOCX_MAX_BYTES:
+                raise HTTPException(413, f"Fichier trop gros (max {_DOCX_MAX_BYTES // (1024*1024)} MB)")
+            data = f.read(_DOCX_MAX_BYTES + 1)
+    except (OSError, SandboxPathError):
+        raise HTTPException(404, "Fichier introuvable")
 
     try:
         from docx import Document  # python-docx
@@ -2375,7 +2364,7 @@ def api_sandbox_read_docx(request: Request, path: str):
         )
 
     try:
-        doc = Document(str(full))
+        doc = Document(io.BytesIO(data))
     except Exception as e:
         # docx corrompu ou format inconnu (vieux .doc binaire ≠ .docx OOXML)
         raise HTTPException(422, f"Lecture .docx impossible : {e}")
@@ -2543,7 +2532,7 @@ async def api_sandbox_history_file(request: Request, path: str = ""):
     except (OSError, RuntimeError):
         inside = False
     if inside:
-        st = await asyncio.to_thread(_file_state, full, sha_max=_DOWNLOAD_SHA_MAX)
+        st = await asyncio.to_thread(_file_state, root, full, sha_max=_DOWNLOAD_SHA_MAX)
         if st["kind"] == "file":
             current = {"exists": True, "sha256": st.get("sha256"),
                        "size": st.get("size"), "mtime": st.get("mtime")}
@@ -2673,6 +2662,24 @@ def _extract_tar_bounded(fileobj, tmp: Path, *, max_total: int, max_members: int
     return n
 
 
+def export_work_archive(root: Path, fileobj) -> None:
+    """Écrit dans ``fileobj`` une archive tar.gz des fichiers RÉGULIERS de
+    ``root`` (``/work``), chacun lu sur son inode ouvert sans suivre de lien
+    (2026-09-29) ; liens et fichiers spéciaux sont omis."""
+    import tarfile as _tarfile
+    with _tarfile.open(fileobj=fileobj, mode="w:gz") as tf:
+        for rel_dir, dirnames, names, dfd in walk_beneath(root):
+            dirnames.sort()
+            for name in sorted(names):
+                try:
+                    src = os.fdopen(open_leaf(dfd, name), "rb")
+                except (OSError, SandboxPathError):
+                    continue
+                with src:
+                    tf.addfile(tf.gettarinfo(arcname=f"{rel_dir}/{name}" if rel_dir else name,
+                                             fileobj=src), src)
+
+
 def import_work_archive(user_id: int, data, *, max_total: Optional[int] = None) -> int:
     """Remplace le contenu de ``/work`` du compte par celui d'une archive
     tar.gz (membres contenus : ni ``..``, ni absolu, ni lien). Retourne le
@@ -2723,7 +2730,6 @@ async def grant_work_access(user_id: int) -> None:
 @router.get("/api/sandbox/export")
 async def api_sandbox_export(request: Request):
     """Archive tar.gz de ``/work`` du compte (fichiers réguliers, sans liens)."""
-    import tarfile as _tarfile
     user_id = require_user_id(request)
     root = Path(_get_work_path(user_id))
 
@@ -2736,10 +2742,8 @@ async def api_sandbox_export(request: Request):
         fd, tmp = tempfile.mkstemp(prefix="export-", suffix=".tar.gz",
                                    dir=str(_zip_spool_dir()))
         try:
-            with os.fdopen(fd, "wb") as fh, _tarfile.open(fileobj=fh, mode="w:gz") as tf:
-                for p in sorted(root.rglob("*")):
-                    if p.is_file() and not p.is_symlink():
-                        tf.add(p, arcname=str(p.relative_to(root)))
+            with os.fdopen(fd, "wb") as fh:
+                export_work_archive(root, fh)
         except BaseException:
             _unlink_quiet(tmp)
             raise

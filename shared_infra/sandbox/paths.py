@@ -48,9 +48,10 @@ import os
 import secrets
 import shutil
 import stat
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any, List, Optional
+from typing import Any, Iterator, List, Optional, Tuple
 
 try:
     import fcntl  # POSIX only
@@ -297,6 +298,249 @@ def open_dir_beneath(base: Any, rel: Any = "", *, create: bool = False,
     return fd
 
 
+# ── Lecture SOUS la racine, sans jamais suivre de lien (2026-09-29) ─────────
+#
+# Même fenêtre qu'à l'écriture (cf. plus bas) : l'hôte validait un chemin puis
+# le rouvrait par son nom ; un dossier du chemin remplacé par un lien entre les
+# deux faisait lire, avec les droits de l'app, un fichier hors du bac à sable.
+# Et un nœud de périphérique posé dans /work (root du conteneur a MKNOD) aurait
+# été lu tel quel. Ici l'entrée est saisie par ``O_PATH | O_NOFOLLOW`` — ce qui
+# n'ouvre rien —, son type est vérifié sur ce descripteur, puis elle est
+# rouverte par ``/proc/self/fd`` : le même inode, quoi qu'il arrive au chemin.
+
+_O_PATH = getattr(os, "O_PATH", 0)
+
+
+def open_leaf(dir_fd: int, name: str, *, allow_dir: bool = False) -> int:
+    """Descripteur en lecture de l'entrée ``name`` de ``dir_fd`` : un fichier
+    régulier, ou un dossier si ``allow_dir``. Un lien, une FIFO, un socket ou
+    un périphérique lèvent :class:`SandboxPathError` sans avoir été ouverts ;
+    un dossier non demandé lève ``IsADirectoryError``."""
+    pfd = os.open(name, _O_PATH | _O_NOFOLLOW | _O_CLOEXEC, dir_fd=dir_fd)
+    try:
+        mode = os.fstat(pfd).st_mode
+        if stat.S_ISREG(mode):
+            flags = os.O_RDONLY
+        elif stat.S_ISDIR(mode) and allow_dir:
+            flags = os.O_RDONLY | _O_DIRECTORY
+        elif stat.S_ISDIR(mode):
+            raise IsADirectoryError(errno.EISDIR, "Is a directory", name)
+        else:
+            raise SandboxPathError(f"symlink or special file refused: {name!r}")
+        return os.open(f"/proc/self/fd/{pfd}", flags | _O_CLOEXEC)
+    finally:
+        os.close(pfd)
+
+
+def open_beneath(base: Any, rel: Any, *, allow_dir: bool = False) -> int:
+    """Descripteur en lecture de ``base/rel`` : dossiers ouverts par
+    :func:`open_dir_beneath`, feuille par :func:`open_leaf`. ``rel`` vide =
+    la racine (dossier). L'appelant ferme le descripteur rendu."""
+    parts = _rel_parts(rel)
+    if not parts:
+        if not allow_dir:
+            raise IsADirectoryError(errno.EISDIR, "Is a directory", str(base))
+        return open_dir_beneath(base)
+    dfd = open_dir_beneath(base, "/".join(parts[:-1]))
+    try:
+        return open_leaf(dfd, parts[-1], allow_dir=allow_dir)
+    finally:
+        os.close(dfd)
+
+
+def rel_under(base: Any, target: Any) -> str:
+    """``target`` (relatif, ou chemin hôte déjà résolu sous ``base``) rendu
+    relatif à ``base`` — sans relire le disque. Hors de ``base`` :
+    :class:`SandboxPathError`."""
+    t = Path(target)
+    if not t.is_absolute():
+        return t.as_posix()
+    try:
+        return t.relative_to(Path(base)).as_posix()
+    except ValueError:
+        pass
+    try:
+        return t.relative_to(Path(base).resolve()).as_posix()
+    except ValueError:
+        raise SandboxPathError(f"path outside the sandbox root: {str(target)!r}") from None
+
+
+@contextmanager
+def pinned_beneath(base: Any, target: Any, *, allow_dir: bool = False) -> Iterator[Path]:
+    """``/proc/self/fd/<n>`` de ``base/target`` ouvert par :func:`open_beneath` :
+    un chemin que les fonctions ordinaires (``open``, ``Path.read_bytes``,
+    ``stat``) acceptent et qui désigne CET inode, même si le chemin d'origine
+    change ensuite. Pour un dossier, seul le dossier est figé : un parcours
+    passe par :func:`walk_beneath`."""
+    fd = open_beneath(base, rel_under(base, target), allow_dir=allow_dir)
+    try:
+        yield Path(f"/proc/self/fd/{fd}")
+    finally:
+        os.close(fd)
+
+
+def _is_real_dir(name: str, dir_fd: int) -> bool:
+    try:
+        return stat.S_ISDIR(os.stat(name, dir_fd=dir_fd, follow_symlinks=False).st_mode)
+    except OSError:
+        return False
+
+
+def read_leaf(dir_fd: int, name: str, max_bytes: int) -> Optional[bytes]:
+    """Contenu du fichier régulier ``name`` de ``dir_fd`` s'il fait au plus
+    ``max_bytes`` octets ; ``None`` sinon (lien, fichier spécial, trop gros,
+    disparu, illisible)."""
+    try:
+        fd = open_leaf(dir_fd, name)
+    except (OSError, SandboxPathError):
+        return None
+    with os.fdopen(fd, "rb") as f:
+        if os.fstat(f.fileno()).st_size > max_bytes:
+            return None
+        data = f.read(max_bytes + 1)
+    return None if len(data) > max_bytes else data
+
+
+def walk_beneath(base: Any, rel: Any = "", *,
+                 onerror=None) -> Iterator[Tuple[str, List[str], List[str], int]]:
+    """``os.fwalk`` de ``base/rel`` qui ne suit aucun lien : racine ouverte par
+    :func:`open_dir_beneath`, liens vers des dossiers retirés de ``dirnames``,
+    et un dossier remplacé par un lien pendant le parcours n'est pas descendu
+    (contrôle d'inode d'``os.fwalk``).
+
+    Rend ``(rel_dir, dirnames, filenames, dir_fd)`` ; ``rel_dir`` est relatif à
+    ``base`` et ``dirnames`` s'élague sur place. ``filenames`` peut contenir
+    des liens et des fichiers spéciaux : les ouvrir par :func:`open_leaf`."""
+    top_rel = "/".join(_rel_parts(rel))
+    top = open_dir_beneath(base, top_rel)
+    try:
+        for cur, dirnames, filenames, dfd in os.fwalk(".", dir_fd=top, follow_symlinks=False,
+                                                      onerror=onerror):
+            dirnames[:] = [d for d in dirnames if _is_real_dir(d, dfd)]
+            sub = "" if cur == "." else cur[2:]
+            yield "/".join(x for x in (top_rel, sub) if x), dirnames, filenames, dfd
+    finally:
+        os.close(top)
+
+
+# ── Élargissement des droits (invariant /work « cross-writable ») ──────────
+#
+# L'hôte et le conteneur (UID 10001) n'ont aucun groupe commun : ce que l'hôte
+# écrit dans /work doit être 0666 / 0777 pour rester modifiable dans le
+# conteneur. ``os.chmod`` suit les liens : un contrôle ``islink`` puis un
+# ``chmod`` par chemin laissait le conteneur glisser un lien entre les deux et
+# faire passer un fichier de l'hôte en 0666 (2026-09-29). Chaque entrée est
+# donc saisie par ``O_PATH | O_NOFOLLOW`` puis modifiée par ``/proc/self/fd``.
+
+def _widen_fd(pfd: int) -> bool:
+    """Fichier régulier → 0666 (0777 s'il avait un bit x), dossier → 0777 ;
+    setuid, setgid et sticky retirés ; lien ou fichier spécial : rien. Rend
+    ``True`` pour un dossier."""
+    st = os.fstat(pfd)
+    if stat.S_ISDIR(st.st_mode):
+        new = 0o777
+    elif stat.S_ISREG(st.st_mode):
+        new = 0o777 if st.st_mode & 0o111 else 0o666
+    else:
+        return False
+    if stat.S_IMODE(st.st_mode) != new:
+        os.chmod(f"/proc/self/fd/{pfd}", new)
+    return stat.S_ISDIR(st.st_mode)
+
+
+def _widen_entry(dir_fd: int, name: str) -> bool:
+    pfd = os.open(name, _O_PATH | _O_NOFOLLOW | _O_CLOEXEC, dir_fd=dir_fd)
+    try:
+        return _widen_fd(pfd)
+    finally:
+        os.close(pfd)
+
+
+def widen_beneath(base: Any, rel: Any = "", *, recursive: bool = False) -> None:
+    """Élargit les droits de ``base/rel`` pour l'UID du conteneur — et de tout
+    son contenu si ``recursive`` — sans jamais suivre de lien. Best-effort :
+    une entrée absente, étrangère (EPERM) ou disparue est sautée."""
+    parts = _rel_parts(rel)
+    try:
+        if parts:
+            dfd = open_dir_beneath(base, "/".join(parts[:-1]))
+            try:
+                is_dir = _widen_entry(dfd, parts[-1])
+            finally:
+                os.close(dfd)
+        else:
+            dfd = open_dir_beneath(base)
+            try:
+                is_dir = _widen_fd(dfd)
+            finally:
+                os.close(dfd)
+        if not (recursive and is_dir):
+            return
+        for _rel_dir, dirnames, filenames, wdfd in walk_beneath(base, "/".join(parts)):
+            for name in dirnames + filenames:
+                try:
+                    _widen_entry(wdfd, name)
+                except OSError:
+                    continue
+    except (OSError, SandboxPathError):
+        return
+
+
+# ── Suppression et renommage SOUS la racine (2026-09-29) ────────────────────
+# Même fenêtre qu'à la lecture : ``unlink``/``rmtree``/``replace`` par chemin
+# suivaient un dossier du chemin remplacé par un lien après validation, et
+# supprimaient ou déplaçaient alors une entrée de l'hôte. Ici l'entrée est
+# désignée RELATIVEMENT au descripteur de son dossier : un lien est supprimé
+# ou déplacé lui-même, jamais sa cible.
+
+def remove_beneath(base: Any, rel: Any, *, recursive: bool = False) -> None:
+    """Supprime l'entrée ``base/rel`` : fichier ou lien (jamais sa cible), ou
+    dossier si ``recursive`` (sinon ``IsADirectoryError``)."""
+    parts = _rel_parts(rel)
+    if not parts:
+        raise SandboxPathError("refusing to remove the sandbox root")
+    dfd = open_dir_beneath(base, "/".join(parts[:-1]))
+    try:
+        name = parts[-1]
+        if stat.S_ISDIR(os.stat(name, dir_fd=dfd, follow_symlinks=False).st_mode):
+            if not recursive:
+                raise IsADirectoryError(errno.EISDIR, "Is a directory", str(rel))
+            shutil.rmtree(name, dir_fd=dfd)
+        else:
+            os.unlink(name, dir_fd=dfd)
+    finally:
+        os.close(dfd)
+
+
+def rename_beneath(base: Any, src_rel: Any, dst_rel: Any, *,
+                   dir_mode: Optional[int] = None) -> None:
+    """Renomme l'entrée ``src_rel`` en ``dst_rel`` (une entrée existante qui
+    n'est pas un dossier est remplacée) ; dossier parent de destination créé
+    au besoin (``dir_mode`` sur ceux qu'on crée)."""
+    sp, dp = _rel_parts(src_rel), _rel_parts(dst_rel)
+    if not sp or not dp:
+        raise SandboxPathError("the sandbox root cannot be renamed or replaced")
+    sfd = open_dir_beneath(base, "/".join(sp[:-1]))
+    try:
+        dfd = open_dir_beneath(base, "/".join(dp[:-1]), create=True, dir_mode=dir_mode)
+        try:
+            os.replace(sp[-1], dp[-1], src_dir_fd=sfd, dst_dir_fd=dfd)
+        finally:
+            os.close(dfd)
+    finally:
+        os.close(sfd)
+
+
+def walk_under(base: Any, top: Any) -> Iterator[Tuple[str, List[str], List[str], int]]:
+    """:func:`walk_beneath` du dossier ``top`` (relatif, ou chemin hôte déjà
+    résolu sous ``base``), le chemin de chaque dossier rendu RELATIF à
+    ``top`` (``""`` pour ``top`` lui-même)."""
+    top_rel = rel_under(base, top)
+    top_rel = "" if top_rel == "." else top_rel
+    for cur, dirs, files, dfd in walk_beneath(base, top_rel):
+        yield (cur[len(top_rel):].lstrip("/") if top_rel else cur), dirs, files, dfd
+
+
 def _short_leaf(leaf: str, max_bytes: int = 120) -> str:
     """Préfixe de ``leaf`` d'au plus ``max_bytes`` octets UTF-8, sans couper
     un caractère. Passe sandbox 2026-09-26 — la troncature en CARACTÈRES
@@ -374,9 +618,11 @@ def write_beneath(base: Any, rel: Any, data: Any, *,
     return written
 
 
-def copytree_beneath(src: Path, base: Any, dst_rel: Any, *,
+def copytree_beneath(src: Any, base: Any, dst_rel: Any, *,
                      file_mode_fn=None, dir_mode: Optional[int] = None) -> int:
-    """Copie l'arbre ``src`` vers ``base/dst_rel`` (qui ne doit pas exister)
+    """Copie l'arbre ``src`` (chemin, ou descripteur de dossier déjà ouvert
+    sans suivre de lien, cf. :func:`open_beneath`) vers ``base/dst_rel`` (qui
+    ne doit pas exister)
     sans jamais suivre de lien CÔTÉ DESTINATION ; les liens de la source sont
     recopiés TELS QUELS (comme ``copytree(symlinks=True)``), jamais
     déréférencés. ``file_mode_fn(mode_source) -> mode`` : mode des fichiers
@@ -393,7 +639,7 @@ def copytree_beneath(src: Path, base: Any, dst_rel: Any, *,
       • destination existante refusée D'EMBLÉE (``FileExistsError`` explicite,
         y compris un fichier à la place du dossier) ; erreurs de parcours
         remontées au lieu d'être avalées (sous-dossier illisible)."""
-    src = Path(src)
+    own_fd = not isinstance(src, int)
     root_parts = _rel_parts(dst_rel)
     if not root_parts:
         raise SandboxPathError("a destination directory is required, not the root")
@@ -420,45 +666,51 @@ def copytree_beneath(src: Path, base: Any, dst_rel: Any, *,
                 finally:
                     os.close(_dfd)
             walk_errors: List[OSError] = []
-            for cur, dirs, files, sdfd in os.fwalk(src, follow_symlinks=False,
-                                                   onerror=walk_errors.append):
-                rel_cur = Path(cur).relative_to(src).as_posix()
-                dst_cur = tmp_rel if rel_cur in ("", ".") else f"{tmp_rel}/{rel_cur}"
-                for nm in list(dirs) + list(files):
-                    try:
-                        st = os.stat(nm, dir_fd=sdfd, follow_symlinks=False)
-                    except FileNotFoundError:
-                        continue                       # disparu entre-temps
-                    if stat.S_ISLNK(st.st_mode):
-                        dfd = open_dir_beneath(base, dst_cur, create=True, dir_mode=dir_mode)
+            sfd = (os.open(str(src), os.O_RDONLY | _O_DIRECTORY | _O_NOFOLLOW | _O_CLOEXEC)
+                   if own_fd else src)
+            try:
+                for cur, dirs, files, sdfd in os.fwalk(".", dir_fd=sfd, follow_symlinks=False,
+                                                       onerror=walk_errors.append):
+                    rel_cur = "" if cur == "." else cur[2:]
+                    dst_cur = tmp_rel if not rel_cur else f"{tmp_rel}/{rel_cur}"
+                    for nm in list(dirs) + list(files):
                         try:
-                            os.symlink(os.readlink(nm, dir_fd=sdfd), nm, dir_fd=dfd)
-                        finally:
+                            st = os.stat(nm, dir_fd=sdfd, follow_symlinks=False)
+                        except FileNotFoundError:
+                            continue                       # disparu entre-temps
+                        if stat.S_ISLNK(st.st_mode):
+                            dfd = open_dir_beneath(base, dst_cur, create=True, dir_mode=dir_mode)
+                            try:
+                                os.symlink(os.readlink(nm, dir_fd=sdfd), nm, dir_fd=dfd)
+                            finally:
+                                os.close(dfd)
+                            if nm in dirs:
+                                dirs.remove(nm)
+                        elif stat.S_ISDIR(st.st_mode):
+                            dfd = open_dir_beneath(base, f"{dst_cur}/{nm}", create=True,
+                                                   dir_mode=dir_mode)
                             os.close(dfd)
-                        if nm in dirs:
-                            dirs.remove(nm)
-                    elif stat.S_ISDIR(st.st_mode):
-                        dfd = open_dir_beneath(base, f"{dst_cur}/{nm}", create=True,
-                                               dir_mode=dir_mode)
-                        os.close(dfd)
-                    elif stat.S_ISREG(st.st_mode):
-                        try:
-                            ffd = os.open(nm, os.O_RDONLY | _O_NOFOLLOW | _O_CLOEXEC,
-                                          dir_fd=sdfd)
-                        except OSError as e:
-                            if e.errno == errno.ELOOP:
-                                continue               # devenu un lien : ignoré
-                            raise
-                        with os.fdopen(ffd, "rb") as fh:
-                            fst = os.fstat(fh.fileno())
-                            if (fst.st_ino, fst.st_dev) != (st.st_ino, st.st_dev) \
-                                    or not stat.S_ISREG(fst.st_mode):
-                                continue               # substitué entre-temps
-                            mode = (file_mode_fn(fst.st_mode & 0o777) if file_mode_fn
-                                    else fst.st_mode & 0o777)
-                            write_beneath(base, f"{dst_cur}/{nm}", fh, file_mode=mode,
-                                          dir_mode=dir_mode, mtime_ns=fst.st_mtime_ns)
-                        n += 1
+                        elif stat.S_ISREG(st.st_mode):
+                            try:
+                                ffd = os.open(nm, os.O_RDONLY | _O_NOFOLLOW | _O_CLOEXEC,
+                                              dir_fd=sdfd)
+                            except OSError as e:
+                                if e.errno == errno.ELOOP:
+                                    continue               # devenu un lien : ignoré
+                                raise
+                            with os.fdopen(ffd, "rb") as fh:
+                                fst = os.fstat(fh.fileno())
+                                if (fst.st_ino, fst.st_dev) != (st.st_ino, st.st_dev) \
+                                        or not stat.S_ISREG(fst.st_mode):
+                                    continue               # substitué entre-temps
+                                mode = (file_mode_fn(fst.st_mode & 0o777) if file_mode_fn
+                                        else fst.st_mode & 0o777)
+                                write_beneath(base, f"{dst_cur}/{nm}", fh, file_mode=mode,
+                                              dir_mode=dir_mode, mtime_ns=fst.st_mtime_ns)
+                            n += 1
+            finally:
+                if own_fd:
+                    os.close(sfd)
             if walk_errors:
                 raise walk_errors[0]
             os.rename(tmp, name, src_dir_fd=pfd, dst_dir_fd=pfd)
@@ -562,9 +814,19 @@ __all__ = [
     "SandboxPathError",
     "copytree_beneath",
     "ensure_work_subdir",
+    "open_beneath",
     "open_dir_beneath",
+    "open_leaf",
+    "pinned_beneath",
+    "read_leaf",
+    "rel_under",
+    "remove_beneath",
+    "rename_beneath",
     "resolve_under",
     "strip_work_prefix",
     "to_container",
+    "walk_beneath",
+    "walk_under",
+    "widen_beneath",
     "write_beneath",
 ]

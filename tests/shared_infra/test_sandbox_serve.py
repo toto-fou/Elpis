@@ -42,6 +42,8 @@ def sandbox(tmp_path, monkeypatch):
     (tmp_path / "secret.txt").write_text("TOP SECRET")
 
     monkeypatch.setattr(sf, "_get_work_path", lambda uid: root)
+    from tests.conftest import editeur_sur_agent
+    editeur_sur_agent(monkeypatch, root)
     return root
 
 
@@ -184,3 +186,25 @@ def test_cors_sur_le_jeton_seulement(client):
     assert client.get(PV + "demo/app.js").headers.get("access-control-allow-origin") == "*"
     assert client.get(PV + "demo/index.html").headers.get("access-control-allow-origin") == "*"
     assert "access-control-allow-origin" not in client.get("/api/sandbox/serve/demo/app.js").headers
+
+
+def test_plages_et_revalidation(client, sandbox):
+    """Fichier servi par l'agent par blocs : 304 sur l'ETag, une plage
+    ``Range`` (206), hors du fichier (416), plus gros qu'un bloc."""
+    gros = bytes(range(256)) * 10_000                      # 2,5 Mo : trois blocs
+    (sandbox / "gros.bin").write_bytes(gros)
+    r = client.get("/api/sandbox/serve/gros.bin")
+    assert r.status_code == 200 and r.content == gros
+    etag = r.headers["etag"]
+    assert client.get("/api/sandbox/serve/gros.bin",
+                      headers={"If-None-Match": etag}).status_code == 304
+    r = client.get("/api/sandbox/serve/gros.bin", headers={"Range": "bytes=2-4"})
+    assert r.status_code == 206 and r.content == gros[2:5]
+    assert r.headers["content-range"] == f"bytes 2-4/{len(gros)}"
+    r = client.get("/api/sandbox/serve/gros.bin", headers={"Range": "bytes=-3"})
+    assert r.status_code == 206 and r.content == gros[-3:]
+    r = client.get("/api/sandbox/serve/gros.bin", headers={"Range": f"bytes={len(gros)}-"})
+    assert r.status_code == 416
+    r = client.get("/api/sandbox/serve/gros.bin",
+                   headers={"Range": "bytes=2-4", "If-Range": '"autre"'})
+    assert r.status_code == 200 and r.content == gros         # If-Range périmé : tout

@@ -482,6 +482,7 @@ def _security_headers(headers, media_type: str) -> None:
         headers["Content-Security-Policy"] = PREVIEW_CSP
 
 
+# Téléchargements (L4.5 : par l'agent à leur tour).
 class _PinnedFileResponse(FileResponse):
     """``FileResponse`` d'un inode déjà ouvert (``/proc/self/fd/<n>``) : ni
     relecture du chemin d'origine, ni lien suivi ; en-têtes, ETag et requêtes
@@ -510,51 +511,94 @@ def _pinned_file_response(root: Path, target: Path, **kwargs) -> "_PinnedFileRes
     return _PinnedFileResponse(open_beneath(root, rel_under(root, target)), **kwargs)
 
 
-def _preview_file_response(root: Path, target: Path) -> FileResponse:
-    """``FileResponse`` d'un fichier de sandbox.
+_BLOC_REPONSE = 1 << 20
+
+
+def _plage(entete: Optional[str], taille: int):
+    """``(début, fin)`` (fin exclue) d'un en-tête ``Range`` à UNE plage, None
+    sans plage utilisable (plusieurs plages : contenu entier, permis par la
+    norme), ``"invalide"`` hors du fichier (416)."""
+    m = re.fullmatch(r"\s*bytes=(\d*)-(\d*)\s*", entete or "")
+    if not m or (not m.group(1) and not m.group(2)):
+        return None
+    if not m.group(1):                                  # suffixe : les N derniers octets
+        n = int(m.group(2))
+        return (max(0, taille - n), taille) if n else "invalide"
+    debut = int(m.group(1))
+    fin = min(int(m.group(2)) + 1, taille) if m.group(2) else taille
+    return (debut, fin) if debut < taille and debut < fin else "invalide"
+
+
+def _reponse_agent(request: Request, agent, rel: str, e: dict, media_type: str):
+    """Réponse d'un fichier lu par l'agent par blocs (jamais chargé en
+    entier), toutes les plages lues sur la MÊME version (taille et mtime
+    vérifiés par l'agent) : ETag / Last-Modified comme ``FileResponse``, 304
+    sur ``If-None-Match``, une plage ``Range`` (206, ``If-Range`` respecté).
 
     ``Cache-Control`` : sans en-tête explicite, l'``ETag`` seul ne force PAS
-    la revalidation — le navigateur peut resservir l'ancien ``.css``/``.js``
-    après une modification. On force la revalidation (304 à 0 octet tant que
-    rien ne change).
-    """
-    mt, _ = mimetypes.guess_type(target.name)
-    resp = _pinned_file_response(root, target, media_type=mt or "text/plain")
-    resp.headers["Cache-Control"] = "no-cache, must-revalidate"
-    # ``MutableHeaders`` n'a pas de ``.pop()`` — il faut passer par ``del``.
-    if "expires" in resp.headers:
-        del resp.headers["expires"]
-    _security_headers(resp.headers, mt or "text/plain")
-    return resp
+    la revalidation — le navigateur pouvait resservir l'ancien ``.css``/
+    ``.js`` après une modification (304 à 0 octet tant que rien ne change)."""
+    from email.utils import formatdate
+
+    from fastapi.responses import Response, StreamingResponse
+    taille, ns = int(e.get("size") or 0), int(e.get("mtime_ns") or 0)
+    mtime = _mtime_s(ns)
+    etag = '"' + hashlib.md5(f"{mtime}-{taille}".encode(), usedforsecurity=False).hexdigest() + '"'
+    entetes = {"etag": etag, "last-modified": formatdate(mtime, usegmt=True),
+               "accept-ranges": "bytes", "cache-control": "no-cache, must-revalidate"}
+    _security_headers(entetes, media_type)
+    if etag in [x.strip() for x in (request.headers.get("if-none-match") or "").split(",")]:
+        return Response(status_code=304, headers=entetes)
+    debut, fin, statut = 0, taille, 200
+    if request.headers.get("if-range") in (None, etag):
+        plage = _plage(request.headers.get("range"), taille)
+        if plage == "invalide":
+            return Response(status_code=416, headers={**entetes, "content-range": f"bytes */{taille}"})
+        if plage:
+            (debut, fin), statut = plage, 206
+            entetes["content-range"] = f"bytes {debut}-{fin - 1}/{taille}"
+    entetes["content-length"] = str(fin - debut)
+
+    async def corps():
+        pos = debut
+        while pos < fin:
+            n = min(_BLOC_REPONSE, fin - pos)
+            r = await agent.read(rel, offset=pos, length=n, max_bytes=n,
+                                 expect_size=taille, expect_mtime_ns=ns)
+            if not r.data:
+                return
+            yield r.data
+            pos += len(r.data)
+    return StreamingResponse(corps(), status_code=statut, media_type=media_type, headers=entetes)
 
 
-def _sandbox_file(user_id: int, path: str) -> Optional[Path]:
-    """Fichier ``path`` sous la racine de travail de ``user_id``, ou ``None``.
-
-    AUDIT 2026-08-30 (S3a) — ``resolve()``/``is_file()`` peuvent lever
-    ``OSError`` (ENAMETOOLONG, ELOOP) : même « introuvable » que le reste,
-    sans oracle qui distinguerait les deux."""
-    root = _get_work_path(user_id)
+async def _fichier_agent(user_id: int, path: str):
+    """``(agent, rel, entrée)`` du fichier ``path`` de la sandbox de
+    ``user_id`` (un lien suivi sous /work seulement), ou None : absent, hors
+    sandbox, pas un fichier — même « introuvable » partout, sans oracle."""
     try:
-        target = (root / _strip_work_prefix(path)).resolve()
-        return target if _path_inside(target, root) and target.is_file() else None
-    except OSError:
+        rel = _rel_editeur(_get_work_path(user_id), path)
+    except HTTPException:
         return None
+    agent = agent_for(user_id)
+    try:
+        (e,) = await agent.stat([rel])
+    except AgentError as ex:
+        raise agent_http(ex, "Lecture") from None
+    return (agent, rel, e) if e.get("kind") == "file" else None
 
 
 @router.get("/api/sandbox/serve/{path:path}")
-def api_serve_sandbox(request: Request, path: str):
+async def api_serve_sandbox(request: Request, path: str):
     """Lecture d'un fichier (session). Pour l'AFFICHAGE d'une page, voir
     ``/api/sandbox/pv/`` : ici un document actif reçoit une origine opaque,
     ses sous-ressources n'auraient donc pas la session."""
-    uid = require_user_id(request)
-    target = _sandbox_file(uid, path)
-    if target is None:
+    trouve = await _fichier_agent(require_user_id(request), path)
+    if trouve is None:
         raise HTTPException(404, "Not found")
-    try:
-        return _preview_file_response(_get_work_path(uid), target)
-    except (OSError, SandboxPathError):
-        raise HTTPException(404, "Not found")
+    agent, rel, e = trouve
+    mt = mimetypes.guess_type(PurePosixPath(rel).name)[0] or "text/plain"
+    return _reponse_agent(request, agent, rel, e, mt)
 
 
 @router.get("/api/sandbox/preview-token")
@@ -565,25 +609,36 @@ def api_preview_token(request: Request):
     return _no_cache(JSONResponse({"token": token, "expires": exp}))
 
 
-def _resolve_from(user_id: int, doc_dir: str, wanted: str) -> Optional[Path]:
+async def _resolve_from(user_id: int, doc_dir: str, wanted: str):
     """``wanted`` cherché dans ``doc_dir`` puis en remontant (borné) vers la
-    racine sandbox — règle de l'ancien repli 404, sans le ``Referer``."""
-    root = _get_work_path(user_id).resolve()
+    racine sandbox — règle de l'ancien repli 404, sans le ``Referer`` ; les
+    candidats sont vérifiés en une requête à l'agent. ``(agent, rel,
+    entrée)`` ou None."""
+    root = _get_work_path(user_id)
     parts = [p for p in PurePosixPath(_strip_work_prefix(doc_dir)).parts
              if p not in ("", ".", "/")]
     lowest = max(0, len(parts) - _PREVIEW_ROOT_WALK_MAX)
+    candidats = []
     for depth in range(len(parts), lowest - 1, -1):
         try:
-            cand = (root.joinpath(*parts[:depth]) / wanted).resolve()
-            if _path_inside(cand, root) and cand.is_file():
-                return cand
-        except OSError:
+            candidats.append(_rel_editeur(root, "/".join([*parts[:depth], wanted])))
+        except HTTPException:
             continue
+    if not candidats:
+        return None
+    agent = agent_for(user_id)
+    try:
+        entrees = await agent.stat(candidats)
+    except AgentError as ex:
+        raise agent_http(ex, "Lecture") from None
+    for rel, e in zip(candidats, entrees):
+        if e.get("kind") == "file":
+            return agent, rel, e
     return None
 
 
 @router.get("/api/sandbox/pv/{token}/{path:path}")
-def api_preview_sandbox(token: str, path: str):
+async def api_preview_sandbox(request: Request, token: str, path: str):
     """Aperçu « Web » : identité portée par le jeton du chemin, pas par le
     cookie (qu'un document à origine opaque n'envoie pas).
 
@@ -594,36 +649,29 @@ def api_preview_sandbox(token: str, path: str):
     uid = check_preview_token(token)
     if uid is None:
         raise HTTPException(403, "Aperçu expiré : rechargez-le")
-    target = None
+    trouve = None
     if path.startswith(rw.RESOLVER + "/"):
         split = rw.split_resolver(path[len(rw.RESOLVER) + 1:])
         if split:
-            target = _resolve_from(uid, *split)
+            trouve = await _resolve_from(uid, *split)
     else:
-        target = _sandbox_file(uid, path)
-    if target is None:
+        trouve = await _fichier_agent(uid, path)
+    if trouve is None:
         raise HTTPException(404, "Not found")
-
-    mt = mimetypes.guess_type(target.name)[0] or "text/plain"
+    agent, rel, e = trouve
+    mt = mimetypes.guess_type(PurePosixPath(rel).name)[0] or "text/plain"
     kind = mt.split(";")[0].strip().lower()
-    root = _get_work_path(uid).resolve()
-    text = None
-    if kind in ("text/html", "text/css"):
-        data = None
-        try:
-            with os.fdopen(open_beneath(root, rel_under(root, target)), "rb") as f:
-                data = f.read(rw.MAX_REWRITE_BYTES + 1)
-        except (OSError, SandboxPathError):
-            raise HTTPException(404, "Not found")
-        if len(data) <= rw.MAX_REWRITE_BYTES:
-            text = data.decode("utf-8", errors="replace")
-    if text is None:
-        try:
-            return _preview_cors(_preview_file_response(root, target))
-        except (OSError, SandboxPathError):
-            raise HTTPException(404, "Not found")
-    doc_dir = target.parent.relative_to(root).as_posix() if target.parent != root else ""
-    base = rw.resolver_base(f"{PREVIEW_URL_PREFIX}{token}/", doc_dir)
+    if kind not in ("text/html", "text/css") or int(e.get("size") or 0) > rw.MAX_REWRITE_BYTES:
+        return _preview_cors(_reponse_agent(request, agent, rel, e, mt))
+    try:
+        data = (await agent.read(rel, max_bytes=rw.MAX_REWRITE_BYTES)).data
+    except AgentError as ex:
+        if ex.code in ("not_found", "is_dir", "not_file", "too_large", "outside_root"):
+            raise HTTPException(404, "Not found") from None
+        raise agent_http(ex, "Lecture") from None
+    text = data.decode("utf-8", errors="replace")
+    doc_dir = PurePosixPath(rel).parent.as_posix()
+    base = rw.resolver_base(f"{PREVIEW_URL_PREFIX}{token}/", "" if doc_dir == "." else doc_dir)
     body = rw.rewrite_html(text, base) if kind == "text/html" else rw.rewrite_css(text, base)
     from fastapi.responses import Response
     resp = Response(body, media_type=mt)
@@ -2295,29 +2343,9 @@ async def api_sandbox_replace(request: Request):
 _DOCX_MAX_BYTES = 10 * 1024 * 1024     # 10 MB — plus que largement suffisant
 
 
-@router.get("/api/sandbox/read-docx")
-def api_sandbox_read_docx(request: Request, path: str):
-    """Extrait le texte brut d'un fichier .docx du sandbox utilisateur."""
-    user_id = require_user_id(request)
-    if not path or len(path) > 1024:
-        raise HTTPException(400, "Path invalide")
-
-    root = _get_work_path(user_id)
-    full = (root / _strip_work_prefix(path)).resolve()
-    if not _path_inside(full, root.resolve()):
-        raise HTTPException(403, "Hors sandbox")
-    if not full.name.lower().endswith(".docx"):
-        raise HTTPException(400, "Pas un fichier .docx")
-    # Octets lus sur l'inode, sans suivre de lien (2026-09-29).
-    try:
-        with os.fdopen(open_beneath(root, rel_under(root, full)), "rb") as f:
-            size = os.fstat(f.fileno()).st_size
-            if size > _DOCX_MAX_BYTES:
-                raise HTTPException(413, f"Fichier trop gros (max {_DOCX_MAX_BYTES // (1024*1024)} MB)")
-            data = f.read(_DOCX_MAX_BYTES + 1)
-    except (OSError, SandboxPathError):
-        raise HTTPException(404, "Fichier introuvable")
-
+def _texte_docx(data: bytes) -> str:
+    """Texte brut d'un .docx (paragraphes, puis tables) ; 501 sans
+    python-docx, 422 pour un fichier illisible."""
     try:
         from docx import Document  # python-docx
     except ImportError:
@@ -2325,33 +2353,57 @@ def api_sandbox_read_docx(request: Request, path: str):
             501,
             "Support .docx non installé côté serveur (pip install python-docx)",
         )
-
     try:
         doc = Document(io.BytesIO(data))
     except Exception as e:
         # docx corrompu ou format inconnu (vieux .doc binaire ≠ .docx OOXML)
         raise HTTPException(422, f"Lecture .docx impossible : {e}")
-
     # Extraction simple : paragraphes + tables, séparés par des newlines.
     # On ne préserve PAS le formatting (gras, listes, headings) — c'est
     # le compromis "plaintext lisible". Pour un rendu fidèle, il faudrait
     # passer par pandoc ou mammoth.js — overkill pour cette feature.
     lines: list[str] = []
     for para in doc.paragraphs:
-        text = (para.text or "").rstrip()
         # Préserve les paragraphes vides (entre sections) pour la lisibilité
-        lines.append(text)
+        lines.append((para.text or "").rstrip())
     # Tables : ajoute après les paragraphes, séparées par une ligne vide
     for tbl in doc.tables:
         lines.append("")  # séparateur
         for row in tbl.rows:
             cells = [c.text.replace("\n", " ").strip() for c in row.cells]
             lines.append(" | ".join(cells))
-    text_out = "\n".join(lines).strip() + "\n"
+    return "\n".join(lines).strip() + "\n"
 
+
+@router.get("/api/sandbox/read-docx")
+async def api_sandbox_read_docx(request: Request, path: str):
+    """Extrait le texte brut d'un fichier .docx du sandbox utilisateur (lu par
+    l'agent, un lien suivi sous /work seulement)."""
+    user_id = require_user_id(request)
+    if not path or len(path) > 1024:
+        raise HTTPException(400, "Path invalide")
+    rel = _rel_editeur(_get_work_path(user_id), path)
+    if not rel.lower().endswith(".docx"):
+        raise HTTPException(400, "Pas un fichier .docx")
+    agent = agent_for(user_id)
+    e = await _stat_un(agent, rel, "Lecture")
+    if e["kind"] != "file":
+        raise HTTPException(404, "Fichier introuvable")
+    size = int(e.get("size") or 0)
+    trop = HTTPException(413, f"Fichier trop gros (max {_DOCX_MAX_BYTES // (1024*1024)} MB)")
+    if size > _DOCX_MAX_BYTES:
+        raise trop
+    try:
+        data = (await agent.read(rel, max_bytes=_DOCX_MAX_BYTES)).data
+    except AgentError as ex:
+        if ex.code == "too_large":
+            raise trop from None
+        if ex.code in ("not_found", "is_dir", "not_file"):
+            raise HTTPException(404, "Fichier introuvable") from None
+        raise agent_http(ex, "Lecture") from None
     return {
         "path":      path,
-        "text":      text_out,
+        "text":      await asyncio.to_thread(_texte_docx, data),
         "size":      size,
         "read_only": True,    # signal frontend : ne pas autoriser save
         "format":    "docx",

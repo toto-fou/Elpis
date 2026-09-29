@@ -64,3 +64,19 @@ def test_recherche_bornee(env, monkeypatch):
         (root / "src" / f"f{i:03d}.txt").write_text("bonjour\n")
     d = client.get("/api/sandbox/search", params={"q": "bonjour"}).json()
     assert len(d["items"]) == 200 and d["truncated"] is True
+
+
+def test_lecture_docx_par_l_agent(env, tmp_path):
+    docx = pytest.importorskip("docx")
+    client, root = env
+    d = docx.Document()
+    d.add_paragraph("Bonjour docx")
+    d.save(str(root / "note.docx"))
+    r = client.get("/api/sandbox/read-docx", params={"path": "note.docx"})
+    assert r.status_code == 200, r.text
+    assert r.json()["text"].startswith("Bonjour docx") and r.json()["read_only"] is True
+    dehors = tmp_path / "dehors" / "x.docx"
+    d.save(str(dehors))
+    os.symlink(dehors, root / "lien.docx")
+    assert client.get("/api/sandbox/read-docx", params={"path": "lien.docx"}).status_code == 404
+    assert client.get("/api/sandbox/read-docx", params={"path": "absent.docx"}).status_code == 404

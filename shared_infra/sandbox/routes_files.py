@@ -59,7 +59,7 @@ from pathlib import Path, PurePosixPath
 from typing import List, Optional
 
 from fastapi import File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from shared_infra.config import config_view
 from shared_infra.security.deps import require_user_id
@@ -2612,7 +2612,6 @@ async def api_sandbox_skills_mirror(request: Request, archive: UploadFile = File
     en local la route existe mais l'app synchronise le miroir directement.
     Archive bornée (32 Mo), chemins contenus (aucun ``..``, aucun lien)."""
     import io as _io
-    import tarfile as _tarfile
     user_id = require_user_id(request)
     from shared_infra.routes._helpers import _get_sandbox_path as _sbp
     root = Path(_sbp(user_id))

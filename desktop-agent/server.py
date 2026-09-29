@@ -770,8 +770,8 @@ async def run_script(request: Request):
             env[k] = b[k.lower()]
     _AUTOMATIONS.mkdir(parents=True, exist_ok=True)
     try:
-        proc = _subprocess.Popen(cmd, cwd=str(_AUTOMATIONS), env=env,
-                                 stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT)
+        proc = await asyncio.to_thread(_subprocess.Popen, cmd, cwd=str(_AUTOMATIONS), env=env,
+                                       stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT)
     except Exception as e:          # noqa: BLE001
         raise HTTPException(500, f"lancement impossible : {e}")
     run_id = _uuid.uuid4().hex[:12]

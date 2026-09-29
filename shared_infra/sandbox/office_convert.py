@@ -404,7 +404,7 @@ async def run_soffice(argv: List[str], env: dict, *, cwd: Path, log_path: Path,
                       timeout_s: float) -> int:
     """Lance la conversion ; délai dépassé ou annulation → tout le groupe tué."""
     (cwd / "tmp").mkdir(exist_ok=True)
-    with open(log_path, "wb") as log:
+    with open(log_path, "wb") as log:  # noqa: ASYNC230 (sortie du process, fichier local)
         proc = await asyncio.create_subprocess_exec(
             *argv, env=env, cwd=str(cwd), start_new_session=True,
             stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,

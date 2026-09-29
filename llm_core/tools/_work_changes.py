@@ -293,9 +293,9 @@ def attach_any(wc: "WorkChanges", res: Any) -> Any:
     if isinstance(res, dict):
         return wc.attach(res)
     try:
-        setattr(res, "files_changed", wc.changes)
+        res.files_changed = wc.changes
         if wc.total > len(wc.changes):
-            setattr(res, "files_changed_total", wc.total)
+            res.files_changed_total = wc.total
     except Exception:                                           # noqa: BLE001
         pass
     return res

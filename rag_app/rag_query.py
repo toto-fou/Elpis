@@ -130,7 +130,7 @@ _SW = {
     "for","on","with","at","by","from","an","this","that","it","or","but","not",
     "as","if","so","can","all","also","que","qui","car","ni","ce","cet","cette",
     "ces","tout","tous","très","plus","bien","leur","leurs","je","tu","il","elle",
-    "on","nous","vous","ils","elles",
+    "nous","vous","ils","elles",
 }
 
 # ─── LRU Cache embeddings ──────────────────────────────────────────────────

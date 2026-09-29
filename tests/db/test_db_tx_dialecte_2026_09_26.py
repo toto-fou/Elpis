@@ -119,7 +119,7 @@ def test_begin_write_prend_le_verrou_d_ecriture(dbfile):
 def test_savepoint_n_annule_que_le_bloc(dbfile):
     with _legacy.db_conn() as c:
         c.execute("INSERT INTO t(v) VALUES ('garde')")
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017 (erreur propre au moteur)
             with D.savepoint(c):
                 c.execute("INSERT INTO t(v) VALUES ('perdu')")
                 c.execute("INSERT INTO table_absente VALUES (1)")

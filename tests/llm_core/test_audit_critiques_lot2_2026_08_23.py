@@ -193,7 +193,7 @@ async def test_deux_comptes_ont_des_seaux_distincts(monkeypatch):
     # Alice épuise son seau (burst=2).
     for _ in range(2):
         assert await limiteur.on_call_tool(_FauxMwContext("alice"), _next) == "ok"
-    with pytest.raises(Exception):
+    with pytest.raises(M.RateLimitError):
         await limiteur.on_call_tool(_FauxMwContext("alice"), _next)
 
     # Bob n'a rien consommé : son seau est intact.

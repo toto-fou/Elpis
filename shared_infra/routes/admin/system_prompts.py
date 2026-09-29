@@ -25,6 +25,8 @@ Security
 """
 from __future__ import annotations
 
+import asyncio
+import os
 import re
 from pathlib import Path
 
@@ -265,19 +267,20 @@ async def admin_put_system_prompt(category: str, request: Request):
             f"content too large ({len(content)} chars > {_MAX_FILE_BYTES} bytes max)"
         )
 
-    # Atomic write — same pattern as memory_tools / memory routes
-    tmp = p.with_suffix(".md.tmp")
-    try:
+    # Atomic write — same pattern as memory_tools / memory routes — hors de la
+    # boucle d'événements (``fsync``).
+    def _write() -> None:
+        tmp = p.with_suffix(".md.tmp")
         with open(tmp, "w", encoding="utf-8") as f:
             f.write(content)
             try:
                 f.flush()
-                import os
                 os.fsync(f.fileno())
             except OSError:
                 pass
-        import os
         os.replace(tmp, p)
+    try:
+        await asyncio.to_thread(_write)
     except OSError as e:
         raise HTTPException(500, f"write failed: {e}")
 

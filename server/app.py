@@ -94,7 +94,7 @@ def _kill_all_terminals():
     try:
         from shared_infra.terminal.routes import _terminals, _kill_terminal
         count = len(_terminals)
-        for uid, state in list(_terminals.items()):
+        for _uid, state in list(_terminals.items()):
             try:
                 _kill_terminal(state)
             except Exception:
@@ -394,7 +394,8 @@ async def lifespan(app: FastAPI):
             except Exception:
                 return
             import asyncio as _aio
-            while not AppStatus.should_exit:
+            # Drapeau posé par le gestionnaire de signal, sans événement associé.
+            while not AppStatus.should_exit:  # noqa: ASYNC110
                 await _aio.sleep(0.25)
             # 1. SSE système : fin propre + hint de reconnexion silencieuse.
             try:

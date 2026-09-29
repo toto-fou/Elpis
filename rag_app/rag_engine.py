@@ -99,7 +99,7 @@ _SW = {
     "for","on","with","at","by","from","an","this","that","it","or","but","not",
     "as","if","so","can","all","also","que","qui","car","ni","ce","cet","cette",
     "ces","tout","tous","très","plus","bien","leur","leurs","je","tu","il","elle",
-    "on","nous","vous","ils","elles","même","après","avant","quand","comment",
+    "nous","vous","ils","elles","même","après","avant","quand","comment",
 }
 
 
@@ -2147,7 +2147,7 @@ class RAGEngine:
         ok_count  = 0
         errors    = []
 
-        for key, meta in list(files.items()):
+        for key, _meta in list(files.items()):
             if not key.startswith(prefix):
                 continue                      # autre collection : pas la nôtre
             p = Path(key)

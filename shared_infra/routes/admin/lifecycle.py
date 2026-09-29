@@ -13,7 +13,6 @@ import os
 import sqlite3
 import sys
 import tempfile
-import time
 import zipfile
 from pathlib import Path
 
@@ -102,7 +101,7 @@ async def _graceful_reload_after(delay: float = 5.0) -> None:
     parent_is_gunicorn = False
     if ppid > 1:
         try:
-            with open(f"/proc/{ppid}/cmdline", "rb") as f:
+            with open(f"/proc/{ppid}/cmdline", "rb") as f:  # noqa: ASYNC230 (procfs, en mémoire)
                 cmdline = f.read().replace(b"\x00", b" ").decode(
                     "utf-8", errors="ignore"
                 ).lower()

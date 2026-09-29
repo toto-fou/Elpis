@@ -982,8 +982,8 @@ class MCPStreamableHTTPWrapper(MCPSSEWrapper):
                 return (f"HTTP {r.status_code} : jeton d'authentification "
                         f"refusé ou absent")
             if r.status_code == 405:
-                return (f"HTTP 405 : cette URL ne sert pas le transport HTTP "
-                        f"streamable (essayez le type SSE)")
+                return ("HTTP 405 : cette URL ne sert pas le transport HTTP "
+                        "streamable (essayez le type SSE)")
             if r.status_code >= 400:
                 return f"HTTP {r.status_code}"
             return f"HTTP {r.status_code} : négociation MCP échouée"

@@ -448,7 +448,7 @@ async def _create_snapshot_stream(user_id: int, name: str) -> AsyncGenerator[str
                             await asyncio.to_thread(tf.add, _dfull_s, arcname=_drel, recursive=False)
                         except (OSError, IOError, ValueError):
                             continue
-                    for full, rel, size in entries:
+                    for _full, rel, size in entries:
                         try:
                             # arcname = chemin relatif posix → portable et
                             # évite tout absolute path dans l'archive. Contenu

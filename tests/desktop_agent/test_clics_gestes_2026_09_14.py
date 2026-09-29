@@ -117,7 +117,7 @@ def test_geste_sans_controle_retombe_aux_coordonnees(monkeypatch):
     assert be.element_action(action="click", name="X", button="right", x=7, y=8)["method"] == "coords"
     assert be.element_action(action="click", name="X", x=7, y=8, clicks=2)["method"] == "coords"
     assert seen == [(7, 8, "right", 1), (7, 8, "left", 2)]
-    with pytest.raises(Exception):
+    with pytest.raises(W.NotSupported):
         be.element_action(action="click", name="X", button="right")   # ni contrôle ni point
 
 

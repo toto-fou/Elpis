@@ -1162,7 +1162,7 @@ def prune_all() -> Dict[str, int]:
     everything = sorted(e for ud in user_dirs for e in _entries(ud))
     total = sum(e[1] for e in everything)
     cap = _limit("cache_mb") * 1024 * 1024
-    for used, size, p, key in everything:
+    for _used, size, p, key in everything:
         if total <= cap:
             break
         if _remove_key_dir(p, key):

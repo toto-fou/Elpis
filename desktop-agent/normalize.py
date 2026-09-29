@@ -10,7 +10,9 @@ _ROLE_MAP = {
     # AT-SPI
     "push button": "button", "toggle button": "button", "radio button": "radio",
     "check box": "checkbox", "page tab": "tab", "menu item": "menuitem",
-    "text": "textbox", "entry": "textbox", "password text": "textbox",
+    # « text » : champ de saisie en AT-SPI, texte statique en UIA ; c'est le
+    # sens UIA (plus bas) qui s'applique.
+    "entry": "textbox", "password text": "textbox",
     "combo box": "combobox", "list item": "listitem", "label": "text",
     "link": "link", "icon": "icon", "frame": "window", "dialog": "dialog",
     # UIA control types (friendly)

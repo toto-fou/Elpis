@@ -4385,7 +4385,7 @@ async def api_chat_saved_stream3(request: Request):
                 # qu'un générateur qui YIELD après avoir reçu GeneratorExit —
                 # un ``return`` est au contraire la façon normale de terminer
                 # pendant un ``aclose()``.
-                return
+                return  # noqa: B012
 
             # Plus personne ne lit la file : sans cette coupure, le ``final``
             # du partiel (après ``task.cancel()``) ou la sentinelle de fin

@@ -22,7 +22,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from shared_infra.db._connection import db_conn
-from shared_infra.db._dialect import MYSQL, POSTGRES, SQLITE, backend, ci_like, insert_id
+from shared_infra.db._dialect import MYSQL, POSTGRES, backend, ci_like, insert_id
 from shared_infra.db._schema import FTS_PUNCT
 
 log = logging.getLogger("uvicorn.error")

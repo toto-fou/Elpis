@@ -113,7 +113,7 @@ def _delete_orphan_nodes(flow_dict: dict, deleted: list) -> bool:
 
     # Purge des connexions vers/depuis les nœuds supprimés dans tous les
     # autres nœuds.
-    for other_nid, other in nodes_map.items():
+    for _other_nid, other in nodes_map.items():
         if not isinstance(other, dict):
             continue
         for port_kind in ("inputs", "outputs"):

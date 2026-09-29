@@ -55,7 +55,7 @@ def _code_only(src: str) -> str:
     for tok in toks:
         if tok.type == tokenize.COMMENT:
             continue
-        if tok.type == tokenize.STRING and tok.string.lstrip("rbuufRBUF").startswith(triples):
+        if tok.type == tokenize.STRING and tok.string.lstrip("rbuufRBUF").startswith(triples):  # noqa: B005
             continue                        # docstring / bloc de texte
         out.append(tok.string)
     return " ".join(out)

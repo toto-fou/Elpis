@@ -117,7 +117,7 @@ def load_dom_tree(site: str, path: Optional[str] = None,
                     "children":       [],
                 }
             # Seconde passe : rattacher chaque node a son parent, ou aux roots
-            for p, data in out.items():
+            for data in out.values():
                 by_id = data["by_id"]
                 for node in by_id.values():
                     pid = node["parent_id"]

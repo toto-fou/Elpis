@@ -1268,7 +1268,7 @@ def _pywinauto_desktop():
 def _open_clipboard(u, tries=10, pause=0.02) -> bool:
     """OpenClipboard avec quelques essais : juste après Ctrl+C, rdpclip / vmtoolsd le
     tiennent souvent quelques millisecondes (« clipboard busy » au premier essai)."""
-    for i in range(max(1, tries)):
+    for _i in range(max(1, tries)):
         if u.OpenClipboard(None):
             return True
         time.sleep(pause)
@@ -1385,7 +1385,7 @@ class WindowsBackend(DesktopBackend):
         pywinauto = False
         pywinauto_error = None
         try:
-            import pywinauto  # noqa: F401
+            import pywinauto as _pywinauto  # noqa: F401
             pywinauto = True
         except Exception as e:
             pywinauto_error = "%s: %s" % (type(e).__name__, e)

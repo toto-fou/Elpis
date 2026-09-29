@@ -18,9 +18,36 @@ line-length = 120
 extend-exclude = ["venv", "node_modules", "user_*", "frontend/vendor"]
 
 [tool.ruff.lint]
-# Erreurs réelles d'abord : syntaxe, noms indéfinis, imports/variables inutilisés.
-select = ["E9", "F"]
+# Phase 1 (2026-09-29) : erreurs réelles (syntaxe, noms indéfinis, imports et
+# variables inutilisés), pièges courants (B), appels bloquants dans le code
+# asynchrone (ASYNC). ``BLE`` attendra : ~1 500 ``except Exception`` souvent
+# voulus (« ne jamais faire échouer l'appel »).
+select = ["E9", "F", "B", "ASYNC"]
+ignore = [
+    "B008",      # Depends(…) de FastAPI en valeur par défaut
+    "B904",      # « raise … from err » : à reprendre à part
+    "B905",      # zip(strict=…) : longueurs égales par construction
+    "ASYNC109",  # paramètre « timeout » des coroutines : convention du code
+    "ASYNC240",  # pathlib (stat, exists…) dans une coroutine : coût négligeable
+]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["F401", "F841"]
+# F811 : fixtures pytest importées puis reçues en paramètre. ASYNC : un test
+# asynchrone peut bloquer sa propre boucle.
+"tests/**" = ["F401", "F811", "F841", "ASYNC"]
 "**/__init__.py" = ["F401"]
+# Signatures d'outils MCP : le défaut ``[]`` est dans le schéma vu par le
+# modèle, et FastMCP (pydantic) en passe une copie à chaque appel ; aucun
+# outil ne modifie ses arguments (vérifié le 2026-09-29).
+"llm_core/tools/*.py" = ["B006"]
+# Crochets optionnels d'un fournisseur de mémoire, vides par défaut.
+"llm_core/memory/_provider.py" = ["B027"]
+# Fermetures appelées dans l'itération qui les définit (revues le
+# 2026-09-29) : la valeur courante de la boucle est celle qu'on veut.
+"chatbot_app/routes/chats.py" = ["B023"]
+"desktop-agent/backends/windows.py" = ["B023"]
+"llm_core/_chat_with_tools.py" = ["B023"]
+"rag_app/ocr/convert.py" = ["B023"]
+"rag_app/ocr/jobs.py" = ["B023"]
+"shared_infra/db/transfer.py" = ["B023"]
+"tests/perf/backend/bench_loop_hotpath.py" = ["B023"]

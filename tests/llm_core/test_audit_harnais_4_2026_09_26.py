@@ -468,7 +468,8 @@ def test_ecriture_ne_suit_pas_un_dossier_lien(fs, tmp_path):
     (work / "d" / "f.txt").unlink()
     (work / "d").rmdir()
     (work / "d").symlink_to(ailleurs, target_is_directory=True)
-    with pytest.raises(Exception):
+    from shared_infra.sandbox.paths import SandboxPathError
+    with pytest.raises(SandboxPathError):
         fs_tools._atomic_write_bytes(p, b"v2", work.parent.parent / "guest" / "work")
     assert not (ailleurs / "f.txt").exists()
 
@@ -560,7 +561,7 @@ async def test_payload_tool_choice_none_garde_les_outils(monkeypatch):
     monkeypatch.setattr(_oai, "endpoint", lambda _t: (None, "http://x.test", {}))
     tools = [{"type": "function", "function": {"name": "t", "parameters": {"type": "object"}}}]
     for choice in ("auto", "none"):
-        with pytest.raises(Exception):
+        with pytest.raises(_Stop):
             await C._llama_chat_with_tools_stream(
                 [{"role": "user", "content": "q"}], tools, tool_choice=choice)
     assert [c.get("tool_choice") for c in captured] == ["auto", "none"]

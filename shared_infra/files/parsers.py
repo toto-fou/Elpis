@@ -43,7 +43,7 @@ def _get_ext(filename: str) -> str:
 def _ensure_dpkt() -> bool:
     """Install dpkt if not available. Tries local wheels/ first, then PyPI."""
     try:
-        import dpkt
+        import dpkt  # noqa: F401  (disponibilité seulement)
         return True
     except ImportError:
         pass

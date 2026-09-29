@@ -103,7 +103,7 @@ async def test_system_events_serialise_une_fois(monkeypatch):
         return vrai(*a, **k)
     bus = EB.SystemEvents()
     qs = [asyncio.Queue() for _ in range(5)]
-    for i, q in enumerate(qs):
+    for _i, q in enumerate(qs):
         bus.clients[q] = {"staff": False, "uid": None}
     monkeypatch.setattr(EB.json, "dumps", compte)
     await bus._fanout({"type": "restart", "message": "m"})

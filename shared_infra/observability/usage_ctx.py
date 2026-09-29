@@ -48,7 +48,8 @@ class UsageContext:
     parent_id: str = ""      # tour parent (sous-agents)
 
 
-_CTX: ContextVar[UsageContext] = ContextVar("usage_ctx", default=UsageContext())
+_UNKNOWN = UsageContext()          # figé : un seul défaut partagé sans risque
+_CTX: ContextVar[UsageContext] = ContextVar("usage_ctx", default=_UNKNOWN)
 
 
 def current_usage_ctx() -> UsageContext:

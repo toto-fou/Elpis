@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import shutil
 import time
 from dataclasses import dataclass
@@ -261,10 +260,10 @@ async def ensure_image_loaded(image_name: str,
                 status=ImageLoadStatus.NOT_FOUND,
                 image=image_name,
                 error=(
-                    f"Archive de l'image introuvable. Cherché dans :\n"
+                    "Archive de l'image introuvable. Cherché dans :\n"
                     + "\n".join(f"  • {p}" for p in candidates)
                     + "\n\nBuild l'image avec deploy/docker/sandbox/build_offline.sh "
-                    f"et place le .tar.gz dans <app>/sandbox_images/."
+                    "et place le .tar.gz dans <app>/sandbox_images/."
                 ),
                 progress_msg="Archive introuvable",
             )

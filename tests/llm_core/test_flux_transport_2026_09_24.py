@@ -380,7 +380,7 @@ async def test_anthropic_erreur_http_classee(monkeypatch, status, body, kind):
 async def test_anthropic_erreur_sse_overloaded_est_un_debit_limite(monkeypatch):
     ev = {"type": "error", "error": {"type": "overloaded_error",
                                      "message": "Overloaded"}}
-    _anthropic(monkeypatch, _AResp([f"event: error", _data(ev)]))
+    _anthropic(monkeypatch, _AResp(["event: error", _data(ev)]))
     with pytest.raises(httpx.HTTPStatusError) as ei:
         await _a_tools()
     assert ei.value.response.status_code == 529

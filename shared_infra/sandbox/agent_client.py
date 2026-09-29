@@ -35,7 +35,7 @@ import time
 import weakref
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, Iterable, List, Optional, Tuple
+from typing import IO, Any, AsyncIterator, Dict, Iterable, List, Optional, Tuple, Union
 
 import httpx
 
@@ -170,13 +170,24 @@ class AgentClient:
                     trouves.append(obj)
         raise AgentError("bad_response", "recherche interrompue")
 
-    async def write(self, path: str, data: bytes, *, mode: Optional[str] = None,
-                    parents: bool = False, if_absent: bool = False,
-                    if_sha256: Optional[str] = None,
+    async def write(self, path: str, data: Union[bytes, IO[bytes]], *,
+                    mode: Optional[str] = None, parents: bool = False,
+                    if_absent: bool = False, if_sha256: Optional[str] = None,
                     if_mtime_ns: Optional[int] = None) -> Dict[str, Any]:
         """Écriture atomique ; préconditions vérifiées par l'agent au moment du
-        remplacement : ``AgentError`` ``changed`` / ``exists`` (412)."""
-        params: Dict[str, Any] = {"path": _chemin(path), "max": len(data)}
+        remplacement : ``AgentError`` ``changed`` / ``exists`` (412).
+        ``data`` : octets, ou fichier ouvert envoyé par blocs depuis sa
+        position (jamais chargé en entier)."""
+        corps: Any
+        if isinstance(data, (bytes, bytearray, memoryview)):
+            corps = bytes(data)
+            taille = len(corps)
+        else:
+            debut = data.tell()
+            taille = data.seek(0, os.SEEK_END) - debut
+            data.seek(debut)
+            corps = _par_blocs(data, taille)
+        params: Dict[str, Any] = {"path": _chemin(path), "max": taille}
         if mode is not None:
             params["mode"] = mode
         if parents:
@@ -187,7 +198,8 @@ class AgentClient:
             params["if_sha256"] = if_sha256
         if if_mtime_ns is not None:
             params["if_mtime_ns"] = if_mtime_ns
-        return await self._json("PUT", "/v1/write", maxi=_PETIT, params=params, content=data)
+        return await self._json("PUT", "/v1/write", maxi=_PETIT, params=params, content=corps,
+                                headers={"Content-Length": str(taille)})
 
     async def fsop(self, op: str, **args: Any) -> Dict[str, Any]:
         """``mkdir``, ``remove``, ``rename``, ``copy``, ``chmod``."""
@@ -209,7 +221,7 @@ class AgentClient:
         réessayé après démarrage ; rien d'autre."""
         if not self._version_ok and route != "/v1/hello":
             await self._verifier_version()
-        en_tetes = dict(_EN_TETES)
+        en_tetes = dict(_EN_TETES, **kw.pop("headers", {}))
         if "json" in kw:                                 # échappé : un nom non UTF-8 part
             kw["content"] = json.dumps(kw.pop("json"), separators=(",", ":")).encode()
             en_tetes["Content-Type"] = "application/json"   # (et l'agent le refuse)
@@ -341,6 +353,18 @@ def _objet(brut: bytes) -> Optional[Dict[str, Any]]:
     except (ValueError, RecursionError):
         return None
     return d if isinstance(d, dict) else None
+
+
+async def _par_blocs(f: IO[bytes], taille: int, bloc: int = 1 << 20) -> AsyncIterator[bytes]:
+    """``taille`` octets de ``f`` par blocs : corps de requête en flux (sa
+    longueur est annoncée par ``Content-Length``)."""
+    reste = taille
+    while reste > 0:
+        b = f.read(min(bloc, reste))
+        if not b:
+            return
+        reste -= len(b)
+        yield b
 
 
 async def _borne(r: httpx.Response, maxi: int) -> bytes:

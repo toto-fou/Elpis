@@ -711,7 +711,7 @@ Supported interpreters: .py→python3, .sh/.bash→bash, .js→node, .pl→perl.
         try:
             res = await _aio.to_thread(
                 run_shell_via_executor,
-                tokens=tokens, workdir_host=sandbox_root, sandbox_root=sandbox_root,
+                tokens=tokens, sandbox_root=sandbox_root,
                 env_extra=env_map, timeout_s=to, max_output=_SKILL_RUN_MAX_OUTPUT,
                 stdin_bytes=tar_bytes, user_id=user_id_for(username),
                 username=username, audit_kind="tools.skill_run", ctx=ctx,

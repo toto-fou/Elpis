@@ -11,7 +11,7 @@ escape the sandbox root" logic was reimplemented 6-8 times and DRIFTED:
 
   * ``fs_tools._translate_container_path`` / ``_to_container`` / ``_safe_path``
     (depuis L4.2 : ``lexical_rel``, les liens résolus par l'agent)
-  * ``_exec_bridge._path_to_container``
+  * ``_exec_bridge._path_to_container`` (depuis L4.2 : ``to_container``)
   * ``routes/_helpers._strip_work_prefix`` / ``_path_inside``
   * ``routes/_sandbox_exec._validate_rel_path``  (pure-string ``..`` reject,
     NO ``resolve()`` — strictly weaker than the tool-side check)

@@ -661,7 +661,7 @@ def _run_git_network(sb, cmd, username, *, timeout=120, env_extra=None):
     except Exception:
         uid = 0
     return run_shell_via_executor(
-        tokens=cmd, workdir_host=Path(sb), sandbox_root=Path(sb),
+        tokens=cmd, sandbox_root=Path(sb),
         env_extra=env_extra or {}, timeout_s=timeout, max_output=MAX_OUT,
         stdin_bytes=None, user_id=uid, username=username,
         audit_kind="tools.git.network",

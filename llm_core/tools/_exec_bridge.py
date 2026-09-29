@@ -87,9 +87,9 @@ from typing import Any, Optional
 
 from shared_infra.accounts.users import get_user as _get_user, get_user_settings
 from shared_infra.sandbox.executors import (
-    ExecError,
     get_user_sandbox,
 )
+from shared_infra.sandbox.paths import to_container
 from shared_infra.security.audit import audit_code_exec
 
 logger = logging.getLogger("uvicorn.error")
@@ -168,26 +168,6 @@ from llm_core.tools._toolkit import (  # noqa: E402
     register_server_loop,
     schedule_ctx_coro as _schedule_ctx_coro,
 )
-
-# ─── Path helpers ────────────────────────────────────────────────────────
-
-def _path_to_container(host_path: Path, sandbox_root: Path) -> str:
-    """``/home/elpis/sandbox/alice/foo/bar.sh`` → ``/work/foo/bar.sh``
-
-    Handles the edge case where ``host_path`` IS the sandbox root: returns
-    ``/work`` (not ``/work/.``) so docker exec --workdir gets a clean value.
-    """
-    try:
-        rel = host_path.resolve().relative_to(sandbox_root.resolve())
-    except ValueError:
-        raise ExecError(
-            f"path outside sandbox: {host_path} not under {sandbox_root}"
-        )
-    rel_str = rel.as_posix()
-    if rel_str in ("", "."):
-        return "/work"
-    return f"/work/{rel_str}"
-
 
 # ─── Sandbox d'un compte ─────────────────────────────────────────────────
 
@@ -500,8 +480,8 @@ def repair_work_perms(*, username: str, sandbox_root: Path, rel_path: str = "") 
 def run_shell_via_executor(
     *,
     tokens: list[str],
-    workdir_host: Path,
     sandbox_root: Path,
+    workdir_rel: str = "",
     env_extra: dict[str, str],
     timeout_s: int,
     max_output: int,
@@ -510,8 +490,8 @@ def run_shell_via_executor(
     username: str,
     audit_kind: str = "tools.shell",
     ctx: Any = None,
-    save_stdout_host: "Optional[Path]" = None,
-    auto_spill_host: "Optional[Path]" = None,
+    save_stdout_rel: "Optional[str]" = None,
+    auto_spill_rel: "Optional[str]" = None,
     spill_over_chars: "Optional[int]" = None,
     stream_live: bool = False,
 ) -> dict[str, Any]:
@@ -525,11 +505,13 @@ def run_shell_via_executor(
     Legacy callers that don't pass ``ctx`` keep working — the helpers are
     safe no-ops.
 
-    ``save_stdout_host`` : chemin HOST où écrire le stdout COMPLET (octets
-    bruts, AVANT la troncature ``max_output`` de la réponse). L'écriture se
-    fait ici parce que le caller ne voit que le stdout déjà tronqué — c'est
-    le fix du bug « save_stdout tronqué à 20 KB ». Best-effort : un échec
-    d'écriture n'invalide pas l'exec (champ ``save_error`` posé).
+    ``workdir_rel``, ``save_stdout_rel``, ``auto_spill_rel`` : chemins
+    relatifs à ``/work``. ``save_stdout_rel`` reçoit le stdout COMPLET (octets
+    bruts, AVANT la troncature ``max_output`` de la réponse), écrit par
+    l'agent de la sandbox. L'écriture se fait ici parce que le caller ne voit
+    que le stdout déjà tronqué — c'est le fix du bug « save_stdout tronqué à
+    20 KB ». Best-effort : un échec d'écriture n'invalide pas l'exec (champ
+    ``save_error`` posé).
     """
     from shared_infra.sandbox.executors import resolve_network_profile_id
     profile_id = resolve_network_profile_id(get_user_settings(user_id) or {})
@@ -544,7 +526,7 @@ def run_shell_via_executor(
     _ctx_info(ctx, f"shell → {sb.container_name}: {cmd_preview}")
     _ctx_progress(ctx, 0.0, 1.0, f"running: {cmd_preview}")
 
-    workdir_in_container = _path_to_container(workdir_host, sandbox_root)
+    workdir_in_container = to_container(workdir_rel)
 
     # PATH must include the user-site bins (/work/.python-user/bin and
     # /work/.local/bin) — that's where `pip install --user` and
@@ -590,9 +572,9 @@ def run_shell_via_executor(
     # temporaire HÔTE au-delà) puis écrits dans le bac à sable à la fin.
     import tempfile as _tempfile
     _spool_out = _spool_err = None
-    if save_stdout_host is not None or auto_spill_host is not None:
+    if save_stdout_rel is not None or auto_spill_rel is not None:
         _spool_out = _tempfile.SpooledTemporaryFile(max_size=4 << 20)  # noqa: SIM115 (relu puis fermé plus bas)
-        if save_stdout_host is None:
+        if save_stdout_rel is None:
             _spool_err = _tempfile.SpooledTemporaryFile(max_size=4 << 20)  # noqa: SIM115 (relu puis fermé plus bas)
 
     def _on_chunk(stream: str, data: bytes) -> None:
@@ -641,8 +623,8 @@ def run_shell_via_executor(
 
     formatted = _format_result(result, tokens, max_output, workdir_in_container)
     try:
-        _spilled = _save_outputs(formatted, result, sandbox_root, save_stdout_host,
-                                 auto_spill_host, spill_over_chars,
+        _spilled = _save_outputs(formatted, result, sb, save_stdout_rel,
+                                 auto_spill_rel, spill_over_chars,
                                  _spool_out, _spool_err)
     finally:
         for _sp in (_spool_out, _spool_err):
@@ -651,8 +633,8 @@ def run_shell_via_executor(
     return formatted
 
 
-def _save_outputs(formatted, result, sandbox_root, save_stdout_host,
-                  auto_spill_host, spill_over_chars, spool_out, spool_err) -> bool:
+def _save_outputs(formatted, result, sb, save_stdout_rel,
+                  auto_spill_rel, spill_over_chars, spool_out, spool_err) -> bool:
     """``save_stdout`` / débord automatique depuis les copies COMPLÈTES
     (``spool_*``) ; repli sur la capture de l'exécuteur sans elles."""
     # Un exécuteur qui n'appelle pas ``on_chunk`` laisse la copie VIDE alors
@@ -672,22 +654,22 @@ def _save_outputs(formatted, result, sandbox_root, save_stdout_host,
         sp.seek(0, 2)
         return sp.tell()
 
-    if save_stdout_host is not None:
+    if save_stdout_rel is not None:
         try:
             if spool_out is not None:
                 _n = _size(spool_out, result.stdout)
                 spool_out.seek(0)
-                _write_output_file(sandbox_root, save_stdout_host, spool_out)
+                _write_output_file(sb, save_stdout_rel, spool_out)
             else:
                 _n = len(result.stdout)
-                _write_output_file(sandbox_root, save_stdout_host, result.stdout)
+                _write_output_file(sb, save_stdout_rel, result.stdout)
             formatted["saved_bytes"] = _n
         except Exception as _save_err:
             formatted["save_error"] = str(_save_err)[:200]
         return True
     _n_out = _size(spool_out, result.stdout)
     _n_err = _size(spool_err, result.stderr)
-    if auto_spill_host is not None and (
+    if auto_spill_rel is not None and (
         formatted.get("truncated")
         or (spill_over_chars is not None
             and (_n_out + _n_err) > spill_over_chars)
@@ -712,13 +694,13 @@ def _save_outputs(formatted, result, sandbox_root, save_stdout_host,
                         spool_out.write(result.stderr)
                 _n_full = spool_out.tell()
                 spool_out.seek(0)
-                _write_output_file(sandbox_root, auto_spill_host, spool_out)
+                _write_output_file(sb, auto_spill_rel, spool_out)
             else:
                 _full = result.stdout
                 if result.stderr:
                     _full += b"\n--- STDERR ---\n" + result.stderr
                 _n_full = len(_full)
-                _write_output_file(sandbox_root, auto_spill_host, _full)
+                _write_output_file(sb, auto_spill_rel, _full)
             formatted["saved_bytes"] = _n_full
             formatted["auto_saved"] = True
         except Exception as _save_err:
@@ -727,28 +709,12 @@ def _save_outputs(formatted, result, sandbox_root, save_stdout_host,
     return False
 
 
-def _write_output_file(sandbox_root: Path, host_path: Path, data: bytes) -> None:
-    """Écrit la sortie sauvegardée (``save_stdout`` / débord automatique)
-    SANS suivre de lien symbolique.
-
-    AUDIT 2026-09-25 — le chemin était validé AVANT la commande, puis écrit
-    APRÈS par un ``write_bytes`` ordinaire. Entre les deux, la commande
-    elle-même tourne sur le même ``/work`` : un lien posé à la place du
-    fichier (ou d'un dossier du chemin) redirigeait l'écriture de l'hôte hors
-    du bac à sable. On réécrit donc par ``write_beneath`` (ouverture composant
-    par composant, O_NOFOLLOW) — le chemin RELATIF validé fait foi."""
-    from shared_infra.sandbox.paths import write_beneath
-    root = Path(sandbox_root).resolve()
-    rel = Path(host_path).relative_to(root).as_posix()
-    try:
-        from shared_infra.sandbox.policy import use_agent
-        _single_uid = use_agent("fs.write")
-    except Exception:                                           # noqa: BLE001
-        _single_uid = False
-    # Même politique que fs_tools : lisible/réécrivable par l'UID du conteneur
-    # (sauf écritures déléguées à l'agent, un seul UID).
-    write_beneath(root, rel, data, default_mode=(0o644 if _single_uid else 0o666),
-                  dir_mode=(None if _single_uid else 0o777))
+def _write_output_file(sb: Any, rel: str, data: Any) -> None:
+    """Écrit la sortie sauvegardée (``save_stdout`` / débord automatique) par
+    l'agent de la sandbox : ``rel`` relatif à ``/work``, dossiers créés, un
+    lien n'est suivi que sous ``/work``. ``data`` : octets, ou fichier ouvert
+    envoyé par blocs depuis sa position."""
+    _run_async(sb.agent.write(rel, data, parents=True))
 
 
 # ─── Result formatting ──────────────────────────────────────────────────

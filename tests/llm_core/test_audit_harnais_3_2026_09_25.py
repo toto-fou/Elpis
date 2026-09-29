@@ -83,17 +83,20 @@ def test_write_beneath_conserve_le_mode_du_fichier_remplace(tmp_path):
     assert (f.stat().st_mode & 0o777) == 0o755
 
 
-def test_sortie_shell_sauvegardee_ne_suit_pas_un_lien(tmp_path):
-    from llm_core.tools._exec_bridge import _write_output_file
-    root = tmp_path / "work"
-    root.mkdir()
+def test_sortie_shell_sauvegardee_ne_suit_pas_un_lien(tmp_path, monkeypatch):
+    from llm_core.tools._exec_bridge import _write_output_file, sandbox_for
+    from shared_infra.sandbox.agent_client import AgentError
+    base = tmp_path / "sandboxes"
+    root = base / "guest" / "work"
+    root.mkdir(parents=True)
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
     cible = tmp_path / "hors.txt"
     cible.write_text("intact")
     # Le lien apparaît APRÈS la validation du chemin (pendant la commande).
     (root / "out.txt").symlink_to(cible)
-    _write_output_file(root, (root / "out.txt"), b"sortie")
+    with pytest.raises(AgentError):
+        _write_output_file(sandbox_for("guest", root), "out.txt", b"sortie")
     assert cible.read_text() == "intact"
-    assert (root / "out.txt").read_bytes() == b"sortie"
 
 
 def test_backup_de_write_file_ne_suit_pas_un_lien(fs):

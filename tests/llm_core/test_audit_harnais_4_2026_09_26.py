@@ -511,19 +511,23 @@ def test_git_write_regex_garde_anti_redos(git):
     assert not r.get("ok")
 
 
-def test_save_stdout_ecrit_la_sortie_complete(tmp_path):
+def test_save_stdout_ecrit_la_sortie_complete(tmp_path, monkeypatch):
     from llm_core.tools import _exec_bridge as B
-    root = (tmp_path / "w").resolve()
-    root.mkdir()
+    base = tmp_path / "sandboxes"
+    root = base / "guest" / "work"
+    root.mkdir(parents=True)
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
+    sb = B.sandbox_for("guest", root)
     res = types.SimpleNamespace(stdout=b"TETE...[omis]...QUEUE", stderr=b"")
     sp = tempfile.SpooledTemporaryFile(max_size=10)
-    sp.write(b"A" * 100_000)
+    sp.write(b"A" * 3_000_000)                   # sur disque, envoyé par blocs
     f: dict = {}
-    B._save_outputs(f, res, root, root / "out.bin", None, None, sp, None)
-    assert f["saved_bytes"] == 100_000 and (root / "out.bin").stat().st_size == 100_000
+    B._save_outputs(f, res, sb, "sorties/out.bin", None, None, sp, None)
+    assert f["saved_bytes"] == 3_000_000, f
+    assert (root / "sorties" / "out.bin").read_bytes() == b"A" * 3_000_000
     # Exécuteur sans ``on_chunk`` : repli sur la capture.
     f = {}
-    B._save_outputs(f, res, root, root / "o2.bin", None, None,
+    B._save_outputs(f, res, sb, "o2.bin", None, None,
                     tempfile.SpooledTemporaryFile(), None)
     assert (root / "o2.bin").read_bytes() == res.stdout
 

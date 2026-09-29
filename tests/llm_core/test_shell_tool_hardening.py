@@ -204,15 +204,34 @@ def test_stdin_b64_decoded_and_conflict(shell_tool):
     assert out3["ok"] is False and out3["error"] == "stdin_b64_invalid"
 
 
-def test_save_stdout_host_passed_to_bridge(shell_tool, tmp_path):
+def test_cwd_verifie_par_l_agent(shell_tool, tmp_path):
+    """cwd relatif à /work, vérifié par l'agent : dossier sous /work."""
+    tool, captured, _ = shell_tool
+    tool(None, command="true")                   # crée la sandbox
+    work = tmp_path / "guest" / "work"
+    (work / "src").mkdir()
+    (work / "f.txt").write_text("x")
+    ailleurs = tmp_path / "ailleurs"
+    ailleurs.mkdir()
+    (work / "lien").symlink_to(ailleurs, target_is_directory=True)
+    assert tool(None, command="pwd", cwd="/work/src")["ok"]
+    assert captured["workdir_rel"] == "src"
+    for cwd in ("absent", "f.txt"):
+        r = tool(None, command="pwd", cwd=cwd)
+        assert r["ok"] is False and r["error"].startswith("cwd_not_a_directory"), r
+    for cwd in ("lien", "lien/x", "../x"):
+        r = tool(None, command="pwd", cwd=cwd)
+        assert r["ok"] is False and r["error"] == "cwd_outside_sandbox", (cwd, r)
+
+
+def test_save_stdout_passed_to_bridge(shell_tool, tmp_path):
     tool, captured, reply = shell_tool
     reply["value"] = {"ok": True, "returncode": 0, "stdout": "tronqué…",
                       "stderr": "", "truncated": True, "duration_ms": 3,
                       "executor": "t", "cwd": "/work", "cmd": "x",
                       "saved_bytes": 123456}
     out = tool(None, command="seq 1 100000", save_stdout="out/full.txt")
-    sp = captured["save_stdout_host"]
-    assert sp is not None and str(sp).endswith("out/full.txt")
+    assert captured["save_stdout_rel"] == "out/full.txt"
     assert out["saved_bytes"] == 123456
     assert out["saved_to"].endswith("out/full.txt")
     assert out["saved_to"].startswith("/work/")

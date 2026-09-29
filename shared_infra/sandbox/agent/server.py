@@ -36,11 +36,17 @@ corps de requête par Content-Length seulement :
   PUT  /v1/write  ?path= &mode= &parents=1 &if_absent=1 &if_sha256= &if_mtime_ns=
                   (corps = contenu)  → {"size", "sha256", "mtime_ns", "created"}
   POST /v1/fsop   {"op": "mkdir|remove|rename|copy|chmod", ...}
+  POST /v1/changes/begin {"skip": [noms], "max_entries", "deadline_s"}
+                  → {"id", "complete", "files"} (relevé avant une commande)
+  POST /v1/changes/end {"id", "max_files", "max_bytes", "max_file"} → NDJSON
+                  {"path", "change", "before", "after"} ({"b64"} ou {"state"}),
+                  dernière ligne {"done": true, "total", "complete"}
   POST /v1/shutdown {"if_version": v}
 """
 from __future__ import annotations
 
 import argparse
+import base64
 import errno
 import fcntl
 import fnmatch
@@ -55,7 +61,7 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler
-from typing import Any, Dict, Iterable, Iterator, Optional
+from typing import Any, Dict, Iterable, Iterator, Optional, Tuple
 from urllib.parse import parse_qs, urlsplit
 
 with open(__file__, "rb") as _f:
@@ -67,6 +73,11 @@ _MAX_LECTURE = 64 << 20              # read sans « max » explicite
 _MAX_ECRITURE = 1 << 30              # write sans « max » explicite
 _MODE_FICHIER, _MODE_DOSSIER = 0o666, 0o777   # umask 0 : l'hôte y accède encore
 _ACTIVITE_S = 10                     # mtime de la racine = activité (GC d'inactivité)
+_RELEVE_GARDE = 512 * 1024           # relevé : contenu gardé par fichier
+_RELEVE_CACHE = 24 << 20             # relevé : contenus gardés en tout
+_RELEVES_OUVERTS = 8                 # relevés ouverts en même temps
+_INCONNU, _TROP_GROS = object(), object()
+Cle = Tuple[int, int, int]           # (mtime_ns, taille, inode)
 
 
 class Refus(Exception):
@@ -230,6 +241,12 @@ class Agent:
         # deux requêtes de l'hôte (le fichier provisoire s'écrit hors verrou).
         self._verrou = threading.Lock()
         self._activite = 0.0
+        # Relevés avant / après une commande : contenus des petits fichiers
+        # texte (mémoire du conteneur), relus quand leur clé de stat change.
+        self._verrou_releve = threading.Lock()
+        self._contenus: Dict[str, Tuple[Cle, bytes]] = {}
+        self._octets_gardes = 0
+        self._releves: Dict[str, tuple] = {}
 
     def chemin(self, rel: str) -> str:
         return os.path.join(self.racine, rel) if rel else self.racine
@@ -549,6 +566,143 @@ class Agent:
         return {"ok": True}
 
 
+    # ── relevé avant / après une commande ──────────────────────────────────
+    def _parcourir(self, sautes: frozenset, max_entrees: int, delai_s: float
+                   ) -> Tuple[Dict[str, Cle], bool]:
+        """{rel: (mtime_ns, taille, inode)} des fichiers ordinaires sous la
+        racine ; bool : parcours complet. Aucun lien suivi ; dossiers nommés
+        dans ``sautes`` et noms non UTF-8 ignorés."""
+        vus: Dict[str, Cle] = {}
+        echeance = time.monotonic() + delai_s
+        n = 0
+        pile = [(self.racine, "")]
+        while pile:
+            if time.monotonic() > echeance:
+                return vus, False
+            dossier, drel = pile.pop()
+            try:
+                with os.scandir(dossier) as it:
+                    for e in it:
+                        n += 1
+                        if n > max_entrees or (n & 255) == 0 and time.monotonic() > echeance:
+                            return vus, False
+                        try:
+                            e.name.encode("utf-8")
+                            st = e.stat(follow_symlinks=False)
+                        except (UnicodeEncodeError, OSError):
+                            continue
+                        rel = f"{drel}/{e.name}" if drel else e.name
+                        if stat.S_ISDIR(st.st_mode):
+                            if e.name not in sautes:
+                                pile.append((e.path, rel))
+                        elif stat.S_ISREG(st.st_mode):
+                            vus[rel] = (st.st_mtime_ns, st.st_size, st.st_ino)
+            except OSError:
+                continue
+        return vus, True
+
+    def _lire_borne(self, rel: str, limite: int) -> Optional[bytes]:
+        """Octets du fichier ordinaire ``rel`` ; ``None`` : absent, spécial,
+        illisible ou plus de ``limite`` octets."""
+        try:
+            fd = _ouvrir_fichier(self.reel(rel))
+        except Refus:
+            return None
+        try:
+            with os.fdopen(fd, "rb") as f:
+                data = f.read(limite + 1)
+        except OSError:
+            return None
+        return data if len(data) <= limite else None
+
+    def _rafraichir(self, vus: Dict[str, Cle]) -> None:
+        """Contenus gardés : relus quand leur clé change, oubliés pour les
+        fichiers disparus ; bornés par ``_RELEVE_CACHE``."""
+        c = self._contenus
+        for rel in [r for r in c if r not in vus]:
+            self._octets_gardes -= len(c.pop(rel)[1])
+        for rel, cle in vus.items():
+            vu = c.get(rel)
+            if vu is not None:
+                if vu[0] == cle:
+                    continue
+                self._octets_gardes -= len(c.pop(rel)[1])
+            if cle[1] > _RELEVE_GARDE or self._octets_gardes + cle[1] > _RELEVE_CACHE:
+                continue
+            data = self._lire_borne(rel, _RELEVE_GARDE)
+            if data is None or b"\x00" in data[:8192]:
+                continue
+            c[rel] = (cle, data)
+            self._octets_gardes += len(data)
+
+    def releve_debut(self, sautes: Iterable[str], max_entrees: int,
+                     delai_s: float) -> Dict[str, Any]:
+        """Relevé AVANT une commande : clés de stat gardées sous un
+        identifiant ; contenus des petits fichiers texte mis à jour."""
+        sautes = frozenset(sautes)
+        with self._verrou_releve:
+            vus, complet = self._parcourir(sautes, max_entrees, delai_s)
+            self._rafraichir(vus)
+            ident = secrets.token_hex(8)
+            self._releves[ident] = (vus, complet, sautes, max_entrees, delai_s)
+            while len(self._releves) > _RELEVES_OUVERTS:
+                del self._releves[next(iter(self._releves))]     # le plus ancien
+        return {"id": ident, "complete": complet, "files": len(vus)}
+
+    def releve_fin(self, ident: str, max_fichiers: int, max_octets: int,
+                   max_fichier: int) -> Iterator[Dict[str, Any]]:
+        """Fichiers créés, modifiés ou supprimés depuis ``releve_debut`` :
+        contenu d'avant (gardé, si sa clé n'a pas bougé) et d'après (relu),
+        ``max_octets`` en tout ; au-delà, l'état seul."""
+        with self._verrou_releve:
+            debut = self._releves.pop(ident, None)
+            if debut is None:
+                raise Refus(404, "not_found", "relevé inconnu ou expiré")
+            avant, complet_avant, sautes, max_entrees, delai_s = debut
+            apres, complet = self._parcourir(sautes, max_entrees, delai_s)
+            changes = []
+            for rel, cle in apres.items():
+                ancienne = avant.get(rel)
+                if ancienne is None:
+                    if complet_avant:                     # sinon : hors du premier parcours
+                        changes.append((rel, "created"))
+                elif ancienne != cle:
+                    changes.append((rel, "modified"))
+            if complet and complet_avant:
+                changes.extend((rel, "deleted") for rel in avant if rel not in apres)
+            changes.sort()
+            budget = max_octets
+
+            def etat(x: Any, trop: str) -> Dict[str, Any]:
+                nonlocal budget
+                if x is None:
+                    return {"state": "absent"}
+                if x is _INCONNU or x is _TROP_GROS:
+                    return {"state": "unknown" if x is _INCONNU else "too_big"}
+                if len(x) > budget:
+                    return {"state": trop}
+                budget -= len(x)
+                return {"b64": base64.b64encode(x).decode("ascii")}
+
+            rendu = []
+            for rel, genre in changes[:max_fichiers]:
+                vu = self._contenus.get(rel)
+                av: Any = (None if genre == "created"
+                           else vu[1] if vu is not None and vu[0] == avant.get(rel) else _INCONNU)
+                ap: Any = None
+                if genre != "deleted":
+                    ap = (_TROP_GROS if apres[rel][1] > max_fichier
+                          else self._lire_borne(rel, max_fichier))
+                    if ap is None:
+                        continue                          # disparu ou illisible
+                if isinstance(av, bytes) and isinstance(ap, bytes) and av == ap:
+                    continue                              # touché, contenu identique
+                rendu.append({"path": rel, "change": genre, "before": etat(av, "unknown"),
+                              "after": etat(ap, "too_big")})
+            self._rafraichir(apres)
+        yield from rendu
+        yield {"done": True, "total": len(changes), "complete": complet and complet_avant}
+
 class _Gestionnaire(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     timeout = 600                                        # connexion inactive
@@ -642,6 +796,21 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                 si_mtime_ns=_entier(q, "if_mtime_ns", mini=None)))
         elif cle == ("POST", "/v1/fsop"):
             self._json(200, agent.fsop(self._corps_json()))
+        elif cle == ("POST", "/v1/changes/begin"):
+            d = self._corps_json()
+            sautes = d.get("skip") or []
+            if not isinstance(sautes, list):
+                raise Refus(400, "bad_request", "skip : liste attendue")
+            self._json(200, agent.releve_debut(
+                [str(x) for x in sautes], max(1, min(int(d.get("max_entries") or 20000), 200000)),
+                max(0.1, min(float(d.get("deadline_s") or 1.5), 30.0))))
+        elif cle == ("POST", "/v1/changes/end"):
+            d = self._corps_json()
+            lignes = agent.releve_fin(
+                str(d.get("id") or ""), max(0, min(int(d.get("max_files") or 200), 5000)),
+                max(0, int(d.get("max_bytes") or 32 << 20)), max(0, int(d.get("max_file") or 5 << 20)))
+            premiere = next(lignes)                      # relevé inconnu : refus AVANT l'en-tête 200
+            self._ndjson(premiere, lignes)
         elif cle == ("POST", "/v1/shutdown"):
             attendue = self._corps_json().get("if_version")
             if attendue and attendue != VERSION:         # déjà remplacé par un autre

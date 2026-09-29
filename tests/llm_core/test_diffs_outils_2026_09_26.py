@@ -115,13 +115,21 @@ def test_avant_inconnu_si_non_releve(hist, monkeypatch):
     root = hist / "w4"
     root.mkdir()
     (root / "gros.txt").write_bytes(b"0" * 100)
-    monkeypatch.setattr(WC, "KEEP_FILE_MAX", 10)      # trop gros pour être gardé
+    from shared_infra.sandbox.agent import server as agent_server
+    monkeypatch.setattr(agent_server, "_RELEVE_GARDE", 10)   # trop gros pour être gardé
     with WC.WorkChanges(UID, "u4", root) as wc:
         time.sleep(0.05)          # horodatage du noyau à gros grain (même taille)
         (root / "gros.txt").write_bytes(b"1" * 100)
     (e,) = wc.changes
     assert e["change"] == "modified" and e["old_sha256"] is None
     assert e["new_sha256"] == _sha(b"1" * 100)
+
+
+def test_chemins_du_releve_verifies():
+    """Chemins rendus par l'agent : relatifs et normalisés seulement."""
+    assert WC._rel_sur("a/b.txt") == "a/b.txt" and WC._rel_sur("work/x") == "work/x"
+    for bad in ("", "/etc/x", "../x", "a/../b", "a//b", "./a", "a\x00b", None, 3):
+        assert WC._rel_sur(bad) is None, bad
 
 
 # ── manage_files ─────────────────────────────────────────────────────────────

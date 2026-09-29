@@ -201,6 +201,33 @@ class AgentClient:
         return await self._json("PUT", "/v1/write", maxi=_PETIT, params=params, content=corps,
                                 headers={"Content-Length": str(taille)})
 
+    async def changes_begin(self, skip: Iterable[str], *, max_entries: int = 20000,
+                            deadline_s: float = 1.5) -> Dict[str, Any]:
+        """Relevé avant une commande : ``{"id", "complete", "files"}``."""
+        return await self._json("POST", "/v1/changes/begin", maxi=_PETIT, json={
+            "skip": list(skip), "max_entries": max_entries, "deadline_s": deadline_s})
+
+    async def changes_end(self, ident: str, *, max_files: int = 200,
+                          max_bytes: int = 32 << 20, max_file: int = 5 << 20
+                          ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """(fichiers changés depuis ``changes_begin``, bilan ``total`` /
+        ``complete``) ; contenus ``{"b64"}``, sinon ``{"state"}``."""
+        vus: List[Dict[str, Any]] = []
+        maxi = (1 << 20) + max_files * 2048 + max_bytes * 4 // 3
+        ligne = _LIGNE_MAX + 2 * (max_file * 4 // 3 + 4)
+        async with self._flux("POST", "/v1/changes/end", json={
+                "id": ident, "max_files": max_files, "max_bytes": max_bytes,
+                "max_file": max_file}) as r:
+            async for obj in _lignes(r, maxi, ligne):
+                if "error" in obj:
+                    raise AgentError(str(obj["error"]), str(obj.get("message") or ""))
+                if obj.get("done"):
+                    return vus, obj
+                if len(vus) >= max_files:
+                    raise AgentError("bad_response", "plus de fichiers que demandé")
+                vus.append(obj)
+        raise AgentError("bad_response", "relevé interrompu")
+
     async def fsop(self, op: str, **args: Any) -> Dict[str, Any]:
         """``mkdir``, ``remove``, ``rename``, ``copy``, ``chmod``."""
         return await self._json("POST", "/v1/fsop", maxi=_PETIT, json={"op": op, **args})
@@ -378,7 +405,8 @@ async def _borne(r: httpx.Response, maxi: int) -> bytes:
     return b"".join(morceaux)
 
 
-async def _lignes(r: httpx.Response, maxi: int) -> AsyncIterator[Dict[str, Any]]:
+async def _lignes(r: httpx.Response, maxi: int,
+                  ligne_max: int = _LIGNE_MAX) -> AsyncIterator[Dict[str, Any]]:
     """Objets d'un flux NDJSON : lignes et total bornés."""
     tampon, total = b"", 0
     async for b in r.aiter_raw():
@@ -387,7 +415,7 @@ async def _lignes(r: httpx.Response, maxi: int) -> AsyncIterator[Dict[str, Any]]
             raise AgentError("too_large", f"liste de plus de {maxi} octets")
         tampon += b
         *completes, tampon = tampon.split(b"\n")
-        if len(tampon) > _LIGNE_MAX:
+        if len(tampon) > ligne_max:
             raise AgentError("bad_response", "ligne NDJSON trop longue")
         for ligne in completes:
             if ligne.strip():

@@ -276,10 +276,11 @@ def test_depot_et_lancement_utilisent_le_slug_protege(agent):
 def test_lecture_sandbox_avec_le_slug_du_studio(monkeypatch, tmp_path):
     import shared_infra.accounts.users as users
     import shared_infra.routes._helpers as helpers
-    (tmp_path / "automations").mkdir()
-    (tmp_path / "automations" / "reglages.py").write_text("print('ok')", encoding="utf-8")
+    work = tmp_path / "u" / "work"
+    (work / "automations").mkdir(parents=True)
+    (work / "automations" / "reglages.py").write_text("print('ok')", encoding="utf-8")
     monkeypatch.setattr(users, "get_user", lambda username: {"id": 7})
-    monkeypatch.setattr(helpers, "_get_work_path", lambda uid: str(tmp_path))
+    monkeypatch.setattr(helpers, "_get_work_path", lambda uid: str(work))
     assert dt._load_sandbox_automation("u", "Réglages") == "print('ok')"
 
 

@@ -48,6 +48,13 @@ class Espace:
     def grep(self, rels: Iterable[str], needle: str, **kw: Any):
         return _run_async(self._agent.grep(rels, needle, **kw))
 
+    def releve_debut(self, skip: Iterable[str], **kw: Any) -> Dict[str, Any]:
+        """Relevé avant une commande (cf. ``_work_changes``)."""
+        return _run_async(self._agent.changes_begin(skip, **kw))
+
+    def releve_fin(self, ident: str, **kw: Any):
+        return _run_async(self._agent.changes_end(ident, **kw))
+
     def fsop(self, op: str, **kw: Any) -> Dict[str, Any]:
         return _run_async(self._agent.fsop(op, **kw))
 

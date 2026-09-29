@@ -33,6 +33,7 @@ import os
 import secrets
 import sys
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
@@ -842,21 +843,19 @@ def run_automation_core(username: str, targets: List[str], name: str, code: str,
 
 
 def _load_sandbox_automation(username: str, name: str) -> str:
-    """``automations/<slug>.py`` de la sandbox de l'utilisateur (sur l'hôte), ou ''."""
+    """``automations/<slug>.py`` de la sandbox de l'utilisateur (lu par son
+    agent, sous /work), ou ''."""
     try:
+        from llm_core.tools._espace import Espace
         from shared_infra.accounts.users import get_user
         from shared_infra.routes._helpers import _get_work_path
         row = get_user(username)
         if row is None:
             return ""
-        # Lu sur l'inode, sans suivre de lien (2026-09-29).
-        from shared_infra.sandbox.paths import open_beneath
-        rel = f"automations/{_slug_auto(name)}.py"
-        with os.fdopen(open_beneath(_get_work_path(int(row["id"])), rel), "rb") as f:
-            return f.read().decode("utf-8")
+        esp = Espace(username, Path(_get_work_path(int(row["id"]))))
+        return esp.lire(f"automations/{_slug_auto(name)}.py", max_bytes=4 << 20).data.decode("utf-8")
     except Exception:                         # noqa: BLE001 — pas de sandbox ici : le code doit être fourni
         return ""
-    return ""
 
 
 def _chat_element_cap() -> int:

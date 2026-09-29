@@ -563,3 +563,41 @@ def test_grep_sur_place(sb):
     trouves, bilan = asyncio.run(c.grep(["gros.txt", "a.txt"], "cible", files_only=True,
                                         max_hits=2))
     assert trouves == [{"file": "gros.txt"}, {"file": "a.txt"}]     # un par fichier
+
+
+def test_releve_avant_apres(sb):
+    """Relevé d'une commande : contenus d'avant gardés par l'agent, budget
+    de contenus, identifiant inconnu refusé, relevés ouverts bornés."""
+    w = sb.sandbox_path
+    (w / "garde").mkdir()
+    (w / "m.txt").write_bytes(b"avant")
+    (w / "sup.txt").write_bytes(b"parti")
+    (w / "garde" / "x").write_bytes(b"ignore")
+    c = AgentClient(sb)
+
+    async def scenario():
+        d = await c.changes_begin(["garde"])
+        assert d["complete"] and d["files"] == 2
+        time.sleep(0.01)
+        (w / "m.txt").write_bytes(b"apres!")
+        (w / "sup.txt").unlink()
+        (w / "neuf.txt").write_bytes(b"neuf")
+        (w / "garde" / "x").write_bytes(b"change")
+        vus, bilan = await c.changes_end(d["id"])
+        par = {v["path"]: v for v in vus}
+        assert set(par) == {"m.txt", "sup.txt", "neuf.txt"} and bilan["total"] == 3
+        assert par["m.txt"]["before"] == {"b64": "YXZhbnQ="}           # « avant »
+        assert par["sup.txt"]["after"] == {"state": "absent"}
+        assert par["neuf.txt"]["before"] == {"state": "absent"}
+        e = await _attendre_refus(c.changes_end(d["id"]))               # déjà consommé
+        assert (e.code, e.status) == ("not_found", 404)
+        # Budget de contenus : au-delà, l'état seul.
+        d = await c.changes_begin([])
+        (w / "m.txt").write_bytes(b"encore une fois")
+        vus, _ = await c.changes_end(d["id"], max_bytes=4)
+        assert vus[0]["before"] == {"state": "unknown"} and vus[0]["after"] == {"state": "too_big"}
+        ids = [(await c.changes_begin([]))["id"] for _ in range(S._RELEVES_OUVERTS + 1)]
+        e = await _attendre_refus(c.changes_end(ids[0]))                # le plus ancien oublié
+        assert e.code == "not_found"
+        assert (await c.changes_end(ids[-1]))[1]["total"] == 0
+    asyncio.run(scenario())

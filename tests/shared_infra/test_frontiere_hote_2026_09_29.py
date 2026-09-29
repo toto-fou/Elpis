@@ -152,16 +152,17 @@ def test_historique_garde_l_antislash(tmp_path):
 def test_releve_des_commandes_ne_bloque_pas_sur_une_fifo(tmp_path):
     import threading
 
-    from llm_core.tools import _work_changes as wc
+    from shared_infra.sandbox.agent import server as agent_server
     os.mkfifo(tmp_path / "fifo")
     (tmp_path / "ok.txt").write_text("ok")
+    agent = agent_server.Agent(str(tmp_path))
     out = {}
-    t = threading.Thread(target=lambda: out.update(fifo=wc._read(tmp_path, "fifo", 100),
-                                                   ok=wc._read(tmp_path, "ok.txt", 100)))
+    t = threading.Thread(target=lambda: out.update(fifo=agent._lire_borne("fifo", 100),
+                                                   ok=agent._lire_borne("ok.txt", 100)))
     t.start()
     t.join(5)
     assert not t.is_alive() and out == {"fifo": None, "ok": b"ok"}
-    scan, complet = wc._scan(tmp_path)
+    scan, complet = agent._parcourir(frozenset(), 100, 5.0)
     assert complet and set(scan) == {"ok.txt"}
 
 

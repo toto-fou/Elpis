@@ -323,11 +323,12 @@ class AgentClient:
 
     async def git(self, cwd: str, args: Iterable[str], *, timeout_s: float = 60,
                   max_out: int = 1 << 20, env: Optional[Dict[str, str]] = None,
-                  relay: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+                  relay: Optional[Dict[str, str]] = None,
+                  passive: bool = False) -> Dict[str, Any]:
         """``git <args>`` dans ``cwd`` (relatif à /work), sous l'UID du
         conteneur : ``{"returncode", "stdout", "stderr", "truncated",
         "timed_out", "duration_ms"}``. ``relay`` : réseau par le relais Git
-        de l'hôte (``git_relay``)."""
+        de l'hôte (``git_relay``) ; ``passive`` : sondage (cf. en-tête)."""
         corps: Dict[str, Any] = {"cwd": _chemin(cwd), "args": list(args),
                                  "timeout_s": timeout_s, "max_out": max_out}
         if env:
@@ -336,7 +337,7 @@ class AgentClient:
             corps["relay"] = relay
         # JSON : jusqu'à 6 octets par octet de sortie (\ufffd), deux flux.
         d = await self._json("POST", "/v1/git", maxi=12 * max_out + _PETIT, json=corps,
-                             timeout=httpx.Timeout(timeout_s + 30, connect=5))
+                             passif=passive, timeout=httpx.Timeout(timeout_s + 30, connect=5))
         rc, out, err = d.get("returncode"), d.get("stdout"), d.get("stderr")
         if not isinstance(rc, int) or not isinstance(out, str) or not isinstance(err, str):
             raise AgentError("bad_response", "résultat git mal formé")

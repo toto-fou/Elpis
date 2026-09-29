@@ -169,3 +169,25 @@ def test_relais_tient_au_ticket(tmp_path, amont):
     assert _requete(dossier, nom, jeton,
                     "GET /depot.git/info/refs?service=git-upload-pack HTTP/1.1") == b""
     assert oct((dossier / nom).stat().st_mode & 0o777) == "0o666"
+
+
+async def test_git_passif_ne_redemarre_pas_le_conteneur(sandbox, monkeypatch):
+    """Sondage du panneau Git : conteneur arrêté → ``container_down``, sans le
+    redémarrer ni y lancer l'agent."""
+    from shared_infra.sandbox.executors import _user_sandbox as us
+    agent, _work = sandbox
+    appels: list = []
+
+    async def arrete(self):
+        return us.SandboxStatus(exists=True, running=False, container_name=self.container_name)
+
+    async def reveiller(self):
+        appels.append("ensure_running")
+        return us.SandboxStatus(exists=True, running=True, container_name=self.container_name)
+    monkeypatch.setattr(us.UserSandbox, "status", arrete)
+    monkeypatch.setattr(us.UserSandbox, "ensure_running", reveiller)
+    with pytest.raises(AgentError) as e:
+        await git_ops.run(agent, "", ["status"], passive=True)
+    assert e.value.code == "container_down" and appels == []
+    assert (await git_ops.run(agent, "", ["--version"])).ok     # actif : démarré au besoin
+    assert appels == ["ensure_running"]

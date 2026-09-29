@@ -47,10 +47,12 @@ class GitResult:
 
 
 async def run(agent: Any, cwd: str, args: Iterable[str], *, timeout_s: float = 60,
-              max_out: int = 1 << 20, env: Optional[Dict[str, str]] = None) -> GitResult:
-    """``git <args>`` dans ``cwd`` (relatif à /work)."""
+              max_out: int = 1 << 20, env: Optional[Dict[str, str]] = None,
+              passive: bool = False) -> GitResult:
+    """``git <args>`` dans ``cwd`` (relatif à /work). ``passive`` : sondage
+    périodique (un conteneur arrêté n'est pas redémarré, ``container_down``)."""
     return GitResult(**await agent.git(cwd, list(args), timeout_s=timeout_s,
-                                       max_out=max_out, env=env))
+                                       max_out=max_out, env=env, passive=passive))
 
 
 def connector_hosts(uid: int) -> set:

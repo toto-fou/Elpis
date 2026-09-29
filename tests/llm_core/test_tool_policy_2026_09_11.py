@@ -77,23 +77,23 @@ def test_timeout_depuis_la_politique_puis_repli(registry):
 
 
 def test_serialisation_depuis_la_politique_puis_prefixes(registry):
-    from llm_core.engine.tool_exec import _is_serial_tool
+    from llm_core._tool_traits import tool_traits
     C.ingest_tools([_T("zz_write", {"serial": True}), _T("git_query", {"serial": False})])
-    assert _is_serial_tool("zz_write") is True
-    assert _is_serial_tool("git_query") is False                  # la politique prime sur le préfixe git_
-    assert _is_serial_tool("git_commit") is True                  # repli préfixe (pas de politique)
-    assert _is_serial_tool("zz_read") is False
+    assert tool_traits("zz_write").serial is True
+    assert tool_traits("git_query").serial is False                  # la politique prime sur le préfixe git_
+    assert tool_traits("git_commit").serial is True                  # repli préfixe (pas de politique)
+    assert tool_traits("zz_read").serial is False
 
 
 def test_rejeu_depuis_la_politique(registry):
-    from llm_core._mcp_pool import _is_replay_safe
+    from llm_core._tool_traits import tool_traits
     C.ingest_tools([_T("zz_mut", {"serial": True}), _T("zz_idem", {"replay_safe": True}),
                     _T("run_x", {"replay_safe": True})])
-    assert _is_replay_safe("zz_mut") is False
-    assert _is_replay_safe("zz_idem") is True
-    assert _is_replay_safe("run_x") is True                       # politique > heuristique de nom
-    assert _is_replay_safe("execute_shell") is False              # repli heuristique
-    assert _is_replay_safe("read_file") is True
+    assert tool_traits("zz_mut").replay_safe is False
+    assert tool_traits("zz_idem").replay_safe is True
+    assert tool_traits("run_x").replay_safe is True                       # politique > heuristique de nom
+    assert tool_traits("execute_shell").replay_safe is False              # repli heuristique
+    assert tool_traits("read_file").replay_safe is True
 
 
 def test_elagage_depuis_la_politique(registry):

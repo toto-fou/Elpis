@@ -51,9 +51,10 @@ Un tour de chat, de la requête au dernier événement :
    (`_chat_with_tools.py`) : outils collectés dans le pool MCP, tête système
    assemblée, puis à chaque itération porte de compaction, élagage périodique,
    ajustement au contexte (`fit_context`), appel du modèle (Anthropic natif ou
-   compatible OpenAI) et exécution des appels d'outils (les outils qui
-   modifient passent en série, les autres en parallèle, résultats remis dans
-   l'ordre).
+   compatible OpenAI) et exécution des appels d'outils (les outils sériels —
+   sandbox, dépôt, écran, sous-agent — un par un, les autres en parallèle,
+   shell compris, résultats remis dans l'ordre ; traits de chaque outil dans
+   `llm_core/_tool_traits.py`).
 6. **Outils.** `_mcp_pool.call_tool` joint le **toolhost** (`python -m
    toolhost`, :8765), qui héberge les familles d'outils de
    `server/local_mcp_server.py` (repli : un sous-process stdio par worker).

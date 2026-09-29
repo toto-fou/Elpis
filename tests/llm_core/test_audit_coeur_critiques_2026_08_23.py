@@ -276,7 +276,7 @@ def test_la_sentinelle_d_eviction_a_son_propre_type():
     assert '_EntryEvicted("entry évincée' in src, \
         "la sentinelle est encore une RuntimeError nue"
     assert "_evincee = isinstance(_call_err, _EntryEvicted)" in src
-    assert "if not _evincee and not _is_replay_safe(tool_name):" in src, \
+    assert "if not _evincee and not tool_traits(tool_name).replay_safe:" in src, \
         "une entrée évincée doit être rejouée même pour un outil mutant : la " \
         "requête n'a jamais quitté le process"
 

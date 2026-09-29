@@ -27,8 +27,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from llm_core._constants import LLAMA_TOOL_PARALLELISM, LLAMA_TOOL_SERIAL_PREFIXES
+from llm_core._constants import LLAMA_TOOL_PARALLELISM
 from llm_core._scheduling._guard import _emit
+from llm_core._tool_traits import tool_traits
 from shared_infra.db import log_metric
 
 # Attente maximale de la télémétrie d'un appel d'outil (cf. ``_exec_one``).
@@ -65,23 +66,6 @@ class _BatchCancelled(Exception):
     Existe uniquement pour que ``asyncio.wait(FIRST_EXCEPTION)`` se réveille :
     il ignore les tâches qui finissent *annulées*. Reconvertie en
     ``asyncio.CancelledError`` par ``_gather_batch`` — jamais visible dehors."""
-
-
-def _is_serial_tool(tname: str) -> bool:
-    """True si l'outil doit être sérialisé (effets de bord sur état partagé :
-    sandbox FS, repo git, un écran/onglet par session…).
-
-    (2026-09-11, P2) ``meta.policy.serial`` déclarée par le serveur fait foi ;
-    les préfixes ``LLAMA_TOOL_SERIAL_PREFIXES`` ne sont plus qu'un REPLI pour
-    les outils sans politique (serveurs externes, registre vide)."""
-    try:
-        from llm_core._mcp_categories import tool_policy as _tool_policy
-        pol = _tool_policy(tname)
-    except Exception:                                           # noqa: BLE001
-        pol = {}
-    if "serial" in pol:
-        return bool(pol["serial"])
-    return any(tname.startswith(p) for p in LLAMA_TOOL_SERIAL_PREFIXES)
 
 
 def flatten_exception_message(exc: BaseException, limit: int = 300) -> str:
@@ -512,12 +496,12 @@ async def execute_tool_batch(
     _i = 0
     _n_tools = len(prepared)
     while _i < _n_tools:
-        if _is_serial_tool(prepared[_i]["tool_name"]):
+        if tool_traits(prepared[_i]["tool_name"]).serial:
             await _exec_one(_i, prepared[_i])
             _i += 1
             continue
         _j = _i
-        while _j < _n_tools and not _is_serial_tool(prepared[_j]["tool_name"]):
+        while _j < _n_tools and not tool_traits(prepared[_j]["tool_name"]).serial:
             _j += 1
         _batch_size = _j - _i
         if _batch_size == 1:

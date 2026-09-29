@@ -24,10 +24,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-# Préfixes d'outils MUTANTS — même liste que la sérialisation d'exécution de
-# la boucle (LLAMA_TOOL_SERIAL_PREFIXES) : ce qui doit s'exécuter en série est
-# précisément ce qui écrit quelque part.
-from llm_core._constants import LLAMA_TOOL_SERIAL_PREFIXES as _MUTATING_PREFIXES
+from llm_core._tool_traits import tool_traits
 from llm_core.context.tokens import tokens_to_chars
 from llm_core.engine.result_contract import result_is_error
 
@@ -56,11 +53,6 @@ _SER_TOTAL_DEFAULT_TOKENS = 4_096
 # plafond total autorise, c'est la coupe finale tête+queue qui tranche.
 _SER_MIN_CHARS_PER_MSG = 160
 ARGS_MAX_CHARS = 500         # arguments d'outils NON mutants (avant : 200)
-
-
-def is_mutating_tool(tool_name: str) -> bool:
-    name = (tool_name or "").lower()
-    return any(name.startswith(p) for p in _MUTATING_PREFIXES)
 
 
 def _extract_target_path(args: Any) -> str:
@@ -197,7 +189,7 @@ def extract_artifact_ledger(messages: List[Dict[str, Any]]) -> List[ArtifactEntr
                 continue
             fn = tc.get("function") or {}
             name = fn.get("name") or ""
-            if not is_mutating_tool(name):
+            if not tool_traits(name).mutates:
                 continue
             path = _extract_target_path(fn.get("arguments"))
             if not path:
@@ -380,7 +372,7 @@ def _serialize_capped(
                 for tc in tool_calls:
                     fn = (tc.get("function") or {}).get("name", "?")
                     args = (tc.get("function") or {}).get("arguments", "")
-                    _path = _extract_target_path(args) if is_mutating_tool(fn) else ""
+                    _path = _extract_target_path(args) if tool_traits(fn).mutates else ""
                     if _path:
                         # Le CONTENU écrit ne part pas au résumeur : le disque
                         # est la source de vérité, le ledger fixe l'essentiel.

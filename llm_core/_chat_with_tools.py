@@ -122,6 +122,7 @@ from llm_core._think_tokens import (
 )
 from llm_core._thinking_reconcile import reconcile_thinking_content
 from llm_core._tool_parsing import extract_tool_calls
+from llm_core._tool_traits import tool_traits
 from llm_core._vision import (
     _clear_last_screenshot_for,
     _get_last_screenshot_b64,
@@ -2123,34 +2124,6 @@ def _tool_name(t) -> str:
     return getattr(t, "name", None) or (t.get("name", "") if isinstance(t, dict) else "") or ""
 
 
-def _tool_is_read_only(tool) -> bool:
-    """True seulement si l'outil est ANNOTÉ read-only dans le protocole.
-
-    Les annotations MCP (``readOnlyHint`` & co) sont posées à la source par
-    les variantes de ``tools/_toolkit.py`` — c'est la seule description
-    fiable de ce qu'un outil fait, et elle voyage avec lui. On lit ici
-    l'objet LIVE issu de ``list_tools()`` plutôt que le registre de
-    catégories, qui ne conserve pas les annotations.
-
-    Extraction volontairement défensive (la forme de fil des annotations a
-    bougé entre versions de FastMCP), et surtout **fail-FERMÉ** : tout ce
-    qui n'est pas prouvé read-only renvoie False. En mode lecture seule un
-    outil non annoté doit disparaître, jamais passer par défaut.
-    """
-    ann = getattr(tool, "annotations", None)
-    if ann is None and isinstance(tool, dict):
-        ann = tool.get("annotations")
-    if ann is None:
-        return False
-    for key in ("readOnlyHint", "read_only_hint"):
-        val = getattr(ann, key, None)
-        if val is None and isinstance(ann, dict):
-            val = ann.get(key)
-        if val is not None:
-            return bool(val)
-    return False
-
-
 def _apply_memory_gate(raw_tools, memory_enabled: bool, categorize) -> list:
     """Drop the memory-category tools unless ``memory_enabled``.
 
@@ -2400,7 +2373,7 @@ async def _collect_mcp_tools(
                 # Lecture seule (« /plan ») : allow-list par ANNOTATION, avant
                 # tout le reste et sans exception pour les catégories cachées.
                 # Un outil non annoté tombe — c'est le point du fail-fermé.
-                if read_only and not _tool_is_read_only(t):
+                if read_only and not tool_traits(t_name, tool=t).read_only:
                     continue
                 if _gated_out(t_name, _explicit_cats):
                     _dropped_by_gate += 1

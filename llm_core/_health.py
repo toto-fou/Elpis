@@ -307,7 +307,13 @@ async def get_remote_models_with_status() -> List[Dict[str, Any]]:
 
 
 def _parse_prometheus_metrics(text: str) -> Dict[str, float]:
-    """Parse prometheus /metrics text into a dict of metric_name → value."""
+    """Texte ``/metrics`` (Prometheus) → ``{nom: valeur}``.
+
+    llama-server publie ``llamacpp:requests_processing`` (deux-points) ; les
+    lectures cherchaient ``llamacpp_requests_processing`` et ne trouvaient
+    jamais rien : jauge KV absente, créneaux toujours « au repos »
+    (2026-09-29). Les noms sont donc normalisés — ``:`` → ``_``, étiquettes
+    ``{…}`` retirées."""
     result = {}
     if not text:
         return result
@@ -317,8 +323,9 @@ def _parse_prometheus_metrics(text: str) -> Dict[str, float]:
             continue
         parts = line.split()
         if len(parts) >= 2:
+            name = parts[0].split("{", 1)[0].replace(":", "_")
             try:
-                result[parts[0]] = float(parts[1])
+                result[name] = float(parts[1])
             except (ValueError, IndexError):
                 pass
     return result

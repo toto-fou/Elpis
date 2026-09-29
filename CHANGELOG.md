@@ -71,6 +71,9 @@ selon [SemVer](https://semver.org/lang/fr/).
   robuste ; passe de robustesse complète — cœur, recherche, OCR, console.
 - **Sandbox** : archives sur disque et bornées, cycle de vie fiable, copie sans
   lien.
+- **Métriques llama.cpp** : les noms publiés (`llamacpp:…`) sont reconnus ;
+  avant un chargement ou un déchargement de modèle, l'attente des créneaux au
+  repos voit de nouveau les requêtes en cours quand `/health` ne répond pas.
 
 ## 1.0.0 — 2026-09-24
 

@@ -129,7 +129,9 @@ _imported_users: set = set()
 
 def import_legacy_git_credentials(user_id: int, sandbox: Path) -> int:
     """Importe ``<sandbox>/.git-credentials.json`` dans le store (idempotent), puis
-    renomme le fichier en ``.imported`` (trace, pas de delete). Best-effort.
+    SUPPRIME le fichier : les jetons vivent désormais hors de la sandbox, une
+    copie en clair dans /work restait lisible par l'agent (2026-09-29 ; l'ancienne
+    trace ``.imported`` est retirée aussi). Best-effort.
 
     Format hérité : ``{provider: {token, user?, url?}}``. Le host vient de ``url``
     si présent (GitLab self-hosted) sinon du host canonique du provider.
@@ -139,7 +141,12 @@ def import_legacy_git_credentials(user_id: int, sandbox: Path) -> int:
         return 0
     _imported_users.add(user_id)
     try:
-        f = Path(sandbox) / ".git-credentials.json"
+        base = Path(sandbox)
+        try:
+            (base / ".git-credentials.json.imported").unlink()   # trace d'un import antérieur
+        except OSError:
+            pass
+        f = base / ".git-credentials.json"
         if not f.exists():
             return 0
         data = json.loads(f.read_text("utf-8", errors="replace"))
@@ -164,7 +171,7 @@ def import_legacy_git_credentials(user_id: int, sandbox: Path) -> int:
                 token=token, username=(entry.get("user") or ""), label="imported")
             created += 1
         try:
-            f.rename(f.with_suffix(".json.imported"))
+            f.unlink()
         except OSError:
             pass
         if created:

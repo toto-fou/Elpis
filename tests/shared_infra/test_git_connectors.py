@@ -118,7 +118,8 @@ def test_import_legacy_idempotent(gc, tmp_path):
         '"gitlab": {"token":"glp","url":"https://gl.corp.com"}}', encoding="utf-8")
     assert R.import_legacy_git_credentials(1, sb) == 2
     assert not (sb / ".git-credentials.json").exists()
-    assert (sb / ".git-credentials.json.imported").exists()
+    # Aucune copie en clair laissée dans la sandbox (2026-09-29).
+    assert not (sb / ".git-credentials.json.imported").exists()
     hosts = set(gc.list_connector_hosts(1))
     assert "github.com" in hosts and "gl.corp.com" in hosts
     # 2e appel = no-op (dé-dupliqué par process)
@@ -475,3 +476,12 @@ def test_save_then_resolve_roundtrip_gitea_lan(gc):
     assert cred["provider_type"] == "gitea"
     # api_base dérivé en HTTP (IP privée) — cf. GiteaProvider.api_base adaptatif.
     assert cred["api_base"] == "http://10.0.0.42:3000/api/v1"
+
+
+def test_import_legacy_retire_une_ancienne_trace(gc, tmp_path):
+    import shared_infra.git.resolver as R
+    sb = tmp_path / "sb2"
+    sb.mkdir()
+    (sb / ".git-credentials.json.imported").write_text('{"github": {"token": "ghp"}}')
+    R.import_legacy_git_credentials(7, sb)
+    assert not (sb / ".git-credentials.json.imported").exists()

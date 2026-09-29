@@ -560,3 +560,6 @@ def test_grep_sur_place(sb):
     trouves, bilan = asyncio.run(c.grep(["gros.txt"], "cible", max_hits=3))
     assert len(trouves) == 3 and bilan["hits_truncated"]
     assert asyncio.run(c.grep(["a.txt"], "cible", ignore_case=False))[0] == []
+    trouves, bilan = asyncio.run(c.grep(["gros.txt", "a.txt"], "cible", files_only=True,
+                                        max_hits=2))
+    assert trouves == [{"file": "gros.txt"}, {"file": "a.txt"}]     # un par fichier

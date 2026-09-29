@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import base64
 import difflib
-import fnmatch
 import hashlib
 import io
 import json
@@ -41,12 +40,10 @@ from shared_infra.sandbox.paths import (
     lexical_rel,
     open_beneath,
     pinned_beneath,
-    read_leaf,
     rel_under,
     resolve_under,
     to_container,
     walk_beneath,
-    walk_under,
     widen_beneath,
 )
 
@@ -3583,25 +3580,26 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
             return _err("code_intel_unavailable",
                         hint="The code_intel module is missing. Reinstall tools/.")
 
-        def _outline_one(rel_path: str, sb: Path) -> Dict[str, Any]:
+        def _outline_one(rel_path: str, sb: Path, esp: Espace) -> Dict[str, Any]:
             try:
-                pp = _safe_path(rel_path, sb)
-            except ValueError as e:
-                return _err(str(e), path=rel_path)
+                rel = _rel(sb, rel_path)
+            except ValueError as ex:
+                return _err(str(ex), path=rel_path)
+            pp = sb / rel if rel else sb
             try:
-                with pinned_beneath(sb, pp) as fp:
-                    size = fp.stat().st_size
-                    if size > MAX_EDIT_BYTES:
-                        return _err("too_large", size=size, max=MAX_EDIT_BYTES,
-                                    hint="File too large for outline.")
-                    text = fp.read_text("utf-8", errors="replace")
-            except FileNotFoundError:
-                return _err("not_found", path=_to_container(pp, sb))
-            except IsADirectoryError:
-                return _err("is_directory", path=_to_container(pp, sb),
-                            hint="outline expects a single file.")
-            except Exception as e:
-                return _err(f"read_failed: {e}")
+                e = esp.stat(rel)
+                if e["kind"] == "missing":
+                    return _err("not_found", path=_to_container(pp, sb))
+                if e["kind"] == "dir":
+                    return _err("is_directory", path=_to_container(pp, sb),
+                                hint="outline expects a single file.")
+                size = int(e.get("size") or 0)
+                if size > MAX_EDIT_BYTES:
+                    return _err("too_large", size=size, max=MAX_EDIT_BYTES,
+                                hint="File too large for outline.")
+                text = esp.lire(rel, max_bytes=MAX_EDIT_BYTES).data.decode("utf-8", errors="replace")
+            except AgentError as ex:
+                return _err_agent(ex, pp, sb)
             lang = _ci.detect_language(pp.name)
             if lang == "unknown":
                 return _ok(path=_to_container(pp, sb), language="unknown", outline=[],
@@ -3613,6 +3611,7 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
 
         try:
             sb = _sandbox(_username)
+            esp = Espace(_username, sb)
             act = (action or "").strip().lower()
             paths_l = as_list(paths) or []
             exclude_l = [str(e) for e in (as_list(exclude) or []) if e]
@@ -3632,7 +3631,7 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
                         if not isinstance(rp, str) or not rp:
                             files_out[str(rp)] = _err("bad_path")
                             continue
-                        r = _outline_one(rp, sb)
+                        r = _outline_one(rp, sb, esp)
                         files_out[rp] = r
                         if r.get("ok"):
                             ok_count += 1
@@ -3643,17 +3642,20 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
                 if not path:
                     return _err("path_required",
                                 hint="Pass path=<file> or paths=[<file1>, ...].")
-                return _outline_one(path, sb)
+                return _outline_one(path, sb, esp)
 
             # ── symbols (fichier unique, liste plate) ─────────────────
             if act == "symbols":
                 if not path:
                     return _err("path_required", hint="path=<file> for symbols")
-                pp = _safe_path(path, sb)
+                rel = _rel(sb, path)
+                pp = sb / rel if rel else sb
                 try:
-                    text = _read_under(sb, pp).decode("utf-8", errors="replace")
-                except (OSError, SandboxPathError):
-                    return _err("not_a_file", path=_to_container(pp, sb))
+                    text = esp.lire(rel, max_bytes=MAX_EDIT_BYTES).data.decode("utf-8", errors="replace")
+                except AgentError as ex:
+                    if ex.code in ("not_found", "is_dir", "not_file"):
+                        return _err("not_a_file", path=_to_container(pp, sb))
+                    return _err_agent(ex, pp, sb)
                 lang = _ci.detect_language(pp.name)
                 if lang == "unknown":
                     return _ok(action="symbols", path=_to_container(pp, sb), language="unknown",
@@ -3669,71 +3671,66 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
                 return _err("symbol_required")
 
             cap = max(1, min(max_results, 5000))
-            search_root = _safe_path(scope, sb) if scope else sb
-            if not search_root.is_dir():
+            srel = _rel(sb, scope) if scope else ""
+            search_root = sb / srel if srel else sb
+            if esp.stat(srel)["kind"] != "dir":
                 return _err("scope_not_a_dir", scope=_to_container(search_root, sb))
 
-            # AUDIT 2026-09-25 — même règle que list_files : chaque SEGMENT du
-            # chemin est confronté aux motifs, les dossiers cachés sont sautés,
-            # et le socle des dossiers de DÉPENDANCES s'applique quand l'appelant
-            # n'exclut rien. Avant, seul le NOM du fichier était testé :
-            # ``exclude=["node_modules"]`` laissait passer tout son contenu, et
-            # une définition du projet se noyait sous celles des dépendances
-            # (plafond de résultats atteint, chaque fichier lu et analysé).
-            _code_excl = exclude_l or list(DEFAULT_DEP_EXCLUDES)
-
-            def _excluded(rel: str, name: str) -> bool:
-                segs = rel.split("/")
-                if any(s.startswith(".") for s in segs):
-                    return True  # always skip dotfiles / hidden dirs for code search
-                for pat in _code_excl:
-                    if fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(name, pat):
-                        return True
-                    if any(fnmatch.fnmatch(s, pat) for s in segs):
-                        return True
-                return False
-
-            def _code_walk():
-                """(chemin relatif, nom, descripteur du dossier) de chaque fichier :
-                parcours par descripteurs, sans suivre de lien (2026-09-29)."""
-                for _rc, _dirs, _files, _dfd in walk_under(sb, search_root):
-                    _dirs[:] = sorted(
-                        d for d in _dirs
-                        if not _excluded(f"{_rc}/{d}" if _rc else d, d)) if recursive else []
-                    for _fn in sorted(_files):
-                        yield (f"{_rc}/{_fn}" if _rc else _fn), _fn, _dfd
-
-            hits: List[Dict[str, Any]] = []
-            files_scanned = 0
-            for rel, name, dfd in _code_walk():
-                if _excluded(rel, name):
+            # Même règle que list_files : motifs confrontés au nom et au chemin
+            # à chaque niveau (un dossier exclu n'est pas descendu), dossiers
+            # cachés sautés, socle des dossiers de dépendances par défaut.
+            liste = esp.lister(srel, depth=64 if recursive else 1, max_entries=MAX_WALK,
+                               hidden=False, exclude=exclude_l or list(DEFAULT_DEP_EXCLUDES))
+            fichiers = []
+            for x in liste.entries:
+                if x["kind"] != "file" or int(x.get("size") or 0) > MAX_EDIT_BYTES:
                     continue
+                rel = x["path"][len(srel) + 1:] if srel else x["path"]
+                name = rel.rsplit("/", 1)[-1]
                 if include_glob and not _glob_match(rel, include_glob):
                     continue
                 lang = _ci.detect_language(name)
-                if lang == "unknown":
+                if lang != "unknown":
+                    fichiers.append((rel, x["path"], lang))
+            fichiers.sort(key=lambda f: _cle_parcours(f[0], False))
+            # Préfiltre par l'agent (un seul appel) : un fichier qui ne
+            # contient pas, à la casse près, le plus long fragment
+            # alphanumérique du symbole ne peut pas le définir ni le citer
+            # (Robot compare sans casse ni « _ », « - », espace).
+            fragment = max(re.split(r"[\W_]+", symbol), key=len)
+            candidats = fichiers
+            if fragment and fichiers:
+                retenus: set = set()
+                for i in range(0, len(fichiers), 5000):      # corps de requête borné
+                    lot = [f[1] for f in fichiers[i:i + 5000]]
+                    trouves, _bilan = esp.grep(lot, fragment, ignore_case=True,
+                                               max_file_bytes=MAX_EDIT_BYTES, max_hits=len(lot),
+                                               files_only=True)
+                    retenus.update(t["file"] for t in trouves)
+                candidats = [f for f in fichiers if f[1] in retenus]
+
+            def _fin(truncated: bool) -> Dict[str, Any]:
+                return _ok(action=act, query=symbol, count=len(hits),
+                           files_scanned=len(fichiers), matches=hits, truncated=truncated,
+                           **({"walk_truncated": True} if liste.truncated else {}))
+
+            hits: List[Dict[str, Any]] = []
+            for rel, chemin, lang in candidats:
+                try:
+                    text = esp.lire(chemin, max_bytes=MAX_EDIT_BYTES).data.decode("utf-8", errors="replace")
+                except AgentError:
                     continue
-                data = read_leaf(dfd, name, 5_000_000)   # 5 Mo par fichier ; liens exclus
-                if data is None:
-                    continue
-                text = data.decode("utf-8", errors="replace")
-                files_scanned += 1
                 if act == "definition":
                     found = _ci.find_definition(text, lang, symbol)
-                    for it in found:
-                        hits.append({"file": rel, **it})
-                        if len(hits) >= cap:
-                            return _ok(action=act, query=symbol, count=len(hits),
-                                       files_scanned=files_scanned, matches=hits, truncated=True)
-                else:  # references
-                    refs = _ci.find_references(text, lang, symbol, max_results=cap - len(hits))
-                    for r in refs:
-                        hits.append({"file": rel, **r})
-                        if len(hits) >= cap:
-                            return _ok(action=act, query=symbol, count=len(hits),
-                                       files_scanned=files_scanned, matches=hits, truncated=True)
-            return _ok(action=act, query=symbol, count=len(hits),
-                       files_scanned=files_scanned, matches=hits, truncated=False)
+                else:
+                    found = _ci.find_references(text, lang, symbol, max_results=cap - len(hits))
+                for it in found:
+                    hits.append({"file": rel, **it})
+                    if len(hits) >= cap:
+                        return _fin(True)
+            return _fin(False)
+        except AgentError as ex:
+            return _err_agent(ex, sb, sb)
         except ValueError as e:
             return _err(str(e))
         except Exception as e:

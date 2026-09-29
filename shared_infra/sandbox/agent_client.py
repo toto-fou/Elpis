@@ -148,15 +148,17 @@ class AgentClient:
         raise AgentError("bad_response", "liste interrompue")
 
     async def grep(self, paths: Iterable[str], needle: str, *, ignore_case: bool = True,
-                   max_file_bytes: int = 20 << 20, max_hits: int = 2000
-                   ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+                   max_file_bytes: int = 20 << 20, max_hits: int = 2000,
+                   files_only: bool = False) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """(lignes trouvées, bilan : ``hits_truncated``, ``skipped_large``,
-        ``skipped_binary``) dans les fichiers ``paths``."""
+        ``skipped_binary``) dans les fichiers ``paths`` ; ``files_only`` : un
+        ``{"file"}`` par fichier trouvé."""
         chemins = list(paths)
         trouves: List[Dict[str, Any]] = []
         async with self._flux("POST", "/v1/grep", json={
                 "paths": chemins, "needle": needle, "ignore_case": ignore_case,
-                "max_file_bytes": max_file_bytes, "max_hits": max_hits}) as r:
+                "max_file_bytes": max_file_bytes, "max_hits": max_hits,
+                "files_only": files_only}) as r:
             async for obj in _lignes(r, (1 << 20) + max_hits * 2048):
                 if "error" in obj:
                     raise AgentError(str(obj["error"]), str(obj.get("message") or ""))

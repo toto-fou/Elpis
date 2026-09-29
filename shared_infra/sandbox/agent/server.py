@@ -31,7 +31,7 @@ corps de requête par Content-Length seulement :
                    "exclude": [motifs], "deadline_s"}  → NDJSON, dernière
                    ligne {"done": true, …}
   POST /v1/grep   {"paths": [...], "needle", "ignore_case", "max_file_bytes",
-                   "max_hits"}  → NDJSON {"file", "line", "text"}, dernière
+                   "max_hits", "files_only"}  → NDJSON {"file", "line", "text"}, dernière
                    ligne {"done": true, …}
   PUT  /v1/write  ?path= &mode= &parents=1 &if_absent=1 &if_sha256= &if_mtime_ns=
                   (corps = contenu)  → {"size", "sha256", "mtime_ns", "created"}
@@ -355,10 +355,12 @@ class Agent:
                "undecodable": illisibles, "count": n}
 
     def grep(self, chemins: Iterable[Any], aiguille: str, casse: bool, max_octets: int,
-             max_trouves: int, largeur: int = 260) -> Iterator[Dict[str, Any]]:
+             max_trouves: int, largeur: int = 260,
+             fichiers_seuls: bool = False) -> Iterator[Dict[str, Any]]:
         """Lignes de ``chemins`` (fichiers ordinaires) qui contiennent
         ``aiguille`` ; découpe au seul ``\\n`` (comme ``grep -n``). Fichiers
-        trop gros ou binaires sautés et comptés."""
+        trop gros ou binaires sautés et comptés. ``fichiers_seuls`` : un
+        ``{"file"}`` par fichier trouvé (comme ``grep -l``)."""
         cherche = aiguille if casse else aiguille.lower()
         trouves = gros = binaires = 0
         for c in chemins:
@@ -380,12 +382,15 @@ class Agent:
                         ligne = brut.rstrip(b"\n").rstrip(b"\r").decode("utf-8", "replace")
                         if cherche in (ligne if casse else ligne.lower()):
                             trouves += 1
-                            yield {"file": rel, "line": i, "text": ligne if len(ligne) <= largeur
-                                   else ligne[:largeur] + "…"}
+                            yield {"file": rel} if fichiers_seuls else {
+                                "file": rel, "line": i,
+                                "text": ligne if len(ligne) <= largeur else ligne[:largeur] + "…"}
                             if trouves >= max_trouves:
                                 yield {"done": True, "hits_truncated": True,
                                        "skipped_large": gros, "skipped_binary": binaires}
                                 return
+                            if fichiers_seuls:
+                                break
             except OSError:
                 continue
             finally:
@@ -627,7 +632,8 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                 raise Refus(400, "bad_request", "needle requis")
             self._ndjson({"started": True}, agent.grep(
                 chemins, aiguille, not _vrai(d.get("ignore_case", True)),
-                int(d.get("max_file_bytes") or 20 << 20), max(1, int(d.get("max_hits") or 2000))))
+                int(d.get("max_file_bytes") or 20 << 20), max(1, int(d.get("max_hits") or 2000)),
+                fichiers_seuls=_vrai(d.get("files_only"))))
         elif cle == ("PUT", "/v1/write"):
             self._json(200, agent.ecrire(
                 normaliser(q.get("path")), self._corps(_entier(q, "max", _MAX_ECRITURE)),

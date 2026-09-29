@@ -146,6 +146,25 @@ def test_code_definition_and_references(fs):
     assert r.get("ok") is True and r["count"] >= 2
 
 
+
+def test_code_prefiltre_sans_perte(fs):
+    """Le préfiltre de l'agent garde tout fichier qui peut répondre : mot-clé
+    Robot écrit autrement, casse différente ; l'ordre reste celui du parcours."""
+    tools, work = fs
+    (work / "b").mkdir()
+    (work / "b" / "suite.robot").write_text(
+        "*** Test Cases ***\nCas\n    open_browser    x\n", encoding="utf-8")
+    (work / "a.robot").write_text(
+        "*** Keywords ***\nOpen Browser\n    Log    ok\n", encoding="utf-8")
+    (work / "node_modules").mkdir()
+    (work / "node_modules" / "dep.robot").write_text(
+        "*** Keywords ***\nOpen Browser\n    Log    dep\n", encoding="utf-8")
+    r = tools["code"](None, action="references", symbol="Open Browser")
+    assert r["ok"] and [h["file"] for h in r["matches"]] == ["a.robot", "b/suite.robot"], r
+    d = tools["code"](None, action="definition", symbol="Open Browser")
+    assert [h["file"] for h in d["matches"]] == ["a.robot"], d
+    assert d["files_scanned"] == 2
+
 def test_code_invalid_action_guided(fs):
     tools, _ = fs
     out = tools["code"](None, action="find_definition", symbol="x")

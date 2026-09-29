@@ -582,6 +582,29 @@ def _schema_lock():
             fh.close()
 
 
+def _migrate(conn, fresh: bool) -> None:
+    """Chaîne de migrations de ``conn`` (``fresh`` : aucune table avant
+    ``create_all``).
+
+    Une base SERVEUR naît toujours du schéma de référence (installation ou
+    transfert), jamais de l'ancienne chaîne SQLite : les migrations qu'il
+    contient sont tamponnées, jamais rejouées — leur SQL est propre à SQLite
+    (``sqlite_master``, ``PRAGMA``). Avant, seule une base sans AUCUNE table
+    était tamponnée : un premier démarrage interrompu après ``create_all``, ou
+    une table étrangère au schéma, faisait rejouer 0001+ et échouer les
+    migrations à chaque démarrage (2026-09-27)."""
+    from shared_infra.db import _schema
+    from shared_infra.db._dialect import SQLITE, dialect_of
+    from shared_infra.db._migrations import run_pending, stamp_baseline
+    if fresh or dialect_of(conn) != SQLITE:
+        stamped = stamp_baseline(conn, _schema.BASELINE_COVERS)
+        if stamped:
+            logger.info("[init_db] schéma de référence : %d migration(s) tamponnée(s)", stamped)
+    applied_n = run_pending(conn)
+    if applied_n:
+        logger.info("[init_db] %d DB migration(s) applied", applied_n)
+
+
 def _init_schema() -> None:
     from shared_infra.db import _schema
     from shared_infra.db._dialect import SQLITE, dialect_of
@@ -606,19 +629,10 @@ def _init_schema() -> None:
             pass
 
         # ── Migrations DB versionnées ───────────────────────────────────────────
-        # Idempotent via la table schema_migrations. Chaque migration n'est
-        # appliquée qu'une fois ; les erreurs sont loggées sans interrompre
-        # le démarrage des autres composants.
+        # Idempotent via la table schema_migrations ; les erreurs sont loggées
+        # sans interrompre le démarrage des autres composants.
         try:
-            from shared_infra.db._migrations import run_pending as _run_migrations
-            from shared_infra.db._migrations import stamp_baseline
-            if fresh:
-                stamped = stamp_baseline(conn, _schema.BASELINE_COVERS)
-                logger.info("[init_db] base neuve : schéma de référence posé, "
-                            "%d migration(s) tamponnée(s)", stamped)
-            applied_n = _run_migrations(conn)
-            if applied_n:
-                logger.info("[init_db] %d DB migration(s) applied", applied_n)
+            _migrate(conn, fresh)
         except Exception as _e:
             logger.error("[init_db] migrations framework failed: %s", _e)
 

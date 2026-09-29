@@ -71,6 +71,11 @@ selon [SemVer](https://semver.org/lang/fr/).
   robuste ; passe de robustesse complète — cœur, recherche, OCR, console.
 - **Sandbox** : archives sur disque et bornées, cycle de vie fiable, copie sans
   lien.
+- **Base de données** : sur PostgreSQL et MariaDB/MySQL, les migrations du
+  schéma de référence ne sont plus rejouées au démarrage d'une base non vierge
+  (elles échouaient à chaque démarrage) ; « Enregistrer » de la page Base ne
+  modifie plus la base active (cible rangée à part jusqu'à la bascule) ; la
+  vérification d'un transfert ne dépend plus de la collation du serveur.
 
 ## 1.0.0 — 2026-09-24
 

@@ -202,10 +202,12 @@ variable, qui prime) :
 | `pool_max`, `timeout` | `APP_DB_POOL_MAX`, `APP_DB_TIMEOUT` | 8 connexions par process, 60 s |
 | — (mot de passe) | `APP_DB_PASSWORD` | fichier `user_db/.db_password` (0600), jamais dans `config.json` |
 | `generation` | — | écrite par la bascule depuis l'administration |
+| `pending` | — | cible enregistrée par « Enregistrer » sans bascule (mot de passe dans `user_db/.db_password.pending`) ; la base active n'en est pas modifiée, la bascule l'applique puis l'efface |
 
 Au premier démarrage, une base vide reçoit le schéma complet ; une base
 existante reçoit ses tables et colonnes manquantes puis ses migrations en
-attente. Un seul process à la fois pose le schéma (verrou fichier), les
+attente. Une base PostgreSQL ou MariaDB/MySQL naît toujours de ce schéma :
+les migrations qu'il contient y sont inscrites sans être rejouées. Un seul process à la fois pose le schéma (verrou fichier), les
 workers peuvent donc démarrer ensemble.
 
 Exploitation (`./elpis db …` = `python -m shared_infra.db …`) :
@@ -226,7 +228,8 @@ même chose en « Migrer et basculer » (écritures suspendues pendant la copie,
 redémarrage automatique) et propose « Revenir à SQLite ».
 
 Sauvegarde : hors SQLite, la sauvegarde « base » produit un instantané SQLite
-(restaurable partout). `.db_password` n'est ni sauvegardé ni restauré. Pour
+(restaurable partout). `.db_password` (et `.db_password.pending`) n'est ni
+sauvegardé ni restauré. Pour
 restaurer la base d'un moteur serveur : revenir à SQLite, restaurer, puis
 migrer.
 

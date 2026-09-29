@@ -121,31 +121,63 @@ def _running() -> bool:
     return st.get("state") == "running" and time.time() - float(st.get("updated_at") or 0) < 600
 
 
-def save_password(password: str) -> None:
-    path = _data_dir() / ".db_password"
+def _password_path(pending: bool = False) -> Path:
+    return _data_dir() / (".db_password.pending" if pending else ".db_password")
+
+
+def save_password(password: str, *, pending: bool = False) -> None:
+    path = _password_path(pending)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write(password)
     os.chmod(path, 0o600)
 
 
+def pending_password() -> str:
+    """Mot de passe de la cible enregistrée sans bascule, ou ``""``."""
+    try:
+        return _password_path(True).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+_CONN_KEYS = ("host", "port", "name", "user", "tls")
+
+
 def write_database_config(target: Dict[str, Any], *, switch: bool) -> int:
-    """Section ``database`` de config.json. ``switch`` change aussi le moteur
-    actif et publie une nouvelle génération (rendue)."""
+    """Section ``database`` de config.json ; rend la génération publiée.
+
+    ``switch=False`` (« Enregistrer » de la page Base) : la cible est rangée
+    À PART — ``database.pending`` et ``.db_password.pending`` —, la base active
+    n'est pas touchée. Avant (2026-09-27), ses réglages et son mot de passe
+    étaient écrasés : sur un serveur, le pool perdait son authentification.
+    ``switch=True`` : la cible devient la base active, une nouvelle génération
+    est publiée et la cible en attente, consommée, est effacée."""
     from shared_infra.config import read_config_json, write_config_json
     cfg = read_config_json()
     db = cfg.setdefault("database", {})
+    if not switch:
+        db["pending"] = {"backend": target["backend"],
+                         **{k: target[k] for k in _CONN_KEYS if target.get(k) not in (None, "")}}
+        if target.get("password"):
+            save_password(target["password"], pending=True)
+        write_config_json(cfg)
+        return int(db.get("generation") or 0)
     if target["backend"] != "sqlite":
-        for k in ("host", "port", "name", "user", "tls"):
+        for k in _CONN_KEYS:
             if target.get(k) not in (None, ""):
                 db[k] = target[k]
-        if target.get("password"):
-            save_password(target["password"])
-    gen = int(db.get("generation") or 0)
-    if switch:
-        db["backend"] = target["backend"]
-        gen += 1
-        db["generation"] = gen
+        password = target.get("password") or pending_password()
+        if password:
+            save_password(password)
+        db.pop("pending", None)
+        try:
+            _password_path(True).unlink()
+        except OSError:
+            pass
+    db["backend"] = target["backend"]
+    gen = int(db.get("generation") or 0) + 1
+    db["generation"] = gen
     write_config_json(cfg)
     return gen
 
@@ -231,4 +263,5 @@ def _run(kind: str, target: Dict[str, Any], reload: Callable[[], None]) -> None:
 
 
 __all__ = ["MaintenanceASGI", "current_generation", "job_status", "maintenance_active",
-           "process_generation", "save_password", "start_job", "write_database_config"]
+           "pending_password", "process_generation", "save_password", "start_job",
+           "write_database_config"]

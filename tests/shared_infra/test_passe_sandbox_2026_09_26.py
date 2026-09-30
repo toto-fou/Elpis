@@ -5,8 +5,7 @@ optimisation de la sandbox (2026-09-26).
 Verrouille :
   • archives : extraction bornée (bombe tar) — le zip de dossier, plafonné,
     est produit par l'agent de la sandbox (test_archives_agent_2026_09_29) ;
-  • paths : nom temporaire tronqué en octets, copie d'arbre atomique et sans
-    suivi de lien ;
+  • paths : nom temporaire tronqué en octets ;
   • cycle de vie : cache par compte,
     verrou de cycle de vie sans fuite par boucle, 137 = redémarrage.
 """
@@ -67,49 +66,6 @@ def test_nom_temporaire_tronque_en_octets(tmp_path):
     assert write_beneath(tmp_path, leaf, b"ok") == 2
     assert (tmp_path / leaf).read_bytes() == b"ok"
 
-
-def test_copie_d_arbre_liens_tels_quels_et_atomique(tmp_path):
-    from shared_infra.sandbox.paths import copytree_beneath
-    src = tmp_path / "src"
-    (src / "d").mkdir(parents=True)
-    (src / "d" / "f.txt").write_text("x")
-    os.symlink("/etc/passwd", src / "lien")
-    base = tmp_path / "base"
-    base.mkdir()
-    assert copytree_beneath(src, base, "copie") == 1
-    assert (base / "copie" / "d" / "f.txt").read_text() == "x"
-    assert os.readlink(base / "copie" / "lien") == "/etc/passwd"
-    with pytest.raises(FileExistsError):
-        copytree_beneath(src, base, "copie")
-    (base / "fichier").write_text("occupé")
-    with pytest.raises(FileExistsError):
-        copytree_beneath(src, base, "fichier")
-    assert not [p for p in base.iterdir() if p.name.endswith(".cptmp")]
-
-
-def test_copie_d_arbre_echec_ne_laisse_rien(tmp_path, monkeypatch):
-    from shared_infra.sandbox import paths
-    src = tmp_path / "src"
-    src.mkdir()
-    for i in range(3):
-        (src / f"f{i}").write_text("x")
-    base = tmp_path / "base"
-    base.mkdir()
-    vrai = paths.write_beneath
-    appels = {"n": 0}
-
-    def casse(*a, **k):
-        appels["n"] += 1
-        if appels["n"] == 2:
-            raise OSError("disque plein")
-        return vrai(*a, **k)
-    monkeypatch.setattr(paths, "write_beneath", casse)
-    with pytest.raises(OSError):
-        paths.copytree_beneath(src, base, "copie")
-    assert list(base.iterdir()) == [], "arbre à moitié copié laissé en place"
-
-
-# ── Cycle de vie ─────────────────────────────────────────────────────────────
 
 def test_reset_cache_d_un_seul_compte():
     from shared_infra.sandbox.executors import _user_sandbox as us

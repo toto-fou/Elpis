@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 import llm_core.tools.fs_tools as fs_tools
 from shared_infra.sandbox import paths
-from shared_infra.sandbox.paths import SandboxPathError, open_beneath, pinned_beneath
+from shared_infra.sandbox.paths import SandboxPathError
 
 SECRET = "SECRET-DE-L-HOTE"
 
@@ -68,7 +68,18 @@ def _course_apres(monkeypatch, module, name, work, hote, *, appel=1):
     monkeypatch.setattr(module, name, controle_puis_bascule)
 
 
-# ── Primitives ──────────────────────────────────────────────────────────────
+# ── Primitives des parties de P à l'hôte (sauvegarde, restauration) ────────
+
+def _ouvrir(base, rel):
+    """Lecture par les primitives gardées : dossier sans suivre de lien, puis
+    la feuille (fichier régulier seulement)."""
+    parents, _, nom = rel.rpartition("/")
+    dfd = paths.open_dir_beneath(base, parents)
+    try:
+        return paths.open_leaf(dfd, nom)
+    finally:
+        os.close(dfd)
+
 
 def test_primitives_refusent_lien_fifo_socket(tmp_path):
     (tmp_path / "f.txt").write_text("ok")
@@ -77,11 +88,11 @@ def test_primitives_refusent_lien_fifo_socket(tmp_path):
     s = socket.socket(socket.AF_UNIX)
     s.bind(str(tmp_path / "sock"))
     try:
-        with pinned_beneath(tmp_path, "f.txt") as fp:
-            assert fp.read_text() == "ok"
+        with os.fdopen(_ouvrir(tmp_path, "f.txt"), "rb") as f:
+            assert f.read() == b"ok"
         for bad in ("lien", "lien/hostname", "fifo", "sock"):
             with pytest.raises((SandboxPathError, OSError)):
-                os.close(open_beneath(tmp_path, bad))
+                os.close(_ouvrir(tmp_path, bad))
     finally:
         s.close()
 
@@ -89,59 +100,32 @@ def test_primitives_refusent_lien_fifo_socket(tmp_path):
 def test_antislash_est_un_caractere_de_nom(tmp_path):
     (tmp_path / "d").mkdir()
     (tmp_path / "d" / "f").write_text("autre")
-    (tmp_path / "d\\f").write_text("bon")
-    with os.fdopen(open_beneath(tmp_path, "d\\f"), "rb") as f:
+    paths.write_beneath(tmp_path, "d\\f", b"bon")
+    with os.fdopen(_ouvrir(tmp_path, "d\\f"), "rb") as f:
         assert f.read() == b"bon"
-    paths.remove_beneath(tmp_path, "d\\f")
     assert (tmp_path / "d" / "f").read_text() == "autre"
 
 
-def test_traverse_sans_droit_de_lecture_et_chmod_sans_ouvrir(tmp_path):
+def test_traverse_sans_droit_de_lecture(tmp_path):
     priv = tmp_path / "priv"
     (priv / "pub").mkdir(parents=True)
     (priv / "pub" / "f").write_text("x")
-    (tmp_path / "w").write_text("x")
-    os.chmod(tmp_path / "w", 0o200)                 # ni lisible ni exécutable
     os.chmod(priv, 0o311)                           # traversable, pas listable
     try:
-        with os.fdopen(open_beneath(tmp_path, "priv/pub/f"), "rb") as f:
+        with os.fdopen(_ouvrir(tmp_path, "priv/pub/f"), "rb") as f:
             assert f.read() == b"x"
-        avant, apres = paths.chmod_beneath(tmp_path, "w", lambda m: m | 0o100)
-        assert (avant & 0o777, apres & 0o777) == (0o200, 0o300)
     finally:
         os.chmod(priv, 0o755)
-    os.symlink(tmp_path / "w", tmp_path / "lien")
+
+
+def test_ecriture_ne_traverse_aucun_lien(tmp_path):
+    os.symlink(tmp_path.parent, tmp_path / "lien")
     with pytest.raises(SandboxPathError):
-        paths.chmod_beneath(tmp_path, "lien", lambda m: 0o777)
-    assert paths.stat_beneath(tmp_path, "lien").st_mode & 0o170000 == 0o120000
-    assert os.stat(tmp_path / "w").st_mode & 0o777 == 0o300
-
-
-def test_elargissement_continue_si_la_racine_est_refusee(tmp_path, monkeypatch):
-    (tmp_path / "d").mkdir()
-    (tmp_path / "d" / "f").write_text("x")
-    os.chmod(tmp_path / "d" / "f", 0o600)
-    vrai = paths.os.chmod
-    racine = os.stat(tmp_path).st_ino
-
-    def chmod_refuse_la_racine(path, mode, *a, **k):
-        if os.stat(path).st_ino == racine:
-            raise PermissionError("racine étrangère")
-        return vrai(path, mode, *a, **k)
-    monkeypatch.setattr(paths.os, "chmod", chmod_refuse_la_racine)
-    paths.widen_beneath(tmp_path, "", recursive=True)
-    assert os.stat(tmp_path / "d" / "f").st_mode & 0o777 == 0o666
-
-
-def test_chmod_de_la_racine_et_mode_d_une_entree_disparue(tmp_path):
-    os.chmod(tmp_path, 0o755)
-    avant, apres = paths.chmod_beneath(tmp_path, "", lambda m: m | 0o002)
-    assert (avant & 0o777, apres & 0o777) == (0o755, 0o757)
-    dfd = paths.open_dir_beneath(tmp_path)
-    try:
-        assert paths.leaf_mode(dfd, "absent") == 0
-    finally:
-        os.close(dfd)
+        paths.write_beneath(tmp_path, "lien/x.txt", b"x")
+    assert not (tmp_path.parent / "x.txt").exists()
+    paths.write_beneath(tmp_path, "a/b.txt", b"b")
+    assert (tmp_path / "a" / "b.txt").read_bytes() == b"b"
+    assert os.stat(tmp_path / "a" / "b.txt").st_mode & 0o777 == 0o644
 
 
 def test_historique_garde_l_antislash(tmp_path):

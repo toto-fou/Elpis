@@ -327,6 +327,22 @@ conversation en cours**.
 > pouvez pas atteindre les fichiers d'un autre utilisateur ni le système hôte.
 > Voir [La sandbox](#la-sandbox--où-lassistant-travaille).
 
+### Brancher vos outils dans un client MCP
+
+Les mêmes outils sont servis en **MCP** (Model Context Protocol, HTTP
+streamable) à l'adresse de l'application : un éditeur, un assistant en ligne de
+commande, un agent ou un script qui parle MCP peut les utiliser.
+
+1. Créez un **jeton d'outils** dans **Paramètres › Connexions** et cochez les
+   familles voulues (`browser` et `desktop` ne le sont jamais d'office).
+2. Copiez le bloc de configuration proposé : une entrée par famille, d'URL
+   `https://<adresse-du-serveur>/api/mcp-bridge/<famille>`, avec l'en-tête
+   `Authorization: Bearer ept_…`.
+
+Chaque appel s'exécute dans votre sandbox, sous votre compte. Un client qui
+tourne dans un navigateur, sur une autre origine, est refusé tant que
+l'administrateur n'a pas ajouté cette origine à `mcp.allowed_origins`.
+
 ### Utiliser vos outils depuis une autre plateforme (OpenAPI)
 
 Les outils qui travaillent dans votre sandbox — fichiers (`fs`), terminal

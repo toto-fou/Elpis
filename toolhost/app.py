@@ -226,6 +226,10 @@ def build_app(tc: Optional[ToolhostConfig] = None):
     # l'aiguillage le chemin déjà réécrit (``/mcp``, ``/sse``).
     app.add_middleware(TransportSplitASGI, sse_app=sse_app)
     app.add_middleware(S.FamilyScopeASGI, bases=(S.HTTP_MOUNT_PATH, S.SSE_MOUNT_PATH))
+    # (EXT.2) Contrôle d'``Origin`` sur les seuls chemins MCP (l'API sandbox a
+    # sa porte : ToolhostAuthASGI ; la délégation du relais est un jeton
+    # ``dlg_`` vérifié par le vérificateur Bearer du service).
+    app.add_middleware(S.McpGateASGI, prefixes=(S.HTTP_MOUNT_PATH,) + SSE_PREFIXES)
     app.add_middleware(ToolhostAuthASGI, token=tc.token, max_skew_s=tc.identity_max_skew_s,
                        mcp_prefixes=(S.HTTP_MOUNT_PATH,) + SSE_PREFIXES)
     for r in served_routes():

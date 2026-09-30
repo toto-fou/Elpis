@@ -8,9 +8,11 @@ aucune ne répondait — en LAN comme derrière le frontal HTTPS. Le service est
 désormais relayé sous l'origine de l'app (même hôte, même port, même TLS).
 
 Ce que ce fichier verrouille :
-  • le relais exige un jeton elpis-remote VALIDE et le retransmet TEL QUEL
-    (c'est lui qui porte ``client_kind=opencode`` côté service, donc le masquage
-    de ``fs``/``shell``) — le jeton de SERVICE n'est jamais substitué ;
+  • le relais exige un jeton personnel VALIDE et ne le retransmet JAMAIS
+    (EXT.2) : il présente au service un jeton de DÉLÉGATION ``dlg_`` signé,
+    qui porte le compte, le type de client (``opencode`` → masquage de
+    ``fs``/``shell``) et ses familles — ni le jeton du client, ni le jeton de
+    service en clair ;
   • il refuse de relayer vers un service SANS authentification (sinon les
     familles ``fs``/``shell`` cesseraient d'être masquées) ;
   • les en-têtes de session MCP font l'aller-retour (sans eux, chaque requête
@@ -35,8 +37,9 @@ def bridge(monkeypatch):
     monkeypatch.setattr(cfg, "LOCAL_MCP_URL", "http://127.0.0.1:8765/mcp")
     monkeypatch.setattr(cfg, "LOCAL_MCP_TOKEN", "service-secret")
     # Jetons acceptés par le relais (EXT.1) : opencode ET outils.
-    monkeypatch.setattr(mp, "_resolve_token",
-                        lambda t: {"user_id": 3} if t in ("pcr_ok", "ept_ok") else None)
+    clients = {"pcr_ok": {"user_id": 3, "username": "hugo", "kind": "opencode", "families": []},
+               "ept_ok": {"user_id": 3, "username": "hugo", "kind": "tools", "families": ["git"]}}
+    monkeypatch.setattr(mp, "_resolve_token", lambda t: clients.get(t))
 
     vues: list[httpx.Request] = []
 
@@ -107,14 +110,36 @@ def test_jeton_valide_passe(bridge, entete):
 
 # ── Ce qui part vers le service ──────────────────────────────────────────────
 
-def test_le_jeton_du_client_est_retransmis_tel_quel(bridge):
-    """C'est CE jeton qui porte ``client_kind=opencode`` côté service, donc le
-    masquage de ``fs``/``shell``. Substituer celui de l'app (client de confiance,
-    ``trusted_meta``) donnerait au poste distant les droits de l'app."""
+@pytest.mark.parametrize("jeton,type_,familles", [
+    ("pcr_ok", "opencode", []), ("ept_ok", "tools", ["git"])])
+def test_le_relais_delegue_sans_retransmettre_le_jeton(bridge, jeton, type_, familles):
+    """(EXT.2) Pas de « token passthrough » : le service reçoit un jeton de
+    délégation signé avec le jeton de service, qui porte le compte, le type de
+    client (``opencode`` → masquage de ``fs``/``shell``) et ses familles — ni
+    le jeton du client, ni le jeton de service en clair (qui lui prêterait la
+    confiance de l'app)."""
+    from shared_infra.mcp.delegation import verify_delegation
     client, vues, _ = bridge
-    client.post("/api/mcp-bridge/git", json={}, headers={"Authorization": "Bearer pcr_ok"})
-    assert vues[0].headers["authorization"] == "Bearer pcr_ok"
-    assert "service-secret" not in str(vues[0].headers)
+    client.post("/api/mcp-bridge/git", json={}, headers={"Authorization": f"Bearer {jeton}"})
+    auth = vues[0].headers["authorization"]
+    assert auth.startswith("Bearer dlg_")
+    assert jeton not in str(vues[0].headers) and "service-secret" not in str(vues[0].headers)
+    claims = verify_delegation(auth[7:], "service-secret")
+    assert claims["sub"] == "hugo" and claims["uid"] == 3
+    assert claims["kind"] == type_ and claims["families"] == familles
+    assert verify_delegation(auth[7:], "autre-cle") is None
+
+
+def test_origine_etrangere_et_version_inconnue_refusees_sans_appel_amont(bridge):
+    client, vues, _ = bridge
+    h = {"Authorization": "Bearer pcr_ok"}
+    assert client.post("/api/mcp-bridge/git", json={},
+                       headers={**h, "Origin": "http://evil.example"}).status_code == 403
+    assert client.post("/api/mcp-bridge/git", json={},
+                       headers={**h, "MCP-Protocol-Version": "1999-01-01"}).status_code == 400
+    assert not vues
+    assert client.post("/api/mcp-bridge/git", json={},
+                       headers={**h, "Origin": "http://testserver"}).status_code == 200
 
 
 def test_la_famille_devient_un_segment_du_chemin_amont(bridge):

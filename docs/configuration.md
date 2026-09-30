@@ -558,6 +558,32 @@ jeton dans le `_meta` MCP, avec le délai propre à l'outil ; au plus 4 appels
 simultanés par compte et par worker (429). Code :
 `shared_infra/mcp/openapi.py`, `shared_infra/mcp/routes_openapi.py`.
 
+**Conformité MCP (EXT.2, EXT.3).** Le service d'outils suit la spécification
+MCP (révisions 2024-11-05 à 2025-11-25, transport HTTP streamable), vérifiée par
+un banc qui fait parler les clients de référence (SDK officiel et FastMCP) au
+relais : `initialize` pour chaque version (version d'Elpis dans `serverInfo`,
+`tools.listChanged: false` — aucune notification de liste n'est émise),
+`tools/list` paginé (`nextCursor`, `LOCAL_MCP_LIST_PAGE_SIZE`, 100 par défaut,
+de quoi tenir un endpoint de famille en une page), outils nommés, titrés,
+annotés (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`),
+`inputSchema`/`outputSchema` en JSON Schema, `structuredContent` conforme à
+`outputSchema`. Un échec d'outil — arguments invalides compris — est un résultat
+`isError` ; un outil inconnu, éteint ou hors des familles du client est une
+erreur JSON-RPC `-32602` (même réponse dans les trois cas). Transport : le relais
+public `/api/mcp-bridge[/<famille>]` ne sert que l'HTTP streamable, refuse une
+`MCP-Protocol-Version` inconnue (400) et contrôle `Origin` (403) comme le service
+d'outils : un en-tête absent (clients natifs) passe, sinon l'origine doit figurer
+dans `mcp.allowed_origins` (relue à chaud, motif `scheme://hôte:*` accepté),
+`app.cors_origins` ou `LOCAL_MCP_ALLOWED_ORIGINS` ; le relais accepte en plus sa
+propre origine. Le relais ne retransmet jamais le jeton du client : il le vérifie
+(`CLIENT_VERIFIERS`, `shared_infra/mcp/bridge.py`) puis présente au service un
+jeton de DÉLÉGATION `dlg_…` (`shared_infra/mcp/delegation.py`) — enveloppe HMAC
+signée avec le jeton de service, d'audience `elpis-mcp`, valable ±60 s, qui porte
+le compte, le type de client et ses familles. Le service en tire les restrictions
+qu'aurait eues le jeton du client, jamais la confiance de l'app ; un service qui
+ne connaît pas `dlg_` le refuse (401). Un jeton personnel présenté directement au
+service (client local sur la boucle locale) reste accepté.
+
 **Politique d'exécution et événements live.** Chaque outil
 porte ``meta.policy`` (``timeout_s``, ``serial``, ``replay_safe``, ``prune``,
 ``deny_for``) via ``_toolkit.tool_kw_*(…, **policy)`` / ``with_policy`` ; le
@@ -624,6 +650,8 @@ l'être). Routes :
 | `LOCAL_MCP_TOKEN` | — | Jeton de **service** de l'app (Bearer, **vérifié** côté serveur sur SSE/HTTP) ; `./elpis configure` le génère dans `user_db/.local_mcp_token` |
 | `LOCAL_MCP_CLIENT_TOKENS` | — | Jetons de **clients externes** configurés à la main, chacun lié à un compte : `tok1:alice,tok2:bob` (toutes les familles) |
 | `LOCAL_MCP_TOOL_FAMILIES` | `all` | Familles enregistrées : `fs,shell,git` ou `all,-desktop,-browser` |
+| `LOCAL_MCP_LIST_PAGE_SIZE` | `100` | Outils par page de `tools/list` (pagination par `cursor`) |
+| `LOCAL_MCP_ALLOWED_ORIGINS` | *(vide)* | Origines de navigateur autorisées en plus de `mcp.allowed_origins` et `app.cors_origins` (séparées par des virgules, `scheme://hôte:*` accepté) |
 | `LOCAL_MCP_OPENCODE_FAMILIES` | `git,browser,desktop` | Familles **publiées** à opencode, une **entrée MCP (= une bascule) par famille** → `…/mcp/<famille>`. Liste d'inclusion : une famille ajoutée plus tard doit être nommée pour apparaître |
 | `LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES` | `fs,shell,skill_run` | Familles **toujours refusées** aux clients opencode (jeton elpis-remote `pcr_…`, accepté en Bearer) — opencode a ses propres outils fichiers/shell |
 | `LOCAL_MCP_PUBLIC_URL` | — | URL du service telle que les postes la joignent (bloc `mcp` d'`opencode.json`) ; vide → hôte de l'app + `LOCAL_MCP_PORT` |

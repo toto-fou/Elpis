@@ -69,7 +69,7 @@ def test_le_serveur_verifie_reellement(srv):
     en-tête envoyé dans le vide — c'était le défaut du jeton de 2026-07."""
     src = (ROOT / "server" / "local_mcp_server.py").read_text(encoding="utf-8")
     assert "StaticTokenVerifier" in src
-    assert "LocalToolsMCP(MCP_NAME, auth=_AUTH)" in src
+    assert "LocalToolsMCP(MCP_NAME, auth=_AUTH," in src
     assert srv.bind_allowed("127.0.0.1", False)
     assert srv.bind_allowed("localhost", False)
     assert not srv.bind_allowed("0.0.0.0", False)

@@ -2140,6 +2140,7 @@ HOT_RELOAD_PATHS = frozenset({
     "llm.scheduling_mode", "app.max_recent_chats",      # live_config_value
     "maintenance.daily_digest_enabled",                 # relu à chaque passe (ops/maintenance.py)
     "browser.url_allowlist",                            # relu par le service navigateur et les outils pw_*
+    "mcp.allowed_origins",                              # shared_infra/mcp/origins.py (relais + service)
 })
 BOOT_READ_PATHS = frozenset(_BOOT_READS)
 _BOOT_RECORDING = False

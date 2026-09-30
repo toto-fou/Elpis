@@ -76,6 +76,8 @@ files = [
     "shared_infra/security/browser_url.py",
     "shared_infra/mcp/openapi.py",
     "shared_infra/mcp/routes_openapi.py",
+    "shared_infra/mcp/origins.py",
+    "shared_infra/mcp/delegation.py",
 ]
 explicit_package_bases = true
 follow_imports = "silent"

@@ -19,7 +19,12 @@
 
 /** Crée l'état de verrou d'une session. */
 export function makeLock() {
-    return { tail: Promise.resolve(), waiters: 0 };
+    return { tail: Promise.resolve(), waiters: 0, held: 0 };
+}
+
+/** Verrou au repos : personne ne le tient ni ne l'attend (purgeable). */
+export function lockIdle(lock) {
+    return !lock || ((lock.waiters || 0) === 0 && (lock.held || 0) === 0);
 }
 
 /**
@@ -58,10 +63,12 @@ export function acquireLock(lock, opts = {}) {
             return null;
         }
         lock.waiters--;
+        lock.held = (lock.held || 0) + 1;
         let done = false;
         const release = () => {
             if (done) return;
             done = true;
+            lock.held = Math.max(0, (lock.held || 0) - 1);
             clearTimeout(safety);
             releaseTurn();
         };

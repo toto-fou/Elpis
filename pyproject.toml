@@ -73,6 +73,7 @@ files = [
     "llm_core/context/tokens.py",
     "llm_core/_scheduling",
     "llm_core/engine",
+    "shared_infra/security/browser_url.py",
 ]
 explicit_package_bases = true
 follow_imports = "silent"

@@ -187,7 +187,7 @@ def inject_ax_memory_into_messages(working_messages: List[Dict],
         _sites = _ax_detect(_recent_user_text)
 
         # Detection de la page courante via session Playwright active
-        _session_url = _ax_session_url(working_messages)
+        _session_url = _ax_session_url(working_messages, owner=owner)
         _current_site = None
         _current_path = None
         if _session_url:

@@ -49,6 +49,14 @@ class _FakeClock:
         self.t += s
 
 
+@pytest.fixture(autouse=True)
+def _sessions_du_compte(monkeypatch):
+    """Les sessions de ces tests appartiennent au compte du contexte
+    (``guest``) : depuis 2026-09-30, une session inconnue est refusée."""
+    import llm_core._pw_session as _pws
+    monkeypatch.setattr(_pws, "get_pw_session_owner", lambda sid: "guest")
+
+
 @pytest.fixture
 def pw_wait():
     mcp = _FakeMCP()

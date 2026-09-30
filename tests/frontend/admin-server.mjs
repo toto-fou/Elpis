@@ -491,6 +491,26 @@ http.createServer((req, res) => {
             });
             return;
         }
+        // Supervision › Exécutions (L5.7)
+        if (url.startsWith('/api/admin/runs/accounts')) return json(res, { hours: 24, items: [
+            { user_id: 3, username: 'alice', runs: 2, failed: 1, subagents: 1, input_tokens: 14000, output_tokens: 1400,
+              llm_ms: 6000, wait_ms: 500, tool_calls: 2, tool_errors: 1, files_changed: 1,
+              sandbox_cpu_peak: 80, sandbox_mem_peak_mb: 512 }] });
+        if (url.startsWith('/api/admin/runs/chat-a1/timeline')) return json(res, {
+            run: { id: 'chat-a1', status: 'ok', started_at: 1781000000, ended_at: 1781000060, input_tokens: 1000,
+                   output_tokens: 100, tool_calls: 1, tool_errors: 0, files_changed: 1, engine: 'llama' },
+            events: [{ type: 'tool', at: 1781000004, tool_name: 'execute_shell', status: 'success',
+                       duration_ms: 10, argument: 'command: ls', result: 'ok' }], children: [] });
+        if (url === '/api/admin/runs') {
+            const filtre = /user_id=3/.test(req.url);
+            return json(res, { items: [
+                { id: 'chat-a1', kind: 'chat', user_id: 3, username: 'alice', status: 'ok', started_at: 1781000000,
+                  ended_at: 1781000060, input_tokens: 1000, output_tokens: 100, prefill_ms: 2000, decode_ms: 3000,
+                  tool_calls: 2, tool_errors: 1, engine: 'llama' },
+                ...(filtre ? [] : [{ id: 'routine-b1', kind: 'routine', user_id: 4, username: 'bob', status: 'error',
+                  started_at: 1781000100, ended_at: 1781000110, input_tokens: 0, output_tokens: 0, tool_calls: 0 }]),
+            ] });
+        }
         if (url === '/api/admin/observability/tool-summary') return json(res, { totals: {}, per_tool: [], recent_failures: [] });
         if (url === '/api/admin/observability/tool-failures') return json(res, { items: [], total: 0 });
         if (url === '/api/admin/observability/audit-recent') return json(res, { items: [] });

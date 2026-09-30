@@ -428,7 +428,7 @@
                                              résumé streamé serait illisible en région live. -->
                                         <span v-if="pl.running && pl.label" class="sr-only" role="status" aria-live="polite">{{ pl.label }}</span>
                                         <!-- Budget d'itérations (L5.4) : visible avant d'être atteint. -->
-                                        <span v-if="pl.running && entry.msg.iterBudget && entry.msg.iterBudget.n > 1"
+                                        <span v-if="entry.msg.isStreaming && entry.msg.iterBudget && entry.msg.iterBudget.n > 1"
                                               class="text-[11px] font-normal shrink-0 tabular-nums"
                                               :class="entry.msg.iterBudget.n >= entry.msg.iterBudget.max * 0.8 ? 'text-amber-600' : 'text-slate-400'"
                                               title="Itérations de la boucle d'outils : en cours / budget du tour">· tour {{ entry.msg.iterBudget.n }}/{{ entry.msg.iterBudget.max }}</span>

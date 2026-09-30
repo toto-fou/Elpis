@@ -9,11 +9,14 @@
 //  les événements horodatés (tours LLM, appels d'outils avec argument
 //  principal et extrait du résultat, sous-agents et compactions, dépliables).
 //  Export JSON (secrets masqués côté serveur) : GET …/export.
+//  Console (L5.7) : ``showRunDetails(id, ids, {admin: true})`` lit les routes
+//  /api/admin/runs/… (exécution de n'importe quel compte) ; le mode suit la
+//  navigation dans la modale (onglets, sous-exécutions).
 //
 //  Exporte
 //  -------
 //    runDetails (ref) -- état de la modale, ou null
-//    openRunDetails(msg), closeRunDetails(), showRunDetails(runId)
+//    openRunDetails(msg), closeRunDetails(), showRunDetails(runId, ids, opts)
 //    runEventLabel(ev), runEventMeta(ev), runDuration(ms), runExportHref(id)
 // ============================================================
 (function () {
@@ -25,11 +28,15 @@
         const _fetch = (_ctx && typeof _ctx.fetchAuth === 'function')
             ? _ctx.fetchAuth : (u, o) => fetch(u, o);
 
-        async function showRunDetails(runId, ids) {
+        const _base = (admin) => admin ? '/api/admin/runs/' : '/api/runs/';
+
+        async function showRunDetails(runId, ids, opts) {
             const liste = Array.isArray(ids) && ids.length ? ids : [runId];
-            runDetails.value = { runId, ids: liste, loading: true, error: '', data: null, open: {} };
+            const admin = (opts && typeof opts.admin === 'boolean') ? opts.admin
+                : !!(runDetails.value && runDetails.value.admin);
+            runDetails.value = { runId, ids: liste, admin, loading: true, error: '', data: null, open: {} };
             try {
-                const r = await _fetch('/api/runs/' + encodeURIComponent(runId) + '/timeline', {}, true);
+                const r = await _fetch(_base(admin) + encodeURIComponent(runId) + '/timeline', {}, true);
                 if (!r || !r.ok) {
                     runDetails.value = Object.assign({}, runDetails.value, { loading: false,
                         error: (r && r.status === 404) ? 'Détails indisponibles (exécution purgée ou antérieure à cette version).'
@@ -49,7 +56,7 @@
         function openRunDetails(msg) {
             const ids = (msg && Array.isArray(msg.run_ids)) ? msg.run_ids.filter(Boolean) : [];
             if (!ids.length) return;
-            showRunDetails(ids[ids.length - 1], ids);
+            showRunDetails(ids[ids.length - 1], ids, { admin: false });
         }
 
         function closeRunDetails() { runDetails.value = null; }
@@ -109,7 +116,9 @@
             try { return new Date(Number(ts) * 1000).toLocaleTimeString('fr-FR'); } catch (_) { return ''; }
         }
 
-        function runExportHref(id) { return '/api/runs/' + encodeURIComponent(id) + '/export'; }
+        function runExportHref(id) {
+            return _base(!!(runDetails.value && runDetails.value.admin)) + encodeURIComponent(id) + '/export';
+        }
 
         return { runDetails, openRunDetails, closeRunDetails, showRunDetails, toggleRunEvent,
                  runDuration, runEventLabel, runEventMeta, runEventState, runClock, runExportHref };

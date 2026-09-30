@@ -51,4 +51,15 @@ t('état : ok, arrêt, erreur', () => {
     assert.equal(D.runExportHref('chat-a'), '/api/runs/chat-a/export');
 });
 
+t('console : le mode admin lit les routes admin et suit la navigation', () => {
+    vus.length = 0;
+    D.showRunDetails('chat-z', ['chat-z'], { admin: true });
+    assert.equal(vus[0], '/api/admin/runs/chat-z/timeline');
+    assert.equal(D.runExportHref('chat-z'), '/api/admin/runs/chat-z/export');
+    D.showRunDetails('subagent-y', ['subagent-y']);          // sous-exécution ouverte depuis la modale
+    assert.equal(vus[1], '/api/admin/runs/subagent-y/timeline');
+    D.openRunDetails({ run_ids: ['chat-m'] });               // depuis un message : routes du compte
+    assert.equal(vus[2], '/api/runs/chat-m/timeline');
+});
+
 fin('test_run_details.js');

@@ -1888,7 +1888,10 @@ async def _llama_chat_with_tools_stream(
 # explique au modèle comment lire le tag.
 def _harness_status_line(k: int, n: int, *,
                          wall_left_s: Optional[float] = None,
-                         hard_left: Optional[int] = None) -> Optional[str]:
+                         hard_left: Optional[int] = None,
+                         ctx_left: Optional[int] = None,
+                         ctx_size: Optional[int] = None,
+                         sandbox_limits: Optional[str] = None) -> Optional[str]:
     """Ligne ``<harness_status>`` pour k itérations productives consommées sur
     un budget de n — ou None hors jalon. k >= n est géré ailleurs (sortie de
     boucle + tour de synthèse « MAXIMUM STEPS REACHED »).
@@ -1898,7 +1901,12 @@ def _harness_status_line(k: int, n: int, *,
     d'étapes, mais le modèle n'en entendait jamais parler : il planifiait
     contre un budget qui n'était pas celui qui allait l'arrêter (audit
     2026-08-01, P1-7). On l'annonce dès qu'il devient la contrainte la plus
-    proche."""
+    proche.
+
+    ``ctx_left``/``ctx_size`` (jetons) et ``sandbox_limits`` (texte court,
+    L5.6) s'ajoutent au point d'étape budget : le modèle planifie contre la
+    fenêtre restante et les limites réelles du conteneur. Rien de plus émis
+    hors jalon."""
     # Le plafond dur passe DEVANT quand il est sur le point de mordre : c'est
     # alors lui la vraie limite, et le geste utile n'est pas le même (des
     # appels échouent en série — il faut changer d'approche, pas se dépêcher).
@@ -1931,7 +1939,25 @@ def _harness_status_line(k: int, n: int, *,
                 "stop early while budget remains.")
     if wall_left_s is not None:
         body += f" Wall-clock remaining: ~{max(0, int(wall_left_s // 60))} min."
+    if ctx_size and ctx_size > 0 and ctx_left is not None:
+        body += (f" Context window: ~{max(0, int(ctx_left)) // 1000}k of "
+                 f"{int(ctx_size) // 1000}k tokens left.")
+    if sandbox_limits:
+        body += f" Sandbox limits: {sandbox_limits}."
     return f"<harness_status>{body}</harness_status>"
+
+
+def _sandbox_limits_text() -> Optional[str]:
+    """Limites du conteneur sandbox (config admin) en une ligne courte pour
+    ``<harness_status>`` (L5.6) ; None si la config est illisible."""
+    try:
+        from shared_infra.sandbox.executors._user_sandbox import load_admin_config
+        cfg = load_admin_config()
+        return (f"{int(cfg.memory_mb)} MB RAM, {cfg.cpu_quota_pct / 100.0:g} CPU, "
+                f"{int(cfg.pids_max)} processes, {int(cfg.timeout_s)} s per command")
+    except Exception as _e:                                       # noqa: BLE001
+        logger.debug("sandbox limits unavailable for harness_status: %s", _e)
+        return None
 
 
 def _todo_status_reminder(username: str, chat_id: Optional[str]) -> Optional[str]:
@@ -3869,6 +3895,9 @@ async def _run_chat_multi_mcp_impl(
     # ré-injecté à chaque tour raté — et l'alerte « plafond dur », elle,
     # ne sortirait JAMAIS (elle vit précisément quand effective_iter stagne).
     _hs_last_status_key: Optional[Tuple[str, int]] = None
+    # Limites de la sandbox pour <harness_status> : None = pas encore lues,
+    # "" = rien à dire (shell absent) ou déjà annoncées dans ce tour.
+    _hs_sandbox_limits: Optional[str] = None
 
     # AUDIT 2026-08-23 — un slot LLM pour TOUS les appels de la boucle.
     #
@@ -4122,13 +4151,24 @@ async def _run_chat_multi_mcp_impl(
         Invisible côté UI : les messages role:user injectés mi-tour ne sont
         jamais rendus (cf. _tool_segments « prompt / nudge mid-turn »).
         ``working_messages`` lu via la closure (suit les réassignations)."""
-        nonlocal _hs_last_status_key
+        nonlocal _hs_last_status_key, _hs_sandbox_limits
         _hard_left = max(0, _hard_iter_cap - hard_iter)
+        # Contexte restant (L5.6) : occupation du dernier appel LLM (les
+        # résultats d'outils qui suivent n'y sont pas : ordre de grandeur).
+        _u = (last_raw or {}).get("usage") or {}
+        _occ = int(_u.get("prompt_tokens", 0) or 0) + int(_u.get("completion_tokens", 0) or 0)
+        # Limites de la sandbox (L5.6) : seulement si le shell est offert,
+        # annoncées au premier point d'étape du tour, pas à chaque jalon.
+        if _hs_sandbox_limits is None:
+            _hs_sandbox_limits = (_sandbox_limits_text() or "") if "execute_shell" in _allowed_tool_names else ""
         _hs = _harness_status_line(
             effective_iter, _effective_iter_budget,
             wall_left_s=((_loop_max_s - (time.monotonic() - _loop_t0))
                          if _loop_max_s > 0 else None),
             hard_left=_hard_left,
+            ctx_left=(_ctx_size_for_compression - _occ) if _occ else None,
+            ctx_size=_ctx_size_for_compression,
+            sandbox_limits=_hs_sandbox_limits or None,
         )
         if not _hs:
             return
@@ -4141,6 +4181,7 @@ async def _run_chat_multi_mcp_impl(
         if _key == _hs_last_status_key:
             return
         _hs_last_status_key = _key
+        _hs_sandbox_limits = ""
         # ÉPHÉMÈRE : jamais persisté, donc jamais compté comme un tour
         # (sans quoi ``covered_turns`` sur-compte à la compaction et le
         # tour suivant jette de vrais tours en trop — cf. P1-6).
@@ -5596,7 +5637,7 @@ async def _run_chat_multi_mcp_impl(
                     # nom attribue sinon le 1er résultat au dernier step).
                     "call_id": call_id,
                     "result": result_content[:2000],  # 2000 chars pour le panneau détail UI
-                    # Durée de l'appel (L5.4), pour les clients du flux ; le chat ne l'affiche pas.
+                    # Durée de l'appel (L5.4) : affichée à côté de chaque outil.
                     "duration_ms": p.get("duration_ms"),
                 }
                 _dk = _desktop_event_extra(tool_name, result_content,

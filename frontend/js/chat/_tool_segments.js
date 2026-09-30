@@ -195,6 +195,7 @@
         var toolSteps = [];
         var byId = Object.create(null);
         var sawToolRound = false;
+        var nRound = -1;          // index du round (appel LLM avec outils) de chaque step
 
         for (var i = start; i < toolHistory.length; i++) {
             var e = toolHistory[i];
@@ -247,6 +248,7 @@
             }
 
             sawToolRound = true;
+            nRound++;
             // Narration du round → nouveau segment ; round muet → les calls
             // rejoignent le segment courant (même comportement que le live).
             if (txt) segTexts.push(txt);
@@ -266,7 +268,7 @@
                     name: name, args: args, result: null,
                     // 'done' même sans résultat apparié (un 'running' figé
                     // afficherait un spinner éternel sur un message rechargé).
-                    status: 'done', seg: seg,
+                    status: 'done', seg: seg, round: nRound,
                     thinking: '', thinkingOpen: false,
                     isRag: false,
                     ragLabel: ragCallLabel(name, args),

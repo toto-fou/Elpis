@@ -505,6 +505,42 @@ await ta('une réponse en échec ne détruit pas les messages déjà affichés',
     assert.equal(lus(refs)[0].content, 'déjà là');
 });
 
+// ── Compactions du tour (L5.5) ───────────────────────────────
+
+await ta('une compaction persistée redevient le pas « compression », à la place de son round', async () => {
+    const th = [
+        { role: 'assistant', content: '', tool_calls: [{ id: 'c1', type: 'function', function: { name: 'read_file', arguments: '{}' } }] },
+        { role: 'tool', tool_call_id: 'c1', content: 'a' },
+        { role: 'assistant', content: '', tool_calls: [{ id: 'c2', type: 'function', function: { name: 'read_file', arguments: '{}' } }] },
+        { role: 'tool', tool_call_id: 'c2', content: 'b' },
+    ];
+    const { api, refs } = monter(conv([
+        { role: 'user', content: 'u' },
+        { role: 'assistant', content: 'fin', tool_history: th, tool_history_delta: true, pruned: 3,
+          compactions: [{ round: 1, reason: 'threshold', threshold: 6000, tokens_before: 8000, tokens_after: 2000 }] },
+    ]));
+    await api.loadChat('chat-1');
+    const m = lus(refs)[1];
+    const comp = m.toolSteps.filter((s) => s._kind === 'compression');
+    assert.equal(comp.length, 1);
+    assert.equal(comp[0].status, 'done');
+    assert.equal(comp[0].reason, 'threshold');
+    assert.equal(comp[0].threshold, 6000);
+    assert.equal(comp[0].stats.ratio, 0.25);
+    // Un appel LLM fait avant la compaction : elle suit les outils du 1er
+    // round et précède ceux du 2e, dans le même segment.
+    assert.deepStrictEqual(m.toolSteps.map((s) => s._kind === 'compression' ? 'compression' : s.name + '#' + s.round),
+                           ['read_file#0', 'compression', 'read_file#1']);
+    assert.equal(comp[0].seg, m.toolSteps[0].seg);
+    assert.equal(m.pruned, 3);
+});
+
+await ta('sans compactions, aucun pas « compression » n\'est inventé', async () => {
+    const { api, refs } = monter(conv([{ role: 'assistant', content: 'x', compactions: [] }]));
+    await api.loadChat('chat-1');
+    assert.equal(lus(refs)[0].toolSteps, undefined);
+});
+
 // ── Panneau todo ─────────────────────────────────────────────
 
 await ta('une liste de todos entièrement soldée ne réapparaît pas', async () => {

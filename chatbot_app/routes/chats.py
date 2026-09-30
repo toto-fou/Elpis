@@ -1250,11 +1250,32 @@ def _fc_list(msg: dict) -> list:
     return [e for e in (_fc_clean(x) for x in fc[:_FC_MAX]) if e]
 
 
+_COMPACTION_NOMBRES = ("round", "threshold", "ctx_size", "tokens_before", "tokens_after", "tokens_saved",
+                       "messages_before", "messages_after", "duration_ms", "turns_compressed")
+
+
+def _compaction_pour_message(c: dict) -> dict:
+    """Jalon de compaction gardé sur un message (L5.5) : champs connus,
+    bornés (il revient du client au tour suivant)."""
+    out: dict = {}
+    for k in _COMPACTION_NOMBRES:
+        v = c.get(k)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            out[k] = int(v)
+    for k, n in (("reason", 32), ("path", 32), ("model_used", 120)):
+        v = c.get(k)
+        if isinstance(v, str) and v:
+            out[k] = v[:n]
+    if isinstance(c.get("had_previous_summary"), bool):
+        out["had_previous_summary"] = c["had_previous_summary"]
+    return out
+
+
 def _merge_prev_segment_lists(prev_msg: dict, msg: dict) -> None:
     """« Continuer » : les ``task_runs`` et les exécutions (``run_ids``) du
     segment tronqué passent EN TÊTE de ceux de la continuation (sans
     doublon). Mute ``msg``."""
-    for _k in ("task_runs", "run_ids"):
+    for _k in ("task_runs", "run_ids", "compactions"):
         _anc = prev_msg.get(_k) if isinstance(prev_msg.get(_k), list) else []
         if not _anc:
             continue
@@ -1306,7 +1327,7 @@ _NOTICE_FIELDS = ("kind", "ts", "round", "tokens_after", "summary")
 
 
 _GRAFT_KEYS = ("tool_history", "tool_history_delta", "task_runs",
-               "resume_thinking", "thinkingTruncated", "run_ids")
+               "resume_thinking", "thinkingTruncated", "run_ids", "compactions")
 
 
 def _graft_stopped_turn_state(filtres: list, persistables: list, db_msgs) -> int:
@@ -1410,6 +1431,14 @@ def _normalize_client_messages(messages: list) -> tuple[list, list]:
             _rids = [r for r in m["run_ids"] if isinstance(r, str) and 0 < len(r) <= 64][:64]
             if _rids:
                 _mm["run_ids"] = _rids
+        if isinstance(m.get("pruned"), int) and not isinstance(m.get("pruned"), bool) \
+                and 0 < m["pruned"] < 100000:
+            _mm["pruned"] = m["pruned"]
+        # Jalons de compaction du message (L5.5) : sinon perdus au persist.
+        if isinstance(m.get("compactions"), list):
+            _cps = [_compaction_pour_message(c) for c in m["compactions"][:20] if isinstance(c, dict)]
+            if _cps:
+                _mm["compactions"] = _cps
         _met = _metrics_for_persist(m.get("metrics"))
         if _met:
             _mm["metrics"] = _met
@@ -3011,6 +3040,11 @@ async def api_chat_saved_stream3(request: Request):
         # ``tool_result``) → ``files_changed`` du message : le chat retrouve
         # ses diffs après rechargement (2026-09-26).
         _files_changed_acc: dict = {}
+        # Compactions du tour (L5.5) → ``compactions`` du message : le jalon
+        # (motif, seuil, avant → après) survit au rechargement.
+        _compactions_acc: list = []
+        _compaction_en_cours: dict = {}
+        _tours_vus: dict = {"n": 0}      # tours LLM déjà faits → place du jalon au rechargement
         _partial_thinking_acc: list = []
         # Dernière tool_history cumulée émise par run_chat_multi_mcp juste avant de
         # propager une annulation (event interne ``tool_history_partial``). Liste
@@ -3081,6 +3115,18 @@ async def api_chat_saved_stream3(request: Request):
                     "ledger_block":     ev.get("ledger_block") or "",
                 })
                 return
+            if _evt == "iteration":           # un par appel LLM (``n`` ne compte que les productifs)
+                _tours_vus["n"] += 1
+            elif _evt == "compression_start":
+                _compaction_en_cours.clear()
+                _compaction_en_cours.update(reason=ev.get("reason"), threshold=ev.get("threshold"),
+                                            ctx_size=ev.get("ctx_size"), round=_tours_vus["n"])
+            elif _evt == "compression_done":
+                _st = ev.get("stats") if isinstance(ev.get("stats"), dict) else {}
+                if _st.get("compressed"):
+                    _compactions_acc.append(_compaction_pour_message(
+                        {**_compaction_en_cours, **_st, "path": ev.get("path")}))
+                _compaction_en_cours.clear()
             # Relevé AVANT le filtre d'annulation : une écriture faite reste
             # faite, même si son résultat n'est plus montré.
             if _evt in ("tool_result", "task_step") and ev.get("files"):
@@ -3736,6 +3782,11 @@ async def api_chat_saved_stream3(request: Request):
                     msg_assistant["task_runs"] = _task_runs_for_persist(_task_usage["runs"])
                 if _files_changed_acc:
                     msg_assistant["files_changed"] = list(_files_changed_acc.values())
+                if _compactions_acc:
+                    msg_assistant["compactions"] = list(_compactions_acc)
+                # Élagage visible (L5.5) : sorties d'outils retirées du contexte.
+                if _new_prune_keys:
+                    msg_assistant["pruned"] = len(_new_prune_keys)
 
                 # BUG FIX — Continue (reprise) ne doit PAS créer un 2e message
                 # assistant en base. Le front fusionne la continuation dans la
@@ -4066,6 +4117,9 @@ async def api_chat_saved_stream3(request: Request):
                     "run_ids": msg_assistant.get("run_ids") or [_exec_id],
                     **({"files_changed": msg_assistant["files_changed"]}
                        if msg_assistant.get("files_changed") else {}),
+                    **({"compactions": msg_assistant["compactions"]}
+                       if msg_assistant.get("compactions") else {}),
+                    **({"pruned": msg_assistant["pruned"]} if msg_assistant.get("pruned") else {}),
                     "chat_id": _effective_chat_id,
                     # Additif : présent seulement quand la sortie auto du mode
                     # plan vient d'avoir lieu (cf. bloc ci-dessus).
@@ -4258,6 +4312,8 @@ async def api_chat_saved_stream3(request: Request):
                             msg_partial["task_runs"] = _task_runs_for_persist(_task_usage["runs"])
                         if _files_changed_acc:
                             msg_partial["files_changed"] = list(_files_changed_acc.values())
+                        if _compactions_acc:
+                            msg_partial["compactions"] = list(_compactions_acc)
                         # AUDIT 2026-09-25 — Stop pendant un « Continuer » : les
                         # cartes de sous-agents du segment tronqué sont gardées.
                         if isinstance(_prev_p, dict) and _prev_p:

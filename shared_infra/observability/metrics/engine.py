@@ -564,6 +564,37 @@ class KPILatencyP99Provider(MetricProvider):
         return {"value":v,"unit":"sec (99e)","color":"red","icon":"ph-warning"}
 
 
+class KPILLMWaitProvider(MetricProvider):
+    """Attente d'un créneau LLM avant chaque appel (``llm_wait_time_ms``,
+    mode optimisé) : moyenne des attentes non nulles, P95 en détail. Un P95
+    qui grimpe = créneaux saturés (L5.6)."""
+    id="kpi_llm_wait"; title="Attente d'un créneau LLM"; type="value"; width="1/4"; icon="ph-hourglass-medium"; color="amber"
+    @property
+    def category(self): return "performance"
+    @property
+    def event_types(self): return ('llm_wait_time_ms',)
+    def get_data(self, scope_hours=None):
+        h = _scope_hours(scope_hours)
+        p95 = _percentile_metric("llm_wait_time_ms", hours=h, percentile=95)
+        return {"value": _avg_metric("llm_wait_time_ms", hours=h), "unit": "ms (moy.)",
+                "color": "amber", "icon": "ph-hourglass-medium",
+                "detail": f"P95 {round(p95)} ms · attentes non nulles sur {_scope_label(h)}"}
+
+class KPIKVPrefixReuseProvider(MetricProvider):
+    """Part du prompt reprise du cache KV au pré-remplissage
+    (``kv_prefix_reuse_pct``) : mesure directe de la stabilité du préfixe.
+    Les 0 % comptent (préfixe cassé), d'où ``positive_only=False`` (L5.6)."""
+    id="kpi_kv_prefix_reuse"; title="Réutilisation du cache KV"; type="value"; width="1/4"; icon="ph-recycle"; color="emerald"
+    @property
+    def category(self): return "performance"
+    @property
+    def event_types(self): return ('kv_prefix_reuse_pct',)
+    def get_data(self, scope_hours=None):
+        h = _scope_hours(scope_hours)
+        return {"value": _avg_metric("kv_prefix_reuse_pct", hours=h, positive_only=False), "unit": "% du prompt",
+                "color": "emerald", "icon": "ph-recycle",
+                "detail": f"moyenne des pré-remplissages sur {_scope_label(h)}"}
+
 class KPIAvgModelProvider(MetricProvider):
     """Modèle le plus sollicité, lu dans le registre d'usage.
 
@@ -1264,6 +1295,8 @@ registry.register(KPIAvgTPSProvider())
 registry.register(KPIAvgLatencyProvider())
 registry.register(KPILatencyP95Provider())
 registry.register(KPILatencyP99Provider())
+registry.register(KPILLMWaitProvider())
+registry.register(KPIKVPrefixReuseProvider())
 registry.register(KPIAvgModelProvider())
 registry.register(KPILLMStatusProvider())
 # System (resources)

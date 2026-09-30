@@ -83,7 +83,7 @@ LOOP_EVENTS = frozenset({
 # Émis sans lecteur dans l'interface du chat : à afficher un jour, ou à cesser
 # d'émettre. ``compression_state`` est lu par la route, pas par l'interface.
 NOT_DISPLAYED = frozenset({
-    "iteration", "tool_limit", "tool_history_partial", "prune_state", "llm_user_suffix",
+    "tool_limit", "tool_history_partial", "prune_state", "llm_user_suffix",
     "compression_state", "rag_sources", "log", "journal_truncated",
 })
 

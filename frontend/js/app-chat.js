@@ -1243,6 +1243,9 @@ function setupChat(vue, sharedRefs, ctx) {
         if (m.run_ids && m.run_ids.length) o.run_ids = m.run_ids;
         // Fichiers modifiés par les outils (lignes « fichiers modifiés »).
         if (m.files_changed && m.files_changed.length) o.files_changed = m.files_changed;
+        // Jalons de compaction et sorties élaguées (L5.5) : restaurés au reload.
+        if (m.compactions && m.compactions.length) o.compactions = m.compactions;
+        if (m.pruned) o.pruned = m.pruned;
         // Pied du message (modèle, durée, débits) : sans aller-retour, il
         // disparaissait au tour suivant. Sans le raisonnement ni les outils
         // qu'un événement live peut y porter (le serveur les écarte aussi).
@@ -2658,6 +2661,14 @@ function setupChat(vue, sharedRefs, ctx) {
             todoList.value = Array.isArray(data.todos) ? data.todos : [];
             _todoTouchedThisTurn = true;
 
+        } else if (data.type === 'iteration') {
+            // Budget d'itérations visible AVANT d'être atteint (L5.4) : le
+            // compteur n/max s'affiche dans l'en-tête « Travail de
+            // l'assistant », ambre au-delà de 80 %.
+            const cur = msgs[idx];
+            if (cur && typeof data.n === 'number' && typeof data.max === 'number' && data.max > 0) {
+                msgs[idx] = { ...cur, iterBudget: { n: data.n, max: data.max } };
+            }
         } else if (data.type === 'kv_cache') {
             // Contexte RÉEL : occupation poussée par le backend en FIN de chaque
             // requête LLM, lue dans l'usage du serveur (plus aucun event pré-vol
@@ -2750,6 +2761,9 @@ function setupChat(vue, sharedRefs, ctx) {
                         tokens:     data.tokens || 0,
                         ctx_size:   data.ctx_size || 0,
                         pct:        pct,
+                        // Déclenchement (L5.5) : motif + seuil en jetons
+                        reason:     data.reason || '',
+                        threshold:  data.threshold || 0,
                         // Timing pour la barre de progression
                         est_ms:     est_ms,
                         started_at: started_at,
@@ -3061,6 +3075,9 @@ function setupChat(vue, sharedRefs, ctx) {
                 // serveur (un « Continuer » y ajoute la sienne).
                 run_ids:              (Array.isArray(data.run_ids) && data.run_ids.length)
                                           ? data.run_ids : (cur.run_ids || null),
+                compactions:          (Array.isArray(data.compactions) && data.compactions.length)
+                                          ? data.compactions : (cur.compactions || null),
+                pruned:               data.pruned || cur.pruned || 0,
                 // Fallback durée thinking : si on a démarré sans qu'un
                 // content_token soit jamais arrivé (ex: réponse 100 %
                 // thinking, pas de body), on clôture ici. Idempotent si
@@ -3466,6 +3483,7 @@ function setupChat(vue, sharedRefs, ctx) {
             // nom+running, puis dernier running (anciens backends sans call_id).
             const _finishStep = (st) => {
                 const upd = { ...st, result: data.result, status: 'done', ragResultLabel: ragResultLabel, _is_error: _isErrorResult };
+                if (typeof data.duration_ms === 'number') upd.durationMs = data.duration_ms;   // L5.4
                 // Terminal en direct : si rien n'a été streamé (réglage OFF
                 // au backend, vieux serveur…), remplit la console depuis le
                 // résultat (même helper que le reload). Best-effort : le

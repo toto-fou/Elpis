@@ -392,6 +392,60 @@ def is_cimd_client_id(client_id: str) -> bool:
     return p.scheme == "https" and bool(p.netloc) and p.path not in ("", "/")
 
 
+def _resolve_public(host: str, port: int) -> str:
+    """Adresse publique (routable) de ``host``, résolue UNE fois : la
+    connexion se fera à cette adresse précise, pas à une nouvelle résolution
+    qui pourrait répondre autre chose. Aucune adresse publique → refus."""
+    import ipaddress
+    import socket
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except OSError:
+        raise OAuthError("invalid_client", "Document de client injoignable depuis ce serveur.")
+    for info in infos:
+        addr = str(info[4][0]).split("%", 1)[0]
+        try:
+            ip = ipaddress.ip_address(addr)
+        except ValueError:
+            continue
+        mapped = getattr(ip, "ipv4_mapped", None)
+        if (mapped or ip).is_global:
+            return str(mapped or ip)
+    raise OAuthError("invalid_client", "Document de client injoignable depuis ce serveur.")
+
+
+def _fetch_pinned(url: str) -> bytes:
+    """GET https borné, connecté à l'adresse validée (SNI et vérification du
+    certificat sur le NOM d'origine), sans proxy de l'environnement ni
+    redirection."""
+    import httpx
+    p = urlsplit(url)
+    host = p.hostname or ""
+    port = p.port or 443
+    ip = _resolve_public(host, port)
+    netloc = (f"[{ip}]" if ":" in ip else ip) + (f":{p.port}" if p.port else "")
+    target = p._replace(netloc=netloc).geturl()
+    try:
+        with httpx.Client(timeout=httpx.Timeout(5.0), follow_redirects=False, trust_env=False) as h:
+            req = h.build_request("GET", target, headers={"Accept": "application/json",
+                                                          "Host": p.netloc.rsplit("@", 1)[-1]},
+                                  extensions={"sni_hostname": host})
+            r = h.send(req, stream=True)
+            try:
+                if r.status_code != 200:
+                    raise OAuthError("invalid_client", "Document de client introuvable.")
+                raw = b""
+                for chunk in r.iter_bytes():
+                    raw += chunk
+                    if len(raw) > _CIMD_MAX_BYTES:
+                        raise OAuthError("invalid_client", "Document de client trop volumineux.")
+                return raw
+            finally:
+                r.close()
+    except httpx.HTTPError:
+        raise OAuthError("invalid_client", "Document de client injoignable depuis ce serveur.")
+
+
 def fetch_cimd(client_id: str) -> Dict[str, Any]:
     """Client décrit par un document de métadonnées (CIMD) : récupéré en
     https sous la garde SSRF commune (jamais une adresse non routable),
@@ -404,19 +458,7 @@ def fetch_cimd(client_id: str) -> Dict[str, Any]:
     reason = block_remote_url_reason(client_id, allow_schemes=("https",))
     if reason:
         raise OAuthError("invalid_client", "Document de client injoignable depuis ce serveur.")
-    import httpx
-    try:
-        with httpx.Client(timeout=httpx.Timeout(5.0), follow_redirects=False) as h:
-            with h.stream("GET", client_id, headers={"Accept": "application/json"}) as r:
-                if r.status_code != 200:
-                    raise OAuthError("invalid_client", "Document de client introuvable.")
-                raw = b""
-                for chunk in r.iter_bytes():
-                    raw += chunk
-                    if len(raw) > _CIMD_MAX_BYTES:
-                        raise OAuthError("invalid_client", "Document de client trop volumineux.")
-    except httpx.HTTPError:
-        raise OAuthError("invalid_client", "Document de client injoignable depuis ce serveur.")
+    raw = _fetch_pinned(client_id)
     try:
         doc = json.loads(raw)
     except ValueError:

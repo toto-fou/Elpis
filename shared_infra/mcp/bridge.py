@@ -257,7 +257,8 @@ async def _relay_to_mcp(request: Request, family: str):
     # Famille : segment d'URL contrôlé (le service refuse déjà l'inconnue par un
     # 404, cf. FamilyScopeASGI). On borne quand même la forme ici pour ne jamais
     # laisser un segment fabriqué s'échapper de ``…/mcp/`` (traversée de chemin).
-    if fam and not fam.isalnum():
+    from shared_infra.mcp.families import is_family_name
+    if fam and not is_family_name(fam):
         raise HTTPException(404, "Famille d'outils inconnue.")
     url = f"{base}/{fam}" if fam else base
     if request.url.query:

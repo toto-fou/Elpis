@@ -43,6 +43,7 @@ KINDS: Tuple[str, ...] = tuple(PREFIXES)
 _KIND_OF_PREFIX = {p: k for k, p in PREFIXES.items()}
 
 VISION_TTL_S = 12 * 3600
+VISION_MAX_PER_USER = 20            # jetons de vision valides gardés par compte
 _TOUCH_EVERY_S = 300.0
 _NAME_MAX = 80
 
@@ -167,11 +168,18 @@ def convert_legacy() -> int:
                 "VALUES(?,?,?,?,?,?,?)",
                 (int(uid), "opencode", "opencode", h, tok[-4:], "", float(created or 0) or time.time()))
             n += 1
+        if not rows and not c.execute("SELECT 1 FROM code_remote_tokens").fetchone():
+            # Rien d'ancien (cas de CHAQUE démarrage de process sur PostgreSQL /
+            # MariaDB, où la table vide subsiste) : aucune écriture — surtout
+            # pas de purge des appairages en cours.
+            return 0
         c.execute("DELETE FROM code_remote_tokens")
-        # Appairages en cours : leur colonne ``token`` a pu recevoir un pcr_ en
-        # clair avant la mise à jour (0022 fait de même sur SQLite).
+        # Appairages en cours au moment de la conversion : leur colonne
+        # ``token`` a pu recevoir un pcr_ en clair avant la mise à jour (0022
+        # fait de même sur SQLite). Une seule fois : la table ancienne est
+        # vide ensuite.
         if has_table(c, "code_pairings"):
-            c.execute("DELETE FROM code_pairings")
+            c.execute("DELETE FROM code_pairings WHERE token IS NOT NULL")
     if n:
         logger.info("[tokens] %d ancien(s) jeton(s) opencode converti(s) en empreinte", n)
     return n
@@ -267,6 +275,13 @@ def create(user_id: int, kind: str, name: str = "", families: Optional[Iterable[
         else:
             # Les jetons de vision expirés ne servent plus à rien : ménage.
             c.execute("DELETE FROM tool_tokens WHERE kind='vision' AND expires_at<?", (now,))
+            # Plafond par compte (un par lancement d'automatisation) : les plus
+            # anciens encore valides cèdent la place.
+            ids = [int(r[0]) for r in c.execute(
+                "SELECT id FROM tool_tokens WHERE user_id=? AND kind='vision' ORDER BY created_at DESC, id DESC",
+                (int(user_id),)).fetchall()]
+            for old_id in ids[VISION_MAX_PER_USER - 1:]:
+                c.execute("DELETE FROM tool_tokens WHERE id=?", (old_id,))
         tid = insert_id(
             c.cursor(),
             "INSERT INTO tool_tokens(user_id, kind, name, token_hash, hint, families, created_at, "
@@ -414,10 +429,34 @@ def delete_for_user(user_id: int, conn: Any = None) -> None:
         c.execute("DELETE FROM tool_tokens WHERE user_id=?", (int(user_id),))
 
 
+def revoke_all_access(user_id: int) -> Dict[str, int]:
+    """Coupe tout l'accès NON interactif d'un compte : jetons personnels
+    (opencode, outils, vision) et autorisations OAuth. Appelé quand ses
+    sessions sont révoquées ou son mot de passe changé : un compte coupé ne
+    garde aucune porte d'entrée par jeton.
+
+    → ``{"tokens": n, "oauth": n}`` (autorisations OAuth valables supprimées)."""
+    out = {"tokens": 0, "oauth": 0}
+    _prepare()
+    with db_tx() as c:
+        out["tokens"] = int(c.execute("DELETE FROM tool_tokens WHERE user_id=?",
+                                      (int(user_id),)).rowcount or 0)
+    try:
+        from shared_infra.mcp import oauth as _oauth
+        out["oauth"] = len(_oauth.list_grants(int(user_id)))
+        _oauth.delete_for_user(int(user_id))
+    except Exception:                                             # noqa: BLE001
+        logger.warning("[tokens] révocation OAuth du compte %s impossible", user_id, exc_info=True)
+    if out["tokens"] or out["oauth"]:
+        logger.info("[tokens] compte %s : %d jeton(s) et %d application(s) révoqués",
+                    user_id, out["tokens"], out["oauth"])
+    return out
+
+
 def kind_of(token: str) -> Optional[str]:
     return _KIND_OF_PREFIX.get(str(token or "")[:4])
 
 
-__all__ = ["EXTERNAL_FAMILIES", "KINDS", "PREFIXES", "TokenError", "check_quota", "convert_legacy", "create",
+__all__ = ["EXTERNAL_FAMILIES", "KINDS", "PREFIXES", "TokenError", "check_quota", "convert_legacy", "create", "revoke_all_access",
            "delete_for_user", "digest", "get_for", "kind_of", "list_for", "policy", "regenerate",
            "resolve", "revoke", "revoke_kind", "touch_last_used"]

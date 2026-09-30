@@ -37,7 +37,7 @@ from jsonschema import Draft202012Validator
 
 SVC = "svc-banc-conformite-2026"
 PAGE = 4
-FAMILLES = ["fs", "git", "chart"]
+FAMILLES = ["fs", "git", "chart", "skill_run"]
 ACCEPT = "application/json, text/event-stream"
 
 
@@ -257,6 +257,17 @@ def test_endpoint_de_famille_et_client_fastmcp(banc):
             return await c.list_tools()
     outils = asyncio.run(go())
     assert {t.name for t in outils} == {n for n, f in S.TOOL_FAMILY_OF.items() if f == "git"}
+
+
+def test_famille_au_nom_compose_joignable_par_le_relais(banc):
+    """``skill_run`` (nom avec « _ ») : joignable par le relais, comme les autres."""
+    S = banc["S"]
+
+    async def lister(s, _init):
+        return await _toutes_les_pages(s)
+    outils, _pages = _avec_session(banc["relais"] + "/skill_run", lister)
+    attendus = {n for n, f in S.TOOL_FAMILY_OF.items() if f == "skill_run"}
+    assert attendus and {t.name for t in outils} == attendus
 
 
 def test_le_type_de_client_restreint_la_liste(banc):

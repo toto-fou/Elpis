@@ -34,6 +34,12 @@ TOOL_FAMILIES = (
 )
 FAMILY_NAMES = tuple(f[0] for f in TOOL_FAMILIES)
 
+
+def is_family_name(segment: object) -> bool:
+    """Segment d'URL = nom de famille CONNU (``skill_run`` compris : un
+    contrôle ``isalnum`` le refusait). Ni ``/``, ni ``..``, ni nom inventé."""
+    return isinstance(segment, str) and segment in FAMILY_NAMES
+
 # Fonction d'enregistrement d'une famille dans son module (défaut ``register``).
 FAMILY_REGISTER_FN = {"skill": "register_library", "skill_run": "register_run"}
 

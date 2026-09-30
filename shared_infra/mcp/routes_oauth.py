@@ -86,7 +86,8 @@ def www_authenticate(request: Request, family: str = "", *, error: str = "") -> 
             return "Bearer"
     except Exception:                                            # noqa: BLE001
         return "Bearer"
-    if not family.isalnum():
+    from shared_infra.mcp.families import is_family_name
+    if not is_family_name(family):
         family = ""                  # segment fabriqué : jamais recopié dans l'en-tête
     parts = []
     if error:
@@ -308,20 +309,31 @@ def _validate_authorize(request: Request, q: Dict[str, str], pol: Dict[str, Any]
     if not ruri or not O.redirect_matches(ruri, client["redirect_uris"]):
         return _error_page("Adresse de retour non enregistrée pour ce client.")
     state = q.get("state", "")
+    # Client enregistré par lui-même (dynamique ou document distant) et jamais
+    # autorisé par personne : ses erreurs s'affichent ICI, sans redirection —
+    # l'enregistrement étant ouvert, une adresse de retour quelconque ne doit
+    # pas devenir une redirection servie par ce serveur avant tout consentement.
+    local_only = client["kind"] in ("dcr", "cimd") and not client.get("last_used_at")
+
+    def _err(code: str, desc: str):
+        if local_only:
+            return _error_page(desc)
+        return _redirect_error(ruri, state, code, desc, request)
+
     if q.get("response_type") != "code":
-        return _redirect_error(ruri, state, "unsupported_response_type", "response_type=code attendu.", request)
+        return _err("unsupported_response_type", "response_type=code attendu.")
     challenge = q.get("code_challenge", "")
     if not challenge or q.get("code_challenge_method") != "S256" or not 43 <= len(challenge) <= 128:
-        return _redirect_error(ruri, state, "invalid_request", "PKCE S256 obligatoire.", request)
+        return _err("invalid_request", "PKCE S256 obligatoire.")
     try:
         resource, fam = O.check_resource(q.get("resource", ""), app_url(request), pol)
     except O.OAuthError as e:
-        return _redirect_error(ruri, state, e.error, e.description, request)
+        return _err(e.error, e.description)
     families = O.families_from_scope(q.get("scope"), pol)
     if fam is not None:
         families = [f for f in families if f == fam]
     if not families:
-        return _redirect_error(ruri, state, "invalid_scope", "Aucune famille d'outils permise.", request)
+        return _err("invalid_scope", "Aucune famille d'outils permise.")
     return client, ruri, state, challenge, resource, families, implicit
 
 

@@ -148,13 +148,18 @@ def admin_security_revoke_user_sessions(user_id: int, request: Request):
         # l'ancien UPDATE inline via db_conn() était annulé au close() de la
         # connexion → révocation silencieusement sans effet, faux ok:true).
         bump_session_min_ts(user_id, new_ts)
+        # Un compte coupé ne garde pas d'accès par jeton (opencode, outils,
+        # applications OAuth) : sinon révoquer ses sessions ne couperait rien.
+        from shared_infra.accounts.tokens import revoke_all_access
+        acces = revoke_all_access(int(user_id))
         logger.warning(
-            "[security] per-user session revocation: uid=%s revoked by uid=%s",
-            user_id, operator,
+            "[security] per-user session revocation: uid=%s revoked by uid=%s (jetons=%s, oauth=%s)",
+            user_id, operator, acces["tokens"], acces["oauth"],
         )
         audit_event(user_id=operator, username=getattr(request.state, "username", None),
                     action="admin.security.sessions.revoke_user",
-                    details={"target_user_id": int(user_id), "session_min_ts": new_ts})
+                    details={"target_user_id": int(user_id), "session_min_ts": new_ts,
+                             "tokens_revoked": acces["tokens"], "oauth_revoked": acces["oauth"]})
         # AUDIT 2026-08-02 (S1) — coupe aussi les flux SSE/WS déjà ouverts
         # de cet utilisateur, sur tous les workers.
         _publish_session_revoked(uid=int(user_id))

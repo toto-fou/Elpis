@@ -234,6 +234,9 @@ async def api_admin_reset_password(request: Request):
     # active ne doit PAS survivre au reset. Même mécanisme que
     # /api/admin/security/sessions/revoke-user (session_min_ts).
     bump_session_min_ts(int(target_id))
+    # … ni ses jetons personnels et applications OAuth (même raison).
+    from shared_infra.accounts.tokens import revoke_all_access
+    await asyncio.to_thread(revoke_all_access, int(target_id))
 
     # BUG FIX (medium) : migration vers db_conn() (cf. change_role).
     with db_conn() as conn:
@@ -555,3 +558,47 @@ async def api_admin_set_network_profile(target_id: int, request: Request):
     )
     return {"ok": True, "forced_network_profile_id": profile_id,
             "network_profile_id": after, "container_destroyed": recreated}
+
+
+# ── Accès par jeton d'un compte (audit 2026-09-30) ──────────────────────────
+# Jetons personnels (opencode, outils) et applications OAuth d'un compte :
+# l'administrateur les voit et peut tout couper d'un geste (réponse à une
+# compromission). Le détail et la révocation unitaire restent dans
+# « Paramètres › Connexions » du compte lui-même.
+def _require_full_admin(request: Request) -> int:
+    uid = require_user_id(request)
+    me = get_user_by_id(uid)
+    if not me or me["is_admin"] != 1:
+        raise HTTPException(403, "Admin required")
+    return uid
+
+
+@admin_router.get("/api/admin/users/{target_id}/access")
+async def api_admin_user_access(target_id: int, request: Request):
+    _require_full_admin(request)
+    if not get_user_by_id(int(target_id)):
+        raise HTTPException(404, "Utilisateur introuvable")
+    from shared_infra.accounts import tokens as T
+    from shared_infra.mcp import oauth as O
+    toks = await asyncio.to_thread(T.list_for, int(target_id))
+    try:
+        grants = await asyncio.to_thread(O.list_grants, int(target_id))
+    except Exception:                                            # noqa: BLE001
+        grants = []
+    return {"tokens": [{k: t.get(k) for k in ("id", "kind", "name", "families", "created_at",
+                                              "expires_at", "last_used_at")} for t in toks],
+            "grants": [{k: g.get(k) for k in ("grant_id", "client_name", "families", "created_at",
+                                              "last_used_at")} for g in grants]}
+
+
+@admin_router.post("/api/admin/users/{target_id}/access/revoke")
+async def api_admin_user_access_revoke(target_id: int, request: Request):
+    operator = _require_full_admin(request)
+    if not get_user_by_id(int(target_id)):
+        raise HTTPException(404, "Utilisateur introuvable")
+    from shared_infra.accounts.tokens import revoke_all_access
+    out = await asyncio.to_thread(revoke_all_access, int(target_id))
+    audit_event(user_id=operator, username=getattr(request.state, "username", None),
+                action="admin.users.access.revoke",
+                details={"target_user_id": int(target_id), **out})
+    return {"ok": True, **out}

@@ -62,7 +62,7 @@ test('un nom est jugé sur les adresses résolues (toutes)', async () => {
 test('liste blanche : restreint le réseau local, pas internet', async () => {
     const lb = analyserListeBlanche('nas.lan, *.corp, 10.1.0.0/16, 192.168.50.54');
     const r = resoudre({ 'nas.lan': ['192.168.50.20'], 'wiki.corp': ['10.9.9.9'],
-                         'autre.lan': ['192.168.1.21'], 'public.example': ['93.184.216.34'] });
+                         'autre.lan': ['192.168.50.21'], 'public.example': ['93.184.216.34'] });
     const o = { resoudre: r, hote: HOTE, listeBlanche: lb };
     assert.equal(await motifUrl('http://nas.lan/', o), null);
     assert.equal(await motifUrl('http://wiki.corp/', o), null);
@@ -72,7 +72,7 @@ test('liste blanche : restreint le réseau local, pas internet', async () => {
     assert.match(await motifUrl('http://10.2.0.1/', o), /liste autorisée/);
     assert.equal(await motifUrl('https://public.example/', o), null);
     // La liste blanche n'ouvre jamais la boucle locale ni l'hôte.
-    const lb2 = analyserListeBlanche(['127.0.0.0/8', '192.168.1.0/24']);
+    const lb2 = analyserListeBlanche(['127.0.0.0/8', '192.168.50.0/24']);
     assert.ok(await motifUrl('http://127.0.0.1/', { hote: HOTE, listeBlanche: lb2 }));
     assert.ok(await motifUrl('http://192.168.50.10/', { hote: HOTE, listeBlanche: lb2 }));
 });
@@ -90,12 +90,12 @@ test('utilitaires', () => {
 });
 
 test("IPv4 mappée en IPv6, forme hexadécimale comprise (adresses de l'hôte)", async () => {
-    assert.equal(normaliserIp('::ffff:c0a8:184'), '192.168.50.10');
+    assert.equal(normaliserIp('::ffff:c0a8:320a'), '192.168.50.10');
     assert.equal(normaliserIp('[::FFFF:192.168.50.10]'), '192.168.50.10');
     assert.equal(normaliserIp('0:0:0:0:0:ffff:7f00:1'), '127.0.0.1');
     assert.equal(normaliserIp('2001:db8::1'), '2001:db8::1');          // non mappée : intacte
-    for (const u of ['http://[::ffff:c0a8:184]:47003/', 'http://[::ffff:192.168.50.10]/',
-                     'http://[0:0:0:0:0:ffff:c0a8:184]/', 'http://[::ffff:ac11:1]/']) {
+    for (const u of ['http://[::ffff:c0a8:320a]:47003/', 'http://[::ffff:192.168.50.10]/',
+                     'http://[0:0:0:0:0:ffff:c0a8:320a]/', 'http://[::ffff:ac11:1]/']) {
         assert.ok(await motifUrl(u, { hote: HOTE }), `${u} devrait être refusée`);
     }
     // Adresse de l'hôte en IPv6 écrite autrement que dans l'interface.

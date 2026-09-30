@@ -350,12 +350,30 @@ def test_conversion_purge_les_appairages(base):
     c = sqlite3.connect(base["db"])
     c.execute("INSERT INTO code_pairings(id, code, ip, created_at, expires_at, token) "
               "VALUES('p', 'ABC', '', 0, 9e9, 'pcr_en_clair_xxxxxxxxxxxxxxxx')")
+    c.execute("INSERT INTO code_pairings(id, code, ip, created_at, expires_at) "
+              "VALUES('q', 'DEF', '', 0, 9e9)")                   # appairage récent, sans jeton
     c.execute("CREATE TABLE code_remote_tokens (user_id INTEGER PRIMARY KEY, token TEXT NOT NULL, created_at REAL)")
+    c.execute("INSERT INTO code_remote_tokens VALUES(?, ?, ?)", (base["alice"], "pcr_ancien_jeton_en_clair_9999", 1.0))
     c.commit()
     c.close()
     T.convert_legacy()
     c = sqlite3.connect(base["db"])
-    assert c.execute("SELECT COUNT(*) FROM code_pairings").fetchone()[0] == 0
+    assert [r[0] for r in c.execute("SELECT id FROM code_pairings")] == ["q"]
+    c.close()
+
+
+def test_conversion_sans_ancien_jeton_ne_touche_a_rien(base):
+    """Serveurs de base : la table ancienne vide subsiste ; chaque nouveau
+    process ne doit pas effacer les appairages en cours."""
+    c = sqlite3.connect(base["db"])
+    c.execute("CREATE TABLE code_remote_tokens (user_id INTEGER PRIMARY KEY, token TEXT NOT NULL, created_at REAL)")
+    c.execute("INSERT INTO code_pairings(id, code, ip, created_at, expires_at) VALUES('q', 'DEF', '', 0, 9e9)")
+    c.commit()
+    c.close()
+    assert T.convert_legacy() == 0
+    assert T.convert_legacy() == 0
+    c = sqlite3.connect(base["db"])
+    assert c.execute("SELECT COUNT(*) FROM code_pairings").fetchone()[0] == 1
     c.close()
 
 

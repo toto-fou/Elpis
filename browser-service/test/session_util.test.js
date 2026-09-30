@@ -80,3 +80,28 @@ test('quota: fail_ éligibles (timestampés, ils s\'accumulent)', () => {
     const del = planScreenshotQuota(entries, { maxPerSession: 2, maxBytesPerSession: 1e9 });
     assert.equal(del.length, 2);
 });
+
+// ── Place d'une nouvelle session : jamais au détriment d'un autre compte ────
+import { planSessionSlot } from '../session_util.js';
+
+const _sess = (entries) => new Map(entries.map(([sid, owner, t]) => [sid, { owner, lastActivity: t }]));
+
+test('planSessionSlot : sous les plafonds → rien à évincer', () => {
+    assert.deepEqual(planSessionSlot(_sess([['a1', 'alice', 1]]), 'bob', { maxTotal: 10, maxPerOwner: 3 }),
+                     { evict: null, refuse: false });
+});
+
+test('planSessionSlot : quota du compte atteint → SA plus ancienne cède', () => {
+    const s = _sess([['a1', 'alice', 5], ['b1', 'bob', 1], ['a2', 'alice', 2], ['a3', 'alice', 9]]);
+    assert.deepEqual(planSessionSlot(s, 'alice', { maxTotal: 10, maxPerOwner: 3 }), { evict: 'a2', refuse: false });
+});
+
+test('planSessionSlot : plafond global, le compte n\'a rien → refus, les autres intacts', () => {
+    const s = _sess([['a1', 'alice', 1], ['a2', 'alice', 2], ['b1', 'bob', 3]]);
+    assert.deepEqual(planSessionSlot(s, 'carol', { maxTotal: 3, maxPerOwner: 3 }), { evict: null, refuse: true });
+});
+
+test('planSessionSlot : plafond global, le compte a une session → la sienne cède', () => {
+    const s = _sess([['a1', 'alice', 1], ['c1', 'carol', 7], ['b1', 'bob', 3]]);
+    assert.deepEqual(planSessionSlot(s, 'carol', { maxTotal: 3, maxPerOwner: 3 }), { evict: 'c1', refuse: false });
+});

@@ -9,7 +9,7 @@ import os from 'os';
 import dns from 'dns';
 import { classifyNavOutcome, authHint } from './nav_util.js';
 import { pingPage, planScreenshotQuota, safeOwner, ownerFromRequest, ownerMatches,
-         stateFileName, safeDownloadName, planArtifactPurge } from './session_util.js';
+         stateFileName, safeDownloadName, planArtifactPurge, planSessionSlot } from './session_util.js';
 import { makeLock, acquireLock, lockIdle } from './session_lock.js';
 import { analyserUrl, motifIp, motifUrl, hoteDepuisInterfaces, analyserListeBlanche,
          messageRefus, makeCache } from './url_guard.js';
@@ -212,6 +212,8 @@ const sessions = new Map();
 const SESSION_TTL_MS = 15 * 60 * 1000;  // 15 minutes
 const REAPER_INTERVAL_MS = 60 * 1000;   // check every 60s
 const MAX_SESSIONS = 10;                 // hard limit
+// Sessions par compte : au-delà, sa plus ancienne cède la place (jamais celle d'un autre).
+const MAX_SESSIONS_PER_OWNER = Math.max(1, parseInt(process.env.BROWSER_MAX_SESSIONS_PER_OWNER || '3', 10) || 3);
 // Budget accordé à la tentative « locator officiel » QUAND un selector de
 // repli est disponible. Court exprès : le repli smartResolveLocator doit
 // pouvoir s'exécuter dans le temps que le client accorde à la requête.
@@ -2061,16 +2063,12 @@ app.post('/start', async (req, res) => {
 
         const now = Date.now();
         // Enforce max sessions — close oldest if at limit
-        if (sessions.size >= MAX_SESSIONS) {
-            let oldestSid = null, oldestTime = Infinity;
-            for (const [sid, s] of sessions) {
-                if ((s.lastActivity || s.createdAt || now) < oldestTime) {
-                    oldestTime = s.lastActivity || s.createdAt || now;
-                    oldestSid = sid;
-                }
-            }
-            if (oldestSid) await closeSession(oldestSid, 'max_sessions');
+        const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, now });
+        if (slot.refuse) {
+            await context.close().catch(() => {});
+            return res.status(503).json({ error: 'Navigateur saturé : trop de sessions ouvertes. Réessayez plus tard.' });
         }
+        if (slot.evict) await closeSession(slot.evict, 'max_sessions');
 
         sessions.set(sessionId, { context, page, owner, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState });
 

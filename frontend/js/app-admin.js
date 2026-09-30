@@ -3120,6 +3120,26 @@ function setupAdmin(vue, sharedRefs, ctx) {
             network: e.network, desktop: [...e.desktop].sort(),
         });
     }
+    // Accès par jeton du compte (jetons personnels, applications OAuth) : vue
+    // de réponse à compromission, tout se coupe d'un geste.
+    async function loadUserAccess(id) {
+        try {
+            const r = await fetchAuth(`/api/admin/users/${id}/access`, {}, true);
+            const d = (r && r.ok) ? await r.json() : {};
+            const access = { tokens: Array.isArray(d.tokens) ? d.tokens : [], grants: Array.isArray(d.grants) ? d.grants : [] };
+            if (userEdit.value && userEdit.value.id === id) userEdit.value = { ...userEdit.value, access };
+        } catch (_) { /* best-effort : la ligne reste « Chargement… » */ }
+    }
+
+    async function revokeUserAccess(u) {
+        const ok = await openConfirm('Révoquer les accès par jeton ?',
+            `Tous les jetons personnels et applications autorisées de ${u.username} seront révoqués.`, true, 'Révoquer');
+        if (!ok) return;
+        const r = await fetchAuth(`/api/admin/users/${u.id}/access/revoke`, { method: 'POST' }, true);
+        if (r && r.ok) { showToast('Accès par jeton révoqués.'); loadUserAccess(u.id); }
+        else showToast('Révocation impossible.', 'error');
+    }
+
     function userEditOpen(u) { return !!(userEdit.value && userEdit.value.id === u.id); }
     function closeUserEdit() { userEdit.value = null; }
     function toggleUserEdit(u) {
@@ -3138,6 +3158,7 @@ function setupAdmin(vue, sharedRefs, ctx) {
         e._orig = _userEditSnapshot(e);
         userEdit.value = e;
         loadAdmLlmAccessOptions(true);
+        loadUserAccess(u.id);
         ctx.nextTick(() => {
             const el = document.querySelector(`#user-edit-${u.id} [data-user-edit-first]`)
                 || document.querySelector(`#user-edit-${u.id} input, #user-edit-${u.id} select`);
@@ -4706,7 +4727,7 @@ function setupAdmin(vue, sharedRefs, ctx) {
         chartsInCategory, kpiGroups, chartGroups, kpiState, chartSummary,
         prometheusUrl, copyPrometheusUrl,
         groupsList, allUsersWithGroups, groupModal, groupMembersModal,
-        userEdit, userEditDirty, userEditOpen, toggleUserEdit, closeUserEdit, saveUserEdit,
+        userEdit, userEditDirty, userEditOpen, toggleUserEdit, closeUserEdit, saveUserEdit, revokeUserAccess,
         usersDesktopTargets, admRoleLabel, admNetProfileName, admDesktopLabel, admDesktopTitle,
         loadUsers, loadAdminStats, renderDynamicDashboard, startDashboardPolling, stopDashboardPolling, destroyAllCharts, setUserSandboxQuota,
         usersNetProfiles, setUserNetworkProfile,

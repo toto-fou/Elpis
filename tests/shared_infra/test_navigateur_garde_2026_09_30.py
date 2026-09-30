@@ -55,7 +55,7 @@ def test_un_nom_est_juge_sur_ses_adresses():
 
 
 def test_liste_blanche_du_reseau_local():
-    t = {"nas.lan": ["192.168.50.20"], "autre.lan": ["192.168.1.21"], "wiki.corp": ["10.9.9.9"],
+    t = {"nas.lan": ["192.168.50.20"], "autre.lan": ["192.168.50.21"], "wiki.corp": ["10.9.9.9"],
          "public.example": ["93.184.216.34"]}
     lb = ["nas.lan", "*.corp", "10.1.0.0/16"]
     assert motif("http://nas.lan/", lb, t) is None
@@ -164,7 +164,7 @@ def test_detection_ax_transmet_le_proprietaire(monkeypatch):
     assert "owner=alice" in demandes[0] and "session_id=abcdef12" in demandes[0]
 
 
-@pytest.mark.parametrize("url", ["http://[::ffff:c0a8:184]/", "http://[::ffff:192.168.50.10]:8080/",
+@pytest.mark.parametrize("url", ["http://[::ffff:c0a8:320a]/", "http://[::ffff:192.168.50.10]:8080/",
                                  "http://[::1]:3000/", "http://[fe80::1]/"])
 def test_ipv6_litterales_jugees(url):
     """Hôte IPv6 littéral : reconstruit avec crochets, jugé (plus d'exception

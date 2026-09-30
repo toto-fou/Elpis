@@ -133,3 +133,24 @@ export function planArtifactPurge(entries, { now = Date.now(), maxAgeMs } = {}) 
     if (!maxAgeMs || maxAgeMs <= 0) return [];
     return (entries || []).filter(e => e && now - (e.mtimeMs || 0) > maxAgeMs).map(e => e.name);
 }
+
+
+// Place pour une nouvelle session (audit 2026-09-30). Une session n'évince
+// JAMAIS celle d'un autre compte : au quota du compte, sa plus ancienne cède
+// la place ; plafond global atteint sans session du compte à céder → refus.
+// → { evict: sid|null, refuse: bool }
+export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, now = Date.now() } = {}) {
+    const age = (s) => (s && (s.lastActivity || s.createdAt)) || now;
+    const own = [];
+    let total = 0;
+    for (const [sid, s] of sessions) {
+        total += 1;
+        if (s && s.owner === owner) own.push([sid, age(s)]);
+    }
+    own.sort((a, b) => a[1] - b[1]);
+    if (own.length >= maxPerOwner || (total >= maxTotal && own.length)) {
+        return { evict: own[0][0], refuse: false };
+    }
+    if (total >= maxTotal) return { evict: null, refuse: true };
+    return { evict: null, refuse: false };
+}

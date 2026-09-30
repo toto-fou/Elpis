@@ -337,12 +337,33 @@ def _jetons(c, cid, code, verifier, **extra):
     return c.post("/oauth/token", data=data)
 
 
+def _utiliser(c, cid):
+    """Une autorisation menée à terme : le client n'est plus « jamais utilisé »
+    (ses erreurs repartent alors vers lui, par redirection)."""
+    v, ch = _pkce()
+    assert _jetons(c, cid, _code(_autoriser(c, cid, ch))["code"][0], v).status_code == 200
+
+
+def test_client_jamais_autorise_erreurs_sur_place(api):
+    """Enregistrement ouvert : tant que personne n'a autorisé ce client, une
+    demande en erreur s'affiche ici, jamais de redirection vers son adresse."""
+    c, *_ = api
+    cid = _enregistrer(c, redirect_uris=["https://ailleurs.example/cb"])["client_id"]
+    r = c.get("/oauth/authorize", params={"response_type": "x", "client_id": cid,
+                                          "redirect_uri": "https://ailleurs.example/cb", "resource": RES},
+              follow_redirects=False)
+    assert r.status_code == 400 and "location" not in r.headers
+
+
 def test_pkce_obligatoire_et_juste(api):
     c, _ids, _cfg, _ = api
     cid = _enregistrer(c)["client_id"]
     v, ch = _pkce()
-    r = c.get("/oauth/authorize", params={"response_type": "code", "client_id": cid, "redirect_uri": REDIRECT,
-                                          "state": "st", "resource": RES}, follow_redirects=False)
+    sans_pkce = {"response_type": "code", "client_id": cid, "redirect_uri": REDIRECT, "state": "st", "resource": RES}
+    r = c.get("/oauth/authorize", params=sans_pkce, follow_redirects=False)
+    assert r.status_code == 400 and "location" not in r.headers          # client jamais autorisé
+    _utiliser(c, cid)
+    r = c.get("/oauth/authorize", params=sans_pkce, follow_redirects=False)
     assert _code(r)["error"] == ["invalid_request"] and _code(r)["state"] == ["st"]
     code = _code(_autoriser(c, cid, ch))["code"][0]
     r = _jetons(c, cid, code, "x" * 50)
@@ -355,6 +376,8 @@ def test_resource_absente_ou_etrangere(api):
     c, *_ = api
     cid = _enregistrer(c)["client_id"]
     _v, ch = _pkce()
+    assert _autoriser(c, cid, ch, resource=None).status_code == 400      # jamais autorisé : sur place
+    _utiliser(c, cid)
     assert _code(_autoriser(c, cid, ch, resource=None))["error"] == ["invalid_target"]
     assert _code(_autoriser(c, cid, ch, resource="http://ailleurs/api/mcp-bridge"))["error"] == ["invalid_target"]
     assert _code(_autoriser(c, cid, ch, resource=RES + "/memory"))["error"] == ["invalid_target"]
@@ -390,6 +413,7 @@ def test_code_rejoue_revoque_les_jetons(api):
 def test_portee_bornee_par_la_politique_et_consentement(api):
     c, ids, cfg, _ = api
     cid = _enregistrer(c)["client_id"]
+    _utiliser(c, cid)
     v, ch = _pkce()
     cfg["mcp.tokens.tools_families"] = "fs,git"
     page = c.get("/oauth/authorize", params={

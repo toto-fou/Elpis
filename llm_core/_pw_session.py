@@ -91,7 +91,32 @@ async def unregister_pw_session_owner(session_id: str) -> None:
 
 # ── Sidecar disque de propriété (cf. get_pw_session_owner) ─────────────────
 # Dossier PARTAGÉ par tous les workers, comme celui des frames desktop.
-PW_OWNERS_DIR = os.environ.get("PW_OWNERS_DIR", "/tmp/elpis_pw_owners")
+def _default_owners_dir() -> str:
+    try:
+        from shared_infra.runtime.runtime_dir import RUNTIME_DIR
+        return str(RUNTIME_DIR / "elpis_pw_owners")
+    except Exception:                                           # noqa: BLE001
+        return "/tmp/elpis_pw_owners"
+
+
+PW_OWNERS_DIR = os.environ.get("PW_OWNERS_DIR") or _default_owners_dir()
+
+
+def _owners_dir_ok() -> bool:
+    """Dossier des sidecars à NOUS et fermé aux autres comptes de la machine
+    (sous ``/tmp`` il pourrait avoir été créé à l'avance par un autre compte :
+    on n'y lit ni n'y écrit alors rien — dégradé : contrôle en mémoire)."""
+    try:
+        os.makedirs(PW_OWNERS_DIR, mode=0o700, exist_ok=True)
+        st = os.stat(PW_OWNERS_DIR, follow_symlinks=False)
+    except OSError:
+        return False
+    import stat as _stat
+    if not _stat.S_ISDIR(st.st_mode) or st.st_uid != os.geteuid() or st.st_mode & 0o077:
+        logger.warning("[pw_owner] %s n'est pas un dossier privé de ce compte : sidecars ignorés",
+                       PW_OWNERS_DIR)
+        return False
+    return True
 _PW_SID_RE = _re.compile(r"^[A-Za-z0-9\-]{8,64}$")
 
 
@@ -127,8 +152,9 @@ def _write_pw_owner_sidecar(session_id: str, username: str) -> None:
     path = _pw_owner_path(session_id)
     if not path:
         return
+    if not _owners_dir_ok():
+        return
     try:
-        os.makedirs(PW_OWNERS_DIR, mode=0o700, exist_ok=True)
         _prune_pw_owner_sidecars()
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
@@ -140,7 +166,7 @@ def _write_pw_owner_sidecar(session_id: str, username: str) -> None:
 
 def _read_pw_owner_sidecar(session_id: str) -> Optional[str]:
     path = _pw_owner_path(session_id)
-    if not path:
+    if not path or not _owners_dir_ok():
         return None
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -231,7 +257,10 @@ async def _track_pw_session_ownership(tool_name: str, tool_args: Dict,
             await register_pw_session_owner(sid, username)
     elif action == "stop":
         sid = tool_args.get("session_id")
-        if sid:
+        # Seulement un arrêt RÉUSSI d'une session de CE compte : un « stop »
+        # refusé sur la session d'un autre ne doit pas effacer sa propriété.
+        failed = data.get("ok") is False or bool(data.get("error"))
+        if sid and not failed and get_pw_session_owner(sid) == username:
             await unregister_pw_session_owner(sid)
     elif action == "cleanup":
         # Vide les mappings de cet user (pas tous, sinon on casse les autres)

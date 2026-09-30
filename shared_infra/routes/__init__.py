@@ -77,6 +77,7 @@ from shared_infra.llm import routes_connectors     # noqa: F401 — /api/llm/con
 from shared_infra.routes import config    # noqa: F401 — /api/config (GET + PUT)
 from shared_infra.opencode import routes_cli       # noqa: F401 — /api/cli/* (distribution LAN)
 from shared_infra.mcp import bridge as mcp_bridge  # noqa: F401 — /api/mcp-bridge/*
+from shared_infra.mcp import routes_openapi as mcp_openapi  # noqa: F401 — /api/tools/<famille>/* (EXT.5)
 from shared_infra.opencode import routes_code      # noqa: F401 — /api/code/* (sessions déportées)
 from shared_infra.toolhost import routes_internal  # noqa: F401 — /api/internal/* (rappels de l'hôte d'outils)
 from shared_infra.llm import routes_queue          # noqa: F401 — /api/llm/queue-status

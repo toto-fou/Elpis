@@ -74,6 +74,8 @@ files = [
     "llm_core/_scheduling",
     "llm_core/engine",
     "shared_infra/security/browser_url.py",
+    "shared_infra/mcp/openapi.py",
+    "shared_infra/mcp/routes_openapi.py",
 ]
 explicit_package_bases = true
 follow_imports = "silent"

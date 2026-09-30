@@ -23,8 +23,10 @@ Le module fait désormais AUTORITÉ sur la famille :
     panel.py      /api/mcp/* — panneau d'outils du chat, pool, bibliothèque
     bridge.py     /api/mcp-bridge/* — le service MCP partagé sous l'origine de
                   l'app, pour les clients opencode distants
+    openapi.py    façade OpenAPI des mêmes outils (génération + appel, EXT.5)
+    routes_openapi.py  /api/tools/<famille>/{openapi.json,<outil>} (jeton ept_)
 
-ENREGISTREMENT DES ROUTES. ``panel`` et ``bridge`` posent leurs endpoints sur
+ENREGISTREMENT DES ROUTES. ``panel``, ``bridge`` et ``routes_openapi`` posent leurs endpoints sur
 le routeur partagé (``shared_infra.routes._state.router``) au moment de leur
 import. C'est ``shared_infra.routes.__init__`` qui les importe, au même rang
 que les autres modules de routes : l'ORDRE d'enregistrement reste piloté par un

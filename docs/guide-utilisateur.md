@@ -327,6 +327,28 @@ conversation en cours**.
 > pouvez pas atteindre les fichiers d'un autre utilisateur ni le système hôte.
 > Voir [La sandbox](#la-sandbox--où-lassistant-travaille).
 
+### Utiliser vos outils depuis une autre plateforme (OpenAPI)
+
+Les outils qui travaillent dans votre sandbox — fichiers (`fs`), terminal
+(`shell`), Git (`git`), contrôle d'écran (`desktop`) et scripts de skills
+(`skill_run`) — sont aussi exposés en **API OpenAPI 3.1**, pour les
+plateformes qui ne parlent pas MCP (par exemple les « serveurs d'outils »
+d'Open WebUI).
+
+1. Créez un **jeton d'outils** (`ept_…`) dans **Paramètres › Connexions**, en
+   cochant les familles voulues. Il n'est montré qu'une fois ; en cas de perte,
+   régénérez-le.
+2. Dans la plateforme, déclarez un serveur d'outils par famille :
+   - **URL** : `https://<adresse-du-serveur>/api/tools/<famille>` (le schéma
+     est lu sur `…/api/tools/<famille>/openapi.json`) ;
+   - **Clé** : votre jeton, envoyé en `Authorization: Bearer ept_…`.
+
+Chaque outil devient un `POST /api/tools/<famille>/<outil>` dont le corps est
+l'objet d'arguments. Les appels s'exécutent **dans votre sandbox, sous votre
+compte** — exactement comme dans le chat. Un échec de l'outil répond `200` avec
+`"ok": false` et une piste de correction ; un jeton absent, expiré ou révoqué
+répond `401`. Le navigateur piloté (`browser`) n'est pas exposé.
+
 [↑ Sommaire](#sommaire)
 
 ---

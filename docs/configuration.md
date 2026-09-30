@@ -546,6 +546,18 @@ Console admin → Connexions → « Outils par défaut » → Exporter, ou
 ⚠ En transport stdio, la sortie standard EST le canal JSON-RPC : tout
 diagnostic du service part sur `stderr`.
 
+**Façade OpenAPI (EXT.5).** Les familles du service partagé qui ont un
+point d'accès externe (`fs`, `shell`, `git`, `desktop`, `skill_run` ; `browser`
+exclu tant que la garde d'URL du navigateur n'existe pas) sont aussi servies en
+OpenAPI 3.1 sous l'origine de l'app : `GET /api/tools/<famille>/openapi.json`
+(générée depuis `tools/list`, cache 60 s) et `POST /api/tools/<famille>/<outil>`.
+Authentification par jeton d'outils `ept_` seul ; portée = familles du jeton ∩
+`mcp.tokens.tools_families` ; `mcp.tokens.tools_enabled: false` coupe la façade
+(404). L'appel part avec le jeton de SERVICE et l'identité du propriétaire du
+jeton dans le `_meta` MCP, avec le délai propre à l'outil ; au plus 4 appels
+simultanés par compte et par worker (429). Code :
+`shared_infra/mcp/openapi.py`, `shared_infra/mcp/routes_openapi.py`.
+
 **Politique d'exécution et événements live.** Chaque outil
 porte ``meta.policy`` (``timeout_s``, ``serial``, ``replay_safe``, ``prune``,
 ``deny_for``) via ``_toolkit.tool_kw_*(…, **policy)`` / ``with_policy`` ; le

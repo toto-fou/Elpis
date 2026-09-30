@@ -162,8 +162,8 @@ def api_usage_me(request: Request, days: str = "30"):
     # Les appels d'outils NE SONT PLUS agrégés ici (2026-08-16, retour user) :
     # « fs_read : 42 » ne dit rien à l'utilisateur de son propre usage, et le
     # bloc a été retiré de Réglages → Utilisation. Le détail par outil vit
-    # toujours là où il sert — Administration → Observabilité, qui interroge
-    # ``get_tool_call_metrics_summary`` par sa propre route. On économise donc
+    # toujours là où il sert — Administration → Observabilité, qui l'agrège
+    # par sa propre route. On économise donc
     # un GROUP BY sur ``tool_call_metrics`` à chaque ouverture de l'onglet.
 
     return JSONResponse({

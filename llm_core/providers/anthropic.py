@@ -499,6 +499,15 @@ async def _consume_stream(
             elif etype == "message_stop":
                 break
 
+    # Appel abouti : versé à l'exécution courante (Anthropic ne donne pas de
+    # ``timings`` : seul le nombre d'appels est compté).
+    try:
+        from shared_infra.observability.runs import current_run
+        _run = current_run()
+        if _run is not None:
+            _run.add_llm_call(None)
+    except Exception:                                           # noqa: BLE001
+        pass
     return {
         "content": "".join(content_parts).strip(),
         "thinking": "".join(thinking_parts).strip(),

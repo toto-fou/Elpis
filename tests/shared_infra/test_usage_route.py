@@ -166,5 +166,3 @@ def test_les_appels_d_outils_ne_sont_plus_agreges(client):
     am.record_tool_call_metric(run_id="r1", user_id=1, tool_name="git", status="error", duration_ms=5)
     d = tc.get("/api/usage/me", headers=_alice()).json()
     assert "tools" not in d
-    # …et l'agrégateur reste fonctionnel pour l'administration.
-    assert am.get_tool_call_metrics_summary(user_id=1)["totals"]["n"] == 2

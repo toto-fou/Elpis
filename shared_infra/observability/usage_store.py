@@ -33,8 +33,12 @@ Sémantique des compteurs (cf. docs/token-counters.md)
   appels d'outils) se dérive par ``output_tokens - thinking_tokens``. Mesuré
   dans la boucle (cf. ``llm_core._think_tokens``) parce qu'aucun backend local
   ne le déclare. 0 sur les lignes antérieures à la migration 0014.
-- ``cache_read_tokens`` / ``cache_creation_tokens`` : Anthropic uniquement
-  (0 ailleurs). Ils ne sont PAS inclus dans ``input_tokens``.
+- ``cache_read_tokens`` : jetons d'entrée repris d'un cache. Anthropic : NON
+  inclus dans ``input_tokens`` ; llama.cpp et moteurs compatibles OpenAI
+  (``prompt_tokens_details.cached_tokens``, sinon ``timings.cache_n``) :
+  jetons repris du cache KV, INCLUS dans ``input_tokens``.
+  ``cache_creation_tokens`` : Anthropic seulement (0 ailleurs).
+- ``run_id`` : l'exécution (``runs``, L5.2) du tour ; vide hors exécution.
 """
 from __future__ import annotations
 
@@ -104,6 +108,7 @@ def record_usage(
     status: str = "ok",
     error_kind: str = "",
     ts: Optional[float] = None,
+    run_id: str = "",
 ) -> bool:
     """Enregistre un tour. Best-effort : retourne False au lieu de lever.
 
@@ -131,8 +136,8 @@ def record_usage(
                     input_tokens, output_tokens, submitted_tokens,
                     thinking_tokens,
                     cache_read_tokens, cache_creation_tokens,
-                    duration_ms, iterations, status, error_kind)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    duration_ms, iterations, status, error_kind, run_id)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     float(ts if ts is not None else time.time()), uid,
@@ -142,7 +147,7 @@ def record_usage(
                     in_t, out_t, _int(submitted_tokens), think_t,
                     _int(cache_read_tokens), _int(cache_creation_tokens),
                     _int(duration_ms), _int(iterations),
-                    st, str(error_kind or "")[:120],
+                    st, str(error_kind or "")[:120], str(run_id or "")[:191],
                 ),
             )
             conn.commit()

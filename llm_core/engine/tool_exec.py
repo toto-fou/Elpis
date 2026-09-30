@@ -96,6 +96,34 @@ def flatten_exception_message(exc: BaseException, limit: int = 300) -> str:
     return (" | ".join(dict.fromkeys(leaves)) or type(exc).__name__)[:limit]
 
 
+def _call_status(p: Dict[str, Any], result: str, status: str) -> str:
+    """Statut d'un appel pour ``tool_call_metrics`` : ``blocked`` (arguments
+    illisibles, l'outil n'a pas tourné), ``timeout`` (sans réponse dans son
+    délai), ``error`` (échec de l'outil), sinon ``success``."""
+    if p.get("args_error"):
+        return "blocked"
+    if status != "error":
+        return "success"
+    if '"timeout"' in result[:200]:
+        try:
+            if json.loads(result).get("error") == "timeout":
+                return "timeout"
+        except (ValueError, AttributeError):
+            pass
+    return "error"
+
+
+def _exit_code(result: str) -> Optional[int]:
+    """Code de sortie d'une commande (``returncode`` du résultat), sinon ``None``."""
+    if '"returncode"' not in result:
+        return None
+    try:
+        rc = json.loads(result).get("returncode")
+    except (ValueError, AttributeError):
+        return None
+    return rc if isinstance(rc, int) and not isinstance(rc, bool) else None
+
+
 async def execute_tool_batch(
     prepared: List[Dict[str, Any]],
     *,
@@ -269,6 +297,7 @@ async def execute_tool_batch(
 
         async with _exec_sem:
             _t0 = time.perf_counter()
+            _debut = time.time()
             try:
                 if p.get("args_error"):
                     # Arguments illisibles : l'outil ne tourne PAS (avec ``{}``
@@ -322,6 +351,7 @@ async def execute_tool_batch(
             # Classification OUTIL (pas commande) : un exit≠0 de commande shell
             # n'est PAS un échec d'outil (cf. is_tool_failure).
             _status = "error" if is_tool_failure(_r) else "ok"
+            _etat = _call_status(p, _r, _status)
 
             def _write_telemetry() -> None:
                 """Les trois écritures BLOQUANTES de ce bloc, hors event loop.
@@ -346,21 +376,24 @@ async def execute_tool_batch(
                 log_metric("tool_call", 1, {
                     "tool": p["tool_name"], "user": username, "status": _status,
                 })
+                _fa = p.get("final_args")
+                _args_txt = (_fa if isinstance(_fa, str)
+                             else json.dumps(_fa, ensure_ascii=False, default=str) or ""
+                             if _fa is not None else "")
                 record_metric(
-                    username, chat_id, p["tool_name"],
-                    "error" if _status == "error" else "success",
-                    _dur_ms,
-                    error_short=_r[:500] if _status == "error" else None,
+                    username, chat_id, p["tool_name"], _etat, _dur_ms,
+                    error_short=_r[:500] if _etat != "success" else None,
+                    call_id=p.get("call_id"), started_at=_debut,
+                    exit_code=_exit_code(_r),
+                    args_bytes=len(_args_txt.encode("utf-8", "replace")),
+                    result_bytes=len(_r.encode("utf-8", "replace")),
                 )
                 # Watcher contexte/perf (LLAMA_WATCH=1) : taille entrée/sortie
                 # et durée de CHAQUE outil — pour voir ce qui gonfle le contexte.
                 from llm_core._watch import watch_tool_call
-                _fa = p.get("final_args")
                 watch_tool_call(
                     chat_id=chat_id, iteration=iteration, tool=p["tool_name"],
-                    args_chars=len(_fa) if isinstance(_fa, str)
-                    else len(json.dumps(_fa, ensure_ascii=False, default=str) or "")
-                    if _fa is not None else 0,
+                    args_chars=len(_args_txt),
                     result_chars=len(_r), duration_ms=_dur_ms, status=_status,
                 )
 

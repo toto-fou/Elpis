@@ -18,7 +18,7 @@ de Flowise. La mémoire long-terme du chatbot vit désormais dans
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 from shared_infra.db._connection import db_conn
 
@@ -79,13 +79,23 @@ def record_tool_call_metric(
     status:      str = "success",
     duration_ms: int = 0,
     error_short: Optional[str] = None,
+    call_id:     Optional[str] = None,
+    started_at:  Optional[float] = None,
+    category:    Optional[str] = None,
+    exit_code:   Optional[int] = None,
+    args_bytes:  Optional[int] = None,
+    result_bytes: Optional[int] = None,
 ) -> None:
     """Enregistre une ligne dans ``tool_call_metrics``.
 
     Best-effort : un échec d'écriture ne doit JAMAIS interrompre l'appelant.
-    Le truncate de ``error_short`` est borné à 500 chars.
+    Le truncate de ``error_short`` est borné à 500 chars. ``ts`` : fin de
+    l'appel ; ``started_at`` : son début (horloge murale) ; ``exit_code`` :
+    celui de la commande pour un outil shell.
 
-    :param status: ``"success"``, ``"error"``, ``"blocked"``, ``"timeout"``.
+    :param status: ``"success"``, ``"error"``, ``"blocked"`` (l'outil n'a pas
+        tourné : arguments illisibles), ``"timeout"`` (sans réponse dans son
+        délai).
     """
     try:
         with db_conn() as conn:
@@ -93,8 +103,9 @@ def record_tool_call_metric(
             cur.execute(
                 "INSERT INTO tool_call_metrics("
                 "run_id, user_id, pipeline_id, node_id, member_id, "
-                "tool_name, server_name, status, duration_ms, error_short, ts) "
-                "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                "tool_name, server_name, status, duration_ms, error_short, ts, "
+                "call_id, started_at, category, exit_code, args_bytes, result_bytes) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     run_id, int(user_id), pipeline_id,
                     str(node_id) if node_id is not None else None,
@@ -102,6 +113,12 @@ def record_tool_call_metric(
                     status, int(duration_ms or 0),
                     (error_short or "")[:500] if error_short else None,
                     time.time(),
+                    str(call_id)[:128] if call_id else None,
+                    float(started_at) if started_at is not None else None,
+                    (category or None) and str(category)[:64],
+                    int(exit_code) if exit_code is not None else None,
+                    int(args_bytes) if args_bytes is not None else None,
+                    int(result_bytes) if result_bytes is not None else None,
                 ),
             )
             conn.commit()
@@ -110,69 +127,3 @@ def record_tool_call_metric(
         logging.getLogger("uvicorn.error").debug(
             "[tool_call_metrics] write failed (non-fatal)", exc_info=True,
         )
-
-
-def get_tool_call_metrics_summary(
-    run_id: Optional[str] = None,
-    *,
-    user_id: Optional[int] = None,
-    since_ts: Optional[float] = None,
-    limit: int = 100,
-) -> Dict[str, Any]:
-    """Agrégation des tool calls : totaux + breakdown par outil + erreurs récentes.
-
-    Au moins un de ``run_id`` ou ``user_id`` doit être passé (sinon ça scanne
-    toute la table — pas voulu).
-    """
-    if not run_id and not user_id:
-        raise ValueError("get_tool_call_metrics_summary requires run_id or user_id")
-    where = []
-    params: List[Any] = []
-    if run_id:
-        where.append("run_id=?")
-        params.append(run_id)
-    if user_id:
-        where.append("user_id=?")
-        params.append(int(user_id))
-    if since_ts:
-        where.append("ts >= ?")
-        params.append(float(since_ts))
-    where_sql = " AND ".join(where)
-
-    with db_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            f"SELECT COUNT(*) AS n, "
-            f"       COALESCE(SUM(duration_ms),0) AS total_ms, "
-            f"       SUM(CASE WHEN status='error'   THEN 1 ELSE 0 END) AS n_error, "
-            f"       SUM(CASE WHEN status='blocked' THEN 1 ELSE 0 END) AS n_blocked, "
-            f"       SUM(CASE WHEN status='timeout' THEN 1 ELSE 0 END) AS n_timeout "
-            f"FROM tool_call_metrics WHERE {where_sql}",
-            params,
-        )
-        totals = dict(cur.fetchone() or {})
-
-        cur.execute(
-            f"SELECT tool_name, "
-            f"       COUNT(*) AS n, "
-            f"       COALESCE(SUM(duration_ms),0) AS total_ms, "
-            f"       SUM(CASE WHEN status!='success' THEN 1 ELSE 0 END) AS n_failed "
-            f"FROM tool_call_metrics WHERE {where_sql} "
-            f"GROUP BY tool_name ORDER BY n DESC LIMIT ?",
-            params + [int(limit)],
-        )
-        per_tool = [dict(r) for r in cur.fetchall()]
-
-        cur.execute(
-            f"SELECT ts, tool_name, status, error_short, node_id, member_id "
-            f"FROM tool_call_metrics WHERE {where_sql} AND status!='success' "
-            f"ORDER BY ts DESC LIMIT 20",
-            params,
-        )
-        recent_failures = [dict(r) for r in cur.fetchall()]
-
-        return {
-            "totals": totals,
-            "per_tool": per_tool,
-            "recent_failures": recent_failures,
-        }

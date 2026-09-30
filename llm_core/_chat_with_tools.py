@@ -206,6 +206,30 @@ def _files_event_extra(result_str) -> Dict[str, Any]:
         return {}
 
 
+def _noter_attente(ms: int) -> None:
+    """Attente d'un créneau du moteur → exécution courante (``runs``)."""
+    try:
+        from shared_infra.observability.runs import current_run
+        run = current_run()
+        if run is not None:
+            run.add_wait(ms)
+    except Exception:                                           # noqa: BLE001
+        pass
+
+
+def _noter_fichiers(files) -> None:
+    """Fichiers modifiés par un outil → exécution courante (``runs``)."""
+    if not files:
+        return
+    try:
+        from shared_infra.observability.runs import current_run
+        run = current_run()
+        if run is not None:
+            run.add_files(files)
+    except Exception:                                           # noqa: BLE001
+        logger.debug("[runs] fichiers modifiés non comptés", exc_info=True)
+
+
 def _changed_files_of(res) -> List[Dict[str, Any]]:
     """Fichiers modifiés décrits par le résultat d'un outil, au format
     compact de l'event ``tool_result`` : ``{path, change, before, after,
@@ -552,9 +576,20 @@ def _record_tool_call_metric_safe(username: str,
                                   tool_name: str,
                                   status: str,
                                   duration_ms: int,
-                                  error_short: Optional[str] = None) -> None:
-    """Écrit une ligne tool_call_metrics — best-effort, jamais bloquant."""
+                                  error_short: Optional[str] = None,
+                                  **mesures: Any) -> None:
+    """Écrit une ligne tool_call_metrics — best-effort, jamais bloquant.
+
+    Rattachée à l'exécution courante (``runs``, qui compte l'appel), sinon à
+    la conversation ; ``mesures`` : ``call_id``, ``started_at``,
+    ``exit_code``, ``args_bytes``, ``result_bytes``."""
     try:
+        from llm_core._mcp_categories import categorize
+        from shared_infra.observability.runs import current_run
+        category = categorize(tool_name)
+        run = current_run()
+        if run is not None:
+            run.add_tool_call(category, status)
         uid = _TCM_UID_CACHE.get(username)
         if uid is None:
             from shared_infra.accounts.users import get_user
@@ -565,12 +600,14 @@ def _record_tool_call_metric_safe(username: str,
             _TCM_UID_CACHE[username] = uid
         from shared_infra.observability.tool_metrics_store import record_tool_call_metric
         record_tool_call_metric(
-            run_id=str(chat_id or "chat"),
+            run_id=run.id if run is not None else str(chat_id or "chat"),
             user_id=uid,
             tool_name=tool_name,
             status=status,
             duration_ms=int(duration_ms),
             error_short=error_short,
+            category=category,
+            **mesures,
         )
     except Exception:
         logger.debug("[tool_call_metrics] record failed (non-fatal)", exc_info=True)
@@ -4717,6 +4754,7 @@ async def _run_chat_multi_mcp_impl(
                 _wait_start = time.time()
                 async with _engine_semaphore().acquire_for(model, priority=priority):
                     _wait_ms = int((time.time() - _wait_start) * 1000)
+                    _noter_attente(_wait_ms)
                     # Écriture SQLite déportée : elle tombe à CHAQUE
                     # itération, juste avant l'appel LLM, et bloquait la
                     # boucle du worker (cf. _write_telemetry dans
@@ -5573,6 +5611,7 @@ async def _run_chat_multi_mcp_impl(
                 # Audit éditeur 2026-09-23 (E10/E19) : ``git_write`` → chemin
                 # ``repo/path`` ; ``dry_run`` et ``sha256`` final transmis.
                 _evt.update(_write_event_extra(tool_name, final_args, result_content))
+                _noter_fichiers(_evt.get("files"))
                 if _tool_is_internal(tool_name):
                     _evt["internal"] = True
                 _ss = _extract_pw_screenshot_url(tool_name, final_args, result_content)
@@ -6074,6 +6113,7 @@ async def _run_chat_multi_mcp_impl(
                 # Audit éditeur 2026-09-23 (E10/E19) : ``git_write`` → chemin
                 # ``repo/path`` ; ``dry_run`` et ``sha256`` final transmis.
                 _evt.update(_write_event_extra(tool_name, final_args, res_str))
+                _noter_fichiers(_evt.get("files"))
                 if _tool_is_internal(tool_name):
                     _evt["internal"] = True
                 _ss = _extract_pw_screenshot_url(tool_name, final_args, res_str)
@@ -6493,7 +6533,9 @@ async def _run_chat_multi_mcp_impl(
                    if cumul_reasoning is not None else None),
             output_tokens=cumul_out))
         meta_for_metrics = {
-            "usage":   {"prompt_tokens": cumul_in, "completion_tokens": cumul_out},
+            "usage":   {"prompt_tokens": cumul_in, "completion_tokens": cumul_out,
+                        "cache_read_input_tokens": cumul_cache_read,
+                        "cache_creation_input_tokens": cumul_cache_creation},
             "timings": _real_timings,
             "model":   model or LLAMA_MODEL,
             "thinking": all_thinking_text,
@@ -6954,6 +6996,10 @@ async def _run_chat_multi_mcp_impl(
         "input_tokens":       cumul_in,
         "submitted_input_tokens": cumul_in,   # alias sémantique (tokens soumis)
         "output_tokens":      cumul_out,
+        # Cache (lu / créé) : même champs que les métriques du chemin normal.
+        **({"cache_read_input_tokens": cumul_cache_read} if cumul_cache_read else {}),
+        **({"cache_creation_input_tokens": cumul_cache_creation}
+           if cumul_cache_creation else {}),
     }
     # Même décomposition de la sortie que sur le chemin normal : ce tour est le
     # plus coûteux de tous, la part de réflexion y est la plus intéressante.

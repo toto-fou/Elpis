@@ -159,7 +159,9 @@ def test_extraction_remplace_et_garde_l_ancien_contenu(work):
      {"max_bytes": 100}, "too_large"),
     (_tar([(f"f{i}", b"x", tarfile.REGTYPE, 0o644) for i in range(5)]), {"max_members": 3},
      "too_large"),
-])
+# ids explicites : les octets d'une archive portent un horodatage, et des ids
+# qui en dépendent diffèrent d'un worker xdist à l'autre (collecte refusée).
+], ids=["pas_une_archive", "fichier_trop_gros", "total_trop_gros", "trop_de_membres"])
 def test_extraction_refusee_sans_toucher_au_contenu(work, corps, bornes, code):
     avant = _noms(work)
     a = {"max_bytes": 1 << 20, "max_file": 1 << 20, "max_members": 100, **bornes}

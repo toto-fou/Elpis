@@ -239,7 +239,6 @@ TOOLS_CLIENT_PREFIX = "tools:"
 _REMOTE_TOKEN_TTL_S = 15.0          # révocation prise en compte sous 15 s
 _REMOTE_TOKEN_NEG_TTL_S = 5.0       # jeton inconnu : pas de martèlement de la base
 _remote_token_cache: "dict[str, tuple[dict | None, float]]" = {}
-_TOOLS_TOKEN_NEVER = frozenset({"browser"})
 
 
 def remote_token_lookup(token: str) -> "dict | None":
@@ -312,10 +311,7 @@ def _make_verifier(table: "dict[str, dict]"):
                 return None
             user = ident["username"]
             if ident.get("kind") == "tools":
-                # ``browser`` jamais visible par un jeton d'outils (garde
-                # d'URL absente), même si une introspection distante le listait.
-                fams = [str(f) for f in ident.get("families") or []
-                        if str(f) not in _TOOLS_TOKEN_NEVER]
+                fams = [str(f) for f in ident.get("families") or []]
                 return AccessToken(
                     token=token, client_id=f"{TOOLS_CLIENT_PREFIX}{user}",
                     scopes=[SCOPE_LOCAL_TOOLS], expires_at=None,

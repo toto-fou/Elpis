@@ -52,7 +52,7 @@ window.ELPIS_ADMIN_FIELDS = Object.freeze([
     {"control": "", "hint": "Exécutable lancé en sous-processus.", "label": "Commande", "page": "mcp", "path": "mcp.server_cmd", "store": "config"},
     {"control": "", "hint": "Scanné au démarrage pour les serveurs MCP téléversés.", "label": "Dossier des serveurs ajoutés", "page": "mcp", "path": "mcp.servers_dir", "store": "config"},
     {"control": "", "hint": "0 = sans limite.", "label": "Durée maximale", "page": "mcp", "path": "mcp.tokens.max_days", "store": "config"},
-    {"control": "", "hint": "Séparées par des virgules, parmi fs, shell, git, desktop, skill_run (browser n'est jamais accessible par jeton). Retirer une famille la retire aussitôt des jetons existants.", "label": "Familles autorisées", "page": "mcp", "path": "mcp.tokens.tools_families", "store": "config"},
+    {"control": "", "hint": "Séparées par des virgules, parmi fs, shell, git, desktop, browser, skill_run. Retirer une famille la retire aussitôt des jetons existants.", "label": "Familles autorisées", "page": "mcp", "path": "mcp.tokens.tools_families", "store": "config"},
     {"control": "", "hint": "Coupé : les jetons existants cessent de fonctionner et aucun ne peut être créé. Les jetons opencode ne sont pas concernés.", "label": "Jetons d'outils", "page": "mcp", "path": "mcp.tokens.tools_enabled", "store": "config"},
     {"control": "", "hint": "Jetons opencode et d'outils confondus.", "label": "Jetons par compte", "page": "mcp", "path": "mcp.tokens.max_per_user", "store": "config"},
     {"control": "", "hint": "Sans barre oblique finale.", "label": "Adresse", "page": "rag", "path": "rag.service_url", "store": "config"},

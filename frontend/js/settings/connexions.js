@@ -83,10 +83,10 @@
 
         function cnxNew() {
             const pol = cnxState.value.policy || { families: [], max_days: 90 };
-            // desktop (pilote des machines hors de la sandbox) jamais coché
-            // d'office ; browser n'est jamais proposé (absent de la politique).
+            // desktop (pilote des machines hors de la sandbox) et browser
+            // (navigation) jamais cochés d'office.
             const fams = {};
-            (pol.families || []).forEach((f) => { fams[f.name] = f.name !== 'desktop'; });
+            (pol.families || []).forEach((f) => { fams[f.name] = f.name !== 'desktop' && f.name !== 'browser'; });
             const days = pol.max_days ? Math.min(30, pol.max_days) : 30;
             _set({ form: { kind: 'tools', name: '', families: fams, days }, reveal: null, error: '' });
         }

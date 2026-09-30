@@ -8,7 +8,7 @@ Ce que ce fichier verrouille :
   • authentification par jeton d'outils ``ept_`` SEUL (ni cookie, ni ``pcr_``),
     façade coupée par l'admin = 404 partout ;
   • portée = familles exposables ∩ politique ∩ jeton, 404 sans oracle
-    (``browser`` et les familles de l'app ne sortent jamais) ;
+    (les familles de l'app ne sortent jamais ; ``browser`` seulement coché) ;
   • arguments validés (422), identité = PROPRIÉTAIRE du jeton (le corps ne
     peut pas la choisir), échec d'outil = 200 ``ok: false``, transport = 502,
     concurrence bornée = 429 ;
@@ -58,6 +58,11 @@ TOOLS = {
     "skill_run": [
         Tool(name="skill_run_script", description="Script de skill.",
              inputSchema={"type": "object", "properties": {}}),
+    ],
+    "browser": [
+        Tool(name="pw_goto", description="Ouvre une page.",
+             inputSchema={"type": "object", "properties": {"url": {"type": "string"}},
+                          "required": ["url"]}),
     ],
 }
 
@@ -198,10 +203,20 @@ def test_facade_coupee_par_l_admin_404_partout(env):
 
 # ── Portée ───────────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("famille", ["fs", "browser", "memory", "chart", "inconnue"])
+def test_browser_expose_s_il_est_coche(env):
+    """browser : exposé depuis la garde du service navigateur, si le jeton
+    l'a coché et que la politique le permet."""
+    c, state, _pool = env
+    r = c.get("/api/tools/browser/openapi.json", headers=H)
+    assert r.status_code == 200 and set(r.json()["paths"]) == {"/pw_goto"}
+    state["policy"]["tools_families"] = ["git", "shell", "skill_run"]
+    assert c.get("/api/tools/browser/openapi.json", headers=H).status_code == 404
+
+
+@pytest.mark.parametrize("famille", ["fs", "desktop", "memory", "chart", "inconnue"])
 def test_hors_portee_404(env, famille):
-    """fs : non cochée sur le jeton ; browser : cochée mais jamais exposée
-    (garde d'URL absente) ; memory/chart : familles de l'app."""
+    """fs, desktop : non cochées sur le jeton ; memory/chart : familles de
+    l'app, jamais exposées même cochées."""
     c, _s, pool = env
     assert c.get(f"/api/tools/{famille}/openapi.json", headers=H).status_code == 404
     assert c.post(f"/api/tools/{famille}/x", headers=H, json={}).status_code == 404

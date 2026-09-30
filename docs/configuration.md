@@ -547,8 +547,8 @@ Console admin → Connexions → « Outils par défaut » → Exporter, ou
 diagnostic du service part sur `stderr`.
 
 **Façade OpenAPI (EXT.5).** Les familles du service partagé qui ont un
-point d'accès externe (`fs`, `shell`, `git`, `desktop`, `skill_run` ; `browser`
-exclu tant que la garde d'URL du navigateur n'existe pas) sont aussi servies en
+point d'accès externe (`fs`, `shell`, `git`, `desktop`, `browser`, `skill_run`)
+sont aussi servies en
 OpenAPI 3.1 sous l'origine de l'app : `GET /api/tools/<famille>/openapi.json`
 (générée depuis `tools/list`, cache 60 s) et `POST /api/tools/<famille>/<outil>`.
 Authentification par jeton d'outils `ept_` seul ; portée = familles du jeton ∩

@@ -76,10 +76,12 @@ def test_politique_relue_a_chaque_verification(base):
 
 
 def test_familles_duree_et_quota(base):
+    base["cfg"]["mcp.tokens.tools_families"] = "fs,desktop"
     with pytest.raises(T.TokenError):
-        T.create(base["alice"], "tools", "", ["browser"], 10)   # jamais (0.B absent)
-    base["cfg"]["mcp.tokens.tools_families"] = "fs,browser,desktop"
-    assert T.policy()["tools_families"] == ["fs", "desktop"]    # browser ignoré même ajouté
+        T.create(base["alice"], "tools", "", ["browser"], 10)   # hors politique
+    base["cfg"]["mcp.tokens.tools_families"] = "fs,browser,chart,desktop"
+    assert T.policy()["tools_families"] == ["fs", "browser", "desktop"]   # chart : interne
+    T.create(base["bob"], "tools", "", ["browser"], 10)     # autre compte : quota intact
     with pytest.raises(T.TokenError):
         T.create(base["alice"], "tools", "", ["chart"], 10)     # famille interne
     with pytest.raises(T.TokenError):
@@ -183,19 +185,20 @@ def test_connexions_cloisonnees_par_compte(api, base):
     assert lst["tools_url"] == "http://lan.test/api/tools"
     assert [t["name"] for t in lst["tokens"]] == ["VS Code"]
     assert tok not in repr(lst) and "token_hash" not in repr(lst)   # jamais réaffiché
-    assert {f["name"] for f in lst["policy"]["families"]} == {"fs", "shell", "git", "desktop", "skill_run"}
+    assert {f["name"] for f in lst["policy"]["families"]} == {"fs", "shell", "git", "desktop", "browser",
+                                                                 "skill_run"}
     uid["v"] = base["bob"]                                            # autre compte
     assert c.get("/api/tokens").json()["tokens"] == []
     assert c.post(f"/api/tokens/{tid}/regenerate").status_code == 404
     assert c.delete(f"/api/tokens/{tid}").status_code == 404
     assert T.resolve(tok) is not None
     uid["v"] = base["alice"]
-    assert c.post("/api/tokens", json={"kind": "tools", "families": ["browser"]}).status_code == 422
+    assert c.post("/api/tokens", json={"kind": "tools", "families": ["memory"]}).status_code == 422
     assert c.post("/api/tokens", json={"kind": "vision"}).status_code == 422
     r2 = c.post(f"/api/tokens/{tid}/regenerate")
     assert r2.status_code == 200 and T.resolve(tok) is None
     assert c.delete(f"/api/tokens/{r2.json()['item']['id']}").status_code == 200
-    assert c.get("/api/tokens/schema/browser").status_code == 404
+    assert c.get("/api/tokens/schema/memory").status_code == 404
 
 
 # ── Appairage : le jeton naît au poll, jamais stocké ─────────────────────────
@@ -235,7 +238,7 @@ def test_verificateur_jeton_d_outils(monkeypatch, srv):
     v = srv._make_verifier(srv.build_token_table("svc", {}))
     ok = asyncio.run(v.verify_token("ept_bon"))
     assert ok.client_id == "tools:hugo" and ok.claims["client_kind"] == "tools"
-    assert ok.claims["families"] == ["fs"]                    # browser jamais visible
+    assert ok.claims["families"] == ["fs", "browser"]
     assert ok.claims["trusted_meta"] is False
     assert asyncio.run(v.verify_token("pcr_bon")).claims["client_kind"] == "opencode"
     assert asyncio.run(v.verify_token("evt_bon")) is None     # la vision ne vaut pas Bearer MCP
@@ -243,7 +246,7 @@ def test_verificateur_jeton_d_outils(monkeypatch, srv):
     monkeypatch.setattr(deps, "get_access_token", lambda: ok)
     monkeypatch.setattr(srv, "path_family", lambda: None)
     hidden = srv.hidden_families_for_current_client()
-    assert "fs" not in hidden and {"shell", "git", "desktop", "browser", "memory"} <= hidden
+    assert not {"fs", "browser"} & hidden and {"shell", "git", "desktop", "memory"} <= hidden
 
 
 def test_verificateur_sans_famille_ne_montre_rien(monkeypatch, srv):

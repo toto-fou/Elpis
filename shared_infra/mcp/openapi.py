@@ -37,12 +37,11 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 # Familles exposables en OpenAPI : celles du service partagé qui ont DÉJÀ un
-# point d'accès externe (``/mcp/<famille>``). ``browser`` en est exclu tant que
-# la garde d'URL et la propriété des sessions du navigateur n'existent pas
-# (lot 0.B) : l'exposer donnerait ``file://``, le réseau local de l'hôte et les
-# sessions d'autres comptes à l'extérieur. Les familles liées à l'APP (chart,
-# memory, skill, todo) ne quittent jamais le processus de l'app.
-EXPOSABLE_FAMILIES: Tuple[str, ...] = ("fs", "shell", "git", "desktop", "skill_run")
+# point d'accès externe (``/mcp/<famille>``) ; ``browser`` depuis la garde de
+# destinations et les sessions par compte du service navigateur. Les familles
+# liées à l'APP (chart, memory, skill, todo) ne quittent jamais le processus de
+# l'app.
+EXPOSABLE_FAMILIES: Tuple[str, ...] = ("fs", "shell", "git", "desktop", "browser", "skill_run")
 
 OPENAPI_PREFIX = "/api/tools"
 

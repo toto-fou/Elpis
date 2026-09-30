@@ -330,8 +330,8 @@ conversation en cours**.
 ### Utiliser vos outils depuis une autre plateforme (OpenAPI)
 
 Les outils qui travaillent dans votre sandbox — fichiers (`fs`), terminal
-(`shell`), Git (`git`), contrôle d'écran (`desktop`) et scripts de skills
-(`skill_run`) — sont aussi exposés en **API OpenAPI 3.1**, pour les
+(`shell`), Git (`git`), navigateur (`browser`), contrôle d'écran (`desktop`)
+et scripts de skills (`skill_run`) — sont aussi exposés en **API OpenAPI 3.1**, pour les
 plateformes qui ne parlent pas MCP (par exemple les « serveurs d'outils »
 d'Open WebUI).
 

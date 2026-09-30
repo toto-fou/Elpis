@@ -20,8 +20,7 @@ confond jamais deux types, et chaque vérificateur ne demande que les siens) :
 type désactivé (fonction opencode ou jetons d'outils coupés par l'admin).
 
 Politique (``mcp.tokens.*``, relue à chaud) : ``tools_enabled`` (vrai),
-``tools_families`` (``fs,shell,git,desktop,skill_run`` ; ``browser`` jamais
-accepté), ``max_days`` (90,
+``tools_families`` (``fs,shell,git,desktop,browser,skill_run``), ``max_days`` (90,
 0 = sans limite), ``max_per_user`` (20).
 """
 from __future__ import annotations
@@ -48,16 +47,13 @@ _TOUCH_EVERY_S = 300.0
 _NAME_MAX = 80
 
 # Familles qu'un jeton d'outils peut porter : celles qui ont DÉJÀ un point
-# d'accès externe (``/mcp/<famille>``). ``browser`` en est exclu tant que la
-# garde d'URL et la propriété des sessions (audit 0.B) n'existent pas, même si
-# l'admin l'ajoute à la politique ; ``desktop`` est proposé mais jamais coché
-# d'office dans « Connexions » (il pilote des machines hors de la sandbox).
-# Les familles internes à l'app (chart, memory, skill, todo) ne sont jamais
-# exposées.
-EXTERNAL_FAMILIES: Tuple[str, ...] = ("fs", "shell", "git", "desktop", "skill_run")
-NEVER_FAMILIES = frozenset({"browser"})
-_NEVER_FAMILIES = NEVER_FAMILIES
-DEFAULT_TOOLS_FAMILIES = "fs,shell,git,desktop,skill_run"
+# d'accès externe (``/mcp/<famille>``). ``desktop`` et ``browser`` sont proposés
+# mais jamais cochés d'office dans « Connexions » (le premier pilote des
+# machines hors de la sandbox, le second navigue — destinations et sessions
+# bornées par la garde du service navigateur). Les familles internes à l'app
+# (chart, memory, skill, todo) ne sont jamais exposées.
+EXTERNAL_FAMILIES: Tuple[str, ...] = ("fs", "shell", "git", "desktop", "browser", "skill_run")
+DEFAULT_TOOLS_FAMILIES = "fs,shell,git,desktop,browser,skill_run"
 DEFAULT_MAX_DAYS = 90
 DEFAULT_MAX_PER_USER = 20
 
@@ -85,7 +81,7 @@ def _parse_families(v: Any) -> List[str]:
     out: List[str] = []
     for f in items:
         f = str(f or "").strip()
-        if f and f in EXTERNAL_FAMILIES and f not in _NEVER_FAMILIES and f not in out:
+        if f and f in EXTERNAL_FAMILIES and f not in out:
             out.append(f)
     return out
 
@@ -397,6 +393,6 @@ def kind_of(token: str) -> Optional[str]:
     return _KIND_OF_PREFIX.get(str(token or "")[:4])
 
 
-__all__ = ["EXTERNAL_FAMILIES", "KINDS", "NEVER_FAMILIES", "PREFIXES", "TokenError", "convert_legacy", "create",
+__all__ = ["EXTERNAL_FAMILIES", "KINDS", "PREFIXES", "TokenError", "convert_legacy", "create",
            "delete_for_user", "digest", "get_for", "kind_of", "list_for", "policy", "regenerate",
            "resolve", "revoke", "revoke_kind", "touch_last_used"]

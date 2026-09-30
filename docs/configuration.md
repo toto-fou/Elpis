@@ -86,14 +86,28 @@ désactivés pour ces commandes). Les opérations réseau lancées par Elpis
 seulement) passent par le relais de l'hôte, y compris avec un profil réseau
 isolé : un ticket par opération, le seul dépôt de l'opération joignable,
 l'identifiant du connecteur Git ajouté par l'hôte (jamais dans la sandbox),
-la garde anti-SSRF refaite à chaque requête et, au push, seules les
-branches demandées. Le terminal de la sandbox n'a pas accès au relais.
+la garde anti-SSRF refaite à chaque requête et, au push, seules les refs
+que `git push` mettrait à jour d'après la configuration du dépôt (jamais de
+suppression). Un refus du relais est rendu en 409, avec son motif.
 
 Le relais écoute sur `user_sandboxes/.elpis-relay/<pid>.sock` (un socket par
-processus de l'app), dossier monté en lecture seule dans les conteneurs.
+processus de l'app), dossier monté en lecture seule dans les conteneurs : une
+connexion sans ticket valide est fermée sans rien relayer. Pendant une
+opération, tout processus de la sandbox peut passer par l'écoute locale de
+l'agent, mais seulement vers le dépôt, le service et les refs du ticket.
+
 Certificats TLS : le magasin du système (`/etc/ssl`, `SSL_CERT_FILE`,
 `SSL_CERT_DIR`), plus `GIT_SSL_CAINFO` / `GIT_SSL_CAPATH` s'ils sont définis
-pour le service ; proxy : `HTTPS_PROXY` / `NO_PROXY` du service.
+pour le service. **Aucun proxy** : le relais joint l'amont directement
+(variables `*_PROXY` ignorées). Une redirection de l'amont est refusée, avec
+l'adresse vers laquelle corriger l'URL du remote. Un remote `http://` passe
+en clair, identifiant du connecteur compris : préférer `https://`.
+
+Mise à jour depuis une version où Git tournait sur l'hôte : la configuration
+Git du compte de service (`http.sslCAInfo` de `/etc/gitconfig`, `http.proxy`,
+`http.extraHeader`) ne s'applique plus au réseau Git. Une CA interne se
+déclare dans le magasin du système ou par `GIT_SSL_CAINFO` dans
+l'environnement du service.
 
 Ubuntu ≥ 23.10 réserve les user namespaces aux programmes munis d'un profil
 AppArmor. Si `bwrap` est bloqué, l'installeur (sauf `--skip-system`) pose

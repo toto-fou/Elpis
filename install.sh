@@ -758,8 +758,8 @@ install_caddy() {
     $SUDO "$ROOT/deploy/caddy/install_caddy.sh" || note_warn "Installation de Caddy incomplète."
 }
 
-# Git côté serveur et aperçus Office tournent dans une prison bubblewrap ;
-# la sonde est celle de l'application (shared_infra/sandbox/bwrap.py), comme
+# Les aperçus Office tournent dans une prison bubblewrap (Git, lui, tourne
+# dans la sandbox depuis L4.4) ; la sonde est celle de l'application (shared_infra/sandbox/bwrap.py), comme
 # ./elpis doctor. Ubuntu ≥ 23.10 réserve les user namespaces aux programmes
 # qui ont un profil AppArmor : avec les droits système, on en pose un pour
 # bwrap, seulement s'il est bloqué (compromis : docs/configuration.md).
@@ -769,10 +769,10 @@ bwrap_ok() {
 
 ensure_bwrap() {
     if ! have bwrap; then
-        note_warn "bubblewrap absent : Git côté serveur et aperçus Office indisponibles (apt install bubblewrap)."
+        note_warn "bubblewrap absent : aperçus Office indisponibles (apt install bubblewrap)."
         return 0
     fi
-    if bwrap_ok; then ok "bubblewrap utilisable (Git côté serveur, aperçus Office)."; return 0; fi
+    if bwrap_ok; then ok "bubblewrap utilisable (aperçus Office)."; return 0; fi
     if [ "$DO_SYSTEM" -eq 1 ] && have apparmor_parser \
             && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ]; then
         printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' '' \
@@ -782,7 +782,7 @@ ensure_bwrap() {
             && $SUDO apparmor_parser -r /etc/apparmor.d/elpis-bwrap \
             && bwrap_ok && { ok "bubblewrap autorisé (profil AppArmor elpis-bwrap)."; return 0; }
     fi
-    note_warn "bubblewrap bloqué (user namespaces) : Git côté serveur et aperçus Office indisponibles (./elpis doctor)."
+    note_warn "bubblewrap bloqué (user namespaces) : aperçus Office indisponibles (./elpis doctor)."
 }
 
 check_office() {

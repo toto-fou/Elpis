@@ -56,13 +56,21 @@ derniers accès de l'hôte.
     ligne qui porte le ticket ; `git` y est dirigé par
     `url.<relais>.insteadOf` (l'URL du remote ne change pas) ;
   - le relais n'accepte que le protocole Git « smart HTTP » du dépôt du
-    ticket, filtre les en-têtes, ajoute l'identifiant du connecteur, refait
-    la garde anti-SSRF et parle TLS à l'amont ; au push, il lit les
-    commandes et refuse une ref hors du ticket ou une suppression ;
+    ticket, filtre les en-têtes, ajoute l'identifiant du connecteur (un
+    identifiant saisi, lui, n'est envoyé qu'après un 401 de l'amont), refait
+    la garde anti-SSRF et joint l'amont sans proxy, en TLS pour un remote
+    `https://` (un remote `http://` passe en clair) ; une redirection de
+    l'amont est refusée ; au push, il lit les commandes et refuse une ref
+    hors du ticket ou une suppression. Les refs du ticket d'un push de
+    l'éditeur sont celles que donne `git push --dry-run --porcelain` ;
   - la sortie de Git et `FETCH_HEAD` reprennent l'URL d'origine ; `pull` =
     `fetch` par le relais, puis fusion dans le conteneur.
-- Le terminal de la sandbox n'a pas accès au relais (pas de ticket) : il
-  n'a que le réseau de son profil.
+- Le socket du relais est joignable depuis toutes les sandboxes : une
+  connexion sans ticket valide est fermée (5 s pour le présenter, 64
+  connexions au plus). Pendant une opération, l'écoute locale de l'agent est
+  joignable par tout processus de la sandbox, pour le seul dépôt, service
+  et refs du ticket. Hors opération, le terminal n'a que le réseau de son
+  profil.
 
 ## Table `OP_BACKEND`
 

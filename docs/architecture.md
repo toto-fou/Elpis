@@ -911,7 +911,7 @@ sequenceDiagram
             L-->>A: tool_calls[]
             A-->>C: NDJSON {tool_call}
             A->>M: call_tool (timeout LLAMA_TOOL_TIMEOUT_S)
-            M->>S: docker exec (shell) ou accès host (fs/git)
+            M->>S: docker exec (shell) ou agent de la sandbox (fs/git)
             S-->>M: résultat
             M-->>A: résultat (enveloppe ok/err)
             A-->>C: NDJSON {tool_result}
@@ -1408,9 +1408,10 @@ il n'y a pas de course lecture-modification-écriture. `sandbox_mode` et
 > **lectures** restent host-side (elles n'ont pas besoin de droits d'écriture) ;
 > repli `docker exec cat` pour un fichier en 0600.
 >
-> ⚠ `fs_tools` et `git_tools` s'exécutent encore **host-direct** derrière un
-> contrôle de préfixe de chemin — ils ne passent pas par ce pont. La frontière
-> noyau vaut pour le **shell**, pas pour tous les outils.
+> Depuis L4.2 et L4.4, `fs_tools` et `git_tools` passent par l'agent de la
+> sandbox (`shared_infra/sandbox/agent/`) : fichiers et commandes Git
+> s'exécutent dans le conteneur, sous son UID ; le réseau Git passe par le
+> relais de l'hôte (`git_relay`).
 
 ---
 
@@ -2033,9 +2034,8 @@ que par commande : interrogation (`git_query`, `git_inspect`), écriture
 Timeout des commandes locales : `APP_GIT_TOOL_TIMEOUT_S` (60 s) ; les commandes
 réseau ont leur propre budget (120 s).
 
-> ⚠ Les dossiers Git créés côté hôte doivent rester en `0o2777` et les
-> permissions réconciliées (`_PERMS_MARKER`) pour rester éditables depuis le
-> conteneur.
+> Git tourne dans le conteneur, par l'agent (`git_ops`) : les dépôts sont
+> créés sous l'UID de la sandbox, sans élargissement de droits côté hôte.
 
 ### Navigateur (`firefox_tools`)
 

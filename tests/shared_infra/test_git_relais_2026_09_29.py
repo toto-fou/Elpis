@@ -88,7 +88,10 @@ async def test_clone_fetch_pull_push(sandbox, amont):
     assert (work / "copie" / "a.txt").read_text() == "a\n"
     config = (work / "copie" / ".git" / "config").read_text()
     assert url in config and JETON not in config        # URL d'origine, jamais l'identifiant
-    assert amont.vus and all(a == BASIC for _m, _p, a in amont.vus)
+    # Identifiants saisis : envoyés seulement après la demande de l'amont (401).
+    assert [(m, p) for m, p, a in amont.vus if a is None] == [
+        ("GET", "/depot.git/info/refs?service=git-upload-pack")]
+    assert all(a == BASIC for _m, _p, a in amont.vus if a is not None)
 
     # Fetch : FETCH_HEAD et la sortie parlent de l'URL d'origine.
     (amont.src / "b.txt").write_text("b\n")
@@ -282,3 +285,109 @@ def test_connexions_sans_ticket_bornees(tmp_path, amont, monkeypatch):
         _attendre(lambda: srv._actives == 0)
         ligne = "GET /depot.git/info/refs?service=git-upload-pack HTTP/1.1"
         assert _requete(dossier, relay["socket"], relay["ticket"], ligne).startswith(b"HTTP/1.1 200")
+
+
+# ── Relecture L4.4 (2026-09-30) ──────────────────────────────────────────────
+
+async def test_connecteur_envoye_d_emblee(sandbox, amont, monkeypatch):
+    """Identifiant d'un CONNECTEUR (lié à cet hôte) : envoyé dès la première
+    requête ; les identifiants saisis, eux, attendent le 401 (cf. plus haut)."""
+    agent, _work = sandbox
+    monkeypatch.setattr(git_ops, "_credential", lambda uid, url: ("u", JETON))
+    r = await git_ops.run_network(agent, "", ["clone", "-q", "--", amont.url, "c2"],
+                                  url=amont.url, uid=1, block_reason=_libre)
+    assert r.ok, r.stderr
+    assert amont.vus and all(a == BASIC for _m, _p, a in amont.vus)
+
+
+async def test_proxy_d_environnement_ignore(sandbox, amont, monkeypatch):
+    """Ni l'hôte (relais → amont) ni git dans la sandbox (→ écoute locale de
+    l'agent) ne passent par un proxy : celui de l'environnement ou de
+    ``/work/.gitconfig`` ne voit ni ne casse le trafic Git authentifié."""
+    agent, work = sandbox
+    for var in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "all_proxy"):
+        monkeypatch.setenv(var, "http://127.0.0.1:9")
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+    r = await git_ops.run_network(agent, "", ["clone", "-q", "--", amont.url, "c3"],
+                                  url=amont.url, **_reseau())
+    assert r.ok, r.stderr
+    (work / ".gitconfig").write_text("[http]\n\tproxy = http://127.0.0.1:9\n")
+    r = await git_ops.run_network(agent, "c3", ["fetch", "-q", "origin"],
+                                  url=amont.url, **_reseau())
+    assert r.ok, r.stderr
+
+
+async def test_redirection_de_l_amont_refusee(sandbox, tmp_path):
+    """Une redirection n'est ni suivie ni rendue à git (qui la suivrait hors
+    du relais, sans ticket ni garde) : refus explicite, l'URL à corriger."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Redirige(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            self.send_response(301)
+            self.send_header("Location", "https://ailleurs.lan/depot.git/info/refs?x=1")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), Redirige)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        agent, _work = sandbox
+        url = f"http://127.0.0.1:{srv.server_address[1]}/depot.git"
+        r = await git_ops.run_network(agent, "", ["clone", "-q", "--", url, "c4"],
+                                      url=url, **_reseau())
+    finally:
+        srv.shutdown()
+        srv.server_close()
+    assert not r.ok
+    assert any("redirige (301 vers https://ailleurs.lan/depot.git/info/refs)" in m
+               for m in r.refus), r.refus
+
+
+async def test_ca_illisible_explique(sandbox, amont, monkeypatch):
+    """``GIT_SSL_CAINFO`` absent : message du relais, et non une réponse vide."""
+    agent, _work = sandbox
+    monkeypatch.setenv("GIT_SSL_CAINFO", "/nulle/part/ca.pem")
+    git_relay._tls.cache_clear()
+    try:
+        r = await git_ops.run_network(agent, "", ["clone", "-q", "--", amont.url, "c5"],
+                                      url=amont.url, **_reseau())
+    finally:
+        monkeypatch.delenv("GIT_SSL_CAINFO")
+        git_relay._tls.cache_clear()
+    assert not r.ok and any("autorité de certification illisible" in m for m in r.refus)
+    assert amont.vus == []
+
+
+async def test_lfs_jamais_telecharge(sandbox):
+    """Checkout d'un dépôt LFS : pointeurs gardés, même hors du relais (le
+    filtre de l'image joindrait l'amont LFS directement)."""
+    agent, _work = sandbox
+    r = await git_ops.run(agent, "", ["-c", "alias.env=!env", "env"])
+    assert r.ok and "GIT_LFS_SKIP_SMUDGE=1" in r.stdout.splitlines()
+
+
+def test_agent_rend_la_place_sans_descripteur(tmp_path, monkeypatch):
+    """Agent : un échec de création du socket (plus de descripteur) rend la
+    place de la connexion au lieu de la perdre."""
+    from shared_infra.sandbox.agent import server as S
+    spec = {"socket": "1.sock", "ticket": "t" * 43, "origin": "http://h/"}
+    with S._Relais(str(tmp_path), spec) as r:
+        r._actives = 1
+
+        class Client:
+            fermee = False
+
+            def close(self):
+                Client.fermee = True
+
+        def plus_de_fd(*a, **k):
+            raise OSError(24, "Too many open files")
+        monkeypatch.setattr(S.socket, "socket", plus_de_fd)
+        r._relayer(Client())
+        assert r._actives == 0 and Client.fermee

@@ -7,9 +7,10 @@ Fusionne les deux validateurs divergents qui coexistaient :
   - ``sandbox_git._validate_git_url`` (http/https/git, suffixes internes,
     anti-DNS-rebinding).
 
-``git clone/fetch/push/pull`` et les appels d'API PR tournent sur l'HÔTE (hors
-container ``--network=none``) → une URL interne est exploitable (pivot LAN,
-metadata cloud). On bloque tout ce qui résout vers une IP non globale.
+Le réseau de ``git clone/fetch/push/pull`` (relais de l'hôte, L4.4) et les
+appels d'API PR partent de l'HÔTE (hors container ``--network=none``) → une URL
+interne est exploitable (pivot LAN, metadata cloud). On bloque tout ce qui
+résout vers une IP non globale.
 
 ``allow_hosts`` = exception explicite (opt-in) pour les hosts de connecteurs
 ENREGISTRÉS par l'utilisateur (ex. ``gitlab.acme.internal``) — sinon le blocage

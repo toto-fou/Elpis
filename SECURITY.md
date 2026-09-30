@@ -82,8 +82,10 @@ run Elpis on a dedicated machine or VM. Details below, in French.
 - Pendant une opération Git réseau lancée par Elpis (au plus sa durée), le
   relais accepte les requêtes Git venues de la sandbox pour le seul dépôt et
   le seul service de l'opération ; un push n'y modifie que les refs
-  demandées, sans suppression. Le terminal de la sandbox n'a pas accès au
-  relais.
+  demandées, sans suppression. Hors opération, une connexion au relais sans
+  ticket valide est fermée sans rien relayer.
+- Un remote Git en `http://` est relayé en clair, identifiant du connecteur
+  compris.
 - Serveur MCP distant : son adresse est vérifiée quand il est enregistré, pas
   à chaque résolution DNS.
 

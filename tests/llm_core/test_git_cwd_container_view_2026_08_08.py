@@ -116,3 +116,37 @@ def test_le_registre_reste_utilisable_apres_purge():
         gt._remember_work_root(f"/srv/sb/u{i}/work", "alice")
     gt._remember_work_root("/srv/sb/fresh/work", "alice")
     assert gt._container_cwd("/srv/sb/fresh/work/p") == "/work/p"
+
+
+def test_registre_des_racines_sous_appels_paralleles():
+    """(Relecture L4.4, 2026-09-30) Appels d'outils git parallèles (fils de
+    FastMCP) : lecture et écriture du registre sous verrou, jamais
+    « dictionary keys changed during iteration »."""
+    import threading
+    gt._WORK_ROOTS.clear()
+    erreurs: list = []
+    fin = threading.Event()
+
+    def ecrire(i):
+        n = 0
+        while not fin.is_set():
+            gt._remember_work_root(f"/sb/u{i}-{n % 700}/work", f"u{i}")
+            n += 1
+
+    def lire():
+        while not fin.is_set():
+            try:
+                gt._root_of("/sb/u0-1/work/depot")
+            except Exception as e:                       # noqa: BLE001
+                erreurs.append(e)
+                return
+    fils = [threading.Thread(target=ecrire, args=(i,)) for i in range(3)]
+    fils += [threading.Thread(target=lire) for _ in range(3)]
+    for f in fils:
+        f.start()
+    threading.Event().wait(0.5)
+    fin.set()
+    for f in fils:
+        f.join()
+    gt._WORK_ROOTS.clear()
+    assert erreurs == []

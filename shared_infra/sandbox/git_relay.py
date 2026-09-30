@@ -7,8 +7,18 @@ amont (schéma, hôte, dépôt), service Git, refs permises au push, échéance.
 L'agent relaie le trafic de CETTE commande jusqu'ici (``_Relais`` de
 ``agent/server.py``) ; le relais n'accepte que le protocole Git « smart
 HTTP » de ce dépôt, ajoute l'authentification du connecteur et parle à
-l'amont. L'identifiant n'entre jamais dans la sandbox ; le terminal n'a pas
-accès au relais (pas de ticket).
+l'amont. L'identifiant n'entre jamais dans la sandbox.
+
+Le socket est joignable depuis toutes les sandboxes, mais une connexion qui
+ne présente pas de ticket valide est fermée sans rien relayer. Pendant une
+opération, l'écoute locale de l'agent (qui ajoute le ticket) est joignable
+par tout processus de CETTE sandbox : il ne peut alors atteindre que le dépôt,
+le service et les refs du ticket, jusqu'à la fin de l'opération.
+
+L'amont est joint sans proxy d'environnement (``trust_env=False``) ; une
+redirection de l'amont n'est ni suivie ni renvoyée à git, qui la suivrait
+hors du relais. Un remote ``http://`` passe en clair, en-tête d'authentification
+compris : préférer ``https://``.
 
 Un socket par processus de l'app (``<SANDBOX_DIR>/.elpis-relay/<pid>.sock``,
 dossier monté en lecture seule sur ``/run/elpis-relay``), démarré au premier
@@ -49,8 +59,7 @@ _PREAMBULE_S = 5.0                    # délai pour présenter le ticket
 _ENTETES_REQUETE = frozenset({"accept", "accept-encoding", "accept-language", "content-type",
                               "content-encoding", "git-protocol", "user-agent", "pragma"})
 _ENTETES_REPONSE = frozenset({"content-type", "content-encoding", "content-length",
-                              "cache-control", "expires", "pragma", "location",
-                              "www-authenticate"})
+                              "cache-control", "expires", "pragma", "www-authenticate"})
 _SEGMENT_INTERDIT = re.compile(r"(^|/)(\.|\.\.|%2e|%2e%2e|\.%2e|%2e\.)(/|$)", re.IGNORECASE)
 
 
@@ -74,6 +83,10 @@ class _Ticket:
     echeance: float
     refus: List[str] = field(default_factory=list)
     actives: int = 0
+    # Identifiants SAISIS (et non ceux d'un connecteur, liés à cet hôte) :
+    # envoyés seulement après une demande de l'amont (401), comme git.
+    auth_sur_defi: bool = False
+    defie: bool = False
 
 
 class _Registre:
@@ -110,6 +123,15 @@ class _Registre:
 
 
 _registre = _Registre()
+
+
+def _montrer(url: str) -> str:
+    """URL affichable dans un message : sans identifiants ni requête."""
+    try:
+        p = urlsplit(url)
+        return f"{p.scheme}://{p.hostname or ''}{p.path}"[:200]
+    except ValueError:
+        return "?"
 
 
 @functools.lru_cache(maxsize=1)
@@ -230,8 +252,6 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                         raise _Refus(415, "Relais Git : push compressé non relayé")
                     corps = _commandes_push(corps, t.refs)
                     corps = _amorce(corps)              # refus levé ici, avant l'amont
-            if t.auth:
-                entetes["Authorization"] = t.auth
             self._amont(t, entetes, corps)
         except _Refus as r:
             t.refus.append(r.message)
@@ -277,15 +297,42 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                 yield b
             self.rfile.readline(4)
 
+    def _envoyer(self, c: httpx.Client, t: _Ticket, entetes: Dict[str, str],
+                 corps: Optional[Iterator[bytes]]) -> httpx.Response:
+        """Requête à l'amont. Identifiants saisis : ajoutés après un premier
+        401 (la découverte ``info/refs``, sans corps, est alors refaite)."""
+        avec = dict(entetes)
+        if t.auth and (not t.auth_sur_defi or t.defie):
+            avec["Authorization"] = t.auth
+        r = c.send(c.build_request(self.command, t.amont + self.path, headers=avec,
+                                   content=corps), stream=True)
+        if (r.status_code == 401 and t.auth and t.auth_sur_defi and not t.defie
+                and self.command == "GET"):
+            t.defie = True
+            r.close()
+            avec["Authorization"] = t.auth
+            r = c.send(c.build_request("GET", t.amont + self.path, headers=avec), stream=True)
+        return r
+
     def _amont(self, t: _Ticket, entetes: Dict[str, str], corps: Optional[Iterator[bytes]]) -> None:
+        try:
+            tls = _tls()
+        except (OSError, ssl.SSLError) as e:
+            # Hors du ``try`` de l'envoi : une OSError y serait prise pour un
+            # git parti en cours de route, et git ne lirait qu'une réponse vide.
+            raise _Refus(502, "Relais Git : autorité de certification illisible "
+                              f"(GIT_SSL_CAINFO / GIT_SSL_CAPATH : {type(e).__name__})") from None
         envoye = False
         try:
-            with httpx.Client(verify=_tls(), follow_redirects=False,
+            with httpx.Client(verify=tls, follow_redirects=False, trust_env=False,
                               timeout=httpx.Timeout(300, connect=30)) as c:
-                req = c.build_request(self.command, t.amont + self.path, headers=entetes,
-                                      content=corps)
-                r = c.send(req, stream=True)
+                r = self._envoyer(c, t, entetes, corps)
                 try:
+                    if 300 <= r.status_code < 400:
+                        cible = r.headers.get("location", "")
+                        raise _Refus(502, f"Relais Git : l'amont redirige ({r.status_code}"
+                                          + (f" vers {_montrer(cible)}" if cible else "")
+                                          + ") ; corrigez l'URL du remote")
                     self.send_response(r.status_code)
                     envoye = True
                     for k, v in r.headers.multi_items():
@@ -444,16 +491,19 @@ def basic_auth(username: str, token: str) -> str:
 
 @contextlib.contextmanager
 def ticket(dossier: Path, *, uid: int, url: str, service: str, refs: Iterable[str] = (),
-           auth: str = "", garde: Callable[[], Optional[str]] = lambda: None,
+           auth: str = "", auth_on_challenge: bool = False,
+           garde: Callable[[], Optional[str]] = lambda: None,
            duree_s: float = 600) -> Iterator[Tuple[Dict[str, str], List[str]]]:
     """Ticket d'une opération : (spécification ``relay`` à passer à l'agent
     — ``socket``, ``ticket``, ``origin`` —, motifs des requêtes refusées par
-    le relais, pour le message d'erreur)."""
+    le relais, pour le message d'erreur). ``auth_on_challenge`` : ``auth``
+    n'est envoyé qu'après un 401 de l'amont (identifiants saisis)."""
     if service not in (UPLOAD, RECEIVE):
         raise ValueError(service)
     base, depot, origine = amont(url)
     t = _Ticket(uid=uid, amont=base, depot=depot, service=service, refs=frozenset(refs),
-                auth=auth, garde=garde, echeance=time.monotonic() + duree_s)
+                auth=auth, garde=garde, echeance=time.monotonic() + duree_s,
+                auth_sur_defi=auth_on_challenge)
     nom = serveur(dossier)
     jeton = _registre.ajouter(t)
     try:

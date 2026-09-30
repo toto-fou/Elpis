@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from shared_infra.sandbox import git_relay
@@ -40,6 +40,9 @@ class GitResult:
     truncated: bool = False
     timed_out: bool = False
     duration_ms: int = 0
+    #: Requêtes refusées par le relais pendant l'opération (motifs) : un refus
+    #: de politique, à ne pas confondre avec un échec d'authentification.
+    refus: List[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -111,23 +114,29 @@ async def run_network(agent: Any, cwd: str, args: Iterable[str], *, uid: int, ur
                       ) -> GitResult:
     """Commande git réseau vers ``url`` seule, par le relais : fetch, clone et
     ls-remote (``push_refs`` absent) ou push des seules refs ``push_refs``.
-    Authentification : ``auth`` (identifiant, jeton) donné, sinon celle du
-    connecteur de l'hôte ; aucune si aucun ne correspond."""
+    Authentification : ``auth`` (identifiant, jeton saisis) donné, sinon celle
+    du connecteur de l'hôte ; aucune si aucun ne correspond. Les identifiants
+    saisis ne partent qu'en réponse à une demande de l'amont (401), comme avec
+    git : l'hôte pour lequel ils ont été tapés n'est pas connu ici."""
     garde = block_reason or remote_block_reason
     motif = await asyncio.to_thread(garde, url, uid)
     if motif:
         raise RelayRefused("blocked_remote", f"Dépôt refusé (anti-SSRF) : {motif}")
     git_relay.amont(url)                                # URL relayable, sinon RelayRefused
-    user, token = auth if auth and auth[1] else await asyncio.to_thread(_credential, uid, url)
+    if auth and auth[1]:
+        saisis, (user, token) = True, auth
+    else:
+        saisis, (user, token) = False, await asyncio.to_thread(_credential, uid, url)
     service = git_relay.UPLOAD if push_refs is None else git_relay.RECEIVE
     with git_relay.ticket(agent.relay_dir, uid=uid, url=url, service=service,
                           refs=push_refs or (), duree_s=timeout_s + 60,
                           auth=git_relay.basic_auth(user, token) if token else "",
+                          auth_on_challenge=saisis,
                           garde=lambda: garde(url, uid)) as (relay, refus_relais):
         d = await agent.git(cwd, list(args), timeout_s=timeout_s, max_out=max_out,
                             relay=relay)
         refus = list(dict.fromkeys(refus_relais))
-    r = GitResult(**d)
+    r = GitResult(**d, refus=refus)
     if refus and not r.ok:
         r.stderr = (r.stderr.rstrip("\n") + "\n" + "\n".join(refus)).lstrip("\n")
     return r
@@ -139,14 +148,22 @@ async def pull(agent: Any, cwd: str, remote: str, branch: str = "", mode: str = 
     """``git pull`` : fetch par le relais, puis fusion locale de la branche
     demandée (``FETCH_HEAD``) ou de l'amont de la branche courante
     (``@{upstream}``) selon ``mode`` (``_PULL_MODES``). ``reseau`` : options
-    de ``run_network`` (``auth``, ``block_reason``)."""
+    de ``run_network`` (``auth``, ``block_reason``).
+
+    ``remote`` « . » (branche qui suit une branche locale) : fusion seule,
+    sans réseau, comme ``git pull``. Les sous-modules ne sont pas récupérés :
+    leur fetch viserait un autre dépôt que celui du ticket (relecture L4.4)."""
     if mode not in _PULL_MODES:
         raise ValueError(f"git pull : mode non pris en charge {mode}")
-    url = await remote_url(agent, cwd, remote)
-    f = await run_network(agent, cwd, ["fetch", remote, *([branch] if branch else [])],
-                          uid=uid, url=url, timeout_s=timeout_s, max_out=max_out, **reseau)
-    if not f.ok:
-        return f
+    if remote == ".":
+        f = GitResult(0, "", "")
+    else:
+        url = await remote_url(agent, cwd, remote)
+        f = await run_network(agent, cwd, ["fetch", "--no-recurse-submodules", remote,
+                                           *([branch] if branch else [])],
+                              uid=uid, url=url, timeout_s=timeout_s, max_out=max_out, **reseau)
+        if not f.ok:
+            return f
     cible = "FETCH_HEAD" if branch else "@{upstream}"
     for suite in _PULL_MODES[mode]:
         last = await run(agent, cwd, [*suite, cible], timeout_s=timeout_s, max_out=max_out)
@@ -160,13 +177,14 @@ async def pull(agent: Any, cwd: str, remote: str, branch: str = "", mode: str = 
 _NON_PARCOURUS = ("node_modules", "__pycache__", ".venv", "venv")
 
 
-async def find_repos(agent: Any, *, depth: int = 3, limit: int = 50) -> List[str]:
+async def find_repos(agent: Any, *, depth: int = 3, limit: int = 50,
+                     passive: bool = False) -> List[str]:
     """Dépôts (dossier qui contient ``.git``) jusqu'à ``depth`` niveaux sous
     /work, racine exclue ; un dépôt dans un dépôt n'est pas rendu. Chemins
-    relatifs à /work, triés, ``limit`` au plus."""
+    relatifs à /work, triés, ``limit`` au plus. ``passive`` : cf. ``run``."""
     liste = await agent.list("", depth=depth + 1, max_entries=20000, hidden=True,
                              prune=[".git"], exclude=list(_NON_PARCOURUS),
-                             name_contains=".git", deadline_s=10)
+                             name_contains=".git", deadline_s=10, passive=passive)
     depots = sorted({e["path"].rsplit("/", 1)[0] for e in liste.entries
                      if "/" in e["path"] and e["path"].rsplit("/", 1)[1] == ".git"
                      and e["kind"] in ("dir", "file")})

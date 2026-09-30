@@ -54,6 +54,7 @@ import os
 import posixpath
 import re
 import secrets as _sec
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
@@ -407,33 +408,47 @@ def _safe_ref(ref: str) -> str:
 # alimenté par ``_sandbox()`` au début de chaque outil, dit à ``_run_cmd``
 # quel agent interroger et rend les ``cwd`` dans l'espace du conteneur
 # (``/work/...``), le seul que ré-acceptent les autres outils.
+# Les outils tournent sur les fils de FastMCP : le registre est lu et modifié
+# sous verrou (relecture L4.4 : « dictionary keys changed during iteration »
+# sur des appels parallèles, rendu au modèle comme une erreur inattendue).
 _WORK_ROOTS: Dict[str, str] = {}
 _WORK_ROOTS_MAX = 512
+_WORK_ROOTS_LOCK = threading.Lock()
 
 
 def _remember_work_root(p, username: str) -> None:
-    _WORK_ROOTS.pop(str(p), None)
-    _WORK_ROOTS[str(p)] = username
-    while len(_WORK_ROOTS) > _WORK_ROOTS_MAX:     # borne mémoire : la plus ancienne part
-        del _WORK_ROOTS[next(iter(_WORK_ROOTS))]
+    with _WORK_ROOTS_LOCK:
+        _WORK_ROOTS.pop(str(p), None)
+        _WORK_ROOTS[str(p)] = username
+        while len(_WORK_ROOTS) > _WORK_ROOTS_MAX:  # borne mémoire : la plus ancienne part
+            del _WORK_ROOTS[next(iter(_WORK_ROOTS))]
+
+
+def _root_entry(p) -> Optional[Tuple[str, str]]:
+    """(racine /work, compte) qui contient le chemin hôte ``p``."""
+    q = str(p)
+    with _WORK_ROOTS_LOCK:
+        roots = list(_WORK_ROOTS.items())
+    best: Optional[Tuple[str, str]] = None
+    for r, user in roots:
+        if (q == r or q.startswith(r.rstrip("/") + "/")) and (best is None or len(r) > len(best[0])):
+            best = (r, user)
+    return best
 
 
 def _root_of(p) -> Optional[str]:
-    q = str(p)
-    best = ""
-    for r in _WORK_ROOTS:
-        if (q == r or q.startswith(r.rstrip("/") + "/")) and len(r) > len(best):
-            best = r
-    return best or None
+    e = _root_entry(p)
+    return e[0] if e else None
 
 
 def _espace_of(p) -> Tuple[Espace, str]:
     """(espace du compte, chemin relatif à /work) du chemin hôte ``p``."""
-    root = _root_of(p)
-    if root is None:
+    e = _root_entry(p)
+    if e is None:
         raise ValueError("sandbox root unknown (internal: _sandbox() not called)")
+    root, user = e
     rel = rel_under(Path(root), Path(p))
-    return Espace(_WORK_ROOTS[root], Path(root)), "" if rel == "." else rel
+    return Espace(user, Path(root)), "" if rel == "." else rel
 
 
 def _container_cwd(p) -> str:
@@ -1412,7 +1427,8 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                 _safe_ref(remote)
                 b = _validate_branch(branch) if branch else ""
                 if act == "fetch":
-                    cmd = ["git", "fetch", remote, *([b] if b else [])]
+                    # Sous-modules : autres dépôts que celui du ticket du relais.
+                    cmd = ["git", "fetch", "--no-recurse-submodules", remote, *([b] if b else [])]
                     if dry_run:
                         return _ok(dry_run=True, would_run=cmd)
                     try:

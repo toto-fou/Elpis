@@ -153,11 +153,13 @@ class AgentClient:
     async def list(self, path: str = "", *, depth: int = 1, max_entries: int = 20000,
                    hidden: bool = True, prune: Iterable[str] = (), exclude: Iterable[str] = (),
                    deadline_s: float = 30.0, name_contains: str = "",
-                   kinds: Iterable[str] = (), name_glob: str = "") -> AgentListing:
+                   kinds: Iterable[str] = (), name_glob: str = "",
+                   passive: bool = False) -> AgentListing:
         """``kinds``, ``name_glob``, ``name_contains`` : seules ces entrées sont
-        rendues — et comptées dans ``max_entries`` ; tout est parcouru."""
+        rendues — et comptées dans ``max_entries`` ; tout est parcouru.
+        ``passive`` : sondage (cf. ``_flux``)."""
         entries: List[Dict[str, Any]] = []
-        async with self._flux("POST", "/v1/list", json={
+        async with self._flux("POST", "/v1/list", passif=passive, json={
                 "path": path, "depth": depth, "max_entries": max_entries, "hidden": hidden,
                 "prune": list(prune), "exclude": list(exclude), "deadline_s": deadline_s,
                 "name_contains": name_contains, "kinds": list(kinds),
@@ -208,16 +210,17 @@ class AgentClient:
         raise AgentError("bad_response", "recherche interrompue")
 
     async def read_many(self, paths: Iterable[str], *, max_file: int = 1 << 20,
-                        max_total: int = 32 << 20) -> Dict[str, Optional[bytes]]:
+                        max_total: int = 32 << 20,
+                        passive: bool = False) -> Dict[str, Optional[bytes]]:
         """{chemin: octets, ou ``None`` : absent, spécial, trop gros} des
         premiers fichiers de ``paths``, en un appel ; l'agent s'arrête avant de
         dépasser ``max_total`` (les chemins absents du résultat sont à
-        redemander)."""
+        redemander). ``passive`` : sondage (cf. ``_flux``)."""
         chemins = [_chemin(p) for p in paths]
         demandes = set(chemins)
         rendu: Dict[str, Optional[bytes]] = {}
         maxi = (1 << 20) + len(chemins) * 1024 + max_total * 4 // 3
-        async with self._flux("POST", "/v1/readmany", json={
+        async with self._flux("POST", "/v1/readmany", passif=passive, json={
                 "paths": chemins, "max_file": max_file, "max_total": max_total}) as r:
             async for obj in _lignes(r, maxi, _LIGNE_MAX + max_file * 4 // 3):
                 if "error" in obj:

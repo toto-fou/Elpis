@@ -970,13 +970,25 @@ class Agent:
         delai_s = max(0.1, min(float(d.get("timeout_s") or 60), _GIT_DELAI_MAX_S))
         maxi = max(1, min(int(d.get("max_out") or 1 << 20), _GIT_SORTIE_MAX))
         env = _env_git(d.get("env"), self.config_git, self.racine)
+        # LFS : jamais de téléchargement au checkout, relayé ou non. Le filtre
+        # de l'image joindrait l'amont LFS directement, hors du relais : un
+        # clone passait (relayé) et le pull du même dépôt échouait à la fusion
+        # locale (relecture L4.4). Les fichiers LFS restent des pointeurs.
+        env["GIT_LFS_SKIP_SMUDGE"] = "1"
         config = list(_GIT_CONFIG)
         relais = None
         with contextlib.ExitStack() as pile:
             if d.get("relay"):
                 relais = pile.enter_context(_Relais(self.relais, d["relay"]))
                 config.append((f"url.{relais.prefixe}.insteadOf", relais.origine))
-                env.update(GIT_ALLOW_PROTOCOL="http", GIT_LFS_SKIP_SMUDGE="1")
+                env.update(GIT_ALLOW_PROTOCOL="http")
+                # Écoute locale de l'agent : jamais par un proxy (celui d'un
+                # profil réseau, ou ``http.proxy`` de /work/.gitconfig), qui
+                # ne joindrait pas la boucle locale du conteneur. git passe
+                # ``NO_PROXY`` à curl, proxy de config compris.
+                sans = ",".join(filter(None, (env.get("NO_PROXY") or env.get("no_proxy"),
+                                              "127.0.0.1")))
+                env["NO_PROXY"] = env["no_proxy"] = sans
             for i, (k, v) in enumerate(config):
                 env[f"GIT_CONFIG_KEY_{i}"], env[f"GIT_CONFIG_VALUE_{i}"] = k, v
             env["GIT_CONFIG_COUNT"] = str(len(config))
@@ -1146,10 +1158,23 @@ class _Relais:
             if not libre:
                 c.close()
                 continue
-            threading.Thread(target=self._relayer, args=(c,), daemon=True).start()
+            try:
+                threading.Thread(target=self._relayer, args=(c,), daemon=True).start()
+            except RuntimeError:                         # plus de fil : place rendue
+                self._liberer()
+                c.close()
+
+    def _liberer(self) -> None:
+        with self._verrou:
+            self._actives -= 1
 
     def _relayer(self, c: socket.socket) -> None:
-        h = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            h = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        except OSError:                                  # plus de descripteur
+            self._liberer()
+            c.close()
+            return
         with c, h:
             with self._verrou:
                 self._ouvertes.update((c, h))

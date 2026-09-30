@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: MIT
 """shared_infra/sandbox/bwrap.py — prison ``bubblewrap`` des commandes que
-l'hôte lance sur des données de la sandbox (aperçus Office, Git).
+l'hôte lance sur des données de la sandbox (aperçus Office ; Git tourne dans
+la sandbox depuis L4.4).
 
 Tout est désolidarisé (``--unshare-all`` : réseau, PID, IPC, utilisateur…),
 ``/usr`` est en lecture seule, ``/tmp`` est vide, et seuls les dossiers que
 l'appelant ajoute sont visibles : ce qui s'exécute dedans ne voit ni la base,
 ni les secrets de l'app, ni le socket Docker, ni la sandbox d'un autre
-utilisateur, ni le réseau (sauf ``network=True``).
+utilisateur, ni le réseau.
 """
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ _probe_cache: dict = {"at": 0.0, "ok": False, "bin": ""}
 _PROBE_TTL_S = 600.0
 
 
-def base_argv(*, network: bool = False) -> List[str]:
+def base_argv() -> List[str]:
     """Options communes, sans le binaire ni la commande. ``/bin``, ``/lib``…
     sont des liens vers ``/usr`` (Debian et Ubuntu à ``/usr`` fusionné)."""
     argv = [
@@ -37,8 +38,6 @@ def base_argv(*, network: bool = False) -> List[str]:
         "--symlink", "usr/sbin", "/sbin",
         "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
     ]
-    if network:
-        argv.append("--share-net")
     return argv
 
 

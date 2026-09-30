@@ -81,9 +81,10 @@ node tests/frontend/<fichier>.js          # un test unitaire front (sans dépend
 
 ## Lint et fichiers générés
 
-- `venv/bin/ruff check <fichiers modifiés>` (règles `E9` et `F`,
-  `pyproject.toml`). La base a des alertes anciennes : ne linter que ce que
-  vous touchez, sans en ajouter.
+- `venv/bin/ruff check .` et `venv/bin/mypy` (règles et périmètre typé dans
+  `pyproject.toml`) : la base est propre et la CI (`.github/workflows/ci.yml`)
+  les exige, comme la suite de tests. Un `# noqa` porte sa raison ; un bloc
+  d'imports dont l'ordre compte est exclu du tri (voir `pyproject.toml`).
 - `frontend/css/style.tailwind.css` est **généré** : après avoir ajouté des
   classes utilitaires dans un gabarit ou un script,
   `node tools/generate_tailwind_css.mjs` (Playwright requis, comme ci-dessus).
@@ -194,8 +195,15 @@ résumé, une modification ne doit jamais :
 - réorganiser le gestionnaire du flux de chat (`chatbot_app/routes/chats.py`)
   sans relire ses invariants d'ordre (annulation, enregistrement, protocole
   NDJSON), documentés en tête du fichier ;
-- présenter les outils fichiers et Git comme isolés : seul le shell tourne
-  dans le conteneur.
+- toucher au contenu de `/work` depuis l'hôte : tout passe par l'agent du
+  conteneur (`shared_infra/sandbox/agent_client.py`, `llm_core/tools/_espace.py`,
+  `git_ops` pour Git) — un `open`, `os.walk`, `chmod` ou `unlink` de l'hôte
+  sur un chemin suivrait les liens que le conteneur peut poser à tout moment.
+  `test_frontiere_interception_2026_09_30.py` le vérifie pour les parcours
+  principaux et les fonctions de fichiers courantes (pas `stat`, `glob`,
+  `tarfile` ni les sous-processus) : ce n'est pas une preuve, relire les
+  appels à `_get_work_path` / `sandbox_path` ; exceptions listées dans
+  `docs/sandbox-gateway.md`.
 
 ## Git et pull requests
 

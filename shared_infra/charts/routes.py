@@ -48,10 +48,10 @@ logger = logging.getLogger("uvicorn.error")
 
 from fastapi import HTTPException, Request
 
-from shared_infra.security.deps import require_user_id
 from shared_infra.accounts.users import get_username_by_id
 from shared_infra.chat.store import get_chat
 from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
 
 # ── Path helpers (mirror tools/chart_tools.py exactly) ───────────────

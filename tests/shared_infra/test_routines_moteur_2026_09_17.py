@@ -21,10 +21,9 @@ def base(tmp_path, monkeypatch):
     import shared_infra.db._connection as legacy
     monkeypatch.setattr(legacy, "DB_PATH", str(tmp_path / "app.db"))
     legacy.init_db()
-    from shared_infra.accounts.users import create_user
-    from shared_infra.llm import connectors as lc
-    from shared_infra.llm import engine_access as ea
     import shared_infra.scheduling.routines_store as store
+    from shared_infra.accounts.users import create_user
+    from shared_infra.llm import connectors as lc, engine_access as ea
     store.init_routines_db()
     ea.invalidate_cache()
     ids = {

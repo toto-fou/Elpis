@@ -25,8 +25,8 @@ import json
 import pytest
 
 from llm_core import _chat_with_tools as _cwt
-from llm_core.engine.tool_exec import flatten_exception_message
 from llm_core._think_resume import should_auto_resume
+from llm_core.engine.tool_exec import flatten_exception_message
 
 
 async def _anoop(*_a, **_k):

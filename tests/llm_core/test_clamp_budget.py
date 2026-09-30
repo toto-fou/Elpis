@@ -8,12 +8,12 @@ gestion de n_predict, mode thinking.
 from __future__ import annotations
 
 from llm_core._constants import (
-    clamp_generation_budget,
-    effective_generation_cap,
-    LLAMA_MAX_TOKENS_CHAT as CAP_CHAT,
-    LLAMA_MAX_TOKENS_THINKING as CAP_THINK,
     LLAMA_GEN_CAP_CTX_RATIO as RATIO,
     LLAMA_GEN_CAP_FLOOR as FLOOR,
+    LLAMA_MAX_TOKENS_CHAT as CAP_CHAT,
+    LLAMA_MAX_TOKENS_THINKING as CAP_THINK,
+    clamp_generation_budget,
+    effective_generation_cap,
 )
 
 

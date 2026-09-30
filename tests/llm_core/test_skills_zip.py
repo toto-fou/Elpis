@@ -19,7 +19,11 @@ if str(ROOT) not in sys.path:
 
 from llm_core import skills as S  # noqa: E402
 from llm_core.skills import (  # noqa: E402
-    install_skill_zip, export_skill_zip, SkillExistsError, SkillSaveError, _scan_tree,
+    SkillExistsError,
+    SkillSaveError,
+    _scan_tree,
+    export_skill_zip,
+    install_skill_zip,
 )
 
 GOOD_MD = ("---\nname: pdf-processing\n"

@@ -29,12 +29,12 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, Request
 
-from shared_infra.config import MEMORY_DIR as SANDBOX_DIR  # racine du magasin mémoire (P4)
-from shared_infra.security.deps import require_user_id
-from shared_infra.accounts.users import get_username_by_id
-from shared_infra.routes._state import router
-from llm_core.memory._migrate import migrate_legacy_memory
 from llm_core.memory import _journal
+from llm_core.memory._migrate import migrate_legacy_memory
+from shared_infra.accounts.users import get_username_by_id
+from shared_infra.config import MEMORY_DIR as SANDBOX_DIR  # racine du magasin mémoire (P4)
+from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
 
 def _resolve_username(request: Request) -> str:
@@ -206,7 +206,7 @@ def _unlink_store_file_capture(p: Path) -> tuple[bool, Optional[str], Optional[s
     fichier NEUF, pas de résurrection du contenu effacé).
     """
     try:
-        from llm_core.memory._markdown_store import _store_transaction, StoreBusyError
+        from llm_core.memory._markdown_store import StoreBusyError, _store_transaction
     except Exception:  # pragma: no cover - import edge
         _store_transaction = None
         StoreBusyError = Exception  # type: ignore

@@ -11,13 +11,14 @@ from __future__ import annotations
 from typing import Dict
 
 from shared_infra.git.providers.base import GitProvider
+from shared_infra.git.providers.bitbucket import (
+    BitbucketCloudProvider,
+    BitbucketServerProvider,
+)
+from shared_infra.git.providers.generic import GenericProvider
+from shared_infra.git.providers.gitea import GiteaProvider
 from shared_infra.git.providers.github import GitHubProvider
 from shared_infra.git.providers.gitlab import GitLabProvider
-from shared_infra.git.providers.bitbucket import (
-    BitbucketCloudProvider, BitbucketServerProvider,
-)
-from shared_infra.git.providers.gitea import GiteaProvider
-from shared_infra.git.providers.generic import GenericProvider
 
 _INSTANCES = [
     GitHubProvider(), GitLabProvider(),

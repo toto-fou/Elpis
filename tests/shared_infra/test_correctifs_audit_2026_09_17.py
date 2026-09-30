@@ -4,7 +4,9 @@ pendant l'audit du 2026-09-16 et corrigés le lendemain.
 
 A1  ``sandbox_grant_access`` (coroutine) était appelée SANS ``await`` depuis une
     fonction synchrone : jamais exécutée — un ``/work`` importé restait
-    propriété de l'UID de l'app, inéditable depuis le container.
+    propriété de l'UID de l'app, inéditable depuis le container. (Sans objet
+    depuis L4.5 : l'agent de la sandbox extrait l'import lui-même, cf.
+    test_archives_agent_2026_09_29.)
 A2  idem pour ``count_tokens_exact`` dans l'aperçu admin du prompt système :
     le comptage exact ne pouvait pas aboutir, l'aperçu montrait TOUJOURS une
     estimation.
@@ -21,35 +23,6 @@ import asyncio
 import inspect
 
 import pytest
-
-
-# ── A1 ───────────────────────────────────────────────────────────────────────
-def test_les_droits_de_work_sont_vraiment_remis_apres_import(monkeypatch):
-    import shared_infra.sandbox.routes_files as rf
-
-    vus = []
-
-    async def _fake_grant(uid, rel):
-        vus.append((uid, rel))
-
-    monkeypatch.setattr("shared_infra.sandbox.exec_bridge.sandbox_grant_access",
-                        _fake_grant)
-    asyncio.run(rf.grant_work_access(7))
-    assert vus == [(7, "")], "la coroutine de remise des droits n'a pas été exécutée"
-    # La route asynchrone appelle bien le helper (et plus l'appel nu, en thread).
-    src = inspect.getsource(rf.api_sandbox_import)
-    assert "await grant_work_access(user_id)" in src
-    assert "sandbox_grant_access(user_id" not in inspect.getsource(rf.import_work_archive)
-
-
-def test_une_remise_de_droits_en_echec_ne_casse_pas_limport(monkeypatch):
-    import shared_infra.sandbox.routes_files as rf
-
-    async def _boom(uid, rel):
-        raise OSError("acl refusée")
-
-    monkeypatch.setattr("shared_infra.sandbox.exec_bridge.sandbox_grant_access", _boom)
-    asyncio.run(rf.grant_work_access(7))        # ne lève pas
 
 
 # ── A2 ───────────────────────────────────────────────────────────────────────

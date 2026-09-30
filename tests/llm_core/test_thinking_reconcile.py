@@ -20,9 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from llm_core import _chat_classic as _ccl
-from llm_core import _chat_with_tools as _cwt
-from llm_core import _llm_params
+from llm_core import _chat_classic as _ccl, _chat_with_tools as _cwt, _llm_params
 from llm_core._chat_classic import _extract_thinking
 from llm_core._stream_tag_parser import ThinkTagSplitter
 from llm_core._thinking_reconcile import reconcile_thinking_content

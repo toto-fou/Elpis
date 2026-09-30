@@ -35,7 +35,7 @@ import json
 import logging
 import random
 import time
-from typing import Any, Dict, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional
 
 import httpx
 
@@ -417,8 +417,8 @@ def retry_after_seconds(e: Optional[BaseException]) -> Optional[float]:
         secs = float(raw)
     except ValueError:
         try:
-            from email.utils import parsedate_to_datetime
             import datetime as _dt
+            from email.utils import parsedate_to_datetime
             when = parsedate_to_datetime(raw)
             if when.tzinfo is None:
                 when = when.replace(tzinfo=_dt.timezone.utc)

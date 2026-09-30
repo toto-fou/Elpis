@@ -763,7 +763,7 @@ const elpisApp = createApp({
         // -- 7.  MODULE PLACEHOLDERS (filled right after init) ---
         // Using 'let' so closures in ctx can reference them after all
         // modules are constructed.
-        let authMod, chatMod, editorMod, adminMod, adminSkinsMod, settingsMod, skillsMenuMod, routinesMenuMod, studioMenuMod, studioChatMod, studioAutomationMod, codeMenuMod, mascotteMod;
+        let authMod, chatMod, editorMod, adminMod, adminSkinsMod, adminRunsMod, settingsMod, skillsMenuMod, routinesMenuMod, studioMenuMod, studioChatMod, studioAutomationMod, codeMenuMod, mascotteMod;
 
         // -- 8.  CONTEXT OBJECT passed to every setup*() ---------
         // All getters are lazy; the referenced module vars are already
@@ -1033,6 +1033,8 @@ const elpisApp = createApp({
         // Console › Système › Apparence (skins de l'instance). Module à part :
         // ses chargeurs sont cherchés par _loadAdminTab après ceux d'adminMod.
         adminSkinsMod = _safeSetup('setupAdminSkins', typeof setupAdminSkins !== 'undefined' ? setupAdminSkins : null);
+        // Console › Supervision › Exécutions (L5.7) : même principe.
+        adminRunsMod = _safeSetup('setupAdminRuns', typeof setupAdminRuns !== 'undefined' ? setupAdminRuns : null);
         // Gestion des skills. Module self-contained : l'onglet « Skills » de la
         // modal Paramètres (includes/modals/settings_skills.html, gated sur
         // settingsTab==='skills', refs/methods spread ci-dessous) porte tout le
@@ -1672,6 +1674,7 @@ const elpisApp = createApp({
             for (const [fn, ...args] of _adminLoaders(tab)) {
                 if (typeof adminMod[fn] === 'function') adminMod[fn](...args);
                 else if (adminSkinsMod && typeof adminSkinsMod[fn] === 'function') adminSkinsMod[fn](...args);
+                else if (adminRunsMod && typeof adminRunsMod[fn] === 'function') adminRunsMod[fn](...args);
             }
         }
 
@@ -2420,6 +2423,8 @@ const elpisApp = createApp({
                 if (authMod.showNewUserModal && authMod.showNewUserModal.value)                                              { authMod.showNewUserModal.value = false; return; }
                 if (chatMod.skillAssistForm && chatMod.skillAssistForm.value && chatMod.skillAssistForm.value.open)          { chatMod.skillAssistForm.value.open = false; return; }
                 if (chatMod.toolInfo && chatMod.toolInfo.value)                                                              { chatMod.closeToolInfo(); return; }
+                // « Détails » d'une exécution (chat et console › Exécutions).
+                if (chatMod.runDetails && chatMod.runDetails.value && chatMod.closeRunDetails)                               { chatMod.closeRunDetails(); return; }
                 if (adminMod.transferModal && adminMod.transferModal.value && adminMod.transferModal.value.active
                         && (adminMod.transferModal.value.done || adminMod.transferModal.value.error)) {
                     if (adminMod.closeTransferModal) adminMod.closeTransferModal();
@@ -2973,6 +2978,7 @@ const elpisApp = createApp({
             // -- module exports (lower priority first) ----------
             ...adminMod,
             ...adminSkinsMod,
+            ...adminRunsMod,
             ...settingsMod,
             ...skillsMenuMod,
             ...routinesMenuMod,

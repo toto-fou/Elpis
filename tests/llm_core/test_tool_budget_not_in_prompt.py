@@ -26,6 +26,9 @@ import shared_infra.config as _cfg
 from llm_core._chat_with_tools import _harness_status_line
 from llm_core.context.assembly import assemble_operational_context
 
+# Surfaces et fragments dérivent du registre des catégories : le vrai.
+pytestmark = pytest.mark.usefixtures("real_tool_registry")
+
 _TOOLS = ["read_file", "write_file", "execute_shell", "git_query",
           "pw_act", "task", "memory"]
 

@@ -25,10 +25,7 @@ import json
 
 import pytest
 
-from llm_core import _chat_classic as _ccl
-from llm_core import _chat_with_tools as _cwt
-from llm_core import _llm_params
-from llm_core import _tool_parsing as _tp
+from llm_core import _chat_classic as _ccl, _chat_with_tools as _cwt, _llm_params, _tool_parsing as _tp
 from llm_core.providers import openai_compat as _oai
 
 

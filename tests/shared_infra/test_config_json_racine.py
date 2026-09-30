@@ -86,6 +86,7 @@ def test_config_json_et_ses_backups_restent_hors_du_depot():
     """Il porte le secret de session et la clé Qdrant : jamais versionné.
     Le déplacement a changé leur chemin — donc les règles qui les ignorent."""
     import subprocess
+
     from shared_infra.config import PROJECT_ROOT
 
     for nom in ("config.json", "config.json.bak", "config.json.bak-2026-08-21"):

@@ -22,7 +22,7 @@ _AGENT = str(Path(__file__).resolve().parents[2] / "desktop-agent")
 if _AGENT not in sys.path:
     sys.path.insert(0, _AGENT)
 
-from elpis_auto import Session, CheckFailed, NeedsVision, StepError  # noqa: E402
+from elpis_auto import CheckFailed, NeedsVision, Session, StepError  # noqa: E402
 
 PNG_1x1 = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=")

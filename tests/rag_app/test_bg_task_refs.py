@@ -14,7 +14,6 @@ import pathlib
 
 import pytest
 
-
 APP = pathlib.Path("rag_app/app.py")
 
 

@@ -39,7 +39,6 @@ from llm_core.conversation_compressor import (
     maybe_compress_conversation,
 )
 
-
 # ──────────────────────────────────────────────────────────────────────────
 # Helpers / fixtures
 # ──────────────────────────────────────────────────────────────────────────
@@ -481,8 +480,8 @@ async def test_count_exact_ajoute_forfait_image(compr_cfg, fake_tokenize):
     """Le compte EXACT du compresseur ajoute le forfait image par-dessus le
     texte (même règle que la jauge) — un chat multimodal ne sous-estime plus
     son occupation côté porte de compression."""
-    from llm_core.conversation_compressor import _count_tokens_async_ex
     from llm_core._token_estimate import image_token_cost
+    from llm_core.conversation_compressor import _count_tokens_async_ex
 
     msgs = [{"role": "user", "content": [
         {"type": "text", "text": "regarde cette capture"},

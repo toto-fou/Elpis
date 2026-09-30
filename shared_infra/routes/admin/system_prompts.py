@@ -25,22 +25,25 @@ Security
 """
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import os
 import re
+import tempfile
 from pathlib import Path
 
 from fastapi import HTTPException, Request
-
-from shared_infra.routes.admin._state import admin_router
-from shared_infra.routes._legacy import _require_admin
 
 # Reuse the assembler's directory + helper functions so we always agree
 # on what counts as a "category file".
 from llm_core._system_prompts import (
     _SYSTEM_P_DIR,
-    list_known_categories,
     assemble_system_messages,
+    list_known_categories,
     preview as assemble_preview,
 )
+from shared_infra.routes._legacy import _require_admin
+from shared_infra.routes.admin._state import admin_router
 
 # Strict regex on category names — matches the file naming convention
 # (lowercase letters, digits, hyphens, underscores). Keeps ``..`` and
@@ -265,19 +268,28 @@ async def admin_put_system_prompt(category: str, request: Request):
             f"content too large ({len(content)} chars > {_MAX_FILE_BYTES} bytes max)"
         )
 
-    # Atomic write — same pattern as memory_tools / memory routes
-    tmp = p.with_suffix(".md.tmp")
+    # Atomic write — same pattern as memory_tools / memory routes — hors de la
+    # boucle d'événements (``fsync``).
+    def _write() -> None:
+        # Temporaire unique : deux enregistrements simultanés (threads ou
+        # workers) ne partagent plus le même fichier intermédiaire.
+        fd, tmp = tempfile.mkstemp(dir=str(p.parent), prefix=f".{p.name}.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+                try:
+                    f.flush()
+                    os.fsync(f.fileno())
+                except OSError:
+                    pass
+            os.chmod(tmp, 0o644)
+            os.replace(tmp, p)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
+            raise
     try:
-        with open(tmp, "w", encoding="utf-8") as f:
-            f.write(content)
-            try:
-                f.flush()
-                import os
-                os.fsync(f.fileno())
-            except OSError:
-                pass
-        import os
-        os.replace(tmp, p)
+        await asyncio.to_thread(_write)
     except OSError as e:
         raise HTTPException(500, f"write failed: {e}")
 

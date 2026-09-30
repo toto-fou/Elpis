@@ -261,8 +261,9 @@ def test_entree_sans_horodatage_reste_valide():
 
 def test_thinking_history_borne_et_garde_le_suffixe():
     from llm_core._chat_with_tools import (
-        _clip_thinking_history, THINKING_HISTORY_MAX_CHARS,
+        THINKING_HISTORY_MAX_CHARS,
         THINKING_HISTORY_TRUNC_MARKER,
+        _clip_thinking_history,
     )
     bloc = "x" * 50_000
     parts = [f"{i}{bloc}" for i in range(40)]     # ~2 Mo
@@ -286,7 +287,8 @@ def test_thinking_history_dernier_bloc_toujours_entier():
     """La boucle fait des ``pop()`` de dédoublonnage sur le DERNIER élément :
     le clip ne doit jamais le fusionner ni le tronquer."""
     from llm_core._chat_with_tools import (
-        _clip_thinking_history, THINKING_HISTORY_MAX_CHARS,
+        THINKING_HISTORY_MAX_CHARS,
+        _clip_thinking_history,
     )
     dernier = "z" * (THINKING_HISTORY_MAX_CHARS * 2)
     parts = ["a" * 1000, dernier]
@@ -298,7 +300,7 @@ def test_thinking_history_dernier_bloc_toujours_entier():
 # 5. Réponse sans ``choices`` : hoquet moteur, pas « budget épuisé »
 # ══════════════════════════════════════════════════════════════════════════
 
-from llm_core import _chat_with_tools as _cwt      # noqa: E402
+from llm_core import _chat_with_tools as _cwt  # noqa: E402
 
 
 async def _anoop(*_a, **_k):
@@ -387,9 +389,10 @@ async def test_reponses_vides_en_serie_sortent_par_leur_propre_cause(monkeypatch
 # 6. Reprise in-run de la RÉDACTION (prose coupée par le plafond)
 # ══════════════════════════════════════════════════════════════════════════
 
-from llm_core._think_resume import (            # noqa: E402
-    build_content_resume_tail, should_auto_resume_content,
+from llm_core._think_resume import (  # noqa: E402
     MAX_RESUME_CONTENT_CHARS,
+    build_content_resume_tail,
+    should_auto_resume_content,
 )
 
 

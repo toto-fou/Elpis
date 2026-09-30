@@ -16,7 +16,7 @@ Vérifié EN LIVE contre un serveur b9592 (400→200). Ce test verrouille sans r
 """
 from __future__ import annotations
 
-from llm_core._chat_classic import _coalesce_system_messages, _clamp_messages
+from llm_core._chat_classic import _clamp_messages, _coalesce_system_messages
 
 
 def test_merges_multiple_systems_into_one_leading():
@@ -84,7 +84,7 @@ def test_boundary_composition_yields_single_system():
 # le socle ; le fold saute désormais les porteurs, coalescés à l'envoi seul)
 # ──────────────────────────────────────────────────────────────────────────
 
-from llm_core._chat_with_tools import _fold_operational_block          # noqa: E402
+from llm_core._chat_with_tools import _fold_operational_block  # noqa: E402
 from llm_core.conversation_compressor import build_state_system_message  # noqa: E402
 
 

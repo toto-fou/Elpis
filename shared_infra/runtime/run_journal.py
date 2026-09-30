@@ -111,7 +111,7 @@ def _join_parts(ev: Dict[str, Any]) -> Dict[str, Any]:
 def _max_bytes() -> int:
     try:
         from shared_infra.config import config_view
-        mb = float(getattr(config_view().llm, "run_journal_max_mb", 64) or 64)
+        mb = float((config_view().get("llm") or {}).get("run_journal_max_mb", 64) or 64)
     except Exception:                                           # noqa: BLE001
         mb = 64.0
     return int(max(1.0, mb) * 1024 * 1024)
@@ -176,8 +176,8 @@ class RunJournal:
         self._closed = False
         self._ok = False
         self._task: Optional[asyncio.Task] = None
-        self._wake: Optional[asyncio.Event] = None
-        self._write_lock: Optional[asyncio.Lock] = None
+        self._wake = asyncio.Event()
+        self._write_lock = asyncio.Lock()
 
     # -- cycle de vie ---------------------------------------------------------
     async def open(self, started: Dict[str, Any]) -> bool:
@@ -192,8 +192,6 @@ class RunJournal:
                            "de l'affichage indisponible pour ce tour", str(e)[:160])
             return False
         self._ok = True
-        self._wake = asyncio.Event()
-        self._write_lock = asyncio.Lock()
         self.append(dict(started, type="run_started", run_id=self.run_id))
         try:
             self._task = asyncio.get_running_loop().create_task(
@@ -264,7 +262,7 @@ class RunJournal:
                 last["n"] = int(last.get("n") or 1) + int(ev.get("n") or 1)
         else:
             self._pending.append(ev)
-        if len(self._pending) >= FLUSH_MAX_EVENTS and self._wake is not None:
+        if len(self._pending) >= FLUSH_MAX_EVENTS and self._ok:
             self._wake.set()
 
     async def close(self, status: str = "done") -> None:

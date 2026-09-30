@@ -23,7 +23,6 @@ import pytest
 import llm_core._chat_with_tools as _cwt
 import llm_core._target as _tgt
 
-
 # ── Fixture DB : users + chats avec meta_json (pattern test_todo_tools) ──────
 
 @pytest.fixture()

@@ -1,0 +1,375 @@
+# SPDX-License-Identifier: MIT
+"""Frontière hôte ↔ sandbox (2026-09-29) : ce que l'hôte fait dans /work
+(lire, parcourir, supprimer, historiser) ne suit jamais un lien, même posé
+ENTRE le contrôle du chemin et son usage — course rejouée ici de façon
+déterministe en remplaçant un dossier par un lien juste après le contrôle."""
+from __future__ import annotations
+
+import os
+import socket
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+import llm_core.tools.fs_tools as fs_tools
+from shared_infra.sandbox import paths
+from shared_infra.sandbox.paths import SandboxPathError
+
+SECRET = "SECRET-DE-L-HOTE"
+
+
+class _FakeMCP:
+    def __init__(self):
+        self.tools = {}
+
+    def tool(self, **kw):
+        def deco(fn):
+            self.tools[fn.__name__] = fn
+            return fn
+        return deco
+
+
+@pytest.fixture()
+def fs(tmp_path, monkeypatch):
+    base = tmp_path / "sandboxes"
+    work = base / "guest" / "work"
+    (work / "d").mkdir(parents=True)
+    (work / "d" / "secret.txt").write_text("leurre\n")
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
+    mcp = _FakeMCP()
+    fs_tools.register(mcp, base)
+    hote = tmp_path / "hote"
+    hote.mkdir()
+    (hote / "secret.txt").write_text(SECRET + "\n")
+    return mcp.tools, work, hote
+
+
+def _basculer(work, hote):
+    """``work/d`` (vrai dossier au contrôle) devient un lien vers l'hôte."""
+    for f in (work / "d").iterdir():
+        f.unlink()
+    (work / "d").rmdir()
+    os.symlink(hote, work / "d")
+
+
+def _course_apres(monkeypatch, module, name, work, hote, *, appel=1):
+    """Le contrôle ``module.name`` passe (``appel``-ième appel), puis le
+    dossier bascule."""
+    vrai = getattr(module, name)
+    n = {"appels": 0}
+
+    def controle_puis_bascule(*a, **k):
+        r = vrai(*a, **k)
+        n["appels"] += 1
+        if n["appels"] == appel:
+            _basculer(work, hote)
+        return r
+    monkeypatch.setattr(module, name, controle_puis_bascule)
+
+
+# ── Primitives des parties de P à l'hôte (sauvegarde, restauration) ────────
+
+def _ouvrir(base, rel):
+    """Lecture par les primitives gardées : dossier sans suivre de lien, puis
+    la feuille (fichier régulier seulement)."""
+    parents, _, nom = rel.rpartition("/")
+    dfd = paths.open_dir_beneath(base, parents)
+    try:
+        return paths.open_leaf(dfd, nom)
+    finally:
+        os.close(dfd)
+
+
+def test_primitives_refusent_lien_fifo_socket(tmp_path):
+    (tmp_path / "f.txt").write_text("ok")
+    os.symlink("/etc", tmp_path / "lien")
+    os.mkfifo(tmp_path / "fifo")
+    s = socket.socket(socket.AF_UNIX)
+    s.bind(str(tmp_path / "sock"))
+    try:
+        with os.fdopen(_ouvrir(tmp_path, "f.txt"), "rb") as f:
+            assert f.read() == b"ok"
+        for bad in ("lien", "lien/hostname", "fifo", "sock"):
+            with pytest.raises((SandboxPathError, OSError)):
+                os.close(_ouvrir(tmp_path, bad))
+    finally:
+        s.close()
+
+
+def test_antislash_est_un_caractere_de_nom(tmp_path):
+    (tmp_path / "d").mkdir()
+    (tmp_path / "d" / "f").write_text("autre")
+    paths.write_beneath(tmp_path, "d\\f", b"bon")
+    with os.fdopen(_ouvrir(tmp_path, "d\\f"), "rb") as f:
+        assert f.read() == b"bon"
+    assert (tmp_path / "d" / "f").read_text() == "autre"
+
+
+def test_traverse_sans_droit_de_lecture(tmp_path):
+    priv = tmp_path / "priv"
+    (priv / "pub").mkdir(parents=True)
+    (priv / "pub" / "f").write_text("x")
+    os.chmod(priv, 0o311)                           # traversable, pas listable
+    try:
+        with os.fdopen(_ouvrir(tmp_path, "priv/pub/f"), "rb") as f:
+            assert f.read() == b"x"
+    finally:
+        os.chmod(priv, 0o755)
+
+
+def test_ecriture_ne_traverse_aucun_lien(tmp_path):
+    os.symlink(tmp_path.parent, tmp_path / "lien")
+    with pytest.raises(SandboxPathError):
+        paths.write_beneath(tmp_path, "lien/x.txt", b"x")
+    assert not (tmp_path.parent / "x.txt").exists()
+    paths.write_beneath(tmp_path, "a/b.txt", b"b")
+    assert (tmp_path / "a" / "b.txt").read_bytes() == b"b"
+    assert os.stat(tmp_path / "a" / "b.txt").st_mode & 0o777 == 0o644
+
+
+def test_historique_garde_l_antislash(tmp_path):
+    from shared_infra.sandbox.file_history import norm_rel
+    assert norm_rel("a\\b") == "a\\b" and norm_rel("work/a/b") == "a/b"
+
+
+def test_releve_des_commandes_ne_bloque_pas_sur_une_fifo(tmp_path):
+    import threading
+
+    from shared_infra.sandbox.agent import server as agent_server
+    os.mkfifo(tmp_path / "fifo")
+    (tmp_path / "ok.txt").write_text("ok")
+    agent = agent_server.Agent(str(tmp_path))
+    out = {}
+    t = threading.Thread(target=lambda: out.update(fifo=agent._lire_borne("fifo", 100),
+                                                   ok=agent._lire_borne("ok.txt", 100)))
+    t.start()
+    t.join(5)
+    assert not t.is_alive() and out == {"fifo": None, "ok": b"ok"}
+    scan, complet = agent._parcourir(frozenset(), 100, 5.0)
+    assert complet and set(scan) == {"ok.txt"}
+
+
+# ── Outils fichiers ─────────────────────────────────────────────────────────
+
+def test_read_file_ne_suit_pas_un_dossier_remplace(fs, monkeypatch):
+    """Le chemin calculé, le dossier devient un lien vers l'hôte avant que
+    l'agent n'ouvre : l'agent refuse le lien, qui sort de /work (L4.2)."""
+    tools, work, hote = fs
+    _course_apres(monkeypatch, fs_tools, "lexical_rel", work, hote)
+    r = tools["read_file"](None, path="d/secret.txt")
+    assert SECRET not in str(r)
+    assert r.get("ok") is False and r.get("error") == "outside_sandbox"
+
+
+def test_grep_ne_suit_pas_un_dossier_remplace_pendant_le_parcours(fs, monkeypatch):
+    """Parcours et lecture dans l'agent (L4.2) : le dossier devenu lien vers
+    l'hôte pendant le parcours n'est ni descendu ni lu."""
+    from shared_infra.sandbox.agent import server as agent_server
+    tools, work, hote = fs
+    vrai_scandir = agent_server.os.scandir
+    bascule = []
+
+    def scandir_bascule(chemin):
+        if not bascule:
+            bascule.append(True)                 # avant : _basculer parcourt aussi
+            _basculer(work, hote)
+        return vrai_scandir(chemin)
+    monkeypatch.setattr(agent_server.os, "scandir", scandir_bascule)
+    r = tools["list_files"](None, path=".", search_text="SECRET")
+    assert bascule and SECRET not in str(r)
+
+
+def test_suppression_ne_traverse_pas_un_dossier_remplace(fs, monkeypatch):
+    tools, work, hote = fs
+    # Bascule entre le ``stat`` de l'agent et la suppression : l'agent
+    # résout de nouveau le chemin à la suppression.
+    _course_apres(monkeypatch, fs_tools.Espace, "stat", work, hote)
+    r = tools["manage_files"](None, action="delete", path="d/secret.txt")
+    assert r["ok"] is False, r
+    assert (hote / "secret.txt").read_text() == SECRET + "\n"
+
+
+def test_mkdir_sous_un_dossier_non_listable(fs):
+    tools, work, _hote = fs
+    (work / "priv" / "pub").mkdir(parents=True)
+    os.chmod(work / "priv", 0o311)
+    try:
+        r = tools["manage_files"](None, action="mkdir", path="priv/pub/neuf")
+        assert r.get("ok"), r
+        assert (work / "priv" / "pub" / "neuf").is_dir()
+    finally:
+        os.chmod(work / "priv", 0o755)
+
+
+def test_historique_ne_lit_pas_a_travers_un_lien(tmp_path):
+    """Contenu d'avant pour l'historique : lu par l'agent, jamais à travers un
+    lien qui sort de /work."""
+    import asyncio
+
+    import shared_infra.sandbox.routes_files as sf
+    from shared_infra.sandbox.executors import get_user_sandbox
+    hote = tmp_path / "hote"
+    hote.mkdir()
+    (hote / "s.txt").write_text(SECRET)
+    work = tmp_path / "u" / "work"
+    work.mkdir(parents=True)
+    os.symlink(hote, work / "d")
+    os.symlink(hote / "s.txt", work / "f.txt")
+    agent = get_user_sandbox(1, "u", work).agent
+    st = {"kind": "file", "size": len(SECRET)}
+    assert asyncio.run(sf._hist_avant(agent, "d/s.txt", st)) is None
+    assert asyncio.run(sf._hist_avant(agent, "f.txt", st)) is None
+
+
+# ── Routes de l'éditeur ─────────────────────────────────────────────────────
+
+def test_telechargement_ne_suit_pas_un_lien_hors_de_la_sandbox(fs, monkeypatch):
+    """L4.5 — le téléchargement passe par l'agent, qui ne suit un lien que
+    sous /work : un dossier devenu lien vers l'hôte donne 403, et l'archive
+    d'un dossier n'emporte pas la cible d'un lien."""
+    _tools, work, hote = fs
+    _basculer(work, hote)
+    (work / "e").mkdir()
+    os.symlink(hote / "secret.txt", work / "e" / "lien.txt")
+    _sf, client = _client(monkeypatch, work)
+    r = client.get("/api/sandbox/download", params={"path": "d/secret.txt"})
+    assert r.status_code == 403 and SECRET not in r.text
+    r = client.get("/api/sandbox/download", params={"path": "e"})
+    assert r.status_code == 200 and SECRET.encode() not in r.content
+
+
+def test_etat_d_un_fichier_illisible_et_d_un_lien(tmp_path):
+    import asyncio
+
+    import shared_infra.sandbox.routes_files as sf
+    from shared_infra.sandbox.executors import get_user_sandbox
+    if os.geteuid() == 0:
+        pytest.skip("root lit tout — chmod 000 inopérant")
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "f").write_text("x")
+    os.chmod(work / "f", 0o000)
+    os.symlink("f", work / "lien")
+    agent = get_user_sandbox(1, "u", work).agent
+
+    async def etats():
+        return [await sf._etat_agent(agent, rel, sha_max=1 << 20) for rel in ("f", "lien", "f/x")]
+    try:
+        fichier, lien, sous = asyncio.run(etats())
+    finally:
+        os.chmod(work / "f", 0o644)
+    assert fichier["kind"] == lien["kind"] == "unreadable"      # lien suivi sous /work
+    assert sous["kind"] == "not_dir"
+    assert sf._remplacement({"kind": "link"}, None, None, "") == "lien symbolique"
+    assert sf._remplacement({"kind": "file", "link": True}, b"x", None, "") == "lien symbolique"
+
+
+def _client(monkeypatch, work):
+    import shared_infra.sandbox.routes_files as sf
+    from tests.conftest import editeur_sur_agent
+    editeur_sur_agent(monkeypatch, work)
+    monkeypatch.setattr(sf, "require_user_id", lambda request: 1)
+    monkeypatch.setattr(sf, "_get_work_path", lambda uid: work)
+    from shared_infra.routes._state import router
+    app = FastAPI()
+    app.include_router(router)
+    return sf, TestClient(app)
+
+
+def test_zip_d_un_fichier_date_au_dela_de_2107(fs, monkeypatch):
+    _tools, work, _hote = fs
+    os.utime(work / "d" / "secret.txt", (7258118400, 7258118400))     # 2200-01-01
+    _sf, client = _client(monkeypatch, work)
+    r = client.get("/api/sandbox/download", params={"path": "d"})
+    assert r.status_code == 200 and r.content[:2] == b"PK"
+
+
+def test_grep_sur_une_racine_illisible(fs, monkeypatch):
+    """E7 : une racine illisible donne une erreur explicite, jamais une liste
+    vide « propre »."""
+    _tools, work, _hote = fs
+    sf, client = _client(monkeypatch, work)
+    os.chmod(work, 0o311)                                       # traversable, pas listable
+    try:
+        assert client.post("/api/sandbox/grep", json={"query": "x"}).status_code == 403
+        assert client.get("/api/sandbox/search", params={"q": "x"}).status_code == 403
+    finally:
+        os.chmod(work, 0o755)
+
+
+async def test_restauration_interrompue_va_a_son_terme(tmp_path, monkeypatch):
+    """Client parti pendant la restauration : elle va à son terme dans le
+    conteneur (arbre modifiable, droits élargis tant que l'hôte y accède),
+    puis le marqueur est levé et les verrous rendus."""
+    import io
+    import tarfile
+
+    import anyio
+
+    import shared_infra.sandbox.routes_snapshots as snap
+    from shared_infra.sandbox import agent_client as AC
+    from tests.conftest import editeur_sur_agent
+    work = tmp_path / "work"
+    work.mkdir()
+    editeur_sur_agent(monkeypatch, work)
+    archive = tmp_path / "snap.tar.gz"
+    with tarfile.open(str(archive), "w:gz") as tf:
+        for name in ("a.txt", "b.txt"):
+            info = tarfile.TarInfo(name)
+            info.size, info.mode = 1, 0o600
+            tf.addfile(info, io.BytesIO(b"x"))
+    monkeypatch.setattr(snap, "_archive_path", lambda uid, sid: archive)
+    monkeypatch.setattr(snap, "_user_snap_dir", lambda uid: tmp_path)
+    vrai = AC.AgentClient.extract
+
+    async def lent(self, *a, **k):
+        await anyio.sleep(0.6)                   # au moins une progression avant la fin
+        return await vrai(self, *a, **k)
+    monkeypatch.setattr(AC.AgentClient, "extract", lent)
+
+    gen = snap._restore_snapshot_stream(1, "a" * 32)
+    with anyio.CancelScope() as scope:
+        async for line in gen:
+            if '"progress"' in line:
+                scope.cancel()                   # comme Starlette à la déconnexion
+    for _ in range(100):
+        if not snap._get_user_lock(1).locked():
+            break
+        await anyio.sleep(0.05)
+    assert not snap._get_user_lock(1).locked()
+    assert os.stat(work / "a.txt").st_mode & 0o777 == 0o644
+    assert not (tmp_path / snap._RESTORE_MARKER_NAME).exists()
+
+
+def test_sauvegarde_des_sandboxes_ne_suit_aucun_lien(tmp_path, monkeypatch):
+    """Sauvegarde admin : le /work d'un compte est lu par l'agent de sa
+    sandbox ; un lien ou un fichier spécial est consigné dans
+    backup-warnings.txt, pas lu."""
+    import zipfile
+
+    from shared_infra import config
+    from shared_infra.routes import _helpers as H
+    from tests.conftest import sandboxes_sur_agent
+    sb = tmp_path / "sandboxes"
+    work = sb / "alice" / "work"
+    work.mkdir(parents=True)
+    (work / "ok.txt").write_text("contenu\n")
+    (tmp_path / "dehors.txt").write_text(SECRET)
+    os.symlink(tmp_path / "dehors.txt", work / "lien.txt")
+    os.mkfifo(work / "fifo")
+    monkeypatch.setattr(config, "SANDBOX_DIR", sb)
+    sandboxes_sur_agent(monkeypatch, sb, ["alice"])
+    archive, _nom = H._make_backup_zip("sandboxes")
+    try:
+        with zipfile.ZipFile(archive) as z:
+            noms = z.namelist()
+            assert "sandboxes/alice/work/ok.txt" in noms
+            assert z.read("sandboxes/alice/work/ok.txt") == b"contenu\n"
+            assert not any(SECRET.encode() in z.read(n) for n in noms)
+            assert not any(".elpis-agent" in n for n in noms)
+            avertis = z.read("backup-warnings.txt").decode()
+            assert "lien.txt" in avertis and "fifo" in avertis
+    finally:
+        os.unlink(archive)
+

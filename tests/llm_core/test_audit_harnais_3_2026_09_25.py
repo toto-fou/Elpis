@@ -83,17 +83,20 @@ def test_write_beneath_conserve_le_mode_du_fichier_remplace(tmp_path):
     assert (f.stat().st_mode & 0o777) == 0o755
 
 
-def test_sortie_shell_sauvegardee_ne_suit_pas_un_lien(tmp_path):
-    from llm_core.tools._exec_bridge import _write_output_file
-    root = tmp_path / "work"
-    root.mkdir()
+def test_sortie_shell_sauvegardee_ne_suit_pas_un_lien(tmp_path, monkeypatch):
+    from llm_core.tools._exec_bridge import _write_output_file, sandbox_for
+    from shared_infra.sandbox.agent_client import AgentError
+    base = tmp_path / "sandboxes"
+    root = base / "guest" / "work"
+    root.mkdir(parents=True)
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
     cible = tmp_path / "hors.txt"
     cible.write_text("intact")
     # Le lien apparaît APRÈS la validation du chemin (pendant la commande).
     (root / "out.txt").symlink_to(cible)
-    _write_output_file(root, (root / "out.txt"), b"sortie")
+    with pytest.raises(AgentError):
+        _write_output_file(sandbox_for("guest", root), "out.txt", b"sortie")
     assert cible.read_text() == "intact"
-    assert (root / "out.txt").read_bytes() == b"sortie"
 
 
 def test_backup_de_write_file_ne_suit_pas_un_lien(fs):
@@ -108,17 +111,22 @@ def test_backup_de_write_file_ne_suit_pas_un_lien(fs):
     assert (work / "x.py").read_text() == "v2\n"
 
 
-def test_git_write_atomique_temporaire_imprevisible(tmp_path):
+def test_git_write_atomique_temporaire_imprevisible(tmp_path, monkeypatch):
+    from llm_core.tools._espace import Espace
     from llm_core.tools.git_tools import _write_atomic
-    p = tmp_path / "f.txt"
+    base = tmp_path / "sandboxes"
+    work = base / "guest" / "work"
+    work.mkdir(parents=True)
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
+    p = work / "f.txt"
     p.write_text("a")
     os.chmod(p, 0o644)
     # L'ancien nom prévisible, occupé par un lien, n'est plus utilisé.
     cible = tmp_path / "hors.txt"
     cible.write_text("intact")
     os.chmod(cible, 0o600)
-    (tmp_path / f"f.txt.{os.getpid()}.tmp").symlink_to(cible)
-    _write_atomic(p, "b", 10_000)
+    (work / f"f.txt.{os.getpid()}.tmp").symlink_to(cible)
+    _write_atomic(Espace("guest", work), work, "f.txt", "b", 10_000)
     assert p.read_text() == "b"
     assert cible.read_text() == "intact"
     assert (cible.stat().st_mode & 0o777) == 0o600
@@ -214,6 +222,48 @@ def test_move_d_un_lien_deplace_le_lien(fs):
     assert (work / "d" / "l").is_symlink()
     assert (work / "reel.txt").read_text() == "1"
 
+
+
+def test_batch_delete_d_un_lien_retire_le_lien_pas_la_cible(fs):
+    tools, work, _ = fs
+    (work / "reel").mkdir()
+    (work / "reel" / "f.txt").write_text("1")
+    (work / "lien").symlink_to(work / "reel", target_is_directory=True)
+    r = tools["manage_files"](None, action="batch_delete", paths=["lien"], dry_run=True)
+    assert r["plan"][0]["type"] == "symlink"
+    r = tools["manage_files"](None, action="batch_delete", paths=["lien"])
+    assert r["ok"] and r["count"] == 1 and "files_changed" not in r, r
+    assert not os.path.lexists(work / "lien")
+    assert (work / "reel" / "f.txt").read_text() == "1"
+
+
+def test_copie_d_un_lien_copie_sa_cible(fs):
+    tools, work, _ = fs
+    (work / "reel.txt").write_text("contenu")
+    (work / "l").symlink_to("reel.txt")
+    r = tools["manage_files"](None, action="copy", path="l", dest="copie.txt")
+    assert r["ok"], r
+    assert not (work / "copie.txt").is_symlink()
+    assert (work / "copie.txt").read_text() == "contenu"
+
+
+def test_copie_d_un_dossier_dans_lui_meme_par_un_lien_refusee(fs):
+    tools, work, _ = fs
+    (work / "d" / "sous").mkdir(parents=True)
+    (work / "raccourci").symlink_to(work / "d" / "sous", target_is_directory=True)
+    r = tools["manage_files"](None, action="copy", path="d", dest="raccourci/copie")
+    assert r["ok"] is False and r["error"] == "dest_inside_source", r
+    assert sorted(os.listdir(work / "d" / "sous")) == []
+
+
+def test_chemins_entre_guillemets_et_caracteres_de_controle(fs):
+    tools, work, _ = fs
+    (work / "a.txt").write_text("x")
+    assert tools["read_file"](None, path='"a.txt"')["ok"]
+    r = tools["manage_files"](None, action="copy", path="'a.txt'", dest='"b.txt"')
+    assert r["ok"] and (work / "b.txt").read_text() == "x", r
+    r = tools["manage_files"](None, action="mkdir", path="x\x01y")
+    assert r["ok"] is False and r["error"] == "control_character_in_path", r
 
 # ── edit_file : moteur d'édition ────────────────────────────────────────────
 

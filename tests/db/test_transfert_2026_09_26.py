@@ -12,8 +12,7 @@ import uuid
 
 import pytest
 
-from shared_infra.db import _schema
-from shared_infra.db import transfer as T
+from shared_infra.db import _schema, transfer as T
 
 
 def _source(path):

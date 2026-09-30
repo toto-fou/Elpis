@@ -10,18 +10,18 @@ Remplace le fichier sale ``.git-credentials.json`` ET le mécanisme par-requête
         provider_type, host, api_base} | None
 
 Le token n'est lu QUE côté hôte (jamais sérialisé HTTP, jamais écrit dans
-``/work``). ``import_legacy_git_credentials`` migre une-fois l'ancien fichier.
+``/work``). ``import_legacy_git_credentials`` importe l'ancien fichier, lu par
+l'agent de la sandbox (``git_ops.import_legacy_credentials``).
 """
 from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import urlsplit
 
 from shared_infra.git import connectors as _gc
-from shared_infra.git.detect import detect_provider, default_provider_type, normalize_host
+from shared_infra.git.detect import default_provider_type, detect_provider, normalize_host
 from shared_infra.git.providers import get_provider
 
 logger = logging.getLogger("uvicorn.error")
@@ -123,30 +123,30 @@ def resolve_git_credential(user_id: int, remote_url: str) -> Optional[Dict[str, 
     }
 
 
-# ── Bascule hors du fichier sandbox (une-fois par process/user) ───────────────
-_imported_users: set = set()
+# ── Bascule hors du fichier sandbox ───────────────────────────────────────────
 
-
-def import_legacy_git_credentials(user_id: int, sandbox: Path) -> int:
-    """Importe ``<sandbox>/.git-credentials.json`` dans le store (idempotent), puis
-    renomme le fichier en ``.imported`` (trace, pas de delete). Best-effort.
+def import_legacy_git_credentials(user_id: int, data: bytes) -> int:
+    """Importe le contenu de l'ancien ``/work/.git-credentials.json`` dans le
+    store (idempotent : un hôte déjà présent n'est pas recréé). Lu, puis
+    supprimé, par l'agent de la sandbox (``git_ops``) : les jetons vivent
+    hors de la sandbox. Best-effort.
 
     Format hérité : ``{provider: {token, user?, url?}}``. Le host vient de ``url``
     si présent (GitLab self-hosted) sinon du host canonique du provider.
-    Renvoie le nombre de connecteurs créés. Dé-dupliqué par process.
+    Renvoie le nombre de connecteurs créés, ``-1`` si l'import a échoué (base
+    indisponible…) : l'appelant garde alors le fichier.
     """
-    if not user_id or user_id in _imported_users:
+    if not user_id:
         return 0
-    _imported_users.add(user_id)
     try:
-        f = Path(sandbox) / ".git-credentials.json"
-        if not f.exists():
-            return 0
-        data = json.loads(f.read_text("utf-8", errors="replace"))
-        if not isinstance(data, dict):
-            return 0
+        entries = json.loads(data.decode("utf-8", errors="replace"))
+    except ValueError:
+        return 0                                        # illisible : rien à garder
+    if not isinstance(entries, dict):
+        return 0
+    try:
         created = 0
-        for provider_key, entry in data.items():
+        for provider_key, entry in entries.items():
             if not isinstance(entry, dict):
                 continue
             token = (entry.get("token") or "").strip()
@@ -163,14 +163,10 @@ def import_legacy_git_credentials(user_id: int, sandbox: Path) -> int:
                 user_id, default_provider_type(str(provider_key).lower()), host,
                 token=token, username=(entry.get("user") or ""), label="imported")
             created += 1
-        try:
-            f.rename(f.with_suffix(".json.imported"))
-        except OSError:
-            pass
         if created:
             logger.info("[git] %d connecteur(s) importé(s) depuis .git-credentials.json (user=%s)",
                         created, user_id)
         return created
     except Exception as e:                              # noqa: BLE001 — best-effort
         logger.warning("[git] import legacy credentials échoué (user=%s): %s", user_id, e)
-        return 0
+        return -1

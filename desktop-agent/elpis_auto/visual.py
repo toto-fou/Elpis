@@ -23,8 +23,8 @@ THRESHOLD = 0.85
 
 
 def _gray(png: bytes):
-    from PIL import Image
     import numpy as np
+    from PIL import Image
     im = Image.open(io.BytesIO(png)).convert("L")
     return np.asarray(im, dtype=np.float64), im.size
 
@@ -65,8 +65,8 @@ def locate_template(png: bytes, template_path: str) -> Optional[Dict[str, Any]]:
     if not os.path.isfile(template_path):
         return None
     try:
-        from PIL import Image
         import numpy as np
+        from PIL import Image
     except ImportError as e:                  # numpy absent : le repli visuel n'est pas disponible
         raise RuntimeError(f"repli image indisponible ({e}) : pip install numpy Pillow")
     screen, _ = _gray(png)

@@ -6,7 +6,6 @@ vue MODÈLE compacte de ``files_changed``.
 """
 from __future__ import annotations
 
-
 # ── Event et fusion par tour ─────────────────────────────────────────────────
 
 def test_event_files_write_et_commande():

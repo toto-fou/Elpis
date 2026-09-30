@@ -22,10 +22,8 @@ from pathlib import Path
 
 import pytest
 
-from shared_infra.sandbox import office_preview as op
-from shared_infra.sandbox import office_xlsx as ox
+from shared_infra.sandbox import office_preview as op, office_xlsx as ox
 from shared_infra.sandbox.office_convert import OfficeError
-
 from tests.shared_infra.test_office_preview import make_ooxml, mini_xlsx
 
 
@@ -167,6 +165,8 @@ def bac(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_OFFICE_CACHE_DIR", str(tmp_path / "cache"))
     root = tmp_path / "alice" / "work"
     root.mkdir(parents=True)
+    from tests.conftest import editeur_sur_agent
+    editeur_sur_agent(monkeypatch, root)
     return root
 
 

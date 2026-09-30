@@ -18,7 +18,6 @@ import pytest
 
 from rag_app import rag_engine as E
 
-
 # ── Remplacement atomique ────────────────────────────────────────────────────
 
 @pytest.fixture

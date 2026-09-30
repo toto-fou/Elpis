@@ -19,10 +19,7 @@ import uuid
 
 import pytest
 
-from shared_infra.db import _dialect as D
-from shared_infra.db import _mysql as M
-from shared_infra.db import _server as S
-
+from shared_infra.db import _dialect as D, _mysql as M, _server as S
 
 # ── Unitaires ────────────────────────────────────────────────────────────────
 
@@ -125,6 +122,19 @@ def conn(request):
         else:
             admin.execute(f'DROP DATABASE "{schema}"')
         admin.hard_close()
+
+
+def test_migrations_tamponnees_sur_une_base_serveur_non_vierge(conn):
+    """Base serveur NON vierge et sans migration inscrite (premier démarrage
+    interrompu après ``create_all``, table étrangère) : les migrations du
+    schéma de référence sont tamponnées, jamais rejouées (SQL propre à
+    SQLite) — sinon elles échouent à chaque démarrage."""
+    from shared_infra.db import _connection as C, _schema
+    from shared_infra.db._migrations import _applied
+    conn.execute("CREATE TABLE etrangere (x INTEGER)")
+    conn.commit()
+    C._migrate(conn, fresh=False)
+    assert set(_schema.BASELINE_COVERS) <= _applied(conn)
 
 
 def test_schema_cree_et_introspecte(conn):

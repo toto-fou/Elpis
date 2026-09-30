@@ -23,10 +23,9 @@ from __future__ import annotations
 import copy
 
 from llm_core._constants import effective_generation_cap
-from llm_core.context.budget import BUDGET
 from llm_core.context import pruning as _pruning
+from llm_core.context.budget import BUDGET
 from llm_core.context.pruning import enforce_context_budget, fit_context
-
 from tests.llm_core.ctx_scale_harness import (
     CTX_1M,
     CTX_256K,

@@ -43,9 +43,9 @@ from typing import Any, Dict, Optional, Set
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from shared_infra.security.deps import require_user_id
-from shared_infra.routes._state import router
 from llm_core._scheduling import LLM_SEMAPHORE
+from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 

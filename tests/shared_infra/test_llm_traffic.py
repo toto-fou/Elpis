@@ -26,7 +26,7 @@ def tmpdb(tmp_path, monkeypatch):
 # ── Couche DB + capture ─────────────────────────────────────────────────────
 
 def test_record_and_list_and_detail(tmpdb):
-    from shared_infra.llm.debug import record_llm_call, list_llm_calls, get_llm_call
+    from shared_infra.llm.debug import get_llm_call, list_llm_calls, record_llm_call
     record_llm_call(req_id="a1", user_id=7, chat_id="c1", model="qwen",
                     path="classic", status="ok", finish_reason="stop",
                     prompt_tokens=100, completion_tokens=20, duration_ms=450,
@@ -43,7 +43,7 @@ def test_record_and_list_and_detail(tmpdb):
 
 
 def test_ring_prune(tmpdb):
-    from shared_infra.llm.debug import record_llm_call, list_llm_calls
+    from shared_infra.llm.debug import list_llm_calls, record_llm_call
     for i in range(8):
         record_llm_call(req_id=f"r{i}", model="m", max_entries=5)
     rows = list_llm_calls(limit=100)
@@ -52,7 +52,7 @@ def test_ring_prune(tmpdb):
 
 
 def test_filters(tmpdb):
-    from shared_infra.llm.debug import record_llm_call, list_llm_calls
+    from shared_infra.llm.debug import list_llm_calls, record_llm_call
     record_llm_call(user_id=1, model="a", status="ok")
     record_llm_call(user_id=2, model="b", status="error")
     assert len(list_llm_calls(user_id=1)) == 1
@@ -64,7 +64,7 @@ def test_capture_excludes_thinking(tmpdb, monkeypatch):
     import shared_infra.config as cfg
     monkeypatch.setattr(cfg, "LLM_DEBUG_ENABLED", True)
     from llm_core._llm_debug import capture_llm_exchange
-    from shared_infra.llm.debug import list_llm_calls, get_llm_call
+    from shared_infra.llm.debug import get_llm_call, list_llm_calls
     capture_llm_exchange(
         req_id="x", user_id=3, chat_id="c", model="qwen", path="classic",
         request_payload={"messages": [{"role": "user", "content": "salut"}],

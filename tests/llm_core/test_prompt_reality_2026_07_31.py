@@ -32,6 +32,9 @@ import llm_core.tools.fs_tools as fs_tools
 import llm_core.tools.git_tools as git_tools
 import llm_core.tools.shell_tools as shell_tools
 
+# Surfaces et fragments dérivent du registre des catégories : le vrai.
+pytestmark = pytest.mark.usefixtures("real_tool_registry")
+
 ROOT = Path(__file__).resolve().parents[2]
 PROMPTS_DIR = ROOT / "system_prompts"
 

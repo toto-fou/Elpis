@@ -15,11 +15,31 @@ or English.
   agents de code, valable pour tout le monde.
 - Interface : [PRODUCT.md](PRODUCT.md) et [DESIGN.md](DESIGN.md).
 
+## Où ranger quoi
+
+| Je modifie… | Dossier |
+|---|---|
+| une route HTTP | le sous-paquet de sa famille dans `shared_infra/` (routes du chat : `chatbot_app/routes/`) ; l'ordre d'enregistrement est dans `shared_infra/routes/__init__.py` |
+| la boucle de chat, le contexte, l'ordonnancement | `llm_core/` (`_chat_with_tools.py`, `context/`, `_scheduling/`) |
+| un outil de l'agent | `llm_core/tools/` ; sa famille dans `shared_infra/mcp/families.py` |
+| une opération sur les fichiers d'une sandbox | l'agent du conteneur : `shared_infra/sandbox/agent/server.py` (API `/v1`), `agent_client.py` ; jamais un accès direct de l'hôte |
+| Git d'une sandbox | `shared_infra/sandbox/git_ops.py` (par l'agent), `git_relay.py` (réseau) |
+| la base de données | `shared_infra/db/` (schéma, migrations, dialectes) |
+| l'interface | `frontend/` (fragments dans `includes/`, scripts dans `js/`) |
+| l'installation, le lancement | `install.sh`, `elpis`, `deploy/` |
+| la documentation d'exploitation | `docs/exploitation.md`, `docs/configuration.md` |
+
+Détail des paquets : [ARCHITECTURE.md](ARCHITECTURE.md) ; conventions et
+pièges : [AGENTS.md](AGENTS.md).
+
 ## Avant d'ouvrir une pull request
 
 - Tests Python : `venv/bin/pip install -r requirements-dev.txt` une fois, puis `venv/bin/pytest` (le pytest du venv, pas celui du PATH). La suite tourne en parallèle (`-n auto`) ; `venv/bin/pytest -n0` pour la lancer en série.
-- Tests unitaires front : `node tests/frontend/<fichier>.js`.
-- Lint : `venv/bin/ruff check .`
+- Tests unitaires front : `node tests/frontend/<fichier>.js` (aussi lancés
+  par pytest).
+- Lint et typage : `venv/bin/ruff check .` et `venv/bin/mypy`.
+- La CI (GitHub Actions) rejoue tout cela sur Python 3.11 et 3.13, puis la
+  suite complète sur PostgreSQL et MariaDB.
 - Après avoir ajouté des classes utilitaires Tailwind :
   `node tools/generate_tailwind_css.mjs`.
 - Une pull request = un sujet ; décrivez le comportement avant/après.

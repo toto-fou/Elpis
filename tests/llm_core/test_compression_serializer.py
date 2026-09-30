@@ -16,8 +16,8 @@ from __future__ import annotations
 import json
 
 from llm_core.context.compression.serializer import (
-    ArtifactEntry,
     LEDGER_START,
+    ArtifactEntry,
     compute_serializer_budget,
     extract_artifact_ledger,
     merge_ledger_lines,
@@ -63,8 +63,7 @@ def test_budget_derive_du_ctx():
     """Harnais v4 (M5) : budgets en TOKENS [600, 6000], matérialisés en chars
     via le ratio mesuré (amorce 3.3)."""
     import llm_core.context.tokens as tok
-    from llm_core.context.compression.serializer import (
-        compute_serializer_budget_tokens)
+    from llm_core.context.compression.serializer import compute_serializer_budget_tokens
     tok._measured_ratio.clear()
 
     assert compute_serializer_budget_tokens(10, None) == 600     # ctx inconnu

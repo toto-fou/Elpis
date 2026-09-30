@@ -50,9 +50,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from . import client as ocr_client
-from . import convert as ocr_convert
-from . import store as ocr_store
+from . import client as ocr_client, convert as ocr_convert, store as ocr_store
 from ._common import OcrError
 from .config import apply_doc_model, get_ocr_config
 from .events import bus
@@ -749,7 +747,7 @@ async def _run_queue() -> None:
             d = None   # supprimé pendant l'attente : soldé « canceled »
         if d is not None:
             if item.get("model"):
-                await _safe_update(d, lambda m: m.__setitem__("model", item["model"]))
+                await _safe_update(d, lambda m: m.__setitem__("model", item["model"]))  # noqa: B023 (même itération)
             task = asyncio.create_task(_run_job(doc_id, notify=False))
             _register(_TASKS, doc_id, task)
             try:

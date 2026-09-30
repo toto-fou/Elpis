@@ -14,32 +14,27 @@ Why no shell_policy here ?
 For SHELL execution the container is the security boundary. Commands run
 through ``docker exec`` as ``exec_user`` (10001:10001), with NET_ADMIN
 dropped from their bounding set (``_privdrop``). The container itself has
-Docker's default capabilities, ``--network none`` (or the per-profile
-network), memory/CPU/PIDs limits and no ``--read-only``: see
+a reduced capability set, ``--network none`` (or the per-profile network),
+memory/CPU/PIDs limits and no ``--read-only``: see
 ``UserSandbox._build_run_args``, the only up-to-date reference.
 
 The model is "permissive inside": sudo NOPASSWD lets the LLM become root IN
 its container (``no-new-privileges:false`` on purpose). There is NO user
 namespace remapping, so container root is UID 0 for files on the /work bind
 mount. What keeps the host safe is the mount/network/pid namespaces, the
-cgroup limits, Docker's default seccomp + AppArmor profiles and the absence
-of docker.sock. The shell allowlist that v2 used was a belt over the
+cgroup limits, the reduced capability set (``CAPABILITIES``), Docker's
+default seccomp + AppArmor profiles and the absence of docker.sock. The shell allowlist that v2 used was a belt over the
 parachute and was removed in v3 (see shell_tools v3 module docstring).
 
 SCOPE — what actually goes through this bridge
 ----------------------------------------------
 This bridge routes ``execute_shell`` (and the human terminal/editor write
 routes have their OWN container path via ``routes/_sandbox_exec.py``). It is
-NOT a universal funnel: today ``fs_tools`` (read/write/edit/list/grep) and
-``git_tools`` still run HOST-DIRECT (Python ``os``/``shutil`` + host
-``subprocess``), as the app's account — they do NOT come through here and
-are NOT inside the container. What confines them is ``resolve_under``
-(``sandbox/paths.py`` : resolve + relative_to, symlinks leaving the root
-refused, ``O_NOFOLLOW`` writes) and, for git, the filtered environment and
-the refused config keys of ``sandbox/git_env.py``. So the kernel boundary above applies
-to shell, not to every tool. Unifying those host-direct paths behind the
-container is a tracked migration; until then this docstring must not be read
-as "all tools are sandboxed at the kernel level".
+NOT a universal funnel: ``fs_tools`` and ``git_tools`` go through the
+sandbox's in-container agent instead (``_espace.Espace``, ``git_ops``), under
+the same container UID; network git goes through the host's authenticating
+relay (``sandbox/git_relay.py``). The remaining host accesses to ``/work``
+(archives, backups) are a tracked migration.
 
 Folder-mode legacy
 ------------------
@@ -85,12 +80,12 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+from shared_infra.accounts.users import get_user as _get_user, get_user_settings
 from shared_infra.sandbox.executors import (
-    ExecError,
     get_user_sandbox,
 )
+from shared_infra.sandbox.paths import to_container
 from shared_infra.security.audit import audit_code_exec
-from shared_infra.accounts.users import get_user_settings, get_user as _get_user
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -103,8 +98,8 @@ logger = logging.getLogger("uvicorn.error")
 # appelants externes ne cassent pas à l'import » : ces appelants n'existent
 # pas. ``set_heartbeat_hook`` émettait même un avertissement de dépréciation
 # qui ne pouvait jamais être déclenché.
-# ⚠ ``register_server_loop`` et ``repair_work_perms``, du même bloc, sont
-#   RÉELLEMENT utilisés (local_mcp_server, fs_tools) : ils restent.
+# ⚠ ``register_server_loop``, du même bloc, est RÉELLEMENT utilisé
+#   (local_mcp_server) : il reste.
 
 
 # ─── FastMCP context helpers (best-effort, never raise) ──────────────────
@@ -160,31 +155,41 @@ def _ctx_progress(ctx: Any, progress: float, total: Optional[float],
 # les familles sans sandbox — navigateur/desktop — pour le battement) ; les
 # noms historiques restent des alias : le middleware ``ServerLoopCapture`` du
 # serveur et les tests appellent ``register_server_loop`` / ``_schedule_ctx_coro``.
-from llm_core.tools._toolkit import (          # noqa: E402
-    register_server_loop, schedule_ctx_coro as _schedule_ctx_coro,
-    live_notify as _live_notify, Heartbeat,
-    LIVE_KIND_SHELL, LIVE_LOGGER_SHELL,
+from llm_core.tools._toolkit import (  # noqa: E402
+    LIVE_KIND_SHELL,
+    LIVE_LOGGER_SHELL,
+    Heartbeat,
+    live_notify as _live_notify,
+    register_server_loop,
+    schedule_ctx_coro as _schedule_ctx_coro,
 )
 
+# ─── Sandbox d'un compte ─────────────────────────────────────────────────
 
-# ─── Path helpers ────────────────────────────────────────────────────────
-
-def _path_to_container(host_path: Path, sandbox_root: Path) -> str:
-    """``/home/elpis/sandbox/alice/foo/bar.sh`` → ``/work/foo/bar.sh``
-
-    Handles the edge case where ``host_path`` IS the sandbox root: returns
-    ``/work`` (not ``/work/.``) so docker exec --workdir gets a clean value.
-    """
+def user_id_for(username: str) -> int:
+    """Id numérique du compte : l'enveloppe d'identité d'abord (hôte
+    d'outils), sinon la base ; 0 si inconnu."""
     try:
-        rel = host_path.resolve().relative_to(sandbox_root.resolve())
-    except ValueError:
-        raise ExecError(
-            f"path outside sandbox: {host_path} not under {sandbox_root}"
-        )
-    rel_str = rel.as_posix()
-    if rel_str in ("", "."):
-        return "/work"
-    return f"/work/{rel_str}"
+        from shared_infra.accounts.identity import resolve_user as _ident
+        _i = _ident(username)
+        if _i is not None and _i.user_id:
+            return int(_i.user_id)
+    except Exception:                                           # noqa: BLE001
+        pass
+    try:
+        row = _get_user(username)
+        return int(row["id"]) if row else 0
+    except Exception:                                           # noqa: BLE001
+        return 0
+
+
+def sandbox_for(username: str, sandbox_root: Path):
+    """La sandbox du compte, sous son profil réseau effectif — celle de
+    l'exécution de commandes et de l'agent."""
+    from shared_infra.sandbox.executors import resolve_network_profile_id
+    user_id = user_id_for(username)
+    profile_id = resolve_network_profile_id(get_user_settings(user_id) or {})
+    return get_user_sandbox(user_id, username, sandbox_root, network_profile_id=profile_id)
 
 
 # ─── Sync → async wrapper ────────────────────────────────────────────────
@@ -424,54 +429,11 @@ class _ShellStreamBatcher:
 
 # ─── Public API ─────────────────────────────────────────────────────────
 
-def repair_work_perms(*, username: str, sandbox_root: Path, rel_path: str = "") -> bool:
-    """Répare les permissions croisées conteneur→hôte sur un sous-arbre de /work.
-
-    Un chemin créé DANS le conteneur avec des modes restrictifs (``git clone``
-    tapé dans un terminal antérieur à son wrapper umask 0000, ``tar -x`` qui
-    préserve des modes 0644/0755 de l'archive…) appartient à l'UID 10001 : le
-    process hôte (outils fs write/edit) n'est ni owner ni groupe → il ne peut
-    ni écrire ni chmod. La réparation passe donc par ``chmod -R o+rwX`` en
-    root DANS le conteneur, scopée au premier segment du chemin relatif (le
-    dépôt cloné), pas à tout /work. Best-effort : False si le conteneur est
-    indisponible — l'appelant laisse alors remonter l'erreur d'origine.
-    """
-    seg = (rel_path or "").strip("/").split("/")[0]
-    if not seg or seg in (".", ".."):
-        return False
-    target = f"/work/{seg}"
-    try:
-        row = _get_user(username)
-        user_id = int(row["id"]) if row else 0
-    except Exception:
-        user_id = 0
-    try:
-        sb = get_user_sandbox(user_id, username, sandbox_root)
-
-        async def _do() -> bool:
-            st = await sb.ensure_running()
-            if not getattr(st, "running", False):
-                return False
-            rc, _out, _err = await sb._cli.call(
-                "exec", "-u", "0:0", sb.container_name,
-                "chmod", "-R", "o+rwX", "--", target, timeout=60)
-            return rc == 0
-
-        ok = bool(_run_async(_do()))
-        logger.info("[bridge] repair_work_perms user=%r target=%s → %s",
-                    username, target, "ok" if ok else "KO")
-        return ok
-    except Exception as e:
-        logger.warning("[bridge] repair_work_perms KO (user=%r, %s): %s",
-                       username, target, e)
-        return False
-
-
 def run_shell_via_executor(
     *,
     tokens: list[str],
-    workdir_host: Path,
     sandbox_root: Path,
+    workdir_rel: str = "",
     env_extra: dict[str, str],
     timeout_s: int,
     max_output: int,
@@ -480,8 +442,8 @@ def run_shell_via_executor(
     username: str,
     audit_kind: str = "tools.shell",
     ctx: Any = None,
-    save_stdout_host: "Optional[Path]" = None,
-    auto_spill_host: "Optional[Path]" = None,
+    save_stdout_rel: "Optional[str]" = None,
+    auto_spill_rel: "Optional[str]" = None,
     spill_over_chars: "Optional[int]" = None,
     stream_live: bool = False,
 ) -> dict[str, Any]:
@@ -495,11 +457,13 @@ def run_shell_via_executor(
     Legacy callers that don't pass ``ctx`` keep working — the helpers are
     safe no-ops.
 
-    ``save_stdout_host`` : chemin HOST où écrire le stdout COMPLET (octets
-    bruts, AVANT la troncature ``max_output`` de la réponse). L'écriture se
-    fait ici parce que le caller ne voit que le stdout déjà tronqué — c'est
-    le fix du bug « save_stdout tronqué à 20 KB ». Best-effort : un échec
-    d'écriture n'invalide pas l'exec (champ ``save_error`` posé).
+    ``workdir_rel``, ``save_stdout_rel``, ``auto_spill_rel`` : chemins
+    relatifs à ``/work``. ``save_stdout_rel`` reçoit le stdout COMPLET (octets
+    bruts, AVANT la troncature ``max_output`` de la réponse), écrit par
+    l'agent de la sandbox. L'écriture se fait ici parce que le caller ne voit
+    que le stdout déjà tronqué — c'est le fix du bug « save_stdout tronqué à
+    20 KB ». Best-effort : un échec d'écriture n'invalide pas l'exec (champ
+    ``save_error`` posé).
     """
     from shared_infra.sandbox.executors import resolve_network_profile_id
     profile_id = resolve_network_profile_id(get_user_settings(user_id) or {})
@@ -514,7 +478,7 @@ def run_shell_via_executor(
     _ctx_info(ctx, f"shell → {sb.container_name}: {cmd_preview}")
     _ctx_progress(ctx, 0.0, 1.0, f"running: {cmd_preview}")
 
-    workdir_in_container = _path_to_container(workdir_host, sandbox_root)
+    workdir_in_container = to_container(workdir_rel)
 
     # PATH must include the user-site bins (/work/.python-user/bin and
     # /work/.local/bin) — that's where `pip install --user` and
@@ -560,10 +524,10 @@ def run_shell_via_executor(
     # temporaire HÔTE au-delà) puis écrits dans le bac à sable à la fin.
     import tempfile as _tempfile
     _spool_out = _spool_err = None
-    if save_stdout_host is not None or auto_spill_host is not None:
-        _spool_out = _tempfile.SpooledTemporaryFile(max_size=4 << 20)
-        if save_stdout_host is None:
-            _spool_err = _tempfile.SpooledTemporaryFile(max_size=4 << 20)
+    if save_stdout_rel is not None or auto_spill_rel is not None:
+        _spool_out = _tempfile.SpooledTemporaryFile(max_size=4 << 20)  # noqa: SIM115 (relu puis fermé plus bas)
+        if save_stdout_rel is None:
+            _spool_err = _tempfile.SpooledTemporaryFile(max_size=4 << 20)  # noqa: SIM115 (relu puis fermé plus bas)
 
     def _on_chunk(stream: str, data: bytes) -> None:
         if batcher is not None:
@@ -611,8 +575,8 @@ def run_shell_via_executor(
 
     formatted = _format_result(result, tokens, max_output, workdir_in_container)
     try:
-        _spilled = _save_outputs(formatted, result, sandbox_root, save_stdout_host,
-                                 auto_spill_host, spill_over_chars,
+        _spilled = _save_outputs(formatted, result, sb, save_stdout_rel,
+                                 auto_spill_rel, spill_over_chars,
                                  _spool_out, _spool_err)
     finally:
         for _sp in (_spool_out, _spool_err):
@@ -621,8 +585,8 @@ def run_shell_via_executor(
     return formatted
 
 
-def _save_outputs(formatted, result, sandbox_root, save_stdout_host,
-                  auto_spill_host, spill_over_chars, spool_out, spool_err) -> bool:
+def _save_outputs(formatted, result, sb, save_stdout_rel,
+                  auto_spill_rel, spill_over_chars, spool_out, spool_err) -> bool:
     """``save_stdout`` / débord automatique depuis les copies COMPLÈTES
     (``spool_*``) ; repli sur la capture de l'exécuteur sans elles."""
     # Un exécuteur qui n'appelle pas ``on_chunk`` laisse la copie VIDE alors
@@ -642,22 +606,22 @@ def _save_outputs(formatted, result, sandbox_root, save_stdout_host,
         sp.seek(0, 2)
         return sp.tell()
 
-    if save_stdout_host is not None:
+    if save_stdout_rel is not None:
         try:
             if spool_out is not None:
                 _n = _size(spool_out, result.stdout)
                 spool_out.seek(0)
-                _write_output_file(sandbox_root, save_stdout_host, spool_out)
+                _write_output_file(sb, save_stdout_rel, spool_out)
             else:
                 _n = len(result.stdout)
-                _write_output_file(sandbox_root, save_stdout_host, result.stdout)
+                _write_output_file(sb, save_stdout_rel, result.stdout)
             formatted["saved_bytes"] = _n
         except Exception as _save_err:
             formatted["save_error"] = str(_save_err)[:200]
         return True
     _n_out = _size(spool_out, result.stdout)
     _n_err = _size(spool_err, result.stderr)
-    if auto_spill_host is not None and (
+    if auto_spill_rel is not None and (
         formatted.get("truncated")
         or (spill_over_chars is not None
             and (_n_out + _n_err) > spill_over_chars)
@@ -682,13 +646,13 @@ def _save_outputs(formatted, result, sandbox_root, save_stdout_host,
                         spool_out.write(result.stderr)
                 _n_full = spool_out.tell()
                 spool_out.seek(0)
-                _write_output_file(sandbox_root, auto_spill_host, spool_out)
+                _write_output_file(sb, auto_spill_rel, spool_out)
             else:
                 _full = result.stdout
                 if result.stderr:
                     _full += b"\n--- STDERR ---\n" + result.stderr
                 _n_full = len(_full)
-                _write_output_file(sandbox_root, auto_spill_host, _full)
+                _write_output_file(sb, auto_spill_rel, _full)
             formatted["saved_bytes"] = _n_full
             formatted["auto_saved"] = True
         except Exception as _save_err:
@@ -697,28 +661,12 @@ def _save_outputs(formatted, result, sandbox_root, save_stdout_host,
     return False
 
 
-def _write_output_file(sandbox_root: Path, host_path: Path, data: bytes) -> None:
-    """Écrit la sortie sauvegardée (``save_stdout`` / débord automatique)
-    SANS suivre de lien symbolique.
-
-    AUDIT 2026-09-25 — le chemin était validé AVANT la commande, puis écrit
-    APRÈS par un ``write_bytes`` ordinaire. Entre les deux, la commande
-    elle-même tourne sur le même ``/work`` : un lien posé à la place du
-    fichier (ou d'un dossier du chemin) redirigeait l'écriture de l'hôte hors
-    du bac à sable. On réécrit donc par ``write_beneath`` (ouverture composant
-    par composant, O_NOFOLLOW) — le chemin RELATIF validé fait foi."""
-    from shared_infra.sandbox.paths import write_beneath
-    root = Path(sandbox_root).resolve()
-    rel = Path(host_path).relative_to(root).as_posix()
-    try:
-        from shared_infra.sandbox.policy import use_agent
-        _single_uid = use_agent("fs.write")
-    except Exception:                                           # noqa: BLE001
-        _single_uid = False
-    # Même politique que fs_tools : lisible/réécrivable par l'UID du conteneur
-    # (sauf écritures déléguées à l'agent, un seul UID).
-    write_beneath(root, rel, data, default_mode=(0o644 if _single_uid else 0o666),
-                  dir_mode=(None if _single_uid else 0o777))
+def _write_output_file(sb: Any, rel: str, data: Any) -> None:
+    """Écrit la sortie sauvegardée (``save_stdout`` / débord automatique) par
+    l'agent de la sandbox : ``rel`` relatif à ``/work``, dossiers créés, un
+    lien n'est suivi que sous ``/work``. ``data`` : octets, ou fichier ouvert
+    envoyé par blocs depuis sa position."""
+    _run_async(sb.agent.write(rel, data, parents=True))
 
 
 # ─── Result formatting ──────────────────────────────────────────────────

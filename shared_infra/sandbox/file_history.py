@@ -63,8 +63,9 @@ def _user_dir(uid: int) -> Path:
 
 def norm_rel(rel: str) -> str:
     """Clé canonique d'un chemin de sandbox : POSIX, sans ``/``, ``./``,
-    ``work/`` ni ``..`` (refusé)."""
-    s = str(rel or "").replace("\\", "/").strip()
+    ``work/`` ni ``..`` (refusé). ``\\`` reste un caractère de nom, comme
+    pour les primitives de ``paths`` : ``a\\b`` n'est pas ``a/b``."""
+    s = str(rel or "").strip()
     while s.startswith("/"):
         s = s[1:]
     parts = [p for p in PurePosixPath(s).parts if p not in ("", ".")]
@@ -208,20 +209,6 @@ def get_blob(uid: int, sha: str) -> Optional[bytes]:
     return None
 
 
-def read_before(abs_path) -> Optional[bytes]:
-    """Contenu actuel d'un fichier, à lire AVANT de l'écrire : octets,
-    ``None`` s'il n'existe pas, ``TOO_BIG`` s'il dépasse ``MAX_FILE``."""
-    try:
-        p = Path(abs_path)
-        if not p.is_file():
-            return None
-        if p.stat().st_size > MAX_FILE:
-            return TOO_BIG
-        return p.read_bytes()
-    except OSError:
-        return None
-
-
 class _TooBig(bytes):
     """Marqueur : fichier existant mais trop gros pour être gardé."""
 
@@ -300,13 +287,6 @@ def record_write(uid: int, rel: str, before: Optional[bytes], after: Optional[by
         logger.exception("[file_history] record_write uid=%s path=%s", uid, rel)
 
 
-def record_file_write(uid: int, rel: str, before: Optional[bytes], abs_path,
-                      source: str = "other") -> None:
-    """Variante : le contenu écrit est relu sur le disque (écritures faites
-    par un autre process : conteneur, outil)."""
-    record_write(uid, rel, before, read_before(abs_path), source)
-
-
 def record_move(uid: int, old_rel: str, new_rel: str) -> None:
     """Un fichier renommé garde son historique sous son nouveau nom."""
     try:
@@ -358,5 +338,5 @@ def file_entry(uid: int, rel: str) -> Optional[Dict[str, Any]]:
 
 
 __all__ = ["MAX_FILE", "SOURCES", "TOO_BIG", "UNKNOWN", "sha_of", "start_session", "current_session", "norm_rel",
-           "read_before", "record_write", "record_file_write", "record_move",
+           "record_write", "record_move",
            "session_info", "file_entry", "get_blob"]

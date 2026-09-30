@@ -30,8 +30,8 @@ def bridge(monkeypatch):
     """(client, journal des requêtes amont, état de l'amont). Amont simulé par
     un ``MockTransport`` : on observe EXACTEMENT ce que le relais envoie."""
     import shared_infra.config as cfg
-    import shared_infra.opencode.routes_code as code
     import shared_infra.mcp.bridge as mp
+    import shared_infra.opencode.routes_code as code
 
     monkeypatch.setattr(cfg, "LOCAL_MCP_URL", "http://127.0.0.1:8765/mcp")
     monkeypatch.setattr(cfg, "LOCAL_MCP_TOKEN", "service-secret")
@@ -230,8 +230,8 @@ def test_le_relais_ne_recouvre_pas_le_panneau_d_outils():
     cessé de se peupler, SANS erreur, au gré de l'ordre des imports. Le préfixe
     du relais doit rester disjoint de la surface existante."""
     import shared_infra.routes  # noqa: F401 — enregistre tout
-    from shared_infra.routes._state import router
     from shared_infra.mcp.bridge import MCP_PROXY_PREFIX
+    from shared_infra.routes._state import router
 
     chemins = {getattr(r, "path", "") for r in router.routes}
     relais = {p for p in chemins if p.startswith(MCP_PROXY_PREFIX)}

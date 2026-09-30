@@ -3,13 +3,11 @@
 optimisation de la sandbox (2026-09-26).
 
 Verrouille :
-  • archives : extraction bornée (bombe tar), zip de dossier écrit sur disque
-    et plafonné ;
-  • paths : nom temporaire tronqué en octets, copie d'arbre atomique et sans
-    suivi de lien ;
+  • archives : extraction bornée (bombe tar) — le zip de dossier, plafonné,
+    est produit par l'agent de la sandbox (test_archives_agent_2026_09_29) ;
+  • paths : nom temporaire tronqué en octets ;
   • cycle de vie : cache par compte,
-    verrou de cycle de vie sans fuite par boucle, 137 = redémarrage ;
-  • grant_access : sous-process tués au délai.
+    verrou de cycle de vie sans fuite par boucle, 137 = redémarrage.
 """
 from __future__ import annotations
 
@@ -22,7 +20,6 @@ import zipfile
 from pathlib import Path
 
 import pytest
-
 
 # ── Archives ─────────────────────────────────────────────────────────────────
 
@@ -60,29 +57,6 @@ def test_extraction_bornee_contenue(tmp_path):
     assert not (tmp_path / "evil").exists()
 
 
-def test_zip_sur_disque_plafonne(tmp_path, monkeypatch):
-    from shared_infra.sandbox import routes_files as rf
-    import shared_infra.config as cfg
-    monkeypatch.setattr(cfg, "SANDBOX_DIR", tmp_path / "sb")
-    src = tmp_path / "src"
-    src.mkdir()
-    for i in range(5):
-        (src / f"f{i}").write_bytes(b"z" * 100)
-    entries = [(p, p.name) for p in sorted(src.iterdir())]
-    tmp, n = rf._spool_zip(iter(entries), max_bytes=10 ** 6, max_files=100, strict=True)
-    try:
-        assert n == 5 and Path(tmp).parent == tmp_path / "sb" / ".dl_spool"
-        assert len(zipfile.ZipFile(tmp).namelist()) == 5
-    finally:
-        os.unlink(tmp)
-    with pytest.raises(rf._ZipTooBig):
-        rf._spool_zip(iter(entries), max_bytes=250, max_files=100, strict=True)
-    assert list((tmp_path / "sb" / ".dl_spool").iterdir()) == [], "zip partiel laissé sur disque"
-    tmp, n = rf._spool_zip(iter(entries), max_bytes=250, max_files=100, strict=False)
-    os.unlink(tmp)
-    assert n == 2
-
-
 # ── paths ────────────────────────────────────────────────────────────────────
 
 def test_nom_temporaire_tronque_en_octets(tmp_path):
@@ -93,56 +67,13 @@ def test_nom_temporaire_tronque_en_octets(tmp_path):
     assert (tmp_path / leaf).read_bytes() == b"ok"
 
 
-def test_copie_d_arbre_liens_tels_quels_et_atomique(tmp_path):
-    from shared_infra.sandbox.paths import copytree_beneath
-    src = tmp_path / "src"
-    (src / "d").mkdir(parents=True)
-    (src / "d" / "f.txt").write_text("x")
-    os.symlink("/etc/passwd", src / "lien")
-    base = tmp_path / "base"
-    base.mkdir()
-    assert copytree_beneath(src, base, "copie") == 1
-    assert (base / "copie" / "d" / "f.txt").read_text() == "x"
-    assert os.readlink(base / "copie" / "lien") == "/etc/passwd"
-    with pytest.raises(FileExistsError):
-        copytree_beneath(src, base, "copie")
-    (base / "fichier").write_text("occupé")
-    with pytest.raises(FileExistsError):
-        copytree_beneath(src, base, "fichier")
-    assert not [p for p in base.iterdir() if p.name.endswith(".cptmp")]
-
-
-def test_copie_d_arbre_echec_ne_laisse_rien(tmp_path, monkeypatch):
-    from shared_infra.sandbox import paths
-    src = tmp_path / "src"
-    src.mkdir()
-    for i in range(3):
-        (src / f"f{i}").write_text("x")
-    base = tmp_path / "base"
-    base.mkdir()
-    vrai = paths.write_beneath
-    appels = {"n": 0}
-
-    def casse(*a, **k):
-        appels["n"] += 1
-        if appels["n"] == 2:
-            raise OSError("disque plein")
-        return vrai(*a, **k)
-    monkeypatch.setattr(paths, "write_beneath", casse)
-    with pytest.raises(OSError):
-        paths.copytree_beneath(src, base, "copie")
-    assert list(base.iterdir()) == [], "arbre à moitié copié laissé en place"
-
-
-# ── Cycle de vie ─────────────────────────────────────────────────────────────
-
 def test_reset_cache_d_un_seul_compte():
     from shared_infra.sandbox.executors import _user_sandbox as us
     us._USER_SANDBOXES.clear()
-    us._USER_SANDBOXES[1] = object()
-    us._USER_SANDBOXES[2] = object()
+    us._USER_SANDBOXES[(1, "alice")] = object()
+    us._USER_SANDBOXES[(2, "bob")] = object()
     us.reset_user_sandbox_cache(1)
-    assert list(us._USER_SANDBOXES) == [2]
+    assert list(us._USER_SANDBOXES) == [(2, "bob")]
     us.reset_user_sandbox_cache()
     assert us._USER_SANDBOXES == {}
 
@@ -168,6 +99,7 @@ def test_verrou_de_cycle_de_vie_ne_fuit_pas(tmp_path, monkeypatch):
 
 async def test_verrou_inter_process_serialise(tmp_path, monkeypatch):
     import fcntl
+
     import shared_infra.config as cfg
     from shared_infra.sandbox.executors import _user_sandbox as us
     monkeypatch.setattr(cfg, "SANDBOX_DIR", tmp_path)
@@ -190,7 +122,10 @@ async def test_conteneur_arrete_par_le_gc_est_redemarre(monkeypatch, tmp_path):
     async def fausse_cli(*args, **kw):
         appels.append(args[0])
         if args[0] == "inspect":
-            return 0, b"137|false", b""
+            if "ExitCode" in args[2]:
+                return 0, b"137|false", b""
+            # Labels à jour : rien n'impose de le recréer.
+            return 0, f"{us.netcfg_hash(sb.network_profile)}|{us.RUN_SPEC}".encode(), b""
         return 0, b"", b""
 
     async def create():
@@ -205,9 +140,15 @@ async def test_conteneur_arrete_par_le_gc_est_redemarre(monkeypatch, tmp_path):
     assert "start" in appels and "rm" not in appels and "CREATE" not in appels
 
 
-async def test_grant_tue_le_process_au_delai():
-    from shared_infra.sandbox.exec_bridge import _run_bounded
-    import time
-    t0 = time.monotonic()
-    await _run_bounded(["sleep", "30"], 0.3)
-    assert time.monotonic() - t0 < 5
+def test_deux_comptes_non_resolus_ne_partagent_pas_la_sandbox(tmp_path):
+    """Id 0 (identité non résolue) : la clé porte aussi le nom — sinon le
+    second compte recevait la sandbox, et le dossier, du premier."""
+    from shared_infra.sandbox.executors import _user_sandbox as us
+    us.reset_user_sandbox_cache()
+    try:
+        a = us.get_user_sandbox(0, "alice", tmp_path / "alice" / "work")
+        b = us.get_user_sandbox(0, "bob", tmp_path / "bob" / "work")
+        assert a is not b and b.sandbox_path == tmp_path / "bob" / "work"
+        assert us.get_user_sandbox(0, "alice", tmp_path / "x") is a
+    finally:
+        us.reset_user_sandbox_cache()

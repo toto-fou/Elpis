@@ -1,56 +1,26 @@
 # SPDX-License-Identifier: MIT
 """
-backend.services._chat_with_tools — Tool-calling chat orchestration (MCP + builtins).
+llm_core._chat_with_tools — la boucle agentique : chat avec outils (MCP et
+intégrés).
 
-This is the heart of the agentic chat loop. It owns:
+Pièces principales :
 
-  - ``pick_tool_payload(tool_result)`` — best-effort decode of an MCP tool
-                                          result into a Python value the LLM
-                                          can consume.
-  - ``_clean_json_text(...)``          — strip trailing junk/garbage that some
-                                          models emit after a JSON tool call.
-  - ``_looks_like_pure_tool_call_text(...)`` — heuristic: does this assistant
-                                          message look like a tool call dressed
-                                          up as text?
-  - ``_llama_chat_with_tools_stream(...)`` — STREAMING tool-calling LLM call
-                                          with the OpenAI-native tools[] +
-                                          tool_choice="auto" payload, plus
-                                          a fallback to non-streaming and
-                                          finally to text-parse if llama-server
-                                          can't handle the model.
-  - ``_select_prune_keys(...)`` — sélection FIN DE TOUR des vieux
-                                          tool_results (memo par run,
-                                          byte-stable → préfixe KV préservé)
-                                          pour contenir la fenêtre sur un
-                                          long run agentique.
-  - ``_collect_mcp_tools(...)``        — fan out to all configured MCP servers
-                                          (stdio + SSE + HTTP) and aggregate
-                                          their tools into a single OpenAI
-                                          payload.
-  - ``_build_runtime_sandbox_context(...)`` — generate the sandbox-aware
-                                          system prompt prefix the LLM uses
-                                          to know which file roots / shell
-                                          tools are available.
-  - ``_inject_ax_memory_into_messages(...)`` — splice the user's accessibility
-                                          memory (long-term notes) into the
-                                          LLM payload as a system message.
-  - ``_execute_single_tool_call(...)`` — dispatch one tool_call to the right
-                                          MCP / builtin executor and return
-                                          the result for the next LLM turn.
-  - ``run_chat_multi_mcp(...)``        — main loop. Iterates LLM ↔ tools up
-                                          to ``LLAMA_MAX_TOOL_ITERATIONS`` times,
-                                          handling cancellation, vision
-                                          screenshot injection, and per-turn
-                                          metrics. ~830 lines.
-  - ``run_chat_multi_mcp_v2(...)``     — alternative loop used in the
-                                          ``optimized`` scheduling mode that
-                                          releases the LLM slot during tool
-                                          execution.
+  - ``run_chat_multi_mcp(...)`` — la boucle : LLM ↔ outils jusqu'au budget
+    d'itérations, annulation, capture d'écran pour la vision, métriques du
+    tour ; ``run_chat_multi_mcp_v2`` force le mode ``optimized`` (créneau LLM
+    rendu pendant l'exécution des outils).
+  - ``_llama_chat_with_tools_stream(...)`` — un appel LLM en flux avec
+    ``tools[]`` (replis : sans flux, puis analyse du texte).
+  - ``_collect_mcp_tools(...)`` — outils de tous les serveurs MCP configurés,
+    réunis en une charge utile.
+  - ``_execute_single_tool_call(...)`` — un appel d'outil (MCP ou intégré) ;
+    les lots passent par ``engine.tool_exec``, en série ou en parallèle selon
+    ``_tool_traits``.
+  - ``pick_tool_payload``, ``_clean_json_text``,
+    ``_looks_like_pure_tool_call_text`` — décodage des résultats et des appels.
 
-Module-level constants
-----------------------
-- ``TOOL_RESULT_MAX_OLD`` (200): plancher/filet du niveau d'élagage de
-  ``select_prune_keys`` (harnais v4 : marques persistées, unités tokens).
+Élagage des vieux résultats : ``context.pruning`` ; mémoire d'accessibilité et
+contexte de la sandbox : ``context.assembly``.
 """
 from __future__ import annotations
 
@@ -62,31 +32,29 @@ import re
 import secrets
 import time
 from contextlib import asynccontextmanager
-
-import httpx
 from contextvars import ContextVar
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from shared_infra.config import (
-    LLAMA_URL,
-    LLAMA_MODEL,
-    LLAMA_RESUMABLE_STREAM,
-    LLAMA_RETRIES,
-    LLAMA_TIMEOUT_SEC,
-)
-from shared_infra.db import log_metric
-from shared_infra.observability.tracing import swallow
-from shared_infra.observability.usage_ctx import record_turn_usage
-from llm_core._mcp_pool import mcp_pool, MCPQueueSaturated
+import httpx
+
+from llm_core import _tool_parsing  # module (lecture LAST_PARSE_DIAGNOSTIC, réaffecté)
 
 # Helpers from sibling submodules — the natural import targets after the
 # legacy split. We deliberately import through the canonical destination
 # rather than ``backend.services._legacy`` to avoid an import cycle.
 from llm_core._chat_classic import (
-    _coalesce_system_messages, _dump, _extract_thinking, _http_4xx,
+    _coalesce_system_messages,
+    _dump,
+    _extract_thinking,
+    _http_4xx,
     llama_chat,
 )
-from llm_core._think_resume import should_auto_resume, should_auto_resume_content
+from llm_core._desktop_session import (
+    _extract_desktop_frame,
+    desktop_frame_path,
+    register_desktop_frame_owner,
+)
 from llm_core._health import verify_llm_availability
 from llm_core._llm_retry import (
     KIND_CONTEXT_OVERFLOW as _KIND_CTX_OVERFLOW,
@@ -102,35 +70,46 @@ from llm_core._llm_retry import (
     llm_error_user_message as _llm_error_user_message,
     retry_pause as _llm_retry_pause,
 )
+from llm_core._mcp_pool import MCPQueueSaturated, mcp_pool
 from llm_core._mcp_wrappers import (
-    _resolve_mcp_client, mcp_tool_to_openai, _sanitize_schema_for_grammar,
+    _resolve_mcp_client,
+    _sanitize_schema_for_grammar,
     friendly_mcp_error as _friendly_mcp_error,
+    mcp_tool_to_openai,
 )
 from llm_core._metrics import calculate_metrics
 from llm_core._model_info import get_model_context_size
+from llm_core._pw_session import (
+    _extract_pw_screenshot_url,
+    _pw_verb_of,
+    _track_pw_session_ownership,
+)
+from llm_core._scheduling._guard import _emit
+from llm_core._stream_tag_parser import ThinkTagSplitter
+from llm_core._think_resume import should_auto_resume, should_auto_resume_content
 from llm_core._think_tokens import (
     measure_thinking_tokens,
     native_reasoning_tokens as _native_reasoning_tokens,
 )
-from llm_core._pw_session import (
-    _extract_pw_screenshot_url, _track_pw_session_ownership, _pw_verb_of,
-)
-from llm_core._desktop_session import (
-    _extract_desktop_frame, register_desktop_frame_owner, desktop_frame_path,
-)
-from llm_core._scheduling._guard import _emit
-from llm_core._stream_tag_parser import ThinkTagSplitter
 from llm_core._thinking_reconcile import reconcile_thinking_content
-from llm_core import _tool_parsing            # module (lecture LAST_PARSE_DIAGNOSTIC, réaffecté)
 from llm_core._tool_parsing import extract_tool_calls
+from llm_core._tool_traits import tool_traits
 from llm_core._vision import (
     _clear_last_screenshot_for,
     _get_last_screenshot_b64,
     _model_supports_vision,
     _track_last_screenshot_for_vision,
 )
-
-
+from shared_infra.config import (
+    LLAMA_MODEL,
+    LLAMA_RESUMABLE_STREAM,
+    LLAMA_RETRIES,
+    LLAMA_TIMEOUT_SEC,
+    LLAMA_URL,
+)
+from shared_infra.db import log_metric
+from shared_infra.observability.tracing import swallow
+from shared_infra.observability.usage_ctx import record_turn_usage
 
 # Studio : un ``desktop_act`` du chat renvoie l'écran APRÈS l'action (sig + éléments).
 # ``result`` est coupé à 2000 caractères pour le panneau : le JSON est alors invalide
@@ -225,6 +204,30 @@ def _files_event_extra(result_str) -> Dict[str, Any]:
         return {"files": files} if files else {}
     except Exception:                                           # noqa: BLE001
         return {}
+
+
+def _noter_attente(ms: int) -> None:
+    """Attente d'un créneau du moteur → exécution courante (``runs``)."""
+    try:
+        from shared_infra.observability.runs import current_run
+        run = current_run()
+        if run is not None:
+            run.add_wait(ms)
+    except Exception:                                           # noqa: BLE001
+        pass
+
+
+def _noter_fichiers(files) -> None:
+    """Fichiers modifiés par un outil → exécution courante (``runs``)."""
+    if not files:
+        return
+    try:
+        from shared_infra.observability.runs import current_run
+        run = current_run()
+        if run is not None:
+            run.add_files(files)
+    except Exception:                                           # noqa: BLE001
+        logger.debug("[runs] fichiers modifiés non comptés", exc_info=True)
 
 
 def _changed_files_of(res) -> List[Dict[str, Any]]:
@@ -524,7 +527,9 @@ def _tool_is_internal(tool_name: str) -> bool:
 # Heuristique UNIQUE partagée par le chemin natif, le chemin legacy ET le
 # ledger de compression — source : ``engine.result_contract`` (l'historique
 # du BUG FIX natif/legacy vit dans la docstring du module partagé).
-from llm_core.engine.result_contract import result_is_error as _result_is_error  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+from llm_core.engine.result_contract import (
+    result_is_error as _result_is_error,  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+)
 
 
 def _result_is_tool_failure(result_content: Any) -> bool:
@@ -571,9 +576,19 @@ def _record_tool_call_metric_safe(username: str,
                                   tool_name: str,
                                   status: str,
                                   duration_ms: int,
-                                  error_short: Optional[str] = None) -> None:
-    """Écrit une ligne tool_call_metrics — best-effort, jamais bloquant."""
+                                  error_short: Optional[str] = None,
+                                  **mesures: Any) -> None:
+    """Écrit une ligne tool_call_metrics — best-effort, jamais bloquant.
+
+    Rattachée à l'exécution courante (``runs`` ; l'appel y est compté par
+    ``tool_exec``, dans la boucle), sinon à la conversation ; ``mesures`` :
+    ``call_id``, ``started_at``, ``exit_code``, ``args_bytes``,
+    ``result_bytes``."""
     try:
+        from llm_core._mcp_categories import categorize
+        from shared_infra.observability.runs import current_run
+        category = categorize(tool_name)
+        run = current_run()
         uid = _TCM_UID_CACHE.get(username)
         if uid is None:
             from shared_infra.accounts.users import get_user
@@ -584,12 +599,14 @@ def _record_tool_call_metric_safe(username: str,
             _TCM_UID_CACHE[username] = uid
         from shared_infra.observability.tool_metrics_store import record_tool_call_metric
         record_tool_call_metric(
-            run_id=str(chat_id or "chat"),
+            run_id=run.id if run is not None else str(chat_id or "chat"),
             user_id=uid,
             tool_name=tool_name,
             status=status,
             duration_ms=int(duration_ms),
             error_short=error_short,
+            category=category,
+            **mesures,
         )
     except Exception:
         logger.debug("[tool_call_metrics] record failed (non-fatal)", exc_info=True)
@@ -811,8 +828,8 @@ def _reasoning_cap_chars(payload: Dict[str, Any]) -> int:
         ``max_tokens`` — le cas de la réflexion volontairement non plafonnée
         en local — il n'y a pas de seuil du tout.
     """
-    from shared_infra.config import LLAMA_REASONING_SOFT_BUDGET_TOKENS as _soft
     from llm_core.context.tokens import CHARS_PER_TOKEN
+    from shared_infra.config import LLAMA_REASONING_SOFT_BUDGET_TOKENS as _soft
     caps = []
     if _soft and int(_soft) > 0:
         caps.append(int(_soft))
@@ -837,7 +854,9 @@ def _publish_completion(inner, sse, chat_id: Optional[str], model: str):
             return
         done[0] = True
         with swallow("harness.reasoning_control.note"):
+            from llm_core.engines import current_engine
             from shared_infra.llm.reasoning_control import note_completion
+
             # AUDIT 2026-09-01 (passe 6, B12) — l'écriture fichier (makedirs +
             # open + json.dump + os.replace) partait du callback de token, en
             # SYNC sur la boucle, une fois par itération de la boucle d'outils
@@ -848,7 +867,6 @@ def _publish_completion(inner, sse, chat_id: Optional[str], model: str):
             # de ``completion_id`` est capturée MAINTENANT, pas au moment où
             # le thread s'exécute.
             from shared_infra.runtime.ordered_io import submit_ordered
-            from llm_core.engines import current_engine
             _cid = sse.completion_id
             submit_ordered("reasoning_control.note", note_completion,
                            chat_id, _cid, model, current_engine().key)
@@ -977,10 +995,9 @@ async def _resume_cut_stream(client, target, conv_id: str, model: str,
     if isinstance(err, httpx.HTTPStatusError):
         return None
     base = _endpoint_base(getattr(target, "base_url", "") or LLAMA_URL)
-    from llm_core.providers.llama_stream import lookup_streams, resume_request
-    from llm_core.providers.llamacpp import consume_llama_sse, SseStreamResult
     from llm_core._stream_tag_parser import ThinkTagSplitter
-
+    from llm_core.providers.llama_stream import lookup_streams, resume_request
+    from llm_core.providers.llamacpp import SseStreamResult, consume_llama_sse
     from llm_core.providers.openai_compat import headers as _auth_headers
     _hdrs = _auth_headers(target)
     live = await lookup_streams(client, base, [conv_id], model, headers=_hdrs)
@@ -1064,7 +1081,8 @@ async def _llama_chat_with_tools_stream(
     le modèle peut conclure sa réflexion PUIS appeler un outil.
 
     Reconstruit les tool_calls depuis les deltas SSE.
-    Émet thinking_token / tool_thinking en temps réel.
+    Relaie raisonnement et réponse en temps réel (``on_thinking_token``,
+    ``on_content_token``).
 
     ``on_tool_call_delta(index, name_delta, args_delta)`` : callback appelé à
     chaque fragment d'argument / nom reçu depuis llama.cpp AVANT que le tool
@@ -1170,16 +1188,17 @@ async def _llama_chat_with_tools_stream(
     # ``payload["thinking"]`` même en thinking_mode — thinking + tools[] → 400
     # côté llama.cpp ; le thinking passe par chat_template_kwargs (posé dans
     # build_llama_payload). Le ``task`` de sampling reflète quand même le mode.
-    from llm_core.providers.llamacpp import build_llama_payload as _build_payload
     from llm_core._llm_params import (
         sanitize_preserve_reasoning,
         sanitize_reasoning_effort,
     )
+
     # ── Transport selon la cible (connecteur) ─────────────────────────────
     # Défaut (llama.cpp intégré) : client partagé + LLAMA_URL + payload
     # inchangé. OpenAI-compatible distant : client dédié + URL chat/completions
     # + Bearer + retrait des champs llama-only (sinon 400 côté cloud).
     from llm_core.providers import openai_compat as _oai
+    from llm_core.providers.llamacpp import build_llama_payload as _build_payload
     client, _req_url, _req_headers = _oai.endpoint(_target)
     # ── Flux REPRENABLE (llama-server b10545+) ───────────────────────────────
     # Adosse la génération à une session nommée côté moteur : une coupure du
@@ -1195,7 +1214,6 @@ async def _llama_chat_with_tools_stream(
         # et surtout ``DELETE /v1/stream`` n'arrêterait rien, alors que tout
         # le contrat d'annulation repose dessus. Moteur non identifié ⇒ flux
         # non nommé, non reprenable : le comportement d'avant.
-        from llm_core.providers.llama_caps import engine_caps as _eng_caps
         # AUDIT 2026-08-23 — sonder la cible RÉELLE. Sans ``base_url``,
         # ``engine_caps`` retombe sur ``LLAMA_URL``, c'est-à-dire le moteur
         # LOCAL — alors que la garde d'entrée est ``_llama_native``, vraie
@@ -1208,9 +1226,11 @@ async def _llama_chat_with_tools_stream(
         # seule base : la sonde part avec l'en-tête d'auth (la base seule
         # rendait 401 sur un llama-server protégé par ``--api-key``).
         from llm_core.engines import current_engine as _cur_engine
+        from llm_core.providers.llama_caps import engine_caps as _eng_caps
         if (await _eng_caps(engine=_cur_engine())).resumable_stream:
             from llm_core.providers.llama_stream import (
-                conversation_id as _conv_of, headers_with_conv as _hdr_conv,
+                conversation_id as _conv_of,
+                headers_with_conv as _hdr_conv,
             )
             _conv_id = _conv_of(user_id, chat_id)
             _req_headers = _hdr_conv(_req_headers, _conv_id)
@@ -1480,7 +1500,8 @@ async def _llama_chat_with_tools_stream(
                 # l'identique. Le POST-traitement propre au chemin outils
                 # (récupération reasoning, forme de retour) reste ci-dessous.
                 from llm_core.providers.llamacpp import (
-                    consume_llama_sse, SseStreamResult,
+                    SseStreamResult,
+                    consume_llama_sse,
                 )
                 # ``sink`` dont les listes SONT nos buffers de garde
                 # (content_parts/thinking_parts) : consume_llama_sse les remplit
@@ -1563,8 +1584,7 @@ async def _llama_chat_with_tools_stream(
                     # sans effet si rien n'a été publié.
                     if chat_id and payload.get("reasoning_control"):
                         with swallow("harness.reasoning_control.clear"):
-                            from shared_infra.llm.reasoning_control import (
-                                clear_completion)
+                            from shared_infra.llm.reasoning_control import clear_completion
                             clear_completion(chat_id)
 
             # Le moteur a donné signe de vie pendant le silence du
@@ -1868,7 +1888,10 @@ async def _llama_chat_with_tools_stream(
 # explique au modèle comment lire le tag.
 def _harness_status_line(k: int, n: int, *,
                          wall_left_s: Optional[float] = None,
-                         hard_left: Optional[int] = None) -> Optional[str]:
+                         hard_left: Optional[int] = None,
+                         ctx_left: Optional[int] = None,
+                         ctx_size: Optional[int] = None,
+                         sandbox_limits: Optional[str] = None) -> Optional[str]:
     """Ligne ``<harness_status>`` pour k itérations productives consommées sur
     un budget de n — ou None hors jalon. k >= n est géré ailleurs (sortie de
     boucle + tour de synthèse « MAXIMUM STEPS REACHED »).
@@ -1878,7 +1901,12 @@ def _harness_status_line(k: int, n: int, *,
     d'étapes, mais le modèle n'en entendait jamais parler : il planifiait
     contre un budget qui n'était pas celui qui allait l'arrêter (audit
     2026-08-01, P1-7). On l'annonce dès qu'il devient la contrainte la plus
-    proche."""
+    proche.
+
+    ``ctx_left``/``ctx_size`` (jetons) et ``sandbox_limits`` (texte court,
+    L5.6) s'ajoutent au point d'étape budget : le modèle planifie contre la
+    fenêtre restante et les limites réelles du conteneur. Rien de plus émis
+    hors jalon."""
     # Le plafond dur passe DEVANT quand il est sur le point de mordre : c'est
     # alors lui la vraie limite, et le geste utile n'est pas le même (des
     # appels échouent en série — il faut changer d'approche, pas se dépêcher).
@@ -1911,7 +1939,25 @@ def _harness_status_line(k: int, n: int, *,
                 "stop early while budget remains.")
     if wall_left_s is not None:
         body += f" Wall-clock remaining: ~{max(0, int(wall_left_s // 60))} min."
+    if ctx_size and ctx_size > 0 and ctx_left is not None:
+        body += (f" Context window: ~{max(0, int(ctx_left)) // 1000}k of "
+                 f"{int(ctx_size) // 1000}k tokens left.")
+    if sandbox_limits:
+        body += f" Sandbox limits: {sandbox_limits}."
     return f"<harness_status>{body}</harness_status>"
+
+
+def _sandbox_limits_text() -> Optional[str]:
+    """Limites du conteneur sandbox (config admin) en une ligne courte pour
+    ``<harness_status>`` (L5.6) ; None si la config est illisible."""
+    try:
+        from shared_infra.sandbox.executors._user_sandbox import load_admin_config
+        cfg = load_admin_config()
+        return (f"{int(cfg.memory_mb)} MB RAM, {cfg.cpu_quota_pct / 100.0:g} CPU, "
+                f"{int(cfg.pids_max)} processes, {int(cfg.timeout_s)} s per command")
+    except Exception as _e:                                       # noqa: BLE001
+        logger.debug("sandbox limits unavailable for harness_status: %s", _e)
+        return None
 
 
 def _todo_status_reminder(username: str, chat_id: Optional[str]) -> Optional[str]:
@@ -2044,8 +2090,12 @@ def _length_cut_is_ctx_full(usage: Optional[Dict[str, Any]],
 # context_config.json → budgets.*). Depuis la bascule « réel seul »
 # (2026-07-12), la JAUGE de contexte n'estime plus rien : elle lit l'usage
 # réel renvoyé par le serveur en fin de requête (event kv_cache unique).
-from llm_core.context.budget import BUDGET as _BUDGET  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
-from llm_core.context.compaction_gate import CompactionThreshold  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+from llm_core.context.budget import (
+    BUDGET as _BUDGET,  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+)
+from llm_core.context.compaction_gate import (
+    CompactionThreshold,  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+)
 from llm_core.context.tokens import (  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
     # Point d'injection / ré-export (AUDIT 2026-08-30 / S6) — cf. le bloc
     # ``context.pruning`` plus bas : la suite s'adresse à ce module.
@@ -2075,26 +2125,28 @@ from llm_core.context.assembly import (  # noqa: E402 — import tardif voulu (d
     # d'entrée historique et la suite s'y adresse encore. Une passe de purge
     # automatique l'a retiré et a cassé la collecte de deux fichiers de tests —
     # d'où le ``noqa`` et cette note, pour que la prochaine s'arrête ici.
-    fold_operational_block as _fold_operational_block,          # noqa: F401
+    fold_operational_block as _fold_operational_block,  # noqa: F401
 )
 from llm_core.context.pruning import (  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+    _VISION_FRAME_PLACEHOLDER,  # noqa: F401
+    DESKTOP_TOOL_RESULT_MAX_CHARS as _DESKTOP_TOOL_RESULT_MAX_CHARS,  # noqa: F401
+    # Ré-exports — même raison que ci-dessus.
+    compact_desktop_elements as _compact_desktop_elements,  # noqa: F401
+    enforce_context_budget as _enforce_context_budget,  # noqa: F401
     ephemeral as _ephemeral_msg,
-    select_prune_keys as _select_prune_keys,
     fit_context as _fit_context,
     prepare_tool_result_for_model as _prepare_tool_result_for_model,
+    prune_old_vision_frames as _prune_old_vision_frames,  # noqa: F401
+    select_prune_keys as _select_prune_keys,
     strip_internal_keys as _strip_internal_keys,
     truncate_head_tail as _truncate_head_tail,
-    # Ré-exports — même raison que ci-dessus.
-    compact_desktop_elements as _compact_desktop_elements,      # noqa: F401
-    enforce_context_budget as _enforce_context_budget,          # noqa: F401
-    prune_old_vision_frames as _prune_old_vision_frames,        # noqa: F401
-    _VISION_FRAME_PLACEHOLDER,                                  # noqa: F401
-    DESKTOP_TOOL_RESULT_MAX_CHARS as _DESKTOP_TOOL_RESULT_MAX_CHARS,  # noqa: F401
 )
+
 # Harness d'exécution des tool_calls (série/parallèle) : PARTAGÉE par les deux
 # canaux natif/legacy (Phase 4 — retire ~110 lignes de duplication verbatim).
-from llm_core.engine.tool_exec import execute_tool_batch as _execute_tool_batch  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
-
+from llm_core.engine.tool_exec import (
+    execute_tool_batch as _execute_tool_batch,  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+)
 
 # Tools de la catégorie « memory » (Hermes) — gouvernées par un TOGGLE per-user
 # (défaut OFF), pas par le panneau d'outils ni le set caché toujours-actif.
@@ -2104,34 +2156,6 @@ _MEMORY_TOOL_NAMES = frozenset({"memory", "session_search"})
 def _tool_name(t) -> str:
     """Nom d'un outil, qu'il soit un objet (.name) ou un dict ({'name': ...})."""
     return getattr(t, "name", None) or (t.get("name", "") if isinstance(t, dict) else "") or ""
-
-
-def _tool_is_read_only(tool) -> bool:
-    """True seulement si l'outil est ANNOTÉ read-only dans le protocole.
-
-    Les annotations MCP (``readOnlyHint`` & co) sont posées à la source par
-    les variantes de ``tools/_toolkit.py`` — c'est la seule description
-    fiable de ce qu'un outil fait, et elle voyage avec lui. On lit ici
-    l'objet LIVE issu de ``list_tools()`` plutôt que le registre de
-    catégories, qui ne conserve pas les annotations.
-
-    Extraction volontairement défensive (la forme de fil des annotations a
-    bougé entre versions de FastMCP), et surtout **fail-FERMÉ** : tout ce
-    qui n'est pas prouvé read-only renvoie False. En mode lecture seule un
-    outil non annoté doit disparaître, jamais passer par défaut.
-    """
-    ann = getattr(tool, "annotations", None)
-    if ann is None and isinstance(tool, dict):
-        ann = tool.get("annotations")
-    if ann is None:
-        return False
-    for key in ("readOnlyHint", "read_only_hint"):
-        val = getattr(ann, key, None)
-        if val is None and isinstance(ann, dict):
-            val = ann.get(key)
-        if val is not None:
-            return bool(val)
-    return False
 
 
 def _apply_memory_gate(raw_tools, memory_enabled: bool, categorize) -> list:
@@ -2383,7 +2407,7 @@ async def _collect_mcp_tools(
                 # Lecture seule (« /plan ») : allow-list par ANNOTATION, avant
                 # tout le reste et sans exception pour les catégories cachées.
                 # Un outil non annoté tombe — c'est le point du fail-fermé.
-                if read_only and not _tool_is_read_only(t):
+                if read_only and not tool_traits(t_name, tool=t).read_only:
                     continue
                 if _gated_out(t_name, _explicit_cats):
                     _dropped_by_gate += 1
@@ -2681,7 +2705,7 @@ async def _ensure_local_asset(user_id: Optional[int], local_path: str, relay_pat
         return False
     try:
         os.makedirs(os.path.dirname(local_path) or ".", exist_ok=True)
-        await asyncio.to_thread(lambda: open(local_path, "wb").write(data))
+        await asyncio.to_thread(Path(local_path).write_bytes, data)
         return True
     except Exception:                                            # noqa: BLE001
         return False
@@ -3871,6 +3895,9 @@ async def _run_chat_multi_mcp_impl(
     # ré-injecté à chaque tour raté — et l'alerte « plafond dur », elle,
     # ne sortirait JAMAIS (elle vit précisément quand effective_iter stagne).
     _hs_last_status_key: Optional[Tuple[str, int]] = None
+    # Limites de la sandbox pour <harness_status> : None = pas encore lues,
+    # "" = rien à dire (shell absent) ou déjà annoncées dans ce tour.
+    _hs_sandbox_limits: Optional[str] = None
 
     # AUDIT 2026-08-23 — un slot LLM pour TOUS les appels de la boucle.
     #
@@ -4124,13 +4151,24 @@ async def _run_chat_multi_mcp_impl(
         Invisible côté UI : les messages role:user injectés mi-tour ne sont
         jamais rendus (cf. _tool_segments « prompt / nudge mid-turn »).
         ``working_messages`` lu via la closure (suit les réassignations)."""
-        nonlocal _hs_last_status_key
+        nonlocal _hs_last_status_key, _hs_sandbox_limits
         _hard_left = max(0, _hard_iter_cap - hard_iter)
+        # Contexte restant (L5.6) : occupation du dernier appel LLM (les
+        # résultats d'outils qui suivent n'y sont pas : ordre de grandeur).
+        _u = (last_raw or {}).get("usage") or {}
+        _occ = int(_u.get("prompt_tokens", 0) or 0) + int(_u.get("completion_tokens", 0) or 0)
+        # Limites de la sandbox (L5.6) : seulement si le shell est offert,
+        # annoncées au premier point d'étape du tour, pas à chaque jalon.
+        if _hs_sandbox_limits is None:
+            _hs_sandbox_limits = (_sandbox_limits_text() or "") if "execute_shell" in _allowed_tool_names else ""
         _hs = _harness_status_line(
             effective_iter, _effective_iter_budget,
             wall_left_s=((_loop_max_s - (time.monotonic() - _loop_t0))
                          if _loop_max_s > 0 else None),
             hard_left=_hard_left,
+            ctx_left=(_ctx_size_for_compression - _occ) if _occ else None,
+            ctx_size=_ctx_size_for_compression,
+            sandbox_limits=_hs_sandbox_limits or None,
         )
         if not _hs:
             return
@@ -4143,6 +4181,10 @@ async def _run_chat_multi_mcp_impl(
         if _key == _hs_last_status_key:
             return
         _hs_last_status_key = _key
+        # Annoncées une fois : seulement si CETTE ligne les portait (l'alerte
+        # du plafond d'échecs ne les porte pas).
+        if _hs_sandbox_limits and "Sandbox limits:" in _hs:
+            _hs_sandbox_limits = ""
         # ÉPHÉMÈRE : jamais persisté, donc jamais compté comme un tour
         # (sans quoi ``covered_turns`` sur-compte à la compaction et le
         # tour suivant jette de vrais tours en trop — cf. P1-6).
@@ -4386,27 +4428,27 @@ async def _run_chat_multi_mcp_impl(
             _now = time.monotonic()
             # Cadence : au plus un événement par demi-seconde, mais le dernier
             # (100 %) passe toujours — sans quoi la barre resterait figée.
-            if _final or (_now - _pp_last_emit[0]) >= 0.5:
-                _pp_last_emit[0] = _now
+            if _final or (_now - _pp_last_emit[0]) >= 0.5:  # noqa: B023 (même itération)
+                _pp_last_emit[0] = _now  # noqa: B023 (même itération)
                 await _emit(on_event, {
                     "type": "prompt_progress",
                     "total": _total, "processed": _done, "cache": _cache,
                     "time_ms": int(pp.get("time_ms") or 0),
-                    "iter": iteration,
+                    "iter": iteration,  # noqa: B023 (même itération)
                 })
-            if _final and not _pp_logged[0] and _total > 0:
-                _pp_logged[0] = True
+            if _final and not _pp_logged[0] and _total > 0:  # noqa: B023 (même itération)
+                _pp_logged[0] = True  # noqa: B023 (même itération)
                 logger.info(
                     "[run_chat_multi_mcp] pré-remplissage iter %d : %d tokens, "
                     "%d réutilisés du cache KV (%.0f %%), %.1f s",
-                    iteration, _total, _cache, 100.0 * _cache / _total,
+                    iteration, _total, _cache, 100.0 * _cache / _total,  # noqa: B023 (même itération)
                     (pp.get("time_ms") or 0) / 1000.0)
                 with swallow("harness.kv_reuse_metric"):
                     await asyncio.to_thread(
                         log_metric, "kv_prefix_reuse_pct",
                         int(100.0 * _cache / _total), {
                             "model": model or LLAMA_MODEL or "",
-                            "iteration": iteration,
+                            "iteration": iteration,  # noqa: B023 (même itération)
                         })
 
         # Demande d'auto-reprise CONSOMMÉE par cet appel (cf. plus bas) :
@@ -4492,7 +4534,8 @@ async def _run_chat_multi_mcp_impl(
                         from shared_infra.config import reload_compression_config_from_disk
                         reload_compression_config_from_disk()
                     from llm_core.context.compaction_gate import (
-                        compaction_gate, gate_tokens,
+                        compaction_gate,
+                        gate_tokens,
                     )
                     _compr_gate = compaction_gate(
                         _ctx_size_for_compression,
@@ -4550,8 +4593,8 @@ async def _run_chat_multi_mcp_impl(
                         iteration, _occ, _usable_tok)
                 if _occ is not None and _occ >= _gate_tok:
                     from llm_core.conversation_compressor import (
-                        maybe_compress_conversation,
                         compression_was_attempted,
+                        maybe_compress_conversation,
                     )
                     async with _llm_slot():
                         working_messages, _compr_stats = await maybe_compress_conversation(
@@ -4754,6 +4797,7 @@ async def _run_chat_multi_mcp_impl(
                 _wait_start = time.time()
                 async with _engine_semaphore().acquire_for(model, priority=priority):
                     _wait_ms = int((time.time() - _wait_start) * 1000)
+                    _noter_attente(_wait_ms)
                     # Écriture SQLite déportée : elle tombe à CHAQUE
                     # itération, juste avant l'appel LLM, et bloquait la
                     # boucle du worker (cf. _write_telemetry dans
@@ -5181,8 +5225,7 @@ async def _run_chat_multi_mcp_impl(
             # recale la conversion utilisée pour matérialiser les coupes et
             # estimer les deltas sans I/O. Best-effort.
             with swallow("harness.run_chat_multi_mcp_impl.5"):
-                from llm_core.context.tokens import (
-                    count_image_blocks, note_real_usage, payload_chars)
+                from llm_core.context.tokens import count_image_blocks, note_real_usage, payload_chars
                 # Numérateur = chars des messages **+ schéma des outils**.
                 # Le dénominateur (``prompt_tokens``) facture tout le prompt,
                 # schéma d'outils compris (~30 Ko de JSON) : ne compter que
@@ -5524,28 +5567,14 @@ async def _run_chat_multi_mcp_impl(
                     _tc_evt["internal"] = True
                 await _emit(on_event, _tc_evt)
 
-            # ── Exécution : sérielle pour les tools mutants, parallèle sinon ──
-            # Stratégie :
-            #   - Outils dont le nom commence par un préfixe de
-            #     ``LLAMA_TOOL_SERIAL_PREFIXES`` (write_file, edit_file,
-            #     sandbox_*, git_*) → sérialisés (effets de bord sur
-            #     état partagé : sandbox FS, repo git…).
-            #   - Le reste (read_file, search, query, fetch, …) → batché
-            #     en parallèle, capé par ``LLAMA_TOOL_PARALLELISM``
-            #     (sémaphore).
-            #   - L'ordre original est préservé : un tool mutant casse le
-            #     batch courant pour respecter les barriers de
-            #     synchronisation implicites ("read → write → read"
-            #     reste linéaire). Au sein d'un batch parallèle, les
-            #     exec sont concurrentes mais le post-traitement (event
-            #     tool_result, ajout au working_messages) suit l'ordre
-            #     LLM original — critique pour que le LLM matche bien
-            #     ses tool_calls avec les tool_results au tour suivant.
             # ── Exécution du lot (série/parallèle) → engine.tool_exec ─────
-            # Harness PARTAGÉE avec le canal legacy (retire ~110 lignes de
-            # duplication). Ordonnancement : outils mutants sérialisés, outils
-            # sûrs batchés en parallèle, ordre LLM préservé. Le post-traitement
-            # ordonné (events tool_result, append, vision) suit ci-dessous.
+            # Harness PARTAGÉE avec le canal legacy. Outils sériels
+            # (``_tool_traits``) un par un, chacun coupant le lot en cours
+            # (« lecture → écriture → lecture » reste linéaire) ; les autres
+            # en parallèle, plafonnés par ``LLAMA_TOOL_PARALLELISM``. Le
+            # post-traitement (events tool_result, append, vision) suit
+            # l'ordre LLM, ci-dessous : le modèle apparie ainsi appels et
+            # résultats au tour suivant.
             _batch_partial = {}
             _batch_prepared = prepared
             results_by_idx = await _execute_tool_batch(
@@ -5611,6 +5640,8 @@ async def _run_chat_multi_mcp_impl(
                     # nom attribue sinon le 1er résultat au dernier step).
                     "call_id": call_id,
                     "result": result_content[:2000],  # 2000 chars pour le panneau détail UI
+                    # Durée de l'appel (L5.4) : affichée à côté de chaque outil.
+                    "duration_ms": p.get("duration_ms"),
                 }
                 _dk = _desktop_event_extra(tool_name, result_content,
                                            with_elements=str(_chat_key_suffix).startswith("studio_"))
@@ -5625,6 +5656,7 @@ async def _run_chat_multi_mcp_impl(
                 # Audit éditeur 2026-09-23 (E10/E19) : ``git_write`` → chemin
                 # ``repo/path`` ; ``dry_run`` et ``sha256`` final transmis.
                 _evt.update(_write_event_extra(tool_name, final_args, result_content))
+                _noter_fichiers(_evt.get("files"))
                 if _tool_is_internal(tool_name):
                     _evt["internal"] = True
                 _ss = _extract_pw_screenshot_url(tool_name, final_args, result_content)
@@ -6115,6 +6147,7 @@ async def _run_chat_multi_mcp_impl(
                     "name":   tool_name,
                     "call_id": call_id,   # cf. chemin natif : appariement fiable
                     "result": res_str[:2000],
+                    "duration_ms": p.get("duration_ms"),
                 }
                 _dk = _desktop_event_extra(tool_name, res_str,
                                            with_elements=str(_chat_key_suffix).startswith("studio_"))
@@ -6126,6 +6159,7 @@ async def _run_chat_multi_mcp_impl(
                 # Audit éditeur 2026-09-23 (E10/E19) : ``git_write`` → chemin
                 # ``repo/path`` ; ``dry_run`` et ``sha256`` final transmis.
                 _evt.update(_write_event_extra(tool_name, final_args, res_str))
+                _noter_fichiers(_evt.get("files"))
                 if _tool_is_internal(tool_name):
                     _evt["internal"] = True
                 _ss = _extract_pw_screenshot_url(tool_name, final_args, res_str)
@@ -6322,8 +6356,8 @@ async def _run_chat_multi_mcp_impl(
                 # (le mémo négatif expire — cf. _llm_params, TTL des caches).
                 _cr_native_ok = False
                 with swallow("harness.content_resume_native_probe"):
-                    from llm_core._target import current_target as _ct3
                     from llm_core._llm_params import continue_final_support
+                    from llm_core._target import current_target as _ct3
                     _cr_native_ok = bool(
                         _ct3().is_llamacpp
                         and continue_final_support(
@@ -6545,7 +6579,9 @@ async def _run_chat_multi_mcp_impl(
                    if cumul_reasoning is not None else None),
             output_tokens=cumul_out))
         meta_for_metrics = {
-            "usage":   {"prompt_tokens": cumul_in, "completion_tokens": cumul_out},
+            "usage":   {"prompt_tokens": cumul_in, "completion_tokens": cumul_out,
+                        "cache_read_input_tokens": cumul_cache_read,
+                        "cache_creation_input_tokens": cumul_cache_creation},
             "timings": _real_timings,
             "model":   model or LLAMA_MODEL,
             "thinking": all_thinking_text,
@@ -6627,15 +6663,15 @@ async def _run_chat_multi_mcp_impl(
         _mode_tag = "optimized" if _inline_semaphore else "classic"
 
         def _write_end_of_turn_metrics() -> None:
-            log_metric("write_tps",   metrics.get("write_tps", 0), {"model": _real_model})
-            log_metric("llm_latency", time.time() - start_time,    {"model": _real_model})
+            log_metric("write_tps",   metrics.get("write_tps", 0), {"model": _real_model})  # noqa: B023 (même itération)
+            log_metric("llm_latency", time.time() - start_time,    {"model": _real_model})  # noqa: B023 (même itération)
             # Observabilité scheduling : permet de comparer classic vs optimized
             # sur wait_time et tool_iterations au fil du temps.
             log_metric(
                 "llm_scheduling_mode", 1,
                 {
-                    "model": _real_model,
-                    "mode": _mode_tag,
+                    "model": _real_model,  # noqa: B023 (même itération)
+                    "mode": _mode_tag,  # noqa: B023 (même itération)
                     "user": username,
                 },
             )
@@ -6644,8 +6680,8 @@ async def _run_chat_multi_mcp_impl(
             # ``iteration + 1`` (= hard_iter+1, TOUS les tours) → la métrique
             # d'observabilité et le compteur exposé divergeaient pour la même conv.
             log_metric(
-                "llm_tool_iterations", effective_iter,
-                {"model": _real_model, "mode": _mode_tag},
+                "llm_tool_iterations", effective_iter,  # noqa: B023 (même itération)
+                {"model": _real_model, "mode": _mode_tag},  # noqa: B023 (même itération)
             )
 
         with swallow("harness.run_chat_multi_mcp_impl.9"):
@@ -7006,6 +7042,10 @@ async def _run_chat_multi_mcp_impl(
         "input_tokens":       cumul_in,
         "submitted_input_tokens": cumul_in,   # alias sémantique (tokens soumis)
         "output_tokens":      cumul_out,
+        # Cache (lu / créé) : même champs que les métriques du chemin normal.
+        **({"cache_read_input_tokens": cumul_cache_read} if cumul_cache_read else {}),
+        **({"cache_creation_input_tokens": cumul_cache_creation}
+           if cumul_cache_creation else {}),
     }
     # Même décomposition de la sortie que sur le chemin normal : ce tour est le
     # plus coûteux de tous, la part de réflexion y est la plus intéressante.
@@ -7084,6 +7124,7 @@ async def _run_chat_multi_mcp_impl(
 # suivent ``__wrapped__`` → l'iso-signature avec v2 et l'inspection de la
 # source de la boucle (tests longrun) voient la vraie impl, pas le wrapper.
 import functools as _functools  # noqa: E402 — import tardif voulu (dépendance circulaire ou coût)
+
 run_chat_multi_mcp = _functools.wraps(_run_chat_multi_mcp_impl)(_run_chat_multi_mcp_wrapper)
 
 

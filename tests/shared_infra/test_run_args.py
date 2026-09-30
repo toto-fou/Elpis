@@ -4,7 +4,12 @@ hardening flags (gVisor runtime / extra args), default OFF = status quo."""
 from pathlib import Path
 
 from shared_infra.sandbox.executors._user_sandbox import (
-    UserSandbox, SandboxAdminConfig, NetworkProfile, netcfg_hash,
+    CAPABILITIES,
+    DEFAULT_IMAGE,
+    NetworkProfile,
+    SandboxAdminConfig,
+    UserSandbox,
+    netcfg_hash,
 )
 
 
@@ -21,6 +26,15 @@ def test_default_profile_is_status_quo():
     assert "--runtime" not in args                 # no gVisor by default
     assert "--security-opt" in args
     assert "no-new-privileges:false" in args       # sudo must still work
+    i = args.index("--cap-drop")
+    assert args[i + 1] == "ALL"
+    ajoutees = [args[k + 1] for k, a in enumerate(args) if a == "--cap-add"]
+    # Mesurées sur l'image (2026-09-29) : entrypoint et setpriv (CHOWN, SETUID,
+    # SETGID, SETPCAP), sudo (AUDIT_WRITE), apt et dpkg (DAC_OVERRIDE, FOWNER,
+    # FSETID), ``sudo kill`` (KILL). En changer une se décide, test à l'appui.
+    assert ajoutees == ["CHOWN", "DAC_OVERRIDE", "FOWNER", "FSETID", "SETUID", "SETGID",
+                        "SETPCAP", "KILL", "AUDIT_WRITE", "NET_BIND_SERVICE"]
+    assert not {"NET_RAW", "MKNOD", "SETFCAP", "SYS_CHROOT", "NET_ADMIN"} & set(ajoutees)
     assert "--network" in args and "none" in args  # isolated default
     assert args[-3:] == [cfg.image, "sleep", "infinity"]
     assert f"{cfg.memory_mb}m" in args
@@ -53,7 +67,8 @@ def test_allowlist_profile_adds_net_admin():
     })
     sb = _sandbox(cfg, profile_id="web")
     args = sb._build_run_args(sb.network_profile)
-    assert "--cap-add" in args and "NET_ADMIN" in args
+    ajoutees = [args[k + 1] for k, a in enumerate(args) if a == "--cap-add"]
+    assert ajoutees == [*CAPABILITIES, "NET_ADMIN"]
     assert any(a.startswith("ELPIS_ALLOWLIST=") and "1.2.3.4" in a for a in args)
 
 
@@ -138,3 +153,150 @@ def test_skills_not_mounted(tmp_path, monkeypatch):
     assert not any("/work/skills:" in a for a in args)
     # Le seul bind sur /work reste le dossier de travail (P/work) en RW.
     assert any(a.endswith(":/work:rw") for a in args)
+
+
+# ── Options de lancement durcies : conteneurs existants recréés (2026-09-29) ──
+
+class _FakeCLI:
+    """``docker`` factice : ``inspect`` rend ``inspect_out``, le reste réussit
+    et est noté."""
+
+    def __init__(self, inspect_out: bytes, rc: int = 0, exit_code: str = "137|false"):
+        self.inspect_out, self.rc, self.exit_code = inspect_out, rc, exit_code
+        self.calls = []
+
+    async def call(self, *args, **kw):
+        self.calls.append(args[0])
+        if args[0] == "inspect":
+            if "{{.State.ExitCode}}" in args[2]:
+                return 0, self.exit_code.encode(), b""
+            return self.rc, self.inspect_out, b""
+        return 0, b"", b""
+
+
+def test_spec_label_pose_et_compare():
+    import asyncio
+
+    from shared_infra.sandbox.executors._user_sandbox import RUN_SPEC
+    cfg = SandboxAdminConfig.from_dict({})
+    sb = _sandbox(cfg)
+    assert f"elpis.spec={RUN_SPEC}" in sb._build_run_args(sb.network_profile)
+    h = netcfg_hash(sb.network_profile)
+    from shared_infra.sandbox.executors._user_sandbox import _AGENT_EMPREINTE
+    for out, rc, attendu in ((f"{h}|{RUN_SPEC}|{DEFAULT_IMAGE}", 0, True),
+                             (f"{h}|{RUN_SPEC}|{DEFAULT_IMAGE}|{_AGENT_EMPREINTE}", 0, True),
+                             (f"{h}|{RUN_SPEC}|{DEFAULT_IMAGE}|autre", 0, False),     # app déplacée
+                             (f"{h}|{RUN_SPEC}|{DEFAULT_IMAGE}|<no value>", 0, False),
+                             (f"{h}|{RUN_SPEC}|elpis/sandbox:1.6.0", 0, False),  # image changée
+                             (f"{h}|{RUN_SPEC}|", 0, True),       # image illisible : fail-open
+                             (f"{h}|<no value>", 0, False),       # d'avant MKNOD
+                             (f"{h}|", 0, False),                 # idem, rendu de docker
+                             (f"{h}|2", 0, False),
+                             (f"<no value>|{RUN_SPEC}", 0, True),  # isolé : rien à dériver
+                             ("", 1, True)):                       # inspect KO : fail-open
+        sb._cli = _FakeCLI(out.encode(), rc)
+        assert asyncio.run(sb._config_matches()) is attendu, out
+
+
+def test_conteneur_arrete_perime_recree_plutot_que_redemarre(monkeypatch):
+    import asyncio
+
+    from shared_infra.sandbox.executors._user_sandbox import SandboxStatus
+    sb = _sandbox(SandboxAdminConfig.from_dict({}))
+    created = []
+
+    async def fake_create():
+        created.append(True)
+
+    async def fake_status():
+        return SandboxStatus(exists=True, running=True, container_name=sb.container_name)
+    monkeypatch.setattr(sb, "_create", fake_create)
+    monkeypatch.setattr(sb, "status", fake_status)
+    stopped = SandboxStatus(exists=True, running=False, container_name=sb.container_name)
+
+    h = netcfg_hash(sb.network_profile)
+    sb._cli = _FakeCLI(f"{h}|<no value>".encode())         # arrêté par le GC, d'avant MKNOD
+    asyncio.run(sb._ensure_running_locked(stopped))
+    assert "start" not in sb._cli.calls and "rm" in sb._cli.calls and created
+
+    from shared_infra.sandbox.executors._user_sandbox import RUN_SPEC
+    created.clear()
+    sb._cli = _FakeCLI(f"{h}|{RUN_SPEC}".encode())          # à jour : simple redémarrage
+    asyncio.run(sb._ensure_running_locked(stopped))
+    assert "start" in sb._cli.calls and "rm" not in sb._cli.calls and not created
+
+
+def test_recreation_reportee_si_l_image_manque(monkeypatch):
+    """Options périmées mais image absente (mise à jour sans ./install.sh) :
+    l'ancien conteneur est gardé, jamais supprimé sans remplaçant."""
+    import asyncio
+
+    from shared_infra.sandbox.executors import _image_loader
+    from shared_infra.sandbox.executors._user_sandbox import SandboxStatus
+
+    class _SansImage(_FakeCLI):
+        async def call(self, *args, **kw):
+            if args[:2] == ("image", "inspect"):
+                return 1, b"", b"No such image"
+            return await super().call(*args, **kw)
+
+    async def introuvable(image, *, blocking=False):
+        return _image_loader.ImageLoadState(status=_image_loader.ImageLoadStatus.NOT_FOUND,
+                                            error="archive introuvable")
+    monkeypatch.setattr(_image_loader, "ensure_image_loaded", introuvable)
+    sb = _sandbox(SandboxAdminConfig.from_dict({}))
+    created = []
+
+    async def fake_create():
+        created.append(True)
+
+    async def fake_status():
+        return SandboxStatus(exists=True, running=True, container_name=sb.container_name)
+    monkeypatch.setattr(sb, "_create", fake_create)
+    monkeypatch.setattr(sb, "status", fake_status)
+    perime = f"{netcfg_hash(sb.network_profile)}|2|elpis/sandbox:1.6.0".encode()
+
+    sb._cli = _SansImage(perime)                            # arrêté : redémarré tel quel
+    asyncio.run(sb._ensure_running_locked(
+        SandboxStatus(exists=True, running=False, container_name=sb.container_name)))
+    assert "start" in sb._cli.calls and "rm" not in sb._cli.calls and not created
+
+    sb._cli = _SansImage(perime)                            # en marche : gardé
+    asyncio.run(sb._reconcile_config(
+        SandboxStatus(exists=True, running=True, container_name=sb.container_name)))
+    assert "rm" not in sb._cli.calls and not created
+    # … et réexaminé plus tard, pas seulement au redémarrage du processus.
+    import time
+    assert sb._config_verified is False and sb._config_retry_at > time.monotonic()
+
+
+def test_verification_annulee_sera_refaite(monkeypatch):
+    import asyncio
+
+    import pytest
+
+    from shared_infra.sandbox.executors._user_sandbox import SandboxStatus
+    sb = _sandbox(SandboxAdminConfig.from_dict({}))
+
+    async def annulee():
+        raise asyncio.CancelledError
+    monkeypatch.setattr(sb, "_stale", annulee)
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(sb._reconcile_config(
+            SandboxStatus(exists=True, running=True, container_name=sb.container_name)))
+    assert sb._config_verified is False
+
+
+def test_racine_des_sandboxes_privee(tmp_path):
+    import os
+    import stat
+
+    from shared_infra.sandbox.executors._user_sandbox import _racine_privee
+    racine = tmp_path / "user_sandboxes"
+    racine.mkdir(mode=0o775)
+    os.chmod(racine, 0o775)
+    _racine_privee(racine)
+    assert stat.S_IMODE(racine.stat().st_mode) == 0o700
+    neuve = tmp_path / "neuve"
+    _racine_privee(neuve)
+    assert stat.S_IMODE(neuve.stat().st_mode) == 0o700

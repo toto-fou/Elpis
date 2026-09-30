@@ -313,7 +313,7 @@ def test_try_pattern_call_distinguishes_transient_from_absent():
     import pytest
     assert win._try_pattern_call(lambda: None) is True
     assert win._try_pattern_call(_raise(AttributeError())) is False   # pattern absent
-    with pytest.raises(Exception):
+    with pytest.raises(_FakeCOMError):
         win._try_pattern_call(_raise(_FakeCOMError(0x80040201)))      # transitoire → remonte
 
 
@@ -326,7 +326,7 @@ def test_pattern_action_reraises_transient_not_absent():
         def Toggle(self):
             raise _FakeCOMError(0x80040201)     # élément périmé
 
-    with pytest.raises(Exception):
+    with pytest.raises(_FakeCOMError):
         win._pattern_action(_ctrl(iface_toggle=_TogTransient()), "toggle")
     # pattern absent → None (repli coords), PAS d'exception
     assert win._pattern_action(_ctrl(), "select") is None

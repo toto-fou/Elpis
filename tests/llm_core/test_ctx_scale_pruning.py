@@ -22,16 +22,15 @@ from __future__ import annotations
 import copy
 import json
 
-from llm_core.context.budget import BUDGET
+import pytest
+
 from llm_core.context import pruning as _pruning
+from llm_core.context.budget import BUDGET
 from llm_core.context.pruning import (
     prepare_tool_result_for_model,
     prune_old_vision_frames,
     sanitize_message_history,
 )
-
-import pytest
-
 from tests.llm_core.ctx_scale_harness import (
     CTX_1M,
     CTX_256K,

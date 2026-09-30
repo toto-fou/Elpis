@@ -11,10 +11,9 @@ import logging
 
 log = logging.getLogger(__name__)
 
-from shared_infra.memory.ax._connection import _conn, _resolve_db_path
 from shared_infra.db._dialect import SQLITE, dialect_of
 from shared_infra.db._schema import TABLES_BY_NAME, create_table_sql, ensure_tables
-
+from shared_infra.memory.ax._connection import _conn, _resolve_db_path
 
 _AX_TABLES = ("ax_nodes", "ax_selectors", "ax_transitions", "ax_credentials")
 

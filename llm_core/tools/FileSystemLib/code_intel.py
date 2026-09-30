@@ -640,7 +640,7 @@ def _outline_yaml(text: str, max_depth: int = 4) -> List[Dict[str, Any]]:
         return [{"kind": "error", "name": "yaml_error", "line": getattr(e, "problem_mark", None) and e.problem_mark.line + 1 or 1,
                  "message": str(e)}]
     items: List[Dict[str, Any]] = []
-    for di, doc in enumerate(docs):
+    for _di, doc in enumerate(docs):
         if doc is None:
             continue
         if isinstance(doc, list):
@@ -1026,7 +1026,8 @@ def _strip_jsts_strings_comments(text: str) -> str:
 def _find_references_python(text: str, name: str,
                              max_results: int) -> List[Dict[str, Any]]:
     """Token-level scan via stdlib `tokenize` (skips strings/comments/numbers)."""
-    import tokenize, io
+    import io
+    import tokenize
     try:
         toks = list(tokenize.generate_tokens(io.StringIO(text).readline))
     except (tokenize.TokenizeError, IndentationError, SyntaxError):

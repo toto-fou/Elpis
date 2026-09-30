@@ -30,7 +30,6 @@ import asyncio
 
 from fastapi import HTTPException, Request
 
-from shared_infra.security.deps import require_user_id
 from shared_infra.accounts.users import (
     get_user_by_id,
     get_users_lite,
@@ -46,6 +45,7 @@ from shared_infra.chat.prompts_store import (
     share_prompt_to_users,
 )
 from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
 
 # ─────────────────────────────────────────────────────────────────────────────

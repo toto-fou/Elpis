@@ -20,7 +20,6 @@ from llm_core.context.pruning import (
     prepare_tool_result_for_model,
 )
 
-
 # ── Cap d'émission dérivé du n_ctx ───────────────────────────────────────────
 
 def test_emit_cap_derive_du_ctx():
@@ -133,8 +132,7 @@ async def test_shell_auto_spill_hint(tmp_path, monkeypatch):
     def _fake_bridge(**kw):
         captured.update(kw)
         # Simule le bridge : sortie tronquée + débord auto écrit.
-        assert kw["auto_spill_host"] is not None
-        kw["auto_spill_host"].write_bytes(b"FULL OUTPUT")
+        assert kw["auto_spill_rel"] is not None
         return {"ok": True, "cmd": kw["tokens"], "cwd": "/work",
                 "returncode": 0, "truncated": True, "duration_ms": 10,
                 "executor": "docker", "stdout": "...tail", "stderr": "",
@@ -159,8 +157,8 @@ async def test_shell_auto_spill_hint(tmp_path, monkeypatch):
     assert res["ok"] is True
     assert res["saved_to"].startswith("/work/.tool-output/shell-")
     assert "read_file" in res["hint"] and "do not re-run" in res["hint"]
-    # le chemin de débord précalculé pointait bien dans la sandbox
-    assert str(tmp_path) in str(captured["auto_spill_host"])
+    # le chemin de débord précalculé est relatif à /work
+    assert captured["auto_spill_rel"].startswith(".tool-output/shell-")
 
 
 # ── old_str introuvable : extrait candidat ───────────────────────────────────

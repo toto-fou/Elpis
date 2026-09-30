@@ -46,7 +46,6 @@ def fs(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_SANDBOX_DIR", str(tmp_path))
     monkeypatch.setenv("APP_FILE_HISTORY_DIR", str(tmp_path / "_hist"))
     monkeypatch.setattr(F, "_history_uid", lambda username: UID)
-    monkeypatch.setattr(F, "use_agent", lambda *_a, **_k: False)
     mcp = _FakeMCP()
     F.register(mcp, tmp_path)
     work = tmp_path / "guest" / "work"
@@ -67,9 +66,7 @@ def test_write_file_keeps_exec_bit(fs):
     os.chmod(f, 0o755)
     r = t["write_file"](None, path="run.sh", content="#!/bin/sh\necho 2\n")
     assert r["ok"], r
-    m = _mode(f)
-    assert m & 0o111 == 0o111, oct(m)            # toujours exécutable
-    assert m & 0o666 == 0o666, oct(m)            # élargi cross-UID
+    assert _mode(f) == 0o755                     # mode gardé, toujours exécutable
 
 
 def test_edit_file_keeps_exec_bit(fs):
@@ -84,11 +81,17 @@ def test_edit_file_keeps_exec_bit(fs):
     assert f.read_text() == "#!/bin/sh\necho 2\n"
 
 
-def test_new_file_is_cross_writable(fs):
+def test_new_file_is_0644(fs):
+    """Un seul UID écrit dans /work (L4.6) : fichiers 0644, dossiers 0755,
+    quel que soit l'umask du processus."""
     t, w = fs
-    r = t["write_file"](None, path="n.txt", content="x\n")
+    ancien = os.umask(0)
+    try:
+        r = t["write_file"](None, path="d/n.txt", content="x\n")
+    finally:
+        os.umask(ancien)
     assert r["ok"], r
-    assert _mode(w / "n.txt") == 0o666
+    assert _mode(w / "d" / "n.txt") == 0o644 and _mode(w / "d") == 0o755
 
 
 # ── E16 : read_file ───────────────────────────────────────────────────────
@@ -300,12 +303,12 @@ def test_edit_refused_when_file_changed_under_it(fs, monkeypatch):
     t, w = fs
     f = w / "c.txt"
     f.write_text("base\n")
-    real = F._guarded_write
+    real = F._ecrire_garde
 
-    def racy(p, expected, fn, **kw):
+    def racy(*a, **kw):
         f.write_text("editor save\n")            # l'éditeur passe entre-temps
-        return real(p, expected, fn, **kw)
-    monkeypatch.setattr(F, "_guarded_write", racy)
+        return real(*a, **kw)                    # l'agent refuse au remplacement
+    monkeypatch.setattr(F, "_ecrire_garde", racy)
     r = t["edit_file"](None, path="c.txt", action="str_replace",
                        old_str="base", new_str="agent")
     assert r["ok"] is False and "concurrent_modification" in json.dumps(r)

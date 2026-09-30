@@ -46,8 +46,8 @@ import logging
 from collections import deque as _deque
 from typing import Any, Dict, Optional
 
-from shared_infra.config import LLAMA_MODEL
 from llm_core._capabilities import _LLAMA_CAPABILITIES
+from shared_infra.config import LLAMA_MODEL
 
 logger = logging.getLogger("uvicorn.error")
 

@@ -427,10 +427,18 @@
                                              statut, masquée pendant tool/rag) reste STABLE — le
                                              résumé streamé serait illisible en région live. -->
                                         <span v-if="pl.running && pl.label" class="sr-only" role="status" aria-live="polite">{{ pl.label }}</span>
+                                        <!-- Budget d'itérations (L5.4) : visible avant d'être atteint. -->
+                                        <span v-if="entry.msg.isStreaming && entry.msg.iterBudget && entry.msg.iterBudget.n > 1"
+                                              class="text-[11px] font-normal shrink-0 tabular-nums"
+                                              :class="entry.msg.iterBudget.n >= entry.msg.iterBudget.max * 0.8 ? 'text-amber-600' : 'text-slate-400'"
+                                              title="Itérations de la boucle d'outils : en cours / budget du tour">· tour {{ entry.msg.iterBudget.n }}/{{ entry.msg.iterBudget.max }}</span>
                                         <!-- Terminé : compteurs agrégés (même wording que les summaries de segment) -->
                                         <template v-if="!pl.running">
                                             <span v-if="pl.nTools > 0" class="text-[11px] text-slate-400 font-normal shrink-0">· {{ pl.nTools }} outil{{ pl.nTools > 1 ? 's' : '' }}</span>
                                             <span v-if="pl.nComp > 0" class="text-[11px] text-slate-400 font-normal shrink-0">· {{ pl.nComp }} compression{{ pl.nComp > 1 ? 's' : '' }} du contexte</span>
+                                            <!-- Élagage (L5.5) : sorties d'outils anciennes retirées du contexte. -->
+                                            <span v-if="entry.msg.pruned > 0" class="text-[11px] text-slate-400 font-normal shrink-0"
+                                                  title="Sorties d'outils anciennes remplacées par un marqueur pour libérer du contexte">· {{ entry.msg.pruned }} sortie{{ entry.msg.pruned > 1 ? 's' : '' }} retirée{{ entry.msg.pruned > 1 ? 's' : '' }} du contexte</span>
                                         </template>
                                         <i class="ph ph-caret-right text-slate-300 transition-transform group-open/pipeline:rotate-90 shrink-0" style="font-size:9px"></i>
                                     </summary>
@@ -573,7 +581,7 @@
                                                               :class="step._kind === 'compression'
                                                                   ? (step.status === 'running'
                                                                       ? 'text-slate-500'
-                                                                      : 'text-slate-500/90 group-hover/toolbtn:text-slate-700')
+                                                                      : 'text-slate-500 group-hover/toolbtn:text-slate-700')
                                                                   : (step._is_error && step.status === 'done'
                                                                       ? 'text-red-600 group-hover/toolbtn:text-red-700'
                                                                       : (step.status === 'running'
@@ -619,6 +627,9 @@
                                                             <span v-else-if="!step.ragLabel && step.args && (step.args.path || step.args.filename)"
                                                                   class="text-slate-400 text-[11px] truncate max-w-[200px] font-normal"
                                                             >{{ step.args.path || step.args.filename }}</span>
+                                                            <!-- Durée de l'appel (L5.4) -->
+                                                            <span v-if="step.status === 'done' && step.durationMs != null && !step.shellMs"
+                                                                  class="text-slate-400 text-[11px] font-mono tabular-nums">· {{ fmtElapsedMs(step.durationMs) }}</span>
                                                         </template>
 
                                                         <i class="ph ph-caret-down text-slate-300 transition-transform"
@@ -774,6 +785,14 @@
                                                         <div v-else>
                                                             <div class="text-xs font-semibold text-slate-500 mb-2">Compression du contexte</div>
                                                             <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono leading-relaxed">
+                                                                <template v-if="step.reason">
+                                                                    <span class="text-slate-400 select-none">déclenchement</span>
+                                                                    <span class="text-slate-700">
+                                                                        <template v-if="step.reason === 'manual'">manuel</template>
+                                                                        <template v-else-if="step.reason === 'overflow'">contexte dépassé</template>
+                                                                        <template v-else>seuil atteint<template v-if="step.threshold"> ({{ step.threshold }} tokens<template v-if="step.ctx_size"> sur {{ step.ctx_size }}</template>)</template></template>
+                                                                    </span>
+                                                                </template>
                                                                 <span class="text-slate-400 select-none">tokens</span>
                                                                 <span class="text-slate-700">
                                                                     <template v-if="step.stats">
@@ -1033,7 +1052,8 @@
                                              :style="run.depth ? { paddingLeft: (run.depth * 1.25) + 'rem' } : null">
                                             <span class="task-branch" aria-hidden="true">└─</span>
                                             <i class="ph task-run-ico"
-                                               :class="run.state === 'running' ? 'ph-spinner-gap animate-spin is-running'
+                                               :class="run.state === 'running' && !run.id ? 'ph-hourglass-medium'
+                                                     : run.state === 'running' ? 'ph-spinner-gap animate-spin is-running'
                                                      : (run.state === 'completed' ? 'ph-check-circle is-done' : 'ph-warning-circle is-error')"></i>
                                             <span class="task-run-title">{{ run.agent }}<template v-if="run.label"> — {{ run.label }}</template></span>
                                             <!-- Compteur de tokens LIVE (event tick) ; total exact au bilan. -->
@@ -1041,7 +1061,9 @@
                                                   :class="{ 'is-live': run.state === 'running' }">
                                                 {{ fmtTokens(run.tokens) }} tokens
                                             </span>
-                                            <span v-if="run.state === 'running' && run.progress" class="task-run-meta">
+                                            <!-- Sous-agents sérialisés (L5.4) : pas encore nés = en file. -->
+                                            <span v-if="run.state === 'running' && !run.id" class="task-run-meta">· En attente</span>
+                                            <span v-else-if="run.state === 'running' && run.progress" class="task-run-meta">
                                                 · étape {{ run.progress.step }}<template v-if="run.progress.max_steps">/{{ run.progress.max_steps }}</template>
                                             </span>
                                             <span v-else-if="run.state && run.state !== 'running'" class="task-run-meta"
@@ -1382,6 +1404,13 @@
                                                     title="Copier la réponse"
                                                     class="text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-md p-1 transition-colors">
                                                 <i class="ph ph-copy text-[14px]"></i>
+                                            </button>
+                                            <button v-if="entry.msg.run_ids && entry.msg.run_ids.length"
+                                                    @click="openRunDetails(entry.msg)"
+                                                    title="Détails : chronologie de l'exécution (outils, modèle, durées)"
+                                                    aria-label="Détails de l'exécution"
+                                                    class="text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-md p-1 transition-colors">
+                                                <i class="ph ph-list-magnifying-glass text-[14px]"></i>
                                             </button>
                                             <button v-if="!isStreaming"
                                                     @click="retryGeneration(entry.idx)"

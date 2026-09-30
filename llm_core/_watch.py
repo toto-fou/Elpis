@@ -77,7 +77,7 @@ def _write(record: Dict[str, Any]) -> None:
                 d = _watch_dir()
                 os.makedirs(d, exist_ok=True)
                 path = os.path.join(d, f"watch-{day}-{os.getpid()}.ndjson")
-                _FH = open(path, "a", encoding="utf-8", buffering=1)
+                _FH = open(path, "a", encoding="utf-8", buffering=1)  # noqa: SIM115 (journal du jour, gardé ouvert)
                 _FH_DAY = day
             _FH.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
     except Exception:

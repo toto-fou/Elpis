@@ -24,12 +24,8 @@ import json
 
 import pytest
 
-from llm_core import _chat_with_tools as _cwt
-from llm_core import _llm_params
-from llm_core import _model_info
-from llm_core import _think_resume as tr
+from llm_core import _chat_with_tools as _cwt, _llm_params, _model_info, _think_resume as tr
 from llm_core.providers import openai_compat as _oai
-
 from tests.llm_core.test_think_resume_classic import _SeqClient
 
 

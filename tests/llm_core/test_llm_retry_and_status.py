@@ -166,7 +166,7 @@ async def test_retry_pause_injoignable_apres_succes_attend_health(monkeypatch):
     injoignable est un REDÉMARRAGE (swap de modèle, systemd, relance après
     OOM), pas un serveur absent : on sonde /health au lieu de brûler les
     ~45 s de backoff et de tuer une mission de plusieurs heures."""
-    from llm_core._llm_retry import note_llm_success, forget_llm_success
+    from llm_core._llm_retry import forget_llm_success, note_llm_success
     waited = {}
 
     async def fake_wait(max_wait_s=None, *, is_cancelled=None, probe=None, poll_s=2.0):

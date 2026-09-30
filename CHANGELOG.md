@@ -8,6 +8,29 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Ajouts
 
+- **Exécutions** (base, migration 0021) : une ligne par tour de chat, run de
+  routine, sous-agent ou compaction manuelle — jetons (dont cache et
+  réflexion), temps LLM (pré-remplissage, décodage, attente du moteur),
+  appels d'outils par famille et erreurs, fichiers modifiés, pics CPU/RAM de
+  la sandbox, statut ; les lignes d'usage et d'appels d'outils y sont
+  rattachées. Compteurs fiabilisés : moteur sur chaque ligne d'usage, cache
+  KV de llama.cpp, appels d'outils avec identifiant, début, code de sortie,
+  tailles et statuts `timeout` / `blocked`. Export CSV avec la réflexion.
+- **« Détails » d'une réponse** : chronologie de l'exécution qui l'a produite
+  (tours du modèle, appels d'outils avec argument principal et extrait du
+  résultat, sous-agents, compactions), export JSON aux secrets masqués ;
+  réservé au compte propriétaire.
+- **Supervision › Exécutions** (console) : coût en ressources par compte
+  (jetons, temps du modèle, attente, outils, fichiers, pics de la sandbox),
+  liste filtrable des exécutions ; chronologie de n'importe quel compte pour
+  l'administrateur. Widgets « Attente d'un créneau LLM » et « Réutilisation
+  du cache KV » dans Métriques.
+- **Supervision d'un tour** : durée de chaque outil, budget d'itérations
+  (« tour n/max »), sous-agent « En attente » avant son lancement, motif et
+  seuil d'une compaction, pas « compression du contexte » restitué au
+  rechargement, sorties d'outils retirées du contexte comptées. Le modèle
+  reçoit aussi le contexte restant et les limites de la sandbox à ses points
+  d'étape.
 - **Base de données multi-moteurs** : PostgreSQL et MariaDB/MySQL en plus de
   SQLite ; pool de connexions unique, SQL portable et schéma de référence ;
   adaptateurs serveur et suite de tests sur quatre moteurs ; transfert entre
@@ -31,9 +54,23 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Écoute réseau explicite** (`security.listen`) : l'installeur demande
   « ce serveur seulement » ou « réseau local » ; une installation neuve
   écoute en local par défaut.
+- **Intégration continue** (GitHub Actions) : lint (Ruff), typage (mypy),
+  suite complète sur SQLite (Python 3.11 et 3.13), PostgreSQL 17 et
+  MariaDB 11.4, tests front compris.
+- **Exploitation** : `./elpis backup` (archive de la console, écrite dans
+  `backups/`) et `./elpis upgrade` (sauvegarde, `git pull --ff-only`,
+  dépendances, redémarrage, diagnostic) ;
+  [docs/exploitation.md](docs/exploitation.md) (retour arrière, sauvegardes,
+  supervision, compatibilité), [ROADMAP.md](ROADMAP.md), modèle de menace
+  dans [SECURITY.md](SECURITY.md).
 
 ### Modifications
 
+- **Agent de la sandbox** : un agent HTTP (bibliothèque standard) tourne dans
+  chaque conteneur, démarré à la demande, pour que l'hôte n'accède plus
+  lui-même au contenu de `/work`. Son code est monté en lecture seule et suit
+  la version de l'application : aucune reconstruction d'image pour le faire
+  évoluer. Nouveaux montages : les conteneurs existants sont recréés.
 - **Licence MIT** : Elpis passe de la licence Apache-2.0 à la licence MIT
   (`LICENSE`, `NOTICE`, en-têtes SPDX, `pyproject.toml`). Les textes de licence
   des composants vendorisés sont reproduits dans `LICENSES/`.
@@ -48,14 +85,65 @@ selon [SemVer](https://semver.org/lang/fr/).
   KV stable, comptage de contexte et télémétrie, client RAG.
 - **Moteur d'événements** : bus fichier sans perte, flux revalidés,
   contre-pression du terminal.
+- **Contrats du harnais** : une seule source décide si un outil est sériel,
+  rejouable, en lecture seule ou mutant (politique et annotations déclarées
+  par le serveur, replis prudents sinon) ; le résumé de compression suit
+  cette déclaration et ne compte plus les outils de lecture (Git, navigateur)
+  parmi les modifications. Registre unique des événements du flux de chat,
+  vérifié contre l'interface, la route et le journal d'exécution ; les
+  événements que plus rien n'émet (`delta`, `tool_thinking`) sont retirés de
+  l'interface.
 - **Chat** : diffs relus dans l'historique ; carte « Fichiers modifiés »
   affichée quand l'éditeur est désactivé.
 - **Ancien nom du projet** : compatibilité retirée (conteneurs, étiquettes,
   image, variables d'environnement, greffon opencode) ; les anciens conteneurs
   de sandbox d'avant le renommage sont à supprimer à la main.
 
+### Sécurité
+
+- **Frontière hôte ↔ sandbox** : toute opération sur `/work` (outils
+  fichiers, éditeur, historique, aperçus, téléchargements, export et
+  import, instantanés, sauvegardes) s'exécute dans le conteneur de
+  l'utilisateur, par un agent lancé à la demande sous son UID ; l'hôte ne
+  lit ni n'écrit plus `/work`.
+- **Fin des droits élargis** : un seul UID, celui du conteneur, écrit dans
+  `/work` — fichiers 0644, dossiers 0755 au lieu de 0666 / 0777. Les
+  sandboxes existantes sont remises en ordre à leur prochain démarrage
+  (`chown -R`, `chmod -R go-w` par le root du conteneur, une fois par
+  compte).
+- **Git dans la sandbox** : les commandes Git des outils et du panneau Git
+  de l'éditeur tournent dans le conteneur de l'utilisateur, par son agent.
+  Leurs opérations réseau passent par un relais authentifiant de l'hôte :
+  un ticket par opération, seul le dépôt de l'opération joignable,
+  identifiant du connecteur ajouté par l'hôte (jamais dans la sandbox),
+  push limité aux branches demandées ; `https` et `http` seulement (`ssh`
+  et `git://` retirés). Fonctionne avec un profil réseau isolé.
+  `bubblewrap` (aperçus Office) devient un paquet de base —
+  **installations existantes : `apt install bubblewrap`** (`./elpis
+  doctor`) ; sur Ubuntu, l'installeur pose un profil AppArmor s'il est
+  bloqué.
+- **Conteneurs** : seules les capacités nécessaires (`--cap-drop ALL`, puis
+  celles qu'exigent l'entrypoint, sudo et apt) : plus de `NET_RAW`,
+  `SETFCAP`, `SYS_CHROOT` ni `MKNOD`. Image `elpis/sandbox:1.7.0` (`ping`
+  sans capacité fichier), construite par `./install.sh`. Les conteneurs
+  existants sont recréés à leur prochain usage (label `elpis.spec`, ou image
+  changée) : ce qui y avait été installé hors de `/work` est perdu.
+  **L'image 1.7.0 est obligatoire** : sans elle, les conteneurs existants ne
+  sont pas recréés et fichiers, éditeur et Git des sandboxes sont
+  indisponibles (message explicite) ; `./elpis upgrade` la charge depuis son
+  archive ou la construit. Conteneurs lancés avec `--init` (processus
+  orphelins récoltés). Le dossier `user_sandboxes/` est réservé au compte de
+  service (0700) ; `./install.sh` ne change plus le propriétaire du contenu
+  des sandboxes.
+- **Politique Git d'un dépôt** : `.git-tool-policy.json` ne peut plus que
+  renforcer les protections par défaut.
+
 ### Corrections et sécurité
 
+- **Image de sandbox** : la console n'inscrit plus l'image livrée dans
+  `config.json`. Une instance dont l'onglet Sandbox avait été enregistré
+  restait figée sur l'image de l'époque ; seule une image tierce y est
+  désormais conservée.
 - **Installeur** : root via `su` sans tiret (runuser introuvable, faux
   « python3-venv ? »), client Docker sur Debian 13, mot de passe admin généré
   jamais écrit dans le journal.
@@ -71,6 +159,28 @@ selon [SemVer](https://semver.org/lang/fr/).
   robuste ; passe de robustesse complète — cœur, recherche, OCR, console.
 - **Sandbox** : archives sur disque et bornées, cycle de vie fiable, copie sans
   lien.
+- **Base de données** : sur PostgreSQL et MariaDB/MySQL, les migrations du
+  schéma de référence ne sont plus rejouées au démarrage d'une base non vierge
+  (elles échouaient à chaque démarrage) ; « Enregistrer » de la page Base ne
+  modifie plus la base active (cible rangée à part jusqu'à la bascule) ; la
+  vérification d'un transfert ne dépend plus de la collation du serveur.
+- **Métriques llama.cpp** : les noms publiés (`llamacpp:…`) sont reconnus ;
+  avant un chargement ou un déchargement de modèle, l'attente des créneaux au
+  repos voit de nouveau les requêtes en cours quand `/health` ne répond pas.
+- **Chat** : le pied d'un message (modèle, durée, débits) reste affiché après
+  les tours suivants ; il disparaissait au tour suivant.
+- **Git** : l'ancien fichier d'identifiants importé
+  (`.git-credentials.json.imported`) est supprimé de la sandbox.
+- **Audit** : les révocations de sessions (toutes, ou d'un compte) sont
+  inscrites au journal d'audit.
+- **Journal d'exécution** : le plafond `llm.run_journal_max_mb` est appliqué
+  (il était ignoré, 64 Mo toujours).
+- **Prompts système** : deux enregistrements simultanés d'une même catégorie
+  aboutissent tous deux.
+- **Sauvegardes** : l'archive complète inclut le magasin des skills
+  personnels (absent jusqu'ici, donc perdu à la restauration) ; journaux et
+  fichiers PID ne sont plus ni sauvegardés ni restaurés ; une sauvegarde
+  sans la base n'est plus comptée comme récente.
 
 ## 1.0.0 — 2026-09-24
 

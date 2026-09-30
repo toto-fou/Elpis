@@ -26,16 +26,15 @@ helpers with config-driven policy under ``security.login.*``).
 from __future__ import annotations
 
 import asyncio
+import logging
 import secrets
-import time
 import threading as _threading
+import time
 
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
-from shared_infra.db import (
-    log_metric,
-)
+from shared_infra.accounts.passwd import run_password_op
 from shared_infra.accounts.users import (
     create_user,
     get_all_users,
@@ -43,12 +42,13 @@ from shared_infra.accounts.users import (
     revoke_session_sid,
     verify_user,
 )
-from shared_infra.security.audit import audit_login
+from shared_infra.db import (
+    log_metric,
+)
 from shared_infra.observability.access_logging import _resolve_client_ip
-from shared_infra.accounts.passwd import run_password_op
 from shared_infra.routes._state import router
+from shared_infra.security.audit import audit_login
 
-import logging
 logger = logging.getLogger("uvicorn.error")
 
 
@@ -158,6 +158,7 @@ def api_auth_check(request: Request):
     ``error_page`` du proxy a besoin de mapper vers la page de login.
     """
     from fastapi import HTTPException
+
     from shared_infra.security.deps import require_user_id
     try:
         require_user_id(request)

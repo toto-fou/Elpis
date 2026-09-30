@@ -16,6 +16,7 @@ first read, so the chat panel and the Studio can both display it.
 """
 from __future__ import annotations
 
+import logging
 import os
 import time
 
@@ -23,21 +24,23 @@ from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from shared_infra.security.deps import require_user_id
 import shared_infra.config as _cfg
 from llm_core._desktop_session import (
-    desktop_frame_path, get_desktop_frame_owner, register_desktop_frame_owner,
     _TOKEN_RE,
+    desktop_frame_path,
+    get_desktop_frame_owner,
+    register_desktop_frame_owner,
 )
-from shared_infra.routes._state import router
+
 # ⚠ Importé APRÈS ``router`` : ``routes_cli`` importe ``routes._state``, dont le
 # paquet charge ``routes_code``, qui importe ``_base_url`` de ``routes_cli`` —
 # si CE module importait ``routes_cli`` en premier, ``routes_code`` tombait sur
 # un ``routes_cli`` partiel (ImportError « partially initialized module ») dès
 # que ``shared_infra.desktop.routes`` était importé seul (tests, outils).
 from shared_infra.opencode.routes_cli import _base_url  # noqa: E402
+from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
-import logging
 logger = logging.getLogger("uvicorn.error")
 
 
@@ -868,7 +871,7 @@ async def api_desktop_run_automation_stop(request: Request):
         body = {}
     if not isinstance(body, dict):
         body = {}
-    from llm_core.tools.desktop_tools import _resolve_target_strict, _agent_req
+    from llm_core.tools.desktop_tools import _agent_req, _resolve_target_strict
     # Nom explicite inconnu : refus (il retombait sur la cible par défaut — on
     # arrêtait le run_id sur une AUTRE machine).
     tgt = _resolve_target_strict(str(body.get("target") or ""), username)

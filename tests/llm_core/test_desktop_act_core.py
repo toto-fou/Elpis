@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from llm_core.tools import desktop_tools as dt
 from llm_core import _desktop_session as ds
+from llm_core.tools import desktop_tools as dt
 
 FAKE_TGT = {"name": "t1", "agent_url": "http://agent", "os": "linux"}
 
@@ -197,6 +197,7 @@ def test_no_target(monkeypatch, calls):
 def test_endpoint_is_registered():
     # Smoke : l'endpoint REST existe et est une coroutine.
     import inspect
+
     from shared_infra.desktop import routes as d
     assert hasattr(d, "api_desktop_act")
     assert inspect.iscoroutinefunction(d.api_desktop_act)

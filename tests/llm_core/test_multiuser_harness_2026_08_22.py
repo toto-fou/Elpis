@@ -28,8 +28,7 @@ import asyncio
 
 import pytest
 
-from llm_core import _mcp_pool as _pool
-from llm_core import _mcp_wrappers as _wrap
+from llm_core import _mcp_pool as _pool, _mcp_wrappers as _wrap
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -70,12 +69,14 @@ def test_rupture_de_tuyau_reconnue_meme_enveloppee():
     "memory_write", "task", "desktop_act", "pw_page",
 ])
 def test_outils_mutants_jamais_rejoues(tool):
-    assert not _pool._is_replay_safe(tool), f"{tool} ne doit jamais être rejoué"
+    from llm_core._tool_traits import tool_traits
+    assert not tool_traits(tool).replay_safe, f"{tool} ne doit jamais être rejoué"
 
 
 @pytest.mark.parametrize("tool", ["read_file", "grep_files", "list_directory"])
 def test_outils_de_lecture_rejouables(tool):
-    assert _pool._is_replay_safe(tool)
+    from llm_core._tool_traits import tool_traits
+    assert tool_traits(tool).replay_safe
 
 
 async def test_call_tool_ne_detruit_pas_lentree_sur_erreur_serveur(monkeypatch):

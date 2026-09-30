@@ -9,31 +9,35 @@ except ImportError:
 import atexit
 import logging
 import os  # utilisé par _kill_mcp_subprocesses_sync (os.getpid) au top-level
-            # pour que l'atexit handler ne lève pas NameError (sinon cleanup
-            # MCP orphelins au shutdown jamais effectué → fuite RAM/process).
+
+# pour que l'atexit handler ne lève pas NameError (sinon cleanup
+# MCP orphelins au shutdown jamais effectué → fuite RAM/process).
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from shared_infra.config import (
-    SESSION_SECRET, read_config_json, session_cookie_attrs,
+    SESSION_SECRET,
+    read_config_json,
+    session_cookie_attrs,
 )
 from shared_infra.db import init_db
-from shared_infra.routes import (
-    admin_router,
-    register_chatbot_routes,
-)
-from shared_infra.observability.routes_usage import (
-    router,
-)
-from shared_infra.routes.admin import internal_router
 from shared_infra.observability.access_logging import (
     RequestLoggingMiddleware,
     configure as configure_access_logging,
     log_event,
 )
+from shared_infra.observability.routes_usage import (
+    router,
+)
+from shared_infra.routes import (
+    admin_router,
+    register_chatbot_routes,
+)
+from shared_infra.routes.admin import internal_router
 from shared_infra.security.csrf import CsrfGuardMiddleware
 
 logger = logging.getLogger("uvicorn.error")
@@ -92,9 +96,9 @@ configure_access_logging(APP_SERVICE)
 def _kill_all_terminals():
     """Kill all PTY terminal sessions. Safe to call multiple times."""
     try:
-        from shared_infra.terminal.routes import _terminals, _kill_terminal
+        from shared_infra.terminal.routes import _kill_terminal, _terminals
         count = len(_terminals)
-        for uid, state in list(_terminals.items()):
+        for _uid, state in list(_terminals.items()):
             try:
                 _kill_terminal(state)
             except Exception:
@@ -232,9 +236,10 @@ async def lifespan(app: FastAPI):
     # la détection de capacités (grammaire tool-calling, vision) sautait
     # alors en silence, dégradant le premier chat sans diagnostic.
     try:
+        import asyncio as _asyncio
+
         from llm_core import detect_llama_capabilities
         from shared_infra.observability.events_bus import _register_bg_task
-        import asyncio as _asyncio
         _register_bg_task(_asyncio.create_task(detect_llama_capabilities(timeout_s=3.0)))
     except Exception as e:
         logger.warning(f"[STARTUP] detect_llama_capabilities schedule failed: {e}")
@@ -272,9 +277,9 @@ async def lifespan(app: FastAPI):
     # chat, la demande ne doit surtout pas tuer le tour parent. Sans elle, le ✕
     # d'un agent n'agissait que dans le worker ayant reçu le POST.
     try:
-        from shared_infra.runtime.cancel_bus import start_cancel_tailer
-        from shared_infra.routes._state import apply_remote_cancellation
         from llm_core.tools.task_tool import apply_child_cancel
+        from shared_infra.routes._state import apply_remote_cancellation
+        from shared_infra.runtime.cancel_bus import start_cancel_tailer
 
         def _apply_child(username: str, child_id: str, _ts: float) -> None:
             apply_child_cancel(username, child_id)
@@ -307,9 +312,10 @@ async def lifespan(app: FastAPI):
     # of the time. The first admin tab open pays ~500 ms — acceptable.
     if APP_MODE != "admin":
         try:
+            import asyncio as _asyncio
+
             from shared_infra.mcp.panel import prewarm_mcp_pool
             from shared_infra.observability.events_bus import _register_bg_task
-            import asyncio as _asyncio
             # AUDIT 2026-08-02 (E13) — réf forte + log d'exception via le
             # registre bg-tasks (cf. detect_llama_capabilities ci-dessus).
             _register_bg_task(_asyncio.create_task(prewarm_mcp_pool()))
@@ -385,7 +391,9 @@ async def lifespan(app: FastAPI):
     # normalement — la socket d'écoute étant fermée, ce drain est invisible.
     try:
         from shared_infra.observability.events_bus import (
-            _register_bg_task, pipeline_events, system_events,
+            _register_bg_task,
+            pipeline_events,
+            system_events,
         )
 
         async def _evacuate_streams_on_shutdown():
@@ -394,7 +402,8 @@ async def lifespan(app: FastAPI):
             except Exception:
                 return
             import asyncio as _aio
-            while not AppStatus.should_exit:
+            # Drapeau posé par le gestionnaire de signal, sans événement associé.
+            while not AppStatus.should_exit:  # noqa: ASYNC110
                 await _aio.sleep(0.25)
             # 1. SSE système : fin propre + hint de reconnexion silencieuse.
             try:
@@ -701,6 +710,7 @@ def create_app() -> FastAPI:
     # couvre tous les sites d'un coup : request.json() lève JSONDecodeError,
     # attrapé ici → 400 explicite. (P3.5 de AUDIT_BUGS.md, généralisé.)
     import json as _json_mod
+
     from fastapi.responses import JSONResponse as _JSONResponse
 
     @app.exception_handler(_json_mod.JSONDecodeError)
@@ -835,8 +845,8 @@ def create_app() -> FastAPI:
     # In main mode we expose a small redirect at "/admin" that points to the
     # configured admin URL (env var ADMIN_PUBLIC_URL) — easier UX than a 404.
     if APP_MODE == "admin":
-        from fastapi.responses import HTMLResponse, RedirectResponse
         from fastapi import Request as _Request
+        from fastapi.responses import HTMLResponse, RedirectResponse
 
         @app.get("/", response_class=HTMLResponse)
         @app.get("/admin", response_class=HTMLResponse)

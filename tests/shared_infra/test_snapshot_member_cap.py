@@ -5,7 +5,8 @@ restauration de snapshots (AUDIT 2026-06) + verrouillage du scoping per-user.
 
 Points clés vérifiés :
 - une archive avec un membre au-delà de SNAPSHOT_MAX_MEMBER_MB est REFUSÉE
-  avec une erreur explicite, AVANT la phase 'clearing' (sandbox intacte) ;
+  avec une erreur explicite, sandbox intacte (l'agent extrait d'abord dans un
+  dossier provisoire, L4.5) ;
 - idem pour le total au-delà de SNAPSHOT_MAX_TOTAL_GB ;
 - une archive saine passe les caps ;
 - scoping per-user : le chemin d'archive d'un user N'EST PAS atteignable
@@ -21,7 +22,6 @@ import tarfile
 import pytest
 
 import shared_infra.sandbox.routes_snapshots as snap
-
 
 # ──────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -45,14 +45,15 @@ async def _collect(gen):
 
 @pytest.fixture()
 def patched_env(tmp_path, monkeypatch):
-    """Route _archive_path/_sandbox_root_for vers tmp, neutralise le lock DB."""
+    """Archive et dossier des snapshots dans tmp ; /work servi par l'agent."""
+    from tests.conftest import editeur_sur_agent
     sandbox = tmp_path / "sandbox"
     sandbox.mkdir()
     (sandbox / "keep.txt").write_text("précieux")
     archive = tmp_path / "snap.tar.gz"
-
+    editeur_sur_agent(monkeypatch, sandbox)
     monkeypatch.setattr(snap, "_archive_path", lambda uid, sid: archive)
-    monkeypatch.setattr(snap, "_sandbox_root_for", lambda uid: sandbox)
+    monkeypatch.setattr(snap, "_user_snap_dir", lambda uid: tmp_path)
     return sandbox, archive
 
 
@@ -71,9 +72,9 @@ async def test_member_cap_rejected_before_clearing(patched_env, monkeypatch):
     assert "error" in kinds
     err = next(e for e in events if e["event"] == "error")
     assert "cap par membre" in err["message"]
-    # La sandbox n'a PAS été vidée (erreur avant 'clearing')
-    assert (sandbox / "keep.txt").exists()
-    assert "clearing" not in [e.get("phase") for e in events if e.get("event") == "phase"]
+    # La sandbox n'a PAS été vidée, ni le marqueur laissé : refus propre.
+    assert (sandbox / "keep.txt").exists() and sorted(p.name for p in sandbox.iterdir()) == ["keep.txt"]
+    assert not (sandbox.parent / snap._RESTORE_MARKER_NAME).exists()
 
 
 @pytest.mark.asyncio

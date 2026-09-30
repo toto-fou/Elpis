@@ -101,8 +101,8 @@ def base(tmp_path, monkeypatch):
     monkeypatch.setattr(legacy, "DB_PATH", str(tmp_path / "app.db"))
     legacy.init_db()
     ea.invalidate_cache()
-    from shared_infra.accounts.users import create_user
     from shared_infra.accounts.groups import create_group, set_user_groups
+    from shared_infra.accounts.users import create_user
     from shared_infra.llm import connectors as lc
     ids = {
         "admin": create_user("root", "pw-root-1", is_admin=1),
@@ -228,8 +228,8 @@ def test_purge_d_un_connecteur_liste_videe_reste_vide(base):
 
 
 def test_suppression_compte_et_groupe_purge_les_politiques(base):
-    from shared_infra.accounts.users import delete_user_full
     from shared_infra.accounts.groups import delete_group
+    from shared_infra.accounts.users import delete_user_full
     ea.set_policy("user", base["bob"], engine_keys=["builtin"], can_manage_models=None)
     ea.set_policy("group", base["g_ops"], engine_keys=["builtin"], can_manage_models=None)
     assert delete_user_full(base["bob"]) and delete_group(base["g_ops"])
@@ -305,9 +305,9 @@ def client(base, monkeypatch):
         return int(uid)
 
     import shared_infra.routes._helpers as helpers
-    import shared_infra.routes.admin.users as au
     import shared_infra.routes.admin.groups as ag
     import shared_infra.routes.admin.llm_connectors as alc
+    import shared_infra.routes.admin.users as au
     monkeypatch.setattr(helpers, "require_user_id", _fake_uid)
     monkeypatch.setattr(au, "require_user_id", _fake_uid)
     monkeypatch.setattr(ag, "require_user_id", _fake_uid)

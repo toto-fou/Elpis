@@ -26,7 +26,7 @@ import pytest
 
 import llm_core._chat_with_tools as cwt
 from llm_core.tools import task_tool
-from llm_core.tools.task_tool import build_task_builtin_tool, cancel_child, _AGENTS
+from llm_core.tools.task_tool import _AGENTS, build_task_builtin_tool, cancel_child
 
 
 @pytest.fixture(autouse=True)

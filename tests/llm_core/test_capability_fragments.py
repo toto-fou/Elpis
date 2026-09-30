@@ -23,11 +23,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from llm_core._chat_with_tools import _fold_operational_block  # noqa: E402
 from llm_core._system_prompts import (  # noqa: E402
     build_capability_block,
     capability_wants_runtime_context,
 )
-from llm_core._chat_with_tools import _fold_operational_block  # noqa: E402
 
 # Sous-chaînes distinctives de chaque fragment (titre de section — prompts
 # full-EN depuis 2026-07-12). « Acting with tools » depuis l'audit 2026-07-26 :

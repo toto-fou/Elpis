@@ -14,9 +14,9 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from llm_core.skills import _scan_tree  # noqa: E402
-from llm_core._frontmatter import split_frontmatter  # noqa: E402
 from llm_core import _skill_validate as V  # noqa: E402
+from llm_core._frontmatter import split_frontmatter  # noqa: E402
+from llm_core.skills import _scan_tree  # noqa: E402
 
 
 def _w(p: Path, text: str) -> None:

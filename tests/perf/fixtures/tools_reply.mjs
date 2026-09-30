@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Fixture AGENTIC : phases d'un tour avec R rounds d'outils, conformes aux
 // handlers du front (app-chat.js) :
-//   tool_thinking {text}      — narration pré-outil (buffer preContent, 40 ms)
+//   content_token {text}     — narration pré-outil (en phase outils : ligne
+//                              live, buffer preContent, 40 ms)
 //   tool_call    {name, args} — pousse un step dans toolSteps (+ patch Vue)
 //   tool_result  {name, result} — finalise le step (parse JSON pour _isErrorResult)
 // puis réponse finale streamée en content_token + kv_cache + final.
@@ -30,7 +31,7 @@ export function buildToolsPhases(rounds = 30) {
         const name = TOOL_NAMES[r % TOOL_NAMES.length];
         // Narration courte avant l'appel (préContent → flush 40 ms).
         phases.push({
-            kind: 'tokens', type: 'tool_thinking',
+            kind: 'tokens', type: 'content_token',
             toks: tokenize(`Je consulte ${name} pour l'étape ${r + 1}. `),
         });
         phases.push({ kind: 'event', ev: { type: 'tool_call', name, args: { path: `src/module_${r}.py`, query: `motif_${r}` } } });

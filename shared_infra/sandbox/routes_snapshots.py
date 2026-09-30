@@ -48,56 +48,35 @@ ancienne est supprimée après une création réussie.
 
 Sécurité
 --------
-- Tous les chemins sont resolve()-és et vérifiés sous le sandbox root.
-- Les membres d'archive lus via ``tarfile.extract`` sont filtrés pour
-  rejeter les chemins absolus, les ``..``, les liens, les devices.
-  (CVE-style protection contre les "tar slip".)
+- L'hôte ne lit ni n'écrit ``/work`` (L4.5) : l'archive est produite, puis
+  extraite, par l'agent de la sandbox, dans le conteneur. À l'extraction,
+  l'agent ne garde que fichiers ordinaires et dossiers aux noms contenus (ni
+  absolus, ni ``..``) et vérifie les bornes avant de remplacer ``/work``.
 - Les snapshots sont stockées HORS du dossier sandbox de l'utilisateur
   pour ne pas se snapshoter elles-mêmes ni être listées dans le tree.
 """
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import re
-import shutil
-import tarfile
 import tempfile
 import time
 import uuid
 from pathlib import Path
-from typing import AsyncGenerator, Dict, List, Optional, Tuple
+from typing import AsyncGenerator, Dict, List, Optional
 
 from fastapi import HTTPException, Request
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
-from shared_infra.config import SANDBOX_DIR, read_config_json
 from shared_infra.accounts.users import get_username_by_id
-from shared_infra.security.deps import require_user_id
+from shared_infra.config import SANDBOX_DIR, read_config_json
 from shared_infra.routes._state import router
-
-# ── Réutilisation du helper de path sandbox défini dans _legacy.
-#
-#    Important : on importe via ``backend.routes._legacy`` (i.e. le
-#    SOUS-MODULE), PAS via ``backend.routes`` puis ``._legacy``. Le
-#    package ``backend.routes`` réexporte tous les symboles publics
-#    de ses submodules dans son propre namespace via une boucle
-#    ``for _name in dir(_mod): globals()[_name] = …`` ; si on définissait
-#    un helper local nommé ``_legacy`` (ou tout autre symbole partagé),
-#    il écraserait la référence au submodule, et ``backend.routes._legacy``
-#    pointerait soudain sur notre fonction au lieu du module.
-#
-#    On utilise donc un import différé qui passe par ``sys.modules``
-#    (clef ``"backend.routes._legacy"``) et qui est insensible à ce
-#    shadowing du namespace de package.
-def _resolve_sandbox_root(user_id):
-    # Snapshots capture/restore ONLY the WORK root (``P/work`` = ``/work``).
-    # Using ``P`` would bundle — and on restore ``rmtree`` — the protected
-    # ``skills``/``.memory`` siblings that live outside the mount.
-    from shared_infra.routes._legacy import _get_work_path
-    return _get_work_path(user_id)
-
+from shared_infra.sandbox.agent_client import AgentError
+from shared_infra.sandbox.exec_bridge import PANNES_AGENT, agent_for
+from shared_infra.security.deps import require_user_id
 
 # ─────────────────────────────────────────────────────────────────────
 #  Constantes
@@ -105,10 +84,6 @@ def _resolve_sandbox_root(user_id):
 MAX_SNAPSHOTS_PER_USER_DEFAULT = 10
 SNAPSHOTS_ROOT = (SANDBOX_DIR / "_snapshots").resolve()
 SNAPSHOTS_ROOT.mkdir(parents=True, exist_ok=True)
-
-# Throttling des events SSE — évite de spammer 5000 lignes pour 5000 fichiers.
-PROGRESS_MIN_INTERVAL_SEC = 0.080   # au moins 80 ms entre 2 events
-PROGRESS_MIN_PCT_DELTA    = 1.0     # OU au moins 1 % de variation
 
 # Snap_id format : UUID4 hex (32 [0-9a-f]). Validation stricte = pas de
 # path traversal possible via le paramètre d'URL.
@@ -120,12 +95,14 @@ _NAME_MAX_LEN = 80
 
 # AUDIT 2026-06 — caps anti zip-bomb à la restauration. Une archive (gzip)
 # peut annoncer des membres de taille démesurée pour un coût disque minime :
-# sans cap, l'extraction remplit le disque hôte. Env-overridable.
+# sans cap, l'extraction remplit le disque. Env-overridable.
 #   - par membre : un fichier de sandbox légitime > 1 Go est improbable
-#   - total      : vérifié AVANT la phase 'clearing' (on ne vide JAMAIS la
-#     sandbox pour échouer ensuite sur une archive abusive)
+#   - total      : aussi le plafond d'une création.
+# L'agent les vérifie en extrayant dans un dossier provisoire : /work n'est
+# jamais vidé pour une archive refusée ensuite.
 _MAX_MEMBER_BYTES = int(os.environ.get("SNAPSHOT_MAX_MEMBER_MB", "1024")) * 1024 * 1024
 _MAX_TOTAL_BYTES  = int(os.environ.get("SNAPSHOT_MAX_TOTAL_GB", "8")) * 1024 * 1024 * 1024
+_MAX_ENTREES = 500_000             # fichiers et dossiers d'une snapshot
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -140,15 +117,16 @@ _MAX_TOTAL_BYTES  = int(os.environ.get("SNAPSHOT_MAX_TOTAL_GB", "8")) * 1024 * 1
 # audit 2026-08-02 (W6).
 _user_locks: Dict[int, asyncio.Lock] = {}
 
-# Marqueur d'incomplétude de restore (W6) : présent dans la racine sandbox
-# entre le vidage et la fin d'extraction ; s'il survit, le restore a été
-# interrompu (worker tué) et /work est partiel.
+# Marqueur d'incomplétude de restore (W6) : posé dans le dossier des
+# snapshots du compte (sur l'hôte, hors de /work) avant l'extraction, retiré
+# une fois la réponse de l'agent reçue ; s'il survit, le restore a été
+# interrompu (worker ou conteneur tué) et /work peut être partiel.
 _RESTORE_MARKER_NAME = ".elpis_restore_incomplete"
 
 
-def _restore_marker(root: Path) -> Path:
-    """Marqueur de restauration interrompue."""
-    return root / _RESTORE_MARKER_NAME
+def _restore_marker(user_id: int) -> Path:
+    """Marqueur de restauration interrompue du compte."""
+    return _user_snap_dir(user_id) / _RESTORE_MARKER_NAME
 
 
 def _get_user_lock(user_id: int) -> asyncio.Lock:
@@ -198,60 +176,9 @@ def _meta_path(user_id: int, snap_id: str) -> Path:
     return _user_snap_dir(user_id) / f"{snap_id}.json"
 
 
-def _sandbox_root_for(user_id: int) -> Path:
-    """Retourne la racine de la sandbox personnelle. Délègue à _legacy
-    pour rester aligné avec le reste de l'app (mêmes conventions de
-    nommage, mêmes droits)."""
-    return _resolve_sandbox_root(user_id)
-
-
 # ─────────────────────────────────────────────────────────────────────
-#  Énumération + métadonnées
+#  Métadonnées
 # ─────────────────────────────────────────────────────────────────────
-def _walk_sandbox(root: Path) -> Tuple[List[Tuple[Path, str, int]], int]:
-    """Liste tous les fichiers réguliers sous ``root``.
-
-    Renvoie ``(entries, total_bytes)`` où ``entries`` est une liste de
-    tuples ``(path_absolu, path_relatif_posix, size)``.
-
-    On ignore les liens symboliques (``is_symlink()``) — sur le
-    déploiement courant la sandbox ne devrait pas en contenir, mais si
-    un user en crée un, on ne veut pas le suivre (boucle, ou sortie de
-    sandbox via target arbitraire).
-    """
-    entries: List[Tuple[Path, str, int]] = []
-    total = 0
-    if not root.exists():
-        return entries, 0
-    root_resolved = root.resolve()
-    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
-        # Sécurité : trier pour un ordre déterministe (utile aux tests
-        # et pour un progress reproductible).
-        dirnames.sort()
-        filenames.sort()
-        for name in filenames:
-            full = Path(dirpath) / name
-            try:
-                # Skip symlinks — voir docstring.
-                if full.is_symlink():
-                    continue
-                # Skip non-fichiers (sockets, fifos, devices…).
-                if not full.is_file():
-                    continue
-                size = full.stat().st_size
-            except OSError:
-                continue
-            try:
-                rel = full.resolve().relative_to(root_resolved).as_posix()
-            except ValueError:
-                # Fichier sorti de la racine (lien suivi par accident,
-                # ou résolution d'un chemin bizarre) → on skippe.
-                continue
-            entries.append((full, rel, size))
-            total += size
-    return entries, total
-
-
 def _read_meta(meta_path: Path) -> Optional[dict]:
     try:
         return json.loads(meta_path.read_text(encoding="utf-8"))
@@ -329,25 +256,43 @@ def _ev(payload: dict) -> str:
 # ─────────────────────────────────────────────────────────────────────
 #  Création — implémentation cœur
 # ─────────────────────────────────────────────────────────────────────
+def _message_agent(e: AgentError, quoi: str) -> str:
+    """Message d'erreur d'une snapshot ou d'une restauration refusée par l'agent."""
+    mo = 1024 * 1024
+    if e.code == "too_large":
+        limite = e.data.get("limit")                 # extraction : quelle borne
+        if limite == "member":
+            return (f"Archive refusée : un fichier dépasse le cap par membre "
+                    f"({_MAX_MEMBER_BYTES // mo} Mo ; SNAPSHOT_MAX_MEMBER_MB pour ajuster)")
+        if limite == "total":
+            return (f"Archive refusée : taille décompressée totale au-delà du cap "
+                    f"({_MAX_TOTAL_BYTES // mo} Mo ; SNAPSHOT_MAX_TOTAL_GB pour ajuster)")
+        if limite == "count":
+            return f"Archive refusée : plus de {_MAX_ENTREES} entrées"
+        return (f"Sandbox trop volumineuse pour une snapshot (plus de {_MAX_TOTAL_BYTES // mo} Mo "
+                f"ou {_MAX_ENTREES} entrées ; SNAPSHOT_MAX_TOTAL_GB pour ajuster)")
+    if e.code == "bad_archive":
+        return f"Archive invalide : {e.message}"
+    if e.code == "timeout":
+        return f"Erreur {quoi} : délai dépassé"
+    if e.code in PANNES_AGENT:
+        return "Environnement sandbox indisponible — réessayez dans un instant."
+    return f"Erreur {quoi} : {e.code}{' — ' + e.message if e.message else ''}"
+
+
 async def _create_snapshot_stream(user_id: int, name: str) -> AsyncGenerator[str, None]:
     """Génère le flux NDJSON de progression d'une création de snapshot.
 
     Sequence
     --------
     1. ``start``     : total_files, total_bytes
-    2. ``progress``  : 1..N selon throttling
+    2. ``progress``  : au fil de l'archive (l'agent en rend une par 0,5 s)
     3. ``done``      : metadata complète (renvoyée tel quel à la liste)
     """
     # First yield happens BEFORE any potentially-slow work (sandbox walk,
-    # archive open). This flushes the HTTP response head immediately so:
-    #   - reverse proxies (nginx, traefik, cloudflare) start streaming
-    #     instead of buffering until the first chunk;
-    #   - the browser's fetch() sees the response is alive and doesn't
-    #     trip a default timeout.
-    # Without this, a sandbox of a few thousand files would walk for
-    # several seconds before the first byte hits the wire — long enough
-    # for proxies on remote setups to consider the connection dead and
-    # drop it (which surfaces in the JS catch as "Erreur réseau").
+    # archive open). This flushes the HTTP response head immediately so
+    # reverse proxies start streaming and the browser's fetch() sees the
+    # response is alive (otherwise: "Erreur réseau" on remote setups).
     yield _ev({"event": "preparing", "phase": "snapshot"})
 
     lock = _get_user_lock(user_id)
@@ -366,22 +311,8 @@ async def _create_snapshot_stream(user_id: int, name: str) -> AsyncGenerator[str
 
     try:
       async with lock:
+        tmp_path_p: Optional[Path] = None
         try:
-            sandbox_root = _sandbox_root_for(user_id)
-
-            # 1. Énumération (sync, mais hors event loop pour ne pas bloquer
-            #    sur grosse sandbox).
-            entries, total_bytes = await asyncio.to_thread(_walk_sandbox, sandbox_root)
-            total_files = len(entries)
-
-            yield _ev({
-                "event": "start",
-                "phase": "snapshot",
-                "total_files": total_files,
-                "total_bytes": total_bytes,
-            })
-
-            # 2. Préparer chemin destination + temp.
             snap_id = uuid.uuid4().hex
             snap_dir = _user_snap_dir(user_id)
             archive_final = snap_dir / f"{snap_id}.tar.gz"
@@ -391,133 +322,96 @@ async def _create_snapshot_stream(user_id: int, name: str) -> AsyncGenerator[str
             tmp_fd, tmp_path = tempfile.mkstemp(
                 prefix=f"{snap_id}.", suffix=".tar.gz.tmp", dir=str(snap_dir)
             )
-            os.close(tmp_fd)  # tarfile rouvrira en écriture
             tmp_path_p = Path(tmp_path)
-
             ts_start = time.time()
-            bytes_done = 0
-            files_done = 0
-            last_emit_ts = 0.0
-            last_emit_pct = -1.0
-
-            try:
-                # tarfile.open en mode "w:gz" écrit en streaming dans le
-                # fichier de destination — pas de RAM-explosion sur grosse
-                # sandbox. compresslevel=6 = défaut gzip, bon compromis.
-                tf = await asyncio.to_thread(tarfile.open, str(tmp_path_p), "w:gz")
-                try:
-                    # AUDIT 2026-08-02 (F2) — archiver aussi les RÉPERTOIRES
-                    # (membres ``isdir``, taille 0). ``_walk_sandbox`` ne remonte
-                    # que des fichiers : sans ceci, un dossier vide (``build/``,
-                    # ``logs/``) ou ne contenant que des symlinks DISPARAÎT au
-                    # restore. On les ajoute AVANT les fichiers pour que la
-                    # structure existe à l'extraction. Progress inchangé (les
-                    # dirs n'incrémentent pas ``files_done``).
-                    # AUDIT 2026-08-31 (passe 4, B11) — la MARCHE elle-même
-                    # (os.walk + is_symlink + resolve PAR répertoire) tournait
-                    # sur la boucle ; seule l'écriture tar était déportée. Sur
-                    # une sandbox à milliers de dossiers, ça gelait le worker.
-                    # L'énumération part en thread, l'ajout tar garde son
-                    # to_thread par membre (yield de progress entre deux).
-                    _sroot_res = sandbox_root.resolve()
-                    def _walk_dirs():
-                        out = []
-                        for _dp, _dnames, _ in os.walk(str(sandbox_root), followlinks=False):
-                            _dnames.sort()
-                            for _dn in _dnames:
-                                _dfull = Path(_dp) / _dn
-                                try:
-                                    if _dfull.is_symlink():
-                                        continue
-                                    out.append((str(_dfull),
-                                                _dfull.resolve().relative_to(_sroot_res).as_posix()))
-                                except (OSError, IOError, ValueError):
-                                    continue
-                        return out
-                    for _dfull_s, _drel in await asyncio.to_thread(_walk_dirs):
-                        try:
-                            await asyncio.to_thread(tf.add, _dfull_s, arcname=_drel, recursive=False)
-                        except (OSError, IOError, ValueError):
+            with os.fdopen(tmp_fd, "wb") as out:
+                # L'archive est produite par l'agent, dans le conteneur (L4.5) :
+                # dossiers compris (AUDIT 2026-08-02, F2 : un dossier vide
+                # survit au restore), liens et fichiers spéciaux omis, rien de
+                # /work lu par l'hôte. Au-delà des caps : refus avant tout octet.
+                async with agent_for(user_id).archive(
+                        [""], format="tgz", dirs=True, max_bytes=_MAX_TOTAL_BYTES,
+                        max_files=_MAX_ENTREES, deadline_s=240) as flux:
+                    total_files = int(flux.debut.get("files") or 0)
+                    total_bytes = int(flux.debut.get("bytes") or 0)
+                    yield _ev({"event": "start", "phase": "snapshot",
+                               "total_files": total_files, "total_bytes": total_bytes})
+                    async for x in flux:
+                        if isinstance(x, bytes):
+                            await asyncio.to_thread(out.write, x)
                             continue
-                    for full, rel, size in entries:
-                        try:
-                            # arcname = chemin relatif posix → portable et
-                            # évite tout absolute path dans l'archive.
-                            await asyncio.to_thread(tf.add, str(full), arcname=rel, recursive=False)
-                        except (OSError, IOError):
-                            # Fichier disparu pendant l'archivage (concurrent
-                            # write par un MCP shell, par exemple). On le
-                            # skippe silencieusement plutôt que d'avorter.
-                            continue
-
-                        bytes_done += size
-                        files_done += 1
-
-                        # Throttle des events
+                        files_done, bytes_done = int(x.get("files") or 0), int(x.get("bytes") or 0)
                         pct = (bytes_done / total_bytes * 100.0) if total_bytes > 0 else \
                               (files_done / total_files * 100.0) if total_files > 0 else 100.0
-                        now = time.time()
-                        if (now - last_emit_ts >= PROGRESS_MIN_INTERVAL_SEC) or \
-                           (pct - last_emit_pct >= PROGRESS_MIN_PCT_DELTA) or \
-                           (files_done == total_files):
-                            last_emit_ts = now
-                            last_emit_pct = pct
-                            yield _ev({
-                                "event": "progress",
-                                "phase": "snapshot",
-                                "files_done": files_done,
-                                "total_files": total_files,
-                                "bytes_done": bytes_done,
-                                "total_bytes": total_bytes,
-                                "pct": round(pct, 1),
-                                "current_file": rel,
-                            })
-                finally:
-                    await asyncio.to_thread(tf.close)
+                        yield _ev({
+                            "event": "progress",
+                            "phase": "snapshot",
+                            "files_done": files_done,
+                            "total_files": total_files,
+                            "bytes_done": bytes_done,
+                            "total_bytes": total_bytes,
+                            "pct": round(min(pct, 100.0), 1),
+                            "current_file": str(x.get("current") or ""),
+                        })
+                    fin = flux.fin or {}
 
-                # 3. Écriture des métadonnées + atomic rename.
-                archive_size = tmp_path_p.stat().st_size
-                meta = {
-                    "id": snap_id,
-                    "name": (name or "").strip()[:_NAME_MAX_LEN] or _default_name(),
-                    "ts": int(time.time()),
-                    "duration_sec": round(time.time() - ts_start, 2),
-                    "file_count": files_done,
-                    "src_bytes": bytes_done,        # taille avant compression
-                    "archive_bytes": archive_size,  # taille du .tar.gz
-                }
-                # rename atomique (même FS) — garantit qu'on n'expose
-                # jamais un .tar.gz tronqué dans la liste.
-                await asyncio.to_thread(os.replace, str(tmp_path_p), str(archive_final))
-                tmp_path_p = None  # plus à nettoyer
-                meta_file = _meta_path(user_id, snap_id)
-                await asyncio.to_thread(meta_file.write_text,
-                                        json.dumps(meta, ensure_ascii=False, indent=2),
-                                        encoding="utf-8")
+            # Métadonnées + rename atomique (même FS) — on n'expose jamais
+            # un .tar.gz tronqué dans la liste.
+            archive_size = tmp_path_p.stat().st_size
+            meta = {
+                "id": snap_id,
+                "name": (name or "").strip()[:_NAME_MAX_LEN] or _default_name(),
+                "ts": int(time.time()),
+                "duration_sec": round(time.time() - ts_start, 2),
+                "file_count": int(fin.get("files") or 0),
+                "src_bytes": int(fin.get("bytes") or 0),   # taille avant compression
+                "archive_bytes": archive_size,             # taille du .tar.gz
+            }
+            await asyncio.to_thread(os.replace, str(tmp_path_p), str(archive_final))
+            tmp_path_p = None  # plus à nettoyer
+            meta_file = _meta_path(user_id, snap_id)
+            await asyncio.to_thread(meta_file.write_text,
+                                    json.dumps(meta, ensure_ascii=False, indent=2),
+                                    encoding="utf-8")
 
-                # 4. Pruning best-effort.
-                pruned = await asyncio.to_thread(_prune_old_snapshots, user_id)
-                if pruned:
-                    meta["pruned"] = pruned
+            # Pruning best-effort.
+            pruned = await asyncio.to_thread(_prune_old_snapshots, user_id)
+            if pruned:
+                meta["pruned"] = pruned
 
-                yield _ev({"event": "done", "phase": "snapshot", "snapshot": meta})
+            yield _ev({"event": "done", "phase": "snapshot", "snapshot": meta})
 
-            finally:
-                # Nettoyage du .tmp si on a échoué avant le rename.
-                if tmp_path_p is not None:
-                    try:
-                        if tmp_path_p.exists():
-                            tmp_path_p.unlink()
-                    except OSError:
-                        pass
-
+        except AgentError as e:
+            yield _ev({"event": "error", "message": _message_agent(e, "snapshot")})
         except Exception as e:
             # On capture tout ici pour garantir au moins un event
             # "error" côté client — sans ça le frontend voit juste un
             # stream qui se termine sans done et reste coincé.
             yield _ev({"event": "error", "message": f"Erreur snapshot : {e}"})
+        finally:
+            # Nettoyage du .tmp si on a échoué avant le rename.
+            if tmp_path_p is not None:
+                with contextlib.suppress(OSError):
+                    tmp_path_p.unlink()
     finally:
         _clk.release(_xfd)   # W6 : libère le verrou cross-worker
+
+
+async def creer_snapshot(user_id: int, name: str) -> dict:
+    """Instantané de /work (même chemin que le bouton, verrous compris) :
+    rend ses métadonnées, ou ``RuntimeError`` avec le message de l'échec
+    (opération en cours, trop volumineux, sandbox indisponible…)."""
+    meta: Optional[dict] = None
+    erreur = "instantané interrompu"
+    async for ligne in _create_snapshot_stream(user_id, name):
+        evt = json.loads(ligne)
+        if evt.get("event") == "done":
+            meta = evt.get("snapshot")
+        elif evt.get("event") == "error":
+            erreur = str(evt.get("message") or erreur)
+    if not meta:
+        raise RuntimeError(erreur)
+    return meta
 
 
 def _default_name() -> str:
@@ -527,76 +421,39 @@ def _default_name() -> str:
 # ─────────────────────────────────────────────────────────────────────
 #  Restore — implémentation cœur
 # ─────────────────────────────────────────────────────────────────────
-def _is_safe_member(member: tarfile.TarInfo, dest_root: Path) -> bool:
-    """Filtre 'tar slip' : un membre malveillant pourrait avoir un
-    ``name`` absolu, contenir ``..``, ou être un device/symlink/hardlink
-    pointant hors de la cible.
-
-    On accepte uniquement les fichiers réguliers et les répertoires.
-    Le chemin résolu doit rester strictement sous ``dest_root``.
-    """
-    name = member.name
-    if not name or name.startswith("/") or "\\" in name:
-        return False
-    # Bloque les types non-fichier/répertoire
-    if not (member.isfile() or member.isdir()):
-        return False
+async def _restaurer(user_id: int, archive: Path, envoye: List[int]) -> dict:
+    """Extraction par l'agent : le contenu de /work n'est remplacé qu'une fois
+    l'archive entière extraite (et bornée) dans un dossier provisoire du
+    conteneur. Le marqueur est levé et la jauge invalidée dès la réponse de
+    l'agent, même si le client est parti entre-temps ; sans réponse (agent
+    injoignable, délai), le marqueur reste : /work peut être partiel."""
+    def compter(n: int) -> None:
+        envoye[0] += n
+    f = await asyncio.to_thread(open, archive, "rb")
     try:
-        target = (dest_root / name).resolve()
-    except (OSError, RuntimeError):
-        return False
-    dest_resolved = dest_root.resolve()
-    return str(target) == str(dest_resolved) or \
-           str(target).startswith(str(dest_resolved) + os.sep)
-
-
-def _widen_cross_writable(p: Path) -> None:
-    """Rétablit l'invariant /work « cross-writable » sur un chemin restauré.
-
-    Les membres de l'archive sont extraits CÔTÉ HÔTE (UID de l'app) avec les
-    modes du snapshot (parfois 0600, ou 0644/0755 par défaut). Or l'hôte et le
-    conteneur (UID 10001) ne partagent AUCUN groupe : le conteneur tombe dans
-    « other ». Un mode group-writable (0664/0775 — ce que faisait ce code) ne
-    lui donne donc que r-- / r-x et, après un restore, le terminal ne pouvait
-    plus modifier ses propres fichiers. Seul le bit « other » ouvre les deux
-    sens → 0666 / 0777, comme partout ailleurs (umask 0000 des exec conteneur,
-    ``fs_tools._chmod_cross_writable``, ``_sandbox_exec._chmod_walk``).
-
-    Le bit exécutable est PRÉSERVÉ (scripts, hooks git) au lieu d'être écrasé.
-    Best-effort : un membre non-chmodable ne doit pas casser le restore.
-    """
-    try:
-        # SÉCURITÉ (défense en profondeur) : ``is_dir()``/``is_file()`` et
-        # ``chmod`` DÉRÉFÉRENCENT les symlinks. ``_is_safe_member`` refuse
-        # déjà d'extraire un lien, et ``_clear_sandbox_contents`` vide l'arbre
-        # avant restore — mais si l'un des deux régresse, un lien vers un
-        # chemin hôte verrait sa cible passer en 0666/0777.
-        if p.is_symlink():
-            return
-        if p.is_dir():
-            p.chmod(0o777)
-        elif p.is_file():
-            p.chmod(0o777 if (p.stat().st_mode & 0o111) else 0o666)
-    except OSError:
-        pass
-
-
-def _clear_sandbox_contents(root: Path) -> None:
-    """Vide le contenu de la sandbox SANS supprimer la racine elle-même.
-    Conserver la racine évite les races avec des handles ouverts qui
-    pointeraient sur l'inode du dossier."""
-    if not root.exists():
-        return
-    for child in list(root.iterdir()):
+        res = await agent_for(user_id).extract(
+            "", f, max_bytes=_MAX_TOTAL_BYTES, max_file=_MAX_MEMBER_BYTES,
+            max_members=_MAX_ENTREES, on_sent=compter)
+    except AgentError as e:
+        if e.status:                                 # refus de l'agent : /work intact
+            _lever_marqueur(user_id)
+        raise
+    finally:
+        f.close()
+        # Tout /work a pu être remplacé : le compteur d'usage disque en cache
+        # est périmé (jauge de quota). Delta inconnu → invalidation.
         try:
-            if child.is_symlink() or child.is_file():
-                child.unlink()
-            elif child.is_dir():
-                shutil.rmtree(child, ignore_errors=False)
-        except OSError:
-            # Best-effort — on continue, l'extract suivant écrasera ce
-            # qu'il peut écraser.
+            from shared_infra.routes._helpers import invalidate_sandbox_usage
+            invalidate_sandbox_usage(user_id)
+        except Exception:                                   # noqa: BLE001
             pass
+    _lever_marqueur(user_id)
+    return res
+
+
+def _lever_marqueur(user_id: int) -> None:
+    with contextlib.suppress(OSError):
+        _restore_marker(user_id).unlink()
 
 
 async def _restore_snapshot_stream(user_id: int, snap_id: str) -> AsyncGenerator[str, None]:
@@ -604,14 +461,15 @@ async def _restore_snapshot_stream(user_id: int, snap_id: str) -> AsyncGenerator
 
     Sequence
     --------
-    1. ``start``    : total_files, total_bytes (uncompressed)
-    2. ``phase``    : "clearing"
-    3. ``progress`` : 1..N selon throttling, phase="extract"
+    1. ``start``    : total_files, total_bytes (de la snapshot)
+    2. ``phase``    : "extract"
+    3. ``progress`` : part de l'archive transmise à l'agent
     4. ``done``     : phase="restore"
+
+    Client parti en route : la restauration va à son terme (les verrous sont
+    rendus ensuite), rien n'est laissé à moitié par une déconnexion.
     """
-    # Early flush — see same comment in _create_snapshot_stream. Restoring
-    # may have to read+validate a large archive before the first useful
-    # event; without this, proxies kill the connection mid-validation.
+    # Early flush — see same comment in _create_snapshot_stream.
     yield _ev({"event": "preparing", "phase": "restore"})
 
     lock = _get_user_lock(user_id)
@@ -631,178 +489,66 @@ async def _restore_snapshot_stream(user_id: int, snap_id: str) -> AsyncGenerator
                    "Une opération est déjà en cours sur la sandbox (autre onglet ou session)"})
         return
 
+    await lock.acquire()
+    tache: Optional[asyncio.Future] = None
     try:
-      async with lock:
+        archive = _archive_path(user_id, snap_id)
+        if not archive.exists():
+            yield _ev({"event": "error", "message": "Snapshot introuvable"})
+            return
+        meta = _read_meta(_meta_path(user_id, snap_id)) or {}
+        taille = max(1, archive.stat().st_size)
+        yield _ev({
+            "event": "start",
+            "phase": "restore",
+            "total_files": int(meta.get("file_count") or 0),
+            "total_bytes": int(meta.get("src_bytes") or 0),
+        })
+
+        # AUDIT 2026-08-02 (W6) — marqueur de transaction : si le worker meurt
+        # (SIGKILL, W2) pendant la restauration, l'utilisateur doit le savoir.
+        # Exposé par GET /api/sandbox/snapshots (``last_restore_incomplete``).
+        def _write_marker():
+            _restore_marker(user_id).write_text(json.dumps(
+                {"snap_id": snap_id, "ts": time.time()}), encoding="utf-8")
         try:
-            archive = _archive_path(user_id, snap_id)
-            if not archive.exists():
-                yield _ev({"event": "error", "message": "Snapshot introuvable"})
-                return
+            await asyncio.to_thread(_write_marker)
+        except OSError:
+            pass  # best-effort : ne bloque pas le restore
 
-            sandbox_root = _sandbox_root_for(user_id)
-
-            # 1. Pré-validation : ouvrir l'archive, calculer total bytes,
-            #    et filtrer les membres dangereux. On rejette l'opération
-            #    AVANT de toucher à la sandbox courante si l'archive est
-            #    corrompue ou suspecte.
-            def _scan():
-                with tarfile.open(str(archive), "r:gz") as tf:
-                    members = tf.getmembers()
-                    safe = [m for m in members if _is_safe_member(m, sandbox_root)]
-                    total = sum(m.size for m in safe if m.isfile())
-                    biggest = max((m.size for m in safe if m.isfile()), default=0)
-                    return safe, total, biggest
-
-            try:
-                safe_members, total_bytes, biggest_member = await asyncio.to_thread(_scan)
-            except (tarfile.TarError, OSError) as e:
-                yield _ev({"event": "error", "message": f"Archive invalide : {e}"})
-                return
-
-            # AUDIT 2026-06 — caps anti zip-bomb, vérifiés AVANT le clearing
-            # (la sandbox courante n'est pas touchée). Erreur EXPLICITE plutôt
-            # que filtrage silencieux : skipper un membre = restaurer un état
-            # incomplet sans le dire (perte de données déguisée en succès).
-            if biggest_member > _MAX_MEMBER_BYTES:
-                yield _ev({"event": "error", "message":
-                           f"Archive refusée : un fichier dépasse le cap par membre "
-                           f"({biggest_member // (1024*1024)} Mo > "
-                           f"{_MAX_MEMBER_BYTES // (1024*1024)} Mo ; "
-                           f"SNAPSHOT_MAX_MEMBER_MB pour ajuster)"})
-                return
-            if total_bytes > _MAX_TOTAL_BYTES:
-                yield _ev({"event": "error", "message":
-                           f"Archive refusée : taille décompressée totale "
-                           f"({total_bytes // (1024*1024)} Mo) au-delà du cap "
-                           f"({_MAX_TOTAL_BYTES // (1024*1024)} Mo ; "
-                           f"SNAPSHOT_MAX_TOTAL_GB pour ajuster)"})
-                return
-
-            total_files = sum(1 for m in safe_members if m.isfile())
-            yield _ev({
-                "event": "start",
-                "phase": "restore",
-                "total_files": total_files,
-                "total_bytes": total_bytes,
-            })
-
-            # AUDIT 2026-08-02 (W6) — marqueur de transaction : si le worker
-            # meurt (SIGKILL, W2) entre le vidage et la fin de l'extraction,
-            # l'utilisateur retrouvait un /work amputé SANS AUCUN indice.
-            # Le marqueur est retiré après extraction complète ; sa présence
-            # est exposée par GET /api/sandbox/snapshots
-            # (``last_restore_incomplete``).
-            _marker = sandbox_root / _RESTORE_MARKER_NAME
-            def _write_marker():
-                _marker.write_text(json.dumps(
-                    {"snap_id": snap_id, "ts": time.time()}), encoding="utf-8")
-            try:
-                await asyncio.to_thread(_write_marker)
-            except OSError:
-                pass  # best-effort : ne bloque pas le restore
-
-            # 2. Vidage de la sandbox courante.
-            yield _ev({"event": "phase", "phase": "clearing"})
-            await asyncio.to_thread(_clear_sandbox_contents, sandbox_root)
-            try:
-                await asyncio.to_thread(_write_marker)   # recréé après vidage
-            except OSError:
-                pass
-
-            # 3. Extraction membre par membre, avec progress.
-            bytes_done = 0
-            files_done = 0
-            last_emit_ts = 0.0
-            last_emit_pct = -1.0
-
-            def _open_tar():
-                return tarfile.open(str(archive), "r:gz")
-
-            tf = await asyncio.to_thread(_open_tar)
-            try:
-                # Important : itérer sur ``safe_members`` (déjà filtrés)
-                # plutôt que sur tf — on ne veut PAS rejouer les membres
-                # malveillants.
-                for m in safe_members:
-                    try:
-                        await asyncio.to_thread(tf.extract, m, str(sandbox_root))
-                        # PASSE 15 (B7) — Tar member modes peuvent être 0600
-                        # (snapshot pris quand le user avait chmod'd) → le
-                        # conteneur (UID 10001) ne peut plus rien modifier
-                        # après restore. On re-aligne sur l'invariant /work
-                        # « cross-writable » (cf. _widen_cross_writable :
-                        # 0666/0777 et NON 0664/0775 — aucun groupe commun).
-                        _widen_cross_writable(sandbox_root / m.name)
-                    except (OSError, tarfile.TarError):
-                        # Skip ce membre, continue le reste — l'user
-                        # préfère un restore partiel à un échec total.
-                        continue
-
-                    if m.isfile():
-                        bytes_done += m.size
-                        files_done += 1
-
-                        pct = (bytes_done / total_bytes * 100.0) if total_bytes > 0 else \
-                              (files_done / total_files * 100.0) if total_files > 0 else 100.0
-                        now = time.time()
-                        if (now - last_emit_ts >= PROGRESS_MIN_INTERVAL_SEC) or \
-                           (pct - last_emit_pct >= PROGRESS_MIN_PCT_DELTA) or \
-                           (files_done == total_files):
-                            last_emit_ts = now
-                            last_emit_pct = pct
-                            yield _ev({
-                                "event": "progress",
-                                "phase": "extract",
-                                "files_done": files_done,
-                                "total_files": total_files,
-                                "bytes_done": bytes_done,
-                                "total_bytes": total_bytes,
-                                "pct": round(pct, 1),
-                                "current_file": m.name,
-                            })
-            finally:
-                await asyncio.to_thread(tf.close)
-
-            # AUDIT 2026-08-02 (C2) — les répertoires recréés par ``tf.extract``
-            # via ``os.makedirs`` prennent le mode 0755 host-owned, dans lequel
-            # le conteneur (UID 10001, tombe dans « other ») ne peut plus créer
-            # ni supprimer de fichiers → « Permission denied » sur ``touch``,
-            # ``rm``, ``git checkout`` après restore. ``_widen_cross_writable``
-            # n'était appelé que sur les FICHIERS (sa branche ``is_dir`` était
-            # morte). On ré-aligne donc TOUS les répertoires de l'arbre restauré
-            # (y compris les parents implicites) sur l'invariant /work 0777.
-            def _widen_all_dirs():
-                for _dp, _dnames, _ in os.walk(str(sandbox_root)):
-                    for _dn in _dnames:
-                        _widen_cross_writable(Path(_dp) / _dn)
-                _widen_cross_writable(sandbox_root)
-            await asyncio.to_thread(_widen_all_dirs)
-
-            # Extraction terminée → le marqueur d'incomplétude est levé (W6).
-            try:
-                await asyncio.to_thread(_marker.unlink)
-            except OSError:
-                pass
-
-            # Tout /work vient d'être remplacé : le compteur d'usage disque en
-            # cache est périmé (jauge de quota). Delta inconnu → invalidation.
-            try:
-                from shared_infra.routes._helpers import invalidate_sandbox_usage
-                invalidate_sandbox_usage(user_id)
-            except Exception:                                   # noqa: BLE001
-                pass
-
-            yield _ev({
-                "event": "done",
-                "phase": "restore",
-                "files_restored": files_done,
-                "bytes_restored": bytes_done,
-            })
-
-        except Exception as e:
-            yield _ev({"event": "error", "message": f"Erreur restore : {e}"})
+        yield _ev({"event": "phase", "phase": "extract"})
+        envoye = [0]
+        tache = asyncio.ensure_future(_restaurer(user_id, archive, envoye))
+        while not tache.done():
+            await asyncio.wait({tache}, timeout=0.25)
+            yield _ev({"event": "progress", "phase": "extract",
+                       "pct": round(min(99.0, envoye[0] * 100.0 / taille), 1)})
+        res = tache.result()
+        yield _ev({
+            "event": "done",
+            "phase": "restore",
+            "files_restored": int(res.get("files") or 0),
+            "bytes_restored": int(res.get("bytes") or 0),
+            # Entrées de /work qui n'ont pu être retirées ou mises en place
+            # telles quelles (fichiers d'un autre propriétaire, par exemple) :
+            # mises de côté ou placées sous un autre nom, jamais perdues.
+            "conflicts": int(res.get("conflicts") or 0),
+            "conflict_paths": [str(x)[:512] for x in (res.get("conflict_paths") or [])[:50]],
+        })
+    except AgentError as e:
+        yield _ev({"event": "error", "message": _message_agent(e, "restore")})
+    except Exception as e:
+        yield _ev({"event": "error", "message": f"Erreur restore : {e}"})
     finally:
-        _clk.release(_xfd)   # W6 : libère le verrou cross-worker
+        def _liberer(t=None) -> None:
+            if t is not None and not t.cancelled():
+                t.exception()    # consultée : pas d'avertissement « jamais lue »
+            lock.release()
+            _clk.release(_xfd)   # W6 : libère le verrou cross-worker
+        if tache is not None and not tache.done():
+            tache.add_done_callback(_liberer)   # client parti : libérés à la fin
+        else:
+            _liberer()
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -870,14 +616,11 @@ def api_sandbox_snapshots_list(request: Request):
     # retrouvait un /work partiel sans aucun moyen de le savoir.
     incomplete = None
     try:
-        _mk = _restore_marker(_sandbox_root_for(user_id))
-        if _mk.is_file():
-            try:
-                incomplete = json.loads(_mk.read_text(encoding="utf-8"))
-            except (ValueError, OSError):
-                incomplete = {}
-    except Exception:
+        incomplete = json.loads(_restore_marker(user_id).read_text(encoding="utf-8"))
+    except FileNotFoundError:
         incomplete = None
+    except (ValueError, OSError):
+        incomplete = {}
     return JSONResponse(
         {"items": items, "max": _max_snapshots(),
          "last_restore_incomplete": incomplete},
@@ -921,9 +664,7 @@ def api_sandbox_clear_restore_marker(request: Request):
     """
     user_id = require_user_id(request)
     try:
-        mk = _restore_marker(_sandbox_root_for(user_id))
-        if mk.is_file():
-            mk.unlink()
+        _restore_marker(user_id).unlink(missing_ok=True)
     except OSError as e:
         raise HTTPException(500, f"Impossible d'effacer le marqueur : {e}")
     return {"ok": True}

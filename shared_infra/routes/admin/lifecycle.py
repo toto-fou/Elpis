@@ -13,37 +13,39 @@ import os
 import sqlite3
 import sys
 import tempfile
-import time
 import zipfile
 from pathlib import Path
 
 import httpx
-from fastapi import HTTPException, Request, UploadFile, File, Form
+from fastapi import File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import (
-    FileResponse, JSONResponse,
+    FileResponse,
+    JSONResponse,
 )
 from starlette.background import BackgroundTask
 
+from shared_infra.accounts.users import (
+    get_user_by_id,
+    get_username_by_id,
+)
 from shared_infra.config import (
     PROJECT_ROOT,
 )
-from shared_infra.accounts.users import (
-    get_username_by_id,
-    get_user_by_id,
-)
-from shared_infra.security.deps import require_user_id
+from shared_infra.routes._helpers import _DB_ANNEXES, _HOST_ONLY, _RUNTIME_DIRS
 
 # Helpers shared with _legacy. Single source of truth.
 from shared_infra.routes._legacy import (
-    system_events,
     _make_backup_zip,
+    system_events,
 )
-from shared_infra.routes._helpers import _DB_ANNEXES, _HOST_ONLY
 
 # Routers — owned by ``_state``. We import them so endpoint decorators
 # below register on the SAME singleton router instances mounted by
 # ``app.py`` / ``admin_app.py``.
 from shared_infra.routes.admin._state import admin_router, internal_router
+from shared_infra.sandbox.agent_client import AGENT_RUN_DIR, RELAY_DIR, AgentError
+from shared_infra.sandbox.paths import WORK_SUBDIR, write_beneath
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -101,7 +103,7 @@ async def _graceful_reload_after(delay: float = 5.0) -> None:
     parent_is_gunicorn = False
     if ppid > 1:
         try:
-            with open(f"/proc/{ppid}/cmdline", "rb") as f:
+            with open(f"/proc/{ppid}/cmdline", "rb") as f:  # noqa: ASYNC230 (procfs, en mémoire)
                 cmdline = f.read().replace(b"\x00", b" ").decode(
                     "utf-8", errors="ignore"
                 ).lower()
@@ -400,8 +402,10 @@ def api_admin_backup(request: Request, scope: str = "full"):
     if scope not in ("full", "db", "sandboxes", "mcp"):
         raise HTTPException(400, "scope invalide")
     tmp_path, filename = _make_backup_zip(scope)
+    from shared_infra.routes._helpers import backup_incomplete
+    entetes = {"X-Backup-Incomplete": "1"} if backup_incomplete(filename) else None
     return FileResponse(tmp_path, media_type="application/zip", filename=filename,
-                        background=BackgroundTask(os.remove, tmp_path))
+                        headers=entetes, background=BackgroundTask(os.remove, tmp_path))
 
 
 def _dest_under(base: Path, rel: str) -> Path:
@@ -440,6 +444,28 @@ def _restore_db_from(source: Path, db_path: Path) -> None:
         src.close()
 
 
+def _restaurer_work(zf: zipfile.ZipFile, user_id: int, lot: list, restored: list,
+                    errors: list) -> None:
+    """Fichiers ``(entrée, chemin sous /work)`` du /work d'un compte, écrits
+    par l'agent de sa sandbox (démarrée au besoin), jamais par l'hôte. Appelé
+    hors boucle d'événements (thread de la restauration)."""
+    from shared_infra.sandbox.exec_bridge import agent_for
+
+    async def ecrire() -> None:
+        agent = agent_for(user_id)
+        for i, (entry, rel) in enumerate(lot):
+            try:
+                await agent.write(rel, zf.read(entry), parents=True)
+                restored.append(entry)
+            except AgentError as e:
+                if e.status:                              # refus sur ce fichier
+                    errors.append(f"{entry}: {e.code}")
+                    continue
+                errors.extend(f"{n}: {e.code}" for n, _r in lot[i:])   # agent injoignable
+                return
+    asyncio.run(ecrire())
+
+
 def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
                       user_db_dir: Path, sandbox_dir: Path,
                       mcp_dir: Path) -> tuple:
@@ -453,13 +479,19 @@ def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
     fichiers_base = {db_path.name + s for s in ("",) + _DB_ANNEXES}
 
     def _ecrire(entry: str, base: Path, rel: str, data: bytes,
-                prive: bool = False) -> None:
+                prive: bool = False, beneath: bool = False) -> None:
         try:
-            dest = _dest_under(base, rel)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(data)
-            if prive:
-                os.chmod(dest, 0o600)
+            if beneath:
+                # Arbre écrit par les conteneurs : sans suivre de lien, dossiers
+                # intermédiaires compris (2026-09-29).
+                base.mkdir(parents=True, exist_ok=True)
+                write_beneath(base, rel, data)
+            else:
+                dest = _dest_under(base, rel)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(data)
+                if prive:
+                    os.chmod(dest, 0o600)
             restored.append(entry)
         except (OSError, ValueError) as e:
             errors.append(f"{entry}: {e}")
@@ -498,17 +530,42 @@ def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
                 if not entry.startswith("user_db/"):
                     continue
                 rel = entry[len("user_db/"):]
-                if rel in fichiers_base or rel in _HOST_ONLY:
+                if rel in fichiers_base or rel in _HOST_ONLY or rel.split("/", 1)[0] in _RUNTIME_DIRS:
                     continue
                 # Secrets compris (clé de chiffrement, secret de session) :
                 # jamais lisibles hors du compte de l'app.
                 _ecrire(entry, user_db_dir, rel, zf.read(entry), prive=True)
 
         if scope in ("full", "sandboxes"):
+            # Le /work de chaque compte (``sandboxes/<compte>/work/…``) est écrit
+            # par l'agent de sa sandbox (L4.5) ; le reste appartient à l'hôte.
+            # Comptes lus APRÈS la base : ceux de la sauvegarde en « full ».
+            from shared_infra.routes._helpers import _comptes_des_sandboxes
+            comptes = _comptes_des_sandboxes()
+            travaux: dict = {}
             for entry in names:
-                if entry.startswith("sandboxes/"):
-                    _ecrire(entry, sandbox_dir, entry[len("sandboxes/"):],
-                            zf.read(entry))
+                if not entry.startswith("sandboxes/"):
+                    continue
+                rel = entry[len("sandboxes/"):]
+                # Nom canonique d'abord : « alice/./work/x » ou « alice//work/x »
+                # partaient sinon à l'hôte, droit dans /work (relecture finale).
+                parts = [c for c in rel.split("/") if c not in ("", ".")]
+                if ".." in parts or not parts:
+                    errors.append(f"{entry}: nom non canonique, ignoré")
+                    continue
+                rel = "/".join(parts)
+                if len(parts) > 2 and parts[1] == WORK_SUBDIR:
+                    if parts[0] in comptes:
+                        travaux.setdefault(comptes[parts[0]], []).append((entry, "/".join(parts[2:])))
+                    else:
+                        errors.append(f"{entry}: compte inconnu, /work non restauré")
+                elif not (len(parts) > 1 and parts[1] == AGENT_RUN_DIR
+                          or parts[0] in (RELAY_DIR, ".dl_spool")):
+                    # Ni socket d'agent ou du relais Git, ni ancien spool :
+                    # propres à l'hôte qui les a produits (sauvegardes antérieures).
+                    _ecrire(entry, sandbox_dir, rel, zf.read(entry), beneath=True)
+            for uid, lot in travaux.items():
+                _restaurer_work(zf, uid, lot, restored, errors)
 
         if scope in ("full", "mcp"):
             for entry in names:
@@ -517,11 +574,12 @@ def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
                             zf.read(entry))
 
         if scope == "full":
-            from shared_infra.config import SKINS_DIR as _SKINS_DIR
-            for entry in names:
-                if entry.startswith("user_skins/"):
-                    _ecrire(entry, Path(_SKINS_DIR), entry[len("user_skins/"):],
-                            zf.read(entry))
+            from shared_infra.config import SKINS_DIR as _SKINS_DIR, USER_SKILLS_DIR as _USER_SKILLS_DIR
+            for prefix, base in (("user_skins/", Path(_SKINS_DIR)),
+                                 ("user_skills/", Path(_USER_SKILLS_DIR))):
+                for entry in names:
+                    if entry.startswith(prefix):
+                        _ecrire(entry, base, entry[len(prefix):], zf.read(entry))
 
     return restored, errors, db_replaced
 
@@ -533,7 +591,7 @@ async def api_admin_restore(request: Request, file: UploadFile = File(...), scop
     if not me or me["is_admin"] != 1: raise HTTPException(403, "Admin required")
     if scope not in ("full", "db", "sandboxes", "mcp"):
         raise HTTPException(400, "scope invalide")
-    from shared_infra.config import DB_PATH as _DB_PATH, SANDBOX_DIR as _SB_DIR, MCP_SERVERS_DIR as _MCP_DIR
+    from shared_infra.config import DB_PATH as _DB_PATH, MCP_SERVERS_DIR as _MCP_DIR, SANDBOX_DIR as _SB_DIR
     from shared_infra.files.uploads import save_upload_bounded
 
     # Plafond large pour un backup admin (500 Mo). Override via env si besoin.
@@ -543,7 +601,7 @@ async def api_admin_restore(request: Request, file: UploadFile = File(...), scop
     # tout le zip en RAM. Avant : ``await file.read()`` chargeait l'ENTIER
     # zip (potentiellement plusieurs Go pour un full backup) avant même
     # de valider sa taille, OOM garanti.
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")  # noqa: SIM115 (fermé aussitôt, seul le nom sert)
     tmp.close()
     tmp_path = Path(tmp.name)
     try:

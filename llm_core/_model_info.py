@@ -29,8 +29,8 @@ import time
 from typing import Any, Dict, Optional
 from urllib.parse import quote
 
-from llm_core._llama_http import _llama_get, _llama_get_text
 from llm_core._health import _parse_prometheus_metrics
+from llm_core._llama_http import _llama_get, _llama_get_text
 from llm_core.engines import current_engine
 
 logger = logging.getLogger("uvicorn.error")

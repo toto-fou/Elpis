@@ -11,9 +11,9 @@ import pytest
 
 
 def test_maybe_run_digest_respects_flag(monkeypatch):
-    import shared_infra.ops.maintenance as mnt
     import shared_infra.config as config
     import shared_infra.observability.metrics.daily_report as dr
+    import shared_infra.ops.maintenance as mnt
     calls = []
     monkeypatch.setattr(dr, "generate_and_store_daily_digest", lambda *a, **k: calls.append(1))
 
@@ -40,6 +40,7 @@ def test_auto_toggle_route(tmp_path, monkeypatch):
     monkeypatch.setattr(metrics, "get_user_by_id", lambda uid: {"id": uid, "is_admin": 1})
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
     from shared_infra.routes.admin._state import admin_router
     app = FastAPI(); app.include_router(admin_router)
     c = TestClient(app)

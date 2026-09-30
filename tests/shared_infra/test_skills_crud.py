@@ -30,7 +30,6 @@ import pytest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 
-
 # Per-request auth carried via headers, surfaced to the patched gates.
 _CUR_UID: "ContextVar[str | None]" = ContextVar("_CUR_UID", default=None)
 _CUR_ADMIN: "ContextVar[bool]" = ContextVar("_CUR_ADMIN", default=False)

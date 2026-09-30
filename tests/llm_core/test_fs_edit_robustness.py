@@ -26,7 +26,6 @@ from llm_core.tools.fs_tools import (
     _flexible_block_matches,
 )
 
-
 # ──────────────────────────────────────────────────────────────────────────
 # _apply_one_edit / str_replace — repli tolérant
 # ──────────────────────────────────────────────────────────────────────────

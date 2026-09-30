@@ -21,8 +21,8 @@ def client(monkeypatch):
     # ⚠ Ordre d'import : ``shared_infra.routes`` (chef d'orchestre) AVANT le module
     # de famille, sinon import circulaire desktop.routes → opencode.routes_cli →
     # routes._state → routes/__init__ → routes_code → routes_cli (partiel).
-    import shared_infra.routes  # noqa: F401
     import shared_infra.desktop.routes as rt
+    import shared_infra.routes  # noqa: F401
 
     def _fake_uid(request: Request):
         uid = request.headers.get("x-test-user")

@@ -4,7 +4,7 @@ Régressions — audit round 10 (2026-07-05), côté llm_core.
 
   - F11 : <think> NON fermé (raisonnement tronqué au cap) retiré avant coerce.
   - F13 : corps d'un skill ÉPINGLÉ injecté même si la catégorie « skill » est OFF.
-  - F3  : _child_is_safe refuse les symlinks sortant de la sandbox (outils fs LLM).
+  - F3  : la recherche de code ne suit pas les symlinks sortant de la sandbox.
   - F12 : apply_rag ne plante pas sur un dernier message user MULTIMODAL.
 """
 from __future__ import annotations
@@ -76,18 +76,33 @@ def test_f13_no_pin_and_category_off_injects_nothing():
         assert "BODY-X" not in blob and "## Index" not in blob
 
 
-# ── F3 — _child_is_safe refuse les symlinks sortants ─────────────────────────
-def test_f3_child_is_safe_rejects_escaping_symlinks(tmp_path):
-    from llm_core.tools.fs_tools import _child_is_safe
-    root = tmp_path.resolve()
-    (root / "real.py").write_text("KEY=1")
-    os.symlink("/etc/hostname", root / "leak.py")
-    sub = root / "d"; sub.mkdir()
-    os.symlink("/etc", sub / "escape")
-    assert _child_is_safe(root / "real.py", root) is True
-    assert _child_is_safe(root / "leak.py", root) is False
-    # fichier atteint via un dossier symlinké sortant
-    assert _child_is_safe(sub / "escape" / "hostname", root) is False
+# ── F3 — liens sortants jamais suivis par la recherche de code ───────────────
+def test_f3_la_recherche_de_code_ne_suit_pas_un_lien_sortant(tmp_path, monkeypatch):
+    from llm_core.tools import fs_tools
+
+    class _MCP:
+        tools: dict = {}
+
+        def tool(self, **kw):
+            def deco(fn):
+                self.tools[fn.__name__] = fn
+                return fn
+            return deco
+    base = tmp_path / "sandboxes"
+    root = base / "guest" / "work"
+    root.mkdir(parents=True)
+    ailleurs = tmp_path / "ailleurs"
+    ailleurs.mkdir()
+    (ailleurs / "hors.py").write_text("KEY = 2\n")
+    (root / "real.py").write_text("KEY = 1\n")
+    os.symlink(ailleurs / "hors.py", root / "leak.py")
+    (root / "d").mkdir()
+    os.symlink(ailleurs, root / "d" / "escape")
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
+    mcp = _MCP()
+    fs_tools.register(mcp, base)
+    r = mcp.tools["code"](None, action="references", symbol="KEY")
+    assert r["ok"] and [h["file"] for h in r["matches"]] == ["real.py"], r
 
 
 # ── F12 — apply_rag robuste au content multimodal ────────────────────────────

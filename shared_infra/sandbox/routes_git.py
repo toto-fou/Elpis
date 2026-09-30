@@ -4,9 +4,9 @@ backend.routes.sandbox_git — Per-user git operations on sandbox sub-repos.
 
 Each subfolder of a user's sandbox can be an independent Git repo. Every
 endpoint takes a ``repo`` parameter (relative to the sandbox root) so a user
-can keep several projects side-by-side. ``_git_resolve_repo_or_root`` falls
-back to the sandbox root if it is itself a repo, which keeps the legacy
-single-repo UX working unchanged.
+can keep several projects side-by-side. ``_depot`` falls back to the
+sandbox root if it is itself a repo, which keeps the legacy single-repo UX
+working unchanged.
 
 Endpoint groups (see ``@router`` decorators below)
 --------------------------------------------------
@@ -48,57 +48,39 @@ Branching / history rewriting
 - POST   /api/sandbox/git/restore-commit
 - POST   /api/sandbox/git/revert-last
 
-Module-level helpers (still in ``_legacy``)
--------------------------------------------
-``_git_run``, ``_git_run_with_creds``, ``_git_resolve_repo``,
-``_git_resolve_repo_or_root`` are imported from ``backend.routes._helpers``;
-``_get_sandbox_path`` likewise. Splitting them off further is a separate
-refactor (they are used by tests and by ``admin.py``).
+Exécution (L4.4, 2026-09-29)
+----------------------------
+git tourne dans la sandbox, par son agent (``git_ops``) : chemins relatifs à
+/work, jamais un chemin de l'hôte ; ce qu'un dépôt fait exécuter (filtres,
+pilotes) reste dans le conteneur. Réseau (clone, fetch, pull, push) par le
+relais authentifiant (``git_relay``) : l'identifiant du connecteur n'entre
+jamais dans la sandbox, un push ne touche que les refs de la route.
 """
 from __future__ import annotations
 
 import asyncio
 import re
-import os
-import shutil
 import time
-from pathlib import Path
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
+from urllib.parse import urlsplit
 
 from fastapi import HTTPException, Request
 
-from shared_infra.security.deps import require_user_id
 from shared_infra.accounts.users import get_username_by_id
-from shared_infra.routes._state import router
 
-# Helpers shared with ``_legacy``. Live mutables (locks, dicts) need the
-# module reference so we read the current value, not a snapshot.
-from shared_infra.routes._helpers import _get_work_path, _git_resolve_repo, _git_resolve_repo_or_root, _git_run, _git_run_with_creds, _path_inside
-
-# Local aliases for the helpers most-used by the route bodies. Importing
-# them as plain names keeps the route bodies readable and matches the
-# original ``_legacy`` source verbatim.
-_git_run = _git_run
-_git_run_with_creds = _git_run_with_creds  # initialized after first import
-_git_resolve_repo = _git_resolve_repo
-_git_resolve_repo_or_root = _git_resolve_repo_or_root
 # Git repos live in the WORK root (``P/work``, bind-mounted as ``/work``),
 # NOT in the per-user root ``P`` (which also holds skills/.memory, outside
-# the mount).
-_get_work_path = _get_work_path
+# the mount). Seulement pour le calcul lexical des chemins reçus.
+from shared_infra.routes._helpers import TREE_MAX_ENTRIES, _get_work_path
+from shared_infra.routes._state import router
+from shared_infra.sandbox import git_ops
+from shared_infra.sandbox.agent_client import AgentError
+from shared_infra.sandbox.exec_bridge import agent_for, agent_http
+from shared_infra.sandbox.git_ops import GitResult, RelayRefused
+from shared_infra.sandbox.paths import SandboxPathError, lexical_rel
+from shared_infra.security.deps import require_user_id
 
-
-# AUDIT 2026-08-31 (passe 4, B1) — ``_git_run`` est un ``subprocess.run``
-# SYNCHRONE (clone jusqu'à 120 s, push/pull 60 s) : appelé depuis une route
-# ``async def``, il gèle la boucle du worker entier (chat, SSE, Stop). Les
-# routes de LECTURE sont ``def`` (threadpool Starlette) ; les routes
-# MUTANTES doivent rester ``async`` (``await request.json()``) → tout appel
-# git y passe par ces wrappers ``to_thread``.
-async def _agit(repo_dir, *args, **kw):
-    return await asyncio.to_thread(_git_run, repo_dir, *args, **kw)
-
-
-async def _agit_creds(repo_dir, *args, **kw):
-    return await asyncio.to_thread(_git_run_with_creds, repo_dir, *args, **kw)
+_SORTIE = 8 << 20                     # sortie gardée d'une commande git (diff, show…)
 
 
 # ── Valeurs utilisateur passées à git (audit 2026-09-22, H4) ──────────────
@@ -131,257 +113,303 @@ def _paths_arg(paths) -> list:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SECURITY FIX #K + #L — Validation des URLs remote/clone (anti-SSRF)
+# Dépôts distants (anti-SSRF)
 # ─────────────────────────────────────────────────────────────────────────────
-# Avant : ``url = data.get("url")`` était passé tel quel à git clone /
-# git remote set-url. Or git accepte des schémas qui sortent du modèle
-# "fetch depuis Internet" :
-#   - file:///etc/passwd  → lit des fichiers locaux dans le repo
-#   - http://127.0.0.1:6379 → scanne Redis / autres services locaux
-#   - http://169.254.169.254/  → metadata AWS / GCP / Azure
-#   - http://[private-LAN-IP]/... → pivot LAN
-#   - ssh://git@internal-host/  → idem
-#
-# Le filtrage minimal acceptable :
-#   - schemas autorisés : http, https, git (le smart protocol)
-#   - hostname résolu : refuser loopback, link-local, multicast, et toute
-#     plage privée (RFC1918, ULA IPv6, etc.). Le ``is_global`` du module
-#     ipaddress couvre tout ça en un check.
-#   - hostname non-IP : on autorise (DNS public), mais on refuse les
-#     suffixes locaux (.local, .internal, .lan, .home, .corp).
-# Les déploiements legacy qui veulent cloner depuis un Gitea/Gitlab
-# interne devront ajouter une exception via la config. Pour l'instant,
-# défaut sécurisé. Le user qui veut cloner un repo public n'est pas
-# impacté ; le user qui voulait file:// ou pivot interne l'est.
-# AUDIT 2026-08-02 — source UNIQUE des schémas de remote git, partagée avec
-# ``llm_core.tools.git_tools`` (qui divergeait en https-only) via ``ssrf``.
-from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES as _ALLOWED_GIT_SCHEMES
-_BLOCKED_HOST_SUFFIXES = (".local", ".internal", ".lan", ".home", ".corp", ".intranet")
-# Hostnames littéraux qui résolvent vers loopback / réseau local sans
-# qu'on les attrape via ``ipaddress.ip_address`` (qui ne parse que les
-# IPs numériques). Inutile de tenter une résolution DNS ici — coût +
-# DNS rebinding. On bloque les noms les plus courants.
-_BLOCKED_HOST_LITERALS = frozenset({"localhost", "localhost.localdomain", "ip6-localhost", "ip6-loopback"})
+# Une URL de remote n'est suivie que par le relais (``git_ops.run_network``),
+# qui refait la garde à chaque opération : ``.git/config`` modifié depuis la
+# sandbox n'y change rien. ``_validate_git_url`` donne la même réponse dès la
+# saisie (clone, remote add / set-url).
 
 
-def _conn_hosts(uid) -> set:
-    """Hosts de connecteurs enregistrés par ce user → allowlist SSRF (self-hosted)."""
-    try:
-        from shared_infra.git.connectors import list_connector_hosts
-        return set(list_connector_hosts(int(uid)))
-    except Exception:
-        return set()
-
-
-def _resolved_push_creds(uid, repo, data) -> tuple:
-    """``(username, token)`` pour push/pull. Un ``cred_user``/``cred_token``
-    explicite dans le body prime (override) ; sinon on résout depuis les
-    Connecteurs Git par le remote ``origin`` (remplace l'ancien fichier sandbox)."""
-    cu = (data.get("cred_user") or "").strip()
-    ct = (data.get("cred_token") or "").strip()
-    if cu and ct:
-        return cu, ct
-    try:
-        r = _git_run(repo, "remote", "get-url", "origin", timeout=5)
-        out = (getattr(r, "stdout", "") or "").strip()
-        url = out.splitlines()[0] if (getattr(r, "returncode", 1) == 0 and out) else ""
-        if url:
-            from shared_infra.git.resolver import (
-                resolve_git_credential, import_legacy_git_credentials)
-            import_legacy_git_credentials(int(uid), _get_work_path(int(uid)))
-            cred = resolve_git_credential(int(uid), url)
-            if cred and cred.get("token"):
-                return cred.get("username", ""), cred["token"]
-    except Exception:
-        pass
-    return "", ""
-
-
-def _validate_git_url(url: str, allow_hosts=()) -> None:
-    """Raises HTTPException(403) si *url* est dangereuse pour git (anti-SSRF).
-
-    Délègue au validateur UNIFIÉ ``shared_infra.git.ssrf`` (même implémentation
-    que le chemin MCP). Schémas autorisés : http/https/git. ``allow_hosts`` =
-    connecteurs self-hosted enregistrés.
-
-    AUDIT 2026-08-02 — mode ``critical_only`` : l'app est déployée sur un RÉSEAU
-    LOCAL et les dépôts vivent sur le LAN (ex. ``git.example.lan``). Bloquer tout
-    IP privée était de la friction pure (impossible de cloner/rebase son propre
-    repo). On ne bloque donc plus que les cibles SSRF à haute valeur — loopback
-    (services locaux) et link-local ``169.254`` (metadata cloud) — et on AUTORISE
-    le LAN privé et les hosts internes. Le DNS-rebinding vers loopback/link-local
-    reste attrapé. (Les API PR de ``git_connectors`` gardent, elles, le strict.)
-    """
+def _validate_git_url(url: str, uid: int = 0) -> None:
+    """403 si ``url`` n'est pas un dépôt distant permis (garde de ``git_ops`` :
+    HTTP(S), boucle locale et métadonnées refusées, LAN et connecteurs du
+    compte permis)."""
     if not url or not isinstance(url, str):
         raise HTTPException(400, "URL manquante")
-    from shared_infra.git.ssrf import block_remote_url_reason
-    reason = block_remote_url_reason(url, allow_schemes=_ALLOWED_GIT_SCHEMES,
-                                     allow_hosts=allow_hosts, critical_only=True)
+    reason = git_ops.remote_block_reason(url, uid)
     if reason:
         raise HTTPException(403, f"URL refusée (anti-SSRF) : {reason}")
 
 
-def _validate_all_remote_urls(repo_dir, allow_hosts=()) -> None:
-    """SECURITY FIX #L bis — pre-fetch/pull/push hook.
-
-    L'utilisateur peut éditer ``.git/config`` directement via les
-    endpoints sandbox de fichiers (read/write arbitrary content sous
-    sa sandbox), puis appeler ``git fetch`` → exfiltration via une URL
-    qui aurait été refusée par ``_validate_git_url`` au moment du
-    ``remote set-url``. Pour fermer ce vecteur, on liste TOUS les
-    remotes configurés AVANT chaque opération réseau et on les passe
-    par le même filtre. Coût : un ``git config --get-regexp`` (~5ms).
-
-    En cas d'URL invalide, on raise 403 avec le nom du remote fautif
-    pour aider l'opérateur à diagnostiquer.
-    """
-    r = _git_run(repo_dir, "config", "--get-regexp", r"^remote\..*\.url$")
-    if r.returncode != 0:
-        return
-    for line in (r.stdout or "").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        key, _, val = line.partition(" ")
-        url = val.strip()
-        if not url:
-            continue
-        try:
-            _validate_git_url(url, allow_hosts=allow_hosts)
-        except HTTPException as exc:
-            raise HTTPException(
-                exc.status_code,
-                f"Remote {key} : {exc.detail}",
-            )
+# ─────────────────────────────────────────────────────────────────────────────
+# Dépôt d'une requête et commandes git, par l'agent de la sandbox
+# ─────────────────────────────────────────────────────────────────────────────
+class _Depot(NamedTuple):
+    """Un dépôt du compte : l'agent de sa sandbox, et son chemin relatif à
+    /work (``""`` : la racine)."""
+    uid: int
+    agent: Any
+    rel: str
 
 
-async def _grant_after_git(uid: int, sb, repo) -> None:
-    """Re-align ownership/perms after a host-side git op that rewrote the
-    working tree (pull/checkout/merge/discard/merge-abort/resolve).
-
-    The git subsystem runs on the HOST (operator UID, e.g. 1000), so files git
-    just wrote/restored are host-owned at git's default modes (0644) — the
-    container (UID 10001) then gets 'permission denied' editing them ("j'ai
-    pull mais je ne peux plus éditer"). ``sandbox_grant_access`` grants rwX to
-    both UIDs (+ a ``default`` ACL so subsequent host-side git writes inherit
-    it) and chowns to 10001 cosmetically — exactly what ``init``/``clone``
-    already do. Best-effort: ``sandbox_grant_access`` swallows its own errors
-    and git has already succeeded, so this never disrupts the response."""
-    from shared_infra.sandbox.exec_bridge import sandbox_grant_access
+def _rel(uid: int, chemin: str) -> str:
+    """Chemin relatif à /work d'un chemin reçu, sans lire le disque (``~`` est
+    un nom, comme dans l'explorateur) ; hors de la sandbox : 403."""
     try:
-        rel = repo.resolve().relative_to(sb.resolve()).as_posix()
-    except Exception:
-        rel = ""
-    await sandbox_grant_access(int(uid), "" if rel == "." else rel)
+        return lexical_rel(_get_work_path(uid), chemin, tilde=False)
+    except SandboxPathError:
+        raise HTTPException(403, "Chemin hors sandbox") from None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Parcours d'arborescence — helpers DURCIS (audit 2026-08-08)
-# ─────────────────────────────────────────────────────────────────────────────
-# Ces deux helpers portent le durcissement que ``_helpers._build_file_tree``
-# avait déjà reçu (correctif F6) et qui manquait ici. Deux défauts mesurés :
-#
-#  * ``entry.is_dir()`` / ``entry.stat()`` / ``Path.exists()`` DÉRÉFÉRENCENT les
-#    symlinks. Un ``ln -s /un/dossier/hote x`` posé depuis le terminal sandbox
-#    faisait donc lister l'arborescence HÔTE (noms + tailles) par
-#    ``/git/tree``, et ``_git_run`` tournait dans un dépôt hors sandbox via
-#    ``/git/repos``.
-#  * ``Path.exists()`` n'avale que ENOENT/ENOTDIR/EBADF/ELOOP : un
-#    ``ln -s /root x`` faisait REMONTER EACCES → HTTP 500 DÉFINITIF sur
-#    ``/git/repos`` (route appelée à chaque ouverture de l'éditeur, donc
-#    panneau Git mort). Idem ``ln -s . loop`` → OSError ELOOP sur ``/git/tree``.
-#
-# Règle : on ne suit AUCUN lien, on confirme le containment sur le chemin
-# RÉSOLU, on borne la profondeur, et toute erreur FS fait sauter l'entrée au
-# lieu de casser la réponse.
+async def _relaye(coro):
+    """``await coro`` ; refus du relais ou de l'agent en ``HTTPException``."""
+    try:
+        return await coro
+    except RelayRefused as e:
+        raise HTTPException(403 if e.code == "blocked_remote" else 400, e.message) from None
+    except AgentError as e:
+        raise agent_http(e, "Git") from None
+
+
+async def _depot(uid: int, repo_rel: str, *, passive: bool = False) -> _Depot:
+    """Le dépôt ``repo_rel`` du compte, ou la racine si ``repo_rel`` est vide
+    et qu'elle en est un : 400 (pas un dépôt), 403 (hors sandbox), 404.
+    ``passive`` (rafraîchissement de l'éditeur) : conteneur arrêté → 503,
+    sans le redémarrer."""
+    agent = agent_for(uid)
+    rel = _rel(uid, repo_rel) if repo_rel else ""
+    dossier, marque = await _relaye(agent.stat([rel, f"{rel}/.git" if rel else ".git"],
+                                               passive=passive))
+    if dossier.get("outside") or dossier.get("error") == "outside_root":
+        raise HTTPException(403, "Chemin hors sandbox")
+    if dossier.get("kind") != "dir":
+        raise HTTPException(404, f"Dossier introuvable : {repo_rel}")
+    if marque.get("kind") in ("missing", "error"):
+        raise HTTPException(400, f"'{repo_rel}' n'est pas un dépôt Git" if repo_rel
+                            else "Paramètre 'repo' requis (chemin du dépôt)")
+    return _Depot(uid, agent, rel)
+
+
+async def _git(d: _Depot, *args: str, timeout: float = 30, passive: bool = False) -> GitResult:
+    """``git <args>`` dans le dépôt ; échéance → 504. ``passive`` : cf. ``_depot``."""
+    r = await _relaye(git_ops.run(d.agent, d.rel, args, timeout_s=timeout, max_out=_SORTIE,
+                                  passive=passive))
+    if r.timed_out:
+        raise HTTPException(504, f"git {args[0]} : délai dépassé")
+    return r
+
+
+def _auth(data: dict) -> Optional[Tuple[str, str]]:
+    """Identifiants donnés dans la requête : prioritaires sur le connecteur."""
+    jeton = (data.get("cred_token") or "").strip()
+    return ((data.get("cred_user") or "").strip(), jeton) if jeton else None
+
+
+def _refus_relais(r: GitResult) -> None:
+    """Requête refusée par le relais (politique, et non authentification) :
+    409 avec les seuls motifs du relais. Le message de git (« HTTP 403 »)
+    faisait ouvrir la saisie d'identifiants à l'éditeur, en boucle
+    (relecture L4.4)."""
+    if r.refus and not r.ok:
+        raise HTTPException(409, "\n".join(r.refus)[:500])
+
+
+async def _reseau(d: _Depot, args: List[str], *, url: str, data: dict,
+                  push_refs: Optional[Set[str]] = None, timeout: float = 60) -> GitResult:
+    """Commande réseau vers ``url`` par le relais (identifiants : ``_auth``,
+    sinon le connecteur) ; échéance → 504, refus du relais → 409."""
+    r = await _relaye(git_ops.run_network(
+        d.agent, d.rel, args, uid=d.uid, url=url, push_refs=push_refs, auth=_auth(data),
+        timeout_s=timeout, max_out=_SORTIE))
+    if r.timed_out:
+        raise HTTPException(504, f"git {args[0]} : délai dépassé")
+    _refus_relais(r)
+    return r
+
+
+# Porcelaine de ``git push --dry-run --porcelain`` : « <drapeau>\t<src>:<dst>\t… ».
+# Drapeaux mis à jour : avance rapide « », forcé « + », nouveau « * ».
+_PUSH_MAJ = (" ", "+", "*")
+
+
+def _refs_porcelaine(sortie: str) -> Dict[str, List[str]]:
+    """Refs d'un ``push --dry-run --porcelain`` rangées par drapeau :
+    ``maj`` (avance rapide, nouvelle), ``force`` (+), ``suppr`` (-),
+    ``refus`` (!), ``a_jour`` (=)."""
+    genres = {" ": "maj", "*": "maj", "+": "force", "-": "suppr", "!": "refus", "=": "a_jour"}
+    rendu: Dict[str, List[str]] = {g: [] for g in set(genres.values())}
+    for ligne in sortie.splitlines():
+        if len(ligne) > 2 and ligne[1] == "\t" and ligne[0] in genres:
+            dst = ligne[2:].split("\t", 1)[0].rpartition(":")[2]
+            if dst.startswith("refs/"):
+                rendu[genres[ligne[0]]].append(dst)
+    return rendu
+
+
+async def _refs_du_push(d: _Depot, args: List[str], *, url: str, data: dict,
+                        force: bool) -> Set[str]:
+    """Refs que ``git push <args>`` mettrait à jour, d'après git lui-même
+    (``--dry-run --porcelain``, qui ne lit que la liste des refs de l'amont) :
+    ``push.followTags``, ``remote.<r>.push`` et ``push.default`` sont suivis
+    comme avant L4.4. Le relais n'en laisse passer aucune autre.
+
+    Refusés (relecture finale) : une suppression ; une mise à jour forcée sans
+    « forcer » demandé ; la réécriture d'une étiquette existante (seules les
+    nouvelles passent) — la configuration de la sandbox ne décide pas seule.
+    Un rejet de l'amont (en retard, bail périmé) répond 400 avec le message
+    de git, jamais « Déjà à jour »."""
+    essai = await _reseau(d, ["push", "--dry-run", "--porcelain", *args], url=url,
+                          data=data, push_refs=set())
+    if essai.returncode not in (0, 1):
+        err = (essai.stderr or essai.stdout or "").strip()
+        raise HTTPException(400, err[:500])
+    p = _refs_porcelaine(essai.stdout)
+    if p["refus"] or (essai.returncode == 1 and not p["maj"] and not p["force"]):
+        err = (essai.stderr or essai.stdout or "").strip()
+        raise HTTPException(400, err[:500] or "Push refusé par le dépôt distant")
+    if p["suppr"]:
+        raise HTTPException(409, "Relais Git : suppression de "
+                            + ", ".join(p["suppr"][:5]) + " refusée")
+    if p["force"] and not force:
+        raise HTTPException(409, "Relais Git : mise à jour forcée de "
+                            + ", ".join(p["force"][:5]) + " non demandée")
+    etiquettes = [r for r in p["force"] if r.startswith("refs/tags/")]
+    if etiquettes:
+        raise HTTPException(409, "Relais Git : étiquette existante réécrite ("
+                            + ", ".join(etiquettes[:5]) + ")")
+    return set(p["maj"]) | set(p["force"])
+
+
+async def _remote_suivi(d: _Depot) -> str:
+    """Remote de la branche courante (``branch.<b>.remote``), sinon origin.
+    « . » : la branche suit une branche locale (fusion sans réseau)."""
+    b = (await _git(d, "branch", "--show-current")).stdout.strip()
+    if b:
+        r = await _git(d, "config", "--get", f"branch.{b}.remote")
+        nom = r.stdout.strip()
+        if r.ok and nom == ".":
+            return "."
+        if r.ok and nom:
+            return _ref_arg(nom, "Remote de la branche")
+    return "origin"
+
+
+async def _mode_pull(d: _Depot, rebase: bool) -> str:
+    """« Pull (rebase) » : rebase. « Pull » : ce que ferait ``git pull`` avec
+    la configuration du dépôt (``pull.rebase``, ``pull.ff``) ; par défaut,
+    avance rapide seule."""
+    if rebase:
+        return "--rebase"
+    b = (await _git(d, "branch", "--show-current")).stdout.strip()
+    valeur = ""
+    for cle in ([f"branch.{b}.rebase"] if b else []) + ["pull.rebase"]:   # comme git pull
+        r = await _git(d, "config", "--get", cle)
+        if r.ok and r.stdout.strip():
+            valeur = r.stdout.strip().lower()
+            break
+    if valeur in ("true", "merges", "interactive", "i", "m", "1", "yes", "on"):
+        return "--rebase"
+    ff = await _git(d, "config", "--get", "pull.ff")
+    ffv = ff.stdout.strip().lower() if ff.ok else ""
+    if ffv == "only":
+        return "--ff-only"
+    if valeur in ("false", "0", "no", "off") or ffv in ("false", "0", "no", "off",
+                                                        "true", "1", "yes", "on"):
+        return "--no-rebase"
+    return "--ff-only"
+
+
+def _dans_depot(d: _Depot, p: str) -> Optional[str]:
+    """``p`` (relatif au dépôt) en chemin relatif à /work, s'il reste dans le
+    dépôt (``..`` résolu sur le texte) ; sinon ``None``."""
+    if not p or p.startswith("/") or "\x00" in p:
+        return None
+    parties: List[str] = []
+    for c in p.split("/"):
+        if c in ("", "."):
+            continue
+        if c == "..":
+            if not parties:
+                return None
+            parties.pop()
+        else:
+            parties.append(c)
+    if not parties:
+        return None
+    return "/".join([d.rel, *parties] if d.rel else parties)
+
+
+# Arbre d'un dépôt : ni liens suivis ni entrées cachées (l'agent parcourt en
+# ``lstat`` et garde tout sous /work), profondeur bornée.
 _TREE_MAX_DEPTH = 40
 
 
-def _has_git_dir(p: Path) -> bool:
-    """``p/.git`` existe-t-il ? Toute erreur FS (EACCES sur un lien vers un
-    dossier hôte non lisible…) vaut « non » — jamais une 500."""
-    try:
-        return (p / ".git").exists()
-    except OSError:
-        return False
-
-
-def _real_subdirs(p: Path) -> "list[Path]":
-    """Sous-dossiers RÉELS de ``p`` (ni symlinks, ni entrées cachées), triés.
-    Liste vide sur toute erreur FS."""
-    out: "list[Path]" = []
-    try:
-        with os.scandir(p) as it:
-            for e in it:
-                try:
-                    if e.name.startswith("."):
-                        continue
-                    if e.is_symlink() or not e.is_dir(follow_symlinks=False):
-                        continue
-                except OSError:
-                    continue
-                out.append(Path(e.path))
-    except OSError:
-        return []
-    return sorted(out)
+async def _branches_courantes(agent: Any, depots: List[str]) -> dict:
+    """Branche courante de chaque dépôt : ``.git/HEAD`` lus en une requête,
+    ``git branch --show-current`` quand HEAD n'est pas un fichier du dépôt
+    (``.git`` fichier : worktree, sous-module)."""
+    tetes = {p: f"{p}/.git/HEAD" if p else ".git/HEAD" for p in depots}
+    lus = await agent.read_many(list(tetes.values()), max_file=4096, max_total=1 << 20,
+                                passive=True)
+    rendu = {}
+    for p, f in tetes.items():
+        brut = lus.get(f)
+        if brut is not None:
+            t = brut.decode("utf-8", "replace").strip()
+            rendu[p] = t[len("ref: refs/heads/"):] if t.startswith("ref: refs/heads/") else ""
+        else:
+            r = await git_ops.run(agent, p, ["branch", "--show-current"], timeout_s=10,
+                                  max_out=4096, passive=True)
+            rendu[p] = r.stdout.strip() if r.ok else ""
+    return rendu
 
 
 @router.get("/api/sandbox/git/repos")
-def api_git_repos(request: Request):
-    """Scan sandbox for all git repositories (directories containing .git)."""
+async def api_git_repos(request: Request):
+    """Dépôts de la sandbox (dossier qui contient ``.git``) : la racine, puis
+    ceux des deux premiers niveaux, hors dossiers cachés et liens. Appelée au
+    retour sur la fenêtre : sondée en passif (conteneur arrêté → 503, sans le
+    redémarrer)."""
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
-    repos = []
-    # Check root
-    if _has_git_dir(sb):
-        r = _git_run(sb, "branch", "--show-current")
-        repos.append({"path": ".", "name": sb.name, "branch": r.stdout.strip() or "(HEAD)"})
-    # Scan subdirectories (max 2 levels deep). Symlinks exclus (cf. bloc
-    # ci-dessus) : sans ça ``_git_run`` s'exécutait dans un dépôt HORS sandbox.
-    for depth1 in _real_subdirs(sb):
-        if _has_git_dir(depth1):
-            r = _git_run(depth1, "branch", "--show-current")
-            repos.append({
-                "path": depth1.name,
-                "name": depth1.name,
-                "branch": r.stdout.strip() or "(HEAD)",
-            })
-            continue
-        # Check one more level
-        for depth2 in _real_subdirs(depth1):
-            if _has_git_dir(depth2):
-                rel = str(depth2.relative_to(sb))
-                r = _git_run(depth2, "branch", "--show-current")
-                repos.append({
-                    "path": rel,
-                    "name": depth2.name,
-                    "branch": r.stdout.strip() or "(HEAD)",
-                })
-    return {"repos": repos}
+    agent = agent_for(uid)
+    try:
+        (racine,) = await agent.stat([".git"], passive=True)
+        depots = [p for p in await git_ops.find_repos(agent, depth=2, limit=500, passive=True)
+                  if not any(c.startswith(".") for c in p.split("/"))]
+        if racine.get("kind") in ("dir", "file"):
+            depots.insert(0, "")
+        branches = await _branches_courantes(agent, depots)
+    except AgentError as e:
+        raise agent_http(e, "Dépôts Git") from None
+    nom_racine = _get_work_path(uid).name
+    return {"repos": [{"path": p or ".", "name": p.rsplit("/", 1)[-1] if p else nom_racine,
+                       "branch": branches.get(p) or "(HEAD)"} for p in depots]}
 
 
 @router.get("/api/sandbox/git/status")
-def api_git_status(request: Request):
+async def api_git_status(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     repo_rel = request.query_params.get("repo", "")
+    # Rafraîchi après chaque enregistrement et au retour sur la fenêtre :
+    # appels passifs (conteneur arrêté → 503, ni redémarré ni compté actif).
     try:
-        repo = _git_resolve_repo_or_root(sb, repo_rel)
-    except HTTPException:
-        return {"is_repo": False}
-    # Current branch
-    branch_r = _git_run(repo, "branch", "--show-current")
+        d = await _depot(uid, repo_rel, passive=True)
+    except HTTPException as e:
+        if e.status_code in (400, 403, 404):             # pas un dépôt (agent joint)
+            return {"is_repo": False}
+        raise
+    # Commandes en lecture seule, indépendantes : lancées ensemble.
+    branch_r, ab, st, remote_r, ns, ns2 = await asyncio.gather(*(
+        _git(d, *args, passive=True) for args in (
+            ("branch", "--show-current"),
+            ("rev-list", "--left-right", "--count", "HEAD...@{upstream}"),
+            ("status", "--porcelain=v1", "-uall"),
+            ("remote", "get-url", "origin"),
+            ("diff", "--cached", "--numstat"),
+            ("diff", "--numstat"))))
     branch = branch_r.stdout.strip() or "(HEAD détaché)"
     # Ahead/behind
     ahead, behind = 0, 0
-    ab = _git_run(repo, "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
     if ab.returncode == 0:
         parts = ab.stdout.strip().split()
         if len(parts) == 2:
             ahead, behind = int(parts[0]), int(parts[1])
     # Porcelain status
-    st = _git_run(repo, "status", "--porcelain=v1", "-uall")
-    staged, modified, untracked, conflicted = [], [], [], []
+    staged: List[dict] = []
+    modified: List[dict] = []
+    untracked: List[dict] = []
+    conflicted: List[dict] = []
     for line in st.stdout.splitlines():
         if len(line) < 4:
             continue
@@ -401,11 +429,9 @@ def api_git_status(request: Request):
         elif y == "?" and x == "?":
             untracked.append({"path": fpath})
     # Remote URL
-    remote_r = _git_run(repo, "remote", "get-url", "origin")
     remote_url = remote_r.stdout.strip() if remote_r.returncode == 0 else ""
     # Per-file line stats (numstat)
     _numstat_staged = {}
-    ns = _git_run(repo, "diff", "--cached", "--numstat")
     for line in ns.stdout.splitlines():
         parts = line.split("\t")
         if len(parts) >= 3:
@@ -413,7 +439,6 @@ def api_git_status(request: Request):
             rem = parts[1] if parts[1] != "-" else "0"
             _numstat_staged[parts[2]] = {"add": int(add), "del": int(rem)}
     _numstat_unstaged = {}
-    ns2 = _git_run(repo, "diff", "--numstat")
     for line in ns2.stdout.splitlines():
         parts = line.split("\t")
         if len(parts) >= 3:
@@ -435,16 +460,15 @@ def api_git_status(request: Request):
         "ahead": ahead, "behind": behind,
         "remote_url": remote_url,
         "staged": staged, "modified": modified, "untracked": untracked,
-        "conflicted": conflicted,
+        "conflicted": conflicted, "truncated": st.truncated,
     }
 
 
 @router.get("/api/sandbox/git/branches")
-def api_git_branches(request: Request):
+async def api_git_branches(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
-    repo = _git_resolve_repo_or_root(sb, request.query_params.get("repo", ""))
-    r = _git_run(repo, "branch", "--format=%(refname:short)|%(HEAD)")
+    d = await _depot(uid, request.query_params.get("repo", ""))
+    r = await _git(d, "branch", "--format=%(refname:short)|%(HEAD)")
     local = []
     current = ""
     for line in r.stdout.splitlines():
@@ -454,23 +478,22 @@ def api_git_branches(request: Request):
             current = name
         local.append(name)
     if not current:
-        bc = _git_run(repo, "branch", "--show-current")
+        bc = await _git(d, "branch", "--show-current")
         current = bc.stdout.strip()
-    rr = _git_run(repo, "branch", "-r", "--format=%(refname:short)")
+    rr = await _git(d, "branch", "-r", "--format=%(refname:short)")
     remote = [b.strip() for b in rr.stdout.splitlines() if b.strip() and "HEAD" not in b]
     return {"current": current, "local": local, "remote": remote}
 
 
 @router.get("/api/sandbox/git/log")
-def api_git_log(request: Request):
+async def api_git_log(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
-    repo = _git_resolve_repo_or_root(sb, request.query_params.get("repo", ""))
+    d = await _depot(uid, request.query_params.get("repo", ""))
     try:
         n = max(1, min(int(request.query_params.get("n", "30")), 100))
     except ValueError:
         raise HTTPException(400, "n invalide")
-    r = _git_run(repo, "log", f"-{n}", "--format=%H|%h|%an|%ae|%at|%s")
+    r = await _git(d, "log", f"-{n}", "--format=%H|%h|%an|%ae|%at|%s")
     commits = []
     for line in r.stdout.splitlines():
         parts = line.split("|", 5)
@@ -484,10 +507,9 @@ def api_git_log(request: Request):
 
 
 @router.get("/api/sandbox/git/diff")
-def api_git_diff(request: Request):
+async def api_git_diff(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
-    repo = _git_resolve_repo_or_root(sb, request.query_params.get("repo", ""))
+    d = await _depot(uid, request.query_params.get("repo", ""))
     file_path = request.query_params.get("path", "")
     is_staged = request.query_params.get("staged", "") == "1"
     args = ["diff", "--no-color"]
@@ -495,113 +517,75 @@ def api_git_diff(request: Request):
         args.append("--cached")
     if file_path:
         args.extend(["--", file_path])
-    r = _git_run(repo, *args)
-    return {"diff": r.stdout}
+    r = await _git(d, *args)
+    return {"diff": r.stdout, "truncated": r.truncated}
 
 
 @router.post("/api/sandbox/git/init")
 async def api_git_init(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
     dir_name = (data.get("dir") or "").strip()
-    if dir_name:
-        target = (sb / dir_name).resolve()
-        # Containment robuste (relative_to) — startswith est vulnérable au préfixe
-        # frère (/sb/al vs /sb/alice) ; parité avec api_git_clone (_path_inside).
-        if not _path_inside(target, sb):
-            raise HTTPException(403, "Chemin hors sandbox")
-        target.mkdir(parents=True, exist_ok=True)
-    else:
-        target = sb
-    r = await _agit(target, "init")
+    d = _Depot(uid, agent_for(uid), _rel(uid, dir_name) if dir_name else "")
+    if d.rel:
+        await _relaye(d.agent.fsop("mkdir", path=d.rel, parents=True))
+    r = await _git(d, "init")
     if r.returncode != 0:
         raise HTTPException(500, r.stderr.strip())
     uname = (data.get("user_name") or "").strip()
     email = (data.get("user_email") or "").strip()
     if uname:
-        await _agit(target, "config", "user.name", uname)
+        await _git(d, "config", "user.name", uname)
     if email:
-        await _agit(target, "config", "user.email", email)
-    # init crée .git côté HÔTE (UID app) ; on pose l'ACL default sur le repo pour
-    # que les fichiers réécrits ENSUITE par le git host-side (checkout/pull/merge)
-    # restent éditables par le user in-container (UID 10001).
-    from shared_infra.sandbox.exec_bridge import sandbox_grant_access
-    await sandbox_grant_access(int(uid), dir_name or "")
+        await _git(d, "config", "user.email", email)
     return {"ok": True, "repo": dir_name or ".", "message": r.stdout.strip()}
 
 
 @router.post("/api/sandbox/git/clone")
 async def api_git_clone(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
     url = (data.get("url") or "").strip()
     if not url:
         raise HTTPException(400, "URL requise")
-    # SECURITY FIX #K — anti-SSRF + anti-file:// (cf. _validate_git_url).
-    # ``_conn_hosts`` lit la DB → hors boucle (passe 4, B1).
-    _validate_git_url(url, allow_hosts=await asyncio.to_thread(_conn_hosts, uid))
+    # Garde anti-SSRF dès la saisie (le relais la refait) ; DNS et base : hors boucle.
+    await asyncio.to_thread(_validate_git_url, url, uid)
     # Determine target directory name
     dir_name = (data.get("dir") or "").strip()
     if not dir_name:
         # Extract repo name from URL: "https://…/my-repo.git" → "my-repo"
-        import re as _re_git
-        match = _re_git.search(r'/([^/]+?)(?:\.git)?/?$', url)
+        match = re.search(r'/([^/]+?)(?:\.git)?/?$', url)
         dir_name = match.group(1) if match else "repo"
-    # SECURITY FIX #K — défensif : refuser un ``dir`` contenant des
-    # caractères de séparation ou ``..`` AVANT toute résolution.
-    # Sinon, un dir_name comme "../alice2/poc" sur un sandbox
-    # ``/sandbox/al`` produisait une cible ``/sandbox/alice2/poc``
-    # qui passait l'ancien check ``startswith("/sandbox/al")``
-    # (préfixe commun) — écriture cross-user. Le nouveau check via
-    # ``_path_inside`` est lui-même robuste, mais bloquer en amont
-    # rend l'intention claire et économise un resolve() en cas
-    # d'abus évident.
+    # Un seul composant, sous la racine de travail.
     if "/" in dir_name or "\\" in dir_name or ".." in dir_name.split("/"):
         raise HTTPException(400, "Nom de dossier invalide")
-    target = (sb / dir_name).resolve()
-    # SECURITY FIX #K — remplace ``startswith`` (préfixe commun bug) par
-    # ``_path_inside`` qui s'appuie sur ``Path.relative_to``. Cf. les
-    # autres routes sandbox déjà migrées.
-    if not _path_inside(target, sb):
-        raise HTTPException(403, "Chemin hors sandbox")
+    racine = _Depot(uid, agent_for(uid), "")
+    rel = _rel(uid, dir_name)
+    if not rel:
+        raise HTTPException(400, "Nom de dossier invalide")
     # Refuse if target already exists and is not empty
-    if target.exists() and any(target.iterdir()):
+    (cible,) = await _relaye(racine.agent.stat([rel]))
+    existait = cible.get("kind") != "missing"
+    if existait and (cible.get("kind") != "dir" or (await _relaye(racine.agent.list(
+            rel, depth=1, max_entries=1, hidden=True))).entries):
         raise HTTPException(409, f"Le dossier '{dir_name}' existe déjà et n'est pas vide")
-    target.mkdir(parents=True, exist_ok=True)
-    # Credentials : connecteur correspondant à l'URL de clone (ou body override).
-    cu = (data.get("cred_user") or "").strip()
-    ct = (data.get("cred_token") or "").strip()
-    if not ct:                                       # pas de token override → résoudre
-        def _resolve_clone_cred():
-            # DB + fichiers legacy → thread (passe 4, B1).
-            try:
-                from shared_infra.git.resolver import (
-                    resolve_git_credential, import_legacy_git_credentials)
-                import_legacy_git_credentials(int(uid), sb)
-                return resolve_git_credential(int(uid), url)
-            except Exception:
-                return None
-        cred = await asyncio.to_thread(_resolve_clone_cred)
-        if cred and cred.get("token"):
-            cu, ct = cred.get("username", ""), cred["token"]
-    if ct:                                           # token seul suffit (askpass gère)
-        r = await _agit_creds(sb, "clone", "--progress", url, str(target),
-                              username=cu, token=ct, timeout=120)
-    else:
-        r = await _agit(sb, "clone", "--progress", url, str(target), timeout=120)
-    if r.returncode != 0:
-        # Clean up failed clone — rmtree peut être long sur repo déjà partiellement cloné.
-        if target.exists():
-            await asyncio.to_thread(shutil.rmtree, target, ignore_errors=True)
-        err = (r.stderr or r.stdout or "").strip()
-        raise HTTPException(400, err[:500])
-    # Le clone tourne côté HÔTE (UID app) → le dossier appartient à l'app, pas au
-    # user in-container (UID 10001) qui ne peut alors NI l'éditer NI le supprimer.
-    # On ré-aligne sur le modèle 10001 (ACL + chown) pour le rendre éditable.
-    from shared_infra.sandbox.exec_bridge import sandbox_grant_access
-    await sandbox_grant_access(int(uid), dir_name)
+    try:
+        r = await _reseau(racine, ["clone", "--progress", "--", url, rel], url=url, data=data,
+                          timeout=120)
+        if r.returncode != 0:
+            err = (r.stderr or r.stdout or "").strip()
+            raise HTTPException(400, err[:500])
+    except HTTPException:
+        # Échec, délai dépassé (git tué à l'échéance ne nettoie rien) ou refus :
+        # le clone partiel est retiré — un dossier vide existant, vidé —,
+        # sinon le nouvel essai répondrait 409.
+        try:
+            await racine.agent.fsop("remove", path=rel, recursive=True, missing_ok=True)
+            if existait:
+                await racine.agent.fsop("mkdir", path=rel, parents=True)
+        except AgentError:
+            pass
+        raise
     # AUDIT 2026-08-02 — si l'utilisateur a fourni des creds EXPLICITES au clone
     # (champ token du dialogue, override), on les PERSISTE keyés sur le host de
     # l'URL → push/pull/PR et clones futurs les réutilisent sans nouvelle saisie
@@ -625,14 +609,13 @@ async def api_git_clone(request: Request):
 @router.post("/api/sandbox/git/stage")
 async def api_git_stage(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     paths = _paths_arg(data.get("paths") or [])
     if not paths:
-        r = await _agit(repo, "add", "-A")
+        r = await _git(d, "add", "-A")
     else:
-        r = await _agit(repo, "add", "--", *paths)
+        r = await _git(d, "add", "--", *paths)
     if r.returncode != 0:
         raise HTTPException(400, r.stderr.strip())
     return {"ok": True}
@@ -641,14 +624,13 @@ async def api_git_stage(request: Request):
 @router.post("/api/sandbox/git/unstage")
 async def api_git_unstage(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     paths = _paths_arg(data.get("paths") or [])
     if not paths:
-        r = await _agit(repo, "reset", "HEAD")
+        r = await _git(d, "reset", "HEAD")
     else:
-        r = await _agit(repo, "reset", "HEAD", "--", *paths)
+        r = await _git(d, "reset", "HEAD", "--", *paths)
     if r.returncode != 0:
         raise HTTPException(400, r.stderr.strip())
     return {"ok": True}
@@ -657,43 +639,50 @@ async def api_git_unstage(request: Request):
 @router.post("/api/sandbox/git/discard")
 async def api_git_discard(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     paths = data.get("paths", [])
     if not paths:
         # Discard ALL: restore tracked + remove untracked
-        await _agit(repo, "checkout", "--", ".")
-        await _agit(repo, "clean", "-fd")
+        await _git(d, "checkout", "--", ".")
+        await _git(d, "clean", "-fd")
     else:
-        for p in paths:
-            target = (repo / p).resolve()
-            if not _path_inside(target, repo):     # containment robuste (cf. api_git_clone)
+        for p in _paths_arg(paths):
+            cible = _dans_depot(d, p)
+            if cible is None:
                 continue
             # Try git checkout (works for tracked modified files)
-            r = await _agit(repo, "checkout", "--", p)
-            if r.returncode != 0:
-                # Untracked or new file: remove manually — async-safe.
-                if target.is_dir():
-                    await asyncio.to_thread(shutil.rmtree, target, ignore_errors=True)
-                elif target.is_file():
-                    target.unlink(missing_ok=True)
-    await _grant_after_git(uid, sb, repo)
+            r = await _git(d, "checkout", "--", p)
+            if r.returncode != 0 and await _parents_sans_lien(d, cible):
+                # Non suivi ou nouveau : retiré (un lien : lui-même).
+                await _relaye(d.agent.fsop("remove", path=cible, recursive=True,
+                                           missing_ok=True))
     return {"ok": True}
+
+
+async def _parents_sans_lien(d: _Depot, cible: str) -> bool:
+    """Aucun dossier entre le dépôt et ``cible`` n'est un lien : l'agent suit
+    les liens des dossiers parents, un « lnk/fichier » aurait été supprimé
+    hors du dépôt (relecture L4.4)."""
+    base = f"{d.rel}/" if d.rel else ""
+    parties = cible[len(base):].split("/")[:-1]
+    parents = [base + "/".join(parties[:i + 1]) for i in range(len(parties))]
+    if not parents:
+        return True
+    entrees = await _relaye(d.agent.stat(parents))
+    return all(e.get("kind") == "dir" and not e.get("link") for e in entrees)
 
 
 @router.post("/api/sandbox/git/commit")
 async def api_git_commit(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     message = (data.get("message") or "").strip()
     if not message:
         raise HTTPException(400, "Message requis")
     username = get_username_by_id(uid) or "user"
-    r = await _agit(repo, "commit", "-m", message,
-                    "--author", f"{username} <{username}@elpis>")
+    r = await _git(d, "commit", "-m", message, "--author", f"{username} <{username}@elpis>")
     if r.returncode != 0:
         err = r.stderr.strip() or r.stdout.strip()
         raise HTTPException(400, err[:500])
@@ -703,28 +692,28 @@ async def api_git_commit(request: Request):
 @router.post("/api/sandbox/git/push")
 async def api_git_push(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
-    # SECURITY FIX #L bis — couvre l'édition directe de .git/config
-    # via l'API sandbox de fichiers (vecteur qui bypassait #L sur le
-    # endpoint /api/sandbox/git/remote). Helper sync (git config + DB) →
-    # thread (passe 4, B1).
-    hosts = await asyncio.to_thread(_conn_hosts, uid)
-    await asyncio.to_thread(_validate_all_remote_urls, repo, hosts)
+    d = await _depot(uid, data.get("repo", ""))
     remote = _ref_arg(data.get("remote") or "origin", "Remote")
     branch = _ref_arg(data["branch"], "Branche") if data.get("branch") else ""
-    force = data.get("force", False)
-    # Credentials : Connecteurs Git (résolus par le remote) ; body = override.
-    cred_user, cred_token = await asyncio.to_thread(_resolved_push_creds, uid, repo, data)
-    args = ["push"]
-    if force:
-        args.append("--force-with-lease")
+    url = await _relaye(git_ops.remote_url(d.agent, d.rel, remote, push=True))
+    force = bool(data.get("force", False))
+    args = ["--force-with-lease"] if force else []
+    if not branch:
+        # Branche sans amont (« Nouvelle branche ») et aucune refspec de push
+        # configurée : poussée sous son nom et suivie, comme ``git push -u``
+        # (sinon « has no upstream branch »).
+        amont = await _git(d, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+        config = await _git(d, "config", "--get-all", f"remote.{remote}.push")
+        courante = (await _git(d, "branch", "--show-current")).stdout.strip()
+        if not amont.ok and not config.stdout.strip() and courante:
+            branch, args = _ref_arg(courante, "Branche"), [*args, "--set-upstream"]
     args += ["--end-of-options", remote] + ([branch] if branch else [])
-    if cred_token:
-        r = await _agit_creds(repo, *args, username=cred_user, token=cred_token)
-    else:
-        r = await _agit(repo, *args, timeout=60)
+    # Le relais ne laisse passer que ces refs (ni suppression, ni autre).
+    refs = await _refs_du_push(d, args, url=url, data=data, force=force)
+    if not refs:
+        return {"ok": True, "message": "Déjà à jour"}
+    r = await _reseau(d, ["push", *args], url=url, data=data, push_refs=refs)
     if r.returncode != 0:
         err = (r.stderr or r.stdout or "").strip()
         raise HTTPException(400, err[:500])
@@ -734,97 +723,92 @@ async def api_git_push(request: Request):
 @router.post("/api/sandbox/git/pull")
 async def api_git_pull(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
-    # SECURITY FIX #L bis — cf. push.
-    hosts = await asyncio.to_thread(_conn_hosts, uid)
-    await asyncio.to_thread(_validate_all_remote_urls, repo, hosts)
-    rebase = data.get("rebase", False)
-    cred_user, cred_token = await asyncio.to_thread(_resolved_push_creds, uid, repo, data)
-    args = ["pull"]
-    if rebase:
-        args.append("--rebase")
-    if cred_token:
-        r = await _agit_creds(repo, *args, username=cred_user, token=cred_token)
-    else:
-        r = await _agit(repo, *args, timeout=60)
+    d = await _depot(uid, data.get("repo", ""))
+    # Fetch du remote de la branche par le relais, puis fusion locale de son
+    # amont, selon le bouton et la configuration du dépôt (``_mode_pull``).
+    mode = await _mode_pull(d, bool(data.get("rebase", False)))
+    r = await _relaye(git_ops.pull(d.agent, d.rel, await _remote_suivi(d), "", mode, uid=uid,
+                                   timeout_s=60, max_out=_SORTIE, auth=_auth(data)))
+    if r.timed_out:
+        raise HTTPException(504, "git pull : délai dépassé")
+    _refus_relais(r)
     if r.returncode != 0:
         err = (r.stderr or r.stdout or "").strip()
         raise HTTPException(400, err[:500])
-    await _grant_after_git(uid, sb, repo)
     return {"ok": True, "message": (r.stdout or r.stderr).strip()[:200]}
 
 
 @router.post("/api/sandbox/git/fetch")
 async def api_git_fetch(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
-    # SECURITY FIX #L bis — cf. push. ``fetch --all`` hit chaque remote ;
-    # on les valide tous AVANT d'invoquer git.
-    hosts = await asyncio.to_thread(_conn_hosts, uid)
-    await asyncio.to_thread(_validate_all_remote_urls, repo, hosts)
-    r = await _agit(repo, "fetch", "--all", "--prune", timeout=60)
-    if r.returncode != 0:
-        raise HTTPException(400, (r.stderr or "").strip()[:300])
-    return {"ok": True}
+    d = await _depot(uid, data.get("repo", ""))
+    # ``fetch --all --prune`` : chaque remote HTTP(S) par le relais, un ticket
+    # chacun ; les autres (chemin local, ssh…) ne passent pas par Elpis.
+    ignores = []
+    for nom in (await _git(d, "remote")).stdout.split():
+        urls = [] if nom.startswith("-") or not _REF_RE.fullmatch(nom) else \
+            await _relaye(git_ops.remote_urls(d.agent, d.rel, nom))
+        if len(urls) != 1 or urlsplit(urls[0]).scheme not in git_ops.REMOTE_SCHEMES:
+            ignores.append(nom)
+            continue
+        # Sans identifiants saisis (plusieurs hôtes possibles : ils ne sont
+        # tapés que pour un push ou un pull) ni sous-modules (autres dépôts
+        # que celui du ticket).
+        r = await _reseau(d, ["fetch", "--prune", "--no-recurse-submodules",
+                              "--end-of-options", nom], url=urls[0], data={})
+        if r.returncode != 0:
+            raise HTTPException(400, (r.stderr or "").strip()[:300])
+    return {"ok": True, **({"skipped": ignores} if ignores else {})}
 
 
 @router.post("/api/sandbox/git/checkout")
 async def api_git_checkout(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     branch = _ref_arg(data.get("branch"), "Branche")
     create = data.get("create", False)
-    args = ["checkout"]
-    if create:
-        args.append("-b")
-    args += ["--end-of-options", branch]
-    r = await _agit(repo, *args)
+    # ``-b`` prend l'argument suivant pour nom : ``-b --end-of-options x``
+    # créait « --end-of-options » (bouton cassé depuis 8218cc0). ``_ref_arg``
+    # refuse déjà un nom qui commence par « - ».
+    args = ["checkout", "-b", branch] if create else ["checkout", "--end-of-options", branch]
+    r = await _git(d, *args)
     if r.returncode != 0:
         err = (r.stderr or r.stdout or "").strip()
         raise HTTPException(400, err[:500])
-    await _grant_after_git(uid, sb, repo)
     return {"ok": True, "message": (r.stderr or r.stdout).strip()[:200]}
 
 
 @router.post("/api/sandbox/git/merge")
 async def api_git_merge(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     branch = _ref_arg(data.get("branch"), "Branche")
     strategy = data.get("strategy", "")  # "", "theirs", "ours"
     args = ["merge", "--no-edit"]
     if strategy in ("theirs", "ours"):
         args += ["-X", strategy]
     args += ["--end-of-options", branch]
-    r = await _agit(repo, *args)
+    r = await _git(d, *args)
     if r.returncode == 0:
-        await _grant_after_git(uid, sb, repo)
         return {"ok": True, "conflicts": False, "message": r.stdout.strip()[:200]}
     # Check for conflicts
-    st = await _agit(repo, "status", "--porcelain=v1")
+    st = await _git(d, "status", "--porcelain=v1")
     conflicted = []
     for line in st.stdout.splitlines():
         if len(line) >= 4 and line[0] == 'U' or (len(line) >= 4 and line[1] == 'U') or line[:2] in ('AA', 'DD'):
             fpath = line[3:]
             conflicted.append(fpath)
     if conflicted:
-        # Working tree now carries conflict markers (host-owned) the model must
-        # edit to resolve → make them cross-writable too.
-        await _grant_after_git(uid, sb, repo)
         return {"ok": False, "conflicts": True, "conflicted_files": conflicted,
                 "message": f"{len(conflicted)} fichier(s) en conflit"}
     # Non-conflict error
     err = (r.stderr or r.stdout or "").strip()
     # Abort the failed merge to leave repo clean
-    await _agit(repo, "merge", "--abort")
+    await _git(d, "merge", "--abort")
     raise HTTPException(400, err[:500])
 
 
@@ -832,14 +816,12 @@ async def api_git_merge(request: Request):
 async def api_git_merge_abort(request: Request):
     """Abort an in-progress merge."""
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
-    r = await _agit(repo, "merge", "--abort")
+    d = await _depot(uid, data.get("repo", ""))
+    r = await _git(d, "merge", "--abort")
     if r.returncode != 0:
         # Fallback: hard reset
-        await _agit(repo, "reset", "--hard", "HEAD")
-    await _grant_after_git(uid, sb, repo)
+        await _git(d, "reset", "--hard", "HEAD")
     return {"ok": True}
 
 
@@ -847,9 +829,8 @@ async def api_git_merge_abort(request: Request):
 async def api_git_merge_resolve(request: Request):
     """Resolve merge conflicts with a strategy."""
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     strategy = data.get("strategy", "theirs")  # "theirs" or "ours"
     if strategy not in ("ours", "theirs"):
         raise HTTPException(400, "strategy : ours ou theirs")
@@ -858,45 +839,42 @@ async def api_git_merge_resolve(request: Request):
         raise HTTPException(400, "files : liste de chemins")
     if not files:
         # Resolve all conflicted files
-        st = await _agit(repo, "status", "--porcelain=v1")
+        st = await _git(d, "status", "--porcelain=v1")
         for line in st.stdout.splitlines():
             if len(line) >= 4 and (line[0] == 'U' or line[1] == 'U' or line[:2] in ('AA', 'DD')):
                 files.append(line[3:])
     for f in files:
-        await _agit(repo, "checkout", f"--{strategy}", "--", f)
-        await _agit(repo, "add", "--", f)
+        await _git(d, "checkout", f"--{strategy}", "--", f)
+        await _git(d, "add", "--", f)
     # Auto-commit if all conflicts resolved
-    st2 = await _agit(repo, "status", "--porcelain=v1")
+    st2 = await _git(d, "status", "--porcelain=v1")
     still_conflicted = any(
         (len(l) >= 4 and (l[0] == 'U' or l[1] == 'U' or l[:2] in ('AA', 'DD')))
         for l in st2.stdout.splitlines()
     )
     if not still_conflicted:
         username = get_username_by_id(uid) or "user"
-        await _agit(repo, "commit", "--no-edit",
-                    "--author", f"{username} <{username}@elpis>")
-    await _grant_after_git(uid, sb, repo)
+        await _git(d, "commit", "--no-edit", "--author", f"{username} <{username}@elpis>")
     return {"ok": True, "resolved": len(files),
             "all_resolved": not still_conflicted}
 
 
 @router.get("/api/sandbox/git/merge-preview")
-def api_git_merge_preview(request: Request):
+async def api_git_merge_preview(request: Request):
     """Preview what merging a branch would change."""
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
-    repo = _git_resolve_repo_or_root(sb, request.query_params.get("repo", ""))
+    d = await _depot(uid, request.query_params.get("repo", ""))
     branch = _ref_arg(request.query_params.get("branch"), "Branche")
     # Commits that would be merged
-    r_log = _git_run(repo, "log", "--oneline", f"HEAD..{branch}", "--format=%h|%s|%an")
+    r_log = await _git(d, "log", "--oneline", f"HEAD..{branch}", "--format=%h|%s|%an")
     commits = []
     for line in r_log.stdout.strip().splitlines():
         parts = line.split("|", 2)
         if len(parts) >= 3:
             commits.append({"short": parts[0], "message": parts[1], "author": parts[2]})
     # File changes (numstat)
-    r_stat = _git_run(repo, "diff", "--numstat", f"HEAD...{branch}")
-    files = []
+    r_stat = await _git(d, "diff", "--numstat", f"HEAD...{branch}")
+    files: List[dict] = []
     for line in r_stat.stdout.strip().splitlines():
         parts = line.split("\t")
         if len(parts) >= 3:
@@ -918,26 +896,19 @@ def api_git_merge_preview(request: Request):
 @router.post("/api/sandbox/git/rebase")
 async def api_git_rebase(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     branch = (data.get("branch") or "").strip()
     abort = data.get("abort", False)
     cont = data.get("continue", False)
     if abort:
-        r = await _agit(repo, "rebase", "--abort")
+        r = await _git(d, "rebase", "--abort")
     elif cont:
-        r = await _agit(repo, "rebase", "--continue")
+        r = await _git(d, "rebase", "--continue")
     elif branch:
-        r = await _agit(repo, "rebase", "--end-of-options", _ref_arg(branch, "Branche"))
+        r = await _git(d, "rebase", "--end-of-options", _ref_arg(branch, "Branche"))
     else:
         raise HTTPException(400, "Branche requise")
-    # Le rebase (comme --abort/--continue) RÉÉCRIT l'arbre de travail côté
-    # HÔTE → réalignement obligatoire, cf. ``_grant_after_git``. Fait AVANT
-    # de remonter l'erreur : un rebase qui s'arrête sur conflit a déjà posé
-    # les fichiers à résoudre, qui doivent rester éditables depuis le
-    # conteneur (même contrat que la route ``merge``).
-    await _grant_after_git(uid, sb, repo)
     if r.returncode != 0:
         err = (r.stderr or r.stdout or "").strip()
         raise HTTPException(400, err[:500])
@@ -947,29 +918,24 @@ async def api_git_rebase(request: Request):
 @router.post("/api/sandbox/git/stash")
 async def api_git_stash(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     action = data.get("action", "push")
     if action == "push":
         msg = data.get("message", "")
         args = ["stash", "push"]
         if msg:
             args.extend(["-m", msg])
-        r = await _agit(repo, *args)
+        r = await _git(d, *args)
     elif action == "pop":
-        r = await _agit(repo, "stash", "pop")
+        r = await _git(d, "stash", "pop")
     elif action == "list":
-        r = await _agit(repo, "stash", "list")
+        r = await _git(d, "stash", "list")
         return {"ok": True, "stashes": r.stdout.strip().splitlines()}
     elif action == "drop":
-        r = await _agit(repo, "stash", "drop")
+        r = await _git(d, "stash", "drop")
     else:
         raise HTTPException(400, "Action invalide")
-    # ``push`` (retire les modifs) comme ``pop`` (les réapplique) réécrivent
-    # l'arbre côté HÔTE → réalignement, y compris sur un pop en conflit.
-    # ``list`` est déjà sorti plus haut (lecture pure).
-    await _grant_after_git(uid, sb, repo)
     if r.returncode != 0:
         err = (r.stderr or r.stdout or "").strip()
         raise HTTPException(400, err[:500])
@@ -979,22 +945,17 @@ async def api_git_stash(request: Request):
 @router.post("/api/sandbox/git/remote")
 async def api_git_remote(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     url = (data.get("url") or "").strip()
     name = _ref_arg(data.get("name") or "origin", "Nom de remote")
     if not url:
         raise HTTPException(400, "URL requise")
-    # SECURITY FIX #L — sans ça, l'user pouvait contourner le filtre
-    # de _validate_git_url posé sur clone : ``git init`` (autorisé) +
-    # ``remote add origin file:///etc/passwd`` + ``git fetch`` → contenu
-    # du fichier dans le repo. Filtre identique appliqué ici, mêmes
-    # règles anti-SSRF.
-    _validate_git_url(url, allow_hosts=await asyncio.to_thread(_conn_hosts, uid))
-    r = await _agit(repo, "remote", "set-url", name, url)
+    # Même garde que le relais, dès la saisie (DNS et base : hors boucle).
+    await asyncio.to_thread(_validate_git_url, url, uid)
+    r = await _git(d, "remote", "set-url", name, url)
     if r.returncode != 0:
-        r = await _agit(repo, "remote", "add", name, url)
+        r = await _git(d, "remote", "add", name, url)
     if r.returncode != 0:
         raise HTTPException(400, (r.stderr or "").strip()[:300])
     return {"ok": True}
@@ -1003,112 +964,72 @@ async def api_git_remote(request: Request):
 @router.post("/api/sandbox/git/config")
 async def api_git_config(request: Request):
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     for key in ("user.name", "user.email"):
         val = (data.get(key) or "").strip()
         if val:
-            await _agit(repo, "config", key, val)
+            await _git(d, "config", key, val)
     return {"ok": True}
 
 
 @router.get("/api/sandbox/git/tree")
-def api_git_tree(request: Request):
-    """File tree of a specific repo.
-
-    Ne suit AUCUN symlink et borne la profondeur — cf. le bloc « Parcours
-    d'arborescence » plus haut pour le détail des deux défauts corrigés
-    (fuite de l'arbo hôte, et 500 sur boucle/lien mort).
-    """
+async def api_git_tree(request: Request):
+    """File tree of a specific repo : liste de l'agent (liens ni listés ni
+    suivis, entrées cachées exclues, profondeur ``_TREE_MAX_DEPTH`` + 1).
+    Rafraîchi au retour sur la fenêtre : dépôt sondé en passif."""
+    from shared_infra.sandbox.routes_files import _arbre
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
-    repo = _git_resolve_repo_or_root(sb, request.query_params.get("repo", ""))
-    try:
-        base_res = repo.resolve()
-    except OSError:
-        raise HTTPException(404, "Dépôt illisible")
-
-    def _build(root: Path, base: Path, depth: int = 0):
-        items = []
-        if depth > _TREE_MAX_DEPTH:
-            return items
-        try:
-            with os.scandir(root) as it:
-                entries = sorted(
-                    it,
-                    key=lambda e: (not e.is_dir(follow_symlinks=False), e.name.lower()),
-                )
-        except OSError:
-            # PermissionError, ENAMETOOLONG (chaîne de liens), dossier
-            # disparu en cours de route… → sous-arbre vide, jamais de 500.
-            return items
-        for entry in entries:
-            try:
-                if entry.name.startswith("."):
-                    continue
-                # Skip symlinks (dossiers ET fichiers) : is_symlink ne suit pas.
-                if entry.is_symlink():
-                    continue
-                p = Path(entry.path)
-                rel = str(p.relative_to(base))
-                # Containment sur le chemin RÉSOLU (défense contre un ancêtre
-                # déjà symlinké, montage exotique…).
-                if not _path_inside(p.resolve(), base_res):
-                    continue
-                if entry.is_dir(follow_symlinks=False):
-                    items.append({"name": entry.name, "path": rel, "type": "folder",
-                                  "children": _build(p, base, depth + 1)})
-                else:
-                    items.append({"name": entry.name, "path": rel, "type": "file",
-                                  "size": entry.stat().st_size})
-            except (OSError, ValueError):
-                continue
-        return items
-    return {"items": _build(repo, repo)}
+    d = await _depot(uid, request.query_params.get("repo", ""), passive=True)
+    liste = await _relaye(d.agent.list(d.rel, depth=_TREE_MAX_DEPTH + 1, hidden=False,
+                                       max_entries=TREE_MAX_ENTRIES, passive=True))
+    n = len(d.rel) + 1 if d.rel else 0
+    return {"items": _arbre([{**e, "path": e["path"][n:]} for e in liste.entries]),
+            "truncated": liste.truncated}
 
 
 @router.get("/api/sandbox/git/commit-diff")
-def api_git_commit_diff(request: Request):
+async def api_git_commit_diff(request: Request):
     """Show the diff of a specific commit + list of changed files."""
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
-    repo = _git_resolve_repo_or_root(sb, request.query_params.get("repo", ""))
+    d = await _depot(uid, request.query_params.get("repo", ""))
     h = _hash_arg(request.query_params.get("hash", ""))
     # Changed files with status
-    r_files = _git_run(repo, "diff-tree", "--no-commit-id", "-r", "--name-status",
-                       "--end-of-options", h)
+    r_files = await _git(d, "diff-tree", "--root", "--no-commit-id", "-r", "--name-status",
+                         "--end-of-options", h)
     files = []
     for line in r_files.stdout.strip().splitlines():
         parts = line.split("\t", 1)
         if len(parts) == 2:
             files.append({"status": parts[0], "path": parts[1]})
     # Full diff
-    r2 = _git_run(repo, "show", "--no-color", "--format=", "--end-of-options", h)
+    r2 = await _git(d, "show", "--no-color", "--format=", "--end-of-options", h)
     diff = r2.stdout if r2.returncode == 0 else ""
     # Commit info
-    r_info = _git_run(repo, "log", "-1", "--format=%s|%an|%at", "--end-of-options", h)
+    r_info = await _git(d, "log", "-1", "--format=%s|%an|%at", "--end-of-options", h)
     msg, author, ts = "", "", 0
     if r_info.returncode == 0:
         parts = r_info.stdout.strip().split("|", 2)
         if len(parts) >= 3:
             msg, author, ts = parts[0], parts[1], int(parts[2])
-    return {"files": files, "diff": diff, "message": msg, "author": author, "timestamp": ts}
+    return {"files": files, "diff": diff, "message": msg, "author": author, "timestamp": ts,
+            "truncated": r2.truncated or r_files.truncated}
 
 
 @router.get("/api/sandbox/git/show-file")
-def api_git_show_file(request: Request):
+async def api_git_show_file(request: Request):
     """Show file content at a specific commit."""
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
-    repo = _git_resolve_repo_or_root(sb, request.query_params.get("repo", ""))
+    d = await _depot(uid, request.query_params.get("repo", ""))
     h = request.query_params.get("hash", "")
     fpath = request.query_params.get("path", "")
     if not h or not fpath:
         raise HTTPException(400, "hash et path requis")
-    r = _git_run(repo, "show", "--end-of-options", f"{_ref_arg(h, 'Hash')}:{fpath}")
+    r = await _git(d, "show", "--end-of-options", f"{_ref_arg(h, 'Hash')}:{fpath}")
     if r.returncode != 0:
         raise HTTPException(404, r.stderr.strip()[:200])
+    if r.truncated:
+        raise HTTPException(413, f"Fichier de plus de {_SORTIE >> 20} Mio : non affiché")
     return {"content": r.stdout}
 
 
@@ -1116,13 +1037,12 @@ def api_git_show_file(request: Request):
 async def api_git_restore_commit(request: Request):
     """Restore the repo to a specific commit by creating a revert/reset."""
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
+    d = await _depot(uid, data.get("repo", ""))
     h = _hash_arg(data.get("hash"))
     force = bool(data.get("force"))
     # Save current HEAD as a safety reference (renvoyé pour permettre revert-last).
-    cur = await _agit(repo, "rev-parse", "HEAD")
+    cur = await _git(d, "rev-parse", "HEAD")
     cur_hash = cur.stdout.strip() if cur.returncode == 0 else ""
     if not cur_hash:
         # HEAD non né (aucun commit) : il ne peut exister aucun commit cible à
@@ -1134,7 +1054,7 @@ async def api_git_restore_commit(request: Request):
     # de l'arbre de travail (aucun stash interne). On refuse par défaut (409) et, si
     # l'utilisateur confirme (force=true), on sauvegarde l'arbre courant dans un tag
     # de secours AVANT d'écraser, pour que rien ne soit perdu.
-    st = await _agit(repo, "status", "--porcelain=v1", "-uall")
+    st = await _git(d, "status", "--porcelain=v1", "-uall")
     if st.returncode != 0:
         # Fail-closed : si on ne peut pas déterminer l'état de l'arbre, ne JAMAIS
         # écraser à l'aveugle — on refuse plutôt que de risquer une perte de données.
@@ -1158,20 +1078,19 @@ async def api_git_restore_commit(request: Request):
         backup_ref = f"restore-backup-{int(time.time())}"
         username = get_username_by_id(uid) or "user"
         author = f"{username} <{username}@elpis>"
-        await _agit(repo, "add", "-A")
-        bk = await _agit(repo, "commit", "-m",
-                         f"Sauvegarde avant restauration vers {h[:8]}",
-                         "--author", author, "--allow-empty", "--no-verify")
+        await _git(d, "add", "-A")
+        bk = await _git(d, "commit", "-m", f"Sauvegarde avant restauration vers {h[:8]}",
+                        "--author", author, "--allow-empty", "--no-verify")
         if bk.returncode == 0:
             # Taguer ce commit de secours puis défaire le commit (garder l'historique
             # propre) — le tag conserve l'arbre, rien n'est perdu.
-            await _agit(repo, "tag", backup_ref)
+            await _git(d, "tag", backup_ref)
             # Reset MIXED (PAS --soft) : ramène HEAD *et l'index* à cur_hash, ce qui
             # DÉSINDEXE les fichiers non suivis ajoutés par ``add -A`` ci-dessus.
             # Avec --soft, l'index gardait ces fichiers stagés et le commit de
             # restauration final les embarquait → fuite de fichiers non suivis dans
             # l'historique (restauration non fidèle au commit cible).
-            await _agit(repo, "reset", cur_hash)
+            await _git(d, "reset", cur_hash)
         else:
             # Impossible de sauvegarder : on n'écrase RIEN, on remonte l'erreur.
             raise HTTPException(
@@ -1180,19 +1099,12 @@ async def api_git_restore_commit(request: Request):
                 + (bk.stderr or "").strip()[:200],
             )
     # Use git checkout of all files from that commit + new commit
-    r = await _agit(repo, "checkout", h, "--", ".")
-    # ``checkout <hash> -- .`` réécrit TOUT l'arbre côté HÔTE et crée au besoin
-    # des répertoires neufs en 0775 host-owned, dans lesquels le shell
-    # in-container (UID 10001, classe « other » = r-x) ne peut plus ni créer ni
-    # supprimer. Réalignement avant toute sortie, succès comme échec.
-    await _grant_after_git(uid, sb, repo)
+    r = await _git(d, "checkout", h, "--", ".")
     if r.returncode != 0:
         raise HTTPException(400, (r.stderr or "").strip()[:300])
     username = get_username_by_id(uid) or "user"
-    r2 = await _agit(repo, "commit", "-m",
-                     f"Restauration vers {h[:8]}",
-                     "--author", f"{username} <{username}@elpis>",
-                     "--allow-empty")
+    r2 = await _git(d, "commit", "-m", f"Restauration vers {h[:8]}",
+                    "--author", f"{username} <{username}@elpis>", "--allow-empty")
     msg = r2.stdout.strip()[:200] if r2.returncode == 0 else "Fichiers restaurés (non commité)"
     return {"ok": True, "message": msg, "previous_head": cur_hash, "backup_ref": backup_ref}
 
@@ -1201,17 +1113,12 @@ async def api_git_restore_commit(request: Request):
 async def api_git_revert_last(request: Request):
     """Revert the last commit (undo a restoration)."""
     uid = require_user_id(request)
-    sb = _get_work_path(uid)
     data = await request.json()
-    repo = _git_resolve_repo_or_root(sb, data.get("repo", ""))
-    r = await _agit(repo, "revert", "HEAD", "--no-edit")
+    d = await _depot(uid, data.get("repo", ""))
+    r = await _git(d, "revert", "HEAD", "--no-edit")
     if r.returncode != 0:
         # Try reset if revert fails (e.g. merge conflicts)
         err = (r.stderr or "").strip()
-        await _agit(repo, "revert", "--abort")
-        # L'abort restaure l'arbre côté HÔTE → réalignement là aussi.
-        await _grant_after_git(uid, sb, repo)
+        await _git(d, "revert", "--abort")
         raise HTTPException(400, err[:300])
-    # Le revert réécrit l'arbre côté HÔTE → réalignement (cf. _grant_after_git).
-    await _grant_after_git(uid, sb, repo)
     return {"ok": True, "message": (r.stdout or "").strip()[:200]}

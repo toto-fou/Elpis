@@ -1,15 +1,17 @@
 # SPDX-License-Identifier: MIT
+import collections
 import logging
 import os
-import time
-import psutil
-import collections
 import threading
-from concurrent.futures import ThreadPoolExecutor
+import time
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Iterable
-from shared_infra.observability.usage_store import db_conn
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, Iterable, List, Optional
+
+import psutil
+
 from shared_infra.db._dialect import json_get, local_strftime, round_
+from shared_infra.observability.usage_store import db_conn
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -302,8 +304,8 @@ def _dir_size_bytes(path):
                 visited += 1
                 if visited > 32000:
                     return total  # safety bail for huge sandbox dirs
-                try:
-                    total += os.path.getsize(os.path.join(root, f))
+                try:                     # lstat : un lien (/proc/kcore…) n'est pas suivi
+                    total += os.lstat(os.path.join(root, f)).st_size
                 except OSError:
                     pass
     except OSError:
@@ -562,6 +564,37 @@ class KPILatencyP99Provider(MetricProvider):
         return {"value":v,"unit":"sec (99e)","color":"red","icon":"ph-warning"}
 
 
+class KPILLMWaitProvider(MetricProvider):
+    """Attente d'un créneau LLM avant chaque appel (``llm_wait_time_ms``,
+    mode optimisé) : moyenne des attentes non nulles, P95 en détail. Un P95
+    qui grimpe = créneaux saturés (L5.6)."""
+    id="kpi_llm_wait"; title="Attente d'un créneau LLM"; type="value"; width="1/4"; icon="ph-hourglass-medium"; color="amber"
+    @property
+    def category(self): return "performance"
+    @property
+    def event_types(self): return ('llm_wait_time_ms',)
+    def get_data(self, scope_hours=None):
+        h = _scope_hours(scope_hours)
+        p95 = _percentile_metric("llm_wait_time_ms", hours=h, percentile=95)
+        return {"value": _avg_metric("llm_wait_time_ms", hours=h), "unit": "ms (moy.)",
+                "color": "amber", "icon": "ph-hourglass-medium",
+                "detail": f"P95 {round(p95)} ms · attentes non nulles sur {_scope_label(h)}"}
+
+class KPIKVPrefixReuseProvider(MetricProvider):
+    """Part du prompt reprise du cache KV au pré-remplissage
+    (``kv_prefix_reuse_pct``) : mesure directe de la stabilité du préfixe.
+    Les 0 % comptent (préfixe cassé), d'où ``positive_only=False`` (L5.6)."""
+    id="kpi_kv_prefix_reuse"; title="Réutilisation du cache KV"; type="value"; width="1/4"; icon="ph-recycle"; color="emerald"
+    @property
+    def category(self): return "performance"
+    @property
+    def event_types(self): return ('kv_prefix_reuse_pct',)
+    def get_data(self, scope_hours=None):
+        h = _scope_hours(scope_hours)
+        return {"value": _avg_metric("kv_prefix_reuse_pct", hours=h, positive_only=False), "unit": "% du prompt",
+                "color": "emerald", "icon": "ph-recycle",
+                "detail": f"moyenne des pré-remplissages sur {_scope_label(h)}"}
+
 class KPIAvgModelProvider(MetricProvider):
     """Modèle le plus sollicité, lu dans le registre d'usage.
 
@@ -750,7 +783,8 @@ def _proc_trend_chart(event_types_labels_colors, days=7):
     qui ressort (celui qui fuit). Une pente qui monte de façon monotone sur
     plusieurs jours == le coupable du redémarrage hebdomadaire."""
     from shared_infra.observability.metrics.process_sampler import (
-        gauge_union_params, gauge_union_sql,
+        gauge_union_params,
+        gauge_union_sql,
     )
 
     _BUCKET = local_strftime("%d/%m %Hh", "created_at")
@@ -1261,6 +1295,8 @@ registry.register(KPIAvgTPSProvider())
 registry.register(KPIAvgLatencyProvider())
 registry.register(KPILatencyP95Provider())
 registry.register(KPILatencyP99Provider())
+registry.register(KPILLMWaitProvider())
+registry.register(KPIKVPrefixReuseProvider())
 registry.register(KPIAvgModelProvider())
 registry.register(KPILLMStatusProvider())
 # System (resources)

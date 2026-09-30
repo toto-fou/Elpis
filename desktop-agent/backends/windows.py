@@ -16,7 +16,7 @@ import sys as _sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from .base import DesktopBackend, NotSupported, PartialInput, encode_screenshot, tail_truncate, shell_disabled
+from .base import DesktopBackend, NotSupported, PartialInput, encode_screenshot, shell_disabled, tail_truncate
 
 # Apartment COM DÉTERMINISTE = MTA, fixé AVANT tout import comtypes/pywinauto (faits
 # paresseusement plus bas) : c'est le modèle RECOMMANDÉ par Microsoft pour un client
@@ -55,9 +55,9 @@ def _shellexecute_error(rc: int) -> str:
     return _SHELLEXEC_ERRORS.get(rc, "erreur ShellExecute %d" % rc)
 
 try:
-    from normalize import make_node, keep_node
+    from normalize import keep_node, make_node
 except ImportError:  # pragma: no cover
-    from ..normalize import make_node, keep_node
+    from ..normalize import keep_node, make_node
 
 
 def _ensure_dpi_aware() -> None:
@@ -811,7 +811,7 @@ def _sendinput(descriptors):
                         ("time", wintypes.DWORD), ("dwExtraInfo", ULONG_PTR)]
 
         class _IU(ctypes.Union):
-            _fields_ = [("ki", KEYBDINPUT), ("mi", MOUSEINPUT)]
+            _fields_ = [("ki", KEYBDINPUT), ("mi", MOUSEINPUT)]  # noqa: RUF012 (ctypes)
 
         class INPUT(ctypes.Structure):
             _anonymous_ = ("u",)
@@ -1268,7 +1268,7 @@ def _pywinauto_desktop():
 def _open_clipboard(u, tries=10, pause=0.02) -> bool:
     """OpenClipboard avec quelques essais : juste après Ctrl+C, rdpclip / vmtoolsd le
     tiennent souvent quelques millisecondes (« clipboard busy » au premier essai)."""
-    for i in range(max(1, tries)):
+    for _i in range(max(1, tries)):
         if u.OpenClipboard(None):
             return True
         time.sleep(pause)
@@ -1385,7 +1385,7 @@ class WindowsBackend(DesktopBackend):
         pywinauto = False
         pywinauto_error = None
         try:
-            import pywinauto  # noqa: F401
+            import pywinauto as _pywinauto  # noqa: F401
             pywinauto = True
         except Exception as e:
             pywinauto_error = "%s: %s" % (type(e).__name__, e)
@@ -2106,7 +2106,7 @@ class WindowsBackend(DesktopBackend):
                     # le menu, ou le laisse affiché après l'action).
                     menu = str(control_type or "").strip().lower() == "menuitem"
                     t_act = time.monotonic()
-                    if not menu and _try_pattern_call(lambda: ctrl.invoke()):
+                    if not menu and _try_pattern_call(lambda: ctrl.invoke()):  # noqa: B023 (même itération)
                         return {"method": "invoke", "auto_id": auto_id, "name": name}
                     if time.monotonic() - t_act >= _SLOW_PATTERN_S:
                         return _uncertain("invoke", "Invoke a expiré", auto_id=auto_id, name=name)
@@ -2245,8 +2245,8 @@ class WindowsBackend(DesktopBackend):
         par un HTTP 500. Seul un échec ShellExecute EXPLICITE (code ≤ 32, ex.
         fichier introuvable) lève NotSupported → 501 avec un motif décodé."""
         import ctypes
-        from ctypes import wintypes
         import time
+        from ctypes import wintypes
 
         info: Dict[str, Any] = {"launched": str(target), "found": False}
         try:

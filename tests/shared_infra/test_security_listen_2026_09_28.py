@@ -30,7 +30,6 @@ import configure as C  # noqa: E402
 import tui as T  # noqa: E402
 import wizard as W  # noqa: E402
 
-
 # ── Console admin ────────────────────────────────────────────────────────────
 
 @pytest.fixture()

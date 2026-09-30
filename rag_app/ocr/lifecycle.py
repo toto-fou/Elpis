@@ -22,9 +22,7 @@ import asyncio
 import logging
 from typing import Dict, List, Set
 
-from . import jobs as ocr_jobs
-from . import queue as ocr_queue
-from . import store as ocr_store
+from . import jobs as ocr_jobs, queue as ocr_queue, store as ocr_store
 from .config import ocr_feature_enabled
 
 logger = logging.getLogger("uvicorn.error")

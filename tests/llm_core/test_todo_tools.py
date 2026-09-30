@@ -15,7 +15,6 @@ import pytest
 
 from llm_core.tools.todo_tools import MAX_TODOS, _coerce
 
-
 # ── _coerce : schéma souple, jamais d'erreur dure ────────────────────────────
 
 def test_coerce_normalise_et_tolere():
@@ -151,8 +150,8 @@ async def test_execute_tool_batch_emet_todo_updated():
 # (allowed_set = filter_categories | hidden) dès qu'un serveur est connecté.
 
 def test_categorie_task_cachee():
-    from llm_core.tools.todo_tools import CATEGORY
     from llm_core._mcp_categories import _normalize_descriptor
+    from llm_core.tools.todo_tools import CATEGORY
     assert CATEGORY["hidden"] is True
     # Les deux chemins de résolution (meta expédié / fallback statique).
     assert _normalize_descriptor("task", CATEGORY)["hidden"] is True
@@ -236,6 +235,7 @@ def test_todowrite_ctx_est_un_context_type():
     identité username/chat_id perdue → persisted:false systématique — bug
     trouvé au live E2E 2026-07-12)."""
     import inspect
+
     from llm_core.tools import todo_tools
     mcp = _StubMCP()
     todo_tools.register(mcp)

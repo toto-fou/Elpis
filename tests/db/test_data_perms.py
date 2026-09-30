@@ -8,8 +8,9 @@ droits avant la première connexion.
 import os
 import stat
 
-import shared_infra.db._connection as conn
 import pytest
+
+import shared_infra.db._connection as conn
 
 # Droits des fichiers de la base SQLite.
 pytestmark = pytest.mark.sqlite_only

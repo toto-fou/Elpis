@@ -19,8 +19,8 @@ if _AGENT not in sys.path:
     sys.path.insert(0, _AGENT)
 
 from elpis_auto import Session, StepError  # noqa: E402
-from elpis_auto.session import _Patience, _moved, _activity  # noqa: E402
-from test_elpis_auto import FakeBackend, _node, _calls, PNG_1x1  # noqa: E402
+from elpis_auto.session import _activity, _moved, _Patience  # noqa: E402
+from test_elpis_auto import FakeBackend, PNG_1x1, _calls, _node  # noqa: E402
 
 
 def _png(gray: int, size=(96, 54)) -> bytes:

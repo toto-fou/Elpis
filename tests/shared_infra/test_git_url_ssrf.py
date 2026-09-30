@@ -69,6 +69,7 @@ def test_redirect_handler_bloque_saut_vers_ip_interne():
     → un endpoint git pouvait rediriger vers 169.254.169.254 (métadonnées
     cloud) / LAN. Le handler re-valide chaque saut et REFUSE."""
     import urllib.error
+
     from shared_infra.git._http import _SsrfValidatingRedirectHandler
 
     h = _SsrfValidatingRedirectHandler(allow_hosts=("api.example.com",),
@@ -118,7 +119,7 @@ def test_redirect_handler_retire_authorization_cross_host(monkeypatch):
 # ``GIT_REMOTE_SCHEMES``, la protection SSRF restant portée par les checks IP.
 
 def test_git_remote_schemes_allow_http_public_host(monkeypatch):
-    from shared_infra.git.ssrf import block_remote_url_reason, GIT_REMOTE_SCHEMES
+    from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES, block_remote_url_reason
     monkeypatch.setattr(socket, "getaddrinfo",
                         lambda *a, **k: [(2, 1, 6, "", ("140.82.121.4", 80))])
     assert block_remote_url_reason("http://git.example.com/u/r.git",
@@ -126,14 +127,14 @@ def test_git_remote_schemes_allow_http_public_host(monkeypatch):
 
 
 def test_git_remote_schemes_still_block_internal_http():
-    from shared_infra.git.ssrf import block_remote_url_reason, GIT_REMOTE_SCHEMES
+    from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES, block_remote_url_reason
     for bad in ["http://169.254.169.254/meta.git", "http://10.0.0.5/r.git",
                 "http://localhost/r.git", "http://gitea.internal/r.git"]:
         assert block_remote_url_reason(bad, allow_schemes=GIT_REMOTE_SCHEMES), bad
 
 
 def test_git_remote_schemes_still_block_file_and_ssh():
-    from shared_infra.git.ssrf import block_remote_url_reason, GIT_REMOTE_SCHEMES
+    from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES, block_remote_url_reason
     for bad in ["file:///etc/passwd", "ssh://host/repo", "ftp://host/r"]:
         assert block_remote_url_reason(bad, allow_schemes=GIT_REMOTE_SCHEMES), bad
 
@@ -143,7 +144,7 @@ def test_git_remote_schemes_still_block_file_and_ssh():
 # hosts internes sont autorisés (serveur git self-hosted légitime du proprio).
 
 def test_critical_only_allows_private_lan():
-    from shared_infra.git.ssrf import block_remote_url_reason, GIT_REMOTE_SCHEMES
+    from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES, block_remote_url_reason
     for ok in ["http://10.0.0.5/r.git", "http://10.168.1.10/r.git",
                "https://172.16.4.4/r.git"]:
         assert block_remote_url_reason(ok, allow_schemes=GIT_REMOTE_SCHEMES,
@@ -151,7 +152,7 @@ def test_critical_only_allows_private_lan():
 
 
 def test_critical_only_still_blocks_metadata_and_loopback():
-    from shared_infra.git.ssrf import block_remote_url_reason, GIT_REMOTE_SCHEMES
+    from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES, block_remote_url_reason
     for bad in ["http://169.254.169.254/latest/meta-data", "http://127.0.0.1:6379/x",
                 "http://localhost/r.git", "http://[::1]/r.git", "http://0.0.0.0/r.git"]:
         assert block_remote_url_reason(bad, allow_schemes=GIT_REMOTE_SCHEMES,
@@ -159,7 +160,7 @@ def test_critical_only_still_blocks_metadata_and_loopback():
 
 
 def test_critical_only_internal_hostname_resolving_private_is_allowed(monkeypatch):
-    from shared_infra.git.ssrf import block_remote_url_reason, GIT_REMOTE_SCHEMES
+    from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES, block_remote_url_reason
     monkeypatch.setattr(socket, "getaddrinfo",
                         lambda *a, **k: [(2, 1, 6, "", ("10.1.2.3", 80))])
     assert block_remote_url_reason("http://gitea.internal/u/r.git",
@@ -168,7 +169,7 @@ def test_critical_only_internal_hostname_resolving_private_is_allowed(monkeypatc
 
 
 def test_critical_only_dns_rebind_to_loopback_still_blocked(monkeypatch):
-    from shared_infra.git.ssrf import block_remote_url_reason, GIT_REMOTE_SCHEMES
+    from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES, block_remote_url_reason
     monkeypatch.setattr(socket, "getaddrinfo",
                         lambda *a, **k: [(2, 1, 6, "", ("127.0.0.1", 80))])
     assert block_remote_url_reason("http://sneaky.example/r.git",

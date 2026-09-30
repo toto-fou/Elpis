@@ -43,6 +43,8 @@ if str(_PROJECT_ROOT) not in sys.path:
 # ~21 Mo de RSS évités se cumulent à ceux du worker lui-même.
 import shared_infra.runtime.pyruntime  # noqa: E402,F401  (effet de bord, avant pydantic)
 
+# isort: split
+
 from fastmcp import FastMCP
 
 MCP_NAME = os.environ.get("MCP_NAME", "local-tools")
@@ -59,11 +61,12 @@ MCP_NAME = os.environ.get("MCP_NAME", "local-tools")
 # (2026-09-03) La TABLE et la grammaire vivent dans ``shared_infra.mcp.families``
 # : la route ``/api/cli/opencode.json`` doit annoncer exactement les mêmes noms
 # de familles (ils deviennent des URL et des noms de serveurs MCP côté client).
-from shared_infra.mcp.families import (            # noqa: E402
+from shared_infra.mcp.families import (  # noqa: E402
+    FAMILY_NAMES as _FAMILY_NAMES,
     FAMILY_REGISTER_FN as _FAMILY_REGISTER_FN,
-    TOOL_FAMILIES, FAMILY_NAMES as _FAMILY_NAMES,
-    parse_families as _parse_families,
+    TOOL_FAMILIES,
     opencode_families as _opencode_families,
+    parse_families as _parse_families,
 )
 
 
@@ -428,11 +431,10 @@ mcp = LocalToolsMCP(MCP_NAME, auth=_AUTH)
 #   #2 ToolRateLimit    — rate-limit des invocations (Servers MUST).
 #   #1 OkFalseAsIsError — arme isError:true sur {ok:false} (enveloppe conservée).
 #   #3 TitleFiller      — remplit le title d'affichage manquant.
-from llm_core.tools._mcp_error_middleware import OkFalseAsIsError
-from llm_core.tools._mcp_compliance_middleware import ToolRateLimit, TitleFiller
-
-
 from fastmcp.server.middleware import Middleware as _FmcpMiddleware
+
+from llm_core.tools._mcp_compliance_middleware import TitleFiller, ToolRateLimit
+from llm_core.tools._mcp_error_middleware import OkFalseAsIsError
 
 
 class IdentityCapture(_FmcpMiddleware):
@@ -492,6 +494,7 @@ class ServerLoopCapture(_FmcpMiddleware):
 
     async def on_call_tool(self, context, call_next):
         import asyncio as _aio
+
         from llm_core.tools._exec_bridge import register_server_loop
         register_server_loop(_aio.get_running_loop())
         return await call_next(context)
@@ -514,7 +517,7 @@ OPENCODE_EXCLUDED_FAMILIES: "set[str]" = set(_FAMILY_NAMES) - OPENCODE_FAMILIES
 # 2.14.4, streamable-http) : le ContextVar traverse jusqu'à ``on_list_tools``,
 # ``on_call_tool`` et le corps de l'outil, et trois sessions concurrentes
 # (``/mcp/git``, ``/mcp/chart``, ``/mcp``) ne se contaminent pas.
-import contextvars                                                   # noqa: E402
+import contextvars  # noqa: E402
 
 _REQ_FAMILY: "contextvars.ContextVar[str | None]" = contextvars.ContextVar(
     "elpis_mcp_path_family", default=None)
@@ -654,6 +657,7 @@ mcp.add_middleware(TitleFiller())
 # serveur au niveau INFO — sans ce garde-fou, un exec verbeux imprimerait une
 # ligne de log par flush (~7/s) dans le process MCP.
 import logging as _logging
+
 _logging.getLogger("fastmcp.server.context.to_client").setLevel(_logging.WARNING)
 
 

@@ -8,8 +8,8 @@ Trois endpoints :
 - ``GET /api/admin/observability/tool-failures`` — détail des derniers
   appels d'outils en échec (status != 'success'), avec filtres par
   fenêtre temporelle et statut.
-- ``GET /api/admin/observability/tool-summary``  — agrégation
-  ``get_tool_call_metrics_summary`` exposée tel quel pour les widgets
+- ``GET /api/admin/observability/tool-summary``  — agrégation des appels
+  d'outils (totaux, par outil, derniers échecs) pour les widgets
   bar volume / latency. (Utile en complément de ``/api/admin/stats/widgets``
   qui appelle les providers du registry — ici on a le détail brut.)
 - ``GET /api/admin/observability/audit-recent`` — lecture du log d'audit
@@ -34,10 +34,10 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from shared_infra.security.audit import read_recent_audit_lines
 from shared_infra.accounts.users import get_user_by_id
-from shared_infra.security.deps import require_user_id
 from shared_infra.routes.admin._state import admin_router
+from shared_infra.security.audit import read_recent_audit_lines
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -122,6 +122,7 @@ def api_admin_obs_tool_failures(
         raise HTTPException(400, f"status must be one of {sorted(valid_statuses)}")
 
     import time as _time
+
     from shared_infra.observability.usage_store import db_conn
 
     since = _time.time() - hours * 3600
@@ -178,23 +179,16 @@ def api_admin_obs_tool_summary(
     hours: int = 24,
     limit: int = 100,
 ):
-    """Wrapper sur ``get_tool_call_metrics_summary`` côté HTTP.
-
-    Récupère ``totals`` (n, total_ms, n_error, n_blocked, n_timeout),
-    ``per_tool`` (top N par appels), ``recent_failures`` (20 dernières
-    erreurs).
-
-    Sans ``user_id`` ni ``run_id`` (vue admin globale), on appelle
-    avec ``user_id=None, run_id=None``. Mais la fonction underlying
-    exige au moins un des deux — donc on lui passe ``since_ts`` et un
-    user_id 0 spécial qui ne match rien... non, on adapte différemment :
-    on appelle la query directe ici (équivalent global).
+    """Agrégation globale des appels d'outils sur la fenêtre : ``totals``
+    (n, total_ms, n_error, n_blocked, n_timeout), ``per_tool`` (top N par
+    appels), ``recent_failures`` (20 dernières erreurs).
     """
     _require_staff(request)
     hours = max(1, min(720, int(hours)))
     limit = max(1, min(500, int(limit)))
 
     import time as _time
+
     from shared_infra.observability.usage_store import db_conn
 
     since = _time.time() - hours * 3600

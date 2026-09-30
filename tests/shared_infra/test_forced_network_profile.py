@@ -133,8 +133,8 @@ async def _no_image(image, blocking=False):
 
 def _patch_admin_users(monkeypatch, settings):
     import shared_infra.routes.admin.users as au
-    from shared_infra.sandbox.executors import SandboxAdminConfig
     import shared_infra.sandbox.executors as ex
+    from shared_infra.sandbox.executors import SandboxAdminConfig
 
     store = dict(settings)
     monkeypatch.setattr(au, "_require_admin", lambda r: None)
@@ -189,6 +189,7 @@ async def test_admin_rejects_unknown_profile(monkeypatch):
 @pytest.mark.asyncio
 async def test_get_me_declenche_le_chargement_d_image_sur_un_worker_vierge(monkeypatch):
     from fastapi import Request
+
     from shared_infra.sandbox.executors._image_loader import ImageLoadState, ImageLoadStatus
     us, _ = _patch_sandbox_route(monkeypatch, {"network_profile_id": "bridge"})
     appels = []
@@ -213,6 +214,7 @@ async def test_get_me_declenche_le_chargement_d_image_sur_un_worker_vierge(monke
 @pytest.mark.asyncio
 async def test_get_me_ne_relance_rien_quand_l_image_est_connue(monkeypatch):
     from fastapi import Request
+
     from shared_infra.sandbox.executors._image_loader import ImageLoadState, ImageLoadStatus
     us, _ = _patch_sandbox_route(monkeypatch, {"network_profile_id": "bridge"})
 

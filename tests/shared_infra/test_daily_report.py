@@ -37,8 +37,7 @@ def env(tmp_path, monkeypatch):
 
 
 def test_build_daily_report_shape(env):
-    from shared_infra.observability.metrics.daily_report import (
-        REPORT_WIDGET_IDS, build_daily_report)
+    from shared_infra.observability.metrics.daily_report import REPORT_WIDGET_IDS, build_daily_report
     rep = build_daily_report(scope_hours=24, date="2026-06-21")
     assert rep["date"] == "2026-06-21"
     assert rep["scope_hours"] == 24

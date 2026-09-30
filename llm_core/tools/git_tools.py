@@ -46,25 +46,50 @@ Credentials:
 Signature: register(mcp, root_base)   # unchanged
 """
 from __future__ import annotations
+
+import ast
+import fnmatch
+import json
+import os
+import posixpath
+import re
+import secrets as _sec
+import threading
 from pathlib import Path
-from typing import Dict, Any, List, Literal, Optional, Union
-import os, subprocess, time, re, ast, fnmatch, json, secrets as _sec
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+
 from fastmcp import Context, FastMCP
 
-from ._toolkit import (
-    ok as _ok, err, tool_kw, unquote, get_username,
-    tool_kw_readonly, tool_kw_mutating, tool_kw_destructive, tool_kw_openworld,
-    unicode_twin_warning,
-)
+from shared_infra.sandbox.agent_client import AgentError
+from shared_infra.sandbox.git_relay import RelayRefused
+from shared_infra.sandbox.paths import rel_under
+
+from ._espace import Espace
 from ._models import (
-    GitQueryResult, GitWriteResult, GitActionResult, GitRfResult,
-    GitInspectResult, GitStartWorkResult, GitCommitResult,
-    GitSubmitResult, GitAbandonResult, GitCloneResult,
     ErrEnvelope,
+    GitAbandonResult,
+    GitActionResult,
+    GitCloneResult,
+    GitCommitResult,
+    GitInspectResult,
+    GitQueryResult,
+    GitRfResult,
+    GitStartWorkResult,
+    GitSubmitResult,
+    GitWriteResult,
 )
-from shared_infra.sandbox.git_env import host_git_env, repo_refusal, unsafe_git_dir
-from shared_infra.sandbox.policy import use_agent
-from llm_core.tools._exec_bridge import run_shell_via_executor
+from ._toolkit import (
+    err,
+    get_username,
+    glob_match,
+    ok as _ok,
+    tool_kw,
+    tool_kw_destructive,
+    tool_kw_mutating,
+    tool_kw_openworld,
+    tool_kw_readonly,
+    unquote,
+)
 
 # Legacy subdir — kept for backwards-compat resolution (warned, not errored).
 USER_GIT_SUBDIR = "git_repos"
@@ -88,7 +113,7 @@ def _clone_url_block_reason(url: str, allow_hosts=()) -> Optional[str]:
     LAN interne. Avant, un serveur git interne bloquait tout fetch/push/submit.
     Les routes UI et les API PR gardent, elles, le mode strict.
     """
-    from shared_infra.git.ssrf import block_remote_url_reason, GIT_REMOTE_SCHEMES
+    from shared_infra.git.ssrf import GIT_REMOTE_SCHEMES, block_remote_url_reason
     return block_remote_url_reason(url, allow_schemes=GIT_REMOTE_SCHEMES,
                                    allow_hosts=allow_hosts, critical_only=True)
 
@@ -114,53 +139,9 @@ def _connector_hosts(username: str) -> set:
         return set()
 
 
-def _grant_sandbox_access(username: str, sandbox: Path, target: Path) -> None:
-    """Ré-aligne l'ownership d'un chemin que le git HOST-side vient d'écrire
-    (init/clone/checkout/commit…) sur le modèle UID-10001 du sandbox.
-
-    Sans cela, un repo créé par git_action(init)/git_clone appartient à l'UID
-    de l'app : le shell in-container (UID 10001) ne peut alors NI le lire
-    (« dubious ownership ») NI y écrire (« index.lock: Permission denied ») —
-    les outils git MCP et execute_shell étaient incompatibles sur un même repo.
-    Même remède que les routes HTTP (``sandbox_grant_access`` : ACL + chown
-    via docker exec). Best-effort, ne lève jamais — l'op git a déjà réussi.
-    """
-    try:
-        import asyncio, threading
-        from shared_infra.accounts.users import get_user
-        from shared_infra.sandbox.exec_bridge import sandbox_grant_access
-        row = get_user(username)
-        if not row:
-            return
-        try:
-            rel = target.resolve().relative_to(sandbox.resolve()).as_posix()
-        except ValueError:
-            rel = ""
-        rel = "" if rel == "." else rel
-
-        # Thread dédié : immunise contre le contexte d'exécution du tool
-        # (asyncio.run lève RuntimeError si un event loop tourne déjà dans le
-        # thread courant — c'était un échec SILENCIEUX qui laissait le repo à
-        # l'UID app, d'où le retour d'audit « toujours pas corrigé »).
-        errs: list = []
-        def _worker():
-            try:
-                asyncio.run(sandbox_grant_access(int(row["id"]), rel))
-            except Exception as e:                    # noqa: BLE001
-                errs.append(e)
-        t = threading.Thread(target=_worker, daemon=True)
-        t.start()
-        t.join(timeout=180)
-        if errs or t.is_alive():
-            print(f"[git_tools] grant_sandbox_access failed for {username}:{rel!r}: "
-                  f"{errs[0] if errs else 'timeout'}",
-                  file=__import__("sys").stderr)
-    except Exception as e:                            # noqa: BLE001
-        print(f"[git_tools] grant_sandbox_access unavailable: {e}",
-              file=__import__("sys").stderr)
-
 # v15 — Protected branch defaults (the patterns the agent cannot write/push to).
-# Override per-repo via ``.git-tool-policy.json`` at repo root.
+# A repo's ``.git-tool-policy.json`` can only ADD protected branches (and
+# narrow the agent prefixes) — see ``_load_repo_policy``.
 DEFAULT_PROTECTED_BRANCHES = [
     "main", "master", "develop", "dev", "trunk",
     "staging", "prod", "production",
@@ -332,26 +313,30 @@ def _safe_repo_path(repo: str, sandbox: Path) -> Path:
             f"repo path may not contain '..' (path traversal). Got: {repo!r}."
         )
 
-    # 1) Try the new layout first: <sandbox>/<repo>
-    primary = (sandbox / p).resolve()
-    if primary == sandbox or sandbox in primary.parents:
-        if primary.exists() and os.path.lexists(primary / ".git"):
-            _refuse_foreign_git_dir(primary, repo)
-            return primary
-
-    # 2) Legacy fallback: <sandbox>/git_repos/<repo>  (warn but accept)
-    legacy = (sandbox / USER_GIT_SUBDIR / p).resolve()
-    if (sandbox / USER_GIT_SUBDIR) in legacy.parents or legacy == (sandbox / USER_GIT_SUBDIR):
-        if legacy.exists() and os.path.lexists(legacy / ".git"):
-            _refuse_foreign_git_dir(legacy, repo)
-            # Emit a one-line stderr deprecation note. The MCP server captures
-            # stderr in its logs so admins see it without polluting tool output.
-            print(
-                f"[git_tools] DEPRECATION: legacy {USER_GIT_SUBDIR}/{repo} layout used "
-                f"— move repos to sandbox root for full alignment with fs/shell tools.",
-                file=__import__("sys").stderr,
-            )
-            return legacy
+    # 1) <sandbox>/<repo>, puis 2) l'ancien <sandbox>/git_repos/<repo> —
+    # vus par l'agent (un lien qui sort de /work n'y mène à rien).
+    esp, base = _espace_of(sandbox)
+    rel = posixpath.normpath(posixpath.join(base, p.as_posix()))
+    rel = "" if rel == "." else rel
+    legacy = posixpath.join(base, USER_GIT_SUBDIR, p.as_posix()) if base else \
+        posixpath.join(USER_GIT_SUBDIR, p.as_posix())
+    try:
+        e = esp.stats([rel, posixpath.join(rel, ".git") if rel else ".git",
+                       legacy, posixpath.join(legacy, ".git")])
+    except AgentError as ex:
+        raise ValueError(f"repo_unavailable: {ex.code} — the sandbox could not be "
+                         f"reached; retry in a moment") from None
+    if e[0].get("kind") == "dir" and e[1].get("kind") in ("dir", "file"):
+        return sandbox / p
+    if e[2].get("kind") == "dir" and e[3].get("kind") in ("dir", "file"):
+        # Emit a one-line stderr deprecation note. The MCP server captures
+        # stderr in its logs so admins see it without polluting tool output.
+        print(
+            f"[git_tools] DEPRECATION: legacy {USER_GIT_SUBDIR}/{repo} layout used "
+            f"— move repos to sandbox root for full alignment with fs/shell tools.",
+            file=__import__("sys").stderr,
+        )
+        return sandbox / USER_GIT_SUBDIR / p
 
     # 3) Neither layout matched → helpful error with discovery hint
     raise ValueError(
@@ -360,15 +345,6 @@ def _safe_repo_path(repo: str, sandbox: Path) -> Path:
         f"sandbox. To create one: git_clone(url='https://...', into_path={repo!r}) "
         f"or via git_action(action='init', repo={repo!r})."
     )
-
-
-def _refuse_foreign_git_dir(rp: Path, repo: str) -> None:
-    """``.git`` en lien symbolique, fichier ``gitdir:``, alternates… : git
-    hôte lirait un autre dépôt (audit 2026-09-22, H5)."""
-    why = unsafe_git_dir(rp)
-    if why:
-        raise ValueError(f"Repo refused: {repo} ({why}). Git would read data outside "
-                         f"the repo; re-create it inside the sandbox.")
 
 
 # Backwards-compat alias for code that still references _safe_repo.
@@ -425,93 +401,90 @@ def _safe_ref(ref: str) -> str:
         raise ValueError("ref cannot start with '-'")
     return ref
 
-# ── Vue CONTENEUR des chemins renvoyés au modèle ──────────────────────
-# Les outils git tournent côté HÔTE, mais le modèle raisonne dans l'espace de
-# chemins du CONTENEUR (``/work/...``) — c'est ce que rendent fs_tools et
-# shell_tools (``cwd: "/work"``), et c'est le seul espace que ré-acceptent
-# ``read_file`` / ``execute_shell``. Rendre
-# ``cwd: "<repo>/user_sandboxes/<user>/work/<repo>"`` — constaté en mission
-# 2026-08-08, sur CHAQUE git_query/git_action — donnait au modèle un chemin
-# qu'aucun autre outil n'avale, en plus d'exposer la topologie de l'hôte.
-# Le schéma déclaré promettait déjà « container path » : c'est le code qui
-# mentait.
-#
-# ``_WORK_ROOTS`` est alimenté par ``_sandbox()``, appelé au début de CHAQUE
-# outil avant le moindre ``_run_cmd``. Purement cosmétique : aucune décision
-# de sécurité ne repose dessus (le confinement, c'est ``_safe_repo``).
-_WORK_ROOTS: set = set()
+# ── git par l'agent de la sandbox (L4.4) ──────────────────────────────
+# Toutes les commandes git tournent DANS le conteneur, sous l'UID de la
+# sandbox (``git_ops``) ; les chemins hôte ne servent que de repères
+# lexicaux, jamais ouverts. ``_WORK_ROOTS`` (racine /work → compte),
+# alimenté par ``_sandbox()`` au début de chaque outil, dit à ``_run_cmd``
+# quel agent interroger et rend les ``cwd`` dans l'espace du conteneur
+# (``/work/...``), le seul que ré-acceptent les autres outils.
+# Les outils tournent sur les fils de FastMCP : le registre est lu et modifié
+# sous verrou (relecture L4.4 : « dictionary keys changed during iteration »
+# sur des appels parallèles, rendu au modèle comme une erreur inattendue).
+_WORK_ROOTS: Dict[str, str] = {}
 _WORK_ROOTS_MAX = 512
+_WORK_ROOTS_LOCK = threading.Lock()
 
 
-def _remember_work_root(p) -> None:
-    if len(_WORK_ROOTS) >= _WORK_ROOTS_MAX:
-        _WORK_ROOTS.clear()          # borne mémoire : le cache se reconstruit
-    _WORK_ROOTS.add(str(p))
+def _remember_work_root(p, username: str) -> None:
+    with _WORK_ROOTS_LOCK:
+        _WORK_ROOTS.pop(str(p), None)
+        _WORK_ROOTS[str(p)] = username
+        while len(_WORK_ROOTS) > _WORK_ROOTS_MAX:  # borne mémoire : la plus ancienne part
+            del _WORK_ROOTS[next(iter(_WORK_ROOTS))]
+
+
+def _root_entry(p) -> Optional[Tuple[str, str]]:
+    """(racine /work, compte) qui contient le chemin hôte ``p``."""
+    q = str(p)
+    with _WORK_ROOTS_LOCK:
+        roots = list(_WORK_ROOTS.items())
+    best: Optional[Tuple[str, str]] = None
+    for r, user in roots:
+        if (q == r or q.startswith(r.rstrip("/") + "/")) and (best is None or len(r) > len(best[0])):
+            best = (r, user)
+    return best
+
+
+def _root_of(p) -> Optional[str]:
+    e = _root_entry(p)
+    return e[0] if e else None
+
+
+def _espace_of(p) -> Tuple[Espace, str]:
+    """(espace du compte, chemin relatif à /work) du chemin hôte ``p``."""
+    e = _root_entry(p)
+    if e is None:
+        raise ValueError("sandbox root unknown (internal: _sandbox() not called)")
+    root, user = e
+    rel = rel_under(Path(root), Path(p))
+    return Espace(user, Path(root)), "" if rel == "." else rel
 
 
 def _container_cwd(p) -> str:
     """Chemin hôte → vue conteneur ``/work[/rel]``. Ne rend JAMAIS un chemin hôte."""
-    q = str(p)
-    best = ""
-    for r in _WORK_ROOTS:
-        if (q == r or q.startswith(r.rstrip("/") + "/")) and len(r) > len(best):
-            best = r
-    if best:
-        rel = q[len(best):].strip("/")
-        return "/work" + ("/" + rel if rel else "")
-    # Repli (appel direct de _run_cmd sans passer par _sandbox, cf. tests) :
-    # on coupe au PREMIER segment « work » — la racine montée s'appelle
-    # toujours ainsi. À défaut, la racine du conteneur, jamais le chemin hôte.
-    parts = Path(q).parts
-    if "work" in parts:
-        i = parts.index("work")
-        rel = "/".join(parts[i + 1:])
-        return "/work" + ("/" + rel if rel else "")
-    return "/work"
+    root = _root_of(p)
+    rel = str(p)[len(root):].strip("/") if root else ""
+    return "/work" + ("/" + rel if rel else "")
 
 
-def _run_cmd(cwd, cmd, timeout=TIMEOUT, max_out=MAX_OUT, env_extra=None,
-             free_text_idx=frozenset()):
-    """``free_text_idx`` : positions d'argv qui portent une VALEUR libre
-    (message de commit, motif de recherche) — exemptées de ``BAD_CHARS``,
-    cf. ``_reject``."""
+def _envelope(cmd, cwd, r, timeout, max_out):
+    if r.timed_out:
+        return _err("timeout", hint=f"Exceeded {timeout}s.", cmd=cmd, returncode=124,
+                    duration_ms=r.duration_ms)
+    out, t1 = _trunc(r.stdout, max_out)
+    err_, t2 = _trunc(r.stderr, max_out)
+    return _ok(cmd=cmd, cwd=_container_cwd(cwd), returncode=r.returncode, stdout=out,
+               stderr=err_, truncated=t1 or t2 or r.truncated, duration_ms=r.duration_ms)
+
+
+def _run_cmd(cwd, cmd, timeout=TIMEOUT, max_out=MAX_OUT, free_text_idx=frozenset()):
+    """``cmd`` = ``["git", …]`` dans ``cwd`` (chemin hôte, repère lexical),
+    exécuté par l'agent. ``free_text_idx`` : positions d'argv qui portent une
+    VALEUR libre (message de commit, motif de recherche) — exemptées de
+    ``BAD_CHARS``, cf. ``_reject``."""
     _reject(cmd, free_text_idx)
-    # Environnement git hôte commun aux routes (``host_git_env`` : liste
-    # blanche, HOME de l'app, hooks et signature coupés — audit 2026-09-22).
-    env = host_git_env(env_extra, cwd=cwd)
-    # ``.git`` qui sort du dépôt, ou clé de config exécutable (filter,
-    # textconv…) non neutralisable par env → dépôt refusé.
-    if cmd and cmd[0] == "git":
-        bad = repo_refusal(cwd, env)
-        if bad:
-            kind, detail = bad
-            hint = (f"The repo config sets '{detail}', which would run a command "
-                    f"on the server. Remove it from the sandbox shell "
-                    f"(git config --unset {detail}), then retry.") if kind == "config" else (
-                    f"The repo's .git is refused ({detail}): git would read data "
-                    f"outside the repo. Re-create the repo inside the sandbox.")
-            return _err("unsafe_repo_config", hint=hint, cmd=cmd, returncode=1)
-    t0 = time.time()
+    if not cmd or cmd[0] != "git":
+        raise ValueError("git command expected")
     try:
-        # umask=0 : le worktree écrit par ce git HÔTE (checkout/merge/restore)
-        # doit rester éditable par l'UID du conteneur (aucun groupe commun) —
-        # invariant /work « cross-writable » 0666/0777. Les fichiers de .git
-        # sont couverts par core.sharedRepository (hardened_git_env).
-        # AUDIT 2026-09-25 — ``text=True`` seul décode en STRICT : un octet
-        # non UTF-8 dans la sortie (``git diff`` d'un fichier Latin-1, ``show``
-        # d'un binaire) levait UnicodeDecodeError, rendu en « unexpected »
-        # opaque. Même politique que le chemin shell : remplacement.
-        p = subprocess.run(cmd, cwd=str(cwd), env=env, capture_output=True,
-                           text=True, encoding="utf-8", errors="replace",
-                           timeout=timeout, check=False, umask=0)
-        dt = int((time.time()-t0)*1000)
-        out, t1 = _trunc(p.stdout, max_out)
-        err, t2 = _trunc(p.stderr, max_out)
-        return _ok(cmd=cmd, cwd=_container_cwd(cwd), returncode=p.returncode,
-                   stdout=out, stderr=err, truncated=t1 or t2, duration_ms=dt)
-    except subprocess.TimeoutExpired:
-        return _err("timeout", hint=f"Exceeded {timeout}s.",
-                    cmd=cmd, returncode=124, duration_ms=int((time.time()-t0)*1000))
+        esp, rel = _espace_of(cwd)
+        # Octets demandés à l'agent : 4 par caractère gardé (UTF-8).
+        r = esp.git(rel, cmd[1:], timeout_s=timeout, max_out=max_out * 4)
+    except AgentError as e:
+        return _err(e.code, hint=e.message or "sandbox agent unavailable", cmd=cmd,
+                    returncode=1)
+    return _envelope(cmd, cwd, r, timeout, max_out)
+
 
 def _run_git_ro(rp, args, timeout=TIMEOUT, max_out=MAX_OUT,
                 free_text_idx=frozenset()):
@@ -526,184 +499,134 @@ def _run_git_ro(rp, args, timeout=TIMEOUT, max_out=MAX_OUT,
                     free_text_idx={i + 1 for i in free_text_idx})
 
 
-def _block_remote_ssrf(rp, allow_hosts=()) -> Optional[str]:
-    """Re-validate EVERY configured remote URL before a HOST-side network op.
-
-    ``git clone`` validates its URL via ``_clone_url_block_reason``, but
-    fetch/pull/push read the remote straight from the repo's ``.git/config`` —
-    which the agent fully controls (shell, or ``git_write`` on ``.git/config``).
-    Without this, the SSRF/anti-internal guard is trivially bypassed (write a
-    ``169.254.169.254`` / internal URL into ``.git/config``, then fetch). Mirrors
-    the HTTP route's ``_validate_all_remote_urls``. Returns the first block
-    reason (``"<remote>: <reason>"``) or ``None`` if all remotes are safe.
-
-    Uses ``git remote`` + ``git remote get-url --all`` (no regex / special
-    chars) because ``_run_cmd`` → ``_reject`` forbids the ``$`` in a
-    ``--get-regexp`` pattern. ``--all`` also covers pushurl, not just fetch.
-    """
-    names = _run_cmd(rp, ["git", "remote"], timeout=8, max_out=4000)
-    if not names.get("ok") or names.get("returncode") != 0:
-        return None  # not a repo / no remotes → nothing network-bound to block
-    for name in (names.get("stdout") or "").split():
-        name = name.strip()
-        # Remote names are plain identifiers; skip anything odd defensively.
-        if not name or any(c in name for c in BAD_CHARS) or "/" in name:
-            continue
-        u = _run_cmd(rp, ["git", "remote", "get-url", "--all", name],
-                     timeout=8, max_out=4000)
-        if not u.get("ok") or u.get("returncode") != 0:
-            continue
-        for url in (u.get("stdout") or "").splitlines():
-            url = url.strip()
-            if not url:
-                continue
-            reason = _clone_url_block_reason(url, allow_hosts=allow_hosts)
-            if reason:
-                return f"{name}: {reason}"
-    return None
-
-
-# ── Network git backend (OP_BACKEND policy) ──────────────────────────────
-# A NETWORK git op (clone/fetch/push) runs on the HOST by default — already
-# SSRF-guarded and (since the git-env hardening) hooks-disabled. When the
-# operator flips ``SANDBOX_GATEWAY_GIT_NETWORK=agent``, the op runs INSIDE
-# the user's container under their network profile (UID 10001), so it can no
-# longer reach the host network. An isolated (--network=none) profile then
-# has no egress at all → we return a clear, actionable error rather than a
-# confusing failure. Default (host) leaves today's behavior untouched.
-
-def _network_profile_id_for(username) -> str:
+def _uid_of(username: str) -> int:
     try:
-        from shared_infra.accounts.users import get_user as _gu, get_user_settings
-        from shared_infra.sandbox.executors import resolve_network_profile_id
-        row = _gu(username)
-        uid = int(row["id"]) if row else 0
-        return resolve_network_profile_id(get_user_settings(uid) or {})
-    except Exception:
-        return "isolated"
+        from shared_infra.accounts.users import get_user
+        row = get_user(username)
+        return int(row["id"]) if row else 0
+    except Exception:                                           # noqa: BLE001
+        return 0
 
 
-def _profile_has_no_egress(profile_id) -> bool:
+def _run_network(cwd, args, username, *, url, push_refs=None, auth=None, timeout=120):
+    """Commande git réseau vers ``url`` (clone, fetch, ls-remote ; push des
+    seules ``push_refs``) par le relais authentifiant : l'identifiant
+    (``auth`` donné, sinon celui du connecteur) est ajouté par l'hôte, il
+    n'entre jamais dans la sandbox."""
+    cmd = ["git", *args]
     try:
-        from shared_infra.sandbox.executors import load_admin_config
-        return load_admin_config().get_profile(profile_id or "isolated").mode == "none"
-    except Exception:
-        return True  # fail closed: if we can't resolve the profile, assume isolated
+        esp, rel = _espace_of(cwd)
+        r = esp.git_reseau(rel, args, uid=_uid_of(username), url=url, push_refs=push_refs,
+                           auth=auth, timeout_s=timeout, max_out=MAX_OUT * 4)
+    except RelayRefused as e:
+        return _err(e.code, hint=e.message, cmd=cmd, returncode=1)
+    except AgentError as e:
+        return _err(e.code, hint=e.message or "sandbox agent unavailable", cmd=cmd,
+                    returncode=1)
+    return _envelope(cmd, cwd, r, timeout, MAX_OUT)
 
 
-def _run_git_network(sb, cmd, username, *, timeout=120, env_extra=None):
-    """Run a network git command via the policy-selected backend.
+def _remote_url(rp, remote: str, *, push: bool = False) -> str:
+    """URL unique du remote ``remote`` du dépôt ``rp`` (``RelayRefused``)."""
+    esp, rel = _espace_of(rp)
+    return esp.git_remote_url(rel, remote, push=push)
 
-    ``cmd`` must use paths RELATIVE to the sandbox root (cwd) so the same
-    argv is valid whether it runs on the host (cwd=<sandbox>) or in the
-    container (cwd=/work)."""
-    if not use_agent("git.network"):
-        return _run_cmd(sb, cmd, timeout=timeout, env_extra=env_extra)
-    # AUDIT 2026-09-25 — un identifiant (askpass) ne part JAMAIS dans le
-    # conteneur : l'environnement y est transmis en ``docker exec -e K=V``,
-    # donc lisible dans la liste des processus de l'hôte, et le script
-    # ``GIT_ASKPASS`` pointe vers un fichier de l'HÔTE, absent du conteneur —
-    # l'authentification échouait de toute façon. Refus explicite.
-    if any(str(k).startswith("GIT_ASKPASS") for k in (env_extra or {})):
-        return _err("credentials_not_supported_in_container",
-                    hint="Authenticated network git is not supported when git "
-                         "runs inside the sandbox container (git.network=agent). "
-                         "Use a public URL, or ask the administrator to run "
-                         "network git on the host.")
-    if _profile_has_no_egress(_network_profile_id_for(username)):
-        return _err("network_isolated",
-                    hint="Your sandbox network profile is isolated (no egress); "
-                         "network git is disabled in container mode. Choose a "
-                         "network profile that allows egress to clone/fetch/push.")
+
+def _run_pull(rp, remote, branch, mode, username, *, timeout=120):
+    """``git pull <mode> <remote> [<branch>]`` : fetch par le relais, fusion
+    locale (``git_ops.pull``)."""
+    cmd = ["git", "pull", mode, remote, *([branch] if branch else [])]
     try:
-        from shared_infra.accounts.users import get_user as _gu
-        row = _gu(username)
-        uid = int(row["id"]) if row else 0
-    except Exception:
-        uid = 0
-    return run_shell_via_executor(
-        tokens=cmd, workdir_host=Path(sb), sandbox_root=Path(sb),
-        env_extra=env_extra or {}, timeout_s=timeout, max_output=MAX_OUT,
-        stdin_bytes=None, user_id=uid, username=username,
-        audit_kind="tools.git.network",
-    )
+        esp, rel = _espace_of(rp)
+        r = esp.git_pull(rel, remote, branch, mode, uid=_uid_of(username), timeout_s=timeout,
+                         max_out=MAX_OUT * 4)
+    except RelayRefused as e:
+        return _err(e.code, hint=e.message, cmd=cmd, returncode=1)
+    except AgentError as e:
+        return _err(e.code, hint=e.message or "sandbox agent unavailable", cmd=cmd,
+                    returncode=1)
+    return _envelope(cmd, rp, r, timeout, MAX_OUT)
 
-def _repo_file(rp, rel):
+
+def _repo_file(root, rp, rel) -> str:
+    """Chemin relatif à la sandbox du fichier ``rel`` du dépôt ``rp``, sans
+    lire le disque : les liens sont résolus par l'agent, sous /work."""
     s = _safe_rel(rel)
-    p = (rp / s).resolve()
-    if rp not in p.parents and p != rp:
+    base = rel_under(root, rp)
+    base = "" if base == "." else base
+    r = posixpath.normpath(posixpath.join(base, s) if base else s)
+    if r in (".", "..") or r.startswith("../") or (base and r != base and not r.startswith(base + "/")):
         raise ValueError("path outside repo")
-    return p
+    return r
 
-def _read_text(p, max_b):
-    if not p.exists(): raise FileNotFoundError("not_found")
-    if p.is_dir(): raise IsADirectoryError("is_dir")
-    if p.stat().st_size > max_b: raise ValueError(f"too_large: {p.stat().st_size}B")
-    return p.read_text("utf-8", errors="replace")
 
-def _read_text_exact(p, max_b):
+# Contenu d'un fichier de dépôt : lu et écrit par l'agent de la sandbox
+# (L4.2), comme les outils fichiers.
+def _read_bytes_under(esp, rel, max_b) -> bytes:
+    try:
+        e = esp.stat(rel)
+        if e["kind"] == "missing":
+            raise FileNotFoundError("not_found")
+        if e["kind"] == "dir":
+            raise IsADirectoryError("is_dir")
+        size = int(e.get("size") or 0)
+        if size > max_b:
+            raise ValueError(f"too_large: {size}B")
+        return esp.lire(rel, max_bytes=max_b).data
+    except AgentError as ex:
+        raise ValueError(ex.code) from None
+
+
+def _read_text(esp, rel, max_b):
+    """Lecture tolérante (``git_query read``) : remplacement des octets non
+    UTF-8, fins de ligne normalisées en ``\\n``."""
+    text = _read_bytes_under(esp, rel, max_b).decode("utf-8", errors="replace")
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _read_text_exact(esp, rel, max_b):
     """Lecture pour une RÉÉCRITURE (``git_write`` replace/append) : octets
     décodés en UTF-8 STRICT, fins de ligne conservées. AUDIT 2026-09-26 — la
     lecture tolérante (``errors="replace"``, sauts de ligne universels)
     réécrivait tout octet non UTF-8 en U+FFFD (fichier Latin-1 corrompu) et
     convertissait un fichier CRLF entier en LF."""
-    if not p.exists(): raise FileNotFoundError("not_found")
-    if p.is_dir(): raise IsADirectoryError("is_dir")
-    if p.stat().st_size > max_b: raise ValueError(f"too_large: {p.stat().st_size}B")
     try:
-        return p.read_bytes().decode("utf-8")
+        return _read_bytes_under(esp, rel, max_b).decode("utf-8")
     except UnicodeDecodeError:
         raise ValueError("not_utf8: this file is not UTF-8 text — rewriting it "
                          "would corrupt it; use execute_shell (iconv, sed) instead")
 
 
-def _write_atomic(p, content, max_b):
-    """Écriture atomique de ``git_write`` (audit éditeur 2026-09-23) : verrou
-    par fichier PARTAGÉ avec l'éditeur et les outils fs (E7), mode du fichier
-    existant CONSERVÉ — un script 0755 restait sinon non exécutable (E18) —,
-    fichier temporaire unique et retiré en cas d'échec."""
-    import os as _os
+def _write_atomic(esp, root, rel, content, max_b):
+    """Écriture atomique de ``git_write`` par l'agent (audit éditeur
+    2026-09-23) : verrou par fichier PARTAGÉ avec l'éditeur et les outils fs
+    (E7), mode du fichier existant CONSERVÉ (E18) et élargi pour l'autre UID
+    tant que l'hôte accède à /work."""
     from shared_infra.sandbox.file_lock import file_write_lock
+
+    from .fs_tools import _mode_ecrit
     b = content.encode("utf-8", errors="replace")
     if len(b) > max_b: raise ValueError(f"too_large: {len(b)}B")
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with file_write_lock(_os.path.realpath(p)):
-        try:
-            mode = (p.stat().st_mode & 0o7777 & ~0o6000) | 0o666
-        except OSError:
-            mode = 0o666
-        # AUDIT 2026-09-25 — le temporaire portait un nom PRÉVISIBLE (pid seul)
-        # et s'ouvrait par un ``write_bytes`` ordinaire, puis ``chmod`` : un
-        # lien posé à ce nom dans le dépôt était SUIVI (écriture et mode 0666
-        # appliqués à sa cible, hors du bac à sable). Nom aléatoire, création
-        # exclusive sans suivre de lien, mode posé sur le descripteur.
-        import secrets as _secrets
-        # Nom borné en OCTETS (≤ 255 avec le suffixe) : un nom légal long
-        # (CJK) dépassait NAME_MAX une fois préfixé/suffixé (AUDIT 2026-09-26).
-        _stem = p.name.encode("utf-8", errors="surrogateescape")[:200].decode(
-            "utf-8", errors="ignore")
-        tmp = p.with_name(f".{_stem}.{_secrets.token_hex(6)}.tmp")
-        try:
-            _fd = _os.open(str(tmp),
-                           _os.O_WRONLY | _os.O_CREAT | _os.O_EXCL
-                           | getattr(_os, "O_NOFOLLOW", 0) | getattr(_os, "O_CLOEXEC", 0),
-                           0o600)
-            with _os.fdopen(_fd, "wb") as _fh:
-                _fh.write(b)
-                _fh.flush()
-                _os.fchmod(_fh.fileno(), mode)
-            tmp.replace(p)
-        except BaseException:
-            try: tmp.unlink()
-            except OSError: pass
-            raise
-
-def _history_before(p):
-    """Contenu avant écriture, pour l'historique de session (2026-09-23)."""
     try:
-        from shared_infra.sandbox.file_history import read_before
-        return read_before(p)
-    except Exception:
+        with file_write_lock(os.path.realpath(Path(root) / rel)):
+            esp.ecrire(rel, b, parents=True, mode=_mode_ecrit(esp.stat(rel)))
+    except AgentError as ex:
+        raise ValueError(ex.code) from None
+
+
+def _history_before(esp, rel):
+    """Contenu avant écriture, pour l'historique de session (2026-09-23) :
+    octets, ``None`` (absent, pas un fichier ordinaire), ``TOO_BIG``. Un lien
+    sous /work est suivi, comme par l'écriture."""
+    from shared_infra.sandbox.file_history import MAX_FILE, TOO_BIG
+    try:
+        e = esp.stat(rel)
+        if e["kind"] != "file":
+            return None
+        if int(e.get("size") or 0) > MAX_FILE:
+            return TOO_BIG
+        return esp.lire(rel, max_bytes=MAX_FILE).data
+    except Exception:                                           # noqa: BLE001
         return None
 
 
@@ -785,82 +708,52 @@ def _head_is_pristine(rp) -> bool:
     return bool(s.get("ok")) and (s.get("stdout") or "").strip() == _INIT_SCAFFOLD_MSG
 
 
-def _widen_cross_writable(p: Path, repo_root: Path) -> None:
-    """Best-effort : fichier 0666 + dossiers parents 0777 jusqu'à la racine du
-    repo — l'invariant /work « cross-writable » (l'UID hôte et l'UID conteneur
-    ne partagent aucun groupe)."""
-    # SÉCURITÉ : ``os.chmod`` DÉRÉFÉRENCE les symlinks (Linux n'a pas de
-    # ``lchmod``). ``p`` comme ses PARENTS peuvent être des liens posés par
-    # l'utilisateur dans /work, ou des chemins qui TRAVERSENT un tel lien —
-    # les chmoder ferait sortir les droits de la sandbox (l'app tourne en UID
-    # hôte : c'est elle qui franchit la frontière, pas le conteneur).
-    # Un test ``islink`` seul ne suffit pas : ``lien/sous-dossier`` n'est pas
-    # un lien. On exige donc que le chemin RÉSOLU reste sous le repo résolu.
-    try:
-        root_res = os.path.realpath(repo_root)
-    except OSError:
-        return
-
-    def _inside(path) -> bool:
-        try:
-            if os.path.islink(path):
-                return False
-            rp = os.path.realpath(path)
-            return rp == root_res or rp.startswith(root_res + os.sep)
-        except OSError:
-            return False
-
-    try:
-        if _inside(p):
-            os.chmod(p, 0o666)
-    except OSError:
-        pass
-    for parent in p.parents:
-        if parent == repo_root:
-            break
-        if not _inside(parent):
-            # Au-delà d'un lien, les « parents » ne sont plus ceux du repo.
-            break
-        try:
-            os.chmod(parent, 0o777)
-        except OSError:
-            pass
-
-
 # ───────────────────────────────────────────────────────────────────────
 #  v15 — Policy helpers: protected branches, agent branches, providers,
 #  credentials, git config bootstrap.
 # ───────────────────────────────────────────────────────────────────────
 
-def _load_repo_policy(rp: Path) -> Dict[str, Any]:
-    """Load per-repo policy from ``.git-tool-policy.json`` (optional).
+def _load_repo_policy(username: str, root: Path, rp: Path) -> Dict[str, Any]:
+    """Politique de branches du dépôt : valeurs par défaut
+    (``DEFAULT_PROTECTED_BRANCHES`` / ``DEFAULT_AGENT_BRANCH_PREFIXES``),
+    que ``.git-tool-policy.json`` peut RENFORCER, jamais assouplir.
 
     Format::
-      {
-        "protected_branches":      ["main", "develop", "release/*"],
-        "allowed_agent_prefixes":  ["agent/", "fix/"],
-        "require_pr_for_merge_into": ["main"]
-      }
+      {"protected_branches": ["release/*"], "allowed_agent_prefixes": ["agent/"]}
 
-    Missing file → defaults from DEFAULT_PROTECTED_BRANCHES /
-    DEFAULT_AGENT_BRANCH_PREFIXES. Best-effort: malformed JSON falls back
-    to defaults rather than erroring out (the agent can still work).
-    """
-    pol_file = rp / ".git-tool-policy.json"
+    Le fichier vit dans le dépôt, donc à portée de l'agent (2026-09-29) : il
+    AJOUTE des branches protégées et RESTREINT les préfixes de push de l'agent
+    (intersection avec les valeurs par défaut). Lu par l'agent de la sandbox
+    (64 Kio au plus) ; absent, illisible ou mal formé : valeurs par défaut.
+    Agent injoignable : ``ValueError`` — la politique ne s'assouplit jamais
+    parce qu'elle n'a pas pu être lue."""
     pol = {
         "protected_branches":     list(DEFAULT_PROTECTED_BRANCHES),
         "allowed_agent_prefixes": list(DEFAULT_AGENT_BRANCH_PREFIXES),
     }
-    if pol_file.exists():
-        try:
-            user_pol = json.loads(pol_file.read_text("utf-8", errors="replace"))
-            if isinstance(user_pol, dict):
-                for k in ("protected_branches", "allowed_agent_prefixes"):
-                    v = user_pol.get(k)
-                    if isinstance(v, list) and all(isinstance(x, str) for x in v):
-                        pol[k] = v
-        except Exception:
-            pass  # silently fall back to defaults — best-effort
+    try:
+        rel = posixpath.join(rel_under(root, rp), ".git-tool-policy.json")
+        brut = Espace(username, root).lire(rel, max_bytes=64 * 1024).data
+        user_pol = json.loads(brut.decode("utf-8", errors="replace"))
+    except AgentError as e:
+        if e.code in ("not_found", "is_dir", "not_file", "too_large", "denied", "outside_root"):
+            return pol
+        raise ValueError(f"policy_unreadable: {e.code} — the branch policy of this repo "
+                         "could not be read; retry in a moment") from None
+    except Exception:         # JSON trop imbriqué (RecursionError) compris
+        return pol
+    if not isinstance(user_pol, dict):
+        return pol
+
+    def _strings(key):
+        v = user_pol.get(key)
+        return v if isinstance(v, list) and all(isinstance(x, str) for x in v) else None
+
+    extra = _strings("protected_branches") or []
+    pol["protected_branches"] += [b for b in extra if b not in pol["protected_branches"]]
+    narrow = _strings("allowed_agent_prefixes")
+    if narrow is not None:
+        pol["allowed_agent_prefixes"] = [x for x in pol["allowed_agent_prefixes"] if x in narrow]
     return pol
 
 
@@ -916,22 +809,20 @@ def _default_base_branch(rp: Path) -> str:
     to common names that exist locally.
 
     Order:
-      1. ``git remote show origin`` → "HEAD branch: <name>" line (most reliable)
+      1. ``refs/remotes/origin/HEAD`` (set by ``clone``) — local, no network
       2. Local presence of ``main``, then ``master``, then ``develop``
       3. Last resort: the currently checked-out branch (caller decides)
     """
-    # 1. Ask remote (works on cloned repos)
-    try:
-        r = _run_cmd(rp, ["git", "remote", "show", "origin"], timeout=8, max_out=4000)
-        if r.get("ok") and r.get("returncode") == 0:
-            for line in (r.get("stdout") or "").splitlines():
-                line = line.strip()
-                if line.startswith("HEAD branch:"):
-                    name = line.split(":", 1)[1].strip()
-                    if name and name != "(unknown)":
-                        return name
-    except Exception:
-        pass
+    # 1. HEAD distant mémorisé au clone. ``git remote show origin``
+    # interrogeait le serveur à chaque appel (2026-09-29).
+    # Sans ``--short`` : une branche locale « origin/main » le ferait
+    # répondre « remotes/origin/main ».
+    r = _run_cmd(rp, ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+                 timeout=4, max_out=200)
+    if r.get("ok") and r.get("returncode") == 0:
+        ref = (r.get("stdout") or "").strip()
+        if ref.startswith("refs/remotes/origin/") and len(ref) > 20:
+            return ref[20:]
 
     # 2. Probe local branches in priority order
     for cand in ("main", "master", "develop", "trunk"):
@@ -1010,9 +901,9 @@ def register(mcp: FastMCP, root_base: Path) -> None:
         base = Path(os.environ.get("APP_SANDBOX_DIR") or str(root_base)).resolve()
         from shared_infra.sandbox import ensure_work_subdir
         work = ensure_work_subdir(base / safe)
-        # Mémorise la racine /work de cet utilisateur pour que _run_cmd sache
-        # rendre ses `cwd` dans l'espace de chemins du conteneur.
-        _remember_work_root(work)
+        # Mémorise la racine /work de cet utilisateur : _run_cmd en déduit
+        # l'agent à interroger et la vue conteneur de ses `cwd`.
+        _remember_work_root(work, username)
         return work
 
     # Backwards-compat alias: existing code still calls _git_root inside
@@ -1063,40 +954,22 @@ def register(mcp: FastMCP, root_base: Path) -> None:
             if act == "repos":
                 sb = _sandbox(_username)
                 found = []
-                # Walk depth ≤ 3 (sb itself = depth 0, sb/X = depth 1, etc.)
-                # Stop descending into a dir once we find a .git/ inside (we
-                # don't recurse into the repo itself).
-                def _walk(d: Path, depth: int):
-                    if depth > 3 or len(found) > 50:
-                        return
+                # Profondeur ≤ 3 sous /work, sans descendre dans un dépôt :
+                # vu par l'agent de la sandbox (git_ops.find_repos).
+                for rel in Espace(_username, sb).git_depots(depth=3, limit=50):
+                    k = sb / rel
+                    entry = {"path": rel}
                     try:
-                        kids = list(d.iterdir())
-                    except OSError:
-                        return
-                    for k in kids:
-                        if not k.is_dir():
-                            continue
-                        if k.name in {".git", "node_modules", "__pycache__", ".venv", "venv"}:
-                            continue
-                        if (k / ".git").exists():
-                            rel = k.relative_to(sb)
-                            entry = {"path": str(rel)}
-                            try:
-                                br = _current_branch(k)
-                                entry["current_branch"] = br or "?"
-                                base = _default_base_branch(k)
-                                entry["default_branch"] = base
-                                st = _run_git_ro(k, ["status", "--porcelain=v1"], timeout=4, max_out=2000)
-                                entry["is_clean"] = bool(st.get("ok") and not (st.get("stdout") or "").strip())
-                            except Exception:
-                                pass
-                            # legacy marker
-                            if USER_GIT_SUBDIR in rel.parts:
-                                entry["legacy_layout"] = True
-                            found.append(entry)
-                            continue  # don't descend into a repo
-                        _walk(k, depth + 1)
-                _walk(sb, 0)
+                        br = _current_branch(k)
+                        entry["current_branch"] = br or "?"
+                        entry["default_branch"] = _default_base_branch(k)
+                        st = _run_git_ro(k, ["status", "--porcelain=v1"], timeout=4, max_out=2000)
+                        entry["is_clean"] = bool(st.get("ok") and not (st.get("stdout") or "").strip())
+                    except Exception:
+                        pass
+                    if USER_GIT_SUBDIR in Path(rel).parts:
+                        entry["legacy_layout"] = True
+                    found.append(entry)
                 return _ok(repos=found, count=len(found),
                            sandbox_root=str(sb.relative_to(sb.parent.parent)) if sb.parent.parent in sb.parents else "")
 
@@ -1173,14 +1046,21 @@ def register(mcp: FastMCP, root_base: Path) -> None:
             if act == "files":
                 cap = max(1, min(max_count, MAX_FILES))
                 pat = pattern or "**/*"
+                from .fs_tools import _PROFONDEUR, MAX_WALK, _cle_parcours
+                base = rel_under(root, rp)
+                base = "" if base == "." else base
+                liste = Espace(_username, root).lister(base, depth=_PROFONDEUR, max_entries=MAX_WALK,
+                                                       hidden=True, exclude=[".git"])
                 out = []
-                for p in rp.rglob("*"):
-                    if not p.is_file() or ".git" in p.parts: continue
-                    rel = p.relative_to(rp).as_posix()
-                    if fnmatch.fnmatch(rel, pat):
+                # fichiers et liens, pas les FIFO/sockets ; ordre du parcours
+                for rel in sorted((x["path"][len(base) + 1:] if base else x["path"]
+                                   for x in liste.entries if x["kind"] in ("file", "link")),
+                                  key=lambda r: _cle_parcours(r, False)):
+                    if glob_match(rel, pat):
                         out.append(rel)
                         if len(out) >= cap: break
-                return _ok(items=out, count=len(out), glob=pat, truncated=len(out) >= cap)
+                return _ok(items=out, count=len(out), glob=pat,
+                           truncated=len(out) >= cap or liste.truncated)
 
             if act == "find_text":
                 if not pattern: return _err("pattern required", hint="pattern=<text to search>")
@@ -1220,8 +1100,8 @@ def register(mcp: FastMCP, root_base: Path) -> None:
 
             if act == "read":
                 if not target: return _err("target=filepath required")
-                p = _repo_file(rp, target)
-                text = _read_text(p, MAX_FILE_READ)
+                text = _read_text(Espace(_username, root), _repo_file(root, rp, target),
+                                  MAX_FILE_READ)
                 lines = text.splitlines()
                 s = max(start_line - 1, 0)
                 chunk = lines[s:s + max(1, min(max_lines, 2000))]
@@ -1259,33 +1139,35 @@ def register(mcp: FastMCP, root_base: Path) -> None:
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
             act = (action or "").strip().lower()
-            p = _repo_file(rp, path)
+            rel = _repo_file(root, rp, path)
+            p = root / rel
+            esp = Espace(_username, root)
 
             if act == "write":
                 mode = (mode or "overwrite").strip().lower()
                 if mode not in ("overwrite", "append"):
                     return _err("invalid_mode", hint="Use: overwrite|append")
                 new_content = content or ""
-                if mode == "append" and p.exists():
-                    new_content = _read_text_exact(p, MAX_FILE_READ) + new_content
+                _existe = esp.stat(rel)["kind"] != "missing"
+                if mode == "append" and _existe:
+                    new_content = _read_text_exact(esp, rel, MAX_FILE_READ) + new_content
                 new_bytes = new_content.encode("utf-8", errors="replace")
                 if len(new_bytes) > MAX_FILE_WRITE:
                     return _err("too_large", hint=f"Max {MAX_FILE_WRITE} bytes.")
                 if dry_run:
                     return _ok(path=path, action=mode, dry_run=True,
                                bytes_after=len(new_bytes),
-                               exists_before=p.exists())
-                _before = _history_before(p)
-                _write_atomic(p, new_content, MAX_FILE_WRITE)
-                _widen_cross_writable(p, rp)
-                _after = _history_before(p)       # octets réellement écrits
+                               exists_before=_existe)
+                _before = _history_before(esp, rel)
+                _write_atomic(esp, root, rel, new_content, MAX_FILE_WRITE)
+                _after = _history_before(esp, rel)      # octets réellement écrits
                 _history_after(_username, root, p, _before, _after)
                 return _ok(path=path, bytes=len(new_bytes), action=mode,
                            **_git_write_fc(root, p, _before, _after))
 
             if act == "replace":
                 if not find: return _err("find required")
-                text = _read_text_exact(p, MAX_FILE_READ)
+                text = _read_text_exact(esp, rel, MAX_FILE_READ)
                 if not regex:
                     cnt = text.count(find)
                     if cnt == 0:
@@ -1307,10 +1189,9 @@ def register(mcp: FastMCP, root_base: Path) -> None:
                     return _ok(path=path, action="replace", dry_run=True,
                                replacements=cnt, bytes_before=len(text.encode()),
                                bytes_after=len(new.encode()))
-                _before = _history_before(p)
-                _write_atomic(p, new, MAX_FILE_WRITE)
-                _widen_cross_writable(p, rp)
-                _after = _history_before(p)
+                _before = _history_before(esp, rel)
+                _write_atomic(esp, root, rel, new, MAX_FILE_WRITE)
+                _after = _history_before(esp, rel)
                 _history_after(_username, root, p, _before, _after)
                 return _ok(path=path, replacements=cnt, changed=True,
                            **_git_write_fc(root, p, _before, _after))
@@ -1371,7 +1252,6 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
         try:
             root = _git_root(_username)
             act = (action or "").strip().lower()
-            env = {"GIT_TERMINAL_PROMPT": "0"}
 
             # ── init / clone : intercept BEFORE _safe_repo (repo doesn't exist yet)
             if act in ("init", "clone"):
@@ -1398,31 +1278,29 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                         f"invalid repo name: {repo!r}",
                         hint="Cannot start with '.' or be named '.git'."
                     )
-                target_dir = (root / repo).resolve()
-                if root not in target_dir.parents:
-                    return _err(f"resolved path escapes git workspace: {target_dir}")
+                target_dir = root / repo
+                esp = Espace(_username, root)
+                try:
+                    _existe = esp.stat(repo)["kind"] != "missing"
+                except AgentError as e:
+                    return _err(e.code, hint=e.message or "sandbox agent unavailable")
 
                 if act == "init":
-                    if target_dir.exists():
+                    if _existe:
                         return _err(
-                            f"repo_exists: {target_dir}",
+                            f"repo_exists: {repo}",
                             hint=f"Folder already exists. Use a different repo name "
                                  f"or remove it first via manage_files(action='delete', "
                                  f"path={repo!r}, recursive=True)."
                         )
                     init_branch = _validate_branch(branch) if branch else "main"
-                    cmd = ["git", "init", "-b", init_branch, str(target_dir)]
+                    cmd = ["git", "init", "-q", "-b", init_branch, repo]
                     if dry_run:
                         return _ok(dry_run=True, action="init", repo=repo,
-                                   would_run=cmd, would_create=str(target_dir))
-                    _twin = unicode_twin_warning(target_dir, root)
-                    target_dir.mkdir(parents=True, exist_ok=False)
-                    try:
-                        os.chmod(target_dir, 0o777)   # invariant /work cross-writable
-                    except OSError:
-                        pass
-                    # Run from root — `git init <path>` works without cd.
-                    r = _run_cmd(root, cmd, env_extra=env)
+                                   would_run=cmd, would_create=_container_cwd(target_dir))
+                    _twin = esp.jumeau_unicode(repo)
+                    # Run from root — `git init <path>` creates the folder.
+                    r = _run_cmd(root, cmd)
                     if r.get("ok") and r.get("returncode") == 0:
                         # `git init -b main` seul laisse la branche UNBORN
                         # (« fantôme » : switch main → invalid reference, et le
@@ -1432,10 +1310,9 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                         _ensure_git_config(target_dir, _username)
                         sc = _run_cmd(target_dir,
                                       ["git", "commit", "--allow-empty",
-                                       "-m", _INIT_SCAFFOLD_MSG],
-                                      env_extra=env)
+                                       "-m", _INIT_SCAFFOLD_MSG])
                         r["repo"] = repo
-                        r["repo_path"] = str(target_dir)
+                        r["repo_path"] = _container_cwd(target_dir)
                         r["initial_branch"] = init_branch
                         r["branch_materialized"] = bool(
                             sc.get("ok") and sc.get("returncode") == 0)
@@ -1448,7 +1325,6 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                         )
                         if _twin:
                             r["warning"] = _twin
-                        _grant_sandbox_access(_username, root, target_dir)
                     return r
 
                 # action == "clone"
@@ -1458,50 +1334,39 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                         hint="Pass target='<https-url>' (https:// only). "
                              "Example: target='https://github.com/user/repo.git'"
                     )
-                # Tight URL validation: HTTPS scheme only, no embedded creds, no
-                # localhost / internal addresses (basic SSRF defense).
                 url = target.strip()
-                # MAJ-18 — validation SSRF robuste (résolution + check ipaddress),
-                # remplace l'ancien startswith contournable.
-                _block = _clone_url_block_reason(url)
-                if _block:
+                if _existe:
                     return _err(
-                        f"clone_url_blocked: {_block}",
-                        hint="Only public https:// URLs are accepted: no ssh/file, no "
-                             "embedded credentials, and the host must NOT resolve to a "
-                             "loopback / private / link-local / reserved address "
-                             "(SSRF protection — git clone runs on the host)."
-                    )
-                if target_dir.exists():
-                    return _err(
-                        f"repo_exists: {target_dir}",
+                        f"repo_exists: {repo}",
                         hint=f"Folder already exists at {repo}. Pick another "
                              f"repo name or delete it first."
                     )
                 cmd = ["git", "clone", "--depth", "50"]
                 if branch:
                     cmd += ["--branch", _validate_branch(branch), "--single-branch"]
-                cmd += ["--", url, str(target_dir)]
+                cmd += ["--", url, repo]
                 if dry_run:
                     return _ok(dry_run=True, action="clone", repo=repo, url=url,
-                               would_run=cmd, would_create=str(target_dir))
-                _twin = unicode_twin_warning(target_dir, root)
-                # Increase timeout for clone — network IO.
-                r = _run_cmd(root, cmd, env_extra=env, timeout=60)
+                               would_run=cmd, would_create=_container_cwd(target_dir))
+                _twin = esp.jumeau_unicode(repo)
+                # Par le relais : garde anti-SSRF, identifiant du connecteur
+                # ajouté par l'hôte (git_ops.run_network).
+                r = _run_network(root, cmd[1:], _username, url=url, timeout=120)
+                if r.get("error") in ("blocked_remote", "scheme_not_relayed", "malformed_url"):
+                    return _err(
+                        f"clone_url_blocked: {r.get('fix') or r.get('message')}",
+                        hint="Only http(s) URLs are accepted: no ssh/file, no embedded "
+                             "credentials, and the host must not resolve to a loopback "
+                             "or link-local address (SSRF protection)."
+                    )
                 # AUDIT 2026-08-23 — ``ok`` signifie « git a pu être lancé » ;
-                # le succès RÉEL est dans ``returncode``. Ne tester que ``ok``
-                # faisait renvoyer ``ok: true`` + « Cloned successfully » sur un
-                # clone échoué (DNS, auth, dépôt inexistant), et appeler
-                # ``_grant_sandbox_access`` sur un dossier qui n'existe pas.
-                # L'agent, qui lit ``ok`` puis le ``hint``, enchaînait sur
-                # ``git_query(action='files')`` et récoltait « Repo not found »
-                # — un second échec sans rapport apparent avec le premier, sur
-                # lequel il repartait en diagnostic alors que la vraie cause
-                # était dans ``stderr``. La branche ``init`` juste au-dessus et
-                # ``git_clone`` plus bas testent tous deux ``returncode == 0``.
+                # le succès RÉEL est dans ``returncode`` : un clone échoué (DNS,
+                # auth, dépôt inexistant) rendait ``ok: true`` + « Cloned
+                # successfully », et l'agent enchaînait sur un second échec
+                # sans rapport apparent avec le premier.
                 if not r.get("ok") or r.get("returncode") != 0:
                     _detail = (r.get("stderr") or r.get("stdout")
-                               or r.get("error") or "")
+                               or r.get("fix") or r.get("error") or "")
                     return _err(
                         "clone_failed",
                         hint=(f"git clone a échoué : {str(_detail)[:400]}"
@@ -1509,7 +1374,7 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                         remote=url, repo=repo,
                         returncode=r.get("returncode"))
                 r["repo"] = repo
-                r["repo_path"] = str(target_dir)
+                r["repo_path"] = _container_cwd(target_dir)
                 r["url"] = url
                 r["hint"] = (
                     f"Cloned successfully. List files with git_query(repo='{repo}', "
@@ -1517,20 +1382,13 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                 )
                 if _twin:
                     r["warning"] = _twin
-                _grant_sandbox_access(_username, root, target_dir)
                 return r
 
             # ── all other actions: standard path through _safe_repo
             rp = _safe_repo(repo, root)
 
             def _run_mut(cmd_, **kw):
-                # Toute écriture git HOST-side (worktree OU .git/index/objects)
-                # laisse des fichiers à l'UID de l'app → ré-aligne sur 10001
-                # pour que le shell in-container garde la main sur le repo.
-                r_ = _run_cmd(rp, cmd_, env_extra=env, **kw)
-                if r_.get("ok") and r_.get("returncode") == 0:
-                    _grant_sandbox_access(_username, root, rp)
-                return r_
+                return _run_cmd(rp, cmd_, **kw)
 
             if act == "switch":
                 if not branch: return _err("branch required")
@@ -1562,41 +1420,30 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                 if dry_run: return _ok(dry_run=True, would_run=cmd)
                 return _run_mut(cmd)
 
-            if act == "fetch":
+            if act in ("fetch", "pull"):
+                # Par le relais authentifiant : l'URL du remote est vérifiée
+                # (anti-SSRF) et seule elle est joignable pendant la commande.
                 remote = target or "origin"
                 _safe_ref(remote)
-                _blk = _block_remote_ssrf(rp, allow_hosts=_connector_hosts(_username))
-                if _blk:
-                    return _err("blocked_remote", hint=f"Remote refused (anti-SSRF): {_blk}")
-                cmd = ["git", "fetch", remote]
-                if branch:
-                    cmd.append(_validate_branch(branch))
-                if dry_run:
-                    return _ok(dry_run=True, would_run=cmd)
-                return _run_mut(cmd, timeout=30)
-
-            if act == "pull":
-                remote = target or "origin"
-                _safe_ref(remote)
-                _blk = _block_remote_ssrf(rp, allow_hosts=_connector_hosts(_username))
-                if _blk:
-                    return _err("blocked_remote", hint=f"Remote refused (anti-SSRF): {_blk}")
-                strat = (strategy or "ff-only").lower()
-                cmd = ["git", "pull"]
-                if strat == "ff-only":
-                    cmd.append("--ff-only")
-                elif strat == "rebase":
-                    cmd.append("--rebase")
-                elif strat == "merge":
-                    cmd.append("--no-rebase")
-                else:
+                b = _validate_branch(branch) if branch else ""
+                if act == "fetch":
+                    # Sous-modules : autres dépôts que celui du ticket du relais.
+                    cmd = ["git", "fetch", "--no-recurse-submodules", remote, *([b] if b else [])]
+                    if dry_run:
+                        return _ok(dry_run=True, would_run=cmd)
+                    try:
+                        url = _remote_url(rp, remote)
+                    except RelayRefused as e:
+                        return _err(e.code, hint=e.message)
+                    return _run_network(rp, cmd[1:], _username, url=url, timeout=60)
+                mode = {"ff-only": "--ff-only", "rebase": "--rebase",
+                        "merge": "--no-rebase"}.get((strategy or "ff-only").lower())
+                if mode is None:
                     return _err("bad strategy", hint="ff-only|merge|rebase")
-                cmd.append(remote)
-                if branch:
-                    cmd.append(_validate_branch(branch))
                 if dry_run:
-                    return _ok(dry_run=True, would_run=cmd)
-                return _run_mut(cmd, timeout=30)
+                    return _ok(dry_run=True, would_run=["git", "pull", mode, remote,
+                                                        *([b] if b else [])])
+                return _run_pull(rp, remote, b, mode, _username, timeout=60)
 
             if act == "stash":
                 cmd = ["git", "stash", "push", "-u"]
@@ -1659,16 +1506,14 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                                 action="cherry_check", target=ref,
                                 dirty=dirty[:50])
                 # Use --no-commit + immediate reset to test (tree is clean here).
-                r = _run_cmd(rp, ["git", "cherry-pick", "--no-commit", ref], env_extra=env)
+                r = _run_cmd(rp, ["git", "cherry-pick", "--no-commit", ref])
                 # Check if any conflicts
                 conflicts_res = _run_git_ro(rp, ["diff", "--name-only", "--diff-filter=U"])
                 conflicts = [l for l in (conflicts_res.get("stdout") or "").splitlines() if l.strip()]
                 # Always abort (we only wanted to check). The reset only undoes
                 # the trial pick: the tree was verified clean above.
-                _run_cmd(rp, ["git", "cherry-pick", "--abort"], env_extra=env)
-                _run_cmd(rp, ["git", "reset", "--hard", "HEAD"], env_extra=env)
-                # Le trial pick + reset ont réécrit des fichiers à l'UID app.
-                _grant_sandbox_access(_username, root, rp)
+                _run_cmd(rp, ["git", "cherry-pick", "--abort"])
+                _run_cmd(rp, ["git", "reset", "--hard", "HEAD"])
                 return _ok(action="cherry_check", target=ref,
                            would_apply_cleanly=not conflicts,
                            conflicts=conflicts,
@@ -1693,10 +1538,33 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
         if any(d in ("tests","test","spec") for d in parts[:-1]): return False
         return True
 
-    def _extract_kw_py(filepath, repo_root):
+    def _rf_sources(esp, root, scan_root, repo_root):
+        """(chemin, texte, dossiers qui ont un ``__init__.py``) des fichiers
+        candidats sous ``scan_root``, listés et lus par l'agent (liens non
+        suivis) ; au-delà de MAX_LIB_FILE_BYTES, ignoré."""
+        from .fs_tools import _PROFONDEUR, MAX_WALK, _lire_lots
+        base = rel_under(root, scan_root)
+        base = "" if base == "." else base
+        liste = esp.lister(base, depth=_PROFONDEUR, max_entries=MAX_WALK, hidden=True,
+                           exclude=sorted(RF_IGNORE_DIRS))
+        fichiers = [e for e in liste.entries if e["kind"] == "file"]
+        paquets = {posixpath.dirname(e["path"]) for e in fichiers
+                   if posixpath.basename(e["path"]) == "__init__.py"}
+        cands = sorted(e["path"] for e in fichiers
+                       if int(e.get("size") or 0) <= MAX_LIB_FILE_BYTES
+                       and _is_rf_candidate(root / e["path"], repo_root))
+        for rel, data in _lire_lots(esp, cands, MAX_LIB_FILE_BYTES):
+            if data is not None:
+                yield root / rel, data.decode("utf-8", errors="replace"), \
+                    rel_under(root, (root / rel).parent) in paquets
+
+    def _extract_kw(filepath, repo_root, content, has_init=False):
+        if filepath.suffix.lower() == ".py":
+            return _extract_kw_py(filepath, repo_root, content, has_init)
+        return _extract_kw_robot(filepath, repo_root, content)
+
+    def _extract_kw_py(filepath, repo_root, content, has_init=False):
         try:
-            content = filepath.read_text("utf-8", errors="replace")
-            if len(content.encode()) > MAX_LIB_FILE_BYTES: return None
             tree = ast.parse(content)
         except Exception: return None
         name = filepath.stem
@@ -1720,16 +1588,11 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
         if not kws: return None
         rel = filepath.relative_to(repo_root).as_posix()
         mod = rel.replace("/",".").removesuffix(".py")
-        has_init = (filepath.parent / "__init__.py").exists()
         return {"library": name, "file": rel, "type": "python",
                 "recommended_import": mod if has_init else rel,
                 "keywords": kws, "keyword_count": len(kws)}
 
-    def _extract_kw_robot(filepath, repo_root):
-        try:
-            content = filepath.read_text("utf-8", errors="replace")
-            if len(content.encode()) > MAX_LIB_FILE_BYTES: return None
-        except Exception: return None
+    def _extract_kw_robot(filepath, repo_root, content):
         kws, imports, cur, section = [], [], None, None
         for line in content.splitlines():
             line = line.rstrip()
@@ -1789,19 +1652,20 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
             rp = _safe_repo(repo, root)
             act = (action or "").strip().lower()
 
+            esp = Espace(_username, root)
+
             def _scan_libs(scan_root):
                 libs = []
-                for fp in sorted(scan_root.rglob("*")):
-                    if not fp.is_file() or not _is_rf_candidate(fp, rp): continue
-                    lib = _extract_kw_py(fp, rp) if fp.suffix.lower() == ".py" else _extract_kw_robot(fp, rp)
+                for fp, content, has_init in _rf_sources(esp, root, scan_root, rp):
+                    lib = _extract_kw(fp, rp, content, has_init)
                     if lib: libs.append(lib)
                 return libs
 
             if act == "scan":
                 sr = rp
                 if subfolder:
-                    sr = (rp / _safe_rel(subfolder)).resolve()
-                    if not sr.exists():
+                    sr = root / _repo_file(root, rp, subfolder)
+                    if esp.stat(rel_under(root, sr))["kind"] != "dir":
                         return _err(f"subfolder not found: {subfolder}")
                 libs = _scan_libs(sr)
                 summary = [{"library": l["library"], "import": l["recommended_import"],
@@ -1820,9 +1684,8 @@ dry_run=True   : show what would happen without executing side-effecting ops."""
                 norm = lambda s: s.lower().replace("_"," ").replace("-"," ").strip()
                 needle = norm(keyword_name)
                 matches = []
-                for fp in sorted(rp.rglob("*")):
-                    if not fp.is_file() or not _is_rf_candidate(fp, rp): continue
-                    lib = _extract_kw_py(fp, rp) if fp.suffix.lower() == ".py" else _extract_kw_robot(fp, rp)
+                for fp, content, has_init in _rf_sources(esp, root, rp, rp):
+                    lib = _extract_kw(fp, rp, content, has_init)
                     if not lib: continue
                     for kw in lib.get("keywords", []):
                         kn = norm(kw["name"])
@@ -1919,7 +1782,7 @@ Use this BEFORE any write op to know where you stand."""
             rp = _safe_repo(repo, root)
             br = _current_branch(rp) or ""
             base = _default_base_branch(rp)
-            pol = _load_repo_policy(rp)
+            pol = _load_repo_policy(_username, root, rp)
             is_prot = _is_protected(br, pol)
             is_agent = _is_agent_branch(br, pol)
 
@@ -2051,7 +1914,7 @@ branches off other agent branches — keeps history clean)."""
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
             intent = _validate_intent_slug((branch_intent or "").strip().lower())
-            pol = _load_repo_policy(rp)
+            pol = _load_repo_policy(_username, root, rp)
 
             # 1) Bootstrap git config
             _ensure_git_config(rp, _username)
@@ -2100,7 +1963,7 @@ branches off other agent branches — keeps history clean)."""
                     )
                 pull_note = "skipped (empty repo — no commit yet)"
             else:
-                sw = _run_cmd(rp, ["git", "switch", base], timeout=8, env_extra={"GIT_TERMINAL_PROMPT": "0"})
+                sw = _run_cmd(rp, ["git", "switch", base], timeout=8)
                 if not sw.get("ok") or sw.get("returncode") != 0:
                     return _err(
                         "switch_base_failed",
@@ -2109,23 +1972,12 @@ branches off other agent branches — keeps history clean)."""
                              f"stderr: {sw.get('stderr', '')[:200]}",
                     )
                 # AUDIT 2026-08-02 — le ``git pull`` ci-dessous est une COMMODITÉ
-                # (partir d'une base fraîche) et est DÉJÀ non-fatal (offline / pas
-                # de remote → on note et on continue). Le garde anti-SSRF doit
-                # avoir la MÊME sémantique : un remote interne/refusé fait SAUTER
-                # le pull, il ne doit PAS avorter git_start_work — la création de
-                # branche (étapes 4-5) est 100 % LOCALE. Avant, le
-                # ``return _err("blocked_remote")`` ici bloquait tout démarrage de
-                # travail sur un repo à remote interne, alors même qu'aucune
-                # opération réseau n'est indispensable.
-                _blk = _block_remote_ssrf(rp, allow_hosts=_connector_hosts(_username))
-                if _blk:
-                    pull_note = f"skipped (remote refused anti-SSRF: {_blk})"
-                else:
-                    pl = _run_cmd(rp, ["git", "pull", "--ff-only", "origin", base],
-                                  timeout=20, env_extra={"GIT_TERMINAL_PROMPT": "0"})
-                    # Pull failure is non-fatal (offline / no remote) — just note it
-                    pull_note = "ok" if (pl.get("ok") and pl.get("returncode") == 0) else \
-                                f"skipped ({pl.get('stderr', 'unknown')[:80]})"
+                # (partir d'une base fraîche), NON fatale : offline, pas de
+                # remote ou remote refusé (anti-SSRF, par le relais) → on note et
+                # on continue ; la création de branche (étapes 4-5) est locale.
+                pl = _run_pull(rp, "origin", base, "--ff-only", _username, timeout=20)
+                pull_note = "ok" if (pl.get("ok") and pl.get("returncode") == 0) else \
+                            f"skipped ({(pl.get('stderr') or pl.get('fix') or pl.get('error') or 'unknown')[:80]})"
 
                 # 4) Capture base sha for record (local — toujours exécuté)
                 base_sha_r = _run_git_ro(rp, ["rev-parse", "HEAD"], timeout=3, max_out=200)
@@ -2133,15 +1985,13 @@ branches off other agent branches — keeps history clean)."""
 
             # 5) Create agent branch
             new_branch = _generate_agent_branch(intent, prefix=agent_pfx)
-            cr = _run_cmd(rp, ["git", "switch", "-c", new_branch], timeout=6,
-                          env_extra={"GIT_TERMINAL_PROMPT": "0"})
+            cr = _run_cmd(rp, ["git", "switch", "-c", new_branch], timeout=6)
             if not cr.get("ok") or cr.get("returncode") != 0:
                 return _err(
                     "create_branch_failed",
                     hint=f"Could not create branch {new_branch!r}. stderr: {cr.get('stderr', '')[:200]}",
                 )
 
-            _grant_sandbox_access(_username, root, rp)
             return _ok(
                 branch=new_branch,
                 base=base,
@@ -2192,7 +2042,7 @@ Returns::
 
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
-            pol = _load_repo_policy(rp)
+            pol = _load_repo_policy(_username, root, rp)
             br = _current_branch(rp) or ""
             # Bootstrap identity here too — the fresh-repo path (init → commit)
             # legitimately never goes through git_start_work.
@@ -2277,7 +2127,6 @@ Returns::
                     dele = int(m.group(3) or 0)
                     break
 
-            _grant_sandbox_access(_username, root, rp)
             out = _ok(
                 sha=sha,
                 branch=br,
@@ -2344,7 +2193,7 @@ Returns (PR already open)::
 
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
-            pol = _load_repo_policy(rp)
+            pol = _load_repo_policy(_username, root, rp)
             br = _current_branch(rp) or ""
 
             if _is_protected(br, pol):
@@ -2382,34 +2231,26 @@ Returns (PR already open)::
             cred = None
             if _uid:
                 try:
-                    from shared_infra.git.resolver import (
-                        resolve_git_credential, import_legacy_git_credentials)
-                    import_legacy_git_credentials(_uid, sb)
+                    from shared_infra.git.resolver import resolve_git_credential
+                    Espace(_username, sb).git_anciens_identifiants(_uid)
                     cred = resolve_git_credential(_uid, remote_url)
                 except Exception:
                     cred = None
 
-            # Push — re-validate the remote host-side (anti-SSRF ; connecteurs
-            # self-hosted autorisés) ; le token transite UNIQUEMENT par GIT_ASKPASS
-            # (jamais argv ni .git/config). Injection en host-mode (le push crédité
-            # en container-mode est différé, cf. modèle de sécurité par phases).
-            _blk = _block_remote_ssrf(rp, allow_hosts=_connector_hosts(_username))
-            if _blk:
-                return _err("blocked_remote", hint=f"Remote refused (anti-SSRF): {_blk}")
-            from contextlib import nullcontext as _nullctx
-            from shared_infra.git.askpass import git_askpass_env, AskpassError
+            # Push par le relais authentifiant : URL du remote vérifiée
+            # (anti-SSRF), identifiant du connecteur ajouté par l'hôte (jamais
+            # dans la sandbox), et seule la branche de l'agent peut bouger.
             _push_timeout = 30
             _has_creds = bool(cred and cred.get("token"))
             try:
-                _cm = (git_askpass_env(cred["username"], cred["token"])
-                       if _has_creds else _nullctx({}))
-                with _cm as _ap_env:
-                    pu = _run_cmd(rp, ["git", "push", "-u", "origin", "HEAD"],
-                                  timeout=_push_timeout,
-                                  env_extra={"GIT_TERMINAL_PROMPT": "0", **_ap_env})
-            except AskpassError:
-                return _err("bad_credentials",
-                            hint="Invalid connector token (control character).")
+                _push_url = _remote_url(rp, "origin", push=True)
+            except RelayRefused as e:
+                return _err(e.code, hint=e.message)
+            # ``--no-follow-tags`` : le ticket ne permet que la branche de
+            # l'agent (``push.followTags`` faisait refuser tout le push).
+            pu = _run_network(rp, ["push", "--no-follow-tags", "-u", "origin", "HEAD"],
+                              _username, url=_push_url,
+                              push_refs={f"refs/heads/{br}"}, timeout=_push_timeout)
             if not pu.get("ok") or pu.get("returncode") != 0:
                 # AUDIT 2026-08-02 — surface l'erreur RÉELLE du push. Sur TIMEOUT,
                 # ``_run_cmd`` renvoie {error:"timeout", fix:…, returncode:124}
@@ -2443,7 +2284,6 @@ Returns (PR already open)::
                           f"requis (NON auto-activé), ou remote qui refuse."),
                     branch=br, remote=remote_url, returncode=pu.get("returncode"),
                 )
-            _grant_sandbox_access(_username, root, rp)
 
             # Count commits ahead of base (for the PR description / metadata)
             target_base = (base or "").strip() or _default_base_branch(rp)
@@ -2472,7 +2312,7 @@ Returns (PR already open)::
             host = prov_info.get("host", "")
             owner = prov_info.get("owner", "")
             repo_name = prov_info.get("repo", "")
-            from shared_infra.git.providers import get_provider, compare_url_for
+            from shared_infra.git.providers import compare_url_for, get_provider
 
             # Pas de connecteur (ou token absent) → repli compare-URL manuel.
             if not cred or not cred.get("token"):
@@ -2532,6 +2372,7 @@ Returns (PR already open)::
                         provider_type=cred["provider_type"]),
                 )
             import functools as _ft
+
             from shared_infra.git._http import http_json as _hardened_http
             _http = _ft.partial(_hardened_http,
                                 ssrf_allow_hosts=({host} if host else set()),
@@ -2605,7 +2446,7 @@ Returns::
         try:
             root = _git_root(_username)
             rp = _safe_repo(repo, root)
-            pol = _load_repo_policy(rp)
+            pol = _load_repo_policy(_username, root, rp)
             br = _current_branch(rp) or ""
 
             if _is_protected(br, pol):
@@ -2643,7 +2484,6 @@ Returns::
                 if dl.get("ok") and dl.get("returncode") == 0:
                     deleted = agent_br
 
-            _grant_sandbox_access(_username, root, rp)
             return _ok(
                 returned_to=base,
                 deleted_branch=deleted,
@@ -2691,18 +2531,7 @@ Returns::
    default_branch: 'main', next_step: 'Call git_start_work next.'}"""
         _username = get_username(ctx)
         try:
-            # MAJ-18 — git_clone n'avait AUCUN contrôle d'hôte (juste https://) →
-            # SSRF vers le réseau interne possible (le clone tourne sur l'hôte).
-            # Même validation robuste que git_action(clone).
             url = (url or "").strip()
-            _block = _clone_url_block_reason(url)
-            if _block:
-                return _err(
-                    f"clone_url_blocked: {_block}",
-                    hint="Only public https:// URLs allowed (no ssh/file/git:, no "
-                         "embedded creds) and the host must not resolve to a loopback "
-                         "/ private / link-local / reserved address (SSRF protection).",
-                )
 
             # Infer into_path from URL if not given
             if not into_path:
@@ -2717,12 +2546,18 @@ Returns::
                 return _err("bad_into_path", hint="into_path must be relative + no '..'.")
 
             sb = _sandbox(_username)
-            target = (sb / p).resolve()
-            if target != sb and sb not in target.parents:
-                return _err("target_outside_sandbox", hint=f"into_path resolves outside sandbox: {target}")
-
-            if target.exists():
-                if (target / ".git").exists():
+            target = sb / p
+            esp = Espace(_username, sb)
+            rel = p.as_posix()
+            try:
+                e, eg = esp.stats([rel, f"{rel}/.git"])
+            except AgentError as ex:
+                return _err(ex.code, hint=ex.message or "sandbox agent unavailable")
+            if e.get("kind") == "error":
+                return _err("target_outside_sandbox",
+                            hint=f"into_path is not usable in the sandbox: {e.get('error')}")
+            if e.get("kind") != "missing":
+                if eg.get("kind") in ("dir", "file"):
                     return _err(
                         "repo_exists",
                         hint=f"A git repo already exists at {into_path}. "
@@ -2735,58 +2570,39 @@ Returns::
                 )
 
             # AUDIT 2026-08-02 (Part B) — CREDENTIALS SANS SAISIE PAR LE MODÈLE.
-            # On résout le token depuis les Connecteurs Git de l'utilisateur
-            # (match par host du remote), injecté via GIT_ASKPASS — jamais dans
-            # l'URL (``_clone_url_block_reason`` refuse ``user:token@host``) ni en
-            # argv/.git/config. Le modèle n'a donc RIEN à saisir : il suffit
-            # d'enregistrer une fois le connecteur (Réglages → Connecteurs Git,
-            # ou déposer un ``.git-credentials.json`` auto-importé). Même
-            # mécanisme que git_submit (push) et la route éditeur de clone.
-            try:
-                from shared_infra.accounts.users import get_user as _get_user_row
-                _urow = _get_user_row(_username)
-                _cuid = int(_urow["id"]) if _urow else 0
-            except Exception:
-                _cuid = 0
-
             # Creds EXPLICITES (fournis par l'utilisateur via le chat) : ils
             # priment ET seront PERSISTÉS après le clone (keyés sur le host de
-            # l'URL → réutilisés ensuite sans nouvelle saisie). Sinon on résout
-            # depuis les Connecteurs Git existants.
+            # l'URL). Sinon ceux des Connecteurs Git (match par host). Ajoutés
+            # par le relais de l'hôte : jamais dans l'URL, l'argv ni la sandbox.
+            _cuid = _uid_of(_username)
             _explicit_cred = bool(token and token.strip())
             _clone_cred = None
             if _explicit_cred:
                 _clone_cred = {"username": (username or "").strip(), "token": token.strip()}
             elif _cuid:
                 try:
-                    from shared_infra.git.resolver import (
-                        resolve_git_credential, import_legacy_git_credentials)
-                    import_legacy_git_credentials(_cuid, sb)
+                    from shared_infra.git.resolver import resolve_git_credential
+                    esp.git_anciens_identifiants(_cuid)
                     _clone_cred = resolve_git_credential(_cuid, url)
                 except Exception:
                     _clone_cred = None
+            _has_clone_cred = bool(_clone_cred and _clone_cred.get("token"))
 
             cmd = ["git", "clone"]
             if branch:
                 cmd += ["--branch", _validate_branch(branch), "--single-branch"]
-            # Use the sandbox-RELATIVE target (into_path) with cwd=<sandbox>
-            # so the same argv works on the host OR inside the container
-            # (cwd=/work) — see _run_git_network. Host result is identical to
-            # the previous absolute-path form.
-            cmd += [url, str(p)]
-            _twin = unicode_twin_warning(target, sb)
-            from contextlib import nullcontext as _nullctx
-            from shared_infra.git.askpass import git_askpass_env, AskpassError
-            _has_clone_cred = bool(_clone_cred and _clone_cred.get("token"))
-            try:
-                _cm = (git_askpass_env(_clone_cred["username"], _clone_cred["token"])
-                       if _has_clone_cred else _nullctx({}))
-                with _cm as _ap_env:
-                    cl = _run_git_network(sb, cmd, _username, timeout=120,
-                                          env_extra={"GIT_TERMINAL_PROMPT": "0", **_ap_env})
-            except AskpassError:
-                return _err("bad_credentials",
-                            hint="Token du Connecteur Git invalide (caractère de contrôle).")
+            cmd += ["--", url, rel]
+            _twin = esp.jumeau_unicode(rel)
+            cl = _run_network(sb, cmd[1:], _username, url=url, timeout=120,
+                              auth=((_clone_cred or {}).get("username") or "",
+                                    (_clone_cred or {}).get("token") or "") if _has_clone_cred else None)
+            if cl.get("error") in ("blocked_remote", "scheme_not_relayed", "malformed_url"):
+                return _err(
+                    f"clone_url_blocked: {cl.get('fix') or cl.get('message')}",
+                    hint="Only http(s) URLs allowed (no ssh/file/git:, no embedded creds) and "
+                         "the host must not resolve to a loopback or link-local address "
+                         "(SSRF protection).",
+                )
             if not cl.get("ok") or cl.get("returncode") != 0:
                 # Message robuste : sur timeout, l'enveloppe n'a pas de ``stderr``.
                 _cd = (cl.get("stderr") or cl.get("stdout") or cl.get("fix") or "").strip()
@@ -2817,7 +2633,6 @@ Returns::
             except Exception:
                 base = "?"
 
-            _grant_sandbox_access(_username, sb, target)
             out = _ok(
                 path=str(p),
                 remote=url,

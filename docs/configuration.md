@@ -68,12 +68,58 @@ suite, puis le document complet quand la conversion est terminée.
 Installation : `./install.sh --with-office`.
 
 - Ubuntu 24.04 restreint les user namespaces non privilégiés
-  (`kernel.apparmor_restrict_unprivileged_userns`) : sans profil AppArmor pour
-  `bwrap`, l'aperçu répond « Isolation indisponible ».
+  (`kernel.apparmor_restrict_unprivileged_userns`) : si `bwrap` est bloqué,
+  l'installeur pose le profil AppArmor `/etc/apparmor.d/elpis-bwrap` ; sinon
+  l'aperçu répond « Isolation indisponible ».
 - Réglages : `config.json › office_preview` (`isolation` `auto`|`none`,
   `timeout_s`, `slots`, `max_mb`, `max_pages`, `xlsx_max_rows`, `cache_mb`…) ;
   interrupteur admin « Aperçu Office » (`features.office_preview`). Cache :
   `user_sandboxes/.office-cache` (élagué par la maintenance).
+
+### Git d'une sandbox
+
+Les commandes Git des outils de l'agent et du panneau Git de l'éditeur
+tournent dans le conteneur de l'utilisateur, par son agent et sous son UID :
+ce qu'un dépôt fait exécuter reste dans la sandbox (les hooks restent
+désactivés pour ces commandes). Les opérations réseau lancées par Elpis
+(`clone`, `fetch`, `pull`, `push`, `ls-remote` ; `https` et `http`
+seulement) passent par le relais de l'hôte, y compris avec un profil réseau
+isolé : un ticket par opération, le seul dépôt de l'opération joignable,
+l'identifiant du connecteur Git ajouté par l'hôte (jamais dans la sandbox),
+la garde anti-SSRF refaite à chaque requête et, au push de l'éditeur, seules
+les refs que `git push` mettrait à jour d'après la configuration du dépôt,
+sans suppression, sans mise à jour forcée non demandée ni réécriture d'une
+étiquette existante (l'assistant ne pousse que sa branche). Un refus du
+relais est rendu en 409, avec son motif ; un rejet de l'amont (en retard) en
+400. Identifiants saisis : envoyés après un 401 de l'amont sur la découverte
+(`info/refs`) ; un amont qui ne les demande qu'au `POST` n'est pas pris en
+charge.
+
+Le relais écoute sur `user_sandboxes/.elpis-relay/<pid>.sock` (un socket par
+processus de l'app), dossier monté en lecture seule dans les conteneurs : une
+connexion sans ticket valide est fermée sans rien relayer. Pendant une
+opération, tout processus de la sandbox peut passer par l'écoute locale de
+l'agent, mais seulement vers le dépôt, le service et les refs du ticket.
+
+Certificats TLS : le magasin du système (`/etc/ssl`, `SSL_CERT_FILE`,
+`SSL_CERT_DIR`), plus `GIT_SSL_CAINFO` / `GIT_SSL_CAPATH` s'ils sont définis
+pour le service. **Aucun proxy** : le relais joint l'amont directement
+(variables `*_PROXY` ignorées). Une redirection de l'amont est refusée, avec
+l'adresse vers laquelle corriger l'URL du remote. Un remote `http://` passe
+en clair, identifiant du connecteur compris : préférer `https://`.
+
+Mise à jour depuis une version où Git tournait sur l'hôte : la configuration
+Git du compte de service (`http.sslCAInfo` de `/etc/gitconfig`, `http.proxy`,
+`http.extraHeader`) ne s'applique plus au réseau Git. Une CA interne se
+déclare dans le magasin du système ou par `GIT_SSL_CAINFO` dans
+l'environnement du service.
+
+Ubuntu ≥ 23.10 réserve les user namespaces aux programmes munis d'un profil
+AppArmor. Si `bwrap` est bloqué, l'installeur (sauf `--skip-system`) pose
+`/etc/apparmor.d/elpis-bwrap`. Compromis : ce profil vaut pour tout compte
+de la machine qui lance `bwrap`, et rouvre donc pour lui la surface du noyau que
+la restriction réduit. Le retirer (`apparmor_parser -R`, puis supprimer le
+fichier) désactive la prison des aperçus Office.
 
 ---
 
@@ -202,10 +248,12 @@ variable, qui prime) :
 | `pool_max`, `timeout` | `APP_DB_POOL_MAX`, `APP_DB_TIMEOUT` | 8 connexions par process, 60 s |
 | — (mot de passe) | `APP_DB_PASSWORD` | fichier `user_db/.db_password` (0600), jamais dans `config.json` |
 | `generation` | — | écrite par la bascule depuis l'administration |
+| `pending` | — | cible enregistrée par « Enregistrer » sans bascule (mot de passe dans `user_db/.db_password.pending`) ; la base active n'en est pas modifiée, la bascule l'applique puis l'efface |
 
 Au premier démarrage, une base vide reçoit le schéma complet ; une base
 existante reçoit ses tables et colonnes manquantes puis ses migrations en
-attente. Un seul process à la fois pose le schéma (verrou fichier), les
+attente. Une base PostgreSQL ou MariaDB/MySQL naît toujours de ce schéma :
+les migrations qu'il contient y sont inscrites sans être rejouées. Un seul process à la fois pose le schéma (verrou fichier), les
 workers peuvent donc démarrer ensemble.
 
 Exploitation (`./elpis db …` = `python -m shared_infra.db …`) :
@@ -226,7 +274,8 @@ même chose en « Migrer et basculer » (écritures suspendues pendant la copie,
 redémarrage automatique) et propose « Revenir à SQLite ».
 
 Sauvegarde : hors SQLite, la sauvegarde « base » produit un instantané SQLite
-(restaurable partout). `.db_password` n'est ni sauvegardé ni restauré. Pour
+(restaurable partout). `.db_password` (et `.db_password.pending`) n'est ni
+sauvegardé ni restauré. Pour
 restaurer la base d'un moteur serveur : revenir à SQLite, restaurer, puis
 migrer.
 
@@ -336,7 +385,7 @@ Sections :
 | `llm` | `scheduling_mode`, `compression.*`, `compaction.*`, `prune.*`, `task.*` (sous-agents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
 | `memory` | `enabled`, `memory_char_limit`, `user_char_limit` |
 | `skills` | `dir`, `user_dir`, `top_n`, `min_score`, `char_budget`, `index_max` |
-| `executors` | `image`, `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]` |
+| `executors` | `image` (image tierce seulement ; sans elle, celle de la version), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]` |
 | `security` | `password_policy.*`, `session.*` (cookie, `max_age_sec`, `same_site`, `https_only`, `global_min_ts`), `https.*` (`enabled`, ports, `ca_file`), `listen` (`local` \| `lan`, voir [Écoute](#écoute-securitylisten)) — ⚠ `https.*` + `listen` + `session.https_only` + `session.global_min_ts` appartiennent à leurs endpoints, l'éditeur brut ne les écrit pas |
 | `vision` / `desktop` | Endpoint d'annotation, format, modèle, passes ; cibles desktop, scopes, budgets |
 | `rag` | `service_url`, `service_token`, collection par défaut, `top_k`, seuils |
@@ -452,7 +501,7 @@ comme absente.
 | `ADMIN_PUBLIC_URL` / `MAIN_PUBLIC_URL` | — | — | URLs externes (réécriture localhost automatique) |
 | `APP_LLM_SCHEDULING` | `llm.scheduling_mode` | `auto` | `auto` \| `classic` \| `optimized` |
 | `APP_GIT_TOOL_TIMEOUT_S` | `tools.git.timeout_s` | `60` | Commandes Git locales |
-| `APP_*_RETENTION_DAYS` | `maintenance.*_retention_days` | 90 à 400 selon la table | Rétentions (`0` = pas de purge) |
+| `APP_*_RETENTION_DAYS` | `maintenance.*_retention_days` | 90 à 400 selon la table | Rétentions (`0` = pas de purge) ; celle de `usage_events` vaut aussi pour les exécutions (`runs`) |
 | `APP_MAINTENANCE_HOUR` | `maintenance.hour` | `6` | Heure de la passe quotidienne |
 
 #### Serveur MCP local
@@ -545,8 +594,9 @@ affecté à sa première utilisation à l'hôte le moins chargé, puis y reste �
 sandbox, terminal et outils sur le même hôte). Console admin → Sandbox →
 « Hôtes d'outils » : santé de chaque hôte (``/health``), comptes affectés,
 réaffectation et MIGRATION d'un compte (``/api/sandbox/export`` de l'ancien
-hôte → ``/api/sandbox/import`` sur le nouveau → réaffectation ; l'ancien
-``/work`` est conservé à côté, ``.work-before-import-<ts>``). Routes :
+hôte → ``/api/sandbox/import`` sur le nouveau → réaffectation ; un instantané
+du ``/work`` remplacé est pris d'abord, l'import est refusé s'il ne peut
+l'être). Routes :
 ``GET /api/admin/toolhosts``, ``POST /api/admin/toolhosts/placements/{uid}``
 (``{host_id}``), ``…/migrate``, ``DELETE …``. Ajouter un hôte = une entrée
 ``sandboxHosts`` dans ``mcp.json`` + ``toolhost.json`` sur la machine.
@@ -808,8 +858,9 @@ streaming — sans quoi `in_tok`/`out_tok` restent à 0.
 
 **Trafic LLM.** Si `llm.debug.enabled` (défaut `true`), chaque échange
 app ↔ moteur (requête + réponse, hors thinking) est journalisé dans la table
-`llm_calls` (ring borné, payloads plafonnés) et consultable dans la console
-admin. `GET /api/admin/llm-traffic`.
+`llm_calls` (ring borné, payloads plafonnés) et consultable par l'API
+d'administration (`GET /api/admin/llm-traffic`) ; la console n'a pas de vue
+dédiée.
 
 **Journaux en direct.** Console admin → 300 dernières entrées (ring buffer
 serveur) puis flux SSE. `GET /api/admin/logs/recent` + `GET /api/system-events`.

@@ -52,17 +52,14 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import time
 from typing import Any, Dict
 
 import httpx
-
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from shared_infra.security.deps import require_user_id
-from shared_infra.db import log_metric
-from shared_infra.accounts.users import get_user_by_id
 from llm_core import (
     LLM_SEMAPHORE,
     _llama_base_url,
@@ -74,14 +71,23 @@ from llm_core import (
     wait_for_slots_idle,
 )
 from llm_core._scheduling._locks import MODEL_EXCLUSIVITY
-from shared_infra.routes._state import router
+from shared_infra.accounts.users import get_user_by_id
+from shared_infra.db import log_metric
 
 # Shared state still owned by ``_legacy``. Importing the module (not the
 # names) lets us read the *current* value of mutables like ``_model_cache``
 # without snapshotting at import time.
-from shared_infra.observability.events_bus import CURRENT_LOADED_MODELS, _ensure_model_poller, _model_cache, _refresh_model_cache, refresh_models_everywhere, system_events
+from shared_infra.observability.events_bus import (
+    CURRENT_LOADED_MODELS,
+    _ensure_model_poller,
+    _model_cache,
+    _refresh_model_cache,
+    refresh_models_everywhere,
+    system_events,
+)
+from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
-import logging
 logger = logging.getLogger("uvicorn.error")
 
 
@@ -225,6 +231,7 @@ async def api_model_props(model_id: str, request: Request):
         if not _eng.is_llamacpp:
             raise HTTPException(404, "Propriétés indisponibles pour ce serveur")
         from urllib.parse import quote
+
         from llm_core._llama_http import _llama_get
         props = await _llama_get(
             f"/props?model={quote(model_id, safe='')}&autoload=false",
@@ -328,8 +335,8 @@ async def api_model_effective_params(model_id: str, request: Request):
             return JSONResponse(
                 describe_effective_params_degraded(model_id=model_id, task=task),
                 headers={"Cache-Control": "no-cache"})
-        from llm_core.engines import use_engine
         from llm_core._llm_params import describe_effective_params
+        from llm_core.engines import use_engine
         try:
             with use_engine(_eng):
                 result = await describe_effective_params(model_id=model_id, task=task)
@@ -471,6 +478,7 @@ async def api_llm_load_progress(request: Request):
     _eng = _engine_for(request, uid)
 
     import json as _json
+
     from llm_core.engines import use_engine
     from llm_core.providers.llama_caps import engine_caps
     from llm_core.providers.llama_models import watch_load

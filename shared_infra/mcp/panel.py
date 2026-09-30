@@ -67,25 +67,25 @@ from typing import List
 from fastapi import File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
-from shared_infra.config import MCP_SERVERS_DIR
-from shared_infra.mcp import servers as _mcp_shared
-from shared_infra.accounts.users import get_user_by_id
-from shared_infra.security.deps import require_user_id
-from shared_infra.security.encryption import EncryptionUnavailable
-from shared_infra.routes._helpers import _path_inside
+from llm_core import _mcp_categories as _mcp_cats
 from llm_core._mcp_pool import mcp_pool
 from llm_core._mcp_wrappers import _resolve_mcp_client
-from llm_core import _mcp_categories as _mcp_cats
-from shared_infra.routes._state import router
-# Admin-only endpoints live on the admin router so they only mount on the
-# admin process (APP_MODE=admin / full).
-from shared_infra.routes.admin._state import admin_router
+from shared_infra.accounts.users import get_user_by_id
+from shared_infra.config import MCP_SERVERS_DIR
+from shared_infra.mcp import servers as _mcp_shared
+from shared_infra.routes._helpers import _path_inside
 
 # ``_require_admin`` is defined in ``_legacy`` and re-exported by the package
 # façade. Kept on the admin handlers as defense-in-depth
 # (in APP_MODE=full, admin_router is mounted on the same port as router).
 from shared_infra.routes._legacy import _require_admin
+from shared_infra.routes._state import router
 
+# Admin-only endpoints live on the admin router so they only mount on the
+# admin process (APP_MODE=admin / full).
+from shared_infra.routes.admin._state import admin_router
+from shared_infra.security.deps import require_user_id
+from shared_infra.security.encryption import EncryptionUnavailable
 
 _LOCAL_MCP_CFG = {
     "type": "stdio",
@@ -225,8 +225,8 @@ async def api_upload_mcp_server(
     # casserait le pool au prochain démarrage).
     target_dir_resolved = target_dir.resolve()
 
-    from shared_infra.files.uploads import read_upload_bounded
     from shared_infra.config import MAX_UPLOAD_BYTES
+    from shared_infra.files.uploads import read_upload_bounded
     try:
         target_dir.mkdir(parents=True, exist_ok=True)
         for file, path_str in zip(files, paths):
@@ -357,8 +357,8 @@ def api_admin_mcp_manifest(request: Request):
     joignabilité (sonde TCP brève sur les URL réseau), avertissements et
     erreurs de schéma. Jetons masqués."""
     _require_admin(request)
-    from shared_infra.mcp import manifest as _mf
     from llm_core._mcp_wrappers import _shared_service_reachable
+    from shared_infra.mcp import manifest as _mf
     m = _mf.load()
     view = m.to_public_dict()
     for row in view["servers"]:

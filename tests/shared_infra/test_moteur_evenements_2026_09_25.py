@@ -26,7 +26,6 @@ import pytest
 
 from shared_infra.observability.file_bus import FileBus
 
-
 # ── B3/B4 : journal fichier partagé ──────────────────────────────────────────
 
 def test_rotation_ne_perd_ni_la_ligne_declenchante_ni_l_arriere(tmp_path):

@@ -1,5 +1,9 @@
 # ─────────────────────────────────────────────────────────────────────────
-#  elpis/sandbox:1.6.0 — Image unique pour les containers user
+#  elpis/sandbox:1.7.0 — Image unique pour les containers user
+#
+#  Changements vs 1.6.0
+#  --------------------
+#   * ping sans capacité fichier : le conteneur tourne sans NET_RAW.
 #
 #  Changements vs 1.5.0
 #  --------------------
@@ -84,7 +88,7 @@ FROM debian:bookworm-slim
 
 LABEL org.opencontainers.image.title="elpis/sandbox"
 LABEL org.opencontainers.image.description="Sandbox Docker persistant par user pour Elpis"
-LABEL org.opencontainers.image.version="1.6.0"
+LABEL org.opencontainers.image.version="1.7.0"
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -153,6 +157,12 @@ RUN apt-get update \
     xvfb x11-utils xauth \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+
+# Le conteneur tourne sans NET_RAW (_user_sandbox.CAPABILITIES) : la capacité
+# fichier cap_net_raw de ping ferait échouer son exécution ; sans elle, ping
+# passe par les sockets ICMP ordinaires que Docker ouvre à tous
+# (net.ipv4.ping_group_range).
+RUN setcap -r /usr/bin/ping
 
 # Debian nomme `fd-find` → `fdfind` et `bat` → `batcat` pour éviter les
 # collisions historiques. On crée les symlinks attendus pour que la
@@ -262,9 +272,9 @@ RUN groupadd -g 10001 elpis \
  && chmod 0440 /etc/sudoers.d/elpis \
  && mkdir -p /work \
  && chown -R 10001:10001 /work \
- && chmod 0777 /work \
- && echo 'umask 0002' >> /etc/profile \
- && echo 'umask 0002' >> /etc/bash.bashrc
+ && chmod 0755 /work \
+ && echo 'umask 0022' >> /etc/profile \
+ && echo 'umask 0022' >> /etc/bash.bashrc
 
 # ─── 6. Configuration runtime ─────────────────────────────────────────────
 # PYTHONUSERBASE pointe DANS /work (volume monté) : un `pip install --user`

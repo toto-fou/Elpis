@@ -37,7 +37,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from shared_infra.db import _schema
-from shared_infra.db._dialect import MYSQL, POSTGRES, SQLITE, dialect_of, table_columns, table_names
+from shared_infra.db._dialect import MYSQL, POSTGRES, SQLITE, bytes_order, dialect_of, table_columns, table_names
 
 log = logging.getLogger("uvicorn.error")
 
@@ -183,14 +183,11 @@ def _order_key(t: "_schema.Table") -> Tuple[str, ...]:
     return tuple(c.name for c in t.cols)
 
 
-def _pages(conn, t, cols: Sequence[str], limit: Optional[int] = None) -> Iterable[List[tuple]]:
+def _pages(conn, t, cols: Sequence[str]) -> Iterable[List[tuple]]:
     """Lignes de ``t`` par pages, dans l'ordre de la clé (reproductible)."""
     qc = ", ".join(_q(conn, c) for c in cols)
     order = ", ".join(_q(conn, c) for c in _order_key(t))
     base = f"SELECT {qc} FROM {_q(conn, t.name)} ORDER BY {order}"
-    if limit is not None:
-        yield [tuple(r) for r in conn.execute(f"{base} LIMIT {int(limit)}").fetchall()]
-        return
     offset = 0
     while True:
         rows = conn.execute(f"{base} LIMIT {_BATCH_ROWS} OFFSET {offset}").fetchall()
@@ -200,6 +197,22 @@ def _pages(conn, t, cols: Sequence[str], limit: Optional[int] = None) -> Iterabl
         if len(rows) < _BATCH_ROWS:
             return
         offset += len(rows)
+
+
+def _sample(conn, t, cols: Sequence[str]) -> List[tuple]:
+    """Les ``_SAMPLE`` premières lignes de ``t`` dans un ordre IDENTIQUE sur
+    tous les moteurs : clés texte comparées octet par octet. Trié selon la
+    collation du serveur (PostgreSQL en ``fr_FR``/``en_US``), l'échantillon
+    comparé à celui de SQLite n'était pas le même et la vérification refusait
+    un transfert correct (2026-09-27)."""
+    d = dialect_of(conn)
+    kinds = {c.name: c.type for c in t.cols}
+    order = ", ".join(
+        bytes_order(_q(conn, c), d) if kinds.get(c) in (_schema.TEXT, _schema.TEXT_CI)
+        else _q(conn, c) for c in _order_key(t))
+    qc = ", ".join(_q(conn, c) for c in cols)
+    sql = f"SELECT {qc} FROM {_q(conn, t.name)} ORDER BY {order} LIMIT {int(_SAMPLE)}"
+    return [tuple(r) for r in conn.execute(sql).fetchall()]
 
 
 # ── Conversion ───────────────────────────────────────────────────────────────
@@ -407,22 +420,22 @@ def transfer(source: Dict[str, Any], target: Dict[str, Any], *, dry_run: bool = 
             keep_keys = [rc for (tb, rc) in referenced if tb == t.name]
 
             def accept(r: tuple) -> Optional[tuple]:
-                for fk in fks:
-                    if fk.table == t.name:
+                for fk in fks:  # noqa: B023 (même itération)
+                    if fk.table == t.name:  # noqa: B023 (même itération)
                         continue
-                    val = tuple(r[cols.index(c)] for c in fk.cols)
+                    val = tuple(r[cols.index(c)] for c in fk.cols)  # noqa: B023 (même itération)
                     if any(v is None for v in val):
                         continue
                     parent = copied_keys.get(f"{fk.table}:{','.join(fk.ref_cols)}")
                     if parent is not None and val not in parent:
-                        info["orphans"] += 1
+                        info["orphans"] += 1  # noqa: B023 (même itération)
                         return None
                 try:
-                    return tuple(_coerce(v, k) for v, k in zip(r, kinds))
+                    return tuple(_coerce(v, k) for v, k in zip(r, kinds))  # noqa: B023 (même itération)
                 except (TypeError, ValueError) as exc:
-                    info["rejected"] += 1
-                    if info["rejected"] <= 5:
-                        log.warning("[transfer] %s : ligne rejetée (%s)", t.name, exc)
+                    info["rejected"] += 1  # noqa: B023 (même itération)
+                    if info["rejected"] <= 5:  # noqa: B023 (même itération)
+                        log.warning("[transfer] %s : ligne rejetée (%s)", t.name, exc)  # noqa: B023 (même itération)
                     return None
 
             batches = _pages(src, t, cols)
@@ -475,8 +488,8 @@ def transfer(source: Dict[str, Any], target: Dict[str, Any], *, dry_run: bool = 
                 continue                               # l'échantillon ne serait plus aligné
             cols = [c.name for c in t.cols if c.name in table_columns(src, t.name)]
             kinds = [_col_kind(t.col(c), d_dst) for c in cols]
-            a = next(iter(_pages(src, t, cols, limit=_SAMPLE)), [])
-            b = next(iter(_pages(dst, t, cols, limit=_SAMPLE)), [])
+            a = _sample(src, t, cols)
+            b = _sample(dst, t, cols)
             ha = _digest([tuple(_coerce(v, k) for v, k in zip(r, kinds)) for r in a])
             hb = _digest(b)
             info["sample_ok"] = ha == hb

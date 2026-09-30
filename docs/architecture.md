@@ -911,7 +911,7 @@ sequenceDiagram
             L-->>A: tool_calls[]
             A-->>C: NDJSON {tool_call}
             A->>M: call_tool (timeout LLAMA_TOOL_TIMEOUT_S)
-            M->>S: docker exec (shell) ou accès host (fs/git)
+            M->>S: docker exec (shell) ou agent de la sandbox (fs/git)
             S-->>M: résultat
             M-->>A: résultat (enveloppe ok/err)
             A-->>C: NDJSON {tool_result}
@@ -1221,29 +1221,38 @@ redémarrage et sur tous les workers.
 
 ### Types d'événements NDJSON
 
+Registre de référence : `llm_core/engine/stream_events.py` (un test vérifie
+que l'interface ne lit et que la route n'émet aucun type hors registre).
+
 | `type` | Description |
 |---|---|
-| `mode` | Mode actif (`Classic`, `MCP`, `RAG`) |
-| `thinking` | Statut de traitement (queued, started, compacting…) |
-| `thinking_token` / `thinking_content` | Réflexion (token à token, ou bloc) |
-| `content_token` / `text` / `delta` | Réponse |
-| `tool_call` / `tool_result` | Appel d'outil et son résultat |
-| `tool_thinking` | Raisonnement intercalé entre deux appels |
+| `mode` | Mode du tour (classique, avec outils) |
+| `iteration` | Début d'une itération de la boucle (`n`, `max` : budget affiché) |
+| `thinking` | Indicateur « réflexion en cours » (queued, started, compacting…) |
+| `thinking_token` / `thinking_content` | Réflexion (jeton à jeton, puis bloc réconcilié) |
+| `content_token` / `content_replace` | Réponse (jeton à jeton ; texte affiché remplacé au nettoyage de fin) |
+| `tool_call` / `tool_call_delta` | Appel d'outil décidé ; arguments en cours de génération |
+| `tool_result` | Résultat d'un outil, avec `duration_ms` (durée de l'appel, affichée en direct ; non conservée au rechargement) |
+| `tool_progress` / `tool_log` / `shell_output` | Progression, journal, sortie en direct d'une commande |
+| `tool_limit` | Plafond d'itérations atteint |
 | `tool_history_partial` | **Delta** de l'historique d'outils (jamais un cumul) |
-| `task_step` | Cycle de vie d'un sous-agent (spawned, tool_call, done, failed, cancelled, timeout) |
-| `task_child_tokens` | Consommation d'un enfant |
-| `stdio` | Sortie live d'une commande (terminal en direct) |
-| `iteration` | Compteur d'itérations de la boucle |
-| `prune_state` | Élagage/compaction appliqués |
-| `rag_sources` | Sources RAG |
-| `annotation_frame` / `image_url` | Vision / capture |
+| `task_step` | Cycle de vie d'un sous-agent (spawned, étapes, final) |
+| `todo_updated` | Liste de tâches mise à jour |
+| `annotation_frame` | Capture annotée (vision, bureau) |
+| `prompt_progress` | Progression du pré-remplissage du prompt |
 | `kv_cache` | Occupation du cache KV |
-| `queue_status` / `queue_cleared` | File d'attente |
+| `compression_start` / `compression_done` / `compression_capped` | Compaction du contexte ; `compression_start` porte `threshold` (seuil en jetons) et `reason` (`manual`, `overflow`, `threshold`) |
+| `compression_state` / `prune_state` | État de compaction (persisté par la route) ; état de l'élagage |
+| `llm_user_suffix` | Suffixe ajouté au message de l'utilisateur |
+| `queue_status` / `queue_cleared` | Attente d'un créneau du moteur ; créneau obtenu |
+| `rag_sources` | Sources RAG du tour |
 | `notice` / `info` / `warning` / `log` | Messages d'état |
 | `final` | Réponse finale `{assistant, chat_id, metrics}` |
 | `error` | Erreur (avec le genre de la taxonomie) |
-| `ping` | Keepalive |
+| `ping` | Maintien de la connexion |
+| `session_expired` | Session expirée pendant le flux |
 | `run_started` / `replay_done` / `run_end` / `run_lost` | Flux de **rattachement** uniquement (`/run/events`) |
+| `journal_truncated` | Rattachement : journal plein, seuls les événements structurants suivent |
 
 ### Contrôle
 
@@ -1408,9 +1417,10 @@ il n'y a pas de course lecture-modification-écriture. `sandbox_mode` et
 > **lectures** restent host-side (elles n'ont pas besoin de droits d'écriture) ;
 > repli `docker exec cat` pour un fichier en 0600.
 >
-> ⚠ `fs_tools` et `git_tools` s'exécutent encore **host-direct** derrière un
-> contrôle de préfixe de chemin — ils ne passent pas par ce pont. La frontière
-> noyau vaut pour le **shell**, pas pour tous les outils.
+> `fs_tools` et `git_tools` passent par l'agent de la
+> sandbox (`shared_infra/sandbox/agent/`) : fichiers et commandes Git
+> s'exécutent dans le conteneur, sous son UID ; le réseau Git passe par le
+> relais de l'hôte (`git_relay`).
 
 ---
 
@@ -1432,8 +1442,9 @@ service depuis une URL), `POST /{id}/test`, `GET /{id}/repos`.
 - Providers : `github`, `gitlab`, `bitbucket-cloud`, `bitbucket-server`,
   `gitea`, `generic`. Chacun sait ouvrir une PR/MR.
 - **Anti-SSRF** (`shared_infra/git/ssrf.py`) sur les URLs distantes.
-- L'authentification passe par un helper `askpass` — aucun identifiant n'est
-  écrit dans la sandbox.
+- L'authentification est ajoutée par le relais Git de l'hôte
+  (`shared_infra/sandbox/git_relay.py`) — aucun identifiant n'entre dans la
+  sandbox.
 
 ---
 
@@ -1458,8 +1469,8 @@ service depuis une URL), `POST /{id}/test`, `GET /{id}/repos`.
 | `POST /api/terminal/input` · `/resize` · `/kill` | Session par défaut (legacy) |
 | `GET /api/admin/terminal/stats` | Statistiques (admin) |
 
-`pty.fork()` côté serveur, wrapper `umask 0000` pour rester cohérent avec les
-écritures de l'éditeur, quota vérifié pendant l'exécution (le PTY est tué si le
+`pty.fork()` côté serveur, `umask 0022` (fichiers 0644, dossiers 0755, comme
+l'agent et les commandes), quota vérifié pendant l'exécution (le PTY est tué si le
 quota explose), reaper des sessions inactives par worker.
 
 ---
@@ -2003,8 +2014,10 @@ Six outils volontairement larges plutôt que quinze étroits : `read_file`,
 (intelligence de code — définitions, références, symboles — via
 `FileSystemLib/code_intel*` avec tree-sitter quand disponible).
 
-Toutes les opérations sont confinées à la sandbox de l'utilisateur
-(`shared_infra/sandbox/paths.py` › `resolve_under`).
+Toutes les opérations s'exécutent dans la sandbox de l'utilisateur, par
+l'agent de son conteneur (`llm_core/tools/_espace.py`) ; les chemins sont
+ramenés sous `/work` par `shared_infra/sandbox/paths.py` › `lexical_rel`,
+les liens résolus par l'agent.
 
 ### Terminal (`shell_tools`)
 
@@ -2012,8 +2025,8 @@ Toutes les opérations sont confinées à la sandbox de l'utilisateur
 exécution **dans le conteneur Docker de l'utilisateur** via `bash -c`.
 
 **Aucune policy applicative.** La gate de validation shell a été **retirée** :
-le conteneur *est* la frontière (`--user 10001:10001`, réseau selon profil,
-capacités par défaut Docker moins les dangereuses, limites mémoire/CPU/PIDs).
+le conteneur *est* la frontière (`docker exec -u 10001:10001`, réseau selon profil,
+seules les capacités nécessaires, limites mémoire/CPU/PIDs).
 Un registre in-process d'autorisations serait de toute façon faux en
 multi-worker. Toutes les fonctionnalités bash sont disponibles.
 
@@ -2032,9 +2045,8 @@ que par commande : interrogation (`git_query`, `git_inspect`), écriture
 Timeout des commandes locales : `APP_GIT_TOOL_TIMEOUT_S` (60 s) ; les commandes
 réseau ont leur propre budget (120 s).
 
-> ⚠ Les dossiers Git créés côté hôte doivent rester en `0o2777` et les
-> permissions réconciliées (`_PERMS_MARKER`) pour rester éditables depuis le
-> conteneur.
+> Git tourne dans le conteneur, par l'agent (`git_ops`) : les dépôts sont
+> créés sous l'UID de la sandbox, sans élargissement de droits côté hôte.
 
 ### Navigateur (`firefox_tools`)
 
@@ -2258,17 +2270,15 @@ Définis par l'admin dans `executors.network_profiles` :
 - `elpis.netcfg` sert de marqueur de dérive : si la config du profil change, le
   conteneur est reconfiguré.
 
-### Cohérence des permissions
+### Droits de `/work`
 
-Racine `<racine>/user_sandboxes` (ou `APP_SANDBOX_DIR`). `setfacl` n'est pas
-disponible : la cohérence repose sur `umask 0000` côté PTY, un wrapper
-d'entrypoint (`mode 0002` → fichiers 0664 / dossiers 0775), et une passe de
-réparation one-shot par sandbox marquée par `_PERMS_MARKER` (`chmod -R o+rwX`),
-qui répare **les deux sens** (fichiers écrits par le conteneur non modifiables
-par l'hôte, et inversement).
-
-> ⚠ `sandbox_grant_access` a longtemps été un **no-op** (mauvaise arité, erreur
-> avalée) — d'où le marqueur v3. Ne pas s'y fier sans vérifier.
+Racine `<racine>/user_sandboxes` (ou `APP_SANDBOX_DIR`). Un seul UID écrit
+dans `/work`, celui du conteneur : l'agent, les commandes (`sb.exec`) et le
+terminal travaillent en umask 0022 (fichiers 0644, dossiers 0755). Au
+démarrage, le root du conteneur rend `/work` à cet UID en 0755 ; une fois
+par compte (marqueur `.work-modes-v1` à `P`), il reprend tout l'arbre
+hérité de l'ancien élargissement 0666 / 0777 (`chown -R`, `chmod -R go-w`,
+`UserSandbox._reconcile_work_modes`).
 
 ---
 
@@ -2514,7 +2524,7 @@ lifespan — indépendante de l'état de la feature Routines.
 | **En-têtes de sécurité** | `shared_infra/security/headers.py` | `nosniff`, `Referrer-Policy`, `frame-ancestors` posés s'ils sont absents |
 | **Anti-SSRF** | `shared_infra/git/ssrf.py`, `shared_infra/routes/tools.py` | URLs Git distantes, diagnostic AX |
 | **Uploads bornés** | `shared_infra/files/uploads.py` | Lecture par chunks avec interruption au dépassement |
-| **Path traversal** | `shared_infra/sandbox/paths.py` › `resolve_under` | Point de passage unique |
+| **Path traversal** | `shared_infra/sandbox/paths.py` › `lexical_rel` ; liens résolus par l'agent du conteneur | Point de passage unique |
 | **Toolhost** | `toolhost/auth.py` | Hors `/health`, deux preuves : jeton de service en Bearer (`user_db/.local_mcp_token`) et identité signée (`X-Elpis-Identity`, HMAC du jeton, horodatage borné, `shared_infra/accounts/identity.py`). `/mcp*` exige le Bearer |
 | **Frontière shell** | conteneur Docker | Le sandbox **est** la frontière ; pas de policy applicative |
 

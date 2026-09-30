@@ -29,8 +29,6 @@ import json
 import pytest
 
 import llm_core._chat_with_tools as _cwt
-
-from tests.llm_core.goldens_harness import builtin_tools, sse_final
 from tests.llm_core.ctx_scale_harness import (
     CTX_1M,
     CTX_256K,
@@ -46,6 +44,7 @@ from tests.llm_core.ctx_scale_harness import (
     sse_tool_call_scaled,
     tool_contents,
 )
+from tests.llm_core.goldens_harness import builtin_tools, sse_final
 
 SOCLE = "SOCLE ÉCHELLE — identité de test stable, ne pas reformuler."
 

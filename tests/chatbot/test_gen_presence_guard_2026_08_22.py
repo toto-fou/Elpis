@@ -30,8 +30,8 @@ import pytest
 from fastapi import HTTPException
 
 from chatbot_app.routes import chats as _chats
-from shared_infra.runtime import chat_locks
 from shared_infra.routes import _state
+from shared_infra.runtime import chat_locks
 
 
 @pytest.fixture(autouse=True)
@@ -93,10 +93,11 @@ async def test_une_passation_apres_stop_est_attendue_pas_refusee(monkeypatch):
         await asyncio.sleep(0.4)
         chat_locks.release(ancien)
 
-    asyncio.create_task(_lache_apres_un_instant())
+    liberation = asyncio.create_task(_lache_apres_un_instant())
     nouveau = await _chats._acquire_gen_presence(1, "chatA")
     assert nouveau is not None, "la régénération après édition a été refusée"
     chat_locks.release(nouveau)
+    await liberation
 
 
 async def test_la_passation_a_une_borne(monkeypatch):
@@ -143,10 +144,11 @@ async def test_retry_du_client_apres_micro_coupure_nest_pas_refuse(monkeypatch):
         await asyncio.sleep(0.3)
         chat_locks.release(mourant)
 
-    asyncio.create_task(_unwind())
+    liberation = asyncio.create_task(_unwind())
     rejeu = await _chats._acquire_gen_presence(1, "chatA")
     assert rejeu is not None, "le rejeu automatique du client a été refusé"
     chat_locks.release(rejeu)
+    await liberation
 
 
 async def test_verrouillage_indisponible_ne_bloque_pas_lapp(monkeypatch):

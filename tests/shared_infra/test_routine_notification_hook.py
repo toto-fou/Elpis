@@ -27,8 +27,8 @@ def env(tmp_path, monkeypatch):
             "shared_infra.db._migrations.0005_notifications_table")
         mod.migrate(conn)
         conn.commit()
-    import shared_infra.scheduling.routines_scheduler as sched
     import shared_infra.notifications.store as notif
+    import shared_infra.scheduling.routines_scheduler as sched
     return sched, notif
 
 

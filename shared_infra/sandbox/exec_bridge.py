@@ -1,74 +1,36 @@
 # SPDX-License-Identifier: MIT
 """
-backend.routes._sandbox_exec — Funnel FS mutations through the user's
-Docker container so all files in the sandbox share UID 10001 ownership.
-
-Why this exists
----------------
-The /work bind-mount is shared between two writers:
-
-  • the FastAPI host process (running as the operator's UID, e.g. ``elpis``
-    or root), which used to call ``Path.write_text`` / ``shutil.rmtree``
-    directly for save/upload/mkdir/delete/rename routes, AND
-  • the per-user Docker container (running as UID 10001) used by the
-    integrated terminal, by ``docker exec`` from MCP tools, and by the
-    agentic executors.
-
-Different UIDs → different ownership on each side. Default umask + 0644
-permissions meant the container could only READ host-written files
-(no write/delete), and the host could not remove container-created
-directories. Symptom : "I created the folder in terminal, can't delete
-it from the editor" or vice versa.
-
-The fix this module implements
-------------------------------
-All write/delete/rename operations from the editor routes go through
-``UserSandbox.exec()`` (which is ``docker exec --user 10001:10001 …``).
-Every file produced is then owned by UID 10001 — same as everything the
-terminal creates. The mismatch class disappears.
-
-Reads (download, tree walk, stat) stay on the host because :
-  - they don't need write permission ;
-  - the container-side umask wrapper makes new files 0664 / dirs 0775
-    (mode 0002), so "other" has at least read access.
-
-If a file is stuck at 0600 (rare, only if the agent explicitly
-chmod'd), the read fallback is to ``docker exec cat`` it — handled
-in ``sandbox_read_bytes``.
+shared_infra.sandbox.exec_bridge — écritures de l'éditeur dans la sandbox,
+faites par l'agent de la sandbox (L4.3) : tout /work appartient à l'UID du
+conteneur, comme ce que crée le terminal.
 
 Public API
 ----------
-- ``sandbox_write_text(user_id, rel_path, content)`` — atomic-ish text write.
-- ``sandbox_write_bytes(user_id, rel_path, data)`` — atomic-ish binary write.
-- ``sandbox_mkdir(user_id, rel_path)`` — recursive mkdir.
-- ``sandbox_delete(user_id, rel_path)`` — rm -rf (file or directory).
-- ``sandbox_rename(user_id, old_rel, new_rel)`` — mv (with mkdir -p of parent).
-- ``sandbox_read_bytes(user_id, rel_path)`` — read with docker-cat fallback.
-- ``sandbox_stat_mtime(user_id, rel_path)`` — best-effort mtime probe.
-- ``ensure_container_running(user_id)`` — raises HTTPException(503) if not.
+- ``sandbox_write_text`` / ``sandbox_write_bytes`` — écriture atomique.
+- ``sandbox_append_chunk`` — un morceau d'un import par morceaux.
+- ``sandbox_mkdir``, ``sandbox_delete``, ``sandbox_rename``, ``sandbox_copy``,
+  ``sandbox_clear``, ``sandbox_stat_mtime``.
+- ``agent_for(user_id)`` / ``agent_http(e, libellé)`` — client de l'agent et
+  traduction de ses refus pour les routes.
+- ``ensure_container_running(user_id)`` — 503 si le conteneur ne tourne pas.
 
 Error model
 -----------
-Every helper raises ``HTTPException`` on failure with a human-readable
-``detail``. The 503 path tells the frontend the container needs starting
-— the editor already has a UX for that (overlay + retry in
-``_ensureSandboxContainerReady``).
+Chaque helper lève ``HTTPException`` avec un ``detail`` lisible (mêmes
+statuts qu'avant : 409 cible existante ou dossier, 403 lien hors /work, 503
+conteneur indisponible — le front propose alors de réessayer, 504 délai).
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-import os
-import secrets
-import shutil
-from pathlib import Path
 from typing import Optional
 
 from fastapi import HTTPException
 
-from shared_infra.accounts.users import get_username_by_id
+from shared_infra.accounts.users import get_user_settings, get_username_by_id
+from shared_infra.sandbox.agent_client import AgentError
 from shared_infra.sandbox.executors import get_user_sandbox
-from shared_infra.accounts.users import get_user_settings
 from shared_infra.sandbox.paths import strip_work_prefix
 
 logger = logging.getLogger("uvicorn.error")
@@ -77,160 +39,6 @@ logger = logging.getLogger("uvicorn.error")
 # Cap each individual docker exec — most FS ops finish in <100 ms, but
 # upload of a large file or a wide rmtree may legitimately take longer.
 _DEFAULT_TIMEOUT_S = 60
-
-# UID/GID du user in-container (elpis). Tout /work est censé lui appartenir
-# (cf. docstring module) ; les écritures HOST (git clone/init) le violent.
-_SANDBOX_UID = 10001
-_SANDBOX_GID = 10001
-
-
-async def sandbox_grant_access(user_id: int, rel_path: str) -> None:
-    """Ré-aligne un chemin écrit côté HÔTE (ex. ``git clone`` host-side) sur le
-    modèle d'ownership UID-10001 du sandbox, pour que le user in-container puisse
-    le modifier.
-
-    Le sous-système git tourne sur l'HÔTE (``_git_run``) sous l'UID du process
-    app : un dossier fraîchement cloné appartient donc à cet UID et le container
-    (UID 10001) se prend un « permission denied » en édition/suppression
-    (« j'ai cloné un repo mais je ne peux pas l'éditer »). Tout le reste de /work
-    est en UID 10001 (cf. docstring module) — on rétablit l'invariant.
-
-    Best-effort, ne lève JAMAIS (l'opération git a déjà réussi) :
-      1. ACL POSIX (côté hôte ; l'app possède les fichiers frais → pas besoin de
-         root) : accorde rwX à l'UID sandbox ET à l'UID hôte, AVEC une ACL
-         ``default`` pour que les fichiers créés ENSUITE par le git host-side
-         (checkout/pull/merge) héritent du droit et restent éditables des deux
-         côtés. C'est CE qui lève le « permission denied », durablement.
-      2. ``chown -R 10001:10001`` via ``docker exec -u 0`` quand le container
-         tourne, pour que l'ownership colle cosmétiquement au reste de /work.
-         L'ACL de l'étape 1 garde le panneau git host-side fonctionnel sur le
-         repo désormais 10001.
-    """
-    # ⚠ RÉSOLUTION — passer par ``_get_sandbox_for_user`` (arité 1), JAMAIS par
-    # ``get_user_sandbox`` directement : celui-ci exige ``(user_id, username,
-    # sandbox_path)``. L'appel historique ``get_user_sandbox(user_id)`` levait un
-    # TypeError avalé par ce ``except`` → grant TOTALEMENT inerte (aucune ACL,
-    # aucun chmod, aucun chown) après chaque clone/init/pull host-side, d'où le
-    # « j'ai cloné mais je ne peux pas éditer » côté conteneur.
-    try:
-        sb = _get_sandbox_for_user(user_id)
-        root = Path(sb.sandbox_path).resolve()
-    except Exception as e:                                        # noqa: BLE001
-        # Plus JAMAIS silencieux : un échec de résolution rend le grant inerte.
-        logger.warning("[sandbox] grant_access: sandbox introuvable pour "
-                       "user_id=%s (%s) — permissions NON réalignées", user_id, e)
-        return
-    rel = (strip_work_prefix(rel_path) or "").strip("/")
-    target = (root / rel).resolve() if rel else root
-    # Anti-traversée : la cible DOIT rester dans /work.
-    try:
-        target.relative_to(root)
-    except ValueError:
-        return
-    if not target.exists():
-        return
-
-    # 1. ACL host-side (le fix fonctionnel fiable, sans root, survit au durcissement).
-    setfacl = shutil.which("setfacl")
-    if setfacl:
-        acl_spec = f"u:{_SANDBOX_UID}:rwX,u:{os.getuid()}:rwX"
-        for extra in ([], ["-d"]):          # ACL d'accès, puis ACL default (héritage)
-            await _run_bounded([setfacl, "-R", *extra, "-m", acl_spec, str(target)], 120)
-
-    # 1bis. Fallback chmod host-side — ne dépend NI de setfacl (souvent absent)
-    # NI du container (docker down = étape 2 muette). L'app POSSÈDE les
-    # fichiers fraîchement écrits côté hôte → chmod permis. On rétablit
-    # l'invariant /work « cross-writable » (0666/0777 : hôte et conteneur
-    # n'ont aucun groupe commun) — c'est CE qui rend le repo éditable et
-    # supprimable par le shell in-container même si le chown de l'étape 2
-    # n'a pas pu s'exécuter. Best-effort : fichiers d'autrui → skip.
-    def _chmod_walk(root_p: Path) -> None:
-        try:
-            if root_p.is_dir():
-                os.chmod(root_p, 0o777)
-                for dirpath, dirnames, filenames in os.walk(root_p):
-                    # Un lien-vers-dossier est classé dans ``dirnames`` (la
-                    # classification passe par ``entry.is_dir()``, qui
-                    # déréférence) ; ``followlinks=False`` n'empêche que la
-                    # RÉCURSION, pas le ``chmod``, qui déréférence lui aussi.
-                    # Sans ce filtre, ``ln -s /chemin/hote /work/x`` suivi de
-                    # n'importe quelle action git faisait passer la cible HORS
-                    # sandbox en 0777. On les retire de ``dirnames`` en place :
-                    # le walk ne les considère plus du tout.
-                    dirnames[:] = [
-                        d for d in dirnames
-                        if not os.path.islink(os.path.join(dirpath, d))
-                    ]
-                    for d in dirnames:
-                        try:
-                            os.chmod(os.path.join(dirpath, d), 0o777)
-                        except OSError:
-                            pass
-                    for f in filenames:
-                        fp = os.path.join(dirpath, f)
-                        try:
-                            st_mode = os.lstat(fp).st_mode
-                            # Jamais de chmod à travers un symlink (cible hors /work).
-                            if not os.path.islink(fp):
-                                # Préserve le bit exécutable (scripts, hooks).
-                                os.chmod(fp, 0o777 if (st_mode & 0o111) else 0o666)
-                        except OSError:
-                            pass
-            else:
-                os.chmod(root_p, 0o666)
-        except OSError:
-            pass
-    try:
-        await asyncio.wait_for(asyncio.to_thread(_chmod_walk, target), timeout=120)
-    except Exception:
-        pass
-
-    # 2. chown cosmétique via root in-container (best-effort ; skip si container down).
-    docker = shutil.which("docker") or "/usr/bin/docker"
-    # ``timeout -k`` CÔTÉ CONTENEUR : tuer le client ``docker exec`` ne tue
-    # pas le ``chown -R`` qui tourne dedans.
-    await _run_bounded([docker, "exec", "-u", "0:0", sb.container_name,
-                        "timeout", "-k", "5", "110",
-                        "chown", "-R", f"{_SANDBOX_UID}:{_SANDBOX_GID}",
-                        ("/work/" + rel) if rel else "/work"], 120)
-
-
-async def _run_bounded(argv, timeout_s: float) -> None:
-    """Lance ``argv`` sans sortie, borné : au délai (ou à l'annulation) le
-    process est TUÉ et récolté. Passe sandbox 2026-09-26 — avant, le
-    ``wait_for`` expirait, l'exception était avalée et le ``setfacl -R`` /
-    ``chown -R`` continuait en orphelin sur un gros dépôt (node_modules),
-    passes récursives empilées à chaque action git. Best-effort, ne lève pas
-    (sauf annulation, propagée)."""
-    try:
-        p = await asyncio.create_subprocess_exec(
-            *argv, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
-    except Exception:                                            # noqa: BLE001
-        return
-    try:
-        await asyncio.wait_for(p.wait(), timeout=timeout_s)
-    except BaseException as e:
-        try:
-            p.kill()
-        except ProcessLookupError:
-            pass
-        try:
-            await asyncio.shield(asyncio.wait_for(p.wait(), timeout=5))
-        except Exception:                                        # noqa: BLE001
-            pass
-        if not isinstance(e, asyncio.TimeoutError):
-            raise
-
-
-def _user_sandbox_dir(username: str) -> Path:
-    """Mirror of routes.user_sandbox._user_sandbox_dir. Re-declared here
-    to avoid an import cycle (this module is imported by sandbox_files,
-    which is imported indirectly by user_sandbox transitively)."""
-    # The mount source is the WORK root ``P/work``; the caller resolves it via
-    # ``_get_work_path(user_id)`` directly (we don't have a user_id here).
-    # Kept as documentation only.
-    raise NotImplementedError("Use _get_work_path(user_id) instead")
-
 
 def _get_sandbox_for_user(user_id: int):
     """Resolve a UserSandbox for ``user_id`` using the user's EFFECTIVE
@@ -270,103 +78,65 @@ async def ensure_container_running(user_id: int) -> None:
         )
 
 
-def _looks_dead(stderr) -> bool:
-    """True if a docker-exec stderr indicates the container is gone/stopped.
+# ─────────────────────────────────────────────────────────────────────────
+#  Opérations par l'agent de la sandbox (L4.3)
+# ─────────────────────────────────────────────────────────────────────────
+# Refus de l'agent → réponse HTTP de l'éditeur : mêmes statuts et messages
+# que les scripts ``docker exec`` d'avant (le front s'y fie ; le détail finit
+# tel quel dans un toast).
+_HTTP_AGENT = {
+    "not_found": (404, "Introuvable"),
+    "exists": (409, "Un élément porte déjà ce nom"),
+    "is_dir": (409, {"code": "is_dir", "message": "Un dossier porte ce nom"}),
+    "not_dir": (409, {"code": "not_dir",
+                      "message": "Un élément du chemin est un fichier, pas un dossier"}),
+    "not_file": (409, {"code": "not_file",
+                       "message": "Ce chemin n'est pas un fichier ordinaire"}),
+    "outside_root": (403, "Lien symbolique hors sandbox : écriture refusée"),
+    "inside": (400, "Impossible de copier ou déplacer un dossier dans lui-même"),
+    "denied": (403, "Accès refusé dans la sandbox"),
+    "read_only": (403, "Emplacement en lecture seule"),
+    "no_space": (507, "Espace disque de la sandbox épuisé"),
+    "too_large": (413, "Contenu trop volumineux"),
+    "bad_path": (400, "Chemin invalide"),
+    "name_too_long": (400, "Nom trop long"),
+    "invalid": (400, "Nom ou chemin invalide"),
+    "loop": (400, "Trop de liens symboliques imbriqués"),
+    "bad_regex": (400, "Expression régulière invalide"),
+    "bad_request": (400, "Requête invalide"),
+    "not_empty": (409, "Dossier non vide"),
+    "cross_device": (409, "Déplacement impossible entre deux volumes"),
+    "changed": (412, {"code": "conflict", "message": "Le fichier a changé sur le disque"}),
+}
+_INDISPONIBLE = ("agent_unavailable", "container_down", "transport")
+#: Pannes de l'agent ou du conteneur — pas un refus portant sur le chemin demandé.
+PANNES_AGENT = _INDISPONIBLE + ("bad_response", "timeout")
 
-    Happens when the readiness cache served a stale "running" for a container
-    that has since crashed or been idle-stopped within its TTL window.
-    """
-    s = stderr.decode("utf-8", "replace") if isinstance(stderr, (bytes, bytearray)) else str(stderr or "")
-    s = s.lower()
-    return "no such container" in s or "is not running" in s
+
+def agent_http(e: AgentError, err_label: str) -> HTTPException:
+    """``AgentError`` → ``HTTPException`` de l'éditeur."""
+    if e.code in _INDISPONIBLE:
+        return HTTPException(503, "Environnement sandbox arrêté — "
+                                  "nouvelle tentative dans quelques instants.")
+    if e.code == "bad_response":
+        return HTTPException(502, f"{err_label} : réponse invalide de l'environnement sandbox")
+    if e.code == "timeout":
+        return HTTPException(504, f"{err_label} : délai dépassé")
+    statut, detail = _HTTP_AGENT.get(e.code, (500, f"{err_label} : {e.code}"))
+    return HTTPException(statut, detail)
 
 
-async def _exec_in_sandbox(
-    user_id: int,
-    cmd: list[str],
-    *,
-    stdin_bytes: Optional[bytes] = None,
-    timeout: int = _DEFAULT_TIMEOUT_S,
-    err_label: str = "Opération",
-    retry_on_dead: bool = True,
-) -> bytes:
-    """Run ``cmd`` inside the user's container as UID 10001 and return
-    stdout bytes on success. Raises HTTPException on non-zero rc / timeout.
+def agent_for(user_id: int):
+    """Client de l'agent de la sandbox du compte (démarré au besoin)."""
+    return _get_sandbox_for_user(user_id).agent
 
-    NB: we call ``sb.exec`` which already wraps with ``sh -c 'umask 0000;
-    exec "$@"' --`` so any files we create have mode 0666/0777 (other-
-    writable → the host UID can also overwrite/delete them; host and
-    container share no group, so group-writable would not suffice).
-    """
-    sb = _get_sandbox_for_user(user_id)
-    # Make sure the container is running before exec (auto-start if needed).
-    # ensure_running is idempotent and cached.
+
+async def _agent(user_id: int, err_label: str, op):
+    """``await op(agent)`` ; un refus de l'agent en ``HTTPException``."""
     try:
-        st = await asyncio.wait_for(sb.ensure_running(), timeout=30)
-    except asyncio.TimeoutError:
-        raise HTTPException(503, "Timeout démarrage container sandbox")
-    except Exception as e:
-        raise HTTPException(503, f"Container sandbox indisponible : {e}")
-    if not st.running:
-        raise HTTPException(503, "Sandbox container non démarré")
-
-    try:
-        result = await sb.exec(
-            cmd,
-            stdin_bytes=stdin_bytes,
-            timeout_s=timeout,
-        )
-    except Exception as e:
-        raise HTTPException(500, f"{err_label} : exec failed ({e})")
-
-    # Stale-readiness recovery: the cache can report "running" for a container
-    # that has since died, so this exec hit "no such container". MOST
-    # _sandbox_exec ops are IDEMPOTENT (write-tmp+mv, mkdir -p, rm -rf, mv), and
-    # sb.exec() has already invalidated the readiness cache on this stderr, so
-    # a fresh ensure_running() recreates the container. Retry exactly ONCE so
-    # the editor save/upload succeeds transparently instead of erroring.
-    # F24 — SAUF si l'op N'EST PAS idempotente (append `cat >>`) : si le
-    # conteneur meurt après avoir consommé une PARTIE du stdin, rejouer le chunk
-    # ENTIER le ré-appende → fichier corrompu (préfixe partiel + chunk complet).
-    # Pour ces ops on remonte l'erreur (503) et le client relance l'upload.
-    if (retry_on_dead and not result.timed_out and result.returncode != 0
-            and _looks_dead(result.stderr)):
-        try:
-            st = await asyncio.wait_for(sb.ensure_running(), timeout=30)
-            if st.running:
-                result = await sb.exec(cmd, stdin_bytes=stdin_bytes, timeout_s=timeout)
-        except Exception:
-            pass  # fall through to the 503 mapping below
-
-    if result.timed_out:
-        raise HTTPException(504, f"{err_label} : timeout après {timeout}s")
-    if result.returncode != 0:
-        err_txt = (result.stderr or b"").decode("utf-8", errors="replace").strip()
-        # A dead/stopped container maps to 503 (not 500): the frontend
-        # branches on 503 (saveEditorContent invalidates its readiness cache
-        # and shows a user-facing retry message) — instead of a confusing
-        # raw 500. The detail stays user-readable: it can end up verbatim
-        # in a toast, so no API instructions here.
-        if _looks_dead(err_txt):
-            raise HTTPException(
-                503, "Environnement sandbox arrêté — "
-                     "nouvelle tentative dans quelques instants.")
-        # Convention des scripts de ce module : ``exit 17`` = la cible existe
-        # déjà (re-vérification DANS le conteneur, juste avant ``mv``/``cp``).
-        if result.returncode == 17:
-            raise HTTPException(409, "Un élément porte déjà ce nom")
-        # ``exit 18`` : lien symbolique dont la cible sort de /work ;
-        # ``exit 21`` : la cible est un dossier (audit éditeur 2026-09-23,
-        # E17 / E25 — re-vérifiés dans le conteneur, au plus près du ``mv``).
-        if result.returncode == 18:
-            raise HTTPException(403, "Lien symbolique hors sandbox : écriture refusée")
-        if result.returncode == 21:
-            raise HTTPException(409, {"code": "is_dir",
-                                      "message": "Un dossier porte ce nom"})
-        # Couper le message pour ne pas laisser fuite verbeuse vers le client.
-        snippet = err_txt[:300] or f"rc={result.returncode}"
-        raise HTTPException(500, f"{err_label} : {snippet}")
-    return result.stdout or b""
+        return await op(agent_for(user_id))
+    except AgentError as e:
+        raise agent_http(e, err_label) from None
 
 
 def _validate_rel_path(rel_path: str) -> str:
@@ -398,252 +168,94 @@ def _validate_rel_path(rel_path: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────
 #  Public helpers
 # ─────────────────────────────────────────────────────────────────────────
-# Écriture « tmp puis mv ». Le fichier temporaire est NEUF : sans le ``chmod
-# --reference``, réenregistrer un script exécutable lui faisait perdre son bit
-# ``x`` (git voyait un changement de mode, le script ne se lançait plus) — un
-# remplacement multi-fichiers l'aurait fait sur tout un dépôt. Best-effort
-# (``|| true``) : une image sans coreutils garde l'ancien comportement.
-#
-# Audit éditeur 2026-09-23 :
-# * E17 — un LIEN SYMBOLIQUE est suivi : on écrit DANS sa cible et le lien
-#   reste (``mv tmp "$1"`` remplaçait le lien par une copie ordinaire, alors
-#   que l'outil de l'assistant écrit bien la cible). La cible résolue doit
-#   rester sous la racine (``$2``, ``/work`` dans le conteneur) : sinon refus
-#   (``exit 18``).
-# * E25 — une cible devenue DOSSIER est refusée (``exit 21``) : ``mv`` y
-#   rangeait le fichier sous un nom temporaire, réponse 200.
-# * E29 — le temporaire (``<cible>.tmp.<jeton>``, jeton fourni en ``$3``) est
-#   supprimé sur tout échec (``trap``) ; si le conteneur meurt en route,
-#   l'appelant le retire par son nom exact (``_WRITE_CLEANUP_SCRIPT``).
-_CONTAINER_ROOT = "/work"
-
-_RESOLVE_TARGET = (
-    't="$1"; r="$(cd "$2" && pwd -P)"; '
-    'if [ -L "$t" ]; then '
-    't="$(readlink -f -- "$t")" || { echo "lien symbolique illisible" >&2; exit 18; }; '
-    'case "$t" in "$r"/*) ;; *) echo "lien symbolique hors sandbox" >&2; exit 18;; esac; '
-    'fi; '
-)
-
-_WRITE_SCRIPT = (
-    'set -e; '
-    + _RESOLVE_TARGET +
-    'if [ -d "$t" ]; then echo "un dossier porte ce nom" >&2; exit 21; fi; '
-    'mkdir -p "$(dirname "$t")"; '
-    'tmp="$t.tmp.$3"; '
-    "trap 'rm -f -- \"$tmp\"' EXIT HUP INT TERM; "
-    'cat > "$tmp"; '
-    'if [ -f "$t" ]; then '
-    'chmod --reference="$t" "$tmp" 2>/dev/null || true; fi; '
-    'mv -f -- "$tmp" "$t"; '
-    'trap - EXIT HUP INT TERM'
-)
-
-# Nettoyage du temporaire d'une écriture interrompue (E29) : même résolution
-# de la cible que l'écriture, puis ``rm -f`` du SEUL nom exact.
-_WRITE_CLEANUP_SCRIPT = (
-    _RESOLVE_TARGET + 'rm -f -- "$t.tmp.$3"'
-)
-
-
-async def _write_via_container(user_id: int, rp: str, data: bytes, err_label: str) -> None:
-    """Écriture atomique commune (texte et binaire) — cf. ``_WRITE_SCRIPT``."""
-    token = f"{os.getpid()}-{secrets.token_hex(4)}"
-    try:
-        await _exec_in_sandbox(
-            user_id,
-            ["sh", "-c", _WRITE_SCRIPT, "_", rp, _CONTAINER_ROOT, token],
-            stdin_bytes=data,
-            err_label=err_label,
-        )
-    except HTTPException as he:
-        # E29 — le ``trap`` couvre l'échec DANS le script ; un conteneur tué
-        # ou un délai dépassé (504/503) peuvent laisser le temporaire. Retrait
-        # best-effort, sans jamais masquer l'erreur d'origine.
-        if he.status_code in (500, 503, 504):
-            try:
-                await _exec_in_sandbox(
-                    user_id,
-                    ["sh", "-c", _WRITE_CLEANUP_SCRIPT, "_", rp, _CONTAINER_ROOT, token],
-                    timeout=10, err_label="Nettoyage", retry_on_dead=False,
-                )
-            except Exception:                                   # noqa: BLE001
-                pass
-        raise
-
-
 async def sandbox_write_text(user_id: int, rel_path: str, content: str) -> None:
-    """Atomic-ish text write inside the container. UID 10001 ownership.
-
-    Pattern: ``mkdir -p $(dirname …) && cat > path.tmp && mv path.tmp path``.
-    cat-from-stdin is the simplest way to plumb arbitrary content through
-    docker exec without arg-list length limits or quoting headaches.
-    """
+    """Écriture atomique d'un texte par l'agent : un lien est suivi sous /work
+    (sa cible est écrite, le lien reste — E17), un dossier à ce nom est
+    refusé (E25), le mode d'un fichier existant est gardé."""
     rp = _validate_rel_path(rel_path)
-    # The path is passed as a POSITIONAL argument ($1) — never interpolated
-    # into the shell string — so it can contain spaces, quotes, $, ;, etc.
-    # without injection risk.
     try:
         data = content.encode("utf-8")
     except UnicodeEncodeError:
         # E27 — surrogate isolé (JSON ``"\ud800"``) : 400, pas une 500.
         raise HTTPException(400, "Contenu invalide (caractère non encodable)")
-    await _write_via_container(user_id, rp, data, "Sauvegarde")
+    await _agent(user_id, "Sauvegarde", lambda a: a.write(rp, data, parents=True))
 
 
 async def sandbox_write_bytes(user_id: int, rel_path: str, data: bytes) -> None:
-    """Atomic-ish binary write inside the container."""
+    """Écriture atomique d'octets par l'agent (mêmes règles)."""
     rp = _validate_rel_path(rel_path)
-    await _write_via_container(user_id, rp, data, "Upload")
+    await _agent(user_id, "Upload", lambda a: a.write(rp, data, parents=True))
 
 
-async def sandbox_append_chunk(user_id: int, rel_path: str, data: bytes, *, truncate: bool) -> None:
-    """Écrit un chunk d'octets dans un fichier du container, en streaming.
-
-    Utilisé par l'upload chunké des GROS fichiers : ni le client ni le serveur
-    ne bufferisent le fichier entier en RAM (chaque appel ne porte qu'un chunk
-    borné, ~8 Mo). Le ``sandbox_write_bytes`` aurait chargé 1 Go en mémoire
-    côté serveur (read complet) ET re-passé 1 Go via stdin → OOM du worker.
-
-    truncate=True  → 1er chunk : mkdir -p du parent puis création/écrasement.
-    truncate=False → chunks suivants : append (``>>``).
-    """
+async def sandbox_append_chunk(user_id: int, rel_path: str, data: bytes, *, truncate: bool) -> int:
+    """Un morceau d'un import par morceaux, écrit par l'agent dans le fichier
+    provisoire : ni le client ni le serveur ne gardent le fichier entier en
+    mémoire. ``truncate`` : 1er morceau (dossiers créés, fichier vidé) ;
+    sinon ajout au fichier existant (absent : 404). Jamais rejoué une fois
+    envoyé (F24). Rend la taille du fichier provisoire."""
     rp = _validate_rel_path(rel_path)
-    if truncate:
-        # Idempotent (écrasement) → retry-once OK.
-        script = 'set -e; mkdir -p "$(dirname "$1")"; cat > "$1"'
-        _idempotent = True
-    else:
-        # Append NON idempotent : pas de retry silencieux (F24).
-        script = 'set -e; cat >> "$1"'
-        _idempotent = False
-    await _exec_in_sandbox(
-        user_id,
-        ["sh", "-c", script, "_", rp],
-        stdin_bytes=data,
-        err_label="Upload (chunk)",
-        retry_on_dead=_idempotent,
-    )
+    r = await _agent(user_id, "Upload (chunk)",
+                     lambda a: a.append(rp, data, parents=truncate, truncate=truncate))
+    return int(r.get("size") or 0)
 
 
 async def sandbox_mkdir(user_id: int, rel_path: str) -> None:
     rp = _validate_rel_path(rel_path)
-    await _exec_in_sandbox(
-        user_id,
-        ["mkdir", "-p", rp],
-        err_label="Création dossier",
-    )
+    await _agent(user_id, "Création dossier", lambda a: a.fsop("mkdir", path=rp, parents=True))
 
 
 async def sandbox_delete(user_id: int, rel_path: str) -> None:
-    """rm -rf the path. Refuses to delete the sandbox root itself."""
-    # Catch the root aliases ('/work'|'work'|'./work'|'') BEFORE _validate_rel_path
-    # strips them to '' and raises the generic "Chemin requis": deleting the
-    # sandbox root is a distinct, clearer refusal.
+    """Supprime un fichier, un lien (lui-même) ou un dossier (récursivement) ;
+    absent : rien. La racine est refusée."""
+    # Alias de la racine ('/work'|'work'|'./work'|'') AVANT _validate_rel_path,
+    # qui les réduit à '' avec le refus générique « Chemin requis ».
     if strip_work_prefix(rel_path).strip() in ("", "."):
         raise HTTPException(400, "Cible invalide pour suppression")
     rp = _validate_rel_path(rel_path)
-    # /work IS the bind mount root inside the container. Refuse to rm it.
     norm = rp.strip("/")
     if not norm or norm in (".", "/work", "work"):
         raise HTTPException(400, "Cible invalide pour suppression")
-    await _exec_in_sandbox(
-        user_id,
-        ["rm", "-rf", "--", rp],
-        timeout=120,   # large trees can take longer
-        err_label="Suppression",
-    )
+    await _agent(user_id, "Suppression",
+                 lambda a: a.fsop("remove", path=rp, recursive=True, missing_ok=True))
 
 
 async def sandbox_rename(user_id: int, old_rel: str, new_rel: str, *,
                          overwrite: bool = False) -> None:
-    """``mv`` dans le conteneur. ``overwrite=True`` (réservé à la promotion
-    du ``.part`` d'un import chunké, audit éditeur 2026-09-23, E4) : un
-    FICHIER existant est remplacé, un dossier reste refusé (``exit 21``)."""
+    """Renommage par l'agent (dossiers de la destination créés). Une cible
+    existante est refusée ; ``overwrite=True`` (promotion du ``.part`` d'un
+    import par morceaux, E4) : un FICHIER est remplacé, jamais un dossier."""
     old = _validate_rel_path(old_rel)
     new = _validate_rel_path(new_rel)
-    # mkdir parent then mv. Atomic at filesystem level (same /work).
-    # La route refuse une cible existante ; on le RE-vérifie ici, au plus près
-    # du ``mv`` (une cible créée entre-temps par le terminal ou l'assistant
-    # était écrasée). ``-T`` : ne jamais déplacer DANS un dossier homonyme.
-    if overwrite:
-        script = (
-            'set -e; '
-            'if [ -d "$2" ] && [ ! -L "$2" ]; then echo "un dossier porte ce nom" >&2; exit 21; fi; '
-            'mkdir -p "$(dirname "$2")"; '
-            'mv -f -T -- "$1" "$2" 2>/dev/null || mv -f -- "$1" "$2"'
-        )
-    else:
-        script = (
-            'set -e; '
-            'if [ -e "$2" ] || [ -L "$2" ]; then echo "cible existante" >&2; exit 17; fi; '
-            'mkdir -p "$(dirname "$2")"; '
-            'mv -T -- "$1" "$2" 2>/dev/null || mv -- "$1" "$2"'
-        )
-    await _exec_in_sandbox(
-        user_id,
-        ["sh", "-c", script, "_", old, new],
-        err_label="Renommage",
-    )
+    await _agent(user_id, "Renommage", lambda a: a.fsop(
+        "rename", src=old, dst=new, overwrite=overwrite, parents=True))
 
 
 async def sandbox_copy(user_id: int, src_rel: str, dst_rel: str) -> None:
-    """Copie un fichier ou un dossier (``cp -a``) dans le conteneur. La cible
-    ne doit pas exister : la route le vérifie, le script le re-vérifie
-    (``-e`` suit la même vue que ``cp``)."""
+    """Copie d'un fichier ou d'un dossier (modes gardés, liens copiés tels
+    quels, comme ``cp -a``) ; une cible existante est refusée."""
     src = _validate_rel_path(src_rel)
     dst = _validate_rel_path(dst_rel)
-    script = (
-        'set -e; '
-        'if [ -e "$2" ] || [ -L "$2" ]; then echo "cible existante" >&2; exit 17; fi; '
-        'mkdir -p "$(dirname "$2")"; '
-        'cp -a -- "$1" "$2"'
-    )
-    await _exec_in_sandbox(
-        user_id,
-        ["sh", "-c", script, "_", src, dst],
-        timeout=120,
-        err_label="Copie",
-    )
+    await _agent(user_id, "Copie", lambda a: a.fsop("copy", src=src, dst=dst, parents=True))
 
 
 async def sandbox_clear(user_id: int) -> int:
-    """Wipe /work content (NOT /work itself — that's the bind mount
-    point). Returns the number of top-level entries removed. Best-effort
-    on individual failures inside the loop, but the whole call fails if
-    the exec itself can't run."""
-    # Use shell glob; * doesn't match dotfiles so we use .[!.]* and ..?* to
-    # catch them too. ``rm -rf`` on a non-existent glob expands to literal
-    # which rm -f silently ignores (no error).
-    script = (
-        'set -e; '
-        'before=$(ls -A /work 2>/dev/null | wc -l); '
-        'rm -rf /work/* /work/.[!.]* /work/..?* 2>/dev/null || true; '
-        'echo "$before"'
-    )
-    out = await _exec_in_sandbox(
-        user_id, ["sh", "-c", script],
-        timeout=300, err_label="Vidage sandbox",
-    )
-    try:
-        return int(out.decode().strip() or "0")
-    except (ValueError, AttributeError):
-        return 0
+    """Vide /work (pas /work lui-même), au mieux : ce qui résiste reste en
+    place (journalisé) ; nombre d'entrées retirées."""
+    r = await _agent(user_id, "Vidage sandbox", lambda a: a.fsop("clear"))
+    if r.get("failed"):
+        logger.warning("[sandbox] vidage de la sandbox %s : %s entrée(s) non supprimée(s)",
+                       user_id, r.get("failed"))
+    return int(r.get("removed") or 0)
 
 
 async def sandbox_stat_mtime(user_id: int, rel_path: str) -> Optional[float]:
-    """Probe st_mtime via the container. Useful when host stat fails on a
-    file with no "other" read perm. Returns None on any error."""
+    """mtime (s) par l'agent ; ``None`` sur toute erreur."""
     rp = _validate_rel_path(rel_path)
     try:
-        out = await _exec_in_sandbox(
-            user_id,
-            # GNU stat is available in the base image; -c %Y prints mtime
-            # as Unix seconds (integer).
-            ["stat", "-c", "%Y", "--", rp],
-            timeout=10,
-            err_label="Stat",
-        )
-        return float(out.decode().strip())
-    except (HTTPException, ValueError):
+        (e,) = await agent_for(user_id).stat([rp])
+    except (AgentError, ValueError):
         return None
+    ns = e.get("mtime_ns")
+    if not isinstance(ns, int):
+        return None
+    return float(ns // 1_000_000_000) + (ns % 1_000_000_000) * 1e-9   # comme st_mtime

@@ -48,6 +48,7 @@ def _d(r):
 def test_limiteur_de_debit_mcp_n_est_pas_une_panne_de_transport():
     from mcp.shared.exceptions import McpError
     from mcp.types import ErrorData
+
     from llm_core._mcp_pool import _is_transport_error
 
     assert not _is_transport_error(McpError(ErrorData(code=-32000, message="Rate limit exceeded")))
@@ -391,7 +392,7 @@ def _rd(p, **k):
     base = dict(enc="utf-8", head=0, tail=0, start_line=0, end_line=0, grep="",
                 grep_context=0, ignore_case=False, with_line_numbers=True, max_chars=20_000)
     base.update(k)
-    return _d(fs_tools._read_large_text(p, {"size": p.stat().st_size}, **base))
+    return _d(fs_tools._read_large_text(lambda: open(p, "rb"), {"size": p.stat().st_size}, **base))
 
 
 def test_flux_une_seule_ligne_geante_bornee(tmp_path):
@@ -464,12 +465,12 @@ def test_ecriture_ne_suit_pas_un_dossier_lien(fs, tmp_path):
     (work / "d").mkdir()
     p = work / "d" / "f.txt"
     p.write_text("v1")
-    # Écriture directe du helper, dossier remplacé par un lien APRÈS validation.
+    # Dossier remplacé par un lien qui sort de /work : l'agent refuse.
     (work / "d" / "f.txt").unlink()
     (work / "d").rmdir()
     (work / "d").symlink_to(ailleurs, target_is_directory=True)
-    with pytest.raises(Exception):
-        fs_tools._atomic_write_bytes(p, b"v2", work.parent.parent / "guest" / "work")
+    r = tools["write_file"](None, path="d/f.txt", content="v2")
+    assert r["ok"] is False and r["error"] == "outside_sandbox", r
     assert not (ailleurs / "f.txt").exists()
 
 
@@ -477,7 +478,6 @@ def test_ecriture_ne_suit_pas_un_dossier_lien(fs, tmp_path):
 def git(tmp_path, monkeypatch):
     import llm_core.tools.git_tools as git_tools
     monkeypatch.setenv("APP_SANDBOX_DIR", str(tmp_path))
-    monkeypatch.setattr(git_tools, "_grant_sandbox_access", lambda *a, **k: None)
     mcp = _FakeMCP()
     git_tools.register(mcp, tmp_path)
     work = tmp_path / "guest" / "work"
@@ -501,6 +501,28 @@ def test_git_write_preserve_crlf_et_refuse_le_non_utf8(git):
     assert (work / "proj" / "latin.txt").read_bytes() == "café\n".encode("latin-1")
 
 
+def test_git_fichiers_par_l_agent_sans_lien_sortant(git, tmp_path):
+    """git_write, git_query read / files : par l'agent, un lien qui sort de
+    /work n'est ni lu ni écrit ; files liste fichiers et liens, sans .git."""
+    tools, work = git
+    assert _d(tools["git_action"](None, repo="proj", action="init")).get("ok")
+    ailleurs = tmp_path / "ailleurs"
+    ailleurs.mkdir()
+    (ailleurs / "s.txt").write_text("hors")
+    (work / "proj" / "lien").symlink_to(ailleurs, target_is_directory=True)
+    (work / "proj" / "b").mkdir()
+    (work / "proj" / "b" / "c.txt").write_text("c")
+    (work / "proj" / "a.txt").write_text("a")
+    r = _d(tools["git_write"](None, repo="proj", action="write", path="lien/n.txt", content="x"))
+    assert not r.get("ok") and not (ailleurs / "n.txt").exists(), r
+    r = _d(tools["git_query"](None, repo="proj", action="read", target="lien/s.txt"))
+    assert not r.get("ok"), r
+    r = _d(tools["git_write"](None, repo="proj", action="write", path="d/e/f.txt", content="f"))
+    assert r.get("ok") and (work / "proj" / "d" / "e" / "f.txt").read_text() == "f", r
+    r = _d(tools["git_query"](None, repo="proj", action="files"))
+    assert r["items"] == ["a.txt", "lien", "b/c.txt", "d/e/f.txt"], r
+
+
 def test_git_write_regex_garde_anti_redos(git):
     tools, work = git
     tools["git_action"](None, repo="proj", action="init")
@@ -510,19 +532,23 @@ def test_git_write_regex_garde_anti_redos(git):
     assert not r.get("ok")
 
 
-def test_save_stdout_ecrit_la_sortie_complete(tmp_path):
+def test_save_stdout_ecrit_la_sortie_complete(tmp_path, monkeypatch):
     from llm_core.tools import _exec_bridge as B
-    root = (tmp_path / "w").resolve()
-    root.mkdir()
+    base = tmp_path / "sandboxes"
+    root = base / "guest" / "work"
+    root.mkdir(parents=True)
+    monkeypatch.setenv("APP_SANDBOX_DIR", str(base))
+    sb = B.sandbox_for("guest", root)
     res = types.SimpleNamespace(stdout=b"TETE...[omis]...QUEUE", stderr=b"")
     sp = tempfile.SpooledTemporaryFile(max_size=10)
-    sp.write(b"A" * 100_000)
+    sp.write(b"A" * 3_000_000)                   # sur disque, envoyé par blocs
     f: dict = {}
-    B._save_outputs(f, res, root, root / "out.bin", None, None, sp, None)
-    assert f["saved_bytes"] == 100_000 and (root / "out.bin").stat().st_size == 100_000
+    B._save_outputs(f, res, sb, "sorties/out.bin", None, None, sp, None)
+    assert f["saved_bytes"] == 3_000_000, f
+    assert (root / "sorties" / "out.bin").read_bytes() == b"A" * 3_000_000
     # Exécuteur sans ``on_chunk`` : repli sur la capture.
     f = {}
-    B._save_outputs(f, res, root, root / "o2.bin", None, None,
+    B._save_outputs(f, res, sb, "o2.bin", None, None,
                     tempfile.SpooledTemporaryFile(), None)
     assert (root / "o2.bin").read_bytes() == res.stdout
 
@@ -560,7 +586,7 @@ async def test_payload_tool_choice_none_garde_les_outils(monkeypatch):
     monkeypatch.setattr(_oai, "endpoint", lambda _t: (None, "http://x.test", {}))
     tools = [{"type": "function", "function": {"name": "t", "parameters": {"type": "object"}}}]
     for choice in ("auto", "none"):
-        with pytest.raises(Exception):
+        with pytest.raises(_Stop):
             await C._llama_chat_with_tools_stream(
                 [{"role": "user", "content": "q"}], tools, tool_choice=choice)
     assert [c.get("tool_choice") for c in captured] == ["auto", "none"]
@@ -569,6 +595,7 @@ async def test_payload_tool_choice_none_garde_les_outils(monkeypatch):
 
 async def test_verrous_asynchrones_hors_boucle(tmp_path, monkeypatch):
     import threading
+
     from shared_infra.runtime import chat_locks as L
     monkeypatch.setattr(L, "LOCK_DIR", tmp_path / "locks")
     seen = []

@@ -339,8 +339,10 @@
                 else {
                     var e = await r.json().catch(() => ({}));
                     var msg = e.detail || 'Erreur push';
-                    // Auth error → show auth modal
-                    if (msg.toLowerCase().indexOf('auth') !== -1 || msg.toLowerCase().indexOf('credential') !== -1 || msg.indexOf('403') !== -1 || msg.indexOf('401') !== -1) {
+                    // Auth error → show auth modal. 409 = refus du relais Git
+                    // (ref hors de l'opération, redirection…) : pas une
+                    // question d'identifiants, les redemander bouclerait.
+                    if (r.status !== 409 && (msg.toLowerCase().indexOf('auth') !== -1 || msg.toLowerCase().indexOf('credential') !== -1 || msg.indexOf('403') !== -1 || msg.indexOf('401') !== -1)) {
                         _gitPendingPushForce = !!force;
                         showGitPushAuth.value = true;
                         showToast('Authentification requise', 'error');

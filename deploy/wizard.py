@@ -229,16 +229,25 @@ def _detect_installed(st: State, ctx: Ctx, backend: str, db: Dict[str, Any]) -> 
     if venv_site:
         comps.add("agpl")
     st["components"] = sorted(c for c in comps if not ctx.component_reason(c))
-    image = ""
+    image, en_usage = "", False
     try:
         import subprocess
         image = subprocess.run([str(ROOT / "deploy/docker/sandbox/build_offline.sh"), "--print-image"],
                                capture_output=True, text=True, timeout=10).stdout.strip()
-        present = bool(image) and subprocess.run(["docker", "image", "inspect", image],
-                                                 capture_output=True, timeout=20).returncode == 0
+        # Sandbox en usage : une image elpis/sandbox de n'importe quelle version
+        # (après une mise à jour, l'étiquette courante manque justement) ou un
+        # conteneur de sandbox. « build » ne reconstruit pas une image présente.
+        for argv in (["docker", "images", "-q", image.rpartition(":")[0]],
+                     ["docker", "ps", "-aq", "--filter", "name=^elpis-sb-"]):
+            if image and subprocess.run(argv, capture_output=True, text=True,
+                                        timeout=20).stdout.strip():
+                en_usage = True
+                break
     except Exception:                                           # noqa: BLE001
-        present = False
-    st["sandbox"] = "build" if present else "none"
+        en_usage = False
+    st["sandbox"] = "build" if en_usage else "none"
+    if C.image_officielle(st["sandbox_image"], image):
+        st["sandbox_image"] = ""                                # image livrée : champ vide
     st["after"] = ("service" if Path("/etc/systemd/system/elpis.target").exists() and ctx.admin
                    else st["after"])
     host = str(db.get("host") or "127.0.0.1")

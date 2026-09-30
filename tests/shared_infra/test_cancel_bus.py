@@ -18,8 +18,8 @@ import time
 
 import pytest
 
-from shared_infra.runtime import cancel_bus
 from shared_infra.routes import _state
+from shared_infra.runtime import cancel_bus
 
 
 @pytest.fixture(autouse=True)

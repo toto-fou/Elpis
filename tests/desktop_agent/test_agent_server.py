@@ -105,9 +105,10 @@ def test_encode_screenshot_default_png(srv):
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
 
 
-def test_gzip_response_header(srv):
+def test_gzip_response_header(srv, monkeypatch):
     # gzip actif sur une réponse volumineuse quand le client l'accepte.
     import asyncio
+
     from httpx import ASGITransport, AsyncClient
 
     class _FB:
@@ -119,7 +120,7 @@ def test_gzip_response_header(srv):
         def cursor_pos(self):
             return [0, 0]
 
-    srv.backend = _FB()
+    monkeypatch.setattr(srv, "backend", _FB())        # restauré après le test (ordre libre)
 
     async def _run():
         transport = ASGITransport(app=srv.app)

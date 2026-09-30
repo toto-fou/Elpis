@@ -937,6 +937,23 @@ try {
     ok('bdd : résultat de la simulation', await bodyHas(/2 tables, 43 lignes/));
     ok('bdd : champ db_path absent', !(await page.locator('#cfg-db-path').count()));
 
+    // ── Supervision › Exécutions (L5.7) ──
+    await goPage('Supervision', 'Exécutions');
+    ok('exécutions : coût par compte', await bodyHas(/alice/) && await bodyHas(/14,0 k → 1,4 k/) && await bodyHas(/512 Mio/));
+    ok('exécutions : liste', await bodyHas(/routine-b1|bob/));
+    await page.locator('tr:has-text("alice"):visible').first().click();
+    await page.waitForTimeout(400);
+    ok('exécutions : filtre par compte',
+       (await page.locator('.adm-card:has(th:has-text("Genre")) tbody tr:visible').count()) === 1
+       && (await page.locator('.adm-card:has(th:has-text("Genre")) tbody tr:has-text("bob"):visible').count()) === 0);
+    await page.locator('.adm-card:has(th:has-text("Genre")) tbody tr:visible').first().click();
+    await page.waitForTimeout(500);
+    ok('exécutions : chronologie en modale', await bodyHas(/Détails de l'exécution/) && await bodyHas(/execute_shell/));
+    ok('exécutions : export par la route admin',
+       (await page.locator('a:has-text("Exporter")').first().getAttribute('href')) === '/api/admin/runs/chat-a1/export');
+    await page.locator('[aria-label="Fermer"]:visible').first().click();
+    await page.waitForTimeout(300);
+
     // Aucune erreur de page (render Vue, etc.).
     ok('aucune erreur JS de page', errors.length === 0);
     if (errors.length) console.log('  erreurs:', errors.slice(0, 5));

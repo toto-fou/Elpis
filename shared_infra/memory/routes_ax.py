@@ -12,9 +12,9 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from shared_infra.security.deps import require_user_id
 from shared_infra.accounts.users import get_user_by_id
 from shared_infra.memory import ax
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 router = APIRouter(tags=["ax_memory"])

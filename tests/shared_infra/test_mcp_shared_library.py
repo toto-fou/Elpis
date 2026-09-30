@@ -335,6 +335,7 @@ def test_la_cascade_simulee_est_bien_celle_de_la_route():
 def client(ms, monkeypatch):
     from fastapi import FastAPI, HTTPException
     from fastapi.testclient import TestClient
+
     import shared_infra.mcp.panel as routes
 
     who = {"admin": True}
@@ -473,6 +474,7 @@ def test_un_seul_auth_enc_dans_lupdate(ms, monkeypatch):
     SQLite l'accepte silencieusement (le dernier gagne) — c'est ce qui rendait le
     bug invisible autrement qu'en observant l'effet."""
     import contextlib
+
     from shared_infra.mcp import servers as m
 
     sid = _jenkins(ms)                      # créé AVANT l'instrumentation

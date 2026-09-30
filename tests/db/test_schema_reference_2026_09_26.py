@@ -14,16 +14,15 @@ chaque moteur. Ces tests verrouillent :
   colonnes venues après coup ;
 * qu'aucune famille ne réécrit de DDL en dehors du schéma et des migrations.
 """
-import os
 import ast
 import json
+import os
 import sqlite3
 from pathlib import Path
 
 import pytest
 
-from shared_infra.db import _connection as _legacy
-from shared_infra.db import _schema as S
+from shared_infra.db import _connection as _legacy, _schema as S
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMOIN = json.loads((Path(__file__).parent / "fixtures" /
@@ -116,8 +115,8 @@ def test_le_tampon_couvre_toutes_les_migrations():
 
 def test_recherche_plein_texte_operationnelle(db_path):
     _legacy.init_db()
-    from shared_infra.memory import store as M
     from shared_infra.accounts.users import create_user
+    from shared_infra.memory import store as M
     uid = create_user("alice", "pw-alice-1")
     assert M._FTS_OK is True
     M.session_index_message(user_id=uid, app="chat", session_id="c1", scope_key="",

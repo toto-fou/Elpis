@@ -741,7 +741,7 @@ def sweep_undeliverable(uid: int) -> list:
         owners = {r[0]: r[1] for r in c.execute(
             "SELECT id, client_id FROM code_sessions WHERE user_id=?", (uid,)).fetchall()}
         dead = []
-        for rid, sid, kind, target, created in rows:
+        for rid, sid, kind, target, _created in rows:
             if target:
                 deliverable = target in alive
             else:

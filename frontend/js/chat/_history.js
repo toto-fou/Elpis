@@ -425,6 +425,37 @@ function setupChatHistory(vue, sharedRefs, ctx, deps) {
                     if (m.errorMessage)       msg.errorMessage      = m.errorMessage;
                     if (Array.isArray(m.files_changed) && m.files_changed.length)
                         msg.files_changed = m.files_changed;
+                    // Exécutions du message (``runs``) : renvoyées telles quelles.
+                    if (Array.isArray(m.run_ids) && m.run_ids.length)
+                        msg.run_ids = m.run_ids;
+                    // Compactions du tour (L5.5) : le pseudo-step « compression
+                    // du contexte » vu en direct est reconstruit, placé après
+                    // les appels du round où il a eu lieu (``round`` = appels
+                    // LLM faits avant la compaction).
+                    if (m.role === 'assistant' && Array.isArray(m.compactions) && m.compactions.length) {
+                        msg.compactions = m.compactions;
+                        const _steps = [...(msg.toolSteps || [])];
+                        const _segs = (msg.segTexts && msg.segTexts.length) ? msg.segTexts : [''];
+                        for (const c of m.compactions) {
+                            if (!c || typeof c !== 'object') continue;
+                            const _r = Number(c.round) || 0;
+                            const _pos = _steps.findIndex(s => s._kind !== 'compression'
+                                && typeof s.round === 'number' && s.round >= _r);
+                            const _prev = _steps[(_pos < 0 ? _steps.length : _pos) - 1];
+                            const _seg = _prev ? (_prev.seg || 0) : 0;
+                            const _before = Number(c.tokens_before) || 0;
+                            _steps.splice(_pos < 0 ? _steps.length : _pos, 0, {
+                                _kind: 'compression', name: 'context_compress', status: 'done',
+                                seg: _seg, path: c.path || '', reason: c.reason || '',
+                                threshold: c.threshold || 0, ctx_size: c.ctx_size || 0,
+                                args: null, result: null,
+                                stats: { ...c, ratio: _before ? (Number(c.tokens_after) || 0) / _before : 0 },
+                            });
+                        }
+                        msg.toolSteps = _steps;
+                        if (!(msg.segTexts && msg.segTexts.length)) msg.segTexts = _segs;
+                    }
+                    if (m.pruned) msg.pruned = m.pruned;
                     // On gèle TOUS les messages chargés — même le dernier,
                     // car il n'est pas en cours de streaming (la conv est
                     // persistée, donc terminée). Si l'utilisateur clique

@@ -19,11 +19,9 @@ Un hôte de sandbox est aussi bien un hôte distant (relais) que local.
 """
 from __future__ import annotations
 
-import io
+import asyncio
 import logging
-import tarfile
 import time
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("uvicorn.error")
@@ -110,8 +108,8 @@ def host_for_user(user_id: int, hosts: Dict[str, Dict[str, Any]], default: str =
 
 # ── Migration entre hôtes ───────────────────────────────────────────────────
 def _host_spec(host_id: str):
-    from shared_infra.sandbox.relay import SandboxHost, _is_loopback
     from shared_infra.mcp import manifest as _mf
+    from shared_infra.sandbox.relay import SandboxHost, _is_loopback
     hosts = _mf.load().sandbox_hosts or {}
     spec = hosts.get(host_id) or {}
     url = str(spec.get("url") or "").strip()
@@ -123,19 +121,15 @@ def _host_spec(host_id: str):
 
 
 def _local_export(user_id: int) -> bytes:
-    from shared_infra.routes._helpers import _get_work_path
-    root = Path(_get_work_path(user_id))
-    buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
-        for p in sorted(root.rglob("*")):
-            if p.is_file() and not p.is_symlink():
-                tf.add(p, arcname=str(p.relative_to(root)))
-    return buf.getvalue()
+    """Archive de ``/work`` sur cet hôte, produite par l'agent de la sandbox
+    (appelé hors boucle d'événements : thread de la route, ou test)."""
+    from shared_infra.sandbox.routes_files import exporter_work
+    return asyncio.run(exporter_work(user_id))
 
 
 def _local_import(user_id: int, data: bytes) -> int:
-    from shared_infra.sandbox.routes_files import import_work_archive
-    return import_work_archive(user_id, data)
+    from shared_infra.sandbox.routes_files import importer_work
+    return asyncio.run(importer_work(user_id, data))
 
 
 def export_work(user_id: int, host_id: str, *, timeout_s: float = 600.0) -> bytes:
@@ -146,6 +140,7 @@ def export_work(user_id: int, host_id: str, *, timeout_s: float = 600.0) -> byte
     if not host.relay:
         return _local_export(user_id)
     import httpx
+
     from shared_infra.sandbox.relay import relay_headers
     r = httpx.get(host.url + "/api/sandbox/export", headers=relay_headers(host, int(user_id)),
                   timeout=timeout_s)
@@ -160,6 +155,7 @@ def import_work(user_id: int, host_id: str, data: bytes, *, timeout_s: float = 6
     if not host.relay:
         return _local_import(user_id, data)
     import httpx
+
     from shared_infra.sandbox.relay import relay_headers
     r = httpx.post(host.url + "/api/sandbox/import", headers=relay_headers(host, int(user_id)),
                    files={"archive": ("work.tar.gz", data, "application/gzip")}, timeout=timeout_s)

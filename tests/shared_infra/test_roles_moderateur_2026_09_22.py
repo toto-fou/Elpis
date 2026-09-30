@@ -118,8 +118,8 @@ def test_partage_de_prompt_modo_limite_au_perimetre(monkeypatch):
 
 def test_identite_de_service_modo_non_admin(monkeypatch):
     import shared_infra.accounts.users as users
-    import shared_infra.toolhost.routes_internal as ri
     import shared_infra.sandbox.executors._user_sandbox as us
+    import shared_infra.toolhost.routes_internal as ri
     monkeypatch.setattr(users, "get_user_by_id",
                         lambda uid: {"id": uid, "username": "modo", "is_admin": MODO})
     monkeypatch.setattr(users, "get_user_settings", lambda uid: {})

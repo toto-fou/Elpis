@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# entrypoint.sh — Entrypoint du container elpis/sandbox:1.6.0
+# entrypoint.sh — Entrypoint du container elpis/sandbox
 #
 # Phase 1 (ROOT, brèves millisecondes) :
 #   Si la variable ELPIS_ALLOWLIST contient des IPs/CIDRs, on configure
@@ -148,41 +148,27 @@ fi
 # fait par l'user survive aux recréations de container.
 #
 # IMPORTANT — ownership et perms :
-# Le volume /work est partagé avec le host (process app) qui peut écrire
-# avec un UID différent de 10001 (typiquement le user `elpis` côté host).
-# Si on ne fait rien, les fichiers créés côté host arrivent en 0644 owned
-# par le host UID → le container ne peut pas les modifier. À l'inverse,
-# les fichiers créés côté container arrivent en 0644 owned par 10001 →
-# le host ne peut pas les modifier non plus.
-#
-# Notre stratégie cross-UID :
-#   1. chown -R 10001:10001 /work au boot (best-effort — peut échouer
-#      sur des fichiers root-owned hérités, on continue quand même).
-#   2. chmod 0777 sur /work lui-même → n'importe quel UID peut créer.
-#   3. umask 0002 dans /etc/profile + /etc/bash.bashrc → les shells
-#      interactifs lancés via `docker exec sh -c "..."` héritent (l'app
-#      wrap aussi chaque exec avec un `umask 0002` explicite, en
-#      ceinture-et-bretelles).
-#   4. fs_tools côté host chmod 0666/0777 chaque fichier/dir qu'il écrit.
-# Résultat : volume pleinement cross-writable dans les deux sens.
+# Un seul UID écrit dans /work : celui du conteneur (10001). L'hôte n'y
+# touche plus (l'agent de la sandbox travaille sous cet UID). Au boot :
+#   1. chown -R 10001:10001 /work (best-effort : un fichier root hérité peut
+#      résister) ;
+#   2. /work en 0755 ;
+#   3. umask 0022 dans /etc/profile + /etc/bash.bashrc (l'app force aussi
+#      `umask 0022` autour de chaque exec et dans le terminal).
 mkdir -p /work/.python-user /work/.local/bin /work/.npm-global 2>/dev/null || true
 
 # Best-effort chown : si /work contient des centaines de Mo le -R peut
 # prendre quelques secondes — c'est OK, c'est au boot du container et
 # c'est amorti par le `sleep infinity`.
 chown -R 10001:10001 /work 2>/dev/null || true
-chmod 0777 /work 2>/dev/null || true
+chmod 0755 /work 2>/dev/null || true
 
-# Umask permissif pour tous les shells lancés via `docker exec`.
-# /etc/profile est lu par `sh -l`, /etc/bash.bashrc par bash interactif.
-# L'app force déjà `umask 0002` autour de chaque exec ; ceci couvre les
-# cas où un utilisateur ouvre un PTY directement (Terminal panel).
-if ! grep -q '^umask 0002' /etc/profile 2>/dev/null; then
-    echo 'umask 0002' >> /etc/profile
-fi
-if [ -f /etc/bash.bashrc ] && ! grep -q '^umask 0002' /etc/bash.bashrc; then
-    echo 'umask 0002' >> /etc/bash.bashrc
-fi
+# Umask des shells lancés via `docker exec` (sh -l, bash interactif).
+for f in /etc/profile /etc/bash.bashrc; do
+    [ -f "$f" ] || continue
+    sed -i '/^umask 000[02]$/d' "$f"
+    grep -q '^umask 0022' "$f" || echo 'umask 0022' >> "$f"
+done
 
 # ─── Drop privilèges et exec CMD ─────────────────────────────────────
 # On bascule en UID 10001. L'user garde `sudo` (NOPASSWD) s'il a besoin
@@ -194,10 +180,12 @@ fi
 # NET_ADMIN (root réacquiert les caps du bounding set) et effaçait l'allowlist.
 # En le retirant du bounding set, MÊME root (via sudo) ne peut plus toucher au
 # netfilter → l'allowlist devient inviolable depuis l'intérieur. On garde
-# sudo et les autres caps (modèle « permissif dans le container » voulu), et
-# net_raw reste présent pour que ``ping`` fonctionne vers les IPs autorisées.
+# sudo et les autres caps du conteneur (modèle « permissif dans le container »
+# voulu ; ``ping`` passe par les sockets ICMP sans privilège, pas par net_raw).
 # Retirer une cap absente du bounding set (modes none/bridge) est sans effet.
 log "Drop privilege → UID 10001 (sudo NOPASSWD, sans net_admin)"
+# Masque du seul processus principal (inactif) : les shells prennent celui
+# de /etc/profile (0022) et l'agent, lancé par docker exec, le sien.
 umask 0002
 # NB: setpriv (util-linux) attend les noms de capability SANS préfixe « cap_ »
 # (``net_admin``, pas ``cap_net_admin`` — ce dernier donne « unknown capability »).

@@ -15,7 +15,6 @@ import sys
 
 import pytest
 
-
 # ── 30. Un wrapper MCP referme TOUJOURS son transport ──────────────────────
 
 class _QuiLeve:
@@ -94,6 +93,7 @@ def test_le_temporaire_du_cache_est_propre_au_process():
 
 def test_deux_ecrivains_concurrents_publient_un_json_valide(tmp_path, monkeypatch):
     import multiprocessing as mp
+
     from llm_core import _mcp_categories as C
     cible = tmp_path / "cats.json"
     monkeypatch.setattr(C, "_CACHE_PATH", cible)
@@ -186,9 +186,13 @@ def test_le_statut_git_est_reancre_sur_le_dossier_liste():
 
 
 @pytest.mark.skipif(not os.environ.get("PATH"), reason="git requis")
-def test_un_sous_dossier_remonte_bien_son_statut(tmp_path):
+def test_un_sous_dossier_remonte_bien_son_statut(tmp_path, monkeypatch):
+    from llm_core.tools._espace import Espace
     from llm_core.tools.fs_tools import _git_status_map
-    repo = tmp_path / "proj"
+    from shared_infra import config
+    monkeypatch.setattr(config, "SANDBOX_DIR", tmp_path)
+    sb = tmp_path / "alice" / "work"
+    repo = sb / "proj"
     (repo / "src").mkdir(parents=True)
     env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null",
            "GIT_CONFIG_SYSTEM": "/dev/null"}
@@ -205,14 +209,26 @@ def test_un_sous_dossier_remonte_bien_son_statut(tmp_path):
     (repo / "src" / "app.py").write_text("v2\n")
     (repo / "src" / "new.py").write_text("neuf\n")
 
-    depuis_la_racine = _git_status_map(repo)
+    esp = Espace("alice", sb)
+    depuis_la_racine, err = _git_status_map(esp, sb, repo)
+    assert err is None
     assert "src/app.py" in depuis_la_racine
 
-    depuis_le_sous_dossier = _git_status_map(repo / "src")
+    depuis_le_sous_dossier, _err = _git_status_map(esp, sb, repo / "src")
     assert "app.py" in depuis_le_sous_dossier, (
         f"map vide ou mal ancrée : {depuis_le_sous_dossier} — l'agent conclut "
         f"que src/ est propre et réapplique ses modifications")
     assert "new.py" in depuis_le_sous_dossier
+
+    # ``core.fsmonitor`` du dépôt : neutralisé par l'agent (L4.4), le statut
+    # reste lisible et la commande n'est pas lancée.
+    witness = tmp_path / "fsmonitor-lance"
+    subprocess.run(["git", "config", "core.fsmonitor", f"touch {witness}; false"],
+                   cwd=repo, check=True, env=env, capture_output=True)
+    statut, err = _git_status_map(esp, sb, repo)
+    assert err is None and "src/app.py" in statut
+    assert not witness.exists()
+    assert _git_status_map(esp, sb, sb)[1]             # pas un dépôt : raison donnée
 
 
 # ── 55. skill_add_file rend un chemin résoluble ─────────────────────────
@@ -309,5 +325,5 @@ def test_le_hint_de_debord_distingue_les_deux_causes():
 def test_la_bande_sans_troncature_existe_bel_et_bien():
     """Plancher de débord 7 920 caractères, troncature réelle à 20 000 :
     ]7920, 20000] est la bande où les deux messages se contredisaient."""
-    from llm_core.tools.shell_tools import _spill_floor_chars, DEFAULT_MAX_OUTPUT
+    from llm_core.tools.shell_tools import DEFAULT_MAX_OUTPUT, _spill_floor_chars
     assert _spill_floor_chars() < DEFAULT_MAX_OUTPUT

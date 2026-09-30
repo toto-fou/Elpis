@@ -13,25 +13,25 @@ Every name is re-exported here for convenience and for the package façade
 ``backend.services`` (its auto-export loop walks each registered submodule).
 """
 from llm_core._scheduling._concurrency import (
+    LLAMA_MAX_MODELS,
+    LLM_SEMAPHORE,
     LLMConcurrencyManager,
     _LLMAcquisition,
-    LLM_SEMAPHORE,
-    LLAMA_MAX_MODELS,
-)
-from llm_core._scheduling._locks import (
-    ModelExclusivityLock,
-    DistributedModelExclusivityLock,
-    MODEL_EXCLUSIVITY,
-    _LUA_ACQUIRE,
-    _LUA_RELEASE,
-    _LUA_DEREGISTER_HIGH,
-    _LUA_PROMOTE_HIGH,
 )
 from llm_core._scheduling._guard import (
-    llm_scheduling_guard,
     LLMQueueAborted,
-    _emit,
     OnEvent,
+    _emit,
+    llm_scheduling_guard,
+)
+from llm_core._scheduling._locks import (
+    _LUA_ACQUIRE,
+    _LUA_DEREGISTER_HIGH,
+    _LUA_PROMOTE_HIGH,
+    _LUA_RELEASE,
+    MODEL_EXCLUSIVITY,
+    DistributedModelExclusivityLock,
+    ModelExclusivityLock,
 )
 
 __all__ = [

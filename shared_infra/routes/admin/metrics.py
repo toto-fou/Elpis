@@ -13,29 +13,28 @@ import secrets
 import time
 from typing import Any, Dict, List, Optional
 
-from shared_infra.db._dialect import local_datetime
-
 from fastapi import HTTPException, Request
 from fastapi.responses import (
     JSONResponse,
 )
 
-from shared_infra.config import (
-    read_config_json, write_config_json,
-)
 from shared_infra.accounts.users import (
     get_user_by_id,
 )
+from shared_infra.config import (
+    read_config_json,
+    write_config_json,
+)
 from shared_infra.db._connection import db
-from shared_infra.security.deps import require_user_id
+from shared_infra.db._dialect import local_datetime
 from shared_infra.observability.metrics.engine import registry as metrics_registry
 
 # Helpers shared with _legacy. Single source of truth.
-
 # Routers — owned by ``_state``. We import them so endpoint decorators
 # below register on the SAME singleton router instances mounted by
 # ``app.py`` / ``admin_app.py``.
 from shared_infra.routes.admin._state import admin_router
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -350,6 +349,7 @@ def api_admin_metrics_prometheus(request: Request):
     # du worker scrapé, taggé par PID, pour un scrape Prometheus externe.
     try:
         import os as _os
+
         from shared_infra.observability.metrics.process_sampler import _SAMPLES
         pid = _os.getpid()
         lines.append("# HELP elpis_proc Per-process resource & app counters (live)")
@@ -401,15 +401,19 @@ def api_export_metrics(request: Request, days: int = 7, target: str = "metric_ev
     if not me or me["is_admin"] not in (1, 2): raise HTTPException(403, "Staff required")
     if target not in ("metric_events", "usage_events"):
         raise HTTPException(400, "Cible d'export inconnue")
+    import csv
+    import io
+
     from shared_infra.db._connection import db as _db
-    import csv, io
     conn = _db(); cur = conn.cursor()
     since = time.time() - max(1, min(3650, int(days))) * 86400
     if target == "usage_events":
         cols = ["ts", "user_id", "source", "origin_id", "parent_id", "model",
                 "connector", "path", "input_tokens", "output_tokens",
-                "submitted_tokens", "cache_read_tokens", "cache_creation_tokens",
-                "duration_ms", "iterations", "status", "error_kind"]
+                "submitted_tokens", "cache_read_tokens",
+                "cache_creation_tokens", "duration_ms", "iterations", "status",
+                # Colonnes ajoutées en fin : un lecteur par position ne décale pas.
+                "error_kind", "thinking_tokens", "run_id"]
         cur.execute(
             f"SELECT {local_datetime('ts')} AS ts, "
             f"{', '.join(cols[1:])} FROM usage_events WHERE ts > ? ORDER BY ts ASC",
@@ -588,9 +592,10 @@ def api_admin_report_daily(request: Request, date: Optional[str] = None):
     uid = require_user_id(request)
     me = get_user_by_id(uid)
     if not me or me["is_admin"] not in (1, 2): raise HTTPException(403, "Staff required")
+    from datetime import datetime as _dt
+
     from shared_infra.observability.daily_reports_store import get_daily_report
     from shared_infra.observability.metrics.daily_report import build_daily_report
-    from datetime import datetime as _dt
     if date:
         rep = get_daily_report(date)
         if rep is None:

@@ -218,6 +218,7 @@ def test_last_error_is_thread_local():
     partagé (où le 2e écrasait le diagnostic du 1er)."""
     import threading
 
+    D._set_err("")                          # un test précédent a pu poser celui du thread principal
     both_wrote = threading.Barrier(2)
     seen = {}
 

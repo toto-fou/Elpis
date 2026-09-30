@@ -39,6 +39,7 @@
         { id: 'supervision', label: 'Supervision', icon: 'ph-chart-line-up', role: 'staff', pages: [
             { id: 'dashboard',  label: 'Métriques',        wide: true, loaders: [['loadAdminStats']], paths: ['metrics.'] },
             { id: 'report',     label: 'Rapport',          wide: true, loaders: [['loadDailyReport']] },
+            { id: 'runs',       label: 'Exécutions',       wide: true, loaders: [['loadAdminRuns']] },
             { id: 'tool-calls', label: 'Appels d’outils',  wide: true, loaders: [['loadObservability']] },
             { id: 'audit',      label: 'Audit',            wide: true, loaders: [['loadObservability']] },
             { id: 'logs',       label: 'Journaux',         wide: true, loaders: [['loadRecentLogs']] },

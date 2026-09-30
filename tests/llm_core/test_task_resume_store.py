@@ -16,8 +16,8 @@ import time
 
 import pytest
 
-from llm_core.tools import _task_resume
 import llm_core.tools.task_tool as task_tool
+from llm_core.tools import _task_resume
 
 
 @pytest.fixture(autouse=True)

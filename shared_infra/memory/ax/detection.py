@@ -66,9 +66,9 @@ def detect_session_url(messages: list) -> Optional[str]:
 
     # Requete au service Node Playwright pour recuperer l'URL
     try:
+        import json as _json
         import os as _os
         import urllib.request
-        import json as _json
         node_api = _os.environ.get("PLAYWRIGHT_API_URL",
                                    "http://localhost:3000")
         req = urllib.request.Request(

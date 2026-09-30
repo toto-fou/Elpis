@@ -5,17 +5,17 @@ Tables: ``chats``.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-import time
 import json
 import sqlite3
+import time
+from typing import Any, Dict, List, Optional
 
-from shared_infra.db._connection import db, db_conn
-from shared_infra.db._dialect import MYSQL, begin_write, ci_like, dialect_of
 # Accesseur (et non la constante ``MAX_RECENT_CHATS``) : le plafond est réglable
 # depuis l'administration et doit s'appliquer sans redémarrage — cf. la docstring
 # de ``max_recent_chats`` dans ``shared_infra/config.py``.
 from shared_infra.config import max_recent_chats
+from shared_infra.db._connection import db, db_conn
+from shared_infra.db._dialect import MYSQL, begin_write, ci_like, dialect_of
 
 
 def _chat_meta(row) -> Dict[str, Any]:

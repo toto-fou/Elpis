@@ -27,7 +27,7 @@ if _AGENT not in sys.path:
 
 from backends import windows as W  # noqa: E402
 from elpis_auto import Session  # noqa: E402
-from test_elpis_auto import FakeBackend, _node, _calls  # noqa: E402
+from test_elpis_auto import FakeBackend, _calls, _node  # noqa: E402
 
 
 # ── agent : gestes vs patterns ───────────────────────────────────────────────
@@ -117,7 +117,7 @@ def test_geste_sans_controle_retombe_aux_coordonnees(monkeypatch):
     assert be.element_action(action="click", name="X", button="right", x=7, y=8)["method"] == "coords"
     assert be.element_action(action="click", name="X", x=7, y=8, clicks=2)["method"] == "coords"
     assert seen == [(7, 8, "right", 1), (7, 8, "left", 2)]
-    with pytest.raises(Exception):
+    with pytest.raises(W.NotSupported):
         be.element_action(action="click", name="X", button="right")   # ni contrôle ni point
 
 
@@ -285,7 +285,7 @@ def test_clic_sur_item_cochable_selectionne_au_lieu_de_basculer(monkeypatch):
     assert s_.calls == ["Select"] and t.calls == []
 
 
-from test_uia_comtypes_fallback_2026_09_13 import Pat as W_Pat, Mod as W_Mod, El as W_El  # noqa: E402
+from test_uia_comtypes_fallback_2026_09_13 import El as W_El, Mod as W_Mod, Pat as W_Pat  # noqa: E402
 
 
 def test_auto_id_partage_departage_par_le_nom(tmp_path):
@@ -301,8 +301,9 @@ def test_auto_id_partage_departage_par_le_nom(tmp_path):
 
 
 def test_titres_de_fenetre_litteraux_et_regex(tmp_path):
-    from elpis_auto.session import find_window, _pywinauto_title_re
     import re
+
+    from elpis_auto.session import _pywinauto_title_re, find_window
     nodes = [_node("window", "Document (1).txt - Bloc-notes", 0, 0, 800, 600),
              _node("window", "Calculatrice", 0, 0, 300, 400)]
     assert find_window(nodes, "Document (1).txt - Bloc-notes") is nodes[0], "parenthèses = texte"
@@ -471,14 +472,16 @@ def test_monitor_zero_est_transmis(tmp_path):
 
 def test_image_float64_score_exact_partout():
     np = pytest.importorskip("numpy")
-    from PIL import Image
     import io as _io
+
     from elpis_auto import visual
+    from PIL import Image
     rng = np.random.default_rng(0)
     screen = (rng.random((1080, 1920)) * 6 + 120).astype("uint8")
     tpl = screen[900:940, 1700:1760].copy()
     buf = _io.BytesIO(); Image.fromarray(screen).save(buf, format="PNG")
-    import tempfile, os
+    import os
+    import tempfile
     with tempfile.TemporaryDirectory() as d:
         p = os.path.join(d, "t.png"); Image.fromarray(tpl).save(p)
         hit = visual.locate_template(buf.getvalue(), p)
@@ -554,7 +557,7 @@ def test_role_vers_controltype_uia():
 
 
 def test_uia_find_prefere_l_element_sous_le_point_toutes_portees(monkeypatch):
-    from test_uia_comtypes_fallback_2026_09_13 import El, Mod, Found
+    from test_uia_comtypes_fallback_2026_09_13 import El, Found, Mod
 
     class Scope:
         def __init__(self, els): self.els = els
@@ -704,7 +707,8 @@ def test_uncheck_bascule_muette_vrai_clic_sur_la_case_puis_echec_honnete(tmp_pat
 def test_titre_espace_insecable_du_bloc_notes():
     """VM 15/09 : le Bloc-notes titre « a\xa0- Bloc-notes » (espace insécable)."""
     import re
-    from elpis_auto.session import _pywinauto_title_re, _first_title_match
+
+    from elpis_auto.session import _first_title_match, _pywinauto_title_re
     rx = re.compile(_pywinauto_title_re("a - Bloc-notes"))
     assert rx.match("a\xa0- Bloc-notes") and rx.match("Sans titre - a - Bloc-notes")
     assert _first_title_match([{"title": "a\xa0- Bloc-notes"}], "a - Bloc-notes") is not None
@@ -738,7 +742,7 @@ def test_premier_plan_sans_alt_si_deja_devant_puis_souris_avant_alt(monkeypatch)
 
 
 def test_focus_fenetre_deja_devant_ne_fait_rien(tmp_path):
-    from test_elpis_auto_vm_2026_09_13 import WinBackend, DESKTOP
+    from test_elpis_auto_vm_2026_09_13 import DESKTOP, WinBackend
     b = WinBackend(nodes=DESKTOP(), foreground="project_test — QGIS")
     s = Session(backend=b, report_dir=str(tmp_path), settle=0, timeout=0.3)
     s.focus(window="QGIS")

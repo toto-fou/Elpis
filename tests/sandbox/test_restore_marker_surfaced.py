@@ -2,9 +2,9 @@
 """Le marqueur « restauration interrompue » doit être exposé ET acquittable.
 
 Audit 2026-08-08. ``_restore_snapshot_stream`` pose ``.elpis_restore_incomplete``
-dans ``/work`` entre le vidage et la fin d'extraction ; s'il survit, le worker a
-été tué en plein vol (recyclage ``max_requests=2000``, ``graceful_timeout=330``)
-et ``/work`` est AMPUTÉ. ``GET /api/sandbox/snapshots`` le remontait déjà dans
+(dans le dossier des snapshots du compte depuis L4.5) pendant la restauration ;
+s'il survit, le worker a été tué en plein vol (recyclage ``max_requests=2000``,
+``graceful_timeout=330``) et ``/work`` peut être AMPUTÉ. ``GET /api/sandbox/snapshots`` le remontait déjà dans
 ``last_restore_incomplete`` — mais AUCUN consommateur ne le lisait côté front :
 le filet ne servait à rien.
 
@@ -33,7 +33,7 @@ def work(tmp_path, monkeypatch):
     w = tmp_path / "work"
     w.mkdir()
     monkeypatch.setattr(snap, "require_user_id", lambda request: 7)
-    monkeypatch.setattr(snap, "_sandbox_root_for", lambda uid: w)
+    monkeypatch.setattr(snap, "_user_snap_dir", lambda uid: w)
     monkeypatch.setattr(snap, "_list_user_snapshots", lambda uid: [])
     return w
 

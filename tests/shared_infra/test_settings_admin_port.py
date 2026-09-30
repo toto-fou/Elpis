@@ -58,6 +58,7 @@ def test_port_principal_inchange(client, monkeypatch):
 
 def test_route_montee_sur_le_processus_admin():
     import inspect
+
     from server import app as srv
     src = inspect.getsource(srv._mount_admin_required_subset)
     assert '"/api/settings"' in src

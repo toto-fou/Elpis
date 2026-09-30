@@ -36,10 +36,9 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
+from backends import NotSupported, get_backend
 from fastapi import FastAPI, HTTPException, Request
 from starlette.middleware.gzip import GZipMiddleware
-
-from backends import get_backend, NotSupported
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("desktop-agent")
@@ -190,7 +189,7 @@ _worker_started = False
 def _worker_ensure_com() -> None:
     """Init COM (MTA) SUR le thread worker — idempotent, no-op hors Windows."""
     try:
-        from backends import windows as _win   # ImportError sous Linux (comtypes absent)
+        from backends import windows as _win  # ImportError sous Linux (comtypes absent)
         _win._ensure_com()
     except Exception:
         pass
@@ -247,7 +246,7 @@ def _worker_snapshot():
         return _worker_state["op"], _worker_state["since"]
 
 
-async def _run_uia(op_name: str, thunk, *, timeout_s: float = None):
+async def _run_uia(op_name: str, thunk, *, timeout_s: float | None = None):
     """Exécute ``thunk`` (→ dict réponse, peut lever HTTPException) sur le worker
     UIA sérialisé, avec garde d'occupation et timeout. 503 ``agent_busy`` si le
     worker est figé (op en cours trop longue) ou si la file est saturée."""
@@ -770,7 +769,9 @@ async def run_script(request: Request):
             env[k] = b[k.lower()]
     _AUTOMATIONS.mkdir(parents=True, exist_ok=True)
     try:
-        proc = _subprocess.Popen(cmd, cwd=str(_AUTOMATIONS), env=env,
+        # Synchrone : aucun ``await`` entre le contrôle « une exécution à la
+        # fois » et l'enregistrement dans ``_RUNS`` (lancement quasi immédiat).
+        proc = _subprocess.Popen(cmd, cwd=str(_AUTOMATIONS), env=env,  # noqa: ASYNC220
                                  stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT)
     except Exception as e:          # noqa: BLE001
         raise HTTPException(500, f"lancement impossible : {e}")

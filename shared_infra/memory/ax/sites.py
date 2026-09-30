@@ -13,7 +13,7 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-from shared_infra.memory.ax._connection import _conn, _DB_LOCK
+from shared_infra.memory.ax._connection import _DB_LOCK, _conn
 
 
 def list_sites() -> list[str]:

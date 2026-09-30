@@ -22,9 +22,9 @@ from typing import Any, Dict, Tuple
 
 import httpx
 
-from shared_infra.config import LLAMA_URL
 from llm_core._client import _get_llm_client
 from llm_core._target import LlmTarget
+from shared_infra.config import LLAMA_URL
 
 # Fournisseurs « locaux » qui acceptent les extensions llama.cpp dans le body.
 # Seul llama.cpp les comprend toutes (id_slot, cache_prompt, n_cache_reuse,

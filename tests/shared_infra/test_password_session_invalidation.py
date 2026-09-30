@@ -85,6 +85,7 @@ def test_bump_sets_revocation_epoch(user_db):
 
 def test_bump_default_ts_is_now(user_db):
     import time
+
     from shared_infra.accounts.users import bump_session_min_ts
     before = time.time()
     bump_session_min_ts(user_db)
@@ -99,7 +100,7 @@ def test_bump_unknown_user_returns_false(user_db):
 
 def test_password_change_ejects_old_session_keeps_current(user_db):
     """Reproduit le comportement de la route change-password corrigée."""
-    from shared_infra.accounts.users import reset_user_password, bump_session_min_ts
+    from shared_infra.accounts.users import bump_session_min_ts, reset_user_password
 
     old_login_ts = 1000.0  # une session ouverte AVANT le changement
     # Avant le changement : la session est valide (session_min_ts == 0).

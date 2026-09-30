@@ -18,13 +18,13 @@ import pytest
 
 import llm_core.context.pruning as _pruning
 import llm_core.context.tokens as tok
-from llm_core.context.pruning import (
-    enforce_context_budget,
-    sanitize_message_history,
-)
 from llm_core.context.compression.serializer import (
     compute_serializer_total_budget_tokens,
     serialize_for_compression,
+)
+from llm_core.context.pruning import (
+    enforce_context_budget,
+    sanitize_message_history,
 )
 from llm_core.conversation_compressor import (
     ConversationCompressor,

@@ -31,36 +31,14 @@ import shared_infra.sandbox.routes_files as sf
 def env(tmp_path, monkeypatch):
     root = tmp_path / "work"
     root.mkdir()
-    ops = []
-
-    async def _write_text(uid, rel, content):
-        ops.append(("write", rel))
-        p = root / rel
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
-
-    async def _rename(uid, old, new):
-        ops.append(("mv", old, new))
-        (root / new).parent.mkdir(parents=True, exist_ok=True)
-        os.rename(root / old, root / new)
-
-    async def _copy(uid, src, dst):
-        ops.append(("cp", src, dst))
-        s, d = root / src, root / dst
-        d.parent.mkdir(parents=True, exist_ok=True)
-        if s.is_dir():
-            shutil.copytree(s, d)
-        else:
-            shutil.copy2(s, d)
+    from tests.conftest import editeur_sur_agent
+    ops = editeur_sur_agent(monkeypatch, root)
 
     monkeypatch.setattr(sf, "require_user_id", lambda request: 1)
     monkeypatch.setattr(sf, "_get_work_path", lambda uid: root)
     monkeypatch.setattr(sf, "get_user_settings", lambda uid: {"sandbox_quota_mb": 0})
     monkeypatch.setattr(sf, "get_username_by_id", lambda uid: "alice")
     monkeypatch.setattr(sf, "log_metric", lambda *a, **k: None)
-    monkeypatch.setattr(xb, "sandbox_write_text", _write_text)
-    monkeypatch.setattr(xb, "sandbox_rename", _rename)
-    monkeypatch.setattr(xb, "sandbox_copy", _copy)
 
     from shared_infra.routes._state import router
     app = FastAPI()
@@ -246,6 +224,20 @@ def test_copy_quota_depasse_refuse(env, monkeypatch):
     assert ops == []
 
 
+def test_delete_d_un_lien_sortant_retire_le_lien(env, tmp_path):
+    client, root, ops = env
+    dehors = tmp_path / "dehors"
+    dehors.mkdir()
+    (dehors / "garde.txt").write_text("intact")
+    os.symlink(dehors, root / "lien")
+    r = client.delete("/api/sandbox/delete", params={"path": "lien"})
+    assert r.status_code == 200, r.text
+    assert not os.path.lexists(root / "lien")
+    assert (dehors / "garde.txt").read_text() == "intact"
+    r = client.delete("/api/sandbox/delete", params={"path": "../dehors"})
+    assert r.status_code == 403
+
+
 def test_copy_source_absente_404(env):
     client, root, ops = env
     r = client.post("/api/sandbox/copy", json={"src": "rien.py", "dst": "x.py"})
@@ -408,13 +400,14 @@ def test_replace_echec_en_cours_de_route_rend_les_fichiers_deja_ecrits(env, monk
     client, root, ops = env
     for n in ("a.txt", "b.txt", "c.txt"):
         (root / n).write_text("foo\n")
-    real = xb.sandbox_write_text
+    from shared_infra.sandbox import agent_client as AC
+    real = AC.AgentClient.write
 
-    async def _flaky(uid, rel, content):
-        if rel == "b.txt":
-            raise sf.HTTPException(503, "Environnement sandbox arrêté")
-        await real(uid, rel, content)
-    monkeypatch.setattr(xb, "sandbox_write_text", _flaky)
+    async def _flaky(self, path, data, **kw):
+        if path == "b.txt":
+            raise AC.AgentError("agent_unavailable", "conteneur arrêté")
+        return await real(self, path, data, **kw)
+    monkeypatch.setattr(AC.AgentClient, "write", _flaky)
     r = client.post("/api/sandbox/replace", json={
         "query": "foo", "replacement": "bar", "paths": ["a.txt", "b.txt", "c.txt"]})
     assert r.status_code == 200, r.text
@@ -422,6 +415,28 @@ def test_replace_echec_en_cours_de_route_rend_les_fichiers_deja_ecrits(env, monk
     assert [f["path"] for f in d["files"]] == ["a.txt"]
     assert d["failed"]["path"] == "b.txt" and "sandbox" in d["failed"]["error"]
     assert (root / "c.txt").read_text() == "foo\n"                # arrêt net
+
+
+def test_replace_fichier_modifie_entre_relecture_et_ecriture(env, monkeypatch):
+    """L'agent n'écrit que si le contenu est encore celui relu."""
+    client, root, ops = env
+    (root / "a.txt").write_text("foo\n")
+    from shared_infra.sandbox import agent_client as AC
+    real = AC.AgentClient.read
+
+    async def _lu_puis_modifie(self, path, **kw):
+        r = await real(self, path, **kw)
+        if path == "a.txt":
+            (root / "a.txt").write_text("foo modifié ailleurs\n")
+        return r
+    monkeypatch.setattr(AC.AgentClient, "read", _lu_puis_modifie)
+    r = client.post("/api/sandbox/replace", json={
+        "query": "foo", "replacement": "bar", "paths": ["a.txt"]})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["files"] == [] and d["skipped"] == [{"path": "a.txt",
+                                                  "reason": "modifié pendant l'opération"}]
+    assert (root / "a.txt").read_text() == "foo modifié ailleurs\n"
 
 
 def test_replace_quota_verifie(env, monkeypatch):
@@ -449,20 +464,17 @@ def test_replace_bornes_d_entree(env):
 
 
 def test_save_if_absent_reverifie_sous_verrou(env, monkeypatch):
-    # Deux « Nouveau fichier » simultanés : le second ne vide pas le premier.
+    # Deux « Nouveau fichier » simultanés : le second ne vide pas le premier,
+    # même créé après le contrôle (l'agent vérifie « absent » au remplacement).
     client, root, ops = env
-    real_exists = sf.Path.exists
-    calls = {"n": 0}
+    vrai = sf._etat_agent
 
-    def _exists(self):
-        if self.name == "neuf.py":
-            calls["n"] += 1
-            if calls["n"] == 1:
-                return False                       # contrôle d'entrée : libre
+    async def _etat(agent, rel, **kw):
+        st = await vrai(agent, rel, **kw)
+        if rel == "neuf.py" and st["kind"] == "missing":
             (root / "neuf.py").write_text("déjà là")   # créé entre-temps
-            return True
-        return real_exists(self)
-    monkeypatch.setattr(sf.Path, "exists", _exists)
+        return st
+    monkeypatch.setattr(sf, "_etat_agent", _etat)
     r = client.post("/api/sandbox/save",
                     json={"path": "neuf.py", "content": "", "if_absent": True})
     assert r.status_code == 409, r.text
@@ -504,6 +516,7 @@ def test_ruff_trouve_a_cote_de_l_interpreteur_sans_path(monkeypatch, tmp_path):
     # Relecture 2026-09-19 (serveur réel lancé sans venv activé) : ``which``
     # ne voyait pas le ruff du venv → « Formater » en 501, lint muet.
     import sys
+
     import shared_infra.sandbox.routes_files as rf
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
@@ -531,22 +544,20 @@ def git_env(tmp_path, monkeypatch):
     if not shutil.which("git"):
         pytest.skip("git absent")
     import shared_infra.sandbox.routes_git as sg
+    from tests.conftest import editeur_sur_agent
     root = tmp_path / "work"
     root.mkdir()
+    editeur_sur_agent(monkeypatch, root)                 # git par l'agent (L4.4)
     monkeypatch.setattr(sg, "require_user_id", lambda request: 1)
     monkeypatch.setattr(sg, "_get_work_path", lambda uid: root)
-
-    async def _grant(*a, **k):
-        return None
-    monkeypatch.setattr(sg, "_grant_after_git", _grant)
     from shared_infra.routes._state import router
     app = FastAPI()
     app.include_router(router)
     return TestClient(app), root
 
 
-def _git(cwd, *args):
-    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True,
+def _git(cwd, *args, check=True):
+    subprocess.run(["git", *args], cwd=cwd, check=check, capture_output=True,
                    env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
                         "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"})
 
@@ -565,7 +576,7 @@ def _conflit(root):
     (root / "f.txt").write_text("main\n")
     (root / "g.txt").write_text("main\n")
     _git(root, "commit", "-qam", "main")
-    subprocess.run(["git", "merge", "autre"], cwd=root, capture_output=True)
+    _git(root, "merge", "autre", check=False)          # conflit : code retour 1
 
 
 def test_status_liste_les_conflits_a_part(git_env):

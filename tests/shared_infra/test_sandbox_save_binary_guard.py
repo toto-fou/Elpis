@@ -17,30 +17,21 @@ from fastapi.testclient import TestClient
 
 import shared_infra.sandbox.exec_bridge as xb
 import shared_infra.sandbox.routes_files as sf
-from shared_infra.sandbox.filetypes import existing_file_is_binary, looks_binary
+from shared_infra.sandbox.filetypes import looks_binary
 
 
 @pytest.fixture()
 def env(tmp_path, monkeypatch):
     root = tmp_path / "work"
     root.mkdir()
-    writes = []
-
-    async def _write_text(uid, rel, content):
-        writes.append(("text", rel, content))
-        (root / rel).write_text(content)
-
-    async def _write_bytes(uid, rel, data):
-        writes.append(("bytes", rel, data))
-        (root / rel).write_bytes(data)
+    from tests.conftest import editeur_sur_agent
+    writes = editeur_sur_agent(monkeypatch, root)
 
     monkeypatch.setattr(sf, "require_user_id", lambda request: 1)
     monkeypatch.setattr(sf, "_get_work_path", lambda uid: root)
     monkeypatch.setattr(sf, "get_user_settings", lambda uid: {"sandbox_quota_mb": 0})
     monkeypatch.setattr(sf, "get_username_by_id", lambda uid: "alice")
     monkeypatch.setattr(sf, "log_metric", lambda *a, **k: None)
-    monkeypatch.setattr(xb, "sandbox_write_text", _write_text)
-    monkeypatch.setattr(xb, "sandbox_write_bytes", _write_bytes)
 
     from shared_infra.routes._state import router
     app = FastAPI()
@@ -86,19 +77,24 @@ def test_texte_sur_texte_nouveau_ou_vide_permis(env, existing):
     assert (root / "script.py").read_text() == "x = 1\n"
 
 
-def test_lien_symbolique_vers_binaire_non_suivi(tmp_path):
-    target = tmp_path / "cible.pdf"
-    target.write_bytes(b"%PDF-1.4")
-    link = tmp_path / "lien.txt"
-    os.symlink(target, link)
-    assert existing_file_is_binary(target) is True
-    assert existing_file_is_binary(link) is False       # O_NOFOLLOW → illisible → False
+def test_lien_vers_un_binaire_suivi_comme_l_ecriture(env):
+    """Un lien sous /work est suivi (l'écriture écrirait sa cible) : du texte
+    ne remplace pas le binaire qu'il désigne."""
+    client, root, writes = env
+    (root / "cible.pdf").write_bytes(b"%PDF-1.4")
+    os.symlink("cible.pdf", root / "lien.txt")
+    r = client.post("/api/sandbox/save", json={"path": "lien.txt", "content": "x"})
+    assert r.status_code == 409 and (root / "cible.pdf").read_bytes() == b"%PDF-1.4"
+    assert writes == []
 
 
-def test_fifo_ne_bloque_pas(tmp_path):
-    fifo = tmp_path / "tube"
-    os.mkfifo(fifo)
-    assert existing_file_is_binary(fifo) is False
+def test_fifo_ne_bloque_pas(env):
+    import time
+    client, root, writes = env
+    os.mkfifo(root / "tube")
+    t0 = time.monotonic()
+    r = client.post("/api/sandbox/save", json={"path": "tube", "content": "x"})
+    assert r.status_code == 409 and time.monotonic() - t0 < 5, r.text
 
 
 @pytest.mark.parametrize("head,expected", [

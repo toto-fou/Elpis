@@ -157,10 +157,11 @@ def _semer_comptes(base: Path, nb: int) -> list[str]:
     """Crée ``nb`` comptes directement en base, sans passer par l'API."""
     sys.path.insert(0, str(ROOT))
     os.environ["APP_CONFIG_PATH"] = str(base / "config.json")
-    from shared_infra.db import _connection as _legacy
-    from shared_infra.accounts.users import _hash_password
-    import shared_infra.config as cfg
     import importlib
+
+    import shared_infra.config as cfg
+    from shared_infra.accounts.users import _hash_password
+    from shared_infra.db import _connection as _legacy
     importlib.reload(cfg)
     _legacy.DB_PATH = str(base / "db" / "app.db")
     _legacy.reset_pool()

@@ -28,8 +28,7 @@ import httpx
 import pytest
 from fastapi import FastAPI, HTTPException, Request
 
-from shared_infra.runtime import chat_locks
-from shared_infra.runtime import run_journal as rj
+from shared_infra.runtime import chat_locks, run_journal as rj
 
 
 @pytest.fixture()

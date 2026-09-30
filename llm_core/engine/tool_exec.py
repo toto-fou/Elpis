@@ -27,9 +27,10 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from shared_infra.db import log_metric
-from llm_core._constants import LLAMA_TOOL_PARALLELISM, LLAMA_TOOL_SERIAL_PREFIXES
+from llm_core._constants import LLAMA_TOOL_PARALLELISM
 from llm_core._scheduling._guard import _emit
+from llm_core._tool_traits import tool_traits
+from shared_infra.db import log_metric
 
 # Attente maximale de la télémétrie d'un appel d'outil (cf. ``_exec_one``).
 _TELEMETRY_WAIT_S = 0.25
@@ -67,23 +68,6 @@ class _BatchCancelled(Exception):
     ``asyncio.CancelledError`` par ``_gather_batch`` — jamais visible dehors."""
 
 
-def _is_serial_tool(tname: str) -> bool:
-    """True si l'outil doit être sérialisé (effets de bord sur état partagé :
-    sandbox FS, repo git, un écran/onglet par session…).
-
-    (2026-09-11, P2) ``meta.policy.serial`` déclarée par le serveur fait foi ;
-    les préfixes ``LLAMA_TOOL_SERIAL_PREFIXES`` ne sont plus qu'un REPLI pour
-    les outils sans politique (serveurs externes, registre vide)."""
-    try:
-        from llm_core._mcp_categories import tool_policy as _tool_policy
-        pol = _tool_policy(tname)
-    except Exception:                                           # noqa: BLE001
-        pol = {}
-    if "serial" in pol:
-        return bool(pol["serial"])
-    return any(tname.startswith(p) for p in LLAMA_TOOL_SERIAL_PREFIXES)
-
-
 def flatten_exception_message(exc: BaseException, limit: int = 300) -> str:
     """Message d'erreur UTILE pour le modèle, ExceptionGroup déplié.
 
@@ -110,6 +94,34 @@ def flatten_exception_message(exc: BaseException, limit: int = 300) -> str:
 
     _walk(exc, 0)
     return (" | ".join(dict.fromkeys(leaves)) or type(exc).__name__)[:limit]
+
+
+def _call_status(p: Dict[str, Any], result: str, status: str) -> str:
+    """Statut d'un appel pour ``tool_call_metrics`` : ``blocked`` (arguments
+    illisibles, l'outil n'a pas tourné), ``timeout`` (sans réponse dans son
+    délai), ``error`` (échec de l'outil), sinon ``success``."""
+    if p.get("args_error"):
+        return "blocked"
+    if status != "error":
+        return "success"
+    if '"timeout"' in result[:200]:
+        try:
+            if json.loads(result).get("error") == "timeout":
+                return "timeout"
+        except (ValueError, AttributeError):
+            pass
+    return "error"
+
+
+def _exit_code(result: str) -> Optional[int]:
+    """Code de sortie d'une commande (``returncode`` du résultat), sinon ``None``."""
+    if '"returncode"' not in result:
+        return None
+    try:
+        rc = json.loads(result).get("returncode")
+    except (ValueError, AttributeError):
+        return None
+    return rc if isinstance(rc, int) and not isinstance(rc, bool) else None
 
 
 async def execute_tool_batch(
@@ -285,6 +297,7 @@ async def execute_tool_batch(
 
         async with _exec_sem:
             _t0 = time.perf_counter()
+            _debut = time.time()
             try:
                 if p.get("args_error"):
                     # Arguments illisibles : l'outil ne tourne PAS (avec ``{}``
@@ -330,6 +343,7 @@ async def execute_tool_batch(
                 results_by_idx[idx] = json.dumps(
                     {"error": flatten_exception_message(_bx)})
             _dur_ms = int((time.perf_counter() - _t0) * 1000)
+            p["duration_ms"] = _dur_ms          # event ``tool_result`` (L5.4)
 
         # Metric event ``tool_call`` enrichi avec status=ok|error (widget
         # ToolErrorRateProvider) + ligne tool_call_metrics (observabilité).
@@ -338,6 +352,18 @@ async def execute_tool_batch(
             # Classification OUTIL (pas commande) : un exit≠0 de commande shell
             # n'est PAS un échec d'outil (cf. is_tool_failure).
             _status = "error" if is_tool_failure(_r) else "ok"
+            _etat = _call_status(p, _r, _status)
+            # Compté ICI, dans la boucle, et non dans le fil de télémétrie :
+            # attendu 0,25 s au plus, il pouvait arriver après l'écriture finale
+            # de l'exécution, qui montrait alors 0 appel (relecture L5).
+            try:
+                from llm_core._mcp_categories import categorize
+                from shared_infra.observability.runs import current_run
+                _run = current_run()
+                if _run is not None:
+                    _run.add_tool_call(categorize(p["tool_name"]), _etat)
+            except Exception:                                    # noqa: BLE001
+                pass
 
             def _write_telemetry() -> None:
                 """Les trois écritures BLOQUANTES de ce bloc, hors event loop.
@@ -362,21 +388,24 @@ async def execute_tool_batch(
                 log_metric("tool_call", 1, {
                     "tool": p["tool_name"], "user": username, "status": _status,
                 })
+                _fa = p.get("final_args")
+                _args_txt = (_fa if isinstance(_fa, str)
+                             else json.dumps(_fa, ensure_ascii=False, default=str) or ""
+                             if _fa is not None else "")
                 record_metric(
-                    username, chat_id, p["tool_name"],
-                    "error" if _status == "error" else "success",
-                    _dur_ms,
-                    error_short=_r[:500] if _status == "error" else None,
+                    username, chat_id, p["tool_name"], _etat, _dur_ms,
+                    error_short=_r[:500] if _etat != "success" else None,
+                    call_id=p.get("call_id"), started_at=_debut,
+                    exit_code=_exit_code(_r),
+                    args_bytes=len(_args_txt.encode("utf-8", "replace")),
+                    result_bytes=len(_r.encode("utf-8", "replace")),
                 )
                 # Watcher contexte/perf (LLAMA_WATCH=1) : taille entrée/sortie
                 # et durée de CHAQUE outil — pour voir ce qui gonfle le contexte.
                 from llm_core._watch import watch_tool_call
-                _fa = p.get("final_args")
                 watch_tool_call(
                     chat_id=chat_id, iteration=iteration, tool=p["tool_name"],
-                    args_chars=len(_fa) if isinstance(_fa, str)
-                    else len(json.dumps(_fa, ensure_ascii=False, default=str) or "")
-                    if _fa is not None else 0,
+                    args_chars=len(_args_txt),
                     result_chars=len(_r), duration_ms=_dur_ms, status=_status,
                 )
 
@@ -512,12 +541,12 @@ async def execute_tool_batch(
     _i = 0
     _n_tools = len(prepared)
     while _i < _n_tools:
-        if _is_serial_tool(prepared[_i]["tool_name"]):
+        if tool_traits(prepared[_i]["tool_name"]).serial:
             await _exec_one(_i, prepared[_i])
             _i += 1
             continue
         _j = _i
-        while _j < _n_tools and not _is_serial_tool(prepared[_j]["tool_name"]):
+        while _j < _n_tools and not tool_traits(prepared[_j]["tool_name"]).serial:
             _j += 1
         _batch_size = _j - _i
         if _batch_size == 1:

@@ -26,7 +26,6 @@ import pytest
 from llm_core.tools import firefox_tools as ff
 from tests.llm_core._pw_harness import CTX, FakeMCP, pw, pw_env, sent  # noqa: F401
 
-
 # ── 1. Le contrat déclaré colle à la signature réelle ────────────────────
 
 def _params(tool_name: str) -> set:
@@ -334,6 +333,7 @@ def test_hook_vision_resout_le_synonyme(args, expected):
 
 def test_chat_with_tools_passe_par_le_resolveur():
     import inspect as _i
+
     from llm_core import _chat_with_tools as cwt
     src = _i.getsource(cwt)
     i = src.index("INJECTION VISION")

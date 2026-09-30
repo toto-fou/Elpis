@@ -51,16 +51,20 @@ Un tour de chat, de la requête au dernier événement :
    (`_chat_with_tools.py`) : outils collectés dans le pool MCP, tête système
    assemblée, puis à chaque itération porte de compaction, élagage périodique,
    ajustement au contexte (`fit_context`), appel du modèle (Anthropic natif ou
-   compatible OpenAI) et exécution des appels d'outils (les outils qui
-   modifient passent en série, les autres en parallèle, résultats remis dans
-   l'ordre).
+   compatible OpenAI) et exécution des appels d'outils (les outils sériels —
+   sandbox, dépôt, écran, sous-agent — un par un, les autres en parallèle,
+   shell compris, résultats remis dans l'ordre ; traits de chaque outil dans
+   `llm_core/_tool_traits.py`).
 6. **Outils.** `_mcp_pool.call_tool` joint le **toolhost** (`python -m
    toolhost`, :8765), qui héberge les familles d'outils de
    `server/local_mcp_server.py` (repli : un sous-process stdio par worker).
    L'identité de l'utilisateur voyage dans `_meta`.
 7. **Exécution.** Les commandes shell tournent dans le conteneur de
    l'utilisateur (`docker exec`, privilèges abaissés à l'UID 10001). Les outils
-   fichiers et Git agissent côté hôte, confinés par `resolve_under`.
+   fichiers, l'éditeur et Git passent par l'agent de ce conteneur
+   (`shared_infra/sandbox/agent/`), sous le même UID ; les opérations Git
+   réseau lancées par Elpis passent par le relais authentifiant de l'hôte
+   (`shared_infra/sandbox/git_relay.py`).
 8. **Fin de tour.** Le tour est enregistré (`shared_infra/chat/store.py`,
    contrôle optimiste sur `updated_at` : un conflit est signalé, rien n'est
    écrasé), puis les événements `kv_cache` et `final` partent. La
@@ -176,7 +180,7 @@ enregistrées, archives, recherche.
   `user_db/.local_mcp_token` + en-tête d'identité signé.
 - `rag_app/` : service RAG autonome (sans `shared_infra`).
 - `browser-service/`, `desktop-agent/` : voir le tableau des process.
-- `deploy/` : Caddy, image sandbox (`docker/sandbox/`, `elpis/sandbox:1.6.0`),
+- `deploy/` : Caddy, image sandbox (`docker/sandbox/`, `elpis/sandbox:1.7.0`),
   Qdrant, toolhost distant, voix (whisper.cpp :8090, Piper :8091),
   assistant de configuration (`configure.py`, `wizard.py`, `tui.py`).
 - `install.sh`, `elpis` (CLI d'exploitation), `make_release.sh` (paquet hors
@@ -213,9 +217,25 @@ importés), `logs/`, et
 Un conteneur Docker **par utilisateur** (`elpis-sb-<utilisateur>`, étiquettes
 `elpis.*`), image `elpis/sandbox`,
 dossier de l'utilisateur monté sur `/work`, réseau coupé sauf profil réseau
-attribué, limites mémoire / CPU / processus. Le conteneur est la frontière de
-sécurité : les contrôles de chemin côté hôte (`sandbox/paths.py`,
-`resolve_under`) sont une défense en profondeur, pas la barrière.
+attribué, limites mémoire / CPU / processus, seules les capacités nécessaires
+(`CAPABILITIES`, sans `NET_RAW` ni `MKNOD`). Le
+conteneur est la frontière de sécurité : toute opération sur `/work` s'y
+exécute, par son agent (ci-dessous), sous l'UID du conteneur, seul à y
+écrire (fichiers 0644, dossiers 0755). L'hôte ne lit ni n'écrit `/work`
+(exceptions : `du` du quota, suppression d'un compte, création de
+`P/work` ; cf. `docs/sandbox-gateway.md`). Git tourne dans le conteneur, par l'agent
+(`sandbox/git_ops.py`) ; ses opérations réseau passent par le relais
+authentifiant de l'hôte (`sandbox/git_relay.py`) : un ticket par opération,
+le seul dépôt de l'opération joignable, l'identifiant du connecteur ajouté
+par l'hôte, jamais dans la sandbox.
+
+Dans chaque conteneur, un **agent** (`sandbox/agent/server.py`, bibliothèque
+standard) exécute les opérations sur `/work` que l'hôte lui demande : HTTP sur
+`/run/elpis/agent.sock` (dossier `<utilisateur>/.elpis-agent` monté), code monté en
+lecture seule depuis l'application, démarré à la demande sous l'UID du
+conteneur, relancé s'il n'a pas la version de l'application. L'hôte le joint
+par `sandbox/agent_client.py`, qui saisit le socket sans suivre de lien et
+tient toute réponse pour non fiable.
 
 ## Invariants
 
@@ -252,9 +272,13 @@ sécurité : les contrôles de chemin côté hôte (`sandbox/paths.py`,
   une migration met aussi à jour `_schema.py` et `BASELINE_COVERS`.
 - **Tâches planifiées** (routines, entretien, sauvegardes) : sur le seul
   worker leader (`scheduling/cron_lock.py`), jamais dans le process admin.
-- **Sandbox** : le conteneur est la barrière ; les outils fichiers et Git ne
-  sont pas isolés par le noyau ; tout conteneur passe par la résolution du
-  profil réseau (un profil imposé par l'administrateur l'emporte).
+- **Sandbox** : le conteneur est la barrière ; toute opération sur `/work`
+  passe par l'agent du conteneur (`sandbox/agent_client.py`, `git_ops.py`),
+  jamais par un `open`, `os.walk`, `chmod` ou `unlink` de l'hôte (vérifié
+  pour les parcours principaux par `test_frontiere_interception_2026_09_30.py` ;
+  exceptions, métadonnées seules : `docs/sandbox-gateway.md`) ; aucun `git` côté hôte sur
+  un dépôt de sandbox ; tout conteneur passe par la résolution du profil
+  réseau (un profil imposé par l'administrateur l'emporte).
 
 ## Tests
 

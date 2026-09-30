@@ -23,8 +23,7 @@ import jsonschema
 import pytest
 from pydantic import TypeAdapter
 
-from llm_core.tools import firefox_tools as ff
-from llm_core.tools import _models as M
+from llm_core.tools import _models as M, firefox_tools as ff
 from tests.llm_core._pw_harness import CTX, FakeMCP, pw, pw_env, sent  # noqa: F401
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]

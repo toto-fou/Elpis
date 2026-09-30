@@ -140,7 +140,9 @@ def note_transport_failure(model, err: "BaseException | None") -> None:
         return
     try:
         from llm_core._llm_retry import (
-            llm_error_kind, KIND_UNREACHABLE, KIND_TIMEOUT,
+            KIND_TIMEOUT,
+            KIND_UNREACHABLE,
+            llm_error_kind,
         )
         cause = getattr(err, "cause", None) or err
         if llm_error_kind(cause) in (KIND_UNREACHABLE, KIND_TIMEOUT):

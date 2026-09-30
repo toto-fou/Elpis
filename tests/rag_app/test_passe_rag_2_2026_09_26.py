@@ -13,14 +13,8 @@ import httpx
 import pytest
 from starlette.testclient import TestClient
 
-from rag_app import app as A
-from rag_app import rag_engine as E
-from rag_app import rag_query as rq
-from rag_app import reranker as RR
-from rag_app import sparse as SP
-
+from rag_app import app as A, rag_engine as E, rag_query as rq, reranker as RR, sparse as SP
 from tests.rag_app.test_rag_engine_qdrant import QdrantStub, make_engine
-
 
 # ─── Ingestion ──────────────────────────────────────────────────────────────
 

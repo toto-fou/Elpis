@@ -36,8 +36,8 @@ def env(tmp_path, monkeypatch):
             "  event_type TEXT NOT NULL, value REAL, tags_json TEXT,"
             "  created_at REAL NOT NULL)")
         c.commit()
-    import shared_infra.observability.tool_metrics_store as am
     import shared_infra.observability.daily_reports_store as dr
+    import shared_infra.observability.tool_metrics_store as am
     import shared_infra.scheduling.routines_store as rt
     am.init_tool_metrics_db()
     rt.init_routines_db()
@@ -170,9 +170,22 @@ def test_run_maintenance_once_purges_all_tables(env, monkeypatch):
             [("vieille", rid, now - 3 * DAY), ("fraiche", rid, now)])
         conn.commit()
 
+    # Exécutions (L5.2) : même rétention que le registre d'usage.
+    monkeypatch.setattr(cfg, "USAGE_EVENTS_RETENTION_DAYS", 90)
+    from shared_infra.db._schema import ensure_tables
+    with db_conn() as conn:
+        ensure_tables(conn, ("runs",))
+        conn.commit()
+    from shared_infra.observability.runs import Execution, get_run, upsert_run
+    for rid_, age in (("chat-vieux", 200 * DAY), ("chat-recent", 0)):
+        e = Execution(id=rid_, kind="chat", started_at=now - age)
+        e.finish("ok")
+        upsert_run(e.row())
+
     from shared_infra.ops.maintenance import run_maintenance_once
     out = run_maintenance_once()
-    assert out == {"metric_events": 1, "usage_events": 0, "tool_call_metrics": 1,
+    assert get_run("chat-vieux") is None and get_run("chat-recent")
+    assert out == {"metric_events": 1, "usage_events": 0, "runs": 1, "runs_lost": 0, "tool_call_metrics": 1,
                    "routine_runs": 1, "daily_reports": 0,
                    "webhook_deliveries": 1,
                    # passe 3 2026-08-31 : session_messages rejoint la passe

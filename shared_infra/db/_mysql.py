@@ -32,8 +32,12 @@ import re
 from typing import Any, NamedTuple, Optional
 
 from shared_infra.db._server import (
-    ServerConnection, ServerDataError, ServerError, ServerIntegrityError,
-    ServerOperationalError, ServerProgrammingError,
+    ServerConnection,
+    ServerDataError,
+    ServerError,
+    ServerIntegrityError,
+    ServerOperationalError,
+    ServerProgrammingError,
 )
 
 SQL_MODE = "ANSI_QUOTES,PIPES_AS_CONCAT,STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION"

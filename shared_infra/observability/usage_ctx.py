@@ -48,7 +48,8 @@ class UsageContext:
     parent_id: str = ""      # tour parent (sous-agents)
 
 
-_CTX: ContextVar[UsageContext] = ContextVar("usage_ctx", default=UsageContext())
+_UNKNOWN = UsageContext()          # figé : un seul défaut partagé sans risque
+_CTX: ContextVar[UsageContext] = ContextVar("usage_ctx", default=_UNKNOWN)
 
 
 def current_usage_ctx() -> UsageContext:
@@ -68,14 +69,16 @@ def usage_scope(
 
     ``inherit_user`` : un scope imbriqué qui ne connaît pas l'ID (un sous-agent
     ne manipule qu'un username) garde celui du parent plutôt que de retomber
-    sur ``None`` — la conso resterait sinon non attribuée.
+    sur ``None`` — la conso resterait sinon non attribuée. Sans ``origin_id``,
+    le scope garde l'origine (et le parent) de l'appelant : une compaction
+    reste rattachée à la conversation qu'elle résume.
     """
     prev = _CTX.get()
     ctx = UsageContext(
         source=(source or "unknown").strip() or "unknown",
         user_id=user_id if user_id is not None else (prev.user_id if inherit_user else None),
-        origin_id=str(origin_id or ""),
-        parent_id=str(parent_id or ""),
+        origin_id=str(origin_id or prev.origin_id or ""),
+        parent_id=str(parent_id or ("" if origin_id else prev.parent_id) or ""),
     )
     token = _CTX.set(ctx)
     try:
@@ -106,9 +109,11 @@ def set_usage_context(
 def normalize_usage(usage: Any) -> Dict[str, int]:
     """Extrait les compteurs réels d'un ``usage`` backend (forme OpenAI).
 
-    Anthropic est déjà normalisé en amont (``providers/anthropic.py``) et
-    ajoute ``cache_read_input_tokens`` / ``cache_creation_input_tokens``, qui
-    ne sont PAS inclus dans ``prompt_tokens`` — on les garde à part.
+    ``cache_read_input_tokens`` / ``cache_creation_input_tokens`` sont posés
+    en amont : par ``providers/anthropic.py`` (NON inclus dans
+    ``prompt_tokens``) et, pour llama.cpp et les moteurs compatibles, par
+    ``providers/llamacpp.py`` (jetons repris du cache KV, INCLUS dans
+    ``prompt_tokens``) — gardés à part dans les deux cas.
     """
     u = usage if isinstance(usage, dict) else {}
 
@@ -165,13 +170,20 @@ def record_turn_usage(
     parce qu'aucun backend local ne la déclare ; le paramètre explicite prime
     donc sur ce que ``usage`` pourrait en dire.
 
+    ``connector`` vide : clé du moteur visé par l'appel en cours
+    (``llm_core.engines.current_engine``). Le tour est aussi versé à
+    l'exécution courante (``runs``), dont il porte l'identifiant.
+
     Best-effort de bout en bout : jamais d'exception vers la boucle de chat.
     """
     try:
+        from shared_infra.observability.runs import current_run
         from shared_infra.observability.usage_store import record_usage
     except Exception:
         return False
     ctx = _CTX.get()
+    if not connector:
+        connector = _engine_key()
     norm = normalize_usage(usage)
     in_t = norm["input_tokens"] if input_tokens is None else max(0, int(input_tokens or 0))
     out_t = norm["output_tokens"] if output_tokens is None else max(0, int(output_tokens or 0))
@@ -181,7 +193,14 @@ def record_turn_usage(
     # généreuse rendrait « réponse = sortie − réflexion » négative dans les vues.
     if out_t:
         think_t = min(think_t, out_t)
+    run = current_run()
+    if run is not None:
+        run.add_usage(source=ctx.source, status=status, input_tokens=in_t,
+                      output_tokens=out_t, cache_read_tokens=norm["cache_read_tokens"],
+                      cache_creation_tokens=norm["cache_creation_tokens"],
+                      thinking_tokens=think_t, error_kind=error_kind)
     kwargs = dict(
+        run_id=run.id if run is not None else "",
         user_id=ctx.user_id,
         source=ctx.source,
         origin_id=ctx.origin_id,
@@ -217,6 +236,15 @@ def record_turn_usage(
         except RuntimeError:            # boucle en fermeture : repli synchrone
             pass
     return _record_usage_quiet(record_usage, kwargs)
+
+
+def _engine_key() -> str:
+    """``builtin``, ``conn:<id>`` ou ``url:<racine>`` : le moteur de l'appel."""
+    try:
+        from llm_core.engines import current_engine
+        return str(current_engine().key or "")
+    except Exception:                                           # noqa: BLE001
+        return ""
 
 
 def _record_usage_quiet(record_usage, kwargs) -> bool:

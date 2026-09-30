@@ -219,6 +219,7 @@ def test_local_mcp_tool_families_retire_les_entrees(manifest, monkeypatch):
 
 def test_portee_par_famille_sur_http_et_sse():
     import asyncio
+
     import server.local_mcp_server as S
     seen = {}
 
@@ -263,6 +264,7 @@ def test_cli_families():
 
 def test_l_hote_sert_http_et_sse(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
+
     from toolhost import config as TC
     tc = TC.ToolhostConfig(host="127.0.0.1", port=1, transport="streamable-http",
                            transports=["http", "sse"], token="svc",

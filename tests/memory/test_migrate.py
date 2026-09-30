@@ -8,7 +8,7 @@ serveur MCP hôte (1000) ne pouvait plus prendre son lock. On bascule vers
 from __future__ import annotations
 
 from llm_core.memory._migrate import migrate_legacy_memory
-from llm_core.memory._scope import MEMORY_SUBDIR, LEGACY_MEMORY_SUBDIR
+from llm_core.memory._scope import LEGACY_MEMORY_SUBDIR, MEMORY_SUBDIR
 
 
 def test_creates_memory_dir_when_no_legacy(tmp_path):

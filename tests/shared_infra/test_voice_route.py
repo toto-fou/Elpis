@@ -340,8 +340,9 @@ class TestDebit:
         assert len(appels["stt"]) == 2
 
     def test_fenetre_glissante(self, monkeypatch):
-        import shared_infra.voice.routes as routes_voix
         from fastapi import HTTPException
+
+        import shared_infra.voice.routes as routes_voix
         routes_voix._debits.clear()
         horloge = [1000.0]
         monkeypatch.setattr(routes_voix.time, "monotonic", lambda: horloge[0])
@@ -363,6 +364,7 @@ class TestJauge:
         relâchaient l'ancien, et le nouveau laissait partir un plafond complet
         en plus d'elles."""
         import asyncio
+
         from shared_infra.voice.routes import _Jauge
 
         j = _Jauge(2)
@@ -383,6 +385,7 @@ class TestJauge:
 
     async def test_baisse_avec_jetons_libres(self):
         import asyncio
+
         from shared_infra.voice.routes import _Jauge
 
         j = _Jauge(3)

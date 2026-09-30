@@ -43,8 +43,8 @@ its primary spec. Keep descriptions terse and operational.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, ConfigDict, Field
 
+from pydantic import BaseModel, ConfigDict, Field
 
 # ────────────────────────────────────────────────────────────────────
 #  Common base — every success result carries ok=True (discriminator)

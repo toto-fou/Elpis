@@ -245,7 +245,7 @@ def build_app(tc: Optional[ToolhostConfig] = None):
     def manifest(request: Request, transport: str = "http", base_url: str = ""):
         # derrière ToolhostAuthASGI (jeton + identité)
         by_fam: Dict[str, int] = {}
-        for n, f in S.TOOL_FAMILY_OF.items():
+        for _n, f in S.TOOL_FAMILY_OF.items():
             by_fam[f] = by_fam.get(f, 0) + 1
         return {"ok": True, "config": tc.public_dict(), "families": by_fam,
                 "served_prefixes": list(SERVED_PREFIXES),

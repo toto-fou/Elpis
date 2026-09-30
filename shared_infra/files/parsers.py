@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import json
 import logging
+import socket
+import struct
 import subprocess
 import sys
-import struct
-import socket
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
@@ -43,7 +43,7 @@ def _get_ext(filename: str) -> str:
 def _ensure_dpkt() -> bool:
     """Install dpkt if not available. Tries local wheels/ first, then PyPI."""
     try:
-        import dpkt
+        import dpkt  # noqa: F401  (disponibilité seulement)
         return True
     except ImportError:
         pass
@@ -107,7 +107,9 @@ def parse_pcap(data: bytes, filename: str) -> str:
     if not _ensure_dpkt():
         return json.dumps({"error": "Bibliothèque dpkt non disponible. pip install dpkt"})
 
-    import dpkt, io
+    import io
+
+    import dpkt
 
     reader = None
     try:

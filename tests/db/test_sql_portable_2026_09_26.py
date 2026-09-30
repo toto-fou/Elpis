@@ -76,8 +76,8 @@ def test_fusion_des_reglages_sous_verrou(base):
 
 
 def test_notifications_bornees_par_compte(base, monkeypatch):
-    from shared_infra.notifications import store as N
     from shared_infra.accounts.users import create_user
+    from shared_infra.notifications import store as N
     uid = create_user("alice", "pw-alice-1")
     monkeypatch.setattr(N, "_MAX_PER_USER", 3)
     ids = [N.create_notification(uid, "info", f"t{i}", "") for i in range(5)]
@@ -108,3 +108,12 @@ def test_dedoublonnage_des_livraisons_webhook(base):
     assert S.record_webhook_delivery("d-1", 7) is True
     assert S.record_webhook_delivery("d-1", 7) is False
     assert S.record_webhook_delivery("d-1", 8) is True
+
+
+def test_tri_octet_par_octet_identique_sur_tous_les_moteurs():
+    """Échantillon de vérification d'un transfert : l'ordre des clés texte ne
+    dépend plus de la collation du serveur (2026-09-27)."""
+    from shared_infra.db._dialect import bytes_order
+    assert bytes_order('"id"', dialect="sqlite") == '"id"'
+    assert bytes_order('"id"', dialect="postgres") == '"id" COLLATE "C"'
+    assert bytes_order("`id`", dialect="mysql") == "CAST(`id` AS BINARY)"

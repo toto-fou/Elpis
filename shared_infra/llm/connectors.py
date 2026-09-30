@@ -170,6 +170,15 @@ def list_shared_connectors() -> List[Dict[str, Any]]:
         return [_public(r) for r in cur.fetchall()]
 
 
+def connector_ids_by_wire(wire: str) -> List[int]:
+    """Identifiants des connecteurs (toutes portées) qui parlent ``wire``
+    (``openai`` ou ``anthropic``) — les compteurs d'usage en dépendent."""
+    with db_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM llm_connectors WHERE wire=? ORDER BY id", (str(wire),))
+        return [int(r[0]) for r in cur.fetchall()]
+
+
 def get_meta(connector_id: int) -> Optional[Dict[str, Any]]:
     """Vue publique (SANS clé) d'un connecteur, quelle que soit sa portée.
 

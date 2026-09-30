@@ -63,12 +63,12 @@ def run_maintenance_once() -> Dict[str, int]:
         USAGE_EVENTS_RETENTION_DAYS,
     )
     from shared_infra.db._connection import purge_old_metrics, wal_checkpoint
-    from shared_infra.observability.tool_metrics_store import purge_tool_call_metrics
     from shared_infra.observability.daily_reports_store import purge_daily_reports
-    from shared_infra.scheduling.routines_store import purge_routine_runs, purge_webhook_deliveries
+    from shared_infra.observability.tool_metrics_store import purge_tool_call_metrics
     from shared_infra.observability.usage_store import purge_usage_events
+    from shared_infra.scheduling.routines_store import purge_routine_runs, purge_webhook_deliveries
 
-    out: Dict[str, int] = {"metric_events": 0, "usage_events": 0,
+    out: Dict[str, int] = {"metric_events": 0, "usage_events": 0, "runs": 0,
                            "tool_call_metrics": 0,
                            "routine_runs": 0, "daily_reports": 0,
                            "webhook_deliveries": 0, "session_messages": 0}
@@ -81,6 +81,12 @@ def run_maintenance_once() -> Dict[str, int]:
             logger.debug("[maintenance] purge_old_metrics failed", exc_info=True)
     # ``purge_usage_events`` se garde elle-même contre <=0 (no-op).
     out["usage_events"] = purge_usage_events(USAGE_EVENTS_RETENTION_DAYS)
+    # Exécutions (``runs``, L5.2) : même rétention que le registre d'usage,
+    # dont elles sont le regroupement par exécution.
+    from shared_infra.observability.runs import mark_lost_runs, purge_runs
+    out["runs"] = purge_runs(USAGE_EVENTS_RETENTION_DAYS)
+    # « running » depuis plus d'un jour : worker tué ou écriture finale perdue.
+    out["runs_lost"] = mark_lost_runs()
     try:
         out["tool_call_metrics"] = purge_tool_call_metrics(TOOL_METRICS_RETENTION_DAYS)
     except Exception:
@@ -139,6 +145,14 @@ def run_maintenance_once() -> Dict[str, int]:
             out["orphan_parts"] = _sweep_orphan_part_files()
         except Exception:
             logger.debug("[maintenance] sweep_orphan_part_files failed", exc_info=True)
+        # Journaux d'exécution des tours de chat terminés ou orphelins : le
+        # balayage n'avait lieu qu'au démarrage d'un tour sur le même worker
+        # (L5, 2026-09-30) — sans nouveau tour, ils restaient indéfiniment.
+        try:
+            from shared_infra.runtime import run_journal
+            out["run_journals"] = run_journal.sweep()
+        except Exception:
+            logger.debug("[maintenance] run_journal.sweep failed", exc_info=True)
         # (2026-09-15) Cache des aperçus Office/PDF de l'éditeur : TTL, plafonds
         # par utilisateur et global, verrous de conversion libres et anciens.
         try:
@@ -226,40 +240,37 @@ def _sweep_orphan_part_files(max_age_s: float = 24 * 3600.0) -> int:
     """Supprime les tmp d'upload chunké abandonnés (audit 2026-08-02, W11 ;
     E4). Retourne le nombre supprimés.
 
-    AUDIT 2026-08-02 (E4) — l'ancien filtre ``*.part`` sur ``SANDBOX_DIR``
-    entier supprimait TOUT fichier ``.part`` utilisateur (partial de moteur de
-    template, téléchargement Firefox/``aria2`` interrompu, ``split -b … out.part``)
-    sans log ni corbeille. Les tmp d'upload portent désormais un suffixe dédié
-    (``UPLOAD_TMP_SUFFIX``, cf. ``routes/sandbox_files.py``) qu'aucun fichier
-    utilisateur ne porte, et le balayage est restreint aux dossiers ``work/``.
-    """
-    import time as _t
+    Suffixe dédié (``UPLOAD_TMP_SUFFIX``), jamais porté par un fichier
+    utilisateur, et seulement sous /work. (L4.6, relecture finale) Ces
+    fichiers appartiennent au conteneur : l'hôte ne peut plus les effacer (son
+    ``unlink`` échouait en silence). Le ménage se fait DANS chaque conteneur en
+    marche, par son root (``find -mmin``) ; un conteneur arrêté attend le
+    passage suivant."""
+    import shutil as _sh
+    import subprocess as _sp
     try:
-        from shared_infra.config import SANDBOX_DIR
+        from shared_infra.sandbox import naming as _naming
         from shared_infra.sandbox.routes_files import UPLOAD_TMP_SUFFIX
-        root = Path(SANDBOX_DIR)
     except Exception:
         return 0
-    if not root.is_dir():
+    docker = _sh.which("docker")
+    if not docker:
         return 0
-    removed = 0
-    cutoff = _t.time() - max_age_s
     try:
-        for f in root.rglob("*" + UPLOAD_TMP_SUFFIX):
-            try:
-                if f.is_symlink() or not f.is_file():
-                    continue          # jamais suivre un lien (cf. P0.3)
-                # Défense en profondeur : ne balayer que sous ``<sandbox>/work/``
-                # (jamais skills/, memory/, _snapshots/…).
-                if "work" not in f.relative_to(root).parts:
-                    continue
-                if f.stat().st_mtime <= cutoff:
-                    f.unlink(missing_ok=True)
-                    removed += 1
-            except Exception:
-                continue
-    except Exception:
-        pass
+        noms = _sp.run([docker, "ps", *_naming.label_filter("user_id"), "--format",
+                        "{{.Names}}"], capture_output=True, text=True, timeout=15).stdout.split()
+    except (OSError, _sp.SubprocessError):
+        return 0
+    minutes = str(max(1, int(max_age_s // 60)))
+    removed = 0
+    for nom in noms:
+        try:
+            r = _sp.run([docker, "exec", "-u", "0:0", nom, "find", "/work", "-xdev", "-type", "f",
+                         "-name", "*" + UPLOAD_TMP_SUFFIX, "-mmin", "+" + minutes,
+                         "-print", "-delete"], capture_output=True, text=True, timeout=120)
+            removed += len([ligne for ligne in r.stdout.splitlines() if ligne.strip()])
+        except (OSError, _sp.SubprocessError):
+            continue
     return removed
 
 

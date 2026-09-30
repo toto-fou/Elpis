@@ -30,7 +30,6 @@ import pytest
 
 from llm_core.tools.fs_tools import DEFAULT_DEP_EXCLUDES
 
-
 # ── 1. Préflight de joignabilité : la CIBLE, pas le moteur local ─────────
 
 @pytest.fixture
@@ -182,6 +181,7 @@ def test_le_socle_est_annonce_dans_la_reponse():
     """Une omission silencieuse ferait conclure au modèle que les fichiers
     n'existent pas — même faute que la troncature d'arbre non signalée."""
     import inspect
+
     from llm_core.tools import fs_tools
     src = inspect.getsource(fs_tools)
     i = src.index('_ok(action="list"')
@@ -194,6 +194,7 @@ def test_socle_ignore_si_l_appelant_precise_exclude():
     """Un ``exclude`` explicite doit rester la seule règle : sinon on
     ajouterait en douce des exclusions que l'appelant n'a pas demandées."""
     import inspect
+
     from llm_core.tools import fs_tools
     src = inspect.getsource(fs_tools)
     i = src.index("_default_excl =")

@@ -20,8 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from shared_infra.sandbox import office_convert as oc
-from shared_infra.sandbox import office_preview as op
+from shared_infra.sandbox import office_convert as oc, office_preview as op
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("ELPIS_SOFFICE_TESTS") != "1" or not shutil.which("soffice"),
@@ -86,6 +85,8 @@ def real(tmp_path, monkeypatch):
     d.save(root / "rapport.docx")
     _xlsx(root / "calcul.xlsx")
     shutil.copy(FIXTURES / "deux-diapos.pptx", root / "deux-diapos.pptx")
+    from tests.conftest import editeur_sur_agent
+    editeur_sur_agent(monkeypatch, root)
     return root
 
 

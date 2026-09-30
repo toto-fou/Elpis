@@ -17,10 +17,9 @@ from __future__ import annotations
 import logging
 
 from chatbot_app.routes.chats import _drop_event_after_cancel, _task_runs_for_persist
-from llm_core.conversation_compressor import compression_was_attempted
 from llm_core import _tool_parsing
 from llm_core._tool_parsing import extract_tool_calls
-
+from llm_core.conversation_compressor import compression_was_attempted
 
 # ──────────────────────────────────────────────────────────────────────────
 # _drop_event_after_cancel — whitelist du 'final' partiel

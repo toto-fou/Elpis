@@ -22,7 +22,6 @@ import pytest
 
 from rag_app import rag_query as RQ
 
-
 # ── Contextual Retrieval ─────────────────────────────────────────────────────
 
 def test_coupe_circuit_conserve_d_un_lot_a_l_autre(monkeypatch):

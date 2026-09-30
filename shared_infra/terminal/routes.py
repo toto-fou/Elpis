@@ -39,17 +39,37 @@ from pathlib import Path
 from fastapi import HTTPException, Request, WebSocket
 from fastapi.responses import StreamingResponse
 
-from shared_infra.config import read_config_json
-from shared_infra.security.deps import require_user_id
 from shared_infra.accounts.users import get_user_settings
-from shared_infra.routes._state import router
+from shared_infra.config import read_config_json
 
 # All the heavy lifting still lives in ``_legacy``. Importing through the
 # module reference (rather than ``from backend.routes._legacy import ...``)
 # means we always observe the *current* value of mutables like ``_terminals``,
 # even after another module mutates them.
 from shared_infra.routes._helpers import logger, sandbox_usage_bytes
-from shared_infra.terminal.pty import DEFAULT_SID, MAX_SESSIONS_PER_USER, _delete_session_row, _fcntl, _get_or_create_terminal, _get_session_row, _insert_session_row, _kill_local_session, _kill_terminal, _list_session_rows, _rename_session_row, _struct, _term_global_lock, _terminal_ws_loop, _terminals, _termios, _touch_session_row, _valid_sid, _ws_auth_uid
+from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
+from shared_infra.terminal.pty import (
+    DEFAULT_SID,
+    MAX_SESSIONS_PER_USER,
+    _delete_session_row,
+    _fcntl,
+    _get_or_create_terminal,
+    _get_session_row,
+    _insert_session_row,
+    _kill_local_session,
+    _kill_terminal,
+    _list_session_rows,
+    _rename_session_row,
+    _struct,
+    _term_global_lock,
+    _terminal_ws_loop,
+    _terminals,
+    _termios,
+    _touch_session_row,
+    _valid_sid,
+    _ws_auth_uid,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

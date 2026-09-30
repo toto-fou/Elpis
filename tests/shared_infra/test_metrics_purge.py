@@ -179,6 +179,9 @@ def test_export_du_registre_en_csv(client):
     assert r.status_code == 200
     lignes = r.text.strip().splitlines()
     assert lignes[0].startswith("ts,user_id,source")
+    # Réflexion (sous-ensemble de la sortie) et exécution (L5) exportées.
+    entete = lignes[0].split(",")
+    assert {"thinking_tokens", "run_id"} <= set(entete)
     assert len(lignes) == 4          # en-tête + 3
     assert tc.get("/api/admin/export-metrics?target=users", headers=ADMIN).status_code == 400
 

@@ -35,9 +35,10 @@ def gc(tmp_path, monkeypatch):
             _schema.ensure_tables(conn, ["git_connectors"])
         conn.commit()
     import shared_infra.git.connectors as _gc
-    # le résolveur dé-duplique l'import legacy par process → on réinitialise.
-    import shared_infra.git.resolver as R
-    R._imported_users.clear()
+
+    # l'import legacy est dé-dupliqué par process (git_ops) → on réinitialise.
+    from shared_infra.sandbox import git_ops
+    git_ops._anciens_vus.clear()
     return _gc
 
 
@@ -109,20 +110,15 @@ def test_normalize_host_tolerant():
     assert N("git@gitea.acme.io:owner/repo.git") == "gitea.acme.io"
 
 
-def test_import_legacy_idempotent(gc, tmp_path):
+def test_import_legacy_idempotent(gc):
     import shared_infra.git.resolver as R
-    sb = tmp_path / "sb"
-    sb.mkdir()
-    (sb / ".git-credentials.json").write_text(
-        '{"github": {"token":"ghp_old","user":"bot"}, '
-        '"gitlab": {"token":"glp","url":"https://gl.corp.com"}}', encoding="utf-8")
-    assert R.import_legacy_git_credentials(1, sb) == 2
-    assert not (sb / ".git-credentials.json").exists()
-    assert (sb / ".git-credentials.json.imported").exists()
+    data = (b'{"github": {"token":"ghp_old","user":"bot"}, '
+            b'"gitlab": {"token":"glp","url":"https://gl.corp.com"}}')
+    assert R.import_legacy_git_credentials(1, data) == 2
     hosts = set(gc.list_connector_hosts(1))
     assert "github.com" in hosts and "gl.corp.com" in hosts
-    # 2e appel = no-op (dé-dupliqué par process)
-    assert R.import_legacy_git_credentials(1, sb) == 0
+    assert R.import_legacy_git_credentials(1, data) == 0     # hôtes déjà présents
+    assert R.import_legacy_git_credentials(1, b"pas du json") == 0
 
 
 # ── SSRF unifié ───────────────────────────────────────────────────────────────
@@ -187,6 +183,7 @@ def test_gitea_uses_basic_auth_not_token():
     # Gitea : Basic (accepte mot de passe ET PAT) — PAS ``Authorization: token``
     # (qui n'accepte QU'un PAT → 401 avec un mot de passe). C'est le bug du 401.
     import base64
+
     from shared_infra.git.providers import get_provider
     cap = {}
     def http(url, method="GET", body=None, headers=None, timeout=12):
@@ -204,16 +201,17 @@ def test_gitea_uses_basic_auth_not_token():
     assert base64.b64decode(cap["auth"].split(" ", 1)[1]).decode() == "ghp_x:"
 
 
-def test_askpass_token_only():
-    from shared_infra.git.askpass import git_askpass_env
-    with git_askpass_env("", "ghp_tok") as env:    # token sans login → injecté
-        assert env.get("GIT_ASKPASS")
-        assert env["GIT_ASKPASS_USER"] == "ghp_tok"
-        assert env["GIT_ASKPASS_PASS"] == "ghp_tok"
-    with git_askpass_env("alice", "pw") as env2:
-        assert env2["GIT_ASKPASS_USER"] == "alice" and env2["GIT_ASKPASS_PASS"] == "pw"
-    with git_askpass_env("alice", "") as env3:     # pas de token → rien
-        assert env3 == {}
+def test_relais_identifiant_token_only():
+    """Le relais Git ajoute ``Basic`` comme le faisait l'askpass : le jeton
+    sert d'identifiant quand le login est vide."""
+    import base64
+
+    from shared_infra.sandbox.git_relay import basic_auth
+
+    def dec(h):
+        return base64.b64decode(h.split(" ", 1)[1]).decode()
+    assert dec(basic_auth("", "ghp_tok")) == "ghp_tok:ghp_tok"
+    assert dec(basic_auth("alice", "pw")) == "alice:pw"
 
 
 def test_test_connection_mocked():
@@ -475,3 +473,52 @@ def test_save_then_resolve_roundtrip_gitea_lan(gc):
     assert cred["provider_type"] == "gitea"
     # api_base dérivé en HTTP (IP privée) — cf. GiteaProvider.api_base adaptatif.
     assert cred["api_base"] == "http://10.0.0.42:3000/api/v1"
+
+
+async def test_import_legacy_lu_et_supprime_par_l_agent(gc, tmp_path):
+    """L'ancien fichier est lu puis supprimé par l'agent de la sandbox (L4.6),
+    avec sa trace ``.imported`` ; une seule fois par processus et par compte."""
+    from shared_infra.sandbox import git_ops
+    from shared_infra.sandbox.executors import get_user_sandbox
+    work = tmp_path / "sb" / "alice" / "work"
+    work.mkdir(parents=True)
+    (work / ".git-credentials.json").write_text('{"github": {"token": "ghp_x"}}')
+    (work / ".git-credentials.json.imported").write_text('{"github": {"token": "ghp"}}')
+    agent = get_user_sandbox(1, "alice", work).agent
+    await git_ops.import_legacy_credentials(agent, 1)
+    assert "github.com" in set(gc.list_connector_hosts(1))
+    assert not (work / ".git-credentials.json").exists()
+    assert not (work / ".git-credentials.json.imported").exists()
+    (work / ".git-credentials.json").write_text('{"gitlab": {"token": "glp"}}')
+    await git_ops.import_legacy_credentials(agent, 1)       # déjà fait dans ce processus
+    assert (work / ".git-credentials.json").exists()
+
+
+async def test_import_legacy_ne_suit_pas_un_lien_hors_de_work(gc, tmp_path):
+    """(Relecture L4.4, 2026-09-30) L'hôte lisait le fichier en suivant les
+    liens : ``.git-credentials.json`` → fichier d'un autre compte, lisible par
+    l'app, en faisait importer les jetons. L'agent ne sort pas de /work."""
+    from shared_infra.sandbox import git_ops
+    from shared_infra.sandbox.executors import get_user_sandbox
+    ailleurs = tmp_path / "bob" / ".git-credentials.json"
+    ailleurs.parent.mkdir()
+    ailleurs.write_text('{"github": {"token": "ghp_de_bob"}}')
+    work = tmp_path / "sb" / "alice" / "work"
+    work.mkdir(parents=True)
+    (work / ".git-credentials.json").symlink_to(ailleurs)
+    agent = get_user_sandbox(2, "alice", work).agent
+    await git_ops.import_legacy_credentials(agent, 2)
+    assert "github.com" not in set(gc.list_connector_hosts(2))
+    assert ailleurs.exists()
+
+
+async def test_trace_imported_retiree_meme_sans_fichier_principal(gc, tmp_path):
+    """(Relecture finale) La trace ``.imported`` de la 1.0.0 (jetons en clair)
+    part même quand ``.git-credentials.json`` n'existe plus."""
+    from shared_infra.sandbox import git_ops
+    from shared_infra.sandbox.executors import get_user_sandbox
+    work = tmp_path / "sb" / "carl" / "work"
+    work.mkdir(parents=True)
+    (work / ".git-credentials.json.imported").write_text('{"github": {"token": "ghp"}}')
+    await git_ops.import_legacy_credentials(get_user_sandbox(4, "carl", work).agent, 4)
+    assert not (work / ".git-credentials.json.imported").exists()

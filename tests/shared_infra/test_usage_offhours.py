@@ -75,9 +75,12 @@ def test_lexecuteur_de_routine_pose_le_scope(db, monkeypatch):
 
 def test_conso_nocturne_attribuee_et_ventilee(db):
     """Une routine de bob à 3 h : visible, rattachée à bob, comptée hors plage."""
-    from shared_infra.observability.usage_store import record_usage
     from shared_infra.observability.metrics._usage_providers import (
-        KPIUsageOffHoursProvider, UsageBySourceProvider, UsageUserPeaksProvider)
+        KPIUsageOffHoursProvider,
+        UsageBySourceProvider,
+        UsageUserPeaksProvider,
+    )
+    from shared_infra.observability.usage_store import record_usage
 
     nuit = _nuit_derniere(3)
     record_usage(user_id=2, source="routine", model="qwen3", path="tools",
@@ -104,8 +107,8 @@ def test_conso_nocturne_attribuee_et_ventilee(db):
 
 
 def test_conso_de_jour_nest_pas_comptee_hors_plage(db):
-    from shared_infra.observability.usage_store import record_usage
     from shared_infra.observability.metrics._usage_providers import KPIUsageOffHoursProvider
+    from shared_infra.observability.usage_store import record_usage
     # 10 h un jour ouvré : dans la plage par défaut (8 h–19 h, lun–ven).
     d = datetime.now().replace(hour=10, minute=0, second=0, microsecond=0)
     while d.isoweekday() > 5 or d > datetime.now():
@@ -118,10 +121,8 @@ def test_conso_de_jour_nest_pas_comptee_hors_plage(db):
 def test_les_runs_de_routines_sont_visibles_cote_admin(db):
     """Aucun des ~60 providers ne lisait ``editor_routine_runs`` : l'exécution
     planifiée n'existait pas du point de vue de l'exploitant."""
-    from shared_infra.scheduling.routines_store import (
-        admit_and_insert_run, mark_run_error, mark_run_ok)
-    from shared_infra.observability.metrics._usage_providers import (
-        KPIRoutineRunsProvider, RoutineRunsTimelineProvider)
+    from shared_infra.observability.metrics._usage_providers import KPIRoutineRunsProvider, RoutineRunsTimelineProvider
+    from shared_infra.scheduling.routines_store import admit_and_insert_run, mark_run_error, mark_run_ok
     with db.db_conn() as conn:
         conn.execute("INSERT INTO editor_routines(id, owner_user_id, name, cron_expr, "
                      "task_prompt, enabled, created_at, updated_at) "
@@ -164,8 +165,9 @@ def test_la_fenetre_pilote_vraiment_les_widgets(db):
     soixante : passer en « 30 j » laissait la plupart des chiffres à 24 h, sans
     que rien ne le signale — et plusieurs titres annonçaient « (24h) » en dur."""
     import inspect
-    from shared_infra.observability.usage_store import record_usage
+
     from shared_infra.observability.metrics.engine import DEFAULT_WIDGETS, registry
+    from shared_infra.observability.usage_store import record_usage
 
     # Toute valeur qui DÉPEND d'une période doit lire la fenêtre. Les jauges
     # instantanées (RAM, disque, taille de base, état moteur) l'ignorent.
@@ -192,8 +194,8 @@ def test_la_fenetre_pilote_vraiment_les_widgets(db):
 def test_granularite_adaptee_a_la_fenetre(db):
     """24 h en seaux d'heure, 7 j et 30 j en jours : 720 points seraient
     illisibles."""
-    from shared_infra.observability.usage_store import record_usage
     from shared_infra.observability.metrics._usage_providers import UsageTimelineProvider
+    from shared_infra.observability.usage_store import record_usage
     now = time.time()
     for j in range(31):
         record_usage(user_id=1, source="chat", input_tokens=10, ts=now - j * 86400)

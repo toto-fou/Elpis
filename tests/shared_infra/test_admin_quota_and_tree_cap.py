@@ -20,9 +20,8 @@ Audit 2026-08-08.
 """
 import inspect
 
-from shared_infra.routes import _helpers as H
 import shared_infra.routes.admin.users as AU
-
+from shared_infra.routes import _helpers as H
 
 # ── Vue admin ────────────────────────────────────────────────────────────
 
@@ -68,59 +67,41 @@ def _mk_tree(root, n_dirs, per_dir):
             (sub / f"f{f:03d}.txt").write_text("x")
 
 
+def _count(nodes):
+    return sum(1 + _count(n.get("children", [])) for n in nodes)
+
+
+def _arbre(tmp_path, monkeypatch, n_dirs, per_dir, cap=None):
+    import shared_infra.sandbox.routes_files as SF
+    from tests.conftest import arbre_editeur
+    root = tmp_path / "w"
+    root.mkdir()
+    _mk_tree(root, n_dirs, per_dir)
+    if cap is not None:
+        monkeypatch.setattr(SF, "TREE_MAX_ENTRIES", cap)
+    return arbre_editeur(monkeypatch, root)
+
+
 def test_arbre_borne_et_troncature_signalee(tmp_path, monkeypatch):
-    monkeypatch.setattr(H, "TREE_MAX_ENTRIES", 25)
-    _mk_tree(tmp_path, 10, 10)              # 10 dossiers + 100 fichiers = 110
-    budget = {"left": 25, "truncated": False}
-    items = H._build_file_tree(tmp_path, tmp_path, _budget=budget)
-
-    def _count(nodes):
-        return sum(1 + _count(n.get("children", [])) for n in nodes)
-
-    total = _count(items)
+    rep = _arbre(tmp_path, monkeypatch, 10, 10, cap=25)     # 10 dossiers + 100 fichiers
+    total = _count(rep["items"])
     assert total <= 25, f"{total} entrées remontées malgré un plafond de 25"
-    assert budget["truncated"] is True, "troncature SILENCIEUSE"
+    assert rep["truncated"] is True, "troncature SILENCIEUSE"
+    assert rep["max_entries"] == 25
 
 
-def test_petit_arbre_non_tronque(tmp_path):
-    _mk_tree(tmp_path, 2, 3)                # 2 + 6 = 8 entrées
-    budget = {"left": H.TREE_MAX_ENTRIES, "truncated": False}
-    items = H._build_file_tree(tmp_path, tmp_path, _budget=budget)
-
-    def _count(nodes):
-        return sum(1 + _count(n.get("children", [])) for n in nodes)
-
-    assert _count(items) == 8
-    assert budget["truncated"] is False
+def test_petit_arbre_non_tronque(tmp_path, monkeypatch):
+    rep = _arbre(tmp_path, monkeypatch, 2, 3)                # 2 + 6 = 8 entrées
+    assert _count(rep["items"]) == 8
+    assert rep["truncated"] is False
 
 
-def test_budget_partage_par_toute_la_recursion(tmp_path, monkeypatch):
+def test_plafond_sur_le_total(tmp_path, monkeypatch):
     """Le plafond porte sur le TOTAL, pas par dossier : sinon un arbre large
     mais peu profond passait entre les mailles."""
-    monkeypatch.setattr(H, "TREE_MAX_ENTRIES", 12)
-    _mk_tree(tmp_path, 5, 20)               # 5 + 100 = 105
-    budget = {"left": 12, "truncated": False}
-    items = H._build_file_tree(tmp_path, tmp_path, _budget=budget)
-
-    def _count(nodes):
-        return sum(1 + _count(n.get("children", [])) for n in nodes)
-
-    assert _count(items) <= 12
-    assert budget["truncated"] is True
-
-
-def test_appel_sans_budget_reste_compatible(tmp_path):
-    """Les appelants existants (aucun ``_budget``) doivent continuer à
-    marcher : le budget se crée tout seul au plafond par défaut."""
-    _mk_tree(tmp_path, 1, 2)
-    items = H._build_file_tree(tmp_path, tmp_path)
-    assert len(items) == 1 and len(items[0]["children"]) == 2
-
-
-def test_la_route_tree_expose_la_troncature():
-    import shared_infra.sandbox.routes_files as SF
-    src = inspect.getsource(SF.api_get_sandbox_tree)
-    assert '"truncated"' in src and "max_entries" in src
+    rep = _arbre(tmp_path, monkeypatch, 5, 20, cap=12)       # 5 + 100 = 105
+    assert _count(rep["items"]) <= 12
+    assert rep["truncated"] is True
 
 
 def test_le_front_affiche_la_troncature():

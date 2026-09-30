@@ -14,8 +14,8 @@ import inspect
 
 import pytest
 
-import llm_core.tools.fs_tools as fs_tools
 import llm_core.tools.firefox_tools as ff
+import llm_core.tools.fs_tools as fs_tools
 from llm_core.tools._toolkit import unicode_twin_warning
 
 

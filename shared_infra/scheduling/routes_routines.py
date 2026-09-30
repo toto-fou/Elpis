@@ -57,7 +57,15 @@ from typing import Any, Dict, List
 
 from fastapi import HTTPException, Request
 
-from shared_infra.security.deps import require_user_id
+from shared_infra.routes._state import router
+
+# Validation cron FACTORISÉE dans ``_cron`` (partagée avec les Scénarios, en
+# miroir exact de ``_cron_matches``). Re-exportée ici sous ``_validate_cron``
+# pour les appelants internes et les tests existants
+# (``from shared_infra.scheduling.routes_routines import _validate_cron``).
+from shared_infra.scheduling.routes_cron import (  # noqa: E402
+    validate_cron as _validate_cron,
+)
 from shared_infra.scheduling.routines_store import (
     KEEP_MAX,
     NOTIFY_ON_VALUES,
@@ -70,17 +78,7 @@ from shared_infra.scheduling.routines_store import (
     set_routine_enabled,
     update_routine,
 )
-from shared_infra.routes._state import router
-
-
-# Validation cron FACTORISÉE dans ``_cron`` (partagée avec les Scénarios, en
-# miroir exact de ``_cron_matches``). Re-exportée ici sous ``_validate_cron``
-# pour les appelants internes et les tests existants
-# (``from shared_infra.scheduling.routes_routines import _validate_cron``).
-from shared_infra.scheduling.routes_cron import (  # noqa: E402
-    validate_cron as _validate_cron,
-)
-
+from shared_infra.security.deps import require_user_id
 
 # Nb max de skills attachables à une routine : leurs corps sont injectés
 # ENTIERS dans le system prompt du run (borné par SKILLS_CHAR_BUDGET) — au-delà,
@@ -126,8 +124,8 @@ def _known_skill_ids(user_id: int) -> Any:
     Retourne ``None`` si la découverte est indisponible (fail-open : on accepte
     la sauvegarde, le runner ignorera les ids inconnus)."""
     try:
-        from llm_core.skills import discover_skills
         from llm_core._system_prompts import _user_skills_dir
+        from llm_core.skills import discover_skills
         specs = discover_skills(_user_skills_dir(user_id), include_learned=False)
     except Exception:
         return None
@@ -498,14 +496,14 @@ def api_stop_routine_run(routine_id: int, run_id: int, request: Request):
     if run.get("status") != "running":
         return {"ok": True, "stopping": False, "status": run.get("status")}
 
-    from shared_infra.scheduling.routines_scheduler import ORPHAN_STALE_AFTER_S, run_chat_key
-    from shared_infra.routes._state import get_active_chat_task, mark_chat_cancelled
-
     # Run au heartbeat PÉRIMÉ : le worker porteur est probablement mort — la
     # diffusion cancel_bus ne trouverait personne, le run resterait « En
     # cours » jusqu'à 5 min puis passerait 'orphaned' (« Interrompu ») alors
     # que l'utilisateur a explicitement demandé l'arrêt. Transition directe.
     import time as _t
+
+    from shared_infra.routes._state import get_active_chat_task, mark_chat_cancelled
+    from shared_infra.scheduling.routines_scheduler import ORPHAN_STALE_AFTER_S, run_chat_key
     hb = run.get("heartbeat_at")
     if hb is None or (_t.time() - float(hb)) > ORPHAN_STALE_AFTER_S:
         from shared_infra.scheduling.routines_store import mark_run_cancelled
@@ -532,6 +530,7 @@ def api_stop_routine_run(routine_id: int, run_id: int, request: Request):
 # et séparateurs usuels — pour rester comparable au header/champ ``event``
 # normalisé côté livraison (lui aussi lowercasé).
 import re as _re_wh
+
 _WEBHOOK_EVENT_RE = _re_wh.compile(r"^[a-z0-9][a-z0-9_.:-]{0,63}$")
 _WEBHOOK_EVENTS_MAX = 16
 

@@ -32,7 +32,6 @@ import time
 
 import pytest
 
-
 # ── A. Le déchargement refuse quand une génération tient le modèle ───────────
 
 class _RequeteFactice:
@@ -194,8 +193,8 @@ def test_l_operateur_est_pose_meme_si_la_ligne_utilisateur_manque(monkeypatch):
 async def test_la_route_des_collections_ne_fige_pas_la_boucle(monkeypatch):
     """Un rag_app qui accepte sans répondre consommait le plafond de 3 s SUR
     LA BOUCLE : tous les flux de tous les utilisateurs du worker gelaient."""
-    from shared_infra.routes import tools as T
     import llm_core._rag_client as RC
+    from shared_infra.routes import tools as T
 
     monkeypatch.setattr(T, "require_user_id", lambda req: 1)
 

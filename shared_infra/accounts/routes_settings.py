@@ -42,43 +42,42 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import time
 
 from fastapi import File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from shared_infra.config import SANDBOX_DIR, read_config_json
-from shared_infra.appearance import skins as _skins
-from shared_infra.security.deps import require_user_id
-from shared_infra.accounts.passwd import run_password_op
+from llm_core._mcp_pool import mcp_pool
 from shared_infra.accounts.groups import (
     get_user_groups,
 )
+from shared_infra.accounts.passwd import run_password_op
 from shared_infra.accounts.users import (
+    bump_session_min_ts,
     get_user_by_id,
     get_user_settings,
     get_username_by_id,
     get_users_lite,
+    merge_user_settings,
     reset_user_password,
-    bump_session_min_ts,
     update_user_avatar,
     # ⚠ NE PAS RETIRER ``update_user_settings`` : la suite de tests fait
     # ``monkeypatch.setattr(<ce module>, "update_user_settings", …)`` pour
     # isoler les écritures de réglages. Cet import n'est utilisé nulle part
     # dans le fichier — ruff le voit donc mort, et une passe de purge
     # automatique a cassé 47 tests d'un coup.
-    update_user_settings,          # noqa: F401
-    merge_user_settings,
+    update_user_settings,  # noqa: F401
     verify_user,
 )
+from shared_infra.appearance import skins as _skins
+from shared_infra.config import SANDBOX_DIR, read_config_json
 from shared_infra.db import db
-from llm_core._mcp_pool import mcp_pool
-from shared_infra.routes._state import router
-
 from shared_infra.routes._legacy import AVATAR_DIR, validate_password
+from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
-import logging
 logger = logging.getLogger("uvicorn.error")
 
 _IMAGE_TYPE_TO_EXT = {
@@ -285,8 +284,8 @@ async def api_upload_avatar(request: Request, file: UploadFile = File(...)):
     filename = f"{uid}_{int(time.time())}{ext}"
     AVATAR_DIR.mkdir(parents=True, exist_ok=True)
     file_path = AVATAR_DIR / filename
-    from shared_infra.files.uploads import save_upload_bounded
     from shared_infra.config import MAX_AVATAR_BYTES
+    from shared_infra.files.uploads import save_upload_bounded
     await save_upload_bounded(file, file_path, MAX_AVATAR_BYTES)
     try:
         prev_row = get_user_by_id(uid)
@@ -331,8 +330,8 @@ async def api_upload_assistant_avatar(request: Request, file: UploadFile = File(
     filename = f"bot_{uid}_{int(time.time())}{ext}"
     AVATAR_DIR.mkdir(parents=True, exist_ok=True)
     file_path = AVATAR_DIR / filename
-    from shared_infra.files.uploads import save_upload_bounded
     from shared_infra.config import MAX_AVATAR_BYTES
+    from shared_infra.files.uploads import save_upload_bounded
     await save_upload_bounded(file, file_path, MAX_AVATAR_BYTES)
     # AUDIT 2026-08-02 (E5) — écriture atomique ; on récupère l'ancien avatar
     # DEPUIS la transaction pour l'unlink hors verrou.
@@ -687,8 +686,7 @@ async def api_put_settings(request: Request):
         # partout. Valeur illisible → 0, jamais un 400 : un blob rejeté rendrait
         # TOUS les réglages non enregistrables (même politique que
         # custom_agents / mascotte).
-        from llm_core.context.compaction_gate import (
-            clamp_threshold_pct, clamp_threshold_tokens)
+        from llm_core.context.compaction_gate import clamp_threshold_pct, clamp_threshold_tokens
         if "compression_threshold_pct" in data:
             data["compression_threshold_pct"] = clamp_threshold_pct(
                 data["compression_threshold_pct"])
@@ -803,8 +801,7 @@ async def api_put_settings(request: Request):
         # Fusion AVANT le diff : le secret n'est jamais peuplé depuis les octets
         # du client, et « vide = inchangé » évite que le re-PUT du blob entier
         # (chaque changement de préférence) n'efface tous les jetons.
-        from shared_infra.mcp.servers import (
-            merge_personal_mcp as _merge, StdioNotAllowed as _StdioNotAllowed)
+        from shared_infra.mcp.servers import StdioNotAllowed as _StdioNotAllowed, merge_personal_mcp as _merge
         from shared_infra.security.encryption import EncryptionUnavailable
         # ``stdio`` = commande exécutée sur l'HÔTE : administrateur PLEIN
         # seulement (is_admin == 1, pas le modérateur), cf. StdioNotAllowed.

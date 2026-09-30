@@ -13,12 +13,13 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 from shared_infra.memory.ax._connection import _conn
-from shared_infra.memory.ax.urls import normalize_url
-from shared_infra.memory.ax.tree import load_tree, load_dom_tree
 from shared_infra.memory.ax.transitions import (
-    load_transitions, _build_adjacency, _bfs_paths,
+    _bfs_paths,
+    _build_adjacency,
+    load_transitions,
 )
-
+from shared_infra.memory.ax.tree import load_dom_tree, load_tree
+from shared_infra.memory.ax.urls import normalize_url
 
 # ── Display ordering for semantic regions in rendered prompts ───────
 # Lower number = rendered first. Regions not listed fall back to 8.
@@ -638,6 +639,7 @@ def render_focused_dom_for_prompt(
 # site assez mûre pour être poussée dans le contexte. Le site reste stocké et
 # continue de mûrir — il n'est simplement pas ENCORE injecté.
 import os as _os
+
 AX_INJECT_MIN_SIGNAL = int(_os.environ.get("AX_INJECT_MIN_SIGNAL", "3") or 3)
 
 

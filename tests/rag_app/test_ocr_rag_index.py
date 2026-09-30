@@ -17,8 +17,7 @@ import types
 
 import pytest
 
-from rag_app.ocr import rag_index as R
-from rag_app.ocr import store
+from rag_app.ocr import rag_index as R, store
 from rag_app.ocr._common import OcrError
 
 

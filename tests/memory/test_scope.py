@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from llm_core.memory import resolve_paths, store_for, MarkdownMemoryProvider
+from llm_core.memory import MarkdownMemoryProvider, resolve_paths, store_for
 from llm_core.memory._scope import safe_username, scope_hash
 
 

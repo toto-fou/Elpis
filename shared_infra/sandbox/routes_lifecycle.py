@@ -15,28 +15,31 @@ Workflow lifecycle
 from __future__ import annotations
 
 import asyncio
-import time
 import logging
+import time
 from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import HTTPException, Request
 
-from shared_infra.security.audit import audit_event
-from shared_infra.config import SANDBOX_DIR
 # ``update_user_settings`` : point d'injection de test (cf. routes/settings.py).
 from shared_infra.accounts.users import (
     get_user_settings,
     get_username_by_id,
     merge_user_settings,
 )
-from shared_infra.security.deps import require_user_id
+from shared_infra.config import SANDBOX_DIR
 from shared_infra.routes._state import router
-
 from shared_infra.sandbox.executors import (
-    ImageLoadStatus, ensure_image_loaded, get_image_load_state, get_user_sandbox, load_admin_config,
+    ImageLoadStatus,
+    ensure_image_loaded,
+    get_image_load_state,
+    get_user_sandbox,
+    load_admin_config,
     resolve_network_profile_id,
 )
+from shared_infra.security.audit import audit_event
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 

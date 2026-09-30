@@ -28,6 +28,7 @@ import pytest
 # sur le module STDLIB ``pty``, pas sur le submodule. Même piège que celui
 # documenté en tête de ``sandbox_snapshots.py``.
 import shared_infra.terminal.pty  # noqa: F401  (peuple sys.modules)
+
 ptymod = sys.modules["shared_infra.terminal.pty"]
 
 from shared_infra.config import safe_sandbox_name  # noqa: E402

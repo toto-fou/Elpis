@@ -34,12 +34,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 
-from shared_infra.security.deps import require_user_id
-from shared_infra.routes._state import router
-
 from llm_core import skills as _skills
 from llm_core.skills import SkillExistsError, SkillSaveError
-
+from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
 # ─────────────────────────────────────────────────────────────────────────
 #  Helpers
@@ -72,9 +70,9 @@ def _user_skills_dir(user_id: Optional[int]) -> Optional[Path]:
     if user_id is None:
         return None
     try:
-        from shared_infra.config import USER_SKILLS_DIR, safe_sandbox_name
-        from shared_infra.accounts.users import get_username_by_id
         from llm_core.skills import ensure_user_skills_store
+        from shared_infra.accounts.users import get_username_by_id
+        from shared_infra.config import USER_SKILLS_DIR, safe_sandbox_name
         username = get_username_by_id(user_id) or f"user_{user_id}"
         store = Path(USER_SKILLS_DIR) / safe_sandbox_name(username)
         return ensure_user_skills_store(store, _user_sandbox_root(user_id))

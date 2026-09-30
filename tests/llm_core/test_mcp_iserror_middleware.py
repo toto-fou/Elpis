@@ -20,7 +20,7 @@ if str(ROOT) not in sys.path:
 from fastmcp import Client, FastMCP  # noqa: E402
 
 from llm_core.tools._mcp_error_middleware import OkFalseAsIsError  # noqa: E402
-from llm_core.tools._toolkit import ok, err  # noqa: E402
+from llm_core.tools._toolkit import err, ok  # noqa: E402
 
 
 def _server() -> FastMCP:

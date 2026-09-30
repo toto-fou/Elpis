@@ -46,7 +46,7 @@ Do NOT put domain logic here. Keep it small.
 from __future__ import annotations
 
 import time as _time
-from typing import Dict, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from fastapi import APIRouter
 
@@ -137,8 +137,9 @@ def _publish_cancel(user_id: int, chat_id: str) -> None:
     forget : le retour n'est pas consommé ici et l'application est
     idempotente) ; hors boucle → appel direct."""
     try:
-        from shared_infra.runtime.cancel_bus import publish_cancel
         import asyncio as _aio
+
+        from shared_infra.runtime.cancel_bus import publish_cancel
         try:
             _loop = _aio.get_running_loop()
         except RuntimeError:

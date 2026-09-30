@@ -2147,6 +2147,10 @@ function setupAdmin(vue, sharedRefs, ctx) {
                 const data = await res.json();
                 if (data.sandbox_deleted) {
                     showToast(`Utilisateur et sandbox supprimés`);
+                } else if (data.sandbox_error) {
+                    // Docker arrêté, image absente… : le dossier reste, à supprimer
+                    // une fois Docker revenu (le compte, lui, est supprimé).
+                    showToast(`Utilisateur supprimé, sandbox NON supprimée : ${data.sandbox_error}`, 'warning');
                 } else {
                     showToast(`Utilisateur supprimé` + (deleteSandbox ? ' (sandbox introuvable)' : ''));
                 }

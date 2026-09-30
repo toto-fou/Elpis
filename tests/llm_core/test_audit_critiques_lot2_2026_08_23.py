@@ -23,7 +23,6 @@ import types
 
 import pytest
 
-
 # ═════════════════════════════════════════════════════════════════════════════
 #  64 — Les identifiants HTTP ne franchissent plus la frontière des comptes
 # ═════════════════════════════════════════════════════════════════════════════
@@ -32,6 +31,7 @@ import pytest
 def _ax(tmp_path, monkeypatch):
     """Base AX isolée, schéma courant."""
     from pathlib import Path as _P
+
     from shared_infra.memory.ax import _connection as C
     from shared_infra.memory.ax.init import init_db
     monkeypatch.setattr(C, "_DB_PATH", _P(tmp_path / "ax.db"), raising=False)
@@ -71,9 +71,8 @@ def test_un_proprietaire_inconnu_ne_lit_ni_n_ecrit(_ax):
 
 def test_la_vue_par_site_ne_divulgue_pas_le_login_dun_autre(_ax, monkeypatch):
     """``pw_memory(action='sites')`` publiait ``cred_username`` pour tous."""
-    from shared_infra.memory.ax import sites as S
+    from shared_infra.memory.ax import normalize_url, sites as S
     from shared_infra.memory.ax._connection import _conn
-    from shared_infra.memory.ax import normalize_url
     _ax.save_credentials("https://intranet.corp/", "alice.dupont", "s", owner="alice")
     site, _ = normalize_url("https://intranet.corp/")
     # La vue part de ``ax_nodes`` : sans nœud, elle est VIDE et le test serait
@@ -105,8 +104,8 @@ def test_la_vue_par_site_ne_divulgue_pas_le_login_dun_autre(_ax, monkeypatch):
 
 def test_lindice_de_prompt_ne_nomme_pas_le_login_dun_autre(_ax):
     """Le même login partait aussi dans le PROMPT, via l'indice AX."""
-    from shared_infra.memory.ax.rendering import _render_credentials_hint
     from shared_infra.memory.ax import normalize_url
+    from shared_infra.memory.ax.rendering import _render_credentials_hint
     _ax.save_credentials("https://intranet.corp/", "alice.dupont", "s", owner="alice")
     site, _ = normalize_url("https://intranet.corp/")
 
@@ -121,6 +120,7 @@ def test_la_migration_neutralise_les_lignes_sans_proprietaire(tmp_path, monkeypa
     réattribuer (ce serait la fuite qu'on corrige) — elles cessent d'être
     servies, sans être détruites."""
     from pathlib import Path as _P
+
     from shared_infra.memory.ax import _connection as C
     db = str(tmp_path / "ax.db")
     monkeypatch.setattr(C, "_DB_PATH", _P(db), raising=False)
@@ -193,7 +193,7 @@ async def test_deux_comptes_ont_des_seaux_distincts(monkeypatch):
     # Alice épuise son seau (burst=2).
     for _ in range(2):
         assert await limiteur.on_call_tool(_FauxMwContext("alice"), _next) == "ok"
-    with pytest.raises(Exception):
+    with pytest.raises(M.RateLimitError):
         await limiteur.on_call_tool(_FauxMwContext("alice"), _next)
 
     # Bob n'a rien consommé : son seau est intact.
@@ -232,7 +232,7 @@ def test_le_routeur_deballe_le_logdata():
 def test_deux_comptes_au_meme_call_id_ne_se_volent_pas_la_sortie():
     """Le cas réel : llama.cpp renvoie ``call_0`` aux deux, mais le jeton de
     routage est tiré par RUN."""
-    from llm_core._mcp_wrappers import _LogRouter, _log_call_token
+    from llm_core._mcp_wrappers import _log_call_token, _LogRouter
 
     tok_a = _log_call_token({"call_id": "call_0", "log_token": "runA:call_0"})
     tok_b = _log_call_token({"call_id": "call_0", "log_token": "runB:call_0"})
@@ -273,6 +273,7 @@ def test_un_jeton_deja_pris_nest_jamais_ecrase():
 def test_le_harnais_pose_un_jeton_unique_par_run():
     """Le jeton doit être tiré une fois par RUN, pas dérivé de l'itération."""
     import inspect
+
     from llm_core import _chat_with_tools as W
     src = inspect.getsource(W._run_chat_multi_mcp_impl)
     assert "_run_log_tok = secrets.token_hex" in src
@@ -291,6 +292,7 @@ def test_le_harnais_pose_un_jeton_unique_par_run():
 
 def test_git_submit_injecte_le_client_durci():
     import inspect
+
     from llm_core.tools import git_tools as G
     src = inspect.getsource(G)
     i = src.index("gp = get_provider(cred[")
@@ -306,6 +308,7 @@ def test_le_client_durci_ne_reemet_pas_le_jeton_sur_une_redirection():
     """Le vrai contenu du constat : urllib ne retire QUE content-length et
     content-type — l'Authorization (le PAT) suivait la redirection."""
     import urllib.request
+
     from shared_infra.git._http import _SsrfValidatingRedirectHandler
 
     h = _SsrfValidatingRedirectHandler(allow_hosts=("git.lan",),
@@ -344,6 +347,7 @@ def test_la_route_darret_ne_sonde_plus_le_moteur():
     faisaient de l'arrêt un no-op 300 s durant (corrigé le 2026-08-23 ; ce
     test garde la propriété)."""
     import inspect
+
     from chatbot_app.routes import chats as C
     src = "\n".join(l for l in inspect.getsource(C._cancel_engine_stream).splitlines()
                     if not l.strip().startswith("#"))
@@ -387,6 +391,7 @@ def test_une_erreur_metier_nouvre_rien(_breaker):
 def test_la_cause_est_lue_a_travers_LLMFailure(_breaker):
     """Le chemin outils ne remonte JAMAIS d'httpx brut : il enveloppe."""
     import httpx
+
     from llm_core._llm_retry import LLMFailure
     for _ in range(3):
         _breaker.note_transport_failure("m", LLMFailure(httpx.ConnectError("down")))
@@ -412,6 +417,7 @@ def test_le_garde_neffacce_pas_la_panne_du_tour_quil_enveloppe(_breaker):
 
 def test_les_deux_chemins_de_generation_nourrissent_le_disjoncteur():
     import inspect
+
     from llm_core import _chat_classic as C, _chat_with_tools as W
     assert "note_transport_failure" in inspect.getsource(C)
     assert "note_transport_failure" in inspect.getsource(W)
@@ -444,7 +450,7 @@ def test_append_sur_un_fichier_latin1_echoue_sans_rien_detruire(tmp_path):
 
     import inspect
     src = inspect.getsource(F)
-    i = src.index('if mode == "append" and p.exists():')
+    i = src.index('if mode == "append" and old_raw is not None:')
     # Bornes serrées sur la SEULE branche append : la branche ``write``
     # voisine lit elle aussi en ``errors="replace"``, mais uniquement pour
     # les statistiques +X/-Y — elle ne réécrit jamais ce qu'elle a lu.
@@ -472,23 +478,25 @@ def test_lecriture_reste_stricte_dans_lautre_sens(tmp_path):
 #  45 — La pagination de list_files ne perd plus d'entrées
 # ═════════════════════════════════════════════════════════════════════════════
 
-def test_la_reprise_de_pagination_se_fait_apres_le_tri():
+def test_la_reprise_de_pagination_se_fait_apres_le_tri(tmp_path, monkeypatch):
     """Le filtre lexicographique appliqué PENDANT le walk était incohérent
-    avec l'ordre de page (dossiers d'abord + nom, ou -taille, ou -mtime) :
-    toute entrée ≤ au curseur mais classée après lui disparaissait."""
-    import inspect
-    F = _fs_tools()
-    src = inspect.getsource(F)
-    # Le corps du WALK ne doit plus connaître le curseur du tout.
-    i = src.index("for child in walker:")
-    j = src.index("# Sort", i)
-    # Commentaires retirés : la note qui EXPLIQUE le défaut le nomme.
-    walk = "\n".join(l for l in src[i:j].splitlines()
-                     if not l.strip().startswith("#"))
-    assert "skip_until" not in walk, \
-        "la reprise est de retour DANS le walk, avant le tri"
-    assert "page = items[start:start + cap]" in src[j:], \
-        "la page n'est plus découpée à partir de la position de reprise"
+    avec l'ordre de page (dossiers d'abord + nom) : ``a/zz.txt`` (≤ au
+    curseur « y.txt » mais classé après) disparaissait. L'union des pages
+    rend chaque entrée une fois."""
+    sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent))
+    from test_agent_tooling_missions_2026_08_08 import _outils_fs
+    tools, work = _outils_fs(tmp_path, monkeypatch)
+    (work / "a").mkdir()
+    (work / "a" / "zz.txt").write_text("1")
+    (work / "y.txt").write_text("2")
+    vus, curseur = [], ""
+    for _ in range(5):
+        r = tools["list_files"](None, path=".", recursive=True, max_results=2, cursor=curseur)
+        vus += r["items"]
+        curseur = r.get("next_cursor", "")
+        if not curseur:
+            break
+    assert sorted(vus) == ["a/", "a/zz.txt", "y.txt"]
 
 
 def test_lunion_des_pages_est_exacte_sur_larbre_du_constat():
@@ -530,6 +538,7 @@ async def test_execute_tool_batch_rend_les_resultats_partiels(monkeypatch):
     que les outils mutants (sérialisés donc exécutés en premier) avaient déjà
     appliqué leur effet de bord."""
     import asyncio
+
     from llm_core.engine import tool_exec as TE
 
     prepared = [
@@ -569,6 +578,7 @@ def test_la_boucle_materialise_le_lot_interrompu():
     """La trace doit atterrir dans ``_run_tool_history`` AVANT le snapshot,
     sinon ``_delta_snapshot`` dépile l'assistant et le round ne laisse rien."""
     import inspect
+
     from llm_core import _chat_with_tools as W
     src = inspect.getsource(W._run_chat_multi_mcp_impl)
     i = src.index("async def _emit_partial_tool_history_snapshot")
@@ -668,6 +678,7 @@ def test_la_recette_du_test_est_bien_celle_du_code():
     """Garde-fou : si ``_resumable_live_history`` diverge de la réplique
     ci-dessus, ce test le dit."""
     import inspect
+
     from llm_core.tools import task_tool as T
     src = inspect.getsource(T)
     i = src.index("def _resumable_live_history(")

@@ -1,39 +1,56 @@
 # SPDX-License-Identifier: MIT
 """
-chatbot_app.routes.chats — Chat lifecycle endpoints (cancel, deprecated compress,
-streaming generation).
+chatbot_app.routes.chats — cycle de vie d'un tour de chat : génération en
+flux, annulation, rattachement à une exécution en cours, compression.
 
-Endpoints
----------
-- POST /api/chat/cancel             — request immediate cancellation of an
-                                       in-flight ``/api/chat-saved-stream3``
-                                       run. Triple action: flag set, task
-                                       cancelled, llama-server socket closed.
-- POST /api/chat/compress           — DEPRECATED no-op (compression is now
-                                       backend-only and automatic). Returns
-                                       ``{compressed: false, deprecated: true}``
-                                       so old frontends don't crash.
-- POST /api/chat-saved-stream3      — main NDJSON streaming endpoint that
-                                       drives the chat UI. Owns:
-                                       * tool_history expansion for Continue
-                                       * RAG enablement (tools or classic)
-                                       * MCP server orchestration
-                                       * LLM scheduling (queue widget UX)
-                                       * conversation compression hook
-                                       * persistent partial-save on cancel
+Routes
+------
+- POST /api/chat-saved-stream3          — génération en flux NDJSON : le tour
+                                          entier (RAG, outils MCP, file du
+                                          moteur, compaction, partiel
+                                          enregistré à l'annulation) ;
+- POST /api/chat/cancel                 — arrêt immédiat du tour (drapeau,
+                                          tâche annulée, connexion au moteur
+                                          coupée) ;
+- POST /api/chat/task-cancel            — arrêt d'un sous-agent, sans le tour ;
+- POST /api/chat/reasoning-end          — « Répondre maintenant » : coupe le
+                                          raisonnement en cours ;
+- GET  /api/chat/{id}/generation-status — génération en cours ou non ;
+- GET  /api/chats/active-runs           — conversations dont un tour tourne,
+                                          tous workers confondus ;
+- GET  /api/chat/{id}/run/events        — rejeu puis suite en direct d'une
+                                          exécution (NDJSON) ;
+- GET  /api/chat/{id}/compression-state — état de compression (bouton manuel) ;
+- POST /api/chat/{id}/compress          — compression manuelle, hors flux ;
+- POST /api/chat/compress               — obsolète, sans effet (anciens
+                                          clients).
 
-The huge ``api_chat_saved_stream3`` body is kept verbatim from the old
-``_legacy.py`` location — it has subtle invariants around variable capture,
-ordering of the cancel ↔ persist sequence, and the NDJSON event protocol
-that any reflow risks breaking. The only changes are:
-  - imports moved to the top of this module
-  - module-level helpers now imported directly from
-    ``backend.routes._helpers`` and ``backend.routes._events_bus``
+Invariants que ``api_chat_saved_stream3`` tient, et qu'une refonte doit
+garder :
+
+  - un tour à la fois par conversation : verrou ``flock`` valable pour tous
+    les workers (``shared_infra/runtime/chat_locks.py``) ; compaction ou
+    génération déjà en cours → 409, trop d'exécutions du compte → 429 ;
+  - adresses des serveurs MCP résolues côté serveur, jamais reprises du
+    client ;
+  - annulation publiée sur le bus d'annulation (tous les workers), partiel
+    enregistré ;
+  - navigateur déconnecté : l'exécution continue détachée si un outil a
+    tourné, si la requête est ``resumable`` ou si
+    ``llm.detach_run_on_disconnect`` (``DETACH_RUN_ON_DISCONNECT``) est
+    actif, sinon elle s'arrête en enregistrant le partiel ; un Stop explicite
+    l'arrête toujours ; tout worker peut la rejoindre
+    (``GET /api/chat/{id}/run/events``) ;
+  - enregistrement optimiste sur ``updated_at`` : un conflit est signalé,
+    rien n'est écrasé ;
+  - types du flux NDJSON : registre ``llm_core/engine/stream_events.py``.
 """
 from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import math
 import re
 import secrets
 import time
@@ -42,12 +59,18 @@ from typing import Any, Dict, Optional, Tuple
 from fastapi import HTTPException, Request  # noqa: F401  — kept for symmetry / future
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from shared_infra.security.deps import require_user_id
-from shared_infra.observability.tracing import swallow
-from shared_infra.observability.usage_ctx import set_usage_context, usage_scope
-from shared_infra.db import (
-    log_metric,
+from llm_core import (
+    apply_rag,
+    llama_chat,
+    llama_chat_stream_tokens,
+    run_chat_multi_mcp,
 )
+
+# Import au niveau MODULE : ce nom sert dans une clause ``except`` (cf. D2).
+# Importé dans le corps de la coroutine, il n'existerait pas si l'exception
+# survenait avant sa ligne d'import — le gestionnaire lèverait alors un
+# NameError en masquant l'erreur d'origine.
+from llm_core._scheduling import LLMQueueAborted
 from shared_infra.accounts.users import (
     get_user_settings,
     get_username_by_id,
@@ -59,18 +82,15 @@ from shared_infra.chat.store import (
     set_title_if_default,
     upsert_chat,
 )
-from llm_core import (
-    apply_rag,
-    llama_chat,
-    llama_chat_stream_tokens,
-    run_chat_multi_mcp,
+from shared_infra.db import (
+    log_metric,
 )
-# Import au niveau MODULE : ce nom sert dans une clause ``except`` (cf. D2).
-# Importé dans le corps de la coroutine, il n'existerait pas si l'exception
-# survenait avant sa ligne d'import — le gestionnaire lèverait alors un
-# NameError en masquant l'erreur d'origine.
-from llm_core._scheduling import LLMQueueAborted
+from shared_infra.observability.events_bus import CURRENT_LOADED_MODELS, _refresh_model_cache, system_events
+from shared_infra.observability.tracing import swallow
+from shared_infra.observability.usage_ctx import set_usage_context, usage_scope
+from shared_infra.routes._helpers import _msg_text, _ndjson_line, last_user_text, recent_user_text
 from shared_infra.routes._state import (
+    _active_chat_tasks,
     clear_chat_cancellation,
     is_chat_cancelled,
     is_generation_active,
@@ -78,13 +98,9 @@ from shared_infra.routes._state import (
     register_chat_task,
     router,
     unregister_chat_task,
-    _active_chat_tasks,
 )
+from shared_infra.security.deps import require_user_id
 
-from shared_infra.observability.events_bus import CURRENT_LOADED_MODELS, _refresh_model_cache, system_events
-from shared_infra.routes._helpers import _msg_text, _ndjson_line, last_user_text, recent_user_text
-
-import logging
 logger = logging.getLogger("uvicorn.error")
 
 # Références FORTES des tâches fire-and-forget de ce module (cf. M3 de l'audit
@@ -542,8 +558,8 @@ async def _drain_coalesced(q, *, window_ms: float = 25.0,
                         nxt = q.get_nowait()
                     except asyncio.QueueEmpty:
                         return False
-                    if _key(nxt) == key:
-                        group.append(nxt)
+                    if _key(nxt) == key:  # noqa: B023 (même itération)
+                        group.append(nxt)  # noqa: B023 (même itération)
                     else:
                         pending = nxt
                         return True
@@ -592,6 +608,27 @@ def _drop_event_after_cancel(evt_type, cancelled: bool, status=None) -> bool:
     if not cancelled or evt_type == "final":
         return False
     return not (evt_type == "task_step" and status == "final")
+
+
+def _metrics_for_persist(met) -> dict:
+    """Pied d'un message (modèle, durée, débits, jetons, contexte) renvoyé par
+    le client pour les tours PRÉCÉDENTS : valeurs simples et bornées
+    seulement, jamais de copie du raisonnement ni des outils (2026-09-29 —
+    sans cet aller-retour, le pied disparaissait au tour suivant)."""
+    if not isinstance(met, dict):
+        return {}
+    out = {}
+    for k, v in list(met.items())[:40]:
+        if k in ("tool_history", "thinking") or not isinstance(k, str):
+            continue
+        if v is None or isinstance(v, (bool, int, float)):
+            out[k] = v
+        elif isinstance(v, str) and len(v) <= 200:
+            out[k] = v
+        elif k == "kv_cache" and isinstance(v, dict):
+            out[k] = {x: v[x] for x in ("used", "total", "pct")
+                      if isinstance(v.get(x), (int, float))}
+    return out
 
 
 def _task_runs_for_persist(runs):
@@ -656,7 +693,8 @@ async def _cancel_engine_stream(user_id, chat_id: str) -> None:
             return
         from llm_core._client import _get_llm_client
         from llm_core.providers.llama_stream import (
-            cancel_stream, conversation_id,
+            cancel_stream,
+            conversation_id,
         )
         conv = conversation_id(user_id, chat_id)
         if not conv:
@@ -1213,10 +1251,55 @@ def _fc_list(msg: dict) -> list:
     return [e for e in (_fc_clean(x) for x in fc[:_FC_MAX]) if e]
 
 
+_COMPACTION_NOMBRES = ("round", "threshold", "ctx_size", "tokens_before", "tokens_after", "tokens_saved",
+                       "messages_before", "messages_after", "duration_ms", "turns_compressed")
+
+
+def _compaction_pour_message(c: dict) -> dict:
+    """Jalon de compaction gardé sur un message (L5.5) : champs connus,
+    bornés (il revient du client au tour suivant)."""
+    out: dict = {}
+    for k in _COMPACTION_NOMBRES:
+        v = c.get(k)
+        # Bornes : le client renvoie ces jalons au tour suivant (Infinity,
+        # NaN ou 1e300 passent json.loads).
+        if isinstance(v, (int, float)) and not isinstance(v, bool) \
+                and math.isfinite(v) and 0 <= v < 10**9:
+            out[k] = int(v)
+    for k, n in (("reason", 32), ("path", 32), ("model_used", 120)):
+        v = c.get(k)
+        if isinstance(v, str) and v:
+            out[k] = v[:n]
+    if isinstance(c.get("had_previous_summary"), bool):
+        out["had_previous_summary"] = c["had_previous_summary"]
+    return out
+
+
+def _rounds_d_outils(tool_history) -> int:
+    """Rounds d'outils (messages assistant porteurs de ``tool_calls``) d'une
+    ``tool_history`` — l'unité du ``round`` d'un jalon de compaction."""
+    return sum(1 for h in (tool_history or []) if isinstance(h, dict)
+               and h.get("role") == "assistant" and h.get("tool_calls"))
+
+
 def _merge_prev_segment_lists(prev_msg: dict, msg: dict) -> None:
-    """« Continuer » : les ``task_runs`` du segment tronqué passent EN TÊTE
-    de ceux de la continuation (sans doublon). Mute ``msg``."""
-    for _k in ("task_runs",):
+    """« Continuer » : les ``task_runs`` et les exécutions (``run_ids``) du
+    segment tronqué passent EN TÊTE de ceux de la continuation (sans
+    doublon). Mute ``msg``."""
+    # Jalons de compaction de la continuation : leur ``round`` compte depuis
+    # la reprise ; la tool_history rechargée = tronc + delta → décalage du
+    # nombre de rounds du tronc (format delta seulement, le legacy est
+    # cumulatif et ne se recompte pas).
+    if prev_msg.get("tool_history_delta") and isinstance(msg.get("compactions"), list):
+        _dec = _rounds_d_outils(prev_msg.get("tool_history"))
+        if _dec:
+            msg["compactions"] = [({**c, "round": int(c.get("round") or 0) + _dec}
+                                   if isinstance(c, dict) else c) for c in msg["compactions"]]
+    # Sorties élaguées : le segment tronqué et la suite s'additionnent.
+    _p_anc, _p_neuf = prev_msg.get("pruned"), msg.get("pruned")
+    if isinstance(_p_anc, int) and not isinstance(_p_anc, bool) and _p_anc > 0:
+        msg["pruned"] = _p_anc + (_p_neuf if isinstance(_p_neuf, int) and not isinstance(_p_neuf, bool) else 0)
+    for _k in ("task_runs", "run_ids", "compactions"):
         _anc = prev_msg.get(_k) if isinstance(prev_msg.get(_k), list) else []
         if not _anc:
             continue
@@ -1268,7 +1351,7 @@ _NOTICE_FIELDS = ("kind", "ts", "round", "tokens_after", "summary")
 
 
 _GRAFT_KEYS = ("tool_history", "tool_history_delta", "task_runs",
-               "resume_thinking", "thinkingTruncated")
+               "resume_thinking", "thinkingTruncated", "run_ids", "compactions")
 
 
 def _graft_stopped_turn_state(filtres: list, persistables: list, db_msgs) -> int:
@@ -1367,6 +1450,22 @@ def _normalize_client_messages(messages: list) -> tuple[list, list]:
             _runs_rt = _task_runs_for_persist(m["task_runs"])
             if _runs_rt:
                 _mm["task_runs"] = _runs_rt
+        # Exécutions du message (``runs``, L5.2) : sinon perdues au persist.
+        if isinstance(m.get("run_ids"), list):
+            _rids = [r for r in m["run_ids"] if isinstance(r, str) and 0 < len(r) <= 64][:64]
+            if _rids:
+                _mm["run_ids"] = _rids
+        if isinstance(m.get("pruned"), int) and not isinstance(m.get("pruned"), bool) \
+                and 0 < m["pruned"] < 100000:
+            _mm["pruned"] = m["pruned"]
+        # Jalons de compaction du message (L5.5) : sinon perdus au persist.
+        if isinstance(m.get("compactions"), list):
+            _cps = [_compaction_pour_message(c) for c in m["compactions"][:20] if isinstance(c, dict)]
+            if _cps:
+                _mm["compactions"] = _cps
+        _met = _metrics_for_persist(m.get("metrics"))
+        if _met:
+            _mm["metrics"] = _met
         if m.get("role") == "notice":
             for _k in _NOTICE_FIELDS:
                 if m.get(_k) is not None:
@@ -1783,8 +1882,7 @@ async def api_chat_run_events(chat_id: str, request: Request):
     le dossier est indexé par l'utilisateur de la SESSION : impossible de lire
     le run d'un autre compte."""
     user_id = require_user_id(request)
-    from shared_infra.runtime import run_journal as _rj
-    from shared_infra.runtime import chat_locks as _cl
+    from shared_infra.runtime import chat_locks as _cl, run_journal as _rj
     cur = await asyncio.to_thread(_rj.current_run, user_id, chat_id)
     run_id = (request.query_params.get("run_id") or "").strip() or (cur or {}).get("run_id")
     if not cur or not run_id or cur.get("run_id") != run_id:
@@ -1923,9 +2021,8 @@ def api_chat_compression_state(chat_id: str, request: Request):
     from shared_infra import config as _cfg
     with swallow("chat.api_chat_compression_state"):
         _cfg.reload_compression_config_from_disk()
-    from llm_core.conversation_compressor import (
-        _count_turns, apply_persisted_state, extract_compression_state)
     from llm_core.context.tokens import measured_prompt_tokens
+    from llm_core.conversation_compressor import _count_turns, apply_persisted_state, extract_compression_state
 
     _msgs = [m for m in (chat.get("messages") or [])
              if isinstance(m, dict) and m.get("role") != "system"]
@@ -2067,9 +2164,12 @@ async def api_chat_manual_compress(chat_id: str, request: Request):
         from llm_core.context.compaction_gate import resolve_max_rounds
         _user_max_rounds = resolve_max_rounds(get_user_settings(user_id))
         from llm_core.conversation_compressor import (
-            _strip_summary_messages, apply_persisted_state,
-            build_state_system_message, extract_compression_state,
-            maybe_compress_conversation)
+            _strip_summary_messages,
+            apply_persisted_state,
+            build_state_system_message,
+            extract_compression_state,
+            maybe_compress_conversation,
+        )
 
         persisted = chat.get("messages") or []
         prev_state = extract_compression_state(persisted)
@@ -2105,23 +2205,31 @@ async def api_chat_manual_compress(chat_id: str, request: Request):
                         _state_holder[_k] = ev[_k]
 
         _t0 = time.time()
-        _, stats = await maybe_compress_conversation(
-            llm_view,
-            llama_chat_fn   = llama_chat,
-            on_event        = _on_ev,
-            model           = _req_model,   # modèle COURANT (pas le défaut LLAMA_MODEL)
-            user_id         = str(user_id),
-            log_prefix      = "chat_manual",
-            ctx_size_tokens = _ctx_tok or None,
-            prev_state      = prev_state,
-            manual          = True,
-            # Cap par conversation : auto ET manuel partagent le compteur
-            # ``round``, donc le réglage du compte doit valoir des deux côtés —
-            # sinon /compact se ferait refuser par un plafond que l'utilisateur
-            # croit avoir relevé.
-            max_rounds      = _user_max_rounds,
-            fts_session_id  = str(chat_id),
-        )
+        # Exécution (``runs``) et usage rattachés au compte et à la
+        # conversation compactée (sans ce scope, la ligne d'usage n'avait
+        # ni compte ni origine).
+        from llm_core.engines import engine_for_target as _eng_cmp
+        from shared_infra.observability.runs import run_scope
+        async with run_scope("compaction", user_id=user_id, chat_id=chat_id,
+                             model=_req_model or "", engine=_eng_cmp(_cmp_target).key):
+            with usage_scope("compression", user_id=user_id, origin_id=str(chat_id)):
+                _, stats = await maybe_compress_conversation(
+                    llm_view,
+                    llama_chat_fn   = llama_chat,
+                    on_event        = _on_ev,
+                    model           = _req_model,   # modèle COURANT (pas le défaut LLAMA_MODEL)
+                    user_id         = str(user_id),
+                    log_prefix      = "chat_manual",
+                    ctx_size_tokens = _ctx_tok or None,
+                    prev_state      = prev_state,
+                    manual          = True,
+                    # Cap par conversation : auto ET manuel partagent le compteur
+                    # ``round``, donc le réglage du compte doit valoir des deux côtés —
+                    # sinon /compact se ferait refuser par un plafond que l'utilisateur
+                    # croit avoir relevé.
+                    max_rounds      = _user_max_rounds,
+                    fts_session_id  = str(chat_id),
+                )
 
         compressed = bool(stats.get("compressed"))
         if compressed and _state_holder.get("summary_xml"):
@@ -2334,8 +2442,7 @@ async def api_chat_saved_stream3(request: Request):
     # utilisateur / groupe (``engine_access``) doit être appliquée ICI, pas
     # seulement dans la liste du sélecteur. Refus = 409 explicite que le front
     # affiche et qui lui fait purger la sélection.
-    from llm_core._target import EngineUnavailable as _EngineUnavailable
-    from llm_core._target import resolve_llm_target as _resolve_target
+    from llm_core._target import EngineUnavailable as _EngineUnavailable, resolve_llm_target as _resolve_target
     try:
         _cid_int = int(connector_id) if connector_id not in (None, "", 0, "0") else None
     except (TypeError, ValueError):
@@ -2425,8 +2532,10 @@ async def api_chat_saved_stream3(request: Request):
     # qu'un id ; l'URL et l'auth viennent toujours du magasin serveur.
     if active_mcp_servers:
         from shared_infra.mcp.servers import (
-            resolve_config as _resolve_shared, shared_id as _shared_id,
-            resolve_personal as _resolve_perso, client_builtin_ref as _builtin_ref,
+            client_builtin_ref as _builtin_ref,
+            resolve_config as _resolve_shared,
+            resolve_personal as _resolve_perso,
+            shared_id as _shared_id,
         )
         # Un serveur perso ``stdio`` n'est spawné que pour un administrateur
         # plein (2026-09-20, cf. servers.StdioNotAllowed).
@@ -2714,6 +2823,8 @@ async def api_chat_saved_stream3(request: Request):
     # routines et sessions éphémères ne le posent pas : contrat inchangé.
     _resumable = bool(data.get("resumable", False)) and not ephemeral
     _run_id = secrets.token_hex(8)
+    # Exécution du tour (``runs``, L5.2) : même identifiant que son journal.
+    _exec_id = f"chat-{_run_id}"
 
     # Matching des skills : fenêtre des derniers tours user (pas seulement le
     # dernier message) → le corps d'une procédure reste matché même au tour
@@ -2752,9 +2863,10 @@ async def api_chat_saved_stream3(request: Request):
         _mem_manager = None
         _memory_block = ""
 
-    from llm_core._system_prompts import assemble_system_messages
     # Date du jour en anglais (tête système full-EN ; indépendant de la locale).
     import datetime as _dt
+
+    from llm_core._system_prompts import assemble_system_messages
     _EN_MONTHS = ("January", "February", "March", "April", "May", "June", "July",
                   "August", "September", "October", "November", "December")
     _n = _dt.datetime.now()
@@ -2834,8 +2946,7 @@ async def api_chat_saved_stream3(request: Request):
     _baseline_title = ((_existing_chat or {}).get("title") or "") if _existing_chat else ""
     try:
         if _existing_chat:
-            from llm_core.conversation_compressor import (
-                apply_persisted_state, extract_compression_state)
+            from llm_core.conversation_compressor import apply_persisted_state, extract_compression_state
             _compr_prev_state = extract_compression_state(_existing_chat.get("messages") or [])
             if _compr_prev_state:
                 msgs_for_llm, _compr_prev_state = apply_persisted_state(
@@ -2953,6 +3064,14 @@ async def api_chat_saved_stream3(request: Request):
         # ``tool_result``) → ``files_changed`` du message : le chat retrouve
         # ses diffs après rechargement (2026-09-26).
         _files_changed_acc: dict = {}
+        # Compactions du tour (L5.5) → ``compactions`` du message : le jalon
+        # (motif, seuil, avant → après) survit au rechargement.
+        _compactions_acc: list = []
+        _compaction_en_cours: dict = {}
+        # Rounds d'outils déjà faits (un appel LLM suivi d'au moins un
+        # tool_call) → place du jalon au rechargement, dans l'unité de
+        # _tool_segments.js. ``iteration`` arme, le 1er tool_call compte.
+        _tours_vus: dict = {"n": 0, "arme": False}
         _partial_thinking_acc: list = []
         # Dernière tool_history cumulée émise par run_chat_multi_mcp juste avant de
         # propager une annulation (event interne ``tool_history_partial``). Liste
@@ -3023,6 +3142,21 @@ async def api_chat_saved_stream3(request: Request):
                     "ledger_block":     ev.get("ledger_block") or "",
                 })
                 return
+            if _evt == "iteration":
+                _tours_vus["arme"] = True
+            elif _evt == "tool_call" and _tours_vus["arme"]:
+                _tours_vus["n"] += 1
+                _tours_vus["arme"] = False
+            elif _evt == "compression_start":
+                _compaction_en_cours.clear()
+                _compaction_en_cours.update(reason=ev.get("reason"), threshold=ev.get("threshold"),
+                                            ctx_size=ev.get("ctx_size"), round=_tours_vus["n"])
+            elif _evt == "compression_done":
+                _st = ev.get("stats") if isinstance(ev.get("stats"), dict) else {}
+                if _st.get("compressed"):
+                    _compactions_acc.append(_compaction_pour_message(
+                        {**_st, **_compaction_en_cours, "path": ev.get("path")}))
+                _compaction_en_cours.clear()
             # Relevé AVANT le filtre d'annulation : une écriture faite reste
             # faite, même si son résultat n'est plus montré.
             if _evt in ("tool_result", "task_step") and ev.get("files"):
@@ -3102,8 +3236,7 @@ async def api_chat_saved_stream3(request: Request):
                 # généralement disparu).
                 if _chat_read_failed and _compr_prev_state is None:
                     try:
-                        from llm_core.conversation_compressor import (
-                            extract_compression_state as _extract_st)
+                        from llm_core.conversation_compressor import extract_compression_state as _extract_st
                         # Helper SYNC (chemin d'échec rare — la lecture
                         # initiale a raté) : lecture directe assumée.
                         _re = get_chat(user_id, chat_id)
@@ -3121,8 +3254,7 @@ async def api_chat_saved_stream3(request: Request):
                     _st = _compr_prev_state
                 if not _st:
                     return _full
-                from llm_core.conversation_compressor import (
-                    _strip_summary_messages, build_state_system_message)
+                from llm_core.conversation_compressor import _strip_summary_messages, build_state_system_message
                 _state_msg = build_state_system_message(
                     _st["summary_xml"],
                     int(_st.get("round") or 1),
@@ -3162,6 +3294,16 @@ async def api_chat_saved_stream3(request: Request):
                     _baseline_updated_at = _ts
                     _baseline_messages = _early
                     _baseline_title = title
+
+        def _issue_du_tour(statut: str, kind: str = "") -> None:
+            """Issue de l'exécution du tour (``runs``) : le worker avale
+            annulations et pannes, ``run_scope`` n'en voit aucune (relecture
+            L5 : un Stop ou un plantage finissait en « ok »)."""
+            with swallow("chat.run_status"):
+                from shared_infra.observability.runs import current_run
+                _run = current_run()
+                if _run is not None:
+                    _run.finish(statut, error_kind=kind)
 
         async def worker():
 
@@ -3227,15 +3369,6 @@ async def api_chat_saved_stream3(request: Request):
                 metrics = {}
                 assistant = ""
 
-                from llm_core import llm_scheduling_guard, resolve_scheduling_mode, run_chat_multi_mcp_v2, record_llm_duration
-                # AUDIT 2026-08-23 — variante ASYNC. La SYNC ne voit ni le
-                # snapshot Redis (donc rien de ce que tiennent les autres
-                # workers) ni l'inventaire autoritaire du moteur : sous Redis
-                # elle rendait toujours « ready », et le front affichait
-                # « vous êtes 1er · ~15 s » à qui attendait derrière une
-                # mission de plusieurs heures sur un autre worker.
-                from llm_core._queue import get_queue_status_for_async
-
                 # AUDIT 2026-08-23 — on suit ce qui est RÉELLEMENT parti vers
                 # le client, pas ce que disait l'instantané. Celui-ci est pris
                 # AVANT le guard et ment volontiers : ``get_queue_status_for``
@@ -3257,7 +3390,21 @@ async def api_chat_saved_stream3(request: Request):
                 # « Chargement de <modèle>… » d'après l'état du serveur local,
                 # et surveillait son /models/sse. Contextvar : propre à cette
                 # tâche, la ré-affectation plus bas est idempotente.
-                from llm_core import set_llm_target as _set_target_early
+                from llm_core import (
+                    llm_scheduling_guard,
+                    record_llm_duration,
+                    resolve_scheduling_mode,
+                    run_chat_multi_mcp_v2,
+                    set_llm_target as _set_target_early,
+                )
+
+                # AUDIT 2026-08-23 — variante ASYNC. La SYNC ne voit ni le
+                # snapshot Redis (donc rien de ce que tiennent les autres
+                # workers) ni l'inventaire autoritaire du moteur : sous Redis
+                # elle rendait toujours « ready », et le front affichait
+                # « vous êtes 1er · ~15 s » à qui attendait derrière une
+                # mission de plusieurs heures sur un autre worker.
+                from llm_core._queue import get_queue_status_for_async
                 _set_target_early(_target)
                 _qstatus = await get_queue_status_for_async(selected_model)
                 if _qstatus.get("kind") != "ready":
@@ -3296,10 +3443,17 @@ async def api_chat_saved_stream3(request: Request):
                     _file_annoncee[0] = True
                     await on_event({"type": "queue_status", **_qs})
 
+                _attente_t0 = _llm_t0.monotonic()
                 async with llm_scheduling_guard(
                         selected_model, use_mcp_path=_use_mcp_path,
                         target=_target, on_wait=_on_queue_wait,
                         cancel_probe=lambda: is_chat_cancelled(user_id, chat_id)):
+                    # Attente d'un créneau du moteur → exécution du tour.
+                    with swallow("chat.run_wait"):
+                        from shared_infra.observability.runs import current_run as _run_cour
+                        _rc = _run_cour()
+                        if _rc is not None:
+                            _rc.add_wait(int((_llm_t0.monotonic() - _attente_t0) * 1000))
 
                     # Active le connecteur cible pour TOUS les appels LLM de ce
                     # tour (chat + compression). Contextvar : visible par le
@@ -3338,8 +3492,9 @@ async def api_chat_saved_stream3(request: Request):
                         _title_task = asyncio.create_task(_generate_chat_title(
                             selected_model, _title_content, "", chat_id=chat_id))
                     if not _use_mcp_path:
-                        from shared_infra.config import LLAMA_MODEL as _LLAMA_MODEL
                         import time as _time
+
+                        from shared_infra.config import LLAMA_MODEL as _LLAMA_MODEL
                         _start = _time.time()
                         # AUDIT 2026-08-02 (M3) — ``content_chunks`` supprimé :
                         # il accumulait CHAQUE token de la réponse (25 000
@@ -3372,11 +3527,11 @@ async def api_chat_saved_stream3(request: Request):
                                 _ctx_tok = 0
 
                         if _target.is_llamacpp:
-                            from llm_core.conversation_compressor import maybe_compress_conversation
                             # Chemin SANS outils : un seul appel LLM par tour,
                             # donc ce point EST la tête de tour — le seuil du
                             # compte s'applique pleinement (rien à couper).
                             from llm_core.context.compaction_gate import compaction_gate as _cgate
+                            from llm_core.conversation_compressor import maybe_compress_conversation
                             # ``thinking_mode=False`` : PARITÉ STRICTE avec le
                             # repli que ``maybe_compress_conversation`` faisait
                             # lui-même jusqu'ici sur ce chemin. À seuil « auto »
@@ -3598,7 +3753,10 @@ async def api_chat_saved_stream3(request: Request):
                     _ctx_snap = await _ctx_usage_snapshot(
                         metrics, selected_model, _target)
 
-                msg_assistant = {"role": "assistant", "content": assistant}
+                # ``run_ids`` : exécutions du message (``runs``) — plusieurs
+                # après un « Continuer », dans l'ordre.
+                msg_assistant = {"role": "assistant", "content": assistant,
+                                 "run_ids": [_exec_id]}
                 if metrics:
                     # AUDIT 2026-08-22 (C6) — le message porte une COPIE des
                     # métriques SANS ``tool_history``. La liste (des mégaoctets
@@ -3654,6 +3812,11 @@ async def api_chat_saved_stream3(request: Request):
                     msg_assistant["task_runs"] = _task_runs_for_persist(_task_usage["runs"])
                 if _files_changed_acc:
                     msg_assistant["files_changed"] = list(_files_changed_acc.values())
+                if _compactions_acc:
+                    msg_assistant["compactions"] = list(_compactions_acc)
+                # Élagage visible (L5.5) : sorties d'outils retirées du contexte.
+                if _new_prune_keys:
+                    msg_assistant["pruned"] = len(_new_prune_keys)
 
                 # BUG FIX — Continue (reprise) ne doit PAS créer un 2e message
                 # assistant en base. Le front fusionne la continuation dans la
@@ -3979,8 +4142,14 @@ async def api_chat_saved_stream3(request: Request):
                 _final_payload = {
                     "type": "final",
                     "assistant": assistant,
+                    # Exécutions du message (``runs``) : le front les garde et
+                    # les renvoie avec lui (« Détails », « Continuer »).
+                    "run_ids": msg_assistant.get("run_ids") or [_exec_id],
                     **({"files_changed": msg_assistant["files_changed"]}
                        if msg_assistant.get("files_changed") else {}),
+                    **({"compactions": msg_assistant["compactions"]}
+                       if msg_assistant.get("compactions") else {}),
+                    **({"pruned": msg_assistant["pruned"]} if msg_assistant.get("pruned") else {}),
                     "chat_id": _effective_chat_id,
                     # Additif : présent seulement quand la sortie auto du mode
                     # plan vient d'avoir lieu (cf. bloc ci-dessus).
@@ -4035,7 +4204,7 @@ async def api_chat_saved_stream3(request: Request):
                     await asyncio.to_thread(_post_final_bookkeeping)
             except asyncio.CancelledError:
                 _was_cancelled = True
-
+                _issue_du_tour("cancelled")
                 logger.info("[chat_stream] Cancellation détectée, sauvegarde du partiel…")
             except LLMQueueAborted:
                 # Stop pendant l'ATTENTE d'un modèle occupé (cf. D2) : rien n'a
@@ -4043,6 +4212,7 @@ async def api_chat_saved_stream3(request: Request):
                 # annulation ordinaire — le partiel (vide) est persisté, le
                 # front retire le widget de file.
                 _was_cancelled = True
+                _issue_du_tour("cancelled")
                 logger.info("[chat_stream] attente du modèle abandonnée "
                             "(Stop pendant la file)")
                 with swallow("chat.queue_abort_evt"):
@@ -4075,6 +4245,7 @@ async def api_chat_saved_stream3(request: Request):
                         "chat ou signalez le détail ci-dessous."
                     )
                     _detail = f"{type(e).__name__}: {str(e)[:300]}"
+                _issue_du_tour("error", _kind)
                 await on_event({"type": "error", "text": _text,
                                 "detail": _detail, "kind": _kind})
             finally:
@@ -4127,6 +4298,7 @@ async def api_chat_saved_stream3(request: Request):
                                 "role": "assistant",
                                 "content": partial,
                                 "isTruncated": True,
+                                "run_ids": [_exec_id],
                             }
                             if _merged_partial_think:
                                 msg_partial["thinking"] = _merged_partial_think
@@ -4140,6 +4312,7 @@ async def api_chat_saved_stream3(request: Request):
                                 # raisonnement (drain worker 300 s compris)
                                 # perdait le bouton « Continuer ».
                                 "isTruncated": True,
+                                "run_ids": [_exec_id],
                             }
                             if _merged_partial_think:
                                 msg_partial["thinking"] = _merged_partial_think
@@ -4169,6 +4342,8 @@ async def api_chat_saved_stream3(request: Request):
                             msg_partial["task_runs"] = _task_runs_for_persist(_task_usage["runs"])
                         if _files_changed_acc:
                             msg_partial["files_changed"] = list(_files_changed_acc.values())
+                        if _compactions_acc:
+                            msg_partial["compactions"] = list(_compactions_acc)
                         # AUDIT 2026-09-25 — Stop pendant un « Continuer » : les
                         # cartes de sous-agents du segment tronqué sont gardées.
                         if isinstance(_prev_p, dict) and _prev_p:
@@ -4211,6 +4386,7 @@ async def api_chat_saved_stream3(request: Request):
                         _partial_final = {
                             "type": "final",
                             "assistant": msg_partial["content"],
+                            "run_ids": msg_partial.get("run_ids") or [_exec_id],
                             "chat_id": chat_id,
                             "metrics": None,
                             "thinking": msg_partial.get("thinking", partial_thinking),
@@ -4250,6 +4426,7 @@ async def api_chat_saved_stream3(request: Request):
                                 await on_event({
                                     "type": "final",
                                     "assistant": _txt or _CANCEL_PLACEHOLDER,
+                                    "run_ids": [_exec_id],
                                     "chat_id": chat_id,
                                     "metrics": None,
                                     "thinking": "".join(_partial_thinking_acc).strip(),
@@ -4270,8 +4447,15 @@ async def api_chat_saved_stream3(request: Request):
             # Fermeture GARANTIE du journal, même sans ``final`` (exception hors
             # harnais, annulation dure) : un client rattaché reçoit ``run_end``
             # au lieu d'attendre indéfiniment. Idempotent si ``final`` l'a fait.
+            # L'exécution (``runs``) couvre tout le tour : ce que la boucle,
+            # le titre, la compaction et les outils consomment y est versé.
+            from llm_core.engines import engine_for_target as _eng_run
+            from shared_infra.observability.runs import run_scope
             try:
-                await worker()
+                async with run_scope("chat", run_id=_exec_id, user_id=user_id,
+                                     chat_id=chat_id, model=selected_model or "",
+                                     engine=_eng_run(_target).key):
+                    await worker()
             finally:
                 if _journal is not None:
                     with swallow("chat.run_journal.close"):
@@ -4361,7 +4545,7 @@ async def api_chat_saved_stream3(request: Request):
                 # qu'un générateur qui YIELD après avoir reçu GeneratorExit —
                 # un ``return`` est au contraire la façon normale de terminer
                 # pendant un ``aclose()``.
-                return
+                return  # noqa: B012
 
             # Plus personne ne lit la file : sans cette coupure, le ``final``
             # du partiel (après ``task.cancel()``) ou la sentinelle de fin

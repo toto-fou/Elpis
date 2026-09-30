@@ -1,0 +1,150 @@
+# SPDX-License-Identifier: MIT
+# Intégration continue : lint et typage, puis la suite complète sur SQLite
+# (Python 3.11, le minimum supporté, et 3.13) et sur un serveur PostgreSQL /
+# MariaDB jetable.
+# Les tests front (Node) passent par tests/frontend/test_js_units.py ; les bancs
+# Playwright restent manuels.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Aucun moteur LLM : une adresse qui refuse tout de suite (cf. AGENTS.md).
+  LLAMA_IP: 127.0.0.1
+  LLAMA_PORT: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Ruff, à la version de requirements.txt
+        run: pip install "$(grep -oE '^ruff==[0-9.]+' requirements.txt)"
+      - run: ruff check .
+
+  typage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: mypy (périmètre de pyproject.toml)
+        run: mypy
+
+  tests:
+    name: tests (SQLite, Python ${{ matrix.python }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+      - name: Prison bubblewrap (aperçus Office)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap
+          # Ubuntu 24.04 réserve les user namespaces aux profils AppArmor.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: pip install -r requirements-rag.txt -r requirements-dev.txt
+      - run: python -m pytest -q -p no:cacheprovider
+
+  tests-serveur:
+    name: tests (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: PostgreSQL 17
+            image: postgres:17
+            backend: postgres
+            port: 5432
+            user: elpis
+            var: ELPIS_TEST_PG
+            options: >-
+              --tmpfs /var/lib/postgresql/data
+              --health-cmd "pg_isready -U elpis" --health-interval 5s
+              --health-timeout 5s --health-retries 20
+          - name: MariaDB 11.4
+            image: mariadb:11.4
+            backend: mysql
+            port: 3306
+            user: root
+            var: ELPIS_TEST_MARIADB
+            options: >-
+              --tmpfs /var/lib/mysql
+              --health-cmd "healthcheck.sh --connect --innodb_initialized"
+              --health-interval 5s --health-timeout 5s --health-retries 20
+    services:
+      db:
+        image: ${{ matrix.image }}
+        env:
+          POSTGRES_USER: elpis
+          POSTGRES_PASSWORD: elpis
+          POSTGRES_DB: elpis
+          MARIADB_ROOT_PASSWORD: elpis
+          MARIADB_DATABASE: elpis
+        ports:
+          - ${{ matrix.port }}:${{ matrix.port }}
+        options: ${{ matrix.options }}
+    env:
+      # Toute la suite sur le serveur (un schéma / une base par base de test) ;
+      # les tests sqlite_only sont ignorés.
+      ELPIS_TEST_DB: "1"
+      APP_DB_BACKEND: ${{ matrix.backend }}
+      APP_DB_HOST: 127.0.0.1
+      APP_DB_PORT: ${{ matrix.port }}
+      APP_DB_NAME: elpis
+      APP_DB_USER: ${{ matrix.user }}
+      APP_DB_PASSWORD: elpis
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Prison bubblewrap (aperçus Office)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: pip install -r requirements-rag.txt -r requirements-dev.txt
+      - name: Tests
+        run: |
+          # Tests propres aux moteurs serveur (tests/db…) sur le même serveur.
+          export ${{ matrix.var }}="127.0.0.1:${{ matrix.port }}:elpis:${{ matrix.user }}:elpis"
+          python -m pytest -q -p no:cacheprovider

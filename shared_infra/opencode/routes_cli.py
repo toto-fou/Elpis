@@ -67,9 +67,9 @@ from typing import Optional
 from fastapi import HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 
-from shared_infra.routes._state import router
-from shared_infra.config import PROJECT_ROOT, read_config_json, feature_enabled
 from llm_core._llama_http import _llama_base_url
+from shared_infra.config import PROJECT_ROOT, feature_enabled, read_config_json
+from shared_infra.routes._state import router
 
 logger = logging.getLogger(__name__)
 
@@ -371,7 +371,7 @@ def _opencode_mcp_entries(request: Request, client_token: str,
     # d'extension « ajouter un MCP local dans le futur » — sans toucher au
     # service intégré ni aux serveurs externes.
     try:
-        from shared_infra.mcp.local_registry import opencode_local_servers, opencode_entry_for
+        from shared_infra.mcp.local_registry import opencode_entry_for, opencode_local_servers
         for d in opencode_local_servers():
             name = str(d.get("name") or "").strip()
             if name and name not in entries:

@@ -82,26 +82,30 @@ async def _exposed(**kw):
 
 # ── Le helper d'annotation, isolément ────────────────────────────────────
 
+def _ro(tool):
+    from llm_core._tool_traits import tool_traits
+    return tool_traits("x", tool=tool).read_only
+
 def test_helper_lit_lattribut_camel_case():
-    assert cwt._tool_is_read_only(_ToolObj("read_file", True)) is True
-    assert cwt._tool_is_read_only(_ToolObj("write_file", False)) is False
+    assert _ro(_ToolObj("read_file", True)) is True
+    assert _ro(_ToolObj("write_file", False)) is False
 
 
 def test_helper_lit_un_dict():
-    assert cwt._tool_is_read_only({"name": "x", "annotations": {"readOnlyHint": True}}) is True
-    assert cwt._tool_is_read_only({"name": "x", "annotations": {"readOnlyHint": False}}) is False
+    assert _ro({"name": "x", "annotations": {"readOnlyHint": True}}) is True
+    assert _ro({"name": "x", "annotations": {"readOnlyHint": False}}) is False
 
 
 def test_helper_tolere_le_snake_case():
     """La forme de fil des annotations a bougé entre versions de FastMCP."""
-    assert cwt._tool_is_read_only({"name": "x", "annotations": {"read_only_hint": True}}) is True
+    assert _ro({"name": "x", "annotations": {"read_only_hint": True}}) is True
 
 
 def test_helper_sans_annotation_est_faux():
     """LE point du fail-fermé : pas d'annotation ⇒ pas read-only."""
-    assert cwt._tool_is_read_only({"name": "x"}) is False
-    assert cwt._tool_is_read_only({"name": "x", "annotations": None}) is False
-    assert cwt._tool_is_read_only(object()) is False
+    assert _ro({"name": "x"}) is False
+    assert _ro({"name": "x", "annotations": None}) is False
+    assert _ro(object()) is False
 
 
 # ── Le filtrage réel ─────────────────────────────────────────────────────

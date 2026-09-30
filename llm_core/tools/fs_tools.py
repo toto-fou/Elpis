@@ -13,31 +13,56 @@ Signature: register(mcp, root_base, max_write_chars=2_000_000)
 """
 from __future__ import annotations
 
+import base64
+import difflib
+import hashlib
+import io
+import json
+import mimetypes
+import os
+import re
+import shutil
+import subprocess
+import time
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple, Literal, Union
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
+
 from fastmcp import Context, FastMCP
 
-import os, subprocess, time, base64, re, shutil, fnmatch
-import hashlib, difflib, mimetypes, json, uuid
+# /work normalization (lexical; links are resolved by the sandbox agent).
+# SandboxPathError is a ValueError subclass: `except ValueError` catches it.
+from shared_infra.sandbox.agent_client import AgentError
+from shared_infra.sandbox.paths import (
+    SandboxPathError,
+    lexical_rel,
+    rel_under,
+    to_container,
+)
 
-from ._toolkit import (
-    ok as _ok, err, tool_kw, unquote, get_username, as_list,
-    tool_kw_readonly, tool_kw_idempotent, tool_kw_mutating, tool_kw_destructive,
-    unicode_twin_warning,
-)
+from ._espace import Espace
 from ._models import (
-    ReadFileResult, WriteFileResult, EditFileResult,
-    ListFilesResult, ManageFilesResult,
-    CodeOutlineResult, CodeNavigateResult,
+    CodeNavigateResult,
+    CodeOutlineResult,
+    EditFileResult,
     ErrEnvelope,
+    ListFilesResult,
+    ManageFilesResult,
+    ReadFileResult,
+    WriteFileResult,
 )
-# Single source of truth for /work normalization + sandbox containment.
-# resolve_under raises SandboxPathError (a ValueError subclass) on escape,
-# so the existing `except ValueError` call sites keep working unchanged.
-from shared_infra.sandbox.paths import resolve_under, to_container
-# OP_BACKEND policy: when fs writes are agent-backed (single UID 10001 inside
-# the container), the host-side cross-UID chmod widening is unnecessary.
-from shared_infra.sandbox.policy import use_agent
+from ._toolkit import (
+    as_list,
+    err,
+    get_username,
+    glob_match as _glob_match,
+    ok as _ok,
+    tool_kw,
+    tool_kw_destructive,
+    tool_kw_idempotent,
+    tool_kw_mutating,
+    tool_kw_readonly,
+    unquote,
+)
 
 # ── Optional: code intelligence (multi-language outliner) ────────────────────
 # Imported lazily-friendly: if code_intel.py is missing, the extra
@@ -164,91 +189,32 @@ def _validate_path_str(path: str):
             raise ValueError("control character in path")
 
 
-def _translate_container_path(path: str, base: Path) -> str:
-    """Map the container view of a path to its host equivalent.
-
-    The agent typically reasons about files using the container view
-    (``/work/...``) since shell tools execute inside the container, while
-    fs_tools resolve paths on the HOST. Without this translation, every
-    cross-tool reference like ``read_file("/work/main.py")`` after a
-    successful ``execute_shell(command="touch /work/main.py")`` fails
-    with "outside sandbox" — wasting a turn re-discovering the host path.
-
-    The sandbox volume is mounted at ``/work`` in the container, so the
-    agent legitimately writes the mount prefix in several equivalent forms.
-    We normalize ALL of them to the sandbox root so the same file is
-    reachable no matter which the model picks:
-
-        /work, /work/x          canonical container-absolute
-        work,  work/x           leading slash dropped — a VERY common LLM
-                                slip (it sees ``/work/...`` in shell output
-                                and re-emits it relative). Taken literally
-                                this used to create a spurious nested
-                                ``<sandbox>/work/`` dir, after which the
-                                correct ``src/x`` form failed → the model
-                                got stuck always prefixing ``work/``.
-        ./work/x                same, dot-relative.
-
-    Trade-off: a literal top-level directory actually named ``work`` inside
-    the sandbox can no longer be addressed (it collapses to the root). That
-    collision is virtually always the mount-prefix confusion above, and
-    avoiding the retry loop is worth far more than supporting a folder named
-    exactly ``work``.
-
-    Idempotent for everything else: any other path is returned unchanged.
-    """
-    if not path:
-        return path
-    if path in ("/work", "work", "./work"):
-        return str(base)
-    for pfx in ("/work/", "work/", "./work/"):
-        if path.startswith(pfx):
-            return str(base / path[len(pfx):])
-    return path
-
-
 def _to_container(p: Any, base: Path) -> str:
-    """Render a host path under ``base`` as its container view (``/work/...``).
+    """Render a host path under ``base`` as its container view (``/work/...``),
+    without reading the disk (links stay as written).
 
-    The inverse of :func:`_translate_container_path`. fs_tools run on the
-    HOST and resolve everything to host-absolute paths, but the agent
-    reasons in the container's path space (its shell runs in ``/work``).
-    Echoing host paths like ``/srv/elpis/user_sandboxes/alice/src/x.py`` back
-    in tool results gave the model a form it can't reuse — it would
-    improvise the mount prefix (``work/...``) and get stuck. Returning
-    ``/work/src/x.py`` instead hands it a path it can copy verbatim into the
-    next call, which ``_translate_container_path`` maps straight back.
+    The agent reasons in the container's path space (its shell runs in
+    ``/work``): echoing host paths like ``/srv/elpis/user_sandboxes/alice/src/x.py``
+    gave the model a form it can't reuse. ``/work/src/x.py`` can be copied
+    verbatim into the next call (``_rel`` maps it back).
 
     Falls back to the plain string for anything not under ``base`` (defensive
     — every fs path is validated under the sandbox first, so this is rare).
     """
     try:
-        rel = Path(p).resolve().relative_to(Path(base).resolve()).as_posix()
-    except (ValueError, TypeError, OSError):
+        rel = rel_under(base, p)
+    except (SandboxPathError, TypeError):
         return str(p)
     return to_container(rel)  # shared: "" / "." -> "/work"; else "/work/<rel>"
 
 
-def _safe_path(path: str, base: Path, *, allow_root: bool = True) -> Path:
-    # Input tolerance (tools/_toolkit.unquote): models routinely wrap a
-    # path in extra quotes — '"src/main.py"' -> src/main.py. One spot
-    # here covers every fs tool, since they all resolve through _safe_path.
+def _rel(base: Path, path: str, *, allow_root: bool = True) -> str:
+    """Chemin relatif à la sandbox d'un chemin fourni par le modèle, sans lire
+    le disque : guillemets tolérés (``unquote``), caractères de contrôle, NUL
+    et chemin vide refusés ; les liens sont résolus par l'agent."""
     path = unquote(path)
-    _validate_path_str(path)            # null byte + control chars (fs-specific)
-    # /work normalization + containment now live in ONE place
-    # (shared_infra.sandbox.paths). Containment is parents/relative_to based
-    # — identical to the previous inline check — so sibling-prefix names
-    # (alice vs alice2) and symlink-out targets are still rejected, but the
-    # rule no longer drifts from the route-side validator.
-    # ``allow_root=False`` : la RACINE du bac à sable n'est pas une cible
-    # valide. AUDIT 2026-08-23 — ``resolve_under`` porte ce garde-fou depuis
-    # toujours (« used by destructive ops that must target a child, e.g.
-    # delete/rename »), mais AUCUN appelant ne le passait : ``manage_files``
-    # acceptait donc ``delete /work`` — et « /work », « work », « ./work » et
-    # « . » se collapsent tous sur la racine — puis faisait ``shutil.rmtree``
-    # sur l'arbre ENTIER de l'utilisateur, en rendant ``ok: true``. Or « . »
-    # est le défaut de ``list_files`` : le modèle l'écrit spontanément.
-    return resolve_under(base, path, allow_root=allow_root).host
+    _validate_path_str(path)
+    return lexical_rel(base, path, allow_root=allow_root)
 
 
 # Dossiers de DÉPENDANCES/BUILD écartés par défaut par ``list_files`` quand
@@ -269,102 +235,19 @@ DEFAULT_DEP_EXCLUDES: tuple = (
 )
 
 
-def _glob_match(rel: str, pattern: str) -> bool:
-    """Glob d'un chemin RELATIF (POSIX) — sémantique des outils usuels
-    (AUDIT 2026-09-25) :
+_TEXT_BYTES = frozenset(range(32, 127)) | {7, 8, 9, 10, 11, 12, 13, 27}
 
-    - motif SANS ``/`` : appliqué au NOM, à toute profondeur (``*.py``) ;
-    - motif AVEC ``/`` : segment par segment ; ``*`` ne franchit pas ``/`` et
-      ``**`` couvre zéro ou plusieurs dossiers (``**/*.py`` inclut
-      ``main.py`` à la racine, ``src/**/*.ts`` inclut ``src/x.ts``).
 
-    Avant, ``fnmatch`` sur le chemin entier exigeait au moins un ``/`` pour
-    ``**/*.py`` : le modèle concluait que les fichiers n'existaient pas."""
-    if not pattern:
+def _is_text_bytes(chunk: bytes) -> bool:
+    """Début de fichier plausible pour du texte (pas de NUL, < 30 % d'octets
+    de contrôle ; les octets ≥ 128 comptent comme texte)."""
+    if not chunk:
         return True
-    pat = pattern.strip()
-    while pat.startswith("./"):
-        pat = pat[2:]
-    if "/" not in pat:
-        return fnmatch.fnmatch(rel.rsplit("/", 1)[-1], pat) or fnmatch.fnmatch(rel, pat)
-    psegs = [s for s in pat.strip("/").split("/") if s]
-    rsegs = [s for s in rel.split("/") if s]
-    memo: Dict[Tuple[int, int], bool] = {}
-
-    def _m(i: int, j: int) -> bool:
-        key = (i, j)
-        if key in memo:
-            return memo[key]
-        if i == len(psegs):
-            r = j == len(rsegs)
-        elif psegs[i] == "**":
-            r = any(_m(i + 1, k) for k in range(j, len(rsegs) + 1))
-        else:
-            r = (j < len(rsegs) and fnmatch.fnmatchcase(rsegs[j], psegs[i])
-                 and _m(i + 1, j + 1))
-        memo[key] = r
-        return r
-    return _m(0, 0)
-
-
-def _child_is_safe(p: Path, root_resolved: Path) -> bool:
-    """Vrai si ``p`` (issu d'un ``rglob``/``iterdir`` sous une racine DÉJÀ
-    validée) peut être lu sans franchir la sandbox.
-
-    ``_safe_path`` ne valide que la RACINE : les enfants d'un walk récursif ne
-    repassent PAS par ``resolve_under``, or ``is_file()``/``read_text()``
-    SUIVENT les symlinks. Un ``ln -s /etc/passwd x`` (ou vers la base SQLite,
-    le secret de session, la sandbox d'un autre user) serait donc lu à travers.
-    Même durcissement que les routes ``/search`` et ``/grep`` (skip symlink +
-    containment sur le chemin RÉSOLU). Toute erreur FS → non sûr (on saute)."""
-    try:
-        if p.is_symlink():
-            return False
-        rp = p.resolve()
-        rp.relative_to(root_resolved)
-        return True
-    except (OSError, ValueError, RuntimeError):
+    if b"\x00" in chunk:
         return False
+    non_text = sum(1 for b in chunk if b not in _TEXT_BYTES and b < 128)
+    return (non_text / len(chunk)) < 0.30
 
-
-def _ensure_parent(p: Path):
-    # Step 4 gate: when writes are agent-backed, a single UID (10001) owns
-    # everything in /work, so the cross-UID 0o777 widening is unnecessary
-    # AND undesirable (world-writable dirs on a shared mount). Default
-    # (host writes) keeps the widening so the container can still write
-    # alongside host-created files.
-    if use_agent("fs.write"):
-        p.parent.mkdir(parents=True, exist_ok=True)
-        return
-    # Use 0o777 so any UID inside the per-user sandbox container (10001
-    # by default) can create files in dirs that were freshly created by
-    # the host process. The actual umask still narrows this on the host
-    # side; we re-chmod below.
-    p.parent.mkdir(parents=True, exist_ok=True, mode=0o777)
-    # Best-effort: ensure existing parent is also group/other-writable so
-    # the container UID 10001 can create new files alongside.
-    try:
-        parent_mode = p.parent.stat().st_mode & 0o777
-        if parent_mode != 0o777:
-            os.chmod(p.parent, 0o777)
-    except OSError:
-        pass
-
-def _is_text(p: Path, sniff: int = 8192) -> bool:
-    try:
-        with p.open("rb") as f:
-            chunk = f.read(sniff)
-        if not chunk:
-            return True
-        if b"\x00" in chunk:
-            return False
-        text_bytes = set(range(32, 127)) | {7, 8, 9, 10, 11, 12, 13, 27}
-        non_text = sum(1 for b in chunk if b not in text_bytes)
-        high = sum(1 for b in chunk if b >= 128)
-        non_text -= high
-        return (non_text / len(chunk)) < 0.30
-    except Exception:
-        return False
 
 def _mime(p: Path) -> str:
     m, _ = mimetypes.guess_type(str(p))
@@ -372,13 +255,6 @@ def _mime(p: Path) -> str:
 
 def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
-
-def _sha256_of_file(p: Path, bufsize: int = 65536) -> str:
-    h = hashlib.sha256()
-    with p.open("rb") as f:
-        for chunk in iter(lambda: f.read(bufsize), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 _BOMS = (b"\xef\xbb\xbf", b"\xff\xfe", b"\xfe\xff")
 
@@ -420,16 +296,251 @@ def _text_conventions(raw: bytes, text: str, enc: str, explicit: bool = False) -
     return out
 
 
-def _detect_encoding(p: Path) -> str:
-    try:
-        with p.open("rb") as _f:        # ``with`` ferme le fd (l'ancien open().read() fuyait un descripteur par appel)
-            raw = _f.read(4)
-    except Exception:
-        return "utf-8"
-    if raw.startswith(b"\xef\xbb\xbf"): return "utf-8-sig"
-    if raw.startswith(b"\xff\xfe\x00\x00") or raw.startswith(b"\x00\x00\xfe\xff"): return "utf-32"
-    if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"): return "utf-16"
+def _encodage(tete: bytes) -> str:
+    """Encodage d'après la marque d'ordre des octets du début du fichier."""
+    if tete.startswith(b"\xef\xbb\xbf"): return "utf-8-sig"
+    if tete.startswith(b"\xff\xfe\x00\x00") or tete.startswith(b"\x00\x00\xfe\xff"): return "utf-32"
+    if tete.startswith(b"\xff\xfe") or tete.startswith(b"\xfe\xff"): return "utf-16"
     return "utf-8"
+
+
+# ── Accès par l'agent de la sandbox (L4.2) ──────────────────────────────────
+# Les outils ne lisent ni n'écrivent plus eux-mêmes dans le dossier de la
+# sandbox : l'agent du conteneur le fait (``_espace.Espace``). ``p`` (chemin
+# hôte) ne sert plus qu'aux noms et aux chemins affichés.
+
+class _FluxAgent(io.RawIOBase):
+    """Lecture séquentielle d'un fichier de la sandbox par plages : un gros
+    fichier n'est jamais chargé en entier."""
+
+    def __init__(self, esp: Espace, rel: str) -> None:
+        self._esp, self._rel, self._pos = esp, rel, 0
+
+    def readable(self) -> bool:
+        return True
+
+    def readinto(self, b) -> int:
+        data = self._esp.lire(self._rel, offset=self._pos, length=len(b),
+                              max_bytes=len(b)).data
+        b[:len(data)] = data
+        self._pos += len(data)
+        return len(data)
+
+
+def _flux(esp: Espace, rel: str) -> io.BufferedReader:
+    return io.BufferedReader(_FluxAgent(esp, rel), buffer_size=4 << 20)
+
+
+def _stat_entree(p: Path, base: Path, e: Dict[str, Any]) -> Dict[str, Any]:
+    """Même forme que :func:`_stat`, depuis une entrée ``stat`` de l'agent."""
+    return {"name": p.name, "path": _to_container(p, base),
+            "type": "dir" if e.get("kind") == "dir" else "file",
+            "size": int(e.get("size") or 0),
+            "mtime": int(e.get("mtime_ns") or 0) // 1_000_000_000,
+            "mode": oct(int(e.get("mode") or 0) & 0o777),
+            "rel": rel_under(base, p) if p != base else ""}
+
+
+def _cle_parcours(rel: str, est_dossier: bool) -> List[Tuple[int, str]]:
+    """Ordre du parcours d'avant (``os.fwalk`` trié, de haut en bas) : à
+    chaque niveau les dossiers puis les fichiers, avant le contenu des
+    sous-dossiers. Les tris qui suivent sont stables : à égalité, cet ordre."""
+    parties = rel.split("/")
+    return [(2, x) for x in parties[:-1]] + [(0 if est_dossier else 1, parties[-1])]
+
+
+def _instantane_agent(esp: Espace, sb: Path, rel: str, e: Dict[str, Any],
+                      max_files: int = 200, max_total: int = 32 * 1024 * 1024
+                      ) -> List[Tuple[Path, bytes]]:
+    """[(fichier, octets)] des fichiers ordinaires sous ``rel`` (ou ``rel``
+    lui-même), lus par l'agent en une requête pour l'historique (avant une
+    suppression, après une copie). Borné en nombre et en volume ; au-delà de
+    ``MAX_FILE``, la version est notée sans son contenu."""
+    from shared_infra.sandbox.file_history import MAX_FILE, TOO_BIG
+    out: List[Tuple[Path, bytes]] = []
+    try:
+        if e.get("kind") == "file":
+            fichiers = [(rel, int(e.get("size") or 0))]
+        elif e.get("kind") == "dir":
+            liste = esp.lister(rel, depth=_PROFONDEUR, max_entries=max_files * 4, hidden=True)
+            fichiers = [(x["path"], int(x.get("size") or 0)) for x in liste.entries
+                        if x["kind"] == "file"][:max_files]
+        else:
+            return out
+        petits = [f for f, taille in fichiers if taille <= MAX_FILE]
+        lus = esp.lire_plusieurs(petits, max_file=MAX_FILE, max_total=max_total) if petits else {}
+        for f, taille in fichiers:
+            if taille > MAX_FILE:
+                out.append((sb / f, TOO_BIG))
+            elif lus.get(f) is not None:            # au-delà de max_total : non relu
+                out.append((sb / f, lus[f]))
+    except AgentError:
+        pass
+    return out
+
+
+def _lire_lots(esp: Espace, chemins: List[str], max_fichier: int,
+               budget: int = 32 * 1024 * 1024) -> Iterator[Tuple[str, Optional[bytes]]]:
+    """(chemin, octets ou ``None``) de chaque fichier, dans l'ordre, par
+    requêtes groupées d'au plus ``budget`` octets."""
+    max_fichier = min(max_fichier, budget)
+    i = 0
+    while i < len(chemins):
+        lot = chemins[i:i + 1000]
+        lus = esp.lire_plusieurs(lot, max_file=max_fichier, max_total=budget)
+        n = 0
+        for c in lot:
+            if c not in lus:
+                break                               # hors budget : requête suivante
+            yield c, lus[c]
+            n += 1
+        if n == 0:
+            raise AgentError("bad_response", "lecture groupée sans progrès")
+        i += n
+
+
+_ERREURS_AGENT = {
+    "not_found": ("not_found", "Check the path."),
+    "is_dir": ("is_directory", "Use list_files for directories."),
+    "not_file": ("not_a_regular_file", "FIFOs, sockets and device files are not read."),
+    "outside_root": ("outside_sandbox", "A symlink on this path leaves /work."),
+    "bad_path": ("bad_path", "Use a path relative to /work."),
+    "denied": ("permission_denied", "The sandbox user cannot access this path."),
+    "read_only": ("permission_denied", "Read-only location."),
+    "no_space": ("no_space", "The sandbox disk is full."),
+    "too_large": ("too_large", "Read a range (offset/length, head, tail) instead."),
+    "timeout": ("timeout", "The sandbox took too long to answer: narrow the request "
+                "(path, pattern) and retry."),
+    "inside": ("dest_inside_source", "Cannot copy or move a directory into itself."),
+}
+
+
+# Contenu relu avant de remplacer un fichier (au-delà : TOO_BIG, empreinte
+# calculée par l'agent) ; empreinte calculée par l'agent jusqu'à _HASH_MAX
+# (au-delà : précondition sur le mtime).
+_CONTENU_MAX = 64 * 1024 * 1024
+_HASH_MAX = 1 << 30
+
+
+def _actuel(esp: Espace, rel: str, e: Optional[Dict[str, Any]] = None,
+            max_contenu: Optional[int] = None) -> Tuple[Dict[str, Any], Optional[bytes], str]:
+    """(entrée ``stat``, contenu, sha256) du fichier ``rel`` avant de le
+    remplacer. Absent, ou lien pendant sous /work (l'écriture crée sa
+    cible) : ``(e, None, "")``. Au-delà de ``max_contenu`` octets, le contenu
+    n'est pas relu (``TOO_BIG``). Un dossier, un fichier spécial ou un lien
+    qui sort de /work lève ``AgentError``."""
+    from shared_infra.sandbox.file_history import TOO_BIG
+    max_contenu = _CONTENU_MAX if max_contenu is None else max_contenu
+    e = e if e is not None else esp.stat(rel)
+    if e["kind"] == "missing" or (e["kind"] == "link" and not e.get("outside")):
+        return e, None, ""
+    if e["kind"] != "file":
+        code = "is_dir" if e["kind"] == "dir" else "outside_root" if e.get("outside") else "not_file"
+        raise AgentError(code, str(e["kind"]))
+    if int(e.get("size") or 0) > max_contenu:
+        h = esp.stat(rel, hash=True, hash_max=_HASH_MAX)
+        return h, TOO_BIG, str(h.get("sha256") or "")
+    data = esp.lire(rel, max_bytes=max_contenu).data
+    return e, data, _sha256_bytes(data)
+
+
+def _mode_ecrit(e: Dict[str, Any]) -> Optional[str]:
+    """Mode d'une écriture : celui du fichier remplacé (bits x gardés, E18) ;
+    ``None`` : défaut de l'agent (0644)."""
+    return format(int(e.get("mode") or 0) & 0o777, "o") if e.get("kind") == "file" else None
+
+
+def _ecrire_garde(esp: Espace, username: str, sb: Path, p: Path, rel: str, data: bytes, *,
+                  etat: Tuple[Dict[str, Any], Optional[bytes], str], expected_sha256: str = "",
+                  strict: bool = False) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Remplace ``rel`` par ``data`` par l'agent : ``(réponse, None)`` ou
+    ``(None, _err)``.
+
+    ``etat`` (cf. :func:`_actuel`) : le fichier tel que l'appelant l'a lu
+    (contenu ``None`` / sha ``""`` : absent). L'agent vérifie AU REMPLACEMENT que le fichier est toujours
+    celui-là : ``strict`` (la nouvelle version est calculée depuis ``base`` :
+    édition, ajout) → ``concurrent_modification`` ; sinon (écrasement) le
+    fichier est relu puis l'écriture réessayée — le dernier écrivain gagne,
+    comme avant. ``expected_sha256`` (verrou optimiste du modèle) : comparé au
+    contenu actuel s'il existe. Sous le verrou de fichier partagé avec
+    l'éditeur (E7) ; historique noté avec le contenu remplacé."""
+    from shared_infra.sandbox.file_history import MAX_FILE, TOO_BIG
+    e_actuel, base, base_sha = etat
+    with _optimistic_write_lock(p, True):
+        for _essai in range(3):
+            if expected_sha256 and base_sha and base_sha != expected_sha256:
+                return None, _err("hash_mismatch",
+                                  hint="File changed since read (concurrent write). Re-read then retry.",
+                                  expected=expected_sha256, actual=base_sha)
+            condition: Dict[str, Any] = (
+                {"if_absent": True} if base is None else {"if_sha256": base_sha} if base_sha
+                else {"if_mtime_ns": int(e_actuel.get("mtime_ns") or 0)})   # trop gros pour être haché
+            try:
+                r = esp.ecrire(rel, data, parents=True, mode=_mode_ecrit(e_actuel), **condition)
+            except AgentError as e:
+                if e.code not in ("changed", "exists"):
+                    raise
+                if strict:
+                    return None, _err(
+                        "concurrent_modification",
+                        hint=("The file changed while this edit was being computed "
+                              "(editor save, shell or another agent). Nothing was "
+                              "written: re-read the file then retry."),
+                        expected=base_sha, actual=str(e.data.get("sha256") or ""))
+                e_actuel, base, base_sha = _actuel(esp, rel)   # écrasement : on repart du fichier actuel
+                continue
+            avant = base if base is None or len(base) <= MAX_FILE else TOO_BIG
+            _history_record(username, sb, p, avant, data)
+            return r, None
+    return None, _err("concurrent_modification", hint="The file kept changing; retry.",
+                      expected=base_sha)
+
+
+_PROFONDEUR = 4096                   # « sans limite » : l'agent borne à PATH_MAX
+_GREP_LOT = 5000                     # chemins par requête : corps JSON borné par l'agent
+
+
+def _grep_lots(esp: Espace, chemins: List[str], aiguille: str, *, max_hits: int,
+               **kw: Any) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """``esp.grep`` par lots de chemins ; même résultat et même bilan qu'un
+    seul appel."""
+    trouves: List[Dict[str, Any]] = []
+    bilan: Dict[str, Any] = {"hits_truncated": False, "skipped_large": 0, "skipped_binary": 0}
+    for i in range(0, len(chemins), _GREP_LOT):
+        t, b = esp.grep(chemins[i:i + _GREP_LOT], aiguille, max_hits=max_hits - len(trouves), **kw)
+        trouves += t
+        bilan["skipped_large"] += int(b.get("skipped_large") or 0)
+        bilan["skipped_binary"] += int(b.get("skipped_binary") or 0)
+        if b.get("hits_truncated") or len(trouves) >= max_hits:
+            bilan["hits_truncated"] = bool(b.get("hits_truncated"))
+            break
+    return trouves, bilan
+
+
+def _sauvegarde(esp: Espace, rel: str) -> Optional[Dict[str, Any]]:
+    """``<rel>.bak`` : copie du contenu actuel (un lien : sa cible), droits
+    compris ; ``_err`` si un dossier porte ce nom (l'agent ne le remplace
+    jamais)."""
+    try:
+        esp.fsop("copy", src=rel, dst=rel + ".bak", overwrite=True, follow=True)
+    except AgentError as e:
+        if e.code == "is_dir":
+            return _err("backup_is_directory",
+                        hint=f"{to_container(rel + '.bak')} is a directory: rename it or "
+                             "pass backup=False. Nothing was written.")
+        raise
+    return None
+
+
+def _err_agent(e: AgentError, p: Path, sb: Path) -> Dict[str, Any]:
+    """Refus de l'agent → enveloppe d'erreur de l'outil."""
+    code, hint = _ERREURS_AGENT.get(e.code, (None, ""))
+    if code is None:
+        if e.code in ("agent_unavailable", "container_down", "transport", "bad_response"):
+            return _err("sandbox_unavailable", hint="The sandbox container could not be "
+                        "reached; retry in a moment.", detail=e.message[:200])
+        code, hint = e.code, e.message[:200]
+    return _err(code, hint=hint, path=_to_container(p, sb))
 
 
 # Garde-fou ReDoS : le module ``regex`` (timeout) n'est pas dispo, et un thread ne
@@ -447,269 +558,10 @@ def _check_regex_safe(pattern: str) -> None:
     if _REDOS_NESTED.search(pattern):
         raise re.error("motif à risque de backtracking catastrophique (quantificateur imbriqué)")
 
-def _stat(p: Path, base: Path = None) -> Dict[str, Any]:
-    st = p.stat()
-    d = {
-        "name": p.name,
-        # Container view (/work/...) when we know the sandbox base, so the
-        # path is reusable as-is in the agent's next tool call; host string
-        # only as a defensive fallback when base is unknown.
-        "path": _to_container(p, base) if base else str(p),
-        "type": "dir" if p.is_dir() else ("symlink" if p.is_symlink() else "file"),
-        "size": st.st_size,
-        "mtime": int(st.st_mtime),
-        "mode": oct(st.st_mode & 0o777),
-    }
-    if base:
-        try: d["rel"] = p.relative_to(base).as_posix()
-        except Exception: pass
-    return d
-
-def _chmod_cross_writable(p: Path, is_dir: bool = False) -> None:
-    """Best-effort chmod so both the host process and the per-user docker
-    container (UID 10001 by default) can read AND write the file.
-
-    The host process and the container share the same /work bind-mount but
-    typically run under different UIDs. Default umask on either side
-    creates files at 0644 / dirs at 0755 — readable from the other side,
-    but NOT writable. The fix is to widen to 0666 / 0777 after each host
-    write. Container-side writes get their own treatment via the umask
-    wrapper in _user_sandbox.exec().
-
-    Failures are swallowed (the file may already be locked by another
-    process, the FS may not support chmod, etc.) — the write itself
-    already succeeded; widening perms is only an optimisation for the
-    next cross-process touch.
-
-    Step 4 gate: a no-op when fs writes are agent-backed — a single UID
-    owns /work then, so there is nothing to widen across.
-    """
-    if use_agent("fs.write"):
-        return
-    try:
-        # SÉCURITÉ : ``os.chmod`` DÉRÉFÉRENCE les symlinks (Linux n'a pas de
-        # ``lchmod``), et cette fonction est appelée sur des enfants de
-        # ``rglob``/``copytree(symlinks=True)`` — donc sur des liens que
-        # l'utilisateur contrôle. Sans ce test, ``ln -s /chemin/hote x`` puis
-        # une copie faisait passer la cible HORS sandbox en 0666/0777.
-        if os.path.islink(p):
-            return
-        # Audit éditeur 2026-09-23 (E18) : on ÉLARGIT le mode existant au
-        # lieu de le forcer — un script 0755 garde ses bits x (0777), sinon
-        # ``run.sh`` réécrit par l'agent ne se lançait plus et git voyait un
-        # changement de mode. setuid/setgid/sticky sont retirés au passage.
-        cur = os.stat(p).st_mode & 0o777
-        new = cur | (0o777 if is_dir else 0o666)
-        if new != cur or (os.stat(p).st_mode & 0o7000):
-            os.chmod(p, new)
-    except OSError:
-        pass
-
-
-def _existing_file_mode(p: Path) -> Optional[int]:
-    """Bits de permission (0o777) du fichier régulier ``p`` s'il existe."""
-    try:
-        st = os.stat(p)
-        import stat as _stat
-        if _stat.S_ISREG(st.st_mode):
-            return st.st_mode & 0o777
-    except OSError:
-        pass
-    return None
-
-
-def _apply_mode(tmp: Path, mode: Optional[int]) -> None:
-    """Reporte le mode de l'ancien fichier sur le temporaire AVANT le rename
-    (E18) : le remplacement atomique crée un NOUVEL inode, au mode du umask."""
-    if mode is None:
-        return
-    try:
-        os.chmod(tmp, mode)
-    except OSError:
-        pass
-
-
 def _executable_mode(cur: int) -> int:
-    """Target mode for the ``chmod`` action: make the path executable and —
-    unless fs writes are agent-backed (a single UID owns /work) — cross-UID
-    runnable/writable.
-
-    Host (UID 1000) and the per-user container (UID 10001) share NO group, so
-    owner-only ``+x`` would leave a script the model just made executable
-    un-runnable by the OTHER side. We therefore bridge via the "other" class:
-    ``+x`` for all (0o111) and ``o+rw`` (0o666) so whichever UID runs or edits
-    it can — same rationale as umask 0000 / :func:`_chmod_cross_writable`. In
-    the agent-backed single-UID model, owner ``+x`` (0o100) is enough."""
-    if use_agent("fs.write"):
-        return cur | 0o100
-    return cur | 0o111 | 0o666
-
-
-def _tmp_sibling(p: Path) -> Path:
-    """Chemin temporaire UNIQUE, voisin de ``p`` (même FS ⇒ rename atomique).
-
-    AUDIT 2026-08-01 (M2) — le temporaire était ``p.suffix + ".tmp"``, donc
-    DÉTERMINISTE : deux écrivains du même fichier (l'agent et son sous-agent
-    ``task``, ou deux workers) se le partageaient. Combiné à un ``finally`` qui
-    supprimait le ``.tmp`` même après un ``replace`` RÉUSSI, la séquence
-    « A replace → B crée son tmp → le finally de A le supprime → le replace de
-    B lève FileNotFoundError » faisait perdre silencieusement l'écriture de B.
-    Le verrou ne rattrapait rien : il n'est armé que si ``expected_sha256`` est
-    fourni (cf. ``_guarded_write``) et reste fail-open après 2 s.
-    """
-    return p.with_name(f"{_name_prefix_bytes(p.name, 200)}.{os.getpid()}."
-                       f"{uuid.uuid4().hex[:8]}.tmp")
-
-
-def _name_prefix_bytes(name: str, limit: int) -> str:
-    """Préfixe de ``name`` d'au plus ``limit`` OCTETS UTF-8, coupé sur un
-    caractère entier. AUDIT 2026-09-26 — le temporaire reprenait le nom
-    ENTIER + ~20 octets : au-delà de ~235 octets (nom légal, ex. CJK),
-    ``ENAMETOOLONG`` — écriture et édition impossibles sur ce fichier."""
-    b = name.encode("utf-8", errors="surrogateescape")
-    if len(b) <= limit:
-        return name
-    return b[:limit].decode("utf-8", errors="ignore")
-
-
-def _open_tmp_exclusive(tmp: Path) -> int:
-    """Crée le temporaire d'une écriture atomique : EXCLUSIF et sans suivre
-    de lien (AUDIT 2026-09-25). ``open("w")`` suivait un lien qui aurait
-    occupé ce nom ; le nom est aléatoire, mais rien ne coûte de le garantir."""
-    return os.open(str(tmp),
-                   os.O_WRONLY | os.O_CREAT | os.O_EXCL
-                   | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0),
-                   0o666)
-
-
-def _cross_file_mode() -> int:
-    """Mode d'un fichier créé par l'hôte dans le bac à sable : réécrivable par
-    l'UID du conteneur (cf. ``_chmod_cross_writable``), sauf écritures
-    déléguées à l'agent (un seul UID)."""
-    return 0o644 if use_agent("fs.write") else 0o666
-
-
-def _symlink_leaf(path: str, sb: Path) -> Optional[Path]:
-    """Chemin NON résolu de ``path`` quand sa DERNIÈRE composante est un lien
-    symbolique (dossier parent validé dans le bac à sable) ; sinon None.
-
-    AUDIT 2026-09-25 — ``_safe_path`` résout les liens : ``delete`` et
-    ``move`` agissaient donc sur la CIBLE du lien (``rmtree`` d'un dossier
-    réel pour « supprimer un raccourci »), et un lien pointant hors du bac à
-    sable ne pouvait même pas être supprimé. Un lien se supprime et se
-    déplace lui-même."""
-    try:
-        from shared_infra.sandbox.paths import strip_work_prefix
-        raw = strip_work_prefix(unquote(path)).rstrip("/")
-        if not raw or raw in (".", "~"):
-            return None
-        parent, _, leaf = raw.rpartition("/")
-        if leaf in ("", ".", ".."):
-            return None
-        par = resolve_under(sb, parent or ".", allow_root=True).host
-        cand = par / leaf
-        return cand if os.path.islink(cand) else None
-    except Exception:                                           # noqa: BLE001
-        return None
-
-
-def _backup_copy(p: Path, sb: Path) -> None:
-    """Copie de sauvegarde ``<fichier>.bak`` (option ``backup`` de write_file).
-
-    AUDIT 2026-09-25 — c'était ``shutil.copyfile(p, p.with_suffix(...))`` :
-    le chemin ``.bak``, DÉRIVÉ, n'était jamais validé, et ``copyfile`` suit un
-    lien symbolique à la destination. Un lien posé à ce nom dans le bac à
-    sable envoyait donc l'écriture HORS du bac à sable. Écriture par
-    ``write_beneath`` : aucun lien suivi, un lien existant est remplacé."""
-    from shared_infra.sandbox.paths import write_beneath
-    root = Path(sb).resolve()
-    rel = p.relative_to(root).as_posix() + ".bak"
-    # Données seules, comme copyfile : pas de report du mode d'origine
-    # (pas de bit setuid/setgid recopié sur la sauvegarde).
-    with open(p, "rb") as src:
-        write_beneath(root, rel, src, default_mode=_cross_file_mode())
-
-
-def _atomic_write(p: Path, content: str, enc: str = "utf-8",
-                  sb: Optional[Path] = None):
-    # Racine connue : même chemin sûr que ``_atomic_write_bytes`` (AUDIT
-    # 2026-09-26 — dossier parent remplacé par un lien après validation).
-    # Texte écrit tel quel (``newline=""``), encodé comme la voie texte.
-    if sb is not None:
-        _atomic_write_bytes(p, content.encode(enc, errors="replace"), sb)
-        return
-    _ensure_parent(p)
-    tmp = _tmp_sibling(p)
-    replaced = False
-    _mode = _existing_file_mode(p)          # E18 : mode d'origine conservé
-    try:
-        with os.fdopen(_open_tmp_exclusive(tmp), "w", encoding=enc,
-                       errors="replace", newline="") as f:
-            f.write(content)
-            f.flush()
-            try: os.fsync(f.fileno())
-            except OSError: pass
-        _apply_mode(tmp, _mode)
-        tmp.replace(p)
-        replaced = True
-        # Widen perms so the container's UID 10001 can also write this
-        # file later via execute_shell (e.g. `echo "log" >> file.log`).
-        _chmod_cross_writable(p, is_dir=False)
-    finally:
-        # Ne nettoyer QUE si le rename n'a pas eu lieu : après un replace
-        # réussi, ce chemin n'est plus le nôtre.
-        if not replaced and tmp.exists():
-            try: tmp.unlink()
-            except Exception: pass
-
-def _atomic_write_bytes(p: Path, data: bytes, sb: Optional[Path] = None):
-    # AUDIT 2026-09-26 — racine connue : écriture par ``write_beneath``
-    # (dossiers ouverts composant par composant, O_NOFOLLOW). Le chemin
-    # ``p`` a été validé AVANT l'écriture ; un dossier parent remplacé
-    # entre-temps par un lien (commande concurrente dans le conteneur)
-    # envoyait le temporaire et le ``rename`` hors du bac à sable.
-    if sb is not None:
-        try:
-            _root = Path(sb).resolve()
-            _rel = p.relative_to(_root).as_posix()
-        except ValueError:
-            _rel = None
-        if _rel:
-            from shared_infra.sandbox.paths import write_beneath
-            try:
-                _st = os.lstat(p)
-                import stat as _stat_mod
-                _cur = (_st.st_mode & 0o777) if _stat_mod.S_ISREG(_st.st_mode) else None
-            except OSError:
-                _cur = None
-            if use_agent("fs.write"):
-                _fm = _cur                      # mode conservé, sinon défaut
-            else:
-                # Même élargissement que ``_chmod_cross_writable`` (E18) :
-                # bits d'origine conservés (x compris), rw pour tous.
-                _fm = ((_cur if _cur is not None else 0o644) | 0o666) & 0o777
-            write_beneath(_root, _rel, data, file_mode=_fm,
-                          default_mode=_cross_file_mode(),
-                          dir_mode=(None if use_agent("fs.write") else 0o777))
-            return
-    _ensure_parent(p)
-    tmp = _tmp_sibling(p)
-    replaced = False
-    _mode = _existing_file_mode(p)          # E18 : mode d'origine conservé
-    try:
-        with os.fdopen(_open_tmp_exclusive(tmp), "wb") as f:
-            f.write(data)
-            f.flush()
-            try: os.fsync(f.fileno())
-            except OSError: pass
-        _apply_mode(tmp, _mode)
-        tmp.replace(p)
-        replaced = True
-        _chmod_cross_writable(p, is_dir=False)
-    finally:
-        if not replaced and tmp.exists():
-            try: tmp.unlink()
-            except Exception: pass
+    """Target mode for the ``chmod`` action: ``chmod +x`` under umask 022 —
+    executable for all, write bits unchanged (a single UID owns /work)."""
+    return cur | 0o111
 
 
 # ── Verrou optimiste cross-worker (AUDIT 2026-06) ─────────────────────────
@@ -756,81 +608,6 @@ def _optimistic_write_lock(p: Path, enabled: bool = True, timeout_s: float = 3.0
         yield got
 
 
-def _guarded_write(p: Path, expected_sha256: str, write_fn, *,
-                   base_sha: Optional[str] = None, history=None):
-    """Écrit SOUS le verrou de fichier partagé (toujours, E7), après avoir
-    re-vérifié les préconditions :
-
-    - ``expected_sha256`` (verrou optimiste demandé par le modèle) ;
-    - ``base_sha`` : hash du contenu à partir duquel la nouvelle version a
-      été CALCULÉE (edit_file, append). S'il a changé depuis la lecture
-      (enregistrement de l'éditeur, shell, autre agent), on refuse au lieu
-      d'écraser ce changement.
-
-    ``history`` : ``callable(before_bytes)`` appelé après une écriture
-    réussie, avec le contenu lu SOUS le verrou juste avant l'écriture.
-    Retourne un ``_err`` en cas de mismatch, ``None`` si l'écriture a eu lieu.
-    """
-    before = None
-    with _optimistic_write_lock(p, True):
-        exists = p.exists() and p.is_file()
-        cur = None
-        if expected_sha256 and exists:
-            cur = _sha256_of_file(p)
-            if cur != expected_sha256:
-                return _err("hash_mismatch",
-                            hint="File changed since read (concurrent write). Re-read then retry.",
-                            expected=expected_sha256, actual=cur)
-        if base_sha is not None:
-            now = (cur if cur is not None else _sha256_of_file(p)) if exists else ""
-            if now != base_sha:
-                return _err("concurrent_modification",
-                            hint=("The file changed while this edit was being computed "
-                                  "(editor save, shell or another agent). Nothing was "
-                                  "written: re-read the file then retry."),
-                            expected=base_sha, actual=now)
-        if history is not None:
-            try:
-                from shared_infra.sandbox.file_history import read_before
-                before = read_before(p)
-            except Exception:
-                before = None
-        write_fn()
-    if history is not None:
-        try:
-            history(before)
-        except Exception:
-            pass
-    return None
-
-def _guarded_write_healing(username: str, sb_root: Path, p: Path,
-                           expected_sha256: str, write_fn, **kw):
-    """``_guarded_write`` + auto-réparation des permissions croisées.
-
-    Un sous-arbre créé CÔTÉ CONTENEUR avec des modes restrictifs (``git
-    clone`` tapé dans un terminal antérieur au wrapper umask 0000, ``tar -x``
-    qui préserve les modes de l'archive…) appartient à l'UID 10001 : le
-    process hôte n'est ni owner ni groupe → ``PermissionError`` sur l'écriture
-    (et l'hôte ne peut pas chmod ce qu'il ne possède pas). On répare via un
-    ``chmod -R o+rwX`` root DANS le conteneur (bridge), puis retry UNE fois.
-    Si la réparation échoue, l'erreur d'origine remonte telle quelle.
-    """
-    try:
-        return _guarded_write(p, expected_sha256, write_fn, **kw)
-    except PermissionError:
-        try:
-            rel = str(p.resolve().relative_to(Path(sb_root).resolve()))
-        except Exception:
-            rel = None
-        if rel is None:
-            raise               # hors racine sandbox → erreur d'origine telle quelle
-        from ._exec_bridge import repair_work_perms
-        if not repair_work_perms(username=username, sandbox_root=Path(sb_root),
-                                 rel_path=rel):
-            raise
-        return _guarded_write(p, expected_sha256, write_fn, **kw)
-
-
 # ── Historique de session des fichiers modifiés (2026-09-23) ──────────────
 # Chaque écriture / suppression / déplacement réussi de l'assistant est noté
 # dans ``shared_infra.sandbox.file_history`` (original + chaque version), pour
@@ -869,7 +646,7 @@ def _history_rel(p: Path, sb: Path) -> Optional[str]:
 
 
 def _history_writer(username: str, sb: Path, p: Path, after: Optional[bytes]):
-    """``callable(before)`` pour ``_guarded_write(history=…)``, ou ``None``
+    """``callable(before)`` qui note l'écriture dans l'historique, ou ``None``
     si le compte ou le chemin ne sont pas résolus."""
     uid = _history_uid(username)
     rel = _history_rel(p, sb) if uid is not None else None
@@ -894,38 +671,6 @@ def _history_record(username: str, sb: Path, p: Path,
             rec(before)
         except Exception:
             pass
-
-
-def _snapshot_tree(p: Path, max_files: int = 200, max_total: int = 32 * 1024 * 1024):
-    """[(fichier, octets)] des fichiers réguliers sous ``p`` (ou ``p`` lui-même),
-    lus AVANT une suppression pour l'historique. Borné (nombre et volume) :
-    au-delà, les fichiers ne sont simplement pas historisés."""
-    out = []
-    try:
-        from shared_infra.sandbox.file_history import read_before
-        if p.is_file() and not p.is_symlink():
-            files = [p]
-        elif p.is_dir() and not p.is_symlink():
-            files = []
-            for f in p.rglob("*"):
-                if len(files) >= max_files:
-                    break
-                if f.is_file() and not f.is_symlink():
-                    files.append(f)
-        else:
-            files = []
-        total = 0
-        for f in files:
-            b = read_before(f)
-            if b is None:
-                continue
-            total += len(b)
-            if total > max_total:
-                break
-            out.append((f, b))
-    except Exception:
-        pass
-    return out
 
 
 @contextlib.contextmanager
@@ -983,7 +728,7 @@ def _format_lines(lines: List[str], start: int, with_numbers: bool) -> str:
 _STREAM_READ_OVER = 16 * 1024 * 1024
 
 
-def _read_large_text(p: Path, info: Dict[str, Any], *, enc: str, head: int,
+def _read_large_text(ouvrir, info: Dict[str, Any], *, enc: str, head: int,
                      tail: int, start_line: int, end_line: int, grep: str,
                      grep_context: int, ignore_case: bool,
                      with_line_numbers: bool, max_chars: int) -> Dict[str, Any]:
@@ -993,8 +738,8 @@ def _read_large_text(p: Path, info: Dict[str, Any], *, enc: str, head: int,
     Numérotation au saut de ligne ``\\n`` (celle de ``grep -n`` et des
     éditeurs). Modes : head, tail, plage start/end, grep (+contexte), et par
     défaut un aperçu tête + queue."""
-    from collections import deque
     import hashlib as _hl
+    from collections import deque
     info = dict(info)
     info["streamed"] = True
     # Empreinte et nombre de lignes en UNE passe (AUDIT 2026-09-26 : deux
@@ -1002,7 +747,7 @@ def _read_large_text(p: Path, info: Dict[str, Any], *, enc: str, head: int,
     total = 0
     last = b""
     _h = _hl.sha256()
-    with open(p, "rb") as fb:
+    with ouvrir() as fb:
         for block in iter(lambda: fb.read(1 << 20), b""):
             _h.update(block)
             total += block.count(b"\n")
@@ -1023,7 +768,7 @@ def _read_large_text(p: Path, info: Dict[str, Any], *, enc: str, head: int,
         ``\r`` isolé — barres de progression pip/tqdm/docker — et décalait
         tous les numéros suivants). Ligne trop longue : coupée au plafond,
         le reste est sauté et signalé."""
-        with open(p, "rb") as fb:
+        with ouvrir() as fb:
             i = 0
             while True:
                 raw = fb.readline(_line_cap)
@@ -1247,11 +992,12 @@ def _parse_since(value: str) -> Optional[float]:
     return None
 
 
-def _git_status_map(root: Path) -> Dict[str, str]:
-    """Run `git status --porcelain=v1` from inside `root`, return a map
-    of paths RELATIVE TO ``root`` → 2-char status code (' M', '??', 'A ').
-    Returns {} if not a git repo or git unavailable.
-    Bounded at 500ms timeout — never blocks list_files materially.
+def _git_status_map(esp: Espace, sb: Path, root: Path) -> Tuple[Dict[str, str], Optional[str]]:
+    """Run `git status --porcelain=v1` from inside `root`: ``(map, None)``,
+    the map going from paths RELATIVE TO ``root`` to the 2-char status code
+    (' M', '??', 'A '), or ``({}, reason)`` when no status could be read (not
+    a repository, git unavailable or too slow) — an empty map alone would
+    read as a clean tree. Bounded (2 s per git call).
 
     AUDIT 2026-08-23 — RÉ-ANCRAGE sur le dossier listé. Le format porcelain
     émet TOUJOURS des chemins relatifs à la RACINE DU DÉPÔT, jamais au cwd
@@ -1259,45 +1005,45 @@ def _git_status_map(root: Path) -> Dict[str, str]:
     indexent avec ``c.relative_to(root)`` — le dossier LISTÉ. Dès que ``root``
     n'était pas la racine du dépôt (le cas nominal : lister un sous-dossier de
     code), aucune clé ne pouvait correspondre : l'annotation disparaissait en
-    silence et la map ressortait vide. L'agent en concluait que ``src/`` était
-    propre, donc que ses modifications n'avaient pas été enregistrées, et les
-    réappliquait. On retire donc le préfixe rendu par ``git rev-parse
-    --show-prefix`` (aucun second processus : ``-C`` groupe les deux).
+    silence et la map ressortait vide. On retire donc le préfixe rendu par
+    ``git rev-parse --show-prefix``.
+
+    L4.4 — git tourne dans la sandbox, par son agent (``Espace.git``).
     """
+    rel = rel_under(sb, root)
+    rel = "" if rel == "." else rel
+
+    def _why(r) -> str:
+        if r.timed_out:
+            return "git status timed out"
+        lines = (r.stderr or "").strip().splitlines()
+        return (lines[-1] if lines else f"git exited with {r.returncode}")[:200]
     try:
-        _prefix = ""
-        _pp = subprocess.run(
-            ["git", "rev-parse", "--show-prefix"],
-            cwd=str(root), capture_output=True, text=True,
-            timeout=0.5, check=False,
-        )
-        if _pp.returncode == 0:
-            _prefix = (_pp.stdout or "").strip()
-        proc = subprocess.run(
-            ["git", "status", "--porcelain=v1"],
-            cwd=str(root), capture_output=True, text=True,
-            timeout=0.5, check=False,
-        )
+        pp = esp.git(rel, ["rev-parse", "--show-prefix"], timeout_s=2, max_out=1 << 16)
+        if pp.returncode != 0:
+            return {}, _why(pp)
+        _prefix = pp.stdout.strip()
+        proc = esp.git(rel, ["status", "--porcelain=v1"], timeout_s=2, max_out=4 << 20)
         if proc.returncode != 0:
-            return {}
-        out: Dict[str, str] = {}
-        for line in (proc.stdout or "").splitlines():
-            if len(line) < 4:
-                continue
-            code = line[:2]
-            path = line[3:].strip()
-            # Handle renames: "R  old -> new"
-            if " -> " in path:
-                path = path.split(" -> ", 1)[1]
-            # Ré-ancrage : le porcelain parle depuis la racine du dépôt.
-            if _prefix:
-                if not path.startswith(_prefix):
-                    continue          # hors du dossier listé
-                path = path[len(_prefix):]
-            out[path] = code
-        return out
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        return {}
+            return {}, _why(proc)
+    except AgentError as e:
+        return {}, f"git unavailable ({e.code})"
+    out: Dict[str, str] = {}
+    for line in proc.stdout.splitlines():
+        if len(line) < 4:
+            continue
+        code = line[:2]
+        path = line[3:].strip()
+        # Handle renames: "R  old -> new"
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        # Ré-ancrage : le porcelain parle depuis la racine du dépôt.
+        if _prefix:
+            if not path.startswith(_prefix):
+                continue          # hors du dossier listé
+            path = path[len(_prefix):]
+        out[path] = code
+    return out, None
 
 
 # ── Helpers for anchor/indent edits ─────────────────────────────────────────
@@ -1364,18 +1110,24 @@ def _try_format(path: Path, content: str) -> Tuple[str, str]:
     fmt = ""
     try:
         if ext == ".py" and _has_formatter("black"):
+            # Nom seul depuis un cwd neutre : black ne lit ni le
+            # pyproject.toml ni le .gitignore de la sandbox (L4.2).
             r = subprocess.run(
-                ["black", "--quiet", "--stdin-filename", str(path), "-"],
+                ["black", "--quiet", "--stdin-filename", path.name, "-"],
                 input=content, capture_output=True, text=True,
-                timeout=10, check=False,
+                timeout=10, check=False, cwd="/",
             )
             if r.returncode == 0 and r.stdout:
                 return r.stdout, "black"
         elif ext in (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".json", ".md") and _has_formatter("prettier"):
+            # Ni config (``prettier.config.js`` = code exécuté sur l'hôte, et
+            # ses greffons) ni ``.editorconfig`` du bac à sable : seul le nom
+            # sert à choisir l'analyseur, depuis un cwd neutre (2026-09-29).
             r = subprocess.run(
-                ["prettier", "--stdin-filepath", str(path)],
+                ["prettier", "--no-config", "--no-editorconfig",
+                 f"--stdin-filepath={path.name}"],       # « -x.js » n'est pas une option
                 input=content, capture_output=True, text=True,
-                timeout=10, check=False,
+                timeout=10, check=False, cwd="/",
             )
             if r.returncode == 0 and r.stdout:
                 return r.stdout, "prettier"
@@ -1401,7 +1153,6 @@ def _try_format(path: Path, content: str) -> Tuple[str, str]:
 
 
 # ── Symlink-safe write (defense in depth) ───────────────────────────────────
-
 
 
 # ── Core edit engine (shared by edit_file single + multi) ────────────────────
@@ -2031,6 +1782,7 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
         include_outline = False
         try:
             sb = _sandbox(_username)
+            esp = Espace(_username, sb)
             # Coercition « modèle imparfait » : liste JSON-encodée en string.
             line_ranges = as_list(line_ranges) or []
             paths = as_list(paths) or []
@@ -2055,7 +1807,7 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
                         pth, max_chars, start_line, end_line, head, tail,
                         grep, grep_context, ignore_case, with_line_numbers,
                         line_ranges, offset, length, encoding, format,
-                        as_base64, summary, include_outline, sb,
+                        as_base64, summary, include_outline, sb, esp,
                     )
                     files_out[pth] = res
                     if res.get("ok"):
@@ -2073,7 +1825,7 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
                 path, max_chars, start_line, end_line, head, tail,
                 grep, grep_context, ignore_case, with_line_numbers,
                 line_ranges, offset, length, encoding, format,
-                as_base64, summary, include_outline, sb,
+                as_base64, summary, include_outline, sb, esp,
             )
         except ValueError as e:
             return _err(str(e), hint="Verify path & params.")
@@ -2101,63 +1853,76 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
         summary: bool,
         include_outline: bool,
         sb: Path,
+        esp: Espace,
     ) -> Dict[str, Any]:
-        p = _safe_path(path, sb)
-        if not p.exists():
-            return _err("not_found", hint=f"Check path; nearest existing parent: {_to_container(p.parent if p.parent.exists() else sb, sb)}", path=_to_container(p, sb))
-        if p.is_dir():
-            return _err("is_directory", hint="Use list_files for directories.", path=_to_container(p, sb))
-
-        info = _stat(p, sb)
-        info["mime"] = _mime(p)
-        st_size = info["size"]
-        is_text = _is_text(p)
-        info["type"] = "text" if is_text else "binary"
-
-        # ── BINARY ──────────────────────────────────────────────
-        if not is_text and not as_base64:
-            info["sha256"] = _sha256_of_file(p)
-            if offset or length:
-                n = min(length or MAX_FILE_BIN, MAX_FILE_BIN)
-                with p.open("rb") as f:
-                    f.seek(max(0, offset))
-                    data = f.read(n)
-                return _ok(**info, format="bytes_range",
-                           offset=offset, length=len(data),
-                           b64=base64.b64encode(data).decode("ascii"))
-            if st_size <= MAX_FILE_BIN:
-                data = p.read_bytes()
-                return _ok(**info, format="base64",
-                           b64=base64.b64encode(data).decode("ascii"))
-            with p.open("rb") as f:
-                preview = f.read(BIN_PREVIEW_BYTES)
-            return _ok(**info, format="preview",
-                       hint=f"Binary too large ({st_size} B). Use offset/length for range reads.",
-                       preview_bytes=len(preview),
-                       preview_hex=preview.hex(),
-                       preview_b64=base64.b64encode(preview).decode("ascii"))
-
-        # ── TEXT ────────────────────────────────────────────────
-        enc = encoding or _detect_encoding(p)
-        info["encoding"] = enc
-        # AUDIT 2026-09-25 — gros fichier texte : lecture en FLUX (cf.
-        # _read_large_text), jamais chargé en entier.
-        if st_size > _STREAM_READ_OVER:
-            if as_base64 or format or line_ranges:
-                return _err("too_large_for_mode",
-                            hint=(f"File is {st_size} bytes: as_base64/format/line_ranges "
-                                  "need the whole file. Use head, tail, start_line/end_line "
-                                  "or grep (streamed)."), **info)
-            try:
-                return _read_large_text(
-                    p, info, enc=enc, head=head, tail=tail, start_line=start_line,
-                    end_line=end_line, grep=grep, grep_context=grep_context,
-                    ignore_case=ignore_case, with_line_numbers=with_line_numbers,
-                    max_chars=max_chars)
-            except re.error as e:
-                return _err(f"bad_regex: {e}", hint="Escape special chars with \\ .", **info)
+        rel = _rel(sb, path)
+        p = sb / rel if rel else sb
         try:
-            raw = p.read_bytes()
+            e = esp.stat(rel)
+            if e["kind"] == "missing":
+                parent = os.path.dirname(rel)
+                existe = not parent or esp.stat(parent)["kind"] == "dir"
+                return _err("not_found", hint=f"Check path; nearest existing parent: {_to_container(p.parent if existe else sb, sb)}", path=_to_container(p, sb))
+            if e["kind"] == "dir":
+                return _err("is_directory", hint="Use list_files for directories.", path=_to_container(p, sb))
+            if e["kind"] != "file":
+                return _err("not_a_regular_file",
+                            hint="FIFOs, sockets, device files and symlinks leaving /work are not read.",
+                            path=_to_container(p, sb))
+            info = _stat_entree(p, sb, e)
+            info["mime"] = _mime(p)
+            st_size = info["size"]
+            # Jusqu'à _STREAM_READ_OVER : le fichier en un aller-retour ; au-delà,
+            # l'en-tête seul, puis des plages (jamais chargé en entier).
+            raw = esp.lire(rel, max_bytes=_STREAM_READ_OVER).data if st_size <= _STREAM_READ_OVER else None
+            tete = raw[:8192] if raw is not None else esp.lire(rel, length=8192, max_bytes=8192).data
+            is_text = _is_text_bytes(tete)
+            info["type"] = "text" if is_text else "binary"
+
+            # ── BINARY ──────────────────────────────────────────────────
+            if not is_text and not as_base64:
+                info["sha256"] = (_sha256_bytes(raw) if raw is not None
+                                  else esp.stat(rel, hash=True, hash_max=_HASH_MAX).get("sha256", ""))
+                if offset or length:
+                    n = min(length or MAX_FILE_BIN, MAX_FILE_BIN)
+                    debut_b = max(0, offset)
+                    data = (raw[debut_b:debut_b + n] if raw is not None
+                            else esp.lire(rel, offset=debut_b, length=n, max_bytes=n).data)
+                    return _ok(**info, format="bytes_range",
+                               offset=offset, length=len(data),
+                               b64=base64.b64encode(data).decode("ascii"))
+                if raw is not None and len(raw) <= MAX_FILE_BIN:
+                    return _ok(**info, format="base64",
+                               b64=base64.b64encode(raw).decode("ascii"))
+                preview = tete[:BIN_PREVIEW_BYTES]
+                return _ok(**info, format="preview",
+                           hint=f"Binary too large ({st_size} B). Use offset/length for range reads.",
+                           preview_bytes=len(preview),
+                           preview_hex=preview.hex(),
+                           preview_b64=base64.b64encode(preview).decode("ascii"))
+
+            # ── TEXT ────────────────────────────────────────────────────
+            enc = encoding or _encodage(tete)
+            info["encoding"] = enc
+            # AUDIT 2026-09-25 — gros fichier texte : lecture en FLUX (cf.
+            # _read_large_text), jamais chargé en entier.
+            if raw is None:
+                if as_base64 or format or line_ranges:
+                    return _err("too_large_for_mode",
+                                hint=(f"File is {st_size} bytes: as_base64/format/line_ranges "
+                                      "need the whole file. Use head, tail, start_line/end_line "
+                                      "or grep (streamed)."), **info)
+                try:
+                    return _read_large_text(
+                        lambda: _flux(esp, rel), info, enc=enc, head=head, tail=tail,
+                        start_line=start_line, end_line=end_line, grep=grep,
+                        grep_context=grep_context, ignore_case=ignore_case,
+                        with_line_numbers=with_line_numbers, max_chars=max_chars)
+                except re.error as e:
+                    return _err(f"bad_regex: {e}", hint="Escape special chars with \\ .", **info)
+        except AgentError as e:
+            return _err_agent(e, p, sb)
+        try:
             text = raw.decode(enc, errors="replace")
         except Exception as e:
             return _err(f"decode_failed: {e}",
@@ -2411,12 +2176,14 @@ For surgical edits on large files, prefer edit_file."""
         _username = get_username(ctx)
         try:
             sb = _sandbox(_username)
-            p = _safe_path(path, sb)
+            esp = Espace(_username, sb)
+            rel = _rel(sb, path)
+            p = sb / rel if rel else sb
             mode = (mode or "write").strip().lower()
             # Avant toute création : détecte un « jumeau unicode » (nom ne
             # différant que par accents/casse d'un frère existant) sur les
             # composants encore inexistants du chemin. Averti, jamais bloquant.
-            _twin = unicode_twin_warning(p, sb)
+            _twin = esp.jumeau_unicode(rel)
             _twin_kw = {"warning": _twin} if _twin else {}
 
             if mode == "mkdir":
@@ -2427,9 +2194,12 @@ For surgical edits on large files, prefer edit_file."""
                                  "write_file crée de toute façon les dossiers parents.")
 
             # Optimistic lock for existing files
-            old_sha = ""
-            if p.exists() and p.is_file():
-                old_sha = _sha256_of_file(p)
+            _etat = _actuel(esp, rel)
+            _e, old_raw, old_sha = _etat
+            from shared_infra.sandbox.file_history import TOO_BIG as _TOO_BIG
+            _gros = old_raw is _TOO_BIG             # trop gros pour être relu
+            _avant_n = int(_e.get("size") or 0) if old_raw is not None else 0
+            if old_sha:
                 if expected_sha256 and expected_sha256 != old_sha:
                     return _err("hash_mismatch",
                                 hint="File changed since read. Re-read then retry.",
@@ -2447,18 +2217,17 @@ For surgical edits on large files, prefer edit_file."""
                 new_sha = _sha256_bytes(data)
                 if dry_run:
                     return _ok(path=_to_container(p, sb), action="b64_write", dry_run=True,
-                               bytes_before=p.stat().st_size if p.exists() else 0,
+                               bytes_before=_avant_n,
                                bytes_after=len(data), old_sha256=old_sha, new_sha256=new_sha)
-                if backup and p.exists(): _backup_copy(p, sb)  # données seules, sans suivre de lien (AUDIT 2026-09-25)
-                # AUDIT 2026-06 — re-check du sha SOUS flock juste avant
-                # l'écriture (ferme le TOCTOU du check optimiste de tête).
-                # E7 : verrou de fichier partagé avec l'éditeur, toujours.
-                _lock_err = _guarded_write_healing(
-                    _username, sb, p, expected_sha256, lambda: _atomic_write_bytes(p, data, sb),
-                    history=_history_writer(_username, sb, p, data))
+                if backup and old_raw is not None and (_bk := _sauvegarde(esp, rel)):
+                    return _bk
+                # Précondition vérifiée par l'agent au remplacement (ferme le
+                # TOCTOU du contrôle de tête) ; verrou partagé avec l'éditeur.
+                _r, _lock_err = _ecrire_garde(esp, _username, sb, p, rel, data, etat=_etat,
+                                              expected_sha256=expected_sha256)
                 if _lock_err is not None:
                     return _lock_err
-                return _ok(path=_to_container(p, sb), bytes=p.stat().st_size,
+                return _ok(path=_to_container(p, sb), bytes=_r["size"],
                            action="b64_write", old_sha256=old_sha, new_sha256=new_sha,
                            next_expected_sha256=new_sha, **_twin_kw)
 
@@ -2474,8 +2243,6 @@ For surgical edits on large files, prefer edit_file."""
                 return _err("too_large", hint=f"Max {limit} chars. Split into multiple writes or use edit_file.",
                             chars=len(content), max=limit)
 
-            _ensure_parent(p)
-
             _enc_out = encoding          # E16 : "utf-8-sig" si le BOM est conservé
             _conv: Dict[str, Any] = {}   # conventions conservées (bom, line_endings)
             _base_sha: Optional[str] = None   # append : contenu dont on part
@@ -2485,7 +2252,10 @@ For surgical edits on large files, prefer edit_file."""
             # `old`). En mode 'write' sur un fichier existant on le lit ici.
             # Pour un nouveau fichier, old_text reste "" -> stats=(N, 0).
             old_text_for_stats = ""
-            if mode == "append" and p.exists():
+            if mode == "append" and _gros:
+                return _err("too_large", hint="File too large to append in place: use "
+                            "execute_shell (>>) instead. Nothing was written.", bytes=_avant_n)
+            if mode == "append" and old_raw is not None:
                 # AUDIT 2026-08-23 — l'append n'ajoute pas : il RELIT tout,
                 # concatène et RÉÉCRIT le fichier entier. La relecture se
                 # faisait en ``errors="replace"`` : sur un fichier latin-1 /
@@ -2497,7 +2267,7 @@ For surgical edits on large files, prefer edit_file."""
                 # STRICT et on échoue proprement, symétriquement à la garde
                 # d'écriture ci-dessous.
                 try:
-                    old = p.read_bytes().decode(encoding)
+                    old = old_raw.decode(encoding)
                 except (UnicodeDecodeError, LookupError) as _dec_err:
                     _off = getattr(_dec_err, "start", None)
                     return _err(
@@ -2517,12 +2287,12 @@ For surgical edits on large files, prefer edit_file."""
                     _conv["line_endings"] = "crlf"
                 new_content = old + content
                 old_text_for_stats = old
-            elif mode == "write" and p.exists() and p.is_file():
+            elif mode == "write" and old_raw is not None and not _gros:
                 # Audit éditeur 2026-09-23 (E16) : l'écrasement complet
                 # retirait BOM et CRLF (le modèle émet du LF sans BOM), et
                 # réécrivait en UTF-8 un fichier latin-1 dont il n'avait lu
                 # qu'une version « réparée » (U+FFFD).
-                _old_raw = p.read_bytes()
+                _old_raw = old_raw
                 _is_utf8 = encoding.lower().replace("_", "-") in ("utf-8", "utf8")
                 _had_bom = _is_utf8 and _old_raw.startswith(b"\xef\xbb\xbf")
                 try:
@@ -2574,7 +2344,7 @@ For surgical edits on large files, prefer edit_file."""
                 # En dry-run on calcule aussi les stats : utile pour preview.
                 la, lr = _line_diff_stats(old_text_for_stats, new_content)
                 return _ok(path=_to_container(p, sb), action=mode, dry_run=True,
-                           bytes_before=p.stat().st_size if p.exists() else 0,
+                           bytes_before=_avant_n,
                            bytes_after=len(new_bytes),
                            old_sha256=old_sha, new_sha256=new_sha,
                            lines_added=la, lines_removed=lr, **_conv)
@@ -2589,10 +2359,10 @@ For surgical edits on large files, prefer edit_file."""
             # budget d'itérations. `action:"noop"` + `unchanged:true` +
             # une note explicite lui disent clairement de passer à la
             # suite.
-            if mode == "write" and p.exists() and p.is_file() and new_sha == old_sha:
+            if mode == "write" and old_raw is not None and new_sha == old_sha:
                 return _ok(
                     path=_to_container(p, sb), action="noop", unchanged=True,
-                    bytes=p.stat().st_size,
+                    bytes=_avant_n,
                     old_sha256=old_sha, new_sha256=new_sha,
                     next_expected_sha256=new_sha,
                     lines_added=0, lines_removed=0,
@@ -2602,14 +2372,13 @@ For surgical edits on large files, prefer edit_file."""
                           "with the same content: move on to the next step."),
                 )
 
-            if backup and p.exists(): _backup_copy(p, sb)  # données seules, sans suivre de lien (AUDIT 2026-09-25)
-            # AUDIT 2026-06 — re-check du sha SOUS flock (cf. _guarded_write).
-            # E7 : verrou partagé avec l'éditeur, toujours ; en append, le
-            # contenu de départ est re-vérifié sous le verrou (base_sha).
-            _lock_err = _guarded_write_healing(
-                _username, sb, p, expected_sha256, lambda: _atomic_write_bytes(p, new_bytes, sb),
-                base_sha=_base_sha,
-                history=_history_writer(_username, sb, p, new_bytes))
+            if backup and old_raw is not None and (_bk := _sauvegarde(esp, rel)):
+                return _bk
+            # Précondition vérifiée par l'agent au remplacement ; en append, la
+            # nouvelle version est calculée depuis l'ancienne (stricte).
+            _r, _lock_err = _ecrire_garde(esp, _username, sb, p, rel, new_bytes, etat=_etat,
+                                          expected_sha256=expected_sha256,
+                                          strict=_base_sha is not None)
             if _lock_err is not None:
                 return _lock_err
 
@@ -2618,11 +2387,13 @@ For surgical edits on large files, prefer edit_file."""
             # est désactivé (pas de snapshot client-side disponible).
             lines_added, lines_removed = _line_diff_stats(old_text_for_stats, new_content)
 
-            return _ok(path=_to_container(p, sb), bytes=p.stat().st_size, action=mode,
+            return _ok(path=_to_container(p, sb), bytes=_r["size"], action=mode,
                        old_sha256=old_sha, new_sha256=new_sha,
                        next_expected_sha256=new_sha,
                        lines_added=lines_added, lines_removed=lines_removed,
                        **_conv, **_twin_kw)
+        except AgentError as e:
+            return _err_agent(e, p, sb)
         except ValueError as e:
             return _err(str(e))
         except Exception as e:
@@ -2712,15 +2483,19 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
         _username = get_username(ctx)
         try:
             sb = _sandbox(_username)
-            p = _safe_path(path, sb)
-            if not p.exists(): return _err("not_found", path=_to_container(p, sb), hint="Create with write_file first.")
-            if p.is_dir(): return _err("is_directory", path=_to_container(p, sb))
-
-            raw = p.read_bytes()
-            if len(raw) > MAX_EDIT_BYTES:
-                return _err("too_large", size=len(raw), max=MAX_EDIT_BYTES,
+            esp = Espace(_username, sb)
+            rel = _rel(sb, path)
+            p = sb / rel if rel else sb
+            _e = esp.stat(rel)
+            if _e["kind"] == "missing": return _err("not_found", path=_to_container(p, sb), hint="Create with write_file first.")
+            if _e["kind"] == "dir": return _err("is_directory", path=_to_container(p, sb))
+            if int(_e.get("size") or 0) > MAX_EDIT_BYTES:
+                return _err("too_large", size=int(_e["size"]), max=MAX_EDIT_BYTES,
                             hint="Split the edit or use write_file to replace whole file.")
-            old_sha = _sha256_bytes(raw)
+            _etat = _actuel(esp, rel, _e, max_contenu=MAX_EDIT_BYTES)
+            _e, raw, old_sha = _etat
+            if raw is None:
+                return _err("not_found", path=_to_container(p, sb), hint="Create with write_file first.")
             if expected_sha256 and expected_sha256 != old_sha:
                 return _err("hash_mismatch", expected=expected_sha256, actual=old_sha,
                             hint="File changed since read. Re-read then retry.")
@@ -2867,10 +2642,6 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
             if auto_format and not dry_run:
                 new_text, formatter_used = _try_format(p, new_text)
 
-            try:
-                rel = p.relative_to(sb).as_posix()
-            except Exception:
-                rel = p.name
             diff = _make_diff(old_text, new_text, rel)
 
             # ── Restauration des conventions du fichier (CRLF / BOM) ─────
@@ -2915,19 +2686,19 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
                     f"({_lone_lf} lines). The diff above does not show this "
                     f"whole-file end-of-line change.")
             if not dry_run:
-                # AUDIT 2026-06 — re-check du sha SOUS flock (cf. _guarded_write).
+                # AUDIT 2026-06 — sha re-vérifié au remplacement (_ecrire_garde).
                 # ``new_bytes`` : CRLF et BOM d'origine restaurés.
                 # E7 : verrou partagé avec l'éditeur, TOUJOURS, et le contenu
                 # dont l'édition est partie (old_sha) est re-vérifié dessous :
                 # un enregistrement de l'éditeur intervenu entre-temps n'est
                 # plus écrasé.
-                _lock_err = _guarded_write_healing(
-                    _username, sb, p, expected_sha256, lambda: _atomic_write_bytes(p, new_bytes, sb),
-                    base_sha=old_sha,
-                    history=_history_writer(_username, sb, p, new_bytes))
+                _r, _lock_err = _ecrire_garde(esp, _username, sb, p, rel, new_bytes, etat=_etat,
+                                              expected_sha256=expected_sha256, strict=True)
                 if _lock_err is not None:
                     return _lock_err
             return _ok(**result)
+        except AgentError as e:
+            return _err_agent(e, p, sb)
         except ValueError as e:
             return _err(str(e))
         except Exception as e:
@@ -2972,7 +2743,8 @@ Annotation:
     code (e.g. ' M', '??', 'A '). Only adds entries for files actually
     tracked or modified — clean files have no status field. Requires
     `details=True` to be visible (status is added to per-item dicts).
-    No-op if `path` is not inside a git repo.
+    If no status could be read (not a repo, repo refused, git unavailable),
+    `git_status_error` says why: the empty map then means nothing.
 
 Options:
   exclude=['node_modules','.git','*.pyc']  : skip matching paths/names.
@@ -2986,22 +2758,28 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
         _username = get_username(ctx)
         try:
             sb = _sandbox(_username)
-            root = _safe_path(path, sb)
-            if not root.exists(): return _err("not_found", path=_to_container(root, sb))
+            esp = Espace(_username, sb)
+            rel_root = _rel(sb, path)
+            root = sb / rel_root if rel_root else sb
+            e_root = esp.stat(rel_root)
+            if e_root["kind"] == "missing": return _err("not_found", path=_to_container(root, sb))
 
             cap = max(1, min(max_results, MAX_LIST))
 
             # ── path = FICHIER : stat (absorbe l'ex-stat_path) ou grep ────
-            if not root.is_dir():
+            if e_root["kind"] != "dir":
+                if e_root["kind"] != "file":
+                    return _err("not_a_regular_file",
+                                hint="FIFOs, sockets, device files and symlinks leaving /work are not read.")
+                size = int(e_root.get("size") or 0)
+                tete = esp.lire(rel_root, length=8192, max_bytes=8192).data
                 if search_text:
                     needle = search_text.lower() if ignore_case else search_text
-                    try:
-                        if root.stat().st_size > 300_000 or not _is_text(root):
-                            return _err("not_greppable",
-                                        hint="Fichier binaire ou > 300 Ko — utilise read_file(grep=…) ou execute_shell grep.")
-                        data = root.read_text("utf-8", errors="replace")
-                    except (OSError, UnicodeDecodeError) as e:
-                        return _err(f"read_failed: {e}")
+                    if size > 300_000 or not _is_text_bytes(tete):
+                        return _err("not_greppable",
+                                    hint="Fichier binaire ou > 300 Ko — utilise read_file(grep=…) ou execute_shell grep.")
+                    data = esp.lire(rel_root, max_bytes=300_000 + (1 << 16)).data.decode(
+                        "utf-8", errors="replace")
                     hits = []
                     for i, line in enumerate(data.splitlines(), 1):
                         hay = line.lower() if ignore_case else line
@@ -3011,243 +2789,120 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                                 return _ok(action="grep", count=len(hits),
                                            hits=hits, truncated=True)
                     return _ok(action="grep", count=len(hits), hits=hits, truncated=False)
-                info = _stat(root, sb)
+                info = _stat_entree(root, sb, e_root)
                 info["mime"] = _mime(root)
-                _is_txt = _is_text(root)
+                _is_txt = _is_text_bytes(tete)
                 info["content_type"] = "text" if _is_txt else "binary"
                 if _is_txt:
-                    info["encoding"] = _detect_encoding(root)
-                if details and root.stat().st_size <= 10_000_000:
-                    info["sha256"] = _sha256_of_file(root)
+                    info["encoding"] = _encodage(tete)
+                if details and size <= 10_000_000:
+                    info["sha256"] = esp.stat(rel_root, hash=True, hash_max=10_000_000).get("sha256", "")
                 return _ok(action="stat", **info)
             # AUDIT AGENTS 2026-08-08 (mesuré en direct) — sans ``exclude``, un
             # ``include_hidden=True`` ramenait 500 chemins de
             # ``.venv/lib/pythonX/site-packages/...`` : +9 000 tokens de contexte
-            # en UN appel, pour zéro information utile. Comme le contexte est
-            # renvoyé au modèle à CHAQUE itération, ce seul appel a plus que
-            # doublé le coût de la mission.
-            #
-            # On applique donc un socle d'exclusions de dossiers de DÉPENDANCES
-            # quand l'appelant n'a rien précisé — et on le DIT dans la réponse
-            # (``excluded_default``), pour qu'aucune omission ne soit silencieuse :
-            # le modèle voit ce qui a été écarté et peut relancer avec
-            # ``exclude=[]`` s'il veut vraiment tout voir.
-            # ``.git`` n'y figure PAS : c'est un dossier légitimement inspecté,
-            # et il est déjà masqué par le défaut ``include_hidden=False``.
+            # en UN appel, pour zéro information utile. On applique donc un
+            # socle d'exclusions de dossiers de DÉPENDANCES quand l'appelant n'a
+            # rien précisé — et on le DIT dans la réponse (``excluded_default``).
+            # ``.git`` n'y figure PAS : il est déjà masqué par le défaut
+            # ``include_hidden=False``.
             _default_excl = not [e for e in (exclude or []) if e]
             exclude_pats = ([e for e in (exclude or []) if e]
                             or list(DEFAULT_DEP_EXCLUDES))
-
-            def _excluded(rel: str, name: str) -> bool:
-                if not include_hidden and (name.startswith(".") or any(part.startswith(".") for part in rel.split("/"))):
-                    return True
-                # BUG 2026-08-08 — le motif n'était confronté qu'au chemin
-                # RELATIF COMPLET et au nom de l'entrée. Donc ``exclude=
-                # ['node_modules']`` — l'exemple canonique de la docstring —
-                # n'écartait QUE l'entrée du dossier lui-même : tout son
-                # contenu (``node_modules/pkg/index.js``) passait au travers.
-                # La promesse « skip matching paths/names » n'était pas tenue,
-                # et un agent qui tentait de se protéger d'un flot de contexte
-                # n'y arrivait pas. On confronte donc aussi chaque SEGMENT.
-                segs = rel.split("/")
-                for pat in exclude_pats:
-                    if fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(name, pat):
-                        return True
-                    if any(fnmatch.fnmatch(s, pat) for s in segs):
-                        return True
-                return False
+            # AUDIT 2026-09-25 — un motif qui porte un chemin (``src/**/*.ts``,
+            # ``**/*.py``) implique la récursion.
+            if pattern and ("/" in pattern or "**" in pattern):
+                recursive = True
+            # Parcours ÉLAGUÉ par l'agent (AUDIT 2026-09-26 : descendre dans
+            # node_modules, .venv… épuisait la borne MAX_WALK avant le
+            # projet) : un dossier exclu ou caché n'est ni rendu ni descendu —
+            # motifs confrontés au nom et au chemin relatif, comme chaque
+            # segment l'était. Borne DURE du walk : MAX_WALK entrées. Liens non
+            # montrés, comme avant ; ordre du parcours d'avant (cf.
+            # ``_cle_parcours``), dont les tris stables héritent.
+            listing = esp.lister(rel_root, depth=_PROFONDEUR if (recursive or search_text) else 1,
+                                 max_entries=MAX_WALK, hidden=include_hidden,
+                                 exclude=exclude_pats)
+            walk_capped = listing.truncated
+            prefixe = rel_root + "/" if rel_root else ""
+            entrees = sorted(((x["path"][len(prefixe):], x) for x in listing.entries
+                              if x["kind"] != "link"),
+                             key=lambda rx: _cle_parcours(rx[0], rx[1]["kind"] == "dir"))
 
             # ── search_text (grep mode) ────────────────────────────
             if search_text:
-                needle = search_text.lower() if ignore_case else search_text
-                hits = []
-                _root_res = root.resolve()
-                # AUDIT 2026-09-25 :
-                # - parcours ÉLAGUÉ : les dossiers exclus (node_modules, .venv,
-                #   cachés…) ne sont plus descendus — ``rglob`` les parcourait
-                #   en entier (52 000 fichiers mesurés : 3,5 s pour rien) ;
-                # - fichiers écartés COMPTÉS et signalés : un fichier source de
-                #   plus de 300 Ko était sauté en silence (``count=0``,
-                #   ``truncated=False``) — le modèle concluait « aucun usage »
-                #   avant un renommage. Lecture ligne à ligne jusqu'à 20 Mo.
-                _skipped_large = _skipped_binary = 0
-                _visited_g = 0
-                _walk_capped_g = False
-                for _cur, _dirs, _files in os.walk(root, followlinks=False):
-                    _rel_cur = Path(_cur).relative_to(root).as_posix()
-                    _rel_cur = "" if _rel_cur == "." else _rel_cur
-                    _dirs[:] = sorted(
-                        d for d in _dirs
-                        if not _excluded(f"{_rel_cur}/{d}" if _rel_cur else d, d))
-                    for _fn in sorted(_files):
-                        _visited_g += 1
-                        if _visited_g > MAX_WALK:
-                            _walk_capped_g = True
-                            break
-                        p = Path(_cur) / _fn
-                        # SECURITY (F3) : skip symlinks + fichiers atteints via un
-                        # dossier symlinké qui sortent de la sandbox.
-                        if not _child_is_safe(p, _root_res): continue
-                        rel = f"{_rel_cur}/{_fn}" if _rel_cur else _fn
-                        if _excluded(rel, _fn): continue
-                        if pattern and not _glob_match(rel, pattern): continue
-                        try:
-                            if p.stat().st_size > _SEARCH_MAX_BYTES:
-                                _skipped_large += 1
-                                continue
-                            if not _is_text(p):
-                                _skipped_binary += 1
-                                continue
-                            # Lignes découpées au SEUL « \n » (AUDIT 2026-09-26) :
-                            # la lecture texte coupait aussi sur un « \r »
-                            # isolé (barres de progression) et les numéros
-                            # rendus ne correspondaient plus à ``read_file``
-                            # ni à ``grep -n``.
-                            with open(p, "rb") as _fh:
-                                for i, _raw in enumerate(_fh, 1):
-                                    line = _raw.rstrip(b"\n").rstrip(b"\r").decode(
-                                        "utf-8", errors="replace")
-                                    hay = line.lower() if ignore_case else line
-                                    if needle in hay:
-                                        hits.append({"file": rel, "line": i, "text": (line if len(line) <= 260 else line[:260] + "…")})
-                                        if len(hits) >= min(cap, MAX_GREP):
-                                            return _ok(action="grep", count=len(hits),
-                                                       hits=hits, truncated=True,
-                                                       hint="Refine with pattern= or smaller search_text.")
-                        except (OSError, UnicodeDecodeError): continue  # fichier illisible : on saute
-                    if _walk_capped_g:
-                        break
+                # AUDIT 2026-09-25 : fichiers écartés COMPTÉS et signalés (un
+                # fichier source de plus de 300 Ko était sauté en silence) ;
+                # lecture ligne à ligne jusqu'à 20 Mo, dans l'agent.
+                fichiers = [prefixe + r for r, x in entrees
+                            if x["kind"] == "file" and (not pattern or _glob_match(r, pattern))]
+                trouves, bilan = _grep_lots(esp, fichiers, search_text, ignore_case=ignore_case,
+                                            max_file_bytes=_SEARCH_MAX_BYTES,
+                                            max_hits=min(cap, MAX_GREP))
+                hits = [{"file": h["file"][len(prefixe):], "line": h["line"], "text": h["text"]}
+                        for h in trouves]
+                if bilan.get("hits_truncated"):
+                    return _ok(action="grep", count=len(hits), hits=hits, truncated=True,
+                               hint="Refine with pattern= or smaller search_text.")
                 _extra: Dict[str, Any] = {}
-                if _skipped_large or _skipped_binary or _walk_capped_g:
-                    if _skipped_large:
-                        _extra["skipped_large"] = _skipped_large
-                    if _skipped_binary:
-                        _extra["skipped_binary"] = _skipped_binary
-                    if _walk_capped_g:
-                        _extra["walk_truncated"] = True
+                if bilan.get("skipped_large"):
+                    _extra["skipped_large"] = bilan["skipped_large"]
+                if bilan.get("skipped_binary"):
+                    _extra["skipped_binary"] = bilan["skipped_binary"]
+                if walk_capped:
+                    _extra["walk_truncated"] = True
+                if _extra:
                     _extra["hint"] = (
                         "Some files were NOT searched (see skipped_large / "
                         "skipped_binary / walk_truncated): narrow path= or use "
                         "execute_shell with grep -rn for them.")
                 return _ok(action="grep", count=len(hits), hits=hits,
-                           truncated=_walk_capped_g, **_extra)
+                           truncated=walk_capped, **_extra)
 
             # ── list / glob ────────────────────────────────────────
             since_cutoff = _parse_since(since) if since else None
-            items = []
-            # AUDIT 2026-09-25 — un motif qui porte un chemin (``src/**/*.ts``,
-            # ``**/*.py``) implique la récursion.
-            if pattern and ("/" in pattern or "**" in pattern):
-                recursive = True
-            def _pruned_walk():
-                """Parcours récursif ÉLAGUÉ (AUDIT 2026-09-26) : ``rglob``
-                descendait dans node_modules, .venv… en entier — un
-                ``**/*.py`` s'arrêtait sur la borne MAX_WALK avant d'atteindre
-                les fichiers du projet, et chaque page du curseur re-parcourait
-                les mêmes 50 000 premières entrées. Mêmes exclusions que
-                search_text ; les entrées exclues ne sont plus visitées."""
-                for _cur, _dirs, _files in os.walk(root, followlinks=False):
-                    _rc = Path(_cur).relative_to(root).as_posix()
-                    _rc = "" if _rc == "." else _rc
-                    _dirs[:] = sorted(
-                        d for d in _dirs
-                        if not _excluded(f"{_rc}/{d}" if _rc else d, d))
-                    for _d in _dirs:
-                        yield Path(_cur) / _d
-                    for _f in sorted(_files):
-                        yield Path(_cur) / _f
+            items = [(r, x) for r, x in entrees
+                     if (not pattern or _glob_match(r, pattern))
+                     and (since_cutoff is None or int(x.get("mtime_ns") or 0) / 1e9 >= since_cutoff)]
 
-            walker = _pruned_walk() if recursive else root.iterdir()
-            # Cursor resumption (skip paths lexicographically <= cursor)
-            skip_until = cursor or ""
-            _root_res = root.resolve()
-            _visited = 0
-            walk_capped = False
-            for child in walker:
-                # Borne DURE du walk (cf. MAX_WALK) : compte TOUTES les entrées
-                # visitées (y compris exclues) pour borner RAM+syscalls même sur
-                # un arbre massivement exclu (100k fichiers dans node_modules).
-                _visited += 1
-                if _visited > MAX_WALK:
-                    walk_capped = True
-                    break
-                # SECURITY (F3/F6) : ne pas exposer noms/tailles d'entrées
-                # symlinkées ou atteintes via un dossier symlinké hors sandbox.
-                if not _child_is_safe(child, _root_res): continue
-                rel = child.relative_to(root).as_posix()
-                # AUDIT 2026-08-23 — la reprise ne se fait PLUS ici. Comparer
-                # ``rel <= skip_until`` (lexicographique, sur le chemin) avant
-                # le tri était incohérent avec l'ordre de page réel (dossiers
-                # d'abord + nom, ou -taille, ou -mtime) : toute entrée
-                # lexicographiquement ≤ au curseur mais classée APRÈS lui
-                # était écartée à jamais, sans le moindre signal. La reprise
-                # est faite APRÈS le tri, par identité (cf. plus bas).
-                if _excluded(rel, child.name): continue
-                if pattern and not _glob_match(rel, pattern): continue
-                # Time filter (after exclude/glob, before sort, on the cheap path).
-                if since_cutoff is not None:
-                    try:
-                        if child.stat().st_mtime < since_cutoff:
-                            continue
-                    except OSError:
-                        continue
-                items.append(child)
-
-            # Sort
+            # Sort (stable : à égalité, l'ordre du parcours)
             if sort_by == "size":
-                items.sort(key=lambda x: (0 if x.is_dir() else -x.stat().st_size), reverse=False)
+                items.sort(key=lambda rx: 0 if rx[1]["kind"] == "dir" else -int(rx[1].get("size") or 0))
             elif sort_by == "mtime":
-                items.sort(key=lambda x: -x.stat().st_mtime)
+                items.sort(key=lambda rx: -int(rx[1].get("mtime_ns") or 0))
             else:
-                items.sort(key=lambda x: (0 if x.is_dir() else 1, x.name.lower()))
+                items.sort(key=lambda rx: (0 if rx[1]["kind"] == "dir" else 1,
+                                           rx[0].rsplit("/", 1)[-1].lower()))
 
-            # Reprise par IDENTITÉ dans l'ordre de page : on repart juste
-            # APRÈS l'entrée nommée par le curseur. Le tri étant déterministe
-            # pour un arbre stable, l'union des pages est exacte et sans
-            # doublon — ce que la comparaison lexicographique d'avant ne
-            # pouvait pas garantir. Curseur inconnu (entrée disparue entre
-            # deux pages) ⇒ on repart du début plutôt que de tout perdre.
+            # Reprise par IDENTITÉ dans l'ordre de page (AUDIT 2026-08-23) :
+            # on repart juste APRÈS l'entrée nommée par le curseur. Curseur
+            # inconnu (entrée disparue entre deux pages) ⇒ depuis le début.
             start = 0
-            if skip_until:
-                for _i, _c in enumerate(items):
-                    if _c.relative_to(root).as_posix() == skip_until:
+            if cursor:
+                for _i, (_r, _x) in enumerate(items):
+                    if _r == cursor:
                         start = _i + 1
                         break
             page = items[start:start + cap]
             truncated = walk_capped or len(items) > start + cap
-            next_cursor = ""
-            if truncated and page:
-                next_cursor = page[-1].relative_to(root).as_posix()
+            next_cursor = page[-1][0] if truncated and page else ""
 
-            # Optional: fetch git status map once (bounded ~500ms timeout)
-            git_status = _git_status_map(root) if include_git_status else {}
+            # Optional: fetch git status map once (bounded, cf. _git_status_map)
+            git_status, git_status_error = (_git_status_map(esp, sb, root) if include_git_status
+                                            else ({}, None))
 
             if details:
                 out = []
-                for c in page:
-                    # ⚠ BUG 2026-08-08 (trouvé en faisant tourner l'agent ``pr``) —
-                    # la base passée ici était ``root``, c'est-à-dire le dossier
-                    # LISTÉ, alors que ``_stat`` construit ``path`` comme la vue
-                    # CONTENEUR (« /work/… ») et documente qu'elle doit être
-                    # « reusable as-is in the agent's next tool call ». Sur un
-                    # listing de sous-dossier, ``list_files(path="a/b")``
-                    # renvoyait donc ``path="/work/out.bin"`` pour un fichier
-                    # réellement situé en ``/work/a/b/out.bin`` : l'agent qui
-                    # réinjectait ce chemin dans ``read_file`` récoltait un
-                    # « not_found ». Les deux autres appels à ``_stat`` passaient
-                    # déjà ``sb`` — celui-ci était le seul incohérent.
-                    # ``rel`` devient sandbox-relatif, comme le rend ``read_file``.
-                    info_d = _stat(c, sb)
-                    if include_git_status:
-                        rel_p = c.relative_to(root).as_posix()
-                        if rel_p in git_status:
-                            info_d["git_status"] = git_status[rel_p]
+                for r, x in page:
+                    # ``path`` : vue conteneur réutilisable telle quelle, ``rel``
+                    # relatif à la sandbox (BUG 2026-08-08 : relatif au dossier
+                    # listé, il menait read_file à « not_found »).
+                    info_d = _stat_entree(sb / (prefixe + r), sb, x)
+                    if include_git_status and r in git_status:
+                        info_d["git_status"] = git_status[r]
                     out.append(info_d)
             else:
-                out = [c.relative_to(root).as_posix() + ("/" if c.is_dir() else "") for c in page]
-                # Without details=True, still expose git_status separately as a
-                # path→code map (LLM-friendly: doesn't bloat each item).
-                # (le statut est exposé plus bas, en map séparée)
+                out = [r + ("/" if x["kind"] == "dir" else "") for r, x in page]
 
             result = _ok(action="list", path=_to_container(root, sb), count=len(out),
                          items=out, truncated=truncated)
@@ -3263,16 +2918,16 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                 result["since_cutoff"] = since_cutoff
             if include_git_status:
                 # Always include the status map (only paths we paginated over)
-                page_paths = {c.relative_to(root).as_posix() for c in page}
-                visible_status = {p: c for p, c in git_status.items() if p in page_paths}
-                result["git_status"] = visible_status
+                page_paths = {r for r, _x in page}
+                result["git_status"] = {q: c for q, c in git_status.items() if q in page_paths}
+                if git_status_error:
+                    result["git_status_error"] = git_status_error
             if next_cursor:
                 result["next_cursor"] = next_cursor
                 result["hint"] = "Call again with cursor=next_cursor for more results."
             if walk_capped:
-                # Signale explicitement que l'ARBRE a été trop grand pour être
-                # parcouru en entier (≠ simple pagination) → narrow avec
-                # pattern=/exclude= plutôt que de paginer à l'infini.
+                # L'ARBRE a été trop grand pour être parcouru en entier (≠
+                # simple pagination) → narrow avec pattern=/exclude=.
                 result["walk_truncated"] = True
                 result["hint"] = (f"Tree too large (>{MAX_WALK} entries scanned); "
                                   "results are partial. Narrow with pattern= or "
@@ -3281,16 +2936,15 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
             # ── summary ────────────────────────────────────────────
             if summary:
                 total_bytes = 0
-                ext_counts = {}
+                ext_counts: Dict[str, int] = {}
                 n_files = n_dirs = 0
-                for c in items:
-                    if c.is_dir():
+                for r, x in items:
+                    if x["kind"] == "dir":
                         n_dirs += 1
                     else:
                         n_files += 1
-                        try: total_bytes += c.stat().st_size
-                        except OSError: pass
-                        ext = c.suffix.lower() or "(none)"
+                        total_bytes += int(x.get("size") or 0)
+                        ext = Path(r).suffix.lower() or "(none)"
                         ext_counts[ext] = ext_counts.get(ext, 0) + 1
                 result["summary"] = {
                     "total_items": len(items),
@@ -3300,6 +2954,8 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                     "extensions": dict(sorted(ext_counts.items(), key=lambda kv: -kv[1])[:20]),
                 }
             return result
+        except AgentError as e:
+            return _err_agent(e, root if "root" in locals() else sb, sb)
         except ValueError as e:
             return _err(str(e))
         except Exception as e:
@@ -3333,271 +2989,235 @@ Safety:
         _username = get_username(ctx)
         try:
             sb = _sandbox(_username)
+            esp = Espace(_username, sb)
             act = (action or "").strip().lower()
+            _track = _history_uid(_username) is not None
+            rel = ""
+
+            def _enlever(rel: str, e: Dict[str, Any], missing_ok: bool = False
+                         ) -> Optional[List[Tuple[Path, bytes]]]:
+                """Supprime ``rel`` par l'agent et rend les fichiers supprimés
+                (pour l'historique) ; ``None`` si ``rel`` avait déjà disparu
+                (``missing_ok``). Un lien est supprimé lui-même."""
+                if e.get("link"):
+                    r = esp.fsop("remove", path=rel, missing_ok=missing_ok)
+                    return [] if r.get("removed", 1) else None
+                with _locks_for(sb / rel) if e["kind"] == "file" else contextlib.nullcontext():
+                    snap = _instantane_agent(esp, sb, rel, e) if _track else []
+                    r = esp.fsop("remove", path=rel, recursive=True, missing_ok=missing_ok)
+                return snap if r.get("removed", 1) else None
+
+            def _noter_suppressions(snap: Optional[List[Tuple[Path, bytes]]],
+                                    fc: List[Dict[str, Any]]) -> None:
+                for _f, _b in snap or []:
+                    _history_record(_username, sb, _f, _b, None)
+                    if len(fc) < _FC_MAX:
+                        fc.append(_fc_entry(_f, sb, "deleted", _b, None))
+
+            def _type(e: Dict[str, Any]) -> str:
+                return "symlink" if e.get("link") else ("dir" if e["kind"] == "dir" else "file")
 
             if act == "batch_delete":
                 if not paths: return _err("paths_required", hint="Pass paths=[...].")
                 if len(paths) > 500:
                     return _err("too_many_paths", hint="Max 500 per call.")
-                resolved = []
+                rels = []
                 for rp in paths:
                     try:
-                        pp = _safe_path(rp, sb, allow_root=False)
-                        resolved.append(pp)
+                        rels.append(_rel(sb, rp, allow_root=False))
                     except Exception as e:
                         return _err(f"bad_path '{rp}': {e}")
+                entrees = esp.stats(rels)
+                for rp, e in zip(paths, entrees):
+                    if e["kind"] == "error":
+                        return _err(f"bad_path '{rp}': {e.get('message') or e.get('error')}")
                 plan = []
-                for pp in resolved:
-                    if not pp.exists():
-                        plan.append({"path": _to_container(pp, sb), "status": "not_found"})
+                for rel, e in zip(rels, entrees):
+                    if e["kind"] == "missing":
+                        plan.append({"path": to_container(rel), "status": "not_found"})
                         continue
-                    plan.append({"path": _to_container(pp, sb),
-                                 "type": "dir" if pp.is_dir() else "file",
-                                 "size": pp.stat().st_size if pp.is_file() else None,
+                    plan.append({"path": to_container(rel), "type": _type(e),
+                                 "size": e.get("size") if _type(e) == "file" else None,
                                  "status": "would_delete" if dry_run else "pending"})
                 if dry_run:
                     return _ok(action="batch_delete", dry_run=True, plan=plan)
-                deleted = []
+                deleted: List[str] = []
                 _fc: List[Dict[str, Any]] = []
-                _track = _history_uid(_username) is not None
-                for pp in resolved:
-                    if not pp.exists(): continue
-                    if pp.is_dir():
-                        if not recursive:
-                            return _err("is_dir", hint=f"{_to_container(pp, sb)} is dir; pass recursive=True.",
-                                        already_deleted=deleted)
-                        _snap = _snapshot_tree(pp) if _track else []
-                        shutil.rmtree(pp)
-                    else:
-                        with _locks_for(pp):          # E7 : verrou partagé
-                            _snap = _snapshot_tree(pp) if _track else []
-                            pp.unlink()
-                    for _f, _b in _snap:
-                        _history_record(_username, sb, _f, _b, None)
-                        if len(_fc) < _FC_MAX:
-                            _fc.append(_fc_entry(_f, sb, "deleted", _b, None))
-                    deleted.append(_to_container(pp, sb))
+                for rel, e in zip(rels, entrees):
+                    if e["kind"] == "missing":
+                        continue
+                    if _type(e) == "dir" and not recursive:
+                        return _err("is_dir", hint=f"{to_container(rel)} is dir; pass recursive=True.",
+                                    already_deleted=deleted)
+                    # Un chemin déjà emporté plus haut dans le lot (dossier
+                    # parent, doublon) n'est ni une erreur ni une suppression.
+                    snap = _enlever(rel, e, missing_ok=True)
+                    if snap is None:
+                        continue
+                    _noter_suppressions(snap, _fc)
+                    deleted.append(to_container(rel))
                 return _ok(action="batch_delete", deleted=deleted, count=len(deleted),
                            **({"files_changed": _fc} if _fc else {}))
 
             if not path:
                 return _err("path_required")
-            # AUDIT 2026-09-25 — un LIEN symbolique se supprime / se déplace
-            # lui-même, jamais sa cible (cf. _symlink_leaf).
-            _lien = _symlink_leaf(path, sb) if act in ("delete", "move") else None
-            if _lien is not None:
-                if act == "delete":
-                    if dry_run:
-                        return _ok(action="delete", dry_run=True,
-                                   path=to_container(_lien.relative_to(Path(sb).resolve()).as_posix()),
-                                   type="symlink")
-                    os.unlink(_lien)
-                    return _ok(action="delete", symlink=True,
-                               path=to_container(_lien.relative_to(Path(sb).resolve()).as_posix()))
-                if not dest:
-                    return _err("dest_required")
-                pdst = _safe_path(dest, sb)
-                _cible = pdst / _lien.name if pdst.is_dir() else pdst
-                if os.path.lexists(_cible):
-                    if not overwrite:
-                        return _err("dest_exists", hint="Pass overwrite=True to replace.",
-                                    dest=_to_container(_cible.parent, sb) + "/" + _cible.name)
-                    if os.path.isdir(_cible) and not os.path.islink(_cible):
-                        return _err("dest_is_directory",
-                                    hint="Refusing to replace a directory: delete it first "
-                                         "or choose another destination.",
-                                    dest=_to_container(_cible.parent, sb) + "/" + _cible.name)
-                if dry_run:
-                    return _ok(action="move", dry_run=True, symlink=True,
-                               dest=_to_container(_cible.parent, sb) + "/" + _cible.name)
-                _ensure_parent(_cible)
-                os.replace(_lien, _cible)          # renomme le LIEN, sans le suivre
-                return _ok(action="move", symlink=True,
-                           dest=_to_container(_cible.parent, sb) + "/" + _cible.name)
-            p = _safe_path(path, sb)
+            rel = _rel(sb, path)
+            p = sb / rel if rel else sb
+            if act in ("delete", "move") and not rel:
+                return _err("refus_racine",
+                            hint="Agissez sur un élément DANS le bac à sable, "
+                                 "pas sur le bac à sable lui-même.")
+            e = esp.stat(rel)
 
             if act == "chmod":
-                if not p.exists(): return _err("not_found")
-                cur = p.stat().st_mode
-                new = _executable_mode(cur)
+                if e["kind"] == "missing":
+                    return _err("not_found")
+                if e["kind"] not in ("file", "dir"):
+                    return _err("not_a_regular_file")
+                cur = int(e.get("mode") or 0)
+                new = _executable_mode(cur) & 0o777
                 if dry_run:
                     return _ok(path=_to_container(p, sb), action="chmod", dry_run=True,
-                               current_mode=oct(cur & 0o777),
-                               would_set=oct(new & 0o777))
-                os.chmod(p, new)
-                return _ok(path=_to_container(p, sb), action="chmod", mode=oct(new & 0o777))
+                               current_mode=oct(cur & 0o777), would_set=oct(new))
+                esp.fsop("chmod", path=rel, mode=new)
+                return _ok(path=_to_container(p, sb), action="chmod", mode=oct(new))
 
             if act == "mkdir":
-                if p.exists() and not p.is_dir():
+                if e["kind"] not in ("missing", "dir"):
                     return _err("exists_not_dir",
                                 hint=f"{_to_container(p, sb)} already exists and is not a directory.")
-                _existed = p.exists()
-                _twin = unicode_twin_warning(p, sb)
+                _existed = e["kind"] == "dir"
+                _twin = esp.jumeau_unicode(rel)
                 if dry_run:
                     return _ok(path=_to_container(p, sb), action="mkdir", dry_run=True,
                                would_create=not _existed,
                                **({"warning": _twin} if _twin else {}))
-                p.mkdir(parents=True, exist_ok=True, mode=0o777)
-                # Élargit les droits du leaf (exist_ok peut avoir touché un dir 0o755)
-                _chmod_cross_writable(p, is_dir=True)
+                esp.fsop("mkdir", path=rel, parents=True)
                 return _ok(path=_to_container(p, sb), action="mkdir", created=not _existed,
                            **({"warning": _twin} if _twin else {}))
 
             if act == "delete":
-                try:
-                    _safe_path(path, sb, allow_root=False)
-                except ValueError:
-                    return _err("refus_racine",
-                                hint="Supprimez un élément DANS le bac à sable, "
-                                     "pas le bac à sable lui-même.")
-                if not p.exists(): return _err("not_found")
-                if p.is_dir() and not recursive:
+                if e["kind"] == "missing":
+                    return _err("not_found")
+                if e.get("link"):
+                    if dry_run:
+                        return _ok(action="delete", dry_run=True, path=to_container(rel),
+                                   type="symlink")
+                    esp.fsop("remove", path=rel)
+                    return _ok(action="delete", symlink=True, path=to_container(rel))
+                if e["kind"] == "dir" and not recursive:
                     return _err("is_dir", hint="Pass recursive=True to delete directory.")
                 if dry_run:
-                    info = {"path": _to_container(p, sb), "type": "dir" if p.is_dir() else "file"}
-                    if p.is_file():
-                        info["size"] = p.stat().st_size
+                    info: Dict[str, Any] = {"path": _to_container(p, sb), "type": _type(e)}
+                    if e["kind"] == "dir":
+                        liste = esp.lister(rel, depth=_PROFONDEUR, max_entries=MAX_WALK, hidden=True)
+                        info["items_inside"] = len(liste.entries)
+                        if liste.truncated:
+                            info["truncated"] = True
                     else:
-                        n = sum(1 for _ in p.rglob("*"))
-                        info["items_inside"] = n
+                        info["size"] = int(e.get("size") or 0)
                     return _ok(action="delete", dry_run=True, **info)
-                _track = _history_uid(_username) is not None
-                if p.is_dir():
-                    _snap = _snapshot_tree(p) if _track else []
-                    shutil.rmtree(p)
-                else:
-                    with _locks_for(p):               # E7 : verrou partagé
-                        _snap = _snapshot_tree(p) if _track else []
-                        p.unlink()
-                # Historique de session : l'original reste restaurable.
                 _fc = []
-                for _f, _b in _snap:
-                    _history_record(_username, sb, _f, _b, None)
-                    if len(_fc) < _FC_MAX:
-                        _fc.append(_fc_entry(_f, sb, "deleted", _b, None))
+                _noter_suppressions(_enlever(rel, e), _fc)
                 return _ok(path=_to_container(p, sb), action="delete",
                            **({"files_changed": _fc} if _fc else {}))
 
             if act in ("copy", "move"):
                 if not dest: return _err("dest_required")
-                if act == "move":
-                    # Déplacer la racine revient à la supprimer de sa place.
-                    try:
-                        _safe_path(path, sb, allow_root=False)
-                    except ValueError:
-                        return _err("refus_racine",
-                                    hint="Déplacez un élément DANS le bac à "
-                                         "sable, pas le bac à sable lui-même.")
-                pdst = _safe_path(dest, sb)
-                if not p.exists(): return _err("not_found", path=_to_container(p, sb))
-                # AUDIT 2026-09-25 — sémantique du shell : une destination qui
-                # est un DOSSIER EXISTANT veut dire « dedans » (``mv f docs/``).
-                # Avant, ``dest`` était toujours le nom final et, overwrite
-                # étant vrai par défaut, un dossier existant était effacé par
-                # ``rmtree`` puis remplacé — ``move notes.txt → docs/`` détruisait
-                # docs/ en rendant ``ok``.
-                if ((pdst.is_dir() and p.resolve() != pdst.resolve())
-                        or (str(dest).rstrip().endswith("/") and not pdst.exists())):
-                    pdst = pdst / p.name
-                # Garde-fou : src et dest identiques (même nom, ou variantes de
-                # préfixe /work qui se résolvent au même chemin).
-                if os.path.lexists(pdst) and p.resolve() == pdst.resolve():
+                # Un lien se déplace lui-même ; une copie suit la source.
+                lien = act == "move" and bool(e.get("link"))
+                if e["kind"] == "missing" or (not lien and e["kind"] == "link"):
+                    return _err("outside_sandbox" if e.get("outside") else "not_found",
+                                path=_to_container(p, sb))
+                drel = _rel(sb, dest)
+
+                def _meme(ed: Dict[str, Any]) -> bool:
+                    if lien:
+                        return drel == rel
+                    return ed["kind"] != "missing" and "ino" in e and \
+                        (e.get("ino"), e.get("dev")) == (ed.get("ino"), ed.get("dev"))
+
+                ed = esp.stat(drel)
+                # Sémantique du shell : un dossier existant (ou « dest/ »)
+                # veut dire « dedans ».
+                if not _meme(ed) and (ed["kind"] == "dir" or (
+                        str(dest).rstrip().endswith("/") and ed["kind"] == "missing")):
+                    nom = rel.rsplit("/", 1)[-1]
+                    drel = f"{drel}/{nom}" if drel else nom
+                    ed = esp.stat(drel)
+                pdst = sb / drel if drel else sb
+                _dest_label = to_container(drel)
+                if _meme(ed):
                     return _ok(src=_to_container(p, sb), dest=_to_container(pdst, sb),
                                action=act, noop=True,
                                hint="Source and destination are identical: nothing was done.")
-                if p.is_dir():
-                    try:
-                        pdst.resolve().relative_to(p.resolve())
-                        return _err("dest_inside_source",
-                                    hint="Cannot copy or move a directory into itself.")
-                    except ValueError:
-                        pass
-                _dest_label = _to_container(pdst.parent, sb) + "/" + pdst.name
-                if os.path.lexists(pdst):
+                src_dossier = e["kind"] == "dir" and not lien
+                if src_dossier and (not rel or drel.startswith(rel + "/")):
+                    return _err("dest_inside_source",
+                                hint="Cannot copy or move a directory into itself.")
+                ecrase = ed["kind"] != "missing"
+                if ecrase:
                     if not overwrite:
                         return _err("dest_exists", hint="Pass overwrite=True to replace.",
                                     dest=_dest_label)
-                    # Jamais d'effacement IMPLICITE d'un dossier : c'est une
-                    # suppression, elle doit être demandée comme telle.
-                    if pdst.is_dir() and not pdst.is_symlink():
+                    # Jamais d'effacement implicite d'un dossier.
+                    if ed["kind"] == "dir" and not ed.get("link"):
                         return _err("dest_is_directory",
                                     hint="Refusing to replace an existing directory: delete "
                                          "it first (manage_files delete, recursive=True) or "
                                          "choose another destination.",
                                     dest=_dest_label)
-                    # Dossier SUR un fichier (ou un lien) existant : la copie
-                    # levait une erreur interne (« unexpected ») et le
-                    # déplacement échouait selon la plateforme (AUDIT
-                    # 2026-09-26). Refus explicite, même règle que ci-dessus.
-                    if p.is_dir() and not p.is_symlink():
+                    if src_dossier:
                         return _err("dest_is_file",
                                     hint="Refusing to replace an existing file with a "
                                          "directory: delete it first or choose another "
                                          "destination.",
                                     dest=_dest_label)
 
-                _twin = unicode_twin_warning(pdst, sb)
+                _twin = esp.jumeau_unicode(drel)
+                _warn = {"warning": _twin} if _twin else {}
                 if dry_run:
+                    if lien:
+                        return _ok(action="move", dry_run=True, symlink=True, dest=_dest_label, **_warn)
                     return _ok(action=act, dry_run=True, src=_to_container(p, sb), dest=_dest_label,
-                               overwrite_target=os.path.lexists(pdst),
-                               **({"warning": _twin} if _twin else {}))
+                               overwrite_target=ecrase, **_warn)
 
-                _ensure_parent(pdst)
-                _src_file = p.is_file() and not p.is_symlink()
-                _dst_before = None
-                _track = _src_file and _history_uid(_username) is not None
-                _lk = _locks_for(p, pdst) if _src_file else contextlib.nullcontext()
-                _root = Path(sb).resolve()
-                _dst_rel = pdst.parent.resolve().relative_to(_root).as_posix()
-                _dst_rel = f"{_dst_rel}/{pdst.name}" if _dst_rel not in ("", ".") else pdst.name
-                with _lk:                           # E7 : verrou partagé (fichiers)
-                    if _track and act == "copy":
-                        from shared_infra.sandbox.file_history import read_before as _rb
-                        _dst_before = _rb(pdst)
-                    if act == "copy":
-                        # AUDIT 2026-09-25 — copies écrites SANS suivre de lien
-                        # côté destination (``write_beneath``) : ``copy2`` vers
-                        # un nom occupé par un lien écrivait À TRAVERS lui, hors
-                        # du bac à sable. Les liens de la SOURCE sont recopiés
-                        # tels quels (SECURITY F5 : jamais déréférencés).
-                        from shared_infra.sandbox.paths import (
-                            copytree_beneath, write_beneath)
-                        if p.is_dir():
-                            copytree_beneath(
-                                p, _root, _dst_rel,
-                                file_mode_fn=lambda m: m | (0 if use_agent("fs.write") else 0o666),
-                                dir_mode=None if use_agent("fs.write") else 0o777)
+                fichier = e["kind"] == "file" and not lien
+                avant: List[Tuple[Path, bytes]] = []
+                apres: List[Tuple[Path, bytes]] = []
+                with _locks_for(p, pdst) if fichier else contextlib.nullcontext():
+                    try:
+                        if act == "copy":
+                            if fichier and _track:
+                                avant = [] if ed.get("link") else _instantane_agent(esp, sb, drel, ed)
+                                apres = _instantane_agent(esp, sb, rel, e)
+                            esp.fsop("copy", src=rel, dst=drel, overwrite=True, parents=True,
+                                     follow=True)
                         else:
-                            _st = p.stat()
-                            with open(p, "rb") as _src:
-                                write_beneath(
-                                    _root, _dst_rel, _src,
-                                    file_mode=(_st.st_mode & 0o777 & ~0o6000)
-                                    | (0 if use_agent("fs.write") else 0o666),
-                                    mtime_ns=_st.st_mtime_ns)
-                    else:
-                        # ``rename`` remplace l'entrée de destination (fichier ou
-                        # lien) sans jamais la suivre.
-                        try:
-                            os.replace(str(p), str(pdst))
-                        except OSError as _mv_err:
-                            import errno as _errno
-                            if _mv_err.errno != _errno.EXDEV:
-                                raise
-                            shutil.move(str(p), str(pdst))   # autre système de fichiers
-                # Historique de session : une copie est une écriture de la
-                # destination, un déplacement emporte l'historique du fichier.
+                            esp.fsop("rename", src=rel, dst=drel, overwrite=True, parents=True)
+                    except AgentError as ex:
+                        # Un dossier apparu entre-temps à la destination : l'agent
+                        # refuse, comme le contrôle ci-dessus.
+                        if ex.code == "is_dir":
+                            return _err("dest_is_directory", dest=_dest_label,
+                                        hint="Refusing to replace an existing directory.")
+                        if ex.code == "exists":
+                            return _err("dest_is_file" if src_dossier else "dest_exists",
+                                        dest=_dest_label,
+                                        hint="The destination appeared meanwhile; retry.")
+                        raise
+                if lien:
+                    return _ok(action="move", symlink=True, dest=_dest_label, **_warn)
+                # Historique de session : une copie écrit la destination, un
+                # déplacement emporte l'historique du fichier.
                 _fc = []
-                if act == "copy" and _track:
-                    from shared_infra.sandbox.file_history import read_before as _rb
-                    _after = _rb(pdst)
-                    _history_record(_username, sb, pdst, _dst_before, _after)
-                    _fc.append(_fc_entry(pdst, sb, "created" if _dst_before is None else "modified",
-                                         _dst_before, _after))
-                elif act == "copy" and p.is_dir() and _history_uid(_username) is not None:
-                    # Dossier copié : chaque fichier créé est une écriture
-                    # (borné comme une suppression).
-                    for _f, _b in _snapshot_tree(pdst):
+                if act == "copy" and fichier and _track:
+                    _b = avant[0][1] if avant else None
+                    _a = apres[0][1] if apres else None
+                    _history_record(_username, sb, pdst, _b, _a)
+                    _fc.append(_fc_entry(pdst, sb, "created" if _b is None else "modified", _b, _a))
+                elif act == "copy" and src_dossier and _track:
+                    for _f, _b in _instantane_agent(esp, sb, drel, {"kind": "dir"}):
                         _history_record(_username, sb, _f, None, _b)
                         if len(_fc) < _FC_MAX:
                             _fc.append(_fc_entry(_f, sb, "created", None, _b))
@@ -3605,21 +3225,12 @@ Safety:
                     _history_move(_username, sb, p, pdst)
                     _fc.append({"path": _to_container(pdst, sb), "change": "moved",
                                 "from": _to_container(p, sb)})
-                # Widen perms on the result so the container can also
-                # read/write the moved/copied content.
-                try:
-                    if pdst.is_dir():
-                        for sub in [pdst, *pdst.rglob("*")]:
-                            _chmod_cross_writable(sub, is_dir=sub.is_dir())
-                    else:
-                        _chmod_cross_writable(pdst, is_dir=False)
-                except OSError:
-                    pass
                 return _ok(src=_to_container(p, sb), dest=_to_container(pdst, sb), action=act,
-                           **({"warning": _twin} if _twin else {}),
-                           **({"files_changed": _fc} if _fc else {}))
+                           **_warn, **({"files_changed": _fc} if _fc else {}))
 
             return _err("invalid_action", hint="Use: copy|move|delete|chmod|mkdir|batch_delete")
+        except AgentError as e:
+            return _err_agent(e, sb / rel if rel else sb, sb)
         except ValueError as e:
             return _err(str(e))
         except Exception as e:
@@ -3663,23 +3274,26 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
             return _err("code_intel_unavailable",
                         hint="The code_intel module is missing. Reinstall tools/.")
 
-        def _outline_one(rel_path: str, sb: Path) -> Dict[str, Any]:
+        def _outline_one(rel_path: str, sb: Path, esp: Espace) -> Dict[str, Any]:
             try:
-                pp = _safe_path(rel_path, sb)
-            except ValueError as e:
-                return _err(str(e), path=rel_path)
-            if not pp.exists():
-                return _err("not_found", path=_to_container(pp, sb))
-            if pp.is_dir():
-                return _err("is_directory", path=_to_container(pp, sb),
-                            hint="outline expects a single file.")
-            if pp.stat().st_size > MAX_EDIT_BYTES:
-                return _err("too_large", size=pp.stat().st_size, max=MAX_EDIT_BYTES,
-                            hint="File too large for outline.")
+                rel = _rel(sb, rel_path)
+            except ValueError as ex:
+                return _err(str(ex), path=rel_path)
+            pp = sb / rel if rel else sb
             try:
-                text = pp.read_text("utf-8", errors="replace")
-            except Exception as e:
-                return _err(f"read_failed: {e}")
+                e = esp.stat(rel)
+                if e["kind"] == "missing":
+                    return _err("not_found", path=_to_container(pp, sb))
+                if e["kind"] == "dir":
+                    return _err("is_directory", path=_to_container(pp, sb),
+                                hint="outline expects a single file.")
+                size = int(e.get("size") or 0)
+                if size > MAX_EDIT_BYTES:
+                    return _err("too_large", size=size, max=MAX_EDIT_BYTES,
+                                hint="File too large for outline.")
+                text = esp.lire(rel, max_bytes=MAX_EDIT_BYTES).data.decode("utf-8", errors="replace")
+            except AgentError as ex:
+                return _err_agent(ex, pp, sb)
             lang = _ci.detect_language(pp.name)
             if lang == "unknown":
                 return _ok(path=_to_container(pp, sb), language="unknown", outline=[],
@@ -3691,6 +3305,7 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
 
         try:
             sb = _sandbox(_username)
+            esp = Espace(_username, sb)
             act = (action or "").strip().lower()
             paths_l = as_list(paths) or []
             exclude_l = [str(e) for e in (as_list(exclude) or []) if e]
@@ -3710,7 +3325,7 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
                         if not isinstance(rp, str) or not rp:
                             files_out[str(rp)] = _err("bad_path")
                             continue
-                        r = _outline_one(rp, sb)
+                        r = _outline_one(rp, sb, esp)
                         files_out[rp] = r
                         if r.get("ok"):
                             ok_count += 1
@@ -3721,16 +3336,20 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
                 if not path:
                     return _err("path_required",
                                 hint="Pass path=<file> or paths=[<file1>, ...].")
-                return _outline_one(path, sb)
+                return _outline_one(path, sb, esp)
 
             # ── symbols (fichier unique, liste plate) ─────────────────
             if act == "symbols":
                 if not path:
                     return _err("path_required", hint="path=<file> for symbols")
-                pp = _safe_path(path, sb)
-                if not pp.is_file():
-                    return _err("not_a_file", path=_to_container(pp, sb))
-                text = pp.read_text("utf-8", errors="replace")
+                rel = _rel(sb, path)
+                pp = sb / rel if rel else sb
+                try:
+                    text = esp.lire(rel, max_bytes=MAX_EDIT_BYTES).data.decode("utf-8", errors="replace")
+                except AgentError as ex:
+                    if ex.code in ("not_found", "is_dir", "not_file"):
+                        return _err("not_a_file", path=_to_container(pp, sb))
+                    return _err_agent(ex, pp, sb)
                 lang = _ci.detect_language(pp.name)
                 if lang == "unknown":
                     return _ok(action="symbols", path=_to_container(pp, sb), language="unknown",
@@ -3746,85 +3365,75 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
                 return _err("symbol_required")
 
             cap = max(1, min(max_results, 5000))
-            search_root = _safe_path(scope, sb) if scope else sb
-            if not search_root.is_dir():
+            srel = _rel(sb, scope) if scope else ""
+            search_root = sb / srel if srel else sb
+            if esp.stat(srel)["kind"] != "dir":
                 return _err("scope_not_a_dir", scope=_to_container(search_root, sb))
 
-            # AUDIT 2026-09-25 — même règle que list_files : chaque SEGMENT du
-            # chemin est confronté aux motifs, les dossiers cachés sont sautés,
-            # et le socle des dossiers de DÉPENDANCES s'applique quand l'appelant
-            # n'exclut rien. Avant, seul le NOM du fichier était testé :
-            # ``exclude=["node_modules"]`` laissait passer tout son contenu, et
-            # une définition du projet se noyait sous celles des dépendances
-            # (plafond de résultats atteint, chaque fichier lu et analysé).
-            _code_excl = exclude_l or list(DEFAULT_DEP_EXCLUDES)
-
-            def _excluded(rel: str, name: str) -> bool:
-                segs = rel.split("/")
-                if any(s.startswith(".") for s in segs):
-                    return True  # always skip dotfiles / hidden dirs for code search
-                for pat in _code_excl:
-                    if fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(name, pat):
-                        return True
-                    if any(fnmatch.fnmatch(s, pat) for s in segs):
-                        return True
-                return False
-
-            def _code_walk():
-                if not recursive:
-                    yield from search_root.iterdir()
-                    return
-                for _cur, _dirs, _files in os.walk(search_root, followlinks=False):
-                    _rc = Path(_cur).relative_to(search_root).as_posix()
-                    _rc = "" if _rc == "." else _rc
-                    _dirs[:] = sorted(
-                        d for d in _dirs
-                        if not _excluded(f"{_rc}/{d}" if _rc else d, d))
-                    for _fn in sorted(_files):
-                        yield Path(_cur) / _fn
-
-            walker = _code_walk()
-            hits: List[Dict[str, Any]] = []
-            files_scanned = 0
-            _search_root_res = search_root.resolve()
-            for fp in walker:
-                if not fp.is_file():
+            # Même règle que list_files : motifs confrontés au nom et au chemin
+            # à chaque niveau (un dossier exclu n'est pas descendu), dossiers
+            # cachés sautés, socle des dossiers de dépendances par défaut.
+            liste = esp.lister(srel, depth=_PROFONDEUR if recursive else 1, max_entries=MAX_WALK,
+                               hidden=False, exclude=exclude_l or list(DEFAULT_DEP_EXCLUDES))
+            fichiers = []
+            for x in liste.entries:
+                if x["kind"] != "file" or int(x.get("size") or 0) > MAX_EDIT_BYTES:
                     continue
-                # SECURITY (F3) : voir _child_is_safe — pas de lecture à travers
-                # un symlink sortant de la sandbox.
-                if not _child_is_safe(fp, _search_root_res):
-                    continue
-                rel = fp.relative_to(search_root).as_posix()
-                if _excluded(rel, fp.name):
-                    continue
+                rel = x["path"][len(srel) + 1:] if srel else x["path"]
+                name = rel.rsplit("/", 1)[-1]
                 if include_glob and not _glob_match(rel, include_glob):
                     continue
-                lang = _ci.detect_language(fp.name)
-                if lang == "unknown":
+                lang = _ci.detect_language(name)
+                if lang != "unknown":
+                    fichiers.append((rel, x["path"], lang))
+            fichiers.sort(key=lambda f: _cle_parcours(f[0], False))
+            # Préfiltre par l'agent (un seul appel) : un fichier qui ne
+            # contient pas, à la casse près, le plus long fragment
+            # alphanumérique du symbole ne peut pas le définir ni le citer
+            # (Robot compare sans casse ni « _ », « - », espace).
+            # Préfiltre par l'agent : un fichier qui ne contient pas le symbole
+            # (Robot : son plus long fragment alphanumérique, sans casse — les
+            # mots-clés se comparent sans casse ni « _ », « - », espace) ne
+            # peut ni le définir ni le citer. Seuls les candidats sont lus.
+            fragment = max(re.split(r"[\W_]+", symbol), key=len)
+            retenus: set = set()
+            for robot in (False, True):
+                lot = [f[1] for f in fichiers if (f[2] == "robot") is robot]
+                aiguille = fragment if robot else symbol
+                if not lot:
                     continue
-                try:
-                    if fp.stat().st_size > 5_000_000:  # 5MB safety cap per file
-                        continue
-                    text = fp.read_text("utf-8", errors="replace")
-                except (OSError, UnicodeDecodeError):
+                if not aiguille:
+                    retenus.update(lot)
                     continue
-                files_scanned += 1
+                trouves, _bilan = _grep_lots(esp, lot, aiguille, ignore_case=robot,
+                                             max_file_bytes=MAX_EDIT_BYTES, max_hits=len(lot),
+                                             files_only=True)
+                retenus.update(t["file"] for t in trouves)
+            candidats = [f for f in fichiers if f[1] in retenus]
+
+            def _fin(truncated: bool) -> Dict[str, Any]:
+                return _ok(action=act, query=symbol, count=len(hits),
+                           files_scanned=len(fichiers), matches=hits, truncated=truncated,
+                           **({"walk_truncated": True} if liste.truncated else {}))
+
+            hits: List[Dict[str, Any]] = []
+            par_chemin = {f[1]: f for f in candidats}
+            for chemin, data in _lire_lots(esp, list(par_chemin), MAX_EDIT_BYTES):
+                if data is None:
+                    continue
+                rel, _c, lang = par_chemin[chemin]
+                text = data.decode("utf-8", errors="replace")
                 if act == "definition":
                     found = _ci.find_definition(text, lang, symbol)
-                    for it in found:
-                        hits.append({"file": rel, **it})
-                        if len(hits) >= cap:
-                            return _ok(action=act, query=symbol, count=len(hits),
-                                       files_scanned=files_scanned, matches=hits, truncated=True)
-                else:  # references
-                    refs = _ci.find_references(text, lang, symbol, max_results=cap - len(hits))
-                    for r in refs:
-                        hits.append({"file": rel, **r})
-                        if len(hits) >= cap:
-                            return _ok(action=act, query=symbol, count=len(hits),
-                                       files_scanned=files_scanned, matches=hits, truncated=True)
-            return _ok(action=act, query=symbol, count=len(hits),
-                       files_scanned=files_scanned, matches=hits, truncated=False)
+                else:
+                    found = _ci.find_references(text, lang, symbol, max_results=cap - len(hits))
+                for it in found:
+                    hits.append({"file": rel, **it})
+                    if len(hits) >= cap:
+                        return _fin(True)
+            return _fin(False)
+        except AgentError as ex:
+            return _err_agent(ex, sb, sb)
         except ValueError as e:
             return _err(str(e))
         except Exception as e:

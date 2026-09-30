@@ -55,6 +55,7 @@ def test_la_route_relaie_la_decision():
     """Garde anti-dérive : le bloc appelant existe bien dans la route (un
     refactor qui perdrait l'appel rendrait le mode permanent en silence)."""
     import inspect
+
     import chatbot_app.routes.chats as c
     src = inspect.getsource(c)
     assert "_plan_mode_should_end(_plan_mode, _persisted, ephemeral, metrics)" in src

@@ -12,7 +12,6 @@ import json
 
 import pytest
 
-
 # ── 2. Le plafond de tool_history voit les ARGUMENTS ────────────────────────
 
 def _hist_lourd(n=200, taille=200_000):
@@ -39,7 +38,8 @@ def test_la_pesee_compte_les_arguments_des_tool_calls():
 def test_le_plafond_agit_vraiment_sur_un_historique_massif():
     """PROUVÉ dans l'audit : 40 Mo réels, 1 200 « vus », cap no-op."""
     from llm_core._chat_with_tools import (
-        _cap_run_tool_history, RUN_TOOL_HISTORY_MAX_BYTES,
+        RUN_TOOL_HISTORY_MAX_BYTES,
+        _cap_run_tool_history,
     )
     hist = _hist_lourd()
     reel_avant = len(json.dumps(hist, ensure_ascii=False))
@@ -91,7 +91,7 @@ def test_une_frame_vision_ne_vole_plus_lancre_de_tache():
     """``task_anchor_index`` = dernier ``role:user`` NON éphémère. Sans le
     marqueur, la légende de screenshot devenait l'ancre et l'énoncé de la
     mission devenait droppable par le budget dur (régression P0-2)."""
-    from llm_core.context.pruning import task_anchor_index, protected_indices
+    from llm_core.context.pruning import protected_indices, task_anchor_index
     msgs = [
         {"role": "system", "content": "s"},
         {"role": "user", "content": "MISSION: migre la base"},
@@ -130,7 +130,8 @@ def test_le_decoupage_et_le_comptage_voient_le_meme_nombre_de_tours():
     """Invariant : les quatre fonctions de tour du module doivent s'accorder.
     ``_split_by_turn_index`` était la seule à compter les éphémères."""
     from llm_core.conversation_compressor import (
-        _split_by_turn_index, _count_turns,
+        _count_turns,
+        _split_by_turn_index,
     )
     msgs = [{"role": "system", "content": "s"}]
     for k in range(20):

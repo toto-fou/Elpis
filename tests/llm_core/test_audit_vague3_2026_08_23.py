@@ -12,7 +12,6 @@ import inspect
 
 import pytest
 
-
 # ── 21 + 22. Le connecteur Anthropic sans outils tient son contrat ─────────
 
 class _FakeTargetAnthropic:
@@ -138,8 +137,8 @@ def test_les_valeurs_valides_passent_toujours():
 def test_les_deux_cibles_appliquent_la_meme_regle_de_bornes():
     """C'est l'ASYMÉTRIE qui piégeait : validé pour le moteur qui tolère,
     pas pour celui qui refuse."""
-    from llm_core.providers.openai_compat import remote_sampling
     from llm_core._llm_params import _sanitize_override
+    from llm_core.providers.openai_compat import remote_sampling
     brut = {"temperature": 4.5, "top_p": 3.0}
     assert _sanitize_override(brut) == {}
     assert remote_sampling(brut) == {}
@@ -318,8 +317,7 @@ async def test_un_low_finit_par_passer_malgre_une_grace_rafraichie(monkeypatch):
     la moindre échéance — une routine « low » restait gelée des heures, sans
     log, sans annulation possible, pendant que son heartbeat la marquait
     « en cours »."""
-    from llm_core._scheduling import _locks as L
-    from llm_core._scheduling import _concurrency as CC
+    from llm_core._scheduling import _concurrency as CC, _locks as L
 
     monkeypatch.setattr(CC, "LOW_WAIT_CAP_S", 0.5)
     lock = L.ModelExclusivityLock()
@@ -355,8 +353,7 @@ async def test_un_low_finit_par_passer_malgre_une_grace_rafraichie(monkeypatch):
 async def test_un_low_sur_le_meme_modele_ne_paie_rien(monkeypatch):
     """Contrôle : l'échéance ne doit pas ralentir le cas nominal (aucun
     switch à empêcher quand la cible correspond au modèle en grâce)."""
-    from llm_core._scheduling import _locks as L
-    from llm_core._scheduling import _concurrency as CC
+    from llm_core._scheduling import _concurrency as CC, _locks as L
 
     monkeypatch.setattr(CC, "LOW_WAIT_CAP_S", 30.0)
     lock = L.ModelExclusivityLock()
@@ -369,8 +366,8 @@ async def test_un_low_sur_le_meme_modele_ne_paie_rien(monkeypatch):
 
 
 def test_les_deux_niveaux_partagent_le_meme_plafond():
-    from llm_core._scheduling._concurrency import LOW_WAIT_CAP_S
     from llm_core._scheduling import _locks as L
+    from llm_core._scheduling._concurrency import LOW_WAIT_CAP_S
     assert LOW_WAIT_CAP_S == 30.0
     src = inspect.getsource(L.ModelExclusivityLock.acquire_for)
     assert "LOW_WAIT_CAP_S" in src, \

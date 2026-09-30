@@ -39,6 +39,8 @@ import pytest
 def pytest_configure(config):
     config.addinivalue_line(
         "markers", "sqlite_only: test propre au moteur SQLite (fichier, PRAGMA, sqlite_master…)")
+    config.addinivalue_line(
+        "markers", "agent_reel: vrais ensure_running / status / start_agent (pas d'agent en thread)")
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -50,8 +52,7 @@ def _ddl_des_fixtures_sur_serveur():
         yield
         return
     from shared_infra.db import _server
-    from tests._ddl_fixtures import (explicit_id_table, index_if_not_exists,
-                                     resync_identity, translate)
+    from tests._ddl_fixtures import explicit_id_table, index_if_not_exists, resync_identity, translate
     run, run_many = _server.ServerConnection._run, _server.ServerConnection._run_many
 
     def _apres(self, sql):
@@ -222,8 +223,7 @@ def _isolate_real_db(tmp_path_factory):
 def _isolate_shared_spools(tmp_path_factory):
     base = tmp_path_factory.mktemp("spools")
     from llm_core.tools import _task_resume
-    from shared_infra.runtime import cancel_bus
-    from shared_infra.runtime import chat_locks
+    from shared_infra.runtime import cancel_bus, chat_locks
 
     chat_locks.LOCK_DIR = base / "locks"
     _task_resume.STORE_DIR = base / "resume"
@@ -275,3 +275,160 @@ def _reset_tokenize_backoff():
     yield
     _llama_http._TOKENIZE_DOWN_UNTIL.clear()
     _tok._SHORT_TOKEN_MEMO.clear()
+
+
+@pytest.fixture(scope="session")
+def _real_tool_list():
+    """Liste d'outils du vrai service MCP (toutes les familles disponibles),
+    construite en processus : ce que le pool ingère quand une instance se
+    connecte."""
+    import asyncio
+
+    from fastmcp import Client, FastMCP
+
+    import server.local_mcp_server as S
+    target = FastMCP("registre-des-tests")
+    S.register_families_on(target, [name for name, _module, _root in S.TOOL_FAMILIES])
+
+    async def _list():
+        async with Client(target) as client:
+            return await client.list_tools()
+    return asyncio.run(_list())
+
+
+@pytest.fixture
+def real_tool_registry(_real_tool_list, tmp_path, monkeypatch):
+    """Registre des catégories peuplé depuis le vrai service. Un checkout neuf
+    (la CI) n'a pas le cache qu'écrit une instance en marche : sans lui, tout
+    outil tombe dans « other » et les tests de prompt ne vérifient rien.
+    Globales et cache cross-worker isolés, restaurés à la sortie."""
+    from llm_core import _mcp_categories as cats
+    monkeypatch.setattr(cats, "_CACHE_PATH", tmp_path / "categories.json")
+    avant = (cats._registry, dict(cats._sources), dict(cats._disk_cache))
+    cats._registry, cats._sources = None, {}
+    cats._disk_cache = {"at": 0.0, "reg": None}
+    cats.ingest_tools(_real_tool_list, source="tests")
+    yield cats
+    cats._registry, cats._sources, cats._disk_cache = avant
+
+
+@pytest.fixture(autouse=True)
+def agent_en_thread(request):
+    """Toute la suite : les sandboxes sont servies par un agent en thread, ni
+    Docker ni conteneur (L4) — aucun test ne crée de conteneur par mégarde.
+    ``ensure_running`` et ``status`` répondent « en marche », ``start_agent``
+    lance l'agent sur ``P/work``. Le socket est lié dans un dossier court (un chemin de
+    socket unix tient en 108 octets) puis lié en dur à sa place,
+    ``P/.elpis-agent/agent.sock``. Marqueur ``agent_reel`` : les vraies
+    méthodes (un test de leur argv, Docker simulé par le test). Sans
+    ``monkeypatch`` : demandé ici, il changerait l'ordre de démontage des
+    fixtures de chaque test."""
+    if request.node.get_closest_marker("agent_reel"):
+        yield []
+        return
+    import contextlib
+    import shutil
+    import tempfile
+    import threading
+
+    from shared_infra.sandbox.agent import server as agent_server
+    from shared_infra.sandbox.agent_client import AGENT_RUN_DIR, RELAY_DIR
+    from shared_infra.sandbox.executors import _user_sandbox as us
+
+    court: list = []
+    serveurs: list = []
+
+    async def en_marche(self):
+        return us.SandboxStatus(exists=True, running=True, container_name=self.container_name)
+
+    depot = Path(__file__).resolve().parents[1]
+
+    async def demarrer(self, replace=False):
+        # Une sandbox du dépôt (``user_sandboxes/`` par défaut) : le test a
+        # oublié de rediriger la racine — refus bruyant plutôt qu'un agent
+        # dans l'arbre de travail.
+        if Path(self.sandbox_path).resolve().is_relative_to(depot):
+            raise AssertionError(f"agent démarré sur une sandbox du dépôt : {self.sandbox_path}")
+        if not court:
+            court.append(tempfile.mkdtemp(prefix="ag-"))
+        cible = Path(self.sandbox_path).parent / AGENT_RUN_DIR / "agent.sock"
+        cible.parent.mkdir(parents=True, exist_ok=True)
+        lie = os.path.join(court[0], str(len(serveurs)))
+        srv = agent_server.servir(str(self.sandbox_path), lie,
+                                  str(Path(self.sandbox_path).parent.parent / RELAY_DIR))
+        with contextlib.suppress(FileNotFoundError):
+            cible.unlink()
+        os.link(lie, cible)
+        fil = threading.Thread(target=srv.serve_forever, kwargs={"poll_interval": 0.05},
+                               daemon=True)
+        fil.start()
+        serveurs.append((srv, fil))
+
+    vrais = (us.UserSandbox.ensure_running, us.UserSandbox.status, us.UserSandbox.start_agent)
+    us.UserSandbox.ensure_running = us.UserSandbox.status = en_marche
+    us.UserSandbox.start_agent = demarrer
+    us.reset_user_sandbox_cache()                        # une sandbox par test : pas de chemin périmé
+    try:
+        yield serveurs
+    finally:
+        us.UserSandbox.ensure_running, us.UserSandbox.status, us.UserSandbox.start_agent = vrais
+        for srv, fil in serveurs:
+            srv.shutdown()
+            fil.join(5)
+            srv.server_close()
+        us.reset_user_sandbox_cache()
+        for d in court:
+            shutil.rmtree(d, ignore_errors=True)
+
+
+def editeur_sur_agent(monkeypatch, root, username="alice"):
+    """Branche ``exec_bridge`` sur une sandbox de racine ``root`` servie par
+    l'agent en thread ; rend la liste des écritures demandées à l'agent
+    (``(opération, chemin)``) pour vérifier qu'un refus n'a rien écrit."""
+    import shared_infra.sandbox.exec_bridge as xb
+    from shared_infra.sandbox import agent_client as AC
+    from shared_infra.sandbox.executors import get_user_sandbox
+    sb = get_user_sandbox(1, username, root)
+    monkeypatch.setattr(xb, "_get_sandbox_for_user", lambda uid: sb)
+    ops: list = []
+    for nom in ("write", "append", "fsop"):
+        vrai = getattr(AC.AgentClient, nom)
+
+        async def espion(self, *a, _vrai=vrai, _nom=nom, **k):
+            if not (_nom == "fsop" and a and a[0] == "du"):      # lecture seule
+                ops.append((_nom, a[0] if a else k.get("path")))
+            return await _vrai(self, *a, **k)
+        monkeypatch.setattr(AC.AgentClient, nom, espion)
+    return ops
+
+
+def arbre_editeur(monkeypatch, root, include_hidden=False):
+    """Réponse JSON de ``GET /api/sandbox/tree`` pour la sandbox de racine
+    ``root`` (agent en thread)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    import shared_infra.sandbox.routes_files as sf
+    editeur_sur_agent(monkeypatch, root)
+    monkeypatch.setattr(sf, "require_user_id", lambda r: 1)
+    monkeypatch.setattr(sf, "_get_work_path", lambda uid: root)
+    app = FastAPI()
+    app.include_router(sf.router)
+    r = TestClient(app).get("/api/sandbox/tree", params={"include_hidden": include_hidden})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def sandboxes_sur_agent(monkeypatch, racine, noms):
+    """Comptes ``noms`` (identifiants 1, 2, …) dont les sandboxes
+    ``racine/<nom>/work`` sont servies par l'agent en thread : la sauvegarde
+    et la restauration des sandboxes passent par eux. Rend ``{nom: id}``."""
+    import shared_infra.sandbox.exec_bridge as xb
+    from shared_infra.routes import _helpers as H
+    from shared_infra.sandbox.executors import get_user_sandbox
+    comptes = {nom: i for i, nom in enumerate(noms, 1)}
+    noms_par_id = {i: nom for nom, i in comptes.items()}
+    monkeypatch.setattr(H, "_comptes_des_sandboxes", lambda: dict(comptes))
+    monkeypatch.setattr(xb, "_get_sandbox_for_user", lambda uid: get_user_sandbox(
+        uid, noms_par_id[uid], Path(racine) / noms_par_id[uid] / "work"))
+    return comptes

@@ -31,6 +31,7 @@ Each backend returns [] if its grammar isn't available (caller falls back
 to the regex/custom parser in code_intel.py).
 """
 from __future__ import annotations
+
 from typing import Any, Dict, List
 
 HAS_TREESITTER = False

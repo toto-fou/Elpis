@@ -337,6 +337,7 @@ def _memo_signature(m: Dict[str, Any], model_id: Optional[str]) -> tuple:
     donc invalide tout compte exact.
     """
     c = m.get("content")
+    fp: tuple
     # (passe 8, B11) — empreinte O(1) du TEXTE (tête + queue) en plus de la
     # taille : deux textes de même longueur aux adresses recyclées (freelists
     # LIFO de CPython) partageaient sinon la signature, et le compte d'un
@@ -352,7 +353,9 @@ def _memo_signature(m: Dict[str, Any], model_id: Optional[str]) -> tuple:
     else:
         size, blocks, fp = 0, 0, ()
     tcs = m.get("tool_calls")
-    n_tc = len(tcs) if isinstance(tcs, list) else 0
+    if not isinstance(tcs, list):
+        tcs = []
+    n_tc = len(tcs)
     # AUDIT 2026-08-23 — empreinte des TOOL_CALLS. Deux trous fermés ici :
     #   (a) ``size`` ne couvrait que ``content``, or un assistant qui n'émet
     #       que des tool_calls a ``content=None`` — donc ``size=0``,

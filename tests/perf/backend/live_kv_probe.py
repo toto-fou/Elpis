@@ -29,9 +29,9 @@ import time
 
 import httpx
 
-from shared_infra import config as cfg
 from llm_core.context.budget import BUDGET
 from llm_core.context.pruning import compact_tool_results, truncate_head_tail
+from shared_infra import config as cfg
 
 BASE = cfg.LLAMA_URL.split("/v1/")[0]
 

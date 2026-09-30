@@ -33,14 +33,18 @@ Sémantique des compteurs (cf. docs/token-counters.md)
   appels d'outils) se dérive par ``output_tokens - thinking_tokens``. Mesuré
   dans la boucle (cf. ``llm_core._think_tokens``) parce qu'aucun backend local
   ne le déclare. 0 sur les lignes antérieures à la migration 0014.
-- ``cache_read_tokens`` / ``cache_creation_tokens`` : Anthropic uniquement
-  (0 ailleurs). Ils ne sont PAS inclus dans ``input_tokens``.
+- ``cache_read_tokens`` : jetons d'entrée repris d'un cache. Anthropic : NON
+  inclus dans ``input_tokens`` ; llama.cpp et moteurs compatibles OpenAI
+  (``prompt_tokens_details.cached_tokens``, sinon ``timings.cache_n``) :
+  jetons repris du cache KV, INCLUS dans ``input_tokens``.
+  ``cache_creation_tokens`` : Anthropic seulement (0 ailleurs).
+- ``run_id`` : l'exécution (``runs``, L5.2) du tour ; vide hors exécution.
 """
 from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from shared_infra.db._connection import db_conn
 from shared_infra.db._dialect import greatest
@@ -104,6 +108,7 @@ def record_usage(
     status: str = "ok",
     error_kind: str = "",
     ts: Optional[float] = None,
+    run_id: str = "",
 ) -> bool:
     """Enregistre un tour. Best-effort : retourne False au lieu de lever.
 
@@ -131,8 +136,8 @@ def record_usage(
                     input_tokens, output_tokens, submitted_tokens,
                     thinking_tokens,
                     cache_read_tokens, cache_creation_tokens,
-                    duration_ms, iterations, status, error_kind)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    duration_ms, iterations, status, error_kind, run_id)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     float(ts if ts is not None else time.time()), uid,
@@ -142,7 +147,7 @@ def record_usage(
                     in_t, out_t, _int(submitted_tokens), think_t,
                     _int(cache_read_tokens), _int(cache_creation_tokens),
                     _int(duration_ms), _int(iterations),
-                    st, str(error_kind or "")[:120],
+                    st, str(error_kind or "")[:120], str(run_id or "")[:191],
                 ),
             )
             conn.commit()
@@ -203,6 +208,35 @@ def usage_totals(since: float, until: Optional[float] = None, **filters) -> Dict
     out["response_tokens"] = max(
         0, int(out.get("output_tokens", 0)) - int(out.get("thinking_tokens", 0)))
     return out
+
+
+def usage_cache_totals(since: float, until: Optional[float] = None, *,
+                       cache_outside_input: Iterable[str] = (), **filters) -> Dict[str, int]:
+    """Cache lu, cache créé et ENTRÉE TOTALE sur la fenêtre. Le cache lu est
+    compris dans ``input_tokens`` (llama.cpp, moteurs compatibles OpenAI),
+    sauf pour les moteurs ``cache_outside_input`` (clés ``conn:<id>`` des
+    connecteurs Anthropic), où il s'y ajoute.
+
+    Ligne sans moteur (``connector`` vide, avant L5.1) : seul Anthropic
+    remplissait alors le cache, hors de l'entrée — comptée comme telle
+    (relecture L5 : le taux dépassait 100 % sur l'historique)."""
+    keys = [str(k) for k in cache_outside_input]
+    hors = (f"(connector = '' OR connector IN ({', '.join('?' * len(keys))}))" if keys
+            else "connector = ''")
+    where, params = _where(since, until, filters)
+    with db_conn() as conn:
+        row = conn.execute(
+            f"""
+            SELECT COALESCE(SUM(cache_read_tokens), 0)     AS cache_read_tokens,
+                   COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
+                   COALESCE(SUM(input_tokens + CASE WHEN {hors}
+                                THEN cache_read_tokens ELSE 0 END), 0) AS input_total
+            FROM usage_events WHERE {where}
+            """,
+            tuple(keys) + tuple(params),
+        ).fetchone()
+    return {k: int((dict(row) if row else {}).get(k) or 0)
+            for k in ("cache_read_tokens", "cache_creation_tokens", "input_total")}
 
 
 def usage_group(

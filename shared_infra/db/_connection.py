@@ -1,22 +1,23 @@
 # SPDX-License-Identifier: MIT
 import logging
+
 logger = logging.getLogger("uvicorn.error")
-import os
-import time
 import json
+import os
 import sqlite3
 import threading
+import time
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, Optional
-from shared_infra.config import DB_PATH, METRICS_RETENTION_DAYS
-# Moteur de la base (sqlite | postgres | mysql) — relu à chaque emprunt, les
-# tests le re-pointent comme DB_PATH.
-from shared_infra.config import DB_BACKEND
+
 # Importé sous alias : ce module expose tout son espace de noms via la façade
 # ``shared_infra.db``, et un nom aussi générique que ``swallow`` y deviendrait
 # public par accident.
 from pathlib import Path as _Path
-from shared_infra.config import PROJECT_ROOT as _PROJECT_ROOT
+from typing import Any, Dict, Iterator, Optional
+
+# Moteur de la base (sqlite | postgres | mysql) — relu à chaque emprunt, les
+# tests le re-pointent comme DB_PATH.
+from shared_infra.config import DB_BACKEND, DB_PATH, METRICS_RETENTION_DAYS, PROJECT_ROOT as _PROJECT_ROOT
 from shared_infra.observability.tracing import swallow as _swallow
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -390,6 +391,9 @@ def db_info() -> Dict[str, Any]:
             out["migrations"], out["last_migration"] = int(row[0]), row[1]
         else:
             out["migrations"], out["last_migration"] = 0, None
+        from shared_infra.db import _migrations as _mig
+        done = _mig._applied(conn) if has_table(conn, "schema_migrations") else set()
+        out["pending_migrations"] = [n for n in _mig._discover() if n not in done]
     out["pool"] = pool_stats()
     return out
 
@@ -571,7 +575,7 @@ def _schema_lock():
         import fcntl as _fcntl
         path = _Path(DB_PATH).parent / ".init_db.lock"
         path.parent.mkdir(parents=True, exist_ok=True)
-        fh = open(path, "a+")
+        fh = open(path, "a+")  # noqa: SIM115 (verrou flock tenu)
         _fcntl.flock(fh.fileno(), _fcntl.LOCK_EX)
     except (OSError, ImportError) as exc:
         logger.warning("[init_db] verrou de schéma indisponible : %s", exc)
@@ -580,6 +584,29 @@ def _schema_lock():
     finally:
         if fh is not None:
             fh.close()
+
+
+def _migrate(conn, fresh: bool) -> None:
+    """Chaîne de migrations de ``conn`` (``fresh`` : aucune table avant
+    ``create_all``).
+
+    Une base SERVEUR naît toujours du schéma de référence (installation ou
+    transfert), jamais de l'ancienne chaîne SQLite : les migrations qu'il
+    contient sont tamponnées, jamais rejouées — leur SQL est propre à SQLite
+    (``sqlite_master``, ``PRAGMA``). Avant, seule une base sans AUCUNE table
+    était tamponnée : un premier démarrage interrompu après ``create_all``, ou
+    une table étrangère au schéma, faisait rejouer 0001+ et échouer les
+    migrations à chaque démarrage (2026-09-27)."""
+    from shared_infra.db import _schema
+    from shared_infra.db._dialect import SQLITE, dialect_of
+    from shared_infra.db._migrations import run_pending, stamp_baseline
+    if fresh or dialect_of(conn) != SQLITE:
+        stamped = stamp_baseline(conn, _schema.BASELINE_COVERS)
+        if stamped:
+            logger.info("[init_db] schéma de référence : %d migration(s) tamponnée(s)", stamped)
+    applied_n = run_pending(conn)
+    if applied_n:
+        logger.info("[init_db] %d DB migration(s) applied", applied_n)
 
 
 def _init_schema() -> None:
@@ -606,19 +633,10 @@ def _init_schema() -> None:
             pass
 
         # ── Migrations DB versionnées ───────────────────────────────────────────
-        # Idempotent via la table schema_migrations. Chaque migration n'est
-        # appliquée qu'une fois ; les erreurs sont loggées sans interrompre
-        # le démarrage des autres composants.
+        # Idempotent via la table schema_migrations ; les erreurs sont loggées
+        # sans interrompre le démarrage des autres composants.
         try:
-            from shared_infra.db._migrations import run_pending as _run_migrations
-            from shared_infra.db._migrations import stamp_baseline
-            if fresh:
-                stamped = stamp_baseline(conn, _schema.BASELINE_COVERS)
-                logger.info("[init_db] base neuve : schéma de référence posé, "
-                            "%d migration(s) tamponnée(s)", stamped)
-            applied_n = _run_migrations(conn)
-            if applied_n:
-                logger.info("[init_db] %d DB migration(s) applied", applied_n)
+            _migrate(conn, fresh)
         except Exception as _e:
             logger.error("[init_db] migrations framework failed: %s", _e)
 
@@ -639,7 +657,7 @@ def _run_startup_cleanup() -> None:
 
     lock_path = _Path(DB_PATH).parent / ".startup_cleanup.lock"
     try:
-        lf = open(lock_path, "w")
+        lf = open(lock_path, "w")  # noqa: SIM115 (verrou flock tenu)
         try:
             # LOCK_EX | LOCK_NB : échoue immédiatement si déjà pris
             _fcntl.flock(lf.fileno(), _fcntl.LOCK_EX | _fcntl.LOCK_NB)
@@ -737,7 +755,7 @@ def _uid_for_username(name: Any) -> Optional[int]:
     return uid
 
 
-def log_metric(event_type: str, value: float = 1.0, tags: Dict[str, Any] = None,
+def log_metric(event_type: str, value: float = 1.0, tags: Dict[str, Any] | None = None,
                user_id: Optional[int] = None):
     """
     Append one row to ``metric_events``. Best-effort : une métrique ne doit

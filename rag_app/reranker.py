@@ -64,12 +64,11 @@ quality, never break retrieval.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import threading
 from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple
-
-import hashlib
 
 import httpx
 

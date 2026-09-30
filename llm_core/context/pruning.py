@@ -45,15 +45,15 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from shared_infra import config as _bk_config
-
 from llm_core.context.budget import BUDGET
+
 # AUDIT 2026-08-23 — ``approx_prompt_tokens`` retiré de cet import : il
 # n'était utilisé NULLE PART dans ce module (0 occurrence du nom dans le
 # corps), et sa docstring décrit un rôle de repli tenu depuis le harnais
 # v4 par ``measured_prompt_tokens`` — l'y laisser invitait à réintroduire
 # le ratio figé 3.3 dans une décision de budget.
 from llm_core.context.tokens import count_messages_tokens_per_msg
+from shared_infra import config as _bk_config
 
 logger = logging.getLogger("uvicorn.error")
 

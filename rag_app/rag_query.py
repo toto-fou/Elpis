@@ -10,19 +10,19 @@ pour rester déployable dans des environnements légers (chatbot).
 BM25 et RRF sont inlinés ici.
 """
 
-import json
-import math
-import re
-import logging
+import contextvars
 import datetime
+import json
+import logging
+import math
+import queue
+import re
 import threading
+import time
 import uuid
 from collections import OrderedDict
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
-import contextvars
-import queue
-import time
+from typing import Dict, List, Optional, Tuple
 
 # (2026-09-21) Dernier échec de recherche Qdrant du contexte courant. Les
 # fonctions de recherche rendent ``[]`` sur erreur (forme conservée pour
@@ -36,11 +36,10 @@ import httpx
 # its public API is no-op when the reranker is disabled in config —
 # every call site can invoke it unconditionally.
 try:
-    from reranker import rerank_hits, rerank_simple_results, top_k_before, is_enabled as _rerank_enabled
+    from reranker import is_enabled as _rerank_enabled, rerank_hits, rerank_simple_results, top_k_before
 except ImportError:
   try:
-    from rag_app.reranker import (rerank_hits, rerank_simple_results, top_k_before,
-                                  is_enabled as _rerank_enabled)
+    from rag_app.reranker import is_enabled as _rerank_enabled, rerank_hits, rerank_simple_results, top_k_before
   except ImportError:
     # rag_query.py is sometimes imported from outside rag_app/ (the old
     # in-process integration). Keep the symbols defined so the call
@@ -130,7 +129,7 @@ _SW = {
     "for","on","with","at","by","from","an","this","that","it","or","but","not",
     "as","if","so","can","all","also","que","qui","car","ni","ce","cet","cette",
     "ces","tout","tous","très","plus","bien","leur","leurs","je","tu","il","elle",
-    "on","nous","vous","ils","elles",
+    "nous","vous","ils","elles",
 }
 
 # ─── LRU Cache embeddings ──────────────────────────────────────────────────

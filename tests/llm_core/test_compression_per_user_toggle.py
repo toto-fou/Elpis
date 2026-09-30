@@ -83,6 +83,7 @@ def test_route_chat_resout_maitre_et_utilisateur():
     """La route calcule bien ``maître AND opt-in`` — garde-fou anti-régression
     sur la ligne qui porte la sémantique (le reste est du câblage)."""
     import inspect
+
     from chatbot_app.routes import chats as _chats
     src = inspect.getsource(_chats)
     assert '_COMPR_MASTER and (user_settings or {}).get("compression_enabled", False)' in src

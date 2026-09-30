@@ -45,6 +45,7 @@ def conf(tmp_path, monkeypatch):
 def client(monkeypatch):
     monkeypatch.setenv("APP_SESSION_SECRET", "x" * 48)
     from starlette.testclient import TestClient
+
     from server.app import create_app
     with TestClient(create_app()) as c:
         yield c

@@ -1,0 +1,146 @@
+<!--
+  includes/admin/tab_runs.html — Supervision › Exécutions (L5.7, 2026-09-30)
+
+  Coût en ressources par compte, puis exécutions de premier niveau (tours de
+  chat, routines, compactions manuelles). État et actions : admin/runs.js
+  (setupAdminRuns). Chronologie d'une exécution : modale « Détails »
+  (includes/modals/run_details.html, mode admin), administrateur seul.
+-->
+                    <div v-if="adminTab === 'runs'" class="animate-[fadeIn_0.2s] space-y-3">
+
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="adm-seg" role="group" aria-label="Période">
+                                <button v-for="s in [{h:24,l:'24 h'},{h:168,l:'7 j'},{h:720,l:'30 j'}]" :key="'rs'+s.h"
+                                        type="button" @click="setAdmRunsScope(s.h)"
+                                        :class="['adm-seg__btn', admRunsScope === s.h ? 'is-active' : '']"
+                                        :aria-pressed="admRunsScope === s.h ? 'true' : 'false'">{{ s.l }}</button>
+                            </div>
+                            <button type="button" @click="loadAdminRuns()" :disabled="admRunsLoading" class="adm-btn adm-tool">
+                                <i class="ph ph-arrow-clockwise" :class="admRunsLoading ? 'animate-spin' : ''" aria-hidden="true"></i>
+                                Recharger
+                            </button>
+                        </div>
+
+                        <!-- ── Par compte ─────────────────────────────────── -->
+                        <div class="adm-card">
+                            <div class="adm-card__head">
+                                <div class="adm-card__title flex items-center gap-2">
+                                    <i class="ph ph-users adm-card__icon" aria-hidden="true"></i>
+                                    <span title="Jetons, temps du modèle, outils et pics de la sandbox, sous-agents compris">Par compte</span>
+                                </div>
+                                <span class="adm-row__hint ml-auto">Cliquer un compte filtre la liste ci-dessous</span>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="adm-table w-full">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-left">Compte</th>
+                                            <th class="text-right">Exécutions</th>
+                                            <th class="text-right" title="Exécutions terminées autrement que « ok »">Échecs</th>
+                                            <th class="text-right">Jetons (entrée → sortie)</th>
+                                            <th class="text-right" title="Pré-remplissage + génération">Temps du modèle</th>
+                                            <th class="text-right" title="Attente d'un créneau LLM">Attente</th>
+                                            <th class="text-right">Outils (erreurs)</th>
+                                            <th class="text-right">Fichiers</th>
+                                            <th class="text-right" title="Pics mesurés sur le conteneur de la sandbox">Sandbox (pics)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-if="!admRunsAccounts.length">
+                                            <td colspan="9" class="text-center adm-empty">Aucune exécution sur la fenêtre choisie.</td>
+                                        </tr>
+                                        <tr v-for="a in admRunsAccounts" :key="'ra'+a.user_id" @click="toggleAdmRunsAccount(a)"
+                                            tabindex="0" @keydown.enter="toggleAdmRunsAccount(a)"
+                                            class="cursor-pointer" :class="admRunsFilter.userId === a.user_id ? 'bg-blue-50' : ''">
+                                            <td class="text-xs font-medium">{{ a.username || ('#' + a.user_id) }}</td>
+                                            <td class="text-right tabular-nums text-xs">{{ a.runs }}<span v-if="a.subagents" class="adm-muted"> + {{ a.subagents }} sous-agents</span></td>
+                                            <td class="text-right tabular-nums text-xs" :class="a.failed ? 'text-rose-600' : 'adm-muted'">{{ a.failed }}</td>
+                                            <td class="text-right tabular-nums text-xs">{{ admRunsTokens(a.input_tokens) }} → {{ admRunsTokens(a.output_tokens) }}</td>
+                                            <td class="text-right tabular-nums text-xs">{{ admRunsDuration(a.llm_ms) }}</td>
+                                            <td class="text-right tabular-nums text-xs adm-muted">{{ admRunsDuration(a.wait_ms) }}</td>
+                                            <td class="text-right tabular-nums text-xs">{{ a.tool_calls }}<span class="adm-muted"> ({{ a.tool_errors }})</span></td>
+                                            <td class="text-right tabular-nums text-xs">{{ a.files_changed }}</td>
+                                            <td class="text-right tabular-nums text-xs adm-muted">
+                                                <template v-if="a.sandbox_cpu_peak != null">{{ Math.round(a.sandbox_cpu_peak) }} % · {{ Math.round(a.sandbox_mem_peak_mb || 0) }} Mio</template>
+                                                <template v-else>—</template>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- ── Exécutions ─────────────────────────────────── -->
+                        <div class="adm-card">
+                            <div class="adm-card__head flex-wrap gap-2">
+                                <div class="adm-card__title flex items-center gap-2">
+                                    <i class="ph ph-list-magnifying-glass adm-card__icon" aria-hidden="true"></i>
+                                    Exécutions
+                                    <button v-if="admRunsFilter.userId !== null" type="button" @click="setAdmRunsFilter({ userId: null, username: '' })"
+                                            class="adm-pill" title="Retirer le filtre de compte">{{ admRunsFilter.username }} <i class="ph ph-x text-[10px]" aria-hidden="true"></i></button>
+                                </div>
+                                <div class="adm-card__actions flex items-center gap-2">
+                                    <select class="set-select text-xs" :value="admRunsFilter.kind" @change="setAdmRunsFilter({ kind: $event.target.value })" aria-label="Genre">
+                                        <option value="">Premier niveau</option>
+                                        <option value="chat">Tours de chat</option>
+                                        <option value="routine">Routines</option>
+                                        <option value="subagent">Sous-agents</option>
+                                        <option value="compaction">Compactions</option>
+                                    </select>
+                                    <select class="set-select text-xs" :value="admRunsFilter.status" @change="setAdmRunsFilter({ status: $event.target.value })" aria-label="Statut">
+                                        <option value="">Tous statuts</option>
+                                        <option value="ok">ok</option>
+                                        <option value="error">error</option>
+                                        <option value="cancelled">cancelled</option>
+                                        <option value="timeout">timeout</option>
+                                        <option value="running">running</option>
+                                        <option value="lost">lost</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="max-h-[32rem] overflow-y-auto custom-scrollbar">
+                                <table class="adm-table w-full">
+                                    <thead class="adm-thead--sticky">
+                                        <tr>
+                                            <th class="text-left">Début</th>
+                                            <th class="text-left">Compte</th>
+                                            <th class="text-left">Genre</th>
+                                            <th class="text-left">Statut</th>
+                                            <th class="text-right">Durée</th>
+                                            <th class="text-right">Jetons</th>
+                                            <th class="text-right">Temps du modèle</th>
+                                            <th class="text-right">Outils</th>
+                                            <th class="text-left">Moteur</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-if="!admRunsItems.length">
+                                            <td colspan="9" class="text-center adm-empty">Aucune exécution pour ces filtres.</td>
+                                        </tr>
+                                        <tr v-for="r in admRunsItems" :key="r.id"
+                                            @click="user && user.role === 'admin' && showRunDetails(r.id, [r.id], { admin: true })"
+                                            :tabindex="user && user.role === 'admin' ? 0 : -1"
+                                            @keydown.enter="user && user.role === 'admin' && showRunDetails(r.id, [r.id], { admin: true })"
+                                            :class="user && user.role === 'admin' ? 'cursor-pointer' : ''"
+                                            :title="user && user.role === 'admin' ? 'Ouvrir la chronologie' : r.id">
+                                            <td class="whitespace-nowrap text-xs adm-muted">{{ fmtTs(r.started_at) }}</td>
+                                            <td class="text-xs">{{ r.username || ('#' + r.user_id) }}</td>
+                                            <td class="text-xs">{{ r.kind }}</td>
+                                            <td>
+                                                <span :class="['px-1.5 py-0.5 rounded text-[11px] font-semibold',
+                                                               r.status === 'ok' ? 'bg-slate-100 text-slate-600'
+                                                             : r.status === 'running' ? 'bg-blue-50 text-blue-700'
+                                                             : r.status === 'cancelled' ? 'bg-amber-100 text-amber-700'
+                                                             : 'bg-rose-100 text-rose-700']">{{ r.status }}</span>
+                                            </td>
+                                            <td class="text-right tabular-nums text-xs">{{ r.ended_at ? admRunsDuration((r.ended_at - r.started_at) * 1000) : '—' }}</td>
+                                            <td class="text-right tabular-nums text-xs">{{ admRunsTokens(r.input_tokens) }} → {{ admRunsTokens(r.output_tokens) }}</td>
+                                            <td class="text-right tabular-nums text-xs">{{ admRunsDuration((r.prefill_ms || 0) + (r.decode_ms || 0)) }}</td>
+                                            <td class="text-right tabular-nums text-xs">{{ r.tool_calls }}<span v-if="r.tool_errors" class="text-rose-600"> ({{ r.tool_errors }})</span></td>
+                                            <td class="text-xs adm-muted truncate max-w-[10rem]" :title="r.model">{{ r.engine || r.model || '—' }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>

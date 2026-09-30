@@ -16,16 +16,19 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from llm_core import _chat_with_tools as W
-from llm_core import _llm_params
+from llm_core import _chat_with_tools as W, _llm_params
 from llm_core._llm_retry import (
-    KIND_CONTEXT_OVERFLOW, KIND_FORBIDDEN, KIND_RATE_LIMITED,
-    LLMFailure, ProviderError, llm_error_is_fatal, llm_error_kind,
+    KIND_CONTEXT_OVERFLOW,
+    KIND_FORBIDDEN,
+    KIND_RATE_LIMITED,
+    LLMFailure,
+    ProviderError,
+    llm_error_is_fatal,
+    llm_error_kind,
     provider_message,
 )
 from llm_core._stream_tag_parser import ThinkTagSplitter
-from llm_core.providers import anthropic as A
-from llm_core.providers import openai_compat as _oai
+from llm_core.providers import anthropic as A, openai_compat as _oai
 from llm_core.providers.llamacpp import SseStreamResult, consume_llama_sse
 
 
@@ -380,7 +383,7 @@ async def test_anthropic_erreur_http_classee(monkeypatch, status, body, kind):
 async def test_anthropic_erreur_sse_overloaded_est_un_debit_limite(monkeypatch):
     ev = {"type": "error", "error": {"type": "overloaded_error",
                                      "message": "Overloaded"}}
-    _anthropic(monkeypatch, _AResp([f"event: error", _data(ev)]))
+    _anthropic(monkeypatch, _AResp(["event: error", _data(ev)]))
     with pytest.raises(httpx.HTTPStatusError) as ei:
         await _a_tools()
     assert ei.value.response.status_code == 529
@@ -435,8 +438,7 @@ class _FakeRedis:
 
 
 async def _acquire_low(monkeypatch, script):
-    from llm_core._scheduling import _concurrency as C
-    from llm_core._scheduling import _locks as L
+    from llm_core._scheduling import _concurrency as C, _locks as L
     monkeypatch.setattr(C, "LOW_WAIT_CAP_S", 0.0)
     lock = L.DistributedModelExclusivityLock(namespace="test")
     fake = _FakeRedis(script)

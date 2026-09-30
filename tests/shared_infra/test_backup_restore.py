@@ -252,8 +252,7 @@ def test_restauration_de_la_base_refusee_sur_un_serveur(instance, monkeypatch):
 def test_sauvegarde_d_une_base_serveur_passe_par_un_instantane(instance, monkeypatch):
     """Hors SQLite, le zip porte un instantané SQLite produit par le transfert,
     pas l'app.db inactif laissé sur le disque."""
-    from shared_infra.db import _connection
-    from shared_infra.db import transfer as T
+    from shared_infra.db import _connection, transfer as T
     monkeypatch.setattr(_connection, "DB_BACKEND", "postgres")
     instance["db"].write_text("PÉRIMÉE")
     appels = []
@@ -277,3 +276,29 @@ def test_sauvegarde_d_une_base_serveur_passe_par_un_instantane(instance, monkeyp
         os.unlink(tmp)
     assert appels and appels[0]["backend"] == "sqlite"
     assert data.startswith(b"SQLite format 3") and "user_db/app.db" not in noms
+
+
+def test_restauration_des_sandboxes_par_l_agent(instance, tmp_path, monkeypatch):
+    """Le /work d'un compte est écrit par l'agent de sa sandbox (L4.5) ; une
+    entrée de /work sans compte connu est refusée. Ce que l'hôte possède est
+    écrit sans suivre de lien : un dossier remplacé par un lien refuse
+    l'entrée, rien n'est écrit ailleurs."""
+    from tests.conftest import sandboxes_sur_agent
+    dehors = tmp_path / "dehors"
+    dehors.mkdir()
+    (instance["sb"] / "bob" / "work").mkdir(parents=True)
+    (instance["sb"] / "alice").mkdir()
+    os.symlink(dehors, instance["sb"] / "alice" / "skills")
+    sandboxes_sur_agent(monkeypatch, instance["sb"], ["alice", "bob"])
+    zip_path = _zip(tmp_path / "b.zip", {
+        "sandboxes/alice/skills/s.md": b"x",
+        "sandboxes/bob/work/src/g.txt": b"ok",
+        "sandboxes/zoe/work/h.txt": b"?",
+        "sandboxes/bob/.elpis-agent/agent.sock": b"",
+    })
+    restaures, erreurs, _base = _restaurer(instance, zip_path, "sandboxes")
+    assert restaures == ["sandboxes/bob/work/src/g.txt"] and len(erreurs) == 2, erreurs
+    assert list(dehors.iterdir()) == []
+    assert (instance["sb"] / "bob" / "work" / "src" / "g.txt").read_bytes() == b"ok"
+    assert not (instance["sb"] / "zoe").exists()
+    assert not (instance["sb"] / "bob" / ".elpis-agent" / "agent.sock").is_file()

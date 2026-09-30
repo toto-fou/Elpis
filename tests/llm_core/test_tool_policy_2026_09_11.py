@@ -77,27 +77,28 @@ def test_timeout_depuis_la_politique_puis_repli(registry):
 
 
 def test_serialisation_depuis_la_politique_puis_prefixes(registry):
-    from llm_core.engine.tool_exec import _is_serial_tool
+    from llm_core._tool_traits import tool_traits
     C.ingest_tools([_T("zz_write", {"serial": True}), _T("git_query", {"serial": False})])
-    assert _is_serial_tool("zz_write") is True
-    assert _is_serial_tool("git_query") is False                  # la politique prime sur le préfixe git_
-    assert _is_serial_tool("git_commit") is True                  # repli préfixe (pas de politique)
-    assert _is_serial_tool("zz_read") is False
+    assert tool_traits("zz_write").serial is True
+    assert tool_traits("git_query").serial is False                  # la politique prime sur le préfixe git_
+    assert tool_traits("git_commit").serial is True                  # repli préfixe (pas de politique)
+    assert tool_traits("zz_read").serial is False
 
 
 def test_rejeu_depuis_la_politique(registry):
-    from llm_core._mcp_pool import _is_replay_safe
+    from llm_core._tool_traits import tool_traits
     C.ingest_tools([_T("zz_mut", {"serial": True}), _T("zz_idem", {"replay_safe": True}),
-                    _T("run_x", {"replay_safe": True})])
-    assert _is_replay_safe("zz_mut") is False
-    assert _is_replay_safe("zz_idem") is True
-    assert _is_replay_safe("run_x") is True                       # politique > heuristique de nom
-    assert _is_replay_safe("execute_shell") is False              # repli heuristique
-    assert _is_replay_safe("read_file") is True
+                    _T("run_x", {"replay_safe": True}), _T("git_log", {"serial": False})])
+    assert tool_traits("zz_mut").replay_safe is False
+    assert tool_traits("git_log").replay_safe is False                    # préfixe sériel : rejeu à déclarer
+    assert tool_traits("zz_idem").replay_safe is True
+    assert tool_traits("run_x").replay_safe is True                       # politique > heuristique de nom
+    assert tool_traits("execute_shell").replay_safe is False              # repli heuristique
+    assert tool_traits("read_file").replay_safe is True
 
 
 def test_elagage_depuis_la_politique(registry):
-    from llm_core.context.pruning import prepare_tool_result_for_model, emit_cap_chars
+    from llm_core.context.pruning import emit_cap_chars, prepare_tool_result_for_model
     C.ingest_tools([_T("zz_build", {"prune": "head_tail"})])
     cap = emit_cap_chars(4096, None)
     big = "HEAD-" + ("x" * (cap * 2)) + "-TAIL"
@@ -170,7 +171,7 @@ def test_fragments_declares_par_le_manifeste(tmp_path, monkeypatch):
 # ── A14 : familles par jeton client ─────────────────────────────────────────
 
 def test_familles_par_jeton_client(monkeypatch):
-    from shared_infra.config import _parse_client_tokens, _parse_client_token_families
+    from shared_infra.config import _parse_client_token_families, _parse_client_tokens
     assert _parse_client_tokens("t1:alice:git+browser, t2:bob", None) == {"t1": "alice", "t2": "bob"}
     assert _parse_client_token_families("t1:alice:git+browser, t2:bob", None) == {"t1": ["git", "browser"]}
     assert _parse_client_tokens(None, {"t3": "carol:desktop"}) == {"t3": "carol"}

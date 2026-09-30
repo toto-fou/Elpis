@@ -79,8 +79,7 @@ def test_ctx_usage_invalide_ignore_et_volets_voisins_intacts(db):
 
 
 def test_clear_chat_ctx_usage(db):
-    from shared_infra.chat.store import (clear_chat_ctx_usage,
-                                         finalize_turn_meta, get_chat)
+    from shared_infra.chat.store import clear_chat_ctx_usage, finalize_turn_meta, get_chat
     uid = db
     finalize_turn_meta(uid, "chat1", None, None, False,
                        ctx_usage={"used": 1000, "total": 8192})

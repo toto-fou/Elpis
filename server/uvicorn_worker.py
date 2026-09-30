@@ -40,14 +40,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from typing import ClassVar
 
 # Import TOLÉRANT : ``uvicorn.workers`` tire ``gunicorn.arbiter``, absent des
 # environnements qui n'exécutent pas le serveur (une suite de tests, un
 # outillage). Le drain applicatif ci-dessous est de la logique ORDINAIRE et
 # doit rester importable — et donc testable — sans la pile de production.
 try:
-    from uvicorn.workers import UvicornWorker
     from uvicorn.server import Server
+    from uvicorn.workers import UvicornWorker
     _SERVER_STACK = True
 except Exception:                                               # noqa: BLE001
     UvicornWorker = object                                      # type: ignore
@@ -111,7 +112,7 @@ DRAIN_LOG_EVERY_S = 60.0
 
 if _SERVER_STACK:
     class ElpisUvicornWorker(UvicornWorker):
-        CONFIG_KWARGS = {
+        CONFIG_KWARGS: ClassVar[dict] = {
             **UvicornWorker.CONFIG_KWARGS,
             "timeout_graceful_shutdown": GRACEFUL_SHUTDOWN_S,
         }

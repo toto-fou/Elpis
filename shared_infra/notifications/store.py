@@ -12,8 +12,8 @@ user ne voit/altère jamais les notifications d'un autre.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
 import time
+from typing import Any, Dict, List
 
 from shared_infra.db._connection import db_conn
 from shared_infra.db._dialect import insert_id

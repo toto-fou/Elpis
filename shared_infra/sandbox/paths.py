@@ -1,44 +1,19 @@
 # SPDX-License-Identifier: MIT
 """
-shared_infra/sandbox/paths.py — the ONE place that turns a model/route
-supplied path into a resolved, contained location under a per-user sandbox
-root.
+shared_infra/sandbox/paths.py — chemins d'une sandbox, côté hôte.
 
-Why this exists
----------------
-The same "normalize the container view of a path, then prove it does not
-escape the sandbox root" logic was reimplemented 6-8 times and DRIFTED:
+Toute opération sur le contenu de ``/work`` passe par l'agent du conteneur
+(L4) : ce module ne l'ouvre jamais. Il ramène les chemins que donnent le
+modèle ou l'éditeur (``/work/x``, ``work/x``, ``./work/x``, ``~/x``) à un
+chemin RELATIF à la racine, sur le texte seul (``lexical_rel``,
+``rel_under``, ``strip_work_prefix``, ``to_container``) ; les liens, eux,
+sont résolus par l'agent, qui les garde sous ``/work``.
 
-  * ``fs_tools._translate_container_path`` / ``_to_container`` / ``_safe_path``
-  * ``_exec_bridge._path_to_container``
-  * ``routes/_helpers._strip_work_prefix`` / ``_path_inside``
-  * ``routes/_sandbox_exec._validate_rel_path``  (pure-string ``..`` reject,
-    NO ``resolve()`` — strictly weaker than the tool-side check)
-  * ``shell_tools`` rolled its own copy
-
-A fix to one did not propagate, and the route check could be laxer than the
-tool check for the same logical operation. This module collapses them into a
-single, fuzz/property-tested resolver.
-
-Security note
--------------
-On the host this is a *defense-in-depth* containment check and a UX
-normalizer, NOT the kernel security boundary — that is the per-user Docker
-container. ``resolve_under`` calls ``Path.resolve()`` so a symlink that
-points OUT of the sandbox root resolves to its target and is then rejected
-by the containment check (it never silently follows a link out). It uses
-``relative_to`` (not ``str.startswith``) so sibling-prefix names like
-``/sandbox/bob`` vs ``/sandbox/bob2`` cannot be confused.
-
-Path vocabulary
----------------
-* ``rel``       — POSIX path relative to the sandbox root. ``""`` == the root.
-* ``host``      — absolute host path, guaranteed at/under the resolved root.
-* ``container`` — the in-container view: ``/work`` or ``/work/<rel>``.
-
-The model reasons in the container's path space (its shell runs in
-``/work``) and routinely re-emits paths as ``/work/x``, ``work/x`` or
-``./work/x``; all three collapse to ``rel == "x"``.
+Restent, pour les parties de ``P`` qui appartiennent à l'hôte (miroir des
+skills, mémoire, instantanés — hors du montage) et que parcourent la
+sauvegarde et la restauration, des accès par descripteurs qui ne suivent
+aucun lien (``walk_beneath``, ``open_leaf``, ``write_beneath``), et la mise
+en place de ``P/work`` (``ensure_work_subdir``).
 """
 from __future__ import annotations
 
@@ -48,9 +23,8 @@ import os
 import secrets
 import shutil
 import stat
-from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any, List, Optional
+from typing import Any, Iterator, List, Optional, Tuple
 
 try:
     import fcntl  # POSIX only
@@ -67,24 +41,16 @@ CONTAINER_ROOT = "/work"
 WORK_SUBDIR = "work"
 _WORK_MARKER = ".work-migrated"
 _WORK_LOCK = ".work-migrating.lock"
-# Chaque nouvelle version du marqueur re-déclenche UNE passe ``chmod -R o+rwX``
-# par sandbox — c'est le levier de résorption du backlog, dans LES DEUX SENS
-# (o+rw ouvre aussi bien un arbre 10001 à l'hôte qu'un arbre host-owned au
-# conteneur) :
-#   v2 (2026-07-21) : clones faits dans le TERMINAL avant son wrapper umask.
-#   v3 (2026-07-30) : clones/init/pull host-side pendant que
-#                     ``sandbox_grant_access`` était inerte (il appelait
-#                     ``get_user_sandbox`` avec la mauvaise arité → TypeError
-#                     avalé → ni ACL, ni chmod, ni chown). Ces dépôts sont
-#                     restés en 0644/0755 à l'UID de l'app, donc non éditables
-#                     depuis le conteneur.
-_PERMS_MARKER = ".perms-reconciled-v3"
-_PERMS_MARKER_LEGACY = (".perms-reconciled", ".perms-reconciled-v2")
+# Marqueur de la remise en ordre des droits de /work (L4.6 : arbre rendu à
+# l'UID du conteneur, sans écriture pour le groupe et les autres) ; les
+# marqueurs de l'ancien élargissement restent réservés à P.
+_MODES_MARKER = ".work-modes-v1"
+_PERMS_MARKER_LEGACY = (".perms-reconciled", ".perms-reconciled-v2", ".perms-reconciled-v3")
 # Entries kept at ``P`` (never moved into ``P/work`` and never exposed in the
 # container): the work subdir itself; the protected-skills mirror + its staging
 # dir; the long-term memory store; the legacy ``.sandboxd`` socket dir; the
-# optimistic-write lock sidecar; the cross-UID perms-repair marker; and the
-# migration bookkeeping files.
+# optimistic-write lock sidecar; the /work modes marker; and the migration
+# bookkeeping files.
 _WORK_RESERVED = frozenset({
     WORK_SUBDIR,
     "skills",
@@ -92,8 +58,9 @@ _WORK_RESERVED = frozenset({
     "memory",       # long-term memory store (host-owned ``P/memory``)
     ".memory",      # legacy store (orphaned, owned 10001) — keep reserved too
     ".sandboxd",
+    ".elpis-agent",  # socket de l'agent (agent_client.AGENT_RUN_DIR)
     ".write_locks",
-    _PERMS_MARKER,
+    _MODES_MARKER,
     _WORK_MARKER,
     _WORK_LOCK,
 } | set(_PERMS_MARKER_LEGACY))   # toutes les générations du marqueur restent à P
@@ -111,17 +78,6 @@ class SandboxPathError(ValueError):
     target that escapes the sandbox root (``..``, an absolute path outside
     it, or a symlink whose target is outside it).
     """
-
-
-@dataclass(frozen=True)
-class ResolvedPath:
-    rel: str        # POSIX, relative to the sandbox root; "" == root
-    host: Path      # absolute host path at/under the root
-    container: str  # "/work" or "/work/<rel>"
-
-    @property
-    def is_root(self) -> bool:
-        return self.rel == ""
 
 
 def strip_work_prefix(path: str) -> str:
@@ -156,91 +112,22 @@ def to_container(rel: str) -> str:
     return f"{CONTAINER_ROOT}/{r}"
 
 
-def resolve_under(base, user_path, *, allow_root: bool = True) -> ResolvedPath:
-    """Resolve ``user_path`` under sandbox root ``base`` and prove containment.
-
-    Args:
-        base:       the sandbox root (host path). Resolved with ``.resolve()``.
-        user_path:  a model/route supplied path. May be relative, a
-                    container-view path (``/work/...``), or (rejected unless
-                    it lands back under ``base``) absolute.
-        allow_root: if False, refuse a path that resolves to the root itself
-                    (used by destructive ops that must target a child, e.g.
-                    delete/rename).
-
-    Returns:
-        ResolvedPath(rel, host, container).
-
-    Raises:
-        SandboxPathError: empty (when a path is required), NUL byte, or any
-        target that escapes ``base`` (``..``, outside-absolute, symlink-out),
-        or the root when ``allow_root`` is False.
-    """
-    base_resolved = Path(base).resolve()
-
-    raw = "" if user_path is None else str(user_path)
-    if "\x00" in raw:
-        raise SandboxPathError("null byte in path")
-
-    rel_in = strip_work_prefix(raw)
-
-    # Empty after normalization → the sandbox root.
-    if rel_in.strip() in ("", "."):
-        if not allow_root:
-            raise SandboxPathError("operation requires a path inside the sandbox, not its root")
-        return ResolvedPath(rel="", host=base_resolved, container=CONTAINER_ROOT)
-
-    # AUDIT 2026-06 — ``~`` est mappé sur la RACINE SANDBOX, plus
-    # d'expanduser() : avant, ``~/x`` se résolvait vers le HOME de l'hôte
-    # puis était rejeté par le containment — pas un escape, mais une 403
-    # surprenante alors que le modèle veut dire « mon home conteneur »
-    # (la vue conteneur n'a qu'un home utile : /work). ``~autre`` (un
-    # utilisateur nommé) reste littéral, comme n'importe quel nom de fichier.
-    if rel_in == "~" or rel_in.startswith("~/"):
-        rel_in = rel_in[1:].lstrip("/") or "."
-    p = Path(rel_in)
-    candidate = (base_resolved / p if not p.is_absolute() else p).resolve()
-
-    # Containment via relative_to (NOT startswith): handles sibling-prefix
-    # names (bob vs bob2) and, because we resolved both sides, rejects ``..``
-    # escapes and symlinks whose target is outside the root.
-    if candidate != base_resolved:
-        try:
-            candidate.relative_to(base_resolved)
-        except ValueError:
-            raise SandboxPathError(f"path escapes the sandbox root: {raw!r}")
-
-    rel_out = "" if candidate == base_resolved else candidate.relative_to(base_resolved).as_posix()
-    if rel_out == "" and not allow_root:
-        raise SandboxPathError("operation requires a path inside the sandbox, not its root")
-
-    return ResolvedPath(rel=rel_out, host=candidate, container=to_container(rel_out))
-
-
-# ── Écriture SOUS la racine, sans jamais suivre de lien ─────────────────────
-#
-# AUDIT 2026-09-25 — ``resolve_under`` valide un chemin À UN INSTANT ; l'hôte
-# écrivait ensuite par un ``open()`` ordinaire, qui suit les liens. Or le
-# bac à sable est monté en écriture dans le conteneur : entre la validation et
-# l'écriture, un lien symbolique peut apparaître à la place de la cible (ou
-# d'un dossier du chemin) — posé par la commande shell dont on sauve la sortie,
-# ou déjà présent sur un chemin DÉRIVÉ jamais validé (``x.bak``, ``dest/nom``).
-# L'écriture partait alors hors du bac à sable, avec les droits de l'app.
-#
-# Ici, chaque composant est ouvert RELATIVEMENT au descripteur de son parent
-# avec ``O_NOFOLLOW`` : aucun lien n'est traversé, à aucun niveau, quel que
-# soit le moment où il apparaît. Le fichier est écrit dans un temporaire
-# exclusif puis renommé dans le MÊME dossier ouvert : un lien posé à la place
-# de la cible est remplacé, jamais suivi.
+# ── Parties de P qui appartiennent à l'hôte : accès par descripteurs ───────
+# Chaque composant est ouvert RELATIVEMENT au descripteur de son parent avec
+# ``O_NOFOLLOW`` : aucun lien n'est traversé, à aucun niveau.
 
 _O_CLOEXEC = getattr(os, "O_CLOEXEC", 0)
 _O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
 _O_DIRECTORY = getattr(os, "O_DIRECTORY", 0)
+_O_PATH = getattr(os, "O_PATH", 0)
 
 
 def _rel_parts(rel: Any) -> List[str]:
-    """Composants d'un chemin RELATIF à la racine ; refuse l'absolu et ``..``."""
-    s = str(rel or "").replace("\\", "/")
+    """Composants d'un chemin RELATIF à la racine ; refuse l'absolu et ``..``.
+    ``\\`` est un caractère de nom ordinaire (Linux) : le convertir en ``/``
+    faisait viser à ces primitives une autre entrée que celle demandée
+    (2026-09-29)."""
+    s = str(rel or "")
     if "\x00" in s:
         raise SandboxPathError("null byte in path")
     p = PurePosixPath(s)
@@ -253,19 +140,26 @@ def _rel_parts(rel: Any) -> List[str]:
 
 
 def open_dir_beneath(base: Any, rel: Any = "", *, create: bool = False,
-                     dir_mode: Optional[int] = None) -> int:
+                     dir_mode: Optional[int] = None, readable: bool = False) -> int:
     """Descripteur du dossier ``base/rel``, ouvert composant par composant
     SANS suivre de lien (``O_NOFOLLOW|O_DIRECTORY`` relatif au parent).
 
-    ``create`` : crée les dossiers manquants (``dir_mode`` posé par
-    ``fchmod`` sur ceux qu'on crée — le umask ne s'y applique donc pas).
-    Lève :class:`SandboxPathError` si un composant est un lien ou n'est pas
-    un dossier. L'appelant ferme le descripteur rendu."""
+    Tout est ouvert en ``O_PATH`` : il suffit du droit de traverser, pas de
+    lire — assez pour les appels ``*at()`` (ouvrir, créer, renommer,
+    supprimer une entrée) et pour ``os.fwalk``. ``readable=True`` ouvre le
+    dossier final en lecture, pour le lister directement (``os.scandir``).
+
+    ``create`` : crée les dossiers manquants (``dir_mode`` posé sur ceux
+    qu'on crée — le umask ne s'y applique donc pas). Lève
+    :class:`SandboxPathError` si un composant est un lien ou n'est pas un
+    dossier. L'appelant ferme le descripteur rendu."""
     parts = _rel_parts(rel)
-    flags = os.O_RDONLY | _O_DIRECTORY | _O_NOFOLLOW | _O_CLOEXEC
-    fd = os.open(str(Path(base).resolve()), os.O_RDONLY | _O_DIRECTORY | _O_CLOEXEC)
+    walk = (_O_PATH or os.O_RDONLY) | _O_DIRECTORY | _O_CLOEXEC
+    last = (os.O_RDONLY if readable else (_O_PATH or os.O_RDONLY)) | _O_DIRECTORY | _O_CLOEXEC
+    fd = os.open(str(Path(base).resolve()), walk if parts else last)
     try:
-        for name in parts:
+        for i, name in enumerate(parts):
+            flags = (last if i == len(parts) - 1 else walk) | _O_NOFOLLOW
             created = False
             try:
                 nfd = os.open(name, flags, dir_fd=fd)
@@ -280,7 +174,7 @@ def open_dir_beneath(base: Any, rel: Any = "", *, create: bool = False,
                 nfd = os.open(name, flags, dir_fd=fd)
             if created and dir_mode is not None:
                 try:
-                    os.fchmod(nfd, dir_mode)
+                    os.chmod(f"/proc/self/fd/{nfd}", dir_mode)
                 except OSError:
                     pass
             os.close(fd)
@@ -295,6 +189,127 @@ def open_dir_beneath(base: Any, rel: Any = "", *, create: bool = False,
         os.close(fd)
         raise
     return fd
+
+
+# Une entrée est saisie par ``O_PATH | O_NOFOLLOW`` — ce qui n'ouvre rien —,
+# son type vérifié sur ce descripteur, puis elle est rouverte par
+# ``/proc/self/fd`` : le même inode, quoi qu'il arrive au chemin.
+
+
+def open_path_at(dir_fd: int, name: str) -> int:
+    """Descripteur ``O_PATH`` de l'entrée ``name`` de ``dir_fd`` elle-même —
+    un lien est saisi, jamais suivi — : de quoi ``fstat``, changer ses droits
+    ou la rouvrir (:func:`reopen`) sans relire de chemin."""
+    return os.open(name, _O_PATH | _O_NOFOLLOW | _O_CLOEXEC, dir_fd=dir_fd)
+
+
+def reopen(pfd: int, flags: int = os.O_RDONLY) -> int:
+    """Rouvre l'inode d'un descripteur ``O_PATH`` (``/proc/self/fd``)."""
+    return os.open(f"/proc/self/fd/{pfd}", flags | _O_CLOEXEC)
+
+
+def open_leaf(dir_fd: int, name: str, *, allow_dir: bool = False) -> int:
+    """Descripteur en lecture de l'entrée ``name`` de ``dir_fd`` : un fichier
+    régulier, ou un dossier si ``allow_dir``. Un lien, une FIFO, un socket ou
+    un périphérique lèvent :class:`SandboxPathError` sans avoir été ouverts ;
+    un dossier non demandé lève ``IsADirectoryError``."""
+    pfd = open_path_at(dir_fd, name)
+    try:
+        mode = os.fstat(pfd).st_mode
+        if stat.S_ISREG(mode):
+            return reopen(pfd)
+        if stat.S_ISDIR(mode) and allow_dir:
+            return reopen(pfd, os.O_RDONLY | _O_DIRECTORY)
+        if stat.S_ISDIR(mode):
+            raise IsADirectoryError(errno.EISDIR, "Is a directory", name)
+        raise SandboxPathError(f"symlink or special file refused: {name!r}")
+    finally:
+        os.close(pfd)
+
+
+def rel_under(base: Any, target: Any) -> str:
+    """``target`` (relatif, ou chemin hôte déjà résolu sous ``base``) rendu
+    relatif à ``base`` — sans relire le disque. Hors de ``base`` :
+    :class:`SandboxPathError`."""
+    t = Path(target)
+    if not t.is_absolute():
+        return t.as_posix()
+    try:
+        return t.relative_to(Path(base)).as_posix()
+    except ValueError:
+        pass
+    try:
+        return t.relative_to(Path(base).resolve()).as_posix()
+    except ValueError:
+        raise SandboxPathError(f"path outside the sandbox root: {str(target)!r}") from None
+
+
+
+def lexical_rel(base: Any, user_path: Any, *, allow_root: bool = True,
+                tilde: bool = True) -> str:
+    """Chemin relatif à ``base`` d'un chemin fourni (modèle, route), SANS lire
+    le disque : préfixe ``/work`` retiré, ``.`` et ``..`` résolus sur le
+    texte, ``~`` = la racine (vue du modèle ; ``tilde=False`` pour l'éditeur,
+    dont les chemins viennent de l'arbre : ``~`` y est un nom). Les liens,
+    eux, sont résolus par l'agent de la sandbox, qui les garde sous
+    ``/work`` (L4). Sortie de la racine, NUL, ou racine alors que
+    ``allow_root`` est faux : :class:`SandboxPathError`."""
+    raw = "" if user_path is None else str(user_path)
+    if "\x00" in raw:
+        raise SandboxPathError("null byte in path")
+    s = strip_work_prefix(raw)
+    if tilde and (s == "~" or s.startswith("~/")):
+        s = s[1:].lstrip("/")
+    if s.startswith("/"):                               # chemin hôte sous la racine
+        for b in (str(Path(base)), str(Path(base).resolve())):
+            if s == b or s.startswith(b + "/"):
+                s = s[len(b):]
+                break
+        else:
+            raise SandboxPathError(f"path outside the sandbox root: {raw!r}")
+    parties: List[str] = []
+    for c in s.split("/"):
+        if c in ("", "."):
+            continue
+        if c == "..":
+            if not parties:
+                raise SandboxPathError(f"path outside the sandbox root: {raw!r}")
+            parties.pop()
+        else:
+            parties.append(c)
+    if not parties and not allow_root:
+        raise SandboxPathError("operation requires a path inside the sandbox, not its root")
+    return "/".join(parties)
+
+def leaf_mode(dir_fd: int, name: str) -> int:
+    """``st_mode`` de l'entrée ``name`` de ``dir_fd``, lien non suivi ; ``0``
+    si elle a disparu ou est inaccessible (entrée d'un parcours en cours)."""
+    try:
+        return os.stat(name, dir_fd=dir_fd, follow_symlinks=False).st_mode
+    except OSError:
+        return 0
+
+
+def walk_beneath(base: Any, rel: Any = "", *,
+                 onerror=None) -> Iterator[Tuple[str, List[str], List[str], int]]:
+    """``os.fwalk`` de ``base/rel`` qui ne suit aucun lien : racine ouverte par
+    :func:`open_dir_beneath`, liens vers des dossiers retirés de ``dirnames``,
+    et un dossier remplacé par un lien pendant le parcours n'est pas descendu
+    (contrôle d'inode d'``os.fwalk``).
+
+    Rend ``(rel_dir, dirnames, filenames, dir_fd)`` ; ``rel_dir`` est relatif à
+    ``base`` et ``dirnames`` s'élague sur place. ``filenames`` peut contenir
+    des liens et des fichiers spéciaux : les ouvrir par :func:`open_leaf`."""
+    top_rel = "/".join(_rel_parts(rel))
+    top = open_dir_beneath(base, top_rel)
+    try:
+        for cur, dirnames, filenames, dfd in os.fwalk(".", dir_fd=top, follow_symlinks=False,
+                                                      onerror=onerror):
+            dirnames[:] = [d for d in dirnames if stat.S_ISDIR(leaf_mode(dfd, d))]
+            sub = "" if cur == "." else cur[2:]
+            yield "/".join(x for x in (top_rel, sub) if x), dirnames, filenames, dfd
+    finally:
+        os.close(top)
 
 
 def _short_leaf(leaf: str, max_bytes: int = 120) -> str:
@@ -374,102 +389,6 @@ def write_beneath(base: Any, rel: Any, data: Any, *,
     return written
 
 
-def copytree_beneath(src: Path, base: Any, dst_rel: Any, *,
-                     file_mode_fn=None, dir_mode: Optional[int] = None) -> int:
-    """Copie l'arbre ``src`` vers ``base/dst_rel`` (qui ne doit pas exister)
-    sans jamais suivre de lien CÔTÉ DESTINATION ; les liens de la source sont
-    recopiés TELS QUELS (comme ``copytree(symlinks=True)``), jamais
-    déréférencés. ``file_mode_fn(mode_source) -> mode`` : mode des fichiers
-    copiés. Retourne le nombre de fichiers copiés.
-
-    Passe sandbox 2026-09-26 :
-      • SOURCE parcourue par descripteurs (``os.fwalk``) et fichiers ouverts
-        en ``O_NOFOLLOW`` relatifs à leur dossier, inode contrôlé : un lien
-        substitué entre le test et l'ouverture (process concurrent dans le
-        conteneur) ne peut plus faire copier un fichier de l'HÔTE ;
-      • copie dans un dossier temporaire voisin, RENOMMÉ à la fin : un échec
-        en cours de route ne laisse plus d'arbre à moitié copié (qu'un nouvel
-        essai refusait ensuite comme « destination existante ») ;
-      • destination existante refusée D'EMBLÉE (``FileExistsError`` explicite,
-        y compris un fichier à la place du dossier) ; erreurs de parcours
-        remontées au lieu d'être avalées (sous-dossier illisible)."""
-    src = Path(src)
-    root_parts = _rel_parts(dst_rel)
-    if not root_parts:
-        raise SandboxPathError("a destination directory is required, not the root")
-    parent_rel = "/".join(root_parts[:-1])
-    name = root_parts[-1]
-    pfd = open_dir_beneath(base, parent_rel, create=True, dir_mode=dir_mode)
-    tmp = f".{_short_leaf(name)}.{secrets.token_hex(6)}.cptmp"
-    tmp_rel = f"{parent_rel}/{tmp}" if parent_rel else tmp
-    try:
-        try:
-            os.stat(name, dir_fd=pfd, follow_symlinks=False)
-        except FileNotFoundError:
-            pass
-        else:
-            raise FileExistsError(errno.EEXIST, "destination already exists", str(dst_rel))
-        os.mkdir(tmp, 0o777, dir_fd=pfd)
-        n = 0
-        try:
-            if dir_mode is not None:
-                _dfd = os.open(tmp, os.O_RDONLY | _O_DIRECTORY | _O_NOFOLLOW | _O_CLOEXEC,
-                               dir_fd=pfd)
-                try:
-                    os.fchmod(_dfd, dir_mode)
-                finally:
-                    os.close(_dfd)
-            walk_errors: List[OSError] = []
-            for cur, dirs, files, sdfd in os.fwalk(src, follow_symlinks=False,
-                                                   onerror=walk_errors.append):
-                rel_cur = Path(cur).relative_to(src).as_posix()
-                dst_cur = tmp_rel if rel_cur in ("", ".") else f"{tmp_rel}/{rel_cur}"
-                for nm in list(dirs) + list(files):
-                    try:
-                        st = os.stat(nm, dir_fd=sdfd, follow_symlinks=False)
-                    except FileNotFoundError:
-                        continue                       # disparu entre-temps
-                    if stat.S_ISLNK(st.st_mode):
-                        dfd = open_dir_beneath(base, dst_cur, create=True, dir_mode=dir_mode)
-                        try:
-                            os.symlink(os.readlink(nm, dir_fd=sdfd), nm, dir_fd=dfd)
-                        finally:
-                            os.close(dfd)
-                        if nm in dirs:
-                            dirs.remove(nm)
-                    elif stat.S_ISDIR(st.st_mode):
-                        dfd = open_dir_beneath(base, f"{dst_cur}/{nm}", create=True,
-                                               dir_mode=dir_mode)
-                        os.close(dfd)
-                    elif stat.S_ISREG(st.st_mode):
-                        try:
-                            ffd = os.open(nm, os.O_RDONLY | _O_NOFOLLOW | _O_CLOEXEC,
-                                          dir_fd=sdfd)
-                        except OSError as e:
-                            if e.errno == errno.ELOOP:
-                                continue               # devenu un lien : ignoré
-                            raise
-                        with os.fdopen(ffd, "rb") as fh:
-                            fst = os.fstat(fh.fileno())
-                            if (fst.st_ino, fst.st_dev) != (st.st_ino, st.st_dev) \
-                                    or not stat.S_ISREG(fst.st_mode):
-                                continue               # substitué entre-temps
-                            mode = (file_mode_fn(fst.st_mode & 0o777) if file_mode_fn
-                                    else fst.st_mode & 0o777)
-                            write_beneath(base, f"{dst_cur}/{nm}", fh, file_mode=mode,
-                                          dir_mode=dir_mode, mtime_ns=fst.st_mtime_ns)
-                        n += 1
-            if walk_errors:
-                raise walk_errors[0]
-            os.rename(tmp, name, src_dir_fd=pfd, dst_dir_fd=pfd)
-        except BaseException:
-            shutil.rmtree(Path(base).resolve() / tmp_rel, ignore_errors=True)
-            raise
-    finally:
-        os.close(pfd)
-    return n
-
-
 def ensure_work_subdir(per_user_dir) -> Path:
     """Return the mounted work root ``<per_user_dir>/work``, migrating a legacy
     flat layout into it ONCE.
@@ -501,7 +420,7 @@ def ensure_work_subdir(per_user_dir) -> Path:
 
     fh = None
     try:
-        fh = open(P / _WORK_LOCK, "a")
+        fh = open(P / _WORK_LOCK, "a")  # noqa: SIM115 (verrou flock tenu)
         if fcntl is not None:
             try:
                 fcntl.flock(fh.fileno(), fcntl.LOCK_EX)  # blocking: peer waits
@@ -557,14 +476,15 @@ def ensure_work_subdir(per_user_dir) -> Path:
 
 __all__ = [
     "CONTAINER_ROOT",
-    "WORK_SUBDIR",
-    "ResolvedPath",
     "SandboxPathError",
-    "copytree_beneath",
+    "WORK_SUBDIR",
     "ensure_work_subdir",
+    "lexical_rel",
     "open_dir_beneath",
-    "resolve_under",
+    "open_leaf",
+    "rel_under",
     "strip_work_prefix",
     "to_container",
+    "walk_beneath",
     "write_beneath",
 ]

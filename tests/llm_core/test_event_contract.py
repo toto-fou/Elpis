@@ -21,6 +21,9 @@ import pytest
 
 import llm_core._chat_with_tools as _cwt
 
+# Types du contrat de la boucle : le registre unique (la route en ajoute
+# d'autres, hors du périmètre de la boucle).
+from llm_core.engine.stream_events import LOOP_EVENTS as EVENT_TYPES
 from tests.llm_core.goldens_harness import (
     assert_matches_golden,
     builtin_tools,
@@ -29,21 +32,6 @@ from tests.llm_core.goldens_harness import (
     sse_text,
     sse_tool_call,
 )
-
-# Types d'events du contrat loop-side (le routeur en ajoute d'autres :
-# queue_status, thinking, truncated… hors périmètre de la boucle).
-EVENT_TYPES = frozenset({
-    "mode", "iteration",
-    "thinking", "thinking_token", "thinking_content",
-    "content_token",
-    "tool_thinking", "tool_call", "tool_call_delta", "tool_result",
-    "tool_progress", "tool_log", "tool_limit", "tool_history_partial",
-    "kv_cache",
-    "compression_start", "compression_done", "compression_state",
-    "compression_capped",
-    "info", "notice", "error",
-    "annotation_frame",
-})
 
 
 async def _collect(monkeypatch, scripts, *, messages=None, builtin=None,

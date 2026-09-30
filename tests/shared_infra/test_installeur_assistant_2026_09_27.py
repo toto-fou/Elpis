@@ -36,7 +36,6 @@ sys.path.insert(0, str(REPO / "deploy"))
 import tui as T  # noqa: E402
 import wizard as W  # noqa: E402
 
-
 # ── Clavier et rendu ─────────────────────────────────────────────────────────
 
 def test_touches():
@@ -367,3 +366,24 @@ def test_terminal_inutilisable(tmp_path):
     r = subprocess.run([sys.executable, str(REPO / "deploy/wizard.py"), "install", "--out", str(tmp_path / "a")],
                        env=dict(os.environ, TERM="dumb"), capture_output=True, text=True, timeout=30)
     assert r.returncode == 3
+
+
+@pytest.mark.parametrize("images, attendu", [("3f2a1b\n", "build"), ("", "none")])
+def test_reinstallation_apres_montee_d_image(ctx_env, monkeypatch, images, attendu):
+    """Montée de version : l'étiquette livrée (1.7.0) manque encore. Une image
+    elpis/sandbox antérieure prouve que la sandbox est en usage : « build »
+    reste présélectionné. L'étiquette officielle héritée de config.json n'est
+    ni proposée ni réécrite (2026-09-29)."""
+    (ctx_env / "config.json").write_text(json.dumps(
+        {"executors": {"image": "elpis/sandbox:1.6.0"}}), encoding="utf-8")
+
+    def faux_run(argv, *a, **kw):
+        sortie = {"--print-image": "elpis/sandbox:1.7.0\n", "images": images}
+        cle = argv[-1] if argv[-1] == "--print-image" else argv[1] if len(argv) > 1 else ""
+        return subprocess.CompletedProcess(argv, 0, sortie.get(cle, ""), "")
+    monkeypatch.setattr(subprocess, "run", faux_run)
+    _ctx, st, _wiz = _wizard(mode="install", monkeypatch=monkeypatch)
+    assert st["sandbox"] == attendu
+    assert st["sandbox_image"] == ""
+    assert W.C.image_officielle("elpis/sandbox:1.6.0", "elpis/sandbox:1.7.0")
+    assert not W.C.image_officielle("maison/sandbox:2", "elpis/sandbox:1.7.0")

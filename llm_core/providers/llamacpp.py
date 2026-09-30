@@ -192,11 +192,11 @@ async def build_llama_payload(
         # (champ inconnu = ignoré, vérifié en live sur b10545) : aucun risque
         # de refus. Le bénéfice du doute leur revient donc — seul un build
         # LU et trop ancien les retire (cf. ``llama_caps``, ``_not_older``).
+        from llm_core.providers.llama_caps import engine_caps as _eng_caps
         from shared_infra.config import (
             LLAMA_RETURN_PROGRESS as _RET_PROG,
             LLAMA_SSE_PING_INTERVAL_S as _PING_S,
         )
-        from llm_core.providers.llama_caps import engine_caps as _eng_caps
         _caps = await _eng_caps()
         if _RET_PROG and _caps.payload_return_progress:
             payload["return_progress"] = True
@@ -615,4 +615,31 @@ async def consume_llama_sse(
             if on_content_token:
                 await on_content_token(segment)
     r.in_think = tag_splitter.in_think
+    _fin_de_flux(r)
     return r
+
+
+def _fin_de_flux(r: SseStreamResult) -> None:
+    """Jetons repris du cache KV sous le nom que lisent les compteurs
+    (``cache_read_input_tokens`` : ``prompt_tokens_details.cached_tokens``,
+    sinon ``timings.cache_n`` ; INCLUS dans ``prompt_tokens``, contrairement à
+    Anthropic), et appel versé à l'exécution courante (temps LLM)."""
+    u = r.usage
+    if isinstance(u, dict) and u and "cache_read_input_tokens" not in u:
+        det = u.get("prompt_tokens_details")
+        cached = det.get("cached_tokens") if isinstance(det, dict) else None
+        if cached is None and isinstance(r.timings, dict):
+            cached = r.timings.get("cache_n")
+        try:
+            n = int(cached or 0)
+        except (TypeError, ValueError):
+            n = 0
+        if n > 0:
+            u["cache_read_input_tokens"] = n
+    try:
+        from shared_infra.observability.runs import current_run
+        run = current_run()
+        if run is not None:
+            run.add_llm_call(r.timings)
+    except Exception:                                           # noqa: BLE001
+        logger.debug("[runs] appel LLM non compté", exc_info=True)

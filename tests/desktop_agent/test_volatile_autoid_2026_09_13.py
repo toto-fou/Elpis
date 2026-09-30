@@ -17,8 +17,8 @@ if _AGENT not in sys.path:
     sys.path.insert(0, _AGENT)
 
 from elpis_auto import Session, Target  # noqa: E402
-from elpis_auto.session import _volatile_id, node_identity, _anchorable  # noqa: E402
-from test_elpis_auto import FakeBackend, _node, _calls  # noqa: E402
+from elpis_auto.session import _anchorable, _volatile_id, node_identity  # noqa: E402
+from test_elpis_auto import FakeBackend, _calls, _node  # noqa: E402
 
 
 def test_detection_view_n():

@@ -55,6 +55,15 @@ PORTS = {"application": 8001, "administration": 8002, "RAG": 8000,
 # =============================================================================
 #  Entrées / sorties
 # =============================================================================
+
+def image_officielle(image: str, livree: str) -> bool:
+    """``image`` est-elle une version de l'image livrée ``livree`` ? Comme
+    ``configured_image`` côté application : une étiquette ``elpis/sandbox``
+    inscrite par une version antérieure ne fige pas l'instance."""
+    repo = livree.rpartition(":")[0]
+    image = (image or "").strip()
+    return bool(repo) and (image == repo or image.startswith((repo + ":", repo + "@")))
+
 def c(code: str, s: str) -> str:
     return f"\033[{code}m{s}\033[0m" if sys.stdout.isatty() else s
 
@@ -517,6 +526,8 @@ def step_sandbox(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> Non
     except Exception:                                           # noqa: BLE001
         pass
     image = pick(a.sandbox_image, "ELPIS_CFG_SANDBOX_IMAGE", ex.get("image"), default_image)
+    if image_officielle(image, default_image):   # d'une version antérieure : la livrée
+        image = default_image
     docker = shutil.which("docker")
     if not docker:
         warn("Docker absent : la sandbox restera indisponible (./install.sh l'installe).")
@@ -729,8 +740,8 @@ def step_secrets(cfg: Dict[str, Any], force: bool) -> None:
 def step_admin(p: Prompter, a: argparse.Namespace) -> None:
     title("8/8  Compte administrateur")
     sys.path.insert(0, str(ROOT))
-    from shared_infra.db import init_db
     from shared_infra.accounts import users as U
+    from shared_infra.db import init_db
 
     init_db()
     existing = U.get_all_users()

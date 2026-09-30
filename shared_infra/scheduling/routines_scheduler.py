@@ -23,6 +23,7 @@ Les runs s'exécutent ``priority="low"`` → ils cèdent le pas aux chats live d
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import os
 import secrets
@@ -31,9 +32,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from shared_infra.config import LLAMA_MODEL
-from shared_infra.scheduling.cron_lock import try_acquire_cron_lock
 from shared_infra.db import log_metric
 from shared_infra.observability.usage_ctx import set_usage_context
+from shared_infra.scheduling.cron_lock import try_acquire_cron_lock
 from shared_infra.scheduling.routines_store import (
     admit_and_insert_run,
     claim_minute_fire,
@@ -47,8 +48,8 @@ from shared_infra.scheduling.routines_store import (
     mark_run_error,
     mark_run_ok,
     mark_run_skipped,
-    routine_notification_title,
     reconcile_orphans,
+    routine_notification_title,
 )
 
 logger = logging.getLogger("uvicorn.error")
@@ -241,7 +242,10 @@ def _rehydrate_mcp_secrets(snapshot: List[Dict[str, Any]],
     posté par n'importe quel compte s'exécutait sur l'hôte, et qu'une ``url``
     interne rouvrait la SSRF fermée côté chat."""
     from shared_infra.mcp.servers import (
-        resolve_config, shared_id, personal_to_config, client_builtin_ref,
+        client_builtin_ref,
+        personal_to_config,
+        resolve_config,
+        shared_id,
     )
     user_servers = list((user_settings or {}).get("mcp_servers") or [])
     visible_shared = {str(v) for v in
@@ -415,6 +419,30 @@ async def _notify_run_end(routine: Dict[str, Any], uid: int, *, ok: bool,
                          rid, exc)
 
 
+async def _execute_routine_run_mesure(routine: Dict[str, Any], run_id: int,
+                                      **kw: Any) -> None:
+    """``execute_routine_run`` dans son exécution (``runs``, L5.2) : ce que le
+    run consomme y est versé ; son statut final est celui du run de routine
+    (``ok``, ``error``, ``skipped``, ``cancelled``)."""
+    from shared_infra.observability.runs import new_run_id, run_scope
+    from shared_infra.scheduling.routines_store import get_run as _ligne_du_run
+    rid = int(routine["id"])
+    async with run_scope("routine", run_id=new_run_id("routine"),
+                         user_id=routine.get("owner_user_id"), routine_id=rid,
+                         chat_id=run_chat_key(rid, run_id),
+                         model=str(routine.get("model") or "")) as e:
+        await execute_routine_run(routine, run_id, **kw)
+        try:
+            from llm_core.engines import current_engine
+            e.engine = current_engine().key              # cible posée par le run
+            ligne = await asyncio.to_thread(_ligne_du_run, run_id,
+                                            int(routine["owner_user_id"]))
+            if ligne and ligne.get("status") in ("ok", "error", "skipped", "cancelled"):
+                e.finish(ligne["status"])
+        except Exception:                                       # noqa: BLE001
+            logger.debug("[ROUTINES] issue du run %s non relue", run_id, exc_info=True)
+
+
 async def execute_routine_run(routine: Dict[str, Any], run_id: int,
                               context: Optional[str] = None,
                               chain_depth: int = 0,
@@ -449,7 +477,7 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
         )
 
         # Import tardif : évite un cycle au chargement + reflète l'état courant.
-        from shared_infra.accounts.users import get_username_by_id, get_user_settings, get_user_by_id
+        from shared_infra.accounts.users import get_user_by_id, get_user_settings, get_username_by_id
 
         username = await asyncio.to_thread(get_username_by_id, uid)
         if not username:
@@ -603,8 +631,10 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
         # Même contrat que la route chat (chatbot_app/routes/chats.py) : v2 si
         # mode "optimized" (sémaphore inline), sinon classic sous le guard.
         from llm_core import (
-            llm_scheduling_guard, resolve_scheduling_mode,
-            run_chat_multi_mcp, run_chat_multi_mcp_v2,
+            llm_scheduling_guard,
+            resolve_scheduling_mode,
+            run_chat_multi_mcp,
+            run_chat_multi_mcp_v2,
         )
         # Résolu UNE fois et réutilisé (sélection du runner ET mode passé aux
         # sous-agents), comme la route chat. ``resolve_scheduling_mode`` lit la
@@ -935,9 +965,13 @@ async def launch_run(routine: Dict[str, Any], *, trigger: str,
         logger.info("[ROUTINES] SKIP routine=%s user=%s (%s)",
                     routine.get("id"), uid, reason)
         return None
+    # Contexte NEUF : lancée depuis une routine amont (chaînage), la tâche
+    # hériterait sinon de son exécution (parent_id) et de sa cible LLM
+    # (relecture L5) ; une routine enchaînée est indépendante.
     task = asyncio.get_running_loop().create_task(
-        execute_routine_run(routine, run_id, context=context,
-                            chain_depth=chain_depth, trigger=trigger))
+        _execute_routine_run_mesure(routine, run_id, context=context,
+                                    chain_depth=chain_depth, trigger=trigger),
+        context=contextvars.Context())
     _running_tasks[run_id] = task
     task.add_done_callback(lambda t, rid=run_id: _running_tasks.pop(rid, None))
     return run_id

@@ -24,11 +24,17 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import shared_infra.config as _cfg
-from llm_core.tools.desktop_tools import (
-    observe_core, probe_tree_core, act_core, grab_core, read_text_core,
-    wait_window_core, launch_core, _ham_hex,
-)
 from llm_core._desktop_session import resolve_element
+from llm_core.tools.desktop_tools import (
+    _ham_hex,
+    act_core,
+    grab_core,
+    launch_core,
+    observe_core,
+    probe_tree_core,
+    read_text_core,
+    wait_window_core,
+)
 
 logger = logging.getLogger("uvicorn.error")
 

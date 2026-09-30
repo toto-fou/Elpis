@@ -37,9 +37,9 @@ from typing import Any, Awaitable, Callable, Dict, Optional
 import httpx
 
 from llm_core._capabilities import resolve_scheduling_mode
+from llm_core._scheduling import _breaker
 from llm_core._scheduling._concurrency import LLM_SEMAPHORE
 from llm_core._scheduling._locks import MODEL_EXCLUSIVITY
-from llm_core._scheduling import _breaker
 
 # Échecs de TRANSPORT (llama-server down/figé) qui alimentent le disjoncteur.
 # Les autres erreurs (métier, validation, annulation) ne comptent PAS.
@@ -183,8 +183,8 @@ async def llm_scheduling_guard(
     # slots, disjoncteur — cf. ``_scheduling._engines``) ; seules les cibles
     # qui ne sont pas llama.cpp (cloud, vLLM, générique) sautent toujours les
     # deux niveaux.
-    from llm_core.engines import current_engine, engine_for_target
     from llm_core._scheduling._engines import breaker_key, scheduling_for
+    from llm_core.engines import current_engine, engine_for_target
     _engine = engine_for_target(target) if target is not None else current_engine()
     if not _engine.is_llamacpp:
         yield

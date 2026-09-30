@@ -293,6 +293,18 @@ def no_limit(dialect: Optional[str] = None) -> str:
     return "-1"
 
 
+def bytes_order(expr: str, dialect: Optional[str] = None) -> str:
+    """Clé de tri TEXTE comparée octet par octet, comme SQLite (``BINARY``) :
+    l'ordre ne dépend plus de la collation du serveur (un PostgreSQL en
+    ``fr_FR``/``en_US.UTF-8`` range « a » avant « B », SQLite l'inverse)."""
+    d = _dialect(dialect=dialect)
+    if d == POSTGRES:
+        return f'{expr} COLLATE "C"'
+    if d == MYSQL:
+        return f"CAST({expr} AS BINARY)"
+    return expr
+
+
 def nulls_first(expr: str, desc: bool = False, dialect: Optional[str] = None) -> str:
     """Tri avec les NULL en tête, écrit pour chaque moteur (``NULLS FIRST``
     n'existe pas en MySQL/MariaDB)."""

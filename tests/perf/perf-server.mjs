@@ -100,7 +100,7 @@ function streamChat(req, res) {
         phases.push({ kind: 'event', ev: { type: 'queue_cleared' } });
     }
     if (cfg.reply === 'tools') {
-        // Boucle agentic : R rounds (tool_thinking → tool_call → tool_result)
+        // Boucle agentic : R rounds (narration → tool_call → tool_result)
         // puis réponse finale streamée. C'est le chemin réel dominant en usage
         // outillé — il n'était couvert par AUCUN scénario.
         const rounds = Math.max(1, Number(cfg.rounds) || 30);

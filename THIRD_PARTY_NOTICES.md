@@ -89,6 +89,7 @@ and pinned versions are in `requirements.txt`, `requirements-rag.txt`,
 | PyMySQL (MariaDB / MySQL driver) | MIT |
 | ruff | MIT |
 | pytest, pytest-asyncio, pytest-xdist (tests) | MIT / Apache-2.0 / MIT |
+| mypy, mypy-extensions, librt, ast-serialize, typing-extensions, pathspec (typage, développement) | MIT / MIT / MIT / MIT / PSF-2.0 / MPL-2.0 |
 
 ### Python — RAG service
 
@@ -137,7 +138,7 @@ and pinned versions are in `requirements.txt`, `requirements-rag.txt`,
 | LibreOffice (Office previews, `--with-office`) | MPL-2.0 |
 | PostgreSQL server (`--db postgres-local`; installed from the OS repositories, never redistributed) | PostgreSQL License |
 | MariaDB server (`--db mariadb-local`; installed from the OS repositories, never redistributed — a separate program Elpis talks to over the network protocol only) | GPL-2.0 |
-| bubblewrap (`--with-office`) | LGPL-2.0-or-later |
+| bubblewrap (isolation of Office previews; installed from the OS repositories, never redistributed) | LGPL-2.0-or-later |
 | OpenCode CLI (optional, dropped in `cli_dist/` by the administrator) | MIT |
 | Sandbox image (`deploy/docker/sandbox/Dockerfile`) | built from Debian packages, each under its own license, plus binaries fetched by `build_offline.sh`: Firefox ESR and geckodriver (MPL-2.0), yq, gh, duckdb, delta (MIT), shfmt (BSD-3-Clause), hadolint (GPL-3.0), upx (GPL-2.0-or-later), radare2 (LGPL-3.0) |
 | Voice engine, speech-to-text (`deploy/voice/`) | whisper.cpp and Whisper ggml models: MIT |

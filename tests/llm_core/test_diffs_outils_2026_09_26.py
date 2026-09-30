@@ -115,13 +115,24 @@ def test_avant_inconnu_si_non_releve(hist, monkeypatch):
     root = hist / "w4"
     root.mkdir()
     (root / "gros.txt").write_bytes(b"0" * 100)
-    monkeypatch.setattr(WC, "KEEP_FILE_MAX", 10)      # trop gros pour être gardé
+    from shared_infra.sandbox.agent import server as agent_server
+    monkeypatch.setattr(agent_server, "_RELEVE_GARDE", 10)   # trop gros pour être gardé
     with WC.WorkChanges(UID, "u4", root) as wc:
         time.sleep(0.05)          # horodatage du noyau à gros grain (même taille)
         (root / "gros.txt").write_bytes(b"1" * 100)
     (e,) = wc.changes
     assert e["change"] == "modified" and e["old_sha256"] is None
     assert e["new_sha256"] == _sha(b"1" * 100)
+
+
+def test_chemins_rendus_par_l_agent_verifies():
+    """Chemins rendus par l'agent (listes, relevés) : relatifs, normalisés,
+    sous la base demandée."""
+    from shared_infra.sandbox.agent_client import _rel_sous
+    assert _rel_sous("a/b.txt", "") and _rel_sous("work/x", "") and _rel_sous("d/x", "d")
+    for bad, base in (("", ""), ("/etc/x", ""), ("../x", ""), ("a/../b", ""), ("a//b", ""),
+                      ("./a", ""), ("a\x00b", ""), (None, ""), (3, ""), ("e/x", "d"), ("d", "d")):
+        assert not _rel_sous(bad, base), (bad, base)
 
 
 # ── manage_files ─────────────────────────────────────────────────────────────
@@ -142,7 +153,6 @@ def fs(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_SANDBOX_DIR", str(tmp_path))
     monkeypatch.setenv("APP_FILE_HISTORY_DIR", str(tmp_path / "_hist"))
     monkeypatch.setattr(F, "_history_uid", lambda username: UID)
-    monkeypatch.setattr(F, "use_agent", lambda *_a, **_k: False)
     mcp = _FakeMCP()
     F.register(mcp, tmp_path)
     work = tmp_path / "guest" / "work"

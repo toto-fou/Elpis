@@ -55,65 +55,104 @@ logger = logging.getLogger("uvicorn.error")
 # extraction the canonical router lives in ``backend.routes._state``;
 # we re-export it here under the same name so any straggler import
 # (``from backend.routes._legacy import router``) still resolves.
-from shared_infra.routes._state import router  # noqa: F401, E402
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  HELPERS  — re-exported from _helpers.py
-# ─────────────────────────────────────────────────────────────────────────────
-from shared_infra.routes._helpers import (  # noqa: F401, E402
-    ROLE_LABELS,
-    _require_admin, _require_staff, _get_session_cfg, _session_uid_any,
-    _no_cache, _ndjson_line, _shutdown_stream_worker, _msg_text,
-    DEFAULT_CONFIG_PATH, USER_CONFIG_DIR, AVATAR_DIR, RAG_CONFIG_PATH,
-    _read_json_file, _write_json_atomic, _user_cfg_path,
-    validate_password,
-    _get_sandbox_path, _get_work_path, _sandbox_size_bytes, _build_file_tree,
-    # Compteur d'usage disque mis en cache + single-flight (audit perf
-    # 2026-08-08) — à préférer à ``_sandbox_size_bytes`` partout où la valeur
-    # est LUE (jauges, listes) plutôt que recalculée pour elle-même.
-    sandbox_usage_bytes, bump_sandbox_usage, invalidate_sandbox_usage,
-    _make_backup_zip,
-    _git_run, _git_resolve_repo, _git_resolve_repo_or_root, _git_run_with_creds,
-)
-
+# PROJECT_ROOT was once defined here; keep it re-exported for compat.
+from shared_infra.config import PROJECT_ROOT  # noqa: F401, E402
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  EVENTS / SCHEDULER / MODEL CACHE  — re-exported from _events_bus.py
 # ─────────────────────────────────────────────────────────────────────────────
 from shared_infra.observability.events_bus import (  # noqa: F401, E402
     CURRENT_LOADED_MODELS,
-    SystemEvents, system_events,
-    PipelineEvents, pipeline_events,
-    _refresh_model_cache, _ensure_model_poller, _model_poll_loop,
-    _model_cache, _model_cache_hash, _model_cache_lock,
-    _cron_matches, start_cron_scheduler,
-    _register_bg_task, shutdown_bg_tasks, _local_cleanup_loop,
-    SSELogHandler, sse_handler,
+    PipelineEvents,
+    SSELogHandler,
+    SystemEvents,
+    _cron_matches,
+    _ensure_model_poller,
+    _local_cleanup_loop,
+    _model_cache,
+    _model_cache_hash,
+    _model_cache_lock,
+    _model_poll_loop,
+    _refresh_model_cache,
+    _register_bg_task,
+    pipeline_events,
+    shutdown_bg_tasks,
+    sse_handler,
+    start_cron_scheduler,
+    system_events,
 )
-# PROJECT_ROOT was once defined here; keep it re-exported for compat.
-from shared_infra.config import PROJECT_ROOT  # noqa: F401, E402
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  HELPERS  — re-exported from _helpers.py
+# ─────────────────────────────────────────────────────────────────────────────
+from shared_infra.routes._helpers import (  # noqa: F401, E402
+    AVATAR_DIR,
+    DEFAULT_CONFIG_PATH,
+    RAG_CONFIG_PATH,
+    ROLE_LABELS,
+    USER_CONFIG_DIR,
+    _get_sandbox_path,
+    _get_session_cfg,
+    _get_work_path,
+    _make_backup_zip,
+    _msg_text,
+    _ndjson_line,
+    _no_cache,
+    _read_json_file,
+    _require_admin,
+    _require_staff,
+    _sandbox_size_bytes,
+    _session_uid_any,
+    _shutdown_stream_worker,
+    _user_cfg_path,
+    _write_json_atomic,
+    bump_sandbox_usage,
+    invalidate_sandbox_usage,
+    # Compteur d'usage disque mis en cache + single-flight (audit perf
+    # 2026-08-08) — à préférer à ``_sandbox_size_bytes`` partout où la valeur
+    # est LUE (jauges, listes) plutôt que recalculée pour elle-même.
+    sandbox_usage_bytes,
+    validate_password,
+)
+from shared_infra.routes._state import router  # noqa: F401, E402
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  TERMINAL / PTY  — re-exported from _pty.py
 # ─────────────────────────────────────────────────────────────────────────────
 from shared_infra.terminal.pty import (  # noqa: F401, E402
-    _terminals, _term_global_lock,
-    DEFAULT_SID, MAX_SESSIONS_PER_USER,
-    _PTY_IDLE_TIMEOUT_SEC, _SESSION_DB_RETENTION_SEC, _SID_RE,
-    _spawn_terminal, _kill_terminal, _get_or_create_terminal,
-    _cleanup_idle_terminals, _purge_abandoned_session_rows,
+    _PTY_IDLE_TIMEOUT_SEC,
+    _SESSION_DB_RETENTION_SEC,
+    _SID_RE,
+    _WS_INPUT_RATE_CAPACITY,
+    _WS_INPUT_RATE_REFILL,
+    _WS_MAX_CTRL_BYTES,
+    DEFAULT_SID,
+    MAX_SESSIONS_PER_USER,
+    _cleanup_idle_terminals,
+    _count_user_sessions,
+    _delete_session_row,
+    _fcntl,
+    _get_or_create_terminal,
+    _get_session_row,
+    _init_terminal_sessions_table,
+    _insert_session_row,
+    _kill_local_session,
+    _kill_terminal,
+    _list_session_rows,
+    _new_sid,
+    _purge_abandoned_session_rows,
+    _rename_session_row,
+    _spawn_terminal,
+    _struct,
+    _term_global_lock,
+    _terminal_ws_loop,
+    _terminals,
+    _termios,
+    _touch_session_row,
+    _valid_sid,
+    _ws_auth_uid,
     shutdown_all_terminals,
-    _init_terminal_sessions_table, _new_sid, _valid_sid,
-    _count_user_sessions, _insert_session_row, _list_session_rows,
-    _get_session_row, _touch_session_row, _rename_session_row,
-    _delete_session_row, _kill_local_session,
-    _WS_INPUT_RATE_CAPACITY, _WS_INPUT_RATE_REFILL, _WS_MAX_CTRL_BYTES,
-    _ws_auth_uid, _terminal_ws_loop,
-    _fcntl, _struct, _termios,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Module-local state still owned here

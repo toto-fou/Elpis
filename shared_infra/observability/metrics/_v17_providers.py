@@ -34,9 +34,9 @@ import logging
 import time
 from typing import Any, Dict, List, Tuple
 
+from shared_infra.db._dialect import json_get
 from shared_infra.observability.metrics.engine import MetricProvider
 from shared_infra.observability.usage_store import db_conn
-from shared_infra.db._dialect import json_get
 
 logger = logging.getLogger("uvicorn.error")
 

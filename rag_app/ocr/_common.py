@@ -42,7 +42,7 @@ LOCK_TIMEOUT_SEC = 30.0
 
 
 @contextmanager
-def file_lock(path: Path, timeout: float = None):
+def file_lock(path: Path, timeout: float | None = None):
     """flock exclusif inter-process sur ``path`` (créé à la demande).
 
     Conservé malgré le service mono-process : les mutations de meta.json /

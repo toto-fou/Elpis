@@ -16,16 +16,16 @@ from typing import Optional
 
 import httpx
 
-from shared_infra.config import LLAMA_URL
 # Module-level mutable state (caches + constants) lives in _constants
 # (single source of truth shared across services).
 from llm_core._constants import (
-    _VISION_CAPABILITY_CACHE,   # dict — mutated here
-    _VISION_MODEL_PATTERNS,     # tuple of regex patterns (const)
-    _VISION_MAX_WIDTH,          # int (const)
-    _VISION_JPEG_QUALITY,       # int (const)
-    _LAST_SCREENSHOT,           # dict — mutated here
+    _LAST_SCREENSHOT,  # dict — mutated here
+    _VISION_CAPABILITY_CACHE,  # dict — mutated here
+    _VISION_JPEG_QUALITY,  # int (const)
+    _VISION_MAX_WIDTH,  # int (const)
+    _VISION_MODEL_PATTERNS,  # tuple of regex patterns (const)
 )
+from shared_infra.config import LLAMA_URL
 
 logger = logging.getLogger("uvicorn.error")
 

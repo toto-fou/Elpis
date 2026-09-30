@@ -20,9 +20,9 @@ from typing import Any, Optional
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from shared_infra.security.deps import require_user_id
 from shared_infra.accounts.users import get_user_by_id
 from shared_infra.routes.admin._state import admin_router
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 

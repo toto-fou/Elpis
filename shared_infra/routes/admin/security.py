@@ -18,7 +18,8 @@ import httpx
 from fastapi import HTTPException, Request
 
 from shared_infra.config import (
-    read_config_json, write_config_json,
+    read_config_json,
+    write_config_json,
 )
 
 # Helpers shared with _legacy. Single source of truth.
@@ -30,6 +31,7 @@ from shared_infra.routes._legacy import (
 # below register on the SAME singleton router instances mounted by
 # ``app.py`` / ``admin_app.py``.
 from shared_infra.routes.admin._state import admin_router
+from shared_infra.security.audit import audit_event
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -107,6 +109,9 @@ def admin_security_revoke_all_sessions(request: Request):
         "[security] global session revocation issued by uid=%s, new global_min_ts=%s",
         operator, new_ts,
     )
+    audit_event(user_id=operator, username=getattr(request.state, "username", None),
+                action="admin.security.sessions.revoke_all",
+                details={"global_min_ts": new_ts})
     # AUDIT 2026-08-02 (S1) — le timestamp ne coupe que les requêtes HTTP
     # futures : les flux DÉJÀ ouverts (SSE, shell WebSocket) restaient
     # vivants sans limite. On publie l'event sur le bus fichier : chaque
@@ -135,8 +140,7 @@ def admin_security_revoke_user_sessions(user_id: int, request: Request):
     operator = request.session.get("user_id")
     new_ts = time.time()
     try:
-        from shared_infra.accounts.users import get_user_by_id
-        from shared_infra.accounts.users import bump_session_min_ts
+        from shared_infra.accounts.users import bump_session_min_ts, get_user_by_id
         u = get_user_by_id(user_id)
         if not u:
             raise HTTPException(404, "Utilisateur introuvable")
@@ -148,6 +152,9 @@ def admin_security_revoke_user_sessions(user_id: int, request: Request):
             "[security] per-user session revocation: uid=%s revoked by uid=%s",
             user_id, operator,
         )
+        audit_event(user_id=operator, username=getattr(request.state, "username", None),
+                    action="admin.security.sessions.revoke_user",
+                    details={"target_user_id": int(user_id), "session_min_ts": new_ts})
         # AUDIT 2026-08-02 (S1) — coupe aussi les flux SSE/WS déjà ouverts
         # de cet utilisateur, sur tous les workers.
         _publish_session_revoked(uid=int(user_id))

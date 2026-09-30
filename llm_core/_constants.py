@@ -176,7 +176,8 @@ async def resolve_slot_id_async(chat_id: object, *, avoid_own: bool = False) -> 
     """
     try:
         from llm_core._model_info import (
-            _cached_total_slots as _ts, get_busy_slots_snapshot,
+            _cached_total_slots as _ts,
+            get_busy_slots_snapshot,
         )
         from llm_core.engines import current_engine
         _eng = current_engine()

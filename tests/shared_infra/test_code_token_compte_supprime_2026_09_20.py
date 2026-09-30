@@ -18,6 +18,7 @@ def base(tmp_path, monkeypatch):
     monkeypatch.setattr(legacy, "DB_PATH", str(tmp_path / "app.db"))
     legacy.init_db()
     import shared_infra.opencode.routes_code as code
+
     # Même base que les comptes (c'est le cas en production) : la page Code
     # passe par le pool commun, déjà redirigé ci-dessus.
     from shared_infra.accounts.users import create_user

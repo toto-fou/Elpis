@@ -406,7 +406,7 @@ fi
 
 yn() { [ "$1" -eq 1 ] && echo oui || echo non; }
 APT_PKGS=(python3 python3-venv python3-dev build-essential
-          git curl jq ca-certificates unzip openssl
+          git curl jq ca-certificates unzip openssl bubblewrap
           fonts-dejavu fonts-liberation)
 cat <<EOF
 
@@ -435,9 +435,21 @@ if [ "$TUI" -eq 0 ] && [ "$INTERACTIVE" -eq 1 ] && [ "$(ask_yn "Lancer l'install
     info "Annulé."
     exit 0
 fi
+# Le dépôt revient au compte de l'application — SAUF le contenu des
+# sandboxes : chaque /work appartient à l'utilisateur du conteneur (seul
+# l'agent y écrit) ; seuls user_sandboxes et chaque dossier de compte, sans
+# récursion. Un chown -R ici rendait /work illisible en écriture à l'agent
+# jusqu'au redémarrage de son conteneur.
+chown_depot() {
+    find "$ROOT" -path "$ROOT/user_sandboxes" -prune -o -exec chown -h "$APP_USER": {} +
+    if [ -d "$ROOT/user_sandboxes" ]; then
+        chown "$APP_USER": "$ROOT/user_sandboxes"
+        find "$ROOT/user_sandboxes" -mindepth 1 -maxdepth 1 -type d -exec chown "$APP_USER": {} +
+    fi
+}
 # En root : le dépôt appartient au compte de l'application (venv, Chromium,
 # fichiers de configuration écrits sous ce compte).
-[ "$AS_ROOT" -eq 1 ] && chown -R "$APP_USER": "$ROOT"
+[ "$AS_ROOT" -eq 1 ] && chown_depot
 
 # =============================================================================
 #  2. Paquets système
@@ -458,7 +470,7 @@ install_system() {
     have docker || pkgs+=(docker.io)
     [ "$WITH_OFFICE" -eq 1 ] && pkgs+=(libreoffice-writer-nogui libreoffice-calc-nogui
                                        libreoffice-impress-nogui fonts-crosextra-carlito
-                                       fonts-crosextra-caladea bubblewrap)
+                                       fonts-crosextra-caladea)
     [ "$WITH_VOICE" -eq 1 ] && pkgs+=(cmake pkg-config)
     # Serveurs de base : paquets de l'OS uniquement, jamais livrés par Elpis.
     [ "$DB_MODE" = postgres-local ] && pkgs+=(postgresql)
@@ -733,13 +745,23 @@ install_sandbox_image() {
         return 0
     fi
     if [ -n "$OFFLINE_DIR" ]; then
-        archive="$(ls -1t "$OFFLINE_DIR"/sandbox/*.tar.gz 2>/dev/null | head -1)"
-        [ -n "$archive" ] || { note_warn "Aucune archive d'image dans $OFFLINE_DIR/sandbox."; return 0; }
+        # L'archive de LA version attendue (pas la plus récente du dossier :
+        # une ancienne version y serait chargée sous le mauvais nom).
+        archive="$OFFLINE_DIR/sandbox/elpis-sandbox-${image##*:}.tar.gz"
+        [ -f "$archive" ] || { note_warn "Archive $(basename "$archive") absente de $OFFLINE_DIR/sandbox."; return 0; }
         info "Chargement de l'image sandbox ($archive)…"
         if [ "${dk[0]}" = "docker" ]; then "$sb/load_image.sh" "$archive"; else $SUDO "$sb/load_image.sh" "$archive"; fi \
             || note_warn "Chargement de l'image sandbox échoué."
     elif [ "$SANDBOX_MODE" = pull ]; then
         [ -n "$PULL_REF" ] || die "--pull : précisez l'image (--pull REGISTRE/IMAGE:TAG ou ELPIS_SANDBOX_PULL_REF)."
+        # Étiquette explicite d'une AUTRE version (ex. variable restée sur
+        # l'ancienne) : ne pas la renommer en version attendue.
+        local dernier="${PULL_REF##*/}"
+        case "$dernier" in
+            *@*) ;;                                      # empreinte : pas d'étiquette à comparer
+            *:*) [ "${dernier##*:}" = "${image##*:}" ] \
+                     || { note_warn "--pull $PULL_REF : version différente de ${image##*:} attendue, image non étiquetée."; return 0; } ;;
+        esac
         info "Téléchargement de l'image sandbox ($PULL_REF)…"
         "${dk[@]}" pull "$PULL_REF" && "${dk[@]}" tag "$PULL_REF" "$image" \
             || note_warn "docker pull a échoué."
@@ -756,6 +778,33 @@ install_caddy() {
     fi
     info "Frontal HTTPS Caddy…"
     $SUDO "$ROOT/deploy/caddy/install_caddy.sh" || note_warn "Installation de Caddy incomplète."
+}
+
+# Les aperçus Office tournent dans une prison bubblewrap (Git, lui, tourne
+# dans la sandbox depuis L4.4) ; la sonde est celle de l'application (shared_infra/sandbox/bwrap.py), comme
+# ./elpis doctor. Ubuntu ≥ 23.10 réserve les user namespaces aux programmes
+# qui ont un profil AppArmor : avec les droits système, on en pose un pour
+# bwrap, seulement s'il est bloqué (compromis : docs/configuration.md).
+bwrap_ok() {
+    as_app "$VENV/bin/python" -c 'import sys; from shared_infra.sandbox.bwrap import probe; sys.exit(not probe(force=True))' >/dev/null 2>&1
+}
+
+ensure_bwrap() {
+    if ! have bwrap; then
+        note_warn "bubblewrap absent : aperçus Office indisponibles (apt install bubblewrap)."
+        return 0
+    fi
+    if bwrap_ok; then ok "bubblewrap utilisable (aperçus Office)."; return 0; fi
+    if [ "$DO_SYSTEM" -eq 1 ] && have apparmor_parser \
+            && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ]; then
+        printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' '' \
+            'profile elpis-bwrap /usr/bin/bwrap flags=(unconfined) {' '  userns,' \
+            '  include if exists <local/elpis-bwrap>' '}' \
+            | $SUDO tee /etc/apparmor.d/elpis-bwrap >/dev/null \
+            && $SUDO apparmor_parser -r /etc/apparmor.d/elpis-bwrap \
+            && bwrap_ok && { ok "bubblewrap autorisé (profil AppArmor elpis-bwrap)."; return 0; }
+    fi
+    note_warn "bubblewrap bloqué (user namespaces) : aperçus Office indisponibles (./elpis doctor)."
 }
 
 check_office() {
@@ -785,6 +834,7 @@ install_voice() {
 # =============================================================================
 [ "$DO_SYSTEM" -eq 1 ] && install_system
 install_python
+ensure_bwrap
 setup_database
 [ "$WITH_BROWSER" -eq 1 ] && install_browser
 install_qdrant
@@ -795,6 +845,7 @@ esac
 [ "$WITH_CADDY" -eq 1 ] && install_caddy
 [ "$WITH_VOICE" -eq 1 ] && install_voice
 mkdir -p "$ROOT/user_db/logs" "$ROOT/user_sandboxes" "$ROOT/logs"
+chmod 700 "$ROOT/user_sandboxes"   # la racine isole les sandboxes des autres comptes de l'hôte
 chmod +x "$ROOT/elpis" 2>/dev/null || true
 
 # =============================================================================
@@ -820,8 +871,8 @@ if [ "$DO_CONFIGURE" = 1 ]; then
     fi
 fi
 # En root : tout ce que les étapes système ont créé revient au compte de
-# l'application (base SQLite, jetons, config, Qdrant, journaux).
-[ "$AS_ROOT" -eq 1 ] && chown -R "$APP_USER": "$ROOT"
+# l'application (base SQLite, jetons, config, Qdrant, journaux), /work exclu.
+[ "$AS_ROOT" -eq 1 ] && chown_depot
 
 if [ -f "$ROOT/config.json" ]; then
     case "$AFTER" in

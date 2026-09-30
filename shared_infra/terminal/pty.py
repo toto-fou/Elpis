@@ -57,31 +57,29 @@ same names are also reachable via the package façade.
 from __future__ import annotations
 
 import asyncio
+import fcntl as _fcntl
 import logging
 import os
+import pty as _pty
 import re as _re_sid
 import secrets
+import struct as _struct
 import subprocess
-
-from shared_infra.sandbox.executors import _privdrop
+import termios as _termios
+import threading as _threading
 import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import pty as _pty
-import fcntl as _fcntl
-import struct as _struct
-import termios as _termios
-import threading as _threading
-
 from fastapi import HTTPException, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
-from shared_infra.config import read_config_json
 from shared_infra.accounts.users import (
     get_user_settings,
     get_username_by_id,
 )
+from shared_infra.config import read_config_json
+from shared_infra.sandbox.executors import _privdrop
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -168,28 +166,24 @@ _SID_RE = _re_sid.compile(r"^[A-Za-z0-9_-]{1,64}$")
 # claim of a "<1 ms window" was backwards: the miss was the rule).
 
 
-# ── umask 0000 du terminal : pourquoi un --rcfile et pas un simple préfixe ──
-# L'hôte (UID de l'app) et le conteneur (UID 10001) ne partagent AUCUN groupe :
-# seul le bit « other » rend un fichier cross-writable, donc tout /work doit
-# être créé en 0666/0777 (cf. le wrapper ``umask 0000`` de ``sb.exec``).
+# ── umask 0022 du terminal : pourquoi un --rcfile et pas un simple préfixe ──
+# Un seul UID écrit dans /work (L4.6) : fichiers 0644, dossiers 0755, comme
+# les commandes de ``sb.exec``.
 #
-# ⚠ Un ``sh -c 'umask 0000; exec /bin/bash'`` NE SUFFIT PAS : le bash lancé ici
+# ⚠ Un ``sh -c 'umask 0022; exec /bin/bash'`` NE SUFFIT PAS : le bash lancé ici
 # est INTERACTIF (docker exec -it), donc il source ``/etc/bash.bashrc`` — que
-# l'image remplit avec ``umask 0002`` (Dockerfile + entrypoint le ré-ajoutent à
-# chaque boot). Le umask de l'appelant était donc écrasé juste après, et un
-# ``git clone`` tapé au terminal produisait encore des arbres 0775/0664 que
-# l'hôte (outils fs/git) ne pouvait plus modifier.
-#
-# Le ``--rcfile`` est lu APRÈS ``/etc/bash.bashrc`` (il ne remplace que
-# ``~/.bashrc``) : on y re-pose ``umask 0000``, qui gagne donc en dernier. On
-# source explicitement ``~/.bashrc`` (HOME=/work) pour ne rien perdre des
-# personnalisations de l'utilisateur. Repli sur un bash nu si /tmp est
-# inaccessible — mieux vaut un terminal au mauvais umask que pas de terminal.
+# l'image a pu remplir avec un autre umask (``umask 0002`` jusqu'à
+# elpis/sandbox 1.7.0, entrypoint compris). Le ``--rcfile`` est lu APRÈS
+# ``/etc/bash.bashrc`` (il ne remplace que ``~/.bashrc``) : on y re-pose
+# l'umask, qui gagne donc en dernier. On source explicitement ``~/.bashrc``
+# (HOME=/work) pour ne rien perdre des personnalisations de l'utilisateur.
+# Repli sur un bash nu si /tmp est inaccessible — mieux vaut un terminal au
+# mauvais umask que pas de terminal.
 _TERM_RCFILE = "/tmp/.elpis-termrc"
 _TERM_BOOTSTRAP = (
-    "umask 0000; "
+    "umask 0022; "
     "{ echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; "
-    "echo 'umask 0000'; } > " + _TERM_RCFILE + " 2>/dev/null "
+    "echo 'umask 0022'; } > " + _TERM_RCFILE + " 2>/dev/null "
     "&& exec /bin/bash --rcfile " + _TERM_RCFILE + "; "
     "exec /bin/bash"
 )
@@ -320,10 +314,10 @@ def _spawn_terminal(uid: int, sid: str = DEFAULT_SID) -> dict:
     # via stdin/stdout. Notre PTY hôte sert juste de canal de transport
     # vers xterm.js. Le sandbox enforcement hôte est inutile : le container
     # EST la sandbox (UID 10001 non-root, volume /work cloisonné, iptables
-    # in-container, pas de docker.sock). ⚠ Le modèle 1.2.0 est PERMISSIF
-    # dedans — ni --cap-drop=ALL, ni no-new-privileges, ni --read-only, et
-    # sudo NOPASSWD (cf. UserSandbox._build_run_args) : c'est précisément
-    # pourquoi le retrait de net_admin ci-dessous est nécessaire.
+    # in-container, pas de docker.sock). ⚠ Le modèle est PERMISSIF dedans —
+    # ni no-new-privileges, ni --read-only, et sudo NOPASSWD (cf.
+    # UserSandbox._build_run_args) : c'est précisément pourquoi le retrait de
+    # net_admin ci-dessous est nécessaire.
     _probe_privdrop(container_name)
     docker_cmd = _build_pty_docker_cmd(container_name)
 
@@ -717,8 +711,8 @@ def _insert_session_row(uid: int, tid: Optional[int], name: str) -> dict:
     _init_terminal_sessions_table()
     sid = _new_sid()
     now = int(time.time())
-    from shared_infra.observability.usage_store import db_conn
     from shared_infra.db._dialect import begin_write
+    from shared_infra.observability.usage_store import db_conn
     with db_conn() as conn:
         cur = conn.cursor()
         try:

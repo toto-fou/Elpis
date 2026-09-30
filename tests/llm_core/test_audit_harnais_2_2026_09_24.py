@@ -17,8 +17,7 @@ from llm_core._llm_retry import llm_error_is_fatal, retry_after_seconds
 from llm_core._stream_tag_parser import ThinkTagSplitter
 from llm_core._tool_parsing import extract_tool_calls
 from llm_core.engine.tool_exec import execute_tool_batch
-from llm_core.providers import anthropic as A
-from llm_core.providers import openai_compat as O
+from llm_core.providers import anthropic as A, openai_compat as O
 from llm_core.providers.llamacpp import consume_llama_sse
 
 
@@ -233,8 +232,8 @@ def test_retry_after_en_secondes_et_borne():
 
 
 def test_retry_after_date_http():
-    from email.utils import format_datetime
     import datetime as dt
+    from email.utils import format_datetime
     quand = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=30)
     s = retry_after_seconds(_http_error(503, {"retry-after": format_datetime(quand, usegmt=True)}))
     assert s is not None and 25 <= s <= 31
@@ -256,8 +255,8 @@ async def test_retry_pause_respecte_retry_after(monkeypatch):
 
 
 async def test_503_avec_health_deja_ok_garde_le_backoff(monkeypatch):
-    from llm_core import _llm_retry as R
     import llm_core._target as T
+    from llm_core import _llm_retry as R
     dormis = []
 
     async def _sleep(s, _c):
@@ -373,6 +372,7 @@ def test_balises_completes_inchangees():
 # ── Fenêtre déclarée : lue hors boucle, mémoïsée ─────────────────────────────
 async def test_fenetre_declaree_memoisee_et_hors_boucle(monkeypatch):
     import threading
+
     from llm_core import _ctx_window as C
     C.invalidate_cache()
     appels = []

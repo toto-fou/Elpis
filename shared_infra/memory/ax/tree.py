@@ -12,8 +12,8 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-from shared_infra.memory.ax._connection import _conn
 from shared_infra.db._dialect import ci_like, nulls_first
+from shared_infra.memory.ax._connection import _conn
 from shared_infra.memory.ax.selectors import _top_selectors
 
 
@@ -117,7 +117,7 @@ def load_dom_tree(site: str, path: Optional[str] = None,
                     "children":       [],
                 }
             # Seconde passe : rattacher chaque node a son parent, ou aux roots
-            for p, data in out.items():
+            for data in out.values():
                 by_id = data["by_id"]
                 for node in by_id.values():
                     pid = node["parent_id"]

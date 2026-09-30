@@ -7,12 +7,12 @@ shared_infra.git — Infrastructure git PARTAGÉE entre le chemin MCP
 Placé dans ``shared_infra`` (et NON ``llm_core``) pour respecter le sens des
 dépendances : ``llm_core`` importe ``shared_infra`` (jamais l'inverse). Les deux
 couches consomment donc le MÊME résolveur de credentials, la MÊME abstraction de
-providers, le MÊME validateur SSRF et le MÊME injecteur GIT_ASKPASS.
+providers et le MÊME validateur SSRF ; l'identifiant est ajouté aux requêtes
+Git par le relais de l'hôte (``shared_infra.sandbox.git_relay``).
 
 Modules :
   - ``detect``    : parse une URL de remote → {provider, host, owner, repo}
   - ``ssrf``      : validateur SSRF unifié (clone/fetch/push/pull + API)
-  - ``askpass``   : injection sûre de credentials HTTPS via GIT_ASKPASS (env)
   - ``resolver``  : ``resolve_git_credential`` (remplace le fichier sandbox)
   - ``providers`` : abstraction PR/MR multi-provider (GitHub/GitLab/Bitbucket/Gitea)
 """

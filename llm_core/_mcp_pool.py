@@ -31,6 +31,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from llm_core._tool_traits import tool_traits
 from shared_infra.config import TOOLS_CACHE_TTL_SEC
 
 logger = logging.getLogger("uvicorn.error")
@@ -189,36 +190,6 @@ def _call_accepts_kwarg(client: Any, kwarg: str) -> bool:
             names = frozenset({"meta", "progress_callback", "log_callback"})
         _CLIENT_CALL_KWARGS_CACHE[key] = names
     return kwarg in names
-
-
-def _is_replay_safe(tool_name: str) -> bool:
-    """Peut-on rejouer cet outil après une reconnexion, sans risque de doublon ?
-
-    Non pour tout ce qui MUTE : les préfixes déjà déclarés « sériels » (écriture,
-    git, sandbox, mémoire, sous-agents…) plus le shell, qui n'y figure pas
-    (il se parallélise) mais dont un rejeu relancerait la commande.
-    """
-    name = (tool_name or "").strip()
-    if not name:
-        return False
-    # (2026-09-11, P2) politique déclarée par le serveur (``meta.policy``)
-    try:
-        from llm_core._mcp_categories import tool_policy as _tool_policy
-        pol = _tool_policy(name)
-        if "replay_safe" in pol:
-            return bool(pol["replay_safe"])
-        if "serial" in pol and pol["serial"]:
-            return False
-    except Exception:                                           # noqa: BLE001
-        pass
-    try:
-        from llm_core._constants import LLAMA_TOOL_SERIAL_PREFIXES
-    except Exception:                                           # noqa: BLE001
-        LLAMA_TOOL_SERIAL_PREFIXES = ()                         # noqa: N806
-    if name.startswith(tuple(LLAMA_TOOL_SERIAL_PREFIXES)):
-        return False
-    return not name.startswith(("execute_shell", "shell_", "run_", "desktop_",
-                                "pw_", "browser_"))
 
 
 @dataclass
@@ -956,7 +927,7 @@ class MCPConnectionPool:
                     f"(re)connexion à '{cfg.get('name', key)}' trop longue "
                     f"(> {queue_timeout_s:.0f}s) — l'outil n'a pas été rejoué"
                 ) from _call_err
-        if not _evincee and not _is_replay_safe(tool_name):
+        if not _evincee and not tool_traits(tool_name).replay_safe:
             logger.warning(
                 "[MCP_POOL] '%s' NON rejoué après reconnexion (outil mutant : "
                 "l'effet a peut-être déjà été appliqué avant la coupure).",

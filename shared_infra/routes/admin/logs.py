@@ -17,7 +17,6 @@ from fastapi.responses import (
 from shared_infra.accounts.users import (
     get_user_by_id,
 )
-from shared_infra.security.deps import require_user_id
 
 # Helpers shared with _legacy. Single source of truth.
 from shared_infra.routes._legacy import (
@@ -28,6 +27,7 @@ from shared_infra.routes._legacy import (
 # below register on the SAME singleton router instances mounted by
 # ``app.py`` / ``admin_app.py``.
 from shared_infra.routes.admin._state import admin_router
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 

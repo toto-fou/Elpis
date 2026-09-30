@@ -46,11 +46,9 @@ from fastapi import Request
 from fastapi.responses import StreamingResponse
 
 from shared_infra.accounts.users import get_user_by_id
-from shared_infra.security.deps import require_user_id, stream_session_still_valid
-from shared_infra.routes._state import router
-
 from shared_infra.observability.events_bus import _ensure_model_poller, start_cron_scheduler, system_events
-
+from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id, stream_session_still_valid
 
 # ── Sélection du response class SSE ──────────────────────────────────────
 # sse-starlette > StreamingResponse pour les raisons documentées en haut

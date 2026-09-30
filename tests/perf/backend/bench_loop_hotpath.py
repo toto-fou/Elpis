@@ -116,13 +116,13 @@ async def main(label: str) -> None:
             msgs = build_history(n)
             cell = {}
             cell["compact_working_messages"] = await bench_one(
-                "prune_select", lambda: cwt._select_prune_keys(msgs, ctx_size=32768))
+                "prune_select", lambda: cwt._select_prune_keys(msgs, ctx_size=32768))  # noqa: B023 (même itération)
             cell["prune_old_vision_frames"] = await bench_one(
-                "prune", lambda: cwt._prune_old_vision_frames(msgs))
+                "prune", lambda: cwt._prune_old_vision_frames(msgs))  # noqa: B023 (même itération)
             cell["enforce_context_budget"] = await bench_one(
-                "budget", lambda: cwt._enforce_context_budget(list(msgs), 32768, None, 4096))
+                "budget", lambda: cwt._enforce_context_budget(list(msgs), 32768, None, 4096))  # noqa: B023 (même itération)
             cell["count_messages_tokens_per_msg"] = await bench_one(
-                "count", lambda: cwt._count_messages_tokens_per_msg(msgs, None))
+                "count", lambda: cwt._count_messages_tokens_per_msg(msgs, None))  # noqa: B023 (même itération)
             # Le schéma tools est compté UNE fois par run (surcoût fixe partagé
             # pré-porte/porte/budget) — bench du coût unitaire de ce comptage.
             # (Les estimateurs de jauge ont disparu : la jauge lit l'usage réel

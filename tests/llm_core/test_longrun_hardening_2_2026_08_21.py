@@ -104,9 +104,9 @@ async def test_les_metriques_d_outil_partent_hors_boucle(monkeypatch):
     """Les trois écritures bloquantes du bloc métriques (log_metric,
     record_metric, watch_tool_call) doivent passer par ``to_thread`` — sinon
     elles gèlent le worker, donc TOUS ses flux, à chaque appel d'outil."""
-    from llm_core.engine import tool_exec
-
     import threading
+
+    from llm_core.engine import tool_exec
     offloaded: list = []
     loop_thread = threading.current_thread()
 
@@ -292,8 +292,9 @@ async def test_tokenize_saute_les_raisonnements_enormes(monkeypatch):
 def test_les_generations_en_cours_sont_comptables(tmp_path, monkeypatch):
     """Un reload gracieux annule les runs en vol au bout du drain ; l'opérateur
     doit pouvoir savoir combien AVANT de le déclencher."""
-    from shared_infra.runtime import chat_locks
     import importlib
+
+    from shared_infra.runtime import chat_locks
 
     # ``chat_locks`` fige LOCK_DIR à l'import ; le recharger est sans danger
     # (module feuille, aucune valeur captée ailleurs) et on le restaure ensuite.

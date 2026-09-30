@@ -66,22 +66,21 @@ def _git_available() -> bool:
 
 
 @pytest.mark.skipif(not _git_available(), reason="git not installed")
-def test_block_remote_ssrf_flags_internal(tmp_path):
+def test_remote_interne_refuse_avant_tout_transfert(tmp_path):
+    """L4.4 : l'URL du remote, lue dans le dépôt, repasse la garde anti-SSRF
+    à chaque opération réseau (relais) — rien ne part vers l'amont."""
     from llm_core.tools import git_tools as gt
-    repo = tmp_path / "repo"
-    repo.mkdir()
+    from shared_infra.sandbox.git_relay import RelayRefused
+    work = tmp_path / "sb" / "u" / "work"
+    repo = work / "repo"
+    repo.mkdir(parents=True)
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
-    # 169.254.x.x is link-local → blocked by _clone_url_block_reason WITHOUT DNS.
+    gt._remember_work_root(work, "u")
+    with pytest.raises(RelayRefused) as e:
+        gt._remote_url(repo, "origin")                  # pas de remote : rien à joindre
+    assert e.value.code == "no_remote"
+    # 169.254.x.x is link-local → blocked WITHOUT DNS.
     subprocess.run(["git", "remote", "add", "origin",
                     "https://169.254.169.254/meta.git"], cwd=repo, check=True)
-    reason = gt._block_remote_ssrf(repo)
-    assert reason and "origin" in reason
-
-
-@pytest.mark.skipif(not _git_available(), reason="git not installed")
-def test_block_remote_ssrf_none_without_remote(tmp_path):
-    from llm_core.tools import git_tools as gt
-    repo = tmp_path / "repo2"
-    repo.mkdir()
-    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
-    assert gt._block_remote_ssrf(repo) is None
+    r = gt._run_network(repo, ["fetch", "origin"], "u", url=gt._remote_url(repo, "origin"))
+    assert r["ok"] is False and r["error"] == "blocked_remote" and "169.254" in r["fix"]

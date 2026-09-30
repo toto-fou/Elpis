@@ -40,11 +40,13 @@ from typing import Any, Literal, Optional, Union
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
-from ._toolkit import (
-    tool_kw, as_enum,
-    tool_kw_readonly, tool_kw_mutating,
-)
 from ._models import ErrEnvelope
+from ._toolkit import (
+    as_enum,
+    tool_kw,
+    tool_kw_mutating,
+    tool_kw_readonly,
+)
 
 # ── Category descriptor ──────────────────────────────────────────────
 # Single source of truth for this module's category — display metadata
@@ -260,7 +262,7 @@ def _identity(ctx: Optional[Context]) -> tuple[str, str]:
     ``_meta.username`` — précisément le contournement que la phase 1 ferme.
     """
     try:
-        from llm_core.tools._toolkit import get_username, get_chat_id
+        from llm_core.tools._toolkit import get_chat_id, get_username
         return _safe_username(get_username(ctx)), _safe_chat_id(get_chat_id(ctx))
     except Exception:
         return _safe_username(None), _safe_chat_id(None)
@@ -444,6 +446,7 @@ do not repeat it."""
             return _res, _op
 
         import asyncio as _aio
+
         from llm_core.memory import StoreBusyError
         try:
             res, op = await _aio.to_thread(_apply_and_audit)

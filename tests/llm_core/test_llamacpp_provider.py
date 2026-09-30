@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import pytest
 
-from llm_core.providers.llamacpp import (
-    build_llama_payload, consume_llama_sse, SseStreamResult,
-)
 from llm_core._stream_tag_parser import ThinkTagSplitter
-
+from llm_core.providers.llamacpp import (
+    SseStreamResult,
+    build_llama_payload,
+    consume_llama_sse,
+)
 
 # ── build_llama_payload ─────────────────────────────────────────────────────
 
@@ -51,9 +52,9 @@ async def test_payload_extensions_llama_native(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_payload_slot_et_clamp_local(monkeypatch):
-    import llm_core.providers.llamacpp as prov
     import llm_core._constants as const
     import llm_core._model_info as mi
+    import llm_core.providers.llamacpp as prov
 
     async def _ctx(_m):
         return 8192

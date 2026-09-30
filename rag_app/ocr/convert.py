@@ -219,7 +219,7 @@ def _raster_pdfium(pdf_path: Path, pages_dir: Path, text_dir: Path,
                 zoom = min(_MAX_ZOOM, max_side_px / side)
                 pil = page.render(scale=zoom).to_pil()
                 n = i + 1
-                _save_png(pages_dir, n, lambda p: pil.save(p, format="PNG"), guard)
+                _save_png(pages_dir, n, lambda p: pil.save(p, format="PNG"), guard)  # noqa: B023 (même itération)
                 textpage = page.get_textpage()
                 try:
                     text = (textpage.get_text_range() or "").strip()

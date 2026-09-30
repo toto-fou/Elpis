@@ -2,7 +2,7 @@
 """
 agentic/executors/_image_loader.py — Auto-chargement de l'image sandbox.
 
-L'image ``elpis/sandbox:1.6.0`` est buildée UNE FOIS sur une machine
+L'image livrée (``DEFAULT_IMAGE``) est buildée UNE FOIS sur une machine
 connectée à Internet (cf. ``deploy/docker/sandbox/build_offline.sh``)
 puis l'archive ``.tar.gz`` est commitée dans le repo de l'app.
 
@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import shutil
 import time
 from dataclasses import dataclass
@@ -106,14 +105,14 @@ def reset_state() -> None:
 
 def _candidate_tar_paths(image_name: str) -> list[Path]:
     """Liste des chemins possibles pour l'archive de l'image, par priorité."""
-    # ``image_name`` typique : ``elpis/sandbox:1.6.0``
-    # On en dérive un nom de fichier : ``elpis-sandbox-1.6.0.tar.gz``
+    # ``image_name`` typique : ``elpis/sandbox:1.7.0``
+    # On en dérive un nom de fichier : ``elpis-sandbox-1.7.0.tar.gz``
     safe = image_name.replace(":", "-").replace("/", "-")
     file_candidates = [f"{safe}.tar.gz", f"{safe}.tar"]
 
-    # Trouver la racine de l'app (= parent du dossier 'agentic/')
+    # Racine de l'app : shared_infra/sandbox/executors/_image_loader.py → parents[3].
     here = Path(__file__).resolve()
-    app_root = here.parents[2]  # agentic/executors/_image_loader.py → app_root
+    app_root = here.parents[3]
 
     paths: list[Path] = []
 
@@ -261,10 +260,10 @@ async def ensure_image_loaded(image_name: str,
                 status=ImageLoadStatus.NOT_FOUND,
                 image=image_name,
                 error=(
-                    f"Archive de l'image introuvable. Cherché dans :\n"
+                    "Archive de l'image introuvable. Cherché dans :\n"
                     + "\n".join(f"  • {p}" for p in candidates)
                     + "\n\nBuild l'image avec deploy/docker/sandbox/build_offline.sh "
-                    f"et place le .tar.gz dans <app>/sandbox_images/."
+                    "et place le .tar.gz dans <app>/sandbox_images/."
                 ),
                 progress_msg="Archive introuvable",
             )

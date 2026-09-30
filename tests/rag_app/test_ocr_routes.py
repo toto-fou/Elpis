@@ -18,12 +18,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from rag_app.ocr import client as ocr_client
-from rag_app.ocr import config as ocr_config
-from rag_app.ocr import jobs as ocr_jobs
-from rag_app.ocr import queue as ocr_queue
-from rag_app.ocr import rag_index as ocr_rag
-from rag_app.ocr import store as ocr_store
+from rag_app.ocr import (
+    client as ocr_client,
+    config as ocr_config,
+    jobs as ocr_jobs,
+    queue as ocr_queue,
+    rag_index as ocr_rag,
+    store as ocr_store,
+)
 from rag_app.ocr._common import OcrError
 
 _SECTION = {

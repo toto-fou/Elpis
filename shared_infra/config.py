@@ -9,9 +9,9 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from shared_infra.env_compat import env  # noqa: F401  (réexporté)
-from typing import Any, Dict, List, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -34,9 +34,9 @@ def _resolve_config_json_path() -> Path:
 
     Priorité : ``APP_CONFIG_PATH`` > racine > ancien emplacement.
     """
-    env = os.environ.get("APP_CONFIG_PATH")
-    if env:
-        return Path(env).resolve()
+    explicit = os.environ.get("APP_CONFIG_PATH")
+    if explicit:
+        return Path(explicit).resolve()
     racine = PROJECT_ROOT / "config.json"
     if racine.exists():
         return racine.resolve()
@@ -864,9 +864,9 @@ def db_password() -> str:
     """Mot de passe du moteur serveur : ``APP_DB_PASSWORD``, sinon le fichier
     ``.db_password`` du dossier de données. Lu à chaque connexion (la page
     d'administration peut le changer sans redémarrage des lectures)."""
-    env = os.environ.get("APP_DB_PASSWORD")
-    if env:
-        return env
+    explicit = os.environ.get("APP_DB_PASSWORD")
+    if explicit:
+        return explicit
     try:
         return (Path(DB_PATH).parent / ".db_password").read_text(encoding="utf-8").strip()
     except OSError:

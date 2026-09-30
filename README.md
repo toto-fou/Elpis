@@ -1,6 +1,9 @@
 # Elpis
 
-> **English summary.** Elpis is a self-hosted LLM assistant: an agentic chat
+[![CI](https://github.com/toto-fou/Elpis/actions/workflows/ci.yml/badge.svg)](https://github.com/toto-fou/Elpis/actions/workflows/ci.yml)
+
+> **Elpis is a self-hosted agentic engineering workspace for teams sharing
+> local LLM infrastructure.** It combines an agentic chat
 > (tools, sub-agents, long-term memory, skills), a code editor with a per-user
 > Docker sandbox and terminal, scheduled routines, a RAG service and an admin
 > console. It talks to `llama-server` (llama.cpp) or any OpenAI-compatible
@@ -10,7 +13,8 @@
 
 ---
 
-Elpis est un assistant LLM **auto-hébergé**. Tout tourne sur votre serveur.
+Elpis est un **atelier d'ingénierie agentique auto-hébergé**, pour les équipes
+qui partagent une infrastructure LLM locale. Tout tourne sur votre serveur.
 
 - **Chat agentique** : outils (fichiers, shell, Git, navigateur, graphiques),
   sous-agents, mémoire long terme, skills, serveurs MCP externes.
@@ -19,6 +23,53 @@ Elpis est un assistant LLM **auto-hébergé**. Tout tourne sur votre serveur.
 - **Routines** : tâches planifiées ou déclenchées par webhook.
 - **RAG** : indexation de documents (Qdrant), OCR.
 - **Administration** : utilisateurs et groupes, connecteurs LLM, métriques.
+
+## Pourquoi Elpis
+
+- **Une sandbox Docker par utilisateur**, avec quotas : l'agent édite, lance
+  les tests et versionne dans un vrai environnement, isolé des autres.
+- **Un runtime agentique durable** : verrous entre workers, annulation,
+  reprise d'une exécution détachée, enregistrement sans écrasement.
+- **Une inférence locale partagée** : ordonnanceur llama.cpp (exclusivité de
+  modèle, créneaux, disjoncteur) pour plusieurs utilisateurs sur les mêmes
+  GPU.
+- **Éditeur, Git et terminal dans la même sandbox** que l'agent : ce qu'il
+  fait se relit, se teste et se corrige au même endroit.
+- **Une console d'administration** : comptes, connecteurs, sandbox, base,
+  sauvegardes, métriques.
+
+Là où une interface de chat LLM généraliste s'arrête à la conversation,
+Elpis vise le travail sur du code, avec un environnement d'exécution par
+utilisateur et une inférence partagée. Suite prévue :
+[ROADMAP.md](ROADMAP.md).
+
+## Architecture
+
+```mermaid
+flowchart LR
+    nav([Navigateur]) --> main["main :8001<br/>chat, éditeur, routines"]
+    nav --> admin["admin :8002<br/>console"]
+    main --> llm["llama-server<br/>ou compatible OpenAI"]
+    main --> toolhost["toolhost :8765<br/>outils MCP"]
+    main --> rag["rag_app :8000<br/>RAG, OCR"]
+    rag --> qdrant[("Qdrant")]
+    toolhost --> sandbox["sandbox Docker<br/>par utilisateur"]
+    toolhost --> browser["browser-service :3000"]
+    main --> db[("SQLite, PostgreSQL<br/>ou MariaDB")]
+    admin --> db
+```
+
+Détail : [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Sécurité
+
+Le conteneur de chaque utilisateur est la frontière de sécurité. Le serveur
+ne lit ni n'écrit le contenu d'une sandbox : fichiers, éditeur, archives et
+Git passent par un agent qui tourne dans le conteneur, sous l'utilisateur de
+la sandbox (le réseau de Git passe par un relais de l'hôte qui y ajoute les
+identifiants). Le compte de service pilote Docker : réservez à Elpis une
+machine ou une VM dédiée. Modèle de menace et signalement :
+[SECURITY.md](SECURITY.md).
 
 ## Prérequis
 
@@ -68,6 +119,7 @@ Chaque étape reste disponible seule :
 ./elpis configure              # revoir la configuration (valeurs actuelles proposées)
 sudo ./elpis service install   # services systemd
 ./elpis start | stop | status | logs [service] | doctor
+./elpis backup | upgrade       # sauvegarde, mise à jour (docs/exploitation.md)
 ./elpis db info | check | transfer | use       # base de données
 ```
 
@@ -106,6 +158,9 @@ sudo ./elpis service install   # services systemd
 - [CHANGELOG.md](CHANGELOG.md) — journal des modifications.
 - [Guide utilisateur](docs/guide-utilisateur.md)
 - [Installation et configuration](docs/configuration.md)
+- [Exploitation](docs/exploitation.md) — mise à jour, retour arrière,
+  sauvegardes, supervision.
+- [Feuille de route](ROADMAP.md)
 - [Architecture, API, sous-systèmes](docs/architecture.md)
 - [Passerelle sandbox](docs/sandbox-gateway.md) ·
   [Compteurs de tokens](docs/token-counters.md)

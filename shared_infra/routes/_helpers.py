@@ -32,6 +32,7 @@ the auto-export loop in ``__init__.py`` walks every submodule.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -40,21 +41,23 @@ import shutil
 import sqlite3
 import subprocess
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import HTTPException, Request
 
+from shared_infra.accounts.users import get_user_by_id, get_username_by_id
 from shared_infra.config import (
     CONFIG_JSON_PATH,
     PROJECT_ROOT,
     SANDBOX_DIR,
     config_view,
 )
-from shared_infra.accounts.users import get_user_by_id, get_username_by_id
+from shared_infra.sandbox.agent_client import AGENT_RUN_DIR, RELAY_DIR
+from shared_infra.sandbox.paths import WORK_SUBDIR, SandboxPathError, open_leaf, walk_beneath
 from shared_infra.security.deps import require_user_id
-from shared_infra.sandbox.git_env import host_git_env, repo_refusal, unsafe_git_dir
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -413,7 +416,7 @@ def _strip_work_prefix(path: str) -> str:
     """Normalise la vue conteneur d'un chemin (``/work``, ``work``, ``./work``)
     en chemin RELATIF à la racine sandbox.
 
-    Miroir de ``tools/fs_tools._translate_container_path`` : l'agent raisonne
+    Mêmes formes que ``paths.lexical_rel`` (outils fichiers) : l'agent raisonne
     dans l'espace de chemins du conteneur (``/work/src/x`` car son shell tourne
     dans ``/work``) et renvoie souvent ces chemins tels quels. Sans cette
     normalisation, les routes faisaient ``root / "/work/src/x"`` — or un chemin
@@ -441,10 +444,10 @@ def _get_sandbox_path(user_id: int) -> Path:
     de compte). Pour les opérations de fichiers visibles par l'agent, passer
     par :func:`_get_work_path`.
     """
-    from shared_infra.config import safe_sandbox_name
     # (2026-09-11, P4) l'enveloppe d'identité (hôte d'outils : pas de base des
     # comptes) prime ; sinon la base, comme avant.
     from shared_infra.accounts.identity import resolve_username as _ident_name
+    from shared_infra.config import safe_sandbox_name
     username = _ident_name(user_id) or get_username_by_id(user_id) or f"user_{user_id}"
     safe_name = safe_sandbox_name(username)
     sb_path = (SANDBOX_DIR / safe_name).resolve()
@@ -489,6 +492,7 @@ def _get_work_path(user_id: int) -> Path:
 import asyncio as _aio_quota
 import contextlib as _ctx_quota
 import fcntl as _fcntl_quota
+
 _quota_locks: "dict[int, _aio_quota.Lock]" = {}
 
 
@@ -590,13 +594,13 @@ def _sandbox_size_bytes(sandbox_root: Path) -> int:
             # du indisponible / sortie inattendue / trop lent → fallback
             pass
 
-    # ── Fallback : os.walk Python ────────────────────────────────────
+    # ── Fallback : os.walk Python (métadonnées seules, liens non suivis) ──
     total = 0
     try:
         for dirpath, _, filenames in os.walk(sandbox_root):
             for fname in filenames:
                 try:
-                    total += os.path.getsize(os.path.join(dirpath, fname))
+                    total += os.lstat(os.path.join(dirpath, fname)).st_size
                 except OSError:
                     pass
     except Exception:
@@ -726,7 +730,7 @@ def reset_sandbox_usage_cache() -> None:
     _usage_cache.clear()
 
 
-# Plafond d'entrées remontées par ``_build_file_tree`` (audit perf 2026-08-08).
+# Plafond d'entrées de l'arbre de l'éditeur (audit perf 2026-08-08).
 # L'explorateur sérialise l'arbre ENTIER à chaque ouverture de l'éditeur et
 # après chaque opération de fichier. Une sandbox avec ``node_modules``
 # (100 k+ entrées) produisait un JSON de plusieurs Mo : coût serveur, transfert,
@@ -736,107 +740,13 @@ def reset_sandbox_usage_cache() -> None:
 TREE_MAX_ENTRIES = int(os.environ.get("SANDBOX_TREE_MAX_ENTRIES", "20000"))
 
 
-def _build_file_tree(path: Path, relative_root: Path, include_hidden: bool = False,
-                     _root_res: "Path | None" = None, _depth: int = 0,
-                     _budget: "dict | None" = None,
-                     _rel_prefix: str = "", _dir_res: "str | None" = None):
-    """Arbre des fichiers du sandbox. Par défaut, les entrées cachées (nom
-    commençant par ``.`` : ``.git``, ``.venv``, ``.env``…) sont MASQUÉES de
-    l'explorateur — elles restent accessibles/éditables via le terminal.
-    ``include_hidden=True`` les ré-inclut (toggle « Afficher les fichiers cachés »).
-
-    SECURITY (F6) : on NE suit PAS les symlinks. ``entry.is_dir()``/``is_file()``
-    suivraient un ``ln -s /srv/elpis/user_sandboxes/<victime>/work /work/x`` (arbo
-    cross-tenant listée) ou boucleraient sur ``ln -s . loop`` (récursion infinie
-    → RecursionError/ENAMETOOLONG non attrapée → 500). On skippe les symlinks,
-    on borne la profondeur, et on confirme le containment sur le chemin résolu.
-
-    ``_budget`` : dict interne ``{"left": N, "truncated": bool}`` partagé par
-    toute la récursion, qui plafonne le NOMBRE TOTAL d'entrées (cf.
-    :data:`TREE_MAX_ENTRIES`). Passer ``_budget`` explicitement permet à
-    l'appelant de lire ``truncated`` et de le signaler à l'utilisateur.
-
-    Coût (audit charge 2026-08-14)
-    ------------------------------
-    C'est la route la plus appelée du panneau éditeur, et elle est SYNCHRONE :
-    tout ce qu'elle consomme, elle le prend au GIL de son worker, donc à tous
-    les autres utilisateurs servis par ce worker. Deux dépenses par entrée ont
-    été supprimées, sans toucher aux garanties ci-dessus :
-
-    - ``entry_path.resolve()`` par entrée déclenchait un ``realpath()``, soit
-      **9 ``lstat`` par entrée** (46 670 appels pour 10 parcours de 520
-      entrées). Or le containment se démontre par récurrence : la racine est
-      résolue une fois, chaque entrée retenue n'est PAS un lien symbolique, et
-      un nom de dirent ne contient pas de séparateur — le chemin résolu d'un
-      enfant est donc exactement ``<parent résolu>/<nom>``. On propage ce
-      parent résolu (``_dir_res``) au lieu de le recalculer, et le contrôle de
-      containment est fait à l'entrée de chaque dossier plutôt qu'à chaque
-      fichier.
-    - ``entry_path.relative_to(relative_root).as_posix()`` pesait **60 % du
-      temps total** à lui seul (pathlib reconstruit et re-normalise les
-      segments). Le chemin relatif est désormais assemblé au fil de la
-      descente, ce qui produit la même chaîne.
-
-    Résultat sur un arbre de 520 entrées : **43,5 ms → 3,6 ms**.
-    """
-    items = []
-    if _budget is None:
-        _budget = {"left": TREE_MAX_ENTRIES, "truncated": False}
-    # Borne de profondeur : garde-fou même si un symlink échappe au check
-    # (montage exotique) — un arbre sandbox légitime est bien moins profond.
-    if _depth > 40:
-        return items
-    if _root_res is None:
-        try:
-            _root_res = relative_root.resolve()
-        except OSError:
-            return items
-    if _dir_res is None:
-        # Premier appel : le dossier courant EST la racine résolue.
-        _dir_res = str(_root_res)
-    # Containment du DOSSIER courant (une fois, pas une fois par entrée).
-    elif not _path_inside(Path(_dir_res), _root_res):
-        return items
-    try:
-        entries = sorted(os.scandir(path), key=lambda e: (not e.is_dir(follow_symlinks=False), e.name.lower()))
-    except OSError:
-        # PermissionError, ENAMETOOLONG (chaîne de symlinks), conteneur mort…
-        return items
-    for entry in entries:
-        try:
-            if _budget["left"] <= 0:
-                _budget["truncated"] = True
-                break
-            if not include_hidden and entry.name.startswith("."):
-                continue
-            # Skip symlinks (dirs ET fichiers) : is_symlink ne suit pas.
-            # C'est CE test qui permet de ne plus résoudre chaque entrée.
-            if entry.is_symlink():
-                continue
-            rel_path = f"{_rel_prefix}/{entry.name}" if _rel_prefix else entry.name
-            is_dir = entry.is_dir(follow_symlinks=False)
-            _budget["left"] -= 1
-            item = {"name": entry.name, "path": rel_path, "type": "folder" if is_dir else "file"}
-            if is_dir:
-                item["children"] = _build_file_tree(
-                    Path(entry.path), relative_root, include_hidden, _root_res,
-                    _depth + 1, _budget, rel_path,
-                    os.path.join(_dir_res, entry.name))
-            else:
-                item["size"] = entry.stat().st_size
-            items.append(item)
-        except OSError:
-            continue
-    return items
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 #  BACKUP ZIP BUILDER
 # ─────────────────────────────────────────────────────────────────────────────
 _DB_ANNEXES = ("-wal", "-shm", "-journal")
 # Fichiers de ``user_db/`` propres à l'hôte : ni sauvegardés ni restaurés
 # (restaurer la sauvegarde d'un autre hôte ne doit pas couper l'accès à la base).
-_HOST_ONLY = (".db_password", ".db_maintenance", ".db_job.json",
+_HOST_ONLY = (".db_password", ".db_password.pending", ".db_maintenance", ".db_job.json",
               ".config_boot.json")   # empreinte « lu au démarrage » (ops/restart_pending.py)
 
 
@@ -860,20 +770,178 @@ def _snapshot_sqlite(src: Path, dst: Path) -> None:
         source.close()
 
 
-def _make_backup_zip(scope: str) -> tuple:
+def _date_zip(t: float) -> Any:
+    """Date d'une entrée zip, bornée à la plage du format (1980-2107)."""
+    try:
+        brut = time.localtime(t)[:6]
+    except (OverflowError, ValueError, OSError):         # date hors de portée
+        brut = (2107, 12, 31, 23, 59, 58) if t > 0 else (1980, 1, 1, 0, 0, 0)
+    return min(max(brut, (1980, 1, 1, 0, 0, 0)), (2107, 12, 31, 23, 59, 58))
+
+
+def _zip_copy(zf: zipfile.ZipFile, arcname: str, src, st: Optional[os.stat_result] = None) -> None:
+    """Copie en flux le fichier ouvert ``src`` dans ``zf`` : date bornée à la
+    plage du format zip (1980-2107), mode conservé."""
+    st = st or os.fstat(src.fileno())
+    zi = zipfile.ZipInfo(arcname, _date_zip(st.st_mtime))
+    zi.compress_type = zipfile.ZIP_DEFLATED
+    zi.external_attr = (st.st_mode & 0xFFFF) << 16
+    with zf.open(zi, "w", force_zip64=st.st_size >= zipfile.ZIP64_LIMIT) as dst:
+        shutil.copyfileobj(src, dst, 1 << 20)
+
+
+# Sous-dossiers de ``user_db/`` propres à l'exécution en cours (journaux,
+# PID) : ni sauvegardés ni restaurés.
+_RUNTIME_DIRS = ("logs", "run")
+
+# /work d'un compte sauvegardé par l'agent de sa sandbox (L4.5), en flux : la
+# borne n'est là que pour l'agent (rien n'est gardé en mémoire).
+_BACKUP_WORK_MAX_BYTES = 1 << 40
+_BACKUP_WORK_MAX_ENTREES = 5_000_000
+
+
+def _comptes_des_sandboxes() -> Dict[str, int]:
+    """Dossier de sandbox (``safe_sandbox_name``) → identifiant du compte ;
+    vide si la base des comptes est illisible."""
+    from shared_infra.accounts.users import get_all_users
+    from shared_infra.config import safe_sandbox_name
+    try:
+        return {safe_sandbox_name(u["username"]): int(u["id"]) for u in get_all_users()}
+    except Exception:                                        # noqa: BLE001
+        logger.warning("[backup] comptes illisibles : aucun /work par l'agent", exc_info=True)
+        return {}
+
+
+def _zip_work(zf: zipfile.ZipFile, user_id: int, arcroot: str, skipped: list) -> bool:
+    """Fichiers ordinaires du /work d'un compte, lus par l'agent de sa
+    sandbox, écrits dans ``zf`` sous ``arcroot`` ; liens, fichiers spéciaux et
+    illisibles consignés dans ``skipped``. Rend faux si le /work n'a pas pu
+    être lu (agent indisponible, réponse invalide) : la sauvegarde est alors
+    incomplète. Appelé hors boucle d'événements (thread de la sauvegarde, CLI).
+
+    (Relecture L4.5) Une sandbox arrêtée est démarrée pour la lecture, qui ne
+    compte pas comme une activité, puis arrêtée de nouveau si personne ne s'en
+    est servi entre-temps : une sauvegarde ne garde plus tous les conteneurs
+    levés. Un fichier coupé en cours de lecture est signalé (``skipped`` et
+    commentaire de l'entrée) au lieu de passer pour complet ; une réponse mal
+    formée n'arrête que le compte concerné."""
+    from shared_infra.sandbox.agent_client import AgentError
+    from shared_infra.sandbox.exec_bridge import agent_for
+
+    agent = agent_for(user_id)
+    incomplets: list = []
+
+    async def copier() -> dict:
+        sb = agent.sandbox
+        etait_arretee = not (await sb.status()).running
+        if etait_arretee:
+            await sb.ensure_running()
+        try:
+            avant = os.lstat(sb.sandbox_path).st_mtime_ns
+        except OSError:
+            avant = None
+        dest = None
+        courant = ["", 0, 0]                        # nom, taille annoncée, octets écrits
+
+        def clore() -> None:
+            nonlocal dest
+            if dest is None:
+                return
+            dest.close()
+            dest = None
+            if courant[2] < courant[1]:
+                zf.filelist[-1].comment = "incomplet".encode()
+                incomplets.append(f"{courant[0]} — incomplet ({courant[2]}/{courant[1]} octets)")
+        try:
+            async with agent.archive(
+                    [""], format="raw", strict=False, max_bytes=_BACKUP_WORK_MAX_BYTES,
+                    max_files=_BACKUP_WORK_MAX_ENTREES, deadline_s=240, activity=False) as flux:
+                async for x in flux:
+                    if isinstance(x, bytes):
+                        if dest is None:
+                            raise AgentError("bad_response", "octets hors d'une entrée")
+                        courant[2] += len(x)
+                        dest.write(x)
+                    elif "entry" in x:
+                        clore()
+                        if x["kind"] != "file":
+                            continue
+                        zi = zipfile.ZipInfo(f"{arcroot}/{x['entry']}",
+                                             _date_zip(x["mtime_ns"] / 1e9))
+                        zi.compress_type = zipfile.ZIP_DEFLATED
+                        zi.external_attr = (0o100000 | x["mode"] & 0o7777) << 16
+                        courant[:] = [x["entry"], x["size"], 0]
+                        dest = zf.open(zi, "w", force_zip64=x["size"] >= zipfile.ZIP64_LIMIT)
+                clore()
+                return flux.fin or {}
+        finally:
+            clore()
+            if etait_arretee:
+                try:
+                    apres = os.lstat(sb.sandbox_path).st_mtime_ns
+                except OSError:
+                    apres = None
+                if apres == avant:                     # personne n'est venu entre-temps
+                    with contextlib.suppress(Exception):
+                        await sb.stop()
+    try:
+        fin = asyncio.run(copier())
+    except AgentError as e:
+        skipped.append(f"{arcroot} — {e.code}: {e.message} : /work non sauvegardé")
+        return False
+    except Exception as e:                                   # noqa: BLE001 — un compte seulement
+        logger.warning("[backup] /work du compte %s illisible", user_id, exc_info=True)
+        skipped.append(f"{arcroot} — {type(e).__name__}: {e} : /work incomplet")
+        return False
+    finally:
+        skipped.extend(f"{arcroot}/{i}" for i in incomplets)
+    for omis in fin.get("skipped") or []:
+        skipped.append(f"{arcroot}/{omis.get('path')} — {omis.get('error')}")
+    reste = int(fin.get("omitted") or 0) - len(fin.get("skipped") or [])
+    if reste > 0:
+        skipped.append(f"{arcroot} — {reste} autre(s) entrée(s) omise(s)")
+    if fin.get("truncated"):
+        skipped.append(f"{arcroot} — sauvegarde tronquée ({_BACKUP_WORK_MAX_ENTREES} entrées au plus)")
+    return True
+
+
+#: Suffixe du nom d'une sauvegarde à laquelle manque le /work d'au moins un
+#: compte (agent indisponible, réponse invalide) : ni la console ni l'envoi
+#: distant ne la comptent comme réussie.
+BACKUP_INCOMPLETE_SUFFIX = "_incomplet"
+
+
+def backup_incomplete(filename: str) -> bool:
+    return filename.endswith(BACKUP_INCOMPLETE_SUFFIX + ".zip")
+
+
+def _make_backup_zip(scope: str, directory: Optional[str] = None) -> tuple:
     """Build an admin backup zip on-the-fly.
 
     ``scope`` is one of "full", "db", "sandboxes", "mcp" — each picks
     a specific subset of disk state to bundle. Returns ``(tmp_path, filename)``;
-    callers stream the file then unlink it.
+    callers stream the file then unlink it. ``directory`` : where the archive
+    is built (default: the system temp dir) — removed if building fails.
     """
-    from shared_infra.config import DB_PATH as _DB_PATH, SANDBOX_DIR as _SANDBOX_DIR, MCP_SERVERS_DIR as _MCP_DIR
+    fd, tmp_name = tempfile.mkstemp(suffix=".zip", dir=directory)
+    os.close(fd)
+    try:
+        return _build_backup_zip(scope, tmp_name)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_name)
+        raise
+
+
+def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
     import time as _time
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
-    tmp.close()
+
+    from shared_infra.config import DB_PATH as _DB_PATH, MCP_SERVERS_DIR as _MCP_DIR, SANDBOX_DIR as _SANDBOX_DIR
     ts = int(_time.time())
     skipped: list = []
-    with zipfile.ZipFile(tmp.name, 'w', zipfile.ZIP_DEFLATED) as zf:
+    travaux_manques: list = []
+    db_ok = False
+    with zipfile.ZipFile(tmp_name, 'w', zipfile.ZIP_DEFLATED) as zf:
         def _safe_write(abs_p: Path, arcname: str):
             # Les sandboxes contiennent des fichiers créés DANS le container
             # (UID 10001, parfois sans o+r — caches, .pickle…), des liens
@@ -887,18 +955,64 @@ def _make_backup_zip(scope: str) -> tuple:
             except (PermissionError, OSError) as e:
                 skipped.append(f"{abs_p} — {e.__class__.__name__}: {e}")
 
-        def _add_path(p: Path, arcroot: str, exclus: frozenset = frozenset()):
+        def _add_path(p: Path, arcroot: str, exclus: frozenset = frozenset(),
+                      skip_dirs: tuple = ()):
             if not p.exists():
                 return
             if p.is_file():
                 _safe_write(p, arcroot + "/" + p.name)
                 return
-            for root, _, files in os.walk(p):
+            for root, dirs, files in os.walk(p):
+                if skip_dirs and root == str(p):
+                    dirs[:] = [d for d in dirs if d not in skip_dirs]
                 for file in files:
                     abs_p = Path(root) / file
                     if exclus and abs_p.resolve() in exclus:
                         continue
                     _safe_write(abs_p, arcroot + "/" + abs_p.relative_to(p).as_posix())
+
+        def _add_sandboxes(p: Path, arcroot: str):
+            # Ce que l'hôte possède (miroir des skills, mémoire, snapshots…)
+            # est parcouru et lu par descripteurs, sans suivre de lien
+            # (2026-09-29) ; liens et fichiers spéciaux sont consignés, jamais
+            # lus. Le /work de chaque compte (``P/work``) passe par l'agent de
+            # sa sandbox (L4.5), jamais par l'hôte ; le dossier du socket de
+            # l'agent n'est pas sauvegardé.
+            if not p.is_dir():
+                return
+            travaux = []
+            try:
+                for rel_dir, dirs, names, dfd in walk_beneath(p):
+                    if not rel_dir:
+                        # Sockets du relais Git ; spool des anciens téléchargements
+                        # (plus utilisé depuis L4.5, jamais sauvegardé).
+                        dirs[:] = [d for d in dirs if d not in (RELAY_DIR, ".dl_spool")]
+                    if rel_dir and "/" not in rel_dir:            # P = <racine>/<compte>
+                        for d in (WORK_SUBDIR, AGENT_RUN_DIR):
+                            if d in dirs:
+                                dirs.remove(d)
+                                if d == WORK_SUBDIR:
+                                    travaux.append(rel_dir)
+                    for name in names:
+                        rel = f"{rel_dir}/{name}" if rel_dir else name
+                        try:
+                            with os.fdopen(open_leaf(dfd, name), "rb") as src:
+                                _zip_copy(zf, f"{arcroot}/{rel}", src)
+                        except (OSError, SandboxPathError) as e:
+                            skipped.append(f"{p / rel} — {e.__class__.__name__}: {e}")
+            except (OSError, SandboxPathError) as e:
+                skipped.append(f"{p} — {e.__class__.__name__}: {e}")
+            comptes = _comptes_des_sandboxes() if travaux else {}
+            if travaux and not comptes:
+                # Base des comptes illisible : aucun /work sauvegardé, la
+                # sauvegarde est incomplète (relecture finale).
+                travaux_manques.extend(travaux)
+            for nom in travaux:
+                if nom in comptes:
+                    if not _zip_work(zf, comptes[nom], f"{arcroot}/{nom}/{WORK_SUBDIR}", skipped):
+                        travaux_manques.append(nom)
+                else:
+                    skipped.append(f"{p / nom / WORK_SUBDIR} — compte inconnu : /work non sauvegardé")
 
         if scope in ("full", "db"):
             db_file = Path(_DB_PATH)
@@ -915,6 +1029,7 @@ def _make_backup_zip(scope: str) -> tuple:
                     if not rep.get("ok"):
                         raise RuntimeError("; ".join(rep.get("mismatches") or []) or "vérification")
                     _safe_write(Path(snap), f"db/{db_file.name}")
+                    db_ok = f"db/{db_file.name}" in zf.namelist()
                 except Exception as e:
                     skipped.append(f"base {_backend} — instantané impossible : {e}")
                 finally:
@@ -925,6 +1040,7 @@ def _make_backup_zip(scope: str) -> tuple:
                 try:
                     _snapshot_sqlite(db_file, Path(snap))
                     _safe_write(Path(snap), f"db/{db_file.name}")
+                    db_ok = f"db/{db_file.name}" in zf.namelist()
                 except sqlite3.Error as e:
                     skipped.append(f"{db_file} — instantané impossible : {e}")
                 finally:
@@ -943,18 +1059,21 @@ def _make_backup_zip(scope: str) -> tuple:
                 if base.parent.exists():
                     exclus |= {q.resolve() for q in base.parent.glob(base.name + ".bak-*")}
                     exclus |= {q.resolve() for q in base.parent.glob(base.name + ".new-*")}
-                _add_path(user_db_dir, "user_db", exclus=frozenset(exclus))
+                _add_path(user_db_dir, "user_db", exclus=frozenset(exclus),
+                          skip_dirs=_RUNTIME_DIRS)
 
         if scope in ("full", "sandboxes"):
-            _add_path(_SANDBOX_DIR, "sandboxes")
+            _add_sandboxes(Path(_SANDBOX_DIR), "sandboxes")
 
         if scope in ("full", "mcp"):
             _add_path(_MCP_DIR, "mcp_custom_servers")
 
         if scope == "full":
-            # Skins importés ou créés depuis la console (hors du code).
-            from shared_infra.config import SKINS_DIR as _SKINS_DIR
+            # Skins importés ou créés depuis la console (hors du code), et le
+            # magasin des skills personnels (leur source de vérité).
+            from shared_infra.config import SKINS_DIR as _SKINS_DIR, USER_SKILLS_DIR as _USER_SKILLS_DIR
             _add_path(Path(_SKINS_DIR), "user_skins")
+            _add_path(Path(_USER_SKILLS_DIR), "user_skills")
 
         if skipped:
             zf.writestr(
@@ -962,98 +1081,29 @@ def _make_backup_zip(scope: str) -> tuple:
                 "Fichiers ignorés (illisibles depuis l'hôte) :\n" + "\n".join(skipped) + "\n")
 
     label = {"full": "complet", "db": "db", "sandboxes": "sandboxes", "mcp": "mcp"}.get(scope, scope)
+    if scope in ("full", "db") and not db_ok:
+        # Sans la base, ce n'est pas une sauvegarde : la console ne doit pas
+        # la compter comme récente.
+        return tmp_name, f"backup_{label}_{ts}.zip"
+    if travaux_manques:
+        # (Relecture L4.5) Docker arrêté, image absente… : le zip n'a pas le
+        # /work de ces comptes. Il reste utile, mais ne compte pas comme une
+        # sauvegarde réussie (console, envoi distant, CLI).
+        logger.warning("[backup] /work non sauvegardé pour %d compte(s) : %s",
+                       len(travaux_manques), ", ".join(travaux_manques[:20]))
+        try:
+            from shared_infra.db import log_metric
+            log_metric("backup_incomplete", 1, {"scope": scope, "accounts": len(travaux_manques)})
+        except Exception:                                    # noqa: BLE001
+            logger.warning("[backup] sauvegarde incomplète non consignée", exc_info=True)
+        return tmp_name, f"backup_{label}_{ts}{BACKUP_INCOMPLETE_SUFFIX}.zip"
     # Date de la dernière sauvegarde, lue par la Vue d'ensemble de la console
     # (« aucune sauvegarde depuis N jours »). Couvre le téléchargement ET
     # l'envoi distant, qui passent tous deux par ici.
     try:
         from shared_infra.db import log_metric
         log_metric("backup_created", 1, {"scope": scope, "skipped": len(skipped),
-                                         "bytes": os.path.getsize(tmp.name)})
+                                         "bytes": os.path.getsize(tmp_name)})
     except Exception:                                        # noqa: BLE001
         logger.warning("[backup] date de sauvegarde non enregistrée", exc_info=True)
-    return tmp.name, f"backup_{label}_{ts}.zip"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  GIT WRAPPERS
-# ─────────────────────────────────────────────────────────────────────────────
-import subprocess as _sp_git
-
-
-def _git_run(repo_dir: Path, *args, timeout: int = 30,
-             env_extra: dict = None) -> _sp_git.CompletedProcess:
-    """Execute a git command inside a specific repo directory.
-
-    Environnement : ``host_git_env`` (liste blanche, HOME de l'app, hooks et
-    signature coupés — audit 2026-09-22, C1). Dépôt refusé si ``.git`` sort du
-    dépôt ou si sa config déclare une commande exécutable (``repo_refusal``).
-    """
-    env = host_git_env(env_extra, cwd=repo_dir)
-    bad = repo_refusal(repo_dir, env)
-    if bad:
-        kind, detail = bad
-        msg = (f"Dépôt refusé : sa configuration déclare « {detail} », une commande que git "
-               f"exécuterait sur le serveur. Retirez-la depuis le terminal du bac à sable "
-               f"(git config --unset {detail}).") if kind == "config" else (
-               f"Dépôt refusé : {detail}. Git lirait des données hors du dépôt.")
-        return _sp_git.CompletedProcess(["git"] + list(args), 1, "", msg)
-    return _sp_git.run(
-        ["git"] + list(args),
-        cwd=str(repo_dir),
-        capture_output=True, text=True,
-        timeout=timeout, env=env,
-    )
-
-
-def _git_resolve_repo(sandbox: Path, repo_rel: str) -> Path:
-    """Resolve a repo path within the sandbox. Raises HTTPException if invalid."""
-    if not repo_rel:
-        raise HTTPException(400, "Paramètre 'repo' requis (chemin du dépôt)")
-    repo_dir = (sandbox / repo_rel).resolve()
-    # SECURITY FIX : ``startswith`` est vulnérable aux préfixes communs
-    # (cf. _path_inside docstring). On utilise relative_to via le helper.
-    if not _path_inside(repo_dir, sandbox):
-        raise HTTPException(403, "Chemin hors sandbox")
-    if not repo_dir.is_dir():
-        raise HTTPException(404, f"Dossier introuvable : {repo_rel}")
-    if not os.path.lexists(repo_dir / ".git"):
-        raise HTTPException(400, f"'{repo_rel}' n'est pas un dépôt Git")
-    _git_refuse_foreign_dir(repo_dir)
-    return repo_dir
-
-
-def _git_refuse_foreign_dir(repo_dir: Path) -> None:
-    """403 si ``.git`` est un lien, un fichier ``gitdir:``, ou pointe hors du
-    dépôt (alternates…) — audit 2026-09-22, H5. ``_git_run`` refuse aussi,
-    ceci donne un code HTTP propre dès la résolution."""
-    why = unsafe_git_dir(repo_dir)
-    if why:
-        raise HTTPException(403, f"Dépôt refusé : {why}")
-
-
-def _git_resolve_repo_or_root(sandbox: Path, repo_rel: str) -> Path:
-    """Like _git_resolve_repo but allows empty repo_rel if sandbox root IS a repo."""
-    if repo_rel:
-        return _git_resolve_repo(sandbox, repo_rel)
-    # Fallback: check if sandbox root is a repo
-    if os.path.lexists(sandbox / ".git"):
-        _git_refuse_foreign_dir(sandbox)
-        return sandbox
-    raise HTTPException(400, "Paramètre 'repo' requis (chemin du dépôt)")
-
-
-def _git_run_with_creds(repo_dir: Path, *args, username: str = "", token: str = "",
-                        timeout: int = 60) -> _sp_git.CompletedProcess:
-    """Run a git command with optional HTTPS credentials via GIT_ASKPASS.
-
-    Le token transite UNIQUEMENT par une variable d'environnement lue par un
-    script askpass STATIQUE (jamais ``argv`` ni ``.git/config``) — implémentation
-    PARTAGÉE avec le chemin MCP via ``shared_infra.git.askpass.git_askpass_env``
-    (source unique ; ``subprocess`` sans shell → zéro expansion).
-    """
-    from shared_infra.git.askpass import git_askpass_env, AskpassError
-    try:
-        with git_askpass_env(username, token) as env_extra:
-            return _git_run(repo_dir, *args, timeout=timeout, env_extra=env_extra)
-    except AskpassError as e:
-        raise HTTPException(400, f"Caractère de contrôle interdit dans les credentials : {e}")
+    return tmp_name, f"backup_{label}_{ts}.zip"

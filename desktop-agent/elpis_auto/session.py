@@ -525,6 +525,7 @@ def _dhash(png: bytes) -> str:
     serveur. Sans Pillow : empreinte des octets (tout changement compte)."""
     try:
         from io import BytesIO
+
         from PIL import Image  # type: ignore
         im = Image.open(BytesIO(png)).convert("L").resize((9, 8))
         px = list(im.getdata())
@@ -550,6 +551,7 @@ def _activity(png: bytes) -> Optional[bytes]:
     sensible que le dHash de ``stable`` (qui juge la STRUCTURE). None sans Pillow."""
     try:
         from io import BytesIO
+
         from PIL import Image  # type: ignore
         return Image.open(BytesIO(png)).convert("L").resize((48, 27)).tobytes()
     except Exception:
@@ -677,7 +679,7 @@ class Session:
         here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # desktop-agent/
         if here not in sys.path:
             sys.path.insert(0, here)
-        from backends import get_backend          # type: ignore
+        from backends import get_backend  # type: ignore
         return get_backend()
 
     def _call(self, fn: str, **kw) -> Any:

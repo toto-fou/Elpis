@@ -8,10 +8,10 @@ Architecture
 ``execute_shell`` runs inside the user's per-user Docker container
 (``UserSandbox``), isolated at the kernel level :
 
-    --user 10001:10001  --network=none (or a profile)   -v <sandbox>:/work:rw
-    --memory ... --cpus ... --pids-limit ...
-    default Docker capabilities minus the dangerous ones (no SYS_ADMIN/
-    NET_ADMIN/PTRACE); no --read-only (the model "permissif mais cloisonné":
+    docker exec -u 10001:10001  --network=none (or a profile)
+    -v <sandbox>:/work:rw  --memory ... --cpus ... --pids-limit ...
+    --cap-drop ALL + the few capabilities sudo and apt need (``CAPABILITIES``);
+    no --read-only (the model "permissif mais cloisonné":
     full power INSIDE a disposable per-user container, locked OUT of the host)
 
 There is no host access and no network unless the admin attaches a profile.
@@ -46,15 +46,20 @@ from typing import Any, Dict, Optional, Union
 
 from fastmcp import Context, FastMCP
 
-from ._toolkit import (
-    err, tool_kw, get_username,
-    tool_kw_mutating, _read_meta_field,
-)
-from ._models import ExecuteShellResult, BackgroundShellResult, ErrEnvelope
-
-from llm_core.tools._exec_bridge import run_shell_via_executor
 from llm_core.context.budget import BUDGET as _BUDGET
-from shared_infra.accounts.users import get_user as _get_user
+from llm_core.tools._exec_bridge import run_shell_via_executor, user_id_for
+from shared_infra.sandbox.agent_client import AgentError
+from shared_infra.sandbox.paths import SandboxPathError, lexical_rel, to_container
+
+from ._espace import Espace
+from ._models import BackgroundShellResult, ErrEnvelope, ExecuteShellResult
+from ._toolkit import (
+    _read_meta_field,
+    err,
+    get_username,
+    tool_kw,
+    tool_kw_mutating,
+)
 
 DEFAULT_TIMEOUT_S = 120         # aligné OpenCode (builds/tests réels > 30 s)
 MAX_TIMEOUT_S     = 600         # long test suites need headroom
@@ -129,81 +134,33 @@ def register(mcp: FastMCP, root_base: Path) -> None:
         from shared_infra.sandbox import ensure_work_subdir
         return ensure_work_subdir(base / safe)
 
-    def _translate_container_path(rel: str, sb: Path) -> str:
-        """Map container view ``/work/...`` to the host equivalent.
-
-        Mirrors fs_tools._translate_container_path — including the
-        normalization of the slash-dropped ``work/...`` form. The LLM
-        reasons in the container's path space (``/work/foo.py``) and
-        routinely re-emits it without the leading slash (``work/foo.py``);
-        both — plus the dot-relative ``./work/...`` — collapse to the
-        sandbox root so ``src/x``, ``/work/src/x`` and ``work/src/x`` all
-        hit the same file.
-        """
-        if not rel:
-            return rel
-        if rel in ("/work", "work", "./work"):
-            return str(sb)
-        for pfx in ("/work/", "work/", "./work/"):
-            if rel.startswith(pfx):
-                return str(sb / rel[len(pfx):])
-        return rel
-
-    def _to_container(p, sb: Path) -> str:
-        """Inverse of _translate_container_path: host path → ``/work/...``."""
+    def _rel_sandbox(path: str, sb: Path, quoi: str = "path") -> str:
+        """Chemin relatif à ``/work`` d'un chemin fourni (``/work/x``,
+        ``work/x``, ``~/x``, relatif…), sans lire le disque : l'agent et le
+        conteneur résolvent les liens, sous ``/work``."""
+        if not path:
+            raise ValueError(f"{quoi} required")
         try:
-            r = Path(p).resolve().relative_to(Path(sb).resolve()).as_posix()
-        except (ValueError, TypeError, OSError):
-            return str(p)
-        return "/work" if r in ("", ".") else f"/work/{r}"
+            return lexical_rel(sb, path)
+        except SandboxPathError:
+            raise ValueError(f"{quoi} outside sandbox") from None
 
-    def _safe_subpath(rel: str, sb: Path) -> Path:
-        """Resolve `rel` against sandbox root, refuse paths that escape it.
-
-        The container's mount scope alone enforces this at the kernel,
-        but catching it here gives a clearer error than a permission
-        denied at exec time. Accepts both host paths and container paths
-        (``/work/...``) — the latter are translated to their host
-        equivalent first.
-        """
-        if not rel:
-            raise ValueError("path required")
-        if "\x00" in rel:
-            raise ValueError("null byte in path")
-        rel = _translate_container_path(rel, sb)
-        p = Path(rel).expanduser()
-        p = (sb / p).resolve() if not p.is_absolute() else p.resolve()
-        if p != sb and sb not in p.parents:
-            raise ValueError("path outside sandbox")
-        return p
-
-    def _resolve_cwd(cwd: Optional[str], sb: Path) -> Path:
+    def _resolve_cwd(cwd: Optional[str], sb: Path, esp: Espace) -> str:
+        """Dossier de travail relatif à ``/work``, vérifié par l'agent."""
         if not cwd:
-            return sb
-        cwd = _translate_container_path(cwd, sb)
-        pp = Path(cwd).expanduser()
-        pp = (sb / pp).resolve() if not pp.is_absolute() else pp.resolve()
-        if pp != sb and sb not in pp.parents:
+            return ""
+        rel = _rel_sandbox(cwd, sb, "cwd")
+        try:
+            e = esp.stat(rel)
+        except AgentError as ex:
+            if ex.code == "outside_root":
+                raise ValueError("cwd outside sandbox") from None
+            raise
+        if e.get("outside"):
             raise ValueError("cwd outside sandbox")
-        if not pp.is_dir():
-            raise ValueError(f"cwd not a directory: {pp}")
-        return pp
-
-    def _user_id_for(username: str) -> int:
-        """Best-effort lookup of the user's numeric id (for the bridge audit).
-        (2026-09-11, P4) enveloppe d'identité d'abord (hôte d'outils)."""
-        try:
-            from shared_infra.accounts.identity import resolve_user as _ident
-            _i = _ident(username)
-            if _i is not None and _i.user_id:
-                return int(_i.user_id)
-        except Exception:                                       # noqa: BLE001
-            pass
-        try:
-            row = _get_user(username)
-            return int(row["id"]) if row else 0
-        except Exception:
-            return 0
+        if e["kind"] != "dir":
+            raise ValueError(f"cwd not a directory: {to_container(rel)}")
+        return rel
 
     # ── execute_shell ─────────────────────────────────────────────────
     @mcp.tool(**_TOOL_KW_MUT_OW)
@@ -266,31 +223,25 @@ Returns: {ok, cmd, cwd, returncode, truncated, duration_ms, executor,
                 return _err("empty_command", hint="Provide a command to run.")
 
             try:
-                workdir = _resolve_cwd(cwd, sb)
+                workdir = _resolve_cwd(cwd, sb, Espace(_username, sb))
             except ValueError as e:
                 return _err(str(e), hint="cwd must be inside your sandbox.")
 
-            save_path: Optional[Path] = None
+            save_rel: Optional[str] = None
             if save_stdout:
                 try:
-                    save_path = _safe_subpath(save_stdout, sb)
-                    save_path.parent.mkdir(parents=True, exist_ok=True)
+                    save_rel = _rel_sandbox(save_stdout, sb)
                 except ValueError as e:
                     return _err(f"bad save_stdout: {e}")
 
             # Débord AUTOMATIQUE (sans save_stdout explicite) : si la sortie
             # dépasse la limite de réponse, le bridge écrit le COMPLET ici et
-            # le résultat pointe dessus (saved_to + hint). Chemin pré-calculé
-            # côté hôte ; n'écrit RIEN si la sortie tient. Best-effort.
-            _auto_spill: Optional[Path] = None
+            # le résultat pointe dessus (saved_to + hint). N'écrit RIEN si la
+            # sortie tient (l'agent crée alors .tool-output/). Best-effort.
+            _auto_spill: Optional[str] = None
             if not save_stdout and not background:
                 import secrets as _secrets
-                _auto_rel = f".tool-output/shell-{int(time.time())}-{_secrets.token_hex(3)}.log"
-                try:
-                    _auto_spill = _safe_subpath(_auto_rel, sb)
-                    _auto_spill.parent.mkdir(parents=True, exist_ok=True)
-                except Exception:
-                    _auto_spill = None
+                _auto_spill = f".tool-output/shell-{int(time.time())}-{_secrets.token_hex(3)}.log"
 
             if stdin and stdin_b64:
                 return _err("stdin_conflict",
@@ -360,28 +311,28 @@ Returns: {ok, cmd, cwd, returncode, truncated, duration_ms, executor,
             # après pour l'historique et les diffs du chat. Pas en
             # background : la commande n'a encore rien fait au retour.
             from llm_core.tools._work_changes import WorkChanges as _WC
-            _uid_wc = _user_id_for(_username) or None
+            _uid_wc = user_id_for(_username) or None
             _wc = None if background else _WC(_uid_wc, _username, sb, "shell")
             if _wc is not None:
                 _wc.__enter__()
             try:
                 result = run_shell_via_executor(
                     tokens=tokens,
-                    workdir_host=workdir,
+                    workdir_rel=workdir,
                     sandbox_root=sb,
                     env_extra=env_extra,
                     timeout_s=bg_timeout,
                     max_output=DEFAULT_MAX_OUTPUT,
                     stdin_bytes=stdin_bytes,
-                    user_id=_user_id_for(_username),
+                    user_id=user_id_for(_username),
                     username=_username,
                     ctx=ctx,
                     stream_live=_live,
                     # Le bridge écrit le stdout COMPLET avant troncature —
                     # l'ancien code écrivait result["stdout"] déjà tronqué à
                     # 20 KB alors que la doc promettait le complet.
-                    save_stdout_host=save_path,
-                    auto_spill_host=_auto_spill,
+                    save_stdout_rel=save_rel,
+                    auto_spill_rel=_auto_spill,
                     # Déborde vers un fichier dès que la sortie dépasse le
                     # PLANCHER d'émission (pas seulement les 20 KB de max_output) :
                     # l'étage d'émission recoupe à emit_cap(n_ctx) ≥ ce plancher,
@@ -429,10 +380,10 @@ Returns: {ok, cmd, cwd, returncode, truncated, duration_ms, executor,
             # `bash -c "<escaped string>"`.
             result["cmd"] = command
 
-            if save_path and "saved_bytes" in result:
-                result["saved_to"] = _to_container(save_path, sb)
+            if save_rel is not None and "saved_bytes" in result:
+                result["saved_to"] = to_container(save_rel)
             elif result.pop("auto_saved", False) and _auto_spill is not None:
-                _spill_ct = _to_container(_auto_spill, sb)
+                _spill_ct = to_container(_auto_spill)
                 result["saved_to"] = _spill_ct
                 # AUDIT 2026-08-23 — le débord a DEUX causes et le message n'en
                 # nommait qu'une. Le pont déborde sur ``truncated`` OU sur un

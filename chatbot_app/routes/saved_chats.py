@@ -38,17 +38,13 @@ Archive
 from __future__ import annotations
 
 import asyncio
-import secrets
 import logging
+import secrets
 import time
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from shared_infra.security.deps import require_user_id
-from shared_infra.db import (
-    log_metric,
-)
 from shared_infra.accounts.users import (
     get_username_by_id,
 )
@@ -63,7 +59,11 @@ from shared_infra.chat.store import (
     unarchive_chat,
     upsert_chat,
 )
+from shared_infra.db import (
+    log_metric,
+)
 from shared_infra.routes._state import router
+from shared_infra.security.deps import require_user_id
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -304,8 +304,10 @@ async def api_saved_save_messages(chat_id: str, request: Request):
     # sinon ce PUT effacerait le résumé + le compteur de rounds du cap.
     try:
         from llm_core.conversation_compressor import (
-            _strip_summary_messages, build_state_system_message,
-            extract_compression_state)
+            _strip_summary_messages,
+            build_state_system_message,
+            extract_compression_state,
+        )
         _compr_st = extract_compression_state((existing or {}).get("messages") or [])
         if _compr_st and (_compr_st.get("summary_xml") or "").strip():
             # Mêmes champs que ``_with_compr_state`` (routes/chats.py) : sans

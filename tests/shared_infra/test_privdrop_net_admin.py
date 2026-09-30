@@ -20,10 +20,14 @@ import pytest
 
 from shared_infra.sandbox.executors import _privdrop
 from shared_infra.sandbox.executors._user_sandbox import (
-    UserSandbox, SandboxAdminConfig, SandboxStatus,
+    SandboxAdminConfig,
+    SandboxStatus,
+    UserSandbox,
 )
 from shared_infra.terminal.pty import (
-    _build_pty_docker_cmd, _PTY_EXEC_USER, _PTY_PRIVDROP_WRAP,
+    _PTY_EXEC_USER,
+    _PTY_PRIVDROP_WRAP,
+    _build_pty_docker_cmd,
 )
 
 SETPRIV = ["setpriv", "--reuid=10001", "--regid=10001",
@@ -139,7 +143,7 @@ async def test_exec_entre_en_root_et_retire_net_admin(tmp_path, monkeypatch):
     assert args[i + 1 + len(SETPRIV)] == "sh"
     # La commande de l'appelant est intacte, et le wrapper umask/timeout aussi.
     assert args[-2:] == ["echo", "hi"]
-    assert any("umask 0000" in a for a in args)
+    assert any("umask 0022" in a for a in args)
 
 
 @pytest.mark.asyncio

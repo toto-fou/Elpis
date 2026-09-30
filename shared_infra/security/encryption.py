@@ -36,7 +36,7 @@ from typing import Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from shared_infra.config import DB_PATH, _RAW, _as_str, _deep_get  # type: ignore
+from shared_infra.config import _RAW, DB_PATH, _as_str, _deep_get  # type: ignore
 
 logger = logging.getLogger("uvicorn.error")
 

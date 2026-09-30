@@ -133,14 +133,18 @@ def import_legacy_git_credentials(user_id: int, data: bytes) -> int:
 
     Format hérité : ``{provider: {token, user?, url?}}``. Le host vient de ``url``
     si présent (GitLab self-hosted) sinon du host canonique du provider.
-    Renvoie le nombre de connecteurs créés.
+    Renvoie le nombre de connecteurs créés, ``-1`` si l'import a échoué (base
+    indisponible…) : l'appelant garde alors le fichier.
     """
     if not user_id:
         return 0
     try:
         entries = json.loads(data.decode("utf-8", errors="replace"))
-        if not isinstance(entries, dict):
-            return 0
+    except ValueError:
+        return 0                                        # illisible : rien à garder
+    if not isinstance(entries, dict):
+        return 0
+    try:
         created = 0
         for provider_key, entry in entries.items():
             if not isinstance(entry, dict):
@@ -165,4 +169,4 @@ def import_legacy_git_credentials(user_id: int, data: bytes) -> int:
         return created
     except Exception as e:                              # noqa: BLE001 — best-effort
         logger.warning("[git] import legacy credentials échoué (user=%s): %s", user_id, e)
-        return 0
+        return -1

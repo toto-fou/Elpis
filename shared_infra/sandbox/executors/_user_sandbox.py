@@ -80,6 +80,7 @@ si le LLM oublie de préfixer ``sudo``.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -833,10 +834,16 @@ class UserSandbox:
             return
         self._modes_verified = True
         marker = Path(self.sandbox_path).parent / _MODES_MARKER
-        tout = not marker.exists()
         owner = self.cfg.exec_user or "10001:10001"
+        # Le marqueur retient le propriétaire : un ``exec_user`` changé refait
+        # le ``chown -R`` (sinon l'arbre restait à l'ancien UID, en 0644).
+        try:
+            fait_pour = marker.read_text(encoding="utf-8").strip()
+        except OSError:
+            fait_pour = ""
+        tout = fait_pour != owner
         script = ('chown "$1" /work && chmod 0755 /work || exit 1; '
-                  '[ "$2" = 1 ] || exit 0; chown -R "$1" /work; chmod -R go-w /work; exit 0')
+                  '[ "$2" = 1 ] || exit 0; chown -R "$1" /work && chmod -R go-w /work')
         try:
             rc, _, err = await self._cli.call(
                 "exec", "-u", "0:0", self.container_name, "sh", "-c", script, "--",
@@ -847,7 +854,7 @@ class UserSandbox:
                                err.decode("utf-8", "replace")[:200] if err else "")
             elif tout:
                 try:
-                    marker.write_text("1", encoding="utf-8")
+                    marker.write_text(owner, encoding="utf-8")
                 except OSError:
                     pass
         except asyncio.CancelledError:
@@ -1264,6 +1271,14 @@ class UserSandbox:
         st = await self.ensure_running()
         if not st.running:
             raise ExecError(f"{self.container_name} : conteneur arrêté, /work non vidé")
+        # Processus du compte arrêtés d'abord : un processus qui écrit encore
+        # faisait échouer ``find -delete`` (« Directory not empty ») et laissait
+        # tourner le conteneur du compte supprimé (relecture finale).
+        cfg = getattr(self, "cfg", None)
+        uid_exec = str(getattr(cfg, "exec_user", "") or "10001:10001").split(":", 1)[0]
+        if uid_exec.isdigit() and uid_exec != "0":
+            await self._cli.call("exec", "-u", "0:0", self.container_name,
+                                 "pkill", "-KILL", "-U", uid_exec, timeout=15)
         rc, _out, err = await self._cli.call(
             "exec", "-u", "0:0", self.container_name,
             "find", "/work", "-xdev", "-mindepth", "1", "-delete", timeout=600)
@@ -1351,11 +1366,14 @@ class UserSandbox:
         # sur ce mtime ; sans ça, il ne bougeait qu'à l'ajout/suppression d'une
         # entrée à la RACINE (pas lors d'un build dans un sous-dossier) → un
         # container actif pouvait être stoppé en plein travail. Best-effort.
-        try:
-            import os as _os
-            _os.utime(self.sandbox_path, None)
-        except OSError:
-            pass
+        # (L4.6) /work appartient au conteneur : le mtime est poussé par
+        # l'agent (tout appel non passif le fait), plus par l'hôte, qui
+        # échouait en silence (EACCES) — le GC arrêtait alors un conteneur en
+        # plein travail shell (relecture finale). Sans l'attendre.
+        async def _activite() -> None:
+            with contextlib.suppress(Exception):
+                await self.agent.hello()
+        asyncio.get_running_loop().create_task(_activite())
 
         # On force --user sur chaque exec (sinon docker exec ouvre la
         # session en root en bypassant le CMD de l'entrypoint).
@@ -1580,10 +1598,10 @@ async def gc_idle_containers(idle_hours: int | None = None) -> list[str]:
         # du log de fond le plus récent → un job actif rafraîchit l'horloge.
         try:
             _bg = sb / ".bg"
-            if _bg.is_dir():
+            if _bg.is_dir() and not _bg.is_symlink():            # lien : non suivi
                 for _lg in _bg.iterdir():
                     try:
-                        last = max(last, _lg.stat().st_mtime)
+                        last = max(last, _lg.lstat().st_mtime)
                     except OSError:
                         continue
         except OSError:

@@ -25,9 +25,15 @@ fichiers à l'UID de l'app) : `chown -R`, `chmod -R go-w`
 Exceptions de l'hôte, toutes hors du contenu des fichiers :
 
 - `du` pour le quota : métadonnées seules, liens non suivis ;
-- suppression d'un compte : `rmtree` par descripteurs ; ce qui appartient à
-  l'UID du conteneur est d'abord effacé par son root
-  (`UserSandbox.purge`) ;
+- suppression d'un compte : `/work` d'abord, par le root du conteneur
+  démarré pour l'occasion (processus du compte arrêtés, `find -delete`, puis
+  conteneur retiré : `UserSandbox.purge`) — il faut donc Docker et l'image ;
+  sinon le compte est supprimé, le dossier reste et la console le dit ;
+  ensuite le reste de `P`, par `rmtree` à descripteurs ;
+- horloge d'inactivité (GC) : `lstat` de `/work` et de `/work/.bg/*`, sans
+  suivre de lien ; taille des sandboxes (console) : `lstat` seulement ;
+- ménage des téléversements abandonnés : par le root de chaque conteneur en
+  marche (`find -mmin`), plus par l'hôte ;
 - création de `P/work` et migration d'une ancienne arborescence
   (`ensure_work_subdir`), avant tout usage du conteneur.
 

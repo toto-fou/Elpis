@@ -66,7 +66,9 @@ async def test_purge_vide_work_par_le_root_puis_retire_le_conteneur(tmp_path):
         vus.append(["destroy"])
     sb.ensure_running, sb.destroy = en_marche, detruire
     await sb.purge()
-    assert vus == [["exec", "-u", "0:0", "elpis-sb-carol", "find", "/work", "-xdev",
+    # Processus du compte arrêtés d'abord (relecture finale), puis /work vidé.
+    assert vus == [["exec", "-u", "0:0", "elpis-sb-carol", "pkill", "-KILL", "-U", "10001"],
+                   ["exec", "-u", "0:0", "elpis-sb-carol", "find", "/work", "-xdev",
                     "-mindepth", "1", "-delete"], ["destroy"]]
 
 

@@ -137,7 +137,9 @@ def next_run_at(cfg: Dict[str, Any], now: Optional[float] = None) -> Optional[fl
     at = float(last.get("at") or 0)
     if not at:
         return now
-    if last.get("ok") is False:
+    # Un envoi INCOMPLET (un /work illisible) n'est pas refait à l'heure : il
+    # le serait à chaque fois, en entier (relecture finale).
+    if last.get("ok") is False and not last.get("incomplete"):
         return at + min(interval, RETRY_AFTER_FAIL_S)
     return at + interval
 
@@ -411,7 +413,8 @@ def _ssh_error(msg: str) -> str:
     return msg
 
 
-def _record_last_send(ok: bool, filename: str, error: str, trigger: str = "manual") -> None:
+def _record_last_send(ok: bool, filename: str, error: str, trigger: str = "manual",
+                      incomplete: bool = False) -> None:
     """Persiste backup.remote.last_send (best-effort). ``ok_at`` garde la date
     du dernier SUCCÈS, que l'échec suivant n'efface pas."""
     try:
@@ -421,7 +424,7 @@ def _record_last_send(ok: bool, filename: str, error: str, trigger: str = "manua
         prev = remote.get("last_send") if isinstance(remote.get("last_send"), dict) else {}
         now = time.time()
         remote["last_send"] = {"at": now, "ok": ok, "filename": filename, "error": error,
-                               "trigger": trigger,
+                               "trigger": trigger, "incomplete": bool(incomplete),
                                "ok_at": now if ok else float(prev.get("ok_at") or 0)}
         backup["remote"] = remote
         full["backup"] = backup
@@ -520,5 +523,5 @@ async def _run_send_locked(scope: Optional[str], trigger: str) -> Dict[str, Any]
                "error": "Sauvegarde incomplète : /work d'au moins un compte non sauvegardé "
                         "(sandboxes indisponibles ?) — voir backup-warnings.txt"}
     _record_last_send(bool(res.get("ok")), res.get("filename", ""), res.get("error", ""),
-                      trigger=trigger)
+                      trigger=trigger, incomplete=bool(res.get("incomplete")))
     return res

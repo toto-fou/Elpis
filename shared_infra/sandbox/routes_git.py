@@ -61,7 +61,7 @@ from __future__ import annotations
 import asyncio
 import re
 import time
-from typing import Any, List, NamedTuple, Optional, Set, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException, Request
@@ -223,38 +223,52 @@ async def _reseau(d: _Depot, args: List[str], *, url: str, data: dict,
 _PUSH_MAJ = (" ", "+", "*")
 
 
-def _refs_porcelaine(sortie: str) -> Tuple[Set[str], List[str]]:
-    """(refs mises à jour, refs supprimées) d'un ``push --dry-run --porcelain``."""
-    refs: Set[str] = set()
-    suppressions: List[str] = []
+def _refs_porcelaine(sortie: str) -> Dict[str, List[str]]:
+    """Refs d'un ``push --dry-run --porcelain`` rangées par drapeau :
+    ``maj`` (avance rapide, nouvelle), ``force`` (+), ``suppr`` (-),
+    ``refus`` (!), ``a_jour`` (=)."""
+    genres = {" ": "maj", "*": "maj", "+": "force", "-": "suppr", "!": "refus", "=": "a_jour"}
+    rendu: Dict[str, List[str]] = {g: [] for g in set(genres.values())}
     for ligne in sortie.splitlines():
-        if len(ligne) > 2 and ligne[1] == "\t" and ligne[0] in (*_PUSH_MAJ, "-"):
+        if len(ligne) > 2 and ligne[1] == "\t" and ligne[0] in genres:
             dst = ligne[2:].split("\t", 1)[0].rpartition(":")[2]
-            if not dst.startswith("refs/"):
-                continue
-            if ligne[0] == "-":
-                suppressions.append(dst)
-            else:
-                refs.add(dst)
-    return refs, suppressions
+            if dst.startswith("refs/"):
+                rendu[genres[ligne[0]]].append(dst)
+    return rendu
 
 
-async def _refs_du_push(d: _Depot, args: List[str], *, url: str, data: dict) -> Set[str]:
+async def _refs_du_push(d: _Depot, args: List[str], *, url: str, data: dict,
+                        force: bool) -> Set[str]:
     """Refs que ``git push <args>`` mettrait à jour, d'après git lui-même
     (``--dry-run --porcelain``, qui ne lit que la liste des refs de l'amont) :
     ``push.followTags``, ``remote.<r>.push`` et ``push.default`` sont suivis
-    comme avant L4.4 (relecture). Le relais n'en laisse passer aucune autre,
-    ni aucune suppression."""
+    comme avant L4.4. Le relais n'en laisse passer aucune autre.
+
+    Refusés (relecture finale) : une suppression ; une mise à jour forcée sans
+    « forcer » demandé ; la réécriture d'une étiquette existante (seules les
+    nouvelles passent) — la configuration de la sandbox ne décide pas seule.
+    Un rejet de l'amont (en retard, bail périmé) répond 400 avec le message
+    de git, jamais « Déjà à jour »."""
     essai = await _reseau(d, ["push", "--dry-run", "--porcelain", *args], url=url,
                           data=data, push_refs=set())
-    if essai.returncode not in (0, 1):                   # 1 : une ref serait refusée
+    if essai.returncode not in (0, 1):
         err = (essai.stderr or essai.stdout or "").strip()
         raise HTTPException(400, err[:500])
-    refs, suppressions = _refs_porcelaine(essai.stdout)
-    if suppressions:
+    p = _refs_porcelaine(essai.stdout)
+    if p["refus"] or (essai.returncode == 1 and not p["maj"] and not p["force"]):
+        err = (essai.stderr or essai.stdout or "").strip()
+        raise HTTPException(400, err[:500] or "Push refusé par le dépôt distant")
+    if p["suppr"]:
         raise HTTPException(409, "Relais Git : suppression de "
-                            + ", ".join(suppressions[:5]) + " refusée")
-    return refs
+                            + ", ".join(p["suppr"][:5]) + " refusée")
+    if p["force"] and not force:
+        raise HTTPException(409, "Relais Git : mise à jour forcée de "
+                            + ", ".join(p["force"][:5]) + " non demandée")
+    etiquettes = [r for r in p["force"] if r.startswith("refs/tags/")]
+    if etiquettes:
+        raise HTTPException(409, "Relais Git : étiquette existante réécrite ("
+                            + ", ".join(etiquettes[:5]) + ")")
+    return set(p["maj"]) | set(p["force"])
 
 
 async def _remote_suivi(d: _Depot) -> str:
@@ -277,14 +291,21 @@ async def _mode_pull(d: _Depot, rebase: bool) -> str:
     avance rapide seule."""
     if rebase:
         return "--rebase"
-    r = await _git(d, "config", "--get", "pull.rebase")
-    valeur = r.stdout.strip().lower() if r.ok else ""
+    b = (await _git(d, "branch", "--show-current")).stdout.strip()
+    valeur = ""
+    for cle in ([f"branch.{b}.rebase"] if b else []) + ["pull.rebase"]:   # comme git pull
+        r = await _git(d, "config", "--get", cle)
+        if r.ok and r.stdout.strip():
+            valeur = r.stdout.strip().lower()
+            break
     if valeur in ("true", "merges", "interactive", "i", "m", "1", "yes", "on"):
         return "--rebase"
-    if valeur in ("false", "0", "no", "off"):
-        return "--no-rebase"
     ff = await _git(d, "config", "--get", "pull.ff")
-    if ff.ok and ff.stdout.strip().lower() in ("false", "0", "no", "off", "true", "1", "yes", "on"):
+    ffv = ff.stdout.strip().lower() if ff.ok else ""
+    if ffv == "only":
+        return "--ff-only"
+    if valeur in ("false", "0", "no", "off") or ffv in ("false", "0", "no", "off",
+                                                        "true", "1", "yes", "on"):
         return "--no-rebase"
     return "--ff-only"
 
@@ -556,12 +577,14 @@ async def api_git_clone(request: Request):
             raise HTTPException(400, err[:500])
     except HTTPException:
         # Échec, délai dépassé (git tué à l'échéance ne nettoie rien) ou refus :
-        # le clone partiel est retiré, sinon le nouvel essai répondrait 409.
-        if not existait:
-            try:
-                await racine.agent.fsop("remove", path=rel, recursive=True, missing_ok=True)
-            except AgentError:
-                pass
+        # le clone partiel est retiré — un dossier vide existant, vidé —,
+        # sinon le nouvel essai répondrait 409.
+        try:
+            await racine.agent.fsop("remove", path=rel, recursive=True, missing_ok=True)
+            if existait:
+                await racine.agent.fsop("mkdir", path=rel, parents=True)
+        except AgentError:
+            pass
         raise
     # AUDIT 2026-08-02 — si l'utilisateur a fourni des creds EXPLICITES au clone
     # (champ token du dialogue, override), on les PERSISTE keyés sur le host de
@@ -674,10 +697,20 @@ async def api_git_push(request: Request):
     remote = _ref_arg(data.get("remote") or "origin", "Remote")
     branch = _ref_arg(data["branch"], "Branche") if data.get("branch") else ""
     url = await _relaye(git_ops.remote_url(d.agent, d.rel, remote, push=True))
-    args = ["--force-with-lease"] if data.get("force", False) else []
+    force = bool(data.get("force", False))
+    args = ["--force-with-lease"] if force else []
+    if not branch:
+        # Branche sans amont (« Nouvelle branche ») et aucune refspec de push
+        # configurée : poussée sous son nom et suivie, comme ``git push -u``
+        # (sinon « has no upstream branch »).
+        amont = await _git(d, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+        config = await _git(d, "config", "--get-all", f"remote.{remote}.push")
+        courante = (await _git(d, "branch", "--show-current")).stdout.strip()
+        if not amont.ok and not config.stdout.strip() and courante:
+            branch, args = _ref_arg(courante, "Branche"), [*args, "--set-upstream"]
     args += ["--end-of-options", remote] + ([branch] if branch else [])
     # Le relais ne laisse passer que ces refs (ni suppression, ni autre).
-    refs = await _refs_du_push(d, args, url=url, data=data)
+    refs = await _refs_du_push(d, args, url=url, data=data, force=force)
     if not refs:
         return {"ok": True, "message": "Déjà à jour"}
     r = await _reseau(d, ["push", *args], url=url, data=data, push_refs=refs)

@@ -2246,7 +2246,10 @@ Returns (PR already open)::
                 _push_url = _remote_url(rp, "origin", push=True)
             except RelayRefused as e:
                 return _err(e.code, hint=e.message)
-            pu = _run_network(rp, ["push", "-u", "origin", "HEAD"], _username, url=_push_url,
+            # ``--no-follow-tags`` : le ticket ne permet que la branche de
+            # l'agent (``push.followTags`` faisait refuser tout le push).
+            pu = _run_network(rp, ["push", "--no-follow-tags", "-u", "origin", "HEAD"],
+                              _username, url=_push_url,
                               push_refs={f"refs/heads/{br}"}, timeout=_push_timeout)
             if not pu.get("ok") or pu.get("returncode") != 0:
                 # AUDIT 2026-08-02 — surface l'erreur RÉELLE du push. Sur TIMEOUT,

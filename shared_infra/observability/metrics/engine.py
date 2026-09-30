@@ -304,8 +304,8 @@ def _dir_size_bytes(path):
                 visited += 1
                 if visited > 32000:
                     return total  # safety bail for huge sandbox dirs
-                try:
-                    total += os.path.getsize(os.path.join(root, f))
+                try:                     # lstat : un lien (/proc/kcore…) n'est pas suivi
+                    total += os.lstat(os.path.join(root, f)).st_size
                 except OSError:
                     pass
     except OSError:

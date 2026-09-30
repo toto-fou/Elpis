@@ -510,3 +510,15 @@ async def test_import_legacy_ne_suit_pas_un_lien_hors_de_work(gc, tmp_path):
     await git_ops.import_legacy_credentials(agent, 2)
     assert "github.com" not in set(gc.list_connector_hosts(2))
     assert ailleurs.exists()
+
+
+async def test_trace_imported_retiree_meme_sans_fichier_principal(gc, tmp_path):
+    """(Relecture finale) La trace ``.imported`` de la 1.0.0 (jetons en clair)
+    part même quand ``.git-credentials.json`` n'existe plus."""
+    from shared_infra.sandbox import git_ops
+    from shared_infra.sandbox.executors import get_user_sandbox
+    work = tmp_path / "sb" / "carl" / "work"
+    work.mkdir(parents=True)
+    (work / ".git-credentials.json.imported").write_text('{"github": {"token": "ghp"}}')
+    await git_ops.import_legacy_credentials(get_user_sandbox(4, "carl", work).agent, 4)
+    assert not (work / ".git-credentials.json.imported").exists()

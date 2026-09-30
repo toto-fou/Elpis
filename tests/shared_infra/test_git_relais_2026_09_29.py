@@ -345,7 +345,7 @@ async def test_redirection_de_l_amont_refusee(sandbox, tmp_path):
         srv.shutdown()
         srv.server_close()
     assert not r.ok
-    assert any("redirige (301 vers https://ailleurs.lan/depot.git/info/refs)" in m
+    assert any("redirige (301 vers https://ailleurs.lan/depot.git)" in m
                for m in r.refus), r.refus
 
 
@@ -365,11 +365,14 @@ async def test_ca_illisible_explique(sandbox, amont, monkeypatch):
 
 
 async def test_lfs_jamais_telecharge(sandbox):
-    """Checkout d'un dépôt LFS : pointeurs gardés, même hors du relais (le
-    filtre de l'image joindrait l'amont LFS directement)."""
+    """LFS : un objet absent du cache n'est jamais téléchargé au checkout
+    (le filtre joindrait l'amont hors du relais) mais un objet du cache est
+    restitué — plus de ``GIT_LFS_SKIP_SMUDGE`` hors du relais."""
     agent, _work = sandbox
     r = await git_ops.run(agent, "", ["-c", "alias.env=!env", "env"])
-    assert r.ok and "GIT_LFS_SKIP_SMUDGE=1" in r.stdout.splitlines()
+    assert r.ok and "GIT_LFS_SKIP_SMUDGE=1" not in r.stdout.splitlines()
+    r = await git_ops.run(agent, "", ["config", "--get", "lfs.skipdownloaderrors"])
+    assert r.stdout.strip() == "true"
 
 
 def test_agent_rend_la_place_sans_descripteur(tmp_path, monkeypatch):

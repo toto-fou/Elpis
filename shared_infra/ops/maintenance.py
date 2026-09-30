@@ -226,40 +226,37 @@ def _sweep_orphan_part_files(max_age_s: float = 24 * 3600.0) -> int:
     """Supprime les tmp d'upload chunké abandonnés (audit 2026-08-02, W11 ;
     E4). Retourne le nombre supprimés.
 
-    AUDIT 2026-08-02 (E4) — l'ancien filtre ``*.part`` sur ``SANDBOX_DIR``
-    entier supprimait TOUT fichier ``.part`` utilisateur (partial de moteur de
-    template, téléchargement Firefox/``aria2`` interrompu, ``split -b … out.part``)
-    sans log ni corbeille. Les tmp d'upload portent désormais un suffixe dédié
-    (``UPLOAD_TMP_SUFFIX``, cf. ``routes/sandbox_files.py``) qu'aucun fichier
-    utilisateur ne porte, et le balayage est restreint aux dossiers ``work/``.
-    """
-    import time as _t
+    Suffixe dédié (``UPLOAD_TMP_SUFFIX``), jamais porté par un fichier
+    utilisateur, et seulement sous /work. (L4.6, relecture finale) Ces
+    fichiers appartiennent au conteneur : l'hôte ne peut plus les effacer (son
+    ``unlink`` échouait en silence). Le ménage se fait DANS chaque conteneur en
+    marche, par son root (``find -mmin``) ; un conteneur arrêté attend le
+    passage suivant."""
+    import shutil as _sh
+    import subprocess as _sp
     try:
-        from shared_infra.config import SANDBOX_DIR
+        from shared_infra.sandbox import naming as _naming
         from shared_infra.sandbox.routes_files import UPLOAD_TMP_SUFFIX
-        root = Path(SANDBOX_DIR)
     except Exception:
         return 0
-    if not root.is_dir():
+    docker = _sh.which("docker")
+    if not docker:
         return 0
-    removed = 0
-    cutoff = _t.time() - max_age_s
     try:
-        for f in root.rglob("*" + UPLOAD_TMP_SUFFIX):
-            try:
-                if f.is_symlink() or not f.is_file():
-                    continue          # jamais suivre un lien (cf. P0.3)
-                # Défense en profondeur : ne balayer que sous ``<sandbox>/work/``
-                # (jamais skills/, memory/, _snapshots/…).
-                if "work" not in f.relative_to(root).parts:
-                    continue
-                if f.stat().st_mtime <= cutoff:
-                    f.unlink(missing_ok=True)
-                    removed += 1
-            except Exception:
-                continue
-    except Exception:
-        pass
+        noms = _sp.run([docker, "ps", *_naming.label_filter("user_id"), "--format",
+                        "{{.Names}}"], capture_output=True, text=True, timeout=15).stdout.split()
+    except (OSError, _sp.SubprocessError):
+        return 0
+    minutes = str(max(1, int(max_age_s // 60)))
+    removed = 0
+    for nom in noms:
+        try:
+            r = _sp.run([docker, "exec", "-u", "0:0", nom, "find", "/work", "-xdev", "-type", "f",
+                         "-name", "*" + UPLOAD_TMP_SUFFIX, "-mmin", "+" + minutes,
+                         "-print", "-delete"], capture_output=True, text=True, timeout=120)
+            removed += len([ligne for ligne in r.stdout.splitlines() if ligne.strip()])
+        except (OSError, _sp.SubprocessError):
+            continue
     return removed
 
 

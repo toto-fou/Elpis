@@ -322,17 +322,27 @@ def _supprimer_obstine(p: str) -> None:
     except PermissionError:
         if not _est_dossier(p):
             raise
-    for dossier, _sous, _fichiers in os.walk(p):         # ne descend dans aucun lien
-        with contextlib.suppress(OSError):
+    pile = [p]
+    while pile:                                          # droits rétablis AVANT d'y
+        dossier = pile.pop()                             # descendre (dossier en 0300)
+        try:
             st = os.lstat(dossier)
-            if stat.S_ISDIR(st.st_mode):
-                os.chmod(dossier, stat.S_IMODE(st.st_mode) | stat.S_IRWXU)
+            if not stat.S_ISDIR(st.st_mode):
+                continue
+            os.chmod(dossier, stat.S_IMODE(st.st_mode) | stat.S_IRWXU)
+            with os.scandir(dossier) as it:
+                pile.extend(e.path for e in it if e.is_dir(follow_symlinks=False))
+        except OSError:
+            continue
     _supprimer(p)
 
 
 def _nom_libre(dossier: str, nom: str, suffixe: str) -> str:
-    """``dossier/nom.suffixe-<hex>`` : un nom qui n'existe pas encore."""
-    return os.path.join(dossier, f"{nom}.{suffixe}-{secrets.token_hex(4)}")
+    """``dossier/nom.suffixe-<hex>`` : un nom qui n'existe pas encore, sous
+    la limite de 255 octets d'un nom (le nom d'origine est raccourci)."""
+    fin = f".{suffixe}-{secrets.token_hex(4)}"
+    base = nom.encode("utf-8", "surrogateescape")[:255 - len(fin.encode())]
+    return os.path.join(dossier, base.decode("utf-8", "ignore") + fin)
 
 
 def _nom_simple(v: Any) -> str:
@@ -526,7 +536,8 @@ class _Tar:
 class _Brut:
     """Chaque entrée en trame ``J {"entry"}``, suivie des octets d'un fichier ;
     un fichier dont tous les octets n'ont pu être lus est suivi d'une trame
-    ``J {"incomplete": nom, "error": code}``."""
+    ``J {"incomplete": nom, "code": code}`` (pas « error » : le client y lit
+    la fin de l'archive en échec)."""
 
     def __init__(self, sortie: _Sortie, decalages: Optional[list] = None) -> None:
         self._s = sortie
@@ -542,7 +553,7 @@ class _Brut:
         self._entree(nom, "file", st)
         n, erreur = _copier(fd, self._s, st.st_size)
         if erreur:
-            self._s.json({"incomplete": nom, "error": erreur, "bytes": n})
+            self._s.json({"incomplete": nom, "code": erreur, "bytes": n})
         return n, erreur
 
     def fermer(self) -> None:
@@ -589,15 +600,34 @@ class _InfoBornee(tarfile.TarInfo):
     ``tarfile`` les garde entiers en mémoire (256 Mio annoncés dans une
     archive de 255 Ko : l'agent tué par la limite mémoire du conteneur)."""
 
+    def _compter(self, tf: Any, quoi: str) -> None:
+        # Borne par en-tête ET en tout : 200 en-têtes globaux de 1 Mio chacun
+        # s'empilaient en mémoire (relecture finale).
+        total = getattr(tf, "_elpis_entetes", 0) + self.size
+        tf._elpis_entetes = total
+        if self.size > _ENTETE_TAR_MAX or total > 4 * _ENTETE_TAR_MAX:
+            raise tarfile.HeaderError(f"{quoi} trop grand")
+
     def _proc_pax(self, tf: Any) -> Any:
-        if self.size > _ENTETE_TAR_MAX:
-            raise tarfile.HeaderError("en-tête pax trop grand")
+        self._compter(tf, "en-tête pax")
         return super()._proc_pax(tf)                     # type: ignore[misc]
 
     def _proc_gnulong(self, tf: Any) -> Any:
-        if self.size > _ENTETE_TAR_MAX:
-            raise tarfile.HeaderError("nom long trop grand")
+        self._compter(tf, "nom long")
         return super()._proc_gnulong(tf)                 # type: ignore[misc]
+
+    # Fichiers « sparse » (GNU ou pax) refusés : leur carte n'est pas bornée.
+    def _proc_sparse(self, tf: Any) -> Any:
+        raise tarfile.HeaderError("fichier sparse refusé")
+
+    def _proc_gnusparse_00(self, *a: Any) -> Any:
+        raise tarfile.HeaderError("fichier sparse refusé")
+
+    def _proc_gnusparse_01(self, *a: Any) -> Any:
+        raise tarfile.HeaderError("fichier sparse refusé")
+
+    def _proc_gnusparse_10(self, *a: Any) -> Any:
+        raise tarfile.HeaderError("fichier sparse refusé")
 
 
 def _retirer_provisoires_vieux(dossier: str) -> None:
@@ -1286,18 +1316,17 @@ class Agent:
         delai_s = max(0.1, min(float(d.get("timeout_s") or 60), _GIT_DELAI_MAX_S))
         maxi = max(1, min(int(d.get("max_out") or 1 << 20), _GIT_SORTIE_MAX))
         env = _env_git(d.get("env"), self.config_git, self.racine)
-        # LFS : jamais de téléchargement au checkout, relayé ou non. Le filtre
-        # de l'image joindrait l'amont LFS directement, hors du relais : un
-        # clone passait (relayé) et le pull du même dépôt échouait à la fusion
-        # locale (relecture L4.4). Les fichiers LFS restent des pointeurs.
-        env["GIT_LFS_SKIP_SMUDGE"] = "1"
-        config = list(_GIT_CONFIG)
+        # LFS : un objet absent du cache local n'est jamais téléchargé au
+        # checkout (le filtre joindrait l'amont LFS hors du relais) ; le fichier
+        # reste alors un pointeur, sans faire échouer la commande (pull du
+        # même dépôt, relecture L4.4). Présent dans le cache : restitué.
+        config = list(_GIT_CONFIG) + [("lfs.skipdownloaderrors", "true")]
         relais = None
         with contextlib.ExitStack() as pile:
             if d.get("relay"):
                 relais = pile.enter_context(_Relais(self.relais, d["relay"]))
                 config.append((f"url.{relais.prefixe}.insteadOf", relais.origine))
-                env.update(GIT_ALLOW_PROTOCOL="http")
+                env.update(GIT_ALLOW_PROTOCOL="http", GIT_LFS_SKIP_SMUDGE="1")
                 # Écoute locale de l'agent : jamais par un proxy (celui d'un
                 # profil réseau, ou ``http.proxy`` de /work/.gitconfig), qui
                 # ne joindrait pas la boucle locale du conteneur. git passe
@@ -1513,9 +1542,6 @@ class Agent:
                 if not stat.S_ISREG(vu.st_mode):
                     omettre(nom, "special")
                     continue
-                if (vu.st_dev, vu.st_ino) != (st.st_dev, st.st_ino):
-                    omettre(nom, "changed")              # remplacé depuis le parcours
-                    continue
                 if octets + vu.st_size > a["max_bytes"]:
                     if a["strict"]:
                         raise Refus(413, "too_large", "archive trop volumineuse")
@@ -1701,7 +1727,10 @@ class Agent:
 _GIT_CONFIG = (("core.hooksPath", "/dev/null"), ("core.fsmonitor", "false"),
                ("credential.helper", ""), ("core.askPass", ""), ("core.pager", "cat"),
                ("commit.gpgsign", "false"), ("tag.gpgsign", "false"),
-               ("safe.directory", "*"))
+               ("safe.directory", "*"),
+               # Dépôts créés par l'ancien git de l'hôte : ``core.sharedRepository
+               # = 0666`` gravé dans leur config rouvrait .git à tous (relecture).
+               ("core.sharedRepository", "false"))
 # Portée « system » (la plus basse) : identité par défaut des commits, puis
 # la config de l'image.
 _GIT_SYSTEME = "[user]\n\tname = Elpis\n\temail = elpis@localhost\n[include]\n\tpath = /etc/gitconfig\n"

@@ -274,8 +274,9 @@ tient toute réponse pour non fiable.
   worker leader (`scheduling/cron_lock.py`), jamais dans le process admin.
 - **Sandbox** : le conteneur est la barrière ; toute opération sur `/work`
   passe par l'agent du conteneur (`sandbox/agent_client.py`, `git_ops.py`),
-  jamais par un `open`, `os.walk`, `chmod` ou `unlink` de l'hôte
-  (`test_frontiere_interception_2026_09_30.py`) ; aucun `git` côté hôte sur
+  jamais par un `open`, `os.walk`, `chmod` ou `unlink` de l'hôte (vérifié
+  pour les parcours principaux par `test_frontiere_interception_2026_09_30.py` ;
+  exceptions, métadonnées seules : `docs/sandbox-gateway.md`) ; aucun `git` côté hôte sur
   un dépôt de sandbox ; tout conteneur passe par la résolution du profil
   réseau (un profil imposé par l'administrateur l'emporte).
 

@@ -125,11 +125,18 @@ class _Registre:
 _registre = _Registre()
 
 
-def _montrer(url: str) -> str:
-    """URL affichable dans un message : sans identifiants ni requête."""
+def _montrer(url: str, amont: str = "") -> str:
+    """Adresse du DÉPÔT vers laquelle l'amont redirige, affichable : port
+    gardé, ni identifiants ni requête, sans la partie protocole
+    (``/info/refs``, ``/git-upload-pack``…) ; relative : sur ``amont``."""
     try:
         p = urlsplit(url)
-        return f"{p.scheme}://{p.hostname or ''}{p.path}"[:200]
+        if not p.scheme:
+            p = urlsplit(amont.rstrip("/") + "/" + url.lstrip("/"))
+        chemin = re.sub(r"/(info/refs|git-upload-pack|git-receive-pack)$", "", p.path)
+        hote = p.hostname or ""
+        hote = f"[{hote}]" if ":" in hote else hote
+        return f"{p.scheme}://{hote}{f':{p.port}' if p.port else ''}{chemin}"[:200]
     except ValueError:
         return "?"
 
@@ -205,15 +212,37 @@ class _Gestionnaire(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
         pass
 
+    def _preambule(self) -> bytes:
+        """Ligne du ticket, en ``_PREAMBULE_S`` AU TOTAL : un délai par
+        lecture laissait un client qui envoie un octet toutes les quelques
+        secondes tenir sa place des minutes (relecture finale). Lue octet par
+        octet : rien de la requête qui suit n'est consommé."""
+        fin = time.monotonic() + _PREAMBULE_S
+        ligne = bytearray()
+        while not ligne.endswith(b"\n") and len(ligne) < 256:
+            reste = fin - time.monotonic()
+            if reste <= 0:
+                raise TimeoutError("ticket trop lent")
+            self.connection.settimeout(reste)
+            b = self.connection.recv(1)
+            if not b:
+                break
+            ligne += b
+        return bytes(ligne)
+
     def handle(self) -> None:
-        self.connection.settimeout(_PREAMBULE_S)
         try:
-            m = _PREAMBULE.fullmatch(self.rfile.readline(256))
+            m = _PREAMBULE.fullmatch(self._preambule())
         except OSError:
             return
         self.ticket = _registre.entrer(m.group(1).decode("ascii")) if m else None
         if self.ticket is None:
-            return                                      # fermé sans réponse
+            # Fermé sans réponse ; la requête déjà envoyée est lue (bornée) pour
+            # une fermeture propre plutôt qu'une réinitialisation.
+            with contextlib.suppress(OSError):
+                self.connection.settimeout(0.2)
+                self.connection.recv(1 << 16)
+            return
         try:
             self.connection.settimeout(self.timeout)
             self.close_connection = True
@@ -331,7 +360,7 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                     if 300 <= r.status_code < 400:
                         cible = r.headers.get("location", "")
                         raise _Refus(502, f"Relais Git : l'amont redirige ({r.status_code}"
-                                          + (f" vers {_montrer(cible)}" if cible else "")
+                                          + (f" vers {_montrer(cible, t.amont)}" if cible else "")
                                           + ") ; corrigez l'URL du remote")
                     self.send_response(r.status_code)
                     envoye = True

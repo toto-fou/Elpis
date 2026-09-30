@@ -103,8 +103,10 @@ def test_export_puis_import_de_work(sandbox_api):
                 files={"archive": ("work.tar.gz", r.content, "application/gzip")})
     assert r2.status_code == 200 and r2.json()["files"] == 2, r2.text
     assert (zwork / "src" / "a.py").read_text(encoding="utf-8") == "print(1)" and not (zwork / "old.txt").exists()
-    (garde,) = [p for p in zwork.iterdir() if p.name.startswith(".work-before-import-")]
-    assert (garde / "old.txt").read_text(encoding="utf-8") == "x"
+    # (Décision du 2026-09-30) plus de copie dans /work : un instantané
+    # « Avant import » la remplace, hors de /work.
+    assert not [p for p in zwork.iterdir() if p.name.startswith(".work-before-import-")]
+    assert r2.json()["snapshot"]["name"].startswith("Avant import du ")
     assert c.get("/api/sandbox/export").status_code == 401
 
 

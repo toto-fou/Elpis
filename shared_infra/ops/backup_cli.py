@@ -50,7 +50,7 @@ def main(argv=None) -> int:
     if backup_incomplete(name):
         print("sauvegarde incomplète : /work d'au moins un compte non sauvegardé",
               file=sys.stderr)
-        return 1
+        return 3                                           # distinct : ./elpis upgrade continue
     return 0
 
 

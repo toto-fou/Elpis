@@ -50,7 +50,7 @@ async def test_premier_passage_rend_tout_l_arbre_a_l_uid_du_conteneur(tmp_path):
     script, owner, tout = call[call.index("-c") + 1], call[-2], call[-1]
     assert (owner, tout) == ("10001:10001", "1")
     assert 'chown "$1" /work && chmod 0755 /work' in script
-    assert 'chown -R "$1" /work; chmod -R go-w /work' in script
+    assert 'chown -R "$1" /work && chmod -R go-w /work' in script
     assert (tmp_path / _MODES_MARKER).exists()      # à P, hors du montage
 
 
@@ -58,7 +58,7 @@ async def test_premier_passage_rend_tout_l_arbre_a_l_uid_du_conteneur(tmp_path):
 async def test_ensuite_la_racine_seulement_et_l_utilisateur_configure(tmp_path):
     work = tmp_path / "work"
     work.mkdir()
-    (tmp_path / _MODES_MARKER).write_text("1", encoding="utf-8")
+    (tmp_path / _MODES_MARKER).write_text("1234:1234", encoding="utf-8")
     sb = _mk(work, exec_user="1234:1234")
 
     await sb._reconcile_work_modes()
@@ -66,6 +66,20 @@ async def test_ensuite_la_racine_seulement_et_l_utilisateur_configure(tmp_path):
 
     (call,) = sb._cli.calls
     assert call[-2:] == ["1234:1234", "0"]
+
+
+@pytest.mark.asyncio
+async def test_utilisateur_change_refait_tout_l_arbre(tmp_path):
+    """(Relecture finale) Le marqueur retient le propriétaire : un
+    ``exec_user`` changé refait ``chown -R``."""
+    work = tmp_path / "work"
+    work.mkdir()
+    (tmp_path / _MODES_MARKER).write_text("10001:10001", encoding="utf-8")
+    sb = _mk(work, exec_user="1234:1234")
+    await sb._reconcile_work_modes()
+    (call,) = sb._cli.calls
+    assert call[-2:] == ["1234:1234", "1"]
+    assert (tmp_path / _MODES_MARKER).read_text(encoding="utf-8") == "1234:1234"
 
 
 @pytest.mark.asyncio

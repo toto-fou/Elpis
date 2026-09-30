@@ -467,7 +467,15 @@ cmd_upgrade() {
         || die "Modifications locales dans le dépôt (git status) : mise à jour annulée."
     if [ "$backup" -eq 1 ]; then
         info "Sauvegarde complète…"
-        cmd_backup full || die "Sauvegarde échouée : mise à jour annulée (--no-backup pour passer outre)."
+        local rc=0
+        cmd_backup full || rc=$?
+        # 3 : sauvegarde faite, mais sans le /work d'au moins un compte
+        # (sandbox illisible) : la base y est, la mise à jour continue.
+        if [ "$rc" -eq 3 ]; then
+            warn "Sauvegarde incomplète (/work d'au moins un compte) : la mise à jour continue."
+        elif [ "$rc" -ne 0 ]; then
+            die "Sauvegarde échouée : mise à jour annulée (--no-backup pour passer outre)."
+        fi
     fi
     local before; before="$(git -C "$ROOT" rev-parse --short HEAD)"
     info "Code (git pull --ff-only)…"

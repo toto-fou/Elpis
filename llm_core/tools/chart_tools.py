@@ -134,23 +134,18 @@ def _safe_username(username):
     return "".join(c for c in (username or "") if c.isalnum() or c in "-_") or "guest"
 
 
-# ── Cross-UID writability (Docker migration) ─────────────────────────────
-# The chart config is written by the HOST MCP-tool process, but the user's
-# sandbox tree is ALSO touched by the per-user Docker container running as
-# UID 10001 (volume -v <sandbox>:/work:rw). Whichever side creates a dir
-# first owns it; default perms (0o755 / 0o644) then make the OTHER side fail
-# with EACCES. chart_tools historically did NOT widen, so a container-owned
-# .charts/ → PermissionError on every generate_chart.
-# We relax dirs to 0o777 and files to 0o666 (sandbox-local, per-user tree →
-# the broad bits are acceptable). Best-effort: chmod can itself fail if we
-# don't own the path — never let that mask the real write outcome.
+# ── Droits du cache (L4.6) ───────────────────────────────────────────────
+# Le cache vit hors de la sandbox (``/tmp`` partagé), écrit par l'hôte
+# d'outils et relu par l'app, sous le MÊME compte de service : privé
+# (0700 / 0600). Il était élargi à 0777 / 0666 du temps où le conteneur
+# (autre UID) le partageait. Best-effort : un chmod refusé (chemin d'un autre
+# compte) ne masque jamais le résultat de l'écriture.
 def _chmod_cross_writable(p: Path, is_dir: bool = False) -> None:
     try:
-        # SÉCURITÉ : ``os.chmod`` déréférence les symlinks — jamais élargir
-        # les droits d'une cible hors sandbox (cf. fs_tools homonyme).
+        # SÉCURITÉ : ``os.chmod`` déréférence les symlinks.
         if os.path.islink(p):
             return
-        os.chmod(p, 0o777 if is_dir else 0o666)
+        os.chmod(p, 0o700 if is_dir else 0o600)
     except OSError:
         pass
 

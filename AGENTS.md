@@ -198,8 +198,12 @@ résumé, une modification ne doit jamais :
 - toucher au contenu de `/work` depuis l'hôte : tout passe par l'agent du
   conteneur (`shared_infra/sandbox/agent_client.py`, `llm_core/tools/_espace.py`,
   `git_ops` pour Git) — un `open`, `os.walk`, `chmod` ou `unlink` de l'hôte
-  sur un chemin suivrait les liens que le conteneur peut poser à tout moment,
-  et `test_frontiere_interception_2026_09_30.py` le refuse.
+  sur un chemin suivrait les liens que le conteneur peut poser à tout moment.
+  `test_frontiere_interception_2026_09_30.py` le vérifie pour les parcours
+  principaux et les fonctions de fichiers courantes (pas `stat`, `glob`,
+  `tarfile` ni les sous-processus) : ce n'est pas une preuve, relire les
+  appels à `_get_work_path` / `sandbox_path` ; exceptions listées dans
+  `docs/sandbox-gateway.md`.
 
 ## Git et pull requests
 

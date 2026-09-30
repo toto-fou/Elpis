@@ -177,7 +177,7 @@ def test_fichier_coupe_en_cours_de_lecture_signale(work):
     finally:
         os.close(fd)
     assert n == 0 and erreur
-    assert sortie.objets[-1] == {"incomplete": "a.txt", "error": erreur, "bytes": 0}
+    assert sortie.objets[-1] == {"incomplete": "a.txt", "code": erreur, "bytes": 0}
     assert _stat.S_ISREG(st.st_mode)
 
 
@@ -339,3 +339,70 @@ def test_selection_toute_illisible_404(work, monkeypatch):
     finally:
         os.chmod(work / "a.txt", 0o644)
     assert r.status_code == 404
+
+
+# ── Relecture finale (2026-09-30) ────────────────────────────────────────────
+
+def test_fichier_remplace_pendant_l_archive_garde(work, monkeypatch):
+    """Un fichier réécrit (écriture puis renommage) après le parcours reste
+    dans l'archive : seul un DOSSIER remplacé est écarté."""
+    vrai = S.Agent.entrees_archive
+
+    def puis_remplace(self, a, omettre):
+        for x in vrai(self, a, omettre):
+            if x[0].endswith("a.txt"):
+                tmp = work / "a.tmp"
+                tmp.write_text("NOUVEAU")
+                os.replace(tmp, work / "a.txt")
+            yield x
+    monkeypatch.setattr(S.Agent, "entrees_archive", puis_remplace)
+    _d, data, fin, _o = asyncio.run(_lire(_agent(work), paths=["a.txt"], max_bytes=1 << 20,
+                                          max_files=10))
+    z = zipfile.ZipFile(io.BytesIO(data))
+    assert z.namelist() == ["a.txt"] and z.read("a.txt") == b"NOUVEAU"
+
+
+def test_nom_tres_long_jamais_perdu(work, monkeypatch):
+    nom = "é" * 120                                       # 240 octets
+    (work / nom).write_text("A")
+    monkeypatch.setattr(S, "_supprimer_obstine",
+                        lambda p: (_ for _ in ()).throw(PermissionError(13, "refusé")))
+    vrai = os.rename
+
+    def renommer(src, dst):
+        if os.path.basename(src) == nom and ".elpis-tmp-" not in src:
+            raise PermissionError(13, "refusé")
+        vrai(src, dst)
+    monkeypatch.setattr(S.os, "rename", renommer)
+    res = asyncio.run(_agent(work).extract("", _tar([(nom, b"N", tarfile.REGTYPE, 0o644)]),
+                                           max_bytes=1 << 20, max_file=1 << 20, max_members=10))
+    monkeypatch.undo()
+    places = [p for p in work.iterdir() if ".elpis-restaure-" in p.name]
+    assert len(places) == 1 and places[0].read_text() == "N", res
+    assert len(places[0].name.encode()) <= 255
+
+
+def test_tar_sparse_et_en_tetes_empiles_refuses(work):
+    import shutil
+    import subprocess
+    if not shutil.which("tar"):
+        pytest.skip("tar absent")
+    d = work.parent / "sp"
+    d.mkdir()
+    with open(d / "creux", "wb") as f:
+        f.truncate(8 << 20)
+    subprocess.run(["tar", "-czSf", str(d / "x.tgz"), "-C", str(d), "creux"], check=True)
+    with pytest.raises(AgentError) as e:
+        asyncio.run(_agent(work).extract("", (d / "x.tgz").read_bytes(), max_bytes=1 << 30,
+                                         max_file=1 << 30, max_members=10))
+    assert e.value.code == "bad_archive"
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w", format=tarfile.PAX_FORMAT) as tf:
+        for i in range(6):
+            ti = tarfile.TarInfo(f"f{i}")
+            ti.pax_headers = {"comment": "x" * (900 << 10)}
+            tf.addfile(ti, io.BytesIO(b""))
+    with pytest.raises(AgentError) as e:
+        asyncio.run(_agent(work).extract("", buf.getvalue(), max_bytes=1 << 30,
+                                         max_file=1 << 30, max_members=10))
+    assert e.value.code == "bad_archive"

@@ -99,20 +99,26 @@ async def import_legacy_credentials(agent: Any, uid: int) -> None:
     Agent injoignable : réessayé à l'opération suivante."""
     if not uid or uid in _anciens_vus:
         return
+    # La trace ``.imported`` de la 1.0.0 (jetons en clair) part dans tous les
+    # cas, fichier principal présent ou non (relecture finale).
+    try:
+        await agent.fsop("remove", path=_ANCIEN_FICHIER + ".imported", missing_ok=True)
+    except AgentError:
+        logger.warning("[git] trace .imported non supprimée (compte %s)", uid)
     try:
         lu = await agent.read(_ANCIEN_FICHIER, max_bytes=1 << 20)
     except AgentError as e:
         if e.code in ("not_found", "is_dir", "not_file", "too_large", "denied", "outside_root"):
             _anciens_vus.add(uid)
         return
-    _anciens_vus.add(uid)
     from shared_infra.git.resolver import import_legacy_git_credentials
-    await asyncio.to_thread(import_legacy_git_credentials, uid, lu.data)
-    for nom in (_ANCIEN_FICHIER, _ANCIEN_FICHIER + ".imported"):
-        try:
-            await agent.fsop("remove", path=nom, missing_ok=True)
-        except AgentError:
-            logger.warning("[git] %s non supprimé (compte %s)", nom, uid)
+    if await asyncio.to_thread(import_legacy_git_credentials, uid, lu.data) < 0:
+        return                                           # base indisponible : fichier gardé
+    _anciens_vus.add(uid)
+    try:
+        await agent.fsop("remove", path=_ANCIEN_FICHIER, missing_ok=True)
+    except AgentError:
+        logger.warning("[git] %s non supprimé (compte %s)", _ANCIEN_FICHIER, uid)
 
 
 async def remote_urls(agent: Any, cwd: str, remote: str, *, push: bool = False) -> List[str]:

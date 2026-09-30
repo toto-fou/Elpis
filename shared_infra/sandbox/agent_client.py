@@ -165,6 +165,40 @@ class AgentArchive:
         raise AgentError("bad_response", "archive interrompue")
 
 
+_DECALAGES: Dict[int, list] = {}
+
+
+def _decalages_hote() -> list:
+    """Décalages de l'heure locale de l'hôte, de 1980 (début des dates zip) à
+    deux ans d'ici : [[borne, secondes], …], le dernier sans borne. Une
+    fenêtre de 800 jours mettait les fichiers plus anciens à une heure près
+    (relecture finale). Recalculé une fois par jour."""
+    jour = int(time.time() // 86400)
+    if jour in _DECALAGES:
+        return _DECALAGES[jour]
+
+    def dec(t: float) -> int:
+        return int(time.localtime(t).tm_gmtoff)
+    t, fin = 315532800.0, time.time() + 2 * 365 * 86400      # 1980-01-01 UTC
+    cur = dec(t)
+    rendu: List[List[Any]] = []
+    while t < fin:
+        suivant = min(t + 86400, fin)
+        if dec(suivant) != cur:
+            bas, haut = t, suivant
+            while haut - bas > 1:
+                milieu = (bas + haut) // 2
+                bas, haut = (milieu, haut) if dec(milieu) == cur else (bas, milieu)
+            rendu.append([int(haut), cur])
+            cur = dec(suivant)
+        t = suivant
+    rendu.append([None, cur])
+    rendu = rendu[-256:]                                     # borne de l'agent
+    _DECALAGES.clear()
+    _DECALAGES[jour] = rendu
+    return rendu
+
+
 def _entier_borne(v: Any, mini: int, maxi: int) -> int:
     if isinstance(v, bool) or not isinstance(v, int) or not mini <= v <= maxi:
         raise AgentError("bad_response", "valeur d'entrée invalide")
@@ -484,8 +518,7 @@ class AgentClient:
             "dirs": dirs, "walk": walk, "strict": strict, "max_bytes": max_bytes,
             "max_files": max_files, "deadline_s": deadline_s}
         if format == "zip":
-            from shared_infra.db._dialect import _offset_segments
-            corps["utc_offsets"] = [[b, o] for b, o in _offset_segments()]
+            corps["utc_offsets"] = _decalages_hote()
         async with self._flux("POST", "/v1/archive", delai_s=_DELAI_FLUX_S, timeout=attente,
                               sans_activite=not activity, json=corps) as r:
             flux = AgentArchive(_trames(r, maxi), max_files=max_files, max_bytes=max_bytes)

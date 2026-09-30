@@ -72,11 +72,16 @@ def _supprimer_sandbox(user_id: int, username: str, dossier) -> tuple:
     try:
         if not dossier.exists():
             return False, None
-        try:
-            shutil.rmtree(dossier)
-        except PermissionError:
-            asyncio.run(get_user_sandbox(user_id, username, dossier / WORK_SUBDIR).purge())
-            shutil.rmtree(dossier)
+        # /work d'abord, par le conteneur (processus arrêtés, vidé, conteneur
+        # retiré) ; le reste de P ensuite. Dans l'autre ordre, un échec de
+        # Docker laissait P à moitié supprimé, sans reprise possible
+        # (relecture finale) : ici, rien n'est touché tant que /work résiste.
+        if (dossier / WORK_SUBDIR).is_dir() and any((dossier / WORK_SUBDIR).iterdir()):
+            try:
+                shutil.rmtree(dossier / WORK_SUBDIR)
+            except PermissionError:
+                asyncio.run(get_user_sandbox(user_id, username, dossier / WORK_SUBDIR).purge())
+        shutil.rmtree(dossier)
         return True, None
     except Exception as e:                                      # noqa: BLE001 — remonté à l'admin
         return False, str(e)

@@ -1003,6 +1003,10 @@ def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
             except (OSError, SandboxPathError) as e:
                 skipped.append(f"{p} — {e.__class__.__name__}: {e}")
             comptes = _comptes_des_sandboxes() if travaux else {}
+            if travaux and not comptes:
+                # Base des comptes illisible : aucun /work sauvegardé, la
+                # sauvegarde est incomplète (relecture finale).
+                travaux_manques.extend(travaux)
             for nom in travaux:
                 if nom in comptes:
                     if not _zip_work(zf, comptes[nom], f"{arcroot}/{nom}/{WORK_SUBDIR}", skipped):

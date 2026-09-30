@@ -86,9 +86,14 @@ désactivés pour ces commandes). Les opérations réseau lancées par Elpis
 seulement) passent par le relais de l'hôte, y compris avec un profil réseau
 isolé : un ticket par opération, le seul dépôt de l'opération joignable,
 l'identifiant du connecteur Git ajouté par l'hôte (jamais dans la sandbox),
-la garde anti-SSRF refaite à chaque requête et, au push, seules les refs
-que `git push` mettrait à jour d'après la configuration du dépôt (jamais de
-suppression). Un refus du relais est rendu en 409, avec son motif.
+la garde anti-SSRF refaite à chaque requête et, au push de l'éditeur, seules
+les refs que `git push` mettrait à jour d'après la configuration du dépôt,
+sans suppression, sans mise à jour forcée non demandée ni réécriture d'une
+étiquette existante (l'assistant ne pousse que sa branche). Un refus du
+relais est rendu en 409, avec son motif ; un rejet de l'amont (en retard) en
+400. Identifiants saisis : envoyés après un 401 de l'amont sur la découverte
+(`info/refs`) ; un amont qui ne les demande qu'au `POST` n'est pas pris en
+charge.
 
 Le relais écoute sur `user_sandboxes/.elpis-relay/<pid>.sock` (un socket par
 processus de l'app), dossier monté en lecture seule dans les conteneurs : une

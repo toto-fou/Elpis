@@ -547,7 +547,13 @@ def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
                 if not entry.startswith("sandboxes/"):
                     continue
                 rel = entry[len("sandboxes/"):]
-                parts = rel.split("/")
+                # Nom canonique d'abord : « alice/./work/x » ou « alice//work/x »
+                # partaient sinon à l'hôte, droit dans /work (relecture finale).
+                parts = [c for c in rel.split("/") if c not in ("", ".")]
+                if ".." in parts or not parts:
+                    errors.append(f"{entry}: nom non canonique, ignoré")
+                    continue
+                rel = "/".join(parts)
                 if len(parts) > 2 and parts[1] == WORK_SUBDIR:
                     if parts[0] in comptes:
                         travaux.setdefault(comptes[parts[0]], []).append((entry, "/".join(parts[2:])))

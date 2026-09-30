@@ -384,3 +384,39 @@ def test_depots_et_arbre_sont_des_sondages(client, monkeypatch):
     assert c.get("/api/sandbox/git/repos").status_code == 200
     assert c.get("/api/sandbox/git/tree", params={"repo": "p"}).status_code == 200
     assert passifs and all(p for _n, p in passifs), passifs
+
+
+# ── Relecture finale (2026-09-30) ────────────────────────────────────────────
+
+def test_push_rejete_par_l_amont_n_est_pas_un_succes(client, connecteur):
+    """L'amont a avancé : le push est refusé en 400 avec le message de git,
+    jamais « Déjà à jour » ; une réécriture sans « forcer » : 409."""
+    c, work = client
+    assert c.post("/api/sandbox/git/clone",
+                  json={"url": connecteur.url, "dir": "copie", **IDS}).status_code == 200
+    (connecteur.src / "z.txt").write_text("z\n")
+    _git(connecteur.src, "add", "z.txt")
+    _git(connecteur.src, "commit", "-q", "-m", "z")
+    _git(connecteur.src, "push", "-q", connecteur.racine + "/depot.git", "main")
+    (work / "copie" / "b.txt").write_text("b\n")
+    _git(work / "copie", "add", "b.txt")
+    _git(work / "copie", "commit", "-q", "-m", "b")
+    r = c.post("/api/sandbox/git/push", json={"repo": "copie", **IDS})
+    assert r.status_code == 400 and "rejected" in r.json()["detail"], r.text
+    _git(work / "copie", "config", "remote.origin.push", "+refs/heads/main:refs/heads/main")
+    r = c.post("/api/sandbox/git/push", json={"repo": "copie", **IDS})
+    assert r.status_code == 409 and "forcée" in r.json()["detail"], r.text
+
+
+def test_push_d_une_nouvelle_branche_la_suit(client, connecteur):
+    c, work = client
+    assert c.post("/api/sandbox/git/clone",
+                  json={"url": connecteur.url, "dir": "copie", **IDS}).status_code == 200
+    assert c.post("/api/sandbox/git/checkout",
+                  json={"repo": "copie", "branch": "neuve", "create": True}).status_code == 200
+    r = c.post("/api/sandbox/git/push", json={"repo": "copie", **IDS})
+    assert r.status_code == 200, r.text
+    assert "refs/heads/neuve" in _refs(connecteur.racine + "/depot.git")
+    suivi = subprocess.run(["git", "rev-parse", "--abbrev-ref", "neuve@{upstream}"],
+                           cwd=work / "copie", capture_output=True, text=True).stdout.strip()
+    assert suivi == "origin/neuve"

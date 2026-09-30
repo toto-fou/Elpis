@@ -83,8 +83,8 @@ def test_regles_d_origine(monkeypatch):
     assert O.origin_allowed("https://IDE.lan/")                              # normalisée
     assert O.origin_allowed("http://outil.lan:8080") and not O.origin_allowed("http://outil.lan")
     assert not O.origin_allowed("http://outil.lan:80x")
-    assert O.origin_allowed("http://elpis.lan:8001", own_host="elpis.lan:8001")
-    assert not O.origin_allowed("http://elpis.lan:9999", own_host="elpis.lan:8001")
+    # Jamais d'après Host : un nom étranger qui pointe sur l'hôte reste refusé.
+    assert not O.origin_allowed("http://evil.example:8001")
 
 
 def test_liste_d_origines_de_l_environnement(monkeypatch):

@@ -134,14 +134,17 @@ def test_le_relais_delegue_sans_retransmettre_le_jeton(bridge, jeton, type_, fam
     assert verify_delegation(auth[7:], "autre-cle") is None
 
 
-def test_origine_etrangere_et_version_inconnue_refusees_sans_appel_amont(bridge):
+def test_origine_etrangere_et_version_inconnue_refusees_sans_appel_amont(bridge, monkeypatch):
     client, vues, _ = bridge
     h = {"Authorization": "Bearer pcr_ok"}
     assert client.post("/api/mcp-bridge/git", json={},
                        headers={**h, "Origin": "http://evil.example"}).status_code == 403
     assert client.post("/api/mcp-bridge/git", json={},
                        headers={**h, "MCP-Protocol-Version": "1999-01-01"}).status_code == 400
+    assert client.post("/api/mcp-bridge/git", json={},       # propre origine non configurée
+                       headers={**h, "Origin": "http://testserver"}).status_code == 403
     assert not vues
+    monkeypatch.setenv("LOCAL_MCP_ALLOWED_ORIGINS", "http://testserver")
     assert client.post("/api/mcp-bridge/git", json={},
                        headers={**h, "Origin": "http://testserver"}).status_code == 200
 
@@ -315,3 +318,23 @@ def test_post_session_perimee_reste_404(bridge):
                     json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
                     headers={"Authorization": "Bearer pcr_ok"})
     assert r.status_code == 404
+
+
+def test_delegation_refusee_par_le_service_502(bridge):
+    """Jeton du client valide, amont qui refuse la délégation (horloge, version,
+    jeton de service) : 502 explicite, jamais un 401 qui ferait croire au
+    client que SON jeton est mauvais."""
+    client, _vues, etat = bridge
+    etat["reponse"] = lambda req: httpx.Response(401, headers={"WWW-Authenticate": 'Bearer error="invalid_token"'})
+    r = client.post("/api/mcp-bridge/git", json={}, headers={"Authorization": "Bearer ept_ok"})
+    assert r.status_code == 502 and "www-authenticate" not in {k.lower() for k in r.headers}
+
+
+def test_initialize_negocie_sans_controle_d_en_tete(bridge):
+    client, vues, _ = bridge
+    init = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"protocolVersion": "2099-01-01", "capabilities": {},
+                       "clientInfo": {"name": "t", "version": "1"}}}
+    r = client.post("/api/mcp-bridge/git", json=init,
+                    headers={"Authorization": "Bearer ept_ok", "MCP-Protocol-Version": "2099-01-01"})
+    assert r.status_code == 200 and vues                     # le service négocie

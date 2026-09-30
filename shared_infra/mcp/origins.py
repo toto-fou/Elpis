@@ -13,8 +13,9 @@ Règle commune au relais de l'app et au service d'outils :
   éditeurs, agents, SDK) ; seul un navigateur en pose un ;
 * ``Origin`` présent → accepté seulement s'il figure dans ``mcp.allowed_origins``
   (config, relue à chaud), ``app.cors_origins`` ou ``LOCAL_MCP_ALLOWED_ORIGINS``
-  (env, séparées par des virgules) ; le relais accepte EN PLUS sa propre
-  origine (même hôte que la requête) ;
+  (env, séparées par des virgules). Jamais d'après l'en-tête ``Host`` de la
+  requête : lors d'un rebinding, ``Host`` et ``Origin`` portent le même nom
+  étranger ;
 * ``null`` (iframe isolée, fichier local) n'est jamais une origine autorisée.
 
 Comparaison exacte après normalisation (minuscules, sans ``/`` final) ; un
@@ -64,20 +65,13 @@ def _match(origin: str, patterns: Iterable[str]) -> bool:
     return False
 
 
-def origin_allowed(origin: Optional[str], *, own_host: str = "") -> bool:
-    """``True`` si la requête peut passer au vu de son ``Origin``.
-
-    ``own_host`` : valeur de l'en-tête ``Host`` de la requête, quand l'appelant
-    (le relais de l'app) veut aussi accepter sa propre origine."""
+def origin_allowed(origin: Optional[str]) -> bool:
+    """``True`` si la requête peut passer au vu de son ``Origin``."""
     if origin is None or str(origin).strip() == "":
         return True
     o = _norm(origin)
     if o == "null" or "://" not in o:
         return False
-    if own_host:
-        host = o.split("://", 1)[1]
-        if host == _norm(own_host):
-            return True
     return _match(o, allowed_origins())
 
 

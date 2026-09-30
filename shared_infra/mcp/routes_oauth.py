@@ -156,11 +156,17 @@ def _with_params(uri: str, params: Dict[str, str]) -> str:
 
 
 # ── Découverte ───────────────────────────────────────────────────────────────
-def _prm(request: Request) -> JSONResponse:
+def _prm(request: Request, family: str = "") -> JSONResponse:
     pol = _require_enabled()
     base = app_url(request)
+    res = O.resource_base(base)
+    if family:
+        # RFC 9728 §3.3 : la ressource annoncée est celle du chemin demandé.
+        if family not in pol["families"]:
+            raise HTTPException(404, "Famille inconnue.")
+        res = f"{res}/{family}"
     return _json({
-        "resource": O.resource_base(base),
+        "resource": res,
         "authorization_servers": [base],
         "scopes_supported": O.scopes_supported(pol),
         "bearer_methods_supported": ["header"],
@@ -180,7 +186,7 @@ async def oauth_prm_bridge(request: Request):
 
 @router.get("/.well-known/oauth-protected-resource" + O.RESOURCE_PATH + "/{family}")
 async def oauth_prm_family(request: Request, family: str):
-    return _prm(request)
+    return _prm(request, family)
 
 
 @router.get("/.well-known/oauth-authorization-server")
@@ -252,7 +258,10 @@ button.primary{background:var(--accent);border-color:var(--accent);color:var(--a
 _PAGE_HEADERS = {
     "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
     "X-Frame-Options": "DENY",
-    "Referrer-Policy": "no-referrer",
+    # same-origin (pas no-referrer) : en http sur le LAN, le navigateur
+    # enverrait sinon « Origin: null » avec le formulaire de consentement, que
+    # le garde CSRF refuse à juste titre. Rien ne part vers l'extérieur.
+    "Referrer-Policy": "same-origin",
     **_NO_STORE,
 }
 
@@ -291,6 +300,9 @@ def _validate_authorize(request: Request, q: Dict[str, str], pol: Dict[str, Any]
     except O.OAuthError as e:
         return _error_page(e.description or "Client inconnu.")
     ruri = q.get("redirect_uri", "")
+    # Absente de la demande (une seule enregistrée) : elle ne sera pas exigée
+    # au point de jeton (RFC 6749 §4.1.3) — marquée « implicite ».
+    implicit = not ruri
     if not ruri and len(client["redirect_uris"]) == 1:
         ruri = client["redirect_uris"][0]
     if not ruri or not O.redirect_matches(ruri, client["redirect_uris"]):
@@ -310,24 +322,26 @@ def _validate_authorize(request: Request, q: Dict[str, str], pol: Dict[str, Any]
         families = [f for f in families if f == fam]
     if not families:
         return _redirect_error(ruri, state, "invalid_scope", "Aucune famille d'outils permise.", request)
-    return client, ruri, state, challenge, resource, families
+    return client, ruri, state, challenge, resource, families, implicit
 
 
 @router.get("/oauth/authorize")
 async def oauth_authorize(request: Request):
     pol = _require_enabled()
     q = {k: v for k, v in request.query_params.items()}
+    # Connexion Elpis d'abord (SSO / 2FA compris), puis retour ici — AVANT de
+    # résoudre le client : un document CIMD n'est récupéré (requête sortante,
+    # ligne en base) que pour un compte connecté.
+    uid = _session_user_id(request)
+    if uid is None:
+        nxt = request.url.path + ("?" + request.url.query if request.url.query else "")
+        return RedirectResponse("/?oauth_next=" + quote(nxt, safe=""), status_code=302)
     checked = await asyncio.to_thread(_validate_authorize, request, q, pol)
     if isinstance(checked, Response):
         return checked
-    client, ruri, state, challenge, resource, families = checked
-    uid = _session_user_id(request)
-    if uid is None:
-        # Connexion Elpis d'abord (SSO / 2FA compris), puis retour ici.
-        nxt = request.url.path + ("?" + request.url.query if request.url.query else "")
-        return RedirectResponse("/?oauth_next=" + quote(nxt, safe=""), status_code=302)
+    client, ruri, state, challenge, resource, families, implicit = checked
     from shared_infra.accounts import identity as _ident
-    req = _ident.sign_claims({"uid": uid, "cid": client["client_id"], "ruri": ruri, "st": state,
+    req = _ident.sign_claims({"uid": uid, "cid": client["client_id"], "ruri": ruri, "imp": implicit, "st": state,
                               "cc": challenge, "res": resource, "fams": families},
                              _consent_key(), aud=_CONSENT_AUD)
     try:
@@ -342,8 +356,13 @@ async def oauth_authorize(request: Request):
         f"{'' if f in _NOT_PRECHECKED else ' checked'}>"
         f"<span>{html.escape(_FAMILY_LABELS.get(f, f))} <span class=\"muted\">({html.escape(f)})</span></span></label>"
         for f in families)
-    declared = ("<p class=\"warn\">Nom déclaré par l'application elle-même, non vérifié.</p>"
-                if client["kind"] == "dcr" else "")
+    if client["kind"] == "dcr":
+        declared = "<p class=\"warn\">Nom déclaré par l'application elle-même, non vérifié.</p>"
+    elif client["kind"] == "cimd":
+        declared = ("<p class=\"warn\">Nom déclaré par un document publié sur "
+                    f"<strong>{html.escape(urlsplit(client['client_id']).netloc)}</strong>, non vérifié.</p>")
+    else:
+        declared = ""
     body = (
         "<h1>Autoriser l'accès à vos outils</h1>"
         f"<p><strong>{html.escape(client['name'] or client['client_id'])}</strong> demande à utiliser "
@@ -384,7 +403,8 @@ async def oauth_authorize_decision(request: Request):
     if not families:
         return _redirect_error(ruri, state, "access_denied", "Aucune famille autorisée.", request)
     code = await asyncio.to_thread(
-        O.issue_code, client_id=str(claims["cid"]), user_id=uid, redirect_uri=ruri,
+        O.issue_code, client_id=str(claims["cid"]), user_id=uid,
+        redirect_uri="" if claims.get("imp") else ruri,
         code_challenge=str(claims["cc"]), resource=str(claims["res"]), families=families)
     params = {"code": code, "iss": app_url(request)}
     if state:

@@ -54,6 +54,7 @@ une session neuve et le client boucherait sur « session not found ».
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
@@ -109,6 +110,18 @@ def _upstream_base() -> Optional[str]:
     from shared_infra.mcp.local_registry import service_upstream
     url, _token = service_upstream()
     return url or None
+
+
+async def _is_initialize(request: Request) -> bool:
+    """Requête POST JSON-RPC ``initialize`` (le corps est mis en cache par
+    Starlette : le relais le relit ensuite)."""
+    if request.method != "POST":
+        return False
+    try:
+        msg = json.loads(await request.body() or b"{}")
+    except ValueError:
+        return False
+    return isinstance(msg, dict) and msg.get("method") == "initialize"
 
 
 def _caller_token(request: Request) -> str:
@@ -202,13 +215,14 @@ async def _relay_to_mcp(request: Request, family: str):
     # (EXT.2) Origine : un navigateur d'une autre origine n'a rien à faire ici
     # (anti-rebinding DNS) ; les clients natifs n'envoient pas d'Origin.
     from shared_infra.mcp.origins import origin_allowed
-    if not origin_allowed(request.headers.get("origin"),
-                          own_host=request.headers.get("host") or ""):
+    if not origin_allowed(request.headers.get("origin")):
         raise HTTPException(403, "Origine non autorisée.")
     # Version de protocole annoncée par le client après ``initialize`` :
     # inconnue → 400 (absente : la version par défaut de la spécification).
+    # ``initialize`` lui-même négocie la version dans son corps : pas de
+    # contrôle d'en-tête (comme le SDK côté serveur).
     pv = request.headers.get("mcp-protocol-version")
-    if pv is not None:
+    if pv is not None and not await _is_initialize(request):
         from mcp.shared.version import SUPPORTED_PROTOCOL_VERSIONS
         if pv not in SUPPORTED_PROTOCOL_VERSIONS:
             raise HTTPException(400, "Version de protocole MCP non prise en charge : "
@@ -293,6 +307,18 @@ async def _relay_to_mcp(request: Request, family: str):
         await client.aclose()
         from fastapi.responses import Response as _Resp
         return _Resp(status_code=405, headers={"Allow": "POST", "Cache-Control": "no-store"})
+
+    # Jeton du CLIENT déjà validé ici : un 401/403 de l'amont vise la
+    # délégation (horloge d'un hôte d'outils distant, version ancienne, jeton
+    # de service désaligné). Le renvoyer tel quel ferait croire au client que
+    # SON jeton est mauvais (un client OAuth relancerait l'autorisation).
+    if upstream.status_code in (401, 403):
+        await upstream.aclose()
+        await client.aclose()
+        logger.warning("[mcp-proxy] délégation refusée par le service d'outils (%s, HTTP %s) : "
+                       "vérifier l'horloge, la version et le jeton de service", url, upstream.status_code)
+        raise HTTPException(502, "Le service d'outils a refusé la délégation du relais "
+                                 "(horloge, version ou jeton de service).")
 
     resp_headers = {k: v for k, v in upstream.headers.items()
                     if k.lower() not in _HOP_BY_HOP}

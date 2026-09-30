@@ -362,10 +362,12 @@ def test_origin_etranger_refuse_relais_et_service(banc, monkeypatch):
     assert httpx.post(banc["relais"], json=corps, headers=_h(**etranger), timeout=20).status_code == 403
     assert httpx.post(banc["service"], json=corps, headers=_h("ept_alice_direct", **etranger),
                       timeout=20).status_code == 403
-    # Origine propre du relais : acceptée ; origine autorisée par la config : acceptée.
+    # Origine propre du relais : refusée tant qu'elle n'est pas configurée (jamais
+    # déduite de Host, que le rebinding contrôle) ; autorisée par la config : acceptée.
     propre = banc["relais"].split("/api/")[0]
+    assert httpx.post(banc["relais"], json=corps, headers=_h(Origin=propre), timeout=20).status_code == 403
+    monkeypatch.setenv("LOCAL_MCP_ALLOWED_ORIGINS", f"http://outil.lan:*,{propre}")
     assert httpx.post(banc["relais"], json=corps, headers=_h(Origin=propre), timeout=20).status_code == 200
-    monkeypatch.setenv("LOCAL_MCP_ALLOWED_ORIGINS", "http://outil.lan:*")
     assert httpx.post(banc["service"], json=corps,
                       headers=_h("ept_alice_direct", Origin="http://outil.lan:8080"),
                       timeout=20).status_code == 200

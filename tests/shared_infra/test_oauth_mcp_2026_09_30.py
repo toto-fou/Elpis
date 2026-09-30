@@ -202,9 +202,10 @@ def test_client_officiel_de_bout_en_bout(banc):
     noms, lu = asyncio.run(_session(url, _fournisseur(banc, url, stockage, vus=vus), ecrire_puis_lire))
     assert {"write_file", "read_file"} <= noms and not any(n.startswith("git") for n in noms)
     assert not lu.isError and "via OAuth" in str(lu.content)
-    # La demande d'autorisation portait PKCE S256 et la ressource du relais.
+    # La demande d'autorisation portait PKCE S256 et la ressource annoncée pour
+    # l'URL jointe (RFC 9728 §3.3 : celle de la famille).
     q = parse_qs(urlsplit(vus[0]).query)
-    assert q["code_challenge_method"] == ["S256"] and q["resource"] == [banc["relais"]]
+    assert q["code_challenge_method"] == ["S256"] and q["resource"] == [url]
     assert q["scope"] == ["tools:fs"]
     # Exécuté dans la sandbox d'alice (compte du consentement).
     assert list(banc["racine"].rglob("oauth.txt"))
@@ -240,7 +241,8 @@ def test_decouverte_et_defi(banc):
         assert f'resource_metadata="{banc["base"]}/.well-known/oauth-protected-resource/api/mcp-bridge/git"' in defi
         assert 'scope="tools:git"' in defi
         prm = h.get("/.well-known/oauth-protected-resource/api/mcp-bridge/git").json()
-        assert prm["resource"] == banc["relais"] and prm["authorization_servers"] == [banc["base"]]
+        assert prm["resource"] == banc["relais"] + "/git" and prm["authorization_servers"] == [banc["base"]]
+        assert h.get("/.well-known/oauth-protected-resource/api/mcp-bridge").json()["resource"] == banc["relais"]
         assert "tools:git" in prm["scopes_supported"] and "tools:chart" not in prm["scopes_supported"]
         asm = h.get("/.well-known/oauth-authorization-server").json()
         assert asm["code_challenge_methods_supported"] == ["S256"]
@@ -503,3 +505,102 @@ def test_revocation_rfc7009(api):
     assert c.post("/oauth/revoke", data={"token": "inconnu", "client_id": cid}).status_code == 200
     assert c.post("/oauth/revoke", data={"token": tok["refresh_token"], "client_id": cid}).status_code == 200
     assert O.verify_access_token(tok["access_token"]) is None           # tout le lot
+
+
+# ── Correctifs de la relecture finale ────────────────────────────────────────
+
+def test_page_de_consentement_garde_l_origine(api):
+    """same-origin : en http sur le LAN, le formulaire garde son Origin (le
+    garde CSRF refuserait « Origin: null »)."""
+    c, _ids, _cfg, _ = api
+    cid = _enregistrer(c)["client_id"]
+    _v, ch = _pkce()
+    page = c.get("/oauth/authorize", params={"response_type": "code", "client_id": cid, "redirect_uri": REDIRECT,
+                                             "state": "st", "code_challenge": ch, "code_challenge_method": "S256",
+                                             "scope": "tools", "resource": RES}, follow_redirects=False)
+    assert page.status_code == 200 and page.headers["referrer-policy"] == "same-origin"
+
+
+def test_rafraichissements_concurrents_un_seul_gagne(api, monkeypatch):
+    import threading
+
+    import shared_infra.mcp.oauth as O
+    c, *_ = api
+    cid = _enregistrer(c)["client_id"]
+    v, ch = _pkce()
+    tok = _jetons(c, cid, _code(_autoriser(c, cid, ch))["code"][0], v).json()
+    real = O._families_list
+    bar = threading.Barrier(2, timeout=5)
+
+    def lent(csv):
+        try:
+            bar.wait()
+        except threading.BrokenBarrierError:
+            pass
+        return real(csv)
+    monkeypatch.setattr(O, "_families_list", lent)
+    client = O.get_client(cid)
+    out = []
+
+    def run():
+        try:
+            out.append(O.refresh(refresh_token=tok["refresh_token"], client=client, scope=None,
+                                 resource=None, app_url="http://testserver"))
+        except O.OAuthError:
+            out.append(None)
+    ts = [threading.Thread(target=run) for _ in range(2)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    monkeypatch.setattr(O, "_families_list", real)
+    gagnants = [o for o in out if o]
+    # Au plus un succès, et la réutilisation révoque tout le lot.
+    assert len(gagnants) <= 1
+    assert not any(O.verify_access_token(o["access_token"]) for o in gagnants)
+
+
+def test_enregistrements_en_masse_n_empechent_pas_un_vrai_client(api, monkeypatch):
+    import shared_infra.mcp.oauth as O
+    c, *_ = api
+    monkeypatch.setattr(O, "_MAX_CLIENTS", 3)
+    for _ in range(5):
+        _enregistrer(c)                                          # plus ancien inutilisé évincé
+    import sqlite3
+
+    import shared_infra.db._connection as legacy
+    db = sqlite3.connect(legacy.DB_PATH)
+    assert db.execute("SELECT COUNT(*) FROM oauth_clients WHERE kind='dcr'").fetchone()[0] == 3
+    db.close()
+
+
+def test_document_client_jamais_recupere_sans_connexion(api, monkeypatch):
+    import shared_infra.mcp.oauth as O
+    c, _ids, _cfg, connecte = api
+    appels = []
+    monkeypatch.setattr(O, "fetch_cimd", lambda *a, **k: appels.append(a) or (_ for _ in ()).throw(
+        O.OAuthError("invalid_client", "x")))
+    connecte["uid"] = None
+    r = c.get("/oauth/authorize", params={"response_type": "code", "client_id": "https://app.example/client.json",
+                                          "redirect_uri": REDIRECT, "code_challenge": "x" * 43,
+                                          "code_challenge_method": "S256", "resource": RES},
+              follow_redirects=False)
+    assert r.status_code == 302 and r.headers["location"].startswith("/?oauth_next=")
+    assert appels == []
+
+
+def test_redirection_implicite_non_exigee_au_jeton(api):
+    """redirect_uri absente de la demande (une seule enregistrée) : pas exigée
+    au point de jeton (RFC 6749 §4.1.3)."""
+    c, *_ = api
+    cid = _enregistrer(c)["client_id"]
+    v, ch = _pkce()
+    page = c.get("/oauth/authorize", params={"response_type": "code", "client_id": cid, "state": "st",
+                                             "code_challenge": ch, "code_challenge_method": "S256",
+                                             "scope": "tools", "resource": RES}, follow_redirects=False)
+    cons = _consentir(page.text, None)
+    body = [("req", cons["data"]["req"]), ("decision", "allow")] + [("fam", f) for f in cons["fams"]]
+    r = c.post("/oauth/authorize", content=str(httpx.QueryParams(body)), follow_redirects=False,
+               headers={"Content-Type": "application/x-www-form-urlencoded"})
+    code = _code(r)["code"][0]
+    t = c.post("/oauth/token", data={"grant_type": "authorization_code", "code": code, "client_id": cid,
+                                      "code_verifier": v, "resource": RES})
+    assert t.status_code == 200, t.text

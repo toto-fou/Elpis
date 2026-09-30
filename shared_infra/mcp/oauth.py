@@ -55,7 +55,7 @@ SCOPE_PREFIX = "tools:"
 CODE_TTL_S = 120.0
 _TOUCH_EVERY_S = 300.0
 _MAX_CLIENTS = 1000
-_DCR_STALE_S = 7 * 86400.0          # client dynamique jamais utilisé : oublié
+_DCR_STALE_S = 3600.0               # client dynamique jamais utilisé : oublié après 1 h
 _CIMD_REFRESH_S = 86400.0
 _CIMD_MAX_BYTES = 64 * 1024
 _NAME_MAX = 100
@@ -323,13 +323,20 @@ def register_client(meta: Dict[str, Any], *, kind: str = "dcr") -> Dict[str, Any
     stored = {"grant_types": v["grant_types"], "client_uri": str(meta.get("client_uri") or "")[:300]}
     with db_tx() as c:
         if kind == "dcr":
-            # Ménage : clients dynamiques jamais utilisés depuis une semaine.
+            # Ménage : clients dynamiques jamais utilisés (autorisation non
+            # menée à terme) au-delà d'une heure.
             c.execute("DELETE FROM oauth_clients WHERE kind='dcr' AND last_used_at IS NULL "
                       "AND created_at<?", (now - _DCR_STALE_S,))
-            n = c.execute("SELECT COUNT(*) FROM oauth_clients").fetchone()
+            n = c.execute("SELECT COUNT(*) FROM oauth_clients WHERE kind='dcr'").fetchone()
             if n and int(n[0]) >= _MAX_CLIENTS:
-                raise OAuthError("invalid_client_metadata",
-                                 "Trop de clients enregistrés ; demandez à l'administrateur.")
+                # Plafond : le plus ancien client jamais utilisé cède sa place —
+                # un enregistrement en masse ne bloque pas les vrais clients.
+                old = c.execute("SELECT client_id FROM oauth_clients WHERE kind='dcr' AND last_used_at IS NULL "
+                                "ORDER BY created_at LIMIT 1").fetchone()
+                if not old:
+                    raise OAuthError("invalid_client_metadata",
+                                     "Trop de clients enregistrés ; demandez à l'administrateur.")
+                c.execute("DELETE FROM oauth_clients WHERE client_id=?", (old[0],))
         c.execute(
             "INSERT INTO oauth_clients(client_id, kind, name, secret_hash, auth_method, "
             "redirect_uris, metadata, created_at) VALUES(?,?,?,?,?,?,?,?)",
@@ -535,8 +542,12 @@ def exchange_code(*, code: str, client: Dict[str, Any], redirect_uri: str, code_
                 # Code rejoué : les jetons qu'il a produits sont révoqués.
                 _revoke_grant(c, grant_id)
                 err = OAuthError("invalid_grant", "Code déjà utilisé.")
+            elif not c.execute("UPDATE oauth_codes SET used_at=? WHERE code_hash=? AND used_at IS NULL",
+                               (now, h)).rowcount:
+                # Consommé entre la lecture et l'écriture (échange concurrent) : rejeu.
+                _revoke_grant(c, grant_id)
+                err = OAuthError("invalid_grant", "Code déjà utilisé.")
             else:
-                c.execute("UPDATE oauth_codes SET used_at=? WHERE code_hash=?", (now, h))
                 families = [f for f in _families_list(fams) if f in pol["families"]]
                 target = None
                 if resource:
@@ -550,7 +561,7 @@ def exchange_code(*, code: str, client: Dict[str, Any], redirect_uri: str, code_
                     err = OAuthError("invalid_grant", "Code émis pour un autre client.")
                 elif float(exp) < now:
                     err = OAuthError("invalid_grant", "Code expiré.")
-                elif str(redirect_uri or "") != ruri:
+                elif ruri and str(redirect_uri or "") != ruri:
                     err = OAuthError("invalid_grant", "redirect_uri différente de celle de la demande.")
                 elif not pkce_ok(code_verifier, challenge):
                     err = OAuthError("invalid_grant", "Vérification PKCE refusée.")
@@ -620,8 +631,14 @@ def refresh(*, refresh_token: str, client: Dict[str, Any], scope: Optional[str],
                 err = OAuthError("invalid_grant", "Compte supprimé.")
             elif err is None and not granted:
                 err = OAuthError("invalid_scope", "Aucune famille encore autorisée.")
+            elif err is None and not c.execute(
+                    "UPDATE oauth_tokens SET used_at=? WHERE id=? AND used_at IS NULL AND revoked_at IS NULL",
+                    (now, int(tid))).rowcount:
+                # Rafraîchi entre la lecture et l'écriture (deux porteurs du même
+                # jeton) : réutilisation, tout le lot est révoqué.
+                _revoke_grant(c, grant_id)
+                err = OAuthError("invalid_grant", "Jeton de rafraîchissement déjà utilisé ou révoqué.")
             elif err is None:
-                c.execute("UPDATE oauth_tokens SET used_at=? WHERE id=?", (now, int(tid)))
                 # L'ancien jeton d'accès du même lot n'a plus lieu d'être.
                 c.execute("UPDATE oauth_tokens SET revoked_at=? WHERE grant_id=? AND kind='access' "
                           "AND revoked_at IS NULL", (now, grant_id))
@@ -696,6 +713,10 @@ def _touch(token_id: int, known: Any) -> None:
     if now - last < _TOUCH_EVERY_S:
         return
     _touched[token_id] = now
+    if len(_touched) > 4096:
+        # Élagage : au-delà de la fenêtre, l'entrée ne sert plus.
+        for k in [k for k, t in _touched.items() if now - t >= _TOUCH_EVERY_S]:
+            _touched.pop(k, None)
     try:
         with db_tx() as c:
             c.execute("UPDATE oauth_tokens SET last_used_at=? WHERE id=?", (now, token_id))

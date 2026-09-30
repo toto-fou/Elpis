@@ -5,12 +5,16 @@
 # Les tests front (Node) passent par tests/frontend/test_js_units.py, ceux du
 # service navigateur par `node --test browser-service/test/` ; les bancs
 # Playwright restent manuels.
+#
+# DÉSACTIVÉE pour l'instant : lancement manuel seulement (onglet Actions ›
+# CI › Run workflow). Pour la réactiver, remettre sous `on:` :
+#   push:
+#     branches: [main]
+#   pull_request:
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read

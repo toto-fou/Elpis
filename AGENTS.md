@@ -82,8 +82,8 @@ node tests/frontend/<fichier>.js          # un test unitaire front (sans dépend
 ## Lint et fichiers générés
 
 - `venv/bin/ruff check .` et `venv/bin/mypy` (règles et périmètre typé dans
-  `pyproject.toml`) : la base est propre et la CI (`.github/workflows/ci.yml`)
-  les exige, comme la suite de tests. Un `# noqa` porte sa raison ; un bloc
+  `pyproject.toml`) : la base est propre et la CI (`.github/workflows/ci.yml`,
+  lancée à la main pour l'instant) les exige, comme la suite de tests. Un `# noqa` porte sa raison ; un bloc
   d'imports dont l'ordre compte est exclu du tri (voir `pyproject.toml`).
 - `frontend/css/style.tailwind.css` est **généré** : après avoir ajouté des
   classes utilitaires dans un gabarit ou un script,

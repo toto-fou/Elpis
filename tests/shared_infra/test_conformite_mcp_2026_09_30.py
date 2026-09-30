@@ -80,7 +80,9 @@ def banc(tmp_path_factory):
         racine = tmp_path_factory.mktemp("sandboxes")
         mp.setenv("APP_SANDBOX_DIR", str(racine))
         import shared_infra.db._connection as legacy
-        mp.setattr(legacy, "DB_PATH", str(racine.parent / "app.db"))
+        # Base propre à CETTE instance du banc : le dossier parent est commun à
+        # toute la session (fixture recréée si l'ordre des tests change).
+        mp.setattr(legacy, "DB_PATH", str(tmp_path_factory.mktemp("db") / "app.db"))
         legacy.init_db()
         from shared_infra.accounts.users import create_user
         ids = {"alice": create_user("alice", "pw-alice-1"), "bob": create_user("bob", "pw-bob-1")}

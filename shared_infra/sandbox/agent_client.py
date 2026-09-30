@@ -64,7 +64,12 @@ _SONDE_S = 2.0                                  # hello, lecture comprise
 _PETIT = 1 << 16                                # hello, write, fsop, erreurs
 _DELAI_TOTAL_S = 600.0                          # une opération, flux compris
 _ATTENTE_S = 60.0                               # silence toléré en lisant une réponse
-_DELAI_ARCHIVE_S = 3600.0                       # archive ou extraction d'un /work entier
+_DELAI_ARCHIVE_S = 3600.0                       # extraction d'un /work entier
+# Archive relayée en flux (téléchargement, export) : une heure ne suffisait
+# pas à un gros dossier sur un lien lent. Un agent muet est coupé par la
+# borne de lecture (``_ATTENTE_S``), un client arrêté plus de 10 min par
+# celle de l'agent.
+_DELAI_FLUX_S = 6 * 3600.0
 _TRAME_D, _TRAME_J = 1 << 22, 1 << 18           # trames d'archive : octets, objet JSON
 _LIGNE_MAX = 1 << 15                            # une ligne NDJSON
 _EN_TETES = {"Accept-Encoding": "identity"}     # aucun corps compressé à décoder
@@ -106,8 +111,11 @@ class AgentArchive:
     ``{"entry"}`` avant les octets de chaque fichier) ; ``fin`` : le bilan
     (``files``, ``bytes``, ``skipped``…), une fois le flux lu en entier."""
 
-    def __init__(self, trames: AsyncIterator[Tuple[bytes, bytes]]) -> None:
+    def __init__(self, trames: AsyncIterator[Tuple[bytes, bytes]], max_files: int = 0,
+                 max_bytes: int = 0) -> None:
         self._trames = trames
+        self._max_entrees = max_files
+        self._max_octets = max_bytes
         self.debut: Dict[str, Any] = {}
         self.fin: Optional[Dict[str, Any]] = None
 
@@ -122,22 +130,78 @@ class AgentArchive:
         return self._suite()
 
     async def _suite(self) -> AsyncIterator[Union[bytes, Dict[str, Any]]]:
+        # Tout ce qui vient de l'agent est tenu pour non fiable (relecture
+        # L4.5) : entrées en nombre et en forme bornés, octets d'un fichier
+        # jamais au-delà de sa taille annoncée, trames JSON bornées en tout.
+        entrees = json_total = 0
+        reste: Optional[int] = None                     # octets attendus du fichier en cours
+        max_json = (self._max_entrees or 20000) * 1024 + (64 << 20)
         async for genre, corps in self._trames:
             if genre == b"D":
+                if reste is not None:
+                    reste -= len(corps)
+                    if reste < 0:
+                        raise AgentError("bad_response", "plus d'octets que la taille annoncée")
                 yield corps
                 continue
+            json_total += len(corps)
+            if json_total > max_json:
+                raise AgentError("bad_response", "trop de trames JSON")
             d = _objet(corps)
             if d is None:
                 raise AgentError("bad_response", "trame JSON invalide")
             if "error" in d:
                 raise AgentError(str(d["error"])[:64], str(d.get("message") or "")[:500])
             if d.get("done"):
-                self.fin = d
+                self.fin = _bilan(d)
                 return
-            if "entry" in d and not _rel_sous(d["entry"], ""):
-                raise AgentError("bad_response", "nom d'entrée invalide")
+            if "entry" in d:
+                entrees += 1
+                if self._max_entrees and entrees > self._max_entrees:
+                    raise AgentError("bad_response", "plus d'entrées que demandé")
+                d = _entree_valide(d, self._max_octets)
+                reste = d["size"] if d["kind"] == "file" else None
             yield d
         raise AgentError("bad_response", "archive interrompue")
+
+
+def _entier_borne(v: Any, mini: int, maxi: int) -> int:
+    if isinstance(v, bool) or not isinstance(v, int) or not mini <= v <= maxi:
+        raise AgentError("bad_response", "valeur d'entrée invalide")
+    return v
+
+
+def _entree_valide(d: Dict[str, Any], max_octets: int) -> Dict[str, Any]:
+    """Entrée ``raw`` de l'agent : nom relatif sous PATH_MAX, genre, taille,
+    date et droits entiers dans leurs bornes."""
+    nom = d.get("entry")
+    if (not isinstance(nom, str) or not _rel_sous(nom, "")
+            or len(nom.encode("utf-8", "surrogatepass")) > 4096):
+        raise AgentError("bad_response", "nom d'entrée invalide")
+    genre = d.get("kind")
+    if genre not in ("file", "dir"):
+        raise AgentError("bad_response", "genre d'entrée invalide")
+    return {"entry": nom, "kind": genre,
+            "size": _entier_borne(d.get("size", 0), 0, max_octets or (1 << 50)),
+            "mtime_ns": _entier_borne(d.get("mtime_ns", 0), -(1 << 100), 1 << 100),
+            "mode": _entier_borne(d.get("mode", 0), 0, 0o7777)}
+
+
+def _bilan(d: Dict[str, Any]) -> Dict[str, Any]:
+    """Bilan de fin d'archive, champs utiles seulement, formes vérifiées."""
+    omis = d.get("skipped")
+    propres = []
+    if isinstance(omis, list):
+        for o in omis[:1000]:
+            if isinstance(o, dict):
+                propres.append({"path": str(o.get("path") or "")[:4096],
+                                "error": str(o.get("error") or "")[:64]})
+    rendu = {"done": True, "skipped": propres,
+             "truncated": d.get("truncated") is True}
+    for cle in ("files", "dirs", "bytes", "omitted"):
+        v = d.get(cle)
+        rendu[cle] = v if isinstance(v, int) and not isinstance(v, bool) and v >= 0 else 0
+    return rendu
 
 
 class AgentClient:
@@ -153,6 +217,11 @@ class AgentClient:
         self._echec_jusqua = 0.0
         self._verrous: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Lock]" = \
             weakref.WeakKeyDictionary()
+
+    @property
+    def sandbox(self) -> Any:
+        """La sandbox (``UserSandbox``) de cet agent."""
+        return self._sb
 
     @property
     def relay_dir(self) -> Path:
@@ -394,24 +463,32 @@ class AgentClient:
     @contextlib.asynccontextmanager
     async def archive(self, paths: Iterable[str] = ("",), *, max_bytes: int, max_files: int,
                       format: str = "zip", base: str = "", prefix: str = "", dirs: bool = False,
-                      walk: bool = True, strict: bool = True,
-                      deadline_s: float = 30.0) -> AsyncIterator[AgentArchive]:
+                      walk: bool = True, strict: bool = True, deadline_s: float = 30.0,
+                      activity: bool = True) -> AsyncIterator[AgentArchive]:
         """Archive ``zip``, ``tgz`` ou ``raw`` de ``paths`` (noms relatifs à
         ``base``, précédés de ``prefix``), produite par l'agent : liens et
         fichiers spéciaux omis dans les dossiers parcourus. ``strict`` : au-delà
         des bornes (octets des fichiers, entrées), ``too_large`` avant le
-        premier octet ; sinon l'archive s'arrête là (``truncated``)."""
+        premier octet ; sinon l'archive s'arrête là (``truncated``).
+        ``activity`` faux : la lecture ne compte pas comme une activité de la
+        sandbox (sauvegarde), le conteneur est tout de même démarré au besoin.
+        Un zip porte l'heure locale de l'hôte (le conteneur vit en UTC)."""
         chemins = [_chemin(p) for p in paths]
         # Données incompressibles : l'archive dépasse un peu les fichiers
         # (en-têtes, noms jusqu'à 4 Kio par entrée).
         maxi = max_bytes + max_bytes // 64 + max_files * 10240 + (1 << 20)
         # Le plan (parcours de ``deadline_s`` au plus) précède le premier octet.
         attente = httpx.Timeout(max(_ATTENTE_S, deadline_s + 30), connect=5)
-        async with self._flux("POST", "/v1/archive", delai_s=_DELAI_ARCHIVE_S, timeout=attente, json={
-                "paths": chemins, "base": base, "prefix": prefix, "format": format,
-                "dirs": dirs, "walk": walk, "strict": strict, "max_bytes": max_bytes,
-                "max_files": max_files, "deadline_s": deadline_s}) as r:
-            flux = AgentArchive(_trames(r, maxi))
+        corps: Dict[str, Any] = {
+            "paths": chemins, "base": base, "prefix": prefix, "format": format,
+            "dirs": dirs, "walk": walk, "strict": strict, "max_bytes": max_bytes,
+            "max_files": max_files, "deadline_s": deadline_s}
+        if format == "zip":
+            from shared_infra.db._dialect import _offset_segments
+            corps["utc_offsets"] = [[b, o] for b, o in _offset_segments()]
+        async with self._flux("POST", "/v1/archive", delai_s=_DELAI_FLUX_S, timeout=attente,
+                              sans_activite=not activity, json=corps) as r:
+            flux = AgentArchive(_trames(r, maxi), max_files=max_files, max_bytes=max_bytes)
             await flux._ouvrir()
             yield flux
 
@@ -448,7 +525,8 @@ class AgentClient:
 
     @contextlib.asynccontextmanager
     async def _flux(self, methode: str, route: str, *, passif: bool = False,
-                    delai_s: Optional[float] = None, **kw: Any) -> AsyncIterator[httpx.Response]:
+                    delai_s: Optional[float] = None, sans_activite: bool = False,
+                    **kw: Any) -> AsyncIterator[httpx.Response]:
         """Réponse (≥ 400 : ``AgentError``) d'un agent démarré au besoin et
         de la bonne version. Un échec de CONNEXION (requête pas envoyée) est
         réessayé après démarrage ; rien d'autre. ``passif`` : conteneur
@@ -458,7 +536,7 @@ class AgentClient:
         if not self._version_ok and route != "/v1/hello":
             await self._verifier_version(passif)
         en_tetes = dict(_EN_TETES, **kw.pop("headers", {}))
-        if passif:
+        if passif or sans_activite:
             en_tetes.update(_PASSIF)
         if "json" in kw:                                 # échappé : un nom non UTF-8 part
             kw["content"] = json.dumps(kw.pop("json"), separators=(",", ":")).encode()

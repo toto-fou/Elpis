@@ -46,6 +46,11 @@ def main(argv=None) -> int:
     if args.scope in ("full", "db") and not any(n.startswith("db/") for n in noms):
         print("sauvegarde incomplète : la base n'y est pas", file=sys.stderr)
         return 1
+    from shared_infra.routes._helpers import backup_incomplete
+    if backup_incomplete(name):
+        print("sauvegarde incomplète : /work d'au moins un compte non sauvegardé",
+              file=sys.stderr)
+        return 1
     return 0
 
 

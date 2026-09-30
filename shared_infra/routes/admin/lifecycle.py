@@ -43,7 +43,7 @@ from shared_infra.routes._legacy import (
 # below register on the SAME singleton router instances mounted by
 # ``app.py`` / ``admin_app.py``.
 from shared_infra.routes.admin._state import admin_router, internal_router
-from shared_infra.sandbox.agent_client import AGENT_RUN_DIR, AgentError
+from shared_infra.sandbox.agent_client import AGENT_RUN_DIR, RELAY_DIR, AgentError
 from shared_infra.sandbox.paths import WORK_SUBDIR, write_beneath
 from shared_infra.security.deps import require_user_id
 
@@ -402,8 +402,10 @@ def api_admin_backup(request: Request, scope: str = "full"):
     if scope not in ("full", "db", "sandboxes", "mcp"):
         raise HTTPException(400, "scope invalide")
     tmp_path, filename = _make_backup_zip(scope)
+    from shared_infra.routes._helpers import backup_incomplete
+    entetes = {"X-Backup-Incomplete": "1"} if backup_incomplete(filename) else None
     return FileResponse(tmp_path, media_type="application/zip", filename=filename,
-                        background=BackgroundTask(os.remove, tmp_path))
+                        headers=entetes, background=BackgroundTask(os.remove, tmp_path))
 
 
 def _dest_under(base: Path, rel: str) -> Path:
@@ -551,7 +553,10 @@ def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
                         travaux.setdefault(comptes[parts[0]], []).append((entry, "/".join(parts[2:])))
                     else:
                         errors.append(f"{entry}: compte inconnu, /work non restauré")
-                elif not (len(parts) > 1 and parts[1] == AGENT_RUN_DIR):
+                elif not (len(parts) > 1 and parts[1] == AGENT_RUN_DIR
+                          or parts[0] in (RELAY_DIR, ".dl_spool")):
+                    # Ni socket d'agent ou du relais Git, ni ancien spool :
+                    # propres à l'hôte qui les a produits (sauvegardes antérieures).
                     _ecrire(entry, sandbox_dir, rel, zf.read(entry), beneath=True)
             for uid, lot in travaux.items():
                 _restaurer_work(zf, uid, lot, restored, errors)

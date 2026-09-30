@@ -512,6 +512,13 @@ async def _run_send_locked(scope: Optional[str], trigger: str) -> Dict[str, Any]
         try: os.remove(tmp_path)
         except Exception: pass
 
+    # Sauvegarde envoyée mais sans le /work d'au moins un compte : échec pour
+    # la console (le fichier reste utile, il est déposé quand même).
+    from shared_infra.routes._helpers import backup_incomplete
+    if res.get("ok") and backup_incomplete(filename):
+        res = {**res, "ok": False, "incomplete": True,
+               "error": "Sauvegarde incomplète : /work d'au moins un compte non sauvegardé "
+                        "(sandboxes indisponibles ?) — voir backup-warnings.txt"}
     _record_last_send(bool(res.get("ok")), res.get("filename", ""), res.get("error", ""),
                       trigger=trigger)
     return res

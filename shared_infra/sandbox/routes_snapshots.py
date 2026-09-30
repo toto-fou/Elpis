@@ -85,10 +85,6 @@ MAX_SNAPSHOTS_PER_USER_DEFAULT = 10
 SNAPSHOTS_ROOT = (SANDBOX_DIR / "_snapshots").resolve()
 SNAPSHOTS_ROOT.mkdir(parents=True, exist_ok=True)
 
-# Throttling des events SSE — évite de spammer 5000 lignes pour 5000 fichiers.
-PROGRESS_MIN_INTERVAL_SEC = 0.080   # au moins 80 ms entre 2 events
-PROGRESS_MIN_PCT_DELTA    = 1.0     # OU au moins 1 % de variation
-
 # Snap_id format : UUID4 hex (32 [0-9a-f]). Validation stricte = pas de
 # path traversal possible via le paramètre d'URL.
 _SNAP_ID_RE = re.compile(r"^[0-9a-f]{32}$")
@@ -517,8 +513,10 @@ async def _restore_snapshot_stream(user_id: int, snap_id: str) -> AsyncGenerator
             "files_restored": int(res.get("files") or 0),
             "bytes_restored": int(res.get("bytes") or 0),
             # Entrées de /work qui n'ont pu être retirées ou mises en place
-            # (fichiers d'un autre propriétaire, par exemple).
+            # telles quelles (fichiers d'un autre propriétaire, par exemple) :
+            # mises de côté ou placées sous un autre nom, jamais perdues.
             "conflicts": int(res.get("conflicts") or 0),
+            "conflict_paths": [str(x)[:512] for x in (res.get("conflict_paths") or [])[:50]],
         })
     except AgentError as e:
         yield _ev({"event": "error", "message": _message_agent(e, "restore")})

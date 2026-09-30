@@ -117,6 +117,9 @@ _PROFONDEUR_MAX = 4096               # list : profondeur (au-delà, PATH_MAX)
 _SIGNE_S = 2.0                       # flux NDJSON : signe de vie au moins toutes les 2 s
 _PROGRES_S = 0.5                     # archive : progression au moins toutes les 0,5 s
 _OMIS_DETAILLES = 100                # archive : entrées omises détaillées dans le bilan
+_OMIS_OCTETS = 64 << 10              # archive : leur poids en JSON (trame de fin bornée)
+_ENTETE_TAR_MAX = 1 << 20            # extraction : en-tête pax ou nom long GNU
+_PROVISOIRE_VIEUX_S = 3600           # extraction : provisoire d'un agent mort, retiré
 _INCONNU, _TROP_GROS = object(), object()
 Cle = Tuple[int, int, int]           # (mtime_ns, taille, inode)
 
@@ -329,6 +332,29 @@ def _supprimer(p: str) -> None:
         os.unlink(p)
 
 
+def _supprimer_obstine(p: str) -> None:
+    """``_supprimer``, puis un second essai après avoir rendu inscriptibles
+    les dossiers de l'arbre (cache Go en 0555, dossier sans ``w``…) : le
+    conteneur en est propriétaire, il peut rétablir ses droits."""
+    try:
+        _supprimer(p)
+        return
+    except PermissionError:
+        if not _est_dossier(p):
+            raise
+    for dossier, _sous, _fichiers in os.walk(p):         # ne descend dans aucun lien
+        with contextlib.suppress(OSError):
+            st = os.lstat(dossier)
+            if stat.S_ISDIR(st.st_mode):
+                os.chmod(dossier, stat.S_IMODE(st.st_mode) | stat.S_IRWXU)
+    _supprimer(p)
+
+
+def _nom_libre(dossier: str, nom: str, suffixe: str) -> str:
+    """``dossier/nom.suffixe-<hex>`` : un nom qui n'existe pas encore."""
+    return os.path.join(dossier, f"{nom}.{suffixe}-{secrets.token_hex(4)}")
+
+
 def _nom_simple(v: Any) -> str:
     """Un nom d'entrée (un seul composant), ou ``""``."""
     nom = normaliser(v or "")
@@ -346,8 +372,14 @@ class _Sortie:
     def __init__(self, wfile: Any) -> None:
         self._w = wfile
         self._tampon = bytearray()
+        self.terminee = False
 
     def write(self, b: Any) -> int:
+        # Réponse finie (bilan, erreur ou client parti) : ce qu'écrirait encore
+        # un finaliseur (répertoire central d'un zip abandonné, fin d'un gzip)
+        # n'a plus sa place — après la dernière trame, il casserait la connexion.
+        if self.terminee:
+            return len(b)
         self._tampon += b
         if len(self._tampon) >= _BLOC:
             self._vider()
@@ -365,7 +397,13 @@ class _Sortie:
 
     def fermer(self) -> None:
         self._vider()
+        self.terminee = True
         self._w.write(b"0\r\n\r\n")
+
+    def abandonner(self) -> None:
+        """Client parti : plus rien n'est écrit."""
+        self._tampon.clear()
+        self.terminee = True
 
     def _vider(self) -> None:
         if self._tampon:
@@ -373,20 +411,28 @@ class _Sortie:
             self._tampon.clear()
 
     def _trame(self, genre: bytes, corps: bytes) -> None:
+        if self.terminee:                                # cf. ``write``
+            return
         t = genre + len(corps).to_bytes(4, "big") + corps
         self._w.write(b"%x\r\n%s\r\n" % (len(t), t))
 
 
-def _copier(fd: int, dest: Any, taille: int) -> int:
-    """Au plus ``taille`` octets de ``fd`` vers ``dest`` ; rend le nombre copié."""
+def _copier(fd: int, dest: Any, taille: int) -> Tuple[int, Optional[str]]:
+    """Au plus ``taille`` octets de ``fd`` vers ``dest`` : (nombre copié,
+    ``None`` si tout y est, sinon le code : ``changed`` pour un fichier
+    raccourci pendant la lecture, celui de l'erreur de lecture sinon). Une
+    erreur de lecture n'arrête que ce fichier, pas l'archive."""
     n = 0
     while n < taille:
-        b = os.read(fd, min(_BLOC, taille - n))
+        try:
+            b = os.read(fd, min(_BLOC, taille - n))
+        except OSError as e:
+            return n, _refus_os(e).code
         if not b:
-            break
+            return n, "changed"
         dest.write(b)
         n += len(b)
-    return n
+    return n, None
 
 
 class _Exact(io.RawIOBase):
@@ -395,7 +441,12 @@ class _Exact(io.RawIOBase):
     (``complete`` à faux)."""
 
     def __init__(self, fd: int, taille: int) -> None:
-        self._fd, self._reste, self.complete = fd, taille, True
+        self._fd, self._reste = fd, taille
+        self.erreur: Optional[str] = None
+
+    @property
+    def complete(self) -> bool:
+        return self.erreur is None
 
     def readable(self) -> bool:
         return True
@@ -403,9 +454,13 @@ class _Exact(io.RawIOBase):
     def readinto(self, b: Any) -> int:
         n, lu = min(len(b), self._reste), 0         # toujours n octets : tarfile
         while lu < n and self.complete:              # refuse une lecture courte
-            morceau = os.read(self._fd, n - lu)
+            try:
+                morceau = os.read(self._fd, n - lu)
+            except OSError as e:                     # l'entrée est complétée,
+                self.erreur = _refus_os(e).code      # l'archive continue
+                break
             if not morceau:
-                self.complete = False
+                self.erreur = "changed"
                 break
             b[lu:lu + len(morceau)] = morceau
             lu += len(morceau)
@@ -414,35 +469,54 @@ class _Exact(io.RawIOBase):
         return n
 
 
-def _date_zip(t: float) -> Tuple[int, int, int, int, int, int]:
-    """Date d'une entrée zip, bornée à la plage du format (1980-2107)."""
-    a, mo, j, h, mi, s = min(max(time.localtime(t)[:6], (1980, 1, 1, 0, 0, 0)),
-                             (2107, 12, 31, 23, 59, 58))
+def _decalage(t: float, decalages: Optional[list]) -> Optional[int]:
+    """Décalage de l'heure locale de l'HÔTE à l'instant ``t`` : ``decalages``
+    = [[borne, secondes], …], le décalage valant AVANT sa borne, la dernière
+    borne ``None`` (``_offset_segments`` de l'hôte)."""
+    if not decalages:
+        return None
+    for borne, sec in decalages:
+        if borne is None or t < borne:
+            return int(sec)
+    return int(decalages[-1][1])
+
+
+def _date_zip(t: float, decalages: Optional[list] = None) -> Tuple[int, int, int, int, int, int]:
+    """Date d'une entrée zip, bornée à la plage du format (1980-2107). Le zip
+    note l'heure LOCALE sans fuseau : celle de l'hôte (le conteneur vit en
+    UTC, les fichiers paraissaient une ou deux heures plus vieux)."""
+    try:
+        sec = _decalage(t, decalages)
+        brut = time.gmtime(t + sec)[:6] if sec is not None else time.localtime(t)[:6]
+    except (OverflowError, ValueError, OSError):         # date hors de portée
+        brut = (2107, 12, 31, 23, 59, 58) if t > 0 else (1980, 1, 1, 0, 0, 0)
+    a, mo, j, h, mi, s = min(max(brut, (1980, 1, 1, 0, 0, 0)), (2107, 12, 31, 23, 59, 58))
     return a, mo, j, h, mi, s
 
 
 class _Zip:
-    def __init__(self, sortie: _Sortie) -> None:
+    def __init__(self, sortie: _Sortie, decalages: Optional[list] = None) -> None:
         self._zf = zipfile.ZipFile(sortie, "w", zipfile.ZIP_DEFLATED)
+        self._decalages = decalages
 
     def dossier(self, nom: str, st: os.stat_result) -> None:
-        zi = zipfile.ZipInfo(nom + "/", _date_zip(st.st_mtime))
+        zi = zipfile.ZipInfo(nom + "/", _date_zip(st.st_mtime, self._decalages))
         zi.external_attr = (stat.S_IFDIR | stat.S_IMODE(st.st_mode)) << 16 | 0x10
         self._zf.writestr(zi, b"")
 
-    def fichier(self, nom: str, st: os.stat_result, fd: int) -> Tuple[int, bool]:
-        zi = zipfile.ZipInfo(nom, _date_zip(st.st_mtime))
+    def fichier(self, nom: str, st: os.stat_result, fd: int) -> Tuple[int, Optional[str]]:
+        zi = zipfile.ZipInfo(nom, _date_zip(st.st_mtime, self._decalages))
         zi.compress_type = zipfile.ZIP_DEFLATED
         zi.external_attr = (st.st_mode & 0xFFFF) << 16
         with self._zf.open(zi, "w", force_zip64=st.st_size >= zipfile.ZIP64_LIMIT) as w:
-            return _copier(fd, w, st.st_size), True
+            return _copier(fd, w, st.st_size)
 
     def fermer(self) -> None:
         self._zf.close()
 
 
 class _Tar:
-    def __init__(self, sortie: _Sortie) -> None:
+    def __init__(self, sortie: _Sortie, decalages: Optional[list] = None) -> None:
         self._gz = gzip.GzipFile(fileobj=sortie, mode="wb", compresslevel=6)
         self._tf = tarfile.open(fileobj=self._gz, mode="w|",   # noqa: SIM115 — fermé par fermer()
                                 format=tarfile.PAX_FORMAT)
@@ -457,12 +531,12 @@ class _Tar:
         ti.type = tarfile.DIRTYPE
         self._tf.addfile(ti)
 
-    def fichier(self, nom: str, st: os.stat_result, fd: int) -> Tuple[int, bool]:
+    def fichier(self, nom: str, st: os.stat_result, fd: int) -> Tuple[int, Optional[str]]:
         ti = self._info(nom, st)
         ti.size = st.st_size
         src = _Exact(fd, st.st_size)
         self._tf.addfile(ti, src)
-        return st.st_size, src.complete
+        return st.st_size, src.erreur
 
     def fermer(self) -> None:
         self._tf.close()
@@ -470,9 +544,11 @@ class _Tar:
 
 
 class _Brut:
-    """Chaque entrée en trame ``J {"entry"}``, suivie des octets d'un fichier."""
+    """Chaque entrée en trame ``J {"entry"}``, suivie des octets d'un fichier ;
+    un fichier dont tous les octets n'ont pu être lus est suivi d'une trame
+    ``J {"incomplete": nom, "error": code}``."""
 
-    def __init__(self, sortie: _Sortie) -> None:
+    def __init__(self, sortie: _Sortie, decalages: Optional[list] = None) -> None:
         self._s = sortie
 
     def _entree(self, nom: str, genre: str, st: os.stat_result) -> None:
@@ -482,10 +558,12 @@ class _Brut:
     def dossier(self, nom: str, st: os.stat_result) -> None:
         self._entree(nom, "dir", st)
 
-    def fichier(self, nom: str, st: os.stat_result, fd: int) -> Tuple[int, bool]:
+    def fichier(self, nom: str, st: os.stat_result, fd: int) -> Tuple[int, Optional[str]]:
         self._entree(nom, "file", st)
-        n = _copier(fd, self._s, st.st_size)
-        return n, n == st.st_size
+        n, erreur = _copier(fd, self._s, st.st_size)
+        if erreur:
+            self._s.json({"incomplete": nom, "error": erreur, "bytes": n})
+        return n, erreur
 
     def fermer(self) -> None:
         pass
@@ -508,7 +586,51 @@ def _args_archive(d: Dict[str, Any]) -> Dict[str, Any]:
             "strict": _vrai(d.get("strict", True)),
             "max_bytes": max(0, int(d.get("max_bytes") or 1 << 30)),
             "max_files": max(0, int(d.get("max_files") or 20000)),
-            "deadline_s": max(0.1, min(float(d.get("deadline_s") or 30), 300.0))}
+            "deadline_s": max(0.1, min(float(d.get("deadline_s") or 30), 300.0)),
+            "utc_offsets": _decalages_valides(d.get("utc_offsets"))}
+
+
+def _decalages_valides(v: Any) -> Optional[list]:
+    """Table des décalages horaires de l'hôte, ou ``None`` (heure du conteneur)."""
+    if not isinstance(v, list) or not 0 < len(v) <= 256:
+        return None
+    rendu = []
+    for x in v:
+        if (not isinstance(x, list) or len(x) != 2 or isinstance(x[1], bool)
+                or not isinstance(x[1], int) or abs(x[1]) > 86400
+                or not (x[0] is None or isinstance(x[0], int) and not isinstance(x[0], bool))):
+            return None
+        rendu.append([x[0], x[1]])
+    return rendu if rendu[-1][0] is None else None
+
+
+class _InfoBornee(tarfile.TarInfo):
+    """En-têtes étendus (pax, noms longs GNU) bornés AVANT d'être lus :
+    ``tarfile`` les garde entiers en mémoire (256 Mio annoncés dans une
+    archive de 255 Ko : l'agent tué par la limite mémoire du conteneur)."""
+
+    def _proc_pax(self, tf: Any) -> Any:
+        if self.size > _ENTETE_TAR_MAX:
+            raise tarfile.HeaderError("en-tête pax trop grand")
+        return super()._proc_pax(tf)                     # type: ignore[misc]
+
+    def _proc_gnulong(self, tf: Any) -> Any:
+        if self.size > _ENTETE_TAR_MAX:
+            raise tarfile.HeaderError("nom long trop grand")
+        return super()._proc_gnulong(tf)                 # type: ignore[misc]
+
+
+def _retirer_provisoires_vieux(dossier: str) -> None:
+    """``.elpis-tmp-*`` de plus d'une heure laissés dans ``dossier`` par un
+    agent mort en pleine extraction (quota, instantanés, exports)."""
+    limite = time.time() - _PROVISOIRE_VIEUX_S
+    with contextlib.suppress(OSError), os.scandir(dossier) as it:
+        vieux = [e.path for e in it if e.name.startswith(".elpis-tmp-")
+                 and e.is_dir(follow_symlinks=False)
+                 and e.stat(follow_symlinks=False).st_mtime < limite]
+    for p in vieux:
+        with contextlib.suppress(OSError):
+            _supprimer_obstine(p)
 
 
 class _Lecteur(io.RawIOBase):
@@ -1280,39 +1402,58 @@ class Agent:
             else:
                 if nom and a["dirs"]:
                     yield nom, p, st
-                yield from self._sous_arbre(p, nom, a["dirs"], omettre)
+                yield from self._sous_arbre(p, nom, st, a["dirs"], omettre)
 
-    def _sous_arbre(self, p: str, nom: str, dossiers: bool, omettre: Any
+    def _sous_arbre(self, p: str, nom: str, st0: os.stat_result, dossiers: bool, omettre: Any
                     ) -> Iterator[Tuple[str, str, os.stat_result]]:
-        pile = [(p, nom)]
+        pile = [(p, nom, (st0.st_dev, st0.st_ino))]
         while pile:
-            dossier, dnom = pile.pop()
+            dossier, dnom, attendu = pile.pop()
+            # Ouvert sans suivre de lien, puis comparé à ce que le parcours a
+            # vu : un dossier remplacé entre-temps par un lien (ou un parent
+            # échangé) n'est pas suivi.
             try:
-                with os.scandir(dossier) as it:
-                    enfants = sorted(it, key=lambda x: x.name)
+                fd = os.open(dossier, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+            except OSError as err:
+                omettre(dnom or ".", "changed" if err.errno == errno.ELOOP else _refus_os(err).code)
+                continue
+            enfants: list = []
+            try:
+                vu = os.fstat(fd)
+                if (vu.st_dev, vu.st_ino) != attendu:
+                    omettre(dnom or ".", "changed")
+                    continue
+                with os.scandir(fd) as it:
+                    for e in sorted(it, key=lambda x: x.name):
+                        # stat relatif au fd du dossier : tant qu'il est ouvert
+                        try:
+                            enfants.append((e.name, e.stat(follow_symlinks=False), None))
+                        except OSError as x:
+                            enfants.append((e.name, None, _refus_os(x).code))
             except OSError as err:
                 omettre(dnom or ".", _refus_os(err).code)
                 continue
+            finally:
+                os.close(fd)
             sous = []
-            for e in enfants:
+            for nom_e, st, code in enfants:
                 try:
-                    e.name.encode("utf-8")
+                    nom_e.encode("utf-8")
                 except UnicodeEncodeError:
-                    omettre(f"{dnom}/{e.name.encode('utf-8', 'surrogateescape').decode('utf-8', 'replace')}",
+                    omettre(f"{dnom}/{nom_e.encode('utf-8', 'surrogateescape').decode('utf-8', 'replace')}",
                             "undecodable")
                     continue
-                enom = f"{dnom}/{e.name}" if dnom else e.name
-                try:
-                    st = e.stat(follow_symlinks=False)
-                except OSError as x:
-                    omettre(enom, _refus_os(x).code)
+                enom = f"{dnom}/{nom_e}" if dnom else nom_e
+                chemin = os.path.join(dossier, nom_e)
+                if st is None:
+                    omettre(enom, code or "io_error")
                     continue
                 if stat.S_ISDIR(st.st_mode):
                     if dossiers:
-                        yield enom, e.path, st
-                    sous.append((e.path, enom))
+                        yield enom, chemin, st
+                    sous.append((chemin, enom, (st.st_dev, st.st_ino)))
                 elif stat.S_ISREG(st.st_mode):
-                    yield enom, e.path, st
+                    yield enom, chemin, st
                 else:
                     omettre(enom, "link" if stat.S_ISLNK(st.st_mode) else "special")
             pile.extend(reversed(sous))
@@ -1324,7 +1465,13 @@ class Agent:
         fichiers = dossiers = octets = 0
         tronque = False
         echeance = time.monotonic() + a["deadline_s"]
-        for _nom, _p, st in self.entrees_archive(a, lambda *_: None):
+        for _nom, p, st in self.entrees_archive(a, lambda *_: None):
+            # Liste explicite de fichiers (téléchargement de plusieurs
+            # fichiers) : un fichier illisible n'est pas compté, pour qu'une
+            # sélection toute illisible soit refusée avant d'envoyer un zip
+            # vide (relecture L4.5).
+            if not a["walk"] and stat.S_ISREG(st.st_mode) and not os.access(p, os.R_OK):
+                continue
             if time.monotonic() > echeance:
                 if a["strict"]:
                     raise Refus(504, "timeout", "parcours de l'arborescence trop long")
@@ -1351,14 +1498,20 @@ class Agent:
         toutes les ``_PROGRES_S`` ; rend le bilan. Chaque fichier est lu sur
         son inode ouvert sans suivre de lien."""
         omis: list = []
-        n_omis = 0
+        n_omis = poids_omis = 0
 
         def omettre(nom: str, code: str) -> None:
-            nonlocal n_omis
+            # Détail borné en nombre ET en octets JSON (un nom non ASCII
+            # s'échappe en 6 à 12 octets par caractère) : la trame de fin
+            # doit rester sous la limite du client.
+            nonlocal n_omis, poids_omis
             n_omis += 1
-            if len(omis) < _OMIS_DETAILLES:
-                omis.append({"path": nom[:512], "error": code})
-        ecrivain = _FORMATS[a["format"]](sortie)
+            entree = {"path": nom[:512], "error": code}
+            poids = len(json.dumps(entree, separators=(",", ":")))
+            if len(omis) < _OMIS_DETAILLES and poids_omis + poids <= _OMIS_OCTETS:
+                omis.append(entree)
+                poids_omis += poids
+        ecrivain = _FORMATS[a["format"]](sortie, a.get("utc_offsets"))
         fichiers = dossiers = octets = 0
         tronque = bool(plan["truncated"])
         signe = time.monotonic()
@@ -1377,23 +1530,26 @@ class Agent:
             try:
                 fd = os.open(p, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC)
             except OSError as e:
-                omettre(nom, _refus_os(e).code)
+                omettre(nom, "changed" if e.errno == errno.ELOOP else _refus_os(e).code)
                 continue
             try:
-                st = os.fstat(fd)
-                if not stat.S_ISREG(st.st_mode):
+                vu = os.fstat(fd)
+                if not stat.S_ISREG(vu.st_mode):
                     omettre(nom, "special")
                     continue
-                if octets + st.st_size > a["max_bytes"]:
+                if (vu.st_dev, vu.st_ino) != (st.st_dev, st.st_ino):
+                    omettre(nom, "changed")              # remplacé depuis le parcours
+                    continue
+                if octets + vu.st_size > a["max_bytes"]:
                     if a["strict"]:
                         raise Refus(413, "too_large", "archive trop volumineuse")
                     tronque = True
                     break
-                n, entier = ecrivain.fichier(prefixe + nom, st, fd)
+                n, erreur = ecrivain.fichier(prefixe + nom, vu, fd)
             finally:
                 os.close(fd)
-            if not entier:
-                omettre(nom, "changed")                  # raccourci pendant la lecture
+            if erreur:
+                omettre(nom, erreur)                     # raccourci ou illisible en cours
             fichiers, octets = fichiers + 1, octets + n
             if time.monotonic() - signe >= _PROGRES_S:
                 signe = time.monotonic()
@@ -1414,12 +1570,15 @@ class Agent:
         cible = self.reel(rel)
         if not _est_dossier(cible):
             raise Refus(409, "not_dir", "pas un dossier")
+        _retirer_provisoires_vieux(cible)
         tmp = _nom_provisoire(cible)
         try:
             _creer_dossier(tmp, parents=False)
             bilan = self._extraire_dans(tmp, corps, max_octets, max_fichier, max_membres)
             with self._verrou:
-                bilan["conflicts"] += self._remplacer(cible, tmp, garder, laisser)
+                places = self._remplacer(cible, tmp, garder, laisser)
+            bilan["conflicts"] += len(places)
+            bilan["conflict_paths"] = places[:50]
         except OSError as e:
             raise _refus_os(e) from None
         finally:
@@ -1431,8 +1590,9 @@ class Agent:
                        max_fichier: int, max_membres: int) -> Dict[str, Any]:
         n = d = total = membres = omis = conflits = 0
         dates = []
+        racine_dest = os.path.realpath(dest) + os.sep
         try:
-            with tarfile.open(fileobj=_Lecteur(corps), mode="r|*") as tf:
+            with tarfile.open(fileobj=_Lecteur(corps), mode="r|*", tarinfo=_InfoBornee) as tf:
                 for m in tf:
                     membres += 1
                     if membres > max_membres:
@@ -1458,6 +1618,8 @@ class Agent:
                         dates.append((p, m.mtime))
                         d += 1
                         continue
+                    if m.size < 0:
+                        raise Refus(400, "bad_archive", "taille de membre négative")
                     if m.size > max_fichier:
                         raise Refus(413, "too_large", "fichier trop volumineux", limit="member",
                                     max=max_fichier)
@@ -1467,6 +1629,10 @@ class Agent:
                                     max=max_octets)
                     try:
                         _creer_dossier(os.path.dirname(p))
+                        # Un dossier du provisoire remplacé par un lien depuis la
+                        # sandbox ne mène pas l'écriture ailleurs.
+                        if not (os.path.realpath(os.path.dirname(p)) + os.sep).startswith(racine_dest):
+                            raise FileExistsError(p)
                         fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW
                                      | os.O_CLOEXEC, 0o600)
                     except OSError:
@@ -1499,35 +1665,56 @@ class Agent:
                 pass
         return {"files": n, "dirs": d, "bytes": total, "omitted": omis, "conflicts": conflits}
 
-    def _remplacer(self, cible: str, tmp: str, garder: str, laisser: str) -> int:
+    def _remplacer(self, cible: str, tmp: str, garder: str, laisser: str) -> list:
         """Contenu de ``cible`` remplacé par celui de ``tmp``, entrée par
-        entrée, sans s'arrêter en chemin : rend le nombre d'entrées qui n'ont
-        pu être retirées ou mises en place (droits, nom déjà pris)."""
+        entrée, sans s'arrêter en chemin : rend ce qui n'a pas pu être fait
+        tel quel (« ancien → mis de côté », « nouveau → placé sous un autre
+        nom », ou un nom seul si rien n'a pu être fait).
+
+        (Relecture L4.5) Une ancienne entrée qu'on ne pouvait effacer qu'en
+        partie (dossier de l'hôte, cache en lecture seule) gardait son nom :
+        la nouvelle entrée repartait avec le provisoire, perdue, et la
+        restauration se disait réussie. L'ancienne est désormais effacée
+        après avoir rétabli ses droits, sinon mise de côté ; la nouvelle n'est
+        jamais perdue."""
         nom_tmp = os.path.basename(tmp)
         anciens = [n for n in os.listdir(cible)
                    if n != nom_tmp and not (laisser and fnmatch.fnmatchcase(n, laisser))]
         if garder:
             dossier = os.path.join(cible, garder)
             _creer_dossier(dossier, parents=False)       # déjà là : refus, rien de touché
-        conflits = 0
+        ecarts: list = []
         for n in anciens:
+            p = os.path.join(cible, n)
             try:
                 if garder:
-                    os.rename(os.path.join(cible, n), os.path.join(dossier, n))
+                    os.rename(p, os.path.join(dossier, n))
                 else:
-                    _supprimer(os.path.join(cible, n))
+                    _supprimer_obstine(p)
             except FileNotFoundError:
                 pass
             except OSError:
-                conflits += 1
+                if os.path.lexists(p):                   # le reste libère le nom
+                    a_cote = _nom_libre(cible, n, "elpis-ancien")
+                    try:
+                        os.rename(p, a_cote)
+                        ecarts.append(f"{n} → {os.path.basename(a_cote)}")
+                    except OSError:
+                        ecarts.append(n)
         for n in os.listdir(tmp):
+            src, dst = os.path.join(tmp, n), os.path.join(cible, n)
             try:
-                if os.path.lexists(os.path.join(cible, n)):
+                if os.path.lexists(dst):
                     raise FileExistsError(n)
-                os.rename(os.path.join(tmp, n), os.path.join(cible, n))
+                os.rename(src, dst)
             except OSError:
-                conflits += 1
-        return conflits
+                a_cote = _nom_libre(cible, n, "elpis-restaure")
+                try:
+                    os.rename(src, a_cote)               # jamais perdu avec le provisoire
+                    ecarts.append(f"{n} → {os.path.basename(a_cote)}")
+                except OSError:
+                    ecarts.append(n)
+        return ecarts
 
 
 # ── git ───────────────────────────────────────────────────────────────────
@@ -1977,6 +2164,7 @@ class _Gestionnaire(BaseHTTPRequestHandler):
         try:
             fin = ecrire(sortie)
         except (BrokenPipeError, ConnectionResetError):
+            sortie.abandonner()                          # rien de plus sur ce socket
             raise
         except Refus as r:
             fin = {"error": r.code, "message": r.message}

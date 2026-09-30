@@ -772,7 +772,11 @@ def _snapshot_sqlite(src: Path, dst: Path) -> None:
 
 def _date_zip(t: float) -> Any:
     """Date d'une entrée zip, bornée à la plage du format (1980-2107)."""
-    return min(max(time.localtime(t)[:6], (1980, 1, 1, 0, 0, 0)), (2107, 12, 31, 23, 59, 58))
+    try:
+        brut = time.localtime(t)[:6]
+    except (OverflowError, ValueError, OSError):         # date hors de portée
+        brut = (2107, 12, 31, 23, 59, 58) if t > 0 else (1980, 1, 1, 0, 0, 0)
+    return min(max(brut, (1980, 1, 1, 0, 0, 0)), (2107, 12, 31, 23, 59, 58))
 
 
 def _zip_copy(zf: zipfile.ZipFile, arcname: str, src, st: Optional[os.stat_result] = None) -> None:
@@ -808,43 +812,89 @@ def _comptes_des_sandboxes() -> Dict[str, int]:
         return {}
 
 
-def _zip_work(zf: zipfile.ZipFile, user_id: int, arcroot: str, skipped: list) -> None:
+def _zip_work(zf: zipfile.ZipFile, user_id: int, arcroot: str, skipped: list) -> bool:
     """Fichiers ordinaires du /work d'un compte, lus par l'agent de sa
-    sandbox (démarrée au besoin), écrits dans ``zf`` sous ``arcroot`` ;
-    liens, fichiers spéciaux et illisibles consignés dans ``skipped``.
-    Appelé hors boucle d'événements (thread de la sauvegarde, CLI)."""
+    sandbox, écrits dans ``zf`` sous ``arcroot`` ; liens, fichiers spéciaux et
+    illisibles consignés dans ``skipped``. Rend faux si le /work n'a pas pu
+    être lu (agent indisponible, réponse invalide) : la sauvegarde est alors
+    incomplète. Appelé hors boucle d'événements (thread de la sauvegarde, CLI).
+
+    (Relecture L4.5) Une sandbox arrêtée est démarrée pour la lecture, qui ne
+    compte pas comme une activité, puis arrêtée de nouveau si personne ne s'en
+    est servi entre-temps : une sauvegarde ne garde plus tous les conteneurs
+    levés. Un fichier coupé en cours de lecture est signalé (``skipped`` et
+    commentaire de l'entrée) au lieu de passer pour complet ; une réponse mal
+    formée n'arrête que le compte concerné."""
     from shared_infra.sandbox.agent_client import AgentError
     from shared_infra.sandbox.exec_bridge import agent_for
 
+    agent = agent_for(user_id)
+    incomplets: list = []
+
     async def copier() -> dict:
-        dest = None
+        sb = agent.sandbox
+        etait_arretee = not (await sb.status()).running
+        if etait_arretee:
+            await sb.ensure_running()
         try:
-            async with agent_for(user_id).archive(
+            avant = os.lstat(sb.sandbox_path).st_mtime_ns
+        except OSError:
+            avant = None
+        dest = None
+        courant = ["", 0, 0]                        # nom, taille annoncée, octets écrits
+
+        def clore() -> None:
+            nonlocal dest
+            if dest is None:
+                return
+            dest.close()
+            dest = None
+            if courant[2] < courant[1]:
+                zf.filelist[-1].comment = "incomplet".encode()
+                incomplets.append(f"{courant[0]} — incomplet ({courant[2]}/{courant[1]} octets)")
+        try:
+            async with agent.archive(
                     [""], format="raw", strict=False, max_bytes=_BACKUP_WORK_MAX_BYTES,
-                    max_files=_BACKUP_WORK_MAX_ENTREES, deadline_s=240) as flux:
+                    max_files=_BACKUP_WORK_MAX_ENTREES, deadline_s=240, activity=False) as flux:
                 async for x in flux:
                     if isinstance(x, bytes):
                         if dest is None:
                             raise AgentError("bad_response", "octets hors d'une entrée")
+                        courant[2] += len(x)
                         dest.write(x)
                     elif "entry" in x:
-                        if dest is not None:
-                            dest.close()
+                        clore()
+                        if x["kind"] != "file":
+                            continue
                         zi = zipfile.ZipInfo(f"{arcroot}/{x['entry']}",
-                                             _date_zip(int(x.get("mtime_ns") or 0) / 1e9))
+                                             _date_zip(x["mtime_ns"] / 1e9))
                         zi.compress_type = zipfile.ZIP_DEFLATED
-                        zi.external_attr = (0o100000 | int(x.get("mode") or 0) & 0o7777) << 16
-                        dest = zf.open(zi, "w",
-                                       force_zip64=int(x.get("size") or 0) >= zipfile.ZIP64_LIMIT)
+                        zi.external_attr = (0o100000 | x["mode"] & 0o7777) << 16
+                        courant[:] = [x["entry"], x["size"], 0]
+                        dest = zf.open(zi, "w", force_zip64=x["size"] >= zipfile.ZIP64_LIMIT)
+                clore()
                 return flux.fin or {}
         finally:
-            if dest is not None:
-                dest.close()
+            clore()
+            if etait_arretee:
+                try:
+                    apres = os.lstat(sb.sandbox_path).st_mtime_ns
+                except OSError:
+                    apres = None
+                if apres == avant:                     # personne n'est venu entre-temps
+                    with contextlib.suppress(Exception):
+                        await sb.stop()
     try:
         fin = asyncio.run(copier())
     except AgentError as e:
-        skipped.append(f"{arcroot} — {e.code}: {e.message}")
-        return
+        skipped.append(f"{arcroot} — {e.code}: {e.message} : /work non sauvegardé")
+        return False
+    except Exception as e:                                   # noqa: BLE001 — un compte seulement
+        logger.warning("[backup] /work du compte %s illisible", user_id, exc_info=True)
+        skipped.append(f"{arcroot} — {type(e).__name__}: {e} : /work incomplet")
+        return False
+    finally:
+        skipped.extend(f"{arcroot}/{i}" for i in incomplets)
     for omis in fin.get("skipped") or []:
         skipped.append(f"{arcroot}/{omis.get('path')} — {omis.get('error')}")
     reste = int(fin.get("omitted") or 0) - len(fin.get("skipped") or [])
@@ -852,6 +902,17 @@ def _zip_work(zf: zipfile.ZipFile, user_id: int, arcroot: str, skipped: list) ->
         skipped.append(f"{arcroot} — {reste} autre(s) entrée(s) omise(s)")
     if fin.get("truncated"):
         skipped.append(f"{arcroot} — sauvegarde tronquée ({_BACKUP_WORK_MAX_ENTREES} entrées au plus)")
+    return True
+
+
+#: Suffixe du nom d'une sauvegarde à laquelle manque le /work d'au moins un
+#: compte (agent indisponible, réponse invalide) : ni la console ni l'envoi
+#: distant ne la comptent comme réussie.
+BACKUP_INCOMPLETE_SUFFIX = "_incomplet"
+
+
+def backup_incomplete(filename: str) -> bool:
+    return filename.endswith(BACKUP_INCOMPLETE_SUFFIX + ".zip")
 
 
 def _make_backup_zip(scope: str, directory: Optional[str] = None) -> tuple:
@@ -878,6 +939,7 @@ def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
     from shared_infra.config import DB_PATH as _DB_PATH, MCP_SERVERS_DIR as _MCP_DIR, SANDBOX_DIR as _SANDBOX_DIR
     ts = int(_time.time())
     skipped: list = []
+    travaux_manques: list = []
     db_ok = False
     with zipfile.ZipFile(tmp_name, 'w', zipfile.ZIP_DEFLATED) as zf:
         def _safe_write(abs_p: Path, arcname: str):
@@ -921,8 +983,10 @@ def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
             travaux = []
             try:
                 for rel_dir, dirs, names, dfd in walk_beneath(p):
-                    if not rel_dir and RELAY_DIR in dirs:
-                        dirs.remove(RELAY_DIR)                    # sockets du relais Git
+                    if not rel_dir:
+                        # Sockets du relais Git ; spool des anciens téléchargements
+                        # (plus utilisé depuis L4.5, jamais sauvegardé).
+                        dirs[:] = [d for d in dirs if d not in (RELAY_DIR, ".dl_spool")]
                     if rel_dir and "/" not in rel_dir:            # P = <racine>/<compte>
                         for d in (WORK_SUBDIR, AGENT_RUN_DIR):
                             if d in dirs:
@@ -941,7 +1005,8 @@ def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
             comptes = _comptes_des_sandboxes() if travaux else {}
             for nom in travaux:
                 if nom in comptes:
-                    _zip_work(zf, comptes[nom], f"{arcroot}/{nom}/{WORK_SUBDIR}", skipped)
+                    if not _zip_work(zf, comptes[nom], f"{arcroot}/{nom}/{WORK_SUBDIR}", skipped):
+                        travaux_manques.append(nom)
                 else:
                     skipped.append(f"{p / nom / WORK_SUBDIR} — compte inconnu : /work non sauvegardé")
 
@@ -1016,6 +1081,18 @@ def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
         # Sans la base, ce n'est pas une sauvegarde : la console ne doit pas
         # la compter comme récente.
         return tmp_name, f"backup_{label}_{ts}.zip"
+    if travaux_manques:
+        # (Relecture L4.5) Docker arrêté, image absente… : le zip n'a pas le
+        # /work de ces comptes. Il reste utile, mais ne compte pas comme une
+        # sauvegarde réussie (console, envoi distant, CLI).
+        logger.warning("[backup] /work non sauvegardé pour %d compte(s) : %s",
+                       len(travaux_manques), ", ".join(travaux_manques[:20]))
+        try:
+            from shared_infra.db import log_metric
+            log_metric("backup_incomplete", 1, {"scope": scope, "accounts": len(travaux_manques)})
+        except Exception:                                    # noqa: BLE001
+            logger.warning("[backup] sauvegarde incomplète non consignée", exc_info=True)
+        return tmp_name, f"backup_{label}_{ts}{BACKUP_INCOMPLETE_SUFFIX}.zip"
     # Date de la dernière sauvegarde, lue par la Vue d'ensemble de la console
     # (« aucune sauvegarde depuis N jours »). Couvre le téléchargement ET
     # l'envoi distant, qui passent tous deux par ici.

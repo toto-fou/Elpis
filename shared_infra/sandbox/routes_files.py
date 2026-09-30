@@ -54,7 +54,7 @@ import shutil
 import subprocess as _sp
 import time
 from pathlib import Path, PurePosixPath
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -514,7 +514,12 @@ async def _reponse_agent(request: Request, agent, rel: str, e: dict, media_type:
                     return
                 yield r.data
                 pos += len(r.data)
-        return StreamingResponse(corps(), status_code=statut, media_type=media_type, headers=entetes)
+        resp = StreamingResponse(corps(), status_code=statut, media_type=media_type,
+                                 headers=entetes)
+        # État de la version SERVIE (reprise après un changement comprise) :
+        # ``X-Size`` / ``X-Mtime`` du téléchargement en décrivent les octets.
+        resp.elpis_stat = e                              # type: ignore[attr-defined]
+        return resp
     raise HTTPException(503, "Fichier en cours de modification — réessayez.",
                         headers={"Retry-After": "1"})
 
@@ -724,6 +729,11 @@ async def _lecture_stable(agent, rel: str, essais: int = 3):
             r = await agent.read(rel, max_bytes=_DOWNLOAD_SHA_MAX)
             (apres,) = await agent.stat([rel])
         except AgentError as ex:
+            # Corps incomplet : fichier raccourci pendant la lecture (l'agent
+            # coupe la réponse) — relu, comme avant L4.5, et non « sandbox
+            # arrêtée » (relecture L4.5).
+            if ex.code in ("transport", "changed"):
+                continue
             if ex.code in PANNES_AGENT:
                 raise agent_http(ex, "Téléchargement") from None
             return None
@@ -834,8 +844,8 @@ async def api_download_sandbox_file(request: Request, path: str):
         e = await _stat_un(agent, rel, "Téléchargement")    # réécrit entre-temps : l'état du moment
         if e.get("kind") != "file":
             raise HTTPException(404, "Not found")
-    return _entetes_telechargement(await _reponse_agent(request, agent, rel, e, mt), nom, e,
-                                   "X-Mtime, X-Size")
+    resp = await _reponse_agent(request, agent, rel, e, mt)
+    return _entetes_telechargement(resp, nom, getattr(resp, "elpis_stat", e), "X-Mtime, X-Size")
 
 
 @router.post("/api/sandbox/download-multi")
@@ -887,6 +897,9 @@ async def api_download_multi_sandbox_files(request: Request):
         pile, flux = await _ouvrir_archive(
             agent_for(user_id), rels, libelle="Archive", trop="", format="zip", walk=False,
             strict=False, max_bytes=200 * 1024 * 1024, max_files=500)
+        # ``X-Files-Zipped`` : fichiers PRÉVUS par le parcours (l'en-tête part
+        # avant les octets) ; un fichier devenu illisible entre-temps est
+        # omis de l'archive, le zip reste valide.
         if flux.debut.get("files"):
             return _relayer(pile, flux, "files.zip", "application/zip",
                             {"X-Files-Zipped": str(flux.debut["files"])})
@@ -2598,13 +2611,17 @@ async def exporter_work(user_id: int) -> bytes:
     return bytes(data)
 
 
-async def importer_work(user_id: int, data, *, max_total: Optional[int] = None) -> int:
+async def importer_work_bilan(user_id: int, data, *,
+                              max_total: Optional[int] = None) -> Dict[str, Any]:
     """Remplace le contenu de ``/work`` du compte par une archive tar(.gz),
     extraite par l'agent : membres contenus (ni ``..``, ni absolu, ni lien),
     bornes vérifiées avant de toucher à ``/work``, l'ancien contenu gardé
     dans ``/work/.work-before-import-<ts>``. ``data`` : octets ou fichier
     binaire (envoyé par blocs). ``max_total`` : plafond de la taille
-    DÉCOMPRESSÉE (défaut : quota du compte). Rend le nombre de fichiers."""
+    DÉCOMPRESSÉE (défaut : quota du compte). Rend le bilan de l'agent :
+    ``files``, ``conflicts`` et ``conflict_paths`` (entrées mises de côté ou
+    placées sous un autre nom : rien n'est perdu, mais tout n'est pas à sa
+    place)."""
     if max_total is None:
         max_total = _user_quota_bytes(user_id)
     res = await agent_for(user_id).extract(
@@ -2612,6 +2629,12 @@ async def importer_work(user_id: int, data, *, max_total: Optional[int] = None) 
         leave=".work-before-import-*", max_bytes=max_total, max_file=max_total,
         max_members=_WORK_MAX_ENTREES)
     invalidate_sandbox_usage(user_id)
+    return res
+
+
+async def importer_work(user_id: int, data, *, max_total: Optional[int] = None) -> int:
+    """``importer_work_bilan`` réduit au nombre de fichiers extraits."""
+    res = await importer_work_bilan(user_id, data, max_total=max_total)
     return int(res.get("files") or 0)
 
 
@@ -2643,7 +2666,7 @@ async def api_sandbox_import(request: Request, archive: UploadFile = File(...)):
     if size > _IMPORT_MAX_BYTES:
         raise HTTPException(413, "archive trop volumineuse")
     try:
-        n = await importer_work(user_id, archive.file)
+        res = await importer_work_bilan(user_id, archive.file)
     except AgentError as e:
         if e.code == "too_large":
             raise HTTPException(413, "archive trop volumineuse une fois décompressée "
@@ -2651,4 +2674,6 @@ async def api_sandbox_import(request: Request, archive: UploadFile = File(...)):
         if e.code == "bad_archive":
             raise HTTPException(400, "archive invalide") from None
         raise agent_http(e, "Import") from None
-    return {"ok": True, "files": n}
+    return {"ok": True, "files": int(res.get("files") or 0),
+            "conflicts": int(res.get("conflicts") or 0),
+            "conflict_paths": [str(x)[:512] for x in (res.get("conflict_paths") or [])[:50]]}

@@ -179,7 +179,9 @@ def test_extraction_refusee_repond_apres_un_gros_corps(work):
     assert e.value.code == "bad_archive"
 
 
-def test_remplacement_ne_s_arrete_pas_sur_une_entree_verrouillee(work):
+def test_remplacement_retablit_les_droits_d_une_entree_verrouillee(work):
+    """(Relecture L4.5) Dossier en lecture seule (cache Go en 0555) : ses
+    droits sont rétablis puis il est supprimé, sans conflit."""
     if os.geteuid() == 0:
         pytest.skip("root supprime tout")
     (work / "ro").mkdir()
@@ -190,9 +192,49 @@ def test_remplacement_ne_s_arrete_pas_sur_une_entree_verrouillee(work):
             "", _tar([("n.txt", b"N", tarfile.REGTYPE, 0o644)]), max_bytes=1 << 20,
             max_file=1 << 20, max_members=100))
     finally:
-        os.chmod(work / "ro", 0o755)
-    assert res["conflicts"] == 1 and (work / "n.txt").read_text() == "N"
-    assert not (work / "a.txt").exists()
+        if (work / "ro").exists():
+            os.chmod(work / "ro", 0o755)
+    assert res["conflicts"] == 0 and (work / "n.txt").read_text() == "N"
+    assert not (work / "ro").exists() and not (work / "a.txt").exists()
+
+
+def test_remplacement_ne_perd_jamais_la_nouvelle_entree(work, monkeypatch):
+    """(Relecture L4.5) Une ancienne entrée impossible à effacer gardait son
+    nom : la nouvelle entrée du même nom repartait avec le provisoire,
+    perdue, et la restauration se disait réussie. L'ancienne est mise de
+    côté ; si elle ne peut même pas être déplacée, la nouvelle est placée
+    sous un autre nom. Les deux cas sont remontés."""
+    (work / "ro").mkdir()
+    (work / "ro" / "ancien").write_text("A")
+    (work / "fixe").write_text("F")
+    vrai_supprimer, vrai_renommer = S._supprimer_obstine, os.rename
+
+    def supprimer(p):
+        if os.path.basename(p) in ("ro", "fixe"):
+            raise PermissionError(13, "refusé")
+        vrai_supprimer(p)
+
+    def renommer(src, dst):
+        if os.path.basename(src) == "fixe" and ".elpis-tmp-" not in src:
+            raise PermissionError(13, "refusé")
+        vrai_renommer(src, dst)
+    monkeypatch.setattr(S, "_supprimer_obstine", supprimer)
+    monkeypatch.setattr(S.os, "rename", renommer)
+    res = asyncio.run(_agent(work).extract(
+        "", _tar([("ro/neuf", b"N", tarfile.REGTYPE, 0o644), ("fixe", b"G", tarfile.REGTYPE, 0o644)]),
+        max_bytes=1 << 20, max_file=1 << 20, max_members=100))
+    monkeypatch.undo()
+    # « ro » mis de côté ; « fixe » ni effacé ni déplacé, et son remplaçant
+    # placé sous un autre nom : trois écarts.
+    assert res["conflicts"] == 3, res
+    assert (work / "ro" / "neuf").read_text() == "N"               # placé
+    (ancien,) = [p for p in work.iterdir() if p.name.startswith("ro.elpis-ancien-")]
+    assert (ancien / "ancien").read_text() == "A"                  # mis de côté
+    assert (work / "fixe").read_text() == "F"                      # indéplaçable
+    (neuf,) = [p for p in work.iterdir() if p.name.startswith("fixe.elpis-restaure-")]
+    assert neuf.read_text() == "G"                                  # jamais perdu
+    assert sorted(x.split(" → ")[0] for x in res["conflict_paths"]) == ["fixe", "fixe", "ro"]
+    assert not [p for p in work.iterdir() if p.name.startswith(".elpis-tmp-")]
 
 
 # ── Client : trames ─────────────────────────────────────────────────────────

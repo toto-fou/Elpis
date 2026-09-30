@@ -78,6 +78,28 @@ derniers accès de l'hôte.
 (`shared_infra/sandbox/policy.py`). Seule `fs.write` a encore un effet :
 `agent` supprime l'élargissement des droits des écritures de l'hôte.
 
+## Archives : ce qu'il faut savoir
+
+- Restauration d'un instantané et import d'une archive : une ancienne entrée
+  que l'agent ne peut pas effacer (dossier d'un autre propriétaire) est mise
+  de côté sous `<nom>.elpis-ancien-<hex>` ; une nouvelle entrée qui ne trouve
+  pas sa place l'est sous `<nom>.elpis-restaure-<hex>`. Rien n'est perdu ;
+  l'interface signale le nombre d'entrées à vérifier.
+- L'import garde l'ancien contenu dans `/work/.work-before-import-<date>` :
+  il compte dans le quota et part dans les exports, instantanés et
+  sauvegardes jusqu'à ce que l'utilisateur le supprime.
+- Une restauration demande l'espace de l'instantané en plus de `/work`
+  (extraction, puis échange) ; faute de place : 507, `/work` intact.
+- Téléchargement ou export en flux : six heures au plus ; un client qui ne
+  lit plus rien pendant dix minutes est coupé.
+- Sauvegarde admin : une sandbox arrêtée est démarrée pour la lecture de son
+  `/work`, qui ne compte pas comme une activité, puis arrêtée de nouveau. Si
+  le `/work` d'un compte ne peut être lu (Docker arrêté, image absente), la
+  sauvegarde est nommée `…_incomplet.zip` et n'est comptée comme réussie ni
+  par la console, ni par l'envoi distant, ni par `./elpis backup` (code 1).
+- L'historique d'un fichier (éditeur) se lit par l'agent : il démarre le
+  conteneur au besoin.
+
 ## Tests
 
 `tests/shared_infra/` : `test_agent_sandbox_2026_09_29.py` (agent et

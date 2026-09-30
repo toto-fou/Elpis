@@ -1112,7 +1112,16 @@
                 return;
             }
             if (lastEvent && lastEvent.event === 'done') {
-                showToast('Sandbox restaurée');
+                // Entrées que la restauration n'a pu mettre en place telles
+                // quelles (ancien contenu mis de côté, nouveau placé sous un
+                // autre nom) : rien n'est perdu, mais l'utilisateur doit savoir.
+                const n = lastEvent.conflicts || 0;
+                if (n > 0) {
+                    const noms = (lastEvent.conflict_paths || []).slice(0, 3).join(' ; ');
+                    showToast(`Sandbox restaurée, ${n} entrée(s) à vérifier${noms ? ' : ' + noms : ''}`, 'warning');
+                } else {
+                    showToast('Sandbox restaurée');
+                }
                 // Refresh tree + git pour refléter le nouveau contenu disque.
                 await loadSandboxFiles();
                 try { _gitAutoRefresh(); } catch(_) {}

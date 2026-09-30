@@ -343,6 +343,7 @@ async def execute_tool_batch(
                 results_by_idx[idx] = json.dumps(
                     {"error": flatten_exception_message(_bx)})
             _dur_ms = int((time.perf_counter() - _t0) * 1000)
+            p["duration_ms"] = _dur_ms          # event ``tool_result`` (L5.4)
 
         # Metric event ``tool_call`` enrichi avec status=ok|error (widget
         # ToolErrorRateProvider) + ligne tool_call_metrics (observabilité).

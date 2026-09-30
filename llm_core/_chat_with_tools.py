@@ -5596,6 +5596,8 @@ async def _run_chat_multi_mcp_impl(
                     # nom attribue sinon le 1er résultat au dernier step).
                     "call_id": call_id,
                     "result": result_content[:2000],  # 2000 chars pour le panneau détail UI
+                    # Durée de l'appel (L5.4), pour les clients du flux ; le chat ne l'affiche pas.
+                    "duration_ms": p.get("duration_ms"),
                 }
                 _dk = _desktop_event_extra(tool_name, result_content,
                                            with_elements=str(_chat_key_suffix).startswith("studio_"))
@@ -6101,6 +6103,7 @@ async def _run_chat_multi_mcp_impl(
                     "name":   tool_name,
                     "call_id": call_id,   # cf. chemin natif : appariement fiable
                     "result": res_str[:2000],
+                    "duration_ms": p.get("duration_ms"),
                 }
                 _dk = _desktop_event_extra(tool_name, res_str,
                                            with_elements=str(_chat_key_suffix).startswith("studio_"))

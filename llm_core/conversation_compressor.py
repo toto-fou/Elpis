@@ -1954,6 +1954,10 @@ async def maybe_compress_conversation(
                     # (tools) — le widget et la jauge racontent le même chiffre.
                     "tokens":   tokens_before + int(extra_fixed_tokens or 0),
                     "ctx_size": ctx_size_tokens or 0,
+                    # L5.5 : seuil qui a déclenché (jetons) et motif.
+                    "threshold": int(_trigger or 0),
+                    "reason":    ("manual" if manual else "overflow" if triggered_by_overflow
+                                  else "threshold"),
                 })
             except Exception:
                 pass

@@ -1398,8 +1398,10 @@ function setupChat(vue, sharedRefs, ctx) {
                 if (msgs[i] && msgs[i].role === 'assistant') { li = i; break; }
             }
             if (li >= 0) {
+                // iterBudget remis à zéro : sans ça, le « tour n/max » du segment
+                // tronqué restait affiché jusqu'au premier événement iteration.
                 msgs[li] = Object.assign({}, msgs[li], { isStreaming: true, isTruncated: false,
-                                                         isError: false, errorMessage: '' });
+                                                         isError: false, errorMessage: '', iterBudget: null });
             } else {
                 msgs.push({ role: 'assistant', content: '', thinking: '', thinkingOpen: false,
                             _statusLine: '', isStreaming: true, isError: false,

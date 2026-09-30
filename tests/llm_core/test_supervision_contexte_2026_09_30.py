@@ -119,3 +119,13 @@ def test_continuer_decale_le_round_des_compactions_de_la_reprise():
     # 2 rounds dans le tronc : la compaction faite après le 1er round de la
     # reprise se place après le 3e round de la tool_history rechargée.
     assert [c["round"] for c in msg["compactions"]] == [1, 3]
+
+
+def test_continuer_cumule_les_sorties_elaguees():
+    prev = {"pruned": 3}
+    msg = {"pruned": 2}
+    _merge_prev_segment_lists(prev, msg)
+    assert msg["pruned"] == 5
+    msg2: dict = {}
+    _merge_prev_segment_lists({"pruned": 4}, msg2)
+    assert msg2["pruned"] == 4

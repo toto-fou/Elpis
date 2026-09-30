@@ -1232,7 +1232,7 @@ que l'interface ne lit et que la route n'émet aucun type hors registre).
 | `thinking_token` / `thinking_content` | Réflexion (jeton à jeton, puis bloc réconcilié) |
 | `content_token` / `content_replace` | Réponse (jeton à jeton ; texte affiché remplacé au nettoyage de fin) |
 | `tool_call` / `tool_call_delta` | Appel d'outil décidé ; arguments en cours de génération |
-| `tool_result` | Résultat d'un outil, avec `duration_ms` (durée de l'appel) |
+| `tool_result` | Résultat d'un outil, avec `duration_ms` (durée de l'appel, affichée en direct ; non conservée au rechargement) |
 | `tool_progress` / `tool_log` / `shell_output` | Progression, journal, sortie en direct d'une commande |
 | `tool_limit` | Plafond d'itérations atteint |
 | `tool_history_partial` | **Delta** de l'historique d'outils (jamais un cumul) |

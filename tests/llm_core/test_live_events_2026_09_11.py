@@ -322,7 +322,8 @@ def test_bout_en_bout_http_streamable_route_les_notifications(live_server):
             )
         return got
 
-    got = asyncio.run(_go())
+    # Borne : sous xdist, un blocage du service de test ne doit pas figer la suite.
+    got = asyncio.run(asyncio.wait_for(_go(), timeout=60))
 
     def _kinds(params_list):
         out = []

@@ -2423,6 +2423,8 @@ const elpisApp = createApp({
                 if (authMod.showNewUserModal && authMod.showNewUserModal.value)                                              { authMod.showNewUserModal.value = false; return; }
                 if (chatMod.skillAssistForm && chatMod.skillAssistForm.value && chatMod.skillAssistForm.value.open)          { chatMod.skillAssistForm.value.open = false; return; }
                 if (chatMod.toolInfo && chatMod.toolInfo.value)                                                              { chatMod.closeToolInfo(); return; }
+                // « Détails » d'une exécution (chat et console › Exécutions).
+                if (chatMod.runDetails && chatMod.runDetails.value && chatMod.closeRunDetails)                               { chatMod.closeRunDetails(); return; }
                 if (adminMod.transferModal && adminMod.transferModal.value && adminMod.transferModal.value.active
                         && (adminMod.transferModal.value.done || adminMod.transferModal.value.error)) {
                     if (adminMod.closeTransferModal) adminMod.closeTransferModal();

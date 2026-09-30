@@ -50,6 +50,7 @@
                                             <td colspan="9" class="text-center adm-empty">Aucune exécution sur la fenêtre choisie.</td>
                                         </tr>
                                         <tr v-for="a in admRunsAccounts" :key="'ra'+a.user_id" @click="toggleAdmRunsAccount(a)"
+                                            tabindex="0" @keydown.enter="toggleAdmRunsAccount(a)"
                                             class="cursor-pointer" :class="admRunsFilter.userId === a.user_id ? 'bg-blue-50' : ''">
                                             <td class="text-xs font-medium">{{ a.username || ('#' + a.user_id) }}</td>
                                             <td class="text-right tabular-nums text-xs">{{ a.runs }}<span v-if="a.subagents" class="adm-muted"> + {{ a.subagents }} sous-agents</span></td>
@@ -118,6 +119,8 @@
                                         </tr>
                                         <tr v-for="r in admRunsItems" :key="r.id"
                                             @click="user && user.role === 'admin' && showRunDetails(r.id, [r.id], { admin: true })"
+                                            :tabindex="user && user.role === 'admin' ? 0 : -1"
+                                            @keydown.enter="user && user.role === 'admin' && showRunDetails(r.id, [r.id], { admin: true })"
                                             :class="user && user.role === 'admin' ? 'cursor-pointer' : ''"
                                             :title="user && user.role === 'admin' ? 'Ouvrir la chronologie' : r.id">
                                             <td class="whitespace-nowrap text-xs adm-muted">{{ fmtTs(r.started_at) }}</td>

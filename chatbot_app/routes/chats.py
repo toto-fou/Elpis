@@ -1295,6 +1295,10 @@ def _merge_prev_segment_lists(prev_msg: dict, msg: dict) -> None:
         if _dec:
             msg["compactions"] = [({**c, "round": int(c.get("round") or 0) + _dec}
                                    if isinstance(c, dict) else c) for c in msg["compactions"]]
+    # Sorties élaguées : le segment tronqué et la suite s'additionnent.
+    _p_anc, _p_neuf = prev_msg.get("pruned"), msg.get("pruned")
+    if isinstance(_p_anc, int) and not isinstance(_p_anc, bool) and _p_anc > 0:
+        msg["pruned"] = _p_anc + (_p_neuf if isinstance(_p_neuf, int) and not isinstance(_p_neuf, bool) else 0)
     for _k in ("task_runs", "run_ids", "compactions"):
         _anc = prev_msg.get(_k) if isinstance(prev_msg.get(_k), list) else []
         if not _anc:

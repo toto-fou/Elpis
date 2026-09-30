@@ -160,20 +160,11 @@ class _BoundedCapture:
                   f"{2 * self._half} bytes capture limit]…\n").encode()
         return bytes(self._head) + marker + tail
 
-# Host-side marker (at the per-user dir ``P``, sibling of ``P/work`` — outside
-# the mount, invisible to the model) recording that the one-time other-writable
-# repair of pre-existing /work paths has run. Lets the costly ``chmod -R`` run
-# once per sandbox instead of on every backend restart.
-# Nouveau nom ⇒ la passe one-shot re-tourne une fois par sandbox existante.
-#   v2 (2026-07-21) : clones faits dans le terminal AVANT son wrapper umask
-#                     0000 (arbres 0644/0755 en UID 10001, host non-writables).
-#   v3 (2026-07-30) : clones/init/pull host-side pendant que
-#                     ``sandbox_grant_access`` était inerte (mauvaise arité →
-#                     TypeError avalé) — arbres 0644/0755 à l'UID de l'app,
-#                     cette fois NON éditables depuis le conteneur. Le même
-#                     ``chmod -R o+rwX`` répare les deux sens.
-# ⚠ Doit rester synchronisé avec ``shared_infra.sandbox.paths._PERMS_MARKER``.
-_PERMS_MARKER = ".perms-reconciled-v3"
+# Marqueur côté hôte (dans ``P``, hors du montage) : la remise en ordre des
+# droits de /work hérités de l'élargissement (fichiers 0666, dossiers 0777, à
+# l'UID de l'app) a été faite une fois pour ce compte (L4.6).
+# ⚠ Doit rester synchronisé avec ``shared_infra.sandbox.paths._MODES_MARKER``.
+_MODES_MARKER = ".work-modes-v1"
 
 
 # ── Sérialisation du cycle de vie container, par user ────────────────────────
@@ -645,13 +636,11 @@ class UserSandbox:
         # mount the first time we see this container running, to recreate any
         # container that predates the work-subdir migration (old flat mount).
         self._mount_verified = False
-        # One-shot guard (per process): make every PRE-EXISTING path under
-        # /work other-writable so the host UID can mutate files/dirs the
-        # container created before umask 0000 (legacy 0775 dirs blocked the
-        # host fs tools). New writes are already cross-writable via umask 0000;
-        # this only repairs the backlog. Persisted across restarts by a host-
-        # side marker (``_PERMS_MARKER``) so the costly ``chmod -R`` runs once.
-        self._perms_reconciled = False
+        # Une fois par processus : /work à l'UID du conteneur, 0755 ; une fois
+        # par compte (``_MODES_MARKER``) : tout l'arbre hérité de
+        # l'élargissement rendu à cet UID, sans écriture pour le groupe et les
+        # autres (``_reconcile_work_modes``).
+        self._modes_verified = False
         # One-shot guard (per container, per process): compare the container's
         # ``elpis.netcfg`` / ``elpis.spec`` labels to the CURRENT profile hash
         # and ``RUN_SPEC``, recreate on mismatch — sans ça, une édition admin
@@ -830,56 +819,42 @@ class UserSandbox:
                 await self._create()
             return await self.status()
 
-    async def _reconcile_work_perms(self) -> None:
-        """One-time repair so the HOST UID can mutate everything under /work.
+    async def _reconcile_work_modes(self) -> None:
+        """/work appartient à l'UID du conteneur, seul à y écrire (L4.6) : par
+        le root du conteneur (l'hôte ne peut pas changer ce qui n'est pas à
+        lui), ``/work`` lui-même rendu à cet UID en 0755 à chaque premier
+        passage du processus — une image tierce ne le fait pas, l'ancienne
+        image le remettait en 0777 —, puis, une fois par compte, tout l'arbre
+        hérité de l'élargissement (``chown -R``, ``chmod -R go-w``).
 
-        Host (operator UID, e.g. 1000) and the container (UID 10001) share no
-        group, so a container-created dir at the default 0775 (group-writable)
-        is NOT writable by the host — the host fs tools then fail to create a
-        file inside a directory the shell just made. ``umask 0000`` already
-        fixes this for NEW writes; this repairs the pre-existing backlog by
-        making every current path other-writable (``chmod -R o+rwX`` — ``X``
-        only adds +x to dirs / already-exec files, so data files don't become
-        executable). Run as container root (``-u 0:0``) because the host can't
-        chmod paths it doesn't own, and ``setfacl`` is absent from the image.
-
-        Best-effort, never raises. Gated by an in-memory per-process flag AND a
-        host-side marker (``_PERMS_MARKER``) so the ``chmod -R`` runs once per
-        sandbox; a transient failure leaves the marker unwritten so the next
-        process retries.
-        """
-        if self._perms_reconciled:
+        Au mieux, ne lève jamais ; un échec laisse le marqueur absent pour
+        que le processus suivant réessaie."""
+        if self._modes_verified:
             return
-        self._perms_reconciled = True          # attempt once per process, whatever the outcome
-        marker: Optional[Path] = None
-        try:
-            marker = Path(self.sandbox_path).parent / _PERMS_MARKER
-            if marker.exists():
-                return
-        except Exception:
-            marker = None
+        self._modes_verified = True
+        marker = Path(self.sandbox_path).parent / _MODES_MARKER
+        tout = not marker.exists()
+        owner = self.cfg.exec_user or "10001:10001"
+        script = ('chown "$1" /work && chmod 0755 /work || exit 1; '
+                  '[ "$2" = 1 ] || exit 0; chown -R "$1" /work; chmod -R go-w /work; exit 0')
         try:
             rc, _, err = await self._cli.call(
-                "exec", "-u", "0:0", self.container_name,
-                "sh", "-c", "chmod -R o+rwX /work 2>/dev/null || true",
-                timeout=120,
-            )
-            if rc == 0 and marker is not None:
+                "exec", "-u", "0:0", self.container_name, "sh", "-c", script, "--",
+                owner, "1" if tout else "0", timeout=600 if tout else 30)
+            if rc != 0:
+                logger.warning("[sandbox] droits de /work non repris (%s, rc=%s) : %s",
+                               self.container_name, rc,
+                               err.decode("utf-8", "replace")[:200] if err else "")
+            elif tout:
                 try:
                     marker.write_text("1", encoding="utf-8")
                 except OSError:
                     pass
-            elif rc != 0:
-                logger.warning("[sandbox] reconcile work perms rc=%s (%s): %s",
-                               rc, self.container_name,
-                               err.decode("utf-8", "replace")[:200] if err else "")
         except asyncio.CancelledError:
-            # Tentative INTERROMPUE (pas un échec) : la garde une-fois ne doit
-            # pas empêcher ce process de retenter plus tard.
-            self._perms_reconciled = False
+            self._modes_verified = False                 # interrompu : à refaire
             raise
         except Exception as e:                                  # pragma: no cover
-            logger.warning("[sandbox] reconcile work perms KO (%s): %s",
+            logger.warning("[sandbox] droits de /work non repris (%s) : %s",
                            self.container_name, e)
 
     async def daemon_reachable(self) -> tuple[bool, str]:
@@ -928,7 +903,7 @@ class UserSandbox:
                     and time.monotonic() >= self._config_retry_at):
                 st = await self._reconcile_config(st)
             if st.running:
-                await self._reconcile_work_perms()
+                await self._reconcile_work_modes()
                 cache.record_running(self.container_name)
             return st
 
@@ -939,12 +914,12 @@ class UserSandbox:
             # container pendant qu'on attendait le verrou.
             st = await self.status()
             if st.running:
-                await self._reconcile_work_perms()
+                await self._reconcile_work_modes()
                 cache.record_running(self.container_name)
                 return st
             res = await self._ensure_running_locked(st)
             if res.running:
-                await self._reconcile_work_perms()
+                await self._reconcile_work_modes()
                 cache.record_running(self.container_name)
             return res
 
@@ -1163,20 +1138,9 @@ class UserSandbox:
         from shared_infra.config import SANDBOX_DIR
         if Path(SANDBOX_DIR) in self.sandbox_path.parents:
             _racine_privee(Path(SANDBOX_DIR))
+        # /work est rendu à l'UID du conteneur par son root au démarrage
+        # (entrypoint, puis ``_reconcile_work_modes``) : l'hôte n'y écrit pas.
         self.sandbox_path.mkdir(parents=True, exist_ok=True)
-        try:
-            import os
-            # Force 0o777 unconditionally (not just when world-writable is
-            # missing) — the previous "only chmod if not world-writable"
-            # check skipped folders that were 0o775, which keeps the
-            # container UID 10001 from creating files at the root if the
-            # operator's UID doesn't match. The folder is isolated by the
-            # sandbox root, kept 0700 (``_racine_privee``); 0o777 at this
-            # level is the simplest cross-UID arrangement.
-            os.chmod(self.sandbox_path, 0o777)
-        except OSError as e:
-            logger.warning("[sandbox] chmod %s impossible : %s",
-                           self.sandbox_path, e)
         # Dossier du socket de l'agent, que l'UID du conteneur doit pouvoir
         # écrire. Absent, Docker le créerait en root : l'agent ne démarrerait
         # jamais.
@@ -1291,6 +1255,22 @@ class UserSandbox:
             await self._cli.call("rm", "-fv", self.container_name, timeout=20)
         _privdrop.forget(self.container_name)
         get_readiness_cache().record_stopped(self.container_name)
+
+    async def purge(self) -> None:
+        """Vide /work par le root du conteneur, puis retire le conteneur
+        (suppression d'un compte) : les fichiers de /work appartiennent à
+        l'UID du conteneur, que l'hôte ne peut pas effacer. ``ExecError`` si
+        le conteneur ne démarre pas ou si le vidage échoue."""
+        st = await self.ensure_running()
+        if not st.running:
+            raise ExecError(f"{self.container_name} : conteneur arrêté, /work non vidé")
+        rc, _out, err = await self._cli.call(
+            "exec", "-u", "0:0", self.container_name,
+            "find", "/work", "-xdev", "-mindepth", "1", "-delete", timeout=600)
+        if rc != 0:
+            raise ExecError(f"{self.container_name} : /work non vidé : "
+                            f"{err.decode('utf-8', 'replace').strip()[:300]}")
+        await self.destroy()
 
     async def restart(self) -> SandboxStatus:
         # destroy + ensure_running prennent chacun le verrou ; on ne le tient
@@ -1411,32 +1391,11 @@ class UserSandbox:
             exec_args += ["-e", f"{k}={v}"]
         exec_args.append(self.container_name)
 
-        # ── umask 0000 wrapper ────────────────────────────────────────────
-        # The /work volume is shared between the host process (running as the
-        # operator's UID, e.g. 1000/`mcp`) and the container UID (default
-        # 10001). These two share NO group in this deployment (host GID 1000
-        # ≠ container GID 10001), so a *group*-writable file is NOT writable
-        # by the other side. Default umask 022 → 0644/0755 (host can read but
-        # not overwrite). umask 0002 → 0664/0775 only bridges the gap WHEN the
-        # two sides share a GID — which they don't here, so the model hit
-        # "permission denied" creating files via the host fs tools inside a
-        # directory the shell had just made (10001-owned, group-only-write).
-        # We therefore force umask 0000 → files 0666 / dirs 0777 (OTHER-
-        # writable), making container-created paths writable by the host UID
-        # regardless of group. This is symmetric with the host side, which
-        # already widens its own writes to 0666/0777 (`write_beneath` modes,
-        # `paths.widen_beneath`), so the /work volume is
-        # fully cross-writable in either direction. The per-user sandbox is
-        # isolated (single user, `--network=none`), so world-writable bits
-        # *within it* are not a new exposure. We use `sh -c 'umask 0000;
-        # exec "$@"' --` to apply the umask without changing the visible
-        # argv (process name in `ps`, signal handling, etc.).
-        #
-        # NB: we always wrap, even for plain `["sh", "-c", "..."]` calls,
-        # because the cost is one extra shell process per exec (~1 ms) and
-        # the consistency simplifies reasoning. If the agent calls
-        # `umask` explicitly inside its cmd it still wins (umask is per-
-        # process and inherited; our wrapper only sets the floor).
+        # ── umask 0022 ────────────────────────────────────────────────────
+        # Un seul UID écrit dans /work (L4.6) : fichiers 0644, dossiers 0755,
+        # quel que soit l'umask que l'image pose dans /etc/profile ou
+        # /etc/bash.bashrc (``sh -c 'umask 0022; …'``, argv visible inchangé).
+        # Un ``umask`` explicite dans la commande de l'utilisateur l'emporte.
         # ── timeout CÔTÉ CONTAINER (MAJ-11) ───────────────────────────────
         # Tuer le ``docker exec`` côté HÔTE (kill_process_group) NE tue PAS le
         # process distant : docker le laisse tourner dans le container →
@@ -1455,7 +1414,7 @@ class UserSandbox:
         timeout_arg = str(int(timeout))
         exec_args += privdrop_prefix + [
                       "sh", "-c",
-                      'umask 0000; t="$1"; shift; exec timeout -k 5 "$t" "$@"',
+                      'umask 0022; t="$1"; shift; exec timeout -k 5 "$t" "$@"',
                       "--", timeout_arg] + list(cmd)
 
         t0 = time.monotonic()
@@ -1665,7 +1624,7 @@ def reset_user_sandbox_cache(user_id: Optional[int] = None) -> None:
     Passe sandbox 2026-09-26 — le changement de profil d'UN utilisateur (et
     l'échec de démarrage de SON conteneur) vidait le cache de TOUS : chacun
     reperdait ses gardes une-fois (``_mount_verified``, ``_config_verified``,
-    ``_perms_reconciled``) → rafale de ``docker inspect`` / réconciliations.
+    ``_modes_verified``) → rafale de ``docker inspect`` / réconciliations.
     Sans argument : tout (changement de configuration admin)."""
     if user_id is None:
         _USER_SANDBOXES.clear()

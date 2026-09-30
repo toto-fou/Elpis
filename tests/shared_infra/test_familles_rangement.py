@@ -33,7 +33,7 @@ FAMILLES = {
                       "motifs": ("users", "groups", "auth", "settings")},
     "security":      {"modules": {"csrf", "deps", "encryption", "audit"},
                       "motifs": ("csrf", "encryption", "audit")},
-    "sandbox":       {"modules": {"paths", "policy", "exec_bridge",
+    "sandbox":       {"modules": {"paths", "exec_bridge",
                                   "routes_files", "routes_git", "routes_snapshots",
                                   "routes_lifecycle", "filetypes", "office_convert",
                                   "office_preview", "routes_office"},

@@ -272,9 +272,9 @@ RUN groupadd -g 10001 elpis \
  && chmod 0440 /etc/sudoers.d/elpis \
  && mkdir -p /work \
  && chown -R 10001:10001 /work \
- && chmod 0777 /work \
- && echo 'umask 0002' >> /etc/profile \
- && echo 'umask 0002' >> /etc/bash.bashrc
+ && chmod 0755 /work \
+ && echo 'umask 0022' >> /etc/profile \
+ && echo 'umask 0022' >> /etc/bash.bashrc
 
 # ─── 6. Configuration runtime ─────────────────────────────────────────────
 # PYTHONUSERBASE pointe DANS /work (volume monté) : un `pip install --user`

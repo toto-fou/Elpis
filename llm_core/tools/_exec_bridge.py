@@ -98,8 +98,8 @@ logger = logging.getLogger("uvicorn.error")
 # appelants externes ne cassent pas à l'import » : ces appelants n'existent
 # pas. ``set_heartbeat_hook`` émettait même un avertissement de dépréciation
 # qui ne pouvait jamais être déclenché.
-# ⚠ ``register_server_loop`` et ``repair_work_perms``, du même bloc, sont
-#   RÉELLEMENT utilisés (local_mcp_server, fs_tools) : ils restent.
+# ⚠ ``register_server_loop``, du même bloc, est RÉELLEMENT utilisé
+#   (local_mcp_server) : il reste.
 
 
 # ─── FastMCP context helpers (best-effort, never raise) ──────────────────
@@ -428,49 +428,6 @@ class _ShellStreamBatcher:
 
 
 # ─── Public API ─────────────────────────────────────────────────────────
-
-def repair_work_perms(*, username: str, sandbox_root: Path, rel_path: str = "") -> bool:
-    """Répare les permissions croisées conteneur→hôte sur un sous-arbre de /work.
-
-    Un chemin créé DANS le conteneur avec des modes restrictifs (``git clone``
-    tapé dans un terminal antérieur à son wrapper umask 0000, ``tar -x`` qui
-    préserve des modes 0644/0755 de l'archive…) appartient à l'UID 10001 : le
-    process hôte (outils fs write/edit) n'est ni owner ni groupe → il ne peut
-    ni écrire ni chmod. La réparation passe donc par ``chmod -R o+rwX`` en
-    root DANS le conteneur, scopée au premier segment du chemin relatif (le
-    dépôt cloné), pas à tout /work. Best-effort : False si le conteneur est
-    indisponible — l'appelant laisse alors remonter l'erreur d'origine.
-    """
-    seg = (rel_path or "").strip("/").split("/")[0]
-    if not seg or seg in (".", ".."):
-        return False
-    target = f"/work/{seg}"
-    try:
-        row = _get_user(username)
-        user_id = int(row["id"]) if row else 0
-    except Exception:
-        user_id = 0
-    try:
-        sb = get_user_sandbox(user_id, username, sandbox_root)
-
-        async def _do() -> bool:
-            st = await sb.ensure_running()
-            if not getattr(st, "running", False):
-                return False
-            rc, _out, _err = await sb._cli.call(
-                "exec", "-u", "0:0", sb.container_name,
-                "chmod", "-R", "o+rwX", "--", target, timeout=60)
-            return rc == 0
-
-        ok = bool(_run_async(_do()))
-        logger.info("[bridge] repair_work_perms user=%r target=%s → %s",
-                    username, target, "ok" if ok else "KO")
-        return ok
-    except Exception as e:
-        logger.warning("[bridge] repair_work_perms KO (user=%r, %s): %s",
-                       username, target, e)
-        return False
-
 
 def run_shell_via_executor(
     *,

@@ -29,9 +29,8 @@ from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 
 from fastmcp import Context, FastMCP
 
-# Single source of truth for /work normalization + sandbox containment.
-# resolve_under raises SandboxPathError (a ValueError subclass) on escape,
-# so the existing `except ValueError` call sites keep working unchanged.
+# /work normalization (lexical; links are resolved by the sandbox agent).
+# SandboxPathError is a ValueError subclass: `except ValueError` catches it.
 from shared_infra.sandbox.agent_client import AgentError
 from shared_infra.sandbox.paths import (
     SandboxPathError,
@@ -39,10 +38,6 @@ from shared_infra.sandbox.paths import (
     rel_under,
     to_container,
 )
-
-# OP_BACKEND policy: when fs writes are agent-backed (single UID 10001 inside
-# the container), the host-side cross-UID chmod widening is unnecessary.
-from shared_infra.sandbox.policy import use_agent
 
 from ._espace import Espace
 from ._models import (
@@ -450,13 +445,9 @@ def _actuel(esp: Espace, rel: str, e: Optional[Dict[str, Any]] = None,
 
 
 def _mode_ecrit(e: Dict[str, Any]) -> Optional[str]:
-    """Mode d'une écriture : celui du fichier remplacé (bits x gardés, E18),
-    élargi pour l'autre UID tant que l'hôte accède encore à /work ;
-    ``None`` : défaut de l'agent."""
-    cur = int(e.get("mode") or 0) & 0o777 if e.get("kind") == "file" else None
-    if use_agent("fs.write"):
-        return None if cur is None else format(cur, "o")
-    return format(((cur if cur is not None else 0o644) | 0o666) & 0o777, "o")
+    """Mode d'une écriture : celui du fichier remplacé (bits x gardés, E18) ;
+    ``None`` : défaut de l'agent (0644)."""
+    return format(int(e.get("mode") or 0) & 0o777, "o") if e.get("kind") == "file" else None
 
 
 def _ecrire_garde(esp: Espace, username: str, sb: Path, p: Path, rel: str, data: bytes, *,
@@ -472,11 +463,9 @@ def _ecrire_garde(esp: Espace, username: str, sb: Path, p: Path, rel: str, data:
     fichier est relu puis l'écriture réessayée — le dernier écrivain gagne,
     comme avant. ``expected_sha256`` (verrou optimiste du modèle) : comparé au
     contenu actuel s'il existe. Sous le verrou de fichier partagé avec
-    l'éditeur (E7) ; historique noté avec le contenu remplacé ; droits
-    réparés une fois si l'agent est refusé."""
+    l'éditeur (E7) ; historique noté avec le contenu remplacé."""
     from shared_infra.sandbox.file_history import MAX_FILE, TOO_BIG
     e_actuel, base, base_sha = etat
-    repare = False
     with _optimistic_write_lock(p, True):
         for _essai in range(3):
             if expected_sha256 and base_sha and base_sha != expected_sha256:
@@ -489,11 +478,6 @@ def _ecrire_garde(esp: Espace, username: str, sb: Path, p: Path, rel: str, data:
             try:
                 r = esp.ecrire(rel, data, parents=True, mode=_mode_ecrit(e_actuel), **condition)
             except AgentError as e:
-                if e.code == "denied" and not repare:
-                    repare = True
-                    from ._exec_bridge import repair_work_perms
-                    if repair_work_perms(username=username, sandbox_root=sb, rel_path=rel):
-                        continue
                 if e.code not in ("changed", "exists"):
                     raise
                 if strict:
@@ -535,11 +519,10 @@ def _grep_lots(esp: Espace, chemins: List[str], aiguille: str, *, max_hits: int,
 
 def _sauvegarde(esp: Espace, rel: str) -> Optional[Dict[str, Any]]:
     """``<rel>.bak`` : copie du contenu actuel (un lien : sa cible), droits
-    élargis comme une écriture ; ``_err`` si un dossier porte ce nom (l'agent
-    ne le remplace jamais)."""
+    compris ; ``_err`` si un dossier porte ce nom (l'agent ne le remplace
+    jamais)."""
     try:
-        esp.fsop("copy", src=rel, dst=rel + ".bak", overwrite=True, follow=True,
-                 widen=not use_agent("fs.write"))
+        esp.fsop("copy", src=rel, dst=rel + ".bak", overwrite=True, follow=True)
     except AgentError as e:
         if e.code == "is_dir":
             return _err("backup_is_directory",
@@ -576,19 +559,9 @@ def _check_regex_safe(pattern: str) -> None:
         raise re.error("motif à risque de backtracking catastrophique (quantificateur imbriqué)")
 
 def _executable_mode(cur: int) -> int:
-    """Target mode for the ``chmod`` action: make the path executable and —
-    unless fs writes are agent-backed (a single UID owns /work) — cross-UID
-    runnable/writable.
-
-    Host (UID 1000) and the per-user container (UID 10001) share NO group, so
-    owner-only ``+x`` would leave a script the model just made executable
-    un-runnable by the OTHER side. We therefore bridge via the "other" class:
-    ``+x`` for all (0o111) and ``o+rw`` (0o666) so whichever UID runs or edits
-    it can — same rationale as the agent's umask 0000. In
-    the agent-backed single-UID model, owner ``+x`` (0o100) is enough."""
-    if use_agent("fs.write"):
-        return cur | 0o100
-    return cur | 0o111 | 0o666
+    """Target mode for the ``chmod`` action: ``chmod +x`` under umask 022 —
+    executable for all, write bits unchanged (a single UID owns /work)."""
+    return cur | 0o111
 
 
 # ── Verrou optimiste cross-worker (AUDIT 2026-06) ─────────────────────────
@@ -3219,7 +3192,7 @@ Safety:
                                 avant = [] if ed.get("link") else _instantane_agent(esp, sb, drel, ed)
                                 apres = _instantane_agent(esp, sb, rel, e)
                             esp.fsop("copy", src=rel, dst=drel, overwrite=True, parents=True,
-                                     follow=True, widen=not use_agent("fs.write"))
+                                     follow=True)
                         else:
                             esp.fsop("rename", src=rel, dst=drel, overwrite=True, parents=True)
                     except AgentError as ex:

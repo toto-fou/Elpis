@@ -13,8 +13,6 @@ Public API
 - ``agent_for(user_id)`` / ``agent_http(e, libellé)`` — client de l'agent et
   traduction de ses refus pour les routes.
 - ``ensure_container_running(user_id)`` — 503 si le conteneur ne tourne pas.
-- ``sandbox_grant_access`` — réaligne les droits d'un chemin écrit par le git
-  de l'hôte (jusqu'à L4.4).
 
 Error model
 -----------
@@ -26,9 +24,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
-import shutil
-from pathlib import Path
 from typing import Optional
 
 from fastapi import HTTPException
@@ -44,127 +39,6 @@ logger = logging.getLogger("uvicorn.error")
 # Cap each individual docker exec — most FS ops finish in <100 ms, but
 # upload of a large file or a wide rmtree may legitimately take longer.
 _DEFAULT_TIMEOUT_S = 60
-
-# UID/GID du user in-container (elpis). Tout /work est censé lui appartenir
-# (cf. docstring module) ; les écritures HOST (git clone/init) le violent.
-_SANDBOX_UID = 10001
-_SANDBOX_GID = 10001
-
-
-async def sandbox_grant_access(user_id: int, rel_path: str) -> None:
-    """Ré-aligne un chemin écrit côté HÔTE (ex. ``git clone`` host-side) sur le
-    modèle d'ownership UID-10001 du sandbox, pour que le user in-container puisse
-    le modifier.
-
-    Le sous-système git tourne sur l'HÔTE (``_git_run``) sous l'UID du process
-    app : un dossier fraîchement cloné appartient donc à cet UID et le container
-    (UID 10001) se prend un « permission denied » en édition/suppression
-    (« j'ai cloné un repo mais je ne peux pas l'éditer »). Tout le reste de /work
-    est en UID 10001 (cf. docstring module) — on rétablit l'invariant.
-
-    Best-effort, ne lève JAMAIS (l'opération git a déjà réussi) :
-      1. ACL POSIX (côté hôte ; l'app possède les fichiers frais → pas besoin de
-         root) : accorde rwX à l'UID sandbox ET à l'UID hôte, AVEC une ACL
-         ``default`` pour que les fichiers créés ENSUITE par le git host-side
-         (checkout/pull/merge) héritent du droit et restent éditables des deux
-         côtés. C'est CE qui lève le « permission denied », durablement.
-      2. ``chown -R 10001:10001`` via ``docker exec -u 0`` quand le container
-         tourne, pour que l'ownership colle cosmétiquement au reste de /work.
-         L'ACL de l'étape 1 garde le panneau git host-side fonctionnel sur le
-         repo désormais 10001.
-    """
-    # ⚠ RÉSOLUTION — passer par ``_get_sandbox_for_user`` (arité 1), JAMAIS par
-    # ``get_user_sandbox`` directement : celui-ci exige ``(user_id, username,
-    # sandbox_path)``. L'appel historique ``get_user_sandbox(user_id)`` levait un
-    # TypeError avalé par ce ``except`` → grant TOTALEMENT inerte (aucune ACL,
-    # aucun chmod, aucun chown) après chaque clone/init/pull host-side, d'où le
-    # « j'ai cloné mais je ne peux pas éditer » côté conteneur.
-    try:
-        sb = _get_sandbox_for_user(user_id)
-        root = Path(sb.sandbox_path).resolve()
-    except Exception as e:                                        # noqa: BLE001
-        # Plus JAMAIS silencieux : un échec de résolution rend le grant inerte.
-        logger.warning("[sandbox] grant_access: sandbox introuvable pour "
-                       "user_id=%s (%s) — permissions NON réalignées", user_id, e)
-        return
-    rel = (strip_work_prefix(rel_path) or "").strip("/")
-    target = (root / rel).resolve() if rel else root
-    # Anti-traversée : la cible DOIT rester dans /work.
-    try:
-        target.relative_to(root)
-    except ValueError:
-        return
-    if not target.exists():
-        return
-
-    # 1. ACL host-side (le fix fonctionnel fiable, sans root, survit au durcissement).
-    setfacl = shutil.which("setfacl")
-    if setfacl:
-        acl_spec = f"u:{_SANDBOX_UID}:rwX,u:{os.getuid()}:rwX"
-        for extra in ([], ["-d"]):          # ACL d'accès, puis ACL default (héritage)
-            await _run_bounded([setfacl, "-R", *extra, "-m", acl_spec, str(target)], 120)
-
-    # 1bis. Fallback chmod host-side — ne dépend NI de setfacl (souvent absent)
-    # NI du container (docker down = étape 2 muette). L'app POSSÈDE les
-    # fichiers fraîchement écrits côté hôte → chmod permis. On rétablit
-    # l'invariant /work « cross-writable » (0666/0777 : hôte et conteneur
-    # n'ont aucun groupe commun) — c'est CE qui rend le repo éditable et
-    # supprimable par le shell in-container même si le chown de l'étape 2
-    # n'a pas pu s'exécuter. Best-effort : fichiers d'autrui → skip.
-    try:
-        from shared_infra.sandbox.paths import widen_beneath
-        await asyncio.wait_for(asyncio.to_thread(
-            widen_beneath, root, target.relative_to(root).as_posix(), recursive=True),
-            timeout=120)
-    except Exception:
-        pass
-
-    # 2. chown cosmétique via root in-container (best-effort ; skip si container down).
-    docker = shutil.which("docker") or "/usr/bin/docker"
-    # ``timeout -k`` CÔTÉ CONTENEUR : tuer le client ``docker exec`` ne tue
-    # pas le ``chown -R`` qui tourne dedans.
-    await _run_bounded([docker, "exec", "-u", "0:0", sb.container_name,
-                        "timeout", "-k", "5", "110",
-                        "chown", "-R", f"{_SANDBOX_UID}:{_SANDBOX_GID}",
-                        ("/work/" + rel) if rel else "/work"], 120)
-
-
-async def _run_bounded(argv, timeout_s: float) -> None:
-    """Lance ``argv`` sans sortie, borné : au délai (ou à l'annulation) le
-    process est TUÉ et récolté. Passe sandbox 2026-09-26 — avant, le
-    ``wait_for`` expirait, l'exception était avalée et le ``setfacl -R`` /
-    ``chown -R`` continuait en orphelin sur un gros dépôt (node_modules),
-    passes récursives empilées à chaque action git. Best-effort, ne lève pas
-    (sauf annulation, propagée)."""
-    try:
-        p = await asyncio.create_subprocess_exec(
-            *argv, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
-    except Exception:                                            # noqa: BLE001
-        return
-    try:
-        await asyncio.wait_for(p.wait(), timeout=timeout_s)
-    except BaseException as e:
-        try:
-            p.kill()
-        except ProcessLookupError:
-            pass
-        try:
-            await asyncio.shield(asyncio.wait_for(p.wait(), timeout=5))
-        except Exception:                                        # noqa: BLE001
-            pass
-        if not isinstance(e, asyncio.TimeoutError):
-            raise
-
-
-def _user_sandbox_dir(username: str) -> Path:
-    """Mirror of routes.user_sandbox._user_sandbox_dir. Re-declared here
-    to avoid an import cycle (this module is imported by sandbox_files,
-    which is imported indirectly by user_sandbox transitively)."""
-    # The mount source is the WORK root ``P/work``; the caller resolves it via
-    # ``_get_work_path(user_id)`` directly (we don't have a user_id here).
-    # Kept as documentation only.
-    raise NotImplementedError("Use _get_work_path(user_id) instead")
-
 
 def _get_sandbox_for_user(user_id: int):
     """Resolve a UserSandbox for ``user_id`` using the user's EFFECTIVE

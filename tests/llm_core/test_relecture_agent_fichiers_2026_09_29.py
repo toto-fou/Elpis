@@ -114,16 +114,15 @@ def test_ecriture_sur_gros_fichier_sans_le_relire(fs, monkeypatch):
     assert r["ok"] is False and r["error"] == "too_large", r
 
 
-def test_copie_elargie_en_mode_hote(fs, monkeypatch):
+def test_copie_garde_les_droits(fs):
     tools, work = fs
-    monkeypatch.setattr(fs_tools, "use_agent", lambda op: False)
     (work / "d").mkdir()
     (work / "d" / "f").write_text("x")
-    os.chmod(work / "d" / "f", 0o644)
-    os.chmod(work / "d", 0o755)
+    os.chmod(work / "d" / "f", 0o640)
+    os.chmod(work / "d", 0o750)
     assert tools["manage_files"](None, action="copy", path="d", dest="e")["ok"]
-    assert (work / "e").stat().st_mode & 0o777 == 0o777
-    assert (work / "e" / "f").stat().st_mode & 0o777 == 0o666
+    assert (work / "e").stat().st_mode & 0o777 == 0o750
+    assert (work / "e" / "f").stat().st_mode & 0o777 == 0o640
 
 
 def test_ecriture_a_travers_un_lien_pendant(fs):

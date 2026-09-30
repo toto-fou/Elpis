@@ -69,24 +69,16 @@ CONTAINER_ROOT = "/work"
 WORK_SUBDIR = "work"
 _WORK_MARKER = ".work-migrated"
 _WORK_LOCK = ".work-migrating.lock"
-# Chaque nouvelle version du marqueur re-déclenche UNE passe ``chmod -R o+rwX``
-# par sandbox — c'est le levier de résorption du backlog, dans LES DEUX SENS
-# (o+rw ouvre aussi bien un arbre 10001 à l'hôte qu'un arbre host-owned au
-# conteneur) :
-#   v2 (2026-07-21) : clones faits dans le TERMINAL avant son wrapper umask.
-#   v3 (2026-07-30) : clones/init/pull host-side pendant que
-#                     ``sandbox_grant_access`` était inerte (il appelait
-#                     ``get_user_sandbox`` avec la mauvaise arité → TypeError
-#                     avalé → ni ACL, ni chmod, ni chown). Ces dépôts sont
-#                     restés en 0644/0755 à l'UID de l'app, donc non éditables
-#                     depuis le conteneur.
-_PERMS_MARKER = ".perms-reconciled-v3"
-_PERMS_MARKER_LEGACY = (".perms-reconciled", ".perms-reconciled-v2")
+# Marqueur de la remise en ordre des droits de /work (L4.6 : arbre rendu à
+# l'UID du conteneur, sans écriture pour le groupe et les autres) ; les
+# marqueurs de l'ancien élargissement restent réservés à P.
+_MODES_MARKER = ".work-modes-v1"
+_PERMS_MARKER_LEGACY = (".perms-reconciled", ".perms-reconciled-v2", ".perms-reconciled-v3")
 # Entries kept at ``P`` (never moved into ``P/work`` and never exposed in the
 # container): the work subdir itself; the protected-skills mirror + its staging
 # dir; the long-term memory store; the legacy ``.sandboxd`` socket dir; the
-# optimistic-write lock sidecar; the cross-UID perms-repair marker; and the
-# migration bookkeeping files.
+# optimistic-write lock sidecar; the /work modes marker; and the migration
+# bookkeeping files.
 _WORK_RESERVED = frozenset({
     WORK_SUBDIR,
     "skills",
@@ -96,7 +88,7 @@ _WORK_RESERVED = frozenset({
     ".sandboxd",
     ".elpis-agent",  # socket de l'agent (agent_client.AGENT_RUN_DIR)
     ".write_locks",
-    _PERMS_MARKER,
+    _MODES_MARKER,
     _WORK_MARKER,
     _WORK_LOCK,
 } | set(_PERMS_MARKER_LEGACY))   # toutes les générations du marqueur restent à P

@@ -166,28 +166,24 @@ _SID_RE = _re_sid.compile(r"^[A-Za-z0-9_-]{1,64}$")
 # claim of a "<1 ms window" was backwards: the miss was the rule).
 
 
-# ── umask 0000 du terminal : pourquoi un --rcfile et pas un simple préfixe ──
-# L'hôte (UID de l'app) et le conteneur (UID 10001) ne partagent AUCUN groupe :
-# seul le bit « other » rend un fichier cross-writable, donc tout /work doit
-# être créé en 0666/0777 (cf. le wrapper ``umask 0000`` de ``sb.exec``).
+# ── umask 0022 du terminal : pourquoi un --rcfile et pas un simple préfixe ──
+# Un seul UID écrit dans /work (L4.6) : fichiers 0644, dossiers 0755, comme
+# les commandes de ``sb.exec``.
 #
-# ⚠ Un ``sh -c 'umask 0000; exec /bin/bash'`` NE SUFFIT PAS : le bash lancé ici
+# ⚠ Un ``sh -c 'umask 0022; exec /bin/bash'`` NE SUFFIT PAS : le bash lancé ici
 # est INTERACTIF (docker exec -it), donc il source ``/etc/bash.bashrc`` — que
-# l'image remplit avec ``umask 0002`` (Dockerfile + entrypoint le ré-ajoutent à
-# chaque boot). Le umask de l'appelant était donc écrasé juste après, et un
-# ``git clone`` tapé au terminal produisait encore des arbres 0775/0664 que
-# l'hôte (outils fs/git) ne pouvait plus modifier.
-#
-# Le ``--rcfile`` est lu APRÈS ``/etc/bash.bashrc`` (il ne remplace que
-# ``~/.bashrc``) : on y re-pose ``umask 0000``, qui gagne donc en dernier. On
-# source explicitement ``~/.bashrc`` (HOME=/work) pour ne rien perdre des
-# personnalisations de l'utilisateur. Repli sur un bash nu si /tmp est
-# inaccessible — mieux vaut un terminal au mauvais umask que pas de terminal.
+# l'image a pu remplir avec un autre umask (``umask 0002`` jusqu'à
+# elpis/sandbox 1.7.0, entrypoint compris). Le ``--rcfile`` est lu APRÈS
+# ``/etc/bash.bashrc`` (il ne remplace que ``~/.bashrc``) : on y re-pose
+# l'umask, qui gagne donc en dernier. On source explicitement ``~/.bashrc``
+# (HOME=/work) pour ne rien perdre des personnalisations de l'utilisateur.
+# Repli sur un bash nu si /tmp est inaccessible — mieux vaut un terminal au
+# mauvais umask que pas de terminal.
 _TERM_RCFILE = "/tmp/.elpis-termrc"
 _TERM_BOOTSTRAP = (
-    "umask 0000; "
+    "umask 0022; "
     "{ echo '[ -f \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"'; "
-    "echo 'umask 0000'; } > " + _TERM_RCFILE + " 2>/dev/null "
+    "echo 'umask 0022'; } > " + _TERM_RCFILE + " 2>/dev/null "
     "&& exec /bin/bash --rcfile " + _TERM_RCFILE + "; "
     "exec /bin/bash"
 )

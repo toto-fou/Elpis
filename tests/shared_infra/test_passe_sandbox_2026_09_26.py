@@ -8,8 +8,7 @@ Verrouille :
   • paths : nom temporaire tronqué en octets, copie d'arbre atomique et sans
     suivi de lien ;
   • cycle de vie : cache par compte,
-    verrou de cycle de vie sans fuite par boucle, 137 = redémarrage ;
-  • grant_access : sous-process tués au délai.
+    verrou de cycle de vie sans fuite par boucle, 137 = redémarrage.
 """
 from __future__ import annotations
 
@@ -183,15 +182,6 @@ async def test_conteneur_arrete_par_le_gc_est_redemarre(monkeypatch, tmp_path):
     monkeypatch.setattr(sb, "status", status)
     await sb._ensure_running_locked(us.SandboxStatus(exists=True, running=False))
     assert "start" in appels and "rm" not in appels and "CREATE" not in appels
-
-
-async def test_grant_tue_le_process_au_delai():
-    import time
-
-    from shared_infra.sandbox.exec_bridge import _run_bounded
-    t0 = time.monotonic()
-    await _run_bounded(["sleep", "30"], 0.3)
-    assert time.monotonic() - t0 < 5
 
 
 def test_deux_comptes_non_resolus_ne_partagent_pas_la_sandbox(tmp_path):

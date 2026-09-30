@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Régression du wrapper shell de ``UserSandbox.exec`` (timeout côté container).
 
-Bug historique (refonte sandbox) : le script ``umask 0000; exec timeout -k 5
+Bug historique (refonte sandbox) : le script ``umask …; exec timeout -k 5
 "$1" "$@"`` réinjectait la valeur de timeout, car ``"$@"`` expanse TOUS les
 positionnels à partir de ``$1`` — déjà capturé par ``"$1"``. Docker exécutait
 donc ``timeout -k 5 60 60 <cmd>`` : ``timeout`` lisait le 2e « 60 » comme la
@@ -23,11 +23,9 @@ import pytest
 _SRC = Path(__file__).resolve().parents[2] / "shared_infra" / "sandbox" / "executors" / "_user_sandbox.py"
 
 # Script shell tel qu'inliné dans UserSandbox.exec (doit rester synchronisé).
-# umask 0000 (et NON 0002) : hôte (UID 1000) et container (UID 10001) ne
-# partagent AUCUN groupe → un fichier group-writable (0664/0775) reste non
-# inscriptible par l'autre côté. 0000 → 0666/0777 (other-writable) rend /work
-# cross-writable dans les deux sens (cf. _user_sandbox.exec).
-_WRAPPER = 'umask 0000; t="$1"; shift; exec timeout -k 5 "$t" "$@"'
+# umask 0022 : un seul UID écrit dans /work (L4.6), fichiers 0644 / dossiers
+# 0755, quel que soit l'umask que l'image pose dans /etc/profile.
+_WRAPPER = 'umask 0022; t="$1"; shift; exec timeout -k 5 "$t" "$@"'
 
 pytestmark = pytest.mark.skipif(
     shutil.which("timeout") is None or shutil.which("sh") is None,
@@ -42,13 +40,10 @@ def test_source_uses_shift_not_double_dollar_args():
     assert 'exec timeout -k 5 "$1" "$@"' not in src, (
         "regression : le timeout est réinjecté via \"$1\" \"$@\""
     )
-    # Garde-fou cross-UID : le wrapper doit forcer umask 0000 (other-writable),
-    # PAS 0002 (group-only) — sinon l'hôte UID 1000 ne peut pas écrire dans les
-    # dossiers créés par le container UID 10001 (aucun groupe partagé).
-    assert "umask 0000;" in src, "le wrapper doit forcer umask 0000 (cross-UID)"
-    assert "umask 0002;" not in src, (
-        "regression : umask 0002 (group-only) ne bridge pas l'écriture cross-UID"
-    )
+    # Fin de l'élargissement (L4.6) : ni 0000 (tout le monde en écriture), ni
+    # l'umask de l'image.
+    assert "umask 0022;" in src, "le wrapper doit forcer umask 0022"
+    assert "umask 0000;" not in src and "umask 0002;" not in src
 
 
 def test_wrapper_runs_the_command_not_the_timeout_value():

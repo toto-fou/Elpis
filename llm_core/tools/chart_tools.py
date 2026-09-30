@@ -139,9 +139,8 @@ def _safe_username(username):
 # sandbox tree is ALSO touched by the per-user Docker container running as
 # UID 10001 (volume -v <sandbox>:/work:rw). Whichever side creates a dir
 # first owns it; default perms (0o755 / 0o644) then make the OTHER side fail
-# with EACCES — the exact cross-UID bug fs_tools already guards against
-# (cf. the sandbox agent's umask 0000). chart_tools historically did NOT,
-# so a container-owned .charts/ → PermissionError on every generate_chart.
+# with EACCES. chart_tools historically did NOT widen, so a container-owned
+# .charts/ → PermissionError on every generate_chart.
 # We relax dirs to 0o777 and files to 0o666 (sandbox-local, per-user tree →
 # the broad bits are acceptable). Best-effort: chmod can itself fail if we
 # don't own the path — never let that mask the real write outcome.

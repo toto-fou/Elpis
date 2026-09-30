@@ -107,7 +107,7 @@ _BLOC = 1 << 20                      # lecture/écriture par blocs de 1 Mio
 _MAX_JSON = 4 << 20                  # corps JSON d'une requête
 _MAX_LECTURE = 64 << 20              # read sans « max » explicite
 _MAX_ECRITURE = 1 << 30              # write sans « max » explicite
-_MODE_FICHIER, _MODE_DOSSIER = 0o666, 0o777   # umask 0 : l'hôte y accède encore
+_MODE_FICHIER, _MODE_DOSSIER = 0o644, 0o755   # créations, quel que soit l'umask
 _ACTIVITE_S = 10                     # mtime de la racine = activité (GC d'inactivité)
 _RELEVE_GARDE = 512 * 1024           # relevé : contenu gardé par fichier
 _RELEVE_CACHE = 24 << 20             # relevé : contenus gardés en tout
@@ -290,26 +290,6 @@ def _creer_dossier(p: str, parents: bool = True) -> None:
         os.chmod(d, _MODE_DOSSIER)
     if not os.path.isdir(p):
         raise FileExistsError(errno.EEXIST, "pas un dossier", p)
-
-
-def _elargir(p: str) -> None:
-    """Droits de ``p`` (et de son contenu) élargis pour l'autre UID : fichiers
-    0666, dossiers 0777, bits x gardés, bits spéciaux retirés ; aucun lien
-    suivi."""
-    st = os.lstat(p)
-    if stat.S_ISREG(st.st_mode):
-        os.chmod(p, (stat.S_IMODE(st.st_mode) & 0o777) | 0o666)
-    if not stat.S_ISDIR(st.st_mode):
-        return
-    os.chmod(p, 0o777)
-    for racine, dossiers, fichiers in os.walk(p):        # les liens ne sont pas descendus
-        for nom in dossiers + fichiers:
-            q = os.path.join(racine, nom)
-            s = os.lstat(q)
-            if stat.S_ISDIR(s.st_mode):
-                os.chmod(q, 0o777)
-            elif stat.S_ISREG(s.st_mode):
-                os.chmod(q, (stat.S_IMODE(s.st_mode) & 0o777) | 0o666)
 
 
 def _copier_entree(src: str, dst: str) -> None:
@@ -1072,8 +1052,7 @@ class Agent:
             if op in ("rename", "copy"):
                 return self._deplacer(op, normaliser(d.get("src")), normaliser(d.get("dst")),
                                       _vrai(d.get("overwrite")), _vrai(d.get("parents")),
-                                      op == "copy" and _vrai(d.get("follow")),
-                                      op == "copy" and _vrai(d.get("widen")))
+                                      op == "copy" and _vrai(d.get("follow")))
             if op == "chmod":
                 if "mode" not in d:
                     raise Refus(400, "bad_request", "chmod : mode requis")
@@ -1112,13 +1091,12 @@ class Agent:
         return {"ok": True, "bytes": total, "entries": n, "complete": True}
 
     def _deplacer(self, op: str, src: str, dst: str, ecraser: bool, parents: bool,
-                  suivre: bool = False, elargir: bool = False) -> Dict[str, Any]:
+                  suivre: bool = False) -> Dict[str, Any]:
         """``rename`` ou ``copy``, sans suivre de lien à la destination. Un
         dossier n'est jamais remplacé, ni rien par un dossier : seul un
         fichier ou un lien est écrasé (``ecraser``), d'un coup. ``suivre``
         (copie) : une source qui est un lien est copiée depuis sa cible, sous
-        la racine. ``elargir`` (copie) : droits de la copie élargis pour
-        l'autre UID tant que l'hôte accède à /work."""
+        la racine."""
         if not src or not dst:
             raise Refus(400, "bad_path", "src et dst requis, hors racine")
         ps, pd = (self.reel(src) if suivre else self.entree(src)), self.entree(dst)
@@ -1149,8 +1127,6 @@ class Agent:
                 _copier_entree(ps, tmp)
                 if not os.path.lexists(tmp):
                     raise Refus(409, "not_file", "un périphérique ne se copie pas")
-            if elargir:
-                _elargir(tmp)
             os.replace(tmp, pd)                          # un dossier apparu entre-temps : refus
         except BaseException:
             if os.path.lexists(tmp):
@@ -1764,11 +1740,9 @@ def _executer(argv: list, cwd: str, env: Dict[str, str], delai_s: float,
     et jeté) ; à la fin, ce qui reste du groupe de processus est tué."""
     debut = time.monotonic()
     try:
-        # umask 0 : les fichiers de /work restent ouverts à l'autre UID tant
-        # que l'hôte y écrit (jusqu'à L4.6), comme les écritures de l'agent.
         p = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             start_new_session=True, umask=0)
+                             start_new_session=True, umask=0o022)
     except OSError as e:
         raise Refus(500, "exec_failed", f"{argv[0]} : {e.strerror or e}") from None
     gardes: Dict[str, Tuple[bytes, bool]] = {}
@@ -2262,7 +2236,7 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--lock-wait", type=float, default=10.0,
                     help="attente du verrou d'instance (s) : un agent qui s'arrête le tient encore")
     args = ap.parse_args(argv)
-    os.umask(0)                                          # fichiers 0666 / dossiers 0777
+    os.umask(0o022)                                      # un seul UID écrit dans /work
     if _verrou_instance(os.path.dirname(args.socket), args.lock_wait) is None:
         return 0
     # Le socket reste en place à l'arrêt : le suivant le remplace (servir).

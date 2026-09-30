@@ -188,16 +188,15 @@ def test_rev_list_allowed_readonly(git):
     assert (r.get("stdout") or "").strip() == "1"
 
 
-# ── invariant /work cross-writable (conflit UID git ↔ shell) ─────────────
+# ── un seul UID écrit dans /work (L4.6) ─────────────────────────────────
 
-def test_host_git_writes_are_cross_writable(git):
-    """Le git HOST-side tourne sous l'UID de l'app ; le shell conteneur tourne
-    sous un AUTRE UID sans groupe commun. Tout ce que les outils git écrivent
-    doit sortir en 0666/0777 (umask=0 + core.sharedRepository), sinon le shell
-    ne peut ni committer (index.lock) ni supprimer le repo (rm -rf)."""
+def test_git_writes_are_owner_only_writable(git):
+    """git tourne dans la sandbox sous son UID (L4.4) : ce qu'écrivent les
+    outils git sort en 0644/0755 (umask 022 de l'agent), quel que soit
+    l'umask du processus de l'app — plus d'élargissement 0666/0777."""
     import os as _os
     import stat as _stat
-    old_umask = _os.umask(0o022)                 # simule le process app
+    old_umask = _os.umask(0)
     try:
         tools, work = git
         _init_repo(tools)
@@ -205,19 +204,18 @@ def test_host_git_writes_are_cross_writable(git):
         assert tools["git_write"](None, repo="proj", action="write",
                                   path="src/app.py", content="x=1\n")["ok"]
         assert tools["git_commit"](None, repo="proj", message="Bootstrap")["ok"]
-
-        def m(p):
-            return _stat.S_IMODE(_os.stat(p).st_mode) & 0o777
-
-        assert m(rp / ".git") == 0o777
-        assert m(rp / ".git" / "index") & 0o066 == 0o066
-        assert m(rp / "src") == 0o777
-        assert m(rp / "src" / "app.py") == 0o666
-        bad_dirs = [str(p) for p in (rp / ".git").rglob("*")
-                    if p.is_dir() and m(p) & 0o022 != 0o022]
-        assert not bad_dirs, bad_dirs[:5]
     finally:
         _os.umask(old_umask)
+
+    def m(p):
+        return _stat.S_IMODE(_os.stat(p).st_mode) & 0o777
+
+    assert m(rp / ".git") == 0o755
+    assert m(rp / ".git" / "index") == 0o644
+    assert m(rp / "src") == 0o755
+    assert m(rp / "src" / "app.py") == 0o644
+    ouverts = [str(p) for p in (rp / ".git").rglob("*") if m(p) & 0o022]
+    assert not ouverts, ouverts[:5]
 
 
 # ── doc/runtime : plus de mention du layout legacy git_repos/ ────────────

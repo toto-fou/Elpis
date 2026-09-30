@@ -263,9 +263,9 @@ def test_ecrasement_sans_perte(sb, monkeypatch):
     assert restes == []
 
 
-def test_copie_elargie_et_lecture_groupee(sb):
-    """``widen`` : droits élargis sur la copie ; ``read_many`` borné par le
-    budget, dans l'ordre, arrêté avant de le dépasser."""
+def test_copie_et_lecture_groupee(sb):
+    """La copie garde les droits (un seul UID écrit dans /work) ; ``read_many``
+    borné par le budget, dans l'ordre, arrêté avant de le dépasser."""
     w = sb.sandbox_path
     (w / "d" / "s").mkdir(parents=True)
     (w / "d" / "f").write_bytes(b"12345")
@@ -277,15 +277,13 @@ def test_copie_elargie_et_lecture_groupee(sb):
     c = AgentClient(sb)
 
     async def scenario():
-        await c.fsop("copy", src="d", dst="e", widen=True)
-        await c.fsop("copy", src="d", dst="sans", widen=False)
+        await c.fsop("copy", src="d", dst="e")
         lus = await c.read_many(["d/f", "absent", "gros", "g", "h"], max_file=6, max_total=8)
         assert lus == {"d/f": b"12345", "absent": None, "gros": None, "g": b"678"}  # h : suite
         assert await c.read_many(["h"], max_file=6, max_total=100) == {"h": b"9999"}
     asyncio.run(scenario())
-    assert (w / "e" / "f").stat().st_mode & 0o777 == 0o666
-    assert (w / "e" / "s").stat().st_mode & 0o777 == 0o777
-    assert (w / "sans" / "f").stat().st_mode & 0o777 == 0o640
+    assert (w / "e" / "f").stat().st_mode & 0o777 == 0o640
+    assert (w / "e" / "s").stat().st_mode & 0o777 == 0o750
 
 
 def test_flux_ndjson_lineaire_et_signes_de_vie():

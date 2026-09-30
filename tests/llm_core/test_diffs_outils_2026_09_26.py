@@ -153,7 +153,6 @@ def fs(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_SANDBOX_DIR", str(tmp_path))
     monkeypatch.setenv("APP_FILE_HISTORY_DIR", str(tmp_path / "_hist"))
     monkeypatch.setattr(F, "_history_uid", lambda username: UID)
-    monkeypatch.setattr(F, "use_agent", lambda *_a, **_k: False)
     mcp = _FakeMCP()
     F.register(mcp, tmp_path)
     work = tmp_path / "guest" / "work"

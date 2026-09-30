@@ -354,7 +354,7 @@ async def test_restauration_interrompue_va_a_son_terme(tmp_path, monkeypatch):
             break
         await anyio.sleep(0.05)
     assert not snap._get_user_lock(1).locked()
-    assert os.stat(work / "a.txt").st_mode & 0o777 == 0o666
+    assert os.stat(work / "a.txt").st_mode & 0o777 == 0o644
     assert not (tmp_path / snap._RESTORE_MARKER_NAME).exists()
 
 

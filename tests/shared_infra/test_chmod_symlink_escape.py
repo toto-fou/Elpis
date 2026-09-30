@@ -10,9 +10,6 @@ conteneur ne franchit pas le mount, mais il fait franchir l'app à sa place.
 
 Pièges couverts (une régression sur l'un d'eux rouvre l'évasion) :
 
-* le grant (``exec_bridge``) — ``os.walk(followlinks=False)`` n'empêche que la
-  RÉCURSION : un lien-vers-dossier reste listé dans ``dirnames`` et le
-  ``chmod`` déréférence. C'était le finding C1 de l'audit 2026-08-01.
 * ``manage_files chmod`` (par l'agent, L4.2) — un lien qui sort de /work
   est refusé.
 * ``chart_tools._chmod_cross_writable`` — cache des graphiques (hors /work).
@@ -51,56 +48,6 @@ def tree(tmp_path):
 def _mode(p) -> int:
     return stat.S_IMODE(os.stat(p).st_mode)
 
-
-# ── 1. _chmod_walk (finding C1) ────────────────────────────────────────────
-
-def test_grant_access_ne_chmode_pas_a_travers_un_lien_vers_dossier(tree, monkeypatch):
-    """``ln -s <dossier hôte> /work/x`` + action git ⇒ la cible NE doit PAS
-    passer en 0777. Sans le filtre ``islink`` sur ``dirnames``, elle le fait."""
-    root, outside, outside_file = tree
-    os.symlink(outside, root / "x")
-    (root / "reel").mkdir()
-
-    import shared_infra.sandbox.exec_bridge as se
-
-    class _FakeSandbox:
-        sandbox_path = str(root)
-        container_name = "elpis-sb-test"
-
-    monkeypatch.setattr(se, "_get_sandbox_for_user", lambda uid: _FakeSandbox())
-    # Neutralise setfacl et docker : on isole le chemin chmod host-side.
-    monkeypatch.setattr(se.shutil, "which", lambda name: None)
-
-    asyncio.run(se.sandbox_grant_access(1, ""))
-
-    assert _mode(outside) == OUTSIDE_MODE, (
-        "le dossier hôte pointé par le symlink a été chmodé à travers le lien "
-        "— sortie de sandbox"
-    )
-    assert _mode(outside_file) == 0o600, "le fichier hôte a été élargi"
-    # Le contenu RÉEL de la sandbox doit, lui, bien être élargi.
-    assert _mode(root / "reel") == 0o777
-
-
-def test_grant_access_ne_chmode_pas_a_travers_un_lien_vers_fichier(tree, monkeypatch):
-    root, outside, outside_file = tree
-    os.symlink(outside_file, root / "leak")
-
-    import shared_infra.sandbox.exec_bridge as se
-
-    class _FakeSandbox:
-        sandbox_path = str(root)
-        container_name = "elpis-sb-test"
-
-    monkeypatch.setattr(se, "_get_sandbox_for_user", lambda uid: _FakeSandbox())
-    monkeypatch.setattr(se.shutil, "which", lambda name: None)
-
-    asyncio.run(se.sandbox_grant_access(1, ""))
-
-    assert _mode(outside_file) == 0o600
-
-
-# ── 2. Les helpers « cross-writable » ──────────────────────────────────────
 
 def test_manage_files_chmod_refuse_un_lien_sortant(tmp_path, monkeypatch):
     from llm_core.tools import fs_tools

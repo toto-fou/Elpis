@@ -594,13 +594,13 @@ def _sandbox_size_bytes(sandbox_root: Path) -> int:
             # du indisponible / sortie inattendue / trop lent → fallback
             pass
 
-    # ── Fallback : os.walk Python ────────────────────────────────────
+    # ── Fallback : os.walk Python (métadonnées seules, liens non suivis) ──
     total = 0
     try:
         for dirpath, _, filenames in os.walk(sandbox_root):
             for fname in filenames:
                 try:
-                    total += os.path.getsize(os.path.join(dirpath, fname))
+                    total += os.lstat(os.path.join(dirpath, fname)).st_size
                 except OSError:
                     pass
     except Exception:

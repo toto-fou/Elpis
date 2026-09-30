@@ -143,7 +143,7 @@ async def test_exec_entre_en_root_et_retire_net_admin(tmp_path, monkeypatch):
     assert args[i + 1 + len(SETPRIV)] == "sh"
     # La commande de l'appelant est intacte, et le wrapper umask/timeout aussi.
     assert args[-2:] == ["echo", "hi"]
-    assert any("umask 0000" in a for a in args)
+    assert any("umask 0022" in a for a in args)
 
 
 @pytest.mark.asyncio

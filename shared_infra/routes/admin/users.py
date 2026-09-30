@@ -58,6 +58,30 @@ from shared_infra.security.deps import require_user_id
 logger = logging.getLogger("uvicorn.error")
 
 
+def _supprimer_sandbox(user_id: int, username: str, dossier) -> tuple:
+    """Supprime le dossier ``P`` d'un compte : ``(supprimé, erreur)``.
+
+    ``rmtree`` par descripteurs (liens jamais suivis). Le contenu de /work
+    appartient à l'UID du conteneur (L4.6) : refusé à l'hôte, il est vidé
+    par le root du conteneur, puis le reste de ``P`` (à l'hôte) supprimé."""
+    import asyncio
+    import shutil
+
+    from shared_infra.sandbox.executors import get_user_sandbox
+    from shared_infra.sandbox.paths import WORK_SUBDIR
+    try:
+        if not dossier.exists():
+            return False, None
+        try:
+            shutil.rmtree(dossier)
+        except PermissionError:
+            asyncio.run(get_user_sandbox(user_id, username, dossier / WORK_SUBDIR).purge())
+            shutil.rmtree(dossier)
+        return True, None
+    except Exception as e:                                      # noqa: BLE001 — remonté à l'admin
+        return False, str(e)
+
+
 @admin_router.delete("/api/admin/users/{target_id}")
 def api_admin_delete_user(target_id: int, request: Request):
     uid = require_user_id(request)
@@ -110,34 +134,8 @@ def api_admin_delete_user(target_id: int, request: Request):
     sandbox_deleted = False
     sandbox_error = None
     if delete_sandbox and sb_path_to_remove is not None:
-        import os
-        import shutil
-        import stat as _stat
-        # PASSE 15 (B4) — Retry-with-chmod sur PermissionError. Avant,
-        # un sandbox contenant un dossier owned par UID 10001 avec
-        # mode 0700 faisait échouer shutil.rmtree silencieusement
-        # (except Exception: pass), la sandbox restait sur disque,
-        # et sandbox_deleted=False était noyé dans une réponse ok=True.
-        # Maintenant : on tente, on retry avec chmod 0777, et on
-        # surface l'erreur résiduelle dans la réponse pour que l'admin
-        # voie ce qu'il s'est passé.
-        def _onerror(func, p, exc_info):
-            try:
-                # SÉCURITÉ : ``os.chmod`` déréférence les symlinks. Un lien
-                # posé dans la sandbox verrait sa cible (hors sandbox) élargie
-                # en 0777. rmtree supprime les liens par ``unlink`` — élargir
-                # les droits n'aide jamais pour un lien.
-                if not os.path.islink(p):
-                    os.chmod(p, _stat.S_IRWXU | _stat.S_IRWXG | _stat.S_IRWXO)
-                func(p)
-            except Exception:
-                raise exc_info[1]
-        try:
-            if sb_path_to_remove.exists():
-                shutil.rmtree(sb_path_to_remove, onerror=_onerror)
-                sandbox_deleted = True
-        except Exception as e:
-            sandbox_error = str(e)
+        sandbox_deleted, sandbox_error = _supprimer_sandbox(target_id, _gone_name or "",
+                                                            sb_path_to_remove)
 
     response = {"ok": True, "sandbox_deleted": sandbox_deleted}
     if sandbox_error:

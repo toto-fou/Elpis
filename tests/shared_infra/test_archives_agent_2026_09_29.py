@@ -146,8 +146,8 @@ def test_extraction_remplace_et_garde_l_ancien_contenu(work):
     assert sorted(p.name for p in work.iterdir()) == [".work-before-import-1",
                                                       ".work-before-import-2", "x"]
     assert (work / ".work-before-import-2" / "a.txt").read_text() == "A"
-    assert os.stat(work / "x" / "y.txt").st_mode & 0o777 == 0o666     # jusqu'à L4.6
-    assert os.stat(work / "x" / "run").st_mode & 0o777 == 0o777
+    assert os.stat(work / "x" / "y.txt").st_mode & 0o777 == 0o644     # un seul UID (L4.6)
+    assert os.stat(work / "x" / "run").st_mode & 0o777 == 0o755
     assert os.stat(work / "x" / "y.txt").st_mtime == 1_000_000_000
     assert not (work.parent / "evil").exists()
 

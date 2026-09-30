@@ -723,7 +723,7 @@ TABLES: List[Table] = [
             Index('idx_runs_started', ('started_at DESC',)),
             Index('idx_runs_user', ('user_id', 'started_at DESC')),
             Index('idx_runs_chat', ('chat_id', 'started_at')),
-            Index('idx_runs_parent', ('parent_id',), where="parent_id != ''"),
+            Index('idx_runs_parent', ('parent_id',)),
             Index('idx_runs_running', ('status', 'started_at'), where="status = 'running'"),
         ],
     ),
@@ -842,7 +842,7 @@ TABLES: List[Table] = [
             Index('idx_usage_source_ts', ('source', 'ts DESC')),
             Index('idx_usage_user_ts', ('user_id', 'ts DESC')),
             Index('idx_usage_ts', ('ts DESC',)),
-            Index('idx_usage_run', ('run_id',), where="run_id != ''"),
+            Index('idx_usage_run', ('run_id',)),
         ],
     ),
     Table('user_groups', [

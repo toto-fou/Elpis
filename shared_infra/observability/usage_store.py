@@ -215,9 +215,14 @@ def usage_cache_totals(since: float, until: Optional[float] = None, *,
     """Cache lu, cache créé et ENTRÉE TOTALE sur la fenêtre. Le cache lu est
     compris dans ``input_tokens`` (llama.cpp, moteurs compatibles OpenAI),
     sauf pour les moteurs ``cache_outside_input`` (clés ``conn:<id>`` des
-    connecteurs Anthropic), où il s'y ajoute."""
+    connecteurs Anthropic), où il s'y ajoute.
+
+    Ligne sans moteur (``connector`` vide, avant L5.1) : seul Anthropic
+    remplissait alors le cache, hors de l'entrée — comptée comme telle
+    (relecture L5 : le taux dépassait 100 % sur l'historique)."""
     keys = [str(k) for k in cache_outside_input]
-    hors = f"connector IN ({', '.join('?' * len(keys))})" if keys else "1 = 0"
+    hors = (f"(connector = '' OR connector IN ({', '.join('?' * len(keys))}))" if keys
+            else "connector = ''")
     where, params = _where(since, until, filters)
     with db_conn() as conn:
         row = conn.execute(

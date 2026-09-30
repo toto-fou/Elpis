@@ -140,7 +140,10 @@ def test_ligne_d_appel_rattachee_a_l_execution(db, monkeypatch):
             a["result_bytes"], a["category"]) == (e.id, "call_7", 123.5, 3, 10, 200, "shell")
     assert (b["status"], b["call_id"], b["exit_code"]) == ("timeout", None, None)
     assert c["run_id"] == "c1"                           # conversation, faute d'exécution
-    assert (e.tool_calls, e.tool_errors, e.tool_families) == (2, 1, {"shell": 2})
+    # (Relecture L5) L'appel est compté par ``tool_exec``, dans la boucle, et
+    # non par l'écriture de la ligne (fil de télémétrie, qui peut arriver
+    # après l'écriture finale de l'exécution).
+    assert (e.tool_calls, e.tool_errors, e.tool_families) == (0, 0, {})
 
 
 def test_fichiers_et_attente_de_l_execution():

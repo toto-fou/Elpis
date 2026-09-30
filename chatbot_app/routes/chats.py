@@ -3219,6 +3219,16 @@ async def api_chat_saved_stream3(request: Request):
                     _baseline_messages = _early
                     _baseline_title = title
 
+        def _issue_du_tour(statut: str, kind: str = "") -> None:
+            """Issue de l'exécution du tour (``runs``) : le worker avale
+            annulations et pannes, ``run_scope`` n'en voit aucune (relecture
+            L5 : un Stop ou un plantage finissait en « ok »)."""
+            with swallow("chat.run_status"):
+                from shared_infra.observability.runs import current_run
+                _run = current_run()
+                if _run is not None:
+                    _run.finish(statut, error_kind=kind)
+
         async def worker():
 
             clear_chat_cancellation(user_id, chat_id)
@@ -4110,7 +4120,7 @@ async def api_chat_saved_stream3(request: Request):
                     await asyncio.to_thread(_post_final_bookkeeping)
             except asyncio.CancelledError:
                 _was_cancelled = True
-
+                _issue_du_tour("cancelled")
                 logger.info("[chat_stream] Cancellation détectée, sauvegarde du partiel…")
             except LLMQueueAborted:
                 # Stop pendant l'ATTENTE d'un modèle occupé (cf. D2) : rien n'a
@@ -4118,6 +4128,7 @@ async def api_chat_saved_stream3(request: Request):
                 # annulation ordinaire — le partiel (vide) est persisté, le
                 # front retire le widget de file.
                 _was_cancelled = True
+                _issue_du_tour("cancelled")
                 logger.info("[chat_stream] attente du modèle abandonnée "
                             "(Stop pendant la file)")
                 with swallow("chat.queue_abort_evt"):
@@ -4150,6 +4161,7 @@ async def api_chat_saved_stream3(request: Request):
                         "chat ou signalez le détail ci-dessous."
                     )
                     _detail = f"{type(e).__name__}: {str(e)[:300]}"
+                _issue_du_tour("error", _kind)
                 await on_event({"type": "error", "text": _text,
                                 "detail": _detail, "kind": _kind})
             finally:

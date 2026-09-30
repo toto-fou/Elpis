@@ -23,6 +23,7 @@ Les runs s'exécutent ``priority="low"`` → ils cèdent le pas aux chats live d
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import os
 import secrets
@@ -964,9 +965,13 @@ async def launch_run(routine: Dict[str, Any], *, trigger: str,
         logger.info("[ROUTINES] SKIP routine=%s user=%s (%s)",
                     routine.get("id"), uid, reason)
         return None
+    # Contexte NEUF : lancée depuis une routine amont (chaînage), la tâche
+    # hériterait sinon de son exécution (parent_id) et de sa cible LLM
+    # (relecture L5) ; une routine enchaînée est indépendante.
     task = asyncio.get_running_loop().create_task(
         _execute_routine_run_mesure(routine, run_id, context=context,
-                                    chain_depth=chain_depth, trigger=trigger))
+                                    chain_depth=chain_depth, trigger=trigger),
+        context=contextvars.Context())
     _running_tasks[run_id] = task
     task.add_done_callback(lambda t, rid=run_id: _running_tasks.pop(rid, None))
     return run_id

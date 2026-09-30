@@ -501,7 +501,7 @@ comme absente.
 | `ADMIN_PUBLIC_URL` / `MAIN_PUBLIC_URL` | — | — | URLs externes (réécriture localhost automatique) |
 | `APP_LLM_SCHEDULING` | `llm.scheduling_mode` | `auto` | `auto` \| `classic` \| `optimized` |
 | `APP_GIT_TOOL_TIMEOUT_S` | `tools.git.timeout_s` | `60` | Commandes Git locales |
-| `APP_*_RETENTION_DAYS` | `maintenance.*_retention_days` | 90 à 400 selon la table | Rétentions (`0` = pas de purge) |
+| `APP_*_RETENTION_DAYS` | `maintenance.*_retention_days` | 90 à 400 selon la table | Rétentions (`0` = pas de purge) ; celle de `usage_events` vaut aussi pour les exécutions (`runs`) |
 | `APP_MAINTENANCE_HOUR` | `maintenance.hour` | `6` | Heure de la passe quotidienne |
 
 #### Serveur MCP local

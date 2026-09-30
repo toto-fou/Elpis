@@ -580,16 +580,15 @@ def _record_tool_call_metric_safe(username: str,
                                   **mesures: Any) -> None:
     """Écrit une ligne tool_call_metrics — best-effort, jamais bloquant.
 
-    Rattachée à l'exécution courante (``runs``, qui compte l'appel), sinon à
-    la conversation ; ``mesures`` : ``call_id``, ``started_at``,
-    ``exit_code``, ``args_bytes``, ``result_bytes``."""
+    Rattachée à l'exécution courante (``runs`` ; l'appel y est compté par
+    ``tool_exec``, dans la boucle), sinon à la conversation ; ``mesures`` :
+    ``call_id``, ``started_at``, ``exit_code``, ``args_bytes``,
+    ``result_bytes``."""
     try:
         from llm_core._mcp_categories import categorize
         from shared_infra.observability.runs import current_run
         category = categorize(tool_name)
         run = current_run()
-        if run is not None:
-            run.add_tool_call(category, status)
         uid = _TCM_UID_CACHE.get(username)
         if uid is None:
             from shared_infra.accounts.users import get_user

@@ -185,7 +185,7 @@ def test_run_maintenance_once_purges_all_tables(env, monkeypatch):
     from shared_infra.ops.maintenance import run_maintenance_once
     out = run_maintenance_once()
     assert get_run("chat-vieux") is None and get_run("chat-recent")
-    assert out == {"metric_events": 1, "usage_events": 0, "runs": 1, "tool_call_metrics": 1,
+    assert out == {"metric_events": 1, "usage_events": 0, "runs": 1, "runs_lost": 0, "tool_call_metrics": 1,
                    "routine_runs": 1, "daily_reports": 0,
                    "webhook_deliveries": 1,
                    # passe 3 2026-08-31 : session_messages rejoint la passe

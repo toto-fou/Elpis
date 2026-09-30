@@ -365,7 +365,7 @@
    "index",
    "idx_runs_parent",
    "runs",
-   "CREATE INDEX IF NOT EXISTS \"idx_runs_parent\" ON \"runs\" (\"parent_id\") WHERE parent_id != ''"
+   "CREATE INDEX IF NOT EXISTS \"idx_runs_parent\" ON \"runs\" (\"parent_id\")"
   ],
   [
    "index",
@@ -527,7 +527,7 @@
    "index",
    "idx_usage_run",
    "usage_events",
-   "CREATE INDEX IF NOT EXISTS \"idx_usage_run\" ON \"usage_events\" (\"run_id\") WHERE run_id != ''"
+   "CREATE INDEX IF NOT EXISTS \"idx_usage_run\" ON \"usage_events\" (\"run_id\")"
   ],
   [
    "index",

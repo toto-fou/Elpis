@@ -34,8 +34,8 @@ async def test_ligne_ecrite_au_debut_puis_a_la_fin(db):
     async with R.run_scope("chat", run_id="chat-abc", user_id=1, chat_id="c1",
                            model="m", engine="builtin", sample_sandbox=False) as e:
         assert R.current_run() is e and R.current_run_id() == "chat-abc"
-        debut = await asyncio.to_thread(R.get_run, "chat-abc")
-        assert debut["status"] == "running" and debut["ended_at"] is None
+        debut = await _attendre_ecriture("chat-abc", "running")
+        assert debut["ended_at"] is None
         e.add_usage(source="chat", status="ok", input_tokens=100, output_tokens=40,
                     cache_read_tokens=30, thinking_tokens=90)
         e.add_llm_call({"prompt_ms": 12.5, "predicted_ms": 300})
@@ -164,3 +164,64 @@ def test_migration_0021_sur_une_base_ancienne(tmp_path):
             "result_bytes"} <= cols["tool_call_metrics"]
     assert {"id", "kind", "status", "prefill_ms", "sandbox_mem_peak_mb"} <= cols["runs"]
     assert con.execute("SELECT run_id FROM usage_events").fetchone() == ("",)
+
+
+# ── Relecture L5 (2026-09-30) ────────────────────────────────────────────────
+
+async def test_entree_sans_attente_et_ecritures_dans_l_ordre(db, monkeypatch):
+    """L'écriture initiale n'est plus attendue (un Stop pendant elle laissait
+    le flux du chat ouvert) ; plus lente que la finale, elle ne la remplace
+    pas (l'exécution restait « running »)."""
+    import time
+    vrai = R.upsert_run
+    ordre: list = []
+
+    def lente(row):
+        if row["status"] == "running":
+            time.sleep(0.4)
+        ordre.append(row["status"])
+        return vrai(row)
+    monkeypatch.setattr(R, "upsert_run", lente)
+    t = time.monotonic()
+    async with R.run_scope("chat", run_id="chat-ord", user_id=1, sample_sandbox=False) as e:
+        assert time.monotonic() - t < 0.2                   # entrée sans attente
+        e.add_usage(source="chat", status="ok", input_tokens=1)
+    await asyncio.sleep(0.8)
+    r = await asyncio.to_thread(R.get_run, "chat-ord")
+    assert r["status"] == "ok", ordre
+
+
+def test_executions_perdues_marquees(db):
+    import time
+    R.upsert_run({"id": "chat-vieux", "kind": "chat", "status": "running",
+                  "started_at": time.time() - 2 * R.RUNNING_STALE_S})
+    R.upsert_run({"id": "chat-recent", "kind": "chat", "status": "running",
+                  "started_at": time.time()})
+    assert R.mark_lost_runs() == 1
+    assert R.get_run("chat-vieux")["status"] == "lost"
+    assert R.get_run("chat-recent")["status"] == "running"
+
+
+def test_index_des_executions_utilises(db):
+    """Index simples : ``WHERE run_id = ?`` et ``WHERE parent_id = ?`` ne
+    parcourent pas toute la table (un index partiel ne servait pas)."""
+    with db.db_conn() as c:
+        for sql in ("SELECT * FROM usage_events WHERE run_id = ?",
+                    "SELECT * FROM runs WHERE parent_id = ?"):
+            plan = " ".join(str(tuple(x)) for x in c.execute("EXPLAIN QUERY PLAN " + sql, ("x",)))
+            assert "USING INDEX" in plan, (sql, plan)
+
+
+def test_cache_des_lignes_sans_moteur_hors_entree(db):
+    """Avant L5.1 le moteur n'était pas noté et seul Anthropic remplissait
+    le cache, hors de l'entrée : le taux dépassait 100 %."""
+    import time
+
+    from shared_infra.observability import usage_store as U
+    with db.db_conn() as c:
+        c.execute("INSERT INTO usage_events(ts, source, connector, input_tokens, "
+                  "cache_read_tokens) VALUES(?, 'chat', '', 1000, 9000)", (time.time(),))
+        c.commit()
+    tot = U.usage_cache_totals(time.time() - 60)
+    assert tot["input_total"] == 10000 and tot["cache_read_tokens"] == 9000
+

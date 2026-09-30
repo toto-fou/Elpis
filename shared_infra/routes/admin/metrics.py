@@ -410,9 +410,10 @@ def api_export_metrics(request: Request, days: int = 7, target: str = "metric_ev
     if target == "usage_events":
         cols = ["ts", "user_id", "source", "origin_id", "parent_id", "model",
                 "connector", "path", "input_tokens", "output_tokens",
-                "thinking_tokens", "submitted_tokens", "cache_read_tokens",
+                "submitted_tokens", "cache_read_tokens",
                 "cache_creation_tokens", "duration_ms", "iterations", "status",
-                "error_kind", "run_id"]
+                # Colonnes ajoutées en fin : un lecteur par position ne décale pas.
+                "error_kind", "thinking_tokens", "run_id"]
         cur.execute(
             f"SELECT {local_datetime('ts')} AS ts, "
             f"{', '.join(cols[1:])} FROM usage_events WHERE ts > ? ORDER BY ts ASC",

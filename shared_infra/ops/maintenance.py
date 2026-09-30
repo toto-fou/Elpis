@@ -83,8 +83,10 @@ def run_maintenance_once() -> Dict[str, int]:
     out["usage_events"] = purge_usage_events(USAGE_EVENTS_RETENTION_DAYS)
     # Exécutions (``runs``, L5.2) : même rétention que le registre d'usage,
     # dont elles sont le regroupement par exécution.
-    from shared_infra.observability.runs import purge_runs
+    from shared_infra.observability.runs import mark_lost_runs, purge_runs
     out["runs"] = purge_runs(USAGE_EVENTS_RETENTION_DAYS)
+    # « running » depuis plus d'un jour : worker tué ou écriture finale perdue.
+    out["runs_lost"] = mark_lost_runs()
     try:
         out["tool_call_metrics"] = purge_tool_call_metrics(TOOL_METRICS_RETENTION_DAYS)
     except Exception:

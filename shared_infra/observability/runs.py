@@ -19,12 +19,16 @@ avec ``copy_context``). Les points de mesure l'alimentent sans connaître leur
 appelant : ``record_turn_usage`` (jetons, statut), la lecture des flux LLM
 (``timings``), l'attente du moteur, l'écriture des métriques d'outils, les
 résultats d'outils qui modifient des fichiers. La ligne est écrite au début
-(``running``) puis à la fin. Les jetons d'un sous-agent restent dans SON
-exécution : le total d'un tour avec ses sous-agents se somme par
-``parent_id``. Best-effort de bout en bout : une mesure perdue n'interrompt
-jamais l'exécution.
+(``running``) puis à la fin, hors de la boucle et sans l'attendre, dans
+l'ordre (une ligne plus ancienne ne remplace pas une plus récente) ; une
+ligne restée « running » plus d'un jour passe « lost » à l'entretien. Les
+jetons d'un sous-agent restent dans SON exécution : le total d'un tour se
+somme en suivant ``parent_id`` récursivement (sous-agents imbriqués, jusqu'à
+``TASK_SUBAGENT_DEPTH`` niveaux). Best-effort de bout en bout : une mesure
+perdue n'interrompt jamais l'exécution.
 
-Statut final : celui que pose le propriétaire (``finish``), sinon celui du
+Statut final : celui que pose le propriétaire (``finish`` ; le tour de chat
+le pose sur un Stop ou une panne, que son worker avale), sinon celui du
 dernier tour LLM de sa propre source (un titre ou une compaction pendant un
 tour de chat n'en décide pas), sinon ``ok`` ; une exception qui traverse la
 portée donne ``cancelled``, ``timeout`` ou ``error``.
@@ -102,6 +106,12 @@ class Execution:
     _fichiers: set = field(default_factory=set, repr=False)
     _statut_llm: str = field(default="", repr=False)
     _verrou: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    # Écritures en base numérotées : une ligne plus ancienne ne remplace
+    # jamais une plus récente (relecture L5 : la ligne « running » écrite
+    # après la ligne finale laissait l'exécution « running » pour toujours).
+    _verrou_ecriture: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    _ecritures: int = field(default=0, repr=False)
+    _derniere_ecrite: int = field(default=0, repr=False)
 
     # Mesures : appelées depuis la boucle ET des threads d'exécuteur.
     def add_usage(self, *, source: str, status: str, input_tokens: Any = 0,
@@ -246,8 +256,8 @@ def get_run(run_id: str) -> Optional[Dict[str, Any]]:
 
 
 def purge_runs(retention_days: int) -> int:
-    """Supprime les exécutions terminées de plus de ``retention_days`` jours
-    (``<= 0`` : rien). Best-effort."""
+    """Supprime les exécutions COMMENCÉES il y a plus de ``retention_days``
+    jours, quelle que soit leur issue (``<= 0`` : rien). Best-effort."""
     if retention_days <= 0:
         return 0
     try:
@@ -264,12 +274,57 @@ def purge_runs(retention_days: int) -> int:
         return 0
 
 
-def _ecrire_sans_attendre(e: Execution) -> None:
-    row = e.row()
+#: Une exécution « running » plus vieille que ceci est tenue pour perdue
+#: (processus tué, écriture finale impossible) par l'entretien.
+RUNNING_STALE_S = 24 * 3600
+
+
+def mark_lost_runs(max_age_s: float = RUNNING_STALE_S) -> int:
+    """Exécutions restées « running » plus de ``max_age_s`` : « lost »
+    (worker tué, écriture finale perdue). Best-effort, rend le nombre."""
     try:
-        fut = asyncio.get_running_loop().run_in_executor(None, upsert_run, row)
+        from shared_infra.db._connection import db_conn
+        maintenant = time.time()
+        with db_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("UPDATE runs SET status = 'lost', ended_at = ? "
+                        "WHERE status = 'running' AND started_at < ?",
+                        (maintenant, maintenant - max_age_s))
+            n = cur.rowcount
+            conn.commit()
+        return max(0, n or 0)
+    except Exception:
+        logger.debug("[maintenance] mark_lost_runs failed (non-fatal)", exc_info=True)
+        return 0
+
+
+def _ecrire_dans_l_ordre(e: Execution, seq: int, row: Dict[str, Any], essais: int) -> None:
+    """Écrit ``row`` sauf si une écriture plus récente de ``e`` est déjà faite ;
+    la finale est retentée (« database is locked »)."""
+    for essai in range(essais):
+        with e._verrou_ecriture:
+            if seq < e._derniere_ecrite:
+                return
+            if upsert_run(row):
+                e._derniere_ecrite = seq
+                return
+        time.sleep(0.2 * (essai + 1))
+
+
+def _ecrire_sans_attendre(e: Execution, *, finale: bool = False) -> None:
+    """Ligne de ``e`` écrite hors de la boucle, sans l'attendre : ni latence
+    ajoutée au tour, ni annulation possible au milieu (relecture L5 : un Stop
+    pendant l'écriture initiale laissait le flux du chat ouvert)."""
+    with e._verrou_ecriture:
+        e._ecritures += 1
+        seq = e._ecritures
+    row = e.row()
+    essais = 3 if finale else 1
+    try:
+        fut = asyncio.get_running_loop().run_in_executor(
+            None, _ecrire_dans_l_ordre, e, seq, row, essais)
     except RuntimeError:                                        # hors boucle
-        upsert_run(row)
+        _ecrire_dans_l_ordre(e, seq, row, essais)
         return
     fut.add_done_callback(lambda f: f.cancelled() or f.exception())
 
@@ -315,8 +370,7 @@ async def run_scope(kind: str, *, run_id: str = "", user_id: Optional[int] = Non
     token = _COURANTE.set(e)
     sonde = None
     try:
-        with contextlib.suppress(Exception):
-            await asyncio.to_thread(upsert_run, e.row())    # ligne « running »
+        _ecrire_sans_attendre(e)                            # ligne « running »
         if sample_sandbox and uid and parent is None:
             sonde = asyncio.create_task(_echantillonner(e))
         yield e
@@ -334,8 +388,9 @@ async def run_scope(kind: str, *, run_id: str = "", user_id: Optional[int] = Non
             sonde.cancel()
         _COURANTE.reset(token)
         e.finish()
-        _ecrire_sans_attendre(e)
+        _ecrire_sans_attendre(e, finale=True)
 
 
-__all__ = ["ECHANTILLON_S", "KINDS", "Execution", "current_run", "current_run_id",
-           "get_run", "new_run_id", "purge_runs", "run_scope", "upsert_run"]
+__all__ = ["ECHANTILLON_S", "KINDS", "RUNNING_STALE_S", "Execution", "current_run",
+           "current_run_id", "get_run", "mark_lost_runs", "new_run_id", "purge_runs",
+           "run_scope", "upsert_run"]

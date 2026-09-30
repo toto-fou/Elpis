@@ -352,6 +352,17 @@ async def execute_tool_batch(
             # n'est PAS un échec d'outil (cf. is_tool_failure).
             _status = "error" if is_tool_failure(_r) else "ok"
             _etat = _call_status(p, _r, _status)
+            # Compté ICI, dans la boucle, et non dans le fil de télémétrie :
+            # attendu 0,25 s au plus, il pouvait arriver après l'écriture finale
+            # de l'exécution, qui montrait alors 0 appel (relecture L5).
+            try:
+                from llm_core._mcp_categories import categorize
+                from shared_infra.observability.runs import current_run
+                _run = current_run()
+                if _run is not None:
+                    _run.add_tool_call(categorize(p["tool_name"]), _etat)
+            except Exception:                                    # noqa: BLE001
+                pass
 
             def _write_telemetry() -> None:
                 """Les trois écritures BLOQUANTES de ce bloc, hors event loop.

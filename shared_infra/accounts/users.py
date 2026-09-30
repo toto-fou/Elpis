@@ -236,13 +236,14 @@ def delete_user_full(target_user_id: int) -> bool:
         # survivre au compte — un id SQLite peut être réattribué.
         from shared_infra.llm.engine_access import delete_principal_rows
         delete_principal_rows(conn, "user", target_user_id)
-        # Jeton de la page Code (``pcr_…``, 2026-09-20) : même raison — la
-        # table est créée à la demande par la page Code, absente = rien à purger.
-        # Point de sauvegarde : l'erreur « table absente » est avalée au milieu
-        # d'une transaction d'écriture (PostgreSQL l'avorterait sinon).
+        # Jetons personnels (opencode, outils, vision — EXT.1) : même raison.
+        # Point de sauvegarde : l'erreur « table absente » (base antérieure à
+        # la migration 0022) est avalée au milieu d'une transaction
+        # d'écriture (PostgreSQL l'avorterait sinon).
         try:
-            with savepoint(conn, "code_tokens"):
-                cur.execute("DELETE FROM code_remote_tokens WHERE user_id=?", (target_user_id,))
+            with savepoint(conn, "tool_tokens"):
+                from shared_infra.accounts.tokens import delete_for_user
+                delete_for_user(target_user_id, conn=cur)
         except sqlite3.OperationalError:
             pass
         cur.execute("DELETE FROM users WHERE id=?", (target_user_id,))

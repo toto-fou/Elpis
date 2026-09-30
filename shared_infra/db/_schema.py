@@ -415,12 +415,6 @@ TABLES: List[Table] = [
     ],
         pk=('user_id', 'session_id', 'id'),
     ),
-    Table('code_remote_tokens', [
-        Col('user_id', INT, primary=True),
-        Col('token', TEXT, null=False),
-        Col('created_at', REAL),
-    ],
-    ),
     Table('code_sessions', [
         Col('user_id', INT, null=False),
         Col('id', TEXT, null=False),
@@ -814,6 +808,29 @@ TABLES: List[Table] = [
             Index('idx_tcm_run', ('run_id', 'ts')),
         ],
     ),
+    # Jetons personnels des outils externes (2026-09-30, lot EXT.1) : plugin et
+    # outils opencode (``pcr_``), clients MCP/OpenAPI (``ept_``), vision d'une
+    # automatisation de bureau (``evt_``). Seule l'EMPREINTE SHA-256 est gardée :
+    # un jeton se montre une fois, à sa création, puis se régénère. Remplace
+    # ``code_remote_tokens`` (un jeton par compte, en clair). Cf.
+    # ``shared_infra/accounts/tokens.py``.
+    Table('tool_tokens', [
+        Col('id', ID),
+        Col('user_id', INT, null=False),
+        Col('kind', TEXT, null=False, key=16),
+        Col('name', TEXT, null=False, default=''),
+        Col('token_hash', TEXT, null=False, unique=True, key=64),
+        Col('hint', TEXT, null=False, default=''),
+        Col('families', TEXT, null=False, default=''),
+        Col('created_at', REAL, null=False),
+        Col('expires_at', REAL),
+        Col('last_used_at', REAL),
+    ],
+        fks=[FK(('user_id',), 'users', ('id',), on_delete='CASCADE')],
+        indexes=[
+            Index('idx_tool_tokens_user', ('user_id', 'kind')),
+        ],
+    ),
     Table('usage_events', [
         Col('id', ID),
         Col('ts', REAL, null=False),
@@ -900,6 +917,7 @@ BASELINE_COVERS: Tuple[str, ...] = (
     "0019_llm_connector_engine_limits",
     "0020_prompt_templates",
     "0021_runs",
+    "0022_tool_tokens",
 )
 
 

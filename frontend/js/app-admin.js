@@ -2470,6 +2470,15 @@ function setupAdmin(vue, sharedRefs, ctx) {
                         if (configForm.value.mcp.server_cmd === undefined) configForm.value.mcp.server_cmd = '';
                         if (configForm.value.mcp.servers_dir === undefined) configForm.value.mcp.servers_dir = '../mcp_custom_servers';
                         if (configForm.value.mcp.tools_cache_ttl_sec === undefined) configForm.value.mcp.tools_cache_ttl_sec = 0;
+                        // Jetons d'outils externes (EXT.1) — mêmes défauts que tokens.policy().
+                        if (!configForm.value.mcp.tokens) configForm.value.mcp.tokens = {};
+                        {
+                            const _t = configForm.value.mcp.tokens;
+                            if (_t.tools_enabled === undefined) _t.tools_enabled = true;
+                            if (_t.tools_families === undefined) _t.tools_families = 'fs,shell,git,desktop,skill_run';
+                            if (_t.max_days === undefined) _t.max_days = 90;
+                            if (_t.max_per_user === undefined) _t.max_per_user = 20;
+                        }
                         // RAG defaults — même raison.
                         if (!configForm.value.rag) configForm.value.rag = {};
                         if (configForm.value.rag.service_url === undefined) configForm.value.rag.service_url = '';

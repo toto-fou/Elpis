@@ -431,6 +431,7 @@ function setupSettings(vue, sharedRefs, ctx) {
         archives:   () => loadArchives(),
         sandbox:    () => loadSandboxState(),
         connectors: () => loadGitConnectors(),
+        connexions: () => _cnxMod.loadConnexions(),
         // Ces deux-là vivent hors du module Paramètres (cf. proxies d'app.js).
         agents:     () => ctx.loadMcpUserCategories && ctx.loadMcpUserCategories(),
         skills:     () => ctx.openSkillsTab && ctx.openSkillsTab(),
@@ -2265,6 +2266,12 @@ function setupSettings(vue, sharedRefs, ctx) {
     // ════════════ Connecteurs Git (credentials par-host, host-only) ══════════
     // Remplace le fichier .git-credentials.json de la sandbox. Le token est
     // write-only : l'API ne renvoie que ``has_token``, jamais le secret.
+    // ════════════ Connexions (jetons personnels, EXT.1) ═══════════════════════
+    // Module à part (settings/connexions.js) ; repli inerte s'il manque.
+    const _cnxMod = (typeof window !== 'undefined' && typeof window.setupConnexions === 'function')
+        ? window.setupConnexions(vue, ctx)
+        : { loadConnexions: async () => {} };
+
     const gitConnectors = ref([]);
     const gitConnTypes  = ref([]);
     const gitConnForm   = ref(null);     // null = aucun formulaire ouvert
@@ -3377,6 +3384,7 @@ function setupSettings(vue, sharedRefs, ctx) {
         llmConnForm, llmConnBusy, llmConnTest, llmPresetLabel,
         loadLlmConnectors, newLlmConnector, editLlmConnector, cancelLlmConnector,
         saveLlmConnector, deleteLlmConnector, testLlmConnector,
+        ..._cnxMod,
         gitConnectors, gitConnTypes, gitConnForm, gitConnBusy, gitConnTest, gitConnAdvanced,
         loadGitConnectors, newGitConnector, editGitConnector, cancelGitConnector,
         saveGitConnector, deleteGitConnector, testGitConnector, parseGitRepoUrl,

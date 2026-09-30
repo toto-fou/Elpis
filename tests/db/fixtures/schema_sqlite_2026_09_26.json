@@ -135,12 +135,6 @@
   ],
   [
    "table",
-   "code_remote_tokens",
-   "code_remote_tokens",
-   "CREATE TABLE code_remote_tokens (user_id INTEGER PRIMARY KEY, token TEXT NOT NULL, created_at REAL)"
-  ],
-  [
-   "table",
    "code_sessions",
    "code_sessions",
    "CREATE TABLE code_sessions (\n                user_id INTEGER NOT NULL, id TEXT NOT NULL,\n                info TEXT NOT NULL DEFAULT '{}', client_id TEXT NOT NULL DEFAULT '',\n                busy INTEGER NOT NULL DEFAULT 0, updated_at REAL NOT NULL DEFAULT 0,\n                last_model TEXT NOT NULL DEFAULT '', preview TEXT NOT NULL DEFAULT '',\n                PRIMARY KEY (user_id, id))"
@@ -510,6 +504,18 @@
    "idx_tcm_user",
    "tool_call_metrics",
    "CREATE INDEX idx_tcm_user ON tool_call_metrics(user_id, ts DESC)"
+  ],
+  [
+   "table",
+   "tool_tokens",
+   "tool_tokens",
+   "CREATE TABLE tool_tokens (\n            id            INTEGER PRIMARY KEY AUTOINCREMENT,\n            user_id       INTEGER NOT NULL,\n            kind          TEXT NOT NULL,\n            name          TEXT NOT NULL DEFAULT '',\n            token_hash    TEXT NOT NULL UNIQUE,\n            hint          TEXT NOT NULL DEFAULT '',\n            families      TEXT NOT NULL DEFAULT '',\n            created_at    REAL NOT NULL,\n            expires_at    REAL,\n            last_used_at  REAL,\n            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE\n        )"
+  ],
+  [
+   "index",
+   "idx_tool_tokens_user",
+   "tool_tokens",
+   "CREATE INDEX idx_tool_tokens_user ON tool_tokens(user_id, kind)"
   ],
   [
    "table",

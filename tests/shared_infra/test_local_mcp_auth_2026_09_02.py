@@ -259,8 +259,8 @@ def test_cache_des_jetons_elpis_remote(monkeypatch, srv):
     calls = []
     monkeypatch.setattr(srv, "remote_token_lookup", lambda tok: calls.append(tok) or "alice")
     srv._remote_token_cache.clear()
-    assert srv._remote_token_cached("pcr_x") == "alice"
-    assert srv._remote_token_cached("pcr_x") == "alice"
+    assert srv._remote_token_cached("pcr_x")["username"] == "alice"
+    assert srv._remote_token_cached("pcr_x")["username"] == "alice"
     assert calls == ["pcr_x"]                       # une seule lecture en base
 
 

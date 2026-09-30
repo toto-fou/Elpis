@@ -84,17 +84,17 @@ async def api_internal_introspect(request: Request):
     tok = str((body or {}).get("token") or "").strip()
     if not tok:
         raise HTTPException(400, "token requis")
-    from shared_infra.config import feature_enabled
-    from shared_infra.opencode.routes_code import _resolve_token
-    if not feature_enabled("opencode"):
-        return {"ok": False, "reason": "opencode désactivé"}
-    uid = _resolve_token(tok)
-    if uid is None:
+    # Jetons personnels acceptés par le service MCP : opencode (``pcr_``) et
+    # outils (``ept_``, EXT.1). ``resolve`` refuse un type désactivé par
+    # l'administrateur ; ``families`` = portée effective d'un jeton d'outils.
+    from shared_infra.accounts import tokens as _tokens
+    d = _tokens.resolve(tok, kinds=("opencode", "tools"))
+    if not d:
         return {"ok": False}
-    ident = _identity_dict(int(uid))
+    ident = _identity_dict(int(d["user_id"]))
     if not ident:
         return {"ok": False}
-    return {"ok": True, "kind": "opencode", **ident}
+    return {"ok": True, **ident, "kind": d["kind"], "families": list(d.get("families") or [])}
 
 
 @router.get("/api/internal/identity")

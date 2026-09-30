@@ -122,25 +122,16 @@ const elpisApp = createApp({
         const openCodePlatform  = ref('linux');
         // Clé du bloc dont la commande vient d'être copiée ('install' | 'sync'), sinon ''.
         const openCodeCopied    = ref('');
-        // Jeton elpis-remote du compte (GET /api/code/config), chargé à l'ouverture
-        // de la modale : la re-synchronisation de la config l'envoie en en-tête pour
-        // que le serveur y ajoute le bloc ``mcp`` des outils Elpis (2026-09-03).
-        // (passe 9, F1) Re-lu à CHAQUE ouverture (jeton révocable) et PURGÉ au
-        // logout : il restait sinon en mémoire réactive et le compte suivant
-        // dans le même onglet copiait la commande avec le jeton du précédent.
-        const openCodeRemoteToken = ref('');
+        // (EXT.1) Le jeton elpis-remote n'est plus réaffichable (empreinte seule
+        // côté serveur) : la re-synchronisation LIT celui du poste, dans
+        // ``~/.config/opencode/elpis-remote.json`` (posé par l'installeur ou
+        // l'appairage). Aucun jeton ne transite donc par la page.
         // Familles d'outils publiées à opencode (une entrée MCP — donc une
         // bascule — par famille). Liste SERVEUR (config + outils réellement
         // enregistrés) : le front n'en garde aucune copie figée.
         const openCodeFamilies = ref([]);
         watch(showOpenCodeModal, async (open) => {
             if (!open) return;
-            let tok = '';
-            try {
-                const r = await fetchAuth('/api/code/config', {}, true);
-                if (r && r.ok) tok = ((await r.json()).token || '');
-            } catch (_) { /* hors ligne / feature Code désactivée : commande anonyme */ }
-            openCodeRemoteToken.value = tok;
             try {
                 const r = await fetchAuth('/api/cli/opencode/families', {}, true);
                 openCodeFamilies.value = (r && r.ok) ? ((await r.json()).families || []) : [];
@@ -173,18 +164,17 @@ const elpisApp = createApp({
             return `curl -fsSL ${server}/opencode | bash`;
         });
         // Re-sync de la seule config (endpoint + modèles + outils Elpis), sans
-        // réinstaller. Avec le jeton du compte, l'appel part vers l'APP (l'en-tête
-        // ne doit pas voyager sur l'amorçage en clair) ; sans jeton, commande
-        // anonyme sur la base d'amorçage (config sans bloc ``mcp``).
+        // réinstaller. Le jeton est lu SUR LE POSTE (elpis-remote.json) et part
+        // vers l'APP (jamais sur l'amorçage en clair) ; poste non appairé →
+        // jeton vide → config sans bloc ``mcp``.
         const openCodeSyncCommand = computed(() => {
-            const tok = openCodeRemoteToken.value;
-            const base = tok ? window.location.origin : openCodeBootBase.value;
+            const base = window.location.origin;
             if (openCodePlatform.value === 'windows') {
-                const hdr = tok ? ` -Headers @{ 'x-elpis-token' = '${tok}' }` : '';
-                return `irm${hdr} ${base}/api/cli/opencode.json -OutFile "$env:USERPROFILE\\.config\\opencode\\opencode.json"`;
+                return `$t = (Get-Content "$env:USERPROFILE\\.config\\opencode\\elpis-remote.json" -Raw | ConvertFrom-Json).token; `
+                    + `irm -Headers @{ 'x-elpis-token' = "$t" } ${base}/api/cli/opencode.json -OutFile "$env:USERPROFILE\\.config\\opencode\\opencode.json"`;
             }
-            const hdr = tok ? ` -H "x-elpis-token: ${tok}"` : '';
-            return `curl -fsSL${hdr} ${base}/api/cli/opencode.json -o ~/.config/opencode/opencode.json`;
+            return `T="$(sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' ~/.config/opencode/elpis-remote.json | head -n1)"; `
+                + `curl -fsSL -H "x-elpis-token: $T" ${base}/api/cli/opencode.json -o ~/.config/opencode/opencode.json`;
         });
         let _openCodeCopyTimer = null;   // (passe 9, F12) une seule minuterie « Copié »
         async function copyOpenCodeCommand(kind) {
@@ -2886,8 +2876,7 @@ const elpisApp = createApp({
                 // On coupe le flux, on vide l'état, et on force la vue sur 'chat'
                 // (couvre aussi studio/admin, pour un point d'entrée neutre).
                 try { codeMenuMod.codeResetOnLogout && codeMenuMod.codeResetOnLogout(); } catch (_) {}
-                // (passe 9, F1) — jeton elpis-remote de la modale OpenCode.
-                openCodeRemoteToken.value = ''; showOpenCodeModal.value = false;
+                showOpenCodeModal.value = false;
                 try { currentView.value = 'chat'; } catch (_) {}
                 // (passe 5, F15) — libère la capture d'écran du Studio (blob
                 // de la machine cible) : elle survivait au logout.

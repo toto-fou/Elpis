@@ -396,6 +396,17 @@ def test_install_ps1_is_pure_ascii(cli_client):
 
 # ── Outils Elpis dans opencode : bloc ``mcp`` (2026-09-03) ───────────────────
 
+def _faux_resolve(valides):
+    """``tokens.resolve`` simulé : ``{jeton: (uid, type)}``."""
+    def _resolve(tok, kinds=("tools",), touch=True):
+        v = valides.get(tok)
+        if not v or v[1] not in tuple(kinds):
+            return None
+        return {"id": 1, "user_id": v[0], "username": f"u{v[0]}", "kind": v[1],
+                "name": "", "families": list(v[2]) if len(v) > 2 else [], "expires_at": None}
+    return _resolve
+
+
 def _service_partage(monkeypatch, cli, *, host="0.0.0.0", url="http://127.0.0.1:8765/mcp", token="svc"):
     import shared_infra.config as cfg
     # Familles réellement enregistrées : « inconnu » (aucun worker n'a connecté
@@ -411,8 +422,8 @@ def _service_partage(monkeypatch, cli, *, host="0.0.0.0", url="http://127.0.0.1:
     # l'autre. Le cas TLS a son test dédié
     # (test_opencode_json_url_suit_le_frontal_https), qui le rallume.
     monkeypatch.setattr(cfg, "https_enabled", lambda: False, raising=False)
-    import shared_infra.opencode.routes_code as code
-    monkeypatch.setattr(code, "_resolve_token", lambda t: 3 if t == "pcr_hugo" else None)
+    import shared_infra.accounts.tokens as _tokens
+    monkeypatch.setattr(_tokens, "resolve", _faux_resolve({"pcr_hugo": (3, "opencode")}))
 
 
 def test_opencode_json_une_entree_mcp_par_famille(cli_client, monkeypatch):

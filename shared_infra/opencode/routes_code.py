@@ -38,7 +38,6 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from shared_infra.config import feature_enabled
 from shared_infra.db import _connection as _dbc
 from shared_infra.db._connection import db_tx
-from shared_infra.db._dialect import is_missing_table
 from shared_infra.observability.events_bus import pipeline_events
 from shared_infra.observability.routes_events import _make_sse_response
 from shared_infra.opencode import store as _cstore
@@ -109,74 +108,49 @@ async def _body(request: Request) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Token store (DB) — un jeton par-user, réutilisé par le plugin
+#  Jetons opencode (``pcr_``) — magasin commun ``shared_infra.accounts.tokens``
 # ─────────────────────────────────────────────────────────────────────────────
-_schema_ready: set = set()   # (pid, base) dont les deux tables sont posées
+# (2026-09-30, EXT.1) Le jeton n'est plus gardé en clair ni réaffichable : il
+# se montre une fois (création, rotation, appairage) et seule son empreinte
+# reste. Un compte peut avoir un jeton par poste.
+_schema_ready: set = set()   # (pid, base) dont la table d'appairage est posée
 
 
 def _db():
-    """Transaction courte sur la base commune (``with _db() as c:``).
-
-    (2026-09-26) Ouvrait une connexion SQLite NEUVE à chaque appel — jamais
-    fermée, le ``with`` de sqlite3 ne fait que valider — et rejouait les deux
-    ``CREATE TABLE`` à chaque fois. Passe désormais par le pool commun ; les
-    deux tables viennent du schéma de référence.
-    """
+    """Transaction courte sur la base commune (``with _db() as c:``)."""
     key = (os.getpid(), str(_dbc.DB_PATH))
     if key not in _schema_ready:
         from shared_infra.db._schema import ensure_tables
         with db_tx() as c:
-            ensure_tables(c, ("code_remote_tokens", "code_pairings"))
+            ensure_tables(c, ("code_pairings",))
         _schema_ready.add(key)
     return db_tx()
 
 
-def _get_or_mint_token(uid: int) -> str:
-    with _db() as c:
-        row = c.execute("SELECT token FROM code_remote_tokens WHERE user_id=?", (uid,)).fetchone()
-        if row:
-            return row[0]
-        tok = "pcr_" + secrets.token_urlsafe(30)
-        c.execute("INSERT INTO code_remote_tokens(user_id,token,created_at) VALUES(?,?,?)",
-                  (uid, tok, time.time()))
-        c.commit()
-        return tok
-
-
-def _rotate_token(uid: int) -> str:
-    tok = "pcr_" + secrets.token_urlsafe(30)
-    with _db() as c:
-        c.execute("INSERT INTO code_remote_tokens(user_id,token,created_at) VALUES(?,?,?) "
-                  "ON CONFLICT(user_id) DO UPDATE SET token=excluded.token, created_at=excluded.created_at",
-                  (uid, tok, time.time()))
-        c.commit()
+def _mint_token(uid: int, name: str = "") -> str:
+    """Nouveau jeton opencode du compte, rendu en clair UNE fois."""
+    from shared_infra.accounts import tokens as _tokens
+    try:
+        tok, _row = _tokens.create(int(uid), "opencode", name or "opencode")
+    except _tokens.TokenError as e:
+        raise HTTPException(409, str(e))
     return tok
 
 
+def _rotate_token(uid: int, name: str = "") -> str:
+    """Révoque TOUS les jetons opencode du compte (tous les postes) et en
+    crée un."""
+    from shared_infra.accounts import tokens as _tokens
+    _tokens.revoke_kind(int(uid), "opencode")
+    return _mint_token(uid, name)
+
+
 def _resolve_token(tok: str) -> Optional[int]:
-    if not tok or not tok.startswith("pcr_"):
-        return None
-    try:
-        with _db() as c:
-            row = c.execute("SELECT user_id FROM code_remote_tokens WHERE token=?", (tok,)).fetchone()
-            if not row:
-                return None
-            uid = int(row[0])
-            # (2026-09-20) Le jeton ne survit pas au compte : ``delete_user_full``
-            # purge la table, et on revérifie ici que le compte existe encore —
-            # un id SQLite peut être réattribué à un compte créé APRÈS, qu'un
-            # vieux jeton aurait sinon authentifié. Même base que ``users``
-            # (``config.DB_PATH``) ; une base sans table ``users`` n'existe
-            # qu'en test isolé → on ne bloque pas dessus.
-            try:
-                if not c.execute("SELECT 1 FROM users WHERE id=?", (uid,)).fetchone():
-                    return None
-            except sqlite3.OperationalError as exc:
-                if not is_missing_table(exc):
-                    return None
-            return uid
-    except Exception:
-        return None
+    """Jeton opencode valide → id du compte (compte existant, fonction
+    opencode active), sinon ``None``."""
+    from shared_infra.accounts import tokens as _tokens
+    d = _tokens.resolve(tok, kinds=("opencode",))
+    return int(d["user_id"]) if d else None
 
 
 def _token_uid(request: Request) -> int:
@@ -259,16 +233,32 @@ def _health_reads(uid: int) -> tuple:
 
 @router.get("/api/code/config")
 def code_config(request: Request):
-    """Panneau « Connecter opencode » : URL app + token + URL du plugin."""
+    """Panneau « Connecter opencode » : URL app + URL du plugin. Le jeton n'est
+    plus rendu ici (EXT.1) : ``POST /api/code/token`` en crée un, montré une
+    fois ; ``tokens`` = nombre de jetons opencode actifs du compte."""
     _require_enabled()
     uid = require_user_id(request)
     base = _base_url(request)
-    return JSONResponse({"app_url": base, "token": _get_or_mint_token(int(uid)),
-                         "plugin_url": f"{base}/api/code/plugin.ts"})
+    from shared_infra.accounts import tokens as _tokens
+    n = sum(1 for t in _tokens.list_for(int(uid)) if t["kind"] == "opencode")
+    return JSONResponse({"app_url": base, "plugin_url": f"{base}/api/code/plugin.ts",
+                         "tokens": n})
+
+
+@router.post("/api/code/token")
+async def code_token_create(request: Request):
+    """Jeton opencode d'un poste (nom libre, « opencode » par défaut), montré
+    une seule fois. Utilisé par la page Code et par les installeurs."""
+    _require_enabled()
+    uid = int(require_user_id(request))
+    body = await _body(request)
+    tok = await asyncio.to_thread(_mint_token, uid, str(body.get("name") or ""))
+    return JSONResponse({"token": tok})
 
 
 @router.post("/api/code/token/rotate")
 def code_token_rotate(request: Request):
+    """Révoque tous les jetons opencode du compte et en crée un."""
     _require_enabled()
     uid = require_user_id(request)
     return JSONResponse({"token": _rotate_token(int(uid))})
@@ -365,20 +355,30 @@ async def code_pair_poll(request: Request):
 
     def _tx():        # SQLite synchrone : en thread (2026-09-20)
         with _db() as c:
-            row = c.execute("SELECT expires_at, token FROM code_pairings WHERE id=?", (pid,)).fetchone()
+            row = c.execute("SELECT expires_at, confirmed_uid FROM code_pairings WHERE id=?",
+                            (pid,)).fetchone()
             if not row:
                 raise HTTPException(404, "Demande d'appairage inconnue.")
-            expires_at, token = float(row[0] or 0), row[1]
-            if now > expires_at or token:
-                # usage unique : détruite dès livraison (le jeton ne repassera jamais)
-                c.execute("DELETE FROM code_pairings WHERE id=?", (pid,))
+            expires_at, uid = float(row[0] or 0), row[1]
+            if now > expires_at or uid:
+                # Usage unique : la demande est détruite AVANT de créer le jeton,
+                # et seul le poll qui l'a effectivement détruite le reçoit (deux
+                # polls simultanés n'en obtiennent pas deux).
+                cur = c.execute("DELETE FROM code_pairings WHERE id=?", (pid,))
                 c.commit()
-            if now > expires_at:
-                return {"status": "expired"}
-            if token:
-                return {"status": "ok", "token": token}
+                if now > expires_at:
+                    return {"status": "expired"}
+                if cur.rowcount:
+                    return {"status": "ok", "uid": int(uid)}
+                raise HTTPException(404, "Demande d'appairage inconnue.")
         return {"status": "pending"}
-    return JSONResponse(await asyncio.to_thread(_tx))
+    out = await asyncio.to_thread(_tx)
+    if out.get("status") == "ok":
+        # (EXT.1) Le jeton est créé ICI, à la livraison, et n'est jamais stocké
+        # en clair (avant : posé dans ``code_pairings.token`` jusqu'au poll).
+        tok = await asyncio.to_thread(_mint_token, out.pop("uid"), "opencode (appairage)")
+        out["token"] = tok
+    return JSONResponse(out)
 
 
 @router.post("/api/code/pair/confirm")
@@ -402,21 +402,20 @@ async def code_pair_confirm(request: Request):
         n, since = 0, now
     if n >= _PAIR_CONFIRM_MAX:
         raise HTTPException(429, "Trop d'essais de code — réessayez dans quelques minutes.")
-    tok = await asyncio.to_thread(_get_or_mint_token, uid)   # réutilise le jeton : n'invalide pas les autres CLI
 
     def _tx():        # SQLite synchrone : en thread (2026-09-20)
         matched = ""
         with _db() as c:
             c.execute("DELETE FROM code_pairings WHERE expires_at<?", (now,))
-            rows = c.execute("SELECT id, code FROM code_pairings WHERE token IS NULL "
+            rows = c.execute("SELECT id, code FROM code_pairings WHERE confirmed_uid IS NULL "
                              "ORDER BY created_at").fetchall()
             for pid, pcode in rows:
                 # parcours complet sans break : comparaison en durée ~constante
                 if secrets.compare_digest(pcode, code) and not matched:
                     matched = pid
             if matched:
-                c.execute("UPDATE code_pairings SET confirmed_uid=?, token=? WHERE id=?",
-                          (uid, tok, matched))
+                # Seul le compte est posé : le jeton naîtra au poll (EXT.1).
+                c.execute("UPDATE code_pairings SET confirmed_uid=? WHERE id=?", (uid, matched))
             c.commit()
         return matched
     matched = await asyncio.to_thread(_tx)

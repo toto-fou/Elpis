@@ -748,10 +748,10 @@ else:
 
 LOCAL_MCP_TOOL_FAMILIES = _as_str(os.environ.get("LOCAL_MCP_TOOL_FAMILIES"), _as_str(_deep_get(_RAW, "mcp.local_tool_families", "all"), "all")).strip() or "all"
 # ── Clients opencode (2026-09-03) ────────────────────────────────────────────
-# Le jeton elpis-remote de chaque compte (``pcr_…``, table ``code_remote_tokens``,
-# celui du plugin /remote) est AUSSI accepté en Bearer par le service MCP : un
-# seul identifiant par utilisateur pour opencode, injecté dans l'``opencode.json``
-# généré (``GET /api/cli/opencode.json`` authentifié). Pour ces clients :
+# Les jetons opencode de chaque compte (``pcr_…``, table ``tool_tokens`` —
+# empreinte seule depuis EXT.1 —, ceux du plugin /remote) sont AUSSI acceptés en
+# Bearer par le service MCP, injectés dans l'``opencode.json`` généré
+# (``GET /api/cli/opencode.json`` avec le jeton du poste). Pour ces clients :
 #   LOCAL_MCP_OPENCODE_FAMILIES : familles exposées, chacune comme un SERVEUR
 #                             MCP distinct (``…/mcp/<famille>``) donc une
 #                             bascule séparée dans opencode. Défaut
@@ -2134,6 +2134,7 @@ HOT_RELOAD_PREFIXES = (
     "vision.", "desktop.",                              # reload_desktop_config_from_disk
     "llm.compression.", "llm.compaction.", "llm.prune.",  # reload_compression_config_from_disk
     "memory.",                                          # reload_memory_config_from_disk
+    "mcp.tokens.",                                      # tokens.policy() (live_config_value)
 )
 HOT_RELOAD_PATHS = frozenset({
     "llm.scheduling_mode", "app.max_recent_chats",      # live_config_value

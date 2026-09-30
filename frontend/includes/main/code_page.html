@@ -800,13 +800,18 @@
                             <i :class="codePairBusy ? 'ph ph-circle-notch animate-spin' : 'ph ph-check'"></i> Appairer
                         </button>
                     </form>
-                    <p class="mt-2.5 text-[11px] text-slate-400">Ou collez directement votre jeton dans opencode&nbsp;:</p>
-                    <div class="relative mt-1 bg-slate-900 rounded-lg p-2.5 pr-10 font-mono text-[11px] text-green-300 overflow-x-auto">
-                        <code class="whitespace-pre">{{ codeRemoteCmd }}</code>
-                        <button @click="codeCopy(codeRemoteCmd)" title="Copier" class="absolute top-1.5 right-1.5 w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center"><i class="ph ph-copy text-xs"></i></button>
-                    </div>
+                    <template v-if="codeConfig.token">
+                        <p class="mt-2.5 text-[11px] text-amber-600">Collez cette commande dans opencode ; le jeton ne sera plus affiché&nbsp;:</p>
+                        <div class="relative mt-1 bg-slate-900 rounded-lg p-2.5 pr-10 font-mono text-[11px] text-green-300 overflow-x-auto">
+                            <code class="whitespace-pre">{{ codeRemoteCmd }}</code>
+                            <button @click="codeCopy(codeRemoteCmd)" title="Copier" class="absolute top-1.5 right-1.5 w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center"><i class="ph ph-copy text-xs"></i></button>
+                        </div>
+                    </template>
+                    <button v-else @click="codeCreateToken" class="mt-2.5 text-[11px] text-slate-500 hover:text-blue-600 flex items-center gap-1 transition-colors">
+                        <i class="ph ph-key"></i> Ou créer un jeton pour ce poste (/remote &lt;jeton&gt;)
+                    </button>
                     <button @click="codeRotateToken" class="mt-1 text-[11px] text-slate-400 hover:text-red-500 flex items-center gap-1 transition-colors">
-                        <i class="ph ph-arrows-clockwise"></i> Régénérer le jeton (invalide l'ancien)
+                        <i class="ph ph-arrows-clockwise"></i> Révoquer tous les jetons opencode et en créer un
                     </button>
                 </div>
 

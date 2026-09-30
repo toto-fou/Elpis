@@ -527,7 +527,9 @@ function setupCodeMenu(vue, sharedRefs, ctx) {
     }
     async function loadConfig() {
         const d = await fetchJsonAuth('/api/code/config', {}, { soft: true });
-        if (d) codeConfig.value = d;
+        // Le serveur ne rend plus de jeton (EXT.1) : celui qui vient d'être
+        // créé dans cette page reste affiché jusqu'à ce qu'on la quitte.
+        if (d) codeConfig.value = { ...d, token: codeConfig.value.token || '' };
     }
     // (passe d'optimisation 2026-09-26) — opencode émet ``session.updated``
     // plusieurs fois par tour (horodatage, titre, résumé) : un GET complet +
@@ -926,11 +928,22 @@ function setupCodeMenu(vue, sharedRefs, ctx) {
         const r = await fetchJsonAuth(`/api/code/sessions/${sid}/abort`, { method: 'POST' });
         if (r && r.ok) showToast('Interruption demandée.', 'info');
     }
+    // (EXT.1) Le jeton n'est plus réaffichable : « Créer un jeton » en crée un
+    // pour CE poste, montré une seule fois (effacé à la fermeture de la page).
+    async function createToken() {
+        const d = await fetchJsonAuth('/api/code/token', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'opencode' }) });
+        if (d && d.token) {
+            codeConfig.value = { ...codeConfig.value, token: d.token };
+            showToast('Jeton créé : copiez-le maintenant, il ne sera plus affiché.', 'success');
+        }
+    }
     async function rotateToken() {
         const d = await fetchJsonAuth('/api/code/token/rotate', { method: 'POST' });
         if (d && d.token) {
             codeConfig.value = { ...codeConfig.value, token: d.token };
-            showToast('Nouveau jeton généré — ré-appairez vos postes avec /remote login.', 'success');
+            showToast('Tous les jetons opencode sont révoqués ; ré-appairez vos postes (/remote login ou ce nouveau jeton).', 'success');
         }
     }
 
@@ -1295,7 +1308,7 @@ function setupCodeMenu(vue, sharedRefs, ctx) {
         codeTranscriptScroll: onTranscriptScroll,
         codePromptKeydown: promptKeydown, codePromptInput: promptInput,
         codeSelectSlash: selectSlash, codeSetSlashIdx: (i) => { codeSlashIdx.value = i; },
-        codeRotateToken: rotateToken, codeCopy: copyText,
+        codeRotateToken: rotateToken, codeCreateToken: createToken, codeCopy: copyText,
         codeActiveClient, codeNewSession: sendNewSession, codeExit: sendExit,
         codePairCode, codePairBusy, codeSubmitPairCode: submitPairCode,
         codeDisconnectStream: disconnectStream,

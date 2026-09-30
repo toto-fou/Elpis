@@ -25,9 +25,11 @@ rester lié au loopback (sa position la plus sûre).
 
 SÉCURITÉ — ce relais n'élargit AUCUN droit :
 
-  • il exige un jeton elpis-remote (``pcr_…``) VALIDE, et le retransmet TEL QUEL.
-    C'est donc le service MCP qui continue de décider ce que ce client voit
-    (``client_kind=opencode`` → familles ``fs``/``shell`` cachées, cf.
+  • il exige un jeton personnel VALIDE — opencode (``pcr_…``) ou outils
+    (``ept_…``, EXT.1) — et le retransmet TEL QUEL (jusqu'à EXT.2). C'est donc
+    le service MCP qui continue de décider ce que ce client voit
+    (``client_kind=opencode`` → familles ``fs``/``shell`` cachées ;
+    ``client_kind=tools`` → familles cochées sur le jeton, cf.
     ``server/local_mcp_server.py``). Le jeton de SERVICE de l'app n'est jamais
     injecté ici : un client ne peut pas gagner les droits de l'app en passant
     par le relais ;
@@ -104,8 +106,8 @@ def _upstream_base() -> Optional[str]:
 
 
 def _caller_token(request: Request) -> str:
-    """Jeton elpis-remote de l'appelant, ou "" — ``Authorization: Bearer pcr_…``
-    (ce qu'envoie opencode) ou ``x-elpis-token`` (ce qu'envoie le plugin)."""
+    """Jeton personnel de l'appelant, ou "" — ``Authorization: Bearer …``
+    (clients MCP, opencode) ou ``x-elpis-token`` (ce qu'envoie le plugin)."""
     auth = (request.headers.get("authorization") or "").strip()
     if auth.lower().startswith("bearer "):
         return auth[7:].strip()
@@ -130,6 +132,12 @@ async def mcp_proxy_family(request: Request, family: str):
     return await _relay_to_mcp(request, family)
 
 
+def _resolve_token(token: str):
+    """Jeton opencode ou d'outils valide → dict du jeton, sinon ``None``."""
+    from shared_infra.accounts import tokens as _tokens
+    return _tokens.resolve(token, kinds=("opencode", "tools"))
+
+
 # Période de revérification du jeton sur les flux GET longs (cf. _relay).
 _TOKEN_RECHECK_S = 60.0
 
@@ -147,15 +155,11 @@ async def _relay_to_mcp(request: Request, family: str):
         # 401 + WWW-Authenticate : c'est ce que la découverte MCP attend quand
         # un client se présente sans jeton (il sait alors qu'il doit en fournir
         # un, au lieu de conclure que l'URL est morte).
-        raise HTTPException(401, "Jeton elpis-remote requis.",
+        raise HTTPException(401, "Jeton requis (Paramètres › Connexions).",
                             headers={"WWW-Authenticate": "Bearer"})
-    try:
-        from shared_infra.opencode.routes_code import _resolve_token
-    except Exception:
-        raise HTTPException(503, "Vérification du jeton indisponible.")
-    # Lecture SQLite : hors de la boucle d'événements.
+    # Lecture de la base : hors de la boucle d'événements.
     if await asyncio.to_thread(_resolve_token, token) is None:
-        raise HTTPException(401, "Jeton elpis-remote invalide ou révoqué.",
+        raise HTTPException(401, "Jeton invalide, expiré ou révoqué.",
                             headers={"WWW-Authenticate": "Bearer"})
 
     # Famille : segment d'URL contrôlé (le service refuse déjà l'inconnue par un

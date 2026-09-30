@@ -47,6 +47,15 @@ def _client(monkeypatch, tmp_path, enabled=True, uid=1):
     monkeypatch.setattr(code, "feature_enabled", lambda name, default=True: enabled)
     monkeypatch.setattr(code, "_base_url", lambda r: "http://lan.test:8000")
     monkeypatch.setattr(code, "pipeline_events", _BusRecorder())
+    # Jetons en empreinte (EXT.1) : ``tokens.resolve`` exige un compte
+    # existant et la fonction opencode active.
+    import shared_infra.accounts.tokens as _tokens
+    monkeypatch.setattr(_tokens, "_opencode_enabled", lambda: enabled)
+    _connection.init_db()
+    from shared_infra.accounts.users import create_user, get_user_by_id
+    for n in range(1, max(3, int(uid)) + 1):
+        if not get_user_by_id(n):
+            create_user(f"user{n}", "pw")
     app = FastAPI()
     app.include_router(code.router)
     return TestClient(app), code
@@ -59,22 +68,29 @@ def test_gate_404_when_disabled(monkeypatch, tmp_path):
     assert client.get("/api/code/config").status_code == 404
 
 
-def test_config_mints_token(monkeypatch, tmp_path):
+def test_config_sans_jeton_et_jeton_montre_une_fois(monkeypatch, tmp_path):
+    # EXT.1 : la config ne rend plus de jeton ; POST /api/code/token en crée un
+    # (montré une fois), le suivant est DIFFÉRENT (un jeton par poste).
     client, _code = _client(monkeypatch, tmp_path)
     d = client.get("/api/code/config").json()
-    assert d["token"].startswith("pcr_")
+    assert "token" not in d and d["tokens"] == 0
     assert d["app_url"] == "http://lan.test:8000"
     assert d["plugin_url"].endswith("/api/code/plugin.ts")
-    # stable : 2e appel = même token
-    assert client.get("/api/code/config").json()["token"] == d["token"]
+    t1 = client.post("/api/code/token", json={"name": "poste A"}).json()["token"]
+    t2 = client.post("/api/code/token").json()["token"]
+    assert t1.startswith("pcr_") and t2.startswith("pcr_") and t1 != t2
+    assert client.get("/api/code/config").json()["tokens"] == 2
+    assert _code._resolve_token(t1) == 1 and _code._resolve_token(t2) == 1
 
 
 def test_token_rotate_changes(monkeypatch, tmp_path):
-    client, _code = _client(monkeypatch, tmp_path)
-    t1 = client.get("/api/code/config").json()["token"]
+    client, code = _client(monkeypatch, tmp_path)
+    t1 = client.post("/api/code/token").json()["token"]
     t2 = client.post("/api/code/token/rotate").json()["token"]
     assert t2.startswith("pcr_") and t2 != t1
-    assert client.get("/api/code/config").json()["token"] == t2
+    # rotation = TOUS les jetons opencode du compte révoqués, un nouveau créé
+    assert code._resolve_token(t1) is None and code._resolve_token(t2) == 1
+    assert client.get("/api/code/config").json()["tokens"] == 1
 
 
 def test_plugin_ts_served(monkeypatch, tmp_path):
@@ -141,7 +157,7 @@ def test_ingest_requires_valid_token(monkeypatch, tmp_path):
 
 def test_ingest_populates_store_and_lists(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     # session.created (shape réelle du plugin : properties.info = la session)
     client.post("/api/code/ingest", headers=H, json={"type": "session.created",
@@ -162,7 +178,7 @@ def test_ingest_populates_store_and_lists(monkeypatch, tmp_path):
 
 def test_ingest_unknown_type_skipped(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     r = client.post("/api/code/ingest", headers={"x-elpis-token": tok},
                     json={"type": "plugin.added", "properties": {"id": "x"}})
     assert r.status_code == 200 and r.json().get("applied") == 0
@@ -171,7 +187,7 @@ def test_ingest_unknown_type_skipped(monkeypatch, tmp_path):
 
 def test_dismiss_session(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok}, json={"type": "session.created",
         "properties": {"info": {"id": "s9", "title": "X"}}})
     assert len(client.get("/api/code/sessions").json()) == 1
@@ -182,7 +198,7 @@ def test_dismiss_session(monkeypatch, tmp_path):
 def test_health_connected_after_ingest(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
     assert client.get("/api/code/health").json()["connected"] is False
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok},
                 json={"type": "session.created", "properties": {"info": {"id": "s1"}}})
     h = client.get("/api/code/health").json()
@@ -192,7 +208,7 @@ def test_health_connected_after_ingest(monkeypatch, tmp_path):
 def test_ingest_token_scopes_to_user(monkeypatch, tmp_path):
     # le token de l'user A ne remplit QUE le store de A
     clientA, code = _client(monkeypatch, tmp_path, uid=1)
-    tokA = clientA.get("/api/code/config").json()["token"]
+    tokA = clientA.post("/api/code/token").json()["token"]
     clientA.post("/api/code/ingest", headers={"x-elpis-token": tokA},
                  json={"type": "session.created", "properties": {"info": {"id": "sa"}}})
     # user B (même app, require_user_id=2) ne voit pas la session de A
@@ -202,7 +218,7 @@ def test_ingest_token_scopes_to_user(monkeypatch, tmp_path):
 
 def test_hello_validates_token(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     assert client.get("/api/code/hello").status_code == 401
     assert client.get("/api/code/hello", headers={"x-elpis-token": "pcr_nope"}).status_code == 401
     d = client.get("/api/code/hello", headers={"x-elpis-token": tok}).json()
@@ -211,7 +227,7 @@ def test_hello_validates_token(monkeypatch, tmp_path):
 
 def test_ingest_batch_applies_in_order(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     r = client.post("/api/code/ingest", headers={"x-elpis-token": tok}, json={
         "client": "c1", "directory": "/proj",
         "events": [
@@ -229,7 +245,7 @@ def test_ingest_batch_applies_in_order(monkeypatch, tmp_path):
 
 def test_snapshot_replaces_history(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     # état préalable partiel (un message orphelin qui sera écrasé)
     client.post("/api/code/ingest", headers=H, json={"type": "message.updated",
@@ -255,7 +271,7 @@ def test_messages_sort_with_real_part_time_shape(monkeypatch, tmp_path):
     # régression : chez opencode, part.time est un DICT {start,end} — le tri
     # plantait en 500 (comparaison dict < int)
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"events": [
         {"type": "message.updated", "properties": {"info": {"id": "m1", "role": "assistant", "sessionID": "s1", "time": {"created": 1}}}},
@@ -278,7 +294,7 @@ def test_prompt_requires_connected_client(monkeypatch, tmp_path):
 
 def test_prompt_queued_then_pulled(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     # la CLI c1 se signale (ingest) et possède s1
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
@@ -300,7 +316,7 @@ def test_commands_pushed_and_listed(monkeypatch, tmp_path):
     # le plugin pousse la liste des slash commands (client.commands) → autocomplétion «/»
     client, _code = _client(monkeypatch, tmp_path)
     assert client.get("/api/code/commands").json() == []
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok}, json={"client": "c1", "events": [
         {"type": "client.commands", "properties": {"commands": [
             {"name": "review", "description": "review changes"},
@@ -313,7 +329,7 @@ def test_commands_pushed_and_listed(monkeypatch, tmp_path):
 
 def test_slash_command_queued_and_pulled(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
@@ -329,7 +345,7 @@ def test_slash_command_queued_and_pulled(monkeypatch, tmp_path):
 
 def test_pull_routes_by_session_owner(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     # deux CLIs actives : c1 possède s1, c2 possède s2
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
@@ -357,7 +373,7 @@ def test_cross_worker_ingest_then_read(monkeypatch, tmp_path):
     # le plugin pousse sur le worker A, la page lit depuis le worker B
     clientA, code = _client(monkeypatch, tmp_path)
     clientB = _second_worker(code)
-    tok = clientA.get("/api/code/config").json()["token"]
+    tok = clientA.post("/api/code/token").json()["token"]
     clientA.post("/api/code/ingest", headers={"x-elpis-token": tok}, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1", "title": "X"}}},
         {"type": "message.updated", "properties": {"info": {"id": "m1", "role": "user", "sessionID": "s1"}}},
@@ -372,7 +388,7 @@ def test_cross_worker_prompt_then_pull(monkeypatch, tmp_path):
     # la page poste le prompt sur B, la CLI long-polle sur A
     clientA, code = _client(monkeypatch, tmp_path)
     clientB = _second_worker(code)
-    tok = clientA.get("/api/code/config").json()["token"]
+    tok = clientA.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     clientA.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
@@ -383,7 +399,7 @@ def test_cross_worker_prompt_then_pull(monkeypatch, tmp_path):
 
 def test_claim_is_consumed_once(monkeypatch, tmp_path):
     client, code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
@@ -396,7 +412,7 @@ def test_claim_is_consumed_once(monkeypatch, tmp_path):
 
 def test_busy_lifecycle(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     # assistant en cours (pas de time.completed) → busy
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
@@ -417,7 +433,7 @@ def test_busy_lifecycle(monkeypatch, tmp_path):
 def test_epoch_persisted_and_stable(monkeypatch, tmp_path):
     clientA, code = _client(monkeypatch, tmp_path)
     clientB = _second_worker(code)
-    tok = clientA.get("/api/code/config").json()["token"]
+    tok = clientA.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     e1 = clientA.get("/api/code/pull?client=c1&wait=0", headers=H).json()["epoch"]
     e2 = clientB.get("/api/code/pull?client=c1&wait=0", headers=H).json()["epoch"]
@@ -431,7 +447,7 @@ def test_epoch_persisted_and_stable(monkeypatch, tmp_path):
 
 def test_prune_drops_stale_sessions(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok}, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
     import shared_infra.opencode.store as cstore
@@ -492,7 +508,7 @@ def test_plugin_fields_served(monkeypatch, tmp_path):
 
 def test_rich_commands_roundtrip_and_legacy(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     # plugin v2 : champs riches → resservis à la page
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
@@ -511,7 +527,7 @@ def test_health_reports_plugin_version(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
     h = client.get("/api/code/health").json()
     assert h["plugin_current"] >= 2 and h["plugin_version"] == 0   # aucun client
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     # v2 déclaré à l'ingest ; un client legacy (sans champ plugin) compte pour v1
     client.post("/api/code/ingest", headers=H, json={"client": "c2", "plugin": 2, "events": []})
@@ -544,7 +560,7 @@ def test_empty_session_is_published(monkeypatch, tmp_path):
     il fallait envoyer un message pour voir la conversation.
     """
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.snapshot", "properties": {
@@ -563,7 +579,7 @@ def test_only_one_empty_session_per_cli(monkeypatch, tmp_path):
     rétention. Une session vide n'a aucun contenu à perdre.
     """
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     for sid in ("s1", "s2", "s3"):
         client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
@@ -576,7 +592,7 @@ def test_empty_pruning_spares_sessions_with_content(monkeypatch, tmp_path):
     # Ce qui a du contenu (message OU trace de commande) n'est JAMAIS balayé,
     # et une session vide d'une AUTRE CLI non plus.
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.snapshot", "properties": {
@@ -606,7 +622,7 @@ def test_health_reports_undeliverable_commands(monkeypatch, tmp_path):
     import time as _t
     client, code = _client(monkeypatch, tmp_path)
     store = code._cstore
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1", "title": "T"}}}]})
@@ -632,7 +648,7 @@ def test_sweep_spares_commands_a_live_cli_can_still_take(monkeypatch, tmp_path):
     import time as _t
     client, code = _client(monkeypatch, tmp_path)
     store = code._cstore
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
@@ -653,7 +669,7 @@ def test_agents_pushed_and_listed(monkeypatch, tmp_path):
     """
     client, _code = _client(monkeypatch, tmp_path)
     assert client.get("/api/code/agents").json() == {"agents": [], "default": ""}
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok}, json={"client": "c1", "events": [
         {"type": "client.agents", "properties": {
             "agents": [{"name": "build", "description": "edite"},
@@ -670,7 +686,7 @@ def test_agents_default_falls_back_to_a_real_agent(monkeypatch, tmp_path):
     # défaut incohérent (agent absent de la liste) → on retombe sur `build`,
     # jamais sur un nom que la CLI refuserait.
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok}, json={"client": "c1", "events": [
         {"type": "client.agents", "properties": {
             "agents": [{"name": "plan"}, {"name": "build"}], "default": "fantome"}}]})
@@ -679,7 +695,7 @@ def test_agents_default_falls_back_to_a_real_agent(monkeypatch, tmp_path):
 
 def test_prompt_carries_agent_and_rejects_unknown(monkeypatch, tmp_path):
     client, code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "client.agents", "properties": {
@@ -699,7 +715,7 @@ def test_prompt_without_agent_stays_untouched(monkeypatch, tmp_path):
     # Aucun choix explicite dans la page ⇒ AUCUN champ `agent` : le mode courant
     # du TUI (touche tab) ne doit pas être écrasé par la page.
     client, code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": []})
     assert client.post("/api/code/sessions/s1/prompt", json={"text": "salut"}).status_code == 200
@@ -711,7 +727,7 @@ def test_models_pushed_and_listed(monkeypatch, tmp_path):
     # le plugin v3+ pousse les modèles (client.models) → sélecteur /model de la page
     client, _code = _client(monkeypatch, tmp_path)
     assert client.get("/api/code/models").json() == {"providers": [], "default": {}}
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok}, json={"client": "c1", "events": [
         {"type": "client.models", "properties": {
             "providers": [
@@ -734,7 +750,7 @@ def test_models_pushed_and_listed(monkeypatch, tmp_path):
 def test_action_queued_and_pulled(monkeypatch, tmp_path):
     # actions natives (undo/compact/share/…) → kind "action" tiré par le plugin
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
@@ -750,7 +766,7 @@ def test_action_queued_and_pulled(monkeypatch, tmp_path):
 def test_prompt_model_passthrough(monkeypatch, tmp_path):
     # le sélecteur /model de la page force le modèle du prompt distant
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
@@ -765,7 +781,7 @@ def test_prompt_model_passthrough(monkeypatch, tmp_path):
 
 def test_sessions_expose_connected_flag(monkeypatch, tmp_path):
     client, code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1", "time": {"updated": 2}}}}]})
@@ -790,7 +806,7 @@ def test_sessions_expose_connected_flag(monkeypatch, tmp_path):
 def test_models_limits_roundtrip(monkeypatch, tmp_path):
     # plugin v5 : limit.context/output conservés → jauge ctx de la page
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok}, json={"client": "c1", "events": [
         {"type": "client.models", "properties": {"providers": [
             {"id": "elpis", "models": [
@@ -807,7 +823,7 @@ def test_models_limits_roundtrip(monkeypatch, tmp_path):
 
 def test_bye_marks_client_dead_immediately(monkeypatch, tmp_path):
     client, code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
@@ -825,7 +841,7 @@ def test_bye_marks_client_dead_immediately(monkeypatch, tmp_path):
 def test_bye_tombstone_survives_late_pull(monkeypatch, tmp_path):
     # un long-poll /pull encore en vol après le bye ne ressuscite pas le client
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
@@ -839,7 +855,7 @@ def test_bye_then_reingest_revives_client(monkeypatch, tmp_path):
     # /remote off → on (même process) : un INGEST lève le tombstone (revive),
     # contrairement au /pull tardif qui ne doit jamais ressusciter
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
@@ -858,7 +874,7 @@ def test_bye_requires_token(monkeypatch, tmp_path):
 
 def test_rename_queued_and_pulled(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "plugin": 5, "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
@@ -872,7 +888,7 @@ def test_rename_queued_and_pulled(monkeypatch, tmp_path):
 def test_rename_rejects_plugin_v4(monkeypatch, tmp_path):
     # un plugin v4 ignorerait silencieusement le kind rename → 409 explicite
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok},
                 json={"client": "c1", "plugin": 4, "events": [
                     {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
@@ -884,7 +900,7 @@ def test_rename_validates_title(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
     # aucune CLI connectée → 409
     assert client.post("/api/code/sessions/s1/rename", json={"title": "X"}).status_code == 409
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok},
                 json={"client": "c1", "plugin": 5, "events": []})
     assert client.post("/api/code/sessions/s1/rename", json={"title": "  "}).status_code == 422
@@ -893,7 +909,7 @@ def test_rename_validates_title(monkeypatch, tmp_path):
 
 def test_permission_updated_stored_and_listed(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     assert client.get("/api/code/sessions/s1/permissions").json() == []
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
@@ -910,7 +926,7 @@ def test_permission_updated_stored_and_listed(monkeypatch, tmp_path):
 
 def test_permission_reply_queued_then_replied_clears(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}},
@@ -936,7 +952,7 @@ def test_permission_asked_v2_shape_normalized(monkeypatch, tmp_path):
     # metadata, tool} sans title/time → normalisée (type/pattern/title) au store
     # et rediffusée en "permission.updated" normalisé sur le SSE
     client, code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}},
@@ -965,7 +981,7 @@ def test_permission_asked_v2_shape_normalized(monkeypatch, tmp_path):
 
 def test_permission_reply_validates_response(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok},
                 json={"client": "c1", "events": []})
     assert client.post("/api/code/sessions/s1/permissions/p1",
@@ -976,7 +992,7 @@ def test_permission_reply_validates_response(monkeypatch, tmp_path):
 def test_command_note_persisted_and_merged(monkeypatch, tmp_path):
     # trace « /commande » dans le transcript — et elle survit à un re-snapshot
     client, code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.snapshot", "properties": {
@@ -1001,7 +1017,7 @@ def test_command_note_persisted_and_merged(monkeypatch, tmp_path):
 
 def test_action_note_persisted(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok}, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}]})
     client.post("/api/code/sessions/s1/action", json={"action": "undo"})
@@ -1011,7 +1027,7 @@ def test_action_note_persisted(monkeypatch, tmp_path):
 
 def test_dismiss_clears_notes_and_permissions(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}},
@@ -1029,7 +1045,7 @@ def test_dismiss_clears_notes_and_permissions(monkeypatch, tmp_path):
 def test_sessions_meta_aggregates(monkeypatch, tmp_path):
     # cartes de la landing : msg_count + last_model + preview + client
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1", "time": {"updated": 2}}}},
@@ -1056,7 +1072,7 @@ def test_sessions_meta_aggregates(monkeypatch, tmp_path):
 
 def test_ingest_fans_out_on_bus(monkeypatch, tmp_path):
     client, code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     client.post("/api/code/ingest", headers={"x-elpis-token": tok}, json={"client": "c1", "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}},
         {"type": "session.snapshot", "properties": {
@@ -1134,7 +1150,7 @@ _Q_ASKED = {"type": "question.asked", "properties": {
 
 def _q_client(monkeypatch, tmp_path, plugin=14):
     client, code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "plugin": plugin, "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}}, _Q_ASKED]})
@@ -1232,7 +1248,7 @@ def test_question_reply_requires_plugin_v14(monkeypatch, tmp_path):
 
 def test_question_asked_garbage_is_ignored_or_bounded(monkeypatch, tmp_path):
     client, _code = _client(monkeypatch, tmp_path)
-    tok = client.get("/api/code/config").json()["token"]
+    tok = client.post("/api/code/token").json()["token"]
     H = {"x-elpis-token": tok}
     client.post("/api/code/ingest", headers=H, json={"client": "c1", "plugin": 14, "events": [
         {"type": "session.created", "properties": {"info": {"id": "s1"}}},

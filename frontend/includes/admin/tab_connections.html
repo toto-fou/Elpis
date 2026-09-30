@@ -781,6 +781,61 @@
                                 </div>
                             </section>
 
+                            <!-- ═══════════ Jetons d'outils externes (EXT.1, 2026-09-30) ═══════════
+                                 Politique des jetons ``ept_`` que chaque compte crée dans
+                                 Paramètres › Connexions (clients MCP et OpenAPI). Relue à chaud. -->
+                            <section v-if="adminTab==='mcp'" id="mcp-tokens" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-key adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Jetons d'outils externes</h3>
+                                        <span class="sr-only">Jetons que chaque compte crée dans Paramètres, Connexions, pour brancher ses outils sur un client MCP ou OpenAPI.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="configForm && configForm.mcp && configForm.mcp.tokens">
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Coupé : les jetons existants cessent de fonctionner et aucun ne peut être créé. Les jetons opencode ne sont pas concernés." for="cnx-tok-on">Jetons d'outils</label>
+                                            <span class="sr-only">Coupé : les jetons existants cessent de fonctionner et aucun ne peut être créé. Les jetons opencode ne sont pas concernés.</span>
+                                        </div>
+                                        <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                            <input id="cnx-tok-on" type="checkbox" v-model="configForm.mcp.tokens.tools_enabled" data-field="config:mcp.tokens.tools_enabled" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                            <span class="text-sm text-slate-700">{{ configForm.mcp.tokens.tools_enabled ? 'Activés' : 'Désactivés' }}</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Séparées par des virgules, parmi fs, shell, git, desktop, skill_run (browser n'est jamais accessible par jeton). Retirer une famille la retire aussitôt des jetons existants." for="cnx-tok-fam">Familles autorisées</label>
+                                            <span class="sr-only">Séparées par des virgules, parmi fs, shell, git, desktop, skill_run (browser n'est jamais accessible par jeton). Retirer une famille la retire aussitôt des jetons existants.</span>
+                                        </div>
+                                        <input id="cnx-tok-fam" v-model="configForm.mcp.tokens.tools_families" data-field="config:mcp.tokens.tools_families" placeholder="fs,shell,git,desktop,skill_run" class="set-input font-mono text-xs">
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="0 = sans limite." for="cnx-tok-days">Durée maximale</label>
+                                            <span class="sr-only">0 = sans limite.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="cnx-tok-days" v-model.number="configForm.mcp.tokens.max_days" data-field="config:mcp.tokens.max_days" type="number" min="0" max="3650" class="set-input adm-num">
+                                            <span class="adm-unit">jours</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Jetons opencode et d'outils confondus." for="cnx-tok-max">Jetons par compte</label>
+                                            <span class="sr-only">Jetons opencode et d'outils confondus.</span>
+                                        </div>
+                                        <input id="cnx-tok-max" v-model.number="configForm.mcp.tokens.max_per_user" data-field="config:mcp.tokens.max_per_user" type="number" min="1" max="1000" class="set-input adm-num">
+                                    </div>
+
+                                </div>
+                            </section>
+
                             <!-- ═══════════ Outils par défaut (mcp.json) — 2026-09-11 ═══════════ -->
                             <section v-if="adminTab==='mcp'" id="mcp-manifest" class="adm-card scroll-mt-32">
                                 <header class="adm-card__head">

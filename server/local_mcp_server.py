@@ -223,53 +223,63 @@ def token_config_error(service_token: str, client_tokens: "dict[str, str]") -> "
     return None
 
 
-# ── Clients opencode : le jeton elpis-remote (``pcr_…``) vaut Bearer ────────
-# (2026-09-03) Un seul identifiant par compte pour opencode : le jeton du
-# plugin /remote (table ``code_remote_tokens``, minté par ``/api/code/config``)
-# est accepté ici aussi. L'identité vient de la BASE (user_id → username), le
-# ``meta`` est ignoré (``trusted_meta`` faux), et ``client_kind=opencode``
-# déclenche le masquage des familles inutiles là-bas (cf. OpencodeFamilyFilter).
+# ── Jetons personnels : opencode (``pcr_…``) et outils (``ept_…``) ──────────
+# (2026-09-03) Le jeton elpis-remote d'opencode vaut Bearer ; (2026-09-30,
+# EXT.1) les jetons d'OUTILS aussi — table ``tool_tokens``, empreinte seule
+# (cf. ``shared_infra.accounts.tokens``). L'identité vient de la BASE (compte
+# du jeton), le ``meta`` est ignoré (``trusted_meta`` faux).
+#   * ``pcr_`` → ``client_kind=opencode`` : masquage des familles inutiles là-bas ;
+#   * ``ept_`` → ``client_kind=tools`` + claim ``families`` : seules les familles
+#     cochées sur le jeton (∩ politique de l'admin) sont visibles.
 OPENCODE_TOKEN_PREFIX = "pcr_"
+TOOLS_TOKEN_PREFIX = "ept_"
+PERSONAL_TOKEN_PREFIXES = (OPENCODE_TOKEN_PREFIX, TOOLS_TOKEN_PREFIX)
 OPENCODE_CLIENT_PREFIX = "opencode:"
-_REMOTE_TOKEN_TTL_S = 15.0          # rotation prise en compte sous 15 s
+TOOLS_CLIENT_PREFIX = "tools:"
+_REMOTE_TOKEN_TTL_S = 15.0          # révocation prise en compte sous 15 s
 _REMOTE_TOKEN_NEG_TTL_S = 5.0       # jeton inconnu : pas de martèlement de la base
-_remote_token_cache: "dict[str, tuple[str | None, float]]" = {}
+_remote_token_cache: "dict[str, tuple[dict | None, float]]" = {}
+_TOOLS_TOKEN_NEVER = frozenset({"browser"})
 
 
-def remote_token_lookup(token: str) -> "str | None":
-    """``pcr_…`` → username du compte lié, ou ``None``. Lecture directe de la
-    base de l'application (ce process n'a pas l'app) par le pool commun de
-    ``shared_infra.db`` ; refuse tout si la fonctionnalité opencode est
-    désactivée par l'administrateur."""
-    if not token or not token.startswith(OPENCODE_TOKEN_PREFIX):
+def remote_token_lookup(token: str) -> "dict | None":
+    """Jeton personnel → ``{username, kind, families}`` du compte lié, ou
+    ``None``. Lecture directe de la base de l'application (ce process n'a pas
+    l'app) par le pool commun ; ``tokens.resolve`` refuse un type désactivé
+    par l'administrateur (fonction opencode, jetons d'outils)."""
+    if not token or not token.startswith(PERSONAL_TOKEN_PREFIXES):
         return None
     try:
-        from shared_infra.config import feature_enabled
-        from shared_infra.db._connection import db_conn
-        if not feature_enabled("opencode"):
+        from shared_infra.accounts import tokens as _tokens
+        d = _tokens.resolve(token, kinds=("opencode", "tools"))
+        if not d:
             return None
-        with db_conn() as c:
-            row = c.execute(
-                "SELECT u.username FROM code_remote_tokens t JOIN users u ON u.id = t.user_id "
-                "WHERE t.token = ?", (token,)).fetchone()
-        return str(row[0]) if row and row[0] else None
+        return {"username": str(d["username"]), "kind": str(d["kind"]),
+                "families": list(d.get("families") or [])}
     except Exception as e:                                        # noqa: BLE001
-        print(f"WARN: vérification du jeton elpis-remote impossible : {e!r}", flush=True)
+        print(f"WARN: vérification du jeton personnel impossible : {e!r}", flush=True)
         return None
 
 
-def _remote_token_cached(token: str) -> "str | None":
+def _as_identity(v: "dict | str | None") -> "dict | None":
+    """Compat : une ancienne forme (username seul) vaut un jeton opencode."""
+    if isinstance(v, str):
+        return {"username": v, "kind": "opencode", "families": []} if v else None
+    return v if isinstance(v, dict) and v.get("username") else None
+
+
+def _remote_token_cached(token: str) -> "dict | None":
     import time as _time
     now = _time.monotonic()
     ent = _remote_token_cache.get(token)
     if ent and ent[1] > now:
         return ent[0]
-    user = remote_token_lookup(token)
-    _remote_token_cache[token] = (user, now + (_REMOTE_TOKEN_TTL_S if user else _REMOTE_TOKEN_NEG_TTL_S))
+    ident = _as_identity(remote_token_lookup(token))
+    _remote_token_cache[token] = (ident, now + (_REMOTE_TOKEN_TTL_S if ident else _REMOTE_TOKEN_NEG_TTL_S))
     if len(_remote_token_cache) > 512:
         for k in [k for k, v in _remote_token_cache.items() if v[1] <= now][:256]:
             _remote_token_cache.pop(k, None)
-    return user
+    return ident
 
 
 def _make_verifier(table: "dict[str, dict]"):
@@ -278,26 +288,39 @@ def _make_verifier(table: "dict[str, dict]"):
 
     class AppTokenVerifier(StaticTokenVerifier):
         """Table statique (service + clients configurés) PUIS jetons
-        elpis-remote en base — l'identité de ces derniers est celle du compte."""
+        personnels en base — l'identité de ces derniers est celle du compte."""
 
         async def verify_token(self, token: str):
             found = await super().verify_token(token)
-            if found is not None or not token or not token.startswith(OPENCODE_TOKEN_PREFIX):
+            if found is not None or not token or not token.startswith(PERSONAL_TOKEN_PREFIXES):
                 return found
             import asyncio as _aio
-            user = await _aio.to_thread(_remote_token_cached, token)
-            if not user:
+            ident = await _aio.to_thread(_remote_token_cached, token)
+            if not ident:
                 # (2026-09-11, P4) hôte d'outils DISTANT : la base locale ne
                 # connaît pas ce jeton → introspection auprès de l'app.
                 try:
                     from shared_infra.toolhost import client as _thc
                     if _thc.enabled():
                         d = await _aio.to_thread(_thc.introspect_token, token)
-                        user = str(d["username"]) if d else None
+                        ident = ({"username": str(d["username"]),
+                                  "kind": str(d.get("kind") or "opencode"),
+                                  "families": list(d.get("families") or [])} if d else None)
                 except Exception:                                # noqa: BLE001
-                    user = None
-            if not user:
+                    ident = None
+            if not ident:
                 return None
+            user = ident["username"]
+            if ident.get("kind") == "tools":
+                # ``browser`` jamais visible par un jeton d'outils (garde
+                # d'URL absente), même si une introspection distante le listait.
+                fams = [str(f) for f in ident.get("families") or []
+                        if str(f) not in _TOOLS_TOKEN_NEVER]
+                return AccessToken(
+                    token=token, client_id=f"{TOOLS_CLIENT_PREFIX}{user}",
+                    scopes=[SCOPE_LOCAL_TOOLS], expires_at=None,
+                    claims={"username": user, "trusted_meta": False, "client_kind": "tools",
+                            "families": fams, "scopes": [SCOPE_LOCAL_TOOLS]})
             return AccessToken(
                 token=token, client_id=f"{OPENCODE_CLIENT_PREFIX}{user}",
                 scopes=[SCOPE_LOCAL_TOOLS], expires_at=None,
@@ -612,6 +635,10 @@ def hidden_families_for_current_client() -> "set[str]":
     _allowed = claims.get("families")
     if isinstance(_allowed, (list, tuple, set)) and _allowed:
         hidden |= set(_FAMILY_NAMES) - {str(f) for f in _allowed}
+    elif claims.get("client_kind") == "tools":
+        # Jeton d'outils sans famille (ne devrait pas arriver : ``resolve`` le
+        # refuse) : rien de visible, jamais « tout ».
+        hidden |= set(_FAMILY_NAMES)
     fam = path_family()
     if fam:
         hidden |= set(_FAMILY_NAMES) - {fam}

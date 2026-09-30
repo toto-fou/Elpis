@@ -31,11 +31,12 @@ def bridge(monkeypatch):
     un ``MockTransport`` : on observe EXACTEMENT ce que le relais envoie."""
     import shared_infra.config as cfg
     import shared_infra.mcp.bridge as mp
-    import shared_infra.opencode.routes_code as code
 
     monkeypatch.setattr(cfg, "LOCAL_MCP_URL", "http://127.0.0.1:8765/mcp")
     monkeypatch.setattr(cfg, "LOCAL_MCP_TOKEN", "service-secret")
-    monkeypatch.setattr(code, "_resolve_token", lambda t: 3 if t == "pcr_ok" else None)
+    # Jetons acceptés par le relais (EXT.1) : opencode ET outils.
+    monkeypatch.setattr(mp, "_resolve_token",
+                        lambda t: {"user_id": 3} if t in ("pcr_ok", "ept_ok") else None)
 
     vues: list[httpx.Request] = []
 

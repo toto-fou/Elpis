@@ -196,8 +196,12 @@ def test_battement_pendant_une_execution_silencieuse(server_loop, monkeypatch):
     from llm_core.tools._toolkit import LIVE_KIND_HEARTBEAT, LIVE_LOGGER_HEARTBEAT, Heartbeat
     ctx = _CtxStructured({"call_id": "call_7", "log_token": "run:call_7"})
     with Heartbeat(ctx, interval_s=0.05) as hb:
-        time.sleep(0.3)
-    calls = _wait_calls(ctx, 2)
+        t0 = time.monotonic()                              # au moins 2 battements, même machine chargée
+        while hb.ticks < 2 and time.monotonic() - t0 < 5:
+            time.sleep(0.02)
+    # Chaque battement est livré de façon asynchrone sur la loop serveur : on
+    # attend qu'ils soient TOUS arrivés avant de vérifier que rien ne suit.
+    calls = _wait_calls(ctx, max(2, hb.ticks), timeout=5)
     assert hb.ticks >= 2 and len(calls) >= 2
     x = calls[0]["extra"]
     assert x["kind"] == LIVE_KIND_HEARTBEAT and x["call_id"] == "call_7" and x["log_token"] == "run:call_7"

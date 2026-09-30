@@ -397,6 +397,23 @@ async def _create_snapshot_stream(user_id: int, name: str) -> AsyncGenerator[str
         _clk.release(_xfd)   # W6 : libère le verrou cross-worker
 
 
+async def creer_snapshot(user_id: int, name: str) -> dict:
+    """Instantané de /work (même chemin que le bouton, verrous compris) :
+    rend ses métadonnées, ou ``RuntimeError`` avec le message de l'échec
+    (opération en cours, trop volumineux, sandbox indisponible…)."""
+    meta: Optional[dict] = None
+    erreur = "instantané interrompu"
+    async for ligne in _create_snapshot_stream(user_id, name):
+        evt = json.loads(ligne)
+        if evt.get("event") == "done":
+            meta = evt.get("snapshot")
+        elif evt.get("event") == "error":
+            erreur = str(evt.get("message") or erreur)
+    if not meta:
+        raise RuntimeError(erreur)
+    return meta
+
+
 def _default_name() -> str:
     return time.strftime("Snapshot %d/%m/%Y %H:%M")
 

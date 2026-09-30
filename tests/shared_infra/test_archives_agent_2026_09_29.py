@@ -348,20 +348,34 @@ def test_fichier_reecrit_a_chaque_lecture_servi_en_flux(work, monkeypatch):
     assert r.content == b"A+++" and r.headers["x-size"] == "4"
 
 
-def test_export_puis_import_garde_les_contenus_precedents(work, monkeypatch, tmp_path):
+def test_export_puis_import_avec_instantane_prealable(work, monkeypatch, tmp_path):
+    """(Décision du 2026-09-30) L'import prend un instantané de /work, hors de
+    /work, puis le remplace sans y garder de copie ; instantané impossible :
+    import refusé, /work intact."""
+    import shared_infra.sandbox.routes_snapshots as snap
+    depot = tmp_path / "snaps"
+    depot.mkdir()
+    monkeypatch.setattr(snap, "_user_snap_dir", lambda uid: depot)
     sf, c = _client(monkeypatch, work)
     r = c.get("/api/sandbox/export")
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/gzip")
     with tarfile.open(fileobj=io.BytesIO(r.content), mode="r:gz") as tf:
         assert sorted(tf.getnames()) == ["a.txt", "d/b.sh"]
-    for n in (1, 2):
-        monkeypatch.setattr(sf.time, "time", lambda n=n: 1000.0 + n)
-        r2 = c.post("/api/sandbox/import", files={"archive": ("w.tgz", r.content, "application/gzip")})
-        assert r2.status_code == 200 and r2.json()["files"] == 2, r2.text
-    gardes = sorted(p.name for p in work.iterdir() if p.name.startswith(".work-before-import-"))
-    assert gardes == [".work-before-import-1001", ".work-before-import-1002"]   # ni imbriqués
-    assert (work / ".work-before-import-1001" / "d" / "fifo").exists()
+    (work / "local.txt").write_text("L")
+    r2 = c.post("/api/sandbox/import", files={"archive": ("w.tgz", r.content, "application/gzip")})
+    assert r2.status_code == 200 and r2.json()["files"] == 2, r2.text
+    assert r2.json()["snapshot"]["name"].startswith("Avant import du ")
+    assert not (work / "local.txt").exists()                        # remplacé, sans copie
+    assert not [p for p in work.iterdir() if p.name.startswith(".work-before-import-")]
     assert (work / "d" / "b.sh").read_text() == "#!/bin/sh\n"
+    (meta,) = [json.loads(p.read_text()) for p in depot.glob("*.json")]
+    with tarfile.open(depot / f"{meta['id']}.tar.gz") as tf:
+        assert "local.txt" in tf.getnames()                         # l'ancien contenu
+    monkeypatch.setattr(snap, "_MAX_TOTAL_BYTES", 1)                 # instantané impossible
+    (work / "local.txt").write_text("L")
+    r3 = c.post("/api/sandbox/import", files={"archive": ("w.tgz", r.content, "application/gzip")})
+    assert r3.status_code == 409 and "/work inchangé" in r3.json()["detail"], r3.text
+    assert (work / "local.txt").read_text() == "L"
 
 
 def test_import_borne_ou_invalide_laisse_work_intact(work, monkeypatch):

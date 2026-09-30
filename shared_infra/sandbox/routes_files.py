@@ -2611,25 +2611,36 @@ async def exporter_work(user_id: int) -> bytes:
     return bytes(data)
 
 
+class ImportRefuse(Exception):
+    """Import annulé avant de toucher à /work (instantané préalable impossible)."""
+
+
 async def importer_work_bilan(user_id: int, data, *,
                               max_total: Optional[int] = None) -> Dict[str, Any]:
     """Remplace le contenu de ``/work`` du compte par une archive tar(.gz),
     extraite par l'agent : membres contenus (ni ``..``, ni absolu, ni lien),
-    bornes vérifiées avant de toucher à ``/work``, l'ancien contenu gardé
-    dans ``/work/.work-before-import-<ts>``. ``data`` : octets ou fichier
-    binaire (envoyé par blocs). ``max_total`` : plafond de la taille
-    DÉCOMPRESSÉE (défaut : quota du compte). Rend le bilan de l'agent :
-    ``files``, ``conflicts`` et ``conflict_paths`` (entrées mises de côté ou
-    placées sous un autre nom : rien n'est perdu, mais tout n'est pas à sa
-    place)."""
+    bornes vérifiées avant de toucher à ``/work``. ``data`` : octets ou
+    fichier binaire (envoyé par blocs). ``max_total`` : plafond de la taille
+    DÉCOMPRESSÉE (défaut : quota du compte).
+
+    (Décision du 2026-09-30) L'ancien contenu n'est plus gardé dans /work
+    (``.work-before-import-*`` comptait dans le quota et partait dans les
+    sauvegardes) : un INSTANTANÉ est pris d'abord, hors de /work, et l'import
+    est annulé (``ImportRefuse``) s'il ne peut l'être. Rend le bilan de
+    l'agent (``files``, ``conflicts``, ``conflict_paths``) et ``snapshot``
+    (identifiant et nom de l'instantané)."""
     if max_total is None:
         max_total = _user_quota_bytes(user_id)
+    from shared_infra.sandbox.routes_snapshots import creer_snapshot
+    try:
+        meta = await creer_snapshot(
+            user_id, time.strftime("Avant import du %d/%m/%Y %H:%M"))
+    except RuntimeError as e:
+        raise ImportRefuse(f"instantané préalable impossible : {e}") from None
     res = await agent_for(user_id).extract(
-        "", data, keep=f".work-before-import-{int(time.time())}",
-        leave=".work-before-import-*", max_bytes=max_total, max_file=max_total,
-        max_members=_WORK_MAX_ENTREES)
+        "", data, max_bytes=max_total, max_file=max_total, max_members=_WORK_MAX_ENTREES)
     invalidate_sandbox_usage(user_id)
-    return res
+    return {**res, "snapshot": {"id": meta.get("id"), "name": meta.get("name")}}
 
 
 async def importer_work(user_id: int, data, *, max_total: Optional[int] = None) -> int:
@@ -2652,7 +2663,8 @@ async def api_sandbox_export(request: Request):
 @router.post("/api/sandbox/import")
 async def api_sandbox_import(request: Request, archive: UploadFile = File(...)):
     """Remplace ``/work`` du compte par une archive tar.gz (migration entre
-    hôtes). L'ancien contenu est gardé dans ``/work/.work-before-import-<ts>``."""
+    hôtes). Un instantané de l'ancien contenu est pris d'abord (import annulé
+    s'il ne peut l'être)."""
     user_id = require_user_id(request)
     # Passe sandbox 2026-09-26 — plus de ``archive.read()`` : jusqu'à 2 Go
     # recopiés en RAM avant même le contrôle de taille. Starlette a déjà
@@ -2667,6 +2679,8 @@ async def api_sandbox_import(request: Request, archive: UploadFile = File(...)):
         raise HTTPException(413, "archive trop volumineuse")
     try:
         res = await importer_work_bilan(user_id, archive.file)
+    except ImportRefuse as e:
+        raise HTTPException(409, f"Import annulé, /work inchangé : {e}") from None
     except AgentError as e:
         if e.code == "too_large":
             raise HTTPException(413, "archive trop volumineuse une fois décompressée "
@@ -2676,4 +2690,5 @@ async def api_sandbox_import(request: Request, archive: UploadFile = File(...)):
         raise agent_http(e, "Import") from None
     return {"ok": True, "files": int(res.get("files") or 0),
             "conflicts": int(res.get("conflicts") or 0),
-            "conflict_paths": [str(x)[:512] for x in (res.get("conflict_paths") or [])[:50]]}
+            "conflict_paths": [str(x)[:512] for x in (res.get("conflict_paths") or [])[:50]],
+            "snapshot": res.get("snapshot")}

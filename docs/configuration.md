@@ -589,8 +589,9 @@ affecté à sa première utilisation à l'hôte le moins chargé, puis y reste �
 sandbox, terminal et outils sur le même hôte). Console admin → Sandbox →
 « Hôtes d'outils » : santé de chaque hôte (``/health``), comptes affectés,
 réaffectation et MIGRATION d'un compte (``/api/sandbox/export`` de l'ancien
-hôte → ``/api/sandbox/import`` sur le nouveau → réaffectation ; l'ancien
-``/work`` est conservé à côté, ``.work-before-import-<ts>``). Routes :
+hôte → ``/api/sandbox/import`` sur le nouveau → réaffectation ; un instantané
+du ``/work`` remplacé est pris d'abord, l'import est refusé s'il ne peut
+l'être). Routes :
 ``GET /api/admin/toolhosts``, ``POST /api/admin/toolhosts/placements/{uid}``
 (``{host_id}``), ``…/migrate``, ``DELETE …``. Ajouter un hôte = une entrée
 ``sandboxHosts`` dans ``mcp.json`` + ``toolhost.json`` sur la machine.

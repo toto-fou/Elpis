@@ -85,9 +85,11 @@ derniers accès de l'hôte.
   de côté sous `<nom>.elpis-ancien-<hex>` ; une nouvelle entrée qui ne trouve
   pas sa place l'est sous `<nom>.elpis-restaure-<hex>`. Rien n'est perdu ;
   l'interface signale le nombre d'entrées à vérifier.
-- L'import garde l'ancien contenu dans `/work/.work-before-import-<date>` :
-  il compte dans le quota et part dans les exports, instantanés et
-  sauvegardes jusqu'à ce que l'utilisateur le supprime.
+- Avant un import, un instantané de `/work` est pris (« Avant import du
+  … », hors de `/work`, restaurable depuis l'éditeur) ; s'il ne peut l'être
+  (trop volumineux, opération en cours), l'import est refusé et `/work` reste
+  intact. Comme tout instantané, il peut faire retirer le plus ancien au-delà
+  du nombre gardé par compte.
 - Une restauration demande l'espace de l'instantané en plus de `/work`
   (extraction, puis échange) ; faute de place : 507, `/work` intact.
 - Téléchargement ou export en flux : six heures au plus ; un client qui ne

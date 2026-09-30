@@ -53,6 +53,17 @@ try {
     await page.waitForTimeout(300);
     ok('configuration : espace réservé', await page.locator('pre:has-text("<VOTRE_JETON>")').isVisible());
     await page.screenshot({ path: DIR + '/connexions-4-configuration.png' });
+    // Fermer puis rouvrir les Paramètres (même onglet) : liste et familles
+    // relues — la fermeture oublie volontairement l'état de Connexions.
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    await page.locator('button[title="Paramètres"]:visible').first().click();
+    await page.waitForTimeout(600);
+    ok('réouverture : jeton créé listé', await page.locator('text=VS Code du bureau').first().isVisible());
+    ok('réouverture : jeton plus affiché en clair', !(await page.locator('text=ept_Demo0nlyShownOnce_Qw3r').count()));
+    await page.locator('button:has-text("Nouveau jeton")').click();
+    ok('réouverture : familles proposées', await page.locator('label:has-text("Fichiers") input').count() === 1);
+    await page.screenshot({ path: DIR + '/connexions-5-reouverture.png' });
     ok('aucune erreur JS', errors.length === 0);
     if (errors.length) console.log(errors.slice(0, 5));
 } catch (e) {

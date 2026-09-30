@@ -414,6 +414,11 @@ function setupSettings(vue, sharedRefs, ctx) {
         loadSavedPrompts();
         loadSharedPrompts();
         loadArchives();
+        // Onglet sur lequel la modale se rouvre : ses données sont relues (la
+        // fermeture a pu les vider — Connexions oublie jetons et politique —,
+        // ou elles ont changé depuis). Sans ça, liste vide jusqu'au rechargement.
+        const _rouvert = _TAB_LOADERS[settingsTab.value];
+        if (_rouvert) { try { _rouvert(); } catch (_) { /* best-effort */ } }
         showSettingsModal.value = true;
         // a11y : déplacer le focus dans la modale à l'ouverture (sortie au clavier via Échap).
         try { await nextTick(); settingsDialogEl.value && settingsDialogEl.value.focus(); } catch(_) {}

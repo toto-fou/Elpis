@@ -2033,6 +2033,15 @@ function setupChat(vue, sharedRefs, ctx) {
     const { memorySavesFor, effectLinesFor, toolStepsForDisplay, effectIsOpen, effectDetail,
             toggleEffect, undoMemoryEffect, manageMemory, effectUiRev } = _memCardMod;
 
+    // -- « Détails » d'une réponse : chronologie de son exécution (L5.3) --
+    // chat/_run_details.js ; fallback inerte si le module n'est pas chargé.
+    const _runDetailsMod = (typeof window.setupRunDetails === 'function')
+        ? window.setupRunDetails(vue, ctx)
+        : { runDetails: vue.ref(null), openRunDetails: () => {}, closeRunDetails: () => {},
+            showRunDetails: () => {}, toggleRunEvent: () => {}, runDuration: () => '',
+            runEventLabel: () => '', runEventMeta: () => '', runEventState: () => 'ok',
+            runClock: () => '', runExportHref: () => '#' };
+
     // -- Segments texte/outils (helpers partagés live + reload) ------------
     // chat/_tool_segments.js : labels RAG + détection d'erreur = source
     // UNIQUE pour les handlers live ci-dessous ET la reconstruction au
@@ -7273,6 +7282,9 @@ function setupChat(vue, sharedRefs, ctx) {
         onDiffRowClick,
         downloadOneFile,
         downloadAllFilesAsZip,
+
+        // -- « Détails » d'une réponse (L5.3) -- js/chat/_run_details.js
+        ..._runDetailsMod,
 
         // -- Ligne "sauvegardé en mémoire" (live only) -- js/chat/_memory_card.js
         memorySavesFor,

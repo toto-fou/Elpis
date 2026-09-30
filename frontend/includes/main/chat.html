@@ -1383,6 +1383,13 @@
                                                     class="text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-md p-1 transition-colors">
                                                 <i class="ph ph-copy text-[14px]"></i>
                                             </button>
+                                            <button v-if="entry.msg.run_ids && entry.msg.run_ids.length"
+                                                    @click="openRunDetails(entry.msg)"
+                                                    title="Détails : chronologie de l'exécution (outils, modèle, durées)"
+                                                    aria-label="Détails de l'exécution"
+                                                    class="text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-md p-1 transition-colors">
+                                                <i class="ph ph-list-magnifying-glass text-[14px]"></i>
+                                            </button>
                                             <button v-if="!isStreaming"
                                                     @click="retryGeneration(entry.idx)"
                                                     title="Régénérer la réponse"

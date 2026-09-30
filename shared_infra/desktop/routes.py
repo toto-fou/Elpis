@@ -800,16 +800,20 @@ def _int_or(v, default: int) -> int:
 
 
 def _vision_credentials(request: Request, body: dict) -> "tuple[str, str]":
-    """La vision d'Elpis pour ``describe=`` : l'URL de cette instance + le jeton
-    elpis-remote du compte (le script tourne sur la VM, sans cookie). ``vision:
-    false`` dans le corps → rien. Partagé par l'exécution simple et la matrice
-    (qui ne les passait pas : chaque ``describe=`` attendait puis échouait)."""
+    """La vision d'Elpis pour ``describe=`` : l'URL de cette instance + un jeton
+    de VISION du compte (``evt_``, 12 h, valable seulement pour
+    ``/api/desktop/locate`` — EXT.1 ; avant : le jeton elpis-remote complet).
+    Le script tourne sur la VM, sans cookie. ``vision: false`` dans le corps →
+    rien. Partagé par l'exécution simple et la matrice."""
     if not body.get("vision", True):
         return "", ""
     try:
-        from shared_infra.opencode.routes_cli import _base_url, _client_token_for
-        return _base_url(request), (_client_token_for(request) or "")
+        from shared_infra.accounts import tokens as _tokens
+        from shared_infra.opencode.routes_cli import _base_url
+        tok, _row = _tokens.create(int(require_user_id(request)), "vision", "vision")
+        return _base_url(request), tok
     except Exception:
+        logger.warning("[desktop] jeton de vision non créé", exc_info=True)
         return "", ""
 
 
@@ -946,16 +950,19 @@ async def api_desktop_locate(request: Request):
     """Vision d'Elpis au service d'un script en cours d'exécution sur la VM :
     ``{image_b64, describe}`` → la boîte de l'élément décrit (« le bouton vert
     d'exécution »), en px de l'image. Cible ``describe=`` du runtime elpis_auto.
-    Auth : session web OU ``Authorization: Bearer pcr_…`` (jeton elpis-remote du
-    compte — le script tourne sur la VM, sans cookie)."""
+    Auth : session web OU ``Authorization: Bearer evt_…`` (jeton de vision remis
+    au script, qui tourne sur la VM sans cookie) ; ``pcr_…`` reste accepté pour
+    les scripts lancés avant EXT.1."""
     uid = None
     try:
         uid = require_user_id(request)                 # session web
     except HTTPException:
         from shared_infra.opencode.routes_cli import _client_identity
-        _tok, uid = _client_identity(request)          # Bearer pcr_… (jeton elpis-remote)
+        _tok, uid = _client_identity(request, kinds=("vision", "opencode"))
+        if _tok is None:
+            uid = None
     if uid is None:
-        raise HTTPException(401, "auth requise (session ou Bearer pcr_…)")
+        raise HTTPException(401, "auth requise (session ou jeton de vision)")
     try:
         body = await request.json()
     except Exception:

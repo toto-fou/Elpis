@@ -534,6 +534,19 @@ function setupAdmin(vue, sharedRefs, ctx) {
             : { field, dir: 1 };
     }
     watch(usersSearch, () => { usersPage.value = 1; });
+
+    // Moteur local : l'URL complète suit l'hôte et le port quand elle visait
+    // exactement l'ancien hôte:port (cf. admin/llama_url.js) — sinon l'app
+    // restait sur l'ancienne adresse malgré le changement affiché.
+    watch(() => {
+        const l = configForm.value && configForm.value.llama;
+        return l ? [l.ip, l.port] : null;
+    }, (nv, ov) => {
+        const l = configForm.value && configForm.value.llama;
+        if (!l || !nv || !ov || !window.elpisLlamaUrl) return;
+        const url = window.elpisLlamaUrl.suivreHotePort(l.url, ov[0], ov[1], nv[0], nv[1]);
+        if (url !== l.url) l.url = url;
+    });
     const dashboardData = ref({ layout: [], data: {} });
     const chartInstances = {};
     const configForm = ref(null);
@@ -2470,6 +2483,24 @@ function setupAdmin(vue, sharedRefs, ctx) {
                         if (configForm.value.mcp.server_cmd === undefined) configForm.value.mcp.server_cmd = '';
                         if (configForm.value.mcp.servers_dir === undefined) configForm.value.mcp.servers_dir = '../mcp_custom_servers';
                         if (configForm.value.mcp.tools_cache_ttl_sec === undefined) configForm.value.mcp.tools_cache_ttl_sec = 0;
+                        // Jetons d'outils externes (EXT.1) — mêmes défauts que tokens.policy().
+                        if (!configForm.value.mcp.tokens) configForm.value.mcp.tokens = {};
+                        {
+                            const _t = configForm.value.mcp.tokens;
+                            if (_t.tools_enabled === undefined) _t.tools_enabled = true;
+                            if (_t.tools_families === undefined) _t.tools_families = 'fs,shell,git,desktop,browser,skill_run';
+                            if (_t.max_days === undefined) _t.max_days = 90;
+                            if (_t.max_per_user === undefined) _t.max_per_user = 20;
+                        }
+                        // Autorisation OAuth des clients MCP (EXT.4) — mêmes défauts que oauth.policy().
+                        if (!configForm.value.mcp.oauth) configForm.value.mcp.oauth = {};
+                        {
+                            const _o = configForm.value.mcp.oauth;
+                            if (_o.enabled === undefined) _o.enabled = true;
+                            if (_o.dcr_enabled === undefined) _o.dcr_enabled = true;
+                            if (_o.access_ttl_s === undefined) _o.access_ttl_s = 3600;
+                            if (_o.refresh_days === undefined) _o.refresh_days = 30;
+                        }
                         // RAG defaults — même raison.
                         if (!configForm.value.rag) configForm.value.rag = {};
                         if (configForm.value.rag.service_url === undefined) configForm.value.rag.service_url = '';
@@ -3102,6 +3133,26 @@ function setupAdmin(vue, sharedRefs, ctx) {
             network: e.network, desktop: [...e.desktop].sort(),
         });
     }
+    // Accès par jeton du compte (jetons personnels, applications OAuth) : vue
+    // de réponse à compromission, tout se coupe d'un geste.
+    async function loadUserAccess(id) {
+        try {
+            const r = await fetchAuth(`/api/admin/users/${id}/access`, {}, true);
+            const d = (r && r.ok) ? await r.json() : {};
+            const access = { tokens: Array.isArray(d.tokens) ? d.tokens : [], grants: Array.isArray(d.grants) ? d.grants : [] };
+            if (userEdit.value && userEdit.value.id === id) userEdit.value = { ...userEdit.value, access };
+        } catch (_) { /* best-effort : la ligne reste « Chargement… » */ }
+    }
+
+    async function revokeUserAccess(u) {
+        const ok = await openConfirm('Révoquer les accès par jeton ?',
+            `Tous les jetons personnels et applications autorisées de ${u.username} seront révoqués.`, true, 'Révoquer');
+        if (!ok) return;
+        const r = await fetchAuth(`/api/admin/users/${u.id}/access/revoke`, { method: 'POST' }, true);
+        if (r && r.ok) { showToast('Accès par jeton révoqués.'); loadUserAccess(u.id); }
+        else showToast('Révocation impossible.', 'error');
+    }
+
     function userEditOpen(u) { return !!(userEdit.value && userEdit.value.id === u.id); }
     function closeUserEdit() { userEdit.value = null; }
     function toggleUserEdit(u) {
@@ -3120,6 +3171,7 @@ function setupAdmin(vue, sharedRefs, ctx) {
         e._orig = _userEditSnapshot(e);
         userEdit.value = e;
         loadAdmLlmAccessOptions(true);
+        loadUserAccess(u.id);
         ctx.nextTick(() => {
             const el = document.querySelector(`#user-edit-${u.id} [data-user-edit-first]`)
                 || document.querySelector(`#user-edit-${u.id} input, #user-edit-${u.id} select`);
@@ -3893,6 +3945,35 @@ function setupAdmin(vue, sharedRefs, ctx) {
     const mcpExportTransport = ref('http');
     const mcpExportToken     = ref(false);
 
+    // ── Clients OAuth des clients MCP (EXT.4) ──────────────────────────────
+    const oauthClients = ref([]);
+
+    async function loadOauthClients() {
+        try {
+            const r = await fetchAuth('/api/admin/oauth/clients');
+            if (!r || !r.ok) { oauthClients.value = []; return; }
+            const d = await r.json();
+            oauthClients.value = (d && d.items) || [];
+        } catch (e) {
+            oauthClients.value = [];
+        }
+    }
+
+    async function deleteOauthClient(c) {
+        const ok = await openConfirm('Supprimer ce client ?',
+            '« ' + (c.name || c.client_id) + ' » perd toutes ses autorisations ; il devra se réenregistrer.',
+            true, 'Supprimer');
+        if (!ok) return;
+        try {
+            const r = await fetchAuth('/api/admin/oauth/clients?client_id=' + encodeURIComponent(c.client_id),
+                                      { method: 'DELETE' }, true);
+            if (!r || !r.ok) { showToast('Suppression impossible', 'error'); return; }
+            await loadOauthClients();
+        } catch (e) {
+            showToast('Suppression impossible', 'error');
+        }
+    }
+
     async function loadMcpManifest() {
         try {
             const r = await fetchAuth('/api/admin/mcp/manifest');
@@ -4659,7 +4740,7 @@ function setupAdmin(vue, sharedRefs, ctx) {
         chartsInCategory, kpiGroups, chartGroups, kpiState, chartSummary,
         prometheusUrl, copyPrometheusUrl,
         groupsList, allUsersWithGroups, groupModal, groupMembersModal,
-        userEdit, userEditDirty, userEditOpen, toggleUserEdit, closeUserEdit, saveUserEdit,
+        userEdit, userEditDirty, userEditOpen, toggleUserEdit, closeUserEdit, saveUserEdit, revokeUserAccess,
         usersDesktopTargets, admRoleLabel, admNetProfileName, admDesktopLabel, admDesktopTitle,
         loadUsers, loadAdminStats, renderDynamicDashboard, startDashboardPolling, stopDashboardPolling, destroyAllCharts, setUserSandboxQuota,
         usersNetProfiles, setUserNetworkProfile,
@@ -4744,6 +4825,7 @@ function setupAdmin(vue, sharedRefs, ctx) {
         loadSandboxContainers,
         // Manifeste mcp.json (outils par défaut)
         mcpManifest, mcpManifestBusy, loadMcpManifest, reloadMcpManifest, mcpManifestRoleLabel,
+        oauthClients, loadOauthClients, deleteOauthClient,
         mcpExportTransport, mcpExportToken, copyMcpExport,
         // Hôtes d'outils (P5)
         toolhosts, toolhostMoveTarget, toolhostBusy, loadToolhosts, migrateToolhostPlacement, assignToolhostPlacement,

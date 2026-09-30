@@ -31,6 +31,27 @@ selon [SemVer](https://semver.org/lang/fr/).
   rechargement, sorties d'outils retirées du contexte comptées. Le modèle
   reçoit aussi le contexte restant et les limites de la sandbox à ses points
   d'étape.
+- **Outils externes conformes à la norme MCP** : les familles d'outils de la
+  sandbox (`fs`, `shell`, `git`, `browser`, `desktop`, `skill_run`) se
+  branchent sur tout client MCP par `<origine>/api/mcp-bridge[/<famille>]`
+  (HTTP streamable, révisions 2024-11-05 à 2025-11-25, pagination,
+  annotations, `outputSchema` / `structuredContent`, échec d'outil en
+  `isError`, outil inconnu ou hors portée en erreur `-32602`).
+  Authentification par jeton personnel ou **OAuth 2.1** : le client n'a
+  besoin que de l'URL (découverte RFC 9728 / RFC 8414, enregistrement
+  dynamique RFC 7591 — activé par défaut, `mcp.oauth.dcr_enabled` —,
+  documents de client, PKCE S256, `resource` RFC 8707, rotation et révocation
+  des jetons), écran de consentement Elpis par familles. Migration 0023.
+- **Paramètres › Connexions** : jetons personnels nommés (opencode, outils),
+  portée par familles et expiration, montrés une seule fois puis
+  régénérables, avec les blocs de configuration à copier (MCP générique,
+  VS Code, opencode, OpenAPI, curl) ; applications OAuth autorisées,
+  révocables. Politique `mcp.tokens.*` et `mcp.oauth.*` dans Console ›
+  Outils MCP ; accès par jeton d'un compte visibles et révocables depuis sa
+  fiche (Console › Comptes).
+- **Façade OpenAPI** : `GET /api/tools/<famille>/openapi.json` (OpenAPI 3.1
+  générée depuis `tools/list`) et `POST /api/tools/<famille>/<outil>`, pour
+  les clients qui ne parlent pas MCP ; même jeton, mêmes familles.
 - **Base de données multi-moteurs** : PostgreSQL et MariaDB/MySQL en plus de
   SQLite ; pool de connexions unique, SQL portable et schéma de référence ;
   adaptateurs serveur et suite de tests sur quatre moteurs ; transfert entre
@@ -137,6 +158,26 @@ selon [SemVer](https://semver.org/lang/fr/).
   des sandboxes.
 - **Politique Git d'un dépôt** : `.git-tool-policy.json` ne peut plus que
   renforcer les protections par défaut.
+- **Navigateur piloté** : destinations limitées à `http` / `https` ; la
+  boucle locale, le lien-local, les adresses de l'hôte et ses réseaux de
+  conteneurs sont refusés, y compris après une redirection ou pour une
+  sous-ressource (relais local qui juge l'adresse résolue) ; réseau local
+  autorisé, restreint au besoin par `browser.url_allowlist`
+  (docs/configuration.md). Sessions, états sauvegardés, téléchargements et
+  références visuelles rangés par compte ; service relancé après une panne.
+  **Mise à jour** : une automatisation qui visait `localhost`, l'adresse de
+  l'hôte ou un conteneur local est désormais refusée.
+- **Jetons en empreinte** (migration 0022) : les jetons `pcr_` (opencode),
+  `ept_` (outils) et `evt_` (vision d'une automatisation, limité à la
+  localisation à l'écran) ne sont plus gardés qu'en empreinte SHA-256 et ne
+  se réaffichent plus ; `GET /api/code/config` ne rend plus de jeton.
+  Les postes opencode déjà appairés restent valides. Révoquer les sessions
+  d'un compte, réinitialiser ou changer son mot de passe révoque aussi ses
+  jetons et ses applications OAuth. **Retour arrière** : l'ancienne version
+  ne retrouve pas les jetons convertis (ré-appairer opencode).
+- **Relais MCP** : il ne retransmet plus le jeton du client au service
+  d'outils (jeton de délégation signé), contrôle l'en-tête `Origin` et
+  refuse une `MCP-Protocol-Version` inconnue.
 
 ### Corrections et sécurité
 

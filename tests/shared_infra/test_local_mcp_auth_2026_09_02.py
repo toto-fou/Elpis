@@ -69,7 +69,7 @@ def test_le_serveur_verifie_reellement(srv):
     en-tête envoyé dans le vide — c'était le défaut du jeton de 2026-07."""
     src = (ROOT / "server" / "local_mcp_server.py").read_text(encoding="utf-8")
     assert "StaticTokenVerifier" in src
-    assert "LocalToolsMCP(MCP_NAME, auth=_AUTH)" in src
+    assert "LocalToolsMCP(MCP_NAME, auth=_AUTH," in src
     assert srv.bind_allowed("127.0.0.1", False)
     assert srv.bind_allowed("localhost", False)
     assert not srv.bind_allowed("0.0.0.0", False)
@@ -259,8 +259,8 @@ def test_cache_des_jetons_elpis_remote(monkeypatch, srv):
     calls = []
     monkeypatch.setattr(srv, "remote_token_lookup", lambda tok: calls.append(tok) or "alice")
     srv._remote_token_cache.clear()
-    assert srv._remote_token_cached("pcr_x") == "alice"
-    assert srv._remote_token_cached("pcr_x") == "alice"
+    assert srv._remote_token_cached("pcr_x")["username"] == "alice"
+    assert srv._remote_token_cached("pcr_x")["username"] == "alice"
     assert calls == ["pcr_x"]                       # une seule lecture en base
 
 

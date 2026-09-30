@@ -17,6 +17,7 @@ live in firefox_tools_extras.py — register both for full feature set.
 """
 from __future__ import annotations
 
+import contextvars
 import json
 import os
 import re
@@ -238,6 +239,43 @@ _WAIT_MAX_S    = int(os.environ.get("PLAYWRIGHT_WAIT_MAX_S", "300"))
 _WAIT_CHUNK_MS = int(os.environ.get("PLAYWRIGHT_WAIT_CHUNK_MS", "8000"))
 
 
+# Propriétaire de l'appel d'outil en cours (2026-09-30) : posé au début de
+# chaque outil pw_* (par ``_refus_session_d_autrui``, que tous appellent) et
+# transmis au service navigateur à CHAQUE requête, qui ne sert une session
+# qu'à son propriétaire. ContextVar : un appel d'outil = un contexte copié,
+# pas de fuite d'un appel à l'autre.
+_PW_OWNER: contextvars.ContextVar[str] = contextvars.ContextVar("pw_owner", default="")
+
+
+def _avec_proprietaire(json=None, params=None, method="POST"):
+    """Ajoute ``owner`` au corps (POST) ou aux paramètres (GET)."""
+    owner = _PW_OWNER.get()
+    if not owner:
+        return json, params
+    if method == "GET":
+        params = dict(params or {})
+        params.setdefault("owner", owner)
+    elif json is None or isinstance(json, dict):
+        json = dict(json or {})
+        json.setdefault("owner", owner)
+    return json, params
+
+
+def _refus_url(url) -> Any:
+    """Enveloppe d'erreur si le navigateur n'a pas le droit de joindre
+    ``url`` (même politique que le service, refus anticipé avec un message
+    clair), sinon ``None``."""
+    try:
+        from shared_infra.security.browser_url import browser_url_block_reason, refus_message
+        motif = browser_url_block_reason(str(url or ""))
+    except Exception:                                           # noqa: BLE001
+        return None           # le service applique de toute façon la garde
+    if not motif:
+        return None
+    return _err("url_blocked", message=refus_message(str(url or ""), motif),
+                fix="choisissez une adresse http(s) d'un site hors de la machine qui héberge Elpis")
+
+
 def _refus_session_d_autrui(session_id, username: str):
     """Refuse une session Playwright qui appartient à un AUTRE compte.
 
@@ -250,27 +288,37 @@ def _refus_session_d_autrui(session_id, username: str):
     propriétaire et l'URL — pouvait lire et piloter la session authentifiée
     d'un autre.
 
-    Fail-open assumé quand le propriétaire est INCONNU : le registre peut être
-    vide (session ouverte avant ce correctif, sidecar effacé). On ne refuse que
-    sur un désaccord PROUVÉ.
+    (2026-09-30) Plus de passe-droit quand le propriétaire est INCONNU du
+    registre : la session est refusée, et ``pw_session(action='start')`` la
+    rend (il réutilise l'instance du compte et réenregistre sa propriété). Le
+    service navigateur vérifie de son côté le propriétaire transmis à chaque
+    requête (``_PW_OWNER``) : ce contrôle-ci n'est que le refus anticipé.
     """
-    if not session_id or not username:
+    try:
+        from shared_infra.security.browser_url import pw_owner
+        _PW_OWNER.set(pw_owner(username))
+    except Exception:                                           # noqa: BLE001
+        pass
+    if not session_id:
         return None
     try:
         from llm_core._pw_session import get_pw_session_owner
         proprio = get_pw_session_owner(str(session_id))
     except Exception:                                           # noqa: BLE001
-        return None
-    if proprio and proprio != username:
+        proprio = None
+    if proprio is None or proprio != username:
         return _err("not_your_session",
-                    message="cette session de navigateur appartient à un "
+                    message="session de navigateur inconnue pour ce compte"
+                            if proprio is None else
+                            "cette session de navigateur appartient à un "
                             "autre utilisateur",
-                    fix="pw_session(action='start', url=…) ouvre la vôtre")
+                    fix="pw_session(action='start', url=…) ouvre (ou retrouve) la vôtre")
     return None
 
 
 def _req(method, endpoint, json=None, params=None, timeout=None):
     t = timeout if timeout is not None else TIMEOUT
+    json, params = _avec_proprietaire(json, params, method)
     try:
         url = f"{NODE_API}{endpoint}"
         resp = requests.get(url, params=params, timeout=t) if method == "GET" \
@@ -313,6 +361,7 @@ def _req_status(method, endpoint, json=None, params=None, timeout=None):
     decoded JSON dict when available, else ``{}``. No _clip_result — the
     /wait_for_dynamic bodies are tiny by construction."""
     t = timeout if timeout is not None else TIMEOUT
+    json, params = _avec_proprietaire(json, params, method)
     try:
         url = f"{NODE_API}{endpoint}"
         resp = requests.get(url, params=params, timeout=t) if method == "GET" \
@@ -645,7 +694,11 @@ Switch between tabs with pw_page(action="tab_switch", index=N).
 
 SYNONYMS (all pw_* tools): action= == op= == do=, value= == v=, target= == selector=."""
         _username = get_username(ctx)
-        _refus = _refus_session_d_autrui(session_id, _username)
+        # ``start`` n'utilise pas ``session_id`` (il retrouve l'instance du
+        # compte et réenregistre sa propriété) : un identifiant inconnu ou
+        # périmé ne doit pas l'empêcher. Le propriétaire est posé quand même.
+        _refus = (_refus_session_d_autrui(None, _username) if action == "start"
+                  else _refus_session_d_autrui(session_id, _username))
         if _refus is not None:
             return _refus
         if action == "start":
@@ -666,6 +719,9 @@ SYNONYMS (all pw_* tools): action= == op= == do=, value= == v=, target= == selec
                         "session you already have, pw_act(action='goto', "
                         "url='https://…') navigates the current tab.",
                 )
+            _bloque = _refus_url(url)
+            if _bloque is not None:
+                return _bloque
             _creds_auto_injected = False
             if _AX_ENABLED and url and (not username or not password):
                 try:
@@ -688,9 +744,8 @@ SYNONYMS (all pw_* tools): action= == op= == do=, value= == v=, target= == selec
             # Une instance par utilisateur : `owner` dérive de l'identité
             # injectée (_username). Le browser-service réutilise la session
             # existante de cet owner s'il y en a une (URL → nouvel onglet).
-            _owner = "".join(
-                c for c in (_username or "") if c.isalnum() or c in "-_"
-            ) or "guest"
+            from shared_infra.security.browser_url import pw_owner as _pw_owner
+            _owner = _pw_owner(_username)
             # Émulation device/viewport (V13). viewport="WIDTHxHEIGHT".
             _start_body = {
                 "url": url, "username": username, "password": password,
@@ -988,6 +1043,10 @@ max_items= : cap on the interactive elements listed in `page_after`
             # « Timeout (10s) ». On laisse une marge confortable au-delà du
             # budget serveur (60s + post-goto) pour ne pas couper un succès lent.
             _nav_timeout = max(TIMEOUT, 75)
+            if do == "goto":
+                _bloque = _refus_url(url)
+                if _bloque is not None:
+                    return _bloque
             _result = _req("POST", "/action", json={
                 "session_id": session_id, "type": nav[do], "url": url,
                 **_wait_payload(wait_after),
@@ -1385,7 +1444,12 @@ EXAMPLES:
             _to = (TIMEOUT if TIMEOUT > 30 else 30) if include_frames else None
             return _req("POST", "/extract_text", json=_body, timeout=_to)
         if op == "tabs":       return _req("GET", "/list_tabs", params={"session_id": sid})
-        if op == "tab_new":    return _req("POST", "/new_tab", json={"session_id": sid, "url": v})
+        if op == "tab_new":
+            if v:
+                _bloque = _refus_url(v)
+                if _bloque is not None:
+                    return _bloque
+            return _req("POST", "/new_tab", json={"session_id": sid, "url": v})
         if op == "tab_switch": return _req("POST", "/switch_tab", json={"session_id": sid, "tab_index": index})
         if op == "tab_close":  return _req("POST", "/close_tab", json={"session_id": sid, "tab_index": index})
         if op == "network":

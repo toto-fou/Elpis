@@ -77,11 +77,14 @@ from shared_infra.llm import routes_connectors     # noqa: F401 — /api/llm/con
 from shared_infra.routes import config    # noqa: F401 — /api/config (GET + PUT)
 from shared_infra.opencode import routes_cli       # noqa: F401 — /api/cli/* (distribution LAN)
 from shared_infra.mcp import bridge as mcp_bridge  # noqa: F401 — /api/mcp-bridge/*
+from shared_infra.mcp import routes_openapi as mcp_openapi  # noqa: F401 — /api/tools/<famille>/* (EXT.5)
+from shared_infra.mcp import routes_oauth as mcp_oauth  # noqa: F401 — /.well-known/*, /oauth/* (EXT.4)
 from shared_infra.opencode import routes_code      # noqa: F401 — /api/code/* (sessions déportées)
 from shared_infra.toolhost import routes_internal  # noqa: F401 — /api/internal/* (rappels de l'hôte d'outils)
 from shared_infra.llm import routes_queue          # noqa: F401 — /api/llm/queue-status
 from shared_infra.observability import routes_usage  # noqa: F401 — /api/usage/me
 from shared_infra.observability import routes_runs  # noqa: F401 — /api/runs/* (L5.3)
+from shared_infra.accounts import routes_tokens  # noqa: F401 — /api/tokens* (EXT.1)
 from shared_infra.routes import admin as _admin_module  # noqa: F401 — endpoints admin
 
 # Modules ré-exportés par la boucle du §3. ``admin`` en est volontairement
@@ -93,7 +96,7 @@ _SUBMODULES = (
     routes_webhooks, notifications_routes, tools,
     routes_settings, appearance_routes, llm_routes, terminal_routes, routes_events,
     routes_files, routes_git, routes_connectors, config, routes_queue,
-    routes_usage, routes_runs, routes_internal,
+    routes_usage, routes_runs, routes_tokens, routes_internal,
 )
 
 

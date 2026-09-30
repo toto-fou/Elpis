@@ -26,7 +26,8 @@ SI = RACINE / "shared_infra"
 # Familles regroupées à ce jour. Ajouter une entrée ici EN MÊME TEMPS que le
 # dossier : c'est la liste que lit le prochain venu.
 FAMILLES = {
-    "mcp":           {"modules": {"families", "servers", "panel", "bridge"},
+    "mcp":           {"modules": {"families", "servers", "panel", "bridge", "openapi",
+                                  "routes_openapi"},
                       "motifs": ("mcp",)},
     "accounts":      {"modules": {"users", "groups", "passwd", "routes_auth",
                                   "routes_settings"},
@@ -176,7 +177,7 @@ def test_l_ordre_d_enregistrement_reste_pilote_par_routes():
     dépendant de qui importe quoi en premier."""
     src = (SI / "mcp" / "__init__.py").read_text(encoding="utf-8")
     code = "\n".join(l for l in src.splitlines() if not l.strip().startswith("#"))
-    for interdit in ("import panel", "import bridge"):
+    for interdit in ("import panel", "import bridge", "import routes_openapi"):
         assert interdit not in code, (
             f"shared_infra/mcp/__init__.py ne doit pas faire « {interdit} » : "
             "l'enregistrement des routes appartient à shared_infra/routes/__init__.py")

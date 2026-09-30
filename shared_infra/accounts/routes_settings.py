@@ -449,6 +449,11 @@ async def api_user_change_password(request: Request):
     _now = time.time()
     bump_session_min_ts(uid, _now)
     request.session["_login_ts"] = _now
+    # Les jetons personnels et applications OAuth tombent aussi : un accès
+    # obtenu avant le changement ne doit pas y survivre (à recréer depuis
+    # Paramètres › Connexions).
+    from shared_infra.accounts.tokens import revoke_all_access
+    await asyncio.to_thread(revoke_all_access, uid)
 
     conn = db()
     cur = conn.cursor()

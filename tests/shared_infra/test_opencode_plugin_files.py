@@ -273,7 +273,11 @@ case "$url" in
         *'"username":"alice"'*'"password":"bonmdp"'*) exit 0 ;;
         *) exit 22 ;;                       # 401 → curl -f rend 22
       esac ;;
-  *"/api/code/config"*)      printf '{"app_url":"x","token":"pcr_par_login"}' ;;
+  # EXT.1 : la config ne rend plus de jeton ; le jeton du poste est CRÉÉ
+  # (POST /api/code/token, nommé d'après la machine) et montré une fois.
+  *"/api/code/config"*)      printf '{"app_url":"x","tokens":0}' ;;
+  *"/api/code/token"*)       printf '%s\n' "$*" >> "${FAKE_TOKEN_LOG:-/dev/null}"
+                             printf '{"token":"pcr_par_login"}' ;;
   *) [ -n "$out" ] && : > "$out" ;;
 esac
 exit 0
@@ -603,11 +607,15 @@ def _remote_json(tmp_path: Path) -> dict:
 
 def test_installer_login_exchanges_credentials_for_token(tmp_path):
     # plugin=y, connexion=y (défaut), identifiants valides → jeton posé.
+    tok_log = tmp_path / "token.log"
     out, login_log = _run_install_pty(
         tmp_path, keys="y\nalice\nbonmdp\n",
-        env_extra={"ELPIS_INSTALL_PLUGIN": "y"})
+        env_extra={"ELPIS_INSTALL_PLUGIN": "y", "FAKE_TOKEN_LOG": str(tok_log)})
     assert "Connecté (alice)" in out or "Connecte (alice)" in out, out[-1500:]
     assert _remote_json(tmp_path)["token"] == "pcr_par_login"
+    # EXT.1 : jeton DE CE POSTE, créé par POST et nommé d'après la machine.
+    appel = tok_log.read_text(encoding="utf-8")
+    assert "-X POST" in appel and '"name":"opencode - ' in appel
     # le mot de passe part en CORPS JSON (jamais dans l'URL → access logs)
     assert '"password":"bonmdp"' in login_log.read_text(encoding="utf-8")
 

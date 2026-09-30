@@ -194,6 +194,17 @@
                                                                         </label>
                                                                     </div>
                                                                 </div>
+                                                                <div class="adm-field" data-user-access>
+                                                                    <span class="adm-field__label">Accès par jeton</span>
+                                                                    <div class="adm-users__muted flex items-center gap-2">
+                                                                        <span v-if="!userEdit.access">Chargement…</span>
+                                                                        <template v-else>
+                                                                            <span>{{ userEdit.access.tokens.length }} jeton{{ userEdit.access.tokens.length > 1 ? 's' : '' }} · {{ userEdit.access.grants.length }} application{{ userEdit.access.grants.length > 1 ? 's' : '' }} autorisée{{ userEdit.access.grants.length > 1 ? 's' : '' }}</span>
+                                                                            <button v-if="userEdit.access.tokens.length || userEdit.access.grants.length" type="button"
+                                                                                    @click="revokeUserAccess(u)" class="adm-btn adm-btn--quiet">Tout révoquer</button>
+                                                                        </template>
+                                                                    </div>
+                                                                </div>
                                                             </fieldset>
                                                         </div>
                                                         <div class="adm-user-edit__foot">

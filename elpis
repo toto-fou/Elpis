@@ -327,7 +327,12 @@ _render_units() {
             for e in "${SPEC_ENV[@]}"; do printf 'Environment="%s"\n' "$e"; done
             echo "EnvironmentFile=-$ROOT/.env"
             printf 'ExecStart='; printf '%q ' "${SPEC_CMD[@]}"; echo
-            echo "Restart=on-failure"
+            # Navigateur : relancé même après un arrêt « propre » inattendu
+            # (un seul processus sert toutes les sessions de tous les comptes).
+            case "$s" in
+                browser) echo "Restart=always" ;;
+                *)       echo "Restart=on-failure" ;;
+            esac
             echo "RestartSec=3"
             echo "KillMode=mixed"
             echo "TimeoutStopSec=30"
@@ -423,6 +428,12 @@ cmd_doctor() {
     check "Qdrant" "[ -x '$ROOT/rag_app/qdrant/qdrant' ]" "./install.sh"
     check "Node.js" "command -v node" "apt install nodejs npm"
     check "service navigateur" "[ -d '$ROOT/browser-service/node_modules' ]" "./install.sh"
+    # En marche : son /health doit répondre et dire le navigateur utilisable.
+    if curl -fsS -m 3 -o /dev/null "http://127.0.0.1:$BROWSER_PORT/health" 2>/dev/null; then
+        check "service navigateur (/health)" \
+            "curl -fsS -m 3 'http://127.0.0.1:$BROWSER_PORT/health' | grep -q '\"ok\":true'" \
+            "./elpis logs browser"
+    fi
     check "Docker joignable" "docker info" "installer docker, groupe docker"
     local image
     image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"

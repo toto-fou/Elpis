@@ -70,6 +70,19 @@ run Elpis on a dedicated machine or VM. Details below, in French.
   l'identifiant : les identifiants Git restent sur l'hôte.
 - Serveur ↔ réseau : adresses des dépôts Git et des serveurs MCP vérifiées
   et résolues côté serveur (voir les limites ci-dessous).
+- Clients externes ↔ outils : un client MCP ou OpenAPI (éditeur, agent,
+  script) n'agit que par un jeton personnel (`ept_`, `pcr_`) ou une
+  autorisation OAuth donnée par le compte sur l'écran de consentement,
+  avec les droits de CE compte et les seules familles accordées, bornées
+  par la politique de l'administrateur (`mcp.tokens.*`, `mcp.oauth.*`,
+  dont `mcp.oauth.dcr_enabled` pour l'enregistrement dynamique des
+  clients). Jetons gardés en empreinte, révocables par le compte ou par
+  l'administrateur, révoqués avec les sessions du compte. Le relais ne
+  transmet jamais le jeton du client au service d'outils (délégation
+  signée) et refuse les origines de navigateur non déclarées.
+- Navigateur piloté : il tourne sur l'hôte ; ses destinations sont filtrées
+  par un relais local (ni boucle locale, ni lien-local, ni adresses de
+  l'hôte ou de ses conteneurs) et ses sessions sont rangées par compte.
 
 **Hors périmètre**
 
@@ -90,6 +103,9 @@ run Elpis on a dedicated machine or VM. Details below, in French.
   compris.
 - Serveur MCP distant : son adresse est vérifiée quand il est enregistré, pas
   à chaque résolution DNS.
+- La carte des sites de la vision d'écran (sites et chemins déjà parcourus
+  par l'agent de contrôle) est une mémoire commune à l'équipe : un compte
+  voit les sites cartographiés par les autres.
 
 **Responsabilités**
 

@@ -77,3 +77,80 @@ export function planScreenshotQuota(entries, caps = {}) {
     // Les plus anciens d'abord (ordre de suppression naturel).
     return toDelete.reverse();
 }
+
+// ── Propriété des sessions (2026-09-30) ─────────────────────────────────────
+// Le service ne sait pas qui l'appelle : c'est l'appelant (les outils pw_*,
+// côté Python) qui transmet le propriétaire (``owner``, dérivé du compte
+// Elpis) à CHAQUE requête. Une session n'est servie qu'à son propriétaire ;
+// une session d'un autre compte répond comme une session inconnue.
+
+/** Propriétaire normalisé (``[A-Za-z0-9_-]``, 64 max), ou ``''``. */
+export function safeOwner(owner) {
+    const s = String(owner ?? '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+    return s;
+}
+
+/** Propriétaire transmis par une requête (corps JSON puis paramètres). */
+export function ownerFromRequest(req) {
+    const b = req && req.body && typeof req.body === 'object' ? req.body.owner : undefined;
+    const q = req && req.query ? req.query.owner : undefined;
+    return safeOwner(b ?? q ?? '');
+}
+
+/** La session appartient-elle à ce propriétaire ? (jamais pour un vide) */
+export function ownerMatches(session, owner) {
+    const o = safeOwner(owner);
+    return !!o && !!session && session.owner === o;
+}
+
+// Identifiant d'état sauvegardé : celui de la session (uuid).
+const _STATE_ID_RE = /^[A-Za-z0-9-]{8,64}$/;
+
+/**
+ * Nom du fichier d'un état sauvegardé (cookies, stockage local) : lié au
+ * propriétaire, pour qu'un compte ne recharge jamais l'état d'un autre.
+ * → ``null`` si l'identifiant ou le propriétaire est invalide.
+ */
+export function stateFileName(owner, stateId) {
+    const o = safeOwner(owner);
+    const id = String(stateId ?? '');
+    if (!o || !_STATE_ID_RE.test(id)) return null;
+    return `state_${o}__${id}.json`;
+}
+
+/** Nom de fichier sûr pour un téléchargement (jamais de chemin). */
+export function safeDownloadName(name) {
+    const base = String(name ?? '').split(/[\\/]/).pop().replace(/[\x00-\x1f]/g, '').trim();
+    if (!base || base === '.' || base === '..') return 'telechargement';
+    return base.slice(0, 200);
+}
+
+/**
+ * Fichiers d'artefacts à purger : plus vieux que ``maxAgeMs``.
+ * ``entries`` : ``[{ name, mtimeMs }]`` → noms à supprimer.
+ */
+export function planArtifactPurge(entries, { now = Date.now(), maxAgeMs } = {}) {
+    if (!maxAgeMs || maxAgeMs <= 0) return [];
+    return (entries || []).filter(e => e && now - (e.mtimeMs || 0) > maxAgeMs).map(e => e.name);
+}
+
+
+// Place pour une nouvelle session (audit 2026-09-30). Une session n'évince
+// JAMAIS celle d'un autre compte : au quota du compte, sa plus ancienne cède
+// la place ; plafond global atteint sans session du compte à céder → refus.
+// → { evict: sid|null, refuse: bool }
+export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, now = Date.now() } = {}) {
+    const age = (s) => (s && (s.lastActivity || s.createdAt)) || now;
+    const own = [];
+    let total = 0;
+    for (const [sid, s] of sessions) {
+        total += 1;
+        if (s && s.owner === owner) own.push([sid, age(s)]);
+    }
+    own.sort((a, b) => a[1] - b[1]);
+    if (own.length >= maxPerOwner || (total >= maxTotal && own.length)) {
+        return { evict: own[0][0], refuse: false };
+    }
+    if (total >= maxTotal) return { evict: null, refuse: true };
+    return { evict: null, refuse: false };
+}

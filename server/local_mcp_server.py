@@ -223,53 +223,62 @@ def token_config_error(service_token: str, client_tokens: "dict[str, str]") -> "
     return None
 
 
-# ── Clients opencode : le jeton elpis-remote (``pcr_…``) vaut Bearer ────────
-# (2026-09-03) Un seul identifiant par compte pour opencode : le jeton du
-# plugin /remote (table ``code_remote_tokens``, minté par ``/api/code/config``)
-# est accepté ici aussi. L'identité vient de la BASE (user_id → username), le
-# ``meta`` est ignoré (``trusted_meta`` faux), et ``client_kind=opencode``
-# déclenche le masquage des familles inutiles là-bas (cf. OpencodeFamilyFilter).
+# ── Jetons personnels : opencode (``pcr_…``) et outils (``ept_…``) ──────────
+# (2026-09-03) Le jeton elpis-remote d'opencode vaut Bearer ; (2026-09-30,
+# EXT.1) les jetons d'OUTILS aussi — table ``tool_tokens``, empreinte seule
+# (cf. ``shared_infra.accounts.tokens``). L'identité vient de la BASE (compte
+# du jeton), le ``meta`` est ignoré (``trusted_meta`` faux).
+#   * ``pcr_`` → ``client_kind=opencode`` : masquage des familles inutiles là-bas ;
+#   * ``ept_`` → ``client_kind=tools`` + claim ``families`` : seules les familles
+#     cochées sur le jeton (∩ politique de l'admin) sont visibles.
 OPENCODE_TOKEN_PREFIX = "pcr_"
+TOOLS_TOKEN_PREFIX = "ept_"
+PERSONAL_TOKEN_PREFIXES = (OPENCODE_TOKEN_PREFIX, TOOLS_TOKEN_PREFIX)
 OPENCODE_CLIENT_PREFIX = "opencode:"
-_REMOTE_TOKEN_TTL_S = 15.0          # rotation prise en compte sous 15 s
+TOOLS_CLIENT_PREFIX = "tools:"
+_REMOTE_TOKEN_TTL_S = 15.0          # révocation prise en compte sous 15 s
 _REMOTE_TOKEN_NEG_TTL_S = 5.0       # jeton inconnu : pas de martèlement de la base
-_remote_token_cache: "dict[str, tuple[str | None, float]]" = {}
+_remote_token_cache: "dict[str, tuple[dict | None, float]]" = {}
 
 
-def remote_token_lookup(token: str) -> "str | None":
-    """``pcr_…`` → username du compte lié, ou ``None``. Lecture directe de la
-    base de l'application (ce process n'a pas l'app) par le pool commun de
-    ``shared_infra.db`` ; refuse tout si la fonctionnalité opencode est
-    désactivée par l'administrateur."""
-    if not token or not token.startswith(OPENCODE_TOKEN_PREFIX):
+def remote_token_lookup(token: str) -> "dict | None":
+    """Jeton personnel → ``{username, kind, families}`` du compte lié, ou
+    ``None``. Lecture directe de la base de l'application (ce process n'a pas
+    l'app) par le pool commun ; ``tokens.resolve`` refuse un type désactivé
+    par l'administrateur (fonction opencode, jetons d'outils)."""
+    if not token or not token.startswith(PERSONAL_TOKEN_PREFIXES):
         return None
     try:
-        from shared_infra.config import feature_enabled
-        from shared_infra.db._connection import db_conn
-        if not feature_enabled("opencode"):
+        from shared_infra.accounts import tokens as _tokens
+        d = _tokens.resolve(token, kinds=("opencode", "tools"))
+        if not d:
             return None
-        with db_conn() as c:
-            row = c.execute(
-                "SELECT u.username FROM code_remote_tokens t JOIN users u ON u.id = t.user_id "
-                "WHERE t.token = ?", (token,)).fetchone()
-        return str(row[0]) if row and row[0] else None
+        return {"username": str(d["username"]), "kind": str(d["kind"]),
+                "families": list(d.get("families") or [])}
     except Exception as e:                                        # noqa: BLE001
-        print(f"WARN: vérification du jeton elpis-remote impossible : {e!r}", flush=True)
+        print(f"WARN: vérification du jeton personnel impossible : {e!r}", flush=True)
         return None
 
 
-def _remote_token_cached(token: str) -> "str | None":
+def _as_identity(v: "dict | str | None") -> "dict | None":
+    """Compat : une ancienne forme (username seul) vaut un jeton opencode."""
+    if isinstance(v, str):
+        return {"username": v, "kind": "opencode", "families": []} if v else None
+    return v if isinstance(v, dict) and v.get("username") else None
+
+
+def _remote_token_cached(token: str) -> "dict | None":
     import time as _time
     now = _time.monotonic()
     ent = _remote_token_cache.get(token)
     if ent and ent[1] > now:
         return ent[0]
-    user = remote_token_lookup(token)
-    _remote_token_cache[token] = (user, now + (_REMOTE_TOKEN_TTL_S if user else _REMOTE_TOKEN_NEG_TTL_S))
+    ident = _as_identity(remote_token_lookup(token))
+    _remote_token_cache[token] = (ident, now + (_REMOTE_TOKEN_TTL_S if ident else _REMOTE_TOKEN_NEG_TTL_S))
     if len(_remote_token_cache) > 512:
         for k in [k for k, v in _remote_token_cache.items() if v[1] <= now][:256]:
             _remote_token_cache.pop(k, None)
-    return user
+    return ident
 
 
 def _make_verifier(table: "dict[str, dict]"):
@@ -278,33 +287,80 @@ def _make_verifier(table: "dict[str, dict]"):
 
     class AppTokenVerifier(StaticTokenVerifier):
         """Table statique (service + clients configurés) PUIS jetons
-        elpis-remote en base — l'identité de ces derniers est celle du compte."""
+        personnels en base — l'identité de ces derniers est celle du compte."""
 
         async def verify_token(self, token: str):
+            if token and token.startswith(DELEGATION_TOKEN_PREFIX):
+                # (EXT.2) Relais de l'app : il agit pour un CLIENT qu'il a
+                # authentifié, sans jamais retransmettre le jeton de ce client
+                # ni prêter la confiance du service (``trusted_meta``).
+                from shared_infra.mcp.delegation import verify_delegation
+                deleg = verify_delegation(token, service_token)
+                return delegated_access_token(token, deleg) if deleg else None
             found = await super().verify_token(token)
-            if found is not None or not token or not token.startswith(OPENCODE_TOKEN_PREFIX):
+            if found is not None or not token or not token.startswith(PERSONAL_TOKEN_PREFIXES):
                 return found
             import asyncio as _aio
-            user = await _aio.to_thread(_remote_token_cached, token)
-            if not user:
+            ident = await _aio.to_thread(_remote_token_cached, token)
+            if not ident:
                 # (2026-09-11, P4) hôte d'outils DISTANT : la base locale ne
                 # connaît pas ce jeton → introspection auprès de l'app.
                 try:
                     from shared_infra.toolhost import client as _thc
                     if _thc.enabled():
                         d = await _aio.to_thread(_thc.introspect_token, token)
-                        user = str(d["username"]) if d else None
+                        ident = ({"username": str(d["username"]),
+                                  "kind": str(d.get("kind") or "opencode"),
+                                  "families": list(d.get("families") or [])} if d else None)
                 except Exception:                                # noqa: BLE001
-                    user = None
-            if not user:
+                    ident = None
+            if not ident:
                 return None
+            user = ident["username"]
+            if ident.get("kind") == "tools":
+                fams = [str(f) for f in ident.get("families") or []]
+                return AccessToken(
+                    token=token, client_id=f"{TOOLS_CLIENT_PREFIX}{user}",
+                    scopes=[SCOPE_LOCAL_TOOLS], expires_at=None,
+                    claims={"username": user, "trusted_meta": False, "client_kind": "tools",
+                            "families": fams, "scopes": [SCOPE_LOCAL_TOOLS]})
             return AccessToken(
                 token=token, client_id=f"{OPENCODE_CLIENT_PREFIX}{user}",
                 scopes=[SCOPE_LOCAL_TOOLS], expires_at=None,
                 claims={"username": user, "trusted_meta": False,
                         "client_kind": "opencode", "scopes": [SCOPE_LOCAL_TOOLS]})
 
+    # Clé de la délégation = jeton de SERVICE (l'entrée de confiance de la table).
+    service_token = next((t for t, c in table.items() if (c or {}).get("trusted_meta")), "")
     return AppTokenVerifier(tokens=table, required_scopes=[SCOPE_LOCAL_TOOLS])
+
+
+# (EXT.2) Jeton de DÉLÉGATION du relais de l'app (cf. shared_infra.mcp.delegation).
+from shared_infra.mcp.delegation import DELEGATION_TOKEN_PREFIX  # noqa: E402
+
+
+def delegated_access_token(token: str, deleg: "dict"):
+    """Jeton d'accès d'un client DÉLÉGUÉ par le relais (EXT.2) : mêmes
+    revendications que s'il avait présenté son propre jeton au service
+    (``client_kind``, ``families``), plus son ``user_id`` (le relais l'a lu en
+    base) et ``delegated``."""
+    from fastmcp.server.auth.auth import AccessToken
+    user = str(deleg.get("sub") or "")
+    kind = str(deleg.get("kind") or "")
+    prefix = TOOLS_CLIENT_PREFIX if kind == "tools" else (
+        OPENCODE_CLIENT_PREFIX if kind == "opencode" else f"{kind}:")
+    claims: "dict" = {"username": user, "trusted_meta": False, "client_kind": kind,
+                      "delegated": True, "scopes": [SCOPE_LOCAL_TOOLS]}
+    try:
+        claims["user_id"] = int(deleg.get("uid") or 0)
+    except (TypeError, ValueError):
+        claims["user_id"] = 0
+    if kind != "opencode":
+        # Jeton d'outils (et tout type futur, OAuth compris) : liste blanche de
+        # familles, jamais « tout » — une liste vide ne montre rien.
+        claims["families"] = [str(f) for f in deleg.get("families") or []]
+    return AccessToken(token=token, client_id=f"{prefix}{user}", scopes=[SCOPE_LOCAL_TOOLS],
+                       expires_at=None, claims=claims)
 
 
 def _auth_provider():
@@ -421,8 +477,37 @@ class LocalToolsMCP(FastMCP):
         return _wrap
 
 
+def _app_version() -> str:
+    """Version d'Elpis (``pyproject.toml``) annoncée dans ``serverInfo`` —
+    sans elle, le SDK annonce la version de FastMCP."""
+    try:
+        import tomllib
+        with open(_PROJECT_ROOT / "pyproject.toml", "rb") as f:
+            return str(tomllib.load(f).get("project", {}).get("version") or "0")
+    except Exception:                                             # noqa: BLE001
+        return "0"
+
+
+def _list_page_size() -> int:
+    """Taille de page de ``tools/list`` (pagination par ``cursor``). Assez
+    grande pour qu'un endpoint de famille tienne en une page (certains clients
+    ne suivent pas ``nextCursor``) ; ``LOCAL_MCP_LIST_PAGE_SIZE`` pour régler."""
+    try:
+        n = int(os.environ.get("LOCAL_MCP_LIST_PAGE_SIZE", "") or 100)
+    except ValueError:
+        n = 100
+    return max(1, n)
+
+
+SERVER_INSTRUCTIONS = (
+    "Elpis tools. Each call runs in the caller's own sandbox (files, shell, git, "
+    "skill scripts) or drives the caller's browser/desktop sessions. Tool failures "
+    "come back as isError results with a JSON envelope (error, message, fix).")
+
+
 _AUTH = _auth_provider()
-mcp = LocalToolsMCP(MCP_NAME, auth=_AUTH)
+mcp = LocalToolsMCP(MCP_NAME, auth=_AUTH, version=_app_version(),
+                    instructions=SERVER_INSTRUCTIONS, list_page_size=_list_page_size())
 
 # Conformité MCP (cf. docs/mcp-compliance-2026-06-05.md). Middlewares ajoutés
 # UNE fois, ici, au niveau du serveur → couvrent tous les tools et transports.
@@ -460,7 +545,12 @@ class IdentityCapture(_FmcpMiddleware):
                 tid = _token_identity()
             except Exception:                                    # noqa: BLE001
                 tid = None
-            if tid and (ident is None or ident.username != tid):
+            if tid:
+                # Jeton CLIENT (pcr_/ept_, ou client délégué par le relais) :
+                # son identité est celle du compte lié au jeton, et RIEN du
+                # _meta n'est repris (user_id, profil réseau) — le client le
+                # rédige lui-même. L'id et le profil réseau sont résolus
+                # ci-dessous (rappel vers l'app) ou par la base.
                 ident = _ident.Identity(user_id=0, username=str(tid))
             if ident is not None and not ident.user_id:
                 try:
@@ -590,6 +680,50 @@ def path_family() -> "str | None":
     return _REQ_FAMILY.get()
 
 
+# ── Porte d'entrée HTTP (EXT.2) : contrôle d'Origin ─────────────────────────
+def _scope_header(scope: dict, name: str) -> str:
+    want = name.lower().encode("latin-1")
+    for k, v in scope.get("headers") or ():
+        if k.lower() == want:
+            try:
+                return v.decode("latin-1")
+            except Exception:                                    # noqa: BLE001
+                return ""
+    return ""
+
+
+class McpGateASGI:
+    """Avant le service MCP (HTTP streamable et SSE) : ``Origin`` absent →
+    accepté (clients natifs) ; présent → accepté seulement s'il est
+    explicitement autorisé (``shared_infra.mcp.origins``), sinon **403**. Le
+    service ne sert aucune page : il n'a pas d'« origine propre » qu'un
+    rebinding DNS pourrait usurper.
+
+    ``prefixes`` : chemins couverts (les autres passent tels quels — API
+    sandbox de l'hôte d'outils, qui a sa propre porte)."""
+
+    def __init__(self, app, prefixes: "tuple[str, ...]" = (), **_ignored) -> None:
+        self.app = app
+        self.prefixes = tuple(prefixes)
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http":
+            return await self.app(scope, receive, send)
+        path = scope.get("path", "") or ""
+        if self.prefixes and not path.startswith(self.prefixes):
+            return await self.app(scope, receive, send)
+        from shared_infra.mcp.origins import origin_allowed
+        if not origin_allowed(_scope_header(scope, "origin")):
+            import json as _json
+            body = _json.dumps({"error": "origine non autorisée"}, ensure_ascii=False).encode("utf-8")
+            await send({"type": "http.response.start", "status": 403,
+                        "headers": [(b"content-type", b"application/json; charset=utf-8"),
+                                    (b"content-length", str(len(body)).encode("ascii"))]})
+            await send({"type": "http.response.body", "body": body})
+            return
+        return await self.app(scope, receive, send)
+
+
 def hidden_families_for_current_client() -> "set[str]":
     """Familles à cacher pour la requête EN COURS — deux causes qui se cumulent :
 
@@ -610,8 +744,14 @@ def hidden_families_for_current_client() -> "set[str]":
     if claims.get("client_kind") == "opencode":
         hidden |= set(_FAMILY_NAMES) - OPENCODE_FAMILIES
     _allowed = claims.get("families")
-    if isinstance(_allowed, (list, tuple, set)) and _allowed:
+    if isinstance(_allowed, (list, tuple, set)) and (_allowed or claims.get("delegated")):
+        # Liste blanche ; pour un client DÉLÉGUÉ (EXT.2), une liste vide ne
+        # montre rien (jamais « tout »).
         hidden |= set(_FAMILY_NAMES) - {str(f) for f in _allowed}
+    elif claims.get("client_kind") == "tools":
+        # Jeton d'outils sans famille (ne devrait pas arriver : ``resolve`` le
+        # refuse) : rien de visible, jamais « tout ».
+        hidden |= set(_FAMILY_NAMES)
     fam = path_family()
     if fam:
         hidden |= set(_FAMILY_NAMES) - {fam}
@@ -646,12 +786,65 @@ class FamilyVisibility(_FmcpMiddleware):
 OpencodeFamilyFilter = FamilyVisibility
 
 
-mcp.add_middleware(ServerLoopCapture())
-mcp.add_middleware(IdentityCapture())
-mcp.add_middleware(FamilyVisibility())
-mcp.add_middleware(ToolRateLimit())
-mcp.add_middleware(OkFalseAsIsError())
-mcp.add_middleware(TitleFiller())
+async def _tool_callable(target: FastMCP, name: str) -> bool:
+    """L'outil existe, n'est pas éteint et sa famille est visible du client de
+    la requête en cours."""
+    fam = TOOL_FAMILY_OF.get(name)
+    if fam is not None and fam in hidden_families_for_current_client():
+        return False
+    try:
+        return (await target.get_tool(name)) is not None
+    except Exception:                                            # noqa: BLE001
+        return True          # doute : le chemin normal tranche (et répond isError)
+
+
+def install_protocol_conformance(target: FastMCP) -> None:
+    """(EXT.3) Écarts de FastMCP 3.2 à la spécification MCP 2025-11-25 :
+
+    * ``tools.listChanged`` : FastMCP l'annonce toujours ; aucun changement de
+      la liste n'est notifié ici (familles et extinctions sont fixées au
+      démarrage, la politique des jetons est relue à chaque requête) — la
+      capacité est donc annoncée à ``false`` (idem prompts/resources) ;
+    * outil INCONNU (ou éteint, ou hors des familles du client) : erreur de
+      PROTOCOLE JSON-RPC ``-32602``, comme le demande la spécification — le SDK
+      la transformait en résultat ``isError``. Même réponse dans les trois cas :
+      aucun oracle sur l'existence d'un outil caché. Les échecs d'EXÉCUTION
+      (arguments invalides compris) restent des résultats ``isError``.
+
+    Idempotent."""
+    import mcp.types as _mt
+    from mcp.server.lowlevel.server import NotificationOptions
+    from mcp.shared.exceptions import McpError
+    low = target._mcp_server
+    low.notification_options = NotificationOptions(
+        prompts_changed=False, resources_changed=False, tools_changed=False)
+    orig = low.request_handlers.get(_mt.CallToolRequest)
+    if orig is None or getattr(orig, "_elpis_conformance", False):
+        return
+
+    async def _call_tool(req):
+        name = str(getattr(getattr(req, "params", None), "name", "") or "")
+        if not await _tool_callable(target, name):
+            raise McpError(_mt.ErrorData(code=_mt.INVALID_PARAMS, message=f"Unknown tool: {name!r}"))
+        return await orig(req)
+
+    _call_tool._elpis_conformance = True  # type: ignore[attr-defined]
+    low.request_handlers[_mt.CallToolRequest] = _call_tool
+
+
+def install_middlewares(target: FastMCP) -> None:
+    """Pile de middlewares et conformité du service d'outils, sur ``target``
+    (le service lui-même, ou une instance de test construite pareil)."""
+    target.add_middleware(ServerLoopCapture())
+    target.add_middleware(IdentityCapture())
+    target.add_middleware(FamilyVisibility())
+    target.add_middleware(ToolRateLimit())
+    target.add_middleware(OkFalseAsIsError())
+    target.add_middleware(TitleFiller())
+    install_protocol_conformance(target)
+
+
+install_middlewares(mcp)
 
 # Chaque ``ctx.info`` du live shell est aussi miroité au logger Python du
 # serveur au niveau INFO — sans ce garde-fou, un exec verbeux imprimerait une
@@ -856,9 +1049,11 @@ if __name__ == "__main__":
         # Portée par chemin (``<montage>/<famille>``) : middleware ASGI, donc
         # AVANT le routage de FastMCP. ``run`` relaie ``middleware`` à
         # ``http_app`` — pas besoin de reconstruire l'app ni ses lifespans.
+        # (EXT.2) Porte ``Origin`` + délégation du relais, la plus externe.
         from starlette.middleware import Middleware as _ASGIMiddleware
         mcp.run(transport=_transport, host=_host, port=_port, show_banner=False,
-                middleware=[_ASGIMiddleware(FamilyScopeASGI, base_path=MOUNT_PATH)])
+                middleware=[_ASGIMiddleware(McpGateASGI),
+                            _ASGIMiddleware(FamilyScopeASGI, base_path=MOUNT_PATH)])
     else:
         # ``show_banner=False`` au point d'appel : depuis fastmcp 2.13 le réglage
         # d'environnement ne pilote plus que la bannière de la CLI (``fastmcp run``),

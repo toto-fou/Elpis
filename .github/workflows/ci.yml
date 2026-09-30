@@ -2,7 +2,8 @@
 # Intégration continue : lint et typage, puis la suite complète sur SQLite
 # (Python 3.11, le minimum supporté, et 3.13) et sur un serveur PostgreSQL /
 # MariaDB jetable.
-# Les tests front (Node) passent par tests/frontend/test_js_units.py ; les bancs
+# Les tests front (Node) passent par tests/frontend/test_js_units.py, ceux du
+# service navigateur par `node --test browser-service/test/` ; les bancs
 # Playwright restent manuels.
 name: CI
 
@@ -79,6 +80,8 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: pip install -r requirements-rag.txt -r requirements-dev.txt
       - run: python -m pytest -q -p no:cacheprovider
+      - name: Service navigateur (tests Node purs, sans Playwright)
+        run: node --test browser-service/test/
 
   tests-serveur:
     name: tests (${{ matrix.name }})

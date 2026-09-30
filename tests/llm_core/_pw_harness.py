@@ -75,6 +75,10 @@ def pw_env(monkeypatch):
 
     monkeypatch.setattr(ff, "_req", fake_req)
     monkeypatch.setattr(ff, "_AX_ENABLED", False)
+    # Les sessions du banc appartiennent au compte du contexte (``guest``) :
+    # depuis 2026-09-30, une session inconnue du registre est refusée.
+    import llm_core._pw_session as _pws
+    monkeypatch.setattr(_pws, "get_pw_session_owner", lambda sid: "guest")
     # ``observe=True`` par défaut sur pw_act rajoute un snapshot après chaque
     # action : hors sujet ici, et il masquerait l'appel qu'on veut lire.
     monkeypatch.setattr(ff, "_finish_act",

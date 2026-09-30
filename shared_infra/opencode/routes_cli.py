@@ -47,7 +47,7 @@ plugin d'opencode n'expose aucune primitive de saisie, donc un mot de passe
 passé à la commande slash s'afficherait dans le TUI et resterait dans son
 historique de commandes. Ce script, lui, a un vrai terminal → frappe masquée
 (``stty -echo`` / ``Read-Host -AsSecureString``). Il échange les identifiants
-contre le jeton (``POST /api/login-lite`` → cookie → ``GET /api/code/config``),
+contre un jeton de poste (``POST /api/login-lite`` → cookie → ``POST /api/code/token``),
 puis ``/remote`` suffit. Le mot de passe part en CORPS JSON (jamais dans l'URL
 ni la ligne de commande, lisibles dans les access logs et ``ps``) et n'est
 jamais écrit sur disque. Refus / non-interactif → repli sur ``/remote login``.
@@ -381,39 +381,42 @@ def _opencode_mcp_entries(request: Request, client_token: str,
     return entries
 
 
-def _client_token_for(request: Request) -> Optional[str]:
-    """Jeton elpis-remote de l'appelant (cf. ``_client_identity``)."""
-    return _client_identity(request)[0]
+# Espace réservé des fichiers générés pour une SESSION web : le jeton n'est
+# plus réaffichable (EXT.1), l'utilisateur colle le sien (page Code, poste).
+TOKEN_PLACEHOLDER = "pcr_REMPLACEZ_PAR_VOTRE_JETON"
 
 
-def _client_identity(request: Request) -> "tuple[Optional[str], Optional[int]]":
-    """``(jeton elpis-remote, id du compte)`` de l'appelant : en-tête
-    ``x-elpis-token`` ou ``Authorization: Bearer pcr_…`` (installeur après
-    connexion), sinon la session web (jeton minté à la demande).
-    ``(None, None)`` = appel anonyme. L'id sert à lire les préférences du
-    compte (familles activées)."""
-    try:
-        from shared_infra.opencode.routes_code import _get_or_mint_token, _resolve_token
-    except Exception:
-        return None, None
+def _request_token(request: Request) -> str:
+    """Jeton présenté par l'appelant : ``x-elpis-token`` ou ``Authorization:
+    Bearer …`` (installeur après connexion, plugin, script d'automatisation)."""
     from shared_infra.env_compat import token_header
     tok = token_header(request.headers)
     if not tok:
         auth = (request.headers.get("authorization") or "").strip()
         if auth.lower().startswith("bearer "):
             tok = auth[7:].strip()
+    return tok or ""
+
+
+def _client_identity(request: Request, kinds: "tuple[str, ...]" = ("opencode",)
+                     ) -> "tuple[Optional[str], Optional[int]]":
+    """``(jeton présenté, id du compte)`` de l'appelant.
+
+    * jeton d'un type de ``kinds`` valide → ``(jeton, id)`` ;
+    * jeton présenté mais invalide → ``(None, None)`` ;
+    * pas de jeton, session web → ``(None, id)`` : le jeton n'est PLUS minté ni
+      réaffiché (EXT.1, empreinte seule) ;
+    * appel anonyme → ``(None, None)``."""
+    tok = _request_token(request)
     if tok:
-        uid = _resolve_token(tok)
-        return (tok, int(uid)) if uid is not None else (None, None)
+        from shared_infra.accounts import tokens as _tokens
+        d = _tokens.resolve(tok, kinds=kinds)
+        return (tok, int(d["user_id"])) if d else (None, None)
     try:
         from shared_infra.security.deps import require_user_id
-        uid = require_user_id(request)
+        return None, int(require_user_id(request))
     except Exception:
         return None, None                          # pas de session (ou middleware absent)
-    try:
-        return _get_or_mint_token(int(uid)), int(uid)
-    except Exception:
-        return None, None
 
 
 def _resolve_bundle(os_key: str) -> Optional[Path]:
@@ -802,7 +805,12 @@ if [ "$WANT_PLUGIN" = y ]; then
              -H 'Content-Type: application/json' --data @- \
              "$APP_URL/api/login-lite" > /dev/null 2>&1; then
           LOGIN_BODY=""
-          TOKEN="$(curl -fsS $APP_TLS -b "$COOKIES" "$APP_URL/api/code/config" 2>/dev/null \
+          # Jeton DE CE POSTE, créé ici et montré une seule fois (le serveur
+          # n'en garde que l'empreinte) : nommé d'après la machine, il se
+          # révoque seul dans Paramètres › Connexions.
+          HN="$(hostname 2>/dev/null | tr -cd 'A-Za-z0-9._-' | cut -c1-40)"
+          TOKEN="$(curl -fsS $APP_TLS -b "$COOKIES" -X POST -H 'Content-Type: application/json' \
+                   --data "{\"name\":\"opencode - ${HN:-poste}\"}" "$APP_URL/api/code/token" 2>/dev/null \
                    | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
           if [ -n "$TOKEN" ]; then
             echo "  ✓ Connecté ($LOGIN_USER) — jeton configuré."
@@ -1109,7 +1117,13 @@ if ($WantPlugin) {
           Invoke-WebRequest -UseBasicParsing -Method Post -Uri "$AppUrl/api/login-lite" `
             -ContentType 'application/json' -Body $payload -WebSession $sess | Out-Null
           $payload = $null
-          $cfg = Invoke-RestMethod -Uri "$AppUrl/api/code/config" -WebSession $sess
+          # Jeton DE CE POSTE, cree ici et montre une seule fois (le serveur
+          # n'en garde que l'empreinte).
+          $hn = ($env:COMPUTERNAME -replace '[^A-Za-z0-9._-]', '')
+          if ($hn.Length -gt 40) { $hn = $hn.Substring(0, 40) }
+          if (-not $hn) { $hn = 'poste' }
+          $cfg = Invoke-RestMethod -Method Post -Uri "$AppUrl/api/code/token" -WebSession $sess `
+                   -ContentType 'application/json' -Body (@{ name = "opencode - $hn" } | ConvertTo-Json -Compress)
           if ($cfg.token) {
             $Token = $cfg.token
             Write-Host "  OK Connecte ($u) -- jeton configure."
@@ -1227,7 +1241,11 @@ def cli_opencode_config(request: Request):
     _require_opencode_enabled()
     cfg = _generate_opencode_config()
     tok, uid = _client_identity(request)
-    entries = _opencode_mcp_entries(request, tok, uid) if tok else {}
+    # Session web sans jeton : blocs publiés avec un espace réservé (le jeton
+    # n'est plus réaffichable) ; l'installeur et la resynchro présentent le
+    # jeton du poste et reçoivent un fichier complet.
+    entries = (_opencode_mcp_entries(request, tok or TOKEN_PLACEHOLDER, uid)
+               if uid is not None else {})
     if entries:
         cfg["mcp"] = entries
     # Servi INDENTÉ : ce fichier est posé tel quel dans ~/.config/opencode par
@@ -1244,8 +1262,8 @@ def cli_opencode_families(request: Request):
     par le compte. Sert la modale OpenCode — la liste vient du serveur (config +
     outils réellement enregistrés), jamais d'une copie figée dans le front."""
     _require_opencode_enabled()
-    tok, uid = _client_identity(request)
-    if not tok:
+    _tok, uid = _client_identity(request)
+    if uid is None:
         raise HTTPException(401, "Authentification requise.")
     prefs = _family_prefs(uid)
     labels = {}

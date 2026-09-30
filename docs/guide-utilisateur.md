@@ -327,6 +327,58 @@ conversation en cours**.
 > pouvez pas atteindre les fichiers d'un autre utilisateur ni le système hôte.
 > Voir [La sandbox](#la-sandbox--où-lassistant-travaille).
 
+### Brancher vos outils dans un client MCP
+
+Les mêmes outils sont servis en **MCP** (Model Context Protocol, HTTP
+streamable) à l'adresse de l'application : un éditeur, un assistant en ligne de
+commande, un agent ou un script qui parle MCP peut les utiliser.
+
+1. Créez un **jeton d'outils** dans **Paramètres › Connexions** et cochez les
+   familles voulues (`browser` et `desktop` ne le sont jamais d'office).
+2. Copiez le bloc de configuration proposé : une entrée par famille, d'URL
+   `https://<adresse-du-serveur>/api/mcp-bridge/<famille>`, avec l'en-tête
+   `Authorization: Bearer ept_…`.
+
+Chaque appel s'exécute dans votre sandbox, sous votre compte. Un client qui
+tourne dans un navigateur, sur une autre origine, est refusé tant que
+l'administrateur n'a pas ajouté cette origine à `mcp.allowed_origins`.
+
+**Sans jeton à copier (OAuth).** Un client MCP qui gère l'autorisation OAuth
+n'a besoin que de l'adresse : `https://<adresse-du-serveur>/api/mcp-bridge`
+(toutes vos familles) ou `…/api/mcp-bridge/<famille>`. À la première connexion,
+il ouvre une page d'Elpis : connectez-vous si besoin, vérifiez le nom de
+l'application et son adresse de retour, cochez les familles à lui confier
+(`browser` et `desktop` jamais d'office), puis **Autoriser**. L'accès dure
+30 jours au plus (réglable par l'administrateur) ; retirez-le quand vous voulez
+dans **Paramètres › Connexions › Applications autorisées**.
+
+### Utiliser vos outils depuis une autre plateforme (OpenAPI)
+
+Les outils qui travaillent dans votre sandbox — fichiers (`fs`), terminal
+(`shell`), Git (`git`), navigateur (`browser`), contrôle d'écran (`desktop`)
+et scripts de skills (`skill_run`) — sont aussi exposés en **API OpenAPI 3.1**, pour les
+plateformes et scripts qui ne parlent pas MCP.
+
+1. Créez un **jeton d'outils** (`ept_…`) dans **Paramètres › Connexions**, en
+   cochant les familles voulues. Il n'est montré qu'une fois ; en cas de perte,
+   régénérez-le.
+2. Dans la plateforme, déclarez un serveur d'outils par famille :
+   - **URL** : `https://<adresse-du-serveur>/api/tools/<famille>` (le schéma
+     est lu sur `…/api/tools/<famille>/openapi.json`) ;
+   - **Clé** : votre jeton, envoyé en `Authorization: Bearer ept_…`.
+
+   Les appels doivent partir d'un serveur ou d'un script : un appel fait
+   depuis une page web d'une autre origine est refusé par défaut (origine
+   croisée, `app.cors_origins` vide). En `https` avec l'autorité de
+   certification interne, le client doit lui faire confiance.
+
+Chaque outil devient un `POST /api/tools/<famille>/<outil>` dont le corps est
+l'objet d'arguments. Les appels s'exécutent **dans votre sandbox, sous votre
+compte** — exactement comme dans le chat. Un échec de l'outil répond `200` avec
+`"ok": false` et une piste de correction ; un jeton absent, expiré ou révoqué
+répond `401`. Le navigateur piloté (`browser`) et le contrôle d'écran
+(`desktop`) ne sont exposés que s'ils sont cochés sur le jeton.
+
 [↑ Sommaire](#sommaire)
 
 ---

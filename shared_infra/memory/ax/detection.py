@@ -34,13 +34,16 @@ def detect_sites_from_text(text: str) -> list[str]:
     return out
 
 
-def detect_session_url(messages: list) -> Optional[str]:
+def detect_session_url(messages: list, owner: str = "") -> Optional[str]:
     """
     Recherche dans les messages (tool_results) un session_id Playwright actif
     et recupere son URL courante via le service Node.
 
     Retourne l'URL ou None. Best-effort : si le service n'est pas accessible,
     ou si pas de session trouvee, retourne None.
+
+    ``owner`` : compte Elpis du chat. Le service ne sert une session qu'à son
+    propriétaire (2026-09-30) : sans compte, rien n'est demandé.
     """
     if not messages:
         return None
@@ -61,20 +64,22 @@ def detect_session_url(messages: list) -> Optional[str]:
     except Exception:
         return None
 
-    if not session_id:
+    if not session_id or not owner:
         return None
 
     # Requete au service Node Playwright pour recuperer l'URL
     try:
         import json as _json
         import os as _os
+        import urllib.parse
         import urllib.request
+
+        from shared_infra.security.browser_url import pw_owner
         node_api = _os.environ.get("PLAYWRIGHT_API_URL",
                                    "http://localhost:3000")
-        req = urllib.request.Request(
-            f"{node_api}/smart_inspect?session_id={session_id}",
-            method="GET",
-        )
+        qs = urllib.parse.urlencode({"session_id": session_id, "owner": pw_owner(owner),
+                                     "skip_screenshot": "true", "level": "lite"})
+        req = urllib.request.Request(f"{node_api}/smart_inspect?{qs}", method="GET")
         with urllib.request.urlopen(req, timeout=2.0) as resp:
             data = _json.loads(resp.read().decode("utf-8"))
             return data.get("url") or data.get("current_url")

@@ -25,12 +25,20 @@ rester lié au loopback (sa position la plus sûre).
 
 SÉCURITÉ — ce relais n'élargit AUCUN droit :
 
-  • il exige un jeton elpis-remote (``pcr_…``) VALIDE, et le retransmet TEL QUEL.
-    C'est donc le service MCP qui continue de décider ce que ce client voit
-    (``client_kind=opencode`` → familles ``fs``/``shell`` cachées, cf.
-    ``server/local_mcp_server.py``). Le jeton de SERVICE de l'app n'est jamais
-    injecté ici : un client ne peut pas gagner les droits de l'app en passant
-    par le relais ;
+  • il exige un client AUTHENTIFIÉ par l'un des vérificateurs de
+    ``CLIENT_VERIFIERS`` — aujourd'hui les jetons personnels opencode
+    (``pcr_…``) et d'outils (``ept_…``, EXT.1), demain OAuth (EXT.4) ;
+  • (EXT.2) il ne retransmet JAMAIS le jeton du client (« token passthrough »,
+    interdit par la spécification MCP) : il présente au service un jeton de
+    DÉLÉGATION ``dlg_…`` — enveloppe signée avec le jeton de service, courte,
+    qui dit pour QUEL compte il agit, avec quel type de client et quelles
+    familles. Le service en tire exactement les restrictions qu'aurait eues le
+    jeton du client (``client_kind=opencode`` → familles opencode ;
+    ``client_kind=tools`` → familles cochées), jamais la confiance de l'app
+    (``trusted_meta``). Un service qui ne connaît pas ``dlg_`` le refuse
+    (401) : pas de repli possible sur les droits du service ;
+  • ``Origin`` contrôlé (anti-rebinding DNS) et ``MCP-Protocol-Version``
+    inconnue refusée (400) avant tout appel au service ;
   • la cible est ``LOCAL_MCP_URL`` (config serveur), jamais une URL du client :
     aucun SSRF possible ;
   • le cookie de session n'est PAS accepté : ce chemin est réservé aux clients
@@ -46,8 +54,9 @@ une session neuve et le client boucherait sur « session not found ».
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
-from typing import Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -103,9 +112,21 @@ def _upstream_base() -> Optional[str]:
     return url or None
 
 
+async def _is_initialize(request: Request) -> bool:
+    """Requête POST JSON-RPC ``initialize`` (le corps est mis en cache par
+    Starlette : le relais le relit ensuite)."""
+    if request.method != "POST":
+        return False
+    try:
+        msg = json.loads(await request.body() or b"{}")
+    except ValueError:
+        return False
+    return isinstance(msg, dict) and msg.get("method") == "initialize"
+
+
 def _caller_token(request: Request) -> str:
-    """Jeton elpis-remote de l'appelant, ou "" — ``Authorization: Bearer pcr_…``
-    (ce qu'envoie opencode) ou ``x-elpis-token`` (ce qu'envoie le plugin)."""
+    """Jeton personnel de l'appelant, ou "" — ``Authorization: Bearer …``
+    (clients MCP, opencode) ou ``x-elpis-token`` (ce qu'envoie le plugin)."""
     auth = (request.headers.get("authorization") or "").strip()
     if auth.lower().startswith("bearer "):
         return auth[7:].strip()
@@ -130,6 +151,55 @@ async def mcp_proxy_family(request: Request, family: str):
     return await _relay_to_mcp(request, family)
 
 
+def _resolve_token(token: str):
+    """Jeton opencode ou d'outils valide → dict du jeton, sinon ``None``."""
+    from shared_infra.accounts import tokens as _tokens
+    return _tokens.resolve(token, kinds=("opencode", "tools"))
+
+
+def _personal_token_client(token: str) -> Optional[Dict[str, Any]]:
+    """Vérificateur des jetons personnels (EXT.1)."""
+    d = _resolve_token(token)
+    if not d:
+        return None
+    return {"user_id": int(d.get("user_id") or 0), "username": str(d.get("username") or ""),
+            "kind": str(d.get("kind") or ""), "families": list(d.get("families") or [])}
+
+
+def _oauth_client(token: str) -> Optional[Dict[str, Any]]:
+    """Vérificateur des jetons d'accès OAuth (EXT.4) : ``kind="oauth"``,
+    familles accordées au consentement ∩ politique courante."""
+    if not token.startswith("eoa_"):
+        return None
+    from shared_infra.mcp.oauth import verify_access_token
+    return verify_access_token(token)
+
+
+# Vérificateurs de client du relais, essayés dans l'ordre : ``jeton → client``
+# ``{user_id, username, kind, families}`` ou ``None``. Le jeton de délégation
+# porte le même client, quel que soit le vérificateur qui l'a reconnu.
+ClientVerifier = Callable[[str], Optional[Dict[str, Any]]]
+CLIENT_VERIFIERS: List[ClientVerifier] = [_personal_token_client, _oauth_client]
+
+
+def verify_client(token: str) -> Optional[Dict[str, Any]]:
+    """Client authentifié par l'un des vérificateurs, sinon ``None``."""
+    for v in CLIENT_VERIFIERS:
+        try:
+            c = v(token)
+        except Exception:                                        # noqa: BLE001
+            logger.warning("[mcp-proxy] vérificateur de client en échec", exc_info=True)
+            c = None
+        if c and c.get("username"):
+            return c
+    return None
+
+
+def _service_token() -> str:
+    from shared_infra.mcp.local_registry import service_upstream
+    return str(service_upstream()[1] or "")
+
+
 # Période de revérification du jeton sur les flux GET longs (cf. _relay).
 _TOKEN_RECHECK_S = 60.0
 
@@ -142,37 +212,63 @@ async def _relay_to_mcp(request: Request, family: str):
     if not base:
         raise HTTPException(404, "Service MCP partagé non configuré.")
 
+    # (EXT.2) Origine : un navigateur d'une autre origine n'a rien à faire ici
+    # (anti-rebinding DNS) ; les clients natifs n'envoient pas d'Origin.
+    from shared_infra.mcp.origins import origin_allowed
+    if not origin_allowed(request.headers.get("origin")):
+        raise HTTPException(403, "Origine non autorisée.")
+    # Version de protocole annoncée par le client après ``initialize`` :
+    # inconnue → 400 (absente : la version par défaut de la spécification).
+    # ``initialize`` lui-même négocie la version dans son corps : pas de
+    # contrôle d'en-tête (comme le SDK côté serveur).
+    pv = request.headers.get("mcp-protocol-version")
+    if pv is not None and not await _is_initialize(request):
+        from mcp.shared.version import SUPPORTED_PROTOCOL_VERSIONS
+        if pv not in SUPPORTED_PROTOCOL_VERSIONS:
+            raise HTTPException(400, "Version de protocole MCP non prise en charge : "
+                                f"{pv[:40]} (connues : {', '.join(SUPPORTED_PROTOCOL_VERSIONS)}).")
+
+    fam = (family or "").strip().strip("/")
+    # (EXT.4) Le défi dit où découvrir l'autorisation (RFC 9728) et quelle
+    # portée demander : un client MCP n'a besoin que de l'URL du relais.
+    from shared_infra.mcp.routes_oauth import www_authenticate
     token = _caller_token(request)
     if not token:
         # 401 + WWW-Authenticate : c'est ce que la découverte MCP attend quand
         # un client se présente sans jeton (il sait alors qu'il doit en fournir
         # un, au lieu de conclure que l'URL est morte).
-        raise HTTPException(401, "Jeton elpis-remote requis.",
-                            headers={"WWW-Authenticate": "Bearer"})
-    try:
-        from shared_infra.opencode.routes_code import _resolve_token
-    except Exception:
-        raise HTTPException(503, "Vérification du jeton indisponible.")
-    # Lecture SQLite : hors de la boucle d'événements.
-    if await asyncio.to_thread(_resolve_token, token) is None:
-        raise HTTPException(401, "Jeton elpis-remote invalide ou révoqué.",
-                            headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(401, "Jeton requis (Paramètres › Connexions).",
+                            headers={"WWW-Authenticate": www_authenticate(request, fam)})
+    # Lecture de la base : hors de la boucle d'événements.
+    client_ident = await asyncio.to_thread(verify_client, token)
+    if client_ident is None:
+        raise HTTPException(401, "Jeton invalide, expiré ou révoqué.",
+                            headers={"WWW-Authenticate": www_authenticate(request, fam, error="invalid_token")})
+    if (client_ident.get("kind") == "oauth" and fam
+            and fam not in (client_ident.get("families") or [])):
+        # Famille non accordée : le client peut redemander cette portée.
+        raise HTTPException(403, "Famille d'outils non autorisée pour ce jeton.",
+                            headers={"WWW-Authenticate": www_authenticate(
+                                request, fam, error="insufficient_scope")})
+    service_token = _service_token()
+    if not service_token:
+        raise HTTPException(404, "Service MCP partagé non configuré.")
 
     # Famille : segment d'URL contrôlé (le service refuse déjà l'inconnue par un
     # 404, cf. FamilyScopeASGI). On borne quand même la forme ici pour ne jamais
     # laisser un segment fabriqué s'échapper de ``…/mcp/`` (traversée de chemin).
-    fam = (family or "").strip().strip("/")
-    if fam and not fam.isalnum():
+    from shared_infra.mcp.families import is_family_name
+    if fam and not is_family_name(fam):
         raise HTTPException(404, "Famille d'outils inconnue.")
     url = f"{base}/{fam}" if fam else base
     if request.url.query:
         url += f"?{request.url.query}"
 
     fwd = {h: request.headers[h] for h in _FWD_REQ_HEADERS if h in request.headers}
-    # Le jeton de l'APPELANT, tel quel : c'est lui qui porte l'identité et les
-    # restrictions de famille côté service. On ne substitue JAMAIS le jeton de
-    # service de l'app (ce serait une élévation de privilège silencieuse).
-    fwd["authorization"] = f"Bearer {token}"
+    # (EXT.2) Jamais le jeton du client : un jeton de DÉLÉGATION, signé avec le
+    # jeton de service, qui porte le compte, le type de client et ses familles.
+    from shared_infra.mcp.delegation import delegation_token
+    fwd["authorization"] = f"Bearer {delegation_token(client_ident, service_token)}"
 
     body = await request.body() if request.method == "POST" else b""
 
@@ -213,6 +309,18 @@ async def _relay_to_mcp(request: Request, family: str):
         from fastapi.responses import Response as _Resp
         return _Resp(status_code=405, headers={"Allow": "POST", "Cache-Control": "no-store"})
 
+    # Jeton du CLIENT déjà validé ici : un 401/403 de l'amont vise la
+    # délégation (horloge d'un hôte d'outils distant, version ancienne, jeton
+    # de service désaligné). Le renvoyer tel quel ferait croire au client que
+    # SON jeton est mauvais (un client OAuth relancerait l'autorisation).
+    if upstream.status_code in (401, 403):
+        await upstream.aclose()
+        await client.aclose()
+        logger.warning("[mcp-proxy] délégation refusée par le service d'outils (%s, HTTP %s) : "
+                       "vérifier l'horloge, la version et le jeton de service", url, upstream.status_code)
+        raise HTTPException(502, "Le service d'outils a refusé la délégation du relais "
+                                 "(horloge, version ou jeton de service).")
+
     resp_headers = {k: v for k, v in upstream.headers.items()
                     if k.lower() not in _HOP_BY_HOP}
     # Un intermédiaire qui tamponne casse le flux d'événements : on le dit aux
@@ -231,7 +339,7 @@ async def _relay_to_mcp(request: Request, family: str):
         while True:
             await asyncio.sleep(_TOKEN_RECHECK_S)
             try:
-                ok = await asyncio.to_thread(_resolve_token, token) is not None
+                ok = await asyncio.to_thread(verify_client, token) is not None
             except Exception:
                 ok = True                      # transitoire → fail-open
             if not ok:
@@ -269,4 +377,4 @@ async def _relay_to_mcp(request: Request, family: str):
                              headers=resp_headers)
 
 
-__all__ = ["MCP_PROXY_PREFIX"]
+__all__ = ["CLIENT_VERIFIERS", "MCP_PROXY_PREFIX", "verify_client"]

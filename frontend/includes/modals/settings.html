@@ -94,6 +94,11 @@
                             class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
                         <i class="ph ph-chart-line text-base"></i> Utilisation
                     </button>
+                    <button @click="settingsTab='connexions'; loadConnexions()"
+                            :class="settingsTab==='connexions' ? 'bg-white text-blue-600 shadow-sm font-medium' : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'"
+                            class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5">
+                        <i class="ph ph-key text-base"></i> Connexions
+                    </button>
 
                     <!-- Section : Données -->
                     <div class="text-[11px] font-semibold text-slate-500 px-2.5 mt-4 mb-1.5">Données</div>
@@ -465,6 +470,137 @@
                     </div>
 
                     <!-- ┌───────── CONNECTEURS GIT ──────────────────────┐ -->
+                    <!-- ═══════════ Connexions (jetons personnels, EXT.1) ═══════════
+                         État et actions : settings/connexions.js (cnxState…). Un jeton
+                         n'est montré qu'une fois ; ensuite un espace réservé le remplace. -->
+                    <div v-if="settingsTab==='connexions'" class="space-y-5 max-w-2xl">
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800 mb-1">Connexions</h3>
+                            <p class="text-xs text-slate-500">Jetons pour utiliser vos outils Elpis depuis un autre client (MCP, OpenAPI, opencode). Un jeton n'est affiché qu'une fois : en cas de perte, régénérez-le.</p>
+                        </div>
+
+                        <!-- Affichage unique (ou configuration avec espace réservé) -->
+                        <div v-if="cnxState.reveal" class="border rounded-xl p-4 space-y-3"
+                             :class="cnxState.reveal.token ? 'border-amber-300 bg-amber-50/60' : 'border-slate-200'">
+                            <div class="flex items-center gap-2">
+                                <i class="ph ph-key text-slate-500" aria-hidden="true"></i>
+                                <div class="text-sm font-medium text-slate-800 flex-1 truncate">{{ cnxState.reveal.item.name }}</div>
+                                <button @click="cnxCloseReveal()" aria-label="Fermer" class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 flex items-center justify-center"><i class="ph ph-x" aria-hidden="true"></i></button>
+                            </div>
+                            <template v-if="cnxState.reveal.token">
+                                <p class="text-xs text-amber-700">Copiez ce jeton maintenant : il ne sera plus affiché.</p>
+                                <div class="flex items-center gap-2">
+                                    <code class="flex-1 min-w-0 truncate font-mono text-xs bg-white border border-slate-200 rounded-md px-2.5 py-1.5 select-all">{{ cnxState.reveal.token }}</code>
+                                    <button @click="cnxCopy(cnxState.reveal.token)" class="px-2.5 py-1.5 text-xs rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0">Copier</button>
+                                </div>
+                            </template>
+                            <p v-else class="text-xs text-slate-500">Remplacez <code class="font-mono">&lt;VOTRE_JETON&gt;</code> par le jeton copié à sa création.</p>
+                            <div class="flex flex-wrap gap-1" role="tablist">
+                                <button v-for="b in cnxBlocks()" :key="b.id" @click="cnxState.tab = b.id" role="tab"
+                                        :aria-selected="cnxState.tab === b.id ? 'true' : 'false'"
+                                        class="h-7 px-2.5 rounded-md text-xs transition-colors"
+                                        :class="cnxState.tab === b.id ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-100'">{{ b.label }}</button>
+                            </div>
+                            <template v-for="b in cnxBlocks()" :key="'blk' + b.id">
+                                <div v-if="cnxState.tab === b.id" class="relative">
+                                    <pre class="font-mono text-[11px] leading-relaxed bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-64 overflow-auto custom-scrollbar whitespace-pre">{{ b.text }}</pre>
+                                    <button @click="cnxCopy(b.text)" class="absolute top-2 right-2 px-2 py-1 text-[11px] rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">Copier</button>
+                                </div>
+                            </template>
+                            <div v-if="cnxState.reveal.item.kind === 'tools'" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                                <span>Schémas :</span>
+                                <template v-for="f in cnxState.reveal.item.families" :key="'sch' + f">
+                                    <a :href="cnxSchemaHref(f)" target="_blank" rel="noopener" class="text-blue-600 hover:underline">{{ f }} (MCP)</a>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Liste -->
+                        <div v-if="cnxState.tokens.length" class="space-y-2">
+                            <div v-for="t in cnxState.tokens" :key="t.id" class="border border-slate-200 rounded-xl p-3.5 flex items-center gap-3">
+                                <i class="ph text-lg text-slate-400 shrink-0" :class="t.kind === 'opencode' ? 'ph-terminal-window' : 'ph-key'" aria-hidden="true"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-slate-800 truncate">{{ t.name }} <span class="text-slate-400 font-normal font-mono text-xs">…{{ t.hint }}</span></div>
+                                    <div class="text-[11px] text-slate-500 truncate">
+                                        {{ cnxKindLabel(t.kind) }}<template v-if="t.families.length"> · {{ t.families.join(', ') }}</template>
+                                        · créé le {{ cnxDate(t.created_at) }}
+                                        · {{ t.last_used_at ? 'utilisé le ' + cnxDate(t.last_used_at) : 'jamais utilisé' }}
+                                        <template v-if="t.expires_at"> · expire le {{ cnxDate(t.expires_at) }}</template>
+                                    </div>
+                                </div>
+                                <button @click="cnxShowConfig(t)" title="Configuration des clients" aria-label="Configuration des clients" class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center shrink-0"><i class="ph ph-brackets-curly" aria-hidden="true"></i></button>
+                                <button @click="cnxRegenerate(t)" :disabled="cnxState.busy" title="Régénérer" aria-label="Régénérer le jeton" class="w-7 h-7 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center shrink-0"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i></button>
+                                <button @click="cnxRevoke(t)" title="Révoquer" aria-label="Révoquer le jeton" class="w-7 h-7 rounded-md text-slate-500 hover:bg-red-50 hover:text-red-600 flex items-center justify-center shrink-0"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <p v-else-if="!cnxState.form" class="text-sm text-slate-500 py-4 text-center">Aucun jeton.</p>
+
+                        <!-- Création -->
+                        <div v-if="cnxState.form" class="border border-blue-200 bg-blue-50/40 rounded-xl p-4 space-y-2.5">
+                            <div class="text-sm font-medium text-slate-700">Nouveau jeton</div>
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <div>
+                                    <label for="cnx-name" class="text-[11px] font-medium text-slate-500">Nom</label>
+                                    <input id="cnx-name" v-model="cnxState.form.name" maxlength="80" placeholder="ex. VS Code du bureau, agent CI" class="set-input mt-0.5">
+                                </div>
+                                <div>
+                                    <label for="cnx-kind" class="text-[11px] font-medium text-slate-500">Type</label>
+                                    <select id="cnx-kind" v-model="cnxState.form.kind" class="set-select w-full mt-0.5">
+                                        <option value="tools">Outils (MCP, OpenAPI)</option>
+                                        <option v-if="cnxState.opencode" value="opencode">opencode (plugin)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <template v-if="cnxState.form.kind === 'tools' && cnxState.policy">
+                                <div>
+                                    <div class="text-[11px] font-medium text-slate-500 mb-1">Familles d'outils</div>
+                                    <div class="flex flex-wrap gap-x-4 gap-y-1.5">
+                                        <label v-for="f in cnxState.policy.families" :key="'cf' + f.name" class="inline-flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer">
+                                            <input type="checkbox" v-model="cnxState.form.families[f.name]" class="rounded border-slate-300">
+                                            {{ f.label }} <span class="font-mono text-[11px] text-slate-400">{{ f.name }}</span>
+                                        </label>
+                                    </div>
+                                    <p v-if="cnxState.form.families.desktop" class="text-[11px] text-amber-700 mt-1">« desktop » pilote vos machines hors de la sandbox.</p>
+                                </div>
+                                <div>
+                                    <label for="cnx-days" class="text-[11px] font-medium text-slate-500">Durée de validité</label>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <input id="cnx-days" v-model.number="cnxState.form.days" type="number" min="0" :max="cnxState.policy.max_days || 3650" class="set-input w-28">
+                                        <span class="text-xs text-slate-500">jours<template v-if="cnxState.policy.max_days"> (maximum {{ cnxState.policy.max_days }})</template><template v-else> (0 = sans limite)</template></span>
+                                    </div>
+                                </div>
+                            </template>
+                            <p v-if="cnxState.error" class="text-xs text-red-600">{{ cnxState.error }}</p>
+                            <div class="flex items-center gap-2 pt-1">
+                                <button @click="cnxCreate()" :disabled="cnxState.busy" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50">Créer</button>
+                                <button @click="cnxCancel()" class="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Annuler</button>
+                            </div>
+                        </div>
+                        <button v-if="!cnxState.form" @click="cnxNew()" :disabled="cnxState.policy && !cnxState.policy.tools_enabled && !cnxState.opencode"
+                                class="w-full px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"><i class="ph ph-plus" aria-hidden="true"></i> Nouveau jeton</button>
+                        <p v-if="cnxState.policy && !cnxState.policy.tools_enabled" class="text-[11px] text-slate-500">Les jetons d'outils sont désactivés par l'administrateur.</p>
+
+                        <!-- Applications autorisées par OAuth (EXT.4) : un client MCP qui ne
+                             reçoit que l'URL du relais passe par l'écran de consentement. -->
+                        <div v-if="cnxState.oauthEnabled || cnxState.grants.length" class="pt-2 space-y-2">
+                            <div class="text-sm font-medium text-slate-700">Applications autorisées</div>
+                            <p class="text-[11px] text-slate-500">Un client MCP peut aussi se connecter avec la seule adresse <span class="font-mono">{{ cnxState.bridgeUrl || '/api/mcp-bridge' }}</span> : Elpis vous demande alors votre accord.</p>
+                            <div v-for="g in cnxState.grants" :key="g.grant_id" class="border border-slate-200 rounded-xl p-3.5 flex items-center gap-3">
+                                <i class="ph ph-plugs-connected text-lg text-slate-400 shrink-0" aria-hidden="true"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-slate-800 truncate" :title="g.client_id">{{ g.client_name }}</div>
+                                    <div class="text-[11px] text-slate-500 truncate">
+                                        {{ g.families.join(', ') }}
+                                        · autorisé le {{ cnxDate(g.created_at) }}
+                                        · {{ g.last_used_at ? 'utilisé le ' + cnxDate(g.last_used_at) : 'jamais utilisé' }}
+                                    </div>
+                                </div>
+                                <button @click="cnxRevokeGrant(g)" title="Retirer l'accès" aria-label="Retirer l'accès" class="w-7 h-7 rounded-md text-slate-500 hover:bg-red-50 hover:text-red-600 flex items-center justify-center shrink-0"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                            </div>
+                            <p v-if="!cnxState.grants.length" class="text-sm text-slate-500 py-2 text-center">Aucune application autorisée.</p>
+                        </div>
+                    </div>
+
                     <div v-if="settingsTab==='connectors'" class="space-y-5 max-w-xl">
                         <div>
                             <h3 class="text-base font-semibold text-slate-800 mb-1">Connecteurs Git</h3>

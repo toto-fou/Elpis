@@ -414,6 +414,11 @@ function setupSettings(vue, sharedRefs, ctx) {
         loadSavedPrompts();
         loadSharedPrompts();
         loadArchives();
+        // Onglet sur lequel la modale se rouvre : ses données sont relues (la
+        // fermeture a pu les vider — Connexions oublie jetons et politique —,
+        // ou elles ont changé depuis). Sans ça, liste vide jusqu'au rechargement.
+        const _rouvert = _TAB_LOADERS[settingsTab.value];
+        if (_rouvert) { try { _rouvert(); } catch (_) { /* best-effort */ } }
         showSettingsModal.value = true;
         // a11y : déplacer le focus dans la modale à l'ouverture (sortie au clavier via Échap).
         try { await nextTick(); settingsDialogEl.value && settingsDialogEl.value.focus(); } catch(_) {}
@@ -431,6 +436,7 @@ function setupSettings(vue, sharedRefs, ctx) {
         archives:   () => loadArchives(),
         sandbox:    () => loadSandboxState(),
         connectors: () => loadGitConnectors(),
+        connexions: () => _cnxMod.loadConnexions(),
         // Ces deux-là vivent hors du module Paramètres (cf. proxies d'app.js).
         agents:     () => ctx.loadMcpUserCategories && ctx.loadMcpUserCategories(),
         skills:     () => ctx.openSkillsTab && ctx.openSkillsTab(),
@@ -479,6 +485,9 @@ function setupSettings(vue, sharedRefs, ctx) {
         promptSearch.value = '';
         promptOpen.value = {};
         cancelMemoryEdit();   // ne pas rouvrir sur un brouillon abandonné
+        // Jeton montré une fois : jamais gardé au-delà de la fermeture (la
+        // déconnexion passe aussi par ici — compte suivant, même onglet).
+        try { _cnxMod.cnxReset && _cnxMod.cnxReset(); } catch (_) {}
         // Fermer par X / Échap / clic backdrop = ANNULER. Les contrôles
         // d'apparence (skin, mode sombre…) mutent settings.value en live
         // (watchers immediate) sans rien persister : sans revert, l'UI
@@ -2265,6 +2274,12 @@ function setupSettings(vue, sharedRefs, ctx) {
     // ════════════ Connecteurs Git (credentials par-host, host-only) ══════════
     // Remplace le fichier .git-credentials.json de la sandbox. Le token est
     // write-only : l'API ne renvoie que ``has_token``, jamais le secret.
+    // ════════════ Connexions (jetons personnels, EXT.1) ═══════════════════════
+    // Module à part (settings/connexions.js) ; repli inerte s'il manque.
+    const _cnxMod = (typeof window !== 'undefined' && typeof window.setupConnexions === 'function')
+        ? window.setupConnexions(vue, ctx)
+        : { loadConnexions: async () => {} };
+
     const gitConnectors = ref([]);
     const gitConnTypes  = ref([]);
     const gitConnForm   = ref(null);     // null = aucun formulaire ouvert
@@ -3377,6 +3392,7 @@ function setupSettings(vue, sharedRefs, ctx) {
         llmConnForm, llmConnBusy, llmConnTest, llmPresetLabel,
         loadLlmConnectors, newLlmConnector, editLlmConnector, cancelLlmConnector,
         saveLlmConnector, deleteLlmConnector, testLlmConnector,
+        ..._cnxMod,
         gitConnectors, gitConnTypes, gitConnForm, gitConnBusy, gitConnTest, gitConnAdvanced,
         loadGitConnectors, newGitConnector, editGitConnector, cancelGitConnector,
         saveGitConnector, deleteGitConnector, testGitConnector, parseGitRepoUrl,

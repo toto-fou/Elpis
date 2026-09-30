@@ -237,6 +237,21 @@ conteneur, relancé s'il n'a pas la version de l'application. L'hôte le joint
 par `sandbox/agent_client.py`, qui saisit le socket sans suivre de lien et
 tient toute réponse pour non fiable.
 
+## Outils externes (MCP, OAuth, OpenAPI)
+
+Les familles d'outils de la sandbox sont servies par le **service d'outils**
+(`server/local_mcp_server.py`, `toolhost/`), en MCP par famille
+(`/mcp/<famille>`). Les clients externes le joignent par l'origine de l'app :
+le **relais** `shared_infra/mcp/bridge.py` (`/api/mcp-bridge[/<famille>]`)
+vérifie le jeton du client — jeton personnel (`shared_infra/accounts/tokens.py`,
+en empreinte) ou jeton OAuth (`shared_infra/mcp/oauth.py`,
+`routes_oauth.py` : Elpis est son propre serveur d'autorisation) — puis
+présente au service un jeton de délégation signé (`mcp/delegation.py`) qui
+porte le compte et ses familles : le jeton du client ne quitte jamais le
+relais. La **façade OpenAPI** (`mcp/openapi.py`, `routes_openapi.py`)
+expose les mêmes outils en HTTP ordinaire. Le **navigateur** (`browser-service/`)
+passe par un relais local filtrant (`proxy_guard.js`, `url_guard.js`).
+
 ## Invariants
 
 - **Séparation des process.** Les routes d'administration sont **montées**

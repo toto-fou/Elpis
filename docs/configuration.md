@@ -546,6 +546,85 @@ Console admin → Connexions → « Outils par défaut » → Exporter, ou
 ⚠ En transport stdio, la sortie standard EST le canal JSON-RPC : tout
 diagnostic du service part sur `stderr`.
 
+**Jetons personnels.** Chaque compte crée ses jetons dans Paramètres ›
+Connexions ; seule leur empreinte SHA-256 est gardée (jeton montré une fois,
+régénérable). Trois types : `pcr_` (opencode : greffon, `opencode.json`, relais
+MCP), `ept_` (outils : relais MCP et façade OpenAPI, familles cochées ∩
+politique, expiration) et `evt_` (vision d'une automatisation de bureau, 12 h,
+seulement `/api/desktop/locate`, créé automatiquement, 20 au plus par compte,
+masqué de la liste). Politique `mcp.tokens.*`, relue à chaud : `tools_enabled`
+(vrai), `tools_families` (`fs,shell,git,desktop,browser,skill_run`),
+`max_days` (90 ; 0 = sans limite), `max_per_user` (20, jetons opencode et
+outils valides). Révoquer les sessions d'un compte, réinitialiser ou changer
+son mot de passe révoque aussi tous ses jetons et ses applications OAuth ;
+l'administrateur voit et coupe ces accès depuis la fiche du compte.
+`GET /api/code/config` ne renvoie plus de jeton : l'installeur et l'appairage
+en créent un.
+
+**Façade OpenAPI.** Les familles du service partagé qui ont un
+point d'accès externe (`fs`, `shell`, `git`, `desktop`, `browser`, `skill_run`)
+sont aussi servies en
+OpenAPI 3.1 sous l'origine de l'app : `GET /api/tools/<famille>/openapi.json`
+(générée depuis `tools/list`, cache 60 s) et `POST /api/tools/<famille>/<outil>`.
+Authentification par jeton d'outils `ept_` seul ; portée = familles du jeton ∩
+`mcp.tokens.tools_families` ; `mcp.tokens.tools_enabled: false` coupe la façade
+(404). L'appel part avec le jeton de SERVICE et l'identité du propriétaire du
+jeton dans le `_meta` MCP, avec le délai propre à l'outil ; au plus 4 appels
+simultanés par compte et par worker (429). Code :
+`shared_infra/mcp/openapi.py`, `shared_infra/mcp/routes_openapi.py`.
+
+**Conformité MCP.** Le service d'outils suit la spécification
+MCP (révisions 2024-11-05 à 2025-11-25, transport HTTP streamable), vérifiée par
+un banc qui fait parler les clients de référence (SDK officiel et FastMCP) au
+relais : `initialize` pour chaque version (version d'Elpis dans `serverInfo`,
+`tools.listChanged: false` — aucune notification de liste n'est émise),
+`tools/list` paginé (`nextCursor`, `LOCAL_MCP_LIST_PAGE_SIZE`, 100 par défaut,
+de quoi tenir un endpoint de famille en une page), outils nommés, titrés,
+annotés (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`),
+`inputSchema`/`outputSchema` en JSON Schema, `structuredContent` conforme à
+`outputSchema`. Un échec d'outil — arguments invalides compris — est un résultat
+`isError` ; un outil inconnu, éteint ou hors des familles du client est une
+erreur JSON-RPC `-32602` (même réponse dans les trois cas). Transport : le relais
+public `/api/mcp-bridge[/<famille>]` ne sert que l'HTTP streamable, refuse une
+`MCP-Protocol-Version` inconnue (400) et contrôle `Origin` (403) comme le service
+d'outils : un en-tête absent (clients natifs) passe, sinon l'origine doit figurer
+dans `mcp.allowed_origins` (relue à chaud, motif `scheme://hôte:*` accepté),
+`app.cors_origins` ou `LOCAL_MCP_ALLOWED_ORIGINS` (jamais déduite de l'en-tête
+`Host`, relais compris). Le relais ne retransmet jamais le jeton du client : il le vérifie
+(`CLIENT_VERIFIERS`, `shared_infra/mcp/bridge.py`) puis présente au service un
+jeton de DÉLÉGATION `dlg_…` (`shared_infra/mcp/delegation.py`) — enveloppe HMAC
+signée avec le jeton de service, d'audience `elpis-mcp`, valable ±60 s, qui porte
+le compte, le type de client et ses familles. Le service en tire les restrictions
+qu'aurait eues le jeton du client, jamais la confiance de l'app ; un service qui
+ne connaît pas `dlg_` le refuse (401). Un jeton personnel présenté directement au
+service (client local sur la boucle locale) reste accepté.
+
+**Autorisation OAuth 2.1 des clients MCP.** Elpis est son propre serveur
+d'autorisation (spécification MCP « Authorization » 2025-11-25) :
+`/.well-known/oauth-protected-resource[/api/mcp-bridge[/<famille>]]` (RFC 9728 :
+la ressource annoncée est celle du chemin demandé, `<origine>/api/mcp-bridge`
+ou `<origine>/api/mcp-bridge/<famille>` — un jeton obtenu pour une famille y
+est borné ; portées `tools` et `tools:<famille>`), `/.well-known/oauth-authorization-server` (RFC 8414),
+`/oauth/register` (RFC 7591, redirections limitées à `http://127.0.0.1|localhost|[::1]`
+et `https://`), `/oauth/authorize` (session Elpis puis écran de consentement,
+code + PKCE S256 obligatoire, `resource` RFC 8707 obligatoire), `/oauth/token`
+(code ou rafraîchissement avec rotation), `/oauth/revoke` (RFC 7009). Les clients
+décrits par un document https (CIMD) sont acceptés quand le document est
+joignable (garde SSRF commune, connexion à l'adresse vérifiée, document récupéré
+seulement pour un compte connecté). Tant qu'un client enregistré de lui-même
+n'a été autorisé par personne, une demande en erreur s'affiche sur place,
+sans redirection vers son adresse de retour. Le relais répond `401` avec
+`WWW-Authenticate: Bearer resource_metadata="…"` (et `scope="tools:<famille>"` sur
+un point d'accès de famille), et `403 insufficient_scope` pour une famille non
+accordée. Jetons opaques en empreinte SHA-256 (`eoa_` accès, `eor_`
+rafraîchissement ; un rafraîchissement ou un code rejoué révoque toute
+l'autorisation), tables de la migration 0023, familles toujours bornées par
+`mcp.tokens.tools_enabled` / `tools_families`. Politique `mcp.oauth.*`, relue à
+chaud : `enabled` (vrai), `dcr_enabled` (vrai), `access_ttl_s` (3600),
+`refresh_days` (30, borné par `mcp.tokens.max_days`). Console › Outils MCP :
+réglages et clients enregistrés (suppression) ; Paramètres › Connexions :
+applications autorisées par le compte (retrait).
+
 **Politique d'exécution et événements live.** Chaque outil
 porte ``meta.policy`` (``timeout_s``, ``serial``, ``replay_safe``, ``prune``,
 ``deny_for``) via ``_toolkit.tool_kw_*(…, **policy)`` / ``with_policy`` ; le
@@ -612,6 +691,8 @@ l'être). Routes :
 | `LOCAL_MCP_TOKEN` | — | Jeton de **service** de l'app (Bearer, **vérifié** côté serveur sur SSE/HTTP) ; `./elpis configure` le génère dans `user_db/.local_mcp_token` |
 | `LOCAL_MCP_CLIENT_TOKENS` | — | Jetons de **clients externes** configurés à la main, chacun lié à un compte : `tok1:alice,tok2:bob` (toutes les familles) |
 | `LOCAL_MCP_TOOL_FAMILIES` | `all` | Familles enregistrées : `fs,shell,git` ou `all,-desktop,-browser` |
+| `LOCAL_MCP_LIST_PAGE_SIZE` | `100` | Outils par page de `tools/list` (pagination par `cursor`) |
+| `LOCAL_MCP_ALLOWED_ORIGINS` | *(vide)* | Origines de navigateur autorisées en plus de `mcp.allowed_origins` et `app.cors_origins` (séparées par des virgules, `scheme://hôte:*` accepté) |
 | `LOCAL_MCP_OPENCODE_FAMILIES` | `git,browser,desktop` | Familles **publiées** à opencode, une **entrée MCP (= une bascule) par famille** → `…/mcp/<famille>`. Liste d'inclusion : une famille ajoutée plus tard doit être nommée pour apparaître |
 | `LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES` | `fs,shell,skill_run` | Familles **toujours refusées** aux clients opencode (jeton elpis-remote `pcr_…`, accepté en Bearer) — opencode a ses propres outils fichiers/shell |
 | `LOCAL_MCP_PUBLIC_URL` | — | URL du service telle que les postes la joignent (bloc `mcp` d'`opencode.json`) ; vide → hôte de l'app + `LOCAL_MCP_PORT` |
@@ -647,6 +728,28 @@ l'être). Routes :
 | `ROUTINES_PER_USER_CAP` | `5` | Runs simultanés par utilisateur |
 | `ROUTINES_RUN_MAX_ATTEMPTS` / `_RETRY_BACKOFF_S` | `2` / `3.0` | Reprise bornée d'un run |
 | `PTY_MAX_PER_USER` | dérivé | Terminaux par utilisateur |
+
+### Navigateur piloté : destinations autorisées
+
+Le service navigateur (`browser-service/`, outils `pw_*`) ne joint que des
+adresses `http` et `https` (plus `about:blank`). Tout son trafic — navigation,
+redirections, sous-ressources, WebSocket — passe par un relais local qui
+résout lui-même chaque nom et ne se connecte qu'à l'adresse qu'il a jugée.
+Sont refusés : la boucle locale, le lien-local (dont les adresses de
+métadonnées), les adresses propres à l'hôte Elpis et les réseaux de
+conteneurs. Le réseau local est autorisé par défaut (intranet). Liste
+blanche facultative, relue à chaud : `browser.url_allowlist` dans
+`config.json` (ou `BROWSER_URL_ALLOWLIST`, séparée par des virgules ou des
+espaces) — hôtes exacts, `*.domaine`, adresses IP ou blocs CIDR ; posée, elle
+restreint le RÉSEAU LOCAL aux hôtes et réseaux qu'elle nomme (les
+destinations publiques restent joignables, les refus ci-dessus restent
+absolus). Les sessions, états sauvegardés,
+téléchargements et références visuelles sont rangés par compte ; au plus 3
+sessions par compte (`BROWSER_MAX_SESSIONS_PER_OWNER`) et 10 en tout, une
+nouvelle session ne ferme jamais celle d'un autre compte.
+
+⚠ **Mise à jour** : une automatisation qui naviguait vers `localhost`,
+l'adresse de l'hôte ou un conteneur local est désormais refusée.
 
 ### `context_config.json` — textes injectés au LLM
 

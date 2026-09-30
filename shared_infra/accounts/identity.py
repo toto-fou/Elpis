@@ -204,6 +204,61 @@ def verify(header: str, key: str, *, now: Optional[float] = None,
     return Identity.from_dict(body)
 
 
+# ── Délégation MCP : relais de l'app → service d'outils (EXT.2) ─────────────
+# Le relais public ``/api/mcp-bridge`` ne retransmet plus le jeton du client
+# (« token passthrough », interdit par la spécification MCP) : il le vérifie,
+# puis présente au service son jeton de SERVICE accompagné de CETTE enveloppe,
+# qui dit pour QUI il agit. HMAC avec le jeton de service, horodatée, et liée à
+# son usage (``aud``) : elle ne se confond ni avec ``X-Elpis-Identity`` (API
+# sandbox) ni avec un autre en-tête signé par la même clé.
+DELEGATION_HEADER = "x-elpis-mcp-client"
+DELEGATION_AUDIENCE = "elpis-mcp"
+
+
+def sign_claims(claims: Dict[str, Any], key: str, *, aud: str,
+                now: Optional[float] = None) -> str:
+    """``<payload b64>.<hmac-sha256 b64>`` — payload = ``claims`` + ``aud`` + ``ts``."""
+    if not key:
+        raise ValueError("jeton de service absent : impossible de signer")
+    body = dict(claims)
+    body["aud"] = aud
+    body["ts"] = float(now if now is not None else time.time())
+    raw = json.dumps(body, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    mac = hmac.new(key.encode("utf-8"), raw, hashlib.sha256).digest()
+    return f"{_b64e(raw)}.{_b64e(mac)}"
+
+
+def verify_claims(header: str, key: str, *, aud: str, now: Optional[float] = None,
+                  max_skew_s: float = MAX_SKEW_S) -> Optional[Dict[str, Any]]:
+    """Revendications de l'enveloppe si signature, audience et horodatage sont
+    valides, sinon ``None`` (jamais d'exception)."""
+    if not header or not key or "." not in header:
+        return None
+    try:
+        p, m = header.split(".", 1)
+        raw = _b64d(p)
+        mac = _b64d(m)
+    except Exception:
+        return None
+    expect = hmac.new(key.encode("utf-8"), raw, hashlib.sha256).digest()
+    if not hmac.compare_digest(mac, expect):
+        return None
+    try:
+        body = json.loads(raw.decode("utf-8"))
+    except Exception:
+        return None
+    if not isinstance(body, dict) or body.get("aud") != aud:
+        return None
+    try:
+        ts = float(body.get("ts"))
+    except (TypeError, ValueError):
+        return None
+    t = float(now if now is not None else time.time())
+    if abs(t - ts) > max_skew_s:
+        return None
+    return body
+
+
 def from_meta(meta: Any) -> Optional[Identity]:
     """Identité portée par le ``_meta`` d'un appel MCP (``username`` requis,
     ``user_id`` facultatif — 0 si absent : l'hôte le résout par rappel)."""

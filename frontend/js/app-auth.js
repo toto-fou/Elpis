@@ -28,7 +28,8 @@ function setupAuth(vue, sharedRefs, ctx) {
                         icon: (data.welcome.icon || 'ph-sparkle').split(' ')[0],
                         width: data.welcome.width || 96,
                         height: data.welcome.height || 96,
-                        image_b64: data.welcome.image_b64 || '',
+                        // Image sans source (config partielle) : logo Elpis.
+                        image_b64: data.welcome.image_b64 || 'static/elpis-256.png',
                         // Style du mot animé (typo + les deux échelles), réglé
                         // côté admin. Repris TEL QUEL : `accueil.js` borne et
                         // complète lui-même ce qui manque, et une seconde table

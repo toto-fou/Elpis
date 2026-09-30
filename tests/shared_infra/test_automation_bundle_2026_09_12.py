@@ -152,10 +152,21 @@ def test_locate_par_la_vision(client, monkeypatch):
     r = client.post("/api/desktop/locate", json={"image_b64": png_b64, "describe": "le bouton vert"}, headers=_H)
     assert r.status_code == 200 and r.json()["box"] == [10, 10, 50, 30] and r.json()["confidence"] == 0.9
     assert seen["prompt"] == "le bouton vert"
-    # jeton elpis-remote en Bearer (le script tourne sur la VM, sans cookie)
-    monkeypatch.setattr("shared_infra.opencode.routes_code._resolve_token", lambda tok: 7 if tok == "pcr_ok" else None, raising=False)
-    r2 = client.post("/api/desktop/locate", json={"image_b64": png_b64, "describe": "x"}, headers={"Authorization": "Bearer pcr_ok"})
+    # Jeton de VISION en Bearer (EXT.1 : le script tourne sur la VM, sans
+    # cookie) ; un ancien jeton opencode reste accepté, un jeton d'outils non.
+    import shared_infra.accounts.tokens as _tokens
+    _valides = {"evt_ok": (7, "vision"), "pcr_ok": (7, "opencode"), "ept_ok": (7, "tools")}
+
+    def _resolve(tok, kinds=("tools",), touch=True):
+        v = _valides.get(tok)
+        return {"user_id": v[0], "kind": v[1]} if v and v[1] in kinds else None
+    monkeypatch.setattr(_tokens, "resolve", _resolve)
+    r2 = client.post("/api/desktop/locate", json={"image_b64": png_b64, "describe": "x"}, headers={"Authorization": "Bearer evt_ok"})
     assert r2.status_code == 200
+    assert client.post("/api/desktop/locate", json={"image_b64": png_b64, "describe": "x"},
+                       headers={"Authorization": "Bearer pcr_ok"}).status_code == 200
+    assert client.post("/api/desktop/locate", json={"image_b64": png_b64, "describe": "x"},
+                       headers={"Authorization": "Bearer ept_ok"}).status_code == 401
     assert client.post("/api/desktop/locate", json={"image_b64": png_b64, "describe": "x"}, headers={"Authorization": "Bearer pcr_ko"}).status_code == 401
     assert client.post("/api/desktop/locate", json={"describe": "x"}, headers=_H).status_code == 400
     monkeypatch.setattr(dc, "detect", lambda png, **kw: [])

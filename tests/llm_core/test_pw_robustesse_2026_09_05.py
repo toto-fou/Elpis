@@ -135,6 +135,14 @@ class _Clock:
 
 
 # ── screenshot : contrat stable, URL applicative ─────────────────────────
+@pytest.fixture(autouse=True)
+def _sessions_du_compte(monkeypatch):
+    """Les sessions de ces tests appartiennent au compte du contexte
+    (``guest``) : depuis 2026-09-30, une session inconnue est refusée."""
+    import llm_core._pw_session as _pws
+    monkeypatch.setattr(_pws, "get_pw_session_owner", lambda sid: "guest")
+
+
 def test_screenshot_normalise_la_reponse_du_service(monkeypatch):
     calls = []
 

@@ -5,9 +5,16 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { execSync } from 'child_process';
+import os from 'os';
+import dns from 'dns';
 import { classifyNavOutcome, authHint } from './nav_util.js';
-import { pingPage, planScreenshotQuota } from './session_util.js';
-import { makeLock, acquireLock } from './session_lock.js';
+import { pingPage, planScreenshotQuota, safeOwner, ownerFromRequest, ownerMatches,
+         stateFileName, safeDownloadName, planArtifactPurge, planSessionSlot } from './session_util.js';
+import { makeLock, acquireLock, lockIdle } from './session_lock.js';
+import { analyserUrl, motifIp, motifUrl, hoteDepuisInterfaces, analyserListeBlanche,
+         messageRefus, makeCache } from './url_guard.js';
+import { lirePs, orphelins } from './proc_util.js';
+import { demarrerRelais, verifierDepuisPolitique } from './proxy_guard.js';
 import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf } from './result_util.js';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
@@ -29,12 +36,12 @@ app.use(express.json({ limit: '50mb' }));
 //  ``FIREFOX_SERVICE_HOST`` (défaut ``127.0.0.1``) et ne doit JAMAIS être
 //  exposé publiquement — quiconque atteint le port pilote le navigateur.
 
-// Health endpoint: liveness only, no internal state.
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'firefox' }));
+// (2026-09-30) Un seul ``/health``, détaillé, plus bas : celui-ci, déclaré
+// en premier, masquait l'autre (Express sert la première route qui correspond).
 
-// ── Serve screenshots statically (CORS open, no cache) ──────────────
+// ── Captures servies en statique (sans cache). Pas d'en-tête CORS : seul le
+// backend d'Elpis les relit, de serveur à serveur.
 app.use('/screenshots', (req, res, next) => {
-    res.set('Access-Control-Allow-Origin', '*');
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     next();
 }, express.static(path.join(process.cwd(), 'screenshots')));
@@ -73,8 +80,96 @@ const TRACE_DIR = path.join(BASE_DIR, 'traces');        // traces Playwright (Ph
 
 // ── Serve videos & traces statically (Phase 5) — registered after the dirs
 //    are defined (VIDEO_DIR/TRACE_DIR consts) to avoid a TDZ at module load.
-app.use('/videos', (req, res, next) => { res.set('Access-Control-Allow-Origin', '*'); next(); }, express.static(VIDEO_DIR));
-app.use('/traces', (req, res, next) => { res.set('Access-Control-Allow-Origin', '*'); next(); }, express.static(TRACE_DIR));
+app.use('/videos', express.static(VIDEO_DIR));
+app.use('/traces', express.static(TRACE_DIR));
+
+// ════════════════════════════════════════════════════════════════════
+//  DESTINATIONS AUTORISÉES (2026-09-30, cf. url_guard.js)
+// ════════════════════════════════════════════════════════════════════
+//  Le relais filtrant (proxy_guard.js) fait foi : TOUT le trafic du
+//  navigateur y passe (navigations, redirections, sous-ressources, WebSocket,
+//  service workers). S'y ajoute un refus ANTICIPÉ, avec un message clair pour
+//  le modèle, avant une navigation demandée (goto, nouvel onglet, /start).
+//  Pas de ``context.route`` de garde : le routage Playwright désactive le
+//  cache HTTP et coûte un aller-retour par requête, pour un contrôle que le
+//  relais fait déjà. Liste blanche du réseau local : ``browser.url_allowlist`` du
+//  config.json d'Elpis (relue quand le fichier change) ou la variable
+//  ``BROWSER_URL_ALLOWLIST``.
+const CONFIG_PATH = process.env.APP_CONFIG_PATH || path.join(BASE_DIR, '..', 'config.json');
+let _politique = { mtime: -1, listeBlanche: analyserListeBlanche(process.env.BROWSER_URL_ALLOWLIST || '') };
+function listeBlancheCourante() {
+    try {
+        const st = fs.statSync(CONFIG_PATH);
+        if (st.mtimeMs !== _politique.mtime) {
+            const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+            const brut = (cfg && cfg.browser && cfg.browser.url_allowlist) || process.env.BROWSER_URL_ALLOWLIST || '';
+            _politique = { mtime: st.mtimeMs, listeBlanche: analyserListeBlanche(brut) };
+            _verdicts = makeCache({ ttlMs: 30000 });
+        }
+    } catch (_) { /* pas de config lisible : on garde la politique courante */ }
+    return _politique.listeBlanche;
+}
+let _hote = { t: 0, v: hoteDepuisInterfaces(os.networkInterfaces()) };
+function hoteCourant() {
+    if (Date.now() - _hote.t > 60000) {
+        try { _hote = { t: Date.now(), v: hoteDepuisInterfaces(os.networkInterfaces()) }; } catch (_) {}
+    }
+    return _hote.v;
+}
+const _resoudre = async (nom) => (await dns.promises.lookup(nom, { all: true, verbatim: true })).map(r => r.address);
+// Verdict par nom d'hôte (une page charge des dizaines d'URL du même hôte).
+let _verdicts = makeCache({ ttlMs: 30000 });
+
+/** Motif de refus d'une URL (``null`` = permise). */
+async function refusUrl(url) {
+    const a = analyserUrl(url);
+    if (!a.ok) return a.motif;
+    if (a.vide) return null;
+    const listeBlanche = listeBlancheCourante();
+    const cle = a.hote;
+    const connu = _verdicts.get(cle);
+    if (connu !== undefined) return connu;
+    const m = await motifUrl(url, { resoudre: _resoudre, hote: hoteCourant(), listeBlanche });
+    _verdicts.set(cle, m);
+    return m;
+}
+
+// Relais filtrant (proxy_guard.js) : TOUT le trafic du navigateur y passe,
+// boucle locale comprise. C'est lui qui fait foi (redirections, changements
+// d'adresse DNS) ; ``refusUrl`` n'est qu'un refus anticipé.
+const _relais = await demarrerRelais({
+    verifier: verifierDepuisPolitique({
+        resoudre: _resoudre,
+        motifIp: (ip, nom) => motifIp(ip, { hote: hoteCourant(), listeBlanche: listeBlancheCourante(), nomHote: nom }),
+    }),
+    journal: (m) => console.warn(`[GARDE] ${m}`),
+});
+console.log(`[GARDE] relais filtrant sur 127.0.0.1:${_relais.port}`);
+const PROXY_NAVIGATEUR = { server: `http://127.0.0.1:${_relais.port}`, bypass: '<-loopback>' };
+
+/** Réponse 403 uniforme pour une navigation directe refusée. */
+function repondreRefus(res, url, motif) {
+    return res.status(403).json({ error: messageRefus(url, motif), code: 'url_blocked' });
+}
+
+// Schémas qu'une page ne doit jamais afficher, même atteints par un autre
+// chemin que page.goto (script de la page) : on la ramène à une page vide.
+const _SCHEMAS_INTERDITS = /^(file|view-source|chrome|chrome-extension|devtools|filesystem|resource|moz-extension):/i;
+
+function gardePage(page) {
+    page.on('framenavigated', (frame) => {
+        try {
+            if (frame !== page.mainFrame()) return;
+            if (_SCHEMAS_INTERDITS.test(frame.url())) page.goto('about:blank').catch(() => {});
+        } catch (_) { /* page fermée */ }
+    });
+}
+
+/** Garde d'un contexte neuf : schémas interdits ramenés à une page vide
+ *  (le réseau, lui, passe par le relais). */
+async function installerGarde(context) {
+    context.on('page', gardePage);
+}
 
 // ── Moteur navigateur configurable (V13) ───────────────────────────────────
 // BROWSER_ENGINE = chromium (défaut) | firefox | webkit. Chromium est le moteur
@@ -117,6 +212,8 @@ const sessions = new Map();
 const SESSION_TTL_MS = 15 * 60 * 1000;  // 15 minutes
 const REAPER_INTERVAL_MS = 60 * 1000;   // check every 60s
 const MAX_SESSIONS = 10;                 // hard limit
+// Sessions par compte : au-delà, sa plus ancienne cède la place (jamais celle d'un autre).
+const MAX_SESSIONS_PER_OWNER = Math.max(1, parseInt(process.env.BROWSER_MAX_SESSIONS_PER_OWNER || '3', 10) || 3);
 // Budget accordé à la tentative « locator officiel » QUAND un selector de
 // repli est disponible. Court exprès : le repli smartResolveLocator doit
 // pouvoir s'exécuter dans le temps que le client accorde à la requête.
@@ -127,7 +224,7 @@ function touchSession(sid) {
     if (s) s.lastActivity = Date.now();
 }
 
-async function closeSession(sid, reason = 'unknown') {
+async function closeSession(sid, reason = 'unknown', { lockHeld = false } = {}) {
     const s = sessions.get(sid);
     if (!s) return;
     console.log(`[REAPER] Closing session ${sid.substring(0, 8)}… (reason: ${reason})`);
@@ -138,7 +235,9 @@ async function closeSession(sid, reason = 'unknown') {
     //     ferme. Si l'op est gelée, force-close : elle recevra l'erreur
     //     Playwright « context closed », déjà gérée par les catch des handlers.
     sessions.delete(sid);
-    if (PW_MUTEX && s._lock) {
+    // ``lockHeld`` : l'appelant (``/stop``) tient déjà le verrou de la
+    // session ; l'attendre ici bloquerait 15 s avant de forcer.
+    if (PW_MUTEX && s._lock && !lockHeld) {
         try { (await acquireLock(s._lock, { waitMs: 15000, maxWaiters: Infinity }))(); }
         catch (e) { /* timeout → force close */ }
     }
@@ -196,18 +295,30 @@ async function reapStaleSessions() {
     if (stale.size > 0) console.log(`[REAPER] Cleaned ${stale.size} session(s). Active: ${sessions.size}`);
 }
 
-// Kill orphan browser processes (Firefox + Chrome)
+// Processus navigateur ORPHELINS seulement (cf. proc_util.js) : avant, tout
+// renderer de plus de 20 min était tué, onglets actifs compris.
 function killZombieProcesses() {
     try {
-        // Find browser processes older than 20 minutes without a parent node process
-        const cmds = [
-            "pgrep -f 'firefox.*-contentproc' --older 1200 2>/dev/null | xargs -r kill -9 2>/dev/null",
-            "pgrep -f 'chrome.*--type=renderer' --older 1200 2>/dev/null | xargs -r kill -9 2>/dev/null",
-        ];
-        for (const cmd of cmds) {
-            try { execSync(cmd, { timeout: 5000, stdio: 'ignore' }); } catch (e) {}
-        }
-    } catch (e) {}
+        const uid = typeof process.getuid === 'function' ? process.getuid() : null;
+        const cmd = uid === null ? 'ps -eo pid=,ppid=,etimes=,args='
+                                 : `ps -u ${uid} -o pid=,ppid=,etimes=,args=`;
+        const texte = execSync(cmd, { timeout: 5000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+        // Rattachement par la chaîne des parents (zygote, serveur de fork) : pas
+        // besoin du PID du navigateur, que Playwright n'expose pas pour un
+        // ``Browser`` lancé (seulement pour un ``BrowserServer``).
+        const cibles = orphelins(lirePs(texte), { ageMinS: 1200, epargner: [process.pid] });
+        for (const pid of cibles) { try { process.kill(pid, 'SIGKILL'); } catch (_) {} }
+        if (cibles.length) console.log(`[REAPER] ${cibles.length} processus navigateur orphelin(s) arrêté(s).`);
+    } catch (e) { /* ps indisponible : rien à faire */ }
+}
+
+// Verrous de démarrage par propriétaire : purgés quand ils sont au repos et
+// que le propriétaire n'a plus de session (la Map ne grossit plus sans fin).
+function purgeOwnerStartLocks() {
+    const vivants = new Set([...sessions.values()].map(s => s.owner).filter(Boolean));
+    for (const [owner, lock] of ownerStartLocks) {
+        if (!vivants.has(owner) && lockIdle(lock)) ownerStartLocks.delete(owner);
+    }
 }
 
 // Start reaper
@@ -215,6 +326,7 @@ const _reaperInterval = setInterval(async () => {
     try {
         await reapStaleSessions();
         killZombieProcesses();
+        purgeOwnerStartLocks();
     } catch (e) { console.error('[REAPER] Error:', e.message); }
 }, REAPER_INTERVAL_MS);
 
@@ -306,17 +418,60 @@ function reapScreenshots() {
     }
 }
 
+// ── Autres artefacts : purgés par âge (2026-09-30). Téléchargements, HAR,
+// vidéos et traces servent le temps d'une session ; les états sauvegardés
+// (cookies) se rechargent plus tard, d'où une durée plus longue.
+const ARTIFACT_MAX_AGE_MS = parseInt(process.env.PW_ARTIFACT_MAX_AGE_H || '24', 10) * 3600 * 1000;
+const STATE_MAX_AGE_MS = parseInt(process.env.PW_STATE_MAX_AGE_D || '30', 10) * 86400 * 1000;
+
+function _purgerDossier(dir, maxAgeMs, { recursif = false } = {}) {
+    let n = 0;
+    let noms;
+    try { noms = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return 0; }
+    const entrees = [];
+    for (const d of noms) {
+        const f = path.join(dir, d.name);
+        if (d.isDirectory()) {
+            if (recursif) {
+                n += _purgerDossier(f, maxAgeMs);
+                try { if (!fs.readdirSync(f).length) fs.rmdirSync(f); } catch (_) {}
+            }
+            continue;
+        }
+        try { entrees.push({ name: d.name, mtimeMs: fs.statSync(f).mtimeMs }); } catch (_) {}
+    }
+    for (const nom of planArtifactPurge(entrees, { maxAgeMs })) {
+        try { fs.unlinkSync(path.join(dir, nom)); n++; } catch (_) {}
+    }
+    return n;
+}
+
+function reapArtifacts() {
+    const n = _purgerDossier(DOWNLOAD_DIR, ARTIFACT_MAX_AGE_MS, { recursif: true })
+            + _purgerDossier(HAR_DIR, ARTIFACT_MAX_AGE_MS)
+            + _purgerDossier(VIDEO_DIR, ARTIFACT_MAX_AGE_MS)
+            + _purgerDossier(TRACE_DIR, ARTIFACT_MAX_AGE_MS)
+            + _purgerDossier(COOKIES_DIR, STATE_MAX_AGE_MS);
+    if (n) console.log(`[ARTIFACT-REAPER] ${n} fichier(s) purgé(s).`);
+}
+
 // Run once on startup (catches crashes that left files behind across restarts)
 // and then on a timer.
-setImmediate(() => { try { reapScreenshots(); } catch (e) { console.error('[SCREENSHOT-REAPER] startup:', e.message); } });
+setImmediate(() => {
+    try { reapScreenshots(); } catch (e) { console.error('[SCREENSHOT-REAPER] startup:', e.message); }
+    try { reapArtifacts(); } catch (e) { console.error('[ARTIFACT-REAPER] startup:', e.message); }
+});
 const _screenshotReaperInterval = setInterval(() => {
     try { reapScreenshots(); }
     catch (e) { console.error('[SCREENSHOT-REAPER] Error:', e.message); }
+    try { reapArtifacts(); }
+    catch (e) { console.error('[ARTIFACT-REAPER] Error:', e.message); }
 }, SCREENSHOT_REAPER_INTERVAL_MS);
 
 
-// Graceful shutdown
-async function gracefulShutdown(signal) {
+// Graceful shutdown. ``code`` ≠ 0 après une exception : le gestionnaire de
+// services doit voir un échec (et relancer), pas un arrêt voulu.
+async function gracefulShutdown(signal, code = 0) {
     console.log(`\n[SHUTDOWN] ${signal} received. Closing ${sessions.size} session(s)…`);
     clearInterval(_reaperInterval);
     clearInterval(_screenshotReaperInterval);
@@ -327,14 +482,23 @@ async function gracefulShutdown(signal) {
         try { await globalBrowser.close(); } catch (e) {}
         globalBrowser = null;
     }
-    console.log('[SHUTDOWN] Clean exit.');
-    process.exit(0);
+    console.log(code ? `[SHUTDOWN] Exit ${code}.` : '[SHUTDOWN] Clean exit.');
+    process.exit(code);
 }
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('uncaughtException', (e) => {
-    console.error('[FATAL]', e.message);
-    gracefulShutdown('uncaughtException');
+    console.error('[FATAL]', e && e.stack ? e.stack : e);
+    // Arrêt borné : une fermeture de session gelée ne doit pas empêcher la
+    // sortie (et donc la relance).
+    setTimeout(() => process.exit(1), 15000).unref();
+    gracefulShutdown('uncaughtException', 1);
+});
+// Une promesse rejetée sans gestionnaire (souvent une page fermée pendant
+// une attente Playwright) est journalisée : elle ne doit ni passer inaperçue
+// ni arrêter le service pour toutes les sessions.
+process.on('unhandledRejection', (raison) => {
+    console.error('[UNHANDLED]', raison && raison.stack ? raison.stack : raison);
 });
 
 // ==========================================
@@ -351,12 +515,18 @@ const FORCE_HEADLESS = process.env.BROWSER_FORCE_HEADLESS === 'true'
 // HTTPS, CSP) est porté côté contexte dans /start. Ici on ne met que le
 // moteur-spécifique (args anti-détection, prefs headless Firefox).
 function buildLaunchOptions(engine, headlessMode) {
-    const common = { headless: headlessMode, args: ['--no-sandbox', '--disable-setuid-sandbox'] };
+    const common = { headless: headlessMode, args: ['--no-sandbox', '--disable-setuid-sandbox'],
+                     proxy: PROXY_NAVIGATEUR };
     if (engine === 'firefox') {
         return {
             ...common,
             firefoxUserPrefs: {
                 ...FIREFOX_PREFS,
+                // Sans cela Firefox contourne le proxy pour localhost.
+                'network.proxy.allow_hijacking_localhost': true,
+                'network.proxy.no_proxies_on': '',
+                // WebRTC ouvre des flux UDP en direct, hors du relais : coupé.
+                'media.peerconnection.enabled': false,
                 ...(headlessMode ? {
                     'layers.acceleration.force-enabled': false,
                     'gfx.webrender.software': true,
@@ -375,13 +545,25 @@ function buildLaunchOptions(engine, headlessMode) {
                 '--no-sandbox', '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',                        // stabilité en conteneur (/dev/shm petit)
                 '--disable-blink-features=AutomationControlled',  // anti-détection
+                // WebRTC : pas d'UDP hors du relais (il ne passe qu'en TCP proxifié).
+                '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
             ],
         };
     }
     return common; // webkit : pas d'options moteur-spécifiques
 }
 
+// Une seule promesse de lancement : deux /start simultanés ne lancent plus
+// deux navigateurs (le second écrasait le premier, resté orphelin).
+let _lancement = null;
 async function ensureBrowser(headless) {
+    if (globalBrowser && globalBrowser.isConnected()) return globalBrowser;
+    if (_lancement) return _lancement;
+    _lancement = _lancerNavigateur(headless).finally(() => { _lancement = null; });
+    return _lancement;
+}
+
+async function _lancerNavigateur(headless) {
     if (!globalBrowser || !globalBrowser.isConnected()) {
         // Headless par défaut. Seul un `false` explicite force le mode fenêtré,
         // sauf si FORCE_HEADLESS est actif.
@@ -1317,7 +1499,11 @@ async function humanClick(page, x, y) {
 // ==========================================
 async function getSession(req, res, next) {
     const sid = req.body?.session_id || req.query?.session_id;
-    if (!sid || !sessions.has(sid)) return res.status(404).json({ error: "Session introuvable." });
+    // Propriétaire obligatoire (2026-09-30) : une session d'un autre compte
+    // répond exactement comme une session inconnue.
+    if (!sid || !sessions.has(sid) || !ownerMatches(sessions.get(sid), ownerFromRequest(req))) {
+        return res.status(404).json({ error: "Session introuvable." });
+    }
     const session = sessions.get(sid);
     // AUDIT 2026-06 — ping borné (3 s) : une page gelée ne bloque plus la
     // requête entrante ('frozen' = fail-open, les handlers ont leurs propres
@@ -1719,13 +1905,21 @@ function _ownerStartLock(owner) {
 app.post('/start', async (req, res) => {
     let _startRelease = null;
     try {
-        const { url, username, password, headless, load_state_id, record_har = false, owner,
+        const { url, username, password, headless, load_state_id, record_har = false,
                 device, viewport, locale, timezone, color_scheme, touch,
                 isolated = false, trace = false, record_video = false } = req.body;
+        // Propriétaire obligatoire (2026-09-30) : c'est lui qui borne l'accès
+        // à la session, à ses états sauvegardés et à ses téléchargements.
+        const owner = safeOwner(req.body.owner);
+        if (!owner) return res.status(400).json({ error: 'owner requis.' });
+        if (url) {
+            const motif = await refusUrl(url);
+            if (motif) return repondreRefus(res, url, motif);
+        }
 
         if (PW_MUTEX && owner && !isolated) {
             try {
-                _startRelease = await acquireLock(_ownerStartLock(String(owner)), { waitMs: LOCK_WAIT_MS });
+                _startRelease = await acquireLock(_ownerStartLock(owner), { waitMs: LOCK_WAIT_MS });
             } catch (e) {
                 return res.status(e.code === 429 ? 429 : 423)
                           .json({ error: 'Un démarrage de session est déjà en cours pour cet utilisateur — réessaie.', retryable: true });
@@ -1790,10 +1984,15 @@ app.post('/start', async (req, res) => {
         const browser = await ensureBrowser(headless);
         const sessionId = uuidv4();
 
+        // État sauvegardé : seulement ceux du même propriétaire.
         let storageState = undefined;
         if (load_state_id) {
-            const p = path.join(COOKIES_DIR, `state_${load_state_id}.json`);
-            if (fs.existsSync(p)) storageState = p;
+            const nom = stateFileName(owner, load_state_id);
+            const p = nom ? path.join(COOKIES_DIR, nom) : null;
+            if (!p || !fs.existsSync(p)) {
+                return res.status(404).json({ error: 'État sauvegardé introuvable (load_state_id).' });
+            }
+            storageState = p;
         }
 
         // ── Émulation device/viewport (V13) ─────────────────────────────
@@ -1826,6 +2025,7 @@ app.post('/start', async (req, res) => {
         if (record_video) contextOpts.recordVideo = { dir: VIDEO_DIR };  // vidéo finalisée à la fermeture du contexte (Phase 5)
 
         const context = await browser.newContext(contextOpts);
+        await installerGarde(context);
 
         // Trace Playwright (Phase 5) : screenshots + snapshots DOM + sources,
         // exportable en .zip ouvrable avec `npx playwright show-trace`.
@@ -1844,14 +2044,18 @@ app.post('/start', async (req, res) => {
             }
         });
 
+        // Téléchargements rangés par propriétaire, pour TOUS les onglets.
+        const dossierTelechargements = path.join(DOWNLOAD_DIR, owner);
+        context.on('page', (pg) => pg.on('download', async download => {
+            try {
+                fs.mkdirSync(dossierTelechargements, { recursive: true });
+                await download.saveAs(path.join(dossierTelechargements, safeDownloadName(download.suggestedFilename())));
+            } catch (e) {}
+        }));
         const page = await context.newPage();
 
         const dialogState = makeDialogState();
         attachDialogHandler(page, dialogState);
-        page.on('download', async download => {
-            const savePath = path.join(DOWNLOAD_DIR, download.suggestedFilename());
-            try { await download.saveAs(savePath); } catch (e) {}
-        });
 
         const consoleLogs = [];
         const networkLog = [];
@@ -1859,18 +2063,14 @@ app.post('/start', async (req, res) => {
 
         const now = Date.now();
         // Enforce max sessions — close oldest if at limit
-        if (sessions.size >= MAX_SESSIONS) {
-            let oldestSid = null, oldestTime = Infinity;
-            for (const [sid, s] of sessions) {
-                if ((s.lastActivity || s.createdAt || now) < oldestTime) {
-                    oldestTime = s.lastActivity || s.createdAt || now;
-                    oldestSid = sid;
-                }
-            }
-            if (oldestSid) await closeSession(oldestSid, 'max_sessions');
+        const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, now });
+        if (slot.refuse) {
+            await context.close().catch(() => {});
+            return res.status(503).json({ error: 'Navigateur saturé : trop de sessions ouvertes. Réessayez plus tard.' });
         }
+        if (slot.evict) await closeSession(slot.evict, 'max_sessions');
 
-        sessions.set(sessionId, { context, page, owner: owner || null, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState });
+        sessions.set(sessionId, { context, page, owner, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState });
 
         try {
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -1952,6 +2152,8 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
             // capture et on classe le résultat (cf. nav_util.classifyNavOutcome) :
             // succès, succès partiel (page atteinte malgré un timeout de
             // load-state), ou erreur de navigation propre (502).
+            const _motif = await refusUrl(targetUrl);
+            if (_motif) return repondreRefus(res, targetUrl, _motif);
             const prevUrl = page.url();
             let navError = null, gotoResp = null;
             try {
@@ -4384,7 +4586,11 @@ app.post('/visual', getSession, async (req, res) => {
         const threshold = typeof req.body.threshold === 'number' ? req.body.threshold : 0.01;
         const tol = typeof req.body.pixel_tolerance === 'number' ? req.body.pixel_tolerance : 30;
         const update = req.body.update === true;
-        const baselinePath = path.join(BASELINE_DIR, `${name}.png`);
+        // Références par propriétaire : un compte ne compare ni n'écrase
+        // celles d'un autre.
+        const dossierRef = path.join(BASELINE_DIR, safeOwner(req.session.owner) || '_');
+        fs.mkdirSync(dossierRef, { recursive: true });
+        const baselinePath = path.join(dossierRef, `${name}.png`);
 
         const target = selector ? page.locator(selector).first() : page;
         const curBuf = await target.screenshot(selector ? {} : { fullPage: true });
@@ -4553,8 +4759,10 @@ app.post('/intercept', getSession, autoSnapshot, async (req, res) => {
         await page.route('**/*', (route, request) => {
             const url = request.url();
             for (const pattern of block_patterns) { if (url.includes(pattern)) { route.abort(); return; } }
-            if (Object.keys(modify_headers).length > 0) { route.continue({ headers: { ...request.headers(), ...modify_headers } }); return; }
-            route.continue();
+            // fallback (et non continue) : la garde des destinations, posée
+            // sur le contexte, doit encore voir la requête.
+            if (Object.keys(modify_headers).length > 0) { route.fallback({ headers: { ...request.headers(), ...modify_headers } }); return; }
+            route.fallback();
         });
         res.json({ status: 'intercepting', blocking: block_patterns.length, modifying_headers: Object.keys(modify_headers).length });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -4719,6 +4927,10 @@ app.post('/new_tab', getSession, autoSnapshot, async (req, res) => {
     try {
         const { context } = req.session;
         const { url } = req.body;
+        if (url) {
+            const motif = await refusUrl(url);
+            if (motif) return repondreRefus(res, url, motif);
+        }
         const newPage = await context.newPage();
         attachDialogHandler(newPage, req.session.dialogState || (req.session.dialogState = makeDialogState()));
         attachPageLoggers(newPage, req.session.consoleLogs, req.session.networkLog);
@@ -4849,7 +5061,9 @@ app.post('/print_pdf', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const filename = `page_${req.body.session_id}_${Date.now()}.pdf`;
-        const filepath = path.join(DOWNLOAD_DIR, filename);
+        const dossier = path.join(DOWNLOAD_DIR, req.session.owner);
+        fs.mkdirSync(dossier, { recursive: true });
+        const filepath = path.join(dossier, filename);
         await page.pdf({ path: filepath, format: 'A4', printBackground: true, margin: { top: '1cm', bottom: '1cm', left: '1cm', right: '1cm' } });
         res.json({ status: 'success', file: filename, path: filepath });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -4895,7 +5109,9 @@ app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
 // ======================== SAVE STATE ========================
 app.post('/save_state', getSession, autoSnapshot, async (req, res) => {
     try {
-        await req.session.context.storageState({ path: path.join(COOKIES_DIR, `state_${req.body.session_id}.json`) });
+        const nom = stateFileName(req.session.owner, req.body.session_id);
+        if (!nom) return res.status(400).json({ error: 'Identifiant de session invalide.' });
+        await req.session.context.storageState({ path: path.join(COOKIES_DIR, nom) });
         res.json({ status: 'saved', state_id: req.body.session_id });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -4907,10 +5123,11 @@ app.post('/stop', getSession, async (req, res) => {
     const vids = [];
     try { for (const pg of (req.session.tabs || [req.session.page])) { const v = pg.video && pg.video(); if (v) vids.push(v); } } catch {}
     try { if (req.session.traceActive) await req.session.context.tracing.stop().catch(() => {}); } catch {}
-    try { await req.session.context.close(); } catch (e) {}
+    // Même fermeture que le reaper (captures nettoyées, session retirée) ; le
+    // verrou de la session est déjà tenu par cette requête.
+    await closeSession(req.sessionId, 'stop', { lockHeld: true });
     const video_urls = [];
     for (const v of vids) { try { const p = await v.path(); if (p) video_urls.push(`/videos/${path.basename(p)}`); } catch {} }
-    sessions.delete(req.body.session_id);
     res.json({ status: 'closed', ...(video_urls.length ? { video_urls } : {}) });
 });
 
@@ -4928,10 +5145,15 @@ app.post('/trace_export', getSession, async (req, res) => {
 
 
 // ======================== HEALTH ========================
+// Seul /health du service : état global (sans URL ni identifiant de
+// session), plus la liste des sessions du propriétaire s'il est indiqué.
+const _DEMARRAGE = Date.now();
 app.get('/health', (req, res) => {
     const now = Date.now();
+    const owner = ownerFromRequest(req);
     const sessionList = [];
     for (const [sid, s] of sessions) {
+        if (!owner || s.owner !== owner) continue;
         sessionList.push({
             id: sid.substring(0, 8) + '…',
             idle_sec: Math.round((now - (s.lastActivity || now)) / 1000),
@@ -4941,12 +5163,17 @@ app.get('/health', (req, res) => {
         });
     }
     res.json({
+        ok: true,
+        service: 'browser',
         status: 'running',
+        engine: BROWSER_ENGINE,
+        uptime_sec: Math.round((now - _DEMARRAGE) / 1000),
         sessions: sessions.size,
         max_sessions: MAX_SESSIONS,
         session_ttl_min: SESSION_TTL_MS / 60000,
         browser_connected: globalBrowser?.isConnected() || false,
-        session_list: sessionList,
+        url_allowlist: !listeBlancheCourante().vide,
+        ...(owner ? { session_list: sessionList } : {}),
     });
 });
 
@@ -5508,11 +5735,14 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                         result = { success: true, action: 'scroll' };
                         break;
 
-                    case 'goto':
+                    case 'goto': {
+                        const _motif = await refusUrl(act.url);
+                        if (_motif) throw new Error(messageRefus(act.url, _motif));
                         await page.goto(act.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
                         await Promise.race([page.waitForLoadState('networkidle').catch(() => {}), page.waitForTimeout(2000)]);
                         result = { success: true, action: 'goto', url: page.url() };
                         break;
+                    }
 
                     case 'hover': {
                         const { locator } = await resolveChainTarget(act);
@@ -5595,8 +5825,11 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
 // ======================== SESSION LIST (admin) ========================
 app.get('/sessions', (req, res) => {
     const now = Date.now();
+    const owner = ownerFromRequest(req);
     const list = [];
     for (const [sid, s] of sessions) {
+        // Seulement les sessions du propriétaire (aucune sans propriétaire).
+        if (!owner || s.owner !== owner) continue;
         list.push({
             session_id: sid,
             owner: s.owner || null,
@@ -5612,12 +5845,13 @@ app.get('/sessions', (req, res) => {
 
 // ======================== FORCE CLEANUP ========================
 app.post('/cleanup', async (req, res) => {
-    const count = sessions.size;
-    for (const [sid] of sessions) {
-        await closeSession(sid, 'force_cleanup');
-    }
+    // Ferme les sessions du SEUL propriétaire appelant.
+    const owner = ownerFromRequest(req);
+    if (!owner) return res.status(400).json({ error: 'owner requis.' });
+    const siennes = [...sessions].filter(([, s]) => s.owner === owner).map(([sid]) => sid);
+    for (const sid of siennes) await closeSession(sid, 'force_cleanup');
     killZombieProcesses();
-    res.json({ cleaned: count, remaining: sessions.size });
+    res.json({ cleaned: siennes.length });
 });
 
 // Cleanup les screenshots de session(s) sans fermer les sessions Playwright.
@@ -6065,8 +6299,8 @@ async function ensureMockHandler(session) {
             } catch (e) { /* route may have been aborted by another handler */ }
             return;
         }
-        // No mock matched → continue normally.
-        try { await route.continue(); } catch (e) {}
+        // Aucun mock : on passe la main (la garde des destinations décide).
+        try { await route.fallback(); } catch (e) {}
     });
     session._mockHandlerRegistered = true;
 }

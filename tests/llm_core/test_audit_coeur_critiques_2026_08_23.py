@@ -201,14 +201,17 @@ def test_sa_propre_session_passe(monkeypatch):
     assert F._refus_session_d_autrui("S_A", "alice") is None
 
 
-def test_un_proprietaire_inconnu_ne_bloque_pas(monkeypatch):
-    """Fail-open assumé : une session ouverte avant ce correctif, ou dont le
-    sidecar a été effacé, ne doit pas devenir inutilisable."""
+def test_un_proprietaire_inconnu_est_refuse(monkeypatch):
+    """2026-09-30 : plus de passe-droit pour une session inconnue du
+    registre. ``pw_session(action='start')`` la rend au compte (il réutilise
+    son instance et réenregistre la propriété)."""
     from llm_core.tools import firefox_tools as F
 
     monkeypatch.setattr("llm_core._pw_session.get_pw_session_owner",
                         lambda sid: None)
-    assert F._refus_session_d_autrui("S_A", "bob") is None
+    r = F._refus_session_d_autrui("S_A", "bob")
+    assert r is not None and r.get("ok") is False
+    assert "pw_session(action='start'" in r.get("fix", "")
 
 
 def test_tous_les_outils_pw_a_session_controlent_la_propriete():

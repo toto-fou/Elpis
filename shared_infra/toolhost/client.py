@@ -4,7 +4,7 @@
 L'hôte n'ouvre jamais la base de l'app. Ce qu'il ne sait pas, il le DEMANDE
 (``/api/internal/*``, jeton de service en Bearer), avec un cache court :
 
-* ``introspect_token(pcr_…)`` → compte lié à un jeton elpis-remote (opencode) ;
+* ``introspect_token(pcr_…|ept_…)`` → compte lié à un jeton personnel (opencode, outils) ;
 * ``identity_for_username(name)`` → ``{user_id, username, network_profile_id, is_admin}`` ;
 * ``git_credential(user_id, remote_url)`` / ``connector_hosts(user_id)``.
 
@@ -87,7 +87,7 @@ def _request(method: str, path: str, *, params: Optional[Dict[str, Any]] = None,
 
 
 def introspect_token(token: str) -> Optional[Dict[str, Any]]:
-    """``{user_id, username, kind}`` ou ``None``."""
+    """``{user_id, username, kind, families}`` ou ``None``."""
     if not token:
         return None
     hit, val = _cached("tok:" + token)
@@ -95,7 +95,9 @@ def introspect_token(token: str) -> Optional[Dict[str, Any]]:
         return val
     d = _request("POST", "/api/internal/tokens/introspect", json_body={"token": token})
     return _store("tok:" + token, {"user_id": int(d["user_id"]), "username": str(d["username"]),
-                                    "kind": str(d.get("kind") or "")} if d else None)
+                                    "kind": str(d.get("kind") or ""),
+                                    "families": [str(f) for f in d.get("families") or []]}
+                  if d else None)
 
 
 def identity_for_username(username: str) -> Optional[Dict[str, Any]]:

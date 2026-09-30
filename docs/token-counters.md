@@ -42,8 +42,17 @@ La mesure est donc faite **dans la boucle**, une seule fois, avec le contexte
 (`source`, `user_id`, `origin_id`) posé par l'appelant via `usage_scope(...)`.
 Le split entrée/sortie est toujours connu (la boucle a `cumul_in`/`cumul_out`),
 donc le flag `estimated` de l'onglet Utilisation a disparu. Les tokens de cache
-Anthropic sont cumulés sur le tour et stockés à part — ils ne sont PAS inclus
-dans `input_tokens`.
+sont cumulés sur le tour et stockés à part (`cache_read_tokens`) : Anthropic
+ne les compte PAS dans `input_tokens` ; llama.cpp et les moteurs compatibles
+OpenAI (`prompt_tokens_details.cached_tokens`, sinon `timings.cache_n`) les y
+comptent — ce sont les jetons repris du cache KV. La part servie par le cache
+(console) se calcule donc moteur par moteur (`usage_cache_totals`).
+
+Chaque ligne porte aussi le moteur (`connector` : `builtin`, `conn:<id>`,
+`url:<racine>`) et l'exécution (`run_id`, table `runs`) : une exécution —
+tour de chat, run de routine, sous-agent, compaction manuelle — regroupe ce
+qu'elle a consommé (jetons, temps LLM, outils, fichiers, pics de la
+sandbox), cf. `shared_infra/observability/runs.py`.
 
 ## La sortie se lit en deux : réflexion et réponse
 
@@ -206,7 +215,9 @@ est exact ; un compte partiellement estimé reste flaggé `tokens_estimated`.
   tour » vs ~800 au prompt suivant).
 - **Anthropic** : `input_tokens` ne compte que les tokens neufs ;
   `cache_read/creation_input_tokens` sont exposés séparément dans les
-  metrics (« Cache : X lus / Y créés » dans le tooltip). La jauge de
+  metrics (« Cache : X lus / Y créés » dans le tooltip). Pour llama.cpp, le
+  « lus » du tooltip est la part de l'entrée reprise du cache KV (déjà
+  comptée dans « Tokens soumis »). La jauge de
   contexte reste masquée pour les cibles distantes (pas de `/tokenize`
   fiable, tokenizer local ≠ tokenizer distant).
 - **`prompt_n` (timings llama.cpp)** : n'alimente PLUS rien côté contexte —

@@ -8,6 +8,14 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Ajouts
 
+- **Exécutions** (base, migration 0021) : une ligne par tour de chat, run de
+  routine, sous-agent ou compaction manuelle — jetons (dont cache et
+  réflexion), temps LLM (pré-remplissage, décodage, attente du moteur),
+  appels d'outils par famille et erreurs, fichiers modifiés, pics CPU/RAM de
+  la sandbox, statut ; les lignes d'usage et d'appels d'outils y sont
+  rattachées. Compteurs fiabilisés : moteur sur chaque ligne d'usage, cache
+  KV de llama.cpp, appels d'outils avec identifiant, début, code de sortie,
+  tailles et statuts `timeout` / `blocked`. Export CSV avec la réflexion.
 - **Base de données multi-moteurs** : PostgreSQL et MariaDB/MySQL en plus de
   SQLite ; pool de connexions unique, SQL portable et schéma de référence ;
   adaptateurs serveur et suite de tests sur quatre moteurs ; transfert entre

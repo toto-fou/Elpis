@@ -858,8 +858,9 @@ streaming — sans quoi `in_tok`/`out_tok` restent à 0.
 
 **Trafic LLM.** Si `llm.debug.enabled` (défaut `true`), chaque échange
 app ↔ moteur (requête + réponse, hors thinking) est journalisé dans la table
-`llm_calls` (ring borné, payloads plafonnés) et consultable dans la console
-admin. `GET /api/admin/llm-traffic`.
+`llm_calls` (ring borné, payloads plafonnés) et consultable par l'API
+d'administration (`GET /api/admin/llm-traffic`) ; la console n'a pas de vue
+dédiée.
 
 **Journaux en direct.** Console admin → 300 dernières entrées (ring buffer
 serveur) puis flux SSE. `GET /api/admin/logs/recent` + `GET /api/system-events`.

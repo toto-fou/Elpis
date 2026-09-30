@@ -2603,7 +2603,6 @@ function setupChat(vue, sharedRefs, ctx) {
                 _patch(idx, {
                     _prefillPct: Math.min(
                         100, Math.round((data.processed / data.total) * 100)),
-                    _prefillCache: data.cache || 0,
                 });
             }
 

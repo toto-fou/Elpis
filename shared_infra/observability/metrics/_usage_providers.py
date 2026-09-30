@@ -228,24 +228,25 @@ class KPIUsageFailureRateProvider(UsageProvider):
 
 
 class KPIUsageCacheProvider(UsageProvider):
-    """Retour sur investissement du cache de prompt (Anthropic).
+    """Part de l'entrée servie par un cache : cache de prompt (Anthropic) et
+    cache KV (llama.cpp, moteurs compatibles OpenAI).
 
-    Ces compteurs arrivaient jusqu'à l'infobulle d'un message mais n'entraient
-    dans aucune métrique : impossible de savoir si le cache servait."""
+    Le cache lu est compris dans l'entrée des seconds, pas du premier : le
+    dénominateur est l'entrée TOTALE, calculée moteur par moteur."""
     id = "usage_cache"; title = "Cache de prompt"; type = "value"
     width = "1/4"; icon = "ph-database"; color = "cyan"
     @property
     def category(self): return "performance"
     def get_data(self, scope_hours=None):
-        from shared_infra.observability.usage_store import usage_totals
-        t = usage_totals(_since(_scope(scope_hours)))
-        read = int(t.get("cache_read_tokens") or 0)
-        created = int(t.get("cache_creation_tokens") or 0)
-        billed = int(t.get("input_tokens") or 0)
+        from shared_infra.llm.connectors import connector_ids_by_wire
+        from shared_infra.observability.usage_store import usage_cache_totals
+        t = usage_cache_totals(_since(_scope(scope_hours)), cache_outside_input=[
+            f"conn:{i}" for i in connector_ids_by_wire("anthropic")])
+        read, created = t["cache_read_tokens"], t["cache_creation_tokens"]
         if read == 0 and created == 0:
             return {"value": "—", "unit": "non utilisé", "color": "slate",
                     "icon": "ph-database"}
-        ratio = round(100.0 * read / (read + billed), 1) if (read + billed) else 0.0
+        ratio = round(100.0 * read / t["input_total"], 1) if t["input_total"] else 0.0
         return {"value": f"{ratio} %", "unit": "d'entrée servie par le cache",
                 "color": "cyan", "icon": "ph-database",
                 "detail": f"{_fmt_tokens(read)} lus · {_fmt_tokens(created)} créés"}

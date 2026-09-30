@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from shared_infra.db._connection import db_conn
 from shared_infra.db._dialect import greatest
@@ -208,6 +208,30 @@ def usage_totals(since: float, until: Optional[float] = None, **filters) -> Dict
     out["response_tokens"] = max(
         0, int(out.get("output_tokens", 0)) - int(out.get("thinking_tokens", 0)))
     return out
+
+
+def usage_cache_totals(since: float, until: Optional[float] = None, *,
+                       cache_outside_input: Iterable[str] = (), **filters) -> Dict[str, int]:
+    """Cache lu, cache créé et ENTRÉE TOTALE sur la fenêtre. Le cache lu est
+    compris dans ``input_tokens`` (llama.cpp, moteurs compatibles OpenAI),
+    sauf pour les moteurs ``cache_outside_input`` (clés ``conn:<id>`` des
+    connecteurs Anthropic), où il s'y ajoute."""
+    keys = [str(k) for k in cache_outside_input]
+    hors = f"connector IN ({', '.join('?' * len(keys))})" if keys else "1 = 0"
+    where, params = _where(since, until, filters)
+    with db_conn() as conn:
+        row = conn.execute(
+            f"""
+            SELECT COALESCE(SUM(cache_read_tokens), 0)     AS cache_read_tokens,
+                   COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
+                   COALESCE(SUM(input_tokens + CASE WHEN {hors}
+                                THEN cache_read_tokens ELSE 0 END), 0) AS input_total
+            FROM usage_events WHERE {where}
+            """,
+            tuple(keys) + tuple(params),
+        ).fetchone()
+    return {k: int((dict(row) if row else {}).get(k) or 0)
+            for k in ("cache_read_tokens", "cache_creation_tokens", "input_total")}
 
 
 def usage_group(

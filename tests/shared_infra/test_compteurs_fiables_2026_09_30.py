@@ -155,3 +155,20 @@ def test_fichiers_et_attente_de_l_execution():
         return e
     e = asyncio.run(tour())
     assert (e.files_changed, e.wait_ms) == (2, 25)
+
+
+def test_part_du_cache_moteur_par_moteur(db):
+    """llama.cpp : cache lu COMPRIS dans l'entrée ; Anthropic : AJOUTÉ à elle.
+    La part servie par le cache se calcule sur l'entrée totale."""
+    from shared_infra.llm.connectors import connector_ids_by_wire, create_connector
+    from shared_infra.observability.metrics._usage_providers import KPIUsageCacheProvider
+    from shared_infra.observability.usage_store import record_usage
+    cid = create_connector(scope="shared", provider_type="anthropic", wire="anthropic",
+                           base_url="https://api.anthropic.com", label="c")
+    assert connector_ids_by_wire("anthropic") == [cid]
+    assert record_usage(user_id=1, source="chat", connector="builtin",
+                        input_tokens=100, output_tokens=1, cache_read_tokens=60)
+    assert record_usage(user_id=1, source="chat", connector=f"conn:{cid}",
+                        input_tokens=10, output_tokens=1, cache_read_tokens=90)
+    d = KPIUsageCacheProvider().get_data(scope_hours=24)
+    assert d["value"] == "75.0 %"                         # 150 / (100 + 10 + 90)

@@ -68,7 +68,7 @@ def run_maintenance_once() -> Dict[str, int]:
     from shared_infra.observability.usage_store import purge_usage_events
     from shared_infra.scheduling.routines_store import purge_routine_runs, purge_webhook_deliveries
 
-    out: Dict[str, int] = {"metric_events": 0, "usage_events": 0,
+    out: Dict[str, int] = {"metric_events": 0, "usage_events": 0, "runs": 0,
                            "tool_call_metrics": 0,
                            "routine_runs": 0, "daily_reports": 0,
                            "webhook_deliveries": 0, "session_messages": 0}
@@ -81,6 +81,10 @@ def run_maintenance_once() -> Dict[str, int]:
             logger.debug("[maintenance] purge_old_metrics failed", exc_info=True)
     # ``purge_usage_events`` se garde elle-même contre <=0 (no-op).
     out["usage_events"] = purge_usage_events(USAGE_EVENTS_RETENTION_DAYS)
+    # Exécutions (``runs``, L5.2) : même rétention que le registre d'usage,
+    # dont elles sont le regroupement par exécution.
+    from shared_infra.observability.runs import purge_runs
+    out["runs"] = purge_runs(USAGE_EVENTS_RETENTION_DAYS)
     try:
         out["tool_call_metrics"] = purge_tool_call_metrics(TOOL_METRICS_RETENTION_DAYS)
     except Exception:
@@ -139,6 +143,14 @@ def run_maintenance_once() -> Dict[str, int]:
             out["orphan_parts"] = _sweep_orphan_part_files()
         except Exception:
             logger.debug("[maintenance] sweep_orphan_part_files failed", exc_info=True)
+        # Journaux d'exécution des tours de chat terminés ou orphelins : le
+        # balayage n'avait lieu qu'au démarrage d'un tour sur le même worker
+        # (L5, 2026-09-30) — sans nouveau tour, ils restaient indéfiniment.
+        try:
+            from shared_infra.runtime import run_journal
+            out["run_journals"] = run_journal.sweep()
+        except Exception:
+            logger.debug("[maintenance] run_journal.sweep failed", exc_info=True)
         # (2026-09-15) Cache des aperçus Office/PDF de l'éditeur : TTL, plafonds
         # par utilisateur et global, verrous de conversion libres et anciens.
         try:

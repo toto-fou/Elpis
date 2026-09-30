@@ -1,7 +1,5 @@
 # Elpis
 
-[![CI](https://github.com/toto-fou/Elpis/actions/workflows/ci.yml/badge.svg)](https://github.com/toto-fou/Elpis/actions/workflows/ci.yml)
-
 > **Elpis is a self-hosted agentic engineering workspace for teams sharing
 > local LLM infrastructure.** It combines an agentic chat
 > (tools, sub-agents, long-term memory, skills), a code editor with a per-user

@@ -185,6 +185,25 @@ def test_compress_succes_persiste_etat_et_bulles(client):
     assert d2["round"] == 1
 
 
+def test_compress_est_une_execution_du_compte(client):
+    """L5.2 : la compaction manuelle est une exécution (``runs``) du compte,
+    rattachée à la conversation compactée."""
+    tc, _, _, upsert = client
+    upsert(1, "c1", "Mon chat", _conv(8), time.time())
+    assert tc.post("/api/chat/c1/compress", headers=_alice()).json()["compressed"] is True
+    from shared_infra.db._connection import db_conn
+    for _ in range(200):
+        with db_conn() as conn:
+            rows = [dict(r) for r in conn.execute("SELECT * FROM runs")]
+        if rows and rows[0]["status"] != "running":
+            break
+        time.sleep(0.01)
+    (run,) = rows
+    assert (run["kind"], run["user_id"], run["chat_id"], run["status"]) == \
+        ("compaction", 1, "c1", "ok")
+    assert run["id"].startswith("compaction-") and run["ended_at"]
+
+
 def test_compress_utilise_le_modele_de_la_requete(client, monkeypatch):
     """Le LLM de compression reçoit le MODÈLE COURANT envoyé par le front, PAS
     le défaut LLAMA_MODEL (placeholder routeur type « RAG » → 400 llama-server)."""

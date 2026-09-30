@@ -1251,9 +1251,10 @@ def _fc_list(msg: dict) -> list:
 
 
 def _merge_prev_segment_lists(prev_msg: dict, msg: dict) -> None:
-    """« Continuer » : les ``task_runs`` du segment tronqué passent EN TÊTE
-    de ceux de la continuation (sans doublon). Mute ``msg``."""
-    for _k in ("task_runs",):
+    """« Continuer » : les ``task_runs`` et les exécutions (``run_ids``) du
+    segment tronqué passent EN TÊTE de ceux de la continuation (sans
+    doublon). Mute ``msg``."""
+    for _k in ("task_runs", "run_ids"):
         _anc = prev_msg.get(_k) if isinstance(prev_msg.get(_k), list) else []
         if not _anc:
             continue
@@ -1305,7 +1306,7 @@ _NOTICE_FIELDS = ("kind", "ts", "round", "tokens_after", "summary")
 
 
 _GRAFT_KEYS = ("tool_history", "tool_history_delta", "task_runs",
-               "resume_thinking", "thinkingTruncated")
+               "resume_thinking", "thinkingTruncated", "run_ids")
 
 
 def _graft_stopped_turn_state(filtres: list, persistables: list, db_msgs) -> int:
@@ -1404,6 +1405,11 @@ def _normalize_client_messages(messages: list) -> tuple[list, list]:
             _runs_rt = _task_runs_for_persist(m["task_runs"])
             if _runs_rt:
                 _mm["task_runs"] = _runs_rt
+        # Exécutions du message (``runs``, L5.2) : sinon perdues au persist.
+        if isinstance(m.get("run_ids"), list):
+            _rids = [r for r in m["run_ids"] if isinstance(r, str) and 0 < len(r) <= 64][:64]
+            if _rids:
+                _mm["run_ids"] = _rids
         _met = _metrics_for_persist(m.get("metrics"))
         if _met:
             _mm["metrics"] = _met
@@ -2146,23 +2152,31 @@ async def api_chat_manual_compress(chat_id: str, request: Request):
                         _state_holder[_k] = ev[_k]
 
         _t0 = time.time()
-        _, stats = await maybe_compress_conversation(
-            llm_view,
-            llama_chat_fn   = llama_chat,
-            on_event        = _on_ev,
-            model           = _req_model,   # modèle COURANT (pas le défaut LLAMA_MODEL)
-            user_id         = str(user_id),
-            log_prefix      = "chat_manual",
-            ctx_size_tokens = _ctx_tok or None,
-            prev_state      = prev_state,
-            manual          = True,
-            # Cap par conversation : auto ET manuel partagent le compteur
-            # ``round``, donc le réglage du compte doit valoir des deux côtés —
-            # sinon /compact se ferait refuser par un plafond que l'utilisateur
-            # croit avoir relevé.
-            max_rounds      = _user_max_rounds,
-            fts_session_id  = str(chat_id),
-        )
+        # Exécution (``runs``) et usage rattachés au compte et à la
+        # conversation compactée (sans ce scope, la ligne d'usage n'avait
+        # ni compte ni origine).
+        from llm_core.engines import engine_for_target as _eng_cmp
+        from shared_infra.observability.runs import run_scope
+        async with run_scope("compaction", user_id=user_id, chat_id=chat_id,
+                             model=_req_model or "", engine=_eng_cmp(_cmp_target).key):
+            with usage_scope("compression", user_id=user_id, origin_id=str(chat_id)):
+                _, stats = await maybe_compress_conversation(
+                    llm_view,
+                    llama_chat_fn   = llama_chat,
+                    on_event        = _on_ev,
+                    model           = _req_model,   # modèle COURANT (pas le défaut LLAMA_MODEL)
+                    user_id         = str(user_id),
+                    log_prefix      = "chat_manual",
+                    ctx_size_tokens = _ctx_tok or None,
+                    prev_state      = prev_state,
+                    manual          = True,
+                    # Cap par conversation : auto ET manuel partagent le compteur
+                    # ``round``, donc le réglage du compte doit valoir des deux côtés —
+                    # sinon /compact se ferait refuser par un plafond que l'utilisateur
+                    # croit avoir relevé.
+                    max_rounds      = _user_max_rounds,
+                    fts_session_id  = str(chat_id),
+                )
 
         compressed = bool(stats.get("compressed"))
         if compressed and _state_holder.get("summary_xml"):
@@ -2756,6 +2770,8 @@ async def api_chat_saved_stream3(request: Request):
     # routines et sessions éphémères ne le posent pas : contrat inchangé.
     _resumable = bool(data.get("resumable", False)) and not ephemeral
     _run_id = secrets.token_hex(8)
+    # Exécution du tour (``runs``, L5.2) : même identifiant que son journal.
+    _exec_id = f"chat-{_run_id}"
 
     # Matching des skills : fenêtre des derniers tours user (pas seulement le
     # dernier message) → le corps d'une procédure reste matché même au tour
@@ -3341,10 +3357,17 @@ async def api_chat_saved_stream3(request: Request):
                     _file_annoncee[0] = True
                     await on_event({"type": "queue_status", **_qs})
 
+                _attente_t0 = _llm_t0.monotonic()
                 async with llm_scheduling_guard(
                         selected_model, use_mcp_path=_use_mcp_path,
                         target=_target, on_wait=_on_queue_wait,
                         cancel_probe=lambda: is_chat_cancelled(user_id, chat_id)):
+                    # Attente d'un créneau du moteur → exécution du tour.
+                    with swallow("chat.run_wait"):
+                        from shared_infra.observability.runs import current_run as _run_cour
+                        _rc = _run_cour()
+                        if _rc is not None:
+                            _rc.add_wait(int((_llm_t0.monotonic() - _attente_t0) * 1000))
 
                     # Active le connecteur cible pour TOUS les appels LLM de ce
                     # tour (chat + compression). Contextvar : visible par le
@@ -3644,7 +3667,10 @@ async def api_chat_saved_stream3(request: Request):
                     _ctx_snap = await _ctx_usage_snapshot(
                         metrics, selected_model, _target)
 
-                msg_assistant = {"role": "assistant", "content": assistant}
+                # ``run_ids`` : exécutions du message (``runs``) — plusieurs
+                # après un « Continuer », dans l'ordre.
+                msg_assistant = {"role": "assistant", "content": assistant,
+                                 "run_ids": [_exec_id]}
                 if metrics:
                     # AUDIT 2026-08-22 (C6) — le message porte une COPIE des
                     # métriques SANS ``tool_history``. La liste (des mégaoctets
@@ -4025,6 +4051,9 @@ async def api_chat_saved_stream3(request: Request):
                 _final_payload = {
                     "type": "final",
                     "assistant": assistant,
+                    # Exécutions du message (``runs``) : le front les garde et
+                    # les renvoie avec lui (« Détails », « Continuer »).
+                    "run_ids": msg_assistant.get("run_ids") or [_exec_id],
                     **({"files_changed": msg_assistant["files_changed"]}
                        if msg_assistant.get("files_changed") else {}),
                     "chat_id": _effective_chat_id,
@@ -4173,6 +4202,7 @@ async def api_chat_saved_stream3(request: Request):
                                 "role": "assistant",
                                 "content": partial,
                                 "isTruncated": True,
+                                "run_ids": [_exec_id],
                             }
                             if _merged_partial_think:
                                 msg_partial["thinking"] = _merged_partial_think
@@ -4186,6 +4216,7 @@ async def api_chat_saved_stream3(request: Request):
                                 # raisonnement (drain worker 300 s compris)
                                 # perdait le bouton « Continuer ».
                                 "isTruncated": True,
+                                "run_ids": [_exec_id],
                             }
                             if _merged_partial_think:
                                 msg_partial["thinking"] = _merged_partial_think
@@ -4257,6 +4288,7 @@ async def api_chat_saved_stream3(request: Request):
                         _partial_final = {
                             "type": "final",
                             "assistant": msg_partial["content"],
+                            "run_ids": msg_partial.get("run_ids") or [_exec_id],
                             "chat_id": chat_id,
                             "metrics": None,
                             "thinking": msg_partial.get("thinking", partial_thinking),
@@ -4296,6 +4328,7 @@ async def api_chat_saved_stream3(request: Request):
                                 await on_event({
                                     "type": "final",
                                     "assistant": _txt or _CANCEL_PLACEHOLDER,
+                                    "run_ids": [_exec_id],
                                     "chat_id": chat_id,
                                     "metrics": None,
                                     "thinking": "".join(_partial_thinking_acc).strip(),
@@ -4316,8 +4349,15 @@ async def api_chat_saved_stream3(request: Request):
             # Fermeture GARANTIE du journal, même sans ``final`` (exception hors
             # harnais, annulation dure) : un client rattaché reçoit ``run_end``
             # au lieu d'attendre indéfiniment. Idempotent si ``final`` l'a fait.
+            # L'exécution (``runs``) couvre tout le tour : ce que la boucle,
+            # le titre, la compaction et les outils consomment y est versé.
+            from llm_core.engines import engine_for_target as _eng_run
+            from shared_infra.observability.runs import run_scope
             try:
-                await worker()
+                async with run_scope("chat", run_id=_exec_id, user_id=user_id,
+                                     chat_id=chat_id, model=selected_model or "",
+                                     engine=_eng_run(_target).key):
+                    await worker()
             finally:
                 if _journal is not None:
                     with swallow("chat.run_journal.close"):

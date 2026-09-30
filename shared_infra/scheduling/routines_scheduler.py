@@ -418,6 +418,30 @@ async def _notify_run_end(routine: Dict[str, Any], uid: int, *, ok: bool,
                          rid, exc)
 
 
+async def _execute_routine_run_mesure(routine: Dict[str, Any], run_id: int,
+                                      **kw: Any) -> None:
+    """``execute_routine_run`` dans son exécution (``runs``, L5.2) : ce que le
+    run consomme y est versé ; son statut final est celui du run de routine
+    (``ok``, ``error``, ``skipped``, ``cancelled``)."""
+    from shared_infra.observability.runs import new_run_id, run_scope
+    from shared_infra.scheduling.routines_store import get_run as _ligne_du_run
+    rid = int(routine["id"])
+    async with run_scope("routine", run_id=new_run_id("routine"),
+                         user_id=routine.get("owner_user_id"), routine_id=rid,
+                         chat_id=run_chat_key(rid, run_id),
+                         model=str(routine.get("model") or "")) as e:
+        await execute_routine_run(routine, run_id, **kw)
+        try:
+            from llm_core.engines import current_engine
+            e.engine = current_engine().key              # cible posée par le run
+            ligne = await asyncio.to_thread(_ligne_du_run, run_id,
+                                            int(routine["owner_user_id"]))
+            if ligne and ligne.get("status") in ("ok", "error", "skipped", "cancelled"):
+                e.finish(ligne["status"])
+        except Exception:                                       # noqa: BLE001
+            logger.debug("[ROUTINES] issue du run %s non relue", run_id, exc_info=True)
+
+
 async def execute_routine_run(routine: Dict[str, Any], run_id: int,
                               context: Optional[str] = None,
                               chain_depth: int = 0,
@@ -941,8 +965,8 @@ async def launch_run(routine: Dict[str, Any], *, trigger: str,
                     routine.get("id"), uid, reason)
         return None
     task = asyncio.get_running_loop().create_task(
-        execute_routine_run(routine, run_id, context=context,
-                            chain_depth=chain_depth, trigger=trigger))
+        _execute_routine_run_mesure(routine, run_id, context=context,
+                                    chain_depth=chain_depth, trigger=trigger))
     _running_tasks[run_id] = task
     task.add_done_callback(lambda t, rid=run_id: _running_tasks.pop(rid, None))
     return run_id

@@ -27,7 +27,7 @@ jamais l'exécution.
 Statut final : celui que pose le propriétaire (``finish``), sinon celui du
 dernier tour LLM de sa propre source (un titre ou une compaction pendant un
 tour de chat n'en décide pas), sinon ``ok`` ; une exception qui traverse la
-portée donne ``cancelled`` ou ``error``.
+portée donne ``cancelled``, ``timeout`` ou ``error``.
 
 Identifiants : ``<genre>-<16 hex>`` (``chat-…``, ``routine-…``,
 ``subagent-…``, ``compaction-…``) ; un tour de chat reprend l'identifiant de
@@ -322,6 +322,9 @@ async def run_scope(kind: str, *, run_id: str = "", user_id: Optional[int] = Non
         yield e
     except asyncio.CancelledError:
         e.finish("cancelled")
+        raise
+    except asyncio.TimeoutError:
+        e.finish("timeout")
         raise
     except BaseException:
         e.finish("error")

@@ -425,6 +425,9 @@ function setupChatHistory(vue, sharedRefs, ctx, deps) {
                     if (m.errorMessage)       msg.errorMessage      = m.errorMessage;
                     if (Array.isArray(m.files_changed) && m.files_changed.length)
                         msg.files_changed = m.files_changed;
+                    // Exécutions du message (``runs``) : renvoyées telles quelles.
+                    if (Array.isArray(m.run_ids) && m.run_ids.length)
+                        msg.run_ids = m.run_ids;
                     // On gèle TOUS les messages chargés — même le dernier,
                     // car il n'est pas en cours de streaming (la conv est
                     // persistée, donc terminée). Si l'utilisateur clique

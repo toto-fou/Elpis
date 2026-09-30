@@ -1238,6 +1238,9 @@ function setupChat(vue, sharedRefs, ctx) {
             if (m.tool_history_delta) o.tool_history_delta = true;
         }
         if (m.taskRuns && m.taskRuns.length) o.task_runs = m.taskRuns;
+        // Exécutions du message (table ``runs``) : relues par « Détails », et
+        // conservées par le serveur à la fusion d'un « Continuer ».
+        if (m.run_ids && m.run_ids.length) o.run_ids = m.run_ids;
         // Fichiers modifiés par les outils (lignes « fichiers modifiés »).
         if (m.files_changed && m.files_changed.length) o.files_changed = m.files_changed;
         // Pied du message (modèle, durée, débits) : sans aller-retour, il
@@ -3046,6 +3049,10 @@ function setupChat(vue, sharedRefs, ctx) {
                 // finish=length) — le cas le plus courant de réponse
                 // continuable, jusqu'ici jamais signalé.
                 isTruncated:          !!data.tool_limit_reached || !!data.cancelled || !!data.truncated,
+                // Exécutions du message (``runs``) : liste FUSIONNÉE par le
+                // serveur (un « Continuer » y ajoute la sienne).
+                run_ids:              (Array.isArray(data.run_ids) && data.run_ids.length)
+                                          ? data.run_ids : (cur.run_ids || null),
                 // Fallback durée thinking : si on a démarré sans qu'un
                 // content_token soit jamais arrivé (ex: réponse 100 %
                 // thinking, pas de body), on clôture ici. Idempotent si

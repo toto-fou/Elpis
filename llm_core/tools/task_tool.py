@@ -1574,38 +1574,45 @@ def build_task_builtin_tool(
         _ACTIVE_CHILDREN[_ckey] = {"agent": agent_type, "chat_id": chat_id,
                                    "t0": time.time()}
         try:
-            # Registre d'usage : l'enfant consomme sur SON propre appel LLM.
-            # Scope imbriqué (le user est hérité du parent) pour que sa conso
-            # soit attribuée à l'utilisateur ET rattachée au tour parent —
-            # avant, elle n'entrait dans aucun agrégat.
-            with usage_scope("subagent", user_id=user_id,
-                             origin_id=str(child_chat_id or child_id),
-                             parent_id=str(chat_id or "")):
-                final_text, _child_events, child_metrics = await asyncio.wait_for(
-                    _runner(
-                        child_messages,
-                        mcp_configs=child_mcp_configs,
-                        on_event=_child_on_event,
-                        username=username,
-                        model=model,
-                        builtin_tools=child_builtins,
-                        is_cancelled=_child_is_cancelled,
-                        chat_id=child_chat_id,
-                        sampling_override=child_sampling,
-                        thinking_mode=False,
-                        allowed_tool_names=child_allowed,
-                        memory_enabled=child_memory,
-                        deny_tool_names=child_deny,
-                        # AUDIT 2026-09-25 — priorité du PARENT (une routine
-                        # reste « low ») et propriétaire du run : sans lui,
-                        # le ``_meta`` des outils locaux de l'enfant n'avait
-                        # pas d'``user_id`` (hôte d'outils distant, trames
-                        # desktop non rapatriées).
-                        priority=priority,
-                        user_id=user_id,
-                    ),
-                    timeout=TASK_CHILD_TIMEOUT_S,
-                )
+            # Exécution de l'enfant (``runs``, rattachée au tour parent) : ses
+            # jetons, appels et outils y sont versés, pas dans ceux du parent.
+            from llm_core.engines import current_engine as _eng_courant
+            from shared_infra.observability.runs import run_scope
+            async with run_scope("subagent", user_id=user_id,
+                                 chat_id=str(child_chat_id or child_id),
+                                 model=str(model or ""), engine=_eng_courant().key):
+                # Registre d'usage : l'enfant consomme sur SON propre appel LLM.
+                # Scope imbriqué (le user est hérité du parent) pour que sa conso
+                # soit attribuée à l'utilisateur ET rattachée au tour parent —
+                # avant, elle n'entrait dans aucun agrégat.
+                with usage_scope("subagent", user_id=user_id,
+                                 origin_id=str(child_chat_id or child_id),
+                                 parent_id=str(chat_id or "")):
+                    final_text, _child_events, child_metrics = await asyncio.wait_for(
+                        _runner(
+                            child_messages,
+                            mcp_configs=child_mcp_configs,
+                            on_event=_child_on_event,
+                            username=username,
+                            model=model,
+                            builtin_tools=child_builtins,
+                            is_cancelled=_child_is_cancelled,
+                            chat_id=child_chat_id,
+                            sampling_override=child_sampling,
+                            thinking_mode=False,
+                            allowed_tool_names=child_allowed,
+                            memory_enabled=child_memory,
+                            deny_tool_names=child_deny,
+                            # AUDIT 2026-09-25 — priorité du PARENT (une routine
+                            # reste « low ») et propriétaire du run : sans lui,
+                            # le ``_meta`` des outils locaux de l'enfant n'avait
+                            # pas d'``user_id`` (hôte d'outils distant, trames
+                            # desktop non rapatriées).
+                            priority=priority,
+                            user_id=user_id,
+                        ),
+                        timeout=TASK_CHILD_TIMEOUT_S,
+                    )
             # AUDIT 2026-08-30 — ex-« filet déroulé » RETIRÉ : il posait
             # ``_chat_buf["t"] = final_text`` quand le runner n'avait pas
             # streamé de content_token, pour que la réponse de l'enfant entre

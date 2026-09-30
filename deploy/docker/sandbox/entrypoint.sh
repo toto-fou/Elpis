@@ -180,10 +180,12 @@ done
 # NET_ADMIN (root réacquiert les caps du bounding set) et effaçait l'allowlist.
 # En le retirant du bounding set, MÊME root (via sudo) ne peut plus toucher au
 # netfilter → l'allowlist devient inviolable depuis l'intérieur. On garde
-# sudo et les autres caps (modèle « permissif dans le container » voulu), et
-# net_raw reste présent pour que ``ping`` fonctionne vers les IPs autorisées.
+# sudo et les autres caps du conteneur (modèle « permissif dans le container »
+# voulu ; ``ping`` passe par les sockets ICMP sans privilège, pas par net_raw).
 # Retirer une cap absente du bounding set (modes none/bridge) est sans effet.
 log "Drop privilege → UID 10001 (sudo NOPASSWD, sans net_admin)"
+# Masque du seul processus principal (inactif) : les shells prennent celui
+# de /etc/profile (0022) et l'agent, lancé par docker exec, le sien.
 umask 0002
 # NB: setpriv (util-linux) attend les noms de capability SANS préfixe « cap_ »
 # (``net_admin``, pas ``cap_net_admin`` — ce dernier donne « unknown capability »).

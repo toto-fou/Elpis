@@ -110,9 +110,9 @@ def _candidate_tar_paths(image_name: str) -> list[Path]:
     safe = image_name.replace(":", "-").replace("/", "-")
     file_candidates = [f"{safe}.tar.gz", f"{safe}.tar"]
 
-    # Trouver la racine de l'app (= parent du dossier 'agentic/')
+    # Racine de l'app : shared_infra/sandbox/executors/_image_loader.py → parents[3].
     here = Path(__file__).resolve()
-    app_root = here.parents[2]  # agentic/executors/_image_loader.py → app_root
+    app_root = here.parents[3]
 
     paths: list[Path] = []
 

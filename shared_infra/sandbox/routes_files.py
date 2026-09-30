@@ -1031,6 +1031,21 @@ _UPLOAD_CHUNK_HARD_CAP = 32 * 1024 * 1024
 # upload, qui partagent ``rel_path``).
 UPLOAD_TMP_SUFFIX = ".elpis-upload.part"
 
+
+async def _ajouter_morceau(user_id: int, tmp_rel: str, data: bytes, *, truncate: bool) -> int:
+    """Un morceau d'import ajouté au fichier provisoire. Disque plein (507) :
+    le provisoire est supprimé — l'import ne peut plus aboutir, et il
+    occuperait l'espace qui manque."""
+    from shared_infra.sandbox.exec_bridge import sandbox_append_chunk, sandbox_delete
+    try:
+        return await sandbox_append_chunk(user_id, tmp_rel, data, truncate=truncate)
+    except HTTPException as he:
+        if he.status_code == 507:
+            with contextlib.suppress(HTTPException):
+                await sandbox_delete(user_id, tmp_rel)
+            invalidate_sandbox_usage(user_id)
+        raise
+
 # 2026-09-16 — identifiant d'IMPORT fourni par le client (``upload_id``) : deux
 # onglets qui importaient le même gros fichier écrivaient le MÊME ``.part`` et
 # entrelaçaient leurs morceaux (fichier corrompu). Il s'insère AVANT le suffixe
@@ -1104,7 +1119,7 @@ async def api_upload_sandbox_chunk(request: Request):
     if len(data) > _UPLOAD_CHUNK_HARD_CAP:
         raise HTTPException(413, "Chunk trop volumineux")
 
-    from shared_infra.sandbox.exec_bridge import sandbox_append_chunk, sandbox_delete, sandbox_rename
+    from shared_infra.sandbox.exec_bridge import sandbox_delete, sandbox_rename
     agent = agent_for(user_id)
 
     if index == 0:
@@ -1136,12 +1151,12 @@ async def api_upload_sandbox_chunk(request: Request):
                         413, f"Quota sandbox dépassé ({cap['quota_bytes'] // (1024 * 1024)} Mo)")
             elif cap["remaining_bytes"] is not None and _net > cap["remaining_bytes"]:
                 raise HTTPException(413, "Espace disque insuffisant")
-            _received = await sandbox_append_chunk(user_id, tmp_rel, data, truncate=True)
+            _received = await _ajouter_morceau(user_id, tmp_rel, data, truncate=True)
     else:
         # Import ANNULÉ entre deux chunks (``DELETE`` ci-dessous) : l'agent
         # n'ajoute qu'à un fichier provisoire existant.
         try:
-            _received = await sandbox_append_chunk(user_id, tmp_rel, data, truncate=False)
+            _received = await _ajouter_morceau(user_id, tmp_rel, data, truncate=False)
         except HTTPException as he:
             if he.status_code == 404:
                 raise HTTPException(409, "Import interrompu") from None

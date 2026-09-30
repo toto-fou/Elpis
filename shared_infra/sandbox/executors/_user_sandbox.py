@@ -166,6 +166,8 @@ class _BoundedCapture:
 # l'UID de l'app) a été faite une fois pour ce compte (L4.6).
 # ⚠ Doit rester synchronisé avec ``shared_infra.sandbox.paths._MODES_MARKER``.
 _MODES_MARKER = ".work-modes-v1"
+# ⚠ Synchronisé avec ``shared_infra.sandbox.paths._PERMS_MARKER_LEGACY``.
+_PERMS_MARKER_LEGACY = (".perms-reconciled", ".perms-reconciled-v2", ".perms-reconciled-v3")
 
 
 # ── Sérialisation du cycle de vie container, par user ────────────────────────
@@ -197,6 +199,10 @@ _MODES_MARKER = ".work-modes-v1"
 # sérialisation reste un confort, l'idempotence de ``_create`` demeure).
 import weakref as _weakref
 
+#: Tâches « sans attendre » (activité poussée à l'agent) : gardées ici tant
+#: qu'elles tournent.
+_TACHES_DE_FOND: "set[asyncio.Task]" = set()
+
 _lifecycle_locks: "_weakref.WeakKeyDictionary" = _weakref.WeakKeyDictionary()
 _LIFECYCLE_FLOCK_WAIT_S = 120.0
 
@@ -218,10 +224,10 @@ def _loop_lock(user_id: int) -> asyncio.Lock:
 
 
 def _racine_privee(racine: Path) -> None:
-    """Racine des sandboxes réservée au compte de service (0700). Chaque
-    ``/work`` est 0777 et le root d'un conteneur peut y poser un exécutable
-    setuid : ce dossier seul le tient hors de portée des autres comptes de
-    l'hôte. Docker monte ``/work`` sans traverser ses parents."""
+    """Racine des sandboxes réservée au compte de service (0700). Le root
+    d'un conteneur peut poser un exécutable setuid dans ``/work`` : ce
+    dossier seul le tient hors de portée des autres comptes de l'hôte.
+    Docker monte ``/work`` sans traverser ses parents."""
     try:
         racine.mkdir(mode=0o700, parents=True, exist_ok=True)
         st = racine.stat()
@@ -390,8 +396,10 @@ CAPABILITIES = ("CHOWN", "DAC_OVERRIDE", "FOWNER", "FSETID", "SETUID", "SETGID",
 #: Version des options de ``docker run`` qui touchent à la sécurité, posée en
 #: label ``elpis.spec`` : la changer fait recréer les conteneurs existants au
 #: premier exec (2 : ``--cap-drop MKNOD`` ; 3 : ``--cap-drop ALL`` +
-#: ``CAPABILITIES`` ; 4 : montages de l'agent, 2026-09-29 ; 5 : relais Git).
-RUN_SPEC = "5"
+#: ``CAPABILITIES`` ; 4 : montages de l'agent, 2026-09-29 ; 5 : relais Git ;
+#: 6 : ``--init``, un PID 1 qui récolte les processus orphelins — sans lui, les
+#: zombies des commandes lancées par l'agent comptaient dans ``--pids-limit``).
+RUN_SPEC = "6"
 
 #: Empreinte du dossier de l'agent monté (étiquette ``elpis.agent``) :
 #: l'application déplacée, le conteneur est recréé avec le bon montage.
@@ -650,6 +658,9 @@ class UserSandbox:
         # durcissement des options de lancement ne touchait que les nouveaux.
         self._config_verified = False
         self._config_retry_at = 0.0
+        # Recréation reportée faute d'image : le conteneur hérité n'a pas
+        # l'agent ; message rendu tel quel au lieu d'attendre son démarrage.
+        self._recreation_reportee = ""
         self._agent: Optional[AgentClient] = None
 
     @property
@@ -786,6 +797,7 @@ class UserSandbox:
         conteneur sans pouvoir le remplacer : on garde l'ancien jusqu'à ce
         que l'image soit là (``./install.sh``)."""
         if await self._config_matches():
+            self._recreation_reportee = ""
             return False
         try:
             await self._ensure_image()
@@ -794,7 +806,13 @@ class UserSandbox:
                            self.container_name, e)
             self._config_verified = False              # réexaminé plus tard
             self._config_retry_at = time.monotonic() + _CONFIG_RETRY_S
+            self._recreation_reportee = (
+                f"image {self.cfg.image} absente : le conteneur de la sandbox date d'une "
+                "version précédente et ne peut pas encore être recréé (fichiers, éditeur et "
+                "git indisponibles). Construisez l'image (./install.sh --sandbox build) ou "
+                "chargez son archive (deploy/docker/sandbox/load_image.sh), puis relancez.")
             return False
+        self._recreation_reportee = ""
         return True
 
     async def _reconcile_config(self, st: SandboxStatus) -> SandboxStatus:
@@ -857,6 +875,12 @@ class UserSandbox:
                     marker.write_text(owner, encoding="utf-8")
                 except OSError:
                     pass
+                # Marqueurs de la version précédente (qui élargissait les
+                # droits) : retirés, pour qu'un retour arrière refasse sa
+                # propre réparation au lieu de se croire à jour.
+                for ancien in _PERMS_MARKER_LEGACY:
+                    with contextlib.suppress(OSError):
+                        (marker.parent / ancien).unlink()
         except asyncio.CancelledError:
             self._modes_verified = False                 # interrompu : à refaire
             raise
@@ -999,7 +1023,7 @@ class UserSandbox:
         (l'entrypoint passe root→10001 via setpriv).
         """
         run_args = [
-            "run", "-d",
+            "run", "-d", "--init",
             "--name", self.container_name,
             "--label", _naming.label("user_id", self.user_id),
             "--label", _naming.label("username", self.username),
@@ -1330,6 +1354,9 @@ class UserSandbox:
         danger : l'agent tient un verrou d'instance. ``replace`` : un agent
         figé est d'abord tué. ``python3 -I -S`` : ni ``PYTHON*`` ni les
         paquets de l'utilisateur (``/work/.local``) dans l'agent."""
+        if self._recreation_reportee:
+            # Conteneur d'une version précédente, sans agent : inutile d'attendre.
+            raise ExecError(self._recreation_reportee)
         if replace:
             await self._cli.call("exec", "--user", "0:0", self.container_name,
                                  "pkill", "-KILL", "-f", f"{AGENT_MOUNT}/server.py", timeout=10)
@@ -1373,7 +1400,11 @@ class UserSandbox:
         async def _activite() -> None:
             with contextlib.suppress(Exception):
                 await self.agent.hello()
-        asyncio.get_running_loop().create_task(_activite())
+        # Référence gardée jusqu'à la fin : une tâche sans référence peut être
+        # ramassée avant de s'exécuter.
+        tache = asyncio.get_running_loop().create_task(_activite())
+        _TACHES_DE_FOND.add(tache)
+        tache.add_done_callback(_TACHES_DE_FOND.discard)
 
         # On force --user sur chaque exec (sinon docker exec ouvre la
         # session en root en bypassant le CMD de l'entrypoint).

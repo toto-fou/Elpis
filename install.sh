@@ -435,9 +435,21 @@ if [ "$TUI" -eq 0 ] && [ "$INTERACTIVE" -eq 1 ] && [ "$(ask_yn "Lancer l'install
     info "Annulé."
     exit 0
 fi
+# Le dépôt revient au compte de l'application — SAUF le contenu des
+# sandboxes : chaque /work appartient à l'utilisateur du conteneur (seul
+# l'agent y écrit) ; seuls user_sandboxes et chaque dossier de compte, sans
+# récursion. Un chown -R ici rendait /work illisible en écriture à l'agent
+# jusqu'au redémarrage de son conteneur.
+chown_depot() {
+    find "$ROOT" -path "$ROOT/user_sandboxes" -prune -o -exec chown -h "$APP_USER": {} +
+    if [ -d "$ROOT/user_sandboxes" ]; then
+        chown "$APP_USER": "$ROOT/user_sandboxes"
+        find "$ROOT/user_sandboxes" -mindepth 1 -maxdepth 1 -type d -exec chown "$APP_USER": {} +
+    fi
+}
 # En root : le dépôt appartient au compte de l'application (venv, Chromium,
 # fichiers de configuration écrits sous ce compte).
-[ "$AS_ROOT" -eq 1 ] && chown -R "$APP_USER": "$ROOT"
+[ "$AS_ROOT" -eq 1 ] && chown_depot
 
 # =============================================================================
 #  2. Paquets système
@@ -733,13 +745,23 @@ install_sandbox_image() {
         return 0
     fi
     if [ -n "$OFFLINE_DIR" ]; then
-        archive="$(ls -1t "$OFFLINE_DIR"/sandbox/*.tar.gz 2>/dev/null | head -1)"
-        [ -n "$archive" ] || { note_warn "Aucune archive d'image dans $OFFLINE_DIR/sandbox."; return 0; }
+        # L'archive de LA version attendue (pas la plus récente du dossier :
+        # une ancienne version y serait chargée sous le mauvais nom).
+        archive="$OFFLINE_DIR/sandbox/elpis-sandbox-${image##*:}.tar.gz"
+        [ -f "$archive" ] || { note_warn "Archive $(basename "$archive") absente de $OFFLINE_DIR/sandbox."; return 0; }
         info "Chargement de l'image sandbox ($archive)…"
         if [ "${dk[0]}" = "docker" ]; then "$sb/load_image.sh" "$archive"; else $SUDO "$sb/load_image.sh" "$archive"; fi \
             || note_warn "Chargement de l'image sandbox échoué."
     elif [ "$SANDBOX_MODE" = pull ]; then
         [ -n "$PULL_REF" ] || die "--pull : précisez l'image (--pull REGISTRE/IMAGE:TAG ou ELPIS_SANDBOX_PULL_REF)."
+        # Étiquette explicite d'une AUTRE version (ex. variable restée sur
+        # l'ancienne) : ne pas la renommer en version attendue.
+        local dernier="${PULL_REF##*/}"
+        case "$dernier" in
+            *@*) ;;                                      # empreinte : pas d'étiquette à comparer
+            *:*) [ "${dernier##*:}" = "${image##*:}" ] \
+                     || { note_warn "--pull $PULL_REF : version différente de ${image##*:} attendue, image non étiquetée."; return 0; } ;;
+        esac
         info "Téléchargement de l'image sandbox ($PULL_REF)…"
         "${dk[@]}" pull "$PULL_REF" && "${dk[@]}" tag "$PULL_REF" "$image" \
             || note_warn "docker pull a échoué."
@@ -823,7 +845,7 @@ esac
 [ "$WITH_CADDY" -eq 1 ] && install_caddy
 [ "$WITH_VOICE" -eq 1 ] && install_voice
 mkdir -p "$ROOT/user_db/logs" "$ROOT/user_sandboxes" "$ROOT/logs"
-chmod 700 "$ROOT/user_sandboxes"   # /work est 0777 : la racine seule isole les sandboxes
+chmod 700 "$ROOT/user_sandboxes"   # la racine isole les sandboxes des autres comptes de l'hôte
 chmod +x "$ROOT/elpis" 2>/dev/null || true
 
 # =============================================================================
@@ -849,8 +871,8 @@ if [ "$DO_CONFIGURE" = 1 ]; then
     fi
 fi
 # En root : tout ce que les étapes système ont créé revient au compte de
-# l'application (base SQLite, jetons, config, Qdrant, journaux).
-[ "$AS_ROOT" -eq 1 ] && chown -R "$APP_USER": "$ROOT"
+# l'application (base SQLite, jetons, config, Qdrant, journaux), /work exclu.
+[ "$AS_ROOT" -eq 1 ] && chown_depot
 
 if [ -f "$ROOT/config.json" ]; then
     case "$AFTER" in

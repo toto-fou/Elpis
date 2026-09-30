@@ -459,6 +459,28 @@ cmd_doctor() {
 # =============================================================================
 cmd_backup() { load_runtime; "$PY" -m shared_infra.ops.backup_cli "$@"; }
 
+# Image de la sandbox attendue par le code : présente, sinon chargée depuis
+# son archive (deploy/docker/sandbox/elpis-sandbox-<version>.tar.gz), sinon
+# construite (réseau requis). Sans elle, les conteneurs existants gardent
+# leur ancienne image, sans agent : fichiers, éditeur et git inutilisables.
+ensure_sandbox_image() {
+    command -v docker >/dev/null 2>&1 || { warn "docker absent : image de sandbox non vérifiée."; return 0; }
+    local dir="$ROOT/deploy/docker/sandbox" img arch
+    img="$(bash "$dir/build_offline.sh" --print-image 2>/dev/null)" || return 0
+    if docker image inspect "$img" >/dev/null 2>&1; then
+        ok "Image de sandbox $img présente."
+        return 0
+    fi
+    arch="$dir/elpis-sandbox-${img##*:}.tar.gz"
+    if [ -f "$arch" ]; then
+        info "Image de sandbox $img : chargement de $(basename "$arch")…"
+        bash "$dir/load_image.sh" "$arch" && return 0
+    fi
+    info "Image de sandbox $img absente : construction (réseau requis, plusieurs minutes)…"
+    bash "$dir/build_offline.sh" && return 0
+    return 1
+}
+
 cmd_upgrade() {
     local backup=1 req="$ROOT/requirements-rag.txt"
     case "${1:-}" in --no-backup) backup=0 ;; "") ;; *) die "Usage : ./elpis upgrade [--no-backup]" ;; esac
@@ -485,6 +507,10 @@ cmd_upgrade() {
     "$PY" -c 'import fitz' >/dev/null 2>&1 && req="$ROOT/requirements-agpl-optional.txt"
     info "Dépendances Python…"
     "$PY" -m pip install -q -r "$req" || die "Échec pip : relancez ./elpis upgrade --no-backup une fois corrigé."
+    info "Image de la sandbox…"
+    ensure_sandbox_image || die "Image de sandbox indisponible : chargez son archive \
+(deploy/docker/sandbox/load_image.sh <archive>) ou construisez-la (./install.sh --sandbox build), \
+puis ./elpis restart. Sans elle, fichiers, éditeur et git des sandboxes ne marchent pas."
     info "Redémarrage (les migrations de la base s'appliquent au démarrage)…"
     if systemd_installed; then
         sudo systemctl restart "${UNIT_PREFIX}.target" || die "Redémarrage systemd échoué."

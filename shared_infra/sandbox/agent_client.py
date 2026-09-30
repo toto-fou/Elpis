@@ -249,6 +249,7 @@ class AgentClient:
         self._version_ok = False
         self._relance = False
         self._echec_jusqua = 0.0
+        self._echec_cause = ""
         self._verrous: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Lock]" = \
             weakref.WeakKeyDictionary()
 
@@ -651,14 +652,20 @@ class AgentClient:
             if d is not None:
                 return d
             if time.monotonic() < self._echec_jusqua:
-                raise AgentError("agent_unavailable", "démarrage échoué il y a peu")
+                raise AgentError("agent_unavailable",
+                                 self._echec_cause or "démarrage échoué il y a peu")
             try:
                 st = await (self._sb.status() if passif else self._sb.ensure_running())
             except Exception as e:                       # noqa: BLE001 — image absente, Docker arrêté…
                 raise AgentError("container_down", str(e)[:300]) from e
             if not getattr(st, "running", False):
                 raise AgentError("container_down", "le conteneur de la sandbox ne tourne pas")
-            await self._sb.start_agent(replace=fige)
+            try:
+                await self._sb.start_agent(replace=fige)
+            except Exception as e:                       # noqa: BLE001 — docker exec en échec, image sans agent
+                self._echec_jusqua = time.monotonic() + _ECHEC_S
+                self._echec_cause = str(e)[:400] or "agent non démarré"
+                raise AgentError("agent_unavailable", self._echec_cause) from e
             echeance = time.monotonic() + _DEMARRAGE_S
             while True:
                 d, _fige = await self._sonder()
@@ -666,8 +673,9 @@ class AgentClient:
                     return d
                 if time.monotonic() > echeance:
                     self._echec_jusqua = time.monotonic() + _ECHEC_S
-                    raise AgentError("agent_unavailable",
-                                     "l'agent n'a pas démarré (python3 absent de l'image ?)")
+                    self._echec_cause = ("l'agent n'a pas démarré à temps (image de la sandbox "
+                                         "sans agent ou sans python3 ?)")
+                    raise AgentError("agent_unavailable", self._echec_cause)
                 await asyncio.sleep(0.05)
 
     async def _verifier_version(self, passif: bool = False) -> None:

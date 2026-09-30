@@ -36,9 +36,9 @@ def gc(tmp_path, monkeypatch):
         conn.commit()
     import shared_infra.git.connectors as _gc
 
-    # le résolveur dé-duplique l'import legacy par process → on réinitialise.
-    import shared_infra.git.resolver as R
-    R._imported_users.clear()
+    # l'import legacy est dé-dupliqué par process (git_ops) → on réinitialise.
+    from shared_infra.sandbox import git_ops
+    git_ops._anciens_vus.clear()
     return _gc
 
 
@@ -110,21 +110,15 @@ def test_normalize_host_tolerant():
     assert N("git@gitea.acme.io:owner/repo.git") == "gitea.acme.io"
 
 
-def test_import_legacy_idempotent(gc, tmp_path):
+def test_import_legacy_idempotent(gc):
     import shared_infra.git.resolver as R
-    sb = tmp_path / "sb"
-    sb.mkdir()
-    (sb / ".git-credentials.json").write_text(
-        '{"github": {"token":"ghp_old","user":"bot"}, '
-        '"gitlab": {"token":"glp","url":"https://gl.corp.com"}}', encoding="utf-8")
-    assert R.import_legacy_git_credentials(1, sb) == 2
-    assert not (sb / ".git-credentials.json").exists()
-    # Aucune copie en clair laissée dans la sandbox (2026-09-29).
-    assert not (sb / ".git-credentials.json.imported").exists()
+    data = (b'{"github": {"token":"ghp_old","user":"bot"}, '
+            b'"gitlab": {"token":"glp","url":"https://gl.corp.com"}}')
+    assert R.import_legacy_git_credentials(1, data) == 2
     hosts = set(gc.list_connector_hosts(1))
     assert "github.com" in hosts and "gl.corp.com" in hosts
-    # 2e appel = no-op (dé-dupliqué par process)
-    assert R.import_legacy_git_credentials(1, sb) == 0
+    assert R.import_legacy_git_credentials(1, data) == 0     # hôtes déjà présents
+    assert R.import_legacy_git_credentials(1, b"pas du json") == 0
 
 
 # ── SSRF unifié ───────────────────────────────────────────────────────────────
@@ -481,10 +475,38 @@ def test_save_then_resolve_roundtrip_gitea_lan(gc):
     assert cred["api_base"] == "http://10.0.0.42:3000/api/v1"
 
 
-def test_import_legacy_retire_une_ancienne_trace(gc, tmp_path):
-    import shared_infra.git.resolver as R
-    sb = tmp_path / "sb2"
-    sb.mkdir()
-    (sb / ".git-credentials.json.imported").write_text('{"github": {"token": "ghp"}}')
-    R.import_legacy_git_credentials(7, sb)
-    assert not (sb / ".git-credentials.json.imported").exists()
+async def test_import_legacy_lu_et_supprime_par_l_agent(gc, tmp_path):
+    """L'ancien fichier est lu puis supprimé par l'agent de la sandbox (L4.6),
+    avec sa trace ``.imported`` ; une seule fois par processus et par compte."""
+    from shared_infra.sandbox import git_ops
+    from shared_infra.sandbox.executors import get_user_sandbox
+    work = tmp_path / "sb" / "alice" / "work"
+    work.mkdir(parents=True)
+    (work / ".git-credentials.json").write_text('{"github": {"token": "ghp_x"}}')
+    (work / ".git-credentials.json.imported").write_text('{"github": {"token": "ghp"}}')
+    agent = get_user_sandbox(1, "alice", work).agent
+    await git_ops.import_legacy_credentials(agent, 1)
+    assert "github.com" in set(gc.list_connector_hosts(1))
+    assert not (work / ".git-credentials.json").exists()
+    assert not (work / ".git-credentials.json.imported").exists()
+    (work / ".git-credentials.json").write_text('{"gitlab": {"token": "glp"}}')
+    await git_ops.import_legacy_credentials(agent, 1)       # déjà fait dans ce processus
+    assert (work / ".git-credentials.json").exists()
+
+
+async def test_import_legacy_ne_suit_pas_un_lien_hors_de_work(gc, tmp_path):
+    """(Relecture L4.4, 2026-09-30) L'hôte lisait le fichier en suivant les
+    liens : ``.git-credentials.json`` → fichier d'un autre compte, lisible par
+    l'app, en faisait importer les jetons. L'agent ne sort pas de /work."""
+    from shared_infra.sandbox import git_ops
+    from shared_infra.sandbox.executors import get_user_sandbox
+    ailleurs = tmp_path / "bob" / ".git-credentials.json"
+    ailleurs.parent.mkdir()
+    ailleurs.write_text('{"github": {"token": "ghp_de_bob"}}')
+    work = tmp_path / "sb" / "alice" / "work"
+    work.mkdir(parents=True)
+    (work / ".git-credentials.json").symlink_to(ailleurs)
+    agent = get_user_sandbox(2, "alice", work).agent
+    await git_ops.import_legacy_credentials(agent, 2)
+    assert "github.com" not in set(gc.list_connector_hosts(2))
+    assert ailleurs.exists()

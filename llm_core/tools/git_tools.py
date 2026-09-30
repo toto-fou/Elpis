@@ -2231,8 +2231,8 @@ Returns (PR already open)::
             cred = None
             if _uid:
                 try:
-                    from shared_infra.git.resolver import import_legacy_git_credentials, resolve_git_credential
-                    import_legacy_git_credentials(_uid, sb)
+                    from shared_infra.git.resolver import resolve_git_credential
+                    Espace(_username, sb).git_anciens_identifiants(_uid)
                     cred = resolve_git_credential(_uid, remote_url)
                 except Exception:
                     cred = None
@@ -2578,8 +2578,8 @@ Returns::
                 _clone_cred = {"username": (username or "").strip(), "token": token.strip()}
             elif _cuid:
                 try:
-                    from shared_infra.git.resolver import import_legacy_git_credentials, resolve_git_credential
-                    import_legacy_git_credentials(_cuid, sb)
+                    from shared_infra.git.resolver import resolve_git_credential
+                    esp.git_anciens_identifiants(_cuid)
                     _clone_cred = resolve_git_credential(_cuid, url)
                 except Exception:
                     _clone_cred = None

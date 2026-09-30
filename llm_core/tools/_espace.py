@@ -80,6 +80,10 @@ class Espace:
     def git_depots(self, **kw: Any) -> List[str]:
         return _run_async(git_ops.find_repos(self._agent, **kw))
 
+    def git_anciens_identifiants(self, uid: int) -> None:
+        """Import unique de l'ancien ``/work/.git-credentials.json``."""
+        _run_async(git_ops.import_legacy_credentials(self._agent, uid))
+
     def jumeau_unicode(self, rel: str, max_scan: int = 500) -> Optional[str]:
         """Avertissement si créer ``rel`` introduit un nom qui ne diffère d'un
         voisin que par les accents ou la casse (cf. ``_toolkit.twin_message``).

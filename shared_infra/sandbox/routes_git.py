@@ -196,12 +196,6 @@ def _auth(data: dict) -> Optional[Tuple[str, str]]:
     return ((data.get("cred_user") or "").strip(), jeton) if jeton else None
 
 
-async def _anciens_identifiants(uid: int) -> None:
-    """Import unique de l'ancien ``.git-credentials.json`` vers les connecteurs."""
-    from shared_infra.git.resolver import import_legacy_git_credentials
-    await asyncio.to_thread(import_legacy_git_credentials, int(uid), _get_work_path(int(uid)))
-
-
 def _refus_relais(r: GitResult) -> None:
     """Requête refusée par le relais (politique, et non authentification) :
     409 avec les seuls motifs du relais. Le message de git (« HTTP 403 »)
@@ -215,7 +209,6 @@ async def _reseau(d: _Depot, args: List[str], *, url: str, data: dict,
                   push_refs: Optional[Set[str]] = None, timeout: float = 60) -> GitResult:
     """Commande réseau vers ``url`` par le relais (identifiants : ``_auth``,
     sinon le connecteur) ; échéance → 504, refus du relais → 409."""
-    await _anciens_identifiants(d.uid)
     r = await _relaye(git_ops.run_network(
         d.agent, d.rel, args, uid=d.uid, url=url, push_refs=push_refs, auth=_auth(data),
         timeout_s=timeout, max_out=_SORTIE))
@@ -702,7 +695,6 @@ async def api_git_pull(request: Request):
     # Fetch du remote de la branche par le relais, puis fusion locale de son
     # amont, selon le bouton et la configuration du dépôt (``_mode_pull``).
     mode = await _mode_pull(d, bool(data.get("rebase", False)))
-    await _anciens_identifiants(uid)
     r = await _relaye(git_ops.pull(d.agent, d.rel, await _remote_suivi(d), "", mode, uid=uid,
                                    timeout_s=60, max_out=_SORTIE, auth=_auth(data)))
     if r.timed_out:

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from shared_infra.sandbox import git_relay
+from shared_infra.sandbox.agent_client import AgentError
 from shared_infra.sandbox.git_relay import RelayRefused
 
 logger = logging.getLogger("uvicorn.error")
@@ -87,6 +88,33 @@ def _credential(uid: int, url: str) -> Tuple[str, str]:
     return "", ""
 
 
+_ANCIEN_FICHIER = ".git-credentials.json"
+_anciens_vus: set = set()
+
+
+async def import_legacy_credentials(agent: Any, uid: int) -> None:
+    """Une fois par processus et par compte : l'ancien
+    ``/work/.git-credentials.json`` importé dans les connecteurs, puis
+    supprimé (avec sa trace ``.imported``) — lu et supprimé par l'agent.
+    Agent injoignable : réessayé à l'opération suivante."""
+    if not uid or uid in _anciens_vus:
+        return
+    try:
+        lu = await agent.read(_ANCIEN_FICHIER, max_bytes=1 << 20)
+    except AgentError as e:
+        if e.code in ("not_found", "is_dir", "not_file", "too_large", "denied", "outside_root"):
+            _anciens_vus.add(uid)
+        return
+    _anciens_vus.add(uid)
+    from shared_infra.git.resolver import import_legacy_git_credentials
+    await asyncio.to_thread(import_legacy_git_credentials, uid, lu.data)
+    for nom in (_ANCIEN_FICHIER, _ANCIEN_FICHIER + ".imported"):
+        try:
+            await agent.fsop("remove", path=nom, missing_ok=True)
+        except AgentError:
+            logger.warning("[git] %s non supprimé (compte %s)", nom, uid)
+
+
 async def remote_urls(agent: Any, cwd: str, remote: str, *, push: bool = False) -> List[str]:
     """URL(s) du remote ``remote`` (``--push`` : celles du push)."""
     r = await run(agent, cwd, ["remote", "get-url", "--all", *(["--push"] if push else []),
@@ -123,6 +151,7 @@ async def run_network(agent: Any, cwd: str, args: Iterable[str], *, uid: int, ur
     if motif:
         raise RelayRefused("blocked_remote", f"Dépôt refusé (anti-SSRF) : {motif}")
     git_relay.amont(url)                                # URL relayable, sinon RelayRefused
+    await import_legacy_credentials(agent, uid)
     if auth and auth[1]:
         saisis, (user, token) = True, auth
     else:
@@ -193,4 +222,5 @@ async def find_repos(agent: Any, *, depth: int = 3, limit: int = 50,
 
 
 __all__ = ["REMOTE_SCHEMES", "GitResult", "RelayRefused", "connector_hosts", "find_repos",
-           "pull", "remote_block_reason", "remote_url", "remote_urls", "run", "run_network"]
+           "import_legacy_credentials", "pull", "remote_block_reason", "remote_url",
+           "remote_urls", "run", "run_network"]

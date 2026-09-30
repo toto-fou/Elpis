@@ -16,6 +16,21 @@ selon [SemVer](https://semver.org/lang/fr/).
   rattachées. Compteurs fiabilisés : moteur sur chaque ligne d'usage, cache
   KV de llama.cpp, appels d'outils avec identifiant, début, code de sortie,
   tailles et statuts `timeout` / `blocked`. Export CSV avec la réflexion.
+- **« Détails » d'une réponse** : chronologie de l'exécution qui l'a produite
+  (tours du modèle, appels d'outils avec argument principal et extrait du
+  résultat, sous-agents, compactions), export JSON aux secrets masqués ;
+  réservé au compte propriétaire.
+- **Supervision › Exécutions** (console) : coût en ressources par compte
+  (jetons, temps du modèle, attente, outils, fichiers, pics de la sandbox),
+  liste filtrable des exécutions ; chronologie de n'importe quel compte pour
+  l'administrateur. Widgets « Attente d'un créneau LLM » et « Réutilisation
+  du cache KV » dans Métriques.
+- **Supervision d'un tour** : durée de chaque outil, budget d'itérations
+  (« tour n/max »), sous-agent « En attente » avant son lancement, motif et
+  seuil d'une compaction, pas « compression du contexte » restitué au
+  rechargement, sorties d'outils retirées du contexte comptées. Le modèle
+  reçoit aussi le contexte restant et les limites de la sandbox à ses points
+  d'étape.
 - **Base de données multi-moteurs** : PostgreSQL et MariaDB/MySQL en plus de
   SQLite ; pool de connexions unique, SQL portable et schéma de référence ;
   adaptateurs serveur et suite de tests sur quatre moteurs ; transfert entre
@@ -112,10 +127,14 @@ selon [SemVer](https://semver.org/lang/fr/).
   `SETFCAP`, `SYS_CHROOT` ni `MKNOD`. Image `elpis/sandbox:1.7.0` (`ping`
   sans capacité fichier), construite par `./install.sh`. Les conteneurs
   existants sont recréés à leur prochain usage (label `elpis.spec`, ou image
-  changée) : ce qui y avait été installé hors de `/work` est perdu. Tant que
-  la nouvelle image manque, ils restent tels quels (ancienne image, anciennes
-  capacités). Le dossier `user_sandboxes/` est réservé au compte de service
-  (0700).
+  changée) : ce qui y avait été installé hors de `/work` est perdu.
+  **L'image 1.7.0 est obligatoire** : sans elle, les conteneurs existants ne
+  sont pas recréés et fichiers, éditeur et Git des sandboxes sont
+  indisponibles (message explicite) ; `./elpis upgrade` la charge depuis son
+  archive ou la construit. Conteneurs lancés avec `--init` (processus
+  orphelins récoltés). Le dossier `user_sandboxes/` est réservé au compte de
+  service (0700) ; `./install.sh` ne change plus le propriétaire du contenu
+  des sandboxes.
 - **Politique Git d'un dépôt** : `.git-tool-policy.json` ne peut plus que
   renforcer les protections par défaut.
 

@@ -59,6 +59,9 @@ sans suivre de lien (`shared_infra/sandbox/paths.py`).
   `append`, `fsop` (`mkdir`, `remove`, `rename`, `copy`, `chmod`, `clear`,
   `du`), `changes/begin` et `changes/end`, `archive`, `extract`, `git`,
   `shutdown` ; le détail est en tête de `server.py`.
+- Noms de fichiers : UTF-8. Un nom qui ne l'est pas (fichier créé par un
+  outil tiers dans la sandbox) n'apparaît pas dans l'éditeur ; renommez-le
+  ou supprimez-le depuis le terminal de la sandbox.
 
 ## Git
 
@@ -115,25 +118,22 @@ sans suivre de lien (`shared_infra/sandbox/paths.py`).
   `/work`, qui ne compte pas comme une activité, puis arrêtée de nouveau. Si
   le `/work` d'un compte ne peut être lu (Docker arrêté, image absente), la
   sauvegarde est nommée `…_incomplet.zip` et n'est comptée comme réussie ni
-  par la console, ni par l'envoi distant, ni par `./elpis backup` (code 1).
+  par la console, ni par l'envoi distant, ni par `./elpis backup` (code 3,
+  que `./elpis upgrade` laisse passer).
 - L'historique d'un fichier (éditeur) se lit par l'agent : il démarre le
   conteneur au besoin.
 
-## Recette en vrai conteneur (2026-09-30)
+## Performances mesurées
 
-Image 1.7.0 approchée (`elpis/sandbox:1.6.0` + changements de D6 et L4.6 :
-ping sans capacité, `/work` en 0755, umask 0022, nouvel entrypoint ; le build
-complet de 1.7.0 reste à faire), chaîne L4.4 → L4.6 corrigée :
+Sur un conteneur `elpis/sandbox:1.7.0` réel :
 
-- conteneur démarré en 1,2 s, agent lancé à la demande en 0,3 s, Python
-  3.11.2, UID 10001, aucune capacité effective ;
+- conteneur démarré en 1,2 s, agent lancé à la demande en 0,3 s (Python
+  3.11), sous l'UID 10001, sans capacité effective ;
 - droits hérités repris une fois (fichier 0666 → 0644 à l'UID du conteneur,
   dossier 0777 → 0755), écritures de l'agent en 0644 ;
-- git dans le conteneur (init, commit, status), sans smudge LFS ; clone et
-  fetch par le relais (40 ms le fetch) ;
-- zip à l'heure locale de l'hôte, en-tête pax démesuré refusé, entrée de
-  root impossible à effacer mise de côté sans perte, motif « leave »
-  respecté ; purge d'un compte (115 ms).
+- Git dans le conteneur (init, commit, status) ; clone et fetch par le relais
+  (40 ms le fetch) ;
+- purge d'un compte en 115 ms.
 
 Latence par opération de l'agent (médiane de 20, même machine) :
 

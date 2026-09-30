@@ -63,10 +63,10 @@ Détail : [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Sécurité
 
-Le conteneur de chaque utilisateur est la frontière de sécurité. Côté
-serveur, les fichiers d'une sandbox ne sont lus ou écrits que par des
-descripteurs qui ne suivent aucun lien, et Git tourne dans la sandbox de
-l'utilisateur (son réseau passe par un relais de l'hôte qui y ajoute les
+Le conteneur de chaque utilisateur est la frontière de sécurité. Le serveur
+ne lit ni n'écrit le contenu d'une sandbox : fichiers, éditeur, archives et
+Git passent par un agent qui tourne dans le conteneur, sous l'utilisateur de
+la sandbox (le réseau de Git passe par un relais de l'hôte qui y ajoute les
 identifiants). Le compte de service pilote Docker : réservez à Elpis une
 machine ou une VM dédiée. Modèle de menace et signalement :
 [SECURITY.md](SECURITY.md).

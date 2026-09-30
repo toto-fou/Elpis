@@ -1221,29 +1221,38 @@ redémarrage et sur tous les workers.
 
 ### Types d'événements NDJSON
 
+Registre de référence : `llm_core/engine/stream_events.py` (un test vérifie
+que l'interface ne lit et que la route n'émet aucun type hors registre).
+
 | `type` | Description |
 |---|---|
-| `mode` | Mode actif (`Classic`, `MCP`, `RAG`) |
-| `thinking` | Statut de traitement (queued, started, compacting…) |
-| `thinking_token` / `thinking_content` | Réflexion (token à token, ou bloc) |
-| `content_token` / `text` / `delta` | Réponse |
-| `tool_call` / `tool_result` | Appel d'outil et son résultat |
-| `tool_thinking` | Raisonnement intercalé entre deux appels |
+| `mode` | Mode du tour (classique, avec outils) |
+| `iteration` | Début d'une itération de la boucle (`n`, `max` : budget affiché) |
+| `thinking` | Indicateur « réflexion en cours » (queued, started, compacting…) |
+| `thinking_token` / `thinking_content` | Réflexion (jeton à jeton, puis bloc réconcilié) |
+| `content_token` / `content_replace` | Réponse (jeton à jeton ; texte affiché remplacé au nettoyage de fin) |
+| `tool_call` / `tool_call_delta` | Appel d'outil décidé ; arguments en cours de génération |
+| `tool_result` | Résultat d'un outil, avec `duration_ms` (durée de l'appel) |
+| `tool_progress` / `tool_log` / `shell_output` | Progression, journal, sortie en direct d'une commande |
+| `tool_limit` | Plafond d'itérations atteint |
 | `tool_history_partial` | **Delta** de l'historique d'outils (jamais un cumul) |
-| `task_step` | Cycle de vie d'un sous-agent (spawned, tool_call, done, failed, cancelled, timeout) |
-| `task_child_tokens` | Consommation d'un enfant |
-| `stdio` | Sortie live d'une commande (terminal en direct) |
-| `iteration` | Compteur d'itérations de la boucle |
-| `prune_state` | Élagage/compaction appliqués |
-| `rag_sources` | Sources RAG |
-| `annotation_frame` / `image_url` | Vision / capture |
+| `task_step` | Cycle de vie d'un sous-agent (spawned, étapes, final) |
+| `todo_updated` | Liste de tâches mise à jour |
+| `annotation_frame` | Capture annotée (vision, bureau) |
+| `prompt_progress` | Progression du pré-remplissage du prompt |
 | `kv_cache` | Occupation du cache KV |
-| `queue_status` / `queue_cleared` | File d'attente |
+| `compression_start` / `compression_done` / `compression_capped` | Compaction du contexte ; `compression_start` porte `threshold` (seuil en jetons) et `reason` (`manual`, `overflow`, `threshold`) |
+| `compression_state` / `prune_state` | État de compaction (persisté par la route) ; état de l'élagage |
+| `llm_user_suffix` | Suffixe ajouté au message de l'utilisateur |
+| `queue_status` / `queue_cleared` | Attente d'un créneau du moteur ; créneau obtenu |
+| `rag_sources` | Sources RAG du tour |
 | `notice` / `info` / `warning` / `log` | Messages d'état |
 | `final` | Réponse finale `{assistant, chat_id, metrics}` |
 | `error` | Erreur (avec le genre de la taxonomie) |
-| `ping` | Keepalive |
+| `ping` | Maintien de la connexion |
+| `session_expired` | Session expirée pendant le flux |
 | `run_started` / `replay_done` / `run_end` / `run_lost` | Flux de **rattachement** uniquement (`/run/events`) |
+| `journal_truncated` | Rattachement : journal plein, seuls les événements structurants suivent |
 
 ### Contrôle
 
@@ -1408,7 +1417,7 @@ il n'y a pas de course lecture-modification-écriture. `sandbox_mode` et
 > **lectures** restent host-side (elles n'ont pas besoin de droits d'écriture) ;
 > repli `docker exec cat` pour un fichier en 0600.
 >
-> Depuis L4.2 et L4.4, `fs_tools` et `git_tools` passent par l'agent de la
+> `fs_tools` et `git_tools` passent par l'agent de la
 > sandbox (`shared_infra/sandbox/agent/`) : fichiers et commandes Git
 > s'exécutent dans le conteneur, sous son UID ; le réseau Git passe par le
 > relais de l'hôte (`git_relay`).

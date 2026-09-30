@@ -205,7 +205,11 @@
                                 <i class="ph text-blue-500 drop-shadow-sm" :class="(welcomeConfig && welcomeConfig.icon) || 'ph-sparkle'"
                                    :style="{ fontSize:((welcomeConfig && welcomeConfig.width)||96)+'px' }"></i>
                             </div>
-                            <i v-else class="ph ph-sparkle text-5xl text-blue-400 mb-4"></i>
+                            <!-- Repli : le logo Elpis (jamais une icône générique). -->
+                            <div v-else class="mb-4">
+                                <img src="static/elpis-256.png" alt="" draggable="false" width="112" height="112"
+                                     class="object-contain opacity-90 drop-shadow-sm select-none pointer-events-none">
+                            </div>
                             <!-- Pas de couleur inline : text-slate-* passe par le
                                  bridge utilitaire→token, donc suit le skin. -->
                             <h2 class="text-xl font-bold tracking-tight mb-2 text-slate-800">Bonjour {{ user.username }}</h2>

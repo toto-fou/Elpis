@@ -534,6 +534,19 @@ function setupAdmin(vue, sharedRefs, ctx) {
             : { field, dir: 1 };
     }
     watch(usersSearch, () => { usersPage.value = 1; });
+
+    // Moteur local : l'URL complète suit l'hôte et le port quand elle visait
+    // exactement l'ancien hôte:port (cf. admin/llama_url.js) — sinon l'app
+    // restait sur l'ancienne adresse malgré le changement affiché.
+    watch(() => {
+        const l = configForm.value && configForm.value.llama;
+        return l ? [l.ip, l.port] : null;
+    }, (nv, ov) => {
+        const l = configForm.value && configForm.value.llama;
+        if (!l || !nv || !ov || !window.elpisLlamaUrl) return;
+        const url = window.elpisLlamaUrl.suivreHotePort(l.url, ov[0], ov[1], nv[0], nv[1]);
+        if (url !== l.url) l.url = url;
+    });
     const dashboardData = ref({ layout: [], data: {} });
     const chartInstances = {};
     const configForm = ref(null);

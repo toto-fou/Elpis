@@ -632,12 +632,18 @@ def get_public_config(request: Request):
     # base64), mais c'est EXACTEMENT le chemin d'une installation neuve : le
     # tout premier écran d'accueil affichait une image morte. ``elpis-256.png``
     # est l'asset survivant (il sert déjà d'apple-touch-icon).
-    welcome = config.get("welcome", {
+    _welcome_defaut = {
         "type": "image",
         "icon": "ph-sparkle text-blue-500",
         "size": 112, "width": 112, "height": 112,
         "image_b64": "static/elpis-256.png"
-    })
+    }
+    # Section PARTIELLE (la console n'écrit parfois que ``scene``) : les
+    # défauts complètent au lieu d'être perdus — sinon une image sans source
+    # retombait sur une icône générique au lieu du logo Elpis.
+    welcome = {**_welcome_defaut, **(config.get("welcome") or {})}
+    if welcome.get("type") == "image" and not welcome.get("image_b64"):
+        welcome["image_b64"] = _welcome_defaut["image_b64"]
     app_info = config.get("app_info", {
         "name": "Elpis", "version": "1.0.0", "team_name": "Elpis",
         "engine": "llama.cpp", "description": "", "icon_type": "phosphor",

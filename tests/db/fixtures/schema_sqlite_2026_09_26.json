@@ -321,6 +321,42 @@
   ],
   [
    "table",
+   "oauth_clients",
+   "oauth_clients",
+   "CREATE TABLE \"oauth_clients\" (\n  \"client_id\" TEXT PRIMARY KEY,\n  \"kind\" TEXT NOT NULL DEFAULT 'dcr',\n  \"name\" TEXT NOT NULL DEFAULT '',\n  \"secret_hash\" TEXT NOT NULL DEFAULT '',\n  \"auth_method\" TEXT NOT NULL DEFAULT 'none',\n  \"redirect_uris\" TEXT NOT NULL DEFAULT '[]',\n  \"metadata\" TEXT NOT NULL DEFAULT '{}',\n  \"created_at\" REAL NOT NULL,\n  \"fetched_at\" REAL,\n  \"last_used_at\" REAL\n)"
+  ],
+  [
+   "table",
+   "oauth_codes",
+   "oauth_codes",
+   "CREATE TABLE \"oauth_codes\" (\n  \"code_hash\" TEXT PRIMARY KEY,\n  \"client_id\" TEXT NOT NULL,\n  \"user_id\" INTEGER NOT NULL,\n  \"grant_id\" TEXT NOT NULL,\n  \"redirect_uri\" TEXT NOT NULL DEFAULT '',\n  \"code_challenge\" TEXT NOT NULL DEFAULT '',\n  \"resource\" TEXT NOT NULL DEFAULT '',\n  \"families\" TEXT NOT NULL DEFAULT '',\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL,\n  \"used_at\" REAL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"client_id\") REFERENCES \"oauth_clients\"(\"client_id\") ON DELETE CASCADE\n)"
+  ],
+  [
+   "index",
+   "idx_oauth_codes_expires",
+   "oauth_codes",
+   "CREATE INDEX \"idx_oauth_codes_expires\" ON \"oauth_codes\" (\"expires_at\")"
+  ],
+  [
+   "table",
+   "oauth_tokens",
+   "oauth_tokens",
+   "CREATE TABLE \"oauth_tokens\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT,\n  \"grant_id\" TEXT NOT NULL,\n  \"user_id\" INTEGER NOT NULL,\n  \"client_id\" TEXT NOT NULL,\n  \"kind\" TEXT NOT NULL,\n  \"token_hash\" TEXT UNIQUE NOT NULL,\n  \"families\" TEXT NOT NULL DEFAULT '',\n  \"resource\" TEXT NOT NULL DEFAULT '',\n  \"created_at\" REAL NOT NULL,\n  \"expires_at\" REAL NOT NULL,\n  \"used_at\" REAL,\n  \"revoked_at\" REAL,\n  \"last_used_at\" REAL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"client_id\") REFERENCES \"oauth_clients\"(\"client_id\") ON DELETE CASCADE\n)"
+  ],
+  [
+   "index",
+   "idx_oauth_tokens_grant",
+   "oauth_tokens",
+   "CREATE INDEX \"idx_oauth_tokens_grant\" ON \"oauth_tokens\" (\"grant_id\")"
+  ],
+  [
+   "index",
+   "idx_oauth_tokens_user",
+   "oauth_tokens",
+   "CREATE INDEX \"idx_oauth_tokens_user\" ON \"oauth_tokens\" (\"user_id\", \"kind\")"
+  ],
+  [
+   "table",
    "prompt_templates",
    "prompt_templates",
    "CREATE TABLE prompt_templates (\n            id          INTEGER PRIMARY KEY AUTOINCREMENT,\n            user_id     INTEGER NOT NULL,\n            name        TEXT NOT NULL,\n            title       TEXT NOT NULL,\n            content     TEXT NOT NULL,\n            created_at  REAL NOT NULL,\n            updated_at  REAL NOT NULL,\n            UNIQUE(user_id, name),\n            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE\n        )"

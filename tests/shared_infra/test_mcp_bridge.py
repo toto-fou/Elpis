@@ -75,7 +75,11 @@ def test_anonyme_refuse_avec_defi_bearer(bridge):
     client, vues, _ = bridge
     r = client.post("/api/mcp-bridge/git", json={})
     assert r.status_code == 401
-    assert r.headers.get("www-authenticate") == "Bearer"
+    # (EXT.4) Défi RFC 9728 : où découvrir l'autorisation, quelle portée.
+    defi = r.headers.get("www-authenticate") or ""
+    assert defi.startswith("Bearer ")
+    assert 'resource_metadata="http://testserver/.well-known/oauth-protected-resource/api/mcp-bridge/git"' in defi
+    assert 'scope="tools:git"' in defi
     assert not vues, "rien ne doit partir vers le service sans jeton"
 
 

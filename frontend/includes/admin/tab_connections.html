@@ -836,6 +836,80 @@
                                 </div>
                             </section>
 
+                            <!-- ═══════════ Autorisation OAuth des clients MCP (EXT.4) ═══════════ -->
+                            <section v-if="adminTab==='mcp'" id="mcp-oauth" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-shield-check adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Autorisation OAuth des clients MCP</h3>
+                                        <span class="sr-only">Un client MCP qui ne reçoit que l'adresse du relais découvre l'autorisation et demande l'accord de l'utilisateur. Les familles restent bornées par les jetons d'outils.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="configForm && configForm.mcp && configForm.mcp.oauth">
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Coupée : découverte, consentement et jetons OAuth refusés ; les accès déjà accordés cessent de fonctionner. Suit aussi l'interrupteur des jetons d'outils." for="cnx-oa-on">Autorisation OAuth</label>
+                                            <span class="sr-only">Coupée : découverte, consentement et jetons OAuth refusés ; les accès déjà accordés cessent de fonctionner. Suit aussi l'interrupteur des jetons d'outils.</span>
+                                        </div>
+                                        <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                            <input id="cnx-oa-on" type="checkbox" v-model="configForm.mcp.oauth.enabled" data-field="config:mcp.oauth.enabled" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                            <span class="text-sm text-slate-700">{{ configForm.mcp.oauth.enabled ? 'Activée' : 'Désactivée' }}</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Un client s'enregistre seul (RFC 7591). Redirections limitées à la boucle locale et à https. Coupé : seuls les clients déjà connus ou décrits par un document https sont acceptés." for="cnx-oa-dcr">Enregistrement dynamique</label>
+                                            <span class="sr-only">Un client s'enregistre seul (RFC 7591). Redirections limitées à la boucle locale et à https. Coupé : seuls les clients déjà connus ou décrits par un document https sont acceptés.</span>
+                                        </div>
+                                        <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                            <input id="cnx-oa-dcr" type="checkbox" v-model="configForm.mcp.oauth.dcr_enabled" data-field="config:mcp.oauth.dcr_enabled" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                            <span class="text-sm text-slate-700">{{ configForm.mcp.oauth.dcr_enabled ? 'Permis' : 'Refusé' }}</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Entre 300 et 86 400 secondes." for="cnx-oa-ttl">Durée d'un jeton d'accès</label>
+                                            <span class="sr-only">Entre 300 et 86 400 secondes.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="cnx-oa-ttl" v-model.number="configForm.mcp.oauth.access_ttl_s" data-field="config:mcp.oauth.access_ttl_s" type="number" min="300" max="86400" class="set-input adm-num">
+                                            <span class="adm-unit">secondes</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <label class="adm-row__label" title="Borné par la durée maximale des jetons d'outils." for="cnx-oa-days">Durée d'une autorisation</label>
+                                            <span class="sr-only">Borné par la durée maximale des jetons d'outils.</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input id="cnx-oa-days" v-model.number="configForm.mcp.oauth.refresh_days" data-field="config:mcp.oauth.refresh_days" type="number" min="1" max="3650" class="set-input adm-num">
+                                            <span class="adm-unit">jours</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="adm-row">
+                                        <div>
+                                            <span class="adm-row__label">Clients enregistrés</span>
+                                        </div>
+                                        <div class="space-y-1.5 min-w-0">
+                                            <p v-if="!oauthClients.length" class="text-xs text-slate-500">Aucun client.</p>
+                                            <div v-for="c in oauthClients" :key="c.client_id" class="flex items-center gap-2 text-xs min-w-0">
+                                                <span class="font-medium text-slate-700 truncate" :title="c.client_id">{{ c.name || c.client_id }}</span>
+                                                <span class="text-slate-500 shrink-0">{{ c.kind === 'dcr' ? 'dynamique' : (c.kind === 'cimd' ? 'document https' : 'manuel') }} · {{ c.grants }} autorisation{{ c.grants > 1 ? 's' : '' }}</span>
+                                                <button type="button" @click="deleteOauthClient(c)" title="Supprimer le client" aria-label="Supprimer le client" class="ml-auto w-6 h-6 rounded text-slate-500 hover:bg-red-50 hover:text-red-600 flex items-center justify-center shrink-0"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </section>
+
                             <!-- ═══════════ Outils par défaut (mcp.json) — 2026-09-11 ═══════════ -->
                             <section v-if="adminTab==='mcp'" id="mcp-manifest" class="adm-card scroll-mt-32">
                                 <header class="adm-card__head">

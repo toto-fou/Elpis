@@ -13,7 +13,8 @@
 //
 //  Exporte (setupConnexions) : cnxState, loadConnexions, cnxNew, cnxCancel,
 //  cnxCreate, cnxRegenerate, cnxRevoke, cnxShowConfig, cnxCloseReveal,
-//  cnxBlocks, cnxCopy, cnxSchemaHref, cnxKindLabel, cnxDate, cnxReset.
+//  cnxBlocks, cnxCopy, cnxSchemaHref, cnxKindLabel, cnxDate, cnxReset,
+//  loadGrants, cnxRevokeGrant (applications autorisées par OAuth, EXT.4).
 // ============================================================================
 (function () {
     'use strict';
@@ -63,7 +64,7 @@
         // tab (bloc actif), busy, error.
         const cnxState = _ref({ tokens: [], policy: null, bridgeUrl: '', toolsUrl: '',
                                 opencode: false, form: null, reveal: null, tab: 'mcp',
-                                busy: false, error: '' });
+                                busy: false, error: '', grants: [], oauthEnabled: false });
 
         function _set(patch) { cnxState.value = Object.assign({}, cnxState.value, patch); }
 
@@ -72,7 +73,7 @@
         function cnxReset() {
             cnxState.value = { tokens: [], policy: null, bridgeUrl: '', toolsUrl: '',
                                opencode: false, form: null, reveal: null, tab: 'mcp',
-                               busy: false, error: '' };
+                               busy: false, error: '', grants: [], oauthEnabled: false };
         }
 
         async function _err(r, fallback) {
@@ -87,6 +88,29 @@
                 _set({ tokens: d.tokens || [], policy: d.policy || null, bridgeUrl: d.bridge_url || '',
                        toolsUrl: d.tools_url || '', opencode: !!d.opencode_enabled });
             } catch (_) { /* best-effort */ }
+            await loadGrants();
+        }
+
+        // Applications autorisées par OAuth (EXT.4).
+        async function loadGrants() {
+            try {
+                const r = await _fetch('/api/oauth/grants', {}, true);
+                if (!r || !r.ok) return;
+                const d = await r.json();
+                _set({ grants: d.items || [], oauthEnabled: !!d.enabled });
+            } catch (_) { /* best-effort */ }
+        }
+
+        async function cnxRevokeGrant(g) {
+            const msg = '« ' + g.client_name + ' » perdra l\'accès à vos outils immédiatement.';
+            if (_confirm && !(await _confirm('Retirer l\'accès ?', msg, true, 'Retirer'))) return;
+            try {
+                const r = await _fetch('/api/oauth/grants/' + encodeURIComponent(g.grant_id), { method: 'DELETE' }, true);
+                if (!r || !r.ok) { _toast('Retrait refusé.', 'error'); return; }
+                await loadGrants();
+            } catch (_) {
+                _toast('Erreur réseau.', 'error');
+            }
         }
 
         function cnxNew() {
@@ -202,7 +226,7 @@
             try { return new Date(Number(ts) * 1000).toLocaleDateString('fr-FR'); } catch (_) { return ''; }
         }
 
-        return { cnxState, cnxReset, loadConnexions, cnxNew, cnxCancel, cnxCreate, cnxRegenerate, cnxRevoke,
+        return { cnxState, cnxReset, loadConnexions, loadGrants, cnxRevokeGrant, cnxNew, cnxCancel, cnxCreate, cnxRegenerate, cnxRevoke,
                  cnxShowConfig, cnxCloseReveal, cnxBlocks, cnxCopy, cnxSchemaHref,
                  cnxKindLabel, cnxDate };
     }

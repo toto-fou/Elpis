@@ -52,7 +52,7 @@
             { id: 'rag',         label: 'RAG',                stores: ['config'], loaders: [CONFIG] },
             { id: 'vision',      label: 'Vision & machines',  stores: ['config'], loaders: [CONFIG, ['loadAxSites']] },
             { id: 'voice',       label: 'Voix',               stores: ['config'], loaders: [CONFIG] },
-            { id: 'mcp',         label: 'Outils MCP',         stores: ['config'], loaders: [CONFIG, ['loadMcpManifest']], paths: ['mcp.'] },
+            { id: 'mcp',         label: 'Outils MCP',         stores: ['config'], loaders: [CONFIG, ['loadMcpManifest'], ['loadOauthClients']], paths: ['mcp.'] },
             { id: 'prompts',     label: 'Prompts',            wide: true, loaders: [['loadSystemPrompts']] },
         ] },
         { id: 'access', label: 'Utilisateurs & accès', icon: 'ph-users', role: 'admin', pages: [

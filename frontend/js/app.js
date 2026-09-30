@@ -2757,6 +2757,20 @@ const elpisApp = createApp({
             });
         }
 
+        // ── Retour vers une autorisation OAuth (EXT.4) ─────────────────────
+        // ``/oauth/authorize`` envoie ici (``/?oauth_next=…``) un navigateur
+        // sans session Elpis ; une fois connecté, on y retourne pour
+        // l'écran de consentement. Seul un chemin ``/oauth/authorize?…`` de
+        // CETTE origine est accepté (jamais une redirection ouverte).
+        function maybeResumeOAuth() {
+            if (!user.value) return false;
+            let next = '';
+            try { next = new URLSearchParams(window.location.search).get('oauth_next') || ''; } catch (_) { return false; }
+            if (!next.startsWith('/oauth/authorize?') || next.startsWith('//')) return false;
+            window.location.replace(next);
+            return true;
+        }
+
         onMounted(async function() {
             document.addEventListener('click',   onGlobalClick);
             // capture: true → fires before browser default handlers (Escape only)
@@ -2770,6 +2784,7 @@ const elpisApp = createApp({
             document.addEventListener('visibilitychange', _applyTitleBadge);
             await authMod.loadPublicConfig();
             await authMod.checkAuth();
+            if (maybeResumeOAuth()) return;
             if (user.value) {
                 // Gardé (&&) : si un sous-bundle chat manque, _safeSetup
                 // retombe sur chatMod={} — ne pas crasher tout onMounted.
@@ -2807,6 +2822,7 @@ const elpisApp = createApp({
 
         // Start/stop inbox polling when the user session changes (login / logout)
         watch(user, (val, oldVal) => {
+            if (val && maybeResumeOAuth()) return;
             if (val) {
                 // SSE système : onMounted ne le connecte que si une session
                 // existait déjà au chargement. Quand on se connecte via la

@@ -584,6 +584,28 @@ qu'aurait eues le jeton du client, jamais la confiance de l'app ; un service qui
 ne connaît pas `dlg_` le refuse (401). Un jeton personnel présenté directement au
 service (client local sur la boucle locale) reste accepté.
 
+**Autorisation OAuth 2.1 des clients MCP (EXT.4).** Elpis est son propre serveur
+d'autorisation (spécification MCP « Authorization » 2025-11-25) :
+`/.well-known/oauth-protected-resource[/api/mcp-bridge[/<famille>]]` (RFC 9728 :
+ressource unique `<origine>/api/mcp-bridge`, portées `tools` et
+`tools:<famille>`), `/.well-known/oauth-authorization-server` (RFC 8414),
+`/oauth/register` (RFC 7591, redirections limitées à `http://127.0.0.1|localhost|[::1]`
+et `https://`), `/oauth/authorize` (session Elpis puis écran de consentement,
+code + PKCE S256 obligatoire, `resource` RFC 8707 obligatoire), `/oauth/token`
+(code ou rafraîchissement avec rotation), `/oauth/revoke` (RFC 7009). Les clients
+décrits par un document https (CIMD) sont acceptés quand le document est
+joignable (garde SSRF commune). Le relais répond `401` avec
+`WWW-Authenticate: Bearer resource_metadata="…"` (et `scope="tools:<famille>"` sur
+un point d'accès de famille), et `403 insufficient_scope` pour une famille non
+accordée. Jetons opaques en empreinte SHA-256 (`eoa_` accès, `eor_`
+rafraîchissement ; un rafraîchissement ou un code rejoué révoque toute
+l'autorisation), tables de la migration 0023, familles toujours bornées par
+`mcp.tokens.tools_enabled` / `tools_families`. Politique `mcp.oauth.*`, relue à
+chaud : `enabled` (vrai), `dcr_enabled` (vrai), `access_ttl_s` (3600),
+`refresh_days` (30, borné par `mcp.tokens.max_days`). Console › Outils MCP :
+réglages et clients enregistrés (suppression) ; Paramètres › Connexions :
+applications autorisées par le compte (retrait).
+
 **Politique d'exécution et événements live.** Chaque outil
 porte ``meta.policy`` (``timeout_s``, ``serial``, ``replay_safe``, ``prune``,
 ``deny_for``) via ``_toolkit.tool_kw_*(…, **policy)`` / ``with_policy`` ; le

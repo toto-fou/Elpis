@@ -579,6 +579,26 @@
                         <button v-if="!cnxState.form" @click="cnxNew()" :disabled="cnxState.policy && !cnxState.policy.tools_enabled && !cnxState.opencode"
                                 class="w-full px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-blue-300 hover:text-blue-600 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"><i class="ph ph-plus" aria-hidden="true"></i> Nouveau jeton</button>
                         <p v-if="cnxState.policy && !cnxState.policy.tools_enabled" class="text-[11px] text-slate-500">Les jetons d'outils sont désactivés par l'administrateur.</p>
+
+                        <!-- Applications autorisées par OAuth (EXT.4) : un client MCP qui ne
+                             reçoit que l'URL du relais passe par l'écran de consentement. -->
+                        <div v-if="cnxState.oauthEnabled || cnxState.grants.length" class="pt-2 space-y-2">
+                            <div class="text-sm font-medium text-slate-700">Applications autorisées</div>
+                            <p class="text-[11px] text-slate-500">Un client MCP peut aussi se connecter avec la seule adresse <span class="font-mono">{{ cnxState.bridgeUrl || '/api/mcp-bridge' }}</span> : Elpis vous demande alors votre accord.</p>
+                            <div v-for="g in cnxState.grants" :key="g.grant_id" class="border border-slate-200 rounded-xl p-3.5 flex items-center gap-3">
+                                <i class="ph ph-plugs-connected text-lg text-slate-400 shrink-0" aria-hidden="true"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-slate-800 truncate" :title="g.client_id">{{ g.client_name }}</div>
+                                    <div class="text-[11px] text-slate-500 truncate">
+                                        {{ g.families.join(', ') }}
+                                        · autorisé le {{ cnxDate(g.created_at) }}
+                                        · {{ g.last_used_at ? 'utilisé le ' + cnxDate(g.last_used_at) : 'jamais utilisé' }}
+                                    </div>
+                                </div>
+                                <button @click="cnxRevokeGrant(g)" title="Retirer l'accès" aria-label="Retirer l'accès" class="w-7 h-7 rounded-md text-slate-500 hover:bg-red-50 hover:text-red-600 flex items-center justify-center shrink-0"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                            </div>
+                            <p v-if="!cnxState.grants.length" class="text-sm text-slate-500 py-2 text-center">Aucune application autorisée.</p>
+                        </div>
                     </div>
 
                     <div v-if="settingsTab==='connectors'" class="space-y-5 max-w-xl">

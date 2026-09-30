@@ -153,11 +153,20 @@ def _personal_token_client(token: str) -> Optional[Dict[str, Any]]:
             "kind": str(d.get("kind") or ""), "families": list(d.get("families") or [])}
 
 
+def _oauth_client(token: str) -> Optional[Dict[str, Any]]:
+    """Vérificateur des jetons d'accès OAuth (EXT.4) : ``kind="oauth"``,
+    familles accordées au consentement ∩ politique courante."""
+    if not token.startswith("eoa_"):
+        return None
+    from shared_infra.mcp.oauth import verify_access_token
+    return verify_access_token(token)
+
+
 # Vérificateurs de client du relais, essayés dans l'ordre : ``jeton → client``
-# ``{user_id, username, kind, families}`` ou ``None``. EXT.4 (OAuth) s'y ajoute
-# sans rien changer d'autre : le jeton de délégation porte le même client.
+# ``{user_id, username, kind, families}`` ou ``None``. Le jeton de délégation
+# porte le même client, quel que soit le vérificateur qui l'a reconnu.
 ClientVerifier = Callable[[str], Optional[Dict[str, Any]]]
-CLIENT_VERIFIERS: List[ClientVerifier] = [_personal_token_client]
+CLIENT_VERIFIERS: List[ClientVerifier] = [_personal_token_client, _oauth_client]
 
 
 def verify_client(token: str) -> Optional[Dict[str, Any]]:
@@ -205,18 +214,28 @@ async def _relay_to_mcp(request: Request, family: str):
             raise HTTPException(400, "Version de protocole MCP non prise en charge : "
                                 f"{pv[:40]} (connues : {', '.join(SUPPORTED_PROTOCOL_VERSIONS)}).")
 
+    fam = (family or "").strip().strip("/")
+    # (EXT.4) Le défi dit où découvrir l'autorisation (RFC 9728) et quelle
+    # portée demander : un client MCP n'a besoin que de l'URL du relais.
+    from shared_infra.mcp.routes_oauth import www_authenticate
     token = _caller_token(request)
     if not token:
         # 401 + WWW-Authenticate : c'est ce que la découverte MCP attend quand
         # un client se présente sans jeton (il sait alors qu'il doit en fournir
         # un, au lieu de conclure que l'URL est morte).
         raise HTTPException(401, "Jeton requis (Paramètres › Connexions).",
-                            headers={"WWW-Authenticate": "Bearer"})
+                            headers={"WWW-Authenticate": www_authenticate(request, fam)})
     # Lecture de la base : hors de la boucle d'événements.
     client_ident = await asyncio.to_thread(verify_client, token)
     if client_ident is None:
         raise HTTPException(401, "Jeton invalide, expiré ou révoqué.",
-                            headers={"WWW-Authenticate": "Bearer"})
+                            headers={"WWW-Authenticate": www_authenticate(request, fam, error="invalid_token")})
+    if (client_ident.get("kind") == "oauth" and fam
+            and fam not in (client_ident.get("families") or [])):
+        # Famille non accordée : le client peut redemander cette portée.
+        raise HTTPException(403, "Famille d'outils non autorisée pour ce jeton.",
+                            headers={"WWW-Authenticate": www_authenticate(
+                                request, fam, error="insufficient_scope")})
     service_token = _service_token()
     if not service_token:
         raise HTTPException(404, "Service MCP partagé non configuré.")
@@ -224,7 +243,6 @@ async def _relay_to_mcp(request: Request, family: str):
     # Famille : segment d'URL contrôlé (le service refuse déjà l'inconnue par un
     # 404, cf. FamilyScopeASGI). On borne quand même la forme ici pour ne jamais
     # laisser un segment fabriqué s'échapper de ``…/mcp/`` (traversée de chemin).
-    fam = (family or "").strip().strip("/")
     if fam and not fam.isalnum():
         raise HTTPException(404, "Famille d'outils inconnue.")
     url = f"{base}/{fam}" if fam else base

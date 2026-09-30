@@ -501,6 +501,8 @@ http.createServer((req, res) => {
                    output_tokens: 100, tool_calls: 1, tool_errors: 0, files_changed: 1, engine: 'llama' },
             events: [{ type: 'tool', at: 1781000004, tool_name: 'execute_shell', status: 'success',
                        duration_ms: 10, argument: 'command: ls', result: 'ok' }], children: [] });
+        if (url === '/api/admin/oauth/clients') return json(res, { items: [
+            { client_id: 'elpis-abc', kind: 'dcr', name: 'Éditeur de recette', grants: 1, redirect_uris: ['http://127.0.0.1:1/cb'] }] });
         if (url === '/api/admin/runs') {
             const filtre = /user_id=3/.test(req.url);
             return json(res, { items: [

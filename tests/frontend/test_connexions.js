@@ -105,5 +105,23 @@ t('sans jeton en clair : espace réservé partout', () => {
         assert.ok(!JSON.stringify(D.cnxState.value).includes('ept_secret'));
     });
 
+    await ta('applications autorisées (OAuth) : listées puis retirées', async () => {
+        let grants = [{ grant_id: 'g1', client_id: 'elpis-x', client_name: 'Éditeur', families: ['fs'],
+                        created_at: 1790000000, last_used_at: null }];
+        const { D, vus } = monter(async (u, o) => {
+            if (u === '/api/oauth/grants') return reponse({ items: grants, enabled: true });
+            if (u === '/api/oauth/grants/g1' && o && o.method === 'DELETE') { grants = []; return reponse({ ok: true }); }
+            return reponse({ tokens: [], policy: POLITIQUE });
+        });
+        await D.loadConnexions();
+        assert.equal(D.cnxState.value.grants.length, 1);
+        assert.equal(D.cnxState.value.oauthEnabled, true);
+        await D.cnxRevokeGrant(D.cnxState.value.grants[0]);
+        assert.ok(vus.some((v) => v[0] === '/api/oauth/grants/g1' && v[1] === 'DELETE'));
+        assert.equal(D.cnxState.value.grants.length, 0);
+        D.cnxReset();
+        assert.deepEqual(depuisBac(D.cnxState.value.grants), []);
+    });
+
     fin('test_connexions.js');
 })();

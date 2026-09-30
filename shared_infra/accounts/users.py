@@ -246,6 +246,13 @@ def delete_user_full(target_user_id: int) -> bool:
                 delete_for_user(target_user_id, conn=cur)
         except sqlite3.OperationalError:
             pass
+        # Autorisations OAuth des clients MCP (EXT.4, migration 0023).
+        try:
+            with savepoint(conn, "oauth_tokens"):
+                from shared_infra.mcp.oauth import delete_for_user as _oauth_purge
+                _oauth_purge(target_user_id, conn=cur)
+        except sqlite3.OperationalError:
+            pass
         cur.execute("DELETE FROM users WHERE id=?", (target_user_id,))
         changed = cur.rowcount > 0
         conn.commit()

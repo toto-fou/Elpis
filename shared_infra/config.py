@@ -2135,6 +2135,7 @@ HOT_RELOAD_PREFIXES = (
     "llm.compression.", "llm.compaction.", "llm.prune.",  # reload_compression_config_from_disk
     "memory.",                                          # reload_memory_config_from_disk
     "mcp.tokens.",                                      # tokens.policy() (live_config_value)
+    "mcp.oauth.",                                       # shared_infra/mcp/oauth.py policy()
 )
 HOT_RELOAD_PATHS = frozenset({
     "llm.scheduling_mode", "app.max_recent_chats",      # live_config_value

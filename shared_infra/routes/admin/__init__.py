@@ -59,6 +59,7 @@ from shared_infra.routes.admin import system_prompts  # noqa: F401  — /api/adm
 from shared_infra.routes.admin import executors  # noqa: F401  — /api/admin/executors/* + sandbox monitoring
 from shared_infra.routes.admin import observability  # noqa: F401  — /api/admin/observability/* (Phase 1 task #5)
 from shared_infra.routes.admin import runs  # noqa: F401  — /api/admin/runs* (L5.7)
+from shared_infra.routes.admin import oauth  # noqa: F401  — /api/admin/oauth/* (EXT.4)
 from shared_infra.routes.admin import llm_traffic  # noqa: F401  — /api/admin/llm-traffic/* (viewer debug échanges llama.cpp)
 from shared_infra.routes.admin import toolhosts  # noqa: F401  — /api/admin/toolhosts/* (hôtes d'outils, placement, migration — P5)
 from shared_infra.routes.admin import database  # noqa: F401  — /api/admin/database/* (moteur de base, bascule)

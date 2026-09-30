@@ -831,6 +831,63 @@ TABLES: List[Table] = [
             Index('idx_tool_tokens_user', ('user_id', 'kind')),
         ],
     ),
+    # Autorisation OAuth 2.1 des clients MCP (EXT.4, migration 0023) : clients
+    # (enregistrés dynamiquement, par document de métadonnées ou à la main),
+    # codes d'autorisation à usage unique et jetons opaques — empreintes
+    # SHA-256 seules (cf. shared_infra/mcp/oauth.py).
+    Table('oauth_clients', [
+        Col('client_id', TEXT, primary=True, key=255),
+        Col('kind', TEXT, null=False, default='dcr', key=16),
+        Col('name', TEXT, null=False, default=''),
+        Col('secret_hash', TEXT, null=False, default=''),
+        Col('auth_method', TEXT, null=False, default='none'),
+        Col('redirect_uris', TEXT, null=False, default='[]'),
+        Col('metadata', TEXT, null=False, default='{}'),
+        Col('created_at', REAL, null=False),
+        Col('fetched_at', REAL),
+        Col('last_used_at', REAL),
+    ]),
+    Table('oauth_codes', [
+        Col('code_hash', TEXT, primary=True, key=64),
+        Col('client_id', TEXT, null=False, key=255),
+        Col('user_id', INT, null=False),
+        Col('grant_id', TEXT, null=False, key=64),
+        Col('redirect_uri', TEXT, null=False, default=''),
+        Col('code_challenge', TEXT, null=False, default=''),
+        Col('resource', TEXT, null=False, default=''),
+        Col('families', TEXT, null=False, default=''),
+        Col('created_at', REAL, null=False),
+        Col('expires_at', REAL, null=False),
+        Col('used_at', REAL),
+    ],
+        fks=[FK(('user_id',), 'users', ('id',), on_delete='CASCADE'),
+             FK(('client_id',), 'oauth_clients', ('client_id',), on_delete='CASCADE')],
+        indexes=[
+            Index('idx_oauth_codes_expires', ('expires_at',)),
+        ],
+    ),
+    Table('oauth_tokens', [
+        Col('id', ID),
+        Col('grant_id', TEXT, null=False, key=64),
+        Col('user_id', INT, null=False),
+        Col('client_id', TEXT, null=False, key=255),
+        Col('kind', TEXT, null=False, key=16),
+        Col('token_hash', TEXT, null=False, unique=True, key=64),
+        Col('families', TEXT, null=False, default=''),
+        Col('resource', TEXT, null=False, default=''),
+        Col('created_at', REAL, null=False),
+        Col('expires_at', REAL, null=False),
+        Col('used_at', REAL),
+        Col('revoked_at', REAL),
+        Col('last_used_at', REAL),
+    ],
+        fks=[FK(('user_id',), 'users', ('id',), on_delete='CASCADE'),
+             FK(('client_id',), 'oauth_clients', ('client_id',), on_delete='CASCADE')],
+        indexes=[
+            Index('idx_oauth_tokens_grant', ('grant_id',)),
+            Index('idx_oauth_tokens_user', ('user_id', 'kind')),
+        ],
+    ),
     Table('usage_events', [
         Col('id', ID),
         Col('ts', REAL, null=False),
@@ -918,6 +975,7 @@ BASELINE_COVERS: Tuple[str, ...] = (
     "0020_prompt_templates",
     "0021_runs",
     "0022_tool_tokens",
+    "0023_oauth",
 )
 
 

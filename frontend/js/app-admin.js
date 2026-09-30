@@ -2479,6 +2479,15 @@ function setupAdmin(vue, sharedRefs, ctx) {
                             if (_t.max_days === undefined) _t.max_days = 90;
                             if (_t.max_per_user === undefined) _t.max_per_user = 20;
                         }
+                        // Autorisation OAuth des clients MCP (EXT.4) — mêmes défauts que oauth.policy().
+                        if (!configForm.value.mcp.oauth) configForm.value.mcp.oauth = {};
+                        {
+                            const _o = configForm.value.mcp.oauth;
+                            if (_o.enabled === undefined) _o.enabled = true;
+                            if (_o.dcr_enabled === undefined) _o.dcr_enabled = true;
+                            if (_o.access_ttl_s === undefined) _o.access_ttl_s = 3600;
+                            if (_o.refresh_days === undefined) _o.refresh_days = 30;
+                        }
                         // RAG defaults — même raison.
                         if (!configForm.value.rag) configForm.value.rag = {};
                         if (configForm.value.rag.service_url === undefined) configForm.value.rag.service_url = '';
@@ -3902,6 +3911,35 @@ function setupAdmin(vue, sharedRefs, ctx) {
     const mcpExportTransport = ref('http');
     const mcpExportToken     = ref(false);
 
+    // ── Clients OAuth des clients MCP (EXT.4) ──────────────────────────────
+    const oauthClients = ref([]);
+
+    async function loadOauthClients() {
+        try {
+            const r = await fetchAuth('/api/admin/oauth/clients');
+            if (!r || !r.ok) { oauthClients.value = []; return; }
+            const d = await r.json();
+            oauthClients.value = (d && d.items) || [];
+        } catch (e) {
+            oauthClients.value = [];
+        }
+    }
+
+    async function deleteOauthClient(c) {
+        const ok = await openConfirm('Supprimer ce client ?',
+            '« ' + (c.name || c.client_id) + ' » perd toutes ses autorisations ; il devra se réenregistrer.',
+            true, 'Supprimer');
+        if (!ok) return;
+        try {
+            const r = await fetchAuth('/api/admin/oauth/clients?client_id=' + encodeURIComponent(c.client_id),
+                                      { method: 'DELETE' }, true);
+            if (!r || !r.ok) { showToast('Suppression impossible', 'error'); return; }
+            await loadOauthClients();
+        } catch (e) {
+            showToast('Suppression impossible', 'error');
+        }
+    }
+
     async function loadMcpManifest() {
         try {
             const r = await fetchAuth('/api/admin/mcp/manifest');
@@ -4753,6 +4791,7 @@ function setupAdmin(vue, sharedRefs, ctx) {
         loadSandboxContainers,
         // Manifeste mcp.json (outils par défaut)
         mcpManifest, mcpManifestBusy, loadMcpManifest, reloadMcpManifest, mcpManifestRoleLabel,
+        oauthClients, loadOauthClients, deleteOauthClient,
         mcpExportTransport, mcpExportToken, copyMcpExport,
         // Hôtes d'outils (P5)
         toolhosts, toolhostMoveTarget, toolhostBusy, loadToolhosts, migrateToolhostPlacement, assignToolhostPlacement,

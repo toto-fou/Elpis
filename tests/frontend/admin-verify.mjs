@@ -378,6 +378,12 @@ try {
     await goPage('Modèles & services', 'Outils MCP');
     ok('mcp : commande chargée',
        (await page.locator('#cnx-mcp-cmd').inputValue().catch(() => '')) === 'python mcp_server.py');
+    // Autorisation OAuth des clients MCP (EXT.4) : réglages + clients enregistrés.
+    ok('mcp : carte OAuth (défauts du serveur)',
+       await bodyHas(/Autorisation OAuth des clients MCP/)
+       && await page.locator('#cnx-oa-on').isChecked().catch(() => false)
+       && (await page.locator('#cnx-oa-ttl').inputValue().catch(() => '')) === '3600');
+    ok('mcp : clients OAuth listés', await bodyHas(/Éditeur de recette/) && await bodyHas(/1 autorisation\b/));
     await goPage('Modèles & services', 'Vision & machines');
     ok('vision : annotation visuelle', await bodyHas(/Annotation visuelle/));
     ok('vision : machines de contrôle', /win-vm-01/.test(await page.locator('#desktop-targets').innerHTML().catch(() => '')));

@@ -343,6 +343,15 @@ Chaque appel s'exécute dans votre sandbox, sous votre compte. Un client qui
 tourne dans un navigateur, sur une autre origine, est refusé tant que
 l'administrateur n'a pas ajouté cette origine à `mcp.allowed_origins`.
 
+**Sans jeton à copier (OAuth).** Un client MCP qui gère l'autorisation OAuth
+n'a besoin que de l'adresse : `https://<adresse-du-serveur>/api/mcp-bridge`
+(toutes vos familles) ou `…/api/mcp-bridge/<famille>`. À la première connexion,
+il ouvre une page d'Elpis : connectez-vous si besoin, vérifiez le nom de
+l'application et son adresse de retour, cochez les familles à lui confier
+(`browser` et `desktop` jamais d'office), puis **Autoriser**. L'accès dure
+30 jours au plus (réglable par l'administrateur) ; retirez-le quand vous voulez
+dans **Paramètres › Connexions › Applications autorisées**.
+
 ### Utiliser vos outils depuis une autre plateforme (OpenAPI)
 
 Les outils qui travaillent dans votre sandbox — fichiers (`fs`), terminal

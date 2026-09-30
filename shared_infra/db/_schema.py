@@ -686,6 +686,47 @@ TABLES: List[Table] = [
             Index('idx_revoked_sessions_at', ('revoked_at',)),
         ],
     ),
+    # Exécutions (L5.2, migration 0021) : une ligne par tour de chat, run de
+    # routine, sous-agent ou compaction manuelle — ressources consommées et
+    # issue (cf. shared_infra/observability/runs.py).
+    Table('runs', [
+        Col('id', TEXT, primary=True, key=64),
+        Col('kind', TEXT, null=False, default='chat'),
+        Col('user_id', INT),
+        Col('chat_id', TEXT, null=False, default=''),
+        Col('routine_id', INT, default=NULL),
+        Col('parent_id', TEXT, null=False, default=''),
+        Col('project_id', INT, default=NULL),
+        Col('model', TEXT, null=False, default=''),
+        Col('engine', TEXT, null=False, default=''),
+        Col('started_at', REAL, null=False),
+        Col('ended_at', REAL, default=NULL),
+        Col('status', TEXT, null=False, default='running'),
+        Col('error_kind', TEXT, null=False, default=''),
+        Col('input_tokens', INT, null=False, default=0),
+        Col('output_tokens', INT, null=False, default=0),
+        Col('cache_read_tokens', INT, null=False, default=0),
+        Col('cache_creation_tokens', INT, null=False, default=0),
+        Col('thinking_tokens', INT, null=False, default=0),
+        Col('llm_calls', INT, null=False, default=0),
+        Col('prefill_ms', INT, null=False, default=0),
+        Col('decode_ms', INT, null=False, default=0),
+        Col('wait_ms', INT, null=False, default=0),
+        Col('tool_calls', INT, null=False, default=0),
+        Col('tool_errors', INT, null=False, default=0),
+        Col('tool_families', TEXT, null=False, default='{}'),
+        Col('files_changed', INT, null=False, default=0),
+        Col('sandbox_cpu_peak', REAL, default=NULL),
+        Col('sandbox_mem_peak_mb', REAL, default=NULL),
+    ],
+        indexes=[
+            Index('idx_runs_started', ('started_at DESC',)),
+            Index('idx_runs_user', ('user_id', 'started_at DESC')),
+            Index('idx_runs_chat', ('chat_id', 'started_at')),
+            Index('idx_runs_parent', ('parent_id',), where="parent_id != ''"),
+            Index('idx_runs_running', ('status', 'started_at'), where="status = 'running'"),
+        ],
+    ),
     Table('sandbox_placements', [
         Col('user_id', INT, primary=True),
         Col('host_id', TEXT, null=False),
@@ -757,6 +798,13 @@ TABLES: List[Table] = [
         Col('duration_ms', INT, null=False, default=0),
         Col('error_short', TEXT, default=NULL),
         Col('ts', REAL, null=False),
+        # L5.1 (migration 0021) : NULL = non mesuré (lignes antérieures).
+        Col('call_id', TEXT, default=NULL),
+        Col('started_at', REAL, default=NULL),
+        Col('category', TEXT, default=NULL),
+        Col('exit_code', INT, default=NULL),
+        Col('args_bytes', INT, default=NULL),
+        Col('result_bytes', INT, default=NULL),
     ],
         indexes=[
             Index('idx_tcm_ts', ('ts',)),
@@ -786,6 +834,7 @@ TABLES: List[Table] = [
         Col('status', TEXT, null=False, default='ok'),
         Col('error_kind', TEXT, null=False, default=''),
         Col('thinking_tokens', INT, null=False, default=0),
+        Col('run_id', TEXT, null=False, default=''),          # exécution (L5.2, 0021)
     ],
         indexes=[
             Index('idx_usage_status_ts', ('status', 'ts DESC'), where="status != 'ok'"),
@@ -793,6 +842,7 @@ TABLES: List[Table] = [
             Index('idx_usage_source_ts', ('source', 'ts DESC')),
             Index('idx_usage_user_ts', ('user_id', 'ts DESC')),
             Index('idx_usage_ts', ('ts DESC',)),
+            Index('idx_usage_run', ('run_id',), where="run_id != ''"),
         ],
     ),
     Table('user_groups', [
@@ -849,6 +899,7 @@ BASELINE_COVERS: Tuple[str, ...] = (
     "0018_llm_engine_policies",
     "0019_llm_connector_engine_limits",
     "0020_prompt_templates",
+    "0021_runs",
 )
 
 

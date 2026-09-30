@@ -55,6 +55,7 @@ from shared_infra.sandbox.executors._user_sandbox import (
     load_admin_config,
     reset_user_sandbox_cache,
     resolve_network_profile_id,
+    running_container_stats,
     user_network_profile_id,
 )
 
@@ -63,7 +64,7 @@ __all__ = [
     "SandboxAdminConfig", "SandboxStatus", "UserSandbox",
     "DEFAULT_IMAGE", "configured_image",
     "load_admin_config", "get_user_sandbox", "reset_user_sandbox_cache",
-    "gc_idle_containers",
+    "gc_idle_containers", "running_container_stats",
     "NetworkProfile", "resolve_network_profile_id", "user_network_profile_id",
     # Image loader
     "ImageLoadStatus", "ImageLoadState",

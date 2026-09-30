@@ -1551,6 +1551,45 @@ class UserSandbox:
             return {}
 
 
+_UNITES_MIB = {"b": 1 / 1048576, "kib": 1 / 1024, "kb": 1000 / 1048576,
+               "mib": 1.0, "mb": 1e6 / 1048576, "gib": 1024.0, "gb": 1e9 / 1048576,
+               "tib": 1048576.0, "tb": 1e12 / 1048576}
+
+
+def _mib(txt: str) -> Optional[float]:
+    """« 123.4MiB » (première moitié de ``MemUsage``) en Mio."""
+    import re as _re
+    m = _re.fullmatch(r"\s*([0-9.]+)\s*([A-Za-z]+)\s*", txt or "")
+    if not m or m.group(2).lower() not in _UNITES_MIB:
+        return None
+    return float(m.group(1)) * _UNITES_MIB[m.group(2).lower()]
+
+
+async def running_container_stats(user_id: int) -> Optional[Dict[str, float]]:
+    """``{"cpu_pct", "mem_mb"}`` du conteneur EN MARCHE du compte (``docker
+    stats``), ``None`` s'il n'y en a pas : rien n'est démarré ni créé."""
+    if not shutil.which("docker"):
+        return None
+    cli = _DockerCLI()
+    rc, out, _ = await cli.call("ps", *_naming.label_filter("user_id", int(user_id)),
+                                "--filter", "status=running", "--format", "{{.Names}}",
+                                timeout=5)
+    noms = out.decode("utf-8", "replace").split() if rc == 0 else []
+    if not noms:
+        return None
+    rc, out, _ = await cli.call("stats", "--no-stream", "--format",
+                                "{{.CPUPerc}}|{{.MemUsage}}", noms[0], timeout=10)
+    if rc != 0:
+        return None
+    cpu, _, mem = out.decode("utf-8", "replace").strip().partition("|")
+    try:
+        cpu_pct = float(cpu.strip().rstrip("%"))
+    except ValueError:
+        return None
+    mem_mb = _mib(mem.split("/", 1)[0])
+    return {"cpu_pct": cpu_pct, "mem_mb": mem_mb if mem_mb is not None else 0.0}
+
+
 async def gc_idle_containers(idle_hours: int | None = None) -> list[str]:
     """Stoppe les containers user inactifs depuis ``idle_hours``."""
     cfg = load_admin_config()

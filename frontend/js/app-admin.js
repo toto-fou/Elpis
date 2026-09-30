@@ -2475,7 +2475,7 @@ function setupAdmin(vue, sharedRefs, ctx) {
                         {
                             const _t = configForm.value.mcp.tokens;
                             if (_t.tools_enabled === undefined) _t.tools_enabled = true;
-                            if (_t.tools_families === undefined) _t.tools_families = 'fs,shell,git,desktop,skill_run';
+                            if (_t.tools_families === undefined) _t.tools_families = 'fs,shell,git,desktop,browser,skill_run';
                             if (_t.max_days === undefined) _t.max_days = 90;
                             if (_t.max_per_user === undefined) _t.max_per_user = 20;
                         }

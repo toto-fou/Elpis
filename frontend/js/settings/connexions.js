@@ -4,7 +4,7 @@
 // ============================================================================
 //  Jetons personnels du compte pour brancher ses outils Elpis sur un client
 //  externe : clients MCP (relais /api/mcp-bridge/<famille>), clients OpenAPI
-//  (/api/tools/<famille>, Open WebUI), opencode (plugin elpis-remote).
+//  (/api/tools/<famille>), opencode (plugin elpis-remote).
 //  Routes : /api/tokens* (shared_infra/accounts/routes_tokens.py).
 //
 //  Un jeton n'est montré qu'UNE fois, à sa création ou à sa régénération
@@ -13,7 +13,7 @@
 //
 //  Exporte (setupConnexions) : cnxState, loadConnexions, cnxNew, cnxCancel,
 //  cnxCreate, cnxRegenerate, cnxRevoke, cnxShowConfig, cnxCloseReveal,
-//  cnxBlocks, cnxCopy, cnxSchemaHref, cnxOpenapiHref, cnxKindLabel, cnxDate.
+//  cnxBlocks, cnxCopy, cnxSchemaHref, cnxKindLabel, cnxDate, cnxReset.
 // ============================================================================
 (function () {
     'use strict';
@@ -66,6 +66,14 @@
                                 busy: false, error: '' });
 
         function _set(patch) { cnxState.value = Object.assign({}, cnxState.value, patch); }
+
+        // Oubli complet (fermeture des Paramètres, déconnexion) : le jeton
+        // montré une fois ne survit pas à la modale.
+        function cnxReset() {
+            cnxState.value = { tokens: [], policy: null, bridgeUrl: '', toolsUrl: '',
+                               opencode: false, form: null, reveal: null, tab: 'mcp',
+                               busy: false, error: '' };
+        }
 
         async function _err(r, fallback) {
             try { const d = await r.json(); return (d && d.detail) || fallback; } catch (_) { return fallback; }
@@ -184,7 +192,6 @@
         }
 
         function cnxSchemaHref(family) { return '/api/tokens/schema/' + encodeURIComponent(family); }
-        function cnxOpenapiHref(family) { return (cnxState.value.toolsUrl || '/api/tools') + '/' + encodeURIComponent(family) + '/openapi.json'; }
 
         function cnxKindLabel(kind) {
             return { tools: 'Outils', opencode: 'opencode', vision: 'Vision' }[kind] || kind;
@@ -195,8 +202,8 @@
             try { return new Date(Number(ts) * 1000).toLocaleDateString('fr-FR'); } catch (_) { return ''; }
         }
 
-        return { cnxState, loadConnexions, cnxNew, cnxCancel, cnxCreate, cnxRegenerate, cnxRevoke,
-                 cnxShowConfig, cnxCloseReveal, cnxBlocks, cnxCopy, cnxSchemaHref, cnxOpenapiHref,
+        return { cnxState, cnxReset, loadConnexions, cnxNew, cnxCancel, cnxCreate, cnxRegenerate, cnxRevoke,
+                 cnxShowConfig, cnxCloseReveal, cnxBlocks, cnxCopy, cnxSchemaHref,
                  cnxKindLabel, cnxDate };
     }
 

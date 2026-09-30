@@ -39,7 +39,7 @@ try {
     ok('liste affichée', await page.locator('text=opencode - poste-a').isVisible());
     await page.screenshot({ path: DIR + '/connexions-1-liste.png' });
     await page.locator('button:has-text("Nouveau jeton")').click();
-    await page.locator('#cnx-name').fill('Open WebUI');
+    await page.locator('#cnx-name').fill('VS Code du bureau');
     ok('desktop non coché d\'office', !(await page.locator('label:has-text("Bureau") input').isChecked()));
     await page.screenshot({ path: DIR + '/connexions-2-creation.png' });
     await page.locator('button:has-text("Créer")').click();

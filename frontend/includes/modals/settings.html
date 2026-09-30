@@ -481,7 +481,7 @@
 
                         <!-- Affichage unique (ou configuration avec espace réservé) -->
                         <div v-if="cnxState.reveal" class="border rounded-xl p-4 space-y-3"
-                             :class="cnxState.reveal.token ? 'border-amber-300 bg-amber-50/50' : 'border-slate-200'">
+                             :class="cnxState.reveal.token ? 'border-amber-300 bg-amber-50/60' : 'border-slate-200'">
                             <div class="flex items-center gap-2">
                                 <i class="ph ph-key text-slate-500" aria-hidden="true"></i>
                                 <div class="text-sm font-medium text-slate-800 flex-1 truncate">{{ cnxState.reveal.item.name }}</div>
@@ -511,7 +511,6 @@
                                 <span>Schémas :</span>
                                 <template v-for="f in cnxState.reveal.item.families" :key="'sch' + f">
                                     <a :href="cnxSchemaHref(f)" target="_blank" rel="noopener" class="text-blue-600 hover:underline">{{ f }} (MCP)</a>
-                                    <a :href="cnxOpenapiHref(f)" target="_blank" rel="noopener" class="text-blue-600 hover:underline" title="Exige le jeton en en-tête Authorization">{{ f }} (OpenAPI)</a>
                                 </template>
                             </div>
                         </div>
@@ -542,7 +541,7 @@
                             <div class="grid grid-cols-2 gap-2.5">
                                 <div>
                                     <label for="cnx-name" class="text-[11px] font-medium text-slate-500">Nom</label>
-                                    <input id="cnx-name" v-model="cnxState.form.name" maxlength="80" placeholder="ex. Open WebUI, VS Code du bureau" class="set-input mt-0.5">
+                                    <input id="cnx-name" v-model="cnxState.form.name" maxlength="80" placeholder="ex. VS Code du bureau, agent CI" class="set-input mt-0.5">
                                 </div>
                                 <div>
                                     <label for="cnx-kind" class="text-[11px] font-medium text-slate-500">Type</label>

@@ -5,8 +5,7 @@ shared_infra/mcp/openapi.py — façade OpenAPI des outils du service partagé
 
 Les familles d'outils déjà joignables de l'extérieur par MCP (``/mcp/<famille>``,
 relayées par ``/api/mcp-bridge``) deviennent aussi des API HTTP ordinaires,
-pour les plateformes qui ne parlent qu'OpenAPI (Open WebUI et ses « serveurs
-d'outils ») :
+pour les plateformes et scripts qui ne parlent qu'OpenAPI :
 
 * ``GET  /api/tools/<famille>/openapi.json`` — spec OpenAPI 3.1 générée depuis
   ``tools/list`` de la famille : un ``POST /<outil>`` par outil, corps =

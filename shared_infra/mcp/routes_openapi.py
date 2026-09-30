@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 _TOKEN_PREFIX = "ept_"
 _CHALLENGE = {"WWW-Authenticate": "Bearer"}
+_BODY_MAX = 8 * 1024 * 1024       # 8 Mio : arguments d'outil, pas de transfert de fichier
 
 # Appels simultanés par compte. # PAR WORKER : chaque processus tient son
 # propre compteur (N workers → N × 4 au pire) ; le toolhost garde de toute façon
@@ -111,10 +112,11 @@ def _server_url(request: Request, family: str) -> str:
     try:
         from shared_infra.opencode.routes_cli import _app_url
         base = _app_url(request).rstrip("/")
-    except HTTPException:
-        raise
     except Exception:                                            # noqa: BLE001
-        base = str(request.base_url).rstrip("/")
+        # Hôte non reconnu (IPv6 littérale, nom exotique…) : URL relative,
+        # valide en 3.1 — l'URL n'est qu'indicative, le client appelle
+        # celle qu'on lui a configurée.
+        base = ""
     return f"{base}{oa.OPENAPI_PREFIX}/{family}"
 
 
@@ -134,7 +136,20 @@ async def api_tools_call(request: Request, family: str, tool: str):
     if spec_tool is None:
         raise HTTPException(404, "Outil inconnu.")
 
-    raw = await request.body()
+    # Corps borné : arguments d'outil, jamais un transfert de fichier.
+    try:
+        declared = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        declared = 0
+    if declared > _BODY_MAX:
+        raise HTTPException(413, "Corps trop volumineux.")
+    chunks, total = [], 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > _BODY_MAX:
+            raise HTTPException(413, "Corps trop volumineux.")
+        chunks.append(chunk)
+    raw = b"".join(chunks)
     try:
         args = json.loads(raw) if raw.strip() else {}
     except ValueError:

@@ -480,6 +480,9 @@ function setupSettings(vue, sharedRefs, ctx) {
         promptSearch.value = '';
         promptOpen.value = {};
         cancelMemoryEdit();   // ne pas rouvrir sur un brouillon abandonné
+        // Jeton montré une fois : jamais gardé au-delà de la fermeture (la
+        // déconnexion passe aussi par ici — compte suivant, même onglet).
+        try { _cnxMod.cnxReset && _cnxMod.cnxReset(); } catch (_) {}
         // Fermer par X / Échap / clic backdrop = ANNULER. Les contrôles
         // d'apparence (skin, mode sombre…) mutent settings.value en live
         // (watchers immediate) sans rien persister : sans revert, l'UI

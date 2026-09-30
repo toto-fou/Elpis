@@ -479,7 +479,11 @@ class IdentityCapture(_FmcpMiddleware):
                 tid = _token_identity()
             except Exception:                                    # noqa: BLE001
                 tid = None
-            if tid and (ident is None or ident.username != tid):
+            if tid:
+                # Jeton CLIENT (pcr_/ept_) : son identité est celle du compte
+                # lié au jeton, et RIEN du _meta n'est repris (user_id, profil
+                # réseau) — le client le rédige lui-même. L'id est résolu
+                # ci-dessous (app) ou par la base.
                 ident = _ident.Identity(user_id=0, username=str(tid))
             if ident is not None and not ident.user_id:
                 try:

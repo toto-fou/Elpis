@@ -43,7 +43,7 @@ def _stocke(db: str) -> str:
 # ── Magasin ──────────────────────────────────────────────────────────────────
 
 def test_empreinte_seule_et_types_distincts(base):
-    tok, row = T.create(base["alice"], "tools", "Open WebUI", ["fs", "git"], 30)
+    tok, row = T.create(base["alice"], "tools", "VS Code", ["fs", "git"], 30)
     assert tok.startswith("ept_") and row["hint"] == tok[-4:]
     assert tok not in _stocke(base["db"])                    # jamais le clair en base
     assert T.digest(tok) in _stocke(base["db"])
@@ -306,3 +306,75 @@ def test_opencode_json_session_sans_jeton(base, monkeypatch):
                     "headers": [(b"authorization", b"Bearer pcr_inconnu_xxxxxxxxxxxxxxxxx")]})
     assert cli._client_identity(req2) == (None, None)
     assert cli.TOKEN_PLACEHOLDER.startswith("pcr_")
+
+
+# ── Correctifs de la relecture finale ────────────────────────────────────────
+
+def test_regeneration_refusee_laisse_l_ancien_jeton(base):
+    tok, row = T.create(base["alice"], "tools", "x", ["fs"], 10)
+    base["cfg"]["mcp.tokens.tools_enabled"] = False
+    with pytest.raises(T.TokenError):
+        T.regenerate(base["alice"], row["id"])
+    base["cfg"]["mcp.tokens.tools_enabled"] = True
+    assert T.resolve(tok) is not None                          # intact
+
+
+def test_quota_ignore_les_jetons_expires(base, monkeypatch):
+    base["cfg"]["mcp.tokens.max_per_user"] = 1
+    T.create(base["alice"], "tools", "", ["fs"], 1)
+    with pytest.raises(T.TokenError):
+        T.create(base["alice"], "tools", "", ["fs"], 1)
+    now = time.time()
+    monkeypatch.setattr(T.time, "time", lambda: now + 2 * 86400)
+    T.create(base["alice"], "tools", "", ["fs"], 1)            # l'expiré ne compte plus
+
+
+def test_appairage_au_quota_garde_la_demande(base, monkeypatch):
+    import shared_infra.opencode.routes_code as code
+    monkeypatch.setattr(code, "require_user_id", lambda r: base["alice"])
+    monkeypatch.setattr(code, "feature_enabled", lambda name, default=True: True)
+    app = FastAPI()
+    app.include_router(code.router)
+    c = TestClient(app)
+    base["cfg"]["mcp.tokens.max_per_user"] = 1
+    _t, row = T.create(base["alice"], "opencode")
+    d = c.post("/api/code/pair/start").json()
+    assert c.post("/api/code/pair/confirm", json={"code": d["code"]}).status_code == 200
+    assert c.get("/api/code/pair/poll", params={"id": d["id"]}).status_code == 409
+    assert T.revoke(base["alice"], row["id"])
+    r = c.get("/api/code/pair/poll", params={"id": d["id"]}).json()   # demande intacte
+    assert r["status"] == "ok" and r["token"].startswith("pcr_")
+
+
+def test_conversion_purge_les_appairages(base):
+    c = sqlite3.connect(base["db"])
+    c.execute("INSERT INTO code_pairings(id, code, ip, created_at, expires_at, token) "
+              "VALUES('p', 'ABC', '', 0, 9e9, 'pcr_en_clair_xxxxxxxxxxxxxxxx')")
+    c.execute("CREATE TABLE code_remote_tokens (user_id INTEGER PRIMARY KEY, token TEXT NOT NULL, created_at REAL)")
+    c.commit()
+    c.close()
+    T.convert_legacy()
+    c = sqlite3.connect(base["db"])
+    assert c.execute("SELECT COUNT(*) FROM code_pairings").fetchone()[0] == 0
+    c.close()
+
+
+def test_identite_d_un_jeton_client_ignore_le_meta(monkeypatch, srv):
+    """Jeton client : ni user_id ni profil réseau du _meta ne sont repris."""
+    import types as _types
+
+    import llm_core.tools._toolkit as tk
+    from shared_infra.accounts import identity as ident
+    monkeypatch.setattr(tk, "_token_identity", lambda: "hugo")
+    vu = {}
+
+    async def call_next(ctx):
+        vu["ident"] = ident.current()
+        return "ok"
+
+    meta = {"username": "hugo", "user_id": 1, "network_profile_id": "ouvert", "chat_id": "c"}
+    ctx = _types.SimpleNamespace(fastmcp_context=_types.SimpleNamespace(
+        request_context=_types.SimpleNamespace(meta=meta)))
+    assert asyncio.run(srv.IdentityCapture().on_call_tool(ctx, call_next)) == "ok"
+    assert vu["ident"].username == "hugo" and vu["ident"].user_id != 1
+    assert vu["ident"].network_profile_id != "ouvert"

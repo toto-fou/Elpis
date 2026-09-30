@@ -25,6 +25,11 @@ from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 from mcp.types import CallToolResult, TextContent, Tool, ToolAnnotations
 
+# Vrais modules chargés AVANT que la fixture ne substitue un faux ``tokens`` :
+# sinon ``routes_tokens`` (importé par ``shared_infra.routes``) se lierait au
+# faux pour toute la session de test et casserait d'autres fichiers.
+import shared_infra.accounts.tokens  # noqa: F401
+import shared_infra.routes  # noqa: F401 — enregistre tout
 from shared_infra.mcp import openapi as oa
 
 _ERR_ENVELOPE = {"type": "object", "properties": {"ok": {"const": False}, "error": {"type": "string"}}}
@@ -329,7 +334,6 @@ def test_service_sature_429(env):
 def test_ne_capture_pas_les_routes_existantes_sous_api_tools():
     from starlette.routing import Match
 
-    import shared_infra.routes  # noqa: F401 — enregistre tout
     from shared_infra.routes._state import router
 
     def premier(path, methode):
@@ -363,3 +367,24 @@ def test_entree_multi_familles_filtree_par_categorie():
     assert oa._filter_family("fs", tous, cfg) == []
     # Entrée d'UNE famille : le service a déjà restreint la liste.
     assert oa._filter_family("git", tous[:1], {"families": ["git"]}) == tous[:1]
+
+
+def test_corps_trop_volumineux_413(env):
+    c, _s, pool = env
+    gros = {"command": "x" * (9 * 1024 * 1024)}
+    assert c.post("/api/tools/shell/execute_shell", headers=H, json=gros).status_code == 413
+    assert pool.calls == []
+
+
+def test_hote_non_reconnu_url_relative(env, monkeypatch):
+    """Un en-tête Host non reconnu ne fait pas échouer la spec : URL relative."""
+    from fastapi import HTTPException
+
+    import shared_infra.opencode.routes_cli as rc
+
+    def refuse(_req):
+        raise HTTPException(400, "Hôte invalide")
+    monkeypatch.setattr(rc, "_app_url", refuse)
+    c, _s, _p = env
+    r = c.get("/api/tools/git/openapi.json", headers=H)
+    assert r.status_code == 200 and r.json()["servers"][0]["url"] == "/api/tools/git"

@@ -168,6 +168,10 @@ def convert_legacy() -> int:
                 (int(uid), "opencode", "opencode", h, tok[-4:], "", float(created or 0) or time.time()))
             n += 1
         c.execute("DELETE FROM code_remote_tokens")
+        # Appairages en cours : leur colonne ``token`` a pu recevoir un pcr_ en
+        # clair avant la mise à jour (0022 fait de même sur SQLite).
+        if has_table(c, "code_pairings"):
+            c.execute("DELETE FROM code_pairings")
     if n:
         logger.info("[tokens] %d ancien(s) jeton(s) opencode converti(s) en empreinte", n)
     return n
@@ -217,6 +221,25 @@ def _validate_tools_request(families: Optional[Iterable[str]], days: Optional[in
     return fams, (time.time() + d * 86400.0) if d else None
 
 
+def check_quota(user_id: int, conn: Any = None, pol: Optional[Dict[str, Any]] = None,
+                now: Optional[float] = None) -> None:
+    """Lève ``TokenError`` si le compte a atteint ``max_per_user`` jetons
+    opencode + outils VALIDES (les jetons expirés ne comptent plus)."""
+    pol = pol or policy()
+    now = time.time() if now is None else now
+    sql = ("SELECT COUNT(*) FROM tool_tokens WHERE user_id=? AND kind<>'vision' "
+           "AND (expires_at IS NULL OR expires_at>?)")
+    if conn is not None:
+        n = conn.execute(sql, (int(user_id), now)).fetchone()
+    else:
+        _prepare()
+        with db_tx() as c:
+            n = c.execute(sql, (int(user_id), now)).fetchone()
+    if n and int(n[0]) >= int(pol["max_per_user"]):
+        raise TokenError(f"Nombre maximal de jetons atteint ({pol['max_per_user']}). "
+                         "Révoquez-en un d'abord.")
+
+
 def create(user_id: int, kind: str, name: str = "", families: Optional[Iterable[str]] = None,
            days: Optional[int] = None) -> Tuple[str, Dict[str, Any]]:
     """Crée un jeton ; rend ``(jeton en clair, ligne)``. Le clair n'est
@@ -240,11 +263,7 @@ def create(user_id: int, kind: str, name: str = "", families: Optional[Iterable[
     now = time.time()
     with db_tx() as c:
         if kind != "vision":
-            n = c.execute("SELECT COUNT(*) FROM tool_tokens WHERE user_id=? AND kind<>'vision'",
-                          (int(user_id),)).fetchone()
-            if n and int(n[0]) >= int(pol["max_per_user"]):
-                raise TokenError(f"Nombre maximal de jetons atteint ({pol['max_per_user']}). "
-                                 "Révoquez-en un d'abord.")
+            check_quota(user_id, conn=c, pol=pol, now=now)
         else:
             # Les jetons de vision expirés ne servent plus à rien : ménage.
             c.execute("DELETE FROM tool_tokens WHERE kind='vision' AND expires_at<?", (now,))
@@ -366,11 +385,17 @@ def regenerate(user_id: int, token_id: int) -> Optional[Tuple[str, Dict[str, Any
         pol_max = policy()["max_days"]
         if pol_max:
             days = min(days, pol_max)
+    # Tout ce qui ferait refuser la création est vérifié AVANT de supprimer
+    # l'ancien jeton : un refus le laisse intact.
     if old["kind"] == "tools":
+        if not policy()["tools_enabled"]:
+            raise TokenError("Les jetons d'outils sont désactivés par l'administrateur.")
         fams = [f for f in old["families"] if f in policy()["tools_families"]]
         if not fams:
             raise TokenError("Aucune des familles de ce jeton n'est encore autorisée.")
     else:
+        if old["kind"] == "opencode" and not _opencode_enabled():
+            raise TokenError("OpenCode est désactivé par l'administrateur.")
         fams = old["families"]
     _prepare()
     with db_tx() as c:
@@ -393,6 +418,6 @@ def kind_of(token: str) -> Optional[str]:
     return _KIND_OF_PREFIX.get(str(token or "")[:4])
 
 
-__all__ = ["EXTERNAL_FAMILIES", "KINDS", "PREFIXES", "TokenError", "convert_legacy", "create",
+__all__ = ["EXTERNAL_FAMILIES", "KINDS", "PREFIXES", "TokenError", "check_quota", "convert_legacy", "create",
            "delete_for_user", "digest", "get_for", "kind_of", "list_for", "policy", "regenerate",
            "resolve", "revoke", "revoke_kind", "touch_last_used"]

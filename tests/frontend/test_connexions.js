@@ -92,5 +92,18 @@ t('sans jeton en clair : espace réservé partout', () => {
         assert.equal(D.cnxState.value.reveal, null);
     });
 
+    await ta('fermeture des Paramètres : le jeton montré une fois est oublié', async () => {
+        const { D } = monter(async (u, o) => (o && o.method === 'POST')
+            ? reponse({ token: 'ept_secret', item: { id: 1, name: 'x', kind: 'tools', families: ['fs'] } })
+            : reponse({ tokens: [], policy: POLITIQUE }));
+        await D.loadConnexions();
+        D.cnxNew();
+        await D.cnxCreate();
+        assert.equal(D.cnxState.value.reveal.token, 'ept_secret');
+        D.cnxReset();
+        assert.equal(D.cnxState.value.reveal, null);
+        assert.ok(!JSON.stringify(D.cnxState.value).includes('ept_secret'));
+    });
+
     fin('test_connexions.js');
 })();

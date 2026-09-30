@@ -360,6 +360,14 @@ async def code_pair_poll(request: Request):
             if not row:
                 raise HTTPException(404, "Demande d'appairage inconnue.")
             expires_at, uid = float(row[0] or 0), row[1]
+            if uid and now <= expires_at:
+                # Quota vérifié AVANT de consommer la demande : un refus la
+                # laisse en place (révoquer un jeton puis relancer suffit).
+                from shared_infra.accounts import tokens as _tokens
+                try:
+                    _tokens.check_quota(int(uid))
+                except _tokens.TokenError as exc:
+                    raise HTTPException(409, str(exc))
             if now > expires_at or uid:
                 # Usage unique : la demande est détruite AVANT de créer le jeton,
                 # et seul le poll qui l'a effectivement détruite le reçoit (deux

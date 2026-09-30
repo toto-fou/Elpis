@@ -332,8 +332,7 @@ conversation en cours**.
 Les outils qui travaillent dans votre sandbox — fichiers (`fs`), terminal
 (`shell`), Git (`git`), navigateur (`browser`), contrôle d'écran (`desktop`)
 et scripts de skills (`skill_run`) — sont aussi exposés en **API OpenAPI 3.1**, pour les
-plateformes qui ne parlent pas MCP (par exemple les « serveurs d'outils »
-d'Open WebUI).
+plateformes et scripts qui ne parlent pas MCP.
 
 1. Créez un **jeton d'outils** (`ept_…`) dans **Paramètres › Connexions**, en
    cochant les familles voulues. Il n'est montré qu'une fois ; en cas de perte,
@@ -343,11 +342,17 @@ d'Open WebUI).
      est lu sur `…/api/tools/<famille>/openapi.json`) ;
    - **Clé** : votre jeton, envoyé en `Authorization: Bearer ept_…`.
 
+   Les appels doivent partir d'un serveur ou d'un script : un appel fait
+   depuis une page web d'une autre origine est refusé par défaut (origine
+   croisée, `app.cors_origins` vide). En `https` avec l'autorité de
+   certification interne, le client doit lui faire confiance.
+
 Chaque outil devient un `POST /api/tools/<famille>/<outil>` dont le corps est
 l'objet d'arguments. Les appels s'exécutent **dans votre sandbox, sous votre
 compte** — exactement comme dans le chat. Un échec de l'outil répond `200` avec
 `"ok": false` et une piste de correction ; un jeton absent, expiré ou révoqué
-répond `401`. Le navigateur piloté (`browser`) n'est pas exposé.
+répond `401`. Le navigateur piloté (`browser`) et le contrôle d'écran
+(`desktop`) ne sont exposés que s'ils sont cochés sur le jeton.
 
 [↑ Sommaire](#sommaire)
 

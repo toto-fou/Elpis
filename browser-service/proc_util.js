@@ -10,7 +10,10 @@
 //  Entrée : la sortie de ``ps -o pid=,ppid=,etimes=,args=`` ; aucune E/S ici.
 // ============================================================================
 
-const _CONTENU = /(?:chrom(?:e|ium)[^ ]*.*--type=(?:renderer|gpu-process|utility)|firefox[^ ]*.*-contentproc)/i;
+// Processus « enfants » d'un navigateur : renderers, gpu-process, utilitaires,
+// zygotes Chromium ; processus de contenu Firefox (y compris son serveur de
+// fork, ``-contentproc -ipcHandle``). Ils ne sont jamais des principaux.
+const _CONTENU = /(?:chrom(?:e|ium)[^ ]*.*--type=(?:renderer|gpu-process|utility|zygote)|firefox[^ ]*.*-contentproc)/i;
 const _PRINCIPAL_CHROME = /chrom(?:e|ium)/i;
 const _PRINCIPAL_FIREFOX = /firefox/i;
 
@@ -33,9 +36,30 @@ function _estPrincipal(p) {
 }
 
 /**
+ * Vrai si ``p`` se rattache, en remontant ses parents À TRAVERS les processus
+ * intermédiaires (zygote Chromium, serveur de fork Firefox, autres processus
+ * de contenu), à un navigateur principal vivant (ou à un PID épargné).
+ * Chromium : renderer/gpu → zygote → principal ; Firefox : contenu → serveur
+ * de fork → principal.
+ */
+function _rattache(p, parPid, garde) {
+    const vus = new Set();
+    let cur = p;
+    while (cur && !vus.has(cur.pid)) {
+        vus.add(cur.pid);
+        const parent = parPid.get(cur.ppid);
+        if (!parent) return false;                        // parent mort
+        if (garde.has(parent.pid) || _estPrincipal(parent)) return true;
+        if (!_CONTENU.test(parent.args)) return false;    // init, systemd, autre
+        cur = parent;
+    }
+    return false;
+}
+
+/**
  * PID des processus de contenu orphelins de plus de ``ageMinS`` secondes :
- * leur parent n'existe plus ou n'est pas un processus navigateur principal.
- * ``epargner`` : PID à ne jamais tuer (le navigateur courant et le service).
+ * aucun navigateur principal vivant au bout de leur chaîne de parents.
+ * ``epargner`` : PID à ne jamais tuer (le service lui-même…).
  */
 export function orphelins(procs, { ageMinS = 1200, epargner = [] } = {}) {
     const parPid = new Map(procs.map(p => [p.pid, p]));
@@ -43,8 +67,7 @@ export function orphelins(procs, { ageMinS = 1200, epargner = [] } = {}) {
     const res = [];
     for (const p of procs) {
         if (!_CONTENU.test(p.args) || p.age < ageMinS || garde.has(p.pid)) continue;
-        const parent = parPid.get(p.ppid);
-        if (parent && (_estPrincipal(parent) || garde.has(parent.pid))) continue;
+        if (_rattache(p, parPid, garde)) continue;
         res.push(p.pid);
     }
     return res;

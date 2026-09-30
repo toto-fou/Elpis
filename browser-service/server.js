@@ -86,11 +86,13 @@ app.use('/traces', express.static(TRACE_DIR));
 // ════════════════════════════════════════════════════════════════════
 //  DESTINATIONS AUTORISÉES (2026-09-30, cf. url_guard.js)
 // ════════════════════════════════════════════════════════════════════
-//  Appliquées à chaque contexte de navigateur : navigation directe (avant
-//  page.goto), toutes les requêtes du contexte (context.route : navigations,
-//  redirections, sous-ressources) et les WebSocket (routeWebSocket). Les
-//  service workers sont bloqués, sinon leurs requêtes échapperaient au
-//  routage. Liste blanche du réseau local : ``browser.url_allowlist`` du
+//  Le relais filtrant (proxy_guard.js) fait foi : TOUT le trafic du
+//  navigateur y passe (navigations, redirections, sous-ressources, WebSocket,
+//  service workers). S'y ajoute un refus ANTICIPÉ, avec un message clair pour
+//  le modèle, avant une navigation demandée (goto, nouvel onglet, /start).
+//  Pas de ``context.route`` de garde : le routage Playwright désactive le
+//  cache HTTP et coûte un aller-retour par requête, pour un contrôle que le
+//  relais fait déjà. Liste blanche du réseau local : ``browser.url_allowlist`` du
 //  config.json d'Elpis (relue quand le fichier change) ou la variable
 //  ``BROWSER_URL_ALLOWLIST``.
 const CONFIG_PATH = process.env.APP_CONFIG_PATH || path.join(BASE_DIR, '..', 'config.json');
@@ -134,7 +136,7 @@ async function refusUrl(url) {
 
 // Relais filtrant (proxy_guard.js) : TOUT le trafic du navigateur y passe,
 // boucle locale comprise. C'est lui qui fait foi (redirections, changements
-// d'adresse DNS) ; context.route ci-dessous n'est qu'un refus anticipé.
+// d'adresse DNS) ; ``refusUrl`` n'est qu'un refus anticipé.
 const _relais = await demarrerRelais({
     verifier: verifierDepuisPolitique({
         resoudre: _resoudre,
@@ -163,28 +165,9 @@ function gardePage(page) {
     });
 }
 
-/** Pose la garde sur un contexte neuf, AVANT toute autre route. */
+/** Garde d'un contexte neuf : schémas interdits ramenés à une page vide
+ *  (le réseau, lui, passe par le relais). */
 async function installerGarde(context) {
-    // Enregistrée en premier, elle passe en DERNIER : les autres routes
-    // (mocks, interception) terminent par route.fallback(), elle a donc
-    // toujours le dernier mot avant le réseau.
-    await context.route('**/*', async (route, request) => {
-        let motif = null;
-        try { motif = await refusUrl(request.url()); } catch (_) { motif = 'vérification impossible'; }
-        if (motif) {
-            if (request.isNavigationRequest()) console.warn(`[GARDE] navigation refusée : ${motif}`);
-            return route.abort('blockedbyclient').catch(() => {});
-        }
-        return route.fallback().catch(() => {});
-    });
-    if (typeof context.routeWebSocket === 'function') {
-        await context.routeWebSocket(/.*/, async (ws) => {
-            let motif = null;
-            try { motif = await refusUrl(ws.url()); } catch (_) { motif = 'vérification impossible'; }
-            if (motif) { try { ws.close({ code: 1008, reason: 'refusé' }); } catch (_) {} return; }
-            ws.connectToServer();
-        });
-    }
     context.on('page', gardePage);
 }
 
@@ -318,9 +301,10 @@ function killZombieProcesses() {
         const cmd = uid === null ? 'ps -eo pid=,ppid=,etimes=,args='
                                  : `ps -u ${uid} -o pid=,ppid=,etimes=,args=`;
         const texte = execSync(cmd, { timeout: 5000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-        let navPid = null;
-        try { navPid = globalBrowser && globalBrowser.process ? globalBrowser.process()?.pid : null; } catch (_) {}
-        const cibles = orphelins(lirePs(texte), { ageMinS: 1200, epargner: [process.pid, navPid] });
+        // Rattachement par la chaîne des parents (zygote, serveur de fork) : pas
+        // besoin du PID du navigateur, que Playwright n'expose pas pour un
+        // ``Browser`` lancé (seulement pour un ``BrowserServer``).
+        const cibles = orphelins(lirePs(texte), { ageMinS: 1200, epargner: [process.pid] });
         for (const pid of cibles) { try { process.kill(pid, 'SIGKILL'); } catch (_) {} }
         if (cibles.length) console.log(`[REAPER] ${cibles.length} processus navigateur orphelin(s) arrêté(s).`);
     } catch (e) { /* ps indisponible : rien à faire */ }
@@ -539,6 +523,8 @@ function buildLaunchOptions(engine, headlessMode) {
                 // Sans cela Firefox contourne le proxy pour localhost.
                 'network.proxy.allow_hijacking_localhost': true,
                 'network.proxy.no_proxies_on': '',
+                // WebRTC ouvre des flux UDP en direct, hors du relais : coupé.
+                'media.peerconnection.enabled': false,
                 ...(headlessMode ? {
                     'layers.acceleration.force-enabled': false,
                     'gfx.webrender.software': true,
@@ -557,6 +543,8 @@ function buildLaunchOptions(engine, headlessMode) {
                 '--no-sandbox', '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',                        // stabilité en conteneur (/dev/shm petit)
                 '--disable-blink-features=AutomationControlled',  // anti-détection
+                // WebRTC : pas d'UDP hors du relais (il ne passe qu'en TCP proxifié).
+                '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
             ],
         };
     }
@@ -2023,9 +2011,6 @@ app.post('/start', async (req, res) => {
             httpCredentials: (username && password) ? { username, password } : undefined,
             permissions: ['geolocation'],
             bypassCSP: true,
-            // Les requêtes d'un service worker échapperaient à la garde
-            // (context.route ne les voit pas).
-            serviceWorkers: 'block',
         };
         if (typeof touch === 'boolean') contextOpts.hasTouch = touch;
         // isMobile/hasTouch ne sont supportés que sur Chromium → on les retire
@@ -4603,7 +4588,11 @@ app.post('/visual', getSession, async (req, res) => {
         const threshold = typeof req.body.threshold === 'number' ? req.body.threshold : 0.01;
         const tol = typeof req.body.pixel_tolerance === 'number' ? req.body.pixel_tolerance : 30;
         const update = req.body.update === true;
-        const baselinePath = path.join(BASELINE_DIR, `${name}.png`);
+        // Références par propriétaire : un compte ne compare ni n'écrase
+        // celles d'un autre.
+        const dossierRef = path.join(BASELINE_DIR, safeOwner(req.session.owner) || '_');
+        fs.mkdirSync(dossierRef, { recursive: true });
+        const baselinePath = path.join(dossierRef, `${name}.png`);
 
         const target = selector ? page.locator(selector).first() : page;
         const curBuf = await target.screenshot(selector ? {} : { fullPage: true });

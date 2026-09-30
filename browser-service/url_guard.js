@@ -51,11 +51,36 @@ function _liste(reseaux) {
 const _REFUSES = _liste(_TOUJOURS_REFUSES);
 const _LOCAUX = _liste(_RESEAUX_LOCAUX);
 
-/** ``::ffff:a.b.c.d`` → ``a.b.c.d`` ; sinon l'adresse telle quelle. */
+/** IPv6 → ses 8 groupes de 16 bits (forme pointée finale comprise), ou null. */
+function _groupes6(s) {
+    if (net.isIP(s) !== 6) return null;
+    let t = s.toLowerCase();
+    const pointee = /(\d{1,3}(?:\.\d{1,3}){3})$/.exec(t);
+    if (pointee) {
+        const o = pointee[1].split('.').map(Number);
+        t = t.slice(0, -pointee[1].length)
+            + ((o[0] << 8) | o[1]).toString(16) + ':' + ((o[2] << 8) | o[3]).toString(16);
+    }
+    const [tete, queue] = t.includes('::') ? t.split('::') : [t, null];
+    const a = tete ? tete.split(':') : [];
+    const b = queue ? queue.split(':') : [];
+    const manque = queue === null ? 0 : 8 - a.length - b.length;
+    const g = [...a, ...Array(Math.max(0, manque)).fill('0'), ...b].map(x => parseInt(x || '0', 16));
+    return g.length === 8 && g.every(x => x >= 0 && x <= 0xffff) ? g : null;
+}
+
+/**
+ * IPv4 mappée en IPv6 (``::ffff:a.b.c.d`` comme ``::ffff:c0a8:184``, forme
+ * que le parseur d'URL produit) → ``a.b.c.d`` ; sinon l'adresse telle quelle
+ * (sans crochets ni zone).
+ */
 export function normaliserIp(ip) {
     const s = String(ip || '').trim().replace(/^\[|\]$/g, '').split('%')[0];
-    const m = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(s);
-    return m ? m[1] : s;
+    const g = _groupes6(s);
+    if (g && g.slice(0, 5).every(x => x === 0) && g[5] === 0xffff) {
+        return `${g[6] >> 8}.${g[6] & 255}.${g[7] >> 8}.${g[7] & 255}`;
+    }
+    return s;
 }
 
 function _type(ip) {
@@ -75,18 +100,20 @@ function _cidr(entree) {
 
 /**
  * Adresses et réseaux de l'hôte, à partir de ``os.networkInterfaces()``.
- * → ``{ adresses: Set<string>, reseaux: BlockList }`` : les adresses de
+ * → ``{ adresses: BlockList, reseaux: BlockList }`` : les adresses de
  * TOUTES les interfaces, et les sous-réseaux des interfaces de conteneurs.
  */
 export function hoteDepuisInterfaces(interfaces) {
-    const adresses = new Set();
+    // BlockList plutôt qu'un Set de chaînes : une même adresse s'écrit de
+    // plusieurs façons (IPv6 abrégée ou non, IPv4 mappée).
+    const adresses = new net.BlockList();
     const reseaux = new net.BlockList();
     for (const [nom, liste] of Object.entries(interfaces || {})) {
         for (const i of liste || []) {
             const adr = normaliserIp(i && i.address);
             const type = _type(adr);
             if (!type) continue;
-            adresses.add(adr);
+            adresses.addAddress(adr, type);
             if (_INTERFACES_CONTENEURS.test(nom) && i.cidr) {
                 const c = _cidr(i.cidr);
                 if (c) { try { reseaux.addSubnet(c[0], c[1], c[2]); } catch (_) { /* masque invalide */ } }
@@ -134,7 +161,7 @@ export function motifIp(ip0, { hote = null, listeBlanche = null, nomHote = '' } 
     const type = _type(ip);
     if (!type) return 'adresse invalide';
     if (_REFUSES.check(ip, type)) return `adresse réservée à l'hôte ou au réseau local de la machine (${ip})`;
-    if (hote && hote.adresses && hote.adresses.has(ip)) return `adresse de la machine qui héberge Elpis (${ip})`;
+    if (hote && hote.adresses && hote.adresses.check(ip, type)) return `adresse de la machine qui héberge Elpis (${ip})`;
     if (hote && hote.reseaux && hote.reseaux.check(ip, type)) return `réseau interne de la machine qui héberge Elpis (${ip})`;
     if (listeBlanche && !listeBlanche.vide && _LOCAUX.check(ip, type)) {
         const n = String(nomHote || '').toLowerCase();

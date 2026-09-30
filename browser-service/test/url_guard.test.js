@@ -88,3 +88,17 @@ test('utilitaires', () => {
     assert.equal(c.get('c', 5), 3);
     assert.equal(c.get('c', 50), undefined);         // expiré
 });
+
+test("IPv4 mappée en IPv6, forme hexadécimale comprise (adresses de l'hôte)", async () => {
+    assert.equal(normaliserIp('::ffff:c0a8:184'), '192.168.50.10');
+    assert.equal(normaliserIp('[::FFFF:192.168.50.10]'), '192.168.50.10');
+    assert.equal(normaliserIp('0:0:0:0:0:ffff:7f00:1'), '127.0.0.1');
+    assert.equal(normaliserIp('2001:db8::1'), '2001:db8::1');          // non mappée : intacte
+    for (const u of ['http://[::ffff:c0a8:184]:47003/', 'http://[::ffff:192.168.50.10]/',
+                     'http://[0:0:0:0:0:ffff:c0a8:184]/', 'http://[::ffff:ac11:1]/']) {
+        assert.ok(await motifUrl(u, { hote: HOTE }), `${u} devrait être refusée`);
+    }
+    // Adresse de l'hôte en IPv6 écrite autrement que dans l'interface.
+    const h6 = hoteDepuisInterfaces({ eth0: [{ address: '2001:db8:0:0::7', cidr: '2001:db8::7/64' }] });
+    assert.ok(motifIp('2001:db8::7', { hote: h6 }));
+});

@@ -99,3 +99,56 @@ test('vérificateur de service : toutes les adresses résolues sont jugées', as
     assert.equal((await v('127.0.0.1', 80)).ok, false);                 // adresse littérale
     assert.equal((await v('introuvable.example', 80)).ok, false);
 });
+
+test('un client qui coupe (RST) pendant le jugement ne fait pas tomber le service', async () => {
+    let libere;
+    const attente = new Promise(r => { libere = r; });
+    const lent = async (hote) => { await attente; return verifier(hote); };
+    const relais = await demarrerRelais({ verifier: lent });
+    const erreurs = [];
+    const capter = (e) => erreurs.push(e);
+    process.on('uncaughtException', capter);
+    try {
+        for (const premiere of [
+            (c) => `CONNECT permis.test:443 HTTP/1.1\r\nHost: permis.test:443\r\n\r\n`,
+            (c) => 'GET http://permis.test/ws HTTP/1.1\r\nHost: permis.test\r\nConnection: Upgrade\r\n'
+                 + 'Upgrade: websocket\r\n\r\n',
+        ]) {
+            await new Promise((resolve) => {
+                const s = net.connect(relais.port, '127.0.0.1', () => {
+                    s.write(premiere(s));
+                    setTimeout(() => { s.resetAndDestroy(); resolve(); }, 50);
+                });
+                s.on('error', () => {});
+            });
+        }
+        libere();
+        await new Promise(r => setTimeout(r, 100));
+        assert.deepEqual(erreurs, []);
+        // Le relais répond toujours.
+        const r = await viaRelais(relais.port, 'http://interdit.test/');
+        assert.equal(r.status, 403);
+    } finally {
+        process.removeListener('uncaughtException', capter);
+        await relais.close();
+    }
+});
+
+test('vérificateur de service : verdicts gardés brièvement, négatifs compris', async () => {
+    let t = 0, appels = 0;
+    const v = verifierDepuisPolitique({
+        resoudre: async (nom) => { appels++; if (nom === 'absent.test') throw new Error('ENOTFOUND'); return ['93.184.216.34']; },
+        motifIp: () => null, cacheMs: 1000, cacheNegatifMs: 500, maintenant: () => t,
+    });
+    assert.equal((await v('ok.test', 443)).ok, true);
+    assert.equal((await v('ok.test', 443)).ok, true);
+    assert.equal((await v('absent.test', 443)).ok, false);
+    assert.equal((await v('absent.test', 443)).ok, false);
+    assert.equal(appels, 2);
+    t = 600;                                   // négatif expiré, positif encore valable
+    await v('absent.test', 443); await v('ok.test', 443);
+    assert.equal(appels, 3);
+    t = 1200;
+    await v('ok.test', 443);
+    assert.equal(appels, 4);
+});

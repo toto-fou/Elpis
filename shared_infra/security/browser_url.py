@@ -157,7 +157,13 @@ def browser_url_block_reason(url: str, *, allowlist: Union[str, Iterable[str], N
         return f"adresse réservée à l'hôte ou au réseau local de la machine ({nom})"
     # Identifiants dans l'URL : permis au navigateur (authentification HTTP),
     # retirés avant le contrôle commun, qui les refuse par principe.
-    sans_id = urlunsplit((p.scheme, nom + (f":{p.port}" if p.port else ""), p.path, p.query, ""))
+    try:
+        port = p.port
+    except ValueError:
+        return "adresse mal formée"
+    # IPv6 littérale : crochets obligatoires dans la partie hôte d'une URL.
+    hote_url = f"[{nom}]" if ":" in nom else nom
+    sans_id = urlunsplit((p.scheme, hote_url + (f":{port}" if port else ""), p.path, p.query, ""))
     motif = block_remote_url_reason(sans_id, allow_schemes=("http", "https"), critical_only=True)
     if motif and not motif.startswith("unresolvable_host"):
         return f"adresse réservée à l'hôte ou au réseau local de la machine ({motif})"

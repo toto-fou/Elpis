@@ -162,3 +162,33 @@ def test_detection_ax_transmet_le_proprietaire(monkeypatch):
     assert detect_session_url(msgs) is None and demandes == []          # sans compte : rien
     assert detect_session_url(msgs, owner="alice") == "https://exemple.org/"
     assert "owner=alice" in demandes[0] and "session_id=abcdef12" in demandes[0]
+
+
+@pytest.mark.parametrize("url", ["http://[::ffff:c0a8:184]/", "http://[::ffff:192.168.50.10]:8080/",
+                                 "http://[::1]:3000/", "http://[fe80::1]/"])
+def test_ipv6_litterales_jugees(url):
+    """Hôte IPv6 littéral : reconstruit avec crochets, jugé (plus d'exception
+    avalée qui laissait passer, plus de motif « sans hôte »)."""
+    m = motif(url)
+    assert m and "sans hôte" not in m
+
+
+def test_ipv6_publique_permise():
+    assert motif("http://[2001:4860:4860::8888]/") is None
+
+
+def test_start_avec_un_identifiant_inconnu_n_est_pas_refuse(monkeypatch):
+    from llm_core.tools import firefox_tools as F
+    from tests.llm_core._pw_harness import CTX, FakeMCP
+    mcp = FakeMCP()
+    F.register(mcp)
+    monkeypatch.setattr(F, "_AX_ENABLED", False)
+    monkeypatch.setattr("llm_core._pw_session.get_pw_session_owner", lambda sid: None)
+    appels = []
+    monkeypatch.setattr(F, "_req", lambda *a, **k: appels.append(a) or {"ok": True, "session_id": "S9"})
+    r = mcp.tools["pw_session"](CTX, "start", session_id="S_PERIMEE", url="https://exemple.org/")
+    assert not (isinstance(r, dict) and r.get("code") == "not_your_session")
+    assert appels and appels[0][1] == "/start"
+    # Les autres actions restent refusées sur une session inconnue.
+    r = mcp.tools["pw_session"](CTX, "stop", session_id="S_PERIMEE")
+    assert r["ok"] is False

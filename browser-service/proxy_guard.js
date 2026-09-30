@@ -60,6 +60,7 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
 
     // Requêtes http en clair (forme absolue : GET http://hote:port/chemin).
     serveur.on('request', async (req, res) => {
+        req.on('error', () => {});      // client parti pendant le jugement : rien à faire
         let cible;
         try { cible = new URL(req.url); } catch (_) { cible = null; }
         if (!cible || cible.protocol !== 'http:') {
@@ -90,13 +91,21 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
             r.pipe(res);
         });
         amont.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
+        // Le navigateur abandonne (onglet fermé, flux long coupé) : la
+        // connexion amont ne doit pas lui survivre.
+        res.on('close', () => { if (!amont.destroyed) amont.destroy(); });
         req.pipe(amont);
     });
 
     // Tunnels (https, wss) : CONNECT hote:port.
     serveur.on('connect', async (req, client, tete) => {
+        // AVANT tout await : pendant l'événement, Node retire son propre
+        // écouteur d'erreur du socket ; une coupure du client pendant le
+        // jugement ferait sinon tomber tout le service.
+        client.on('error', () => client.destroy());
         const hp = _hotePort(req.url, 443);
         const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'adresse mal formée' };
+        if (client.destroyed) return;
         if (!v.ok) {
             journal(`refus tunnel ${req.url} : ${v.motif}`);
             client.end('HTTP/1.1 403 Forbidden\r\ncontent-length: 0\r\n\r\n');
@@ -115,10 +124,12 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
 
     // ws:// sans tunnel : mise à niveau en forme absolue.
     serveur.on('upgrade', async (req, client, tete) => {
+        client.on('error', () => client.destroy());      // avant tout await (cf. CONNECT)
         let cible;
         try { cible = new URL(req.url); } catch (_) { cible = null; }
         const hp = cible ? _hotePort(cible.host, 80) : null;
         const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'adresse mal formée' };
+        if (client.destroyed) return;
         if (!v.ok) { client.end('HTTP/1.1 403 Forbidden\r\ncontent-length: 0\r\n\r\n'); return; }
         const amont = net.connect(hp.port, v.adresse, () => {
             const lignes = [`${req.method} ${cible.pathname + cible.search} HTTP/1.1`];
@@ -153,8 +164,14 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
  * ``resoudre`` : ``async (nom) => [adresses]`` ; ``motifIp`` : ``(ip, nom) =>
  * motif|null``.
  */
-export function verifierDepuisPolitique({ resoudre, motifIp }) {
-    return async (hote, _port) => {
+export function verifierDepuisPolitique({ resoudre, motifIp, cacheMs = 10000, cacheNegatifMs = 5000,
+                                         max = 2000, maintenant = () => Date.now() }) {
+    // Verdicts par nom, courts (négatifs compris) : une page ouvre des dizaines
+    // de connexions vers les mêmes hôtes, et un résolveur injoignable (site
+    // hors ligne) occuperait sinon le pool de threads à chaque connexion. La
+    // connexion se fait toujours à l'adresse JUGÉE, cache ou non.
+    const cache = new Map();
+    async function _juger(hote) {
         const litteral = net.isIP(hote) ? [hote] : null;
         let adresses;
         try { adresses = litteral || await resoudre(hote); } catch (_) {
@@ -166,5 +183,14 @@ export function verifierDepuisPolitique({ resoudre, motifIp }) {
             if (m) return { ok: false, motif: m };
         }
         return { ok: true, adresse: adresses[0] };
+    }
+    return async (hote, _port) => {
+        const t = maintenant();
+        const e = cache.get(hote);
+        if (e && t < e.expire) return e.v;
+        const v = await _juger(hote);
+        if (cache.size >= max) cache.delete(cache.keys().next().value);
+        cache.set(hote, { v, expire: t + (v.ok ? cacheMs : cacheNegatifMs) });
+        return v;
     };
 }

@@ -694,7 +694,11 @@ Switch between tabs with pw_page(action="tab_switch", index=N).
 
 SYNONYMS (all pw_* tools): action= == op= == do=, value= == v=, target= == selector=."""
         _username = get_username(ctx)
-        _refus = _refus_session_d_autrui(session_id, _username)
+        # ``start`` n'utilise pas ``session_id`` (il retrouve l'instance du
+        # compte et réenregistre sa propriété) : un identifiant inconnu ou
+        # périmé ne doit pas l'empêcher. Le propriétaire est posé quand même.
+        _refus = (_refus_session_d_autrui(None, _username) if action == "start"
+                  else _refus_session_d_autrui(session_id, _username))
         if _refus is not None:
             return _refus
         if action == "start":

@@ -10,7 +10,7 @@
 // ============================================================
 'use strict';
 
-const { t, fin, assert } = require('./lib/harnais.js');
+const { t, ta, fin, assert } = require('./lib/harnais.js');
 const { charger, depuisBac } = require('./lib/charger.js');
 
 const vus = [];
@@ -62,4 +62,17 @@ t('console : le mode admin lit les routes admin et suit la navigation', () => {
     assert.equal(vus[2], '/api/runs/chat-m/timeline');
 });
 
+(async () => {
+await ta('une réponse en échec arrivée après fermeture ne rouvre rien', async () => {
+    let rejeter;
+    const E = C.fabrique('setupRunDetails', [null, { fetchAuth: () => new Promise((_, r) => { rejeter = r; }) }]);
+    const p = E.showRunDetails('chat-q', ['chat-q']);
+    E.closeRunDetails();
+    rejeter(new Error('réseau'));
+    await p;
+    assert.equal(E.runDetails.value, null);
+    assert.equal(E.runDuration(523.4128), '523 ms');
+});
+
 fin('test_run_details.js');
+})();

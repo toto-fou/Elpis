@@ -101,3 +101,21 @@ def test_widgets_attente_llm_et_cache_kv(tmp_path, monkeypatch):
     assert {"kpi_llm_wait", "kpi_kv_prefix_reuse"} <= ids
     # Activables depuis le sélecteur, pas ajoutés au tableau de bord par défaut.
     assert not ({"kpi_llm_wait", "kpi_kv_prefix_reuse"} & DEFAULT_WIDGETS)
+
+
+def test_jalon_refuse_les_nombres_non_finis_ou_demesures():
+    c = _compaction_pour_message({"tokens_before": float("inf"), "tokens_after": float("nan"),
+                                  "threshold": 1e300, "round": -1, "ctx_size": 8192})
+    assert c == {"ctx_size": 8192}
+
+
+def test_continuer_decale_le_round_des_compactions_de_la_reprise():
+    prev = {"tool_history_delta": True, "compactions": [{"round": 1}], "tool_history": [
+        {"role": "assistant", "tool_calls": [{"id": "a"}]}, {"role": "tool", "tool_call_id": "a"},
+        {"role": "assistant", "tool_calls": [{"id": "b"}]}, {"role": "tool", "tool_call_id": "b"},
+    ]}
+    msg = {"compactions": [{"round": 1, "reason": "overflow"}]}
+    _merge_prev_segment_lists(prev, msg)
+    # 2 rounds dans le tronc : la compaction faite après le 1er round de la
+    # reprise se place après le 3e round de la tool_history rechargée.
+    assert [c["round"] for c in msg["compactions"]] == [1, 3]

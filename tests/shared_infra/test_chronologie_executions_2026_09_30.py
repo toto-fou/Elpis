@@ -96,3 +96,13 @@ def test_masquage():
     assert "pwd" not in m("https://user:pwd@git.lan/r.git")
     assert m("pcr_" + "a" * 30) == "***"
     assert m("rien de secret") == "rien de secret"
+
+
+def test_masquage_formes_courantes_de_stdout():
+    m = T.masquer
+    # stdout d'un outil encodé en JSON (guillemets échappés), apostrophes,
+    # valeur avec espaces, clé privée coupée par la borne du résultat.
+    assert "hunter2" not in m('PASSWORD=\\"hunter2\\" x')
+    assert "w0rd" not in m('{\\"db_password\\": \\"p@ss w0rd\\", \\"a\\": 1}')
+    assert "s3cr3t" not in m("PGPASSWORD='s3cr3t' psql")
+    assert "MIIabc" not in m("-----BEGIN RSA PRIVATE KEY-----\nMIIabc")

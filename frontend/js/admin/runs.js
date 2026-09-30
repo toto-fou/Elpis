@@ -78,7 +78,7 @@ function setupAdminRuns(vue, sharedRefs, ctx) {
     }
 
     function admRunsDuration(ms) {
-        const n = Number(ms) || 0;
+        const n = Math.round(Number(ms) || 0);
         if (n < 1000) return n + ' ms';
         if (n < 60000) return (n / 1000).toFixed(1).replace('.', ',') + ' s';
         if (n < 3600000) return Math.floor(n / 60000) + ' min ' + Math.round((n % 60000) / 1000) + ' s';

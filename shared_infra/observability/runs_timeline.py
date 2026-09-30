@@ -136,11 +136,15 @@ def timeline(run: Dict[str, Any]) -> Dict[str, Any]:
 # ── Export : secrets masqués ────────────────────────────────────────────────
 _SECRETS = [
     re.compile(r"(?i)\b(authorization|proxy-authorization)\s*[:=]\s*(bearer|basic|token)?\s*[^\s\"',;]+"),
+    # clé sensible, séparateur (guillemets éventuellement échappés : stdout
+    # JSON d'un outil), puis valeur entre guillemets (espaces compris) ou nue.
     re.compile(r"(?i)\b([a-z0-9_]*(?:token|secret|password|passwd|api[_-]?key|access[_-]?key)[a-z0-9_]*)"
-               r"(\"?\s*[:=]\s*\"?)[^\s\"',;&]+"),
+               r"(\\?[\"']?\s*[:=]\s*)"
+               r"(\\?\"(?:[^\"\\]|\\(?!\"))*\\?\"|'[^']*'|[^\s\"',;&\\]+)"),
     re.compile(r"\b(?:pcr|ept|evt|ghp|gho|ghs|glpat|xox[abp]|sk|sk-ant)[-_][A-Za-z0-9_\-]{12,}"),
     re.compile(r"(?i)(https?://)[^/\s:@]+:[^/\s@]+@"),
-    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
+    # Fin optionnelle : un extrait tronqué (résultat borné) garde le début.
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----|[\s\S]*$)"),
 ]
 
 

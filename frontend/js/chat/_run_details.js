@@ -37,6 +37,9 @@
             runDetails.value = { runId, ids: liste, admin, loading: true, error: '', data: null, open: {} };
             try {
                 const r = await _fetch(_base(admin) + encodeURIComponent(runId) + '/timeline', {}, true);
+                // Modale fermée ou autre onglet demandé entre-temps : cette
+                // réponse n'a plus le droit d'écrire (succès comme échec).
+                if (!runDetails.value || runDetails.value.runId !== runId) return;
                 if (!r || !r.ok) {
                     runDetails.value = Object.assign({}, runDetails.value, { loading: false,
                         error: (r && r.status === 404) ? 'Détails indisponibles (exécution purgée ou antérieure à cette version).'
@@ -48,6 +51,7 @@
                     runDetails.value = Object.assign({}, runDetails.value, { loading: false, data });
                 }
             } catch (_) {
+                if (!runDetails.value || runDetails.value.runId !== runId) return;
                 runDetails.value = Object.assign({}, runDetails.value, { loading: false,
                     error: 'Détails indisponibles (réseau).' });
             }
@@ -70,7 +74,7 @@
         }
 
         function runDuration(ms) {
-            const n = Number(ms) || 0;
+            const n = Math.round(Number(ms) || 0);
             if (n < 1000) return n + ' ms';
             if (n < 60000) return (n / 1000).toFixed(1).replace('.', ',') + ' s';
             return Math.floor(n / 60000) + ' min ' + Math.round((n % 60000) / 1000) + ' s';

@@ -4181,7 +4181,10 @@ async def _run_chat_multi_mcp_impl(
         if _key == _hs_last_status_key:
             return
         _hs_last_status_key = _key
-        _hs_sandbox_limits = ""
+        # Annoncées une fois : seulement si CETTE ligne les portait (l'alerte
+        # du plafond d'échecs ne les porte pas).
+        if _hs_sandbox_limits and "Sandbox limits:" in _hs:
+            _hs_sandbox_limits = ""
         # ÉPHÉMÈRE : jamais persisté, donc jamais compté comme un tour
         # (sans quoi ``covered_turns`` sur-compte à la compaction et le
         # tour suivant jette de vrais tours en trop — cf. P1-6).

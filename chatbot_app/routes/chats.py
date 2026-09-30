@@ -50,6 +50,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import re
 import secrets
 import time
@@ -1260,7 +1261,10 @@ def _compaction_pour_message(c: dict) -> dict:
     out: dict = {}
     for k in _COMPACTION_NOMBRES:
         v = c.get(k)
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
+        # Bornes : le client renvoie ces jalons au tour suivant (Infinity,
+        # NaN ou 1e300 passent json.loads).
+        if isinstance(v, (int, float)) and not isinstance(v, bool) \
+                and math.isfinite(v) and 0 <= v < 10**9:
             out[k] = int(v)
     for k, n in (("reason", 32), ("path", 32), ("model_used", 120)):
         v = c.get(k)
@@ -1271,10 +1275,26 @@ def _compaction_pour_message(c: dict) -> dict:
     return out
 
 
+def _rounds_d_outils(tool_history) -> int:
+    """Rounds d'outils (messages assistant porteurs de ``tool_calls``) d'une
+    ``tool_history`` — l'unité du ``round`` d'un jalon de compaction."""
+    return sum(1 for h in (tool_history or []) if isinstance(h, dict)
+               and h.get("role") == "assistant" and h.get("tool_calls"))
+
+
 def _merge_prev_segment_lists(prev_msg: dict, msg: dict) -> None:
     """« Continuer » : les ``task_runs`` et les exécutions (``run_ids``) du
     segment tronqué passent EN TÊTE de ceux de la continuation (sans
     doublon). Mute ``msg``."""
+    # Jalons de compaction de la continuation : leur ``round`` compte depuis
+    # la reprise ; la tool_history rechargée = tronc + delta → décalage du
+    # nombre de rounds du tronc (format delta seulement, le legacy est
+    # cumulatif et ne se recompte pas).
+    if prev_msg.get("tool_history_delta") and isinstance(msg.get("compactions"), list):
+        _dec = _rounds_d_outils(prev_msg.get("tool_history"))
+        if _dec:
+            msg["compactions"] = [({**c, "round": int(c.get("round") or 0) + _dec}
+                                   if isinstance(c, dict) else c) for c in msg["compactions"]]
     for _k in ("task_runs", "run_ids", "compactions"):
         _anc = prev_msg.get(_k) if isinstance(prev_msg.get(_k), list) else []
         if not _anc:
@@ -3044,7 +3064,10 @@ async def api_chat_saved_stream3(request: Request):
         # (motif, seuil, avant → après) survit au rechargement.
         _compactions_acc: list = []
         _compaction_en_cours: dict = {}
-        _tours_vus: dict = {"n": 0}      # tours LLM déjà faits → place du jalon au rechargement
+        # Rounds d'outils déjà faits (un appel LLM suivi d'au moins un
+        # tool_call) → place du jalon au rechargement, dans l'unité de
+        # _tool_segments.js. ``iteration`` arme, le 1er tool_call compte.
+        _tours_vus: dict = {"n": 0, "arme": False}
         _partial_thinking_acc: list = []
         # Dernière tool_history cumulée émise par run_chat_multi_mcp juste avant de
         # propager une annulation (event interne ``tool_history_partial``). Liste
@@ -3115,8 +3138,11 @@ async def api_chat_saved_stream3(request: Request):
                     "ledger_block":     ev.get("ledger_block") or "",
                 })
                 return
-            if _evt == "iteration":           # un par appel LLM (``n`` ne compte que les productifs)
+            if _evt == "iteration":
+                _tours_vus["arme"] = True
+            elif _evt == "tool_call" and _tours_vus["arme"]:
                 _tours_vus["n"] += 1
+                _tours_vus["arme"] = False
             elif _evt == "compression_start":
                 _compaction_en_cours.clear()
                 _compaction_en_cours.update(reason=ev.get("reason"), threshold=ev.get("threshold"),
@@ -3125,7 +3151,7 @@ async def api_chat_saved_stream3(request: Request):
                 _st = ev.get("stats") if isinstance(ev.get("stats"), dict) else {}
                 if _st.get("compressed"):
                     _compactions_acc.append(_compaction_pour_message(
-                        {**_compaction_en_cours, **_st, "path": ev.get("path")}))
+                        {**_st, **_compaction_en_cours, "path": ev.get("path")}))
                 _compaction_en_cours.clear()
             # Relevé AVANT le filtre d'annulation : une écriture faite reste
             # faite, même si son résultat n'est plus montré.

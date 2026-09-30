@@ -245,3 +245,40 @@ def test_connexions_simultanees_bornees(tmp_path, amont):
             de_trop.close()
             for s in ouvertes:
                 s.close()
+
+
+def test_connexions_sans_ticket_bornees(tmp_path, amont, monkeypatch):
+    """Relais : une connexion qui ne présente pas de ticket est fermée après
+    ``_PREAMBULE_S`` ; au-delà de ``_CONNEXIONS_SERVEUR`` connexions en cours,
+    la suivante est fermée d'emblée."""
+    import time
+    dossier = tmp_path / "relais"
+    monkeypatch.setattr(git_relay, "_PREAMBULE_S", 0.3)
+    monkeypatch.setattr(git_relay, "_CONNEXIONS_SERVEUR", 3)
+    with git_relay.ticket(dossier, uid=1, url=amont.url, service=git_relay.UPLOAD,
+                          auth=BASIC) as (relay, _refus):
+        srv = git_relay._serveurs[str(dossier)]
+        muette = socket.socket(socket.AF_UNIX)
+        muette.settimeout(5)
+        muette.connect(str(dossier / relay["socket"]))
+        debut = time.monotonic()
+        assert muette.recv(1) == b"" and time.monotonic() - debut < 3
+        muette.close()
+        _attendre(lambda: srv._actives == 0)
+        monkeypatch.setattr(git_relay, "_PREAMBULE_S", 5.0)
+        ouvertes = []
+        for _ in range(3):
+            s = socket.socket(socket.AF_UNIX)
+            s.connect(str(dossier / relay["socket"]))
+            ouvertes.append(s)
+        _attendre(lambda: srv._actives == 3)
+        de_trop = socket.socket(socket.AF_UNIX)
+        de_trop.settimeout(5)
+        de_trop.connect(str(dossier / relay["socket"]))
+        assert de_trop.recv(1) == b""
+        de_trop.close()
+        for s in ouvertes:
+            s.close()
+        _attendre(lambda: srv._actives == 0)
+        ligne = "GET /depot.git/info/refs?service=git-upload-pack HTTP/1.1"
+        assert _requete(dossier, relay["socket"], relay["ticket"], ligne).startswith(b"HTTP/1.1 200")

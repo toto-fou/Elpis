@@ -33,7 +33,7 @@ import time
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
-from typing import Callable, Dict, FrozenSet, Iterable, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, FrozenSet, Iterable, Iterator, List, Optional, Tuple
 from urllib.parse import urlsplit
 
 import httpx
@@ -44,6 +44,8 @@ UPLOAD, RECEIVE = "git-upload-pack", "git-receive-pack"
 _PREAMBULE = re.compile(rb"ELPIS-RELAY/1 ([A-Za-z0-9_-]{20,128})\r\n")
 _COMMANDES_MAX = 1 << 20              # début d'un push lu avant relais (commandes)
 _CONNEXIONS_MAX = 8                   # requêtes servies en même temps, par ticket
+_CONNEXIONS_SERVEUR = 64              # connexions ouvertes en même temps, tous tickets
+_PREAMBULE_S = 5.0                    # délai pour présenter le ticket
 _ENTETES_REQUETE = frozenset({"accept", "accept-encoding", "accept-language", "content-type",
                               "content-encoding", "git-protocol", "user-agent", "pragma"})
 _ENTETES_REPONSE = frozenset({"content-type", "content-encoding", "content-length",
@@ -182,11 +184,16 @@ class _Gestionnaire(BaseHTTPRequestHandler):
         pass
 
     def handle(self) -> None:
-        m = _PREAMBULE.fullmatch(self.rfile.readline(256))
+        self.connection.settimeout(_PREAMBULE_S)
+        try:
+            m = _PREAMBULE.fullmatch(self.rfile.readline(256))
+        except OSError:
+            return
         self.ticket = _registre.entrer(m.group(1).decode("ascii")) if m else None
         if self.ticket is None:
             return                                      # fermé sans réponse
         try:
+            self.connection.settimeout(self.timeout)
             self.close_connection = True
             self.handle_one_request()
         finally:
@@ -325,9 +332,34 @@ class _Serveur(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     def handle_error(self, request: object, client_address: object) -> None:
         logger.debug("[git-relay] requête abandonnée", exc_info=True)
 
+    def process_request(self, request: Any, client_address: Any) -> None:
+        """Au-delà de ``_CONNEXIONS_SERVEUR`` connexions en cours, la nouvelle
+        est fermée sans fil ni lecture."""
+        with self._verrou_actives:
+            libre = self._actives < _CONNEXIONS_SERVEUR
+            self._actives += libre
+        if not libre:
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            with self._verrou_actives:
+                self._actives -= 1
+            raise
+
+    def process_request_thread(self, request: Any, client_address: Any) -> None:
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            with self._verrou_actives:
+                self._actives -= 1
+
     def __init__(self, dossier: Path) -> None:
         self.nom = f"{os.getpid()}.sock"
         self.pid = os.getpid()
+        self._actives = 0
+        self._verrou_actives = threading.Lock()
         super().__init__(self.nom, _Gestionnaire, bind_and_activate=False)
         # Lié par le dossier ouvert : chemin court quelle que soit sa longueur.
         fd = os.open(dossier, os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC)

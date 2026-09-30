@@ -6,10 +6,11 @@ décomposés ou bidirectionnels, dossier remplacé par un lien pendant un
 parcours, dépôt Git piégé — ne doit ni bloquer l'hôte, ni lui faire lire ou
 modifier autre chose que ce qui est demandé.
 
-Les opérations passent par un adaptateur paramétré par CHEMIN D'EXÉCUTION :
-« hote » aujourd'hui (les outils de l'agent lancés côté serveur) ; l'agent
-résident de la sandbox (lot L4) ajoutera le sien, et ces tests lui serviront
-de recette.
+Les opérations passent par un adaptateur paramétré par CHEMIN D'EXÉCUTION.
+Depuis L4.2 il n'y en a plus qu'un : « agent », les outils fichiers passent
+par l'agent de la sandbox — ici en processus, sur le disque de l'hôte (la
+suite n'exige pas Docker). La recette en vrai conteneur de L4 est décrite
+dans docs/sandbox-gateway.md, « Recette » ; elle ne rejoue pas cette matrice.
 """
 from __future__ import annotations
 
@@ -39,8 +40,9 @@ class _FakeMCP:
         return deco
 
 
-class HostOps:
-    """Chemin « hote » : les outils fichiers de l'agent, exécutés sur l'hôte."""
+class AgentOps:
+    """Chemin « agent » : les outils fichiers, qui passent par l'agent de la
+    sandbox (L4.2)."""
 
     def __init__(self, tools, work):
         self.tools, self.work = tools, work
@@ -58,7 +60,7 @@ class HostOps:
         return self.tools["write_file"](None, path=path, content=content)
 
 
-@pytest.fixture(params=["hote"])
+@pytest.fixture(params=["agent"])
 def ops(request, tmp_path, monkeypatch):
     base = tmp_path / "sandboxes"
     work = base / "guest" / "work"
@@ -69,7 +71,7 @@ def ops(request, tmp_path, monkeypatch):
     hote = tmp_path / "hote"
     hote.mkdir()
     (hote / "secret.txt").write_text(SECRET + "\n")
-    o = HostOps(mcp.tools, work)
+    o = AgentOps(mcp.tools, work)
     o.hote = hote
     return o
 

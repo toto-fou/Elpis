@@ -113,6 +113,35 @@ sans suivre de lien (`shared_infra/sandbox/paths.py`).
 - L'historique d'un fichier (éditeur) se lit par l'agent : il démarre le
   conteneur au besoin.
 
+## Recette en vrai conteneur (2026-09-30)
+
+Image 1.7.0 approchée (`elpis/sandbox:1.6.0` + changements de D6 et L4.6 :
+ping sans capacité, `/work` en 0755, umask 0022, nouvel entrypoint ; le build
+complet de 1.7.0 reste à faire), chaîne L4.4 → L4.6 corrigée :
+
+- conteneur démarré en 1,2 s, agent lancé à la demande en 0,3 s, Python
+  3.11.2, UID 10001, aucune capacité effective ;
+- droits hérités repris une fois (fichier 0666 → 0644 à l'UID du conteneur,
+  dossier 0777 → 0755), écritures de l'agent en 0644 ;
+- git dans le conteneur (init, commit, status), sans smudge LFS ; clone et
+  fetch par le relais (40 ms le fetch) ;
+- zip à l'heure locale de l'hôte, en-tête pax démesuré refusé, entrée de
+  root impossible à effacer mise de côté sans perte, motif « leave »
+  respecté ; purge d'un compte (115 ms).
+
+Latence par opération de l'agent (médiane de 20, même machine) :
+
+| Opération | Médiane | p90 |
+|---|---|---|
+| `hello` | 1,4 ms | 1,8 ms |
+| `stat` (1 chemin) | 1,5 ms | 1,7 ms |
+| `read` 4 Kio | 1,5 ms | 1,7 ms |
+| `write` 4 Kio | 1,6 ms | 1,9 ms |
+| `list` (100 entrées) | 2,7 ms | 3,6 ms |
+| `readmany` (10 fichiers) | 2,0 ms | 2,1 ms |
+| `fsop` mkdir puis remove | 3,1 ms | 5,1 ms |
+| `git status` (médiane de 10) | 3,2 ms | 5,6 ms |
+
 ## Tests
 
 `tests/shared_infra/` : `test_agent_sandbox_2026_09_29.py` (agent et

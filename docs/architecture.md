@@ -1460,8 +1460,8 @@ service depuis une URL), `POST /{id}/test`, `GET /{id}/repos`.
 | `POST /api/terminal/input` · `/resize` · `/kill` | Session par défaut (legacy) |
 | `GET /api/admin/terminal/stats` | Statistiques (admin) |
 
-`pty.fork()` côté serveur, wrapper `umask 0000` pour rester cohérent avec les
-écritures de l'éditeur, quota vérifié pendant l'exécution (le PTY est tué si le
+`pty.fork()` côté serveur, `umask 0022` (fichiers 0644, dossiers 0755, comme
+l'agent et les commandes), quota vérifié pendant l'exécution (le PTY est tué si le
 quota explose), reaper des sessions inactives par worker.
 
 ---
@@ -2005,8 +2005,10 @@ Six outils volontairement larges plutôt que quinze étroits : `read_file`,
 (intelligence de code — définitions, références, symboles — via
 `FileSystemLib/code_intel*` avec tree-sitter quand disponible).
 
-Toutes les opérations sont confinées à la sandbox de l'utilisateur
-(`shared_infra/sandbox/paths.py` › `resolve_under`).
+Toutes les opérations s'exécutent dans la sandbox de l'utilisateur, par
+l'agent de son conteneur (`llm_core/tools/_espace.py`) ; les chemins sont
+ramenés sous `/work` par `shared_infra/sandbox/paths.py` › `lexical_rel`,
+les liens résolus par l'agent.
 
 ### Terminal (`shell_tools`)
 
@@ -2259,17 +2261,15 @@ Définis par l'admin dans `executors.network_profiles` :
 - `elpis.netcfg` sert de marqueur de dérive : si la config du profil change, le
   conteneur est reconfiguré.
 
-### Cohérence des permissions
+### Droits de `/work`
 
-Racine `<racine>/user_sandboxes` (ou `APP_SANDBOX_DIR`). `setfacl` n'est pas
-disponible : la cohérence repose sur `umask 0000` côté PTY, un wrapper
-d'entrypoint (`mode 0002` → fichiers 0664 / dossiers 0775), et une passe de
-réparation one-shot par sandbox marquée par `_PERMS_MARKER` (`chmod -R o+rwX`),
-qui répare **les deux sens** (fichiers écrits par le conteneur non modifiables
-par l'hôte, et inversement).
-
-> ⚠ `sandbox_grant_access` a longtemps été un **no-op** (mauvaise arité, erreur
-> avalée) — d'où le marqueur v3. Ne pas s'y fier sans vérifier.
+Racine `<racine>/user_sandboxes` (ou `APP_SANDBOX_DIR`). Un seul UID écrit
+dans `/work`, celui du conteneur : l'agent, les commandes (`sb.exec`) et le
+terminal travaillent en umask 0022 (fichiers 0644, dossiers 0755). Au
+démarrage, le root du conteneur rend `/work` à cet UID en 0755 ; une fois
+par compte (marqueur `.work-modes-v1` à `P`), il reprend tout l'arbre
+hérité de l'ancien élargissement 0666 / 0777 (`chown -R`, `chmod -R go-w`,
+`UserSandbox._reconcile_work_modes`).
 
 ---
 
@@ -2515,7 +2515,7 @@ lifespan — indépendante de l'état de la feature Routines.
 | **En-têtes de sécurité** | `shared_infra/security/headers.py` | `nosniff`, `Referrer-Policy`, `frame-ancestors` posés s'ils sont absents |
 | **Anti-SSRF** | `shared_infra/git/ssrf.py`, `shared_infra/routes/tools.py` | URLs Git distantes, diagnostic AX |
 | **Uploads bornés** | `shared_infra/files/uploads.py` | Lecture par chunks avec interruption au dépassement |
-| **Path traversal** | `shared_infra/sandbox/paths.py` › `resolve_under` | Point de passage unique |
+| **Path traversal** | `shared_infra/sandbox/paths.py` › `lexical_rel` ; liens résolus par l'agent du conteneur | Point de passage unique |
 | **Toolhost** | `toolhost/auth.py` | Hors `/health`, deux preuves : jeton de service en Bearer (`user_db/.local_mcp_token`) et identité signée (`X-Elpis-Identity`, HMAC du jeton, horodatage borné, `shared_infra/accounts/identity.py`). `/mcp*` exige le Bearer |
 | **Frontière shell** | conteneur Docker | Le sandbox **est** la frontière ; pas de policy applicative |
 

@@ -219,12 +219,11 @@ Un conteneur Docker **par utilisateur** (`elpis-sb-<utilisateur>`, étiquettes
 dossier de l'utilisateur monté sur `/work`, réseau coupé sauf profil réseau
 attribué, limites mémoire / CPU / processus, seules les capacités nécessaires
 (`CAPABILITIES`, sans `NET_RAW` ni `MKNOD`). Le
-conteneur est la frontière de sécurité. Côté hôte, tout accès au contenu de
-`/work` passe par les primitives `*_beneath` de `sandbox/paths.py`
-(`open_beneath`, `stat_beneath`, `walk_beneath`, `write_beneath`…) : chaque
-composant est ouvert relativement à son dossier, sans suivre de lien, même
-posé pendant l'opération, et le type d'une entrée est vérifié avant de
-l'ouvrir en lecture. Git tourne dans le conteneur, par l'agent
+conteneur est la frontière de sécurité : toute opération sur `/work` s'y
+exécute, par son agent (ci-dessous), sous l'UID du conteneur, seul à y
+écrire (fichiers 0644, dossiers 0755). L'hôte ne lit ni n'écrit `/work`
+(exceptions : `du` du quota, suppression d'un compte, création de
+`P/work` ; cf. `docs/sandbox-gateway.md`). Git tourne dans le conteneur, par l'agent
 (`sandbox/git_ops.py`) ; ses opérations réseau passent par le relais
 authentifiant de l'hôte (`sandbox/git_relay.py`) : un ticket par opération,
 le seul dépôt de l'opération joignable, l'identifiant du connecteur ajouté
@@ -236,8 +235,7 @@ standard) exécute les opérations sur `/work` que l'hôte lui demande : HTTP su
 lecture seule depuis l'application, démarré à la demande sous l'UID du
 conteneur, relancé s'il n'a pas la version de l'application. L'hôte le joint
 par `sandbox/agent_client.py`, qui saisit le socket sans suivre de lien et
-tient toute réponse pour non fiable. Les accès de l'hôte au contenu de `/work`
-passent par lui au fil de la migration.
+tient toute réponse pour non fiable.
 
 ## Invariants
 
@@ -274,13 +272,12 @@ passent par lui au fil de la migration.
   une migration met aussi à jour `_schema.py` et `BASELINE_COVERS`.
 - **Tâches planifiées** (routines, entretien, sauvegardes) : sur le seul
   worker leader (`scheduling/cron_lock.py`), jamais dans le process admin.
-- **Sandbox** : le conteneur est la barrière ; outils fichiers, éditeur et Git
-  passent par l'agent du conteneur (`sandbox/agent_client.py`, `git_ops.py`) ;
-  ce qui touche encore `/work` depuis l'hôte n'y accède que par les
-  primitives de `sandbox/paths.py`, jamais par `open`, `os.walk`, `chmod` ou
-  `unlink` sur un chemin ; aucun `git` côté hôte sur un dépôt de sandbox ;
-  tout conteneur passe par la résolution du profil réseau (un profil imposé
-  par l'administrateur l'emporte).
+- **Sandbox** : le conteneur est la barrière ; toute opération sur `/work`
+  passe par l'agent du conteneur (`sandbox/agent_client.py`, `git_ops.py`),
+  jamais par un `open`, `os.walk`, `chmod` ou `unlink` de l'hôte
+  (`test_frontiere_interception_2026_09_30.py`) ; aucun `git` côté hôte sur
+  un dépôt de sandbox ; tout conteneur passe par la résolution du profil
+  réseau (un profil imposé par l'administrateur l'emporte).
 
 ## Tests
 

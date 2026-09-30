@@ -61,11 +61,12 @@ run Elpis on a dedicated machine or VM. Details below, in French.
   sandbox et un conteneur par compte.
 - Sandbox ↔ hôte : le conteneur est la frontière (seules les capacités
   nécessaires — ni `NET_RAW`, ni `MKNOD` —, limites mémoire, CPU et
-  processus, réseau par profil). Côté hôte, le contenu de
-  `/work` n'est lu ou écrit que par des descripteurs qui ne suivent aucun
-  lien ; Git tourne dans la sandbox, et ses opérations réseau lancées par
-  Elpis passent par un relais de l'hôte qui y ajoute l'identifiant : les
-  identifiants Git restent sur l'hôte.
+  processus, réseau par profil). Toute opération de l'agent s'exécute dans
+  la sandbox de l'utilisateur : l'hôte ne lit ni n'écrit `/work` (hors du
+  `du` du quota et de la suppression d'un compte), et un seul UID, celui du
+  conteneur, y écrit. Git tourne dans la sandbox, et ses opérations réseau
+  lancées par Elpis passent par un relais de l'hôte qui y ajoute
+  l'identifiant : les identifiants Git restent sur l'hôte.
 - Serveur ↔ réseau : adresses des dépôts Git et des serveurs MCP vérifiées
   et résolues côté serveur (voir les limites ci-dessous).
 

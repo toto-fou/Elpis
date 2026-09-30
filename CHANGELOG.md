@@ -78,12 +78,16 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Sécurité
 
-- **Frontière hôte ↔ sandbox** : l'hôte n'accède plus au contenu de `/work`
-  (outils fichiers, routes de l'éditeur, historique, instantanés, exports,
-  sauvegardes)
-  que par des descripteurs ouverts sans suivre de lien — lectures,
-  parcours, suppressions, renommages et élargissement des droits. Seuls les
-  fichiers réguliers sont lus.
+- **Frontière hôte ↔ sandbox** : toute opération sur `/work` (outils
+  fichiers, éditeur, historique, aperçus, téléchargements, export et
+  import, instantanés, sauvegardes) s'exécute dans le conteneur de
+  l'utilisateur, par un agent lancé à la demande sous son UID ; l'hôte ne
+  lit ni n'écrit plus `/work`.
+- **Fin des droits élargis** : un seul UID, celui du conteneur, écrit dans
+  `/work` — fichiers 0644, dossiers 0755 au lieu de 0666 / 0777. Les
+  sandboxes existantes sont remises en ordre à leur prochain démarrage
+  (`chown -R`, `chmod -R go-w` par le root du conteneur, une fois par
+  compte).
 - **Git dans la sandbox** : les commandes Git des outils et du panneau Git
   de l'éditeur tournent dans le conteneur de l'utilisateur, par son agent.
   Leurs opérations réseau passent par un relais authentifiant de l'hôte :

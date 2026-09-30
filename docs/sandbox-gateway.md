@@ -1,8 +1,9 @@
 # Passerelle sandbox — l'agent du conteneur et le relais Git
 
 Comment Elpis agit sur la sandbox d'un utilisateur : le conteneur est la
-frontière ; l'hôte demande à un agent du conteneur ce qu'il faut faire plutôt
-que de toucher lui-même au contenu de `/work`.
+frontière. Toute opération de l'agent s'exécute dans la sandbox de
+l'utilisateur : l'hôte lui demande ce qu'il faut faire et ne touche jamais
+lui-même au contenu de `/work`, hors des exceptions ci-dessous.
 
 ## Chemins d'accès
 
@@ -12,11 +13,27 @@ que de toucher lui-même au contenu de `/work`.
 | outils fichiers ; éditeur (arbre, lecture, écriture, recherche, aperçus, imports) | agent du conteneur | conteneur |
 | outils Git, panneau Git de l'éditeur | agent du conteneur (`git`) | conteneur |
 | réseau Git lancé par Elpis (`clone`, `fetch`, `pull`, `push`, `ls-remote`) | agent, puis relais de l'hôte | ticket par opération |
-| archives, instantanés, sauvegardes | hôte, par descripteurs (`shared_infra/sandbox/paths.py`) — migration en cours | résolution sous la racine, sans suivre de lien |
+| téléchargements, export et import, instantanés, sauvegarde et restauration | agent du conteneur (`archive`, `extract`) | conteneur |
 
-Tant que l'hôte écrit encore dans `/work`, les fichiers y restent ouverts à
-l'autre UID (`0o666` / `0o777`) ; cet élargissement disparaîtra avec les
-derniers accès de l'hôte.
+Un seul UID écrit dans `/work`, celui du conteneur (10001 par défaut) :
+fichiers 0644, dossiers 0755 (agent, commandes et terminal en umask 0022).
+Au démarrage, le root du conteneur rend `/work` à cet UID en 0755, et une
+fois par compte tout l'arbre hérité de l'ancien élargissement (0666 / 0777,
+fichiers à l'UID de l'app) : `chown -R`, `chmod -R go-w`
+(`UserSandbox._reconcile_work_modes`).
+
+Exceptions de l'hôte, toutes hors du contenu des fichiers :
+
+- `du` pour le quota : métadonnées seules, liens non suivis ;
+- suppression d'un compte : `rmtree` par descripteurs ; ce qui appartient à
+  l'UID du conteneur est d'abord effacé par son root
+  (`UserSandbox.purge`) ;
+- création de `P/work` et migration d'une ancienne arborescence
+  (`ensure_work_subdir`), avant tout usage du conteneur.
+
+Les parties de `P` qui appartiennent à l'hôte (miroir des skills, mémoire,
+dépôt des instantanés — hors du montage) sont parcourues par descripteurs,
+sans suivre de lien (`shared_infra/sandbox/paths.py`).
 
 ## L'agent
 
@@ -34,8 +51,8 @@ derniers accès de l'hôte.
   arrêté et ne compte pas comme une activité de la sandbox.
 - API `/v1` : `hello`, `stat`, `read`, `list`, `grep`, `readmany`, `write`,
   `append`, `fsop` (`mkdir`, `remove`, `rename`, `copy`, `chmod`, `clear`,
-  `du`), `changes/begin` et `changes/end`, `git`, `shutdown` ; le détail est
-  en tête de `server.py`.
+  `du`), `changes/begin` et `changes/end`, `archive`, `extract`, `git`,
+  `shutdown` ; le détail est en tête de `server.py`.
 
 ## Git
 
@@ -72,12 +89,6 @@ derniers accès de l'hôte.
   et refs du ticket. Hors opération, le terminal n'a que le réseau de son
   profil.
 
-## Table `OP_BACKEND`
-
-`opération → host | agent`, surchargée par `SANDBOX_GATEWAY_<OP>=agent|host`
-(`shared_infra/sandbox/policy.py`). Seule `fs.write` a encore un effet :
-`agent` supprime l'élargissement des droits des écritures de l'hôte.
-
 ## Archives : ce qu'il faut savoir
 
 - Restauration d'un instantané et import d'une archive : une ancienne entrée
@@ -107,8 +118,10 @@ derniers accès de l'hôte.
 `tests/shared_infra/` : `test_agent_sandbox_2026_09_29.py` (agent et
 client), `test_git_relais_2026_09_29.py` (git et relais de bout en bout,
 avec `git http-backend`), `test_relecture_editeur_agent_2026_09_29.py`,
-`test_adversarial_sandbox_2026_09_29.py`, `test_sandbox_paths.py`,
-`test_sandbox_policy.py`, `test_run_args.py` ;
+`test_adversarial_sandbox_2026_09_29.py`, `test_archives_agent_2026_09_29.py`,
+`test_frontiere_interception_2026_09_30.py` (aucun accès de l'hôte à
+`/work` pendant les parcours), `test_frontiere_agent_2026_09_30.py`,
+`test_sandbox_paths.py`, `test_run_args.py` ;
 `tests/sandbox/test_git_routes_agent_2026_09_29.py` (routes Git de
 l'éditeur), `tests/llm_core/test_git_network_backend.py` (outils Git par le
 relais), `tests/llm_core/test_relecture_agent_fichiers_2026_09_29.py`.

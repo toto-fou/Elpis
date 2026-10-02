@@ -1,0 +1,288 @@
+{
+  "appels_interceptes": [
+    {
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        }
+      ],
+      "tool_choice": null,
+      "tools": [
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    },
+    {
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        }
+      ],
+      "tool_choice": null,
+      "tools": [
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    },
+    {
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        }
+      ],
+      "tool_choice": null,
+      "tools": [
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    },
+    {
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        }
+      ],
+      "tool_choice": null,
+      "tools": [
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    }
+  ],
+  "evenements": [
+    {
+      "context_tokens": 0,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 0,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "text": "Réponse vide du moteur — nouvelle tentative…",
+      "type": "info"
+    },
+    {
+      "context_tokens": 0,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 0,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "text": "Réponse vide du moteur — nouvelle tentative…",
+      "type": "info"
+    },
+    {
+      "context_tokens": 0,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 0,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "text": "Réponse vide du moteur — nouvelle tentative…",
+      "type": "info"
+    },
+    {
+      "context_tokens": 0,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 0,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "effective_iterations": 0,
+      "hard_iterations": 3,
+      "hard_iterations_max": 400,
+      "iterations": 0,
+      "limit_kind": "effective",
+      "max_iterations": 200,
+      "reason": "empty_choices",
+      "stop_reason": "empty_choices",
+      "tool_calls_done": 0,
+      "type": "tool_limit"
+    }
+  ],
+  "final": "Le moteur a renvoyé plusieurs réponses vides d'affilée : je m'arrête pour ne pas boucler. Le travail déjà effectué est conservé — relancez avec « Continuer ».",
+  "metrics": {
+    "empty_choices_stop": true,
+    "input_tokens": 0,
+    "last_completion_tokens": 0,
+    "last_prompt_tokens": 0,
+    "max_steps_wrapup": false,
+    "output_tokens": 0,
+    "response_tokens": 0,
+    "submitted_input_tokens": 0,
+    "thinking_tokens": 0,
+    "thinking_tokens_estimated": false,
+    "tool_limit_calls": 0,
+    "tool_limit_effective_iters": 0,
+    "tool_limit_iters": 3,
+    "tool_limit_kind": "effective",
+    "tool_limit_max": 200,
+    "tool_limit_reached": true,
+    "tool_limit_stop_reason": "empty_choices",
+    "truncated": true
+  },
+  "payloads": []
+}

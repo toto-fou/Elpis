@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from chatbot_app.routes.chats import _task_runs_for_persist
+from chatbot_app.turn.history import _task_runs_for_persist
 from llm_core._constants import (
     TASK_MAX_ITERS_CUSTOM,
     TASK_MAX_ITERS_EXPLORE,

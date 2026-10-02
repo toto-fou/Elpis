@@ -43,14 +43,15 @@ THINK_TOK = 20_000                     # ...sauf si on ajoutait la complétion.
 def _real_ctx_spy(monkeypatch) -> List[Any]:
     """Capture le ``real_ctx_tokens`` reçu par le pipeline de réduction à
     chaque itération — c'est l'occupation que la boucle croit avoir."""
+    from llm_core.context import pruning as _pruning
     seen: List[Any] = []
-    _orig = _cwt._fit_context
+    _orig = _pruning.fit_context
 
     async def _spy(working_messages, **kw):
         seen.append(kw.get("real_ctx_tokens"))
         return await _orig(working_messages, **kw)
 
-    monkeypatch.setattr(_cwt, "_fit_context", _spy)
+    monkeypatch.setattr(_pruning, "fit_context", _spy)
     return seen
 
 

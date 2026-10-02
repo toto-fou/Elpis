@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 """
-backend/metrics/_v17_providers.py — Providers métrics ajoutés en v17.
+shared_infra/observability/metrics/_v17_providers.py — providers de métriques des outils.
 
 Widgets centrés sur l'observabilité des outils :
 
@@ -9,24 +9,20 @@ Widgets centrés sur l'observabilité des outils :
   - ToolCallLatencyProvider  : latence des appels d'outils
   - KPIToolFailuresProvider  : KPI échecs outils
 
-(Les 4 providers agentiques d'origine — subagent_usage,
-subagent_error_rate, team_rounds_distribution, budget_exhaustions —
-ont été retirés avec le moteur agentique : leurs event_types
-subagent_call/team_round/budget_exhausted ne sont plus jamais émis,
-les widgets restaient vides en permanence sur le dashboard.)
-
 Tous supportent un param ``hours`` lu côté query (24, 168, 720) via le
-mécanisme de toggle ajouté en parallèle dans le frontend. Les
-providers émettent ``time_scopes_available: [24, 168, 720]`` dans leur
-get_data() pour que le frontend sache quoi afficher comme onglets.
+mécanisme d'onglets du frontend. Les providers émettent
+``time_scopes_available: [24, 168, 720]`` dans leur get_data() pour que le
+frontend sache quoi afficher comme onglets.
 
 Source des données
 ==================
 
-Les widgets s'appuient sur l'event ``tool_call`` (tag
-``status=ok|error``) émis via ``shared_infra.db._connection.log_metric``
-depuis la boucle outils du chatbot (llm_core/_chat_with_tools.py),
-persisté dans la table ``metric_events`` de SQLite.
+``ToolErrorRateProvider`` s'appuie sur l'event ``tool_call`` (tag
+``status=ok|error``) émis via ``shared_infra.db._connection.log_metric`` et
+persisté dans la table ``metric_events`` ; les trois autres lisent la table
+``tool_call_metrics``. Les deux sources sont écrites pour chaque appel
+d'outil du chatbot, au même point : ``llm_core/engine/tool_exec.py``
+(exécution d'un lot lancée par ``engine/tool_dispatch.run_tool_batch``).
 """
 from __future__ import annotations
 
@@ -42,7 +38,7 @@ logger = logging.getLogger("uvicorn.error")
 
 
 # ─── Default time scope ────────────────────────────────────────────────
-# Les providers v17 retournent le scope demandé (24h par défaut) mais
+# Les providers retournent le scope demandé (24h par défaut) mais
 # annoncent dans leur output les scopes disponibles pour qu'un onglet
 # côté UI permette le switch. Le scope est lu depuis query.scope_hours
 # dans le wrapper d'admin_stats — voir routes/admin/metrics.py.
@@ -59,8 +55,8 @@ def _scope_label(hours: int) -> str:
 
 
 def _read_scope_hours(provider: MetricProvider, override: Any = None) -> int:
-    """v17 — Le scope est passé en kwarg à get_data(); à défaut, lit
-    l'attribut ``_scope_hours`` sur l'instance (mode legacy de l'API
+    """Le scope est passé en kwarg à get_data(); à défaut, lit
+    l'attribut ``_scope_hours`` sur l'instance (compatibilité de l'API
     interne). Default = 24h si rien.
     """
     if override is not None:
@@ -77,8 +73,8 @@ class ToolErrorRateProvider(MetricProvider):
     """Top 10 outils MCP par taux d'erreur sur la fenêtre choisie.
 
     Source : metric_events.event_type = 'tool_call' avec tag
-    ``status=ok|error``. Le tag ``error`` n'était PAS posé avant v17 ;
-    les events sans status sont comptés comme ``ok`` (back-compat).
+    ``status=ok|error``. Les events sans status (écrits par une version
+    antérieure) sont comptés comme ``ok``.
 
     Tri : par error_rate desc (tools les plus à problème en tête).
     Affichage : bar avec couleur graduée selon error_rate.
@@ -154,27 +150,21 @@ class ToolErrorRateProvider(MetricProvider):
         }
 
 
-# ─── 6. Tool call volume (tool_call_metrics, Phase 1 task #4) ──────────
+# ─── 6. Tool call volume (tool_call_metrics) ───────────────────────────
 #
 # Les 3 providers suivants (volume / latency / failures) lisent la
-# NOUVELLE table ``tool_call_metrics`` (cf. shared_infra/observability/tool_metrics_store.py)
+# table ``tool_call_metrics`` (cf. shared_infra/observability/tool_metrics_store.py)
 # plutôt que ``metric_events.event_type='tool_call'``.
 #
-# Différence avec ``ToolErrorRateProvider`` (ci-dessus) :
-#   - tool_call_metrics a une colonne ``duration_ms`` typée et un statut
-#     ``blocked`` distinct (Tool Firewall Phase 3) — métrique plus riche.
-#   - les events legacy ``tool_call`` continuent d'exister pour compat
-#     mais les NOUVEAUX appels MCP (depuis instrumentation orchestrator
-#     ``_execute_mcp_tool``) sont uniquement enregistrés dans la nouvelle
-#     table.
-#
-# Le frontend admin peut afficher les deux jusqu'à ce que la table
-# legacy soit décommissionnée en Phase 6.
+# Différence avec ``ToolErrorRateProvider`` (ci-dessus) : tool_call_metrics a
+# une colonne ``duration_ms`` typée et des statuts distincts ``blocked``
+# (arguments illisibles, l'outil n'a pas tourné) et ``timeout`` — métrique
+# plus riche. Les deux sources sont écrites pour chaque appel d'outil.
 
 class ToolCallVolumeProvider(MetricProvider):
     """Top 10 outils par nombre d'appels (toutes statuses confondues).
 
-    Source : ``tool_call_metrics`` (Phase 1 task #4).
+    Source : ``tool_call_metrics``.
     """
     id    = "tool_call_volume"
     title = "Outils — volume d'appels"
@@ -280,9 +270,8 @@ class KPIToolFailuresProvider(MetricProvider):
     """KPI : nombre total d'appels d'outils en échec sur la fenêtre choisie.
 
     Compte ``status != 'success'`` (regroupe error + blocked + timeout).
-    ``blocked`` viendra du Tool Firewall (Phase 3) — un compteur élevé y
-    indiquera des configurations ACL trop strictes ou des LLMs qui
-    tentent des actions interdites.
+    ``blocked`` : arguments illisibles, l'outil n'a pas tourné ;
+    ``timeout`` : sans réponse dans son délai.
     """
     id    = "kpi_tool_failures"
     title = "Outils en échec"
@@ -321,17 +310,13 @@ class KPIToolFailuresProvider(MetricProvider):
 # ─── Registry helper ───────────────────────────────────────────────────
 
 def register_all(registry) -> None:
-    """Enregistre les providers v17 dans le registry global.
+    """Enregistre les providers outils dans le registry global.
 
-    Appelé depuis backend/metrics/engine.py à la fin du fichier (voir
+    Appelé depuis ``metrics/engine.py`` à la fin du fichier (voir
     ligne d'inscription). Séparé en helper pour qu'un test puisse
     register dans un registry isolé.
-
-    4 providers outils (les 4 providers agentiques ont été retirés
-    avec le moteur agentique — event_types plus jamais émis).
     """
     registry.register(ToolErrorRateProvider())
-    # Phase 1 task #5 — observability dashboard
     registry.register(ToolCallVolumeProvider())
     registry.register(ToolCallLatencyProvider())
     registry.register(KPIToolFailuresProvider())

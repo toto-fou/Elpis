@@ -119,20 +119,20 @@ def test_resolve_for_agents_ecarte_stdio_non_admin(ms):
 # ── Chemins d'exécution : chat, agents, routines ─────────────────────────────
 
 def test_chat_stdio_allowed_for_exige_admin_plein(ms, monkeypatch):
-    from chatbot_app.routes import chats
+    from chatbot_app.turn import preparation
     rows = {1: {"is_admin": 1}, 2: {"is_admin": 2}, 3: {"is_admin": 0}}
     monkeypatch.setattr("shared_infra.accounts.users.get_user_by_id", lambda uid: rows.get(uid))
-    assert chats._stdio_allowed_for(1) is True
-    assert chats._stdio_allowed_for(2) is False    # modérateur : non
-    assert chats._stdio_allowed_for(3) is False
-    assert chats._stdio_allowed_for(99) is False   # inconnu : non
-    assert chats._stdio_allowed_for("x") is False  # invalide : non, sans exception
+    assert preparation._stdio_allowed_for(1) is True
+    assert preparation._stdio_allowed_for(2) is False    # modérateur : non
+    assert preparation._stdio_allowed_for(3) is False
+    assert preparation._stdio_allowed_for(99) is False   # inconnu : non
+    assert preparation._stdio_allowed_for("x") is False  # invalide : non, sans exception
 
 
 def test_agent_mcp_configs_sans_user_id_n_expose_jamais_stdio(ms):
-    from chatbot_app.routes import chats
+    from chatbot_app.turn import preparation
     settings = {"mcp_servers": [_stdio(), _http()], "shared_mcp_visible": []}
-    assert [c["id"] for c in chats._agent_mcp_configs(settings)] == ["h1"]
+    assert [c["id"] for c in preparation._agent_mcp_configs(settings)] == ["h1"]
 
 
 def test_routine_rehydrate_ecarte_stdio_du_proprietaire_non_admin(ms):

@@ -229,7 +229,7 @@ async def test_compaction_manuelle_prend_tout(ctx, monkeypatch):
 
 @scale_param
 def test_round_trip_etat_persiste_reexpansion(ctx, monkeypatch):
-    from chatbot_app.routes.chats import _expand_history_for_llm
+    from chatbot_app.turn.history import _expand_history_for_llm
 
     compression_cfg(monkeypatch)   # KEEP_RECENT=2 + KEEP_BRIDGE=1 → keep=3
     state = {"round": 1, "covered_turns": 8,

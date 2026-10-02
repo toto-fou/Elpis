@@ -5,8 +5,9 @@ llm_core.memory._builtin_provider — Provider builtin : mémoire Markdown auto-
 Lit deux magasins (``MEMORY.md`` per-scope + ``USER.md`` per-user) et les rend en
 un bloc system prompt unique. Le snapshot est capturé UNE fois (à
 ``initialize``) puis figé — en pratique PAR TOUR : le chatbot reconstruit le
-manager à chaque requête (cf. chats.py), donc le bloc reflète l'état au début
-du tour et n'est pas re-rendu pendant la boucle d'outils (intra-tour, le
+manager à chaque requête (cf. ``chatbot_app/turn/preparation.py``), donc le
+bloc reflète l'état au début du tour et n'est pas re-rendu pendant la boucle
+d'outils (intra-tour, le
 modèle se fie aux ``entries`` des résultats de l'outil ``memory``). Le rendu
 est déterministe (ids stables f(contenus)) : à store inchangé, bloc identique
 octet pour octet → prefix-cache préservé entre les tours sans mutation.

@@ -26,7 +26,7 @@ import asyncio
 import httpx
 import pytest
 
-from llm_core._chat_with_tools import (
+from llm_core.engine.llm_stream import (
     _endpoint_base,
     _reasoning_cap_chars,
     _resume_cut_stream,

@@ -27,8 +27,9 @@ import json
 
 import pytest
 
-import llm_core._chat_with_tools as cwt
 import llm_core._mcp_pool as mp
+from llm_core.engine import tool_dispatch as _tool_dispatch
+from llm_core.engine.result_contract import result_is_tool_failure
 
 
 async def _slow_call_tool(*_a, exec_timeout_s=None, **_k):
@@ -51,31 +52,31 @@ def cfg_map():
 
 @pytest.mark.asyncio
 async def test_timeout_enveloppe_erreur_ordinaire(monkeypatch, cfg_map):
-    monkeypatch.setattr(cwt.mcp_pool, "call_tool", _slow_call_tool)
-    monkeypatch.setattr(cwt, "LLAMA_TOOL_TIMEOUT_S", 0.05)
-    res = await cwt._execute_single_tool_call("outil_lent", {}, cfg_map, {})
+    monkeypatch.setattr(mp.mcp_pool, "call_tool", _slow_call_tool)
+    monkeypatch.setattr(_tool_dispatch, "LLAMA_TOOL_TIMEOUT_S", 0.05)
+    res = await _tool_dispatch._execute_single_tool_call("outil_lent", {}, cfg_map, {})
     parsed = json.loads(res)
     assert parsed["ok"] is False and parsed["error"] == "timeout"
     assert "outil_lent" in parsed["message"]
     # Classée échec d'OUTIL → l'itération ne compte pas comme productive.
-    assert cwt._result_is_tool_failure(res) is True
+    assert result_is_tool_failure(res) is True
 
 
 @pytest.mark.asyncio
 async def test_override_par_outil_prioritaire(monkeypatch, cfg_map):
-    monkeypatch.setattr(cwt.mcp_pool, "call_tool", _slow_call_tool)
-    monkeypatch.setattr(cwt, "LLAMA_TOOL_TIMEOUT_S", 3600)   # défaut énorme
+    monkeypatch.setattr(mp.mcp_pool, "call_tool", _slow_call_tool)
+    monkeypatch.setattr(_tool_dispatch, "LLAMA_TOOL_TIMEOUT_S", 3600)   # défaut énorme
     from llm_core.context_config import CTX
     monkeypatch.setitem(CTX._raw, "tools", {"outil_lent": {"timeout_s": 0.05}})
-    res = await cwt._execute_single_tool_call("outil_lent", {}, cfg_map, {})
+    res = await _tool_dispatch._execute_single_tool_call("outil_lent", {}, cfg_map, {})
     assert json.loads(res)["error"] == "timeout"              # l'override gagne
 
 
 @pytest.mark.asyncio
 async def test_pas_de_timeout_appel_rapide(monkeypatch, cfg_map):
-    monkeypatch.setattr(cwt.mcp_pool, "call_tool", _quick_call_tool)
-    monkeypatch.setattr(cwt, "LLAMA_TOOL_TIMEOUT_S", 5)
-    res = await cwt._execute_single_tool_call("outil_lent", {}, cfg_map, {})
+    monkeypatch.setattr(mp.mcp_pool, "call_tool", _quick_call_tool)
+    monkeypatch.setattr(_tool_dispatch, "LLAMA_TOOL_TIMEOUT_S", 5)
+    res = await _tool_dispatch._execute_single_tool_call("outil_lent", {}, cfg_map, {})
     assert "timeout" not in res and "vite" in res
 
 
@@ -84,10 +85,10 @@ async def test_annulation_utilisateur_traverse(monkeypatch, cfg_map):
     """CancelledError ne doit JAMAIS devenir une enveloppe d'erreur : les
     snapshots partiels et l'anti-rejeu de « Continuer » dépendent de sa
     propagation."""
-    monkeypatch.setattr(cwt.mcp_pool, "call_tool", _slow_call_tool)
-    monkeypatch.setattr(cwt, "LLAMA_TOOL_TIMEOUT_S", 30)
+    monkeypatch.setattr(mp.mcp_pool, "call_tool", _slow_call_tool)
+    monkeypatch.setattr(_tool_dispatch, "LLAMA_TOOL_TIMEOUT_S", 30)
     task = asyncio.ensure_future(
-        cwt._execute_single_tool_call("outil_lent", {}, cfg_map, {})
+        _tool_dispatch._execute_single_tool_call("outil_lent", {}, cfg_map, {})
     )
     await asyncio.sleep(0.05)
     task.cancel()
@@ -98,9 +99,9 @@ async def test_annulation_utilisateur_traverse(monkeypatch, cfg_map):
 def test_defauts_par_outil_pw_wait_et_desktop_shell():
     # Bornes par-outil dédiées : une attente/commande longue légitime ne doit pas
     # mourir en « timeout outil » au défaut global (300s).
-    assert cwt._tool_timeout_s("pw_wait") == 330.0
-    assert cwt._tool_timeout_s("desktop_shell") == 610.0
-    assert cwt._tool_timeout_s("execute_shell") == 610.0
+    assert _tool_dispatch._tool_timeout_s("pw_wait") == 330.0
+    assert _tool_dispatch._tool_timeout_s("desktop_shell") == 610.0
+    assert _tool_dispatch._tool_timeout_s("execute_shell") == 610.0
 
 
 # ── Pool RÉEL : chronomètre interne + borne de file (AUDIT 2026-08-31) ────
@@ -202,10 +203,10 @@ async def test_pool_attente_en_file_non_facturee():
 async def test_resolution_timeout_config():
     from llm_core.context_config import CTX
     # Sans override → défaut global.
-    assert cwt._tool_timeout_s("inconnu") == float(cwt.LLAMA_TOOL_TIMEOUT_S)
+    assert _tool_dispatch._tool_timeout_s("inconnu") == float(_tool_dispatch.LLAMA_TOOL_TIMEOUT_S)
     # Valeur invalide dans le JSON → ignorée (défaut global).
     CTX._raw.setdefault("tools", {})["cassé"] = {"timeout_s": "abc"}
     try:
-        assert cwt._tool_timeout_s("cassé") == float(cwt.LLAMA_TOOL_TIMEOUT_S)
+        assert _tool_dispatch._tool_timeout_s("cassé") == float(_tool_dispatch.LLAMA_TOOL_TIMEOUT_S)
     finally:
         CTX._raw["tools"].pop("cassé", None)

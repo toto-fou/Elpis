@@ -10,6 +10,7 @@ import json
 
 import pytest
 
+from llm_core.engine import tool_dispatch as _tool_dispatch
 from shared_infra.observability import runs as R
 
 
@@ -121,20 +122,19 @@ def test_code_de_sortie():
 
 
 def test_ligne_d_appel_rattachee_a_l_execution(db, monkeypatch):
-    import llm_core._chat_with_tools as C
     import llm_core._mcp_categories as cats
     monkeypatch.setattr(cats, "categorize", lambda name: "shell")
-    C._TCM_UID_CACHE.clear()
+    _tool_dispatch._TCM_UID_CACHE.clear()
 
     async def tour():
         async with R.run_scope("chat", user_id=1, sample_sandbox=False) as e:
-            C._record_tool_call_metric_safe(
+            _tool_dispatch._record_tool_call_metric_safe(
                 "alice", "c1", "execute_shell", "success", 40, call_id="call_7",
                 started_at=123.5, exit_code=3, args_bytes=10, result_bytes=200)
-            C._record_tool_call_metric_safe("alice", "c1", "execute_shell", "timeout", 5)
+            _tool_dispatch._record_tool_call_metric_safe("alice", "c1", "execute_shell", "timeout", 5)
         return e
     e = asyncio.run(tour())
-    C._record_tool_call_metric_safe("alice", "c1", "read_file", "success", 1)   # hors exécution
+    _tool_dispatch._record_tool_call_metric_safe("alice", "c1", "read_file", "success", 1)   # hors exécution
     a, b, c = _lignes(db, "tool_call_metrics")
     assert (a["run_id"], a["call_id"], a["started_at"], a["exit_code"], a["args_bytes"],
             a["result_bytes"], a["category"]) == (e.id, "call_7", 123.5, 3, 10, 200, "shell")
@@ -147,14 +147,13 @@ def test_ligne_d_appel_rattachee_a_l_execution(db, monkeypatch):
 
 
 def test_fichiers_et_attente_de_l_execution():
-    import llm_core._chat_with_tools as C
 
     async def tour():
         async with R.run_scope("chat", sample_sandbox=False) as e:
-            C._noter_fichiers([{"path": "a.py"}, {"path": "b.py"}])
-            C._noter_fichiers([{"path": "a.py"}])
-            C._noter_fichiers(None)
-            C._noter_attente(25)
+            _tool_dispatch._noter_fichiers([{"path": "a.py"}, {"path": "b.py"}])
+            _tool_dispatch._noter_fichiers([{"path": "a.py"}])
+            _tool_dispatch._noter_fichiers(None)
+            _tool_dispatch._noter_attente(25)
         return e
     e = asyncio.run(tour())
     assert (e.files_changed, e.wait_ms) == (2, 25)

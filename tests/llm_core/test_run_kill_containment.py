@@ -24,8 +24,9 @@ import json
 
 import pytest
 
-from llm_core import _chat_with_tools as _cwt
+from llm_core import _chat_with_tools as _cwt, _model_info
 from llm_core._think_resume import should_auto_resume
+from llm_core.engine import tool_dispatch as _tool_dispatch
 from llm_core.engine.tool_exec import flatten_exception_message
 
 
@@ -44,7 +45,7 @@ async def _actx(*_a, **_k):
 def _patch_env(monkeypatch):
     monkeypatch.setattr(_cwt, "verify_llm_availability", _anoop)
     monkeypatch.setattr(_cwt, "_model_supports_vision", _avision)
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
 
 
 def _final_msg(content):
@@ -224,7 +225,7 @@ class _CallToolResult:
 
 def test_pick_tool_payload_honors_iserror():
     from llm_core.engine.result_contract import result_is_error
-    out = _cwt.pick_tool_payload(_CallToolResult(
+    out = _tool_dispatch.pick_tool_payload(_CallToolResult(
         "1 validation error for write_fileArguments\npath: Field required", True))
     assert isinstance(out, dict) and out.get("ok") is False
     # Sérialisé comme dans la boucle → bien classé ÉCHEC (budget productif).
@@ -233,12 +234,12 @@ def test_pick_tool_payload_honors_iserror():
 
 def test_pick_tool_payload_iserror_keeps_structured_envelope():
     env = json.dumps({"ok": False, "error": "boom", "hint": "x"})
-    out = _cwt.pick_tool_payload(_CallToolResult(env, True))
+    out = _tool_dispatch.pick_tool_payload(_CallToolResult(env, True))
     assert out == {"ok": False, "error": "boom", "hint": "x"}
 
 
 def test_pick_tool_payload_success_unchanged():
-    out = _cwt.pick_tool_payload(_CallToolResult(json.dumps({"data": 1}), False))
+    out = _tool_dispatch.pick_tool_payload(_CallToolResult(json.dumps({"data": 1}), False))
     assert out == {"data": 1}
 
 

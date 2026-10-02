@@ -1,0 +1,251 @@
+{
+  "evenements": [
+    {
+      "context_tokens": 0,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 0,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "args_delta": "{\"msg\": \"long\"}",
+      "index": 0,
+      "iter": 0,
+      "name_delta": "zeta_echo",
+      "type": "tool_call_delta"
+    },
+    {
+      "args": {
+        "msg": "long"
+      },
+      "call_id": "call_1",
+      "name": "zeta_echo",
+      "type": "tool_call"
+    },
+    {
+      "call_id": "call_1",
+      "name": "zeta_echo",
+      "result": "{\"ok\": true, \"echo\": {\"msg\": \"long\"}}",
+      "type": "tool_result"
+    },
+    {
+      "level": "warn",
+      "message": "budget de temps de la tâche atteint — synthèse et arrêt",
+      "type": "notice"
+    },
+    {
+      "effective_iterations": 1,
+      "hard_iterations": 1,
+      "hard_iterations_max": 400,
+      "iterations": 1,
+      "limit_kind": "effective",
+      "max_iterations": 200,
+      "reason": "max_iter_reached",
+      "stop_reason": "wallclock",
+      "tool_calls_done": 1,
+      "type": "tool_limit"
+    },
+    {
+      "text": "Synthèse au mur d'horloge.",
+      "type": "content_token"
+    }
+  ],
+  "final": "Synthèse au mur d'horloge.",
+  "metrics": {
+    "input_tokens": 270,
+    "last_completion_tokens": 8,
+    "last_prompt_tokens": 150,
+    "max_steps_wrapup": true,
+    "output_tokens": 23,
+    "response_tokens": 23,
+    "submitted_input_tokens": 270,
+    "thinking_tokens": 0,
+    "thinking_tokens_estimated": false,
+    "tool_history": [
+      {
+        "content": null,
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"msg\": \"long\"}",
+              "name": "zeta_echo"
+            },
+            "id": "call_1",
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "content": "{\"ok\": true, \"echo\": {\"msg\": \"long\"}}",
+        "role": "tool",
+        "tool_call_id": "call_1"
+      }
+    ],
+    "tool_history_delta": true,
+    "tool_limit_calls": 1,
+    "tool_limit_effective_iters": 1,
+    "tool_limit_iters": 1,
+    "tool_limit_kind": "effective",
+    "tool_limit_max": 200,
+    "tool_limit_reached": true,
+    "tool_limit_stop_reason": "wallclock"
+  },
+  "payloads": [
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "user": "golden"
+    },
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        },
+        {
+          "content": null,
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"msg\": \"long\"}",
+                "name": "zeta_echo"
+              },
+              "id": "call_1",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\"ok\": true, \"echo\": {\"msg\": \"long\"}}",
+          "role": "tool",
+          "tool_call_id": "call_1"
+        },
+        {
+          "content": "[SYSTEM] TIME BUDGET REACHED. The wall-clock budget for this task ran out (the step budget was NOT exhausted) and tools are disabled for this turn. Respond with TEXT ONLY: state that the time limit was reached, summarize concisely what was actually accomplished (real results only), list what remains to be done, and recommend the next action. Do not attempt any tool call.",
+          "role": "user"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "tool_choice": "none",
+      "tools": [
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "user": "golden"
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "base_apres": [
+    {
+      "cles": [
+        "content",
+        "role"
+      ],
+      "content": "lis a.docx",
+      "role": "user"
+    },
+    {
+      "cles": [
+        "content",
+        "metrics",
+        "role",
+        "run_ids"
+      ],
+      "content": "Terminé.",
+      "role": "assistant"
+    }
+  ],
+  "evenements": [
+    {
+      "text": "MCP: docx, elpis-tools",
+      "type": "mode"
+    },
+    {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1,
+      "type": "queue_status"
+    },
+    {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1,
+      "type": "queue_status",
+      "waited_ms": 250
+    },
+    {
+      "type": "queue_cleared"
+    },
+    {
+      "text": "Outils prêts…",
+      "type": "mode"
+    },
+    {
+      "args": {
+        "chemin": "a.docx"
+      },
+      "id": "c1",
+      "name": "docx_lire",
+      "type": "tool_call"
+    },
+    {
+      "id": "c1",
+      "name": "docx_lire",
+      "ok": true,
+      "result": "contenu",
+      "type": "tool_result"
+    },
+    {
+      "text": "Terminé.",
+      "type": "content_token"
+    },
+    {
+      "pct": 25,
+      "total": 8192,
+      "type": "kv_cache",
+      "used": 2048
+    },
+    {
+      "assistant": "Terminé.",
+      "chat_id": "c3",
+      "cles": [
+        "assistant",
+        "chat_id",
+        "metrics",
+        "persisted",
+        "run_ids",
+        "thinking",
+        "tool_limit_reached",
+        "truncated",
+        "truncated_in_think",
+        "type"
+      ],
+      "metrics": [
+        "last_prompt_tokens",
+        "model",
+        "tool_limit_reached"
+      ],
+      "persisted": true,
+      "run_ids": 1,
+      "thinking": "",
+      "tool_limit_reached": false,
+      "truncated": false,
+      "truncated_in_think": false,
+      "type": "final"
+    }
+  ]
+}

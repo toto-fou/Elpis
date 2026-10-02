@@ -1,0 +1,691 @@
+{
+  "evenements": [
+    {
+      "context_tokens": 0,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 0,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "args_delta": "{\"msg\": \"a\"}",
+      "index": 0,
+      "iter": 0,
+      "name_delta": "zeta_echo",
+      "type": "tool_call_delta"
+    },
+    {
+      "pct": 57,
+      "total": 262144,
+      "type": "kv_cache",
+      "used": 150000
+    },
+    {
+      "args": {
+        "msg": "a"
+      },
+      "call_id": "e1",
+      "name": "zeta_echo",
+      "type": "tool_call"
+    },
+    {
+      "call_id": "e1",
+      "name": "zeta_echo",
+      "result": "{\"ok\": true, \"echo\": {\"msg\": \"a\"}}",
+      "type": "tool_result"
+    },
+    {
+      "context_tokens": 150015,
+      "max": 200,
+      "n": 2,
+      "tokens_used": 150015,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "pct": 58,
+      "total": 262144,
+      "type": "kv_cache",
+      "used": 152000
+    },
+    {
+      "text": "Fini.",
+      "type": "content_token"
+    },
+    {
+      "keys": [
+        "c16|30000|<<HEAD shell16>>\nshell16 sortie ligne determinis|rtie ligne deterministe \n<<TAIL shell16 exit=0>>",
+        "c15|30000|<<HEAD shell15>>\nshell15 sortie ligne determinis|rtie ligne deterministe \n<<TAIL shell15 exit=0>>",
+        "c14|30000|<<HEAD shell14>>\nshell14 sortie ligne determinis|rtie ligne deterministe \n<<TAIL shell14 exit=0>>",
+        "c13|30000|<<HEAD shell13>>\nshell13 sortie ligne determinis|rtie ligne deterministe \n<<TAIL shell13 exit=0>>",
+        "c12|30000|<<HEAD shell12>>\nshell12 sortie ligne determinis|rtie ligne deterministe \n<<TAIL shell12 exit=0>>",
+        "c11|30000|<<HEAD shell11>>\nshell11 sortie ligne determinis|rtie ligne deterministe \n<<TAIL shell11 exit=0>>",
+        "c10|30000|<<HEAD shell10>>\nshell10 sortie ligne determinis|rtie ligne deterministe \n<<TAIL shell10 exit=0>>",
+        "c9|30000|<<HEAD shell9>>\nshell9 sortie ligne deterministe|xxxxxxxxxxxxxxxxxxxxxxxxx\n<<TAIL shell9 exit=0>>",
+        "c8|30000|<<HEAD shell8>>\nshell8 sortie ligne deterministe|xxxxxxxxxxxxxxxxxxxxxxxxx\n<<TAIL shell8 exit=0>>",
+        "c7|30000|<<HEAD shell7>>\nshell7 sortie ligne deterministe|xxxxxxxxxxxxxxxxxxxxxxxxx\n<<TAIL shell7 exit=0>>",
+        "c6|30000|<<HEAD shell6>>\nshell6 sortie ligne deterministe|xxxxxxxxxxxxxxxxxxxxxxxxx\n<<TAIL shell6 exit=0>>",
+        "c5|30000|<<HEAD shell5>>\nshell5 sortie ligne deterministe|xxxxxxxxxxxxxxxxxxxxxxxxx\n<<TAIL shell5 exit=0>>",
+        "c4|30000|<<HEAD shell4>>\nshell4 sortie ligne deterministe|xxxxxxxxxxxxxxxxxxxxxxxxx\n<<TAIL shell4 exit=0>>",
+        "c3|30000|<<HEAD shell3>>\nshell3 sortie ligne deterministe|xxxxxxxxxxxxxxxxxxxxxxxxx\n<<TAIL shell3 exit=0>>",
+        "c2|30000|<<HEAD shell2>>\nshell2 sortie ligne deterministe|xxxxxxxxxxxxxxxxxxxxxxxxx\n<<TAIL shell2 exit=0>>",
+        "c1|30000|<<HEAD shell1>>\nshell1 sortie ligne deterministe|xxxxxxxxxxxxxxxxxxxxxxxxx\n<<TAIL shell1 exit=0>>",
+        "c0|30000|<<HEAD shell0>>\nshell0 sortie ligne deterministe|xxxxxxxxxxxxxxxxxxxxxxxxx\n<<TAIL shell0 exit=0>>"
+      ],
+      "type": "prune_state"
+    }
+  ],
+  "final": "Fini.",
+  "metrics": {
+    "finish_reason": "stop",
+    "input_tokens": 302000,
+    "iterations": 1,
+    "last_completion_tokens": 8,
+    "last_prompt_tokens": 152000,
+    "model": "golden-model",
+    "output_tokens": 23,
+    "response_tokens": 23,
+    "submitted_input_tokens": 302000,
+    "think_resumes": 0,
+    "thinking": "",
+    "thinking_tokens": 0,
+    "thinking_tokens_estimated": false,
+    "tool_history": [
+      {
+        "content": null,
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"msg\": \"a\"}",
+              "name": "zeta_echo"
+            },
+            "id": "e1",
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "content": "{\"ok\": true, \"echo\": {\"msg\": \"a\"}}",
+        "role": "tool",
+        "tool_call_id": "e1"
+      }
+    ],
+    "tool_history_delta": true,
+    "truncated": false,
+    "truncated_in_think": false
+  },
+  "payloads": [
+    {
+      "cles": [
+        "cache_prompt",
+        "chat_template_kwargs",
+        "id_slot",
+        "max_tokens",
+        "messages",
+        "model",
+        "n_cache_reuse",
+        "return_progress",
+        "sse_ping_interval",
+        "stream",
+        "stream_options",
+        "timings_per_token",
+        "tool_choice",
+        "tools",
+        "user"
+      ],
+      "empreinte": "db13af7e3a7b1946",
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "empreinte": "fea28f74227ab853",
+          "role": "system",
+          "taille": 358
+        },
+        {
+          "empreinte": "469e768de01fd8c6",
+          "role": "user",
+          "taille": 26
+        },
+        {
+          "empreinte": "b677f626ad02b80a",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "4532477c7e471258",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "1aaeb094c7c368c7",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "72c286fdba8d4ef3",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "06f65b39b26cd83e",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "b012e1b4ceed569f",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "c85283ab7a96d063",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "05997abecd7811a8",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "c8dbc6dd09aa7d2c",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "4c85568eae6e97d9",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "b4f284d367ef130d",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "d5e31b5289fc9424",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "ac89b6891fe9a0ac",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "a94c590998b00c44",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "21c7007c2ef316f3",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "ae097880f40f6653",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "d89a004c410d4963",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "bab606f74490ce51",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "a8a203bdc03ba7d8",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "8626f648568f725c",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "d6592735f01e302b",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "3d75ff6f92c38851",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "c25f6631f06f6b27",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "2b23b2bd792e28e3",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "1558fd59c56bbc18",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "28e657b2b239d5d7",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "9d6743c20c2c1a55",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "42e72de62a4b9472",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "963fe211934ef0f7",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "07c0cb56468894a7",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "5ca892a2b34aa5ba",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "ed38756a6c2f0fa5",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "fa8e12237bc698d9",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "513c450773b9799f",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "4c394172caaf33bd",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "9ec9b962e6c7b8c3",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "7cf9e9a96aed618d",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "97b595986aaea4a3",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "b864a8752140cfb8",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "958fc9eca6ef6671",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "4236e6cea1181815",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "e3bf65313564dab0",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "2dd48b4b7aba17b0",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "e6a4cb6fb63d6d59",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "cae67b9306473a22",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "23a9f2f0bd5bfdb0",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "e7a14ca4c1edabfb",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "fac35e5da9fac421",
+          "role": "tool",
+          "taille": 30319
+        }
+      ],
+      "outils": [
+        "alpha_add",
+        "zeta_echo"
+      ]
+    },
+    {
+      "cles": [
+        "cache_prompt",
+        "chat_template_kwargs",
+        "id_slot",
+        "max_tokens",
+        "messages",
+        "model",
+        "n_cache_reuse",
+        "return_progress",
+        "sse_ping_interval",
+        "stream",
+        "stream_options",
+        "timings_per_token",
+        "tool_choice",
+        "tools",
+        "user"
+      ],
+      "empreinte": "4fb3f4514dcfbf62",
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "empreinte": "fea28f74227ab853",
+          "role": "system",
+          "taille": 358
+        },
+        {
+          "empreinte": "469e768de01fd8c6",
+          "role": "user",
+          "taille": 26
+        },
+        {
+          "empreinte": "b677f626ad02b80a",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "4532477c7e471258",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "1aaeb094c7c368c7",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "72c286fdba8d4ef3",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "06f65b39b26cd83e",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "b012e1b4ceed569f",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "c85283ab7a96d063",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "05997abecd7811a8",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "c8dbc6dd09aa7d2c",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "4c85568eae6e97d9",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "b4f284d367ef130d",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "d5e31b5289fc9424",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "ac89b6891fe9a0ac",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "a94c590998b00c44",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "21c7007c2ef316f3",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "ae097880f40f6653",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "d89a004c410d4963",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "bab606f74490ce51",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "a8a203bdc03ba7d8",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "8626f648568f725c",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "d6592735f01e302b",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "3d75ff6f92c38851",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "c25f6631f06f6b27",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "2b23b2bd792e28e3",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "1558fd59c56bbc18",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "28e657b2b239d5d7",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "9d6743c20c2c1a55",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "42e72de62a4b9472",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "963fe211934ef0f7",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "07c0cb56468894a7",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "5ca892a2b34aa5ba",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "ed38756a6c2f0fa5",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "fa8e12237bc698d9",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "513c450773b9799f",
+          "role": "tool",
+          "taille": 63
+        },
+        {
+          "empreinte": "4c394172caaf33bd",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "9ec9b962e6c7b8c3",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "7cf9e9a96aed618d",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "97b595986aaea4a3",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "b864a8752140cfb8",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "958fc9eca6ef6671",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "4236e6cea1181815",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "e3bf65313564dab0",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "2dd48b4b7aba17b0",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "e6a4cb6fb63d6d59",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "cae67b9306473a22",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "23a9f2f0bd5bfdb0",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "e7a14ca4c1edabfb",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "fac35e5da9fac421",
+          "role": "tool",
+          "taille": 30319
+        },
+        {
+          "empreinte": "8acd80732ae20031",
+          "role": "assistant",
+          "taille": 4
+        },
+        {
+          "empreinte": "8faf98aaba1c1e30",
+          "role": "tool",
+          "taille": 44
+        }
+      ],
+      "outils": [
+        "alpha_add",
+        "zeta_echo"
+      ]
+    }
+  ]
+}

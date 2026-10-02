@@ -30,7 +30,7 @@ import json
 
 import pytest
 
-from llm_core import _chat_with_tools as _cwt
+from llm_core import _chat_with_tools as _cwt, _model_info
 
 
 async def _anoop(*_a, **_k):
@@ -48,7 +48,7 @@ async def _actx(*_a, **_k):
 def _patch_tools_env(monkeypatch):
     monkeypatch.setattr(_cwt, "verify_llm_availability", _anoop)
     monkeypatch.setattr(_cwt, "_model_supports_vision", _avision)
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
 
 
 def _tc(cid, name="mytool", args="{}"):

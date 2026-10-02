@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 
-from chatbot_app.routes.chats import _expand_history_for_llm, _tool_entry_sigs
+from chatbot_app.turn.history import _expand_history_for_llm, _tool_entry_sigs
 
 # ── Émulations de l'ANCIEN pipeline (fixtures legacy authentiques) ───────────
 

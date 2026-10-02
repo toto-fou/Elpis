@@ -571,7 +571,7 @@ def test_is_summary_carrier():
 def test_fold_preserve_porteur_de_resume(compr_cfg):
     """Le fold ne fusionne pas le porteur d'état : socle et résumé restent
     deux messages system distincts (le scénario du bug : chat rechargé)."""
-    from llm_core._chat_with_tools import _fold_operational_block
+    from llm_core.context.assembly import fold_operational_block as _fold_operational_block
     msgs = _conv(8)
     st = {"round": 1, "covered_turns": 2, "summary_xml": "<context>s</context>"}
     out, _ = apply_persisted_state(msgs, st)
@@ -588,7 +588,7 @@ async def test_recompression_apres_fold_preserve_socle(compr_cfg, fake_tokenize)
     """Scénario complet du bug : état persisté ré-appliqué + fold opérationnel
     + recompression en boucle → le socle (identité + bloc opérationnel) doit
     SURVIVRE et un seul porteur (le nouveau résumé) doit rester."""
-    from llm_core._chat_with_tools import _fold_operational_block
+    from llm_core.context.assembly import fold_operational_block as _fold_operational_block
     msgs = _conv(14)   # 28 tours
     st = {"round": 1, "covered_turns": 4, "summary_xml": "<context>ancien</context>"}
     out, st2 = apply_persisted_state(msgs, st)

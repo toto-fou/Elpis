@@ -3,11 +3,11 @@
 """
 Filesystem tools for MCP sandbox.
 
-Registered tools (6 — consolidation 2026-07-04)
+Registered tools (6)
 ----------------
   read_file, write_file, edit_file, list_files, manage_files, code
-  (stat_path absorbé par list_files/read_file ; code_outline+code_navigate
-  fusionnés dans ``code``)
+  (stat d'un chemin : list_files/read_file ; outline et navigation :
+  ``code``)
 
 Signature: register(mcp, root_base, max_write_chars=2_000_000)
 """
@@ -65,15 +65,14 @@ from ._toolkit import (
 )
 
 # ── Optional: code intelligence (multi-language outliner) ────────────────────
-# Imported lazily-friendly: if code_intel.py is missing, the extra
-# `code_outline`/`code_navigate` tools degrade to a stub but the rest of
-# fs_tools keeps working.
+# Imported lazily-friendly: if code_intel.py is missing, the ``code`` tool
+# degrades to a stub but the rest of fs_tools keeps working.
 #
 # code_intel.py lives in tools/FileSystemLib/, NOT next to this file — and
 # the MCP server runs as `python <root>/local_mcp_server.py` with `tools`
-# as the top-level package, so the bare `from . import code_intel` (which
-# looks for tools/code_intel.py) always failed → _HAS_CI=False → code_outline
-# reported "code_intel module missing". Import it from its real subpackage.
+# as the top-level package. Never a bare `from . import code_intel`: it
+# looks for tools/code_intel.py and always fails (→ _HAS_CI=False, ``code``
+# reports the module missing). Import it from its real subpackage.
 try:
     from .FileSystemLib import code_intel as _ci
     _HAS_CI = True
@@ -94,14 +93,14 @@ MAX_EDIT_BYTES    = 5_000_000
 MAX_LIST          = 4000
 MAX_GREP          = 2000
 # Borne DURE du walk récursif (entrées VISITÉES, pas seulement renvoyées) :
-# ``MAX_LIST`` ne bornait que la page renvoyée — un rglob sur un arbre énorme
-# (node_modules, .venv…) matérialisait TOUT l'arbre + un resolve() par entrée
-# dans le worker hôte partagé avant de capper (RAM/CPU non bornés). On arrête
+# ``MAX_LIST`` ne borne que la page renvoyée — sans cette borne, le parcours
+# d'un arbre énorme (node_modules, .venv…) matérialiserait TOUT l'arbre dans
+# le worker hôte partagé avant de capper (RAM/CPU non bornés). On arrête
 # le walk au-delà de ce plafond et on signale ``truncated`` + un hint.
 MAX_WALK          = 50_000
 # Taille maximale d'un fichier parcouru par list_files(search_text=…), lu
-# ligne à ligne (AUDIT 2026-09-25 ; l'ancien plafond de 300 Ko sautait en
-# silence les gros fichiers source).
+# ligne à ligne. Au-delà, le fichier est écarté, compté et signalé : un
+# plafond bas sauterait en silence de gros fichiers source.
 _SEARCH_MAX_BYTES = 20 * 1024 * 1024
 MAX_MULTI_EDITS   = 50
 MAX_BATCH_PATHS   = 20
@@ -112,29 +111,27 @@ BIN_PREVIEW_BYTES  = 512
 
 
 # ── Category descriptor ───────────────────────────────────────────────
-# Read by ``backend.services._mcp_categories`` (auto-discovery for the
-# admin & user UI). Keep this as a PURE LITERAL — it is parsed via AST
-# in the FastAPI process so that no dependency of this tool module
-# (e.g. fastmcp) needs to load in that process.
-#
-# tools     : exact tool names registered by ``register()`` below.
-# Any tool whose name starts with one of these prefixes lands in this
-# category (matches the prefix logic in _chat_with_tools._collect_mcp_tools).
+# Contract shared by every tool module (the siblings point here). The
+# dict travels IN the protocol: ``tool_kw(CATEGORY)`` puts it in the
+# ``tags`` + ``meta`` of each tool, and ``llm_core._mcp_categories``
+# builds the category registry from the live ``list_tools()`` when the
+# pool connects (admin & user UI). A tool's category is an exact-name
+# lookup in that registry (``categorize``), on which
+# ``llm_core.engine.tool_catalog._collect_mcp_tools`` filters.
 CATEGORY = {
     "name":  "fs",
     "label": "Fichiers",
     "icon":  "ph-folder",
     "color": "orange",
-    # No "tools" list — la catégorie voyage DANS le protocole (tags + meta de
-    # chaque outil) et le pool ingère le registre à la connexion. Le side-car
-    # ``.tool_manifest.json`` et son wrapper ``CategorizingMCP`` ont été retirés.
+    # No "tools" list — le pool ingère le registre (tags + meta de chaque
+    # outil) à la connexion.
 }
 
 # Category carried IN the protocol (tags + meta), built by the shared
 # toolkit — one place to change if a FastMCP version ever rejects meta=.
 _TOOL_KW = tool_kw(CATEGORY)
 
-# v18 — Per-behaviour keysets for tool annotations.
+# Per-behaviour keysets for tool annotations.
 # Each @mcp.tool picks the keyset that matches what it does:
 #   _TOOL_KW_RO         : read-only (browseable, auto-confirmable by clients)
 #   _TOOL_KW_IDEMP      : mutating but idempotent (same args → same result)
@@ -159,10 +156,10 @@ def _err(msg: str, hint: str = "", **kw) -> Dict[str, Any]:
 def _edit_err(e, *, prefix: str = "", hint: str = "", **kw) -> Dict[str, Any]:
     """Map an ``_apply_one_edit`` ValueError to the STABLE machine code the
     tool's docstring documents (``old_str_not_found`` / ``old_str_ambiguous``),
-    falling back to the slugified message otherwise. Without this, the catch
-    sites did ``_err(str(e))`` → the code was a truncated slug of the prose
-    (e.g. ``str_replace_old_str_not_found_check_whitesp``), so a model branching
-    on the documented ``error`` codes never matched."""
+    falling back to the slugified message otherwise. A plain ``_err(str(e))``
+    would make the code a truncated slug of the prose (e.g.
+    ``str_replace_old_str_not_found_check_whitesp``), which a model branching
+    on the documented ``error`` codes never matches."""
     ml = str(e).lower()
     msg = f"{prefix}{e}"
     if "not found" in ml or "matched 0 times" in ml:
@@ -195,7 +192,7 @@ def _to_container(p: Any, base: Path) -> str:
 
     The agent reasons in the container's path space (its shell runs in
     ``/work``): echoing host paths like ``/srv/elpis/user_sandboxes/alice/src/x.py``
-    gave the model a form it can't reuse. ``/work/src/x.py`` can be copied
+    would give the model a form it can't reuse. ``/work/src/x.py`` can be copied
     verbatim into the next call (``_rel`` maps it back).
 
     Falls back to the plain string for anything not under ``base`` (defensive
@@ -218,7 +215,7 @@ def _rel(base: Path, path: str, *, allow_root: bool = True) -> str:
 
 
 # Dossiers de DÉPENDANCES/BUILD écartés par défaut par ``list_files`` quand
-# l'appelant ne fournit aucun ``exclude`` (audit agents 2026-08-08).
+# l'appelant ne fournit aucun ``exclude``.
 #
 # Mesuré en direct : un sous-agent ``explore`` appelant ``list_files`` avec
 # ``include_hidden=True`` et sans ``exclude`` a ramené 500 chemins de
@@ -277,7 +274,7 @@ def _crlf_dominant(text: str) -> bool:
 
 
 def _text_conventions(raw: bytes, text: str, enc: str, explicit: bool = False) -> Dict[str, Any]:
-    """Champs ``line_endings`` / ``bom`` / ``lossy`` de read_file (E16)."""
+    """Champs ``line_endings`` / ``bom`` / ``lossy`` de read_file."""
     out: Dict[str, Any] = {"line_endings": _line_endings(text),
                            "bom": any(raw.startswith(b) for b in _BOMS)}
     try:
@@ -304,10 +301,10 @@ def _encodage(tete: bytes) -> str:
     return "utf-8"
 
 
-# ── Accès par l'agent de la sandbox (L4.2) ──────────────────────────────────
-# Les outils ne lisent ni n'écrivent plus eux-mêmes dans le dossier de la
+# ── Accès par l'agent de la sandbox ─────────────────────────────────────────
+# Les outils ne lisent ni n'écrivent eux-mêmes dans le dossier de la
 # sandbox : l'agent du conteneur le fait (``_espace.Espace``). ``p`` (chemin
-# hôte) ne sert plus qu'aux noms et aux chemins affichés.
+# hôte) ne sert qu'aux noms et aux chemins affichés.
 
 class _FluxAgent(io.RawIOBase):
     """Lecture séquentielle d'un fichier de la sandbox par plages : un gros
@@ -342,7 +339,7 @@ def _stat_entree(p: Path, base: Path, e: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _cle_parcours(rel: str, est_dossier: bool) -> List[Tuple[int, str]]:
-    """Ordre du parcours d'avant (``os.fwalk`` trié, de haut en bas) : à
+    """Ordre d'un ``os.fwalk`` trié, de haut en bas : à
     chaque niveau les dossiers puis les fichiers, avant le contenu des
     sous-dossiers. Les tris qui suivent sont stables : à égalité, cet ordre."""
     parties = rel.split("/")
@@ -445,7 +442,7 @@ def _actuel(esp: Espace, rel: str, e: Optional[Dict[str, Any]] = None,
 
 
 def _mode_ecrit(e: Dict[str, Any]) -> Optional[str]:
-    """Mode d'une écriture : celui du fichier remplacé (bits x gardés, E18) ;
+    """Mode d'une écriture : celui du fichier remplacé (bits x gardés) ;
     ``None`` : défaut de l'agent (0644)."""
     return format(int(e.get("mode") or 0) & 0o777, "o") if e.get("kind") == "file" else None
 
@@ -460,10 +457,10 @@ def _ecrire_garde(esp: Espace, username: str, sb: Path, p: Path, rel: str, data:
     (contenu ``None`` / sha ``""`` : absent). L'agent vérifie AU REMPLACEMENT que le fichier est toujours
     celui-là : ``strict`` (la nouvelle version est calculée depuis ``base`` :
     édition, ajout) → ``concurrent_modification`` ; sinon (écrasement) le
-    fichier est relu puis l'écriture réessayée — le dernier écrivain gagne,
-    comme avant. ``expected_sha256`` (verrou optimiste du modèle) : comparé au
+    fichier est relu puis l'écriture réessayée — le dernier écrivain gagne.
+    ``expected_sha256`` (verrou optimiste du modèle) : comparé au
     contenu actuel s'il existe. Sous le verrou de fichier partagé avec
-    l'éditeur (E7) ; historique noté avec le contenu remplacé."""
+    l'éditeur ; historique noté avec le contenu remplacé."""
     from shared_infra.sandbox.file_history import MAX_FILE, TOO_BIG
     e_actuel, base, base_sha = etat
     with _optimistic_write_lock(p, True):
@@ -564,20 +561,20 @@ def _executable_mode(cur: int) -> int:
     return cur | 0o111
 
 
-# ── Verrou optimiste cross-worker (AUDIT 2026-06) ─────────────────────────
-# ``expected_sha256`` était un check-then-write SANS verrou : deux écritures
-# concurrentes (workers gunicorn différents) pouvaient toutes deux lire le
-# même sha puis écrire — le « verrou optimiste » ne verrouillait rien.
-# Pattern calqué sur _SkillsWriteLock (E2) : flock advisory sur un lockfile
+# ── Verrou optimiste cross-worker ─────────────────────────────────────────
+# Sans verrou, ``expected_sha256`` serait un check-then-write : deux
+# écritures concurrentes (workers gunicorn différents) liraient le même sha
+# puis écriraient toutes les deux.
+# Pattern calqué sur _SkillsWriteLock : flock advisory sur un lockfile
 # sidecar à inode STABLE (jamais unlink, cf. cron_lock), HORS de la sandbox
 # user (pas de pollution du tree, pas d'attaque sur le lockfile).
 # Garde-fous : FAIL-OPEN (flock indispo / contention > ~3 s → on continue,
 # l'écriture atomique reste la protection de base), kill switch
 # ``FSTOOLS_FLOCK=0``. Les tools tournent en thread worker (def sync) :
 # le retry borné ne bloque pas l'event loop.
-# Audit éditeur 2026-09-23 (E7) : le verrou est désormais pris à CHAQUE
-# écriture (plus seulement avec ``expected_sha256``) et c'est celui de
-# ``shared_infra.sandbox.file_lock``, partagé avec ``/api/sandbox/save``.
+# Le verrou est pris à CHAQUE écriture (pas seulement avec
+# ``expected_sha256``) ; c'est celui de ``shared_infra.sandbox.file_lock``,
+# partagé avec ``/api/sandbox/save``.
 _FSTOOLS_FLOCK = os.environ.get("FSTOOLS_FLOCK", "1") != "0"
 _WRITE_LOCKS_BASE: Optional[Path] = None   # posé par register() (lu par la maintenance)
 
@@ -590,12 +587,11 @@ def _optimistic_write_lock(p: Path, enabled: bool = True, timeout_s: float = 3.0
     """flock exclusif PAR FICHIER. Yield True si obtenu, False en fail-open
     (désactivé, flock indisponible, contention > ``timeout_s``).
 
-    Audit éditeur 2026-09-23 (E7) : simple alias de
-    ``shared_infra.sandbox.file_lock.file_write_lock`` — le MÊME verrou que
-    ``/api/sandbox/save`` de l'éditeur (même dossier ``.write_locks``, même
-    nom de sidecar, clé = chemin RÉSOLU). Avant, l'éditeur et l'agent ne se
-    voyaient pas : une écriture de l'agent tombée entre le contrôle et le
-    ``mv`` de ``/save`` était écrasée sans un mot."""
+    Simple alias de ``shared_infra.sandbox.file_lock.file_write_lock`` — le
+    MÊME verrou que ``/api/sandbox/save`` de l'éditeur (même dossier
+    ``.write_locks``, même nom de sidecar, clé = chemin RÉSOLU). Sans verrou
+    commun, une écriture de l'agent tombée entre le contrôle et le ``mv`` de
+    ``/save`` serait écrasée sans un mot."""
     if not (enabled and _FSTOOLS_FLOCK):
         yield False
         return
@@ -608,7 +604,7 @@ def _optimistic_write_lock(p: Path, enabled: bool = True, timeout_s: float = 3.0
         yield got
 
 
-# ── Historique de session des fichiers modifiés (2026-09-23) ──────────────
+# ── Historique de session des fichiers modifiés ─────────────────────────
 # Chaque écriture / suppression / déplacement réussi de l'assistant est noté
 # dans ``shared_infra.sandbox.file_history`` (original + chaque version), pour
 # que l'utilisateur compare ou restaure. Jamais bloquant.
@@ -675,7 +671,7 @@ def _history_record(username: str, sb: Path, p: Path,
 
 @contextlib.contextmanager
 def _locks_for(*paths: Path):
-    """Verrous de fichier (E7) sur plusieurs chemins, dans un ordre stable
+    """Verrous de fichier sur plusieurs chemins, dans un ordre stable
     (pas d'étreinte mortelle entre deux déplacements croisés)."""
     keys = sorted({os.path.realpath(str(x)) for x in paths if x is not None})
     with contextlib.ExitStack() as st:
@@ -699,7 +695,7 @@ def _history_move(username: str, sb: Path, src: Path, dst: Path) -> None:
 
 def _fc_entry(p: Path, sb: Path, change: str, before: Optional[bytes],
               after: Optional[bytes], **extra) -> Dict[str, Any]:
-    """Entrée ``files_changed`` (2026-09-26) : ce que le chat relit pour
+    """Entrée ``files_changed`` : ce que le chat relit pour
     afficher le diff d'un fichier touché par un outil. Les empreintes sont
     les clés des versions gardées dans l'historique de session."""
     from shared_infra.sandbox.file_history import sha_of
@@ -721,10 +717,10 @@ def _format_lines(lines: List[str], start: int, with_numbers: bool) -> str:
     width = len(str(last_num))
     return "\n".join(f"{str(i).rjust(width)}\t{ln}" for i, ln in enumerate(lines, start))
 
-# Au-delà de cette taille, un fichier TEXTE n'est plus chargé en mémoire :
-# read_file le parcourt en flux (AUDIT 2026-09-25). Avant, ``read_bytes()`` +
-# décodage + ``splitlines()`` coûtaient ~4× la taille du fichier dans le
-# processus d'outils PARTAGÉ — un ``tail`` sur un journal de 2 Go le tuait.
+# Au-delà de cette taille, un fichier TEXTE n'est pas chargé en mémoire :
+# read_file le parcourt en flux. ``read_bytes()`` + décodage +
+# ``splitlines()`` coûteraient ~4× la taille du fichier dans le processus
+# d'outils PARTAGÉ — un ``tail`` sur un journal de 2 Go le tuerait.
 _STREAM_READ_OVER = 16 * 1024 * 1024
 
 
@@ -742,8 +738,8 @@ def _read_large_text(ouvrir, info: Dict[str, Any], *, enc: str, head: int,
     from collections import deque
     info = dict(info)
     info["streamed"] = True
-    # Empreinte et nombre de lignes en UNE passe (AUDIT 2026-09-26 : deux
-    # lectures complètes du fichier avant le moindre rendu).
+    # Empreinte et nombre de lignes en UNE passe : jamais deux lectures
+    # complètes du fichier avant le moindre rendu.
     total = 0
     last = b""
     _h = _hl.sha256()
@@ -757,17 +753,17 @@ def _read_large_text(ouvrir, info: Dict[str, Any], *, enc: str, head: int,
     info["sha256"] = _h.hexdigest()
     info["total_lines"] = total
     max_chars = max(1, min(max_chars, MAX_READ_CHARS))
-    # Une ligne n'est jamais lue au-delà de ce plafond (octets) : une seule
-    # ligne de plusieurs centaines de Mo (JSON minifié, log sans saut) était
-    # chargée ENTIÈRE en mémoire puis rendue en entier.
+    # Une ligne n'est jamais lue au-delà de ce plafond (octets) : sans lui, une
+    # seule ligne de plusieurs centaines de Mo (JSON minifié, log sans saut)
+    # serait chargée ENTIÈRE en mémoire puis rendue en entier.
     _line_cap = max_chars + 4
 
     def _lines():
         """(numéro, texte) — découpe au SEUL ``\n``, comme ``total_lines`` et
-        ``grep -n`` (AUDIT 2026-09-26 : la lecture texte coupait aussi sur un
-        ``\r`` isolé — barres de progression pip/tqdm/docker — et décalait
-        tous les numéros suivants). Ligne trop longue : coupée au plafond,
-        le reste est sauté et signalé."""
+        ``grep -n``. Ne pas couper aussi sur un ``\r`` isolé (barres de
+        progression pip/tqdm/docker) : tous les numéros suivants seraient
+        décalés. Ligne trop longue : coupée au plafond, le reste est sauté et
+        signalé."""
         with ouvrir() as fb:
             i = 0
             while True:
@@ -810,7 +806,7 @@ def _read_large_text(ouvrir, info: Dict[str, Any], *, enc: str, head: int,
                 if rows:
                     return rows, True
                 # Première ligne à elle seule au-delà du budget : coupée, pas
-                # rendue entière (AUDIT 2026-09-26).
+                # rendue entière.
                 _cut_line[0] = True
                 return [(i, t[:max_chars] + " …[line cut]")], True
             rows.append((i, t))
@@ -868,9 +864,8 @@ def _read_large_text(ouvrir, info: Dict[str, Any], *, enc: str, head: int,
         dq: "deque" = deque(maxlen=min(tail, 100_000))
         for row in _lines():
             dq.append(row)
-        # Budget depuis la FIN, total courant (AUDIT 2026-09-26 : la somme
-        # recalculée à chaque ``pop(0)`` était quadratique — 593 s pour
-        # tail=100000).
+        # Budget depuis la FIN, total courant : recalculer la somme à chaque
+        # ``pop(0)`` serait quadratique (593 s mesurées pour tail=100000).
         rows: List[Tuple[int, str]] = []
         used = 0
         for i, t in reversed(dq):
@@ -958,7 +953,7 @@ def _line_diff_stats(old: str, new: str) -> tuple:
     return added, removed
 
 
-# ── Helpers for the new extensions ──────────────────────────────────────────
+# ── Helpers for list_files (since filter, git status) ──────────────────────
 
 def _parse_since(value: str) -> Optional[float]:
     """Parse a 'since' value as either a Unix timestamp, a relative duration
@@ -999,16 +994,16 @@ def _git_status_map(esp: Espace, sb: Path, root: Path) -> Tuple[Dict[str, str], 
     a repository, git unavailable or too slow) — an empty map alone would
     read as a clean tree. Bounded (2 s per git call).
 
-    AUDIT 2026-08-23 — RÉ-ANCRAGE sur le dossier listé. Le format porcelain
-    émet TOUJOURS des chemins relatifs à la RACINE DU DÉPÔT, jamais au cwd
-    (il force ``status.relativePaths=false``). Les deux consommateurs, eux,
-    indexent avec ``c.relative_to(root)`` — le dossier LISTÉ. Dès que ``root``
-    n'était pas la racine du dépôt (le cas nominal : lister un sous-dossier de
-    code), aucune clé ne pouvait correspondre : l'annotation disparaissait en
-    silence et la map ressortait vide. On retire donc le préfixe rendu par
+    Ré-ancrage sur le dossier listé : le format porcelain émet TOUJOURS des
+    chemins relatifs à la RACINE DU DÉPÔT, jamais au cwd (il force
+    ``status.relativePaths=false``), alors que les consommateurs indexent
+    avec ``c.relative_to(root)`` — le dossier LISTÉ. Sans ré-ancrage, dès que
+    ``root`` n'est pas la racine du dépôt (le cas nominal : lister un
+    sous-dossier de code), aucune clé ne correspond et l'annotation disparaît
+    en silence. On retire donc le préfixe rendu par
     ``git rev-parse --show-prefix``.
 
-    L4.4 — git tourne dans la sandbox, par son agent (``Espace.git``).
+    git tourne dans la sandbox, par son agent (``Espace.git``).
     """
     rel = rel_under(sb, root)
     rel = "" if rel == "." else rel
@@ -1081,10 +1076,9 @@ def _resolve_anchor(text: str, anchor_str: str = "", anchor_re: str = "",
 
     if not matches:
         raise ValueError("anchor: not found in file")
-    # ``-1`` = la DERNIÈRE correspondance, comptée par CE finder (AUDIT
-    # 2026-09-26) : les appelants la comptaient par ``str.count``, qui ne
-    # voit pas les correspondances qui se chevauchent (« \n\n », « -- ») —
-    # « la dernière » n'était alors pas la dernière.
+    # ``-1`` = la DERNIÈRE correspondance, comptée par CE finder. Jamais par
+    # ``str.count`` : il ne voit pas les correspondances qui se chevauchent
+    # (« \n\n », « -- ») et « la dernière » ne serait pas la dernière.
     if occurrence == -1:
         occurrence = len(matches)
     if occurrence < 1 or occurrence > len(matches):
@@ -1111,7 +1105,7 @@ def _try_format(path: Path, content: str) -> Tuple[str, str]:
     try:
         if ext == ".py" and _has_formatter("black"):
             # Nom seul depuis un cwd neutre : black ne lit ni le
-            # pyproject.toml ni le .gitignore de la sandbox (L4.2).
+            # pyproject.toml ni le .gitignore de la sandbox.
             r = subprocess.run(
                 ["black", "--quiet", "--stdin-filename", path.name, "-"],
                 input=content, capture_output=True, text=True,
@@ -1122,7 +1116,7 @@ def _try_format(path: Path, content: str) -> Tuple[str, str]:
         elif ext in (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".json", ".md") and _has_formatter("prettier"):
             # Ni config (``prettier.config.js`` = code exécuté sur l'hôte, et
             # ses greffons) ni ``.editorconfig`` du bac à sable : seul le nom
-            # sert à choisir l'analyseur, depuis un cwd neutre (2026-09-29).
+            # sert à choisir l'analyseur, depuis un cwd neutre.
             r = subprocess.run(
                 ["prettier", "--no-config", "--no-editorconfig",
                  f"--stdin-filepath={path.name}"],       # « -x.js » n'est pas une option
@@ -1218,7 +1212,7 @@ def _flexible_block_matches(text: str, target: str) -> List[Tuple[int, int, str,
     """Matches LIGNE-ALIGNÉS de ``target`` dans ``text``, tolérants aux
     espaces de FIN de ligne et à un décalage d'indentation UNIFORME.
 
-    Repli du ``str_replace`` exact : la cause n°1 d'échec des éditions LLM
+    Repli du ``str_replace`` exact : la première cause d'échec des éditions LLM
     est un ``old_str`` recopié avec une indentation décalée (bloc cité depuis
     un niveau différent) ou des espaces traînants perdus. On ne tolère QUE :
       * des espaces/tabs de fin de ligne différents ;
@@ -1347,9 +1341,9 @@ _LINE_ADDRESSED = ("insert", "delete", "replace", "indent")
 def _norm_edit_crlf(edit: Any) -> Any:
     """Champs texte d'une édition de ``multi`` ramenés en LF (le fichier CRLF
     est normalisé en LF avant les éditions, comme les champs de l'action
-    simple). Sans ça, un ``old_str`` en CRLF ratait le match exact, le repli
-    tolérant l'acceptait, et le ``\\r\\n`` inséré devenait ``\\r\\r\\n`` à la
-    réécriture (AUDIT 2026-09-25)."""
+    simple). Sans ça, un ``old_str`` en CRLF rate le match exact, le repli
+    tolérant l'accepte, et le ``\\r\\n`` inséré devient ``\\r\\r\\n`` à la
+    réécriture."""
     if not isinstance(edit, dict):
         return edit
     out = dict(edit)
@@ -1365,14 +1359,13 @@ def _norm_edit_crlf(edit: Any) -> Any:
 def _order_multi_edits(edits: List[Any]) -> List[Tuple[int, Any]]:
     """Ordre d'application d'un lot ``multi`` : [(indice d'origine, édition)].
 
-    AUDIT 2026-09-25 — les éditions par NUMÉRO de ligne étaient appliquées
-    dans l'ordre, chacune sur le texte déjà modifié : après ``delete 2-3``,
-    un ``replace 8`` touchait l'ancienne ligne 10 — et l'outil répondait
-    ``ok``. Le modèle calcule ses numéros sur le fichier LU : ils désignent
-    désormais ce fichier-là. Les éditions par numéro partent de BAS EN HAUT
-    (aucune ne décale les suivantes), les éditions par contenu (str_replace,
-    regex, anchor…) ensuite, dans l'ordre donné. Plages qui se chevauchent :
-    refusées (intention ambiguë)."""
+    Le modèle calcule ses numéros de ligne sur le fichier LU : ils désignent
+    ce fichier-là. Les éditions par numéro partent de BAS EN HAUT (aucune ne
+    décale les suivantes), les éditions par contenu (str_replace, regex,
+    anchor…) ensuite, dans l'ordre donné. Ne pas les appliquer dans l'ordre
+    reçu, chacune sur le texte déjà modifié : après ``delete 2-3``, un
+    ``replace 8`` toucherait l'ancienne ligne 10, sous un ``ok``. Plages qui
+    se chevauchent : refusées (intention ambiguë)."""
     by_line: List[Tuple[float, int, Any, int, int]] = []
     others: List[Tuple[int, Any]] = []
     for i, ed in enumerate(edits):
@@ -1411,12 +1404,11 @@ def _order_multi_edits(edits: List[Any]) -> List[Tuple[int, Any]]:
         if lo2 <= hi1:
             raise ValueError(f"edits {i1} and {i2} overlap (lines {int(lo1)}-{int(hi1)} "
                              f"and {int(lo2)}-{int(hi2)})")
-    # À clé égale, les éditions de PLAGE d'abord, les insertions ensuite
-    # (AUDIT 2026-09-26) : « insert@N » + « replace N-M » appliquait
-    # l'insertion en premier, et le remplacement mangeait la ligne insérée
-    # au lieu de l'originale — INS et la ligne N disparaissaient, M restait,
-    # et l'outil répondait ``ok``. Insérer APRÈS le remplacement pose INS
-    # devant la ligne N d'origine (devenue son remplacement), comme demandé.
+    # À clé égale, les éditions de PLAGE d'abord, les insertions ensuite :
+    # insérer APRÈS le remplacement pose INS devant la ligne N d'origine
+    # (devenue son remplacement), comme demandé. Dans l'ordre inverse,
+    # « insert@N » + « replace N-M » ferait manger la ligne insérée par le
+    # remplacement (INS et la ligne N disparaissent, M reste) sous un ``ok``.
     def _ins(r) -> int:
         return 0 if (r[2].get("action") or "").strip().lower() == "insert" else 1
     by_line.sort(key=lambda r: (r[0], _ins(r), r[1]), reverse=True)
@@ -1509,7 +1501,7 @@ def _apply_one_edit(old_text: str, edit: Dict[str, Any]) -> Tuple[str, Dict[str,
         repl = edit.get("replacement", "")
         count = int(edit.get("count", 0))  # 0 = all
         # -1 (« toutes », comme str_replace) : ``subn(count=-1)`` ne remplace
-        # RIEN — « pattern matched 0 times » (AUDIT 2026-09-26).
+        # RIEN — « pattern matched 0 times ».
         if count < 0:
             count = 0
         flags_str = (edit.get("flags") or "").lower()
@@ -1547,8 +1539,8 @@ def _apply_one_edit(old_text: str, edit: Dict[str, Any]) -> Tuple[str, Dict[str,
             if start_line < 1:
                 raise ValueError("insert: start_line must be 0 (prepend), -1 (append), or 1-based")
             idx = min(start_line - 1, len(lines))
-            # AUDIT 2026-09-25 — insertion APRÈS la dernière ligne d'un fichier
-            # sans saut de ligne final : le contenu se collait à cette ligne
+            # Insertion APRÈS la dernière ligne d'un fichier sans saut de ligne
+            # final : sans cette garde, le contenu se collerait à cette ligne
             # (« b = 2c = 3 »). Même garde que l'append (-1).
             if idx == len(lines) and lines and not lines[-1].endswith("\n"):
                 lines[-1] += "\n"
@@ -1597,10 +1589,9 @@ def _apply_one_edit(old_text: str, edit: Dict[str, Any]) -> Tuple[str, Dict[str,
         content    = edit.get("content", edit.get("new_str", ""))
         if position not in ("before", "after"):
             raise ValueError("anchor: position must be 'before' or 'after'")
-        # AUDIT 2026-09-25 — ``occurrence=-1`` (« la dernière », documenté)
-        # n'était résolu que par l'action simple : dans ``multi`` il levait
-        # « occurrence=-1 out of range ». Résolu ici, pour tous les chemins.
-        # (-1 résolu par ``_resolve_anchor``, avec le même finder.)
+        # ``occurrence=-1`` (« la dernière », documenté) : résolu ici pour
+        # tous les chemins (action simple comme ``multi``), par
+        # ``_resolve_anchor`` avec le même finder.
         if not content:
             raise ValueError("anchor: content required")
         # Snap to a clean line boundary so anchor edits don't split a line.
@@ -1613,8 +1604,7 @@ def _apply_one_edit(old_text: str, edit: Dict[str, Any]) -> Tuple[str, Dict[str,
             raise ValueError(str(e))
         # Move byte_idx to the start of the next line for "after" — sauf s'il
         # y est DÉJÀ (ancre terminée par « \n ») : chercher le saut suivant
-        # sautait toute une ligne et insérait une ligne trop bas (AUDIT
-        # 2026-09-26).
+        # sauterait toute une ligne et insérerait une ligne trop bas.
         if position == "after" and not (byte_idx > 0 and old_text[byte_idx - 1] == "\n"):
             nl = old_text.find("\n", byte_idx)
             byte_idx = (nl + 1) if nl >= 0 else len(old_text)
@@ -1682,9 +1672,9 @@ def _apply_one_edit(old_text: str, edit: Dict[str, Any]) -> Tuple[str, Dict[str,
 def register(mcp: FastMCP, root_base: Path, max_write_chars: int = MAX_WRITE_CHARS) -> None:
     root_base = root_base.resolve()
     # Sidecar des verrous optimistes (cf. _optimistic_write_lock) : même
-    # racine que les sandboxes (APP_SANDBOX_DIR), dossier caché partagé.
-    # Audit éditeur 2026-09-23 (E7) : c'est le dossier de
-    # ``shared_infra.sandbox.file_lock`` (verrou commun avec l'éditeur).
+    # racine que les sandboxes (APP_SANDBOX_DIR), dossier caché partagé —
+    # celui de ``shared_infra.sandbox.file_lock`` (verrou commun avec
+    # l'éditeur).
     global _WRITE_LOCKS_BASE
     try:
         from shared_infra.sandbox.file_lock import _locks_base
@@ -1693,7 +1683,7 @@ def register(mcp: FastMCP, root_base: Path, max_write_chars: int = MAX_WRITE_CHA
         _WRITE_LOCKS_BASE = None
 
     def _sandbox(username: str) -> Path:
-        # Nom de dossier via la source unique (backend.config) pour rester
+        # Nom de dossier via la source unique (``shared_infra.config``) pour rester
         # aligné avec l'arbo du front, le bridge d'exec et le nom du container.
         try:
             from shared_infra.config import safe_sandbox_name as _ssn
@@ -1776,8 +1766,8 @@ Always returns: sha256, mime, size, type, encoding (text), total_lines (text).
 Use the returned sha256 as `expected_sha256` in edit_file/write_file for
 race-free edits — the success returns also expose `next_expected_sha256`."""
         _username = get_username(ctx)
-        # Params retirés du schéma (dédoublonnage : code() porte l'outline,
-        # l'auto-troncature couvre le résumé) — le worker garde la capacité.
+        # Params hors schéma (code() porte l'outline, l'auto-troncature
+        # couvre le résumé) : le worker garde la capacité.
         summary = False
         include_outline = False
         try:
@@ -1832,7 +1822,7 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
         except Exception as e:
             return _err(f"unexpected: {e}")
 
-    # Internal worker for read_file — same body as before, takes pre-resolved sb.
+    # Internal worker for read_file (single and batch paths), takes a pre-resolved sb.
     def _read_one_file(
         path: str,
         max_chars: int,
@@ -1904,8 +1894,8 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
             # ── TEXT ────────────────────────────────────────────────────
             enc = encoding or _encodage(tete)
             info["encoding"] = enc
-            # AUDIT 2026-09-25 — gros fichier texte : lecture en FLUX (cf.
-            # _read_large_text), jamais chargé en entier.
+            # Gros fichier texte : lecture en FLUX (cf. _read_large_text),
+            # jamais chargé en entier.
             if raw is None:
                 if as_base64 or format or line_ranges:
                     return _err("too_large_for_mode",
@@ -1929,10 +1919,10 @@ race-free edits — the success returns also expose `next_expected_sha256`."""
                         hint="Try as_base64=True, or specify encoding=...", **info)
 
         info["sha256"] = _sha256_bytes(raw)
-        # Audit éditeur 2026-09-23 (E16) : un décodage avec remplacement
-        # (octets non UTF-8 → U+FFFD) était rendu en silence, et CRLF/BOM
-        # n'étaient jamais signalés — le modèle réécrivait ensuite le
-        # fichier en LF/UTF-8 sans BOM, ou en perdant les octets remplacés.
+        # Décodage avec remplacement (octets non UTF-8 → U+FFFD), CRLF et
+        # BOM sont signalés (``lossy``, ``line_endings``, ``bom``) : sans quoi
+        # le modèle réécrirait ensuite le fichier en LF/UTF-8 sans BOM, ou en
+        # perdant les octets remplacés.
         info.update(_text_conventions(raw, text, enc, explicit=bool(encoding)))
 
         # as_base64 force for text
@@ -2187,8 +2177,8 @@ For surgical edits on large files, prefer edit_file."""
             _twin_kw = {"warning": _twin} if _twin else {}
 
             if mode == "mkdir":
-                # Dédoublonné : mkdir vit dans manage_files. Garde douce pour
-                # un vieux client qui contournerait l'enum du schéma.
+                # mkdir vit dans manage_files. Garde douce pour un vieux
+                # client qui contournerait l'enum du schéma.
                 return _err("mkdir_moved",
                             hint="Utilise manage_files(action='mkdir', path=…). "
                                  "write_file crée de toute façon les dossiers parents.")
@@ -2232,9 +2222,9 @@ For surgical edits on large files, prefer edit_file."""
                            next_expected_sha256=new_sha, **_twin_kw)
 
             if mode not in ("write", "append"):
-                # Ne JAMAIS citer `mkdir` ici : il a quitté write_file (cf. la
-                # garde `mkdir_moved` plus haut). L'ancien texte renvoyait le
-                # modèle vers le mode qu'on venait de lui refuser → boucle.
+                # Ne JAMAIS citer `mkdir` ici : il vit dans manage_files (cf.
+                # la garde `mkdir_moved` plus haut). Renvoyer le modèle vers le
+                # mode qu'on vient de lui refuser le fait boucler.
                 return _err("invalid_mode", hint="Use: write|append|b64 "
                                                  "(mkdir → manage_files).")
 
@@ -2243,7 +2233,7 @@ For surgical edits on large files, prefer edit_file."""
                 return _err("too_large", hint=f"Max {limit} chars. Split into multiple writes or use edit_file.",
                             chars=len(content), max=limit)
 
-            _enc_out = encoding          # E16 : "utf-8-sig" si le BOM est conservé
+            _enc_out = encoding          # "utf-8-sig" si le BOM est conservé
             _conv: Dict[str, Any] = {}   # conventions conservées (bom, line_endings)
             _base_sha: Optional[str] = None   # append : contenu dont on part
 
@@ -2256,16 +2246,13 @@ For surgical edits on large files, prefer edit_file."""
                 return _err("too_large", hint="File too large to append in place: use "
                             "execute_shell (>>) instead. Nothing was written.", bytes=_avant_n)
             if mode == "append" and old_raw is not None:
-                # AUDIT 2026-08-23 — l'append n'ajoute pas : il RELIT tout,
-                # concatène et RÉÉCRIT le fichier entier. La relecture se
-                # faisait en ``errors="replace"`` : sur un fichier latin-1 /
-                # cp1252 / utf-16, chaque octet non décodable devenait U+FFFD,
-                # et cette version mutilée était réécrite par-dessus
-                # l'original — perte DÉFINITIVE, avec ``ok: true`` en retour.
-                # (Le durcissement de 2026-07 n'avait porté que sur l'ENCODAGE
-                # de sortie, pas sur le DÉCODAGE d'entrée.) On décode donc en
-                # STRICT et on échoue proprement, symétriquement à la garde
-                # d'écriture ci-dessous.
+                # L'append n'ajoute pas : il RELIT tout, concatène et RÉÉCRIT
+                # le fichier entier. Jamais de relecture en ``errors="replace"`` :
+                # sur un fichier latin-1 / cp1252 / utf-16, chaque octet non
+                # décodable deviendrait U+FFFD, et cette version mutilée serait
+                # réécrite par-dessus l'original — perte DÉFINITIVE, avec
+                # ``ok: true`` en retour. On décode donc en STRICT et on échoue
+                # proprement, symétriquement à la garde d'écriture ci-dessous.
                 try:
                     old = old_raw.decode(encoding)
                 except (UnicodeDecodeError, LookupError) as _dec_err:
@@ -2281,17 +2268,17 @@ For surgical edits on large files, prefer edit_file."""
                         encoding=encoding,
                         offset=(_off if _off is not None else -1))
                 _base_sha = old_sha
-                # E16 : un fichier CRLF garde ses CRLF sur la partie ajoutée.
+                # Un fichier CRLF garde ses CRLF sur la partie ajoutée.
                 if _crlf_dominant(old) and "\n" in content and "\r\n" not in content:
                     content = content.replace("\n", "\r\n")
                     _conv["line_endings"] = "crlf"
                 new_content = old + content
                 old_text_for_stats = old
             elif mode == "write" and old_raw is not None and not _gros:
-                # Audit éditeur 2026-09-23 (E16) : l'écrasement complet
-                # retirait BOM et CRLF (le modèle émet du LF sans BOM), et
-                # réécrivait en UTF-8 un fichier latin-1 dont il n'avait lu
-                # qu'une version « réparée » (U+FFFD).
+                # L'écrasement complet garde le BOM et les CRLF dominants du
+                # fichier (le modèle émet du LF sans BOM), et ne réécrit pas en
+                # UTF-8 un fichier latin-1 dont le modèle n'a lu qu'une version
+                # « réparée » (U+FFFD).
                 _old_raw = old_raw
                 _is_utf8 = encoding.lower().replace("_", "-") in ("utf-8", "utf8")
                 _had_bom = _is_utf8 and _old_raw.startswith(b"\xef\xbb\xbf")
@@ -2325,11 +2312,10 @@ For surgical edits on large files, prefer edit_file."""
                                  + ", ".join(("UTF-8 BOM" if k == "bom" else "CRLF line endings")
                                              for k in _conv) + ").")
 
-            # Encodage STRICT : l'ancien ``errors="replace"`` substituait en
-            # SILENCE les caractères non représentables (→ ``?``/U+FFFD),
-            # c'est-à-dire une corruption invisible du contenu. On échoue
-            # désormais avec la position exacte — le modèle corrige ou passe
-            # en utf-8/b64.
+            # Encodage STRICT : ``errors="replace"`` substituerait en SILENCE
+            # les caractères non représentables (→ ``?``/U+FFFD), une
+            # corruption invisible du contenu. On échoue avec la position
+            # exacte — le modèle corrige ou passe en utf-8/b64.
             try:
                 new_bytes = new_content.encode(_enc_out)
             except (UnicodeEncodeError, LookupError) as _enc_err:
@@ -2351,8 +2337,8 @@ For surgical edits on large files, prefer edit_file."""
 
             # ── NO-OP : le fichier contient DÉJÀ exactement ce contenu ──
             # On ne réécrit pas (inutile, et ça touche le mtime pour rien)
-            # et SURTOUT on renvoie un signal NON AMBIGU. C'est la cause
-            # n°1 des boucles write_file : un modèle faible reçoit
+            # et SURTOUT on renvoie un signal NON AMBIGU. C'est la première
+            # cause des boucles write_file : un modèle faible reçoit
             # `ok:true` + `lines_added:0` + `old_sha256==new_sha256`,
             # interprète ça comme « mon écriture n'a pas pris » et
             # rappelle write_file à l'identique — en brûlant tout le
@@ -2511,10 +2497,10 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
             except UnicodeDecodeError:
                 return _err("not_utf8", hint="edit_file requires UTF-8. Use write_file(mode='b64') for binaries.")
             _had_crlf = "\r\n" in old_text_raw
-            # F17 — restaurer CRLF à l'écriture SEULEMENT si le fichier est
-            # HOMOGÈNE CRLF (aucun \n isolé). Avant : `_had_crlf` (≥1 CRLF)
-            # suffisait → un fichier à fins MIXTES (qq lignes CRLF + 100 lignes
-            # LF) voyait ses 100 lignes LF converties en CRLF à l'écriture,
+            # Restaurer CRLF à l'écriture SEULEMENT si le fichier est
+            # HOMOGÈNE CRLF (aucun \n isolé). Un CRLF présent ne suffit pas :
+            # un fichier à fins MIXTES (qq lignes CRLF + 100 lignes LF)
+            # verrait ses 100 lignes LF converties en CRLF à l'écriture,
             # masqué dans le diff (calculé sur le texte normalisé) → 100
             # changements de fin de ligne parasites en base/git. En mixte on
             # écrit en LF (normalise les rares CRLF, changement minime).
@@ -2525,8 +2511,8 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
             act = (action or "").strip().lower()
 
             # Coercition « modèle imparfait » : les params STRUCTURÉS arrivent
-            # parfois JSON-encodés en string (petit modèle / double sérialisation)
-            # → ValidationError silencieuse avant ce fix. as_list les re-parse.
+            # parfois JSON-encodés en string (petit modèle / double sérialisation) :
+            # sans re-parse, ValidationError silencieuse. as_list les re-parse.
             edits = as_list(edits) or []
             before_context = [str(x) for x in (as_list(before_context) or [])]
             after_context = [str(x) for x in (as_list(after_context) or [])]
@@ -2537,10 +2523,10 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
                 old_str = old_str.replace("\r\n", "\n")
                 new_str = new_str.replace("\r\n", "\n")
                 content = content.replace("\r\n", "\n")
-                # AUDIT 2026-09-26 — mêmes champs que ``_norm_edit_crlf`` (lot
-                # ``multi``) : un ``replacement`` en CRLF s'écrivait
-                # ``\r\r\n`` et un ``anchor_str``/contexte en CRLF ne
-                # correspondait jamais au texte normalisé.
+                # Mêmes champs que ``_norm_edit_crlf`` (lot ``multi``) : sinon
+                # un ``replacement`` en CRLF s'écrirait ``\r\r\n`` et un
+                # ``anchor_str``/contexte en CRLF ne correspondrait jamais au
+                # texte normalisé.
                 replacement = replacement.replace("\r\n", "\n")
                 anchor_str = anchor_str.replace("\r\n", "\n")
                 before_context = [x.replace("\r\n", "\n") for x in before_context]
@@ -2587,9 +2573,9 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
                     })
                 elif act == "regex":
                     edit_dict.update({"pattern": pattern, "replacement": replacement,
-                                      # AUDIT 2026-09-25 — TOUTES les occurrences par
-                                      # défaut, comme dans ``multi`` (le défaut partagé
-                                      # avec str_replace ne renommait que la 1re).
+                                      # TOUTES les occurrences par défaut, comme dans
+                                      # ``multi`` (le défaut ``count`` partagé avec
+                                      # str_replace, 1, ne renommerait que la 1re).
                                       "count": (0 if count is None or count < 0 else count),
                                       "flags": flags})
                 elif act == "insert":
@@ -2601,9 +2587,8 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
                     edit_dict.update({"start_line": start_line, "end_line": end_line,
                                       "content": content or new_str})
                 elif act == "anchor":
-                    # `occurrence=-1` shorthand for "last match" — count and resolve
-                    # ``occurrence=-1`` (dernière) : résolu par le moteur,
-                    # avec le finder qui trouve les ancres.
+                    # ``occurrence=-1`` (« last match ») : résolu par le
+                    # moteur, avec le finder qui trouve les ancres.
                     occ = occurrence
                     edit_dict.update({
                         "anchor_str": anchor_str, "anchor_re": anchor_re,
@@ -2645,7 +2630,7 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
             diff = _make_diff(old_text, new_text, rel)
 
             # ── Restauration des conventions du fichier (CRLF / BOM) ─────
-            # F17 : CRLF seulement si le fichier était HOMOGÈNE CRLF.
+            # CRLF seulement si le fichier lu est HOMOGÈNE CRLF (cf. plus haut).
             out_text = new_text.replace("\n", "\r\n") if _is_crlf_file else new_text
             _enc_out = "utf-8-sig" if _had_bom else "utf-8"
             new_bytes = out_text.encode(_enc_out)
@@ -2675,9 +2660,9 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
             if _is_crlf_file:
                 result["line_endings"] = "crlf"   # conventions du fichier restaurées
             elif _had_crlf:
-                # Audit éditeur 2026-09-23 (E33) : fichier à fins de ligne
-                # MIXTES → écrit en LF (choix F17). Le diff, calculé sur le
-                # texte normalisé, ne le montrait pas : on le dit.
+                # Fichier à fins de ligne MIXTES → écrit en LF (cf. plus
+                # haut). Le diff, calculé sur le texte normalisé, ne le
+                # montre pas : on le dit.
                 result["line_endings"] = "lf"
                 result["normalized_line_endings"] = True
                 result["note"] = (
@@ -2686,12 +2671,12 @@ For multi: returns `applied=[{action, ...info}]` with each edit's result."""
                     f"({_lone_lf} lines). The diff above does not show this "
                     f"whole-file end-of-line change.")
             if not dry_run:
-                # AUDIT 2026-06 — sha re-vérifié au remplacement (_ecrire_garde).
+                # Sha re-vérifié au remplacement (_ecrire_garde).
                 # ``new_bytes`` : CRLF et BOM d'origine restaurés.
-                # E7 : verrou partagé avec l'éditeur, TOUJOURS, et le contenu
+                # Verrou partagé avec l'éditeur, TOUJOURS, et le contenu
                 # dont l'édition est partie (old_sha) est re-vérifié dessous :
                 # un enregistrement de l'éditeur intervenu entre-temps n'est
-                # plus écrasé.
+                # jamais écrasé.
                 _r, _lock_err = _ecrire_garde(esp, _username, sb, p, rel, new_bytes, etat=_etat,
                                               expected_sha256=expected_sha256, strict=True)
                 if _lock_err is not None:
@@ -2766,7 +2751,7 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
 
             cap = max(1, min(max_results, MAX_LIST))
 
-            # ── path = FICHIER : stat (absorbe l'ex-stat_path) ou grep ────
+            # ── path = FICHIER : stat ou grep ─────────────────────────────
             if e_root["kind"] != "dir":
                 if e_root["kind"] != "file":
                     return _err("not_a_regular_file",
@@ -2798,28 +2783,26 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                 if details and size <= 10_000_000:
                     info["sha256"] = esp.stat(rel_root, hash=True, hash_max=10_000_000).get("sha256", "")
                 return _ok(action="stat", **info)
-            # AUDIT AGENTS 2026-08-08 (mesuré en direct) — sans ``exclude``, un
-            # ``include_hidden=True`` ramenait 500 chemins de
-            # ``.venv/lib/pythonX/site-packages/...`` : +9 000 tokens de contexte
-            # en UN appel, pour zéro information utile. On applique donc un
-            # socle d'exclusions de dossiers de DÉPENDANCES quand l'appelant n'a
-            # rien précisé — et on le DIT dans la réponse (``excluded_default``).
-            # ``.git`` n'y figure PAS : il est déjà masqué par le défaut
-            # ``include_hidden=False``.
+            # Mesuré en direct : sans ``exclude``, un ``include_hidden=True``
+            # ramène 500 chemins de ``.venv/lib/pythonX/site-packages/...`` :
+            # +9 000 tokens de contexte en UN appel, pour zéro information
+            # utile. On applique donc un socle d'exclusions de dossiers de
+            # DÉPENDANCES quand l'appelant n'a rien précisé — et on le DIT
+            # dans la réponse (``excluded_default``). ``.git`` n'y figure PAS :
+            # il est déjà masqué par le défaut ``include_hidden=False``.
             _default_excl = not [e for e in (exclude or []) if e]
             exclude_pats = ([e for e in (exclude or []) if e]
                             or list(DEFAULT_DEP_EXCLUDES))
-            # AUDIT 2026-09-25 — un motif qui porte un chemin (``src/**/*.ts``,
+            # Un motif qui porte un chemin (``src/**/*.ts``,
             # ``**/*.py``) implique la récursion.
             if pattern and ("/" in pattern or "**" in pattern):
                 recursive = True
-            # Parcours ÉLAGUÉ par l'agent (AUDIT 2026-09-26 : descendre dans
-            # node_modules, .venv… épuisait la borne MAX_WALK avant le
-            # projet) : un dossier exclu ou caché n'est ni rendu ni descendu —
-            # motifs confrontés au nom et au chemin relatif, comme chaque
-            # segment l'était. Borne DURE du walk : MAX_WALK entrées. Liens non
-            # montrés, comme avant ; ordre du parcours d'avant (cf.
-            # ``_cle_parcours``), dont les tris stables héritent.
+            # Parcours ÉLAGUÉ par l'agent (descendre dans node_modules,
+            # .venv… épuiserait la borne MAX_WALK avant le projet) : un
+            # dossier exclu ou caché n'est ni rendu ni descendu — motifs
+            # confrontés au nom et au chemin relatif. Borne DURE du walk :
+            # MAX_WALK entrées. Liens non montrés ; ordre de parcours de
+            # ``_cle_parcours``, dont les tris stables héritent.
             listing = esp.lister(rel_root, depth=_PROFONDEUR if (recursive or search_text) else 1,
                                  max_entries=MAX_WALK, hidden=include_hidden,
                                  exclude=exclude_pats)
@@ -2831,9 +2814,8 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
 
             # ── search_text (grep mode) ────────────────────────────
             if search_text:
-                # AUDIT 2026-09-25 : fichiers écartés COMPTÉS et signalés (un
-                # fichier source de plus de 300 Ko était sauté en silence) ;
-                # lecture ligne à ligne jusqu'à 20 Mo, dans l'agent.
+                # Fichiers écartés COMPTÉS et signalés, jamais sautés en
+                # silence ; lecture ligne à ligne jusqu'à 20 Mo, dans l'agent.
                 fichiers = [prefixe + r for r, x in entrees
                             if x["kind"] == "file" and (not pattern or _glob_match(r, pattern))]
                 trouves, bilan = _grep_lots(esp, fichiers, search_text, ignore_case=ignore_case,
@@ -2874,7 +2856,7 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                 items.sort(key=lambda rx: (0 if rx[1]["kind"] == "dir" else 1,
                                            rx[0].rsplit("/", 1)[-1].lower()))
 
-            # Reprise par IDENTITÉ dans l'ordre de page (AUDIT 2026-08-23) :
+            # Reprise par IDENTITÉ dans l'ordre de page :
             # on repart juste APRÈS l'entrée nommée par le curseur. Curseur
             # inconnu (entrée disparue entre deux pages) ⇒ depuis le début.
             start = 0
@@ -2895,8 +2877,8 @@ Returns cursor for pagination when truncated. Pass it back to continue."""
                 out = []
                 for r, x in page:
                     # ``path`` : vue conteneur réutilisable telle quelle, ``rel``
-                    # relatif à la sandbox (BUG 2026-08-08 : relatif au dossier
-                    # listé, il menait read_file à « not_found »).
+                    # relatif à la sandbox (relatif au dossier listé, il
+                    # mènerait read_file à « not_found »).
                     info_d = _stat_entree(sb / (prefixe + r), sb, x)
                     if include_git_status and r in git_status:
                         info_d["git_status"] = git_status[r]
@@ -3236,7 +3218,7 @@ Safety:
         except Exception as e:
             return _err(f"unexpected: {e}")
 
-    # ── 6. code — intelligence de code fusionnée (ex code_outline + code_navigate)
+    # ── 6. code — intelligence de code (plan, symboles, définition, références)
     @mcp.tool(**_TOOL_KW_RO)
     def code(
         ctx: Context,
@@ -3387,10 +3369,6 @@ definition/references → {count, matches:[{file,line,…}], truncated}."""
                 if lang != "unknown":
                     fichiers.append((rel, x["path"], lang))
             fichiers.sort(key=lambda f: _cle_parcours(f[0], False))
-            # Préfiltre par l'agent (un seul appel) : un fichier qui ne
-            # contient pas, à la casse près, le plus long fragment
-            # alphanumérique du symbole ne peut pas le définir ni le citer
-            # (Robot compare sans casse ni « _ », « - », espace).
             # Préfiltre par l'agent : un fichier qui ne contient pas le symbole
             # (Robot : son plus long fragment alphanumérique, sans casse — les
             # mots-clés se comparent sans casse ni « _ », « - », espace) ne

@@ -312,7 +312,7 @@ def test_agent_req_transmet_l_echeance(monkeypatch):
 
 # ── Event tool_result allégé hors Studio ──────────────────────────────────────
 def test_event_desktop_elements_seulement_pour_le_studio():
-    from llm_core._chat_with_tools import _desktop_event_extra
+    from llm_core.engine.tool_dispatch import _desktop_event_extra
     raw = json.dumps({"ok": True, "sig": "ab", "elements": [{"id": "el_1", "label": "OK", "role": "button"}]})
     assert _desktop_event_extra("desktop_act", raw, with_elements=False) == {"sig": "ab"}
     assert _desktop_event_extra("desktop_act", raw, with_elements=True)["elements"][0]["id"] == "el_1"

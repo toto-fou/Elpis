@@ -84,7 +84,7 @@ def test_boundary_composition_yields_single_system():
 # le socle ; le fold saute désormais les porteurs, coalescés à l'envoi seul)
 # ──────────────────────────────────────────────────────────────────────────
 
-from llm_core._chat_with_tools import _fold_operational_block  # noqa: E402
+from llm_core.context.assembly import fold_operational_block as _fold_operational_block  # noqa: E402
 from llm_core.conversation_compressor import build_state_system_message  # noqa: E402
 
 

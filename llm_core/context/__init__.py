@@ -1,11 +1,9 @@
 # SPDX-License-Identifier: MIT
 """llm_core.context — pipeline de gestion de la fenêtre de contexte.
 
-Package né du refactor 2026-07 (audit « fragmentation ») : la question
-« combien pèse ce prompt et que doit-il contenir ? » était répondue par
-≥ 5 chemins de code avec 3 ratios différents, éparpillés dans
-``_chat_with_tools`` (sous-système privé de 260 lignes), ``rag_tools``,
-``context_config`` et le compresseur.
+La question « combien pèse ce prompt et que doit-il contenir ? » a sa
+réponse ici, et nulle part ailleurs : un second chemin de comptage ou de
+ratio divergerait (deux budgets différents pour le même prompt).
 
 Responsabilité unique par module :
 
@@ -23,12 +21,12 @@ Responsabilité unique par module :
                  tokens), armé à CHAQUE itération de la boucle outils — une
                  mission de plusieurs heures tient dans un seul tour. Porte
                  aussi le cap de compactions par conversation.
-- ``pruning``  — (Phase 2) pipeline ordonné de réduction : compaction des
+- ``pruning``  — pipeline ordonné de réduction : compaction des
                  tool_results → élagage vision → budget dur.
-- ``assembly`` — (Phase 2) assemblage byte-stable du message système de tête
+- ``assembly`` — assemblage byte-stable du message système de tête
                  (socle → runtime_context → fragments), invariant
                  prefix-cache.
-- ``compression`` — (Phase 3) porte + sérialiseur + résumeur + état persisté.
+- ``compression`` — porte + sérialiseur + résumeur + état persisté.
 """
 from __future__ import annotations
 

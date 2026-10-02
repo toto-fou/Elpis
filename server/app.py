@@ -59,9 +59,9 @@ logger = logging.getLogger("uvicorn.error")
 #  short-circuit (no risk of bypass).
 # ─────────────────────────────────────────────────────────────────────────────
 def _resolve_app_mode(raw: str | None) -> str:
-    """``APP_MODE`` absent ou invalide ⇒ ``main``. Avant : ``full``, qui
-    montait en silence la console d'admin sur le port public dès qu'un
-    lancement oubliait la variable."""
+    """``APP_MODE`` absent ou invalide ⇒ ``main``, jamais ``full`` : un
+    lancement qui oublie la variable monterait sinon en silence la console
+    d'admin sur le port public."""
     mode = (raw or "").strip().lower()
     if not mode:
         return "main"
@@ -74,11 +74,10 @@ def _resolve_app_mode(raw: str | None) -> str:
 APP_MODE = _resolve_app_mode(os.environ.get("APP_MODE"))
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  APP_PROFILE — historiquement le levier qui sélectionnait l'applicatif servi
-#  (chatbot vs agentic). L'agentic a été retiré (remplacé par Flowise, service
-#  externe) : seul le profil ``chatbot`` subsiste. La variable est conservée pour
-#  compat avec ``chatbot_app.asgi`` / les scripts de démarrage, mais toute valeur
-#  est ramenée à ``chatbot``.
+#  APP_PROFILE — seul le profil ``chatbot`` existe (l'applicatif agentic est un
+#  service externe, Flowise). La variable reste lue pour compat avec
+#  ``chatbot_app.asgi`` / les scripts de démarrage, mais toute autre valeur est
+#  ramenée à ``chatbot``.
 # ─────────────────────────────────────────────────────────────────────────────
 APP_PROFILE = os.environ.get("APP_PROFILE", "chatbot").lower()
 if APP_PROFILE != "chatbot":
@@ -122,13 +121,12 @@ def _kill_mcp_subprocesses_sync():
     (pas d'event loop), donc on identifie les processus enfants via
     ``psutil`` et on leur envoie SIGTERM en best-effort.
 
-    BUG FIX (élevé) — avant : tous les enfants étaient terminés
-    aveuglément, y compris d'éventuels subprocess utilisés par d'autres
-    parties du code (HAR/screenshot helpers, hooks de déploiement
-    custom, etc.). On filtre maintenant par cmdline pour ne tuer QUE
-    les processus qui ressemblent à des serveurs MCP — Python qui
-    exécute un script ``*mcp_server*.py`` ou ``local_mcp_server.py``,
-    ou le binaire ``MCP_SERVER_CMD`` configuré.
+    Filtre par cmdline : ne tuer QUE les processus qui ressemblent à des
+    serveurs MCP — Python qui exécute un script ``*mcp_server*.py`` ou
+    ``local_mcp_server.py``, ou le binaire ``MCP_SERVER_CMD`` configuré.
+    Ne pas terminer tous les enfants aveuglément : d'autres parties du code
+    lancent les leurs (HAR/screenshot helpers, hooks de déploiement custom,
+    etc.).
     """
     try:
         import psutil
@@ -230,11 +228,10 @@ async def lifespan(app: FastAPI):
     # llama n'est pas prêt, on retombe sur "classic" silencieusement.
     # Le probe peut être re-déclenché à tout moment via l'endpoint
     # POST /api/admin/llm-capabilities/probe.
-    # AUDIT 2026-08-02 (E13) — via _register_bg_task : le create_task nu ne
-    # gardait AUCUNE référence forte (tâche potentiellement GC avant son
-    # premier await) et son exception éventuelle n'était jamais consultée —
-    # la détection de capacités (grammaire tool-calling, vision) sautait
-    # alors en silence, dégradant le premier chat sans diagnostic.
+    # Par ``_register_bg_task`` : référence forte (une tâche nue peut être
+    # collectée avant son premier await) et exception journalisée — sinon la
+    # détection de capacités (grammaire tool-calling, vision) sauterait en
+    # silence et dégraderait le premier chat sans diagnostic.
     try:
         import asyncio as _asyncio
 
@@ -249,10 +246,10 @@ async def lifespan(app: FastAPI):
     # NOT via @app.on_event("startup"). When a FastAPI app is constructed
     # with ``lifespan=...``, Starlette ≥ 0.27 silently ignores every
     # ``@app.on_event("startup"|"shutdown")`` decorator — no warning is
-    # emitted, the handlers just never fire. We learnt that the hard way
-    # in v3.7-v3.9 when the metric_broadcast tailer never started on any
-    # worker (no log line, no events delivered, restart popups missing
-    # on the user side, dashboard KPIs never auto-refreshed).
+    # emitted, the handlers just never fire: the metric_broadcast tailer
+    # would then start on no worker (no log line, no events delivered,
+    # restart popups missing on the user side, dashboard KPIs never
+    # auto-refreshed).
     #
     # The tailer reads /tmp/elpis_metric_events.jsonl and re-broadcasts
     # each line on this worker's local system_events SSE bus. Same file
@@ -270,12 +267,12 @@ async def lifespan(app: FastAPI):
     # mais canal SÉPARÉ du bus system_events : celui-ci diffuse à tout
     # utilisateur authentifié, or une annulation porte le user_id et le chat_id
     # de son émetteur. Sans ce tailer, un Stop reçu par un worker qui n'exécute
-    # rien restait sans effet — la génération continuait sur son worker et
-    # persistait le tour malgré l'« annulé » affiché côté UI.
+    # rien resterait sans effet — la génération continuerait sur son worker et
+    # persisterait le tour malgré l'« annulé » affiché côté UI.
     # Le MÊME canal porte les annulations de SOUS-AGENTS (outil ``task``,
     # ``kind="child"``), aiguillées vers ``task_tool`` : un enfant n'est pas un
     # chat, la demande ne doit surtout pas tuer le tour parent. Sans elle, le ✕
-    # d'un agent n'agissait que dans le worker ayant reçu le POST.
+    # d'un agent n'agirait que dans le worker ayant reçu le POST.
     try:
         from llm_core.tools.task_tool import apply_child_cancel
         from shared_infra.routes._state import apply_remote_cancellation
@@ -288,7 +285,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"[STARTUP] cancel_bus tailer schedule failed: {e}")
 
-    # « Redémarrage nécessaire » (console admin, lot 6) : empreinte des
+    # « Redémarrage nécessaire » (console admin) : empreinte des
     # réglages lus au démarrage par le process PRINCIPAL — celui que le bouton
     # Redémarrer relance. La console la compare au fichier courant.
     if APP_MODE != "admin":
@@ -306,7 +303,7 @@ async def lifespan(app: FastAPI):
     # startup, otherwise uvicorn delays accepting traffic.
     #
     # Skipped in admin-only mode (``APP_MODE=admin``): the admin process
-    # *does* now occasionally invoke the local MCP (the Outils MCP tab
+    # *does* occasionally invoke the local MCP (the Outils MCP tab
     # goes through the pool on demand — routes ``/api/mcp/*``), but
     # warming it at boot would waste RAM on a process that idles 99 %
     # of the time. The first admin tab open pays ~500 ms — acceptable.
@@ -316,20 +313,19 @@ async def lifespan(app: FastAPI):
 
             from shared_infra.mcp.panel import prewarm_mcp_pool
             from shared_infra.observability.events_bus import _register_bg_task
-            # AUDIT 2026-08-02 (E13) — réf forte + log d'exception via le
-            # registre bg-tasks (cf. detect_llama_capabilities ci-dessus).
+            # Référence forte + journal d'exception via le registre bg-tasks
+            # (cf. detect_llama_capabilities ci-dessus).
             _register_bg_task(_asyncio.create_task(prewarm_mcp_pool()))
         except Exception as e:
             logger.warning(f"[STARTUP] prewarm_mcp_pool schedule failed: {e}")
 
     # Démarre le scheduler cron + le cleanup PTY par-worker dès le boot,
-    # sur CHAQUE worker. Avant, ``start_cron_scheduler()`` n'était
-    # déclenché qu'au PREMIER hit HTTP /api/system-events ; un worker
-    # recyclé (gunicorn max_requests=2000) qui ne servait ensuite que des
-    # WebSockets /ws/terminal ne lançait jamais son ``_local_cleanup_loop``
-    # → ses PTY (bash + master_fd) n'étaient jamais reapés (fuite fd/RAM
-    # sur plusieurs jours). ``start_cron_scheduler`` est idempotent : le
-    # hit /api/system-events legacy reste un no-op inoffensif.
+    # sur CHAQUE worker, sans attendre un hit HTTP /api/system-events : un
+    # worker recyclé (gunicorn max_requests=2000) qui ne sert ensuite que des
+    # WebSockets /ws/terminal ne lancerait jamais son ``_local_cleanup_loop``
+    # → ses PTY (bash + master_fd) ne seraient jamais reapés (fuite fd/RAM
+    # sur plusieurs jours). ``start_cron_scheduler`` est idempotent : l'appel
+    # du hit /api/system-events reste un no-op inoffensif.
     try:
         from shared_infra.observability.events_bus import start_cron_scheduler
         start_cron_scheduler()
@@ -350,14 +346,15 @@ async def lifespan(app: FastAPI):
             logger.warning(f"[STARTUP] start_routines_scheduler failed: {e}")
         # Entretien périodique (uptime longue durée) : passe quotidienne sur le
         # worker leader (cron_lock) — purge des télémétries + checkpoint WAL +
-        # digest. Indispensable car ces purges n'étaient jadis faites qu'au boot
-        # (jamais ré-exécutées sur un serveur qui ne reboote pas pendant des mois).
+        # digest. Indispensable : faites seulement au boot, ces purges ne
+        # seraient jamais ré-exécutées sur un serveur qui ne reboote pas
+        # pendant des mois.
         try:
             from shared_infra.ops.maintenance import start_maintenance_scheduler
             start_maintenance_scheduler()
         except Exception as e:
             logger.warning(f"[STARTUP] start_maintenance_scheduler failed: {e}")
-        # Sauvegarde distante automatique (2026-09-21) : « toutes les N
+        # Sauvegarde distante automatique : « toutes les N
         # heures/jours », leader-only (cron_lock), réglée dans l'admin.
         try:
             from shared_infra.ops.backup_scheduler import start_backup_scheduler
@@ -376,8 +373,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"[STARTUP] start_process_sampler failed: {e}")
 
-    # AUDIT 2026-08-02 (W8, révisé « recyclage invisible ») — quand CE worker
-    # entame son shutdown (``AppStatus.should_exit`` : posé par sse-starlette
+    # Quand CE worker entame son shutdown (``AppStatus.should_exit`` : posé par sse-starlette
     # sur SIGTERM et par notre patch de ``Server.shutdown`` sur le chemin
     # max_requests), on ÉVACUE les flux infinis au lieu d'afficher une
     # bannière : un recyclage de worker doit être INVISIBLE (les autres
@@ -412,7 +408,7 @@ async def lifespan(app: FastAPI):
             except Exception:
                 n_sys = 0
             # 2. SSE pipeline (per-user) : même hint, puis sentinelle — la page
-            #    Code se rebranche et resynchronise son état (2026-09-25, B8).
+            #    Code se rebranche et resynchronise son état.
             try:
                 n_pipe = pipeline_events.disconnect_all(
                     message={"type": "worker_recycling"})
@@ -420,8 +416,8 @@ async def lifespan(app: FastAPI):
                 n_pipe = 0
             # 3. Terminaux : le PTY est un enfant du worker, il meurt avec
             #    lui quoi qu'il arrive. Le tuer MAINTENANT ferme le WS → le
-            #    client rouvre immédiatement un shell (neuf, avec le
-            #    séparateur W5) sur un worker sain, au lieu d'un terminal
+            #    client rouvre immédiatement un shell (neuf, annoncé comme
+            #    tel par sa frame d'accueil) sur un worker sain, au lieu d'un terminal
             #    figé jusqu'à la mort du worker.
             try:
                 from shared_infra.terminal.pty import shutdown_all_terminals
@@ -452,22 +448,22 @@ async def lifespan(app: FastAPI):
             logger.info(f"[SHUTDOWN] {n} background task(s) cancel(ées)")
     except Exception as e:
         logger.warning(f"[SHUTDOWN] shutdown_bg_tasks: {e}")
-    # AUDIT 2026-08-02 (W4) — libérer le verrou leader IMMÉDIATEMENT après
-    # l'arrêt des schedulers (ils sont annulés juste au-dessus, donc plus
-    # aucune re-acquisition possible), et AVANT les drains qui peuvent
-    # prendre plusieurs secondes. Avant, c'était la DERNIÈRE étape du
-    # shutdown : pendant tout le drain, les workers survivants ne pouvaient
-    # pas prendre le leadership et aucune routine ne partait.
+    # Libérer le verrou leader IMMÉDIATEMENT après l'arrêt des schedulers
+    # (annulés juste au-dessus, donc plus aucune re-acquisition possible), et
+    # AVANT les drains qui peuvent prendre plusieurs secondes : sinon, pendant
+    # tout le drain, les workers survivants ne pourraient pas prendre le
+    # leadership et aucune routine ne partirait.
     try:
         from shared_infra.scheduling.cron_lock import release_cron_lock
         release_cron_lock()
     except Exception:
         pass
-    # AUDIT 2026-08-02 (m14) — drainer AUSSI les registres bg-tasks locaux
-    # de routes/tools.py et chatbot_app/routes/chats.py : seuls ceux de
-    # _events_bus étaient annulés, les autres étaient abandonnés en vol.
+    # Drainer AUSSI les registres de tâches de fond locaux
+    # (shared_infra/routes/tools.py, chatbot_app/turn/tasks.py — runs de chat
+    # détachés compris) : sinon seules celles d'_events_bus seraient annulées,
+    # les autres abandonnées en vol.
     for _mod_path, _attr in (("shared_infra.routes.tools", "_BG_TASKS"),
-                             ("chatbot_app.routes.chats", "_BG_TASKS")):
+                             ("chatbot_app.turn.tasks", "_BG_TASKS")):
         try:
             import importlib as _importlib
             _mod = _importlib.import_module(_mod_path)
@@ -483,7 +479,7 @@ async def lifespan(app: FastAPI):
     # Drain des runs de routine AVANT la fermeture du pool MCP / client LLM :
     # annulés proprement, ils prennent le chemin CancelledError (journal
     # « annulé », pas de notification). Sans ce drain, shutdown_mcp_pool()
-    # fermait le client httpx sous leurs pieds → exception ≠ CancelledError →
+    # fermerait le client httpx sous leurs pieds → exception ≠ CancelledError →
     # fausse notif « Routine en échec » à chaque restart / recycle de worker.
     try:
         from shared_infra.scheduling.routines_scheduler import drain_running_runs
@@ -492,7 +488,6 @@ async def lifespan(app: FastAPI):
             logger.info(f"[SHUTDOWN] {n} run(s) de routine annulé(s)")
     except Exception as e:
         logger.warning(f"[SHUTDOWN] drain_running_runs: {e}")
-    # (release_cron_lock déplacé en tête de shutdown — audit 2026-08-02, W4.)
     # Ferme le pool MCP ET le client httpx partagé vers llama-server.
     # Sans ça, à chaque recycle de worker (gunicorn ``max_requests=2000``) :
     #   - les subprocess stdio MCP sont ré-parentés à init (RAM qui ne
@@ -500,20 +495,18 @@ async def lifespan(app: FastAPI):
     #   - le connection pool httpx (LLAMA_MAX_CONCURRENCY keepalive TCP
     #     sockets) est laissé ouvert côté llama-server.
     # ``shutdown_mcp_pool`` enchaîne mcp_pool.close_all() + close_llm_client().
-    # Historiquement défini mais jamais câblé à l'app — corrigé ici.
     try:
         from shared_infra.mcp.panel import shutdown_mcp_pool
         await shutdown_mcp_pool()
     except Exception as e:
         logger.warning(f"[SHUTDOWN] shutdown_mcp_pool: {e}")
     _kill_all_terminals()
-    # AUDIT 2026-08-01 (M1) — arrêter l'abonnement ``docker events``.
-    # ``stop_events()`` existait mais n'avait AUCUN appelant : le thread est
-    # ``daemon``, donc tué sans exécuter son ``finally`` à la sortie de
-    # l'interpréteur — et le ``subprocess.Popen(docker events)`` qu'il
-    # supervise, étant un processus SÉPARÉ, survivait réparenté à init. Avec
-    # ``max_requests=2000``, chaque recyclage de worker en laissait un de plus,
-    # avec son stream vers l'API Docker, jusqu'au reboot de la machine.
+    # Arrêter l'abonnement ``docker events`` : le thread est ``daemon``, donc
+    # tué sans exécuter son ``finally`` à la sortie de l'interpréteur, et le
+    # ``subprocess.Popen(docker events)`` qu'il supervise, processus SÉPARÉ,
+    # survivrait réparenté à init — un de plus à chaque recyclage de worker
+    # (``max_requests=2000``), avec son stream vers l'API Docker, jusqu'au
+    # reboot de la machine.
     try:
         from shared_infra.sandbox.executors._readiness import get_readiness_cache
         get_readiness_cache().stop_events()
@@ -547,31 +540,16 @@ def create_app() -> FastAPI:
             len(_cors_origins), ", ".join(_cors_origins),
         )
     else:
-        # BUG FIX (mineur) : avant, si ``cors_origins`` était vide ou
-        # absent du config.json, AUCUN middleware CORS n'était ajouté
-        # mais sans le moindre log → l'opérateur ne savait pas si CORS
-        # était "off par décision" ou "off par oubli de config". Ce log
-        # explicite lève l'ambiguïté à chaque boot.
+        # ``cors_origins`` vide ou absent : aucun middleware CORS. Le dire à
+        # chaque boot, sinon l'opérateur ne sait pas si CORS est « off par
+        # décision » ou « off par oubli de config ».
         logger.info(
             "[startup] CORS désactivé (app.cors_origins absent ou vide dans "
             "config.json). Les requêtes cross-origin seront bloquées par "
             "le navigateur."
         )
 
-    # ── SessionMiddleware ────────────────────────────────────────────────
-    # Cookie attributes are read from config.json:security.session at boot
-    # so operators can adjust same-site / https-only / cookie name without
-    # patching this file. Defaults match the historical hard-coded values.
-    #
-    # NOTE: changes to these attributes only take effect after a gunicorn
-    # restart, because Starlette's SessionMiddleware caches them per-app.
-    # The admin UI's "Reboot" button handles that. The sub-second runtime
-    # checks (max_age, global revocation, per-user revocation) are
-    # re-read on every request — those don't need a restart.
-    # M7 — source UNIQUE des attributs de cookie (partagée avec le logout de
-    # routes/auth.py) : les deux dérivations parallèles pouvaient diverger et
-    # rendre la suppression du cookie inopérante sur Chrome/Safari.
-    # ── Relais vers un hôte d'outils DISTANT (2026-09-11, P4) ────────────
+    # ── Relais vers un hôte d'outils DISTANT ─────────────────────────────
     # Ajouté AVANT SessionMiddleware (et la garde CSRF) : Starlette empile les
     # middlewares en ordre inverse d'ajout, celui-ci est donc INTÉRIEUR — il
     # voit la session vérifiée et n'agit que si ``mcp.json › sandboxHosts``
@@ -579,6 +557,20 @@ def create_app() -> FastAPI:
     from shared_infra.sandbox.relay import SandboxRelayASGI
     app.add_middleware(SandboxRelayASGI)
 
+    # ── SessionMiddleware ────────────────────────────────────────────────
+    # Cookie attributes are read from config.json:security.session at boot
+    # so operators can adjust same-site / https-only / cookie name without
+    # patching this file.
+    #
+    # NOTE: changes to these attributes only take effect after a gunicorn
+    # restart, because Starlette's SessionMiddleware caches them per-app.
+    # The admin UI's "Reboot" button handles that. The sub-second runtime
+    # checks (max_age, global revocation, per-user revocation) are
+    # re-read on every request — those don't need a restart.
+    # Source UNIQUE des attributs de cookie (partagée avec le logout de
+    # ``shared_infra/accounts/routes_auth.py``) : deux dérivations parallèles
+    # pourraient diverger et rendre la suppression du cookie inopérante sur
+    # Chrome/Safari.
     _cookie_attrs = session_cookie_attrs()
     _cookie_name = _cookie_attrs["cookie_name"]
     _same_site = _cookie_attrs["same_site"]
@@ -590,20 +582,18 @@ def create_app() -> FastAPI:
         session_cookie=_cookie_name,
         same_site=_same_site,
         https_only=_https_only,
-        # AUDIT 2026-08-02 (S6) — sans max_age explicite, Starlette posait
-        # son défaut de 14 JOURS glissants (Set-Cookie réémis à chaque
-        # requête) : cookie persistant qui survivait à la fermeture du
-        # navigateur et restait signé-valide 14 j, alors que la gate
-        # ``_login_ts`` de deps.py expire à security.session.max_age_sec
-        # (24 h par défaut). Aligné sur la même source de config.
+        # ``max_age`` explicite, aligné sur la gate ``_login_ts`` de deps.py
+        # (security.session.max_age_sec, 24 h par défaut) : sans lui,
+        # Starlette pose son défaut de 14 JOURS glissants (Set-Cookie réémis
+        # à chaque requête), un cookie persistant qui survit à la fermeture
+        # du navigateur et reste signé-valide 14 j.
         max_age=_cookie_attrs["max_age"],
     )
 
-    # ── Défense CSRF globale (audit 2026-08-01, E9) ──────────────────────
+    # ── Défense CSRF globale ─────────────────────────────────────────────
     # Le cookie de session est en SameSite=lax par défaut, ce qui n'arrête PAS
-    # le same-site cross-origin (autre port, sous-domaine frère). La garde
-    # `_reject_cross_site` existait mais n'était câblée que sur
-    # change-password : 1 route mutante sur ~33. On l'applique ici à toutes.
+    # le same-site cross-origin (autre port, sous-domaine frère) : la garde
+    # `_reject_cross_site` s'applique donc ici à toutes les routes mutantes.
     # Placé AVANT SessionMiddleware dans l'ordre d'ajout ⇒ s'exécute APRÈS lui
     # côté requête, mais la garde ne lit que les en-têtes et le cookie brut :
     # elle ne dépend pas de la session décodée.
@@ -613,15 +603,15 @@ def create_app() -> FastAPI:
         # Les webhooks entrants (Gitea → routines) arrivent SANS cookie, donc
         # passent déjà — mais un navigateur qui rejouerait l'URL avec un
         # cookie traînant ne doit pas non plus être bloqué : l'auth de ces
-        # endpoints est le HMAC. L'aperçu de sandbox n'est plus exempté
-        # (audit 2026-09-22, M8) : l'iframe passe par /api/sandbox/pvs/<jeton>/
-        # (origine opaque, sans cookie, donc hors de cette garde) et la route
-        # à session exige désormais une origine same-site pour un POST.
+        # endpoints est le HMAC. L'aperçu de sandbox n'est pas exempté :
+        # l'iframe passe par /api/sandbox/pvs/<jeton>/ (origine opaque, sans
+        # cookie, donc hors de cette garde) et la route à session exige une
+        # origine same-site pour un POST.
         exempt_prefixes=("/api/webhooks/",),
     )
 
     # En-têtes de sécurité par défaut (nosniff, Referrer-Policy,
-    # frame-ancestors) — audit 2026-09-22, M4. Ajouté en dernier parmi les
+    # frame-ancestors). Ajouté en dernier parmi les
     # gardes = le plus EXTÉRIEUR : couvre aussi les 403 CSRF et les erreurs.
     from shared_infra.security.headers import SecurityHeadersASGI
 
@@ -699,16 +689,15 @@ def create_app() -> FastAPI:
     # contract, the directory name is just repo hygiene).
     app.mount("/static", _CacheBustingStaticFiles(directory="frontend"), name="static")
 
-    # (Le repli 404 « refs absolues-racine d'une page en aperçu », qui lisait
-    # le ``Referer``, est retiré le 2026-09-22 : sous origine opaque le
-    # navigateur n'envoie plus le chemin du référent. Ces refs sont réécrites
-    # à la source, cf. ``shared_infra/sandbox/preview_rewrite.py``.)
+    # (Pas de repli 404 pour les refs absolues-racine d'une page en aperçu :
+    # sous origine opaque le navigateur n'envoie pas le chemin du référent.
+    # Ces refs sont réécrites à la source, cf.
+    # ``shared_infra/sandbox/preview_rewrite.py``.)
 
-    # AUDIT 2026-08-02 (E12) — un corps JSON malformé sur l'un des ~64 sites
-    # ``await request.json()`` sans garde (login inclus) produisait un 500
-    # opaque « Internal Server Error » au lieu d'un 400. Un handler global
-    # couvre tous les sites d'un coup : request.json() lève JSONDecodeError,
-    # attrapé ici → 400 explicite. (P3.5 de AUDIT_BUGS.md, généralisé.)
+    # Un corps JSON malformé sur l'un des ~64 sites ``await request.json()``
+    # sans garde (login inclus) produirait un 500 opaque « Internal Server
+    # Error » au lieu d'un 400. Un handler global couvre tous les sites d'un
+    # coup : request.json() lève JSONDecodeError, attrapé ici → 400 explicite.
     import json as _json_mod
 
     from fastapi.responses import JSONResponse as _JSONResponse
@@ -720,8 +709,8 @@ def create_app() -> FastAPI:
             content={"detail": "Corps JSON invalide : " + str(exc)[:200]},
         )
 
-    # AUDIT 2026-08-30 (S3) — même raisonnement que le handler ci-dessus, pour
-    # deux familles d'entrée LIMITE qui produisaient un 500 opaque :
+    # Même raisonnement que le handler ci-dessus, pour deux familles d'entrée
+    # LIMITE qui produiraient sinon un 500 opaque :
     #
     #   • ``OverflowError`` — un paramètre de chemin typé ``int`` n'a pas de
     #     borne haute en Python. Au-delà de 2**63 le driver SQLite refuse la
@@ -808,7 +797,7 @@ def create_app() -> FastAPI:
         # the small, audited submodules that the admin UI strictly needs.
         _mount_admin_required_subset(app)
 
-    # (2026-09-25) Plus de pont access_logging → system_events ici : chaque
+    # Pas de pont access_logging → system_events ici : chaque
     # worker suit le journal JSONL commun pour ses clients staff
     # (events_bus._staff_log_tail_loop), ce qui couvre tous les workers, le
     # service admin, et les lignes écrites depuis un thread.

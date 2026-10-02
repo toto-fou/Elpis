@@ -1,13 +1,8 @@
 # SPDX-License-Identifier: MIT
 # tools/memory_tools.py
 """
-Long-term memory tools (Hermes-style) — ``memory`` + ``session_search``.
-
-History note: this module used to also host the chat-scoped TODO list
-(todo_plan / todo_add / todo_update / …) and its MCP resource + prompt.
-That working-memory feature was removed entirely (2026-06-12) — UI,
-REST routes (/api/memory/todos) and tools. Only the long-term curated
-memory and the full-text session recall remain.
+Long-term memory tools (Hermes-style) — ``memory`` + ``session_search`` :
+the long-term curated memory and the full-text session recall.
 
   • Category travels IN the protocol: every ``@mcp.tool`` is registered
     with ``tags={"memory"}`` and ``meta={"category": CATEGORY}``. The
@@ -18,14 +13,15 @@ memory and the full-text session recall remain.
 
   • ``Context`` injection. Each tool takes ``ctx: Context`` — used for
     ``ctx.info()`` logging and as the source of the (user, chat)
-    identity (read from the MCP request ``_meta``).
+    identity (Bearer token first, then the MCP request ``_meta`` —
+    see ``_identity``).
 
 Storage layout
 --------------
 ``{APP_SANDBOX_DIR}/{username}/memory/MEMORY.md`` (+ USER.md, scopes/) —
 see ``llm_core.memory`` for the store implementation.
 
-Ciblage v2 (« IDs + erreurs guidées ») : ``replace``/``remove`` prennent un
+Ciblage (« IDs + erreurs guidées ») : ``replace``/``remove`` prennent un
 ``target`` = id court ``[a1f4]`` affiché devant chaque entrée, ou un extrait
 (matching normalisé). ``old_text`` reste accepté UN cycle comme alias déprécié
 (des historiques en vol contiennent encore des appels ``old_text`` ; sans
@@ -61,14 +57,14 @@ CATEGORY: dict[str, Any] = {
     # hidden=True → la catégorie n'apparaît PAS dans le panneau d'outils (elle
     # n'« apparaît pas comme un MCP ») : la mémoire est gouvernée par un TOGGLE
     # dédié dans les Paramètres (réglage per-user ``memory_enabled``, défaut
-    # OFF). Le gating réel se fait dans ``_chat_with_tools._collect_mcp_tools``
+    # OFF). Le gating réel se fait dans ``engine.tool_catalog._collect_mcp_tools``
     # (drop explicite des tools memory/session_search sauf si le toggle est ON),
     # ce qui PRIME sur le « hidden ⇒ toujours actif » habituel.
     "hidden": True,
 }
 
 # Built by the shared toolkit — one place to change if a FastMCP
-# version ever rejects meta= (see MIGRATION.md).
+# version ever rejects meta= (``_toolkit.tool_kw``).
 _TOOL_KW: dict[str, Any] = tool_kw(CATEGORY)
 _TOOL_KW_RO  = tool_kw_readonly(CATEGORY)
 _TOOL_KW_MUT = tool_kw_mutating(CATEGORY, serial=True)
@@ -100,15 +96,15 @@ class MemoryResult(BaseModel):
 
 
 class MemorySaved(BaseModel):
-    """Succès de l'outil ``memory`` — retour COURT (2026-09-19, façon hermes).
+    """Succès de l'outil ``memory`` — retour COURT.
 
-    Plus aucune liste d'entrées : les autres entrées gardent leur id (calculé
-    sur leur texte) et restent lisibles dans le bloc système ; seule l'entrée
+    Aucune liste d'entrées : les autres entrées gardent leur id (calculé sur
+    leur texte) et restent lisibles dans le bloc système ; seule l'entrée
     écrite change d'id, et on le donne. Renvoyer tout le magasin à chaque
-    écriture coûtait des jetons et poussait le modèle à « trouver autre chose
-    à corriger ». ``op`` identifie l'écriture dans le journal : l'interface y
-    lit le détail (avant/après) et peut l'annuler — le modèle n'en paie pas le
-    texte."""
+    écriture coûterait des jetons et pousserait le modèle à « trouver autre
+    chose à corriger ». ``op`` identifie l'écriture dans le journal :
+    l'interface y lit le détail (avant/après) et peut l'annuler — le modèle
+    n'en paie pas le texte."""
     ok:     Literal[True] = True
     action: str
     store:  str
@@ -204,8 +200,9 @@ def _saved_result(act: str, store: str, res, content: Optional[str],
 
 
 class SessionMatch(BaseModel):
-    """Un passage retrouvé (2026-09-19 : EXTRAIT autour des mots trouvés, plus
-    le message entier — une recherche courante renvoyait ~14 000 caractères)."""
+    """Un passage retrouvé. Recherche par ``query`` : un EXTRAIT autour des
+    mots trouvés (le message entier ferait ~14 000 caractères). Lecture par
+    ``ref`` : le passage entier."""
     ref:     int = 0        # à repasser dans ``ref`` pour lire le passage entier
     date:    str = ""       # AAAA-MM-JJ
     chat:    str = ""       # titre du chat ("" hors chat)
@@ -253,13 +250,12 @@ def _safe_chat_id(chat_id: Optional[str]) -> str:
 def _identity(ctx: Optional[Context]) -> tuple[str, str]:
     """Resolve the (username, chat_id) this call is scoped to.
 
-    (passe 8, B1 — 2026-09-02) Délègue à ``_toolkit.get_username`` /
-    ``get_chat_id`` : identité du JETON Bearer d'abord (client externe lié à
-    un compte), puis ``meta`` (client de confiance : l'app), puis ``guest``.
-    L'ancienne implémentation parallèle ne lisait QUE le ``meta`` : un client
-    externe authentifié comme ``alice`` pouvait lire/écrire la mémoire et
-    l'historique (``session_search``) de n'importe quel compte en déclarant
-    ``_meta.username`` — précisément le contournement que la phase 1 ferme.
+    Délègue à ``_toolkit.get_username`` / ``get_chat_id`` : identité du JETON
+    Bearer d'abord (client externe lié à un compte), puis ``meta`` (client de
+    confiance : l'app), puis ``guest``. Ne pas lire le seul ``meta`` : un
+    client externe authentifié comme ``alice`` pourrait lire/écrire la
+    mémoire et l'historique (``session_search``) de n'importe quel compte en
+    déclarant ``_meta.username``.
     """
     try:
         from llm_core.tools._toolkit import get_chat_id, get_username
@@ -268,8 +264,8 @@ def _identity(ctx: Optional[Context]) -> tuple[str, str]:
         return _safe_username(None), _safe_chat_id(None)
 
 
-# (2026-09-11, P2 — A4) ``memory_scope`` était lu dans le ``meta`` et jamais
-# posé par aucun appelant : code mort retiré. La portée est celle du compte.
+# La portée de la mémoire est celle du compte : aucun appelant ne transmet
+# d'autre portée.
 _MEMORY_SCOPE = "user"
 
 
@@ -302,10 +298,11 @@ def register(mcp: FastMCP, root_base: Path) -> None:
         ctx: Context,
         action: MemoryAction = Field(
             description="add | replace | remove | rewrite."),
-        # OBLIGATOIRE (2026-09-21) : facultatif avec défaut, la grammaire
-        # llama.cpp le rangeait APRÈS les autres facultatifs — un modèle qui
-        # écrivait ``content`` d'abord ne pouvait plus le poser, et un fait de
-        # profil partait en silence dans MEMORY.md. Même règle que todowrite.
+        # OBLIGATOIRE. Ne pas le rendre facultatif avec un défaut : la
+        # grammaire llama.cpp le rangerait APRÈS les autres facultatifs — un
+        # modèle qui écrit ``content`` d'abord ne pourrait plus le poser, et un
+        # fait de profil partirait en silence dans MEMORY.md. Même règle que
+        # todowrite.
         store: MemoryStore = Field(
             description="'memory' = project/environment notes (MEMORY.md); "
                         "'user' = the user's durable profile (USER.md)."),
@@ -384,8 +381,8 @@ do not repeat it."""
 
         act = as_enum(action, {"add", "replace", "remove", "rewrite"}, None)
         if act is None:
-            # Plus de retombée silencieuse sur "add" : une action inventée
-            # ajoutait une entrée parasite au lieu de signaler l'erreur.
+            # Ne pas retomber en silence sur "add" : une action inventée
+            # ajouterait une entrée parasite au lieu de signaler l'erreur.
             return ErrEnvelope(error="bad_action",
                                message=f"unknown action: {action!r}",
                                fix="Use add, replace, remove or rewrite.")
@@ -427,7 +424,7 @@ do not repeat it."""
                     fh.write(line + "\n")
             except Exception:
                 pass
-            # Journal des écritures EFFECTIVES (2026-09-19) : détail et
+            # Journal des écritures EFFECTIVES : détail et
             # annulation depuis le fil du chat, origine des notes dans les
             # Réglages. Best-effort : un journal en panne ne fait jamais
             # échouer une écriture réussie.

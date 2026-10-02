@@ -440,10 +440,10 @@ def test_la_boucle_ne_force_jamais_auto_enabled():
     """Garde-fou : ``auto_enabled=True`` court-circuite TOUT, y compris le
     kill-switch admin. La boucle doit relayer la décision de l'appelant, pas
     la recalculer (défaut introduit puis corrigé pendant l'audit)."""
-    import inspect
+    import re
 
-    from llm_core import _chat_with_tools as cwt
+    from tests._sources import source_boucle
 
-    src = inspect.getsource(cwt.run_chat_multi_mcp)
-    assert "auto_enabled    = compression_enabled" in src
-    assert "auto_enabled    = True" not in src
+    src = source_boucle()
+    assert re.search(r"auto_enabled\s*=\s*compression_enabled\b", src)
+    assert not re.search(r"auto_enabled\s*=\s*True\b", src)

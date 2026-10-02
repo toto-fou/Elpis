@@ -65,11 +65,11 @@ def test_les_trois_wrappers_ferment_de_la_meme_facon():
 def test_le_registre_est_relu_apres_la_connexion():
     """``_manifest_ok`` et ``_hidden_cats`` étaient figés AVANT la boucle,
     donc avant l'appel qui PEUPLE le registre — une ligne plus loin."""
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._collect_mcp_tools)
-    # AUDIT 2026-08-31 — les connexions partent en PARALLÈLE (gather) avant
-    # la boucle de filtrage ; l'invariant reste : la connexion qui peuple le
-    # registre précède la lecture de ``_manifest_ok``.
+    from tests._sources import source_fonction
+    src = source_fonction("_collect_mcp_tools")
+    # Les connexions partent en parallèle (gather) avant la boucle de
+    # filtrage : la connexion qui peuple le registre précède la lecture de
+    # ``_manifest_ok``.
     i_connect = src.index("mcp_pool.get_or_connect(")
     i_relecture = src.index('_manifest_ok = _manifest_source() != "empty"', i_connect)
     i_usage = src.index("if allowed_cats is not None and _manifest_ok:")

@@ -1,0 +1,88 @@
+{
+  "appels_interceptes": [
+    {
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        }
+      ],
+      "tool_choice": null,
+      "tools": [
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    }
+  ],
+  "evenements": [
+    {
+      "context_tokens": 0,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 0,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "detail": "HTTPStatusError: HTTP 401",
+      "hard_iteration": "1/400",
+      "iteration": "1/200",
+      "kind": "forbidden",
+      "text": "La clé de ce connecteur n'ouvre pas ce modèle. Mettez une clé qui y donne droit, ou choisissez un modèle que la vôtre couvre — relancer à l'identique donnera le même refus. Le fournisseur répond : « clé refusée ». La réponse partielle est conservée.",
+      "type": "error"
+    }
+  ],
+  "final": "",
+  "metrics": {
+    "ended_with_error": true,
+    "input_tokens": 0,
+    "iterations": 0,
+    "last_completion_tokens": 0,
+    "last_prompt_tokens": 0,
+    "model": "golden-model",
+    "output_tokens": 0,
+    "submitted_input_tokens": 0,
+    "thinking": "",
+    "tool_iterations": 0,
+    "truncated": false
+  },
+  "payloads": []
+}

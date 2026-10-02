@@ -38,6 +38,7 @@ def _client(monkeypatch, tmp_path, enabled=True, uid=1):
     # La page Code passe par le pool commun (2026-09-26) : une seule base à
     # rediriger, celle de ``shared_infra.db._connection``.
     import shared_infra.config as _config
+    import shared_infra.opencode.routes_cli as _cli
     import shared_infra.opencode.routes_code as code
     import shared_infra.opencode.store as cstore
     from shared_infra.db import _connection
@@ -45,7 +46,8 @@ def _client(monkeypatch, tmp_path, enabled=True, uid=1):
     monkeypatch.setattr(_config, "DB_PATH", str(tmp_path / "t.db"))
     monkeypatch.setattr(code, "require_user_id", lambda r: uid)
     monkeypatch.setattr(code, "feature_enabled", lambda name, default=True: enabled)
-    monkeypatch.setattr(code, "_base_url", lambda r: "http://lan.test:8000")
+    # ``routes_code`` importe ``_base_url`` à l'appel : on patche son propriétaire.
+    monkeypatch.setattr(_cli, "_base_url", lambda r: "http://lan.test:8000")
     monkeypatch.setattr(code, "pipeline_events", _BusRecorder())
     # Jetons en empreinte (EXT.1) : ``tokens.resolve`` exige un compte
     # existant et la fonction opencode active.

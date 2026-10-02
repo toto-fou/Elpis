@@ -2,18 +2,18 @@
 """
 llm_core._target — Cible d'inférence résolue par requête (LlmTarget).
 
-Avant cette feature, le backend ne parlait qu'à UN seul llama-server global
-(``LLAMA_URL`` constante de module). ``LlmTarget`` décrit le connecteur à
-utiliser pour LA requête courante : format « wire », base_url, clé API, modèle.
+``LlmTarget`` décrit le connecteur à utiliser pour LA requête courante :
+format « wire », base_url, clé API, modèle — le moteur intégré
+(``LLAMA_URL``) n'est qu'une cible parmi d'autres.
 
-La cible est propagée via un ``contextvars.ContextVar`` posé en tête de
-``run_chat_*`` (chatbot_app/routes/chats.py) et lue par le transport
+La cible est propagée via un ``contextvars.ContextVar`` posé par le worker de
+``run_turn`` (chatbot_app/turn/execution.py) et lue par le transport
 (``_client``, adaptateurs ``providers/``). Les contextvars se propagent
 naturellement aux tâches asyncio — pas besoin de threader N signatures.
 
-Rétro-compatibilité : si AUCUNE cible n'est posée, ``current_target()`` renvoie
+Cible par défaut : si AUCUNE cible n'est posée, ``current_target()`` renvoie
 le **connecteur llama.cpp intégré** (``is_default=True``, base_url vide ⇒ on
-utilise ``LLAMA_URL``) → comportement strictement identique à l'existant.
+utilise ``LLAMA_URL``).
 """
 from __future__ import annotations
 
@@ -49,21 +49,21 @@ class LlmTarget:
     def is_llamacpp(self) -> bool:
         """Dialecte llama.cpp, que le serveur soit l'INTÉGRÉ ou un connecteur.
 
-        AUDIT 2026-09-16 — les appels propres au moteur (``/props``,
-        ``/tokenize``, ``/slots``, ``/models``) suivent désormais la cible
-        (``llm_core.engines.current_engine``) : ils valent pour tout serveur
-        llama.cpp, plus seulement pour ``LLAMA_URL``. ``is_local_llamacpp``
-        reste la garde de ce qui n'existe QUE pour l'intégré (miroir des
-        modèles chargés de la barre d'état, override opérateur du n_ctx)."""
+        Les appels propres au moteur (``/props``, ``/tokenize``, ``/slots``,
+        ``/models``) suivent la cible (``llm_core.engines.current_engine``) :
+        ils valent pour tout serveur llama.cpp, pas seulement pour
+        ``LLAMA_URL``. ``is_local_llamacpp`` reste la garde de ce qui n'existe
+        QUE pour l'intégré (miroir des modèles chargés de la barre d'état,
+        override opérateur du n_ctx)."""
         return self.provider_type == "llamacpp"
 
 
 def default_target() -> LlmTarget:
-    """Moteur LOCAL intégré = llama-server global historique (base_url vide).
+    """Moteur LOCAL intégré = llama-server global ``LLAMA_URL`` (base_url vide).
 
     ``provider_type`` reflète le type configuré (``config.json`` ``llama.engine``
-    → ``LLAMA_PROVIDER_TYPE``) : « llamacpp » (défaut, comportement inchangé),
-    « vllm » ou « generic ». Lu via le module pour suivre un éventuel reload."""
+    → ``LLAMA_PROVIDER_TYPE``) : « llamacpp » (défaut), « vllm » ou
+    « generic ». Lu via le module pour suivre un éventuel reload."""
     try:
         import shared_infra.config as _cfg
         pt = (getattr(_cfg, "LLAMA_PROVIDER_TYPE", "llamacpp") or "llamacpp")
@@ -139,12 +139,13 @@ def resolve_llm_target(user_id, connector_id: Optional[int],
     - Sinon : charge le connecteur visible par ce user (perso OU partagé),
       déchiffre la clé, renvoie un target non-défaut.
     - Connecteur introuvable / désactivé / clé illisible : ``strict`` ⇒
-      :class:`EngineUnavailable` ; sinon repli historique sur l'intégré.
+      :class:`EngineUnavailable` ; sinon repli sur l'intégré.
 
-    AUDIT 2026-09-16 (M4) — le repli était SILENCIEUX, y compris sur une
-    exception de déchiffrement. Avec deux serveurs exposant les mêmes noms de
-    modèles, l'intégré répondait sans erreur à la place du serveur choisi : la
-    bascule était invisible. La route de chat résout désormais en ``strict``.
+    Le repli non strict est SILENCIEUX, y compris sur une exception de
+    déchiffrement : avec deux serveurs exposant les mêmes noms de modèles,
+    l'intégré répondrait sans erreur à la place du serveur choisi. Tout
+    appelant qui sert un choix explicite de l'utilisateur (route de chat,
+    compression, routines) résout donc en ``strict``.
 
     Le ``model`` explicite (sélection UI) prime ; sinon le ``default_model`` du
     connecteur ; sinon vide (l'adaptateur appliquera son propre repli)."""
@@ -164,11 +165,11 @@ def resolve_llm_target(user_id, connector_id: Optional[int],
         _reason = "key"
     if row and not row.get("enabled", True):
         _reason = "disabled"
-    # AUDIT 2026-09-16 (A8) — ``llm.allowed_provider_types`` n'était vérifié
-    # qu'à la CRÉATION : retirer un fournisseur de la liste laissait servir les
-    # connecteurs PERSO déjà créés avec, indéfiniment. La liste ne vise que les
-    # connecteurs d'utilisateur (un partagé est posé par un administrateur, qui
-    # n'est pas soumis à la liste).
+    # ``llm.allowed_provider_types`` est revérifié à CHAQUE résolution, pas
+    # seulement à la création : retirer un fournisseur de la liste doit
+    # couper aussi les connecteurs PERSO déjà créés avec. La liste ne vise que
+    # les connecteurs d'utilisateur (un partagé est posé par un administrateur,
+    # qui n'est pas soumis à la liste).
     if row and row.get("enabled", True) and (row.get("scope") == "user"):
         if not _provider_allowed(row.get("provider_type") or ""):
             row, _reason = None, "provider"
@@ -180,7 +181,7 @@ def resolve_llm_target(user_id, connector_id: Optional[int],
                 "key":      "Le serveur sélectionné est illisible (clé).",
                 "provider": "Ce fournisseur n'est plus autorisé sur cette instance.",
             }[_reason])
-        # Repli historique (appelants non stricts) : serveur intégré.
+        # Repli (appelants non stricts) : serveur intégré.
         t = default_target()
         if model:
             t.model = model

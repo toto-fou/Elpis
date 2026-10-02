@@ -324,7 +324,8 @@ def test_route_admin_reload_relit_le_fichier(routes_client, manifest_file, monke
 # ── Route de chat : plus de serveurs synthétiques, une seule règle ───────────
 
 def test_la_route_de_chat_joint_le_toolhost_du_manifeste():
-    src = (Path(__file__).resolve().parents[2] / "chatbot_app" / "routes" / "chats.py").read_text(encoding="utf-8")
+    from tests._sources import source_flux_chat
+    src = source_flux_chat()
     assert "builtin_client_cfg" in src
     for ghost in ('"name": "Mémoire"', '"name": "Agents"', '"name": "Tâches"'):
         assert ghost not in src, f"serveur synthétique encore fabriqué : {ghost}"

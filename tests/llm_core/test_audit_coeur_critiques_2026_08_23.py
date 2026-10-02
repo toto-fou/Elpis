@@ -270,14 +270,9 @@ def test_l_arret_moteur_ne_depend_plus_d_une_sonde_vivante():
     """La garde doit être ASYMÉTRIQUE et SANS I/O : on ne renonce que sur la
     preuve que le moteur est trop ancien, jamais sur une absence de preuve —
     et surtout pas en sondant pendant un Stop utilisateur."""
-    import inspect
+    from tests._sources import source_fonction
 
-    from chatbot_app.routes import chats as C
-
-    src = inspect.getsource(C._cancel_engine_stream)
-    # Les commentaires citent l'ancien code : on ne lit que les instructions.
-    code = "\n".join(l for l in src.split("\n")
-                     if not l.strip().startswith("#"))
+    code = source_fonction("_cancel_engine_stream", "flux_chat")
     assert "cached_caps" in code, "l'arrêt moteur sonde encore le moteur"
     assert "await engine_caps()" not in code
     assert "_caps.known and not _caps.resumable_stream" in code
@@ -301,11 +296,9 @@ def test_la_sentinelle_d_eviction_a_son_propre_type():
 # ── C1 — un flux coupé pendant les arguments n'exécute rien ──────────────────
 
 def test_une_coupure_pendant_les_arguments_abandonne_les_tool_calls():
-    import inspect
+    from tests._sources import source_boucle
 
-    from llm_core import _chat_with_tools as W
-
-    src = inspect.getsource(W)
+    src = source_boucle()
     assert "_silent_cut = bool(not finish_reason)" in src, \
         "la détection de coupure s'auto-désarme encore en présence de tool_calls"
     assert "if _silent_cut and built_tcs:" in src

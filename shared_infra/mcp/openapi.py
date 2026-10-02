@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 """
-shared_infra/mcp/openapi.py — façade OpenAPI des outils du service partagé
-(lot EXT.5, 2026-09-30).
+shared_infra/mcp/openapi.py — façade OpenAPI des outils du service partagé.
 
 Les familles d'outils déjà joignables de l'extérieur par MCP (``/mcp/<famille>``,
 relayées par ``/api/mcp-bridge``) deviennent aussi des API HTTP ordinaires,
@@ -339,7 +338,7 @@ def validation_errors(tool: Dict[str, Any], arguments: Any) -> List[Dict[str, st
 
 def _response_value(res: Any, tool: Dict[str, Any]) -> Any:
     """``CallToolResult`` → corps de la réponse 200."""
-    from llm_core._chat_with_tools import pick_tool_payload
+    from llm_core.engine.tool_dispatch import pick_tool_payload
     if getattr(res, "isError", False):
         return pick_tool_payload(res)
     sc = getattr(res, "structuredContent", None)
@@ -388,13 +387,13 @@ async def call_tool(family: str, tool: Dict[str, Any], arguments: Dict[str, Any]
     cfg = family_cfg(family)
     if cfg is None:
         raise FamilyUnavailable(family)
-    from llm_core._chat_with_tools import (
+    from llm_core._mcp_pool import MCPQueueSaturated, mcp_pool
+    from llm_core._mcp_wrappers import _resolve_mcp_client
+    from llm_core.engine.tool_dispatch import (
         _TOOL_QUEUE_WAIT_S,
         _tool_timeout_json,
         _tool_timeout_s,
     )
-    from llm_core._mcp_pool import MCPQueueSaturated, mcp_pool
-    from llm_core._mcp_wrappers import _resolve_mcp_client
     name = str(tool["name"])
     # Identité du PROPRIÉTAIRE du jeton, rien du client. Pas de ``chat_id`` :
     # l'appel n'appartient à aucune conversation.

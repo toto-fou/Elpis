@@ -27,7 +27,11 @@ import json
 import httpx
 import pytest
 
-from llm_core import _chat_with_tools as _cwt
+import llm_core.engine.llm_turn as _llm_turn
+import llm_core.engine.run_exit as _run_exit
+from llm_core import _chat_with_tools as _cwt, _mcp_pool, _model_info
+from llm_core.engine import tool_catalog as _tool_catalog, tool_dispatch as _tool_dispatch
+from shared_infra.observability import usage_ctx as _usage_ctx
 
 # ── Environnement commun ────────────────────────────────────────────────────
 
@@ -51,7 +55,7 @@ class _T:
 def _patch_env(monkeypatch, *, fast_sleep=True):
     monkeypatch.setattr(_cwt, "verify_llm_availability", _anoop)
     monkeypatch.setattr(_cwt, "_model_supports_vision", _avision)
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
     if fast_sleep:
         _vrai_sleep = asyncio.sleep
 
@@ -306,7 +310,7 @@ async def test_iter_n_refus_de_requete_hoquets_puis_aplatissement(monkeypatch):
 
 
 def test_aplatissement_garde_les_marques():
-    out = _cwt._flatten_tool_messages([
+    out = _llm_turn._flatten_tool_messages([
         {"role": "system", "content": "socle"},
         {"role": "user", "content": "ancre ré-épinglée",
          "_ephemeral": True, "_task_anchor": True},
@@ -327,7 +331,7 @@ def test_aplatissement_garde_les_marques():
 
 
 def test_aplatissement_fusion_avec_un_vrai_user_n_est_pas_ephemere():
-    out = _cwt._flatten_tool_messages([
+    out = _llm_turn._flatten_tool_messages([
         {"role": "assistant", "content": None, "tool_calls": [
             {"id": "c1", "type": "function",
              "function": {"name": "f", "arguments": "{}"}}]},
@@ -352,7 +356,7 @@ async def test_reponse_reduite_a_du_balisage_jamais_rendue_brute(monkeypatch):
 
     final, _events, _metrics = await _run(monkeypatch, _fake, builtins=_builtin())
     assert "<tool_call>" not in final
-    assert final == _cwt._MARKUP_ONLY_REPLY
+    assert final == _run_exit._MARKUP_ONLY_REPLY
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -405,7 +409,8 @@ async def test_stop_pendant_l_elagage_de_fin_de_tour(monkeypatch):
         if seq["n"] >= 2:
             raise asyncio.CancelledError()
         return []
-    monkeypatch.setattr(_cwt, "_select_prune_keys", _cancel)
+    from llm_core.context import pruning as _pruning
+    monkeypatch.setattr(_pruning, "select_prune_keys", _cancel)
     monkeypatch.setattr(_cwt, "_llama_chat_with_tools_stream", _fake)
     events, on_event = _capture()
     with pytest.raises(asyncio.CancelledError):
@@ -434,7 +439,7 @@ async def test_sortie_d_erreur_expose_l_occupation_reelle(monkeypatch):
     assert metrics["last_prompt_tokens"] == 1500
     assert metrics["submitted_input_tokens"] == metrics["input_tokens"]
     assert "model" in metrics and metrics["iterations"] == 1
-    from chatbot_app.routes.chats import _kv_gauge_used_tokens
+    from chatbot_app.turn.execution import _kv_gauge_used_tokens
     assert _kv_gauge_used_tokens(metrics) == 1500
 
 
@@ -485,12 +490,12 @@ def test_noms_d_outils_dedoublonnes(monkeypatch):
 
     async def _fake(cfg, resolve_client_fn=None):
         return object(), reponses[cfg["name"]]
-    monkeypatch.setattr(_cwt.mcp_pool, "get_or_connect", _fake)
+    monkeypatch.setattr(_mcp_pool.mcp_pool, "get_or_connect", _fake)
     cfgs = [{"type": "sse", "name": "A", "url": "http://a.invalide/sse"},
             {"type": "sse", "name": "B", "url": "http://b.invalide/sse"}]
     bt = _builtin("rag_query")
     tmap, payload, handlers, _srv = asyncio.run(
-        _cwt._collect_mcp_tools(cfgs, bt, None, memory_enabled=False))
+        _tool_catalog._collect_mcp_tools(cfgs, bt, None, memory_enabled=False))
     names = [t["function"]["name"] for t in payload]
     assert sorted(names) == ["lire", "rag_query", "search"]
     # MCP×MCP : premier arrivé gagne, routage cohérent avec le schéma annoncé.
@@ -513,8 +518,8 @@ async def test_file_mcp_saturee_est_un_echec(monkeypatch):
 
     async def _sature(*_a, **_k):
         raise MCPQueueSaturated("file pleine")
-    monkeypatch.setattr(_cwt.mcp_pool, "call_tool", _sature)
-    res = await _cwt._execute_single_tool_call(
+    monkeypatch.setattr(_mcp_pool.mcp_pool, "call_tool", _sature)
+    res = await _tool_dispatch._execute_single_tool_call(
         "outil", {}, {"outil": {"name": "srv"}}, {})
     assert json.loads(res)["ok"] is False
     assert result_is_error(res)
@@ -561,7 +566,7 @@ async def _run_to_limit(monkeypatch, wrap_reply, *, history=None, round_content=
         # Le tour de synthèse se reconnaît à sa consigne [SYSTEM] (il reçoit
         # désormais les MÊMES outils que les itérations, AUDIT 2026-09-25).
         _last = messages[-1].get("content") if messages else ""
-        _consignes = set(_cwt._WRAPUP_BY_KIND.values()) | {_cwt._MAX_STEPS_WRAPUP}
+        _consignes = set(_run_exit._WRAPUP_BY_KIND.values()) | {_run_exit._MAX_STEPS_WRAPUP}
         if not (isinstance(_last, str) and _last in _consignes):
             calls["tools"] += 1
             return _tool_round(cid=f"c{calls['tools']}", content=round_content)
@@ -593,7 +598,7 @@ async def test_synthese_cumule_le_cache(monkeypatch):
 
     def _rec(**kw):
         seen.update(kw)
-    monkeypatch.setattr(_cwt, "record_turn_usage", _rec)
+    monkeypatch.setattr(_usage_ctx, "record_turn_usage", _rec)
     wrap = _msg("Synthèse.", pt=50, ct=9)
     wrap["usage"]["cache_read_input_tokens"] = 7
     wrap["usage"]["cache_creation_input_tokens"] = 3
@@ -629,7 +634,8 @@ async def test_repli_tool_limit_tolere_un_content_liste(monkeypatch):
 
 
 def test_content_text_tolere_les_formes():
-    assert _cwt._content_text([{"type": "text", "text": "a"}, "b",
-                               {"type": "image_url"}]) == "ab"
-    assert _cwt._content_text(None) == ""
-    assert _cwt._content_text("x") == "x"
+    from llm_core.engine.run import _content_text
+    assert _content_text([{"type": "text", "text": "a"}, "b",
+                          {"type": "image_url"}]) == "ab"
+    assert _content_text(None) == ""
+    assert _content_text("x") == "x"

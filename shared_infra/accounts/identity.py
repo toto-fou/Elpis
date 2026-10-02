@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
-"""shared_infra/accounts/identity.py — enveloppe d'identité (2026-09-11, P4).
+"""shared_infra/accounts/identity.py — enveloppe d'identité.
 
 L'hôte d'outils (``toolhost/``) n'ouvre JAMAIS la base de l'app : il reçoit
 l'identité de l'utilisateur DE L'APP, par deux canaux :
 
 * le ``_meta`` d'un appel d'outil MCP (``username``, ``user_id``, ``chat_id``,
-  ``network_profile_id``) — posé par ``_chat_with_tools._build_call_meta`` ;
+  ``network_profile_id``) — posé par ``llm_core.engine.tool_dispatch._build_call_meta`` ;
 * l'en-tête HTTP/WS ``X-Elpis-Identity`` posé par le RELAIS de l'app
   (``shared_infra/sandbox/relay.py``) : JSON base64 signé HMAC avec le jeton
   de service, horodaté (rejeu borné).
@@ -60,11 +60,11 @@ class Identity:
                    roles=[str(r) for r in roles],
                    network_profile_id=str(d.get("network_profile_id") or ""),
                    chat_id=str(d.get("chat_id") or ""),
-                   # Audit 2026-09-22, M1 : ``== 1`` (True == 1 aussi) —
-                   # un modérateur (2) n'est pas admin.
+                   # ``== 1`` (True == 1 aussi) : un modérateur (2)
+                   # n'est pas admin.
                    is_admin=(d.get("is_admin") == 1))
 
-    # Vue « ligne users » minimale pour les appelants qui lisaient ``sqlite3.Row``
+    # Vue « ligne users » minimale pour les appelants écrits pour ``sqlite3.Row``
     def as_row(self) -> Dict[str, Any]:
         return {"id": self.user_id, "username": self.username,
                 "is_admin": 1 if self.is_admin else 0}
@@ -204,8 +204,8 @@ def verify(header: str, key: str, *, now: Optional[float] = None,
     return Identity.from_dict(body)
 
 
-# ── Délégation MCP : relais de l'app → service d'outils (EXT.2) ─────────────
-# Le relais public ``/api/mcp-bridge`` ne retransmet plus le jeton du client
+# ── Délégation MCP : relais de l'app → service d'outils ─────────────────────
+# Le relais public ``/api/mcp-bridge`` ne retransmet pas le jeton du client
 # (« token passthrough », interdit par la spécification MCP) : il le vérifie,
 # puis présente au service son jeton de SERVICE accompagné de CETTE enveloppe,
 # qui dit pour QUI il agit. HMAC avec le jeton de service, horodatée, et liée à

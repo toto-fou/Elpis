@@ -236,24 +236,21 @@ def build_conversation(
 def patch_scale(monkeypatch, ctx: int) -> None:
     """Fait résoudre ``n_ctx = ctx`` PARTOUT, sans réseau.
 
-    Trois liaisons distinctes (vérifiées dans le code) :
-      1. ``_chat_with_tools.get_model_context_size`` — import module-level,
-         pilote pruning/compression/emit-cap de la boucle ;
-      2. ``_model_info.get_model_context_size`` — résolu à l'appel par
-         ``build_llama_payload`` (clamp de génération, import local) ;
-      3. ``llm_core.get_model_context_size`` — copie de façade figée à
+    Deux liaisons distinctes (vérifiées dans le code) :
+      1. ``_model_info.get_model_context_size`` — lu à l'appel par la boucle
+         (élagage, compression, plafond d'émission), par la fonction de flux
+         et par ``build_llama_payload`` (clamp de génération) ;
+      2. ``llm_core.get_model_context_size`` — copie de façade figée à
          l'import, résolue à l'appel par le compresseur (budget sérialiseur).
     + purge du cache global ``_cached_context_size`` (TTL monotonic)."""
     import llm_core
-    import llm_core._chat_with_tools as _cwt
     import llm_core._model_info as _mi
 
     async def _actx(*_a, **_k):
         return ctx
 
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
     monkeypatch.setattr(_mi, "get_model_context_size", _actx)
-    monkeypatch.setattr(llm_core, "get_model_context_size", _actx, raising=False)
+    monkeypatch.setattr(llm_core, "get_model_context_size", _actx)
     _mi._cached_context_size.clear()
     _mi._cached_context_size_ts.clear()
 
@@ -342,12 +339,12 @@ def compression_cfg(monkeypatch, **overrides):
 
 
 def fit_spy(monkeypatch) -> List[Dict[str, Any]]:
-    """Enroule ``_cwt._fit_context`` : un snapshot PAR ITÉRATION des
+    """Enroule ``context.pruning.fit_context`` : un snapshot PAR ITÉRATION des
     décisions internes de la boucle — ``fastpath``/``dropped``/``over_*``
     (stats_out) + delta du memo d'élagage + tailles entrée/sortie."""
-    import llm_core._chat_with_tools as _cwt
+    from llm_core.context import pruning as _pruning
     calls: List[Dict[str, Any]] = []
-    _orig = _cwt._fit_context
+    _orig = _pruning.fit_context
 
     async def _spy(working_messages, **kw):
         memo = kw.get("prune_memo")
@@ -362,7 +359,7 @@ def fit_spy(monkeypatch) -> List[Dict[str, Any]]:
         calls.append(snap)
         return out
 
-    monkeypatch.setattr(_cwt, "_fit_context", _spy)
+    monkeypatch.setattr(_pruning, "fit_context", _spy)
     return calls
 
 

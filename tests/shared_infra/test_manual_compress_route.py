@@ -24,6 +24,9 @@ import pytest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 
+from chatbot_app.turn import admission
+from tests._routes_chat import monter_routes_chat
+
 
 def _conv(n_pairs: int, chars: int = 200) -> list:
     msgs = []
@@ -42,8 +45,7 @@ def client(tmp_path, monkeypatch):
     from shared_infra.accounts.users import create_user
     assert create_user("alice", "pw-alice") == 1
 
-    import chatbot_app.routes.chats as chats_mod
-    import chatbot_app.routes.saved_chats as saved_mod  # enregistre PUT save-messages
+    import chatbot_app.routes.chat_compression as compression_mod
 
     def _fake_uid(request: Request):
         uid = request.headers.get("x-test-user")
@@ -51,9 +53,7 @@ def client(tmp_path, monkeypatch):
             raise HTTPException(401, "auth requise")
         return int(uid)
 
-    monkeypatch.setattr(chats_mod, "require_user_id", _fake_uid)
-    monkeypatch.setattr(saved_mod, "require_user_id", _fake_uid)
-    monkeypatch.setattr(chats_mod, "_manual_compressions", set())
+    monkeypatch.setattr(admission, "_manual_compressions", set())
 
     # ── Compression déterministe, zéro réseau ─────────────────────────────
     from shared_infra import config as cfg
@@ -78,7 +78,7 @@ def client(tmp_path, monkeypatch):
     async def _fake_llama(prompt, user_id="t", model_override=None):
         return "<context>résumé compact</context>", {"model": "fake"}
 
-    monkeypatch.setattr(chats_mod, "llama_chat", _fake_llama)
+    monkeypatch.setattr(compression_mod, "llama_chat", _fake_llama)
 
     import llm_core
 
@@ -92,11 +92,9 @@ def client(tmp_path, monkeypatch):
         return "loaded-model"
     monkeypatch.setattr(llm_core, "get_currently_loaded_model", _loaded)
 
-    from shared_infra.routes._state import router
-    app = FastAPI()
-    app.include_router(router)
+    app = monter_routes_chat(monkeypatch, _fake_uid)
     from shared_infra.chat.store import get_chat, upsert_chat
-    return TestClient(app), chats_mod, get_chat, upsert_chat
+    return TestClient(app), compression_mod, get_chat, upsert_chat
 
 
 def _alice():
@@ -207,13 +205,13 @@ def test_compress_est_une_execution_du_compte(client):
 def test_compress_utilise_le_modele_de_la_requete(client, monkeypatch):
     """Le LLM de compression reçoit le MODÈLE COURANT envoyé par le front, PAS
     le défaut LLAMA_MODEL (placeholder routeur type « RAG » → 400 llama-server)."""
-    tc, chats_mod, _, upsert = client
+    tc, compression_mod, _, upsert = client
     seen = {}
 
     async def _capture(prompt, user_id="t", model_override=None):
         seen["model"] = model_override
         return "<context>résumé compact</context>", {"model": model_override}
-    monkeypatch.setattr(chats_mod, "llama_chat", _capture)
+    monkeypatch.setattr(compression_mod, "llama_chat", _capture)
 
     upsert(1, "c1", "T", _conv(8), time.time())
     r = tc.post("/api/chat/c1/compress", headers=_alice(),
@@ -225,13 +223,13 @@ def test_compress_utilise_le_modele_de_la_requete(client, monkeypatch):
 def test_compress_fallback_modele_charge_si_pas_de_body(client, monkeypatch):
     """Sans modèle dans la requête, on retombe sur le modèle RÉELLEMENT CHARGÉ
     (get_currently_loaded_model), pas sur LLAMA_MODEL."""
-    tc, chats_mod, _, upsert = client
+    tc, compression_mod, _, upsert = client
     seen = {}
 
     async def _capture(prompt, user_id="t", model_override=None):
         seen["model"] = model_override
         return "<context>résumé compact</context>", {"model": model_override}
-    monkeypatch.setattr(chats_mod, "llama_chat", _capture)
+    monkeypatch.setattr(compression_mod, "llama_chat", _capture)
 
     upsert(1, "c1", "T", _conv(8), time.time())
     r = tc.post("/api/chat/c1/compress", headers=_alice())   # pas de body
@@ -258,7 +256,7 @@ def test_compress_cap_atteint(client):
 
 
 def test_compress_409_generation_en_cours(client):
-    tc, chats_mod, _, upsert = client
+    tc, compression_mod, _, upsert = client
     upsert(1, "c1", "T", _conv(8), time.time())
     from shared_infra.routes._state import register_chat_task, unregister_chat_task
 
@@ -275,9 +273,9 @@ def test_compress_409_generation_en_cours(client):
 
 
 def test_compress_409_double_et_stream_409(client):
-    tc, chats_mod, _, upsert = client
+    tc, compression_mod, _, upsert = client
     upsert(1, "c1", "T", _conv(8), time.time())
-    chats_mod._manual_compressions.add((1, "c1"))
+    admission._manual_compressions.add((1, "c1"))
     try:
         assert tc.post("/api/chat/c1/compress", headers=_alice()).status_code == 409
         # Symétrie : le stream refuse de démarrer pendant la compression.
@@ -285,7 +283,7 @@ def test_compress_409_double_et_stream_409(client):
                     json={"chat_id": "c1", "messages": []})
         assert r.status_code == 409
     finally:
-        chats_mod._manual_compressions.discard((1, "c1"))
+        admission._manual_compressions.discard((1, "c1"))
 
 
 def test_save_messages_carry_forward_etat(client):

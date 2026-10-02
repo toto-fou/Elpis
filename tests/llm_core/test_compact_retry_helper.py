@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from llm_core._chat_with_tools import _handle_truncated_tool_call
+from llm_core.engine.tool_dispatch import _handle_truncated_tool_call
 
 
 @pytest.mark.asyncio

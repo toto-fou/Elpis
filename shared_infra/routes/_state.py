@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 """
-backend.routes._state — Shared state and primitives for the routes package.
+shared_infra.routes._state — Shared state and primitives for the routes package.
 
 This module holds pieces of module-level state that are shared across several
 route submodules (chat, pipelines, etc.). Consolidating them here breaks the
@@ -10,13 +10,13 @@ other just to reach a common set or function.
 Contains
 --------
 - ``router``: the single :class:`APIRouter` every submodule hangs endpoints on.
-  Import it from here (``from backend.routes._state import router``) instead
-  of creating a new one.
+  Import it from here (``from shared_infra.routes._state import router``)
+  instead of creating a new one.
 - Chat-cancellation state (``_cancelled_chats``, ``_active_chat_tasks``) and
   the helpers that manipulate it. These are consumed both by the
-  ``/api/chat/cancel`` endpoint (chat submodule) and by long-running endpoints
-  in other submodules (e.g. pipelines, saved-stream) that pass
-  ``is_chat_cancelled`` as a callback into ``backend.services``.
+  ``/api/chat/cancel`` endpoint (``chatbot_app/routes/chat_control.py``) and
+  by long-running paths (chat turn, routines) that pass ``is_chat_cancelled``
+  as the ``is_cancelled`` callback of the LLM loop (``llm_core._chat_with_tools``).
 
 Portée MULTI-WORKER
 -------------------
@@ -27,19 +27,15 @@ demande est donc DIFFUSÉE aux autres process via ``shared_infra.runtime.cancel_
 chaque worker l'applique chez lui par ``apply_remote_cancellation`` : flag posé
 partout, ``task.cancel()`` là où la task vit réellement.
 
-Multi-tab semantics (BUG FIX élevé)
------------------------------------
+Multi-tab semantics
+-------------------
 Both maps are keyed by ``(user_id, chat_id)`` rather than ``user_id`` alone.
-Avant ce fix, un user qui ouvrait deux onglets et lançait deux générations :
-  - L'enregistrement de Tab 2 dans ``_active_chat_tasks[uid]`` écrasait
-    Tab 1 → la première task devenait orpheline (impossible à cancel via
-    l'endpoint).
-  - Un click sur "stop" sur Tab 1 mettait ``_cancelled_chats.add(uid)`` →
-    cancellait aussi Tab 2 collateralement.
-La clef composite isole les onglets. Pour les call-sites legacy qui ne
-connaissent pas le ``chat_id``, des helpers ``mark_chat_cancelled_all_for_user``
-et ``clear_all_chat_cancellations_for_user`` permettent une opération en
-masse explicite (jamais utilisée par défaut).
+La clef composite isole les onglets : avec ``user_id`` seul, la génération
+d'un second onglet écraserait celle du premier dans ``_active_chat_tasks``
+(task orpheline, impossible à cancel via l'endpoint), et un Stop sur un
+onglet annulerait aussi l'autre. Appelées sans ``chat_id``,
+``mark_chat_cancelled`` et ``clear_chat_cancellation`` agissent en masse sur
+toutes les clés de l'utilisateur (opération explicite, jamais par défaut).
 
 Do NOT put domain logic here. Keep it small.
 """
@@ -58,27 +54,27 @@ if TYPE_CHECKING:
 #  The single APIRouter for the whole package
 # ═══════════════════════════════════════════════════════════════════
 # Every submodule that defines endpoints does:
-#     from backend.routes._state import router
+#     from shared_infra.routes._state import router
 #     @router.get("/api/something")
 #     ...
 # so that all decorated handlers end up on the same router, which
-# ``app.py`` mounts once.
+# ``server/app.py`` mounts once.
 router = APIRouter()
 
 
 # ═══════════════════════════════════════════════════════════════════
 #  CHAT CANCELLATION — User-triggered stop mechanism
 # ═══════════════════════════════════════════════════════════════════
-# (user_id, chat_id) → timestamp de la demande d'annulation. Le worker
-# services.py vérifie ce flag à chaque itération et à chaque tool call,
+# (user_id, chat_id) → timestamp de la demande d'annulation. La boucle du LLM
+# (rappel ``is_cancelled``) vérifie ce flag à chaque itération et à chaque tool call,
 # et lève CancelledError dès qu'il est set. Le flag est automatiquement
 # clear au démarrage de chaque nouvelle génération sur ce chat, et
 # manuellement via POST /api/chat/cancel (qui inclut chat_id).
 #
 # Dict daté (pas un set) : la purge à l'unregister n'existe que sur le worker
 # QUI HÉBERGE la task — sur les autres (récepteur du POST /stop + échos du
-# bus), l'entrée restait à jamais. Les clés de run de routine étant UNIQUES
-# (``routine:R:run:N``), le set croissait sans borne. Un flag est éphémère
+# bus), rien ne retire l'entrée. Les clés de run de routine étant UNIQUES
+# (``routine:R:run:N``), un set croîtrait sans borne. Un flag est éphémère
 # par nature (la génération visée meurt en secondes) : au-delà du TTL c'est
 # un résidu, balayé opportunistement (cf. _sweep_cancel_flags).
 _Key = Tuple[int, str]
@@ -105,7 +101,7 @@ _active_chat_tasks: "Dict[_Key, asyncio.Task]" = {}
 # Fds des verrous de PRÉSENCE cross-worker (shared_infra.runtime.chat_locks), un par
 # clé tant qu'une génération tourne. Le registre ci-dessus est per-process :
 # sans ce verrou, ``is_generation_active`` d'un AUTRE worker (garde 409 du
-# /compact) ne voyait rien et laissait démarrer une compaction concurrente.
+# /compact) ne verrait rien et laisserait démarrer une compaction concurrente.
 _activity_fds: "Dict[_Key, int]" = {}
 
 
@@ -130,12 +126,12 @@ def _publish_cancel(user_id: int, chat_id: str) -> None:
     """Diffuse la demande aux autres workers. Best-effort : une panne du bus
     ne doit jamais faire échouer un Stop (le worker local a déjà agi).
 
-    AUDIT 2026-09-01 (passe 5, B12) — l'écriture prend un flock BLOQUANT sur
-    un fichier partagé par N workers : appelée depuis la boucle (route
-    ``api_chat_cancel`` → ``mark_chat_cancelled``), elle pouvait la geler le
-    temps qu'un autre worker écrive. Sur la boucle → exécuteur (fire-and-
-    forget : le retour n'est pas consommé ici et l'application est
-    idempotente) ; hors boucle → appel direct."""
+    L'écriture prend un flock BLOQUANT sur un fichier partagé par N
+    workers : appelée depuis la boucle (route ``api_chat_cancel`` →
+    ``mark_chat_cancelled``), elle la gèlerait le temps qu'un autre worker
+    écrive. Sur la boucle → thread d'écriture (fire-and-forget : le retour
+    n'est pas consommé ici et l'application est idempotente) ; hors boucle →
+    appel direct."""
     try:
         import asyncio as _aio
 
@@ -145,8 +141,8 @@ def _publish_cancel(user_id: int, chat_id: str) -> None:
         except RuntimeError:
             _loop = None
         if _loop is not None:
-            # (passe 7, R8) — thread ORDONNÉ (FIFO strict + échecs
-            # journalisés), pas l'exécuteur multi-thread par défaut.
+            # Thread ORDONNÉ (FIFO strict + échecs journalisés), pas
+            # l'exécuteur multi-thread par défaut.
             from shared_infra.runtime.ordered_io import submit_ordered
             submit_ordered("cancel_bus.publish", publish_cancel, user_id, chat_id)
         else:
@@ -183,14 +179,17 @@ def _norm_chat_id(chat_id: Optional[str]) -> str:
 
 
 def is_chat_cancelled(user_id: int, chat_id: Optional[str] = None) -> bool:
-    """Appelée depuis services.py via une lambda. Retourne True si
-    l'utilisateur a demandé l'annulation du chat passé en paramètre.
+    """Appelée via le rappel ``is_cancelled`` de la boucle du LLM (lambda
+    posée par ``chatbot_app/turn/execution.py`` et le scheduler de routines).
+    Retourne True si l'utilisateur a demandé l'annulation du chat passé en
+    paramètre.
 
     ``chat_id=None`` reste accepté pour compatibilité (vérifie si N'IMPORTE
-    QUELLE génération a été cancellée pour cet user) — mais le call-site
-    moderne dans backend/routes/chats.py passe explicitement chat_id."""
+    QUELLE génération a été cancellée pour cet user) — mais les call-sites
+    (``chatbot_app/turn/``, ``chatbot_app/routes/chats.py``, routines)
+    passent explicitement chat_id."""
     if chat_id is None:
-        # Legacy path : True si au moins une (uid, *) est cancellée.
+        # Sans chat_id : True si au moins une (uid, *) est cancellée.
         return any(k[0] == user_id for k in _cancelled_chats)
     return (user_id, _norm_chat_id(chat_id)) in _cancelled_chats
 
@@ -200,7 +199,7 @@ def mark_chat_cancelled(user_id: int, chat_id: Optional[str] = None) -> None:
     TOUTES les générations en cours pour cet user (utile pour logout).
 
     La demande est aussi DIFFUSÉE aux autres workers (cf.
-    shared_infra/cancel_bus) : les registres ci-dessus sont par-process, et la
+    shared_infra.runtime.cancel_bus) : les registres ci-dessus sont par-process, et la
     requête de Stop n'atterrit presque jamais sur le worker qui streame. Le
     chemin inverse (appliquer une demande REÇUE du bus) est
     ``apply_remote_cancellation``, qui ne repasse pas par ici — sans quoi
@@ -239,8 +238,8 @@ def register_chat_task(user_id: int, task: "asyncio.Task",
     """Enregistre la task worker active pour ce (user, chat).
 
     Pose AUSSI un verrou de présence cross-worker : le registre ci-dessus est
-    per-process, donc la garde 409 ``generation_running`` du /compact était
-    aveugle dès que la génération vivait dans un autre worker gunicorn.
+    per-process, donc sans lui la garde 409 ``generation_running`` du /compact
+    serait aveugle dès que la génération vit dans un autre worker gunicorn.
 
     Le verrou n'est pris qu'à la PREMIÈRE task de la clé et relâché au pop :
     sur une passation (édition + régénération sur le même chat, où l'ancien
@@ -250,10 +249,10 @@ def register_chat_task(user_id: int, task: "asyncio.Task",
     key = (user_id, _norm_chat_id(chat_id))
     _active_chat_tasks[key] = task
     # ``presence_lock=False`` : clés synthétiques (runs de routine) — la garde
-    # 409 du /compact ne les concerne pas, et chaque clé unique créait un
+    # 409 du /compact ne les concerne pas, et chaque clé unique créerait un
     # fichier de verrou qui ne serait purgé qu'après 24 h.
     #
-    # ``presence_fd`` (audit 2026-08-22, B1) : verrou DÉJÀ pris par l'appelant.
+    # ``presence_fd`` : verrou DÉJÀ pris par l'appelant.
     # La route de flux doit le prendre dans son handler — seul endroit d'où un
     # 409 peut encore partir — puis nous le confier ; le ré-acquérir ici
     # échouerait forcément (on le tient déjà) et laisserait la clé sans fd,
@@ -307,19 +306,17 @@ def unregister_chat_task(user_id: int, chat_id: Optional[str] = None,
         chat_locks.release(_activity_fds.pop(key, None))
     except Exception:                                           # noqa: BLE001
         _activity_fds.pop(key, None)
-    # BUG FIX (fuite lente) — purge aussi le flag d'annulation. Avant,
-    # ``mark_chat_cancelled`` ajoutait ``(uid, cid)`` dans ``_cancelled_chats``
-    # et SEUL ``clear_chat_cancellation`` — appelé au démarrage de la
-    # PROCHAINE génération sur ce chat précis — le retirait. Un chat
-    # « stoppé puis abandonné » (cas d'usage courant : on stoppe puis on
-    # ouvre un nouveau chat) laissait l'entrée indéfiniment → croissance
-    # non bornée du set, sans reaper. Le worker étant terminé ici, le flag
-    # est devenu obsolète : on le retire.
+    # Purge aussi le flag d'annulation : sinon SEUL ``clear_chat_cancellation``
+    # — appelé au démarrage de la PROCHAINE génération sur ce chat précis — le
+    # retirerait, et un chat « stoppé puis abandonné » (cas d'usage courant :
+    # on stoppe puis on ouvre un nouveau chat) garderait l'entrée indéfiniment
+    # (fuite lente, sans reaper). Le worker étant terminé ici, le flag est
+    # obsolète : on le retire.
     _cancelled_chats.pop(key, None)
     # …et on date ce retrait, pour qu'un écho tardif du bus (la demande de
     # Stop revient ~100 ms après son émission) ne ré-injecte pas le flag sur
-    # une clé dont le worker est mort — ce serait exactement la fuite lente
-    # décrite ci-dessus, réintroduite par le chemin cross-worker.
+    # une clé dont le worker est mort — ce serait la fuite lente décrite
+    # ci-dessus, réintroduite par le chemin cross-worker.
     _note_cleared(key)
 
 
@@ -340,7 +337,7 @@ def get_active_chat_task(user_id: int,
 def active_run_count() -> int:
     """Travail LONG encore en vol sur CE worker (chat + routines + scénarios).
 
-    AUDIT 2026-08-22 (A1/A2) — le drain de recyclage (``server/uvicorn_worker``)
+    Le drain de recyclage (``server/uvicorn_worker``)
     doit attendre la FIN NATURELLE des runs, pas la fin des connexions HTTP :
       • un run DÉTACHÉ n'a plus de connexion (uvicorn le croit terminé) ;
       • une mission de plusieurs heures dépasse tout ``timeout_graceful_shutdown``.
@@ -373,9 +370,9 @@ def is_generation_active(user_id: int, chat_id: Optional[str] = None) -> bool:
 
     ``get_active_chat_task`` ne voit que CE process : sous gunicorn multi-worker
     (le cas nominal, cf. ``server/gunicorn_conf.py``), une génération sur un
-    autre worker était invisible et les gardes 409 la laissaient piétiner — le
-    tour finissait en conflit optimiste, donc NON persisté. On complète donc le
-    registre local par le verrou de présence partagé.
+    autre worker y est invisible, et les gardes 409 la laisseraient piétiner —
+    le tour finirait en conflit optimiste, donc NON persisté. Le registre local
+    est donc complété par le verrou de présence partagé.
     """
     if get_active_chat_task(user_id, chat_id) is not None:
         return True

@@ -7,6 +7,8 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
+from llm_core.engine import tool_dispatch as _tool_dispatch
+
 
 # ── Façade : un symbole ne masque plus un sous-module ────────────────────────
 def test_import_du_sous_module_client_rend_un_module():
@@ -78,16 +80,15 @@ def test_log_router_collision_rend_le_jeton_effectif():
 
 # ── Trame desktop distante : bonne signature ─────────────────────────────────
 async def test_prefetch_desktop_frame_rapatrie(monkeypatch):
-    from llm_core import _chat_with_tools as W
     vus = []
 
     async def _ensure(uid, path, url):
         vus.append(url)
-    monkeypatch.setattr(W, "_ensure_local_asset", _ensure)
+    monkeypatch.setattr(_tool_dispatch, "_ensure_local_asset", _ensure)
     tok = "a" * 32
-    monkeypatch.setattr(W, "_extract_desktop_frame",
+    monkeypatch.setattr(_tool_dispatch, "_extract_desktop_frame",
                         lambda name, args, res: {"token": tok})
-    await W._prefetch_desktop_frame(7, "desktop_observe", json.dumps({"frame_token": tok}))
+    await _tool_dispatch._prefetch_desktop_frame(7, "desktop_observe", json.dumps({"frame_token": tok}))
     assert vus == [f"/api/desktop/frame/{tok}"]
 
 

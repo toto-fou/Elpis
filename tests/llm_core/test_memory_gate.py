@@ -9,7 +9,7 @@ indisponible ou si ``filter_categories`` est None).
 """
 from __future__ import annotations
 
-from llm_core._chat_with_tools import _MEMORY_TOOL_NAMES, _apply_memory_gate
+from llm_core.engine.tool_catalog import _MEMORY_TOOL_NAMES, _apply_memory_gate
 
 
 class _Tool:

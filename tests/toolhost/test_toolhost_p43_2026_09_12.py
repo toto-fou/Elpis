@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI, Request
 
+from llm_core.engine import tool_dispatch as _tool_dispatch
 from shared_infra.accounts import identity as I
 
 # ── Familles ────────────────────────────────────────────────────────────────
@@ -81,7 +82,7 @@ def test_entree_app_devient_inprocess_et_la_sentinelle_se_developpe(app_manifest
     assert [c["type"] for c in cfgs] == ["stdio", "inprocess"]
     assert cfgs[0]["command"] == "DEFAULT_LOCAL_PYTHON" and cfgs[1]["families"] == ["chart", "skill"]
     assert all(c["filter_categories"] == ["fs", "chart"] for c in cfgs)
-    from llm_core._chat_with_tools import _expand_builtin_configs
+    from llm_core.engine.tool_catalog import _expand_builtin_configs
     out = _expand_builtin_configs([
         {"type": "stdio", "name": "Outils Locaux", "command": "DEFAULT_LOCAL_PYTHON", "filter_categories": ["chart"]},
         {"type": "http", "name": "Ext", "url": "http://x/mcp"},
@@ -94,7 +95,7 @@ def test_sans_entree_app_la_sentinelle_reste_seule(monkeypatch):
     monkeypatch.setenv("APP_MCP_MANIFEST", "/nonexistent/mcp.json")
     from shared_infra.mcp import manifest as M
     M.reload()
-    from llm_core._chat_with_tools import _expand_builtin_configs
+    from llm_core.engine.tool_catalog import _expand_builtin_configs
     cfg = {"type": "stdio", "name": "Outils Locaux", "command": "DEFAULT_LOCAL_PYTHON", "filter_categories": ["fs"]}
     out = _expand_builtin_configs([cfg])
     assert len(out) == 1 and out[0]["command"] == "DEFAULT_LOCAL_PYTHON" and out[0]["name"] == "Outils Locaux"
@@ -188,15 +189,14 @@ def test_push_du_miroir_inactif_en_local(tmp_path, monkeypatch):
 # ── Actifs distants (vision) ────────────────────────────────────────────────
 
 def test_ensure_local_asset_rapatrie_par_le_relais(tmp_path, monkeypatch):
-    from llm_core import _chat_with_tools as W
     from shared_infra.sandbox import relay as R
     local = tmp_path / "a" / "frame.png"
 
     async def _fake(uid, path, timeout_s=10.0):
         return b"PNG" if uid == 7 and path.endswith("/x.png") else None
     monkeypatch.setattr(R, "fetch_relayed_bytes", _fake)
-    assert asyncio.run(W._ensure_local_asset(7, str(local), "/api/playwright/screenshot/x.png")) is True
+    assert asyncio.run(_tool_dispatch._ensure_local_asset(7, str(local), "/api/playwright/screenshot/x.png")) is True
     assert local.read_bytes() == b"PNG"
-    assert asyncio.run(W._ensure_local_asset(7, str(tmp_path / "b.png"), "/api/playwright/screenshot/y.png")) is False
-    assert asyncio.run(W._ensure_local_asset(None, str(tmp_path / "c.png"), "/x")) is False
-    assert asyncio.run(W._ensure_local_asset(7, str(local), "/nope")) is True   # déjà présent
+    assert asyncio.run(_tool_dispatch._ensure_local_asset(7, str(tmp_path / "b.png"), "/api/playwright/screenshot/y.png")) is False
+    assert asyncio.run(_tool_dispatch._ensure_local_asset(None, str(tmp_path / "c.png"), "/x")) is False
+    assert asyncio.run(_tool_dispatch._ensure_local_asset(7, str(local), "/nope")) is True   # déjà présent

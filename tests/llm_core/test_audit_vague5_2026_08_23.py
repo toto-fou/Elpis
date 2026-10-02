@@ -20,6 +20,8 @@ import subprocess
 
 import pytest
 
+from llm_core.engine import llm_stream as _llm_stream
+
 _RACINE = pathlib.Path(__file__).resolve().parents[2]
 
 
@@ -241,21 +243,20 @@ def test_les_modules_touches_simportent_toujours():
 
 
 def test_le_parametre_mort_du_repli_de_reprise_a_disparu():
-    from llm_core import _chat_with_tools as W
-    sig = inspect.signature(W._resume_cut_stream)
+    sig = inspect.signature(_llm_stream._resume_cut_stream)
     assert "tag_splitter" not in sig.parameters, (
         "le paramètre était transmis mais jamais utilisé : la fonction crée "
         "son propre splitter (correct — le rejeu repart de l'octet 0)")
 
 
 def test_le_commentaire_perime_sur_start_in_think_a_disparu():
-    from llm_core import _chat_with_tools as W
-    # Commentaires retirés : la note qui EXPLIQUE le retrait cite la phrase.
-    src = "\n".join(l for l in inspect.getsource(W).splitlines()
-                    if not l.strip().startswith("#"))
+    # Sur le CODE de toute la boucle : une continuation démarrée en mode
+    # raisonnement est exactement ce que ce test interdit.
+    from tests._sources import source_boucle
+    src = source_boucle()
     assert "ThinkTagSplitter(start_in_think=True)" not in src, (
-        "le commentaire affirme de nouveau que la continuation est routée en "
-        "raisonnement — c'est faux depuis le changement de repli de reprise")
+        "la boucle démarre de nouveau une continuation en mode raisonnement : "
+        "le repli de reprise repart du contenu visible")
 
 
 # ── 25 (suite). Le réglage inerte est enfin ANNONCÉ comme tel ───────────

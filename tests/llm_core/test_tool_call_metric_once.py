@@ -13,8 +13,9 @@ import pathlib
 
 import pytest
 
-HARNESS = pathlib.Path("llm_core/_chat_with_tools.py")
-TOOL_EXEC = pathlib.Path("llm_core/engine/tool_exec.py")
+from tests._sources import RACINE, fichiers_boucle
+
+TOOL_EXEC = RACINE / "llm_core" / "engine" / "tool_exec.py"
 
 
 def _tool_call_metric_lines(path: pathlib.Path):
@@ -34,11 +35,16 @@ def _tool_call_metric_lines(path: pathlib.Path):
 
 
 def test_le_harnais_ne_compte_plus_a_la_preparation():
-    """La préparation d'un lot ne doit RIEN compter : rien n'a encore tourné."""
-    assert _tool_call_metric_lines(HARNESS) == [], (
-        "log_metric('tool_call') est réapparu dans _chat_with_tools : "
-        "la métrique appartient à l'exécution (engine/tool_exec), sinon "
-        "chaque appel est compté deux fois."
+    """La préparation d'un lot ne doit RIEN compter : rien n'a encore tourné.
+    Balaye toute la boucle (orchestrateur et ``engine/*``), où que vive la
+    préparation."""
+    autres = [f for f in fichiers_boucle() if f != TOOL_EXEC]
+    assert autres, "aucun fichier de la boucle trouvé"
+    trouves = {str(f.relative_to(RACINE)): _tool_call_metric_lines(f) for f in autres}
+    assert not any(trouves.values()), (
+        f"log_metric('tool_call') est réapparu hors de l'exécution : {trouves}. "
+        "La métrique appartient à engine/tool_exec, sinon chaque appel est "
+        "compté deux fois."
     )
 
 

@@ -10,11 +10,12 @@ parfois l'appel DANS le reasoning → ni exécuté ni affiché (juste vu brut).
 """
 from __future__ import annotations
 
-from llm_core._chat_with_tools import (
+from llm_core._tool_parsing import (
+    _parse_glm_tool_block,
     _recover_tool_calls_from_reasoning,
     _strip_tool_call_markup,
+    extract_tool_calls,
 )
-from llm_core._tool_parsing import _parse_glm_tool_block, extract_tool_calls
 
 
 # ── format GLM-4.5/4.6 (XML arg_key/arg_value) ───────────────────────────────

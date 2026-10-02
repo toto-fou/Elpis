@@ -1,0 +1,738 @@
+{
+  "evenements": [
+    {
+      "context_tokens": 0,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 0,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "text": "Je lance l'outil.\n",
+      "type": "content_token"
+    },
+    {
+      "text": "L'appel d'outil a été coupé (limite de longueur de génération) — nouvelle tentative avec un appel plus compact.",
+      "type": "info"
+    },
+    {
+      "context_tokens": 250,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 250,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "args": {
+        "msg": "court"
+      },
+      "call_id": "legacy_1_0",
+      "name": "zeta_echo",
+      "type": "tool_call"
+    },
+    {
+      "call_id": "legacy_1_0",
+      "name": "zeta_echo",
+      "result": "{\"ok\": true, \"echo\": {\"msg\": \"court\"}}",
+      "type": "tool_result"
+    },
+    {
+      "context_tokens": 120,
+      "max": 200,
+      "n": 2,
+      "tokens_used": 370,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "text": "Je lance l'outil.\n",
+      "type": "content_token"
+    },
+    {
+      "text": "L'appel d'outil a été coupé (limite de longueur de génération) — nouvelle tentative avec un appel plus compact.",
+      "type": "info"
+    },
+    {
+      "context_tokens": 260,
+      "max": 200,
+      "n": 2,
+      "tokens_used": 630,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "text": "Je lance l'outil.\n",
+      "type": "content_token"
+    },
+    {
+      "text": "L'appel d'outil a été coupé (limite de longueur de génération) — nouvelle tentative avec un appel plus compact.",
+      "type": "info"
+    },
+    {
+      "context_tokens": 270,
+      "max": 200,
+      "n": 2,
+      "tokens_used": 900,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "text": "Je lance l'outil.\n",
+      "type": "content_token"
+    },
+    {
+      "text": "L'appel d'outil a été coupé (limite de longueur de génération) — nouvelle tentative avec un appel plus compact.",
+      "type": "info"
+    },
+    {
+      "level": "warn",
+      "message": "appels d'outils coupés par le plafond de génération — arrêt",
+      "type": "notice"
+    },
+    {
+      "effective_iterations": 1,
+      "hard_iterations": 5,
+      "hard_iterations_max": 400,
+      "iterations": 1,
+      "limit_kind": "effective",
+      "max_iterations": 200,
+      "reason": "max_iter_reached",
+      "stop_reason": "gen_cap",
+      "tool_calls_done": 1,
+      "type": "tool_limit"
+    },
+    {
+      "text": "Synthèse après coupures en texte.",
+      "type": "content_token"
+    }
+  ],
+  "final": "Synthèse après coupures en texte.",
+  "metrics": {
+    "gen_cap_stop": true,
+    "input_tokens": 1110,
+    "last_completion_tokens": 8,
+    "last_prompt_tokens": 150,
+    "max_steps_wrapup": true,
+    "output_tokens": 228,
+    "response_tokens": 228,
+    "submitted_input_tokens": 1110,
+    "thinking_tokens": 0,
+    "thinking_tokens_estimated": false,
+    "tool_history": [
+      {
+        "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+        "role": "assistant"
+      },
+      {
+        "content": null,
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"msg\": \"court\"}",
+              "name": "zeta_echo"
+            },
+            "id": "legacy_1_0",
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "content": "{\"ok\": true, \"echo\": {\"msg\": \"court\"}}",
+        "role": "tool",
+        "tool_call_id": "legacy_1_0"
+      },
+      {
+        "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+        "role": "assistant"
+      },
+      {
+        "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+        "role": "assistant"
+      },
+      {
+        "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+        "role": "assistant"
+      }
+    ],
+    "tool_history_delta": true,
+    "tool_limit_calls": 1,
+    "tool_limit_effective_iters": 1,
+    "tool_limit_iters": 5,
+    "tool_limit_kind": "effective",
+    "tool_limit_max": 200,
+    "tool_limit_reached": true,
+    "tool_limit_stop_reason": "gen_cap"
+  },
+  "payloads": [
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "user": "golden"
+    },
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        },
+        {
+          "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+          "role": "assistant"
+        },
+        {
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "role": "user"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "user": "golden"
+    },
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        },
+        {
+          "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+          "role": "assistant"
+        },
+        {
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "role": "user"
+        },
+        {
+          "content": null,
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"msg\": \"court\"}",
+                "name": "zeta_echo"
+              },
+              "id": "legacy_1_0",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\"ok\": true, \"echo\": {\"msg\": \"court\"}}",
+          "role": "tool",
+          "tool_call_id": "legacy_1_0"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "user": "golden"
+    },
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        },
+        {
+          "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+          "role": "assistant"
+        },
+        {
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "role": "user"
+        },
+        {
+          "content": null,
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"msg\": \"court\"}",
+                "name": "zeta_echo"
+              },
+              "id": "legacy_1_0",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\"ok\": true, \"echo\": {\"msg\": \"court\"}}",
+          "role": "tool",
+          "tool_call_id": "legacy_1_0"
+        },
+        {
+          "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+          "role": "assistant"
+        },
+        {
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "role": "user"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "user": "golden"
+    },
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        },
+        {
+          "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+          "role": "assistant"
+        },
+        {
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "role": "user"
+        },
+        {
+          "content": null,
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"msg\": \"court\"}",
+                "name": "zeta_echo"
+              },
+              "id": "legacy_1_0",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\"ok\": true, \"echo\": {\"msg\": \"court\"}}",
+          "role": "tool",
+          "tool_call_id": "legacy_1_0"
+        },
+        {
+          "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+          "role": "assistant"
+        },
+        {
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "role": "user"
+        },
+        {
+          "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+          "role": "assistant"
+        },
+        {
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "role": "user"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "user": "golden"
+    },
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        },
+        {
+          "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+          "role": "assistant"
+        },
+        {
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "role": "user"
+        },
+        {
+          "content": null,
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"msg\": \"court\"}",
+                "name": "zeta_echo"
+              },
+              "id": "legacy_1_0",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\"ok\": true, \"echo\": {\"msg\": \"court\"}}",
+          "role": "tool",
+          "tool_call_id": "legacy_1_0"
+        },
+        {
+          "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+          "role": "assistant"
+        },
+        {
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "role": "user"
+        },
+        {
+          "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+          "role": "assistant"
+        },
+        {
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "role": "user"
+        },
+        {
+          "content": "Je lance l'outil.\n<function=zeta_echo>\n<parameter=msg>\ntexte coup",
+          "role": "assistant"
+        },
+        {
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "role": "user"
+        },
+        {
+          "content": "[SYSTEM] OUTPUT LENGTH LIMIT. Your tool calls kept being cut off by the generation length limit (the context window is NOT full and the step budget was NOT exhausted), so the loop stopped. Tools are disabled for this turn. Respond with TEXT ONLY: state that the tool calls were too long for the output limit, summarize concisely what was actually accomplished (real results only), list what remains to be done, and recommend the next action — split large writes into several smaller calls. Do not attempt any tool call.",
+          "role": "user"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "tool_choice": "none",
+      "tools": [
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "user": "golden"
+    }
+  ]
+}

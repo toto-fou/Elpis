@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import pytest
 
-from llm_core._chat_with_tools import _flatten_tool_messages
 from llm_core.context.pruning import (
     sanitize_message_history,
     task_anchor_index,
@@ -41,6 +40,7 @@ from llm_core.conversation_compressor import (
     _pin_task_anchor,
     _split_by_turn_index,
 )
+from llm_core.engine.llm_turn import _flatten_tool_messages
 
 _MISSION = ("Le but est de tester sur un long run les tools pour voir si le "
             "harness tient la route.")

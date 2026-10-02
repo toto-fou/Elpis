@@ -4,7 +4,7 @@ tests/llm_core/test_audit_2026_06_fixes.py — verrouillage des correctifs de
 l'audit consolidé 2026-06 (Vague 1 backend, items 1-3).
 
 Cible :
-- ``chatbot_app.routes.chats._drop_event_after_cancel`` : le 'final' du
+- ``chatbot_app.turn.events._drop_event_after_cancel`` : le 'final' du
   partiel passe la garde post-cancel (les tokens parasites restent droppés).
 - ``conversation_compressor.compression_was_attempted`` : le cooldown
   s'applique aussi sur ÉCHEC d'une vraie tentative, pas sur les pré-checks.
@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import logging
 
-from chatbot_app.routes.chats import _drop_event_after_cancel, _task_runs_for_persist
+from chatbot_app.turn.events import _drop_event_after_cancel
+from chatbot_app.turn.history import _task_runs_for_persist
 from llm_core import _tool_parsing
 from llm_core._tool_parsing import extract_tool_calls
 from llm_core.conversation_compressor import compression_was_attempted

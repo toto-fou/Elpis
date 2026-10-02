@@ -107,11 +107,11 @@ async def api_saved_new(request: Request):
     # PREMIER tour, sinon « préparer avant d'agir » ne veut rien dire).
     # Scellé À LA CRÉATION donc atomique : la route de génération relit
     # meta_json, il n'existe aucune fenêtre où le tour partirait avec les
-    # outils d'écriture. Sans corps (appels historiques) : inchangé.
+    # outils d'écriture. Sans corps : chat ordinaire.
     plan_mode = False
     try:
         body = await request.json()
-    except Exception:
+    except Exception:  # noqa: BLE001 — corps optionnel : illisible = absent
         body = None
     if isinstance(body, dict) and "plan_mode" in body:
         if not isinstance(body["plan_mode"], bool):
@@ -119,9 +119,9 @@ async def api_saved_new(request: Request):
         plan_mode = body["plan_mode"]
     chat_id = secrets.token_hex(12)
 
-    # (passe 8, B4) — cinq transactions SQLite SYNCHRONES tournaient sur la
-    # boucle (« Nouveau chat » gelait tous les flux du worker le temps du
-    # verrou WAL) : déportées dans un thread, comme les routes voisines.
+    # Cinq transactions SQLite SYNCHRONES : dans un thread, comme les routes
+    # voisines — sur la boucle, « Nouveau chat » gèlerait tous les flux du
+    # worker le temps du verrou WAL.
     def _creer() -> str:
         upsert_chat(user_id, chat_id, "Nouveau chat", [], time.time())
         if plan_mode:
@@ -148,7 +148,7 @@ def api_saved_get(chat_id: str, request: Request):
 async def api_saved_rename(chat_id: str, request: Request):
     user_id = require_user_id(request)
     data = await request.json()
-    ok = await asyncio.to_thread(rename_chat, user_id, chat_id, data.get("title", ""))   # (passe 8, B4)
+    ok = await asyncio.to_thread(rename_chat, user_id, chat_id, data.get("title", ""))
     if not ok:
         raise HTTPException(404, "chat not found or invalid title")
     return {"ok": True}
@@ -167,7 +167,7 @@ async def api_saved_set_tools(chat_id: str, request: Request):
     tools = data.get("tools")
     if not isinstance(tools, list) or not all(isinstance(t, str) for t in tools):
         raise HTTPException(422, "tools doit être une liste de noms de catégories")
-    if not await asyncio.to_thread(set_chat_tools, user_id, chat_id, tools):   # (passe 8, B4)
+    if not await asyncio.to_thread(set_chat_tools, user_id, chat_id, tools):
         raise HTTPException(404, "chat not found")
     return {"ok": True}
 
@@ -200,12 +200,12 @@ async def api_saved_save_messages(chat_id: str, request: Request):
     msgs = data.get("messages", [])
     title = data.get("title", "")
 
-    # ── Garde « run en cours » (AUDIT 2026-09-16, R1 — perte du résultat) ──
+    # ── Garde « run en cours » (perte du résultat) ──
     # Un run qui tient ce chat persiste LUI-MÊME son tour (final, ou partiel
     # sur Stop/crash), sous garde optimiste sur l'``updated_at`` du début du
     # tour. Ce PUT, lui, écrit sans garde et avance ``updated_at`` : la
-    # persistance finale du run tombait alors en conflit et la réponse —
-    # outils exécutés, tokens payés — n'était jamais sauvée. Cas typique :
+    # persistance finale du run tomberait alors en conflit et la réponse —
+    # outils exécutés, tokens payés — ne serait jamais sauvée. Cas typique :
     # lancer une génération dans un autre chat pendant qu'un premier tourne
     # en arrière-plan. Le serveur est l'autorité tant que le run vit ; même
     # idiome « skipped » que les gardes ci-dessous (appel best-effort).
@@ -217,22 +217,20 @@ async def api_saved_save_messages(chat_id: str, request: Request):
         return {"ok": True, "skipped": "generation_running"}
 
     # État courant lu UNE fois : sert au fallback de titre ET aux deux gardes
-    # ci-dessous. AUDIT 2026-08-31 (passe 4, B4) — lecture du chat COMPLET
+    # ci-dessous. Lecture du chat COMPLET
     # (potentiellement des Mo de messages) : hors boucle, comme partout.
     existing = await asyncio.to_thread(get_chat, user_id, chat_id)
 
-    # ── Garde anti-résurrection (BUG FIX — conversation supprimée qui revient) ──
+    # ── Garde anti-résurrection (conversation supprimée qui revient) ──
     # Ce endpoint ne sert QU'aux sauvegardes partielles du streaming en arrière-
     # plan, et le front crée toujours le chat côté serveur AVANT de streamer
     # (``POST /api/saved/chats/new``, app-chat.js). Il n'a donc jamais à en
-    # CRÉER un — or il passait par ``upsert_chat``, qui insère si la ligne
-    # manque.
+    # CRÉER un — or ``upsert_chat`` insère si la ligne manque.
     #
-    # Conséquence observée : l'utilisateur supprime une conversation pendant
+    # Sans cette garde : l'utilisateur supprime une conversation pendant
     # qu'une génération tourne encore en arrière-plan ; la sauvegarde partielle
-    # suivante la recrée, et elle réapparaît dans la liste. Reproduit à
-    # l'identique en séquentiel strict — DELETE (200), GET (404), PUT (200),
-    # GET (200) — donc sans même avoir besoin d'une course.
+    # suivante la recréerait, et elle réapparaîtrait dans la liste — même en
+    # séquentiel strict (DELETE, GET 404, PUT, GET 200), sans aucune course.
     #
     # On répond ``ok`` plutôt qu'une erreur : cet appel est du best-effort côté
     # client (``catch(e) {}``), et un 404 ne ferait qu'ajouter du bruit dans la
@@ -247,23 +245,23 @@ async def api_saved_save_messages(chat_id: str, request: Request):
     if not title:
         title = existing.get("title", "Nouveau chat")
 
-    # ── Garde anti-régression (BUG FIX — perte de données) ───────────────
+    # ── Garde anti-régression (perte de données) ─────────────────────────
     # ``save-messages`` ne sert QU'aux sauvegardes partielles du streaming
     # en arrière-plan, dont le contenu ne fait que CROÎTRE pendant le tour.
     # Il existe une course : un chat qui termine son stream en bg est
     # persisté COMPLET par la route de streaming, puis émet ``final`` ;
     # pendant les quelques ms où ce ``final`` voyage vers le client, ce
     # dernier peut envoyer un ``save-messages`` partiel (snapshot pris
-    # avant la fin) → il écrasait silencieusement la version complète.
+    # avant la fin) → il écraserait silencieusement la version complète.
     # On refuse donc tout payload dont le contenu total est STRICTEMENT
     # plus court que ce qui est déjà stocké : c'est un partiel périmé. Une
     # régression légitime (édition d'un message + régénération) passe par
     # la route de streaming, pas par cet endpoint — non affectée.
     if existing and isinstance(msgs, list):
         def _content_len(message_list):
-            # BUG FIX — multimodal vision : un message dont content est une
-            # liste (parts text + image) était compté 0 → le payload était
-            # toujours rejeté "stale". On somme les parts text, et on ajoute
+            # Multimodal vision : un message dont content est une liste
+            # (parts text + image) compté 0 ferait rejeter le payload comme
+            # "stale" à tous les coups. On somme les parts text, et on ajoute
             # un poids fixe par part non-texte (image/audio) pour différencier
             # "rien" de "1 image".
             total = 0
@@ -310,9 +308,10 @@ async def api_saved_save_messages(chat_id: str, request: Request):
         )
         _compr_st = extract_compression_state((existing or {}).get("messages") or [])
         if _compr_st and (_compr_st.get("summary_xml") or "").strip():
-            # Mêmes champs que ``_with_compr_state`` (routes/chats.py) : sans
-            # ``ledger_block`` ni ``turns_compressed``, ce PUT effaçait le
-            # registre d'artefacts de la compaction (2026-09-21).
+            # Mêmes champs que ``_with_compr_state``
+            # (``chatbot_app/turn/execution.py``) : sans ``ledger_block`` ni
+            # ``turns_compressed``, ce PUT effacerait le registre d'artefacts
+            # de la compaction.
             msgs = [build_state_system_message(
                 _compr_st["summary_xml"],
                 int(_compr_st.get("round") or 1),
@@ -320,18 +319,17 @@ async def api_saved_save_messages(chat_id: str, request: Request):
                 turns_compressed=_compr_st.get("turns_compressed"),
                 ledger_block=_compr_st.get("ledger_block") or "",
             )] + _strip_summary_messages(msgs)
-    except Exception:
+    except Exception:  # noqa: BLE001 — non fatal : sauvegarde sans l'état de compression, tracée
         logger.warning("[save-messages] carry-forward état compression échoué", exc_info=True)
 
-    # BUG FIX (élevé) : upsert_chat raise ValueError sur collision cross-user.
-    # Avant ce fix, l'upsert retournait silencieusement avec rowcount=0 et
-    # le client recevait 200 OK pour une opération qui n'avait rien fait.
+    # ``upsert_chat`` lève ValueError sur collision cross-user → 409 : un
+    # 200 OK annoncerait une sauvegarde qui n'a rien écrit.
     # Embed each referenced Chart.js config into the message it belongs to,
     # so a chart stays renderable even after its .charts/ cache file is
-    # pruned (see backend/routes/charts.py). Lazy import: avoids any
+    # pruned (see shared_infra/charts/routes.py). Lazy import: avoids any
     # import-order coupling between route modules.
     from shared_infra.charts.routes import embed_chart_configs
-    # AUDIT 2026-08-31 (passe 4, B4) — ``embed_chart_configs`` RELIT tout le
+    # ``embed_chart_configs`` RELIT tout le
     # chat + fichiers .charts/, et l'upsert écrit (busy_timeout 10 s) : les
     # deux hors boucle. Cet endpoint est appelé en rafale par le streaming bg.
     msgs = await asyncio.to_thread(embed_chart_configs, user_id, chat_id, msgs)
@@ -358,9 +356,8 @@ def api_saved_delete(chat_id: str, request: Request):
 def api_saved_clear_all(request: Request):
     """Delete all non-archived chats for the current user.
 
-    AUDIT 2026-09-01 (passe 6, B6) — une seule transaction (un commit/fsync)
-    au lieu d'un ``delete_chat`` par chat (100 chats = 100 fsync sous le
-    verrou d'écriture WAL)."""
+    Une seule transaction (un commit/fsync) : un ``delete_chat`` par chat
+    coûterait 100 fsync pour 100 chats sous le verrou d'écriture WAL."""
     user_id = require_user_id(request)
     from shared_infra.chat.store import delete_all_chats
     count = delete_all_chats(user_id, archived=0)
@@ -373,12 +370,12 @@ async def api_saved_delete_batch(request: Request):
     user_id = require_user_id(request)
     data = await request.json()
     ids = data.get("ids", [])
-    # BUG FIX — sans cette validation, un client envoyant ids="abc" passait
-    # la liste = string → itération par caractère → N suppressions hasardeuses.
+    # Sans cette validation, un client envoyant ids="abc" ferait itérer la
+    # chaîne caractère par caractère → N suppressions hasardeuses.
     if not isinstance(ids, list):
         raise HTTPException(400, "ids doit être une liste")
-    # (passe 6, B6) — une transaction pour tout le lot, en thread (la boucle
-    # ``delete_chat`` tournait de surcroît en SYNC sur la boucle d'événements).
+    # Une transaction pour tout le lot, en thread (pas un ``delete_chat`` par
+    # id, en SYNC sur la boucle d'événements).
     from shared_infra.chat.store import delete_chats_by_ids
     count = await asyncio.to_thread(delete_chats_by_ids, user_id,
                                     [str(c) for c in ids])
@@ -390,12 +387,11 @@ async def api_saved_delete_batch(request: Request):
 # ─────────────────────────────────────────────────────────────────────────────
 @router.post("/api/saved/chats/archive-batch")
 async def api_saved_archive_batch(request: Request):
-    """Archive plusieurs chats d'un coup (passe 2 2026-08-31).
+    """Archive plusieurs chats d'un coup.
 
-    L'UI d'archivage groupé faisait N POST séquentiels — chacun suivi d'un
-    remplacement complet de la liste côté front — pendant que la suppression
-    groupée avait déjà son endpoint batch. Symétrie rétablie ; la boucle DB
-    part en threadpool."""
+    Un seul POST au lieu de N POST séquentiels (chacun suivi d'un
+    remplacement complet de la liste côté front), comme la suppression
+    groupée ; la boucle DB part en threadpool."""
     user_id = require_user_id(request)
     data = await request.json()
     ids = data.get("ids", [])

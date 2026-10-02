@@ -21,7 +21,7 @@ from shared_infra.runtime import chat_locks, run_journal as rj
 
 
 async def _drain(events, **kw):
-    from chatbot_app.routes.chats import _drain_coalesced
+    from chatbot_app.turn.events import _drain_coalesced
     q = asyncio.Queue()
     for e in events:
         q.put_nowait(e)

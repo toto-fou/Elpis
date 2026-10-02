@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: MIT
 """llm_core.engine.stream_events — registre des événements du flux NDJSON
-d'un tour de chat (2026-09-29).
+d'un tour de chat.
 
 Un type par ligne, avec son rôle. Émetteurs : la boucle agentique et ses
-outils (``LOOP_EVENTS``), la route de chat (``chatbot_app/routes/chats.py``)
-et le journal d'exécution rejoué au rattachement
-(``shared_infra/runtime/run_journal.py``). Lecteurs, dans
+outils (``LOOP_EVENTS``), le tour de chat (``chatbot_app/turn/`` :
+préparation, exécution, pompe NDJSON), la route de rattachement
+(``chatbot_app/routes/chat_control.py``) et le journal d'exécution rejoué au
+rattachement (``shared_infra/runtime/run_journal.py``). Lecteurs, dans
 ``frontend/js/app-chat.js`` : ``handleStreamEvent`` et la boucle de lecture
 du rattachement (``attachRun``).
 

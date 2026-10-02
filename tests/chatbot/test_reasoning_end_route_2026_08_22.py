@@ -30,6 +30,8 @@ import pytest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 
+from tests._routes_chat import monter_routes_chat
+
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
@@ -46,18 +48,13 @@ def client(tmp_path, monkeypatch):
     from shared_infra.llm import reasoning_control as rc
     monkeypatch.setattr(rc, "DIR", str(tmp_path / "rctl"))
 
-    import chatbot_app.routes.chats as ch
-
     def _fake_uid(request: Request):
         uid = request.headers.get("x-test-user")
         if not uid:
             raise HTTPException(401, "auth requise")
         return int(uid)
 
-    monkeypatch.setattr(ch, "require_user_id", _fake_uid)
-    app = FastAPI()
-    app.include_router(ch.router)
-    return TestClient(app)
+    return TestClient(monter_routes_chat(monkeypatch, _fake_uid))
 
 
 _H = {"x-test-user": "1"}

@@ -103,7 +103,7 @@ class _Remote:
 
 async def test_ctx_usage_snapshot_cible_locale(monkeypatch):
     import llm_core
-    from chatbot_app.routes.chats import _ctx_usage_snapshot
+    from chatbot_app.turn.execution import _ctx_usage_snapshot
 
     async def _n_ctx(model):
         return 65_536
@@ -122,7 +122,7 @@ async def test_ctx_usage_snapshot_cible_locale(monkeypatch):
 
 async def test_ctx_usage_snapshot_refuse_les_mesures_douteuses(monkeypatch):
     import llm_core
-    from chatbot_app.routes.chats import _ctx_usage_snapshot
+    from chatbot_app.turn.execution import _ctx_usage_snapshot
 
     async def _n_ctx(model):
         return 65_536

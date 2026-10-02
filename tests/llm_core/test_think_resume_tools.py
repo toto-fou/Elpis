@@ -25,6 +25,7 @@ import json
 import pytest
 
 from llm_core import _chat_with_tools as _cwt, _llm_params, _model_info, _think_resume as tr
+from llm_core.engine import llm_stream as _llm_stream
 from llm_core.providers import openai_compat as _oai
 from tests.llm_core.test_think_resume_classic import _SeqClient
 
@@ -44,7 +45,7 @@ async def _actx(*_a, **_k):
 def _patch_tools_env(monkeypatch):
     monkeypatch.setattr(_cwt, "verify_llm_availability", _anoop)
     monkeypatch.setattr(_cwt, "_model_supports_vision", _avision)
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
     _llm_params._continue_final_cache.clear()
 
 
@@ -217,7 +218,7 @@ async def test_stream_fn_native_resume_payload(_stream_env, monkeypatch):
     client = _SeqClient([_STOP_LINES])
     monkeypatch.setattr(_oai, "_get_llm_client", lambda *a, **k: client)
 
-    out = await _cwt._llama_chat_with_tools_stream(
+    out = await _llm_stream._llama_chat_with_tools_stream(
         [{"role": "user", "content": "continue"}], _TOOLS,
         thinking_mode=True, resume_think="raisonnement acquis",
         resume_native_ok=True,
@@ -238,7 +239,7 @@ async def test_stream_fn_fallback_resume_payload(_stream_env, monkeypatch):
     client = _SeqClient([_STOP_LINES])
     monkeypatch.setattr(_oai, "_get_llm_client", lambda *a, **k: client)
 
-    await _cwt._llama_chat_with_tools_stream(
+    await _llm_stream._llama_chat_with_tools_stream(
         [{"role": "user", "content": "continue"}], _TOOLS,
         thinking_mode=True, resume_think="raisonnement acquis",
         resume_native_ok=False,

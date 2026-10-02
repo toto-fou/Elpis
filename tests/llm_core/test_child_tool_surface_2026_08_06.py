@@ -22,6 +22,8 @@ import pytest
 
 import llm_core._chat_with_tools as cwt
 import llm_core._mcp_categories as cats
+from llm_core import _mcp_pool
+from llm_core.engine import tool_catalog as _tool_catalog
 from llm_core.tools import task_tool
 from llm_core.tools.task_tool import _AGENTS, build_task_builtin_tool
 
@@ -62,7 +64,7 @@ def local_tools(monkeypatch):
     monkeypatch.setattr(cats, "categorize", lambda n: _CATALOGUE.get(n, "other"))
     monkeypatch.setattr(cats, "get_hidden_categories", lambda: ["task"])
     monkeypatch.setattr(cats, "manifest_source", lambda: "live")
-    monkeypatch.setattr(cwt, "mcp_pool", _FakePool())
+    monkeypatch.setattr(_mcp_pool, "mcp_pool", _FakePool())
 
 
 class _CaptureRunner:
@@ -105,7 +107,7 @@ async def test_parent_sans_outils_ne_voit_que_les_categories_cachees(local_tools
     """Le point de départ du symptôme : ce parent-là n'a effectivement qu'un
     outil. C'était ``tool_help`` + ``todowrite`` ; ``tool_help`` retiré, il ne
     reste que la todo-list — plus rien qui invite le modèle à s'occuper."""
-    _map, payload, _h, _n = await cwt._collect_mcp_tools(
+    _map, payload, _h, _n = await _tool_catalog._collect_mcp_tools(
         _PARENT_SANS_OUTILS, None, None, memory_enabled=False)
     assert {t["function"]["name"] for t in payload} == {"todowrite"}
 
@@ -124,7 +126,7 @@ async def test_agent_integre_recoit_ses_categories_entieres(
     kw = runner.calls[0]
     assert kw["allowed_tool_names"] is None, "plus d'allowlist par outil"
 
-    _map, payload, _h, _n = await cwt._collect_mcp_tools(
+    _map, payload, _h, _n = await _tool_catalog._collect_mcp_tools(
         kw["mcp_configs"], kw.get("builtin_tools"), None,
         allowed_tool_names=kw["allowed_tool_names"],
         memory_enabled=kw["memory_enabled"],
@@ -169,7 +171,7 @@ async def test_agent_custom_sans_categorie_recoit_le_socle_par_defaut(
     kw = runner.calls[0]
     assert kw["mcp_configs"][0]["filter_categories"] == CUSTOM_DEFAULT_CATEGORIES
 
-    _map, payload, _h, _n = await cwt._collect_mcp_tools(
+    _map, payload, _h, _n = await _tool_catalog._collect_mcp_tools(
         kw["mcp_configs"], None, None,
         allowed_tool_names=kw["allowed_tool_names"],
         memory_enabled=kw["memory_enabled"],
@@ -238,7 +240,7 @@ async def test_agent_custom_dont_les_serveurs_ne_resolvent_plus_garde_des_outils
     cfgs = runner.calls[0]["mcp_configs"]
     assert cfgs and cfgs[0]["filter_categories"] == list(CUSTOM_DEFAULT_CATEGORIES)
 
-    _map, payload, _h, _n = await cwt._collect_mcp_tools(
+    _map, payload, _h, _n = await _tool_catalog._collect_mcp_tools(
         cfgs, None, None, allowed_tool_names=runner.calls[0]["allowed_tool_names"],
         memory_enabled=False, deny_tool_names=runner.calls[0]["deny_tool_names"])
     assert {"read_file", "execute_shell"} <= {t["function"]["name"] for t in payload}

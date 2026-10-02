@@ -7,7 +7,7 @@ Les transformateurs ne doivent JAMAIS muter ``working_messages`` en place :
 l'historique persisté (tool_history) partage ces dicts — une mutation ici
 corromprait ce qui est sauvegardé en DB. Vérifié pour :
   - ``select_prune_keys``         (sélection d'élagage fin de tour, M4)
-  - ``_enforce_context_budget``   (drop des plus vieux messages)
+  - ``enforce_context_budget``    (drop des plus vieux messages)
   - ``_split_by_turn_index``      (découpage du compresseur)
 """
 from __future__ import annotations
@@ -16,10 +16,7 @@ import copy
 
 import pytest
 
-from llm_core._chat_with_tools import (
-    _enforce_context_budget,
-    _select_prune_keys,
-)
+from llm_core.context.pruning import enforce_context_budget, select_prune_keys
 from llm_core.conversation_compressor import _split_by_turn_index
 
 
@@ -46,7 +43,7 @@ async def test_select_prune_keys_does_not_mutate_input(monkeypatch):
     msgs = _agentic_history(n_tools=10)
     snapshot = copy.deepcopy(msgs)
     # ctx petit → protect 20 % vite dépassé, gain ≥ min → sélection réelle.
-    keys = await _select_prune_keys(msgs, ctx_size=32_768)
+    keys = await select_prune_keys(msgs, ctx_size=32_768)
     assert msgs == snapshot, "l'entrée a été mutée en place"
     # Sanity : la sélection a bien produit des clés (sinon test sans valeur).
     assert keys, "aucune clé sélectionnée — test sans valeur"
@@ -54,15 +51,16 @@ async def test_select_prune_keys_does_not_mutate_input(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_enforce_budget_does_not_mutate_input(monkeypatch):
-    import llm_core._chat_with_tools as engine
-    # Comptage déterministe (pas de llama-server en test) : ~1 token/char.
+    import llm_core.context.pruning as _pruning
+    # Comptage déterministe (pas de llama-server en test) : ~1 token/char,
+    # substitué là où ``enforce_context_budget`` le lit.
     async def fake_count(messages, model_id=None):
         return [len(str(m.get("content") or "")) + 50 for m in messages]
-    monkeypatch.setattr(engine, "_count_messages_tokens_per_msg", fake_count)
+    monkeypatch.setattr(_pruning, "count_messages_tokens_per_msg", fake_count)
 
     msgs = _agentic_history(n_tools=6, blob="y" * 3000)
     snapshot = copy.deepcopy(msgs)
-    out = await _enforce_context_budget(msgs, ctx_size=4096)
+    out = await enforce_context_budget(msgs, ctx_size=4096)
     assert msgs == snapshot, "l'entrée a été mutée en place"
     assert len(out) < len(msgs), "le budget n'a rien retiré — test sans valeur"
 

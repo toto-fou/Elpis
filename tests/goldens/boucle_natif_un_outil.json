@@ -1,0 +1,240 @@
+{
+  "evenements": [
+    {
+      "context_tokens": 0,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 0,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "args_delta": "{\"msg\": \"ping\"}",
+      "index": 0,
+      "iter": 0,
+      "name_delta": "zeta_echo",
+      "type": "tool_call_delta"
+    },
+    {
+      "args": {
+        "msg": "ping"
+      },
+      "call_id": "call_1",
+      "name": "zeta_echo",
+      "type": "tool_call"
+    },
+    {
+      "call_id": "call_1",
+      "name": "zeta_echo",
+      "result": "{\"ok\": true, \"echo\": {\"msg\": \"ping\"}}",
+      "type": "tool_result"
+    },
+    {
+      "context_tokens": 135,
+      "max": 200,
+      "n": 2,
+      "tokens_used": 135,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "text": "Voilà, c'est fait.",
+      "type": "content_token"
+    }
+  ],
+  "final": "Voilà, c'est fait.",
+  "metrics": {
+    "finish_reason": "stop",
+    "input_tokens": 270,
+    "iterations": 1,
+    "last_completion_tokens": 8,
+    "last_prompt_tokens": 150,
+    "model": "golden-model",
+    "output_tokens": 23,
+    "response_tokens": 23,
+    "submitted_input_tokens": 270,
+    "think_resumes": 0,
+    "thinking": "",
+    "thinking_tokens": 0,
+    "thinking_tokens_estimated": false,
+    "tool_history": [
+      {
+        "content": null,
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"msg\": \"ping\"}",
+              "name": "zeta_echo"
+            },
+            "id": "call_1",
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "content": "{\"ok\": true, \"echo\": {\"msg\": \"ping\"}}",
+        "role": "tool",
+        "tool_call_id": "call_1"
+      }
+    ],
+    "tool_history_delta": true,
+    "truncated": false,
+    "truncated_in_think": false
+  },
+  "payloads": [
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "user": "golden"
+    },
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "Utilise l'outil zeta_echo puis conclus.",
+          "role": "user"
+        },
+        {
+          "content": null,
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"msg\": \"ping\"}",
+                "name": "zeta_echo"
+              },
+              "id": "call_1",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\"ok\": true, \"echo\": {\"msg\": \"ping\"}}",
+          "role": "tool",
+          "tool_call_id": "call_1"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "user": "golden"
+    }
+  ]
+}

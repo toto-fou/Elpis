@@ -311,9 +311,8 @@ def test_routine_conserve_lappariement_des_serveurs_perso(ms):
 def test_la_cascade_simulee_est_bien_celle_de_la_route():
     """``_resolve_like_route`` rejoue la route ; ce pin empêche la copie de
     diverger en silence (même convention que test_enable_mcp_gate.py)."""
-    from pathlib import Path
-    src = (Path(__file__).resolve().parents[2] / "chatbot_app" / "routes"
-           / "chats.py").read_text(encoding="utf-8")
+    from tests._sources import source_flux_chat
+    src = source_flux_chat()
     assert "resolve_config as _resolve_shared" in src
     assert "shared_id as _shared_id" in src
     assert "resolve_personal as _resolve_perso" in src

@@ -32,6 +32,7 @@ import json
 
 import pytest
 
+from llm_core import _model_info
 from llm_core.engine.tool_exec import execute_tool_batch
 
 
@@ -260,7 +261,7 @@ def test_entree_sans_horodatage_reste_valide():
 # ══════════════════════════════════════════════════════════════════════════
 
 def test_thinking_history_borne_et_garde_le_suffixe():
-    from llm_core._chat_with_tools import (
+    from llm_core.engine.run import (
         THINKING_HISTORY_MAX_CHARS,
         THINKING_HISTORY_TRUNC_MARKER,
         _clip_thinking_history,
@@ -277,7 +278,7 @@ def test_thinking_history_borne_et_garde_le_suffixe():
 
 
 def test_thinking_history_sous_le_seuil_intact():
-    from llm_core._chat_with_tools import _clip_thinking_history
+    from llm_core.engine.run import _clip_thinking_history
     parts = ["a" * 10, "b" * 10]
     _clip_thinking_history(parts)
     assert parts == ["a" * 10, "b" * 10]
@@ -286,10 +287,7 @@ def test_thinking_history_sous_le_seuil_intact():
 def test_thinking_history_dernier_bloc_toujours_entier():
     """La boucle fait des ``pop()`` de dédoublonnage sur le DERNIER élément :
     le clip ne doit jamais le fusionner ni le tronquer."""
-    from llm_core._chat_with_tools import (
-        THINKING_HISTORY_MAX_CHARS,
-        _clip_thinking_history,
-    )
+    from llm_core.engine.run import THINKING_HISTORY_MAX_CHARS, _clip_thinking_history
     dernier = "z" * (THINKING_HISTORY_MAX_CHARS * 2)
     parts = ["a" * 1000, dernier]
     _clip_thinking_history(parts)
@@ -318,7 +316,7 @@ async def _actx(*_a, **_k):
 def _patch_env(monkeypatch):
     monkeypatch.setattr(_cwt, "verify_llm_availability", _anoop)
     monkeypatch.setattr(_cwt, "_model_supports_vision", _avision)
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
 
 
 def _final_msg(content):

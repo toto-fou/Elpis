@@ -2,8 +2,8 @@
 """Microbench des chemins CHAUDS de la boucle tool-calling (par itération).
 
 À CHAQUE itération de run_chat_multi_mcp, le backend refait :
-    _prune_old_vision_frames → _enforce_context_budget
-(+ la sélection d'élagage FIN de tour ``_select_prune_keys``, harnais v4)
+    prune_old_vision_frames → enforce_context_budget
+(+ la sélection d'élagage FIN de tour ``select_prune_keys``)
 (la jauge, elle, lit l'usage réel du serveur en fin de requête — zéro coût).
 Ce script mesure l'overhead PUR de ces fonctions (le réseau /tokenize est
 monkeypatché par un fake instantané, le cache LRU est purgé entre variantes)
@@ -93,18 +93,18 @@ async def bench_one(fn_name: str, coro_factory, repeats: int = REPEATS) -> dict:
 
 
 async def main(label: str) -> None:
-    import llm_core._chat_with_tools as cwt
     import llm_core._llama_http as lh
+    from llm_core.context import pruning, tokens
 
     # /tokenize instantané : ~len(text)/3.3, PAS de réseau, PAS de cache LRU
     # (on veut le coût de NOTRE code : sérialisation, gather, boucles).
     async def _fake_exact(text, model_id=None, timeout=None, **kw):
         return int(len(text) / 3.3)
 
-    orig_cwt = cwt.count_tokens_exact
-    cwt.count_tokens_exact = _fake_exact
-    # count_tokens_for_messages (compresseur) passe aussi par count_tokens_exact
-    # importé dans _llama_http — même fake pour cohérence si atteint.
+    # Substitué là où il est lu : ``context.tokens`` (comptage des messages et
+    # du schéma d'outils) et ``_llama_http`` (comptages du compresseur).
+    orig_tokens = tokens.count_tokens_exact
+    tokens.count_tokens_exact = _fake_exact
     orig_lh = getattr(lh, "count_tokens_exact", None)
     lh.count_tokens_exact = _fake_exact
 
@@ -116,25 +116,25 @@ async def main(label: str) -> None:
             msgs = build_history(n)
             cell = {}
             cell["compact_working_messages"] = await bench_one(
-                "prune_select", lambda: cwt._select_prune_keys(msgs, ctx_size=32768))  # noqa: B023 (même itération)
+                "prune_select", lambda: pruning.select_prune_keys(msgs, ctx_size=32768))  # noqa: B023 (même itération)
             cell["prune_old_vision_frames"] = await bench_one(
-                "prune", lambda: cwt._prune_old_vision_frames(msgs))  # noqa: B023 (même itération)
+                "prune", lambda: pruning.prune_old_vision_frames(msgs))  # noqa: B023 (même itération)
             cell["enforce_context_budget"] = await bench_one(
-                "budget", lambda: cwt._enforce_context_budget(list(msgs), 32768, None, 4096))  # noqa: B023 (même itération)
+                "budget", lambda: pruning.enforce_context_budget(list(msgs), 32768, None, 4096))  # noqa: B023 (même itération)
             cell["count_messages_tokens_per_msg"] = await bench_one(
-                "count", lambda: cwt._count_messages_tokens_per_msg(msgs, None))  # noqa: B023 (même itération)
+                "count", lambda: tokens.count_messages_tokens_per_msg(msgs, None))  # noqa: B023 (même itération)
             # Le schéma tools est compté UNE fois par run (surcoût fixe partagé
             # pré-porte/porte/budget) — bench du coût unitaire de ce comptage.
             # (Les estimateurs de jauge ont disparu : la jauge lit l'usage réel
             # du serveur en fin de requête, zéro travail côté boucle.)
             cell["count_tools_payload_tokens"] = await bench_one(
-                "count_tools", lambda: cwt._count_tools_payload_tokens_ex(tools_payload, None))
+                "count_tools", lambda: tokens.count_tools_tokens_ex(tools_payload, None))
             out["results"][str(n)] = cell
             print(f"— {n} messages —")
             for k, v in cell.items():
                 print(f"   {k:34s} médiane {v['median_ms']:8.3f} ms   p95 {v['p95_ms']:8.3f} ms")
     finally:
-        cwt.count_tokens_exact = orig_cwt
+        tokens.count_tokens_exact = orig_tokens
         if orig_lh is not None:
             lh.count_tokens_exact = orig_lh
 

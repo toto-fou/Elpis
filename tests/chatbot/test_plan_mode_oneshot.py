@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from chatbot_app.routes.chats import _plan_mode_should_end
+from chatbot_app.turn.persistence import _plan_mode_should_end
 
 
 def test_tour_abouti_coupe_le_mode():
@@ -54,9 +54,7 @@ def test_ephemere_ne_touche_pas_la_base():
 def test_la_route_relaie_la_decision():
     """Garde anti-dérive : le bloc appelant existe bien dans la route (un
     refactor qui perdrait l'appel rendrait le mode permanent en silence)."""
-    import inspect
-
-    import chatbot_app.routes.chats as c
-    src = inspect.getsource(c)
+    from tests._sources import source_flux_chat
+    src = source_flux_chat()
     assert "_plan_mode_should_end(_plan_mode, _persisted, ephemeral, metrics)" in src
     assert '"plan_mode_done": True' in src

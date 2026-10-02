@@ -4,11 +4,11 @@ llm_core.context_config — source UNIQUE des textes/réglages injectés au LLM.
 
 Objectif : aucun texte destiné au modèle ne doit être un littéral Python figé.
 Tout vit dans ``shared_infra/context_config.json`` (+ ``.md`` annexes), chargé
-UNE FOIS au boot. **Défauts = comportement actuel** : tant que le JSON est
+UNE FOIS au boot. **Défauts = littéraux du code** : tant que le JSON est
 absent ou qu'une clé n'y figure pas, chaque appelant retombe sur le ``fallback``
-qu'il passe (= le littéral historique), donc comportement byte-for-byte
-identique jusqu'à édition du JSON. SEULE exception voulue : ``tool_gating`` est
-activé par défaut dans le JSON livré (décision produit).
+qu'il passe (son littéral), donc comportement byte-for-byte identique tant que
+le JSON n'est pas édité. SEULE exception voulue : ``tool_gating`` est activé
+par défaut dans le JSON livré (décision produit).
 
 Conventions (voir docs/CONTEXTE_LLM_EXTERNALISATION.md) :
     "clé": ""                 → vide (l'appelant via override() garde son fallback)
@@ -27,10 +27,11 @@ catégorie NON listée (fs, shell, memory, chart, skill, task, other…) restera
 TOUJOURS exposée. Le pire cas d'un nom de catégorie mal orthographié = gating
 inerte (outils conservés), jamais un outil core qui disparaît.
 
-⚠ ÉTAT RÉEL : le gating par mots-clés n'est PAS câblé. ``_chat_with_tools.
-_gated_out`` court-circuite avant ``category_gated_out`` parce que son unique
-appelant ne passe jamais ``keywords_text`` — un set d'outils qui varie au fil
-des messages invaliderait le prefix-cache KV. ``category_gated_out`` reste donc
+⚠ ÉTAT RÉEL : le gating par mots-clés n'est PAS câblé. ``_gated_out`` (dans
+``engine.tool_catalog._collect_mcp_tools``) court-circuite avant
+``category_gated_out`` parce que son unique appelant ne passe jamais
+``keywords_text`` — un set d'outils qui varie au fil des messages invaliderait
+le prefix-cache KV. ``category_gated_out`` reste donc
 une fonction TESTÉE mais non branchée ; ``_warn_inert_gating`` avertit au boot
 si la map ``gated`` est non vide. Seul ``tools.<nom>.enabled`` est câblé.
 """
@@ -110,8 +111,8 @@ class ContextConfig:
 
     def override(self, path: str, fallback: str = "") -> str:
         """« Override-or-keep » : valeur VIDE ou ABSENTE → ``fallback`` (le
-        littéral actuel) ; seule une valeur non vide surcharge. Mode normal
-        d'externalisation : défaut = comportement actuel."""
+        littéral du code) ; seule une valeur non vide surcharge. Mode normal
+        d'externalisation : défaut = littéral du code."""
         node = _deep_get(self._raw, path, None)
         if node is None:
             return fallback
@@ -187,8 +188,8 @@ class ContextConfig:
     # ── estimation tokens + validation budgets ──────────────────────────
     def est_tokens(self, s: str) -> int:
         # ``budgets.tokens_per_char`` (JSON) reste prioritaire ; sans
-        # override, ratio unifié de llm_core._token_estimate (0.25 fixe
-        # avant → divergeait des autres estimations de l'app).
+        # override, ratio unifié de llm_core._token_estimate — le même que
+        # les autres estimations de l'app (un ratio propre divergerait).
         return int(len(s or "") * self._tpc)
 
     def validate(self) -> None:
@@ -211,12 +212,12 @@ class ContextConfig:
     def _warn_inert_gating(self) -> None:
         """Signale au boot que ``tool_gating.gated`` ne produit AUCUN effet.
 
-        Le gating par mots-clés est délibérément NON câblé (cf.
-        ``_chat_with_tools._gated_out`` : faire varier le set d'outils au fil des
-        messages invaliderait le prefix-cache KV, pour un bénéfice que recoupe
-        déjà la sélection explicite du panneau Outils). L'appelant ne passe donc
-        jamais ``keywords_text`` et le test court-circuite avant d'atteindre
-        ``category_gated_out``.
+        Le gating par mots-clés est délibérément NON câblé (cf. ``_gated_out``
+        dans ``engine.tool_catalog._collect_mcp_tools`` : faire varier le set
+        d'outils au fil des messages invaliderait le prefix-cache KV, pour un
+        bénéfice que recoupe déjà la sélection explicite du panneau Outils).
+        L'appelant ne passe donc jamais ``keywords_text`` et le test
+        court-circuite avant d'atteindre ``category_gated_out``.
 
         Sans cet avertissement, un opérateur qui ajoute une catégorie à ``gated``
         n'obtient ni effet ni message — et le JSON, lui, annonce

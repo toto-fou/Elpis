@@ -21,6 +21,7 @@ import pytest
 
 import llm_core._chat_with_tools as _cwt
 import llm_core._target as _tgt
+from llm_core import _model_info
 
 INTRO = "Je vais créer un projet Python avec des tests unitaires."
 LEAKED = INTRO + "\n</parameter>\n</function>\n</tool_call>"
@@ -47,7 +48,7 @@ class _FakeTarget:
 def _patch_env(monkeypatch):
     monkeypatch.setattr(_cwt, "verify_llm_availability", _anoop)
     monkeypatch.setattr(_cwt, "_model_supports_vision", _avision)
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
     monkeypatch.setattr(_tgt, "current_target", lambda: _FakeTarget())
 
 

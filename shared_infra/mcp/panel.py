@@ -28,30 +28,29 @@ Module-level helpers
   needed to launch a freshly-uploaded MCP server (npm start, python entry,
   start.sh, etc.). Used by the ``upload`` and ``list`` endpoints.
 - ``prewarm_mcp_pool()`` — coroutine called from the FastAPI lifespan to
-  pre-spawn the local MCP subprocess at app startup. Uses a process-wide
-  flock so only ONE gunicorn worker actually pre-warms (others lazy-spawn
-  on first chat).
+  pre-spawn the local MCP subprocess at app startup. A process-wide flock
+  SERIALIZES the spawn across gunicorn workers: each worker waits its turn,
+  pre-warms its own pool (pools are per-process), then releases the lock.
 - ``shutdown_mcp_pool()`` — coroutine called from the FastAPI lifespan to
   cleanly close the pool *and* the shared LLM HTTP client at app shutdown.
 
-Removed (was here previously, now intentionally absent)
--------------------------------------------------------
-The admin-side per-tool hide and per-category visibility management
-(``hidden_tools.json`` + ``mcp_categories_overrides.json``) was removed
-because the operator preferred a simpler workflow:
+No admin-side tool visibility management
+----------------------------------------
+There is no per-tool hide nor per-category visibility setting on the admin
+side: the tool surface is chosen server-side, by tool family.
 
-  • To remove a tool category from the user UI: comment out its
-    ``register_*_tools(mcp, ...)`` line in ``local_mcp_server.py`` and
-    restart. The MCP subprocess no longer registers those tools, so
-    they don't appear in ``list_tools`` and the category drops out of
-    ``/api/mcp/categories`` on the next AST scan.
+  • To remove a tool category from the user UI: exclude its family from
+    ``LOCAL_MCP_TOOL_FAMILIES`` (e.g. ``all,-desktop``) or from the
+    ``x-elpis.families`` of the built-in entries of ``mcp.json``, and
+    restart. The MCP subprocess does not register those tools, so they
+    don't appear in ``list_tools`` and the category drops out of
+    ``/api/mcp/categories``.
 
-  • To add a new category: drop a ``tools/foo_tools.py`` with a
-    ``CATEGORY = {…}`` literal, register it in ``local_mcp_server.py``,
-    restart. AST-discovery picks it up automatically.
-
-This keeps the user-facing dynamic registration but removes the admin
-tab and its associated state files entirely.
+  • To add a new category: a ``llm_core/tools/<x>.py`` module exporting
+    ``register`` (each tool carries its category in ``tags`` / ``meta``),
+    declared in ``shared_infra.mcp.families``, then restart. The live
+    registry (``llm_core._mcp_categories``) picks it up at the next pool
+    connection.
 """
 from __future__ import annotations
 
@@ -75,8 +74,8 @@ from shared_infra.config import MCP_SERVERS_DIR
 from shared_infra.mcp import servers as _mcp_shared
 from shared_infra.routes._helpers import _path_inside
 
-# ``_require_admin`` is defined in ``_legacy`` and re-exported by the package
-# façade. Kept on the admin handlers as defense-in-depth
+# ``_require_admin`` is defined in ``_helpers`` and re-exported by ``_legacy``.
+# Kept on the admin handlers as defense-in-depth
 # (in APP_MODE=full, admin_router is mounted on the same port as router).
 from shared_infra.routes._legacy import _require_admin
 from shared_infra.routes._state import router
@@ -96,9 +95,9 @@ _LOCAL_MCP_CFG = {
 
 def _builtin_prewarm_cfgs():
     """Les configs à pré-chauffer : UNE par entrée intégrée du manifeste
-    (2026-09-12 — une famille = une entrée = un endpoint). Pré-chauffer la
-    seule sentinelle nue ne remplirait plus que la première famille, et le
-    registre de catégories partagé serait amputé du reste."""
+    (une famille = une entrée = un endpoint). Pré-chauffer la seule
+    sentinelle nue ne remplirait que la première famille, et le registre de
+    catégories partagé serait amputé du reste."""
     try:
         from shared_infra.mcp.manifest import builtin_client_cfgs
         cfgs = builtin_client_cfgs(None)
@@ -187,14 +186,13 @@ async def api_upload_mcp_server(
     files: List[UploadFile] = File(...),
     paths: List[str] = Form(...)
 ):
-    # SECURITY FIX #J (P0) — l'upload de serveurs MCP est désormais
-    # réservé aux administrateurs. Les fichiers déposés dans
-    # ``MCP_SERVERS_DIR`` sont chargés et exécutés en tant que
-    # serveurs MCP par le pool (cf. backend.services._mcp_pool). Permettre
-    # à n'importe quel user authentifié d'uploader revenait à offrir une
-    # primitive d'exécution de code arbitraire à tous les comptes. Les
-    # users non-admins gardent l'accès à /api/mcp/custom-servers (GET)
-    # pour choisir et activer un serveur de la liste existante.
+    # L'upload de serveurs MCP est réservé aux administrateurs. Les fichiers
+    # déposés dans ``MCP_SERVERS_DIR`` sont chargés et exécutés en tant que
+    # serveurs MCP par le pool (cf. ``llm_core._mcp_pool``). Ne pas l'ouvrir
+    # à tout user authentifié : ce serait offrir une primitive d'exécution
+    # de code arbitraire à tous les comptes. Les users non-admins gardent
+    # l'accès à /api/mcp/custom-servers (GET) pour choisir et activer un
+    # serveur de la liste existante.
     _require_admin(request)
 
     if not files or not paths or len(files) != len(paths):
@@ -211,18 +209,14 @@ async def api_upload_mcp_server(
         folder_name = f"{folder_name}_{int(time.time())}"
         target_dir = MCP_SERVERS_DIR / folder_name
 
-    # SECURITY FIX #J (P0) — Path traversal :
-    # Avant ce fix, ``rel_path = Path(*p.parts[1:])`` construisait un
-    # chemin relatif SANS aucune validation. Un client envoyant
-    # ``paths=["foo/../../../etc/cron.d/x"]`` produisait un
-    # ``final_path`` résolu en dehors de ``target_dir`` — écriture
-    # arbitraire sur le filesystem avec les droits du process gunicorn.
-    #
-    # Maintenant : on résout chaque ``final_path`` puis on vérifie via
-    # ``_path_inside`` qu'il reste sous ``target_dir`` résolu. Tout
-    # path échappant déclenche un 403 et un cleanup complet du dossier
-    # (on ne livre PAS un upload partiel — un serveur MCP corrompu
-    # casserait le pool au prochain démarrage).
+    # Path traversal : on résout chaque ``final_path`` puis on vérifie via
+    # ``_path_inside`` qu'il reste sous ``target_dir`` résolu. Sans cette
+    # validation, ``paths=["foo/../../../etc/cron.d/x"]`` produirait un
+    # ``final_path`` hors de ``target_dir`` — écriture arbitraire sur le
+    # filesystem avec les droits du process gunicorn. Tout path échappant
+    # déclenche un 403 et un cleanup complet du dossier (on ne livre PAS un
+    # upload partiel — un serveur MCP corrompu casserait le pool au
+    # prochain démarrage).
     target_dir_resolved = target_dir.resolve()
 
     from shared_infra.config import MAX_UPLOAD_BYTES
@@ -266,15 +260,14 @@ async def api_upload_mcp_server(
 
 @router.delete("/api/mcp/custom-servers/{name}")
 def api_delete_custom_mcp_server(name: str, request: Request):
-    # SECURITY FIX #J (P1) — La suppression d'un serveur MCP est aussi
-    # privilégiée : elle impacte tous les users qui l'avaient activé
-    # via /api/settings. Permettre à n'importe quel user d'en supprimer
-    # un est trivialement abusé (vandalisme inter-comptes). Alignement
-    # avec l'upload : admin-only.
+    # La suppression d'un serveur MCP est aussi privilégiée : elle impacte
+    # tous les users qui l'avaient activé via /api/settings. Ouverte à tout
+    # user, elle serait trivialement abusée (vandalisme inter-comptes).
+    # Alignement avec l'upload : admin-only.
     _require_admin(request)
-    # SECURITY FIX #J — Path resolution robuste : l'ancien check
-    # ``".." in name or "/" in name`` ratait les encodages alternatifs
-    # (\\, %2e%2e, …). On vérifie via _path_inside.
+    # Résolution de chemin robuste via _path_inside : un simple test
+    # ``".." in name or "/" in name`` raterait les encodages alternatifs
+    # (\\, %2e%2e, …).
     if not name or any(ch in name for ch in ("..", "/", "\\", "\x00")):
         raise HTTPException(400, "Nom invalide")
     try:
@@ -306,18 +299,17 @@ def api_mcp_categories(request: Request):
     Source: the LIVE registry — each tool carries its category in the MCP
     protocol (``tags`` + ``meta``), ingested by the pool at every connection
     and shared between workers through the on-disk cache. No hand-maintained
-    allow-list, and no side-car manifest any more (the old
-    ``tools/.tool_manifest.json`` path is gone) — see
-    ``llm_core._mcp_categories``. A worker that has not connected the pool
-    yet falls back to that cache, then to the static display metadata.
+    allow-list, no side-car manifest — see ``llm_core._mcp_categories``. A
+    worker that has not connected the pool yet falls back to that cache,
+    then to the static display metadata.
 
     Hidden categories (``hidden: true`` in their descriptor — e.g. the
     ``task`` category holding ``todowrite``) are EXCLUDED here: they are
     model-side aids, never user-facing. ``get_categories()`` filters them
     out by default.
 
-    (2026-09-12) La liste ``tools`` de chaque catégorie n'est plus retirée :
-    le panneau coche les outils UN PAR UN. Chaque entrée porte son nom, son
+    La liste ``tools`` de chaque catégorie est conservée : le panneau coche
+    les outils UN PAR UN. Chaque entrée porte son nom, son
     titre lisible et sa description courte (déjà bornée à 220 caractères par le
     registre) — de quoi rendre une case à cocher sans second aller-retour.
     Poids : ~12 Ko pour 56 outils, chargés UNE fois au montage.
@@ -333,7 +325,7 @@ def api_mcp_categories(request: Request):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  MANIFESTE mcp.json (2026-09-11)
+#  MANIFESTE mcp.json
 # ─────────────────────────────────────────────────────────────────────────────
 @router.get("/api/mcp/manifest-servers")
 def api_mcp_manifest_servers(request: Request):
@@ -424,7 +416,9 @@ async def api_admin_mcp_manifest_reload(request: Request):
 #
 # Le secret d'auth ne sort JAMAIS : les réponses ci-dessous portent ``has_auth``,
 # et la config complète (URL + en-tête) est reconstruite côté serveur au moment
-# du tour de chat (``mcp_servers.resolve_many``, appelé par routes/chats.py).
+# du tour de chat : ``servers.resolve_config`` par serveur coché dans
+# ``chatbot_app/turn/preparation.py``, ``servers.resolve_many`` via
+# ``servers.resolve_for_agents`` pour les sous-agents du chat et les routines.
 
 def _shared_payload(data: dict) -> dict:
     """Valide/normalise le corps d'un POST/PUT de serveur partagé."""
@@ -479,15 +473,15 @@ def _shared_payload(data: dict) -> dict:
 def api_list_shared_mcp_servers(request: Request):
     """Bibliothèque publiée — lisible par TOUT compte authentifié.
 
-    C'est ce qui manquait : un serveur enregistré côté admin n'apparaissait
-    nulle part chez les autres, qui devaient le re-saisir (URL + token compris).
+    Un serveur enregistré côté admin apparaît chez tous les comptes, sans
+    re-saisie (URL + token compris).
     """
     uid = require_user_id(request)
     # Vue d'ADMIN (champs d'édition + entrées désactivées) seulement pour un
     # admin : un compte ordinaire n'a besoin que du nom et du type pour cocher
-    # l'œil. Cf. mcp_servers._USER_COLS.
-    # ``== 1`` : un modérateur (2) n'est pas admin (audit 2026-09-22, M1) — il
-    # recevait les champs d'édition (URL, en-têtes) et le bouton publier.
+    # l'œil. Cf. ``servers._USER_COLS``.
+    # ``== 1`` : un modérateur (2) n'est pas admin — un test « non nul » lui
+    # donnerait les champs d'édition (URL, en-têtes) et le bouton publier.
     me = get_user_by_id(uid)
     is_admin = bool(me and me["is_admin"] == 1)
     return {"ok": True, "servers": _mcp_shared.list_shared(admin=is_admin),
@@ -536,10 +530,9 @@ async def api_update_shared_mcp_server(server_id: str, request: Request):
 
 
 # ── Bouton « Tester » ────────────────────────────────────────────────────────
-# ``_friendly_mcp_error`` vit désormais dans ``llm_core._mcp_wrappers`` : la
-# boucle de chat en a besoin elle aussi (elle affichait la trace brute du task
-# group au lieu de « HTTP 401 »), et elle ne peut pas importer une route.
-# Ré-exporté ici sous son nom historique.
+# ``friendly_mcp_error`` vit dans ``llm_core._mcp_wrappers`` : la boucle de
+# chat s'en sert aussi (« HTTP 401 » plutôt que la trace brute du task group),
+# et elle ne peut pas importer une route. Alias local ``_friendly_mcp_error``.
 from llm_core._mcp_wrappers import (  # noqa: E402
     friendly_mcp_error as _friendly_mcp_error,
 )
@@ -647,16 +640,13 @@ def api_delete_shared_mcp_server(server_id: str, request: Request):
 # File-lock used by ``prewarm_mcp_pool`` to SERIALIZE the local-MCP spawn
 # across gunicorn workers (anti-stampede at boot).
 #
-# AUDIT 2026-08-02 (W12) — le fd était gardé À VIE par le premier worker :
-# un worker recyclé (max_requests) trouvait le verrou tenu par un worker
-# vivant et ne pré-chauffait JAMAIS → chaque « premier message » servi par
-# un worker recyclé payait le spawn subprocess + handshake + list_tools
-# (~300-800 ms), sans cause visible. Or les pools MCP sont PER-PROCESS :
-# le pré-chauffage d'un worker ne sert à rien aux autres — un verrou
-# « un seul pré-chauffeur pour toujours » laissait de toute façon N-1
-# workers froids même au boot. Le verrou ne sert désormais qu'à SÉRIALISER
-# (un spawn à la fois) : chaque worker attend son tour, pré-chauffe SON
-# pool, puis RELÂCHE.
+# Le verrou ne sert qu'à SÉRIALISER (un spawn à la fois) : chaque worker
+# attend son tour, pré-chauffe SON pool, puis RELÂCHE. Les pools MCP sont
+# PER-PROCESS : le pré-chauffage d'un worker ne sert à rien aux autres. Ne
+# pas garder le fd à vie (« un seul pré-chauffeur ») : N-1 workers resteraient
+# froids dès le boot, et un worker recyclé (max_requests) ne pré-chaufferait
+# jamais — son « premier message » paierait spawn + handshake + list_tools
+# (~300-800 ms), sans cause visible.
 _PREWARM_LOCK_PATH = Path(os.environ.get(
     "MCP_PREWARM_LOCK_PATH",
     "/tmp/elpis_mcp_prewarm.lock",
@@ -708,7 +698,7 @@ async def _acquire_prewarm_lock(timeout_s: float = 120.0) -> bool:
 
 
 def _release_prewarm_lock() -> None:
-    """Relâche le flock de sérialisation (W12) — appelé en fin de prewarm."""
+    """Relâche le flock de sérialisation — appelé en fin de prewarm."""
     global _prewarm_lock_fd
     fd = _prewarm_lock_fd
     _prewarm_lock_fd = None
@@ -728,8 +718,8 @@ def _release_prewarm_lock() -> None:
 async def prewarm_mcp_pool() -> None:
     """Pre-spawn the local MCP server at app startup.
 
-    Multi-worker coordination via flock: only one worker pre-warms.
-    Opt-out: ``MCP_PREWARM=0`` env var.
+    Multi-worker coordination via flock: workers pre-warm one at a time,
+    each its own pool. Opt-out: ``MCP_PREWARM=0`` env var.
     """
     import logging as _logging
     _log = _logging.getLogger("uvicorn.error")
@@ -773,8 +763,8 @@ async def prewarm_mcp_pool() -> None:
             "First chat will pay the cold-start cost."
         )
     finally:
-        # AUDIT 2026-08-02 (W12) — relâcher le verrou : il ne sérialise que
-        # le spawn, il n'élit plus un pré-chauffeur unique à vie.
+        # Relâcher le verrou : il ne sérialise que le spawn, il n'élit pas
+        # un pré-chauffeur unique à vie.
         _release_prewarm_lock()
 
 
@@ -783,10 +773,9 @@ async def shutdown_mcp_pool():
     await mcp_pool.close_all()
     from llm_core import close_llm_client
     await close_llm_client()
-    # Client partagé pour les appels admin/monitoring (introduit avec le
-    # /tokenize helper et le refacto de _llama_http). Fermé après le client
-    # LLM pour que les éventuels logs de métriques de fermeture passent
-    # encore par /metrics.
+    # Client partagé pour les appels admin/monitoring (``_llama_http``,
+    # dont /tokenize). Fermé après le client LLM pour que les éventuels logs
+    # de métriques de fermeture passent encore par /metrics.
     try:
         from llm_core._llama_http import close_admin_client
         await close_admin_client()

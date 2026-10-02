@@ -26,7 +26,10 @@ from pathlib import Path
 import pytest
 
 import llm_core.tools.shell_tools as shell_tools
-from llm_core._chat_with_tools import _result_is_error, _result_is_tool_failure
+from llm_core.engine.result_contract import (
+    result_is_error as _result_is_error,
+    result_is_tool_failure as _result_is_tool_failure,
+)
 
 # ──────────────────────────────────────────────────────────────────────────
 # Classification outil-en-panne vs commande-en-échec

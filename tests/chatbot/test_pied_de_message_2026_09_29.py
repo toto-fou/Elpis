@@ -2,7 +2,7 @@
 """Pied d'un message (modèle, durée, débits) des tours PRÉCÉDENTS : conservé
 à l'aller-retour client, sans le raisonnement ni les outils, borné
 (2026-09-29 — il disparaissait au tour suivant)."""
-from chatbot_app.routes.chats import _normalize_client_messages
+from chatbot_app.turn.history import _normalize_client_messages
 
 
 def test_pied_de_message_conserve_et_borne():

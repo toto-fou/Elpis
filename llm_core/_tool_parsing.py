@@ -1,11 +1,17 @@
 # SPDX-License-Identifier: MIT
 """
-backend.services._tool_parsing — Tool-call parsing — Extract JSON tool_calls from LLM output.
+llm_core._tool_parsing — lecture des appels d'outils écrits en TEXTE par le
+modèle, hors du canal ``tool_calls`` natif.
 
-Handles the dialects emitted by different llama.cpp builds:
-  • <tool_call>{...}</tool_call> XML-style
-  • ```json …``` fenced code blocks
-  • bare JSON arrays after the assistant text
+Couvre les dialectes des différentes versions de llama.cpp et des modèles :
+  • ``<tool_call>{...}</tool_call>`` (Qwen, JSON) et sa variante GLM-4.5/4.6
+    (XML ``arg_key``/``arg_value``) ;
+  • ``<function=nom><parameter=clé>…`` (dialecte « GPT-like ») ;
+  • blocs ```json …``` et objets JSON nus dans la prose.
+
+Fournit aussi le nettoyage de ce balisage dans le texte montré à l'utilisateur
+(``_strip_tool_call_markup``) et la récupération d'un appel piégé dans le canal
+de raisonnement (``_recover_tool_calls_from_reasoning``).
 """
 from __future__ import annotations
 
@@ -14,24 +20,12 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-
-# ``_clean_json_text`` lives in ``_chat_with_tools``; importing it eagerly
-# at module load creates a cycle (``_chat_with_tools`` imports from us).
-# The lazy import below is resolved on first call to ``extract_tool_calls``,
-# at which point both modules are fully loaded.
-def _clean_json_text(text: str) -> str:
-    from llm_core._chat_with_tools import _clean_json_text as _f
-    return _f(text)
-
-
 logger = logging.getLogger("uvicorn.error")
 
-# AUDIT 2026-06 — feedback des tool-calls PERDUS. Quand un appel d'outil est
-# détecté (balise <tool_call> ou objet JSON {"name":…} plausible) mais NE PARSE
-# PAS, on remontait l'info en log uniquement → le petit modèle 30-129B restait
-# dans le silence et rejouait son erreur en boucle. On expose un diagnostic
-# module-niveau (même pattern que ``_detection_client.LAST_ERROR``) que la boucle
-# chat lit juste après l'appel pour réinjecter un message correctif au modèle.
+# Diagnostic d'un appel d'outil détecté (balise <tool_call> ou objet JSON
+# {"name":…} plausible) mais illisible. La boucle le lit juste après l'appel et
+# renvoie un message correctif au modèle : sans lui, un petit modèle rejoue son
+# erreur en boucle. Même principe que ``_detection_client.LAST_ERROR``.
 LAST_PARSE_DIAGNOSTIC: str = ""
 
 # Message correctif renvoyé au modèle (FR, actionnable). Volontairement court et
@@ -122,10 +116,11 @@ def extract_tool_calls(text: str) -> Optional[List[Tuple[str, Dict[str, Any]]]]:
                 if isinstance(args, str):
                     # Args émis comme STRING JSON (dialectes hors canal natif).
                     # On scope l'except (un ``except:`` nu attraperait aussi
-                    # KeyboardInterrupt/SystemExit) et on retombe sur ``{}`` —
-                    # aligné sur le chemin natif (_chat_with_tools : args illisible
-                    # ⇒ {}), plus sûr que de smuggler ``{"value": <str brute>}``
+                    # KeyboardInterrupt/SystemExit). Illisibles, ils deviennent
+                    # ``{}`` : plus sûr que de smuggler ``{"value": <str brute>}``
                     # qui mésformerait l'appel (le caller filtre par nom connu).
+                    # Le canal natif, lui, n'exécute pas un appel aux arguments
+                    # illisibles (``args_error`` dans ``engine.tool_dispatch``).
                     try:
                         args = json.loads(args)
                     except (json.JSONDecodeError, ValueError, TypeError):
@@ -136,17 +131,16 @@ def extract_tool_calls(text: str) -> Optional[List[Tuple[str, Dict[str, Any]]]]:
             pass
         if not parsed:
             # Pas du JSON → essaie le dialecte GLM-4.5/4.6 (name + arg_key/
-            # arg_value), le format XML natif de ces modèles « thinking » qui
-            # arrivait jusqu'ici en TEXTE quand llama.cpp ne le parsait pas.
+            # arg_value), le format XML natif de ces modèles « thinking », qui
+            # arrive ici en TEXTE quand llama.cpp ne le lit pas.
             glm = _parse_glm_tool_block(block)
             if glm:
                 found_tools.append(glm)
                 parsed = True
         if not parsed:
-            # AUDIT 2026-06 — un bloc <tool_call> explicitement balisé qui ne
-            # parse (ni JSON ni GLM-XML) = signal fort d'un tool-call PERDU. On
-            # logge (tronqué) ET on le mémorise pour remonter un diagnostic au
-            # modèle si aucun autre tool-call n'est finalement extrait.
+            # Un bloc <tool_call> balisé qui ne se lit ni en JSON ni en
+            # GLM-XML signale un appel perdu : journalisé (tronqué) et mémorisé
+            # pour le diagnostic si aucun autre appel n'est extrait.
             _failed_blocks.append(block)
             logger.warning(
                 "[tool_parsing] bloc <tool_call> non parsable (ni JSON ni "
@@ -157,12 +151,12 @@ def extract_tool_calls(text: str) -> Optional[List[Tuple[str, Dict[str, Any]]]]:
         return found_tools
 
     # ── Strategy 2: <function=name> <parameter=key>value (GPT-like) ─
-    # AUDIT 2026-09-24 (2e passe) — noms en ``[\w.-]`` (outils MCP comme
-    # ``resolve-library-id``, jamais extraits avec ``\w+``) ; valeurs
-    # débarrassées du SEUL saut de ligne qui suit la balise ouvrante et de
-    # celui qui précède la fermante (convention du format, cf. analyseur
-    # qwen3-coder de llama.cpp) : ``.strip()`` mangeait l'indentation et la
-    # fin de ligne d'un ``old_string``/``content`` → édition sans effet.
+    # Noms en ``[\w.-]`` : les outils MCP comme ``resolve-library-id`` ont des
+    # tirets. Valeurs : seuls le saut de ligne qui suit la balise ouvrante et
+    # celui qui précède la fermante sont retirés (convention du format, cf.
+    # analyseur qwen3-coder de llama.cpp) ; un ``.strip()`` mangerait
+    # l'indentation et la fin de ligne d'un ``old_string``/``content`` et
+    # rendrait l'édition sans effet.
     func_blocks = re.findall(
         r'<function=([\w.\-]+)>(.*?)(?:</function>|$)', text, re.DOTALL
     )
@@ -221,10 +215,10 @@ def extract_tool_calls(text: str) -> Optional[List[Tuple[str, Dict[str, Any]]]]:
     # ── Strategy 4: Scan for JSON objects in free text ────────────
     decoder = json.JSONDecoder()
     pos = 0
-    # AUDIT 2026-06 — compteur des débuts d'objets JSON plausibles ('{'/'[')
-    # qui n'ont PAS parsé : un tool-call avec une typo était ignoré en
-    # silence (ex. 3 calls émis, 2 exécutés). UN SEUL log récapitulatif par
-    # appel (le scan avance caractère par caractère → pas de log par échec).
+    # Compteur des débuts d'objets JSON plausibles ('{'/'[') qui ne se lisent
+    # pas : un appel avec une faute de frappe serait sinon ignoré en silence.
+    # Un seul journal récapitulatif par appel (le scan avance caractère par
+    # caractère : pas de journal par échec).
     _failed_starts = 0
     while pos < len(cleaned):
         while pos < len(cleaned) and cleaned[pos].isspace():
@@ -258,3 +252,127 @@ def extract_tool_calls(text: str) -> Optional[List[Tuple[str, Dict[str, Any]]]]:
         LAST_PARSE_DIAGNOSTIC = _PARSE_DIAGNOSTIC_MSG
 
     return found_tools if found_tools else None
+
+
+# ── Balisage d'appel d'outil dans le texte visible ───────────────────────────
+def _clean_json_text(text: str) -> str:
+    """Prépare un texte libre à la lecture JSON des stratégies 3 et 4
+    d'``extract_tool_calls`` : retire une clôture de bloc de code
+    (```` ```json ````) et les balises ``<tool_call>``."""
+    s = text.strip()
+    s = re.sub(r"^\s*```(?:json)?\s*", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s*```\s*$", "", s)
+    # Strip <tool_call> XML tags (Qwen format)
+    s = re.sub(r"</?tool_call>", "", s)
+    return s.strip("` \n\r\t")
+
+
+def _strip_tool_call_markup(text: str) -> str:
+    """Retire d'un texte TOUS les blocs d'appel d'outil pour ne garder que la
+    prose destinée à l'utilisateur.
+
+    Utilisé sur le chemin de secours « texte libre » : quand llama.cpp ne
+    sait pas parser nativement les tool_calls d'un modèle, on récupère les
+    appels via ``extract_tool_calls()`` PUIS on nettoie le contenu visible.
+
+    Retire les deux dialectes : ``<tool_call>...</tool_call>`` (format Qwen)
+    et ``<function=name>...</function>`` (Llama/GPT-like — extract_tool_calls
+    strategy 2), y compris un bloc resté ouvert en fin de flux ; sinon ils
+    resteraient affichés bruts dans la bulle assistant.
+    """
+    if not text:
+        return text
+    s = text
+    # 1. Blocs FERMÉS (cas nominal).
+    s = re.sub(r"<tool_call>.*?</tool_call>", "", s, flags=re.DOTALL | re.IGNORECASE)
+    s = re.sub(r"<function=[^>]*>.*?</function>", "", s, flags=re.DOTALL | re.IGNORECASE)
+    # 2. Bloc NON FERMÉ en fin de flux : un appel a commencé mais le modèle
+    #    a été coupé avant la balise de fermeture → tout depuis la balise
+    #    ouvrante jusqu'à EOF est du markup, pas de la prose (sinon un
+    #    <tool_call> orphelin resterait visible).
+    s = re.sub(r"<tool_call>.*$", "", s, flags=re.DOTALL | re.IGNORECASE)
+    s = re.sub(r"<function=[^>]*>.*$", "", s, flags=re.DOTALL | re.IGNORECASE)
+    # 3. Balises ORPHELINES résiduelles (émission hybride Qwen+Llama : une
+    #    balise ouvrante <tool_call> dont le corps a déjà été retiré, ou des
+    #    <parameter=>/</function> isolés).
+    s = re.sub(r"</?tool_call>", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"</?function(?:=[^>]*)?>", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"</?parameter(?:=[^>]*)?>", "", s, flags=re.IGNORECASE)
+    # GLM-4.5/4.6 : balises d'arguments XML (orphelines après retrait du bloc).
+    s = re.sub(r"</?arg_key>", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"</?arg_value>", "", s, flags=re.IGNORECASE)
+    return s.strip()
+
+
+# Traces de markup d'appel d'outil (ouvrantes OU fermantes). Les fermantes
+# comptent SEULES : quand le modèle émet le dialecte XML (<tool_call>
+# <function=…><parameter=…>) HORS canal natif, le parseur du serveur consomme
+# les balises ouvrantes en tentant un parse natif, échoue (ce n'est pas le JSON
+# attendu), et seules les fermantes atteignent le client — souvent dans le
+# canal reasoning. Symptôme : tour mort à quelques dizaines de tokens, réponse
+# « Je vais créer… </parameter></function></tool_call> », aucun outil exécuté.
+_TOOL_MARKUP_TRACE_RE = re.compile(
+    r"</?tool_call>|</?function(?:=[^>]*)?>|</parameter>", re.IGNORECASE)
+
+
+def _looks_like_pure_tool_call_text(raw_text: str) -> bool:
+    """
+    Détecte un texte qui est *intégralement* une tentative d'appel d'outil
+    (XML <tool_call>, <function=...>, ou JSON pur) — par opposition à de la
+    prose normale qui contiendrait un exemple JSON à des fins pédagogiques.
+
+    Utilisé pour supprimer du flux utilisateur les appels d'outils dont le
+    nom ne correspond à aucun outil enregistré (hallucination du modèle),
+    sans pour autant masquer les réponses légitimes qui mentionnent du JSON.
+    """
+    if not raw_text:
+        return False
+    s = raw_text.strip()
+    if not s:
+        return False
+    # Tout le texte = un bloc <tool_call>...</tool_call> (format Qwen)
+    if re.fullmatch(r"\s*<tool_call>.*?</tool_call>\s*", s, re.DOTALL | re.IGNORECASE):
+        return True
+    # Tout le texte = un bloc <function=nom>...</function> (format Llama)
+    if re.fullmatch(r"\s*<function=[^>]+>.*?</function>\s*", s, re.DOTALL | re.IGNORECASE):
+        return True
+    # Tout le texte = du JSON pur (éventuellement dans ```json ... ```)
+    try:
+        json.loads(_clean_json_text(s))
+        return True
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return False
+
+
+def _recover_tool_calls_from_reasoning(
+    reasoning_text: str, known_names: Optional[set] = None,
+) -> List[Dict[str, Any]]:
+    """Récupère un appel d'outil PIÉGÉ dans le canal *reasoning*.
+
+    Échec connu des modèles « thinking » (Qwen3, GLM-4.5/4.6) : l'appel part
+    dans ``reasoning_content`` / ``<think>`` au lieu du canal ``tool_calls``
+    natif → ni exécuté, ni affiché comme réponse (juste visible, brut, dans le
+    panneau réflexion). On ne tente la récupération QUE si le reasoning porte un
+    markup d'appel EXPLICITE (``<tool_call>`` / ``<function=``) — garde-fou
+    contre un modèle qui *raisonnerait* sur un appel sans l'émettre. Si
+    ``known_names`` est fourni, on ne promeut QUE les appels dont le nom est un
+    outil réellement enregistré (sinon un exemple/hallucination émis dans la
+    réflexion serait exécuté). Renvoie une liste de tool_calls au format OpenAI
+    (``[]`` si rien d'exploitable)."""
+    if not reasoning_text or not re.search(r"<tool_call>|<function=", reasoning_text, re.IGNORECASE):
+        return []
+    try:
+        rec = extract_tool_calls(reasoning_text)
+    except Exception:  # noqa: BLE001 — récupération facultative : rien à promouvoir
+        return []
+    if not rec:
+        return []
+    if known_names is not None:
+        rec = [(n, a) for (n, a) in rec if n in known_names]
+        if not rec:
+            return []
+    return [{
+        "id": f"call_{i}",
+        "type": "function",
+        "function": {"name": n, "arguments": json.dumps(a, ensure_ascii=False)},
+    } for i, (n, a) in enumerate(rec)]

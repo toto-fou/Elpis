@@ -33,8 +33,6 @@ Aucun réseau : /tokenize et le LLM de résumé sont monkeypatchés.
 """
 from __future__ import annotations
 
-import inspect
-
 import pytest
 
 from llm_core.conversation_compressor import maybe_compress_conversation
@@ -180,13 +178,13 @@ async def test_la_compaction_manuelle_tente_quand_meme(env):
 #  5 — la boucle outils consomme le signal
 # ─────────────────────────────────────────────────────────────────────────────
 def _source_boucle() -> str:
-    import llm_core._chat_with_tools as cwt
-    return inspect.getsource(cwt)
+    from tests._sources import source_boucle
+    return source_boucle()
 
 
 def test_la_boucle_espace_les_tentatives_sur_defer_retry():
     src = _source_boucle()
-    i = src.index("_compr_fail_streak = (")
+    i = src.index("st.compr_fail_streak = (")
     seg = src[i - 1200:i + 400]
     assert "defer_retry" in seg, (
         "la boucle remet le compteur d'échecs à zéro sur toute compaction "
@@ -198,7 +196,7 @@ def test_le_rattrapage_overflow_invalide_lancre_doccupation():
     src = _source_boucle()
     i = src.index("triggered_by_overflow = True")
     seg = src[i:i + 3000]
-    assert "_occ_anchor_tok = None" in seg, (
+    assert "st.occ_anchor_tok = None" in seg, (
         "sans cette invalidation, l'itération suivante rapporte l'occupation "
         "d'AVANT la compaction — marquée « mesure réelle », donc dispensée de "
         "confirmation exacte — et recompacte pour rien juste après un overflow")

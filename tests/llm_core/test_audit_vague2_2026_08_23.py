@@ -78,8 +78,8 @@ def test_le_second_dialecte_survit_a_une_coupure_de_chunk():
 def test_le_buffer_streame_ne_court_circuite_plus_le_nettoyage():
     """``final_clean = _streamed_content or …`` faisait gagner la version
     BRUTE dès qu'un token avait été streamé."""
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._run_chat_multi_mcp_impl)
+    from tests._sources import source_boucle
+    src = source_boucle()
     i = src.index("_streamed_content = \"\".join(_iter_content_parts)")
     bloc = src[i:i + 2600]
     assert 'final_clean = _streamed_content or final_clean' not in bloc, \
@@ -107,12 +107,12 @@ def test_extract_thinking_reconnait_bien_ce_dialecte():
 def test_la_racine_dendpoint_retire_aussi_v1(url, attendu):
     """``…/v1`` manquait de la liste ⇒ ``GET …/v1/v1/stream``, reprise perdue
     et « Stop » sur un 404 avalé."""
-    from llm_core._chat_with_tools import _endpoint_base
+    from llm_core.engine.llm_stream import _endpoint_base
     assert _endpoint_base(url) == attendu
 
 
 def test_les_trois_implementations_du_calcul_saccordent():
-    from llm_core._chat_with_tools import _endpoint_base
+    from llm_core.engine.llm_stream import _endpoint_base
     from llm_core.providers.llama_caps import _base as caps_base
     for u in ("https://api.exemple.com/v1",
               "http://127.0.0.1:8080/v1/chat/completions"):
@@ -120,14 +120,14 @@ def test_les_trois_implementations_du_calcul_saccordent():
 
 
 def test_les_capacites_sont_sondees_sur_la_cible_reelle():
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._llama_chat_with_tools_stream)
+    from tests._sources import source_fonction
+    src = source_fonction("_llama_chat_with_tools_stream")
     i = src.index("engine_caps as _eng_caps")
     bloc = src[i:i + 1400]
     assert "await _eng_caps()" not in bloc, \
         "on décide encore des capacités du serveur distant en sondant le local"
-    # 2026-09-16 : le serveur de la cible est passé en ENTIER (base + en-tête
-    # d'auth), cf. llm_core.engines ; la base seule rendait 401 sur --api-key.
+    # Le serveur de la cible est passé en ENTIER (base + en-tête d'auth),
+    # cf. llm_core.engines : la base seule rend 401 sur --api-key.
     assert "_eng_caps(engine=_cur_engine())" in bloc
 
 

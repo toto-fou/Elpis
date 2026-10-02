@@ -27,7 +27,7 @@ def test_libelle_vision_sur_controle_sans_nom_reste_unnamed():
 
 
 def test_evenement_desktop_hors_de_la_coupe():
-    from llm_core._chat_with_tools import _desktop_event_extra
+    from llm_core.engine.tool_dispatch import _desktop_event_extra
     els = [{"id": f"el_{i}", "label": f"Élément {i}", "role": "button", "auto_id": f"b{i}", "box": [i, i, i + 9, i + 9],
             "center": [i + 4, i + 4], "depth": 1, "value": "x" * 50, "confidence": 0.5} for i in range(80)]
     raw = json.dumps({"ok": True, "sig": "abcd", "elements": els})

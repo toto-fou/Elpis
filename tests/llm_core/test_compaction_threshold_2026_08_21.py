@@ -296,10 +296,8 @@ def test_la_boucle_utilise_gate_tokens(cfg_neutre):
     ré-inliner une comparaison sur ``usable`` ferait silencieusement sauter le
     réglage du compte, et aucun test fonctionnel ne le verrait à seuil
     « auto »."""
-    import inspect
-
-    from llm_core import _chat_with_tools as cwt
-    src = inspect.getsource(cwt.run_chat_multi_mcp)
+    from tests._sources import source_boucle
+    src = source_boucle()
     assert "gate_tokens(_compr_gate)" in src
     assert "_occ >= _gate_tok" in src
 
@@ -345,10 +343,8 @@ def test_la_boucle_branche_le_cap_du_compte(cfg_neutre):
     """Garde-fou source : le cap doit atteindre le budget du RUN *et* les deux
     appels au compresseur. Oublier l'un des trois laisse un réglage qui a l'air
     de marcher — jusqu'à la mission longue, où il se tait."""
-    import inspect
-
-    from llm_core import _chat_with_tools as cwt
-    src = inspect.getsource(cwt.run_chat_multi_mcp)
+    from tests._sources import source_boucle
+    src = source_boucle()
     assert "_run_budget(" in src
     assert src.count("max_rounds      = compaction_max_rounds") == 2
 
@@ -520,17 +516,16 @@ def test_le_reglage_atteint_les_deux_entrees_de_la_boucle():
     for fn in (run_chat_multi_mcp, run_chat_multi_mcp_v2):
         assert "compaction_threshold" in inspect.signature(fn).parameters
     # …et v2 le RELAIE (un oubli ici ne casserait que le mode « optimized »).
+    from tests._sources import source_fonction
     assert "compaction_threshold = compaction_threshold" in \
-        inspect.getsource(run_chat_multi_mcp_v2)
+        source_fonction("run_chat_multi_mcp_v2")
 
 
 def test_la_route_resout_le_seuil_et_le_propage():
     """Garde-fou source, même gabarit que ``compression_enabled`` : la route
     est la seule à connaître les settings du compte."""
-    import inspect
-
-    from chatbot_app.routes import chats as _chats
-    src = inspect.getsource(_chats)
+    from tests._sources import source_flux_chat
+    src = source_flux_chat()
     assert "_compaction_threshold = _resolve_thr(user_settings)" in src
     assert "compaction_threshold=_compaction_threshold" in src   # chemin outils
     assert "threshold=_compaction_threshold" in src              # chemin classic

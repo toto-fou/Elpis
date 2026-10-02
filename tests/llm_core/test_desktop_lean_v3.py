@@ -88,8 +88,10 @@ def test_merge_elements_carries_do():
 
 
 def test_do_survives_compaction():
-    from llm_core._chat_with_tools import _compact_desktop_elements
-    from llm_core.context.pruning import _DESKTOP_EL_KEEP  # Phase 2 : extrait
+    from llm_core.context.pruning import (
+        _DESKTOP_EL_KEEP,  # Phase 2 : extrait
+        compact_desktop_elements as _compact_desktop_elements,
+    )
     assert "do" in _DESKTOP_EL_KEEP
     payload = json.dumps({"ok": True, "elements": [
         {"id": "el_1", "label": "Wrap", "role": "checkbox", "center": [50, 65],
@@ -212,7 +214,7 @@ async def test_latest_desktop_observation_exempt_from_history_pruning(monkeypatc
     # candidate à l'élagage fin de tour (harnais v4, M4) — sinon des éléments
     # disparaissent du contexte juste avant que le modèle agisse.
     import llm_core.context.pruning as _pruning
-    from llm_core._chat_with_tools import _select_prune_keys
+    from llm_core.context.pruning import select_prune_keys as _select_prune_keys
 
     async def _counts(messages, model_id=None):
         return [50_000] * len(messages)
@@ -325,7 +327,7 @@ def test_type_no_effect_check_skipped_on_studio_path(env, monkeypatch):
 
 
 def test_cycle_hardstop_constant_and_detection():
-    from llm_core._chat_with_tools import _CYCLE_HARDSTOP_MAX, _detect_action_cycle
+    from llm_core.engine.tool_dispatch import _CYCLE_HARDSTOP_MAX, _detect_action_cycle
     assert isinstance(_CYCLE_HARDSTOP_MAX, int) and _CYCLE_HARDSTOP_MAX >= 1
     # Deux séries identiques → deux détections distinctes (le buffer est vidé à
     # chaque fire), de quoi atteindre le hard-stop sur un modèle réellement coincé.

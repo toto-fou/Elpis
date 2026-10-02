@@ -56,7 +56,7 @@
     }
 
     // -----------------------------------------------------------
-    //  Fusion par tour (miroir de chats.py::_fc_merge) : l'avant est
+    //  Fusion par tour (miroir de chatbot_app/turn/history.py::_fc_merge) : l'avant est
     //  celui du PREMIER outil qui a touché le fichier, l'après celui du
     //  dernier ; les lignes ± ne valent que pour une seule écriture.
     // -----------------------------------------------------------

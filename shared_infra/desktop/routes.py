@@ -31,13 +31,6 @@ from llm_core._desktop_session import (
     get_desktop_frame_owner,
     register_desktop_frame_owner,
 )
-
-# ⚠ Importé APRÈS ``router`` : ``routes_cli`` importe ``routes._state``, dont le
-# paquet charge ``routes_code``, qui importe ``_base_url`` de ``routes_cli`` —
-# si CE module importait ``routes_cli`` en premier, ``routes_code`` tombait sur
-# un ``routes_cli`` partiel (ImportError « partially initialized module ») dès
-# que ``shared_infra.desktop.routes`` était importé seul (tests, outils).
-from shared_infra.opencode.routes_cli import _base_url  # noqa: E402
 from shared_infra.routes._state import router
 from shared_infra.security.deps import require_user_id
 
@@ -60,8 +53,9 @@ def _username_for(user_id) -> str:
 
 def _frame_fields(res: dict, username: str, target: str) -> dict:
     """Champs de frame communs à toutes les réponses desktop (capture/act/launch/
-    wait + R6/R8) : enregistre la propriété du token et renvoie l'URL + dimensions
-    + signature. Évite la 6e copie du même bloc."""
+    wait, et les avertissements ``type_no_effect``/``stale_frame``) : enregistre la
+    propriété du token et renvoie l'URL + dimensions + signature. Évite la 6e copie
+    du même bloc."""
     token = res.get("frame_token")
     if token:
         register_desktop_frame_owner(token, username)
@@ -372,11 +366,12 @@ async def api_desktop_act(request: Request):
         dy=_opt_int(body.get("dy"), 0),
         modifiers=str(body.get("modifiers") or ""),
         observe_after=observe_after,
-        # R6 — active la garde « type sans effet » (T-FX) sur le chemin Studio
-        # direct (miroir du C3 du rejeu) : une frappe substantielle qui ne change
-        # RIEN à l'écran (focus non posé) est signalée au lieu d'un faux succès.
+        # Active la garde « type sans effet » (``type_no_effect`` d'``act_core``)
+        # sur le chemin Studio direct, comme le rejeu (``_desktop_replay``) : une
+        # frappe substantielle qui ne change RIEN à l'écran (focus non posé) est
+        # signalée au lieu d'un faux succès.
         semantic_click=(op in ("type", "paste")),
-        # R8 — signature du frame que l'utilisateur a cliqué : garde de fraîcheur
+        # Signature du frame que l'utilisateur a cliqué : garde de fraîcheur
         # des actes par coordonnées (refus si l'écran a changé depuis).
         expect_sig=str(body.get("expect_sig") or ""),
     )
@@ -400,9 +395,9 @@ async def api_desktop_act(request: Request):
         return {"boxes": probe.get("elements") or [],
                 "tree_nodes": int(probe.get("tree_nodes") or 0),
                 "tree_capped": bool(probe.get("tree_capped"))}
-    # R6 — « type sans effet » : la frappe A ÉTÉ émise (le pas doit s'enregistrer),
+    # « Type sans effet » : la frappe A ÉTÉ émise (le pas doit s'enregistrer),
     # mais l'écran n'a pas bougé → on AVERTIT (200 + warning) sans casser le flux,
-    # au lieu du 400 générique. Le frame frais accompagne la réponse.
+    # plutôt que le 400 générique. Le frame frais accompagne la réponse.
     if isinstance(res, dict) and res.get("error") == "type_no_effect":
         return JSONResponse({
             "ok": True, "warning": "type_no_effect",
@@ -411,7 +406,7 @@ async def api_desktop_act(request: Request):
             **_frame_fields(res, username, target),
             **(await _tree_fields()),
         })
-    # R8 — écran périmé : l'acte par coordonnées n'a PAS été exécuté (la cible a
+    # Écran périmé : l'acte par coordonnées n'a PAS été exécuté (la cible a
     # bougé) → 409 + frame frais pour que le Studio rafraîchisse et l'user reclique.
     if isinstance(res, dict) and res.get("error") == "stale_frame":
         return JSONResponse({
@@ -537,12 +532,11 @@ async def api_desktop_wait_window(request: Request):
 async def api_desktop_frame(request: Request, token: str):
     """Serve a saved frame PNG, scoped to its owner.
 
-    R9 — la propriété est désormais partagée cross-process via un sidecar disque
+    La propriété est partagée cross-process via un sidecar disque
     (``get_desktop_frame_owner`` lit la mémoire PUIS le sidecar). En mode STRICT
     (défaut ``DESKTOP_FRAME_STRICT_OWNER``), un propriétaire INCONNU → 404 (les
-    frames légitimes portent un sidecar) ; l'échappatoire config restaure l'ancien
-    soft-pass en cas de besoin opérateur. Les frames legacy sans sidecar expirent
-    en ≤ TTL (900 s) → impact déploiement quasi nul."""
+    frames légitimes portent un sidecar) ; l'échappatoire config rétablit le
+    soft-pass en cas de besoin opérateur."""
     user_id = require_user_id(request)
     if not token or not _TOKEN_RE.fullmatch(token):
         raise HTTPException(400, "Invalid frame token")
@@ -564,7 +558,7 @@ async def api_desktop_frame(request: Request, token: str):
         with open(path, "rb") as f:
             return f.read()
     try:
-        # AUDIT 2026-08-31 (passe 4, B13) — lecture du PNG complet hors boucle.
+        # Lecture du PNG complet hors boucle : ne pas bloquer l'event loop sur le disque.
         content = await run_in_threadpool(_read_frame)
     except Exception as e:
         raise HTTPException(503, f"Frame unreadable: {e}")
@@ -653,8 +647,8 @@ def _runtime_requirements_nodeps(base, os_name: str) -> str:
 
 def _bundle_run_bat(slug: str) -> str:
     # ⚠ cmd.exe : AUCUNE parenthèse dans les ``echo`` d'un bloc ``if (...)`` —
-    # « (une seule fois) » fermait le bloc et le lanceur mourait sur
-    # « ... était inattendu » AVANT d'installer quoi que ce soit (vu sur VM).
+    # une « ) » ferme le bloc et le lanceur meurt sur « ... était inattendu »
+    # AVANT d'installer quoi que ce soit.
     return (
         "@echo off\r\n"
         f"rem run.bat [--param=valeur ...] - execute {slug}.py avec un venv local.\r\n"
@@ -802,12 +796,13 @@ def _int_or(v, default: int) -> int:
 def _vision_credentials(request: Request, body: dict) -> "tuple[str, str]":
     """La vision d'Elpis pour ``describe=`` : l'URL de cette instance + un jeton
     de VISION du compte (``evt_``, 12 h, valable seulement pour
-    ``/api/desktop/locate`` — EXT.1 ; avant : le jeton elpis-remote complet).
+    ``/api/desktop/locate``) — pas le jeton elpis-remote complet, inutilement large.
     Le script tourne sur la VM, sans cookie. ``vision: false`` dans le corps →
     rien. Partagé par l'exécution simple et la matrice."""
     if not body.get("vision", True):
         return "", ""
     try:
+        # ``routes_cli`` importé à l'appel : il importe ``routes._state``, dont le paquet charge ce module (cycle)
         from shared_infra.accounts import tokens as _tokens
         from shared_infra.opencode.routes_cli import _base_url
         tok, _row = _tokens.create(int(require_user_id(request)), "vision", "vision")
@@ -876,8 +871,8 @@ async def api_desktop_run_automation_stop(request: Request):
     if not isinstance(body, dict):
         body = {}
     from llm_core.tools.desktop_tools import _agent_req, _resolve_target_strict
-    # Nom explicite inconnu : refus (il retombait sur la cible par défaut — on
-    # arrêtait le run_id sur une AUTRE machine).
+    # Nom explicite inconnu : refus. Ne pas retomber sur la cible par défaut :
+    # on arrêterait le run_id sur une AUTRE machine.
     tgt = _resolve_target_strict(str(body.get("target") or ""), username)
     if not tgt:
         raise HTTPException(400, "cible inconnue")
@@ -891,7 +886,7 @@ async def api_desktop_run_file(request: Request, target: str = "", path: str = "
     user_id = require_user_id(request)
     username = _username_for(user_id)
     # Segment « .. » refusé ; un NOM contenant « ... » (capture « clic-Enregistrer-sous...-menuitem »)
-    # est légitime — le test par sous-chaîne rendait ces captures d'échec introuvables.
+    # est légitime — ne pas tester par sous-chaîne : ces captures d'échec deviendraient introuvables.
     segs = [x for x in str(path or "").replace("\\", "/").split("/")]
     if not path or any(x == ".." for x in segs) or str(path).startswith(("/", "\\")) or ":" in segs[0]:
         raise HTTPException(400, "path invalide")
@@ -903,8 +898,8 @@ async def api_desktop_run_file(request: Request, target: str = "", path: str = "
     data = _b64.b64decode(r["content_b64"])
     ext = path.rsplit(".", 1)[-1].lower()
     # Servis EN LIGNE : images et JSON seulement. Un .html (rapport, ou fichier déposé
-    # dans assets/ par un autre compte sur une cible partagée) s'exécutait sous
-    # l'origine de l'application avec la session de celui qui l'ouvrait : il part en
+    # dans assets/ par un autre compte sur une cible partagée) s'exécuterait sous
+    # l'origine de l'application avec la session de celui qui l'ouvre : il part en
     # téléchargement, dans un bac à sable sans script.
     inline = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "json": "application/json"}
     headers = {"X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'; img-src data:"}
@@ -935,7 +930,7 @@ async def api_desktop_run_automation_matrix(request: Request):
     libs = body.get("libs") if isinstance(body.get("libs"), dict) else {}
     assets = body.get("assets") if isinstance(body.get("assets"), dict) else {}
     elpis_url, elpis_token = _vision_credentials(request, body)
-    # Budget PAR cible, borné [30, 3600] ; ``"abc"`` → 600 (c'était un 500).
+    # Budget PAR cible, borné [30, 3600] ; ``"abc"`` → 600 (pas un 500).
     timeout_s = max(30, min(3600, _int_or(body.get("timeout_s"), 600)))
     doc = await run_in_threadpool(lambda: run_automation_core(
         username, targets, str(body.get("name") or "automatisation"), code,
@@ -951,12 +946,13 @@ async def api_desktop_locate(request: Request):
     ``{image_b64, describe}`` → la boîte de l'élément décrit (« le bouton vert
     d'exécution »), en px de l'image. Cible ``describe=`` du runtime elpis_auto.
     Auth : session web OU ``Authorization: Bearer evt_…`` (jeton de vision remis
-    au script, qui tourne sur la VM sans cookie) ; ``pcr_…`` reste accepté pour
-    les scripts lancés avant EXT.1."""
+    au script, qui tourne sur la VM sans cookie) ; ``pcr_…`` (jeton opencode)
+    reste accepté pour les scripts qui l'ont reçu à leur lancement."""
     uid = None
     try:
         uid = require_user_id(request)                 # session web
     except HTTPException:
+        # import à l'appel : ``routes_cli`` importe ``routes._state``, dont le paquet charge ce module (cycle)
         from shared_infra.opencode.routes_cli import _client_identity
         _tok, uid = _client_identity(request, kinds=("vision", "opencode"))
         if _tok is None:
@@ -1085,12 +1081,14 @@ async def api_desktop_automation_bundle(request: Request):
 def api_desktop_install_sh(request: Request):
     """One-command Linux/macOS installer: download the bundle, build a venv,
     install deps, and launch the agent. PUBLIC (runs on a cookie-less target).
-    The base URL is taken from the validated Host (see cli._base_url).
+    The base URL is taken from the validated Host (see ``routes_cli._base_url``).
 
     Amorçage EN CLAIR : Caddy sert aussi cette route en http sur :80
     (deploy/caddy › ``@bootstrap``), donc ``$BASE`` est en http et le bloc TLS
     ci-dessous ne s'exécute même pas. Il ne subsiste que pour la commande
     « historique » en https (cert LAN auto-signé)."""
+    # import à l'appel : ``routes_cli`` importe ``routes._state``, dont le paquet charge ce module (cycle)
+    from shared_infra.opencode.routes_cli import _base_url
     base = _base_url(request)
     from fastapi.responses import PlainTextResponse
     script = f"""#!/usr/bin/env bash
@@ -1143,6 +1141,8 @@ exec bash install_agent.sh
 @router.get("/api/desktop/install.ps1")
 def api_desktop_install_ps1(request: Request):
     """One-command Windows installer (PowerShell). PUBLIC, same rationale."""
+    # import à l'appel : ``routes_cli`` importe ``routes._state``, dont le paquet charge ce module (cycle)
+    from shared_infra.opencode.routes_cli import _base_url
     base = _base_url(request)
     from fastapi.responses import PlainTextResponse
     # NOTE : le script genere doit rester 100% ASCII — PowerShell 5.1 lit les

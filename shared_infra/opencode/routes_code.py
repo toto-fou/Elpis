@@ -13,11 +13,11 @@ composer qui pilote la session opencode à distance.
 
 Gated par le flag global ``features.opencode`` (404 si désactivé).
 
-Multi-worker safe : l'état vit en SQLite (``_code_store``, transactions courtes,
+Multi-worker safe : l'état vit en SQLite (``store``, transactions courtes,
 claim de commandes atomique) et le fan-out SSE passe par le bus multi-worker
 ``pipeline_events`` (events enveloppés ``{"type": "code.event", "data": …}``) —
 peu importe quel worker gunicorn sert l'ingest, le pull ou la page. L'epoch est
-persisté : le plugin ne re-snapshotte plus à chaque redéploiement.
+persisté : le plugin ne re-snapshotte pas à chaque redéploiement.
 """
 from __future__ import annotations
 
@@ -39,9 +39,7 @@ from shared_infra.config import feature_enabled
 from shared_infra.db import _connection as _dbc
 from shared_infra.db._connection import db_tx
 from shared_infra.observability.events_bus import pipeline_events
-from shared_infra.observability.routes_events import _make_sse_response
 from shared_infra.opencode import store as _cstore
-from shared_infra.opencode.routes_cli import _base_url
 from shared_infra.routes._state import router
 from shared_infra.security.deps import require_user_id, stream_session_still_valid
 
@@ -110,9 +108,9 @@ async def _body(request: Request) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 #  Jetons opencode (``pcr_``) — magasin commun ``shared_infra.accounts.tokens``
 # ─────────────────────────────────────────────────────────────────────────────
-# (2026-09-30, EXT.1) Le jeton n'est plus gardé en clair ni réaffichable : il
-# se montre une fois (création, rotation, appairage) et seule son empreinte
-# reste. Un compte peut avoir un jeton par poste.
+# Le jeton n'est jamais gardé en clair ni réaffichable : il se montre une fois
+# (création, rotation, appairage) et seule son empreinte reste. Un compte peut
+# avoir un jeton par poste.
 _schema_ready: set = set()   # (pid, base) dont la table d'appairage est posée
 
 
@@ -178,10 +176,10 @@ async def _publish(uid: int, data: dict) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class _ThreadStore:
-    """(2026-09-20) Chaque appel au magasin part en thread : ``store`` fait du
-    SQLite SYNCHRONE (busy timeout 5 s derrière le ``BEGIN IMMEDIATE`` de
-    ``claim_commands``), et 14 routes ``async`` l'appelaient sur la boucle —
-    un verrou tenu gelait les SSE de tout le worker."""
+    """Chaque appel au magasin part en thread : ``store`` fait du SQLite
+    SYNCHRONE (busy timeout 5 s derrière le ``BEGIN IMMEDIATE`` de
+    ``claim_commands``). Ne pas l'appeler sur la boucle depuis une route
+    ``async`` : un verrou tenu gèlerait les SSE de tout le worker."""
     def __getattr__(self, name):
         fn = getattr(_cstore, name)
         if not callable(fn):
@@ -204,9 +202,9 @@ async def code_health(request: Request):
     """
     _require_enabled()
     uid = int(require_user_id(request))
-    # AUDIT 2026-09-01 (passe 5, B9) — battement 15 s par page ouverte :
-    # sweep (BEGIN IMMEDIATE) + 4 lectures tournaient SUR la boucle, chacun
-    # sur une connexion neuve. Déport en thread, lectures regroupées.
+    # Battement toutes les 15 s par page ouverte : le sweep (BEGIN IMMEDIATE)
+    # et les 4 lectures partent en thread, lectures regroupées en un seul saut
+    # (``_health_reads``) — pas sur la boucle.
     for lost in await asyncio.to_thread(_cstore.sweep_undeliverable, uid):
         if not lost.get("sid"):
             continue
@@ -234,10 +232,12 @@ def _health_reads(uid: int) -> tuple:
 @router.get("/api/code/config")
 def code_config(request: Request):
     """Panneau « Connecter opencode » : URL app + URL du plugin. Le jeton n'est
-    plus rendu ici (EXT.1) : ``POST /api/code/token`` en crée un, montré une
-    fois ; ``tokens`` = nombre de jetons opencode actifs du compte."""
+    pas rendu ici : ``POST /api/code/token`` en crée un, montré une fois ;
+    ``tokens`` = nombre de jetons opencode actifs du compte."""
     _require_enabled()
     uid = require_user_id(request)
+    # import à l'appel : ``routes_cli`` importe ``routes._state``, dont le paquet charge ce module (cycle)
+    from shared_infra.opencode.routes_cli import _base_url
     base = _base_url(request)
     from shared_infra.accounts import tokens as _tokens
     n = sum(1 for t in _tokens.list_for(int(uid)) if t["kind"] == "opencode")
@@ -267,8 +267,10 @@ def code_token_rotate(request: Request):
 @router.get("/api/code/plugin.ts")
 def code_plugin_ts(request: Request):
     """Plugin canonique (TypeScript, chargé nativement par opencode/Bun) — URL de
-    l'app bakée (plus de variables d'env à exporter)."""
+    l'app bakée (aucune variable d'env à exporter)."""
     _require_enabled()
+    # import à l'appel : ``routes_cli`` importe ``routes._state``, dont le paquet charge ce module (cycle)
+    from shared_infra.opencode.routes_cli import _base_url
     ts = _PLUGIN_TS.replace("__APP_URL__", _base_url(request))
     return PlainTextResponse(ts, media_type="application/typescript; charset=utf-8")
 
@@ -279,6 +281,8 @@ def code_plugin_js(request: Request):
     URL et écrasent leur elpis-remote.js avec la réponse — on sert donc un shim
     JS VALIDE qui installe elpis-remote.ts puis s'efface au démarrage suivant."""
     _require_enabled()
+    # import à l'appel : ``routes_cli`` importe ``routes._state``, dont le paquet charge ce module (cycle)
+    from shared_infra.opencode.routes_cli import _base_url
     js = _PLUGIN_BOOTSTRAP_JS.replace("__APP_URL__", _base_url(request))
     return PlainTextResponse(js, media_type="text/javascript; charset=utf-8")
 
@@ -328,7 +332,7 @@ async def code_pair_start(request: Request):
     ip = (request.client.host if request.client else "") or ""
     now = time.time()
 
-    def _tx():        # SQLite synchrone : en thread (2026-09-20)
+    def _tx():        # SQLite synchrone : en thread
         with _db() as c:
             c.execute("DELETE FROM code_pairings WHERE expires_at<?", (now,))
             row = c.execute("SELECT COUNT(*) FROM code_pairings WHERE ip=? AND created_at>?",
@@ -353,7 +357,7 @@ async def code_pair_poll(request: Request):
     pid = str(request.query_params.get("id") or "")
     now = time.time()
 
-    def _tx():        # SQLite synchrone : en thread (2026-09-20)
+    def _tx():        # SQLite synchrone : en thread
         with _db() as c:
             row = c.execute("SELECT expires_at, confirmed_uid FROM code_pairings WHERE id=?",
                             (pid,)).fetchone()
@@ -382,8 +386,8 @@ async def code_pair_poll(request: Request):
         return {"status": "pending"}
     out = await asyncio.to_thread(_tx)
     if out.get("status") == "ok":
-        # (EXT.1) Le jeton est créé ICI, à la livraison, et n'est jamais stocké
-        # en clair (avant : posé dans ``code_pairings.token`` jusqu'au poll).
+        # Le jeton est créé ICI, à la livraison, et n'est jamais stocké en clair :
+        # ne pas le poser dans ``code_pairings`` en attendant le poll.
         tok = await asyncio.to_thread(_mint_token, out.pop("uid"), "opencode (appairage)")
         out["token"] = tok
     return JSONResponse(out)
@@ -411,7 +415,7 @@ async def code_pair_confirm(request: Request):
     if n >= _PAIR_CONFIRM_MAX:
         raise HTTPException(429, "Trop d'essais de code — réessayez dans quelques minutes.")
 
-    def _tx():        # SQLite synchrone : en thread (2026-09-20)
+    def _tx():        # SQLite synchrone : en thread
         matched = ""
         with _db() as c:
             c.execute("DELETE FROM code_pairings WHERE expires_at<?", (now,))
@@ -422,7 +426,7 @@ async def code_pair_confirm(request: Request):
                 if secrets.compare_digest(pcode, code) and not matched:
                     matched = pid
             if matched:
-                # Seul le compte est posé : le jeton naîtra au poll (EXT.1).
+                # Seul le compte est posé : le jeton naît au poll (``code_pair_poll``).
                 c.execute("UPDATE code_pairings SET confirmed_uid=? WHERE id=?", (uid, matched))
             c.commit()
         return matched
@@ -440,7 +444,7 @@ async def code_pair_confirm(request: Request):
 @router.post("/api/code/ingest")
 async def code_ingest(request: Request):
     _require_enabled()
-    uid = await asyncio.to_thread(_token_uid, request)   # lecture DB (passe 5, B1)
+    uid = await asyncio.to_thread(_token_uid, request)   # lecture DB : hors boucle
     body = await _body(request)
     cid = str(body.get("client") or "")
     directory = body.get("directory") or ""
@@ -450,9 +454,9 @@ async def code_ingest(request: Request):
         plugin_version = 0
     # revive : un client qui POUSSE est réellement vivant — lève un éventuel
     # tombstone bye (réactivation /remote on du même process opencode)
-    # AUDIT 2026-09-01 (passe 5, B10) — la route du flux temps réel : les
-    # écritures du store (seen_client, apply_events = tout le lot d'events)
-    # partent en thread, comme le prune ci-dessous.
+    # Route du flux temps réel : les écritures du store (seen_client,
+    # apply_events = tout le lot d'events) partent en thread, comme le prune
+    # ci-dessous.
     await asyncio.to_thread(_cstore.seen_client, uid, cid,
                             plugin_version=plugin_version, directory=directory,
                             revive=True)
@@ -490,8 +494,8 @@ async def code_ingest(request: Request):
                 "questionID": props.get("requestID") or props.get("questionID")}})
         else:
             await _publish(uid, {"type": typ, "properties": props})
-    # Passe 5 (B10) — 4 DELETE corrélés (balayage complet des tables code_*)
-    # toutes les 60 s par worker : hors boucle.
+    # 4 DELETE corrélés (balayage complet des tables code_*) toutes les 60 s
+    # par worker : hors boucle.
     await asyncio.to_thread(_cstore.prune)
     return JSONResponse({"ok": True, "applied": applied})
 
@@ -502,18 +506,17 @@ async def code_ingest(request: Request):
 @router.get("/api/code/pull")
 async def code_pull(request: Request):
     _require_enabled()
-    uid = await asyncio.to_thread(_token_uid, request)   # lecture DB (passe 5, B1)
+    uid = await asyncio.to_thread(_token_uid, request)   # lecture DB : hors boucle
     cid = str(request.query_params.get("client") or "")
     try:
         wait = min(25.0, max(0.0, float(request.query_params.get("wait") or 0)))
     except ValueError:
         wait = 0.0
-    # AUDIT 2026-09-01 (passe 5, B1) — TOUT le travail SQLite de ce long-poll
-    # (claim_commands = BEGIN IMMEDIATE + DELETE + 3 SELECT, ~62 fois par
-    # pull de 25 s) tournait SUR la boucle : ~2,5 prises/s du verrou
-    # d'écriture global par CLI connectée, en concurrence directe avec la
-    # persistance des chats. Déport en thread (+ connexion par thread
-    # réutilisée côté _code_store).
+    # TOUT le travail SQLite de ce long-poll part en thread (connexion par
+    # thread réutilisée côté store) : claim_commands = BEGIN IMMEDIATE +
+    # DELETE + 3 SELECT, ~62 fois par pull de 25 s, soit ~2,5 prises/s du
+    # verrou d'écriture global par CLI connectée, en concurrence directe avec
+    # la persistance des chats — sur la boucle, il la bloquerait.
     await asyncio.to_thread(_cstore.seen_client, uid, cid)
 
     # Long-poll cross-worker : la commande peut être posée par n'importe quel
@@ -746,10 +749,9 @@ async def code_new(request: Request):
     if await _ts.client_plugin_version(uid, target) < 13:
         # v5 droppe l'action sans sid ; v6 crée la session SANS basculer le TUI ;
         # v7→v12 se contentent du raccourci `session.new` du TUI — or opencode ne
-        # matérialise la session qu'au PREMIER message : rien n'apparaissait dans
-        # la page, exactement le « /new ne fait rien » remonté. Seul le v13 crée
-        # réellement la session puis y bascule le TUI. 409 explicite plutôt qu'un
-        # demi-succès invisible.
+        # matérialise la session qu'au PREMIER message : rien n'apparaît dans
+        # la page. Seul le v13 crée réellement la session puis y bascule le TUI.
+        # 409 explicite plutôt qu'un demi-succès invisible.
         raise HTTPException(409, "Le plugin elpis-remote v13 est requis pour créer une session "
                                  "depuis la page — tapez /remote update côté CLI.")
     await _ts.queue_command(uid, {"id": secrets.token_urlsafe(8), "sid": "", "kind": "action",
@@ -884,19 +886,17 @@ async def code_question_reply(request: Request, sid: str, qid: str):
 
 
 # Types de CONTRÔLE du bus relayés tels quels au navigateur (le reste du bus
-# est enveloppé ``code.event``). Audit moteur d'événements 2026-09-25 (B2) :
-# ``_stream_gen`` jetait tout ce qui n'était pas ``code.event`` — le
+# est enveloppé ``code.event``). Ne pas les filtrer : sans le
 # ``session_expired`` de la revalidation, la cause d'une révocation, le
-# ``worker_recycling`` d'une évacuation et l'``error`` « trop de flux »
-# n'arrivaient jamais : la page voyait une fin muette et se reconnectait en
-# boucle.
+# ``worker_recycling`` d'une évacuation ou l'``error`` « trop de flux », la
+# page voit une fin muette et se reconnecte en boucle.
 _STREAM_CONTROL_TYPES = frozenset({"session_expired", "worker_recycling", "error"})
 
 
 def _render_code_event(payload):
     """Texte SSE d'un message du bus pour la page Code (``None`` = filtré).
     Appelé UNE fois par message et par client, directement sur le dict du bus
-    (passe d'optimisation 2026-09-26 : plus de décodage/ré-encodage)."""
+    (sans décodage/ré-encodage)."""
     if not isinstance(payload, dict):
         return None
     kind = payload.get("type")
@@ -919,10 +919,9 @@ def _stream_gen(uid: int, validity_check=None):
 async def code_stream(request: Request):
     _require_enabled()
     uid = require_user_id(request)
-    # Revalidation périodique (audit 2026-08-02, M6) — câblée jusqu'ici sur
-    # l'endpoint orphelin /api/pipelines/events, jamais sur CE flux, le seul
-    # réellement ouvert : une session expirée gardait transcript et demandes
-    # de permission en direct sans limite. Valeurs capturées au handshake (le
+    # Revalidation périodique de la session (``stream_session_still_valid``) :
+    # sans elle, une session expirée garderait transcript et demandes de
+    # permission en direct sans limite. Valeurs capturées au handshake (le
     # scope SSE ne revoit jamais le cookie).
     _login_ts = request.session.get("_login_ts")
     _sid = request.session.get("_sid")
@@ -931,4 +930,6 @@ async def code_stream(request: Request):
     def _still_valid() -> bool:
         return stream_session_still_valid(_uid_int, _login_ts, _sid)
 
+    # import à l'appel : ``routes_events`` importe ``routes._state``, dont le paquet charge ce module (cycle)
+    from shared_infra.observability.routes_events import _make_sse_response
     return _make_sse_response(_stream_gen(_uid_int, validity_check=_still_valid))

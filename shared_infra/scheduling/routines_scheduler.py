@@ -9,13 +9,13 @@ exécution headless via la boucle d'outils du chatbot (``run_chat_multi_mcp``).
 Concurrence (multi-worker, gunicorn ``preload_app=False``, workers recyclés) :
   • Élection de leader : ``try_acquire_cron_lock()`` est RE-SONDÉ à chaque tick
     → bascule automatique si le leader meurt/recycle (le flock se libère).
-  • Un seul leader évalue/lance les runs planifiés ⇒ pas de double-fire (E1/E2).
+  • Un seul leader évalue/lance les runs planifiés ⇒ pas de double-fire.
   • Admission atomique gardée par un cap de runs simultanés / utilisateur
     (``admit_and_insert_run`` en ``BEGIN IMMEDIATE``) ⇒ correct même cross-worker
-    et même mêlé aux « run-now » servis par d'autres workers (E3/E7).
-  • Skip-catch-up : seule la minute courante est évaluée (E5) ; ``claim_minute_fire``
-    empêche un double-fire dans la même minute lors d'un handoff (E8/E9).
-  • Réconciliation des runs orphelins par péremption du heartbeat (E6).
+    et même mêlé aux « run-now » servis par d'autres workers.
+  • Skip-catch-up : seule la minute courante est évaluée ; ``claim_minute_fire``
+    empêche un double-fire dans la même minute lors d'un handoff.
+  • Réconciliation des runs orphelins par péremption du heartbeat.
 
 Les runs s'exécutent ``priority="low"`` → ils cèdent le pas aux chats live dans
 ``llm_scheduling_guard``.
@@ -67,7 +67,7 @@ ORPHAN_STALE_AFTER_S = 300.0   # heartbeat figé > 5 min ⇒ orphelin
 # d'outil — les erreurs d'outil, elles, sont rattrapées et réinjectées au modèle
 # sans remonter. Une reprise est donc sûre et absorbe les coupures transitoires
 # (le LLM tombe puis revient). On NE retente JAMAIS une annulation (shutdown).
-# Tunable par env ; 1 ⇒ aucune reprise (comportement legacy).
+# Tunable par env ; 1 ⇒ aucune reprise.
 RUN_MAX_ATTEMPTS = max(1, int(os.environ.get("ROUTINES_RUN_MAX_ATTEMPTS", "2")))
 RUN_RETRY_BACKOFF_S = max(0.0, float(os.environ.get("ROUTINES_RUN_RETRY_BACKOFF_S", "3.0")))
 
@@ -84,21 +84,22 @@ _scheduler_started = False
 # ticker → détectable. None = la boucle n'a pas encore tourné.
 _last_tick: Optional[float] = None
 
-# Garde-fou heartbeat : nb d'échecs consécutifs avant abandon (cf. _heartbeat_loop).
+# Garde-fou heartbeat : nb d'échecs consécutifs avant avertissement (cf. _heartbeat_loop).
 _HEARTBEAT_MAX_FAILURES = 3
 _HEARTBEAT_OP_TIMEOUT = 10.0
 
 
 # Enchaînement « à la Jenkins » : profondeur max d'une chaîne A→B→C… — coupe
-# les cycles (A→B→A relancerait à l'infini : la garde anti-chevauchement F10
-# ne voit plus A une fois son run terminé) et les chaînes déraisonnables.
+# les cycles (A→B→A relancerait à l'infini : la garde anti-chevauchement de
+# ``launch_run`` ne voit plus A une fois son run terminé) et les chaînes
+# déraisonnables.
 CHAIN_MAX_DEPTH = max(1, int(os.environ.get("ROUTINES_CHAIN_MAX_DEPTH", "5")))
 
 
 def _denied_for_routine() -> set:
     """Outils retirés à une ROUTINE (sans UI ni message suivant) : la politique
-    ``meta.policy.deny_for: ["routine"]`` déclarée par les outils fait foi
-    (2026-09-11, P2) ; ``{"ask_user"}`` reste le repli d'un registre vide."""
+    ``meta.policy.deny_for: ["routine"]`` déclarée par les outils fait foi ;
+    ``{"ask_user"}`` reste le repli d'un registre vide."""
     try:
         from llm_core._mcp_categories import tools_denied_for
         return set(tools_denied_for("routine", fallback={"ask_user"}))
@@ -194,7 +195,8 @@ def _files_written(events: Any) -> List[str]:
     """Chemins écrits/modifiés pendant un run, dans l'ordre d'écriture.
 
     Source = 2e valeur de retour de la boucle d'outils, qui n'y consigne que les
-    mutations de fichiers (cf. ``_record_file_mutation``). On ne PEUT pas passer
+    mutations de fichiers (cf. ``RunRecord.record_file_mutation``,
+    ``llm_core/engine/run.py``). On ne PEUT pas passer
     un ``on_event`` ici pour les récupérer : la boucle ne re-streame la réponse
     finale en content_token QUE si un ``on_event`` est branché — soit plusieurs
     secondes de sleep artificiel ajoutées à chaque run headless.
@@ -224,23 +226,23 @@ def _rehydrate_mcp_secrets(snapshot: List[Dict[str, Any]],
     """Re-fusionne les champs secrets (auth/headers/token…) dans chaque config
     MCP du snapshot, depuis les serveurs MCP enregistrés de l'utilisateur
     (appariés par ``url`` puis ``name``). Le snapshot n'en contient jamais
-    (cf. db.routines._strip_mcp_secrets) → rotation de clé honorée, pas de
+    (cf. ``routines_store._strip_mcp_secrets``) → rotation de clé honorée, pas de
     credential figé dans la routine.
 
     Bibliothèque MCP PARTAGÉE : une entrée ``shared:<n>`` est RÉSOLUE PAR ID,
-    pas appariée. L'appariement url/name ne pouvait pas marcher pour elle — le
+    pas appariée. L'appariement url/name ne peut pas marcher pour elle — le
     navigateur ne détient ni l'URL faisant autorité ni le secret, donc le
     snapshot ne porte qu'une référence. Même règle que la route de chat : la
     config vient de la base, et une entrée dépubliée, désactivée ou que ce
     compte n'affiche plus est JETÉE (une routine ne doit pas continuer à
     joindre un serveur retiré de la bibliothèque).
 
-    (2026-09-21) Le snapshot n'est qu'une liste de RÉFÉRENCES : outils locaux
-    (sentinelle reconstruite), entrée du manifeste par nom, serveur partagé ou
-    perso de l'utilisateur. Une entrée qui ne se résout en rien est JETÉE —
-    elle partait telle quelle, si bien qu'un ``type: "stdio"`` + ``command``
-    posté par n'importe quel compte s'exécutait sur l'hôte, et qu'une ``url``
-    interne rouvrait la SSRF fermée côté chat."""
+    Le snapshot n'est qu'une liste de RÉFÉRENCES : outils locaux (sentinelle
+    reconstruite), entrée du manifeste par nom, serveur partagé ou perso de
+    l'utilisateur. Une entrée qui ne se résout en rien est JETÉE. Ne jamais la
+    laisser partir telle quelle : un ``type: "stdio"`` + ``command`` posté par
+    n'importe quel compte s'exécuterait sur l'hôte, et une ``url`` interne
+    rouvrirait la SSRF fermée côté chat."""
     from shared_infra.mcp.servers import (
         client_builtin_ref,
         personal_to_config,
@@ -298,7 +300,7 @@ def _rehydrate_mcp_secrets(snapshot: List[Dict[str, Any]],
             match = by_name[cfg["name"]]
         if match:
             # Config COMPLÈTE déchiffrée — surtout pas une recopie clé-à-clé de
-            # ``_MCP_SECRET_KEYS`` : ``auth_enc`` y figure désormais, et copier
+            # ``_MCP_SECRET_KEYS`` : ``auth_enc`` y figure, et copier
             # le chiffré tel quel livrerait du Fernet à ``_resolve_mcp_client``.
             cfg = personal_to_config(match, allow_stdio=allow_stdio)
             if not cfg:
@@ -320,15 +322,14 @@ async def _heartbeat_loop(run_id: int) -> None:
     # saturer le ThreadPoolExecutor par défaut (un thread bloqué par run × N
     # runs concurrents → épuisement → tout ``to_thread`` finit par traîner).
     #
-    # F20 — on NE quitte PLUS définitivement après N échecs consécutifs. Une
-    # contention DB transitoire de quelques cycles (p.ex. pendant le
-    # wal_checkpoint(TRUNCATE) de maintenance sous charge) faisait sortir la
-    # boucle → plus AUCUN heartbeat pour le reste d'un run long → reconcile_orphans
-    # marquait « orphaned » un run VIVANT → faux échec + notif de succès perdue
-    # (mark_run_ok gardé WHERE status='running' → no-op). On continue à battre
-    # (le run reprend l'horloge dès que la DB récupère) ; la task est de toute
-    # façon annulée à la fin du run. Un warning au franchissement du seuil signale
-    # la contention sans tuer le heartbeat.
+    # On NE quitte JAMAIS après N échecs consécutifs : une contention DB
+    # transitoire de quelques cycles (p.ex. pendant le wal_checkpoint(TRUNCATE)
+    # de maintenance sous charge) priverait de heartbeat le reste d'un run long
+    # → reconcile_orphans marquerait « orphaned » un run VIVANT → faux échec +
+    # notif de succès perdue (mark_run_ok gardé WHERE status='running' → no-op).
+    # On continue à battre (le run reprend l'horloge dès que la DB récupère) ;
+    # la task est de toute façon annulée à la fin du run. Un warning au
+    # franchissement du seuil signale la contention sans tuer le heartbeat.
     failures = 0
     warned = False
     try:
@@ -396,9 +397,9 @@ async def _notify_run_end(routine: Dict[str, Any], uid: int, *, ok: bool,
     """Fin de run → notification SELON la politique de la routine, puis cap
     ``notify_keep`` (« garder les X dernières notifications de cette routine »).
 
-    Avant, chaque run notifiait, sans réglage : une routine minute remplissait
-    le centre de notifications à elle seule (« impossible de les limiter »).
-    ``_emit_run_notification`` garde sa signature (les tests la stubbent) ;
+    Sans cette politique, une routine minute remplirait à elle seule le
+    centre de notifications. ``_emit_run_notification`` garde sa signature
+    (les tests la stubbent) ;
     la politique vit ici, au-dessus. Best-effort : la purge ne fait jamais
     échouer le run."""
     if not _notify_wanted(routine, ok=ok):
@@ -421,7 +422,7 @@ async def _notify_run_end(routine: Dict[str, Any], uid: int, *, ok: bool,
 
 async def _execute_routine_run_mesure(routine: Dict[str, Any], run_id: int,
                                       **kw: Any) -> None:
-    """``execute_routine_run`` dans son exécution (``runs``, L5.2) : ce que le
+    """``execute_routine_run`` dans son exécution (``runs``) : ce que le
     run consomme y est versé ; son statut final est celui du run de routine
     (``ok``, ``error``, ``skipped``, ``cancelled``)."""
     from shared_infra.observability.runs import new_run_id, run_scope
@@ -468,8 +469,8 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
         uid = int(routine["owner_user_id"])
         # Registre d'usage : sans ce scope, tout ce que consomme un run
         # nocturne s'enregistre en « unknown » et n'est rattachable ni à son
-        # propriétaire ni à son mode de déclenchement. C'est LE point qui
-        # rendait l'activité hors heures de bureau invisible.
+        # propriétaire ni à son mode de déclenchement : l'activité hors heures
+        # de bureau serait invisible.
         set_usage_context(
             "webhook" if trigger == "webhook" else "routine",
             user_id=uid,
@@ -486,7 +487,7 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
             return
         # Supprimée/désactivée entre l'admission et le démarrage : 'skipped',
         # pas 'error' — un « Échec » rouge pour une désactivation volontaire
-        # était la même incohérence sémantique que celle corrigée par 'cancelled'.
+        # serait la même incohérence que pour un arrêt utilisateur ('cancelled').
         fresh = await asyncio.to_thread(get_routine_internal, int(routine["id"]))
         if fresh is None:
             await asyncio.to_thread(mark_run_skipped, run_id,
@@ -498,10 +499,10 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
             return
         routine = fresh
 
-        # (2026-09-21) Jamais de réglages VIDES par défaut : le run partait sans
-        # secrets MCP, sans serveurs partagés, sans mémoire ni agents perso, et
-        # pouvait être noté « ok ». Deux relectures (base verrouillée un
-        # instant), puis échec explicite.
+        # Jamais de réglages VIDES par défaut : le run partirait sans secrets
+        # MCP, sans serveurs partagés, sans mémoire ni agents perso, et pourrait
+        # être noté « ok ». Deux relectures (base verrouillée un instant), puis
+        # échec explicite.
         user_settings = None
         for _try in range(3):
             try:
@@ -518,7 +519,7 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
                                     duration_ms=_ms(t0))
             return
         # Un serveur perso ``stdio`` n'est exécuté que si le PROPRIÉTAIRE de la
-        # routine est administrateur plein (2026-09-20).
+        # routine est administrateur plein.
         try:
             _owner = await asyncio.to_thread(get_user_by_id, uid)
             _stdio_ok = bool(_owner and _owner["is_admin"] == 1)
@@ -527,14 +528,12 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
         mcp_configs = _rehydrate_mcp_secrets(routine.get("mcp_snapshot") or [], user_settings,
                                              allow_stdio=_stdio_ok)
 
-        # AUDIT 2026-09-16 (lot B4) — la politique d'accès du propriétaire
-        # s'applique AUSSI ici (sinon la restriction se contournait en
-        # planifiant le travail).
-        # M5 (2026-09-17) — et la routine part sur LE serveur de sa fiche
-        # (``connector_id``, NULL = intégré) : la cible est posée dans le
-        # contexte de la tâche, donc tout le run la suit (sondes, comptage de
-        # tokens, ordonnanceur, disjoncteur, appels). Avant, une routine
-        # partait toujours à l'intégré, quel que soit le serveur choisi.
+        # La politique d'accès du propriétaire s'applique AUSSI ici (sinon la
+        # restriction se contournerait en planifiant le travail).
+        # La routine part sur LE serveur de sa fiche (``connector_id``, NULL =
+        # intégré) : la cible est posée dans le contexte de la tâche, donc tout
+        # le run la suit (sondes, comptage de tokens, ordonnanceur, disjoncteur,
+        # appels).
         _conn_id = routine.get("connector_id") or None
         _routine_allowed = True             # fail-open documenté dans engine_access
         try:
@@ -618,7 +617,7 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
             if _reg_task is not None:
                 # presence_lock=False : le verrou de présence sert à la garde
                 # 409 du /compact sur un CHAT — inutile pour une clé de run
-                # synthétique, et chaque run créait un fichier de verrou
+                # synthétique, et chaque run créerait un fichier de verrou
                 # distinct (clé unique) purgé après 24 h seulement (une
                 # routine minute = 1440 fichiers/jour).
                 register_chat_task(uid, _reg_task, synthetic_chat_id,
@@ -628,8 +627,8 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
 
         hb_task = asyncio.create_task(_heartbeat_loop(run_id))
 
-        # Même contrat que la route chat (chatbot_app/routes/chats.py) : v2 si
-        # mode "optimized" (sémaphore inline), sinon classic sous le guard.
+        # Même contrat que le tour de chat (chatbot_app/turn/execution.py) : v2
+        # si mode "optimized" (sémaphore inline), sinon classic sous le guard.
         from llm_core import (
             llm_scheduling_guard,
             resolve_scheduling_mode,
@@ -646,12 +645,12 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
         _sched_mode = resolve_scheduling_mode()
         _mcp_fn = run_chat_multi_mcp_v2 if _sched_mode == "optimized" else run_chat_multi_mcp
 
-        # F15 — mémoire long-terme : MÊME résolution que la route chat
-        # (chatbot_app/routes/chats.py). Sans ça, le scheduler ne passait PAS
-        # ``memory_enabled`` → défaut True côté run_chat_multi_mcp → une routine
-        # exposait ``memory`` / ``session_search`` (écriture USER.md/MEMORY.md +
-        # lecture des sessions) MALGRÉ un opt-out ``memory_enabled=False`` du
-        # propriétaire (gate mémoire incohérent chat vs routines).
+        # Mémoire long-terme : MÊME résolution que le tour de chat
+        # (``_memory_on``, chatbot_app/turn/preparation.py). Ne pas omettre
+        # ``memory_enabled`` : son défaut True côté run_chat_multi_mcp
+        # exposerait ``memory`` / ``session_search`` (écriture
+        # USER.md/MEMORY.md + lecture des sessions) MALGRÉ un opt-out
+        # ``memory_enabled=False`` du propriétaire.
         try:
             from shared_infra.config import MEMORY_ENABLED as _MEM_MASTER
             _mem_on = bool(_MEM_MASTER and (user_settings or {}).get("memory_enabled", False))
@@ -704,7 +703,7 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
                         user_mcp_configs=_agent_servers,
                         user_id=uid,
                         # Les sous-agents d'une routine cèdent le pas aux chats
-                        # interactifs, comme la routine elle-même (AUDIT 2026-09-25).
+                        # interactifs, comme la routine elle-même.
                         priority="low",
                     ) or None                   # banque vide : aucun outil task
                 except Exception as exc:                        # noqa: BLE001
@@ -732,15 +731,15 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
                         chat_id=synthetic_chat_id,
                         thinking_mode=bool(routine.get("thinking_mode")),
                         priority="low",
-                        memory_enabled=_mem_on,   # F15 — respecte l'opt-out du propriétaire
+                        memory_enabled=_mem_on,   # respecte l'opt-out du propriétaire
                         # ``ask_user`` ne peut STRUCTURELLEMENT pas fonctionner
                         # ici : sa docstring promet au modèle que « les réponses
                         # arrivent dans le PROCHAIN message user » et lui dit de
                         # finir son tour aussitôt. Un run headless n'a ni
-                        # panneau ni message suivant — la routine se terminait
+                        # panneau ni message suivant — la routine se terminerait
                         # donc sur une question posée dans le vide, travail non
                         # fait. Même raison que le deny chez les sous-agents
-                        # (_DENY_BASE), même remède.
+                        # (``task_tool._DENY_BASE``), même remède.
                         deny_tool_names=_denied_for_routine(),
                     )
                 break  # succès
@@ -749,7 +748,7 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
             except Exception as exc:  # noqa: BLE001
                 # Stop utilisateur arrivé entre l'échec et la reprise (fenêtre
                 # du backoff, ou hard-cancel non délivré) : basculer sur le
-                # chemin CancelledError — sinon l'exception ordinaire filait
+                # chemin CancelledError — sinon l'exception ordinaire filerait
                 # dans ``except Exception`` → run 'error' + notif d'échec +
                 # CHAÎNE AVAL DÉCLENCHÉE, pour un geste volontaire.
                 if _is_cancelled():
@@ -771,9 +770,9 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
         #
         # ⚠ Thinking : quand le contenu visible d'un tour est vide, la boucle
         # renvoie le texte BRUT — raisonnement ``<think>…`` inclus. Sans
-        # nettoyage, le journal affichait ce markup illisible, tronqué à 4000
-        # en plein milieu (« l'affichage bugue et se tronque »). On ne
-        # journalise que la partie VISIBLE (même découpage que le chat).
+        # nettoyage, le journal afficherait ce markup illisible, tronqué à 4000
+        # en plein milieu. On ne journalise que la partie VISIBLE (même
+        # découpage que le chat).
         summary_raw = (assistant or "").strip()
         try:
             from llm_core._chat_classic import _extract_thinking
@@ -783,18 +782,17 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
             summary = summary_raw[:4000]
         # Tokens des SOUS-AGENTS ajoutés à ceux du run : leurs appels LLM sont
         # invisibles dans ``metrics`` (boucles séparées). Sans ce rollup, une
-        # routine qui délègue affichait le coût du seul orchestrateur — soit
+        # routine qui délègue afficherait le coût du seul orchestrateur — soit
         # une fraction de ce qu'elle a réellement consommé.
-        # AUDIT 2026-08-23 — la boucle d'outils ne LÈVE pas quand l'appel LLM
-        # meurt après ses reprises internes : elle RETOURNE le partiel avec
-        # ``ended_with_error``. La boucle de reprise ci-dessus ne voyait donc
-        # aucune exception et faisait « break # succès » : le run était
-        # journalisé 'ok', notifié en succès, et déclenchait la chaîne aval —
-        # une routine qui alimente la suivante propageait un travail
+        # La boucle d'outils ne LÈVE pas quand l'appel LLM meurt après ses
+        # reprises internes : elle RETOURNE le partiel avec
+        # ``ended_with_error``. La boucle de reprise ci-dessus n'y voit aucune
+        # exception (« break # succès ») : sans ce contrôle, le run serait
+        # journalisé 'ok', notifié en succès, et déclencherait la chaîne aval
+        # — une routine qui alimente la suivante propagerait un travail
         # interrompu comme s'il était complet. (Le chat, lui, ne lit pas ce
         # drapeau : l'erreur lui parvient par l'événement ``error`` et le
-        # partiel par ``truncated`` ; les sous-agents le lisent depuis le
-        # 2026-09-21.)
+        # partiel par ``truncated`` ; les sous-agents le lisent.)
         if m.get("ended_with_error"):
             err_marked = await asyncio.to_thread(
                 mark_run_error, run_id,
@@ -836,9 +834,9 @@ async def execute_routine_run(routine: Dict[str, Any], run_id: int,
                                          chain_depth=chain_depth)
     except asyncio.CancelledError:
         # Arrêt UTILISATEUR (flag posé par la route stop) vs shutdown/drain :
-        # le premier a son statut terminal dédié « cancelled » (le journal
-        # affichait « Échec » rouge pour un geste délibéré), le second reste
-        # une erreur d'infrastructure.
+        # le premier a son statut terminal dédié « cancelled » (un « Échec »
+        # rouge serait faux pour un geste délibéré), le second reste une
+        # erreur d'infrastructure.
         user_stop = False
         if uid is not None and synthetic_chat_id is not None:
             try:
@@ -934,13 +932,13 @@ async def launch_run(routine: Dict[str, Any], *, trigger: str,
     Retourne le run_id lancé, ou None si le cap est atteint (run 'skipped'
     journalisé)."""
     uid = int(routine["owner_user_id"])
-    # F10 — garde anti-chevauchement PAR ROUTINE : ``claim_minute_fire`` n'évite
-    # que le double-fire d'UNE minute. Une routine minute (``* * * * *``) dont un
-    # run dépasse 60 s voyait la minute suivante lancer un 2ᵉ run EN PARALLÈLE →
-    # effets de bord (mail/post/écriture) exécutés en double. La garde vit
-    # DÉSORMAIS dans la transaction d'admission (``overlap_fresh_after_s``) :
-    # en deux transactions séparées, deux livraisons webhook simultanées sur
-    # deux workers lisaient toutes deux count=0 (TOCTOU) → double run.
+    # Garde anti-chevauchement PAR ROUTINE : ``claim_minute_fire`` n'évite que
+    # le double-fire d'UNE minute. Une routine minute (``* * * * *``) dont un
+    # run dépasse 60 s verrait la minute suivante lancer un 2ᵉ run EN PARALLÈLE
+    # → effets de bord (mail/post/écriture) exécutés en double. La garde vit
+    # dans la transaction d'admission (``overlap_fresh_after_s``) : en deux
+    # transactions séparées, deux livraisons webhook simultanées sur deux
+    # workers liraient toutes deux count=0 (TOCTOU) → double run.
     run_id = await asyncio.to_thread(
         admit_and_insert_run, int(routine["id"]), uid,
         trigger=trigger, cap=PER_USER_CAP, worker_boot_id=_BOOT_ID,
@@ -966,8 +964,8 @@ async def launch_run(routine: Dict[str, Any], *, trigger: str,
                     routine.get("id"), uid, reason)
         return None
     # Contexte NEUF : lancée depuis une routine amont (chaînage), la tâche
-    # hériterait sinon de son exécution (parent_id) et de sa cible LLM
-    # (relecture L5) ; une routine enchaînée est indépendante.
+    # hériterait sinon de son exécution (parent_id) et de sa cible LLM ;
+    # une routine enchaînée est indépendante.
     task = asyncio.get_running_loop().create_task(
         _execute_routine_run_mesure(routine, run_id, context=context,
                                     chain_depth=chain_depth, trigger=trigger),
@@ -983,21 +981,21 @@ async def drain_running_runs(timeout: float = 10.0) -> int:
     DOIT tourner AVANT ``shutdown_mcp_pool()`` (qui ferme le client httpx/MCP
     partagé) : annulés ici, les runs prennent le chemin ``CancelledError``
     (journal « annulé (shutdown / cancel) », PAS de notification). Sans ce
-    drain, la fermeture du transport sous leurs pieds levait une exception
+    drain, la fermeture du transport sous leurs pieds lèverait une exception
     ≠ CancelledError → ``except Exception`` → fausse notification « Routine en
     échec » persistée à CHAQUE restart / recycle de worker (gunicorn
-    ``max_requests``) — les « mêmes notifs à chaque redémarrage ».
+    ``max_requests``).
 
     Retourne le nombre de runs annulés.
 
     Boucle sur snapshots : un run qui se termine pendant le drain peut encore
     lancer son AVAL (``_fire_chained_routines`` après ``mark_run_ok``) — un
-    snapshot unique le manquait, le process mourait avec l'aval 'running' en
-    base (faux « Interrompu » 5 min plus tard)."""
+    snapshot unique le manquerait, et le process mourrait avec l'aval
+    'running' en base (faux « Interrompu » 5 min plus tard)."""
     total = 0
-    # AUDIT 2026-08-30 (S8) — monotonic : c'est le drain d'ARRÊT. Un saut
-    # d'horloge y coupait le drain avant terme (runs tués en vol, aval laissé
-    # 'running' en base) ou le prolongeait au-delà du délai d'arrêt systemd.
+    # Monotonic : c'est le drain d'ARRÊT. Un saut d'horloge y couperait le
+    # drain avant terme (runs tués en vol, aval laissé 'running' en base) ou
+    # le prolongerait au-delà du délai d'arrêt systemd.
     deadline = time.monotonic() + max(0.0, float(timeout))
     while True:
         tasks = [t for t in _running_tasks.values() if not t.done()]
@@ -1025,7 +1023,7 @@ async def _llm_reachable() -> bool:
     """True si llama-server répond au /health (check léger, timeout court).
 
     Garde anti-spam : au boot de la VM, l'app monte souvent AVANT llama-server ;
-    lancer un run voué à l'échec dans cette fenêtre produisait une notification
+    lancer un run voué à l'échec dans cette fenêtre produirait une notification
     « Routine en échec » à chaque redémarrage. Fail-open : si le check lui-même
     plante (import, bug), on tente le run — il journalisera l'erreur réelle."""
     try:
@@ -1041,7 +1039,7 @@ async def _evaluate_due_routines(routines: List[Dict[str, Any]], now: datetime,
     """Évalue les routines actives pour LA minute courante (leader only).
 
     Extrait de ``_routines_loop`` pour testabilité. Par routine : match cron →
-    claim atomique anti double-fire (E8/E9) → health-gate LLM (un 'skipped'
+    claim atomique anti double-fire → health-gate LLM (un 'skipped'
     journalisé vaut mieux qu'un run condamné + notif d'échec) → lancement."""
     from shared_infra.observability.events_bus import _cron_matches
     llm_up: Optional[bool] = None   # lazy : au plus 1 health-check par tick
@@ -1049,7 +1047,7 @@ async def _evaluate_due_routines(routines: List[Dict[str, Any]], now: datetime,
         try:
             if not _cron_matches(r.get("cron_expr", ""), now):
                 continue
-            # (E8/E9) Claim atomique par routine/minute (anti double-fire).
+            # Claim atomique par routine/minute (anti double-fire).
             if not await asyncio.to_thread(claim_minute_fire, int(r["id"]), minute_key):
                 continue
             if llm_up is None:
@@ -1071,11 +1069,12 @@ async def _routines_loop() -> None:
     tick = 0
     while True:
         try:
-            # Réalignement sur la frontière de minute (+ petite marge) : un
-            # ``sleep(TICK_SECONDS)`` en tête ADDITIONNAIT le temps de travail
-            # à la période → la phase glissait, et le skip-catch-up (E5)
-            # interdisant tout rattrapage, une valeur de minute_key finissait
-            # par n'être JAMAIS observée (routine nocturne sautée, sans log).
+            # Réalignement sur la frontière de minute (+ petite marge). Ne pas
+            # dormir ``TICK_SECONDS`` en tête : le temps de travail
+            # s'ADDITIONNERAIT à la période → la phase glisserait, et le
+            # skip-catch-up interdisant tout rattrapage, une valeur de
+            # minute_key finirait par n'être JAMAIS observée (routine nocturne
+            # sautée, sans log).
             await asyncio.sleep(max(1.0, TICK_SECONDS - (time.time() % TICK_SECONDS)) + 0.05)
             tick += 1
             # Watchdog : marque que la boucle est vivante (cf. scheduler_alive()).
@@ -1083,13 +1082,13 @@ async def _routines_loop() -> None:
             # scheduler_alive() ne renvoie 1 que pour le leader (is_cron_leader()).
             global _last_tick
             _last_tick = time.time()
-            # (E1/E2) Re-sonde le lock CHAQUE tick → un seul leader, failover auto.
+            # Re-sonde le lock CHAQUE tick → un seul leader, failover auto.
             if not try_acquire_cron_lock():
                 continue
             now = datetime.now()
             minute_key = now.strftime("%Y-%m-%dT%H:%M")
 
-            # (E6) Réconciliation orphelins : 1re prise de lead + périodiquement.
+            # Réconciliation orphelins : 1re prise de lead + périodiquement.
             if last_minute_key is None or (tick % RECONCILE_EVERY_TICKS == 0):
                 try:
                     n = await asyncio.to_thread(reconcile_orphans, ORPHAN_STALE_AFTER_S)
@@ -1098,20 +1097,20 @@ async def _routines_loop() -> None:
                 except Exception as e:
                     logger.warning("[ROUTINES] reconcile échoué : %s", e)
 
-            # (E5) Skip-catch-up : on n'évalue chaque minute qu'une fois.
+            # Skip-catch-up : on n'évalue chaque minute qu'une fois.
             if minute_key == last_minute_key:
                 continue
             # Minutes JAMAIS observées (worker recyclé, machine chargée, lock
-            # repris ailleurs) : le tick suivant les enjambait en silence. Une
-            # routine nocturne pouvait donc ne jamais partir sans laisser la
-            # moindre trace — le contraire d'un suivi hors heures. On mesure
+            # repris ailleurs) : le tick suivant les enjambe en silence. Une
+            # routine nocturne peut donc ne jamais partir — sans mesure, sans
+            # la moindre trace, le contraire d'un suivi hors heures. On mesure
             # le trou avant de l'oublier. Best-effort, jamais bloquant.
             if last_minute_key:
                 try:
                     _gap = int((now - datetime.strptime(
                         last_minute_key, "%Y-%m-%dT%H:%M")).total_seconds() // 60) - 1
                     if _gap > 0:
-                        # (passe 5, B15) — INSERT + flock du bus : hors boucle.
+                        # INSERT + flock du bus : hors boucle.
                         await asyncio.to_thread(
                             log_metric, "scheduler_skip", _gap,
                             {"from": last_minute_key, "to": minute_key})

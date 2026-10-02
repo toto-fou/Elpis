@@ -104,6 +104,26 @@ selon [SemVer](https://semver.org/lang/fr/).
   quatre passes : requêtes Anthropic/OpenAI, identifiants d'appel, relances et
   raisonnement, robustesse et code mort, écritures sans suivre de lien et cache
   KV stable, comptage de contexte et télémétrie, client RAG.
+- **Découpage du cœur** : la boucle agentique et le flux de chat sont rangés en
+  modules, sans changement de comportement. L'orchestrateur de la boucle
+  (`llm_core/_chat_with_tools.py`) garde les compteurs et l'aiguillage de
+  chaque tour ; le tour LLM, l'exécution des appels d'outils (un seul noyau
+  pour les appels natifs et les appels écrits en texte), les reprises et les
+  sorties du run vivent dans `llm_core/engine/`. La route du flux de chat
+  n'enchaîne plus que des étapes : préparation, exécution, enregistrement et
+  historique du tour sont dans `chatbot_app/turn/`, l'annulation et la
+  compression manuelle dans leurs propres modules de routes. Table des
+  déplacements : `docs/historique-coeur.md`.
+- **Tests** : la suite s'isole de l'instance (configuration absente, moteur
+  LLM injoignable, données de l'instance et journaux dans un dossier
+  temporaire : elle n'écrit plus dans `user_db/` ni `user_sandboxes/`) et
+  donne le même résultat dans la copie de travail, un
+  worktree et la CI : un `config.json` local ne provoque plus de faux échec.
+  Goldens complets de la boucle et du flux de chat, scénario par scénario ;
+  gardes contre un patch sans effet, un import fait à l'appel qui vise un nom
+  disparu, une erreur de code avalée par `swallow` et le retour de traces
+  d'audit dans les commentaires. Le test de l'installeur lit la sortie du
+  pseudo-terminal jusqu'au bout.
 - **Moteur d'événements** : bus fichier sans perte, flux revalidés,
   contre-pression du terminal.
 - **Contrats du harnais** : une seule source décide si un outil est sériel,
@@ -181,6 +201,13 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Corrections et sécurité
 
+- **Cycles d'import** : importer en premier
+  `shared_infra/opencode/routes_cli.py`,
+  `shared_infra/observability/routes_events.py` ou
+  `shared_infra/desktop/routes.py` échouait (« partially initialized
+  module ») : des imports de niveau module refermaient un cycle avec le
+  paquet des routes. Ils sont faits à l'appel, dans
+  `shared_infra/desktop/routes.py` et `shared_infra/opencode/routes_code.py`.
 - **Image de sandbox** : la console n'inscrit plus l'image livrée dans
   `config.json`. Une instance dont l'onglet Sandbox avait été enregistré
   restait figée sur l'image de l'époque ; seule une image tierce y est

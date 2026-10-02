@@ -1,11 +1,10 @@
 # SPDX-License-Identifier: MIT
 """
-backend.ax_memory — Package façade.
+shared_infra.memory.ax — Package façade.
 
-Replaces the former monolithic ``backend/ax_memory.py``. The public
-import surface is preserved EXACTLY: every name previously importable
-from ``backend.ax_memory`` (public *and* private/underscore-prefixed) is
-still importable from here.
+The public import surface is the union of the submodules below: every
+module-level name (public *and* private/underscore-prefixed) of each
+submodule is importable from here.
 
 Layout
 ======
@@ -29,13 +28,23 @@ Public import contract (must stay stable)
 -----------------------------------------
 Known external callers:
 
-- ``app.py``                 : ``init_db``
-- ``backend/services/_chat_with_tools.py`` : ``detect_sites_from_text``,
-                                              ``detect_session_url``,
-                                              ``render_site_contextual``,
-                                              ``normalize_url``
-- ``tools/firefox_tools.py`` : ``record_action``, ``record_inspection``,
-                                ``get_credentials``, ``save_credentials``
+- ``server/app.py``,
+  ``server/local_mcp_server.py``      : ``init_db``
+- ``shared_infra/memory/routes_ax.py`` (``/api/ax/*``) :
+                                        ``list_sites_with_stats``,
+                                        ``get_site_stats``, ``get_tree_json``,
+                                        ``render_full_dom_for_prompt``,
+                                        ``mark_site_stale``, ``delete_site``,
+                                        ``delete_sites_bulk``,
+                                        ``delete_credentials``, ``wipe_all``
+- ``llm_core/context/assembly.py``    : ``detect_sites_from_text``,
+                                        ``detect_session_url``,
+                                        ``render_site_contextual``,
+                                        ``normalize_url``
+- ``llm_core/tools/firefox_tools.py`` : ``record_action``, ``record_inspection``,
+                                        ``get_credentials``, ``save_credentials``,
+                                        ``list_sites_with_stats``, ``find_path``,
+                                        ``search_nodes``, ``load_dom_tree``
 """
 
 # ─────────────────────────────────────────────────────────────────────────────

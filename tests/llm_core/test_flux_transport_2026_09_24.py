@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from llm_core import _chat_with_tools as W, _llm_params
+from llm_core import _llm_params
 from llm_core._llm_retry import (
     KIND_CONTEXT_OVERFLOW,
     KIND_FORBIDDEN,
@@ -28,6 +28,7 @@ from llm_core._llm_retry import (
     provider_message,
 )
 from llm_core._stream_tag_parser import ThinkTagSplitter
+from llm_core.engine import llm_stream as _llm_stream
 from llm_core.providers import anthropic as A, openai_compat as _oai
 from llm_core.providers.llamacpp import SseStreamResult, consume_llama_sse
 
@@ -92,7 +93,7 @@ def transport(monkeypatch):
         return None
 
     monkeypatch.setattr(_llm_params, "resolve_sampling", _fake_sampling)
-    monkeypatch.setattr(W, "_llm_retry_pause", _no_pause)
+    monkeypatch.setattr(_llm_stream, "_llm_retry_pause", _no_pause)
 
     def _install(client):
         monkeypatch.setattr(_oai, "_get_llm_client", lambda *a, **k: client)
@@ -113,7 +114,7 @@ async def test_coupure_silencieuse_n_execute_pas_l_appel_du_raisonnement(transpo
     transport(_Client(_Resp([
         _data({"choices": [{"delta": {"reasoning_content": _THINK_CALL}}]}),
     ])))
-    out = await W._llama_chat_with_tools_stream(
+    out = await _llm_stream._llama_chat_with_tools_stream(
         [{"role": "user", "content": "écris"}], [_tool("write_file")])
     ch = out["choices"][0]
     assert not ch["message"]["tool_calls"], "appel tronqué promu puis exécuté"
@@ -129,7 +130,7 @@ async def test_la_recuperation_reste_active_sur_un_stop(transport):
         _data({"choices": [{"delta": {"reasoning_content": fermé}}]}),
         _data({"choices": [{"delta": {}, "finish_reason": "stop"}]}),
     ])))
-    out = await W._llama_chat_with_tools_stream(
+    out = await _llm_stream._llama_chat_with_tools_stream(
         [{"role": "user", "content": "écris"}], [_tool("write_file")])
     ch = out["choices"][0]
     assert ch["finish_reason"] == "tool_calls"
@@ -152,7 +153,7 @@ async def test_repli_500_sans_outils_propage_length(transport):
         _http(200, {"choices": [{"finish_reason": "length",
                                  "message": {"content": texte}}]}),
     ]))
-    out = await W._llama_chat_with_tools_stream(
+    out = await _llm_stream._llama_chat_with_tools_stream(
         [{"role": "user", "content": "écris"}], [_tool("write_file")])
     assert out["choices"][0]["finish_reason"] == "length", \
         "le vrai motif de fin est jeté : l'appel tronqué serait exécuté"
@@ -164,7 +165,7 @@ async def test_repli_500_sans_outils_prose_tronquee_reste_length(transport):
         _http(200, {"choices": [{"finish_reason": "length",
                                  "message": {"content": "Une réponse coup"}}]}),
     ]))
-    out = await W._llama_chat_with_tools_stream(
+    out = await _llm_stream._llama_chat_with_tools_stream(
         [{"role": "user", "content": "q"}], [_tool("read_file")])
     assert out["choices"][0]["finish_reason"] == "length"
 
@@ -182,7 +183,7 @@ async def test_coupure_pendant_les_arguments_ne_rejoue_pas_les_deltas(transport)
             "function": {"name": "write_file",
                          "arguments": '{"path": "a.py", "content": "de'}}]}}]}),
     ], cut=httpx.ReadError("coupure"))))
-    out = await W._llama_chat_with_tools_stream(
+    out = await _llm_stream._llama_chat_with_tools_stream(
         [{"role": "user", "content": "écris"}], [_tool("write_file")],
         on_tool_call_delta=_on_delta)
     assert client.n_stream == 1, "un retry a rejoué les tool_call_delta"
@@ -195,12 +196,12 @@ async def test_coupure_pendant_les_arguments_ne_rejoue_pas_les_deltas(transport)
 # ── 14. Partiel de transport : arrêt du moteur + texte de la reprise ─────────
 async def test_partiel_de_transport_arrete_la_session(transport, monkeypatch):
     fired = []
-    monkeypatch.setattr(W, "_fire_cancel_stream",
+    monkeypatch.setattr(_llm_stream, "_fire_cancel_stream",
                         lambda *a, **k: fired.append(a))
     transport(_Client(_Resp([
         _data({"choices": [{"delta": {"content": "Bonjour"}}]}),
     ], cut=httpx.ReadError("coupure"))))
-    out = await W._llama_chat_with_tools_stream(
+    out = await _llm_stream._llama_chat_with_tools_stream(
         [{"role": "user", "content": "q"}], [_tool("read_file")])
     assert out.get("partial") is True
     assert fired, "la session nommée continuerait de générer sur le slot"
@@ -209,13 +210,13 @@ async def test_partiel_de_transport_arrete_la_session(transport, monkeypatch):
 async def test_partiel_sur_erreur_du_fournisseur_n_arrete_rien(transport, monkeypatch):
     """Une erreur SSE du fournisseur n'a rien laissé tourner côté moteur."""
     fired = []
-    monkeypatch.setattr(W, "_fire_cancel_stream",
+    monkeypatch.setattr(_llm_stream, "_fire_cancel_stream",
                         lambda *a, **k: fired.append(a))
     transport(_Client(_Resp([
         _data({"choices": [{"delta": {"content": "Bonjour"}}]}),
         _data({"error": {"code": 500, "message": "boom"}}),
     ])))
-    out = await W._llama_chat_with_tools_stream(
+    out = await _llm_stream._llama_chat_with_tools_stream(
         [{"role": "user", "content": "q"}], [_tool("read_file")])
     assert out.get("partial") is True
     assert not fired
@@ -246,7 +247,7 @@ async def test_reprise_coupee_garde_le_texte_deja_affiche(monkeypatch):
     async def _on_content(seg):
         shown.append(seg)
 
-    res = await W._resume_cut_stream(
+    res = await _llm_stream._resume_cut_stream(
         None, SimpleNamespace(base_url="http://h:8080", is_default=True,
                               api_key=""), "conv", "m",
         httpx.ReadError("x"), req_id="r", user_id="u", previous=previous,
@@ -262,7 +263,7 @@ def test_keep_resumed_text_ne_raccourcit_jamais():
     prev, fresh = SseStreamResult(), SseStreamResult()
     prev.content_parts.append("abcdef")
     fresh.content_parts.append("abc")
-    W._keep_resumed_text(prev, fresh)
+    _llm_stream._keep_resumed_text(prev, fresh)
     assert prev.content() == "abcdef"
 
 
@@ -307,7 +308,7 @@ async def test_erreur_sse_ne_part_pas_en_retry_aveugle(transport):
                                     "context size"}}),
     ])))
     with pytest.raises(LLMFailure) as ei:
-        await W._llama_chat_with_tools_stream(
+        await _llm_stream._llama_chat_with_tools_stream(
             [{"role": "user", "content": "q"}], [_tool("read_file")])
     assert client.n_stream == 1
     assert ei.value.kind == KIND_CONTEXT_OVERFLOW

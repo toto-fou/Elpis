@@ -14,6 +14,9 @@ from pathlib import Path
 import pytest
 
 import llm_core.tools.fs_tools as fs_tools
+from llm_core import _model_info
+from llm_core.engine import llm_stream as _llm_stream
+from shared_infra.observability import usage_ctx as _usage_ctx
 
 
 class _FakeMCP:
@@ -200,7 +203,7 @@ async def test_disjoncteur_couvre_le_comptage_par_messages(monkeypatch):
 def test_usage_du_run_annule_compte_l_appel_en_vol(monkeypatch):
     import llm_core._chat_with_tools as C
     rec = []
-    monkeypatch.setattr(C, "record_turn_usage", lambda **kw: rec.append(kw))
+    monkeypatch.setattr(_usage_ctx, "record_turn_usage", lambda **kw: rec.append(kw))
     acc = {"in": 1000, "out": 50, "inflight_in": 8000, "iterations": 2}
     C._record_cancelled_run_usage(acc, time.time())
     assert rec and rec[0]["input_tokens"] == 9000 and rec[0]["status"] == "cancelled"
@@ -213,7 +216,7 @@ def test_usage_du_run_annule_compte_l_appel_en_vol(monkeypatch):
 async def test_exception_du_run_enregistre_l_usage(monkeypatch):
     import llm_core._chat_with_tools as C
     rec = []
-    monkeypatch.setattr(C, "record_turn_usage", lambda **kw: rec.append(kw))
+    monkeypatch.setattr(_usage_ctx, "record_turn_usage", lambda **kw: rec.append(kw))
 
     async def _impl(*a, **k):
         C._RUN_USAGE_ACC.get().update({"in": 500, "out": 20, "iterations": 1})
@@ -234,9 +237,10 @@ async def _run_loop(monkeypatch, messages, *, n_iter=2):
 
     class _T:
         is_local_llamacpp = True
+        is_llamacpp = True
     monkeypatch.setattr(_cwt, "verify_llm_availability", _anoop)
     monkeypatch.setattr(_cwt, "_model_supports_vision", _avision)
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
     monkeypatch.setattr(_tgt, "current_target", lambda: _T())
     sent = []
     cnt = {"n": 0}
@@ -254,13 +258,14 @@ async def _run_loop(monkeypatch, messages, *, n_iter=2):
             "role": "assistant", "content": "fin", "tool_calls": None}}],
             "usage": {"prompt_tokens": 100, "completion_tokens": 5}, "timings": {}}
     monkeypatch.setattr(_cwt, "_llama_chat_with_tools_stream", _fake_stream)
+    from llm_core.context import pruning as _pruning
     fits = []
-    _real_fit = _cwt._fit_context
+    _real_fit = _pruning.fit_context
 
     async def _spy_fit(*a, **k):
         fits.append(k)
         return await _real_fit(*a, **k)
-    monkeypatch.setattr(_cwt, "_fit_context", _spy_fit)
+    monkeypatch.setattr(_pruning, "fit_context", _spy_fit)
 
     async def _lire(_a):
         return {"ok": True}
@@ -275,13 +280,13 @@ async def _run_loop(monkeypatch, messages, *, n_iter=2):
 async def test_tour_de_synthese_recoit_le_plancher(monkeypatch):
     _sent, fits = await _run_loop(monkeypatch, [{"role": "user", "content": "go"}])
     assert fits and all("drop_floor" in k for k in fits), \
-        "un appel de _fit_context sans plancher (synthèse ?)"
+        "un appel de fit_context sans plancher (synthèse ?)"
 
 
 # ── Route : passation, recollage, suffixes ────────────────────────────────
 
 def test_recalage_de_passation_limite_au_partiel_du_run_stoppe():
-    from chatbot_app.routes.chats import _handover_rebaseline_ok as ok
+    from chatbot_app.turn.admission import _handover_rebaseline_ok as ok
     base = [{"role": "user", "content": "q"}]
     tronque = {"role": "assistant", "content": "part", "isTruncated": True}
     assert ok(base, list(base))
@@ -295,7 +300,7 @@ def test_recalage_de_passation_limite_au_partiel_du_run_stoppe():
 
 
 def test_travail_d_outils_d_un_tour_stoppe_recolle():
-    from chatbot_app.routes.chats import _CANCEL_PLACEHOLDER, _graft_stopped_turn_state
+    from chatbot_app.turn.history import _CANCEL_PLACEHOLDER, _graft_stopped_turn_state
     th = [{"role": "assistant", "tool_calls": [_tc("w")]},
           {"role": "tool", "tool_call_id": "w", "content": "écrit"}]
     db = [{"role": "user", "content": "fais"},
@@ -313,7 +318,7 @@ def test_travail_d_outils_d_un_tour_stoppe_recolle():
 
 
 def test_suffixe_rejoue_sur_la_question_reprise_par_continuer():
-    from chatbot_app.routes.chats import _expand_history_for_llm
+    from chatbot_app.turn.history import _expand_history_for_llm
     from llm_core.context.pruning import user_suffix_sig
     msgs = [{"role": "user", "content": "q"},
             {"role": "assistant", "content": "début", "isTruncated": True}]
@@ -558,7 +563,6 @@ def test_save_stdout_ecrit_la_sortie_complete(tmp_path, monkeypatch):
 async def test_payload_tool_choice_none_garde_les_outils(monkeypatch):
     """``tool_choice="none"`` : ``tools[]`` reste dans la requête (préfixe KV),
     seule la valeur de ``tool_choice`` change."""
-    import llm_core._chat_with_tools as C
     seen = {}
 
     class _Stop(Exception):
@@ -587,7 +591,7 @@ async def test_payload_tool_choice_none_garde_les_outils(monkeypatch):
     tools = [{"type": "function", "function": {"name": "t", "parameters": {"type": "object"}}}]
     for choice in ("auto", "none"):
         with pytest.raises(_Stop):
-            await C._llama_chat_with_tools_stream(
+            await _llm_stream._llama_chat_with_tools_stream(
                 [{"role": "user", "content": "q"}], tools, tool_choice=choice)
     assert [c.get("tool_choice") for c in captured] == ["auto", "none"]
     assert all(c.get("tools") for c in captured)

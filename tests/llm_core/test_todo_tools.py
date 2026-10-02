@@ -13,6 +13,8 @@ import json
 
 import pytest
 
+from llm_core import _mcp_pool
+from llm_core.engine import tool_catalog as _tool_catalog
 from llm_core.tools.todo_tools import MAX_TODOS, _coerce
 
 # ── _coerce : schéma souple, jamais d'erreur dure ────────────────────────────
@@ -162,7 +164,6 @@ async def test_collect_mcp_tools_task_toujours_inclus(monkeypatch):
     """filter_categories=["fs"] (le user n'a coché QUE Fichiers) → todowrite
     (catégorie cachée ``task``) est quand même exposé au modèle ; une
     catégorie visible non cochée (chart) reste filtrée."""
-    import llm_core._chat_with_tools as _cwt
     import llm_core._mcp_categories as _cats
 
     _cat_map = {"read_file": "fs", "todowrite": "task", "create_chart": "chart"}
@@ -178,9 +179,9 @@ async def test_collect_mcp_tools_task_toujours_inclus(monkeypatch):
                 {"name": "create_chart", "description": "", "inputSchema": {"type": "object"}},
             ]
 
-    monkeypatch.setattr(_cwt, "mcp_pool", _Pool())
+    monkeypatch.setattr(_mcp_pool, "mcp_pool", _Pool())
 
-    _map, tools_payload, _handlers, _names = await _cwt._collect_mcp_tools(
+    _map, tools_payload, _handlers, _names = await _tool_catalog._collect_mcp_tools(
         [{"type": "stdio", "name": "Outils", "command": "DEFAULT_LOCAL_PYTHON",
           "filter_categories": ["fs"]}],
         None, None,
@@ -195,7 +196,6 @@ async def test_collect_mcp_tools_deny_layer(monkeypatch):
     """``deny_tool_names`` retire un outil même s'il est dans une catégorie
     CACHÉE (todowrite/task) ou builtin — contrairement à allowed_tool_names.
     Utilisé par le moteur de sous-agents pour isoler un enfant."""
-    import llm_core._chat_with_tools as _cwt
     import llm_core._mcp_categories as _cats
 
     _cat_map = {"read_file": "fs", "todowrite": "task"}
@@ -210,18 +210,18 @@ async def test_collect_mcp_tools_deny_layer(monkeypatch):
                 {"name": "todowrite", "description": "", "inputSchema": {"type": "object"}},
             ]
 
-    monkeypatch.setattr(_cwt, "mcp_pool", _Pool())
+    monkeypatch.setattr(_mcp_pool, "mcp_pool", _Pool())
 
     _builtins = {"task": {"definition": {"type": "function", "function": {"name": "task"}}, "handler": lambda a: "{}"}}
     cfgs = [{"type": "stdio", "name": "Outils", "command": "DEFAULT_LOCAL_PYTHON", "filter_categories": ["fs"]}]
 
     # Sans deny : todowrite (caché) + task (builtin) présents.
-    _m, payload, handlers, _n = await _cwt._collect_mcp_tools(cfgs, _builtins, None)
+    _m, payload, handlers, _n = await _tool_catalog._collect_mcp_tools(cfgs, _builtins, None)
     exposed = {t["function"]["name"] for t in payload}
     assert {"read_file", "todowrite", "task"} <= exposed
 
     # Avec deny : todowrite ET le builtin task disparaissent, read_file reste.
-    _m, payload, handlers, _n = await _cwt._collect_mcp_tools(
+    _m, payload, handlers, _n = await _tool_catalog._collect_mcp_tools(
         cfgs, _builtins, None, deny_tool_names={"task", "todowrite"})
     exposed = {t["function"]["name"] for t in payload}
     assert "read_file" in exposed

@@ -32,6 +32,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
+from chatbot_app.turn import events, execution, persistence
 from shared_infra.routes import _state
 from shared_infra.runtime import chat_locks
 
@@ -132,7 +133,7 @@ def test_continuer_abouti_ne_repose_pas_istruncated(harnais, monkeypatch):
     async def _classique(msgs, **kw):
         await kw["on_content_token"](" et la suite.")
         return "", " et la suite.", {"finish_reason": "stop"}
-    monkeypatch.setattr(chats_mod, "llama_chat_stream_tokens", _classique)
+    monkeypatch.setattr(execution, "llama_chat_stream_tokens", _classique)
 
     upsert_chat(1, "c1", "t", TRONQUE, 100.0)
     # Le front envoie la bulle reprise SANS isTruncated (effacé au clic).
@@ -159,7 +160,7 @@ def test_reprendre_boucle_outils_aboutie_ne_repose_pas_istruncated(harnais, monk
         return "Terminé.", [], {"model": "stub", "tool_limit_reached": False}
     monkeypatch.setattr(llm_core, "run_chat_multi_mcp", _outils)
     monkeypatch.setattr(llm_core, "run_chat_multi_mcp_v2", _outils)
-    monkeypatch.setattr(chats_mod, "run_chat_multi_mcp", _outils)
+    monkeypatch.setattr(execution, "run_chat_multi_mcp", _outils)
     update_user_settings(1, {"enable_mcp": True, "mcp_servers": [DOCX]})
 
     upsert_chat(1, "c2", "t", [
@@ -181,7 +182,6 @@ def test_reprendre_boucle_outils_aboutie_ne_repose_pas_istruncated(harnais, monk
 # ── B. File pleine + flux fermé ──────────────────────────────────────────────
 
 async def test_couper_file_debloque_un_put_en_attente():
-    chats_mod = pytest.importorskip("chatbot_app.routes.chats")
     q: asyncio.Queue = asyncio.Queue(maxsize=3)
     for i in range(3):
         q.put_nowait(i)
@@ -189,7 +189,7 @@ async def test_couper_file_debloque_un_put_en_attente():
     await asyncio.sleep(0.01)
     assert not bloque.done()           # file pleine : le put attend
     drapeau = [False]
-    chats_mod._couper_file(q, drapeau)
+    events._couper_file(q, drapeau)
     await asyncio.wait_for(bloque, 1.0)   # débloqué par la vidange
     assert drapeau == [True]
 
@@ -206,7 +206,7 @@ async def test_flux_ferme_file_pleine_le_worker_rend_le_chat(harnais, monkeypatc
             produits[0] += 1
         await asyncio.sleep(3600)
         return "", "", {}
-    monkeypatch.setattr(chats_mod, "llama_chat_stream_tokens", _bavard)
+    monkeypatch.setattr(execution, "llama_chat_stream_tokens", _bavard)
 
     upsert_chat(1, "c3", "t", [{"role": "user", "content": "q0"},
                                {"role": "assistant", "content": "r0"}], 100.0)
@@ -247,9 +247,9 @@ async def test_stop_pendant_la_persistance_finale_pas_de_partiel(harnais, monkey
     async def _classique(msgs, **kw):
         await kw["on_content_token"]("réponse complète")
         return "", "réponse complète", {"finish_reason": "stop"}
-    monkeypatch.setattr(chats_mod, "llama_chat_stream_tokens", _classique)
+    monkeypatch.setattr(execution, "llama_chat_stream_tokens", _classique)
 
-    vrai = chats_mod._persist_turn
+    vrai = execution._persist_turn
     appels: list = []
     en_ecriture = threading.Event()
 
@@ -259,7 +259,7 @@ async def test_stop_pendant_la_persistance_finale_pas_de_partiel(harnais, monkey
             en_ecriture.set()
             time.sleep(0.4)          # écriture SQLite en contention
         return vrai(persist, uid, cid, title, messages, **kw)
-    monkeypatch.setattr(chats_mod, "_persist_turn", _lent)
+    monkeypatch.setattr(execution, "_persist_turn", _lent)
 
     upsert_chat(1, "c4", "t", [], 100.0)
     resp = await chats_mod.api_chat_saved_stream3(_requete({
@@ -280,7 +280,7 @@ async def test_stop_pendant_la_persistance_finale_pas_de_partiel(harnais, monkey
     # Stop : flag d'annulation + task.cancel(), comme /api/chat/cancel.
     task = _state.get_active_chat_task(1, "c4")
     assert task is not None
-    chats_mod.mark_chat_cancelled(1, "c4")
+    execution.mark_chat_cancelled(1, "c4")
     task.cancel()
     await asyncio.wait_for(lecteur, 5.0)
 
@@ -295,11 +295,10 @@ async def test_stop_pendant_la_persistance_finale_pas_de_partiel(harnais, monkey
 
 
 async def test_attendre_hors_annulation_absorbe_et_decompte():
-    chats_mod = pytest.importorskip("chatbot_app.routes.chats")
     fut = asyncio.ensure_future(asyncio.to_thread(lambda: (time.sleep(0.2), "ok")[1]))
 
     async def _appelant():
-        res, annule = await chats_mod._attendre_hors_annulation(fut)
+        res, annule = await persistence._attendre_hors_annulation(fut)
         # L'annulation absorbée est retirée du compteur de la tâche.
         return res, annule, asyncio.current_task().cancelling()
     t = asyncio.ensure_future(_appelant())
@@ -310,9 +309,9 @@ async def test_attendre_hors_annulation_absorbe_et_decompte():
 
 # ── D. write_tps une seule fois ─────────────────────────────────────────────
 
-def _espion_metriques(chats_mod, monkeypatch):
+def _espion_metriques(module, monkeypatch):
     noms: list = []
-    monkeypatch.setattr(chats_mod, "log_metric",
+    monkeypatch.setattr(module, "log_metric",
                         lambda nom, *a, **k: noms.append(nom))
     return noms
 
@@ -327,9 +326,9 @@ def test_tour_outille_write_tps_pas_ecrit_par_la_route(harnais, monkeypatch):
         return "ok", [], {"model": "stub", "write_tps": 12.5}
     monkeypatch.setattr(llm_core, "run_chat_multi_mcp", _outils)
     monkeypatch.setattr(llm_core, "run_chat_multi_mcp_v2", _outils)
-    monkeypatch.setattr(chats_mod, "run_chat_multi_mcp", _outils)
+    monkeypatch.setattr(execution, "run_chat_multi_mcp", _outils)
     update_user_settings(1, {"enable_mcp": True, "mcp_servers": [DOCX]})
-    noms = _espion_metriques(chats_mod, monkeypatch)
+    noms = _espion_metriques(execution, monkeypatch)
 
     _final(_tour(_client(), {
         "messages": [{"role": "user", "content": "q"}], "chat_id": "",
@@ -343,8 +342,8 @@ def test_chat_classique_write_tps_ecrit_une_fois(harnais, monkeypatch):
 
     async def _classique(msgs, **kw):
         return "", "ok", {"finish_reason": "stop"}
-    monkeypatch.setattr(chats_mod, "llama_chat_stream_tokens", _classique)
-    noms = _espion_metriques(chats_mod, monkeypatch)
+    monkeypatch.setattr(execution, "llama_chat_stream_tokens", _classique)
+    noms = _espion_metriques(execution, monkeypatch)
 
     _final(_tour(_client(), {
         "messages": [{"role": "user", "content": "q"}], "chat_id": "",

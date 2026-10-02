@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from chatbot_app.routes.chats import (
+from chatbot_app.turn.history import (
     _CLIENT_ROLES,
     _expand_history_for_llm,
     _normalize_client_messages,

@@ -1,0 +1,293 @@
+{
+  "appels_interceptes": [
+    {
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo",
+          "role": "system"
+        },
+        {
+          "content": "question 0 qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+          "role": "user"
+        },
+        {
+          "content": "reponse 0 rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+          "role": "assistant"
+        },
+        {
+          "content": "question 1 qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+          "role": "user"
+        },
+        {
+          "content": "reponse 1 rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+          "role": "assistant"
+        },
+        {
+          "content": "question 2 qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+          "role": "user"
+        },
+        {
+          "content": "reponse 2 rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+          "role": "assistant"
+        },
+        {
+          "content": "question 3 qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+          "role": "user"
+        },
+        {
+          "content": "reponse 3 rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+          "role": "assistant"
+        },
+        {
+          "content": "continue le travail outillé",
+          "role": "user"
+        }
+      ],
+      "tool_choice": null,
+      "tools": [
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    }
+  ],
+  "evenements": [
+    {
+      "context_tokens": 0,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 0,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "ctx_size": 262144,
+      "external": false,
+      "model": "golden-model",
+      "path": "self",
+      "reason": "overflow",
+      "threshold": 225760,
+      "tokens": 1344,
+      "turns": 9,
+      "type": "compression_start"
+    },
+    {
+      "covered_turns": 6,
+      "ledger_block": "",
+      "round": 1,
+      "summary_xml": "<context>resume apres depassement.</context>",
+      "turns_compressed": 6,
+      "type": "compression_state"
+    },
+    {
+      "external": false,
+      "path": "self",
+      "stats": {
+        "chars_after": 1450,
+        "chars_before": 3659,
+        "compressed": true,
+        "defer_retry": false,
+        "had_previous_summary": false,
+        "ledger_block": "",
+        "max_rounds": 5,
+        "messages_after": 5,
+        "messages_before": 10,
+        "model_used": "golden-model",
+        "new_state": {
+          "covered_turns": 6,
+          "ledger_block": "",
+          "round": 1,
+          "summary_xml": "<context>resume apres depassement.</context>",
+          "turns_compressed": 6
+        },
+        "path": "external_model",
+        "ratio": 0.396,
+        "round": 1,
+        "summary_coerced": false,
+        "target_after_tokens": 135456,
+        "target_reached": true,
+        "tokens_after": 608,
+        "tokens_before": 1344,
+        "tokens_estimated": false,
+        "tokens_saved": 736,
+        "turns_compressed": 6,
+        "zone_tokens": 0
+      },
+      "type": "compression_done"
+    },
+    {
+      "context_tokens": 0,
+      "max": 200,
+      "n": 1,
+      "tokens_used": 0,
+      "type": "iteration"
+    },
+    {
+      "text": "Réflexion…",
+      "type": "mode"
+    },
+    {
+      "pct": 31,
+      "total": 262144,
+      "type": "kv_cache",
+      "used": 80000
+    },
+    {
+      "text": "Terminé après dépassement.",
+      "type": "content_token"
+    }
+  ],
+  "final": "Terminé après dépassement.",
+  "metrics": {
+    "finish_reason": "stop",
+    "input_tokens": 80000,
+    "iterations": 0,
+    "last_completion_tokens": 8,
+    "last_prompt_tokens": 80000,
+    "model": "golden-model",
+    "output_tokens": 8,
+    "response_tokens": 8,
+    "submitted_input_tokens": 80000,
+    "think_resumes": 0,
+    "thinking": "",
+    "thinking_tokens": 0,
+    "thinking_tokens_estimated": false,
+    "truncated": false,
+    "truncated_in_think": false
+  },
+  "payloads": [
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "# Conversation compressor\n\nYou compress long conversations into a dense, factual, ANCHORED summary. Your output\nreplaces the older turns so the assistant can keep working without losing essential context.\nWrite the summary in the conversation's language.\n\n## What to capture\n\nPreserve, in priority order:\n\n1. **Stable facts** — names, identifiers, file paths, URLs, version numbers, precise values\n   that guide future decisions. Preserve exact file paths, commands, identifiers and error\n   strings VERBATIM — never paraphrase them.\n2. **What was done** — concrete actions (files written, commands run, decisions made). Past\n   tense, one bullet each.\n3. **Current state** — where the work stands now (done, in progress, blocked).\n4. **Constraints / decisions** — explicit choices and their rationale, so they are not\n   re-litigated.\n5. **Pitfalls / known issues** — what already broke, dead ends not to repeat.\n\n## What to discard\n\n- Conversational acknowledgements (\"OK\", \"thanks\", \"understood\").\n- Empty rephrasings of what the other party just said.\n- Tool-call boilerplate with no distinct result.\n- Long error traces once the cause is understood — keep the cause (exact error string), drop\n  the trace.\n- Anything the reader can re-derive from the recent turns that are kept.\n\n## Anchored format (fixed sections)\n\nStart **directly** with the summary — no preamble, no \"Here is the summary\". Use EXACTLY\nthese sections, in this order, omitting a section only when it would be empty:\n\n```\n## Goal\nWhat this conversation is trying to achieve, in 1-2 sentences.\n\n## Constraints & Preferences\n- Explicit constraints, user preferences, choices already settled.\n\n## Progress\n### Done\n- Concrete action, past tense.\n### In Progress\n- What is currently underway.\n### Blocked\n- What is stuck, and on what.\n\n## Key Decisions\n- Decision — rationale (one line each).\n\n## Next Steps\n- The immediate next actions, in order.\n\n## Critical Context\n- Facts, values, identifiers, exact error strings that future turns need.\n\n## Relevant Files\n- path — one-phrase role. (Paths only; contents live on disk.)\n```\n\n## Updating the anchored summary (`<anchored_summary>`)\n\nFrom the second pass on, the input starts with the current anchored summary inside\n`<anchored_summary>` tags, followed by the new turns. Do NOT regenerate from scratch —\nUPDATE it:\n\n- keep still-relevant entries as they are (whatever you drop is lost — it exists nowhere\n  else);\n- merge in the new facts, decisions and pitfalls from the new turns;\n- move finished work from In Progress to Done; drop Next Steps that are now done or\n  obsolete;\n- on contradiction, the new turns win;\n- output the FULL updated summary in the same anchored format.\n\n## Strict rules\n\n- NEVER invent a fact that did not appear in the conversation.\n- No apologies, no hedging (\"It seems…\", \"I think…\") — be assertive based on what was\n  actually said.\n- Never step out of the anchored format with prose commentary.\n- Be telegraphic: short bullets, noun phrases over full sentences, no filler words.\n\n## Size budget (hard)\n\nThe summary is a WORKING NOTE, not a report. The user reads it to verify nothing important\nwas lost — a wall of text defeats the purpose.\n\n- Total output: at most 45 lines and roughly 350 words.\n- Per section: Goal 1-2 sentences; Constraints max 6 bullets; each Progress subsection max\n  6 bullets; Key Decisions max 6; Next Steps max 5; Critical Context max 10; Relevant\n  Files max 8. ONE line per bullet.\n- Over budget? Drop the LEAST important items following the priority order above — never\n  exceed the caps, never truncate a bullet mid-sentence.\n- Merge near-duplicate bullets into one instead of listing variants.\n- The most important item comes FIRST inside each section.\n\n## Written files (external ledger)\n\nFile writes (`write_file`, `edit_file`, `git_write`…) that you see are already recorded OUTSIDE\nyour summary, in a deterministic ledger (operation, path, size, status) pinned alongside. So:\n\n- NEVER re-describe the content of a written file (it lives on disk — it can be re-read);\n  mention at most its role in `## Relevant Files`;\n- keep your bullets for what the ledger cannot say (decisions, failure causes, logical state).\n\nNote: some tool outputs may appear as `[Old tool output cleared — use session_search to\nretrieve it]` — they were pruned from the context view; do not treat the marker itself as\ninformation.",
+          "role": "system"
+        },
+        {
+          "content": "[USER] question 0 qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\n[ASSISTANT] reponse 0 rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\n[USER] question 1 qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\n[ASSISTANT] reponse 1 rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\n[USER] question 2 qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq\n[ASSISTANT] reponse 2 rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+          "role": "user"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "user": "golden"
+    },
+    {
+      "cache_prompt": true,
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      },
+      "id_slot": -1,
+      "max_tokens": 16384,
+      "messages": [
+        {
+          "content": "SOCLE SCÉNARIOS — identité de test stable, ne pas reformuler.\n\n---\n\n# Active tools (this session)\n\nThe tools callable this session are EXACTLY the ones below — a tool absent from this list does not exist right now (do not assume or invent one, and do not conclude a capability is missing without checking here first).\n\n- other: alpha_add, zeta_echo\n\n[COMPRESSED_SUMMARY_V1]\n<context>resume apres depassement.</context>\n[/COMPRESSED_SUMMARY_V1]\n\n(Compressed memory of 6 earlier turns. The facts above are the source of truth for that period. The messages that follow are the most recent, up-to-date ones.)",
+          "role": "system"
+        },
+        {
+          "content": "question 3 qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+          "role": "user"
+        },
+        {
+          "content": "reponse 3 rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+          "role": "assistant"
+        },
+        {
+          "content": "continue le travail outillé",
+          "role": "user"
+        }
+      ],
+      "model": "golden-model",
+      "n_cache_reuse": 256,
+      "return_progress": true,
+      "sse_ping_interval": 15,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "timings_per_token": true,
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "function": {
+            "description": "Additionne a et b (outil de test golden).",
+            "name": "alpha_add",
+            "parameters": {
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Renvoie ses arguments (outil de test golden).",
+            "name": "zeta_echo",
+            "parameters": {
+              "properties": {
+                "msg": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "user": "golden"
+    }
+  ]
+}

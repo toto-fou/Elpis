@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 
 import pytest
+
+from tests._sources import compter_appels, source_boucle, source_fonction
 
 # ── 2. Le plafond de tool_history voit les ARGUMENTS ────────────────────────
 
@@ -27,7 +30,7 @@ def _hist_lourd(n=200, taille=200_000):
 
 
 def test_la_pesee_compte_les_arguments_des_tool_calls():
-    from llm_core._chat_with_tools import _tool_msg_weight
+    from llm_core.engine.run import _tool_msg_weight
     m = {"role": "assistant", "content": None, "tool_calls": [{
         "id": "c0", "type": "function",
         "function": {"name": "write_file", "arguments": '{"content": "%s"}' % ("X" * 5000)}}]}
@@ -37,10 +40,7 @@ def test_la_pesee_compte_les_arguments_des_tool_calls():
 
 def test_le_plafond_agit_vraiment_sur_un_historique_massif():
     """PROUVÉ dans l'audit : 40 Mo réels, 1 200 « vus », cap no-op."""
-    from llm_core._chat_with_tools import (
-        RUN_TOOL_HISTORY_MAX_BYTES,
-        _cap_run_tool_history,
-    )
+    from llm_core.engine.run import RUN_TOOL_HISTORY_MAX_BYTES, _cap_run_tool_history
     hist = _hist_lourd()
     reel_avant = len(json.dumps(hist, ensure_ascii=False))
     assert reel_avant > 4 * RUN_TOOL_HISTORY_MAX_BYTES, "prémisse : historique massif"
@@ -55,7 +55,7 @@ def test_le_plafond_agit_vraiment_sur_un_historique_massif():
 def test_le_plafond_preserve_lappariement_et_le_json():
     """Les ``id``/``name`` restent (un « Continuer » les ré-expanse), et les
     arguments élagués restent du JSON VALIDE — certains gabarits les reparsent."""
-    from llm_core._chat_with_tools import _cap_run_tool_history
+    from llm_core.engine.run import _cap_run_tool_history
     out = _cap_run_tool_history(_hist_lourd())
     ids_calls = [c["id"] for m in out if m.get("tool_calls") for c in m["tool_calls"]]
     ids_res = [m["tool_call_id"] for m in out if m.get("role") == "tool"]
@@ -68,7 +68,7 @@ def test_le_plafond_preserve_lappariement_et_le_json():
 
 def test_la_queue_reste_intacte():
     """Le travail RÉCENT — le seul que le modèle relira — n'est pas touché."""
-    from llm_core._chat_with_tools import _cap_run_tool_history
+    from llm_core.engine.run import _cap_run_tool_history
     hist = _hist_lourd()
     out = _cap_run_tool_history(hist)
     assert out[-1] == hist[-1]
@@ -79,8 +79,7 @@ def test_la_queue_reste_intacte():
 # ── 3 / 50. La frame vision est ÉPHÉMÈRE ───────────────────────────────────
 
 def test_la_frame_vision_porte_le_marqueur_ephemere():
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._run_chat_multi_mcp_impl)
+    src = source_boucle()
     i = src.index("_pending_vision_msgs.append({")
     bloc = src[i:i + 1400]
     assert '"_ephemeral": True' in bloc, \
@@ -261,9 +260,8 @@ def test_le_memo_reste_efficace_sur_un_message_inchange():
 # ── 6. Un run outillé qui échoue est compté ────────────────────────────────
 
 def test_le_retour_derreur_enregistre_son_usage():
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._run_chat_multi_mcp_impl)
-    i = src.index("return _partial_text, events, _err_metrics")
+    src = source_boucle()
+    i = src.index("return _partial_text, rec.events, _err_metrics")
     amont = src[max(0, i - 1600):i]
     assert "record_turn_usage(" in amont, (
         "le retour d'échec ne journalise toujours rien — un run de 3 h qui "
@@ -272,17 +270,16 @@ def test_le_retour_derreur_enregistre_son_usage():
 
 
 def test_les_trois_retours_enregistrent_tous():
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._run_chat_multi_mcp_impl)
-    assert src.count("record_turn_usage(") == 3, \
-        "les trois sorties (ok / tool_limit / échec) doivent enregistrer"
+    # Trois sorties du run (ok / tool_limit / échec) + l'enveloppe qui
+    # enregistre un run annulé : quatre appels dans toute la boucle.
+    assert compter_appels("record_turn_usage") == 4, \
+        "les trois sorties (ok / tool_limit / échec) et l'annulation doivent enregistrer"
 
 
 # ── 8. Une génération coupée ne fait pas exécuter un appel tronqué ─────────
 
 def test_une_coupure_par_plafond_ninterdit_pas_la_recuperation_seulement():
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._llama_chat_with_tools_stream)
+    src = source_fonction("_llama_chat_with_tools_stream")
     i = src.index("_recovered = _recover_tool_calls_from_reasoning(")
     amont = src[max(0, i - 1600):i]
     assert '_tronque = (str(finish_reason or "") == "length")' in amont
@@ -305,7 +302,7 @@ def test_les_regex_de_secours_acceptent_bien_un_bloc_non_ferme():
 
 def _rejouer_frontiere(segments):
     """Rejoue la logique de frontière de la boucle sur N segments."""
-    from llm_core._chat_with_tools import _resume_prefix_join
+    from llm_core.engine.resume import _resume_prefix_join
     accumule = None
     for brut in segments:
         raw_exact = brut
@@ -332,8 +329,7 @@ def test_la_deuxieme_frontiere_de_reprise_garde_son_espace():
 
 
 def test_la_garde_de_frontiere_teste_le_suffixe_pas_legalite():
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._run_chat_multi_mcp_impl)
+    src = source_boucle()
     i = src.index("_cr_raw = _iter_clean or")
     bloc = src[i:i + 1600]
     assert "_raw_content_exact.strip() == _iter_clean.strip()" not in bloc, \
@@ -344,27 +340,24 @@ def test_la_garde_de_frontiere_teste_le_suffixe_pas_legalite():
 # ── 4. La compaction in-run passe par le sémaphore ─────────────────────────
 
 def test_les_quatre_appels_llm_de_la_boucle_prennent_un_slot():
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._run_chat_multi_mcp_impl)
-    assert "async def _llm_slot()" in src
-    assert src.count("async with _llm_slot():") == 2, \
+    src = source_boucle()
+    assert "async def llm_slot(ctx" in src
+    assert src.count("async with llm_slot(ctx):") == 2, \
         "les deux compactions in-run POSTent encore hors de tout slot"
-    # 3 = les deux acquires historiques (appel outillé, tour de synthèse)
-    # + celui du helper ``_llm_slot`` lui-même. Depuis 2026-09-16 ils passent
-    # par le gestionnaire du SERVEUR de la cible (``_engine_semaphore``) :
-    # ``LLM_SEMAPHORE`` pour l'intégré, celui du connecteur llama.cpp sinon.
-    assert src.count("async with _engine_semaphore().acquire_for(") == 3, \
+    # 3 = l'appel outillé, le tour de synthèse et le helper ``llm_slot``
+    # lui-même, tous via le gestionnaire du SERVEUR de la cible
+    # (``engine_semaphore``) : ``LLM_SEMAPHORE`` pour l'intégré, celui du
+    # connecteur llama.cpp sinon.
+    assert src.count("async with engine_semaphore().acquire_for(") == 3, \
         "l'appel outillé et le tour de synthèse doivent garder leur acquire"
 
 
 async def test_le_slot_est_un_no_op_en_mode_classic():
     """En classic, le caller tient déjà le sémaphore : le re-prendre serait un
     interblocage à concurrency=1."""
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._run_chat_multi_mcp_impl)
-    i = src.index("async def _llm_slot()")
-    bloc = src[i:i + 400]
-    assert "if _inline_semaphore:" in bloc and "else:\n            yield" in bloc
+    bloc = source_fonction("llm_slot")
+    assert "if ctx.inline_semaphore:" in bloc
+    assert re.search(r"else:\s*\n\s*yield", bloc), "le mode classic doit céder sans slot"
 
 
 # ── 53. L'import mort a disparu ────────────────────────────────────────────

@@ -333,7 +333,39 @@ def _drive(argv, keys, env, cols=100, rows=34, timeout=30):
     else:
         os.kill(pid, 9)
         os.waitpid(pid, 0)
+    # Ce que le processus a écrit juste avant de finir (restauration de
+    # l'écran, ``\x1b[?1049l``) peut encore attendre dans le pseudo-terminal :
+    # on le lit jusqu'à la fin (EOF, ou EIO une fois l'esclave fermé). Borné
+    # dans le temps : un petit-fils qui garderait l'esclave ouvert ne doit pas
+    # bloquer le test.
+    fin = time.time() + 5
+    while time.time() < fin and select.select([fd], [], [], 0.5)[0]:
+        try:
+            data = os.read(fd, 65536)
+        except OSError:
+            break
+        if not data:
+            break
+        out += data
+    os.close(fd)
     return out.decode("utf-8", "replace"), (os.waitstatus_to_exitcode(status) if status is not None else None)
+
+
+def _assistant_vierge(tmp_path) -> Path:
+    """Copie de l'assistant dans un dépôt vierge (sans ``config.json``).
+
+    L'assistant lit le ``config.json`` de SON dépôt pour proposer une
+    réinstallation : lancé depuis la copie de travail d'une instance
+    configurée, il afficherait d'autres écrans que ceux que le test pilote."""
+    racine = tmp_path / "depot"
+    (racine / "deploy").mkdir(parents=True)
+    (racine / "rag_app").mkdir()
+    for nom in ("wizard.py", "configure.py", "tui.py"):
+        shutil.copy(REPO / "deploy" / nom, racine / "deploy" / nom)
+    shutil.copy(REPO / "config.example.json", racine / "config.example.json")
+    shutil.copy(REPO / "rag_app" / "rag_config.example.json",
+                racine / "rag_app" / "rag_config.example.json")
+    return racine / "deploy" / "wizard.py"
 
 
 def test_assistant_dans_un_terminal(tmp_path):
@@ -345,7 +377,7 @@ def test_assistant_dans_un_terminal(tmp_path):
             b"\t", b"\t", b"\t", b"\t",       # LLM, Accès, RAG, Voix
             b"\t",                            # Admin (mot de passe généré)
             b"\r", b"\r"]                     # Démarrage : services ; Installer
-    screen, code = _drive([sys.executable, str(REPO / "deploy/wizard.py"), "install", "--out", str(out)],
+    screen, code = _drive([sys.executable, str(_assistant_vierge(tmp_path)), "install", "--out", str(out)],
                           keys, env)
     assert code == 0, screen[-2000:]
     assert "\x1b[?1049h" in screen and "\x1b[?1049l" in screen, "écran alternatif ouvert puis rendu"
@@ -357,13 +389,13 @@ def test_assistant_dans_un_terminal(tmp_path):
 
 def test_echap_abandonne_sans_rien_ecrire(tmp_path):
     out = tmp_path / "a.json"
-    screen, code = _drive([sys.executable, str(REPO / "deploy/wizard.py"), "install", "--out", str(out)],
+    screen, code = _drive([sys.executable, str(_assistant_vierge(tmp_path)), "install", "--out", str(out)],
                           [b"\x1b", b"o"], {"TERM": "xterm", "LANG": "C.UTF-8"})
     assert code == 1 and not out.exists()
 
 
 def test_terminal_inutilisable(tmp_path):
-    r = subprocess.run([sys.executable, str(REPO / "deploy/wizard.py"), "install", "--out", str(tmp_path / "a")],
+    r = subprocess.run([sys.executable, str(_assistant_vierge(tmp_path)), "install", "--out", str(tmp_path / "a")],
                        env=dict(os.environ, TERM="dumb"), capture_output=True, text=True, timeout=30)
     assert r.returncode == 3
 

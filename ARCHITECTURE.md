@@ -5,7 +5,9 @@ invariants qui tiennent l'ensemble. Ce document reste court et suit le code ;
 le détail (API, schémas, séquences, sous-systèmes) est dans
 [docs/architecture.md](docs/architecture.md), dont certaines parties
 (arborescence, base de données) sont antérieures au rangement actuel : en cas
-d'écart, ce fichier et le code font foi.
+d'écart, ce fichier et le code font foi. L'histoire des règles du cœur (boucle
+agentique, flux de chat) et la table de leur découpage en modules sont dans
+[docs/historique-coeur.md](docs/historique-coeur.md).
 
 ## Vue d'ensemble
 
@@ -37,24 +39,35 @@ Un tour de chat, de la requête au dernier événement :
    (`chatbot_app/routes/chats.py`). La route authentifie, puis refuse si une
    compaction ou une génération tourne déjà sur cette conversation (409) ou si
    l'utilisateur a trop d'exécutions en cours (429, `MAX_RUNS_PER_USER`).
+   `prepare_turn` (`chatbot_app/turn/preparation.py`) décide ensuite tout le
+   tour : cible, outils, historique, compaction, titre.
 2. **Cible.** `llm_core/_target.py` résout le moteur : `llama-server` intégré
    par défaut, ou un connecteur (activé, clé lisible, fournisseur autorisé).
    Les adresses des serveurs MCP sont résolues côté serveur, jamais reprises
    du client.
 3. **Verrou et flux.** Un verrou par conversation (`flock` dans le répertoire
    d'exécution, `shared_infra/runtime/chat_locks.py`) vaut pour tous les
-   workers. La réponse est un flux NDJSON alimenté par une tâche de fond via
-   une file, jetons regroupés toutes les 25 ms.
+   workers ; la route le prend, `run_turn` le réclame
+   (`chatbot_app/turn/admission.py`). La réponse est un flux NDJSON
+   (`run_turn`, `chatbot_app/turn/execution.py`) alimenté par une tâche de
+   fond via une file, jetons regroupés toutes les 25 ms
+   (`chatbot_app/turn/events.py`). L'ordre des événements est écrit en tête
+   de `chatbot_app/routes/chats.py`.
 4. **Ordonnancement.** Pour une cible llama.cpp, `llm_core/_scheduling/`
    applique l'exclusivité de modèle, les créneaux (slots) et le disjoncteur.
-5. **Boucle.** Sans outil : `_chat_classic.py`. Sinon la boucle agentique
-   (`_chat_with_tools.py`) : outils collectés dans le pool MCP, tête système
-   assemblée, puis à chaque itération porte de compaction, élagage périodique,
-   ajustement au contexte (`fit_context`), appel du modèle (Anthropic natif ou
-   compatible OpenAI) et exécution des appels d'outils (les outils sériels —
-   sandbox, dépôt, écran, sous-agent — un par un, les autres en parallèle,
-   shell compris, résultats remis dans l'ordre ; traits de chaque outil dans
-   `llm_core/_tool_traits.py`).
+5. **Boucle.** Sans outil : `_chat_classic.py`. Sinon la boucle agentique :
+   l'orchestrateur `llm_core/_chat_with_tools.py` collecte les outils dans le
+   pool MCP et assemble la tête système, puis, à chaque itération, appelle les
+   sous-routines de `llm_core/engine/`. Un tour LLM (`llm_turn.call_llm`) :
+   porte de compaction, élagage périodique, ajustement au contexte
+   (`fit_context`), appel du modèle (Anthropic natif ou compatible OpenAI).
+   Puis l'exécution du lot d'appels d'outils, la même pour les appels natifs
+   et les appels écrits en texte (`tool_dispatch.run_tool_batch`) : les outils
+   sériels — sandbox, dépôt, écran, sous-agent — un par un, les autres en
+   parallèle, shell compris, résultats remis dans l'ordre ; traits de chaque
+   outil dans `llm_core/_tool_traits.py`. Les compteurs d'itérations restent
+   à l'orchestrateur ; réponse finale, synthèse sur limite et sortie d'erreur
+   sont dans `engine/run_exit.py`.
 6. **Outils.** `_mcp_pool.call_tool` joint le **toolhost** (`python -m
    toolhost`, :8765), qui héberge les familles d'outils de
    `server/local_mcp_server.py` (repli : un sous-process stdio par worker).
@@ -65,12 +78,13 @@ Un tour de chat, de la requête au dernier événement :
    (`shared_infra/sandbox/agent/`), sous le même UID ; les opérations Git
    réseau lancées par Elpis passent par le relais authentifiant de l'hôte
    (`shared_infra/sandbox/git_relay.py`).
-8. **Fin de tour.** Le tour est enregistré (`shared_infra/chat/store.py`,
-   contrôle optimiste sur `updated_at` : un conflit est signalé, rien n'est
-   écrasé), puis les événements `kv_cache` et `final` partent. La
-   consommation va dans `usage_events`, les appels d'outils dans
-   `tool_call_metrics`, les compteurs dans `metric_events`.
-9. **Arrêt et reprise.** `POST /api/chat/cancel` publie sur le bus
+8. **Fin de tour.** Le tour est enregistré (`chatbot_app/turn/persistence.py`
+   puis `shared_infra/chat/store.py`, contrôle optimiste sur `updated_at` : un
+   conflit est signalé, rien n'est écrasé), puis les événements `kv_cache` et
+   `final` partent. La consommation va dans `usage_events`, les appels
+   d'outils dans `tool_call_metrics`, les compteurs dans `metric_events`.
+9. **Arrêt et reprise.** `POST /api/chat/cancel`
+   (`chatbot_app/routes/chat_control.py`) publie sur le bus
    d'annulation (fichier JSONL suivi par tous les workers). Si le navigateur
    se déconnecte, l'exécution continue détachée (dès qu'un outil a tourné, ou
    si la reprise est activée) ou s'arrête en enregistrant le partiel ; tout
@@ -98,10 +112,18 @@ Un tour de chat, de la requête au dernier événement :
   `discovery`), `_client.py`, `_llama_http.py`, `_llm_retry.py`, `_target.py`
   (cible d'inférence par requête), `engines.py`, `_llm_params.py` (cascade des
   paramètres d'échantillonnage).
-- **Boucles de chat** : `_chat_classic.py` (sans outils), `_chat_with_tools.py`
-  (boucle agentique), `engine/` (exécution d'un appel d'outil, contrat de
-  résultat), `_tool_parsing.py`, `_stream_tag_parser.py`, `_think_*` et
-  `_thinking_reconcile.py` (raisonnement).
+- **Boucles de chat** : `_chat_classic.py` (sans outils) ; la boucle
+  agentique, avec son orchestrateur `_chat_with_tools.py` (prélude, compteurs
+  d'itérations, aiguillage de chaque tour) et ses sous-routines dans
+  `engine/` (carte dans `engine/__init__.py`) : `llm_turn` (un tour LLM),
+  `llm_stream` (transport d'un appel), `live_text` (émission directe),
+  `resume` (reprises automatiques), `tool_catalog` (outils du tour),
+  `tool_dispatch` (exécution des appels d'outils, natifs ou écrits en texte),
+  `tool_exec` (ordonnancement d'un lot), `run_exit` (sorties du run), `run`
+  (état du run), `result_contract` (échecs d'outil), `stream_events`
+  (registre des événements NDJSON) ; `_tool_parsing.py` (appels écrits en
+  texte), `_stream_tag_parser.py`, `_think_*` et `_thinking_reconcile.py`
+  (raisonnement).
 - **Harnais de contexte** : `context/` — `tokens` (autorité de comptage),
   `budget`, `compaction_gate`, `pruning` (`fit_context`), `assembly` (tête
   système stable à l'octet), `compression/` ; plus
@@ -152,11 +174,21 @@ par champ `PATCH /api/admin/config`, `overview.py` la Vue d'ensemble).
 lus au démarrage (`BOOT_READ_PATHS`), d'où `ops/restart_pending.py` déduit
 les réglages qui attendent un redémarrage.
 
-### `chatbot_app/` — les routes de chat
+### `chatbot_app/` — le chat
 
-`routes/chats.py` : `POST /api/chat-saved-stream3` (flux NDJSON), annulation,
-compaction, reprise d'exécution ; `routes/saved_chats.py` : conversations
-enregistrées, archives, recherche.
+- `routes/` : `chats.py` (`POST /api/chat-saved-stream3`, flux NDJSON ; son
+  en-tête écrit les invariants du flux et l'ordre des événements d'un tour),
+  `chat_control.py` (annulation, « Répondre maintenant », état d'une
+  génération, rattachement à une exécution), `chat_compression.py`
+  (compression manuelle), `saved_chats.py` (conversations enregistrées,
+  archives, recherche).
+- `turn/` : un tour de chat hors de la couche HTTP — `admission` (verrou de
+  présence, compactions manuelles en vol), `preparation` (`prepare_turn` →
+  `TurnPlan`, `TurnResources`, `PersistBaseline`), `execution` (`run_turn`,
+  générateur NDJSON, et son worker), `events` (pompe NDJSON), `persistence`
+  (enregistrement optimiste), `history` (historique client ↔ base ↔ modèle,
+  « Continuer »), `tasks` (tâches de fond). Ce paquet n'importe jamais les
+  routes.
 
 ### `frontend/` — l'interface
 
@@ -299,7 +331,8 @@ passe par un relais local filtrant (`proxy_guard.js`, `url_guard.js`).
 
 - `tests/` suit les paquets : `llm_core/`, `shared_infra/`, `db/`, `chatbot/`,
   `memory/`, `sandbox/`, `rag_app/`, `desktop_agent/`, `toolhost/` ;
-  `goldens/` (charges utiles de référence), `load/` (charge, manuel).
+  `goldens/` (charges utiles de référence, scénarios complets de la boucle
+  et du flux de chat), `load/` (charge, manuel).
 - `tests/frontend/` : tests unitaires JS (exécutés aussi par pytest), gardes
   statiques (classes Tailwind, exports), et paires Playwright
   `*-server.mjs` / `*-verify.mjs`.

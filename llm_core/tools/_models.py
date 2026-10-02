@@ -1,19 +1,17 @@
 # SPDX-License-Identifier: MIT
 # tools/_models.py
 """
-Shared Pydantic output models for MCP tool returns.
+Shared Pydantic output models for MCP tool returns (structured outputs).
 
-v19 (Tier 1 MCP best practices, second half) — structured outputs.
-Until now every tool returned ``Dict[str, Any]`` which produced a flat
+A tool that returns ``Dict[str, Any]`` publishes a flat
 ``{"additionalProperties": true, "type": "object"}`` ``outputSchema`` in
 the MCP tool definition — useless to the LLM (it can't tell what fields
 exist or what their types are, so it guesses).
 
-Switching the success returns to Pydantic models gives the LLM a real
-JSON Schema per tool : it knows ``read_file`` returns ``{path, content,
-sha256, total_lines, ...}``, with each field's type and which are
-required. This reduces "field-name guessing" failures and makes
-multi-tool chains more reliable.
+Pydantic success models give the LLM a real JSON Schema per tool : it
+knows ``read_file`` returns ``{path, content, sha256, total_lines, ...}``,
+with each field's type and which are required. This reduces "field-name
+guessing" failures and makes multi-tool chains more reliable.
 
 Backward compatibility — KEY DESIGN POINT
 -----------------------------------------
@@ -21,18 +19,18 @@ The wire format produced by FastMCP is **identical** for ``dict`` vs
 Pydantic returns: the ``CallToolResult.content[0].text`` is the same
 JSON string in both cases (the Pydantic model just gets ``.model_dump
 (mode='json')``'d). ``pick_tool_payload`` in
-``backend.services._chat_with_tools`` therefore receives the same dict
+``llm_core.engine.tool_dispatch`` therefore receives the same dict
 either way — no frontend change required for the success path.
 
-We DO NOT migrate the error path (``{"ok": false, "error": "code", ...}``
-envelope) here. The frontend's ``_isErrorResult`` heuristic in
-``static/js/app-chat.js`` reads the ``error`` field directly; changing
-the shape would require coordinated FE updates. The error envelope stays
-exactly as ``tools/_toolkit.err()`` produces it.
+The error path (``{"ok": false, "error": "code", ...}`` envelope) keeps
+exactly the shape ``tools/_toolkit.err()`` produces: the frontend reads
+the ``ok`` / ``error`` fields directly (``resultIsError`` in
+``frontend/js/chat/_tool_segments.js``); changing the shape would require
+coordinated FE updates. ``ErrEnvelope`` only types it.
 
 For each tool we define a SUCCESS model. Every model has ``ok: Literal
-[True] = True`` as the discriminator (matching the existing ``ok``
-convention in ``_ok(...)``). Tools that can produce multiple shapes
+[True] = True`` as the discriminator (matching the ``ok`` convention of
+``_toolkit.ok(...)``). Tools that can produce multiple shapes
 (e.g. ``read_file`` in batch vs. single, ``write_file`` in mkdir vs.
 write vs. b64) declare a Union of models or fall back to a base model
 with ``extra='allow'`` for the rare polymorphic case.
@@ -70,7 +68,7 @@ class _SuccessBase(BaseModel):
 class ErrEnvelope(BaseModel):
     """Typed shape of the error envelope produced by ``_toolkit.err()``.
 
-    Mirrors the v17 contract that the chat frontend already parses :
+    Mirrors the error contract the chat frontend parses :
       * ``ok`` is the discriminator (False = failure),
       * ``error`` is a stable machine code (snake_case),
       * ``message`` is the human-readable text,
@@ -265,13 +263,12 @@ class _ShellExecBase(_SuccessBase):
 class BackgroundShellResult(_SuccessBase):
     """Retour du mode DÉTACHÉ de ``execute_shell`` (``background=True``).
 
-    AUDIT 2026-08-23 — ce mode n'avait AUCUNE branche dans l'``outputSchema``.
-    Son retour (``ok/background/pid/cmd/log/hint``) ne satisfaisait ni
+    Son retour (``ok/background/pid/cmd/log/hint``) ne satisfait ni
     ``ExecuteShellResult`` (qui exige cwd/returncode/stdout/stderr/duration_ms/
-    executor) ni ``ErrEnvelope`` (qui exige ``ok: false``) : la validation de
-    sortie côté serveur MCP levait, l'appel remontait en erreur… APRÈS avoir
-    lancé le processus. Le modèle voyait un échec et relançait — autant de
-    processus détachés en double. Un modèle DÉDIÉ plutôt qu'un assouplissement
+    executor) ni ``ErrEnvelope`` (qui exige ``ok: false``) : sans cette branche
+    de l'``outputSchema``, la validation de sortie du serveur MCP lèverait
+    APRÈS le lancement du processus, et le modèle relancerait un processus
+    détaché en double. Un modèle DÉDIÉ plutôt qu'un assouplissement
     d'``ExecuteShellResult`` : le chemin normal garde son schéma strict.
     """
     background: bool = Field(True, description="Always true: the process was detached.")
@@ -415,10 +412,10 @@ class GenerateTableResult(_SuccessBase):
     OR the rendered table itself (``format="markdown"``, the default :
     ``table_markdown`` + ``rows_count``).
 
-    (2026-09-12) ``ref``/``table_id`` étaient REQUIS alors que le défaut du
-    tool rend ``table_markdown`` : le SDK client (mcp ≥ 1.10 valide
-    ``structuredContent`` contre ``outputSchema``) rejetait le résultat comme
-    « Invalid structured content ». Les deux formes sont valides."""
+    Les deux formes sont valides : ``ref``/``table_id`` ne sont pas requis,
+    puisque le défaut rend ``table_markdown`` (le SDK client, mcp ≥ 1.10,
+    valide ``structuredContent`` contre ``outputSchema`` et rejetterait
+    sinon le résultat comme « Invalid structured content »)."""
     ref:            Optional[str] = Field(None)
     table_id:       Optional[str] = Field(None)
     format:         Optional[str] = Field(None, description="markdown | ref")
@@ -434,7 +431,7 @@ class GenerateTableResult(_SuccessBase):
 
 
 # ────────────────────────────────────────────────────────────────────
-#  firefox_tools — 8 pw_* tools driving Playwright via a Firefox sidecar
+#  firefox_tools — pw_* tools driving Playwright via a Firefox sidecar
 # ────────────────────────────────────────────────────────────────────
 #
 # These tools have rich per-action shapes (find returns a node descriptor,
@@ -485,13 +482,11 @@ class PWActResult(_SuccessBase):
 class PWPageResult(_SuccessBase):
     """Result of pw_page — inspect / screenshot / wait / eval / extract / text / tabs / network / pdf.
 
-    CONTRAT (audit tools web 2026-09-05) — ``status`` accepte un ENTIER (code
-    HTTP d'une navigation) OU une CHAÎNE : le service Node répond
-    ``{"status": "success"}`` (screenshot, onglets, pdf) et ``{"status":
-    "found"}`` (wait). Typé ``int`` seul, le schéma de sortie rejetait ces
-    réponses côté client MCP (``-32602 … status must be integer … must have
-    required property 'error'``) : ``pw_page(action='screenshot')`` était
-    inutilisable alors que la capture existait bien sur disque.
+    CONTRAT — ``status`` accepte un ENTIER (code HTTP d'une navigation) OU une
+    CHAÎNE : le service Node répond ``{"status": "success"}`` (screenshot,
+    onglets, pdf) et ``{"status": "found"}`` (wait). Typé ``int`` seul, le
+    schéma de sortie rejetterait ces réponses côté client MCP (``-32602 …
+    status must be integer``) alors que l'action a réussi.
     """
     session_id: Optional[str] = Field(None)
     action:     Optional[str] = Field(None)
@@ -535,8 +530,8 @@ class PWChainResult(_SuccessBase):
 
     ``ok`` overrides the base ``Literal[True]``: a chain whose step fails
     returns ``ok=False`` with the per-step ``results`` — an ordinary outcome
-    the model must read, NOT an error envelope (audit 2026-09-05 : typé
-    ``Literal[True]``, un échec d'étape devenait un ``-32602`` de schéma).
+    the model must read, NOT an error envelope (typed ``Literal[True]``, a
+    failed step would become a ``-32602`` schema error).
     """
     ok: bool = True  # type: ignore[assignment]  # a failed step → ok=False
     session_id: Optional[str] = Field(None)
@@ -626,9 +621,9 @@ class AskUserResult(_SuccessBase):
     displayed: bool = Field(True, description="The questionnaire panel was shown to the user.")
     count:     int  = Field(..., description="Number of questions displayed.")
     note:      str  = Field(..., description="How the model must end its turn (do not repeat the questions).")
-    # Audit « limites fantômes » 2026-07-31 — les bornes (8 questions, 12
-    # options, 300 c) étaient appliquées EN SILENCE : le modèle croyait avoir
-    # posé 10 questions et attendait 10 réponses.
+    # Les bornes (8 questions, 12 options, 300 c) ne s'appliquent jamais EN
+    # SILENCE : sans ``warning``, le modèle croirait avoir posé 10 questions
+    # et attendrait 10 réponses.
     warning:   Optional[str] = Field(None, description="Set when the input was clipped (extra questions/options dropped, long text cut) — tell the user what was left out.")
 
 class SkillSaveResult(_SuccessBase):

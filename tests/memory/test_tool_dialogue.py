@@ -56,7 +56,7 @@ def memory_tool(tmp_path):
 # ── Détection d'erreur par la boucle d'outils ────────────────────────────────
 
 def test_result_is_error_on_soft_failure():
-    from llm_core._chat_with_tools import _result_is_error
+    from llm_core.engine.result_contract import result_is_error as _result_is_error
     bad = MemoryResult(ok=False, error="no_match",
                        message="aucune entrée ne correspond").model_dump_json()
     good = MemoryResult(ok=True, action="add").model_dump_json()
@@ -65,7 +65,7 @@ def test_result_is_error_on_soft_failure():
 
 
 def test_result_is_error_on_err_envelope():
-    from llm_core._chat_with_tools import _result_is_error
+    from llm_core.engine.result_contract import result_is_error as _result_is_error
     from llm_core.tools._models import ErrEnvelope
     env = ErrEnvelope(error="target_required", message="replace exige target",
                       fix="Passe target = l'id.").model_dump_json()

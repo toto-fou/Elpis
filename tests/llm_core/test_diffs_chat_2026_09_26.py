@@ -9,7 +9,7 @@ from __future__ import annotations
 # ── Event et fusion par tour ─────────────────────────────────────────────────
 
 def test_event_files_write_et_commande():
-    from llm_core._chat_with_tools import _files_event_extra
+    from llm_core.engine.tool_dispatch import _files_event_extra
     a, b = "a" * 64, "b" * 64
     ev = _files_event_extra('{"ok": true, "path": "/work/x.py", "old_sha256": "", '
                             '"new_sha256": "%s", "lines_added": 3, "lines_removed": 0}' % b)
@@ -24,7 +24,7 @@ def test_event_files_write_et_commande():
 
 
 def test_fusion_par_tour():
-    from chatbot_app.routes.chats import _fc_merge
+    from chatbot_app.turn.history import _fc_merge
     a, b, c = "a" * 64, "b" * 64, "c" * 64
     acc = {}
     _fc_merge(acc, [{"path": "/work/f", "change": "modified", "before": a, "after": b,

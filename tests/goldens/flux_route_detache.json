@@ -1,0 +1,52 @@
+{
+  "base_apres": [
+    {
+      "cles": [
+        "content",
+        "role"
+      ],
+      "content": "q",
+      "role": "user"
+    },
+    {
+      "cles": [
+        "content",
+        "metrics",
+        "role",
+        "run_ids"
+      ],
+      "content": "Bonjour.",
+      "role": "assistant"
+    }
+  ],
+  "evenements_avant_depart": [
+    {
+      "text": "Génération en cours…",
+      "type": "mode"
+    },
+    {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1,
+      "type": "queue_status"
+    },
+    {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1,
+      "type": "queue_status",
+      "waited_ms": 250
+    },
+    {
+      "type": "queue_cleared"
+    },
+    {
+      "text": "je réfléchis",
+      "type": "thinking_token"
+    },
+    {
+      "text": "Bonj",
+      "type": "content_token"
+    }
+  ]
+}

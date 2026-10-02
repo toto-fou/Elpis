@@ -318,7 +318,7 @@ def test_edit_refused_when_file_changed_under_it(fs, monkeypatch):
 # ── E10 / E19 : champs de l'événement UI ──────────────────────────────────
 
 def test_event_extra_git_write_path_is_sandbox_relative():
-    from llm_core._chat_with_tools import _write_event_extra
+    from llm_core.engine.tool_dispatch import _write_event_extra
     ex = _write_event_extra("git_write", {"repo": "proj", "path": "src/a.py"},
                             json.dumps({"ok": True, "path": "src/a.py"}))
     assert ex["path"] == "proj/src/a.py"
@@ -327,7 +327,7 @@ def test_event_extra_git_write_path_is_sandbox_relative():
 
 
 def test_event_extra_dry_run_and_sha():
-    from llm_core._chat_with_tools import _write_event_extra
+    from llm_core.engine.tool_dispatch import _write_event_extra
     sha = "a" * 64
     ex = _write_event_extra("edit_file", {"path": "x.py", "dry_run": True},
                             json.dumps({"ok": True, "new_sha256": sha}))

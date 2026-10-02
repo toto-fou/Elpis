@@ -17,7 +17,7 @@ en 400 (« génération interrompue »). Régression du finding C3 de l'audit
 """
 from __future__ import annotations
 
-from chatbot_app.routes.chats import _expand_history_for_llm
+from chatbot_app.turn.history import _expand_history_for_llm
 
 
 def _tc(call_id: str, name: str, args: str) -> dict:

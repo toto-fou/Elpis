@@ -165,7 +165,7 @@ async def test_frontiere_resume_de_compaction(monkeypatch):
 # ── Rendu : marqueur plein à l'expansion, stockage intact ──────────────────
 
 def test_rendu_expansion_marqueur_plein():
-    from chatbot_app.routes.chats import _expand_history_for_llm
+    from chatbot_app.turn.history import _expand_history_for_llm
 
     full_content = "resultat volumineux " + "x" * 500
     bubble = {

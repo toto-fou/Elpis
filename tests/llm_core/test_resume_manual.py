@@ -17,7 +17,7 @@ Couvre le trio de trous qui rendait le Continue inutile (boucle infinie) :
 """
 from __future__ import annotations
 
-from chatbot_app.routes.chats import (
+from chatbot_app.turn.history import (
     _CANCEL_PLACEHOLDER,
     _RESUME_AFTER_THINK,
     _expand_history_for_llm,

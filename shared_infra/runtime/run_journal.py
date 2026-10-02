@@ -2,15 +2,14 @@
 """shared_infra.runtime.run_journal — journal des événements d'un run de chat,
 relisible depuis N'IMPORTE QUEL worker.
 
-Le problème (AUDIT 2026-09-16, chantier C)
-------------------------------------------
-Revenir sur une conversation qui génère encore ne montrait RIEN : ni bulle, ni
-étapes d'outils, ni bouton Stop — seulement un toast « une génération est en
-cours ». Le flux d'un tour vivait dans la file mémoire du worker qui avait reçu
-le POST ; le navigateur n'en gardait qu'une copie tant qu'il ne changeait pas
-de chat (un seul flux parqué, perdu au rechargement, tué par un envoi
-ailleurs). Sous gunicorn multi-worker, une nouvelle requête atterrit n'importe
-où : elle ne peut pas lire cette file.
+Le problème
+-----------
+Le flux d'un tour vit dans la file mémoire du worker qui a reçu le POST ; le
+navigateur n'en garde qu'une copie tant qu'il ne change pas de chat (un seul
+flux parqué, perdu au rechargement, tué par un envoi ailleurs). Sous gunicorn
+multi-worker, une nouvelle requête atterrit n'importe où : elle ne peut pas
+lire cette file. Sans journal, revenir sur une conversation qui génère encore
+ne montrerait RIEN : ni bulle, ni étapes d'outils, ni bouton Stop.
 
 La pratique des projets de référence (LibreChat : journal par run + reprise ;
 llama.cpp : tampon par conversation relu depuis un décalage) est de découpler
@@ -76,7 +75,7 @@ _last_sweep = 0.0
 #: charge pas tout en mémoire d'un coup).
 READ_CHUNK_BYTES = 1 << 20
 
-#: Tokens fusionnables (même règle que ``chats._drain_coalesced``).
+#: Tokens fusionnables (même règle que ``chatbot_app.turn.events._drain_coalesced``).
 _COALESCABLE = ("content_token", "thinking_token")
 #: Événements volumineux ou fréquents, abandonnés au-delà du plafond.
 _DROPPABLE = frozenset(("content_token", "thinking_token", "tool_call_delta",
@@ -238,12 +237,12 @@ class RunJournal:
         if self._truncated and t in _DROPPABLE:
             return
         last = self._pending[-1] if self._pending else None
-        # Passe d'optimisation 2026-09-26 — la fusion recopiait tout le texte
-        # accumulé à chaque token (``last["text"] + text``, O(n) par token dans
-        # une fenêtre de 100 ms) : on accumule désormais des MORCEAUX dans une
-        # copie privée, joints une seule fois au flush. Les ``tool_call_delta``
-        # consécutifs d'un même appel fusionnent aussi (même règle que
-        # ``chats._drain_coalesced``).
+        # La fusion accumule des MORCEAUX dans une copie privée, joints une
+        # seule fois au flush : recopier tout le texte accumulé à chaque token
+        # (``last["text"] + text``) coûterait O(n) par token dans une fenêtre
+        # de 100 ms. Les ``tool_call_delta`` consécutifs d'un même appel
+        # fusionnent aussi (même règle que
+        # ``chatbot_app.turn.events._drain_coalesced``).
         if last is not None and _merge_key(last) is not None \
                 and _merge_key(last) == _merge_key(ev):
             if "_parts" not in last:

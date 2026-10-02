@@ -18,7 +18,7 @@ reprennent les libellés.
 | **`metrics.thinking_tokens` / `response_tokens`** | « Sur ce que le modèle a GÉNÉRÉ, quelle part est du raisonnement ? » | mesure de fin de tour : `reasoning_tokens` déclaré par le backend → `/tokenize` exact (llama.cpp local) → ratio mesuré (cf. `llm_core/_think_tokens.py`) | `thinking_tokens_estimated:true` sur le 3ᵉ cas (UI : « ≈ ») |
 | **Onglet Utilisation** (`/api/usage/me`) et **zone Métriques admin** | « Combien de tokens ai-je / avons-nous soumis et reçus sur la période, et pour quoi ? » | agrégat `usage_events` : **une ligne par tour**, usage réel, `user_id` + `source` | non — et le split est TOUJOURS disponible (cf. ci-dessous) |
 | **Compresseur** (`tokens_before/after`, `compression_start.tokens`) | « La conversation vaut-elle la peine d'être compressée, et qu'a-t-on gagné ? » | prompt RENDU (texte des messages) + forfait image + surcoût fixe tools (`extra_fixed_tokens`, passé par la boucle outils ; classic/route manuelle = 0) ; fallback heuristique unifiée | `tokens_estimated:true` dans les stats |
-| **Budget de contexte** (`_enforce_context_budget`) | « Le prompt tient-il dans n_ctx ? » | `/tokenize` exact PAR message (granularité pour choisir quoi retirer ; forfait image + marge/msg inclus), budget réduit du surcoût fixe tools (`fixed_overhead_tokens`) | interne (marge conservatrice) |
+| **Budget de contexte** (`context.pruning.enforce_context_budget`) | « Le prompt tient-il dans n_ctx ? » | `/tokenize` exact PAR message (granularité pour choisir quoi retirer ; forfait image + marge/msg inclus), budget réduit du surcoût fixe tools (`fixed_overhead_tokens`) | interne (marge conservatrice) |
 
 ## Le registre `usage_events` : un tour, une ligne, un propriétaire
 
@@ -156,7 +156,7 @@ llama.cpp) ; les blocs image (non tokenisables) ajoutent leur forfait par-dessus
   + forfait image + surcoût fixe tools compté séparément une fois par run et
   passé par la boucle outils (`extra_fixed_tokens`). La route manuelle passe
   0 (pas de `tools_payload` dans son contexte).
-- **Fit budget** (`_enforce_context_budget`) : comptage PAR message — il lui
+- **Fit budget** (`context.pruning.enforce_context_budget`) : comptage PAR message — il lui
   faut la granularité message-par-message pour choisir QUELS anciens tours
   retirer (+ réserve de sortie = cap de génération effectif) ; le surcoût
   fixe tools est soustrait du budget (`fixed_overhead_tokens`). Marge de

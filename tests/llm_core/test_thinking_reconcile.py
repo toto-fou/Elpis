@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from llm_core import _chat_classic as _ccl, _chat_with_tools as _cwt, _llm_params
+from llm_core import _chat_classic as _ccl, _chat_with_tools as _cwt, _llm_params, _model_info
 from llm_core._chat_classic import _extract_thinking
 from llm_core._stream_tag_parser import ThinkTagSplitter
 from llm_core._thinking_reconcile import reconcile_thinking_content
@@ -294,7 +294,7 @@ async def _actx(*_a, **_k):
 def _patch_tools_env(monkeypatch):
     monkeypatch.setattr(_cwt, "verify_llm_availability", _anoop)
     monkeypatch.setattr(_cwt, "_model_supports_vision", _avision)
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
 
 
 async def test_tools_answer_trapped_in_thinking_promoted(monkeypatch):

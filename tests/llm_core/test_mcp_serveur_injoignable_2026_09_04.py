@@ -22,7 +22,8 @@ import asyncio
 
 import pytest
 
-from llm_core import _chat_with_tools as C
+from llm_core import _mcp_pool
+from llm_core.engine import tool_catalog as _tool_catalog
 
 
 class _Outil:
@@ -54,13 +55,13 @@ def _pool(reponses):
 
 
 def _collecte(monkeypatch, cfgs, reponses):
-    monkeypatch.setattr(C.mcp_pool, "get_or_connect", _pool(reponses))
+    monkeypatch.setattr(_mcp_pool.mcp_pool, "get_or_connect", _pool(reponses))
     events: list = []
 
     async def _on_event(e):
         events.append(e)
 
-    res = asyncio.run(C._collect_mcp_tools(cfgs, None, _on_event, memory_enabled=False))
+    res = asyncio.run(_tool_catalog._collect_mcp_tools(cfgs, None, _on_event, memory_enabled=False))
     return res, events
 
 
@@ -98,10 +99,10 @@ def test_les_serveurs_sains_survivent_a_la_panne_d_un_autre(monkeypatch):
 
 def test_aucun_serveur_joignable_reste_une_vraie_erreur(monkeypatch):
     """Le cas fatal doit le rester : sans AUCUN outil, le tour est impossible."""
-    monkeypatch.setattr(C.mcp_pool, "get_or_connect",
+    monkeypatch.setattr(_mcp_pool.mcp_pool, "get_or_connect",
                         _pool({"Jenkins": ConnectionError("refused")}))
     with pytest.raises(RuntimeError, match="Jenkins"):
-        asyncio.run(C._collect_mcp_tools([CFG_EXT], None, None, memory_enabled=False))
+        asyncio.run(_tool_catalog._collect_mcp_tools([CFG_EXT], None, None, memory_enabled=False))
 
 
 def test_un_externe_sans_categorie_reste_visible_du_modele(monkeypatch):

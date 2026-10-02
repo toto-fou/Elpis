@@ -178,7 +178,7 @@ def test_nearest_candidate_montre_la_region():
 # ── Borne MCP par-outil : execute_shell > 600 s ──────────────────────────────
 
 def test_tool_timeout_execute_shell_couvre_600s():
-    from llm_core._chat_with_tools import _tool_timeout_s
+    from llm_core.engine.tool_dispatch import _tool_timeout_s
     assert _tool_timeout_s("execute_shell") >= 610.0
     assert _tool_timeout_s("read_file") == pytest.approx(
         float(__import__("llm_core._constants", fromlist=["LLAMA_TOOL_TIMEOUT_S"]).LLAMA_TOOL_TIMEOUT_S))

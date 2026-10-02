@@ -332,11 +332,11 @@ def test_hook_vision_resout_le_synonyme(args, expected):
 
 
 def test_chat_with_tools_passe_par_le_resolveur():
-    import inspect as _i
-
-    from llm_core import _chat_with_tools as cwt
-    src = _i.getsource(cwt)
-    i = src.index("INJECTION VISION")
-    corps = src[i:i + 900]
-    assert '_pw_verb_of("pw_page"' in corps
-    assert 'final_args.get("op")' not in corps
+    from tests._sources import source_boucle
+    src = source_boucle()
+    # Le déclencheur de l'injection de capture : la décision « inspect »
+    # passe par le résolveur de verbe, jamais par la clé ``op`` en dur.
+    i = src.index("_is_inspect = (")
+    corps = src[i:src.index("and _is_inspect:", i)]
+    assert '_pw_verb_of("pw_page", final_args)' in corps
+    assert 'final_args.get("op")' not in src

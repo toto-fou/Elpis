@@ -18,9 +18,9 @@ from unittest.mock import patch
 
 import pytest
 
-import llm_core._chat_with_tools as _cwt
 import llm_core._model_info as mi
-import llm_core.context.pruning as _pruning  # Phase 2 : budget dur extrait
+import llm_core.context.pruning as _pruning  # budget dur
+from llm_core.context.budget import BUDGET
 
 
 @pytest.fixture(autouse=True)
@@ -97,7 +97,7 @@ async def test_enforce_budget_drops_oldest_keeps_system_and_recent(monkeypatch):
 
     monkeypatch.setattr(_pruning, "count_messages_tokens_per_msg", _fake_counts)
 
-    out = await _cwt._enforce_context_budget(
+    out = await _pruning.enforce_context_budget(
         msgs, ctx_size=8000, model_id="m", gen_cap_tokens=0)
 
     # Le system est toujours préservé.
@@ -134,7 +134,7 @@ async def test_enforce_budget_protege_le_tour_courant_entier(monkeypatch):
 
     monkeypatch.setattr(_pruning, "count_messages_tokens_per_msg", _fake_counts)
 
-    out = await _cwt._enforce_context_budget(
+    out = await _pruning.enforce_context_budget(
         msgs, ctx_size=12_000, model_id="m", gen_cap_tokens=0)
 
     contents = [m.get("content") for m in out]
@@ -158,7 +158,7 @@ async def test_enforce_budget_ampute_le_tour_courant_en_dernier_recours(monkeypa
 
     monkeypatch.setattr(_pruning, "count_messages_tokens_per_msg", _fake_counts)
 
-    out = await _cwt._enforce_context_budget(
+    out = await _pruning.enforce_context_budget(
         msgs, ctx_size=12_000, model_id="m", gen_cap_tokens=0)
 
     contents = [m.get("content") for m in out]
@@ -176,8 +176,8 @@ async def test_enforce_budget_noop_when_ctx_unknown(monkeypatch):
 
     monkeypatch.setattr(_pruning, "count_messages_tokens_per_msg", _boom)
     # ctx_size None / 0 → retour immédiat, aucun comptage.
-    assert await _cwt._enforce_context_budget(msgs, ctx_size=None) is msgs
-    assert await _cwt._enforce_context_budget(msgs, ctx_size=0) is msgs
+    assert await _pruning.enforce_context_budget(msgs, ctx_size=None) is msgs
+    assert await _pruning.enforce_context_budget(msgs, ctx_size=0) is msgs
 
 
 async def test_enforce_budget_soustrait_le_surcout_tools(monkeypatch):
@@ -195,11 +195,11 @@ async def test_enforce_budget_soustrait_le_surcout_tools(monkeypatch):
     monkeypatch.setattr(_pruning, "count_messages_tokens_per_msg", _fake_counts)
 
     # 10 + 20×300 = 6010 ; ctx 12000 − réserve 3072 = 8928 → tient sans drop.
-    out0 = await _cwt._enforce_context_budget(
+    out0 = await _pruning.enforce_context_budget(
         msgs, ctx_size=12_000, model_id="m", gen_cap_tokens=0)
     assert out0 is msgs
     # Avec 3000 tokens de schéma tools : budget 5928 < 6010 → drop.
-    out1 = await _cwt._enforce_context_budget(
+    out1 = await _pruning.enforce_context_budget(
         msgs, ctx_size=12_000, model_id="m", gen_cap_tokens=0,
         fixed_overhead_tokens=3_000)
     assert len(out1) < len(msgs)
@@ -215,7 +215,7 @@ async def test_enforce_budget_overhead_geant_early_return(monkeypatch):
         raise AssertionError("budget<=0 → pas de comptage")
 
     monkeypatch.setattr(_pruning, "count_messages_tokens_per_msg", _boom)
-    out = await _cwt._enforce_context_budget(
+    out = await _pruning.enforce_context_budget(
         msgs, ctx_size=4096, fixed_overhead_tokens=10_000)
     assert out is msgs
 
@@ -231,7 +231,7 @@ async def test_enforce_budget_note_tail_too_heavy(monkeypatch):
     # Queue protégée massive : à elle seule > budget. On la dimensionne sur la
     # taille EFFECTIVE (bornée à un tiers de la liste) — sinon une partie du
     # « recentN » resterait droppable et le scénario testé ne se produirait pas.
-    _n_recent = _pruning.effective_keep_recent(2 + _cwt._CTX_KEEP_RECENT)
+    _n_recent = _pruning.effective_keep_recent(2 + BUDGET.keep_recent_msgs)
     for i in range(_n_recent):
         msgs.append({"role": ("user" if i % 2 == 0 else "assistant"),
                      "content": f"recent{i}"})
@@ -242,7 +242,7 @@ async def test_enforce_budget_note_tail_too_heavy(monkeypatch):
     monkeypatch.setattr(_pruning, "count_messages_tokens_per_msg", _fake_counts)
 
     stats = {}
-    out = await _cwt._enforce_context_budget(
+    out = await _pruning.enforce_context_budget(
         msgs, ctx_size=8000, model_id="m", gen_cap_tokens=0, stats_out=stats)
 
     # Le droppable est parti, la queue reste, et le dépassement est SIGNALÉ.

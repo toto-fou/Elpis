@@ -12,6 +12,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from chatbot_app.turn import execution
 from shared_infra.observability import runs as R
 from shared_infra.routes import _state
 from shared_infra.runtime import chat_locks
@@ -75,7 +76,7 @@ def test_tour_de_chat_et_continuer(harnais, monkeypatch):
         record_turn_usage(model="stub", input_tokens=5, output_tokens=3)
         await kw["on_content_token"]("réponse")
         return "", "réponse", {"finish_reason": "stop"}
-    monkeypatch.setattr(chats_mod, "llama_chat_stream_tokens", _classique)
+    monkeypatch.setattr(execution, "llama_chat_stream_tokens", _classique)
 
     q = {"role": "user", "content": "q"}
     ev = _tour({"messages": [q], "chat_id": "c1", "use_rag": False, "active_mcp_servers": []})

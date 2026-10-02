@@ -19,7 +19,8 @@ import json
 
 import pytest
 
-from llm_core import _chat_with_tools as _cwt
+from llm_core import _chat_with_tools as _cwt, _model_info
+from llm_core.engine import tool_dispatch as _tool_dispatch
 
 
 async def _anoop(*_a, **_k):
@@ -37,7 +38,7 @@ async def _actx(*_a, **_k):
 def _patch_env(monkeypatch):
     monkeypatch.setattr(_cwt, "verify_llm_availability", _anoop)
     monkeypatch.setattr(_cwt, "_model_supports_vision", _avision)
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
 
 
 def _final_msg(content):
@@ -67,7 +68,7 @@ def _capture():
 # ── (a) timeout des builtins ──────────────────────────────────────────────────
 async def test_builtin_timeout_returns_json_and_loop_continues(monkeypatch):
     _patch_env(monkeypatch)
-    monkeypatch.setattr(_cwt, "_tool_timeout_s", lambda name: 0.05)
+    monkeypatch.setattr(_tool_dispatch, "_tool_timeout_s", lambda name: 0.05)
 
     async def _slow_builtin(args):
         await asyncio.sleep(5)          # dépasse la borne (0.05 s)
@@ -107,9 +108,9 @@ def test_task_builtin_gets_generous_timeout(monkeypatch):
     # sinon on couperait un sous-agent encore dans son budget.
     import shared_infra.config as cfg
     monkeypatch.setattr(cfg, "TASK_CHILD_TIMEOUT_S", 1800, raising=False)
-    assert _cwt._tool_timeout_s("task") >= 1800 + 60
+    assert _tool_dispatch._tool_timeout_s("task") >= 1800 + 60
     # Un outil quelconque garde le défaut global (bien plus court).
-    assert _cwt._tool_timeout_s("un_outil_x") < 1800
+    assert _tool_dispatch._tool_timeout_s("un_outil_x") < 1800
 
 
 # ── (b) retry sur hoquet moteur à iter>0 ──────────────────────────────────────

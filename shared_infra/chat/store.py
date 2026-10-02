@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""backend.db.chats — Chats CRUD + archive/search + sliding-window retention.
+"""shared_infra.chat.store — Chats CRUD + archive/search + sliding-window retention.
 
 Tables: ``chats``.
 """
@@ -82,7 +82,7 @@ def get_chat(user_id: int, chat_id: str) -> Optional[Dict[str, Any]]:
             # Todo-list du chat (outil ``todowrite``) — seed du panneau front
             # au chargement ; mise à jour live via l'event ``todo_updated``.
             "todos": meta.get("todos") if isinstance(meta.get("todos"), list) else [],
-            # Marques d'élagage de contexte (harnais v4, M4) : clés des
+            # Marques d'élagage de contexte : clés des
             # sorties d'outils effacées de la VUE modèle (stockage intact).
             "ctx_pruned_keys": meta.get("ctx_pruned_keys")
                 if isinstance(meta.get("ctx_pruned_keys"), list) else [],
@@ -96,7 +96,7 @@ def get_chat(user_id: int, chat_id: str) -> Optional[Dict[str, Any]]:
             # Suffixes LLM des questions (rappel ``<todo_status>`` fusionné
             # au dernier user d'un tour) : ``{signature: texte}``, rejoués à
             # l'identique par l'expansion de l'historique — préfixe KV stable
-            # d'un tour à l'autre (AUDIT 2026-09-25).
+            # d'un tour à l'autre.
             "llm_user_suffixes": meta.get("llm_user_suffixes")
                 if isinstance(meta.get("llm_user_suffixes"), dict) else {},
         }
@@ -120,30 +120,30 @@ def upsert_chat(user_id: int, chat_id: str, title: str, messages: List[Dict[str,
     """Insert or update a chat owned by ``user_id``. Retourne ``True`` si le
     tour a été persisté, ``False`` sur CONFLIT de concurrence optimiste.
 
-    BUG FIX (élevé) — collision silencieuse : la requête SQL utilise
+    Collision de ``chat_id`` entre comptes : la requête SQL utilise
     ``ON CONFLICT(id) DO UPDATE ... WHERE chats.user_id = excluded.user_id``,
     qui filtre l'UPDATE à l'utilisateur propriétaire. Si un chat avec le même
-    ``chat_id`` existait déjà pour un AUTRE user (théoriquement rare avec
+    ``chat_id`` existe déjà pour un AUTRE user (théoriquement rare avec
     des IDs hex 12 bytes mais possible via payload manipulé), l'INSERT
-    échouait sur la PRIMARY KEY et l'UPDATE était filtré → la requête
-    retournait 200 OK sans rien sauver, l'utilisateur croyait avoir
-    persisté sa conversation. On lève maintenant ``ValueError`` que les
-    routes traduisent en HTTP 409 (cf. callers dans ``routes/saved_chats.py``
-    et ``routes/chats.py``).
+    échoue sur la PRIMARY KEY et l'UPDATE est filtré : rien n'est écrit. Ne
+    pas rendre la main en silence (la requête répondrait 200 OK et
+    l'utilisateur croirait sa conversation persistée) : lève ``ValueError``,
+    que ``chatbot_app/routes/saved_chats.py`` traduit en HTTP 409 et sur
+    laquelle le tour de chat (``chatbot_app/turn/execution.py``) bascule vers
+    un nouveau ``chat_id``.
 
     Note : pour les CRÉATIONS pures (chat_id n'existe nulle part), le
     INSERT réussit normalement et rowcount == 1.
 
-    F2 — ``expected_updated_at`` (concurrence optimiste CROSS-WORKER) : si
+    ``expected_updated_at`` (concurrence optimiste CROSS-WORKER) : si
     fourni, l'UPDATE n'écrit QUE si ``chats.updated_at`` vaut encore cette
     valeur (le chat n'a pas bougé depuis la lecture). En multi-worker les
     gardes in-process (_manual_compressions/_active_chat_tasks) ne se voient
     pas ; sans cela, une compression manuelle et une génération concurrentes
-    sur le MÊME chat s'écrasaient à l'aveugle (dernier écrivain gagne →
-    tour utilisateur perdu / résumé écrasé). ``None`` = comportement
-    historique inchangé (écriture inconditionnelle). Retourne ``False`` si
-    le chat a changé entre-temps (l'appelant surface « non persisté » plutôt
-    que de clobberer)."""
+    sur le MÊME chat s'écraseraient à l'aveugle (dernier écrivain gagne →
+    tour utilisateur perdu / résumé écrasé). ``None`` = écriture
+    inconditionnelle. Retourne ``False`` si le chat a changé entre-temps
+    (l'appelant surface « non persisté » plutôt que de clobberer)."""
     # Le « thinking » (raisonnement) n'est utile qu'à l'affichage LIVE du tour
     # en cours : on ne le RETIENT PAS en base. Inutile au rechargement (bruit)
     # et déjà strippé du prompt des tours suivants. Seul écrit-chemin des
@@ -152,11 +152,11 @@ def upsert_chat(user_id: int, chat_id: str, title: str, messages: List[Dict[str,
     # en plein raisonnement, purgé à la reprise aboutie) passe — c'est lui qui
     # rend « Continuer » utile après rechargement. Volontairement un autre nom
     # de champ : le choix « thinking non persisté » reste la règle.
-    # AUDIT 2026-08-23 — le nettoyage porte AUSSI sur ``metrics["thinking"]``.
-    # Le raisonnement y est recopié par ``calculate_metrics`` et par la boucle
-    # d'outils ; ne strippper que le champ de premier niveau laissait passer
-    # jusqu'à 400 000 caractères par message, y compris par ``PUT
-    # /save-messages`` (le front y renvoie ``m.metrics`` tel qu'il l'a reçu).
+    # Le nettoyage porte AUSSI sur ``metrics["thinking"]`` : le raisonnement
+    # y est recopié par ``calculate_metrics`` et par la boucle d'outils ; ne
+    # stripper que le champ de premier niveau laisserait passer jusqu'à
+    # 400 000 caractères par message, y compris par ``PUT /save-messages``
+    # (le front y renvoie ``m.metrics`` tel qu'il l'a reçu).
     _clean = []
     for _m in messages:
         if isinstance(_m, dict) and "thinking" in _m:
@@ -253,18 +253,18 @@ def _merge_meta_json(user_id: int, chat_id: str, mutate) -> bool:
     ``mutate(meta: dict) -> None`` modifie le dict en place ; le résultat est
     réécrit sous la MÊME transaction que la lecture.
 
-    AUDIT 2026-08-01 (E7) — les trois écrivains de ce champ (``set_chat_tools``,
-    ``add_chat_pruned_keys``, ``set_chat_todos``) faisaient chacun un ``SELECT``
-    HORS transaction (sqlite3 n'en ouvre une implicitement que sur les DML) puis
-    un ``UPDATE`` du dict ENTIER. Deux écrivains concurrents — l'agent qui
-    appelle ``todowrite`` pendant que le panneau Outils PUT ses catégories, sur
-    des workers différents — partaient donc du même état lu : le second écrasait
-    le premier, effaçant la todo-list ou rétablissant d'anciennes catégories,
-    sans erreur ni log.
+    Tous les écrivains de ce champ (``set_chat_tools``, ``add_chat_pruned_keys``,
+    ``set_chat_todos``, ``finalize_turn_meta``…) passent par ici. Ne pas lire
+    par un ``SELECT`` HORS transaction (sqlite3 n'en ouvre une implicitement que
+    sur les DML) puis réécrire le dict ENTIER : deux écrivains concurrents —
+    l'agent qui appelle ``todowrite`` pendant que le panneau Outils PUT ses
+    catégories, sur des workers différents — partiraient du même état lu, et le
+    second écraserait le premier, effaçant la todo-list ou rétablissant
+    d'anciennes catégories, sans erreur ni log.
 
     ``BEGIN IMMEDIATE`` prend le verrou d'écriture DÈS la lecture : le second
     writer attend (``busy_timeout``) puis relit l'état à jour. Même patron que
-    ``db/scenarios.py:claim_minute_fire``.
+    ``shared_infra/scheduling/routines_store.py:claim_minute_fire``.
     """
     conn = db()
     try:
@@ -307,12 +307,12 @@ def set_chat_tools(user_id: int, chat_id: str, tools: List[str]) -> bool:
     valide, distinct de « jamais posé »). Retourne False si le chat n'existe
     pas (encore) pour cet utilisateur — l'appelant retente au tour suivant.
 
-    (2026-09-12) La liste porte aussi les outils DÉCOCHÉS un par un, préfixés
-    d'un tiret (``-edit_file``) : on enregistre les exclusions, pas les
-    inclusions, si bien que « tout coché » reste une liste vide et qu'aucun
-    chat existant ne change de comportement. Le plafond passe donc de 64 à 192
-    entrées : 8 catégories + jusqu'à 53 exclusions + les serveurs ``ext:`` et
-    ``mf:`` dépassaient l'ancien, qui tronquait EN SILENCE.
+    La liste porte aussi les outils DÉCOCHÉS un par un, préfixés d'un tiret
+    (``-edit_file``) : on enregistre les exclusions, pas les inclusions, si
+    bien que « tout coché » reste une liste vide. Plafond : 192 entrées, avec
+    de la marge sur 8 catégories + jusqu'à 53 exclusions + les serveurs
+    ``ext:`` et ``mf:`` : la troncature est SILENCIEUSE, un plafond trop bas
+    perdrait des exclusions sans le dire.
     """
     clean = [str(t)[:64] for t in (tools or []) if isinstance(t, str) and t.strip()][:192]
 
@@ -320,7 +320,8 @@ def set_chat_tools(user_id: int, chat_id: str, tools: List[str]) -> bool:
         meta["tools"] = clean
 
     # PAS de bump d'updated_at : un toggle n'est pas un « tour » (il ne doit
-    # ni remonter le chat dans la sidebar ni invalider la garde optimiste F2).
+    # ni remonter le chat dans la sidebar ni invalider la garde optimiste
+    # ``expected_updated_at`` d'``upsert_chat``).
     return _merge_meta_json(user_id, chat_id, _mutate)
 
 
@@ -346,7 +347,7 @@ def set_chat_plan_mode(user_id: int, chat_id: str, plan_mode: bool) -> bool:
 def add_chat_pruned_keys(user_id: int, chat_id: str,
                          keys: List[str], cap: int = 500) -> bool:
     """Fusionne des clés d'élagage de contexte dans
-    ``meta_json["ctx_pruned_keys"]`` (harnais v4, M4).
+    ``meta_json["ctx_pruned_keys"]``.
 
     Idempotent (clés dédupliquées, ordre d'arrivée conservé) ; liste
     plafonnée FIFO à ``cap`` — les sorties les plus anciennes finissent de
@@ -368,18 +369,18 @@ def add_chat_pruned_keys(user_id: int, chat_id: str,
         meta["ctx_pruned_keys"] = merged
 
     # Le merge est fait SOUS la transaction (cf. _merge_meta_json) : deux
-    # écrivains concurrents ne peuvent plus perdre les clés de l'autre.
-    # False = chat inexistant pour ce user (sémantique inchangée).
+    # écrivains concurrents ne peuvent pas perdre les clés de l'autre.
+    # False = chat inexistant pour ce user.
     return _merge_meta_json(user_id, chat_id, _mutate)
 
 
 def delete_chats_by_ids(user_id: int, chat_ids: List[str]) -> int:
     """Supprime plusieurs chats en UNE transaction.
 
-    AUDIT 2026-09-01 (passe 6, B6) — la suppression groupée bouclait sur
-    ``delete_chat`` : une connexion + une transaction + un commit (fsync WAL)
-    PAR chat. Ici un seul commit ; ``IN`` par tranches de 500 (limite SQLite
-    de variables). Retourne le nombre de lignes supprimées."""
+    Ne pas boucler sur ``delete_chat`` : une connexion + une transaction + un
+    commit (fsync WAL) PAR chat. Ici un seul commit ; ``IN`` par tranches de
+    500 (limite SQLite de variables). Retourne le nombre de lignes
+    supprimées."""
     ids = [str(c) for c in (chat_ids or []) if str(c)]
     if not ids:
         return 0
@@ -399,7 +400,7 @@ def delete_chats_by_ids(user_id: int, chat_ids: List[str]) -> int:
 
 def delete_all_chats(user_id: int, archived: int = 0) -> int:
     """Supprime TOUS les chats (par défaut : non archivés) d'un utilisateur en
-    une transaction — même motif que ``delete_chats_by_ids`` (passe 6, B6)."""
+    une transaction — même motif que ``delete_chats_by_ids``."""
     with db_conn() as conn:
         cur = conn.cursor()
         cur.execute("DELETE FROM chats WHERE user_id=? AND archived=?",
@@ -463,17 +464,17 @@ def finalize_turn_meta(user_id: int, chat_id: str,
                        suffix_drop_from_rank: Optional[int] = None) -> bool:
     """Écritures meta_json de FIN DE TOUR, en UNE transaction.
 
-    ``user_suffixes`` (AUDIT 2026-09-25) : ``{signature de question: texte}``
+    ``user_suffixes`` : ``{signature de question: texte}``
     ajoutés aux suffixes LLM persistés (``llm_user_suffixes``, 40 derniers).
 
-    ``ctx_usage`` (2026-09-07) : occupation réelle de fin de tour
+    ``ctx_usage`` : occupation réelle de fin de tour
     (cf. ``clean_ctx_usage``) — None = intact ; shape invalide = ignorée.
 
-    AUDIT 2026-09-01 (passe 6, B1) — la fin de tour enchaînait jusqu'à trois
-    ``_merge_meta_json`` distincts (``add_chat_pruned_keys``, ``set_chat_tools``,
-    ``set_chat_plan_mode``) : trois ``BEGIN IMMEDIATE`` successifs sur la MÊME
-    ligne, chacun relisant/réécrivant la même colonne, avant l'event ``final``.
-    Ici les trois mutations partagent la transaction ; chaque volet est
+    Ne pas enchaîner les ``_merge_meta_json`` distincts des helpers unitaires
+    (``add_chat_pruned_keys``, ``set_chat_tools``, ``set_chat_plan_mode``) :
+    ce seraient autant de ``BEGIN IMMEDIATE`` successifs sur la MÊME ligne,
+    chacun relisant/réécrivant la même colonne, avant l'event ``final``.
+    Ici les mutations partagent la transaction ; chaque volet est
     optionnel (``None``/False = intact). Sémantique de chaque volet identique
     aux helpers unitaires (qui restent la voie pour les mises à jour isolées).
     False = chat inexistant pour ce user."""
@@ -504,11 +505,11 @@ def finalize_turn_meta(user_id: int, chat_id: str,
         if user_suffixes or suffix_drop_from_rank is not None:
             cur = meta.get("llm_user_suffixes")
             merged_s = dict(cur) if isinstance(cur, dict) else {}
-            # AUDIT 2026-09-26 — historique RÉÉCRIT à partir de ce rang
-            # (retry, édition, troncature) : les suffixes des questions de
-            # rang ≥ n appartiennent à l'ancienne branche. Gardés, un texte
-            # identique revenu au même rang rejouait un ``<todo_status>``
-            # que le modèle n'avait jamais vu dans cette branche.
+            # Historique RÉÉCRIT à partir de ce rang (retry, édition,
+            # troncature) : les suffixes des questions de rang ≥ n
+            # appartiennent à l'ancienne branche. Gardés, un texte identique
+            # revenu au même rang rejouerait un ``<todo_status>`` que le
+            # modèle n'a jamais vu dans cette branche.
             if suffix_drop_from_rank is not None:
                 for _k in list(merged_s):
                     try:
@@ -552,8 +553,7 @@ def set_chat_todos(user_id: int, chat_id: str, todos: List[Dict[str, str]]) -> b
 def enforce_recent_chats_cap(user_id: int) -> None:
     """SUPPRIME les conversations actives au-delà du plafond (les plus anciennes).
 
-    Anciennement ``enforce_sliding_20`` : le nom gravait un 20 que le réglage
-    ``app.max_recent_chats`` contredisait depuis longtemps.
+    Plafond : ``max_recent_chats()`` (réglage ``app.max_recent_chats``).
     """
     cap = max_recent_chats()
     with db_conn() as conn:
@@ -579,9 +579,9 @@ def rename_chat(user_id: int, chat_id: str, title: str) -> bool:
 
 def set_title_if_default(user_id: int, chat_id: str, title: str) -> bool:
     """Pose le titre d'un chat encore « Nouveau chat » (ou sans titre), dès le
-    DÉBUT d'un tour (chantier C, 2026-09-16) : un run en fond est visible dans
-    la barre latérale de tous les onglets, et y lisait « Nouveau chat » jusqu'à
-    sa fin. N'écrase jamais un titre choisi entre-temps, et ne bumpe PAS
+    DÉBUT d'un tour : un run en fond est visible dans la barre latérale de
+    tous les onglets, et y lirait « Nouveau chat » jusqu'à sa fin. N'écrase
+    jamais un titre choisi entre-temps, et ne bumpe PAS
     ``updated_at`` : ce n'est pas un tour, et la garde optimiste de fin de tour
     doit rester valide."""
     title = (title or "").strip()[:60]
@@ -646,7 +646,7 @@ def search_chats(user_id: int, query: str, archived: int = 0,
     q = (query or "").strip()
     if not q:
         return []
-    # Le plafond de résultats suit celui de la liste (jadis 50 en dur). Sinon un
+    # Le plafond de résultats suit celui de la liste (plancher 50). Sinon un
     # chat VISIBLE dans la barre latérale peut rester introuvable à la recherche
     # dès que le plafond dépasse 50 — la recherche doit couvrir au moins ce que
     # la liste montre.

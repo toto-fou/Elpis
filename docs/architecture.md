@@ -26,6 +26,8 @@ et par la modale d'aide de l'application, onglet *Développeur*).
 - [Base de données](#base-de-données)
 - [État cross-worker : les quatre canaux](#état-cross-worker--les-quatre-canaux)
 - [Le harnais de contexte](#le-harnais-de-contexte)
+- [La boucle agentique](#la-boucle-agentique)
+- [Le flux d'un tour de chat](#le-flux-dun-tour-de-chat)
 - [Scheduling LLM et résilience](#scheduling-llm-et-résilience)
 - [Cibles d'inférence et fournisseurs](#cibles-dinférence-et-fournisseurs)
 - [Cascade de paramètres de sampling](#cascade-de-paramètres-de-sampling)
@@ -114,7 +116,7 @@ le fork), ce qui rend un cookie valide indifféremment sur les deux ports.
 Le code Python est rangé en trois paquets : **`llm_core/`** (moteur LLM, outils,
 contexte, mémoire, skills), **`shared_infra/`** (infrastructure rangée par
 famille : routes, base, sandbox, observabilité, ordonnancement…) et
-**`chatbot_app/`** (routes de chat).
+**`chatbot_app/`** (routes du chat et déroulé d'un tour, `turn/`).
 
 ---
 
@@ -276,11 +278,13 @@ d'ensemble :
 elpis/
 ├── server/          # points d'entrée : app.py, admin_app.py, gunicorn_*, local_mcp_server.py
 ├── toolhost/        # hôte d'outils MCP (python -m toolhost) : app, auth, config
-├── llm_core/        # moteur LLM : providers/, context/, _scheduling/, engine/, tools/, memory/
+├── llm_core/        # moteur LLM : _chat_with_tools.py + engine/ (boucle agentique), providers/,
+│                    #   context/, _scheduling/, tools/, memory/
 ├── shared_infra/    # infra par famille : accounts, chat, db, llm, mcp, memory, observability,
 │                    #   ops, routes, runtime, sandbox, scheduling, security, desktop, git,
 │                    #   opencode, terminal, toolhost, voice…
-├── chatbot_app/     # routes de chat (chats.py, saved_chats.py)
+├── chatbot_app/     # chat : routes/ (chats, chat_control, chat_compression, saved_chats),
+│                    #   turn/ (préparation, exécution, enregistrement d'un tour)
 ├── frontend/        # SPA Vue 3 sans build : index.html, admin.html, js/, css/, includes/, vendor/
 ├── browser-service/ # Node + Playwright (:3000)
 ├── desktop-agent/   # agent de contrôle d'écran (Windows/Linux)
@@ -501,8 +505,8 @@ flowchart LR
 Règles à respecter absolument :
 
 - **Un seul `role:system`.** Certains templates Jinja renvoient 400 au deuxième.
-  `_fold_operational_block` fusionne ; `_coalesce_system_messages` coalesce à
-  l'envoi.
+  `fold_operational_block` (`context/assembly.py`) fusionne ;
+  `_coalesce_system_messages` (`_chat_classic.py`) coalesce à l'envoi.
 - **Ordre figé** — un golden test vérifie que la tête système est byte-identique
   entre itérations. Un ordre variable détruit le prefix-cache KV.
 - **Exception structurelle** : les messages portant un résumé de compression
@@ -543,6 +547,210 @@ flowchart TB
   (`external_model`), ou un **endpoint dédié** (`endpoint_url`) — la meilleure
   configuration : le serveur principal garde ses slots libres pour les
   conversations.
+
+---
+
+## La boucle agentique
+
+`run_chat_multi_mcp` (`llm_core/_chat_with_tools.py`) enchaîne LLM ↔ outils
+jusqu'au budget d'itérations ; `run_chat_multi_mcp_v2` force le mode
+`optimized` (créneau LLM rendu pendant les outils). Ce module est
+l'**orchestrateur** : prélude (vision, catalogue d'outils, assemblage de la
+tête système, rappel todo), boucle et compteurs, aiguillage de chaque tour,
+point d'étape budget (`<harness_status>`, message éphémère en queue). Une
+enveloppe (`_run_chat_multi_mcp_wrapper`) garantit, même sur annulation, la
+purge de la dernière capture d'écran et l'enregistrement de l'usage consommé.
+
+Le reste vit dans des sous-routines de `llm_core/engine/` (carte dans
+`engine/__init__.py`). Aucune n'importe l'orchestrateur : c'est lui qui les
+importe.
+
+| Module (`llm_core/engine/`) | Rôle | Interface |
+|---|---|---|
+| `run.py` | état d'un run | `RunContext` (constantes du run, gelé), `RunRecord` (trace : événements, delta de `tool_history`, raisonnement, usage, lot en cours, fenêtre de contexte, marques d'élagage), `LoopDeps` (dépendances injectées), `llm_slot(ctx)` (créneau du mode `optimized`) |
+| `tool_catalog.py` | outils du tour | `_collect_mcp_tools` : outils MCP et intégrés en une charge utile `tools[]`, puis filtres (refus, catégories cochées, mode plan, mémoire) |
+| `llm_turn.py` | un tour LLM | `call_llm(…) → LLMTurn` ; état privé `LLMTurnState` (mesure du contexte, compactions, séries de récupération) |
+| `llm_stream.py` | transport d'un appel | `_llama_chat_with_tools_stream` : flux SSE → réponse au format OpenAI, replis (sans flux, puis analyse du texte), reprise d'un flux coupé, arrêt côté moteur |
+| `live_text.py` | émission directe | `LiveText` (`on_token`, `flush`, `emit_rest`) : fenêtre de retenue et portail anti-balisage |
+| `resume.py` | reprises automatiques | `ResumeState` (`take`, `restore`, `reset_chain`, `plan`), `ResumeRequest` |
+| `tool_dispatch.py` | exécution des appels d'outils | `open_native_round`, `classify_text_reply`, `relaunch_unparsed_call`, `open_text_round`, `run_tool_batch → BatchOutcome`, `ChannelSpec` (`NATIF`, `TEXTE`), `CycleGuard`, `TruncationGuard`, un appel isolé (`_execute_single_tool_call`) |
+| `tool_exec.py` | ordonnancement d'un lot | `execute_tool_batch` : série pour les outils mutants, parallèle borné sinon, ordre du modèle préservé |
+| `run_exit.py` | sorties du run | `finish_ok`, `finish_on_limit`, `finish_on_error` |
+| `result_contract.py` | échecs d'outil | `result_is_error`, `result_is_tool_failure` |
+| `stream_events.py` | registre du flux NDJSON | `STREAM_EVENTS`, `LOOP_EVENTS`, `NOT_DISPLAYED` |
+
+Les appels écrits en texte se lisent dans `llm_core/_tool_parsing.py`
+(`extract_tool_calls`, `_strip_tool_call_markup`).
+
+```mermaid
+flowchart TB
+    P["prélude<br/>vision · catalogue · tête système · rappel todo"] --> W{"effective_iter &lt; budget<br/>et hard_iter &lt; plafond dur ?"}
+    W -- non --> L["finish_on_limit<br/>tour de synthèse sans outils"]
+    W -- oui --> T["call_llm → LLMTurn"]
+    T -- "retry" --> W
+    T -- "retry_counted : hard_iter + 1" --> W
+    T -- "stop_empty" --> L
+    T -- "fatal" --> E["finish_on_error"]
+    T -- "ok" --> K{"tool_calls natifs ?"}
+    K -- oui --> N["open_native_round"]
+    K -- non --> C["classify_text_reply"]
+    C -- "appels lus" --> X["open_text_round"]
+    C -- "aucun appel" --> R{"ResumeState.plan :<br/>reprise ?"}
+    R -- "oui : hard_iter + 1" --> W
+    R -- non --> F["finish_ok"]
+    N --> B["run_tool_batch(NATIF ou TEXTE)<br/>→ BatchOutcome"]
+    X --> B
+    B -- "hard_iter + 1<br/>effective_iter + 1 si un appel a réussi" --> W
+```
+
+Deux détours ne figurent pas sur le schéma : un appel d'outil coupé par la
+limite de génération (`finish=length`) n'est pas exécuté
+(`TruncationGuard.cut`, `hard_iter + 1`) ; une tentative d'appel illisible ou
+perdue dans le raisonnement est relancée, en nombre borné
+(`relaunch_unparsed_call`, `hard_iter + 1`).
+
+**Interfaces principales**
+
+- **`call_llm` → `LLMTurn`.** Tout ce qui sépare la tête d'itération de la
+  réponse décodée : porte de compaction, élagage intra-run, ajustement au
+  budget (`fit_context`), consommation de la reprise en attente, créneau LLM,
+  appel, récupération des échecs, usage et jauge (`kv_cache`), décodage.
+  L'issue est explicite, et `LLMTurn.messages` est TOUJOURS la liste de
+  travail à reprendre (la compaction et l'aplatissement la réaffectent) :
+
+  | Issue | Cas | Ce que fait la boucle |
+  |---|---|---|
+  | `ok` | réponse décodée | appels natifs, appels écrits en texte, reprise ou réponse finale |
+  | `retry` | contexte dépassé puis compacté, historique refusé puis aplati, hoquet du moteur | relance l'itération sans rien compter |
+  | `retry_counted` | réponse sans `choices` (série bornée) | `hard_iter + 1`, puis relance |
+  | `stop_empty` | réponses vides en série | sortie par `finish_on_limit` avec cette cause |
+  | `fatal` | échec après les récupérations (`error`, `err_kind`) | `finish_on_error` |
+
+- **`run_tool_batch` → `BatchOutcome`.** Le noyau commun aux deux canaux :
+  annulation, événements `tool_call`, exécution du lot (`tool_exec`, série ou
+  parallèle), post-traitement dans l'ordre du modèle, anti-boucle
+  (`CycleGuard`). Il complète `working_messages` en place et rend
+  `had_success` (au moins un appel a réussi) et `cycle_hard_stopped` (boucle
+  d'action persistante).
+- **`ChannelSpec` : `NATIF` et `TEXTE`.** Ce qui diffère volontairement entre
+  les `tool_calls` de l'API et les appels écrits dans la prose : la vision
+  (natif seulement : suivi des captures, injection différée de la capture
+  après le dernier résultat du lot, élagage des vieilles trames), le gabarit
+  `result_formatting.fallback_wrapper` (texte seulement), la consigne
+  anti-boucle et les libellés de journal. La préparation du lot diffère
+  aussi : `open_native_round` (prose nettoyée, arguments invalides non
+  exécutés) et `open_text_round` (`tool_calls` synthétiques, identifiants
+  `legacy_*` rendus uniques).
+- **`ResumeState`.** Les reprises automatiques d'une génération coupée,
+  raisonnement ou rédaction. `take` consomme la demande en attente juste
+  avant l'appel, `restore` la rend si l'appel est relancé (sinon la partie
+  déjà écrite serait perdue), `reset_chain` remet la série à zéro dès qu'un
+  lot d'appels est lu, `plan` décide en fin de tour sans appel d'outil.
+- **`finish_ok`, `finish_on_limit`, `finish_on_error`.** Les trois sorties
+  d'un run. Chacune rend le triple de la boucle (texte, événements,
+  métriques), dépose le delta de `tool_history` dans les métriques et
+  enregistre l'usage du tour, une ligne par tour, ici et nulle part
+  ailleurs. `finish_on_limit` rédige la synthèse par un dernier appel sans
+  outils, avec une consigne propre à la cause réelle de l'arrêt.
+
+**Compteurs tenus par l'orchestrateur.** Ce sont des entiers de la boucle,
+jamais d'un objet partagé : les sous-routines rendent une décision, la boucle
+l'applique.
+
+| Compteur | Avance quand | Rôle |
+|---|---|---|
+| `effective_iter` | un lot compte au moins un appel réussi (`BatchOutcome.had_success`) | comparé au budget (`LLAMA_MAX_TOOL_ITERATIONS`, ou `sampling_override.max_tool_iterations`) ; affiché « tour n/max » |
+| `hard_iter` | chaque lot exécuté, appel coupé, relance d'un appel illisible, reprise automatique, issue `retry_counted` | plafond dur `_hard_iter_cap` (le plus grand de 2 × budget et budget + 10) : arrête une cascade d'échecs |
+| `_malformed_retry` | chaque relance d'un appel illisible ou perdu | budget de relances, réarmé par une itération productive ou un appel texte lisible |
+
+Les arrêts volontaires (mur d'horloge `LLAMA_TOOL_LOOP_MAX_S`, appels coupés
+en série — `TruncationGuard.stop` vaut `ctx_saturated` ou `gen_cap` —,
+boucle d'action, réponses vides) sortent de la boucle sans toucher à
+`effective_iter` : le compteur affiché reste vrai, et `finish_on_limit`
+reçoit la cause réelle.
+
+**Points de substitution des tests.** La fonction de flux
+(`_llama_chat_with_tools_stream`) et la métrique d'appel d'outil
+(`_record_tool_call_metric_safe`) sont lues dans les globales de
+l'orchestrateur au début du run, puis injectées (`LoopDeps`) : elles se
+patchent sur `llm_core._chat_with_tools`. Le reste (taille de contexte, pool
+MCP, élagage, registre d'usage) se lit à l'appel dans son module propriétaire
+(`_model_info`, `_mcp_pool`, `context.pruning`, `usage_ctx`), où on le
+patche.
+
+---
+
+## Le flux d'un tour de chat
+
+`POST /api/chat-saved-stream3` (`chatbot_app/routes/chats.py`) n'enchaîne que
+des étapes. Le tour lui-même vit dans le paquet `chatbot_app/turn/`, qui
+n'importe jamais les routes.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant H as api_chat_saved_stream3
+    participant P as prepare_turn
+    participant R as run_turn
+    participant W as worker
+    participant B as boucle ou chemin classique
+    C->>H: POST /api/chat-saved-stream3
+    H->>H: admission (409 compaction ou génération en cours, 429 plafond du compte)
+    H->>P: payload client
+    P-->>H: TurnPlan, TurnResources, PersistBaseline
+    H->>H: verrou de présence (+ recalage après une passation)
+    H-->>C: StreamingResponse(run_turn(...))
+    R->>R: réclame le verrou réservé
+    R->>W: tâche de fond + file
+    W->>B: attente du moteur, puis génération
+    B-->>W: événements (on_event)
+    W->>W: enregistrement optimiste, puis kv_cache et final
+    R-->>C: NDJSON drainé (jetons regroupés toutes les 25 ms)
+    Note over R: flux fermé, run détaché ou clos
+```
+
+| Module (`chatbot_app/`) | Rôle |
+|---|---|
+| `routes/chats.py` | la route du flux ; son en-tête écrit les invariants et l'ordre des événements |
+| `routes/chat_control.py` | « Répondre maintenant », Stop, Stop d'un sous-agent, état d'une génération, exécutions actives, rattachement (`/run/events`) |
+| `routes/chat_compression.py` | compression manuelle et son état |
+| `turn/admission.py` | verrou de présence (`_acquire_gen_presence`, réservation jusqu'à `run_turn`), compactions manuelles en vol |
+| `turn/preparation.py` | `prepare_turn` |
+| `turn/execution.py` | `run_turn` (générateur NDJSON) et son worker : attente du moteur, chemin classique ou boucle, titre, enregistrement, `final`, détachement |
+| `turn/events.py` | pompe NDJSON (`_drain_coalesced`), filtre des événements après un Stop, suivi du chargement d'un modèle (`queue_status`) |
+| `turn/persistence.py` | message du tour ou partiel (`_message_assistant`, `_message_partiel`), écriture optimiste (`_persist_turn`), écritures `meta_json` de fin de tour |
+| `turn/history.py` | historique client ↔ base ↔ modèle (`_normalize_client_messages`, `_expand_history_for_llm`), « Continuer » (`_split_for_continue`) |
+| `turn/tasks.py` | références fortes des tâches de fond (`keep`, `_BG_TASKS`, drainé à l'arrêt du worker) |
+
+**Interfaces principales**
+
+- **`prepare_turn(request, data, user_id, chat_id)`** rend
+  `(TurnPlan, TurnResources, PersistBaseline)`. Elle résout la cible et les
+  serveurs MCP côté serveur, lit le chat, applique les interrupteurs du
+  compte (outils, mémoire, sous-agents, compaction, mode plan), développe
+  l'historique, branche le RAG et calcule le titre. Elle lève encore des
+  `HTTPException` (400, 409) : rien n'est parti vers le client.
+- **`TurnPlan`** (gelé) : tout ce que la préparation a décidé — identité,
+  cible et modèle, outils et refus, compaction et marques d'élagage,
+  historique (`messages`, `msgs`, `msgs_for_llm`), titre. Le gel est
+  superficiel : listes et dictionnaires ne sont pas copiés.
+- **`TurnResources`** (gelé) : fonction de persistance (vide en session
+  éphémère), gestionnaire de mémoire, outils RAG intégrés.
+- **`PersistBaseline`** : base de l'enregistrement optimiste (`updated_at`,
+  `messages`, `title`) et état de compression précédent. Le handler la recale
+  après une passation (Stop puis régénération) ; `run_turn` la déballe.
+- **`run_turn(plan, res, base)`** : réclame le verrou de présence avant tout
+  `await`, lance le worker, draine sa file vers le client ; à la fermeture du
+  flux, détache le run ou le clôt (`_should_detach_run`, `_cloturer_run`).
+
+Invariants (détail en tête de `chats.py`) : une génération à la fois par
+conversation, tous workers confondus ; aucune instruction ne peut lever entre
+la prise du verrou et le `StreamingResponse` ; adresses MCP résolues côté
+serveur ; annulation publiée sur le bus d'annulation, partiel enregistré ;
+enregistrement optimiste, qui précède `kv_cache` et `final`. L'ordre des
+événements est recopié dans la
+[référence API](#ordre-des-événements-dun-tour) et figé par
+`tests/chatbot/test_flux_route.py`.
 
 ---
 
@@ -899,36 +1107,45 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant A as run_chat_multi_mcp
+    participant A as run_chat_multi_mcp (orchestrateur)
+    participant T as call_llm (engine.llm_turn)
     participant L as Moteur
+    participant D as run_tool_batch (engine.tool_dispatch)
     participant M as Pool MCP
     participant S as Conteneur user
     C->>A: POST + catégories/serveurs actifs
-    A->>A: _collect_mcp_tools() + tête système byte-stable
+    A->>A: _collect_mcp_tools() (engine.tool_catalog) + tête système byte-stable
     loop ≤ LLAMA_MAX_TOOL_ITERATIONS (productives)
-        A->>L: chat/completions (tools[], tool_choice=auto)
-        alt appel d'outil
-            L-->>A: tool_calls[]
-            A-->>C: NDJSON {tool_call}
-            A->>M: call_tool (timeout LLAMA_TOOL_TIMEOUT_S)
+        A->>T: itération
+        T->>T: porte de compaction · élagage · fit_context
+        T->>L: chat/completions (tools[], tool_choice=auto)
+        L-->>T: flux SSE
+        T-->>C: NDJSON {content_token} (émission directe)
+        T-->>A: LLMTurn (ok · retry · retry_counted · stop_empty · fatal)
+        alt appels d'outils (natifs ou écrits en texte)
+            A->>D: lot préparé + ChannelSpec (NATIF ou TEXTE)
+            D-->>C: NDJSON {tool_call}
+            D->>M: call_tool (timeout LLAMA_TOOL_TIMEOUT_S)
             M->>S: docker exec (shell) ou agent de la sandbox (fs/git)
             S-->>M: résultat
-            M-->>A: résultat (enveloppe ok/err)
-            A-->>C: NDJSON {tool_result}
-            A->>A: élagage / compaction si nécessaire
+            M-->>D: résultat (enveloppe ok/err)
+            D-->>C: NDJSON {tool_result}
+            D-->>A: BatchOutcome → compteurs
         else réponse finale
-            L-->>A: tokens
-            A-->>C: NDJSON {content_token}
+            A->>A: finish_ok (engine.run_exit)
         end
     end
 ```
 
 - Le pool MCP **réutilise** les connexions (pas de spawn par requête).
-- Seules les itérations **productives** consomment le budget ; le garde-fou
-  anti-boucle est un `_hard_iter_cap` séparé (2× le budget).
-- Si le moteur ne supporte pas `tools[]` nativement, repli : on demande du JSON
-  puis on extrait avec `extract_tool_calls()` (JSON natif, backticks,
-  multi-objets, XML GLM).
+- Seules les itérations **productives** consomment le budget ; le plafond dur
+  `_hard_iter_cap` (le plus grand de 2 × budget et budget + 10) arrête une
+  cascade d'échecs. Compteurs et issues :
+  [La boucle agentique](#la-boucle-agentique).
+- Si le moteur ne produit pas de `tool_calls` natifs, le canal texte lit les
+  appels écrits dans la réponse avec `extract_tool_calls()` (JSON natif,
+  backticks, multi-objets, XML GLM ; `classify_text_reply`) ; le lot passe
+  ensuite par le même noyau (`run_tool_batch`) que les appels natifs.
 - Chaque appel est chronométré et journalisé dans `tool_call_metrics` (base des
   pages Observabilité).
 
@@ -1015,8 +1232,9 @@ sequenceDiagram
   rien — le modèle voit qu'il a commencé et poursuit.
 - **Pas de bouton pour les modèles thinking** : reprendre une chaîne de pensée
   incomplète donne des résultats incohérents.
-- ⚠ La régression « Génération interrompue » venait du calcul de
-  `_run_tool_history` : celui-ci doit être un **delta**, pas un cumul.
+- ⚠ La régression « Génération interrompue » venait du calcul de la
+  `tool_history` du run (`RunRecord.run_tool_history`, `llm_core/engine/run.py`) :
+  elle doit être un **delta**, pas un cumul.
 
 ---
 
@@ -1185,7 +1403,7 @@ redémarrage et sur tous les workers.
 | Champ | Type | Description |
 |---|---|---|
 | `chat_id` | string | Vide → création |
-| `messages` | array | Historique `[{role, content}]` — rôles acceptés : `user`, `assistant`, `system`, `tool`, `notice` (`_CLIENT_ROLES`) |
+| `messages` | array | Historique `[{role, content}]` — rôles acceptés : `user`, `assistant`, `system`, `tool`, `notice` (`_CLIENT_ROLES`, `chatbot_app/turn/history.py`) |
 | `active_mcp_servers` | array | Catégories locales + `ext:<id>` + `shared:<n>` |
 | `use_rag` + `rag_*` | — | Mode RAG et ses réglages |
 | `model` / `connector_id` | string / int | Couple atomique (modèle, connecteur) |
@@ -1197,27 +1415,29 @@ redémarrage et sur tous les workers.
 | `resumable` | bool | Run **reprenable** (posé par le chat principal) : événements journalisés, déconnexion = **détachement** (le tour se termine côté serveur, outils ou non) — cf. ci-dessous |
 
 > La **lecture seule** (`/plan`) n'est volontairement PAS dans ce tableau : elle
-> est relue en base (`meta_json["plan_mode"]`) par la route, jamais reçue du
-> client. Un onglet resté ouvert ne doit pas pouvoir récupérer les outils
-> d'écriture en envoyant un état périmé. La seule entrée côté client est le
-> corps du `POST /api/saved/chats/new` (mode **armé** sur un chat vierge,
-> scellé à la création — le pré-vol de `sendMessage` est fail-FERMÉ : pas de
-> chat créé ⇒ pas d'envoi). Le rappel système vient de
+> est relue en base (`meta_json["plan_mode"]`) par la préparation du tour
+> (`prepare_turn`), jamais reçue du client. Un onglet resté ouvert ne doit pas
+> pouvoir récupérer les outils d'écriture en envoyant un état périmé. La seule
+> entrée côté client est le corps du `POST /api/saved/chats/new` (mode
+> **armé** sur un chat vierge, scellé à la création — le pré-vol de
+> `sendMessage` est fail-FERMÉ : pas de chat créé ⇒ pas d'envoi). Le rappel système vient de
 > `system_prompts/PLAN_MODE.md` (repli en dur si absent).
 >
 > Le mode est **ONE-SHOT** : le plan rendu, le serveur coupe lui-même
-> `meta_json["plan_mode"]` en fin de tour abouti (`_plan_mode_should_end`) et
-> le signale au front par `plan_mode_done` dans l'event `final`. Une
+> `meta_json["plan_mode"]` en fin de tour abouti (`_plan_mode_should_end`,
+> `chatbot_app/turn/persistence.py`) et le signale au front par
+> `plan_mode_done` dans l'event `final`. Une
 > **troncature** (plafond tokens / limite d'outils) ne coupe PAS : le
 > « Continuer » doit reprendre EN mode plan. Annulation, erreur, persist en
 > échec, session éphémère : le mode reste posé.
 >
 > Le rôle **`notice`** est un marqueur d'INTERFACE (« conversation compactée »)
 > qui doit traverser le round-trip client pour rester dans le fil, mais qui
-> n'atteint **jamais** le modèle (`_expand_history_for_llm` l'exclut ; un rôle
-> inconnu vaut un 400 côté template). Corollaire à ne pas oublier : `msgs` peut
-> se terminer par une notice — la fusion « Continue » passe donc par
-> `_split_for_continue`, pas par `msgs[-1]`.
+> n'atteint **jamais** le modèle (`_expand_history_for_llm`,
+> `chatbot_app/turn/history.py`, l'exclut ; un rôle inconnu vaut un 400 côté
+> template). Corollaire à ne pas oublier : `msgs` peut se terminer par une
+> notice — la fusion « Continue » passe donc par `_split_for_continue`, pas
+> par `msgs[-1]`.
 
 ### Types d'événements NDJSON
 
@@ -1254,13 +1474,40 @@ que l'interface ne lit et que la route n'émet aucun type hors registre).
 | `run_started` / `replay_done` / `run_end` / `run_lost` | Flux de **rattachement** uniquement (`/run/events`) |
 | `journal_truncated` | Rattachement : journal plein, seuls les événements structurants suivent |
 
+### Ordre des événements d'un tour
+
+Recopié de l'en-tête de `chatbot_app/routes/chats.py`, qui fait foi ; figé
+par `tests/chatbot/test_flux_route.py` :
+
+1. avec RAG : `mode`, puis `rag_sources` ou `info` (service en panne) ;
+2. `mode` (« Génération en cours… » ou serveurs MCP actifs) ;
+3. `queue_status` si le moteur n'est pas prêt, puis éventuellement
+   `thinking` « En attente… » et d'autres `queue_status` pendant l'attente
+   d'un créneau ;
+4. `queue_cleared` (seulement si un `queue_status` est parti) ;
+5. chemin classique : jetons (`thinking_token`, `content_token`), puis
+   `thinking_content` / `content_replace` si le raisonnement est
+   réattribué ; chemin outils : `mode` « Outils prêts… » puis les événements
+   de la boucle (`tool_call`, `tool_result`, jetons…) ;
+6. `kv_cache`, seulement si l'occupation du contexte a pu être mesurée ;
+7. `final` (réponse, métriques, `persisted`), puis fin du flux.
+
+Variantes : panne → `queue_cleared` si besoin, `error`, puis `final`
+partiel ; Stop pendant l'attente du moteur → `queue_cleared` puis `final`
+partiel ; Stop pendant la génération → plus aucun événement sauf le `final`
+partiel. `ping` peut s'intercaler à tout moment (flux inactif).
+
 ### Contrôle
+
+Routes de `chatbot_app/routes/chat_control.py`, sauf la compression manuelle
+(`chat_compression.py`) et la lecture seule (`saved_chats.py`).
 
 | Endpoint | Description |
 |---|---|
 | `POST /api/chat/cancel` | Annule la génération (diffusé sur `cancel_bus`) |
+| `POST /api/chat/reasoning-end` | « Répondre maintenant » : coupe le raisonnement en cours |
 | `POST /api/chat/task-cancel` | Annule **un** sous-agent sans tuer le tour |
-| `POST /api/chat/compress` · `/api/chat/{id}/compress` | Compaction manuelle (`/compact`) |
+| `POST /api/chat/{id}/compress` | Compaction manuelle (`/compact`) ; `POST /api/chat/compress` (sans identifiant) est obsolète et sans effet |
 | `PUT /api/saved/chats/{id}/plan-mode` | Bascule la **lecture seule** du chat (`/plan`) — booléen strict, 422 sinon |
 | `GET /api/chat/{id}/compression-state` | État de compaction |
 | `GET /api/chat/{id}/generation-status` | Génération en vol ? (visible cross-worker) + de quoi s'y rattacher : `run_id`, `resumable`, `base_count`, `user_message`, `is_continue`, `engine_key`. Un journal clos (`final` émis) vaut « fini » même si le worker tient encore le verrou |
@@ -2115,9 +2362,9 @@ Gotchas :
   site) pour éviter de re-explorer une page déjà cartographiée.
 - **Tout hook qui lit les arguments BRUTS d'un `pw_*` doit passer par
   `pw_verb()`**, jamais par une clé en dur : `_track_pw_session_ownership`
-  (propriété de session, multi-user) et l'injection de capture vision de
-  `_chat_with_tools` lisaient `action`/`op` en dur — avec les synonymes, ça
-  les rendait aveugles à la moitié des appels.
+  (propriété de session, multi-user) et l'injection de capture vision de la
+  boucle (`run_tool_batch`, canal natif) lisaient `action`/`op` en dur — avec
+  les synonymes, ça les rendait aveugles à la moitié des appels.
 - `pw_page(action="extract")` n'extrait que des **tableaux** (`target=` pour
   viser lequel). Pour du texte courant, c'est `action="text"`.
 
@@ -2566,9 +2813,11 @@ venv/bin/pytest tests/llm_core -x    # un paquet
 node tests/frontend/<fichier>.js     # tests unitaires front
 ```
 
-> ⚠ **Une suite qui « hang »** vient presque toujours d'un test qui joint le
-> vrai moteur. Forcer un endpoint mort :
-> `LLAMA_IP=127.0.0.1 LLAMA_PORT=1 venv/bin/pytest`
+> `tests/conftest.py` isole la suite de l'instance : configuration absente
+> (`APP_CONFIG_PATH` vers un fichier inexistant) et moteur injoignable
+> (`LLAMA_IP=127.0.0.1`, `LLAMA_PORT=1`), sauf si ces variables sont déjà
+> posées. Le `config.json` réel ne fausse donc pas les tests, et aucun test ne
+> joint le vrai moteur.
 
 | Répertoire | Portée |
 |---|---|
@@ -2579,7 +2828,7 @@ node tests/frontend/<fichier>.js     # tests unitaires front
 | `tests/db/` · `tests/sandbox/` · `tests/chatbot/` · `tests/desktop_agent/` · `tests/toolhost/` | Persistance, sandbox, chat, agent, hôte d'outils |
 | `tests/frontend/` | Harnais Playwright (route-mock) et tests unitaires front |
 | `tests/perf/` · `tests/load/` | Perf, jank, charge |
-| `tests/goldens/` | Golden files (tête système byte-stable, contrats) |
+| `tests/goldens/` | Golden files : tête système byte-stable, contrats, scénarios complets de la boucle (`boucle_*`) et du flux de chat (`flux_route_*`) |
 
 Pièges connus des tests :
 
@@ -2588,7 +2837,16 @@ Pièges connus des tests :
 - Le harnais frontend repose sur une recette **route-mock** (`@include` +
   `/static`) : il ne demande **pas** de llama-server.
 - Le sélecteur de modèle mocké exige `enable_model_selector: true`.
-- Trois liaisons doivent être patchées pour simuler un `n_ctx` donné.
+- Deux liaisons doivent être patchées pour simuler un `n_ctx` donné :
+  `llm_core._model_info.get_model_context_size` (boucle, fonction de flux,
+  charge utile) et la copie de façade `llm_core.get_model_context_size`
+  (compresseur) — cf. `tests/llm_core/ctx_scale_harness.py`.
+- Une substitution vise le module qui **lit** le nom
+  (`tests/llm_core/test_seams_effectifs.py` refuse un patch sans effet) ;
+  seules la fonction de flux et la métrique d'outil de la boucle se patchent
+  sur `llm_core._chat_with_tools` (`LoopDeps`).
+- Un test structurel lit le code d'un sujet entier par `tests/_sources.py`
+  (`source_boucle()`, `source_flux_chat()`), jamais un seul fichier.
 - Tester l'UI **aussi** avec `reducedMotion: 'reduce'`.
 - Les balayages FS sont sautés sous pytest.
 
@@ -2637,7 +2895,8 @@ Reaper automatique côté Node (TTL 15 min).
 ### Streaming : « shorter than Content-Length »
 
 Ce message masque presque toujours une **exception levée dans le générateur**
-de réponse. Chercher la vraie erreur dans `gen()`, pas dans le middleware.
+de réponse. Chercher la vraie erreur dans `run_turn`
+(`chatbot_app/turn/execution.py`), pas dans le middleware.
 
 ### Markup de tool-call dans la bulle
 

@@ -38,8 +38,8 @@ from llm_core._constants import (
 THINK_PREFILL_OPEN = "<think>\n"
 
 # Consigne du mode repli — texte CANONIQUE partagé avec la route
-# (chatbot_app.routes.chats._RESUME_AFTER_THINK l'importe) : même geste que le
-# « Répondre maintenant » historique.
+# (chatbot_app.turn.history._RESUME_AFTER_THINK l'importe) : même geste que le
+# repli de « Répondre maintenant ».
 RESUME_AFTER_THINK_INSTRUCTION = (
     "Your thinking phase is over. Now write your final answer for the user, "
     "building on the reasoning above — without repeating or continuing it, "
@@ -62,13 +62,13 @@ RESUME_TRUNC_MARKER = "[…raisonnement antérieur tronqué…]\n"
 # main (bannière) au lieu de payer un prefill complet pour rien.
 RESUME_HEADROOM_TOKENS = 2048
 
-# ── Reprise du CONTENU (audit long-run 2026-08-21) ─────────────────────────
-# Jusqu'ici, seul le RAISONNEMENT coupé était repris in-run. Une réponse en
-# PROSE coupée par le plafond (ou par un flux interrompu mi-génération)
-# terminait le tour en ``truncated`` + bannière « Continuer » : parfait pour un
-# humain devant son écran, fatal pour une mission autonome de plusieurs heures
-# où personne ne cliquera. C'est la coupure la plus fréquente sur les runs
-# longs — et la seule dont il ne restait aucune reprise automatique.
+# ── Reprise du CONTENU ──────────────────────────────────────────────────────
+# Une réponse en PROSE coupée par le plafond (ou par un flux interrompu
+# mi-génération) est reprise in-run, comme le raisonnement. Finir le tour en
+# ``truncated`` + bannière « Continuer » convient à un humain devant son
+# écran, mais est fatal pour une mission autonome de plusieurs heures où
+# personne ne cliquera — et c'est la coupure la plus fréquente sur les runs
+# longs.
 #
 # Contrainte de correction : on ne reprend QU'EN MODE NATIF
 # (``continue_final_message``, llama.cpp local récent), qui reprend la
@@ -77,7 +77,7 @@ RESUME_HEADROOM_TOKENS = 2048
 # : demander à un modèle de « continuer sans répéter » de la prose produit
 # régulièrement un chevauchement ou une redite, et une réponse visiblement
 # dupliquée est PIRE que la bannière « Continuer » qu'on cherche à éviter.
-# Sans canal natif, le comportement historique est donc conservé tel quel.
+# Sans canal natif, pas de reprise : le tour finit en ``truncated`` + bannière.
 MAX_RESUME_CONTENT_CHARS = 200_000
 
 
@@ -225,11 +225,11 @@ def should_auto_resume(
     que le serveur a effectivement en KV — donc la taille du prompt que la
     reprise native va renvoyer.
 
-    ⚠ Ce n'est PAS ``last_prompt_tokens + think_tokens_done``, comme c'était
-    calculé avant : le prompt d'un segment de reprise CONTIENT déjà le
-    raisonnement des segments précédents, donc l'addition le comptait deux
-    fois et refusait la reprise vers la moitié de la fenêtre réelle. Un long
-    raisonnement était ainsi bloqué par un mur qui n'existait pas.
+    ⚠ Ne pas le calculer ``last_prompt_tokens + think_tokens_done`` : le
+    prompt d'un segment de reprise CONTIENT déjà le raisonnement des segments
+    précédents, l'addition le compterait deux fois et refuserait la reprise
+    vers la moitié de la fenêtre réelle — un long raisonnement serait bloqué
+    par un mur qui n'existe pas.
 
     Et ce n'est pas non plus le budget de contexte de la conversation : le
     raisonnement est éphémère (jamais re-soumis au tour suivant), il ne
@@ -245,13 +245,13 @@ def should_auto_resume(
     if had_tool_calls:
         return False, "tool_calls présents (reprise mi-séquence interdite)"
     # ``partial`` (flux coupé mi-génération : ReadTimeout, reset TCP, fin SSE
-    # sans finish_reason) ne bloque PLUS la reprise. Le re-POST n'est pas
+    # sans finish_reason) ne bloque PAS la reprise. Le re-POST n'est pas
     # « aveugle » : l'appel de reprise passe par le retry/backoff complet
     # (+ attente /health sur 503 local), donc un serveur réellement mort
     # échoue vite et proprement — et les mêmes plafonds (RESUME_MAX, budget
-    # de thinking, fenêtre) bornent l'acharnement. Bloquer ici transformait
-    # chaque micro-coupure réseau en fin de run (« Continuer » à l'itération
-    # N) sur les missions longues.
+    # de thinking, fenêtre) bornent l'acharnement. Ne pas bloquer ici :
+    # chaque micro-coupure réseau deviendrait une fin de run (« Continuer » à
+    # l'itération N) sur les missions longues.
     if LLAMA_THINK_RESUME_MAX <= 0:
         return False, "auto-reprise désactivée (think_resume_max=0)"
     if resumes_done >= LLAMA_THINK_RESUME_MAX:

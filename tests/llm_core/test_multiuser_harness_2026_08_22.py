@@ -255,7 +255,7 @@ def _run_history(n_iterations: int, taille: int):
 
 
 def test_tool_history_bornee_en_octets():
-    from llm_core._chat_with_tools import _cap_run_tool_history
+    from llm_core.engine.run import _cap_run_tool_history
     hist = _run_history(300, 100_000)          # ~30 Mo
     borne = 2 * 1024 * 1024
     out = _cap_run_tool_history(hist, max_bytes=borne)
@@ -264,7 +264,7 @@ def test_tool_history_bornee_en_octets():
 
 
 def test_elagage_preserve_lappariement_appel_resultat():
-    from llm_core._chat_with_tools import _cap_run_tool_history
+    from llm_core.engine.run import _cap_run_tool_history
     hist = _run_history(200, 100_000)
     out = _cap_run_tool_history(hist, max_bytes=1024 * 1024)
     assert len(out) == len(hist), "des messages ont DISPARU (appariement cassé)"
@@ -277,7 +277,7 @@ def test_elagage_preserve_lappariement_appel_resultat():
 def test_la_fin_du_run_est_preservee():
     """Le travail RÉCENT est celui qu'un « Continuer » relit : il doit
     survivre à l'élagage."""
-    from llm_core._chat_with_tools import _cap_run_tool_history
+    from llm_core.engine.run import _cap_run_tool_history
     hist = _run_history(100, 100_000)
     hist[-1]["content"] = "RESULTAT FINAL" + "y" * 1000
     out = _cap_run_tool_history(hist, max_bytes=1024 * 1024)
@@ -285,7 +285,7 @@ def test_la_fin_du_run_est_preservee():
 
 
 def test_petit_historique_intact():
-    from llm_core._chat_with_tools import _cap_run_tool_history
+    from llm_core.engine.run import _cap_run_tool_history
     hist = _run_history(3, 100)
     assert _cap_run_tool_history(hist, max_bytes=1024 * 1024) is hist
 

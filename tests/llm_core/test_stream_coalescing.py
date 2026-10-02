@@ -3,7 +3,7 @@
 tests/llm_core/test_stream_coalescing.py — coalescing NDJSON du stream chat
 (perf vague 4).
 
-Cible : ``chatbot_app.routes.chats._drain_coalesced`` — agrégation des
+Cible : ``chatbot_app.turn.events._drain_coalesced`` — agrégation des
 content_token / thinking_token consécutifs DÉJÀ en file, sans latence
 ajoutée, ordre du flux strictement préservé, sentinelle None respectée
 même tirée par get_nowait pendant l'agrégation.
@@ -14,7 +14,7 @@ import asyncio
 
 import pytest
 
-from chatbot_app.routes.chats import _drain_coalesced
+from chatbot_app.turn.events import _drain_coalesced
 
 
 async def _collect(events):

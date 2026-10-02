@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 """
-backend.routes._events_bus — SSE event buses, scheduler, model cache, log fanout.
+shared_infra.observability.events_bus — SSE event buses, scheduler, model cache, log fanout.
 
 What lives here
 ---------------
@@ -14,26 +14,23 @@ What lives here
    sur Redis quand il est joignable, sinon sur le journal fichier partagé
    (``file_bus``), que TOUS les workers suivent.
 
-3. (``PipelineEventsScope`` retiré le 2026-09-25 : aucune instance.)
-
-4. **Worker cleanup** (``start_cron_scheduler``, ``_local_cleanup_loop``):
+3. **Worker cleanup** (``start_cron_scheduler``, ``_local_cleanup_loop``):
    per-worker cleanup loop for resources owned by the current process
-   (PTY terminals). NB: the historical agentic cron scheduler / pipeline
-   triggers were removed with the agentic engine (replaced by Flowise).
+   (PTY terminals).
 
-5. **Background-task registry** (``_register_bg_task``, ``shutdown_bg_tasks``):
+4. **Background-task registry** (``_register_bg_task``, ``shutdown_bg_tasks``):
    bookkeeping for every long-running task this module owns, so the lifespan
    shutdown can drain them cleanly.
 
-6. **Model cache** (``_model_cache``, ``_refresh_model_cache``,
+5. **Model cache** (``_model_cache``, ``_refresh_model_cache``,
    ``_model_poll_loop``, ``_ensure_model_poller``,
    ``CURRENT_LOADED_MODELS``): cached snapshot of llama-server's
    /v1/models + /props with a 10 s polling background task. Guarded by a
    lazily-initialised lock to be safe under concurrent requests.
 
-7. **SSELogHandler**: ``logging.Handler`` that mirrors every log record
-   into ``system_events.broadcast`` so the admin SSE pane shows live
-   logs without needing a separate plumbing.
+6. **SSELogHandler**: ``logging.Handler`` that keeps the in-memory log
+   history (``logs`` field of GET /api/admin/logs/recent); live logs reach
+   the staff through ``_staff_log_tail_loop``.
 
 These are imported as a unit because they are tightly coupled by shared
 module-level state (``system_events``, ``CURRENT_LOADED_MODELS``, etc.).
@@ -42,11 +39,11 @@ import cycles.
 
 Re-export contract
 ------------------
-``backend/routes/_legacy.py`` re-imports everything defined here so callers
-that historically did ``from backend.routes._legacy import system_events``
-keep working. ``backend/routes/__init__.py`` adds this module to its
-``_SUBMODULES`` tuple so the same names are also reachable via
-``from backend.routes import …``.
+``shared_infra/routes/_legacy.py`` re-imports the names defined here, so
+``from shared_infra.routes._legacy import system_events`` works.
+``shared_infra/routes/__init__.py`` adds this module to its ``_SUBMODULES``
+tuple so the same names are also reachable via
+``from shared_infra.routes import …``.
 """
 from __future__ import annotations
 
@@ -69,23 +66,15 @@ logger = logging.getLogger("uvicorn.error")
 
 # CURRENT_LOADED_MODELS is module-level on purpose: every code path that
 # loads/unloads a model touches it (`api_llm_load_model`,
-# `api_llm_unload_model`, `_refresh_model_cache`, /api/pipelines/run-node,
-# /api/chat-saved-stream3). A set rather than a dict because we only need
-# membership; the model-cache structure stays alongside.
+# `api_llm_unload_model`, `_refresh_model_cache`, the auto-load of the chat
+# turn in ``chatbot_app/turn/preparation.py``). A set rather than a dict
+# because we only need membership; the model-cache structure stays alongside.
 CURRENT_LOADED_MODELS: set = set()
 
 
-# PROJECT_ROOT was historically computed here with
-#     Path(__file__).resolve().parent.parent
-# which worked when this file was backend/routes.py (2 levels up = app root).
-# After the package refactor this file lives at backend/routes/_legacy.py,
-# so the same expression now points at backend/ instead of the app root.
-# We import from backend.config — the canonical source — to stay correct
-# regardless of where this file ends up.
-
 # Sentinelle de fermeture propre d'un client SSE (cf. SystemEvents.listen /
-# broadcast, finding E5 de l'audit 2026-08-01). Objet unique comparé par
-# IDENTITÉ : aucun message légitime ne peut le contrefaire.
+# broadcast). Objet unique comparé par IDENTITÉ : aucun message légitime ne
+# peut le contrefaire.
 _CLIENT_CLOSED = object()
 
 
@@ -103,28 +92,28 @@ class SystemEvents:
         #     avec uid/IP d'autres comptes, traces, chemins disque) →
         #     divulgation transversale pour un non-staff. Staff only.
         #   • ``type="notification"`` : event PER-USER (badge cloche). Ne sort
-        #     que vers les sessions du destinataire (data.user_id). Avant,
-        #     seul le client filtrait → tout utilisateur authentifié recevait
-        #     le user_id/kind/compteur non-lus des autres.
+        #     que vers les sessions du destinataire (data.user_id). Un filtre
+        #     côté client seul livrerait à tout utilisateur authentifié le
+        #     user_id/kind/compteur non-lus des autres.
         self.clients: dict = {}
         self._log_history = collections.deque(maxlen=self.LOG_HISTORY_MAXLEN)
 
-    # Période de revalidation de session des flux ouverts (audit 2026-08-02,
-    # S1). 60 s = compromis entre réactivité de la révocation et coût DB
-    # (un SELECT indexé par client toutes les 60 s).
+    # Période de revalidation de session des flux ouverts. 60 s = compromis
+    # entre réactivité de la révocation et coût DB (un SELECT indexé par
+    # client toutes les 60 s).
     SESSION_RECHECK_SEC = 60.0
 
     async def listen(self, *, is_staff: bool = False, user_id: Optional[int] = None,
                      validity_check=None):
         """Flux SSE d'un client.
 
-        ``validity_check`` (audit 2026-08-02, S1) : callable SYNC sans
-        argument → bool, construit par l'endpoint avec les valeurs de
-        session capturées au handshake. Ré-exécuté toutes les
-        ``SESSION_RECHECK_SEC`` : s'il rend False, on émet un event
-        ``session_expired`` (le front purge et affiche le login) puis on
-        termine le flux. Sans lui, une session expirée/révoquée gardait
-        son SSE ouvert indéfiniment (firehose de logs staff compris).
+        ``validity_check`` : callable SYNC sans argument → bool, construit
+        par l'endpoint avec les valeurs de session capturées au handshake.
+        Ré-exécuté toutes les ``SESSION_RECHECK_SEC`` : s'il rend False, on
+        émet un event ``session_expired`` (le front purge et affiche le
+        login) puis on termine le flux. Sans lui, une session
+        expirée/révoquée garderait son SSE ouvert indéfiniment (firehose de
+        logs staff compris).
         """
         q = asyncio.Queue(maxsize=self.QUEUE_MAX_SIZE)
         self.clients[q] = {"staff": bool(is_staff), "uid": user_id}
@@ -149,20 +138,19 @@ class SystemEvents:
                         return
                 if msg is None:
                     continue
-                # Sentinelle de fermeture (cf. broadcast, E5) : on SORT de la
+                # Sentinelle de fermeture (cf. broadcast) : on SORT de la
                 # boucle pour que le ``finally`` s'exécute et que la réponse
                 # SSE se termine — le navigateur reconnectera de lui-même.
                 if msg is _CLIENT_CLOSED:
                     return
-                # AUDIT 2026-08-02 (E8) — même garde que PipelineEvents.listen :
-                # un payload non sérialisable (datetime, Path, Exception…)
-                # levait TypeError et tuait le flux SSE de CE client sans
-                # aucun event d'erreur. On droppe le message fautif, pas le
-                # client.
-                # Passe d'optimisation 2026-09-26 — ``_fanout`` met en file le
-                # texte DÉJÀ sérialisé (une fois pour tous les clients) ; seuls
-                # les messages de contrôle (disconnect_user, avertissement de
-                # saturation) arrivent encore en dict.
+                # Même garde que PipelineEvents.listen : un payload non
+                # sérialisable (datetime, Path, Exception…) lèverait TypeError
+                # et tuerait le flux SSE de CE client sans aucun event
+                # d'erreur. On droppe le message fautif, pas le client.
+                # ``_fanout`` met en file le texte DÉJÀ sérialisé (une fois
+                # pour tous les clients) ; seuls les messages de contrôle
+                # (disconnect_user, avertissement de saturation) arrivent en
+                # dict.
                 if isinstance(msg, str):
                     payload = msg
                 else:
@@ -181,8 +169,8 @@ class SystemEvents:
                         message: Optional[dict] = None) -> int:
         """Ferme proprement les flux SSE d'un utilisateur (ou de tous).
 
-        Audit 2026-08-02 (S1) : appelé sur révocation admin (via le bus
-        fichier inter-workers) et au force_logout. Pousse un ``message``
+        Appelé sur révocation admin (via le bus fichier inter-workers) et au
+        force_logout. Pousse un ``message``
         optionnel (ex. ``{"type": "session_expired"}``) PUIS la sentinelle
         de fermeture, pour que le client apprenne la cause avant la coupure.
         Retourne le nombre de flux fermés.
@@ -207,11 +195,11 @@ class SystemEvents:
                 except asyncio.QueueEmpty:
                     pass
                 with swallow("events.disconnect_user"):
-                    # AUDIT 2026-08-02 (F9) — ré-enfiler la CAUSE avant la
-                    # sentinelle : la queue vient d'être vidée, les deux places
-                    # sont garanties. Sans ceci, un client saturé au moment
-                    # d'une révocation/évacuation fermait sans jamais apprendre
-                    # pourquoi (perte du hint session_expired / worker_recycling).
+                    # Ré-enfiler la CAUSE avant la sentinelle : la queue vient
+                    # d'être vidée, les deux places sont garanties. Sans ceci,
+                    # un client saturé au moment d'une révocation/évacuation
+                    # fermerait sans jamais apprendre pourquoi (perte du hint
+                    # session_expired / worker_recycling).
                     if message is not None:
                         q.put_nowait(message)
                     q.put_nowait(_CLIENT_CLOSED)
@@ -226,10 +214,10 @@ class SystemEvents:
                 "message": msg.get("message", ""),
                 "level":   msg.get("level", ""),
             })
-            # AUDIT moteur d'événements 2026-09-25 (A3) — un ``log`` diffusé
-            # ici n'atteignait que le staff branché sur CE worker. On l'écrit
-            # dans le journal commun : la boucle ``_staff_log_tail_loop`` de
-            # chaque worker le relaie à SES clients staff.
+            # Un ``log`` s'écrit dans le journal commun, pas dans les queues
+            # locales (qui n'atteindraient que le staff branché sur CE
+            # worker) : la boucle ``_staff_log_tail_loop`` de chaque worker le
+            # relaie à SES clients staff.
             try:
                 from shared_infra.observability.access_logging import write_event
                 write_event(str(msg.get("level") or "INFO").upper(),
@@ -258,18 +246,17 @@ class SystemEvents:
             if notif_uid is None:
                 logger.debug("[system_events] notification sans user_id valide — droppée")
                 return
-        # AUDIT 2026-09-16 (lot B4) — l'inventaire du serveur INTÉGRÉ ne part
-        # que vers les comptes qui y ont accès (politique par utilisateur /
-        # groupe). Résolution en cache court côté ``engine_access`` ; toute
-        # erreur laisse passer (fail-open documenté là-bas).
+        # L'inventaire du serveur INTÉGRÉ ne part que vers les comptes qui y
+        # ont accès (politique par utilisateur / groupe). Résolution en cache
+        # court côté ``engine_access`` ; toute erreur laisse passer (fail-open
+        # documenté là-bas).
         is_model_status = msg.get("type") == "model_status"
-        # Passe d'optimisation 2026-09-26 — sérialisation UNIQUE, paresseuse
-        # (seulement s'il y a au moins un destinataire), au lieu d'un
-        # ``json.dumps`` par client dans ``listen`` : ``model_status`` porte la
-        # liste complète des modèles et part vers TOUS les utilisateurs à
-        # chaque variation du cache KV. Et l'accès au moteur intégré n'est
-        # résolu qu'une fois par COMPTE (un compte ouvre souvent plusieurs
-        # onglets), pas une fois par flux.
+        # Sérialisation UNIQUE, paresseuse (seulement s'il y a au moins un
+        # destinataire), pas un ``json.dumps`` par client dans ``listen`` :
+        # ``model_status`` porte la liste complète des modèles et part vers
+        # TOUS les utilisateurs à chaque variation du cache KV. Et l'accès au
+        # moteur intégré n'est résolu qu'une fois par COMPTE (un compte ouvre
+        # souvent plusieurs onglets), pas une fois par flux.
         payload: Optional[str] = None
         access: Dict[Any, bool] = {}
         dead = []
@@ -299,19 +286,16 @@ class SystemEvents:
             except asyncio.QueueFull:
                 dead.append(q)
         for q in dead:
-            # AUDIT 2026-08-01 (E5) — avant, on faisait ``clients.pop(q)`` :
-            # le client était désinscrit MAIS son ``listen()`` restait bloqué
-            # pour toujours sur ``await q.get()`` (plus personne ne pousse), si
-            # bien que le ``finally`` ne s'exécutait jamais (coroutine + queue
-            # retenues) et que, ``EventSourceResponse`` continuant d'envoyer
-            # ses pings toutes les 15 s, le navigateur voyait une connexion
-            # saine : ni ``onerror``, ni reconnexion. Résultat : logs et
-            # notifications gelés jusqu'à un rechargement manuel, sans le
-            # moindre signe d'erreur.
+            # Queue pleine : PERDRE DU LOG plutôt que le client. On vide la
+            # moitié la plus ancienne de la queue et on ré-enfile le message
+            # courant ; le client reste inscrit et le flux repart.
             #
-            # On préfère désormais PERDRE DU LOG plutôt que le client : on vide
-            # la moitié la plus ancienne de la queue et on ré-enfile le message
-            # courant. Le client reste inscrit et le flux repart.
+            # Ne pas simplement désinscrire le client (``clients.pop(q)``) : son
+            # ``listen()`` resterait bloqué pour toujours sur ``await q.get()``
+            # (plus personne ne pousse), le ``finally`` ne s'exécuterait jamais,
+            # et les pings d'``EventSourceResponse`` (toutes les 15 s) feraient
+            # voir au navigateur une connexion saine — ni ``onerror``, ni
+            # reconnexion : logs et notifications gelés sans signe d'erreur.
             try:
                 for _ in range(max(1, self.QUEUE_MAX_SIZE // 2)):
                     try:
@@ -348,18 +332,17 @@ system_events = SystemEvents()
 #    instance. Quand l'event naît sur le worker 1 et que le SSE de
 #    l'utilisateur est branché sur le worker 2, il ne traverse pas.
 #
-#  Transport (audit moteur d'événements 2026-09-25, A2/B3/B4) :
+#  Transport :
 #    - Redis pub/sub quand il est joignable (latence < 1 ms) ;
 #    - journal fichier partagé (``file_bus.FileBus``) TOUJOURS suivi par
 #      chaque worker, qu'il soit en Redis ou non.
-#    Avant, le mode était décidé PAR WORKER à la première utilisation, et un
-#    worker n'écoutait QUE son transport : si Redis flanchait au démarrage d'un
-#    worker, il passait en fichier pendant que ses voisins restaient en Redis —
-#    chacun n'entendait plus que lui-même, sans rien signaler. Et le secours
-#    fichier d'une publication Redis ratée n'était lu par personne d'autre.
-#    Désormais : chaque event part sur UN transport (Redis si ce worker l'a,
-#    sinon le fichier), tous les workers lisent le fichier, et un worker sans
-#    Redis retente de s'y abonner périodiquement.
+#    Chaque event part sur UN transport (Redis si ce worker l'a, sinon le
+#    fichier), tous les workers lisent le fichier, et un worker sans Redis
+#    retente de s'y abonner périodiquement. Ne pas laisser un worker n'écouter
+#    QUE son propre transport : un worker passé en fichier (Redis absent à son
+#    démarrage) et ses voisins restés en Redis ne s'entendraient plus, sans
+#    rien signaler, et le secours fichier d'une publication Redis ratée ne
+#    serait lu par personne.
 #
 #  Limites assumées :
 #    - Latence du fichier ~50 ms (polling) ; aucun rejeu (un client qui se
@@ -379,7 +362,7 @@ class PipelineEvents:
     QUEUE_MAX_SIZE       = 500
     MAX_CLIENTS_PER_USER = 50
     PING_INTERVAL_SEC    = 15.0
-    SESSION_RECHECK_SEC  = 60.0       # AUDIT 2026-08-02 (M6) — cf. SystemEvents
+    SESSION_RECHECK_SEC  = 60.0       # cf. SystemEvents.SESSION_RECHECK_SEC
     POLL_INTERVAL_SEC    = 0.05
     # Cadence du fichier quand Redis porte le trafic : le fichier n'y sert que
     # de secours (publication Redis ratée, voisin sans Redis).
@@ -390,8 +373,8 @@ class PipelineEvents:
     POLL_IDLE_SEC        = 1.0
     REDIS_RETRY_SEC      = 30.0
     MAX_FILE_SIZE_BYTES  = 5_000_000
-    # (2026-09-20) Sous la racine runtime quand elle est posée (PrivateTmp
-    # scindait ce canal en silence) ; chemin historique sinon.
+    # Sous la racine runtime quand elle est posée (un ``PrivateTmp`` systemd
+    # scinderait ce canal en silence) ; ``/tmp`` sinon (``runtime_path``).
     EVENTS_FILE          = runtime_path("pipeline_events.jsonl", "ELPIS_PIPELINE_EVENTS_FILE",
                                         "/tmp/elpis_pipeline_events.jsonl")
     REDIS_CHANNEL        = "elpis:pipeline_events"
@@ -560,14 +543,14 @@ class PipelineEvents:
                         with self._lock:
                             self._total_errors += 1
             except asyncio.CancelledError:
-                # BUG FIX — ferme proprement pubsub sur cancel (shutdown).
+                # Ferme proprement pubsub sur cancel (shutdown).
                 if pubsub is not None:
                     with swallow("events.redis_subscriber"):
                         await pubsub.aclose()
                 return
             except Exception as e:
-                # BUG FIX — ferme pubsub avant le retry, sinon chaque flap
-                # réseau fuite une connexion Redis.
+                # Ferme pubsub avant le retry, sinon chaque flap réseau fuit
+                # une connexion Redis.
                 if pubsub is not None:
                     with swallow("events.redis_subscriber.2"):
                         await pubsub.aclose()
@@ -727,11 +710,10 @@ class PipelineEvents:
             try:
                 q.put_nowait(msg)
             except asyncio.QueueFull:
-                # AUDIT 2026-08-31 (passe 4, B6) — on préfère PERDRE des events
-                # anciens plutôt que le client : on vide la moitié la plus
-                # ancienne et on ré-enfile le message courant. Si même ça
-                # échoue → sentinelle, le flux se ferme proprement et le
-                # navigateur reconnecte.
+                # PERDRE des events anciens plutôt que le client : on vide la
+                # moitié la plus ancienne et on ré-enfile le message courant.
+                # Si même ça échoue → sentinelle, le flux se ferme proprement
+                # et le navigateur reconnecte.
                 try:
                     for _ in range(max(1, self.QUEUE_MAX_SIZE // 2)):
                         try:
@@ -771,12 +753,12 @@ class PipelineEvents:
     async def listen(self, user_id: int, *, validity_check=None, render=None):
         """Flux SSE d'un client : s'inscrit pour recevoir ses events.
 
-        ``validity_check`` (audit 2026-08-02, M6) : même mécanique que
-        ``SystemEvents.listen`` — ré-exécuté toutes les ``SESSION_RECHECK_SEC`` ;
-        à False, on émet ``session_expired`` puis on termine.
+        ``validity_check`` : même mécanique que ``SystemEvents.listen`` —
+        ré-exécuté toutes les ``SESSION_RECHECK_SEC`` ; à False, on émet
+        ``session_expired`` puis on termine.
 
-        ``render`` (passe d'optimisation 2026-09-26) : ``dict -> str | None``,
-        le texte du champ ``data`` (``None`` = ne rien envoyer). Défaut :
+        ``render`` : ``dict -> str | None``, le texte du champ ``data``
+        (``None`` = ne rien envoyer). Défaut :
         ``json.dumps``. Évite au consommateur (page Code) de RE-décoder puis
         re-encoder chaque event, par client, à cadence quasi-token.
         """
@@ -839,11 +821,11 @@ class PipelineEvents:
     def disconnect_user(self, user_id: int, message: Optional[dict] = None) -> int:
         """Ferme les flux SSE pipeline locaux d'un utilisateur.
 
-        ``message`` (audit moteur d'événements 2026-09-25, B2) : la CAUSE
-        (``session_expired``, ``worker_recycling``) poussée avant la
-        sentinelle, comme ``SystemEvents.disconnect_user`` — sans elle, la page
-        Code voyait une fin de flux muette, se reconnectait, prenait un 401 et
-        bouclait sans jamais afficher l'écran de connexion.
+        ``message`` : la CAUSE (``session_expired``, ``worker_recycling``)
+        poussée avant la sentinelle, comme ``SystemEvents.disconnect_user`` —
+        sans elle, la page Code verrait une fin de flux muette, se
+        reconnecterait, prendrait un 401 et bouclerait sans jamais afficher
+        l'écran de connexion.
         Retourne le nombre de flux fermés sur CE worker."""
         queues = self._snapshot_queues(int(user_id))
         closed = 0
@@ -917,23 +899,25 @@ async def _refresh_model_cache():
     """Fetch model status from llama-server, update cache, broadcast if changed."""
     global _model_cache, _model_cache_hash
     try:
-        # (passe 6, B8) — les deux sondes sont indépendantes : fan-out au lieu
-        # d'un enchaînement (chacune télécharge /v1/models de son côté ; en
-        # parallèle, le doublon ne coûte plus de temps mur).
+        # Les deux sondes sont indépendantes : fan-out, pas d'enchaînement
+        # (chacune télécharge /v1/models de son côté ; en parallèle, le
+        # doublon ne coûte pas de temps mur).
         health, models_with_status = await asyncio.gather(
             get_llm_health(), get_remote_models_with_status())
 
         model_ids = [m["id"] for m in models_with_status]
         loaded_ids = {m["id"] for m in models_with_status if m["status"] == "loaded"}
 
-        # MUTATION EN PLACE — jamais de rebind. chats.py et llm.py font
-        # ``from ..._events_bus import CURRENT_LOADED_MODELS`` : leur nom
-        # local reste lié à l'objet importé. Un rebind (``= set(...)``)
-        # laissait ces lecteurs sur le set d'origine, perpétuellement vide
-        # → faux broadcasts « Modèle auto-chargé par requête chat » à la
-        # 1re utilisation de chaque modèle déjà chargé, et refresh légitime
-        # sauté après une éviction réelle. clear()+update() s'exécutent
-        # sans await intermédiaire : aucun lecteur ne voit le set vide.
+        # MUTATION EN PLACE — jamais de rebind. ``chatbot_app/turn/preparation.py``,
+        # ``shared_infra/llm/routes.py`` et ``shared_infra/routes/_legacy.py``
+        # font ``from shared_infra.observability.events_bus import
+        # CURRENT_LOADED_MODELS`` : leur nom local reste lié à l'objet
+        # importé. Un rebind (``= set(...)``) laisserait ces lecteurs sur le
+        # set d'origine, perpétuellement vide → faux broadcasts « Modèle
+        # auto-chargé par requête chat » à la 1re utilisation de chaque modèle
+        # déjà chargé, et refresh légitime sauté après une éviction réelle.
+        # clear()+update() s'exécutent sans await intermédiaire : aucun
+        # lecteur ne voit le set vide.
         CURRENT_LOADED_MODELS.clear()
         CURRENT_LOADED_MODELS.update(loaded_ids)
 
@@ -943,10 +927,10 @@ async def _refresh_model_cache():
         health["props"]["model"] = list(loaded_ids)[0] if loaded_ids else ""
 
         # ── Flag vision par modèle ──
-        # (passe 6, B8) — dérivé par get_remote_models_with_status depuis
-        # l'entrée /v1/models déjà téléchargée. Avant : une requête réseau
-        # (client httpx NEUF + liste complète re-téléchargée) PAR modèle non
-        # caché, séquentiellement, toutes les 10 s par worker.
+        # Dérivé par get_remote_models_with_status depuis l'entrée /v1/models
+        # déjà téléchargée. Ne pas sonder chaque modèle à part : une requête
+        # réseau (client httpx neuf + liste complète re-téléchargée) par
+        # modèle, séquentielle, toutes les 10 s et par worker.
         for m in models_with_status:
             m.setdefault("vision", False)
 
@@ -983,12 +967,12 @@ async def _refresh_model_cache():
 async def refresh_models_everywhere() -> None:
     """Rafraîchit l'état des modèles ici ET sur tous les autres workers.
 
-    AUDIT moteur d'événements 2026-09-25 (A3) — après un chargement ou un
-    déchargement, seul le worker qui l'avait traité repoussait ``model_status``
-    à SES clients ; les clients des autres workers gardaient une pastille
-    périmée jusqu'à 10 s (leur propre poller), et ``CURRENT_LOADED_MODELS``
-    y restait faux d'autant. Un événement de contrôle ``model_cache_refresh``
-    sur le bus fichier fait rafraîchir chaque worker tout de suite."""
+    Après un chargement ou un déchargement, un événement de contrôle
+    ``model_cache_refresh`` sur le bus fichier fait rafraîchir chaque worker
+    tout de suite. Sans lui, seul le worker qui a traité la requête repousse
+    ``model_status`` à SES clients : ceux des autres workers gardent une
+    pastille périmée jusqu'à 10 s (leur propre poller), et
+    ``CURRENT_LOADED_MODELS`` y reste faux d'autant."""
     await _refresh_model_cache()
     try:
         from shared_infra.observability.metrics.broadcast import publish_event
@@ -1014,13 +998,11 @@ def _ensure_model_poller():
         return
     _model_poller_started = True
     try:
-        # LEAK FIX: tracking via _register_bg_task. Sans ça, si personne
-        # ne tient la référence au task, Python peut le GC à chaud
-        # (RuntimeWarning "coroutine was never awaited") ; par ailleurs
-        # le task n'était jamais cancel au shutdown et continuait à
-        # poller jusqu'à mort du worker.
-        # Note: on appelle _register_bg_task par son nom module-level
-        # car il est défini plus bas dans le même fichier.
+        # Tâche enregistrée via _register_bg_task : sans référence tenue,
+        # Python peut la collecter à chaud (RuntimeWarning "coroutine was
+        # never awaited"), et elle ne serait jamais annulée au shutdown
+        # (poll jusqu'à la mort du worker). Import via le réexport de
+        # ``shared_infra.routes._legacy``.
         from shared_infra.routes._legacy import _register_bg_task as _reg
         _reg(asyncio.create_task(_model_poll_loop()))
         logger.info("[model_cache] Background model poller started (10s interval)")
@@ -1063,16 +1045,9 @@ def _cron_matches(expr: str, now) -> bool:
     return True
 
 
-# ── Login rate limiter ────────────────────────────────────────────────────────
-# ── Login rate-limiting moved to backend.routes.auth ──
-# _LOGIN_MAX_ATTEMPTS, _LOGIN_BLOCK_SEC, _LOGIN_WINDOW_SEC, _login_attempts,
-# _login_last_fail, and _rl_* helpers now live in backend.routes.auth and
-# are re-exported here for callers that still import them from
-# backend.routes.<n>.
-
 # Garde d'idempotence. ``start_cron_scheduler`` peut etre appele depuis DEUX
 # endroits : le lifespan de l'app (au boot, sur chaque worker) et l'endpoint
-# legacy ``/api/system-events`` (lazy). Sans cette garde, un second appel
+# ``/api/system-events`` (lazy). Sans cette garde, un second appel
 # relancerait ``_local_cleanup_loop``.
 _cron_scheduler_started = False
 
@@ -1084,10 +1059,9 @@ def start_cron_scheduler():
     par-process). Sans ce cleanup, chaque worker accumulerait indefiniment ses
     propres bash + master_fd -> fuite RAM/fd.
 
-    (Historiquement cette fonction armait aussi un ``_cron_loop`` + le polling
-    des triggers pour les pipelines agentiques ; l'agentic ayant ete retire au
-    profit de Flowise, il ne reste que le cleanup local. Le nom est conserve
-    car ``server.app`` et ``events.py`` l'appellent toujours.)
+    Le nom est conserve car ``server.app`` (lifespan) et
+    ``shared_infra.observability.routes_events`` (``/api/system-events``)
+    l'appellent sous ce nom.
 
     Les tasks sont enregistrees dans ``_bg_tasks`` pour que
     ``shutdown_bg_tasks()`` puisse les cancel proprement au demontage.
@@ -1121,12 +1095,12 @@ _bg_tasks: "set[asyncio.Task]" = set()
 def _on_bg_task_done(task: "asyncio.Task") -> None:
     """Retire la task du registre ET journalise son exception éventuelle.
 
-    AUDIT 2026-08-02 (E14) — avant, le done_callback ne faisait que
-    ``discard`` : une boucle de fond qui mourait (tailer cancel_bus,
-    sampler métriques, poller modèles…) disparaissait sans la moindre
-    trace applicative — seule la dégradation silencieuse (Stop qui ne
-    marche plus, dashboard figé) trahissait l'incident, parfois des jours
-    plus tard. On consulte désormais ``task.exception()`` systématiquement.
+    ``task.exception()`` est consulté systématiquement : un callback qui ne
+    ferait que ``discard`` laisserait une boucle de fond morte (tailer
+    cancel_bus, sampler métriques, poller modèles…) disparaître sans la
+    moindre trace applicative — seule la dégradation silencieuse (Stop qui
+    ne marche plus, dashboard figé) trahirait l'incident, parfois des jours
+    plus tard.
     """
     _bg_tasks.discard(task)
     if task.cancelled():
@@ -1187,10 +1161,9 @@ async def _local_cleanup_loop():
             if minute % 5 != 0:
                 continue
             try:
-                # Local import: ``_pty`` may import helpers from ``_helpers``,
-                # which is fine; we do it inside the loop body so even if
-                # the import order changes later we don't risk a cycle at
-                # ``_events_bus`` load time.
+                # Local import: ``shared_infra.terminal.pty`` may import
+                # shared helpers; importing inside the loop body avoids any
+                # import cycle at this module's load time.
                 from shared_infra.terminal.pty import _cleanup_idle_terminals
                 _cleanup_idle_terminals()
             except Exception as e:
@@ -1203,14 +1176,14 @@ async def _local_cleanup_loop():
 async def apply_session_revocation(payload: dict) -> None:
     """Applique localement (sur CE worker) une révocation de session.
 
-    Audit 2026-08-02 (S1) — avant, les endpoints de révocation admin
-    n'écrivaient qu'un timestamp : les requêtes HTTP tombaient bien en 401,
-    mais les flux DÉJÀ ouverts (SSE système — firehose de logs staff
-    compris —, SSE pipeline, shell WebSocket) restaient vivants sans
-    limite. Les endpoints publient désormais un event
+    Les endpoints de révocation admin publient un event
     ``{"type": "session_revoked", "uid": N|null}`` sur le bus fichier
     inter-workers ; chaque tailer appelle ce helper, qui ferme les flux
-    et tue les PTY de l'utilisateur visé (``uid=None`` = tous).
+    et tue les PTY de l'utilisateur visé (``uid=None`` = tous). Un simple
+    timestamp de révocation ne suffit pas : les requêtes HTTP tombent en
+    401, mais les flux DÉJÀ ouverts (SSE système — firehose de logs staff
+    compris —, SSE pipeline, shell WebSocket) resteraient vivants sans
+    limite.
     Idempotent : re-l'appliquer sur un worker sans flux concerné est un no-op.
     """
     raw_uid = payload.get("uid")
@@ -1250,15 +1223,15 @@ async def apply_session_revocation(payload: dict) -> None:
 
 class SSELogHandler(logging.Handler):
     """Alimente l'historique legacy (``_log_history``, champ ``logs`` de
-    GET /api/admin/logs) — et plus rien d'autre.
+    GET /api/admin/logs/recent) — et rien d'autre.
 
-    AUDIT moteur d'événements 2026-09-25 (A3/B7) — le relais LIVE des logs vers
-    la console staff ne passe plus par ici. Ce handler diffusait les lignes du
-    SEUL worker courant (la console d'un admin branché sur le worker 2 ne
-    voyait jamais les logs du worker 1, ni ceux du service admin), créait une
-    Task par ligne, et perdait les lignes émises depuis un thread. Le flux live
-    suit désormais le journal JSONL unifié (``_staff_log_tail_loop``), que
-    TOUS les process alimentent déjà via ``FileEventHandler``."""
+    Le relais LIVE des logs vers la console staff ne passe pas par ici : il
+    suit le journal JSONL unifié (``_staff_log_tail_loop``), que TOUS les
+    process alimentent via ``FileEventHandler``. Ne pas diffuser depuis ce
+    handler : il ne voit que les lignes du SEUL worker courant (la console
+    d'un admin branché sur le worker 2 ne verrait jamais les logs du worker
+    1, ni ceux du service admin), créerait une Task par ligne, et perdrait
+    les lignes émises depuis un thread."""
 
     def emit(self, record):
         try:
@@ -1279,7 +1252,7 @@ class SSELogHandler(logging.Handler):
 # tous les workers ET au service admin, tourné par renommage en ``.1``) et
 # pousse chaque ligne « live » aux clients staff. Sans client staff, elle
 # s'arrête — un nouveau client repart de la fin (l'historique se charge en
-# HTTP, cf. GET /api/admin/logs).
+# HTTP, cf. GET /api/admin/logs/recent).
 _STAFF_LOG_POLL_SEC = 0.25
 _staff_log_task: Optional[asyncio.Task] = None
 
@@ -1300,7 +1273,8 @@ def _ensure_staff_log_tail() -> None:
 
 
 def _log_record_to_event(rec: dict) -> Optional[dict]:
-    """Ligne du journal JSONL → event SSE ``log`` (même forme qu'avant)."""
+    """Ligne du journal JSONL → event SSE ``log`` (forme attendue par la
+    console staff : ``message``, ``level``, ``category``…)."""
     if not rec.get("live", True):
         return None          # lignes forensiques (HTTP 2xx…) : fichier seulement
     return {

@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import pytest
 
-from llm_core import _chat_classic as _ccl, _chat_with_tools as _cwt, _llm_params
+from llm_core import _chat_classic as _ccl, _llm_params
+from llm_core.engine import llm_stream as _llm_stream
 from llm_core.providers import openai_compat as _oai
 
 
@@ -96,7 +97,7 @@ async def test_usage_reel_capture_et_timings_demandes(patched):
     ]
     fake = patched(lines)
 
-    out = await _cwt._llama_chat_with_tools_stream(
+    out = await _llm_stream._llama_chat_with_tools_stream(
         [{"role": "user", "content": "hi"}],
         [_tool("alpha")],
     )
@@ -114,7 +115,7 @@ async def test_tools_payload_sorted_deterministically(patched):
     fake = patched(lines)
 
     # Ordre d'entrée volontairement non trié.
-    await _cwt._llama_chat_with_tools_stream(
+    await _llm_stream._llama_chat_with_tools_stream(
         [{"role": "user", "content": "hi"}],
         [_tool("zebra"), _tool("alpha"), _tool("mike")],
     )

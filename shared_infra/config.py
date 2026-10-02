@@ -20,7 +20,7 @@ BACKEND_DIR = Path(__file__).resolve().parent
 def _resolve_config_json_path() -> Path:
     """Emplacement de ``config.json`` — la config D'INSTANCE (~400 Ko).
 
-    Il vit à la RACINE du dépôt depuis le 2026-09-04 : c'est un fichier
+    Il vit à la RACINE du dépôt : c'est un fichier
     d'exploitation (secret de session, TLS, clé Qdrant, écran d'accueil), pas
     un morceau de ``shared_infra`` ; le chercher à la racine est le premier
     réflexe de quiconque déploie.
@@ -68,8 +68,8 @@ CONFIG_JSON_PATH = _resolve_config_json_path()
 #
 # Le sentinel /tmp/elpis_build_id.<ppid> garantit que tous les workers
 # d'une même instance gunicorn partagent le même BUILD_ID, même sans
-# --preload. Sans ça, chaque worker calculait sa propre valeur ce qui
-# provoquait du cache thrashing (un client avec keep-alive sur worker A
+# --preload. Sans ça, chaque worker calculerait sa propre valeur, ce qui
+# provoquerait du cache thrashing (un client avec keep-alive sur worker A
 # voit un BUILD_ID différent de celui de worker B → re-téléchargement
 # fantôme à chaque round-robin).
 #
@@ -124,7 +124,7 @@ def _read_json_file(path: Path) -> Dict[str, Any]:
     except Exception:
         return {}
 
-# Inventaire « lu au démarrage » (console admin, lot 6 — 2026-09-27) : chaque
+# Inventaire « lu au démarrage » (console admin) : chaque
 # chemin lu dans ``_RAW`` PENDANT l'import de ce module est noté ; ces réglages
 # n'agissent qu'au redémarrage. Figé en fin de module (``BOOT_READ_PATHS``) ;
 # ``shared_infra/ops/restart_pending.py`` en retire les sous-arbres rechargés à
@@ -156,12 +156,12 @@ def _as_float(v: Any, default: float) -> float:
         return default
 
 def _as_str(v: Any, default: str) -> str:
-    # ``None`` OU chaîne vide/blanche → défaut. Avant, une variable d'env
-    # POSITIONNÉE mais vide (ex. ``LLAMA_IP=""``) était une ``str`` renvoyée
-    # telle quelle → elle écrasait silencieusement la valeur json/défaut
-    # (footgun de précédence). Une chaîne vide n'est jamais une valeur de config
-    # significative ici (URLs, chemins, modèles) : on la traite comme « non
-    # définie ». Un défaut lui-même vide reste vide (comportement inchangé).
+    # ``None`` OU chaîne vide/blanche → défaut. Ne pas renvoyer telle quelle une
+    # variable d'env POSITIONNÉE mais vide (ex. ``LLAMA_IP=""``) : elle
+    # écraserait silencieusement la valeur json/défaut (footgun de précédence).
+    # Une chaîne vide n'est jamais une valeur de config significative ici (URLs,
+    # chemins, modèles) : on la traite comme « non définie ». Un défaut
+    # lui-même vide reste vide.
     if v is None:
         return default
     if isinstance(v, str):
@@ -239,7 +239,7 @@ LLAMA_RETRY_BACKOFF_CAP_S = _as_float(os.environ.get("LLAMA_RETRY_BACKOFF_CAP_S"
 # Attente max « modèle en chargement » : sur 503 llama-server local, on sonde
 # /health jusqu'à prêt (warm-up 10-60 s typiques) au lieu de brûler les retries.
 LLAMA_LOADING_WAIT_S = _as_float(os.environ.get("LLAMA_LOADING_WAIT_S"), _as_float(_deep_get(_RAW, "llama.loading_wait_s", 90.0), 90.0))
-# ── Capacités llama-server récentes (b10545 vérifié le 2026-08-22) ───────────
+# ── Capacités llama-server récentes (vérifiées sur le build b10545) ──────────
 # Un champ de body INCONNU d'un build ancien est ignoré SANS erreur (vérifié en
 # live) : les trois réglages ci-dessous sont donc sûrs à envoyer partout, et
 # n'ont d'effet que là où le moteur les connaît.
@@ -262,7 +262,7 @@ LLAMA_RETURN_PROGRESS = _as_bool(
 # SURVIT à la coupure HTTP et se relit depuis le tampon du serveur.
 # ⚠ Conséquence directe : fermer la connexion n'arrête PLUS la génération —
 # l'arrêt passe obligatoirement par ``DELETE /v1/stream``. Les deux sont
-# câblés ensemble ; couper ce drapeau revient au comportement historique.
+# câblés ensemble ; drapeau coupé, fermer la connexion arrête la génération.
 LLAMA_RESUMABLE_STREAM = _as_bool(
     os.environ.get("LLAMA_RESUMABLE_STREAM"),
     bool(_deep_get(_RAW, "llama.resumable_stream", True)))
@@ -275,17 +275,17 @@ LLAMA_REASONING_CONTROL = _as_bool(
     os.environ.get("LLAMA_REASONING_CONTROL"),
     bool(_deep_get(_RAW, "llama.reasoning_control", True)))
 # Budget SOUPLE de réflexion, en tokens, pour le chemin outils. 0 = désactivé,
-# et c'est le défaut ASSUMÉ : le mur de réflexion a été retiré volontairement
-# (2026-08-17), on ne le réintroduit pas dans le dos de l'utilisateur. À la
+# et c'est le défaut ASSUMÉ : pas de mur de réflexion imposé dans le dos de
+# l'utilisateur. À la
 # différence d'un plafond de génération, dépasser ce budget ne TRONQUE rien :
 # le moteur ferme le bloc de raisonnement et le modèle rédige sa réponse.
 LLAMA_REASONING_SOFT_BUDGET_TOKENS = _as_int(
     os.environ.get("LLAMA_REASONING_SOFT_BUDGET_TOKENS"),
     _as_int(_deep_get(_RAW, "llama.reasoning_soft_budget_tokens", 0), 0))
-# LLAMA_MAX_MSGS retiré 2026-07-28 : le clamp en NOMBRE de messages amputait
-# silencieusement l'historique (80 ici ≈ 40 rounds d'outils sur 256k). La
-# seule borne est le budget en TOKENS ; au-delà, le serveur répond « contexte
-# dépassé » → message utilisateur clair (KIND_CONTEXT_OVERFLOW).
+# Aucune borne en NOMBRE de messages : elle amputerait silencieusement
+# l'historique (80 messages ≈ 40 rounds d'outils sur 256k). La seule borne est
+# le budget en TOKENS ; au-delà, le serveur répond « contexte dépassé » →
+# message utilisateur clair (KIND_CONTEXT_OVERFLOW).
 LLAMA_MAX_CONCURRENCY = _as_int(os.environ.get("LLAMA_MAX_CONCURRENCY"), _as_int(_deep_get(_RAW, "llama.max_concurrency", 4), 4))
 # Nombre de modèles distincts pouvant être actifs simultanément sur le serveur
 # llama.cpp. Typiquement 1 (un seul modèle en VRAM). Si > 1, plusieurs modèles
@@ -297,10 +297,10 @@ LLAMA_MAX_MODELS = _as_int(os.environ.get("LLAMA_MAX_MODELS"), _as_int(_deep_get
 # Nombre max d'itérations PRODUCTIVES tool_call → tool_result → tool_call dans
 # run_chat_multi_mcp(). Au-delà, la boucle sort avec la réponse partielle.
 #
-# 2026-07-29 : défaut relevé 50 → 200. 50 coupait des tours légitimes bien
-# avant la fin du travail (un tour productif = un aller-retour LLM, et une
-# tâche agentique réelle — exploration de dépôt, scraping multi-pages, refactor
-# guidé par les tests — en aligne couramment 60-150). Ce n'est PAS le garde-fou
+# Défaut 200 : un tour productif = un aller-retour LLM, et une tâche agentique
+# réelle — exploration de dépôt, scraping multi-pages, refactor guidé par les
+# tests — en aligne couramment 60-150 ; 50 couperait des tours légitimes bien
+# avant la fin du travail. Ce n'est PAS le garde-fou
 # anti-boucle : celui-ci est ``_hard_iter_cap`` (2× ce budget) et seules les
 # itérations productives consomment le budget, donc le relever ne finance pas un
 # modèle coincé sur des appels en échec. La vraie borne d'un run reste la
@@ -315,7 +315,7 @@ LLAMA_MAX_TOOL_ITERATIONS = _as_int(
 # Borne dure autour de chaque appel MCP (mcp_pool.call_tool) : un outil
 # suspendu (serveur stdio bloqué, navigateur mort…) ne doit jamais geler le
 # tour indéfiniment — sans cette borne, seule l'annulation utilisateur
-# libérait la boucle ET le lock du serveur MCP. Percentiles observés
+# libérerait la boucle ET le lock du serveur MCP. Percentiles observés
 # (tool_call_metrics) : p99 ≈ 121 s, max ≈ 181 s (desktop_observe) → 300 s
 # laisse la marge aux familles lentes (desktop, navigation, shell long).
 # Override par outil possible à froid via context_config.json
@@ -349,8 +349,8 @@ LLAMA_THINKING_BUDGET_TOKENS = _as_int(
 
 # ── Plafonds de génération (max_tokens) ──────────────────────────────────
 # Source de vérité des caps THÉORIQUES consommés par
-# ``llm_core._constants.effective_generation_cap`` (avant : env seulement —
-# un opérateur grande fenêtre ne pouvait pas les régler via config.json).
+# ``llm_core._constants.effective_generation_cap``, réglables par env OU par
+# config.json (un opérateur grande fenêtre doit pouvoir les relever).
 LLAMA_MAX_TOKENS_CHAT = _as_int(
     os.environ.get("LLAMA_MAX_TOKENS_CHAT"),
     _as_int(_deep_get(_RAW, "llama.max_tokens_chat", 16384), 16384),
@@ -363,12 +363,13 @@ LLAMA_MAX_TOKENS_THINKING = _as_int(
 # ── Mode thinking local : sortie NON plafonnée ───────────────────────────
 # true (défaut) : en mode thinking sur le llama.cpp LOCAL, AUCUN max_tokens
 # n'est envoyé (llama-server défaute à n_predict=-1, illimité). Un modèle à
-# très longs raisonnements (Qwen3.8…) n'est plus coupé toutes les 5-10 min
+# très longs raisonnements (Qwen3.8…) n'est pas coupé toutes les 5-10 min
 # par le cap (finish=length en plein <think> → « Réponse interrompue »). La
 # génération reste bornée par la fenêtre de contexte, et la réserve de prompt
-# (_enforce_context_budget) garantit une marge de sortie ≥ cap théorique.
+# (``llm_core.context.pruning.enforce_context_budget``) garantit une marge de
+# sortie ≥ cap théorique.
 # Aligné sur les webUI de référence (Open WebUI, webui llama.cpp, LibreChat :
-# aucun max_tokens par défaut). false : comportement historique (cap injecté).
+# aucun max_tokens par défaut). false : cap injecté.
 LLAMA_THINKING_OUTPUT_UNCAPPED = _as_bool(
     os.environ.get("LLAMA_THINKING_OUTPUT_UNCAPPED"),
     _deep_get(_RAW, "llama.thinking_output_uncapped", True),
@@ -381,38 +382,38 @@ LLAMA_THINKING_OUTPUT_UNCAPPED = _as_bool(
 # <think> en repli) au lieu d'armer la bannière « Continuer ».
 #   think_resume_max          : nombre max de reprises par appel LLM (0 = off)
 #   think_resume_total_tokens : budget total de thinking cumulé par appel
-# ── Détachement du run à la déconnexion du client (audit long-run 2026-08-21) ─
-# Par défaut, fermer l'onglet ANNULE la génération : le ``finally`` du
-# générateur SSE fait ``task.cancel()``. C'est le bon réflexe pour un chat —
-# et c'est fatal pour une mission autonome, qui dépend alors d'un navigateur
-# resté ouvert pendant six heures (une mise en veille du portable suffit à
-# tuer le travail).
+# ── Détachement du run à la déconnexion du client ─────────────────────────────
+# Par défaut, une déconnexion détache déjà le chat principal (``resumable``) et
+# tout tour où un outil a tourné (``chatbot_app/turn/execution.py``,
+# ``_should_detach_run``) : le worker va au bout, persiste normalement, et le
+# résultat est là au rechargement du chat. Les autres tours (pur chat non
+# reprenable) sont annulés : fermer l'onglet arrête la génération.
 #
-# À True, une déconnexion DÉTACHE le run au lieu de l'annuler : le worker va
-# au bout, persiste normalement, et le résultat est là au rechargement du
-# chat. Le Stop explicite continue de fonctionner (il passe par le cancel_bus,
-# pas par la fermeture du flux).
+# À True, les tours de pur chat non reprenables (studio, sessions éphémères)
+# sont détachés aussi ; les routines ne passent pas par ce flux. Le Stop
+# explicite continue de fonctionner dans tous les cas (il passe par le
+# cancel_bus, pas par la fermeture du flux) : un Stop n'est jamais détaché.
 #
 # Défaut False, volontairement : tant que le run tourne, le verrou de présence
 # reste tenu, donc un nouveau message sur CE chat est refusé (409
-# ``generation_running``). Fermer un onglet pour « arrêter » cesse de marcher —
-# c'est un changement de contrat qu'un déploiement doit choisir, pas subir.
-# Les bornes du run (itérations, timeouts par outil, LLAMA_TOOL_LOOP_MAX_S)
-# restent les seules garanties de terminaison.
+# ``generation_running``), et fermer un onglet pour « arrêter » un tour de pur
+# chat ne marcherait plus — un changement de contrat qu'un déploiement doit
+# choisir, pas subir. Les bornes du run (itérations, timeouts par outil,
+# LLAMA_TOOL_LOOP_MAX_S) restent les seules garanties de terminaison d'un run
+# détaché. Lu à l'import : effectif au redémarrage.
 DETACH_RUN_ON_DISCONNECT = bool(_deep_get(_RAW, "llm.detach_run_on_disconnect", False)) \
     or os.environ.get("APP_DETACH_RUN_ON_DISCONNECT", "").strip().lower() in ("1", "true", "yes")
 
 # Générations simultanées autorisées à UN MÊME compte, tous chats et tous
 # workers confondus (mesuré par les verrous de présence, cf. chat_locks).
 #
-# AUDIT 2026-08-22 (D4) — rien ne bornait cela. Les gardes existantes sont par
-# (utilisateur, chat) : un compte pouvait donc ouvrir autant d'onglets que de
-# chats et lancer autant de missions, toutes en priorité « high ». La file de
-# l'ordonnanceur n'ayant aucune notion d'utilisateur (elle trie par priorité
-# puis par ordre d'arrivée), ce compte raflait mécaniquement la quasi-totalité
-# du débit du serveur et les autres avançaient d'une itération pour quatre des
-# siennes. Trois missions de front restent confortables pour un usage normal ;
-# 0 désactive le plafond.
+# Les autres gardes sont par (utilisateur, chat) : sans ce plafond, un compte
+# peut ouvrir autant d'onglets que de chats et lancer autant de missions,
+# toutes en priorité « high ». La file de l'ordonnanceur n'ayant aucune notion
+# d'utilisateur (elle trie par priorité puis par ordre d'arrivée), ce compte
+# raflerait mécaniquement la quasi-totalité du débit du serveur et les autres
+# avanceraient d'une itération pour quatre des siennes. Trois missions de
+# front restent confortables pour un usage normal ; 0 désactive le plafond.
 MAX_RUNS_PER_USER = max(0, int(_deep_get(_RAW, "llm.max_runs_per_user", 3) or 0))
 
 # Reprise in-run d'une RÉPONSE (prose) coupée par le plafond ou par un flux
@@ -454,7 +455,7 @@ VISION_TIMEOUT_SEC  = max(5, min(300, _as_int(os.environ.get("APP_VISION_TIMEOUT
 # qu'aucun grounding explicite n'est demandé, on SAUTE la détection vision (2
 # passes coûteuses) — filet réservé aux surfaces sans a11y (canvas/jeux). UIA
 # seul suffit sur la majorité des apps Windows → latence d'observation réduite.
-# 0 = toujours appeler la vision (comportement historique).
+# 0 = toujours appeler la vision.
 VISION_A11Y_SKIP_MIN = max(0, _as_int(os.environ.get("APP_VISION_A11Y_SKIP_MIN"), _as_int(_deep_get(_RAW, "vision.a11y_skip_min", 12), 12)))
 _vision_rmap        = _deep_get(_RAW, "vision.response_map", {})
 VISION_RESPONSE_MAP = _vision_rmap if isinstance(_vision_rmap, dict) else {}
@@ -464,7 +465,7 @@ DESKTOP_AGENT_TIMEOUT_SEC = max(5, min(300, _as_int(os.environ.get("APP_DESKTOP_
 # Nombre de RETRANSMISSIONS transport (au-delà du 1er envoi) pour un endpoint
 # agent IDEMPOTENT (lecture pure) en cas d'erreur RÉSEAU (ConnectionError /
 # Timeout). Les endpoints MUTANTS (click/type/invoke/launch…) ne sont JAMAIS
-# rejoués (risque de double action). 0 = comportement historique (un seul essai).
+# rejoués (risque de double action). 0 = un seul essai.
 DESKTOP_TRANSPORT_RETRIES = max(0, min(2, _as_int(os.environ.get("APP_DESKTOP_TRANSPORT_RETRIES"), _as_int(_deep_get(_RAW, "desktop.transport_retries", 1), 1))))
 
 # Budget de passes SELF-HEAL vision PAR RUN de rejeu (re-localiser une ancre
@@ -480,20 +481,21 @@ DESKTOP_STALE_FRAME_HAM = max(0, min(64, _as_int(os.environ.get("APP_DESKTOP_STA
 
 # Propriété STRICTE des frames desktop : un jeton dont le propriétaire est INCONNU
 # (ni en mémoire ni dans le sidecar disque) → 404 au lieu d'être servi à tout
-# utilisateur authentifié. Défaut ON (le sidecar R9 rend la propriété fiable
-# cross-worker). Mettre à False = ancien soft-pass (échappatoire opérateur).
+# utilisateur authentifié. Défaut ON (le sidecar disque rend la propriété
+# fiable cross-worker). À False, un tel jeton est servi à tout utilisateur
+# authentifié (échappatoire opérateur).
 DESKTOP_FRAME_STRICT_OWNER = _as_bool(os.environ.get("APP_DESKTOP_FRAME_STRICT_OWNER"),
                                       _deep_get(_RAW, "desktop.frame_strict_owner", True))
 
 # Settle adaptatif du chemin CHAT (desktop_act) : durée « écran figé » exigée
-# (quiet) et pas de sondage. Plus courts que les constantes du REJEU (inchangées)
+# (quiet) et pas de sondage. Plus courts que les constantes du REJEU
 # → un act sur écran déjà stable rend la main en ~400-500 ms au lieu de ~800-900,
 # tout en gardant le plafond settle_ms. Hot-reloadable.
 DESKTOP_ACT_SETTLE_QUIET_MS = max(50, _as_int(os.environ.get("APP_DESKTOP_ACT_SETTLE_QUIET_MS"), _as_int(_deep_get(_RAW, "desktop.act_settle_quiet_ms", 350), 350)))
 DESKTOP_ACT_SETTLE_POLL_MS = max(30, _as_int(os.environ.get("APP_DESKTOP_ACT_SETTLE_POLL_MS"), _as_int(_deep_get(_RAW, "desktop.act_settle_poll_ms", 200), 200)))
 
 # Format de capture d'écran demandé à l'agent (chemin chaud observe/act). Défaut
-# **png** (fidélité maximale, comportement inchangé). "jpeg" (+ quality ~85) coupe
+# **png** (fidélité maximale). "jpeg" (+ quality ~85) coupe
 # les octets VM→host ÷5-10 — activable à chaud sans redéploiement host. L'OCR force
 # toujours PNG (petit texte). Un agent non redéployé ignore le format → PNG.
 DESKTOP_SCREENSHOT_FORMAT = (_as_str(os.environ.get("APP_DESKTOP_SCREENSHOT_FORMAT"), _as_str(_deep_get(_RAW, "desktop.screenshot_format", "png"), "png")).strip().lower() or "png")
@@ -502,20 +504,22 @@ DESKTOP_SCREENSHOT_QUALITY = max(40, min(95, _as_int(os.environ.get("APP_DESKTOP
 # Coût forfaitaire (tokens) d'un bloc image dans l'estimation du budget de
 # contexte. PRUDENT — doit SURESTIMER : une capture 1080p sur un VL local coûte
 # souvent bien plus que 800 ; sous-estimer fait dépasser n_ctx → coupe en cours
-# de génération. Sert UNIQUEMENT au dernier rempart _enforce_context_budget
-# (jamais montré au modèle). Réglable env APP_CTX_IMAGE_TOKEN_COST / config.json.
+# de génération. Forfait de toutes les estimations de contexte
+# (``llm_core/context/tokens.py`` : porte de compression, dernier rempart
+# ``llm_core.context.pruning.enforce_context_budget``) ; jamais montré au
+# modèle. Réglable env APP_CTX_IMAGE_TOKEN_COST / config.json.
 CTX_IMAGE_TOKEN_COST = max(256, _as_int(os.environ.get("APP_CTX_IMAGE_TOKEN_COST"), _as_int(_deep_get(_RAW, "llm.ctx_image_token_cost", 1500), 1500)))
 
 # Cap d'éléments renvoyés au MODÈLE par desktop_observe + le post-observe de
 # desktop_act (chemin chat). **0 = AUCUN plafond (liste complète, défaut)** :
-# tronquer la liste masquait des éléments dont le modèle a besoin → détection
+# tronquer la liste masque des éléments dont le modèle a besoin → détection
 # incomplète. Au-delà de 0, plafond importance-aware (actionnables d'abord) — le
-# tronquage de la liste vue par le modèle est désormais OPT-IN.
+# tronquage de la liste vue par le modèle est OPT-IN.
 DESKTOP_MAX_ELEMENTS = max(0, min(400, _as_int(os.environ.get("APP_DESKTOP_MAX_ELEMENTS"), _as_int(_deep_get(_RAW, "desktop.max_elements", 0), 0))))
 
-# P10 (OPT-IN) — plafond d'éléments SPÉCIFIQUE au chemin CHAT (desktop_observe +
-# re-observe post-act). 0 = comportement inchangé (liste complète, décision lean
-# v3). >0 → troncature importance-aware AVEC note visible au modèle : un opérateur
+# Plafond d'éléments SPÉCIFIQUE au chemin CHAT, OPT-IN (desktop_observe +
+# re-observe post-act). 0 = liste complète. >0 → troncature importance-aware
+# AVEC note visible au modèle : un opérateur
 # petit-ctx peut réduire le poids des observes en tour de chat SANS toucher le
 # rejeu (qui garde la liste complète pour la précision du re-ancrage).
 DESKTOP_MAX_ELEMENTS_CHAT = max(0, min(400, _as_int(os.environ.get("APP_DESKTOP_MAX_ELEMENTS_CHAT"), _as_int(_deep_get(_RAW, "desktop.max_elements_chat", 0), 0))))
@@ -525,8 +529,8 @@ DESKTOP_MAX_ELEMENTS_CHAT = max(0, min(400, _as_int(os.environ.get("APP_DESKTOP_
 DESKTOP_STUDIO_MAX_NODES = max(100, min(5000, _as_int(os.environ.get("APP_DESKTOP_STUDIO_MAX_NODES"), _as_int(_deep_get(_RAW, "desktop.studio_max_nodes", 2000), 2000))))
 # Après une action faite depuis le STUDIO : borne haute (ms) de l'attente
 # d'écran stable AVANT la capture d'après-action (adaptatif : quiet/poll de
-# DESKTOP_ACT_SETTLE_*). 0 = capture immédiate (l'ancien comportement : un
-# écran pris avant l'effet, une capture perdue à chaque action).
+# DESKTOP_ACT_SETTLE_*). 0 = capture immédiate : l'écran est pris avant
+# l'effet, une capture perdue à chaque action.
 DESKTOP_STUDIO_ACT_SETTLE_MS = max(0, min(10000, _as_int(os.environ.get("APP_DESKTOP_STUDIO_ACT_SETTLE_MS"), _as_int(_deep_get(_RAW, "desktop.studio_act_settle_ms", 1500), 1500))))
 
 # Scope d'observation par DÉFAUT (desktop_observe / capture Studio) : focus = SEULE
@@ -542,14 +546,14 @@ if DESKTOP_OBSERVE_SCOPE not in ("focus", "monitor", "desktop"):
 # Budget chars d'UN tool_result desktop injecté au modèle (la liste d'éléments
 # complète doit passer ENTIÈRE — sinon la coupe générique re-masquerait des
 # éléments). Large mais borné (la liste l'est déjà par le cap de nœuds de l'agent
-# + la coupe des `value`). Le tour le plus récent n'est de toute façon jamais
-# tronqué par la compaction d'historique (cf. _compact_working_messages).
+# + la coupe des `value`). La perception desktop la plus récente n'est de toute
+# façon jamais élaguée (cf. ``llm_core.context.pruning.select_prune_keys``).
 DESKTOP_TOOL_RESULT_MAX_CHARS = max(8000, _as_int(os.environ.get("APP_DESKTOP_TOOL_RESULT_MAX_CHARS"), _as_int(_deep_get(_RAW, "desktop.tool_result_max_chars", 60000), 60000)))
-# Harnais v4 (T0) : plancher desktop exprimé en TOKENS. 0 = absent → l'ancienne
-# clé chars ci-dessus reste l'autorité (compat) ; sinon cette clé prime.
+# Plancher desktop exprimé en TOKENS. 0 = absent → la clé en chars ci-dessus
+# fait autorité ; sinon cette clé prime.
 DESKTOP_TOOL_RESULT_MAX_TOKENS = max(0, _as_int(os.environ.get("APP_DESKTOP_TOOL_RESULT_MAX_TOKENS"), _as_int(_deep_get(_RAW, "desktop.tool_result_max_tokens", 0), 0)))
 
-# B3 — exposer les outils desktop BRUTS (screenshot/inspect) au modèle. OFF par
+# Exposer les outils desktop BRUTS (screenshot/inspect) au modèle. OFF par
 # défaut : redondants avec desktop_observe, ils alourdissent le contexte des
 # petits modèles 30-129B. Lu une fois à l'enregistrement des tools (MCP start).
 DESKTOP_EXPOSE_RAW_TOOLS = (
@@ -575,7 +579,7 @@ def _coerce_desktop_targets(raw):
     Tolère un dict unique, ``None`` ou des entrées incomplètes (ignorées).
     Chaque cible valide → ``{name, os, agent_url, default}`` avec
     ``agent_url`` sans slash final. (Pas de champ token : déploiement full
-    local, pas d'auth inter-machine — décision 2026-06.)"""
+    local, pas d'auth inter-machine.)"""
     out = []
     if isinstance(raw, dict):
         raw = [raw]
@@ -588,8 +592,7 @@ def _coerce_desktop_targets(raw):
         url = _as_str(t.get("agent_url"), "").strip()
         if not name or not url:
             continue
-        # Accès (audit 2026-09-22, M2) : ``all`` = tout compte connecté
-        # (comportement historique) ; ``list`` = administrateurs + comptes de
+        # Accès : ``all`` = tout compte connecté ; ``list`` = administrateurs + comptes de
         # ``allowed_users`` (noms d'utilisateur), réglés dans Admin → Utilisateurs.
         access = _as_str(t.get("access"), "all").strip().lower()
         allowed = t.get("allowed_users")
@@ -618,11 +621,11 @@ TOOLS_CACHE_TTL_SEC = _as_float(os.environ.get("MCP_TOOLS_CACHE_TTL_SEC"), _as_f
 #
 #   LOCAL_MCP_URL  : si défini (ex. "http://127.0.0.1:8765/sse"), le resolver
 #                    se connecte à ce serveur partagé au lieu de spawn stdio.
-#                    Vide → comportement legacy stdio par worker (rétrocompat).
+#                    Vide → stdio, un sous-process par worker.
 #   LOCAL_MCP_HOST/PORT/TRANSPORT : utilisés PAR le serveur lui-même quand il
 #                    est lancé en mode service (cf. server/local_mcp_server.py).
 #
-# ── Authentification du service partagé (2026-09-02, revue adhérences MCP) ──
+# ── Authentification du service partagé ──────────────────────────────────────
 # Deux jetons DISTINCTS, VÉRIFIÉS CÔTÉ SERVEUR (FastMCP ``StaticTokenVerifier``,
 # transports HTTP/SSE seulement — stdio reste un sous-process local par worker) :
 #   LOCAL_MCP_TOKEN         : jeton de SERVICE de l'app elle-même. Son client
@@ -638,25 +641,24 @@ TOOLS_CACHE_TTL_SEC = _as_float(os.environ.get("MCP_TOOLS_CACHE_TTL_SEC"), _as_f
 #                             ``all`` (défaut), liste ``fs,shell,git`` ou
 #                             exclusions ``all,-desktop,-browser``.
 # Sans AUCUN jeton, le serveur refuse de se lier hors loopback (127.0.0.1).
-# Historique : un ``LOCAL_MCP_TOKEN`` fantôme (envoyé, jamais vérifié) avait
-# été retiré le 2026-07-29 ; celui-ci est CONTRÔLÉ (server/local_mcp_server.py).
+# ``LOCAL_MCP_TOKEN`` est CONTRÔLÉ par le service (server/local_mcp_server.py) :
+# un jeton envoyé mais jamais vérifié ne protégerait rien.
 LOCAL_MCP_HOST      = _as_str(os.environ.get("LOCAL_MCP_HOST"), _as_str(_deep_get(_RAW, "mcp.local_host", "127.0.0.1"), "127.0.0.1"))
 LOCAL_MCP_PORT      = _as_int(os.environ.get("LOCAL_MCP_PORT"), _as_int(_deep_get(_RAW, "mcp.local_port", 8765), 8765))
 
 # ── Registre des serveurs MCP LOCAUX (descripteur JSON standard) ─────────────
-# (2026-09-05) Un serveur MCP local se déclare comme n'importe quel client MCP :
+# Un serveur MCP local se déclare comme n'importe quel client MCP :
 # ``transport`` (stdio | sse | streamable-http) + les champs de ce transport
 # (``command``/``args``/``env`` en stdio, ``url``/``headers`` en réseau). Le
 # service d'outils intégré (« local-tools ») en est l'entrée PAR DÉFAUT.
 #
-# POURQUOI (régression « MCP opencode absents au redémarrage », 2026-09-05) :
-# l'URL et le jeton du service partagé n'existaient QU'EN VARIABLES D'ENV posées
-# par ``./elpis start``. Tout redémarrage hors de ce script (systemd,
-# ``uvicorn`` nu, respawn worker sans héritage d'env) laissait
-# ``LOCAL_MCP_URL``/``LOCAL_MCP_TOKEN`` vides → ``opencode.json`` revenait SANS
-# bloc ``mcp`` → les entrées ``elpis-*`` disparaissaient, en silence. Le jeton
-# est pourtant persistant (``user_db/.local_mcp_token``) et l'URL est
-# déductible de l'hôte/port/transport : on les RÉSOUT donc durablement ici.
+# POURQUOI : ne pas dépendre des seules VARIABLES D'ENV posées par
+# ``./elpis start``. Un redémarrage hors de ce script (systemd, ``uvicorn`` nu,
+# respawn worker sans héritage d'env) laisserait ``LOCAL_MCP_URL`` /
+# ``LOCAL_MCP_TOKEN`` vides → ``opencode.json`` reviendrait SANS bloc ``mcp`` →
+# les entrées ``elpis-*`` disparaîtraient, en silence. Le jeton est persistant
+# (``user_db/.local_mcp_token``) et l'URL est déductible de
+# l'hôte/port/transport : on les RÉSOUT donc durablement ici.
 LOCAL_MCP_SERVERS_RAW = _deep_get(_RAW, "mcp.local_servers", None)
 
 # Fichier du jeton de SERVICE (écrit par le script de lancement, 0600), dans le
@@ -747,9 +749,9 @@ else:
     LOCAL_MCP_URL_IS_DERIVED = bool(LOCAL_MCP_URL)
 
 LOCAL_MCP_TOOL_FAMILIES = _as_str(os.environ.get("LOCAL_MCP_TOOL_FAMILIES"), _as_str(_deep_get(_RAW, "mcp.local_tool_families", "all"), "all")).strip() or "all"
-# ── Clients opencode (2026-09-03) ────────────────────────────────────────────
-# Les jetons opencode de chaque compte (``pcr_…``, table ``tool_tokens`` —
-# empreinte seule depuis EXT.1 —, ceux du plugin /remote) sont AUSSI acceptés en
+# ── Clients opencode ─────────────────────────────────────────────────────────
+# Les jetons opencode de chaque compte (``pcr_…``, table ``tool_tokens``, stockés
+# en empreinte seule ; ceux du plugin /remote) sont AUSSI acceptés en
 # Bearer par le service MCP, injectés dans l'``opencode.json`` généré
 # (``GET /api/cli/opencode.json`` avec le jeton du poste). Pour ces clients :
 #   LOCAL_MCP_OPENCODE_FAMILIES : familles exposées, chacune comme un SERVEUR
@@ -775,7 +777,7 @@ def _parse_client_tokens(env_val: Any, cfg_val: Any) -> Dict[str, str]:
     (prioritaire) ou objet de config ``{"tok": "user"}``. Jetons vides ou sans
     compte ignorés — un jeton sans identité serait un jeton de service déguisé.
 
-    (2026-09-11, P2 — A14) un troisième segment restreint les FAMILLES du
+    Un troisième segment restreint les FAMILLES du
     jeton : ``tok:user:git+browser`` (env) ou ``{"tok": "user:git+browser"}``
     (config) — lu par ``_parse_client_token_families``."""
     out: Dict[str, str] = {}
@@ -829,7 +831,7 @@ except Exception:
 
 DB_PATH = _resolve_rel(_as_str(os.environ.get("APP_DB_PATH"), _as_str(_deep_get(_RAW, "app.db_path", "user_db/app.db"), "user_db/app.db")))
 
-# ── Moteur de base de données (2026-09-26, chantier multi-moteurs) ───────────
+# ── Moteur de base de données ────────────────────────────────────────────────
 # ``sqlite`` (défaut : le fichier ``DB_PATH``), ``postgres`` ou ``mysql``
 # (MariaDB ou MySQL). Section ``database`` de config.json ; chaque clé peut
 # être imposée par l'environnement (``APP_DB_*``), qui prime. Le mot de passe
@@ -855,7 +857,7 @@ DB_TLS = _as_str(os.environ.get("APP_DB_TLS"), _as_str(_deep_get(_RAW, "database
 DB_POOL_MAX = max(1, _as_int(os.environ.get("APP_DB_POOL_MAX"), _as_int(_deep_get(_RAW, "database.pool_max", 8), 8)))
 DB_TIMEOUT = max(5.0, _as_float(os.environ.get("APP_DB_TIMEOUT"), _as_float(_deep_get(_RAW, "database.timeout", 60), 60.0)))
 # Génération de la base : incrémentée à chaque bascule de moteur (page admin).
-# Un process plus ancien que config.json n'emprunte plus de connexion
+# Un process plus ancien que config.json n'emprunte aucune connexion
 # (``_connection._generation_guard``) : il écrirait dans l'ancienne base.
 DB_GENERATION = _as_int(_deep_get(_RAW, "database.generation", 0), 0)
 
@@ -877,9 +879,9 @@ MAX_RECENT_CHATS = _as_int(os.environ.get("APP_MAX_RECENT_CHATS"), _as_int(_deep
 
 # ── Maintenance périodique (uptime longue durée) ─────────────────────────────
 # L'app est faite pour tourner des MOIS sans redémarrage. Sans entretien
-# périodique, plusieurs tables de télémétrie ne font que grossir (purge jadis
-# faite UNIQUEMENT au boot via _run_startup_cleanup → jamais ré-exécutée sur un
-# serveur qui ne reboote pas) et le fichier WAL SQLite gonfle indéfiniment.
+# périodique, plusieurs tables de télémétrie ne font que grossir (une purge au
+# seul boot ne repasse jamais sur un serveur qui ne redémarre pas) et le
+# fichier WAL SQLite gonfle indéfiniment.
 # ``shared_infra/ops/maintenance.py`` exécute, sur le worker LEADER (cron_lock),
 # une passe quotidienne : purges + ``wal_checkpoint(TRUNCATE)`` + digest.
 #
@@ -888,10 +890,10 @@ METRICS_RETENTION_DAYS = max(0, _as_int(os.environ.get("APP_METRICS_RETENTION_DA
 # Registre d'usage LLM (``usage_events``, 1 ligne/tour) : bien plus léger que
 # ``metric_events``, on le garde plus longtemps — c'est l'historique de conso.
 USAGE_EVENTS_RETENTION_DAYS = max(0, _as_int(os.environ.get("APP_USAGE_EVENTS_RETENTION_DAYS"), _as_int(_deep_get(_RAW, "maintenance.usage_events_retention_days", 180), 180)))
-# AUDIT 2026-08-31 (passe 3) — ``session_messages`` (+ son miroir FTS5, la
-# recherche d'historique) était la seule table à croissance NON bornée : une
-# ligne par message + une par tool/tool_call compressé. 180 j par défaut,
-# aligné sur usage_events ; 0 = conservation illimitée.
+# ``session_messages`` (+ son miroir FTS5, la recherche d'historique) prend une
+# ligne par message + une par tool/tool_call compressé : sans rétention, sa
+# croissance n'est pas bornée. 180 j par défaut, aligné sur usage_events ;
+# 0 = conservation illimitée.
 SESSION_MESSAGES_RETENTION_DAYS = max(0, _as_int(os.environ.get("APP_SESSION_MESSAGES_RETENTION_DAYS"), _as_int(_deep_get(_RAW, "maintenance.session_messages_retention_days", 180), 180)))
 # Fuseau d'affichage des métriques (vide = fuseau du serveur). Nommer le
 # fuseau une bonne fois évite que chaque graphique choisisse le sien : les
@@ -909,8 +911,8 @@ DAILY_REPORT_RETENTION_DAYS = max(0, _as_int(os.environ.get("APP_DAILY_REPORT_RE
 MAINTENANCE_HOUR = max(0, min(23, _as_int(os.environ.get("APP_MAINTENANCE_HOUR"), _as_int(_deep_get(_RAW, "maintenance.hour", 6), 6))))
 
 # ── Chemins des prompts système centralisés ──────────────────────────────────
-# Tous les prompts système (jadis éparpillés et hardcodés dans le backend)
-# sont maintenant chargés depuis system_prompts/*.md au démarrage. Chaque chemin
+# Tous les prompts système sont chargés depuis system_prompts/*.md au
+# démarrage. Chaque chemin
 # peut être overridé via variable d'environnement OU via config.json
 # (clés app.system_prompts.{name}). Fichier absent → constante = "" ;
 # chaque consommateur gère ce cas gracieusement (skip du bloc, ou
@@ -936,12 +938,12 @@ MAX_UPLOAD_BYTES = max(1, MAX_UPLOAD_MB) * 1024 * 1024
 # 5 Mo de PNG c'est déjà une image 4K non compressée.
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
 
-# ── Plafond d'UN import vers la sandbox (2026-09-16) ─────────────────────────
+# ── Plafond d'UN import vers la sandbox ──────────────────────────────────────
 # Un import (fichiers ou dossier déposés dans l'explorateur) est refusé AVANT
 # tout envoi s'il dépasse ce pourcentage de la capacité de la sandbox — le
 # quota de l'utilisateur, ou l'espace disque libre quand le quota est
 # illimité — ou s'il ne tient pas dans l'espace restant. Sans ce contrôle,
-# un dossier trop gros s'importait à moitié avant de buter sur le quota.
+# un dossier trop gros s'importerait à moitié avant de buter sur le quota.
 # ``app.sandbox_import_max_pct`` (config.json), lu À CHAUD comme
 # ``app.sandbox_quota_mb`` : l'éditeur de configuration admin s'applique sans
 # redémarrage. Borné à [1, 100].
@@ -962,7 +964,7 @@ def sandbox_import_max_pct() -> int:
 # ── Mode de scheduling LLM ─────────────────────────────────────────────────
 # Contrôle où le sémaphore LLM est acquis autour de ``run_chat_multi_mcp`` :
 #
-#   "classic"   — sémaphore autour de TOUTE la boucle tool-calling (legacy).
+#   "classic"   — sémaphore autour de TOUTE la boucle tool-calling.
 #                 Pendant qu'un user exécute un tool MCP (10s+), le slot
 #                 llama-server est logiquement réservé côté backend même
 #                 si physiquement libre. Aucun autre user ne peut l'utiliser.
@@ -991,15 +993,14 @@ if LLM_SCHEDULING_MODE not in ("auto", "classic", "optimized"):
 # Compresse proactivement les vieux tours d'une conversation longue en un
 # résumé structuré (<context>, <facts>, <actions_done>, <state>, <pitfalls>)
 # qui préserve les informations techniques essentielles à la reprise de
-# tâche par un agent. Voir backend/services/conversation_compressor.py.
+# tâche par un agent. Voir llm_core/conversation_compressor.py.
 #
-# Déclenchement (harnais v4/M3) : RÈGLE UNIQUE d'occupation — quand le prompt
-# réel atteint la fenêtre utilisable (n_ctx − cap de génération − buffer). Il
-# n'y a plus AUCUN seuil en nombre de tours ni en pourcentage : les clés
-# ``trigger_after_turns``, ``compress_every``, ``pct_of_ctx``,
-# ``cooldown_iters`` et ``min_growth_tokens`` qui traînent encore dans un vieux
-# config.json sont INERTES (aucun lecteur) — ne pas les documenter comme des
-# leviers. Les ``keep_recent_turns`` derniers tours restent intacts.
+# Déclenchement : RÈGLE UNIQUE d'occupation — quand le prompt réel atteint la
+# fenêtre utilisable (n_ctx − cap de génération − buffer). AUCUN seuil en
+# nombre de tours ni en pourcentage : les clés ``trigger_after_turns``,
+# ``compress_every``, ``pct_of_ctx``, ``cooldown_iters`` et
+# ``min_growth_tokens`` présentes dans un config.json existant sont INERTES
+# (aucun lecteur) — ne pas les documenter comme des leviers. Les ``keep_recent_turns`` derniers tours restent intacts.
 # Côté utilisateur, la compaction automatique est en plus un opt-in per-user
 # (``settings.compression_enabled``, défaut OFF) ; ``enabled`` ci-dessous n'est
 # que l'interrupteur maître de l'instance.
@@ -1034,7 +1035,7 @@ COMPRESSION_EXTERNAL_MODEL = _as_str(
 #     largement pour résumer — 3× plus rapide qu'un 7B+ et quelques Mo de VRAM.
 #   - Tu peux le lancer sur une autre machine / un autre GPU / autre port.
 #
-# Si ``endpoint_url`` vide → fallback sur la stratégie historique :
+# Si ``endpoint_url`` vide → repli :
 #   - Si ``external_model`` défini : même serveur, modèle différent (suppose
 #     LLAMA_MAX_MODELS > 1 côté llama-server).
 #   - Sinon : même serveur, même modèle (il se résume lui-même — simple
@@ -1067,21 +1068,17 @@ COMPRESSION_ENDPOINT_TIMEOUT_SEC = _as_int(
 #
 # Chaque compression dilue un peu plus le résumé précédent (compression de
 # compression). Au-delà de N rounds, on ARRÊTE de compresser : le dernier
-# résumé + les tours récents restent tels quels et ``_enforce_context_budget``
-# (retrait des plus vieux messages) prend le relais en dernier rempart.
+# résumé + les tours récents restent tels quels et
+# ``llm_core.context.pruning.enforce_context_budget`` (retrait des plus vieux
+# messages) prend le relais en dernier rempart.
 # Compte les compressions AUTO **et** MANUELLES (même compteur, persisté avec
 # le résumé dans l'historique du chat ; purge du chat = remise à zéro).
-# 0 = illimité (comportement historique).
-# Défaut 2 → 4 (2026-07-18) : sur les longues sessions agentiques, le cap 2
-# faisait basculer trop tôt sur le budget dur, qui JETTE les vieux tours au
-# lieu de les résumer — la vraie protection anti-dilution reste le trio
-# cooldown / min_growth / no-gain, pas ce cap.
-# Défaut 4 → 12 (audit long-run 2026-08-21) : le même raisonnement, poussé à
-# l'échelle réelle des missions autonomes. Un run de six heures fait des
-# centaines d'itérations et remplit sa fenêtre bien plus de quatre fois ;
-# passé le cap, il ne restait QUE le budget dur — c'est-à-dire la perte
-# silencieuse de vieux tours entiers, exactement ce que la compaction existe
-# pour éviter. 0 = illimité reste disponible.
+# 0 = illimité.
+# Défaut 12, à l'échelle réelle des missions autonomes : un run de six heures
+# fait des centaines d'itérations et remplit sa fenêtre de nombreuses fois.
+# Passé le cap, il ne reste QUE le budget dur, qui JETTE les vieux tours
+# au lieu de les résumer — la perte silencieuse de vieux tours entiers,
+# exactement ce que la compaction existe pour éviter.
 COMPRESSION_MAX_PER_CHAT = _as_int(
     os.environ.get("APP_COMPRESSION_MAX_PER_CHAT"),
     _as_int(_deep_get(_RAW, "llm.compression.max_per_chat", 12), 12),
@@ -1092,18 +1089,18 @@ COMPRESSION_KEEP_RECENT = max(2, min(50, COMPRESSION_KEEP_RECENT))
 COMPRESSION_KEEP_BRIDGE = max(0, min(20, COMPRESSION_KEEP_BRIDGE))
 COMPRESSION_ENDPOINT_TIMEOUT_SEC = max(10, min(600, COMPRESSION_ENDPOINT_TIMEOUT_SEC))
 
-# ── Harnais v4 (M3) : compaction — règle unique d'overflow ─────────────────
-# Le déclenchement pct/tours/cooldown/croissance est SUPPRIMÉ : la compaction
-# part quand l'occupation RÉELLE atteint ``usable = n_ctx − cap de génération
-# − buffer``. Trois réglages seulement :
+# ── Compaction — règle unique d'overflow ───────────────────────────────────
+# Aucun déclenchement pct/tours/cooldown/croissance : la compaction part quand
+# l'occupation RÉELLE atteint ``usable = n_ctx − cap de génération − buffer``.
+# Trois réglages seulement :
 #   buffer_tokens : marge sous le plafond (0 = auto min(20k, 10 % du n_ctx)) ;
 #   partial_target_ratio : cible de la compaction PARTIELLE (fraction de
 #     usable à viser après résumé — le reste des tours reste verbatim) ;
 #   threshold_pct / threshold_tokens : DÉFAUT D'INSTANCE du seuil utilisateur
 #     (« contexte max avant compaction »), au choix en % de la fenêtre ou en
 #     nombre de tokens — les tokens priment quand les deux sont posés. 0 des
-#     deux côtés = auto, c'est-à-dire le plafond technique ci-dessus, le
-#     comportement historique. Un compte qui règle son propre seuil
+#     deux côtés = auto, c'est-à-dire le plafond technique ci-dessus. Un
+#     compte qui règle son propre seuil
 #     (``settings.compression_threshold_*``) prime EN BLOC sur ce défaut.
 COMPACTION_BUFFER_TOKENS = max(0, _as_int(
     os.environ.get("APP_COMPACTION_BUFFER_TOKENS"),
@@ -1132,11 +1129,11 @@ COMPACTION_THRESHOLD_TOKENS = _as_int(
 COMPACTION_THRESHOLD_TOKENS = (0 if COMPACTION_THRESHOLD_TOKENS <= 0
                                else max(2_048, min(4_000_000, COMPACTION_THRESHOLD_TOKENS)))
 
-# ── Harnais v4 (M4) : élagage des sorties d'outils — fin de tour, en TOKENS ─
-# Remplace les vagues par itération pilotées en chars : une passe en FIN de
-# tour marque (définitivement) les vieilles sorties d'outils, remplacées à
-# l'ENVOI par un marqueur plein — le stockage reste complet (session_search).
-#   enabled        : actif par défaut (décision 2026-07-28) ;
+# ── Élagage des sorties d'outils — fin de tour, en TOKENS ──────────────────
+# Une passe en FIN de tour marque (définitivement) les vieilles sorties
+# d'outils, remplacées à l'ENVOI par un marqueur plein — le stockage reste
+# complet (session_search).
+#   enabled        : actif par défaut ;
 #   protect_tokens : fenêtre récente TOUJOURS pleine (0 = auto 20 % du n_ctx) ;
 #   min_tokens     : gain minimal pour acter une passe (0 = auto
 #                    min(20 000, 10 % du n_ctx)).
@@ -1149,43 +1146,43 @@ PRUNE_MIN_TOKENS = max(0, _as_int(
     os.environ.get("APP_PRUNE_MIN_TOKENS"),
     _as_int(_deep_get(_RAW, "llm.prune.min_tokens", 0), 0),
 ))
-# Borne haute 10 → 64 (audit long-run 2026-08-21). Le clamp existe contre les
-# configs incohérentes, pas comme politique : à 10 il PLAFONNAIT une valeur
-# légitime pour une mission longue, sans le dire (l'opérateur qui réglait 20
-# obtenait 10 en silence). 64 laisse la marge, 0 = illimité est préservé.
+# Borne haute 64. Le clamp existe contre les configs incohérentes, pas comme
+# politique : une borne trop basse (10) PLAFONNERAIT en silence une valeur
+# légitime pour une mission longue (l'opérateur qui règle 20 obtiendrait 10
+# sans le savoir). 64 laisse la marge ; 0 = illimité.
 COMPRESSION_MAX_PER_CHAT = max(0, min(64, COMPRESSION_MAX_PER_CHAT))
 
-# ── Harnais long-run (audit 2026-08-01) ────────────────────────────────────
+# ── Harnais long-run ───────────────────────────────────────────────────────
 # Cadence de la sélection d'élagage PENDANT un run, en itérations. 0 = off
-# (fin de tour seulement, comportement d'avant l'audit — un run de plusieurs
-# centaines d'itérations n'élaguait alors jamais rien et n'avait plus que le
-# budget dur, qui JETTE des messages entiers au lieu d'effacer des sorties
-# d'outils récupérables). Le coût d'une passe est un /tokenize groupé sur les
-# seuls candidats, largement servi par le cache LRU.
+# (fin de tour seulement : un run de plusieurs centaines d'itérations n'élague
+# alors jamais rien et n'a plus que le budget dur, qui JETTE des messages
+# entiers au lieu d'effacer des sorties d'outils récupérables). Le coût d'une
+# passe est un /tokenize groupé sur les seuls candidats, largement servi par
+# le cache LRU.
 PRUNE_EVERY_ITERS = max(0, min(1000, _as_int(
     os.environ.get("APP_PRUNE_EVERY_ITERS"),
     _as_int(_deep_get(_RAW, "llm.prune.every_iters", 10), 10),
 )))
-# Compactions RÉUSSIES autorisées dans un même run. L'historique n'en
-# autorisait qu'UNE (« jamais deux résumés enchaînés dans le même tour ») :
-# tenable pour un tour court, absurde pour 200 itérations — passé la première,
-# il ne restait que le budget dur.
-# Défaut 2 → 8 (audit long-run 2026-08-21) : 2 était calibré pour un tour de
-# chat, pas pour une boucle de 200 itérations. Le harnais met en plus ce
-# plancher à l'échelle du budget d'itérations RÉEL du run (qui peut être
-# relevé par chat) — cf. ``_chat_with_tools``.
+# Compactions RÉUSSIES autorisées dans un même run. Une seule (« jamais deux
+# résumés enchaînés dans le même tour ») serait tenable pour un tour court,
+# absurde pour 200 itérations : passé la première, il ne resterait que le
+# budget dur. Défaut 8, calibré pour une boucle de 200 itérations et non pour
+# un tour de chat. Le harnais met en plus ce plancher à l'échelle du budget
+# d'itérations RÉEL du run (qui peut être relevé par chat) — cf.
+# ``LLMTurnState.for_run`` (``llm_core/engine/llm_turn.py``).
 COMPACTIONS_PER_RUN_MAX = max(1, min(64, _as_int(
     os.environ.get("APP_COMPACTIONS_PER_RUN_MAX"),
     _as_int(_deep_get(_RAW, "llm.compaction.per_run_max", 8), 8),
 )))
 
-# Borne du RAISONNEMENT CUMULÉ d'un run (caractères). ``_all_thinking``
-# accumulait le <think> de toutes les itérations sans aucune limite : sur une
-# mission de plusieurs heures avec un modèle raisonneur, plusieurs mégaoctets
-# gardés en heap, joints en une string, envoyés à /tokenize puis poussés au
-# navigateur dans une seule ligne NDJSON. Le raisonnement étant ÉPHÉMÈRE
-# (jamais re-soumis au modèle), on garde le SUFFIXE — le récent est le seul
-# utile à l'accordéon de l'UI. 0 = pas de borne (comportement d'avant l'audit).
+# Borne du RAISONNEMENT CUMULÉ d'un run (caractères). Sans elle,
+# ``RunRecord.all_thinking`` accumule le <think> de toutes les itérations : sur
+# une mission de plusieurs heures avec un modèle raisonneur, plusieurs
+# mégaoctets gardés en heap, joints en une string, envoyés à /tokenize puis
+# poussés au navigateur dans une seule ligne NDJSON. Le raisonnement étant
+# ÉPHÉMÈRE (jamais re-soumis au modèle), on garde le SUFFIXE — le récent est le
+# seul utile à l'accordéon de l'UI (``llm_core.engine.run._clip_thinking_history``).
+# 0 = pas de borne.
 THINKING_HISTORY_MAX_CHARS = max(0, _as_int(
     os.environ.get("APP_THINKING_HISTORY_MAX_CHARS"),
     _as_int(_deep_get(_RAW, "llm.thinking.history_max_chars", 400_000), 400_000),
@@ -1193,15 +1190,14 @@ THINKING_HISTORY_MAX_CHARS = max(0, _as_int(
 
 # ── Sous-agents (outil ``task``, llm_core/tools/task_tool.py) ───────────────
 #
-# Ces clés étaient lues par ``llm_core._constants`` via getattr(config, …)
-# mais ABSENTES d'ici (audit 2026-07-18) : seuls les fallbacks codés en dur
-# vivaient, rien n'était réglable par déploiement. Lecture À FROID uniquement
-# (_constants capture les valeurs à l'import — pas de hot-reload).
+# Clés lues par ``llm_core._constants`` via getattr(config, …) : sans
+# déclaration ici, seuls ses fallbacks codés en dur vivraient et rien ne serait
+# réglable par déploiement. Lecture À FROID uniquement (_constants capture les
+# valeurs à l'import — pas de hot-reload).
 #
-# Budgets par défaut RELEVÉS pour les longues missions (2026-07-18) :
-# timeout enfant 900 → 1800 s, itérations explore 15→25 / general 25→40 /
-# web 20→30. OpenCode n'a AUCUNE borne (steps=Infinity, pas de timeout) —
-# on garde des gardes-fous, juste moins courts.
+# Budgets par défaut dimensionnés pour les longues missions. OpenCode n'a
+# AUCUNE borne (steps=Infinity, pas de timeout) — on garde des gardes-fous,
+# larges.
 TASK_CHILD_TIMEOUT_S = _as_int(
     os.environ.get("APP_TASK_CHILD_TIMEOUT_S"),
     _as_int(_deep_get(_RAW, "llm.task.child_timeout_s", 3600), 3600),
@@ -1210,18 +1206,18 @@ TASK_SUBAGENT_DEPTH = _as_int(
     os.environ.get("APP_TASK_SUBAGENT_DEPTH"),
     _as_int(_deep_get(_RAW, "llm.task.subagent_depth", 1), 1),
 )
-# TTL de reprise d'un sous-agent. 3600 → 21600 (audit 2026-08-01, P1-8) : la
-# reprise existe POUR les longues missions, et un TTL d'une heure la rendait
-# indisponible précisément là où elle sert — un parent qui tourne trois heures
-# se voyait répondre ``unknown_task_id`` sur un task_id émis au début, juste
-# après que le harnais lui ait proposé cette reprise.
+# TTL de reprise d'un sous-agent : 6 h. La reprise existe POUR les longues
+# missions, et un TTL d'une heure la rendrait indisponible précisément là où
+# elle sert — un parent qui tourne trois heures recevrait ``unknown_task_id``
+# sur un task_id émis au début, juste après que le harnais lui a proposé
+# cette reprise.
 TASK_RESUME_TTL_S = _as_int(
     os.environ.get("APP_TASK_RESUME_TTL_S"),
     _as_int(_deep_get(_RAW, "llm.task.resume_ttl_s", 21600), 21600),
 )
 # Cap d'entrées du store de reprise — PARTAGÉ par tous les utilisateurs et
-# tous les chats. 40 se remplissait en quelques dizaines de délégations, et
-# l'éviction FIFO tuait des reprises encore dans leur TTL.
+# tous les chats. 40 se remplirait en quelques dizaines de délégations, et
+# l'éviction FIFO tuerait des reprises encore dans leur TTL.
 TASK_RESUME_MAX = _as_int(
     os.environ.get("APP_TASK_RESUME_MAX"),
     _as_int(_deep_get(_RAW, "llm.task.resume_max", 200), 200),
@@ -1230,10 +1226,9 @@ TASK_MAX_ITERS_EXPLORE = _as_int(
     os.environ.get("APP_TASK_MAX_ITERS_EXPLORE"),
     _as_int(_deep_get(_RAW, "llm.task.max_iters.explore", 60), 60),
 )
-# Budget des agents CUSTOM (settings_json.custom_agents). L'ancienne clé
-# ``general`` — l'agent intégré fourre-tout, supprimé au profit de spécialistes
-# (docs/agents-specialises-design-2026-08-04.md) — lui sert de repli : une
-# instance qui l'avait réglée garde son réglage sans intervention.
+# Budget des agents CUSTOM (settings_json.custom_agents). La clé ``general``
+# (agent intégré fourre-tout, absent du casting de spécialistes) lui sert de
+# repli : une instance qui l'a réglée garde son réglage sans intervention.
 TASK_MAX_ITERS_GENERAL = _as_int(
     os.environ.get("APP_TASK_MAX_ITERS_GENERAL"),
     _as_int(_deep_get(_RAW, "llm.task.max_iters.general", 80), 80),
@@ -1280,9 +1275,9 @@ AGENTS_ENABLED = bool(_deep_get(_RAW, "llm.task.enabled", True))
 
 # ── Outils git : timeout des commandes LOCALES ─────────────────────────────
 # Les commandes réseau (clone/fetch/pull/push) ont leur propre budget (120 s).
-# Celui-ci couvre status/log/diff/add/commit… : 12 s (valeur historique) était
-# taillé pour un dépôt jouet et transformait un gros dépôt lent en « échec
-# d'outil » aux yeux de l'agent. Cf. llm_core.tools.git_tools._git_timeout_default.
+# Celui-ci couvre status/log/diff/add/commit… : 12 s serait taillé pour un
+# dépôt jouet et transformerait un gros dépôt lent en « échec d'outil » aux
+# yeux de l'agent. Cf. llm_core.tools.git_tools._git_timeout_default.
 GIT_TOOL_TIMEOUT_S = max(5, min(600, _as_int(
     os.environ.get("APP_GIT_TOOL_TIMEOUT_S"),
     _as_int(_deep_get(_RAW, "tools.git.timeout_s", 60), 60),
@@ -1290,18 +1285,18 @@ GIT_TOOL_TIMEOUT_S = max(5, min(600, _as_int(
 
 _sandbox_dir_raw = _as_str(os.environ.get("APP_SANDBOX_DIR"), _as_str(_deep_get(_RAW, "app.sandbox_dir", "user_sandboxes"), "user_sandboxes"))
 SANDBOX_DIR = _resolve_path(_sandbox_dir_raw, "user_sandboxes")
-# Propage le chemin ABSOLU à tout process qui importe backend.config — en
+# Propage le chemin ABSOLU à tout process qui importe shared_infra.config — en
 # particulier le serveur d'outils locaux MCP (lancé en service SSE séparé,
-# CWD potentiellement différent). Sans ça, ``tools/fs_tools._sandbox`` &
-# ``shell_tools._sandbox`` retombaient sur ``./user_sandboxes`` relatif au CWD
-# du serveur MCP → les tools écrivaient dans un dossier ≠ de celui que l'arbo
-# du front (backend) lisait. Même pattern que APP_SKILLS_DIR ci-dessous.
+# CWD potentiellement différent). Sans ça, ``llm_core/tools/fs_tools._sandbox``
+# & ``shell_tools._sandbox`` retomberaient sur ``./user_sandboxes`` relatif au
+# CWD du serveur MCP → les tools écriraient dans un dossier ≠ de celui que
+# l'arbo du front (backend) lit. Même pattern que APP_SKILLS_DIR ci-dessous.
 os.environ.setdefault("APP_SANDBOX_DIR", str(SANDBOX_DIR))
 
 
-# (2026-09-12, P4) Racine du MAGASIN MÉMOIRE (``<racine>/<compte>/memory/``).
-# Défaut : la racine des sandboxes (disposition historique, hors du mont
-# ``/work``). Un hôte d'outils DISTANT emporte les sandboxes ; la mémoire est
+# Racine du MAGASIN MÉMOIRE (``<racine>/<compte>/memory/``).
+# Défaut : la racine des sandboxes (là où les installations existantes ont
+# leur mémoire, hors du mont ``/work``). Un hôte d'outils DISTANT emporte les sandboxes ; la mémoire est
 # liée au compte et reste ici : ``app.memory_dir`` / ``APP_MEMORY_DIR``.
 _memory_dir_raw = _as_str(os.environ.get("APP_MEMORY_DIR"),
                           _as_str(_deep_get(_RAW, "app.memory_dir", ""), "")).strip()
@@ -1316,12 +1311,12 @@ def safe_sandbox_name(username: "str | None") -> str:
     container et l'arbo lue par l'UI soient TOUJOURS cohérents.
 
     Conserve ``[A-Za-z0-9_-]`` et supprime le reste (sémantique « delete »,
-    celle qui a historiquement créé les dossiers sur disque — NE PAS passer à
-    un schéma replace/hash, ça orphelinerait les sandboxes existantes).
-    Cette sémantique est aussi plus injective que l'ancien « remplacer par -
-    + tronquer 32 » de UserSandbox : ``Jean.Dupont`` → ``JeanDupont`` reste
-    distinct de ``Jean-Dupont``, alors que le replace les confondait (→
-    collision de container + montage croisé entre users, cf. audit MAJ-10).
+    celle des dossiers déjà sur disque — NE PAS passer à un schéma
+    replace/hash, ça orphelinerait les sandboxes existantes).
+    Cette sémantique est aussi plus injective qu'un « remplacer par - +
+    tronquer 32 » : ``Jean.Dupont`` → ``JeanDupont`` reste distinct de
+    ``Jean-Dupont``, qu'un remplacement confondrait (→ collision de container
+    + montage croisé entre users).
     """
     if not username:
         return "guest"
@@ -1339,12 +1334,11 @@ _skills_dir_raw = _as_str(os.environ.get("APP_SKILLS_DIR"), _as_str(_deep_get(_R
 SKILLS_DIR = _resolve_path(_skills_dir_raw, "skills")
 os.environ.setdefault("APP_SKILLS_DIR", str(SKILLS_DIR))
 
-# Store des skills PERSO (source de vérité) — HORS de SANDBOX_DIR. Les skills
-# d'un utilisateur vivaient dans ``<sandbox>/skills/`` : montée RW dans le
-# conteneur shell et accessible aux outils fs, l'arborescence pouvait être
-# détruite par le modèle (rm -rf). Le store réel est désormais
-# ``USER_SKILLS_DIR/<safe_sandbox_name(user)>/`` ; la sandbox ne contient
-# qu'une COPIE de travail (miroir re-synchronisé à chaque écriture et
+# Store des skills PERSO (source de vérité) — HORS de SANDBOX_DIR : dans
+# ``<sandbox>/skills/``, montée RW dans le conteneur shell et accessible aux
+# outils fs, l'arborescence pourrait être détruite par le modèle (rm -rf). Le
+# store réel est ``USER_SKILLS_DIR/<safe_sandbox_name(user)>/`` ; la sandbox
+# ne contient qu'une COPIE de travail (miroir re-synchronisé à chaque écriture et
 # auto-réparé par skill_get — cf. llm_core/skills.py sync_user_skills_mirror).
 _user_skills_raw = _as_str(os.environ.get("APP_USER_SKILLS_DIR"), _as_str(_deep_get(_RAW, "skills.user_dir", "user_skills"), "user_skills"))
 USER_SKILLS_DIR = _resolve_path(_user_skills_raw, "user_skills")
@@ -1359,7 +1353,7 @@ _skins_dir_raw = _as_str(os.environ.get("APP_SKINS_DIR"), _as_str(_deep_get(_RAW
 SKINS_DIR = _resolve_path(_skins_dir_raw, "user_skins")
 
 
-# Score lexical minimum (cf. _skills.match_skills) pour qu'un skill soit injecté.
+# Score lexical minimum (cf. llm_core.skills.match_skills) pour qu'un skill soit injecté.
 SKILLS_MIN_SCORE = max(0.0, _as_float(os.environ.get("APP_SKILLS_MIN_SCORE"), _as_float(_deep_get(_RAW, "skills.min_score", 1.0), 1.0)))
 
 # Budget caractères du bloc skills assemblé (corps tronqués si dépassé).
@@ -1368,7 +1362,7 @@ SKILLS_CHAR_BUDGET = max(0, _as_int(os.environ.get("APP_SKILLS_CHAR_BUDGET"), _a
 # Nombre max d'entrées listées dans l'INDEX des skills injecté à chaque tour
 # (les surplus restent accessibles via l'outil ``skill_get``). Borne le coût
 # tokens de l'index, qui sinon croît linéairement sans plafond avec la
-# bibliothèque. 0 = illimité (comportement historique).
+# bibliothèque. 0 = illimité.
 SKILLS_INDEX_MAX = max(0, _as_int(os.environ.get("APP_SKILLS_INDEX_MAX"), _as_int(_deep_get(_RAW, "skills.index_max", 100), 100)))
 
 # ── Debug : capture des échanges app ↔ llama.cpp (viewer admin "Trafic LLM") ─
@@ -1439,13 +1433,11 @@ def _warn_if_weak_session_secret(secret: str, source: str) -> None:
         _sys2.stderr.flush()
 
 
-# ⚠ 2026-07-30 — un placeholder de la liste ci-dessus est traité comme ABSENT.
-# Avant : ``config.json`` (branche 2) primait TOUJOURS sur le fichier dédié
-# (branche 3), et comme la valeur d'exemple est COMMITÉE dans le dépôt, la
-# branche 3 — documentée « fallback pour les lancements directs (uvicorn seul,
-# tests) » — était INATTEIGNABLE. Tout lancement hors des scripts start_*.sh
-# (dont le « Lancement minimal » de docs/configuration.md) signait donc les
-# cookies de session avec une valeur publique du dépôt : sessions forgeables.
+# ⚠ Un placeholder de la liste ci-dessus est traité comme ABSENT. La valeur
+# d'exemple de ``config.json`` est COMMITÉE dans le dépôt : si elle primait
+# (branche 2) sur la branche 3 (fichier dédié, lancements directs), celle-ci
+# serait inatteignable et tout lancement hors des scripts start_*.sh signerait
+# les cookies de session avec une valeur publique du dépôt : sessions forgeables.
 # Ne saute QUE les placeholders publiés : un secret propre à l'opérateur, même
 # court, reste honoré (le sauter déconnecterait tout le monde par surprise).
 _session_json_is_placeholder = _session_json.strip().lower() in _WEAK_SESSION_SECRETS
@@ -1470,10 +1462,10 @@ else:
     def _harden_secret_file_mode() -> None:
         """Ré-affirme 0600 sur le fichier de secret.
 
-        Il est créé en 0600 par les deux chemins (ici et start_*.sh) mais rien
-        ne le VÉRIFIAIT ensuite : un mode élargi par une restauration de
-        sauvegarde, une copie ou un chmod manuel laissait la clé de signature
-        des sessions lisible par tout compte local, sans aucun signal."""
+        Il est créé en 0600 par les deux chemins (ici et start_*.sh), mais un
+        mode élargi ensuite par une restauration de sauvegarde, une copie ou un
+        chmod manuel laisserait la clé de signature des sessions lisible par
+        tout compte local, sans aucun signal."""
         try:
             _mode = _SECRET_FILE.stat().st_mode & 0o777
             if _mode & 0o077:
@@ -1534,13 +1526,12 @@ else:
                 finally:
                     _fcntl.flock(_lf.fileno(), _fcntl.LOCK_UN)
         except Exception as _e:
-            # SECURITY FIX (élevé) : avant ce fix, l'exception était
-            # attrapée silencieusement et chaque worker générait son
-            # propre secret aléatoire → les sessions cookies ne
-            # validaient plus entre workers, l'utilisateur était
-            # déconnecté en silence à chaque rebond load-balancer
-            # interne (gunicorn → workers). On loggue maintenant en
-            # CRITICAL pour que l'opérateur soit alerté immédiatement.
+            # Ne pas avaler l'erreur en silence : chaque worker repart
+            # alors sur son propre secret aléatoire → les cookies de
+            # session ne valident pas entre workers et l'utilisateur est
+            # déconnecté à chaque rebond load-balancer interne
+            # (gunicorn → workers). CRITICAL pour que l'opérateur soit
+            # alerté immédiatement.
             _logger_cfg.critical(
                 "[startup] Échec d'écriture du SESSION_SECRET dans %s : %s. "
                 "Fallback EPHEMERAL — les sessions ne survivront PAS au "
@@ -1591,9 +1582,9 @@ SYSTEM_PROMPT_COMPRESSOR        = _load_system_prompt_file(SYSTEM_PROMPT_COMPRES
 # ─────────────────────────────────────────────────────────────────────────────
 #  Lecture de config.json — cache invalidé par le disque
 # ─────────────────────────────────────────────────────────────────────────────
-# ``config.json`` pèse ~400 Ko (la section ``welcome`` en représente 96 %) et
-# ``read_config_json()`` le rouvrait ET le reparsait INTÉGRALEMENT à chaque
-# appel : 825 µs mesurés. Or il est lu sur le chemin de CHAQUE requête
+# ``config.json`` pèse ~400 Ko (la section ``welcome`` en représente 96 %) :
+# le rouvrir ET le reparser INTÉGRALEMENT coûte 825 µs (mesuré). Or il est lu
+# sur le chemin de CHAQUE requête
 # authentifiée (``deps._session_validity_checks`` y prend ``security.session``),
 # plus à chaque ``feature_enabled`` / ``https_enabled`` / ``live_config_value``.
 #
@@ -1602,15 +1593,15 @@ SYSTEM_PROMPT_COMPRESSOR        = _load_system_prompt_file(SYSTEM_PROMPT_COMPRES
 # est vu par tous les autres — en n'y touchant pas : on ne remplace pas la
 # lecture disque par un état mémoire, on remplace la RELECTURE par un ``stat``
 # (2 µs). Même patron que ``reload_desktop_config_from_disk`` /
-# ``reload_compression_config_from_disk`` déjà en place plus bas dans ce module.
+# ``reload_compression_config_from_disk`` plus bas dans ce module.
 #
 # Deux garde-fous, parce qu'un cache sur mtime seul serait FAUX ici :
 #
 #   1. L'INODE fait partie de la clé. Mesuré sur ce déploiement : six écritures
 #      consécutives partagent le même ``st_mtime_ns`` (granularité = tick
 #      noyau), et une modification de même taille passerait donc au travers.
-#      Or ``write_config_json`` — seul écrivain du fichier, vérifié — écrit un
-#      ``.tmp`` puis ``replace()`` : l'inode change à CHAQUE écriture. Il en va
+#      Or les écrivains du fichier passent tous par ``write_text_atomic``, qui
+#      écrit un temporaire puis ``replace()`` : l'inode change à CHAQUE écriture. Il en va
 #      de même de tout éditeur (``vi``) ou de ``sed -i``, qui procèdent par
 #      rename. L'inode est donc le signal fiable, le mtime la ceinture.
 #
@@ -1639,8 +1630,8 @@ def config_view() -> Dict[str, Any]:
         st = CONFIG_JSON_PATH.stat()
         key = (st.st_mtime_ns, st.st_size, st.st_ino)
     except OSError:
-        # Fichier absent/illisible : même contrat qu'avant (dict vide), et on
-        # purge le cache pour ne pas servir une version fantôme.
+        # Fichier absent/illisible : dict vide (contrat de ``_read_json_file``),
+        # et on purge le cache pour ne pas servir une version fantôme.
         with _config_cache_lock:
             _config_cache_key, _config_cache_val, _config_cache_at = None, {}, 0.0
         return _config_cache_val
@@ -1667,7 +1658,7 @@ def invalidate_config_cache() -> None:
 
 
 def read_config_json() -> Dict[str, Any]:
-    """Copie **mutable** de ``config.json`` (contrat historique inchangé).
+    """Copie **mutable** de ``config.json``.
 
     Beaucoup d'endpoints admin font un lire-modifier-écrire
     (``cfg.setdefault("security", {})["session"] = ...`` puis
@@ -1682,19 +1673,17 @@ def read_config_json() -> Dict[str, Any]:
 def live_config_value(dotted_path: str, default: Any = None) -> Any:
     """Valeur de config LUE SUR DISQUE à l'appel, désignée par ``"a.b.c"``.
 
-    AUDIT 2026-08-01 (E6) — la plupart des constantes de ce module sont dérivées
-    de ``_RAW``, lu UNE SEULE FOIS à l'import. Les endpoints admin écrivent bien
-    ``config.json``, mais pour que le changement s'applique tout de suite ils
-    muraient en plus la constante module-level (ex.
-    ``admin/llm.py`` : ``_cfg.LLM_SCHEDULING_MODE = mode``). Or cette mutation
-    n'a lieu que dans LE worker qui a reçu le POST : avec ``workers = cpu - 1``,
-    un tiers des requêtes appliquait le nouveau réglage et les autres non, et
-    même la lecture (GET) répondait différemment selon le worker qui décrochait
-    — l'admin voyait la valeur osciller sans comprendre.
+    La plupart des constantes de ce module sont dérivées de ``_RAW``, lu UNE
+    SEULE FOIS à l'import. Ne pas muter une constante module-level depuis un
+    endpoint admin pour appliquer un réglage tout de suite : la mutation n'a
+    lieu que dans LE worker qui a reçu le POST — avec ``workers = cpu - 1``,
+    une partie des requêtes appliquerait le nouveau réglage et les autres non,
+    et même la lecture (GET) répondrait différemment selon le worker qui
+    décroche (l'admin verrait la valeur osciller).
 
-    Ce helper suit le patron déjà en place dans ce module (``feature_enabled``,
+    Ce helper suit le patron de ce module (``feature_enabled``,
     ``https_enabled``) : la source de vérité est le FICHIER, partagé par tous
-    les workers. Coût = un petit read JSON, comme les toggles existants.
+    les workers. Coût : celui de :func:`config_view`.
 
     Utiliser ceci — plutôt qu'une constante d'import — pour tout réglage
     modifiable depuis l'admin et lu en cours d'exécution.
@@ -1719,17 +1708,16 @@ def live_config_value(dotted_path: str, default: Any = None) -> Any:
 def session_cookie_attrs() -> Dict[str, Any]:
     """Attributs du cookie de session — source UNIQUE.
 
-    AUDIT 2026-08-01 (M7) — ces valeurs étaient dérivées à DEUX endroits :
-    ``server/app.py`` au boot (figées ensuite par ``SessionMiddleware``) et
-    ``routes/auth.py`` à chaque logout (relues sur disque). Entre une écriture
-    de ``security.session.https_only`` (toggle HTTPS admin) et le redémarrage
-    effectif, le middleware émettait donc des cookies avec les ANCIENS
-    attributs pendant que le logout tentait de les supprimer avec les NOUVEAUX.
-    Chrome et Safari exigeant des attributs identiques pour honorer une
-    suppression, le cookie n'était pas effacé — et, combiné à l'absence de
-    révocation côté serveur (E4), « se déconnecter » ne faisait alors rien.
+    Le middleware (``server/app.py`` au boot, figé ensuite par
+    ``SessionMiddleware``) et le logout doivent dériver les MÊMES attributs.
+    Deux dérivations séparées divergent entre une écriture de
+    ``security.session.https_only`` (toggle HTTPS admin) et le redémarrage
+    effectif : le middleware émettrait des cookies avec les ANCIENS attributs
+    pendant que le logout tenterait de les supprimer avec les NOUVEAUX. Chrome
+    et Safari exigeant des attributs identiques pour honorer une suppression,
+    le cookie ne serait pas effacé et « se déconnecter » ne ferait rien.
 
-    Retourne ``{"cookie_name", "same_site", "https_only"}``.
+    Retourne ``{"cookie_name", "same_site", "https_only", "max_age"}``.
     """
     try:
         _sec = (config_view() or {}).get("security") or {}
@@ -1744,12 +1732,12 @@ def session_cookie_attrs() -> Dict[str, Any]:
     # SameSite=None est invalide sans Secure → on force.
     if same_site == "none" and not https_only:
         https_only = True
-    # AUDIT 2026-08-02 (S6) — max_age du COOKIE aligné sur l'expiration
-    # logique. Sans lui, SessionMiddleware appliquait son défaut Starlette
-    # (14 jours), réémis à chaque requête (Max-Age glissant) : le cookie
-    # était persistant, survivait à la fermeture du navigateur et restait
-    # signé-valide 14 j alors que la gate ``_login_ts`` le rejetait à 24 h.
-    # Sur poste partagé, fermer le navigateur ne « déconnectait » donc pas.
+    # max_age du COOKIE aligné sur l'expiration logique. Sans lui,
+    # SessionMiddleware applique son défaut Starlette (14 jours), réémis à
+    # chaque requête (Max-Age glissant) : le cookie, persistant, survivrait à
+    # la fermeture du navigateur et resterait signé-valide 14 j alors que la
+    # gate ``_login_ts`` le rejette à 24 h. Sur poste partagé, fermer le
+    # navigateur ne « déconnecterait » pas.
     try:
         max_age = int(_sess.get("max_age_sec", 86400))
     except (TypeError, ValueError):
@@ -1766,16 +1754,16 @@ def max_recent_chats() -> int:
     Ce plafond ne borne pas seulement l'affichage : ``enforce_recent_chats_cap``
     SUPPRIME ce qui dépasse. Il doit donc suivre le fichier, comme
     ``feature_enabled`` / ``https_enabled``, et pour la même raison — la
-    constante ``MAX_RECENT_CHATS`` fige la valeur du démarrage, si bien que le
+    constante ``MAX_RECENT_CHATS`` fige la valeur du démarrage : lue seule, le
     champ d'administration « Conversations récentes » (``app.max_recent_chats``)
-    n'avait d'effet qu'après un redémarrage COMPLET du serveur.
+    n'aurait d'effet qu'après un redémarrage COMPLET du serveur.
 
     ``APP_MAX_RECENT_CHATS`` reste prioritaire : une variable d'environnement
     est un choix de déploiement, elle prime sur le réglage d'interface (et
     ``MAX_RECENT_CHATS`` en porte déjà la résolution).
 
     Plancher à 1 : ``0`` — saisissable dans un config.json écrit à la main,
-    l'``<input min="1">`` de l'admin ne protégeant que l'admin — signifiait
+    l'``<input min="1">`` de l'admin ne protégeant que l'admin — signifierait
     « supprimer toutes les conversations » à la première écriture.
     """
     if os.environ.get("APP_MAX_RECENT_CHATS") is not None:
@@ -1804,7 +1792,7 @@ def https_enabled() -> bool:
     Source de vérité disque, lue à chaque appel comme ``feature_enabled`` —
     le toggle admin écrit config.json puis déclenche un reload gunicorn, mais
     les consommateurs (synthèse d'URLs publiques) doivent suivre sans cache.
-    Absent/illisible → False : l'accès HTTP direct historique reste le défaut."""
+    Absent/illisible → False : l'accès HTTP direct reste le défaut."""
     try:
         sec = (config_view() or {}).get("security") or {}
         return bool((sec.get("https") or {}).get("enabled", False))
@@ -1834,17 +1822,17 @@ def write_text_atomic(path: Path, content: str) -> None:
     """Écriture atomique d'un fichier texte : temporaire UNIQUE dans le même
     répertoire, vidage sur disque, puis renommage.
 
-    AUDIT 2026-08-23 — les DEUX écrivains de ``config.json``
-    (``write_config_json`` ici et ``_write_text_atomic`` de l'éditeur admin)
-    construisaient le même nom de temporaire, ``config.json.tmp``. Le renommage
-    est atomique, mais pas la phase d'écriture : 400 Ko partent en plusieurs
+    Les DEUX écrivains de ``config.json`` (``write_config_json`` ici et
+    ``_write_text_atomic`` de l'éditeur admin) passent par ce helper. Ne pas
+    revenir à un nom de temporaire FIXE (``config.json.tmp``) : le renommage
+    est atomique, mais pas la phase d'écriture — 400 Ko partent en plusieurs
     ``write()``. Deux écrivains simultanés — l'éditeur admin d'un côté,
-    ``write_config_json`` (huit appelants, dont l'envoi de sauvegarde distante,
-    hors requête) de l'autre — s'entrelaçaient dans le MÊME tampon : l'un
-    renommait le fichier à moitié écrit par l'autre, qui levait ensuite
+    ``write_config_json`` (dont l'envoi de sauvegarde distante, hors requête)
+    de l'autre — s'entrelaceraient dans le MÊME tampon : l'un renommerait le
+    fichier à moitié écrit par l'autre, qui lèverait ensuite
     ``FileNotFoundError`` sur son propre renommage. Résultat : ``config.json``
-    invalide. Et un ``config.json`` illisible est un fail-open — ``gunicorn_conf``
-    rebinde alors ``0.0.0.0`` malgré HTTPS activé.
+    invalide. Or un ``config.json`` illisible est un fail-open —
+    ``gunicorn_conf`` rebinde alors ``0.0.0.0`` malgré HTTPS activé.
 
     Le mode du fichier existant est repris : sur une instance où la
     configuration appartient à l'installateur, ``mkstemp`` (0600) la rendrait
@@ -1964,8 +1952,8 @@ def get_desktop_target(name: str = "", reload: bool = True):
 # chaque worker a SA propre copie des globals ``COMPRESSION_*`` en mémoire,
 # initialisées UNE SEULE FOIS au démarrage depuis config.json. Le POST
 # ``/api/admin/compression-config`` met à jour les globals du worker qui
-# reçoit la requête et écrit config.json, mais les AUTRES workers gardent
-# leur snapshot original. Symptômes côté user :
+# reçoit la requête et écrit config.json ; sans resynchronisation, les AUTRES
+# workers gardent leur snapshot original. Symptômes côté user :
 #
 #   1. "les paramètres ne sont pas persistés, reset à chaque refresh" →
 #      le GET suivant atterrit sur un autre worker qui renvoie son ancien
@@ -1974,7 +1962,7 @@ def get_desktop_target(name: str = "", reload: bool = True):
 #      → la compression réelle tourne sur n'importe quel worker ; ceux qui
 #      n'ont pas vu le POST utilisent leurs vieilles valeurs.
 #
-# Solution : source de vérité = config.json sur disque. Chaque appel
+# Source de vérité = config.json sur disque. Chaque appel
 # (GET, POST, compression) appelle ``reload_compression_config_from_disk()``
 # avant de lire/écrire. Cache mtime pour ne pas relire le fichier
 # inutilement dans le cas single-worker.

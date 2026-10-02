@@ -73,7 +73,7 @@ def test_detachement_desactive_par_defaut(config_vierge):
 
 
 def test_detache_seulement_a_la_deconnexion_en_cours_de_run():
-    from chatbot_app.routes.chats import _should_detach_run
+    from chatbot_app.turn.execution import _should_detach_run
 
     # Le cas visé : run en cours, client parti, option active.
     assert _should_detach_run(detach_enabled=True, task_done=False,
@@ -196,7 +196,7 @@ def test_le_budget_de_compaction_suit_le_budget_d_iterations():
     relevé par chat depuis l'UI : un run à 600 itérations a besoin de plus de
     compactions qu'un run à 40. La règle du harnais : une par tranche de ~25
     itérations, jamais moins que le réglage global."""
-    from llm_core._chat_with_tools import _COMPACTIONS_PER_RUN_MAX
+    from llm_core.engine.llm_turn import _COMPACTIONS_PER_RUN_MAX
 
     def _budget(max_iter: int) -> int:
         return max(_COMPACTIONS_PER_RUN_MAX, min(64, max(1, max_iter // 25)))

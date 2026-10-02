@@ -2,8 +2,8 @@
 """
 shared_infra.routes — composition des routes HTTP.
 
-Ce package ne contient PLUS les endpoints eux-mêmes : depuis le rangement par
-famille (2026-09-04), chaque module de routes vit avec son sujet
+Ce package ne contient PAS les endpoints eux-mêmes : rangés par famille,
+chaque module de routes vit avec son sujet
 (``shared_infra/mcp/panel.py``, ``shared_infra/sandbox/routes_files.py``…).
 Ne restent ici que les mécaniques qui n'appartiennent à aucune famille :
 
@@ -77,14 +77,14 @@ from shared_infra.llm import routes_connectors     # noqa: F401 — /api/llm/con
 from shared_infra.routes import config    # noqa: F401 — /api/config (GET + PUT)
 from shared_infra.opencode import routes_cli       # noqa: F401 — /api/cli/* (distribution LAN)
 from shared_infra.mcp import bridge as mcp_bridge  # noqa: F401 — /api/mcp-bridge/*
-from shared_infra.mcp import routes_openapi as mcp_openapi  # noqa: F401 — /api/tools/<famille>/* (EXT.5)
-from shared_infra.mcp import routes_oauth as mcp_oauth  # noqa: F401 — /.well-known/*, /oauth/* (EXT.4)
+from shared_infra.mcp import routes_openapi as mcp_openapi  # noqa: F401 — /api/tools/<famille>/* (OpenAPI)
+from shared_infra.mcp import routes_oauth as mcp_oauth  # noqa: F401 — /.well-known/*, /oauth/* (OAuth MCP)
 from shared_infra.opencode import routes_code      # noqa: F401 — /api/code/* (sessions déportées)
 from shared_infra.toolhost import routes_internal  # noqa: F401 — /api/internal/* (rappels de l'hôte d'outils)
 from shared_infra.llm import routes_queue          # noqa: F401 — /api/llm/queue-status
 from shared_infra.observability import routes_usage  # noqa: F401 — /api/usage/me
-from shared_infra.observability import routes_runs  # noqa: F401 — /api/runs/* (L5.3)
-from shared_infra.accounts import routes_tokens  # noqa: F401 — /api/tokens* (EXT.1)
+from shared_infra.observability import routes_runs  # noqa: F401 — /api/runs/* (exécutions)
+from shared_infra.accounts import routes_tokens  # noqa: F401 — /api/tokens* (jetons d'outils)
 from shared_infra.routes import admin as _admin_module  # noqa: F401 — endpoints admin
 
 # Modules ré-exportés par la boucle du §3. ``admin`` en est volontairement
@@ -106,8 +106,10 @@ _SUBMODULES = (
 #    ne s'exécutent donc qu'une seule fois même si on rappelle ces fonctions.
 # ─────────────────────────────────────────────────────────────────────────────
 _CHATBOT_ROUTE_MODULES = (
-    "chatbot_app.routes.saved_chats",   # /api/saved/chats/*
-    "chatbot_app.routes.chats",         # /api/chat/* + /api/chat-saved-stream3
+    "chatbot_app.routes.saved_chats",       # /api/saved/chats/*
+    "chatbot_app.routes.chats",             # /api/chat-saved-stream3
+    "chatbot_app.routes.chat_control",      # /api/chat/* (annulation, état, run/events)
+    "chatbot_app.routes.chat_compression",  # /api/chat/{id}/compress, compression-state
 )
 
 

@@ -16,6 +16,7 @@ import pytest
 
 import llm_core._chat_with_tools as _cwt
 import llm_core._target as _tgt
+from llm_core import _model_info
 
 
 async def _anoop(*_a, **_k):
@@ -41,7 +42,7 @@ async def _run_collect_kv(monkeypatch, *, local: bool):
     async def _ctx(*_a, **_k):
         return 32000
 
-    monkeypatch.setattr(_cwt, "get_model_context_size", _ctx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _ctx)
     monkeypatch.setattr(_tgt, "current_target", lambda: _FakeTarget(local))
 
     async def _fake_stream(messages, tools_payload, **kw):

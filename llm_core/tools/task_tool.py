@@ -12,14 +12,16 @@ pas celui du chat principal.
 Isolation (deux couches) : l'enfant ne reçoit JAMAIS ``task`` (pas de récursion)
 ni ``todowrite`` — via le param ``deny_tool_names`` de ``run_chat_multi_mcp``,
 qui s'applique aussi aux catégories cachées (``todowrite`` vit dans la catégorie
-cachée ``task``) et aux builtins, contrairement à ``allowed_tool_names`` (T11).
+cachée ``task``) et aux builtins, contrairement à ``allowed_tool_names``.
 
 Le builtin est construit PAR TOUR par ``build_task_builtin_tool(...)`` : son
 handler capture par closure le contexte du tour parent (modèle, configs MCP,
-toggles, ``is_cancelled``, ``on_event``, mode de scheduling). Câblé dans la route
-chat à côté de ``build_rag_builtin_tools`` (llm_core/tools/rag_tools.py).
+toggles, ``is_cancelled``, ``on_event``, mode de scheduling). Appelé par le
+worker de ``run_turn`` (``chatbot_app/turn/execution.py``) ; les builtins RAG
+(``build_rag_builtin_tools``, llm_core/tools/rag_tools.py) sont construits par
+``chatbot_app/turn/preparation.py``.
 
-Gestion (parité OpenCode, 2026-07-18) :
+Gestion (parité OpenCode) :
 - **Reprise ``task_id``** : re-passer l'id de l'enveloppe continue le MÊME enfant
   avec son historique (store in-process par worker, TTL/cap — best-effort ;
   reprise sur un autre worker → ``unknown_task_id`` propre). Vaut aussi pour
@@ -76,11 +78,11 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 # ⚠ L'app tourne en gunicorn MULTI-worker (``server/gunicorn_conf.py`` :
 # ``workers = cpu-1`` dès 3 vCPU) et les requêtes sont distribuées sans
-# affinité. Un registre module-level ne voit donc que SON process — l'ancienne
-# note « déploiement single-worker assumé » était fausse et a coûté deux
-# fonctionnalités silencieusement inertes :
-#   * le ✕ par-agent → réglé par le bus (``cancel_child`` / ``apply_child_cancel``) ;
-#   * la reprise ``task_id`` → réglée par le store partagé (``_task_resume``).
+# affinité. Un registre module-level ne voit donc que SON process : seul, il
+# laisserait la fonction silencieusement inerte sur les autres workers. Deux
+# mécanismes partagés couvrent l'état à durée de vie inter-requêtes :
+#   * le ✕ par-agent → le bus (``cancel_child`` / ``apply_child_cancel``) ;
+#   * la reprise ``task_id`` → le store partagé (``_task_resume``).
 # Tout nouvel état à durée de vie inter-requêtes doit passer par l'un des deux.
 
 # Enfants ACTIFS : (username, child_id) → méta (agent, chat parent, t0).
@@ -93,10 +95,10 @@ _CANCELLED_CHILDREN: Set[Tuple[str, str]] = set()
 # ``messages`` = liste PRÊTE pour la prochaine reprise (système persona +
 # tours précédents expansés + dernier rapport). TTL + cap, prune à l'accès.
 _RESUME_STORE: "OrderedDict[Tuple[str, str], Dict[str, Any]]" = OrderedDict()
-# AUDIT 2026-09-26 — le store est muté depuis des threads (``to_thread`` :
-# enregistrement, élagage, relecture) : sans verrou, l'élagage pouvait lever
-# « OrderedDict mutated during iteration » et remplacer le résultat d'un
-# sous-agent pourtant terminé par une erreur d'outil.
+# Le store est muté depuis des threads (``to_thread`` : enregistrement,
+# élagage, relecture) : sans verrou, l'élagage peut lever « OrderedDict mutated
+# during iteration » et remplacer le résultat d'un sous-agent pourtant terminé
+# par une erreur d'outil.
 _RESUME_LOCK = threading.RLock()
 
 
@@ -104,7 +106,7 @@ def apply_child_cancel(username: str, child_id: str) -> bool:
     """Applique LOCALEMENT une demande d'annulation d'enfant.
 
     Ne pose le flag que si l'enfant est ACTIF sur CE worker — un flag « au cas
-    où » n'était nettoyé que par le ``finally`` d'un run : un cancel raté
+    où » ne serait nettoyé que par le ``finally`` d'un run : un cancel raté
     (enfant d'un autre worker, run déjà fini) fuirait pour toujours dans
     ``_CANCELLED_CHILDREN``. Les ``child_id`` étant uniques par run
     (``t{n}-{hex}``), un écho tardif du bus ne peut pas frapper un homonyme.
@@ -120,16 +122,15 @@ def apply_child_cancel(username: str, child_id: str) -> bool:
 
 
 def cancel_child(username: str, child_id: str) -> bool:
-    """Annule UN sous-agent sans toucher au tour parent (point 3 de l'analyse
-    gestion).
+    """Annule UN sous-agent sans toucher au tour parent.
 
     Applique en direct sur CE worker PUIS diffuse sur le bus d'annulation.
-    ⚠ Sans la diffusion, le ✕ n'agissait qu'une fois sur N (N = workers
+    ⚠ Sans la diffusion, le ✕ n'agirait qu'une fois sur N (N = workers
     gunicorn) : l'enfant tourne dans le worker qui tient le stream, alors que
     ``POST /api/chat/task-cancel`` est une requête indépendante distribuée
-    sans affinité — l'API répondait ``{"status": "cancelled"}`` pendant que
-    l'agent continuait à consommer des tokens jusqu'à son terme. Exactement le
-    problème que ``cancel_bus`` avait déjà réglé pour le Stop du chat.
+    sans affinité — l'API répondrait ``{"status": "cancelled"}`` pendant que
+    l'agent continuerait à consommer des tokens jusqu'à son terme. Même
+    mécanique que le Stop du chat (``cancel_bus``).
 
     Le booléen renvoyé reste la réponse LOCALE (l'enfant était-il ici ?) :
     l'appelant ne peut pas savoir de façon synchrone ce que feront les autres
@@ -173,21 +174,21 @@ def _prune_resume_store(now: Optional[float] = None) -> None:
 def _resume_lookup(username: str, child_id: str) -> Optional[Dict[str, Any]]:
     """Enregistrement de reprise pour ``task_id``, mémoire PUIS disque.
 
-    Le dictionnaire module-level ne vit que dans SON worker : la reprise d'un
-    tour à l'autre (nouvelle requête HTTP, worker arbitraire sous gunicorn)
-    répondait ``unknown_task_id`` alors que l'enveloppe venait justement de
-    proposer ce ``task_id`` au modèle. Le store partagé rattrape ce cas ; le
-    dictionnaire reste le cache chaud, ré-hydraté au passage.
+    Le dictionnaire module-level ne vit que dans SON worker : seul, il ferait
+    répondre ``unknown_task_id`` à la reprise d'un tour à l'autre (nouvelle
+    requête HTTP, worker arbitraire sous gunicorn) alors que l'enveloppe vient
+    justement de proposer ce ``task_id`` au modèle. Le store partagé couvre ce
+    cas ; le dictionnaire reste le cache chaud, ré-hydraté au passage.
     """
     key = (str(username), str(child_id))
     with _RESUME_LOCK:
         rec = _RESUME_STORE.get(key)
     if rec is not None:
-        # AUDIT 2026-09-24 (point 11) — le cache L1 était servi SANS regarder
-        # le disque. Or un AUTRE worker a pu reprendre cet agent depuis
-        # (nouvelle requête sans affinité) et réécrire le store partagé : ce
-        # worker-ci repartait alors de SA version périmée, puis écrasait sur
-        # disque le travail plus récent. On compare l'horodatage du disque
+        # Le cache L1 n'est servi qu'après un regard sur le disque : un AUTRE
+        # worker a pu reprendre cet agent depuis (nouvelle requête sans
+        # affinité) et réécrire le store partagé ; servir la version locale
+        # ferait repartir d'un état périmé, puis écraserait sur disque le
+        # travail plus récent. On compare l'horodatage du disque
         # (``peek_ts`` : un simple ``stat`` — ``put`` cale la mtime du fichier
         # sur le ``ts`` du record — pas la relecture d'un JSON de plusieurs
         # Mo) à celui du L1. Marge d'1 ms : arrondi flottant ↔ nanosecondes.
@@ -245,11 +246,10 @@ def _expand_child_history(hist: Any) -> List[Dict[str, Any]]:
 # agent/subagent-permissions.ts.
 _DENY_BASE: Set[str] = {"task", "todowrite", "ask_user"}
 
-# NOTE (2026-08-06) — les allowlists PAR OUTIL (``_READ_TOOLS``, ``_WEB_TOOLS``
-# et les ensembles nommés dans ``_AGENTS``) ont été SUPPRIMÉES. Un sous-agent est
-# désormais un chat dont les toggles du panneau Outils sont PRÉ-COCHÉS : il
-# reçoit des CATÉGORIES ENTIÈRES, comme n'importe quelle conversation. Voir
-# ``_AGENTS`` juste en dessous pour le raisonnement.
+# Pas d'allowlist PAR OUTIL : un sous-agent est un chat dont les toggles du
+# panneau Outils sont PRÉ-COCHÉS, il reçoit des CATÉGORIES ENTIÈRES comme
+# n'importe quelle conversation. Voir ``_AGENTS`` juste en dessous pour le
+# raisonnement.
 
 
 @dataclass(frozen=True)
@@ -287,20 +287,18 @@ class AgentSpec:
 
 # Ordre stable → description du tool byte-stable d'un tour à l'autre (prefix KV).
 #
-# MODÈLE (2026-08-06) — un sous-agent EST un chat dont les toggles du panneau
-# Outils sont PRÉ-COCHÉS. Il reçoit des CATÉGORIES ENTIÈRES, exactement comme une
+# MODÈLE — un sous-agent EST un chat dont les toggles du panneau Outils sont
+# PRÉ-COCHÉS. Il reçoit des CATÉGORIES ENTIÈRES, exactement comme une
 # conversation où l'utilisateur active « Fichiers » et « Git » : tout ``fs``,
-# tout ``git``, tout ``shell``. Plus aucune allowlist par outil.
+# tout ``git``, tout ``shell``. Aucune allowlist par outil.
 #
-# Pourquoi ce virage : le casting de spécialistes (2026-08-04) donnait 6 à 9
-# outils nommés à la main par agent. Ça paraissait sûr et c'était en fait la
-# cause des enfants qui n'arrivent à rien — il manquait toujours le geste
-# suivant. Un explore qui ne peut pas lire l'historique d'un fichier RENOMMÉ, un
-# implement qui ne peut pas supprimer le module qu'il remplace, un verify qui ne
-# peut pas voir dans quel état est l'arbre : chacun s'arrête à un outil près, et
-# le rapport dit « je n'ai pas l'outil » au lieu de répondre. Le panneau Outils
-# ne demande jamais à l'utilisateur de cocher 8 outils parmi 55 — il coche
-# « Fichiers ». Les agents suivent la même unité.
+# Pourquoi : une poignée d'outils nommés à la main par agent laisse toujours
+# manquer le geste suivant. Un explore qui ne peut pas lire l'historique d'un
+# fichier RENOMMÉ, un implement qui ne peut pas supprimer le module qu'il
+# remplace, un verify qui ne peut pas voir dans quel état est l'arbre : chacun
+# s'arrête à un outil près, et le rapport dit « je n'ai pas l'outil » au lieu de
+# répondre. Le panneau Outils ne demande jamais à l'utilisateur de cocher 8
+# outils parmi 55 — il coche « Fichiers ». Les agents suivent la même unité.
 #
 # Où vit la spécialisation, alors ?
 #   1. dans les CATÉGORIES pré-cochées — un agent web n'a pas ``git``, un agent
@@ -368,15 +366,15 @@ _AGENTS: "OrderedDict[str, AgentSpec]" = OrderedDict([
 
 # Source de vérité UNIQUE des contraintes — le PUT /api/settings les importe.
 AGENT_NAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9_-]{0,30}[a-z0-9])?$")
-# Seul « task » reste réservé. Un agent du compte qui porte le nom d'un INTÉGRÉ
-# n'est plus une collision : c'est une SURCHARGE — les intégrés sont distribués
+# Seul « task » est réservé. Un agent du compte qui porte le nom d'un INTÉGRÉ
+# n'est pas une collision : c'est une SURCHARGE — les intégrés sont distribués
 # en modèles, et l'entrée ne porte que les écarts (prompt, catégories, budget,
-# serveurs, ``enabled``). Cf. docs/agents-bank-design-2026-09-11.md.
+# serveurs, ``enabled``).
 RESERVED_AGENT_NAMES: Set[str] = {"task"}
-# Relevé 10 → 30 le 2026-08-30 : la liste est un CATALOGUE de spécialistes
-# (un par domaine récurrent), pas une sélection. À 10, l'utilisateur arbitrait
-# entre des agents utiles au lieu de les écrire. Le coût d'un agent inutilisé
-# est une ligne dans le roster de la description du tool, pas un run.
+# La liste est un CATALOGUE de spécialistes (un par domaine récurrent), pas une
+# sélection : une borne basse ferait arbitrer l'utilisateur entre des agents
+# utiles au lieu de les écrire. Le coût d'un agent inutilisé est une ligne dans
+# le roster de la description du tool, pas un run.
 CUSTOM_AGENTS_MAX = 30
 CUSTOM_DESC_MAX = 200
 # Budget d'itérations PROPRE à un agent custom (champ ``max_iters``, optionnel).
@@ -402,9 +400,9 @@ CUSTOM_DEFAULT_CATEGORIES: List[str] = ["fs", "shell", "git"]
 
 
 def custom_default_categories() -> List[str]:
-    """Socle de catégories d'un agent custom qui n'en demande aucune.
-    (2026-09-11) ``mcp.json › x-elpis.default_on`` du service intégré, s'il
-    en déclare ; sinon le socle historique ``CUSTOM_DEFAULT_CATEGORIES``."""
+    """Socle de catégories d'un agent custom qui n'en demande aucune :
+    ``mcp.json › x-elpis.default_on`` du service intégré, s'il en déclare ;
+    sinon le socle ``CUSTOM_DEFAULT_CATEGORIES``."""
     try:
         from shared_infra.mcp.manifest import load as _mf_load
         on = _mf_load().default_on_categories()
@@ -424,13 +422,12 @@ def _free_agent_name(base: str, taken: Set[str]) -> str:
     """Nom libre dérivé de ``base``, pour un agent custom dont le nom est devenu
     RÉSERVÉ après coup.
 
-    Le casting intégré peut bouger (2026-08-04 : ``general`` retiré,
-    ``implement``/``verify``/``pr`` ajoutés). Un utilisateur qui avait créé un
-    agent nommé ``pr`` — nom parfaitement libre la veille — se retrouvait
-    sinon avec un PUT /api/settings en 400 sur le blob ENTIER : le panneau
+    Le casting intégré peut bouger (un agent intégré ajouté porte un nom
+    qu'un utilisateur a pu prendre la veille). Refuser le blob ferait
+    répondre 400 à PUT /api/settings sur le blob ENTIER : le panneau
     Paramètres re-poste tout à chaque « Enregistrer », donc plus AUCUN réglage
-    n'était enregistrable tant que l'agent n'était pas renommé à la main, et
-    l'agent était silencieusement inerte au runtime en attendant.
+    ne serait enregistrable tant que l'agent n'est pas renommé à la main, et
+    l'agent resterait silencieusement inerte au runtime en attendant.
 
     Renommer plutôt que refuser ne masque rien d'un nouveau conflit : le
     formulaire côté client refuse déjà un nom réservé saisi à la main
@@ -514,7 +511,7 @@ def validate_custom_agents(raw: Any) -> List[Dict[str, Any]]:
         # Une valeur malformée vient donc TOUJOURS de données déjà stockées —
         # legacy, import, édition manuelle du blob — et l'utilisateur n'a aucun
         # moyen de la retirer depuis le panneau (un id absent de la liste n'a
-        # pas de case à décocher). La refuser faisait échouer le PUT sur le blob
+        # pas de case à décocher). La refuser ferait échouer le PUT sur le blob
         # ENTIER, donc plus aucun réglage enregistrable, sans issue par l'UI :
         # même piège que les noms devenus réservés (cf. _free_agent_name). On
         # SAUTE l'entrée invalide — comme ``_specs_from_custom`` le fait déjà au
@@ -809,12 +806,11 @@ def _child_env_block(spec: AgentSpec, timeout_s: int) -> str:
     Le ``<runtime_context>`` sandbox est injecté par le fold de l'enfant (fs/git)
     → pas de duplication ici, et SURTOUT pas de règle de chemins concurrente.
 
-    Audit « limites fantômes » 2026-07-31 — ce bloc se terminait par « Always use
-    absolute paths. » alors que le ``<runtime_context>`` fusionné dans le MÊME
-    message système dit l'inverse (tout est relatif à la racine du sandbox,
-    ``path="/tmp/foo"`` est refusé). L'enfant lisait donc une consigne et son
-    contraire, et brûlait des itérations en chemins absolus rejetés — exactement
-    la boucle que ``build_runtime_sandbox_context`` existe pour supprimer.
+    Aucune règle de chemins ici : le ``<runtime_context>`` fusionné dans le
+    MÊME message système dit que tout est relatif à la racine du sandbox
+    (``path="/tmp/foo"`` est refusé). Une consigne contraire (« chemins
+    absolus ») ferait brûler des itérations en chemins rejetés — exactement la
+    boucle que ``build_runtime_sandbox_context`` existe pour supprimer.
     """
     return (
         "<task_env>\n"
@@ -867,9 +863,9 @@ def build_task_builtin_tool(
 ) -> Dict[str, Any]:
     """Construit ``{"task": {"definition", "handler"}}`` pour ``builtin_tools``.
 
-    ``priority`` (AUDIT 2026-09-25) : priorité d'ordonnancement des appels LLM
-    de l'enfant — celle du PARENT. Une routine (``low``) lançait ses
-    sous-agents en ``high`` : ils passaient devant les chats interactifs.
+    ``priority`` : priorité d'ordonnancement des appels LLM de l'enfant —
+    celle du PARENT. Une routine (``low``) qui lancerait ses sous-agents en
+    ``high`` les ferait passer devant les chats interactifs.
 
     Toutes les dépendances du tour parent sont capturées par closure :
     ``model`` (héritage explicite du modèle courant), ``parent_mcp_configs`` /
@@ -923,8 +919,8 @@ def build_task_builtin_tool(
         # ── Reprise ``task_id`` : le record stocké PRIME (agent + historique) ──
         resumed: Optional[Dict[str, Any]] = None
         if task_id:
-            # AUDIT 2026-08-31 (passe 4, B8) — prune (scan disque) + lookup
-            # (lecture d'un record jusqu'à 8 Mo) hors de la boucle.
+            # Prune (scan disque) + lookup (lecture d'un record jusqu'à 8 Mo)
+            # hors de la boucle d'événements.
             await asyncio.to_thread(_prune_resume_store)
             resumed = await asyncio.to_thread(_resume_lookup, username, task_id)
             if resumed is None:
@@ -960,19 +956,16 @@ def build_task_builtin_tool(
         # handler DISCRIMINE plus bas (enfant seul → enveloppe task_cancelled,
         # le tour parent SURVIT ; parent annulé → propagation, comportement Stop).
         _ckey = (str(username), child_id)
-        # AUDIT 2026-08-23 — l'inscription dans ``_ACTIVE_CHILDREN`` a DESCENDU
-        # jusqu'au ``try`` qui porte déjà son retrait (chercher « inscription
-        # ICI » plus bas). Elle vivait ici, ~490 lignes plus haut, avec deux
-        # points de suspension réels dans l'intervalle (construction de l'index
-        # de skills, émission de l'event ``spawned``), tous deux gardés par un
-        # ``except Exception`` — que ``CancelledError``, qui dérive de
-        # ``BaseException``, TRAVERSE. Un Stop pendant le spawn sortait donc du
-        # handler AVANT d'atteindre le ``try``, et l'entrée n'était jamais
-        # retirée. Or ``apply_child_cancel`` ne pose son flag QUE si la clé est
-        # dans ``_ACTIVE_CHILDREN`` : c'est le garde-fou anti-flag-orphelin,
-        # qu'une entrée fantôme rouvrait — les deux conteneurs module-level
-        # grossissaient alors définitivement pour la vie du worker (qui, depuis
-        # le drain « linger » 12 h, se compte en heures).
+        # L'inscription dans ``_ACTIVE_CHILDREN`` se fait au ``try`` qui porte
+        # déjà son retrait (chercher « inscription ICI » plus bas), pas ici :
+        # entre les deux, des points de suspension réels (index de skills,
+        # event ``spawned``) sont gardés par un ``except Exception`` que
+        # ``CancelledError`` (dérivée de ``BaseException``) TRAVERSE. Un Stop
+        # pendant le spawn sortirait du handler avant le ``try`` et l'entrée ne
+        # serait jamais retirée. Or ``apply_child_cancel`` ne pose son flag QUE
+        # si la clé est dans ``_ACTIVE_CHILDREN`` (garde-fou anti-flag-orphelin) :
+        # une entrée fantôme le rouvrirait, et les deux conteneurs module-level
+        # grossiraient pour la vie du worker (qui se compte en heures).
 
         def _child_is_cancelled() -> bool:
             if is_cancelled and is_cancelled():
@@ -1029,7 +1022,7 @@ def build_task_builtin_tool(
             child_builtins = None
             child_memory = False
 
-        # (2026-09-11, P2) ``meta.policy.deny_for: ["subagent"]`` des outils
+        # ``meta.policy.deny_for: ["subagent"]`` des outils
         # (todowrite, ask_user…) fait foi ; ``_DENY_BASE`` reste le repli d'un
         # registre vide. ``task`` (builtin, jamais dans le registre) toujours.
         from llm_core._mcp_categories import tools_denied_for as _denied_for
@@ -1086,7 +1079,7 @@ def build_task_builtin_tool(
             system_content = (persona + "\n\n" + _child_env_block(spec, TASK_CHILD_TIMEOUT_S)).strip()
             # Index des skills — SEULEMENT pour un enfant qui détient la
             # catégorie ``skill``. L'index est injecté par la route de chat, pas
-            # par la boucle : un agent (custom) qui coche « Skills » recevait
+            # par la boucle : un agent (custom) qui coche « Skills » recevrait
             # ``skill_get`` / ``skill_read_file`` / ``skill_run_script`` sans
             # jamais savoir quels skills existent — trois outils annoncés par le
             # manifeste ``# Active tools`` et inappelables sans deviner un nom.
@@ -1127,20 +1120,20 @@ def build_task_builtin_tool(
         # ``tokens_used`` re-compte l'historique à chaque tour → quadratique).
         # Fallback cible distante (kv_cache non émis sans n_ctx local fiable) :
         # ``iteration.context_tokens`` = prompt+completion RÉELS du dernier
-        # appel (même calcul que kv_cache, cf. loop :1740).
+        # appel (même calcul que l'événement kv_cache de la boucle).
         # ``_transcript`` accumule le déroulé (cap 50) : joint au record du run
         # dans ``usage_sink["runs"]`` → persisté sur le message assistant
         # (``task_runs``) pour que la carte agent SURVIVE au rechargement.
-        # ``_chat`` (UX 2026-07-24, modale « œil ») = déroulé COMPLET compact :
+        # ``_chat`` (modale « œil ») = déroulé COMPLET compact :
         # entrées {"text": …} (narration/réponse de l'enfant, flush aux
         # frontières de tool_call) et {"tool", "args_preview", "status",
         # "result_preview"} — persisté dans le record (clé ``transcript``,
         # NON strippée par _task_runs_for_persist) + émis dans le task_step
         # ``final``. Bornes : 120 entrées, texte 1500 c, résultat 400 c.
         _step_no = count(1)
-        # AUDIT 2026-09-25 — ids d'appel de l'historique LIVE uniques PAR RUN :
-        # ``live_{step}`` repartait de 1 à chaque appel du handler, et une
-        # reprise elle-même interrompue empilait des ``live_1`` en double dans
+        # Ids d'appel de l'historique LIVE uniques PAR RUN : sans le nonce,
+        # ``live_{step}`` repartirait de 1 à chaque appel du handler, et une
+        # reprise elle-même interrompue empilerait des ``live_1`` en double dans
         # l'historique repris (élagage/résumeur sur le mauvais appel ; ids de
         # ``tool_use`` dupliqués refusés par Anthropic).
         _run_nonce = secrets.token_hex(3)
@@ -1149,7 +1142,7 @@ def build_task_builtin_tool(
         # d'ITÉRATIONS (spec.max_iters → max_tool_iterations de l'enfant), donc N
         # doit compter les TOURS, pas les appels d'outils : compter les tool_call
         # surestime dès que le modèle appelle plusieurs outils en parallèle (et
-        # les appels ratés comptaient aussi) → l'UI affichait « étape 63/40 ».
+        # compte aussi les appels ratés) → l'UI afficherait « étape 63/40 ».
         # Source de vérité = l'event ``iteration`` de l'enfant, seul couple n/max
         # cohérent émis par la boucle (cf. _chat_with_tools). ``_steps_seen``
         # continue de compter les APPELS (rendu séparément : « N appel(s) »).
@@ -1167,12 +1160,11 @@ def build_task_builtin_tool(
             AILLEURS (le ``result`` du bilan final). Le tampon est alors vidé
             SANS entrer dans le déroulé.
 
-            AUDIT 2026-08-30 — c'est le flush de FIN de run qui posait
-            problème. Le texte streamé après le dernier appel d'outil EST la
-            réponse finale de l'agent : il atterrissait en dernière entrée du
-            déroulé, alors que ``result`` le portait déjà pour le bloc
-            « Résultat ». La modale montrait donc, dans l'ordre : la réponse,
-            la liste des outils, puis la réponse une seconde fois.
+            Le flush de FIN de run est le cas visé : le texte streamé après le
+            dernier appel d'outil EST la réponse finale de l'agent, que
+            ``result`` porte déjà pour le bloc « Résultat ». S'il entrait aussi
+            dans le déroulé, la modale montrerait la réponse, la liste des
+            outils, puis la réponse une seconde fois.
 
             La narration INTERMÉDIAIRE (flushée à chaque frontière d'outil) ne
             passe jamais par ce paramètre : elle reste dans le déroulé, c'est
@@ -1201,24 +1193,24 @@ def build_task_builtin_tool(
                     })
                 except Exception:
                     pass
-        # Historique LIVE (reprise après interruption, 2026-07-18) : messages
+        # Historique LIVE (reprise après interruption) : messages
         # OpenAI appariés reconstruits au fil des events tool_call/tool_result.
         # Le chemin ``completed`` n'en a pas besoin (tool_history du runner,
         # plus riche : textes assistant intermédiaires inclus) — mais sur
         # timeout/échec/annulation ciblée, ces events sont la SEULE trace du
-        # travail partiel : sans eux, tout re-partait de zéro. Contenus bornés
+        # travail partiel : sans eux, tout repartirait de zéro. Contenus bornés
         # par entrée (RAM) ; ids synthétiques cohérents assistant↔tool.
         _hist_live: List[Dict[str, Any]] = []
         # Appariement tool_call ↔ tool_result par ``call_id`` : c'est le SEUL
         # champ qui distingue deux appels PARALLÈLES du même outil (trois
-        # read_file dans un même batch portent le même ``name``). L'ancien
-        # appariement par nom en FIFO attribuait le premier résultat revenu au
-        # premier appel émis : sur un batch parallèle, le contenu de C était
+        # read_file dans un même batch portent le même ``name``). Un
+        # appariement par nom en FIFO attribuerait le premier résultat revenu au
+        # premier appel émis : sur un batch parallèle, le contenu de C serait
         # enregistré sous l'id de l'appel sur A, et l'historique de reprise
-        # présentait au modèle « j'ai lu A » avec le contenu de C.
+        # présenterait au modèle « j'ai lu A » avec le contenu de C.
         _live_by_call: Dict[str, str] = {}         # call_id → id d'appel synthétique
         # Repli pour les émetteurs qui ne fournissent pas de call_id (cibles
-        # distantes, wrappers tiers) : FIFO par nom, comportement historique.
+        # distantes, wrappers tiers) : FIFO par nom.
         _live_pending: Dict[str, List[str]] = {}   # tool name → FIFO d'ids en attente
 
         async def _emit_tick() -> None:
@@ -1325,8 +1317,8 @@ def build_task_builtin_tool(
                     """L'entrée décrit-elle l'appel dont voici le résultat ?
 
                     Par ``call_id`` quand il est là (exact, y compris sur un
-                    batch parallèle du même outil) ; sinon repli historique sur
-                    le nom, en prenant la dernière entrée encore en cours.
+                    batch parallèle du même outil) ; sinon repli sur le nom,
+                    en prenant la dernière entrée encore en cours.
                     """
                     if entry.get("status") != "running":
                         return False
@@ -1367,9 +1359,9 @@ def build_task_builtin_tool(
                         "type": "task_step",
                         "child_id": child_id,
                         "agent": agent_type,
-                        # Même unité qu'à l'ouverture (TOURS) : avant, ce chemin
-                        # renvoyait le n° du dernier appel DÉMARRÉ, ce qui faisait
-                        # bondir « étape N » à chaque résultat d'appel parallèle.
+                        # Même unité qu'à l'ouverture (TOURS) : le numéro du
+                        # dernier appel DÉMARRÉ ferait bondir « étape N » à
+                        # chaque résultat d'appel parallèle.
                         "step": _iters["n"] or 1,
                         "max_steps": _iters["max"],
                         "calls": _steps_seen["n"],
@@ -1378,7 +1370,7 @@ def build_task_builtin_tool(
                         "status": _st,
                         "result_preview": _res_prev,
                         # Fichiers modifiés par l'outil de l'enfant : le
-                        # parent les ajoute aux diffs du tour (2026-09-26).
+                        # parent les ajoute aux diffs du tour.
                         **({"files": ev["files"]} if isinstance(ev.get("files"), list)
                            and ev.get("files") else {}),
                     })
@@ -1405,27 +1397,25 @@ def build_task_builtin_tool(
         def _resumable_live_history() -> List[Dict[str, Any]]:
             """Historique live remis en FORME CANONIQUE pour la reprise.
 
-            AUDIT 2026-08-23 — le collecteur appende un message assistant par
-            ``tool_call`` (à l'émission) puis un ``role:tool`` par résultat
-            (à l'ARRIVÉE). Or la boucle émet TOUS les ``tool_call`` d'un lot
-            avant d'exécuter quoi que ce soit, et les résultats d'un lot
-            parallèle reviennent dans le DÉSORDRE. Pour trois ``read_file``
-            concurrents, l'historique de reprise valait donc :
+            Le collecteur appende un message assistant par ``tool_call`` (à
+            l'émission) puis un ``role:tool`` par résultat (à l'ARRIVÉE). Or
+            la boucle émet TOUS les ``tool_call`` d'un lot avant d'exécuter
+            quoi que ce soit, et les résultats d'un lot parallèle reviennent
+            dans le DÉSORDRE. Pour trois ``read_file`` concurrents, le
+            collecteur brut vaut donc :
 
                 assistant(tc1), assistant(tc2), assistant(tc3),
                 tool(3), tool(1), tool(2)
 
             — trois assistants CONSÉCUTIFS portant chacun un appel pendant,
             puis des réponses hors position. C'est exactement la forme que
-            llama.cpp a REFUSÉE en 400 (cf. la note de
-            ``_flatten_tool_messages``) : la reprise échouait en « Le modèle a
-            refusé la requête », et le travail partiel qu'on voulait sauver
-            était perdu. L'ancien filtre ne retirait que les appels sans
-            réponse ; il ne regroupait ni ne réordonnait rien, et
-            ``sanitize_message_history`` ne répare pas cette forme (son
-            ``open_ids`` est un SET).
+            llama.cpp refuse en 400 (cf. la note de ``_flatten_tool_messages``) :
+            la reprise échouerait en « Le modèle a refusé la requête » et le
+            travail partiel qu'on veut sauver serait perdu. Retirer les seuls
+            appels sans réponse ne suffit pas, et ``sanitize_message_history``
+            ne répare pas cette forme (son ``open_ids`` est un SET).
 
-            On rétablit donc la même discipline que ``_delta_snapshot`` du
+            On rétablit donc la même discipline que ``RunRecord.delta_snapshot`` du
             chemin ``completed`` : UN assistant portant les N appels de la
             vague, puis ses ``tool`` DANS L'ORDRE de ses ``tool_calls``. Un
             appel resté sans réponse est retiré de la vague ; une vague dont
@@ -1472,20 +1462,19 @@ def build_task_builtin_tool(
             Un run INTERROMPU (timeout / échec / annulation ciblée OU Stop
             parent) l'est aussi dès qu'il a du travail partiel : l'historique
             live reconstruit remplace le tool_history que le runner n'a jamais
-            pu retourner (2026-07-18)."""
+            pu retourner."""
             _hist = child_metrics.get("tool_history") if isinstance(child_metrics, dict) else None
             _next_msgs: Optional[List[Dict[str, Any]]] = None
-            # ``incomplete`` (borne du harnais, cf. point 10) : la boucle a
+            # ``incomplete`` (borne du harnais, cf. ``task_incomplete``) : la boucle a
             # RETOURNÉ normalement, son ``tool_history`` delta est disponible
             # — même reconstruction que le chemin abouti.
             if _state in ("completed", "incomplete") and (final_text or _hist):
-                # tool_history est le DELTA du run (cf. _run_tool_history dans
-                # run_chat_multi_mcp) : elle ne contient QUE le travail de ce
+                # tool_history est le DELTA du run (cf. ``RunRecord.run_tool_history``,
+                # llm_core/engine/run.py) : elle ne contient QUE le travail de ce
                 # cycle. Base = child_messages ENTIER (qui porte déjà les
-                # cycles précédents sur une reprise) + le delta. L'ancienne
-                # coupe au 1er message agentique compensait la capture
-                # cumulative — la garder avec un delta perdrait tout le
-                # travail des reprises antérieures.
+                # cycles précédents sur une reprise) + le delta. Ne pas couper
+                # au 1er message agentique : avec un delta, cette coupe
+                # perdrait tout le travail des reprises antérieures.
                 _next_msgs = list(child_messages) + _expand_child_history(_hist or [])
                 if final_text:
                     _next_msgs.append({"role": "assistant", "content": final_text})
@@ -1512,9 +1501,9 @@ def build_task_builtin_tool(
             carte agent est réhydratée au rechargement). ``context_tokens`` =
             occupation réelle FINALE ; input/output = cumul comptable (rollup
             métriques admin). Appelé sur le chemin NORMAL **et** sur le Stop
-            parent (fix 2026-07-18 : l'append vivait après le ``raise`` → le
-            run en vol disparaissait du ``task_runs`` persisté avec le partiel,
-            la ligne agent restait en spinner puis s'évaporait au reload)."""
+            parent, AVANT le ``raise`` : sinon le run en vol disparaîtrait du
+            ``task_runs`` persisté avec le partiel, et la ligne agent resterait
+            en spinner puis s'évaporerait au rechargement."""
             if usage_sink is None:
                 return
             _in_t = int(child_metrics.get("input_tokens", 0) or 0)
@@ -1535,10 +1524,10 @@ def build_task_builtin_tool(
                 # « Instructions ») — borné pour la persistance.
                 "prompt": prompt if len(prompt) <= 2000 else prompt[:2000] + "…",
                 # Résultat FINAL de l'agent, ENTIER (modale « œil », bloc
-                # « Résultat »). Jusqu'ici il n'existait que dans l'historique
-                # d'outils du parent : le MODÈLE le recevait sans coupe
-                # (``_render_result``), l'humain n'en voyait que le reflet
-                # tronqué à 1500 c dans le déroulé. Le cap est un garde-fou
+                # « Résultat »). Le MODÈLE le reçoit sans coupe
+                # (``_render_result``) dans l'historique d'outils du parent ;
+                # sans ce champ, l'humain n'en verrait que le reflet tronqué à
+                # 1500 c dans le déroulé. Le cap est un garde-fou
                 # anti-mégaoctets, pas un affichage borné.
                 "result": (final_text or "")[:TASK_RESULT_PERSIST_CAP],
                 "state": _state,
@@ -1569,8 +1558,8 @@ def build_task_builtin_tool(
         # inscription ICI (cf. la note plus haut) : l'invariant « le ✕ du front
         # n'existe qu'APRÈS l'event ``spawned`` » est préservé — l'event vient
         # d'être émis juste au-dessus — et le retrait du ``finally`` couvre
-        # désormais toute la durée de vie de l'entrée, annulation pendant le
-        # spawn comprise.
+        # toute la durée de vie de l'entrée, annulation pendant le spawn
+        # comprise.
         _ACTIVE_CHILDREN[_ckey] = {"agent": agent_type, "chat_id": chat_id,
                                    "t0": time.time()}
         try:
@@ -1584,7 +1573,7 @@ def build_task_builtin_tool(
                 # Registre d'usage : l'enfant consomme sur SON propre appel LLM.
                 # Scope imbriqué (le user est hérité du parent) pour que sa conso
                 # soit attribuée à l'utilisateur ET rattachée au tour parent —
-                # avant, elle n'entrait dans aucun agrégat.
+                # sans lui, elle n'entrerait dans aucun agrégat.
                 with usage_scope("subagent", user_id=user_id,
                                  origin_id=str(child_chat_id or child_id),
                                  parent_id=str(chat_id or "")):
@@ -1603,32 +1592,28 @@ def build_task_builtin_tool(
                             allowed_tool_names=child_allowed,
                             memory_enabled=child_memory,
                             deny_tool_names=child_deny,
-                            # AUDIT 2026-09-25 — priorité du PARENT (une routine
-                            # reste « low ») et propriétaire du run : sans lui,
-                            # le ``_meta`` des outils locaux de l'enfant n'avait
-                            # pas d'``user_id`` (hôte d'outils distant, trames
+                            # Priorité du PARENT (une routine reste « low ») et
+                            # propriétaire du run : sans lui, le ``_meta`` des
+                            # outils locaux de l'enfant n'aurait pas
+                            # d'``user_id`` (hôte d'outils distant, trames
                             # desktop non rapatriées).
                             priority=priority,
                             user_id=user_id,
                         ),
                         timeout=TASK_CHILD_TIMEOUT_S,
                     )
-            # AUDIT 2026-08-30 — ex-« filet déroulé » RETIRÉ : il posait
-            # ``_chat_buf["t"] = final_text`` quand le runner n'avait pas
-            # streamé de content_token, pour que la réponse de l'enfant entre
-            # quand même dans le déroulé de la modale. Ce filet datait d'AVANT
-            # le bloc « Résultat » ; depuis, ``_emit_final_step`` porte
-            # ``result=final_text`` et le record aussi. Le texte partait donc
-            # DEUX FOIS sur le chemin normal — bloc « Résultat » en entier, et
-            # dernière entrée du déroulé (tronquée à 1500 c) — et la modale
-            # affichait la réponse finale en double.
+            # Pas de « filet déroulé » (``_chat_buf["t"] = final_text`` quand
+            # le runner n'a pas streamé de content_token) sur le chemin normal :
+            # ``_emit_final_step`` porte ``result=final_text`` et le record
+            # aussi, la réponse partirait DEUX FOIS (bloc « Résultat » et
+            # dernière entrée du déroulé) et la modale l'afficherait en double.
             #
             # Le chemin ANNULATION garde son flush (plus bas) : lui n'émet pas
             # de ``result``, le déroulé y reste la seule trace du travail fait.
             if (child_metrics or {}).get("ended_with_error"):
-                # (2026-09-21) La boucle d'outils RETOURNE sur un échec LLM au
-                # lieu de lever : sans cette lecture, un agent mort en route
-                # était rendu « completed » avec un rapport vide ou tronqué.
+                # La boucle d'outils RETOURNE sur un échec LLM au lieu de
+                # lever : sans cette lecture, un agent mort en route serait
+                # rendu « completed » avec un rapport vide ou tronqué.
                 _state = "failed"
                 out = json.dumps(err(
                     "task_failed",
@@ -1640,13 +1625,12 @@ def build_task_builtin_tool(
                     **({"partial_report": final_text[:4000]} if final_text else {}),
                 ))
             elif (child_metrics or {}).get("tool_limit_reached"):
-                # AUDIT 2026-09-24 (point 10) — arrêt sur une BORNE du harnais
-                # (itérations, budget de temps, anti-boucle, contexte saturé,
-                # plafond de génération…) : la boucle rend alors un message
-                # destiné à l'HUMAIN (« utilisez Reprendre… »). Il partait au
-                # parent sous ``state="completed"``, comme un rapport abouti :
-                # le modèle parent le relayait tel quel ou le prenait pour le
-                # résultat de la mission. État distinct + consigne de reprise.
+                # Arrêt sur une BORNE du harnais (itérations, budget de temps,
+                # anti-boucle, contexte saturé, plafond de génération…) : la
+                # boucle rend alors un message destiné à l'HUMAIN (« utilisez
+                # Reprendre… »). Sous ``state="completed"``, le modèle parent
+                # le relaierait tel quel ou le prendrait pour le résultat de la
+                # mission : état distinct + consigne de reprise.
                 _state = "incomplete"
                 _why = str((child_metrics or {}).get("tool_limit_stop_reason")
                            or "steps")
@@ -1671,9 +1655,8 @@ def build_task_builtin_tool(
             # propagation intacte (jamais avalée).
             # ``cancelling()`` : un VRAI ``task.cancel()`` (drain du worker,
             # ``wait_for`` extérieur) arrivé pendant que le ✕ de l'enfant est
-            # posé n'est pas un arrêt ciblé — il se propage (passe
-            # robustesse 2026-09-24). Arrêt ciblé normal : la boucle enfant
-            # lève d'elle-même, ``cancelling() == 0``.
+            # posé n'est pas un arrêt ciblé — il se propage. Arrêt ciblé
+            # normal : la boucle enfant lève d'elle-même, ``cancelling() == 0``.
             _cur = asyncio.current_task()
             _child_only = (_ckey in _CANCELLED_CHILDREN
                            and not (is_cancelled and is_cancelled())
@@ -1682,15 +1665,15 @@ def build_task_builtin_tool(
                 # Stop parent : bilan émis (relayé malgré le flag cancel — la
                 # route laisse passer les task_step ``final``), record du run
                 # (state=cancelled) poussé dans usage_sink AVANT propagation
-                # (sinon la ligne agent disparaissait du partiel persisté), et
+                # (sinon la ligne agent disparaîtrait du partiel persisté), et
                 # travail partiel stocké (reprenable via task_id après un
                 # « Continuer »). Le finally ci-dessous nettoie les registres.
                 await _flush_chat(emit=False)
                 await _emit_final_step(on_event, child_id, agent_type, _state,
                                        _steps_seen["n"], child_metrics, _t0,
                                        context_tokens=_tok["v"], transcript=_chat)
-                # AUDIT 2026-08-31 (passe 4, B8) — json.dumps (cap 8 Mo) +
-                # écriture disque du store partagé : hors boucle.
+                # json.dumps (cap 8 Mo) + écriture disque du store partagé :
+                # hors de la boucle d'événements.
                 await asyncio.to_thread(_store_resume_state)
                 _record_run()
                 raise
@@ -1727,8 +1710,8 @@ def build_task_builtin_tool(
         finally:
             _ACTIVE_CHILDREN.pop(_ckey, None)
             _CANCELLED_CHILDREN.discard(_ckey)
-            # PAS de teardown navigateur ici pour l'agent ``web`` (audit
-            # 2026-07-18) : les sessions pw_* sont PAR UTILISATEUR (owner =
+            # PAS de teardown navigateur ici pour l'agent ``web`` : les
+            # sessions pw_* sont PAR UTILISATEUR (owner =
             # username côté browser-service, une instance partagée entre le
             # parent, les enfants et les autres chats) — fermer à la mort d'un
             # enfant tuerait le navigateur de l'utilisateur. Les contextes
@@ -1741,8 +1724,8 @@ def build_task_builtin_tool(
                                _steps_seen["n"], child_metrics, _t0,
                                context_tokens=_tok["v"], transcript=_chat,
                                result=(final_text or "")[:TASK_RESULT_PERSIST_CAP])
-        # AUDIT 2026-08-31 (passe 4, B8) — cf. le site du Stop parent : la
-        # persistance du store de reprise part en thread (fin de CHAQUE agent).
+        # Cf. le site du Stop parent : la persistance du store de reprise part
+        # en thread (fin de CHAQUE agent).
         await asyncio.to_thread(_store_resume_state)
         _record_run()
 
@@ -1800,9 +1783,10 @@ async def _emit_final_step(
 
 
 def _result_is_tool_failure_safe(result: Any) -> bool:
-    """Wrapper import-tardif de ``_result_is_tool_failure`` (évite le cycle)."""
+    """``engine.result_contract.result_is_tool_failure``, importé à l'appel ;
+    une erreur du classifieur rend « pas d'échec »."""
     try:
-        from llm_core._chat_with_tools import _result_is_tool_failure
-        return bool(_result_is_tool_failure(result))
+        from llm_core.engine.result_contract import result_is_tool_failure
+        return bool(result_is_tool_failure(result))
     except Exception:
         return False

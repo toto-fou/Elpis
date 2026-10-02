@@ -89,7 +89,7 @@ def test_save_messages_ecrit_hors_run(client):
 def test_scenario_complet_le_tour_du_run_est_persiste(client):
     """Séquence réelle : run démarré (baseline lue), PUT partiel du front
     pendant le run, puis persistance finale du run → doit réussir."""
-    from chatbot_app.routes.chats import _persist_turn
+    from chatbot_app.turn.persistence import _persist_turn
     from shared_infra.chat.store import get_chat, upsert_chat
     upsert_chat(1, "c3", "mon chat", DEPART, 100.0)
     debut = get_chat(1, "c3")
@@ -111,7 +111,7 @@ def test_scenario_complet_le_tour_du_run_est_persiste(client):
 # ── R2 ──────────────────────────────────────────────────────────────────────
 
 def test_renommage_pendant_le_tour_ne_perd_pas_la_reponse(base):
-    from chatbot_app.routes.chats import _persist_turn
+    from chatbot_app.turn.persistence import _persist_turn
     from shared_infra.chat.store import get_chat, rename_chat, upsert_chat
     upsert_chat(1, "r1", "ancien titre", DEPART, 100.0)
     debut = get_chat(1, "r1")
@@ -128,7 +128,7 @@ def test_renommage_pendant_le_tour_ne_perd_pas_la_reponse(base):
 
 
 def test_vrai_tour_concurrent_reste_refuse(base):
-    from chatbot_app.routes.chats import _persist_turn
+    from chatbot_app.turn.persistence import _persist_turn
     from shared_infra.chat.store import get_chat, upsert_chat
     upsert_chat(1, "r2", "chat", DEPART, 100.0)
     debut = get_chat(1, "r2")
@@ -143,7 +143,7 @@ def test_vrai_tour_concurrent_reste_refuse(base):
 
 
 def test_chat_neuf_sans_baseline_ecrit_directement(base):
-    from chatbot_app.routes.chats import _persist_turn
+    from chatbot_app.turn.persistence import _persist_turn
     from shared_infra.chat.store import get_chat, upsert_chat
     ret, titre = _persist_turn(upsert_chat, 1, "n1", "Nouveau", TOUR,
                                baseline_updated_at=None, baseline_messages=None,
@@ -153,7 +153,7 @@ def test_chat_neuf_sans_baseline_ecrit_directement(base):
 
 
 def test_session_ephemere_reste_un_no_op(base):
-    from chatbot_app.routes.chats import _persist_turn
+    from chatbot_app.turn.persistence import _persist_turn
     ret, _ = _persist_turn(lambda *a, **k: None, 1, "e1", "x", TOUR,
                            baseline_updated_at=5.0, baseline_messages=[],
                            baseline_title="x")
@@ -166,9 +166,6 @@ def test_titre_pose_au_debut_du_tour_sans_toucher_la_garde(base):
     latérale jusqu'à la fin. Le titre est posé au départ, SANS bump
     d'``updated_at`` (la garde optimiste de fin de tour reste valide), et
     jamais par-dessus un titre déjà choisi."""
-    import inspect
-
-    import chatbot_app.routes.chats as ch
     from shared_infra.chat.store import get_chat, rename_chat, set_title_if_default, upsert_chat
 
     upsert_chat(1, "c1", "Nouveau chat", [], 1000.0)
@@ -184,8 +181,8 @@ def test_titre_pose_au_debut_du_tour_sans_toucher_la_garde(base):
     assert get_chat(1, "c2")["title"] == "Mon titre"
     assert set_title_if_default(2, "c1", "Intrus") is False
 
-    src = inspect.getsource(ch)
-    assert "if _resumable and _title_was_generated and _existing_chat:" in src
+    from tests._sources import source_flux_chat
+    assert "if _resumable and _title_was_generated and _existing_chat:" in source_flux_chat()
 
 
 # ── B8 : la question est écrite dès le début du tour ────────────────────────
@@ -193,14 +190,13 @@ def test_la_question_est_persistee_des_le_debut_du_tour(base):
     """Un worker qui meurt en plein tour emportait la QUESTION elle-même (elle
     n'était écrite qu'avec la réponse). La base du persist final est recalée
     sur cette première écriture, sinon il conflit contre lui-même."""
-    import inspect
-
-    import chatbot_app.routes.chats as ch
     from shared_infra.chat.store import get_chat, upsert_chat
-
-    src = inspect.getsource(ch)
+    from tests._sources import source_flux_chat
+    src = source_flux_chat()
     assert "await _persist_question()" in src
-    assert "nonlocal _baseline_updated_at, _baseline_messages, _baseline_title" in src
+    # Le recalage de la base sur cette première écriture est vérifié en
+    # comportement : tests/chatbot/test_flux_route.py (la question est en base
+    # avant la réponse, et l'enregistrement final passe sans conflit).
     # Ni tour de reprise, ni session jetable, ni lecture de chat en échec.
     assert "if not _resumable or ephemeral or _chat_read_failed or is_continue:" in src
 
@@ -211,7 +207,7 @@ def test_la_question_est_persistee_des_le_debut_du_tour(base):
                        expected_updated_at=100.0) is not False
     apres_question = get_chat(1, "b8")
     assert apres_question["messages"] == DEPART
-    from chatbot_app.routes.chats import _persist_turn
+    from chatbot_app.turn.persistence import _persist_turn
     ret, _ = _persist_turn(upsert_chat, 1, "b8", "bonjour", TOUR,
                            baseline_updated_at=150.0,
                            baseline_messages=DEPART,

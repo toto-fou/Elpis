@@ -202,7 +202,7 @@ def test_tools_fragment_states_no_unfounded_batch_cap():
 # ── 7. La cause d'arrêt annoncée est la vraie ────────────────────────────
 
 def test_wrapup_variants_do_not_all_blame_the_step_budget():
-    from llm_core._chat_with_tools import _MAX_STEPS_WRAPUP, _WRAPUP_BY_KIND
+    from llm_core.engine.run_exit import _MAX_STEPS_WRAPUP, _WRAPUP_BY_KIND
 
     assert set(_WRAPUP_BY_KIND) == {"wallclock", "ctx_saturated", "gen_cap", "hard"}
     for kind, txt in _WRAPUP_BY_KIND.items():
@@ -215,7 +215,8 @@ def test_wrapup_variants_do_not_all_blame_the_step_budget():
 def test_compact_retry_does_not_assert_a_context_limit():
     """Le déclencheur est ``finish_reason == 'length'`` : plafond de génération
     OU fenêtre pleine. Trancher pour la seconde était une cause inventée."""
-    src = (ROOT / "llm_core" / "_chat_with_tools.py").read_text(encoding="utf-8")
+    from tests._sources import source_boucle
+    src = source_boucle()
     assert "cut off by the context limit" not in src
     assert "generation hit its length limit" in src
 

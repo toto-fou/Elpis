@@ -11,11 +11,13 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
+import llm_core.engine.llm_turn as _llm_turn
 from llm_core import _chat_with_tools as W
 from llm_core._ctx_window import _from_known_family
 from llm_core._llm_retry import llm_error_is_fatal, retry_after_seconds
 from llm_core._stream_tag_parser import ThinkTagSplitter
 from llm_core._tool_parsing import extract_tool_calls
+from llm_core.engine import tool_dispatch as _tool_dispatch
 from llm_core.engine.tool_exec import execute_tool_batch
 from llm_core.providers import anthropic as A, openai_compat as O
 from llm_core.providers.llamacpp import consume_llama_sse
@@ -165,7 +167,7 @@ def test_ids_positionnels_rendus_uniques_sur_l_historique():
     tcs = [{"id": "call_0", "function": {"name": "write_file"}},
            {"id": "", "function": {"name": "x"}},
            {"id": "toolu_neuf", "function": {"name": "y"}}]
-    out = W._unique_tool_call_ids(tcs, histo)
+    out = _llm_turn._unique_tool_call_ids(tcs, histo)
     ids = [t["id"] for t in out]
     assert ids[0] not in ("call_0", "call_1") and ids[1]
     assert ids[2] == "toolu_neuf"
@@ -174,7 +176,7 @@ def test_ids_positionnels_rendus_uniques_sur_l_historique():
 
 
 def test_ids_en_double_dans_un_meme_lot():
-    out = W._unique_tool_call_ids([{"id": "a"}, {"id": "a"}], [])
+    out = _llm_turn._unique_tool_call_ids([{"id": "a"}, {"id": "a"}], [])
     assert out[0]["id"] == "a" and out[1]["id"] != "a"
 
 
@@ -291,14 +293,14 @@ def test_is_error_dict_multi_cles_classe_en_echec():
     from llm_core.engine.result_contract import result_is_error
     res = SimpleNamespace(isError=True, content=[SimpleNamespace(
         text='{"error": "Not Found", "status": 404}')])
-    out = W.pick_tool_payload(res)
+    out = _tool_dispatch.pick_tool_payload(res)
     assert out["ok"] is False and out["status"] == 404
     assert result_is_error(json.dumps(out))
 
 
 def test_structured_content_seul():
     res = SimpleNamespace(isError=False, content=[], structuredContent={"items": [1]})
-    assert W.pick_tool_payload(res) == {"items": [1]}
+    assert _tool_dispatch.pick_tool_payload(res) == {"items": [1]}
 
 
 # ── Exécution d'un lot ───────────────────────────────────────────────────────

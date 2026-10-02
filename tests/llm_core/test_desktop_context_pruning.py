@@ -12,13 +12,12 @@ from __future__ import annotations
 import copy
 import json
 
-from llm_core._chat_with_tools import (
+from llm_core.context.pruning import (
     _VISION_FRAME_PLACEHOLDER,
-    _action_cycle_signature,
-    _compact_desktop_elements,
-    _detect_action_cycle,
-    _prune_old_vision_frames,
+    compact_desktop_elements as _compact_desktop_elements,
+    prune_old_vision_frames as _prune_old_vision_frames,
 )
+from llm_core.engine.tool_dispatch import _action_cycle_signature, _detect_action_cycle
 
 
 # ── _compact_desktop_elements ────────────────────────────────────────────────

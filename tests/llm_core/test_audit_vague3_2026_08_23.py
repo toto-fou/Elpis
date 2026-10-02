@@ -237,13 +237,11 @@ def test_get_stats_ne_produit_toujours_pas_de_cle_per_model():
 # ── 18/36. La vue de file utilisée est la vue COMPLÈTE ───────────────────
 
 def test_la_route_utilise_la_variante_async():
-    from chatbot_app.routes import chats as C
-    src = inspect.getsource(C)
+    from tests._sources import source_flux_chat
+    src = source_flux_chat()
     assert "await get_queue_status_for_async(selected_model)" in src
     # La variante SYNC ne doit plus servir dans le flux de chat.
-    corps = "\n".join(l for l in src.splitlines()
-                      if not l.strip().startswith("#"))
-    assert "= get_queue_status_for(selected_model)" not in corps
+    assert "= get_queue_status_for(selected_model)" not in src
 
 
 async def test_un_moteur_sans_modele_charge_annonce_un_chargement(monkeypatch):

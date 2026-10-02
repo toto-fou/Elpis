@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 """
-agentic/executors/_image_loader.py — Auto-chargement de l'image sandbox.
+shared_infra/sandbox/executors/_image_loader.py — Auto-chargement de l'image sandbox.
 
 L'image livrée (``DEFAULT_IMAGE``) est buildée UNE FOIS sur une machine
 connectée à Internet (cf. ``deploy/docker/sandbox/build_offline.sh``)
@@ -16,7 +16,7 @@ Mécanique :
 * État global ``ImageLoadState`` (singleton process-wide).
 * ``ensure_image_loaded()`` est idempotent et thread-safe :
     - Si déjà ``LOADED`` → retour immédiat
-    - Si ``LOADING`` → on attend le verrou
+    - Si ``LOADING`` → état courant (``blocking=True`` : attente de la fin)
     - Sinon → on déclenche ``docker load`` et on bascule en LOADING
 
 L'archive est cherchée dans, par ordre :
@@ -76,15 +76,14 @@ class ImageLoadState:
 _STATE = ImageLoadState()
 _LOCK = asyncio.Lock()
 
-# AUDIT 2026-08-02 (E1/E2) — cycle de vie du chargement de fond :
+# Cycle de vie du chargement de fond :
 #   • _LOAD_TASK : référence FORTE sur la tâche (asyncio ne tient qu'une
-#     WeakSet — sans ref, la tâche pouvait être GC avant son premier await
-#     et l'état restait LOADING pour toujours, spinner infini sans issue :
-#     reset_state() n'avait aucun appelant et aucun TTL n'existait).
+#     WeakSet — sans ref, la tâche peut être GC avant son premier await
+#     et l'état resterait LOADING pour toujours, spinner infini sans issue).
 #   • _LOAD_DONE : Event posé à la fin du chargement — c'est LUI que les
-#     appelants ``blocking=True`` attendent. L'ancien ``async with _LOCK:
-#     pass`` ne bloquait RIEN : le lock était relâché au ``return`` qui
-#     suivait le create_task, pas à la fin du chargement.
+#     appelants ``blocking=True`` attendent. Ne pas attendre le verrou
+#     (``async with _LOCK: pass``) : il est relâché au ``return`` qui suit
+#     le create_task, pas à la fin du chargement.
 #   • _LOADING_STALE_S : TTL anti-wedge — un LOADING plus vieux que le
 #     timeout docker load (300 s) + marge est forcément mort (tâche tuée,
 #     exception avalée) : on le requalifie en ERROR et on retente.
@@ -206,10 +205,9 @@ async def ensure_image_loaded(image_name: str,
 
     # Si un load est déjà en cours pour la même image → attendre ou retourner
     if _STATE.status == ImageLoadStatus.LOADING and _STATE.image == image_name:
-        # AUDIT 2026-08-02 (E1) — TTL anti-wedge : un LOADING plus vieux que
-        # le timeout docker load est mort (tâche GC/exception). Avant, ce
-        # fast-path le retournait TEL QUEL pour toujours — spinner infini,
-        # seule issue : redémarrer le worker.
+        # TTL anti-wedge : un LOADING plus vieux que le timeout docker load
+        # est mort (tâche GC/exception). Le retourner TEL QUEL figerait le
+        # spinner pour toujours — seule issue : redémarrer le worker.
         if _STATE.started_at and (time.time() - _STATE.started_at) > _LOADING_STALE_S:
             logger.error("[image-loader] LOADING périmé (%.0fs) pour %s — "
                          "requalifié en ERROR, nouvel essai",
@@ -222,7 +220,7 @@ async def ensure_image_loaded(image_name: str,
             )
             # on retombe dans la section verrouillée ci-dessous pour retenter
         elif blocking:
-            # AUDIT 2026-08-02 (E2) — attendre RÉELLEMENT la fin du
+            # Attendre RÉELLEMENT la fin du
             # chargement (Event posé par _load_in_background), comme la
             # docstring le promet. 330 s > timeout docker load (300 s).
             if _LOAD_DONE is not None:
@@ -280,19 +278,19 @@ async def ensure_image_loaded(image_name: str,
 
         _LOAD_DONE = asyncio.Event()
         done = _LOAD_DONE
-        # AUDIT 2026-08-02 (E1) — référence FORTE obligatoire (même motif que
-        # « AUDIT 2026-08-01 (M3) » dans chats.py/tools.py) : sans elle la tâche
-        # pouvait être ramassée par le GC avant son premier await → _STATE
-        # restait LOADING à vie.
+        # Référence FORTE obligatoire (même motif que ``chatbot_app.turn.tasks.keep``
+        # et le registre ``_BG_TASKS`` de ``shared_infra/routes/tools.py``) :
+        # sans elle la tâche peut être ramassée par le GC avant son premier
+        # await → _STATE resterait LOADING à vie.
         #
-        # Passe sandbox 2026-09-26 — le chemin ``blocking=True`` faisait le
+        # Le chargement part TOUJOURS dans cette tâche de fond suivie, même en
+        # ``blocking=True`` ; l'appelant bloquant l'attend (hors du verrou), et
+        # son annulation n'interrompt que son attente. Ne pas faire le
         # ``docker load`` DANS la coroutine de l'appelant : annulée (requête
-        # abandonnée, ``wait_for`` de ``_create``), elle laissait le load de
+        # abandonnée, ``wait_for`` de ``_create``), elle laisserait le load de
         # 600 Mo tourner en orphelin, ``_STATE`` bloqué en LOADING jusqu'au TTL
         # (400 s) et ``_LOAD_DONE`` jamais posé — les autres appelants
-        # bloquants attendaient 330 s pour rien. Le chargement part donc
-        # TOUJOURS dans la tâche de fond suivie ; l'appelant bloquant l'attend
-        # (hors du verrou), et son annulation n'interrompt que son attente.
+        # bloquants attendraient 330 s pour rien.
         _LOAD_TASK = asyncio.create_task(
             _load_in_background(archive, image_name))
 
@@ -322,11 +320,10 @@ async def _load_in_background(archive: Path, image_name: str) -> None:
             )
             raise
         except Exception as exc:
-            # AUDIT 2026-08-02 (E1) — AUCUN try/except n'entourait ce corps :
-            # une exception (fork EAGAIN sous pression mémoire, binaire
-            # docker disparu…) laissait _STATE en LOADING pour toujours,
-            # spinner « Chargement de l'image… » infini sans aucune erreur
-            # affichée ni issue possible.
+            # Toute exception (fork EAGAIN sous pression mémoire, binaire
+            # docker disparu…) finit en ERROR : sinon _STATE resterait en
+            # LOADING pour toujours, spinner « Chargement de l'image… » infini
+            # sans aucune erreur affichée ni issue possible.
             ok, msg = False, f"Exception pendant docker load : {exc!r}"
             logger.exception("[image-loader] docker load a levé")
         _STATE = ImageLoadState(

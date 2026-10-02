@@ -6,9 +6,9 @@ Pourquoi ce module existe
 =========================
 Aucun backend ne sépare le raisonnement du reste dans son ``usage`` : llama.cpp
 ne connaît que ``completion_tokens``, qui additionne le raisonnement, les appels
-d'outils et la réponse visible. Toutes les vues de l'app héritaient donc d'un
-seul chiffre « sortie », dans lequel la part de réflexion — souvent la
-majorité du tour sur un modèle thinking — était indiscernable.
+d'outils et la réponse visible. Sans ce module, toutes les vues de l'app
+n'auraient qu'un seul chiffre « sortie », dans lequel la part de réflexion —
+souvent la majorité du tour sur un modèle thinking — serait indiscernable.
 
 Ce module produit ce chiffre manquant, avec un ordre de vérité explicite (même
 idiome que ``count_tokens_for_messages`` : exact d'abord, repli portable) :
@@ -40,11 +40,11 @@ from typing import Any, Optional, Tuple
 
 logger = logging.getLogger("uvicorn.error")
 
-# Au-delà de cette taille, on n'appelle plus /tokenize pour mesurer le
+# Au-delà de cette taille, on n'appelle pas /tokenize pour mesurer le
 # raisonnement : le corps sérialisé coûte plus que ce que la précision
-# rapporte, et le timeout de 5 s de ``count_tokens_exact`` expirait de toute
+# rapporte, et le timeout de 5 s de ``count_tokens_exact`` expire de toute
 # façon (cf. le commentaire au point d'appel). Aligné sur la borne du
-# raisonnement cumulé d'un run (``_chat_with_tools.THINKING_HISTORY_MAX_CHARS``,
+# raisonnement cumulé d'un run (``engine.run.THINKING_HISTORY_MAX_CHARS``,
 # 400 Ko) : en pratique on mesure exactement TOUT ce qui n'est pas déjà
 # volumineux au point d'être tronqué.
 TOKENIZE_MAX_CHARS = 400_000
@@ -132,8 +132,8 @@ async def measure_thinking_tokens(
         return 0, False
 
     # 2) llama-server de la CIBLE : tokenisation exacte (cache LRU). Gated sur
-    #    ``is_llamacpp`` : depuis le 2026-09-16 ``/tokenize`` vise le serveur
-    #    de la cible (intégré ou connecteur llama.cpp), donc le tokenizer du
+    #    ``is_llamacpp`` : ``/tokenize`` vise le serveur de la cible
+    #    (intégré ou connecteur llama.cpp), donc le tokenizer du
     #    modèle qui a réellement produit le texte. Un fournisseur non
     #    llama.cpp n'expose pas ``/tokenize``.
     try:
@@ -151,14 +151,14 @@ async def measure_thinking_tokens(
             logger.debug("[think_tokens] /tokenize indisponible — repli estimé",
                          exc_info=True)
     elif local:
-        # AUDIT long-run 2026-08-21 — au-delà de ce seuil on ne TENTE MÊME PAS
-        # l'appel exact. Sur une mission longue, le raisonnement cumulé du run
-        # atteignait plusieurs mégaoctets : le POST /tokenize expirait sur son
-        # timeout de 5 s (on payait donc l'aller-retour ET l'attente pour
-        # retomber sur l'estimation), après avoir sérialisé le corps en mémoire
-        # et empoisonné le cache LRU avec une entrée géante. Le repli estimé
-        # (ratio chars/token MESURÉ) est ici très largement assez bon : c'est
-        # un chiffre d'affichage, pas une borne de contexte.
+        # Au-delà de ce seuil on ne TENTE MÊME PAS l'appel exact. Sur une
+        # mission longue, le raisonnement cumulé du run atteint plusieurs
+        # mégaoctets : le POST /tokenize expirerait sur son timeout de 5 s
+        # (l'aller-retour ET l'attente payés pour retomber sur l'estimation),
+        # après avoir sérialisé le corps en mémoire et empoisonné le cache LRU
+        # avec une entrée géante. Le repli estimé (ratio chars/token MESURÉ)
+        # est ici très largement assez bon : c'est un chiffre d'affichage, pas
+        # une borne de contexte.
         logger.debug(
             "[think_tokens] raisonnement de %d chars > %d — estimation directe "
             "(pas de /tokenize)", len(text), TOKENIZE_MAX_CHARS)
@@ -168,8 +168,6 @@ async def measure_thinking_tokens(
     return (min(est, cap) if cap > 0 else est), True
 
 
-# AUDIT 2026-08-23 — ``annotate_thinking_tokens`` SUPPRIMÉE : 0 importeur,
-# 0 test. Elle se présentait comme « le raccourci des appelants (chemins
-# classic et outils) » alors que les deux appellent directement
-# ``measure_thinking_tokens`` — un second chemin non testé, que son nom
-# invitait à brancher.
+# Point d'entrée UNIQUE : les chemins classic et outils appellent directement
+# ``measure_thinking_tokens``. Ne pas lui ajouter de raccourci « d'annotation » :
+# ce serait un second chemin non testé, que son nom inviterait à brancher.

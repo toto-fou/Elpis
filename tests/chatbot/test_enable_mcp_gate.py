@@ -23,8 +23,10 @@ from pathlib import Path
 
 import pytest
 
-ROUTE = Path(__file__).resolve().parents[2] / "chatbot_app" / "routes" / "chats.py"
-SRC = ROUTE.read_text(encoding="utf-8")
+from tests._sources import source_flux_chat
+
+# Code de toute la route du tour (où que vive la préparation après découpage).
+SRC = source_flux_chat()
 
 
 def _simulate(*, enable_mcp, memory_on, agents_on, servers):

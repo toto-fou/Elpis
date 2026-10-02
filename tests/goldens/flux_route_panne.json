@@ -1,0 +1,81 @@
+{
+  "base_apres": [
+    {
+      "cles": [
+        "content",
+        "role"
+      ],
+      "content": "q",
+      "role": "user"
+    },
+    {
+      "cles": [
+        "content",
+        "isTruncated",
+        "role",
+        "run_ids"
+      ],
+      "content": "début",
+      "isTruncated": true,
+      "role": "assistant"
+    }
+  ],
+  "evenements": [
+    {
+      "text": "Génération en cours…",
+      "type": "mode"
+    },
+    {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1,
+      "type": "queue_status"
+    },
+    {
+      "ahead": 1,
+      "kind": "waiting",
+      "position": 1,
+      "type": "queue_status",
+      "waited_ms": 250
+    },
+    {
+      "type": "queue_cleared"
+    },
+    {
+      "text": "début",
+      "type": "content_token"
+    },
+    {
+      "detail": "RuntimeError: panne simulée",
+      "kind": "unknown",
+      "text": "La génération s'est interrompue sur une erreur interne. Relancez-la ; si le problème persiste, ouvrez un nouveau chat ou signalez le détail ci-dessous.",
+      "type": "error"
+    },
+    {
+      "assistant": "début",
+      "cancelled": false,
+      "chat_id": "c4",
+      "cles": [
+        "assistant",
+        "cancelled",
+        "chat_id",
+        "metrics",
+        "persisted",
+        "run_ids",
+        "thinking",
+        "tool_limit_reached",
+        "truncated",
+        "truncated_in_think",
+        "type"
+      ],
+      "metrics": null,
+      "persisted": true,
+      "run_ids": 1,
+      "thinking": "",
+      "tool_limit_reached": false,
+      "truncated": true,
+      "truncated_in_think": false,
+      "type": "final"
+    }
+  ]
+}

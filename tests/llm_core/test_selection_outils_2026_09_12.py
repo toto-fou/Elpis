@@ -19,10 +19,11 @@ from __future__ import annotations
 import pytest
 from fastmcp import FastMCP
 
-import llm_core._chat_with_tools as cwt
 import llm_core._mcp_categories as cats
 import server.local_mcp_server as S
+from llm_core import _mcp_pool
 from llm_core.context_config import CTX
+from llm_core.engine import tool_catalog as _tool_catalog
 
 
 def _serveur():
@@ -175,7 +176,7 @@ def _install(monkeypatch):
     monkeypatch.setattr(cats, "categorize", lambda n: _CAT_OF.get(n, "other"))
     monkeypatch.setattr(cats, "get_hidden_categories", lambda: ["task"])
     monkeypatch.setattr(cats, "manifest_source", lambda: "live")
-    monkeypatch.setattr(cwt, "mcp_pool", _FauxPool([_Outil(n) for n in _CAT_OF]))
+    monkeypatch.setattr(_mcp_pool, "mcp_pool", _FauxPool([_Outil(n) for n in _CAT_OF]))
 
 
 _SRV = [{"type": "stdio", "name": "Local", "command": "DEFAULT_LOCAL_PYTHON",
@@ -183,7 +184,7 @@ _SRV = [{"type": "stdio", "name": "Local", "command": "DEFAULT_LOCAL_PYTHON",
 
 
 async def _exposes(**kw):
-    _map, payload, _h, _n = await cwt._collect_mcp_tools(_SRV, None, None, **kw)
+    _map, payload, _h, _n = await _tool_catalog._collect_mcp_tools(_SRV, None, None, **kw)
     return {t["function"]["name"] for t in payload}
 
 

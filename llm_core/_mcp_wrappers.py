@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: MIT
 """
-backend.services._mcp_wrappers — MCP wrappers — Thin adapters around the MCP pool.
+llm_core._mcp_wrappers — MCP wrappers — Thin adapters around the MCP pool.
 
-MCPStdioWrapper and MCPSSEWrapper expose a uniform ``call_tool`` /
-``list_tools`` interface over stdio vs SSE MCP server connections.
+MCPStdioWrapper, MCPSSEWrapper, MCPStreamableHTTPWrapper and
+MCPInProcessWrapper expose a uniform ``call_tool`` / ``list_tools`` interface
+over stdio, SSE, streamable HTTP and in-process MCP server connections.
 mcp_tool_to_openai adapts an MCP tool schema into OpenAI tool-call JSON.
 
-The big orchestrator ``run_chat_multi_mcp`` (613 l.) stays in _legacy
-until a separate refactor breaks it into digestible helpers.
+The orchestrator ``run_chat_multi_mcp`` lives in ``llm_core._chat_with_tools``.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ except ImportError:
     stdio_client = sse_client = None  # type: ignore
     streamablehttp_client = None  # type: ignore
 
-# Shared helper still in _legacy.
+# Helper de sérialisation partagé avec le chemin classic.
 from llm_core._chat_classic import _dump
 from shared_infra.config import (
     MCP_SERVERS_DIR,
@@ -77,18 +77,18 @@ def _resolve_mcp_client(cfg: Dict[str, Any]) -> Optional[Any]:
                 target_cwd = str(potential_cwd)
 
         if cmd_raw == "DEFAULT_LOCAL_PYTHON":
-            # Service d'outils INTÉGRÉ. (2026-09-11) La sentinelle est un ALIAS
-            # de l'entrée ``role: toolhost`` du manifeste ``mcp.json``
+            # Service d'outils INTÉGRÉ. La sentinelle est un ALIAS de l'entrée
+            # ``role: toolhost`` du manifeste ``mcp.json``
             # (``shared_infra.mcp.manifest``) : URL, en-têtes (jeton de SERVICE
             # en Bearer, VÉRIFIÉ côté serveur), sonde et repli y sont déclarés.
             # Sans fichier, le manifeste est synthétisé depuis la config héritée
-            # (``LOCAL_MCP_URL`` dérivée/explicite, jeton du fichier) — même
-            # comportement qu'avant. L'identité (username/chat_id) reste
-            # transmise par appel via le ``meta`` MCP : un service unique
-            # partagé reste isolé par utilisateur.
-            # (2026-09-12) UNE entrée par famille : ``cfg["manifest"]`` nomme
-            # l'entrée à joindre (``elpis-git`` → ``…/mcp/git``). Une sentinelle
-            # NUE (sous-agents, scan d'administration, appelants historiques)
+            # (``LOCAL_MCP_URL`` dérivée/explicite, jeton du fichier).
+            # L'identité (username/chat_id) reste transmise par appel via le
+            # ``meta`` MCP : un service unique partagé reste isolé par
+            # utilisateur.
+            # UNE entrée par famille : ``cfg["manifest"]`` nomme l'entrée à
+            # joindre (``elpis-git`` → ``…/mcp/git``). Une sentinelle NUE
+            # (sous-agents, scan d'administration, appelants sans famille)
             # retombe sur la première entrée toolhost déclarée.
             from shared_infra.mcp import manifest as _mf
             try:
@@ -130,15 +130,14 @@ def _resolve_mcp_client(cfg: Dict[str, Any]) -> Optional[Any]:
                 return None
             # Repli stdio (legacy, 1 subprocess par worker). On lance avec
             # ``sys.executable`` (l'interpréteur du venv courant) et NON le
-            # binaire "python3" du PATH : ce dernier pouvait être le python
-            # système, dont les dépendances (pydantic/fastmcp) divergent du venv
-            # et faisaient échouer l'enregistrement des outils au démarrage.
+            # binaire "python3" du PATH : ce peut être le python système, dont
+            # les dépendances (pydantic/fastmcp) divergent du venv — et
+            # l'enregistrement des outils échouerait au démarrage.
             _fb = (_th.fallback if _th is not None else None) or {}
             _fb_cmd = str(_fb.get("command") or "").strip() or (sys.executable or "python3")
             _fb_args = list(_fb.get("args") or []) or [str(PROJECT_ROOT / "server" / "local_mcp_server.py")]
-            # (passe 8, B2) sous-process = stdio, EXPLICITEMENT : le serveur lit
-            # désormais le manifeste / la config quand le mode service y est
-            # configuré.
+            # Sous-process = stdio, EXPLICITEMENT : le serveur lit le manifeste
+            # / la config, qui peuvent le configurer en mode service.
             _fb_env = {"LOCAL_MCP_TRANSPORT": "stdio", **{k: str(v) for k, v in (_fb.get("env") or {}).items()}}
             return MCPStdioWrapper(_fb_cmd, _fb_args, cwd=str(PROJECT_ROOT), extra_env=_fb_env)
 
@@ -172,8 +171,8 @@ def _resolve_mcp_client(cfg: Dict[str, Any]) -> Optional[Any]:
                                extra_env=_build_env(cfg))
 
     elif ctype == "inprocess":
-        # (2026-09-12, P4) MCP INTERNE de l'app (entrée ``role: app`` du
-        # manifeste) : familles liées au compte servies dans ce processus.
+        # MCP INTERNE de l'app (entrée ``role: app`` du manifeste) : familles
+        # liées au compte servies dans ce processus.
         fams = cfg.get("families")
         if not fams:
             try:
@@ -189,7 +188,7 @@ def _resolve_mcp_client(cfg: Dict[str, Any]) -> Optional[Any]:
         url = cfg.get("url", "")
         if not url:
             return None
-        # v17.23+ — headers transport (Authorization & co). On accepte 3
+        # Headers transport (Authorization & co). On accepte 3
         # formats côté config pour rester souple côté UI :
         #
         #   1. ``headers`` : dict { "Header-Name": "value", ... } direct
@@ -290,9 +289,10 @@ def _build_auth_headers(cfg: Dict[str, Any]) -> Dict[str, str]:
 
 
 # ── Diagnostic d'erreur de connexion ─────────────────────────────────────────
-# Partagé par le bouton « Tester » (routes/mcp.py) ET la boucle de chat, qui
-# affichait jusqu'ici la trace brute du task group là où l'utilisateur avait
-# besoin de lire « HTTP 401 : jeton refusé ».
+# Partagé par le bouton « Tester » (``shared_infra/mcp/panel.py``) ET la
+# collecte des outils du tour (``engine.tool_catalog._collect_mcp_tools``) :
+# l'utilisateur doit lire « HTTP 401 : jeton refusé », pas la trace brute du
+# task group.
 def flatten_exc(e: BaseException) -> List[BaseException]:
     """Aplatit les ExceptionGroup : les transports MCP y enfouissent la cause."""
     out = [e]
@@ -356,7 +356,7 @@ def _sanitize_schema_for_grammar(node: Any) -> Any:
     ``items``, entrée de ``prefixItems``/``anyOf``/``allOf``… pydantic/FastMCP en
     émet pour des champs ``Any``/``list`` nus, des ``dict`` ou des **tuples**
     (``"items": false`` pour interdire les éléments en trop). UN SEUL outil avec un
-    tel champ faisait 400 TOUTE la requête → plus aucun appel MCP.
+    tel champ ferait 400 TOUTE la requête → plus aucun appel MCP.
 
     On remplace donc chaque schéma booléen par ``{}`` (= « n'importe quoi », accepté
     par le convertisseur). EXCEPTION : ``additionalProperties: true|false`` est
@@ -436,7 +436,7 @@ def mcp_tool_to_openai(tool: Any) -> Dict[str, Any]:
 _CALL_TOOL_KWARGS_CACHE: Dict[str, frozenset] = {}
 
 
-# Bornes de la pagination de ``tools/list`` (AUDIT 2026-09-25).
+# Bornes de la pagination de ``tools/list``.
 _LIST_TOOLS_MAX_PAGES = 50
 _LIST_TOOLS_MAX = 2000
 
@@ -444,9 +444,9 @@ _LIST_TOOLS_MAX = 2000
 async def _list_all_tools(session: Any) -> List[Any]:
     """Tous les outils d'un serveur, pages suivies (``nextCursor``).
 
-    AUDIT 2026-09-25 — seule la 1re page était lue : un serveur qui pagine
-    (FastMCP ``list_page_size``, serveurs du SDK TypeScript) n'exposait
-    silencieusement qu'une partie de ses outils, et le modèle recevait
+    Ne pas lire que la 1re page : un serveur qui pagine (FastMCP
+    ``list_page_size``, serveurs du SDK TypeScript) n'exposerait
+    silencieusement qu'une partie de ses outils, et le modèle recevrait
     « outil inconnu » pour les autres. Bornes : pages et nombre total."""
     res = await session.list_tools()
     tools = list(getattr(res, "tools", None) or [])
@@ -466,9 +466,9 @@ async def _list_all_tools(session: Any) -> List[Any]:
 def _session_supports(session: Any, kwarg: str) -> bool:
     """True si ``session.call_tool`` accepte ce kwarg (ou accepte **kwargs).
 
-    Remplace l'ancien repli « appeler, rattraper TypeError, rappeler » qui
-    RÉ-EXÉCUTAIT l'outil quand le TypeError venait du corps de l'outil et non
-    de la signature (cf. call_tool ci-dessous)."""
+    Ne pas « appeler, rattraper TypeError, rappeler » : l'outil serait
+    RÉ-EXÉCUTÉ quand le TypeError vient de son corps et non de la signature
+    (cf. call_tool ci-dessous)."""
     fn = getattr(session, "call_tool", None)
     if fn is None:
         return False
@@ -485,7 +485,7 @@ def _session_supports(session: Any, kwarg: str) -> bool:
                 names = frozenset(params)
         except (TypeError, ValueError):
             # Signature illisible (builtin, mock exotique) : rester
-            # PERMISSIF — l'ancien comportement tentait l'appel complet.
+            # PERMISSIF — on tente l'appel complet.
             names = frozenset({"meta", "progress_callback"})
         _CALL_TOOL_KWARGS_CACHE[key] = names
     return kwarg in names
@@ -494,13 +494,12 @@ def _session_supports(session: Any, kwarg: str) -> bool:
 def _log_call_token(meta: Optional[Dict[str, Any]]) -> str:
     """Jeton identifiant un appel pour le routage des logs.
 
-    AUDIT 2026-08-23 — on prend d'abord ``log_token``, tiré une fois par RUN
-    par le harnais (``_run_log_tok`` + call_id). ``call_id`` seul ne convient
-    pas : il n'est unique qu'au sein d'un run (le harnais fabrique
-    ``call_{iter}_{idx}``, llama.cpp renvoie ``call_0``), or ce routeur est
-    partagé par tous les comptes du worker — deux appels concurrents se
-    volaient l'emplacement, et la sortie du terminal d'un compte partait chez
-    l'autre. ``call_id`` reste le repli pour un appelant qui ne pose pas le
+    On prend d'abord ``log_token``, tiré une fois par RUN par le harnais
+    (``_run_log_tok`` + call_id). ``call_id`` seul ne convient pas : il n'est
+    unique qu'au sein d'un run (le harnais fabrique ``call_{iter}_{idx}``,
+    llama.cpp renvoie ``call_0``), or ce routeur est partagé par tous les
+    comptes du worker — deux appels concurrents se voleraient l'emplacement,
+    et la sortie du terminal d'un compte partirait chez l'autre. ``call_id`` reste le repli pour un appelant qui ne pose pas le
     jeton (routines, sous-agents, tests) ; sinon un jeton local anonyme.
     """
     if isinstance(meta, dict):
@@ -514,17 +513,15 @@ def _log_call_token(meta: Optional[Dict[str, Any]]) -> str:
 class _LogRouter:
     """Aiguille les notifications de log MCP vers le BON appel en cours.
 
-    AUDIT 2026-08-22 (C2) — il y avait ici UN SEUL emplacement
-    (``_current_log_cb``), écrit à l'entrée de ``call_tool`` et remis à None à
-    sa sortie. La docstring qui l'autorisait disait « les appels sont
-    sérialisés sur la session par le verrou du pool » : c'était vrai jusqu'à
-    l'audit 2026-08-01 (P1-5), qui a fait passer les transports SSE/HTTP sur un
-    SÉMAPHORE (8 appels de front). Depuis, le serveur d'outils locaux étant
-    partagé par TOUS les utilisateurs d'un worker, deux appels concurrents se
-    volaient l'emplacement : la sortie du terminal en direct d'Alice partait
-    dans le flux de Bob — étiquetée avec l'identifiant d'appel de Bob — puis le
-    retour de l'appel de Bob remettait l'emplacement à None et le terminal
-    d'Alice devenait muet jusqu'à la fin de la commande.
+    Les transports SSE/HTTP laissent plusieurs appels de front sur une même
+    session (``_mcp_pool._transport_concurrency``), et le serveur d'outils
+    locaux est partagé par TOUS les utilisateurs d'un worker. Ne pas revenir
+    à UN SEUL emplacement « callback de l'appel courant » (écrit à l'entrée
+    de ``call_tool``, remis à None à sa sortie) : deux appels concurrents se
+    le voleraient — la sortie du terminal en direct d'Alice partirait dans le
+    flux de Bob, étiquetée avec l'identifiant d'appel de Bob, puis le retour
+    de l'appel de Bob remettrait l'emplacement à None et le terminal d'Alice
+    deviendrait muet jusqu'à la fin de la commande.
 
     Le protocole MCP ne corrèle pas une notification de log à la requête qui
     l'a provoquée : il n'y a pas d'identifiant de requête dans
@@ -533,8 +530,7 @@ class _LogRouter:
       1. ``__shell_output__.call_id`` — le pont d'exécution shell (le gros du
          volume, et le seul flux où une erreur d'attribution se VOIT) place
          l'identifiant d'appel dans sa charge utile ;
-      2. un seul appel en vol → c'est forcément le sien (cas courant, et
-         comportement historique) ;
+      2. un seul appel en vol → c'est forcément le sien (cas courant) ;
       3. le ``logger`` de la notification désigne un seul appel en vol par son
          nom d'outil ;
       4. sinon on jette, en le disant : mieux vaut une ligne de log perdue
@@ -552,10 +548,10 @@ class _LogRouter:
                  cb: Optional[Callable]) -> str:
         """Inscrit l'appel et rend le jeton EFFECTIF — à passer tel quel à
         ``unregister`` (il diffère de ``token`` en cas de collision)."""
-        # Défense en profondeur (audit 2026-08-23) : un jeton déjà pris n'est
-        # JAMAIS écrasé. Écraser revenait à voler l'emplacement du voisin —
-        # sa sortie partait chez le nouveau venu, puis le premier
-        # ``unregister`` coupait les deux. En cas de collision on s'enregistre
+        # Défense en profondeur : un jeton déjà pris n'est JAMAIS écrasé.
+        # Écraser volerait l'emplacement du voisin — sa sortie partirait chez
+        # le nouveau venu, puis le premier ``unregister`` couperait les deux.
+        # En cas de collision on s'enregistre
         # sous un jeton anonyme : cet appel-là ne sera pas routé par id (il
         # retombe sur les heuristiques), mais personne n'est mal servi.
         if token in self._calls:
@@ -577,22 +573,22 @@ class _LogRouter:
     @staticmethod
     def _call_id_of(params: Any) -> Optional[str]:
         data = getattr(params, "data", None)
-        # (2026-09-11, P3) notification STRUCTURÉE : ``data = {"msg", "extra"}``
-        # avec ``extra.kind`` ∈ {shell_output, heartbeat} et l'identifiant
-        # d'appel dans ``extra`` — plus de JSON à parser dans le message.
+        # Notification STRUCTURÉE : ``data = {"msg", "extra"}`` avec
+        # ``extra.kind`` ∈ {shell_output, heartbeat} et l'identifiant d'appel
+        # dans ``extra`` — pas de JSON à parser dans le message.
         if isinstance(data, dict) and isinstance(data.get("extra"), dict):
             _x = data["extra"]
             if _x.get("kind") in ("shell_output", "heartbeat"):
                 cid = _x.get("log_token") or _x.get("call_id")
                 return str(cid) if cid else None
-        # AUDIT 2026-08-23 — déballage du ``LogData``. Depuis fastmcp 2.14,
-        # ``Context.info`` n'envoie plus le message en texte brut : il
-        # construit un ``LogData(msg, extra)``, donc ``params.data`` arrive en
-        # DICT ``{"msg": "<json>", "extra": …}``. Sans ce déballage, la garde
-        # ``isinstance(data, str)`` rendait None pour 100 % des notifications
-        # réelles : tout le routage par identifiant était inerte, et le
-        # terminal en direct retombait sur les heuristiques (donc muet dès que
-        # deux appels tournaient de front). ``engine/tool_exec`` déballe déjà.
+        # Déballage du ``LogData``. Depuis fastmcp 2.14, ``Context.info``
+        # n'envoie pas le message en texte brut : il construit un
+        # ``LogData(msg, extra)``, donc ``params.data`` arrive en DICT
+        # ``{"msg": "<json>", "extra": …}``. Sans ce déballage, la garde
+        # ``isinstance(data, str)`` rendrait None pour 100 % des notifications
+        # réelles : routage par identifiant inerte, terminal en direct renvoyé
+        # aux heuristiques (donc muet dès que deux appels tournent de front).
+        # ``engine/tool_exec`` déballe de même.
         if isinstance(data, dict) and isinstance(data.get("msg"), str):
             data = data["msg"]
         if not isinstance(data, str) or "__shell_output__" not in data:
@@ -616,7 +612,7 @@ class _LogRouter:
             # Identifiant présent mais inconnu ici : l'appel s'est terminé
             # (ou vit sur une autre session). Ne PAS retomber sur un autre
             # destinataire — ce serait exactement l'erreur d'attribution
-            # qu'on corrige.
+            # qu'on veut éviter.
             self._dropped += 1
             return None
         live = list(self._calls.values())
@@ -660,8 +656,9 @@ class MCPStdioWrapper:
         # la majorité des serveurs MCP npm/npx (jeton, URL du service…).
         # Posées APRÈS le bloc ci-dessus : PYTHONPATH/NODE_PATH sont calculés
         # ici et ne doivent pas être écrasés (la liste blanche des noms les
-        # refuse déjà à la saisie, cf. mcp_servers._RESERVED_ENV — ceci est la
-        # seconde barrière, pour une config venue d'un instantané ancien).
+        # refuse déjà à la saisie, cf. shared_infra.mcp.servers._RESERVED_ENV —
+        # ceci est la seconde barrière, pour une config venue d'un instantané
+        # ancien).
         for k, v in (extra_env or {}).items():
             if (isinstance(k, str) and k
                     and k not in ("PYTHONPATH", "NODE_PATH", "APP_SANDBOX_DIR")
@@ -688,18 +685,17 @@ class MCPStdioWrapper:
         self.cwd = cwd
         self.ctx = None
         self.session = None
-        # v18 — routage PAR APPEL des notifications de log. Le callback posé
-        # sur la session à l'``__aenter__`` interroge ce routeur pour rendre
-        # chaque ``ctx.info()/warning()/error()`` du serveur à SON appelant
-        # (cf. _LogRouter : plusieurs appels vivent de front sur une même
-        # session depuis l'audit P1-5).
+        # Routage PAR APPEL des notifications de log. Le callback posé sur la
+        # session à l'``__aenter__`` interroge ce routeur pour rendre chaque
+        # ``ctx.info()/warning()/error()`` du serveur à SON appelant (cf.
+        # _LogRouter : plusieurs appels vivent de front sur une même session).
         self._log_router = _LogRouter()
 
     async def __aenter__(self):
         self.ctx = stdio_client(self.params)
         read, write = await self.ctx.__aenter__()
-        # v18 — register a session-wide logging callback that routes to
-        # the currently-active call's log_cb (set by call_tool below).
+        # Session-wide logging callback: the router hands each notification
+        # to the call that produced it (registered by call_tool below).
         async def _session_log_cb(params):
             cb = self._log_router.resolve(params)
             if cb is None:
@@ -720,18 +716,16 @@ class MCPStdioWrapper:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        # AUDIT 2026-08-23 — un objet, un try. C'est ``self.ctx`` (le
-        # générateur ``stdio_client``/``sse_client``) qui TUE le sous-process
-        # et referme le flux ; ``self.session.__aexit__`` est le
-        # ``BaseSession.__aexit__`` du SDK, qui sort un groupe de tâches anyio
-        # — et un groupe dont la boucle de réception a échoué sur un tuyau
-        # cassé remonte un ``ExceptionGroup``. Cette exception sautait la
-        # ligne suivante : le transport n'était JAMAIS quitté. Aux deux points
-        # d'appel du pool, l'erreur est avalée par un ``except Exception``
-        # (dont hérite ExceptionGroup) — donc rien ne remontait, et le process
-        # ``server/local_mcp_server.py`` restait vivant pour toute la durée de
-        # vie du worker. ``MCPStreamableHTTPWrapper._unwind`` faisait déjà les
-        # choses correctement 80 lignes plus bas.
+        # Un objet, un try. C'est ``self.ctx`` (le générateur
+        # ``stdio_client``/``sse_client``) qui TUE le sous-process et referme
+        # le flux ; ``self.session.__aexit__`` est le ``BaseSession.__aexit__``
+        # du SDK, qui sort un groupe de tâches anyio — et un groupe dont la
+        # boucle de réception a échoué sur un tuyau cassé remonte un
+        # ``ExceptionGroup``. Dans un try commun, cette exception sauterait la
+        # sortie du transport, et les deux points d'appel du pool l'avaleraient
+        # (``except Exception``, dont hérite ExceptionGroup) : le process
+        # ``server/local_mcp_server.py`` resterait vivant pour toute la durée
+        # de vie du worker. Même règle que ``MCPStreamableHTTPWrapper._unwind``.
         for obj in (self.session, self.ctx):
             if obj is None:
                 continue
@@ -751,20 +745,17 @@ class MCPStdioWrapper:
                         log_callback: Optional[Callable] = None):
         """Appel d'un tool MCP avec support optionnel du `_meta` field.
 
-        v17.20+ (Phase 2b) — ``meta`` est transmis comme MCP request meta
-        (ne traverse PAS les arguments — invisible au LLM). Mécanisme
-        natif depuis mcp >= 1.19.0 ; sur les versions plus anciennes le
-        kwarg n'existe pas et on fallback gracieusement sans meta (l'appel
-        marche, juste sans l'identité user — le tool serveur résoudra
-        sur "guest" comme avant).
+        ``meta`` est transmis comme MCP request meta (ne traverse PAS les
+        arguments — invisible au LLM). Mécanisme natif depuis mcp >= 1.19.0 ;
+        sur un SDK plus ancien le kwarg n'existe pas et l'appel part sans meta
+        (sans l'identité user — le tool serveur résout alors sur "guest").
 
-        v18 (Tier 1 MCP best practices) — deux nouveaux callbacks optionnels :
-        ``progress_callback(progress, total, message)`` reçoit les
-        ``ctx.report_progress()`` du tool serveur ; ``log_callback(params)``
-        reçoit les ``ctx.info/warning/error()``. L'orchestrateur de chat
-        les wire pour traduire en events SSE ``tool_progress`` / ``tool_log``
-        consommés par le frontend. Aucun caller existant n'est forcé à
-        passer ces callbacks — ils sont strictement additifs.
+        Deux callbacks optionnels : ``progress_callback(progress, total,
+        message)`` reçoit les ``ctx.report_progress()`` du tool serveur ;
+        ``log_callback(params)`` reçoit les ``ctx.info/warning/error()``.
+        L'orchestrateur de chat les branche pour les traduire en events SSE
+        ``tool_progress`` / ``tool_log`` consommés par le frontend. Aucun
+        appelant n'est forcé de les passer.
         """
         # Enregistre CET appel auprès du routeur de logs (le callback posé
         # sur la session à l'``__aenter__`` l'y retrouvera). Le jeton est
@@ -772,19 +763,17 @@ class MCPStdioWrapper:
         # le pont d'exécution shell recopie dans ses notifications.
         _tok = _log_call_token(meta)
         # Jeton EFFECTIF : sur collision, désinscrire le jeton d'origine
-        # coupait l'appel voisin encore en cours et laissait fuir le nôtre.
+        # couperait l'appel voisin encore en cours et laisserait fuir le nôtre.
         _tok = self._log_router.register(_tok, name, log_callback)
         try:
-            # AUDIT long-run 2026-08-21 — on INSPECTE la signature au lieu de
-            # rattraper un ``TypeError``. L'ancien repli ne pouvait pas
-            # distinguer « le SDK ne connaît pas ce kwarg » d'un ``TypeError``
-            # levé DANS le corps de l'outil (un ``None`` non subscriptable
-            # suffit) : dans ce second cas il REJOUAIT l'appel, jusqu'à 3 fois.
-            # Sur un outil MUTANT (write_file, execute_shell, git_commit) le
-            # même effet de bord s'appliquait deux ou trois fois, et le modèle
-            # n'en voyait qu'un — c'est l'anomalie « il a écrit deux fois » des
-            # missions longues. Un TypeError du corps de l'outil remonte
-            # désormais tel quel : le harnais le rend en tool-error.
+            # On INSPECTE la signature au lieu de rattraper un ``TypeError`` :
+            # un repli « rattraper, rappeler » ne distingue pas « le SDK ne
+            # connaît pas ce kwarg » d'un ``TypeError`` levé DANS le corps de
+            # l'outil (un ``None`` non subscriptable suffit) et REJOUERAIT
+            # l'appel. Sur un outil MUTANT (write_file, execute_shell,
+            # git_commit) le même effet de bord s'appliquerait deux ou trois
+            # fois, et le modèle n'en verrait qu'un. Un TypeError du corps de
+            # l'outil remonte tel quel : le harnais le rend en tool-error.
             kwargs: Dict[str, Any] = {}
             if meta and _session_supports(self.session, "meta"):
                 kwargs["meta"] = meta
@@ -798,19 +787,19 @@ class MCPStdioWrapper:
 
 class MCPSSEWrapper:
     def __init__(self, url: str, headers: Optional[Dict[str, str]] = None):
-        """v17.23+ — ``headers`` est un dict de headers HTTP à attacher
-        à toutes les requêtes SSE (auth Bearer/Basic notamment, ou
-        n'importe quel header custom dont le serveur a besoin).
+        """``headers`` est un dict de headers HTTP à attacher à toutes
+        les requêtes SSE (auth Bearer/Basic notamment, ou n'importe quel
+        header custom dont le serveur a besoin).
 
         Le SDK mcp ``sse_client(url, headers=...)`` supporte ce kwarg
-        nativement depuis longtemps ; on le forward simplement. ``None``
-        ou dict vide → comportement historique sans header custom.
+        nativement ; on le forward simplement. ``None`` ou dict vide →
+        aucun header custom.
         """
         self.url = url
         self.headers = dict(headers) if headers else None
         self.ctx = None
         self.session = None
-        # v18 — cf. MCPStdioWrapper pour le contrat de routage des logs.
+        # Cf. MCPStdioWrapper pour le contrat de routage des logs.
         self._log_router = _LogRouter()
 
     def _open_transport(self):
@@ -849,18 +838,16 @@ class MCPSSEWrapper:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        # AUDIT 2026-08-23 — un objet, un try. C'est ``self.ctx`` (le
-        # générateur ``stdio_client``/``sse_client``) qui TUE le sous-process
-        # et referme le flux ; ``self.session.__aexit__`` est le
-        # ``BaseSession.__aexit__`` du SDK, qui sort un groupe de tâches anyio
-        # — et un groupe dont la boucle de réception a échoué sur un tuyau
-        # cassé remonte un ``ExceptionGroup``. Cette exception sautait la
-        # ligne suivante : le transport n'était JAMAIS quitté. Aux deux points
-        # d'appel du pool, l'erreur est avalée par un ``except Exception``
-        # (dont hérite ExceptionGroup) — donc rien ne remontait, et le process
-        # ``server/local_mcp_server.py`` restait vivant pour toute la durée de
-        # vie du worker. ``MCPStreamableHTTPWrapper._unwind`` faisait déjà les
-        # choses correctement 80 lignes plus bas.
+        # Un objet, un try. C'est ``self.ctx`` (le générateur
+        # ``stdio_client``/``sse_client``) qui TUE le sous-process et referme
+        # le flux ; ``self.session.__aexit__`` est le ``BaseSession.__aexit__``
+        # du SDK, qui sort un groupe de tâches anyio — et un groupe dont la
+        # boucle de réception a échoué sur un tuyau cassé remonte un
+        # ``ExceptionGroup``. Dans un try commun, cette exception sauterait la
+        # sortie du transport, et les deux points d'appel du pool l'avaleraient
+        # (``except Exception``, dont hérite ExceptionGroup) : le process
+        # ``server/local_mcp_server.py`` resterait vivant pour toute la durée
+        # de vie du worker. Même règle que ``MCPStreamableHTTPWrapper._unwind``.
         for obj in (self.session, self.ctx):
             if obj is None:
                 continue
@@ -881,11 +868,11 @@ class MCPSSEWrapper:
         """Voir ``MCPStdioWrapper.call_tool`` — même contrat."""
         _tok = _log_call_token(meta)
         # Jeton EFFECTIF : sur collision, désinscrire le jeton d'origine
-        # coupait l'appel voisin encore en cours et laissait fuir le nôtre.
+        # couperait l'appel voisin encore en cours et laisserait fuir le nôtre.
         _tok = self._log_router.register(_tok, name, log_callback)
         try:
             # Même règle que MCPStdioWrapper.call_tool : signature INSPECTÉE,
-            # jamais de rejeu sur TypeError (qui ré-exécutait l'outil).
+            # jamais de rejeu sur TypeError (qui ré-exécuterait l'outil).
             kwargs: Dict[str, Any] = {}
             if meta and _session_supports(self.session, "meta"):
                 kwargs["meta"] = meta
@@ -927,8 +914,9 @@ class MCPStreamableHTTPWrapper(MCPSSEWrapper):
             # group de son générateur asynchrone. Un 401 (ou un refus de
             # connexion) y est levé, le scope saute, et l'appelant ne reçoit
             # qu'un CancelledError opaque — qui n'est PAS une ``Exception`` et
-            # traverse donc le ``except Exception`` de ``_chat_with_tools``,
-            # avortant tout le tour au lieu de signaler ce seul serveur.
+            # traverserait donc le ``except Exception`` par serveur de
+            # ``engine.tool_catalog._collect_mcp_tools``, avortant tout le tour
+            # au lieu de signaler ce seul serveur.
             #
             # Il faut D'ABORD quitter le scope du transport : tant qu'on est
             # dedans, tout nouvel await est annulé d'office, sondage compris.
@@ -994,8 +982,8 @@ class MCPStreamableHTTPWrapper(MCPSSEWrapper):
 
 class MCPInProcessWrapper(MCPSSEWrapper):
     """Transport EN MÉMOIRE (``fastmcp.client.transports.FastMCPTransport``) vers
-    une instance FastMCP du MÊME processus — le MCP interne de l'app
-    (2026-09-12, P4). Même contrat que les autres wrappers : ``list_tools``,
+    une instance FastMCP du MÊME processus — le MCP interne de l'app. Même
+    contrat que les autres wrappers : ``list_tools``,
     ``call_tool(meta=…, progress_callback=…, log_callback=…)`` et le routeur de
     logs. ⚠ ``_mcp_pool._transport_concurrency`` teste le NOM de la classe.
     """

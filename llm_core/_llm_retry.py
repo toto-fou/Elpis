@@ -2,10 +2,9 @@
 """
 llm_core._llm_retry — retry/backoff LLM partagé (chemins classic + tools).
 
-Remplace le « 1 retry + sleep fixe 0.6 s » historique par trois briques
-(P0 audit harness 2026-07-24, fiche 14) :
+Trois briques :
 
-- **Classification fatal/transitoire** : un 4xx (hors 408/429) est une
+- **Classification fatal/transitoire** : un 4xx (hors 408/409/429) est une
   requête invalide (schéma d'outil, grammaire GBNF, contexte trop long) —
   la rejouer à l'identique reproduit exactement la même erreur ; on remonte
   immédiatement au lieu de brûler les tentatives.
@@ -17,15 +16,14 @@ Remplace le « 1 retry + sleep fixe 0.6 s » historique par trois briques
   (re)chargement d'un modèle (10-60 s typiques en local). Plutôt que de
   consommer les tentatives pendant le warm-up, on sonde GET /health jusqu'à
   « prêt » (borné par ``LLAMA_LOADING_WAIT_S``) puis on retente aussitôt.
-  Réservé à la cible llama.cpp LOCALE — le 503 d'un connecteur distant est
-  un rate-limit, traité en backoff normal. Un serveur ABSENT (connexion
+  Réservé aux cibles llama.cpp (intégré ou connecteur) — le 503 d'un autre
+  fournisseur est un rate-limit, traité en backoff normal. Un serveur ABSENT (connexion
   refusée) ne déclenche PAS l'attente : échec rapide via le backoff.
 
 Toutes les attentes sont cancel-aware : découpées en petits sommeils qui
 LÈVENT ``asyncio.CancelledError`` dès que ``is_cancelled()`` passe à True —
-même sémantique que l'ex-``_cancel_aware_sleep`` du chemin classic (sans le
-raise, un stop utilisateur pendant le backoff laissait partir une tentative
-de plus : le bug historique « le modèle repart après stop »). ``task.cancel()``
+sans le raise, un stop utilisateur pendant le backoff laisserait partir une
+tentative de plus (« le modèle repart après stop »). ``task.cancel()``
 interrompt de toute façon les ``asyncio.sleep`` sous-jacents.
 """
 from __future__ import annotations
@@ -43,13 +41,13 @@ logger = logging.getLogger("uvicorn.error")
 
 _SLEEP_SLICE_S = 0.2   # granularité des attentes cancel-aware
 
-# ── Redémarrage du moteur PENDANT un run (audit long-run 2026-08-21) ────────
-# Un ``ConnectError`` n'ouvrait AUCUNE attente : seul le backoff jouait, soit
-# ~45 s au total (LLAMA_RETRIES=3, cap 15 s, full jitter). C'est moins que le
-# temps de (re)démarrage d'un llama-server — swap de modèle en mode routeur,
-# redémarrage systemd, relance après OOM. Une mission autonome de six heures
-# mourait donc sur un redémarrage de moteur de 60 s, avec un « serveur
-# injoignable » comme seule trace.
+# ── Redémarrage du moteur PENDANT un run ─────────────────────────────────────
+# Le backoff seul couvre ~45 s au total (LLAMA_RETRIES=3, cap 15 s, full
+# jitter) : moins que le temps de (re)démarrage d'un llama-server — swap de
+# modèle en mode routeur, redémarrage systemd, relance après OOM. Sans attente
+# sur ``ConnectError``, une mission autonome de six heures mourrait sur un
+# redémarrage de moteur de 60 s, avec un « serveur injoignable » comme seule
+# trace.
 #
 # On ne peut pas pour autant attendre sur TOUT ConnectError : quand le serveur
 # n'a jamais été démarré, l'utilisateur interactif doit avoir son échec tout de
@@ -57,12 +55,12 @@ _SLEEP_SLICE_S = 0.2   # granularité des attentes cancel-aware
 # du processus : si un appel a DÉJÀ abouti ici, le moteur existe et une coupure
 # est un redémarrage — on attend /health comme pour un 503. Sinon, échec rapide.
 _last_llm_success_mono: Optional[float] = None
-# AUDIT 2026-09-16 — l'histoire est tenue PAR SERVEUR : qu'un connecteur ait
-# répondu ne prouve pas que l'intégré existe (et inversement). ``_last_…``
+# L'histoire est tenue PAR SERVEUR : qu'un connecteur ait répondu ne prouve
+# pas que l'intégré existe (et inversement). ``_last_…``
 # garde la vue « dernier succès, tous serveurs » (compat).
 _last_success_by_engine: Dict[str, float] = {}
 # Au-delà, on considère que l'information est périmée (worker qui vit
-# indéfiniment depuis que le recyclage gunicorn est désactivé).
+# indéfiniment : le recyclage gunicorn est désactivé).
 _SUCCESS_MEMORY_S = 3600.0
 
 
@@ -109,8 +107,8 @@ def _cfg(name: str, default):
 def llm_error_is_fatal(e: Optional[BaseException]) -> bool:
     """True si rejouer la MÊME requête reproduira la même erreur : réponse
     4xx hors 408 (timeout de requête), 409 (conflit) et 429 (rate-limit),
-    qui restent transitoires (audit 2026-09-24, 2e passe : le 409 abandonnait
-    au premier essai avec « réessayer donnera le même résultat »)."""
+    qui restent transitoires (un 409 classé fatal abandonnerait au premier
+    essai avec « réessayer donnera le même résultat »)."""
     if isinstance(e, httpx.HTTPStatusError):
         try:
             code = int(e.response.status_code)
@@ -134,9 +132,9 @@ def llm_error_is_loading(e: Optional[BaseException]) -> bool:
 # PARLER À L'UTILISATEUR. Un 400 « conversation trop longue » et un 400
 # « schéma d'outil invalide » sont tous deux fatals, mais le premier se
 # résout en compactant la conversation et le second est un bug à signaler.
-# Sans cette distinction, les deux ressortaient en « Requête LLM rejetée par
-# le serveur : Client error '400 Bad Request' for url … » — un message qui
-# ne dit ni la cause ni le geste à faire.
+# Sans cette distinction, les deux ressortiraient en « Requête LLM rejetée
+# par le serveur : Client error '400 Bad Request' for url … » — un message
+# qui ne dit ni la cause ni le geste à faire.
 
 # Motifs renvoyés par les backends quand le prompt ne tient pas dans la
 # fenêtre. llama.cpp a changé de formulation entre versions, et les cibles
@@ -156,7 +154,7 @@ _CTX_OVERFLOW_MARKERS = (
 # n'est pas une requête mal formée — réessayer, changer les outils ou compacter
 # n'y changera rien, seul un autre modèle ou une autre clé le fera. Distinguer
 # les deux évite d'envoyer l'utilisateur chercher une cause qui n'existe pas.
-# (2026-09-12 : OpenCode Zen répond 400 « OpenCode's free tier can only be used
+# (Exemple : OpenCode Zen répond 400 « OpenCode's free tier can only be used
 # in OpenCode » — un refus d'offre déguisé en requête invalide.)
 _ACCESS_MARKERS = (
     "can only be used",
@@ -212,7 +210,8 @@ def error_body_text(e: Optional[BaseException], limit: int = 2000) -> str:
 
     ATTENTION : sur une réponse STREAMING, httpx ne lit rien tant qu'on ne le
     demande pas — ``.text`` lève alors ``ResponseNotRead``. L'appelant doit
-    avoir fait ``await resp.aread()`` avant de lever (cf. _chat_with_tools) ;
+    avoir fait ``await resp.aread()`` avant de lever (cf.
+    ``engine.llm_stream._llama_chat_with_tools_stream``) ;
     sinon on retourne "" et la classification retombe sur le code HTTP seul.
     """
     resp = getattr(e, "response", None)
@@ -305,8 +304,8 @@ def llm_error_user_message(e: Optional[BaseException]) -> str:
     FOURNISSEUR quand il en donne une.
 
     Sans elle, un refus précis (« ce modèle n'est ouvert qu'au client maison »)
-    arrivait à l'utilisateur sous la forme « la génération a échoué pour une
-    raison inattendue » — la seule information utile de tout l'échange était
+    arriverait à l'utilisateur sous la forme « la génération a échoué pour une
+    raison inattendue » — la seule information utile de tout l'échange serait
     jetée à un pas de l'écran."""
     base = _KIND_MESSAGES.get(llm_error_kind(e), _KIND_MESSAGES[KIND_UNKNOWN])
     msg = provider_message(e)
@@ -347,11 +346,11 @@ def provider_http_error(status: int, body: str, *, url: str = "http://llm.invali
     Deux producteurs : l'événement d'erreur SSE émis EN COURS de flux (la
     réponse était un 200, l'erreur arrive dans le corps — llama.cpp,
     OpenAI-compatible, ``{"type": "error"}`` d'Anthropic), et l'adaptateur
-    Anthropic, qui levait des ``RuntimeError`` nues. Dans les deux cas
-    ``llm_error_kind`` rendait UNKNOWN : pas de compaction sur « prompt is too
-    long », pas de backoff sur 429/529, 401 pris pour un historique
-    empoisonné. On fabrique donc un ``httpx.HTTPStatusError`` complet — code
-    et corps LISIBLES — pour que ``llm_error_kind``, ``llm_error_is_fatal`` et
+    Anthropic. Une exception nue (``RuntimeError``) serait classée UNKNOWN
+    par ``llm_error_kind`` : pas de compaction sur « prompt is too long », pas
+    de backoff sur 429/529, 401 pris pour un historique empoisonné. On
+    fabrique donc un ``httpx.HTTPStatusError`` complet — code et corps
+    LISIBLES — pour que ``llm_error_kind``, ``llm_error_is_fatal`` et
     ``provider_message`` le traitent exactement comme un refus HTTP."""
     req = httpx.Request("POST", url or "http://llm.invalid/")
     # En-têtes d'origine GARDÉS : ``Retry-After`` y est lu (retry_after_seconds).
@@ -399,9 +398,9 @@ def retry_after_seconds(e: Optional[BaseException]) -> Optional[float]:
     """Délai demandé par l'en-tête ``Retry-After`` (secondes OU date HTTP),
     borné à ``_RETRY_AFTER_CAP_S`` ; ``None`` sans en-tête lisible.
 
-    AUDIT 2026-09-24 (2e passe) — l'en-tête n'était jamais lu : sur un 429
-    « Retry-After: 20 », les tentatives partaient en ~4 s (full jitter
-    0,6 s·2^n) et échouaient toutes."""
+    Ne pas l'ignorer : sur un 429 « Retry-After: 20 », le full jitter
+    (0,6 s·2^n) relancerait toutes les tentatives en ~4 s, et toutes
+    échoueraient."""
     if not isinstance(e, httpx.HTTPStatusError):
         return None
     try:
@@ -459,8 +458,8 @@ async def wait_llama_ready(
     if probe is None:
         async def probe() -> Optional[int]:      # pragma: no cover — réseau
             try:
-                # Serveur de la CIBLE (AUDIT 2026-09-16) : un connecteur
-                # llama.cpp qui redémarre est attendu comme l'intégré.
+                # Serveur de la CIBLE : un connecteur llama.cpp qui
+                # redémarre est attendu comme l'intégré.
                 from llm_core._client import _get_llm_client
                 from llm_core._llama_http import _engine_url_headers
                 from llm_core.engines import current_engine
@@ -494,11 +493,11 @@ async def retry_pause(
     is_cancelled: Optional[Callable[[], bool]] = None,
     label: str = "",
 ) -> None:
-    """Pause AVANT la tentative suivante, adaptée à l'erreur : 503 sur la
-    cible llama.cpp locale = attendre /health prêt (warm-up de modèle),
-    sinon backoff exponentiel plafonné + full jitter."""
+    """Pause AVANT la tentative suivante, adaptée à l'erreur : 503 sur une
+    cible llama.cpp (intégré ou connecteur) = attendre /health prêt (warm-up
+    de modèle), sinon backoff exponentiel plafonné + full jitter."""
     _tag = f" {label}" if label else ""
-    local = True   # pas de contextvar posé = chemin historique local
+    local = True   # pas de contextvar posé = moteur intégré (llama.cpp local)
     try:
         # Tout serveur llama.cpp (intégré ou connecteur) : l'attente de /health
         # suit le serveur de la cible (cf. ``wait_llama_ready``).
@@ -519,7 +518,7 @@ async def retry_pause(
             # /health à 200 DÈS la première sonde ne prouve pas que le modèle
             # demandé est prêt (mode routeur, reverse-proxy : 503 du POST
             # malgré /health ok) : sans attente réelle, on garde le backoff,
-            # sinon les tentatives partaient coup sur coup.
+            # sinon les tentatives partiraient coup sur coup.
             if _waited >= 1.0:
                 return
         else:

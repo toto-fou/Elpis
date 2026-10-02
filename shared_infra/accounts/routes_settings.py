@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """
-backend.routes.settings — Per-user settings, avatars, password change, and
-user-list lite query.
+shared_infra.accounts.routes_settings — Per-user settings, avatars, password
+change, and user-list lite query.
 
 Endpoints
 ---------
@@ -66,8 +66,8 @@ from shared_infra.accounts.users import (
     # ⚠ NE PAS RETIRER ``update_user_settings`` : la suite de tests fait
     # ``monkeypatch.setattr(<ce module>, "update_user_settings", …)`` pour
     # isoler les écritures de réglages. Cet import n'est utilisé nulle part
-    # dans le fichier — ruff le voit donc mort, et une passe de purge
-    # automatique a cassé 47 tests d'un coup.
+    # dans le fichier — ruff le voit donc mort, mais le retirer casse en bloc
+    # tous les tests qui le substituent.
     update_user_settings,  # noqa: F401
     verify_user,
 )
@@ -122,7 +122,7 @@ _USER_SETTINGS_ALLOWED = frozenset({
     "editor_line_numbers",
     "editor_edit_highlight",
     "editor_auto_save",
-    "editor_persist_tabs",   # mémoriser les onglets ouverts (localStorage) — défaut ON (2026-09-19)
+    "editor_persist_tabs",   # mémoriser les onglets ouverts (localStorage) — défaut ON
     "editor_follow_active",  # l'arbre suit le fichier ouvert (« Localiser » auto) — défaut OFF
     "chat_width",
     "sandbox_mode",
@@ -169,10 +169,10 @@ _USER_SETTINGS_ALLOWED = frozenset({
 })
 
 # Les personnages de ``frontend/assets/mascotte`` : registre UNIQUE
-# ``mascottes.json`` (2026-09-28), lu par ``shared_infra.appearance.skins`` —
-# avant, la liste était recopiée ici, dans _mascotte.js et dans app-admin.js.
-# Repli sur les cinq d'origine si le fichier est illisible. Lu À L'APPEL : un
-# personnage ajouté au registre est accepté sans redémarrage.
+# ``mascottes.json``, lu par ``shared_infra.appearance.skins`` — aucune copie
+# de la liste ici ni côté interface. Repli sur les cinq d'origine si le
+# fichier est illisible. Lu À L'APPEL : un personnage ajouté au registre est
+# accepté sans redémarrage.
 
 def _mascottes() -> tuple:
     return _skins.mascot_ids()
@@ -293,11 +293,10 @@ async def api_upload_avatar(request: Request, file: UploadFile = File(...)):
         if prev and prev != filename:
             _safe_unlink_in_avatar_dir(prev)
     except Exception:
-        # AUDIT 2026-08-02 (E11) — best-effort assumé (le nouvel avatar est
-        # déjà en place), mais LOGGÉ : avant, chaque échec (DB lockée)
-        # laissait un fichier orphelin dans AVATAR_DIR sans trace — et
-        # /avatars/{filename} étant devinable, l'« ancien » avatar restait
-        # récupérable indéfiniment.
+        # Best-effort assumé (le nouvel avatar est déjà en place), mais
+        # JOURNALISÉ : un échec (DB verrouillée) laisse un fichier orphelin
+        # dans AVATAR_DIR, et /avatars/{filename} étant devinable, l'avatar
+        # remplacé y reste récupérable — il faut en garder la trace.
         logger.warning("[avatar] suppression de l'ancien avatar échouée "
                        "(uid=%s) — fichier orphelin dans AVATAR_DIR",
                        uid, exc_info=True)
@@ -313,7 +312,7 @@ async def api_delete_avatar(request: Request):
         if current:
             _safe_unlink_in_avatar_dir(current)
     except Exception:
-        # E11 — cf. upload : succès renvoyé quand même (la référence DB est
+        # Comme à l'upload : succès renvoyé quand même (la référence DB est
         # bien effacée) mais l'échec du unlink est journalisé.
         logger.warning("[avatar] suppression du fichier avatar échouée "
                        "(uid=%s) — fichier orphelin dans AVATAR_DIR",
@@ -333,13 +332,13 @@ async def api_upload_assistant_avatar(request: Request, file: UploadFile = File(
     from shared_infra.config import MAX_AVATAR_BYTES
     from shared_infra.files.uploads import save_upload_bounded
     await save_upload_bounded(file, file_path, MAX_AVATAR_BYTES)
-    # AUDIT 2026-08-02 (E5) — écriture atomique ; on récupère l'ancien avatar
-    # DEPUIS la transaction pour l'unlink hors verrou.
+    # Écriture atomique ; l'avatar remplacé est lu DEPUIS la transaction pour
+    # l'unlink hors verrou.
     _prev_box = {}
     def _set_avatar(s):
         _prev_box["prev"] = s.get("assistant_avatar")
         s["assistant_avatar"] = filename
-    await asyncio.to_thread(merge_user_settings, uid, _set_avatar)   # (passe 5, B5)
+    await asyncio.to_thread(merge_user_settings, uid, _set_avatar)   # BEGIN IMMEDIATE : hors boucle
     prev = _prev_box.get("prev")
     if prev and prev != filename:
         _safe_unlink_in_avatar_dir(prev)
@@ -349,12 +348,11 @@ async def api_upload_assistant_avatar(request: Request, file: UploadFile = File(
 def api_get_avatar(filename: str):
     if not filename or any(ch in filename for ch in ("..", "/", "\\", "\x00")):
         raise HTTPException(400, "Invalid filename")
-    # AUDIT 2026-08-30 (S3a) — ``exists()``/``is_file()`` étaient HORS du
-    # ``try``. Un nom de 256 caractères ou plus (la limite d'un segment ext4)
-    # les fait lever ``OSError`` ENAMETOOLONG : 500 sur une route PUBLIQUE.
-    # Mesuré : 255 → 404, 256 → 500. Les deux appels touchent le système de
-    # fichiers exactement comme ``resolve()`` — ils appartiennent au même
-    # ``try``, qui rendait déjà le bon 400.
+    # ``is_file()`` reste DANS le ``try`` : un nom de 256 caractères ou plus
+    # (la limite d'un segment ext4) lui fait lever ``OSError`` ENAMETOOLONG,
+    # soit un 500 sur une route PUBLIQUE (255 → 404, 256 → 500). Il touche le
+    # système de fichiers exactement comme ``resolve()`` et relève du même
+    # ``try``, qui rend le bon 400.
     try:
         base = AVATAR_DIR.resolve()
         path = (AVATAR_DIR / filename).resolve()
@@ -418,8 +416,8 @@ async def api_user_change_password(request: Request):
     if not me:
         raise HTTPException(404, "Utilisateur non trouvé")
 
-    # CORRECTIF P0 (prise de contrôle de compte) : la vérification de l'ancien
-    # mot de passe ne doit JAMAIS être contournable en omettant ``old_password``.
+    # Prise de contrôle de compte : la vérification de l'ancien mot de passe
+    # ne doit JAMAIS être contournable en omettant ``old_password``.
     # Seul le flux de changement forcé (``must_change_pwd=1``, l'utilisateur
     # vient de s'authentifier avec son mot de passe courant) est autorisé à
     # définir un nouveau mot de passe sans fournir l'ancien.
@@ -430,7 +428,7 @@ async def api_user_change_password(request: Request):
     else:
         # Deux PBKDF2 à 150 k itérations dans ce handler ``async`` (vérification
         # puis re-hachage) = 174 ms de boucle figée pour tout le monde. Déportés
-        # sur le pool dédié — cf. shared_infra/passwd_async.
+        # sur le pool dédié — cf. ``shared_infra.accounts.passwd.run_password_op``.
         if not await run_password_op(verify_user, me["username"], old_password):
             raise HTTPException(400, "Ancien mot de passe incorrect")
 
@@ -469,8 +467,8 @@ async def api_user_change_password(request: Request):
 def api_get_users_lite_route(request: Request):
     uid = require_user_id(request)
     me = get_user_by_id(uid)
-    # Audit 2026-09-22, M1 : seul l'admin PLEIN (1) voit hors de ses groupes ;
-    # le modérateur (2) reste dans son périmètre comme un utilisateur.
+    # Seul l'admin PLEIN (1) voit hors de ses groupes ; le modérateur (2)
+    # reste dans son périmètre comme un utilisateur.
     is_admin = bool(me and me["is_admin"] == 1)
     users = get_users_lite(uid, respect_groups=not is_admin)
     my_groups = get_user_groups(uid)
@@ -509,7 +507,7 @@ def api_get_settings(request: Request):
         "editor_dark_mode": True,
         "dark_mode": False,
         "dark_mode_auto": False,
-        # Défaut d'INSTANCE (console › Apparence), plus « elpis » en dur.
+        # Défaut d'INSTANCE (console › Apparence), jamais un skin en dur.
         "skin": _skins.default_skin(),
         # Mascotte du bloc « nouveau chat ». Le coffre par défaut : Elpis est
         # ce qui reste au fond de la jarre de Pandore, c'est le personnage du
@@ -518,16 +516,10 @@ def api_get_settings(request: Request):
         # là que pour le cas où la configuration serait illisible.
         "welcome_mascot": "boite_or",
         # L'accueil est animé PAR DÉFAUT, y compris quand le système demande
-        # ``prefers-reduced-motion: reduce``.
-        #
-        # La version précédente faisait l'inverse — défaut False, et une case
-        # « animer quand même » qui n'apparaissait QUE si le système demandait
-        # moins de mouvement. Juste sur le papier, faux à l'usage : beaucoup ont
-        # ce réglage sans le savoir (c'est le défaut de plusieurs bureaux, et de
-        # tout poste où l'on a coupé les effets visuels), ils voient une image
-        # fixe, et le remède était une case cachée au fond des réglages qu'il
-        # fallait deviner. Un correctif qu'on doit trouver soi-même n'en est pas
-        # un.
+        # ``prefers-reduced-motion: reduce`` : beaucoup ont ce réglage sans le
+        # savoir (défaut de plusieurs bureaux, et de tout poste où l'on a coupé
+        # les effets visuels). Ne pas suivre le système par défaut : ils
+        # verraient une image fixe, avec pour seul remède une case à deviner.
         #
         # Le choix reste ENTIER : la case vit à côté du sélecteur de mascotte,
         # toujours visible, et la décocher rend l'accueil à l'arrêt.
@@ -542,7 +534,7 @@ def api_get_settings(request: Request):
         "editor_line_numbers": True,
         "editor_edit_highlight": True,
         "editor_auto_save": "off",
-        "editor_persist_tabs": True,    # mémorisation des onglets — défaut ON depuis 2026-09-19
+        "editor_persist_tabs": True,    # mémorisation des onglets — défaut ON
         "editor_follow_active": False,  # l'arbre suit le fichier ouvert — opt-in
         "memory_enabled": False,   # Mémoire long-terme (Hermes) — opt-in
         "hide_thinking": False,
@@ -557,7 +549,7 @@ def api_get_settings(request: Request):
         # tokens — les tokens priment quand les deux sont posés, et l'interface
         # n'en écrit jamais deux (choisir une unité efface l'autre). 0 des deux
         # côtés = auto : on compacte quand la fenêtre est pleine (plafond
-        # technique), soit le comportement historique. Le défaut d'instance
+        # technique). Le défaut d'instance
         # admin (``llm.compaction.threshold_*``) prend le relais côté chat
         # quand les deux valent 0 — il n'est pas recopié ici, sinon un
         # changement admin n'atteindrait plus les comptes déjà migrés.
@@ -565,16 +557,17 @@ def api_get_settings(request: Request):
         "compression_threshold_tokens": 0,
         # Nombre maximal de compactions pour UNE conversation (automatiques et
         # /compact confondus). 0 = auto : le plafond d'instance
-        # (``llm.compression.max_per_chat``) s'applique, comme avant. -1 =
+        # (``llm.compression.max_per_chat``) s'applique. -1 =
         # illimité — nécessaire aux missions de plusieurs heures, où un seul
         # tour peut franchir le seuil dix fois ou plus ; le cap atteint, la
         # compaction s'arrête et il ne reste que le budget dur, qui JETTE les
         # vieux tours au lieu de les résumer.
         "compression_max_rounds": 0,
-        # Outils externes (panneau Outils + serveurs MCP). Fail-open : la clé
-        # n'a jamais eu de défaut, la couper d'office retirerait les outils à
-        # tout compte qui n'a jamais ouvert ce réglage. Seul un false EXPLICITE
-        # coupe — et le backend l'applique vraiment (cf. routes/chats.py).
+        # Outils externes (panneau Outils + serveurs MCP). Fail-open : bien des
+        # comptes n'ont jamais enregistré cette clé, un défaut à false leur
+        # retirerait les outils sans qu'ils aient ouvert ce réglage. Seul un
+        # false EXPLICITE coupe — appliqué au tour de chat par
+        # ``chatbot_app/turn/preparation.py`` (``_mcp_on``).
         "enable_mcp": True,
         # Moteur vocal — opt-in strict, comme ``memory_enabled`` et
         # ``agents_enabled``. Le front miroite ces défauts dans
@@ -595,7 +588,7 @@ def api_get_settings(request: Request):
         saved["welcome_mascot"] = defaut_admin
     saved["mascottes_actives"] = actives
     # Le registre des personnages voyage avec les réglages : l'interface n'a
-    # plus sa propre copie de la liste (libellés compris).
+    # pas sa propre copie de la liste (libellés compris).
     saved["mascottes_catalogue"] = _skins.mascots_catalogue()
     # Un skin DÉSACTIVÉ (ou supprimé) depuis que le compte l'a choisi retombe
     # sur le défaut d'instance — même politique que la mascotte.
@@ -648,11 +641,11 @@ async def api_put_settings(request: Request):
 
     SANDBOX_PROTECTED = ("sandbox_mode", "network_profile_id")
     current = get_user_settings(uid) or {}
-    # AUDIT 2026-08-02 (E5) — ces clés ne se modifient QUE via /api/sandbox/me.
-    # On les RETIRE du payload au lieu de ré-appliquer ``current[k]`` : ``current``
-    # est lu HORS transaction, donc sous une bascule de profil réseau concurrente
-    # (autre onglet), on réécrivait l'ANCIENNE valeur. Retirées du payload,
-    # ``merge_user_settings`` ne les touche jamais → elles gardent leur valeur DB.
+    # Ces clés ne se modifient QUE via /api/sandbox/me : RETIRÉES du payload,
+    # ``merge_user_settings`` ne les touche jamais et elles gardent leur valeur
+    # DB. Ne pas ré-appliquer ``current[k]`` : ``current`` est lu HORS
+    # transaction, une bascule de profil réseau concurrente (autre onglet)
+    # serait écrasée par la valeur précédente.
     for k in SANDBOX_PROTECTED:
         data.pop(k, None)
 
@@ -773,22 +766,22 @@ async def api_put_settings(request: Request):
         raw_new_list = data.get("mcp_servers", []) or []
 
         me = get_user_by_id(uid)
-        # Audit 2026-09-22, M1 : ``== 1`` — un modérateur (2) n'a pas le droit
-        # de modifier/supprimer un serveur MCP existant.
+        # ``== 1`` : un modérateur (2) n'a pas le droit de modifier/supprimer
+        # un serveur MCP existant.
         is_admin = bool(me and me["is_admin"] == 1)
 
         # Un non-admin ne peut pas se donner d'auth sur un serveur existant :
-        # sans ce contrôle, le durcissement percerait la règle « modification
-        # réservée aux administrateurs » (le secret n'est plus dans le diff,
-        # puisqu'il ne transite plus dans les deux sens).
+        # le secret ne transite jamais vers le navigateur, il n'apparaît donc
+        # pas dans le diff plus bas — sans ce contrôle, la règle « modification
+        # réservée aux administrateurs » ne couvrirait pas les identifiants.
         if not is_admin:
             _old_ids = {str(s.get("id")) for s in old_list
                         if isinstance(s, dict) and s.get("id")}
             def _posts_a_value(_s: dict) -> bool:
                 """Le payload porte-t-il un secret NEUF ? ``auth_secret``, mais
                 aussi une valeur d'en-tête ou de variable : ce sont trois
-                créneaux du même ordre, et n'en garder qu'un laissait passer
-                une modification d'identifiants par la porte à côté."""
+                créneaux du même ordre, et n'en contrôler qu'un laisserait
+                passer une modification d'identifiants par la porte à côté."""
                 if str(_s.get("auth_secret") or ""):
                     return True
                 for _k in ("headers", "env"):
@@ -835,9 +828,9 @@ async def api_put_settings(request: Request):
             # Sans les exclure, la reprise au vol déclencherait un 403.
             # ``headers_enc``/``env_enc``/``extra_scheme`` : posés par la fusion
             # côté serveur, jamais par le client — même raisonnement que
-            # ``auth_enc``. ``headers`` : clé LEGACY (dict en clair de l'ancien
-            # passe-plat) que la fusion migre vers le créneau chiffré et RETIRE
-            # de l'entrée ; sans l'exclure, la première sauvegarde qui suit la
+            # ``auth_enc``. ``headers`` : clé LEGACY (dict d'en-têtes en clair)
+            # que la fusion migre vers le créneau chiffré et RETIRE de
+            # l'entrée ; sans l'exclure, la première sauvegarde qui suit la
             # migration déclencherait un 403 chez tout non-admin.
             mutable_keys = {"visible", "auth_enc", "key_scheme",
                             "has_auth", "auth_secret",
@@ -856,15 +849,13 @@ async def api_put_settings(request: Request):
         old_mcp = json.dumps(old_list, sort_keys=True)
         new_mcp = json.dumps(new_list, sort_keys=True)
         if old_mcp != new_mcp:
-            # AUDIT 2026-08-23 — invalidation CIBLÉE. Un ``reset()`` fermait
-            # TOUTES les entrées du pool, y compris celles des MCP personnels
-            # des AUTRES utilisateurs du worker : sauvegarder ses propres
-            # réglages coupait la connexion MCP de son voisin en pleine
-            # génération. Seuls les serveurs dont la définition a changé
-            # doivent être invalidés — les autres n'ont aucune raison d'être
-            # rouverts. (L'entrée des outils locaux, elle, est désormais
-            # protégée dans ``reset`` lui-même : elle ne dépend d'aucune
-            # configuration utilisateur.)
+            # Invalidation CIBLÉE : seuls les serveurs dont la définition a
+            # changé sont invalidés. Ne pas ``reset()`` tout le pool : il
+            # fermerait aussi les MCP personnels des AUTRES utilisateurs du
+            # worker, et sauvegarder ses propres réglages couperait la
+            # connexion de son voisin en pleine génération. (L'entrée des
+            # outils locaux est protégée dans ``reset`` lui-même : elle ne
+            # dépend d'aucune configuration utilisateur.)
             try:
                 from shared_infra.mcp.servers import personal_to_config
                 _old_by_id = {str(s.get("id")): s for s in old_list
@@ -906,11 +897,10 @@ async def api_put_settings(request: Request):
     # Persistance NON destructive : on FUSIONNE les clés reçues dans les réglages
     # existants au lieu de tout remplacer. Un PUT partiel (ex. le toggle mémoire
     # enregistré seul dès qu'on le bascule) ne doit JAMAIS effacer les autres
-    # réglages. AUDIT 2026-08-02 (E5) — fusion ATOMIQUE : ``merge_user_settings``
-    # relit sous ``BEGIN IMMEDIATE`` et applique ``data`` sur l'état FRAIS (et non
-    # sur ``current`` lu plus haut), éliminant la course lecture-modif-écriture.
-    # AUDIT 2026-09-01 (passe 5, B5) — BEGIN IMMEDIATE = attente bornée par
-    # busy_timeout (10 s) : hors boucle, sinon un écrivain long en vol gèle
-    # tout le worker sur un simple toggle.
+    # réglages. Fusion ATOMIQUE : ``merge_user_settings`` relit sous
+    # ``BEGIN IMMEDIATE`` et applique ``data`` sur l'état FRAIS (et non sur
+    # ``current`` lu plus haut) — pas de course lecture-modif-écriture.
+    # BEGIN IMMEDIATE = attente bornée par busy_timeout (10 s) : hors boucle,
+    # sinon un écrivain long en vol gèle tout le worker sur un simple toggle.
     await asyncio.to_thread(merge_user_settings, uid, lambda s: s.update(data))
     return {"ok": True}

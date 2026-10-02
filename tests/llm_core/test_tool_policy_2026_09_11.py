@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from llm_core import _mcp_categories as C
+from llm_core.engine import tool_dispatch as _tool_dispatch
 
 
 class _T:
@@ -68,12 +69,11 @@ def test_les_outils_reels_portent_leur_politique():
 # ── Consommateurs : politique d'abord, repli ensuite ────────────────────────
 
 def test_timeout_depuis_la_politique_puis_repli(registry):
-    from llm_core import _chat_with_tools as cwt
     C.ingest_tools([_T("slow_x", {"timeout_s": 42}), _T("execute_shell", {"timeout_s": 900})])
-    assert cwt._tool_timeout_s("slow_x") == 42.0
-    assert cwt._tool_timeout_s("execute_shell") == 900.0          # protocole > repli 610
-    assert cwt._tool_timeout_s("pw_wait") == 330.0                # repli par nom (pas de politique ingérée)
-    assert cwt._tool_timeout_s("zz_inconnu") == float(cwt.LLAMA_TOOL_TIMEOUT_S)
+    assert _tool_dispatch._tool_timeout_s("slow_x") == 42.0
+    assert _tool_dispatch._tool_timeout_s("execute_shell") == 900.0          # protocole > repli 610
+    assert _tool_dispatch._tool_timeout_s("pw_wait") == 330.0                # repli par nom (pas de politique ingérée)
+    assert _tool_dispatch._tool_timeout_s("zz_inconnu") == float(_tool_dispatch.LLAMA_TOOL_TIMEOUT_S)
 
 
 def test_serialisation_depuis_la_politique_puis_prefixes(registry):
@@ -130,15 +130,15 @@ def test_sous_agent_retire_task_et_les_outils_deny_for(registry):
 # ── Injection du méta : un seul helper pour les deux canaux ─────────────────
 
 def test_build_call_meta_unique():
-    from llm_core._chat_with_tools import _build_call_meta
+    from llm_core.engine.tool_dispatch import _build_call_meta
     assert _build_call_meta(is_local=False, username="u", chat_id="c", live_shell=True,
                             call_id="1", run_log_tok="r") is None
     m = _build_call_meta(is_local=True, username="u", chat_id="c", live_shell=True,
                          call_id="1", run_log_tok="r")
     assert m == {"username": "u", "chat_id": "c", "live_shell": "1", "call_id": "1", "log_token": "r:1"}
-    src = open("llm_core/_chat_with_tools.py", encoding="utf-8").read()
-    assert src.count("_build_call_meta(") == 3                    # définition + natif + legacy
-    assert 'call_meta = {"username": username}' not in src
+    from tests._sources import compter_appels, source_boucle
+    assert compter_appels("_build_call_meta") == 2                # natif + legacy
+    assert 'call_meta = {"username": username}' not in source_boucle()
 
 
 # ── Fragments de prompt déclarés par le manifeste ───────────────────────────

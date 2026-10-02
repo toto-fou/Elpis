@@ -152,13 +152,10 @@ def test_gating_par_mots_cles_mecanique():
 def test_gated_out_court_circuite_sans_keywords_text():
     """Contrat explicite : sans ``keywords_text``, aucune catégorie n'est
     masquée — même une catégorie listée dans ``gated``."""
-    import inspect
+    from tests._sources import source_fonction
 
-    import llm_core._chat_with_tools as cwt
-
-    src = inspect.getsource(cwt._collect_mcp_tools)
-    assert "keywords_text: str = \"\"" in inspect.getsource(cwt._collect_mcp_tools) \
-        or "keywords_text" in src
+    src = source_fonction("_collect_mcp_tools")
+    assert "keywords_text" in src
     # Le garde qui rend le gating inerte doit rester AVANT category_gated_out.
     i_guard = src.index("if not keywords_text:")
     i_call = src.index("category_gated_out")
@@ -168,23 +165,25 @@ def test_gated_out_court_circuite_sans_keywords_text():
 def test_aucun_appelant_ne_passe_keywords_text():
     """Si un jour quelqu'un câble le gating, ce test tombe — et il faudra
     retirer l'avertissement de boot + le _WARNING_NOT_WIRED du JSON."""
+    import ast
     import pathlib
-    import re
     root = pathlib.Path(__file__).resolve().parents[2]
-    callers = []
+    appels_collecte, cablages = 0, []
     for p in (root / "llm_core").rglob("*.py"):
         if "__pycache__" in str(p):
             continue
-        for m in re.finditer(r"keywords_text\s*=", p.read_text(encoding="utf-8")):
-            line = p.read_text(encoding="utf-8")[:m.start()].count("\n") + 1
-            callers.append(f"{p.name}:{line}")
-    # Seules les DÉFINITIONS (valeur par défaut) sont attendues, pas un appel.
-    assert callers == [] or all("=" in c or True for c in callers)
-    src = (root / "llm_core" / "_chat_with_tools.py").read_text(encoding="utf-8")
-    call = src[src.index("await _collect_mcp_tools("):]
-    call = call[:call.index(")\n")]
-    assert "keywords_text" not in call, \
-        "le gating vient d'être câblé : mettre à jour context_config.json"
+        for n in ast.walk(ast.parse(p.read_text(encoding="utf-8"))):
+            if not isinstance(n, ast.Call):
+                continue
+            nom = getattr(n.func, "id", None) or getattr(n.func, "attr", None)
+            appels_collecte += nom == "_collect_mcp_tools"
+            # Seules les DÉFINITIONS portent ``keywords_text`` (valeur par
+            # défaut) : un argument nommé à l'appel, c'est le gating câblé.
+            if any(k.arg == "keywords_text" for k in n.keywords):
+                cablages.append(f"{p.relative_to(root)}:{n.lineno}")
+    assert appels_collecte >= 1, "plus aucun appel de la collecte : test à revoir"
+    assert cablages == [], \
+        f"le gating vient d'être câblé ({cablages}) : mettre à jour context_config.json"
 
 
 def test_avertissement_au_boot_quand_gated_est_non_vide(caplog):

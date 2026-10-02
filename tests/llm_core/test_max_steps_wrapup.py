@@ -14,6 +14,8 @@ import pytest
 
 import llm_core._chat_with_tools as _cwt
 import llm_core._target as _tgt
+import llm_core.engine.run_exit as _run_exit
+from llm_core import _model_info
 
 
 async def _anoop(*_a, **_k):
@@ -30,12 +32,13 @@ async def _actx(*_a, **_k):
 
 class _FakeTarget:
     is_local_llamacpp = True
+    is_llamacpp = True
 
 
 def _patch_env(monkeypatch):
     monkeypatch.setattr(_cwt, "verify_llm_availability", _anoop)
     monkeypatch.setattr(_cwt, "_model_supports_vision", _avision)
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
     monkeypatch.setattr(_tgt, "current_target", lambda: _FakeTarget())
 
 
@@ -48,7 +51,7 @@ async def _run(monkeypatch, *, wrap_fails=False):
 
     async def _fake_stream(messages, tools_payload, **kw):
         _last = messages[-1].get("content") if messages else ""
-        _consignes = set(_cwt._WRAPUP_BY_KIND.values()) | {_cwt._MAX_STEPS_WRAPUP}
+        _consignes = set(_run_exit._WRAPUP_BY_KIND.values()) | {_run_exit._MAX_STEPS_WRAPUP}
         if not (isinstance(_last, str) and _last in _consignes):
             calls["with_tools"] += 1
             return {

@@ -77,9 +77,13 @@ def test_absent_des_deux_cotes_la_racine_fait_foi(resolve):
 
 # ── L'emplacement réel du dépôt ─────────────────────────────────────────────
 
-def test_le_fichier_de_ce_depot_est_bien_a_la_racine():
-    from shared_infra.config import CONFIG_JSON_PATH, PROJECT_ROOT
-    assert CONFIG_JSON_PATH == (PROJECT_ROOT / "config.json").resolve()
+def test_le_fichier_de_ce_depot_est_bien_a_la_racine(monkeypatch):
+    """Sans ``APP_CONFIG_PATH``, ce dépôt désigne sa racine. La suite pose la
+    variable vers un fichier temporaire (``tests/conftest.py``) : on la retire
+    le temps de la résolution."""
+    from shared_infra import config
+    monkeypatch.delenv("APP_CONFIG_PATH", raising=False)
+    assert config._resolve_config_json_path() == (config.PROJECT_ROOT / "config.json").resolve()
 
 
 def test_config_json_et_ses_backups_restent_hors_du_depot():

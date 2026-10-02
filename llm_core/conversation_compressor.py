@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """
-backend/services/conversation_compressor.py
-───────────────────────────────────────────
+llm_core/conversation_compressor.py
+───────────────────────────────────
 
 Compression conversationnelle professionnelle pour longues sessions
 agentic. Remplace les vieux tours d'une conversation par un résumé
@@ -59,8 +59,8 @@ logger = logging.getLogger("elpis.compressor")
 # Client HTTP dédié pour l'endpoint de compression externe
 # ─────────────────────────────────────────────────────────────────────────────
 #
-# Volontairement SÉPARÉ du client principal (_get_llm_client dans
-# backend/services/_legacy.py). Raisons :
+# Volontairement SÉPARÉ du client principal
+# (``llm_core._client._get_llm_client``). Raisons :
 #
 #   1. Isolation du pool : le client principal est configuré pour
 #      LLAMA_MAX_CONCURRENCY slots du serveur chat. Si on le réutilise pour
@@ -75,19 +75,18 @@ logger = logging.getLogger("elpis.compressor")
 #      on peut fermer ce client sans perturber le chat.
 
 _endpoint_client: Optional[httpx.AsyncClient] = None
-# BUG FIX B6 — lock pour la création du client httpx. Avant, le check
-# `_endpoint_client is None or .is_closed` puis création n'étaient pas
-# atomiques : deux compressions concurrentes pouvaient toutes deux passer
-# le check et créer chacune un AsyncClient → fuite (le 2e remplace le 1er
-# dans la global mais l'ancien reste référencé par la coroutine qui l'a
+# Lock pour la création du client httpx : le check
+# `_endpoint_client is None or .is_closed` puis la création doivent être
+# atomiques, sinon deux compressions concurrentes passent toutes deux le
+# check et créent chacune un AsyncClient → fuite (le 2e remplace le 1er
+# dans la global mais le 1er reste référencé par la coroutine qui l'a
 # créé). asyncio.Lock est lazy : pas créé tant que jamais nécessaire.
 #
-# BUG FIX (mineur) — la création paresseuse de ``_endpoint_client_lock``
-# elle-même n'était pas thread-safe (si le module est importé ou utilisé
-# depuis plusieurs loops/threads, par ex. en tests ou via ``asyncio.run``
-# imbriqués). Le ``if X is None: X = Lock()`` peut s'entrelacer entre
-# threads → deux locks distincts, dont un orphelin. On gate la création
-# avec un ``threading.Lock`` (rapide, pas de await à l'intérieur).
+# La création paresseuse de ``_endpoint_client_lock`` elle-même est gardée
+# par un ``threading.Lock`` (rapide, pas de await à l'intérieur) : si le
+# module est importé ou utilisé depuis plusieurs loops/threads (tests,
+# ``asyncio.run`` imbriqués), un ``if X is None: X = Lock()`` nu peut
+# s'entrelacer entre threads → deux locks distincts, dont un orphelin.
 import asyncio as _asyncio
 import threading as _threading
 
@@ -109,15 +108,13 @@ async def _get_endpoint_client() -> httpx.AsyncClient:
     """Client HTTP paresseux, partagé entre toutes les compressions vers
     l'endpoint dédié. Créé au 1er appel, gardé en keep-alive.
 
-    BUG FIX (config muette) : avant cette fonction prenait un
-    ``timeout_sec`` qui était utilisé pour ``httpx.AsyncClient(timeout=...)``.
-    Comme le client est mis en cache après la 1re création, le
-    ``timeout_sec`` des appels suivants était silencieusement ignoré ;
-    une reconfiguration admin n'avait effet qu'après redémarrage.
-    Maintenant : pas de timeout client (None = pas de cap au niveau
-    httpx), le timeout est appliqué *par requête* via le paramètre
-    ``timeout=`` de ``client.post(...)`` dans l'appelant. Cela fait
-    que chaque appel utilise le timeout courant de la config.
+    Pas de timeout client (None = pas de cap au niveau httpx) : le timeout
+    est appliqué *par requête* via le paramètre ``timeout=`` de
+    ``client.post(...)`` dans l'appelant, pour que chaque appel utilise le
+    timeout courant de la config. Ne pas le fixer à la création : le client
+    étant mis en cache après la 1re création, le timeout des appels suivants
+    serait ignoré en silence, et une reconfiguration admin n'aurait d'effet
+    qu'après redémarrage.
     """
     global _endpoint_client
     # Fast path sans lock : si déjà initialisé et open, retour direct.
@@ -203,18 +200,18 @@ async def _call_external_endpoint(
 # Estimation tokens — seuil proactif basé sur l'occupation du contexte
 # ─────────────────────────────────────────────────────────────────────────────
 #
-# Heuristique UNIFIÉE (llm_core._token_estimate, ratio 3.3 chars/token
-# conservateur) : le compresseur, _chat_with_tools et context_config
-# partagent désormais le même fallback — avant, un chars/3 local faisait
-# déclencher la porte de compression ~10 % plus tôt que le budget de
-# contexte sur le même texte. Compte aussi le forfait image (absent de
-# l'ancienne version : un chat multimodal sous-estimait son occupation).
+# Heuristique UNIFIÉE (``llm_core.context.tokens`` : ratio chars/token
+# MESURÉ, amorce froide 3.3 conservatrice) : le compresseur, la boucle et
+# context_config partagent le même fallback — un ratio local différent
+# ferait déclencher la porte de compression à un autre niveau que le budget
+# de contexte sur le même texte. Compte aussi le forfait image (sans lui,
+# un chat multimodal sous-estime son occupation).
 
 def _estimate_tokens(messages: List[Dict[str, Any]],
                      model_id: Optional[str] = None) -> int:
     """Approximation rapide en tokens (content, tool_calls, forfait image)
-    via le ratio chars/token MESURÉ (harnais v4 — plus de 3.3 statique hors
-    amorce froide).
+    via le ratio chars/token MESURÉ (le 3.3 statique ne sert que d'amorce
+    froide).
 
     NOTE: c'est un *fallback*. Pour les décisions critiques, préférer
     ``_count_tokens_async_ex`` (/tokenize exact).
@@ -270,9 +267,9 @@ async def _count_tokens_async_ex(
 # les LLM moins disciplinés. Les règles sont numérotées pour être citées
 # dans les messages d'erreur de validation si le format est cassé.
 #
-# Le contenu est maintenant chargé depuis system_prompts/COMPRESSOR_SYSTEM.md
-# (centralisé dans backend.config). Fallback inline minimal si le fichier
-# est absent/vide : le compresseur ne peut pas fonctionner sans *aucune*
+# Le contenu est chargé depuis system_prompts/COMPRESSOR_SYSTEM.md
+# (``shared_infra.config.SYSTEM_PROMPT_COMPRESSOR``). Fallback inline minimal
+# si le fichier est absent/vide : le compresseur ne peut pas fonctionner sans *aucune*
 # instruction, donc on dégrade vers un prompt rudimentaire plutôt que de
 # désactiver la compression. Le fallback produit un résumé moins bien
 # structuré mais fonctionnel — et log un warning au chargement.
@@ -340,7 +337,7 @@ def _format_summary_as_system_message(
     """Emballe le résumé dans un message system avec marqueurs de détection
     + métadonnées lisibles par un humain qui relirait la conversation.
 
-    ``ledger_block`` (v3) : bloc ``[ARTIFACTS v=1]`` déterministe épinglé
+    ``ledger_block`` : bloc ``[ARTIFACTS v=1]`` déterministe épinglé
     APRÈS les marqueurs — hors du span renvoyé au LLM par
     ``_extract_previous_summary`` (jamais re-résumé), mais DANS la zone
     mangée par ``_strip_summary_span`` (retiré proprement avec l'ancien
@@ -351,7 +348,7 @@ def _format_summary_as_system_message(
         f"follow are the most recent, up-to-date ones.)"
     )
     # Note de ré-injection éditable à froid (compression.reinjection_note,
-    # placeholder {n}). Vide => note FR historique ci-dessus → identique tant
+    # placeholder {n}). Vide => note FR par défaut ci-dessus → identique tant
     # que le JSON ne la surcharge pas. Permet d'aligner la langue sur le prompt
     # compresseur (EN) pour les petits modèles multilingues.
     _note = _note_default
@@ -377,15 +374,15 @@ def _format_summary_as_system_message(
 # État PERSISTANT de compression — round + tours couverts + résumé
 # ─────────────────────────────────────────────────────────────────────────────
 #
-# Historiquement le résumé n'était JAMAIS persisté : la route ne sauvegarde
-# que les messages client + la réponse, et le front ne renvoie jamais de
-# message system. Conséquences : la re-compression était re-payée à CHAQUE
-# tour au-delà du seuil (un appel LLM de résumé complet par tour !) et un
-# cap « N compressions max par chat » était impossible à tenir.
+# La route ne sauvegarde que les messages client + la réponse, et le front
+# ne renvoie jamais de message system : sans état persisté, le résumé serait
+# perdu d'un tour à l'autre, la re-compression re-payée à CHAQUE tour au-delà
+# du seuil (un appel LLM de résumé complet par tour !) et un cap « N
+# compressions max par chat » impossible à tenir.
 #
-# Le correctif : un message system d'ÉTAT, préfixé d'une ligne machine
+# D'où un message system d'ÉTAT, préfixé d'une ligne machine
 # ``[COMPRESSION_META v=1 round=N covered_turns=M]`` au-dessus des marqueurs
-# ``[COMPRESSED_SUMMARY_V1]`` existants (inchangés → compat totale avec
+# ``[COMPRESSED_SUMMARY_V1]`` (lus tels quels par
 # _extract_previous_summary). La route le persiste EN TÊTE de messages_json
 # et le ré-applique au chargement suivant :
 #   - round          : nombre de compressions déjà appliquées (cap ×N)
@@ -402,8 +399,8 @@ _COMPRESSION_META_RE = re.compile(
 
 # Blocs de raisonnement qu'un fine-tune « reasoning » peut émettre dans le
 # canal content même thinking désactivé (<think>…</think> / <thinking>…</thinking>).
-# Retirés avant validation du résumé (sinon un raisonnement seul passait pour
-# le résumé, ou masquait l'absence de balises structurées).
+# Retirés avant validation du résumé (sinon un raisonnement seul passerait
+# pour le résumé, ou masquerait l'absence de balises structurées).
 _RE_THINK_BLOCK = re.compile(r"<think(?:ing)?>.*?</think(?:ing)?>", re.DOTALL | re.IGNORECASE)
 # Ouvrant de raisonnement ORPHELIN (sans fermeture) : cas d'une réponse coupée
 # par le cap max_tokens EN PLEIN <think> — le strip close-only ne le voit pas.
@@ -431,7 +428,7 @@ def extract_compression_state(messages: List[Dict[str, Any]]) -> Optional[Dict[s
         except ValueError:
             continue
         summary = content[start:end].strip()
-        # v3 — artifact ledger : cumulé de round en round via l'état (le
+        # Artifact ledger : cumulé de round en round via l'état (le
         # porteur le transporte hors marqueurs ; on le re-extrait ici pour
         # que build_state_system_message puisse le ré-épingler).
         _ledger_lines = parse_ledger_lines(content)
@@ -458,7 +455,7 @@ def build_state_system_message(
 ) -> Dict[str, Any]:
     """Message system d'état : ligne META (machine) + résumé marqué V1
     (via ``_format_summary_as_system_message``, note humaine incluse) +
-    artifact ledger éventuel (v3, hors marqueurs)."""
+    artifact ledger éventuel (hors marqueurs)."""
     base = _format_summary_as_system_message(
         summary_xml,
         turns_compressed if turns_compressed is not None else covered_turns,
@@ -469,10 +466,11 @@ def build_state_system_message(
     return base
 
 
-# Séparateur du fold opérationnel (_chat_with_tools._fold_operational_block)
-# et de l'assemblage du socle (assemble_system_messages) : sert de borne de
-# bloc quand un contenu system FUSIONNÉ porte socle + résumé dans une même
-# chaîne (chat rechargé passé par le fold, contenu hérité).
+# Séparateur du fold opérationnel
+# (``llm_core.context.assembly.fold_operational_block``) et de l'assemblage
+# du socle (``assemble_system_messages``) : sert de borne de bloc quand un
+# contenu system FUSIONNÉ porte socle + résumé dans une même chaîne (chat
+# rechargé passé par le fold, contenu hérité).
 _FOLD_SEP = "\n\n---\n\n"
 
 
@@ -481,11 +479,12 @@ def is_summary_carrier(msg: Any) -> bool:
     ``[COMPRESSED_SUMMARY_V1]`` — l'état de compression injecté par
     ``apply_persisted_state`` ou reconstruit par ``compress()``.
 
-    Public : ``_fold_operational_block`` (boucle outils) s'en sert pour ne
-    JAMAIS fusionner le porteur dans le message système de tête. Un porteur
-    avalé par la tête faisait perdre le socle ENTIER à la recompression
-    suivante : le filtre de ``compress()`` jetait le message fusionné complet
-    (identité + mémoire + skills + runtime_context + fragments compris).
+    Public : ``llm_core.context.assembly.fold_operational_block`` s'en sert
+    pour ne JAMAIS fusionner le porteur dans le message système de tête : le
+    porteur reste un message autonome, que la recompression retire entier.
+    Fusionné dans la tête, seule la découpe par marqueurs
+    (``_strip_summary_span``) sauverait le socle (identité + mémoire +
+    skills + runtime_context + fragments) au filtre de ``compress()``.
     """
     return (
         isinstance(msg, dict)
@@ -514,7 +513,7 @@ def _strip_summary_span(content: str) -> str:
         START sans END (contenu corrompu) → coupe jusqu'à la fin.
 
     Retourne ``""`` si le message n'était que le bloc — l'appelant droppe
-    alors le message entier (comportement historique du porteur autonome).
+    alors le message entier (cas du porteur autonome).
     """
     out = content
     while _SUMMARY_MARKER_START in out:
@@ -550,7 +549,7 @@ def _strip_summary_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, An
     """Retire tout bloc résumé des messages system (idempotence : apply sur
     une liste déjà porteuse d'état ne duplique rien).
 
-    Porteur AUTONOME (cas nominal) → message retiré entier, comme avant.
+    Porteur AUTONOME (cas nominal) → message retiré entier.
     Contenu FUSIONNÉ (défense : socle + résumé dans le même message, hérité
     d'un fold/coalesce) → seul le span résumé est retiré, le socle survit.
     Remplacement d'objet, jamais de mutation (dicts partagés avec l'historique).
@@ -566,7 +565,7 @@ def _strip_summary_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, An
     return out
 
 
-# Compaction PARTIELLE (2026-07-28) : cible d'occupation APRÈS compression,
+# Compaction PARTIELLE : cible d'occupation APRÈS compression,
 # en fraction de la fenêtre utilisable (``usable``). 0.6 → on ne résume que
 # les tours les plus anciens nécessaires pour redescendre à ~60 % du seuil ;
 # le reste — le plus récent, donc le plus important — reste verbatim.
@@ -585,11 +584,11 @@ def _is_ephemeral(m: Any) -> bool:
     budget, diagnostic de parse, relance compacte, nudge anti-boucle).
 
     Ce sont des ``role:user`` visibles du modèle mais JAMAIS persistés. Les
-    compter comme des tours (audit 2026-08-01, P1-6) sur-comptait
-    ``covered_turns`` à la compaction : au tour suivant, l'historique
-    re-expansé ne contient plus ces messages, et ``_drop_leading_turns``
-    jetait donc autant de VRAIS tours en trop — perte silencieuse d'un
-    historique que le résumé ne couvrait pas.
+    compter comme des tours sur-compterait ``covered_turns`` à la
+    compaction : au tour suivant, l'historique re-expansé ne contient plus
+    ces messages, et ``_drop_leading_turns`` jetterait donc autant de VRAIS
+    tours en trop — perte silencieuse d'un historique que le résumé ne
+    couvre pas.
 
     Import local et tolérant : ce module doit rester importable seul.
     """
@@ -675,8 +674,8 @@ def apply_persisted_state(
          ``covered_turns`` premiers tours ;
       3. sinon (ancien message édité/supprimé, retry…) DROP PARTIEL : on
          retire ``min(covered, total − keep)`` tours de tête — tous ≤
-         covered donc subsumés par le résumé. L'ancien fallback tout-ou-rien
-         renvoyait résumé + tours couverts EN DOUBLE à chaque requête. Cas
+         covered donc subsumés par le résumé. Un repli tout-ou-rien
+         renverrait résumé + tours couverts EN DOUBLE à chaque requête. Cas
          dominant (retry / édition de FIN, tête intacte) : sûr. Résiduel :
          une suppression de TÊTE peut faire glisser un tour non résumé dans
          la fenêtre droppée (rare × rare, perte bornée, assumée) ;
@@ -823,20 +822,16 @@ def _split_by_turn_index(
     for i, m in enumerate(non_system):
         role = m.get("role")
         if role == "user":
-            # AUDIT 2026-08-23 — les nudges du harnais sont des ``role:user``
-            # ÉPHÉMÈRES : jamais persistés, donc absents de l'historique
-            # ré-expansé au tour suivant. Les trois autres fonctions de tour de
-            # ce module les excluent déjà (``_count_turns``,
-            # ``_leading_turn_groups``, ``_drop_leading_turns``) ; celle-ci,
-            # dont la docstring affirme pourtant « même logique que
-            # _count_turns », les comptait. Or la boucle appende un
-            # ``<harness_status>`` par palier d'itération : la séquence réelle
-            # devient ``assistant(tool_calls) | tool | user(éphémère)``, soit
-            # DEUX ouvertures de tour par itération au sens du découpage contre
-            # UNE au sens du comptage. ``recent_start_turn_idx = total_turns −
-            # keep_recent_turns`` découpait donc sur un compte gonflé et la
-            # zone protégée fondait de moitié : mesuré, 4 cycles d'outil
-            # préservés au lieu des 9 demandés par la configuration.
+            # Les nudges du harnais sont des ``role:user`` ÉPHÉMÈRES : jamais
+            # persistés, donc absents de l'historique ré-expansé au tour suivant.
+            # Comme ``_count_turns``, ``_leading_turn_groups`` et
+            # ``_drop_leading_turns``, ce découpage les exclut. La boucle appende un
+            # ``<harness_status>`` par palier d'itération : la séquence réelle devient
+            # ``assistant(tool_calls) | tool | user(éphémère)``, soit DEUX ouvertures
+            # de tour par itération si on les comptait, contre UNE au sens du
+            # comptage. ``recent_start_turn_idx = total_turns − keep_recent_turns``
+            # découperait alors sur un compte gonflé et la zone protégée fondrait de
+            # moitié (mesuré : 4 cycles d'outil préservés au lieu des 9 demandés).
             if not _is_ephemeral(m):
                 turn_start_indices.append(i)
             prev_was_tool = False
@@ -885,15 +880,14 @@ def _split_by_turn_index(
 #
 #   - il ne contient plus AUCUN ``user`` — les gabarits à alternance stricte
 #     (famille Gemma et dérivés) lèvent ``raise_exception`` au rendu, ce que
-#     llama-server renvoie en 500 ; le run mourait en pleine mission (constaté
-#     en production le 2026-08-22, chat de 54 messages compacté à 29) ;
+#     llama-server renvoie en 500 ; le run meurt en pleine mission ;
 #   - et le modèle a purement et simplement OUBLIÉ ce qu'on lui demandait :
 #     il ne lui reste que le résumé de ce qu'il a déjà fait.
 #
-# L'étage « budget dur » protège déjà cette ancre (``pruning.task_anchor_index``,
-# audit 2026-08-01 P0-2) ; la compaction, elle, ne la protégeait pas. On
-# ré-épingle donc l'énoncé en tête de la fenêtre conservée quand il vient
-# d'être résumé.
+# L'étage « budget dur » protège déjà cette ancre
+# (``pruning.task_anchor_index``) ; la compaction la protège aussi : elle
+# ré-épingle l'énoncé en tête de la fenêtre conservée quand il vient d'être
+# résumé.
 
 _ANCHOR_PIN_MAX_CHARS = 6000
 _ANCHOR_FALLBACK_TEXT = (
@@ -943,7 +937,7 @@ def _pin_task_anchor(kept: List[Dict[str, Any]],
     ``user`` (cas courant : rien ne change, aucun coût, aucun octet de prompt
     déplacé).
 
-    Audit 2026-09-24, n° 16 — ``kept`` peut porter l'ancre plus loin tout en
+    ``kept`` peut porter l'ancre plus loin tout en
     COMMENÇANT par un assistant : un tour s'ouvre aussi sur un assistant
     (``_count_turns``), donc la coupe de la compaction partielle
     (``_n_take`` impair sur un échange user↔assistant) ou celle du bridge
@@ -992,10 +986,10 @@ def _pin_task_anchor(kept: List[Dict[str, Any]],
 # le LLM va résumer. Les tool calls et tool results sont aplatis en une
 # forme compacte qui fait ressortir l'essentiel.
 
-# Sérialisation de l'entrée du résumeur + artifact ledger : extraits vers
-# context.compression.serializer (v3 — budget dérivé du n_ctx, fin des coupes
-# 2000/200 destructrices, contenu des outils mutants remplacé par le ledger).
-# Alias conservé pour les importeurs historiques.
+# Sérialisation de l'entrée du résumeur + artifact ledger : dans
+# ``llm_core.context.compression.serializer`` (budget dérivé du n_ctx, pas
+# de coupe fixe destructrice, contenu des outils mutants remplacé par le
+# ledger). Alias gardés pour les importeurs existants.
 from llm_core.context.compression.serializer import (
     compute_serializer_budget,
     extract_artifact_ledger,
@@ -1025,12 +1019,12 @@ class ConversationCompressor:
     ) -> None:
         """
         ``llama_chat_fn`` : async callable(messages, model_override=None) → (text, meta)
-        Doit avoir la même signature que backend.services.llama_chat.
+        Doit avoir la même signature que ``llm_core._chat_classic.llama_chat``.
 
-        Harnais v4 (M3) : plus de règles en TOURS (trigger_after/every) — le
-        déclenchement appartient à la règle unique d'overflow du caller
-        (``occupation réelle ≥ usable``). Il ne reste que la géométrie des
-        zones conservées (recent/bridge) et la garde de matière minimale.
+        Aucune règle en TOURS : le déclenchement appartient à la règle unique
+        d'overflow du caller (``occupation réelle ≥ usable``). Il ne reste que
+        la géométrie des zones conservées (recent/bridge) et la garde de
+        matière minimale.
         """
         self.llama_chat = llama_chat_fn
         self.keep_recent_turns = keep_recent_turns
@@ -1061,7 +1055,7 @@ class ConversationCompressor:
         count_model:          Optional[str] = None,
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """Compresse la conversation (le DÉCLENCHEMENT appartient au caller —
-        règle unique d'overflow du harnais v4 dans maybe_compress/la boucle).
+        règle unique d'overflow dans maybe_compress/la boucle).
 
         Trois chemins d'appel LLM, dans l'ordre de préférence :
 
@@ -1079,7 +1073,7 @@ class ConversationCompressor:
         génération − buffer) par défaut, ou le seuil plus bas choisi par le
         compte quand il y en a un — l'appelant tranche, cf.
         ``maybe_compress_conversation(trigger_tokens=…)``. ``force=True`` (déclencheur
-        MANUEL) = prise complète historique ; les gardes ``nothing_to_
+        MANUEL) = prise complète (tout part au résumé) ; les gardes ``nothing_to_
         compress`` et qualité (no-gain, format) restent actives.
 
         ``precomputed_tokens_before`` = ``(tokens, estimated)`` déjà compté
@@ -1106,11 +1100,11 @@ class ConversationCompressor:
         """
         # Compte les tokens UNE SEULE FOIS via /tokenize si possible — pour
         # les stats, la garde no-gain et la sélection partielle.
-        # ``count_model`` (passe robustesse 2026-09-24) : le modèle avec
-        # lequel l'APPELANT a compté ``precomputed_tokens_before``. Sans lui,
-        # « avant » était compté avec le ratio du modèle de chat et « après »
-        # avec celui du modèle de compression externe — la garde no-gain et
-        # la sélection partielle mélangeaient deux unités.
+        # ``count_model`` : le modèle avec lequel l'APPELANT a compté
+        # ``precomputed_tokens_before``. Sans lui, « avant » serait compté avec
+        # le ratio du modèle de chat et « après » avec celui du modèle de
+        # compression externe — la garde no-gain et la sélection partielle
+        # mélangeraient deux unités.
         target_model_for_count = (count_model
                                   or model_override
                                   or endpoint_model
@@ -1131,7 +1125,7 @@ class ConversationCompressor:
         if not to_compress:
             return messages, {"compressed": False, "reason": "nothing_to_compress"}
 
-        # ── v4 : compaction PARTIELLE (automatique seulement) ─────────────
+        # ── Compaction PARTIELLE (automatique seulement) ──────────────────
         # « Ne prend pas tout, garde le plus important » : on ne résume que
         # les tours les plus ANCIENS nécessaires pour redescendre à
         # ``usable × _PARTIAL_TARGET_RATIO`` ; les tours compressibles plus
@@ -1139,12 +1133,12 @@ class ConversationCompressor:
         # tokens EXACTS (/tokenize LRU par message — zéro décision en chars).
         # Les tours pris forment un PRÉFIXE → ``covered_turns`` et le drop de
         # tête d'``apply_persisted_state`` restent exacts. Manuel (/compact)
-        # ou ``usable`` inconnu : comportement historique (tout part au
+        # ou ``usable`` inconnu : prise complète (tout part au
         # résumé).
         kept_verbatim: List[Dict[str, Any]] = []
         # Cible d'occupation visée et poids RÉEL de la zone qui partira au
-        # résumé — deux mesures qui n'existaient nulle part, alors que ce sont
-        # elles qui disent si la compaction a une chance d'aboutir.
+        # résumé : ce sont ces deux mesures qui disent si la compaction a une
+        # chance d'aboutir.
         _target_after = 0
         _zone_tokens = 0
         if not force and usable_tokens and usable_tokens > 0:
@@ -1172,7 +1166,7 @@ class ConversationCompressor:
                     _freed += _sz
                     _n_take += 1
                 # Prendre < 2 tours ne vaut pas un appel résumeur ; tout
-                # prendre = comportement historique (leftover vide).
+                # prendre = prise complète (leftover vide).
                 if 2 <= _n_take < len(_groups):
                     kept_verbatim = [m for g in _groups[_n_take:] for m in g]
                     to_compress = [m for g in _groups[:_n_take] for m in g]
@@ -1203,7 +1197,7 @@ class ConversationCompressor:
                     "reason":              "gain_too_small",
                     # Re-tenter à l'itération suivante donnerait la MÊME
                     # réponse pour un coût de comptage non nul : la boucle
-                    # diffère (cf. ``_compr_fail_streak``).
+                    # diffère (cf. ``LLMTurnState.compr_fail_streak``).
                     "defer_retry":         True,
                     "zone_tokens":         _zone_tokens,
                     "target_after_tokens": _target_after,
@@ -1215,9 +1209,9 @@ class ConversationCompressor:
         # Récupère un résumé précédent si existant
         prev_summary = _extract_previous_summary(messages)
 
-        # ── v3 : budget d'entrée du résumeur dérivé du n_ctx du modèle de
-        # compression (fin de la coupe FIXE 2000 chars qui détruisait les gros
-        # résultats). Endpoint distant / ctx inconnu → plancher historique.
+        # ── Budget d'entrée du résumeur dérivé du n_ctx du modèle de
+        # compression (jamais de coupe FIXE, qui détruirait les gros
+        # résultats). Endpoint distant / ctx inconnu → plancher par défaut.
         from llm_core.context.compression.serializer import (
             compute_serializer_budget_tokens,
             compute_serializer_total_budget_tokens,
@@ -1225,9 +1219,9 @@ class ConversationCompressor:
         from llm_core.context.tokens import tokens_to_chars
         _ser_budget = tokens_to_chars(
             compute_serializer_budget_tokens(len(to_compress), None))
-        # Plafond TOTAL de l'entrée (audit 2026-09-24, n° 3) : le budget par
-        # message ne bornait pas la somme. Défaut « fenêtre de 8 k » tant que
-        # celle du modèle de compression est inconnue (endpoint distant).
+        # Plafond TOTAL de l'entrée : le budget par message ne borne pas la
+        # somme. Défaut « fenêtre de 8 k » tant que celle du modèle de
+        # compression est inconnue (endpoint distant).
         _ser_total = tokens_to_chars(compute_serializer_total_budget_tokens(None))
         if not endpoint_url:
             try:
@@ -1242,10 +1236,10 @@ class ConversationCompressor:
             except Exception:
                 pass
 
-        # ── v3 : artifact ledger — les fichiers touchés par les tours
+        # ── Artifact ledger — les fichiers touchés par les tours
         # compressés sont épinglés en bloc DÉTERMINISTE (op/chemin/taille/
         # statut), cumulé avec le ledger des rounds précédents (le disque est
-        # la source de vérité ; le résumé LLM n'a plus à « retenir » du code).
+        # la source de vérité ; le résumé LLM n'a pas à « retenir » du code).
         _prev_ledger_lines: List[str] = []
         for _m in messages:
             if is_summary_carrier(_m):
@@ -1263,7 +1257,7 @@ class ConversationCompressor:
         )
         user_payload = conversation_text
         if prev_summary:
-            # M5 — update-merge du résumé ANCRÉ : l'ancien résumé est fourni
+            # Update-merge du résumé ANCRÉ : le résumé précédent est fourni
             # tel quel et le modèle le MET À JOUR (fusion des faits nouveaux,
             # entrées encore pertinentes conservées) au lieu de régénérer de
             # zéro round après round.
@@ -1296,9 +1290,9 @@ class ConversationCompressor:
                     model       = _model_for_endpoint,
                     timeout_sec = endpoint_timeout_sec,
                 )
-                # Registre d'usage : compresser COÛTE un appel LLM complet, et
-                # ce coût n'était mesuré nulle part — la compression semblait
-                # gratuite dans toutes les vues. Ce chemin ne passe pas par
+                # Registre d'usage : compresser COÛTE un appel LLM complet ;
+                # non mesurée, la compression semblerait gratuite dans toutes
+                # les vues. Ce chemin ne passe pas par
                 # ``llama_chat_stream_tokens``, il enregistre donc lui-même.
                 with usage_scope("compression"):
                     record_turn_usage(
@@ -1349,11 +1343,11 @@ class ConversationCompressor:
         # Retire le raisonnement : certains fine-tunes « reasoning » émettent des
         # blocs <think>…</think> dans le canal content MÊME thinking désactivé
         # (leur chat_template ignore enable_thinking=False). Sans ce strip, un
-        # raisonnement seul (réponse coupée par le cap) passait pour le résumé,
-        # ou le raisonnement masquait l'absence de balises → invalid_format
+        # raisonnement seul (réponse coupée par le cap) passerait pour le résumé,
+        # ou le raisonnement masquerait l'absence de balises → invalid_format
         # systématique = bouton manuel qui n'aboutit jamais.
         summary_text = _RE_THINK_BLOCK.sub("", summary_text or "").strip()
-        # F11 — <think> NON FERMÉ (raisonnement tronqué par le cap max_tokens) :
+        # <think> NON FERMÉ (raisonnement tronqué par le cap max_tokens) :
         # le strip close-only ci-dessus ne le retire pas. Sans cette coupe, un
         # raisonnement partiel (sans balise XML) serait COERCÉ dans <context>
         # plus bas et INSTALLÉ comme résumé (la garde no-gain ne teste que la
@@ -1374,19 +1368,18 @@ class ConversationCompressor:
 
         # Format attendu = balises XML (<context> etc.). Certains modèles
         # (non-anglophones, fine-tunes) rendent le résumé en headers markdown /
-        # prose structurée SANS les balises. L'ancienne validation STRICTE
-        # renvoyait alors summary_invalid_format → rollback → le bouton de
-        # compression manuelle n'aboutissait JAMAIS sur ces modèles. On
-        # ENVELOPPE désormais le contenu (déjà dense, ≥30 c., raisonnement
-        # retiré) dans <context> : il redevient parsable et réinjectable — pas
-        # de « narratif re-mergé non parsé » puisqu'il est maintenant structuré.
-        # Le garde NO-GAIN ci-dessous reste la vraie sécurité contre un résumé
-        # inutile (il annule proprement si aucun token n'est gagné).
+        # prose structurée SANS les balises. Une validation STRICTE renverrait
+        # alors summary_invalid_format → rollback → le bouton de compression
+        # manuelle n'aboutirait JAMAIS sur ces modèles. On ENVELOPPE donc le
+        # contenu (déjà dense, ≥30 c., raisonnement retiré) dans <context> : il
+        # redevient parsable et réinjectable. Le garde NO-GAIN ci-dessous reste
+        # la vraie sécurité contre un résumé inutile (il annule proprement si
+        # aucun token n'est gagné).
         summary_coerced = False
-        # M5 — format ancré : sections Markdown « ## … » attendues ; les
-        # balises XML historiques restent acceptées (états persistés des
-        # chats d'avant la bascule, re-merge sans churn). Ni l'un ni l'autre
-        # → enveloppé dans <context> (coerce), le no-gain reste la sécurité.
+        # Format ancré : sections Markdown « ## … » attendues ; les balises XML
+        # restent acceptées (états persistés de chats plus anciens, re-merge
+        # sans churn). Ni l'un ni l'autre → enveloppé dans <context> (coerce),
+        # le no-gain reste la sécurité.
         if not ("## " in summary_text or any(
                 tag in summary_text for tag in
                 ("<context>", "<facts>", "<state>", "<actions_done>", "<pitfalls>"))):
@@ -1401,10 +1394,10 @@ class ConversationCompressor:
         # [system originaux sans l'ancien résumé] + [nouveau résumé] + [bridge] + [recent]
         #
         # Ne PAS jeter un message entier parce qu'il porte le marqueur : sur un
-        # chat rechargé passé par le fold (tête fusionnée socle+résumé), c'était
-        # TOUT le socle (identité + mémoire + skills + runtime_context +
-        # fragments) qui disparaissait pour le reste du run. On retire seulement
-        # le SPAN du résumé ; le message ne tombe que s'il ne reste rien d'autre.
+        # chat rechargé passé par le fold (tête fusionnée socle+résumé), TOUT le
+        # socle (identité + mémoire + skills + runtime_context + fragments)
+        # disparaîtrait pour le reste du run. On retire seulement le SPAN du
+        # résumé ; le message ne tombe que s'il ne reste rien d'autre.
         system_without_prev_summary = []
         for m in system_msgs:
             _c = m.get("content") or ""
@@ -1461,10 +1454,10 @@ class ConversationCompressor:
             tokens_after  += int(extra_fixed_tokens)
 
         # Garde NO-GAIN : un résumé plus verbeux que ce qu'il remplace (LLM
-        # bavard, zone à compresser déjà courte) rendait la conversation PLUS
-        # GROSSE — et l'ancien ``tokens_saved = max(0, …)`` masquait le cas
-        # (0 affiché, compression quand même appliquée → perte définitive du
-        # détail contre AUCUN gain). Rollback : l'original est conservé.
+        # bavard, zone à compresser déjà courte) rendrait la conversation PLUS
+        # GROSSE, et un ``tokens_saved = max(0, …)`` masquerait le cas (0
+        # affiché, compression appliquée → perte définitive du détail contre
+        # AUCUN gain). Rollback : l'original est conservé.
         if tokens_after >= tokens_before:
             logger.warning(
                 "[compressor] compression sans gain (%d → %d tokens, path=%s) → rollback",
@@ -1481,12 +1474,12 @@ class ConversationCompressor:
             }
 
         # ── Cible ATTEINTE ou non ────────────────────────────────────────
-        # La compaction partielle vise ``seuil × ratio``. Rien ne vérifiait
-        # qu'elle y arrivait : sur une boucle agentique, le plancher
-        # structurel (socle + tours protégés + résumé) peut être 10 k au-dessus
-        # de la cible, et la compaction repartait pour un tour toutes les
-        # quelques itérations en grattant 3 k à chaque fois. On mesure l'écart
-        # et on le dit — la boucle s'en sert pour espacer les tentatives.
+        # La compaction partielle vise ``seuil × ratio``. Sur une boucle
+        # agentique, le plancher structurel (socle + tours protégés + résumé)
+        # peut être 10 k au-dessus de la cible, et la compaction repartirait
+        # pour un tour toutes les quelques itérations en grattant 3 k à chaque
+        # fois. On mesure l'écart et on le dit — la boucle s'en sert pour
+        # espacer les tentatives.
         _asked = (tokens_before - _target_after) if _target_after > 0 else 0
         _got = tokens_before - tokens_after
         _target_reached = bool(_target_after <= 0 or tokens_after <= _target_after)
@@ -1532,17 +1525,17 @@ class ConversationCompressor:
             "defer_retry":          _target_missed,
         }
 
-        # ── v3 : FTS AVANT destruction — les tool_results et tool_calls des
+        # ── FTS AVANT destruction — les tool_results et tool_calls des
         # tours qui vont être remplacés par le résumé sont indexés dans la
-        # recherche d'historique (session_search). Avant, une fois compressés
-        # ils étaient perdus du contexte ET du rappel (double perte, audit
-        # diagnostic #4). Lazy (uniquement au moment où on détruit), best-effort.
-        # AUDIT 2026-08-31 (passe 3) — en threadpool : une transaction SQLite
-        # (db_conn + INSERT + commit + triggers FTS5) PAR tool/tool_call
-        # compressé — 60-100 pour 40 tours — s'exécutait sur la boucle, au
-        # moment exact où l'utilisateur attend la reprise du flux ; sous
-        # contention WAL, busy_timeout autorise 10 s PAR insert. Même
-        # diagnostic que la télémétrie d'outils (engine/tool_exec).
+        # recherche d'historique (session_search) : sans quoi, une fois
+        # compressés, ils seraient perdus du contexte ET du rappel. Lazy
+        # (uniquement au moment où on détruit), best-effort.
+        # En threadpool : l'écriture SQLite (db_conn + INSERT + commit +
+        # triggers FTS5) de 60-100 tool/tool_call pour 40 tours ne doit pas
+        # tourner sur la boucle, au moment exact où l'utilisateur attend la
+        # reprise du flux ; sous contention WAL, busy_timeout peut y attendre
+        # 10 s. Même raison que la télémétrie d'outils
+        # (``llm_core.engine.tool_exec``).
         await _asyncio.to_thread(
             _index_covered_turns_fts,
             to_compress, username=user_id, session_id=fts_session_id,
@@ -1568,8 +1561,8 @@ def _index_covered_turns_fts(
     par le résumé.
 
     L'index de session ne couvre que user+assistant (``MemoryManager.
-    sync_turn``) : une fois un tour compressé, ses sorties d'outils étaient
-    perdues du contexte ET du rappel. Indexation LAZY — uniquement au moment
+    sync_turn``) : sans elle, les sorties d'outils d'un tour compressé
+    seraient perdues du contexte ET du rappel. Indexation LAZY — uniquement au moment
     de la destruction, zéro bruit tant que rien n'est compressé. Best-effort,
     ne lève jamais (la compression n'échoue pas sur un souci d'index).
     """
@@ -1582,9 +1575,9 @@ def _index_covered_turns_fts(
         uid = int(row["id"])
         sid = str(session_id or "compressed")
         now = time.time()
-        # (passe 8, B8) — lignes collectées puis écrites en UNE transaction
-        # (avant : un commit par ligne, des centaines de prises du verrou
-        # d'écriture d'affilée).
+        # Lignes collectées puis écrites en UNE transaction : un commit
+        # par ligne prendrait le verrou d'écriture des centaines de fois
+        # d'affilée.
         rows: list = []
         for m in to_compress:
             if not isinstance(m, dict):
@@ -1624,8 +1617,9 @@ def _index_covered_turns_fts(
 #
 # Ce helper encapsule le cycle complet "check → compress → emit events"
 # pour éviter la duplication dans :
-#   - backend/services/_legacy.py : run_chat_multi_mcp (boucle tool-calling)
-#   - backend/routes/_legacy.py : chemin chat classic (avant llama_chat_stream_tokens)
+#   - llm_core.engine.llm_turn.call_llm (boucle tool-calling)
+#   - chatbot_app.turn.execution (chemin chat classic)
+#   - chatbot_app.routes.chat_compression (compression manuelle)
 #
 # La logique reste centralisée ici. Les caller sites font juste un appel
 # et récupèrent la liste de messages (compressés si applicable, identique
@@ -1649,11 +1643,11 @@ _RELOAD_WARNED_ONCE = False
 def compression_was_attempted(stats: Dict[str, Any]) -> bool:
     """True si la compression a réellement été TENTÉE (succès OU échec coûteux).
 
-    BUG FIX (audit 2026-06) — utilisé par la boucle tool-calling pour
-    appliquer le cooldown aussi sur échec : sans ça, un compresseur down
-    (endpoint mort, timeout) était retenté à CHAQUE itération, un appel
-    coûteux en boucle. Les pré-checks gratuits ne déclenchent pas le
-    cooldown (le re-check est quasi nul).
+    Utilisé par la boucle tool-calling pour le backoff des échecs
+    (``LLMTurnState.compr_fail_streak``, ``llm_core/engine/llm_turn.py``) :
+    sans ça, un compresseur down (endpoint mort, timeout) serait retenté à
+    CHAQUE itération, un appel coûteux en boucle. Les pré-checks gratuits ne
+    comptent pas dans le backoff (le re-check est quasi nul).
     """
     try:
         if stats.get("compressed"):
@@ -1699,7 +1693,7 @@ async def maybe_compress_conversation(
     ``trigger_tokens`` = seuil de DÉCLENCHEMENT effectif, quand il diffère du
     plafond technique ``usable_tokens`` (le compte a choisi de compacter plus
     tôt — cf. ``llm_core.context.compaction_gate``). ``None`` ⇒ le plafond
-    technique fait office de seuil : comportement historique, à l'identique.
+    technique fait office de seuil.
     C'est aussi l'ancre de la compaction PARTIELLE : la cible visée est
     ``trigger × partial_target_ratio``, sans quoi un seuil abaissé viserait
     une taille SUPÉRIEURE à l'occupation courante et ne compacterait rien.
@@ -1708,7 +1702,7 @@ async def maybe_compress_conversation(
 
     ``max_rounds`` = cap de compactions pour CETTE conversation (auto ET manuel
     confondus, 0 = illimité), quand le compte en a choisi un. ``None`` ⇒ défaut
-    d'instance ``COMPRESSION_MAX_PER_CHAT`` : comportement historique. Un run
+    d'instance ``COMPRESSION_MAX_PER_CHAT``. Un run
     de plusieurs heures compacte dix fois ou plus — le cap par défaut y devient
     le facteur limitant, d'où le réglage per-user.
 
@@ -1756,8 +1750,7 @@ async def maybe_compress_conversation(
         # En gunicorn multi-worker, le POST /api/admin/compression-config ne
         # met à jour QUE la mémoire du worker qui reçoit la requête. Sans
         # ce reload, les autres workers compresseraient avec leurs anciennes
-        # valeurs (ex: trigger_after_turns=20 au lieu de 30) — c'est le bug
-        # "les params ne sont pas pris en compte" rapporté par les admins.
+        # valeurs : les réglages admin sembleraient ignorés.
         # Le reload utilise un cache mtime → cost quasi-nul en single-worker
         # et tant que config.json n'a pas changé. Best-effort : on ne bloque
         # pas la compression si le reload échoue pour une raison quelconque.
@@ -1789,7 +1782,7 @@ async def maybe_compress_conversation(
         # ``auto_enabled`` = décision DÉJÀ résolue par l'appelant (interrupteur
         # maître admin ET opt-in per-user ``compression_enabled``). None =
         # appelant qui ne connaît pas d'utilisateur (routines, outillage) →
-        # repli sur le maître seul, comportement historique.
+        # repli sur le maître seul.
         _auto_on = _cfg.COMPRESSION_ENABLED if auto_enabled is None else bool(auto_enabled)
         if not _auto_on and not manual:
             return messages, {"compressed": False, "reason": "disabled"}
@@ -1805,7 +1798,7 @@ async def maybe_compress_conversation(
         endpoint_model       = _cfg.COMPRESSION_ENDPOINT_MODEL
         endpoint_timeout_sec = _cfg.COMPRESSION_ENDPOINT_TIMEOUT_SEC
 
-        # ── LA règle (harnais v4) : occupation ≥ usable ───────────────────
+        # ── LA règle : occupation ≥ usable ────────────────────────────────
         # ``usable`` = n_ctx − cap de génération − buffer : fourni par la
         # boucle (qui connaît thinking/tools), sinon dérivé du n_ctx ici.
         # Occupation, par ordre de vérité : mesure RÉELLE du serveur
@@ -1823,7 +1816,7 @@ async def maybe_compress_conversation(
         if (trigger_tokens and trigger_tokens > 0
                 and usable_tokens and usable_tokens > 0):
             _trigger = min(int(trigger_tokens), int(usable_tokens))
-        # Résolu ICI (et non plus après la porte) : la porte d'occupation
+        # Résolu ICI, avant la porte : la porte d'occupation
         # doit compter avec le MÊME ratio chars/token que la boucle, et
         # le chemin manuel en a besoin autant que l'automatique.
         _model_for_count = (model or endpoint_model
@@ -1843,15 +1836,14 @@ async def maybe_compress_conversation(
                     _occ = int(real_tokens)
                 else:
                     from llm_core.context.tokens import measured_prompt_tokens
-                    # AUDIT 2026-08-23 — ``model_id`` MANQUANT ici alors que la
-                    # boucle le passe (``_chat_with_tools`` :3184/3191/3196).
-                    # ``measured_chars_per_token`` retombait donc sur l'amorce
-                    # froide 3.3 pendant que la boucle utilisait le ratio
-                    # MESURÉ (2.6 sur un modèle code) : 27 % d'écart sur la
-                    # MÊME occupation, comparée au MÊME seuil. La boucle
-                    # ouvrait la porte, le compresseur répondait
-                    # « threshold_not_reached », et la boucle ancrait ensuite
-                    # cette estimation comme pseudo-mesure.
+                    # ``model_id`` OBLIGATOIRE ici, comme dans la porte de la
+                    # boucle (``llm_core.engine.llm_turn.call_llm``) : sans lui,
+                    # ``measured_chars_per_token`` retombe sur l'amorce froide 3.3
+                    # pendant que la boucle utilise le ratio MESURÉ (2.6 sur un
+                    # modèle code) — 27 % d'écart sur la MÊME occupation, comparée
+                    # au MÊME seuil. La boucle ouvrirait la porte, le compresseur
+                    # répondrait « threshold_not_reached », et la boucle ancrerait
+                    # ensuite cette estimation comme pseudo-mesure.
                     _occ = measured_prompt_tokens(
                         messages, model_id=(_model_for_count or None),
                         extra_fixed=extra_fixed_tokens)
@@ -1867,7 +1859,7 @@ async def maybe_compress_conversation(
         # estimation au ratio mesuré, FLAGGÉE estimée — before et after
         # utilisent la même règle, donc la garde no-gain et le ratio restent
         # valides. Un connecteur llama.cpp compte exactement sur SON serveur
-        # (``/tokenize`` suit la cible depuis le 2026-09-16).
+        # (``/tokenize`` suit la cible).
         _count_exact = True
         try:
             from llm_core._target import current_target as _ct
@@ -1898,8 +1890,8 @@ async def maybe_compress_conversation(
         # ── Cap DUR par conversation (auto ET manuel) ──────────────────────
         # Vérifié APRÈS should_compress : l'event ``compression_capped`` ne
         # part que quand une compression AURAIT eu lieu (pas de spam à chaque
-        # tour d'un chat au-dessus du seuil). _enforce_context_budget reste le
-        # dernier rempart pour le fit du contexte.
+        # tour d'un chat au-dessus du seuil). ``pruning.enforce_context_budget``
+        # reste le dernier rempart pour le fit du contexte.
         # Cap du COMPTE s'il en a réglé un (0 = illimité, valeur légitime :
         # d'où le test sur None et pas sur la véracité), défaut d'instance
         # sinon.
@@ -1954,7 +1946,7 @@ async def maybe_compress_conversation(
                     # (tools) — le widget et la jauge racontent le même chiffre.
                     "tokens":   tokens_before + int(extra_fixed_tokens or 0),
                     "ctx_size": ctx_size_tokens or 0,
-                    # L5.5 : seuil qui a déclenché (jetons) et motif.
+                    # Seuil qui a déclenché (jetons) et motif.
                     "threshold": int(_trigger or 0),
                     "reason":    ("manual" if manual else "overflow" if triggered_by_overflow
                                   else "threshold"),
@@ -2010,7 +2002,7 @@ async def maybe_compress_conversation(
         # requête (``applied_drop_turns`` — drop partiel possible) : les
         # tours couverts encore présents dans la liste sont re-comptés dans
         # ``turns_compressed`` → couverts exactement une fois. Compat : un
-        # état sans ``applied_drop_turns`` retombe sur l'ancien booléen.
+        # état sans ``applied_drop_turns`` retombe sur le booléen ``applied_drop``.
         if stats.get("compressed"):
             _new_round = _rounds_done + 1
             _ps = prev_state or {}
@@ -2031,7 +2023,7 @@ async def maybe_compress_conversation(
                 "covered_turns":    _new_covered,
                 "summary_xml":      _summary_xml,
                 "turns_compressed": int(stats.get("turns_compressed") or 0),
-                # v3 : le ledger voyage avec l'état (rebuild du porteur à la
+                # Le ledger voyage avec l'état (rebuild du porteur à la
                 # persistance et aux requêtes suivantes).
                 "ledger_block":     stats.get("ledger_block") or "",
             }

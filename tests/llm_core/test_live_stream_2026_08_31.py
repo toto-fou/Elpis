@@ -9,10 +9,10 @@ module-level : ``_live_stream_rest`` (queue à émettre en fin d'itération) et
 """
 from __future__ import annotations
 
-from llm_core._chat_with_tools import (
+from llm_core._tool_parsing import _strip_tool_call_markup
+from llm_core.engine.live_text import (
     _LIVE_MARKUP_SUSPECT_RE,
     _live_stream_rest,
-    _strip_tool_call_markup,
 )
 
 # ── _live_stream_rest ─────────────────────────────────────────────────────

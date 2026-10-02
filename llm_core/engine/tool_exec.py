@@ -1,21 +1,23 @@
 # SPDX-License-Identifier: MIT
 """llm_core.engine.tool_exec — exécution d'un lot de tool_calls (canal unifié).
 
-Extrait la « harness » d'exécution qui était copiée-collée entre le canal
-NATIF (``_exec_one`` + walk) et le canal LEGACY (``_exec_one_legacy`` + walk)
-de ``run_chat_multi_mcp`` — ~110 lignes verbatim, à la callback progress/log
-près (que le legacy n'avait pas et gagne ici).
+Un seul ordonnanceur pour les deux canaux de la boucle (``tool_calls``
+natifs et appels écrits en texte), callbacks progress/log comprises.
 
 Responsabilité UNIQUE : ordonnancer l'exécution de ``prepared`` (série pour
 les outils mutants, parallèle borné sinon, ordre LLM préservé), exécuter
 chaque appel, émettre progress/log, écrire les métriques, et renvoyer
 ``results_by_idx``. Le POST-traitement (events tool_result, append role=tool,
-injection vision) reste dans la boucle : il diffère entre canaux (vision
-native, fallback_wrapper legacy) et dépend de l'ordre d'émission LLM.
+injection vision) reste à l'appelant : il dépend du canal (``ChannelSpec``)
+et de l'ordre d'émission LLM.
 
-Dépendances de ``_chat_with_tools`` (``execute_single``, ``record_metric``,
-``is_tool_failure``) INJECTÉES en paramètres : évite un cycle d'import
-(``_chat_with_tools`` importe ce module).
+``execute_tool_batch`` est appelé par
+``engine.tool_dispatch.run_tool_batch``, qui importe ce module et INJECTE
+ses dépendances en paramètres — ``execute_single``
+(``_execute_single_tool_call`` lié aux tables d'outils du run),
+``record_metric`` (``LoopDeps.record_metric``, point de substitution des
+goldens) et ``is_tool_failure`` (``result_contract.result_is_tool_failure``).
+Ne pas importer ``tool_dispatch`` d'ici : cycle d'import.
 """
 from __future__ import annotations
 
@@ -38,12 +40,11 @@ _TELEMETRY_POOL: Optional[ThreadPoolExecutor] = None
 
 
 def _telemetry_pool() -> ThreadPoolExecutor:
-    """Pool DÉDIÉ (2 threads) aux écritures télémétriques. AUDIT 2026-09-26 —
-    n'étant plus attendues au-delà de ``_TELEMETRY_WAIT_S``, elles
-    s'empilaient dans le pool PAR DÉFAUT sous contention SQLite (jusqu'à 10 s
-    chacune) — celui-là même qui exécute les outils intégrés
-    (``to_thread``) : ces derniers attendaient un thread libre jusqu'à leur
-    propre délai. Ici l'attente ne pénalise que la télémétrie."""
+    """Pool DÉDIÉ (2 threads) aux écritures télémétriques. Ne pas utiliser
+    le pool PAR DÉFAUT : non attendues au-delà de ``_TELEMETRY_WAIT_S``, elles
+    s'y empileraient sous contention SQLite (jusqu'à 10 s chacune), et les
+    outils intégrés qu'il exécute (``to_thread``) attendraient un thread libre
+    jusqu'à leur propre délai. Ici l'attente ne pénalise que la télémétrie."""
     global _TELEMETRY_POOL
     if _TELEMETRY_POOL is None:
         _TELEMETRY_POOL = ThreadPoolExecutor(max_workers=2,
@@ -74,13 +75,14 @@ def flatten_exception_message(exc: BaseException, limit: int = 300) -> str:
     Les transports MCP (anyio task groups) enveloppent l'exception réelle —
     typiquement une ``ValidationError`` pydantic sur les arguments — dans un
     ``(Base)ExceptionGroup`` dont ``str()`` vaut « unhandled errors in a
-    TaskGroup (1 sub-exception) » : le détail (champ en faute, valeur
-    attendue) était perdu et le modèle retentait à l'aveugle. On descend
-    jusqu'aux feuilles et on les concatène (dédupliquées, bornées).
+    TaskGroup (1 sub-exception) » : sans dépliage, le détail (champ en
+    faute, valeur attendue) serait perdu et le modèle retenterait à
+    l'aveugle. On descend jusqu'aux feuilles et on les concatène
+    (dédupliquées, bornées).
 
     Contrat : pour une exception SIMPLE avec message, retourne ``str(e)``
-    telle quelle (même enveloppe qu'avant — les tests/consommateurs matchent
-    le message) ; le nom du type ne sert que de secours (message vide)."""
+    telle quelle (les tests/consommateurs matchent le message) ; le nom du
+    type ne sert que de secours (message vide)."""
     leaves: List[str] = []
 
     def _walk(e: BaseException, depth: int) -> None:
@@ -149,20 +151,19 @@ async def execute_tool_batch(
     tool_result, append) est fait par l'appelant sur ce dict.
 
     ``emit_progress_log`` : câble les callbacks MCP ``report_progress`` /
-    ``ctx.info`` en events ``tool_progress`` / ``tool_log`` (auparavant
-    natif-seulement ; le legacy en bénéficie désormais aussi).
+    ``ctx.info`` en events ``tool_progress`` / ``tool_log``, pour les deux
+    canaux.
 
     Annulation : ``CancelledError`` déclenche ``on_cancel_snapshot`` (shielded
     par l'appelant) puis se propage. Un outil qui échoue autrement renvoie un
     ``{"error": …}`` — la boucle continue (le modèle voit l'échec).
 
-    ``results_out`` (audit 2026-08-23) : dict FOURNI par l'appelant, rempli EN
-    PLACE. Sans lui, le dict de résultats était purement local : sur annulation
-    réelle on relevait, et les résultats des outils DÉJÀ TERMINÉS du round
-    étaient perdus avec la pile — alors que ce sont précisément les outils
-    MUTANTS (write_file, git_*, execute_shell), sérialisés donc exécutés EN
-    PREMIER, dont l'effet de bord est déjà appliqué sur le disque. Le
-    « Continuer » repartait aveugle et les rejouait.
+    ``results_out`` : dict FOURNI par l'appelant, rempli EN PLACE. Sur
+    annulation réelle, les résultats des outils DÉJÀ TERMINÉS du round y
+    restent — précisément les outils MUTANTS (write_file, git_*,
+    execute_shell), sérialisés donc exécutés EN PREMIER, dont l'effet de bord
+    est déjà appliqué sur le disque. Un dict local les perdrait avec la pile :
+    « Continuer » repartirait aveugle et les rejouerait.
     """
     results_by_idx: Dict[int, str] = results_out if results_out is not None else {}
     _parallelism = max(1, LLAMA_TOOL_PARALLELISM)
@@ -174,15 +175,15 @@ async def execute_tool_batch(
         ``CancelledError`` FUI d'un cancel-scope anyio des transports MCP
         (cf. le même piège documenté dans ``_mcp_wrappers`` : scope entré et
         sorti dans des tâches différentes). Le second n'est PAS une exception
-        « ordinaire » (BaseException) : sans ce tri, il traversait tous les
-        ``except Exception`` et terminait le run comme si l'utilisateur avait
-        appuyé sur Stop."""
+        « ordinaire » (BaseException) : sans ce tri, il traverserait tous les
+        ``except Exception`` et terminerait le run comme si l'utilisateur
+        avait appuyé sur Stop."""
         if is_cancelled is not None and is_cancelled():
             return True
         t = asyncio.current_task()
         return bool(t is not None and t.cancelling())
 
-    # (passe 8, B9) — dans un lot parallèle, le snapshot d'annulation est pris
+    # Dans un lot parallèle, le snapshot d'annulation est pris
     # UNE fois par ``_gather_batch`` APRÈS le drain des frères (résultats
     # terminés inclus), pas par chaque frère annulé (N snapshots idempotents
     # mais bruyants, et pris AVANT que les frères aient fini).
@@ -202,7 +203,7 @@ async def execute_tool_batch(
                     "total": float(total) if total is not None else None,
                     "message": message or "",
                 })
-            except Exception:
+            except Exception:  # noqa: BLE001 — événement d'affichage facultatif
                 logger.debug("[tool_progress emit] failed", exc_info=True)
 
         async def _log_cb(params: Any) -> None:
@@ -215,10 +216,10 @@ async def execute_tool_batch(
                 level = getattr(params, "level", None) or "info"
                 logger_name = getattr(params, "logger", None) or ""
                 data = getattr(params, "data", None)
-                # (2026-09-11, P3) notifications STRUCTURÉES (``extra.kind``) :
+                # Notifications STRUCTURÉES (``extra.kind``) :
                 #   • heartbeat → consommé ici (flux vivant), AUCUN événement ;
                 #   • shell_output → événement NDJSON dédié, comme la sentinelle
-                #     JSON legacy ci-dessous (repli, serveur antérieur).
+                #     JSON ci-dessous (repli : serveur sans ``extra.kind``).
                 _extra = data.get("extra") if isinstance(data, dict) else None
                 if isinstance(_extra, dict) and _extra.get("kind") == "heartbeat":
                     return
@@ -246,7 +247,7 @@ async def execute_tool_batch(
                 if isinstance(data, str) and "__shell_output__" in data:
                     try:
                         _parsed = json.loads(data)
-                    except Exception:
+                    except Exception:  # noqa: BLE001 — sortie non JSON : journal ordinaire
                         _parsed = None
                     _pl = (_parsed or {}).get("__shell_output__") \
                         if isinstance(_parsed, dict) else None
@@ -276,7 +277,7 @@ async def execute_tool_batch(
                 if isinstance(data, (dict, list)):
                     try:
                         msg = json.dumps(data, ensure_ascii=False)[:1000]
-                    except Exception:
+                    except Exception:  # noqa: BLE001 — données non sérialisables : repli str()
                         msg = str(data)[:1000]
                 else:
                     msg = str(data)[:1000] if data is not None else ""
@@ -287,7 +288,7 @@ async def execute_tool_batch(
                     "logger": str(logger_name),
                     "message": msg,
                 })
-            except Exception:
+            except Exception:  # noqa: BLE001 — événement d'affichage facultatif
                 logger.debug("[tool_log emit] failed", exc_info=True)
 
         _cbs: Dict[str, Any] = (
@@ -300,9 +301,9 @@ async def execute_tool_batch(
             _debut = time.time()
             try:
                 if p.get("args_error"):
-                    # Arguments illisibles : l'outil ne tourne PAS (avec ``{}``
-                    # il s'exécutait sur ses défauts) et le modèle voit
-                    # pourquoi — audit 2026-09-24, 2e passe.
+                    # Arguments illisibles : l'outil ne tourne PAS et le
+                    # modèle voit pourquoi. Ne pas l'appeler avec ``{}`` : il
+                    # s'exécuterait sur ses défauts.
                     r = {"ok": False, "error": p["args_error"]}
                 else:
                     r = await execute_single(
@@ -320,20 +321,20 @@ async def execute_tool_batch(
                 results_by_idx[idx] = json.dumps({"error": (
                     f"outil '{_tool_name_local}' : transport MCP interrompu "
                     "(cancel-scope) — réessayez l'appel")})
-            except Exception as _ex:
+            except Exception as _ex:  # noqa: BLE001 — un outil en panne ne fait pas échouer le lot
                 # execute_single catche déjà en interne et renvoie un JSON
                 # d'erreur ; filet ici pour ne pas crasher le gather() entier
                 # sur un seul outil en panne. Message DÉPLIÉ : un
-                # ExceptionGroup anyio stringifié brut masquait la cause
+                # ExceptionGroup anyio stringifié brut masquerait la cause
                 # réelle (ex. ValidationError pydantic sur un argument).
                 results_by_idx[idx] = json.dumps(
                     {"error": flatten_exception_message(_ex)})
             except BaseException as _bx:
                 # BaseExceptionGroup (groupe anyio contenant un
                 # CancelledError) : n'est NI CancelledError NI Exception —
-                # avant, il traversait tout et TUAIT le run entier. Même tri
-                # que ci-dessus : annulation réelle → propager ; sinon,
-                # erreur d'outil ordinaire.
+                # sans cette clause, il traverserait tout et tuerait le run
+                # entier. Même tri que ci-dessus : annulation réelle →
+                # propager ; sinon, erreur d'outil ordinaire.
                 if isinstance(_bx, (KeyboardInterrupt, SystemExit, GeneratorExit)):
                     raise
                 if _real_cancellation():
@@ -343,7 +344,7 @@ async def execute_tool_batch(
                 results_by_idx[idx] = json.dumps(
                     {"error": flatten_exception_message(_bx)})
             _dur_ms = int((time.perf_counter() - _t0) * 1000)
-            p["duration_ms"] = _dur_ms          # event ``tool_result`` (L5.4)
+            p["duration_ms"] = _dur_ms          # lu par l'event ``tool_result``
 
         # Metric event ``tool_call`` enrichi avec status=ok|error (widget
         # ToolErrorRateProvider) + ligne tool_call_metrics (observabilité).
@@ -354,26 +355,25 @@ async def execute_tool_batch(
             _status = "error" if is_tool_failure(_r) else "ok"
             _etat = _call_status(p, _r, _status)
             # Compté ICI, dans la boucle, et non dans le fil de télémétrie :
-            # attendu 0,25 s au plus, il pouvait arriver après l'écriture finale
-            # de l'exécution, qui montrait alors 0 appel (relecture L5).
+            # attendu 0,25 s au plus, celui-ci peut finir après l'écriture
+            # finale de l'exécution, qui montrerait alors 0 appel.
             try:
                 from llm_core._mcp_categories import categorize
                 from shared_infra.observability.runs import current_run
                 _run = current_run()
                 if _run is not None:
                     _run.add_tool_call(categorize(p["tool_name"]), _etat)
-            except Exception:                                    # noqa: BLE001
+            except Exception:                                    # noqa: BLE001 — comptage best-effort
                 pass
 
             def _write_telemetry() -> None:
                 """Les trois écritures BLOQUANTES de ce bloc, hors event loop.
 
-                AUDIT long-run 2026-08-21 — ``log_metric`` et ``record_metric``
-                sont des écritures SQLite synchrones, et rien dans
-                ``shared_infra/db`` ne les déporte : elles s'exécutaient sur la
-                boucle asyncio du worker, à CHAQUE appel d'outil. Avec un
+                ``log_metric`` et ``record_metric`` sont des écritures SQLite
+                synchrones, et rien dans ``shared_infra/db`` ne les déporte. Ne
+                pas les exécuter sur la boucle asyncio du worker : avec un
                 ``busy_timeout`` de 10 s et plusieurs workers en WAL, une
-                écriture en contention gelait tout le worker — donc TOUS les
+                écriture en contention gèlerait tout le worker — donc TOUS les
                 flux SSE, les heartbeats et le drain, pas seulement le run
                 fautif. Le pool de connexions est thread-local (clé
                 ``(pid, DB_PATH)``) : un thread d'exécuteur ouvre naturellement
@@ -409,10 +409,10 @@ async def execute_tool_batch(
                     result_chars=len(_r), duration_ms=_dur_ms, status=_status,
                 )
 
-            # OPTIM 2026-09-26 — attente BORNÉE : l'écriture part dans un
-            # thread, mais l'attendre sans limite retenait le résultat de
-            # l'outil (donc l'itération suivante) jusqu'à 10 s de
-            # ``busy_timeout`` SQLite en contention. Au-delà de la borne, le
+            # Attente BORNÉE : l'écriture part dans un thread ; l'attendre
+            # sans limite retiendrait le résultat de l'outil (donc
+            # l'itération suivante) jusqu'à 10 s de ``busy_timeout`` SQLite
+            # en contention. Au-delà de la borne, le
             # thread termine seul (``shield``) ; son éventuelle erreur est
             # consommée par le rappel, comme l'``except`` ci-dessous le fait.
             _tele = asyncio.ensure_future(asyncio.get_running_loop().run_in_executor(
@@ -425,7 +425,7 @@ async def execute_tool_batch(
 
             # Event UX dédié todo-list : le résultat de ``todowrite`` porte la
             # liste normalisée → poussée telle quelle au front (panneau
-            # checklist). Émis ici car les DEUX canaux (natif/legacy) passent
+            # checklist). Émis ici car les DEUX canaux (natif/texte) passent
             # par cette harness. Best-effort, dans le même try que les metrics.
             if p["tool_name"] == "todowrite" and _status == "ok":
                 try:
@@ -437,27 +437,27 @@ async def execute_tool_batch(
                             "todos": _todo_payload["todos"],
                             "remaining": _todo_payload.get("remaining"),
                         })
-                        # (2026-09-19) Le modèle ne voit que la forme courte
+                        # Le modèle ne voit que la forme courte
                         # (``checklist`` + compteurs) : la liste structurée ne
-                        # sert qu'au panneau — la lui renvoyer doublait le
+                        # sert qu'au panneau — la lui renvoyer doublerait le
                         # coût en jetons de chaque mise à jour.
                         if "checklist" in _todo_payload:
                             _slim = {k: v for k, v in _todo_payload.items()
                                      if k != "todos"}
                             results_by_idx[idx] = json.dumps(_slim, ensure_ascii=False)
-                except Exception:
+                except Exception:  # noqa: BLE001 — événement todo facultatif
                     pass
         except asyncio.CancelledError:
             # Un Stop pendant l'écriture télémétrique ne doit pas être avalé
             # par le ``except Exception`` ci-dessous : il doit remonter comme
-            # n'importe quelle annulation. AUDIT 2026-09-24 (2e passe) — AVEC
-            # snapshot : l'outil a DÉJÀ tourné (son résultat est dans
-            # ``results_by_idx``) ; hors lot parallèle, personne d'autre ne le
-            # prenait, et « Continuer » rejouait l'écriture.
+            # n'importe quelle annulation. AVEC snapshot : l'outil a DÉJÀ
+            # tourné (son résultat est dans ``results_by_idx``) ; hors lot
+            # parallèle, personne d'autre ne le prend, et sans lui
+            # « Continuer » rejouerait l'écriture.
             if _real_cancellation() and not _batch_snapshot[0]:
                 await on_cancel_snapshot()
             raise
-        except Exception:
+        except Exception:  # noqa: BLE001 — télémétrie best-effort
             pass
 
     async def _exec_one_guarded(idx: int, p: Dict[str, Any]) -> None:
@@ -467,8 +467,8 @@ async def execute_tool_batch(
         qui finit *annulée* (CPython teste explicitement ``not f.cancelled()``)
         — une tâche qui lève ``CancelledError`` compte comme annulée, pas comme
         en erreur. Sans cette conversion, un Stop pendant un lot parallèle
-        laissait ``wait`` attendre… la fin de tous les frères : exactement ce
-        qu'on cherche à empêcher. ``_gather_batch`` reconvertit en
+        laisserait ``wait`` attendre… la fin de tous les frères : exactement
+        ce qu'on cherche à empêcher. ``_gather_batch`` reconvertit en
         ``CancelledError`` à la sortie, le contrat de l'appelant est inchangé."""
         try:
             await _exec_one(idx, p)
@@ -480,16 +480,16 @@ async def execute_tool_batch(
     async def _gather_batch(items: List[tuple]) -> None:
         """Exécute un lot en parallèle SANS jamais orpheliner un frère.
 
-        AUDIT long-run 2026-08-21 — ``asyncio.gather(...)`` sans
-        ``return_exceptions`` propage la PREMIÈRE exception immédiatement mais
-        laisse les autres tâches TOURNER, détachées. Sur un Stop utilisateur
-        détecté via le flag ``is_cancelled`` (chemin qui lève depuis
-        ``_exec_one``, sans ``task.cancel()`` sur le parent), les autres outils
-        du lot continuaient jusqu'au bout APRÈS la fin du run — écritures
-        fichier, commandes shell et commits git s'exécutaient « après le
-        Stop », et leurs résultats atterrissaient dans un ``results_by_idx``
-        que plus personne ne lisait. Sur une mission de plusieurs heures c'est
-        la source d'effets de bord fantômes la plus difficile à diagnostiquer.
+        Ne pas utiliser ``asyncio.gather(...)`` sans ``return_exceptions`` :
+        il propage la PREMIÈRE exception immédiatement mais laisse les autres
+        tâches TOURNER, détachées. Sur un Stop utilisateur détecté via le flag
+        ``is_cancelled`` (chemin qui lève depuis ``_exec_one``, sans
+        ``task.cancel()`` sur le parent), les autres outils du lot
+        continueraient jusqu'au bout APRÈS la fin du run — écritures fichier,
+        commandes shell et commits git « après le Stop », résultats déposés
+        dans un ``results_by_idx`` que plus personne ne lit : des effets de
+        bord fantômes, les plus difficiles à diagnostiquer sur une mission de
+        plusieurs heures.
 
         Ici : on attend le premier échec, on annule les frères encore en vol,
         on les ATTEND vraiment (aucune tâche ne survit à la fonction), puis on
@@ -520,7 +520,7 @@ async def execute_tool_batch(
             for t in done:
                 if t.cancelled():
                     continue
-                # (passe 8, B9) — TOUTES les exceptions sont consultées (sinon
+                # TOUTES les exceptions sont consultées (sinon
                 # « Task exception was never retrieved » pour les frères) ; on
                 # garde la première.
                 e = t.exception()

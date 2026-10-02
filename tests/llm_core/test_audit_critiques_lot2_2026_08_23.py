@@ -272,17 +272,16 @@ def test_un_jeton_deja_pris_nest_jamais_ecrase():
 
 def test_le_harnais_pose_un_jeton_unique_par_run():
     """Le jeton doit être tiré une fois par RUN, pas dérivé de l'itération."""
-    import inspect
-
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._run_chat_multi_mcp_impl)
+    from tests._sources import source_boucle, source_fonction
+    src = source_boucle()
     assert "_run_log_tok = secrets.token_hex" in src
-    # (2026-09-11, P2 — A12) un SEUL helper d'injection du méta pour les deux
-    # canaux : chacun lui passe le jeton du run, et c'est lui qui pose
+    # Un SEUL helper d'injection du méta pour les deux canaux : chacun lui
+    # passe le jeton du run, et c'est lui qui pose
     # ``log_token = <jeton du run>:<call_id>``.
-    assert src.count("run_log_tok=_run_log_tok, user_id=user_id)") == 2, \
+    assert "run_log_tok=_run_log_tok" in src, "le jeton du run ne rejoint pas son contexte"
+    assert src.count("run_log_tok=ctx.run_log_tok, user_id=ctx.user_id)") == 2, \
         "un des deux canaux (natif / legacy) ne passe pas le jeton de routage au helper"
-    helper = inspect.getsource(W._build_call_meta)
+    helper = source_fonction("_build_call_meta")
     assert 'meta["log_token"] = f"{run_log_tok}:{call_id}"' in helper
 
 
@@ -346,11 +345,8 @@ def test_la_route_darret_ne_sonde_plus_le_moteur():
     """Une sonde de 3 s au milieu d'un Stop, et un abandon sur UNKNOWN,
     faisaient de l'arrêt un no-op 300 s durant (corrigé le 2026-08-23 ; ce
     test garde la propriété)."""
-    import inspect
-
-    from chatbot_app.routes import chats as C
-    src = "\n".join(l for l in inspect.getsource(C._cancel_engine_stream).splitlines()
-                    if not l.strip().startswith("#"))
+    from tests._sources import source_fonction
+    src = source_fonction("_cancel_engine_stream", "flux_chat")
     assert "await engine_caps(" not in src
     assert "cached_caps()" in src
 
@@ -418,9 +414,10 @@ def test_le_garde_neffacce_pas_la_panne_du_tour_quil_enveloppe(_breaker):
 def test_les_deux_chemins_de_generation_nourrissent_le_disjoncteur():
     import inspect
 
-    from llm_core import _chat_classic as C, _chat_with_tools as W
+    from llm_core import _chat_classic as C
+    from tests._sources import source_boucle
     assert "note_transport_failure" in inspect.getsource(C)
-    assert "note_transport_failure" in inspect.getsource(W)
+    assert "note_transport_failure" in source_boucle()
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -574,19 +571,40 @@ async def test_execute_tool_batch_rend_les_resultats_partiels(monkeypatch):
         "le snapshot d'annulation n'a pas vu le résultat partiel"
 
 
-def test_la_boucle_materialise_le_lot_interrompu():
-    """La trace doit atterrir dans ``_run_tool_history`` AVANT le snapshot,
-    sinon ``_delta_snapshot`` dépile l'assistant et le round ne laisse rien."""
-    import inspect
+async def test_la_boucle_materialise_le_lot_interrompu():
+    """La trace atterrit dans la tool_history AVANT l'instantané : sinon
+    ``delta_snapshot`` dépile l'``assistant.tool_calls`` terminal et le round
+    interrompu ne laisse rien (« Continuer » rejouerait l'outil mutant)."""
+    from llm_core.engine.run import RunRecord
+    from tests._sources import source_fonction
+    rec = RunRecord()
+    rec.run_tool_history.append({"role": "assistant", "content": None, "tool_calls": [
+        {"id": "c0", "type": "function", "function": {"name": "write_file", "arguments": "{}"}},
+        {"id": "c1", "type": "function", "function": {"name": "git_commit", "arguments": "{}"}},
+    ]})
+    rec.batch_prepared = [{"call_id": "c0"}, {"call_id": "c1"}]
+    rec.batch_partial = {0: '{"ok": true}'}       # c0 a tourné, c1 non
+    vus = []
 
-    from llm_core import _chat_with_tools as W
-    src = inspect.getsource(W._run_chat_multi_mcp_impl)
-    i = src.index("async def _emit_partial_tool_history_snapshot")
-    corps = src[i:i + 400]
-    assert "_materialiser_lot_interrompu()" in corps
-    assert corps.index("_materialiser_lot_interrompu()") < corps.index("_delta_snapshot()")
-    assert src.count("results_out       = _batch_partial") == 2, \
-        "un des deux canaux (natif / legacy) n'est pas câblé"
+    async def on_event(ev):
+        vus.append(ev)
+
+    await rec.emit_partial_snapshot(on_event)
+    (ev,) = [e for e in vus if e["type"] == "tool_history_partial"]
+    hist = ev["tool_history"]
+    assert hist[0]["role"] == "assistant", "l'appel ne doit pas être dépilé"
+    assert [m["tool_call_id"] for m in hist[1:]] == ["c0", "c1"]
+    assert hist[1]["content"] == '{"ok": true}'
+    assert "NON confirmée" in hist[2]["content"]
+    # ``ouvrir_lot`` pose le lot en cours et rend LE dict que l'exécution
+    # remplit ; les deux canaux passent par le même noyau, qui l'appelle. Le
+    # câblage de bout en bout de chaque canal est vérifié par
+    # test_boucle_chemins_critiques (annulation pendant un lot, natif et texte).
+    lot = [{"call_id": "c2"}]
+    resultats = rec.ouvrir_lot(lot)
+    assert rec.batch_prepared is lot and resultats is rec.batch_partial and resultats == {}
+    assert "results_out       = rec.ouvrir_lot(prepared)" in source_fonction("run_tool_batch"), \
+        "le noyau d'exécution des lots ne pose pas le lot en cours"
 
 
 # ═════════════════════════════════════════════════════════════════════════════

@@ -29,7 +29,7 @@ import pytest
 # ── 9. Le marqueur d'annulation ne se fige pas dans la persistance ───────────
 
 def test_le_marqueur_d_annulation_ne_prefixe_pas_la_reprise():
-    from chatbot_app.routes import chats as C
+    from chatbot_app.turn import history as C
 
     seul = {"role": "assistant", "content": C._CANCEL_PLACEHOLDER}
     assert C._tronc_pour_reprise(seul) == "", \
@@ -39,7 +39,7 @@ def test_le_marqueur_d_annulation_ne_prefixe_pas_la_reprise():
 def test_un_vrai_partiel_est_bien_conserve():
     """La garde ne doit pas manger le travail réel : seul le message qui ne
     contient QUE le marqueur est neutralisé."""
-    from chatbot_app.routes import chats as C
+    from chatbot_app.turn import history as C
 
     assert C._tronc_pour_reprise({"content": "Première moitié."}) == "Première moitié."
     mixte = C._CANCEL_PLACEHOLDER + " puis du vrai texte"
@@ -49,9 +49,9 @@ def test_un_vrai_partiel_est_bien_conserve():
 def test_la_vue_modele_et_la_persistance_ecartent_le_meme_marqueur():
     """Les deux gardes doivent viser la MÊME constante — c'est leur divergence
     qui a créé le défaut."""
-    from chatbot_app.routes import chats as C
+    from tests._sources import source_fonction
 
-    src = inspect.getsource(C._tronc_pour_reprise)
+    src = source_fonction("_tronc_pour_reprise", "flux_chat")
     assert "_CANCEL_PLACEHOLDER" in src
 
 

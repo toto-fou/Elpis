@@ -2,13 +2,13 @@
 """
 llm_core/tools/_mcp_error_middleware.py — conformité MCP du flag ``isError``.
 
-Contexte (cf. docs/mcp-compliance-2026-06-05.md, constat #1)
-------------------------------------------------------------
+Contexte
+--------
 Le spec MCP (§Error Handling) demande que les *tool execution errors*
 (input invalide, erreur métier) soient signalées avec ``isError: true`` dans
 le résultat. Nos tools utilisent l'enveloppe applicative ``{ok:false, ...}``
 produite par ``_toolkit.err()`` : c'est un retour NORMAL (pas une exception),
-donc FastMCP laissait ``isError`` à ``false``. Un client MCP TIERS voyait
+que FastMCP seul laisse en ``isError: false`` — un client MCP TIERS verrait
 alors ces erreurs comme des succès.
 
 Ce que fait ce middleware
@@ -20,7 +20,7 @@ l'enveloppe sérialisée. FastMCP construit alors un ``CallToolResult`` avec
 
 On GARDE donc ``{ok:false}`` : l'enveloppe complète (error/message/fix/…)
 reste le payload texte — exactement ce que lit l'app via
-``_chat_with_tools.pick_tool_payload`` (``json.loads(item.text)``) et le
+``engine.tool_dispatch.pick_tool_payload`` (``json.loads(item.text)``) et le
 frontend (``_isErrorResult``). Seul le flag protocolaire change, au bénéfice
 des clients MCP tiers.
 

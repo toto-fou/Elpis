@@ -55,12 +55,29 @@ node tests/frontend/<fichier>.js          # un test unitaire front (sans dépend
 
 - Toujours le **pytest du venv** : sans `pytest-xdist`, l'option `-n auto` de
   `pytest.ini` échoue.
-- Suite qui semble figée : un `config.json` réel pointe vers un moteur LLM
-  injoignable qui ne refuse pas vite. Lancer
-  `LLAMA_IP=127.0.0.1 LLAMA_PORT=1 venv/bin/pytest`.
-- Les fixtures `autouse` de `tests/conftest.py` isolent la base (SQLite
+- `tests/conftest.py` isole la suite de l'instance : `APP_CONFIG_PATH` vise
+  un fichier absent (configuration vide, comme en CI), `LLAMA_IP`/`LLAMA_PORT`
+  un port fermé, et `ELPIS_AUDIT_DIR`, `APP_DB_PATH`, `APP_SANDBOX_DIR`,
+  `APP_FILE_HISTORY_DIR`, `APP_USER_SKILLS_DIR`, `SKILLS_LOCK_PATH` ainsi que le
+  journal applicatif un dossier temporaire : la suite n'écrit rien dans
+  `user_db/`, `user_sandboxes/`, `logs/` ni `skills/` (ce sont les données de
+  l'instance dans la copie principale), sauf si vous posez ces variables
+  vous-même. Le `config.json` réel
+  (HTTPS, moteur du réseau local) ne fausse donc plus les tests, et la suite
+  donne le même résultat dans la copie de travail, un worktree et la CI : un
+  échec signale un vrai défaut.
+- Les fixtures `autouse` de `tests/conftest.py` isolent aussi la base (SQLite
   temporaire), les spools, le manifeste MCP : aucun test ne doit écrire dans
-  `user_db/`.
+  `user_db/`. Un `swallow` du harnais ou du flux de chat qui avale un
+  `ImportError`, `NameError` ou `AttributeError` fait échouer le test.
+- Un test ne lit pas le source pour y chercher du texte : il vérifie un
+  comportement. Pour un invariant vraiment structurel, `tests/_sources.py`
+  (`source_boucle()`, `source_flux_chat()`, `compter_appels()`) lit le code
+  de tout le paquet concerné, commentaires et docstrings retirés.
+- Substituer une dépendance : patcher le module qui **lit** le nom
+  (`tests/llm_core/test_seams_effectifs.py` refuse un patch sans effet). La
+  boucle injecte elle-même sa fonction de flux et sa métrique d'outil
+  (`LoopDeps`) : ces deux noms se patchent sur `llm_core._chat_with_tools`.
 - Aucun test n'exige Docker (il est simulé). Moteurs serveur, sur demande :
   `ELPIS_TEST_PG=hôte:port:base:user:mdp` (idem `ELPIS_TEST_MARIADB`,
   `ELPIS_TEST_MYSQL`) pour `tests/db`, ou `ELPIS_TEST_DB=1 APP_DB_BACKEND=postgres …`
@@ -68,7 +85,12 @@ node tests/frontend/<fichier>.js          # un test unitaire front (sans dépend
 - Identifiants de `parametrize` **déterministes** : xdist compare les
   collectes des workers.
 - Charges utiles de référence du harnais : `GOLDEN_UPDATE=1 venv/bin/pytest
-  tests/llm_core/test_golden_payload.py`, puis relire le diff JSON.
+  tests/llm_core/test_golden_payload.py`, puis relire le diff JSON. Goldens
+  complets de la boucle (`tests/goldens/boucle_*.json`,
+  `tests/llm_core/test_boucle_scenarios.py` et
+  `test_boucle_chemins_critiques.py`) et du flux de chat
+  (`tests/goldens/flux_route_*.json`, `tests/chatbot/test_flux_route.py`) :
+  même commande ; une réorganisation du code ne doit en changer aucun.
 - Tests front : `tests/frontend/test_*.js` (CommonJS) et `*-unit.mjs` (ESM),
   exécutés aussi par `tests/frontend/test_js_units.py` ; les nouveaux tests
   utilisent `tests/frontend/lib/harnais.js`.
@@ -109,8 +131,12 @@ node tests/frontend/<fichier>.js          # un test unitaire front (sans dépend
 - Nouveau fichier source : première ligne
   `# SPDX-License-Identifier: MIT` (`// …` en JS), puis une docstring
   d'en-tête « chemin — rôle », souvent avec le « pourquoi ».
-- Commentaires et docstrings plutôt en français ; justification
-  datée (« pourquoi », date du constat) bienvenue.
+- Commentaires et docstrings plutôt en français, au présent : la règle, sa
+  raison, le danger de l'alternative évidente. Pas de trace d'audit dans le
+  code (date de constat, passe, identifiant de constat ou de lot, récit de
+  l'ancien comportement) : l'historique d'une règle va dans
+  `docs/historique-coeur.md` et dans le message de commit
+  (`tests/test_commentaires_sans_audit.py` garde les fichiers nettoyés).
 - `from __future__ import annotations` ; journal via
   `logging.getLogger("uvicorn.error")`, messages préfixés `[domaine]`.
 - Erreurs : `with swallow("domaine.action"):`
@@ -192,9 +218,10 @@ résumé, une modification ne doit jamais :
 - faire passer une annulation par les événements système ;
 - lire un réglage modifiable depuis la console dans une constante figée à
   l'import, ni modifier le dictionnaire de `config_view()` ;
-- réorganiser le gestionnaire du flux de chat (`chatbot_app/routes/chats.py`)
-  sans relire ses invariants d'ordre (annulation, enregistrement, protocole
-  NDJSON), documentés en tête du fichier ;
+- réorganiser le flux de chat (`chatbot_app/routes/chats.py` et le paquet
+  `chatbot_app/turn/`) sans relire ses invariants (verrou, annulation,
+  enregistrement) et l'ordre des événements NDJSON, écrits en tête de
+  `chats.py` et figés par `tests/chatbot/test_flux_route.py` ;
 - toucher au contenu de `/work` depuis l'hôte : tout passe par l'agent du
   conteneur (`shared_infra/sandbox/agent_client.py`, `llm_core/tools/_espace.py`,
   `git_ops` pour Git) — un `open`, `os.walk`, `chmod` ou `unlink` de l'hôte

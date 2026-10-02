@@ -36,9 +36,9 @@ def test_result_is_error_contract():
 
 
 def test_loop_and_ledger_share_the_classifier():
-    from llm_core import _chat_with_tools
     from llm_core.context.compression import serializer
-    assert _chat_with_tools._result_is_error is result_is_error
+    from llm_core.engine import result_contract, tool_dispatch
+    assert tool_dispatch.result_is_tool_failure is result_contract.result_is_tool_failure
     assert serializer.result_is_error is result_is_error
 
 
@@ -71,13 +71,13 @@ class _Result:
 
 
 def test_pick_tool_payload_single_block_unchanged():
-    from llm_core._chat_with_tools import pick_tool_payload
+    from llm_core.engine.tool_dispatch import pick_tool_payload
     assert pick_tool_payload(_Result([_Block('{"ok": true}')])) == {"ok": True}
     assert pick_tool_payload(_Result([_Block("texte libre")])) == "texte libre"
 
 
 def test_pick_tool_payload_multiblock_concatenates_with_marker():
-    from llm_core._chat_with_tools import pick_tool_payload
+    from llm_core.engine.tool_dispatch import pick_tool_payload
     out = pick_tool_payload(
         _Result([_Block("premier"), _Block("second"), _ImageBlock()]))
     assert isinstance(out, str)
@@ -205,7 +205,7 @@ def test_flatten_tool_messages_preserve_la_queue():
     """Le filet d'aplatissement de dernier recours coupait head-only à 8000
     chars en dur (le verdict final partait) — désormais tête+queue, aligné
     sur la philosophie du cap d'émission."""
-    from llm_core._chat_with_tools import _flatten_tool_messages
+    from llm_core.engine.llm_turn import _flatten_tool_messages
     body = "HEAD_MARK " + ("x" * 20_000) + " TAIL_VERDICT_OK"
     msgs = [
         {"role": "assistant", "content": "avant",

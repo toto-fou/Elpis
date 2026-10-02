@@ -2,15 +2,14 @@
 """tests/llm_core/test_context_budget.py — ContextBudget (Phase 1).
 
 Les ratios de fenêtre vivent dans UNE dataclass gelée, surchargeable à froid
-via context_config.json → budgets.*. Les alias historiques de
-``_chat_with_tools`` doivent pointer sur les MÊMES valeurs (déplacement pur,
-zéro changement de comportement), et ``reserve_tokens`` doit répliquer
-exactement le calcul inline du budget dur (C2a : réserve ≥ gen_cap).
+via context_config.json → budgets.*. La boucle n'en garde aucune copie
+(une copie figée divergerait d'une surcharge), et ``reserve_tokens`` doit
+répliquer exactement le calcul inline du budget dur (réserve ≥ gen_cap).
 """
 from __future__ import annotations
 
 import llm_core._chat_with_tools as _cwt
-from llm_core.context.budget import BUDGET, ContextBudget
+from llm_core.context.budget import ContextBudget
 
 
 def test_defauts_identiques_aux_constantes_historiques():
@@ -31,10 +30,20 @@ def test_defauts_identiques_aux_constantes_historiques():
     assert b.sanitize_tool_max_tokens == 50_000
 
 
-def test_alias_chat_with_tools_pointent_sur_budget():
-    assert _cwt._CTX_OUTPUT_RESERVE_RATIO == BUDGET.output_reserve_ratio
-    assert _cwt._CTX_OUTPUT_RESERVE_MIN == BUDGET.output_reserve_min
-    assert _cwt._CTX_KEEP_RECENT == BUDGET.keep_recent_msgs
+def test_la_boucle_ne_garde_pas_de_copie_des_budgets():
+    """Les budgets se lisent dans ``BUDGET`` : aucune constante recopiée dans
+    l'orchestrateur ni dans ses sous-routines."""
+    import importlib
+    import pkgutil
+
+    import llm_core.engine as _engine
+    modules = [_cwt] + [importlib.import_module(f"llm_core.engine.{m.name}")
+                        for m in pkgutil.iter_modules(_engine.__path__)]
+    recopies = {"_BUDGET", "_CTX_OUTPUT_RESERVE_RATIO", "_CTX_OUTPUT_RESERVE_MIN",
+                "_CTX_KEEP_RECENT"}
+    for mod in modules:
+        copies = sorted(recopies & set(vars(mod)))
+        assert not copies, f"{mod.__name__} recopie des budgets : {copies}"
 
 
 def test_reserve_couvre_le_gen_cap_et_respecte_le_plafond():

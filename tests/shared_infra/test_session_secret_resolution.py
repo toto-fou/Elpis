@@ -48,6 +48,9 @@ def _resolve(tmp_path, *, json_secret, env_secret=None, file_secret=None):
 
     env = dict(os.environ, APP_CONFIG_PATH=str(cfg_path), PYTHONPATH=REPO)
     env.pop("APP_SESSION_SECRET", None)
+    # La base (et le secret posé à côté) vient de CETTE configuration : la
+    # variable posée par ``tests/conftest.py`` pour isoler la suite primerait.
+    env.pop("APP_DB_PATH", None)
     if env_secret is not None:
         env["APP_SESSION_SECRET"] = env_secret
     out = subprocess.run([sys.executable, "-c", _PROBE], capture_output=True,

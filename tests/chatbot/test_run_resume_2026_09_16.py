@@ -20,7 +20,6 @@ verrouillé ici, au niveau des routes :
 from __future__ import annotations
 
 import asyncio
-import inspect
 import json
 import time
 
@@ -29,6 +28,7 @@ import pytest
 from fastapi import FastAPI, HTTPException, Request
 
 from shared_infra.runtime import chat_locks, run_journal as rj
+from tests._routes_chat import monter_routes_chat
 
 
 @pytest.fixture()
@@ -36,18 +36,13 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setattr(rj, "RUN_DIR", tmp_path / "runs")
     monkeypatch.setattr(rj, "_last_sweep", time.time())
     monkeypatch.setattr(chat_locks, "LOCK_DIR", tmp_path / "locks")
-    import chatbot_app.routes.chats as ch
-
     def _fake_uid(request: Request):
         uid = request.headers.get("x-test-user")
         if not uid:
             raise HTTPException(401, "auth requise")
         return int(uid)
 
-    monkeypatch.setattr(ch, "require_user_id", _fake_uid)
-    a = FastAPI()
-    a.include_router(ch.router)
-    return a
+    return monter_routes_chat(monkeypatch, _fake_uid)
 
 
 def _client(app):
@@ -166,12 +161,12 @@ async def test_statut_de_generation_pour_se_rattacher(app):
 def test_un_run_reprenable_est_detache_a_la_deconnexion():
     """Quitter la conversation laisse le tour se terminer (décision 2026-09-16),
     même sans outil ; Stop reste un arrêt."""
-    import chatbot_app.routes.chats as ch
-    assert ch._should_detach_run(detach_enabled=True, task_done=False,
+    from chatbot_app.turn.execution import _should_detach_run
+    assert _should_detach_run(detach_enabled=True, task_done=False,
                                  user_stopped=False, tools_ran=False) is True
-    assert ch._should_detach_run(detach_enabled=True, task_done=False,
+    assert _should_detach_run(detach_enabled=True, task_done=False,
                                  user_stopped=True, tools_ran=True) is False
-    src = inspect.getsource(ch.api_chat_saved_stream3) if hasattr(ch, "api_chat_saved_stream3") \
-        else inspect.getsource(ch)
+    from tests._sources import source_flux_chat
+    src = source_flux_chat()
     assert "detach_enabled=(_detach_on_disconnect or _resumable)" in src
     assert '_resumable = bool(data.get("resumable", False)) and not ephemeral' in src

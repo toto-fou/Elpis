@@ -23,10 +23,73 @@ leur propre ``monkeypatch`` (il prime).
 """
 from __future__ import annotations
 
+import atexit
 import os
+import shutil
+import tempfile
 from pathlib import Path
 
 import pytest
+
+
+# ── Configuration d'instance et moteur LLM : jamais ceux de la machine ───────
+# ``shared_infra.config`` lit ``config.json`` et ``LLAMA_IP``/``LLAMA_PORT`` À
+# L'IMPORT : ces variables doivent donc être posées ici, avant tout import de
+# l'application. Sans elles, la suite lancée depuis une copie qui porte un vrai
+# ``config.json`` (HTTPS actif, moteur du réseau local) échoue sans défaut du
+# code (URL ``https://``, certificat auto-signé, goldens qui dérivent) ou
+# attend ~9 s par appel un moteur qui ne répond pas ; un ``llama-server`` local
+# sur le port 8080 serait, lui, réellement interrogé.
+#   - ``APP_CONFIG_PATH`` : fichier absent dans un dossier temporaire — la
+#     configuration vaut ``{}``, comme en CI, et une écriture de la
+#     configuration par un test n'atteint jamais le vrai fichier ;
+#   - ``LLAMA_IP=127.0.0.1``, ``LLAMA_PORT=1`` : connexion refusée tout de suite ;
+#   - ``ELPIS_AUDIT_DIR`` : dossier temporaire — le journal d'audit de sécurité
+#     (lu à l'import de ``shared_infra.security.audit``) ne reçoit jamais les
+#     actions d'administration fictives des tests ; sans lui, elles iraient
+#     dans ``logs/audit`` de la copie de travail, ou dans ``/var/lib/elpis`` ;
+#   - ``APP_DB_PATH``, ``APP_SANDBOX_DIR``, ``APP_FILE_HISTORY_DIR``,
+#     ``APP_USER_SKILLS_DIR``, ``SKILLS_LOCK_PATH`` : données de l'instance dans le dossier
+#     temporaire. Sans eux, les chemins par défaut désignent ``user_db/``,
+#     ``user_sandboxes/`` et ``user_skills/`` de la copie de travail, c'est-à-dire
+#     les données réelles de l'instance : secret de session (posé à côté de la
+#     base), historique des fichiers, instantanés et verrous de sandbox. Les
+#     fixtures qui redirigent ``DB_PATH`` par substitution ne couvrent ni ce
+#     qui est calculé à l'import, ni les sous-processus lancés par un test.
+# Une valeur déjà présente dans l'environnement prime : un développeur peut
+# toujours viser sa configuration ou son moteur. Les workers xdist héritent de
+# l'environnement du processus principal, donc du même dossier.
+def _isoler_configuration_et_moteur() -> None:
+    dossier: list[str] = []
+
+    def _temporaire(nom: str) -> str:
+        if not dossier:
+            dossier.append(tempfile.mkdtemp(prefix="elpis-tests-"))
+            atexit.register(shutil.rmtree, dossier[0], ignore_errors=True)
+        return os.path.join(dossier[0], nom)
+
+    if not os.environ.get("APP_CONFIG_PATH"):
+        os.environ["APP_CONFIG_PATH"] = _temporaire("config.json")
+    if not os.environ.get("ELPIS_AUDIT_DIR"):
+        os.environ["ELPIS_AUDIT_DIR"] = _temporaire("audit")
+    for variable, nom in (("APP_DB_PATH", os.path.join("user_db", "app.db")),
+                          ("APP_SANDBOX_DIR", "user_sandboxes"),
+                          ("APP_FILE_HISTORY_DIR", "file_history"),
+                          ("APP_USER_SKILLS_DIR", "user_skills"),
+                          ("SKILLS_LOCK_PATH", ".skills_write.lock")):
+        if not os.environ.get(variable):
+            os.environ[variable] = _temporaire(nom)
+    os.environ.setdefault("LLAMA_IP", "127.0.0.1")
+    os.environ.setdefault("LLAMA_PORT", "1")
+    # Journal applicatif (``<racine>/user_db/logs/app.log.jsonl``) : sa racine
+    # est mise en cache par le module, sans variable d'environnement, et le
+    # gestionnaire s'installe dès l'import de l'application. On la pose donc
+    # ici, avant tout import de l'application (le module est léger).
+    from shared_infra.observability import access_logging
+    access_logging._PROJECT_ROOT = Path(_temporaire("racine-journaux"))
+
+
+_isoler_configuration_et_moteur()
 
 
 # ── Moteur de base de la suite (2026-09-26, chantier multi-moteurs) ──────────
@@ -236,6 +299,10 @@ def _isolate_shared_spools(tmp_path_factory):
         cron_lock._LOCK_PATH = base / "cron.lock"
     except Exception:
         pass
+    # Verrou d'envoi des sauvegardes : chemin figé à l'import sous
+    # ``<racine>/user_db``, hors d'atteinte d'``APP_DB_PATH``.
+    from shared_infra.ops import backup_remote
+    backup_remote.SEND_LOCK_PATH = str(base / ".backup_send.lock")
     # Aperçus Office (2026-09-15) : verrous flock et cache de conversion hors
     # de /tmp/elpis_office_locks et de user_sandboxes/.office-cache réels.
     import os as _os
@@ -275,6 +342,41 @@ def _reset_tokenize_backoff():
     yield
     _llama_http._TOKENIZE_DOWN_UNTIL.clear()
     _tok._SHORT_TOKEN_MEMO.clear()
+
+
+# ── Erreurs de code avalées par ``swallow`` : bruyantes dans la suite ────────
+# La boucle agentique (libellés ``harness.*``) et le flux de chat (``chat.*``,
+# ``chat_manual.*``) entourent beaucoup d'étapes d'un ``swallow`` : une étape
+# en échec ne doit pas couper le tour. Mais un ``ImportError``, un
+# ``NameError`` ou un ``AttributeError`` attrapé là n'est pas un aléa
+# d'exécution, c'est du code cassé (nom déplacé, import paresseux devenu
+# faux) — et l'étape serait sautée sans qu'aucun test ne rougisse. On les
+# relève au passage de ``tracing.record`` et le test échoue à la fin.
+_LIBELLES_SURVEILLES = ("harness.", "chat.", "chat_manual.")
+_ERREURS_DE_CODE = (ImportError, NameError, AttributeError)
+
+
+@pytest.fixture(autouse=True)
+def _erreur_de_code_avalee_echoue():
+    # Sans ``monkeypatch`` : le demander ici avancerait sa création, donc
+    # retarderait ses restaurations après le démontage des fixtures du test.
+    from shared_infra.observability import tracing
+    avalees: list[str] = []
+    record = tracing.record
+
+    def _record(tag, exc):
+        if tag.startswith(_LIBELLES_SURVEILLES) and isinstance(exc, _ERREURS_DE_CODE):
+            avalees.append(f"{tag} : {type(exc).__name__}: {exc}")
+        record(tag, exc)
+
+    tracing.record = _record
+    try:
+        yield
+    finally:
+        tracing.record = record
+    if avalees:
+        pytest.fail("erreur de code avalée par swallow :\n  " + "\n  ".join(avalees),
+                    pytrace=False)
 
 
 @pytest.fixture(scope="session")

@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: MIT
 """llm_core.providers.llama_stream — flux SSE REPRENABLE de llama-server.
 
-Depuis b10545, llama-server sait garder une génération en vie APRÈS la
+llama-server (à partir de b10545) sait garder une génération en vie APRÈS la
 disparition du client HTTP, et la relire ensuite depuis son tampon :
 
     POST /v1/chat/completions   + en-tête ``X-Conversation-Id: <id>``
         → la génération est adossée à une session nommée ; couper la
-          connexion ne l'arrête plus.
+          connexion ne l'arrête pas.
     GET  /v1/stream?conv_id=<id>&from=<octet>
         → rejoue les octets SSE déjà produits, puis continue EN DIRECT.
     POST /v1/streams/lookup {"conversation_ids": [...]}
@@ -14,12 +14,12 @@ disparition du client HTTP, et la relire ensuite depuis son tampon :
     DELETE /v1/stream?conv_id=<id>
         → arrêt explicite : annule le producteur et évince la session.
 
-Vérifié en conditions réelles le 2026-08-22 (b10545, mode routeur) : client
-coupé au bout de 25 caractères, ``lookup`` répond ``is_done:false``, la reprise
-rejoue le début PUIS la suite, ``DELETE`` renvoie 204.
+Vérifié en conditions réelles (b10545, mode routeur) : client coupé au bout
+de 25 caractères, ``lookup`` répond ``is_done:false``, la reprise rejoue le
+début PUIS la suite, ``DELETE`` renvoie 204.
 
 ⚠ CONSÉQUENCE À NE PAS MANQUER — poser l'en-tête change la sémantique de
-l'annulation : fermer le flux HTTP n'arrête PLUS le modèle. C'est
+l'annulation : fermer le flux HTTP n'arrête PAS le modèle. C'est
 ``cancel_stream`` qui arrête, et lui seul. Les deux sont câblés ensemble ; le
 drapeau ``LLAMA_RESUMABLE_STREAM`` coupe les deux d'un coup.
 
@@ -29,8 +29,8 @@ annulant son producteur (invariant « une conversation = au plus une session
 vivante » — le même invariant que notre garde 409).
 
 Rien ici n'est obligatoire : un build qui ignore l'en-tête ne crée pas de
-session, la reprise répond 404 et l'appelant retombe sur le comportement
-historique.
+session, la reprise répond 404 et l'appelant retombe sur le flux ordinaire
+(non reprenable, arrêté par la fermeture de la connexion).
 """
 from __future__ import annotations
 
@@ -60,20 +60,20 @@ def conversation_id(user_id: Any, chat_id: Optional[str],
     au même id annule la précédente, côté serveur).
 
     ⚠ ``user_id`` est accepté pour la compatibilité des appels mais N'ENTRE
-    PAS dans la clé — AUDIT 2026-08-23. Il ne PEUT pas y entrer : le harnais
-    ne connaît que le NOM d'utilisateur (``_chat_with_tools`` reçoit
-    ``user_id=username``, une chaîne) et la route d'annulation que son
+    PAS dans la clé. Il ne PEUT pas y entrer : le transport ne connaît que le
+    NOM d'utilisateur (``engine.llm_stream._llama_chat_with_tools_stream``
+    reçoit ``user_id=username``, une chaîne) et la route d'annulation que son
     IDENTIFIANT NUMÉRIQUE (``require_user_id`` rend un int). Les deux HMAC
-    différaient donc systématiquement : le ``DELETE /v1/stream`` de la route
-    visait une session inexistante, le 404 était classé en succès, et le
-    filet explicitement conçu pour le cas « worker mort / run détaché » —
-    le SEUL qui arrête vraiment le modèle sur un flux nommé — était un no-op
-    silencieux ; la génération tournait jusqu'à l'EOS sur le slot GPU pendant
-    que la bannière annonçait « annulé ». C'est le même piège que
-    ``shared_infra/reasoning_control``, qui l'avait déjà tranché de la même
-    façon : la clé ne porte QUE le chat. Un ``chat_id`` appartient à un seul
-    compte, et l'autorisation est faite en amont par ``get_chat`` dans la
-    route ; le HMAC du secret d'instance suffit à la non-devinabilité.
+    différeraient systématiquement : le ``DELETE /v1/stream`` de la route
+    viserait une session inexistante, le 404 serait classé en succès, et le
+    filet conçu pour le cas « worker mort / run détaché » — le SEUL qui
+    arrête vraiment le modèle sur un flux nommé — deviendrait un no-op
+    silencieux ; la génération tournerait jusqu'à l'EOS sur le slot GPU
+    pendant que la bannière annonce « annulé ». Même règle que
+    ``shared_infra/llm/reasoning_control`` : la clé ne porte QUE le chat. Un
+    ``chat_id`` appartient à un seul compte, et l'autorisation est faite en
+    amont par ``get_chat`` dans la route ; le HMAC du secret d'instance suffit
+    à la non-devinabilité.
     """
     if not chat_id:
         return ""
@@ -149,9 +149,9 @@ async def cancel_stream(client: Any, base_url: str, conv_id: str,
     """Arrêt EXPLICITE d'une session (``DELETE /v1/stream``).
 
     ⚠ Seul vrai moyen d'arrêter une génération adossée à une session : fermer
-    la connexion ne suffit plus, c'est précisément ce que la reprise garantit.
+    la connexion ne suffit pas, c'est précisément ce que la reprise garantit.
     Fonctionne depuis N'IMPORTE QUEL worker (le moteur est l'autorité), ce que
-    notre bus d'annulation par fichier ne pouvait pas offrir au modèle.
+    notre bus d'annulation par fichier ne peut pas offrir au modèle.
     """
     if not conv_id:
         return False
@@ -175,22 +175,23 @@ async def cancel_stream(client: Any, base_url: str, conv_id: str,
 # ─────────────────────────────────────────────────────────────────────────────
 #  Capacité OBSERVÉE : « ce moteur donne signe de vie pendant le silence »
 # ─────────────────────────────────────────────────────────────────────────────
-# Le read-timeout du flux est aujourd'hui ÉTIRÉ à l'aveugle en fonction de
-# n_ctx : c'était la seule parade au silence du pré-remplissage (mesuré 33 s
+# Par défaut, le read-timeout du flux est ÉTIRÉ à l'aveugle en fonction de
+# n_ctx : c'est la seule parade au silence du pré-remplissage (mesuré 33 s
 # pour 4 339 tokens, donc des minutes sur un historique long). Conséquence :
 # un moteur réellement planté immobilise le run jusqu'à ce plafond.
 #
 # Dès qu'un moteur nous a envoyé un ``prompt_progress`` — ou qu'une reprise a
 # abouti — on SAIT qu'il ping pendant le silence, et le read-timeout peut
 # redevenir court : le flux ne reste jamais muet plus que l'intervalle de ping.
-# Mémoire par modèle, en RAM, remise à zéro au redémarrage du worker : on ne
-# resserre jamais sur une supposition, seulement sur une observation.
+# Mémoire par (serveur, modèle), en RAM, remise à zéro au redémarrage du
+# worker : on ne resserre jamais sur une supposition, seulement sur une
+# observation.
 _ALIVE_SIGNAL: Dict[str, bool] = {}
 
 
 def _alive_key(model: str) -> str:
-    """Par (serveur, modèle) — AUDIT 2026-09-16 : un ping observé sur un
-    connecteur ne prouve rien du modèle homonyme de l'intégré (et vice versa)."""
+    """Par (serveur, modèle) : un ping observé sur un connecteur ne prouve
+    rien du modèle homonyme de l'intégré (et vice versa)."""
     try:
         from llm_core.engines import current_engine
         return current_engine().cache_key(str(model or ""))

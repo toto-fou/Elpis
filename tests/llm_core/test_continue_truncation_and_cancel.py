@@ -25,7 +25,7 @@ import json
 
 import pytest
 
-from llm_core import _chat_classic as _ccl, _chat_with_tools as _cwt, _llm_params, _tool_parsing as _tp
+from llm_core import _chat_classic as _ccl, _chat_with_tools as _cwt, _llm_params, _model_info, _tool_parsing as _tp
 from llm_core.providers import openai_compat as _oai
 
 
@@ -133,7 +133,7 @@ async def test_classic_meta_no_truncation_on_stop(monkeypatch):
 def _patch_tools_env(monkeypatch):
     monkeypatch.setattr(_cwt, "verify_llm_availability", _anoop)
     monkeypatch.setattr(_cwt, "_model_supports_vision", _avision)
-    monkeypatch.setattr(_cwt, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
 
 
 async def test_tools_final_length_sets_truncated(monkeypatch):

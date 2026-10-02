@@ -1,19 +1,22 @@
 # SPDX-License-Identifier: MIT
-# tools/firefox_tools.py — v2 (upgrades for context-efficiency + IHM testing)
+# tools/firefox_tools.py — Playwright browser tools (pw_*)
 """
-Playwright browser automation MCP — 4 core tools, English descriptions.
+Playwright browser automation MCP — the ``pw_*`` tools, English descriptions.
 
-Upgrades vs v1 (preserves v1 wire format with new optional params):
+Core tools (pw_session, pw_find, pw_act, pw_page, pw_dialog, pw_wait) and
+IHM testing / observation tools (pw_expect, pw_chain, pw_mock, pw_recorder,
+pw_observe, pw_a11y, pw_visual, pw_memory) all live here; they drive the
+Node browser service over HTTP (pw_memory reads the local AX memory).
+
+Context-efficiency knobs are optional parameters (the wire format of a
+call without them is unchanged):
   - pw_page(action="inspect") supports level=lite|nav|full, since_step=N,
     viewport_only, max_items.
   - pw_act accepts a unified `target` DSL (e.g. "role=button|name=Login")
-    in addition to the legacy separate selector params (full back-compat).
+    in addition to the separate selector params (full back-compat).
   - pw_session("list") supports url_filter to retrieve session_id by domain.
-  - pw_page(action="eval") result is now bounded.
+  - pw_page(action="eval") result is bounded.
   - back/forward record transitions in AX memory.
-
-Companion tools (pw_expect, pw_chain, pw_mock, pw_recorder, pw_observe)
-live in firefox_tools_extras.py — register both for full feature set.
 """
 from __future__ import annotations
 
@@ -43,7 +46,7 @@ from ._models import (
     PWVisualResult,
     PWWaitResult,
 )
-from ._toolkit import (  # politique par outil (P2), battement (P3)
+from ._toolkit import (  # politique par outil (with_policy), battement (Heartbeat)
     Heartbeat,
     clip_text,
     err as _tk_err,
@@ -63,18 +66,16 @@ CATEGORY = {
     "label": "Navigateur",
     "icon":  "ph-globe",
     "color": "sky",
-    # No "tools" list — captured automatically at registration time.
-    # (The old hand-maintained list had drifted: it declared pw_inspect/
-    #  pw_locate/pw_navigate/... which were never registered, and omitted
-    #  pw_expect/pw_mock/pw_observe which were. That is exactly the class
-    #  of bug the manifest eliminates.)
+    # No "tools" list — captured automatically at registration time: a
+    # hand-maintained list drifts (tools declared but never registered,
+    # registered tools left out).
 }
 
 # Category carried IN the protocol (tags + meta), built by the shared
 # toolkit — one place to change if a FastMCP version ever rejects meta=.
 _TOOL_KW = tool_kw(CATEGORY)
 
-# v18/v19 — Per-behaviour annotation keysets for pw_* tools.
+# Per-behaviour annotation keysets for pw_* tools.
 # Every browser op talks to a Firefox sidecar over HTTP → open-world.
 #   pw_session  → mutating (creates/closes browser sessions), open-world
 #   pw_find     → read-only (queries the DOM), still open-world (network)
@@ -95,13 +96,14 @@ def _err(msg: str, hint: str = "", *, code: str = "", message: str = "",
          fix: str = "", **kw) -> Dict[str, Any]:
     """Harmonized error envelope (tools/_toolkit.py). Firefox keeps its
     {"error": ...} convention — callers detect failure via .get("error")
-    — but `error` is now a stable machine code, the human text moves to
-    `message`, and the hint becomes the standard `fix`.
+    — with `error` as a stable machine code, the human text in `message`,
+    and the hint as the standard `fix`.
 
     ``message=``/``fix=`` permettent de dissocier le CODE (``msg``, slugifié)
-    de la phrase rendue au modèle. Sans eux, ``_err("x", message=…, fix=…)``
-    levait un ``TypeError`` (double ``fix`` passé à ``_toolkit.err``) : un
-    garde-fou écrit ainsi plantait au lieu de renvoyer son enveloppe."""
+    de la phrase rendue au modèle. Ne pas les retirer de la signature :
+    ``_err("x", message=…, fix=…)`` lèverait un ``TypeError`` (``fix`` passé
+    deux fois à ``_toolkit.err``) et un garde-fou écrit ainsi planterait au
+    lieu de renvoyer son enveloppe."""
     _code = code or (
         re.sub(r"[^a-z0-9]+", "_", str(msg).lower()).strip("_")[:40] or "browser_error"
     )
@@ -148,7 +150,7 @@ def _clip_result(obj: Any, *, str_cap: int = 2000) -> Any:
 
 # ── AX memory hooks (best-effort, never break tool calls) ──
 # IMPORTANT : ce flag conditionne TOUT l'enregistrement AX. S'il passe à
-# False silencieusement (échec d'import de backend.ax_memory), la mémoire
+# False silencieusement (échec d'import de shared_infra.memory.ax), la mémoire
 # n'est plus alimentée du tout — sans le moindre signal. On loggue donc
 # explicitement les deux cas, succès ET échec (avec l'exception).
 import logging as _ax_logging
@@ -233,13 +235,14 @@ EVAL_RESULT_MAX_CHARS = int(os.environ.get("PLAYWRIGHT_EVAL_MAX_CHARS", "50000")
 # (LOCK_WAIT_MS = 90s) for more than one chunk, and every request stays well
 # under Node's default requestTimeout (~300s). _WAIT_MAX_S is the hard client
 # cap on total wait time (and on a fixed pause); the agent-loop bound for
-# pw_wait (_TOOL_TIMEOUT_DEFAULTS in _chat_with_tools.py) is set above it so a
-# legitimate wait is never cut short as a "tool timeout".
+# pw_wait (``timeout_s=330.0`` in its ``with_policy`` below; fallback
+# ``_TOOL_TIMEOUT_DEFAULTS`` in ``llm_core/engine/tool_dispatch.py``) is set
+# above it so a legitimate wait is never cut short as a "tool timeout".
 _WAIT_MAX_S    = int(os.environ.get("PLAYWRIGHT_WAIT_MAX_S", "300"))
 _WAIT_CHUNK_MS = int(os.environ.get("PLAYWRIGHT_WAIT_CHUNK_MS", "8000"))
 
 
-# Propriétaire de l'appel d'outil en cours (2026-09-30) : posé au début de
+# Propriétaire de l'appel d'outil en cours : posé au début de
 # chaque outil pw_* (par ``_refus_session_d_autrui``, que tous appellent) et
 # transmis au service navigateur à CHAQUE requête, qui ne sert une session
 # qu'à son propriétaire. ContextVar : un appel d'outil = un contexte copié,
@@ -279,20 +282,17 @@ def _refus_url(url) -> Any:
 def _refus_session_d_autrui(session_id, username: str):
     """Refuse une session Playwright qui appartient à un AUTRE compte.
 
-    AUDIT 2026-08-23 — le registre de propriété (sidecar disque cross-worker,
-    audit D7 du 2026-08-22) n'avait qu'UN consommateur dans tout le dépôt : la
-    route qui sert les captures PNG. Côté OUTILS, rien ne vérifiait à qui
-    appartenait le ``session_id`` reçu du modèle : chaque ``pw_*`` posait
-    ``_username`` puis ne le relisait jamais. Un compte qui obtenait un
-    identifiant de session — ``pw_session(action='list')`` le donne, avec le
-    propriétaire et l'URL — pouvait lire et piloter la session authentifiée
-    d'un autre.
+    Chaque ``pw_*`` vérifie ici, contre le registre de propriété (sidecar
+    disque cross-worker), à qui appartient le ``session_id`` reçu du modèle :
+    un compte qui obtient un identifiant de session —
+    ``pw_session(action='list')`` le donne, avec le propriétaire et l'URL —
+    ne doit pas pouvoir lire ni piloter la session authentifiée d'un autre.
 
-    (2026-09-30) Plus de passe-droit quand le propriétaire est INCONNU du
-    registre : la session est refusée, et ``pw_session(action='start')`` la
-    rend (il réutilise l'instance du compte et réenregistre sa propriété). Le
-    service navigateur vérifie de son côté le propriétaire transmis à chaque
-    requête (``_PW_OWNER``) : ce contrôle-ci n'est que le refus anticipé.
+    Un propriétaire INCONNU du registre n'ouvre aucun passe-droit : la
+    session est refusée, et ``pw_session(action='start')`` la rend (il
+    réutilise l'instance du compte et réenregistre sa propriété). Le service
+    navigateur vérifie de son côté le propriétaire transmis à chaque requête
+    (``_PW_OWNER``) : ce contrôle-ci n'est que le refus anticipé.
     """
     try:
         from shared_infra.security.browser_url import pw_owner
@@ -447,13 +447,14 @@ _SCREENSHOT_URL_PREFIX = "/api/playwright/screenshot/"
 def _screenshot_result(r: Any, *, full_page: bool = False, target: str = "") -> Any:
     """Contrat de sortie STABLE de ``pw_page(action='screenshot')``.
 
-    Audit tools web 2026-09-05 (P0) — le service répond ``{"status":
-    "success", "screenshot": "shot_<sid>_<ts>.png"}``. Ce ``status`` CHAÎNE
-    heurtait le ``status: int`` du modèle ``PWPageResult`` : le client MCP
-    rejetait la réponse (``-32602 … status must be integer``) et la capture,
-    pourtant écrite, n'était jamais vue. On aligne la forme sur ``pw_visual`` /
+    Le service répond ``{"status": "success", "screenshot":
+    "shot_<sid>_<ts>.png"}``. Forme rendue alignée sur ``pw_visual`` /
     ``pw_observe(som)`` : nom du fichier + URL applicative + numéro d'étape,
-    sans ``status`` textuel. Une enveloppe d'erreur passe telle quelle."""
+    sans ``status`` textuel — la capture ne dépend pas du typage de
+    ``status`` dans ``PWPageResult`` (un ``status: int`` strict ferait
+    rejeter la réponse par le client MCP, ``-32602 … status must be
+    integer``, et la capture, pourtant écrite, ne serait jamais vue). Une
+    enveloppe d'erreur passe telle quelle."""
     if not isinstance(r, dict) or r.get("error"):
         return r
     fname = r.get("screenshot")
@@ -477,8 +478,8 @@ def _screenshot_result(r: Any, *, full_page: bool = False, target: str = "") -> 
 # TARGET DSL parser
 # ──────────────────────────────────────────────────────────────────────
 # Single-string locator: "role=button|name=Login" or "label=Email" or "ref=loc_x".
-# Maps to the existing by_* / ref params transparently. v1 separate params
-# remain accepted for back-compat — DSL is just an additional, recommended path.
+# Maps to the by_* / ref params transparently. The separate params remain
+# accepted for back-compat — DSL is just an additional, recommended path.
 _DSL_KEYS = {
     "role", "name", "text", "label", "placeholder", "test_id",
     "css", "xpath", "ref", "alt", "title", "nth",
@@ -541,21 +542,19 @@ def _build_locator_payload(
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Harmonisation des noms d'arguments (2026-08-08)
+# Harmonisation des noms d'arguments
 # ──────────────────────────────────────────────────────────────────────
-# Constat en mission live : la même notion — « quel geste » — portait cinq
-# noms selon l'outil : ``action`` (pw_session/pw_mock/pw_recorder), ``op``
-# (pw_page/pw_memory), ``do`` (pw_act), ``assertion`` (pw_expect), ``mode``
-# (pw_observe). Un agent qui vient d'appeler ``pw_page(op=…)`` enchaîne
-# naturellement ``pw_act(op=…)`` → erreur de schéma, un tour perdu. Deux
-# appels sur dix de la mission web y sont passés. Même histoire pour la
-# valeur (``v`` vs ``value``) et pour la cible (``target`` DSL vs
-# ``selector`` CSS — ``pw_find`` DOCUMENTAIT même un ``selector=`` qu'il
-# n'acceptait pas).
+# La même notion — « quel geste » — porte cinq noms selon l'outil :
+# ``action`` (pw_session/pw_mock/pw_recorder), ``op`` (pw_page/pw_memory),
+# ``do`` (pw_act), ``assertion`` (pw_expect), ``mode`` (pw_observe). Un agent
+# qui vient d'appeler ``pw_page(op=…)`` enchaîne naturellement
+# ``pw_act(op=…)`` : sans synonymes, erreur de schéma et un tour perdu. Même
+# chose pour la valeur (``v`` vs ``value``) et pour la cible (``target`` DSL
+# vs ``selector`` CSS).
 #
-# On ne RENOMME rien : les schémas sont déjà appris et le format de fil MCP
-# est public. ``action=`` / ``value=`` / ``selector=`` deviennent valides
-# PARTOUT, et chaque ancien nom reste accepté — sans dépréciation.
+# Ne RENOMMER rien : les schémas sont déjà appris et le format de fil MCP
+# est public. ``action=`` / ``value=`` / ``selector=`` sont valides PARTOUT,
+# et le nom propre à chaque outil reste accepté — sans dépréciation.
 # Règle de priorité UNIFORME : le nom canonique l'emporte si les deux sont
 # fournis (``action`` > ``op``/``do``/``assertion``/``mode``).
 PW_VERB_ALIASES: Dict[str, Tuple[str, ...]] = {
@@ -702,12 +701,11 @@ SYNONYMS (all pw_* tools): action= == op= == do=, value= == v=, target= == selec
         if _refus is not None:
             return _refus
         if action == "start":
-            # ⚠ BUG 2026-08-08 (trouvé en faisant tourner l'agent ``web``) —
-            # ``url`` est documenté « Required » pour ``start``, mais rien ne
-            # le vérifiait : un ``start`` sans url renvoyait ``ok`` avec
-            # ``url="about:blank"``. L'agent croyait sa session prête alors
-            # qu'elle était morte, et repartait inspecter une page vide.
-            # On refuse tôt, en nommant les DEUX sorties possibles.
+            # ``url`` est « Required » pour ``start`` : sans ce refus, un
+            # ``start`` sans url renverrait ``ok`` avec ``url="about:blank"``
+            # — l'agent croirait sa session prête alors qu'elle est morte, et
+            # repartirait inspecter une page vide. Refus tôt, en nommant les
+            # DEUX sorties possibles.
             if not (url or "").strip():
                 return _err(
                     "url_required",
@@ -746,7 +744,7 @@ SYNONYMS (all pw_* tools): action= == op= == do=, value= == v=, target= == selec
             # existante de cet owner s'il y en a une (URL → nouvel onglet).
             from shared_infra.security.browser_url import pw_owner as _pw_owner
             _owner = _pw_owner(_username)
-            # Émulation device/viewport (V13). viewport="WIDTHxHEIGHT".
+            # Émulation device/viewport. viewport="WIDTHxHEIGHT".
             _start_body = {
                 "url": url, "username": username, "password": password,
                 "headless": HEADLESS, "load_state_id": load_state_id,
@@ -763,14 +761,14 @@ SYNONYMS (all pw_* tools): action= == op= == do=, value= == v=, target= == selec
             if timezone: _start_body["timezone"] = timezone
             if color_scheme: _start_body["color_scheme"] = color_scheme
             if touch is not None: _start_body["touch"] = touch
-            # Phase 5 — isolation de test / trace / vidéo
+            # Isolation de test / trace / vidéo
             if isolated: _start_body["isolated"] = True
             if trace: _start_body["trace"] = True
             if record_video: _start_body["record_video"] = True
             _result = _req("POST", "/start", json=_start_body)
-            # (2026-09-11, P4) propriété de la session posée PAR L'OUTIL : sur
-            # un hôte d'outils distant, la boucle de chat (qui l'enregistrait)
-            # vit ailleurs — la route des captures lit ce registre ici.
+            # Propriété de la session posée PAR L'OUTIL, pas par la boucle de
+            # chat : sur un hôte d'outils distant, la boucle vit ailleurs — la
+            # route des captures lit ce registre ici.
             try:
                 _sid = (_result.get("session_id") or _result.get("sid")) if isinstance(_result, dict) else None
                 if _sid and _username and not _result.get("error"):
@@ -874,9 +872,7 @@ max_items= : pagination cap, same knob as pw_page/pw_act. >0 caps the
         _refus = _refus_session_d_autrui(session_id, _username)
         if _refus is not None:
             return _refus
-        # `selector=` était DOCUMENTÉ ci-dessus sans exister dans la signature
-        # (audit 2026-08-08) : un pw_find(selector="#x") partait en erreur de
-        # schéma. Les deux noms convergent maintenant vers le DSL.
+        # `selector=` (CSS brut) et `target=` (DSL) convergent vers le DSL.
         target = _merge_target(target, selector)
         # Empty call → quick lite inspect (helpful exploratory call)
         if not target and not any([role, text, label, placeholder, test_id, css, xpath, alt, title]):
@@ -1010,11 +1006,10 @@ max_items= : cap on the interactive elements listed in `page_after`
 
         # ── pick : n'importe quelle liste déroulante, en UN geste ──────────
         # `select` ne sait piloter qu'un <select> natif. Sur un combobox à base
-        # de div (le cas majoritaire hors formulaires HTML purs), il fallait
-        # ouvrir puis cliquer l'option en devinant son sélecteur. Le service a
-        # /handle_dropdown, qui enchaîne 4 stratégies (select natif, input +
-        # autocomplete/datalist, dropdown custom, shadow DOM) — il n'était
-        # relié à rien (audit 2026-08-08).
+        # de div (le cas majoritaire hors formulaires HTML purs), il faudrait
+        # ouvrir puis cliquer l'option en devinant son sélecteur. `pick` passe
+        # par /handle_dropdown du service, qui enchaîne 4 stratégies (select
+        # natif, input + autocomplete/datalist, dropdown custom, shadow DOM).
         if do == "pick":
             _sel = _dsl_to_selector(target)
             if not _sel:
@@ -1039,7 +1034,7 @@ max_items= : cap on the interactive elements listed in `page_after`
         if do in nav:
             # La navigation peut durer jusqu'au timeout de goto côté Node (60s),
             # PLUS les attentes post-goto (networkidle ~3s + overlays) sur le
-            # chemin succès. Sans override, _req coupait à TIMEOUT (10s) → faux
+            # chemin succès. Sans override, _req couperait à TIMEOUT (10s) → faux
             # « Timeout (10s) ». On laisse une marge confortable au-delà du
             # budget serveur (60s + post-goto) pour ne pas couper un succès lent.
             _nav_timeout = max(TIMEOUT, 75)
@@ -1076,9 +1071,9 @@ max_items= : cap on the interactive elements listed in `page_after`
                 "select":"select_option","hover":"hover","check":"check","uncheck":"uncheck",
                 "focus":"focus","scroll":"scroll","scroll_to":"scroll_into_view",
                 "dblclick":"double_click","rclick":"right_click","upload":"upload",
-                # Audit tools web 2026-09-05 — le service savait déjà glisser
-                # (type 'drag', chemin selector=) mais l'outil ne l'exposait pas ;
-                # et un clic simple ne DÉPLIE pas un nœud de CellTree GWT.
+                # drag : geste du service (type 'drag', chemin selector=) ;
+                # expand/collapse : un clic simple ne DÉPLIE pas un nœud de
+                # CellTree GWT.
                 "drag":"drag","expand":"expand","collapse":"collapse"}
         if not do:
             return _err("action_required",
@@ -1118,9 +1113,9 @@ max_items= : cap on the interactive elements listed in `page_after`
             "text": v or None, "value": v or None, "key": v or None,
             **_wait_payload(wait_after),
         }
-        # Choix d'option EXPLICITE : le service n'a plus à deviner si la chaîne
-        # est une value= ou un libellé. C'est ce qui coûtait 10 s de timeout au
-        # cas le plus courant — choisir par le texte affiché.
+        # Choix d'option EXPLICITE : le service n'a pas à deviner si la chaîne
+        # est une value= ou un libellé — deviner coûte 10 s de timeout au cas
+        # le plus courant, choisir par le texte affiché.
         if option_label: body["option_label"] = option_label
         if option_value: body["option_value"] = option_value
         if direction: body["direction"] = direction
@@ -1137,12 +1132,12 @@ max_items= : cap on the interactive elements listed in `page_after`
                             message="drag needs WHERE to drop.",
                             fix="pw_act(session_id, action='drag', target='css=#a', "
                                 "to='css=#b') — or direction=/amount= for an offset.")
-        # SELECTEUR DE REPLI. Le service n'a jamais eu que des by_* de notre
-        # part, donc son échelle « smart » — remontée du texte vers l'ancêtre
-        # porteur du handler (GWT/GXT), recherche DANS les iframes, repli sur
-        # aria-label/placeholder/title — était injoignable, et un locator
-        # officiel qui échoue rendait un 500 sec. On joint la même cible sous
-        # forme de chaîne : le service ne s'en sert QUE si l'officiel échoue.
+        # SÉLECTEUR DE REPLI : la même cible, jointe sous forme de chaîne,
+        # ouvre l'échelle « smart » du service — remontée du texte vers
+        # l'ancêtre porteur du handler (GWT/GXT), recherche DANS les iframes,
+        # repli sur aria-label/placeholder/title — que des by_* seuls laissent
+        # injoignable (un locator officiel qui échoue rendrait un 500 sec). Le
+        # service ne s'en sert QUE si l'officiel échoue.
         _fallback_sel = _dsl_to_selector(target)
         if _fallback_sel:
             body["selector"] = _fallback_sel
@@ -1213,13 +1208,13 @@ max_items= : cap on the interactive elements listed in `page_after`
         v: str = "",
         index: int = -1,
         max: int = 50,
-        # NEW context-saving params for op="inspect" ──
+        # context-saving params for op="inspect" ──
         level: str = "lite",                # lite | nav | full
         since_step: int = 0,                # diff vs step N (0 = no diff)
         viewport_only: bool = True,         # ignore offscreen interactives
         max_items: int = 30,                # cap on returned interactives
         skip_screenshot: bool = False,
-        # NEW for op="screenshot" ──
+        # for op="screenshot" ──
         target: str = "",                   # element-targeted screenshot (DSL)
         full_page: bool = False,
         action: str = "",
@@ -1402,10 +1397,9 @@ EXAMPLES:
                         }
             return r
         if op == "extract":
-            # Le sélecteur n'était PAS transmis : le service accepte pourtant
-            # `selector` (défaut 'table'), donc sur une page à plusieurs
-            # tableaux on renvoyait toujours le premier, sans moyen de viser
-            # (audit 2026-08-08). Les paramètres existaient déjà côté outil.
+            # Sélecteur transmis : le service accepte `selector` (défaut
+            # 'table') ; sans lui, une page à plusieurs tableaux rendrait
+            # toujours le premier, sans moyen de viser.
             _body = {"session_id": sid, "max_rows": max}
             _css = (selector or "").strip() or _dsl_to_selector(target)
             if _css:
@@ -1420,17 +1414,14 @@ EXAMPLES:
             return _req("POST", "/element_info", json={"session_id": sid, "selector": _css})
         if op == "frames":     return _req("GET", "/frames", params={"session_id": sid})
         if op == "text":
-            # ⚠ BUG 2026-08-08 (trouvé en faisant tourner l'agent ``web``) —
-            # on envoyait ``"selector": selector or None``, donc ``null`` JSON
-            # quand l'appelant n'en fournit pas. Or le service déclare son
-            # défaut en déstructuration JS (``const { selector = 'body' }``),
-            # qui ne s'applique QU'À ``undefined`` — jamais à ``null``. Le
-            # sélecteur restait donc nul, ``innerText()`` rendait ``null`` et
-            # le service explosait sur ``text.replace`` → l'agent recevait
-            # ``cannot_read_properties_of_null_reading_r``, illisible et sans
-            # rapport avec son geste. Or ``pw_page`` est documenté « no element
-            # target by default » : lire la page entière est le cas NOMINAL.
-            # On OMET la clé pour laisser le défaut du service s'appliquer.
+            # Clé ``selector`` OMISE quand l'appelant n'en fournit pas — ne
+            # jamais envoyer ``null`` : le service déclare son défaut en
+            # déstructuration JS (``const { selector = 'body' }``), qui ne
+            # s'applique QU'À ``undefined``. Avec ``null``, ``innerText()``
+            # rendrait ``null`` et le service exploserait sur ``text.replace``
+            # (``cannot_read_properties_of_null_reading_r``, illisible pour
+            # l'agent). ``pw_page`` est documenté « no element target by
+            # default » : lire la page entière est le cas NOMINAL.
             _body = {"session_id": sid}
             _css = (selector or "").strip() or _dsl_to_selector(target)
             if _css:
@@ -1586,13 +1577,12 @@ request timeout.
             return _err("session_id required for a condition wait",
                         hint="pw_wait(session_id=..., target=..., condition='hidden') — "
                              "or pw_wait(seconds=N) for a fixed pause")
-        # Audit tools web 2026-09-05 (P0) — ``selector=`` partait BRUT au
-        # service, qui le passait à ``document.querySelector`` : un
-        # ``selector="css=#finish"`` (forme DSL, la plus naturelle après un
-        # pw_find) levait une exception AVALÉE par la boucle de polling, et
-        # l'attente expirait alors que ``pw_expect text-contains`` sur la même
-        # cible passait en 8 ms. Même cible, même résolution que pw_expect :
-        # DSL → by_* (locator officiel) + chaîne de repli.
+        # Même cible, même résolution que pw_expect : DSL → by_* (locator
+        # officiel) + chaîne de repli. Ne pas passer ``selector=`` BRUT au
+        # service : il le donne à ``document.querySelector``, où une forme DSL
+        # (``css=#finish``, la plus naturelle après un pw_find) lève une
+        # exception AVALÉE par la boucle de polling — l'attente expirerait sur
+        # une cible pourtant présente.
         _sel_dsl = _merge_target(target, selector)
         sel = _dsl_to_selector(_sel_dsl)
         _by_kw = {k: val for k, val in _dsl_to_by_kw(_sel_dsl).items() if val is not None}
@@ -1612,8 +1602,8 @@ request timeout.
         deadline = _t0 + budget
         # La ligne de base (texte/compte initial) est prise UNE fois : le
         # service la renvoie avec chaque 408 et on la lui repasse, sinon chaque
-        # tranche de polling repartait d'un état neuf et un changement survenu
-        # à la frontière de deux tranches passait inaperçu.
+        # tranche de polling repartirait d'un état neuf et un changement
+        # survenu à la frontière de deux tranches passerait inaperçu.
         _baseline = None
         _last_body: Dict[str, Any] = {}
         with Heartbeat(ctx):
@@ -1670,7 +1660,6 @@ request timeout.
 
     # ═══════════════════════════════════════════════════════════════════
     # IHM TESTING + ADVANCED OBSERVATION TOOLS
-    # (formerly firefox_tools_extras.py — merged for simpler integration)
     # ═══════════════════════════════════════════════════════════════════
 
     # ── pw_expect — assertion primitive ──────────────────────────────
@@ -1794,11 +1783,11 @@ Use this when you have a deterministic sequence to save 5-10x tool-call latency.
             return _err("actions[] required",
                         hint="pass a non-empty list of action steps")
         # Translate target DSL to BOTH a fallback `selector` string AND the
-        # explicit by_* params. The server.js /chain endpoint now prefers
-        # by_* (Playwright official API, robust) and only falls back to the
-        # selector string when no by_* is set. The previous version only sent
-        # selector strings like `role=button[name="X"]` — which is NOT a
-        # valid CSS selector for page.locator() and silently failed.
+        # explicit by_* params. The server.js /chain endpoint prefers by_*
+        # (Playwright official API, robust) and only falls back to the
+        # selector string when no by_* is set. Never send the selector string
+        # alone: `role=button[name="X"]` is NOT a valid CSS selector for
+        # page.locator() and fails silently.
         translated = []
         for a in actions:
             a2 = dict(a)
@@ -1831,7 +1820,7 @@ Use this when you have a deterministic sequence to save 5-10x tool-call latency.
                 a2.pop("target", None)
             # v → text/key/value fallbacks (``value`` accepté en synonyme,
             # comme sur pw_act — un step de chaîne et un pw_act s'écrivent
-            # désormais pareil).
+            # pareil).
             v = a2.pop("v", None)
             if v is None and a2.get("type") not in ("select", "select_option"):
                 v = a2.pop("value", None)
@@ -1848,8 +1837,8 @@ Use this when you have a deterministic sequence to save 5-10x tool-call latency.
             "stop_on_error": stop_on_error,
             "screenshot_on_fail": screenshot_on_fail,
         }, timeout=max(TIMEOUT, 60))
-        # Audit tools web 2026-09-05 — une chaîne rendait ses étapes sans
-        # jamais montrer la page qui en résulte ; pw_act, lui, l'attache.
+        # Comme pw_act : la page qui résulte de la chaîne est attachée à ses
+        # étapes.
         return _finish_act(_r, session_id, observe, max_items)
 
 
@@ -2160,8 +2149,8 @@ EXAMPLES:
         try:
             if op == "sites":
                 from shared_infra.memory.ax import list_sites_with_stats
-                # AUDIT 2026-08-23 — borne au compte appelant : cette vue
-                # publiait ``cred_username`` pour TOUS les sites connus.
+                # Bornée au compte appelant : sans ``owner``, cette vue
+                # publierait ``cred_username`` pour TOUS les sites connus.
                 sites = list_sites_with_stats(owner=get_username(ctx) or "")
                 return {"op": "sites", "count": len(sites), "sites": sites}
 

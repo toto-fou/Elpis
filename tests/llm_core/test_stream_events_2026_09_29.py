@@ -9,11 +9,13 @@ import re
 from pathlib import Path
 
 from llm_core.engine.stream_events import LOOP_EVENTS, NOT_DISPLAYED, STREAM_EVENTS
+from tests._sources import code_seul, source_flux_chat
 
 ROOT = Path(__file__).resolve().parents[2]
-# Émetteurs hors boucle ; ceux de la boucle sont vérifiés par les goldens
-# de test_event_contract.py.
-EMETTEURS = ("chatbot_app/routes/chats.py", "shared_infra/runtime/run_journal.py")
+# Émetteurs hors boucle : la route du tour (tous ses modules, où qu'ils
+# vivent) et le journal d'exécution ; ceux de la boucle sont vérifiés par les
+# goldens de test_event_contract.py.
+JOURNAL = ROOT / "shared_infra" / "runtime" / "run_journal.py"
 
 
 def _corps(src: str, entete: str) -> str:
@@ -32,8 +34,8 @@ def _lus_par_l_interface() -> set:
 
 
 def _emis_hors_boucle() -> set:
-    return {t for f in EMETTEURS
-            for t in re.findall(r'"type": "([a-z_]+)"', (ROOT / f).read_text(encoding="utf-8"))}
+    code = source_flux_chat() + "\n" + code_seul(JOURNAL.read_text(encoding="utf-8"))
+    return set(re.findall(r'"type": "([a-z_]+)"', code))
 
 
 def test_groupes_inclus_dans_le_registre():
@@ -46,14 +48,18 @@ def test_l_interface_ne_lit_que_des_types_du_registre():
 
 
 def test_route_et_journal_n_emettent_que_des_types_du_registre():
-    assert _emis_hors_boucle() - STREAM_EVENTS.keys() == set()
+    emis = _emis_hors_boucle()
+    # Garde contre un balayage vide (code déplacé hors des fichiers lus).
+    assert {"final", "queue_status", "queue_cleared", "kv_cache"} <= emis
+    assert emis - STREAM_EVENTS.keys() == set()
 
 
 def test_chaque_type_est_cite_hors_du_registre():
     """Un type que plus aucun module Python ne cite n'est plus émis : le
     garder au registre (et son lecteur dans l'interface) est du code mort."""
     registre = ROOT / "llm_core" / "engine" / "stream_events.py"
-    src = "\n".join(p.read_text(encoding="utf-8")
+    # Code seul : un type cité dans un commentaire n'a pas d'émetteur.
+    src = "\n".join(code_seul(p.read_text(encoding="utf-8"))
                     for d in ("llm_core", "chatbot_app", "shared_infra")
                     for p in (ROOT / d).rglob("*.py") if p != registre)
     morts = {t for t in STREAM_EVENTS if f'"{t}"' not in src and f"'{t}'" not in src}

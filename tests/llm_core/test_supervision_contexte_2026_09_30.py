@@ -5,7 +5,7 @@ message (champs connus et bornés, round-trip client, fusion d'un
 annonce la fenêtre restante et les limites de la sandbox aux seuls jalons."""
 from __future__ import annotations
 
-from chatbot_app.routes.chats import (
+from chatbot_app.turn.history import (
     _compaction_pour_message,
     _merge_prev_segment_lists,
     _normalize_client_messages,

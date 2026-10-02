@@ -27,6 +27,8 @@ import pytest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 
+from chatbot_app.turn import execution
+
 DOCX = {"id": "server_docx", "name": "docx", "type": "sse",
         "url": "http://127.0.0.1:1/sse", "command": "", "visible": True,
         "auth_mode": "", "auth_user": "", "auth_enc": "", "key_scheme": "plain"}
@@ -44,13 +46,13 @@ def _row(settings_json):
 
 
 def test_ligne_en_cache_row_sqlite():
-    from chatbot_app.routes.chats import _settings_from_cached_row
+    from chatbot_app.turn.preparation import _settings_from_cached_row
     s = _settings_from_cached_row(_row(json.dumps({"enable_mcp": False, "mcp_servers": [DOCX]})))
     assert s == {"enable_mcp": False, "mcp_servers": [DOCX]}
 
 
 def test_ligne_en_cache_dict_et_vide():
-    from chatbot_app.routes.chats import _settings_from_cached_row
+    from chatbot_app.turn.preparation import _settings_from_cached_row
     assert _settings_from_cached_row({"settings_json": '{"a": 1}'}) == {"a": 1}
     assert _settings_from_cached_row(_row("")) == {}      # compte neuf : défauts
     assert _settings_from_cached_row(_row(None)) == {}
@@ -59,7 +61,7 @@ def test_ligne_en_cache_dict_et_vide():
 def test_ligne_en_cache_illisible_renvoie_none_jamais_vide(caplog):
     """Illisible ⇒ ``None`` (l'appelant relit en base), et ça se DIT. Un
     ``{}`` silencieux ici coupe tous les outils externes du compte."""
-    from chatbot_app.routes.chats import _settings_from_cached_row
+    from chatbot_app.turn.preparation import _settings_from_cached_row
     with caplog.at_level("WARNING"):
         assert _settings_from_cached_row(_row("{pas du json")) is None
     assert "settings_json illisible" in caplog.text
@@ -104,16 +106,17 @@ def harnais(tmp_path, monkeypatch):
 
     monkeypatch.setattr(llm_core, "run_chat_multi_mcp", _stub_outils)
     monkeypatch.setattr(llm_core, "run_chat_multi_mcp_v2", _stub_outils)
-    # chats.py importe la boucle « classique » au niveau module : sans
-    # config.json (clone neuf), le mode de scheduling vaut « classic ».
-    monkeypatch.setattr(chats_mod, "run_chat_multi_mcp", _stub_outils)
+    # ``chatbot_app/turn/execution.py`` importe la boucle « classique » au
+    # niveau module : sans config.json (clone neuf), le mode de scheduling
+    # vaut « classic ».
+    monkeypatch.setattr(execution, "run_chat_multi_mcp", _stub_outils)
 
     # ── Chemin SANS outils : jamais de réseau ─────────────────────────
     async def _stub_classique(msgs, **kw):
         capture["classique"] = True
         return "", "ok", {}
 
-    monkeypatch.setattr(chats_mod, "llama_chat_stream_tokens", _stub_classique)
+    monkeypatch.setattr(execution, "llama_chat_stream_tokens", _stub_classique)
 
     async def _zero(_model=""):
         return 0

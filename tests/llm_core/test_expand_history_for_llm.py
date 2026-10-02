@@ -13,7 +13,7 @@ Non-régressions clés :
 """
 from __future__ import annotations
 
-from chatbot_app.routes.chats import _expand_history_for_llm
+from chatbot_app.turn.history import _expand_history_for_llm
 from llm_core.conversation_compressor import _count_turns
 
 _REPRISE_SNIPPET = "Resume your previous answer"
@@ -159,7 +159,7 @@ def test_expand_continue_ignore_notice_terminale():
 # DELTA du run → un Continue CONCATÈNE au tronc, il ne remplace plus.)
 
 def test_merge_continue_tronc_delta_plus_suite_delta():
-    from chatbot_app.routes.chats import _merge_continue_tool_history
+    from chatbot_app.turn.history import _merge_continue_tool_history
     prev = {"tool_history": [{"role": "tool", "tool_call_id": "c1", "content": "r1"}],
             "tool_history_delta": True}
     cont = [{"role": "tool", "tool_call_id": "c2", "content": "r2"}]
@@ -171,7 +171,7 @@ def test_merge_continue_tronc_delta_plus_suite_delta():
 def test_merge_continue_tronc_legacy_garde_format_legacy():
     """Tronc cumulatif (chat d'avant le correctif) + suite delta : concaténés,
     mais NON marqués delta → la dédup d'expansion coupera le préfixe rejoué."""
-    from chatbot_app.routes.chats import _merge_continue_tool_history
+    from chatbot_app.turn.history import _merge_continue_tool_history
     prev = {"tool_history": [{"role": "tool", "tool_call_id": "c1", "content": "r1"}]}
     cont = [{"role": "tool", "tool_call_id": "c2", "content": "r2"}]
     out = _merge_continue_tool_history(prev, cont, True)
@@ -182,7 +182,7 @@ def test_merge_continue_tronc_legacy_garde_format_legacy():
 def test_merge_continue_suite_vide_preserve_le_tronc():
     """Continuation sans outils (chemin classic) : le tronc et son marqueur
     survivent — avant le correctif, remplacer aurait tout perdu."""
-    from chatbot_app.routes.chats import _merge_continue_tool_history
+    from chatbot_app.turn.history import _merge_continue_tool_history
     prev = {"tool_history": [{"role": "tool", "tool_call_id": "c1", "content": "r1"}],
             "tool_history_delta": True}
     out = _merge_continue_tool_history(prev, None, False)
@@ -191,13 +191,13 @@ def test_merge_continue_suite_vide_preserve_le_tronc():
 
 
 def test_merge_continue_sans_tronc_ni_suite():
-    from chatbot_app.routes.chats import _merge_continue_tool_history
+    from chatbot_app.turn.history import _merge_continue_tool_history
     assert _merge_continue_tool_history({}, None, False) == {}
     assert _merge_continue_tool_history({}, [], True) == {}
 
 
 def test_merge_continue_tronc_absent_suite_delta():
-    from chatbot_app.routes.chats import _merge_continue_tool_history
+    from chatbot_app.turn.history import _merge_continue_tool_history
     cont = [{"role": "tool", "tool_call_id": "c9", "content": "r"}]
     out = _merge_continue_tool_history({}, cont, True)
     assert out["tool_history"] == cont

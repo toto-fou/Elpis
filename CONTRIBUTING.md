@@ -20,7 +20,9 @@ or English.
 | Je modifie… | Dossier |
 |---|---|
 | une route HTTP | le sous-paquet de sa famille dans `shared_infra/` (routes du chat : `chatbot_app/routes/`) ; l'ordre d'enregistrement est dans `shared_infra/routes/__init__.py` |
-| la boucle de chat, le contexte, l'ordonnancement | `llm_core/` (`_chat_with_tools.py`, `context/`, `_scheduling/`) |
+| la boucle agentique | `llm_core/_chat_with_tools.py` (l'orchestrateur : compteurs, aiguillage de chaque tour) et ses sous-routines dans `llm_core/engine/` (carte dans `engine/__init__.py`) |
+| le flux d'un tour de chat | `chatbot_app/routes/` (handlers HTTP ; ordre des événements en tête de `chats.py`) et `chatbot_app/turn/` (préparation, exécution, enregistrement du tour) |
+| le contexte, l'ordonnancement | `llm_core/context/`, `llm_core/_scheduling/` |
 | un outil de l'agent | `llm_core/tools/` ; sa famille dans `shared_infra/mcp/families.py` |
 | une opération sur les fichiers d'une sandbox | l'agent du conteneur : `shared_infra/sandbox/agent/server.py` (API `/v1`), `agent_client.py` ; jamais un accès direct de l'hôte |
 | Git d'une sandbox | `shared_infra/sandbox/git_ops.py` (par l'agent), `git_relay.py` (réseau) |

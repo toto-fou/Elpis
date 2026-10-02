@@ -13,7 +13,7 @@ import asyncio
 
 import pytest
 
-import chatbot_app.routes.chats as chats_mod
+import chatbot_app.turn.execution as execution
 
 
 def _fake_stream(reply: str, captured: dict):
@@ -26,9 +26,9 @@ def _fake_stream(reply: str, captured: dict):
 
 async def test_titre_nominal_tronque_et_nettoye(monkeypatch):
     captured: dict = {}
-    monkeypatch.setattr(chats_mod, "llama_chat_stream_tokens",
+    monkeypatch.setattr(execution, "llama_chat_stream_tokens",
                         _fake_stream('  "Migration Postgres 16 du service auth."  \n(ignore)', captured))
-    t = await chats_mod._generate_chat_title("qwen", "u" * 2000, "a" * 2000,
+    t = await execution._generate_chat_title("qwen", "u" * 2000, "a" * 2000,
                                              chat_id="c-abc")
     assert t == "Migration Postgres 16 du service auth"
     # Entrée TRONQUÉE (600/240) + thinking OFF + petit budget de génération.
@@ -45,28 +45,28 @@ async def test_titre_nominal_tronque_et_nettoye(monkeypatch):
 
 @pytest.mark.parametrize("bad", ["", "  ", "ok", "<think>hmm</think>", "x" * 200])
 async def test_sorties_douteuses_fallback(monkeypatch, bad):
-    monkeypatch.setattr(chats_mod, "llama_chat_stream_tokens",
+    monkeypatch.setattr(execution, "llama_chat_stream_tokens",
                         _fake_stream(bad, {}))
-    assert await chats_mod._generate_chat_title("m", "question", "") is None
+    assert await execution._generate_chat_title("m", "question", "") is None
 
 
 async def test_exception_et_timeout_fallback(monkeypatch):
     async def boom(*_a, **_k):
         raise RuntimeError("down")
 
-    monkeypatch.setattr(chats_mod, "llama_chat_stream_tokens", boom)
-    assert await chats_mod._generate_chat_title("m", "question", "") is None
+    monkeypatch.setattr(execution, "llama_chat_stream_tokens", boom)
+    assert await execution._generate_chat_title("m", "question", "") is None
 
     async def slow(*_a, **_k):
         await asyncio.sleep(30)
 
-    monkeypatch.setattr(chats_mod, "llama_chat_stream_tokens", slow)
-    monkeypatch.setattr(chats_mod.asyncio, "wait_for",
+    monkeypatch.setattr(execution, "llama_chat_stream_tokens", slow)
+    monkeypatch.setattr(execution.asyncio, "wait_for",
                         lambda coro, timeout: asyncio.wait_for(coro, 0.05))
-    assert await chats_mod._generate_chat_title("m", "question", "") is None
+    assert await execution._generate_chat_title("m", "question", "") is None
 
 
 async def test_entree_vide_none(monkeypatch):
-    monkeypatch.setattr(chats_mod, "llama_chat_stream_tokens",
+    monkeypatch.setattr(execution, "llama_chat_stream_tokens",
                         _fake_stream("Titre", {}))
-    assert await chats_mod._generate_chat_title("m", "", "") is None
+    assert await execution._generate_chat_title("m", "", "") is None

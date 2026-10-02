@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import json
 
-from llm_core._chat_with_tools import _result_is_error, _strip_tool_call_markup
+from llm_core._tool_parsing import _strip_tool_call_markup
+from llm_core.engine.result_contract import result_is_error as _result_is_error
 
 # ──────────────────────────────────────────────────────────────────────────
 # _result_is_error — l'incohérence natif/legacy corrigée

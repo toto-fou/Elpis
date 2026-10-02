@@ -5,26 +5,24 @@ llm_core._system_prompts
 
 Centralized assembly of the system message sent to the LLM.
 
-Refonte 2026 — suppression des "Tool Protocols"
------------------------------------------------
-Historiquement ce module injectait, dans CHAQUE chat/agent, un bloc
-``# Tool Protocols`` concaténant les fichiers ``system_prompts/<category>.md``
-(shell.md, fs.md, git.md, …) pour chaque catégorie d'outils active. Ces
-protocoles ont été RETIRÉS : ils faisaient doublon avec les descriptions MCP
-(que le modèle comprend déjà) et coûtaient des tokens à chaque tour. Les
-fichiers ``.md`` de protocole ont été supprimés du dépôt.
+Pas de bloc « Tool Protocols »
+------------------------------
+Aucun texte de protocole par catégorie d'outils (shell, fs, git…) n'est
+injecté : il ferait doublon avec les descriptions MCP (que le modèle comprend
+déjà) et coûterait des tokens à chaque tour. Le cadrage propre aux capacités
+actives passe par les fragments ``FRAGMENT_*`` (``build_capability_block``).
 
-Côté chatbot, le prompt système de base est désormais ``CHATBOT_SYSTEM.md``
-(``config.SYSTEM_PROMPT_DEFAULT``), câblé dans ``chatbot_app/routes/chats.py``.
+Côté chatbot, le prompt système de base est ``CHATBOT_SYSTEM.md``
+(``config.SYSTEM_PROMPT_DEFAULT``), câblé dans ``chatbot_app/turn/preparation.py``.
 
-Ce module n'assemble plus que :
+Le message système (``assemble_system_messages``) assemble :
 
   1. Le prompt custom (déjà préfixé du défaut côté caller le cas échéant)
   2. Le snapshot mémoire long-terme (figé pour la session)
   3. Les skills (procédures) — index + corps matchés/épinglés
 
 ``active_mcp_servers`` est CONSERVÉ comme paramètre (ignoré) pour ne pas casser
-les appelants existants — il ne pilote plus aucune injection.
+les appelants existants — il ne pilote aucune injection.
 
 Public API
 ----------
@@ -141,7 +139,7 @@ def _build_skills_block(
     try:
         # ``include_learned=False`` : learned/ est un SAS de curation admin
         # (brouillons en attente de promotion). On ne l'injecte PAS dans le
-        # prompt — sinon un learned non promu serait actif pour tous (cf. audit).
+        # prompt — sinon un learned non promu serait actif pour tous.
         skills = discover_skills(_user_skills_dir(user_id), include_learned=False)
     except Exception as e:
         logger.warning("[skills] discover failed: %s", e)
@@ -194,9 +192,9 @@ def _build_skills_block(
     # skills simplement pertinents ne sont PAS injectés d'office — l'agent charge
     # la procédure à la demande via ``skill_get(name)`` (cf. header), et pour un
     # Agent Skill (dossier) lit/exécute ses fichiers via ``skill_read_file`` /
-    # ``skill_run_script`` (les skills ne sont plus montés dans /work). Cela
+    # ``skill_run_script`` (les skills ne sont pas montés dans /work). Cela
     # garde le contexte mince et laisse le modèle décider. ``last_user_text`` ne
-    # sert donc plus à pré-injecter des corps.
+    # sert donc pas à pré-injecter des corps.
     by_key: Dict[str, Any] = {}
     for s in skills:
         by_key[s.name] = s                            # nom (rétro-compat)
@@ -295,8 +293,8 @@ def assemble_system_messages(
                                   que tout ce qui précède reste prefix-cache
                                   stable.
 
-    ``active_mcp_servers`` est ignoré (les Tool Protocols ont été retirés —
-    cf. docstring du module) ; le paramètre reste accepté pour compat.
+    ``active_mcp_servers`` est ignoré (aucun bloc « Tool Protocols » — cf.
+    docstring du module) ; le paramètre reste accepté pour compat.
 
     Retourne une liste d'au plus 1 dict ``{"role": "system", "content": ...}``,
     vide si rien à émettre.
@@ -337,14 +335,14 @@ def assemble_system_messages(
 
     # ``skills_enabled`` gates the INDEX + header (they tell the model to call
     # skill_get/skill_read_file/skill_run_script — injecter ça quand la catégorie
-    # d'outils « skill » est OFF est une instruction MORTE). F13 — mais les corps
-    # de skills ÉPINGLÉS (/skill) sont du texte AUTO-SUFFISANT (indépendant de
+    # d'outils « skill » est OFF est une instruction MORTE). Mais les corps de
+    # skills ÉPINGLÉS (/skill) sont du texte AUTO-SUFFISANT (indépendant de
     # skill_get) : l'utilisateur les a explicitement forcés → on les injecte MÊME
     # catégorie OFF (avec le header « attachés », sans index, via include_index=
     # skills_enabled). Sans ça, épingler un skill sans activer la catégorie
-    # (état par défaut) perdait silencieusement la procédure demandée.
-    # ``last_user_text is None`` AND no pinned = opt-out total (legacy) → identique
-    # au comportement pré-skills.
+    # (état par défaut) perdrait silencieusement la procédure demandée.
+    # ``last_user_text is None`` sans skill épinglé = opt-out total (aucun bloc
+    # skills).
     if (skills_enabled or pinned_skills) and (last_user_text is not None or pinned_skills):
         skills = _build_skills_block(last_user_text, user_id, pinned_skills,
                                      include_index=skills_enabled)
@@ -399,7 +397,9 @@ def preview(
 # injectés UNIQUEMENT quand la capacité correspondante est active. Les capacités
 # dérivent des catégories d'outils du tour (``_mcp_categories.categorize``),
 # connues seulement dans ``run_chat_multi_mcp`` (chemin outillé) — d'où
-# l'injection côté ``_chat_with_tools`` et non dans l'assemblage initial.
+# l'injection au prélude de la boucle
+# (``context.assembly.assemble_operational_context``) et non dans l'assemblage
+# initial.
 
 # Catégories d'« action » : leur présence déclenche le cadrage outils/sandbox
 # (FRAGMENT_TOOLS + runtime_context). Les catégories « douces » (chart/memory/rag)
@@ -422,7 +422,7 @@ _CAPABILITY_FRAGMENTS: List[Tuple[frozenset, str]] = [
 # guide quand leurs outils sont actifs (sinon une session « chart/memory/RAG seule »
 # n'aurait aucun guide, ce qui contredit le socle), sans tirer FRAGMENT_TOOLS ni
 # runtime_context. `chart`/`memory` viennent du registre MCP ; `rag` est synthétisée
-# au tour (outils RAG = builtins, cf. run_chat_multi_mcp dans _chat_with_tools).
+# au tour (outils RAG = builtins, cf. context.assembly.assemble_operational_context).
 _CONTENT_FRAGMENTS: List[Tuple[frozenset, str]] = [
     (frozenset({"chart"}),    "FRAGMENT_CHART"),
     (frozenset({"memory"}),   "FRAGMENT_MEMORY"),
@@ -506,7 +506,7 @@ def build_capability_block(active_categories: Optional[Iterable[str]]) -> Option
     """
     cats = _normalize_categories(active_categories)
     stems: List[str] = []
-    # (2026-09-11, P2) fragments DÉCLARÉS par le manifeste ``mcp.json``
+    # Fragments DÉCLARÉS par le manifeste ``mcp.json``
     # (``x-elpis.prompt_fragments`` : catégorie → stem) : surcharge des stems
     # ci-dessous pour une catégorie connue, ajout d'un fragment pour une
     # catégorie nouvelle (serveur déclaré, famille future). Une catégorie
@@ -617,8 +617,7 @@ def build_attached_skills_block(user_id: Optional[int],
 def list_known_categories() -> List[str]:
     """List every ``.md`` file stem in system_prompts/ (hors ``_*``).
 
-    Les protocoles d'outils ont été retirés ; cette fonction ne sert plus qu'à
-    l'endpoint admin d'inspection des prompts restants (CHATBOT_SYSTEM,
+    Sert à l'endpoint admin d'inspection des prompts (CHATBOT_SYSTEM,
     FRAGMENT_*, COMPRESSOR_SYSTEM, …)."""
     if not _SYSTEM_P_DIR.is_dir():
         return []

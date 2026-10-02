@@ -130,14 +130,13 @@ def to_anthropic_messages(messages: List[Dict[str, Any]], *,
     - ``assistant``  → blocs text + ``tool_use`` (depuis ``tool_calls``).
     - ``tool``       → message ``user`` avec un bloc ``tool_result``.
 
-    AUDIT 2026-09-24 — aucun bloc texte vide n'est plus envoyé : un message
-    sans contenu utile (assistant sans texte ni appel, user vide) est OMIS,
-    là où il partait en ``{"type": "text", "text": ""}`` (400). L'omission
-    pouvant rapprocher deux messages du même rôle, les rôles consécutifs
-    identiques sont ensuite FUSIONNÉS en un seul message (l'API exige
-    l'alternance user/assistant), les ``tool_result`` en tête du user.
+    Aucun bloc texte vide n'est envoyé (``{"type": "text", "text": ""}`` →
+    400) : un message sans contenu utile (assistant sans texte ni appel, user
+    vide) est OMIS. L'omission pouvant rapprocher deux messages du même rôle,
+    les rôles consécutifs identiques sont ensuite FUSIONNÉS en un seul message
+    (l'API exige l'alternance user/assistant), les ``tool_result`` en tête du
+    user.
 
-    AUDIT 2026-09-24 (2e passe) :
     - ``with_tools=False`` (requête SANS ``tools[]``) : les appels et résultats
       passés sont rendus en TEXTE. L'API refuse toute requête qui contient un
       ``tool_use``/``tool_result`` sans déclarer d'outils (400 « Requests
@@ -281,13 +280,14 @@ def build_body(target: LlmTarget, messages: List[Dict[str, Any]], *,
         body["tools"] = a_tools
     # ⚠ thinking + outils : l'API Anthropic EXIGE que les blocs ``thinking`` (avec
     # leur ``signature``) précédant un ``tool_use`` soient renvoyés TELS QUELS au
-    # tour suivant. Ils sont désormais capturés et rejoués DANS le run
+    # tour suivant. Ils sont capturés et rejoués DANS le run
     # (``_anthropic_thinking``), mais l'historique persisté est stocké en
     # forme OpenAI (thinking strippé) → activer ``thinking`` sur le
     # chemin outils ferait un 400 dès la 2e itération de la boucle agentique
     # (bloc thinking requis absent). On l'omet donc quand des outils sont
     # présents — exactement le choix du chemin outils llama.cpp
-    # (cf. _chat_with_tools), où le modèle pense via son propre chat_template.
+    # (cf. ``engine.llm_stream._llama_chat_with_tools_stream``), où le modèle
+    # pense via son propre chat_template.
     if thinking_mode and not a_tools:
         _cfg = thinking_config(body["model"], body["max_tokens"])
         if _cfg:
@@ -312,10 +312,10 @@ def _claude_version(model: str) -> Optional[Tuple[int, int]]:
 def thinking_config(model: str, max_tokens: int) -> Optional[Dict[str, Any]]:
     """Paramètre ``thinking`` adapté au modèle. PURE — testable.
 
-    AUDIT 2026-09-24 (2e passe) — ``adaptive`` n'existe qu'à partir des
-    modèles 4.6 : Haiku 4.5, Sonnet/Opus 4.5 et antérieurs exigent
+    ``adaptive`` n'existe qu'à partir des modèles 4.6 : Haiku 4.5,
+    Sonnet/Opus 4.5 et antérieurs exigent
     ``{"type": "enabled", "budget_tokens": N}`` (1024 ≤ N < max_tokens) et
-    répondaient 400 à chaque message avec le raisonnement activé. Avant 3.7 :
+    répondent 400 à ``adaptive``. Avant 3.7 :
     pas de raisonnement du tout. Id inconnu : ``adaptive`` (modèle récent
     derrière un alias)."""
     ver = _claude_version(model)
@@ -379,11 +379,10 @@ async def _consume_stream(
 
     async with client.stream("POST", url, json=body, headers=headers) as resp:
         if resp.status_code >= 400:
-            # AUDIT 2026-09-24 (n° 4) — erreur TYPÉE (``httpx.HTTPStatusError``
-            # portant code et corps), et non plus ``RuntimeError`` : sinon
-            # ``llm_error_kind`` la classait UNKNOWN — pas de compaction sur
-            # « prompt is too long », pas de backoff sur 429/529, un 401 pris
-            # pour un historique empoisonné.
+            # Erreur TYPÉE (``httpx.HTTPStatusError`` portant code et corps),
+            # jamais une ``RuntimeError`` nue : ``llm_error_kind`` la classerait
+            # UNKNOWN — pas de compaction sur « prompt is too long », pas de
+            # backoff sur 429/529, un 401 pris pour un historique empoisonné.
             txt = (await resp.aread()).decode("utf-8", "replace")
             raise provider_http_error(
                 resp.status_code, txt, url=url, headers=getattr(resp, "headers", None),
@@ -537,14 +536,13 @@ def _finish_from_stop_reason(stop_reason, *, has_tool_calls: bool) -> str:
     """Traduit le ``stop_reason`` Anthropic en ``finish_reason`` OpenAI.
 
     Recette UNIQUE des deux points d'entrée de cet adaptateur (classic et
-    outils). Elle n'existait que côté outils : le chemin sans outils ne posait
-    aucun ``finish_reason``, donc jamais de « Continuer » sur une réponse
-    coupée par le plafond.
+    outils) : sans ``finish_reason``, le chemin sans outils n'armerait jamais
+    « Continuer » sur une réponse coupée par le plafond.
     """
     # « length » AVANT « tool_calls » : un tool_use coupé par ``max_tokens``
-    # porte un JSON incomplet. Remonté en « tool_calls », il était exécuté avec
-    # ``{}`` et la garde de troncature de la boucle (finish « length » +
-    # tool_calls → relance plus compacte) n'était jamais atteinte (2026-09-21).
+    # porte un JSON incomplet. Remonté en « tool_calls », il serait exécuté
+    # avec ``{}`` et la garde de troncature de la boucle (finish « length » +
+    # tool_calls → relance plus compacte) ne serait jamais atteinte.
     if stop_reason == "max_tokens":
         return "length"
     if has_tool_calls:
@@ -564,9 +562,9 @@ async def anthropic_chat_stream(
     body = build_body(target, messages, tools_payload=None,
                       sampling_override=sampling_override, thinking_mode=thinking_mode,
                       model=model, stream=True)
-    # Relances (2026-09-24, passe robustesse) : ce chemin court-circuite la
-    # boucle de ``llama_chat_stream_tokens`` — un 429/529 « overloaded »
-    # échouait au premier essai, sans backoff, avec le JSON brut du
+    # Relances : ce chemin court-circuite la boucle de
+    # ``llama_chat_stream_tokens`` — sans elles, un 429/529 « overloaded »
+    # échouerait au premier essai, sans backoff, avec le JSON brut du
     # fournisseur dans la bulle. On relance tant que RIEN n'a été streamé (une
     # relance après des tokens les dupliquerait à l'écran) et que l'erreur
     # n'est pas définitive ; le message final passe par la taxonomie commune.
@@ -616,17 +614,15 @@ async def anthropic_chat_stream(
                 continue
             return "", f"⚠ Erreur LLM : {llm_error_user_message(e)}", {
                 "usage": {}, "timings": {}, "error": True}
-    # AUDIT 2026-08-23 — ``meta`` AMPUTÉ. Il manquait les quatre champs que le
-    # chemin llama.cpp pose systématiquement : ``finish_reason``, ``truncated``,
-    # ``truncated_in_think`` et ``thinking_tokens``. En aval, ``calculate_metrics``
-    # applique des défauts sûrs (``truncated=False``) et la route n'arme
-    # ``isTruncated`` que là-dessus : une réponse Claude coupée par
-    # ``max_tokens`` (8192 par défaut) arrivait donc tronquée en plein milieu
-    # de phrase, SANS bouton « Continuer » ni le moindre indicateur — alors que
-    # le même tour sur le moteur local l'aurait armé. La traduction existait
-    # déjà, mais sur le seul point d'entrée OUTILS du même fichier : les deux
-    # entrées du même adaptateur avaient divergé. Elle est désormais factorisée
-    # (``_finish_from_stop_reason``) et partagée.
+    # ``meta`` porte les quatre champs que le chemin llama.cpp pose
+    # systématiquement : ``finish_reason``, ``truncated``,
+    # ``truncated_in_think`` et ``thinking_tokens``. En aval,
+    # ``calculate_metrics`` applique des défauts sûrs (``truncated=False``) et
+    # la route n'arme ``isTruncated`` que là-dessus : sans eux, une réponse
+    # Claude coupée par ``max_tokens`` (8192 par défaut) arriverait tronquée en
+    # pleine phrase, SANS bouton « Continuer » ni le moindre indicateur. La
+    # traduction est partagée avec le point d'entrée OUTILS
+    # (``_finish_from_stop_reason``) : les deux entrées ne doivent pas diverger.
     _fr = _finish_from_stop_reason(res["stop_reason"], has_tool_calls=False)
     meta = {
         "usage": res["usage"], "timings": {},
@@ -638,7 +634,7 @@ async def anthropic_chat_stream(
     }
     # Sans ``thinking_tokens``, ``calculate_metrics`` retombe sur
     # ``native_reasoning_tokens(usage)`` — que ``_normalize_usage`` ne produit
-    # jamais : toute la réflexion de Claude était comptée comme « réponse ».
+    # jamais : toute la réflexion de Claude serait comptée comme « réponse ».
     try:
         from llm_core._think_tokens import measure_thinking_tokens
         _tt, _est = await measure_thinking_tokens(

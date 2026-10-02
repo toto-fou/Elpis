@@ -18,8 +18,9 @@ from __future__ import annotations
 
 import pytest
 
-import llm_core._chat_with_tools as cwt
 import llm_core._mcp_categories as cats
+from llm_core import _mcp_pool
+from llm_core.engine import tool_catalog as _tool_catalog
 
 # (nom, catégorie, read-only ?) — un échantillon représentatif des vraies
 # annotations : lectures fs/git, écritures fs, shell, et la catégorie cachée.
@@ -68,7 +69,7 @@ def _install(monkeypatch, tools):
     monkeypatch.setattr(cats, "categorize", lambda n: _CAT_OF.get(n, "other"))
     monkeypatch.setattr(cats, "get_hidden_categories", lambda: ["task"])
     monkeypatch.setattr(cats, "manifest_source", lambda: "live")
-    monkeypatch.setattr(cwt, "mcp_pool", _FakePool(tools))
+    monkeypatch.setattr(_mcp_pool, "mcp_pool", _FakePool(tools))
 
 
 _SRV = [{"type": "stdio", "name": "Local", "command": "DEFAULT_LOCAL_PYTHON",
@@ -76,7 +77,7 @@ _SRV = [{"type": "stdio", "name": "Local", "command": "DEFAULT_LOCAL_PYTHON",
 
 
 async def _exposed(**kw):
-    _map, payload, _h, _n = await cwt._collect_mcp_tools(_SRV, None, None, **kw)
+    _map, payload, _h, _n = await _tool_catalog._collect_mcp_tools(_SRV, None, None, **kw)
     return {t["function"]["name"] for t in payload}
 
 
@@ -185,7 +186,7 @@ async def test_les_builtins_ne_sont_pas_filtres(monkeypatch):
         "task": {"definition": {"type": "function", "function": {"name": "task"}},
                  "handler": lambda **k: None},
     }
-    _map, payload, handlers, _n = await cwt._collect_mcp_tools(
+    _map, payload, handlers, _n = await _tool_catalog._collect_mcp_tools(
         _SRV, builtins, None, memory_enabled=False, read_only=True,
         deny_tool_names={"task"},
     )
@@ -209,7 +210,7 @@ async def test_surface_videe_nest_pas_une_panne_de_connexion(monkeypatch):
                            _ToolObj("write_file", False)])
     srv = [{"type": "stdio", "name": "Local", "command": "DEFAULT_LOCAL_PYTHON",
             "filter_categories": ["fs", "shell"]}]
-    _map, payload, _h, connected = await cwt._collect_mcp_tools(
+    _map, payload, _h, connected = await _tool_catalog._collect_mcp_tools(
         srv, None, None, memory_enabled=False, read_only=True)
     assert payload == []
     assert connected                      # la connexion, elle, a bien eu lieu
@@ -226,9 +227,9 @@ async def test_vraie_panne_de_connexion_leve_toujours(monkeypatch):
     monkeypatch.setattr(cats, "categorize", lambda n: "fs")
     monkeypatch.setattr(cats, "get_hidden_categories", lambda: ["task"])
     monkeypatch.setattr(cats, "manifest_source", lambda: "live")
-    monkeypatch.setattr(cwt, "mcp_pool", _PoolKo())
+    monkeypatch.setattr(_mcp_pool, "mcp_pool", _PoolKo())
     with pytest.raises(RuntimeError, match="Impossible de se connecter"):
-        await cwt._collect_mcp_tools(_SRV, None, None, memory_enabled=False)
+        await _tool_catalog._collect_mcp_tools(_SRV, None, None, memory_enabled=False)
 
 
 # ── Le rappel système ────────────────────────────────────────────────────

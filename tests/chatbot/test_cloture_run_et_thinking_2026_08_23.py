@@ -31,7 +31,7 @@ import asyncio
 
 import pytest
 
-from chatbot_app.routes import chats as _chats
+from chatbot_app.turn import execution
 from shared_infra.routes import _state
 from shared_infra.runtime import chat_locks
 
@@ -68,7 +68,7 @@ async def test_fin_normale_n_annule_rien_et_ne_publie_rien(_bus_espionne):
     await task
     _state.register_chat_task(7, task, "chatN")
 
-    await _chats._cloturer_run(task, 7, "chatN")
+    await execution._cloturer_run(task, 7, "chatN")
 
     assert not _state.is_chat_cancelled(7, "chatN"), \
         "un tour réussi a été marqué comme annulé"
@@ -91,7 +91,7 @@ async def test_deconnexion_sur_worker_vivant_annule_et_le_dit(_bus_espionne):
     await demarre.wait()
     _state.register_chat_task(7, task, "chatD")
 
-    await _chats._cloturer_run(task, 7, "chatD")
+    await execution._cloturer_run(task, 7, "chatD")
 
     assert task.cancelled() or task.done()
     assert _bus_espionne == [(7, "chatD")], \
@@ -127,7 +127,7 @@ async def test_worker_qui_ne_deroule_pas_garde_sa_presence(_bus_espionne):
 
         asyncio.wait_for = _court
         try:
-            await _chats._cloturer_run(t, u, c)
+            await execution._cloturer_run(t, u, c)
         finally:
             asyncio.wait_for = vrai
 

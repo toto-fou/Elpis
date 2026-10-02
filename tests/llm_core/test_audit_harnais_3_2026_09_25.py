@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 import llm_core.tools.fs_tools as fs_tools
+from llm_core import _model_info
 
 
 class _FakeMCP:
@@ -477,7 +478,7 @@ async def test_budget_dur_sans_depassement_rend_tout(monkeypatch):
 # ── Rappel <todo_status> rejoué à l'octet (préfixe KV stable entre tours) ──
 
 def test_suffixe_rejoue_a_l_identique_sauf_sur_la_derniere_question():
-    from chatbot_app.routes.chats import _expand_history_for_llm
+    from chatbot_app.turn.history import _expand_history_for_llm
     from llm_core.context.pruning import merge_user_suffix, user_suffix_sig
     rappel = "<todo_status>1 open task</todo_status>"
     hist = [
@@ -549,7 +550,7 @@ async def test_la_boucle_emet_le_suffixe_du_rappel(monkeypatch):
 
     monkeypatch.setattr(W, "verify_llm_availability", _anoop)
     monkeypatch.setattr(W, "_model_supports_vision", _avision)
-    monkeypatch.setattr(W, "get_model_context_size", _actx)
+    monkeypatch.setattr(_model_info, "get_model_context_size", _actx)
     monkeypatch.setattr(W, "_llama_chat_with_tools_stream", _fake_stream)
 
     async def _todo(args):

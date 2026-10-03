@@ -78,6 +78,7 @@ FICHIERS_NETTOYES = (
     "llm_core/tools/_mcp_error_middleware.py",
     "llm_core/tools/_models.py",
     "llm_core/tools/firefox_tools.py",
+    "llm_core/tools/image_tool.py",
     "llm_core/tools/fs_tools.py",
     "llm_core/tools/memory_tools.py",
     "llm_core/tools/task_tool.py",

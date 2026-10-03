@@ -333,6 +333,8 @@ def _payload_final(assistant: str, msg_assistant: dict, thinking_text: str,
         **({"compactions": msg_assistant["compactions"]}
            if msg_assistant.get("compactions") else {}),
         **({"pruned": msg_assistant["pruned"]} if msg_assistant.get("pruned") else {}),
+        **({"tool_images": msg_assistant["tool_images"]}
+           if msg_assistant.get("tool_images") else {}),
         "chat_id": chat_id,
         # Additif : présent seulement quand la sortie auto du mode
         # plan vient d'avoir lieu (``_plan_done`` du worker de
@@ -410,6 +412,7 @@ async def run_turn(plan: TurnPlan, res: TurnResources, base: PersistBaseline):
     title = plan.title
     _title_was_generated = plan.title_was_generated
     _title_content = plan.title_content
+    _image_tool_on = plan.image_tool_on
     _persist_chat = res.persist_chat
     _mem_manager = res.mem_manager
     _rag_builtin_tools = res.rag_builtin_tools
@@ -732,6 +735,9 @@ async def run_turn(plan: TurnPlan, res: TurnResources, base: PersistBaseline):
         # une variable non liée (UnboundLocalError avalé par le repli →
         # partiel perdu sans event final).
         _task_usage: dict = {}
+        # Images de l'outil ``generate_image`` (``images``) : même règle que
+        # ``_task_usage``, lues au persist complet et au partiel.
+        _image_sink: dict = {}
         # Tâche de génération du titre (chat neuf) — lancée AU DÉBUT du
         # tour (cf. lancement sous le guard), récoltée au persist.
         _title_task = None
@@ -752,7 +758,8 @@ async def run_turn(plan: TurnPlan, res: TurnResources, base: PersistBaseline):
                 await on_event({"type": "info",
                                 "text": "Recherche documentaire indisponible — réponse sans les documents."})
 
-            _use_mcp_path = bool(active_mcp_servers) or bool(_rag_builtin_tools)
+            _use_mcp_path = (bool(active_mcp_servers) or bool(_rag_builtin_tools)
+                             or _image_tool_on)
 
             if not _use_mcp_path: await on_event({"type": "mode", "text": "Génération en cours…"})
             else:
@@ -761,6 +768,8 @@ async def run_turn(plan: TurnPlan, res: TurnResources, base: PersistBaseline):
                     parts.append("MCP: " + ", ".join(s.get("name", "?") for s in active_mcp_servers))
                 if _rag_builtin_tools:
                     parts.append("RAG Outils")
+                if _image_tool_on:
+                    parts.append("Images")
                 await on_event({"type": "mode", "text": " + ".join(parts)})
 
             metrics = {}
@@ -1072,7 +1081,20 @@ async def run_turn(plan: TurnPlan, res: TurnResources, base: PersistBaseline):
                             # catégorie ``skill`` (agents custom seulement).
                             user_id=user_id,
                         )
-                    _all_builtins = {**(_rag_builtin_tools or {}), **_task_builtin} or None
+                    # Images (outil ``generate_image``) — même gabarit : builtin
+                    # par tour, références versées dans ``_image_sink``.
+                    _image_builtin = {}
+                    if _image_tool_on:
+                        from llm_core.tools.image_tool import build_image_builtin_tool
+                        _image_builtin = build_image_builtin_tool(
+                            user_id=user_id,
+                            chat_id=None if ephemeral else chat_id,
+                            on_event=on_event,
+                            is_cancelled=lambda uid=user_id, cid=chat_id: is_chat_cancelled(uid, cid),
+                            sink=_image_sink,
+                            prefs=(user_settings or {}).get("image_prefs"))
+                    _all_builtins = {**(_rag_builtin_tools or {}), **_task_builtin,
+                                     **_image_builtin} or None
 
                     assistant, _, metrics = await _mcp_fn(
                         msgs_for_llm,
@@ -1143,7 +1165,7 @@ async def run_turn(plan: TurnPlan, res: TurnResources, base: PersistBaseline):
                 assistant, thinking_text, metrics, exec_id=_exec_id, ctx_snap=_ctx_snap,
                 task_usage=_task_usage, files_changed=_files_changed_acc,
                 compactions=_compactions_acc, prune_keys=_new_prune_keys, msgs=msgs,
-                is_continue=is_continue)
+                is_continue=is_continue, tool_images=_image_sink.get("images"))
 
             # Préfixe l'état de compression (nouveau round ou carry-forward)
             # AVANT persist — les bulles client restent inchangées.
@@ -1466,7 +1488,8 @@ async def run_turn(plan: TurnPlan, res: TurnResources, base: PersistBaseline):
                     _partiel = _message_partiel(
                         _partial_content_acc, _partial_thinking_acc, _partial_tool_history,
                         exec_id=_exec_id, task_usage=_task_usage, files_changed=_files_changed_acc,
-                        compactions=_compactions_acc, msgs=msgs, is_continue=is_continue)
+                        compactions=_compactions_acc, msgs=msgs, is_continue=is_continue,
+                        tool_images=_image_sink.get("images"))
                     msg_partial = _partiel.message
                     # Même garde que le tour complet : l'upsert du
                     # partiel peut échouer (collision cross-user / panne DB). On
@@ -1507,6 +1530,8 @@ async def run_turn(plan: TurnPlan, res: TurnResources, base: PersistBaseline):
                         "type": "final",
                         "assistant": msg_partial["content"],
                         "run_ids": msg_partial.get("run_ids") or [_exec_id],
+                        **({"tool_images": msg_partial["tool_images"]}
+                           if msg_partial.get("tool_images") else {}),
                         "chat_id": chat_id,
                         "metrics": None,
                         "thinking": msg_partial.get("thinking", _partiel.raisonnement),

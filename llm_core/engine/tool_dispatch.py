@@ -1217,6 +1217,10 @@ class TextReply:
     raw_text: str
     iter_clean: str
     calls: Optional[List[Tuple[str, Any]]]
+    # Tentative purgée vers des outils inconnus : texte d'origine et noms,
+    # pour la relance (``relaunch_unparsed_call``).
+    unknown_text: str = ""
+    unknown_names: Tuple[str, ...] = ()
 
 
 def classify_text_reply(ctx: RunContext, live: LiveText, iter_clean: str,
@@ -1228,9 +1232,11 @@ def classify_text_reply(ctx: RunContext, live: LiveText, iter_clean: str,
     finirait streamé à l'utilisateur via le flux final — JSON visible dans la
     bulle assistant : si toute la prose n'est QUE cette tentative d'appel (pas
     de prose légitime autour), elle est purgée EN PLACE (la reprise et la
-    réponse finale relisent ``live.parts``)."""
+    réponse finale relisent ``live.parts``) et rendue dans ``unknown_*`` pour
+    que la relance dise au modèle que l'outil n'existe pas."""
     raw_text = iter_clean  # balises de raisonnement déjà retirées par llm_turn.call_llm
     legacy_calls = extract_tool_calls(raw_text) if raw_text else None
+    unknown_text, unknown_names = "", ()
 
     # Filtrer les faux positifs : ne garder que les outils effectivement connus
     if legacy_calls:
@@ -1246,13 +1252,17 @@ def classify_text_reply(ctx: RunContext, live: LiveText, iter_clean: str,
                     "— JSON supprimé du flux final (itération %d)",
                     [n for n, _ in legacy_calls], iteration,
                 )
+                unknown_text = raw_text
+                unknown_names = tuple(dict.fromkeys(
+                    n if isinstance(n, str) else repr(n) for n, _ in legacy_calls))
                 raw_text = ""
                 iter_clean = ""
                 live.purger()
             legacy_calls = None
         else:
             legacy_calls = _matched_calls
-    return TextReply(raw_text=raw_text, iter_clean=iter_clean, calls=legacy_calls)
+    return TextReply(raw_text=raw_text, iter_clean=iter_clean, calls=legacy_calls,
+                     unknown_text=unknown_text, unknown_names=unknown_names)
 
 
 # Relances bornées après un appel d'outil illisible ou perdu
@@ -1271,6 +1281,16 @@ _LOST_TOOL_CALL_NUDGE = (
     "like <tool_call> or <function=...> in your text). If you did not intend "
     "to call a tool, simply give your final answer as plain text."
 )
+
+# Relance quand la prose n'était QU'un appel vers un outil inexistant (purgé du
+# flux) : sans elle, le tour finirait sur une réponse vide.
+_UNKNOWN_TOOL_NUDGE = (
+    "[SYSTEM] Your last message only tried to call {names}, which is not an "
+    "available tool — nothing was executed. Your message was:\n{attempt}\n"
+    "Call one of the tools you were given, or give your final answer as plain "
+    "text."
+)
+_UNKNOWN_TOOL_ATTEMPT_MAX = 500
 
 
 async def relaunch_unparsed_call(rec: RunRecord, working_messages: List[Dict[str, Any]],
@@ -1292,7 +1312,10 @@ async def relaunch_unparsed_call(rec: RunRecord, working_messages: List[Dict[str
     récupération a échoué (dialecte XML dont le serveur a consommé les
     ouvrantes : il ne reste que des fermantes, rien de parsable). Sans
     relance, le tour meurt en silence après la phrase d'annonce (« Je vais
-    créer… » puis plus rien). Même budget que l'appel illisible."""
+    créer… » puis plus rien). Même budget que l'appel illisible.
+
+    Outil inconnu : la prose n'était QUE l'appel, purgé par
+    ``classify_text_reply`` — sans relance, réponse finale vide. Même budget."""
     # ``raw_text`` non vide ⇒ extract_tool_calls vient d'être rappelé par
     # ``classify_text_reply``, donc LAST_PARSE_DIAGNOSTIC est frais (pas un
     # résidu du parse du reasoning en amont, qui n'aurait pas re-réinitialisé
@@ -1318,6 +1341,29 @@ async def relaunch_unparsed_call(rec: RunRecord, working_messages: List[Dict[str
         logger.warning(
             "[run_chat_multi_mcp] tool-call non parsable (iter %d) — cap de "
             "relances atteint (%d), on retombe sur la réponse finale",
+            iteration, _MALFORMED_RETRY_MAX,
+        )
+
+    if not reply.calls and reply.unknown_names:
+        if malformed_retry < _MALFORMED_RETRY_MAX:
+            malformed_retry += 1
+            logger.warning(
+                "[run_chat_multi_mcp] appel vers un outil inconnu %s (iter %d) "
+                "— relance demandée au modèle (%d/%d)",
+                list(reply.unknown_names), iteration, malformed_retry,
+                _MALFORMED_RETRY_MAX,
+            )
+            # Une seule consigne éphémère, qui cite la tentative (comme la
+            # relance d'un appel perdu) : un assistant éphémère ouvrirait un
+            # tour pour les compteurs du compresseur et de l'élagage.
+            working_messages.append(_ephemeral_msg(
+                "user", _UNKNOWN_TOOL_NUDGE.format(
+                    names=", ".join(f"`{n}`" for n in reply.unknown_names),
+                    attempt=reply.unknown_text[:_UNKNOWN_TOOL_ATTEMPT_MAX])))
+            return True, malformed_retry
+        logger.warning(
+            "[run_chat_multi_mcp] appel vers un outil inconnu (iter %d) — cap "
+            "de relances atteint (%d), réponse finale",
             iteration, _MALFORMED_RETRY_MAX,
         )
 

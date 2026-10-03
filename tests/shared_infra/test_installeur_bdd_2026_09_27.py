@@ -72,6 +72,10 @@ def conf(tmp_path, monkeypatch):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     monkeypatch.setattr(mod, "ROOT", tmp_path)
+    # Chemins calculés à l'import depuis la VRAIE racine : tous redirigés.
+    monkeypatch.setattr(mod, "CONFIG", tmp_path / "config.json")
+    monkeypatch.setattr(mod, "RAG_CONFIG", tmp_path / "rag_app" / "rag_config.json")
+    monkeypatch.setattr(mod, "ENV_FILE", tmp_path / ".env")
     monkeypatch.setattr(mod, "USER_DB", tmp_path / "user_db")
     monkeypatch.setattr(mod, "DB_PASSWORD_FILE", tmp_path / "user_db" / ".db_password")
     for k in list(os.environ):

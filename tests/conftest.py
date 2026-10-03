@@ -92,6 +92,41 @@ def _isoler_configuration_et_moteur() -> None:
 _isoler_configuration_et_moteur()
 
 
+# Fichiers de configuration RÉELS du dépôt : la suite ne doit ni les créer ni
+# les modifier (une instance lancée depuis ce dépôt les lit au démarrage).
+_FICHIERS_REELS = ("config.json", "mcp.json", ".env", "rag_app/rag_config.json")
+
+
+def _empreinte_fichiers_reels() -> dict:
+    racine = Path(__file__).resolve().parents[1]
+    vus = {}
+    for rel in _FICHIERS_REELS:
+        try:
+            st = (racine / rel).stat()
+            vus[rel] = (st.st_mtime_ns, st.st_size)
+        except FileNotFoundError:
+            vus[rel] = None
+    return vus
+
+
+def pytest_sessionstart(session):
+    session.config._fichiers_reels = _empreinte_fichiers_reels()
+
+
+def pytest_sessionfinish(session, exitstatus):
+    if hasattr(session.config, "workerinput"):         # contrôleur xdist seul
+        return
+    avant = getattr(session.config, "_fichiers_reels", None)
+    if avant is None:
+        return
+    touches = [rel for rel, e in _empreinte_fichiers_reels().items() if e != avant.get(rel)]
+    if touches:
+        session.config.get_terminal_writer().line(
+            "ÉCHEC : la suite a créé ou modifié des fichiers réels du dépôt : "
+            + ", ".join(touches), red=True)
+        session.exitstatus = 1
+
+
 # ── Moteur de base de la suite (2026-09-26, chantier multi-moteurs) ──────────
 # Par défaut SQLite. Avec ``APP_DB_BACKEND=postgres|mysql`` (+ ``APP_DB_*`` et
 # ``ELPIS_TEST_DB=1``), toute la suite tourne sur un serveur jetable : chaque

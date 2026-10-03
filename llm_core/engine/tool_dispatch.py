@@ -1236,7 +1236,8 @@ def classify_text_reply(ctx: RunContext, live: LiveText, iter_clean: str,
     que la relance dise au modèle que l'outil n'existe pas."""
     raw_text = iter_clean  # balises de raisonnement déjà retirées par llm_turn.call_llm
     legacy_calls = extract_tool_calls(raw_text) if raw_text else None
-    unknown_text, unknown_names = "", ()
+    unknown_text = ""
+    unknown_names: Tuple[str, ...] = ()
 
     # Filtrer les faux positifs : ne garder que les outils effectivement connus
     if legacy_calls:

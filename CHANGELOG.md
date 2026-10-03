@@ -323,6 +323,10 @@ selon [SemVer](https://semver.org/lang/fr/).
   (`.git-credentials.json.imported`) est supprimé de la sandbox.
 - **Audit** : les révocations de sessions (toutes, ou d'un compte) sont
   inscrites au journal d'audit.
+- **Console** : après un conflit (« Modifié ailleurs entre-temps »),
+  « Reprendre la valeur du serveur » enregistre les autres modifications de
+  la page au lieu de signaler un échec ; l'URL complète du moteur local suit
+  de nouveau l'hôte et le port modifiés.
 - **Journal d'exécution** : le plafond `llm.run_journal_max_mb` est appliqué
   (il était ignoré, 64 Mo toujours).
 - **Prompts système** : deux enregistrements simultanés d'une même catégorie

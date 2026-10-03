@@ -15,6 +15,12 @@ const checks = [];
 const ok = (name, cond) => { checks.push([cond ? 'PASS' : 'FAIL', name]); if (!cond) console.log('  ✗ ' + name); };
 
 const { browser, page, errors } = await launch({ reducedMotion: 'reduce' });
+// Erreurs qu'un handler Vue avale (getter de watch, rendu) : journalisées en
+// console, jamais remontées en ``pageerror``.
+const vueErrors = [];
+page.on('console', (m) => {
+    if (m.type() === 'error' && /^(TypeError|ReferenceError|RangeError|SyntaxError)\b|before initialization|Unhandled error/.test(m.text())) vueErrors.push(m.text());
+});
 const txtVisible = (t) => page.locator(`button:has-text("${t}"):visible`).first().isVisible().catch(() => false);
 const clickTxt = (t) => page.locator(`button:has-text("${t}"):visible`).first().click();
 // Nav : sélecteurs SCOPÉS à la barre latérale (les libellés courts se
@@ -292,17 +298,28 @@ try {
        (await headTitle()) === 'Accès HTTPS' && plog.length === 3 && plog[2].changes[0].to === 'Elpis prod');
 
     // Conflit : le champ a changé sur le serveur depuis l'ouverture de la page.
+    // Deux champs modifiés, le premier en conflit : « Reprendre » adopte la
+    // valeur du serveur ET envoie l'autre, sans signaler d'échec.
     await goPage('Système', 'Instance');
     await page.evaluate(() => fetch('/__config_conflict_next'));
     await page.locator('#cfg-app-name').fill('Mon nom');
+    await page.locator('#cfg-app-team').fill('Équipe B');
     await page.waitForTimeout(150);
+    const avantConflit = (await patchLog()).length;
     await saveBtn().click();
     await page.waitForTimeout(500);
     ok('conflit : dialogue « Modifié ailleurs entre-temps »', /Modifié ailleurs entre-temps/.test(await choiceDlg().innerText().catch(() => '')));
     await choiceDlg().locator('button[data-choice="reload"]').click();
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(600);
     ok('conflit : la valeur du serveur est reprise, page propre',
        (await page.locator('#cfg-app-name').inputValue()) === 'valeur-serveur' && await pageClean());
+    plog = await patchLog();
+    const renvoi = plog[plog.length - 1];
+    ok('conflit : l\'autre modification est envoyée après « Reprendre »',
+       plog.length === avantConflit + 2 && !renvoi.force
+       && renvoi.changes.length === 1 && renvoi.changes[0].path === 'app_info.team_name'
+       && renvoi.changes[0].to === 'Équipe B');
+    ok('conflit : pas de faux échec signalé', !(await bodyHas(/Enregistrement échoué|échec : réglages/)));
 
     // ─────────────────────────────────────────────────────────────────
     //  MODÈLES & SERVICES — une fonctionnalité par page
@@ -319,6 +336,16 @@ try {
     await page.locator('#engine details.adm-details--rows > summary').click();
     await page.waitForTimeout(150);
     ok('inférence : Avancé déplie la capacité llama.cpp', await bodyHas(/Capacité/));
+    // L'URL complète qui visait l'ancien hôte:port suit le nouvel hôte.
+    await page.locator('#cnx-llama-url').fill('http://127.0.0.1:8080/v1/chat/completions');
+    await page.locator('[data-field="config:llama.ip"]').fill('10.0.0.9');
+    await page.waitForTimeout(200);
+    ok('inférence : l\'URL complète suit l\'hôte',
+       (await page.locator('#cnx-llama-url').inputValue()) === 'http://10.0.0.9:8080/v1/chat/completions');
+    await page.locator('.adm-savebar button:has-text("Annuler")').click();
+    await page.waitForTimeout(400);
+    await page.evaluate(() => { const d = document.querySelector('#engine details.adm-details--rows'); if (d) d.open = true; });
+    await page.waitForTimeout(150);
     await page.locator('#cnx-llama-engine').selectOption('vllm');
     await page.waitForTimeout(200);
     ok('inférence : vLLM masque les champs llama.cpp', !(await bodyHas(/Capacité/)));
@@ -1025,6 +1052,8 @@ try {
     // Aucune erreur de page (render Vue, etc.).
     ok('aucune erreur JS de page', errors.length === 0);
     if (errors.length) console.log('  erreurs:', errors.slice(0, 5));
+    ok('aucune erreur avalée par Vue', vueErrors.length === 0);
+    if (vueErrors.length) console.log('  erreurs Vue:', vueErrors.slice(0, 5));
 } catch (e) {
     ok('exécution sans exception', false);
     console.log('  ! ' + String(e && e.message || e).split('\n')[0]);

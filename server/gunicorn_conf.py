@@ -9,16 +9,19 @@ import multiprocessing
 import os
 
 # ── Workers ──────────────────────────────────────────────────────
-# min(nb_vcpu, 4). On laisse 1 core libre si > 2 cores.
+# Jusqu'à 2 cœurs : un worker par cœur. Au-delà : un cœur libre, et 4 au plus
+# (4 vCPU → 3, 8 vCPU → 4, 32 vCPU → 4). Sans plafond, une grosse machine
+# lançait 31 workers de ~210 Mo chacun, avec leur sous-process MCP, pour un
+# service que le GIL et le moteur LLM limitent bien avant. Les créneaux du
+# llama-server sont partagés entre tous les process (llm_core/_scheduling/
+# _shared_slots.py) : le nombre de workers n'en dépend plus.
 _cpu = multiprocessing.cpu_count()
-workers = max(1, min(_cpu, 4))
-if _cpu > 2:
-    workers = _cpu - 1  # 4 vCPU → 3 workers
+workers = _cpu if _cpu <= 2 else min(4, _cpu - 1)
 
 # ``APP_WORKERS`` — surcharge explicite, sans toucher à ce fichier.
 #
-# Le calcul ci-dessus suppose un service limité par le CPU : un worker par
-# cœur, moins un. La mesure dit autre chose. Sous charge sur les routes
+# Le calcul ci-dessus suit le nombre de cœurs, plafonné à 4 pour la mémoire.
+# Le CPU n'est pourtant pas ce qui sature. Sous charge sur les routes
 # SYNCHRONES (tests/load, scénario « fichiers », bac à sable de 500 fichiers,
 # VM 4 cœurs), le CPU plafonne à **58 %** et le débit se met à DÉCROÎTRE au
 # delà de 16 utilisateurs — ce n'est donc pas le processeur qui sature, mais

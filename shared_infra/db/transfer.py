@@ -16,6 +16,14 @@ Déroulé (``transfer``) :
 4. identités / ``AUTO_INCREMENT`` recalés au-delà du maximum ;
 5. vérification : comptes par table + empreinte des premières lignes.
 
+Échec après l'étape 2 (erreur ou vérification ratée) : la cible, vierge au
+départ, est vidée de ce que la copie y a mis (``target_cleared`` dans le
+rapport). Avant, elle restait à moitié remplie et toute nouvelle tentative
+était refusée (« cible non vide »), sans recours depuis l'interface. Un
+process tué pendant la copie ne vide rien : la table témoin
+``elpis_transfer_partiel``, créée en premier et supprimée en dernier, signale
+alors à la tentative suivante une cible qu'elle peut vider et reprendre.
+
 La source est lue dans UNE transaction en lecture (instantané cohérent : WAL
 en SQLite, REPEATABLE READ en PostgreSQL, instantané cohérent en MySQL).
 Geler les écritures des autres process (mode maintenance) reste l'affaire de
@@ -45,6 +53,8 @@ _BATCH_ROWS = 2000          # lignes lues par page
 _MAX_PARAMS = 30000         # paramètres par INSERT multi-lignes (limites SQLite/PG)
 _SAMPLE = 200               # lignes comparées par table à la vérification
 _SKIP = {"schema_migrations", "elpis_locks"}
+# Table témoin d'une copie en cours (cf. docstring du module).
+PARTIAL_MARK = "elpis_transfer_partiel"
 
 
 class TransferError(RuntimeError):
@@ -168,6 +178,42 @@ def _end_snapshot(conn) -> None:
         conn.execute("ROLLBACK")
     except Exception:
         pass
+
+
+def _clear_target(conn, report: Dict[str, Any]) -> None:
+    """Supprime toutes les tables de la cible — appelée seulement quand la
+    copie a commencé sur une cible VÉRIFIÉE vierge : tout ce qui s'y trouve
+    vient d'elle. Plusieurs passes : clés étrangères (MySQL) et tables
+    internes des index plein texte (SQLite) tombent dans le désordre."""
+    d = dialect_of(conn)
+    try:
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
+        if d == MYSQL:
+            conn.execute("SET FOREIGN_KEY_CHECKS=0")
+        for _ in range(3):
+            names = table_names(conn)
+            if not names:
+                break
+            for name in names:
+                try:
+                    conn.execute(f"DROP TABLE IF EXISTS {_q(conn, name)}"
+                                 + (" CASCADE" if d == POSTGRES else ""))
+                except Exception:                          # noqa: BLE001 — passe suivante
+                    if conn.in_transaction:
+                        conn.execute("ROLLBACK")
+        if d == MYSQL:
+            conn.execute("SET FOREIGN_KEY_CHECKS=1")
+        left = table_names(conn)
+    except Exception as exc:                               # noqa: BLE001
+        log.error("[transfer] cible non vidée après l'échec : %s", exc)
+        report["target_cleared"] = False
+        return
+    report["target_cleared"] = not left
+    if left:
+        log.error("[transfer] cible non vidée après l'échec : %d tables restent", len(left))
+    else:
+        log.warning("[transfer] copie en échec : cible vidée, une nouvelle tentative est possible")
 
 
 def _count(conn, table: str) -> int:
@@ -333,8 +379,11 @@ def check_target(target: Dict[str, Any]) -> Dict[str, Any]:
         t1 = time.perf_counter()
         conn.execute("SELECT 1").fetchone()
         rtt_ms = (time.perf_counter() - t1) * 1000
+        partial = PARTIAL_MARK in names
+        # « empty » = peut recevoir un transfert : une copie interrompue sera
+        # vidée puis reprise.
         out = {"ok": True, "target": describe(target), "version": server_version(conn),
-               "tables": len(names), "empty": not names,
+               "tables": len(names), "empty": not names or partial, "partial": partial,
                "connect_ms": round(latency_ms, 1), "query_ms": round(rtt_ms, 2)}
         if dialect_of(conn) == MYSQL:
             out["max_allowed_packet"] = int(conn.execute(
@@ -359,15 +408,23 @@ def transfer(source: Dict[str, Any], target: Dict[str, Any], *, dry_run: bool = 
         raise TransferError("source et cible identiques")
     src = connect(source)
     dst = None
+    wrote = False
     try:
         missing = _missing_migrations(src)
         if missing:
             raise TransferError("source pas à jour (migrations non appliquées : "
                                 + ", ".join(missing[:5]) + ") — démarrer l'application une fois")
         dst = connect(target)
-        if table_names(dst):
-            raise TransferError(f"cible non vide ({len(table_names(dst))} tables) : "
+        names = table_names(dst)
+        if names and PARTIAL_MARK not in names:
+            raise TransferError(f"cible non vide ({len(names)} tables) : "
                                 "le transfert exige une base vierge")
+        if names and not dry_run:
+            log.warning("[transfer] cible laissée par une copie interrompue : vidée avant de reprendre")
+            _clear_target(dst, {})
+            if table_names(dst):
+                raise TransferError("cible laissée par une copie interrompue, impossible à vider : "
+                                    "supprimer ses tables à la main")
         d_dst = dialect_of(dst)
         report["source_version"] = server_version(src)
         report["target_version"] = server_version(dst)
@@ -396,6 +453,8 @@ def transfer(source: Dict[str, Any], target: Dict[str, Any], *, dry_run: bool = 
             return report
 
         # 2. Schéma + tampon (toutes les migrations connues de la source).
+        wrote = True
+        dst.execute(f"CREATE TABLE {_q(dst, PARTIAL_MARK)} (n INTEGER)")
         _schema.create_all(dst)
         if dst.in_transaction:
             dst.execute("COMMIT")
@@ -497,7 +556,17 @@ def transfer(source: Dict[str, Any], target: Dict[str, Any], *, dry_run: bool = 
                 mismatches.append(f"{t.name}: échantillon différent")
         report["mismatches"] = mismatches
         report["ok"] = not mismatches
+        if mismatches:
+            _clear_target(dst, report)
+        else:
+            dst.execute(f"DROP TABLE {_q(dst, PARTIAL_MARK)}")
+            if dst.in_transaction:
+                dst.execute("COMMIT")
         return report
+    except BaseException:
+        if wrote:
+            _clear_target(dst, report)
+        raise
     finally:
         report["seconds"] = round(time.time() - started, 2)
         _end_snapshot(src)
@@ -519,5 +588,5 @@ def _digest(rows: Iterable[tuple]) -> str:
     return h.hexdigest()
 
 
-__all__ = ["TransferError", "active_target", "check_target", "connect", "describe",
+__all__ = ["PARTIAL_MARK", "TransferError", "active_target", "check_target", "connect", "describe",
            "parse_target", "server_version", "transfer"]

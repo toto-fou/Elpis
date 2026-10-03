@@ -340,6 +340,10 @@ selon [SemVer](https://semver.org/lang/fr/).
   personnels (absent jusqu'ici, donc perdu à la restauration) ; journaux et
   fichiers PID ne sont plus ni sauvegardés ni restaurés ; une sauvegarde
   sans la base n'est plus comptée comme récente.
+- **Sandbox** : les parcours de l'agent (listage, relevé des fichiers
+  modifiés, taille) n'entrent jamais dans un lien, même apparu pendant le
+  parcours ; la matrice adversariale se rejoue contre le vrai conteneur
+  (`docs/sandbox-gateway.md`, « Tests »).
 
 ## 1.0.0 — 2026-09-24
 

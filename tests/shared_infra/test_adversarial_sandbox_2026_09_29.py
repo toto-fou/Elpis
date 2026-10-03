@@ -9,8 +9,8 @@ modifier autre chose que ce qui est demandé.
 Les opérations passent par un adaptateur paramétré par CHEMIN D'EXÉCUTION.
 Depuis L4.2 il n'y en a plus qu'un : « agent », les outils fichiers passent
 par l'agent de la sandbox — ici en processus, sur le disque de l'hôte (la
-suite n'exige pas Docker). La recette en vrai conteneur de L4 est décrite
-dans docs/sandbox-gateway.md, « Recette » ; elle ne rejoue pas cette matrice.
+suite n'exige pas Docker). La même matrice, contre l'image et l'agent du
+conteneur : ``test_adversarial_conteneur_2026_10_03.py`` (lancement explicite).
 """
 from __future__ import annotations
 
@@ -135,24 +135,34 @@ def test_noms_decomposes_bidirectionnels_et_trop_longs(ops):
 # ── Courses ─────────────────────────────────────────────────────────────────
 
 def test_listage_d_un_dossier_remplace_par_un_lien_pendant_le_parcours(ops, monkeypatch):
-    """Le parcours se fait dans l'agent (L4.2) : le dossier devenu lien
-    pendant le parcours n'est pas descendu."""
+    """Le parcours se fait dans l'agent (L4.2) : ``d``, relevé comme dossier
+    puis remplacé par un lien au moment où le parcours l'ouvre, n'est pas
+    descendu."""
     from shared_infra.sandbox.agent import server as agent_server
     (ops.work / "d").mkdir()
     (ops.work / "d" / "leurre.txt").write_text("x\n")
-    vrai_scandir = agent_server.os.scandir
+    cible = str(ops.work / "d")
+    vrai_open, vrai_scandir = agent_server.os.open, agent_server.os.scandir
     bascule = []
 
-    def scandir_bascule(chemin):
-        if not bascule:
+    def basculer(chemin):
+        if chemin == cible and not bascule:
+            bascule.append(True)
             (ops.work / "d" / "leurre.txt").unlink()
             (ops.work / "d").rmdir()
             os.symlink(ops.hote, ops.work / "d")
-            bascule.append(True)
+
+    def ouvrir(chemin, *a, **k):
+        basculer(chemin)
+        return vrai_open(chemin, *a, **k)
+
+    def scandir(chemin="."):
+        basculer(chemin)
         return vrai_scandir(chemin)
-    monkeypatch.setattr(agent_server.os, "scandir", scandir_bascule)
+    monkeypatch.setattr(agent_server.os, "open", ouvrir)
+    monkeypatch.setattr(agent_server.os, "scandir", scandir)
     r = ops.listing()
-    assert bascule, "le listage ne passe plus par le parcours surveillé"
+    assert bascule, "le listage n'a pas ouvert le dossier"
     assert "secret.txt" not in str(r)
 
 

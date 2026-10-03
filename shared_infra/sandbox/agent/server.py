@@ -139,7 +139,7 @@ _ERRNO = {errno.ENOENT: (404, "not_found"), errno.EACCES: (403, "denied"),
           errno.ELOOP: (409, "loop"), errno.EXDEV: (409, "cross_device"),
           errno.EINVAL: (400, "invalid"), errno.ENAMETOOLONG: (400, "name_too_long"),
           errno.ENOSPC: (507, "no_space"), errno.EDQUOT: (507, "no_space"),
-          errno.ENXIO: (409, "not_file")}
+          errno.ENXIO: (409, "not_file"), errno.ESTALE: (409, "changed")}
 
 
 def _refus_os(e: OSError) -> Refus:
@@ -231,6 +231,26 @@ def _est_dossier(p: str) -> bool:
         return stat.S_ISDIR(os.lstat(p).st_mode)
     except FileNotFoundError:
         return False
+
+
+@contextlib.contextmanager
+def _dossier_sans_lien(p: str, attendu: Optional[Tuple[int, int]]) -> Iterator[Any]:
+    """``os.scandir`` du dossier ``p`` ouvert SANS suivre de lien, puis
+    comparé (``st_dev``, ``st_ino``) à ce que le parcours a relevé : un dossier
+    remplacé entre le relevé et l'ouverture — par un lien (``ELOOP``) ou par
+    un autre dossier (``ESTALE``) — n'est pas parcouru. Les entrées sont
+    relatives au descripteur : ``entree.path`` vaut ``entree.name``,
+    ``entree.stat`` reste dans ce dossier."""
+    fd = os.open(p, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        if attendu is not None:
+            vu = os.fstat(fd)
+            if (vu.st_dev, vu.st_ino) != attendu:
+                raise OSError(errno.ESTALE, "dossier remplacé pendant le parcours")
+        with os.scandir(fd) as it:
+            yield it
+    finally:
+        os.close(fd)
 
 
 def _ouvrir_fichier(p: str) -> int:
@@ -760,16 +780,16 @@ class Agent:
         base = self.reel(rel)
         exclure = tuple(exclure)
         try:
-            est_dossier = stat.S_ISDIR(os.stat(base).st_mode)
+            st_base = os.stat(base)
         except OSError as e:
             raise _refus_os(e) from None
-        if not est_dossier:
+        if not stat.S_ISDIR(st_base.st_mode):
             raise Refus(409, "not_dir", "pas un dossier")
         elaguer = tuple(elaguer)
         contient = contient.lower()
         genres = frozenset(genres)
         echeance = time.monotonic() + delai_s
-        pile = [(base, rel, 1)]
+        pile = [(base, rel, 1, (st_base.st_dev, st_base.st_ino))]
         n = erreurs = illisibles = 0
         tronque = False
         signe = time.monotonic()
@@ -778,15 +798,10 @@ class Agent:
             if time.monotonic() - signe > _SIGNE_S:
                 signe = time.monotonic()
                 yield {"tick": True}
-            dossier, drel, niveau = pile.pop()
-            if premier:                                  # le dossier demandé lui-même
-                premier = False                          # illisible : refus, pas une liste vide
-                try:
-                    os.close(os.open(dossier, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC))
-                except OSError as e:
-                    raise _refus_os(e) from None
+            dossier, drel, niveau, attendu = pile.pop()
             try:
-                with os.scandir(dossier) as it:
+                with _dossier_sans_lien(dossier, attendu) as it:
+                    premier = False
                     for entree in it:
                         if not caches and entree.name.startswith("."):
                             continue
@@ -818,8 +833,11 @@ class Agent:
                             n += 1
                         if genre == "dir" and niveau < profondeur and not any(
                                 fnmatch.fnmatchcase(entree.name, m) for m in elaguer):
-                            pile.append((entree.path, erel, niveau + 1))
-            except OSError:
+                            pile.append((os.path.join(dossier, entree.name), erel, niveau + 1,
+                                         (st.st_dev, st.st_ino)))
+            except OSError as e:
+                if premier:                              # le dossier demandé lui-même
+                    raise _refus_os(e) from None         # illisible : refus, pas une liste vide
                 erreurs += 1
         yield {"done": True, "truncated": tronque, "errors": erreurs,
                "undecodable": illisibles, "count": n}
@@ -1100,12 +1118,13 @@ class Agent:
             return {"ok": True, "bytes": st.st_size, "entries": 1, "complete": True}
         total = n = 0
         echeance = time.monotonic() + delai_s
-        pile = [p]
+        pile = [(p, (st.st_dev, st.st_ino))]
         while pile:
             if time.monotonic() > echeance:
                 return {"ok": True, "bytes": total, "entries": n, "complete": False}
+            dossier, attendu = pile.pop()
             try:
-                with os.scandir(pile.pop()) as it:
+                with _dossier_sans_lien(dossier, attendu) as it:
                     for e in it:
                         try:
                             s = e.stat(follow_symlinks=False)
@@ -1113,7 +1132,7 @@ class Agent:
                             continue
                         n += 1
                         if stat.S_ISDIR(s.st_mode):
-                            pile.append(e.path)
+                            pile.append((os.path.join(dossier, e.name), (s.st_dev, s.st_ino)))
                         else:
                             total += s.st_size
             except OSError:
@@ -1174,13 +1193,13 @@ class Agent:
         vus: Dict[str, Cle] = {}
         echeance = time.monotonic() + delai_s
         n = 0
-        pile = [(self.racine, "")]
+        pile: list[Tuple[str, str, Optional[Tuple[int, int]]]] = [(self.racine, "", None)]
         while pile:
             if time.monotonic() > echeance:
                 return vus, False
-            dossier, drel = pile.pop()
+            dossier, drel, attendu = pile.pop()
             try:
-                with os.scandir(dossier) as it:
+                with _dossier_sans_lien(dossier, attendu) as it:
                     for e in it:
                         n += 1
                         if n > max_entrees or (n & 255) == 0 and time.monotonic() > echeance:
@@ -1193,7 +1212,8 @@ class Agent:
                         rel = f"{drel}/{e.name}" if drel else e.name
                         if stat.S_ISDIR(st.st_mode):
                             if e.name not in sautes:
-                                pile.append((e.path, rel))
+                                pile.append((os.path.join(dossier, e.name), rel,
+                                             (st.st_dev, st.st_ino)))
                         elif stat.S_ISREG(st.st_mode):
                             vus[rel] = (st.st_mtime_ns, st.st_size, st.st_ino)
             except OSError:

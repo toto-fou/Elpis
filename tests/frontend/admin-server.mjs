@@ -53,6 +53,7 @@ const GROUPS = [
       llm_engine_keys: ['conn:7'], llm_can_manage_models: null },
 ];
 const LLM_ACCESS_LOG = [];
+const IMAGE_LOG = [];   // console › Images : tests et enregistrements de clé
 
 // Sauvegarde distante : config servie + journal des POST (harnais rsync).
 const REMOTE = {
@@ -240,7 +241,42 @@ http.createServer((req, res) => {
             // Écrit par la bascule HTTPS, comme le vrai serveur : une page
             // rechargée après la bascule doit lire le nouvel état.
             security: { https: { enabled: HTTPS_ON }, session: { https_only: HTTPS_ON } },
+            // Moteur d'images : la clé chiffrée est masquée par le serveur ;
+            // « Tester » annonce des limites plus basses que le formulaire.
+            image: { enabled: true, provider: 'sdcpp', url: 'http://10.0.0.9:8084', model: '',
+                     max_side: 2048, max_n: 4, groups: [] },
         }) });
+        // Moteur d'images (console › Modèles & services › Images).
+        if (url === '/api/admin/image/key') {
+            if (req.method === 'PUT') {
+                let corps = '';
+                req.on('data', (c) => { corps += c; });
+                req.on('end', () => {
+                    const k = (JSON.parse(corps || '{}').api_key) || '';
+                    IMAGE_LOG.push({ kind: 'key', present: !!k });
+                    json(res, { ok: true, has_key: !!k });
+                });
+                return;
+            }
+            return json(res, { has_key: true });
+        }
+        if (url === '/api/admin/image/test' && req.method === 'POST') {
+            let corps = '';
+            req.on('data', (c) => { corps += c; });
+            req.on('end', () => {
+                IMAGE_LOG.push({ kind: 'test', body: JSON.parse(corps || '{}') });
+                json(res, { ok: true, provider: 'sdcpp', model: 'Qwen-Image', mode: 'img_gen',
+                            limits: { max_width: 1536, max_height: 1536, max_batch_count: 2 },
+                            latency_ms: 42, has_key: true, enabled: true, ready: true, warnings: [] });
+            });
+            return;
+        }
+        if (url === '/api/admin/image/models' && req.method === 'POST') {
+            req.on('data', () => {});
+            req.on('end', () => json(res, { ok: true, models: [{ id: 'Qwen-Image', label: 'Qwen-Image' }] }));
+            return;
+        }
+        if (url === '/__image_log') return json(res, IMAGE_LOG);
         // Modèles / voix CHARGÉS par les serveurs vocaux.
         if (url === '/api/admin/voice/models' && req.method === 'POST') {
             let corps = '';

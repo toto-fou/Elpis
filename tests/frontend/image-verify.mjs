@@ -19,6 +19,7 @@
 // S14 — F5 (instantané de session) : les images survivent
 // S15 — outil du modèle : tuile sous le texte puis grille
 // S16 — mode sombre : aucune erreur, surfaces de la tuile sur les jetons
+// S17 — Paramètres › Images : module, préférences enregistrées, compteur, le composeur suit
 import fs from 'fs';
 import { launch, gotoApp, BASE_URL } from '../perf/lib/harness.mjs';
 
@@ -120,6 +121,8 @@ try {
     await page.waitForFunction(() => /Génération/.test((document.querySelector('.elpis-img-tile__label') || {}).textContent || ''),
         null, { timeout: 5000 }).catch(() => {});
     ok('S3 puis « Génération · … / ≈30 s »', /Génération · \d+ s \/ ≈30 s/.test(await page.locator('.elpis-img-tile__label').first().innerText()));
+    await page.locator('.elpis-img-tile__preview').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    ok('S3 aperçu du moteur affiché dans la tuile', await page.locator('.elpis-img-tile__preview').count() === 1);
     ok('S3 pas de pastille « Réflexion » pendant un tour image',
        await page.locator('#app [role="status"].mem-wave, #app .mem-wave').count() === 0);
     await page.screenshot({ path: SHOTS + '/s3-tuile.png' });
@@ -322,6 +325,30 @@ try {
     await page.screenshot({ path: SHOTS + '/s16-sombre.png' });
     await page.locator('.elpis-img-tile__stop').first().click();
     await page.waitForTimeout(300);
+
+    // ════ S17 — PARAMÈTRES › IMAGES ══════════════════════════════════════
+    await page.evaluate(() => { document.body.classList.remove('elpis-app-dark', 'elpis-dark-surface'); });
+    await regle({ prefs: { ratio: '16:9', side: 1024, n: 1, enhance: false } });
+    await gotoApp(page, '/');
+    await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.openSettingsTab('features'));
+    await page.locator('[data-feat-images]').waitFor({ state: 'visible' });
+    ok('S17 module « Images » dans Fonctionnalités', await page.locator('[data-feat-image]').count() === 1);
+    ok('S17 compteur de conservation 37/50', /37\/50/.test(await page.locator('[data-pref-stored]').innerText()));
+    ok('S17 format du compte coché (16:9)',
+       await page.locator('[data-pref-ratio] button[aria-pressed="true"][title="16:9"]').count() === 1);
+    await page.locator('[data-pref-ratio] button[title="3:2"]').click();
+    await page.screenshot({ path: SHOTS + '/s17-parametres.png' });
+    await page.locator('button:has-text("Enregistrer")').last().click();
+    await page.waitForTimeout(800);
+    a = await appels();
+    const putPrefs = a.settingsPut.find((b) => b.image_prefs && b.image_prefs.ratio === '3:2');
+    ok('S17 préférences enregistrées avec les Paramètres', !!putPrefs);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    await nouveauChat();
+    await ouvrirMode();
+    ok('S17 le composeur suit les Paramètres (3:2)',
+       (await page.locator('[data-image-format]').innerText()).indexOf('3:2') >= 0);
 
     ok('aucune erreur JS de page', errors.length === 0);
     if (errors.length) console.log(errors.slice(0, 5).join('\n'));

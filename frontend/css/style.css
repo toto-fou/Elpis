@@ -4387,6 +4387,7 @@ mark.elpis-search-hit {
     filter: blur(22px); animation: elpis-img-drift 12s ease-in-out infinite alternate;
 }
 .elpis-img-tile.is-queued .elpis-img-tile__wash { opacity: .45; animation-duration: 18s; }
+.elpis-img-tile__preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(3px); }
 .elpis-img-tile__fill {
     position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none; transition: height 1s linear;
     background: linear-gradient(to top, color-mix(in srgb, var(--accent) 16%, transparent),
@@ -4518,3 +4519,11 @@ mark.elpis-search-hit {
     .elpis-img-tile__wash { animation-duration: 30s !important; animation-iteration-count: infinite !important; }
     .elpis-img-reveal { animation: none !important; }
 }
+
+/* Console › Images : ligne d'état du test, groupe supprimé. */
+.elpis-img-status { font-size: 0.75rem; color: var(--text-500); }
+.elpis-img-status.is-ok { color: var(--ok-text-strong); }
+.elpis-img-status.is-err { color: var(--danger-text); }
+.elpis-img-status.is-warn { color: var(--warn-text-strong); }
+.elpis-img-chip.is-gone { border-style: dashed; color: var(--text-400); }
+.elpis-img-chip.is-gone .elpis-img-chip__x { border: 0; background: none; padding: 0; cursor: pointer; color: inherit; }

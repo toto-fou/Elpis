@@ -311,7 +311,7 @@ try {
     ok('inférence : titre et parent', (await headTitle()) === 'Inférence' && (await headParent()) === 'Modèles & services');
     ok('inférence : sous-pages du domaine',
        await subVisible('Compression') && await subVisible('RAG') && await subVisible('Vision & machines')
-       && await subVisible('Voix') && await subVisible('Outils MCP') && await subVisible('Prompts'));
+       && await subVisible('Voix') && await subVisible('Images') && await subVisible('Outils MCP') && await subVisible('Prompts'));
     // Sélecteur de moteur : intégré ↔ connecteur partagé.
     ok('inférence : sélecteur de moteur', await bodyHas(/Moteur à configurer/));
     // Réglages rares (URL complète, reprises, capacité) repliés dans « Avancé ».
@@ -398,6 +398,48 @@ try {
        /Celui chargé au démarrage du serveur/.test(voxTxt) && (await page.locator('#cnx-voice-stt-model').count()) === 0);
     ok('voix : format piper-http proposé',
        (await page.locator('#cnx-voice-tts-fmt option[value="piper-http"]').count()) === 1);
+
+    // Images : carte compacte en trois groupes, clé hors formulaire, test qui
+    // ajuste les limites, groupes autorisés.
+    await goPage('Modèles & services', 'Images');
+    ok('images : titre et parent', (await headTitle()) === 'Images' && (await headParent()) === 'Modèles & services');
+    ok('images : trois groupes (Connexion, Limites, Accès)',
+       await bodyHas(/CONNEXION|Connexion/) && await bodyHas(/LIMITES|Limites/) && await bodyHas(/ACCÈS|Accès/));
+    ok('images : adresse chargée depuis config.json',
+       (await page.locator('#cnx-image-url').inputValue().catch(() => '')) === 'http://10.0.0.9:8084');
+    ok('images : clé enregistrée signalée, jamais affichée',
+       /Enregistrée/.test(await page.locator('#cnx-image-key').getAttribute('placeholder').catch(() => ''))
+       && (await page.locator('#cnx-image-key').inputValue()) === '');
+    await page.waitForTimeout(400);
+    ok('images : modèle lu sur le serveur (sd-server)', await bodyHas(/Qwen-Image/));
+    ok('images : groupes proposés (Tous + groupes)',
+       await page.locator('#images [role="group"] button:has-text("Tous")').count() === 1
+       && await page.locator('#images [role="group"] button:has-text("Équipe data")').count() === 1);
+    ok('images : état propre au chargement', await pageClean());
+    await page.locator('[data-image-test]').click();
+    await page.waitForTimeout(500);
+    ok('images : ligne d\'état du test',
+       /✓ Qwen-Image · 42 ms · max 1536 · 2\/lot/.test(await page.locator('[data-image-test-result]').innerText().catch(() => '')));
+    ok('images : limites ajustées au moteur (2 modifications)',
+       (await page.locator('#cnx-image-maxside').inputValue()) === '1536' && (await dirtyCount()) === '2 modifications');
+    await page.locator('#images [role="group"] button:has-text("Équipe data")').click();
+    await page.waitForTimeout(200);
+    ok('images : groupe coché (3 modifications)', (await dirtyCount()) === '3 modifications');
+    await page.locator('#cnx-image-key').fill('sk-test');
+    await page.locator('[data-image-key-save]').click();
+    await page.waitForTimeout(400);
+    const ilog = await page.evaluate(() => fetch('/__image_log').then(r => r.json()));
+    ok('images : clé envoyée à part, champ vidé, formulaire inchangé',
+       ilog.some((e) => e.kind === 'key' && e.present) && (await page.locator('#cnx-image-key').inputValue()) === ''
+       && (await dirtyCount()) === '3 modifications');
+    await saveBtn().click();
+    await page.waitForTimeout(800);
+    const iplog = await patchLog();
+    const ichanges = (iplog[iplog.length - 1] || {}).changes || [];
+    ok('images : enregistrement champ par champ, sans la clé',
+       ichanges.some((c) => c.path === 'image.max_side' && c.to === 1536)
+       && ichanges.some((c) => c.path === 'image.groups' && JSON.stringify(c.to) === '[5]')
+       && !ichanges.some((c) => /api_key/.test(c.path)) && await pageClean());
 
     // Droits par défaut : ce que TOUS les comptes peuvent utiliser.
     await goPage('Utilisateurs & accès', 'Droits par défaut');

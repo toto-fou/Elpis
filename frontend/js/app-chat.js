@@ -3009,6 +3009,10 @@ function setupChat(vue, sharedRefs, ctx) {
                 pct_real: !!data.pct_real,
                 width: data.width || _prev.width, height: data.height || _prev.height,
                 n: data.n || _prev.n || 1,
+                // Aperçu intermédiaire : envoyé une fois par nouvelle image,
+                // gardé entre deux événements.
+                preview: (typeof data.preview === 'string' && data.preview.indexOf('data:image/') === 0)
+                    ? data.preview : (_prev.preview || null),
             };
             if (_tool) _patch(idx, { _toolImageProgress: data.state === 'done' ? null : _prog });
             else _patch(idx, { _imageTurn: true, _imageProgress: _prog });
@@ -3298,6 +3302,8 @@ function setupChat(vue, sharedRefs, ctx) {
             }
             if (Array.isArray(data.tool_images) && data.tool_images.length) {
                 _patch(idx, { tool_images: data.tool_images, _toolImageProgress: null });
+            } else if (cur._toolImageProgress) {
+                _patch(idx, { _toolImageProgress: null });
             }
             // Liste consolidée du serveur (fusion du tour) : fusionnée à ce
             // que le direct a accumulé — un « Continuer » garde ainsi les
@@ -4563,7 +4569,7 @@ function setupChat(vue, sharedRefs, ctx) {
                     // travail du moteur et persiste le même marqueur.
                     msgs[lastIdx] = Object.assign({}, cur, {
                         content: (cur.generated_images && cur.generated_images.length)
-                            ? (cur.content || '') : '_(génération interrompue)_',
+                            ? (cur.content || '') : "[Génération d'image arrêtée]",
                         isStreaming: false, isTruncated: false,
                         _imageProgress: null, _toolImageProgress: null,
                         ...((cur.generated_images && cur.generated_images.length) ? {}
@@ -5400,7 +5406,7 @@ function setupChat(vue, sharedRefs, ctx) {
                 }
                 // Tour « Images » refusé AVANT le flux : état MÉTIER, affiché
                 // dans la tuile, sans nouvelle tentative.
-                if (_imageGen && [400, 403, 413, 503].includes(response.status)) {
+                if (_imageGen && [400, 403, 404, 413, 503].includes(response.status)) {
                     let _d = null;
                     try { _d = ((await response.json()) || {}).detail; } catch (_) {}
                     const _code = (_d && typeof _d === 'object' && _d.code)

@@ -438,7 +438,8 @@
                 <button v-if="retryable" type="button" class="elpis-img-btn" @click="$emit('retry')">Réessayer</button>
             </div>
             <template v-else>
-                <div class="elpis-img-tile__wash" aria-hidden="true"></div>
+                <img v-if="k === 0 && preview" :src="preview" alt="" class="elpis-img-tile__preview" aria-hidden="true">
+                <div v-else class="elpis-img-tile__wash" aria-hidden="true"></div>
                 <div v-if="pct !== null" class="elpis-img-tile__fill" :style="{ height: pct + '%' }" aria-hidden="true"></div>
                 <div v-if="k === 0" class="elpis-img-tile__foot">
                     <span class="elpis-img-tile__label" aria-hidden="true">{{ label }}</span>

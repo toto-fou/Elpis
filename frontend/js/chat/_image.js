@@ -343,6 +343,10 @@ const ImageTile = {
             stateLabel: computed(() => imageProgressText(Object.assign({}, props.progress || {}, { eta_s: 0 }), 0)
                 .replace(/ · 0 s$/, '')),
             queued: computed(() => ['queued', 'waiting', 'enhancing'].indexOf((props.progress || {}).state) >= 0),
+            preview: computed(() => {
+                const p = (props.progress || {}).preview;
+                return (typeof p === 'string' && p.indexOf('data:image/') === 0) ? p : '';
+            }),
             pct: computed(() => {
                 const p = props.progress || {};
                 return (p.pct_real && typeof p.pct === 'number') ? Math.max(0, Math.min(100, p.pct)) : null;
@@ -610,6 +614,23 @@ function setupChatImage(vue, sharedRefs, ctx) {
         imageOpts.custom = !!on;
     }
     function clearImageSeed() { imageOpts.seed = ''; }
+
+    // Paramètres › Images : le formulaire édite ``settings.image_prefs``,
+    // enregistré avec le reste des Paramètres.
+    function _prefsForm() {
+        const s = settings.value || {};
+        if (!s.image_prefs || typeof s.image_prefs !== 'object') s.image_prefs = _prefsCourantes();
+        return s.image_prefs;
+    }
+    function setPrefRatio(r) {
+        const p = _prefsForm();
+        const base = imageBaseRatio(r);
+        p.ratio = (imageIsPortrait(p.ratio) && base !== '1:1') ? imageFlipRatio(base) : base;
+    }
+    function flipPrefRatio() {
+        const p = _prefsForm();
+        if (p.ratio && p.ratio !== '1:1') p.ratio = imageFlipRatio(p.ratio);
+    }
     function toggleImagePop(nom) { imagePop.value = (imagePop.value === nom) ? '' : nom; }
 
     // ── Mode ─────────────────────────────────────────────────────
@@ -849,7 +870,7 @@ function setupChatImage(vue, sharedRefs, ctx) {
         loadImageStatus, toggleImageMode, closeImageMode, imageEscape, toggleImagePop,
         imageSize, ratioBox, imageFormatLabel, imageIsPortrait, imageBaseRatio, imageFlipRatio,
         setImageRatio, flipImageRatio, setImageSide, setImageFixed, setImageN,
-        toggleImageEnhance, setImageCustom, clearImageSeed,
+        toggleImageEnhance, setImageCustom, clearImageSeed, setPrefRatio, flipPrefRatio,
         editGeneratedImage, clearImageEditRef, buildImageRequest, imageReqDims,
         imageRequestLabel, imageSizeLabel, isImageMessage, imageInitialProgress,
         markImageExpired, downloadImage, removeImage, copyImageText,

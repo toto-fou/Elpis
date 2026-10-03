@@ -2583,6 +2583,22 @@ function setupAdmin(vue, sharedRefs, ctx) {
                         if (typeof loadVoiceModels === 'function') {
                             setTimeout(function () { loadVoiceModels('stt'); loadVoiceModels('tts'); }, 0);
                         }
+                        // Moteur d'images. ⚠ Miroir des défauts du serveur
+                        // (shared_infra/image/config.py) : un défaut divergent
+                        // s'ÉCRIT au premier « Enregistrer ». La clé chiffrée
+                        // (api_key_enc) n'est jamais amorcée ni modifiée ici.
+                        if (!configForm.value.image || typeof configForm.value.image !== 'object') configForm.value.image = {};
+                        const _ix = configForm.value.image;
+                        const _idef = { enabled: false, provider: 'sdcpp', url: '', model: '', verify: true, ca_pem: '',
+                                        timeout_sec: 180, max_concurrent: 1, max_n: 4, max_side: 2048, default_side: 1024,
+                                        size_policy: 'free', sizes: [], edit_mode: 'init', keep_per_user: 50, groups: [],
+                                        tool_max_calls: 4, enhance_enabled: true };
+                        for (const _k in _idef) {
+                            if (_ix[_k] === undefined) _ix[_k] = Array.isArray(_idef[_k]) ? [] : _idef[_k];
+                        }
+                        if (typeof loadImageModels === 'function' && _ix.url) {
+                            setTimeout(function () { loadImageModels(); }, 0);
+                        }
                         if (!configForm.value.desktop) configForm.value.desktop = { targets: [] };
                         if (!Array.isArray(configForm.value.desktop.targets)) configForm.value.desktop.targets = [];
                         if (configForm.value.desktop.screenshot_format === undefined) configForm.value.desktop.screenshot_format = 'png';
@@ -3696,6 +3712,156 @@ function setupAdmin(vue, sharedRefs, ctx) {
         });
     }
 
+    // ── Moteur d'images ──────────────────────────────────────────────
+    // Test et modèles portent sur les valeurs du FORMULAIRE (tester avant
+    // d'enregistrer) ; la clé s'enregistre à part (PUT chiffré, jamais
+    // relue — le serveur ne la réutilise que pour l'adresse enregistrée).
+    const imageTest   = ref({ state: 'idle', res: null, error: null, adjusted: false });
+    const imageModels = ref({ state: 'idle', models: [], error: '' });
+    const imageKey    = ref({ has: false, draft: '', state: 'idle', error: '' });
+    let _imageModelsSeq = 0;
+
+    function _imageForm() { return (configForm.value && configForm.value.image) || {}; }
+    function _imageFormBody() {
+        const c = _imageForm();
+        const body = { provider: c.provider || 'sdcpp', url: c.url || '', model: c.model || '',
+                       verify: c.verify !== false, ca_pem: c.ca_pem || '' };
+        if (imageKey.value.draft) body.api_key = imageKey.value.draft;
+        return body;
+    }
+
+    async function loadImageAdmin() {
+        try {
+            const r = await fetchAuth('/api/admin/image/key', {}, true);
+            if (r && r.ok) {
+                const d = await r.json();
+                imageKey.value = Object.assign({}, imageKey.value, { has: !!d.has_key });
+            }
+        } catch (_) { /* état inconnu : champ vide */ }
+    }
+
+    /** Ligne d'état du test : « ✓ Qwen-Image · 42 ms · max 2048 · 8/lot ». */
+    function imageTestLine(res) {
+        if (!res) return '';
+        if (!res.ok) return '✗ ' + (res.error || 'Moteur injoignable');
+        const lim = res.limits || {};
+        const parts = [res.model || 'modèle non annoncé'];
+        if (res.latency_ms !== undefined) parts.push(res.latency_ms + ' ms');
+        const mx = Math.min(Number(lim.max_width) || 0, Number(lim.max_height) || Number(lim.max_width) || 0);
+        if (mx) parts.push('max ' + mx);
+        if (Number(lim.max_batch_count)) parts.push(lim.max_batch_count + '/lot');
+        return '✓ ' + parts.join(' · ');
+    }
+
+    async function testImageEngine() {
+        imageTest.value = { state: 'busy', res: null, error: null, adjusted: false };
+        try {
+            const r = await fetchAuth('/api/admin/image/test', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(_imageFormBody()),
+            });
+            if (!r) { imageTest.value = { state: 'err', res: null, error: 'Session expirée ou réseau indisponible', adjusted: false }; return; }
+            const res = await r.json();
+            // Limites annoncées par le moteur : le formulaire s'y ajuste (une
+            // modification à enregistrer, visible dans la barre).
+            let adjusted = false;
+            const c = _imageForm();
+            const lim = (res && res.ok && res.limits) || {};
+            const mx = Math.min(Number(lim.max_width) || 0, Number(lim.max_height) || Number(lim.max_width) || 0);
+            if (mx && Number(c.max_side) > mx) { c.max_side = Math.floor(mx / 64) * 64; adjusted = true; }
+            if (Number(lim.max_batch_count) && Number(c.max_n) > Number(lim.max_batch_count)) {
+                c.max_n = Number(lim.max_batch_count); adjusted = true;
+            }
+            if (Number(c.default_side) > Number(c.max_side)) { c.default_side = c.max_side; adjusted = true; }
+            imageTest.value = { state: 'done', res, error: null, adjusted };
+        } catch (e) {
+            imageTest.value = { state: 'err', res: null, error: String(e && e.message || e), adjusted: false };
+        }
+    }
+
+    async function loadImageModels() {
+        const c = _imageForm();
+        const seq = ++_imageModelsSeq;
+        if (!c.url) { imageModels.value = { state: 'idle', models: [], error: '' }; return; }
+        imageModels.value = { state: 'busy', models: imageModels.value.models, error: '' };
+        let res = null;
+        try {
+            const r = await fetchAuth('/api/admin/image/models', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(_imageFormBody()),
+            }, true);
+            res = r ? await r.json() : null;
+        } catch (_) { res = null; }
+        if (seq !== _imageModelsSeq) return;               // réponse périmée
+        if (!res || !res.ok) {
+            imageModels.value = { state: 'err', models: [], error: (res && res.error) || 'Liste indisponible' };
+            return;
+        }
+        // Lecture seule : rien n'est recopié dans le formulaire (ce serait une
+        // « modification non enregistrée » que l'administrateur n'a pas faite).
+        const models = (res.models || []).map(m => (typeof m === 'string') ? { id: m, label: m } : m);
+        imageModels.value = { state: 'ok', models, error: '' };
+    }
+    // Adresse, moteur ou certificat changés : liste relue après une pause de frappe.
+    let _imageModelsTimer = null;
+    watch(function () {
+        const c = configForm.value && configForm.value.image;
+        return c ? [c.url, c.provider, c.verify, c.ca_pem].join('|') : '';
+    }, function (nouv, anc) {
+        if (!anc || nouv === anc) return;
+        clearTimeout(_imageModelsTimer);
+        _imageModelsTimer = setTimeout(function () { loadImageModels(); }, 700);
+    });
+
+    async function saveImageKey(clear) {
+        const key = clear ? '' : String(imageKey.value.draft || '').trim();
+        if (!clear && !key) return;
+        imageKey.value = Object.assign({}, imageKey.value, { state: 'busy', error: '' });
+        try {
+            const r = await fetchAuth('/api/admin/image/key', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key: key }),
+            });
+            const d = r ? await r.json().catch(() => ({})) : {};
+            if (!r || !r.ok) throw new Error((d && typeof d.detail === 'string' && d.detail) || 'Enregistrement impossible');
+            imageKey.value = { has: !!d.has_key, draft: '', state: 'idle', error: '' };
+            showToast(d.has_key ? 'Clé enregistrée.' : 'Clé effacée.', 'success');
+        } catch (e) {
+            imageKey.value = Object.assign({}, imageKey.value, { state: 'err', error: String(e && e.message || e) });
+        }
+    }
+
+    // Groupes autorisés : liste vide = tous les comptes. Un nouveau tableau à
+    // chaque geste (la barre d'enregistrement compare les valeurs).
+    function setImageGroups(ids) {
+        if (!configForm.value || !configForm.value.image) return;
+        configForm.value.image.groups = Array.from(new Set((ids || []).map(Number))).sort((a, b) => a - b);
+    }
+    function toggleImageGroup(id) {
+        const cur = (_imageForm().groups || []).map(Number);
+        const n = Number(id);
+        setImageGroups(cur.includes(n) ? cur.filter(x => x !== n) : cur.concat([n]));
+    }
+    // Id d'un groupe supprimé encore dans la liste : affiché, il ne donne
+    // accès à personne (la liste n'est jamais vidée en silence).
+    const imageGroupsMissing = computed(() => {
+        const ids = (_imageForm().groups || []).map(Number);
+        const connus = new Set((groupsList.value || []).map(g => Number(g.id)));
+        return (groupsList.value || []).length ? ids.filter(id => !connus.has(id)) : [];
+    });
+    function setImageSizesText(texte) {
+        if (!configForm.value || !configForm.value.image) return;
+        configForm.value.image.sizes = String(texte || '').split(/[\s,;]+/)
+            .map(t => t.trim().toLowerCase()).filter(t => /^\d{2,5}x\d{2,5}$/.test(t));
+    }
+    const imageSideChoices = computed(() => {
+        const mx = Number(_imageForm().max_side) || 2048;
+        const liste = [512, 768, 1024, 1280, 1536, 2048, 3072, 4096].filter(v => v <= mx);
+        const cur = Number(_imageForm().default_side);
+        if (cur && liste.indexOf(cur) < 0) liste.push(cur);
+        return liste.sort((a, b) => a - b);
+    });
+
     async function testRagServiceConnection() {
         // Pull current form values; fall back to empty so the backend
         // uses its own saved config when the field is blank.
@@ -4786,6 +4952,8 @@ function setupAdmin(vue, sharedRefs, ctx) {
         dbState, dbForm, dbTest, dbSim, dbJob, dbBusy, loadDatabase, dbBackendChanged,
         testDatabase, saveDatabase, simulateDatabase, migrateDatabase, revertDatabaseToSqlite,
         voiceTest, testVoiceConnection, voiceModels, loadVoiceModels,
+        imageTest, imageModels, imageKey, loadImageAdmin, testImageEngine, imageTestLine, loadImageModels,
+        saveImageKey, setImageGroups, toggleImageGroup, imageGroupsMissing, setImageSizesText, imageSideChoices,
         handleAdminWelcomeUpload, handleAppInfoLogoUpload, handleLoginLogoUpload, openResetModal, confirmReset,
         // Aperçu vivant du mot animé (carte « Écran d'accueil »)
         apercuAccueil, apercuPerso, MASCOTTES_APERCU,

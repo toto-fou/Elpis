@@ -128,7 +128,7 @@ function statut() {
         ratios: ['1:1', '4:3', '3:4', '3:2', '2:3', '16:9', '9:16', '21:9', '9:21'],
         sides: [512, 768, 1024, 1280, 1536, 2048], default_side: 1024, max_side: 2048, step: 64,
         max_n: etat.max_n, size_policy: etat.size_policy, sizes: etat.sizes,
-        features: etat.features, prefs: etat.prefs, enhance_enabled: true,
+        features: etat.features, prefs: etat.prefs, enhance_enabled: true, tool_enabled: true,
         keep_per_user: 50, stored: 37,
     };
 }
@@ -145,6 +145,9 @@ function tourImage(req, res, body) {
         { type: 'mode', kind: 'image', text: 'Génération d’image…' },
         { type: 'image_progress', state: 'queued', queue_position: 2, elapsed_s: 0, width: w, height: h, n },
         { type: 'image_progress', state: 'generating', queue_position: null, elapsed_s: 1, eta_s: 30, width: w, height: h, n },
+        // Aperçu intermédiaire (sd-server récent) : gardé jusqu'à l'image.
+        { type: 'image_progress', state: 'generating', queue_position: null, elapsed_s: 2, eta_s: 30, width: w, height: h, n,
+          preview: 'data:image/png;base64,' + png(16, 9, [120, 120, 200]).toString('base64') },
     ];
     let annule = false;
     req.on('close', () => { annule = true; });
@@ -157,6 +160,7 @@ function tourImage(req, res, body) {
         const items = Array.from({ length: n }, (_, i) => ref('gen' + (++compteur), w, h, 1000 + compteur));
         suite.push({ type: 'image', items, prompt: 'x' });
         suite.push({ type: 'final', image: true, chat_id: 'cnew', persisted: true,
+                     run_ids: ['image-' + String(compteur).padStart(16, '0')],
                      assistant: '[Image générée : « x »]', generated_images: items,
                      image_meta: { model: 'Qwen-Image', duration_s: 12 },
                      metrics: { model: 'Qwen-Image', duration_s: 12 } });

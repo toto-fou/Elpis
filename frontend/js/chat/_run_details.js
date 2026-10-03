@@ -81,7 +81,7 @@
         }
 
         const _KINDS = { chat: 'Tour de chat', routine: 'Routine', subagent: 'Sous-agent',
-                         compaction: 'Compaction' };
+                         compaction: 'Compaction', image: 'Images' };
 
         function runEventLabel(ev) {
             if (!ev) return '';

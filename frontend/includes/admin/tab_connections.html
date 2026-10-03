@@ -740,6 +740,230 @@
                                 </div>
                             </section>
 
+                            <!-- ═══════════ Images ═══════════
+                                 Un moteur : sd-server (API native /sdcpp/v1 : file, annulation) ou
+                                 compatible OpenAI (/v1/images/generations et /edits). La clé passe
+                                 par une route dédiée (chiffrée, jamais relue) ; le reste vit dans
+                                 config.json › image, relu à chaud. Trois groupes : Connexion,
+                                 Limites, Accès. -->
+                            <section v-if="adminTab==='images'" id="images" class="adm-card scroll-mt-32">
+                                <header class="adm-card__head">
+                                    <i class="ph ph-image adm-card__icon" aria-hidden="true"></i>
+                                    <div>
+                                        <h3 class="adm-card__title">Images</h3>
+                                        <span class="sr-only">Moteur de génération d'images du chat et de l'outil du modèle.</span>
+                                    </div>
+                                </header>
+                                <div class="adm-rows" v-if="configForm && configForm.image">
+
+                                    <div class="adm-row">
+                                        <label class="adm-row__label" for="cnx-image-on"
+                                               title="Propose « Images » dans le menu + du chat. Chaque compte peut ensuite couper l'entrée dans ses Paramètres.">Activation</label>
+                                        <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                            <input id="cnx-image-on" type="checkbox" v-model="configForm.image.enabled" data-field="config:image.enabled" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                            <span class="text-sm text-slate-700">{{ configForm.image.enabled ? 'Activé' : 'Désactivé' }}</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="adm-row adm-row--full">
+                                        <span class="text-xs uppercase tracking-wide text-slate-500">Connexion</span>
+                                    </div>
+                                    <div class="adm-row">
+                                        <label class="adm-row__label" for="cnx-image-provider">Moteur</label>
+                                        <select id="cnx-image-provider" v-model="configForm.image.provider" data-field="config:image.provider" class="set-select w-full max-w-sm">
+                                            <option value="sdcpp">sd-server (stable-diffusion.cpp)</option>
+                                            <option value="openai">Compatible OpenAI</option>
+                                        </select>
+                                    </div>
+                                    <div class="adm-row">
+                                        <label class="adm-row__label" for="cnx-image-url">Adresse</label>
+                                        <input id="cnx-image-url" v-model="configForm.image.url" data-field="config:image.url"
+                                               :placeholder="configForm.image.provider === 'openai' ? 'https://images.lan/v1' : 'http://machine-gpu:8083'"
+                                               title="Vide = génération désactivée." class="set-input font-mono text-xs">
+                                    </div>
+                                    <!-- Clé : écriture seule, hors du formulaire (pas de data-field). -->
+                                    <div class="adm-row">
+                                        <label class="adm-row__label" for="cnx-image-key"
+                                               :title="configForm.image.provider === 'openai' ? 'Envoyée en Bearer au service.' : 'Facultative (proxy devant sd-server).'">Clé</label>
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <input id="cnx-image-key" v-model="imageKey.draft" type="password" autocomplete="new-password"
+                                                   :placeholder="imageKey.has ? 'Enregistrée — saisir pour remplacer' : 'Aucune'"
+                                                   class="set-input font-mono text-xs" @keydown.enter.prevent="saveImageKey(false)">
+                                            <button type="button" class="adm-btn" :disabled="!imageKey.draft || imageKey.state === 'busy'"
+                                                    @click="saveImageKey(false)" data-image-key-save>Enregistrer</button>
+                                            <button v-if="imageKey.has" type="button" class="adm-btn adm-btn--icon" :disabled="imageKey.state === 'busy'"
+                                                    @click="saveImageKey(true)" title="Effacer la clé" aria-label="Effacer la clé">
+                                                <i class="ph ph-trash" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p v-if="imageKey.state === 'err'" class="elpis-img-status is-err px-1">{{ imageKey.error }}</p>
+                                    <div class="adm-row" v-if="configForm.image.url">
+                                        <label class="adm-row__label" for="cnx-image-model" title="Lu sur le serveur.">Modèle</label>
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <span v-if="configForm.image.provider === 'sdcpp'" class="text-sm text-slate-600 font-mono truncate" :title="imageModels.error">
+                                                {{ imageModels.state === 'err' ? imageModels.error : ((imageModels.models[0] && (imageModels.models[0].label || imageModels.models[0].id)) || 'Celui chargé au démarrage du serveur') }}
+                                            </span>
+                                            <template v-else>
+                                                <select v-if="imageModels.models.length" id="cnx-image-model" v-model="configForm.image.model" data-field="config:image.model"
+                                                        class="set-select w-full max-w-sm font-mono text-xs">
+                                                    <option v-if="configForm.image.model && !imageModels.models.some(m => m.id === configForm.image.model)"
+                                                            :value="configForm.image.model">{{ configForm.image.model }} (absent du serveur)</option>
+                                                    <option v-for="m in imageModels.models" :key="m.id" :value="m.id">{{ m.label || m.id }}</option>
+                                                </select>
+                                                <input v-else id="cnx-image-model" v-model="configForm.image.model" data-field="config:image.model" placeholder="gpt-image-1"
+                                                       :title="imageModels.error || 'Liste indisponible : saisie manuelle.'" class="set-input font-mono text-xs">
+                                            </template>
+                                            <button type="button" @click="loadImageModels()" :disabled="imageModels.state === 'busy'"
+                                                    class="adm-btn adm-btn--icon" title="Relire sur le serveur" aria-label="Relire les modèles">
+                                                <i class="ph ph-arrows-clockwise" :class="imageModels.state === 'busy' ? 'animate-spin' : ''" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <template v-if="configForm.image.url && configForm.image.url.startsWith('https')">
+                                        <div class="adm-row">
+                                            <label class="adm-row__label" for="cnx-image-verify">Certificat</label>
+                                            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                                <input id="cnx-image-verify" type="checkbox" v-model="configForm.image.verify" data-field="config:image.verify" class="sr-only peer">
+                                                <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                                <span class="text-sm text-slate-700">{{ configForm.image.verify ? 'Vérifié' : 'Non vérifié' }}</span>
+                                            </label>
+                                        </div>
+                                        <div class="adm-row adm-row--top" v-if="configForm.image.verify">
+                                            <label class="adm-row__label" for="cnx-image-ca"
+                                                   title="Autorité de l'infrastructure interne, au format PEM. Vide : magasin du système.">CA</label>
+                                            <textarea id="cnx-image-ca" v-model="configForm.image.ca_pem" data-field="config:image.ca_pem" rows="2"
+                                                      placeholder="-----BEGIN CERTIFICATE-----" class="set-textarea font-mono text-xs"></textarea>
+                                        </div>
+                                    </template>
+                                    <div class="adm-row adm-row--top">
+                                        <span class="adm-row__label" title="Teste les valeurs ci-dessus sans les enregistrer.">Vérification</span>
+                                        <div class="min-w-0">
+                                            <button type="button" @click="testImageEngine" :disabled="imageTest.state === 'busy' || !configForm.image.url"
+                                                    class="adm-btn adm-tool" data-image-test>
+                                                <i class="ph" :class="imageTest.state === 'busy' ? 'ph-circle-notch animate-spin' : 'ph-pulse'" aria-hidden="true"></i>
+                                                {{ imageTest.state === 'busy' ? 'Test…' : 'Tester' }}
+                                            </button>
+                                            <p v-if="imageTest.state === 'done' && imageTest.res" class="elpis-img-status mt-2"
+                                               :class="imageTest.res.ok ? 'is-ok' : 'is-err'" role="status" data-image-test-result>
+                                                {{ imageTestLine(imageTest.res) }}
+                                            </p>
+                                            <p v-else-if="imageTest.state === 'err'" class="elpis-img-status is-err mt-2" role="status">✗ {{ imageTest.error }}</p>
+                                            <ul v-if="imageTest.state === 'done' && imageTest.res && imageTest.res.warnings && imageTest.res.warnings.length"
+                                                class="mt-1 space-y-0.5">
+                                                <li v-for="w in imageTest.res.warnings" :key="w" class="elpis-img-status is-warn">⚠ {{ w }}</li>
+                                            </ul>
+                                            <p v-if="imageTest.adjusted" class="elpis-img-status mt-1">Limites ajustées au moteur, à enregistrer.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="adm-row adm-row--full">
+                                        <span class="text-xs uppercase tracking-wide text-slate-500">Limites</span>
+                                    </div>
+                                    <div class="adm-row">
+                                        <label class="adm-row__label" for="cnx-image-maxside" title="Plus grand côté qu'un compte peut demander.">Côté max</label>
+                                        <div class="flex items-center gap-2">
+                                            <input id="cnx-image-maxside" v-model.number="configForm.image.max_side" data-field="config:image.max_side"
+                                                   type="number" min="256" max="4096" step="64" class="set-input adm-num">
+                                            <span class="adm-unit">px</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <label class="adm-row__label" for="cnx-image-defside" title="Taille proposée à un compte qui n'a rien choisi.">Côté par défaut</label>
+                                        <select id="cnx-image-defside" v-model.number="configForm.image.default_side" data-field="config:image.default_side"
+                                                class="set-select w-full max-w-[10rem] font-mono text-xs">
+                                            <option v-for="v in imageSideChoices" :key="v" :value="v">{{ v }} px</option>
+                                        </select>
+                                    </div>
+                                    <div class="adm-row">
+                                        <label class="adm-row__label" for="cnx-image-n">Par demande</label>
+                                        <div class="flex items-center gap-2">
+                                            <input id="cnx-image-n" v-model.number="configForm.image.max_n" data-field="config:image.max_n"
+                                                   type="number" min="1" max="8" class="set-input adm-num">
+                                            <span class="adm-unit">images</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row" v-if="configForm.image.provider === 'openai'">
+                                        <label class="adm-row__label" for="cnx-image-conc"
+                                               title="Générations simultanées vers ce service, tous processus confondus.">Simultanées</label>
+                                        <input id="cnx-image-conc" v-model.number="configForm.image.max_concurrent" data-field="config:image.max_concurrent"
+                                               type="number" min="1" max="8" class="set-input adm-num">
+                                    </div>
+                                    <div class="adm-row">
+                                        <label class="adm-row__label" for="cnx-image-timeout" title="Compté à partir du début du calcul (pas de l'attente en file).">Délai</label>
+                                        <div class="flex items-center gap-2">
+                                            <input id="cnx-image-timeout" v-model.number="configForm.image.timeout_sec" data-field="config:image.timeout_sec"
+                                                   type="number" min="10" max="1800" class="set-input adm-num">
+                                            <span class="adm-unit">s</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row" v-if="configForm.image.provider === 'openai'">
+                                        <label class="adm-row__label" for="cnx-image-policy"
+                                               title="Fixes : les vrais modèles OpenAI n'acceptent que quelques tailles.">Tailles</label>
+                                        <select id="cnx-image-policy" v-model="configForm.image.size_policy" data-field="config:image.size_policy" class="set-select w-full max-w-[12rem]">
+                                            <option value="free">Libres (pas de 64)</option>
+                                            <option value="fixed">Fixes</option>
+                                        </select>
+                                    </div>
+                                    <div class="adm-row" v-if="configForm.image.provider === 'openai' && configForm.image.size_policy === 'fixed'">
+                                        <label class="adm-row__label" for="cnx-image-sizes" title="Séparées par des virgules.">Liste</label>
+                                        <input id="cnx-image-sizes" :value="(configForm.image.sizes || []).join(', ')" @change="setImageSizesText($event.target.value)"
+                                               data-field="config:image.sizes" placeholder="1024x1024, 1536x1024, 1024x1536" class="set-input font-mono text-xs">
+                                    </div>
+                                    <div class="adm-row" v-if="configForm.image.provider === 'sdcpp'">
+                                        <label class="adm-row__label" for="cnx-image-edit" title="Comment le modèle chargé modifie une image.">Édition</label>
+                                        <select id="cnx-image-edit" v-model="configForm.image.edit_mode" data-field="config:image.edit_mode" class="set-select w-full max-w-sm">
+                                            <option value="init">Image de départ (img2img, force)</option>
+                                            <option value="ref">Image de référence (FLUX.2 klein, Qwen-Image-Edit)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="adm-row adm-row--full">
+                                        <span class="text-xs uppercase tracking-wide text-slate-500">Accès</span>
+                                    </div>
+                                    <div class="adm-row adm-row--top">
+                                        <span class="adm-row__label" title="Aucun groupe coché : tous les comptes. Les administrateurs ont toujours accès.">Groupes</span>
+                                        <div class="flex flex-wrap gap-1.5" role="group" aria-label="Groupes autorisés" data-field="config:image.groups">
+                                            <button type="button" class="elpis-img-chip" :aria-pressed="!(configForm.image.groups || []).length ? 'true' : 'false'"
+                                                    @click="setImageGroups([])">Tous</button>
+                                            <button v-for="g in groupsList" :key="g.id" type="button" class="elpis-img-chip"
+                                                    :aria-pressed="(configForm.image.groups || []).includes(g.id) ? 'true' : 'false'"
+                                                    @click="toggleImageGroup(g.id)">{{ g.name }}</button>
+                                            <span v-for="gid in imageGroupsMissing" :key="'x' + gid" class="elpis-img-chip is-gone"
+                                                  title="Groupe supprimé : ne donne accès à personne.">#{{ gid }}
+                                                <button type="button" class="elpis-img-chip__x" @click="toggleImageGroup(gid)" aria-label="Retirer"><i class="ph ph-x" aria-hidden="true"></i></button>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <label class="adm-row__label" for="cnx-image-tool" title="Appels de l'outil generate_image permis par tour du modèle.">Outil</label>
+                                        <div class="flex items-center gap-2">
+                                            <input id="cnx-image-tool" v-model.number="configForm.image.tool_max_calls" data-field="config:image.tool_max_calls"
+                                                   type="number" min="1" max="20" class="set-input adm-num">
+                                            <span class="adm-unit">appels/tour</span>
+                                        </div>
+                                    </div>
+                                    <div class="adm-row">
+                                        <label class="adm-row__label" for="cnx-image-enhance" title="Le modèle du chat peut réécrire la description avant l'envoi au moteur.">Enrichir</label>
+                                        <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                                            <input id="cnx-image-enhance" type="checkbox" v-model="configForm.image.enhance_enabled" data-field="config:image.enhance_enabled" class="sr-only peer">
+                                            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+                                            <span class="text-sm text-slate-700">{{ configForm.image.enhance_enabled ? 'Proposé' : 'Retiré' }}</span>
+                                        </label>
+                                    </div>
+                                    <div class="adm-row">
+                                        <label class="adm-row__label" for="cnx-image-keep" title="Images gardées par compte ; les plus anciennes sont effacées.">Conserver</label>
+                                        <div class="flex items-center gap-2">
+                                            <input id="cnx-image-keep" v-model.number="configForm.image.keep_per_user" data-field="config:image.keep_per_user"
+                                                   type="number" min="1" max="1000" class="set-input adm-num">
+                                            <span class="adm-unit">par compte</span>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </section>
+
                             <!-- ═══════════ Serveur MCP ═══════════ -->
                             <section v-if="adminTab==='mcp'" id="mcp" class="adm-card scroll-mt-32">
                                 <header class="adm-card__head">

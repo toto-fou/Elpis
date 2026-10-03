@@ -33,7 +33,8 @@ sudo systemctl enable --now elpis-tts
 ```
 
 **Écoute.** Les deux unités écoutent sur `127.0.0.1` (Elpis sur la même
-machine, cas de `./install.sh --with-voice`). Services sur une machine à part :
+machine). `install.sh` ne propose pas d'installer la voix : elle se déploie sur
+la machine choisie avec les commandes ci-dessus. Services sur une machine à part :
 préfixez l'installation de `ELPIS_VOICE_HOST=<IP privée>` (ou `0.0.0.0`) —
 `sudo ELPIS_VOICE_HOST=10.0.0.12 bash …` — puis filtrez les ports 8090/8091 à
 l'hôte Elpis (whisper-server n'a aucune authentification).

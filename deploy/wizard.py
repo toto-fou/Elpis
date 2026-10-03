@@ -8,9 +8,8 @@ constantes et ses sondes).
 
 Toutes les réponses sont prises d'abord, puis appliquées sans nouvelle
 question. Une réponse désactive les saisies qu'elle rend inutiles : sans
-Caddy, pas de HTTPS à choisir ; moteur vocal installé ici, adresses fixées ;
-base « PostgreSQL sur cette machine », rien à saisir ; pas de droits
-administrateur, rien qui en demande.
+Caddy, pas de HTTPS à choisir ; base « PostgreSQL sur cette machine », rien
+à saisir ; pas de droits administrateur, rien qui en demande.
 
 Sous-commandes :
 
@@ -50,10 +49,9 @@ COMPONENTS = [
     ("browser", "Navigateur piloté", "Chromium : navigation web par l'assistant"),
     ("office", "LibreOffice", "aperçus Word, Excel, PowerPoint (~400 Mo)"),
     ("caddy", "Caddy (HTTPS)", "frontal TLS devant l'application"),
-    ("voice", "Moteur vocal local", "whisper.cpp + Piper sur cette machine (CPU, ~1 Go)"),
     ("agpl", "Extras AGPL", "PyMuPDF, pdf2docx : conversion PDF → Word (licence AGPL)"),
 ]
-ROOT_COMPONENTS = {"office", "caddy", "voice"}
+ROOT_COMPONENTS = {"office", "caddy"}
 DB_MODES = [
     ("sqlite", "SQLite", "fichier local, rien à installer (jusqu'à quelques dizaines d'utilisateurs)"),
     ("postgres-local", "PostgreSQL sur cette machine", "installé depuis les dépôts de l'OS et préparé"),
@@ -89,8 +87,6 @@ class Ctx:
         if self.offline:
             if key == "office" and not self.have["soffice"]:
                 return "hors ligne : paquets absents"
-            if key == "voice":
-                return "hors ligne : compilation impossible"
             if key == "caddy" and not (self.have["caddy"] or list(Path(self.offline).glob("caddy/*.deb"))):
                 return "hors ligne : paquet absent du bundle"
             if key == "browser" and not self.offline_has("browser"):
@@ -174,8 +170,10 @@ def initial_state(ctx: Ctx) -> State:
         "ocr_url": (f"http://{ocr.get('host')}:{ocr.get('port')}" if ocr.get("host")
                     else str(ocr.get("endpoint_url") or "")) if ocr.get("enabled") else "",
         "voice": bool(voice.get("enabled", ctx.voice_local or ctx.tts_local)),
-        "stt_url": str((voice.get("stt") or {}).get("endpoint_url") or ""),
-        "tts_url": str((voice.get("tts") or {}).get("endpoint_url") or ""),
+        "stt_url": str((voice.get("stt") or {}).get("endpoint_url") or "") or (
+            "http://127.0.0.1:8090" if ctx.voice_local else ""),
+        "tts_url": str((voice.get("tts") or {}).get("endpoint_url") or "") or (
+            "http://127.0.0.1:8091" if ctx.tts_local else ""),
         "db_mode": "sqlite", "db_engine": "postgres", "db_host": "", "db_port": "",
         "db_name": str(db.get("name") or "elpis"), "db_user": str(db.get("user") or "elpis"),
         "db_password": "", "db_tls": str(db.get("tls") or "off"), "db_transfer": True,
@@ -223,8 +221,6 @@ def _detect_installed(st: State, ctx: Ctx, backend: str, db: Dict[str, Any]) -> 
         comps.add("office")
     if ctx.have["caddy"]:
         comps.add("caddy")
-    if ctx.voice_local or ctx.tts_local:
-        comps.add("voice")
     venv_site = list((ROOT / "venv").glob("lib/python3*/site-packages/pymupdf"))
     if venv_site:
         comps.add("agpl")
@@ -531,17 +527,12 @@ def build_pages(ctx: Ctx) -> List[T.Page]:
                visible=lambda st: bool(st.get("rag"))),
     ]))
 
-    voice_here = (lambda st: _has(st, "voice")) if install else (lambda st: ctx.voice_local or ctx.tts_local)
     pages.append(T.Page("voix", "Voix", "Dictée et lecture à voix haute", [
-        T.Note("_voice_local", text=lambda st: (
-            "Moteur vocal installé sur cette machine : reconnaissance :8090, synthèse :8091.\n"
-            "Configuré automatiquement.") if voice_here(st) else None),
-        T.Toggle("voice", "Activer la voix", desc="serveurs de reconnaissance et de synthèse",
-                 visible=lambda st: not voice_here(st)),
+        T.Toggle("voice", "Activer la voix", desc="serveurs de reconnaissance et de synthèse"),
         T.Text("stt_url", "Reconnaissance", placeholder="http://hôte:8090", validate=v_url,
-               visible=lambda st: not voice_here(st) and bool(st.get("voice"))),
+               visible=lambda st: bool(st.get("voice"))),
         T.Text("tts_url", "Synthèse", placeholder="http://hôte:8091", validate=v_url,
-               visible=lambda st: not voice_here(st) and bool(st.get("voice"))),
+               visible=lambda st: bool(st.get("voice"))),
     ]))
 
     def admin_intro(st: State) -> Optional[str]:
@@ -611,9 +602,7 @@ def summary(st: State, ctx: Ctx) -> List[Tuple[str, List[Tuple[str, str]]]]:
                             ("OCR", st.get("ocr_url") or "aucun")]))
     else:
         out.append(("RAG", [("RAG", "désactivé")]))
-    if ctx.mode == "install" and _has(st, "voice"):
-        out.append(("Voix", [("Voix", "moteur local (:8090, :8091)")]))
-    elif st.get("voice"):
+    if st.get("voice"):
         out.append(("Voix", [("Reconnaissance", st.get("stt_url") or "—"), ("Synthèse", st.get("tts_url") or "—")]))
     else:
         out.append(("Voix", [("Voix", "désactivée")]))
@@ -635,7 +624,7 @@ def build_outputs(ans: State, mode: str, reinstall: bool) -> Dict[str, Any]:
     install = {
         "WITH_BROWSER": int("browser" in comps), "WITH_OFFICE": int("office" in comps),
         "WITH_CADDY": int("caddy" in comps), "WITH_AGPL": int("agpl" in comps),
-        "WITH_VOICE": int("voice" in comps), "SANDBOX_MODE": ans.get("sandbox", "build"),
+        "SANDBOX_MODE": ans.get("sandbox", "build"),
         "PULL_REF": ans.get("pull_ref", "") if ans.get("sandbox") == "pull" else "",
         "DB_MODE": ans.get("db_mode", "sqlite"), "AFTER": ans.get("after", "none"),
     }
@@ -662,12 +651,9 @@ def build_outputs(ans: State, mode: str, reinstall: bool) -> Dict[str, Any]:
     argv += ["--sandbox-memory", str(ans.get("sandbox_memory") or 2048)]
     if ans.get("sandbox_image"):
         argv += ["--sandbox-image", ans["sandbox_image"]]
-    if mode == "install" and "voice" in comps:
-        argv += ["--voice", "on", "--stt-url", "http://127.0.0.1:8090", "--tts-url", "http://127.0.0.1:8091"]
-    else:
-        argv += ["--voice", "on" if ans.get("voice") else "off"]
-        if ans.get("voice"):
-            argv += ["--stt-url", ans.get("stt_url", ""), "--tts-url", ans.get("tts_url", "")]
+    argv += ["--voice", "on" if ans.get("voice") else "off"]
+    if ans.get("voice"):
+        argv += ["--stt-url", ans.get("stt_url", ""), "--tts-url", ans.get("tts_url", "")]
     dbm = ans.get("db_mode", "sqlite")
     if dbm == "sqlite":
         argv += ["--db", "sqlite"]
@@ -726,12 +712,19 @@ def load(path: Path) -> Dict[str, Any]:
 #  Commandes
 # ─────────────────────────────────────────────────────────────────────────────
 
+def merge_previous(st: State, prev: State) -> None:
+    """Reprend les réponses d'un passage précédent ; un composant qui n'est
+    plus proposé est écarté."""
+    st.update({k: v for k, v in prev.items() if not k.endswith("_final")})
+    known = {k for k, _l, _d in COMPONENTS}
+    st["components"] = [c for c in st.get("components") or () if c in known]
+
+
 def run_wizard(mode: str, out: Path, previous: Optional[Path], start: Optional[str], banner: str) -> int:
     ctx = Ctx(mode)
     st = initial_state(ctx)
     if previous and previous.exists():
-        prev = load(previous).get("answers") or {}
-        st.update({k: v for k, v in prev.items() if not k.endswith("_final")})
+        merge_previous(st, load(previous).get("answers") or {})
     # Adresse du port par défaut du moteur quand elle n'a pas été donnée.
     if not st.get("db_port"):
         st["db_port"] = str(C.DB_PORTS.get(st.get("db_engine"), 5432))

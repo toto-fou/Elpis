@@ -74,8 +74,8 @@ n°1 sur les phrases courtes — et il serait perdu s'il était figé au démarr
 
 whisper-server n'a **aucune authentification** et expose `POST /load`, qui
 remplace le modèle chargé : quiconque joint le port peut le détourner ou le
-faire tomber. D'où `127.0.0.1` par défaut : Elpis sur la même machine
-(`./install.sh --with-voice`). Elpis sur une **autre** machine : ouvrez
+faire tomber. D'où `127.0.0.1` par défaut : Elpis sur la même machine.
+Elpis sur une **autre** machine : ouvrez
 l'écoute à l'installation (`ELPIS_VOICE_HOST=<IP privée>` ou
 `install_offline.sh --lan` pour `0.0.0.0`), ou après coup par
 `systemctl edit elpis-whisper` (`WHISPER_HOST`). Puis l'un ou l'autre :

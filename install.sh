@@ -39,8 +39,6 @@
 #    --with-office | --no-office      LibreOffice (aperçus Word/Excel/PowerPoint)
 #    --with-caddy  | --no-caddy       frontal HTTPS Caddy
 #    --with-agpl   | --no-agpl        extras AGPL (PyMuPDF, pdf2docx)
-#    --with-voice  | --no-voice       moteur vocal SUR CETTE MACHINE (whisper.cpp
-#                                     + Piper, CPU)
 #    --with-browser | --no-browser    service navigateur (Chromium)
 #    --db sqlite|postgres-local|mariadb-local|external
 #                                     base de données : fichier SQLite (défaut),
@@ -88,7 +86,7 @@ PYBIN="${PYTHON_BIN:-python3}"
 
 # ── Options ──────────────────────────────────────────────────────────────────
 # Vide = pas encore décidé (question posée en mode interactif).
-WITH_OFFICE=""; WITH_CADDY=""; WITH_AGPL=""; WITH_BROWSER=""; WITH_VOICE=""
+WITH_OFFICE=""; WITH_CADDY=""; WITH_AGPL=""; WITH_BROWSER=""
 SANDBOX_MODE=""; DB_MODE=""; DO_SYSTEM=1; OFFLINE_DIR=""; PULL_REF="${ELPIS_SANDBOX_PULL_REF:-}"
 ASSUME_YES=0; DRY_RUN=0; DO_CONFIGURE=""; AFTER=""; PLAIN=0   # AFTER : service | start | none
 CONFIGURE_ARGS=()
@@ -97,7 +95,8 @@ while [ $# -gt 0 ]; do
         --with-office)  WITH_OFFICE=1 ;;  --no-office)  WITH_OFFICE=0 ;;
         --with-caddy)   WITH_CADDY=1 ;;   --no-caddy)   WITH_CADDY=0 ;;
         --with-agpl)    WITH_AGPL=1 ;;    --no-agpl)    WITH_AGPL=0 ;;
-        --with-voice)   WITH_VOICE=1 ;;   --no-voice)   WITH_VOICE=0 ;;
+        --with-voice|--no-voice)
+                        echo "$1 ignorée : le moteur vocal s'installe sur une machine dédiée (deploy/voice/README.md)." >&2 ;;
         --with-browser) WITH_BROWSER=1 ;; --no-browser) WITH_BROWSER=0 ;;
         --no-sandbox)   SANDBOX_MODE=none ;;
         --db)           DB_MODE="${2:?--db attend sqlite, postgres-local, mariadb-local ou external}"; shift ;;
@@ -118,7 +117,7 @@ while [ $# -gt 0 ]; do
         --start)        AFTER=start ;;
         --no-start)     AFTER=none ;;
         --)             shift; CONFIGURE_ARGS=("$@"); break ;;
-        -h|--help)      sed -n '3,69p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help)      sed -n '3,67p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Option inconnue : $1 (voir --help)" >&2; exit 2 ;;
     esac
     shift
@@ -262,10 +261,10 @@ if [ "$ADMIN_OK" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
             go="$(python3 "$ROOT/deploy/wizard.py" ask --title "Elpis — installation" \
                 --question "Pas de droits administrateur (sudo $(have sudo && echo refusé || echo absent))." \
                 "quit:Arrêter:relancer depuis un compte sudoer, ou sudo ./install.sh" \
-                "limited:Continuer sans:paquets système, LibreOffice, Caddy, voix, base locale et services désactivés")" \
+                "limited:Continuer sans:paquets système, LibreOffice, Caddy, base locale et services désactivés")" \
                 || go=quit
         else
-            [ "$(ask_yn "Continuer SANS droits administrateur ? (paquets système, LibreOffice, Caddy, voix, base locale et services systemd seront désactivés)" 0)" -eq 1 ] && go=limited
+            [ "$(ask_yn "Continuer SANS droits administrateur ? (paquets système, LibreOffice, Caddy, base locale et services systemd seront désactivés)" 0)" -eq 1 ] && go=limited
         fi
         [ "$go" = limited ] || die "Installation arrêtée : relancez depuis un compte autorisé à utiliser sudo, ou « sudo ./install.sh »."
     else
@@ -273,7 +272,6 @@ if [ "$ADMIN_OK" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
         [ "$DO_SYSTEM" -eq 1 ] && needs+=("paquets système (--skip-system)")
         [ "${WITH_OFFICE:-1}" = 1 ] && needs+=("LibreOffice (--no-office)")
         [ "$WITH_CADDY" = 1 ] && needs+=("Caddy")
-        [ "$WITH_VOICE" = 1 ] && needs+=("moteur vocal")
         case "$DB_MODE" in postgres-local|mariadb-local) needs+=("base locale") ;; esac
         [ "$AFTER" = service ] && needs+=("services systemd")
         [ "${#needs[@]}" -eq 0 ] || die "Pas de droits administrateur, or l'installation en demande pour : ${needs[*]}. Lancez avec sudo, ou retirez ces options."
@@ -306,10 +304,10 @@ ensure_python3() {
 }
 preset_json() {
     python3 -c 'import json, sys
-keys = ["with_office", "with_caddy", "with_agpl", "with_voice", "with_browser",
+keys = ["with_office", "with_caddy", "with_agpl", "with_browser",
         "sandbox", "pull_ref", "db_mode", "after"]
 print(json.dumps({k: v for k, v in zip(keys, sys.argv[1:]) if v}))' \
-        "$WITH_OFFICE" "$WITH_CADDY" "$WITH_AGPL" "$WITH_VOICE" "$WITH_BROWSER" \
+        "$WITH_OFFICE" "$WITH_CADDY" "$WITH_AGPL" "$WITH_BROWSER" \
         "$SANDBOX_MODE" "$PULL_REF" "$DB_MODE" "$AFTER"
 }
 run_wizard() {   # run_wizard [--in FICHIER] [--start PAGE] [--banner TEXTE]
@@ -370,9 +368,8 @@ if [ "$TUI" -eq 0 ]; then
     if [ "$ADMIN_OK" -eq 1 ]; then
         [ -n "$WITH_OFFICE" ] || WITH_OFFICE="$(ask_yn "LibreOffice (aperçus Word, Excel, PowerPoint dans l'éditeur, ~400 Mo) ?" 1)"
         [ -n "$WITH_CADDY" ]  || WITH_CADDY="$(ask_yn "Caddy (HTTPS devant l'application) ?" 0)"
-        [ -n "$WITH_VOICE" ]  || WITH_VOICE="$(ask_yn "Moteur vocal sur CETTE machine (whisper.cpp + Piper, CPU, ~1 Go, compilation ~5 min) ?" 0)"
     else
-        WITH_OFFICE=0; WITH_CADDY=0; WITH_VOICE=0     # demandent root
+        WITH_OFFICE=0; WITH_CADDY=0     # demandent root
     fi
     [ -n "$WITH_AGPL" ]   || WITH_AGPL="$(ask_yn "Extras AGPL PyMuPDF/pdf2docx (conversion PDF → Word ; licence AGPL) ?" 0)"
     if [ -z "$DO_CONFIGURE" ]; then
@@ -420,7 +417,6 @@ cat <<EOF
     base de données   : $([ "$DB_MODE" = keep ] && echo "inchangée" || echo "$DB_MODE")
     LibreOffice       : $(yn "$WITH_OFFICE")
     Caddy (HTTPS)     : $(yn "$WITH_CADDY")
-    moteur vocal      : $(yn "$WITH_VOICE")
     configuration     : $([ "$TUI" -eq 1 ] && echo "réponses de l'assistant" || yn "$DO_CONFIGURE")
     démarrage         : $AFTER
     source            : ${OFFLINE_DIR:-en ligne}
@@ -471,7 +467,6 @@ install_system() {
     [ "$WITH_OFFICE" -eq 1 ] && pkgs+=(libreoffice-writer-nogui libreoffice-calc-nogui
                                        libreoffice-impress-nogui fonts-crosextra-carlito
                                        fonts-crosextra-caladea)
-    [ "$WITH_VOICE" -eq 1 ] && pkgs+=(cmake pkg-config)
     # Serveurs de base : paquets de l'OS uniquement, jamais livrés par Elpis.
     [ "$DB_MODE" = postgres-local ] && pkgs+=(postgresql)
     [ "$DB_MODE" = mariadb-local ] && pkgs+=(mariadb-server)
@@ -812,25 +807,6 @@ check_office() {
     else note_warn "LibreOffice/bubblewrap absents : aperçus Office indisponibles."; fi
 }
 
-# Moteur vocal local : whisper.cpp (reconnaissance, :8090) + Piper (synthèse,
-# :8091), en CPU. Le jeton du service de synthèse est recopié dans user_db/
-# pour que la configuration le trouve sans sudo.
-install_voice() {
-    local v="$ROOT/deploy/voice"
-    info "Moteur vocal : compilation de whisper.cpp (CPU)…"
-    $SUDO bash "$v/stt/build_whisper.sh" cpu || { note_warn "Compilation de whisper.cpp échouée."; return 0; }
-    $SUDO bash "$v/stt/fetch_models.sh" || note_warn "Téléchargement du modèle whisper échoué."
-    info "Moteur vocal : service de synthèse Piper…"
-    $SUDO bash "$v/tts/install_tts.sh" || { note_warn "Installation de la synthèse vocale échouée."; return 0; }
-    $SUDO systemctl enable --now elpis-whisper elpis-tts >/dev/null 2>&1 \
-        || note_warn "Démarrage des services vocaux échoué (systemctl status elpis-whisper elpis-tts)."
-    mkdir -p "$ROOT/user_db"
-    if $SUDO test -s /opt/elpis-voice/tts/token.env; then
-        ( umask 077; $SUDO sed -n 's/^ELPIS_TTS_TOKEN=//p' /opt/elpis-voice/tts/token.env > "$ROOT/user_db/.tts_token" )
-    fi
-    ok "Moteur vocal : reconnaissance :8090, synthèse :8091."
-}
-
 # =============================================================================
 [ "$DO_SYSTEM" -eq 1 ] && install_system
 install_python
@@ -843,7 +819,6 @@ case "$SANDBOX_MODE" in
 esac
 [ "$WITH_OFFICE" -eq 1 ] && check_office
 [ "$WITH_CADDY" -eq 1 ] && install_caddy
-[ "$WITH_VOICE" -eq 1 ] && install_voice
 mkdir -p "$ROOT/user_db/logs" "$ROOT/user_sandboxes" "$ROOT/logs"
 chmod 700 "$ROOT/user_sandboxes"   # la racine isole les sandboxes des autres comptes de l'hôte
 chmod +x "$ROOT/elpis" 2>/dev/null || true

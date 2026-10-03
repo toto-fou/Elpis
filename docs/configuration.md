@@ -143,7 +143,7 @@ l'assistant et les mots de passe (écrits sur le terminal seulement).
 **Droits.** Depuis un compte normal : `sudo -v` au lancement (une seule
 saisie), jeton entretenu pendant toute l'installation. Sans sudo : on arrête,
 ou on continue sans rien de ce qui demande root (paquets système,
-LibreOffice, Caddy, voix, base locale, services). Par `sudo ./install.sh` : les
+LibreOffice, Caddy, base locale, services). Par `sudo ./install.sh` : les
 étapes système en root, l'application (venv, Chromium, configuration,
 démarrage) sous le compte qui a lancé sudo (`SUDO_USER`, ou `ELPIS_USER`, ou
 le propriétaire du dépôt) — jamais en root.
@@ -171,7 +171,6 @@ réglages (retour à la page Base), passer à SQLite ou abandonner.
 | LibreOffice (`--with-office`, `--no-office`) | oui | aperçus docx/xlsx/pptx (LibreOffice nogui + bubblewrap) |
 | Caddy (`--with-caddy`, `--no-caddy`) | non | frontal HTTPS (voir [HTTPS](#https--frontal-caddy)) |
 | Extras AGPL (`--with-agpl`, `--no-agpl`) | non | PyMuPDF et pdf2docx |
-| Moteur vocal local (`--with-voice`, `--no-voice`) | non | whisper.cpp (:8090) + Piper (:8091), CPU, unités `elpis-whisper`/`elpis-tts`, écoute `127.0.0.1` |
 | Configuration (`--configure`, `--no-configure`) | oui (1re fois) | `./elpis configure` |
 | Démarrage (`--service`, `--start`, `--no-start`) | service | `sudo ./elpis service install` ou `./elpis start` |
 

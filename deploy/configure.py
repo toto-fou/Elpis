@@ -570,8 +570,8 @@ def step_voice(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> None:
     tts_url = pick(a.tts_url, "ELPIS_CFG_TTS_URL", tts.get("endpoint_url"),
                    "http://127.0.0.1:8091" if local_tts else "")
     tts["endpoint_url"] = p.ask("URL de la synthèse (elpis-tts)", tts_url, validate=valid_url)
-    # Jeton du service de synthèse local : recopié par install.sh (le
-    # fichier d'origine, /opt/elpis-voice/tts/token.env, n'est lisible que root).
+    # Jeton du service de synthèse local : /opt/elpis-voice/tts/token.env n'est
+    # lisible que par root ; une copie dans user_db/.tts_token est reprise.
     tok = USER_DB / ".tts_token"
     if local_tts and not tts.get("token") and tok.is_file():
         tts["token"] = tok.read_text(encoding="utf-8").strip()

@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -301,6 +302,11 @@ async def get_remote_models_with_status() -> List[Dict[str, Any]]:
                         continue
                     status_obj = m.get("status") or {}
                     status_val = status_obj.get("value", "unknown") if isinstance(status_obj, dict) else "unknown"
+                    # Dernier chargement en échec (le processus du modèle est
+                    # mort au démarrage) : l'interface le signale.
+                    if (status_val == "unloaded" and isinstance(status_obj, dict)
+                            and status_obj.get("failed")):
+                        status_val = "failed"
                     result.append({"id": m["id"], "status": status_val,
                                    "vision": vision_flag_from_entry(m)})
                 return result
@@ -339,6 +345,23 @@ def _llama_base_url_sync() -> str:
     return f"{p.scheme}://{p.netloc}"
 
 
+def _router_metrics_path(models: Any) -> Optional[str]:
+    """Chemin ``/metrics`` d'après ``/v1/models`` : un routeur (entrées avec
+    ``status``) n'y répond que pour un modèle nommé — le modèle CHARGÉ, avec
+    ``autoload=false`` ; aucun chargé : ``None``. Mono-modèle : ``/metrics``."""
+    from urllib.parse import quote
+    data = (models or {}).get("data") if isinstance(models, dict) else None
+    if not isinstance(data, list) or not any(
+            isinstance(m, dict) and "status" in m for m in data):
+        return "/metrics"
+    for m in data:
+        st = m.get("status") if isinstance(m, dict) else None
+        val = st.get("value") if isinstance(st, dict) else st
+        if val == "loaded" and m.get("id"):
+            return f"/metrics?model={quote(str(m['id']), safe='')}&autoload=false"
+    return None
+
+
 def get_llm_health_sync() -> Dict[str, Any]:
     """
     Synchronous version of health check (for metrics_engine ThreadPoolExecutor).
@@ -367,6 +390,7 @@ def get_llm_health_sync() -> Dict[str, Any]:
                 return result
 
             # /v1/models
+            metrics_path: Optional[str] = "/metrics"
             try:
                 r = c.get(f"{base}/v1/models")
                 if r.status_code == 200:
@@ -375,12 +399,20 @@ def get_llm_health_sync() -> Dict[str, Any]:
                         {"id": m.get("id", "?"), "meta": m.get("meta", {})}
                         for m in data.get("data", [])
                     ]
+                    metrics_path = _router_metrics_path(data)
             except Exception:
                 pass
 
-            # /metrics (prometheus)
+            # /metrics (prometheus) — routeur : le modèle chargé, sans charger.
+            from llm_core._llama_http import _METRICS_OFF_S, _metrics_off_until
+            from llm_core.engines import BUILTIN_KEY
+            _mkey = f"{BUILTIN_KEY}{metrics_path}"
+            if metrics_path is None or _metrics_off_until.get(_mkey, 0.0) > time.monotonic():
+                return result
             try:
-                r = c.get(f"{base}/metrics")
+                r = c.get(f"{base}{metrics_path}")
+                if r.status_code == 501:
+                    _metrics_off_until[_mkey] = time.monotonic() + _METRICS_OFF_S
                 if r.status_code == 200:
                     result["metrics"] = _parse_prometheus_metrics(r.text)
                     m = result["metrics"]

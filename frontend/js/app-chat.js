@@ -6290,7 +6290,7 @@ function setupChat(vue, sharedRefs, ctx) {
         showModelManager, selectedConnector, selectedEngineMeta,
     }, ctx);
     const {
-        loadAvailableModels, isModelLoaded, toggleLlmModel,
+        loadAvailableModels, isModelLoaded, isModelFailed, toggleLlmModel,
         loadLlmModel, unloadLlmModel,
         fetchModelProps, fmtPropVal, kvColor,
         kvTextClass, kvDimClass, kvBarClass,
@@ -7517,7 +7517,7 @@ function setupChat(vue, sharedRefs, ctx) {
         excludedTools, openToolCats, isToolOn, toggleTool, setToolOn,
         resetCatTools, catToolsCount, toggleToolCatOpen,
         toolInfo, openToolInfo, closeToolInfo,
-        loadLlmModel, unloadLlmModel, toggleLlmModel, isModelLoaded,
+        loadLlmModel, unloadLlmModel, toggleLlmModel, isModelLoaded, isModelFailed,
         // kvColor reste exposé (teinte nue) ; les classes passent par ces
         // helpers — jamais de nom de classe composé dans un template.
         kvColor, kvTextClass, kvDimClass, kvBarClass,

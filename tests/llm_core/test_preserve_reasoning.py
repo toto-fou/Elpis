@@ -93,7 +93,7 @@ def test_sanitize_tri_etat():
 async def test_cache_et_invalidation(monkeypatch):
     calls = {"n": 0}
 
-    async def _fake_fetch(_mid):
+    async def _fake_fetch(_mid, **_k):
         calls["n"] += 1
         return _CAPS_OK
 
@@ -208,7 +208,7 @@ def test_degraded_expose_inconnu():
 
 @pytest.mark.asyncio
 async def test_effective_params_expose_la_capacite(monkeypatch):
-    async def _props(_mid):
+    async def _props(_mid, **_k):
         return _CAPS_OK
 
     monkeypatch.setattr(lp, "_fetch_raw_props", _props)
@@ -219,7 +219,7 @@ async def test_effective_params_expose_la_capacite(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_effective_params_capacite_absente(monkeypatch):
-    async def _props(_mid):
+    async def _props(_mid, **_k):
         return {"chat_template": _TMPL_CLASSIC}
 
     monkeypatch.setattr(lp, "_fetch_raw_props", _props)

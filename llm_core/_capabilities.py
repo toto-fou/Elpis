@@ -30,7 +30,7 @@ historically read it directly (e.g. admin endpoints) keep working.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -83,6 +83,22 @@ _PROBE_RETRY_TTL_S = 60.0
 _probe_state: Dict[str, Any] = {"ts": 0.0, "inflight": False}
 
 
+async def _loaded_model(client: Any, base_url: str) -> Optional[str]:
+    """Premier modèle à l'état « loaded » dans ``/v1/models`` d'un routeur."""
+    try:
+        r = await client.get(f"{base_url}/v1/models")
+        if r.status_code != 200:
+            return None
+        for m in (r.json() or {}).get("data") or []:
+            st = m.get("status") if isinstance(m, dict) else None
+            val = st.get("value") if isinstance(st, dict) else st
+            if val == "loaded" and m.get("id"):
+                return str(m["id"])
+    except Exception as e:                                      # noqa: BLE001
+        logger.debug("[llama_caps] /v1/models illisible : %s", e)
+    return None
+
+
 async def detect_llama_capabilities(timeout_s: float = 3.0) -> Dict[str, Any]:
     """Probe llama-server pour déterminer les capacités disponibles.
 
@@ -104,8 +120,6 @@ async def detect_llama_capabilities(timeout_s: float = 3.0) -> Dict[str, Any]:
     copie pour utilisation immédiate.
     """
     import httpx
-
-    from shared_infra.config import LLAMA_MODEL
 
     caps: Dict[str, Any] = {
         "probed": True,
@@ -186,22 +200,26 @@ async def detect_llama_capabilities(timeout_s: float = 3.0) -> Dict[str, Any]:
                 except Exception:
                     return False
 
-            if is_router and LLAMA_MODEL:
-                # En router mode : probe /slots?model=<LLAMA_MODEL>.
-                # Si le modèle n'est pas encore chargé, le router peut le
-                # charger à la demande (selon --models-autoload, défaut on).
-                caps["slots_endpoint"] = await _try_slots(
-                    f"{base_url}/slots?model={LLAMA_MODEL}"
-                )
-                if not caps["slots_endpoint"]:
-                    # Fallback : essaie sans filtre, certaines versions du
-                    # router proxyfient quand même.
-                    caps["slots_endpoint"] = await _try_slots(f"{base_url}/slots")
+            if is_router:
+                # Routeur : on sonde le modèle CHARGÉ, sans charger. Nommer un
+                # autre modèle (celui de la config) le chargerait et
+                # déchargerait celui qui sert l'utilisateur. Aucun modèle
+                # chargé : rien à sonder, la re-sonde d'un tour suivant
+                # conclura (``_maybe_reprobe_capabilities``).
+                loaded = await _loaded_model(client, base_url)
+                if loaded:
+                    caps["loaded_model"] = loaded
+                    from urllib.parse import quote
+                    caps["slots_endpoint"] = await _try_slots(
+                        f"{base_url}/slots?model={quote(loaded, safe='')}&autoload=false")
+                else:
+                    caps["slots_pending"] = True
             else:
                 # Single-model : probe direct /slots.
                 caps["slots_endpoint"] = await _try_slots(f"{base_url}/slots")
 
-            if not caps["slots_endpoint"] and not caps["probe_error"]:
+            if (not caps["slots_endpoint"] and not caps["probe_error"]
+                    and not caps.get("slots_pending")):
                 caps["probe_error"] = (
                     "/slots non accessible — en mode router, vérifie que le "
                     "modèle par défaut est chargeable, et que llama-server "

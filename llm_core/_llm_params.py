@@ -41,9 +41,10 @@ Les clés retournées sont directement compatibles avec le body OpenAI/llama.cpp
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -175,6 +176,14 @@ _props_cache: Dict[str, Dict[str, Any]] = {}
 _PROPS_CACHE_TTL_S = 300.0
 _props_cache_ts: Dict[str, float] = {}
 
+# Lecture BRUTE de /props partagée quelques secondes : les trois détecteurs de
+# capacités (réflexion, effort, raisonnement conservé) et le panneau Sampling
+# lisent la même réponse au lieu d'envoyer chacun leur requête. Une lecture en
+# vol est attendue, pas répétée. Clé : (serveur|modèle, chargement permis).
+_RAW_PROPS_SHARE_S = 10.0
+_raw_props_shared: Dict[Tuple[str, bool], Tuple[float, Dict[str, Any]]] = {}
+_raw_props_inflight: Dict[Tuple[str, bool], "asyncio.Future[Dict[str, Any]]"] = {}
+
 
 def _cache_fresh(cache_ts: Dict[str, float], key: str) -> bool:
     """True si l'entrée ``key`` a été posée il y a moins de ``_PROPS_CACHE_TTL_S``.
@@ -272,6 +281,7 @@ def invalidate_params_cache(model_id: Optional[str] = None) -> None:
         _preserve_reasoning_cache_ts.clear()
         _continue_final_cache.clear()
         _continue_final_cache_ts.clear()
+        _raw_props_shared.clear()
         logger.info("[llm_params] Cache global invalidé.")
     else:
         for _c, _ts in ((_props_cache, _props_cache_ts),
@@ -285,6 +295,9 @@ def invalidate_params_cache(model_id: Optional[str] = None) -> None:
             # Entrées d'autres serveurs pour ce nom (« <serveur>|<modèle> »).
             for _k in [k for k in _c if k.endswith("|" + model_id)]:
                 _c.pop(_k, None); _ts.pop(_k, None)
+        for _rk in [k for k in _raw_props_shared
+                    if k[0] in ("", model_id) or k[0].endswith("|" + model_id)]:
+            _raw_props_shared.pop(_rk, None)
         logger.info("[llm_params] Cache invalidé pour model_id=%s", model_id)
 
 
@@ -518,10 +531,13 @@ async def resolve_sampling(
     return _normalize_last_n_sentinels(effective)
 
 
-async def _get_cached_props(model_id: Optional[str]) -> Dict[str, Any]:
+async def _get_cached_props(model_id: Optional[str], *,
+                            autoload: bool = True) -> Dict[str, Any]:
     """
     Récupère et cache les paramètres extraits de /props pour un modèle.
     Import paresseux de `backend.services` pour éviter un cycle d'import.
+    ``autoload=False`` : lecture sans charger (cf. :func:`_probe_suffix`) ;
+    un modèle non chargé rend ``{}``, jamais mis en cache.
     """
     # AUDIT 2026-09-16 — serveur de la CIBLE COURANTE (cf. llm_core.engines) ;
     # clé inchangée pour l'intégré, préfixée par le serveur sinon.
@@ -549,7 +565,8 @@ async def _get_cached_props(model_id: Optional[str]) -> Dict[str, Any]:
     if model_id:
         from urllib.parse import quote
         encoded = quote(model_id, safe="")
-        props = await _llama_get(f"{path}?model={encoded}", timeout=3.0)
+        props = await _llama_get(
+            f"{path}?model={encoded}{await _probe_suffix(autoload)}", timeout=3.0)
         # Fallback : certains builds single-model ignorent le query param.
         if not props:
             props = await _llama_get(path, timeout=3.0)
@@ -592,6 +609,20 @@ _THINKING_NAME_HINTS = (
 )
 
 
+async def _probe_suffix(autoload: bool) -> str:
+    """Suffixe d'URL d'une lecture de ``/props?model=X``.
+
+    ``autoload=True`` : le tour qui va envoyer sa requête à X le charge de
+    toute façon, la lecture peut le faire (et rend alors les vrais réglages
+    du modèle). ``False`` : lecture d'INFORMATION (panneau Sampling,
+    propriétés, contexte) — sur un routeur, nommer un modèle sans
+    ``autoload=false`` le charge et décharge celui qui tourne."""
+    if autoload:
+        return ""
+    from llm_core._model_info import _autoload_suffix
+    return await _autoload_suffix()
+
+
 def _props_chat_template(props: Dict[str, Any]) -> str:
     """Extrait le chat_template d'une réponse /props (les deux shapes
     llama-server : top-level, ou sous default_generation_settings)."""
@@ -605,25 +636,64 @@ def _props_chat_template(props: Dict[str, Any]) -> str:
     return tmpl
 
 
-async def _fetch_raw_props(model_id: Optional[str]) -> Dict[str, Any]:
+async def _fetch_raw_props(model_id: Optional[str], *,
+                           autoload: bool = True) -> Dict[str, Any]:
     """GET /props BRUT (avec chat_template), sans passer par _props_cache qui
     ne retient que le sampling. Best-effort : {} si le serveur est injoignable.
-    Serveur de la cible courante ; rien si ce n'est pas llama.cpp."""
+    Serveur de la cible courante ; rien si ce n'est pas llama.cpp.
+
+    Réponse partagée ``_RAW_PROPS_SHARE_S`` secondes, lecture en vol attendue
+    plutôt que répétée (cf. ``_raw_props_shared``)."""
     try:
         from llm_core.engines import current_engine
         if not current_engine().is_llamacpp:
             return {}
+    except Exception as e:                                      # noqa: BLE001
+        logger.debug("[llm_params] _fetch_raw_props: moteur inconnu (%s)", e)
+        return {}
+    key = (_engine_key(model_id), bool(autoload))
+    now = time.monotonic()
+    hit = _raw_props_shared.get(key)
+    if hit and now - hit[0] < _RAW_PROPS_SHARE_S:
+        return hit[1]
+    pending = _raw_props_inflight.get(key)
+    if pending is not None:
+        return await asyncio.shield(pending)
+    fut: "asyncio.Future[Dict[str, Any]]" = asyncio.get_running_loop().create_future()
+    _raw_props_inflight[key] = fut
+    raw: Dict[str, Any] = {}
+    try:
+        raw = await _read_raw_props(model_id, autoload)
+        # Une lecture vide n'est partagée que sans chargement : celle d'un
+        # tour peut tomber pendant le chargement de SON modèle.
+        if raw or not autoload:
+            _raw_props_shared[key] = (time.monotonic(), raw)
+    finally:
+        _raw_props_inflight.pop(key, None)
+        fut.set_result(raw)
+    return raw
+
+
+async def _read_raw_props(model_id: Optional[str], autoload: bool) -> Dict[str, Any]:
+    try:
         from llm_core import _llama_get  # type: ignore
         if model_id:
             from urllib.parse import quote
             raw = await _llama_get(
-                f"/props?model={quote(model_id, safe='')}", timeout=3.0
+                f"/props?model={quote(model_id, safe='')}"
+                f"{await _probe_suffix(autoload)}", timeout=3.0
             ) or {}
             if not raw:
                 raw = await _llama_get("/props", timeout=3.0) or {}
         else:
             raw = await _llama_get("/props", timeout=3.0) or {}
-        return raw if isinstance(raw, dict) else {}
+        if not isinstance(raw, dict):
+            return {}
+        # Le /props nu d'un routeur décrit le ROUTEUR (ni modèle ni
+        # chat_template) : en tirer des capacités les dirait toutes absentes.
+        if model_id and raw.get("role") == "router":
+            return {}
+        return raw
     except Exception as e:
         logger.debug("[llm_params] _fetch_raw_props: /props KO (%s)", e)
         return {}
@@ -645,7 +715,8 @@ def _detect_thinking_from_props(props: Dict[str, Any],
     return any(hint in name for hint in _THINKING_NAME_HINTS)
 
 
-async def get_thinking_support(model_id: Optional[str]) -> bool:
+async def get_thinking_support(model_id: Optional[str], *,
+                               autoload: bool = True) -> bool:
     """True si le modèle supporte le reasoning/thinking (best-effort, caché).
 
     Récupère /props (qui contient le chat_template) et applique
@@ -656,9 +727,11 @@ async def get_thinking_support(model_id: Optional[str]) -> bool:
     if cache_key in _thinking_cache and _cache_fresh(_thinking_cache_ts, cache_key):
         return _thinking_cache[cache_key]
 
-    raw_props = await _fetch_raw_props(model_id)
+    raw_props = await _fetch_raw_props(model_id, autoload=autoload)
 
     result = _detect_thinking_from_props(raw_props, model_id)
+    if not raw_props:
+        return result               # modèle non lu : rien de sûr à retenir
     _thinking_cache[cache_key] = result
     _thinking_cache_ts[cache_key] = time.monotonic()
     logger.info("[llm_params] thinking support pour %s : %s",
@@ -699,7 +772,8 @@ def _detect_reasoning_effort_from_props(props: Dict[str, Any]) -> List[str]:
     return vals or ["low", "medium", "high"]
 
 
-async def get_reasoning_effort_values(model_id: Optional[str]) -> List[str]:
+async def get_reasoning_effort_values(model_id: Optional[str], *,
+                                      autoload: bool = True) -> List[str]:
     """Valeurs ``reasoning_effort`` acceptées par le modèle ([] = non supporté).
 
     Même mécanique que get_thinking_support : /props (chat_template) + cache
@@ -710,8 +784,10 @@ async def get_reasoning_effort_values(model_id: Optional[str]) -> List[str]:
             _reasoning_effort_cache_ts, cache_key):
         return _reasoning_effort_cache[cache_key]
 
-    raw_props = await _fetch_raw_props(model_id)
+    raw_props = await _fetch_raw_props(model_id, autoload=autoload)
     result = _detect_reasoning_effort_from_props(raw_props)
+    if not raw_props:
+        return result               # modèle non lu : rien de sûr à retenir
     _reasoning_effort_cache[cache_key] = result
     _reasoning_effort_cache_ts[cache_key] = time.monotonic()
     logger.info("[llm_params] reasoning_effort pour %s : %s",
@@ -785,7 +861,8 @@ def _detect_preserve_reasoning_from_props(props: Dict[str, Any]) -> bool:
     return any(m in tl for m in _PRESERVE_REASONING_TEMPLATE_MARKERS)
 
 
-async def get_preserve_reasoning_support(model_id: Optional[str]) -> bool:
+async def get_preserve_reasoning_support(model_id: Optional[str], *,
+                                         autoload: bool = True) -> bool:
     """True si le modèle accepte le kwarg ``preserve_reasoning`` (caché).
 
     Même mécanique que get_reasoning_effort_values : /props + cache par
@@ -796,8 +873,10 @@ async def get_preserve_reasoning_support(model_id: Optional[str]) -> bool:
             _preserve_reasoning_cache_ts, cache_key):
         return _preserve_reasoning_cache[cache_key]
 
-    raw_props = await _fetch_raw_props(model_id)
+    raw_props = await _fetch_raw_props(model_id, autoload=autoload)
     result = _detect_preserve_reasoning_from_props(raw_props)
+    if not raw_props:
+        return result               # modèle non lu : rien de sûr à retenir
     _preserve_reasoning_cache[cache_key] = result
     _preserve_reasoning_cache_ts[cache_key] = time.monotonic()
     logger.info("[llm_params] preserve_reasoning pour %s : %s",
@@ -883,6 +962,9 @@ async def describe_effective_params(
     Version verbose de `resolve_sampling` : retourne la décomposition source
     par source, utile pour un endpoint admin ou pour le debug.
 
+    Lecture d'INFORMATION : elle ne charge jamais le modèle (un modèle non
+    chargé rend la vue de repli, ``fallback``).
+
     Retourne :
         {
           "model_id": "...",
@@ -909,14 +991,14 @@ async def describe_effective_params(
     # routeur sans modèle chargé, ``params`` vaut null, le serveur répond 200,
     # et la route non dégradée est empruntée. L'utilisateur calait ses
     # réglages sur des chiffres inventés.
-    _props_reels = await _get_cached_props(model_id)
+    _props_reels = await _get_cached_props(model_id, autoload=False)
     _props_degrade = not _props_reels
     props_params = _props_reels or dict(HARDCODED_FALLBACK)
     task_profile = TASK_PROFILES.get(task, {})
     safe_override = _sanitize_override(request_override)
-    supports_thinking = await get_thinking_support(model_id)
-    reasoning_effort_values = await get_reasoning_effort_values(model_id)
-    preserve_reasoning_ok = await get_preserve_reasoning_support(model_id)
+    supports_thinking = await get_thinking_support(model_id, autoload=False)
+    reasoning_effort_values = await get_reasoning_effort_values(model_id, autoload=False)
+    preserve_reasoning_ok = await get_preserve_reasoning_support(model_id, autoload=False)
 
     # Défauts agent/reasoning réels (config), surfacés pour que l'UI n'affiche
     # plus de littéraux figés. Ni max_tool_iterations ni thinking_budget_tokens

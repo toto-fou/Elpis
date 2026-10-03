@@ -220,6 +220,20 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Corrections et sécurité
 
+- **Changement de modèle avec un llama-server routeur** (une instance à la
+  fois) : choisir un autre modèle dans un chat rechargeait l'ancien, avec
+  des erreurs 500 côté llama. Trois causes, corrigées :
+  - la sélection revenait d'elle-même sur le modèle chargé au
+    rafraîchissement de la liste ; elle est désormais gardée jusqu'à l'envoi,
+    et un modèle dont le chargement a échoué est signalé dans le sélecteur ;
+  - la sonde des capacités interrogeait le modèle par défaut de la
+    configuration, et le chargeait ; elle n'interroge plus que le modèle
+    chargé, sans jamais en charger un ;
+  - le panneau Sampling et les propriétés d'un modèle lisaient `/props` en
+    chargeant le modèle ; ces lectures passent `autoload=false`, et un
+    modèle non lu ne laisse plus de capacités fausses en cache.
+  `/metrics` et `/slots` nomment le modèle chargé (fin des 400 « model name
+  is missing ») ; la jauge KV demande des modèles lancés avec `--metrics`.
 - **Cycles d'import** : importer en premier
   `shared_infra/opencode/routes_cli.py`,
   `shared_infra/observability/routes_events.py` ou

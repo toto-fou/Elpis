@@ -16,10 +16,10 @@ from llm_core._constants import (
 
 
 async def _no_network(monkeypatch, *, props=None, thinking=False):
-    async def _fake_props(_model_id):
+    async def _fake_props(_model_id, **_k):
         return dict(props or {"temperature": 0.7, "top_p": 0.9})
 
-    async def _fake_thinking(_model_id):
+    async def _fake_thinking(_model_id, **_k):
         return thinking
 
     monkeypatch.setattr(P, "_get_cached_props", _fake_props)

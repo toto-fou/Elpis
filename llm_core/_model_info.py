@@ -402,17 +402,10 @@ async def get_busy_slots_snapshot() -> Optional[frozenset]:
     if _slots_busy_cache is not None and (now - _slots_busy_ts) < _SLOTS_SNAPSHOT_TTL:
         return _slots_busy_cache
 
-    # /slots peut nécessiter ?model= en mode router → on tente d'abord sans
-    # filtre (single-model), puis avec LLAMA_MODEL.
+    # Mode routeur : ``_llama_get`` nomme le modèle CHARGÉ, sans charger
+    # (cf. ``_llama_http._per_model_path``) — jamais le modèle par défaut de
+    # la config, qu'un routeur à une instance chargerait à la place du bon.
     slots = await _llama_get("/slots", timeout=2.0)
-    if not isinstance(slots, list):
-        try:
-            from shared_infra.config import LLAMA_MODEL
-        except Exception:
-            LLAMA_MODEL = ""
-        if LLAMA_MODEL:
-            slots = await _llama_get(
-                f"/slots?model={quote(LLAMA_MODEL, safe='')}", timeout=2.0)
 
     if not isinstance(slots, list):
         # AUDIT 2026-08-23 — l'échec est MÉMORISÉ. L'horodatage n'était touché

@@ -128,8 +128,63 @@ def _engine_url_headers(path: str, engine=None):
     return f"{root}{path}", (eng.header_dict() or None)
 
 
+#: Routes qu'un routeur ne sert que pour UN modèle nommé (sans ``?model=`` :
+#: 400 « model name is missing »).
+_PER_MODEL_PATHS = ("/metrics", "/slots")
+
+#: Modèle lancé sans ``--metrics`` (501) : plus de demande pendant ce délai
+#: (sinon une erreur toutes les 10 s, par worker). Clé : serveur + chemin
+#: routé, donc par modèle sur un routeur.
+_METRICS_OFF_S = 300.0
+_metrics_off_until: Dict[str, float] = {}
+
+
+def _metrics_key(engine, routed: str) -> str:
+    return f"{_engine(engine).key}{routed}"
+
+
+def _metrics_off(engine, routed: str) -> bool:
+    return _metrics_off_until.get(_metrics_key(engine, routed), 0.0) > time.monotonic()
+
+
+async def _per_model_path(path: str, engine=None) -> Optional[str]:
+    """``/metrics`` et ``/slots`` de l'intégré en mode routeur : on nomme le
+    modèle CHARGÉ, sans jamais en charger un (``autoload=false``) ; aucun
+    modèle chargé = rien à demander (``None``). Toute autre route, un serveur
+    mono-modèle ou un connecteur : chemin inchangé."""
+    if path not in _PER_MODEL_PATHS:
+        return path
+    routed = await _route_to_loaded(path, engine)
+    if routed and path == "/metrics" and _metrics_off(engine, routed):
+        return None
+    return routed
+
+
+async def _route_to_loaded(path: str, engine=None) -> Optional[str]:
+    try:
+        if not _engine(engine).is_builtin:
+            return path
+        from llm_core.providers.llama_caps import engine_caps
+        caps = await engine_caps()
+        if not caps.is_router:
+            return path
+        from llm_core._health import get_currently_loaded_model
+        loaded = await get_currently_loaded_model()
+    except Exception as e:                                      # noqa: BLE001
+        logger.debug("[llama_http] modèle chargé inconnu (%s)", e)
+        return path
+    if not loaded:
+        return None
+    from urllib.parse import quote
+    suffix = "&autoload=false" if caps.autoload_param else ""
+    return f"{path}?model={quote(loaded, safe='')}{suffix}"
+
+
 async def _llama_get(path: str, timeout: float = 5.0, *, engine=None) -> Optional[Dict]:
-    url, headers = _engine_url_headers(path, engine)
+    routed = await _per_model_path(path, engine)
+    if routed is None:
+        return None
+    url, headers = _engine_url_headers(routed, engine)
     try:
         c = _get_admin_client()
         r = await c.get(url, timeout=timeout, headers=headers)
@@ -145,12 +200,19 @@ async def _llama_get(path: str, timeout: float = 5.0, *, engine=None) -> Optiona
 
 async def _llama_get_text(path: str, timeout: float = 5.0, *, engine=None) -> Optional[str]:
     """GET returning raw text (for /metrics prometheus endpoint)."""
-    url, headers = _engine_url_headers(path, engine)
+    routed = await _per_model_path(path, engine)
+    if routed is None:
+        return None
+    url, headers = _engine_url_headers(routed, engine)
     try:
         c = _get_admin_client()
         r = await c.get(url, timeout=timeout, headers=headers)
         if r.status_code == 200:
             return r.text
+        if r.status_code == 501 and path == "/metrics":
+            _metrics_off_until[_metrics_key(engine, routed)] = time.monotonic() + _METRICS_OFF_S
+            logger.info("[llama_http] /metrics non activé sur le serveur "
+                        "(option --metrics) : relu dans %d s", int(_METRICS_OFF_S))
     except Exception:
         pass
     return None

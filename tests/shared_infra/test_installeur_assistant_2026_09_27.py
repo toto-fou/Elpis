@@ -112,7 +112,7 @@ def test_sans_caddy_pas_de_https(ctx_env, monkeypatch):
 def test_sans_droits_admin_rien_qui_en_demande(ctx_env, monkeypatch):
     ctx, st, wiz = _wizard(admin=False, monkeypatch=monkeypatch)
     comp = _page(wiz, "comp")
-    for k in ("office", "caddy", "voice"):
+    for k in ("office", "caddy"):
         assert _opt_reason(comp, "components", k, st) == "droits administrateur requis"
     assert "office" not in st["components"]
     base = _page(wiz, "base")
@@ -122,16 +122,38 @@ def test_sans_droits_admin_rien_qui_en_demande(ctx_env, monkeypatch):
     assert st["after"] != "service"
 
 
-def test_moteur_vocal_local_fixe_les_adresses(ctx_env, monkeypatch):
+def test_voix_pas_de_moteur_local_adresses_saisies(ctx_env, monkeypatch):
+    """L'installation ne propose pas le moteur vocal : la page « Voix »
+    demande les adresses des services, transmises telles quelles."""
     ctx, st, wiz = _wizard(monkeypatch=monkeypatch)
+    assert "voice" not in {k for k, _l, _d in W.COMPONENTS}
     voix = _page(wiz, "voix")
-    shown = {f.key for f in voix.shown(st)}
-    assert "voice" in shown and "_voice_local" in shown
-    st["components"].append("voice")
-    shown = {f.key for f in voix.shown(st) if not isinstance(f, T.Note) or f.text(st)}
-    assert shown == {"_voice_local"}
-    out = W.build_outputs(W.finalize(st), "install", False)["configure"]["argv"]
-    assert out[out.index("--voice") + 1] == "on" and "http://127.0.0.1:8090" in out
+    st["voice"] = False
+    assert {f.key for f in voix.shown(st)} == {"voice"}
+    st.update(voice=True, stt_url="http://v:8090", tts_url="http://v:8091")
+    assert {f.key for f in voix.shown(st)} == {"voice", "stt_url", "tts_url"}
+    outs = W.build_outputs(W.finalize(st), "install", False)
+    assert "WITH_VOICE" not in outs["install"]
+    argv = outs["configure"]["argv"]
+    assert argv[argv.index("--voice") + 1] == "on"
+    assert argv[argv.index("--stt-url") + 1] == "http://v:8090"
+    assert argv[argv.index("--tts-url") + 1] == "http://v:8091"
+
+
+def test_voix_services_presents_preremplissent_les_adresses(ctx_env, monkeypatch):
+    monkeypatch.setenv("ELPIS_WIZ_ADMIN", "1")
+    ctx = W.Ctx("configure")
+    ctx.voice_local = ctx.tts_local = True
+    st = W.initial_state(ctx)
+    assert st["voice"]
+    assert (st["stt_url"], st["tts_url"]) == ("http://127.0.0.1:8090", "http://127.0.0.1:8091")
+
+
+def test_reponses_precedentes_composant_retire_ecarte(ctx_env, monkeypatch):
+    ctx, st, wiz = _wizard(monkeypatch=monkeypatch)
+    W.merge_previous(st, {"components": ["browser", "voice"], "llm_model_final": "x"})
+    assert st["components"] == ["browser"]
+    assert "llm_model_final" not in st or st["llm_model_final"] != "x"
 
 
 def test_base_locale_rien_a_saisir_et_transmise_a_configure(ctx_env, monkeypatch):
@@ -419,3 +441,16 @@ def test_reinstallation_apres_montee_d_image(ctx_env, monkeypatch, images, atten
     assert st["sandbox_image"] == ""
     assert W.C.image_officielle("elpis/sandbox:1.6.0", "elpis/sandbox:1.7.0")
     assert not W.C.image_officielle("maison/sandbox:2", "elpis/sandbox:1.7.0")
+
+
+def test_install_sans_moteur_vocal_local():
+    """``install.sh`` n'installe plus la voix ; ``--with-voice`` des anciens
+    scripts est ignorée avec un avertissement, sans faire échouer l'appel."""
+    src = (REPO / "install.sh").read_text(encoding="utf-8")
+    assert "install_voice" not in src and "WITH_VOICE" not in src
+    r = subprocess.run(["bash", str(REPO / "install.sh"), "--dry-run", "--yes", "--with-voice"],
+                       capture_output=True, text=True, timeout=60, cwd=str(REPO),
+                       stdin=subprocess.DEVNULL)
+    assert r.returncode == 0, r.stderr
+    assert "--with-voice ignorée" in r.stderr
+    assert "moteur vocal" not in r.stdout

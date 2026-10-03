@@ -137,7 +137,6 @@ sudo ./elpis service install   # services systemd
 | `--with-office` / `--no-office` | LibreOffice pour les aperçus docx/xlsx/pptx |
 | `--with-caddy` / `--no-caddy` | frontal HTTPS Caddy |
 | `--with-agpl` / `--no-agpl` | PyMuPDF et pdf2docx (licence AGPL, non installés par défaut) |
-| `--with-voice` / `--no-voice` | moteur vocal sur cette machine (whisper.cpp + Piper, CPU) |
 | `--no-browser` | sans le service navigateur |
 | `--sandbox build\|pull\|none`, `--pull IMAGE` | image sandbox construite, tirée, ou aucune |
 | `--db sqlite\|postgres-local\|mariadb-local\|external` | base de données : fichier SQLite (défaut), PostgreSQL ou MariaDB installés et préparés sur la machine (paquets de l'OS), ou serveur existant |

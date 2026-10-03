@@ -87,6 +87,11 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifications
 
+- **Installation** : `install.sh` et son assistant ne proposent plus
+  d'installer le moteur vocal (whisper.cpp + Piper) sur la machine d'Elpis ;
+  il se déploie à part avec `deploy/voice/`, et la page « Voix » de
+  l'assistant demande les adresses des deux services. `--with-voice` et
+  `--no-voice` sont ignorées avec un avertissement.
 - **Agent de la sandbox** : un agent HTTP (bibliothèque standard) tourne dans
   chaque conteneur, démarré à la demande, pour que l'hôte n'accède plus
   lui-même au contenu de `/work`. Son code est monté en lecture seule et suit

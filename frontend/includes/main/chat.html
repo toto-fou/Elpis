@@ -2405,6 +2405,10 @@
                                             aria-label="Retirer la graine fixée" data-image-seed>
                                         <span>graine {{ imageOpts.seed }}</span><i class="ph ph-x elpis-img-chip__x" aria-hidden="true"></i>
                                     </button>
+                                    <button type="button" class="elpis-img-chip elpis-img-chip--icon" @click="openImageGallery('all')" data-image-gallery-open
+                                            title="Galerie" aria-label="Ouvrir la galerie d’images">
+                                        <i class="ph ph-images" aria-hidden="true"></i>
+                                    </button>
                                     <div class="relative" data-image-pop>
                                         <button type="button" class="elpis-img-chip elpis-img-chip--icon" @click="toggleImagePop('more')" data-image-more
                                                 aria-haspopup="true" :aria-expanded="imagePop === 'more' ? 'true' : 'false'"

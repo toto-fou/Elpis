@@ -32,8 +32,8 @@
 //  #image-grid-template dans index.html.
 //
 //  Usine : setupChatImage(vue, sharedRefs, ctx)
-//    sharedRefs : settings, isStreaming, attachedFiles
-//    ctx        : fetchAuth, showToast, focusInput
+//    sharedRefs : settings, isStreaming, attachedFiles, currentChatId
+//    ctx        : fetchAuth, showToast, focusInput, openChat
 // ============================================================
 
 // ── Champs d'image d'un message ──────────────────────────────────
@@ -409,7 +409,7 @@ const ImageGrid = {
 
 function setupChatImage(vue, sharedRefs, ctx) {
     const { ref, reactive, computed, watch, nextTick } = vue;
-    const { settings, isStreaming, attachedFiles } = sharedRefs;
+    const { settings, isStreaming, attachedFiles, currentChatId } = sharedRefs;
     const { fetchAuth, showToast } = ctx;
 
     const imageMode   = ref(false);
@@ -732,6 +732,9 @@ function setupChatImage(vue, sharedRefs, ctx) {
     }
 
     // ── Actions sur une image ────────────────────────────────────
+    /** État d'une image affichée hors composant (galerie). */
+    function imageCellState(id) { return state[id] || ''; }
+
     function markImageExpired(id) {
         if (!id || state[id]) return;
         state[id] = 'expired';
@@ -823,12 +826,19 @@ function setupChatImage(vue, sharedRefs, ctx) {
         const v = imageViewer.value;
         return v ? v.items[v.idx] : null;
     });
+    // Description de l'image affichée : la sienne (galerie), sinon celle du
+    // résultat ouvert.
+    const imageViewerPrompt = computed(() => {
+        const v = imageViewer.value, r = imageViewerCurrent.value;
+        if (!v || !r) return '';
+        return r.prompt || v.revised || v.prompt || '';
+    });
     const imageViewerInfo = computed(() => {
         const v = imageViewer.value, r = imageViewerCurrent.value;
         if (!v || !r) return '';
         const m = v.meta || {};
         const parts = [];
-        if (m.model) parts.push(m.model);
+        if (r.model || m.model) parts.push(r.model || m.model);
         if (r.width && r.height) parts.push(imageSizeLabel({ w: r.width, h: r.height }));
         if (r.seed !== undefined && r.seed !== null) parts.push('graine ' + r.seed);
         if (Number(m.duration_s) > 0) parts.push(_imgFmtSec(m.duration_s));
@@ -852,6 +862,77 @@ function setupChatImage(vue, sharedRefs, ctx) {
         liste[suivant].focus();
     }
 
+    // ── Galerie personnelle ──────────────────────────────────────
+    // Toutes les images du compte (ou de la conversation ouverte), les plus
+    // récentes d'abord, par pages au défilement.
+    const GALERIE_PAGE = 48;
+    const imageGallery = ref(null);  // {filter, items, next, total, keep, loading, done, error}
+    let _galerieSeq = 0;
+    let _galerieRetour = null;
+    async function loadMoreGallery() {
+        const g = imageGallery.value;
+        if (!g || g.loading || g.done) return;
+        const seq = _galerieSeq;
+        imageGallery.value = Object.assign({}, g, { loading: true, error: '' });
+        const qs = new URLSearchParams({ limit: String(GALERIE_PAGE) });
+        if (g.next !== null && g.next !== undefined) qs.set('before', String(g.next));
+        if (g.filter === 'chat' && currentChatId && currentChatId.value) qs.set('chat_id', String(currentChatId.value));
+        let res = null, err = '';
+        try {
+            const r = await fetchAuth('/api/images?' + qs.toString(), {}, true);
+            if (r && r.ok) res = await r.json();
+            else err = 'Galerie indisponible.';
+        } catch (_) { err = 'Galerie indisponible.'; }
+        if (seq !== _galerieSeq || !imageGallery.value) return;   // filtre changé ou fenêtre fermée
+        const cur = imageGallery.value;
+        if (!res) { imageGallery.value = Object.assign({}, cur, { loading: false, error: err }); return; }
+        const items = cur.items.concat((res.items || []).filter(it => it && it.id));
+        const next = (res.next_before === null || res.next_before === undefined) ? null : res.next_before;
+        imageGallery.value = Object.assign({}, cur, {
+            items, next, done: next === null, loading: false,
+            total: Number(res.total) || items.length, keep: Number(res.keep) || 0,
+        });
+    }
+    async function openImageGallery(filtre) {
+        _galerieSeq++;
+        if (!imageGallery.value) _galerieRetour = document.activeElement || null;
+        imageGallery.value = { filter: filtre === 'chat' ? 'chat' : 'all', items: [], next: null,
+                               total: 0, keep: 0, loading: false, done: false, error: '' };
+        nextTick(() => {
+            const el = document.querySelector('[data-image-gallery]');
+            if (el && el.focus) el.focus();
+        });
+        await loadMoreGallery();
+    }
+    function setGalleryFilter(filtre) {
+        const g = imageGallery.value;
+        if (!g || g.filter === filtre) return;
+        if (filtre === 'chat' && !(currentChatId && currentChatId.value)) return;
+        openImageGallery(filtre);
+    }
+    function closeImageGallery() {
+        _galerieSeq++;
+        imageGallery.value = null;
+        const el = _galerieRetour;
+        _galerieRetour = null;
+        try { if (el && el.focus) el.focus(); } catch (_) {}
+    }
+    function onGalleryScroll(e) {
+        const el = e && e.target;
+        if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 240) loadMoreGallery();
+    }
+    function openGalleryItem(i) {
+        const g = imageGallery.value;
+        if (g) openImageViewer(g.items, i, {});
+    }
+    /** Conversation d'une image de la galerie. */
+    function openImageChat(chatId) {
+        if (!chatId) return;
+        imageViewer.value = null;
+        closeImageGallery();
+        if (ctx.openChat) ctx.openChat(chatId);
+    }
+
     const canEdit = computed(() => imageAvailable.value && !(isStreaming && isStreaming.value));
     _imageApi = {
         state,
@@ -873,8 +954,10 @@ function setupChatImage(vue, sharedRefs, ctx) {
         toggleImageEnhance, setImageCustom, clearImageSeed, setPrefRatio, flipPrefRatio,
         editGeneratedImage, clearImageEditRef, buildImageRequest, imageReqDims,
         imageRequestLabel, imageSizeLabel, isImageMessage, imageInitialProgress,
-        markImageExpired, downloadImage, removeImage, copyImageText,
-        imageViewer, imageViewerCurrent, imageViewerInfo,
+        markImageExpired, imageCellState, downloadImage, removeImage, copyImageText,
+        imageViewer, imageViewerCurrent, imageViewerInfo, imageViewerPrompt,
+        imageGallery, openImageGallery, loadMoreGallery, setGalleryFilter, closeImageGallery,
+        onGalleryScroll, openGalleryItem, openImageChat,
         openImageViewer, closeImageViewer, imageViewerStep, imageViewerKeydown,
         imageCanEdit: canEdit,
     };

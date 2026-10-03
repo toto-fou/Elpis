@@ -714,9 +714,11 @@ function setupChat(vue, sharedRefs, ctx) {
     // Un tour est un tour image quand le DERNIER message utilisateur porte
     // ``image_request`` (cf. _imageGenFor) : régénérer ou éditer un message
     // image repart au moteur d'images sans chemin particulier.
-    const _imageMod = window.setupChatImage(vue, { settings, isStreaming, attachedFiles }, {
+    const _imageMod = window.setupChatImage(vue, { settings, isStreaming, attachedFiles, currentChatId }, {
         fetchAuth, showToast,
         focusInput: () => nextTick(() => { if (inputRef.value) inputRef.value.focus(); }),
+        // Galerie → conversation d'une image (_historyMod est monté plus bas).
+        openChat: (id) => { if (_historyMod && _historyMod.loadChat) return _historyMod.loadChat(String(id)); },
     });
     _imageEnv = _imageMod;
     const {

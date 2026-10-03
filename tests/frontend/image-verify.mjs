@@ -20,6 +20,7 @@
 // S15 — outil du modèle : tuile sous le texte puis grille
 // S16 — mode sombre : aucune erreur, surfaces de la tuile sur les jetons
 // S17 — Paramètres › Images : module, préférences enregistrées, compteur, le composeur suit
+// S18 — galerie : pages au défilement, filtre conversation, visionneuse, aller à la conversation
 import fs from 'fs';
 import { launch, gotoApp, BASE_URL } from '../perf/lib/harness.mjs';
 
@@ -349,6 +350,52 @@ try {
     await ouvrirMode();
     ok('S17 le composeur suit les Paramètres (3:2)',
        (await page.locator('[data-image-format]').innerText()).indexOf('3:2') >= 0);
+
+    // ════ S18 — GALERIE ══════════════════════════════════════════════════
+    await regle({});
+    await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.loadChat('img1'));
+    await page.waitForTimeout(800);
+    await ouvrirMode();
+    await page.locator('[data-image-gallery-open]').click();
+    await page.locator('[data-image-gallery] .elpis-img-gallery__cell').first().waitFor({ state: 'visible' });
+    ok('S18 galerie ouverte (dialog modal)', await page.locator('[data-image-gallery][role="dialog"][aria-modal="true"]').count() === 1);
+    await page.screenshot({ path: SHOTS + '/s18-galerie.png' });
+    ok('S18 première page de 48', await page.locator('[data-image-gallery] .elpis-img-gallery__cell').count() === 48);
+    ok('S18 compteur total/conservées', (await page.locator('.elpis-img-gallery__count').innerText()).trim() === '60/50');
+    await page.locator('.elpis-img-gallery__grid').evaluate((el) => { el.scrollTop = el.scrollHeight; el.dispatchEvent(new Event('scroll')); });
+    await page.waitForTimeout(600);
+    ok('S18 page suivante au défilement (60)', await page.locator('[data-image-gallery] .elpis-img-gallery__cell').count() === 60);
+    a = await appels();
+    ok('S18 pagination par « before »', a.gallery.length === 2 && !!a.gallery[1].before);
+    await page.locator('.elpis-img-gallery__filters button:has-text("Cette conversation")').click();
+    await page.waitForTimeout(600);
+    a = await appels();
+    ok('S18 filtre « Cette conversation » (chat_id)',
+       a.gallery[a.gallery.length - 1].chat_id === 'img1'
+       && await page.locator('[data-image-gallery] .elpis-img-gallery__cell').count() === 30);
+    await page.locator('[data-image-gallery] .elpis-img-gallery__cell').nth(1).hover();
+    await page.locator('[data-image-gallery] .elpis-img-gallery__cell').nth(1).locator('button[aria-label="Supprimer l’image"]').click();
+    ok('S18 suppression depuis la galerie (cadre « Supprimée »)',
+       await page.locator('[data-image-gallery] .elpis-img-frame:has-text("Supprimée")').count() === 1);
+    await page.locator('[data-image-gallery] .elpis-img-gallery__cell').first().locator('.elpis-img-open').click();
+    await page.locator('[data-image-viewer]').waitFor({ state: 'visible' });
+    ok('S18 visionneuse : description propre à l\'image', /Image 1\b/.test(await page.locator('.elpis-img-viewer__prompt').innerText()));
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    ok('S18 Échap : la visionneuse d\'abord, la galerie reste',
+       await page.locator('[data-image-viewer]').count() === 0 && await page.locator('[data-image-gallery]').count() === 1);
+    await page.locator('[data-image-gallery] .elpis-img-gallery__cell').first().locator('.elpis-img-open').click();
+    await page.locator('[data-image-goto-chat]').click();
+    await page.waitForTimeout(800);
+    ok('S18 « Conversation » ferme tout et ouvre le chat',
+       await page.locator('[data-image-gallery]').count() === 0 && await page.locator('[data-image-viewer]').count() === 0
+       && await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.currentChatId) === 'img1');
+    await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.openImageGallery('all'));
+    await page.waitForTimeout(400);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    ok('S18 Échap ferme la galerie', await page.locator('[data-image-gallery]').count() === 0);
+    await page.screenshot({ path: SHOTS + '/s18-galerie-fermee.png' });
 
     ok('aucune erreur JS de page', errors.length === 0);
     if (errors.length) console.log(errors.slice(0, 5).join('\n'));

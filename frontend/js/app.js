@@ -2370,6 +2370,11 @@ const elpisApp = createApp({
                 //    z-index, donc Echap doit le fermer avant tout autre overlay.
                 //    (a11y : cohérence avec les autres modaux qui se ferment à Échap.)
                 if (modalState.value.isOpen) { handleModalCancel(); return; }
+                // -- Visionneuse puis galerie d'images : au sommet de la pile
+                //    (z-9999 / z-9500), au-dessus des Paramètres d'où la
+                //    galerie peut s'ouvrir.
+                if (chatMod.imageViewer && chatMod.imageViewer.value)   { chatMod.closeImageViewer(); return; }
+                if (chatMod.imageGallery && chatMod.imageGallery.value) { chatMod.closeImageGallery(); return; }
                 // -- Voix TRÈS HAUT dans la cascade : une dictée en cours ou
                 //    une réponse qui se lit à voix haute est exactement ce que
                 //    l'utilisateur cherche à arrêter quand il frappe Échap.
@@ -2453,7 +2458,6 @@ const elpisApp = createApp({
                 if (editorMod.showGitRemoteModal && editorMod.showGitRemoteModal.value) { editorMod.showGitRemoteModal.value = false; return; }
                 if (editorMod.showGitPushAuth && editorMod.showGitPushAuth.value)       { editorMod.showGitPushAuth.value = false; return; }
                 if (editorMod.showGitMergeModal && editorMod.showGitMergeModal.value)   { editorMod.showGitMergeModal.value = false; return; }
-                if (chatMod.imageViewer && chatMod.imageViewer.value)                         { chatMod.closeImageViewer(); return; }
                 if (imgZoom.value)                                                            { imgZoom.value = null; return; }
                 // Popovers de l'éditeur (menu import, débordement d'onglets, menu
                 // contextuel d'onglet) : fermables au clavier comme les autres

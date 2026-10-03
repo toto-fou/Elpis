@@ -303,4 +303,38 @@ await ta('Modifier une image : mode Images et image désignée, pièce jointe re
     assert.equal(depuisBac(api.buildImageRequest(false)).ref_image_id, 'ab12');
 });
 
+await ta('galerie : pages par « before », filtre de la conversation ouverte', async () => {
+    const vue = vueMini();
+    const urls = [];
+    const pages = [
+        { items: [{ id: 'a1' }, { id: 'a2' }], next_before: 900.5, total: 3, keep: 50 },
+        { items: [{ id: 'a3' }], next_before: null, total: 3, keep: 50 },
+        { items: [{ id: 'c1' }], next_before: null, total: 1, keep: 50 },
+    ];
+    const ctx = ctxMuet({
+        fetchAuth: async (url) => { urls.push(url); return reponseJson(pages[urls.length - 1] || {}); },
+        showToast: () => {},
+    });
+    const api = C.fabrique('setupChatImage', [vue, {
+        settings: vue.ref({ image_ready: false }), isStreaming: vue.ref(false),
+        attachedFiles: vue.ref([]), currentChatId: vue.ref('chat42'),
+    }, ctx]);
+    await api.openImageGallery('all');
+    assert.equal(urls[0], '/api/images?limit=48');
+    assert.equal(api.imageGallery.value.items.length, 2);
+    assert.equal(api.imageGallery.value.done, false);
+    await api.loadMoreGallery();
+    assert.equal(urls[1], '/api/images?limit=48&before=900.5');
+    assert.deepStrictEqual(depuisBac(api.imageGallery.value.items.map((x) => x.id)), ['a1', 'a2', 'a3']);
+    assert.equal(api.imageGallery.value.done, true);
+    await api.loadMoreGallery();
+    assert.equal(urls.length, 2, 'fin de liste : plus de requête');
+    api.setGalleryFilter('chat');
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(urls[2], '/api/images?limit=48&chat_id=chat42');
+    assert.deepStrictEqual(depuisBac(api.imageGallery.value.items.map((x) => x.id)), ['c1']);
+    api.closeImageGallery();
+    assert.equal(api.imageGallery.value, null);
+});
+
 fin();

@@ -231,7 +231,7 @@ http.createServer(async (req, res) => {
         if (url === '/api/images' && req.method === 'GET') {
             const p = new URLSearchParams(qs || '');
             journal.gallery.push(Object.fromEntries(p.entries()));
-            const tous = Array.from({ length: 30 }, (_, i) => Object.assign(ref('gal' + i, 1024, i % 3 ? 576 : 1024, 300 + i), {
+            const tous = Array.from({ length: 60 }, (_, i) => Object.assign(ref('gal' + i, 1024, i % 3 ? 576 : 1024, 300 + i), {
                 chat_id: i % 2 ? 'img1' : 'other', prompt: 'Image ' + i, model: 'Qwen-Image', created_at: 1000 - i,
             }));
             const filtre = p.get('chat_id') ? tous.filter((x) => x.chat_id === p.get('chat_id')) : tous;

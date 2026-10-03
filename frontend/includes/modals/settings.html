@@ -1581,6 +1581,9 @@
                                     <div class="flex-1 min-w-0 text-sm text-slate-800"
                                          title="Les plus anciennes sont effacées au-delà de cette limite.">Conservées</div>
                                     <span class="text-xs text-slate-500 font-mono tabular-nums shrink-0">{{ imageStatus.stored || 0 }}/{{ imageStatus.keep_per_user }}</span>
+                                    <button type="button" class="elpis-img-chip shrink-0" @click="openImageGallery('all')" data-pref-gallery>
+                                        <i class="ph ph-images" aria-hidden="true"></i><span>Galerie</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>

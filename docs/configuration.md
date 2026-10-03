@@ -394,6 +394,7 @@ Sections :
 | `welcome` / `app_info` / `login_page` | Branding (édité depuis la console admin) |
 | `skins` | `dir` (dossier des skins importés ou créés, défaut `user_skins`, surchargeable par `APP_SKINS_DIR`, lu au démarrage), `enabled` (`{id: booléen}`, relu à chaud : un intégré absent prend sa valeur de `frontend/css/skins/skins.json`, Kiki désactivé ; un skin importé absent est désactivé ; Ardoise et le skin par défaut restent actifs), `default` (défaut `elpis` : skin des comptes sans choix ou dont le skin a été désactivé). Réglé depuis Console › Système › Apparence ; le dossier est inclus dans les sauvegardes complètes |
 | `voice` | Moteur vocal — `enabled`, puis deux sous-blocs indépendants : `stt.*` (adresse, `format` parmi `whisper.cpp`/`openai`/`llama-audio`, langue, vocabulaire, `logprob_min`, plafonds) et `tts.*` (adresse, `format`, voix, vitesse, plafonds). Coercition et bornes dans `shared_infra/voice/config.py`, relues à CHAQUE appel |
+| `image` | Génération d'images — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. ⚠ `api_key_enc` appartient à `PUT /api/admin/image/key` : l'éditeur brut ne l'écrit pas. Voir [Génération d'images](#génération-dimages) |
 
 Chaque utilisateur a en plus ses réglages en base (`users.settings_json`) ;
 `user_db/configs/{user_id}.json` conserve une copie personnelle de la config
@@ -750,6 +751,40 @@ nouvelle session ne ferme jamais celle d'un autre compte.
 
 ⚠ **Mise à jour** : une automatisation qui naviguait vers `localhost`,
 l'adresse de l'hôte ou un conteneur local est désormais refusée.
+
+### Génération d'images
+
+Un seul moteur, réglé dans Console › Modèles & services › Images
+(`config.json › image`, relu à chaud) :
+
+| Moteur | API | File et arrêt |
+|---|---|---|
+| `sdcpp` | `sd-server` de stable-diffusion.cpp, `/sdcpp/v1` (`capabilities`, `img_gen`, `jobs/{id}`) | file de sd-server, position affichée ; Stop annule un job en file, un job déjà lancé est abandonné et son résultat ignoré |
+| `openai` | `POST /v1/images/generations` et `/v1/images/edits` (LocalAI, sd-server en dialecte OpenAI, gpt-image…) | `max_concurrent` générations à la fois, tous workers confondus (verrous fichier dans le répertoire d'exécution) |
+
+- **Un modèle par processus** côté sd-server : changer de modèle, c'est
+  changer d'adresse. « Tester » lit les limites annoncées (`capabilities`).
+- **Tailles** : `free` = largeur × hauteur au multiple de 64, plus grand côté
+  ≤ `max_side` ; `fixed` = liste fermée `sizes` (modèles OpenAI, défaut
+  1024x1024, 1536x1024, 1024x1536).
+- **TLS** : magasin de certificats du système, plus l'autorité collée dans
+  `ca_pem` (PKI interne). `verify: false` ne sert qu'aux essais.
+- **Clé API** : chiffrée (Fernet) dans `api_key_enc`, écrite par
+  `PUT /api/admin/image/key`, jamais renvoyée. Un test vers une autre adresse
+  que celle enregistrée n'utilise que la clé saisie dans le formulaire.
+- **Accès** : `enabled` et une adresse ; `groups` (ids, vide = tout le monde,
+  administrateurs toujours autorisés) est vérifié à chaque tour et à chaque
+  appel de l'outil `generate_image`. Chaque compte peut ensuite couper
+  « Images » et « Images par le modèle » dans ses Paramètres.
+- **Outil du modèle** : au plus `tool_max_calls` appels par tour, refusé en
+  mode plan.
+- **Stockage** : `user_db/generated_images/<compte>/` (dossier de la base),
+  chemins relatifs en base, vignettes WebP ; les `keep_per_user` images les
+  plus récentes de chaque compte sont gardées. Supprimer une conversation ou
+  un compte supprime ses images ; la maintenance balaie les fichiers
+  orphelins. Le dossier est compris dans `./elpis backup`.
+- ⚠ **Plusieurs hôtes** sur une même base PostgreSQL/MySQL : chaque fichier
+  reste sur l'hôte qui l'a écrit.
 
 ### `context_config.json` — textes injectés au LLM
 

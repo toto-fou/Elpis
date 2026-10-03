@@ -8,6 +8,20 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Ajouts
 
+- **Génération d'images** (migration 0024) : un moteur réglé dans la console
+  (Modèles & services › Images) — `sd-server` de stable-diffusion.cpp (file,
+  annulation) ou service compatible OpenAI —, ouvert à tous ou à des groupes.
+  Mode Images du composeur (menu +, Alt+I, `/image`) : format, taille, nombre,
+  description enrichie, graine, édition d'une image ; une case par image avec
+  file et temps écoulé, Stop ; carte de résultat (modèle, durée, graine,
+  Variantes, Copier), visionneuse, suppression annulable, galerie
+  personnelle ; préférences par compte côté serveur ; outil `generate_image`
+  du modèle (plafond par tour, refusé en mode plan) ; tours d'images dans
+  Supervision › Exécutions. Clé API chiffrée, TLS sur le magasin du système
+  plus une autorité collée, générations simultanées limitées sur tous les
+  workers, rétention par compte, images supprimées avec leur conversation ou
+  leur compte.
+
 - **Exécutions** (base, migration 0021) : une ligne par tour de chat, run de
   routine, sous-agent ou compaction manuelle — jetons (dont cache et
   réflexion), temps LLM (pré-remplissage, décodage, attente du moteur),

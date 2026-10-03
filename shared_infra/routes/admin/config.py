@@ -333,6 +333,9 @@ _OWNED_PATHS: tuple[tuple[str, ...], ...] = (
     # Moteur de base de données — auteur : /api/admin/database/* (bascule
     # vérifiée, génération). Réécrit à la main, il couperait l'accès à la base.
     ("database",),
+    # Clé API du moteur d'images, chiffrée — auteur : PUT /api/admin/image/key.
+    # Une copie périmée de l'écran l'effacerait ou la ressusciterait.
+    ("image", "api_key_enc"),
 )
 
 _PRESERVE_IF_ABSENT: tuple[tuple[str, ...], ...] = (

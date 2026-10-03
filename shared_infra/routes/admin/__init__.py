@@ -54,6 +54,7 @@ from shared_infra.routes.admin import security   # noqa: F401
 from shared_infra.routes.admin import lifecycle  # noqa: F401
 from shared_infra.routes.admin import system     # noqa: F401
 from shared_infra.routes.admin import integrations  # noqa: F401
+from shared_infra.routes.admin import image  # noqa: F401  — /api/admin/image/* (moteur d'images)
 from shared_infra.routes.admin import llm_connectors  # noqa: F401  — /api/admin/llm/connectors/*
 from shared_infra.routes.admin import system_prompts  # noqa: F401  — /api/admin/system-prompts/*
 from shared_infra.routes.admin import executors  # noqa: F401  — /api/admin/executors/* + sandbox monitoring

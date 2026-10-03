@@ -197,6 +197,17 @@ async def _probe_voice() -> Dict[str, Any]:
                 " · ".join(parts), "voice")
 
 
+async def _probe_images() -> Dict[str, Any]:
+    from shared_infra.image.config import get_image_config, image_ready
+    cfg = get_image_config()
+    if not image_ready(cfg):
+        return _svc("images", "Images", "", "off", "", "images")
+    # Connexion TCP seulement, comme la voix : « Tester » interroge le moteur.
+    ok = await asyncio.to_thread(_tcp, cfg["url"])
+    return _svc("images", "Images", _short(cfg["url"]), "ok" if ok else "down",
+                "Joignable" if ok else "Injoignable", "images")
+
+
 async def _probe_mcp() -> Dict[str, Any]:
     def work():
         from llm_core import _mcp_categories as mc
@@ -352,6 +363,7 @@ async def _collect() -> Dict[str, Any]:
         _guard(_probe_rag(), unknown("rag", "RAG", "rag")),
         _guard(_probe_vision(), unknown("vision", "Vision", "vision")),
         _guard(_probe_voice(), unknown("voice", "Voix", "voice")),
+        _guard(_probe_images(), unknown("images", "Images", "images")),
         _guard(_probe_mcp(), unknown("mcp", "Outils MCP", "mcp")),
         _guard(_probe_sandbox(), unknown("sandbox", "Sandbox", "sandbox-limits"),
                timeout=2 * PROBE_TIMEOUT + 1.0),

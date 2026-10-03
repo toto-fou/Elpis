@@ -109,6 +109,8 @@ _SECRET_PATHS = (
     # niveau de plus que les autres — d'où la marche en profondeur ci-dessous.
     "voice.stt.token",
     "voice.tts.token",
+    # Clé API du moteur d'images (chiffrée, mais jamais vers le navigateur).
+    "image.api_key_enc",
     # Jetons du serveur MCP local (audit 2026-09-22, M6) : ``local_client_tokens``
     # est un dict ``{jeton: utilisateur}`` — les CLÉS sont les secrets, d'où
     # un vidage qui garde le type (``{}``) plutôt qu'une chaîne.

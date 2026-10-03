@@ -319,6 +319,10 @@ def _isolate_shared_spools(tmp_path_factory):
         run_journal.RUN_DIR = base / "chat_runs"
     except Exception:
         pass
+    # Créneaux LLM communs aux process (2026-10-03) : jamais ceux de
+    # l'instance réelle, ni ceux d'un autre process de la suite (xdist).
+    from llm_core._scheduling import _shared_slots
+    _shared_slots.SLOT_DIR = base / "llm_slots"
     # Racine commune : pointée sur le dossier temporaire pour que tout module
     # important ``runtime_dir`` APRÈS ce point retombe aussi dans le bac à sable.
     try:

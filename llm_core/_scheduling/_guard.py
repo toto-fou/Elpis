@@ -114,6 +114,15 @@ async def _reported_acquire(cm, *, model: Optional[str], on_wait, cancel_probe,
         if not enter_task.done():
             enter_task.cancel()
             await asyncio.wait({enter_task}, timeout=5.0)
+        # L'entrée a pu ABOUTIR dans le même tour de boucle que l'annulation
+        # (ou que l'abandon) : sans sortie, le verrou restait pris — et un
+        # créneau partagé l'est pour tous les process de la machine.
+        if enter_task.done() and not enter_task.cancelled() \
+                and enter_task.exception() is None:
+            try:
+                await cm.__aexit__(None, None, None)
+            except Exception:                                   # noqa: BLE001
+                pass
         raise
     try:
         yield

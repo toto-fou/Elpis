@@ -11,7 +11,9 @@ What lives here
 
 - ``_LLMAcquisition``: the async-context-manager handle returned by
   ``LLMConcurrencyManager.acquire_for(model)``. Releases both levels
-  (model slot + per-model semaphore) on exit.
+  (model slot + per-model semaphore) on exit. It also takes one of the
+  llama-server slots shared by every process (``_shared_slots``): the
+  per-model semaphore only orders THIS worker.
 
 - ``LLM_SEMAPHORE``: process-wide singleton. Historical name retained
   for import-compat — every caller writes ``LLM_SEMAPHORE.acquire_for(model)``.
@@ -35,6 +37,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from llm_core import _model_info as _mi  # for live read of _mi._cached_total_slots
 from llm_core._model_info import get_model_total_slots
+from llm_core._scheduling import _shared_slots
 from shared_infra.config import LLAMA_MAX_CONCURRENCY
 
 logger = logging.getLogger("uvicorn.error")
@@ -168,9 +171,26 @@ class LLMConcurrencyManager:
         entry = self._active.get(key)
         if entry is not None:
             sem = entry.get("sem")
-            return bool(sem and sem.locked())
-        # Modèle non encore actif : saturé si tous les slots modèles sont pris
-        return len(self._active) >= self.max_models
+            if sem and sem.locked():
+                return True
+        elif len(self._active) >= self.max_models:
+            # Modèle non encore actif : saturé si tous les slots modèles sont pris
+            return True
+        # Créneaux du serveur pris par les AUTRES process (cf. _shared_slots)
+        cap = self._shared_cap(entry)
+        return _shared_slots.busy(self.engine_key, self._shared_model(key), cap) >= cap
+
+    def _shared_model(self, key: str) -> str:
+        """Clé de modèle des créneaux partagés : vide (le serveur entier)
+        quand le serveur ne tient qu'un modèle à la fois."""
+        return key if self.max_models > 1 else ""
+
+    def _shared_cap(self, entry: Optional[Dict[str, Any]]) -> int:
+        if entry is not None:
+            return int(entry.get("effective_max_convs") or self.max_convs)
+        if self.engine_key == "builtin" and _mi._cached_total_slots > 0:
+            return int(_mi._cached_total_slots)
+        return int(self._last_effective or self.max_convs)
 
     def get_stats(self) -> Dict[str, Any]:
         """Snapshot pour monitoring / admin UI."""
@@ -187,6 +207,9 @@ class LLMConcurrencyManager:
                     "holders": v["holders"],
                     "sem_locked": bool(v["sem"] and v["sem"].locked()),
                     "effective_max_convs": v.get("effective_max_convs", self.max_convs),
+                    # Créneaux pris par TOUS les process (cf. _shared_slots).
+                    "shared_busy": _shared_slots.busy(
+                        self.engine_key, self._shared_model(k), self._shared_cap(v)),
                 }
                 for k, v in self._active.items()
             ],
@@ -326,6 +349,7 @@ class LLMConcurrencyManager:
         """
         total = await get_model_total_slots()
         if total > 0:
+            _shared_slots.note_capacity(self.engine_key, total)
             eff = _share_slots_across_workers(total)
             if self.engine_key != "builtin":
                 self._last_effective = eff
@@ -562,7 +586,7 @@ class _LLMAcquisition:
     """
 
     __slots__ = ("_mgr", "_model_key", "_priority", "_sem",
-                 "_sem_acquired", "_slot_acquired")
+                 "_sem_acquired", "_slot_acquired", "_shared")
 
     def __init__(self, mgr: LLMConcurrencyManager,
                  model: Optional[str], priority: str = "high"):
@@ -572,6 +596,7 @@ class _LLMAcquisition:
         self._sem: Optional[asyncio.Semaphore] = None
         self._sem_acquired = False
         self._slot_acquired = False
+        self._shared: Optional[_shared_slots.Slot] = None
 
     async def _yield_to_high_if_low(self) -> None:
         """Si je suis low, vérifier qu'aucun high n'est en attente du
@@ -648,9 +673,23 @@ class _LLMAcquisition:
             await self._mgr._release_model_slot(self._model_key)
             self._slot_acquired = False
             raise
+        # Phase 3 : créneau du llama-server commun à TOUS les process (le
+        # sémaphore ci-dessus n'ordonne que ce worker, cf. _shared_slots).
+        try:
+            self._shared = await _shared_slots.acquire(
+                self._mgr.engine_key, self._mgr._shared_model(self._model_key),
+                self._mgr._shared_cap(self._mgr._active.get(self._model_key)),
+                priority=self._priority, low_cap_s=LOW_WAIT_CAP_S)
+        except BaseException:
+            await self.__aexit__(None, None, None)
+            raise
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
+        # 0. Rendre le créneau commun
+        if self._shared is not None:
+            self._shared.release()
+            self._shared = None
         # 1. Relâcher le slot conversation
         if self._sem_acquired and self._sem is not None:
             try:
@@ -673,7 +712,12 @@ class _LLMAcquisition:
 # ``LLM_SEMAPHORE`` is the historical name kept for import-compatibility.
 # It is the FIFO two-level manager every caller acquires from.
 def _share_slots_across_workers(total_slots: int) -> int:
-    """Part des slots llama.cpp qui revient à CE worker.
+    """Taille du sémaphore de CE worker pour ``total_slots`` créneaux.
+
+    Créneaux partagés disponibles (cas normal, cf. ``_shared_slots``) : la
+    totalité — le plafond de la machine est tenu par les fichiers verrouillés,
+    et un worker peut prendre les créneaux que les autres n'utilisent pas.
+    Sinon, repli sur la part arithmétique décrite ci-dessous.
 
     AUDIT 2026-08-22 (D3) — ce gestionnaire est un singleton de PROCESS, mais
     il se dimensionnait sur ``total_slots``, c'est-à-dire le ``-np`` du
@@ -687,10 +731,12 @@ def _share_slots_across_workers(total_slots: int) -> int:
     caler à cause de trois autres, sur d'autres workers, qu'aucun compteur ne
     lui opposait.
 
-    Le partage est volontairement ARITHMÉTIQUE et non distribué : un compteur
-    de slots partagé via Redis serait plus fin, mais il ferait dépendre chaque
-    appel LLM de la disponibilité de Redis. Ici, au pire, on sous-utilise.
+    Le partage arithmétique sous-utilise (3 workers sur 4 créneaux : un
+    créneau perdu) et ne borne rien au-delà (7 workers : 7 générations) ; il
+    ne sert plus qu'en repli.
     """
+    if _shared_slots.available():
+        return max(1, int(total_slots))
     try:
         n_workers = int(os.environ.get("APP_WORKERS_EFFECTIVE", "") or 0)
     except (TypeError, ValueError):

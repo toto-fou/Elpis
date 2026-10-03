@@ -352,8 +352,17 @@ async def test_changer_de_modele_invalide_le_memo(monkeypatch):
 #  D3 — les slots llama.cpp se partagent entre workers
 # ─────────────────────────────────────────────────────────────────────────────
 def test_slots_partages_entre_workers(monkeypatch):
+    from llm_core._scheduling import _shared_slots
     from llm_core._scheduling._concurrency import _share_slots_across_workers
 
+    # Créneaux communs disponibles (cas normal) : le worker voit tout, les
+    # fichiers verrouillés tiennent le plafond de la machine.
+    monkeypatch.setenv("APP_WORKERS_EFFECTIVE", "3")
+    assert _shared_slots.available()
+    assert _share_slots_across_workers(4) == 4
+
+    # Repli (dossier inutilisable) : part arithmétique.
+    monkeypatch.setattr(_shared_slots, "available", lambda: False)
     monkeypatch.delenv("APP_WORKERS_EFFECTIVE", raising=False)
     assert _share_slots_across_workers(4) == 4          # worker unique
 

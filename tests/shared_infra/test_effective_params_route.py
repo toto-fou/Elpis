@@ -93,3 +93,42 @@ def test_task_invalide_400_meme_non_local(client, monkeypatch):
     monkeypatch.setattr(llm_mod, "_is_local_model", lambda _m: False)
     r = c.get("/api/llm/models/kimi-k2-instruct/effective-params?task=nimp")
     assert r.status_code == 400
+
+
+def test_proprietes_d_un_modele_non_charge_409_sans_le_charger(client, monkeypatch):
+    """Routeur : ``/props?model=X`` sans ``autoload=false`` chargerait X et
+    déchargerait le modèle qui sert l'utilisateur."""
+    c, llm_mod = client
+    monkeypatch.setattr(llm_mod, "_is_local_model", lambda _m: True)
+    monkeypatch.setattr(llm_mod, "_llama_base_url", lambda: "http://llama:8080")
+    import llm_core._model_info as MI
+
+    async def _suffixe():
+        return "&autoload=false"
+    monkeypatch.setattr(MI, "_autoload_suffix", _suffixe)
+    vus = []
+
+    class _Rep:
+        def __init__(self, code):
+            self.status_code = code
+
+        def json(self):
+            return {"error": {"code": 400, "message": "model is not loaded"}}
+
+    class _Client:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url, params=None, **k):
+            vus.append(dict(params or {}))
+            return _Rep(400)
+    monkeypatch.setattr(llm_mod.httpx, "AsyncClient", _Client)
+    r = c.get("/api/llm/models/gemma/props")
+    assert r.status_code == 409
+    assert vus == [{"model": "gemma", "autoload": "false"}]

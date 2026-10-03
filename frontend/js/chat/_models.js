@@ -53,6 +53,9 @@
         // moteur ne la donne pas — c'est ce ``null`` qui laisse la roue.
         const modelLoadPct = ref(null);
         const modelLoadStage = ref('');
+        // Modèles dont le dernier chargement a échoué (statut « failed » du
+        // routeur) : le sélecteur les signale au lieu de les remplacer.
+        const failedModelIds = ref([]);
         // Modèle dont le CHARGEMENT est en cours. Distinct de
         // ``isLoadingModel``, qui vaut aussi pendant un DÉCHARGEMENT : c'est
         // ce qui faisait réapparaître la barre pleine du chargement précédent
@@ -401,9 +404,12 @@
 
             let loaded = [];
             if (Array.isArray(json.models_with_status)) {
+                const failed = [];
                 json.models_with_status.forEach(m => {
                     if (m.id && m.status === 'loaded') loaded.push(m.id);
+                    if (m.id && m.status === 'failed') failed.push(m.id);
                 });
+                failedModelIds.value = failed;
             } else if (Array.isArray(json.models_loaded)) {
                 json.models_loaded.forEach(m => {
                     const id = typeof m === 'object' ? (m.id || m.model || m.name) : m;
@@ -461,14 +467,10 @@
                 try { if (selectedModel.value) localStorage.setItem('selected_model', selectedModel.value); } catch(_) {}
             }
 
-            // 3. Des modèles sont chargés en RAM mais le modèle sélectionné n'en fait pas partie
-            //    → basculer automatiquement sur le modèle effectivement chargé.
-            //    (Le payload vide d'un hoquet est déjà court-circuité par le return en
-            //    tête de _applyModelData ; inutile de garder ici sur availableModels.)
-            if (activeModelIds.value.length > 0 && !activeModelIds.value.includes(selectedModel.value)) {
-                selectedModel.value = activeModelIds.value[0];
-                try { if (selectedModel.value) localStorage.setItem('selected_model', selectedModel.value); } catch(_) {}
-            }
+            // Le modèle choisi reste sélectionné même s'il n'est pas chargé :
+            // il se charge à l'envoi. Basculer sur le modèle chargé enverrait
+            // le message suivant à l'ancien modèle et, sur un routeur à une
+            // seule instance, le rechargerait en plein travail du nouveau.
         }
 
         async function loadAvailableModels() {
@@ -558,6 +560,10 @@
             } else if (e.key === 'End') {
                 e.preventDefault(); opts[opts.length - 1].focus();
             }
+        }
+
+        function isModelFailed(modelId) {
+            return failedModelIds.value.includes(modelId);
         }
 
         function isModelLoaded(modelId) {
@@ -925,6 +931,7 @@
             modelLoadingId,
             loadAvailableModels,
             isModelLoaded,
+            isModelFailed,
             toggleLlmModel,
             loadLlmModel,
             unloadLlmModel,

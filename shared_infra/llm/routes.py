@@ -247,12 +247,22 @@ async def api_model_props(model_id: str, request: Request):
     base = _llama_base_url()
     result = None
 
-    # Method 1: llama-server /props?model=xxx
+    # Method 1: llama-server /props?model=xxx — lecture SANS charger : sur un
+    # routeur, nommer un modèle le charge et décharge celui qui tourne.
+    from llm_core._model_info import _autoload_suffix
+    _sans_charger = bool(await _autoload_suffix())
+    params = {"model": model_id}
+    if _sans_charger:
+        params["autoload"] = "false"
     try:
         async with httpx.AsyncClient(timeout=5.0) as c:
-            r = await c.get(f"{base}/props", params={"model": model_id})
+            r = await c.get(f"{base}/props", params=params)
             if r.status_code == 200:
                 result = r.json()
+            elif _sans_charger and r.status_code == 400:
+                raise HTTPException(409, "Modèle non chargé")
+    except HTTPException:
+        raise
     except Exception:
         pass
 

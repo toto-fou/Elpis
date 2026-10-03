@@ -41,6 +41,13 @@ fonctionnent via `llama.engine` — voir
 > **Version minimale recommandée** : une version incluant le parser tool-calls
 > XML GLM (chercher `arg_key` / `arg_value` dans `common/chat-auto-parser.h`).
 
+> **Routeur et chargement des modèles.** Elpis ne charge un modèle qu'à
+> l'envoi d'un message (ou par le bouton Charger) : ses lectures d'information
+> (`/props`, `/slots`, `/metrics`) passent `autoload=false` et ne nomment que le
+> modèle chargé. La jauge KV et les métriques exigent des modèles lancés avec
+> `--metrics` (sinon le serveur répond 501 ; Elpis cesse alors de demander
+> pendant 5 minutes).
+
 > **`--jinja` est requis pour le tool-calling natif.** Sans ce flag, le modèle
 > ne peut pas émettre de `tool_calls` structurés et « free-forme » ses appels en
 > texte. Symptôme : du markup (`<tool_call>`, `<function=write_file>`) apparaît

@@ -89,7 +89,7 @@ def test_sanitize_valeurs():
 async def test_get_values_cache_et_invalidation(monkeypatch):
     calls = {"n": 0}
 
-    async def _fake_fetch(_mid):
+    async def _fake_fetch(_mid, **_k):
         calls["n"] += 1
         return {"chat_template": _TMPL_EFFORT}
 
@@ -117,7 +117,7 @@ def _patch_local(monkeypatch, efforts):
     async def _slot(_cid):
         return -1
 
-    async def _efforts(_m):
+    async def _efforts(_m, **_k):
         return efforts
 
     monkeypatch.setattr(mi, "get_model_context_size", _ctx)
@@ -198,13 +198,13 @@ def test_degraded_expose_inconnu():
 
 @pytest.mark.asyncio
 async def test_effective_params_expose_la_capacite(monkeypatch):
-    async def _props(_mid):
+    async def _props(_mid, **_k):
         return {"temperature": 0.7}
 
-    async def _think(_mid):
+    async def _think(_mid, **_k):
         return True
 
-    async def _efforts(_mid):
+    async def _efforts(_mid, **_k):
         return ["low", "medium", "xhigh"]
 
     monkeypatch.setattr(lp, "_get_cached_props", _props)
@@ -215,7 +215,7 @@ async def test_effective_params_expose_la_capacite(monkeypatch):
     assert d["supports_reasoning_effort"] is True
     assert d["reasoning_effort_values"] == ["low", "medium", "xhigh"]
 
-    async def _no_efforts(_mid):
+    async def _no_efforts(_mid, **_k):
         return []
 
     monkeypatch.setattr(lp, "get_reasoning_effort_values", _no_efforts)

@@ -200,5 +200,29 @@ const MOONSHOT = { id: 5, enabled: true, label: 'Moonshot', provider_type: 'moon
     check('libellé local', mod.selectedModelLabel.value === 'qwen-x', mod.selectedModelLabel.value);
 }
 
+// ── Cas : routeur à une instance — le modèle choisi n'est pas encore chargé.
+//    Le rafraîchissement de la liste (poller, SSE) ne doit PAS ramener la
+//    sélection sur le modèle chargé : le message suivant partirait vers lui.
+{
+    console.log('Cas routeur : sélection gardée tant que le modèle existe');
+    const storage = makeLocalStorage({});
+    const { mod, sharedRefs } = makeEnv({ storage, connectorsPayload: { connectors: [], shared: [] } });
+    const liste = (statuts) => ({ models: ['ornith', 'gemma', 'qwen'],
+        models_with_status: Object.entries(statuts).map(([id, status]) => ({ id, status })) });
+    mod._applyModelData(liste({ ornith: 'loaded', gemma: 'unloaded', qwen: 'unloaded' }));
+    check('premier chargement : modèle chargé élu', sharedRefs.selectedModel.value === 'ornith', sharedRefs.selectedModel.value);
+    mod.pickLocalModel('gemma');
+    mod._applyModelData(liste({ ornith: 'loaded', gemma: 'unloaded', qwen: 'unloaded' }));
+    check('choix de gemma gardé malgré ornith chargé', sharedRefs.selectedModel.value === 'gemma', sharedRefs.selectedModel.value);
+    mod._applyModelData(liste({ ornith: 'unloaded', gemma: 'loading', qwen: 'unloaded' }));
+    check('gemma gardé pendant son chargement', sharedRefs.selectedModel.value === 'gemma', sharedRefs.selectedModel.value);
+    mod._applyModelData(liste({ ornith: 'unloaded', gemma: 'unloaded', qwen: 'failed' }));
+    check('modèle en échec signalé', mod.isModelFailed('qwen') && !mod.isModelFailed('gemma'));
+    mod._applyModelData({ models: ['ornith', 'qwen'],
+        models_with_status: [{ id: 'ornith', status: 'loaded' }, { id: 'qwen', status: 'unloaded' }] });
+    check('modèle retiré du serveur : repli sur le modèle chargé', sharedRefs.selectedModel.value === 'ornith', sharedRefs.selectedModel.value);
+    check('échec effacé au rafraîchissement suivant', !mod.isModelFailed('qwen'));
+}
+
 console.log(failures === 0 ? '\nTOUS LES CAS PASSENT' : `\n${failures} ÉCHEC(S)`);
 process.exit(failures === 0 ? 0 : 1);

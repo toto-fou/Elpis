@@ -88,7 +88,8 @@ async def _caps_for(base_url: str, engine):
 
 async def model_statuses(base_url: str = "",
                          force: bool = False, *, engine=None) -> Dict[str, str]:
-    """``{nom: "loaded" | "unloaded" | "loading"}``. Vide si indisponible."""
+    """``{nom: "loaded" | "unloaded" | "loading" | "failed"}``. Vide si
+    indisponible."""
     root, headers, _cache_v, _eng = _resolve(base_url, engine)
     if _eng is not None and not _eng.is_llamacpp:
         return {}
@@ -115,6 +116,8 @@ async def model_statuses(base_url: str = "",
                 continue
             st = m.get("status")
             val = st.get("value") if isinstance(st, dict) else st
+            if val == "unloaded" and isinstance(st, dict) and st.get("failed"):
+                val = "failed"          # dernier chargement en échec
             out[str(m["id"])] = str(val or "unknown")
         _cache_v["ts"], _cache_v["data"] = now, out
         return dict(out)

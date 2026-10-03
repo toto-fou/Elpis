@@ -2410,6 +2410,7 @@
                                                      class="flex items-center gap-2 flex-1 min-w-0 cursor-pointer rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                                                     <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="(selectedModel === m && !selectedConnector) ? 'bg-blue-500' : 'bg-transparent'"></div>
                                                     <span class="text-xs font-medium truncate" :class="(selectedModel === m && !selectedConnector) ? 'text-blue-700' : 'text-slate-700'" :title="m">{{ m }}</span>
+                                                    <i v-if="isModelFailed(m)" class="ph ph-warning text-xs flex-shrink-0 text-amber-500" title="Échec du dernier chargement : voir les journaux du serveur d'inférence" aria-label="Échec du dernier chargement"></i>
                                                 </div>
                                                 <button v-if="isModelLoaded(m)" @click.stop="fetchModelProps(m)" class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-xs transition-all border border-slate-200 text-slate-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" title="Infos modèle">
                                                     <i class="ph ph-info text-xs"></i>

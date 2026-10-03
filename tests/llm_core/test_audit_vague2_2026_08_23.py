@@ -246,11 +246,14 @@ async def test_une_sonde_slots_en_echec_nest_pas_rejouee_a_chaque_appel(monkeypa
     MI._slots_busy_ts = 0.0
 
 
-def test_le_nom_de_modele_est_echappe_dans_lurl():
+def test_les_slots_ne_nomment_jamais_le_modele_par_defaut():
+    """Sur un routeur à une instance, nommer le modèle de la config le
+    chargerait à la place de celui qui sert l'utilisateur : l'instantané passe
+    par ``_llama_get("/slots")``, que ``_per_model_path`` oriente vers le
+    modèle CHARGÉ (nom échappé, sans chargement)."""
     import llm_core._model_info as MI
     src = inspect.getsource(MI.get_busy_slots_snapshot)
-    assert "quote(LLAMA_MODEL" in src, \
-        "LLAMA_MODEL est interpolé brut, contrairement aux deux /props voisins"
+    assert "LLAMA_MODEL" not in src
 
 
 # ── 20. Le cache total_slots a TTL et clé de modèle ───────────────────────

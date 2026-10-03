@@ -684,7 +684,7 @@ Le fil de conversation entrelace texte et actions dans l'ordre réel :
 
 ### Métriques sous chaque réponse
 
-Sous chaque réponse : tokens d'entrée / sortie, vitesse de lecture du prompt,
+Sous chaque réponse : tokens d'entrée / sortie, vitesse de prefill (lecture du prompt),
 vitesse de génération, durée, modèle utilisé. Le survol donne le détail.
 
 Un pouce vers le bas permet de signaler une réponse insatisfaisante.
@@ -1148,7 +1148,7 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | **Modèles IA** | Fournisseurs proposés par l'administrateur + vos propres fournisseurs |
 | **Apparence** | Mode sombre, habillage (skin : ceux que l'administrateur a activés), nom / icône / avatar de l'assistant |
 | **Fonctionnalités** | Les modules **Outils**, **RAG** et **Éditeur**. Quand l'éditeur est activé, ses réglages apparaissent dessous, en deux groupes : *affichage* (thème, police, indentation, retour à la ligne, minimap, numéros de ligne) et *comportement* (ouverture automatique, aperçu, surbrillance des modifications, sauvegarde auto, mémorisation des onglets) |
-| **Utilisation** | Vos tokens consommés (entrée / sortie / total) et leur origine, conversations, messages, runs de routines — sur 1, 7, 30 ou 90 jours |
+| **Utilisation** | Vos tokens sur 1, 7, 30 ou 90 jours, une barre par type : entrée (dont cache et outils), sortie (dont réflexion), et par origine ; conversations, messages, runs de routines |
 | **Mémoire** | Activer, consulter, **éditer** (corriger ou retirer une entrée) et tout effacer |
 | **Agents** | Activer les sous-agents, créer et éditer vos agents personnalisés |
 | **Prompts** | Vos prompts sauvegardés (liste datée, dépliage, recherche, tri) et vos templates |
@@ -1284,8 +1284,10 @@ Ils s'appliquent à la conversation en cours. Le prompt système personnel, lui,
 est un réglage permanent.
 
 **Comment savoir ce que je consomme ?**
-Sous chaque réponse (tokens d'entrée / sortie), et de façon agrégée dans
-Paramètres → Utilisation (1, 7, 30 ou 90 jours).
+Sous chaque réponse : la part de l'entrée relue du cache (« cache N % ») et la
+réflexion ; l'infobulle détaille l'entrée (cache / utile) et la sortie
+(réflexion / réponse). De façon agrégée : Paramètres → Utilisation (1, 7, 30
+ou 90 jours).
 
 **L'assistant dit qu'il n'a pas accès au réseau.**
 C'est le profil réseau de votre sandbox. Choisissez-en un autre dans

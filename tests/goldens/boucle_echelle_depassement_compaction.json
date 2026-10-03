@@ -185,6 +185,7 @@
     "thinking": "",
     "thinking_tokens": 0,
     "thinking_tokens_estimated": false,
+    "tool_input_tokens": 125,
     "truncated": false,
     "truncated_in_think": false
   },

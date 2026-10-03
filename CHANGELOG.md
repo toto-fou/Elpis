@@ -8,6 +8,25 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Ajouts
 
+- **Tokens par type, partout, au sens des fournisseurs (OpenAI, Anthropic)** :
+  l'entrée contient le cache (relu) et la part des outils (définitions, appels
+  et résultats re-soumis, estimée), la sortie contient la réflexion.
+  - Réglages › Utilisation : une barre par type — Entrée, Cache, Outils,
+    Sortie, Réflexion — et une barre par origine.
+  - Chat : « cache N % » sur la ligne du message ; infobulle « Entrée … · cache
+    … · utile … · outils ≈ … » / « Sortie … · réflexion … · réponse … ».
+    Pendant la lecture du prompt, « Prefill… N % · cache M % »
+    remplace « Réflexion… N % », sur l'entrée utile, aussi sans outils et sur
+    « Continuer ». « Continuer » additionne les segments.
+  - Détails d'une réponse : tuiles Entrée et Sortie, prefill + génération.
+  - Console : détail de « Tokens consommés », « Cache de prompt » affiché par
+    défaut, frise « Entrée — cache vs utile », barres par modèle et par
+    utilisateur, colonnes Entrée / Sortie et prefill + génération dans
+    Exécutions, cache dans le rapport quotidien.
+  - Entrée Anthropic ramenée au sens commun (cache compris, migration 0025
+    pour l'historique) ; part des outils enregistrée par tour et par
+    exécution (migration 0026) ; un seul format de nombres (« 12,3 k »).
+
 - **Génération d'images** (migration 0024) : un moteur réglé dans la console
   (Modèles & services › Images) — `sd-server` de stable-diffusion.cpp (file,
   annulation) ou service compatible OpenAI —, ouvert à tous ou à des groupes.

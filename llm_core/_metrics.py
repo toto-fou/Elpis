@@ -84,11 +84,12 @@ def calculate_metrics(meta: Dict[str, Any], total_duration: float) -> Dict[str, 
         out["think_resumes"] = int(meta["think_resumes"])
     if meta.get("thinking_budget_effective") is not None:
         out["thinking_budget_effective"] = int(meta["thinking_budget_effective"])
-    # Connecteur Anthropic : décomposition du cache prompt (normalisée par
-    # _normalize_usage, sinon jetée ici). ``input_tokens`` Anthropic ne compte
-    # que les tokens NEUFS — sans ces champs, une requête à 90 % de cache
-    # paraissait quasi gratuite et le ROI du cache restait invisible.
-    for _k in ("cache_read_input_tokens", "cache_creation_input_tokens"):
+    # Cache de prompt (cache KV de llama.cpp, cache des fournisseurs) : part de
+    # ``input_tokens``, qui l'INCLUT pour tous les moteurs (Anthropic ramené à
+    # ce sens par ``_normalize_usage``). Entrée utile = entrée − cache lu.
+    # Part OUTILS de l'entrée (définitions + appels et résultats re-soumis),
+    # estimée : sous-ensemble de ``input_tokens`` comme le cache.
+    for _k in ("cache_read_input_tokens", "cache_creation_input_tokens", "tool_input_tokens"):
         _v = usage.get(_k)
         if isinstance(_v, (int, float)) and _v > 0:
             out[_k] = int(_v)

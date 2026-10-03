@@ -109,7 +109,9 @@ def timeline(run: Dict[str, Any]) -> Dict[str, Any]:
     evenements: List[Dict[str, Any]] = []
     for u in _lignes(
             "SELECT ts, source, model, connector, input_tokens, output_tokens, "
-            "cache_read_tokens, thinking_tokens, duration_ms, iterations, status, error_kind "
+            "cache_read_tokens, cache_creation_tokens, thinking_tokens, tool_tokens, duration_ms, "
+            "iterations, "
+            "status, error_kind "
             "FROM usage_events WHERE run_id = ? ORDER BY ts LIMIT ?", (rid, _EVENEMENTS_MAX)):
         debut = float(u["ts"] or 0) - int(u.get("duration_ms") or 0) / 1000.0
         evenements.append({"type": "llm", "at": debut, **u})

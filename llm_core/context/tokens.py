@@ -228,6 +228,26 @@ def est_tokens_message_measured(m: Dict[str, Any],
     return total
 
 
+def tool_prompt_tokens(messages: Optional[List[Dict[str, Any]]],
+                       model_id: Optional[str] = None, *, defs_tokens: int = 0) -> int:
+    """Part d'un prompt occupée par les OUTILS : leurs définitions
+    (``defs_tokens``, schéma envoyé à chaque appel), les appels d'outils
+    re-soumis (nom et arguments des ``tool_calls`` de l'assistant) et leurs
+    résultats (messages ``tool``). Convention des fournisseurs (OpenAI,
+    Anthropic) : tout cela est de l'ENTRÉE ; seul l'appel émis par le modèle
+    dans SA réponse compte en sortie. Estimation au ratio mesuré, sans I/O."""
+    ratio = measured_chars_per_token(model_id)
+    n = max(0, int(defs_tokens or 0))
+    for m in messages or ():
+        if not isinstance(m, dict):
+            continue
+        if m.get("role") == "tool":
+            n += est_tokens_message_measured(m, model_id)
+        elif m.get("tool_calls"):
+            n += int(payload_chars([{"tool_calls": m["tool_calls"]}]) / ratio)
+    return n
+
+
 def measured_prompt_tokens(messages: List[Dict[str, Any]], *,
                            model_id: Optional[str] = None,
                            extra_fixed: int = 0) -> int:

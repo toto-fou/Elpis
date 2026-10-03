@@ -3,8 +3,9 @@
 //   PERF_PORT=8921 node tests/frontend/thinkmetrics-server.mjs &
 //   PERF_PORT=8921 node tests/frontend/thinkmetrics-verify.mjs
 //
-// S1 mesure EXACTE   : puce « 640 tk », infobulle qui décompose la sortie
-//                      (dont réflexion / dont réponse et outils).
+// S1 mesure EXACTE   : puce « 640 tk » et « cache 92 % », infobulle qui
+//                      décompose l'entrée (cache / utile) et la sortie
+//                      (réflexion / réponse) — 2026-10-03.
 // S2 mesure ESTIMÉE  : même puce préfixée « ≈ » — l'app ne présente jamais une
 //                      approximation comme un compte exact.
 // S3 SANS mesure     : aucune puce. Un « 0 tk » affirmerait une absence de
@@ -45,26 +46,28 @@ try {
     ok('S1 la ligne garde ses métriques existantes (non-régression)',
        /qwen38-27b/.test(t1) && /tok\/s/.test(t1));
 
-    const tip1 = (await lastMetricsLine().getAttribute('title')) || '';
-    ok('S1 infobulle : total généré conservé', /Tokens générés/.test(tip1));
-    ok('S1 infobulle : décomposition réflexion / réponse',
-       /dont réflexion/.test(tip1) && /dont réponse et outils/.test(tip1));
+    ok('S1 part du cache sur la ligne', /cache 92\s*%/.test(t1));
+    const tip1 = ((await lastMetricsLine().getAttribute('title')) || '').replace(/[\u202f\u00a0]/g, ' ');
+    ok('S1 infobulle : entrée découpée cache / utile',
+       /Entrée 5 200 · cache 4 800 \(92 %\) · utile 400 · outils ≈ 1 300/.test(tip1));
     ok('S1 infobulle : la réflexion est SOUS la sortie, pas en plus',
-       /Tokens générés\s*:\s*1[\s  ]?000/.test(tip1));
+       /Sortie 1 000 · réflexion 640 · réponse 360/.test(tip1));
     await page.screenshot({ path: `${SHOTS}/exact.png` }).catch(() => {});
 
     // ════ S2 — mesure estimée ════════════════════════════════════════════
     const t2 = await sendAndSettle('cas estime');
     ok('S2 puce préfixée « ≈ » quand la mesure est approchée', /≈\s*640\s*tk/.test(t2.replace(/ | /g, ' ')));
     const tip2 = (await lastMetricsLine().getAttribute('title')) || '';
-    ok('S2 infobulle porte aussi le « ≈ »', /dont réflexion\s*:\s*≈/.test(tip2));
+    ok('S2 infobulle porte aussi le « ≈ »', /réflexion ≈/.test(tip2));
+    ok('S2 sans cache : rien sur la ligne', !/cache/.test(t2));
     await page.screenshot({ path: `${SHOTS}/estime.png` }).catch(() => {});
 
     // ════ S3 — métriques d'avant la mesure ═══════════════════════════════
     const t3 = await sendAndSettle('cas aucune mesure');
     ok('S3 aucune puce réflexion (surtout pas « 0 tk »)', !/\btk\b/.test(t3));
     const tip3 = (await lastMetricsLine().getAttribute('title')) || '';
-    ok('S3 infobulle sans ligne de décomposition', !/dont réflexion/.test(tip3));
+    ok('S3 infobulle sans découpe de la sortie',
+       !/réflexion/.test(tip3) && /Sortie 1/.test(tip3.replace(/[\u202f\u00a0]/g, ' ')));
     ok('S3 le reste de la ligne est intact', /qwen38-27b/.test(t3));
     await page.screenshot({ path: `${SHOTS}/sans-mesure.png` }).catch(() => {});
 

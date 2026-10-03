@@ -712,6 +712,7 @@ TABLES: List[Table] = [
         Col('files_changed', INT, null=False, default=0),
         Col('sandbox_cpu_peak', REAL, default=NULL),
         Col('sandbox_mem_peak_mb', REAL, default=NULL),
+        Col('tool_tokens', INT, null=False, default=0),          # entrée « outils » (0026)
     ],
         indexes=[
             Index('idx_runs_started', ('started_at DESC',)),
@@ -909,6 +910,7 @@ TABLES: List[Table] = [
         Col('error_kind', TEXT, null=False, default=''),
         Col('thinking_tokens', INT, null=False, default=0),
         Col('run_id', TEXT, null=False, default=''),          # exécution (L5.2, 0021)
+        Col('tool_tokens', INT, null=False, default=0),       # entrée « outils » (0026)
     ],
         indexes=[
             Index('idx_usage_status_ts', ('status', 'ts DESC'), where="status != 'ok'"),
@@ -1006,6 +1008,8 @@ BASELINE_COVERS: Tuple[str, ...] = (
     "0022_tool_tokens",
     "0023_oauth",
     "0024_generated_images",
+    "0025_usage_entree_inclusive",
+    "0026_usage_tool_tokens",
 )
 
 

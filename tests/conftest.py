@@ -164,7 +164,8 @@ def _ddl_des_fixtures_sur_serveur():
 
     for name in _migrations._discover():
         mod = importlib.import_module(f"shared_infra.db._migrations.{name}")
-        if hasattr(mod, "migrate"):
+        # ``PORTABLE = True`` : SQL valable sur les trois moteurs, rejoué tel quel.
+        if hasattr(mod, "migrate") and not getattr(mod, "PORTABLE", False):
             mod.migrate = _remplace(mod)
     # La base PAR DÉFAUT (``user_db/app.db`` en SQLite, peuplée par l'usage) :
     # des tests qui ne redirigent pas ``DB_PATH`` comptent sur son schéma.

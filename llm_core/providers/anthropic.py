@@ -520,15 +520,23 @@ async def _consume_stream(
 
 
 def _normalize_usage(u: Dict[str, Any]) -> Dict[str, Any]:
-    """Usage Anthropic → forme OpenAI (prompt/completion/total)."""
-    pin = int(u.get("input_tokens") or 0)
+    """Usage Anthropic → forme OpenAI (prompt/completion/total).
+
+    ``input_tokens`` d'Anthropic ne compte que les tokens NEUFS ; le cache lu
+    et le cache écrit s'y AJOUTENT. Partout ailleurs (llama.cpp, OpenAI et
+    compatibles), l'entrée les INCLUT. On ramène Anthropic à ce sens : tous
+    les compteurs (registre, exécutions, message, contexte) lisent alors
+    « entrée = cache + utile » quel que soit le moteur."""
+    cache_read = int(u.get("cache_read_input_tokens") or 0)
+    cache_creation = int(u.get("cache_creation_input_tokens") or 0)
+    pin = int(u.get("input_tokens") or 0) + cache_read + cache_creation
     pout = int(u.get("output_tokens") or 0)
     return {
         "prompt_tokens": pin,
         "completion_tokens": pout,
         "total_tokens": pin + pout,
-        "cache_read_input_tokens": int(u.get("cache_read_input_tokens") or 0),
-        "cache_creation_input_tokens": int(u.get("cache_creation_input_tokens") or 0),
+        "cache_read_input_tokens": cache_read,
+        "cache_creation_input_tokens": cache_creation,
     }
 
 

@@ -43,8 +43,10 @@ const BASE = {
     input_tokens: 5200, last_prompt_tokens: 5200, output_tokens: 1000,
 };
 const METRICS = {
+    // Entrée relue à 92 % du cache KV (4 800 sur 5 200) : 400 utiles.
     exact:  { ...BASE, thinking_tokens: 640, response_tokens: 360,
-              thinking_tokens_estimated: false },
+              thinking_tokens_estimated: false, cache_read_input_tokens: 4800,
+              tool_input_tokens: 1300 },
     estime: { ...BASE, thinking_tokens: 640, response_tokens: 360,
               thinking_tokens_estimated: true },
     // Tour d'avant la mesure : les champs n'existent pas du tout.

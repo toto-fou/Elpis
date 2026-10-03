@@ -83,14 +83,22 @@ def _since(hours: int) -> float:
 
 
 def _fmt_tokens(v: Any) -> str:
+    """Format compact des tokens, le même que le front (``fmtTokenCount``,
+    utils.js) : « 845 », « 12,3 k », « 245 k », « 1,2 M »."""
     try:
-        n = float(v or 0)
+        n = max(0.0, float(v or 0))
     except (TypeError, ValueError):
         return "0"
-    if n >= 1_000_000:
-        return f"{n / 1_000_000:.2f} M"
+
+    def _dec(x: float, digits: int) -> str:
+        s = f"{x:.{digits}f}"
+        if "." in s:
+            s = s.rstrip("0").rstrip(".")
+        return s.replace(".", ",")
+    if n >= 999_500:                    # « 1 000 k » → « 1 M », comme le front
+        return _dec(n / 1_000_000, 0 if n >= 1e8 else 1) + " M"
     if n >= 1000:
-        return f"{n / 1000:.1f} k"
+        return _dec(n / 1000, 0 if n >= 1e5 else 1) + " k"
     return str(int(n))
 
 
@@ -148,13 +156,19 @@ class KPIUsageTokensProvider(UsageProvider):
         from shared_infra.observability.usage_store import usage_totals
         h = _scope(scope_hours)
         t = usage_totals(_since(h))
-        # La sortie est détaillée sur place : sans ça, « 1,2 M sortie » ne dit
-        # pas si la plateforme a répondu ou réfléchi.
-        _think = int(t.get("thinking_tokens") or 0)
-        _detail = (f"{_fmt_tokens(t.get('input_tokens'))} entrée · "
-                   f"{_fmt_tokens(t.get('output_tokens'))} sortie")
-        if _think:
-            _detail += f" (dont {_fmt_tokens(_think)} de réflexion)"
+        # Entrée et sortie détaillées sur place : sans ça, « 1,2 M entrée » ne
+        # dit pas combien a été relu du cache, ni « sortie » si la plateforme
+        # a répondu ou réfléchi.
+        from shared_infra.observability.usage_store import token_breakdown
+        b = token_breakdown(t.get("input_tokens"), t.get("output_tokens"),
+                            cache_read_tokens=t.get("cache_read_tokens"),
+                            thinking_tokens=t.get("thinking_tokens"))
+        _detail = f"{_fmt_tokens(b['input'])} entrée"
+        if b["cache"]:
+            _detail += f" (cache {round(b['cache_pct'])} %)"
+        _detail += f" · {_fmt_tokens(b['output'])} sortie"
+        if b["thinking"]:
+            _detail += f" (réflexion {round(100.0 * b['thinking'] / b['output'])} %)"
         return {"value": _fmt_tokens(t.get("total_tokens")),
                 "unit": f"tokens/{'24h' if h == 24 else ('7j' if h == 168 else '30j')}",
                 "color": "emerald", "icon": "ph-lightning",
@@ -228,28 +242,27 @@ class KPIUsageFailureRateProvider(UsageProvider):
 
 
 class KPIUsageCacheProvider(UsageProvider):
-    """Part de l'entrée servie par un cache : cache de prompt (Anthropic) et
-    cache KV (llama.cpp, moteurs compatibles OpenAI).
-
-    Le cache lu est compris dans l'entrée des seconds, pas du premier : le
-    dénominateur est l'entrée TOTALE, calculée moteur par moteur."""
+    """Part de l'entrée relue d'un cache (cache KV de llama.cpp, cache des
+    fournisseurs) plutôt que calculée : le reste est l'entrée UTILE. Le cache
+    est compris dans l'entrée pour tous les moteurs (cf. ``usage_store``)."""
     id = "usage_cache"; title = "Cache de prompt"; type = "value"
     width = "1/4"; icon = "ph-database"; color = "cyan"
     @property
     def category(self): return "performance"
     def get_data(self, scope_hours=None):
-        from shared_infra.llm.connectors import connector_ids_by_wire
         from shared_infra.observability.usage_store import usage_cache_totals
-        t = usage_cache_totals(_since(_scope(scope_hours)), cache_outside_input=[
-            f"conn:{i}" for i in connector_ids_by_wire("anthropic")])
+        t = usage_cache_totals(_since(_scope(scope_hours)))
         read, created = t["cache_read_tokens"], t["cache_creation_tokens"]
         if read == 0 and created == 0:
             return {"value": "—", "unit": "non utilisé", "color": "slate",
                     "icon": "ph-database"}
-        ratio = round(100.0 * read / t["input_total"], 1) if t["input_total"] else 0.0
-        return {"value": f"{ratio} %", "unit": "d'entrée servie par le cache",
-                "color": "cyan", "icon": "ph-database",
-                "detail": f"{_fmt_tokens(read)} lus · {_fmt_tokens(created)} créés"}
+        total = t["input_total"]
+        ratio = round(100.0 * read / total, 1) if total else 0.0
+        detail = f"{_fmt_tokens(read)} en cache · {_fmt_tokens(max(0, total - read))} utiles"
+        if created:
+            detail += f" · {_fmt_tokens(created)} mis en cache"
+        return {"value": f"{ratio} %", "unit": "de l'entrée relue du cache",
+                "color": "cyan", "icon": "ph-database", "detail": detail}
 
 
 class KPIUsageThinkingProvider(UsageProvider):
@@ -417,6 +430,48 @@ class UsageThinkingTimelineProvider(UsageProvider):
         return to_chart(plan, series, kind="bar", stacked=True)
 
 
+class UsageInputTimelineProvider(UsageProvider):
+    """Entrée décomposée dans le temps : relue du cache vs utile (réellement
+    calculée). Jumelle de « Sortie — réflexion vs réponse » : un prompt
+    système qui change à chaque tour, ou un cache KV trop petit, se voit ici
+    (la part utile grimpe) avant de se sentir en latence."""
+    id = "usage_input_timeline"; title = "Entrée — cache vs utile"
+    type = "bar_stacked"; width = "1/2"; icon = "ph-database"; color = "cyan"
+    @property
+    def category(self): return "volume"
+    def get_data(self, scope_hours=None):
+        h = _scope(scope_hours)
+        plan = plan_buckets(_since(h), None, granularity_for(h))
+        series = {}
+        for label, expr in (
+            ("Cache", "COALESCE(SUM(cache_read_tokens),0)"),
+            ("Utile", f"COALESCE(SUM({greatest('input_tokens - cache_read_tokens', '0')}),0)"),
+        ):
+            agg = aggregate_series(table="usage_events", ts_col="ts",
+                                   value_expr=expr, plan=plan)
+            series[label] = agg.get("", {})
+        return to_chart(plan, series, kind="bar", stacked=True)
+
+
+# Les quatre postes disjoints d'une consommation (cf. ``token_breakdown``),
+# dans l'ordre des barres empilées.
+_POSTES = (("Cache", "cache"), ("Entrée utile", "input_new"),
+           ("Réflexion", "thinking"), ("Réponse", "response"))
+
+
+def _stacked_postes(labels: List[str], rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    from shared_infra.observability.usage_store import token_breakdown
+    parts = [token_breakdown(r.get("input_tokens"), r.get("output_tokens"),
+                             cache_read_tokens=r.get("cache_read_tokens"),
+                             thinking_tokens=r.get("thinking_tokens")) for r in rows]
+    return {"labels": labels,
+            "datasets": [{"label": label, "data": [p[key] for p in parts],
+                          "backgroundColor": f"rgba({PALETTE[i % len(PALETTE)]},0.8)",
+                          "borderRadius": 2}
+                         for i, (label, key) in enumerate(_POSTES)],
+            "meta": {"horizontal": True}}
+
+
 class UsageBySourceProvider(UsageProvider):
     id = "usage_by_source"; title = "Répartition par source"; type = "doughnut"
     width = "1/4"; icon = "ph-chart-pie"; color = "violet"
@@ -438,24 +493,20 @@ class UsageByModelProvider(UsageProvider):
     L'ancien widget lisait un tag figé sur ``LLAMA_MODEL`` (une constante de
     configuration) : dès qu'un connecteur externe servait le tour, la
     répartition attribuait tout au modèle local."""
-    id = "usage_by_model"; title = "Tokens par modèle"; type = "bar"
+    id = "usage_by_model"; title = "Tokens par modèle"; type = "bar_stacked"
     width = "1/2"; icon = "ph-robot"; color = "indigo"
     @property
     def category(self): return "volume"
     def get_data(self, scope_hours=None):
         from shared_infra.observability.usage_store import usage_group
         rows = usage_group("model", _since(_scope(scope_hours)), limit=10)
-        return {"labels": [(r["key"] or "inconnu")[:38] for r in rows],
-                "datasets": [{"label": "Tokens", "data": [r["value"] for r in rows],
-                              "backgroundColor": [f"rgba({PALETTE[i % len(PALETTE)]},0.75)"
-                                                  for i in range(len(rows))],
-                              "borderRadius": 4}]}
+        return _stacked_postes([(r["key"] or "inconnu")[:38] for r in rows], rows)
 
 
 class UsageTopUsersProvider(UsageProvider):
     """Top consommateurs SUR LA FENÊTRE. L'ancien équivalent n'avait aucun
     filtre de date : il cumulait depuis toujours et scannait toute la table."""
-    id = "usage_top_users"; title = "Tokens par utilisateur"; type = "bar"
+    id = "usage_top_users"; title = "Tokens par utilisateur"; type = "bar_stacked"
     width = "1/2"; icon = "ph-users"; color = "emerald"
     @property
     def category(self): return "activity"
@@ -463,11 +514,7 @@ class UsageTopUsersProvider(UsageProvider):
         from shared_infra.observability.usage_store import usage_group
         rows = usage_group("user_id", _since(_scope(scope_hours)), limit=10)
         names = _usernames()
-        return {"labels": [names.get(r["key"], "non attribué") for r in rows],
-                "datasets": [{"label": "Tokens", "data": [r["value"] for r in rows],
-                              "backgroundColor": [f"rgba({PALETTE[i % len(PALETTE)]},0.75)"
-                                                  for i in range(len(rows))],
-                              "borderRadius": 4}]}
+        return _stacked_postes([names.get(r["key"], "non attribué") for r in rows], rows)
 
 
 class UsageHeatmapProvider(UsageProvider):
@@ -607,7 +654,7 @@ def register_all(registry) -> None:
         KPIRoutineRunsProvider(),
         KPISchedulerHealthProvider(),
         UsageTimelineProvider(), UsageTurnsTimelineProvider(),
-        UsageThinkingTimelineProvider(),
+        UsageThinkingTimelineProvider(), UsageInputTimelineProvider(),
         UsageBySourceProvider(), UsageByModelProvider(),
         UsageTopUsersProvider(), UsageHeatmapProvider(),
         RoutineRunsTimelineProvider(), UsageUserPeaksProvider(),

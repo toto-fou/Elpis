@@ -214,13 +214,16 @@ def test_index_des_executions_utilises(db):
 
 def test_cache_des_lignes_sans_moteur_hors_entree(db):
     """Avant L5.1 le moteur n'était pas noté et seul Anthropic remplissait
-    le cache, hors de l'entrée : le taux dépassait 100 %."""
+    le cache, hors de l'entrée (le taux dépassait 100 %). La migration 0025
+    ramène ces lignes au sens commun : cache compris dans l'entrée."""
+    import importlib
     import time
 
     from shared_infra.observability import usage_store as U
     with db.db_conn() as c:
-        c.execute("INSERT INTO usage_events(ts, source, connector, input_tokens, "
-                  "cache_read_tokens) VALUES(?, 'chat', '', 1000, 9000)", (time.time(),))
+        c.execute("INSERT INTO usage_events(ts, source, connector, input_tokens, submitted_tokens, "
+                  "cache_read_tokens) VALUES(?, 'chat', '', 1000, 1000, 9000)", (time.time(),))
+        importlib.import_module("shared_infra.db._migrations.0025_usage_entree_inclusive").migrate(c)
         c.commit()
     tot = U.usage_cache_totals(time.time() - 60)
     assert tot["input_total"] == 10000 and tot["cache_read_tokens"] == 9000

@@ -545,11 +545,13 @@ http.createServer((req, res) => {
         // Supervision › Exécutions (L5.7)
         if (url.startsWith('/api/admin/runs/accounts')) return json(res, { hours: 24, items: [
             { user_id: 3, username: 'alice', runs: 2, failed: 1, subagents: 1, input_tokens: 14000, output_tokens: 1400,
-              llm_ms: 6000, wait_ms: 500, tool_calls: 2, tool_errors: 1, files_changed: 1,
+              cache_read_tokens: 12600, cache_creation_tokens: 0, thinking_tokens: 900,
+              llm_ms: 6000, prefill_ms: 1500, decode_ms: 4500, wait_ms: 500, tool_calls: 2, tool_errors: 1, files_changed: 1,
               sandbox_cpu_peak: 80, sandbox_mem_peak_mb: 512 }] });
         if (url.startsWith('/api/admin/runs/chat-a1/timeline')) return json(res, {
-            run: { id: 'chat-a1', status: 'ok', started_at: 1781000000, ended_at: 1781000060, input_tokens: 1000,
-                   output_tokens: 100, tool_calls: 1, tool_errors: 0, files_changed: 1, engine: 'llama' },
+            run: { id: 'chat-a1', status: 'ok', started_at: 1781000000, ended_at: 1781000060, input_tokens: 12345,
+                   output_tokens: 1130, cache_read_tokens: 11800, thinking_tokens: 820, prefill_ms: 400,
+                   decode_ms: 24000, tool_calls: 1, tool_errors: 0, files_changed: 1, engine: 'llama' },
             events: [{ type: 'tool', at: 1781000004, tool_name: 'execute_shell', status: 'success',
                        duration_ms: 10, argument: 'command: ls', result: 'ok' }], children: [] });
         if (url === '/api/admin/oauth/clients') return json(res, { items: [

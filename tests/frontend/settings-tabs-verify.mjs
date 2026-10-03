@@ -39,23 +39,30 @@ try {
 
     // ════ U — onglet Utilisation ════════════════════════════════════════
     await openTab('Utilisation');
-    ok('U tokens soumis affichés', (await modal.getByText('Tokens soumis').count()) > 0);
-    ok('U total formaté rendu', (await modal.getByText('916 000').count()) > 0);
+    const usage = ((await modal.textContent()) || '').replace(/[\u202f\u00a0]/g, ' ');
+    ok('U bloc Tokens et total compact', /Tokens/.test(usage) && /916 k/.test(usage));
     ok('U conversations + messages conservés',
        (await modal.getByText('Conversations').count()) > 0 &&
        (await modal.getByText('Messages').count()) > 0);
     ok('U routines conservées (activité > 0)', (await modal.getByText('exécutions').count()) > 0);
-    ok('U ventilation par origine conservée', (await modal.getByText('Routines planifiées').count()) > 0 ||
-                                              (await modal.getByText('700 000').count()) > 0);
-    // Découpe de la sortie : la réflexion était noyée dans « Sortie ».
-    ok('U réflexion affichée à part', (await modal.getByText('réflexion').count()) > 0 &&
-                                      (await modal.getByText('72 000').count()) > 0);
-    ok('U réponse affichée à part', (await modal.getByText('réponse et outils').count()) > 0 &&
-                                    (await modal.getByText('24 000').count()) > 0);
-    ok('U part de réflexion en % de la SORTIE (pas du total)',
-       (await modal.getByText('75 % de la sortie').count()) > 0);
+    // Une barre par type (2026-10-03), au sens des fournisseurs : l'entrée
+    // contient le cache et les outils, la sortie contient la réflexion.
+    const bars = await modal.evaluate(el => [...el.querySelectorAll('[role="listitem"]')]
+        .map(r => (r.innerText || '').replace(/[\u202f\u00a0]/g, ' ').replace(/\s+/g, ' ').trim()));
+    ok('U cinq barres, dans l’ordre', bars.length === 5
+       && /^Entrée/.test(bars[0]) && /^Cache/.test(bars[1]) && /^Outils/.test(bars[2])
+       && /^Sortie/.test(bars[3]) && /^Réflexion/.test(bars[4]), bars.join(' | '));
+    ok('U entrée et part utile', /Entrée 820 k utile 82 k/.test(bars[0]));
+    ok('U cache en % de l’entrée', /Cache 738 k 90 % de l'entrée/.test(bars[1]));
+    ok('U outils estimés en % de l’entrée', /Outils 210 k ≈ 26 % de l'entrée/.test(bars[2]));
+    ok('U sortie et réponse', /Sortie 96 k réponse 24 k/.test(bars[3]));
+    ok('U réflexion en % de la SORTIE (pas du total)', /Réflexion 72 k 75 % de la sortie/.test(bars[4]));
+    ok('U ventilation par origine', /Chat\s*700 k\s*120 tours/.test(usage) && /Routines\s*216 k/.test(usage));
     // Le cœur du changement.
-    ok('U bloc « Outils » absent', (await modal.getByText('Outils', { exact: true }).count()) === 0);
+    // Le bloc retiré listait les outils internes : seul le POSTE de tokens
+    // « Outils » (part de l'entrée, 2026-10-03) porte désormais ce libellé.
+    ok('U bloc « Outils » absent (seule la barre de tokens)',
+       (await modal.getByText('Outils', { exact: true }).count()) === 1);
     ok('U aucun compteur d\'appels d\'outils', (await modal.getByText('appels').count()) === 0);
     ok('U aucun nom d\'outil interne affiché',
        (await modal.getByText('fs_read').count()) === 0 &&

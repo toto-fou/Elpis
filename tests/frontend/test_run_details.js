@@ -14,7 +14,7 @@ const { t, ta, fin, assert } = require('./lib/harnais.js');
 const { charger, depuisBac } = require('./lib/charger.js');
 
 const vus = [];
-const C = charger(['chat/_run_details.js']);
+const C = charger(['utils.js', 'chat/_run_details.js']);
 const D = C.fabrique('setupRunDetails', [null, { fetchAuth: (u) => { vus.push(u); return null; } }]);
 
 t('ouvre la dernière exécution du message', () => {
@@ -41,7 +41,21 @@ t('libellés et méta des événements', () => {
     assert.equal(D.runEventMeta({ type: 'tool', exit_code: 2, argument: 'command: ls' }),
                  'code 2 · command: ls');
     assert.equal(D.runEventMeta({ type: 'llm', input_tokens: 10, output_tokens: 3, cache_read_tokens: 4 }),
-                 '10 → 3 jetons · 4 en cache');
+                 '10 (cache 40 %) → 3');
+    assert.equal(D.runEventMeta({ type: 'llm', input_tokens: 12345, output_tokens: 1130,
+                                  cache_read_tokens: 11800, thinking_tokens: 820 }),
+                 '12,3 k (cache 96 %) → 1,1 k (réflexion 820)');
+});
+
+t('tuiles Entrée / Sortie et comptes exacts', () => {
+    const run = { input_tokens: 12345, output_tokens: 1130, cache_read_tokens: 11800,
+                  thinking_tokens: 820, cache_creation_tokens: 0 };
+    assert.equal(D.runInput(run), '12,3 k (cache 96 %)');
+    assert.equal(D.runOutput(run), '1,1 k (réflexion 820)');
+    assert.equal(D.runInput({ input_tokens: 500, output_tokens: 0 }), '500');
+    const t = D.runTokensTitle(run).replace(/\u202f/g, ' ');
+    assert.ok(t.includes('Entrée 12 345 : cache 11 800 · utile 545'), t);
+    assert.ok(t.includes('Sortie 1 130 : réflexion 820 · réponse 310'), t);
 });
 
 t('état : ok, arrêt, erreur', () => {

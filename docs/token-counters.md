@@ -20,6 +20,50 @@ reprennent les libellés.
 | **Compresseur** (`tokens_before/after`, `compression_start.tokens`) | « La conversation vaut-elle la peine d'être compressée, et qu'a-t-on gagné ? » | prompt RENDU (texte des messages) + forfait image + surcoût fixe tools (`extra_fixed_tokens`, passé par la boucle outils ; classic/route manuelle = 0) ; fallback heuristique unifiée | `tokens_estimated:true` dans les stats |
 | **Budget de contexte** (`context.pruning.enforce_context_budget`) | « Le prompt tient-il dans n_ctx ? » | `/tokenize` exact PAR message (granularité pour choisir quoi retirer ; forfait image + marge/msg inclus), budget réduit du surcoût fixe tools (`fixed_overhead_tokens`) | interne (marge conservatrice) |
 
+## Convention de comptage et postes affichés (2026-10-03)
+
+Elpis compte comme les fournisseurs (OpenAI, Anthropic), entrée normalisée au
+sens d'OpenAI :
+
+- **Entrée** (`prompt_tokens`) : tout ce qui est envoyé au modèle — système,
+  historique, **définitions d'outils**, **appels d'outils et leurs résultats**
+  re-soumis à chaque appel. Le **cache** relu y est COMPRIS (OpenAI :
+  `prompt_tokens_details.cached_tokens` ; llama.cpp : `timings.cache_n`).
+  Anthropic l'exclut de son `input_tokens` (entrée totale = `input_tokens +
+  cache_read_input_tokens + cache_creation_input_tokens`) : il est ramené à ce
+  sens par `providers/anthropic._normalize_usage` (historique : migration 0025).
+- **Sortie** (`completion_tokens`) : réflexion + texte visible + appels
+  d'outils émis par le modèle. La **réflexion** y est COMPRISE et facturée
+  comme sortie chez les deux fournisseurs (OpenAI :
+  `completion_tokens_details.reasoning_tokens` ; Anthropic : même si elle est
+  résumée ou masquée). Elpis ne re-soumet pas la réflexion des tours
+  précédents : elle ne pèse qu'une fois, en sortie.
+
+Postes affichés — `token_breakdown` côté serveur
+(`shared_infra/observability/usage_store.py`), `tokenBreakdown` côté front
+(`frontend/js/utils.js`) :
+
+| Poste | Sens | Calcul |
+|---|---|---|
+| **Entrée** | total envoyé au modèle | `input_tokens` |
+| ↳ **Cache** | relu du cache de prompt (presque gratuit) | `cache_read_tokens` |
+| ↳ **Utile** | réellement calculé (prefill) | `input_tokens − cache_read_tokens` |
+| ↳ **Outils** | définitions, appels et résultats re-soumis — **estimé** au ratio mesuré | `tool_tokens` (0026) |
+| **Sortie** | total généré | `output_tokens` |
+| ↳ **Réflexion** | raisonnement | `thinking_tokens` |
+| ↳ **Réponse** | texte visible + appels d'outils | `output_tokens − thinking_tokens` |
+
+Bornes : cache et outils ≤ entrée, réflexion ≤ sortie (cache et outils se
+recouvrent : un résultat d'outil relu du cache compte dans les deux). Le cache
+**créé** (Anthropic) fait partie de l'entrée utile et n'est montré qu'en détail.
+Les outils ne sont déclarés par aucun fournisseur : `tool_prompt_tokens`
+(`llm_core/context/tokens.py`) les estime à chaque appel, sans I/O, et
+`RunRecord.note_tool_input` les cumule sur le tour comme l'entrée, bornés par
+l'entrée réelle de l'appel. Pendant le prefill (lecture du prompt), la pastille
+du message affiche « Prefill… N % · cache M % » : N porte sur l'entrée
+UTILE (`processed` de llama.cpp part de la part relue du cache). Format
+compact unique : « 845 », « 12,3 k », « 1,2 M ».
+
 ## Le registre `usage_events` : un tour, une ligne, un propriétaire
 
 Jusqu'à la refonte de la zone Métriques, la consommation était journalisée
@@ -42,16 +86,17 @@ La mesure est donc faite **dans la boucle**, une seule fois, avec le contexte
 (`source`, `user_id`, `origin_id`) posé par l'appelant via `usage_scope(...)`.
 Le split entrée/sortie est toujours connu (la boucle a `cumul_in`/`cumul_out`),
 donc le flag `estimated` de l'onglet Utilisation a disparu. Les tokens de cache
-sont cumulés sur le tour et stockés à part (`cache_read_tokens`) : Anthropic
-ne les compte PAS dans `input_tokens` ; llama.cpp et les moteurs compatibles
-OpenAI (`prompt_tokens_details.cached_tokens`, sinon `timings.cache_n`) les y
-comptent — ce sont les jetons repris du cache KV. La part servie par le cache
-(console) se calcule donc moteur par moteur (`usage_cache_totals`).
+sont cumulés sur le tour et stockés à part (`cache_read_tokens`), et COMPRIS
+dans `input_tokens` pour tous les moteurs : llama.cpp et les moteurs
+compatibles OpenAI (`prompt_tokens_details.cached_tokens`, sinon
+`timings.cache_n`) les y comptent d'eux-mêmes ; Anthropic, qui les y ajoute,
+est normalisé à la source (`providers/anthropic._normalize_usage`) et son
+historique par la migration 0025.
 
 Chaque ligne porte aussi le moteur (`connector` : `builtin`, `conn:<id>`,
 `url:<racine>`) et l'exécution (`run_id`, table `runs`) : une exécution —
 tour de chat, run de routine, sous-agent, compaction manuelle — regroupe ce
-qu'elle a consommé (jetons, temps LLM, outils, fichiers, pics de la
+qu'elle a consommé (tokens, temps LLM, outils, fichiers, pics de la
 sandbox), cf. `shared_infra/observability/runs.py`.
 
 ## La sortie se lit en deux : réflexion et réponse
@@ -213,13 +258,11 @@ est exact ; un compte partiellement estimé reste flaggé `tokens_estimated`.
   strippé de l'historique persisté → il n'apparaît PAS dans le prompt du
   tour suivant. La jauge l'exclut volontairement (sinon « 4,7k en fin de
   tour » vs ~800 au prompt suivant).
-- **Anthropic** : `input_tokens` ne compte que les tokens neufs ;
-  `cache_read/creation_input_tokens` sont exposés séparément dans les
-  metrics (« Cache : X lus / Y créés » dans le tooltip). Pour llama.cpp, le
-  « lus » du tooltip est la part de l'entrée reprise du cache KV (déjà
-  comptée dans « Tokens soumis »). La jauge de
-  contexte reste masquée pour les cibles distantes (pas de `/tokenize`
-  fiable, tokenizer local ≠ tokenizer distant).
+- **Anthropic** : son `input_tokens` ne compte que les tokens neufs ; il est
+  ramené au sens commun (cache compris) par `_normalize_usage`, et
+  `cache_read/creation_input_tokens` restent exposés à part dans les
+  metrics. La jauge de contexte reste masquée pour les cibles distantes (pas
+  de `/tokenize` fiable, tokenizer local ≠ tokenizer distant).
 - **`prompt_n` (timings llama.cpp)** : n'alimente PLUS rien côté contexte —
   avec le prefix-cache il ne compte que les tokens réévalués (excluait
   system + tools + tours cachés). Les timings ne servent qu'aux métriques
@@ -233,4 +276,6 @@ est exact ; un compte partiellement estimé reste flaggé `tokens_estimated`.
   apparaît dans le `prompt_tokens` réel du tour N+1.
 - **Continue** : la reprise re-soumet le tronc du tour précédent → les
   tokens soumis du tour de reprise incluent ce re-prefill (fidèle à la
-  réalité API) ; il n'est pas compté deux fois à l'affichage.
+  réalité API). Les métriques du message ADDITIONNENT ses segments
+  (`merge_continue_metrics`, `segments` dans l'infobulle) : avant, la reprise
+  remplaçait celles du segment tronqué.

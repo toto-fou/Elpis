@@ -1160,12 +1160,13 @@ async def call_llm(ctx: RunContext, rec: RunRecord, st: LLMTurnState,
     usage     = raw_response.get("usage") or {}
     rec.cumul_in  += usage.get("prompt_tokens", 0)
     rec.cumul_out += usage.get("completion_tokens", 0)
-    # Cache de prompt (Anthropic) : ces tokens ne sont PAS inclus dans
-    # ``prompt_tokens`` ; non cumulés, ils se perdraient entre deux
-    # itérations et le retour sur investissement du cache resterait
-    # invisible côté métriques. On les cumule comme le reste du tour.
+    # Cache de prompt : part de ``prompt_tokens`` (déjà INCLUSE, Anthropic
+    # compris depuis ``_normalize_usage``), cumulée à part sur le tour pour
+    # la découpe cache / entrée utile — ne jamais l'ajouter à ``cumul_in``.
     rec.cumul_cache_read     += int(usage.get("cache_read_input_tokens") or 0)
     rec.cumul_cache_creation += int(usage.get("cache_creation_input_tokens") or 0)
+    rec.note_tool_input(compacted_msgs, tools_payload, model or LLAMA_MODEL,
+                        usage.get("prompt_tokens", 0))
     rec.usage_note(effective_iter=effective_iter, model=model or LLAMA_MODEL)
     # Raisonnement déclaré : cumulé sur les itérations. Ne lire que la
     # dernière sous-compterait tout ce qui a été pensé avant les outils.

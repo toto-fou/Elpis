@@ -51,6 +51,7 @@
     "thinking": "",
     "thinking_tokens": 0,
     "thinking_tokens_estimated": false,
+    "tool_input_tokens": 250,
     "truncated": false,
     "truncated_in_think": false
   },

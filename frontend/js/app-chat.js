@@ -2168,7 +2168,8 @@ function setupChat(vue, sharedRefs, ctx) {
         : { runDetails: vue.ref(null), openRunDetails: () => {}, closeRunDetails: () => {},
             showRunDetails: () => {}, toggleRunEvent: () => {}, runDuration: () => '',
             runEventLabel: () => '', runEventMeta: () => '', runEventState: () => 'ok',
-            runClock: () => '', runExportHref: () => '#' };
+            runClock: () => '', runExportHref: () => '#',
+            runInput: () => '', runOutput: () => '', runTokensTitle: () => '' };
 
     // -- Segments texte/outils (helpers partagés live + reload) ------------
     // chat/_tool_segments.js : labels RAG + détection d'erreur = source
@@ -2643,6 +2644,9 @@ function setupChat(vue, sharedRefs, ctx) {
                 const _c = _getStreamMsgs()[idx];
                 if (_c && _c._statusLine) _patch(idx, { _statusLine: '' });
                 if (_c && _c._lastToolResultAt) _patch(idx, { _lastToolResultAt: null });
+                // Premier token : le prefill est fini, même si le
+                // moteur n'a pas envoyé son 100 %.
+                if (_c && typeof _c._prefillPct === 'number') _patch(idx, { _prefillPct: undefined });
             }
 
         } else if (data.type === 'content_replace') {
@@ -2685,6 +2689,7 @@ function setupChat(vue, sharedRefs, ctx) {
                 if (_c && _c._statusLine) _patch(idx, { _statusLine: '' });
                 // Le modèle a repris la main → plus besoin de l'indicateur "en attente"
                 if (_c && _c._lastToolResultAt) _patch(idx, { _lastToolResultAt: null });
+                if (_c && typeof _c._prefillPct === 'number') _patch(idx, { _prefillPct: undefined });
                 // ── Tracking durée du thinking (UX option 3 round 4) ──
                 // Premier content_token = fin de la phase thinking. On
                 // capture seulement si on avait du thinking ET pas encore
@@ -2736,10 +2741,16 @@ function setupChat(vue, sharedRefs, ctx) {
             // l'identité de ``entry.msg``), donc un état externe ne le re-rend
             // pas — la pill ne serait jamais apparue. ``_patch`` remplace
             // l'objet, ce qui est exactement le signal attendu par le memo.
+            // Le pourcentage porte sur l'entrée UTILE : ``processed`` part de
+            // la part relue du cache (``cache``), qui ne coûte rien — compté,
+            // il faisait démarrer la barre à 90 % sur un historique en cache.
             if (data.total > 0 && idx >= 0) {
+                const _cache = Math.min(Math.max(0, data.cache || 0), data.total);
+                const _utile = data.total - _cache;
+                const _fait = Math.max(0, (data.processed || 0) - _cache);
                 _patch(idx, {
-                    _prefillPct: Math.min(
-                        100, Math.round((data.processed / data.total) * 100)),
+                    _prefillPct: _utile > 0 ? Math.min(100, Math.round((_fait / _utile) * 100)) : 100,
+                    _prefillCachePct: Math.round((_cache / data.total) * 100),
                 });
             }
 
@@ -3238,6 +3249,9 @@ function setupChat(vue, sharedRefs, ctx) {
                 _liveThinkingOpen:    undefined,
                 _statusLine:          '',
                 metrics:              _mergedMetrics,
+                // Fin du tour : plus de lecture de prompt en cours (un Stop
+                // pendant la lecture la laissait affichée sur la reprise).
+                _prefillPct:          undefined,
                 isStreaming:          false,
                 ..._STREAM_RENDER_CLEAR,
                 // FIX : avant, isTruncated ne dépendait QUE de
@@ -4678,6 +4692,7 @@ function setupChat(vue, sharedRefs, ctx) {
             // fin de fil recevait tous les patchs du tour, et la pill/engrenage
             // restaient absents pendant la phase outils du tour continué.
             isStreaming:        true,
+            _prefillPct:        undefined,
         });
         await _doGenerate(true);
     }
@@ -7166,7 +7181,11 @@ function setupChat(vue, sharedRefs, ctx) {
     //     est un SOUS-ENSEMBLE de la sortie, jamais un poste à additionner ;
     //     thinking_tokens_estimated dit quand le compte est approché (cible
     //     distante sans tokenizer accessible) — l'UI préfixe alors « ≈ » ;
-    //   - cache_read/creation_input_tokens = décomposition du cache Anthropic.
+    //   - cache_read_input_tokens = part de l'ENTRÉE relue du cache (compris
+    //     dans input_tokens pour tous les moteurs) ; le reste est l'entrée
+    //     UTILE, réellement calculée. cache_creation_input_tokens : tokens mis
+    //     en cache (Anthropic). Découpe commune : tokenBreakdown (utils.js) ;
+    //   - segments = nombre de segments additionnés par « Continuer ».
 
     // Nombre de tokens de réflexion d'un message, ou 0. Les anciens messages
     // (métriques d'avant la mesure) n'ont pas le champ : on ne montre rien
@@ -7184,33 +7203,71 @@ function setupChat(vue, sharedRefs, ctx) {
         return (m.thinking_tokens_estimated ? '≈ ' : '') + n.toLocaleString('fr-FR');
     }
 
+    // Postes d'un message (tokenBreakdown, utils.js). Les messages Anthropic
+    // enregistrés AVANT la normalisation (migration 0025) portent une entrée
+    // sans le cache : un cache supérieur à l'entrée le trahit, on la recompose.
+    function _msgParts(m) {
+        let inp = Number(m && m.input_tokens) || 0;
+        const read = Number(m && m.cache_read_input_tokens) || 0;
+        if (read > inp) inp += read + (Number(m && m.cache_creation_input_tokens) || 0);
+        return tokenBreakdown(inp, m && m.output_tokens, read, thinkingTokensOf(m),
+                              m && m.tool_input_tokens);
+    }
+
+    // Part de l'entrée relue du cache, en % entier, ou 0 (rien à afficher).
+    function cachePctOf(m) {
+        if (!m || !(m.cache_read_input_tokens > 0) || !(m.input_tokens > 0)) return 0;
+        return _msgParts(m).cache_pct;
+    }
+
+    function cacheTitle(m) {
+        const b = _msgParts(m);
+        return 'Entrée : ' + b.input.toLocaleString('fr-FR') + ' tokens, dont '
+            + b.cache.toLocaleString('fr-FR') + ' relus du cache et '
+            + b.input_new.toLocaleString('fr-FR') + ' utiles (calculés)';
+    }
+
+    // Infobulle : une ligne par moitié — l'entrée (cache + utile) et la sortie
+    // (réflexion + réponse) — puis le contexte de fin de tour.
     function metricsTooltip(m) {
         if (!m) return '';
+        const nb = (x) => (Math.max(0, Number(x) || 0)).toLocaleString('fr-FR');
         const L = [];
-        L.push('Modèle : ' + (m.model || '?'));
-        L.push('Durée : ' + (m.duration || '?') + ' s');
-        L.push('Vitesse génération : ' + (m.write_tps || '?') + ' tok/s');
-        if (m.read_tps) L.push('Vitesse lecture prompt : ' + m.read_tps + ' tok/s');
+        L.push('Modèle : ' + (m.model || '?') + (m.duration ? ' · ' + fmtElapsed(m.duration) : ''));
+        const _think = thinkingTokensOf(m);
+        const b = _msgParts(m);
+        if (b.input) {
+            const d = [];
+            if (b.cache) d.push('cache ' + nb(b.cache) + ' (' + b.cache_pct + ' %)');
+            d.push('utile ' + nb(b.input_new));
+            if (b.tools) d.push('outils ≈ ' + nb(b.tools));
+            if (m.read_tps) d.push(m.read_tps + ' t/s');
+            L.push('Entrée ' + nb(b.input) + ' · ' + d.join(' · '));
+        }
+        if (b.output) {
+            const d = [];
+            if (_think) {
+                d.push('réflexion ' + fmtThinkingTokens(m));
+                d.push('réponse ' + nb(typeof m.response_tokens === 'number' ? m.response_tokens : b.response));
+            }
+            if (m.write_tps) d.push(m.write_tps + ' t/s');
+            L.push('Sortie ' + nb(b.output) + (d.length ? ' · ' + d.join(' · ') : ''));
+        }
+        if (m.cache_creation_input_tokens > 0)
+            L.push('Mis en cache ' + nb(m.cache_creation_input_tokens));
+        // Tour outillé : l'historique est relu à CHAQUE appel du modèle, l'entrée
+        // est donc un cumul (vérité de facturation), pas la taille du contexte.
         const _hasCumul = typeof m.last_prompt_tokens === 'number'
             && m.input_tokens && m.input_tokens !== m.last_prompt_tokens;
-        if (m.input_tokens)
-            L.push((_hasCumul ? 'Tokens soumis (cumul outils) : ' : 'Tokens soumis : ') + m.input_tokens.toLocaleString('fr-FR'));
-        if (typeof m.last_prompt_tokens === 'number' && m.last_prompt_tokens > 0)
-            L.push('Contexte fin de tour : ' + m.last_prompt_tokens.toLocaleString('fr-FR') + ' tokens');
-        if (m.output_tokens) L.push('Tokens générés : ' + m.output_tokens.toLocaleString('fr-FR'));
-        // Découpe de la sortie : la réflexion pesait dans « Tokens générés »
-        // sans jamais être nommée. Indentée pour dire qu'elle en fait PARTIE.
-        const _think = thinkingTokensOf(m);
-        if (_think) {
-            L.push('  · dont réflexion : ' + fmtThinkingTokens(m));
-            const _resp = (typeof m.response_tokens === 'number')
-                ? m.response_tokens
-                : Math.max(0, (m.output_tokens || 0) - _think);
-            L.push('  · dont réponse et outils : ' + _resp.toLocaleString('fr-FR'));
-        }
-        if (m.cache_read_input_tokens || m.cache_creation_input_tokens)
-            L.push('Cache : ' + (m.cache_read_input_tokens || 0).toLocaleString('fr-FR') + ' lus / '
-                   + (m.cache_creation_input_tokens || 0).toLocaleString('fr-FR') + ' créés');
+        if (_hasCumul)
+            L.push('Entrée cumulée sur ' + (m.iterations > 1 ? m.iterations + ' appels' : 'plusieurs appels')
+                   + ' du modèle');
+        const kv = m.kv_cache;
+        if (kv && kv.total > 0)
+            L.push('Contexte ' + nb(kv.used) + ' / ' + nb(kv.total) + ' (' + kv.pct + ' %)');
+        else if (typeof m.last_prompt_tokens === 'number' && m.last_prompt_tokens > 0)
+            L.push('Contexte ' + nb(m.last_prompt_tokens));
+        if (m.segments > 1) L.push('Total de ' + m.segments + ' segments (« Continuer »)');
         return L.join('\n');
     }
 
@@ -7386,18 +7443,23 @@ function setupChat(vue, sharedRefs, ctx) {
         if (msg._pendingPreContent) {
             return null;
         }
-        // 2. Réflexion active : raisonnement en cours, pas encore de réponse ni
+        // 2. PRÉ-REMPLISSAGE : le moteur lit le prompt, aucun token n'est
+        //    encore sorti. Sur un long contexte c'est la phase la plus longue
+        //    du tour (26 s mesurées pour 5 600 tokens) et elle était muette.
+        //    Pourcentage de l'entrée UTILE + part relue du cache. Avant la
+        //    réflexion : à l'itération suivante d'un tour outillé (ou sur
+        //    « Continuer »), le message porte déjà du texte ou du raisonnement.
+        //    Effacé au premier token (cf. thinking_token / content_token).
+        if (typeof msg._prefillPct === 'number' && msg._prefillPct < 100) {
+            const _c = msg._prefillCachePct;
+            return { kind: 'think', label: 'Prefill… ' + msg._prefillPct + ' %'
+                     + (_c ? ' · cache ' + _c + ' %' : '') };
+        }
+        // 3. Réflexion active : raisonnement en cours, pas encore de réponse ni
         //    d'outil. msg.thinking est vidé/transféré dès le 1er content_token,
         //    donc cette phase s'efface d'elle-même quand la rédaction démarre.
         if (msg.thinking && !msg.content) {
             return { kind: 'think', label: 'Réflexion…' };
-        }
-        // 2bis. PRÉ-REMPLISSAGE : le moteur lit le prompt, aucun token n'est
-        //       encore sorti. Sur un long contexte c'est la phase la plus
-        //       longue du tour (26 s mesurées pour 5 600 tokens) et elle était
-        //       muette. Le pourcentage s'incrémente à côté du libellé.
-        if (typeof msg._prefillPct === 'number' && !msg.content) {
-            return { kind: 'think', label: 'Réflexion… ' + msg._prefillPct + ' %' };
         }
         // 3. Sinon : normalise le texte de statut brut du backend.
         const s = (msg._statusLine || '').trim();
@@ -7571,7 +7633,7 @@ function setupChat(vue, sharedRefs, ctx) {
         fmtKvCache,
         metricsTooltip,
         // Part de réflexion d'un message (chip de la ligne métriques)
-        thinkingTokensOf,
+        thinkingTokensOf, cachePctOf, cacheTitle,
         fmtThinkingTokens,
         // Durées lisibles (métriques de fin de réponse, durées d'étapes).
         // Noms distincts de fmtDuration() (_routines_menu.js) : même setup

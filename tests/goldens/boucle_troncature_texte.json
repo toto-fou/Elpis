@@ -173,6 +173,7 @@
       }
     ],
     "tool_history_delta": true,
+    "tool_input_tokens": 807,
     "tool_limit_calls": 1,
     "tool_limit_effective_iters": 1,
     "tool_limit_iters": 5,

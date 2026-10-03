@@ -96,6 +96,7 @@ class Execution:
     cache_read_tokens: int = 0
     cache_creation_tokens: int = 0
     thinking_tokens: int = 0
+    tool_tokens: int = 0
     llm_calls: int = 0
     prefill_ms: int = 0
     decode_ms: int = 0
@@ -119,13 +120,14 @@ class Execution:
     def add_usage(self, *, source: str, status: str, input_tokens: Any = 0,
                   output_tokens: Any = 0, cache_read_tokens: Any = 0,
                   cache_creation_tokens: Any = 0, thinking_tokens: Any = 0,
-                  error_kind: str = "") -> None:
+                  tool_tokens: Any = 0, error_kind: str = "") -> None:
         with self._verrou:
             self.input_tokens += _entier(input_tokens)
             self.output_tokens += _entier(output_tokens)
             self.cache_read_tokens += _entier(cache_read_tokens)
             self.cache_creation_tokens += _entier(cache_creation_tokens)
             self.thinking_tokens += _entier(thinking_tokens)
+            self.tool_tokens += _entier(tool_tokens)
             if source in _SOURCES.get(self.kind, ()):
                 self._statut_llm = (status or "ok").strip() or "ok"
                 if error_kind:
@@ -200,6 +202,8 @@ class Execution:
                 # Réflexion ⊆ sortie, comme dans ``usage_events``.
                 "thinking_tokens": min(self.thinking_tokens, self.output_tokens)
                 if self.output_tokens else self.thinking_tokens,
+                # Outils ⊆ entrée.
+                "tool_tokens": min(self.tool_tokens, self.input_tokens),
                 "llm_calls": self.llm_calls, "prefill_ms": self.prefill_ms,
                 "decode_ms": self.decode_ms, "wait_ms": self.wait_ms,
                 "tool_calls": self.tool_calls, "tool_errors": self.tool_errors,

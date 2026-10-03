@@ -91,14 +91,39 @@
             return '';
         }
 
+        // Entrée et sortie d'une ligne de tokens (exécution ou tour du modèle),
+        // découpées comme partout (utils.js : tokenBreakdown) :
+        // « 12,3 k (cache 96 %) » et « 1,1 k (réflexion 820) ».
+        function _parts(r) {
+            return window.elpisTokenBreakdown(r && r.input_tokens, r && r.output_tokens,
+                                              r && r.cache_read_tokens, r && r.thinking_tokens,
+                                              r && r.tool_tokens);
+        }
+
+        function runInput(r) {
+            const b = _parts(r);
+            return window.elpisFmtTokens(b.input) + (b.cache ? ' (cache ' + b.cache_pct + ' %)' : '');
+        }
+
+        function runOutput(r) {
+            const b = _parts(r);
+            return window.elpisFmtTokens(b.output)
+                + (b.thinking ? ' (réflexion ' + window.elpisFmtTokens(b.thinking) + ')' : '');
+        }
+
+        // Comptes exacts, pour l'infobulle des tuiles.
+        function runTokensTitle(r) {
+            const b = _parts(r), n = (x) => x.toLocaleString('fr-FR');
+            let t = 'Entrée ' + n(b.input) + ' : cache ' + n(b.cache) + ' · utile ' + n(b.input_new)
+                + (b.tools ? ' · outils ≈ ' + n(b.tools) : '')
+                + '\nSortie ' + n(b.output) + ' : réflexion ' + n(b.thinking) + ' · réponse ' + n(b.response);
+            if (r && r.cache_creation_tokens) t += '\nMis en cache ' + n(r.cache_creation_tokens);
+            return t;
+        }
+
         function runEventMeta(ev) {
             if (!ev) return '';
-            if (ev.type === 'llm') {
-                const parts = [(ev.input_tokens || 0) + ' → ' + (ev.output_tokens || 0) + ' jetons'];
-                if (ev.cache_read_tokens) parts.push(ev.cache_read_tokens + ' en cache');
-                if (ev.thinking_tokens) parts.push(ev.thinking_tokens + ' de réflexion');
-                return parts.join(' · ');
-            }
+            if (ev.type === 'llm') return runInput(ev) + ' → ' + runOutput(ev);
             if (ev.type === 'tool') {
                 const parts = [];
                 if (ev.exit_code !== null && ev.exit_code !== undefined) parts.push('code ' + ev.exit_code);
@@ -125,7 +150,8 @@
         }
 
         return { runDetails, openRunDetails, closeRunDetails, showRunDetails, toggleRunEvent,
-                 runDuration, runEventLabel, runEventMeta, runEventState, runClock, runExportHref };
+                 runDuration, runEventLabel, runEventMeta, runEventState, runClock, runExportHref,
+                 runInput, runOutput, runTokensTitle };
     }
 
     window.setupRunDetails = setupRunDetails;

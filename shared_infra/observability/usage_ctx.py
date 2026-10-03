@@ -110,10 +110,10 @@ def normalize_usage(usage: Any) -> Dict[str, int]:
     """Extrait les compteurs réels d'un ``usage`` backend (forme OpenAI).
 
     ``cache_read_input_tokens`` / ``cache_creation_input_tokens`` sont posés
-    en amont : par ``providers/anthropic.py`` (NON inclus dans
-    ``prompt_tokens``) et, pour llama.cpp et les moteurs compatibles, par
-    ``providers/llamacpp.py`` (jetons repris du cache KV, INCLUS dans
-    ``prompt_tokens``) — gardés à part dans les deux cas.
+    en amont, par ``providers/llamacpp.py`` (tokens repris du cache KV) et
+    ``providers/anthropic.py`` — INCLUS dans ``prompt_tokens`` dans les deux
+    cas (Anthropic y est ramené par ``_normalize_usage``), gardés à part pour
+    la découpe cache / entrée utile. Ne jamais les y ajouter.
     """
     u = usage if isinstance(usage, dict) else {}
 
@@ -136,6 +136,9 @@ def normalize_usage(usage: Any) -> Dict[str, int]:
         "output_tokens": _n("completion_tokens") or _n("output_tokens"),
         "cache_read_tokens": _n("cache_read_input_tokens"),
         "cache_creation_tokens": _n("cache_creation_input_tokens"),
+        # Part OUTILS de l'entrée (définitions, appels et résultats re-soumis),
+        # mesurée par la boucle — sous-ensemble de ``input_tokens``.
+        "tool_tokens": _n("tool_input_tokens"),
         # Part de raisonnement DÉCLARÉE par le backend (o-series, vLLM…) —
         # sous-ensemble de ``output_tokens``, jamais additionnée à lui. Les
         # appelants qui la mesurent eux-mêmes (llama.cpp reste muet) la
@@ -193,12 +196,13 @@ def record_turn_usage(
     # généreuse rendrait « réponse = sortie − réflexion » négative dans les vues.
     if out_t:
         think_t = min(think_t, out_t)
+    tool_t = min(norm["tool_tokens"], in_t)          # outils ⊆ entrée
     run = current_run()
     if run is not None:
         run.add_usage(source=ctx.source, status=status, input_tokens=in_t,
                       output_tokens=out_t, cache_read_tokens=norm["cache_read_tokens"],
                       cache_creation_tokens=norm["cache_creation_tokens"],
-                      thinking_tokens=think_t, error_kind=error_kind)
+                      thinking_tokens=think_t, tool_tokens=tool_t, error_kind=error_kind)
     kwargs = dict(
         run_id=run.id if run is not None else "",
         user_id=ctx.user_id,
@@ -212,6 +216,7 @@ def record_turn_usage(
         output_tokens=out_t,
         submitted_tokens=in_t if submitted_tokens is None else submitted_tokens,
         thinking_tokens=think_t,
+        tool_tokens=tool_t,
         cache_read_tokens=norm["cache_read_tokens"],
         cache_creation_tokens=norm["cache_creation_tokens"],
         duration_ms=duration_ms,

@@ -152,6 +152,7 @@
       }
     ],
     "tool_history_delta": true,
+    "tool_input_tokens": 276,
     "truncated": false,
     "truncated_in_think": false
   },

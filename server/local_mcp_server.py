@@ -518,7 +518,7 @@ mcp = LocalToolsMCP(MCP_NAME, auth=_AUTH, version=_app_version(),
 #   #3 TitleFiller      — remplit le title d'affichage manquant.
 from fastmcp.server.middleware import Middleware as _FmcpMiddleware
 
-from llm_core.tools._mcp_compliance_middleware import TitleFiller, ToolRateLimit
+from llm_core.tools._mcp_compliance_middleware import TitleFiller, ToolConcurrencyLimit, ToolRateLimit
 from llm_core.tools._mcp_error_middleware import OkFalseAsIsError
 
 
@@ -839,6 +839,7 @@ def install_middlewares(target: FastMCP) -> None:
     target.add_middleware(IdentityCapture())
     target.add_middleware(FamilyVisibility())
     target.add_middleware(ToolRateLimit())
+    target.add_middleware(ToolConcurrencyLimit())
     target.add_middleware(OkFalseAsIsError())
     target.add_middleware(TitleFiller())
     install_protocol_conformance(target)

@@ -535,6 +535,10 @@ function setupAdmin(vue, sharedRefs, ctx) {
     }
     watch(usersSearch, () => { usersPage.value = 1; });
 
+    // Déclaré AVANT le watch ci-dessous : son getter s'exécute à la création
+    // (lire ``configForm`` plus tôt lève une ReferenceError que Vue avale, et
+    // le watch, sans dépendance, ne se déclenche jamais).
+    const configForm = ref(null);
     // Moteur local : l'URL complète suit l'hôte et le port quand elle visait
     // exactement l'ancien hôte:port (cf. admin/llama_url.js) — sinon l'app
     // restait sur l'ancienne adresse malgré le changement affiché.
@@ -549,7 +553,6 @@ function setupAdmin(vue, sharedRefs, ctx) {
     });
     const dashboardData = ref({ layout: [], data: {} });
     const chartInstances = {};
-    const configForm = ref(null);
     // (L'instantané « propre » de config.json vit désormais dans
     //  ``adminPristine`` avec ceux des autres blocs — cf. la sauvegarde
     //  unifiée plus bas. Il sert toujours d'anti-clobber au rechargement.)
@@ -2739,8 +2742,9 @@ function setupAdmin(vue, sharedRefs, ctx) {
                 'Annuler');
             if (choice === 'force') return _saveConfigStore(true);
             if (choice === 'reload') {
-                // On adopte la valeur du serveur pour les champs en conflit ;
-                // les autres modifications restent en attente d'enregistrement.
+                // On adopte la valeur du serveur pour les champs en conflit,
+                // puis on envoie les AUTRES modifications : le diff recalculé
+                // ne contient plus les champs repris (rien à envoyer → true).
                 const pristine = JSON.parse(adminPristine.value.config);
                 for (const c of body.conflicts) {
                     const v = c.absent ? undefined : c.current;
@@ -2749,6 +2753,10 @@ function setupAdmin(vue, sharedRefs, ctx) {
                     _patchRaw(c.path, v);
                 }
                 adminPristine.value.config = JSON.stringify(pristine);
+                // Les watchers de la page (l'URL complète qui suit l'hôte)
+                // passent AVANT le diff : sinon il partirait sans leur effet.
+                await ctx.nextTick();
+                return _saveConfigStore();
             }
             return false;
         }

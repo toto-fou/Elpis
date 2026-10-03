@@ -101,13 +101,18 @@ async def test_texte_un_outil(monkeypatch):
 
 async def test_texte_outil_inconnu_purge(monkeypatch):
     """Appel en texte vers un outil inexistant, sans prose autour : le JSON
-    est retiré du flux final au lieu d'être affiché."""
+    est retiré du flux final au lieu d'être affiché, et le modèle est relancé
+    (il ne reste plus sur une réponse vide)."""
     fake, ev, final, m = await _jouer(monkeypatch, [
         sse_text('{"name": "outil_fantome", "arguments": {"x": 1}}'),
         sse_final("Réponse après la tentative."),
     ])
-    assert "outil_fantome" not in final
+    assert final == "Réponse après la tentative." and len(fake.payloads) == 2
     assert "tool_result" not in _types(ev)
+    # La relance nomme l'outil inexistant et cite la tentative.
+    relance = fake.payloads[1]["messages"][-1]
+    assert relance["role"] == "user" and "`outil_fantome`" in relance["content"]
+    assert '"arguments": {"x": 1}' in relance["content"]
     figer_tour("texte_outil_inconnu_purge", fake, ev, final, m)
 
 

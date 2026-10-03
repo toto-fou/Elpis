@@ -628,9 +628,9 @@ async def _run_chat_multi_mcp_impl(
     # laisserait un run de 200 itérations sans aucun élagage.
     rec.run_prune_keys = {k for k in (prune_keys or []) if isinstance(k, str)}
 
-    # Relances consommées après un appel d'outil illisible ou perdu (budget
-    # borné : cf. ``relaunch_unparsed_call``), réarmées par une itération
-    # productive ou un appel texte lisible.
+    # Relances consommées après un appel d'outil illisible, perdu ou vers un
+    # outil inconnu (budget borné : cf. ``relaunch_unparsed_call``), réarmées
+    # par une itération productive ou un appel texte lisible.
     _malformed_retry = 0
 
     # Dernier JALON <harness_status> émis (dédoublonnage). Clé
@@ -889,8 +889,8 @@ async def _run_chat_multi_mcp_impl(
                 hard_iter += 1
                 continue
 
-            # Tentative d'appel qui n'a rien exécuté (illisible, ou perdue
-            # dans le reasoning) : relance bornée.
+            # Tentative d'appel qui n'a rien exécuté (illisible, perdue dans
+            # le reasoning, ou vers un outil inconnu) : relance bornée.
             _relaunched, _malformed_retry = await relaunch_unparsed_call(
                 rec, working_messages, reply, live=_live,
                 iter_thinking=_iter_thinking, iteration=iteration,

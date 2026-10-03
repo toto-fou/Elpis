@@ -319,6 +319,11 @@ selon [SemVer](https://semver.org/lang/fr/).
   repos voit de nouveau les requêtes en cours quand `/health` ne répond pas.
 - **Chat** : le pied d'un message (modèle, durée, débits) reste affiché après
   les tours suivants ; il disparaissait au tour suivant.
+- **Outils** : une réponse qui n'est qu'un appel écrit en texte vers un outil
+  inexistant relance le modèle (deux fois au plus, en lui nommant l'outil) au
+  lieu de finir sur une réponse vide.
+- **Compaction** (chat sans outils, réflexion active) : la porte réserve le
+  même plafond de génération que le budget de contexte.
 - **Git** : l'ancien fichier d'identifiants importé
   (`.git-credentials.json.imported`) est supprimé de la sandbox.
 - **Audit** : les révocations de sessions (toutes, ou d'un compte) sont

@@ -941,14 +941,11 @@ async def run_turn(plan: TurnPlan, res: TurnResources, base: PersistBaseline):
                         # compte s'applique pleinement (rien à couper).
                         from llm_core.context.compaction_gate import compaction_gate as _cgate
                         from llm_core.conversation_compressor import maybe_compress_conversation
-                        # ``thinking_mode=False`` : même plafond, à seuil
-                        # « auto », que le repli de
-                        # ``maybe_compress_conversation`` sur ce chemin.
-                        # (Le budget dur juste en dessous, lui, passe le VRAI
-                        # ``thinking_mode`` : divergence connue, gardée telle
-                        # quelle.)
+                        # Le VRAI ``thinking_mode``, comme le budget dur juste
+                        # en dessous et la porte de la boucle outils : même
+                        # plafond de génération réservé des deux côtés.
                         _cl_gate = _cgate(_ctx_tok or 0,
-                                          thinking_mode=False,
+                                          thinking_mode=thinking_mode,
                                           threshold=_compaction_threshold)
                         _msgs_classic, _compr_stats_classic = await maybe_compress_conversation(
                             msgs_for_llm,

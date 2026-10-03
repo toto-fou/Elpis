@@ -466,7 +466,8 @@ class _ImageTurn:
             from shared_infra.runtime.run_journal import RunJournal
             meta = {"engine_key": "image", "model": model_name(self.cfg, self.caps),
                     "is_continue": False, "base_count": self.raw_count,
-                    "user_message": self.prompt[:20000]}
+                    "user_message": self.prompt[:20000],
+                    "image_request": self.msgs[-1].get("image_request") or {}}
             j = RunJournal(self.user_id, self.chat_id, self.run_id, meta=meta)
             if await j.open(dict(meta, chat_id=self.chat_id)):
                 self.journal = j

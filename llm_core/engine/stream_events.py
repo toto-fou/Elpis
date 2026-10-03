@@ -91,7 +91,6 @@ LOOP_EVENTS = frozenset({
 NOT_DISPLAYED = frozenset({
     "tool_limit", "tool_history_partial", "prune_state", "llm_user_suffix",
     "compression_state", "rag_sources", "log", "journal_truncated",
-    "image_progress", "image", "image_prompt", "image_error",
 })
 
 __all__ = ["LOOP_EVENTS", "NOT_DISPLAYED", "STREAM_EVENTS"]

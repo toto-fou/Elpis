@@ -116,7 +116,7 @@ def test_fichier_proprietaire_seul(env):
     assert r.status_code == 200 and r.content.startswith(b"\x89PNG")
     assert r.headers["cache-control"].startswith("private")
     assert r.headers["x-content-type-options"] == "nosniff"
-    assert 'filename="un-phare-sous-l-orage-4812.png"' in r.headers["content-disposition"]
+    assert 'filename="Un-phare-sous-l-orage-4812.png"' in r.headers["content-disposition"]
     t = env["c"].get(ref["thumb_url"])
     assert t.status_code == 200 and t.headers["content-type"] == "image/webp"
     env["as"]("bob")
@@ -245,3 +245,11 @@ def test_reglages_du_compte(env):
     assert s["image_prefs"] == {"ratio": "16:9", "side": 2048, "n": 4, "enhance": False}
     st = c.get("/api/image/status").json()
     assert st["available"] is False and st["prefs"]["ratio"] == "16:9"
+
+
+def test_nom_de_telechargement_comme_l_interface():
+    """Même règle que ``imageFileName`` (chat/_image.js)."""
+    from shared_infra.image.routes import download_name
+    assert download_name("Café à l'aube !", 7, "image/jpeg") == "Café-à-l-aube-7.jpg"
+    assert download_name("", None, "image/webp", "abcdef0123456789") == "image-abcdef01.webp"
+    assert download_name("x" * 60, 1, "image/png") == "x" * 40 + "-1.png"

@@ -356,3 +356,27 @@ async def test_stop_par_l_interface_annule_la_tache(tour, monkeypatch):
             break
         await asyncio.sleep(0.05)
     assert not chat_locks.is_held("gen", 1, "chat-img")
+
+
+def test_rattachement_garde_la_demande(tour, monkeypatch):
+    """Après F5, le front se rattache au run : le journal et l'état de la
+    génération portent la demande du message, que Régénérer réutilise."""
+    vu = {}
+
+    def pendant():
+        from shared_infra.runtime.run_journal import current_run
+        cur = current_run(1, "chat-img")
+        if cur:
+            vu["req"] = cur.get("image_request")
+    tour["faux"].pendant = pendant
+    _flux(tour["c"], _corps())
+    assert vu["req"]["size"] == "1024x576" and vu["req"]["ratio"] == "16:9"
+
+    import chatbot_app.routes.chat_control as controle
+    import shared_infra.runtime.run_journal as journal
+    monkeypatch.setattr(controle, "is_generation_active", lambda *_a: True)
+    monkeypatch.setattr(journal, "current_run", lambda *_a: {
+        "run_id": "r1", "user_message": "Un phare", "engine_key": "image",
+        "image_request": vu["req"]})
+    st = tour["c"].get("/api/chat/chat-img/generation-status").json()
+    assert st["engine_key"] == "image" and st["image_request"] == vu["req"]

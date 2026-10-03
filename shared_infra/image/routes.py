@@ -17,7 +17,6 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-import unicodedata
 from typing import Any, Dict, Optional
 
 from fastapi import HTTPException, Request
@@ -31,13 +30,13 @@ from shared_infra.security.deps import require_user_id
 _EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 
 
-def download_name(prompt: str, seed: Any, mime: str) -> str:
-    """Nom de fichier proposé au téléchargement : ``<début du prompt>-<graine>``
-    (le même que l'interface)."""
-    t = unicodedata.normalize("NFKD", prompt or "").encode("ascii", "ignore").decode("ascii")
-    slug = re.sub(r"[^a-z0-9]+", "-", t.lower()).strip("-")[:40].rstrip("-") or "image"
-    suffix = f"-{seed}" if isinstance(seed, int) else ""
-    return f"{slug}{suffix}.{_EXT.get(mime, 'png')}"
+def download_name(prompt: str, seed: Any, mime: str, image_id: str = "") -> str:
+    """Nom de fichier proposé au téléchargement, le même que l'interface
+    (``imageFileName`` de ``chat/_image.js``) : ``<description>-<graine>.<ext>``,
+    les 8 premiers caractères de l'id à défaut de graine."""
+    slug = re.sub(r"[\W_]+", "-", prompt or "").strip("-")[:40].rstrip("-") or "image"
+    tag = str(seed) if isinstance(seed, int) else (image_id or "")[:8]
+    return f"{slug}-{tag}.{_EXT.get(mime, 'png')}" if tag else f"{slug}.{_EXT.get(mime, 'png')}"
 
 
 def status_for(user_id: int) -> Dict[str, Any]:
@@ -89,7 +88,7 @@ async def api_image_file(image_id: str, request: Request, thumb: int = 0):
     except ValueError:
         seed = None
     return FileResponse(row["path"], media_type=row["mime"],
-                        filename=download_name(row.get("prompt") or "", seed, row["mime"]),
+                        filename=download_name(row.get("prompt") or "", seed, row["mime"], image_id),
                         content_disposition_type="inline", headers=headers)
 
 

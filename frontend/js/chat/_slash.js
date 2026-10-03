@@ -39,7 +39,8 @@
 //    * ctx.openSettingsTab  -- /settings, /memory, /usage
 //    * ctx.openHelp         -- /help
 //    * ctx.setPlanMode      -- /plan
-//    * ctx.env              -- getter {chatId, isStreaming, planMode}
+//    * ctx.imageSlash       -- /image
+//    * ctx.env              -- getter {chatId, isStreaming, planMode, imageAvailable}
 // ============================================================
 
 function setupChatSlash(vue, sharedRefs, ctx) {
@@ -233,6 +234,18 @@ function setupChatSlash(vue, sharedRefs, ctx) {
             },
         },
         {
+            // « /image [ratio] [xN] description » : envoie la demande au
+            // moteur d'images sans ouvrir le mode ; seule, ouvre le mode.
+            // Absente du menu pour un compte sans moteur d'images.
+            name: 'image', label: 'Images', icon: 'ph-image',
+            desc: 'Générer une image : /image 16:9 x2 description',
+            hidden:    (env) => !env.imageAvailable,
+            when:      (env) => !env.isStreaming,
+            whenLabel: 'Hors génération',
+            run: async (_a, raw) => (ctx.imageSlash ? ctx.imageSlash(raw)
+                : { ok: false, msg: 'Génération d’images indisponible.' }),
+        },
+        {
             name: 'compact', label: 'Compacter', icon: 'ph-arrows-in-simple',
             desc: "Résume l'historique ancien pour libérer du contexte",
             when:      (env) => !!env.chatId && !env.isStreaming,
@@ -271,9 +284,16 @@ function setupChatSlash(vue, sharedRefs, ctx) {
         },
     ];
 
+    // Commande cachée dans le contexte courant (ex. /image sans moteur) :
+    // absente du menu et jamais résolue — le texte part tel quel.
+    function _cmdHidden(cmd) {
+        if (!cmd || typeof cmd.hidden !== 'function') return false;
+        try { return !!cmd.hidden(ctx.env || {}); } catch (e) { return false; }
+    }
+
     function _findCmd(name) {
         const n = String(name || '').toLowerCase();
-        return SLASH_CORE.find(c => c.name === n) || null;
+        return SLASH_CORE.find(c => c.name === n && !_cmdHidden(c)) || null;
     }
 
     // Disponibilité d'une commande dans le contexte courant.
@@ -328,7 +348,7 @@ function setupChatSlash(vue, sharedRefs, ctx) {
 
     const _query = computed(() => ((slashRaw.value && slashRaw.value.name) || '').toLowerCase());
 
-    const slashCmdList = computed(() => _pack(SLASH_CORE, _query.value, c => c.name));
+    const slashCmdList = computed(() => _pack(SLASH_CORE.filter(c => !_cmdHidden(c)), _query.value, c => c.name));
 
     const slashSkillList = computed(() => {
         const q = _query.value.trim();

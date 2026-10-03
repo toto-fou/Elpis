@@ -97,6 +97,7 @@ function setupChatHistory(vue, sharedRefs, ctx, deps) {
         clearPinnedSkills,        // chat/_slash.js (skills épinglés — passe 2)
         resetAskUser,             // app-chat.js (questionnaire ask_user — passe 2)
         closeTaskModal,           // app-chat.js (modale « œil » d'agent — passe 4)
+        resetImageCompose,        // chat/_image.js (mode Images coupé au switch)
     } = deps;
 
     // Garde-fou cache : applyChatTools peut être absent si un ancien
@@ -163,6 +164,8 @@ function setupChatHistory(vue, sharedRefs, ctx, deps) {
         // (passe 4, F10) — la modale « œil » d'agent référence un message par
         // index dans le chat qu'on quitte : périmée dès le switch.
         if (typeof closeTaskModal === 'function') { try { closeTaskModal(); } catch (_) {} }
+        // Mode Images : une demande d'image ne suit pas vers une autre conversation.
+        if (typeof resetImageCompose === 'function') { try { resetImageCompose(); } catch (_) {} }
     }
 
     async function loadChatsList() {
@@ -456,6 +459,9 @@ function setupChatHistory(vue, sharedRefs, ctx, deps) {
                         if (!(msg.segTexts && msg.segTexts.length)) msg.segTexts = _segs;
                     }
                     if (m.pruned) msg.pruned = m.pruned;
+                    // Génération d'images : demande, références, description
+                    // enrichie, modèle, erreur (chat/_image.js › IMAGE_MSG_KEYS).
+                    if (typeof copyImageFields === 'function') copyImageFields(m, msg);
                     // On gèle TOUS les messages chargés — même le dernier,
                     // car il n'est pas en cours de streaming (la conv est
                     // persistée, donc terminée). Si l'utilisateur clique

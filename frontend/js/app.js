@@ -1857,6 +1857,11 @@ const elpisApp = createApp({
                 }
             }
 
+            // Popovers du mode Images (format, options) : même patron closest().
+            if (chatMod.imagePop && chatMod.imagePop.value) {
+                if (!e.target.closest('[data-image-pop]')) chatMod.imagePop.value = '';
+            }
+
             // Close todo flyout (chip Tâches du composeur) when clicking
             // outside its anchor — même pattern closest() que le sélecteur
             // de modèle.
@@ -2448,6 +2453,7 @@ const elpisApp = createApp({
                 if (editorMod.showGitRemoteModal && editorMod.showGitRemoteModal.value) { editorMod.showGitRemoteModal.value = false; return; }
                 if (editorMod.showGitPushAuth && editorMod.showGitPushAuth.value)       { editorMod.showGitPushAuth.value = false; return; }
                 if (editorMod.showGitMergeModal && editorMod.showGitMergeModal.value)   { editorMod.showGitMergeModal.value = false; return; }
+                if (chatMod.imageViewer && chatMod.imageViewer.value)                         { chatMod.closeImageViewer(); return; }
                 if (imgZoom.value)                                                            { imgZoom.value = null; return; }
                 // Popovers de l'éditeur (menu import, débordement d'onglets, menu
                 // contextuel d'onglet) : fermables au clavier comme les autres
@@ -2466,6 +2472,13 @@ const elpisApp = createApp({
                 if (chatMod.showMcpPanel && chatMod.showMcpPanel.value)  { chatMod.showMcpPanel.value  = false; return; }
                 if (chatMod.showRagPanel && chatMod.showRagPanel.value) { chatMod.showRagPanel.value = false; return; }
                 if (chatMod.showComposerPlus && chatMod.showComposerPlus.value) { chatMod.showComposerPlus.value = false; return; }
+                // Mode Images : popover ouvert d'abord, puis sortie du mode
+                // quand la saisie (vide) a le focus.
+                if (chatMod.imageEscape) {
+                    const _ta = inputRef.value;
+                    const _vide = !(inputMessage.value || '').trim();
+                    if (chatMod.imageEscape(_vide, !!_ta && document.activeElement === _ta)) return;
+                }
                 if (chatMod.showModelManager && chatMod.showModelManager.value) { chatMod.showModelManager.value = false; return; }
                 if (chatMod.showReasoningEffortMenu && chatMod.showReasoningEffortMenu.value) { chatMod.showReasoningEffortMenu.value = false; return; }
                 if (showNotifPanel.value) { showNotifPanel.value = false; return; }
@@ -2529,6 +2542,18 @@ const elpisApp = createApp({
                     else editorMod.editorFullscreen.value = false;
                     return;
                 }
+                return;
+            }
+
+            // -- Alt+I : mode Images du composeur. Ctrl+Maj+I ouvre les outils
+            //    de développement de Chromium et de Firefox : inutilisable.
+            if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === 'KeyI'
+                    && currentView.value === 'chat' && chatMod.toggleImageMode
+                    && chatMod.imageAvailable && chatMod.imageAvailable.value) {
+                if (modalState.value.isOpen
+                        || (settingsMod.showSettingsModal && settingsMod.showSettingsModal.value)) return;
+                e.preventDefault();
+                chatMod.toggleImageMode();
                 return;
             }
 
@@ -2600,7 +2625,7 @@ const elpisApp = createApp({
                     // liste avait encore des tâches ouvertes.
                     todos:    (chatMod.todoList && Array.isArray(chatMod.todoList.value))
                                   ? chatMod.todoList.value : [],
-                    messages: msgs.map(m => ({
+                    messages: msgs.map(m => Object.assign({
                         role:           m.role,
                         content:        m.content,
                         images:         m.images,
@@ -2632,7 +2657,9 @@ const elpisApp = createApp({
                         summary:        m.summary,
                         // Fichiers modifiés par les outils (diffs du chat).
                         files_changed:    m.files_changed,
-                    })),
+                    // Génération d'images : liste commune avec la persistance
+                    // et la réhydratation (chat/_image.js › IMAGE_MSG_KEYS).
+                    }, (typeof copyImageFields === 'function') ? copyImageFields(m) : {})),
                     savedAt: Date.now(),
                 }));
             } catch(e) {}
@@ -3129,5 +3156,8 @@ const elpisApp = createApp({
 if (typeof CodeDiffCard !== 'undefined') elpisApp.component('code-diff', CodeDiffCard);
 // Grille xlsx de l'éditeur (aperçus Office) — même raison : absente d'admin.html.
 if (typeof OfficeGrid !== 'undefined') elpisApp.component('office-grid', OfficeGrid);
+// Génération d'images (chat/_image.js) : tuile en cours et grille de résultats.
+if (typeof ImageTile !== 'undefined') elpisApp.component('image-tile', ImageTile);
+if (typeof ImageGrid !== 'undefined') elpisApp.component('image-grid', ImageGrid);
 
 elpisApp.mount('#app');

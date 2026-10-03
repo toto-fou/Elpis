@@ -153,10 +153,19 @@ Latence par opération de l'agent (médiane de 20, même machine) :
 `tests/shared_infra/` : `test_agent_sandbox_2026_09_29.py` (agent et
 client), `test_git_relais_2026_09_29.py` (git et relais de bout en bout,
 avec `git http-backend`), `test_relecture_editeur_agent_2026_09_29.py`,
-`test_adversarial_sandbox_2026_09_29.py`, `test_archives_agent_2026_09_29.py`,
+`test_adversarial_sandbox_2026_09_29.py`, `test_agent_parcours_sans_lien_2026_10_03.py`,
+`test_archives_agent_2026_09_29.py`,
 `test_frontiere_interception_2026_09_30.py` (aucun accès de l'hôte à
 `/work` pendant les parcours), `test_frontiere_agent_2026_09_30.py`,
 `test_sandbox_paths.py`, `test_run_args.py` ;
 `tests/sandbox/test_git_routes_agent_2026_09_29.py` (routes Git de
 l'éditeur), `tests/llm_core/test_git_network_backend.py` (outils Git par le
 relais), `tests/llm_core/test_relecture_agent_fichiers_2026_09_29.py`.
+
+En vrai conteneur (image `elpis/sandbox` et agent du conteneur, pièges posés
+depuis le conteneur), sur demande — Docker et l'image requis, un conteneur par
+test, détruit à la fin :
+
+```bash
+ELPIS_TEST_CONTENEUR=1 venv/bin/pytest -n 0 tests/shared_infra/test_adversarial_conteneur_2026_10_03.py
+```

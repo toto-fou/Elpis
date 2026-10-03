@@ -691,6 +691,13 @@ def step_database(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> Op
         ok("Mot de passe enregistré (user_db/.db_password, 0600).")
     db.update({"backend": choice, "host": host, "port": int(port), "name": name,
                "user": user, "tls": tls})
+    # Une cible restée « en attente » (copie ratée d'une installation
+    # précédente) est remplacée par ce choix.
+    db.pop("pending", None)
+    try:
+        (USER_DB / ".db_password.pending").unlink()
+    except OSError:
+        pass
     ok(f"Base : {_db_url(target)}")
     # Données d'une installation SQLite existante : les copier dans la base vide.
     sqlite_path = ROOT / str(section(cfg, "app").get("db_path") or "user_db/app.db")
@@ -716,6 +723,25 @@ def apply_db_transfer(plan: Dict[str, Any]) -> bool:
         return True
     warn("Copie échouée : " + (r.stderr.strip().splitlines() or ["?"])[-1])
     return False
+
+
+def keep_sqlite_after_failed_transfer(cfg: Dict[str, Any]) -> None:
+    """Copie échouée : Elpis reste sur SQLite, où sont les données et les
+    comptes. Sans ce retour, l'étape suivante (compte admin, ``init_db()``)
+    posait le schéma dans la nouvelle base, qui n'était plus vierge : la copie
+    ne pouvait plus être relancée. La cible est gardée « en attente »
+    (``database.pending``, comme « Enregistrer » de la console), à basculer
+    depuis la console une fois le problème corrigé."""
+    db = section(cfg, "database")
+    db["pending"] = {k: db[k] for k in ("backend", "host", "port", "name", "user", "tls")
+                     if db.get(k) not in (None, "")}
+    db["backend"] = "sqlite"
+    if DB_PASSWORD_FILE.is_file():
+        write_private(USER_DB / ".db_password.pending", DB_PASSWORD_FILE.read_text(encoding="utf-8"))
+    write_json(CONFIG, cfg)
+    warn("Elpis reste sur SQLite, données intactes. La nouvelle base est gardée en attente : "
+         "console d'administration › Base de données › Migrer, une fois le problème corrigé "
+         "(rapport : user_db/db-transfer-report.json).")
 
 
 def step_secrets(cfg: Dict[str, Any], force: bool) -> None:
@@ -994,8 +1020,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # Avant le compte admin : init_db() poserait le schéma dans la base vide,
     # et le transfert exige une cible vierge.
     if transfer and not apply_db_transfer(transfer):
-        warn("La nouvelle base reste vide : relancez « ./elpis db transfer » ou revenez à SQLite "
-             "(./elpis db use sqlite).")
+        keep_sqlite_after_failed_transfer(cfg)
 
     step_admin(p, a)
     if cloud:

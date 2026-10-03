@@ -160,7 +160,7 @@ flowchart TB
     end
 
     subgraph AppServer["Serveur applicatif (Python / FastAPI)"]
-        Main["main :8001<br/>Gunicorn cpu-1 workers<br/>chat · sandbox · routines · code"]
+        Main["main :8001<br/>Gunicorn min(4, cpu-1) workers<br/>chat · sandbox · routines · code"]
         Admin["admin :8002<br/>1 worker<br/>/api/admin/*"]
         DB[("SQLite WAL (défaut)<br/>ou PostgreSQL / MariaDB")]
         Spool[["Canaux inter-workers<br/>/tmp ou ELPIS_RUNTIME_DIR<br/>métriques · annulation · verrous"]]
@@ -248,7 +248,7 @@ flowchart LR
 **Rôle de chaque process :**
 
 - **main** (`server/app.py`) — cœur applicatif ; sert aussi les statiques.
-  Workers Gunicorn = `cpu - 1` au-delà de 2 vCPU (`server/gunicorn_conf.py`),
+  Workers Gunicorn = `min(4, cpu - 1)` au-delà de 2 vCPU (`server/gunicorn_conf.py`),
   surchargeable par `APP_WORKERS`.
 - **admin** (`server/admin_app.py`) — isolation des endpoints sensibles, sous
   le même compte non privilégié que main (aucune opération admin n'exige root).

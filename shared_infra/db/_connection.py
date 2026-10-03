@@ -123,7 +123,8 @@ def _generation_guard() -> None:
     process (``database.generation`` de config.json > celle de l'import) : un
     ancien worker qui finit un run après le rechargement écrirait sinon dans
     l'ANCIENNE base, et ces écritures seraient perdues. Lecture de config.json
-    au plus une fois par seconde ; l'état « périmé » est définitif."""
+    (et du drapeau de bascule) au plus une fois par seconde ; l'état
+    « périmé » est définitif."""
     global _gen_checked_at, _gen_stale
     if _gen_stale:
         raise sqlite3.OperationalError(
@@ -136,7 +137,15 @@ def _generation_guard() -> None:
         from shared_infra.config import config_view
         published = int(((config_view().get("database") or {}).get("generation")) or 0)
     except Exception:
-        return
+        published = 0
+    # Seconde source : le drapeau de bascule, marqué « publié » juste après
+    # l'écriture de config.json. Un config.json devenu illisible (rendu vide)
+    # ne fait donc plus écrire un ancien process dans l'ancienne base.
+    try:
+        from shared_infra.ops.db_switch import published_generation
+        published = max(published, published_generation())
+    except Exception:
+        pass
     if published > _db_generation():
         _gen_stale = True
         logger.error("[db] base basculée (génération %d > %d) : emprunts refusés "

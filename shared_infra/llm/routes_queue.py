@@ -82,7 +82,9 @@ def _build_snapshot() -> Dict[str, Any]:
     total_in_flight = 0
     total_capacity  = 0
     for m in active_models:
-        holders = int(m.get("holders") or 0)
+        # Ce worker ne voit que ses détenteurs ; les créneaux pris par les
+        # autres process se lisent dans les créneaux partagés.
+        holders = max(int(m.get("holders") or 0), int(m.get("shared_busy") or 0))
         max_c   = int(m.get("effective_max_convs") or fallback_max)
         models_out.append({
             "model":   m.get("model") or "",

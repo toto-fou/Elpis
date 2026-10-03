@@ -199,3 +199,17 @@ def test_chaque_dependance_figure_dans_les_notices():
             if not any(re.search(rf"(?<![\w-]){re.escape(v)}(?![\w-])", notices) for v in variants):
                 manquants.append(f"{req.name}: {pkg}")
     assert not manquants, "à déclarer dans THIRD_PARTY_NOTICES.md : " + ", ".join(manquants)
+
+
+def test_copie_ratee_puis_nouveau_choix_retire_la_cible_en_attente(conf, monkeypatch):
+    """Lot 3 (2026-10-03) : après une copie ratée, la cible est gardée « en
+    attente » ; relancer l'installeur et choisir un serveur la remplace."""
+    monkeypatch.setenv("ELPIS_CFG_DB_PASSWORD", "s3cret")
+    cfg = {}
+    conf.step_database(conf.Prompter(False), _args(db="postgres", db_host="db.lan"), cfg)
+    conf.keep_sqlite_after_failed_transfer(cfg)
+    assert cfg["database"]["backend"] == "sqlite" and cfg["database"]["pending"]["host"] == "db.lan"
+    assert (conf.USER_DB / ".db_password.pending").read_text().strip() == "s3cret"
+    conf.step_database(conf.Prompter(False), _args(db="postgres", db_host="db.lan"), cfg)
+    assert cfg["database"]["backend"] == "postgres" and "pending" not in cfg["database"]
+    assert not (conf.USER_DB / ".db_password.pending").exists()

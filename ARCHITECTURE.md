@@ -19,7 +19,7 @@ et reliés par HTTP.
 
 | Process | Port | Entrée | Rôle |
 |---|---|---|---|
-| **main** | 8001 | `server/app.py` (`APP_MODE=main`) | chat, éditeur, sandbox, routines, statiques ; Gunicorn, `cpu − 1` workers au-delà de 2 cœurs (`APP_WORKERS`) |
+| **main** | 8001 | `server/app.py` (`APP_MODE=main`) | chat, éditeur, sandbox, routines, statiques ; Gunicorn, `min(4, cpu − 1)` workers au-delà de 2 cœurs (`APP_WORKERS`) |
 | **admin** | 8002 | `server/admin_app.py` (`APP_MODE=admin`) | console d'administration et `/api/admin/*` ; 1 worker |
 | **toolhost** | 8765 | `python -m toolhost` | hôte des outils MCP (HTTP streamable `/mcp[/<famille>]`, SSE), API sandbox et terminal ; sa propre base `user_db/toolhost.db` |
 | **rag_app** | 8000 | `rag_app/start.sh` | service RAG autonome (FastAPI + Qdrant :6333, OCR) — optionnel |

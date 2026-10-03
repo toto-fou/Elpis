@@ -206,6 +206,11 @@ def build_app(tc: Optional[ToolhostConfig] = None):
         # ``FastMCP._lifespan_manager`` est compté par référence : entrer les
         # deux cycles de vie n'exécute qu'une fois le démarrage du serveur.
         import asyncio as _a
+
+        from llm_core.tools._mcp_compliance_middleware import apply_thread_pool_size
+        # Pool de threads des outils synchrones ET des routes HTTP du service
+        # (MCP_TOOL_THREADS) : posé dès le démarrage, pas au premier appel.
+        apply_thread_pool_size()
         async with contextlib.AsyncExitStack() as stack:
             await stack.enter_async_context(mcp_app.lifespan(app))
             if sse_app is not None:

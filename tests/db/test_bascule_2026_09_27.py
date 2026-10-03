@@ -84,6 +84,7 @@ def test_maintenance_bloque_les_ecritures_des_anciens_process(env):
     client = _app_maintenance()
     assert client.post("/api/x").status_code == 200
     (env["dir"] / ".db_maintenance").write_text(json.dumps({"generation": 1}), encoding="utf-8")
+    db_switch._write_job(state="running", kind="migrate", pid=os.getpid())   # bascule vivante
     client = _app_maintenance()                    # cache d'une seconde : app neuve
     assert db_switch.maintenance_active()
     assert client.post("/api/x").status_code == 503

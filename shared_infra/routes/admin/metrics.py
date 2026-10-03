@@ -155,6 +155,7 @@ def api_admin_metrics_prometheus(request: Request):
     lines.append("# TYPE elpis_up gauge")
     lines.append("elpis_up 1")
 
+    conn = None
     try:
         conn = _db(); cur = conn.cursor()
 
@@ -315,10 +316,13 @@ def api_admin_metrics_prometheus(request: Request):
         lines.append("# HELP elpis_scheduler_skipped_minutes_24h Cron minutes never evaluated in last 24h")
         lines.append("# TYPE elpis_scheduler_skipped_minutes_24h gauge")
         lines.append(f"elpis_scheduler_skipped_minutes_24h {int(_row[0] or 0) if _row else 0}")
-
-        conn.close()
     except Exception as e:
         lines.append(f"# Error: {str(e)}")
+    finally:
+        # Rendue même si une requête échoue : sur PostgreSQL/MariaDB, une
+        # connexion jamais rendue manque au pool jusqu'au redémarrage.
+        if conn is not None:
+            conn.close()
 
     # System metrics
     try:
@@ -404,29 +408,30 @@ def api_export_metrics(request: Request, days: int = 7, target: str = "metric_ev
     import csv
     import io
 
-    from shared_infra.db._connection import db as _db
-    conn = _db(); cur = conn.cursor()
-    since = time.time() - max(1, min(3650, int(days))) * 86400
-    if target == "usage_events":
-        cols = ["ts", "user_id", "source", "origin_id", "parent_id", "model",
-                "connector", "path", "input_tokens", "output_tokens",
-                "submitted_tokens", "cache_read_tokens",
-                "cache_creation_tokens", "duration_ms", "iterations", "status",
-                # Colonnes ajoutées en fin : un lecteur par position ne décale pas.
-                "error_kind", "thinking_tokens", "run_id"]
-        cur.execute(
-            f"SELECT {local_datetime('ts')} AS ts, "
-            f"{', '.join(cols[1:])} FROM usage_events WHERE ts > ? ORDER BY ts ASC",
-            (since,))
-    else:
-        cols = ["event_type", "value", "tags", "user_id", "created_at"]
-        cur.execute(f"""
-            SELECT event_type, value, tags_json, user_id,
-                   {local_datetime('created_at')} as created_at
-            FROM metric_events WHERE created_at > ?
-            ORDER BY created_at ASC
-        """, (since,))
-    rows = cur.fetchall(); conn.close()
+    from shared_infra.db._connection import db_conn
+    with db_conn() as conn:
+        cur = conn.cursor()
+        since = time.time() - max(1, min(3650, int(days))) * 86400
+        if target == "usage_events":
+            cols = ["ts", "user_id", "source", "origin_id", "parent_id", "model",
+                    "connector", "path", "input_tokens", "output_tokens",
+                    "submitted_tokens", "cache_read_tokens",
+                    "cache_creation_tokens", "duration_ms", "iterations", "status",
+                    # Colonnes ajoutées en fin : un lecteur par position ne décale pas.
+                    "error_kind", "thinking_tokens", "run_id"]
+            cur.execute(
+                f"SELECT {local_datetime('ts')} AS ts, "
+                f"{', '.join(cols[1:])} FROM usage_events WHERE ts > ? ORDER BY ts ASC",
+                (since,))
+        else:
+            cols = ["event_type", "value", "tags", "user_id", "created_at"]
+            cur.execute(f"""
+                SELECT event_type, value, tags_json, user_id,
+                       {local_datetime('created_at')} as created_at
+                FROM metric_events WHERE created_at > ?
+                ORDER BY created_at ASC
+            """, (since,))
+        rows = cur.fetchall()
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(cols)

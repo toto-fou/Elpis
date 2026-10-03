@@ -17,7 +17,10 @@ Déroulé d'une bascule (``start_job``, tâche de fond du process admin) :
    dépasse celle du process (``generation_guard``).
 
 La sortie du mode maintenance est implicite : les process neufs portent la
-nouvelle génération et ignorent le drapeau ; un échec l'efface.
+nouvelle génération et ignorent le drapeau ; un échec l'efface. Un process
+admin TUÉ pendant la copie (OOM, redémarrage) ne l'efface pas : le drapeau
+n'est donc écouté que tant que la tâche est vivante (process admin en vie,
+avancement récent) ou que la bascule est publiée (cf. ``maintenance_active``).
 """
 from __future__ import annotations
 
@@ -33,6 +36,7 @@ log = logging.getLogger("uvicorn.error")
 
 _JOB_LOCK = threading.Lock()
 _WAIT_GENERATIONS_S = 120.0
+_JOB_STALE_S = 600.0
 _MUTATING = {"POST", "PUT", "PATCH", "DELETE"}
 _ALLOWED_PREFIXES = ("/api/admin/database", "/api/auth/", "/api/admin/internal/")
 
@@ -66,13 +70,53 @@ def current_generation() -> int:
         return 0
 
 
-def maintenance_active() -> bool:
-    """Vrai pour un process d'une génération antérieure à la bascule en cours."""
+def _read_flag() -> Optional[Dict[str, Any]]:
+    """Drapeau de maintenance : ``None`` s'il est absent, ``{}`` s'il est
+    présent mais illisible."""
     try:
-        target = json.loads(_flag_path().read_text(encoding="utf-8")).get("generation", 0)
-    except (OSError, ValueError):
+        raw = _flag_path().read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return {}
+    try:
+        flag = json.loads(raw)
+    except ValueError:
+        return {}
+    return flag if isinstance(flag, dict) else {}
+
+
+def published_generation() -> int:
+    """Génération publiée selon le drapeau (0 tant que la bascule n'a pas
+    écrit config.json) — seconde source de la garde de génération, quand
+    config.json ne se lit plus."""
+    flag = _read_flag() or {}
+    try:
+        return int(flag.get("generation") or 0) if flag.get("published") else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def maintenance_active() -> bool:
+    """Vrai pour un process d'une génération antérieure à une bascule EN COURS
+    (tâche vivante) ou PUBLIÉE (config.json ou drapeau).
+
+    Un drapeau laissé par un process admin tué pendant la copie n'est plus
+    écouté : avant, toutes les écritures répondaient 503 indéfiniment. Un
+    drapeau présent mais illisible ferme pendant une tâche vivante, au lieu de
+    laisser écrire."""
+    flag = _read_flag()
+    if flag is None:
         return False
-    return process_generation() < int(target or 0)
+    try:
+        target = int(flag.get("generation") or 0)
+    except (TypeError, ValueError):
+        target = 0
+    if not target:
+        return _running()
+    if process_generation() >= target:
+        return False
+    return bool(flag.get("published")) or current_generation() >= target or _running()
 
 
 class MaintenanceASGI:
@@ -102,23 +146,50 @@ class MaintenanceASGI:
 
 # ── Tâche ────────────────────────────────────────────────────────────────────
 
-def job_status() -> Dict[str, Any]:
+def _read_job() -> Dict[str, Any]:
     try:
-        return json.loads(_job_path().read_text(encoding="utf-8"))
+        st = json.loads(_job_path().read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {"state": "idle"}
+    return st if isinstance(st, dict) else {"state": "idle"}
+
+
+def _pid_alive(pid: Any) -> bool:
+    try:
+        os.kill(int(pid), 0)
+    except PermissionError:
+        return True                       # existe, sous un autre compte
+    except (OSError, TypeError, ValueError):
+        return False
+    return True
+
+
+def _alive(st: Dict[str, Any]) -> bool:
+    """La tâche « running » a-t-elle encore un process derrière elle ?"""
+    if st.get("state") != "running":
+        return False
+    if time.time() - float(st.get("updated_at") or 0) >= _JOB_STALE_S:
+        return False
+    return "pid" not in st or _pid_alive(st["pid"])
+
+
+def job_status() -> Dict[str, Any]:
+    st = _read_job()
+    if st.get("state") == "running" and not _alive(st):
+        st = dict(st, state="error", error="bascule interrompue : le process qui la menait "
+                                           "s'est arrêté ; la base active n'a pas changé")
+    return st
 
 
 def _write_job(**fields) -> None:
     from shared_infra.config import write_text_atomic
-    cur = job_status()
+    cur = _read_job()
     cur.update(fields, updated_at=time.time())
     write_text_atomic(_job_path(), json.dumps(cur, ensure_ascii=False))
 
 
 def _running() -> bool:
-    st = job_status()
-    return st.get("state") == "running" and time.time() - float(st.get("updated_at") or 0) < 600
+    return _alive(_read_job())
 
 
 def _password_path(pending: bool = False) -> Path:
@@ -189,7 +260,7 @@ def start_job(kind: str, target: Dict[str, Any], reload: Callable[[], None]) -> 
         if _running():
             return {"ok": False, "error": "une bascule est déjà en cours"}
         _write_job(state="running", kind=kind, step="préparation", progress=None,
-                   report=None, error=None, started_at=time.time())
+                   report=None, error=None, started_at=time.time(), pid=os.getpid())
     th = threading.Thread(target=_run, args=(kind, target, reload), daemon=True,
                           name="db-switch")
     th.start()
@@ -243,6 +314,8 @@ def _run(kind: str, target: Dict[str, Any], reload: Callable[[], None]) -> None:
             os.replace(swap["fresh"], swap["live"])
             target = {"backend": "sqlite"}
         write_database_config(target, switch=True)
+        write_text_atomic(_flag_path(), json.dumps({"generation": new_gen, "since": time.time(),
+                                                    "published": True}))
         _write_job(state="done", step="rechargement", finished_at=time.time())
         log.warning("[db-switch] base basculée vers %s (génération %d)",
                     T.describe(target) if target.get("path") or target.get("host") else "sqlite",
@@ -263,5 +336,5 @@ def _run(kind: str, target: Dict[str, Any], reload: Callable[[], None]) -> None:
 
 
 __all__ = ["MaintenanceASGI", "current_generation", "job_status", "maintenance_active",
-           "pending_password", "process_generation", "save_password", "start_job",
-           "write_database_config"]
+           "pending_password", "process_generation", "published_generation", "save_password",
+           "start_job", "write_database_config"]

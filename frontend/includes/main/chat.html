@@ -1246,7 +1246,8 @@
                                                         :progress="entry.msg._imageProgress" :stoppable="entry.idx === lastAssistantIdx"
                                                         @stop="stopGeneration()"></image-tile>
                                             <image-tile v-else-if="entry.msg.image_error"
-                                                        :error="entry.msg.image_error" :dims="imageReqDims(imageRequestFor(entry.idx))"
+                                                        :error="entry.msg.image_error" :live="!!entry.msg._imageErrorLive"
+                                                        :dims="imageReqDims(imageRequestFor(entry.idx))"
                                                         @retry="retryGeneration(entry.idx)"></image-tile>
                                             <div v-else class="markdown-body bg-transparent" v-html="renderMarkdown(entry.msg.content || '')"></div>
                                         </template>

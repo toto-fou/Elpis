@@ -766,23 +766,30 @@ Un seul moteur, réglé dans Console › Modèles & services › Images
   changer d'adresse. « Tester » lit les limites annoncées (`capabilities`).
 - **Tailles** : `free` = largeur × hauteur au multiple de 64, plus grand côté
   ≤ `max_side` ; `fixed` = liste fermée `sizes` (modèles OpenAI, défaut
-  1024x1024, 1536x1024, 1024x1536).
+  1024x1024, 1536x1024, 1024x1536). sd-server est toujours en `free`, et
+  `max_concurrent` ne vaut que pour un service OpenAI.
 - **TLS** : magasin de certificats du système, plus l'autorité collée dans
   `ca_pem` (PKI interne). `verify: false` ne sert qu'aux essais.
 - **Clé API** : chiffrée (Fernet) dans `api_key_enc`, écrite par
-  `PUT /api/admin/image/key`, jamais renvoyée. Un test vers une autre adresse
-  que celle enregistrée n'utilise que la clé saisie dans le formulaire.
+  `PUT /api/admin/image/key`, jamais renvoyée. Elle est liée à l'adresse du
+  moteur (schéma, hôte et port) : après un changement d'adresse vers une
+  autre machine, ressaisissez-la (la console l'indique). Un test vers une
+  autre adresse n'utilise que la clé saisie dans le formulaire.
 - **Accès** : `enabled` et une adresse ; `groups` (ids, vide = tout le monde,
   administrateurs toujours autorisés) est vérifié à chaque tour et à chaque
   appel de l'outil `generate_image`. Chaque compte peut ensuite couper
   « Images » et « Images par le modèle » dans ses Paramètres.
-- **Outil du modèle** : au plus `tool_max_calls` appels par tour, refusé en
-  mode plan.
+- **Outil du modèle** : au plus `tool_max_calls` appels et `max_n` images par
+  tour, refusé en mode plan.
 - **Stockage** : `user_db/generated_images/<compte>/` (dossier de la base),
   chemins relatifs en base, vignettes WebP ; les `keep_per_user` images les
-  plus récentes de chaque compte sont gardées. Supprimer une conversation ou
-  un compte supprime ses images ; la maintenance balaie les fichiers
-  orphelins. Le dossier est compris dans `./elpis backup`.
+  plus récentes de chaque compte sont gardées (jamais moins que le lot qui
+  vient d'être produit). Supprimer une conversation ou un compte supprime ses
+  images ; les images d'une session éphémère sont gardées un jour. La
+  maintenance quotidienne balaie les fichiers orphelins, les lignes dont le
+  fichier a disparu, et applique la rétention à tous les comptes. Les images
+  sont comprises dans `./elpis backup` (portées `full` et `db`), avec
+  `user_db/` ou à part si la base est ailleurs.
 - ⚠ **Plusieurs hôtes** sur une même base PostgreSQL/MySQL : chaque fichier
   reste sur l'hôte qui l'a écrit.
 

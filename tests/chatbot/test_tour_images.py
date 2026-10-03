@@ -380,3 +380,98 @@ def test_rattachement_garde_la_demande(tour, monkeypatch):
         "image_request": vu["req"]})
     st = tour["c"].get("/api/chat/chat-img/generation-status").json()
     assert st["engine_key"] == "image" and st["image_request"] == vu["req"]
+
+
+# ── Correctifs de la relecture finale ─────────────────────────────────────
+
+def test_piece_jointe_png_jpeg_webp_seulement(tour):
+    corps = _corps()
+    corps["messages"][0]["content"] = [
+        {"type": "text", "text": "en bleu"},
+        {"type": "image_url", "image_url": {"url": "data:image/svg+xml;base64,PHN2Zz4="}}]
+    code, body = _flux(tour["c"], corps)
+    assert code == 400 and body["detail"]["code"] == "invalid"
+    assert not tour["faux"].soumissions(), "rien n'est parti au moteur"
+
+
+def test_stop_pendant_l_ecriture_de_la_question(tour, monkeypatch):
+    """Un Stop (ou son écho) pendant l'écriture de la question mène quand
+    même à un ``final`` qui dit le tour arrêté."""
+    from chatbot_app.turn import image as image_mod
+
+    async def coupe(self):
+        raise asyncio.CancelledError()
+    monkeypatch.setattr(image_mod._ImageTurn, "_persist_question", coupe)
+    _code, ev = _flux(tour["c"], _corps())
+    fin = ev[-1]
+    assert fin["type"] == "final" and fin["cancelled"] is True
+    assert not tour["faux"].soumissions()
+
+
+def test_passation_apres_un_tour_images_arrete():
+    from chatbot_app.turn.admission import _handover_rebaseline_ok
+    base = [{"role": "user", "content": "q"}]
+    arrete = {"role": "assistant", "content": "[Génération d'image arrêtée]",
+              "image_error": {"code": "cancelled", "message": "m", "retryable": True}}
+    assert _handover_rebaseline_ok(base, base + [arrete])
+    echec = dict(arrete, image_error={"code": "engine", "message": "m", "retryable": True})
+    assert not _handover_rebaseline_ok(base, base + [echec])
+
+
+def test_greffe_du_travail_d_un_tour_stoppe(tour):
+    """Le travail d'outils d'un tour texte stoppé, connu de la base seule,
+    n'est pas effacé par la demande d'image suivante."""
+    from shared_infra.chat.store import upsert_chat
+    histo = [{"name": "write_file", "args": {"path": "a"}, "result": "ok"}]
+    upsert_chat(1, "chat-img", "t", [
+        {"role": "user", "content": "écris a"},
+        {"role": "assistant", "content": "", "isTruncated": True, "tool_history": histo}],
+        time.time())
+    corps = _corps()
+    corps["messages"] = [{"role": "user", "content": "écris a"},
+                         {"role": "assistant", "content": "", "isTruncated": True},
+                         corps["messages"][0]]
+    _code, ev = _flux(tour["c"], corps)
+    assert ev[-1]["persisted"] is True
+    assert _chat()["messages"][1].get("tool_history") == histo
+
+
+def test_verrou_rendu_si_le_flux_est_annule_pendant_l_attente_d_un_stop(monkeypatch):
+    """Stop puis déconnexion : l'annulation du flux interrompt l'attente de
+    la fin du tour ; le désenregistrement (donc le verrou) a lieu quand même."""
+    from chatbot_app.turn import image as image_mod
+    desinscrits = []
+    monkeypatch.setattr(image_mod, "register_chat_task", lambda *a, **k: None)
+    monkeypatch.setattr(image_mod, "unregister_chat_task",
+                        lambda uid, cid, t: desinscrits.append(cid))
+    monkeypatch.setattr(image_mod, "is_chat_cancelled", lambda *a: True)
+
+    async def scenario():
+        fin = asyncio.Event()
+        tour_ = object.__new__(image_mod._ImageTurn)
+        tour_.user_id, tour_.chat_id = 1, "c-h1"
+        tour_.queue = asyncio.Queue()
+        tour_.detached = False
+
+        async def journal():
+            return None
+
+        async def worker():
+            await fin.wait()
+        tour_._open_journal = journal
+        tour_.worker = worker
+
+        async def consomme():
+            async for _ in tour_.stream():
+                pass
+        t = asyncio.ensure_future(consomme())
+        await asyncio.sleep(0.05)
+        t.cancel()                       # client parti après un Stop
+        await asyncio.sleep(0.05)
+        t.cancel()                       # annulation redélivrée pendant l'attente
+        await asyncio.gather(t, return_exceptions=True)
+        assert tour_.detached is True, "le tour est détaché"
+        fin.set()
+        await asyncio.sleep(0.05)
+        assert desinscrits == ["c-h1"], "désenregistré à la fin du tour"
+    asyncio.run(scenario())

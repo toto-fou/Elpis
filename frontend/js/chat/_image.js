@@ -279,6 +279,7 @@ var IMAGE_ERROR_TEXTS = Object.freeze({
     engine: 'Erreur du moteur d’images',
     cancelled: 'Génération interrompue',
     too_large: 'Image trop lourde',
+    enhance: 'Enrichir indisponible',
 });
 
 function imageErrorText(err) {
@@ -308,6 +309,7 @@ const ImageTile = {
         dims: { type: Object, default: null },    // {w, h, n} sans progression (erreur rechargée)
         error: { type: [Object, String, Boolean], default: null },
         stoppable: { type: Boolean, default: false },
+        live: { type: Boolean, default: false },  // erreur survenue en direct : annoncée
     },
     emits: ['stop', 'retry'],
     setup(props) {
@@ -399,7 +401,9 @@ const ImageGrid = {
             altText: computed(() => (texte.value || 'Image générée').slice(0, 300)),
             open(i) { if (_imageApi) _imageApi.openViewer(props.items, i, { prompt: props.prompt, revised: props.revised, meta: props.meta }); },
             edit(ref) { if (_imageApi) _imageApi.edit(ref); },
-            download(ref) { if (_imageApi) _imageApi.download(ref, texte.value); },
+            // Nom de fichier : la description de l'utilisateur, comme la
+            // galerie et le serveur (Content-Disposition).
+            download(ref) { if (_imageApi) _imageApi.download(ref, props.prompt || props.revised || ''); },
             remove(ref) { if (_imageApi) _imageApi.remove(ref); },
             expired(ref) { if (_imageApi) _imageApi.markExpired(ref.id); },
             copy() { if (_imageApi) _imageApi.copyText(texte.value); },
@@ -687,7 +691,12 @@ function setupChatImage(vue, sharedRefs, ctx) {
     async function editGeneratedImage(r) {
         if (!r || !r.id) return;
         if (!imageMode.value && !(await toggleImageMode(true))) return;
-        if (attachedFiles && attachedFiles.value.length) attachedFiles.value = [];
+        // Une seule source par demande : la pièce jointe cède la place à
+        // l'image désignée, et l'utilisateur en est averti.
+        if (attachedFiles && attachedFiles.value.length) {
+            attachedFiles.value = [];
+            showToast('Pièce jointe retirée : l\'image à modifier la remplace.', 'info');
+        }
         imageEditRef.value = { id: r.id, url: r.url || ('/api/images/' + r.id), thumb_url: r.thumb_url || '' };
         if (ctx.focusInput) ctx.focusInput();
     }
@@ -750,18 +759,42 @@ function setupChatImage(vue, sharedRefs, ctx) {
         a.remove();
     }
 
+    // Suppressions en attente (toast de 5 s) : envoyées au déchargement de
+    // la page (``keepalive``), sinon un F5 dans les 5 s rendait l'image.
+    // Ensemble partagé par toutes les instances (app et console chargent ce
+    // module) : un seul écouteur le vide.
+    const _suppressionsEnAttente = (typeof window !== 'undefined')
+        ? (window.__elpisImageDeletes = window.__elpisImageDeletes || new Set()) : new Set();
+    if (typeof window !== 'undefined' && !window.__elpisImageDeleteFlush) {
+        window.__elpisImageDeleteFlush = true;
+        window.addEventListener('pagehide', () => {
+            for (const id of _suppressionsEnAttente) {
+                try {
+                    fetch('/api/images/' + encodeURIComponent(id),
+                          { method: 'DELETE', credentials: 'same-origin', keepalive: true });
+                } catch (_) {}
+            }
+            _suppressionsEnAttente.clear();
+        });
+    }
+
     /** Suppression annulable : l'image disparaît tout de suite, le DELETE
      *  ne part qu'à l'expiration du toast (5 s) — « Annuler » la rend. */
     function removeImage(r) {
         if (!r || !r.id || state[r.id]) return;
         const id = r.id;
         state[id] = 'pending';
+        _suppressionsEnAttente.add(id);
         if (imageViewer.value) _viewerApresRetrait(id);
         showToast('Image supprimée.', 'info', {
             duration: 5000,
             actionLabel: 'Annuler',
-            onAction: () => { if (state[id] === 'pending') delete state[id]; },
+            onAction: () => {
+                _suppressionsEnAttente.delete(id);
+                if (state[id] === 'pending') delete state[id];
+            },
             onExpire: async () => {
+                _suppressionsEnAttente.delete(id);
                 if (state[id] !== 'pending') return;
                 try {
                     const res = await fetchAuth('/api/images/' + encodeURIComponent(id), { method: 'DELETE' }, true);
@@ -776,24 +809,44 @@ function setupChatImage(vue, sharedRefs, ctx) {
         });
     }
 
+    // Copie : API presse-papiers si le contexte la permet (HTTPS ou boucle
+    // locale), sinon un textarea hors écran + execCommand (HTTP sur le LAN).
+    function _copieSecours(t) {
+        const ta = document.createElement('textarea');
+        ta.value = t;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+        document.body.removeChild(ta);
+        return ok;
+    }
     async function copyImageText(texte) {
         const t = String(texte || '').trim();
         if (!t) return;
-        try {
-            await navigator.clipboard.writeText(t);
-            showToast('Description copiée.');
-        } catch (_) {
-            showToast('Copie impossible.', 'error');
+        let ok = false;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            try { await navigator.clipboard.writeText(t); ok = true; } catch (_) { ok = false; }
         }
+        if (!ok) ok = _copieSecours(t);
+        showToast(ok ? 'Description copiée.' : 'Copie impossible.', ok ? undefined : 'error');
     }
 
     // ── Visionneuse ──────────────────────────────────────────────
     // Élément qui avait le focus à l'ouverture : il le retrouve à la fermeture.
     let _viewerRetour = null;
     function openImageViewer(items, idx, info) {
-        const liste = (items || []).filter(r => r && r.id && !state[r.id]);
+        const tous = items || [];
+        const liste = tous.filter(r => r && r.id && !state[r.id]);
         if (!liste.length) return;
-        const i = Math.max(0, Math.min(Number(idx) || 0, liste.length - 1));
+        // ``idx`` désigne l'image cliquée dans la liste COMPLÈTE : sa position
+        // est retrouvée par id une fois les images retirées écartées.
+        const cible = tous[Number(idx) || 0];
+        let i = cible ? liste.findIndex(r => r.id === cible.id) : 0;
+        if (i < 0) i = 0;
         const inf = info || {};
         _viewerRetour = document.activeElement || null;
         imageViewer.value = { items: liste, idx: i, prompt: inf.prompt || '', revised: inf.revised || '',
@@ -832,6 +885,13 @@ function setupChatImage(vue, sharedRefs, ctx) {
         const v = imageViewer.value, r = imageViewerCurrent.value;
         if (!v || !r) return '';
         return r.prompt || v.revised || v.prompt || '';
+    });
+    // Nom de fichier : la description de l'utilisateur (celle que garde le
+    // serveur), jamais la description enrichie.
+    const imageViewerNamePrompt = computed(() => {
+        const v = imageViewer.value, r = imageViewerCurrent.value;
+        if (!v || !r) return '';
+        return r.prompt || v.prompt || v.revised || '';
     });
     const imageViewerInfo = computed(() => {
         const v = imageViewer.value, r = imageViewerCurrent.value;
@@ -917,6 +977,22 @@ function setupChatImage(vue, sharedRefs, ctx) {
         _galerieRetour = null;
         try { if (el && el.focus) el.focus(); } catch (_) {}
     }
+    /** Piège Tab de la galerie (la visionneuse a le sien). Le focus part de
+     *  la fenêtre elle-même (tabindex -1) : il boucle sur ses contrôles. */
+    function imageGalleryKeydown(e) {
+        if (!e || e.key !== 'Tab' || imageViewer.value) return;
+        const racine = e.currentTarget;
+        const sel = 'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+        const liste = racine ? Array.from(racine.querySelectorAll(sel)).filter((el) => el.offsetParent !== null) : [];
+        if (!liste.length) { e.preventDefault(); return; }
+        const i = liste.indexOf(document.activeElement);
+        let suivant = e.shiftKey ? i - 1 : i + 1;
+        if (i < 0) suivant = e.shiftKey ? liste.length - 1 : 0;
+        if (suivant < 0) suivant = liste.length - 1;
+        if (suivant >= liste.length) suivant = 0;
+        e.preventDefault();
+        liste[suivant].focus();
+    }
     function onGalleryScroll(e) {
         const el = e && e.target;
         if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 240) loadMoreGallery();
@@ -955,9 +1031,9 @@ function setupChatImage(vue, sharedRefs, ctx) {
         editGeneratedImage, clearImageEditRef, buildImageRequest, imageReqDims,
         imageRequestLabel, imageSizeLabel, isImageMessage, imageInitialProgress,
         markImageExpired, imageCellState, downloadImage, removeImage, copyImageText,
-        imageViewer, imageViewerCurrent, imageViewerInfo, imageViewerPrompt,
+        imageViewer, imageViewerCurrent, imageViewerInfo, imageViewerPrompt, imageViewerNamePrompt,
         imageGallery, openImageGallery, loadMoreGallery, setGalleryFilter, closeImageGallery,
-        onGalleryScroll, openGalleryItem, openImageChat,
+        onGalleryScroll, openGalleryItem, openImageChat, imageGalleryKeydown,
         openImageViewer, closeImageViewer, imageViewerStep, imageViewerKeydown,
         imageCanEdit: canEdit,
     };

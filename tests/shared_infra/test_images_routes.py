@@ -147,7 +147,9 @@ def test_galerie(env):
     assert j["next_before"] is not None
     suite = env["c"].get(f"/api/images?limit=2&before={j['next_before']}").json()
     assert [i["prompt"] for i in suite["items"]] == ["p0"] and suite["next_before"] is None
-    assert env["c"].get("/api/images?chat_id=" + "x" * 80).status_code == 400
+    assert env["c"].get("/api/images?chat_id=" + "x" * 200).status_code == 400
+    assert env["c"].get("/api/images?before=nan").status_code == 400
+    assert env["c"].get("/api/images?before=inf").status_code == 400
 
 
 # ── Console ───────────────────────────────────────────────────────────────
@@ -166,12 +168,41 @@ def test_cle_chiffree_jamais_renvoyee(env, monkeypatch, tmp_path):
     monkeypatch.setattr(enc, "decrypt", lambda s: s.split(":", 1)[1])
     env["as"]("admin")
     r = env["c"].put("/api/admin/image/key", json={"api_key": "sk-secret"})
-    assert r.json() == {"ok": True, "has_key": True}
+    assert r.json() == {"ok": True, "has_key": True, "stale": False}
     disque = json.loads(env["chemin"].read_text(encoding="utf-8"))
-    assert disque["image"]["api_key_enc"] == "chiffre:sk-secret"
-    assert env["c"].get("/api/admin/image/key").json() == {"has_key": True}
+    scelle = json.loads(disque["image"]["api_key_enc"].split(":", 1)[1])
+    assert scelle == {"k": "sk-secret", "o": "http://gpu:8084"}
+    assert env["c"].get("/api/admin/image/key").json() == {"has_key": True, "stale": False}
     assert "sk-secret" not in env["c"].get("/api/image/status").text
     assert env["c"].put("/api/admin/image/key", json={"api_key": ""}).json()["has_key"] is False
+
+
+def test_cle_liee_a_l_origine_du_moteur(env, monkeypatch):
+    """Changer l'adresse vers une autre machine rend la clé inutilisable ; un
+    jeton qui n'est pas une clé scellée ne vaut rien."""
+    import shared_infra.security.encryption as enc
+    from shared_infra.image.config import api_key, engine_origin, get_image_config
+    monkeypatch.setattr(enc, "encrypt", lambda s: "chiffre:" + s)
+    monkeypatch.setattr(enc, "decrypt", lambda s: s.split(":", 1)[1])
+    assert engine_origin("HTTP://GPU/v1") == "http://gpu:80"
+    assert engine_origin("https://gpu:443/") == "https://gpu:443"
+    assert engine_origin("ftp://gpu") == "" and engine_origin("gpu:8080") == ""
+    env["as"]("admin")
+    env["c"].put("/api/admin/image/key", json={"api_key": "sk-secret"})
+    enc_ = json.loads(env["chemin"].read_text(encoding="utf-8"))["image"]["api_key_enc"]
+    env["config"]({"enabled": True, "url": "http://gpu:8084/v1", "api_key_enc": enc_})
+    assert api_key(get_image_config()) == "sk-secret", "même origine, autre chemin"
+    env["config"]({"enabled": True, "url": "http://autre:8084", "api_key_enc": enc_})
+    assert api_key(get_image_config()) == ""
+    assert env["c"].get("/api/admin/image/key").json() == {"has_key": False, "stale": True}
+    env["config"]({"enabled": True, "url": "http://gpu:8084", "api_key_enc": "chiffre:sk-brut"})
+    assert api_key(get_image_config()) == ""
+    # Clé saisie avec l'adresse du formulaire, avant d'enregistrer l'adresse.
+    r = env["c"].put("/api/admin/image/key", json={"api_key": "sk-2", "url": "http://neuf:1"})
+    assert r.json() == {"ok": True, "has_key": False, "stale": True}
+    env["config"]({"enabled": True, "url": "",
+                   "api_key_enc": ""})
+    assert env["c"].put("/api/admin/image/key", json={"api_key": "sk"}).status_code == 400
 
 
 def test_cle_enregistree_seulement_vers_l_adresse_enregistree(env, monkeypatch):
@@ -185,11 +216,18 @@ def test_cle_enregistree_seulement_vers_l_adresse_enregistree(env, monkeypatch):
         vues.append(req)
         return httpx.Response(200, json={"data": [{"id": "m1"}]})
     monkeypatch.setattr(transport_mod, "_TRANSPORT", httpx.MockTransport(h))
+    from shared_infra.image.config import seal_api_key
+    enc_ = "chiffre:" + seal_api_key("sk-secret", "http://gpu:8084")
     env["config"]({"enabled": True, "provider": "openai", "url": "http://gpu:8084",
-                   "api_key_enc": "chiffre:sk-secret", "model": "m1"})
+                   "api_key_enc": enc_, "model": "m1"})
     env["as"]("admin")
     j = env["c"].post("/api/admin/image/test", json={"url": "http://gpu:8084/"}).json()
     assert j["ok"] and vues[-1].headers["authorization"] == "Bearer sk-secret"
+    # Adresse ENREGISTRÉE changée (champ par champ) : la clé ne la suit pas.
+    env["config"]({"enabled": True, "provider": "openai", "url": "http://ailleurs:9000",
+                   "api_key_enc": enc_, "model": "m1"})
+    env["c"].post("/api/admin/image/test", json={})
+    assert vues[-1].url.host == "ailleurs" and "authorization" not in vues[-1].headers
     env["c"].post("/api/admin/image/models", json={"url": "http://ailleurs:9000"})
     assert vues[-1].url.host == "ailleurs" and "authorization" not in vues[-1].headers
     env["c"].post("/api/admin/image/models",
@@ -209,8 +247,8 @@ def test_test_de_la_console(env, monkeypatch):
     assert j["ok"] and j["model"] == "qwen" and j["limits"] == {"max_width": 2048}
     assert j["warnings"] == []
     assert env["c"].post("/api/admin/image/test", json={"url": ""}).json() == {
-        "ok": False, "provider": "sdcpp", "has_key": False, "enabled": True, "ready": True,
-        "error": "Aucune adresse renseignée."}
+        "ok": False, "provider": "sdcpp", "has_key": False, "stale": False, "enabled": True,
+        "ready": True, "error": "Aucune adresse renseignée."}
 
     def panne(req):
         raise httpx.ConnectError("refusé", request=req)

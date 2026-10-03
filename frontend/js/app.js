@@ -2351,7 +2351,11 @@ const elpisApp = createApp({
             // a11y — piège Tab dans le grand modal ouvert. On cède au modal
             // confirm/prompt et au menu contextuel (au-dessus dans la pile),
             // qui gèrent déjà leur propre piège Tab.
-            if (e.key === 'Tab' && _anyBigModalOpen.value
+            // La visionneuse et la galerie d'images, au-dessus des Paramètres
+            // d'où la galerie s'ouvre, gardent leur propre piège Tab.
+            const _imgDialog = !!((chatMod.imageViewer && chatMod.imageViewer.value)
+                                  || (chatMod.imageGallery && chatMod.imageGallery.value));
+            if (e.key === 'Tab' && _anyBigModalOpen.value && !_imgDialog
                 && !modalState.value.isOpen && !contextMenu.value.isOpen) {
                 const overlay = document.querySelector('[data-a11y-modal]');
                 if (overlay) window.elpisTrapTab(e, overlay);
@@ -2551,7 +2555,13 @@ const elpisApp = createApp({
 
             // -- Alt+I : mode Images du composeur. Ctrl+Maj+I ouvre les outils
             //    de développement de Chromium et de Firefox : inutilisable.
-            if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === 'KeyI'
+            //    ``e.key`` et non ``e.code`` : sur macOS, Option+I est la
+            //    touche morte de l'accent circonflexe (``Dead``), qui doit
+            //    rester une frappe. Le terminal et l'éditeur gardent Alt+I.
+            const _altCible = e.target && e.target.closest
+                ? e.target.closest('.xterm, .monaco-editor') : null;
+            if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey
+                    && (e.key === 'i' || e.key === 'I') && !_altCible
                     && currentView.value === 'chat' && chatMod.toggleImageMode
                     && chatMod.imageAvailable && chatMod.imageAvailable.value) {
                 if (modalState.value.isOpen
@@ -2611,6 +2621,7 @@ const elpisApp = createApp({
                     || m.content
                     || (m.images && m.images.length)
                     || (m.tool_history && m.tool_history.length)
+                    || (m.image_error && typeof m.image_error === 'object')
                 ));
                 if (!msgs.length) { sessionStorage.removeItem(SESSION_KEY); return; }
                 sessionStorage.setItem(SESSION_KEY, JSON.stringify({

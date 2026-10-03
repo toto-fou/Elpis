@@ -16,13 +16,23 @@ Un seul moteur actif, de l'un de deux types :
 
 La clé API n'est JAMAIS en clair dans ``config.json`` : ``api_key_enc`` porte le
 jeton Fernet écrit par ``PUT /api/admin/image/key`` (:func:`write_api_key`),
-déchiffré ici côté hôte seulement. Aucune route ne la renvoie.
+déchiffré ici côté hôte seulement. Aucune route ne la renvoie. Elle est
+scellée avec l'ORIGINE du moteur (``schéma://hôte:port``) : changer l'adresse
+vers une autre machine la rend inutilisable, il faut la ressaisir
+(:func:`seal_api_key`, :func:`api_key`).
+
+sd-server tient sa propre file et accepte toute taille au multiple de 64 :
+pour lui, ``max_concurrent`` et la liste de tailles fixes ne s'appliquent pas
+(:func:`get_image_config` les neutralise).
 """
 from __future__ import annotations
 
 import fcntl
+import json
+import math
 import re
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlsplit
 
 from shared_infra.config import config_view
 
@@ -113,8 +123,9 @@ def _booleen(valeur: Any, defaut: bool) -> bool:
 def _entier(cle: str, valeur: Any, defaut: int) -> int:
     bas, haut = _BORNES[cle]
     try:
-        v = int(float(valeur))
-    except (TypeError, ValueError):
+        f = float(valeur)
+        v = int(f) if math.isfinite(f) else int(defaut)
+    except (TypeError, ValueError, OverflowError):
         v = int(defaut)
     return max(bas, min(haut, v))
 
@@ -192,6 +203,8 @@ def get_image_config() -> Dict[str, Any]:
     policy = _texte(brut.get("size_policy"), d["size_policy"]).lower()
     if policy not in SIZE_POLICIES:
         policy = d["size_policy"]
+    if provider == "sdcpp":
+        policy = "free"
     max_side = _entier("max_side", brut.get("max_side"), d["max_side"])
     ca = str(brut.get("ca_pem") or "").strip()
     return {
@@ -204,8 +217,8 @@ def get_image_config() -> Dict[str, Any]:
         "verify": _booleen(brut.get("verify"), d["verify"]),
         "ca_pem": ca if len(ca) <= _CA_MAX else "",
         "timeout_sec": _entier("timeout_sec", brut.get("timeout_sec"), d["timeout_sec"]),
-        "max_concurrent": _entier("max_concurrent", brut.get("max_concurrent"),
-                                  d["max_concurrent"]),
+        "max_concurrent": (_entier("max_concurrent", brut.get("max_concurrent"),
+                                   d["max_concurrent"]) if provider == "openai" else 1),
         "max_n": _entier("max_n", brut.get("max_n"), d["max_n"]),
         "max_side": max_side,
         "default_side": min(max_side, _entier("default_side", brut.get("default_side"),
@@ -223,13 +236,56 @@ def get_image_config() -> Dict[str, Any]:
     }
 
 
-def api_key(cfg: Dict[str, Any]) -> str:
-    """Clé API en clair (côté hôte seulement) ; ``""`` si absente ou illisible."""
+def engine_origin(url: Any) -> str:
+    """``schéma://hôte:port`` d'une adresse (port par défaut explicite,
+    minuscules) ; ``""`` si ce n'est pas une adresse http(s)."""
+    try:
+        parts = urlsplit(str(url or "").strip())
+        scheme = (parts.scheme or "").lower()
+        host = (parts.hostname or "").lower()
+        port = parts.port or {"http": 80, "https": 443}.get(scheme)
+    except ValueError:
+        return ""
+    if scheme not in ("http", "https") or not host or not port:
+        return ""
+    return f"{scheme}://{host}:{port}"
+
+
+def seal_api_key(key: str, url: str) -> str:
+    """Contenu à chiffrer : la clé et l'origine du moteur auquel elle est
+    destinée."""
+    return json.dumps({"k": key, "o": engine_origin(url)}, ensure_ascii=False)
+
+
+def _sealed(cfg: Dict[str, Any]) -> Optional[Dict[str, str]]:
     enc = str(cfg.get("api_key_enc") or "")
     if not enc:
-        return ""
+        return None
     from shared_infra.security.encryption import decrypt
-    return decrypt(enc)
+    try:
+        data = json.loads(decrypt(enc) or "null")
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("k"), str) \
+            or not isinstance(data.get("o"), str):
+        return None
+    return {"k": data["k"], "o": data["o"]}
+
+
+def api_key(cfg: Dict[str, Any]) -> str:
+    """Clé API en clair (côté hôte seulement) pour l'adresse de ``cfg`` ;
+    ``""`` si absente, illisible, ou scellée pour une autre origine."""
+    sealed = _sealed(cfg)
+    if not sealed or not sealed["o"] or sealed["o"] != engine_origin(cfg.get("url")):
+        return ""
+    return sealed["k"]
+
+
+def key_state(cfg: Dict[str, Any]) -> Dict[str, bool]:
+    """``has_key`` : une clé utilisable pour l'adresse enregistrée ;
+    ``stale`` : une clé existe, mais pour une autre adresse (à ressaisir)."""
+    usable = bool(api_key(cfg))
+    return {"has_key": usable, "stale": bool(cfg.get("api_key_enc")) and not usable}
 
 
 def image_ready(cfg: Optional[Dict[str, Any]] = None) -> bool:

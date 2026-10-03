@@ -30,6 +30,13 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Protocol, Tup
 
 HINT_ADMIN = "Vérifiez Administration › Modèles et services › Images."
 
+#: Formats d'image lus par l'application (sources jointes, réponses des
+#: moteurs, vignettes) : Pillow n'ouvre que ceux-là.
+IMAGE_FORMATS = ("PNG", "JPEG", "WEBP")
+#: Attente maximale en file (sd-server) ou d'un créneau (service OpenAI), en
+#: plus du délai de calcul de l'administrateur.
+QUEUE_MAX_S = 3600.0
+
 _RETRYABLE = frozenset({"unavailable", "timeout", "busy", "engine", "cancelled"})
 
 
@@ -123,7 +130,7 @@ def image_dims(data: bytes, fallback: Tuple[int, int]) -> Tuple[int, int]:
     on enregistre ce qui a été produit."""
     try:
         from PIL import Image
-        with Image.open(io.BytesIO(data)) as im:
+        with Image.open(io.BytesIO(data), formats=list(IMAGE_FORMATS)) as im:
             return int(im.width), int(im.height)
     except Exception:                                           # noqa: BLE001
         return fallback

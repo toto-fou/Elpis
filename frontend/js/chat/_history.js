@@ -146,8 +146,10 @@ function setupChatHistory(vue, sharedRefs, ctx, deps) {
     // vers le chat suivant (et s'y attachaient à l'envoi), et la boîte d'édition
     // restait ouverte sur un index de message qui pointe désormais un AUTRE
     // message dans le nouveau chat (les index sont par-chat).
-    function _resetTransientCompose() {
-        try { if (attachedFiles) attachedFiles.value = []; } catch (_) {}
+    // ``memeChat`` : rechargement forcé de la conversation affichée (fin d'un
+    // run détaché) — le composeur (pièces jointes, mode Images) est gardé.
+    function _resetTransientCompose(memeChat) {
+        if (!memeChat) { try { if (attachedFiles) attachedFiles.value = []; } catch (_) {} }
         if (typeof cancelEditMessage === 'function') { try { cancelEditMessage(); } catch (_) {} }
         // Menu « / » : ses disponibilités (/compact, /plan) sont calculées
         // sur le chat COURANT — le laisser ouvert au switch afficherait un
@@ -165,7 +167,7 @@ function setupChatHistory(vue, sharedRefs, ctx, deps) {
         // index dans le chat qu'on quitte : périmée dès le switch.
         if (typeof closeTaskModal === 'function') { try { closeTaskModal(); } catch (_) {} }
         // Mode Images : une demande d'image ne suit pas vers une autre conversation.
-        if (typeof resetImageCompose === 'function') { try { resetImageCompose(); } catch (_) {} }
+        if (!memeChat && typeof resetImageCompose === 'function') { try { resetImageCompose(); } catch (_) {} }
     }
 
     async function loadChatsList() {
@@ -255,6 +257,7 @@ function setupChatHistory(vue, sharedRefs, ctx, deps) {
         // génération est avancé tout de suite : aucun événement du flux
         // quitté ne s'écrit dans la conversation qu'on charge (R4).
         const _seq = ++_loadChatSeq;    // (passe 2) seul le dernier clic écrit
+        const _memeChat = currentChatId.value === id;
         detachFromStream();
         // Revoke blob URLs avant de remplacer le tableau messages (anti-leak).
         _revokeAllWebShotBlobs();
@@ -263,7 +266,7 @@ function setupChatHistory(vue, sharedRefs, ctx, deps) {
         _clearCharts();
         _resetDiffCards();
         _resetMsgSearch();
-        _resetTransientCompose();
+        _resetTransientCompose(_memeChat);
         try {
             const res = await fetchAuth('/api/saved/chats/' + id, {}, true);
             if (_seq !== _loadChatSeq) return;   // un clic plus récent a pris la main

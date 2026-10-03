@@ -22,7 +22,8 @@ from typing import Any, Dict, List, Optional
 
 from shared_infra.image.store import url_for, valid_id
 
-MAX_REFS = 32
+#: Plafond des références d'un message : au-delà de ce qu'un tour peut produire.
+MAX_REFS = 64
 _CAPTION_PROMPT_MAX = 300
 _ERROR_CODES = ("unavailable", "forbidden", "invalid", "timeout", "busy", "refused",
                 "engine", "cancelled", "too_large")

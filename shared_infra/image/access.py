@@ -97,12 +97,12 @@ def clean_prefs(raw: Any, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any
     sides = sides_for(cfg)
     try:
         side = int(raw.get("side"))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         side = cfg.get("default_side") or PREFS_DEFAULTS["side"]
     side = min(sides, key=lambda s: (abs(s - side), s))
     try:
         n = int(raw.get("n"))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         n = 1
     n = max(1, min(n, effective_max_n(cfg)))
     return {"ratio": ratio, "side": side, "n": n, "enhance": raw.get("enhance") is True}

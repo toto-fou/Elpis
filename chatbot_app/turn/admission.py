@@ -88,16 +88,20 @@ def _sweep_pending_gen_locks() -> None:
 def _handover_rebaseline_ok(old, fresh) -> bool:
     """Le chat relu après une passation ne diffère-t-il de la base lue que
     par le PARTIEL du run stoppé ? Accepté : identique, un assistant tronqué
-    (``isTruncated``) ajouté en queue, ou le dernier assistant remplacé par
-    un tronqué (Stop pendant un « Continuer »)."""
+    (``isTruncated``, ou tour « Images » arrêté : ``image_error.code ==
+    "cancelled"``) ajouté en queue, ou le dernier assistant remplacé par un
+    tronqué (Stop pendant un « Continuer »)."""
     old = old if isinstance(old, list) else []
     fresh = fresh if isinstance(fresh, list) else []
     if fresh == old:
         return True
 
     def _trunc(m) -> bool:
-        return (isinstance(m, dict) and m.get("role") == "assistant"
-                and bool(m.get("isTruncated")))
+        if not isinstance(m, dict) or m.get("role") != "assistant":
+            return False
+        err = m.get("image_error")
+        return bool(m.get("isTruncated")) or (
+            isinstance(err, dict) and err.get("code") == "cancelled")
 
     if not fresh or not _trunc(fresh[-1]):
         return False

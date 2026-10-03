@@ -8,8 +8,13 @@ la fermeture ; ``_dispatch_tool`` attend la coroutine rendue par le handler.
 
 Proposé seulement si l'instance, les groupes et les deux cases du compte le
 permettent (``chatbot_app/turn/preparation.py``), jamais en mode plan. Au plus
-``image.tool_max_calls`` appels par tour : un modèle qui boucle ne monopolise
-pas le GPU et ne fait pas tourner la rétention du compte.
+``image.tool_max_calls`` appels et ``image.max_n`` images par tour : un modèle
+qui boucle (ou qu'un document pousse à boucler) ne monopolise pas le GPU et ne
+fait pas tourner la rétention du compte.
+
+Délai : l'outil s'auto-borne (attente en file ``QUEUE_MAX_S``, puis délai de
+calcul de l'administrateur) ; le délai du wrapper d'outils les couvre, comme
+pour ``task``.
 
 Pendant la génération, des événements ``image_progress`` (``source:
 "tool"``) alimentent la tuile ; à la fin, ``image`` porte les références,
@@ -98,7 +103,9 @@ def build_image_builtin_tool(*, user_id: int, chat_id: Optional[str],
     if not image_ready(cfg):
         return {}
     side = clean_prefs(prefs or {}, cfg)["side"]
-    appels = {"n": 0}
+    # Compteurs du tour. Réservés AVANT l'attente : des appels parallèles ne
+    # dépassent pas les plafonds.
+    appels = {"n": 0, "images": 0}
 
     async def _run(args: Dict[str, Any]) -> str:
         from llm_core.imagegen.base import ImageError
@@ -124,9 +131,15 @@ def build_image_builtin_tool(*, user_id: int, chat_id: Optional[str],
             ratio = "1:1"
         try:
             n = int(args.get("n") or 1)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             n = 1
-        n = max(1, min(n, effective_max_n(live)))
+        reste = effective_max_n(live) - appels["images"]
+        if reste <= 0:
+            return json.dumps({"ok": False, "error": (
+                f"Limit reached: at most {effective_max_n(live)} images per turn. "
+                "Show the user what you have.")})
+        n = max(1, min(n, reste))
+        appels["images"] += n
         t0 = time.monotonic()
         tracker: Optional[ProgressTracker] = None
 
@@ -153,6 +166,7 @@ def build_image_builtin_tool(*, user_id: int, chat_id: Optional[str],
                 on_progress=on_progress, cancelled=is_cancelled, tracker=tracker,
                 extra={"source": "tool"})
         except ImageError as exc:
+            appels["images"] -= n
             if exc.detail:
                 logger.warning("[image/outil] %s — %s", exc.message, exc.detail)
             await on_event({"type": "image_error", "source": "tool", **exc.payload()})
@@ -180,7 +194,9 @@ def build_image_builtin_tool(*, user_id: int, chat_id: Optional[str],
 
 
 def tool_timeout_s() -> float:
-    """Délai du wrapper d'outil : celui du moteur, plus une marge (file,
-    enregistrement)."""
+    """Délai du wrapper d'outil : l'attente maximale en file, le délai de
+    calcul du moteur, plus une marge (enregistrement). L'outil s'arrête de
+    lui-même plus tôt : le wrapper ne coupe jamais une génération légitime."""
+    from llm_core.imagegen.base import QUEUE_MAX_S
     from shared_infra.image.config import get_image_config
-    return float(get_image_config()["timeout_sec"]) + 60.0
+    return QUEUE_MAX_S + float(get_image_config()["timeout_sec"]) + 60.0

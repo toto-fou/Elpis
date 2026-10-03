@@ -20,11 +20,13 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from llm_core.imagegen.base import (
+    IMAGE_FORMATS,
     CancelledCb,
     ImageError,
     ImageRequest,
     ImageResult,
     ProgressCb,
+    sniff_mime,
 )
 from llm_core.imagegen.openai import OpenAIProvider
 from llm_core.imagegen.sdcpp import SdcppProvider
@@ -112,14 +114,19 @@ def prepare_source(data: bytes, width: int, height: int) -> bytes:
 
     Recadrage « cover » (on remplit le cadre, on rogne l'excédent centré) :
     les moteurs de diffusion exigent la taille demandée, et étirer déforme.
-    :class:`ImageError` ``invalid`` si ce n'est pas une image lisible ou si elle
-    est démesurée (bombe de décompression). Synchrone : à appeler en thread.
+    :class:`ImageError` ``invalid`` si ce n'est pas une image PNG, JPEG ou WEBP
+    lisible, ou si elle est démesurée (bombe de décompression). Le format est
+    vérifié sur la signature AVANT toute ouverture, puis Pillow n'ouvre que ces
+    formats. Synchrone : à appeler en thread.
     """
     from PIL import Image, ImageOps, UnidentifiedImageError
     if not data or len(data) > SOURCE_MAX_BYTES:
         raise ImageError("Image source trop lourde (20 Mo au plus).", code="invalid", status=400)
+    if sniff_mime(data) is None:
+        raise ImageError("Image source : PNG, JPEG ou WEBP seulement.", code="invalid",
+                         status=400)
     try:
-        with Image.open(io.BytesIO(data)) as im:
+        with Image.open(io.BytesIO(data), formats=list(IMAGE_FORMATS)) as im:
             if im.width * im.height > _SOURCE_MAX_PIXELS:
                 raise ImageError("Image source trop grande.", code="invalid", status=400)
             rgb = ImageOps.exif_transpose(im).convert("RGB")
@@ -271,9 +278,11 @@ class ProgressTracker:
         info = info or {}
         self.state, self.qp = state, qp
         if state == "generating" and self.gen_t0 is None:
+            # ``started_at`` vient de l'horloge du moteur : l'écart avec la
+            # nôtre est borné par le temps réellement écoulé depuis la demande.
             started = info.get("started_at")
             lag = max(0.0, time.time() - float(started)) if started else 0.0
-            self.gen_t0 = time.monotonic() - min(lag, 3600.0)
+            self.gen_t0 = time.monotonic() - min(lag, time.monotonic() - self.t0)
         if isinstance(info.get("pct"), (int, float)):
             self.pct_real = float(info["pct"])
         if info.get("preview"):
@@ -298,6 +307,29 @@ class ProgressTracker:
 
     def gen_seconds(self) -> Optional[float]:
         return None if self.gen_t0 is None else time.monotonic() - self.gen_t0
+
+
+async def _hors_annulation(fut: "asyncio.Future[Any]") -> Any:
+    """Attend ``fut`` jusqu'à son terme même si la tâche est annulée (Stop).
+
+    Les images calculées sont en cours d'écriture dans un thread que
+    l'annulation n'arrête pas : on attend l'écriture, on rend les références
+    (le tour ou l'outil les montre) et on retire l'annulation absorbée."""
+    annulations = 0
+    while True:
+        try:
+            res = await asyncio.shield(fut)
+            break
+        except asyncio.CancelledError:
+            if fut.cancelled():
+                raise
+            annulations += 1
+    if annulations:
+        t = asyncio.current_task()
+        if t is not None and hasattr(t, "uncancel"):
+            for _ in range(annulations):
+                t.uncancel()
+    return res
 
 
 def model_name(cfg: Dict[str, Any], caps: Optional[Dict[str, Any]]) -> str:
@@ -335,9 +367,9 @@ async def generate_and_store(cfg: Dict[str, Any], req: ImageRequest, *, user_id:
     if extra:
         params.update(extra)
     from shared_infra.image.store import save_images
-    refs = await asyncio.to_thread(
+    refs = await _hors_annulation(asyncio.ensure_future(asyncio.to_thread(
         save_images, user_id, chat_id, prompt, model=model, params=params, results=results,
-        keep=cfg["keep_per_user"], steps=req.steps, duration_s=duration)
+        keep=cfg["keep_per_user"], steps=req.steps, duration_s=duration)))
     meta: Dict[str, Any] = {"model": model}
     if duration is not None:
         meta["duration_s"] = round(duration, 1)

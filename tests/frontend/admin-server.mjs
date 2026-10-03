@@ -54,6 +54,9 @@ const GROUPS = [
 ];
 const LLM_ACCESS_LOG = [];
 const IMAGE_LOG = [];   // console › Images : tests et enregistrements de clé
+// Clé du moteur d'images : liée à l'adresse ; ``stale`` = enregistrée pour une
+// autre adresse (POST /__image_key pour régler l'état).
+let IMAGE_KEY = { has_key: true, stale: false };
 
 // Sauvegarde distante : config servie + journal des POST (harnais rsync).
 const REMOTE = {
@@ -252,13 +255,24 @@ http.createServer((req, res) => {
                 let corps = '';
                 req.on('data', (c) => { corps += c; });
                 req.on('end', () => {
-                    const k = (JSON.parse(corps || '{}').api_key) || '';
-                    IMAGE_LOG.push({ kind: 'key', present: !!k });
-                    json(res, { ok: true, has_key: !!k });
+                    const b = JSON.parse(corps || '{}');
+                    const k = b.api_key || '';
+                    IMAGE_LOG.push({ kind: 'key', present: !!k, url: b.url || '' });
+                    if (!String(b.url || '').trim()) {
+                        return json(res, { detail: { code: 'invalid', message: 'Renseignez d’abord l’adresse du moteur.' } }, 400);
+                    }
+                    IMAGE_KEY = { has_key: !!k, stale: false };
+                    json(res, Object.assign({ ok: true }, IMAGE_KEY));
                 });
                 return;
             }
-            return json(res, { has_key: true });
+            return json(res, IMAGE_KEY);
+        }
+        if (url === '/__image_key' && req.method === 'POST') {
+            let corps = '';
+            req.on('data', (c) => { corps += c; });
+            req.on('end', () => { IMAGE_KEY = Object.assign({ has_key: false, stale: false }, JSON.parse(corps || '{}')); json(res, IMAGE_KEY); });
+            return;
         }
         if (url === '/api/admin/image/test' && req.method === 'POST') {
             let corps = '';
@@ -267,7 +281,8 @@ http.createServer((req, res) => {
                 IMAGE_LOG.push({ kind: 'test', body: JSON.parse(corps || '{}') });
                 json(res, { ok: true, provider: 'sdcpp', model: 'Qwen-Image', mode: 'img_gen',
                             limits: { max_width: 1536, max_height: 1536, max_batch_count: 2 },
-                            latency_ms: 42, has_key: true, enabled: true, ready: true, warnings: [] });
+                            latency_ms: 42, has_key: IMAGE_KEY.has_key, stale: IMAGE_KEY.stale,
+                            enabled: true, ready: true, warnings: [] });
             });
             return;
         }

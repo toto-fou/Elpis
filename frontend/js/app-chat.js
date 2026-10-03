@@ -765,27 +765,40 @@ function setupChat(vue, sharedRefs, ctx) {
     /** Commande « /image [ratio] [xN] description ». Sans description, elle
      *  ouvre le mode Images (format et nombre appliqués). */
     async function runImageSlash(raw) {
-        if (!imageAvailable.value) return { ok: false, msg: 'Génération d’images indisponible.' };
+        // Refus : la commande tapée revient dans le composeur (le menu « / »
+        // l'a déjà vidée), la description n'est pas perdue.
+        const refus = (msg) => {
+            const texte = String(raw || '').trim();
+            if (texte && !String(inputMessage.value || '').trim()) {
+                inputMessage.value = '/image ' + texte;
+                nextTick(() => { autoResize(); if (inputRef.value) inputRef.value.focus(); });
+            }
+            return { ok: false, msg };
+        };
+        if (!imageAvailable.value) return refus('Génération d’images indisponible.');
         const st = await loadImageStatus();
         const cmd = parseImageCommand(raw, st);
-        if (cmd.error) return { ok: false, msg: cmd.error };
+        if (cmd.error) return refus(cmd.error);
         if (!cmd.prompt) {
             if (!(await toggleImageMode(true))) return { ok: true, silent: true };
             if (cmd.ratio) _imageMod.setImageRatio(cmd.ratio);
             if (cmd.n) _imageMod.setImageN(cmd.n);
             return { ok: true, silent: true };
         }
-        if (isStreaming.value) return { ok: false, msg: 'Une génération est en cours.' };
-        if (!st || !st.available) return { ok: false, msg: 'Génération d’images indisponible.' };
+        if (isStreaming.value) return refus('Une génération est en cours.');
+        if (!st || !st.available) return refus('Génération d’images indisponible.');
         const _pj = attachedFiles.value;
         if (_pj.length > 1 || (_pj.length === 1 && !_pj[0].isImage)) {
-            return { ok: false, msg: 'Une seule image jointe, celle à modifier.' };
+            return refus('Une seule image jointe, celle à modifier.');
         }
         const _src = _pj.length === 1
             ? [{ name: _pj[0].name, dataUrl: _pj[0].content, mimeType: _pj[0].mimeType }] : undefined;
         messages.value.push({ role: 'user', content: cmd.prompt, images: _src,
                               image_request: buildImageRequest(!!_src, { ratio: cmd.ratio, n: cmd.n }) });
         attachedFiles.value = [];
+        // L'image désignée par « Modifier » a servi : elle ne repart pas
+        // avec la demande suivante.
+        clearImageEditRef();
         nextTick(() => { autoResize(); if (inputRef.value) inputRef.value.focus(); });
         await generateResponse();
         return { ok: true, silent: true };
@@ -1297,6 +1310,9 @@ function setupChat(vue, sharedRefs, ctx) {
             // n'injectait aucune consigne, et le modèle re-raisonnait de zéro
             // jusqu'au même mur — boucle infinie du « Continuer ».
             || (m.thinking && m.thinkingTruncated)
+            // Tour image refusé avant le flux : contenu vide, mais sa tuile
+            // d'erreur (et Réessayer) doit survivre au tour suivant.
+            || (m.image_error && typeof m.image_error === 'object')
         ));
     }
 
@@ -1500,14 +1516,23 @@ function setupChat(vue, sharedRefs, ctx) {
                             errorMessage: '', isTruncated: false });
             }
         } else {
-            const keep = base > 0 ? base - 1 : msgs.length;
-            if (msgs.length > keep) msgs.splice(keep);
             // ``image_request`` (tour « Images ») : sans lui, le message
             // utilisateur perdrait sa demande au tour suivant (Régénérer
             // repartirait au modèle).
             const _ireq = (st.image_request && typeof st.image_request === 'object') ? st.image_request : null;
-            if (st.user_message) msgs.push(Object.assign({ role: 'user', content: st.user_message },
-                                                         _ireq ? { image_request: _ireq } : {}));
+            // Le tour image écrit sa question en base dès le départ, image
+            // jointe comprise : on la GARDE (la reconstruire depuis
+            // ``user_message`` perdrait l'image source au tour suivant).
+            const _q = (_ireq && base > 0) ? msgs[base - 1] : null;
+            if (_q && _q.role === 'user') {
+                if (msgs.length > base) msgs.splice(base);
+                if (!_q.image_request) msgs[base - 1] = Object.assign({}, _q, { image_request: _ireq });
+            } else {
+                const keep = base > 0 ? base - 1 : msgs.length;
+                if (msgs.length > keep) msgs.splice(keep);
+                if (st.user_message) msgs.push(Object.assign({ role: 'user', content: st.user_message },
+                                                             _ireq ? { image_request: _ireq } : {}));
+            }
             msgs.push(Object.assign({ role: 'assistant', content: '', thinking: '', thinkingOpen: false,
                         _statusLine: '', isStreaming: true, isError: false,
                         errorMessage: '', isTruncated: false },
@@ -3040,7 +3065,9 @@ function setupChat(vue, sharedRefs, ctx) {
             if (data.source === 'tool') {
                 _patch(idx, { _toolImageProgress: null });
             } else {
-                _patch(idx, { _imageTurn: true, _imageProgress: null,
+                // ``_imageErrorLive`` (non persisté) : seule une erreur
+                // survenue sous les yeux de l'utilisateur est annoncée.
+                _patch(idx, { _imageTurn: true, _imageProgress: null, _imageErrorLive: true,
                               image_error: { code: data.code || 'engine', message: data.message || '',
                                              retryable: data.retryable !== false } });
             }
@@ -3297,8 +3324,10 @@ function setupChat(vue, sharedRefs, ctx) {
                 if (data.image_error) {
                     _ip.image_error = (typeof data.image_error === 'object')
                         ? data.image_error : { code: 'engine', message: '', retryable: true };
+                    _ip._imageErrorLive = true;
                 } else if (data.cancelled && !(data.generated_images && data.generated_images.length)) {
                     _ip.image_error = { code: 'cancelled', message: '', retryable: true };
+                    _ip._imageErrorLive = true;
                 }
                 _patch(idx, _ip);
             }
@@ -4575,7 +4604,8 @@ function setupChat(vue, sharedRefs, ctx) {
                         isStreaming: false, isTruncated: false,
                         _imageProgress: null, _toolImageProgress: null,
                         ...((cur.generated_images && cur.generated_images.length) ? {}
-                            : { image_error: { code: 'cancelled', message: '', retryable: true } }),
+                            : { image_error: { code: 'cancelled', message: '', retryable: true },
+                                _imageErrorLive: true }),
                     }, _STREAM_RENDER_CLEAR, _PRE_RENDER_CLEAR);
                 } else
                 msgs[lastIdx] = Object.assign({}, cur, {
@@ -5105,6 +5135,9 @@ function setupChat(vue, sharedRefs, ctx) {
         // Tour « Images » : jamais rejoué automatiquement (le serveur le
         // mène à terme seul et le persiste, une image coûte cher).
         let _imageGen = null;
+        // Le serveur a ACCEPTÉ le tour image (réponse 2xx) : à partir de là il
+        // le mène seul à terme ; avant, rien ne tourne côté serveur.
+        let _imageAccepted = false;
         if (!_early) {
             nextTick(() => scrollToBottom(true));
             _toolsExecutedThisTurn = false;   // audit 2026-08-02 (W3) — nouveau tour
@@ -5256,6 +5289,7 @@ function setupChat(vue, sharedRefs, ctx) {
                 // rendu l'écran à la conversation suivante).
                 const _ctl = (!run.detached && abortController.value) || new AbortController();
                 _imageGen = isContinue ? null : _imageGenFor(payloadMsgs);
+                _imageAccepted = false;
                 run.posted = true;
                 const response = await fetch('/api/chat-saved-stream3', {
                     method:  'POST',
@@ -5330,6 +5364,7 @@ function setupChat(vue, sharedRefs, ctx) {
                     break;
                 }
                 if (response.ok) _markRunActive(run.chatId);
+                if (response.ok && _imageGen) _imageAccepted = true;
                 if (response.status === 401) throw Object.assign(new Error('401'), { _is401: true });
                 // F14 — 409 = état MÉTIER (compression manuelle en cours sur ce
                 // chat, éventuellement depuis un autre onglet/worker), PAS une
@@ -5362,6 +5397,20 @@ function setupChat(vue, sharedRefs, ctx) {
                     // Serveur supprimé, désactivé ou fermé à ce compte (2026-09-16) :
                     // plus de repli muet sur l'intégré. Message clair, et la paire
                     // (connecteur, modèle) est abandonnée pour ne pas re-échouer.
+                    // Tour image avec « Enrichir » : c'est le modèle du chat qui
+                    // manque, pas le moteur d'images. Erreur dans la tuile ; le
+                    // sélecteur (masqué en mode Images) n'est pas touché.
+                    if (_reason === 'engine_unavailable' && _imageGen) {
+                        const _emsgsE = _getStreamMsgs();
+                        const _liE = _streamIdx(_emsgsE);
+                        if (_liE >= 0 && _emsgsE[_liE] && _emsgsE[_liE].role === 'assistant') {
+                            _patch(_liE, { _imageErrorLive: true, image_error: { code: 'enhance', retryable: true,
+                                                          message: 'Enrichir indisponible : le modèle du chat ne répond pas. '
+                                                                 + 'Décochez Enrichir ou réessayez.' },
+                                           _imageProgress: null, isStreaming: false, ..._STREAM_RENDER_CLEAR });
+                        }
+                        break;   // pas de retry
+                    }
                     if (_reason === 'engine_unavailable') {
                         const _em = (_detail && _detail.message) || 'Serveur indisponible.';
                         const _emsgs = _getStreamMsgs();
@@ -5417,7 +5466,8 @@ function setupChat(vue, sharedRefs, ctx) {
                     const _emsgsI = _getStreamMsgs();
                     const _liI = _streamIdx(_emsgsI);
                     if (_liI >= 0 && _emsgsI[_liI] && _emsgsI[_liI].role === 'assistant') {
-                        _patch(_liI, { image_error: { code: _code, message: _msg, retryable: response.status === 503 },
+                        _patch(_liI, { _imageErrorLive: true,
+                                       image_error: { code: _code, message: _msg, retryable: response.status === 503 },
                                        _imageProgress: null, isStreaming: false, ..._STREAM_RENDER_CLEAR });
                     }
                     break;
@@ -5499,8 +5549,12 @@ function setupChat(vue, sharedRefs, ctx) {
                 // d'idempotence) → fichiers réécrits, commits en double.
                 // C'est exactement le cas d'une coupure en plein run agentic
                 // (recyclage/redémarrage de worker à 80 % du tour).
-                const _serverOwns = _toolsExecutedThisTurn || !!_imageGen;
-                if (retryCount < MAX_RETRIES && !_serverOwns) {
+                // Tour image : au serveur seulement s'il l'a accepté ; un échec
+                // AVANT (réseau, 5xx du frontal) n'a rien lancé là-bas.
+                const _serverOwns = _toolsExecutedThisTurn || (!!_imageGen && _imageAccepted);
+                // Tour image : jamais rejoué automatiquement (une coupure sans
+                // réponse peut laisser une génération partie) — Réessayer.
+                if (retryCount < MAX_RETRIES && !_serverOwns && !_imageGen) {
                     retryCount++;
                     statusText.value = 'Reconnexion (' + retryCount + '/' + MAX_RETRIES + ')...';
                     continue;
@@ -5510,6 +5564,14 @@ function setupChat(vue, sharedRefs, ctx) {
                 // Ne marquer l'erreur que si le dernier message est bien
                 // l'assistant en cours de stream (évite de flagger par erreur
                 // un message user si la liste a été mutée entre-temps).
+                if (_imageGen && !_serverOwns && li >= 0 && _errMsgs[li]
+                        && _errMsgs[li].role === 'assistant') {
+                    _patch(li, { _imageErrorLive: true, image_error: { code: 'engine', retryable: true,
+                                                message: 'Demande non transmise au serveur.' },
+                                 _imageProgress: null, isStreaming: false, ..._STREAM_RENDER_CLEAR });
+                    showToast('Erreur de connexion', 'error');
+                    break;
+                }
                 if (li >= 0 && _errMsgs[li] && _errMsgs[li].role === 'assistant') {
                     // AUDIT 2026-08-22 (B3) — quand des outils ont tourné, le
                     // serveur DÉTACHE le run au lieu de l'annuler : il va au

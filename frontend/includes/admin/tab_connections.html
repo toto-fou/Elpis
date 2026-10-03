@@ -788,8 +788,10 @@
                                                :title="configForm.image.provider === 'openai' ? 'Envoyée en Bearer au service.' : 'Facultative (proxy devant sd-server).'">Clé</label>
                                         <div class="flex items-center gap-2 min-w-0">
                                             <input id="cnx-image-key" v-model="imageKey.draft" type="password" autocomplete="new-password"
-                                                   :placeholder="imageKey.has ? 'Enregistrée — saisir pour remplacer' : 'Aucune'"
+                                                   :placeholder="imageKey.has ? 'Enregistrée — saisir pour remplacer' : (imageKey.stale ? 'À ressaisir' : 'Aucune')"
                                                    class="set-input font-mono text-xs" @keydown.enter.prevent="saveImageKey(false)">
+                                            <span v-if="!imageKey.has && imageKey.stale" class="elpis-img-status is-warn whitespace-nowrap"
+                                                  title="Clé enregistrée pour une autre adresse" data-image-key-stale>À ressaisir</span>
                                             <button type="button" class="adm-btn" :disabled="!imageKey.draft || imageKey.state === 'busy'"
                                                     @click="saveImageKey(false)" data-image-key-save>Enregistrer</button>
                                             <button v-if="imageKey.has" type="button" class="adm-btn adm-btn--icon" :disabled="imageKey.state === 'busy'"

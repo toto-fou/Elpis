@@ -184,7 +184,7 @@
             <div class="elpis-img-viewer__actions">
                 <button v-if="imageCanEdit" type="button" class="elpis-img-btn" @click="editGeneratedImage(imageViewerCurrent); closeImageViewer()">
                     <i class="ph ph-pencil-simple" aria-hidden="true"></i>Modifier</button>
-                <button type="button" class="elpis-img-btn" @click="downloadImage(imageViewerCurrent, imageViewerPrompt)">
+                <button type="button" class="elpis-img-btn" @click="downloadImage(imageViewerCurrent, imageViewerNamePrompt)">
                     <i class="ph ph-download-simple" aria-hidden="true"></i>Télécharger</button>
                 <button v-if="imageViewerPrompt" type="button" class="elpis-img-btn" @click="copyImageText(imageViewerPrompt)">
                     <i class="ph ph-copy" aria-hidden="true"></i>Copier</button>
@@ -202,7 +202,7 @@
          conversation ouverte, par pages au défilement ; clic = visionneuse. -->
     <Transition name="modal">
     <div v-if="imageGallery" class="elpis-img-gallery" role="dialog" aria-modal="true" aria-label="Galerie d’images"
-         tabindex="-1" data-image-gallery @click.self="closeImageGallery()">
+         tabindex="-1" data-image-gallery @click.self="closeImageGallery()" @keydown="imageGalleryKeydown">
         <div class="elpis-img-gallery__box">
             <header class="elpis-img-gallery__head">
                 <h2 class="elpis-img-gallery__title">Galerie</h2>

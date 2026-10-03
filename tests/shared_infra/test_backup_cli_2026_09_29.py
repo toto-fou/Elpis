@@ -137,3 +137,29 @@ def test_skills_personnels_sauvegardes_et_restaures(instance, tmp_path, monkeypa
     _restore_from_zip(archive, "full", db_path=tmp_path / "ailleurs.db", user_db_dir=tmp_path / "udb",
                       sandbox_dir=tmp_path / "sb2", mcp_dir=tmp_path / "mcp2")
     assert (skills / "alice" / "rapport" / "SKILL.md").read_text() == "# Rapport"
+
+
+def test_images_generees_hors_de_user_db_sauvegardees_et_restaurees(instance, tmp_path,
+                                                                   monkeypatch, capsys):
+    """Base hors de ``user_db/`` : ses images (à côté d'elle) partent quand
+    même dans la sauvegarde, et reviennent à côté de la base."""
+    from shared_infra import config
+    from shared_infra.db import _connection
+    from shared_infra.ops import backup_cli
+    from shared_infra.routes.admin.lifecycle import _restore_from_zip
+    ailleurs = tmp_path / "donnees"
+    (ailleurs / "generated_images" / "1").mkdir(parents=True)
+    (ailleurs / "generated_images" / "1" / "a.png").write_bytes(b"png")
+    db = ailleurs / "app.db"
+    import sqlite3
+    sqlite3.connect(str(db)).execute("CREATE TABLE t (x)").connection.commit()
+    monkeypatch.setattr(config, "DB_PATH", str(db))
+    monkeypatch.setattr(_connection, "DB_PATH", str(db))
+    assert backup_cli.main(["db", "--dest", str(tmp_path / "b")]) == 0
+    archive = Path(capsys.readouterr().out.strip())
+    with zipfile.ZipFile(archive) as z:
+        assert "generated_images/1/a.png" in z.namelist()
+    cible = tmp_path / "restauree" / "app.db"
+    _restore_from_zip(archive, "db", db_path=cible, user_db_dir=tmp_path / "udb",
+                      sandbox_dir=tmp_path / "sb2", mcp_dir=tmp_path / "mcp2")
+    assert (cible.parent / "generated_images" / "1" / "a.png").read_bytes() == b"png"

@@ -9,8 +9,9 @@ abandonne la requête (le calcul distant continue : le créneau de
 Comme Open WebUI (``routers/images.py``) : ``response_format: b64_json`` sauf
 pour les modèles ``gpt-image-*`` qui le refusent (ils renvoient toujours du
 base64) ; une réponse en ``url`` est téléchargée ici, jamais par le navigateur,
-et sans l'en-tête d'autorisation (l'URL signée d'un stockage tiers n'a pas à
-recevoir la clé du fournisseur).
+sans l'en-tête d'autorisation, et seulement sur l'origine du moteur configuré
+(hôte et port) : un moteur ne fait pas joindre d'autres machines au serveur.
+On ne garde que les ``n`` images demandées.
 """
 from __future__ import annotations
 
@@ -37,6 +38,7 @@ from llm_core.imagegen.http import (
     json_body,
     raise_for_status,
 )
+from shared_infra.image.config import engine_origin
 
 _NO_RESPONSE_FORMAT = re.compile(r"^gpt-image", re.I)
 # Plafond d'une image téléchargée par URL : au-delà, ce n'est pas une image.
@@ -130,12 +132,13 @@ class OpenAIProvider:
                     task.cancel()
             what = "images/edits" if req.init_image else "images/generations"
             raise_for_status(r, what)
-            body = json_body(r, what)
+            # Le lot en base64 est décodé hors de la boucle d'événements.
+            body = await asyncio.to_thread(json_body, r, what)
             items = body.get("data") if isinstance(body, dict) else None
             if not isinstance(items, list) or not items:
                 raise ImageError("Le moteur n'a renvoyé aucune image.", code="engine")
             out: List[ImageResult] = []
-            for item in items:
+            for item in items[:max(1, req.n)]:
                 if not isinstance(item, dict):
                     continue
                 if item.get("b64_json"):
@@ -144,14 +147,16 @@ class OpenAIProvider:
                     raw = await self._download(c, str(item["url"]))
                 else:
                     continue
-                out.append(to_result(raw, (req.width, req.height),
-                                     revised_prompt=str(item.get("revised_prompt") or "")))
+                out.append(await asyncio.to_thread(
+                    to_result, raw, (req.width, req.height),
+                    revised_prompt=str(item.get("revised_prompt") or "")))
             if not out:
                 raise ImageError("Le moteur n'a renvoyé aucune image.", code="engine")
             return out
 
     async def _download(self, c: httpx.AsyncClient, url: str) -> bytes:
-        if not url.startswith(("https://", "http://")):
+        origin = engine_origin(url)
+        if not origin or origin != engine_origin(self.url):
             raise ImageError("Adresse d'image invalide renvoyée par le moteur.",
                              code="engine", detail=url[:200])
         r = await fetch(c, "GET", url, limit=_MAX_DOWNLOAD)

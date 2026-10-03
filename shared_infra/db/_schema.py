@@ -937,7 +937,7 @@ TABLES: List[Table] = [
     Table('generated_images', [
         Col('id', TEXT, primary=True, key=64),
         Col('user_id', INT, null=False),
-        Col('chat_id', TEXT, key=64),
+        Col('chat_id', TEXT, key=191),
         Col('prompt', TEXT, null=False, default=''),
         Col('params_json', TEXT, null=False, default='{}'),
         Col('model', TEXT, null=False, default=''),

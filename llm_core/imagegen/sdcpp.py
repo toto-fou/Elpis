@@ -34,6 +34,7 @@ import httpx
 
 from llm_core.imagegen.base import (
     HINT_ADMIN,
+    QUEUE_MAX_S,
     CancelledCb,
     ImageError,
     ImageRequest,
@@ -49,8 +50,6 @@ logger = logging.getLogger("uvicorn.error")
 # Cadence de sondage : rapide au début (une image Turbo sort en quelques
 # secondes), plus lâche ensuite pour ne pas marteler un serveur mono-worker.
 _POLL_FIRST, _POLL_MAX = 0.5, 2.0
-#: Attente maximale en file, en plus du délai de calcul.
-QUEUE_MAX_S = 3600.0
 _TERMINAUX = ("completed", "failed", "cancelled")
 
 
@@ -197,14 +196,16 @@ class SdcppProvider:
                         raise ImageError("Le moteur a perdu la génération (redémarré ?).",
                                          code="engine", status=r.status_code)
                     raise_for_status(r, "jobs")
-                    st = json_body(r, "jobs")
+                    # Un job terminé porte le lot entier en base64 : décodé
+                    # hors de la boucle d'événements.
+                    st = await asyncio.to_thread(json_body, r, "jobs")
                     if not isinstance(st, dict):
                         raise ImageError("État de génération illisible.", code="engine")
                     status = str(st.get("status") or "")
                     if status in _TERMINAUX:
                         terminal = True
                     if status == "completed":
-                        return self._results(st.get("result"), req)
+                        return await asyncio.to_thread(self._results, st.get("result"), req)
                     if status == "failed":
                         err = st.get("error")
                         msg = err.get("message") if isinstance(err, dict) else err
@@ -215,9 +216,13 @@ class SdcppProvider:
                     qp = st.get("queue_position")
                     info = progress_info(st)
                     if status == "generating" and gen_t0 is None:
+                        # ``started`` vient de l'horloge du moteur : l'écart
+                        # avec la nôtre est borné par le temps réellement
+                        # écoulé depuis la soumission.
                         started = info.get("started_at")
                         lag = max(0.0, time.time() - float(started)) if started else 0.0
-                        gen_t0 = time.monotonic() - min(lag, float(self.timeout_sec))
+                        lag = min(lag, time.monotonic() - t_submit)
+                        gen_t0 = time.monotonic() - lag
                     cur = (status, qp if isinstance(qp, int) else None,
                            info.get("pct"), info.get("preview_key"))
                     if cur != last:

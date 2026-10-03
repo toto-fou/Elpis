@@ -337,4 +337,51 @@ await ta('galerie : pages par « before », filtre de la conversation ouverte', 
     assert.equal(api.imageGallery.value, null);
 });
 
+await ta('visionneuse : l\'image cliquée est retrouvée par id (une image retirée avant)', async () => {
+    const { api } = monter();
+    const items = [{ id: 'a1', url: '/api/images/a1' }, { id: 'a2', url: '/api/images/a2' },
+                   { id: 'a3', url: '/api/images/a3' }];
+    api.removeImage(items[0]);                    // suppression en attente (toast)
+    api.openImageViewer(items, 1);                // clic sur la 2e case de la grille
+    assert.equal(api.imageViewerCurrent.value.id, 'a2');
+    api.closeImageViewer();
+    api.openImageViewer(items, 2);
+    assert.equal(api.imageViewerCurrent.value.id, 'a3');
+});
+
+await ta('nom de fichier : la description de l\'utilisateur, pas la description enrichie', async () => {
+    const { api } = monter();
+    api.openImageViewer([{ id: 'b1', seed: 7 }], 0, { prompt: 'Un phare', revised: 'A lighthouse at night' });
+    assert.equal(api.imageViewerNamePrompt.value, 'Un phare');
+    assert.equal(g('imageFileName')({ id: 'b1', seed: 7, mime: 'image/png' }, api.imageViewerNamePrompt.value),
+                 'Un-phare-7.png');
+});
+
+await ta('suppression en attente : partagée pour l\'envoi au déchargement, retirée par Annuler', async () => {
+    const vue = vueMini();
+    const toasts = [];
+    const ctx = ctxMuet({ fetchAuth: async () => reponseJson(STATUT), showToast: (m, k, o) => toasts.push(o || {}),
+                          focusInput: () => {} });
+    const api = C.fabrique('setupChatImage', [vue, { settings: vue.ref({ image_ready: true }),
+        isStreaming: vue.ref(false), attachedFiles: vue.ref([]) }, ctx]);
+    api.removeImage({ id: 'd1' });
+    const attente = C.bac.__elpisImageDeletes;
+    assert.ok(attente && attente.has('d1'), 'id en attente, visible de l\'écouteur pagehide');
+    toasts[toasts.length - 1].onAction();         // « Annuler »
+    assert.equal(attente.has('d1'), false);
+    assert.equal(api.imageCellState('d1'), '');
+});
+
+await ta('Modifier avec une pièce jointe : elle est retirée ET l\'utilisateur est averti', async () => {
+    const { api, attachedFiles, toasts } = monter();
+    attachedFiles.value = [{ name: 'a.png', isImage: true }];
+    await api.editGeneratedImage({ id: 'ab12' });
+    assert.equal(attachedFiles.value.length, 0);
+    assert.ok(toasts.some(([m]) => /Pièce jointe retirée/.test(m)), 'toast affiché');
+});
+
+t('erreur « Enrichir indisponible » : libellé propre', () => {
+    assert.equal(g('imageErrorText')({ code: 'enhance' }), 'Enrichir indisponible');
+});
+
 fin();

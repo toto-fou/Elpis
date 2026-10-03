@@ -432,7 +432,7 @@
         <span v-if="!error" class="sr-only" role="status" aria-live="polite">{{ stateLabel }}</span>
         <div v-for="k in cells" :key="k" class="elpis-img-cell elpis-img-tile"
              :class="{ 'is-queued': queued && !error, 'is-error': !!error }" :style="cellStyle">
-            <div v-if="error" class="elpis-img-tile__err" role="alert" data-image-error>
+            <div v-if="error" class="elpis-img-tile__err" :role="live ? 'alert' : 'status'" data-image-error>
                 <i class="ph ph-warning-circle" aria-hidden="true"></i>
                 <span>{{ errorText }}</span>
                 <button v-if="retryable" type="button" class="elpis-img-btn" @click="$emit('retry')">Réessayer</button>

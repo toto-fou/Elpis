@@ -10,9 +10,15 @@ Règles :
   * chaque lecture filtre par ``user_id`` : l'image d'un autre compte n'existe
     pas (404, sans oracle) ;
   * rétention glissante : après insertion, seules les ``keep`` plus récentes du
-    compte restent ; lignes purgées dans la MÊME transaction, fichiers effacés
-    après le commit (un fichier orphelin vaut mieux qu'une ligne qui pointe
-    dans le vide, et le balayage le rattrape) ;
+    compte restent (jamais moins que le lot qu'on vient d'écrire) ; lignes
+    purgées dans la MÊME transaction, fichiers effacés après le commit (un
+    fichier orphelin vaut mieux qu'une ligne qui pointe dans le vide, et le
+    balayage le rattrape) ;
+  * entretien (:func:`sweep_orphans`) : conversations disparues, images des
+    sessions éphémères (``chat_id`` NULL) au-delà d'un jour, lignes dont le
+    fichier a disparu, fichiers sans ligne, dossiers de comptes supprimés, et
+    rétention appliquée à tous les comptes (une baisse de ``keep_per_user``
+    vaut aussi pour les comptes inactifs) ;
   * mesure de durée : la première image d'un lot porte ``duration_s`` (calcul
     du lot) ; toutes portent ``megapixels`` du lot entier et ``steps`` — base
     de l'estimation des générations suivantes (:func:`recent_timings`).
@@ -43,9 +49,16 @@ _EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 _ID_RE = re.compile(r"^[0-9a-f]{32}$")
 THUMB_SIDE = 384
 #: Une image d'une conversation que la base ne connaît pas (encore) n'est
-#: ramassée qu'au-delà de ce délai : la question d'un chat neuf peut être
-#: écrite après l'image.
-ORPHAN_GRACE_S = 60.0
+#: ramassée qu'au-delà de ce délai, plus long qu'un tour : la question d'un
+#: chat neuf peut être écrite après l'image.
+ORPHAN_GRACE_S = 2 * 3600.0
+#: Images d'une session éphémère (sans conversation en base) : gardées un jour.
+EPHEMERAL_TTL_S = 24 * 3600.0
+#: Ligne dont le fichier a disparu (restauration partielle) : retirée au-delà.
+_MISSING_GRACE_S = 24 * 3600.0
+#: Longueur maximale du nom de modèle en base (VARCHAR indexé sous MySQL).
+_MODEL_MAX = 191
+_DELETE_CHUNK = 500
 #: Fichier sans ligne : ramassé au-delà de ce délai (écriture en cours sinon).
 _FILE_GRACE_S = 3600.0
 _COLONNES = ("id, user_id, chat_id, prompt, params_json, model, mime, width, height, "
@@ -96,7 +109,9 @@ def _thumbnail(data: bytes) -> Optional[bytes]:
     """Vignette WebP, ou ``None`` si l'image ne se décode pas."""
     try:
         from PIL import Image
-        with Image.open(io.BytesIO(data)) as src:
+
+        from llm_core.imagegen.base import IMAGE_FORMATS
+        with Image.open(io.BytesIO(data), formats=list(IMAGE_FORMATS)) as src:
             if src.format == "JPEG":
                 src.draft("RGB", (THUMB_SIDE, THUMB_SIDE))
             im = src.convert("RGBA" if src.mode in ("RGBA", "LA", "P") else "RGB")
@@ -107,6 +122,16 @@ def _thumbnail(data: bytes) -> Optional[bytes]:
     except Exception:                                           # noqa: BLE001
         logger.info("[image] vignette impossible", exc_info=True)
         return None
+
+
+def _delete_ids(conn: Any, ids: Iterable[str]) -> None:
+    """Supprime des lignes par id : dédoublonnés et triés (ordre de verrous
+    stable entre workers), un ``DELETE … IN`` par tranche."""
+    uniques = sorted({str(i) for i in ids if i})
+    for k in range(0, len(uniques), _DELETE_CHUNK):
+        chunk = uniques[k:k + _DELETE_CHUNK]
+        conn.execute(f"DELETE FROM generated_images WHERE id IN ({','.join('?' * len(chunk))})",
+                     tuple(chunk))
 
 
 def _write(path: Path, data: bytes) -> None:
@@ -167,17 +192,19 @@ def save_images(user_id: int, chat_id: Optional[str], prompt: str, *, model: str
             refs.append(ref_for(row))
             # ``now + i * 1e-6`` : ordre stable dans un lot pour la rétention.
             rows.append((image_id, uid, chat_id, prompt or "", json.dumps(p, ensure_ascii=False),
-                         model or "", res.mime, int(res.width), int(res.height), len(res.data),
+                         (model or "")[:_MODEL_MAX], res.mime, int(res.width), int(res.height), len(res.data),
                          rel, thumb_rel, int(steps or 0), batch_mp,
                          duration_s if i == 0 else None, now + i * 1e-6))
         with db_conn() as conn:
             conn.executemany(
                 f"INSERT INTO generated_images ({_COLONNES}) "
                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+            # Jamais moins que le lot écrit : une rétention plus petite qu'un lot
+            # effacerait les images qu'on vient de produire.
             old = list(conn.execute(
                 "SELECT id, rel_path, thumb_rel_path FROM generated_images WHERE user_id=? "
                 f"ORDER BY created_at DESC LIMIT {no_limit()} OFFSET ?",
-                (uid, max(1, int(keep)))).fetchall())
+                (uid, max(1, int(keep), len(rows)))).fetchall())
             # Conversations supprimées par un chemin qui n'a pas nettoyé
             # (ancienne version, panne entre les deux écritures) : passé le
             # délai de grâce seulement.
@@ -186,9 +213,10 @@ def save_images(user_id: int, chat_id: Optional[str], prompt: str, *, model: str
                 "WHERE user_id=? AND chat_id IS NOT NULL AND created_at < ? AND NOT EXISTS "
                 "(SELECT 1 FROM chats c WHERE c.id=g.chat_id AND c.user_id=g.user_id)",
                 (uid, now - ORPHAN_GRACE_S)).fetchall())
+            lot = {r[0] for r in rows}
+            old = list({r["id"]: r for r in old if r["id"] not in lot}.values())
             if old:
-                conn.executemany("DELETE FROM generated_images WHERE id=?",
-                                 [(r["id"],) for r in old])
+                _delete_ids(conn, (r["id"] for r in old))
             conn.commit()
     except BaseException:
         _unlink(written)
@@ -331,26 +359,55 @@ def recent_timings(model: str, steps: int, limit: int = 20) -> List[Tuple[float,
             if r["duration_s"] and float(r["duration_s"]) > 0]
 
 
-def sweep_orphans(now: Optional[float] = None) -> int:
-    """Entretien : lignes de conversations disparues, fichiers sans ligne,
-    dossiers de comptes supprimés. Rend le nombre d'éléments retirés."""
+def _au_dela_de_la_retention(conn: Any, keep: int) -> List[Any]:
+    """Lignes au-delà des ``keep`` plus récentes, pour chaque compte."""
+    out: List[Any] = []
+    comptes = conn.execute(
+        "SELECT user_id FROM generated_images GROUP BY user_id HAVING COUNT(*) > ?",
+        (int(keep),)).fetchall()
+    for r in comptes:
+        out += list(conn.execute(
+            "SELECT id, rel_path, thumb_rel_path FROM generated_images WHERE user_id=? "
+            f"ORDER BY created_at DESC LIMIT {no_limit()} OFFSET ?",
+            (int(r[0]), int(keep))).fetchall())
+    return out
+
+
+def sweep_orphans(now: Optional[float] = None, keep: Optional[int] = None) -> int:
+    """Entretien : lignes de conversations disparues, images de sessions
+    éphémères au-delà d'un jour, lignes dont le fichier a disparu, rétention
+    de chaque compte (``keep``, défaut : ``image.keep_per_user``), fichiers
+    sans ligne, dossiers de comptes supprimés. Rend le nombre d'éléments
+    retirés."""
     now = time.time() if now is None else now
+    if keep is None:
+        from shared_infra.image.config import get_image_config
+        keep = get_image_config()["keep_per_user"]
     n = 0
     with db_conn() as conn:
-        old = conn.execute(
+        old = list(conn.execute(
             "SELECT id, rel_path, thumb_rel_path FROM generated_images g "
             "WHERE chat_id IS NOT NULL AND created_at < ? AND NOT EXISTS "
             "(SELECT 1 FROM chats c WHERE c.id=g.chat_id AND c.user_id=g.user_id)",
-            (now - ORPHAN_GRACE_S,)).fetchall()
+            (now - ORPHAN_GRACE_S,)).fetchall())
+        old += list(conn.execute(
+            "SELECT id, rel_path, thumb_rel_path FROM generated_images "
+            "WHERE chat_id IS NULL AND created_at < ?", (now - EPHEMERAL_TTL_S,)).fetchall())
+        old += [r for r in conn.execute(
+            "SELECT id, rel_path, thumb_rel_path FROM generated_images WHERE created_at < ?",
+            (now - _MISSING_GRACE_S,)).fetchall()
+            if not ((p := _abs(r["rel_path"])) is not None and p.is_file())]
+        old += _au_dela_de_la_retention(conn, max(1, int(keep)))
         if old:
-            conn.executemany("DELETE FROM generated_images WHERE id=?", [(r["id"],) for r in old])
+            _delete_ids(conn, (r["id"] for r in old))
             conn.commit()
         known = {x for r in conn.execute(
             "SELECT rel_path, thumb_rel_path FROM generated_images").fetchall()
             for x in (r["rel_path"], r["thumb_rel_path"]) if x}
         users = {int(r[0]) for r in conn.execute("SELECT id FROM users").fetchall()}
-    _unlink(rel for r in old for rel in (r["rel_path"], r["thumb_rel_path"]))
-    n += len(old)
+    uniques = {r["id"]: r for r in old}
+    _unlink(rel for r in uniques.values() for rel in (r["rel_path"], r["thumb_rel_path"]))
+    n += len(uniques)
     base = root()
     if not base.is_dir():
         return n

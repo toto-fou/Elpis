@@ -265,15 +265,33 @@ def test_openai_generations(reseau):
 
 def test_openai_gpt_image_sans_response_format_et_url_sans_cle(reseau):
     def h(req):
-        if req.url.host == "stockage":
+        if req.url.path == "/fichiers/x.png":
             return httpx.Response(200, content=png())
-        return httpx.Response(200, json={"data": [{"url": "https://stockage/x.png"}]})
+        return httpx.Response(200, json={"data": [{"url": "https://api/fichiers/x.png"}]})
     reseau(h)
     p = OpenAIProvider("https://api", model="gpt-image-1", api_key="secret")
     _run(p.generate(ImageRequest(prompt="x", width=1024, height=1024), _sans_suivi,
                     lambda: False))
     assert "response_format" not in json.loads(reseau.vues[0].content)
-    assert "authorization" not in reseau.vues[1].headers, "la clé ne part pas au stockage"
+    assert "authorization" not in reseau.vues[1].headers, "la clé ne part pas avec le fichier"
+
+
+def test_openai_url_hors_du_moteur_refusee(reseau):
+    """Une image renvoyée par adresse n'est téléchargée que sur l'origine du
+    moteur configuré."""
+    reseau(lambda req: httpx.Response(200, json={"data": [{"url": "http://127.0.0.1:9/x.png"}]}))
+    with pytest.raises(ImageError) as e:
+        _run(OpenAIProvider("http://h:8000", model="m").generate(
+            ImageRequest(prompt="x", width=64, height=64), _sans_suivi, lambda: False))
+    assert e.value.code == "engine"
+    assert [r.url.host for r in reseau.vues] == ["h"], "rien n'est parti ailleurs"
+
+
+def test_openai_garde_les_n_images_demandees(reseau):
+    reseau(lambda req: httpx.Response(200, json={"data": [{"b64_json": PNG_B64}] * 5}))
+    out = _run(OpenAIProvider("http://h", model="m").generate(
+        ImageRequest(prompt="x", width=64, height=64, n=2), _sans_suivi, lambda: False))
+    assert len(out) == 2
 
 
 def test_openai_edition_multipart(reseau):
@@ -494,3 +512,136 @@ def test_enrichissement():
     assert _run(enhance.enhance_prompt("un phare", model=None, llm_call=panne)) == (
         None, "modèle indisponible")
     assert enhance.clean("<think>pas fini", "x") is None
+
+
+# ── Correctifs de la relecture finale ─────────────────────────────────────
+
+_EPS = b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 64 64\nshowpage\n"
+
+
+def test_source_png_jpeg_webp_seulement(monkeypatch):
+    """Un contenu qui n'a pas la signature d'un format accepté est refusé
+    AVANT toute ouverture par Pillow."""
+    from PIL import Image
+
+    from llm_core.imagegen.base import image_dims
+    ouvertures = []
+    vrai_open = Image.open
+    monkeypatch.setattr(Image, "open", lambda *a, **k: ouvertures.append(k) or vrai_open(*a, **k))
+    with pytest.raises(ImageError) as e:
+        service.prepare_source(_EPS, 64, 64)
+    assert e.value.code == "invalid" and e.value.status == 400
+    assert ouvertures == [], "jamais ouvert"
+    assert len(service.prepare_source(png(80, 80), 64, 64)) > 0
+    assert ouvertures and ouvertures[-1].get("formats") == ["PNG", "JPEG", "WEBP"]
+    assert image_dims(_EPS, (1, 2)) == (1, 2)
+
+
+def test_sdcpp_horloge_du_moteur_en_retard(reseau, monkeypatch):
+    """Une horloge de sd-server très en retard ne fait pas expirer le calcul
+    dès le premier sondage."""
+    horloge = {"t": 1000.0}
+    monkeypatch.setattr(sdcpp_mod.time, "monotonic", lambda: horloge["t"])
+    monkeypatch.setattr(sdcpp_mod.time, "time", lambda: horloge["t"])
+    etats = iter([{"status": "generating", "started": 1000.0 - 100000},
+                  {"status": "completed", "result": {"images": [PNG_B64]}}])
+
+    def h(req):
+        if req.url.path.endswith("img_gen"):
+            return httpx.Response(202, json={"id": "jh"})
+        horloge["t"] += 1.0
+        return httpx.Response(200, json=next(etats))
+    reseau(h)
+    out = _run(SdcppProvider("http://sd", timeout_sec=30).generate(
+        ImageRequest(prompt="x", width=64, height=64), _sans_suivi, lambda: False))
+    assert len(out) == 1
+
+
+def test_suivi_horloge_du_moteur_en_retard(monkeypatch):
+    import time as _time
+    tracker = service.ProgressTracker(ImageRequest(prompt="x", width=64, height=64))
+    tracker.update("generating", None, {"started_at": _time.time() - 100000})
+    assert tracker.gen_seconds() < 5, "durée bornée par le temps écoulé ici"
+
+
+def test_ecriture_des_images_terminee_malgre_un_stop():
+    """Un Stop pendant l'enregistrement attend la fin de l'écriture et rend
+    ses références ; l'annulation absorbée est retirée."""
+    import threading
+
+    async def scenario():
+        libre = threading.Event()
+
+        def ecriture():
+            libre.wait(5)
+            return ["refs"]
+        tache = asyncio.current_task()
+        asyncio.get_running_loop().call_later(0.05, tache.cancel)
+        asyncio.get_running_loop().call_later(0.15, libre.set)
+        res = await service._hors_annulation(asyncio.ensure_future(asyncio.to_thread(ecriture)))
+        assert res == ["refs"]
+        assert tache.cancelling() == 0
+    _run(scenario())
+
+
+def test_creneau_pris_sans_thread_et_attente_bornee(tmp_path, monkeypatch):
+    """La prise d'un créneau ne passe pas par un thread (descripteur jamais
+    perdu sur une annulation) ; l'attente est bornée."""
+    monkeypatch.setattr(slots, "SLOT_DIR", tmp_path / "slots")
+    monkeypatch.setattr(slots, "_POLL_S", 0.01)
+
+    async def interdit(*a, **k):
+        raise AssertionError("pas de thread")
+    monkeypatch.setattr(slots.asyncio, "to_thread", interdit)
+
+    async def scenario():
+        async def on_wait():
+            pass
+        tenu = await slots.acquire("http://gpu", 1, on_wait=on_wait, cancelled=lambda: False)
+        monkeypatch.setattr(slots, "QUEUE_MAX_S", 0.0)
+        with pytest.raises(ImageError) as e:
+            await slots.acquire("http://gpu", 1, on_wait=on_wait, cancelled=lambda: False)
+        assert e.value.code == "busy"
+        tenu.release()
+    _run(scenario())
+
+
+def test_reponses_decodees_hors_de_la_boucle(reseau, monkeypatch):
+    """Le JSON et le base64 d'un lot terminé sont décodés dans un thread."""
+    appels = []
+    vrai = asyncio.to_thread
+
+    async def espion(fn, *a, **k):
+        appels.append(getattr(fn, "__name__", repr(fn)))
+        return await vrai(fn, *a, **k)
+    monkeypatch.setattr(sdcpp_mod.asyncio, "to_thread", espion)
+    etats = iter([{"status": "completed", "result": {"images": [PNG_B64]}}])
+
+    def h(req):
+        if req.url.path.endswith("img_gen"):
+            return httpx.Response(202, json={"id": "jd"})
+        return httpx.Response(200, json=next(etats))
+    reseau(h)
+    _run(SdcppProvider("http://sd").generate(ImageRequest(prompt="x", width=64, height=64),
+                                             _sans_suivi, lambda: False))
+    assert "json_body" in appels and "_results" in appels
+
+
+def test_sdserver_ni_tailles_fixes_ni_creneaux(tmp_path, monkeypatch):
+    import shared_infra.config as cfg_mod
+    from shared_infra.image.config import get_image_config
+    chemin = tmp_path / "config.json"
+    monkeypatch.setattr(cfg_mod, "CONFIG_JSON_PATH", chemin)
+    chemin.write_text(json.dumps({"image": {"provider": "sdcpp", "size_policy": "fixed",
+                                            "sizes": ["1024x1024"], "max_concurrent": 4}}))
+    cfg_mod.invalidate_config_cache()
+    try:
+        c = get_image_config()
+        assert c["size_policy"] == "free" and c["max_concurrent"] == 1
+        chemin.write_text(json.dumps({"image": {"provider": "openai", "size_policy": "fixed",
+                                                "max_concurrent": 4}}))
+        cfg_mod.invalidate_config_cache()
+        c = get_image_config()
+        assert c["size_policy"] == "fixed" and c["max_concurrent"] == 4
+    finally:
+        cfg_mod.invalidate_config_cache()

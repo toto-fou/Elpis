@@ -4424,11 +4424,13 @@ mark.elpis-search-hit {
 .elpis-img-act {
     width: 1.75rem; height: 1.75rem; display: inline-flex; align-items: center; justify-content: center;
     border-radius: var(--radius-md); border: 0; cursor: pointer;
+    /* Posé SUR l'image : pastille claire dans tous les thèmes, comme les
+       contrôles de .elpis-on-media ; survol et focus suivent le thème. */
     background: rgba(255, 255, 255, 0.92); color: #334155; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
 }
-.elpis-img-act:hover { color: #1d4ed8; }
-.elpis-img-act.is-danger:hover { color: #dc2626; }
-.elpis-img-act:focus-visible { outline: 2px solid #3b82f6; outline-offset: 1px; }
+.elpis-img-act:hover { color: var(--accent-strong); }
+.elpis-img-act.is-danger:hover { color: var(--danger-strong, var(--danger-text)); }
+.elpis-img-act:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
 .elpis-img-seed {
     position: absolute; left: 0.375rem; bottom: 0.375rem; padding: 0.05rem 0.35rem; border-radius: 0.25rem;
     background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 0.625rem; font-family: ui-monospace, monospace;

@@ -3718,7 +3718,9 @@ function setupAdmin(vue, sharedRefs, ctx) {
     // relue — le serveur ne la réutilise que pour l'adresse enregistrée).
     const imageTest   = ref({ state: 'idle', res: null, error: null, adjusted: false });
     const imageModels = ref({ state: 'idle', models: [], error: '' });
-    const imageKey    = ref({ has: false, draft: '', state: 'idle', error: '' });
+    // ``stale`` : une clé est enregistrée, mais pour une autre adresse que
+    // celle du moteur — le serveur ne l'envoie plus, elle est à ressaisir.
+    const imageKey    = ref({ has: false, stale: false, draft: '', state: 'idle', error: '' });
     let _imageModelsSeq = 0;
 
     function _imageForm() { return (configForm.value && configForm.value.image) || {}; }
@@ -3735,7 +3737,7 @@ function setupAdmin(vue, sharedRefs, ctx) {
             const r = await fetchAuth('/api/admin/image/key', {}, true);
             if (r && r.ok) {
                 const d = await r.json();
-                imageKey.value = Object.assign({}, imageKey.value, { has: !!d.has_key });
+                imageKey.value = Object.assign({}, imageKey.value, { has: !!d.has_key, stale: !!d.stale });
             }
         } catch (_) { /* état inconnu : champ vide */ }
     }
@@ -3762,6 +3764,9 @@ function setupAdmin(vue, sharedRefs, ctx) {
             });
             if (!r) { imageTest.value = { state: 'err', res: null, error: 'Session expirée ou réseau indisponible', adjusted: false }; return; }
             const res = await r.json();
+            if (res && res.stale !== undefined) {
+                imageKey.value = Object.assign({}, imageKey.value, { stale: !!res.stale });
+            }
             // Limites annoncées par le moteur : le formulaire s'y ajuste (une
             // modification à enregistrer, visible dans la barre).
             let adjusted = false;
@@ -3820,11 +3825,15 @@ function setupAdmin(vue, sharedRefs, ctx) {
         try {
             const r = await fetchAuth('/api/admin/image/key', {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ api_key: key }),
+                // La clé est liée à l'adresse du moteur : celle du FORMULAIRE.
+                body: JSON.stringify({ api_key: key, url: String(_imageForm().url || '').trim() }),
             });
             const d = r ? await r.json().catch(() => ({})) : {};
-            if (!r || !r.ok) throw new Error((d && typeof d.detail === 'string' && d.detail) || 'Enregistrement impossible');
-            imageKey.value = { has: !!d.has_key, draft: '', state: 'idle', error: '' };
+            if (!r || !r.ok) {
+                const det = d && d.detail;
+                throw new Error((typeof det === 'string' && det) || (det && det.message) || 'Enregistrement impossible');
+            }
+            imageKey.value = { has: !!d.has_key, stale: !!d.stale, draft: '', state: 'idle', error: '' };
             showToast(d.has_key ? 'Clé enregistrée.' : 'Clé effacée.', 'success');
         } catch (e) {
             imageKey.value = Object.assign({}, imageKey.value, { state: 'err', error: String(e && e.message || e) });

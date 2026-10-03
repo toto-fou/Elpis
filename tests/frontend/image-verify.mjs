@@ -397,6 +397,141 @@ try {
     ok('S18 Échap ferme la galerie', await page.locator('[data-image-gallery]').count() === 0);
     await page.screenshot({ path: SHOTS + '/s18-galerie-fermee.png' });
 
+    // ════ S19 — CORRECTIFS DE LA RELECTURE FINALE ════════════════════════
+    // « Éditer et renvoyer » un message Images : le tour repart au moteur d'images.
+    await regle({});
+    await gotoApp(page, '/');
+    await nouveauChat();
+    await ouvrirMode();
+    await saisir('Un phare');
+    await page.locator('[data-image-send]').click();
+    await attendFin();
+    // Premier message : la confirmation « Modifier et régénérer » s'affiche.
+    await page.evaluate(() => {
+        const p = document.querySelector('#app')._vnode.component.proxy;
+        const i = p.messages.findIndex((m) => m.role === 'user');
+        p.startEditMessage(i);
+        p.editMessageText = 'Un phare au matin';
+        p.submitEditMessage(i);
+    });
+    await page.locator('button:has-text("Modifier et régénérer")').click();
+    await page.waitForTimeout(300);
+    await attendFin();
+    a = await appels();
+    const dernierTour = a.turns[a.turns.length - 1];
+    ok('S19 Éditer et renvoyer : la demande garde image_gen', !!(dernierTour && dernierTour.image_gen));
+
+    // 502 du frontal : rien ne tourne côté serveur → erreur dans la tuile,
+    // pas de « se poursuit côté serveur », pas de nouvel envoi automatique.
+    await regle({ scenario: 'preflight502' });
+    await saisir('Un rendu perdu');
+    await page.locator('[data-image-send]').click();
+    await page.waitForTimeout(1200);
+    a = await appels();
+    ok('S19 502 avant le flux : un seul envoi (pas de rejeu)', a.turns.length === 1);
+    ok('S19 502 avant le flux : erreur dans la tuile + Réessayer',
+       /non transmise/.test(await derniere().innerText()) && await derniere().locator('button:has-text("Réessayer")').count() === 1);
+    ok('S19 502 avant le flux : pas d\'annonce « se poursuit côté serveur »',
+       await page.locator('text=se poursuit côté serveur').count() === 0);
+
+    // 409 « Enrichir » : erreur dans la tuile, sélecteur de modèle intact.
+    await regle({ scenario: 'enhance409' });
+    const conn0 = await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.selectedConnector);
+    await saisir('Un rendu enrichi');
+    await page.locator('[data-image-send]').click();
+    await page.waitForTimeout(1000);
+    ok('S19 409 Enrichir : « Enrichir indisponible » dans la tuile',
+       /Enrichir indisponible/.test(await derniere().locator('[data-image-error]').innerText()));
+    ok('S19 409 Enrichir : connecteur inchangé',
+       await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.selectedConnector) === conn0);
+    ok('S19 erreur survenue en direct : annoncée (role=alert)',
+       await derniere().locator('[data-image-error][role="alert"]').count() === 1);
+
+    // Refus avant le flux (403) : la tuile survit à un rechargement (instantané de session).
+    await regle({ scenario: 'preflight403' });
+    await saisir('Un rendu interdit');
+    await page.locator('[data-image-send]').click();
+    await page.waitForTimeout(800);
+    await page.reload();
+    await page.waitForFunction(() => { const a = document.getElementById('app'); return a && !a.hasAttribute('v-cloak'); });
+    await page.waitForTimeout(1500);
+    ok('S19 tuile de refus gardée après F5', /non autorisées/.test(await page.locator('#app').innerText()));
+
+    // /image refusé : la commande revient dans le composeur.
+    await regle({});
+    await nouveauChat();
+    const ta0 = page.locator('#app textarea').first();
+    await ta0.fill('/image 5:4 un phare');
+    await ta0.press('Enter');
+    await page.waitForTimeout(500);
+    ok('S19 /image refusé : la saisie revient', (await ta0.inputValue()) === '/image 5:4 un phare');
+    await ta0.fill('');
+
+    // Alt+I : bascule ; ignoré dans l'éditeur (Monaco) et le terminal.
+    await ta0.focus();
+    await page.keyboard.press('Alt+KeyI');
+    await page.waitForTimeout(400);
+    ok('S19 Alt+I active le mode', await page.locator('[data-image-bar]').isVisible());
+    await page.keyboard.press('Alt+KeyI');
+    await page.waitForTimeout(400);
+    ok('S19 Alt+I le coupe', !(await page.locator('[data-image-bar]').isVisible()));
+    await page.evaluate(() => {
+        const d = document.createElement('div'); d.className = 'monaco-editor'; d.id = 'faux-monaco';
+        const t = document.createElement('textarea'); d.appendChild(t); document.body.appendChild(d); t.focus();
+    });
+    await page.keyboard.press('Alt+KeyI');
+    await page.waitForTimeout(300);
+    ok('S19 Alt+I ignoré dans l\'éditeur', !(await page.locator('[data-image-bar]').isVisible()));
+    await page.evaluate(() => document.getElementById('faux-monaco').remove());
+
+    // Rechargement forcé de la conversation affichée : le mode Images reste.
+    await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.loadChat('img1'));
+    await page.waitForTimeout(1000);
+    await ouvrirMode();
+    await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.loadChat('img1', { force: true }));
+    await page.waitForTimeout(1000);
+    ok('S19 loadChat(force) même conversation : mode gardé', await page.locator('[data-image-bar]').isVisible());
+    ok('S19 erreur rechargée : role=status (pas d\'annonce)',
+       await page.locator('[data-image-error][role="status"]:has-text("Délai dépassé")').count() === 1
+       && await page.locator('[data-image-error][role="alert"]').count() === 0);
+
+    // Copier sans API presse-papiers (HTTP sur le LAN) : repli execCommand.
+    await page.evaluate(() => { try { Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true }); } catch (_) {} });
+    await page.locator('[data-image-grid] button:has-text("Copier")').first().click();
+    await page.waitForTimeout(300);
+    ok('S19 Copier sans presse-papiers : « Description copiée. »',
+       await page.locator('text=Description copiée.').count() >= 1);
+
+    // Suppression puis F5 dans les 5 s : le DELETE part au déchargement.
+    await regle({});
+    const c2 = page.locator('[data-image-id="keep01"]');
+    await c2.scrollIntoViewIfNeeded();
+    await c2.hover();
+    await c2.locator('button[aria-label="Supprimer l’image"]').click();
+    await page.reload();
+    await page.waitForTimeout(1200);
+    a = await appels();
+    ok('S19 F5 dans les 5 s : DELETE envoyé au déchargement', a.deletes.indexOf('keep01') >= 0);
+
+    // Galerie ouverte depuis les Paramètres : Maj+Tab reste dans la galerie.
+    await page.waitForFunction(() => { const a = document.getElementById('app'); return a && !a.hasAttribute('v-cloak'); });
+    await page.waitForTimeout(800);
+    await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.openSettingsTab('features'));
+    await page.locator('[data-feat-images]').waitFor({ state: 'visible' });
+    await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.openImageGallery('all'));
+    await page.locator('[data-image-gallery] .elpis-img-gallery__cell').first().waitFor({ state: 'visible' });
+    let dedans = true;
+    for (let k = 0; k < 6; k++) {
+        await page.keyboard.press('Shift+Tab');
+        dedans = dedans && await page.evaluate(() => {
+            const g = document.querySelector('[data-image-gallery]');
+            return !!(g && g.contains(document.activeElement));
+        });
+    }
+    ok('S19 galerie : Maj+Tab ne sort pas vers les Paramètres', dedans);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+
     ok('aucune erreur JS de page', errors.length === 0);
     if (errors.length) console.log(errors.slice(0, 5).join('\n'));
 } catch (e) {

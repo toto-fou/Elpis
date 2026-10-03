@@ -149,8 +149,9 @@ def test_echec_du_moteur_rendu_au_modele(env):
 
 def test_delai_de_l_outil(env):
     from llm_core.engine.tool_dispatch import _tool_timeout_s
+    from llm_core.imagegen.base import QUEUE_MAX_S
     env["config"](timeout_sec=300)
-    assert _tool_timeout_s("generate_image") == 360.0
+    assert _tool_timeout_s("generate_image") == QUEUE_MAX_S + 360.0
 
 
 # ── Branchement dans le tour de chat ──────────────────────────────────────
@@ -268,3 +269,19 @@ def test_images_gardees_au_partiel(route):
     assert fin["type"] == "final" and fin.get("tool_images")
     from shared_infra.chat.store import get_chat
     assert get_chat(1, "c-outil")["messages"][-1]["tool_images"]
+
+
+def test_plafond_d_images_par_tour(env):
+    """Au plus ``max_n`` images par tour pour l'outil, tous appels confondus ;
+    un appel en échec rend sa réservation."""
+    env["config"](max_n=3, tool_max_calls=10)
+    sink, events = {}, []
+    outil = _outil(sink, events)
+    assert _appel(outil, {"prompt": "a", "n": 2})["ok"]
+    env["faux"].echec = True
+    assert _appel(outil, {"prompt": "b", "n": 1})["ok"] is False
+    env["faux"].echec = False
+    assert _appel(outil, {"prompt": "c", "n": 3})["ok"]
+    assert env["faux"].soumissions()[-1]["batch_count"] == 1, "ramené au reste du tour"
+    r = _appel(outil, {"prompt": "d"})
+    assert r["ok"] is False and "images per turn" in r["error"]

@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import secrets
 import time
 from typing import Any, Callable, Dict, List, Optional
@@ -52,7 +53,7 @@ from chatbot_app.turn.admission import (
     _pending_gen_locks,
     _release_unclaimed_gen_lock,
 )
-from chatbot_app.turn.history import _normalize_client_messages
+from chatbot_app.turn.history import _graft_stopped_turn_state, _normalize_client_messages
 from chatbot_app.turn.persistence import _attendre_hors_annulation, _persist_turn
 from chatbot_app.turn.tasks import keep
 from llm_core.imagegen.base import ImageError, decode_b64
@@ -88,18 +89,26 @@ logger = logging.getLogger("uvicorn.error")
 _PING_S = 15.0
 _QUEUE_MAX = 200
 _STOPPED = "Génération arrêtée."
+_CHAT_ID_MAX = 191
+#: Images jointes acceptées comme source d'une édition.
+_SOURCE_URL = re.compile(r"^data:image/(png|jpeg|jpg|webp)[;,]", re.I)
 
 
 def _source_from_message(content: Any) -> Optional[bytes]:
-    """Première image jointe (partie ``image_url`` en data URL) du message.
+    """Première image jointe (partie ``image_url`` en data URL) du message ;
+    :class:`ImageError` ``invalid`` si elle n'est ni PNG, ni JPEG, ni WEBP.
     Synchrone : à appeler en thread (jusqu'à une vingtaine de Mo décodés)."""
     if not isinstance(content, list):
         return None
     for part in content:
         if isinstance(part, dict) and part.get("type") == "image_url":
             url = str((part.get("image_url") or {}).get("url") or "")
-            if url.startswith("data:image/"):
-                return decode_b64(url)
+            if not url.startswith("data:"):
+                continue
+            if not _SOURCE_URL.match(url):
+                raise ImageError("Image jointe : PNG, JPEG ou WEBP seulement.",
+                                 code="invalid", status=400)
+            return decode_b64(url)
     return None
 
 
@@ -179,6 +188,8 @@ async def image_turn(request: Request, data: Dict[str, Any], user_id: int,
     raw_messages = data.get("messages") or []
     if not isinstance(raw_messages, list):
         raise HTTPException(400, "messages doit être une liste")
+    if chat_id and len(str(chat_id)) > _CHAT_ID_MAX:
+        raise HTTPException(400, "Conversation invalide.")
     messages, msgs = _normalize_client_messages(raw_messages)
     if not msgs or msgs[-1].get("role") != "user":
         raise HTTPException(400, "messages: le dernier message doit être la demande")
@@ -217,6 +228,11 @@ async def image_turn(request: Request, data: Dict[str, Any], user_id: int,
     if read_failed and not ephemeral:
         # Sans l'état lu, l'écriture effacerait l'état de compaction du chat.
         raise HTTPException(503, "Conversation momentanément illisible : réessayez.")
+    if existing:
+        # Travail d'outils d'un tour stoppé, connu de la base seule : recollé
+        # au partiel renvoyé par le client, comme pour un tour du modèle.
+        with swallow("image.graft_stopped_turn_state"):
+            _graft_stopped_turn_state(messages, msgs, existing.get("messages"))
 
     base: Dict[str, Any] = {
         "updated_at": (existing or {}).get("updated_at"),
@@ -355,14 +371,16 @@ class _ImageTurn:
 
     async def _body(self) -> "tuple[str, str]":
         clear_chat_cancellation(self.user_id, self.chat_id)
-        await self._persist_question()
-        await self.emit({"type": "mode", "kind": "image", "text": "Génération d'image…"})
-        await self.emit(self.tracker.event())
         refs: List[Dict[str, Any]] = []
         meta: Dict[str, Any] = {}
         err: Optional[ImageError] = None
         revised = ""
         try:
+            # Dans le ``try`` : un Stop (ou son écho du bus d'annulation)
+            # pendant l'écriture de la question mène quand même au ``final``.
+            await self._persist_question()
+            await self.emit({"type": "mode", "kind": "image", "text": "Génération d'image…"})
+            await self.emit(self.tracker.event())
             if self.enhance_target is not None:
                 revised = await self._enhance()
             refs, meta = await generate_and_store(
@@ -455,7 +473,8 @@ class _ImageTurn:
         if ret is False:
             return False, "conflict"
         with swallow("image.recent_cap"):
-            await asyncio.to_thread(enforce_recent_chats_cap, self.user_id)
+            await _attendre_hors_annulation(asyncio.ensure_future(
+                asyncio.to_thread(enforce_recent_chats_cap, self.user_id)))
         return True, ""
 
     # ── Flux ──────────────────────────────────────────────────────────────
@@ -527,9 +546,17 @@ class _ImageTurn:
                 # Stop : ``/api/chat/cancel`` a déjà annulé la tâche (ou posé le
                 # drapeau que le moteur consulte). Pas de second ``cancel()`` :
                 # il couperait l'annulation du job distant et l'écriture du
-                # tour arrêté. On attend sa fin, bornée.
-                with swallow("image.cancel_wait"):
+                # tour arrêté. On attend sa fin, bornée. L'annulation du flux
+                # lui-même (client parti) peut interrompre cette attente : elle
+                # est absorbée ici, la suite (désenregistrement, détachement)
+                # doit s'exécuter dans tous les cas, sinon le verrou de
+                # présence du chat ne serait jamais rendu.
+                try:
                     await asyncio.wait_for(asyncio.shield(task), timeout=15.0)
+                except (asyncio.CancelledError, asyncio.TimeoutError):
+                    pass
+                except Exception:                               # noqa: BLE001
+                    logger.debug("[image] fin du tour arrêté", exc_info=True)
             if task.done():
                 unregister_chat_task(self.user_id, self.chat_id, task)
             else:

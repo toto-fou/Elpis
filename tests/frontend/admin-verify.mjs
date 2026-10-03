@@ -432,6 +432,20 @@ try {
     ok('images : clé envoyée à part, champ vidé, formulaire inchangé',
        ilog.some((e) => e.kind === 'key' && e.present) && (await page.locator('#cnx-image-key').inputValue()) === ''
        && (await dirtyCount()) === '3 modifications');
+    ok('images : clé liée à l\'adresse du formulaire',
+       ilog.some((e) => e.kind === 'key' && e.present && e.url === 'http://10.0.0.9:8084'));
+    ok('images : clé à jour, pas d\'état « À ressaisir »', await page.locator('[data-image-key-stale]').count() === 0);
+    // Clé enregistrée pour une autre adresse : « À ressaisir » sur la ligne Clé.
+    await page.evaluate(() => fetch('/__image_key', { method: 'POST', body: JSON.stringify({ has_key: false, stale: true }) }));
+    await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.loadImageAdmin());
+    await page.waitForTimeout(300);
+    ok('images : clé d\'une autre adresse → « À ressaisir »',
+       (await page.locator('[data-image-key-stale]').innerText().catch(() => '')).trim() === 'À ressaisir'
+       && (await page.locator('[data-image-key-stale]').getAttribute('title')) === 'Clé enregistrée pour une autre adresse'
+       && (await page.locator('#cnx-image-key').getAttribute('placeholder')) === 'À ressaisir');
+    await page.evaluate(() => fetch('/__image_key', { method: 'POST', body: JSON.stringify({ has_key: true, stale: false }) }));
+    await page.evaluate(() => document.querySelector('#app')._vnode.component.proxy.loadImageAdmin());
+    await page.waitForTimeout(300);
     await saveBtn().click();
     await page.waitForTimeout(800);
     const iplog = await patchLog();

@@ -64,7 +64,7 @@ const DEFAUTS = {
     sizes: [],
     features: { seed: true, negative: true, steps: true, strength: true, edit: true },
     max_n: 4,
-    scenario: 'ok',          // ok | error | slow | preflight403 | tool
+    scenario: 'ok',          // ok | error | slow | preflight403 | preflight502 | enhance409 | tool
     delay: 120,
 };
 let etat = JSON.parse(JSON.stringify(DEFAUTS));
@@ -263,6 +263,14 @@ http.createServer(async (req, res) => {
             journal.turns.push(b);
             if (b.image_gen && etat.scenario === 'preflight403') {
                 return json(res, { detail: { code: 'forbidden', message: 'Images non autorisées pour ce compte.' } }, 403);
+            }
+            // Frontal en panne : la demande n'atteint jamais l'application.
+            if (b.image_gen && etat.scenario === 'preflight502') {
+                res.statusCode = 502; res.setHeader('content-type', 'text/html'); res.end('<h1>502</h1>'); return;
+            }
+            // « Enrichir » coché, modèle du chat injoignable.
+            if (b.image_gen && etat.scenario === 'enhance409') {
+                return json(res, { detail: { code: 'engine_unavailable', message: 'Serveur indisponible.' } }, 409);
             }
             return b.image_gen ? tourImage(req, res, b) : tourTexte(req, res);
         }

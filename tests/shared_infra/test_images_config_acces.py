@@ -162,3 +162,20 @@ def test_champs_de_message_assainis():
                                   "ratio": "16:9", "enhance": True}
     assert messages.is_image_request({"role": "user", "image_request": {}})
     assert messages.caption("un  phare", 2) == "[2 images générées : « un phare »]"
+
+
+def test_valeurs_non_finies(cfg_file):
+    """Un nombre infini (config éditée à la main, préférences reçues en JSON)
+    retombe sur le défaut au lieu de faire échouer la lecture."""
+    cfg_file({"enabled": True, "url": "http://h", "max_n": 1e999, "timeout_sec": float("nan")})
+    c = config.get_image_config()
+    assert c["max_n"] == config.IMAGE_DEFAULTS["max_n"]
+    assert c["timeout_sec"] == config.IMAGE_DEFAULTS["timeout_sec"]
+    p = access.clean_prefs({"n": float("inf"), "side": float("-inf")})
+    assert p["n"] == 1 and p["side"] == 1024
+
+
+def test_plafond_des_references_d_un_message():
+    refs = [{"id": f"{i:032x}"} for i in range(80)]
+    assert messages.MAX_REFS >= 64
+    assert len(messages.sanitize_refs(refs)) == messages.MAX_REFS

@@ -14,6 +14,10 @@ s'empiler sur un GPU encore occupé.
 
 sd-server n'en a pas besoin : il tient sa propre file et en publie la
 position.
+
+La prise d'un créneau (``open`` + ``flock`` non bloquant) est instantanée et
+se fait sur la boucle : un descripteur pris dans un thread serait perdu si la
+tâche était annulée pendant l'appel, et le créneau resterait tenu.
 """
 from __future__ import annotations
 
@@ -22,10 +26,11 @@ import fcntl
 import hashlib
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
-from llm_core.imagegen.base import ImageError
+from llm_core.imagegen.base import QUEUE_MAX_S, ImageError
 from shared_infra.runtime.runtime_dir import runtime_path
 
 logger = logging.getLogger("uvicorn.error")
@@ -71,14 +76,16 @@ def _try(path: Path) -> Optional[int]:
 async def acquire(url: str, cap: int, *, on_wait: Callable[[], Awaitable[None]],
                   cancelled: Callable[[], bool]) -> Slot:
     """Prend un des ``cap`` créneaux de l'adresse ; ``on_wait`` est appelé une
-    fois si tous sont pris. :class:`ImageError` ``cancelled`` sur un Stop."""
+    fois si tous sont pris. :class:`ImageError` ``cancelled`` sur un Stop,
+    ``busy`` au-delà de ``QUEUE_MAX_S`` d'attente."""
     SLOT_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
     key = hashlib.sha256((url or "").encode("utf-8")).hexdigest()[:16]
     paths = [SLOT_DIR / f"{key}-{k}.lock" for k in range(max(1, int(cap)))]
     waited = False
+    t0 = time.monotonic()
     while True:
         for p in paths:
-            fd = await asyncio.to_thread(_try, p)
+            fd = _try(p)
             if fd is not None:
                 return Slot(fd)
         if not waited:
@@ -86,4 +93,6 @@ async def acquire(url: str, cap: int, *, on_wait: Callable[[], Awaitable[None]],
             await on_wait()
         if cancelled():
             raise ImageError("Génération annulée.", code="cancelled")
+        if time.monotonic() - t0 > QUEUE_MAX_S:
+            raise ImageError("Moteur d'images occupé trop longtemps.", code="busy")
         await asyncio.sleep(_POLL_S)

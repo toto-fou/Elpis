@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import re
 from typing import Any, Dict, Optional
 
@@ -63,8 +64,10 @@ async def api_image_status(request: Request) -> Dict[str, Any]:
 async def api_images_list(request: Request, before: Optional[float] = None,
                           limit: int = 50, chat_id: Optional[str] = None) -> Dict[str, Any]:
     uid = require_user_id(request)
-    if chat_id is not None and not (0 < len(chat_id) <= 64):
+    if chat_id is not None and not (0 < len(chat_id) <= 191):
         raise HTTPException(400, "Conversation invalide.")
+    if before is not None and not math.isfinite(before):
+        raise HTTPException(400, "Curseur invalide.")
     items, suite, total = await asyncio.to_thread(
         store.list_images, uid, before=before, limit=limit, chat_id=chat_id)
     return {"items": items, "next_before": suite, "total": total,

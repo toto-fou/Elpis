@@ -237,6 +237,11 @@ def test_sdcpp_capacites(reseau):
     assert caps == {"model": "qwen-image-Q8_0.gguf", "mode": "img_gen",
                     "limits": {"max_width": 2048, "max_batch_count": 8},
                     "defaults": {"sample_steps": 20}}
+    # sd-server récent : le nom court (« stem ») est affiché, sans extension.
+    reseau(lambda req: httpx.Response(200, json={
+        "model": {"name": "qwen_image_2.1-Q4_K.gguf", "stem": "qwen_image_2.1-Q4_K"},
+        "current_mode": "img_gen"}))
+    assert _run(SdcppProvider("http://sd").capabilities())["model"] == "qwen_image_2.1-Q4_K"
 
 
 def test_moteur_injoignable(reseau):

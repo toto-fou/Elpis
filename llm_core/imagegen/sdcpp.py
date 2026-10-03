@@ -126,7 +126,7 @@ class SdcppProvider:
         by_mode = data.get("defaults_by_mode")
         defaults = by_mode.get("img_gen") if isinstance(by_mode, dict) else None
         return {
-            "model": str(model.get("name") or data.get("model_name") or ""),
+            "model": str(model.get("stem") or model.get("name") or data.get("model_name") or ""),
             "mode": str(data.get("current_mode") or ""),
             "limits": data.get("limits") if isinstance(data.get("limits"), dict) else {},
             "defaults": defaults if isinstance(defaults, dict) else {},

@@ -54,10 +54,29 @@ def status_for(user_id: int) -> Dict[str, Any]:
     return out
 
 
+#: Attente maximale de la sonde de sd-server par la route d'état (secondes).
+_STATUS_PROBE_S = 3.0
+
+
+async def _announced_model(cfg: Dict[str, Any]) -> str:
+    """sd-server sert UN modèle, celui qu'il a chargé : son nom vient de ses
+    capacités (en cache), jamais de ``image.model``. Moteur muet : vide."""
+    from llm_core.imagegen.base import ImageError
+    from llm_core.imagegen.service import capabilities, model_name
+    try:
+        caps = await asyncio.wait_for(capabilities(cfg), _STATUS_PROBE_S)
+    except (ImageError, asyncio.TimeoutError):
+        return ""
+    return model_name({}, caps)
+
+
 @router.get("/api/image/status")
 async def api_image_status(request: Request) -> Dict[str, Any]:
     uid = require_user_id(request)
-    return await asyncio.to_thread(status_for, uid)
+    out = await asyncio.to_thread(status_for, uid)
+    if out.get("ready") and out.get("provider") == "sdcpp":
+        out["model"] = await _announced_model(get_image_config())
+    return out
 
 
 @router.get("/api/images")

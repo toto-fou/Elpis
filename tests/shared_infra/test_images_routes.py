@@ -49,6 +49,20 @@ def env(tmp_path, monkeypatch):
         cfg_mod.invalidate_config_cache()
     config({"enabled": True, "url": "http://gpu:8084", "max_n": 4})
 
+    # sd-server simulé : la route d'état lit le modèle qu'il a chargé.
+    import httpx
+
+    from llm_core.imagegen import http as transport_mod, service
+    moteur = {"model": "qwen_image_2.1-Q4_K.gguf", "up": True}
+
+    def repond(req):
+        if not moteur["up"]:
+            raise httpx.ConnectError("refusé", request=req)
+        return httpx.Response(200, json={"current_mode": "img_gen", "limits": {},
+                                         "model": {"name": moteur["model"]}})
+    monkeypatch.setattr(transport_mod, "_TRANSPORT", httpx.MockTransport(repond))
+    service.forget_capabilities()
+
     from shared_infra.accounts.groups import add_user_to_group, create_group
     from shared_infra.accounts.users import create_user
     ids = {"admin": create_user("admin", "pw-admin-12", is_admin=1),
@@ -75,7 +89,7 @@ def env(tmp_path, monkeypatch):
     app.include_router(router)
     app.include_router(admin_router)
     c = TestClient(app, raise_server_exceptions=False)
-    yield {"c": c, "ids": ids, "as": lambda nom: courant.update(uid=ids[nom]),
+    yield {"c": c, "ids": ids, "moteur": moteur, "as": lambda nom: courant.update(uid=ids[nom]),
            "config": config, "chemin": chemin}
     legacy.reset_pool()
     cfg_mod.invalidate_config_cache()
@@ -96,6 +110,17 @@ def test_etat_propose_sans_adresse_ni_cle(env):
     assert j["prefs"] == {"ratio": "1:1", "side": 1024, "n": 1, "enhance": False}
     assert j["stored"] == 0 and j["max_n"] == 4 and j["features"]["seed"]
     assert "url" not in j and "api_key_enc" not in j and "gpu" not in json.dumps(j)
+
+
+def test_etat_modele_annonce_par_sd_server(env):
+    """sd-server : le modèle affiché est celui qu'il a chargé, pas
+    ``image.model`` (resté d'une configuration OpenAI, par exemple)."""
+    from llm_core.imagegen import service
+    env["config"]({"enabled": True, "url": "http://gpu:8084", "model": "reste-openai"})
+    assert env["c"].get("/api/image/status").json()["model"] == "qwen_image_2.1-Q4_K.gguf"
+    env["moteur"]["up"] = False
+    service.forget_capabilities()
+    assert env["c"].get("/api/image/status").json()["model"] == ""
 
 
 def test_etat_hors_groupe_et_moteur_eteint(env):

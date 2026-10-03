@@ -53,10 +53,12 @@ from typing import Any, AsyncIterator, Dict, Iterable, Optional
 
 logger = logging.getLogger("uvicorn.error")
 
-KINDS = ("chat", "routine", "subagent", "compaction")
+KINDS = ("chat", "routine", "subagent", "compaction", "image")
 #: Source d'usage (``usage_events.source``) du propriétaire de chaque genre.
+#: Un tour « Images » n'appelle de modèle de langage que pour enrichir la
+#: description : son issue est posée par le tour lui-même.
 _SOURCES = {"chat": ("chat",), "routine": ("routine", "webhook"),
-            "subagent": ("subagent",), "compaction": ("compression",)}
+            "subagent": ("subagent",), "compaction": ("compression",), "image": ()}
 _FICHIERS_MAX = 10000
 #: Échantillonnage de la sandbox (``docker stats``) pendant une exécution.
 ECHANTILLON_S = 10.0

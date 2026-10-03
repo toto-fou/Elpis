@@ -17,6 +17,7 @@ import math
 import re
 from typing import Optional
 
+from shared_infra.image.messages import copy_fields as _copy_image_fields
 from shared_infra.observability.tracing import swallow
 from shared_infra.routes._helpers import _msg_text
 
@@ -225,7 +226,7 @@ def _merge_prev_segment_lists(prev_msg: dict, msg: dict) -> None:
     _p_anc, _p_neuf = prev_msg.get("pruned"), msg.get("pruned")
     if isinstance(_p_anc, int) and not isinstance(_p_anc, bool) and _p_anc > 0:
         msg["pruned"] = _p_anc + (_p_neuf if isinstance(_p_neuf, int) and not isinstance(_p_neuf, bool) else 0)
-    for _k in ("task_runs", "run_ids", "compactions"):
+    for _k in ("task_runs", "run_ids", "compactions", "tool_images"):
         _anc = prev_msg.get(_k) if isinstance(prev_msg.get(_k), list) else []
         if not _anc:
             continue
@@ -275,7 +276,8 @@ _NOTICE_FIELDS = ("kind", "ts", "round", "tokens_after", "summary")
 
 
 _GRAFT_KEYS = ("tool_history", "tool_history_delta", "task_runs",
-               "resume_thinking", "thinkingTruncated", "run_ids", "compactions")
+               "resume_thinking", "thinkingTruncated", "run_ids", "compactions",
+               "tool_images")
 
 
 def _graft_stopped_turn_state(filtres: list, persistables: list, db_msgs) -> int:
@@ -390,6 +392,10 @@ def _normalize_client_messages(messages: list) -> tuple[list, list]:
         _met = _metrics_for_persist(m.get("metrics"))
         if _met:
             _mm["metrics"] = _met
+        # Images générées : demande (message user), références, description
+        # enrichie, pied et erreur (message assistant) — assainies, URL
+        # refaites depuis l'id.
+        _copy_image_fields(m, _mm)
         if m.get("role") == "notice":
             for _k in _NOTICE_FIELDS:
                 if m.get(_k) is not None:

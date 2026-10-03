@@ -34,6 +34,7 @@ FICHIERS_NETTOYES = (
     "chatbot_app/turn/events.py",
     "chatbot_app/turn/execution.py",
     "chatbot_app/turn/history.py",
+    "chatbot_app/turn/image.py",
     "chatbot_app/turn/persistence.py",
     "chatbot_app/turn/preparation.py",
     "chatbot_app/turn/tasks.py",

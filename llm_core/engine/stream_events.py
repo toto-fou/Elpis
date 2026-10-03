@@ -52,6 +52,11 @@ STREAM_EVENTS: Dict[str, str] = {
     "queue_status": "attente d'un créneau du moteur",
     "queue_cleared": "créneau obtenu",
     "rag_sources": "sources RAG du tour",
+    # Génération d'images (tour « Images » et outil ``generate_image``)
+    "image_progress": "avancée d'une génération d'images (file, calcul)",
+    "image": "images générées (références)",
+    "image_prompt": "description enrichie envoyée au moteur d'images",
+    "image_error": "échec d'une génération d'images (code, message)",
     # Messages
     "info": "information",
     "notice": "avis affiché dans la conversation",
@@ -86,6 +91,7 @@ LOOP_EVENTS = frozenset({
 NOT_DISPLAYED = frozenset({
     "tool_limit", "tool_history_partial", "prune_state", "llm_user_suffix",
     "compression_state", "rag_sources", "log", "journal_truncated",
+    "image_progress", "image", "image_prompt", "image_error",
 })
 
 __all__ = ["LOOP_EVENTS", "NOT_DISPLAYED", "STREAM_EVENTS"]

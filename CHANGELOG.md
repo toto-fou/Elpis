@@ -101,6 +101,22 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifications
 
+- **Créneaux du moteur LLM communs à tous les process** : un créneau du
+  llama-server (`-np`) est désormais un fichier verrouillé partagé par les
+  workers et la console (`ELPIS_LLM_SLOTS_DIR`). Avant, chaque worker gardait
+  sa part (`créneaux ÷ workers`, au moins 1) : sept workers lançaient sept
+  générations sur quatre créneaux, trois workers en laissaient un inutilisé.
+  Un chat passe toujours avant une tâche de fond, y compris d'un worker à
+  l'autre.
+- **Workers Gunicorn** : par défaut `min(4, cœurs − 1)` au-delà de 2 cœurs
+  (`APP_WORKERS` l'impose toujours) ; une machine de 32 cœurs lançait 31
+  workers.
+- **Service d'outils** : appels simultanés plafonnés au total
+  (`MCP_TOOL_MAX_CONCURRENT`, 48) et par compte
+  (`MCP_TOOL_MAX_CONCURRENT_PER_USER`, 12), attente bornée
+  (`MCP_TOOL_QUEUE_WAIT_S`, 30 s) puis erreur lisible par le modèle ; pool de
+  threads réglable (`MCP_TOOL_THREADS`, 64 au lieu de 40). Des commandes
+  longues d'un seul compte ne figent plus le service pour les autres.
 - **Installation** : `install.sh` et son assistant ne proposent plus
   d'installer le moteur vocal (whisper.cpp + Piper) sur la machine d'Elpis ;
   il se déploie à part avec `deploy/voice/`, et la page « Voix » de
@@ -220,6 +236,20 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Corrections et sécurité
 
+- **Bascule de base interrompue** (process de la console tué pendant la
+  copie) : les écritures ne répondent plus 503 indéfiniment, la tâche
+  apparaît « interrompue » et « Migrer » peut être relancé tout de suite.
+  Une copie ou une vérification en échec vide la base cible, qui était
+  vierge au départ : la nouvelle tentative n'est plus refusée (« cible non
+  vide »). Pendant une bascule, une configuration illisible bloque les
+  écritures au lieu de les laisser passer.
+- **Installation vers PostgreSQL / MariaDB** : si la copie des données
+  SQLite échoue, Elpis reste sur SQLite (données intactes) et la nouvelle
+  base est gardée en attente dans la console › Base de données ; avant, le
+  schéma y était créé quand même et la copie ne pouvait plus être relancée.
+- **Console › Métriques** : l'export Prometheus et l'export CSV rendent
+  leur connexion à la base même en cas d'erreur (sur PostgreSQL / MariaDB,
+  chaque fuite retirait une connexion au pool jusqu'au redémarrage).
 - **Changement de modèle avec un llama-server routeur** (une instance à la
   fois) : choisir un autre modèle dans un chat rechargeait l'ancien, avec
   des erreurs 500 côté llama. Trois causes, corrigées :

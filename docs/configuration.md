@@ -437,6 +437,7 @@ comme absente.
 | `LLAMA_RETRY_BACKOFF_CAP_S` | `llama.retry_backoff_cap_s` | `15` | Plafond full-jitter |
 | `LLAMA_LOADING_WAIT_S` | `llama.loading_wait_s` | `90` | Attente « modèle en chargement » (503 → sonde `/health`) |
 | `LLAMA_MAX_CONCURRENCY` | `llama.max_concurrency` | `4` | Repli si `/props.total_slots` indisponible |
+| `ELPIS_LLM_SLOTS_DIR` | — | `/tmp/elpis_llm_slots` | Créneaux du llama-server communs à tous les process (un fichier verrouillé par créneau) ; doit appartenir au compte du service |
 | `LLAMA_MAX_MODELS` | `llama.max_models` | `1` | Modèles simultanés côté serveur |
 | `LLAMA_MAX_TOOL_ITERATIONS` | `llama.max_tool_iterations` | `200` | Itérations **productives** max par tour |
 | `LLAMA_TOOL_TIMEOUT_S` | `llama.tool_timeout_s` | `300` | Borne dure par appel d'outil |
@@ -698,6 +699,10 @@ l'être). Routes :
 | `LOCAL_MCP_TOKEN` | — | Jeton de **service** de l'app (Bearer, **vérifié** côté serveur sur SSE/HTTP) ; `./elpis configure` le génère dans `user_db/.local_mcp_token` |
 | `LOCAL_MCP_CLIENT_TOKENS` | — | Jetons de **clients externes** configurés à la main, chacun lié à un compte : `tok1:alice,tok2:bob` (toutes les familles) |
 | `LOCAL_MCP_TOOL_FAMILIES` | `all` | Familles enregistrées : `fs,shell,git` ou `all,-desktop,-browser` |
+| `MCP_TOOL_MAX_CONCURRENT` | `48` | Appels d'outils simultanés sur le service, tous comptes confondus (`0` = sans plafond) |
+| `MCP_TOOL_MAX_CONCURRENT_PER_USER` | `12` | Appels simultanés d'un même compte (`0` = sans plafond) ; un appel sans identité ne compte que dans le total |
+| `MCP_TOOL_QUEUE_WAIT_S` | `30` | Attente maximale d'une place ; au-delà (ou file pleine : deux fois le plafond total, et pas plus d'appels en attente par compte que son plafond) l'outil répond par une erreur lisible par le modèle. Courte exprès : un appel abandonné par l'app (Stop) mais encore en file s'exécuterait à sa place |
+| `MCP_TOOL_THREADS` | `64` | Threads du service pour les outils synchrones et ses routes HTTP (défaut anyio : 40) ; garder 8 threads de plus que `MCP_TOOL_MAX_CONCURRENT` |
 | `LOCAL_MCP_LIST_PAGE_SIZE` | `100` | Outils par page de `tools/list` (pagination par `cursor`) |
 | `LOCAL_MCP_ALLOWED_ORIGINS` | *(vide)* | Origines de navigateur autorisées en plus de `mcp.allowed_origins` et `app.cors_origins` (séparées par des virgules, `scheme://hôte:*` accepté) |
 | `LOCAL_MCP_OPENCODE_FAMILIES` | `git,browser,desktop` | Familles **publiées** à opencode, une **entrée MCP (= une bascule) par famille** → `…/mcp/<famille>`. Liste d'inclusion : une famille ajoutée plus tard doit être nommée pour apparaître |
@@ -905,7 +910,7 @@ flowchart TB
 
 | Paramètre | Valeur | Commentaire |
 |---|---|---|
-| `workers` | `cpu - 1` si `cpu > 2`, sinon `min(cpu, 4)` ; admin : 1 | 4 vCPU → 3 workers |
+| `workers` | `min(4, cpu - 1)` au-delà de 2 cœurs, sinon `cpu` ; `APP_WORKERS=N` l'impose ; admin : 1 | 4 vCPU → 3 workers, 8 vCPU et plus → 4 |
 | `worker_class` | `server.uvicorn_worker.ElpisUvicornWorker` | Durci : `timeout_graceful_shutdown` borné + annonce du shutdown aux flux SSE |
 | `bind` | suit `security.https.enabled` puis `security.listen` (voir [Écoute](#écoute-securitylisten)) ; `BIND` prioritaire | Break-glass : `BIND=0.0.0.0:8001` |
 | `reuse_port` | `True` | **Indispensable** au re-bind à chaud : pendant le SIGHUP, anciens et nouveaux workers coexistent sur le même port |
@@ -920,6 +925,10 @@ flowchart TB
 
 - Chaque worker a **ses propres caches** (`n_ctx`, slots, `/props`, pool MCP,
   registre de catégories d'outils).
+- Les **créneaux du llama-server** (`-np`) sont communs à tous les process, admin
+  compris : un créneau = un fichier verrouillé (`flock`) dans le répertoire
+  d'exécution (`ELPIS_LLM_SLOTS_DIR`, défaut `/tmp/elpis_llm_slots`). Le nombre de
+  workers ne change donc ni le nombre de générations simultanées ni leur partage.
 - Le bouton « Rafraîchir les caches » diffuse un événement à tous les workers.
 - Recyclage désactivé par défaut côté main. S'il est réactivé
   (`APP_MAX_REQUESTS`) ou lors d'un reload, **le recyclage d'un worker reste

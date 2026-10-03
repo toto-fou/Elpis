@@ -595,6 +595,15 @@ def _schema_lock():
             fh.close()
 
 
+def _portable_migration(name: str) -> bool:
+    import importlib
+    try:
+        mod = importlib.import_module(f"shared_infra.db._migrations.{name}")
+    except Exception:                                           # noqa: BLE001
+        return False
+    return bool(getattr(mod, "PORTABLE", False))
+
+
 def _migrate(conn, fresh: bool) -> None:
     """Chaîne de migrations de ``conn`` (``fresh`` : aucune table avant
     ``create_all``).
@@ -610,7 +619,12 @@ def _migrate(conn, fresh: bool) -> None:
     from shared_infra.db._dialect import SQLITE, dialect_of
     from shared_infra.db._migrations import run_pending, stamp_baseline
     if fresh or dialect_of(conn) != SQLITE:
-        stamped = stamp_baseline(conn, _schema.BASELINE_COVERS)
+        # Base serveur EXISTANTE : une migration de données portable
+        # (``PORTABLE = True``) a des lignes à convertir — elle est jouée par
+        # ``run_pending``, pas tamponnée. Base neuve : rien à convertir.
+        covers = _schema.BASELINE_COVERS if fresh else tuple(
+            n for n in _schema.BASELINE_COVERS if not _portable_migration(n))
+        stamped = stamp_baseline(conn, covers)
         if stamped:
             logger.info("[init_db] schéma de référence : %d migration(s) tamponnée(s)", stamped)
     applied_n = run_pending(conn)

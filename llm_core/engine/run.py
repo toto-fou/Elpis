@@ -323,6 +323,10 @@ class RunRecord:
     cumul_out: int = 0
     cumul_cache_read: int = 0
     cumul_cache_creation: int = 0
+    # Part OUTILS de l'entrée, cumulée comme ``cumul_in`` (cf. ``note_tool_input``),
+    # et tokens des définitions d'outils (comptés une fois par run).
+    cumul_tool_in: int = 0
+    tool_defs_tokens: Optional[int] = None
     # Raisonnement DÉCLARÉ par le backend (o-series, vLLM récents), cumulé
     # comme le reste du tour. ``None`` tant qu'aucune itération ne l'a déclaré
     # — la mesure de fin de tour prend alors le relais (tokenisation).
@@ -365,6 +369,28 @@ class RunRecord:
             "ok":   not result_is_tool_failure(result_str),
         })
 
+    def note_tool_input(self, msgs: Any, tools_payload: Any, model: Any,
+                        prompt_tokens: Any) -> None:
+        """Ajoute la part OUTILS de l'entrée d'un appel abouti (définitions +
+        appels et résultats re-soumis, ``tool_prompt_tokens``), bornée par son
+        entrée réelle : les outils sont un SOUS-ENSEMBLE de l'entrée, jamais
+        un terme de plus. Best-effort : une mesure manquée ne coûte qu'un
+        compteur."""
+        with swallow("harness.tool_input_tokens"):
+            from llm_core.context.tokens import est_tokens_text, tool_prompt_tokens
+            if self.tool_defs_tokens is None:
+                if self.tools_tok_counted:
+                    self.tool_defs_tokens = int(self.tools_tok_counted[0])
+                elif tools_payload:
+                    self.tool_defs_tokens = est_tokens_text(
+                        json.dumps(tools_payload, ensure_ascii=False))
+                else:
+                    self.tool_defs_tokens = 0
+            p = max(0, int(prompt_tokens or 0))
+            n = tool_prompt_tokens(msgs, (str(model) if model else None),
+                                   defs_tokens=self.tool_defs_tokens)
+            self.cumul_tool_in += min(n, p)
+
     def usage_note(self, *, effective_iter: int, model: Any, recorded: bool = False) -> None:
         """Recopie les cumuls d'usage dans le cumul partagé avec l'enveloppe."""
         if self.usage_acc is None:
@@ -373,6 +399,7 @@ class RunRecord:
             "in": self.cumul_in, "out": self.cumul_out,
             "cache_read": self.cumul_cache_read,
             "cache_creation": self.cumul_cache_creation,
+            "tool_in": self.cumul_tool_in,
             "iterations": effective_iter,
             "model": model,
             "inflight_in": 0,

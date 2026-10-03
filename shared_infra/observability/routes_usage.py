@@ -40,7 +40,7 @@ from fastapi.responses import JSONResponse
 
 from shared_infra.accounts.users import get_username_by_id
 from shared_infra.db._dialect import json_get
-from shared_infra.observability.usage_store import db_conn
+from shared_infra.observability.usage_store import db_conn, token_breakdown
 from shared_infra.routes._state import router
 from shared_infra.security.deps import require_user_id
 
@@ -67,6 +67,7 @@ def api_usage_me(request: Request, days: str = "30"):
     n_active = n_archived = 0
     in_tok = out_tok = total_tok = 0
     think_tok = resp_tok = 0
+    parts = token_breakdown()
     estimated = False
     msg_user = msg_assistant = 0
     r_n = r_ok = r_err = r_in = r_out = 0
@@ -95,16 +96,20 @@ def api_usage_me(request: Request, days: str = "30"):
         try:
             cur.execute("""
                 SELECT COALESCE(SUM(input_tokens),0), COALESCE(SUM(output_tokens),0),
-                       COALESCE(SUM(thinking_tokens),0), COUNT(*)
+                       COALESCE(SUM(thinking_tokens),0), COALESCE(SUM(cache_read_tokens),0),
+                       COALESCE(SUM(cache_creation_tokens),0), COALESCE(SUM(tool_tokens),0)
                 FROM usage_events WHERE user_id=? AND ts >= ?
             """, (uid, since))
             row = cur.fetchone()
-            in_tok, out_tok = int(row[0] or 0), int(row[1] or 0)
-            # Réflexion : sous-ensemble de la sortie (cf. migration 0014), donc
-            # JAMAIS ajoutée au total — elle le découpe. « Réponse » est le
-            # reste : texte visible + appels d'outils.
-            think_tok = min(int(row[2] or 0), out_tok)
-            resp_tok = max(0, out_tok - think_tok)
+            # Au sens des fournisseurs : l'entrée se lit cache + utile et
+            # contient la part des outils ; la sortie se lit réflexion +
+            # réponse (texte visible + appels d'outils). Réflexion, cache et
+            # outils sont des sous-ensembles : JAMAIS ajoutés au total.
+            parts = token_breakdown(row[0], row[1], thinking_tokens=row[2],
+                                    cache_read_tokens=row[3], cache_creation_tokens=row[4],
+                                    tool_tokens=row[5])
+            in_tok, out_tok = parts["input"], parts["output"]
+            think_tok, resp_tok = parts["thinking"], parts["response"]
             total_tok = in_tok + out_tok
         except Exception as e:
             logger.debug("[usage] tokens agg failed: %s", e)
@@ -115,12 +120,20 @@ def api_usage_me(request: Request, days: str = "30"):
         try:
             cur.execute("""
                 SELECT source, COALESCE(SUM(input_tokens + output_tokens),0) AS t,
-                       COUNT(*) AS n
+                       COUNT(*) AS n, COALESCE(SUM(input_tokens),0),
+                       COALESCE(SUM(output_tokens),0), COALESCE(SUM(cache_read_tokens),0),
+                       COALESCE(SUM(thinking_tokens),0), COALESCE(SUM(tool_tokens),0)
                 FROM usage_events WHERE user_id=? AND ts >= ?
                 GROUP BY source ORDER BY t DESC
             """, (uid, since))
-            by_source = [{"source": r[0], "tokens": int(r[1] or 0), "turns": int(r[2] or 0)}
-                         for r in cur.fetchall()]
+            for r in cur.fetchall():
+                b = token_breakdown(r[3], r[4], cache_read_tokens=r[5], thinking_tokens=r[6],
+                                    tool_tokens=r[7])
+                by_source.append({"source": r[0], "tokens": int(r[1] or 0), "turns": int(r[2] or 0),
+                                  "input": b["input"], "output": b["output"],
+                                  "cache": b["cache"], "input_new": b["input_new"],
+                                  "tools": b["tools"],
+                                  "thinking": b["thinking"], "response": b["response"]})
         except Exception as e:
             logger.debug("[usage] by_source agg failed: %s", e)
 
@@ -173,6 +186,14 @@ def api_usage_me(request: Request, days: str = "30"):
                      "total": n_active + n_archived},
         "messages": {"sent": msg_user, "received": msg_assistant},
         "tokens":   {"input": in_tok, "output": out_tok, "total": total_tok,
+                     # Décomposition de l'ENTRÉE (somme = input) : relue du
+                     # cache vs utile (réellement calculée).
+                     "cache": parts["cache"], "input_new": parts["input_new"],
+                     "cache_creation": parts["cache_creation"],
+                     "cache_pct": parts["cache_pct"],
+                     # Part de l'ENTRÉE occupée par les outils (définitions,
+                     # appels et résultats re-soumis), estimée.
+                     "tools": parts["tools"],
                      # Décomposition de la SORTIE (somme = output), pas du total.
                      "thinking": think_tok, "response": resp_tok,
                      "estimated": estimated, "split_available": split_available,

@@ -855,58 +855,45 @@
                         </div>
 
                         <template v-else-if="usageData">
-                            <!-- Tokens soumis (= facturation API : chaque itération d'outils
-                                 re-soumet l'historique ; l'occupation du contexte, elle, se lit
-                                 sur la jauge du chat) -->
+                            <!-- Tokens : une barre par type, au sens des fournisseurs
+                                 (OpenAI, Anthropic) : l'entrée CONTIENT le cache (relu) et
+                                 la part des outils (définitions, appels et résultats
+                                 re-soumis) ; la sortie CONTIENT la réflexion. Les sous-postes
+                                 sont indentés sous leur total, sur la même échelle. Cumul de
+                                 toutes les requêtes, itérations d'outils comprises :
+                                 l'occupation du contexte se lit sur la jauge du chat. -->
                             <div class="set-block">
                                 <div class="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3">
-                                    <i class="ph ph-coins text-blue-500"></i>
-                                    <span title="Tokens soumis au modèle (cumul de toutes les requêtes, itérations d'outils comprises). Pour l'occupation du contexte d'une conversation, voir la jauge du chat.">Tokens soumis</span>
+                                    <i class="ph ph-coins text-blue-500" aria-hidden="true"></i>
+                                    <span title="Tokens envoyés au modèle et générés par lui, toutes requêtes comprises (itérations d'outils, routines, sous-agents)">Tokens</span>
+                                    <span class="ml-auto text-xl font-bold text-slate-800 tabular-nums"
+                                          :title="(usageData.tokens.total || 0).toLocaleString('fr-FR') + ' tokens'">{{ usageFmt(usageData.tokens.total) }}</span>
                                 </div>
-                                <div class="grid grid-cols-3 gap-4">
-                                    <div>
-                                        <div class="text-xl font-bold text-slate-800 tabular-nums">{{ (usageData.tokens.total || 0).toLocaleString('fr-FR') }}</div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5">Total</div>
-                                    </div>
-                                    <div>
-                                        <div class="text-xl font-bold text-slate-700 tabular-nums">{{ (usageData.tokens.input || 0).toLocaleString('fr-FR') }}</div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5">Entrée</div>
-                                    </div>
-                                    <div>
-                                        <div class="text-xl font-bold text-slate-700 tabular-nums">{{ (usageData.tokens.output || 0).toLocaleString('fr-FR') }}</div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5">Sortie</div>
+                                <div class="space-y-1.5" role="list">
+                                    <div v-for="b in usageBars" :key="'ub-' + b.key" role="listitem"
+                                         class="flex items-center gap-2 text-[11px]" :title="b.title">
+                                        <span class="w-20 shrink-0 truncate" :class="b.sub ? 'pl-3 text-slate-500' : 'font-medium text-slate-700'">{{ b.label }}</span>
+                                        <div class="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                                            <div class="h-full rounded-full" :class="b.cls" :style="{ width: usageWidth(b.value, usageBarMax) }"></div>
+                                        </div>
+                                        <span class="w-14 shrink-0 text-right font-semibold text-slate-700 tabular-nums">{{ usageFmt(b.value) }}</span>
+                                        <span class="w-28 shrink-0 text-slate-400 tabular-nums truncate">{{ b.note }}</span>
                                     </div>
                                 </div>
-                                <!-- Découpe de la SORTIE. Le raisonnement était compté avec
-                                     la réponse et les appels d'outils : sur un modèle
-                                     thinking, l'essentiel du poste « Sortie » n'avait aucun
-                                     nom. Les deux valeurs se somment en Sortie — elles ne
-                                     s'ajoutent PAS au Total, qui les contient déjà.
-                                     Masqué tant que rien n'est mesuré (registre antérieur
-                                     à la mesure, ou modèle sans raisonnement). -->
-                                <div v-if="usageData.tokens.thinking > 0"
-                                     class="mt-3 pt-3 border-t border-slate-100 flex items-baseline gap-4 flex-wrap">
-                                    <div class="flex items-baseline gap-1.5">
-                                        <i class="ph ph-brain text-amber-500 text-[13px]"></i>
-                                        <span class="text-base font-bold text-slate-700 tabular-nums">{{ (usageData.tokens.thinking || 0).toLocaleString('fr-FR') }}</span>
-                                        <span class="text-[11px] text-slate-500">réflexion</span>
-                                    </div>
-                                    <div class="flex items-baseline gap-1.5">
-                                        <span class="text-base font-bold text-slate-700 tabular-nums">{{ (usageData.tokens.response || 0).toLocaleString('fr-FR') }}</span>
-                                        <span class="text-[11px] text-slate-500">réponse et outils</span>
-                                    </div>
-                                    <span class="text-[11px] text-slate-400">soit {{ usageThinkingPct }} % de la sortie</span>
-                                </div>
-                                <!-- Ventilation par origine : un total supérieur à ce que
-                                     montrent les conversations s'explique ici (routines
-                                     planifiées, sous-agents), au lieu d'être une surprise. -->
+                                <!-- Par origine : un total supérieur à ce que montrent les
+                                     conversations s'explique ici (routines, sous-agents). Détail
+                                     par type en infobulle. -->
                                 <div v-if="usageData.tokens.by_source && usageData.tokens.by_source.length > 1"
-                                     class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1">
-                                    <span v-for="s in usageData.tokens.by_source" :key="'us-' + s.source"
-                                          class="text-[11px] text-slate-500">
-                                        {{ usageSourceLabel(s.source) }}
-                                        <span class="font-semibold text-slate-700 tabular-nums">{{ (s.tokens || 0).toLocaleString('fr-FR') }}</span>
-                                    </span>
+                                     class="mt-4 pt-3 border-t border-slate-100 space-y-1.5">
+                                    <div v-for="s in usageData.tokens.by_source" :key="'us-' + s.source"
+                                         class="flex items-center gap-2 text-[11px]" :title="usageSourceTitle(s)">
+                                        <span class="w-20 shrink-0 truncate text-slate-500">{{ usageSourceLabel(s.source) }}</span>
+                                        <div class="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                            <div class="h-full rounded-full bg-blue-500" :style="{ width: usageWidth(s.tokens, usageSourceMax) }"></div>
+                                        </div>
+                                        <span class="w-14 shrink-0 text-right font-semibold text-slate-700 tabular-nums">{{ usageFmt(s.tokens) }}</span>
+                                        <span class="w-28 shrink-0 text-slate-400 tabular-nums">{{ s.turns }} tours</span>
+                                    </div>
                                 </div>
                             </div>
 

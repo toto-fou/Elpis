@@ -9,12 +9,36 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any, Dict, Tuple
 
 from shared_infra.observability.tracing import swallow
 from shared_infra.routes._state import is_chat_cancelled
 
 logger = logging.getLogger("uvicorn.error")
+
+
+def _prompt_progress_relay(on_event):
+    """Relais de la progression du pré-remplissage (``return_progress`` de
+    llama.cpp) pour le chemin SANS outils, au format du chemin outils
+    (``prompt_progress`` : total, traités, cache, durée) : au plus un
+    événement par demi-seconde, le dernier (100 %) toujours. Sans lui, la
+    pastille restait muette pendant toute la lecture d'un long historique."""
+    dernier = [0.0]
+
+    async def relais(pp: Dict[str, Any]) -> None:
+        total = int(pp.get("total") or 0)
+        traites = int(pp.get("processed") or 0)
+        final = total > 0 and traites >= total
+        now = time.monotonic()
+        if not (final or now - dernier[0] >= 0.5):
+            return
+        dernier[0] = now
+        with swallow("chat.prompt_progress"):
+            await on_event({"type": "prompt_progress", "total": total, "processed": traites,
+                            "cache": int(pp.get("cache") or 0),
+                            "time_ms": int(pp.get("time_ms") or 0), "iter": 1})
+    return relais
 
 
 def _couper_file(q: "asyncio.Queue", drapeau: list) -> None:

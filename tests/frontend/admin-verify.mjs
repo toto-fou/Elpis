@@ -1001,7 +1001,12 @@ try {
 
     // ── Supervision › Exécutions (L5.7) ──
     await goPage('Supervision', 'Exécutions');
-    ok('exécutions : coût par compte', await bodyHas(/alice/) && await bodyHas(/14,0 k → 1,4 k/) && await bodyHas(/512 Mio/));
+    ok('exécutions : coût par compte', await bodyHas(/alice/) && await bodyHas(/512 Mio/));
+    // Entrée (dont cache) et sortie (dont réflexion) séparées, temps découpé
+    // prefill + génération (2026-10-03).
+    ok('exécutions : entrée dont cache', await bodyHas(/14 k · 90 % cache/));
+    ok('exécutions : sortie dont réflexion', await bodyHas(/1,4 k · 900 réflexion/));
+    ok('exécutions : lecture + génération', await bodyHas(/1,5 s \+ 4,5 s/));
     ok('exécutions : liste', await bodyHas(/routine-b1|bob/));
     await page.locator('tr:has-text("alice"):visible').first().click();
     await page.waitForTimeout(400);
@@ -1011,6 +1016,7 @@ try {
     await page.locator('.adm-card:has(th:has-text("Genre")) tbody tr:visible').first().click();
     await page.waitForTimeout(500);
     ok('exécutions : chronologie en modale', await bodyHas(/Détails de l'exécution/) && await bodyHas(/execute_shell/));
+    ok('détails : tuiles entrée / sortie', await bodyHas(/12,3 k \(cache 96 %\)/) && await bodyHas(/1,1 k \(réflexion 820\)/));
     ok('exécutions : export par la route admin',
        (await page.locator('a:has-text("Exporter")').first().getAttribute('href')) === '/api/admin/runs/chat-a1/export');
     await page.locator('[aria-label="Fermer"]:visible').first().click();

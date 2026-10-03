@@ -58,11 +58,17 @@ const USAGE = (days) => ({
     messages: { sent: 148, received: 151 },
     // La SORTIE est découpée : thinking + response == output (le raisonnement
     // n'est pas un troisième poste, il ne s'ajoute pas au total).
+    // L'ENTRÉE aussi (2026-10-03) : cache + utile == input (cache compris).
     tokens: { input: 820000, output: 96000, total: 916000, estimated: false,
+              cache: 738000, input_new: 82000, cache_creation: 0, cache_pct: 90, tools: 210000,
               thinking: 72000, response: 24000,
               split_available: true,
-              by_source: [{ source: 'chat', tokens: 700000, turns: 120 },
-                          { source: 'routine', tokens: 216000, turns: 30 }] },
+              by_source: [{ source: 'chat', tokens: 700000, turns: 120, input: 640000, output: 60000,
+                            cache: 600000, input_new: 40000, tools: 150000,
+                            thinking: 45000, response: 15000 },
+                          { source: 'routine', tokens: 216000, turns: 30, input: 180000, output: 36000,
+                            cache: 138000, input_new: 42000, tools: 60000,
+                            thinking: 27000, response: 9000 }] },
     routines: { runs: 9, ok: 8, error: 1, input_tokens: 1000, output_tokens: 200,
                 avg_duration_ms: 4200 },
 });

@@ -603,8 +603,12 @@ async def test_synthese_cumule_le_cache(monkeypatch):
     wrap["usage"]["cache_read_input_tokens"] = 7
     wrap["usage"]["cache_creation_input_tokens"] = 3
     await _run_to_limit(monkeypatch, wrap)
-    assert seen["usage"] == {"cache_read_input_tokens": 7,
-                             "cache_creation_input_tokens": 3}
+    assert {k: seen["usage"][k] for k in ("cache_read_input_tokens",
+                                          "cache_creation_input_tokens")} == {
+        "cache_read_input_tokens": 7, "cache_creation_input_tokens": 3}
+    # Part outils de l'entrée (2026-10-03) : cumulée aussi sur la synthèse,
+    # bornée par l'entrée réelle.
+    assert 0 < seen["usage"]["tool_input_tokens"] <= seen["input_tokens"]
 
 
 async def test_repli_tool_limit_ne_reprend_pas_l_ancienne_reponse(monkeypatch):

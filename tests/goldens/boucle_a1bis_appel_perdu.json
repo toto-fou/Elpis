@@ -50,6 +50,7 @@
     "thinking": "Je vais écrire le fichier.\n</parameter>\n</function>\n</tool_call>",
     "thinking_tokens": 8,
     "thinking_tokens_estimated": true,
+    "tool_input_tokens": 225,
     "truncated": false,
     "truncated_in_think": false
   },

@@ -316,6 +316,7 @@ async def llama_chat_stream_tokens(
     sampling_override: Optional[Dict[str, Any]] = None,
     chat_id: Optional[str] = None,
     slot_avoid_own: bool = False,
+    on_prompt_progress: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None,
 ) -> Tuple[str, str, Dict[str, Any]]:
     # Un seul ``system`` en tête (templates stricts type Qwen3.5 → 400 sinon).
     msgs = _send_view(messages)
@@ -592,6 +593,7 @@ async def llama_chat_stream_tokens(
                         user_id=user_id, is_cancelled=is_cancelled,
                         on_thinking_token=on_thinking_token,
                         on_content_token=on_content_token,
+                        on_prompt_progress=on_prompt_progress,
                         sink=_sse,
                     )
                     # buffers déjà remplis en place (sink) ; réaffectation

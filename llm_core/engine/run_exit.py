@@ -313,7 +313,8 @@ async def finish_ok(ctx: RunContext, rec: RunRecord, resume: ResumeState,
     meta_for_metrics = {
         "usage":   {"prompt_tokens": rec.cumul_in, "completion_tokens": rec.cumul_out,
                     "cache_read_input_tokens": rec.cumul_cache_read,
-                    "cache_creation_input_tokens": rec.cumul_cache_creation},
+                    "cache_creation_input_tokens": rec.cumul_cache_creation,
+                    "tool_input_tokens": rec.cumul_tool_in},
         "timings": _real_timings,
         "model":   model or LLAMA_MODEL,
         "thinking": all_thinking_text,
@@ -373,7 +374,8 @@ async def finish_ok(ctx: RunContext, rec: RunRecord, resume: ResumeState,
         input_tokens=rec.cumul_in, output_tokens=rec.cumul_out,
         submitted_tokens=rec.cumul_in, thinking_tokens=_think_tok,
         usage={"cache_read_input_tokens": rec.cumul_cache_read,
-               "cache_creation_input_tokens": rec.cumul_cache_creation},
+               "cache_creation_input_tokens": rec.cumul_cache_creation,
+               "tool_input_tokens": rec.cumul_tool_in},
         duration_ms=int((time.time() - start_time) * 1000),
         iterations=effective_iter,
         # Ce chemin est le tour SAIN : le cap d'itérations sort par
@@ -660,6 +662,8 @@ async def finish_on_limit(ctx: RunContext, rec: RunRecord, resume: ResumeState,
             # Cache de prompt : cumulé comme à chaque itération de la boucle.
             rec.cumul_cache_read     += int(_wrap_usage.get("cache_read_input_tokens") or 0)
             rec.cumul_cache_creation += int(_wrap_usage.get("cache_creation_input_tokens") or 0)
+            rec.note_tool_input(_wrap_msgs, tools_payload, model or LLAMA_MODEL,
+                                _wrap_usage.get("prompt_tokens", 0))
             rec.usage_note(effective_iter=effective_iter, model=model or LLAMA_MODEL)
             # Le tour de synthèse consomme comme les autres : sa part de
             # raisonnement déclarée compte aussi, sinon le cumul s'arrête à
@@ -803,6 +807,7 @@ async def finish_on_limit(ctx: RunContext, rec: RunRecord, resume: ResumeState,
         **({"cache_read_input_tokens": rec.cumul_cache_read} if rec.cumul_cache_read else {}),
         **({"cache_creation_input_tokens": rec.cumul_cache_creation}
            if rec.cumul_cache_creation else {}),
+        **({"tool_input_tokens": rec.cumul_tool_in} if rec.cumul_tool_in else {}),
     }
     # Même décomposition de la sortie que sur le chemin normal : ce tour est le
     # plus coûteux de tous, la part de réflexion y est la plus intéressante.
@@ -866,7 +871,8 @@ async def finish_on_limit(ctx: RunContext, rec: RunRecord, resume: ResumeState,
         input_tokens=rec.cumul_in, output_tokens=rec.cumul_out, submitted_tokens=rec.cumul_in,
         thinking_tokens=_limit_think_tok,
         usage={"cache_read_input_tokens": rec.cumul_cache_read,
-               "cache_creation_input_tokens": rec.cumul_cache_creation},
+               "cache_creation_input_tokens": rec.cumul_cache_creation,
+               "tool_input_tokens": rec.cumul_tool_in},
         duration_ms=int((time.time() - start_time) * 1000),
         iterations=effective_iter,
         status="tool_limit", error_kind=str(_limit_kind or ""),
@@ -999,7 +1005,8 @@ async def finish_on_error(ctx: RunContext, rec: RunRecord, resume: ResumeState, 
             input_tokens=rec.cumul_in, output_tokens=rec.cumul_out,
             submitted_tokens=rec.cumul_in, thinking_tokens=_err_think_tok,
             usage={"cache_read_input_tokens": rec.cumul_cache_read,
-                   "cache_creation_input_tokens": rec.cumul_cache_creation},
+                   "cache_creation_input_tokens": rec.cumul_cache_creation,
+                   "tool_input_tokens": rec.cumul_tool_in},
             duration_ms=int((time.time() - start_time) * 1000),
             iterations=effective_iter,
             status="aborted",

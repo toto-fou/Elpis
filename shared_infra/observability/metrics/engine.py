@@ -1149,6 +1149,7 @@ class LatencyPercentilesProvider(MetricProvider):
 DEFAULT_WIDGETS = frozenset({
     # Conso réelle et attribution
     "usage_tokens", "usage_offhours", "usage_turns", "usage_failure_rate",
+    "usage_cache", "usage_input_timeline",
     "usage_thinking", "usage_thinking_timeline",
     "usage_timeline", "usage_user_peaks", "usage_top_users", "usage_by_source",
     "usage_by_model", "usage_heatmap", "usage_turns_timeline",

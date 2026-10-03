@@ -51,24 +51,25 @@
                     <template v-for="run in [runDetails.data.run]" :key="'rdrun'">
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
                         <div class="rounded-lg bg-slate-50 p-2.5">
-                            <div class="text-[11px] text-slate-500">Statut</div>
-                            <div class="font-semibold">{{ run.status }}</div>
+                            <div class="text-[11px] text-slate-500">Statut · durée</div>
+                            <div class="font-semibold">{{ run.status }} · {{ runDuration(((run.ended_at || run.started_at) - run.started_at) * 1000) }}</div>
                         </div>
-                        <div class="rounded-lg bg-slate-50 p-2.5">
-                            <div class="text-[11px] text-slate-500">Durée</div>
-                            <div class="font-semibold">{{ runDuration(((run.ended_at || run.started_at) - run.started_at) * 1000) }}</div>
+                        <div class="rounded-lg bg-slate-50 p-2.5" :title="runTokensTitle(run)">
+                            <div class="text-[11px] text-slate-500">Entrée</div>
+                            <div class="font-semibold">{{ runInput(run) }}</div>
                         </div>
-                        <div class="rounded-lg bg-slate-50 p-2.5">
-                            <div class="text-[11px] text-slate-500">Jetons (entrée → sortie)</div>
-                            <div class="font-semibold">{{ run.input_tokens }} → {{ run.output_tokens }}</div>
+                        <div class="rounded-lg bg-slate-50 p-2.5" :title="runTokensTitle(run)">
+                            <div class="text-[11px] text-slate-500">Sortie</div>
+                            <div class="font-semibold">{{ runOutput(run) }}</div>
                         </div>
                         <div class="rounded-lg bg-slate-50 p-2.5">
                             <div class="text-[11px] text-slate-500">Appels d'outils (erreurs)</div>
                             <div class="font-semibold">{{ run.tool_calls }} ({{ run.tool_errors }})</div>
                         </div>
-                        <div class="rounded-lg bg-slate-50 p-2.5">
-                            <div class="text-[11px] text-slate-500">Temps du modèle</div>
-                            <div class="font-semibold">{{ runDuration((run.prefill_ms || 0) + (run.decode_ms || 0)) }}<span v-if="run.wait_ms" class="text-slate-500 font-normal"> + {{ runDuration(run.wait_ms) }} d'attente</span></div>
+                        <div class="rounded-lg bg-slate-50 p-2.5"
+                             :title="'Prefill ' + runDuration(run.prefill_ms) + ' · génération ' + runDuration(run.decode_ms) + (run.wait_ms ? ' · attente d\'un créneau ' + runDuration(run.wait_ms) : '')">
+                            <div class="text-[11px] text-slate-500">Prefill + génération</div>
+                            <div class="font-semibold">{{ runDuration(run.prefill_ms) }} + {{ runDuration(run.decode_ms) }}<span v-if="run.wait_ms" class="text-slate-500 font-normal"> · {{ runDuration(run.wait_ms) }} d'attente</span></div>
                         </div>
                         <div class="rounded-lg bg-slate-50 p-2.5">
                             <div class="text-[11px] text-slate-500">Fichiers modifiés</div>
@@ -107,6 +108,7 @@
                                 </template>
                                 <template v-else-if="ev.type === 'llm'">
                                     <div>Source : {{ ev.source }} · statut {{ ev.status }}<template v-if="ev.error_kind"> ({{ ev.error_kind }})</template></div>
+                                    <div class="whitespace-pre-line">{{ runTokensTitle(ev) }}</div>
                                     <div v-if="ev.iterations">Itérations : {{ ev.iterations }}</div>
                                 </template>
                                 <template v-else>

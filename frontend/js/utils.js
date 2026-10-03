@@ -106,6 +106,37 @@ window.elpisFmtElapsedMs = function (ms, opts) {
     return fmtElapsed((Number(ms) || 0) / 1000, opts);
 };
 
+// ── Tokens ──────────────────────────────────────────────
+// Format compact UNIQUE des compteurs de tokens (fr-FR) : « 845 »,
+// « 12,3 k », « 245 k », « 1,2 M ». Le compte exact va dans l'infobulle
+// (``toLocaleString('fr-FR')``).
+function fmtTokenCount(n) {
+    const v = Math.max(0, Number(n) || 0);
+    const f = (x, d) => x.toLocaleString('fr-FR', { maximumFractionDigits: d });
+    // 999 600 s'arrondit à « 1 000 k » : on passe alors à l'unité au-dessus.
+    if (v >= 999500) return f(v / 1e6, v >= 1e8 ? 0 : 1) + ' M';
+    if (v >= 1000) return f(v / 1000, v >= 1e5 ? 0 : 1) + ' k';
+    return String(Math.round(v));
+}
+window.elpisFmtTokens = fmtTokenCount;
+
+// Les postes d'une consommation au sens des fournisseurs (OpenAI,
+// Anthropic), même découpe que ``token_breakdown`` côté serveur
+// (shared_infra/observability/usage_store.py) : l'entrée CONTIENT le cache
+// (relu, presque gratuit — le reste est l'entrée utile, réellement calculée)
+// et la part des outils (définitions, appels et résultats re-soumis) ; la
+// sortie CONTIENT la réflexion (le reste est la réponse). Bornes : cache et
+// outils ≤ entrée, réflexion ≤ sortie.
+function tokenBreakdown(input, output, cache, thinking, tools) {
+    const n = (x) => Math.max(0, Math.round(Number(x) || 0));
+    const inp = n(input), out = n(output);
+    const c = Math.min(n(cache), inp), t = Math.min(n(thinking), out);
+    return { input: inp, cache: c, input_new: inp - c, tools: Math.min(n(tools), inp),
+             output: out, thinking: t, response: out - t,
+             cache_pct: inp ? Math.round((c / inp) * 100) : 0 };
+}
+window.elpisTokenBreakdown = tokenBreakdown;
+
 // ── Socle a11y ──────────────────────────────────────────
 // Trois helpers PARTAGÉS pour finir le chantier accessibilité de façon
 // systémique (un pattern, N applications) plutôt que rustine par rustine.

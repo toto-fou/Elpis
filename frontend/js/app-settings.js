@@ -1620,6 +1620,61 @@ function setupSettings(vue, sharedRefs, ctx) {
         return Math.round(1000 * (t.thinking || 0) / t.output) / 10;
     });
 
+    // Tokens : format compact commun (utils.js), largeur d'une barre, comptes
+    // exacts en infobulle.
+    function usageFmt(n) { return window.elpisFmtTokens(n); }
+    function usageWidth(part, total) {
+        const p = Number(part) || 0, t = Number(total) || 0;
+        return (t > 0 ? Math.max(0, Math.min(100, (100 * p) / t)) : 0).toFixed(2) + '%';
+    }
+    const _nb = (x) => (Number(x) || 0).toLocaleString('fr-FR');
+    const _pc = (part, total) => (Number(total) > 0 ? Math.round((100 * (Number(part) || 0)) / Number(total)) : 0);
+
+    // Une barre par type, au sens des fournisseurs (OpenAI, Anthropic) :
+    // l'entrée CONTIENT le cache et la part des outils, la sortie CONTIENT la
+    // réflexion — les sous-postes sont indentés sous leur total. Classes
+    // écrites en entier (tests/frontend/test_classes_statiques.py).
+    const usageBars = computed(() => {
+        const t = (usageData.value && usageData.value.tokens) || {};
+        const inp = Number(t.input) || 0, out = Number(t.output) || 0;
+        return [
+            { key: 'input', label: 'Entrée', cls: 'bg-blue-500', value: inp,
+              note: 'utile ' + usageFmt(t.input_new),
+              title: 'Entrée ' + _nb(inp) + ' : ' + _nb(t.cache) + ' relus du cache, '
+                  + _nb(t.input_new) + ' utiles (calculés)'
+                  + (t.cache_creation ? ' · ' + _nb(t.cache_creation) + ' mis en cache' : '') },
+            { key: 'cache', label: 'Cache', cls: 'bg-slate-300', value: t.cache, sub: true,
+              note: _pc(t.cache, inp) + ' % de l\'entrée',
+              title: 'Entrée relue du cache de prompt : ' + _nb(t.cache) + ' tokens' },
+            { key: 'tools', label: 'Outils', cls: 'bg-blue-400', value: t.tools, sub: true,
+              note: '≈ ' + _pc(t.tools, inp) + ' % de l\'entrée',
+              title: 'Entrée occupée par les outils (définitions, appels et résultats re-soumis '
+                  + 'à chaque appel du modèle) : ≈ ' + _nb(t.tools) + ' tokens, estimés' },
+            { key: 'output', label: 'Sortie', cls: 'bg-blue-700', value: out,
+              note: 'réponse ' + usageFmt(t.response),
+              title: 'Sortie ' + _nb(out) + ' : ' + _nb(t.thinking) + ' de réflexion, '
+                  + _nb(t.response) + ' de réponse (texte et appels d\'outils)' },
+            { key: 'thinking', label: 'Réflexion', cls: 'bg-amber-500', value: t.thinking, sub: true,
+              note: _pc(t.thinking, out) + ' % de la sortie',
+              title: 'Réflexion (raisonnement) : ' + _nb(t.thinking) + ' tokens, comptés dans la sortie' },
+        ];
+    });
+    // Échelle commune : le plus gros total (l'entrée, en pratique).
+    const usageBarMax = computed(() => {
+        const t = (usageData.value && usageData.value.tokens) || {};
+        return Math.max(Number(t.input) || 0, Number(t.output) || 0);
+    });
+    // Échelle commune des barres par origine : la plus grosse origine.
+    const usageSourceMax = computed(() => {
+        const rows = (usageData.value && usageData.value.tokens && usageData.value.tokens.by_source) || [];
+        return rows.reduce((m, s) => Math.max(m, Number(s.tokens) || 0), 0);
+    });
+    function usageSourceTitle(s) {
+        return usageSourceLabel(s.source) + ' — ' + _nb(s.tokens) + ' tokens, ' + _nb(s.turns) + ' tours'
+            + '\nentrée ' + _nb(s.input) + ' (cache ' + _nb(s.cache) + ', outils ≈ ' + _nb(s.tools) + ')'
+            + '\nsortie ' + _nb(s.output) + ' (réflexion ' + _nb(s.thinking) + ')';
+    }
+
     function toggleArchiveSelect(id) {
         const idx = archiveSelected.value.indexOf(id);
         if (idx >= 0) archiveSelected.value.splice(idx, 1);
@@ -3432,7 +3487,7 @@ function setupSettings(vue, sharedRefs, ctx) {
         togglePrompt, promptDate, promptDateFull, promptExtrait, copyPrompt,
         archiveSelectMode, archiveSelected,
         usageData, usageLoading, usageError, usageDays, loadUsageData, setUsageDays,
-        usageSourceLabel, usageThinkingPct,
+        usageSourceLabel, usageThinkingPct, usageFmt, usageWidth, usageBars, usageBarMax, usageSourceMax, usageSourceTitle,
         unarchiveSelectedArchives,
         showPasswordChange, passwordForm,
         APP_SKINS, skinsDefaut, loadAppSkins, skinCourant, nomMarque,

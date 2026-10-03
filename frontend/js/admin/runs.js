@@ -6,7 +6,7 @@
 //  (shared_infra/routes/admin/runs.py).
 //
 //  Deux vues sur la même fenêtre (24 h, 7 j, 30 j) : le coût en ressources
-//  par compte (jetons, temps du modèle, attente, outils, fichiers, pics de la
+//  par compte (tokens, temps du modèle, attente, outils, fichiers, pics de la
 //  sandbox — jamais en monnaie), puis les exécutions de premier niveau,
 //  filtrables par compte (clic sur une ligne de la première table), genre et
 //  statut. Un administrateur ouvre la chronologie d'une exécution dans la
@@ -70,11 +70,30 @@ function setupAdminRuns(vue, sharedRefs, ctx) {
         else setAdmRunsFilter({ userId: null, username: '' });
     }
 
-    function admRunsTokens(n) {
-        const v = Number(n) || 0;
-        if (v >= 1e6) return (v / 1e6).toFixed(1).replace('.', ',') + ' M';
-        if (v >= 1e3) return (v / 1e3).toFixed(1).replace('.', ',') + ' k';
-        return String(v);
+    // Format commun des tokens (utils.js : fmtTokenCount).
+    function admRunsTokens(n) { return window.elpisFmtTokens(n); }
+
+    // Entrée « 12,3 k · 96 % cache » et sortie « 1,1 k · 820 réflexion » d'une
+    // exécution ou d'un compte (utils.js : tokenBreakdown) ; comptes exacts en
+    // infobulle.
+    function _admParts(r) {
+        return window.elpisTokenBreakdown(r && r.input_tokens, r && r.output_tokens,
+                                          r && r.cache_read_tokens, r && r.thinking_tokens,
+                                          r && r.tool_tokens);
+    }
+    function admRunsIn(r) {
+        const b = _admParts(r);
+        return admRunsTokens(b.input) + (b.cache ? ' · ' + b.cache_pct + ' % cache' : '');
+    }
+    function admRunsOut(r) {
+        const b = _admParts(r);
+        return admRunsTokens(b.output) + (b.thinking ? ' · ' + admRunsTokens(b.thinking) + ' réflexion' : '');
+    }
+    function admRunsTokensTitle(r) {
+        const b = _admParts(r), n = (x) => x.toLocaleString('fr-FR');
+        return 'Entrée ' + n(b.input) + ' : cache ' + n(b.cache) + ' · utile ' + n(b.input_new)
+            + (b.tools ? ' · outils ≈ ' + n(b.tools) : '')
+            + '\nSortie ' + n(b.output) + ' : réflexion ' + n(b.thinking) + ' · réponse ' + n(b.response);
     }
 
     function admRunsDuration(ms) {
@@ -87,5 +106,5 @@ function setupAdminRuns(vue, sharedRefs, ctx) {
 
     return { admRunsScope, admRunsLoading, admRunsAccounts, admRunsItems, admRunsFilter,
              loadAdminRuns, setAdmRunsScope, setAdmRunsFilter, toggleAdmRunsAccount,
-             admRunsTokens, admRunsDuration };
+             admRunsTokens, admRunsDuration, admRunsIn, admRunsOut, admRunsTokensTitle };
 }

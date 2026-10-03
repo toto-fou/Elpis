@@ -1652,6 +1652,15 @@ function setupAdmin(vue, sharedRefs, ctx) {
                 };
                 chartOptions.plugins.legend = { display: true, position: 'bottom' };
             }
+            // Barres horizontales (meta.horizontal) : libellés longs (modèles,
+            // comptes) lisibles, une barre par ligne découpée en postes.
+            if (widget.type === 'bar_stacked' && meta.horizontal) {
+                chartOptions.indexAxis = 'y';
+                chartOptions.scales = {
+                    x: { stacked: true, beginAtZero: true },
+                    y: { stacked: true, ticks: { autoSkip: false, font: { size: 10 } } },
+                };
+            }
             // Chart.js doesn't recognise "bar_stacked" as a primitive chart
             // type — it's just a bar chart with stacked scales. Translate
             // before instantiation so Chart.js sees "bar".

@@ -30,6 +30,34 @@ from shared_infra.chat.store import get_chat
 logger = logging.getLogger("uvicorn.error")
 
 
+# Compteurs d'un message qui s'ADDITIONNENT d'un segment à l'autre quand
+# « Continuer » prolonge la même bulle ; les autres (modèle, débits, contexte de
+# fin de tour, troncature) décrivent le dernier segment et sont remplacés.
+CONTINUE_ADDITIVE_METRICS = (
+    "input_tokens", "output_tokens", "thinking_tokens", "response_tokens",
+    "cache_read_input_tokens", "cache_creation_input_tokens",
+    "submitted_input_tokens", "iterations", "duration",
+)
+
+
+def merge_continue_metrics(prev: dict, cur: dict) -> dict:
+    """Métriques d'un message prolongé par « Continuer » : la bulle montre le
+    total de ses segments (avant, la reprise remplaçait les compteurs du
+    segment tronqué — entrée, cache et réflexion de celui-ci disparaissaient)."""
+    if not isinstance(prev, dict) or not prev:
+        return dict(cur)
+    out = dict(cur)
+    for k in CONTINUE_ADDITIVE_METRICS:
+        a, b = prev.get(k), cur.get(k)
+        if isinstance(a, (int, float)) or isinstance(b, (int, float)):
+            total = (a if isinstance(a, (int, float)) else 0) + (b if isinstance(b, (int, float)) else 0)
+            out[k] = round(total, 2) if k == "duration" else int(total)
+    if prev.get("thinking_tokens_estimated"):
+        out["thinking_tokens_estimated"] = True
+    out["segments"] = int(prev.get("segments") or 1) + 1
+    return out
+
+
 def _persist_turn(persist, user_id: int, chat_id: str, title: str, messages: list,
                   *, baseline_updated_at, baseline_messages, baseline_title: str,
                   read_chat=get_chat) -> "tuple[Any, str]":
@@ -234,6 +262,9 @@ def _message_assistant(assistant: str, thinking_text: str, metrics: Optional[dic
         msg_assistant.pop("tool_history", None)
         msg_assistant.pop("tool_history_delta", None)
         msg_assistant.update(_mth)
+        if msg_assistant.get("metrics"):
+            msg_assistant["metrics"] = merge_continue_metrics(
+                _prev.get("metrics") or {}, msg_assistant["metrics"])
         # Cartes de sous-agents du SEGMENT tronqué : sans cette
         # fusion, le message ne porterait que celles de la
         # continuation (perdues au rechargement, et absentes du

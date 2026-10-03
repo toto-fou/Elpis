@@ -21,11 +21,13 @@ from chatbot_app.turn.events import (
     _couper_file,
     _drain_coalesced,
     _drop_event_after_cancel,
+    _prompt_progress_relay,
     _start_load_watch,
     _stop_load_watch,
 )
 from chatbot_app.turn.history import _CANCEL_PLACEHOLDER, _compaction_pour_message, _fc_merge
 from chatbot_app.turn.persistence import (
+    CONTINUE_ADDITIVE_METRICS,
     _attendre_hors_annulation,
     _message_assistant,
     _message_partiel,
@@ -343,7 +345,14 @@ def _payload_final(assistant: str, msg_assistant: dict, thinking_text: str,
         # Additif : présent seulement quand le titre vient d'être
         # (re)généré ce tour — le front recale header + sidebar.
         **({"title": final_title} if title_was_generated else {}),
-        "metrics": metrics,
+        # Compteurs CUMULÉS du message (« Continuer » : segments additionnés
+        # par la persistance) sur les métriques du tour, qui gardent
+        # ``tool_history`` et ``thinking`` pour le front.
+        "metrics": ({**metrics, **{k: msg_assistant["metrics"][k]
+                                   for k in (*CONTINUE_ADDITIVE_METRICS, "segments",
+                                             "thinking_tokens_estimated")
+                                   if k in (msg_assistant.get("metrics") or {})}}
+                    if metrics else metrics),
         "thinking": msg_assistant.get("thinking", thinking_text),
         "tool_limit_reached": bool(metrics and metrics.get("tool_limit_reached")),
         # Troncature (plafond de tokens OU limite de boucle d'outils) →
@@ -995,6 +1004,7 @@ async def run_turn(plan: TurnPlan, res: TurnResources, base: PersistBaseline):
                         is_cancelled=lambda uid=user_id, cid=chat_id: is_chat_cancelled(uid, cid),
                         sampling_override=sampling_override,
                         chat_id=chat_id,
+                        on_prompt_progress=_prompt_progress_relay(on_event),
                     )
                     # Watcher contexte/perf (LLAMA_WATCH=1) : prompt assemblé
                     # du chemin classic + mesure réelle. Best-effort.

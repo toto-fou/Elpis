@@ -58,6 +58,7 @@
     "thinking": "Je pèse les options une par une avant de répondre. Conclusion : la deuxième.",
     "thinking_tokens": 28,
     "thinking_tokens_estimated": true,
+    "tool_input_tokens": 250,
     "truncated": false,
     "truncated_in_think": false
   },

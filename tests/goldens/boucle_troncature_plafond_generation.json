@@ -166,6 +166,7 @@
       }
     ],
     "tool_history_delta": true,
+    "tool_input_tokens": 684,
     "tool_limit_calls": 1,
     "tool_limit_effective_iters": 1,
     "tool_limit_iters": 4,

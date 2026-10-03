@@ -37,13 +37,24 @@ function json(res, obj, status = 200) {
 }
 
 const TOTAL = 5631;   // le prompt réellement mesuré en production
+// 2 000 tokens relus du cache KV : ``processed`` part de là (llama.cpp), la
+// progression affichée porte sur les 3 631 tokens UTILES.
+const CACHE = 2000;
+// La progression s'arrête à 96 % (aucun 100 % envoyé) : c'est le PREMIER
+// token qui doit effacer la pastille. Puis un outil, et le prefill
+// de l'itération 2 alors que le message porte déjà du raisonnement :
+// « Prefill… » doit primer sur « Réflexion… ».
+const TOTAL2 = 6000;
 const SCRIPT = [
     [200,  { type: 'chat_id', chat_id: 'c-pf' }],
-    [300,  { type: 'prompt_progress', total: TOTAL, processed: 1100, cache: 0, time_ms: 5000 }],
-    [700,  { type: 'prompt_progress', total: TOTAL, processed: 3400, cache: 0, time_ms: 16000 }],
-    [700,  { type: 'prompt_progress', total: TOTAL, processed: TOTAL, cache: 0, time_ms: 26400 }],
-    [900,  { type: 'thinking_token', text: 'Je réfléchis…', n: 3 }],
-    [400,  { type: 'content_token', text: 'Voici la réponse.' }],
+    [300,  { type: 'prompt_progress', total: TOTAL, processed: 2600, cache: CACHE, time_ms: 5000 }],
+    [700,  { type: 'prompt_progress', total: TOTAL, processed: 4200, cache: CACHE, time_ms: 16000 }],
+    [700,  { type: 'prompt_progress', total: TOTAL, processed: 5500, cache: CACHE, time_ms: 25000 }],
+    [1500, { type: 'thinking_token', text: 'Je réfléchis…', n: 3 }],
+    [900,  { type: 'tool_call', name: 'read_file', args: { path: 'config.py' }, call_id: 'c1' }],
+    [300,  { type: 'tool_result', name: 'read_file', result: 'DEBUG = True', call_id: 'c1' }],
+    [500,  { type: 'prompt_progress', total: TOTAL2, processed: 2600, cache: CACHE, time_ms: 3000, iter: 2 }],
+    [1500, { type: 'content_token', text: 'Voici la réponse.' }],
     [200,  { type: 'final', content: 'Voici la réponse.' }],
 ];
 

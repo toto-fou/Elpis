@@ -37,7 +37,7 @@ _ID = re.compile(r"[a-z]{1,16}-[A-Za-z0-9_-]{1,64}")
 _STATUT = re.compile(r"[a-z_]{1,24}")
 _COLONNES_LISTE = ("id", "kind", "user_id", "chat_id", "routine_id", "model", "engine", "started_at",
                    "ended_at", "status", "error_kind", "input_tokens", "output_tokens",
-                   "thinking_tokens", "llm_calls", "prefill_ms", "decode_ms", "wait_ms", "tool_calls",
+                   "cache_read_tokens", "thinking_tokens", "tool_tokens", "llm_calls", "prefill_ms", "decode_ms", "wait_ms", "tool_calls",
                    "tool_errors", "files_changed", "sandbox_cpu_peak", "sandbox_mem_peak_mb")
 
 
@@ -60,7 +60,11 @@ def _par_compte(hours: int) -> List[Dict[str, Any]]:
             "COALESCE(SUM(r.output_tokens), 0) AS output_tokens, "
             "COALESCE(SUM(r.thinking_tokens), 0) AS thinking_tokens, "
             "COALESCE(SUM(r.cache_read_tokens), 0) AS cache_read_tokens, "
+            "COALESCE(SUM(r.cache_creation_tokens), 0) AS cache_creation_tokens, "
+            "COALESCE(SUM(r.tool_tokens), 0) AS tool_tokens, "
             "COALESCE(SUM(r.prefill_ms + r.decode_ms), 0) AS llm_ms, "
+            "COALESCE(SUM(r.prefill_ms), 0) AS prefill_ms, "
+            "COALESCE(SUM(r.decode_ms), 0) AS decode_ms, "
             "COALESCE(SUM(r.wait_ms), 0) AS wait_ms, "
             "COALESCE(SUM(r.tool_calls), 0) AS tool_calls, "
             "COALESCE(SUM(r.tool_errors), 0) AS tool_errors, "

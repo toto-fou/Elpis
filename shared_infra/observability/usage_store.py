@@ -33,18 +33,24 @@ Sémantique des compteurs (cf. docs/token-counters.md)
   appels d'outils) se dérive par ``output_tokens - thinking_tokens``. Mesuré
   dans la boucle (cf. ``llm_core._think_tokens``) parce qu'aucun backend local
   ne le déclare. 0 sur les lignes antérieures à la migration 0014.
-- ``cache_read_tokens`` : jetons d'entrée repris d'un cache. Anthropic : NON
-  inclus dans ``input_tokens`` ; llama.cpp et moteurs compatibles OpenAI
-  (``prompt_tokens_details.cached_tokens``, sinon ``timings.cache_n``) :
-  jetons repris du cache KV, INCLUS dans ``input_tokens``.
-  ``cache_creation_tokens`` : Anthropic seulement (0 ailleurs).
+- ``cache_read_tokens`` : tokens d'entrée repris d'un cache (cache KV de
+  llama.cpp — ``prompt_tokens_details.cached_tokens``, sinon ``timings.cache_n``
+  —, cache des fournisseurs), INCLUS dans ``input_tokens`` pour tous les moteurs
+  (Anthropic normalisé à la source, historique ramené par la migration 0025).
+  Entrée UTILE (réellement calculée) = ``input_tokens - cache_read_tokens``.
+  ``cache_creation_tokens`` : Anthropic seulement (0 ailleurs), compris dans
+  l'entrée utile.
+- ``tool_tokens`` : part de l'entrée occupée par les OUTILS (définitions,
+  appels et résultats re-soumis à chaque appel — convention OpenAI /
+  Anthropic), estimée au ratio mesuré ; sous-ensemble de ``input_tokens``
+  (migration 0026, 0 avant).
 - ``run_id`` : l'exécution (``runs``, L5.2) du tour ; vide hors exécution.
 """
 from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 from shared_infra.db._connection import db_conn
 from shared_infra.db._dialect import greatest
@@ -74,10 +80,32 @@ _METRIC_EXPR = {
     # supérieure à la sortie sur un très vieil enregistrement).
     "thinking": "COALESCE(SUM(thinking_tokens), 0)",
     "response": f"COALESCE(SUM({greatest('output_tokens - thinking_tokens', '0')}), 0)",
+    # Entrée = cache + utile (cache compris dans ``input_tokens``).
+    "cache": "COALESCE(SUM(cache_read_tokens), 0)",
+    "input_new": f"COALESCE(SUM({greatest('input_tokens - cache_read_tokens', '0')}), 0)",
     "turns": "COUNT(*)",
     "duration_ms": "COALESCE(SUM(duration_ms), 0)",
     "iterations": "COALESCE(SUM(iterations), 0)",
 }
+
+
+def token_breakdown(input_tokens: Any = 0, output_tokens: Any = 0, *,
+                    cache_read_tokens: Any = 0, cache_creation_tokens: Any = 0,
+                    thinking_tokens: Any = 0, tool_tokens: Any = 0) -> Dict[str, Any]:
+    """Les postes d'un tour ou d'un agrégat, au sens des fournisseurs :
+    l'entrée contient le cache (le reste est l'entrée utile) et la part des
+    outils ; la sortie contient la réflexion (le reste est la réponse). Plus
+    les taux de cache et d'outils en % de l'entrée. Bornes : cache ≤ entrée,
+    outils ≤ entrée, réflexion ≤ sortie. Même découpe que ``tokenBreakdown``
+    côté front (``frontend/js/utils.js``)."""
+    inp, out = _int(input_tokens), _int(output_tokens)
+    cache = min(_int(cache_read_tokens), inp)
+    tools = min(_int(tool_tokens), inp)
+    think = min(_int(thinking_tokens), out)
+    return {"input": inp, "cache": cache, "input_new": inp - cache,
+            "cache_creation": _int(cache_creation_tokens), "tools": tools,
+            "output": out, "thinking": think, "response": out - think,
+            "cache_pct": round(100.0 * cache / inp, 1) if inp else 0.0}
 
 
 def _int(v: Any) -> int:
@@ -101,6 +129,7 @@ def record_usage(
     output_tokens: Any = 0,
     submitted_tokens: Any = 0,
     thinking_tokens: Any = 0,
+    tool_tokens: Any = 0,
     cache_read_tokens: Any = 0,
     cache_creation_tokens: Any = 0,
     duration_ms: Any = 0,
@@ -136,8 +165,8 @@ def record_usage(
                     input_tokens, output_tokens, submitted_tokens,
                     thinking_tokens,
                     cache_read_tokens, cache_creation_tokens,
-                    duration_ms, iterations, status, error_kind, run_id)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    duration_ms, iterations, status, error_kind, run_id, tool_tokens)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     float(ts if ts is not None else time.time()), uid,
@@ -148,6 +177,7 @@ def record_usage(
                     _int(cache_read_tokens), _int(cache_creation_tokens),
                     _int(duration_ms), _int(iterations),
                     st, str(error_kind or "")[:120], str(run_id or "")[:191],
+                    min(_int(tool_tokens), in_t),          # outils ⊆ entrée
                 ),
             )
             conn.commit()
@@ -192,6 +222,7 @@ def usage_totals(since: float, until: Optional[float] = None, **filters) -> Dict
                    COALESCE(SUM(thinking_tokens), 0) AS thinking_tokens,
                    COALESCE(SUM(cache_read_tokens), 0)     AS cache_read_tokens,
                    COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
+                   COALESCE(SUM(tool_tokens), 0)   AS tool_tokens,
                    COALESCE(SUM(duration_ms), 0)   AS duration_ms,
                    COALESCE(SUM(iterations), 0)    AS iterations,
                    COALESCE(SUM(CASE WHEN status != 'ok' THEN 1 ELSE 0 END), 0) AS failures,
@@ -207,36 +238,19 @@ def usage_totals(since: float, until: Optional[float] = None, **filters) -> Dict
     # soustraire — et sans risque d'additionner la réflexion au total.
     out["response_tokens"] = max(
         0, int(out.get("output_tokens", 0)) - int(out.get("thinking_tokens", 0)))
+    out["input_new_tokens"] = max(
+        0, int(out.get("input_tokens", 0)) - int(out.get("cache_read_tokens", 0)))
     return out
 
 
-def usage_cache_totals(since: float, until: Optional[float] = None, *,
-                       cache_outside_input: Iterable[str] = (), **filters) -> Dict[str, int]:
-    """Cache lu, cache créé et ENTRÉE TOTALE sur la fenêtre. Le cache lu est
-    compris dans ``input_tokens`` (llama.cpp, moteurs compatibles OpenAI),
-    sauf pour les moteurs ``cache_outside_input`` (clés ``conn:<id>`` des
-    connecteurs Anthropic), où il s'y ajoute.
-
-    Ligne sans moteur (``connector`` vide, avant L5.1) : seul Anthropic
-    remplissait alors le cache, hors de l'entrée — comptée comme telle
-    (relecture L5 : le taux dépassait 100 % sur l'historique)."""
-    keys = [str(k) for k in cache_outside_input]
-    hors = (f"(connector = '' OR connector IN ({', '.join('?' * len(keys))}))" if keys
-            else "connector = ''")
-    where, params = _where(since, until, filters)
-    with db_conn() as conn:
-        row = conn.execute(
-            f"""
-            SELECT COALESCE(SUM(cache_read_tokens), 0)     AS cache_read_tokens,
-                   COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
-                   COALESCE(SUM(input_tokens + CASE WHEN {hors}
-                                THEN cache_read_tokens ELSE 0 END), 0) AS input_total
-            FROM usage_events WHERE {where}
-            """,
-            tuple(keys) + tuple(params),
-        ).fetchone()
-    return {k: int((dict(row) if row else {}).get(k) or 0)
-            for k in ("cache_read_tokens", "cache_creation_tokens", "input_total")}
+def usage_cache_totals(since: float, until: Optional[float] = None,
+                       **filters) -> Dict[str, int]:
+    """Cache lu, cache créé et ENTRÉE TOTALE sur la fenêtre (le cache lu est
+    compris dans l'entrée pour tous les moteurs, cf. en-tête)."""
+    t = usage_totals(since, until, **filters)
+    return {"cache_read_tokens": int(t.get("cache_read_tokens") or 0),
+            "cache_creation_tokens": int(t.get("cache_creation_tokens") or 0),
+            "input_total": int(t.get("input_tokens") or 0)}
 
 
 def usage_group(
@@ -264,6 +278,9 @@ def usage_group(
                    {expr} AS value,
                    COUNT(*) AS turns,
                    COALESCE(SUM(input_tokens + output_tokens), 0) AS tokens,
+                   COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                   COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                   COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
                    COALESCE(SUM(thinking_tokens), 0) AS thinking_tokens,
                    COALESCE(SUM(duration_ms), 0) AS duration_ms,
                    COALESCE(SUM(CASE WHEN status != 'ok' THEN 1 ELSE 0 END), 0) AS failures

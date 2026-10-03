@@ -1404,7 +1404,7 @@
                                             <span v-if="entry.msg.metrics.model && (entry.msg.metrics.duration || entry.msg.metrics.write_tps)" class="text-slate-300">·</span>
                                             <span v-if="entry.msg.metrics.duration" class="tabular-nums">{{ fmtElapsed(entry.msg.metrics.duration) }}</span>
                                             <span v-if="entry.msg.metrics.duration && entry.msg.metrics.read_tps" class="text-slate-300">·</span>
-                                            <span v-if="entry.msg.metrics.read_tps" title="Vitesse de lecture du prompt">↓ {{ entry.msg.metrics.read_tps }} tok/s</span>
+                                            <span v-if="entry.msg.metrics.read_tps" title="Vitesse de prefill">↓ {{ entry.msg.metrics.read_tps }} tok/s</span>
                                             <span v-if="entry.msg.metrics.read_tps && entry.msg.metrics.write_tps" class="text-slate-300">·</span>
                                             <span v-if="entry.msg.metrics.write_tps" title="Vitesse de génération">↑ {{ entry.msg.metrics.write_tps }} tok/s</span>
                                             <!-- Part de RÉFLEXION du tour. Elle vivait jusqu'ici
@@ -1422,6 +1422,12 @@
                                                 <i class="ph ph-brain" style="font-size:10px"></i>
                                                 {{ fmtThinkingTokens(entry.msg.metrics) }} tk
                                             </span>
+                                            <!-- Part de l'ENTRÉE relue du cache de prompt (cache KV) : le
+                                                 reste est l'entrée utile, réellement calculée. Masquée sans
+                                                 cache (rien à dire). Détail en infobulle. -->
+                                            <span v-if="cachePctOf(entry.msg.metrics)" class="text-slate-300">·</span>
+                                            <span v-if="cachePctOf(entry.msg.metrics)"
+                                                  :title="cacheTitle(entry.msg.metrics)">cache {{ cachePctOf(entry.msg.metrics) }} %</span>
                                             <!-- KV cache snapshot (UX round 4) -- état du contexte au moment
                                                  où le message s'est terminé. Le format "used/total" est figé
                                                  (snapshot fait dans le 'final' handler) ; la couleur suit

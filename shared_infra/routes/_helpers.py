@@ -1061,6 +1061,15 @@ def _build_backup_zip(scope: str, tmp_name: str) -> tuple:
                     exclus |= {q.resolve() for q in base.parent.glob(base.name + ".new-*")}
                 _add_path(user_db_dir, "user_db", exclus=frozenset(exclus),
                           skip_dirs=_RUNTIME_DIRS)
+            # Images générées : elles vivent à côté de la base ; une base hors
+            # de ``user_db/`` les emmène ailleurs, d'où une entrée à part.
+            from shared_infra.image.store import root as _images_root
+            images = _images_root()
+            dans_user_db = False
+            with contextlib.suppress(OSError, ValueError):
+                dans_user_db = images.resolve().is_relative_to(user_db_dir.resolve())
+            if images.is_dir() and not dans_user_db:
+                _add_path(images, "generated_images")
 
         if scope in ("full", "sandboxes"):
             _add_sandboxes(Path(_SANDBOX_DIR), "sandboxes")

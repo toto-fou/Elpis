@@ -37,6 +37,7 @@
   - [Mention `@fichier`](#mention-fichier)
   - [Commandes `/`](#commandes-)
   - [Pièces jointes et images](#pièces-jointes-et-images)
+  - [Générer des images](#générer-des-images)
   - [Streaming, arrêt, reprise, régénération](#streaming-arrêt-reprise-régénération)
   - [Suivre le travail de l'assistant](#suivre-le-travail-de-lassistant)
   - [Métriques sous chaque réponse](#métriques-sous-chaque-réponse)
@@ -601,6 +602,7 @@ Tapez `/` en début de saisie :
 | `/skills` | Parcourir la bibliothèque et **épingler** un skill dans le prompt |
 | `/template` | Insérer un [template de prompt](#templates-de-prompt) (variables demandées avant l'insertion) |
 | `/compact` | Compacter la conversation maintenant (résume l'historique ancien) |
+| `/image [16:9] [x2] description` | Générer une image directement, sans ouvrir le mode Images |
 
 Si votre saisie ne correspond à aucune commande, le menu bascule
 automatiquement sur la recherche de skills.
@@ -617,6 +619,33 @@ Bouton trombone, ou **glisser-déposer** directement dans la fenêtre.
 
 Maximum **10 fichiers** par message. Un fichier trop volumineux est refusé avec
 un message clair, sans bloquer les autres.
+
+### Générer des images
+
+Visible quand l'administrateur a connecté un moteur d'images et que votre
+compte y a droit. Menu **+ › Images** (ou **Alt+I**) : la barre du composeur
+passe en mode Images.
+
+- **Barre** : format (bouton ⇄ pour passer en portrait), taille (plus grand
+  côté), nombre, **Enrichir** (le modèle du chat réécrit la description),
+  **⋯** pour la graine, ce qu'il faut éviter, les étapes et la force
+  (selon le moteur). Les valeurs de départ sont vos préférences.
+- **Modifier une image** : joignez une image, ou cliquez **Modifier** sur une
+  image générée : elle devient la référence.
+- **Pendant la génération** : chaque image a sa case, au bon format, avec
+  « En file · 2e » ou « Génération · 12 s / ≈30 s » (≈ = estimation d'après
+  les générations précédentes). Le bouton ■ de la case arrête la demande.
+- **Résultat** : modèle, format, durée et graine sous la grille.
+  **Variantes** relance la même demande avec une nouvelle graine sans effacer
+  les images actuelles ; **Régénérer** remplace la réponse ; **Copier** copie
+  la description. Un clic ouvre la visionneuse (← → entre les images,
+  Télécharger). **Supprimer** s'annule pendant 5 secondes.
+- **Le modèle peut aussi créer des images** pendant une réponse (outil
+  `generate_image`), si « Par le modèle » est coché.
+- **Conservation** : seules vos images les plus récentes sont gardées (nombre
+  fixé par l'administrateur) ; une image purgée affiche « Expirée ».
+  Paramètres › Fonctionnalités › Images : vos préférences, le compteur et la
+  **Galerie** (toutes vos images, ou celles de la conversation).
 
 ### Streaming, arrêt, reprise, régénération
 

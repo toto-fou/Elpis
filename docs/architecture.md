@@ -370,6 +370,7 @@ erDiagram
 | **Studio** | `editor_action_cache` (mémoire des ancres du ciblage live) — les scripts d'automatisation sont des fichiers de la sandbox (`automations/`), pas des lignes en base |
 | **Remote code** | `code_sessions`, `code_messages`, `code_parts`, `code_clients`, `code_commands`, `code_notes`, `code_permissions`, `code_questions`, `code_meta`, `code_remote_tokens`, `code_pairings` |
 | **Connecteurs** | `git_connectors`, `llm_connectors`, `llm_engine_policies`, `mcp_shared_servers` |
+| **Images** | `generated_images` (une ligne par image : compte, conversation, modèle, chemin relatif du fichier et de sa vignette, mesures de durée) |
 | **Divers** | `notifications`, `terminal_sessions`, `sandbox_placements`, `ax_nodes` / `ax_selectors` / `ax_transitions` / `ax_credentials` |
 
 Schémas de référence :
@@ -423,9 +424,10 @@ NULL = intégré), `system_prompt`, `task_prompt`, `mcp_snapshot`,
   `"key"`, `"trigger"`), dans un upsert les colonnes de la ligne existante
   qualifiées (`table.col`), identifiant d'insertion par `insert_id()`.
 - Suppression d'un utilisateur = **cascade applicative** : chats, prompts,
-  partages, sandbox, conteneur, connecteurs, routines, notifications, mémoire.
+  partages, sandbox, conteneur, connecteurs, routines, notifications, mémoire,
+  images générées (lignes et fichiers).
 - **Secrets chiffrés au repos** (Fernet, `shared_infra/security/encryption.py`) pour les
-  clés API de connecteurs LLM et les secrets d'auth MCP partagés. Les fonctions
+  clés API de connecteurs LLM, du moteur d'images et les secrets d'auth MCP partagés. Les fonctions
   exposées aux routes ne rendent jamais le secret — seulement `has_key` /
   `has_auth`. Seuls les résolveurs host-side lisent la valeur déchiffrée.
 
@@ -721,6 +723,7 @@ sequenceDiagram
 | `turn/persistence.py` | message du tour ou partiel (`_message_assistant`, `_message_partiel`), écriture optimiste (`_persist_turn`), écritures `meta_json` de fin de tour |
 | `turn/history.py` | historique client ↔ base ↔ modèle (`_normalize_client_messages`, `_expand_history_for_llm`), « Continuer » (`_split_for_continue`) |
 | `turn/tasks.py` | références fortes des tâches de fond (`keep`, `_BG_TASKS`, drainé à l'arrêt du worker) |
+| `turn/image.py` | tour « Images » (corps avec `image_gen`) : après les mêmes gardes que le tour du modèle, confié au moteur d'images (`llm_core/imagegen/`) ; même verrou de présence, même journal reprenable, exécution `kind=image` ; événements `image_progress`, `image`, `image_prompt`, `image_error` |
 
 **Interfaces principales**
 

@@ -1857,6 +1857,11 @@ const elpisApp = createApp({
                 }
             }
 
+            // Popovers du mode Images (format, options) : même patron closest().
+            if (chatMod.imagePop && chatMod.imagePop.value) {
+                if (!e.target.closest('[data-image-pop]')) chatMod.imagePop.value = '';
+            }
+
             // Close todo flyout (chip Tâches du composeur) when clicking
             // outside its anchor — même pattern closest() que le sélecteur
             // de modèle.
@@ -2346,7 +2351,11 @@ const elpisApp = createApp({
             // a11y — piège Tab dans le grand modal ouvert. On cède au modal
             // confirm/prompt et au menu contextuel (au-dessus dans la pile),
             // qui gèrent déjà leur propre piège Tab.
-            if (e.key === 'Tab' && _anyBigModalOpen.value
+            // La visionneuse et la galerie d'images, au-dessus des Paramètres
+            // d'où la galerie s'ouvre, gardent leur propre piège Tab.
+            const _imgDialog = !!((chatMod.imageViewer && chatMod.imageViewer.value)
+                                  || (chatMod.imageGallery && chatMod.imageGallery.value));
+            if (e.key === 'Tab' && _anyBigModalOpen.value && !_imgDialog
                 && !modalState.value.isOpen && !contextMenu.value.isOpen) {
                 const overlay = document.querySelector('[data-a11y-modal]');
                 if (overlay) window.elpisTrapTab(e, overlay);
@@ -2365,6 +2374,11 @@ const elpisApp = createApp({
                 //    z-index, donc Echap doit le fermer avant tout autre overlay.
                 //    (a11y : cohérence avec les autres modaux qui se ferment à Échap.)
                 if (modalState.value.isOpen) { handleModalCancel(); return; }
+                // -- Visionneuse puis galerie d'images : au sommet de la pile
+                //    (z-9999 / z-9500), au-dessus des Paramètres d'où la
+                //    galerie peut s'ouvrir.
+                if (chatMod.imageViewer && chatMod.imageViewer.value)   { chatMod.closeImageViewer(); return; }
+                if (chatMod.imageGallery && chatMod.imageGallery.value) { chatMod.closeImageGallery(); return; }
                 // -- Voix TRÈS HAUT dans la cascade : une dictée en cours ou
                 //    une réponse qui se lit à voix haute est exactement ce que
                 //    l'utilisateur cherche à arrêter quand il frappe Échap.
@@ -2466,6 +2480,13 @@ const elpisApp = createApp({
                 if (chatMod.showMcpPanel && chatMod.showMcpPanel.value)  { chatMod.showMcpPanel.value  = false; return; }
                 if (chatMod.showRagPanel && chatMod.showRagPanel.value) { chatMod.showRagPanel.value = false; return; }
                 if (chatMod.showComposerPlus && chatMod.showComposerPlus.value) { chatMod.showComposerPlus.value = false; return; }
+                // Mode Images : popover ouvert d'abord, puis sortie du mode
+                // quand la saisie (vide) a le focus.
+                if (chatMod.imageEscape) {
+                    const _ta = inputRef.value;
+                    const _vide = !(inputMessage.value || '').trim();
+                    if (chatMod.imageEscape(_vide, !!_ta && document.activeElement === _ta)) return;
+                }
                 if (chatMod.showModelManager && chatMod.showModelManager.value) { chatMod.showModelManager.value = false; return; }
                 if (chatMod.showReasoningEffortMenu && chatMod.showReasoningEffortMenu.value) { chatMod.showReasoningEffortMenu.value = false; return; }
                 if (showNotifPanel.value) { showNotifPanel.value = false; return; }
@@ -2532,6 +2553,24 @@ const elpisApp = createApp({
                 return;
             }
 
+            // -- Alt+I : mode Images du composeur. Ctrl+Maj+I ouvre les outils
+            //    de développement de Chromium et de Firefox : inutilisable.
+            //    ``e.key`` et non ``e.code`` : sur macOS, Option+I est la
+            //    touche morte de l'accent circonflexe (``Dead``), qui doit
+            //    rester une frappe. Le terminal et l'éditeur gardent Alt+I.
+            const _altCible = e.target && e.target.closest
+                ? e.target.closest('.xterm, .monaco-editor') : null;
+            if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey
+                    && (e.key === 'i' || e.key === 'I') && !_altCible
+                    && currentView.value === 'chat' && chatMod.toggleImageMode
+                    && chatMod.imageAvailable && chatMod.imageAvailable.value) {
+                if (modalState.value.isOpen
+                        || (settingsMod.showSettingsModal && settingsMod.showSettingsModal.value)) return;
+                e.preventDefault();
+                chatMod.toggleImageMode();
+                return;
+            }
+
             // -- Ctrl/Cmd+Maj+O : nouveau chat (cf. tooltip du bouton
             //    "Nouveau chat" de la sidebar). Ctrl+N est réservé par le
             //    navigateur (nouvelle fenêtre), donc inutilisable ici.
@@ -2582,6 +2621,7 @@ const elpisApp = createApp({
                     || m.content
                     || (m.images && m.images.length)
                     || (m.tool_history && m.tool_history.length)
+                    || (m.image_error && typeof m.image_error === 'object')
                 ));
                 if (!msgs.length) { sessionStorage.removeItem(SESSION_KEY); return; }
                 sessionStorage.setItem(SESSION_KEY, JSON.stringify({
@@ -2600,7 +2640,7 @@ const elpisApp = createApp({
                     // liste avait encore des tâches ouvertes.
                     todos:    (chatMod.todoList && Array.isArray(chatMod.todoList.value))
                                   ? chatMod.todoList.value : [],
-                    messages: msgs.map(m => ({
+                    messages: msgs.map(m => Object.assign({
                         role:           m.role,
                         content:        m.content,
                         images:         m.images,
@@ -2632,7 +2672,9 @@ const elpisApp = createApp({
                         summary:        m.summary,
                         // Fichiers modifiés par les outils (diffs du chat).
                         files_changed:    m.files_changed,
-                    })),
+                    // Génération d'images : liste commune avec la persistance
+                    // et la réhydratation (chat/_image.js › IMAGE_MSG_KEYS).
+                    }, (typeof copyImageFields === 'function') ? copyImageFields(m) : {})),
                     savedAt: Date.now(),
                 }));
             } catch(e) {}
@@ -3129,5 +3171,8 @@ const elpisApp = createApp({
 if (typeof CodeDiffCard !== 'undefined') elpisApp.component('code-diff', CodeDiffCard);
 // Grille xlsx de l'éditeur (aperçus Office) — même raison : absente d'admin.html.
 if (typeof OfficeGrid !== 'undefined') elpisApp.component('office-grid', OfficeGrid);
+// Génération d'images (chat/_image.js) : tuile en cours et grille de résultats.
+if (typeof ImageTile !== 'undefined') elpisApp.component('image-tile', ImageTile);
+if (typeof ImageGrid !== 'undefined') elpisApp.component('image-grid', ImageGrid);
 
 elpisApp.mount('#app');

@@ -126,7 +126,8 @@ def _plan_mode_should_end(plan_mode: bool, persisted: bool, ephemeral: bool,
 def _message_assistant(assistant: str, thinking_text: str, metrics: Optional[dict], *,
                        exec_id: str, ctx_snap: Optional[dict], task_usage: dict,
                        files_changed: dict, compactions: list, prune_keys: list,
-                       msgs: list, is_continue: bool) -> "tuple[dict, list, list, str]":
+                       msgs: list, is_continue: bool,
+                       tool_images: Optional[list] = None) -> "tuple[dict, list, list, str]":
     """Message assistant du tour COMPLET, prêt à enregistrer.
 
     Rend ``(message, avant, après, contenu)`` : ``avant + [message] + après``
@@ -192,6 +193,10 @@ def _message_assistant(assistant: str, thinking_text: str, metrics: Optional[dic
         msg_assistant["files_changed"] = list(files_changed.values())
     if compactions:
         msg_assistant["compactions"] = list(compactions)
+    # Images produites par l'outil ``generate_image`` : références posées sur
+    # le message, la grille survit au rechargement.
+    if tool_images:
+        msg_assistant["tool_images"] = list(tool_images)
     # Élagage visible : sorties d'outils retirées du contexte.
     if prune_keys:
         msg_assistant["pruned"] = len(prune_keys)
@@ -309,7 +314,7 @@ class MessagePartiel(NamedTuple):
 def _message_partiel(content_parts: list, thinking_parts: list,
                      partial_tool_history: list, *, exec_id: str, task_usage: dict,
                      files_changed: dict, compactions: list, msgs: list,
-                     is_continue: bool) -> MessagePartiel:
+                     is_continue: bool, tool_images: Optional[list] = None) -> MessagePartiel:
     """Message assistant d'un tour INTERROMPU (Stop, plantage) : la prose et
     le raisonnement déjà streamés, l'historique d'outils capturé avant la
     propagation de l'annulation, les sous-agents, fichiers et jalons du tour.
@@ -390,6 +395,10 @@ def _message_partiel(content_parts: list, thinking_parts: list,
         msg_partial["files_changed"] = list(files_changed.values())
     if compactions:
         msg_partial["compactions"] = list(compactions)
+    # Images déjà rangées par l'outil avant le Stop : elles existent, le
+    # partiel les montre.
+    if tool_images:
+        msg_partial["tool_images"] = list(tool_images)
     # Stop pendant un « Continuer » : les
     # cartes de sous-agents du segment tronqué sont gardées.
     if isinstance(_prev_p, dict) and _prev_p:

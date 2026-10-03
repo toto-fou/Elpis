@@ -283,6 +283,9 @@ async def api_chat_generation_status(chat_id: str, request: Request):
                 "user_message": cur.get("user_message") or "",
                 "engine_key": cur.get("engine_key") or "builtin",
             })
+            # Tour « Images » : le message rattaché garde sa demande (Régénérer).
+            if isinstance(cur.get("image_request"), dict):
+                out["image_request"] = cur["image_request"]
     return out
 
 

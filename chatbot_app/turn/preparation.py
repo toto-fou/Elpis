@@ -136,6 +136,7 @@ class TurnPlan:
     title: str
     title_was_generated: bool
     title_content: Optional[str]
+    image_tool_on: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -530,9 +531,19 @@ async def prepare_turn(request: Request, data: dict, user_id: int,
         # faite par la boucle. Restent les BUILTINS, qui n'ont pas
         # d'annotations : ``task`` doit tomber ici, sans quoi un sous-agent
         # ``implement`` écrirait depuis un chat en lecture seule — le
-        # contournement le plus évident qui soit. Le RAG, lui, est de la
-        # consultation : il reste.
-        _deny_tools = set(_deny_tools or set()) | {"task"}
+        # contournement le plus évident qui soit. ``generate_image`` produit
+        # des fichiers : il tombe aussi. Le RAG, lui, est de la consultation :
+        # il reste.
+        _deny_tools = set(_deny_tools or set()) | {"task", "generate_image"}
+    # Outil ``generate_image`` : outils du compte allumés, hors mode plan,
+    # moteur proposé à ce compte (instance + groupes) et ses deux cases
+    # cochées. Une lecture impossible le retire.
+    _image_tool_on = False
+    if _mcp_on and not _plan_mode:
+        from shared_infra.image import access as _img_access
+        if _img_access.tool_enabled_in(user_settings):
+            with swallow("chat.image_tool_gate"):
+                _image_tool_on = bool(await asyncio.to_thread(_img_access.ready_for, user_id))
 
     _has_local_srv = any(
         isinstance(s, dict) and s.get("command") == "DEFAULT_LOCAL_PYTHON"
@@ -847,6 +858,7 @@ async def prepare_turn(request: Request, data: dict, user_id: int,
         title=title,
         title_was_generated=_title_was_generated,
         title_content=_title_content,
+        image_tool_on=_image_tool_on,
     )
     res = TurnResources(
         persist_chat=_persist_chat,

@@ -77,6 +77,9 @@ FAMILLES = {
     "toolhost":      {"modules": {"client", "routes_internal"}, "motifs": ("internal",)},
     # (2026-09-28) skins (intégrés + plugins) et registre des mascottes
     "appearance":    {"modules": {"skins", "routes"}, "motifs": ("skins", "appearance")},
+    # génération d'images : configuration, droits, magasin, champs de message
+    "image":         {"modules": {"config", "access", "store", "messages", "routes"},
+                      "motifs": ("image", "images")},
 }
 
 

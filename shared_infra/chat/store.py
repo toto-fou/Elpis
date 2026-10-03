@@ -6,6 +6,7 @@ Tables: ``chats``.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import time
 from typing import Any, Dict, List, Optional
@@ -16,6 +17,24 @@ from typing import Any, Dict, List, Optional
 from shared_infra.config import max_recent_chats
 from shared_infra.db._connection import db, db_conn
 from shared_infra.db._dialect import MYSQL, begin_write, ci_like, dialect_of
+
+logger = logging.getLogger("uvicorn.error")
+
+
+def _purge_images(user_id: int, chat_ids: List[str]) -> None:
+    """Images générées des conversations supprimées (lignes et fichiers).
+
+    Après le commit de la suppression : une panne ici ne la défait pas, et
+    l'entretien quotidien rattrape ce qui reste (``sweep_orphans``)."""
+    if not chat_ids:
+        return
+    try:
+        from shared_infra.image.store import delete_for_chats
+        delete_for_chats(user_id, chat_ids)
+    except Exception:  # noqa: BLE001 — la conversation est supprimée ; l'entretien rattrape les images
+        logger.warning("[chats] images des conversations supprimées non effacées "
+                       "(user_id=%s, %d conversation(s))", user_id, len(chat_ids),
+                       exc_info=True)
 
 
 def _chat_meta(row) -> Dict[str, Any]:
@@ -395,7 +414,8 @@ def delete_chats_by_ids(user_id: int, chat_ids: List[str]) -> int:
                 (user_id, *chunk))
             total += cur.rowcount
         conn.commit()
-        return total
+    _purge_images(user_id, ids)
+    return total
 
 
 def delete_all_chats(user_id: int, archived: int = 0) -> int:
@@ -403,11 +423,15 @@ def delete_all_chats(user_id: int, archived: int = 0) -> int:
     une transaction — même motif que ``delete_chats_by_ids``."""
     with db_conn() as conn:
         cur = conn.cursor()
+        cur.execute("SELECT id FROM chats WHERE user_id=? AND archived=?",
+                    (user_id, int(archived)))
+        ids = [r["id"] for r in cur.fetchall()]
         cur.execute("DELETE FROM chats WHERE user_id=? AND archived=?",
                     (user_id, int(archived)))
         n = cur.rowcount
         conn.commit()
-        return n
+    _purge_images(user_id, ids)
+    return n
 
 
 def clean_ctx_usage(raw) -> Optional[Dict[str, Any]]:
@@ -556,6 +580,7 @@ def enforce_recent_chats_cap(user_id: int) -> None:
     Plafond : ``max_recent_chats()`` (réglage ``app.max_recent_chats``).
     """
     cap = max_recent_chats()
+    to_delete: List[str] = []
     with db_conn() as conn:
         cur = conn.cursor()
         cur.execute("SELECT id FROM chats WHERE user_id=? AND archived=0 ORDER BY updated_at DESC", (user_id,))
@@ -564,6 +589,7 @@ def enforce_recent_chats_cap(user_id: int) -> None:
             to_delete = ids[cap:]
             cur.execute(f"DELETE FROM chats WHERE user_id=? AND archived=0 AND id IN ({','.join(['?']*len(to_delete))})", (user_id, *to_delete))
         conn.commit()
+    _purge_images(user_id, to_delete)
 
 
 def rename_chat(user_id: int, chat_id: str, title: str) -> bool:
@@ -602,7 +628,9 @@ def delete_chat(user_id: int, chat_id: str) -> bool:
         cur.execute("DELETE FROM chats WHERE id=? AND user_id=?", (chat_id, user_id))
         changed = cur.rowcount > 0
         conn.commit()
-        return changed
+    if changed:
+        _purge_images(user_id, [chat_id])
+    return changed
 
 
 def archive_chat(user_id: int, chat_id: str) -> bool:

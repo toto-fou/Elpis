@@ -1487,6 +1487,21 @@
                                     </div>
                                 </label>
 
+                                <!-- Images : visible quand un moteur est prêt pour CE compte
+                                     (image_ready, calculé par le serveur : moteur connecté et
+                                     groupes autorisés). Ses préférences suivent plus bas. -->
+                                <label v-if="settings.image_ready" class="set-row cursor-pointer hover:bg-white/60 transition-colors" data-feat-image>
+                                    <i class="ph ph-image text-slate-400 text-lg w-5"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm text-slate-800">Images</div>
+                                        <div class="text-[11px] text-slate-500">Génération depuis le menu +.</div>
+                                    </div>
+                                    <div class="relative inline-flex items-center shrink-0">
+                                        <input type="checkbox" v-model="settings.image_enabled" class="sr-only peer">
+                                        <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                    </div>
+                                </label>
+
                                 <!-- L'ancienne description (« Ouvre l'IDE quand un fichier est
                                      modifié ») décrivait en fait « Ouverture automatique », un
                                      réglage distinct et désactivable : elle promettait donc au
@@ -1502,6 +1517,74 @@
                                         <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
                                     </div>
                                 </label>
+                            </div>
+                        </div>
+
+                        <!-- ═════════ Images ═════════
+                             Préférences du compte : le composeur part de ces valeurs et
+                             y écrit le dernier choix fait. Enregistrées avec le formulaire. -->
+                        <div v-if="settings.image_ready && settings.image_enabled !== false && settings.image_prefs" data-feat-images>
+                            <div class="text-[11px] font-semibold text-slate-500 px-0.5 mb-1.5">Images</div>
+                            <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
+                                <label v-if="!imageStatus || imageStatus.tool_enabled !== false"
+                                       class="set-row cursor-pointer hover:bg-white/60 transition-colors first:rounded-t-xl"
+                                       title="Le modèle peut créer une image pendant une réponse (outil generate_image).">
+                                    <i class="ph ph-robot text-slate-400 text-lg w-5"></i>
+                                    <div class="flex-1 min-w-0 text-sm text-slate-800">Par le modèle</div>
+                                    <div class="relative inline-flex items-center shrink-0">
+                                        <input type="checkbox" v-model="settings.image_tool_enabled" class="sr-only peer">
+                                        <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                    </div>
+                                </label>
+                                <div v-if="!imageFixedSizes.length" class="set-row" data-pref-ratio>
+                                    <i class="ph ph-crop text-slate-400 text-lg w-5"></i>
+                                    <div class="flex-1 min-w-0 text-sm text-slate-800">Format</div>
+                                    <div class="flex items-center gap-1 shrink-0" role="group" aria-label="Format">
+                                        <button v-for="r in imageBaseRatios" :key="r" type="button" class="elpis-img-chip"
+                                                :aria-pressed="imageBaseRatio(settings.image_prefs.ratio) === r ? 'true' : 'false'"
+                                                @click="setPrefRatio(r)" :title="r === '1:1' ? 'Carré' : r">
+                                            <span class="elpis-img-ratio" :style="ratioBox(imageIsPortrait(settings.image_prefs.ratio) ? imageFlipRatio(r) : r)" aria-hidden="true"></span>
+                                        </button>
+                                        <button type="button" class="elpis-img-chip elpis-img-chip--icon" @click="flipPrefRatio()"
+                                                :disabled="settings.image_prefs.ratio === '1:1'"
+                                                :aria-pressed="imageIsPortrait(settings.image_prefs.ratio) ? 'true' : 'false'"
+                                                title="Portrait / paysage" aria-label="Basculer portrait ou paysage">
+                                            <i class="ph ph-arrows-left-right" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div v-if="!imageFixedSizes.length && imageSides.length > 1" class="set-row">
+                                    <i class="ph ph-arrows-out text-slate-400 text-lg w-5"></i>
+                                    <div class="flex-1 min-w-0 text-sm text-slate-800">Taille</div>
+                                    <select v-model.number="settings.image_prefs.side" class="set-select shrink-0 w-28 font-mono text-xs" aria-label="Taille" title="Plus grand côté">
+                                        <option v-for="v in imageSides" :key="v" :value="v">{{ v }} px</option>
+                                    </select>
+                                </div>
+                                <div v-if="imageMaxN > 1" class="set-row">
+                                    <i class="ph ph-squares-four text-slate-400 text-lg w-5"></i>
+                                    <div class="flex-1 min-w-0 text-sm text-slate-800">Nombre</div>
+                                    <select v-model.number="settings.image_prefs.n" class="set-select shrink-0 w-28 font-mono text-xs" aria-label="Nombre d’images">
+                                        <option v-for="k in imageMaxN" :key="k" :value="k">×{{ k }}</option>
+                                    </select>
+                                </div>
+                                <label v-if="!imageStatus || imageStatus.enhance_enabled !== false" class="set-row cursor-pointer hover:bg-white/60 transition-colors"
+                                       title="Le modèle du chat réécrit la description avant l'envoi au moteur.">
+                                    <i class="ph ph-magic-wand text-slate-400 text-lg w-5"></i>
+                                    <div class="flex-1 min-w-0 text-sm text-slate-800">Enrichir</div>
+                                    <div class="relative inline-flex items-center shrink-0">
+                                        <input type="checkbox" v-model="settings.image_prefs.enhance" class="sr-only peer">
+                                        <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+                                    </div>
+                                </label>
+                                <div v-if="imageStatus && imageStatus.keep_per_user" class="set-row last:rounded-b-xl" data-pref-stored>
+                                    <i class="ph ph-images text-slate-400 text-lg w-5"></i>
+                                    <div class="flex-1 min-w-0 text-sm text-slate-800"
+                                         title="Les plus anciennes sont effacées au-delà de cette limite.">Conservées</div>
+                                    <span class="text-xs text-slate-500 font-mono tabular-nums shrink-0">{{ imageStatus.stored || 0 }}/{{ imageStatus.keep_per_user }}</span>
+                                    <button type="button" class="elpis-img-chip shrink-0" @click="openImageGallery('all')" data-pref-gallery>
+                                        <i class="ph ph-images" aria-hidden="true"></i><span>Galerie</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

@@ -424,6 +424,78 @@
     </div>
 </script>
 
+<!-- Génération d'images (chat/_image.js) : tuile « en cours » et grille de
+     résultats. La tuile et l'image finale ont la MÊME boîte (imageCellStyle) :
+     rien ne saute à l'arrivée de l'image. -->
+<script type="text/x-template" id="image-tile-template">
+    <div class="elpis-img-cells" data-image-progress>
+        <span v-if="!error" class="sr-only" role="status" aria-live="polite">{{ stateLabel }}</span>
+        <div v-for="k in cells" :key="k" class="elpis-img-cell elpis-img-tile"
+             :class="{ 'is-queued': queued && !error, 'is-error': !!error }" :style="cellStyle">
+            <div v-if="error" class="elpis-img-tile__err" :role="live ? 'alert' : 'status'" data-image-error>
+                <i class="ph ph-warning-circle" aria-hidden="true"></i>
+                <span>{{ errorText }}</span>
+                <button v-if="retryable" type="button" class="elpis-img-btn" @click="$emit('retry')">Réessayer</button>
+            </div>
+            <template v-else>
+                <img v-if="k === 0 && preview" :src="preview" alt="" class="elpis-img-tile__preview" aria-hidden="true">
+                <div v-else class="elpis-img-tile__wash" aria-hidden="true"></div>
+                <div v-if="pct !== null" class="elpis-img-tile__fill" :style="{ height: pct + '%' }" aria-hidden="true"></div>
+                <div v-if="k === 0" class="elpis-img-tile__foot">
+                    <span class="elpis-img-tile__label" aria-hidden="true">{{ label }}</span>
+                    <button v-if="stoppable" type="button" class="elpis-img-tile__stop" @click="$emit('stop')"
+                            title="Arrêter" aria-label="Arrêter la génération"><i class="ph ph-stop" aria-hidden="true"></i></button>
+                </div>
+            </template>
+        </div>
+    </div>
+</script>
+
+<script type="text/x-template" id="image-grid-template">
+    <div class="elpis-img-result" :class="{ 'is-tool': tool }" data-image-grid>
+        <div class="elpis-img-cells">
+            <div v-for="c in cells" :key="c.ref.id" class="elpis-img-cell" :style="c.style" :data-image-id="c.ref.id">
+                <div v-if="c.st === 'expired' || c.st === 'deleted' || c.st === 'pending'" class="elpis-img-frame">
+                    <i class="ph" :class="c.st === 'expired' ? 'ph-image-broken' : 'ph-trash'" aria-hidden="true"></i>
+                    <span>{{ c.st === 'expired' ? 'Expirée' : 'Supprimée' }}</span>
+                </div>
+                <template v-else>
+                    <button type="button" class="elpis-img-open" @click="open(c.i)" :aria-label="'Agrandir l’image ' + (c.i + 1)">
+                        <img :src="c.src" :alt="altText" loading="lazy" decoding="async"
+                             :width="c.ref.width || null" :height="c.ref.height || null"
+                             :class="{ 'elpis-img-reveal': reveal }" @error="expired(c.ref)">
+                    </button>
+                    <div class="elpis-img-actions">
+                        <button v-if="canEdit" type="button" class="elpis-img-act" @click.stop="edit(c.ref)"
+                                title="Modifier" aria-label="Modifier l’image"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
+                        <button type="button" class="elpis-img-act" @click.stop="download(c.ref)"
+                                title="Télécharger" aria-label="Télécharger l’image"><i class="ph ph-download-simple" aria-hidden="true"></i></button>
+                        <button type="button" class="elpis-img-act is-danger" @click.stop="remove(c.ref)"
+                                title="Supprimer" aria-label="Supprimer l’image"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                    </div>
+                    <span v-if="cells.length > 1 && c.ref.seed !== undefined && c.ref.seed !== null" class="elpis-img-seed">{{ c.ref.seed }}</span>
+                </template>
+            </div>
+        </div>
+        <div class="elpis-img-foot">
+            <span v-if="metaText" class="elpis-img-foot__meta">{{ metaText }}</span>
+            <span class="elpis-img-foot__actions">
+                <button v-if="texte" type="button" class="elpis-img-link" @click="copy()" title="Copier la description">
+                    <i class="ph ph-copy" aria-hidden="true"></i><span>Copier</span>
+                </button>
+                <button v-if="variants && !tool" type="button" class="elpis-img-link" @click="$emit('variants')"
+                        title="Nouvelles images, même demande, autre graine" data-image-variants>
+                    <i class="ph ph-shuffle" aria-hidden="true"></i><span>Variantes</span>
+                </button>
+            </span>
+        </div>
+        <details v-if="revised" class="elpis-img-revised">
+            <summary>Description utilisée</summary>
+            <p>{{ revised }}</p>
+        </details>
+    </div>
+</script>
+
 <script type="text/x-template" id="skill-tree-node-template">
     <li class="select-none">
         <div class="flex items-center gap-1 py-1 px-1.5 rounded-md cursor-pointer transition-colors group outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-blue-500"
@@ -547,6 +619,8 @@
 <script>window.__scriptOk['voice-lecture'] = typeof window.createVoicePlayer === 'function';</script>
 <script src="static/js/chat/_voice.js?v=1784227200"></script>
 <script>window.__scriptOk['chat-voice'] = typeof setupChatVoice === 'function';</script>
+<script src="static/js/chat/_image.js?v=1784227200"></script>
+<script>window.__scriptOk['chat-image'] = typeof setupChatImage === 'function';</script>
 <script>window.__scriptOk['chat-webshot'] = typeof setupChatWebshot === 'function';</script>
 <script src="static/js/chat/_helpers_json.js?v=1784227200"></script>
 <script>window.__scriptOk['chat-helpers-json'] = typeof setupChatHelpersJson === 'function';</script>

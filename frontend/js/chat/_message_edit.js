@@ -120,6 +120,11 @@ function setupChatMessageEdit(vue, sharedRefs, ctx) {
         const _edited = { role: 'user', content: text };
         if (_keptImages && _keptImages.length) _edited.images = _keptImages;
         if (_keptFiles  && _keptFiles.length)  _edited.files  = _keptFiles;
+        // Message « Images » : sa demande reste attachée, le tour renvoyé
+        // repart au moteur d'images (cf. _imageGenFor).
+        if (_orig.image_request && typeof _orig.image_request === 'object') {
+            _edited.image_request = Object.assign({}, _orig.image_request);
+        }
         messages.value.push(_edited);
         cancelEditMessage();
         isUserScrolling.value = false;

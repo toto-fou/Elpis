@@ -64,6 +64,7 @@ from shared_infra.notifications import routes as notifications_routes  # noqa: F
 from shared_infra.routes import tools     # noqa: F401 — /api/{tools,rag,playwright,diag}/*
 from shared_infra.desktop import routes as desktop_routes  # noqa: F401 — /api/desktop/*
 from shared_infra.voice import routes as voice_routes  # noqa: F401 — /api/voice/* (dictée + synthèse)
+from shared_infra.image import routes as image_routes  # noqa: F401 — /api/image/status, /api/images/*
 from shared_infra.accounts import routes_settings  # noqa: F401 — /api/{settings,users,avatars}/*
 from shared_infra.appearance import routes as appearance_routes  # noqa: F401 — /api/skins/*
 from shared_infra.llm import routes as llm_routes  # noqa: F401 — /api/llm/*

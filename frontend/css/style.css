@@ -4291,3 +4291,270 @@ mark.elpis-search-hit {
     align-self: flex-start; padding: 0.35rem 0.8rem; font-weight: 600;
     background: var(--accent); color: var(--accent-fg); border-radius: var(--radius-md);
 }
+
+/* ── Génération d'images (chat/_image.js) ──────────────────────────────────
+   Classes sémantiques sur les jetons du thème : elles suivent les skins et
+   le mode sombre sans remap d'utilitaires. Seuls les boutons posés SUR une
+   image gardent des couleurs fixes claires (l'image n'a pas de thème). */
+
+/* Barre d'options du mode Images, dans la barre du composeur. */
+.elpis-img-bar { display: flex; align-items: center; gap: 0.25rem; min-width: 0; flex-wrap: wrap; }
+.elpis-img-chip {
+    display: inline-flex; align-items: center; gap: 0.3rem; height: 1.875rem; padding: 0 0.55rem;
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface);
+    color: var(--text-700); font-size: 0.75rem; font-weight: 500; line-height: 1; white-space: nowrap;
+    transition: background-color .15s, border-color .15s, color .15s; cursor: pointer;
+}
+.elpis-img-chip:hover:not(:disabled) { background: var(--surface-3); color: var(--text-900); }
+.elpis-img-chip:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
+.elpis-img-chip:disabled { opacity: .45; cursor: default; }
+.elpis-img-chip.is-on, .elpis-img-chip[aria-pressed="true"] {
+    background: var(--accent-surface); border-color: var(--accent-border); color: var(--accent-text-strong);
+}
+.elpis-img-chip.is-on:hover { background: var(--accent-surface-2); }
+.elpis-img-chip--icon { width: 1.875rem; padding: 0; justify-content: center; }
+.elpis-img-chip .ph { font-size: 0.95rem; }
+.elpis-img-chip__x { font-size: 0.7rem !important; opacity: .7; }
+.elpis-img-select { appearance: auto; padding-right: 0.25rem; font-variant-numeric: tabular-nums; }
+.elpis-img-ratio {
+    display: inline-block; flex: none; border: 1.5px solid currentColor; border-radius: 2px;
+}
+.elpis-img-pop {
+    position: absolute; left: 0; bottom: calc(100% + 0.5rem); z-index: 100;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18); padding: 0.5rem;
+}
+.elpis-img-pop--ratio { display: grid; grid-template-columns: repeat(5, 3.25rem); gap: 0.25rem; }
+.elpis-img-pop--more { width: 16rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.elpis-img-opt {
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0.3rem;
+    height: 3rem; padding-bottom: 0.3rem; border: 1px solid var(--border); border-radius: var(--radius-lg);
+    background: var(--surface); color: var(--text-600); font-size: 0.6875rem; cursor: pointer;
+}
+.elpis-img-opt:hover { background: var(--surface-3); }
+.elpis-img-opt[aria-pressed="true"] { background: var(--accent-surface); border-color: var(--accent-border); color: var(--accent-text-strong); }
+.elpis-img-opt--row { flex-direction: row; justify-content: flex-start; height: auto; padding: 0.4rem 0.55rem; gap: 0.45rem; font-size: 0.75rem; }
+.elpis-img-field { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.75rem; color: var(--text-600); }
+.elpis-img-field--col { flex-direction: column; align-items: stretch; gap: 0.25rem; }
+.elpis-img-field input[type="range"] { accent-color: var(--accent); }
+.elpis-img-input {
+    width: 7rem; padding: 0.25rem 0.45rem; border: 1px solid var(--border); border-radius: var(--radius-md);
+    background: var(--surface); color: var(--text-800); font-size: 0.75rem; font-family: inherit; outline: none;
+}
+.elpis-img-field--col .elpis-img-input { width: 100%; resize: none; }
+.elpis-img-input:focus { border-color: var(--accent-400); }
+.elpis-img-dims { display: flex; align-items: center; gap: 0.35rem; color: var(--text-400); font-size: 0.75rem; }
+.elpis-img-dims .elpis-img-input { width: 5.5rem; font-variant-numeric: tabular-nums; }
+
+/* Image à modifier, à la place d'une pièce jointe. */
+.elpis-img-refchip {
+    position: relative; width: 5rem; height: 5rem; border-radius: var(--radius-md); overflow: hidden;
+    border: 1px solid var(--accent-border); background: var(--surface-3);
+}
+.elpis-img-refchip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.elpis-img-refchip__label {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 0.1rem 0.35rem;
+    background: rgba(15, 23, 42, 0.6); color: #fff; font-size: 0.5625rem; font-weight: 500;
+}
+
+/* Ligne de la demande, sous la bulle utilisateur. */
+.elpis-img-reqline {
+    margin-top: 0.375rem; display: flex; align-items: center; gap: 0.35rem;
+    font-size: 0.6875rem; color: var(--text-400);
+}
+.elpis-img-reqline__ref {
+    width: 1.75rem; height: 1.75rem; border-radius: var(--radius-sm); overflow: hidden; flex: none;
+    border: 1px solid var(--border); cursor: zoom-in; padding: 0; background: var(--surface-3);
+}
+.elpis-img-reqline__ref img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Cases : MÊME boîte pour la tuile et l'image (imageCellStyle). */
+.elpis-img-cells { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.elpis-img-cell {
+    position: relative; max-width: 100%; overflow: hidden; isolation: isolate;
+    border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-2);
+}
+.elpis-img-open { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.elpis-img-open:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
+.elpis-img-open img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* Tuile « en cours » : voile d'accent qui dérive, libellé visible en bas. */
+.elpis-img-tile__wash {
+    position: absolute; inset: -30%; pointer-events: none;
+    background:
+        radial-gradient(circle at 30% 34%, color-mix(in srgb, var(--accent) 22%, transparent) 0, transparent 52%),
+        radial-gradient(circle at 70% 66%, color-mix(in srgb, var(--accent-400) 18%, transparent) 0, transparent 52%);
+    filter: blur(22px); animation: elpis-img-drift 12s ease-in-out infinite alternate;
+}
+.elpis-img-tile.is-queued .elpis-img-tile__wash { opacity: .45; animation-duration: 18s; }
+.elpis-img-tile__preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(3px); }
+.elpis-img-tile__fill {
+    position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none; transition: height 1s linear;
+    background: linear-gradient(to top, color-mix(in srgb, var(--accent) 16%, transparent),
+                                        color-mix(in srgb, var(--accent) 5%, transparent));
+}
+.elpis-img-tile__foot {
+    position: absolute; left: 0.5rem; right: 0.5rem; bottom: 0.5rem; display: flex; align-items: center;
+    justify-content: space-between; gap: 0.5rem;
+}
+.elpis-img-tile__label {
+    padding: 0.2rem 0.5rem; border-radius: var(--radius-md); font-size: 0.6875rem; font-weight: 500;
+    font-variant-numeric: tabular-nums; color: var(--text-700);
+    background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(6px);
+}
+.elpis-img-tile__stop {
+    width: 1.75rem; height: 1.75rem; flex: none; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-md); border: 1px solid var(--danger-border); color: var(--danger-text);
+    background: color-mix(in srgb, var(--surface) 85%, transparent); cursor: pointer;
+}
+.elpis-img-tile__stop:hover { background: var(--danger-surface); }
+.elpis-img-tile.is-error { background: var(--danger-surface); border-color: var(--danger-border); min-width: 12rem; }
+.elpis-img-tile__err {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.4rem; padding: 0.75rem; text-align: center; font-size: 0.75rem; color: var(--danger-strong);
+}
+.elpis-img-tile__err .ph { font-size: 1.4rem; color: var(--danger-icon-fg); }
+
+/* Boutons posés sur l'image : couleurs fixes claires, l'image n'a pas de thème. */
+.elpis-img-actions {
+    position: absolute; top: 0.375rem; right: 0.375rem; display: flex; gap: 0.25rem;
+    opacity: 0; transition: opacity .15s;
+}
+.elpis-img-cell:hover .elpis-img-actions, .elpis-img-cell:focus-within .elpis-img-actions { opacity: 1; }
+.elpis-img-act {
+    width: 1.75rem; height: 1.75rem; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-md); border: 0; cursor: pointer;
+    /* Posé SUR l'image : pastille claire dans tous les thèmes, comme les
+       contrôles de .elpis-on-media ; survol et focus suivent le thème. */
+    background: rgba(255, 255, 255, 0.92); color: #334155; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+}
+.elpis-img-act:hover { color: var(--accent-strong); }
+.elpis-img-act.is-danger:hover { color: var(--danger-strong, var(--danger-text)); }
+.elpis-img-act:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
+.elpis-img-seed {
+    position: absolute; left: 0.375rem; bottom: 0.375rem; padding: 0.05rem 0.35rem; border-radius: 0.25rem;
+    background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 0.625rem; font-family: ui-monospace, monospace;
+    opacity: 0; transition: opacity .15s;
+}
+.elpis-img-cell:hover .elpis-img-seed { opacity: 1; }
+
+/* Image effacée (rétention) ou supprimée : cadre à la taille de l'image. */
+.elpis-img-frame {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.3rem; font-size: 0.75rem; color: var(--text-400); border-radius: inherit;
+}
+.elpis-img-frame .ph { font-size: 1.4rem; }
+
+/* Pied du résultat : modèle · format · durée · graine, puis actions. */
+.elpis-img-foot {
+    margin-top: 0.375rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+    font-size: 0.6875rem; color: var(--text-400);
+}
+.elpis-img-foot__meta { font-family: ui-monospace, SFMono-Regular, monospace; font-variant-numeric: tabular-nums; }
+.elpis-img-foot__actions { display: inline-flex; gap: 0.25rem; }
+.elpis-img-link {
+    display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.4rem; border-radius: var(--radius-md);
+    border: 0; background: none; color: var(--text-500); font-size: 0.6875rem; cursor: pointer;
+}
+.elpis-img-link:hover { background: var(--surface-3); color: var(--accent-text); }
+.elpis-img-revised { margin-top: 0.25rem; max-width: 36rem; font-size: 0.71875rem; color: var(--text-500); }
+.elpis-img-revised summary { cursor: pointer; user-select: none; }
+.elpis-img-revised summary:hover { color: var(--text-700); }
+.elpis-img-revised p { margin-top: 0.25rem; line-height: 1.25rem; color: var(--text-600); }
+
+.elpis-img-btn {
+    display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border-radius: var(--radius-md);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-700); font-size: 0.75rem; cursor: pointer;
+}
+.elpis-img-btn:hover { background: var(--surface-3); }
+.elpis-img-btn.is-danger { color: var(--danger-text); }
+.elpis-img-btn.is-danger:hover { background: var(--danger-surface); border-color: var(--danger-border); }
+
+/* Visionneuse : image à gauche, description et actions à droite. */
+.elpis-img-viewer {
+    position: fixed; inset: 0; z-index: 9999; display: flex; background: rgba(2, 6, 23, 0.86);
+    backdrop-filter: blur(4px); outline: none;
+}
+.elpis-img-viewer__stage {
+    position: relative; flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; padding: 2rem;
+}
+.elpis-img-viewer__stage img {
+    max-width: 100%; max-height: calc(100vh - 4rem); width: auto; height: auto; object-fit: contain;
+    border-radius: var(--radius-lg); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+.elpis-img-viewer__nav {
+    position: absolute; top: 50%; transform: translateY(-50%); width: 2.5rem; height: 2.5rem;
+    display: flex; align-items: center; justify-content: center; border-radius: 999px; border: 0; cursor: pointer;
+    background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 1.1rem;
+}
+.elpis-img-viewer__nav:hover { background: rgba(255, 255, 255, 0.24); }
+.elpis-img-viewer__nav.is-prev { left: 1rem; }
+.elpis-img-viewer__nav.is-next { right: 1rem; }
+.elpis-img-viewer__panel {
+    width: 20rem; flex: none; display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem;
+    background: var(--surface); color: var(--text-700); overflow-y: auto;
+}
+.elpis-img-viewer__head { display: flex; align-items: center; justify-content: space-between; min-height: 2rem; }
+.elpis-img-viewer__count { font-size: 0.75rem; color: var(--text-500); font-variant-numeric: tabular-nums; }
+.elpis-img-viewer__close {
+    margin-left: auto; width: 2rem; height: 2rem; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-md); border: 0; background: none; color: var(--text-500); cursor: pointer;
+}
+.elpis-img-viewer__close:hover { background: var(--surface-3); color: var(--text-900); }
+.elpis-img-viewer__prompt { font-size: 0.8125rem; line-height: 1.35rem; color: var(--text-800); white-space: pre-wrap; }
+.elpis-img-viewer__meta { font-size: 0.6875rem; color: var(--text-500); font-family: ui-monospace, SFMono-Regular, monospace; }
+.elpis-img-viewer__actions { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+
+/* Apparition de l'image finale (dernier tour seulement). */
+.elpis-img-reveal { animation: elpis-img-reveal .8s cubic-bezier(.2, .7, .2, 1); }
+@keyframes elpis-img-drift {
+    0%   { transform: translate(-5%, -4%) scale(1); }
+    100% { transform: translate(5%, 4%) scale(1.1); }
+}
+@keyframes elpis-img-reveal {
+    from { filter: blur(12px) saturate(.5); opacity: .4; }
+    to   { filter: none; opacity: 1; }
+}
+/* Indicateur d'activité ESSENTIEL : ralenti, jamais figé sous « réduire les
+   animations » (une tuile immobile se lit comme un gel). */
+@media (prefers-reduced-motion: reduce) {
+    .elpis-img-tile__wash { animation-duration: 30s !important; animation-iteration-count: infinite !important; }
+    .elpis-img-reveal { animation: none !important; }
+}
+
+/* Console › Images : ligne d'état du test, groupe supprimé. */
+.elpis-img-status { font-size: 0.75rem; color: var(--text-500); }
+.elpis-img-status.is-ok { color: var(--ok-text-strong); }
+.elpis-img-status.is-err { color: var(--danger-text); }
+.elpis-img-status.is-warn { color: var(--warn-text-strong); }
+.elpis-img-chip.is-gone { border-style: dashed; color: var(--text-400); }
+.elpis-img-chip.is-gone .elpis-img-chip__x { border: 0; background: none; padding: 0; cursor: pointer; color: inherit; }
+
+/* Galerie personnelle : grille de vignettes carrées, pages au défilement. */
+.elpis-img-gallery {
+    position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center;
+    padding: 2rem; background: rgba(2, 6, 23, 0.6); outline: none;
+}
+.elpis-img-gallery__box {
+    width: min(64rem, 100%); height: min(44rem, 100%); display: flex; flex-direction: column;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3); overflow: hidden;
+}
+.elpis-img-gallery__head {
+    display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-soft);
+}
+.elpis-img-gallery__title { font-size: 0.9375rem; font-weight: 600; color: var(--text-900); }
+.elpis-img-gallery__count { font-size: 0.75rem; color: var(--text-500); font-variant-numeric: tabular-nums; }
+.elpis-img-gallery__filters { display: inline-flex; gap: 0.25rem; margin-left: 0.5rem; }
+.elpis-img-gallery__grid {
+    flex: 1; min-height: 0; overflow-y: auto; padding: 1rem; display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); grid-auto-rows: 9rem; gap: 0.5rem; align-content: start;
+}
+.elpis-img-gallery__cell {
+    position: relative; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface-2);
+}
+.elpis-img-gallery__cell:hover .elpis-img-actions, .elpis-img-gallery__cell:focus-within .elpis-img-actions { opacity: 1; }
+.elpis-img-gallery__empty {
+    grid-column: 1 / -1; padding: 2rem 0; text-align: center; font-size: 0.8125rem; color: var(--text-500);
+}
+.elpis-img-gallery__empty.is-err { color: var(--danger-text); }

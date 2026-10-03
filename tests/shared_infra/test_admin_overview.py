@@ -56,7 +56,7 @@ def ov(monkeypatch):
     monkeypatch.setattr(ov, "_probe_connectors", lambda: asyncio.sleep(0, result=[]))
     monkeypatch.setattr(ov, "_probe_compression", fake("compression", "compression"))
     monkeypatch.setattr(ov, "_probe_rag", fake("rag", "rag"))
-    for name, page in (("vision", "vision"), ("voice", "voice"),
+    for name, page in (("vision", "vision"), ("voice", "voice"), ("images", "images"),
                        ("mcp", "mcp"), ("sandbox", "sandbox-limits"), ("database", "data")):
         monkeypatch.setattr(ov, f"_probe_{name}", fake(name, page))
     monkeypatch.setattr(ov, "_kpis_24h", lambda: {

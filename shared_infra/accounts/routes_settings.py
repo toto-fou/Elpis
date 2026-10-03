@@ -166,6 +166,12 @@ _USER_SETTINGS_ALLOWED = frozenset({
     "compression_threshold_pct",     # Seuil de compaction en % de la fenêtre — 0 = auto
     "compression_threshold_tokens",  # …ou en tokens (prime sur le %) — 0 = auto
     "compression_max_rounds",        # Compactions max par conversation — 0 = auto, -1 = illimité
+    # Génération d'images : entrée « Images » du chat et outil du modèle
+    # (cochées par défaut, sans effet tant que le moteur n'est pas proposé à
+    # ce compte), préférences du composeur (format, taille, nombre, enrichir).
+    "image_enabled",
+    "image_tool_enabled",
+    "image_prefs",
 })
 
 # Les personnages de ``frontend/assets/mascotte`` : registre UNIQUE
@@ -576,6 +582,9 @@ def api_get_settings(request: Request):
         "voice_input_enabled": False,
         "voice_reply_enabled": False,
         "voice_reply_tools_enabled": False,
+        # Images : cochées par défaut, l'administrateur décide de l'offre.
+        "image_enabled": True,
+        "image_tool_enabled": True,
     }
     allumees, actives, defaut_admin = _reglage_mascottes()
     defaults["welcome_mascot"] = defaut_admin
@@ -612,6 +621,15 @@ def api_get_settings(request: Request):
         saved["enable_model_selector"] = bool(glob_cfg.get("app", {}).get("enable_model_selector", False))
     except Exception:
         saved["enable_model_selector"] = False
+
+    # Images, calculé ici : moteur proposé à CE compte (instance + groupes),
+    # puis la case du compte. Préférences ramenées aux limites du moteur.
+    from shared_infra.image import access as _img_access
+    from shared_infra.image.config import get_image_config as _img_cfg
+    _cfg_img = _img_cfg()
+    saved["image_ready"] = _img_access.ready_for(uid, _cfg_img)
+    saved["image_available"] = saved["image_ready"] and saved.get("image_enabled") is not False
+    saved["image_prefs"] = _img_access.clean_prefs(saved.get("image_prefs"), _cfg_img)
 
     # Les secrets MCP perso ne repartent JAMAIS vers le navigateur : il ne reçoit
     # que ``has_auth``, comme pour la bibliothèque partagée. Le formulaire
@@ -670,6 +688,12 @@ async def api_put_settings(request: Request):
             data.pop("opencode_mcp_families", None)
     if "live_shell_enabled" in data:
         data["live_shell_enabled"] = bool(data["live_shell_enabled"])
+    for _cle_image in ("image_enabled", "image_tool_enabled"):
+        if _cle_image in data:
+            data[_cle_image] = bool(data[_cle_image])
+    if "image_prefs" in data:
+        from shared_infra.image.access import clean_prefs
+        data["image_prefs"] = clean_prefs(data["image_prefs"])
     for _cle_voix in ("voice_input_enabled", "voice_reply_enabled",
                       "voice_reply_tools_enabled"):
         if _cle_voix in data:

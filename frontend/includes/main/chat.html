@@ -1233,8 +1233,45 @@
                                              `display:contents` → les éléments parsés participent au flux
                                              de .markdown-body comme s'ils étaient enfants directs :
                                              espacement/typo STRICTEMENT identiques au rendu final. -->
-                                        <div v-if="entry.msg.isStreaming" aria-busy="true" class="markdown-body bg-transparent"><template v-for="blk in (entry.msg._mdBlocks || [])" :key="blk.i"><div style="display:contents" v-html="blk.html"></div></template><div v-if="entry.msg._mdActiveHtml" style="display:contents" v-html="entry.msg._mdActiveHtml"></div><!-- Caret de REPLI : le caret nominal est injecté DANS le dernier bloc actif (_injectCaret) — un span frère d'un bloc tombe dans une boîte anonyme une ligne SOUS le texte. --><span v-if="entry.msg.content && !entry.msg._mdActiveHtml" class="elpis-stream-caret"></span></div>
+                                        <!-- Tour « Images » (chat/_image.js) : tuile pendant la génération,
+                                             grille des résultats, ou erreur dans la tuile. La légende persistée
+                                             (celle que lit le modèle aux tours suivants) n'est pas affichée. -->
+                                        <template v-if="entry.msg.role === 'assistant' && isImageMessage(entry.msg)">
+                                            <image-grid v-if="entry.msg.generated_images && entry.msg.generated_images.length"
+                                                        :items="entry.msg.generated_images" :prompt="imagePromptFor(entry.idx)"
+                                                        :revised="entry.msg.revised_prompt || ''" :meta="entry.msg.image_meta || null"
+                                                        :reveal="entry.idx === lastAssistantIdx" :variants="!isStreaming"
+                                                        @variants="imageVariants(entry.idx)"></image-grid>
+                                            <image-tile v-else-if="entry.msg.isStreaming"
+                                                        :progress="entry.msg._imageProgress" :stoppable="entry.idx === lastAssistantIdx"
+                                                        @stop="stopGeneration()"></image-tile>
+                                            <image-tile v-else-if="entry.msg.image_error"
+                                                        :error="entry.msg.image_error" :live="!!entry.msg._imageErrorLive"
+                                                        :dims="imageReqDims(imageRequestFor(entry.idx))"
+                                                        @retry="retryGeneration(entry.idx)"></image-tile>
+                                            <div v-else class="markdown-body bg-transparent" v-html="renderMarkdown(entry.msg.content || '')"></div>
+                                        </template>
+                                        <div v-else-if="entry.msg.isStreaming" aria-busy="true" class="markdown-body bg-transparent"><template v-for="blk in (entry.msg._mdBlocks || [])" :key="blk.i"><div style="display:contents" v-html="blk.html"></div></template><div v-if="entry.msg._mdActiveHtml" style="display:contents" v-html="entry.msg._mdActiveHtml"></div><!-- Caret de REPLI : le caret nominal est injecté DANS le dernier bloc actif (_injectCaret) — un span frère d'un bloc tombe dans une boîte anonyme une ligne SOUS le texte. --><span v-if="entry.msg.content && !entry.msg._mdActiveHtml" class="elpis-stream-caret"></span></div>
                                         <div v-else class="markdown-body bg-transparent" v-html="messageSearchQ && messageSearchActive ? renderMarkdownHighlight(entry.msg.displayContent || entry.msg.content, messageSearchQ) : renderMarkdown(entry.msg.displayContent || entry.msg.content)" @click="handleMarkdownClick"></div>
+                                        <!-- Demande d'image (bulle utilisateur) : image modifiée et options. -->
+                                        <div v-if="entry.msg.role === 'user' && entry.msg.image_request" class="elpis-img-reqline" data-image-request>
+                                            <button v-if="entry.msg.image_request.ref_image_id" type="button" class="elpis-img-reqline__ref"
+                                                    @click="openImageViewer([{ id: entry.msg.image_request.ref_image_id, url: '/api/images/' + entry.msg.image_request.ref_image_id }], 0, {})"
+                                                    title="Image modifiée" aria-label="Voir l’image modifiée">
+                                                <img :src="'/api/images/' + entry.msg.image_request.ref_image_id + '?thumb=1'" alt=""
+                                                     @error="$event.target.closest('button').hidden = true">
+                                            </button>
+                                            <i class="ph ph-image" aria-hidden="true"></i>
+                                            <span>{{ imageRequestLabel(entry.msg.image_request) }}</span>
+                                        </div>
+                                        <!-- Images de l'outil du modèle (generate_image), sous le texte. -->
+                                        <div v-if="entry.msg.role === 'assistant' && entry.msg._toolImageProgress" class="mt-3">
+                                            <image-tile :progress="entry.msg._toolImageProgress" :stoppable="entry.idx === lastAssistantIdx"
+                                                        @stop="stopGeneration()"></image-tile>
+                                        </div>
+                                        <div v-if="entry.msg.role === 'assistant' && entry.msg.tool_images && entry.msg.tool_images.length" class="mt-3">
+                                            <image-grid tool :items="entry.msg.tool_images" :reveal="entry.idx === lastAssistantIdx"></image-grid>
+                                        </div>
                                     </div>
 
                                     <!-- ====================================================== -->
@@ -1359,7 +1396,7 @@
                                          class="mt-2 flex items-center justify-between gap-3">
 
                                         <!-- Métriques de génération (gauche) -->
-                                        <div v-if="entry.msg.metrics && (entry.msg.metrics.model || entry.msg.metrics.duration || entry.msg.metrics.write_tps)"
+                                        <div v-if="!isImageMessage(entry.msg) && entry.msg.metrics && (entry.msg.metrics.model || entry.msg.metrics.duration || entry.msg.metrics.write_tps)"
                                              class="flex items-center gap-2 text-[11px] text-slate-400 font-mono select-none min-w-0"
                                              :title="metricsTooltip(entry.msg.metrics)">
                                             <i class="ph ph-gauge text-slate-300" style="font-size:11px"></i>
@@ -1404,7 +1441,7 @@
 
                                         <!-- Actions assistant (droite, hover-revealed) -->
                                         <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0">
-                                            <button @click="copyAssistantMessage(entry.msg.content)"
+                                            <button v-if="!isImageMessage(entry.msg)" @click="copyAssistantMessage(entry.msg.content)"
                                                     title="Copier la réponse"
                                                     class="text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-md p-1 transition-colors">
                                                 <i class="ph ph-copy text-[14px]"></i>
@@ -1418,11 +1455,11 @@
                                             </button>
                                             <button v-if="!isStreaming"
                                                     @click="retryGeneration(entry.idx)"
-                                                    title="Régénérer la réponse"
+                                                    :title="isImageMessage(entry.msg) ? 'Régénérer les images' : 'Régénérer la réponse'"
                                                     class="text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-md p-1 transition-colors">
                                                 <i class="ph ph-arrow-clockwise text-[14px]"></i>
                                             </button>
-                                            <button v-if="voiceCanRead"
+                                            <button v-if="voiceCanRead && !isImageMessage(entry.msg)"
                                                     @click="speakMessage(entry.idx, entry.msg.content)"
                                                     :title="voiceReadingIdx === entry.idx ? 'Arrêter la lecture' : 'Lire à voix haute'"
                                                     :aria-label="voiceReadingIdx === entry.idx ? 'Arrêter la lecture' : 'Lire la réponse à voix haute'"
@@ -1955,6 +1992,20 @@
                                     </button>
                                 </span>
                             </div>
+                            <!-- Mode Images : image générée désignée par « Modifier », à la place
+                                 et avec le geste d'une pièce jointe (× pour la retirer). -->
+                            <div v-if="imageMode && imageEditRef" class="flex flex-wrap gap-2 px-3 pt-3 pb-1" data-image-ref>
+                                <div class="relative group/file">
+                                    <div class="elpis-img-refchip">
+                                        <img :src="imageEditRef.thumb_url || imageEditRef.url" alt="Image à modifier">
+                                        <span class="elpis-img-refchip__label">À modifier</span>
+                                    </div>
+                                    <button type="button" @click="clearImageEditRef()" title="Retirer" aria-label="Retirer l’image à modifier"
+                                            class="absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center rounded-full opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100 transition-all z-20 bg-slate-700 text-white hover:bg-slate-900 shadow-md">
+                                        <i class="ph ph-x text-[10px]" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                            </div>
                             <div v-if="attachedFiles.length > 0" class="flex flex-wrap gap-2 px-3 pt-3 pb-1">
                                 <!-- (passe 4, F15) clé stable : par index, supprimer un fichier
                                      au milieu re-keyait les suivants (mauvais DOM réutilisé). -->
@@ -2029,7 +2080,7 @@
                                     @keydown="handleInputKeydown"
                                     @input="handleInputInput"
                                     rows="1"
-                                    :placeholder="isStreaming ? 'Préparez votre prochain message… (envoi possible une fois la génération terminée)' : composerPlaceholder"
+                                    :placeholder="isStreaming ? 'Préparez votre prochain message… (envoi possible une fois la génération terminée)' : (imageMode ? 'Décrivez l’image…' : composerPlaceholder)"
                                     class="w-full bg-transparent px-3 py-2 outline-none resize-none max-h-40 text-slate-800 placeholder:text-slate-500 disabled:opacity-50 text-sm font-medium"
                                     style="min-height: 40px;"></textarea>
                                 <!-- Barre d'outils EN BAS : + à gauche, envoyer à droite. -->
@@ -2083,6 +2134,18 @@
                                                     class="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2.5 transition-colors">
                                                 <i class="ph ph-paperclip text-slate-400 text-base"></i>
                                                 <span class="flex-1">Joindre un fichier</span>
+                                            </button>
+                                            <!-- Images : bascule la barre en mode génération d'images
+                                                 (chat/_image.js). Visible si le moteur est prêt pour ce
+                                                 compte et que l'entrée est cochée dans les Paramètres. -->
+                                            <button v-if="imageAvailable" data-image-entry
+                                                    @click.stop="showComposerPlus = false; toggleImageMode()"
+                                                    :aria-pressed="imageMode ? 'true' : 'false'" title="Alt+I"
+                                                    class="w-full text-left px-3 py-2 text-sm rounded-lg flex items-center gap-2.5 transition-colors hover:bg-slate-100"
+                                                    :class="imageMode ? 'bg-blue-50 text-blue-800' : 'text-slate-700'">
+                                                <i class="ph ph-image text-base" :class="imageMode ? 'text-blue-600' : 'text-slate-400'" aria-hidden="true"></i>
+                                                <span class="flex-1">Images</span>
+                                                <span v-if="imageMode" class="text-[10px] font-mono opacity-80">on</span>
                                             </button>
                                             <div class="h-px bg-slate-100 my-1"></div>
 
@@ -2281,6 +2344,113 @@
 
                                 </div>
                                 <!-- ====================================================== -->
+                                <!--   Mode « Images » (chat/_image.js) : les options de la    -->
+                                <!--   demande vivent DANS la barre ; les contrôles du modèle -->
+                                <!--   (sélecteur, effort, contexte) s'effacent. Format,      -->
+                                <!--   taille, nombre et « Enrichir » sont les préférences du -->
+                                <!--   compte ; graine, étapes, « à éviter » et force restent -->
+                                <!--   propres à la demande (« ⋯ »). Fermeture des popovers : -->
+                                <!--   clic hors [data-image-pop] et Échap (app.js).          -->
+                                <!-- ====================================================== -->
+                                <div v-if="imageMode" class="elpis-img-bar" data-image-bar>
+                                    <button type="button" class="elpis-img-chip is-on" @click="closeImageMode()"
+                                            title="Quitter le mode Images (Échap sur une saisie vide)" aria-label="Quitter le mode Images">
+                                        <i class="ph ph-image" aria-hidden="true"></i><span>Images</span>
+                                        <i class="ph ph-x elpis-img-chip__x" aria-hidden="true"></i>
+                                    </button>
+                                    <select v-if="imageFixedSizes.length" class="elpis-img-chip elpis-img-select" :value="imageOpts.fixed"
+                                            @change="setImageFixed($event.target.value)" aria-label="Taille" title="Taille">
+                                        <option v-for="sz in imageFixedSizes" :key="sz" :value="sz">{{ imageSizeLabel(sz) }}</option>
+                                    </select>
+                                    <template v-else>
+                                        <div class="relative" data-image-pop>
+                                            <button type="button" class="elpis-img-chip" @click="toggleImagePop('ratio')" data-image-format
+                                                    aria-haspopup="true" :aria-expanded="imagePop === 'ratio' ? 'true' : 'false'"
+                                                    :title="'Format · ' + imageSize().w + '×' + imageSize().h">
+                                                <span class="elpis-img-ratio" :style="ratioBox(imageOpts.custom ? (imageOpts.cw >= imageOpts.ch ? '3:2' : '2:3') : imageOpts.ratio)" aria-hidden="true"></span>
+                                                <span>{{ imageFormatLabel() }}</span>
+                                            </button>
+                                            <div v-if="imagePop === 'ratio'" class="elpis-img-pop elpis-img-pop--ratio" role="group" aria-label="Format">
+                                                <button v-for="r in imageBaseRatios" :key="r" type="button" class="elpis-img-opt"
+                                                        :aria-pressed="(!imageOpts.custom && imageBaseRatio(imageOpts.ratio) === r) ? 'true' : 'false'"
+                                                        @click="setImageRatio(r)">
+                                                    <span class="elpis-img-ratio" :style="ratioBox(imageIsPortrait(imageOpts.ratio) ? imageFlipRatio(r) : r)" aria-hidden="true"></span>
+                                                    <span>{{ r === '1:1' ? 'Carré' : (imageIsPortrait(imageOpts.ratio) ? imageFlipRatio(r) : r) }}</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="elpis-img-chip elpis-img-chip--icon" @click="flipImageRatio()" data-image-flip
+                                                :disabled="!imageOpts.custom && imageOpts.ratio === '1:1'"
+                                                :aria-pressed="imageIsPortrait(imageOpts.ratio) ? 'true' : 'false'"
+                                                title="Portrait / paysage" aria-label="Basculer portrait ou paysage">
+                                            <i class="ph ph-arrows-left-right" aria-hidden="true"></i>
+                                        </button>
+                                        <select v-if="imageSides.length > 1 && !imageOpts.custom" class="elpis-img-chip elpis-img-select"
+                                                :value="imageOpts.side" @change="setImageSide($event.target.value)"
+                                                aria-label="Taille" title="Plus grand côté">
+                                            <option v-for="v in imageSides" :key="v" :value="v">{{ v }} px</option>
+                                        </select>
+                                    </template>
+                                    <select v-if="imageMaxN > 1" class="elpis-img-chip elpis-img-select" :value="imageOpts.n"
+                                            @change="setImageN($event.target.value)" aria-label="Nombre d’images" title="Nombre d’images">
+                                        <option v-for="k in imageMaxN" :key="k" :value="k">×{{ k }}</option>
+                                    </select>
+                                    <button v-if="imageStatus && imageStatus.enhance_enabled !== false" type="button" class="elpis-img-chip"
+                                            :class="{ 'is-on': imageOpts.enhance }" @click="toggleImageEnhance()"
+                                            :aria-pressed="imageOpts.enhance ? 'true' : 'false'"
+                                            title="Le modèle du chat réécrit la description avant l’envoi">
+                                        <i class="ph ph-magic-wand" aria-hidden="true"></i><span>Enrichir</span>
+                                    </button>
+                                    <button v-if="imageSeedSet" type="button" class="elpis-img-chip is-on" @click="clearImageSeed()"
+                                            title="Graine fixée : mêmes résultats à demande égale. Cliquer pour revenir à l’aléatoire."
+                                            aria-label="Retirer la graine fixée" data-image-seed>
+                                        <span>graine {{ imageOpts.seed }}</span><i class="ph ph-x elpis-img-chip__x" aria-hidden="true"></i>
+                                    </button>
+                                    <button type="button" class="elpis-img-chip elpis-img-chip--icon" @click="openImageGallery('all')" data-image-gallery-open
+                                            title="Galerie" aria-label="Ouvrir la galerie d’images">
+                                        <i class="ph ph-images" aria-hidden="true"></i>
+                                    </button>
+                                    <div class="relative" data-image-pop>
+                                        <button type="button" class="elpis-img-chip elpis-img-chip--icon" @click="toggleImagePop('more')" data-image-more
+                                                aria-haspopup="true" :aria-expanded="imagePop === 'more' ? 'true' : 'false'"
+                                                title="Options avancées" aria-label="Options avancées">
+                                            <i class="ph ph-dots-three" aria-hidden="true"></i>
+                                        </button>
+                                        <div v-if="imagePop === 'more'" class="elpis-img-pop elpis-img-pop--more" role="group" aria-label="Options avancées">
+                                            <template v-if="!imageFixedSizes.length">
+                                                <button type="button" class="elpis-img-opt elpis-img-opt--row" @click="setImageCustom(!imageOpts.custom)"
+                                                        :aria-pressed="imageOpts.custom ? 'true' : 'false'" title="Largeur et hauteur au choix, arrondies à 64 px">
+                                                    <i class="ph ph-arrows-out-simple" aria-hidden="true"></i><span>Dimensions libres</span>
+                                                </button>
+                                                <div v-if="imageOpts.custom" class="elpis-img-dims">
+                                                    <input v-model.number="imageOpts.cw" type="number" min="64" :max="(imageStatus && imageStatus.max_side) || 2048"
+                                                           :step="(imageStatus && imageStatus.step) || 64" aria-label="Largeur" placeholder="Largeur" class="elpis-img-input">
+                                                    <span aria-hidden="true">×</span>
+                                                    <input v-model.number="imageOpts.ch" type="number" min="64" :max="(imageStatus && imageStatus.max_side) || 2048"
+                                                           :step="(imageStatus && imageStatus.step) || 64" aria-label="Hauteur" placeholder="Hauteur" class="elpis-img-input">
+                                                </div>
+                                            </template>
+                                            <label v-if="imageFeatures.seed" class="elpis-img-field">
+                                                <span>Graine</span>
+                                                <input v-model="imageOpts.seed" type="number" min="0" placeholder="Aléatoire" class="elpis-img-input">
+                                            </label>
+                                            <label v-if="imageFeatures.steps" class="elpis-img-field">
+                                                <span>Étapes</span>
+                                                <input v-model="imageOpts.steps" type="number" min="1" max="200" placeholder="Modèle" class="elpis-img-input">
+                                            </label>
+                                            <label v-if="imageFeatures.negative" class="elpis-img-field elpis-img-field--col">
+                                                <span>À éviter</span>
+                                                <textarea v-model="imageOpts.negative_prompt" rows="2" placeholder="flou, texte, filigrane" class="elpis-img-input"></textarea>
+                                            </label>
+                                            <label v-if="imageFeatures.strength && (imageEditRef || attachedFiles.some(f => f.isImage))" class="elpis-img-field elpis-img-field--col"
+                                                   title="Faible : proche de l’original. Forte : s’en éloigne davantage.">
+                                                <span>Force · {{ Number(imageOpts.strength).toFixed(2) }}</span>
+                                                <input v-model.number="imageOpts.strength" type="range" min="0.1" max="1" step="0.05" aria-label="Force de la modification">
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- ====================================================== -->
                                 <!--   Chip Tâches (outil todowrite) — DANS la barre de       -->
                                 <!--   prompt, à côté du "+". Remplace le panneau empilé      -->
                                 <!--   au-dessus du composeur (il recouvrait le chat et le    -->
@@ -2352,7 +2522,7 @@
                                 </div>
 
                                 <!-- Sélecteur de modèle (déplacé ici depuis l'en-tête) — sans box, à la Claude/llama.cpp -->
-                                <div class="relative shrink-0 min-w-0" data-model-manager>
+                                <div v-show="!imageMode" class="relative shrink-0 min-w-0" data-model-manager>
                                     <!-- a11y (AUDIT 2026-06, P1.9) — toggleModelMenu focalise l'option
                                          sélectionnée à l'ouverture ; flèches/Home/End/Échap via
                                          onModelMenuKeydown sur le dropdown. -->
@@ -2524,7 +2694,7 @@
                                      détecté la capacité sur le modèle chargé (chat_template citant
                                      reasoning_effort, ex. Qwen3.8). Valeurs = celles du template.
                                      Fermeture clic-externe/Échap : app.js ([data-effort-menu]). -->
-                                <div v-if="reasoningEffortValues.length" class="relative shrink-0" data-effort-menu>
+                                <div v-if="!imageMode && reasoningEffortValues.length" class="relative shrink-0" data-effort-menu>
                                     <button @click="toggleReasoningEffortMenu()" aria-haspopup="listbox" :aria-expanded="showReasoningEffortMenu ? 'true' : 'false'" title="Effort de réflexion" class="flex items-center gap-1 px-1.5 py-1 rounded-lg text-xs font-medium transition-colors text-slate-500 hover:text-slate-700 hover:bg-slate-100" :class="showReasoningEffortMenu ? 'bg-slate-100 text-slate-700' : ''">
                                         <i class="ph ph-gauge text-xs"></i>
                                         <span class="max-w-[72px] truncate">{{ samplingOverride.reasoning_effort || 'auto' }}</span>
@@ -2559,7 +2729,7 @@
                                      le sélecteur de modèle. Le nom du modèle n'est PAS répété :
                                      le sélecteur juste à gauche l'affiche déjà. -->
                                 <transition name="fade">
-                                <div v-if="liveGen" class="shrink min-w-0 overflow-hidden flex items-center gap-2 px-1.5 text-[11px] font-mono text-slate-500 tabular-nums select-none whitespace-nowrap">
+                                <div v-if="liveGen && !imageMode" class="shrink min-w-0 overflow-hidden flex items-center gap-2 px-1.5 text-[11px] font-mono text-slate-500 tabular-nums select-none whitespace-nowrap">
                                     <span class="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
                                     <span>{{ liveGen.secLabel }}</span>
                                     <!-- Débit : MASQUÉ pendant la phase de réflexion
@@ -2581,7 +2751,7 @@
                                 <!-- Occupation RÉELLE du contexte au repos (dernier tour,
                                      ou valeur persistée en base re-semée au chargement) :
                                      visible après un F5 / redémarrage, avant de reprendre. -->
-                                <div v-if="!liveGen && ctxUsage && ctxUsage.total"
+                                <div v-if="!imageMode && !liveGen && ctxUsage && ctxUsage.total"
                                      class="shrink min-w-0 overflow-hidden flex items-center gap-1 px-1.5 text-[11px] font-mono tabular-nums select-none whitespace-nowrap"
                                      :class="kvTextClass(ctxUsage.pct)"
                                      :title="'Contexte réel à la fin du dernier tour : ' + ctxUsage.used.toLocaleString('fr-FR') + ' / ' + ctxUsage.total.toLocaleString('fr-FR') + ' tokens (' + ctxUsage.pct + ' %)' + (ctxUsage.persisted ? ' — valeur enregistrée, restaurée au chargement' : '')">
@@ -2590,6 +2760,7 @@
                                 <div class="flex-1"></div>
                                 <div class="shrink-0">
                                     <button v-if="isStreaming" @click="stopGeneration" title="Arrêter la génération" aria-label="Arrêter la génération" class="h-8 w-8 flex items-center justify-center bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-colors border border-red-200"><i class="ph ph-stop-circle text-lg"></i></button>
+                                    <button v-else-if="imageMode" @click="sendMessage" :disabled="!inputMessage.trim()" title="Générer" aria-label="Générer l’image" data-image-send class="h-8 w-8 flex items-center justify-center rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"><i class="ph ph-image text-sm" aria-hidden="true"></i></button>
                                     <button v-else @click="sendMessage" :disabled="noEngineAllowed || (!inputMessage.trim() && attachedFiles.length===0)" :title="noEngineAllowed ? 'Aucun serveur autorisé' : 'Envoyer le message'" aria-label="Envoyer le message" class="h-8 w-8 flex items-center justify-center rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"><i class="ph ph-paper-plane-right text-sm"></i></button>
                                 </div>
                                 </div>

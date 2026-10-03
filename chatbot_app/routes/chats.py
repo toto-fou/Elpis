@@ -5,7 +5,9 @@ chatbot_app.routes.chats — génération d'un tour de chat en flux NDJSON.
 Route
 -----
 - POST /api/chat-saved-stream3 — le tour entier (RAG, outils MCP, file du
-  moteur, compaction, partiel enregistré à l'annulation).
+  moteur, compaction, partiel enregistré à l'annulation). Un corps qui porte
+  ``image_gen`` est un tour « Images », confié au moteur d'images après les
+  mêmes gardes (``chatbot_app/turn/image.py``).
 
 Le handler n'enchaîne que des étapes : admission (409 si une compression
 manuelle ou une génération tourne déjà sur la conversation, 429 au-delà du
@@ -106,6 +108,7 @@ from chatbot_app.turn.admission import (
     _sweep_pending_gen_locks,
 )
 from chatbot_app.turn.execution import run_turn
+from chatbot_app.turn.image import image_turn
 from chatbot_app.turn.preparation import prepare_turn
 from shared_infra.chat.store import get_chat
 from shared_infra.observability.tracing import swallow
@@ -177,6 +180,10 @@ async def api_chat_saved_stream3(request: Request):
             logger.info("[chat_stream] user=%s a déjà %d génération(s) en "
                         "cours (plafond %d) — refus", user_id, _n_runs, _max_runs)
             raise HTTPException(429, "too_many_runs")
+    # Tour « Images » : le moteur d'images au lieu du modèle de langage, sous
+    # les mêmes gardes (``chatbot_app/turn/image.py``).
+    if data.get("image_gen") is not None:
+        return await image_turn(request, data, user_id, chat_id)
     plan, res, base = await prepare_turn(request, data, user_id, chat_id)
     # Chat neuf : la préparation lui a attribué son identifiant.
     chat_id = plan.chat_id

@@ -332,6 +332,14 @@ function setupSettings(vue, sharedRefs, ctx) {
                 if (data.voice_reply_enabled === undefined) data.voice_reply_enabled = false;
                 if (data.voice_reply_tools_enabled === undefined) data.voice_reply_tools_enabled = false;
                 if (data.memory_enabled === undefined) data.memory_enabled = false;  // mémoire long-terme = opt-in
+                // Images : entrée du menu + et outil du modèle, défaut ON (sans
+                // effet tant que le moteur n'est pas prêt pour ce compte) ;
+                // préférences du composeur, miroir des défauts du serveur.
+                if (data.image_enabled === undefined) data.image_enabled = true;
+                if (data.image_tool_enabled === undefined) data.image_tool_enabled = true;
+                if (!data.image_prefs || typeof data.image_prefs !== 'object' || Array.isArray(data.image_prefs)) {
+                    data.image_prefs = { ratio: '1:1', side: 1024, n: 1, enhance: false };
+                }
                 if (data.agents_enabled === undefined) data.agents_enabled = false;  // sous-agents (outil task) = opt-in
                 // opencode : familles d'outils activées. Clé absente ou famille
                 // absente de l'objet = ACTIVE (fail-open, aligné sur le serveur

@@ -580,6 +580,10 @@ def _tool_timeout_s(tool_name: str) -> float:
     # sous-agent LÉGITIME encore dans son budget.
     if tool_name == "task":
         return float(getattr(_bk_config, "TASK_CHILD_TIMEOUT_S", 1800)) + 60.0
+    # ``generate_image`` attend le moteur d'images, borné par SON délai.
+    if tool_name == "generate_image":
+        from llm_core.tools.image_tool import tool_timeout_s as _image_timeout
+        return _image_timeout()
     with swallow("harness.tool_timeout_policy"):
         from llm_core._mcp_categories import tool_policy as _tool_policy
         pv = _tool_policy(tool_name).get("timeout_s")

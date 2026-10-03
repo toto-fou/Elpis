@@ -535,6 +535,13 @@ def _restore_from_zip(zip_path: Path, scope: str, *, db_path: Path,
                 # Secrets compris (clé de chiffrement, secret de session) :
                 # jamais lisibles hors du compte de l'app.
                 _ecrire(entry, user_db_dir, rel, zf.read(entry), prive=True)
+            # Images générées sauvegardées à part (base hors de ``user_db/``) :
+            # rendues à côté de la base.
+            images = db_path.parent / "generated_images"
+            for entry in names:
+                if entry.startswith("generated_images/"):
+                    _ecrire(entry, images, entry[len("generated_images/"):],
+                            zf.read(entry), prive=True)
 
         if scope in ("full", "sandboxes"):
             # Le /work de chaque compte (``sandboxes/<compte>/work/…``) est écrit

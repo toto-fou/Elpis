@@ -213,6 +213,30 @@
   ],
   [
    "table",
+   "generated_images",
+   "generated_images",
+   "CREATE TABLE \"generated_images\" (\n  \"id\" TEXT PRIMARY KEY,\n  \"user_id\" INTEGER NOT NULL,\n  \"chat_id\" TEXT,\n  \"prompt\" TEXT NOT NULL DEFAULT '',\n  \"params_json\" TEXT NOT NULL DEFAULT '{}',\n  \"model\" TEXT NOT NULL DEFAULT '',\n  \"mime\" TEXT NOT NULL,\n  \"width\" INTEGER NOT NULL,\n  \"height\" INTEGER NOT NULL,\n  \"bytes\" INTEGER NOT NULL,\n  \"rel_path\" TEXT NOT NULL,\n  \"thumb_rel_path\" TEXT NOT NULL DEFAULT '',\n  \"steps\" INTEGER NOT NULL DEFAULT 0,\n  \"megapixels\" REAL NOT NULL DEFAULT 0,\n  \"duration_s\" REAL DEFAULT NULL,\n  \"created_at\" REAL NOT NULL,\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\") ON DELETE CASCADE\n)"
+  ],
+  [
+   "index",
+   "idx_generated_images_user",
+   "generated_images",
+   "CREATE INDEX \"idx_generated_images_user\" ON \"generated_images\" (\"user_id\", \"created_at\")"
+  ],
+  [
+   "index",
+   "idx_generated_images_chat",
+   "generated_images",
+   "CREATE INDEX \"idx_generated_images_chat\" ON \"generated_images\" (\"user_id\", \"chat_id\")"
+  ],
+  [
+   "index",
+   "idx_generated_images_model",
+   "generated_images",
+   "CREATE INDEX \"idx_generated_images_model\" ON \"generated_images\" (\"model\", \"created_at\")"
+  ],
+  [
+   "table",
    "git_connectors",
    "git_connectors",
    "CREATE TABLE git_connectors (\n            id            INTEGER PRIMARY KEY AUTOINCREMENT,\n            owner_user_id INTEGER NOT NULL,\n            provider_type TEXT NOT NULL,          -- github | gitlab | bitbucket-cloud\n                                                  -- | bitbucket-server | gitea | generic\n            host          TEXT NOT NULL,          -- lowercase (github.com, gitlab.acme.internal:8443)\n            api_base      TEXT NOT NULL DEFAULT '',\n            label         TEXT NOT NULL DEFAULT '',\n            username      TEXT NOT NULL DEFAULT '',\n            token_enc     TEXT NOT NULL,\n            token_scheme  TEXT NOT NULL DEFAULT 'plain',   -- 'plain' | 'fernet' (réservé)\n            created_at    REAL NOT NULL,\n            updated_at    REAL NOT NULL,\n            last_used     REAL,\n            FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE\n        )"

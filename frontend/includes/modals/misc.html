@@ -157,6 +157,97 @@
 
     </Transition>
 
+    <!-- Visionneuse des images générées (chat/_image.js) : ← → entre les images
+         d'un même résultat, description, modèle, graine, actions. Échap : cascade
+         d'app.js ; focus gardé dans la fenêtre (imageViewerKeydown). -->
+    <Transition name="modal">
+    <div v-if="imageViewer && imageViewerCurrent" class="elpis-img-viewer" role="dialog" aria-modal="true"
+         aria-label="Image générée" tabindex="-1" data-image-viewer
+         @click.self="closeImageViewer()" @keydown="imageViewerKeydown($event)">
+        <div class="elpis-img-viewer__stage" @click.self="closeImageViewer()">
+            <img :src="imageViewerCurrent.url" :alt="imageViewerPrompt || 'Image générée'"
+                 :width="imageViewerCurrent.width || null" :height="imageViewerCurrent.height || null">
+            <button v-if="imageViewer.items.length > 1" type="button" class="elpis-img-viewer__nav is-prev"
+                    @click="imageViewerStep(-1)" aria-label="Image précédente"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+            <button v-if="imageViewer.items.length > 1" type="button" class="elpis-img-viewer__nav is-next"
+                    @click="imageViewerStep(1)" aria-label="Image suivante"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+        </div>
+        <aside class="elpis-img-viewer__panel">
+            <div class="elpis-img-viewer__head">
+                <span v-if="imageViewer.items.length > 1" class="elpis-img-viewer__count">{{ imageViewer.idx + 1 }} / {{ imageViewer.items.length }}</span>
+                <button type="button" class="elpis-img-viewer__close" @click="closeImageViewer()" title="Fermer (Échap)" aria-label="Fermer">
+                    <i class="ph ph-x" aria-hidden="true"></i>
+                </button>
+            </div>
+            <p v-if="imageViewerPrompt" class="elpis-img-viewer__prompt">{{ imageViewerPrompt }}</p>
+            <p v-if="imageViewerInfo" class="elpis-img-viewer__meta">{{ imageViewerInfo }}</p>
+            <div class="elpis-img-viewer__actions">
+                <button v-if="imageCanEdit" type="button" class="elpis-img-btn" @click="editGeneratedImage(imageViewerCurrent); closeImageViewer()">
+                    <i class="ph ph-pencil-simple" aria-hidden="true"></i>Modifier</button>
+                <button type="button" class="elpis-img-btn" @click="downloadImage(imageViewerCurrent, imageViewerNamePrompt)">
+                    <i class="ph ph-download-simple" aria-hidden="true"></i>Télécharger</button>
+                <button v-if="imageViewerPrompt" type="button" class="elpis-img-btn" @click="copyImageText(imageViewerPrompt)">
+                    <i class="ph ph-copy" aria-hidden="true"></i>Copier</button>
+                <button v-if="imageViewerCurrent.chat_id && imageGallery" type="button" class="elpis-img-btn"
+                        @click="openImageChat(imageViewerCurrent.chat_id)" data-image-goto-chat>
+                    <i class="ph ph-chat-circle-text" aria-hidden="true"></i>Conversation</button>
+                <button type="button" class="elpis-img-btn is-danger" @click="removeImage(imageViewerCurrent)">
+                    <i class="ph ph-trash" aria-hidden="true"></i>Supprimer</button>
+            </div>
+        </aside>
+    </div>
+    </Transition>
+
+    <!-- Galerie personnelle (chat/_image.js) : images du compte ou de la
+         conversation ouverte, par pages au défilement ; clic = visionneuse. -->
+    <Transition name="modal">
+    <div v-if="imageGallery" class="elpis-img-gallery" role="dialog" aria-modal="true" aria-label="Galerie d’images"
+         tabindex="-1" data-image-gallery @click.self="closeImageGallery()" @keydown="imageGalleryKeydown">
+        <div class="elpis-img-gallery__box">
+            <header class="elpis-img-gallery__head">
+                <h2 class="elpis-img-gallery__title">Galerie</h2>
+                <span v-if="imageGallery.keep" class="elpis-img-gallery__count"
+                      title="Images conservées ; au-delà, les plus anciennes sont effacées.">{{ imageGallery.total }}/{{ imageGallery.keep }}</span>
+                <div class="elpis-img-gallery__filters" role="group" aria-label="Filtre">
+                    <button type="button" class="elpis-img-chip" :aria-pressed="imageGallery.filter === 'all' ? 'true' : 'false'"
+                            @click="setGalleryFilter('all')">Toutes</button>
+                    <button type="button" class="elpis-img-chip" :aria-pressed="imageGallery.filter === 'chat' ? 'true' : 'false'"
+                            :disabled="!currentChatId" @click="setGalleryFilter('chat')"
+                            :title="currentChatId ? '' : 'Aucune conversation ouverte'">Cette conversation</button>
+                </div>
+                <button type="button" class="elpis-img-viewer__close" @click="closeImageGallery()" title="Fermer (Échap)" aria-label="Fermer la galerie">
+                    <i class="ph ph-x" aria-hidden="true"></i>
+                </button>
+            </header>
+            <div class="elpis-img-gallery__grid custom-scrollbar" @scroll="onGalleryScroll($event)">
+                <div v-for="(it, i) in imageGallery.items" :key="it.id" class="elpis-img-gallery__cell" :data-image-id="it.id">
+                    <div v-if="imageCellState(it.id)" class="elpis-img-frame">
+                        <i class="ph" :class="imageCellState(it.id) === 'expired' ? 'ph-image-broken' : 'ph-trash'" aria-hidden="true"></i>
+                        <span>{{ imageCellState(it.id) === 'expired' ? 'Expirée' : 'Supprimée' }}</span>
+                    </div>
+                    <template v-else>
+                        <button type="button" class="elpis-img-open" @click="openGalleryItem(i)" :aria-label="'Agrandir : ' + (it.prompt || 'image')">
+                            <img :src="it.thumb_url || it.url" :alt="it.prompt || 'Image générée'" loading="lazy" decoding="async"
+                                 @error="markImageExpired(it.id)">
+                        </button>
+                        <div class="elpis-img-actions">
+                            <button type="button" class="elpis-img-act" @click.stop="downloadImage(it, it.prompt)"
+                                    title="Télécharger" aria-label="Télécharger l’image"><i class="ph ph-download-simple" aria-hidden="true"></i></button>
+                            <button type="button" class="elpis-img-act is-danger" @click.stop="removeImage(it)"
+                                    title="Supprimer" aria-label="Supprimer l’image"><i class="ph ph-trash" aria-hidden="true"></i></button>
+                        </div>
+                    </template>
+                </div>
+                <p v-if="!imageGallery.loading && !imageGallery.items.length && !imageGallery.error" class="elpis-img-gallery__empty">
+                    {{ imageGallery.filter === 'chat' ? 'Aucune image dans cette conversation.' : 'Aucune image.' }}</p>
+                <p v-if="imageGallery.error" class="elpis-img-gallery__empty is-err">{{ imageGallery.error }}</p>
+                <p v-if="imageGallery.loading" class="elpis-img-gallery__empty" role="status">
+                    <i class="ph ph-circle-notch animate-spin" aria-hidden="true"></i> Chargement…</p>
+            </div>
+        </div>
+    </div>
+    </Transition>
+
     <!-- Image zoom modal -- must be INSIDE #app so Vue can bind imgZoom -->
     <Transition name="modal">
 

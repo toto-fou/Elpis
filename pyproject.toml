@@ -80,6 +80,7 @@ files = [
     "shared_infra/mcp/routes_oauth.py",
     "shared_infra/mcp/origins.py",
     "shared_infra/mcp/delegation.py",
+    "shared_infra/image",
 ]
 explicit_package_bases = true
 follow_imports = "silent"

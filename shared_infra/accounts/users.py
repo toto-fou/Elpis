@@ -253,10 +253,20 @@ def delete_user_full(target_user_id: int) -> bool:
                 _oauth_purge(target_user_id, conn=cur)
         except sqlite3.OperationalError:
             pass
+        # Images générées : les lignes ici (la clé étrangère n'est pas
+        # appliquée partout), le dossier après le commit.
+        try:
+            with savepoint(conn, "generated_images"):
+                cur.execute("DELETE FROM generated_images WHERE user_id=?", (target_user_id,))
+        except sqlite3.OperationalError:
+            pass
         cur.execute("DELETE FROM users WHERE id=?", (target_user_id,))
         changed = cur.rowcount > 0
         conn.commit()
-        return changed
+    if changed:
+        from shared_infra.image.store import delete_user_dir
+        delete_user_dir(target_user_id)
+    return changed
 
 
 def get_username_by_id(user_id: int) -> Optional[str]:

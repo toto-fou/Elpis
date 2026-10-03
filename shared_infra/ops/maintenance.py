@@ -160,6 +160,13 @@ def run_maintenance_once() -> Dict[str, int]:
             out["office_cache"] = _prune_office()
         except Exception:
             logger.debug("[maintenance] office cache prune failed", exc_info=True)
+        # Images générées : conversations et comptes disparus, fichiers sans
+        # ligne (écriture interrompue).
+        try:
+            from shared_infra.image.store import sweep_orphans as _sweep_images
+            out["generated_images"] = _sweep_images()
+        except Exception:
+            logger.debug("[maintenance] sweep des images générées échoué", exc_info=True)
     # Checkpoint WAL EN DERNIER : fusionne les DELETE ci-dessus dans le .db et
     # compacte le fichier -wal (sinon il gonfle indéfiniment sans reboot).
     try:

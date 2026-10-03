@@ -930,6 +930,35 @@ TABLES: List[Table] = [
             Index('idx_user_groups_user', ('user_id',)),
         ],
     ),
+    # Images produites par le moteur d'images (0024) : une ligne par image, le
+    # fichier vit sous ``user_db/generated_images/`` (``rel_path`` relatif à
+    # cette racine). ``model``, ``steps``, ``megapixels`` et ``duration_s``
+    # servent l'estimation de durée des générations suivantes.
+    Table('generated_images', [
+        Col('id', TEXT, primary=True, key=64),
+        Col('user_id', INT, null=False),
+        Col('chat_id', TEXT, key=64),
+        Col('prompt', TEXT, null=False, default=''),
+        Col('params_json', TEXT, null=False, default='{}'),
+        Col('model', TEXT, null=False, default=''),
+        Col('mime', TEXT, null=False),
+        Col('width', INT, null=False),
+        Col('height', INT, null=False),
+        Col('bytes', INT, null=False),
+        Col('rel_path', TEXT, null=False),
+        Col('thumb_rel_path', TEXT, null=False, default=''),
+        Col('steps', INT, null=False, default=0),
+        Col('megapixels', REAL, null=False, default=0),
+        Col('duration_s', REAL, default=NULL),
+        Col('created_at', REAL, null=False),
+    ],
+        fks=[FK(('user_id',), 'users', ('id',), on_delete='CASCADE')],
+        indexes=[
+            Index('idx_generated_images_user', ('user_id', 'created_at')),
+            Index('idx_generated_images_chat', ('user_id', 'chat_id')),
+            Index('idx_generated_images_model', ('model', 'created_at')),
+        ],
+    ),
 ]
 
 
@@ -976,6 +1005,7 @@ BASELINE_COVERS: Tuple[str, ...] = (
     "0021_runs",
     "0022_tool_tokens",
     "0023_oauth",
+    "0024_generated_images",
 )
 
 

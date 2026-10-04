@@ -6,6 +6,13 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ## Non publié
 
+## 0.0.1 — 2026-10-04
+
+Première version publiée : chat agentique (outils, sous-agents, mémoire long
+terme, skills, serveurs MCP), éditeur de code avec sandbox Docker par
+utilisateur et terminal, routines, service RAG, console d'administration ;
+installation et configuration interactives en deux commandes.
+
 ### Ajouts
 
 - **Tokens par type, partout, au sens des fournisseurs (OpenAI, Anthropic)** :
@@ -344,10 +351,3 @@ selon [SemVer](https://semver.org/lang/fr/).
   modifiés, taille) n'entrent jamais dans un lien, même apparu pendant le
   parcours ; la matrice adversariale se rejoue contre le vrai conteneur
   (`docs/sandbox-gateway.md`, « Tests »).
-
-## 1.0.0 — 2026-09-24
-
-Première publication : chat agentique (outils, sous-agents, mémoire long
-terme, skills, serveurs MCP), éditeur de code avec sandbox Docker par
-utilisateur et terminal, routines, service RAG, console d'administration ;
-installation et configuration interactives en deux commandes.

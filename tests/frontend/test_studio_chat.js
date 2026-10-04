@@ -271,6 +271,15 @@ async function t(name, fn) { await fn(); n++; }
         assert.ok(cancel, 'un POST /api/chat/cancel doit partir');
         assert.ok(/^studio_/.test(cancel.body.chat_id), 'chat_id préfixé studio_ : ' + cancel.body.chat_id);
         assert.strictEqual(S.studioChatStreaming.value, false, 'le stream est marqué arrêté');
+        assert.ok(cap.toasts.some(x => /Arrêt demandé/.test(x.msg)), 'arrêt annoncé');
+    });
+
+    await t('quitter le Studio au repos : filet serveur, aucun faux « arrêt demandé »', async () => {
+        const { S, cap } = mk();
+        assert.strictEqual(S.studioChatStreaming.value, false);
+        await S.studioChatStop();
+        assert.ok(cap.calls.some(c => c.url === '/api/chat/cancel'), 'le filet serveur part toujours');
+        assert.strictEqual(cap.toasts.length, 0, 'aucun message : ' + JSON.stringify(cap.toasts));
     });
 
     console.log('studio_chat: ' + n + ' tests passed');

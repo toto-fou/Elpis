@@ -200,12 +200,16 @@ function setupStudioChat(vue, sharedRefs, ctx, studioMenu) {
     }
 
     function studioChatStop() {
+        // Quitter le Studio passe aussi par ici, action en cours ou non : le
+        // message n'annonce un arrêt que s'il y avait quelque chose à arrêter.
+        const enCours = studioChatStreaming.value || !!_abort;
         // Annulation SERVEUR d'abord : abort() ne coupe QUE le flux HTTP côté
         // client — la boucle outillée continuerait à piloter la VM (clic/frappe)
         // en arrière-plan. Le POST /api/chat/cancel pose le flag + task.cancel()
         // (la boucle le lit en tête de CHAQUE itération et interrompt l'outil MCP
         // en cours) → aucun outil SUIVANT ne part. L'action DÉJÀ émise, elle, va
         // au bout sur la VM (garantie best-effort, comme le Stop du chat principal).
+        // Envoyée même au repos : filet sans effet si rien ne tourne côté serveur.
         try {
             fetchAuth('/api/chat/cancel', {
                 method: 'POST', body: JSON.stringify({ chat_id: _studioChatId }),
@@ -213,7 +217,7 @@ function setupStudioChat(vue, sharedRefs, ctx, studioMenu) {
         } catch (e) { /* fire-and-forget */ }
         if (_abort) { try { _abort.abort(); } catch (e) {} _abort = null; }
         studioChatStreaming.value = false;
-        showToast && showToast('Arrêt demandé — l\'action en cours sur la VM se termine');
+        if (enCours) showToast && showToast('Arrêt demandé — l\'action en cours sur la VM se termine');
     }
 
     // Action directe (sans LLM, déterministe + enregistrable). POST commun.

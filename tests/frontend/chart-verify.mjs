@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: MIT
-// Vérifie le rendu réel des graphiques Chart.js (tous types + plugins vendorisés),
-// en clair ET en sombre, route-mock (sans backend) :
+// Vérifie le rendu réel des graphiques ECharts des outils chart_<type> (30 types),
+// l'avis « ancien format » pour une configuration Chart.js, les outils de carte
+// (Tableau, bascule Courbe, Agrandir), puis le thème sombre — route-mock :
+//   venv/bin/python tests/frontend/chart_fixtures_gen.py   (si le moteur a changé)
 //   PERF_PORT=8912 node tests/frontend/chart-server.mjs &
 //   PERF_PORT=8912 node tests/frontend/chart-verify.mjs
 import fs from 'fs';
 import { launch, gotoApp } from '../perf/lib/harness.mjs';
 
 const FIX = JSON.parse(fs.readFileSync(new URL('./chart-fixtures.json', import.meta.url), 'utf8'));
-const N = FIX.order.length;
+const N = FIX.order.length - 1;                    // moins l'ancienne config Chart.js
+const HTML_KINDS = FIX.order.filter(([, id]) => {
+    const e = FIX.configs[id]._elpis; return e && e.render;
+}).length;                                          // kpi + table : pas de canvas
 
 const checks = [];
 const ok = (name, cond) => { checks.push([cond ? 'PASS' : 'FAIL', name]); if (!cond) console.log('  ✗ ' + name); };
@@ -20,94 +25,73 @@ try {
     page.setDefaultTimeout(10000);
     await gotoApp(page, '/');
     ok('app montée', true);
+    ok('ECharts PAS chargé avant le premier graphique', await page.evaluate(() => typeof window.echarts === 'undefined'));
 
     await page.locator('text=Charts').first().click();
-    // charts render in a 50ms setTimeout after the ref fetch → give them room
-    await page.waitForTimeout(2500);
+    await page.waitForFunction(() => document.querySelectorAll('.chart-render canvas').length >= 20, null, { timeout: 15000 });
+    await page.waitForTimeout(800);
 
-    // 1. Every controller/plugin actually registered in the real browser.
-    const reg = await page.evaluate(() => {
-        const c = window.Chart;
-        return {
-            hasChart: typeof c !== 'undefined',
-            controllers: c ? Object.keys(c.registry.controllers.items) : [],
-            datalabels: !!window.ChartDataLabels,
-            annotation: !!window['chartjs-plugin-annotation'],
-        };
-    });
-    ok('Chart.js chargé', reg.hasChart);
-    for (const ctrl of ['treemap', 'sankey', 'matrix', 'boxplot', 'violin', 'candlestick', 'ohlc']) {
-        ok('contrôleur enregistré: ' + ctrl, reg.controllers.includes(ctrl));
-    }
-    ok('plugin datalabels présent', reg.datalabels);
-    ok('plugin annotation présent', reg.annotation);
-
-    // 2. Every ref rendered a chart card; NONE fell back to an error card.
+    ok('ECharts chargé à la demande', await page.evaluate(() => typeof window.echarts === 'object'));
     const nRender = await page.locator('.chart-render').count();
-    const nError  = await page.locator('.chart-render-error').count();
-    const nCanvas = await page.locator('.chart-render canvas').count();
-    ok(`aucune carte d'erreur (${nError})`, nError === 0);
-    ok(`${N} cartes de graphique rendues (${nRender})`, nRender === N);
-    // 21 single-canvas + 2 composites × 2 canvases = 25
-    ok(`canvases présents (${nCanvas} ≥ ${N})`, nCanvas >= N);
+    const nLegacy = await page.locator('.chart-render-error:has-text("ancien format")').count();
+    const nError = await page.locator('.chart-render-error').count();
+    ok(`${N} cartes de graphique (${nRender})`, nRender === N);
+    ok(`1 avis « ancien format » (${nLegacy})`, nLegacy === 1);
+    ok(`aucune autre carte d'erreur (${nError - nLegacy})`, nError === nLegacy);
 
-    // 3. Composite (pie-of-pie / bar-of-pie) = one card with TWO canvases.
-    const composite2 = await page.evaluate(() => {
-        let found = 0;
+    const inst = await page.evaluate(() => {
+        let withSeries = 0, empty = 0;
         document.querySelectorAll('.chart-render').forEach(card => {
-            if (card.querySelectorAll('canvas').length === 2) found++;
+            const host = card.querySelector('canvas') && card.querySelector('canvas').closest('[_echarts_instance_]');
+            if (!host) return;
+            const ch = window.echarts.getInstanceByDom(host);
+            const o = ch && ch.getOption();
+            if (o && o.series && o.series.length) withSeries++; else empty++;
         });
-        return found;
+        return { withSeries, empty, tables: document.querySelectorAll('.chart-render table').length };
     });
-    ok('2 cartes composites à double canvas (pie_of_pie + bar_of_pie)', composite2 === 2);
+    ok(`${N - HTML_KINDS} instances ECharts avec séries (${inst.withSeries})`, inst.withSeries === N - HTML_KINDS && inst.empty === 0);
+    ok('tableau et indicateurs rendus en HTML', inst.tables >= 1
+        && await page.locator('.chart-render :text("Tickets")').count() >= 1);
 
-    // 3b. Advanced client-injection actually ran: some chart carries an injected
-    //     animation delay function (stagger/progressive) and a scriptable fill.
-    const injected = await page.evaluate(() => {
-        let animFn = false, scriptableFill = false;
-        document.querySelectorAll('.chart-render canvas').forEach(cv => {
-            const ch = window.Chart && window.Chart.getChart(cv);
-            if (!ch) return;
-            // The source config keeps our injected functions (ch.options.animation.delay
-            // gets resolved to a number by Chart.js during the animation).
-            const co = (ch.config && ch.config.options) || {};
-            if ((co.animation && typeof co.animation.delay === 'function')
-                || (co.animations && co.animations.x && typeof co.animations.x.delay === 'function')) animFn = true;
-            (ch.data.datasets || []).forEach(ds => {
-                if (typeof ds.backgroundColor === 'function') scriptableFill = true;
-            });
-        });
-        return { animFn, scriptableFill };
+    // Outils de carte sur le premier graphique (barres)
+    const first = page.locator('.chart-render').first();
+    await first.locator('button:has-text("Tableau")').click();
+    ok('Tableau : données affichées', await first.locator('table').count() === 1);
+    await first.locator('button:has-text("Courbe")').click();
+    await page.waitForTimeout(300);
+    const morph = await page.evaluate(() => {
+        const host = document.querySelector('.chart-render [_echarts_instance_]');
+        return window.echarts.getInstanceByDom(host).getOption().series[0].type;
     });
-    ok('animation injectée (delay fn stagger/progressive)', injected.animFn);
-    ok('remplissage scriptable injecté (gradient/matrix/treemap)', injected.scriptableFill);
+    ok('bascule Courbe (série en line)', morph === 'line');
+    await first.locator('button:has-text("Agrandir")').click();
+    await page.waitForTimeout(300);
+    ok('Agrandir : vue plein écran', await page.evaluate(() => [...document.body.children].some(e => e.style && e.style.position === 'fixed' && e.querySelector('canvas'))));
+    await page.keyboard.press('Escape');
 
-    // 4. No page/console errors (a failed plugin register / bad config would show here).
-    const chartErr = [...errors, ...consoleErrors].filter(e => /chart|register|controller|is not a|undefined/i.test(e));
-    ok('aucune erreur console liée aux charts', chartErr.length === 0);
+    const chartErr = [...errors, ...consoleErrors].filter(e => /chart|echarts|undefined|is not a/i.test(e));
+    ok('aucune erreur console liée aux graphiques', chartErr.length === 0);
     if (chartErr.length) console.log('   errs:', chartErr.slice(0, 4));
 
-    // 5. Dark mode: enable the skin classes and re-render the chat → cards go dark.
-    // Les DEUX classes, comme app-settings.js : ``elpis-app-dark`` porte le bloc
-    // de tokens du toggle, ``elpis-dark-surface`` est le MARQUEUR « surface
-    // sombre » que lit ``_chartDark()`` (et que pose aussi un skin à base
-    // sombre). Le test ne posait que la première → carte restée blanche, échec
-    // permanent sur du code correct.
+    // Thème sombre : les deux classes d'app-settings.js, puis le re-thème global.
     await page.evaluate(() => {
         document.body.classList.add('elpis-app-dark');
         document.body.classList.add('elpis-dark-surface');
+        window.elpisRethemeVisuals();
     });
-    // leave + re-open the chat to force a fresh enhancement pass under the dark class
+    await page.waitForTimeout(500);
+    const dark = await page.evaluate(() => ({
+        cards: document.querySelectorAll('.chart-render.bg-slate-800').length,
+        light: document.querySelectorAll('.chart-render.bg-white').length,
+    }));
+    ok(`cartes en thème sombre (${dark.cards})`, dark.cards === N && dark.light === 0);
+    ok('aucune erreur après re-thème', [...errors].length === 0);
+
+    // Changement de chat : les instances sont libérées (sweep / disposeAll).
     await page.locator('button:has-text("Nouveau chat"), [data-act="new-chat"]').first().click().catch(() => {});
     await page.waitForTimeout(400);
-    await page.locator('text=Charts').first().click();
-    await page.waitForTimeout(2500);
-    const darkCard = await page.evaluate(() =>
-        !!document.querySelector('.chart-render.bg-slate-800'));
-    const darkErr = await page.locator('.chart-render-error').count();
-    ok('cartes en thème sombre (bg-slate-800)', darkCard);
-    ok('aucune erreur de rendu en sombre', darkErr === 0);
-
+    ok('plus aucune carte après changement de chat', await page.locator('.chart-render').count() === 0);
 } catch (e) {
     ok('exception: ' + (e && e.message || e), false);
 } finally {

@@ -31,7 +31,9 @@ file per component, named after the upstream package).
 | xterm-addon-fit | matching xterm.js 5.x | MIT | `xterm/xterm-addon-fit.js` | https://github.com/xtermjs/xterm.js |
 | Phosphor Icons (web font, Regular) | 2.x (≈1 530 icons; version not stated in the files) | MIT | `src/regular/` | https://github.com/phosphor-icons/web |
 | Tailwind CSS (standalone browser build, used by `tools/generate_tailwind_css.mjs` to precompile `frontend/css/style.tailwind.css`) | 3.4.17 | MIT | `tailwind.js` | https://github.com/tailwindlabs/tailwindcss |
-| Chart.js | 4.4.1 | MIT | `chart.js` | https://github.com/chartjs/Chart.js |
+| Apache ECharts (chat charts) | 6.1.0 | Apache-2.0 (NOTICE and embedded d3.js BSD-3-Clause parts in `LICENSES/echarts.txt`) | `echarts.min.js`, `echarts-langFR.js` | https://github.com/apache/echarts |
+| ZRender (bundled in `echarts.min.js`) | 6.1.0 | BSD-3-Clause | `echarts.min.js` | https://github.com/ecomfe/zrender |
+| Chart.js (admin dashboard) | 4.4.1 | MIT | `chart.js` | https://github.com/chartjs/Chart.js |
 | chartjs-adapter-date-fns (bundle, includes date-fns) | 3.0.0 | MIT | `chartjs-adapter-date-fns.bundle.min.js` | https://github.com/chartjs/chartjs-adapter-date-fns |
 | chartjs-chart-boxplot (@sgratzl) | 4.x (version not stated in the minified file) | MIT | `chartjs-chart-boxplot.umd.min.js` | https://github.com/sgratzl/chartjs-chart-boxplot |
 | chartjs-chart-financial | 0.2.1 | MIT | `chartjs-chart-financial.js` | https://github.com/chartjs/chartjs-chart-financial |

@@ -16,6 +16,7 @@ transverse « UN SEUL message système » :
 from __future__ import annotations
 
 import copy
+import re
 import sys
 from pathlib import Path
 
@@ -211,7 +212,7 @@ _BUDGETS = {
     "FRAGMENT_CODE.md": 1600,
     "FRAGMENT_WEB.md": 1300,
     "FRAGMENT_AUTOMATION.md": 1700,
-    "FRAGMENT_CHART.md": 1900,   # +9 advanced families (treemap/sunburst/boxplot/…) shapes
+    "FRAGMENT_CHART.md": 1900,   # un outil par type (2026-10-04) : intentions + lecture du retour
     "FRAGMENT_RAG.md": 1600,
 }
 
@@ -249,10 +250,14 @@ def test_tools_fragment_teaches_recovery_and_stop():
     assert "<example>" in t
 
 
-def test_chart_fragment_lists_valid_types():
+def test_chart_fragment_names_real_tools():
+    """Chaque outil cité par le fragment existe (un outil par type)."""
+    from llm_core.tools._chart import PER_TYPE
     t = _read_prompt("FRAGMENT_CHART.md")
-    for k in ("waterfall", "heatmap", "polarArea", "gauge"):
-        assert k in t, k
+    cites = set(re.findall(r"`(chart_[a-z_]+)`", t))
+    assert {"chart_bar", "chart_table", "chart_gantt"} <= cites
+    assert cites <= {f"chart_{k}" for k in PER_TYPE}, cites - {f"chart_{k}" for k in PER_TYPE}
+    assert "never resend the same call unchanged" in t.lower()
 
 
 def test_socle_has_completion_and_context_economy():

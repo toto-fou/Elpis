@@ -309,9 +309,8 @@ def test_appels_reussis_structures_valides(banc):
         _git(depot, "add", "a.txt")
         _git(depot, "commit", "-q", "-m", "init")
         out.append(("git_query", await s.call_tool("git_query", {"repo": "proj", "action": "log"})))
-        out.append(("chart_trend", await s.call_tool("chart_trend", {
-            "chart_type": "line", "labels": ["a", "b"],
-            "datasets": [{"label": "x", "data": [1, 2]}]})))
+        out.append(("chart_line", await s.call_tool("chart_line", {
+            "data": [{"x": "a", "valeur": 1}, {"x": "b", "valeur": 2}]})))
         return outils, out
     outils, res = _avec_session(banc["relais"], fn)
     for r in res:
@@ -323,7 +322,7 @@ def test_appels_reussis_structures_valides(banc):
 def test_echec_d_outil_et_arguments_invalides_sont_is_error(banc):
     async def fn(s, _init):
         manquant = await s.call_tool("read_file", {"path": "absent/nulle-part.txt"})
-        invalide = await s.call_tool("chart_trend", {"inconnu": 1})
+        invalide = await s.call_tool("chart_line", {"inconnu": 1})
         return manquant, invalide
     manquant, invalide = _avec_session(banc["relais"], fn)
     assert manquant.isError is True

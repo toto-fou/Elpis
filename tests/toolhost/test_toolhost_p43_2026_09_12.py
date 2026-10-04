@@ -130,19 +130,19 @@ def test_mcp_interne_sert_les_outils_graphiques_en_memoire(tmp_path, monkeypatch
         async with w:
             tools = await w.list_tools()
             names = {t.name for t in tools}
-            assert {"chart_trend", "generate_table"} <= names and "read_file" not in names
+            assert {"chart_bar", "chart_table"} <= names and "read_file" not in names
             C.ingest_tools(tools, source="inprocess:elpis-app")
             C.ingest_tools([type("T", (), {"name": "read_file", "description": "d",
                                             "meta": {"category": {"name": "fs"}}})()], source="svc")
-            r = await w.call_tool("generate_table", {"title": "t", "headers": ["a"], "rows": [["1"]]},
+            r = await w.call_tool("chart_table", {"title": "t", "data": [{"a": "1"}]},
                                   meta={"username": "hugo", "user_id": "7", "chat_id": "c1"})
             return r
     r = asyncio.run(_go())
     txt = "".join(getattr(c, "text", "") for c in (getattr(r, "content", None) or []))
-    assert txt and "table_markdown" in txt and '"ok":true' in txt
+    assert txt and '"chart_type":"table"' in txt and '"ok":true' in txt
     # union des sources : fs (service) ET chart (interne)
-    assert C.categorize("read_file") == "fs" and C.categorize("chart_trend") == "chart"
-    assert C.tool_policy("chart_trend") == {} or isinstance(C.tool_policy("chart_trend"), dict)
+    assert C.categorize("read_file") == "fs" and C.categorize("chart_bar") == "chart"
+    assert C.tool_policy("chart_bar") == {} or isinstance(C.tool_policy("chart_bar"), dict)
 
 
 # ── Magasin mémoire ─────────────────────────────────────────────────────────

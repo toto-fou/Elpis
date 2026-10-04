@@ -186,7 +186,7 @@
          une minorité de sessions. Ils passent par window.ensureVendor(...)
          (static/js/utils.js), appelé au premier besoin réel :
            • mermaid  → _rendering.js, à la vue d'un bloc ```mermaid
-           • chart    → _rendering.js, à la vue d'un bloc de graphique
+           • echarts  → _rendering.js, au premier graphique d'un message (chat/_charts.js)
            • monaco   → app-editor.js initMonaco()
          L'enregistrement des greffons Chart.js, qui vivait ici en ligne,
          est devenu window.elpisRegisterChartPlugins() et s'exécute avec le
@@ -597,6 +597,7 @@
 <script>window.__scriptOk['chat-sse'] = typeof setupChatSystemSSE === 'function';</script>
 <script src="static/js/chat/_virtual_scroll.js?v=1784227200"></script>
 <script>window.__scriptOk['chat-vs'] = typeof setupChatVirtualScroll === 'function';</script>
+<script src="static/js/chat/_charts.js?v=1784227200"></script>
 <script src="static/js/chat/_rendering.js?v=1784227200"></script>
 <script>window.__scriptOk['chat-rendering'] = typeof setupChatRendering === 'function';</script>
 <script src="static/js/chat/_sampling.js?v=1784227200"></script>

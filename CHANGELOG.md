@@ -6,6 +6,34 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ## Non publié
 
+### Ajouts
+
+- **Graphiques : un outil par type, rendu Apache ECharts.** Les quatre outils
+  Chart.js et `generate_table` sont remplacés par 30 outils `chart_<type>`
+  (barres, courbes, aires, flux, radar, cascade, secteurs, anneau, rose,
+  treemap, sunburst, entonnoir, histogramme, boîtes à moustaches, nuage,
+  bulles, carte de chaleur, calendrier, coordonnées parallèles, sankey,
+  cordes, réseau, arbre, Gantt, chandeliers, jauge, progression, indicateurs,
+  tableau).
+  - Le modèle donne un tableau de lignes ; les colonnes sont reconnues et le
+    serveur construit séries, matrices, nœuds, quartiles et classes. Les
+    valeurs finies sont des `enum` (imposés par la grammaire de llama.cpp) ;
+    la lecture reste tolérante (casse, synonymes, « 1 234,5 € », CSV,
+    colonnes mal nommées) et chaque correction est renvoyée au modèle.
+  - Un appel identique à un appel déjà refusé dans la conversation reçoit un
+    refus explicite (« ne le renvoie pas tel quel »).
+  - Cartes : zoom des longues séries, tableau des données, PNG, agrandir,
+    bascule barres / courbe / aire, thème sombre ; ECharts (1,1 Mo) est chargé
+    au premier graphique.
+  - Banc ornith-1.5-9B (14 demandes × 2) : 28/28 graphiques justes au premier
+    appel, contre 16/28 avec les outils précédents.
+
+### Changements
+
+- Les graphiques enregistrés avant cette version (configurations Chart.js) ne
+  sont plus tracés : la carte invite à les redemander. Chart.js reste utilisé
+  par le tableau de bord de la console.
+
 ### Corrections
 
 - **Studio** : quitter le Studio sans action en cours n'affiche plus « Arrêt

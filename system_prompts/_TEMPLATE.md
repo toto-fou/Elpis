@@ -30,7 +30,7 @@ Injectés automatiquement, et seulement quand la capacité correspondante est ac
 | `FRAGMENT_CODE.md` | action | `fs` / `shell` / `git` | discipline d'ingénierie logicielle |
 | `FRAGMENT_AUTOMATION.md` | action | `desktop` | automatisation du bureau |
 | `FRAGMENT_WEB.md` | action | `browser` | navigation web |
-| `FRAGMENT_CHART.md` | contenu | `chart` (`chart_trend`/`chart_proportion`/`chart_distribution`/`chart_financial`/`generate_table`) | graphiques & tableaux rendus par l'UI |
+| `FRAGMENT_CHART.md` | contenu | `chart` (un outil par type : `chart_bar`, `chart_heatmap`, `chart_gantt`… `chart_table`) | graphiques & tableaux rendus par l'UI (ECharts) |
 | `FRAGMENT_MEMORY.md` | contenu | `memory` (`memory`/`session_search`) | mémoire long-terme : quoi / où sauvegarder |
 | `FRAGMENT_RAG.md` | contenu | outils `rag_*` (builtins → catégorie `rag` synthétisée) | base de connaissances documentaire |
 

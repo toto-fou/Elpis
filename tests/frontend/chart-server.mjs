@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-// Harnais route-mock pour VÉRIFIER le rendu des graphiques Chart.js (toutes les
-// familles, y compris les plugins vendorisés : datalabels, annotation, treemap,
-// sankey, boxplot, financial + adaptateur date), sans backend LLM.
+// Harnais route-mock pour VÉRIFIER le rendu ECharts des outils chart_<type>
+// (les 30 types, plus une ancienne configuration Chart.js), sans backend LLM.
 // Sert index.html + un chat contenant un !ref par type ; /api/charts/{id} renvoie
-// la config générée par le backend Python (tests/frontend/chart-fixtures.json).
+// l'option produite par le moteur Python (tests/frontend/chart-fixtures.json,
+// régénéré par tests/frontend/chart_fixtures_gen.py).
 //   PERF_PORT=8912 node tests/frontend/chart-server.mjs
 import http from 'http';
 import fs from 'fs';

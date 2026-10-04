@@ -78,6 +78,9 @@ and pinned versions are in `requirements.txt`, `requirements-rag.txt`,
 | mcp (Model Context Protocol SDK) | MIT |
 | redis (redis-py) | MIT |
 | Pillow | MIT-CMU (HPND) |
+| python-docx | MIT |
+| python-pptx | MIT |
+| XlsxWriter | BSD-2-Clause |
 | tree-sitter, tree-sitter-bash, tree-sitter-javascript, tree-sitter-typescript | MIT |
 | tree-sitter-robot | ISC |
 | python-multipart | Apache-2.0 |

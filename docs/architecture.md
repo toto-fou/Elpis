@@ -2270,6 +2270,7 @@ d'outil est du contexte **permanent** pour le reste du run.
 | `firefox_tools` | `browser` | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory` |
 | `desktop_tools` | `desktop` | `desktop_session`, `desktop_observe`, `desktop_read`, `desktop_clipboard`, `desktop_act`, `desktop_wait`, `desktop_launch`, `desktop_shell`, `desktop_windows`, `desktop_focus` (+ `desktop_screenshot`/`_inspect` en opt-in) |
 | `chart_tools` | `chart` | un outil par type : `chart_bar`, `chart_line`, `chart_heatmap`, `chart_sankey`, `chart_gantt`… `chart_table` (30) |
+| `office_tools` | `office` | `docx_create`, `docx_read`, `docx_edit`, `pptx_create`, `pptx_read`, `pptx_edit`, `office_export` |
 | `memory_tools` | `memory` | `memory`, `session_search` |
 | `skill_tools` | `skill` | `skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`, `skill_run_script`, `ask_user` |
 | `todo_tools` | `task` (cachée) | `todowrite` |
@@ -2424,6 +2425,27 @@ AT-SPI). Cycle : `desktop_session` → `desktop_observe` → `desktop_act` →
   tolérant (casse, synonymes, nombres en texte), construit une option Apache
   ECharts en JSON pur et renvoie un `!id` ; rendu par `frontend/js/chat/_charts.js`
   (ECharts vendoré, chargé au premier graphique).
+- **`office_tools`** — documents Word et PowerPoint **de la sandbox**, sept
+  outils par intention (`docx_create` / `docx_read` / `docx_edit`,
+  `pptx_create` / `pptx_read` / `pptx_edit`, `office_export`). Moteur sans
+  état `llm_core/tools/_office` : chaque appel lit le fichier par l'agent,
+  le transforme en mémoire (python-docx, python-pptx) et le réécrit avec
+  l'écriture gardée de `write_file` (verrou de l'éditeur, historique) ; une
+  modification n'écrit que si le fichier n'a pas changé depuis sa lecture
+  (`concurrent_modification`), une création remplace. Le retour porte `path` +
+  empreintes, d'où la carte « fichiers modifiés ». Contenu Word en Markdown (`!id`, `> [!NOTE]`, `[TOC]`,
+  `\newpage`), diapos `{layout, …}` lues avec tolérance ; modifications par
+  lot, index figés au début de l'appel. Les graphiques viennent des outils
+  `chart_*` : natifs éditables (barres, courbes, aires, secteurs, anneau,
+  radar, nuage, bulles, histogramme), `chart_table` / `chart_kpi` en tableau
+  ou tuiles, les autres en image ECharts rendue côté serveur
+  (`_office/echarts_ssr.cjs`, Node + `frontend/js/chat/_charts.js`) puis
+  PNG par LibreOffice isolé (`office_preview.convert_bytes`) ; sans Node ou
+  LibreOffice, tableau des données. Images et modèles : chemins de la sandbox
+  seulement ; archive contrôlée avant ouverture (bombe zip), macros retirées.
+  Les graphiques sont lus dans le cache de `chart_tools` (`<tmp>/elpis_charts`,
+  ou `CHART_CACHE_DIR`) : un hôte d'outils déporté doit partager ce dossier
+  avec l'app, sinon un `!id` est introuvable.
 - **`memory_tools`** — `memory` (add/replace/remove/rewrite avec ciblage par id
   court ou sous-chaîne normalisée) et `session_search` (FTS5 sur l'historique).
 - **`skill_tools`** — `skill_save`, `skill_add_file`, `skill_get`,

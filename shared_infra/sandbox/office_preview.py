@@ -31,6 +31,7 @@ import re
 import secrets
 import shutil
 import stat as _stat
+import tempfile
 import time
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -943,6 +944,79 @@ async def _convert_to_pdf(*, uid: int, job: Path, kind: str, in_name: str,
     if not out_pdf.is_file():
         raise _conversion_failed(job)
     return out_pdf
+
+
+async def convert_bytes(*, uid: int, kind: str, files: Dict[str, bytes], convert_to: str,
+                        out_ext: str, timeout_s: Optional[int] = None) -> Dict[str, bytes]:
+    """Conversion d'octets à octets pour les outils (``llm_core/tools/office_tools``) :
+    export PDF d'un document, PNG des graphiques rendus en SVG.
+
+    Même prison, mêmes créneaux (utilisateur puis global), mêmes profils et
+    mêmes contrôles que l'aperçu : archive saine et de la bonne famille avant
+    LibreOffice (docx/pptx/xlsx), PDF reconnu et plafonné (``max_pdf_mb``)
+    après. Un seul lancement pour tous les ``files`` (même ``kind``).
+    Rend ``{nom d'entrée: octets produits}`` ; un fichier non converti est
+    absent ; aucun produit → ``OfficeError("failed")``."""
+    soffice = oc.soffice_bin()
+    if not soffice:
+        raise OfficeError("unavailable", 503, "LibreOffice n'est pas installé sur le serveur")
+    if not files:
+        return {}
+    isolation = await oc.run_cpu(oc.isolation_mode)
+    timeout_s = int(timeout_s or oc._int_cfg("timeout_s", 5, 600))
+    deadline = time.monotonic() + oc._int_cfg("wait_s", 1, 300)
+    jobs = cache_root() / "jobs"
+    jobs.mkdir(mode=0o700, exist_ok=True)
+    job = Path(tempfile.mkdtemp(prefix="tool-", dir=str(jobs)))
+    try:
+        noms = []
+        for nom, data in files.items():
+            if not re.fullmatch(r"[A-Za-z0-9_-]{1,40}\.[a-z0-9]{2,5}", nom):
+                raise OfficeError("failed", 400, "Nom de fichier de conversion invalide")
+            (job / nom).write_bytes(data)
+            if kind in _MAIN_TYPES:
+                check_ooxml(job / nom, kind)
+            noms.append(nom)
+        (job / "out").mkdir()
+        slots = oc._int_cfg("slots", 1, 16)
+        per_user = oc._int_cfg("slots_per_user", 1, 16)
+        user_fd = slot_fd = None
+        try:
+            user_fd, _ = await oc.acquire_first(
+                [f"user-u{int(uid)}-{j}" for j in range(per_user)], deadline)
+            slot_fd, slot_name = await oc.acquire_first(
+                [f"slot-{i}" for i in range(slots)], deadline)
+            profile = cache_root() / "profiles" / slot_name
+            await oc.run_cpu(oc.ensure_profile, profile)
+            argv = oc.build_argv(isolation=isolation, soffice=soffice, profile_dir=profile,
+                                 job_dir=job, kind=kind, in_name=noms[0],
+                                 convert_to=convert_to, timeout_s=timeout_s,
+                                 more_names=noms[1:])
+            env = oc.child_env(isolation, profile, job)
+            t0 = time.monotonic()
+            rc = await oc.run_soffice(argv, env, cwd=job, log_path=job / "lo.log",
+                                      timeout_s=timeout_s)
+            logger.info("[office] outils : %d %s → %s en %.2f s (rc=%s, %s)", len(noms), kind,
+                        out_ext, time.monotonic() - t0, rc, isolation)
+        finally:
+            oc.release_lock(slot_fd)
+            oc.release_lock(user_fd)
+        out: Dict[str, bytes] = {}
+        cap = oc._int_cfg("max_pdf_mb", 1, 4096) * 1024 * 1024
+        for nom in noms:
+            p = job / "out" / (nom.rsplit(".", 1)[0] + out_ext)
+            if not p.is_file():
+                continue
+            if out_ext == ".pdf":
+                check_pdf(p)
+                if p.stat().st_size > cap:
+                    raise OfficeError("too_large", 413, "PDF trop volumineux")
+            out[nom] = p.read_bytes()
+        if not out:
+            raise _conversion_failed(job)
+        return out
+    finally:
+        shutil.rmtree(job, ignore_errors=True)
 
 
 def _schedule_full_pdf(uid: int, user_dir: str, key: str, kind: str, ext: str) -> None:

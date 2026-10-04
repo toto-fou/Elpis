@@ -31,6 +31,7 @@ Injectés automatiquement, et seulement quand la capacité correspondante est ac
 | `FRAGMENT_AUTOMATION.md` | action | `desktop` | automatisation du bureau |
 | `FRAGMENT_WEB.md` | action | `browser` | navigation web |
 | `FRAGMENT_CHART.md` | contenu | `chart` (un outil par type : `chart_bar`, `chart_heatmap`, `chart_gantt`… `chart_table`) | graphiques & tableaux rendus par l'UI (ECharts) |
+| `FRAGMENT_OFFICE.md` | contenu | `office` (`docx_create/read/edit`, `pptx_create/read/edit`, `office_export`) | fichiers Word / PowerPoint de la sandbox, graphiques par `!id` |
 | `FRAGMENT_MEMORY.md` | contenu | `memory` (`memory`/`session_search`) | mémoire long-terme : quoi / où sauvegarder |
 | `FRAGMENT_RAG.md` | contenu | outils `rag_*` (builtins → catégorie `rag` synthétisée) | base de connaissances documentaire |
 

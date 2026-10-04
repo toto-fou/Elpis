@@ -79,6 +79,7 @@ _STATIC_DISPLAY: Dict[str, Dict[str, Any]] = {
     "shell":   {"label": "Terminal",   "icon": "ph-terminal-window", "color": "slate",   "hidden": False},
     "git":     {"label": "Git",        "icon": "ph-git-branch",      "color": "slate",   "hidden": False},
     "chart":   {"label": "Graphiques", "icon": "ph-chart-bar",       "color": "emerald", "hidden": False},
+    "office":  {"label": "Documents Office", "icon": "ph-file-doc",  "color": "sky",     "hidden": False},
     "memory":  {"label": "Mémoire",    "icon": "ph-brain",     "color": "amber",   "hidden": False},
     "browser": {"label": "Navigateur", "icon": "ph-globe",           "color": "sky",     "hidden": False},
     "desktop": {"label": "Contrôle d'écran", "icon": "ph-desktop",   "color": "teal",    "hidden": False},

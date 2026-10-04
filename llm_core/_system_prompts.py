@@ -425,6 +425,7 @@ _CAPABILITY_FRAGMENTS: List[Tuple[frozenset, str]] = [
 # au tour (outils RAG = builtins, cf. context.assembly.assemble_operational_context).
 _CONTENT_FRAGMENTS: List[Tuple[frozenset, str]] = [
     (frozenset({"chart"}),    "FRAGMENT_CHART"),
+    (frozenset({"office"}),   "FRAGMENT_OFFICE"),
     (frozenset({"memory"}),   "FRAGMENT_MEMORY"),
     (frozenset({"rag"}),      "FRAGMENT_RAG"),
 ]

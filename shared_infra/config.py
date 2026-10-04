@@ -768,7 +768,7 @@ LOCAL_MCP_TOOL_FAMILIES = _as_str(os.environ.get("LOCAL_MCP_TOOL_FAMILIES"), _as
 #                             l'hôte de l'app + LOCAL_MCP_PORT (loopback si le
 #                             service n'écoute que sur 127.0.0.1).
 LOCAL_MCP_OPENCODE_FAMILIES = _as_str(os.environ.get("LOCAL_MCP_OPENCODE_FAMILIES"), _as_str(_deep_get(_RAW, "mcp.opencode_families", "git,browser,desktop"), "git,browser,desktop")).strip()
-LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES = _as_str(os.environ.get("LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES"), _as_str(_deep_get(_RAW, "mcp.opencode_exclude_families", "fs,shell,skill_run"), "fs,shell,skill_run")).strip()
+LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES = _as_str(os.environ.get("LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES"), _as_str(_deep_get(_RAW, "mcp.opencode_exclude_families", "fs,shell,office,skill_run"), "fs,shell,office,skill_run")).strip()
 LOCAL_MCP_PUBLIC_URL = _as_str(os.environ.get("LOCAL_MCP_PUBLIC_URL"), _as_str(_deep_get(_RAW, "mcp.public_url", ""), "")).strip()
 
 

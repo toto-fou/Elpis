@@ -34,7 +34,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Callable, List, Optional, TypeVar
+from typing import Any, Callable, List, Optional, Sequence, TypeVar
 
 from shared_infra.runtime.runtime_dir import runtime_path as _runtime_path
 from shared_infra.sandbox import bwrap
@@ -61,11 +61,19 @@ INFILTERS = {
     "docx": "MS Word 2007 XML",
     "pptx": "Impress MS PowerPoint 2007 XML",
     "xlsx": "Calc MS Excel 2007 XML",
+    "odt": "writer8",
+    "odp": "impress8",
+    "ods": "calc8",
+    # Graphiques des outils Office (SVG produit par le rendu ECharts → PNG).
+    "svg": "SVG - Scalable Vector Graphics Draw",
 }
 PDF_EXPORT_FILTERS = {
     "docx": "writer_pdf_Export",
     "pptx": "impress_pdf_Export",
     "xlsx": "calc_pdf_Export",
+    "odt": "writer_pdf_Export",
+    "odp": "impress_pdf_Export",
+    "ods": "calc_pdf_Export",
 }
 # Toutes les feuilles (jeton 12 = -1), UTF-8 (76), valeurs « telles
 # qu'affichées » (jeton 9) — vérifié sur 25.2 : un fichier ``in-<Feuille>.csv``
@@ -353,8 +361,12 @@ async def run_cpu(fn: Callable[..., T], *args: Any) -> T:
 #  Exécution
 # ─────────────────────────────────────────────────────────────────────────────
 def build_argv(*, isolation: str, soffice: str, profile_dir: Path, job_dir: Path,
-               kind: str, in_name: str, convert_to: str, timeout_s: int) -> List[str]:
-    """Ligne de commande complète (prlimit → bwrap → soffice)."""
+               kind: str, in_name: str, convert_to: str, timeout_s: int,
+               more_names: Sequence[str] = ()) -> List[str]:
+    """Ligne de commande complète (prlimit → bwrap → soffice).
+
+    ``more_names`` : fichiers supplémentaires du même type, convertis par le
+    même lancement (un seul démarrage de LibreOffice)."""
     jailed = isolation == "bwrap"
     profile_in = "/profile" if jailed else str(profile_dir)
     job_in = "/job" if jailed else str(job_dir)
@@ -365,6 +377,7 @@ def build_argv(*, isolation: str, soffice: str, profile_dir: Path, job_dir: Path
         "--convert-to", convert_to,
         "--outdir", f"{job_in}/out",
         f"{job_in}/{in_name}",
+        *(f"{job_in}/{n}" for n in more_names),
     ]
     argv: List[str] = []
     prlimit = shutil.which("prlimit")

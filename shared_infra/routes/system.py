@@ -74,6 +74,8 @@ _LAZY_VENDOR = (
     "vendor/chartjs-chart-matrix.min.js",
     "vendor/chartjs-chart-boxplot.umd.min.js",
     "vendor/chartjs-chart-financial.js",
+    "vendor/echarts.min.js",
+    "vendor/echarts-langFR.js",
     "vendor/monaco/vs/loader.js",
 )
 

@@ -395,38 +395,18 @@ class GitCloneResult(_SuccessBase):
 
 
 # ────────────────────────────────────────────────────────────────────
-#  chart_tools — 2 tools producing chart/table refs the UI renders
+#  chart_tools — one tool per chart type, each returns a ``!<id>`` ref
 # ────────────────────────────────────────────────────────────────────
 
-class GenerateChartResult(_SuccessBase):
-    """Result of generate_chart — returns a ``!<id>`` reference the UI expands."""
-    ref:        str = Field(..., description="The ``!chart_<id>`` token to paste in the reply.")
+class ChartResult(_SuccessBase):
+    """Result of every ``chart_<type>`` tool — a ``!<id>`` reference the UI
+    expands into an ECharts figure (or a sortable table / KPI tiles)."""
+    ref:        str = Field(..., description="The ``!<id>`` token to write alone on its own line.")
     chart_id:   str = Field(..., description="Internal chart identifier.")
-    chart_type: str = Field(..., description="Chart kind (bar/line/pie/…).")
-    summary:    Optional[str] = Field(None, description="Plain-text 1-line summary of the chart.")
-    hint:       Optional[str] = Field(None, description="How to use the ref in the reply text.")
-
-
-class GenerateTableResult(_SuccessBase):
-    """Result of generate_table — a ``!<id>`` table reference (``format="ref"``)
-    OR the rendered table itself (``format="markdown"``, the default :
-    ``table_markdown`` + ``rows_count``).
-
-    Les deux formes sont valides : ``ref``/``table_id`` ne sont pas requis,
-    puisque le défaut rend ``table_markdown`` (le SDK client, mcp ≥ 1.10,
-    valide ``structuredContent`` contre ``outputSchema`` et rejetterait
-    sinon le résultat comme « Invalid structured content »)."""
-    ref:            Optional[str] = Field(None)
-    table_id:       Optional[str] = Field(None)
-    format:         Optional[str] = Field(None, description="markdown | ref")
-    table_markdown: Optional[str] = Field(None, description="Rendered markdown table (format=markdown).")
-    table_html:     Optional[str] = Field(None, description="Rendered HTML table (format=html).")
-    table_csv:      Optional[str] = Field(None, description="Rendered CSV (format=csv).")
-    rows_count:     Optional[int] = Field(None, description="Number of data rows (format=markdown).")
-    rows:           Optional[int] = Field(None, description="Number of data rows in the table.")
-    cols:           Optional[int] = Field(None, description="Number of columns.")
-    summary:        Optional[str] = Field(None)
-    hint:           Optional[str] = Field(None)
+    chart_type: str = Field(..., description="What was drawn (bar, heatmap, table…).")
+    summary:    Optional[str] = Field(None, description="One line: what was drawn, from which columns.")
+    fixes:      Optional[List[str]] = Field(None, description="What was understood for you (no need to redo the call).")
+    warnings:   Optional[List[str]] = Field(None, description="What had to be ignored or chosen.")
 
 
 
@@ -693,7 +673,7 @@ __all__ = [
     "GitInspectResult", "GitStartWorkResult", "GitCommitResult",
     "GitSubmitResult", "GitAbandonResult", "GitCloneResult",
     # chart_tools
-    "GenerateChartResult", "GenerateTableResult",
+    "ChartResult",
     # skill_tools
     "AskUserResult",
     "SkillSaveResult", "SkillGetResult", "SkillFileResult", "SkillRunResult",

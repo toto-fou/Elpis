@@ -203,7 +203,7 @@ les réglages qui attendent un redémarrage.
   réglages pour la recherche Ctrl+K, **généré** par
   `tools/generate_admin_fields.py`).
 - `css/style.css` (jetons, composants), `css/style.tailwind.css` (**généré**),
-  `css/skins/` (skins intégrés et leur registre `skins.json`) ; `vendor/` (Vue, Monaco, xterm, Chart.js, Marked,
+  `css/skins/` (skins intégrés et leur registre `skins.json`) ; `vendor/` (Vue, Monaco, xterm, ECharts, Chart.js, Marked,
   highlight.js, Mermaid, DOMPurify, Phosphor).
 
 ### Services et déploiement

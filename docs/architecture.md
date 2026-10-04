@@ -134,7 +134,7 @@ famille : routes, base, sandbox, observabilité, ordonnancement…) et
 | Styles | Tailwind (vendoré) + `style.css` (tokens, skins) |
 | Éditeur | Monaco (vendoré) |
 | Terminal | xterm.js (vendoré) |
-| Graphiques | Chart.js (vendoré) |
+| Graphiques | Apache ECharts (chat), Chart.js (tableau de bord admin) — vendorés |
 | Markdown | Marked + Highlight.js |
 | Icônes | Phosphor |
 | Navigateur | Node 18+, Playwright/Firefox (`browser-service`) |
@@ -2269,7 +2269,7 @@ d'outil est du contexte **permanent** pour le reste du run.
 | `git_tools` | `git` | `git_query`, `git_write`, `git_action`, `git_rf`, `git_inspect`, `git_start_work`, `git_commit`, `git_submit`, `git_abandon`, `git_clone`, `git_set_credential` |
 | `firefox_tools` | `browser` | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory` |
 | `desktop_tools` | `desktop` | `desktop_session`, `desktop_observe`, `desktop_read`, `desktop_clipboard`, `desktop_act`, `desktop_wait`, `desktop_launch`, `desktop_shell`, `desktop_windows`, `desktop_focus` (+ `desktop_screenshot`/`_inspect` en opt-in) |
-| `chart_tools` | `chart` | `chart_trend`, `chart_proportion`, `chart_distribution`, `chart_financial`, `generate_table` |
+| `chart_tools` | `chart` | un outil par type : `chart_bar`, `chart_line`, `chart_heatmap`, `chart_sankey`, `chart_gantt`… `chart_table` (30) |
 | `memory_tools` | `memory` | `memory`, `session_search` |
 | `skill_tools` | `skill` | `skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`, `skill_run_script`, `ask_user` |
 | `todo_tools` | `task` (cachée) | `todowrite` |
@@ -2419,8 +2419,11 @@ AT-SPI). Cycle : `desktop_session` → `desktop_observe` → `desktop_act` →
 
 ### Graphiques, mémoire, skills, todo, RAG
 
-- **`chart_tools`** — 4 familles de graphiques + `generate_table`. Chart.js
-  vendoré, rendu inline dans le chat.
+- **`chart_tools`** — un outil par type de graphique (`chart_<type>`, 30 dont
+  `chart_table`). Le modèle donne des lignes ; `llm_core/tools/_chart` lit
+  tolérant (casse, synonymes, nombres en texte), construit une option Apache
+  ECharts en JSON pur et renvoie un `!id` ; rendu par `frontend/js/chat/_charts.js`
+  (ECharts vendoré, chargé au premier graphique).
 - **`memory_tools`** — `memory` (add/replace/remove/rewrite avec ciblage par id
   court ou sous-chaîne normalisée) et `session_search` (FTS5 sur l'historique).
 - **`skill_tools`** — `skill_save`, `skill_add_file`, `skill_get`,

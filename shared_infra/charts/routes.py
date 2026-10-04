@@ -2,16 +2,16 @@
 """
 backend.routes.charts — REST surface + durability for chart references.
 
-Mirrors ``tools/chart_tools.py``. When the LLM calls ``generate_chart``,
-the tool SAVES the Chart.js config and hands the model a short
-``chart_id``; the model emits a ``\u200b```chart-ref`` block with only that id,
-and the chat UI fetches the real config here. This keeps the model's
+Mirrors ``tools/chart_tools.py``. When the LLM calls a ``chart_<type>`` tool,
+the tool SAVES the ECharts option and hands the model a short ``!id`` ref;
+the model writes that ref on its own line, and the chat UI fetches the real
+option here. This keeps the model's
 context (and its own output) tiny instead of carrying 0.5-2k tokens of
 JSON it could mangle.
 
 Durability — why a chart never disappears from an old chat
 ----------------------------------------------------------
-``generate_chart`` writes the config to a per-user *cache* in a host-local
+each ``chart_<type>`` tool writes the option to a per-user *cache* in a host-local
 temp dir (NOT the sandbox — that caused cross-UID PermissionError vs the
 Docker container and polluted the sandbox):
 

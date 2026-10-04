@@ -930,6 +930,13 @@ const AxNode = {
             ready: () => typeof window.Chart !== 'undefined',
             after: () => { if (window.elpisRegisterChartPlugins) window.elpisRegisterChartPlugins(); },
         },
+        // Graphiques du chat (outils chart_<type>, rendu chat/_charts.js) :
+        // ECharts puis sa traduction française (enregistre la locale « FR »).
+        // Le groupe « chart » (Chart.js) reste celui du tableau de bord admin.
+        echarts: {
+            urls: ['static/vendor/echarts.min.js', 'static/vendor/echarts-langFR.js'],
+            ready: () => !!window.echarts,
+        },
         monaco: {
             urls: ['static/vendor/monaco/vs/loader.js'],
             ready: () => typeof window.require !== 'undefined',

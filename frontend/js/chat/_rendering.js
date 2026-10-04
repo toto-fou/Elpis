@@ -40,8 +40,6 @@
             _mdCache.clear();
         }
 
-        const _activeCharts = new Set();
-
         // _chartCfgCache : Map non bornée → grossit indéfiniment sur
         // de longues sessions. On utilise une stratégie LRU naïve (insertion
         // order = ordre de Map en JS) : à chaque set, si on dépasse le cap,
@@ -58,24 +56,14 @@
             }
         };
 
+        // Graphiques ECharts (chat/_charts.js) dont l'hôte a quitté le DOM :
+        // édition de message, défilement virtuel, changement de chat.
         function _destroyOrphanedCharts() {
-            for (const c of _activeCharts) {
-                try {
-                    if (!c.canvas || !document.contains(c.canvas)) {
-                        c.destroy();
-                        _activeCharts.delete(c);
-                    }
-                } catch (_) {
-                    _activeCharts.delete(c);
-                }
-            }
+            if (window.ElpisCharts) window.ElpisCharts.sweep();
         }
 
         function clearChartInstances() {
-            for (const c of _activeCharts) {
-                try { c.destroy(); } catch (_) {}
-            }
-            _activeCharts.clear();
+            if (window.ElpisCharts) window.ElpisCharts.disposeAll();
         }
 
         // ── Charts: dark-mode + option helpers ───────────────────────
@@ -85,19 +73,9 @@
             try { return document.body.classList.contains('elpis-dark-surface'); }
             catch (_) { return false; }
         }
-        // Axis/tick/grid/legend chrome must adapt to the skin (series colours stay as
-        // authored). Chart.js reads these globals at draw time → set before each render.
-        function _applyChartThemeDefaults() {
-            if (typeof Chart === 'undefined') return;
-            const dark = _chartDark();
-            try {
-                Chart.defaults.color = dark ? '#cbd5e1' : '#475569';
-                Chart.defaults.borderColor = dark ? 'rgba(148,163,184,0.20)' : 'rgba(100,116,139,0.14)';
-            } catch (_) {}
-        }
         // AUDIT 2026-08-31 (passe 3) — re-thème des visuels DÉJÀ rendus au
-        // changement de mode sombre/skin. Chart.js fige les couleurs de
-        // chrome (axes/légende/titre) dans l'instance à la création, Mermaid
+        // changement de mode sombre/skin. ECharts fige son thème à
+        // l'initialisation (chat/_charts.js refait le rendu), Mermaid
         // cuit son thème dans le SVG, et les cartes portent des classes
         // posées au rendu : basculer le thème laissait des libellés ardoise
         // illisibles sur carte sombre et des cartes blanches au milieu de
@@ -105,31 +83,15 @@
         // dark_mode/skin d'app-settings.js (via window.elpisRethemeVisuals).
         function rethemeRenderedVisuals() {
             try {
-                _applyChartThemeDefaults();
                 const dark  = _chartDark();
-                const color = dark ? '#cbd5e1' : '#475569';
-                const grid  = dark ? 'rgba(148,163,184,0.20)' : 'rgba(100,116,139,0.14)';
-                document.querySelectorAll('.chart-render, .mermaid-render').forEach(el => {
+                document.querySelectorAll('.mermaid-render').forEach(el => {
                     el.classList.toggle('bg-white', !dark);
                     el.classList.toggle('border-slate-200', !dark);
                     el.classList.toggle('bg-slate-800', dark);
                     el.classList.toggle('border-slate-700', dark);
                 });
-                if (typeof Chart !== 'undefined') {
-                    for (const ch of Array.from(_activeCharts)) {
-                        try {
-                            const o = ch.options || {};
-                            if (o.plugins && o.plugins.legend && o.plugins.legend.labels)
-                                o.plugins.legend.labels.color = color;
-                            if (o.plugins && o.plugins.title) o.plugins.title.color = color;
-                            for (const s of Object.values(o.scales || {})) {
-                                if (s.ticks) s.ticks.color = color; else s.ticks = { color };
-                                if (s.grid)  s.grid.color  = grid;  else s.grid  = { color: grid };
-                            }
-                            ch.update('none');
-                        } catch (_) {}
-                    }
-                }
+                // Graphiques : ECharts fixe le thème à l'init → nouveau rendu.
+                if (window.ElpisCharts) window.ElpisCharts.rethemeAll();
                 if (window.mermaid) {
                     mermaid.initialize({
                         startOnLoad:   false,
@@ -165,120 +127,6 @@
             } catch (_) {}
         }
         window.elpisRethemeVisuals = rethemeRenderedVisuals;
-
-        function _chartCardClass() {
-            return 'chart-render rounded-xl border p-4 mb-4 shadow-sm '
-                + (_chartDark() ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white');
-        }
-        // Deep-merge author options over defaults (arrays/scalars: author wins). Prevents
-        // a config from wiping the whole default `plugins` block via a shallow spread.
-        function _deepMergeOpts(base, over) {
-            if (!over || typeof over !== 'object' || Array.isArray(over)) {
-                return over === undefined ? base : over;
-            }
-            const out = (base && typeof base === 'object' && !Array.isArray(base))
-                ? Object.assign({}, base) : {};
-            for (const k of Object.keys(over)) {
-                const b = out[k], o = over[k];
-                out[k] = (b && o && typeof b === 'object' && typeof o === 'object'
-                          && !Array.isArray(b) && !Array.isArray(o))
-                    ? _deepMergeOpts(b, o) : o;
-            }
-            return out;
-        }
-        // hex/rgb(a) → rgba with a given alpha (for gradient stops).
-        function _hexA(color, alpha) {
-            if (typeof color !== 'string') return 'rgba(59,130,246,' + alpha + ')';
-            let h = color.trim();
-            if (h[0] === '#') {
-                h = h.slice(1);
-                if (h.length === 3) h = h.split('').map(x => x + x).join('');
-                if (h.length >= 6) {
-                    return 'rgba(' + parseInt(h.slice(0, 2), 16) + ',' + parseInt(h.slice(2, 4), 16)
-                        + ',' + parseInt(h.slice(4, 6), 16) + ',' + alpha + ')';
-                }
-            }
-            const m = h.match(/^rgba?\(([^)]+)\)/);
-            if (m) { const p = m[1].split(',').map(s => s.trim()); return 'rgba(' + p[0] + ',' + p[1] + ',' + p[2] + ',' + alpha + ')'; }
-            return color;
-        }
-
-        // The advanced plugins need a few genuinely-scriptable options that can't cross
-        // JSON (matrix cell size, treemap colour/label, animation delay fns, gradient
-        // fills). Inject them here from static hints emitted by the backend.
-        function _enrichAdvancedConfig(config) {
-            if (!config || !config.data || !Array.isArray(config.data.datasets)) return;
-            if (config.type === 'matrix') {
-                config.data.datasets.forEach(ds => {
-                    const hm = ds._heatmap || {};
-                    const nc = Math.max(1, hm.cols || 1), nr = Math.max(1, hm.rows || 1);
-                    ds.width  = (c) => { const a = c.chart.chartArea; return a ? Math.max(2, (a.right - a.left) / nc - 1) : 18; };
-                    ds.height = (c) => { const a = c.chart.chartArea; return a ? Math.max(2, (a.bottom - a.top) / nr - 1) : 18; };
-                });
-            } else if (config.type === 'treemap') {
-                config.data.datasets.forEach(ds => {
-                    const tm = ds._treemap || {}, grad = tm.gradient || [];
-                    if (grad.length) {
-                        ds.backgroundColor = (ctx) => {
-                            if (ctx.type !== 'data') return 'transparent';
-                            const raw = ctx.raw || {};
-                            const v = raw.v !== undefined ? raw.v : (raw._data && raw._data.value) || 0;
-                            let r = (tm.vmax === tm.vmin) ? 0.5 : (v - tm.vmin) / (tm.vmax - tm.vmin);
-                            r = Math.max(0, Math.min(1, r));
-                            return grad[Math.round(r * (grad.length - 1))];
-                        };
-                    }
-                    ds.labels = Object.assign({
-                        display: true, color: '#fff', font: { size: 11, weight: '600' },
-                        formatter: (ctx) => (ctx.raw && ctx.raw._data && ctx.raw._data.name) || ''
-                    }, ds.labels || {});
-                });
-            }
-
-            // Animation presets that need JS callbacks (stagger rise / progressive line
-            // draw) — the backend flags them via options._anim (Chart.js docs recipes).
-            const anim = config.options && config.options._anim;
-            if (anim) {
-                config.options.animation = (config.options.animation && typeof config.options.animation === 'object')
-                    ? config.options.animation : {};
-                if (anim.mode === 'stagger') {
-                    const step = anim.step || 60, dsStep = anim.dsStep || 100;
-                    config.options.animation.delay = (ctx) => {
-                        if (ctx.type === 'data' && ctx.mode === 'default' && !ctx._staggered) {
-                            ctx._staggered = true;
-                            return ctx.dataIndex * step + ctx.datasetIndex * dsStep;
-                        }
-                        return 0;
-                    };
-                } else if (anim.mode === 'progressive') {
-                    const d = anim.step || 18;
-                    config.options.animations = Object.assign(config.options.animations || {}, {
-                        x: { type: 'number', easing: 'linear', duration: d, from: NaN,
-                             delay: (c) => { if (c.type !== 'data' || c.xStarted) return 0; c.xStarted = true; return c.index * d; } },
-                        y: { type: 'number', easing: 'linear', duration: d,
-                             delay: (c) => { if (c.type !== 'data' || c.yStarted) return 0; c.yStarted = true; return c.index * d; } },
-                    });
-                }
-                delete config.options._anim;
-            }
-
-            // Gradient fills — a vertical canvas gradient (needs the 2d ctx, can't cross JSON).
-            config.data.datasets.forEach(ds => {
-                if (!ds._gradient) return;
-                const base = ds.borderColor
-                    || (typeof ds.backgroundColor === 'string' ? ds.backgroundColor : null) || '#3b82f6';
-                ds.backgroundColor = (c) => {
-                    const a = c.chart.chartArea;
-                    if (!a) return _hexA(base, 0.2);
-                    const g = c.chart.ctx.createLinearGradient(0, a.bottom, 0, a.top);
-                    g.addColorStop(0, _hexA(base, 0.02));
-                    g.addColorStop(1, _hexA(base, 0.35));
-                    return g;
-                };
-                if (ds.fill === undefined) ds.fill = true;
-                delete ds._gradient;
-            });
-        }
 
         function renderMarkdownHighlight(text, query) {
             let html = renderMarkdown(text);
@@ -666,354 +514,58 @@
         }
 
         // -- Chart / Mermaid / SVG render counters -------------------
-        let _chartCounter   = 0;
         let _mermaidCounter = 0;
         let _svgCounter     = 0;
 
-        // -- Chart config helpers (auto-detect & repair) -------------
-        const _CHART_VALID_TYPES = [
-            'bar', 'line', 'pie', 'doughnut', 'radar', 'polarArea',
-            'bubble', 'scatter',
-            // advanced controllers (plugins vendored) + matrix heatmap + composite:
-            'matrix', 'treemap', 'sankey', 'boxplot', 'violin',
-            'candlestick', 'ohlc', 'pie_of_pie', 'bar_of_pie'
-        ];
-
-        // un input LLM corrompu de 10 Mo gelait le main thread
-        // (parcours O(n) sur tout le texte). Au-delà du cap, on renonce à la
-        // réparation : l'appelant tombe sur le path "ne pas afficher comme
-        // chart" → meilleur que freezer l'UI.
-        const _MAX_BALANCE_LEN = 256 * 1024;   // 256 Ko
-        function _balanceJsonClosers(text) {
-            if (text && text.length > _MAX_BALANCE_LEN) return null;
-            // Walks the text once respecting strings/escapes and returns
-            // the correct closing sequence to append. Handles arbitrary
-            // nesting of {} and [] in the right order.
-            const stack = [];
-            let inStr = false;
-            let escape = false;
-            for (let i = 0; i < text.length; i++) {
-                const ch = text[i];
-                if (escape) { escape = false; continue; }
-                if (inStr) {
-                    if (ch === '\\') escape = true;
-                    else if (ch === '"') inStr = false;
-                    continue;
-                }
-                if (ch === '"') { inStr = true; continue; }
-                if (ch === '{' || ch === '[') stack.push(ch);
-                else if (ch === '}') { if (stack[stack.length - 1] === '{') stack.pop(); }
-                else if (ch === ']') { if (stack[stack.length - 1] === '[') stack.pop(); }
-            }
-            if (inStr) return null; // unclosed string -- not safely repairable
-            let suffix = '';
-            for (let i = stack.length - 1; i >= 0; i--) {
-                suffix += stack[i] === '{' ? '}' : ']';
-            }
-            return suffix;
+        // Option ECharts produite par les outils chart_<type> (clé ``_elpis``).
+        function _isEchartsOption(cfg) {
+            return !!(cfg && typeof cfg === 'object' && cfg._elpis && typeof cfg._elpis === 'object');
         }
 
-        function _tryParseChartConfig(rawText) {
-            // Returns the parsed object on success (with eventual repair),
-            // or null if all attempts fail.
-            if (!rawText) return null;
-            let text = String(rawText).trim();
-
-            // Strip a leading "json" / "chart" word that some models prepend
-            text = text.replace(/^(?:json|chart(?:js)?)\s*\n/i, '').trim();
-            // Strip surrounding fenced markers if present
-            text = text.replace(/^```(?:json|chart(?:js)?)?\s*/i, '').replace(/```\s*$/, '').trim();
-
-            // 1. Direct parse
-            try { return JSON.parse(text); } catch (_) {}
-
-            // 2. Remove trailing commas (very common LLM glitch)
-            let r = text.replace(/,(\s*[}\]])/g, '$1');
-            try { return JSON.parse(r); } catch (_) {}
-
-            // 3. Auto-balance missing closers using a real stack walker
-            const closers = _balanceJsonClosers(r);
-            if (closers) {
-                // Strip a dangling trailing comma at the very end before appending closers
-                const cleaned = r.replace(/,\s*$/, '');
-                try { return JSON.parse(cleaned + closers); } catch (_) {}
-            }
-
-            // 4. Extract the largest balanced JSON object substring
-            //    (handles cases where the model added prose around the JSON)
-            const firstBrace = text.indexOf('{');
-            const lastBrace  = text.lastIndexOf('}');
-            if (firstBrace >= 0 && lastBrace > firstBrace) {
-                let inner = text.slice(firstBrace, lastBrace + 1).replace(/,(\s*[}\]])/g, '$1');
-                try { return JSON.parse(inner); } catch (_) {}
-                const cl = _balanceJsonClosers(inner);
-                if (cl) {
-                    try { return JSON.parse(inner.replace(/,\s*$/, '') + cl); } catch (_) {}
-                }
-            }
-
-            return null;
-        }
-
-        function _looksLikeChartConfig(obj) {
-            if (!obj || typeof obj !== 'object') return false;
-            // Strong signal : explicit type field with a known chart type
-            if (obj.type && _CHART_VALID_TYPES.includes(obj.type)) {
-                return !!(obj.data && (obj.data.datasets || obj.data.labels));
-            }
-            // Weak signal : data.datasets shape
-            if (obj.data && Array.isArray(obj.data.datasets) && obj.data.datasets.length > 0) {
-                return true;
-            }
-            return false;
-        }
-
-        function _renderChartBlock(pre, rawText) {
-            // La pile chart.js (355 Ko) est hors du chemin critique : on la
-            // demande ICI, à l'entrée, et non dans les minuteries de 50 ms plus
-            // bas. Y attendre ferait repartir TOUS les rendus au même tick — la
-            // résolution de la promesse — au lieu de garder leur échelonnement
-            // d'origine, ce qui fait courir `_destroyOrphanedCharts` en
-            // concurrence avec les créations. Constaté : 22 canvas au lieu de 26
-            // et une erreur interne Chart.js.
-            if (typeof Chart === 'undefined' && window.ensureVendor) {
-                if (pre.dataset.chartPending === '1') return;
-                pre.dataset.chartPending = '1';
-                window.ensureVendor('chart').then(function () {
-                    delete pre.dataset.chartPending;
-                    if (pre.isConnected) _renderChartBlock(pre, rawText);
-                }).catch(function () {
-                    delete pre.dataset.chartPending;
-                    if (pre.isConnected) _renderChartError(pre, rawText, null);
-                });
+        function _mountChart(pre, cfg) {
+            if (!pre || !pre.parentNode) return;
+            if (!_isEchartsOption(cfg)) { _renderLegacyChartNotice(pre); return; }
+            const go = () => { if (pre.parentNode) window.ElpisCharts.mount(pre, cfg); };
+            if (window.echarts && window.ElpisCharts) { go(); return; }
+            if (!window.ensureVendor || !window.ElpisCharts) {
+                _renderChartError(pre, '[graphique : moteur de rendu indisponible]', null);
                 return;
             }
-            // Accept either tagged chart blocks OR auto-detected ones.
-            // Use the same parser for both paths so a malformed chart in
-            // ```chart``` shows the same repair attempts as one in ```json```.
-            const config = _tryParseChartConfig(rawText);
-            // Composite charts (pie-of-pie) carry a custom `_composite` shape with no
-            // top-level type/data — dispatch BEFORE the single-canvas gate below.
-            if (config && config._composite) { _renderCompositeChartBlock(pre, config); return; }
-            if (!config || !_looksLikeChartConfig(config)) {
-                // Build an explicit error card so the user knows WHY nothing rendered
-                _renderChartError(pre, rawText, config);
-                return;
-            }
-
-            try {
-                const wrapper = document.createElement('div');
-                wrapper.className = _chartCardClass();
-
-                // Header
-                const hdr = document.createElement('div');
-                hdr.className = 'flex items-center justify-between mb-3';
-                const title = config.options && config.options.plugins && config.options.plugins.title && config.options.plugins.title.text
-                    ? config.options.plugins.title.text
-                    : (config.data && config.data.datasets && config.data.datasets[0] && config.data.datasets[0].label) || 'Graphique';
-                // SECURITY FIX (medium) : ``title`` vient du JSON Chart.js
-                // (donc du LLM/utilisateur). textContent au lieu d'innerHTML
-                
-                const _hdrLabel = document.createElement('span');
-                _hdrLabel.className = 'text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5';
-                const _hdrIcon = document.createElement('i');
-                _hdrIcon.className = 'ph ph-chart-bar text-blue-500';
-                _hdrLabel.appendChild(_hdrIcon);
-                _hdrLabel.appendChild(document.createTextNode(' ' + String(title)));
-                hdr.appendChild(_hdrLabel);
-
-                const dlBtn = document.createElement('button');
-                dlBtn.className = 'text-[10px] text-slate-400 hover:text-blue-600 flex items-center gap-1 transition-colors font-medium';
-                dlBtn.innerHTML = '<i class="ph ph-download-simple text-xs"></i> PNG';
-                dlBtn.title = 'Télécharger en PNG';
-                hdr.appendChild(dlBtn);
-                wrapper.appendChild(hdr);
-
-                const canvasWrap = document.createElement('div');
-                canvasWrap.style.cssText = 'position:relative;height:260px;';
-                const canvas = document.createElement('canvas');
-                const cid = 'chat_chart_' + (++_chartCounter);
-                canvas.id = cid;
-                canvasWrap.appendChild(canvas);
-                wrapper.appendChild(canvasWrap);
-
-                pre.parentNode.replaceChild(wrapper, pre);
-
-                // `title` may be an array (title+subtitle) \u2014 normalise before regexing.
-                const _titleStr = String(Array.isArray(title) ? title.join(' ') : title);
-                let _chartReady = false;
-                dlBtn.onclick = () => {
-                    if (!_chartReady) return;   // before the 50 ms render \u2192 blank PNG
-                    try {
-                        const url = canvas.toDataURL('image/png');
-                        const a = Object.assign(document.createElement('a'), {
-                            href: url,
-                            download: (_titleStr.replace(/[^a-zA-Z0-9\u00C0-\u024F ]/g, '').trim().replace(/\s+/g, '_') || 'chart') + '.png',
-                        });
-                        a.click();
-                    } catch(e) {}
-                };
-
-                setTimeout(() => {
-                    try {
-                        // Anti-fuite : si l'utilisateur a changé de chat pendant
-                        // ces 50 ms, le canvas est détaché du DOM. Créer le Chart
-                        // ici l'ajouterait à _activeCharts APRÈS le clearChartInstances
-                        // du switch → il échapperait au tracking et fuirait. On skip.
-                        if (!canvas.isConnected) return;
-                        if (typeof Chart === 'undefined') {
-                            canvasWrap.innerHTML = '<div class="text-amber-600 text-xs p-3">Chart.js non chargé</div>';
-                            return;
-                        }
-                        // Inject scriptable options (matrix/treemap/animation/gradient)
-                        // BEFORE merging — the animation presets mutate config.options,
-                        // which must then flow into the merged chartOpts.
-                        _enrichAdvancedConfig(config);
-                        // Deep-merge author options OVER defaults (a shallow spread wiped
-                        // the whole default `plugins` block), then force the layout
-                        // invariants so a config can't break the fixed-height canvas.
-                        const chartOpts = _deepMergeOpts({
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            animation: { duration: 600 },
-                            plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
-                        }, config.options || {});
-                        chartOpts.responsive = true;
-                        chartOpts.maintainAspectRatio = false;
-
-                        _applyChartThemeDefaults();
-                        _destroyOrphanedCharts();
-                        const _chart = new Chart(canvas, { type: config.type || 'bar', data: config.data, options: chartOpts });
-                        _activeCharts.add(_chart);
-                        _chartReady = true;
-                    } catch(e) {
-                        
-                        canvasWrap.textContent = '';
-                        const _err = document.createElement('div');
-                        _err.className = 'text-red-500 text-xs p-3';
-                        _err.textContent = 'Erreur de rendu Chart.js : ' + (e && e.message ? e.message : e);
-                        canvasWrap.appendChild(_err);
-                    }
-                }, 50);
-            } catch(e) {
-                _renderChartError(pre, rawText, config, e);
-            }
+            // ECharts (1,1 Mo) hors du chemin critique : chargé au premier graphique.
+            window.ensureVendor('echarts').then(go).catch(function (e) {
+                _renderChartError(pre, '[graphique : échec du chargement d\'ECharts]', null, e);
+            });
         }
 
-        // Excel-style pie-of-pie / bar-of-pie: two linked charts in one card. The stored
-        // config is a custom {_composite, primary, secondary, split} shape (built by the
-        // backend). We lay out two canvases and instantiate one Chart in each; BOTH are
-        // tracked in _activeCharts so the leak-guard / clearChartInstances see them.
-        function _renderCompositeChartBlock(pre, config) {
-            try {
-                const wrapper = document.createElement('div');
-                wrapper.className = _chartCardClass();
-
-                const prim = config.primary || {};
-                const title = (prim.options && prim.options.plugins && prim.options.plugins.title
-                    && prim.options.plugins.title.text) || 'Graphique';
-
-                const hdr = document.createElement('div');
-                hdr.className = 'flex items-center justify-between mb-3';
-                const lab = document.createElement('span');
-                lab.className = 'text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5';
-                const ic = document.createElement('i');
-                ic.className = 'ph ph-chart-pie-slice text-blue-500';
-                lab.appendChild(ic);
-                lab.appendChild(document.createTextNode(' ' + String(title)));
-                hdr.appendChild(lab);
-                const dlBtn = document.createElement('button');
-                dlBtn.className = 'text-[10px] text-slate-400 hover:text-blue-600 flex items-center gap-1 transition-colors font-medium';
-                dlBtn.innerHTML = '<i class="ph ph-download-simple text-xs"></i> PNG';
-                dlBtn.title = 'Télécharger en PNG (graphique principal)';
-                hdr.appendChild(dlBtn);
-                wrapper.appendChild(hdr);
-
-                const row = document.createElement('div');
-                row.style.cssText = 'display:flex;gap:12px;align-items:stretch;';
-                const mkPane = (flex) => {
-                    const w = document.createElement('div');
-                    w.style.cssText = 'position:relative;height:260px;flex:' + flex + ';min-width:0;';
-                    const cv = document.createElement('canvas');
-                    cv.id = 'chat_chart_' + (++_chartCounter);
-                    w.appendChild(cv);
-                    return { w, cv };
-                };
-                const p1 = mkPane('3'), p2 = mkPane('2');
-                row.appendChild(p1.w); row.appendChild(p2.w);
-                wrapper.appendChild(row);
-
-                pre.parentNode.replaceChild(wrapper, pre);
-
-                const _titleStr = String(title);
-                let _ready = false;
-                dlBtn.onclick = () => {
-                    if (!_ready) return;
-                    try {
-                        const url = p1.cv.toDataURL('image/png');
-                        const a = Object.assign(document.createElement('a'), {
-                            href: url,
-                            download: (_titleStr.replace(/[^a-zA-Z0-9À-ɏ ]/g, '').trim().replace(/\s+/g, '_') || 'chart') + '.png',
-                        });
-                        a.click();
-                    } catch(e) {}
-                };
-
-                setTimeout(() => {
-                    try {
-                        if (!p1.cv.isConnected) return;
-                        if (typeof Chart === 'undefined') {
-                            row.textContent = 'Chart.js non chargé';
-                            return;
-                        }
-                        _applyChartThemeDefaults();
-                        _destroyOrphanedCharts();
-                        const mk = (cv, cfg) => {
-                            if (!cfg || !cfg.type) return;
-                            _enrichAdvancedConfig(cfg);
-                            const opts = _deepMergeOpts(
-                                { responsive: true, maintainAspectRatio: false, animation: { duration: 600 } },
-                                cfg.options || {});
-                            opts.responsive = true;
-                            opts.maintainAspectRatio = false;
-                            const ch = new Chart(cv, { type: cfg.type, data: cfg.data, options: opts });
-                            _activeCharts.add(ch);
-                        };
-                        mk(p1.cv, config.primary);
-                        mk(p2.cv, config.secondary);
-                        _ready = true;
-                    } catch(e) {
-                        row.textContent = '';
-                        const er = document.createElement('div');
-                        er.className = 'text-red-500 text-xs p-3';
-                        er.textContent = 'Erreur de rendu Chart.js : ' + (e && e.message ? e.message : e);
-                        row.appendChild(er);
-                    }
-                }, 50);
-            } catch(e) {
-                _renderChartError(pre, JSON.stringify(config || ''), config, e);
-            }
+        // Graphiques enregistrés avant le passage à ECharts (configurations
+        // Chart.js) : plus rendus, la carte le dit simplement.
+        function _renderLegacyChartNotice(pre) {
+            const box = document.createElement('div');
+            box.className = 'chart-render-error rounded-xl border border-dashed p-3 mb-4 text-xs '
+                + (_chartDark() ? 'border-slate-600 text-slate-400' : 'border-slate-300 text-slate-500');
+            const ic = document.createElement('i');
+            ic.className = 'ph ph-chart-bar mr-1';
+            box.appendChild(ic);
+            box.appendChild(document.createTextNode(
+                'Graphique d\'un ancien format, qui n\'est plus affiché. Redemandez-le pour le tracer à nouveau.'));
+            if (pre && pre.parentNode) pre.parentNode.replaceChild(box, pre);
         }
 
         function _renderChartRefBlock(pre, chartId) {
-            
             chartId = String(chartId || '').trim().toLowerCase();
             if (!chartId) {
                 _renderChartError(pre, '[chart-ref : id vide]', null);
                 return;
             }
-            
             const _cached = _chartCfgCache.get(chartId);
             if (_cached) {
-                _renderChartBlock(pre, JSON.stringify(_cached));
+                _mountChart(pre, _cached);
                 return;
             }
-            
             try {
                 const code = pre.querySelector('code');
                 if (code) code.textContent = 'Chargement du graphique ' + chartId + '…';
             } catch (_) {}
-            
             const _cid = (currentChatId && currentChatId.value) ? currentChatId.value : '';
             const _url = '/api/charts/' + encodeURIComponent(chartId)
                 + (_cid ? '?chat_id=' + encodeURIComponent(_cid) : '');
@@ -1022,7 +574,7 @@
                 .then(data => {
                     if (data && data.ok && data.config) {
                         _chartCfgCacheSet(chartId, data.config);
-                        _renderChartBlock(pre, JSON.stringify(data.config));
+                        _mountChart(pre, data.config);
                     } else {
                         _renderChartError(pre, '[chart-ref ' + chartId + ' — '
                             + ((data && data.detail) || 'introuvable') + ']', null);
@@ -1130,24 +682,9 @@
             const reasonEl = document.createElement('div');
             reasonEl.className = 'text-xs text-amber-700 mt-0.5';
             if (renderErr) {
-                reasonEl.textContent = 'Erreur de rendu Chart.js : ' + (renderErr.message || renderErr);
-            } else if (parsedConfig) {
-                
-                reasonEl.appendChild(document.createTextNode(
-                    'JSON valide mais ce n\'est pas une configuration Chart.js reconnue (champ '
-                ));
-                const c1 = document.createElement('code');
-                c1.className = 'bg-amber-100 px-1 rounded';
-                c1.textContent = 'type';
-                reasonEl.appendChild(c1);
-                reasonEl.appendChild(document.createTextNode(' ou '));
-                const c2 = document.createElement('code');
-                c2.className = 'bg-amber-100 px-1 rounded';
-                c2.textContent = 'data.datasets';
-                reasonEl.appendChild(c2);
-                reasonEl.appendChild(document.createTextNode(' manquant).'));
+                reasonEl.textContent = 'Erreur de rendu : ' + (renderErr.message || renderErr);
             } else {
-                reasonEl.textContent = 'Le JSON du graphique est mal formé et n\'a pas pu être réparé automatiquement.';
+                reasonEl.textContent = 'Le graphique n\'a pas pu être chargé.';
             }
             middle.appendChild(reasonEl);
             head.appendChild(middle);
@@ -1383,7 +920,7 @@
                 return;
             }
             const wrapper = document.createElement('div');
-            // (passe 3) même logique thème que _chartCardClass — la carte
+            // (passe 3) même logique thème que les cartes de graphique — la carte
             // était en dur bg-white et restait blanche en interface sombre.
             wrapper.className = 'mermaid-render rounded-xl border p-4 mb-4 shadow-sm '
                 + (_chartDark() ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white');
@@ -1611,24 +1148,6 @@
                     if (lang === 'chart-ref') {
                         _renderChartRefBlock(pre, rawText);
                         return;
-                    }
-                    
-                    if (lang === 'chart' || lang === 'chartjs' || lang === 'chart.js') {
-                        _renderChartBlock(pre, rawText);
-                        return;
-                    }
-                    
-                    if (lang === '' || lang === 'json' || lang === 'plaintext') {
-                        const _maybeChart = _tryParseChartConfig(rawText);
-                        // Only auto-render an UNTAGGED block when it declares an explicit,
-                        // known chart `type` (or is a composite). The old weak "has
-                        // data.datasets" signal hijacked legit JSON shown as an example,
-                        // stripping its raw view + copy button.
-                        if (_maybeChart && ((_maybeChart.type && _CHART_VALID_TYPES.includes(_maybeChart.type))
-                                            || _maybeChart._composite)) {
-                            _renderChartBlock(pre, rawText);
-                            return;
-                        }
                     }
                     
                     if (lang === 'mermaid') {

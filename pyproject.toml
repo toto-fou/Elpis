@@ -1,6 +1,6 @@
 [project]
 name = "elpis"
-version = "1.0.0"
+version = "0.0.1"
 description = "Self-hosted LLM assistant: agentic chat, per-user sandbox, code editor, scheduled routines and RAG."
 readme = "README.md"
 license = "MIT"

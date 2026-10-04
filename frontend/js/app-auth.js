@@ -43,7 +43,7 @@ function setupAuth(vue, sharedRefs, ctx) {
                 if (data.app_info && ctx.appInfo) {
                     ctx.appInfo.value = {
                         name:        data.app_info.name        || 'Elpis',
-                        version:     data.app_info.version     || '1.0.0',
+                        version:     data.app_info.version     || '0.0.1',
                         teamName:    data.app_info.team_name   || '',
                         engine:      data.app_info.engine      || 'llama.cpp',
                         description: data.app_info.description || '',

@@ -2467,7 +2467,7 @@ function setupAdmin(vue, sharedRefs, ctx) {
                         }
                         // App info defaults
                         if (!configForm.value.app_info) {
-                            configForm.value.app_info = { name: 'Elpis', version: '1.0.0', team_name: '', engine: 'llama.cpp', description: '', icon_type: 'phosphor', icon: 'ph-robot', icon_color: '#ffffff', icon_bg: '#0f172a', logo_b64: '', use_welcome_image: false };
+                            configForm.value.app_info = { name: 'Elpis', version: '0.0.1', team_name: '', engine: 'llama.cpp', description: '', icon_type: 'phosphor', icon: 'ph-robot', icon_color: '#ffffff', icon_bg: '#0f172a', logo_b64: '', use_welcome_image: false };
                         } else {
                             if (!configForm.value.app_info.icon) configForm.value.app_info.icon = 'ph-robot';
                             if (!configForm.value.app_info.icon_color) configForm.value.app_info.icon_color = '#ffffff';

@@ -249,7 +249,7 @@ const elpisApp = createApp({
 
         const appInfo = ref({
             name:        'Elpis',
-            version:     '1.0.0',
+            version:     '0.0.1',
             teamName:    '',
             engine:      'llama.cpp',
             description: '',

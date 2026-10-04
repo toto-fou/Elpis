@@ -99,7 +99,7 @@ async def import_legacy_credentials(agent: Any, uid: int) -> None:
     Agent injoignable : réessayé à l'opération suivante."""
     if not uid or uid in _anciens_vus:
         return
-    # La trace ``.imported`` de la 1.0.0 (jetons en clair) part dans tous les
+    # La trace ``.imported`` de l'ancien import (jetons en clair) part dans tous les
     # cas, fichier principal présent ou non (relecture finale).
     try:
         await agent.fsop("remove", path=_ANCIEN_FICHIER + ".imported", missing_ok=True)

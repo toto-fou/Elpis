@@ -645,7 +645,7 @@ def get_public_config(request: Request):
     if welcome.get("type") == "image" and not welcome.get("image_b64"):
         welcome["image_b64"] = _welcome_defaut["image_b64"]
     app_info = config.get("app_info", {
-        "name": "Elpis", "version": "1.0.0", "team_name": "Elpis",
+        "name": "Elpis", "version": "0.0.1", "team_name": "Elpis",
         "engine": "llama.cpp", "description": "", "icon_type": "phosphor",
         "icon": "ph-robot", "icon_color": "#ffffff", "icon_bg": "#0f172a", "logo_b64": ""
     })

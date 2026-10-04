@@ -6,6 +6,12 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ## Non publié
 
+### Corrections
+
+- **Studio** : quitter le Studio sans action en cours n'affiche plus « Arrêt
+  demandé — l'action en cours sur la VM se termine » ; le message reste
+  quand une action était réellement en cours.
+
 ## 0.0.1 — 2026-10-04
 
 Première version publiée : chat agentique (outils, sous-agents, mémoire long

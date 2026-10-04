@@ -8,6 +8,34 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Ajouts
 
+- **Documents Word et PowerPoint de la sandbox : sept outils.** Famille
+  `office` : `docx_create`, `docx_read`, `docx_edit`, `pptx_create`,
+  `pptx_read`, `pptx_edit`, `office_export` (PDF).
+  - Les fichiers sont lus et écrits dans `/work`, par l'agent de la sandbox,
+    avec l'écriture gardée de `write_file` (historique, verrou de l'éditeur) ;
+    ils apparaissent dans la carte des fichiers modifiés et s'ouvrent dans
+    l'éditeur avec l'aperçu Office. Chemin cadré : extension imposée et
+    corrigée, nom nettoyé, un fichier existant est remplacé (version
+    précédente dans l'historique).
+  - Word : contenu en Markdown, plus `!id` (graphique), encadrés
+    `> [!NOTE]`, `[TOC]`, `\newpage` ; page de garde, sommaire, en-tête,
+    pied, numéros de page, filigrane, modèle .dotx de la sandbox.
+    PowerPoint : 14 mises en page composées (titre, chiffres clés,
+    graphique, chronologie, processus, comparaison…), thèmes, modèle .potx.
+  - Modifications par lot en un appel (remplacer, remplir des `{{champs}}`,
+    réécrire, insérer après un titre, cellules et lignes de tableau,
+    diapos ajoutées, déplacées, dupliquées, notes) ; les numéros se réfèrent
+    au fichier tel qu'il était avant l'appel.
+  - Graphiques mutualisés avec les outils `chart_*` : natifs et éditables
+    quand Word et PowerPoint ont l'équivalent, sinon image ECharts rendue
+    côté serveur (Node + LibreOffice isolé).
+  - Lecture tolérante (synonymes français, casse), corrections renvoyées au
+    modèle, refus guidés et garde-fou anti-boucle, comme les graphiques.
+  - Moteurs repris des serveurs MCP docx-mcp et pptx-mcp (MIT), sans état,
+    sans réseau, sans Jinja ni matplotlib. Nouvelles dépendances :
+    python-pptx (MIT), XlsxWriter (BSD-2-Clause).
+  - Installation existante : ajouter l'entrée `elpis-office` de
+    `mcp.example.json` à `mcp.json`.
 - **Graphiques : un outil par type, rendu Apache ECharts.** Les quatre outils
   Chart.js et `generate_table` sont remplacés par 30 outils `chart_<type>`
   (barres, courbes, aires, flux, radar, cascade, secteurs, anneau, rose,

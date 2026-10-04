@@ -30,6 +30,8 @@ psutil==7.2.2
 dpkt==1.9.8
 Pillow==12.2.0
 python-docx==1.2.0
+python-pptx==1.0.2           # outils PowerPoint (llm_core/tools/_office)
+XlsxWriter==3.2.9             # données des graphiques natifs (dépendance de python-pptx)
 
 # ---- Base de données : moteurs serveur (facultatifs, SQLite par défaut) ----
 pg8000==1.31.5                # PostgreSQL, pur Python (+ scramp, asn1crypto, python-dateutil, six)

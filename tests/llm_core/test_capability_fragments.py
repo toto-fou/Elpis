@@ -213,6 +213,7 @@ _BUDGETS = {
     "FRAGMENT_WEB.md": 1300,
     "FRAGMENT_AUTOMATION.md": 1700,
     "FRAGMENT_CHART.md": 1900,   # un outil par type (2026-10-04) : intentions + lecture du retour
+    "FRAGMENT_OFFICE.md": 2100,  # 7 outils Word / PowerPoint : un appel par fichier, !id des graphiques, lecture avant édition
     "FRAGMENT_RAG.md": 1600,
 }
 
@@ -257,6 +258,19 @@ def test_chart_fragment_names_real_tools():
     cites = set(re.findall(r"`(chart_[a-z_]+)`", t))
     assert {"chart_bar", "chart_table", "chart_gantt"} <= cites
     assert cites <= {f"chart_{k}" for k in PER_TYPE}, cites - {f"chart_{k}" for k in PER_TYPE}
+    assert "never resend the same call unchanged" in t.lower()
+
+
+def test_office_fragment_names_real_tools():
+    """Chaque outil cité par le fragment Office existe ; les règles qui font
+    réussir un petit modèle (un appel par fichier, lecture avant édition,
+    ref des graphiques, jamais de relance identique) y figurent."""
+    from llm_core.tools._office import TOOLS
+    t = _read_prompt("FRAGMENT_OFFICE.md")
+    cites = set(re.findall(r"`((?:docx|pptx|office)_[a-z_]+)`", t))
+    assert cites == set(TOOLS), cites ^ set(TOOLS)
+    assert "chart_<type>" in t and "!a1b2c3d4e5f6" in t
+    assert "ONE `docx_edit`" in t
     assert "never resend the same call unchanged" in t.lower()
 
 

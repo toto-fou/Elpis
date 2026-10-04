@@ -22,6 +22,8 @@ TOOL_FAMILIES = (
     ("shell",   "llm_core.tools.shell_tools",   True),
     ("git",     "llm_core.tools.git_tools",     True),
     ("chart",   "llm_core.tools.chart_tools",   True),
+    # Documents Word / PowerPoint du sandbox (moteur ``llm_core/tools/_office``).
+    ("office",  "llm_core.tools.office_tools",  True),
     ("memory",  "llm_core.tools.memory_tools",  True),
     ("skill",   "llm_core.tools.skill_tools",   False),
     # (2026-09-12, P4) ``skill_run_script`` = exécution DANS LE SANDBOX (hôte
@@ -45,7 +47,7 @@ FAMILY_REGISTER_FN = {"skill": "register_library", "skill_run": "register_run"}
 
 # Familles liées au SANDBOX (portables avec l'hôte d'outils) vs liées à l'APP
 # (base des comptes : mémoire, todo, graphiques, bibliothèque de skills).
-SANDBOX_FAMILIES = ("fs", "shell", "git", "skill_run", "browser", "desktop")
+SANDBOX_FAMILIES = ("fs", "shell", "git", "office", "skill_run", "browser", "desktop")
 APP_FAMILIES = ("chart", "memory", "skill", "todo")
 
 # Famille → identifiant de CATÉGORIE porté par les outils (tags/meta, lus par
@@ -54,7 +56,7 @@ APP_FAMILIES = ("chart", "memory", "skill", "todo")
 # est réellement enregistrée sur le service (liste vivante) avant de l'annoncer
 # dans un ``opencode.json`` — vérifié module par module le 2026-09-03.
 FAMILY_CATEGORY = {
-    "fs": "fs", "shell": "shell", "git": "git", "chart": "chart",
+    "fs": "fs", "shell": "shell", "git": "git", "chart": "chart", "office": "office",
     "memory": "memory", "skill": "skill", "skill_run": "skill", "todo": "task",
     "browser": "browser", "desktop": "desktop",
 }
@@ -65,8 +67,8 @@ FAMILY_CATEGORY = {
 # pas — le dépôt Git de l'app, le navigateur piloté et le contrôle d'écran.
 DEFAULT_OPENCODE_FAMILIES = "git,browser,desktop"
 # Familles TOUJOURS refusées à ces clients, même si quelqu'un devine leur URL
-# (RÈGLE utilisateur : nos fs/shell agissent sur le sandbox de l'hôte).
-DEFAULT_OPENCODE_EXCLUDE = "fs,shell,skill_run"
+# (RÈGLE utilisateur : nos fs/shell/office agissent sur le sandbox de l'hôte).
+DEFAULT_OPENCODE_EXCLUDE = "fs,shell,office,skill_run"
 
 
 def _warn(warn: Optional[Callable[[str], None]], msg: str) -> None:

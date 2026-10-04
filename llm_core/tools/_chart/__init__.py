@@ -163,7 +163,11 @@ def _empreinte(session: str, args: Any) -> str:
     return hashlib.sha1(f"{session}\x00{canon}".encode()).hexdigest()
 
 
-def _refus(session: Optional[str], args: Any, out: Dict[str, Any]) -> Dict[str, Any]:
+def _refus(session: Optional[str], args: Any, out: Dict[str, Any],
+           next_action: Optional[str] = None) -> Dict[str, Any]:
+    """Note un refus ; au 2e envoi identique, le dit en toutes lettres.
+    ``next_action`` : la consigne propre à l'outil (graphiques par défaut).
+    Partagé avec les outils Office (``_office``)."""
     if not session:
         return out
     k = _empreinte(session, args)
@@ -176,8 +180,9 @@ def _refus(session: Optional[str], args: Any, out: Dict[str, Any]) -> Dict[str, 
         out["repeated"] = n
         out["message"] = (f"SAME call as before, already refused {n - 1} time(s) for the same "
                           f"reason: do not send it again unchanged. {out.get('message', '')}")
-        out["next_action"] = ("Change the call as `fix` says (use `example` as a model), or tell "
-                              "the user what is missing and answer without a chart.")
+        out["next_action"] = next_action or (
+            "Change the call as `fix` says (use `example` as a model), or tell the user what is "
+            "missing and answer without a chart.")
     return out
 
 

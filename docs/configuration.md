@@ -706,7 +706,7 @@ l'être). Routes :
 | `LOCAL_MCP_LIST_PAGE_SIZE` | `100` | Outils par page de `tools/list` (pagination par `cursor`) |
 | `LOCAL_MCP_ALLOWED_ORIGINS` | *(vide)* | Origines de navigateur autorisées en plus de `mcp.allowed_origins` et `app.cors_origins` (séparées par des virgules, `scheme://hôte:*` accepté) |
 | `LOCAL_MCP_OPENCODE_FAMILIES` | `git,browser,desktop` | Familles **publiées** à opencode, une **entrée MCP (= une bascule) par famille** → `…/mcp/<famille>`. Liste d'inclusion : une famille ajoutée plus tard doit être nommée pour apparaître |
-| `LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES` | `fs,shell,skill_run` | Familles **toujours refusées** aux clients opencode (jeton elpis-remote `pcr_…`, accepté en Bearer) — opencode a ses propres outils fichiers/shell |
+| `LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES` | `fs,shell,office,skill_run` | Familles **toujours refusées** aux clients opencode (jeton elpis-remote `pcr_…`, accepté en Bearer) — opencode a ses propres outils fichiers/shell ; ces familles agissent sur la sandbox de l'hôte |
 | `LOCAL_MCP_PUBLIC_URL` | — | URL du service telle que les postes la joignent (bloc `mcp` d'`opencode.json`) ; vide → hôte de l'app + `LOCAL_MCP_PORT` |
 | `TOOL_TEXT_BUDGET` / `TOOL_LIST_BUDGET` | `6000` / `50` | Budgets de sortie des outils (caractères d'un texte / éléments d'une liste paginée) |
 

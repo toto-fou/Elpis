@@ -409,6 +409,20 @@ class ChartResult(_SuccessBase):
     warnings:   Optional[List[str]] = Field(None, description="What had to be ignored or chosen.")
 
 
+class OfficeResult(_SuccessBase):
+    """Result of the ``docx_*`` / ``pptx_*`` / ``office_export`` tools (sandbox files).
+
+    A write carries ``path`` + ``old_sha256`` / ``new_sha256`` (feeds the
+    changed-files card); a read carries the document's content (outline,
+    numbered paragraphs or slides) as extra fields."""
+    path:       Optional[str] = Field(None, description="The file, as /work/… .")
+    summary:    Optional[str] = Field(None, description="One line: what was written.")
+    old_sha256: Optional[str] = Field(None, description="SHA-256 before the write (empty: new file).")
+    new_sha256: Optional[str] = Field(None, description="SHA-256 after the write.")
+    fixes:      Optional[List[str]] = Field(None, description="What was understood for you (no need to redo the call).")
+    warnings:   Optional[List[str]] = Field(None, description="What had to be ignored or chosen.")
+
+
 
 # ────────────────────────────────────────────────────────────────────
 #  firefox_tools — pw_* tools driving Playwright via a Firefox sidecar

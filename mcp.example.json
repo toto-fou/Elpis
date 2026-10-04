@@ -64,6 +64,21 @@
         }
       }
     },
+    "elpis-office": {
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp/office",
+      "headers": {
+        "Authorization": "Bearer ${file:user_db/.local_mcp_token}"
+      },
+      "description": "Documents Word et PowerPoint du sandbox : créer, lire, modifier, exporter en PDF",
+      "x-elpis": {
+        "role": "toolhost",
+        "host": "main",
+        "families": [
+          "office"
+        ]
+      }
+    },
     "elpis-browser": {
       "type": "http",
       "url": "http://127.0.0.1:8765/mcp/browser",

@@ -391,5 +391,12 @@
         document.addEventListener('keydown', onKey);
     }
 
-    window.ElpisCharts = { mount, render, sweep, disposeAll, rethemeAll, morph, png, renderTable, fmt, isDark, TOKENS };
+    const api = { mount, render, sweep, disposeAll, rethemeAll, morph, png, renderTable, fmt, isDark, TOKENS };
+    if (typeof window !== 'undefined') window.ElpisCharts = api;
+    // Rendu serveur (Node, llm_core/tools/_office/echarts_ssr.cjs) : mêmes
+    // jetons, thème et formateurs que le chat, en thème clair. Node charge ce
+    // module : aucun accès au DOM au chargement ni dans prepare / themeObject.
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = Object.assign({}, api, { themeObject, prepare, HEIGHT });
+    }
 })();

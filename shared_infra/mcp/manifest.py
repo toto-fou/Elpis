@@ -440,7 +440,7 @@ class Manifest:
         Deux déclarations, cumulées : ``x-elpis.opencode.publish: true`` sur une
         entrée (le geste naturel maintenant qu'il y a une entrée par famille) et
         ``x-elpis.opencode.families`` (forme héritée, entrée monolithique).
-        L'exclusion INVARIANTE (fs/shell/skill_run) s'applique toujours."""
+        L'exclusion INVARIANTE (fs/shell/office/skill_run) s'applique toujours."""
         want: Set[str] = set()
         for e in self.toolhosts():
             if e.opencode_publish:

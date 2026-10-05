@@ -9,7 +9,8 @@ import os from 'os';
 import dns from 'dns';
 import { classifyNavOutcome, authHint } from './nav_util.js';
 import { pingPage, planScreenshotQuota, safeOwner, ownerFromRequest, ownerMatches,
-         stateFileName, safeDownloadName, planArtifactPurge, planSessionSlot } from './session_util.js';
+         stateFileName, resolveStateFile, isLegacyStateName, safeDownloadName,
+         planArtifactPurge, planSessionSlot } from './session_util.js';
 import { makeLock, acquireLock, lockIdle } from './session_lock.js';
 import { analyserUrl, motifIp, motifUrl, hoteDepuisInterfaces, analyserListeBlanche,
          messageRefus, makeCache } from './url_guard.js';
@@ -422,9 +423,10 @@ function reapScreenshots() {
 // vidéos et traces servent le temps d'une session ; les états sauvegardés
 // (cookies) se rechargent plus tard, d'où une durée plus longue.
 const ARTIFACT_MAX_AGE_MS = parseInt(process.env.PW_ARTIFACT_MAX_AGE_H || '24', 10) * 3600 * 1000;
-const STATE_MAX_AGE_MS = parseInt(process.env.PW_STATE_MAX_AGE_D || '30', 10) * 86400 * 1000;
+const STATE_MAX_AGE_D = parseInt(process.env.PW_STATE_MAX_AGE_D || '30', 10);
+const STATE_MAX_AGE_MS = STATE_MAX_AGE_D * 86400 * 1000;
 
-function _purgerDossier(dir, maxAgeMs, { recursif = false } = {}) {
+function _purgerDossier(dir, maxAgeMs, { recursif = false, garder } = {}) {
     let n = 0;
     let noms;
     try { noms = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return 0; }
@@ -440,26 +442,36 @@ function _purgerDossier(dir, maxAgeMs, { recursif = false } = {}) {
         }
         try { entrees.push({ name: d.name, mtimeMs: fs.statSync(f).mtimeMs }); } catch (_) {}
     }
-    for (const nom of planArtifactPurge(entrees, { maxAgeMs })) {
+    for (const nom of planArtifactPurge(entrees, { maxAgeMs, keep: garder })) {
         try { fs.unlinkSync(path.join(dir, nom)); n++; } catch (_) {}
     }
     return n;
 }
 
 function reapArtifacts() {
+    // Les états sans propriétaire attendent leur rattachement : jamais purgés.
     const n = _purgerDossier(DOWNLOAD_DIR, ARTIFACT_MAX_AGE_MS, { recursif: true })
             + _purgerDossier(HAR_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(VIDEO_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(TRACE_DIR, ARTIFACT_MAX_AGE_MS)
-            + _purgerDossier(COOKIES_DIR, STATE_MAX_AGE_MS);
+            + _purgerDossier(COOKIES_DIR, STATE_MAX_AGE_MS, { garder: isLegacyStateName });
     if (n) console.log(`[ARTIFACT-REAPER] ${n} fichier(s) purgé(s).`);
 }
 
+function signalerEtatsSansCompte() {
+    const n = fs.readdirSync(COOKIES_DIR).filter(isLegacyStateName).length;
+    if (n) {
+        console.warn(`[STATES] ${n} état(s) sauvegardé(s) avant la 0.0.1, sans compte : `
+                   + 'gardés, mais rechargés seulement une fois rattachés (./elpis browser states).');
+    }
+}
+
 // Run once on startup (catches crashes that left files behind across restarts)
-// and then on a timer.
+// and then on a timer. Les états sans compte ne sont signalés qu'au démarrage.
 setImmediate(() => {
     try { reapScreenshots(); } catch (e) { console.error('[SCREENSHOT-REAPER] startup:', e.message); }
     try { reapArtifacts(); } catch (e) { console.error('[ARTIFACT-REAPER] startup:', e.message); }
+    try { signalerEtatsSansCompte(); } catch (e) { console.error('[STATES] startup:', e.message); }
 });
 const _screenshotReaperInterval = setInterval(() => {
     try { reapScreenshots(); }
@@ -1917,6 +1929,20 @@ app.post('/start', async (req, res) => {
             if (motif) return repondreRefus(res, url, motif);
         }
 
+        // État sauvegardé : seulement ceux du même propriétaire (cf.
+        // resolveStateFile). Résolu avant la réutilisation d'une session : un
+        // état absent ou sans compte répond 404 même si le compte en a une.
+        let storageState = undefined;
+        if (load_state_id) {
+            const etat = resolveStateFile(owner, load_state_id,
+                                          nom => fs.existsSync(path.join(COOKIES_DIR, nom)),
+                                          { maxAgeDays: STATE_MAX_AGE_D });
+            if (!etat.file) {
+                return res.status(404).json({ error: etat.error, code: etat.code, fix: etat.fix });
+            }
+            storageState = path.join(COOKIES_DIR, etat.file);
+        }
+
         if (PW_MUTEX && owner && !isolated) {
             try {
                 _startRelease = await acquireLock(_ownerStartLock(owner), { waitMs: LOCK_WAIT_MS });
@@ -1974,6 +2000,14 @@ app.post('/start', async (req, res) => {
                         title: await s.page.title().catch(() => ''),
                         note: 'Instance unique par utilisateur : session existante réutilisée'
                             + (url ? ', URL ouverte dans un nouvel onglet (utilisez switch_tab pour basculer).' : '.'),
+                        // Un état ne se pose qu'à la création du contexte : le
+                        // dire plutôt que laisser croire la session chargée.
+                        ...(storageState ? {
+                            state_loaded: false,
+                            warning: "load_state_id non appliqué : la session déjà ouverte de ce compte "
+                                   + "est réutilisée. Pour charger l'état : start avec isolated=true, "
+                                   + "ou fermez d'abord cette session (action='stop').",
+                        } : {}),
                     });
                 } finally {
                     if (_reuseRelease) _reuseRelease();
@@ -1983,17 +2017,6 @@ app.post('/start', async (req, res) => {
 
         const browser = await ensureBrowser(headless);
         const sessionId = uuidv4();
-
-        // État sauvegardé : seulement ceux du même propriétaire.
-        let storageState = undefined;
-        if (load_state_id) {
-            const nom = stateFileName(owner, load_state_id);
-            const p = nom ? path.join(COOKIES_DIR, nom) : null;
-            if (!p || !fs.existsSync(p)) {
-                return res.status(404).json({ error: 'État sauvegardé introuvable (load_state_id).' });
-            }
-            storageState = p;
-        }
 
         // ── Émulation device/viewport (V13) ─────────────────────────────
         // device = preset Playwright ("iPhone 13", "Pixel 7", "iPad Mini"…) qui
@@ -2197,7 +2220,7 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
                 officialLocator = officialLocator.nth(parseInt(idxStr, 10));
             }
             if (!officialLocator) {
-                return res.status(404).json({ error: `Ref expired or invalid: ${ref}. Re-call pw_find.` });
+                return res.status(404).json({ error: `Ref expired or invalid: ${ref}. Re-call pw_find.`, code: 'ref_expired' });
             }
         } else if (by_role || by_text || by_label || by_placeholder || by_test_id || by_alt || by_title || by_css || by_xpath) {
             officialLocator = resolveOfficialLocator(page, {
@@ -3323,7 +3346,7 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
             return res.json({ status: 'success', type: 'shadow-dom-dropdown' });
         }
 
-        return res.status(404).json({ error: `Option "${optionText}" introuvable dans le dropdown` });
+        return res.status(404).json({ error: `Option "${optionText}" introuvable dans le dropdown`, code: 'option_not_found' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

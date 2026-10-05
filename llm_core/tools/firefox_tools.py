@@ -316,6 +316,15 @@ def _refus_session_d_autrui(session_id, username: str):
     return None
 
 
+def _corps_json(resp) -> Dict[str, Any]:
+    """Corps JSON d'une réponse du service s'il est un objet, sinon ``{}``."""
+    try:
+        corps = resp.json()
+    except ValueError:
+        return {}
+    return corps if isinstance(corps, dict) else {}
+
+
 def _req(method, endpoint, json=None, params=None, timeout=None):
     t = timeout if timeout is not None else TIMEOUT
     json, params = _avec_proprietaire(json, params, method)
@@ -327,19 +336,23 @@ def _req(method, endpoint, json=None, params=None, timeout=None):
             return _err("Session expired",
                         hint="reopen with pw_session(action='start')")
         if resp.status_code == 404:
+            # Le service donne un ``code`` aux 404 qui ne disent pas « session
+            # introuvable » (état de ``load_state_id`` absent ou sans compte,
+            # référence périmée, option introuvable) : leur explication va
+            # telle quelle au modèle.
+            _corps = _corps_json(resp)
+            if isinstance(_corps.get("code"), str) and isinstance(_corps.get("error"), str):
+                return _err(_corps["code"], message=_corps["error"],
+                            fix=str(_corps.get("fix") or ""))
             return _err("Session not found",
                         hint="start one with pw_session(action='start')")
         if resp.status_code != 200:
             # Surface le champ ``error`` du corps JSON quand il existe (ex. le
             # 502 nav_error renvoyé par /action : « Navigation échouée vers … :
             # net::ERR_… ») au lieu du « Playwright error (NNN) » opaque.
-            _msg = None
-            try:
-                _body = resp.json()
-                if isinstance(_body, dict) and isinstance(_body.get("error"), str):
-                    _msg = _body["error"]
-            except Exception:
-                pass
+            _msg = _corps_json(resp).get("error")
+            if not isinstance(_msg, str):
+                _msg = None
             return _err(_msg or f"Playwright error ({resp.status_code})",
                         hint=(None if _msg else (resp.text[:500] or None)))
         return _clip_result(resp.json())

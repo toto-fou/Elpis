@@ -61,12 +61,37 @@ selon [SemVer](https://semver.org/lang/fr/).
 - Les graphiques enregistrés avant cette version (configurations Chart.js) ne
   sont plus tracés : la carte invite à les redemander. Chart.js reste utilisé
   par le tableau de bord de la console.
+- **Navigateur : états sauvegardés d'avant la 0.0.1 (rupture non signalée
+  dans ses notes).** La 0.0.1 range les états de
+  `pw_session(action='save_state')` (cookies, stockage local) par compte,
+  sous `browser-service/cookies/state_<propriétaire>__<id>.json`. Ses notes
+  ne disent pas que les états existants, `state_<id>.json`, ne se rechargent
+  plus, ni qu'un état est supprimé 30 jours après son enregistrement, même
+  s'il sert (`PW_STATE_MAX_AGE_D`, `0` = jamais). Cette purge a pu effacer
+  les plus anciens, et la sauvegarde d'Elpis n'emporte pas ce dossier. Le
+  service ne rattache jamais de lui-même un état sans compte : n'importe quel
+  compte qui connaîtrait son identifiant obtiendrait la session connectée
+  d'un autre.
+  **Mise à jour** : `./elpis browser states` liste les états sans compte
+  restants (identifiant, date, sites) ; `./elpis browser migrate-states
+  COMPTE ID…` rattache ceux d'un compte Elpis (`--all` : tous, s'ils sont
+  tous à lui) ; le même `load_state_id` les recharge ensuite pendant 30
+  jours. Détail : docs/exploitation.md, « Mettre à jour ».
 
 ### Corrections
 
 - **Studio** : quitter le Studio sans action en cours n'affiche plus « Arrêt
   demandé — l'action en cours sur la VM se termine » ; le message reste
   quand une action était réellement en cours.
+- **Navigateur** : `pw_session(action='start')` avec le `load_state_id` d'un
+  état introuvable ou sans compte rend l'explication du service (comment le
+  rattacher, durée de conservation) au lieu de « Session not found », même
+  quand le compte a déjà une session ouverte ; un état demandé sur une
+  session réutilisée est signalé comme non chargé (`state_loaded: false`).
+  Une référence d'élément périmée ou une option de liste introuvable ne sont
+  plus présentées comme une session introuvable. Les états sans compte ne
+  sont plus purgés ; le service les signale à son démarrage et
+  `./elpis doctor` les compte.
 
 ## 0.0.1 — 2026-10-04
 

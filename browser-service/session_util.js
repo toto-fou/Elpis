@@ -118,6 +118,59 @@ export function stateFileName(owner, stateId) {
     return `state_${o}__${id}.json`;
 }
 
+// États enregistrés avant la 0.0.1 : ``state_<id>.json``, sans propriétaire.
+// Le service ne peut pas deviner à quel compte ils appartiennent : il ne les
+// charge jamais (n'importe quel compte qui connaît l'identifiant obtiendrait
+// la session connectée d'un autre) et ne les purge pas, pour qu'un
+// administrateur puisse les rattacher (``./elpis browser migrate-states``).
+const _LEGACY_STATE_RE = /^state_[A-Za-z0-9-]{8,64}\.json$/;
+
+/** Nom ancien (sans propriétaire) de l'état ``stateId``, ou ``null``. */
+export function legacyStateFileName(stateId) {
+    const id = String(stateId ?? '');
+    return _STATE_ID_RE.test(id) ? `state_${id}.json` : null;
+}
+
+/** ``name`` est-il un état sans propriétaire ? (jamais un nom par compte) */
+export function isLegacyStateName(name) {
+    return _LEGACY_STATE_RE.test(String(name ?? ''));
+}
+
+/**
+ * État à charger au démarrage d'une session de ``owner``. ``exists(nom)``
+ * dit si ``cookies/<nom>`` existe ; ``maxAgeDays`` (0 : pas de purge) est
+ * rappelé dans le ``fix`` d'un état introuvable. → ``{ file }``, ou
+ * ``{ code, error, fix }`` à rendre en 404 : ``legacy_state`` (l'état existe
+ * sous l'ancien nom, à rattacher) ou ``state_not_found``. L'état d'un autre
+ * compte répond comme un état inconnu.
+ */
+export function resolveStateFile(owner, stateId, exists, { maxAgeDays = 0 } = {}) {
+    const nom = stateFileName(owner, stateId);
+    if (nom && exists(nom)) return { file: nom };
+    const ancien = nom && legacyStateFileName(stateId);
+    if (ancien && exists(ancien)) {
+        return {
+            code: 'legacy_state',
+            error: "État sauvegardé avant la version 0.0.1 d'Elpis : il n'appartient à aucun "
+                 + "compte et ne se recharge pas tant qu'un administrateur ne l'a pas rattaché.",
+            fix: "S'il a été enregistré pour ce compte, un administrateur le lui rattache "
+               + '(./elpis browser states montre ses sites) : ./elpis browser migrate-states '
+               + `<compte> ${stateId}, qui renomme cookies/${ancien} en ${nom}. Relancez ensuite `
+               + 'start avec le même load_state_id (isolated=true si une session est déjà '
+               + 'ouverte) ; en attendant, démarrez sans load_state_id.',
+        };
+    }
+    const purge = maxAgeDays > 0
+        ? ` Un état est supprimé ${maxAgeDays} jours après son enregistrement, même s'il sert : `
+          + "save_state en crée un nouveau, sous l'identifiant de la session." : '';
+    return {
+        code: 'state_not_found',
+        error: 'État sauvegardé introuvable (load_state_id).',
+        fix: 'Utilisez le state_id rendu par save_state sur ce compte, ou démarrez sans '
+           + `load_state_id.${purge}`,
+    };
+}
+
 /** Nom de fichier sûr pour un téléchargement (jamais de chemin). */
 export function safeDownloadName(name) {
     const base = String(name ?? '').split(/[\\/]/).pop().replace(/[\x00-\x1f]/g, '').trim();
@@ -126,12 +179,14 @@ export function safeDownloadName(name) {
 }
 
 /**
- * Fichiers d'artefacts à purger : plus vieux que ``maxAgeMs``.
- * ``entries`` : ``[{ name, mtimeMs }]`` → noms à supprimer.
+ * Fichiers d'artefacts à purger : plus vieux que ``maxAgeMs``, sauf ceux que
+ * ``keep(nom)`` garde. ``entries`` : ``[{ name, mtimeMs }]`` → noms à supprimer.
  */
-export function planArtifactPurge(entries, { now = Date.now(), maxAgeMs } = {}) {
+export function planArtifactPurge(entries, { now = Date.now(), maxAgeMs, keep } = {}) {
     if (!maxAgeMs || maxAgeMs <= 0) return [];
-    return (entries || []).filter(e => e && now - (e.mtimeMs || 0) > maxAgeMs).map(e => e.name);
+    return (entries || [])
+        .filter(e => e && now - (e.mtimeMs || 0) > maxAgeMs && !(keep && keep(e.name)))
+        .map(e => e.name);
 }
 
 

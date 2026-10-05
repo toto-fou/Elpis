@@ -723,6 +723,8 @@ l'être). Routes :
 |---|---|---|
 | `PLAYWRIGHT_API_URL` | `http://localhost:3000` | Service navigateur (côté app) |
 | `FIREFOX_SERVICE_PORT` | `3000` | Port d'écoute du service navigateur |
+| `PW_STATE_MAX_AGE_D` | `30` | Jours de conservation d'un état sauvegardé du navigateur (`save_state`) après son enregistrement ou son rattachement, même s'il sert ; `0` = jamais supprimé. Lu au démarrage du service navigateur (`.env`). Les états d'avant la 0.0.1, sans compte, ne sont jamais purgés : voir [exploitation.md](exploitation.md#mettre-à-jour) |
+| `PW_ARTIFACT_MAX_AGE_H` | `24` | Heures de conservation des téléchargements, HAR, vidéos et traces du navigateur ; `0` = jamais supprimés |
 | `PLAYWRIGHT_HEADLESS` / `PLAYWRIGHT_TIMEOUT` / `PLAYWRIGHT_VISION` | `true` / `10` (s) / `false` | Options Playwright |
 | `APP_VISION_ENDPOINT_URL` / `APP_VISION_FORMAT` / `APP_VISION_MODEL` | — / `omniparser` / — | Endpoint d'annotation visuelle |
 | `APP_VISION_PASSES` / `APP_VISION_TIMEOUT_SEC` / `APP_VISION_PROMPT` | `2` (1-3) / `30` (5-300) / — | Passes, timeout, prompt d'annotation |

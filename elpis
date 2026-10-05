@@ -20,6 +20,11 @@
 #  ./elpis backup [full|db|sandboxes|mcp]   sauvegarde dans backups/ (0600)
 #  ./elpis upgrade [--no-backup] sauvegarde, git pull --ff-only, dépendances,
 #                                redémarrage (migrations au démarrage), doctor
+#  ./elpis browser states        états du navigateur enregistrés avant la 0.0.1
+#                                (sans compte) : identifiant, date, sites
+#  ./elpis browser migrate-states COMPTE ID…|--all [--dry-run] [--no-check]
+#                                les rattache au compte Elpis COMPTE (même
+#                                load_state_id, 30 jours)
 #  ./elpis db info|check|transfer|use   base de données : état, test d'une
 #                                cible, copie vers une base vide, choix du
 #                                moteur (« ./elpis db use sqlite » = porte de
@@ -434,6 +439,12 @@ cmd_doctor() {
             "curl -fsS -m 3 'http://127.0.0.1:$BROWSER_PORT/health' | grep -q '\"ok\":true'" \
             "./elpis logs browser"
     fi
+    local etats_sans_compte
+    if etats_sans_compte="$("$PY" -m shared_infra.ops.browser_states states --count 2>/dev/null)"; then
+        [ "$etats_sans_compte" = 0 ] || info "navigateur : $etats_sans_compte état(s) d'avant la 0.0.1, sans compte : à rattacher ou à supprimer (./elpis browser states)"
+    else
+        info "navigateur : états d'avant la 0.0.1 non vérifiés (./elpis browser states)"
+    fi
     check "Docker joignable" "docker info" "installer docker, groupe docker"
     local image
     image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
@@ -550,6 +561,7 @@ case "${1:-}" in
     doctor)    cmd_doctor ;;
     backup)    shift; cmd_backup "$@" ;;
     upgrade)   shift; cmd_upgrade "$@" ;;
+    browser)   shift; load_runtime; exec "$PY" -m shared_infra.ops.browser_states "$@" ;;
     db)        shift; load_runtime; exec "$PY" -m shared_infra.db "$@" ;;
     -h|--help|help|"") usage ;;
     *) usage; exit 2 ;;

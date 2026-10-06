@@ -25,6 +25,41 @@ import net from 'net';
 const _SAUT_PAR_SAUT = new Set(['proxy-connection', 'proxy-authorization', 'connection',
     'keep-alive', 'te', 'trailer', 'transfer-encoding', 'upgrade']);
 
+/**
+ * En-têtes d'une réponse amont à rendre au navigateur, d'après ``rawHeaders``
+ * (``[nom, valeur, nom, valeur…]``) : un en-tête répété le reste. ``r.headers``
+ * de Node réunit les répétitions en une ligne (« Negotiate, NTLM ») ; pour
+ * ``WWW-Authenticate``, le navigateur n'y reconnaît plus aucun schéma et
+ * n'envoie jamais les identifiants (401 sans fin sur un site IIS/AD).
+ */
+export function entetesReponse(brut) {
+    const sortie = Object.create(null);
+    for (let i = 0; i + 1 < (brut || []).length; i += 2) {
+        const k = String(brut[i]).toLowerCase();
+        if (_SAUT_PAR_SAUT.has(k)) continue;
+        if (k in sortie) sortie[k] = [].concat(sortie[k], brut[i + 1]);
+        else sortie[k] = brut[i + 1];
+    }
+    return sortie;
+}
+
+// Une connexion amont PAR connexion du navigateur. L'agent global de Node
+// partage ses connexions entre toutes les requêtes : une connexion
+// authentifiée (NTLM, Negotiate : l'identité tient à la connexion) servait
+// alors la requête suivante, d'où qu'elle vienne — y compris d'une autre
+// session, sans identifiants. Et sans keep-alive (Node < 19), la poignée de
+// main NTLM changeait de connexion à chaque étape et échouait.
+const _agents = new WeakMap();
+function _agentPour(socket) {
+    let agent = _agents.get(socket);
+    if (!agent) {
+        agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+        _agents.set(socket, agent);
+        socket.once('close', () => agent.destroy());
+    }
+    return agent;
+}
+
 function _hotePort(brut, portDefaut) {
     const s = String(brut || '');
     const m = /^\[([^\]]+)\](?::(\d+))?$/.exec(s) || /^([^:]+)(?::(\d+))?$/.exec(s);
@@ -82,12 +117,9 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
         const amont = http.request({
             host: v.adresse, port: hp.port, method: req.method,
             path: cible.pathname + cible.search, headers: entetes, setHost: false,
+            agent: _agentPour(req.socket),
         }, (r) => {
-            const sortie = {};
-            for (const [k, val] of Object.entries(r.headers)) {
-                if (!_SAUT_PAR_SAUT.has(k.toLowerCase())) sortie[k] = val;
-            }
-            res.writeHead(r.statusCode || 502, r.statusMessage, sortie);
+            res.writeHead(r.statusCode || 502, r.statusMessage, entetesReponse(r.rawHeaders));
             r.pipe(res);
         });
         amont.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });

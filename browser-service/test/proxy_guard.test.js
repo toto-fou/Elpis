@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'http';
 import net from 'net';
-import { demarrerRelais, verifierDepuisPolitique } from '../proxy_guard.js';
+import { demarrerRelais, verifierDepuisPolitique, entetesReponse } from '../proxy_guard.js';
 
 function serveurCible() {
     return new Promise((resolve) => {
@@ -151,4 +151,85 @@ test('vérificateur de service : verdicts gardés brièvement, négatifs compris
     t = 1200;
     await v('ok.test', 443);
     assert.equal(appels, 4);
+});
+
+// ── Authentification HTTP à travers le relais ───────────────────────────────
+
+// Requête brute par le relais sur UNE connexion donnée → lignes de la réponse.
+function brut(socket, hote, port, chemin) {
+    return new Promise((resolve, reject) => {
+        let recu = '';
+        const lire = (d) => {
+            recu += d;
+            const fin = recu.indexOf('\r\n\r\n');
+            if (fin < 0) return;
+            const tete = recu.slice(0, fin);
+            const m = /content-length: (\d+)/i.exec(tete);
+            if (recu.length < fin + 4 + (m ? parseInt(m[1], 10) : 0)) return;
+            socket.off('data', lire);
+            resolve(tete.split('\r\n'));
+        };
+        socket.on('data', lire);
+        socket.once('error', reject);
+        socket.write(`GET http://${hote}:${port}${chemin} HTTP/1.1\r\nHost: ${hote}:${port}\r\n\r\n`);
+    });
+}
+
+function ouvrir(port) {
+    return new Promise((resolve, reject) => {
+        const s = net.connect(port, '127.0.0.1', () => resolve(s));
+        s.once('error', reject);
+    });
+}
+
+test('entetesReponse : un en-tête répété le reste, saut par saut retiré', () => {
+    const e = entetesReponse(['WWW-Authenticate', 'Negotiate', 'Connection', 'keep-alive',
+                              'WWW-Authenticate', 'NTLM', 'Content-Type', 'text/html']);
+    assert.deepEqual(e['www-authenticate'], ['Negotiate', 'NTLM']);
+    assert.equal(e['content-type'], 'text/html');
+    assert.equal('connection' in e, false);
+});
+
+test('http : plusieurs WWW-Authenticate arrivent en lignes séparées (IIS : Negotiate + NTLM)', async () => {
+    const cible = http.createServer((req, res) => {
+        res.writeHead(401, { 'WWW-Authenticate': ['Negotiate', 'NTLM', 'Basic realm="z"'], 'content-length': 0 });
+        res.end();
+    });
+    await new Promise(r => cible.listen(0, '127.0.0.1', r));
+    const relais = await demarrerRelais({ verifier });
+    const s = await ouvrir(relais.port);
+    try {
+        const lignes = await brut(s, 'permis.test', cible.address().port, '/');
+        const defis = lignes.filter(l => /^www-authenticate:/i.test(l)).map(l => l.split(': ')[1]);
+        assert.deepEqual(defis, ['Negotiate', 'NTLM', 'Basic realm="z"']);
+    } finally {
+        s.destroy(); await relais.close(); cible.close();
+    }
+});
+
+test('http : une connexion amont par connexion cliente, jamais partagée entre clients', async () => {
+    // La cible répond le port source de la connexion qu'elle voit : même
+    // client → même connexion amont (NTLM tient) ; autre client → autre connexion.
+    const cible = http.createServer((req, res) => {
+        const corps = String(req.socket.remotePort);
+        res.writeHead(200, { 'content-length': corps.length, 'x-amont': corps });
+        res.end(corps);
+    });
+    await new Promise(r => cible.listen(0, '127.0.0.1', r));
+    const relais = await demarrerRelais({ verifier });
+    const port = cible.address().port;
+    const amont = (lignes) => lignes.find(l => /^x-amont:/i.test(l)).split(': ')[1];
+    const a = await ouvrir(relais.port);
+    const b = await ouvrir(relais.port);
+    try {
+        const a1 = amont(await brut(a, 'permis.test', port, '/1'));
+        const a2 = amont(await brut(a, 'permis.test', port, '/2'));
+        const b1 = amont(await brut(b, 'permis.test', port, '/1'));
+        const a3 = amont(await brut(a, 'permis.test', port, '/3'));
+        assert.equal(a1, a2);
+        assert.equal(a1, a3);
+        assert.notEqual(a1, b1);
+    } finally {
+        a.destroy(); b.destroy(); await relais.close(); cible.close();
+    }
 });

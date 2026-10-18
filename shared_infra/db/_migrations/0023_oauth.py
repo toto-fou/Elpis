@@ -8,7 +8,7 @@ usage unique) et ``oauth_tokens`` (jetons d'accès et de rafraîchissement
 opaques). Seules des empreintes SHA-256 sont stockées (cf.
 ``shared_infra/mcp/oauth.py``).
 
-Sur PostgreSQL et MariaDB, les migrations couvertes par le schéma de référence
+Sur PostgreSQL, les migrations couvertes par le schéma de référence
 sont tamponnées sans être rejouées : les tables y sont posées au démarrage par
 ``ensure_tables`` (``oauth._prepare``).
 

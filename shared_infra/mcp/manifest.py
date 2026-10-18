@@ -171,15 +171,6 @@ def _strip_mcp_path(url: str) -> str:
                        "", "")).rstrip("/")
 
 
-def _is_loopback_url(url: str) -> bool:
-    from urllib.parse import urlparse
-    try:
-        h = (urlparse(url).hostname or "").lower()
-    except Exception:
-        return False
-    return h in ("127.0.0.1", "localhost", "::1")
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 #  Modèle
 # ─────────────────────────────────────────────────────────────────────────────
@@ -207,7 +198,6 @@ class ServerEntry:
     host: str = ""                                        # clé dans ``toolHosts``
     fallback: Optional[Dict[str, Any]] = None
     serve: Dict[str, Any] = field(default_factory=dict)
-    probe: Optional[bool] = None
     prompt_fragments: Dict[str, str] = field(default_factory=dict)
     raw: Dict[str, Any] = field(default_factory=dict)
 
@@ -231,16 +221,6 @@ class ServerEntry:
                 return v
         return ""
 
-    @property
-    def probe_before_use(self) -> bool:
-        """Faut-il SONDER l'URL avant de s'y fier (repli stdio si injoignable) ?
-        Explicite via ``x-elpis.probe`` ; sinon oui pour une URL loopback
-        doublée d'un repli, non pour une URL distante (jamais de repli
-        silencieux vers un stdio local)."""
-        if self.probe is not None:
-            return bool(self.probe)
-        return bool(self.fallback) and _is_loopback_url(self.url)
-
     # ── Vue client (pool d'outils de l'app) ──────────────────────────────
     def client_cfg(self, filter_categories: Optional[List[str]] = None) -> Dict[str, Any]:
         """Config telle que le pool / ``_resolve_mcp_client`` la consomment.
@@ -248,7 +228,7 @@ class ServerEntry:
         ``DEFAULT_LOCAL_PYTHON``) : c'est l'alias que tout le code existant
         reconnaît (clé de pool unique, injection d'identité). Le résolveur
         relit ensuite l'entrée du manifeste pour l'URL / le repli."""
-        if self.role == ROLE_APP:
+        if self.role == ROLE_APP and not self.is_network:
             # (2026-09-12, P4) MCP INTERNE de l'app : familles liées au compte,
             # servies dans le processus de la boucle de chat (transport mémoire).
             cfg: Dict[str, Any] = {"type": TYPE_INPROCESS, "name": self.name,
@@ -281,9 +261,8 @@ class ServerEntry:
         """Les trois façons de joindre CETTE entrée depuis un applicatif tiers.
 
         ``base_url`` = origine de l'hôte d'outils (``http://…:8765``) ; à défaut
-        elle est dérivée de l'URL de l'entrée. Une entrée ``inprocess`` (familles
-        liées au compte) n'a d'endpoint réseau que si l'hôte enregistre aussi sa
-        famille — c'est le cas en mode local."""
+        elle est dérivée de l'URL de l'entrée. Une entrée ``role: app`` réseau
+        (service appmcp) n'a que l'endpoint HTTP streamable."""
         fam = self.families[0] if len(self.families) == 1 else ""
         base = (base_url or "").rstrip("/")
         if not base and self.url:
@@ -292,7 +271,8 @@ class ServerEntry:
         out: Dict[str, Any] = {}
         if base:
             out["http"] = f"{base}/mcp{seg}"
-            out["sse"] = f"{base}/sse{seg}"
+            if not (self.role == ROLE_APP and self.is_network):
+                out["sse"] = f"{base}/sse{seg}"
         fb = self.fallback or {}
         if fb.get("command"):
             out["stdio"] = {"command": fb["command"], "args": list(fb.get("args") or []),
@@ -338,7 +318,7 @@ class Manifest:
                 if e.role == ROLE_TOOLHOST and (e.enabled or not enabled_only)]
 
     def apps(self, *, enabled_only: bool = True) -> List[ServerEntry]:
-        """Toutes les entrées ``role: app`` (servies en mémoire par l'app)."""
+        """Toutes les entrées ``role: app`` (familles liées au compte, servies par appmcp)."""
         return [e for e in self.servers.values()
                 if e.role == ROLE_APP and (e.enabled or not enabled_only)]
 
@@ -397,13 +377,11 @@ class Manifest:
         return self.servers.get(str(name or "").strip())
 
     def families(self) -> List[str]:
-        """Familles à ENREGISTRER sur le service d'outils : union des entrées
-        intégrées (toolhost + app), ordre canonique. Les familles liées au
-        compte en font partie — en mode local l'hôte les sert aussi, donc
-        ``/mcp/memory`` reste joignable par un applicatif tiers ; en déport,
-        ``toolhost.json › families`` les retire."""
+        """Familles à enregistrer sur l'hôte d'outils : entrées toolhost et entrées app encore en mémoire."""
         want: Set[str] = set()
         for e in self.builtins():
+            if e.role == ROLE_APP and e.is_network:
+                continue                                # servie par son propre service (appmcp)
             want |= set(e.families)
         out = [f for f in FAMILY_NAMES if f in want]
         return out or (list(FAMILY_NAMES) if not self.builtins() else [])
@@ -475,7 +453,7 @@ class Manifest:
                 "opencode_families": list(e.opencode_families),
                 "opencode_publish": e.opencode_publish,
                 "has_token": bool(e.token), "fallback": bool(e.fallback),
-                "probe": e.probe_before_use, "sandbox": e.sandbox,
+                "sandbox": e.sandbox,
                 "host": e.host,
             })
         return {"version": self.version, "source": self.source,
@@ -503,7 +481,7 @@ def export_servers(entries: List[ServerEntry], *, base_url: str = "",
         transport = "http"
     out: Dict[str, Any] = {}
     for e in entries:
-        eps = e.endpoints(base_url)
+        eps = e.endpoints(base_url if e.role == ROLE_TOOLHOST else "")
         name = f"{prefix}{e.name}" if prefix else e.name
         if transport == "stdio":
             st = eps.get("stdio")
@@ -659,8 +637,6 @@ def normalize_entry(name: str, raw: Dict[str, Any], *, warnings: List[str],
 
     serve = xe.get("serve")
     serve = dict(serve) if isinstance(serve, dict) else {}
-    probe = xe.get("probe")
-    probe = bool(probe) if isinstance(probe, bool) else None
     pf = xe.get("prompt_fragments")
     pf = {str(k): str(v) for k, v in pf.items()} if isinstance(pf, dict) else {}
 
@@ -675,7 +651,7 @@ def normalize_entry(name: str, raw: Dict[str, Any], *, warnings: List[str],
         opencode_publish=oc_publish,
         sandbox=str(xe.get("sandbox") or "").strip(),
         host=str(xe.get("host") or xe.get("sandbox") or "").strip(),
-        fallback=fallback, serve=serve, probe=probe, prompt_fragments=pf,
+        fallback=fallback, serve=serve, prompt_fragments=pf,
         raw=raw,
     )
 
@@ -734,7 +710,6 @@ def _legacy_toolhost_raw(warnings: List[str]) -> Dict[str, Any]:
     from shared_infra import config as cfg
     from shared_infra.mcp.families import opencode_families as _oc_fams
     url = str(getattr(cfg, "LOCAL_MCP_URL", "") or "").strip()
-    derived = bool(getattr(cfg, "LOCAL_MCP_URL_IS_DERIVED", False))
     token = str(getattr(cfg, "LOCAL_MCP_TOKEN", "") or "").strip()
     fams_raw = str(getattr(cfg, "LOCAL_MCP_TOOL_FAMILIES", "all") or "all")
     entry: Dict[str, Any] = {
@@ -749,7 +724,6 @@ def _legacy_toolhost_raw(warnings: List[str]) -> Dict[str, Any]:
             "fallback": {"type": TYPE_STDIO, "command": sys.executable or "python3",
                          "args": [str(_project_root() / "server" / "local_mcp_server.py")],
                          "env": {"LOCAL_MCP_TRANSPORT": "stdio"}},
-            "probe": derived,
         },
     }
     if url:
@@ -833,14 +807,13 @@ def _apply_env_overrides(servers: Dict[str, ServerEntry], warnings: List[str],
             fam = e.families[0] if len(e.families) == 1 else ""
             e.url = f"{base}{mount}" + (f"/{fam}" if fam else "")
             e.type = TYPE_SSE if mount == "/sse" else TYPE_HTTP
-            e.probe = False                                  # explicite = de confiance
         if _hk:
             hosts[_hk]["url"] = base
     tok = (os.environ.get("LOCAL_MCP_TOKEN") or "").strip()
     if tok:
         if _hk:
             hosts[_hk]["token"] = tok
-        for e in ths:
+        for e in ths + [x for x in servers.values() if x.role == ROLE_APP and x.is_network]:
             e.headers = {**{k: v for k, v in e.headers.items() if k.lower() != "authorization"},
                          "Authorization": f"Bearer {tok}"}
     fams = os.environ.get("LOCAL_MCP_TOOL_FAMILIES")

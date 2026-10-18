@@ -627,7 +627,7 @@ class KPILLMStatusProvider(MetricProvider):
     def category(self): return "performance"
     def get_data(self):
         try:
-            from llm_core import get_llm_health_sync
+            from llm_core._health import get_llm_health_sync
             h=get_llm_health_sync()
             # ``state`` : seule couleur que la console affiche encore — elle
             # signale une ANOMALIE (``color`` reste pour la rétrocompatibilité).

@@ -285,8 +285,9 @@ def _spawn_terminal(uid: int, sid: str = DEFAULT_SID) -> dict:
     # terminal inutilisable alors que l'éditeur et les outils MCP marchent (eux
     # passent déjà par la source unique). Le repli suit celui de
     # ``_get_sandbox_path`` (``user_<id>``) pour rester aligné bout en bout.
+    from shared_infra.accounts.identity import resolve_username
     from shared_infra.config import safe_sandbox_name
-    username = safe_sandbox_name(get_username_by_id(uid) or f"user_{uid}")
+    username = safe_sandbox_name(resolve_username(uid) or get_username_by_id(uid) or f"user_{uid}")
 
     # ─── Vérifier que le container Docker du user est running ──────────
     from shared_infra.sandbox.naming import container_name as _cname
@@ -677,7 +678,7 @@ def _new_sid() -> str:
 
 
 def _valid_sid(sid: str) -> bool:
-    return bool(sid) and bool(_SID_RE.match(sid))
+    return bool(sid) and bool(_SID_RE.fullmatch(sid))
 
 
 def _count_user_sessions(uid: int, tid: Optional[int] = None) -> int:
@@ -985,6 +986,14 @@ def _ws_auth_uid(ws: WebSocket) -> Optional[int]:
     return uid_int
 
 
+def revalidee_par_le_relais(conn) -> bool:
+    """Vrai quand l'identité (WebSocket ou requête) vient de l'enveloppe du relais : main revalide la session."""
+    try:
+        return (conn.scope.get("state") or {}).get("toolhost_identity") is not None
+    except Exception:                                             # noqa: BLE001
+        return False
+
+
 async def _terminal_ws_loop(ws: WebSocket, state: dict) -> None:
     """Shared WebSocket <-> PTY pump used by both personal and team endpoints.
 
@@ -1034,12 +1043,14 @@ async def _terminal_ws_loop(ws: WebSocket, state: dict) -> None:
     _sess_uid = state.get("uid")
     _last_sess_check = time.time()
 
+    _relayee = revalidee_par_le_relais(ws)
+
     async def _session_recheck() -> bool:
         """Rend False (et ferme le WS en 4001) si la session est morte.
         Ne touche la DB qu'une fois par minute ; fail-open sur erreur
         transitoire (cf. stream_session_still_valid)."""
         nonlocal _last_sess_check
-        if time.time() - _last_sess_check < 60.0:
+        if _relayee or time.time() - _last_sess_check < 60.0:
             return True
         _last_sess_check = time.time()
         try:
@@ -1343,6 +1354,12 @@ async def _terminal_ws_loop(ws: WebSocket, state: dict) -> None:
                 break
             mtype = msg.get("type")
             if mtype == "websocket.disconnect":
+                if _relayee and msg.get("code") == 4001:
+                    logger.info(f"[PTY-WS] session expirée signalée par le relais uid={_sess_uid}")
+                    try:
+                        kill_user_terminals(int(_sess_uid))
+                    except Exception:
+                        logger.debug("[PTY-WS] kill_user_terminals sur 4001 échoué", exc_info=True)
                 break
             if mtype != "websocket.receive":
                 continue

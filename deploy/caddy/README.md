@@ -1,6 +1,6 @@
 # HTTPS via Caddy (LAN, sans domaine, « actionless » côté client)
 
-Elpis est servi en HTTP direct par gunicorn (`:8001` main, `:8002` admin,
+Elpis est servi en HTTP direct par le core (`:8001` main, `:8002` admin,
 `:8000` RAG). Ce dossier fournit le frontal TLS : un Caddy local en
 systemd + une PKI locale **stable** générée côté serveur. Aucun domaine,
 aucun Let's Encrypt, et **rien à installer sur les postes clients**.
@@ -46,7 +46,7 @@ partagé (un login sur l'app vaut pour la console admin).
 
 Caddy tourne **en permanence** ; le passage HTTPS ↔ HTTP direct se pilote
 depuis la console admin (Configuration → Accès HTTPS) qui bascule les
-binds gunicorn `0.0.0.0` ↔ `127.0.0.1` puis redémarre l'app. Mode HTTPS
+binds du core `0.0.0.0` ↔ `127.0.0.1` puis redémarre l'app. Mode HTTPS
 coupé : Caddy continue de marcher en parallèle, inoffensif.
 
 ## Installation (tout côté serveur)
@@ -102,9 +102,18 @@ l'un ni l'autre n'authentifie le serveur), pour une commande sans piège.
 > secret : c'est la seule porte non chiffrée du frontal. Le contrat est
 > verrouillé par `tests/shared_infra/test_install_bootstrap_contract.py`.
 
-## Bundle offline (.deb vendorisés)
+## Paquet `caddy` : un prérequis apt
 
-Sur une machine connectée (la VM de dev convient), **une fois** :
+`install.sh` n'installe pas Caddy : le paquet `caddy` est un prérequis apt
+(groupe `https` de [`deploy/prerequis-apt.txt`](../prerequis-apt.txt), par le
+miroir du LAN ou le support de l'OS hors ligne), et le paquet hors ligne de
+`make_release.sh` n'en contient pas. `install.sh --with-caddy` et
+`./elpis configure` le configurent seulement.
+
+### Bundle de .deb (outil manuel, hors d'install.sh)
+
+Pour une machine sans miroir, un administrateur peut encore vendoriser les
+`.deb` sur une machine connectée (la VM de dev convient), **une fois** :
 
 ```bash
 deploy/caddy/fetch_caddy_debs.sh    # vendorise caddy + deps dans deploy/caddy/debs/
@@ -112,10 +121,11 @@ deploy/caddy/fetch_caddy_debs.sh    # vendorise caddy + deps dans deploy/caddy/d
 
 Les `.deb` voyagent ensuite avec le dossier de l'app (gitignorés, comme
 les wheels Python — transférez par copie de dossier, pas par git clone).
-`install_caddy.sh` les détecte et les installe **sans réseau**, en ne
-posant que ce qui manque sur la cible (jamais de downgrade d'une lib de
-base déjà présente) ; sans bundle, il retombe sur apt en ligne. openssl
-est présent de base sur Debian — rien d'autre à prévoir.
+`sudo deploy/caddy/install_caddy.sh`, lancé **à la main**, les détecte et
+les installe **sans réseau**, en ne posant que ce qui manque sur la cible
+(jamais de downgrade d'une lib de base déjà présente) ; sans bundle, il
+retombe sur apt en ligne. openssl est présent de base sur Debian — rien
+d'autre à prévoir.
 
 Si le fetch affiche « dépendance non vendorisée » (index apt périmé →
 404) : ces libs de base (libc6…) sont de toute façon présentes sur toute
@@ -123,11 +133,9 @@ Debian ; pour un bundle complet, `sudo apt-get update` puis relancez.
 
 ## Points de vigilance
 
-- **Après déploiement de cette feature, relancer l'app une fois**
-  (`./elpis stop && ./elpis start`) avant le premier toggle : le re-bind à chaud
-  repose sur `reuse_port` + hook `on_reload` des confs gunicorn — un
-  master encore lancé avec les anciennes confs (ou avec `BIND` en env)
-  ne rebindera pas au SIGHUP.
+- **Le core relit le bind à son redémarrage** : le toggle lui envoie un
+  `SIGHUP`, il sort en 75 et `./elpis` ou systemd le relance. Un core lancé
+  avec `BIND` en env garde ce bind quel que soit le toggle.
 - **Pas de HSTS, redirect :80 en 302** : voulu — le retour en HTTP direct
   via le toggle admin doit rester possible. Ne pas « durcir ».
 - **Le bloc `@bootstrap` doit rester AVANT le `handle {}` catch-all** du
@@ -145,23 +153,23 @@ Debian ; pour un bundle complet, `sudo apt-get update` puis relancez.
   « Config principale » de la console renvoie config.json ENTIER : sans
   précaution, une sauvegarde faite depuis un formulaire chargé *avant* la
   bascule remettait `enabled: false`. Rien ne se voyait tant que l'app
-  tournait (le bind vit en mémoire) ; au redémarrage suivant gunicorn
+  tournait (le bind vit en mémoire) ; au redémarrage suivant le core
   rebindait `0.0.0.0` et l'app répondait en clair sur `:8001`/`:8002`
-  pendant que Caddy servait toujours du https. `routes/admin/config.py ›
-  _OWNED_PATHS` restaure désormais ces chemins depuis le disque, dans les
+  pendant que Caddy servait toujours du https. `apps/core/src/admin/config.ts ›
+  OWNED_PATHS` restaure désormais ces chemins depuis le disque, dans les
   deux sens : **activer le HTTPS par l'éditeur brut ne marche pas non plus**
   — il faut le toggle, qui sonde Caddy avant d'écrire.
 - **Break-glass** (app injoignable, ex. Caddy mort alors que le mode
   HTTPS est actif → binds en loopback) :
   - soit relancer temporairement en bind ouvert :
-    `BIND=0.0.0.0:8001 gunicorn -c server/gunicorn_conf.py server.app:app`
+    `BIND=0.0.0.0:8001 ELPIS_RACINE=$PWD APP_MODE=main node/bin/node apps/core/dist/main.mjs`
     (l'env `BIND` est prioritaire sur le toggle) ;
   - soit éditer `config.json` (racine du dépôt) → `security.https.enabled: false`
     (+ `security.session.https_only: false`) et relancer l'app.
 - **Le RAG (`:8000`) ne suit le toggle qu'au (re)lancement** de
   `./elpis start` — c'est un uvicorn autonome, sans hook de reload.
   Après une bascule, relancez la pile, sinon son port reste ouvert en
-  clair. Le script lit le MÊME fichier que les confs gunicorn
+  clair. Le script lit le MÊME fichier que le core
   (`APP_CONFIG_PATH` d'abord) : ne pas réintroduire de chemin en dur.
 - **Cookies** : HTTP→HTTPS conserve la session ; HTTPS→HTTP force une
   reconnexion (le cookie `Secure` n'est plus envoyé en clair). Normal.

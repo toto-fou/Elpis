@@ -5,7 +5,7 @@ labels: bug
 ---
 
 **Version** : commit ou version (`git rev-parse --short HEAD`)
-**Système** : distribution, base (SQLite, PostgreSQL, MariaDB), moteur LLM
+**Système** : distribution, base (SQLite, PostgreSQL), moteur LLM
 
 **Ce qui se passe**
 

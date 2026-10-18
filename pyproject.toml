@@ -1,6 +1,6 @@
 [project]
 name = "elpis"
-version = "0.0.1"
+version = "0.1.0"
 description = "Self-hosted LLM assistant: agentic chat, per-user sandbox, code editor, scheduled routines and RAG."
 readme = "README.md"
 license = "MIT"
@@ -42,11 +42,7 @@ combine-as-imports = true
 "**/__init__.py" = ["F401"]
 # Ordre d'import = ordre d'enregistrement des routes, ou de chargement des
 # sous-modules : jamais trié.
-"shared_infra/routes/__init__.py" = ["F401", "I001"]
-"shared_infra/routes/admin/__init__.py" = ["F401", "I001"]
-"llm_core/__init__.py" = ["F401", "I001"]
 "shared_infra/memory/ax/__init__.py" = ["F401", "I001"]
-"toolhost/app.py" = ["I001"]
 # Signatures d'outils MCP : défauts (``[]``, ``None``) et types sont dans le
 # schéma vu par le modèle, et FastMCP (pydantic) passe une copie des défauts à
 # chaque appel ; aucun outil ne modifie ses arguments (vérifié le 2026-09-29).
@@ -69,16 +65,9 @@ files = [
     "shared_infra/sandbox/agent",
     "shared_infra/sandbox/agent_client.py",
     "shared_infra/runtime",
-    "llm_core/_tool_traits.py",
     "llm_core/context/tokens.py",
-    "llm_core/_scheduling",
-    "llm_core/engine",
     "shared_infra/security/browser_url.py",
-    "shared_infra/ops/browser_states.py",
-    "shared_infra/mcp/openapi.py",
-    "shared_infra/mcp/routes_openapi.py",
     "shared_infra/mcp/oauth.py",
-    "shared_infra/mcp/routes_oauth.py",
     "shared_infra/mcp/origins.py",
     "shared_infra/mcp/delegation.py",
     "shared_infra/image",

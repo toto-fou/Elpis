@@ -565,7 +565,7 @@ def _executable_mode(cur: int) -> int:
 # Sans verrou, ``expected_sha256`` serait un check-then-write : deux
 # écritures concurrentes (workers gunicorn différents) liraient le même sha
 # puis écriraient toutes les deux.
-# Pattern calqué sur _SkillsWriteLock : flock advisory sur un lockfile
+# flock advisory sur un lockfile
 # sidecar à inode STABLE (jamais unlink, cf. cron_lock), HORS de la sandbox
 # user (pas de pollution du tree, pas d'attaque sur le lockfile).
 # Garde-fous : FAIL-OPEN (flock indispo / contention > ~3 s → on continue,
@@ -653,7 +653,7 @@ def _history_writer(username: str, sb: Path, p: Path, after: Optional[bytes]):
         from shared_infra.sandbox.file_history import current_session, record_write
         # Session créée HORS du verrou de compte : ``record_write`` appelle
         # ``current_session`` sous ce verrou, et une création de session à
-        # cet endroit re-prend le même flock (attente de 5 s, fail-open).
+        # cet endroit re-prend le même verrou (attente de 5 s, fail-open).
         current_session(uid)
         record_write(uid, rel, before, after, "assistant")
     return _rec

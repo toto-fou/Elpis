@@ -78,7 +78,7 @@ _ROOTS: Dict[str, Path] = {}
 
 def doc_dir(doc_id: str) -> Path:
     """Dossier d'un document — valide le format de l'id (anti-traversal)."""
-    if not _DOC_ID_RE.match(doc_id or ""):
+    if not _DOC_ID_RE.fullmatch(doc_id or ""):
         raise FileNotFoundError(f"doc_id invalide : {doc_id!r}")
     d = ocr_root() / doc_id
     if not (d / "meta.json").is_file():
@@ -365,7 +365,7 @@ def list_docs(running_probe: Optional[Callable[[str], bool]] = None
     root = ocr_root()
     for child in root.iterdir():
         try:
-            if not (child.is_dir() and _DOC_ID_RE.match(child.name)
+            if not (child.is_dir() and _DOC_ID_RE.fullmatch(child.name)
                     and (child / "meta.json").is_file()):
                 continue
             meta = reconcile_stale(child, read_meta(child), running_probe)
@@ -382,7 +382,7 @@ def list_docs(running_probe: Optional[Callable[[str], bool]] = None
 def count_docs() -> int:
     root = ocr_root()
     return sum(1 for c in root.iterdir()
-               if _DOC_ID_RE.match(c.name) and (c / "meta.json").is_file())
+               if _DOC_ID_RE.fullmatch(c.name) and (c / "meta.json").is_file())
 
 
 def iter_page_markdown(d: Path, meta: Dict[str, Any]) -> Iterator[Tuple[int, str]]:
@@ -521,7 +521,7 @@ def search_docs(query: str, max_page_hits: int = 200) -> Dict[str, Any]:
         except OSError:
             return 0.0
     docs = sorted((c for c in root.iterdir()
-                   if _DOC_ID_RE.match(c.name) and (c / "meta.json").is_file()),
+                   if _DOC_ID_RE.fullmatch(c.name) and (c / "meta.json").is_file()),
                   key=_mtime, reverse=True)
     for child in docs:
         try:

@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: MIT
+/** packages/mcp/src/index.ts — point d'entrée de @elpis/mcp : pool unique, manifeste, familles, serveurs des comptes, origines, délégation. */
+export {
+  APP_FAMILIES,
+  DEFAULT_OPENCODE_EXCLUDE,
+  DEFAULT_OPENCODE_FAMILIES,
+  FAMILY_CATEGORY,
+  FAMILY_NAMES,
+  FAMILY_REGISTER_FN,
+  isFamilyName,
+  opencodeFamilies,
+  parseFamilies,
+  parseFamilySet,
+  SANDBOX_FAMILIES,
+  TOOL_FAMILIES,
+} from "./familles";
+export type { Avertir, OptionsOpencode } from "./familles";
+export {
+  BUILTIN_SENTINEL,
+  builtinClientCfg,
+  builtinClientCfgs,
+  commandeStdioHote,
+  DEFAULT_TOOLHOST_NAME,
+  exportServers,
+  IDENTITY_META,
+  IDENTITY_TOKEN,
+  interpreteurPython,
+  load,
+  Manifest,
+  MANIFEST_VERSION,
+  manifestPath,
+  normalizeEntry,
+  OPENCODE_PREFIX_DEFAULT,
+  oublierManifeste,
+  reglerEnvironnementManifeste,
+  reload,
+  resolveExternalCfg,
+  ROLE_APP,
+  ROLE_EXTERNAL,
+  ROLE_TOOLHOST,
+  schemaPath,
+  ServerEntry,
+  serviceUpstream,
+  stripMcpPath,
+  substitute,
+  toolhostEntry,
+  TYPE_HTTP,
+  TYPE_INPROCESS,
+  TYPE_SSE,
+  TYPE_STDIO,
+  validateRaw,
+} from "./manifeste";
+export type { ConfigMcp, RepliStdio } from "./manifeste";
+export {
+  AUTH_MODES,
+  clientBuiltinRef,
+  createShared,
+  DEFAULT_HEADER_NAME,
+  deleteShared,
+  getShared,
+  headerNameOk,
+  HTTP_TYPES,
+  ID_PREFIX,
+  InvalidPair,
+  listShared,
+  MAX_PAIR_NAME,
+  MAX_PAIR_VALUE,
+  MAX_PAIRS,
+  mergePairs,
+  mergePersonalMcp,
+  normalizeSecret,
+  oublierVerdictsUrl,
+  pairsPublic,
+  personalPairs,
+  personalPublic,
+  personalToConfig,
+  personalUrlBlockReason,
+  publicId,
+  rawShared,
+  resolveConfig,
+  resolveForAgents,
+  resolveMany,
+  resolvePersonal,
+  sanitizePairs,
+  SERVER_TYPES,
+  sharedId,
+  sharedPairs,
+  StdioNotAllowed,
+  updateShared,
+  UrlNotAllowed,
+} from "./serveurs";
+export type { ChampsPartage, Paire } from "./serveurs";
+export { localServers, opencodeEntryFor, opencodeLocalServers } from "./registre-local";
+export { allowedOrigins, originAllowed } from "./origines";
+export { DELEGATION_TOKEN_PREFIX, delegationToken, verifyDelegation } from "./delegation";
+export type { ClientDelegue } from "./delegation";
+export {
+  authFingerprint,
+  CLEANUP_INTERVAL_SEC,
+  codeMessageMcp,
+  DRAINAGE_S,
+  EntreeEvincee,
+  estAnnulation,
+  estConfigIntegree,
+  estErreurTransport,
+  estNonEnvoyee,
+  estSessionPerdue,
+  EXCLUSIVITE_NETTOYAGE_S,
+  IDLE_TIMEOUT_SEC,
+  makeKey,
+  MCP_HANDSHAKE_TIMEOUT_S,
+  McpFileSaturee,
+  messageErreur,
+  nomErreur,
+  PoolMcp,
+} from "./pool";
+export type {
+  ClientMcp,
+  OptionsAppel,
+  OptionsAppelClient,
+  OptionsPool,
+  OutilMcp,
+  Progression,
+  ResoudreClient,
+  SurJournal,
+  SurProgression,
+} from "./pool";
+export {
+  course,
+  DelaiDepasse,
+  delaiMinuterie,
+  raisonAnnulation,
+  Semaphore,
+  signalBorne,
+  Verrou,
+  VerrouAsyncio,
+} from "./concurrence";
+export {
+  brancherInvalidationPool,
+  invaliderMcp,
+  invaliderServeursPerso,
+  surInvalidationMcp,
+} from "./invalidation";
+export type { EvenementMcp, RappelInvalidation } from "./invalidation";
+export { brancherGardeUrl, brancherJournal, deConfiance, marquerConfiance } from "./ports";
+export { compilerSchema, erreursSchema, meilleureErreur } from "./schema-json";
+export type { Brouillon, ErreurSchema } from "./schema-json";
+export type { FabriqueJournal, GardeUrl, Journal } from "./ports";

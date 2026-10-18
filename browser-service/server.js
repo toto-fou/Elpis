@@ -7,16 +7,23 @@ import { v4 as uuidv4 } from 'uuid';
 import { execSync } from 'child_process';
 import os from 'os';
 import dns from 'dns';
-import { classifyNavOutcome, authHint } from './nav_util.js';
+import { classifyNavOutcome, authHint, cleanNavError, estPageErreur, finalUrl, tlsWarning } from './nav_util.js';
+import { joindreOnglets, etatOnglets, urlOnglet } from './tab_util.js';
 import { pingPage, planScreenshotQuota, safeOwner, ownerFromRequest, ownerMatches,
          stateFileName, resolveStateFile, isLegacyStateName, safeDownloadName,
          planArtifactPurge, planSessionSlot } from './session_util.js';
 import { makeLock, acquireLock, lockIdle } from './session_lock.js';
 import { analyserUrl, motifIp, motifUrl, hoteDepuisInterfaces, analyserListeBlanche,
+         interfacesDepuisProc, fusionnerInterfaces,
          messageRefus, makeCache } from './url_guard.js';
 import { lirePs, orphelins } from './proc_util.js';
 import { demarrerRelais, verifierDepuisPolitique } from './proxy_guard.js';
-import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf } from './result_util.js';
+import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf,
+         codeErreur, racinesMasquees, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
+         noeudsAria, classerSuggestions } from './result_util.js';
+import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
+import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
+import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript } from './recorder_util.js';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
 // Sérialise les requêtes qui opèrent sur la même page Playwright (non
@@ -79,6 +86,21 @@ const TRACE_DIR = path.join(BASE_DIR, 'traces');        // traces Playwright (Ph
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
+// Chemins du serveur jamais rendus au modèle : dossier du service (rendu relatif) et dossier personnel (`~`).
+const _reel = (p) => { try { return fs.realpathSync(p); } catch (_) { return p; } };
+const RACINES_SORTIE = [
+    ...racinesMasquees({ base: BASE_DIR, home: os.homedir() }),
+    ...racinesMasquees({ base: _reel(BASE_DIR), home: _reel(os.homedir()) }),
+].sort((a, b) => b.n - a.n);
+
+// Toute réponse JSON : erreurs avec un code stable ; messages et chemins sans séquences ANSI ni chemins du serveur (contenu de la page intact).
+app.use((req, res, next) => {
+    req.recuA = Date.now();
+    const json = res.json.bind(res);
+    res.json = (corps) => json(nettoyerSortie(normaliserErreur(corps, res.statusCode), RACINES_SORTIE));
+    next();
+});
+
 // ── Serve videos & traces statically (Phase 5) — registered after the dirs
 //    are defined (VIDEO_DIR/TRACE_DIR consts) to avoid a TDZ at module load.
 app.use('/videos', express.static(VIDEO_DIR));
@@ -110,10 +132,19 @@ function listeBlancheCourante() {
     } catch (_) { /* pas de config lisible : on garde la politique courante */ }
     return _politique.listeBlanche;
 }
-let _hote = { t: 0, v: hoteDepuisInterfaces(os.networkInterfaces()) };
+// os.networkInterfaces() complété par /proc : libuv omet les interfaces sans porteuse (pont Docker vide).
+function _interfaces() {
+    const lire = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return ''; } };
+    let vues = {};
+    try { vues = os.networkInterfaces(); } catch (_) { /* /proc seul */ }
+    return fusionnerInterfaces(vues, interfacesDepuisProc({
+        ifInet6: lire('/proc/net/if_inet6'), fibTrie: lire('/proc/net/fib_trie'), route: lire('/proc/net/route'),
+    }));
+}
+let _hote = { t: 0, v: hoteDepuisInterfaces(_interfaces()) };
 function hoteCourant() {
     if (Date.now() - _hote.t > 60000) {
-        try { _hote = { t: Date.now(), v: hoteDepuisInterfaces(os.networkInterfaces()) }; } catch (_) {}
+        try { _hote = { t: Date.now(), v: hoteDepuisInterfaces(_interfaces()) }; } catch (_) {}
     }
     return _hote.v;
 }
@@ -680,17 +711,20 @@ async function shadowDOMQueryByText(page, text) {
 // ==========================================
 // LOCATOR RÉSILIENT v3 — 10 STRATÉGIES
 // ==========================================
+// Frames attachées de la page, une fois chacune (page.frames() les donne déjà toutes, enfants compris).
 function getAllFrames(page, maxDepth = 5) {
     const frames = [];
+    const vues = new Set();
     function collect(frameList, depth) {
         if (depth > maxDepth) return;
         for (const f of frameList) {
-            if (f.isDetached()) continue;
+            if (vues.has(f) || f.isDetached()) continue;
+            vues.add(f);
             frames.push(f);
             try { collect(f.childFrames(), depth + 1); } catch (e) {}
         }
     }
-    collect(page.frames(), 0);
+    collect([page.mainFrame()], 0);
     return frames;
 }
 
@@ -729,6 +763,71 @@ async function tryLocatorInContext(ctx, selector, visTimeout = 150) {
 // → Aucune chaîne CSS à parser, aucune ambiguïté, fiabilité maximale.
 function escapeRegex(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
+// Élément décrit DANS la page : rôle ARIA (explicite, sinon implicite du HTML), nom accessible approché, états, sans la valeur d'une case.
+function decrireNoeud(el, { xpath = false } = {}) {
+    const tag = el.tagName.toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    const implicite = () => {
+        if (tag === 'input') {
+            if (type === 'hidden' || type === 'file' || type === 'color') return null;
+            if (type === 'checkbox' || type === 'radio') return type;
+            if (['button', 'submit', 'reset', 'image'].includes(type)) return 'button';
+            if (type === 'range') return 'slider';
+            if (type === 'number') return 'spinbutton';
+            if (type === 'search') return el.hasAttribute('list') ? 'combobox' : 'searchbox';
+            return el.hasAttribute('list') ? 'combobox' : 'textbox';
+        }
+        if (tag === 'a' || tag === 'area') return el.hasAttribute('href') ? 'link' : null;
+        if (tag === 'select') return el.multiple || el.size > 1 ? 'listbox' : 'combobox';
+        if (/^h[1-6]$/.test(tag)) return 'heading';
+        if (tag === 'img') return el.getAttribute('alt') === '' ? 'presentation' : 'img';
+        return {
+            button: 'button', summary: 'button', textarea: 'textbox', option: 'option', nav: 'navigation',
+            main: 'main', ul: 'list', ol: 'list', li: 'listitem', table: 'table', tr: 'row', td: 'cell',
+            th: 'columnheader', dialog: 'dialog', progress: 'progressbar', form: 'form', fieldset: 'group',
+            article: 'article', aside: 'complementary', header: 'banner', footer: 'contentinfo',
+        }[tag] || null;
+    };
+    const role = (el.getAttribute('role') || '').trim().split(/\s+/)[0] || implicite();
+    const net = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const champ = ['input', 'select', 'textarea'].includes(tag);
+    const parId = (ids) => ids.split(/\s+/).map(id => (document.getElementById(id) || {}).textContent || '').join(' ');
+    const nom = net(el.getAttribute('aria-label'))
+        || net(parId(el.getAttribute('aria-labelledby') || ''))
+        || net(el.labels ? Array.from(el.labels).map(l => l.textContent).join(' ') : '')
+        || (champ ? '' : net(el.textContent))
+        || (['button', 'submit', 'reset'].includes(type) ? net(el.value) : '')
+        || net(el.getAttribute('alt')) || net(el.getAttribute('title')) || net(el.getAttribute('placeholder'));
+    const out = { tag, role, name: nom.substring(0, 80), text: champ ? '' : net(el.textContent).substring(0, 80) };
+    const caseNative = tag === 'input' && (type === 'checkbox' || type === 'radio');
+    if (['checkbox', 'radio', 'switch', 'menuitemcheckbox', 'menuitemradio'].includes(role)) {
+        const aria = el.getAttribute('aria-checked');
+        out.checked = caseNative ? (el.indeterminate ? 'mixed' : el.checked) : (aria === 'mixed' ? 'mixed' : aria === 'true');
+    } else if (champ && !['button', 'submit', 'reset', 'image', 'hidden', 'file', 'password'].includes(type)) {
+        out.value = String(el.value || '').substring(0, 80);
+    }
+    if (el.disabled || el.getAttribute('aria-disabled') === 'true' || (el.closest && el.closest('fieldset:disabled'))) out.disabled = true;
+    const ouvert = el.getAttribute('aria-expanded');
+    if (ouvert !== null) out.expanded = ouvert === 'true';
+    if (xpath) {
+        const chemin = (n) => {
+            if (n.id && /^[a-zA-Z][\w-]*$/.test(n.id)) return `//*[@id="${n.id}"]`;
+            const parts = [];
+            while (n && n.nodeType === 1 && n.tagName !== 'HTML') {
+                let i = 1, sib = n.previousElementSibling;
+                while (sib) { if (sib.tagName === n.tagName) i++; sib = sib.previousElementSibling; }
+                parts.unshift(`${n.tagName.toLowerCase()}[${i}]`);
+                n = n.parentElement;
+            }
+            return '/html/' + parts.join('/');
+        };
+        const r = el.getBoundingClientRect();
+        out.in_viewport = r.top >= 0 && r.top <= window.innerHeight;
+        out.xpath = chemin(el);
+    }
+    return out;
+}
+
 function resolveOfficialLocator(page, params) {
     const {
         by_role, by_name, by_text, by_label, by_placeholder, by_test_id,
@@ -739,7 +838,9 @@ function resolveOfficialLocator(page, params) {
     let loc = null;
     if (by_role) {
         const opts = {};
-        if (by_name) opts.name = exact ? by_name : new RegExp(escapeRegex(by_name), 'i');
+        // whole_name : nom entier (casse et espaces de bord ignorés) au lieu d'une sous-chaîne.
+        if (by_name) opts.name = exact ? by_name
+            : new RegExp(params.whole_name ? `^\\s*${escapeRegex(by_name)}\\s*$` : escapeRegex(by_name), 'i');
         if (exact) opts.exact = true;
         loc = page.getByRole(by_role, opts);
     } else if (by_text) {
@@ -811,6 +912,84 @@ function resolveRef(ref, page, sid = null) {
         if (fr) scope = fr;
     }
     return resolveOfficialLocator(scope, entry.params);
+}
+
+// Attente courte d'une cible absente avant « element_not_found » (la page peut finir de s'afficher).
+const NOT_FOUND_GRACE_MS = parseInt(process.env.PW_NOT_FOUND_GRACE_MS || '2000', 10);
+// Délai par défaut d'un geste, commun à /action et /chain, sous le délai du client (10 s) : l'erreur du service arrive d'abord.
+const ACTION_TIMEOUT_MS = parseInt(process.env.PW_ACTION_TIMEOUT_MS || '8000', 10);
+
+// Nombre d'éléments d'un locator, après une courte attente (`graceMs`) s'il n'y en a encore aucun.
+async function attendrePresence(loc, graceMs) {
+    let n = await loc.count().catch(() => 0);
+    const fin = Date.now() + Math.max(0, graceMs);
+    while (n === 0 && Date.now() < fin) {
+        await new Promise(r => setTimeout(r, 200));
+        n = await loc.count().catch(() => 0);
+    }
+    return n;
+}
+
+// Cible by_* résolue de même par tous les outils : nom entier préféré à une sous-chaîne, `nth` compté sur la liste retenue (`liste`, `n`) ; `loc` = l'élément `nth` ou la liste.
+async function resoudreCible(scope, params, graceMs = 0) {
+    const { nth, ...sansNth } = params || {};
+    const base = resolveOfficialLocator(scope, sansNth);
+    if (!base) return null;
+    const n0 = await attendrePresence(base, graceMs);
+    let r = { liste: base, n: n0, nameMatch: null, params: sansNth };
+    if (n0 > 0 && sansNth.by_role && sansNth.by_name && !sansNth.exact && !sansNth.whole_name) {
+        const entier = { ...sansNth, whole_name: true };
+        const locEntier = resolveOfficialLocator(scope, entier);
+        const ne = await locEntier.count().catch(() => 0);
+        r = ne > 0 ? { liste: locEntier, n: ne, nameMatch: 'exact', partial: n0, params: entier } : { ...r, nameMatch: 'substring' };
+    }
+    const k = nth === undefined || nth === null || nth === '' ? null : Number(nth);
+    if (k === null || !Number.isInteger(k) || k < 0) return { ...r, nth: null, loc: r.liste };
+    return { ...r, nth: k, loc: r.liste.nth(k), params: { ...r.params, nth: k } };
+}
+
+// Le sélecteur de repli trouve-t-il un élément (échelle smartResolveLocator : texte, attributs, iframes, shadow DOM) ?
+async function trouveParRepli(page, selector) {
+    try {
+        const r = await smartResolveLocator(page, selector);
+        if (r.coords || r.strategy !== 'fallback') return true;
+        return (await r.locator.count().catch(() => 0)) > 0;
+    } catch (_) { return false; }
+}
+
+// Cibles proposées pour une cible introuvable : rôles et noms de l'instantané ARIA de la page, les plus proches d'abord.
+async function suggestionsCible(page, params, selector, max = 5) {
+    const p = params || {};
+    const voulu = p.by_name || p.by_text || p.by_label || p.by_placeholder || p.by_title || p.by_alt || p.by_test_id
+        || (selector && isLikelyText(selector) ? selector : '');
+    let instantane = '';
+    try { instantane = await page.locator('body').ariaSnapshot({ timeout: 2000 }); } catch (_) { return []; }
+    return classerSuggestions(noeudsAria(instantane), { name: voulu || '', role: p.by_role || '' }, max);
+}
+
+// Erreur « element_not_found » d'une cible, avec les cibles proposées.
+async function erreurIntrouvable(page, params, selector, detail = '') {
+    const expr = describeLocator(params || {}, { first: false }) || JSON.stringify(selector || '');
+    const suggestions = await suggestionsCible(page, params, selector).catch(() => []);
+    return erreurCodee('element_not_found', `No element matches ${expr} on this page${detail}.`, {
+        suggestions,
+        fix: suggestions.length
+            ? 'Retry with one of the `suggestions` targets, or look at the page with pw_find / pw_page(action="inspect").'
+            : 'Look at the page with pw_page(action="inspect"); if the element shows up later, wait for it first (pw_wait condition="visible").',
+    });
+}
+
+// Premiers éléments d'une cible ambiguë, chacun avec un ref réutilisable par pw_act.
+async function candidatsCible(loc, sid, params, n, { refBase = null, frame = null, max = 5 } = {}) {
+    const base = refBase || storeLocatorRef(sid, loc, params, frame);
+    const out = [];
+    for (let i = 0; i < Math.min(n, max); i++) {
+        const d = await loc.nth(i).evaluate(decrireNoeud).catch(() => null);
+        if (!d) continue;
+        out.push({ index: i, ref: `${base}#${i}`, role: d.role, name: d.name,
+                   ...(d.text && d.text !== d.name ? { text: d.text } : {}) });
+    }
+    return out;
 }
 
 async function smartResolveLocator(page, selector, opts = {}) {
@@ -1555,6 +1734,7 @@ async function getSession(req, res, next) {
     }
     req.session = session;
     req.sessionId = sid;
+    annoncerOnglets(req, res);
     next();
 }
 
@@ -1633,6 +1813,31 @@ function autoSnapshot(req, res, next) {
     next();
 }
 
+// Fenêtre où un geste peut lancer une navigation (soumission, lien) avant qu'on la tienne pour absente.
+const NAV_GRACE_MS = Math.max(0, parseInt(process.env.PW_NAV_GRACE_MS || '250', 10) || 0);
+// Durée d'une requête /action ou /chain, depuis son arrivée, sous le délai du client (10 s, 60 s) : l'attente de la page d'arrivée prend ce qui reste.
+const BUDGET_GESTE_MS = parseInt(process.env.PW_GESTURE_BUDGET_MS || '9000', 10);
+const BUDGET_CHAINE_MS = parseInt(process.env.PW_CHAIN_BUDGET_MS || '55000', 10);
+
+// Geste de /action qui peut naviguer : la réponse attend la page d'arrivée et en donne l'URL (`navigated`, `url_before`).
+function suiviNavigationGeste(req, res, next) {
+    const page = req.session && req.session.page;
+    if (!page || !GESTES_NAVIGANTS.has(req.body && req.body.type)) return next();
+    const fin = suivreNavigation(page, { graceMs: NAV_GRACE_MS });
+    res.once('close', fin.annuler);
+    const envoyer = res.json.bind(res);
+    res.json = (corps) => {
+        fin({ limite: (req.recuA || Date.now()) + BUDGET_GESTE_MS }).then((nav) => {
+            if (nav && res.statusCode < 400 && corps && typeof corps === 'object' && !Array.isArray(corps))
+                Object.assign(corps, champsNavigation(nav));
+        }, () => {}).finally(() => {
+            try { envoyer(corps); } catch (e) { console.error('[nav] réponse non envoyée :', e.message); }
+        });
+        return res;
+    };
+    next();
+}
+
 // ── <select> natif : choisir SANS essai-erreur ────────────────────────
 //
 // L'ancienne échelle tentait selectOption({value}) puis, en cas d'échec,
@@ -1647,6 +1852,36 @@ function autoSnapshot(req, res, next) {
 // Ordre de correspondance : valeur exacte → libellé exact → libellé trimé →
 // insensible à la casse → sous-chaîne. Renvoie l'option retenue, ou lève une
 // erreur qui LISTE les libellés disponibles.
+// Fichiers d'un upload : contenus envoyés par l'hôte d'outils (lus dans le bac du compte), jamais un chemin du serveur.
+function fichiersUpload(files) {
+    if (!Array.isArray(files) || files.length === 0)
+        throw erreurCodee('files_required', 'upload needs files: a list of {name, content_base64, mime_type?}.', {
+            fix: "pw_act(session_id, action='upload', target='css=input[type=file]', files=['report.pdf']) — paths inside your sandbox /work.",
+        });
+    return files.map((f, i) => {
+        if (!f || typeof f !== 'object' || typeof f.name !== 'string' || !f.name.trim() || typeof f.content_base64 !== 'string')
+            throw erreurCodee('invalid_files', `files[${i}] must be {name, content_base64, mime_type?}; server paths are not accepted.`);
+        const mimeType = typeof f.mime_type === 'string' && f.mime_type ? f.mime_type : 'application/octet-stream';
+        return { name: path.basename(f.name.trim()), mimeType, buffer: Buffer.from(f.content_base64, 'base64') };
+    });
+}
+
+// Erreur levée avec un code stable et un contexte pour la réponse (`detailsErreur`).
+function erreurCodee(code, message, details = null) {
+    const e = new Error(message);
+    e.code = code;
+    if (details) e.details = details;
+    return e;
+}
+
+// Code propre et contexte d'une erreur levée par le service, pour le corps de la réponse.
+function detailsErreur(e) {
+    const out = {};
+    if (e && typeof e.code === 'string' && /^[a-z][a-z0-9_]*$/.test(e.code)) out.code = e.code;
+    if (e && e.details && typeof e.details === 'object') Object.assign(out, e.details);
+    return out;
+}
+
 async function selectOptionSmart(locator, { option_value, option_label, value, text, timeout = 10000 }) {
     const opts = await locator.evaluate((el) => {
         if (!el.options) return null;
@@ -1660,6 +1895,7 @@ async function selectOptionSmart(locator, { option_value, option_label, value, t
             `select: <${tag}> is not a native <select>. For a custom dropdown ` +
             `(div/ul/role=listbox) use action="pick", which opens it and clicks the option.`);
         e.notASelect = true;
+        e.code = 'not_a_select';
         throw e;
     }
     const pick = (pred) => opts.find(o => !o.disabled && pred(o));
@@ -1682,11 +1918,13 @@ async function selectOptionSmart(locator, { option_value, option_label, value, t
         }
     }
     if (!hit) {
-        const wanted = option_value || option_label || value || text || '(rien)';
-        throw new Error(
+        const wanted = option_value || option_label || value || text || '(none)';
+        throw erreurCodee('option_not_found',
             `No <option> matching "${wanted}". Available: ` +
             opts.slice(0, 12).map(o => `"${o.label}"(${o.value})`).join(', ') +
-            (opts.length > 12 ? `, … ${opts.length - 12} more` : ''));
+            (opts.length > 12 ? `, … ${opts.length - 12} more` : ''),
+            { options: opts.slice(0, 30).map(o => ({ label: o.label, value: o.value, ...(o.disabled ? { disabled: true } : {}) })),
+              fix: 'Pass option_label= with one of the labels in `options` (or option_value= with its value).' });
     }
     await locator.selectOption({ index: hit.i }, { timeout });
     return { value: hit.value, label: hit.label, index: hit.i };
@@ -1740,6 +1978,26 @@ function attachDialogHandler(page, dialogState) {
             else await dialog.accept();
         } catch (e) {}
     });
+}
+
+// URL de l'onglet après un goto en échec, une fois engagée la page d'erreur du navigateur (1 s au plus).
+async function urlApresEchec(page, avant) {
+    const fin = Date.now() + 1000;
+    for (;;) {
+        let url;
+        try { url = page.url(); } catch (_) { return avant; }
+        if (url !== avant || Date.now() >= fin) return url;
+        await new Promise(r => setTimeout(r, 25));
+    }
+}
+
+// Retour à la page d'avant un goto en échec, une fois chargée la page d'erreur du navigateur : URL finale de l'onglet.
+async function revenirApresEchec(page, urlErreur, echeance) {
+    await page.waitForLoadState('load', { timeout: 1000 }).catch(() => {});
+    const delai = Math.max(1000, Math.min(15000, echeance - Date.now()));
+    await page.goBack({ waitUntil: 'domcontentloaded', timeout: delai })
+        .catch((e) => console.warn(`[goto] retour après l'échec : ${String(e.message).split('\n')[0]}`));
+    return urlApresEchec(page, urlErreur);
 }
 
 async function postActionWait(page, wait_after) {
@@ -1806,6 +2064,114 @@ function attachPageLoggers(page, consoleLogs, networkLog) {
     });
 }
 
+// ── Onglets ouverts par la page (target=_blank, window.open) ──────────
+// Ajoutés aux onglets de la session SANS y basculer et annoncés (opened_tab)
+// dans la réponse suivante ; un onglet qui se ferme seul sort de la liste.
+const ATTENTE_POPUP_MS = parseInt(process.env.PW_POPUP_GRACE_MS || '150', 10);
+// Routes qui gèrent elles-mêmes les onglets : pas de rappel de l'onglet actif sur leurs erreurs.
+const ROUTES_ONGLETS = new Set(['/new_tab', '/switch_tab', '/close_tab', '/list_tabs']);
+
+// Suivi des onglets d'une page : ses popups adoptés, sa fermeture retirée de la session.
+function suivreOnglets(s, page) {
+    if (!page || page.__elpisOngletsSuivis) return;
+    page.__elpisOngletsSuivis = true;
+    page.on('popup', (popup) => adopterOnglet(s, popup));
+    page.on('close', () => retirerOnglet(s, page));
+}
+
+// Onglet neuf de la session (tab_new, popup) : dialogues, journaux et suivi de ses propres popups.
+function brancherOnglet(s, page) {
+    attachDialogHandler(page, s.dialogState || (s.dialogState = makeDialogState()));
+    attachPageLoggers(page, s.consoleLogs, s.networkLog);
+    suivreOnglets(s, page);
+}
+
+// Popup ajouté à la session et mis en attente d'annonce.
+function adopterOnglet(s, page) {
+    if (s.tabs.includes(page) || page.isClosed()) return;
+    brancherOnglet(s, page);
+    s.tabs.push(page);
+    (s.ongletsOuverts ||= []).push(page);
+    for (const reveil of [...(s.reveilsOnglet || [])]) reveil();
+    console.log(`[TABS] onglet ouvert par la page (${s.tabs.length} onglets)`);
+}
+
+// Onglet fermé retiré de la session ; s'il était actif, son voisin le devient (annoncé si la page s'est fermée seule).
+function retirerOnglet(s, page) {
+    const i = s.tabs.indexOf(page);
+    if (i < 0) return;
+    s.tabs.splice(i, 1);
+    s.ongletsOuverts = (s.ongletsOuverts || []).filter(p => p !== page);
+    if (s.page === page && s.tabs.length) s.page = s.tabs[Math.min(i, s.tabs.length - 1)];
+    if (!page.__elpisFermeParService) (s.ongletsFermes ||= []).push({ index: i, url: urlOnglet(page) });
+}
+
+// Attente bornée d'un onglet ouvert par la page, rendue dès son arrivée.
+function attendreOnglet(s, ms) {
+    return new Promise((resolve) => {
+        const reveils = (s.reveilsOnglet ||= []);
+        const reveil = () => {
+            clearTimeout(minuteur);
+            const i = reveils.indexOf(reveil);
+            if (i >= 0) reveils.splice(i, 1);
+            resolve();
+        };
+        const minuteur = setTimeout(reveil, ms);
+        reveils.push(reveil);
+    });
+}
+
+// Geste qui peut ouvrir un onglet sans que l'attente de navigation (/action, /chain) couvre déjà l'arrivée du popup.
+function peutOuvrirOnglet(req) {
+    const b = req.body || {};
+    const geste = (type, key) => ['click', 'dblclick', 'double_click'].includes(type) || (type === 'press' && key === 'Enter');
+    if (req.path === '/smart_click') return true;
+    if (NAV_GRACE_MS >= ATTENTE_POPUP_MS) return false;
+    if (req.path === '/action') return geste(b.type, b.key);
+    if (req.path === '/chain' && Array.isArray(b.actions) && b.actions.length) {
+        const dernier = b.actions[b.actions.length - 1] || {};
+        return geste(dernier.type, dernier.key);
+    }
+    return false;
+}
+
+// Réponse JSON d'une route de session : onglets ouverts ou fermés par la page annoncés (après une courte attente pour un clic), onglet actif rappelé sur une erreur.
+function annoncerOnglets(req, res) {
+    const s = req.session;
+    const envoyer = res.json.bind(res);
+    res.json = function (payload) {
+        const annoncer = req.path !== '/stop' && (req.method === 'POST' || req.path === '/list_tabs');
+        if (!annoncer || !payload || typeof payload !== 'object' || Array.isArray(payload)) return envoyer(payload);
+        const finir = () => {
+            try {
+                joindreOnglets(payload, {
+                    tabs: s.tabs, page: s.page,
+                    ouverts: (s.ongletsOuverts || []).splice(0), fermes: (s.ongletsFermes || []).splice(0),
+                    erreur: this.statusCode >= 400 && !ROUTES_ONGLETS.has(req.path),
+                });
+            } catch (e) { console.warn('[TABS] annonce impossible :', e.message); }
+            return envoyer(payload);
+        };
+        if (this.statusCode < 400 && !(s.ongletsOuverts || []).length && peutOuvrirOnglet(req)) {
+            attendreOnglet(s, ATTENTE_POPUP_MS).then(finir);
+            return this;
+        }
+        return finir();
+    };
+}
+
+// Statut HTTP, adresse finale (redirection) et avertissement TLS d'une navigation qui a répondu.
+async function detailsNavigation(resp, cible, arrivee) {
+    if (!resp) return {};
+    const d = {};
+    try { d.http_status = resp.status(); } catch (_) { /* réponse détachée */ }
+    const fin = finalUrl(cible, arrivee);
+    if (fin) d.final_url = fin;
+    const tls = tlsWarning(await resp.securityDetails().catch(() => null));
+    if (tls) d.tls_warning = tls;
+    return d;
+}
+
 // ── Déplier / replier un nœud d'arbre ───────────────────────────────
 // Un clic simple sur un treeitem GWT (CellTree) SÉLECTIONNE sans déplier :
 // mesuré `click role=treeitem|name=Tables → success, expanded:false`. On
@@ -1869,7 +2235,7 @@ async function performDrag(page, srcLoc, body, timeout) {
     const { to, target_selector, dx, dy, direction, amount, human = false } = body || {};
     let dstLoc = null, dstVia = null;
     if (to && typeof to === 'object' && Object.values(to).some(v => v !== undefined && v !== null && v !== '')) {
-        dstLoc = locatorFromParams(page, to, null); dstVia = 'official';
+        dstLoc = await locatorFromParams(page, to, null); dstVia = 'official';
     }
     if (!dstLoc && target_selector) {
         const r = await smartResolveLocator(page, target_selector).catch(() => null);
@@ -1976,14 +2342,17 @@ app.post('/start', async (req, res) => {
                 try {
                     s.lastActivity = Date.now();
                     let tabIndex = s.tabs.indexOf(s.page);
+                    let nav = {};
                     if (url) {
                         const reusePage = await s.context.newPage();
                         attachDialogHandler(reusePage, s.dialogState || (s.dialogState = makeDialogState()));
                         attachPageLoggers(reusePage, s.consoleLogs, s.networkLog);
+                        suivreOnglets(s, reusePage);
                         try {
-                            await reusePage.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                            const resp = await reusePage.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
                             await Promise.race([reusePage.waitForLoadState('networkidle').catch(() => {}), reusePage.waitForTimeout(3000)]);
-                        } catch (e) { console.log('Nav warning (reuse):', e.message); }
+                            nav = await detailsNavigation(resp, url, reusePage.url());
+                        } catch (e) { nav = { nav_warning: cleanNavError(e.message) }; console.log('Nav warning (reuse):', nav.nav_warning); }
                         s.tabs.push(reusePage);
                         s.page = reusePage;
                         tabIndex = s.tabs.length - 1;
@@ -1998,6 +2367,7 @@ app.post('/start', async (req, res) => {
                         total_tabs: s.tabs.length,
                         url: s.page.url(),
                         title: await s.page.title().catch(() => ''),
+                        ...nav,
                         note: 'Instance unique par utilisateur : session existante réutilisée'
                             + (url ? ', URL ouverte dans un nouvel onglet (utilisez switch_tab pour basculer).' : '.'),
                         // Un état ne se pose qu'à la création du contexte : le
@@ -2094,17 +2464,20 @@ app.post('/start', async (req, res) => {
         if (slot.evict) await closeSession(slot.evict, 'max_sessions');
 
         sessions.set(sessionId, { context, page, owner, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState });
+        suivreOnglets(sessions.get(sessionId), page);
 
+        let nav = {};
         try {
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
             await Promise.race([page.waitForLoadState('networkidle').catch(() => {}), page.waitForTimeout(3000)]);
-        } catch (e) { console.log("Nav warning:", e.message); }
+            nav = await detailsNavigation(resp, url, page.url());
+        } catch (e) { nav = { nav_warning: cleanNavError(e.message) }; console.log("Nav warning:", nav.nav_warning); }
 
         // Auto-dismiss popups after page load (cookies, newsletters, chat widgets)
         await page.waitForTimeout(800);
         await safeRemoveOverlays(page, false);
 
-        res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => '') });
+        res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav });
     } catch (e) { res.status(500).json({ error: e.message }); }
     finally { if (_startRelease) _startRelease(); }
 });
@@ -2137,12 +2510,12 @@ app.post('/smart_click', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== ACTIONS ========================
-app.post('/action', getSession, autoSnapshot, async (req, res) => {
+app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, res) => {
     try {
         const { page } = req.session;
         const {
-            type: rawType, selector: rawSelector, text, key, filePath, url: targetUrl,
-            relative_to, position, timeout = 10000,
+            type: rawType, selector: rawSelector, text, key, url: targetUrl,
+            relative_to, position, timeout = ACTION_TIMEOUT_MS,
             force = false, modifiers = [], button = 'left',
             option_value, option_label, dx, dy, delay,
             target_selector, human = false, wait_after = null,
@@ -2152,6 +2525,8 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
             value, files,
             direction, amount,
         } = req.body;
+        const strict = req.body.strict === true;
+        const nth = Number.isInteger(req.body.nth) && req.body.nth >= 0 && !String(ref || '').includes('#') ? req.body.nth : null;
         // Le chemin « locator officiel » et le chemin « selector » n'ont jamais
         // parlé le même dialecte : le premier accepte double_click/rclick/
         // scroll_into_view, le second ne connaît que dblclick/right_click/
@@ -2193,41 +2568,92 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
             }
             recordEvent(req.session, { action: 'goto', url: targetUrl });
             let landed; try { landed = page.url(); } catch (_) { landed = prevUrl; }
-            const outcome = classifyNavOutcome(targetUrl, prevUrl, landed, navError);
+            // Échec : Chromium engage sa page d'erreur à la place de la page courante ; on revient à celle-ci.
+            let restored = false;
+            if (navError) {
+                landed = await urlApresEchec(page, prevUrl);
+                if (estPageErreur(landed) && prevUrl && prevUrl !== 'about:blank' && !estPageErreur(prevUrl)) {
+                    landed = await revenirApresEchec(page, landed, req.recuA + 70000);
+                    restored = !estPageErreur(landed);
+                }
+            }
+            const outcome = classifyNavOutcome(targetUrl, prevUrl, landed, navError, { restored });
             // GUIDAGE MODÈLE : si la page répond 401/407, elle est protégée par
             // auth HTTP. On joint un hint expliquant que username/password se
             // passent au pw_session(start) (httpCredentials), pas au goto.
-            let httpStatus = null;
-            try { httpStatus = gotoResp ? gotoResp.status() : null; } catch (_) {}
-            const hint = authHint(httpStatus);
-            if (hint) { outcome.body.http_status = httpStatus; outcome.body.auth_hint = hint; }
+            // Toute réponse rend aussi son statut (un 404 reste un succès), l'adresse finale et un certificat douteux.
+            if (outcome.httpStatus === 200) Object.assign(outcome.body, await detailsNavigation(gotoResp, targetUrl, landed));
+            const hint = authHint(outcome.body.http_status ?? null);
+            if (hint) outcome.body.auth_hint = hint;
             return res.status(outcome.httpStatus).json(outcome.body);
         }
         if (type === 'back') { await page.goBack({ waitUntil: 'domcontentloaded' }).catch(() => {}); return res.json({ status: 'success', url: page.url() }); }
         if (type === 'forward') { await page.goForward({ waitUntil: 'domcontentloaded' }).catch(() => {}); return res.json({ status: 'success', url: page.url() }); }
         if (type === 'reload') { await page.reload({ waitUntil: 'domcontentloaded' }); return res.json({ status: 'success' }); }
 
+        // Upload : contenus validés AVANT toute résolution (un refus ne doit pas passer par le repli).
+        let uploadFiles = null;
+        if (type === 'upload') {
+            try { uploadFiles = fichiersUpload(files); }
+            catch (e) { return res.status(400).json({ error: e.message, ...detailsErreur(e) }); }
+        }
+
         // ── Résolution prioritaire : ref ou by_* (API officielle) ──
         // Si on a un ref ou des params by_*, on utilise un Locator officiel
         // au lieu de passer par smartClick (qui parse une chaîne CSS ambiguë).
         // → Fiabilité maximale, mappe direct sur l'API Playwright.
         let officialLocator = null;
+        // Cible COMPTÉE avant le geste : absente → element_not_found rapide ; plusieurs → matched + warning, ou refus strict.
+        let cible = null;
+        let cibleParams = null;
+        // Attente de présence : le délai explicite de l'appelant (qui peut l'allonger), sinon 2 s.
+        const graceMs = Number(req.body.timeout) > 0 ? Number(req.body.timeout) : NOT_FOUND_GRACE_MS;
         if (ref) {
             // Format ref : "loc_xxx" ou "loc_xxx#N" (index)
             const [baseRef, idxStr] = String(ref).split('#');
-            officialLocator = resolveRef(baseRef, page, req.sessionId);
-            if (officialLocator && idxStr !== undefined) {
-                officialLocator = officialLocator.nth(parseInt(idxStr, 10));
-            }
-            if (!officialLocator) {
+            let loc = resolveRef(baseRef, page, req.sessionId);
+            if (loc && idxStr !== undefined) loc = loc.nth(parseInt(idxStr, 10));
+            if (!loc) {
                 return res.status(404).json({ error: `Ref expired or invalid: ${ref}. Re-call pw_find.`, code: 'ref_expired' });
             }
+            cible = { loc, n: await attendrePresence(loc, graceMs), nameMatch: null, params: {}, refBase: baseRef };
+            if (cible.n === 0)
+                return res.status(404).json({ error: `The element of ref ${ref} is no longer on the page. Re-call pw_find.`, code: 'ref_expired' });
         } else if (by_role || by_text || by_label || by_placeholder || by_test_id || by_alt || by_title || by_css || by_xpath) {
-            officialLocator = resolveOfficialLocator(page, {
-                by_role, by_name, by_text, by_label, by_placeholder,
-                by_test_id, by_alt, by_title, by_css, by_xpath,
-            });
-            if (officialLocator) officialLocator = officialLocator.first();
+            cibleParams = { by_role, by_name, by_text, by_label, by_placeholder, by_test_id, by_alt, by_title, by_css, by_xpath };
+            cible = await resoudreCible(page, cibleParams, graceMs);
+        }
+        if (cible && cible.n === 0) {
+            if (!(rawSelector && await trouveParRepli(page, rawSelector))) {
+                const e = await erreurIntrouvable(page, cibleParams, rawSelector);
+                return res.status(404).json({ error: e.message, ...detailsErreur(e), url: page.url() });
+            }
+            officialError = 'no element matches the official locator';
+        } else if (cible) {
+            const expr = ref ? `ref ${ref}` : describeLocator(cible.params, { first: false });
+            if (nth !== null && nth >= cible.n) {
+                return res.status(404).json({ error: `nth=${nth} but only ${cible.n} element(s) match ${expr}.`,
+                    code: 'element_not_found', matched: cible.n, fix: `Use nth between 0 and ${cible.n - 1}.` });
+            }
+            if (cible.n > 1 && nth === null && strict) {
+                const candidates = await candidatsCible(cible.loc, req.sessionId, cible.params, cible.n, { refBase: cible.refBase });
+                return res.status(409).json({
+                    error: `${cible.n} elements match ${expr}; strict=true refuses to pick one.`,
+                    code: 'ambiguous_target', matched: cible.n, candidates,
+                    fix: 'Pass ref= of the right candidate, add |nth=K (0-based) to the target, or use a more precise target.',
+                });
+            }
+            officialLocator = nth !== null ? cible.loc.nth(nth) : cible.loc.first();
+            const avis = [];
+            if (cible.n > 1 && nth === null)
+                avis.push(`${cible.n} elements match ${expr}; acted on the first. Pass strict=true to refuse ambiguous targets, or add |nth=K / use a ref from pw_find.`);
+            if (cible.nameMatch === 'substring') {
+                const vu = await officialLocator.evaluate(decrireNoeud).catch(() => null);
+                avis.push(`No ${by_role} is named exactly "${by_name}"; matched by substring${vu && vu.name ? ` ("${vu.name}")` : ''}.`);
+            }
+            extra = { ...extra, matched: cible.n,
+                      ...(cible.nameMatch === 'substring' || cible.partial > cible.n ? { name_match: cible.nameMatch } : {}),
+                      ...(avis.length ? { warning: avis.join(' ') } : {}) };
         }
 
         // ── Actions page-level (sans cible) ──
@@ -2375,7 +2801,8 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
                     selectedOption = await selectOptionSmart(officialLocator, {
                         option_value, option_label, value, text, timeout: _t });
                 } else if (type === 'upload') {
-                    await officialLocator.setInputFiles(files || filePath, { timeout: _t });
+                    await officialLocator.setInputFiles(uploadFiles, { timeout: _t });
+                    extra = { ...extra, uploaded: uploadFiles.map(f => ({ name: f.name, size: f.buffer.length })) };
                 } else if (type === 'expand' || type === 'collapse') {
                     extra = { ...extra, ...(await expandTreeItem(page, officialLocator, type === 'expand', _t)) };
                 } else if (type === 'drag') {
@@ -2388,7 +2815,7 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
                 // pour construire la hierarchie DOM multi-niveaux cote Python
                 const ancestors = await captureAncestors(officialLocator).catch(() => []);
                 // Recorder hook (no-op when not recording)
-                recordEvent(req.session, {
+                await recordEvent(req.session, {
                     action: type === 'select_option' ? 'select' : (type === 'double_click' ? 'dblclick' : type === 'right_click' ? 'rclick' : type),
                     locator: { role: by_role, name: by_name, text: by_text, label: by_label, placeholder: by_placeholder, test_id: by_test_id, css: by_css, xpath: by_xpath, alt: by_alt, title: by_title },
                     value: text || value, key,
@@ -2396,7 +2823,7 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
                     // selectOption('') (audit tools web 2026-09-05).
                     ...(selectedOption ? { value: selectedOption.value, option_label: selectedOption.label, selected: selectedOption } : {}),
                     url: page.url(), ref,
-                });
+                }, officialLocator);
                 return res.json({
                     status: 'success',
                     strategy: ref ? 'ref' : 'by_official',
@@ -2431,7 +2858,7 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
                     officialError = e.message;
                 } else {
                     const ss = await screenshotOnFailure(page, req.sessionId, type).catch(() => null);
-                    return res.status(500).json({ error: e.message, screenshot: ss });
+                    return res.status(500).json({ error: e.message, screenshot: ss, ...detailsErreur(e) });
                 }
             }
         }
@@ -2578,7 +3005,7 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
                     }).catch(() => {});
                 }
                 await postActionWait(page, wait_after);
-                recordEvent(req.session, { action: 'fill', selector, value: text, url: page.url() });
+                await recordEvent(req.session, { action: 'fill', selector, value: text, url: page.url() }, loc);
                 return res.json({ status: 'success', method: `${fillMethod}${isCE ? 'contenteditable' : 'fill'}` });
             } catch (e) { errors.push(`fill: ${e.message.substring(0, 80)}`); }
 
@@ -2589,7 +3016,7 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
                 await page.keyboard.press('Backspace');
                 await loc.type(text, { delay: delay || 30 });
                 await postActionWait(page, wait_after);
-                recordEvent(req.session, { action: 'fill', selector, value: text, url: page.url() });
+                await recordEvent(req.session, { action: 'fill', selector, value: text, url: page.url() }, loc);
                 return res.json({ status: 'success', method: `${fillMethod}ctrl-a-type` });
             } catch (e) { errors.push(`ctrl+a: ${e.message.substring(0, 80)}`); }
 
@@ -2610,7 +3037,7 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
                     if (tracker) tracker.setValue('');
                 }, text);
                 await postActionWait(page, wait_after);
-                recordEvent(req.session, { action: 'fill', selector, value: text, url: page.url() });
+                await recordEvent(req.session, { action: 'fill', selector, value: text, url: page.url() }, loc);
                 return res.json({ status: 'success', method: `${fillMethod}js-value` });
             } catch (e) { errors.push(`js-value: ${e.message.substring(0, 80)}`); }
 
@@ -2699,8 +3126,9 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
         // UPLOAD
         if (type === 'upload') {
             const { locator } = await smartResolveLocator(page, selector);
-            await locator.setInputFiles(filePath, { timeout: _lt });
-            return res.json({ status: 'success' });
+            await locator.setInputFiles(uploadFiles, { timeout: _lt });
+            return res.json({ status: 'success', uploaded: uploadFiles.map(f => ({ name: f.name, size: f.buffer.length })),
+                              ..._landed('upload') });
         }
 
         // SCROLL
@@ -2742,7 +3170,7 @@ app.post('/action', getSession, autoSnapshot, async (req, res) => {
         if (type === 'remove_overlays') { await safeRemoveOverlays(page); return res.json({ status: 'success' }); }
 
         return res.status(400).json({ error: `Type d'action inconnu: "${type}"` });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(500).json({ error: e.message, ...detailsErreur(e) }); }
 });
 
 
@@ -2776,19 +3204,23 @@ app.post('/locator', getSession, autoSnapshot, async (req, res) => {
         const scopes = includeFrames ? page.frames() : [page.mainFrame()];
         const matches = [];
         let total = 0;
+        let nameMatch = null;
 
         for (const scope of scopes) {
             if (matches.length >= max) break;
-            const loc = resolveOfficialLocator(scope, params);
-            if (!loc) continue;
-            const count = await loc.count().catch(() => 0);
+            // Même résolution que pw_act, pw_expect et pw_chain (nom entier d'abord, nth sur la liste retenue).
+            const c = await resoudreCible(scope, params);
+            if (!c) continue;
+            const loc = c.loc;
+            const count = c.nth === null ? c.n : await loc.count().catch(() => 0);
             if (count === 0) continue;
             total += count;
+            if (!nameMatch && (c.nameMatch === 'substring' || c.partial > c.n)) nameMatch = c.nameMatch;
             const isMain = scope === page.mainFrame();
             const frameInfo = isMain ? null : { name: scope.name() || '', url: scope.url() || '' };
             // Le ref mémorise le frame d'origine → resolveRef re-résout sur CE frame
             // (pw_act peut donc agir sur un élément d'iframe).
-            const baseRef = storeLocatorRef(req.sessionId, loc, params, frameInfo);
+            const baseRef = storeLocatorRef(req.sessionId, loc, c.params, frameInfo);
 
             for (let i = 0; i < Math.min(count, max); i++) {
                 if (matches.length >= max) break;
@@ -2797,35 +3229,11 @@ app.post('/locator', getSession, autoSnapshot, async (req, res) => {
                     const visible = await item.isVisible({ timeout: 200 }).catch(() => false);
                     if (visible_only && !visible) continue;
 
-                    const info = await item.evaluate((el) => {
-                        function getXPath(el) {
-                            if (el.id && /^[a-zA-Z][\w-]*$/.test(el.id)) return `//*[@id="${el.id}"]`;
-                            const parts = [];
-                            while (el && el.nodeType === 1 && el.tagName !== 'HTML') {
-                                let i = 1, sib = el.previousElementSibling;
-                                while (sib) { if (sib.tagName === el.tagName) i++; sib = sib.previousElementSibling; }
-                                parts.unshift(`${el.tagName.toLowerCase()}[${i}]`);
-                                el = el.parentElement;
-                            }
-                            return '/html/' + parts.join('/');
-                        }
-                        const r = el.getBoundingClientRect();
-                        let role = el.getAttribute('role');
-                        if (!role) {
-                            if (el.tagName === 'BUTTON') role = 'button';
-                            else if (el.tagName === 'A') role = 'link';
-                            else if (el.tagName === 'INPUT') role = 'textbox';
-                        }
-                        return {
-                            tag: el.tagName.toLowerCase(),
-                            text: (el.textContent || el.value || '').trim().substring(0, 80),
-                            role,
-                            in_viewport: r.top >= 0 && r.top <= window.innerHeight,
-                            xpath: getXPath(el),
-                        };
-                    }).catch(() => null);
+                    const info = await item.evaluate(decrireNoeud, { xpath: true }).catch(() => null);
 
                     if (!info) continue;
+                    // getByRole a trouvé l'élément par CE rôle : c'est son rôle effectif.
+                    if (params.by_role) info.role = params.by_role;
                     matches.push({
                         ...info,
                         visible,
@@ -2842,6 +3250,7 @@ app.post('/locator', getSession, autoSnapshot, async (req, res) => {
             count: matches.length,
             total,
             matches,
+            ...(nameMatch ? { name_match: nameMatch } : {}),
             ...(includeFrames ? { frames_searched: scopes.length } : {}),
             // Durée de vie du ref, DITE : un ref rejoué sur un contenu qui a
             // disparu entre-temps est le piège classique des pages instables.
@@ -3287,11 +3696,11 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
         const { locator } = await smartResolveLocator(page, selector);
         const tag = await locator.evaluate(el => el.tagName.toLowerCase()).catch(() => '');
 
-        // Cas 1 : select natif
+        // Cas 1 : select natif (même choix que select, l'option retenue est rendue)
         if (tag === 'select') {
-            if (option_value) await locator.selectOption({ value: option_value });
-            else if (option_text) await locator.selectOption({ label: option_text });
-            return res.json({ status: 'success', type: 'native-select' });
+            const selected = await selectOptionSmart(locator, {
+                option_value, option_label: option_value ? undefined : option_text, timeout: ACTION_TIMEOUT_MS });
+            return res.json({ status: 'success', type: 'native-select', selected });
         }
 
         // Cas 2 : combobox/input avec datalist
@@ -3308,10 +3717,16 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
             ];
             for (const s of suggestions) {
                 const sl = page.locator(s).first();
-                if (await sl.count().catch(() => 0) > 0) { await sl.click(); return res.json({ status: 'success', type: 'input-autocomplete' }); }
+                if (await sl.count().catch(() => 0) > 0) {
+                    const label = (await sl.innerText({ timeout: 1000 }).catch(() => '')).trim();
+                    await sl.click();
+                    const valeur = await locator.inputValue({ timeout: 1000 }).catch(() => null);
+                    return res.json({ status: 'success', type: 'input-autocomplete', selected: { label, value: valeur } });
+                }
             }
             await page.keyboard.press('Enter');
-            return res.json({ status: 'success', type: 'input-enter' });
+            const valeur = await locator.inputValue({ timeout: 1000 }).catch(() => null);
+            return res.json({ status: 'success', type: 'input-enter', selected: { value: valeur } });
         }
 
         // Cas 3 : dropdown custom (div/button)
@@ -3334,8 +3749,9 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
         for (const s of optionSelectors) {
             const optLoc = page.locator(s).first();
             if (await optLoc.count().catch(() => 0) > 0 && await optLoc.isVisible({ timeout: 500 }).catch(() => false)) {
+                const label = (await optLoc.innerText({ timeout: 1000 }).catch(() => optionText)).trim();
                 await optLoc.click();
-                return res.json({ status: 'success', type: 'custom-dropdown', matched_by: s });
+                return res.json({ status: 'success', type: 'custom-dropdown', matched_by: s, selected: { label } });
             }
         }
 
@@ -3343,11 +3759,12 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
         const shadowOpt = await shadowDOMQueryByText(page, optionText);
         if (shadowOpt?.found) {
             await page.mouse.click(shadowOpt.x, shadowOpt.y);
-            return res.json({ status: 'success', type: 'shadow-dom-dropdown' });
+            return res.json({ status: 'success', type: 'shadow-dom-dropdown', selected: { label: optionText } });
         }
 
-        return res.status(404).json({ error: `Option "${optionText}" introuvable dans le dropdown`, code: 'option_not_found' });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+        return res.status(404).json({ error: `Option "${optionText}" not found in the dropdown.`, code: 'option_not_found',
+            fix: 'Open the dropdown and read its options with pw_page(action="inspect"), then pass the visible text as option_label=.' });
+    } catch (e) { res.status(500).json({ error: e.message, ...detailsErreur(e) }); }
 });
 
 
@@ -4513,17 +4930,19 @@ app.post('/a11y_audit', getSession, async (req, res) => {
     try {
         const { page } = req.session;
         const scope = req.body.scope || 'body';
-        const report = await page.evaluate((scopeSel) => {
+        const report = await page.evaluate(({ scopeSel, srcUnique }) => {
             const root = document.querySelector(scopeSel) || document.body;
             const V = [];
-            const sel = (el) => {
-                if (!el || !el.tagName) return '';
-                if (el.id) return '#' + el.id;
+            const unique = new Function(`return (${srcUnique})`)();
+            // Sélecteur lisible (id, classes) s'il désigne cet élément seul, sinon chemin vérifié unique.
+            const candidat = (el) => {
                 let s = el.tagName.toLowerCase();
-                if (typeof el.className === 'string' && el.className.trim())
-                    s += '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.');
+                if (el.id) s = '#' + CSS.escape(el.id);
+                else if (typeof el.className === 'string' && el.className.trim())
+                    s += '.' + el.className.trim().split(/\s+/).slice(0, 2).map((c) => CSS.escape(c)).join('.');
                 return s;
             };
+            const sel = (el) => (el && el.tagName ? unique(el, candidat(el), candidat) : '');
             const add = (rule, impact, el, message) => V.push({
                 rule, impact, selector: sel(el), message,
                 text: ((el && el.textContent) || '').trim().slice(0, 60),
@@ -4557,8 +4976,8 @@ app.post('/a11y_audit', getSession, async (req, res) => {
                 if (visible(el) && !accName(el)) add('control-name', 'serious', el, `${el.tagName.toLowerCase()} sans nom accessible`);
             });
             // 4. ids dupliqués
-            const ids = {}; root.querySelectorAll('[id]').forEach(el => { ids[el.id] = (ids[el.id] || 0) + 1; });
-            Object.entries(ids).filter(([, n]) => n > 1).forEach(([id, n]) => V.push({ rule: 'duplicate-id', impact: 'moderate', selector: '#' + id, message: `id "${id}" dupliqué ${n}×`, text: '' }));
+            const ids = {}; root.querySelectorAll('[id]').forEach(el => { (ids[el.id] = ids[el.id] || []).push(el); });
+            Object.entries(ids).filter(([, els]) => els.length > 1).forEach(([id, els]) => V.push({ rule: 'duplicate-id', impact: 'moderate', selector: sel(els[0]), id, count: els.length, message: `id "${id}" dupliqué ${els.length}×`, text: '' }));
             // 5. lang du document
             if (!document.documentElement.getAttribute('lang')) V.push({ rule: 'html-lang', impact: 'serious', selector: 'html', message: '<html> sans attribut lang', text: '' });
             // 6. ordre des titres
@@ -4590,7 +5009,7 @@ app.post('/a11y_audit', getSession, async (req, res) => {
                      rules_run: ['image-alt', 'label', 'control-name', 'duplicate-id', 'html-lang', 'heading-order', 'tabindex', 'color-contrast'],
                      contrast_sampled: checked, contrast_capped: checked > 200,
                      passed: V.length === 0 };
-        }, scope);
+        }, { scopeSel: scope, srcUnique: sourceDe(selecteurUnique) });
         res.json(report);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -4601,6 +5020,8 @@ app.post('/a11y_audit', getSession, async (req, res) => {
 // update=true) → enregistre le baseline. Sinon → diff pixel via canvas DANS la
 // page (0 dépendance Node) + génère une heatmap rouge inspectable par un modèle
 // à vision. passed = diff_ratio <= threshold.
+// Zones modifiées rendues par /visual (les plus fournies d'abord ; diff_bbox couvre toutes les zones).
+const VISUAL_MAX_REGIONS = 10;
 app.post('/visual', getSession, async (req, res) => {
     try {
         const { page } = req.session;
@@ -4627,7 +5048,7 @@ app.post('/visual', getSession, async (req, res) => {
 
         const baseB64 = 'data:image/png;base64,' + fs.readFileSync(baselinePath).toString('base64');
         const curB64 = 'data:image/png;base64,' + curBuf.toString('base64');
-        const result = await page.evaluate(async ({ baseB64, curB64, tol }) => {
+        const result = await page.evaluate(async ({ baseB64, curB64, tol, srcRegions, maxRegions }) => {
             const load = src => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src; });
             const [a, b] = await Promise.all([load(baseB64), load(curB64)]);
             // Une capture fullPage n'est PAS stable au pixel près : mesuré, le
@@ -4650,15 +5071,22 @@ app.post('/visual', getSession, async (req, res) => {
             x.drawImage(a, 0, 0); const da = x.getImageData(0, 0, w, h).data;
             x.clearRect(0, 0, w, h); x.drawImage(b, 0, 0); const db = x.getImageData(0, 0, w, h).data;
             const out = x.createImageData(w, h), od = out.data; let nd = 0;
+            const C = 16, cols = Math.ceil(w / C), rows = Math.ceil(h / C);
+            const nc = new Uint32Array(cols * rows), cx0 = new Uint32Array(cols * rows), cy0 = new Uint32Array(cols * rows);
+            const cx1 = new Uint32Array(cols * rows), cy1 = new Uint32Array(cols * rows);
             for (let i = 0; i < da.length; i += 4) {
                 if (Math.abs(da[i] - db[i]) > tol || Math.abs(da[i + 1] - db[i + 1]) > tol || Math.abs(da[i + 2] - db[i + 2]) > tol) {
                     nd++; od[i] = 255; od[i + 1] = 0; od[i + 2] = 0; od[i + 3] = 255;   // rouge = différence
+                    const p = i >> 2, px = p % w, py = (p - px) / w, k = ((py / C) | 0) * cols + ((px / C) | 0);
+                    if (!nc[k]++) { cx0[k] = px; cy0[k] = py; cx1[k] = px; cy1[k] = py; }
+                    else { if (px < cx0[k]) cx0[k] = px; if (px > cx1[k]) cx1[k] = px; cy1[k] = py; }
                 } else { od[i] = db[i]; od[i + 1] = db[i + 1]; od[i + 2] = db[i + 2]; od[i + 3] = 60; } // fond atténué
             }
             x.putImageData(out, 0, 0);
+            const zones = new Function(`return (${srcRegions})`)()(cols, rows, nc, cx0, cy0, cx1, cy1, maxRegions);
             return { w, h, diff_pixels: nd, total: w * h, diff_ratio: nd / (w * h),
-                     dims, size_drift, diff_png: c.toDataURL('image/png') };
-        }, { baseB64, curB64, tol });
+                     dims, size_drift, diff_png: c.toDataURL('image/png'), zones };
+        }, { baseB64, curB64, tol, srcRegions: sourceDe(regionsModifiees), maxRegions: VISUAL_MAX_REGIONS });
 
         const ts = Date.now();
         const curName = `visual_${name}_current_${ts}.png`;
@@ -4687,6 +5115,8 @@ app.post('/visual', getSession, async (req, res) => {
         res.json({ ok: true, name, passed: !pixelFailed && !sizeChanged, threshold,
             pixel_diff_failed: pixelFailed, size_mismatch: sizeChanged, fail_reason: failReason,
             diff_ratio: result.diff_ratio, diff_pixels: result.diff_pixels,
+            diff_bbox: result.zones.bbox, diff_regions: result.zones.regions,
+            diff_regions_total: result.zones.total, diff_regions_truncated: result.zones.total > result.zones.regions.length,
             compared: { w: result.w, h: result.h }, dims: result.dims,
             ...(result.size_drift ? { size_drift: result.size_drift } : {}),
             ...(sizeChanged ? { size_changed: true, message: 'la page a changé de dimensions' } : {}),
@@ -4949,63 +5379,88 @@ app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
 app.post('/new_tab', getSession, autoSnapshot, async (req, res) => {
     try {
         const { context } = req.session;
-        const { url } = req.body;
+        // ``switch`` : l'onglet neuf devient l'onglet actif (défaut : on reste sur l'onglet courant).
+        const { url, switch: basculer = false } = req.body;
         if (url) {
             const motif = await refusUrl(url);
             if (motif) return repondreRefus(res, url, motif);
         }
         const newPage = await context.newPage();
-        attachDialogHandler(newPage, req.session.dialogState || (req.session.dialogState = makeDialogState()));
-        attachPageLoggers(newPage, req.session.consoleLogs, req.session.networkLog);
-        let navError = null;
+        brancherOnglet(req.session, newPage);
+        let navError = null, nav = {};
         if (url) {
             // Même robustesse que /action : un goto qui lève ne doit pas
             // produire un 500 opaque (cf. nav_util.classifyNavOutcome).
             const prevUrl = newPage.url();   // about:blank pour un onglet neuf
+            let resp = null;
             try {
-                await newPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                resp = await newPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
             } catch (e) { navError = e.message; }
             // cf. /action : pas d'attente réseau si la nav a échoué (frame stuck).
             if (!navError) {
                 await Promise.race([newPage.waitForLoadState('networkidle').catch(() => {}), newPage.waitForTimeout(3000)]);
             }
             let landed; try { landed = newPage.url(); } catch (_) { landed = prevUrl; }
+            if (navError) landed = await urlApresEchec(newPage, prevUrl);
             const outcome = classifyNavOutcome(url, prevUrl, landed, navError);
             if (outcome.httpStatus !== 200) {
                 // Échec réel : on garde quand même l'onglet ouvert (about:blank)
                 // mais on signale proprement l'erreur de navigation.
                 req.session.tabs.push(newPage);
+                if (basculer) req.session.page = newPage;
                 return res.status(outcome.httpStatus).json({
                     ...outcome.body,
                     tab_index: req.session.tabs.length - 1,
-                    total_tabs: req.session.tabs.length,
+                    ...etatOnglets(req.session.tabs, req.session.page),
                 });
             }
+            nav = { ...(outcome.body.nav_warning ? { nav_warning: outcome.body.nav_warning } : {}),
+                    ...(await detailsNavigation(resp, url, landed)) };
         }
         req.session.tabs.push(newPage);
-        res.json({ status: 'success', tab_index: req.session.tabs.length - 1, url: newPage.url(), title: await newPage.title().catch(() => ''), total_tabs: req.session.tabs.length, ...(navError ? { nav_warning: navError } : {}) });
+        const index = req.session.tabs.length - 1;
+        if (basculer) {
+            req.session.page = newPage;
+            await newPage.bringToFront().catch(() => {});
+        }
+        const etat = etatOnglets(req.session.tabs, req.session.page);
+        res.json({
+            status: 'success', tab_index: index, url: newPage.url(), title: await newPage.title().catch(() => ''),
+            ...etat, switched: !!basculer, ...nav,
+            ...(basculer ? {} : { note: `Tab ${index} opened in the background: actions still run on tab index ${etat.active}. `
+                                      + `Pass switch=true, or call pw_page(action="tab_switch", index=${index}), to act on it.` }),
+        });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/switch_tab', getSession, autoSnapshot, async (req, res) => {
     try {
         const { tab_index } = req.body;
-        if (tab_index < 0 || tab_index >= req.session.tabs.length) return res.status(400).json({ error: `Tab ${tab_index} invalide.` });
+        if (!Number.isInteger(tab_index) || tab_index < 0 || tab_index >= req.session.tabs.length) {
+            return res.status(400).json({ error: `Tab ${tab_index} does not exist (${req.session.tabs.length} tab(s), index 0 to ${req.session.tabs.length - 1}).` });
+        }
         req.session.page = req.session.tabs[tab_index];
         await req.session.page.bringToFront();
-        res.json({ status: 'success', tab_index, url: req.session.page.url(), title: await req.session.page.title().catch(() => '') });
+        res.json({ status: 'success', tab_index, url: req.session.page.url(), title: await req.session.page.title().catch(() => ''),
+                   ...etatOnglets(req.session.tabs, req.session.page) });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/close_tab', getSession, autoSnapshot, async (req, res) => {
     try {
         const { tab_index } = req.body;
-        if (req.session.tabs.length === 1) return res.status(400).json({ error: "Impossible de fermer le dernier onglet." });
-        await req.session.tabs[tab_index].close();
-        req.session.tabs.splice(tab_index, 1);
-        req.session.page = req.session.tabs[Math.min(tab_index, req.session.tabs.length - 1)];
-        await req.session.page.bringToFront();
-        res.json({ status: 'closed', remaining_tabs: req.session.tabs.length });
+        const s = req.session;
+        if (s.tabs.length === 1) return res.status(400).json({ error: "Impossible de fermer le dernier onglet." });
+        if (!Number.isInteger(tab_index) || tab_index < 0 || tab_index >= s.tabs.length) {
+            return res.status(400).json({ error: `Tab ${tab_index} does not exist (${s.tabs.length} tab(s), index 0 to ${s.tabs.length - 1}).` });
+        }
+        // Fermeture demandée : pas d'annonce, et l'onglet actif ne change que s'il est celui qu'on ferme.
+        const cible = s.tabs[tab_index];
+        cible.__elpisFermeParService = true;
+        await cible.close();
+        retirerOnglet(s, cible);
+        await s.page.bringToFront().catch(() => {});
+        res.json({ status: 'closed', remaining_tabs: s.tabs.length, ...etatOnglets(s.tabs, s.page) });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -5017,7 +5472,7 @@ app.get('/list_tabs', getSession, autoSnapshot, async (req, res) => {
             try { tabs.push({ index: i, url: p.url(), title: await p.title().catch(() => ''), active: p === req.session.page }); }
             catch (e) { tabs.push({ index: i, error: 'page closed' }); }
         }
-        res.json({ tabs, count: tabs.length });
+        res.json({ tabs, count: tabs.length, active: req.session.tabs.indexOf(req.session.page) });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -5118,12 +5573,14 @@ app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
                     results.push({ frame: frame.url(), result: r });
                 } catch (e) { results.push({ frame: frame.url(), error: e.message }); }
             }
+            recordEvent(req.session, { action: 'eval', script, url: page.url(), in_all_frames: true });
             return res.json({ results });
         }
         const result = await page.evaluate(async (body) => {
             const fn = new Function(`return (async () => { ${body} })();`);
             return await fn();
         }, fnBody);
+        recordEvent(req.session, { action: 'eval', script, url: page.url() });
         res.json({ result });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -5183,6 +5640,7 @@ app.get('/health', (req, res) => {
             age_sec: Math.round((now - (s.createdAt || now)) / 1000),
             url: s.page?.url?.()?.substring(0, 80) || '?',
             tabs: s.tabs?.length || 1,
+            active_tab: s.tabs ? s.tabs.indexOf(s.page) : 0,
         });
     }
     res.json({
@@ -5191,12 +5649,13 @@ app.get('/health', (req, res) => {
         status: 'running',
         engine: BROWSER_ENGINE,
         uptime_sec: Math.round((now - _DEMARRAGE) / 1000),
-        sessions: sessions.size,
+        // ``sessions`` : celles du propriétaire (liste d'objets, comme /sessions) ; ``session_count`` : toutes.
+        sessions: sessionList,
+        session_count: sessions.size,
         max_sessions: MAX_SESSIONS,
         session_ttl_min: SESSION_TTL_MS / 60000,
         browser_connected: globalBrowser?.isConnected() || false,
         url_allowlist: !listeBlancheCourante().vide,
-        ...(owner ? { session_list: sessionList } : {}),
     });
 });
 
@@ -5232,7 +5691,7 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
 
         const start = Date.now();
         const params = { ref, by_role, by_name, by_text, by_label, by_placeholder, by_test_id, by_alt, by_title, by_css, by_xpath, nth };
-        let loc = locatorFromParams(page, params, req.sessionId, { first: false });
+        let loc = await locatorFromParams(page, params, req.sessionId, { first: false });
         let via = loc ? 'official' : null;
         if (!loc && selector) {
             const r = await smartResolveLocator(page, selector).catch(() => null);
@@ -5641,8 +6100,13 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
             };
             const hasOfficial = Object.values(params).some(v => v !== undefined && v !== null && v !== '');
             if (hasOfficial) {
-                const loc = locatorFromParams(page, params, req.sessionId);
-                if (loc) return { locator: loc, source: 'official' };
+                // Comptée d'abord, comme /action : une cible absente échoue vite (element_not_found).
+                const c = await cibleDepuisParams(page, params, req.sessionId, Number(act.timeout) > 0 ? Number(act.timeout) : NOT_FOUND_GRACE_MS);
+                if (c) {
+                    if (c.n > 0 && !(c.nth !== null && c.nth >= c.n)) return { locator: c.loc.first(), source: 'official', matched: c.n };
+                    if (!act.selector || !(await trouveParRepli(page, act.selector)))
+                        throw erreurCodee('element_not_found', `No element matches ${act.ref ? `ref ${act.ref}` : describeLocator(params, { first: false })} on this page.`);
+                }
             }
             if (act.selector) {
                 const r = await smartResolveLocator(page, act.selector);
@@ -5658,6 +6122,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
             const act = actions[i];
             const actType = act.type || act.action || '';
             const startMs = Date.now();
+            const suivi = GESTES_NAVIGANTS.has(actType) ? suivreNavigation(page, { graceMs: NAV_GRACE_MS }) : null;
 
             try {
                 let result;
@@ -5672,11 +6137,11 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                             || act.by_placeholder || act.by_test_id || act.by_css || act.by_xpath;
                         if (hasOfficial) {
                             const { locator } = await resolveChainTarget(act);
-                            await locator.click({ timeout: act.timeout || 8000, button: act.button || 'left' });
+                            await locator.click({ timeout: act.timeout || ACTION_TIMEOUT_MS, button: act.button || 'left' });
                             result = { success: true, action: 'click', strategy: 'official' };
                         } else {
                             result = await smartClick(page, act.selector, {
-                                human: act.human, button: act.button || 'left', timeout: act.timeout || 8000
+                                human: act.human, button: act.button || 'left', timeout: act.timeout || ACTION_TIMEOUT_MS
                             });
                         }
                         break;
@@ -5684,7 +6149,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
 
                     case 'fill': {
                         const { locator } = await resolveChainTarget(act);
-                        try { await locator.fill(act.text || act.value || '', { timeout: 5000 }); }
+                        try { await locator.fill(act.text || act.value || '', { timeout: act.timeout || ACTION_TIMEOUT_MS }); }
                         catch {
                             await locator.evaluate((el, val) => {
                                 el.focus(); el.value = val;
@@ -5709,7 +6174,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                             || act.by_placeholder || act.by_test_id || act.by_css || act.by_xpath || act.selector;
                         if (hasTarget) {
                             const { locator } = await resolveChainTarget(act);
-                            await locator.press(act.key);
+                            await locator.press(act.key, { timeout: act.timeout || ACTION_TIMEOUT_MS });
                         } else {
                             await page.keyboard.press(act.key);
                         }
@@ -5726,21 +6191,22 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                         // pas ce qui avait été choisi (audit tools web 2026-09-05).
                         const picked = await selectOptionSmart(locator, {
                             option_value: act.option_value, option_label: act.option_label || act.label,
-                            value: act.value, text: act.text, timeout: act.timeout || 8000 });
+                            value: act.value, text: act.text, timeout: act.timeout || ACTION_TIMEOUT_MS });
                         result = { success: true, action: 'select', selected: picked };
                         break;
                     }
 
                     case 'check': {
                         const { locator } = await resolveChainTarget(act);
-                        if (act.checked !== false) await locator.check();
-                        else await locator.uncheck();
+                        const _to = { timeout: act.timeout || ACTION_TIMEOUT_MS };
+                        if (act.checked !== false) await locator.check(_to);
+                        else await locator.uncheck(_to);
                         result = { success: true, action: 'check' };
                         break;
                     }
                     case 'uncheck': {
                         const { locator } = await resolveChainTarget(act);
-                        await locator.uncheck();
+                        await locator.uncheck({ timeout: act.timeout || ACTION_TIMEOUT_MS });
                         result = { success: true, action: 'uncheck' };
                         break;
                     }
@@ -5769,14 +6235,14 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
 
                     case 'hover': {
                         const { locator } = await resolveChainTarget(act);
-                        await locator.hover({ timeout: 5000 });
+                        await locator.hover({ timeout: act.timeout || ACTION_TIMEOUT_MS });
                         result = { success: true, action: 'hover' };
                         break;
                     }
 
                     case 'focus': {
                         const { locator } = await resolveChainTarget(act);
-                        await locator.focus({ timeout: 5000 });
+                        await locator.focus({ timeout: act.timeout || ACTION_TIMEOUT_MS });
                         result = { success: true, action: 'focus' };
                         break;
                     }
@@ -5787,10 +6253,13 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
 
                 // Post-action wait
                 if (act.wait_after) await postActionWait(page, act.wait_after);
+                const nav = suivi ? await suivi({ limite: (req.recuA || startMs) + BUDGET_CHAINE_MS }) : null;
+                if (nav && result && result.success !== false) Object.assign(result, champsNavigation(nav));
 
                 // Recorder hook (no-op when not recording)
                 if (result && result.success !== false) {
-                    recordEvent(req.session, {
+                    const saisie = (actType === 'fill' || actType === 'type') && req.session._recorder?.recording;
+                    await recordEvent(req.session, {
                         action: actType === 'select_option' ? 'select' : actType,
                         locator: {
                             role: act.by_role, name: act.by_name, text: act.by_text,
@@ -5803,14 +6272,17 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                         ...(result && result.selected ? { value: result.selected.value, option_label: result.selected.label, selected: result.selected } : {}),
                         key: act.key,
                         url: page.url(),
-                    });
+                    }, saisie ? await resolveChainTarget(act).then(r => r.locator, () => null) : null);
                 }
 
                 results.push({ step: i, action: actType, duration_ms: Date.now() - startMs, ...result });
 
             } catch (e) {
+                if (suivi) suivi.annuler();
+                const msg = sansAnsi(e.message || String(e));
                 const failResult = {
-                    step: i, action: actType, success: false, error: (e.message || String(e)).substring(0, 200),
+                    step: i, action: actType, success: false, error: msg.substring(0, 200),
+                    code: detailsErreur(e).code || codeErreur(msg), ...(e.details || {}),
                     duration_ms: Date.now() - startMs,
                 };
 
@@ -5818,6 +6290,13 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                 const probe = act.selector || act.by_name || act.by_text || act.by_label || '';
                 if (probe) {
                     failResult.alternatives = await findAlternatives(page, probe).catch(() => []);
+                }
+                // Rien sous ce texte : les cibles aux noms proches (ou du même rôle) de l'instantané ARIA.
+                if (failResult.code === 'element_not_found' && !(failResult.alternatives || []).length) {
+                    const byParams = { by_role: act.by_role, by_name: act.by_name, by_text: act.by_text,
+                        by_label: act.by_label, by_placeholder: act.by_placeholder, by_test_id: act.by_test_id,
+                        by_alt: act.by_alt, by_title: act.by_title };
+                    failResult.alternatives = await suggestionsCible(page, byParams, act.selector).catch(() => []);
                 }
 
                 // Feature 4: Screenshot on failure
@@ -5860,6 +6339,7 @@ app.get('/sessions', (req, res) => {
             age_sec: Math.round((now - (s.createdAt || now)) / 1000),
             url: s.page?.url?.()?.substring(0, 120) || '?',
             tabs: s.tabs?.length || 1,
+            active_tab: s.tabs ? s.tabs.indexOf(s.page) : 0,
             ttl_remaining_sec: Math.max(0, Math.round((SESSION_TTL_MS - (now - (s.lastActivity || now))) / 1000)),
         });
     }
@@ -5902,30 +6382,25 @@ app.post('/cleanup_screenshots', async (req, res) => {
 // pw_page("screenshot", target=...). They were callable from the Python
 // side but the server returned 404 on every call. Now implemented.
 
-// ── Unified locator resolver ────────────────────────────────────────
-// Accepts the same shape used by /action: { ref, by_role, by_name, by_text,
-// by_label, by_placeholder, by_test_id, by_alt, by_title, by_css, by_xpath, nth }.
-// Returns a Playwright Locator or null. Used by /expect and /element_screenshot.
-// `first` = restreindre au premier match (défaut : oui — une action ne vise
-// qu'un élément). Les assertions de COMPTAGE doivent au contraire garder le
-// locator ENTIER : avec .first(), count() ne peut jamais rendre plus de 1, et
-// `count-gte` répondait pass=false sur une page qui contenait bien N éléments
-// (mesuré : 2 tables, count-gte 2 → false, après 5 s de polling inutile).
-function locatorFromParams(page, params, sid = null, { first = true } = {}) {
+// Cible d'un outil par ref ou by_* (resoudreCible) : `{ loc, n, nth… }`, `null` sans critère ou pour un ref inconnu.
+async function cibleDepuisParams(page, params, sid = null, graceMs = 0) {
     if (!params) return null;
     const { ref, ...byParams } = params;
     if (ref) {
         const [baseRef, idxStr] = String(ref).split('#');
         let loc = resolveRef(baseRef, page, sid);
         if (loc && idxStr !== undefined) loc = loc.nth(parseInt(idxStr, 10));
-        return loc || null;
+        return loc ? { loc, liste: loc, n: await attendrePresence(loc, graceMs), nth: null, nameMatch: null, params: {}, refBase: baseRef } : null;
     }
-    if (Object.values(byParams).some(v => v !== undefined && v !== null && v !== '')) {
-        const loc = resolveOfficialLocator(page, byParams);
-        if (!loc) return null;
-        return first ? loc.first() : loc;
-    }
-    return null;
+    if (!Object.values(byParams).some(v => v !== undefined && v !== null && v !== '')) return null;
+    return resoudreCible(page, byParams, graceMs);
+}
+
+// Locator d'un outil (/expect, /wait_for, captures, glisser) : premier élément si `first` (sauf ref), la liste entière pour les comptages.
+async function locatorFromParams(page, params, sid = null, { first = true } = {}) {
+    const c = await cibleDepuisParams(page, params, sid);
+    if (!c) return null;
+    return first && !c.refBase ? c.loc.first() : c.loc;
 }
 
 
@@ -5968,8 +6443,8 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
 
         // Les assertions de comptage veulent TOUS les matchs, pas le premier.
         const COUNTING = ['count-eq', 'count-gte', 'count-lte', 'count-gt', 'count-lt'];
-        const loc = locatorFromParams(page, params, req.sessionId,
-                                      { first: !COUNTING.includes(assertion) });
+        const loc = await locatorFromParams(page, params, req.sessionId,
+                                            { first: !COUNTING.includes(assertion) });
         if (!loc) return res.status(400).json({ error: 'Could not resolve target. Check params.' });
 
         let pass = false, actual = null, expected = value;
@@ -6072,7 +6547,7 @@ app.post('/element_screenshot', getSession, autoSnapshot, async (req, res) => {
         const { page } = req.session;
         const sid = req.body.session_id;
         const params = req.body;
-        const loc = locatorFromParams(page, params, req.sessionId);
+        const loc = await locatorFromParams(page, params, req.sessionId);
         if (!loc) return res.status(400).json({ error: 'Provide ref/by_* params to identify the element' });
         const fname = `shot_${sid}_${Date.now()}.png`;
         const fpath = path.join(SCREENSHOT_DIR, fname);
@@ -6106,7 +6581,8 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
         // For som mode we annotate first, screenshot, then strip annotations.
         const wantAnnotation = mode === 'som';
 
-        const data = await page.evaluate(({ mode, viewportOnly, maxItems, wantAnnotation, pierceShadow }) => {
+        const data = await page.evaluate(({ mode, viewportOnly, maxItems, wantAnnotation, pierceShadow, srcUnique }) => {
+            const unique = new Function(`return (${srcUnique})`)();
             // Mirror buildBestSelector from smart_inspect (kept inline for self-containment).
             function buildSel(el) {
                 const tag = el.tagName.toLowerCase();
@@ -6202,10 +6678,10 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 if (tag === 'input') type = `input:${el.getAttribute('type') || 'text'}`;
                 else if (el.getAttribute('role')) type = `role:${el.getAttribute('role')}`;
                 const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
-                const sel = buildSel(el);
+                const sel = unique(el, buildSel(el), buildSel);
                 const it = {
                     i: i++, type, text, selector: sel,
-                    target_dsl: sel.startsWith('#') || sel.startsWith('[') ? `css=${sel}` : sel,
+                    target_dsl: `css=${sel}`,
                     rect: { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) },
                     in_viewport: r.top >= 0 && r.top < window.innerHeight,
                 };
@@ -6232,7 +6708,8 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 }
             }
             return { items, url: location.href, candidates_total: _all.length, omitted, shadow_hosts: _shadowHosts.length };
-        }, { mode, viewportOnly, maxItems, wantAnnotation, pierceShadow });
+        }, { mode, viewportOnly, maxItems, wantAnnotation, pierceShadow, srcUnique: sourceDe(selecteurUnique) });
+        for (const it of data.items) it.target_dsl = `css=${echapperDsl(it.selector)}`;
 
         // SoM screenshot pass + strip annotations
         let screenshot = null;
@@ -6384,8 +6861,25 @@ app.post('/mock/remove', getSession, async (req, res) => {
 // session._recorder.events when session._recorder.recording is true.
 // (The hook lives in the existing endpoints — see `recordEvent` below.)
 
-function recordEvent(session, evt) {
+// Attributs qui disent si un champ est secret (type, nom, id, libellés) ; `{}` s'il n'est plus lisible.
+async function attributsDuChamp(locator) {
+    if (!locator) return {};
+    return locator.evaluate((el) => ({
+        type: el.getAttribute('type') || '', name: el.getAttribute('name') || '', id: el.id || '',
+        autocomplete: el.getAttribute('autocomplete') || '', label: el.getAttribute('aria-label') || '',
+        placeholder: el.getAttribute('placeholder') || '',
+        labels: Array.from(el.labels || []).map((l) => l.textContent || '').join(' '),
+    }), null, { timeout: 1000 }).catch(() => ({}));
+}
+
+// Aucun secret gardé : saisie d'un champ secret (variable d'environnement au rejeu, une par champ), littéraux d'une évaluation qui saisit, paramètres sensibles des URL.
+async function recordEvent(session, evt, locator = null) {
     if (!session || !session._recorder || !session._recorder.recording) return;
+    if (evt.action === 'fill' || evt.action === 'type')
+        evt = masquerSecret(evt, locator ? await attributsDuChamp(locator) : {}, session._recorder.variables || (session._recorder.variables = new Map()));
+    if (evt.action === 'eval') evt = { ...evt, script: masquerScript(evt.script).slice(0, 300) };
+    const url = masquerUrl(evt.url);
+    if (url !== evt.url) evt = { ...evt, url, url_masked: true };
     const events = session._recorder.events;
     events.push({ ts: Date.now() - session._recorder.start_ts, ...evt });
     if (events.length > 1000) events.shift(); // safety cap
@@ -6396,6 +6890,7 @@ app.post('/recorder/start', getSession, async (req, res) => {
         recording: true,
         start_ts: Date.now(),
         events: [],
+        variables: new Map(),
     };
     res.json({ status: 'recording', start_ts: req.session._recorder.start_ts });
 });
@@ -6415,6 +6910,7 @@ app.post('/recorder/stop', getSession, async (req, res) => {
 app.post('/recorder/clear', getSession, async (req, res) => {
     if (req.session._recorder) {
         req.session._recorder.events = [];
+        req.session._recorder.variables = new Map();
         req.session._recorder.start_ts = Date.now();
     }
     res.json({ status: 'cleared' });
@@ -6479,16 +6975,19 @@ app.get('/recorder/dump', getSession, async (req, res) => {
         const lines = [
             "import { test, expect } from '@playwright/test';",
             '',
-            'test(\'recorded session\', async ({ page }) => {',
         ];
+        const { secret_variables: aLire } = notesDuScript(events);
+        if (aLire.length) lines.push(`// Secrets are not recorded: set ${aLire.join(', ')} in the environment.`, '');
+        lines.push('test(\'recorded session\', async ({ page }) => {');
         for (const e of events) {
             const t = targetExpr(e, 'playwright');
             switch (e.action) {
                 case 'goto': lines.push(`  await page.goto('${escape(e.url)}');`); break;
                 case 'click': lines.push(`  await ${t}.click();`); break;
-                case 'fill':  lines.push(`  await ${t}.fill('${escape(e.value)}');`); break;
-                case 'type':  lines.push(`  await ${t}.type('${escape(e.value)}');`); break;
+                case 'fill':  lines.push(`  await ${t}.fill(${e.secret ? `process.env.${e.secret} ?? ''` : `'${escape(e.value)}'`});`); break;
+                case 'type':  lines.push(`  await ${t}.type(${e.secret ? `process.env.${e.secret} ?? ''` : `'${escape(e.value)}'`});`); break;
                 case 'press': lines.push(`  await page.keyboard.press('${escape(e.key || e.value)}');`); break;
+                case 'eval': lines.push(`  // eval not replayed: ${commentaireEval(e.script)}`); break;
                 case 'select': lines.push(`  await ${t}.selectOption(${selectOptionArg(e, 'playwright')});`); break;
                 case 'check': lines.push(`  await ${t}.check();`); break;
                 case 'uncheck': lines.push(`  await ${t}.uncheck();`); break;
@@ -6506,7 +7005,8 @@ app.get('/recorder/dump', getSession, async (req, res) => {
                 case 'goto':  lines.push(`    cy.visit('${escape(e.url)}');`); break;
                 case 'click': lines.push(`    ${t}.click();`); break;
                 case 'fill':
-                case 'type':  lines.push(`    ${t}.type('${escape(e.value)}');`); break;
+                case 'type':  lines.push(e.secret ? `    ${t}.type(Cypress.env('${e.secret}'), { log: false });` : `    ${t}.type('${escape(e.value)}');`); break;
+                case 'eval': lines.push(`    // eval not replayed: ${commentaireEval(e.script)}`); break;
                 case 'select': lines.push(`    ${t}.select(${selectOptionArg(e, 'cypress')});`); break;
                 case 'check': lines.push(`    ${t}.check();`); break;
                 case 'uncheck': lines.push(`    ${t}.uncheck();`); break;
@@ -6516,20 +7016,18 @@ app.get('/recorder/dump', getSession, async (req, res) => {
         lines.push('  });', '});');
         script = lines.join('\n');
     } else if (format === 'robot') {
-        const lines = [
-            '*** Settings ***',
-            'Library    Browser',
-            '',
-            '*** Test Cases ***',
-            'Recorded Session',
-        ];
+        const lines = ['*** Settings ***', 'Library    Browser', ''];
+        const { secret_variables: aFournir } = notesDuScript(events);
+        if (aFournir.length) lines.push('*** Variables ***', ...aFournir.map(v => `\${${v}}    %{${v}}`), '');
+        lines.push('*** Test Cases ***', 'Recorded Session');
         for (const e of events) {
             const t = targetExpr(e, 'robot');
             switch (e.action) {
                 case 'goto':  lines.push(`    New Page    ${e.url}`); break;
                 case 'click': lines.push(`    Click    ${t}`); break;
-                case 'fill':  lines.push(`    Fill Text    ${t}    ${e.value}`); break;
-                case 'type':  lines.push(`    Type Text    ${t}    ${e.value}`); break;
+                case 'fill':  lines.push(e.secret ? `    Fill Secret    ${t}    $${e.secret}` : `    Fill Text    ${t}    ${e.value}`); break;
+                case 'type':  lines.push(e.secret ? `    Type Secret    ${t}    $${e.secret}` : `    Type Text    ${t}    ${e.value}`); break;
+                case 'eval':  lines.push(`    # eval not replayed: ${commentaireEval(e.script)}`); break;
                 case 'press': lines.push(`    Keyboard Key    press    ${e.key || e.value}`); break;
                 case 'select': lines.push(`    Select Options By    ${t}    ${selectOptionArg(e, 'robot')}`); break;
                 default: lines.push(`    # ${e.action}`);
@@ -6540,7 +7038,9 @@ app.get('/recorder/dump', getSession, async (req, res) => {
         return res.status(400).json({ error: `Unknown format: ${format}. Use: playwright|cypress|robot|json` });
     }
 
-    res.json({ format, count: events.length, script });
+    const { secret_variables, notes } = notesDuScript(events);
+    res.json({ format, count: events.length, script,
+        ...(secret_variables.length ? { secret_variables } : {}), ...(notes.length ? { notes } : {}) });
 });
 
 

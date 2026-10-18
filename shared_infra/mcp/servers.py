@@ -21,6 +21,7 @@ préfixe est ce qui dit à la route de chat « celui-là, résous-le en base ».
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from typing import Any, Dict, List, Optional
@@ -28,6 +29,9 @@ from typing import Any, Dict, List, Optional
 from shared_infra.db._connection import db_conn
 from shared_infra.db._dialect import insert_id
 from shared_infra.security.encryption import decrypt, encrypt
+
+logger = logging.getLogger("uvicorn.error")
+_SIGNALES: set = set()
 
 SERVER_TYPES = ("sse", "stdio", "http")
 # ``header`` — la clé va dans un en-tête NOMMÉ par l'utilisateur (``auth_user``
@@ -77,8 +81,8 @@ class InvalidPair(ValueError):
 
 def _pair_name_ok(name: str, kind: str) -> bool:
     if kind == "env":
-        return bool(_ENV_NAME_RE.match(name)) and name not in _RESERVED_ENV
-    return bool(_HEADER_NAME_RE.match(name)) and name.lower() not in _RESERVED_HEADERS
+        return bool(_ENV_NAME_RE.fullmatch(name)) and name not in _RESERVED_ENV
+    return bool(_HEADER_NAME_RE.fullmatch(name)) and name.lower() not in _RESERVED_HEADERS
 
 
 def header_name_ok(name: str) -> bool:
@@ -173,12 +177,22 @@ def _decode_pairs(enc: str, scheme: str) -> List[Dict[str, str]]:
             for p in data if isinstance(p, dict) and p.get("name")]
 
 
-def _pairs_to_dict(pairs: Any) -> Dict[str, str]:
+def _pairs_to_dict(pairs: Any, kind: str) -> Dict[str, str]:
     """Paires → dict prêt pour le transport. Les valeurs VIDES sont retirées :
     une paire dont la valeur n'a jamais été saisie est un créneau en attente,
     pas un en-tête à envoyer vide (que beaucoup de serveurs rejettent)."""
-    return {p["name"]: p["value"] for p in (pairs or [])
-            if isinstance(p, dict) and p.get("name") and p.get("value")}
+    out: Dict[str, str] = {}
+    for p in pairs or []:
+        if not (isinstance(p, dict) and p.get("name") and p.get("value")):
+            continue
+        if not _pair_name_ok(p["name"], kind):
+            if (kind, p["name"]) not in _SIGNALES:
+                _SIGNALES.add((kind, p["name"]))
+                logger.warning("[mcp] %s : nom enregistré refusé par la validation, paire ignorée : %r",
+                               kind, p["name"])
+            continue
+        out[p["name"]] = p["value"]
+    return out
 
 # Préfixe d'id public. ``shared_id("shared:3") == 3`` ; tout le reste → None.
 ID_PREFIX = "shared:"
@@ -483,11 +497,11 @@ def _row_to_config(r) -> Dict[str, Any]:
     # dans l'empreinte d'auth de la clé du pool — deux configs identiques au
     # token près y ouvriraient deux sous-processus au lieu d'en partager un.
     if r["type"] not in HTTP_TYPES:
-        env = _pairs_to_dict(_decode_pairs(_row_get(r, "env_enc", ""), scheme))
+        env = _pairs_to_dict(_decode_pairs(_row_get(r, "env_enc", ""), scheme), "env")
         if env:
             cfg["env"] = env
         return cfg
-    headers = _pairs_to_dict(_decode_pairs(_row_get(r, "headers_enc", ""), scheme))
+    headers = _pairs_to_dict(_decode_pairs(_row_get(r, "headers_enc", ""), scheme), "headers")
     if headers:
         cfg["headers"] = headers
     secret = _decode_secret(r["auth_enc"], r["key_scheme"])
@@ -583,7 +597,10 @@ def personal_pairs(srv: Any) -> tuple[List[Dict[str, str]], List[Dict[str, str]]
             headers = sanitize_pairs(
                 [{"name": k, "value": v} for k, v in legacy.items()],
                 kind="headers")
-    return headers, _decode_pairs(srv.get("env_enc") or "", scheme)
+    env = _decode_pairs(srv.get("env_enc") or "", scheme)
+    if not env and isinstance(srv.get("env"), dict):
+        env = sanitize_pairs([{"name": k, "value": v} for k, v in srv["env"].items()], kind="env")
+    return headers, env
 
 
 def personal_public(srv: Any) -> Dict[str, Any]:
@@ -626,16 +643,16 @@ def personal_to_config(srv: Any, *, allow_stdio: bool = False) -> Dict[str, Any]
         return {}
     cfg = {k: v for k, v in srv.items()
            if k not in ("auth_enc", "key_scheme", "auth_secret", "has_auth",
-                        "visible", "headers", "headers_enc", "env_enc",
+                        "visible", "headers", "headers_enc", "env", "env_enc",
                         "extra_scheme")}
     stype = srv.get("type")
     headers, env = personal_pairs(srv)
     if stype == "stdio":
-        env_map = _pairs_to_dict(env)
+        env_map = _pairs_to_dict(env, "env")
         if env_map:
             cfg["env"] = env_map
     elif stype in HTTP_TYPES:
-        header_map = _pairs_to_dict(headers)
+        header_map = _pairs_to_dict(headers, "headers")
         if header_map:
             cfg["headers"] = header_map
 

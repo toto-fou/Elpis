@@ -56,7 +56,7 @@ ORPHAN_GRACE_S = 2 * 3600.0
 EPHEMERAL_TTL_S = 24 * 3600.0
 #: Ligne dont le fichier a disparu (restauration partielle) : retirée au-delà.
 _MISSING_GRACE_S = 24 * 3600.0
-#: Longueur maximale du nom de modèle en base (VARCHAR indexé sous MySQL).
+#: Longueur maximale du nom de modèle en base (colonne indexée).
 _MODEL_MAX = 191
 _DELETE_CHUNK = 500
 #: Fichier sans ligne : ramassé au-delà de ce délai (écriture en cours sinon).
@@ -66,7 +66,7 @@ _COLONNES = ("id, user_id, chat_id, prompt, params_json, model, mime, width, hei
 
 
 def valid_id(image_id: Any) -> bool:
-    return isinstance(image_id, str) and bool(_ID_RE.match(image_id))
+    return isinstance(image_id, str) and bool(_ID_RE.fullmatch(image_id))
 
 
 def url_for(image_id: str, *, thumb: bool = False) -> str:

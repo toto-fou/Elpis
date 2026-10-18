@@ -20,14 +20,14 @@ fichiers 0644, dossiers 0755 (agent, commandes et terminal en umask 0022).
 Au démarrage, le root du conteneur rend `/work` à cet UID en 0755, et une
 fois par compte tout l'arbre hérité de l'ancien élargissement (0666 / 0777,
 fichiers à l'UID de l'app) : `chown -R`, `chmod -R go-w`
-(`UserSandbox._reconcile_work_modes`).
+(`reconcileWorkModes`, `packages/bac/src/conteneur.ts`).
 
 Exceptions de l'hôte, toutes hors du contenu des fichiers :
 
 - `du` pour le quota : métadonnées seules, liens non suivis ;
 - suppression d'un compte : `/work` d'abord, par le root du conteneur
   démarré pour l'occasion (processus du compte arrêtés, `find -delete`, puis
-  conteneur retiré : `UserSandbox.purge`) — il faut donc Docker et l'image ;
+  conteneur retiré : `purge`, `packages/bac/src/conteneur.ts`) — il faut donc Docker et l'image ;
   sinon le compte est supprimé, le dossier reste et la console le dit ;
   ensuite le reste de `P`, par `rmtree` à descripteurs ;
 - horloge d'inactivité (GC) : `lstat` de `/work` et de `/work/.bg/*`, sans
@@ -35,16 +35,17 @@ Exceptions de l'hôte, toutes hors du contenu des fichiers :
 - ménage des téléversements abandonnés : par le root de chaque conteneur en
   marche (`find -mmin`), plus par l'hôte ;
 - création de `P/work` et migration d'une ancienne arborescence
-  (`ensure_work_subdir`), avant tout usage du conteneur.
+  (`ensureWorkSubdir`, `packages/bac/src/travail.ts`), avant tout usage du conteneur.
 
 Les parties de `P` qui appartiennent à l'hôte (miroir des skills, mémoire,
 dépôt des instantanés — hors du montage) sont parcourues par descripteurs,
-sans suivre de lien (`shared_infra/sandbox/paths.py`).
+sans suivre de lien (`packages/securite/src/confinement.ts`).
 
 ## L'agent
 
-- `shared_infra/sandbox/agent/server.py` : bibliothèque standard,
-  Python ≥ 3.9. Code monté en lecture seule (`/opt/elpis/agent`), lancé à la
+- `shared_infra/sandbox/agent/server.py` : Python (bibliothèque standard,
+  Python ≥ 3.9), seul code de la passerelle qui tourne dans le conteneur.
+  Code monté en lecture seule (`/opt/elpis/agent`), lancé à la
   demande par `docker exec -d` sous l'UID du conteneur, sans capacités, et
   relancé si sa version (empreinte du fichier) diffère de celle de
   l'application.
@@ -52,7 +53,7 @@ sans suivre de lien (`shared_infra/sandbox/paths.py`).
   `<utilisateur>/.elpis-agent/agent.sock`). L'hôte ouvre le socket sans
   suivre de lien et tient toute réponse pour non fiable : tailles et délais
   bornés, jamais un chemin de l'hôte tiré d'une réponse
-  (`shared_infra/sandbox/agent_client.py`).
+  (`@elpis/fichiers`, `packages/fichiers/src/agent.ts`).
 - Appel passif (sondages de l'éditeur) : ne redémarre pas un conteneur
   arrêté et ne compte pas comme une activité de la sandbox.
 - API `/v1` : `hello`, `stat`, `read`, `list`, `grep`, `readmany`, `write`,
@@ -65,11 +66,11 @@ sans suivre de lien (`shared_infra/sandbox/paths.py`).
 
 ## Git
 
-- `git` tourne dans le conteneur (`shared_infra/sandbox/git_ops.py`) : UID de
+- `git` tourne dans le conteneur (`packages/fichiers/src/git.ts`, par l'agent) : UID de
   la sandbox, `HOME=/work` ; pour les commandes d'Elpis, ni hooks, ni
   moniteur, ni signature, ni invite d'identifiants ; identité par défaut
   « Elpis », que la configuration de l'utilisateur remplace.
-- Réseau (`shared_infra/sandbox/git_relay.py`) :
+- Réseau (`packages/fichiers/src/relais-git.ts`) :
   - chaque processus de l'app écoute sur
     `user_sandboxes/.elpis-relay/<pid>.sock`, dossier monté en lecture
     seule sur `/run/elpis-relay` ;
@@ -150,22 +151,9 @@ Latence par opération de l'agent (médiane de 20, même machine) :
 
 ## Tests
 
-`tests/shared_infra/` : `test_agent_sandbox_2026_09_29.py` (agent et
-client), `test_git_relais_2026_09_29.py` (git et relais de bout en bout,
-avec `git http-backend`), `test_relecture_editeur_agent_2026_09_29.py`,
-`test_adversarial_sandbox_2026_09_29.py`, `test_agent_parcours_sans_lien_2026_10_03.py`,
-`test_archives_agent_2026_09_29.py`,
-`test_frontiere_interception_2026_09_30.py` (aucun accès de l'hôte à
-`/work` pendant les parcours), `test_frontiere_agent_2026_09_30.py`,
-`test_sandbox_paths.py`, `test_run_args.py` ;
-`tests/sandbox/test_git_routes_agent_2026_09_29.py` (routes Git de
-l'éditeur), `tests/llm_core/test_git_network_backend.py` (outils Git par le
-relais), `tests/llm_core/test_relecture_agent_fichiers_2026_09_29.py`.
-
-En vrai conteneur (image `elpis/sandbox` et agent du conteneur, pièges posés
-depuis le conteneur), sur demande — Docker et l'image requis, un conteneur par
-test, détruit à la fin :
-
-```bash
-ELPIS_TEST_CONTENEUR=1 venv/bin/pytest -n 0 tests/shared_infra/test_adversarial_conteneur_2026_10_03.py
-```
+La passerelle est couverte par les tests des mainteneurs (dépôt de
+développement) : agent et client, Git et relais de bout en bout (avec
+`git http-backend`), parcours de l'éditeur sans suivre de lien, archives,
+garde qui fait échouer tout test où le code de l'hôte touche `/work`, et, sur
+demande, une passe adverse en vrai conteneur (image `elpis/sandbox` et agent du
+conteneur, pièges posés depuis le conteneur).

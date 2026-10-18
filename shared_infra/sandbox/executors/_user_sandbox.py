@@ -85,12 +85,14 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
+from shared_infra.runtime.verrou_fichier import VerrouFichier, VerrouOccupe
 from shared_infra.sandbox import naming as _naming
 from shared_infra.sandbox.agent_client import (
     AGENT_DIR,
@@ -194,9 +196,11 @@ _PERMS_MARKER_LEGACY = (".perms-reconciled", ".perms-reconciled-v2", ".perms-rec
 #     ``rm -fv`` + ``_create``, le second détruisant le container tout neuf
 #     du premier.
 # Les verrous sont donc rangés par boucle dans une WeakKeyDictionary (libérés
-# avec la boucle), et doublés d'un ``flock`` PAR COMPTE, partagé par tous les
-# process. Le flock est pris en thread, borné (fail-open au-delà : la
-# sérialisation reste un confort, l'idempotence de ``_create`` demeure).
+# avec la boucle), et doublés d'un verrou ``elpis.verrou.v1.1`` PAR COMPTE
+# (``<SANDBOX_DIR>/.lifecycle_locks/u<uid>.lock``), partagé par tous les process
+# (hôte d'outils, console d'administration). Attente bornée (fail-open au-delà :
+# la sérialisation reste un confort, l'idempotence de ``_create`` demeure) ;
+# battement : chargement d'image et droits de /work passent dessous sans dépasser la péremption.
 import weakref as _weakref
 
 #: Tâches « sans attendre » (activité poussée à l'agent) : gardées ici tant
@@ -204,7 +208,8 @@ import weakref as _weakref
 _TACHES_DE_FOND: "set[asyncio.Task]" = set()
 
 _lifecycle_locks: "_weakref.WeakKeyDictionary" = _weakref.WeakKeyDictionary()
-_LIFECYCLE_FLOCK_WAIT_S = 120.0
+_LIFECYCLE_VERROU_DELAI_S = 120.0
+_LIFECYCLE_PEREMPTION_S = 120.0
 
 #: Recréation reportée faute d'image (``_stale``) : délai avant de réessayer.
 _CONFIG_RETRY_S = 60.0
@@ -237,77 +242,85 @@ def _racine_privee(racine: Path) -> None:
         logger.warning("[sandbox] %s : droits non restreints (%s)", racine, e)
 
 
-def _lifecycle_flock_acquire(user_id: int) -> Optional[int]:
-    """fd du flock inter-process du compte, ou ``None`` (indisponible ou
-    délai dépassé : fail-open)."""
-    import fcntl
+async def _lifecycle_verrou(user_id: int) -> Optional[VerrouFichier]:
+    """Verrou inter-process du compte, ou ``None`` (indisponible ou délai dépassé : on continue)."""
     try:
         from shared_infra.config import SANDBOX_DIR
         d = Path(SANDBOX_DIR) / ".lifecycle_locks"
         d.mkdir(mode=0o700, parents=True, exist_ok=True)
-        fd = os.open(str(d / f"u{int(user_id)}.lock"), os.O_RDWR | os.O_CREAT, 0o600)
+        verrou = VerrouFichier(d / f"u{int(user_id)}.lock", delai=_LIFECYCLE_VERROU_DELAI_S,
+                               peremption=_LIFECYCLE_PEREMPTION_S, battement=True)
+        await verrou.acquerir_async()
+        return verrou
+    except VerrouOccupe:
+        logger.warning("[sandbox] verrou de cycle de vie inter-process "
+                       "non obtenu (user_id=%s) — on continue", user_id)
+        return None
     except OSError:
         return None
-    deadline = time.monotonic() + _LIFECYCLE_FLOCK_WAIT_S
-    while True:
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            return fd
-        except OSError:
-            if time.monotonic() >= deadline:
-                os.close(fd)
-                logger.warning("[sandbox] verrou de cycle de vie inter-process "
-                               "non obtenu (user_id=%s) — on continue", user_id)
-                return None
-            time.sleep(0.05)
-
-
-def _lifecycle_flock_release(fd: Optional[int]) -> None:
-    if fd is None:
-        return
-    try:
-        os.close(fd)                     # fermer relâche le flock
-    except OSError:
-        pass
 
 
 class _LifecycleGuard:
-    """``async with _lifecycle_lock(uid)`` : verrou de boucle PUIS flock."""
+    """``async with _lifecycle_lock(uid)`` : verrou de boucle PUIS verrou de fichier."""
 
     def __init__(self, user_id: int) -> None:
         self.user_id = user_id
         self._lk: Optional[asyncio.Lock] = None
-        self._fd: Optional[int] = None
+        self._verrou: Optional[VerrouFichier] = None
 
     async def __aenter__(self):
         self._lk = _loop_lock(self.user_id)
         await self._lk.acquire()
-        task = asyncio.ensure_future(
-            asyncio.to_thread(_lifecycle_flock_acquire, self.user_id))
         try:
-            self._fd = await asyncio.shield(task)
+            self._verrou = await _lifecycle_verrou(self.user_id)
         except BaseException:
-            # Annulé pendant l'attente : le thread peut encore OBTENIR le
-            # flock — on le rendra dès qu'il aboutit, sinon il resterait tenu
-            # jusqu'à la mort du process.
-            task.add_done_callback(
-                lambda t: (not t.cancelled() and t.exception() is None
-                           and _lifecycle_flock_release(t.result())))
             self._lk.release()
             raise
         return self
 
     async def __aexit__(self, *exc):
-        _lifecycle_flock_release(self._fd)
-        self._fd = None
-        if self._lk is not None:
-            self._lk.release()
+        verrou, self._verrou = self._verrou, None
+        try:
+            if verrou is not None:
+                await verrou.rendre_async()
+        finally:
+            if self._lk is not None:
+                self._lk.release()
         return False
 
 
 def _lifecycle_lock(user_id: int) -> _LifecycleGuard:
     """Verrou de cycle de vie pour ce user : boucle courante + inter-process."""
     return _LifecycleGuard(user_id)
+
+
+#: Règles de la console (POST /api/admin/executors), revérifiées à la lecture de la configuration.
+PROFILE_ID_RE = re.compile(r"^[a-z0-9_-]+$")
+DOMAIN_RE = re.compile(
+    r"^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+    r"(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$", re.IGNORECASE | re.ASCII)
+
+
+_SIGNALES: set = set()
+
+
+def _signaler_une_fois(message: str, *args: Any) -> None:
+    """Avertissement journalisé une seule fois par processus pour un même contenu."""
+    if (message, *args) not in _SIGNALES:
+        _SIGNALES.add((message, *args))
+        logger.warning(message, *args)
+
+
+def _domaines_valides(d: dict) -> list:
+    """Domaines conformes à la règle de la console ; les autres sont ignorés et journalisés."""
+    out = []
+    for x in d.get("domains") or []:
+        dom = str(x).strip().lower().rstrip(".")
+        if dom and DOMAIN_RE.fullmatch(dom):
+            out.append(dom)
+        elif dom:
+            _signaler_une_fois("[sandbox] profil réseau %r : domaine %r ignoré (invalide)", str(d.get("id")), dom)
+    return out
 
 
 @dataclass
@@ -348,14 +361,16 @@ class NetworkProfile:
                 except (TypeError, ValueError):
                     continue
             return out
+        pid = str(d.get("id", "") or "").strip()[:32]
+        if not PROFILE_ID_RE.fullmatch(pid):
+            raise ValueError(f"identifiant de profil invalide : {pid!r}")
         return cls(
-            id=str(d.get("id", "") or "").strip()[:32],
+            id=pid,
             name=str(d.get("name", "") or "").strip()[:60],
             mode=d.get("mode", "none") if d.get("mode") in ("none", "bridge", "allowlist_ip") else "none",
             ips=[str(x).strip() for x in (d.get("ips") or []) if str(x).strip()],
             description=str(d.get("description", "") or "")[:200],
-            domains=[str(x).strip().lower().rstrip(".")
-                     for x in (d.get("domains") or []) if str(x).strip()],
+            domains=_domaines_valides(d),
             ports=_ints(d.get("ports")),
             dns=[str(x).strip() for x in (d.get("dns") or []) if str(x).strip()],
         )
@@ -524,8 +539,13 @@ class SandboxAdminConfig:
 
         # Parse profils
         raw_profiles = d.get("network_profiles") or []
-        profiles = [NetworkProfile.from_dict(p) for p in raw_profiles
-                    if isinstance(p, dict) and p.get("id") and p.get("name")]
+        profiles = []
+        for p in raw_profiles:
+            if isinstance(p, dict) and p.get("id") and p.get("name"):
+                try:
+                    profiles.append(NetworkProfile.from_dict(p))
+                except ValueError as exc:
+                    _signaler_une_fois("[sandbox] profil réseau ignoré : %s", str(exc))
 
         # Migration legacy : si on trouve l'ancien network_mode + network_allowlist
         # mais pas de profils, on reconstruit un profil legacy
@@ -563,9 +583,9 @@ class SandboxAdminConfig:
         for p in self.network_profiles or []:
             if p.id == profile_id:
                 return p
-        # Fallback : premier profil ou isolated
-        if self.network_profiles:
-            return self.network_profiles[0]
+        for p in self.network_profiles or []:
+            if p.id == "isolated":
+                return p
         return _default_profiles()[0]
 
 

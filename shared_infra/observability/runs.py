@@ -62,7 +62,7 @@ _SOURCES = {"chat": ("chat",), "routine": ("routine", "webhook"),
 _FICHIERS_MAX = 10000
 #: Échantillonnage de la sandbox (``docker stats``) pendant une exécution.
 ECHANTILLON_S = 10.0
-_TEXTE_MAX = 191                     # colonnes indexées : VARCHAR(191) en MySQL
+_TEXTE_MAX = 191                     # colonnes indexées : longueur bornée
 
 
 def new_run_id(kind: str, suffix: str = "") -> str:

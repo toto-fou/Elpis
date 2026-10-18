@@ -1,0 +1,263 @@
+{
+  "source": "server/local_mcp_server.py (tools/list, FastMCP)",
+  "famille": "skill_run",
+  "outils": [
+    {
+      "name": "skill_run_script",
+      "title": "Skill Run Script",
+      "description": "Execute a bundled SCRIPT of a skill inside your sandbox container.\n\nWHEN: skill_get / skill_read_file show the skill ships a runnable script\n(scripts/\u2026) the procedure tells you to run. The skill's files are staged into\nan ephemeral dir OUTSIDE /work (exported as $SKILL_DIR, removed afterwards)\nand the script runs as the sandbox user (UID 10001) FROM /work: relative\npaths in `args` resolve against /work, and files the script writes\n(results/, .venv/, profile.out\u2026) land in /work where you can read them.\nSupported interpreters: .py\u2192python3, .sh/.bash\u2192bash, .js\u2192node, .pl\u2192perl.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Skill name exactly as in the skills index; qualified id 'pkg/child' accepted.",
+            "type": "string"
+          },
+          "script": {
+            "description": "Bundled SCRIPT path RELATIVE to the skill folder, e.g. 'scripts/run.py'. Must end in a supported extension: .py .sh .bash .js .pl.",
+            "type": "string"
+          },
+          "args": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional list of string arguments passed to the script. Relative paths resolve against /work (your sandbox working dir), so pass sandbox files as you see them: 'src/main.py', 'tests/', '/work/data.csv'."
+          },
+          "env": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional environment variables for the script (the skill's documented knobs, e.g. {'APPLY': '1'}). Keys must be UPPER_SNAKE_CASE; PATH/HOME/LD_* are rejected."
+          },
+          "timeout_sec": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional wall-clock timeout (default 60s, max 300s)."
+          }
+        },
+        "required": [
+          "name",
+          "script"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of skill_run_script \u2014 execution of a bundled script in the sandbox container.",
+                "properties": {
+                  "ok": {
+                    "default": true,
+                    "description": "True iff the script exited 0 (rc==0).",
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "description": "Skill name.",
+                    "type": "string"
+                  },
+                  "script": {
+                    "description": "Bundled script path executed (relative to the skill directory).",
+                    "type": "string"
+                  },
+                  "returncode": {
+                    "description": "Script exit code (0 = success).",
+                    "type": "integer"
+                  },
+                  "stdout": {
+                    "default": "",
+                    "description": "Captured standard output (possibly truncated).",
+                    "type": "string"
+                  },
+                  "stderr": {
+                    "default": "",
+                    "description": "Captured standard error (possibly truncated).",
+                    "type": "string"
+                  },
+                  "truncated": {
+                    "default": false,
+                    "description": "True if stdout/stderr was capped to the output limit.",
+                    "type": "boolean"
+                  },
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable hint."
+                  }
+                },
+                "required": [
+                  "name",
+                  "script",
+                  "returncode"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "skill",
+          "label": "Skills",
+          "icon": "ph-graduation-cap",
+          "color": "violet",
+          "hidden": false
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false,
+          "timeout_s": 330
+        },
+        "fastmcp": {
+          "tags": [
+            "skill"
+          ]
+        }
+      }
+    }
+  ],
+  "fonctions": {
+    "skill_run_script": {
+      "fonction": "skill_run_script",
+      "parametres": [
+        {
+          "nom": "name",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "script",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "args",
+          "annotation": "Optional[list]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "env",
+          "annotation": "Optional[dict]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "timeout_sec",
+          "annotation": "Optional[int]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    }
+  }
+}

@@ -113,7 +113,7 @@ def prune_action_cache(max_rows: int = 10000, keep: int = 8000) -> int:
             n = int((cur.fetchone() or {"n": 0})["n"] or 0)
             if n > int(max_rows):
                 # Clé primaire (scope, query_norm) plutôt que ``rowid`` (propre
-                # à SQLite), table dérivée pour MySQL/MariaDB.
+                # à SQLite).
                 cur.execute(
                     "DELETE FROM editor_action_cache WHERE (scope, query_norm) IN ("
                     "SELECT scope, query_norm FROM (SELECT scope, query_norm "

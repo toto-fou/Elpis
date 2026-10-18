@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from typing import Any
 
-# SQL valable sur SQLite, PostgreSQL et MariaDB : la suite multi-moteurs la
+# SQL valable sur SQLite et PostgreSQL : la suite multi-moteurs la
 # rejoue telle quelle (cf. tests/conftest.py).
 PORTABLE = True
 

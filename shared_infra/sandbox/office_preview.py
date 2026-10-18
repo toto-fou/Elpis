@@ -167,7 +167,7 @@ def user_cache_dir(user_dir: str) -> Path:
 
 
 def key_dir(user_dir: str, key: str) -> Path:
-    if not KEY_RE.match(key or ""):
+    if not KEY_RE.fullmatch(key or ""):
         raise OfficeError("invalid", 400, "Clé d'aperçu invalide")
     return user_cache_dir(user_dir) / key
 
@@ -1155,7 +1155,7 @@ def _entries(user_dir: Path) -> List[tuple]:
     except OSError:
         return out
     for p in children:
-        if not KEY_RE.match(p.name):
+        if not KEY_RE.fullmatch(p.name):
             continue
         try:
             used = (p / MANIFEST).stat().st_mtime

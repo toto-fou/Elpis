@@ -31,8 +31,10 @@ Conception :
   - pas de cache long (relecture disque à chaque appel → hot-reload, coût négligeable) ;
   - fail-soft (un skill corrompu n'empêche pas les autres de charger).
 
-Le module reste volontairement SANS dépendance à ``shared_infra`` (testable seul). Le
-chemin de la sandbox perso est résolu par l'appelant et passé via ``user_skills_dir``.
+Le module ne dépend de ``shared_infra`` que pour le verrou de fichier
+(``shared_infra.runtime.verrou_fichier``, sans configuration ni base) : il reste
+testable seul. Le chemin de la sandbox perso est résolu par l'appelant et passé
+via ``user_skills_dir``.
 """
 from __future__ import annotations
 
@@ -47,12 +49,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-try:
-    import fcntl  # verrous advisory POSIX (cross-worker). Absent → fail-open.
-except ImportError:  # pragma: no cover (non-POSIX)
-    fcntl = None  # type: ignore
-
 from llm_core._frontmatter import split_frontmatter
+from shared_infra.runtime.verrou_fichier import VerrouFichier, VerrouOccupe
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -66,52 +64,39 @@ logger = logging.getLogger("uvicorn.error")
 # qu'ils soient dans le même process ou dans deux workers, pouvaient passer le
 # même check de collision puis s'écraser mutuellement.
 #
-# E2 (fragilité d'archi) — un ``threading.RLock`` ne synchronise QUE le process
-# courant : en multi-worker il ne protège rien entre workers. On compose donc
-# deux niveaux :
-#   • ``threading.RLock`` — réentrance + exclusion entre threads du MÊME worker
+# Deux niveaux :
+#   • ``threading.RLock`` — réentrance + exclusion entre threads du MÊME process
 #     (la route HTTP tient le verrou autour de « check d'existence + write » pour
 #     le rendre atomique, et les ``save_*()`` le ré-acquièrent en interne ; un
 #     Lock simple provoquerait un deadlock sur cette ré-acquisition).
-#   • ``fcntl.flock`` advisory sur un lockfile partagé — étend l'exclusion à TOUS
-#     les workers de la machine.
+#   • verrou ``elpis.verrou.v1.1`` sur un fichier partagé — étend l'exclusion aux
+#     autres processus (application, service appmcp, hôte d'outils, core TS).
 #
-# Le flock n'est pris qu'à la profondeur d'imbrication 0 (compteur protégé par le
-# RLock → un seul thread du process le manipule) et relâché au retour à 0.
+# Le verrou de fichier n'est pris qu'à la profondeur d'imbrication 0 (compteur
+# protégé par le RLock → un seul thread du process le manipule) et rendu au
+# retour à 0.
 #
 # Garde-fous (le verrou ne doit JAMAIS casser une écriture légitime) :
-#   • FAIL-OPEN : flock indisponible (pas de ``fcntl``, FS sans verrou, perms) ou
-#     contention prolongée au-delà de ``_FLOCK_TIMEOUT_S`` → on retombe sur le
-#     RLock seul + écritures atomiques (tmp+rename). Pas de blocage indéfini.
-#   • Acquire BORNÉ et non-bloquant (spin LOCK_NB) : le cas normal (pas de
-#     contention) acquiert instantanément ; sous contention l'attente est plafonnée
-#     (les routes sont ``async`` → pas de stall illimité de l'event loop).
-#   • Lockfile jamais unlink (inode stable, cf. ``cron_lock``) ; le kernel libère
-#     le flock à la mort du process.
+#   • FAIL-OPEN : verrou de fichier indisponible (FS, droits) ou contention
+#     prolongée au-delà de ``_VERROU_DELAI_S`` → on retombe sur le RLock seul +
+#     écritures atomiques (tmp+rename). Pas de blocage indéfini.
 #   • Désactivable via ``SKILLS_FILELOCK=0`` (RLock seul).
-_FLOCK_TIMEOUT_S = 5.0    # plafond d'attente sous contention avant fail-open
-_FLOCK_POLL_S    = 0.02   # granularité du spin LOCK_NB
+_VERROU_DELAI_S = 5.0    # plafond d'attente sous contention avant fail-open
 
 
 def _filelock_enabled() -> bool:
-    if fcntl is None:
-        return False
     return os.environ.get("SKILLS_FILELOCK", "1").strip().lower() not in ("0", "false", "no", "")
 
 
 class _SkillsWriteLock:
-    """Verrou réentrant à deux niveaux (RLock intra-process + flock cross-worker).
-
-    Expose l'interface d'un context manager (``with _write_lock:``) et les
-    méthodes ``acquire``/``release`` — drop-in pour l'ancien ``threading.RLock``.
-    """
+    """Verrou réentrant à deux niveaux : RLock du process, puis verrou de fichier entre processus."""
 
     def __init__(self) -> None:
         self._rlock = threading.RLock()
         self._depth = 0
-        self._fd: Optional[int] = None
+        self._verrou: Optional[VerrouFichier] = None
 
-    def _flock_path(self) -> Path:
+    def _lock_path(self) -> Path:
         override = os.environ.get("SKILLS_LOCK_PATH", "").strip()
         if override:
             return Path(override)
@@ -123,10 +108,10 @@ class _SkillsWriteLock:
         self._rlock.acquire()                 # réentrant + exclusion intra-process
         try:
             if self._depth == 0:
-                self._flock_acquire()
+                self._file_lock_acquire()
             self._depth += 1
         except Exception:
-            # Ne jamais laisser le RLock pris si l'init du flock explose.
+            # Ne jamais laisser le RLock pris si la prise du verrou de fichier explose.
             self._rlock.release()
             raise
 
@@ -135,59 +120,29 @@ class _SkillsWriteLock:
             self._depth -= 1
             if self._depth <= 0:
                 self._depth = 0
-                self._flock_release()
+                self._file_lock_release()
         finally:
             self._rlock.release()
 
-    def _flock_acquire(self) -> None:
+    def _file_lock_acquire(self) -> None:
+        """Prend le verrou de fichier ; contention au-delà du délai ou verrou indisponible → RLock seul."""
         if not _filelock_enabled():
             return
-        fd = None
         try:
-            path = self._flock_path()
-            path.parent.mkdir(parents=True, exist_ok=True)
-            fd = os.open(str(path), os.O_RDWR | os.O_CREAT, 0o600)
-            deadline = time.monotonic() + _FLOCK_TIMEOUT_S
-            while True:
-                try:
-                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    self._fd = fd
-                    return
-                except (BlockingIOError, OSError):
-                    if time.monotonic() >= deadline:
-                        # Contention prolongée (worker bloqué ?) → fail-open : le
-                        # RLock + les écritures atomiques restent la protection.
-                        logger.warning("[skills] flock contention > %.0fs — fail-open (RLock seul)",
-                                       _FLOCK_TIMEOUT_S)
-                        try:
-                            os.close(fd)
-                        except OSError:
-                            pass
-                        self._fd = None
-                        return
-                    time.sleep(_FLOCK_POLL_S)
-        except Exception:
-            # FAIL-OPEN : flock indisponible → RLock + écritures atomiques suffisent.
-            if fd is not None:
-                try:
-                    os.close(fd)
-                except OSError:
-                    pass
-            self._fd = None
+            verrou = VerrouFichier(self._lock_path(), delai=_VERROU_DELAI_S)
+            verrou.acquerir()
+            self._verrou = verrou
+        except VerrouOccupe:
+            logger.warning("[skills] flock contention > %.0fs — fail-open (RLock seul)", _VERROU_DELAI_S)
+            self._verrou = None
+        except Exception:  # noqa: BLE001 — verrou de fichier facultatif : l'écriture passe sous le RLock seul
+            self._verrou = None
             logger.debug("[skills] flock indisponible (fail-open, RLock seul)", exc_info=True)
 
-    def _flock_release(self) -> None:
-        if self._fd is None:
-            return
-        try:
-            fcntl.flock(self._fd, fcntl.LOCK_UN)
-        except OSError:
-            pass
-        try:
-            os.close(self._fd)
-        except OSError:
-            pass
-        self._fd = None
+    def _file_lock_release(self) -> None:
+        verrou, self._verrou = self._verrou, None
+        if verrou is not None:
+            verrou.rendre()
 
     def __enter__(self) -> "_SkillsWriteLock":
         self.acquire()
@@ -1358,7 +1313,7 @@ def promote_learned_skill(name: str) -> Path:
 # Les skills perso vivent dans ``<sandbox_utilisateur>/skills/`` et surchargent
 # le global par ``name`` (cf. discover_skills). Le dossier racine est résolu par
 # l'appelant (la route, qui connaît la sandbox de l'user) et passé ici — ce
-# module reste sans dépendance à ``shared_infra``.
+# module ne lit ni la configuration ni la base.
 
 
 

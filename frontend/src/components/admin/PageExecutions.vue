@@ -1,0 +1,259 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- frontend/src/components/admin/PageExecutions.vue — page Supervision › Exécutions. -->
+<script setup lang="ts">
+import { domaineAdmin } from "../../features/admin/domaine";
+
+const adm = domaineAdmin();
+</script>
+
+<template>
+  <div v-if="adm.adminTab === 'runs'" class="animate-[fadeIn_0.2s] space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="adm-seg" role="group" aria-label="Période">
+        <button
+          v-for="s in [
+            { h: 24, l: '24 h' },
+            { h: 168, l: '7 j' },
+            { h: 720, l: '30 j' },
+          ]"
+          :key="'rs' + s.h"
+          type="button"
+          :class="['adm-seg__btn', adm.admRunsScope === s.h ? 'is-active' : '']"
+          :aria-pressed="adm.admRunsScope === s.h ? 'true' : 'false'"
+          @click="adm.setAdmRunsScope(s.h)"
+        >
+          {{ s.l }}
+        </button>
+      </div>
+      <button
+        type="button"
+        :disabled="adm.admRunsLoading"
+        class="adm-btn adm-tool"
+        @click="adm.loadAdminRuns()"
+      >
+        <i
+          class="ph ph-arrow-clockwise"
+          :class="adm.admRunsLoading ? 'animate-spin' : ''"
+          aria-hidden="true"
+        ></i>
+        Recharger
+      </button>
+    </div>
+
+    <div class="adm-card">
+      <div class="adm-card__head">
+        <div class="adm-card__title flex items-center gap-2">
+          <i class="ph ph-users adm-card__icon" aria-hidden="true"></i>
+          <span title="Tokens, temps du modèle, outils et pics de la sandbox, sous-agents compris"
+            >Par compte</span
+          >
+        </div>
+        <span class="adm-row__hint ml-auto">Cliquer un compte filtre la liste ci-dessous</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="adm-table w-full">
+          <thead>
+            <tr>
+              <th class="text-left">Compte</th>
+              <th class="text-right">Exécutions</th>
+              <th class="text-right" title="Exécutions terminées autrement que « ok »">Échecs</th>
+              <th
+                class="text-right"
+                title="Tokens d'entrée, dont la part relue du cache (le reste est l'entrée utile)"
+              >
+                Entrée
+              </th>
+              <th class="text-right" title="Tokens générés, dont la réflexion (le reste est la réponse)">
+                Sortie
+              </th>
+              <th class="text-right" title="Prefill (lecture du prompt) + génération">
+                Prefill + génération
+              </th>
+              <th class="text-right" title="Attente d'un créneau LLM">Attente</th>
+              <th class="text-right">Outils (erreurs)</th>
+              <th class="text-right">Fichiers</th>
+              <th class="text-right" title="Pics mesurés sur le conteneur de la sandbox">Sandbox (pics)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="!adm.admRunsAccounts.length">
+              <td colspan="10" class="text-center adm-empty">Aucune exécution sur la fenêtre choisie.</td>
+            </tr>
+            <tr
+              v-for="a in adm.admRunsAccounts"
+              :key="'ra' + a.user_id"
+              tabindex="0"
+              class="cursor-pointer"
+              :class="adm.admRunsFilter.userId === a.user_id ? 'bg-blue-50' : ''"
+              @click="adm.toggleAdmRunsAccount(a)"
+              @keydown.enter="adm.toggleAdmRunsAccount(a)"
+            >
+              <td class="text-xs font-medium">{{ a.username || "#" + a.user_id }}</td>
+              <td class="text-right tabular-nums text-xs">
+                {{ a.runs }}<span v-if="a.subagents" class="adm-muted"> + {{ a.subagents }} sous-agents</span>
+              </td>
+              <td class="text-right tabular-nums text-xs" :class="a.failed ? 'text-rose-600' : 'adm-muted'">
+                {{ a.failed }}
+              </td>
+              <td
+                class="text-right tabular-nums text-xs whitespace-nowrap"
+                :title="adm.admRunsTokensTitle(a)"
+              >
+                {{ adm.admRunsIn(a) }}
+              </td>
+              <td
+                class="text-right tabular-nums text-xs whitespace-nowrap"
+                :title="adm.admRunsTokensTitle(a)"
+              >
+                {{ adm.admRunsOut(a) }}
+              </td>
+              <td class="text-right tabular-nums text-xs whitespace-nowrap">
+                {{ adm.admRunsDuration(a.prefill_ms) }} + {{ adm.admRunsDuration(a.decode_ms) }}
+              </td>
+              <td class="text-right tabular-nums text-xs adm-muted">{{ adm.admRunsDuration(a.wait_ms) }}</td>
+              <td class="text-right tabular-nums text-xs">
+                {{ a.tool_calls }}<span class="adm-muted"> ({{ a.tool_errors }})</span>
+              </td>
+              <td class="text-right tabular-nums text-xs">{{ a.files_changed }}</td>
+              <td class="text-right tabular-nums text-xs adm-muted">
+                <template v-if="a.sandbox_cpu_peak != null">
+                  {{ Math.round(a.sandbox_cpu_peak) }} % · {{ Math.round(a.sandbox_mem_peak_mb || 0) }} Mio
+                </template>
+                <template v-else>—</template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="adm-card">
+      <div class="adm-card__head flex-wrap gap-2">
+        <div class="adm-card__title flex items-center gap-2">
+          <i class="ph ph-list-magnifying-glass adm-card__icon" aria-hidden="true"></i>
+          Exécutions
+          <button
+            v-if="adm.admRunsFilter.userId !== null"
+            type="button"
+            class="adm-pill"
+            title="Retirer le filtre de compte"
+            @click="adm.setAdmRunsFilter({ userId: null, username: '' })"
+          >
+            {{ adm.admRunsFilter.username }} <i class="ph ph-x text-[10px]" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="adm-card__actions flex items-center gap-2">
+          <select
+            class="set-select text-xs"
+            :value="adm.admRunsFilter.kind"
+            aria-label="Genre"
+            @change="adm.setAdmRunsFilter({ kind: ($event.target as HTMLInputElement).value })"
+          >
+            <option value="">Premier niveau</option>
+            <option value="chat">Tours de chat</option>
+            <option value="routine">Routines</option>
+            <option value="subagent">Sous-agents</option>
+            <option value="compaction">Compactions</option>
+            <option value="image">Images</option>
+          </select>
+          <select
+            class="set-select text-xs"
+            :value="adm.admRunsFilter.status"
+            aria-label="Statut"
+            @change="adm.setAdmRunsFilter({ status: ($event.target as HTMLInputElement).value })"
+          >
+            <option value="">Tous statuts</option>
+            <option value="ok">ok</option>
+            <option value="error">error</option>
+            <option value="cancelled">cancelled</option>
+            <option value="timeout">timeout</option>
+            <option value="running">running</option>
+            <option value="lost">lost</option>
+          </select>
+        </div>
+      </div>
+      <div class="max-h-[32rem] overflow-y-auto custom-scrollbar">
+        <table class="adm-table w-full">
+          <thead class="adm-thead--sticky">
+            <tr>
+              <th class="text-left">Début</th>
+              <th class="text-left">Compte</th>
+              <th class="text-left">Genre</th>
+              <th class="text-left">Statut</th>
+              <th class="text-right">Durée</th>
+              <th class="text-right" title="Tokens d'entrée, dont la part relue du cache">Entrée</th>
+              <th class="text-right" title="Tokens générés, dont la réflexion">Sortie</th>
+              <th class="text-right" title="Prefill (lecture du prompt) + génération">
+                Prefill + génération
+              </th>
+              <th class="text-right">Outils</th>
+              <th class="text-left">Moteur</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="!adm.admRunsItems.length">
+              <td colspan="10" class="text-center adm-empty">Aucune exécution pour ces filtres.</td>
+            </tr>
+            <tr
+              v-for="r in adm.admRunsItems"
+              :key="r.id"
+              :tabindex="adm.user && adm.user.role === 'admin' ? 0 : -1"
+              :class="adm.user && adm.user.role === 'admin' ? 'cursor-pointer' : ''"
+              :title="adm.user && adm.user.role === 'admin' ? 'Ouvrir la chronologie' : r.id"
+              @click="
+                adm.user && adm.user.role === 'admin' && adm.showRunDetails(r.id, [r.id], { admin: true })
+              "
+              @keydown.enter="
+                adm.user && adm.user.role === 'admin' && adm.showRunDetails(r.id, [r.id], { admin: true })
+              "
+            >
+              <td class="whitespace-nowrap text-xs adm-muted">{{ adm.fmtTs(r.started_at) }}</td>
+              <td class="text-xs">{{ r.username || "#" + r.user_id }}</td>
+              <td class="text-xs">{{ r.kind }}</td>
+              <td>
+                <span
+                  :class="[
+                    'px-1.5 py-0.5 rounded text-[11px] font-semibold',
+                    r.status === 'ok'
+                      ? 'bg-slate-100 text-slate-600'
+                      : r.status === 'running'
+                        ? 'bg-blue-50 text-blue-700'
+                        : r.status === 'cancelled'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-rose-100 text-rose-700',
+                  ]"
+                  >{{ r.status }}</span
+                >
+              </td>
+              <td class="text-right tabular-nums text-xs">
+                {{ r.ended_at ? adm.admRunsDuration((r.ended_at - r.started_at) * 1000) : "—" }}
+              </td>
+              <td
+                class="text-right tabular-nums text-xs whitespace-nowrap"
+                :title="adm.admRunsTokensTitle(r)"
+              >
+                {{ adm.admRunsIn(r) }}
+              </td>
+              <td
+                class="text-right tabular-nums text-xs whitespace-nowrap"
+                :title="adm.admRunsTokensTitle(r)"
+              >
+                {{ adm.admRunsOut(r) }}
+              </td>
+              <td class="text-right tabular-nums text-xs whitespace-nowrap">
+                {{ adm.admRunsDuration(r.prefill_ms) }} + {{ adm.admRunsDuration(r.decode_ms) }}
+              </td>
+              <td class="text-right tabular-nums text-xs">
+                {{ r.tool_calls
+                }}<span v-if="r.tool_errors" class="text-rose-600"> ({{ r.tool_errors }})</span>
+              </td>
+              <td class="text-xs adm-muted truncate max-w-[10rem]" :title="r.model">
+                {{ r.engine || r.model || "—" }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</template>

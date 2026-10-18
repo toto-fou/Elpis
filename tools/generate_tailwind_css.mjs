@@ -60,9 +60,9 @@ function walk(dir, out = []) {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         const p = path.join(dir, e.name);
         if (e.isDirectory()) {
-            if (e.name === 'vendor' || e.name === 'node_modules') continue;
+            if (e.name.startsWith('.') || e.name === 'vendor' || e.name === 'node_modules' || e.name === 'dist') continue;
             walk(p, out);
-        } else if (/\.(html|js)$/.test(e.name)) {
+        } else if (!e.name.startsWith('.') && /\.(html|js|vue|ts|mts)$/.test(e.name)) {
             out.push(p);
         }
     }
@@ -152,8 +152,9 @@ ${tokens.map((t) => `<i class="${t.replace(/"/g, '&quot;')}"></i>`).join('')}
     fs.writeFileSync(tmp, html, 'utf8');
 
     let browser;
-    try { browser = await chromium.launch({ channel: 'chromium', headless: true }); }
-    catch (_) { browser = await chromium.launch({ headless: true }); }
+    const executablePath = process.env.ELPIS_CHROMIUM || undefined;
+    try { browser = await chromium.launch({ channel: 'chromium', headless: true, executablePath }); }
+    catch (_) { browser = await chromium.launch({ headless: true, executablePath }); }
     try {
         const page = await browser.newPage();
         await page.goto('file://' + tmp, { waitUntil: 'load', timeout: 120000 });

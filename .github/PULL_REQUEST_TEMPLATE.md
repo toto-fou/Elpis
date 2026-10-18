@@ -4,8 +4,11 @@
 
 ## Vérifié
 
-- [ ] `venv/bin/pytest` (et, si la base est touchée, sur PostgreSQL et MariaDB)
-- [ ] `venv/bin/ruff check .` et `venv/bin/mypy`
+<!-- Les tests vivent dans le dépôt de développement : les mainteneurs passent la suite complète avant de fusionner. -->
+
+- [ ] `npm ci`, `npm run typecheck`, `npm run lint` et `npm run build`
+- [ ] Python restant touché : `venv/bin/ruff check .`
+- [ ] Essayé à la main (écran, commande ou cas limite décrit ci-dessus)
 - [ ] Documentation et CHANGELOG à jour si le comportement change
 - [ ] Nouvelle dépendance : licence vérifiée, THIRD_PARTY_NOTICES.md à jour
 

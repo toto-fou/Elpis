@@ -24,19 +24,19 @@ testable et réutilisable par l'outil ``memory`` ET par le provider builtin.
 from __future__ import annotations
 
 import difflib
-import fcntl
 import hashlib
 import logging
 import os
 import re
 import tempfile
 import threading
-import time
 import unicodedata
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional
+
+from shared_infra.runtime.verrou_fichier import VerrouFichier, VerrouOccupe
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -256,9 +256,8 @@ def _resolve_target(entries: List[str], target: str) -> TargetResolution:
 # plutôt qu'un outil suspendu indéfiniment si un verrou reste tenu) :
 #   - ``threading.Lock`` (per-path, registre module-level) → sérialise
 #     intra-process. Pas de coût IPC.
-#   - ``fcntl.flock(LOCK_EX | LOCK_NB)`` en boucle sur un fichier sentinelle
-#     ``<path>.lock`` → sérialise inter-process (multi-worker uvicorn).
-#     Linux-only ; OK pour ce projet (Platform: linux).
+#   - verrou ``elpis.verrou.v1.1`` sur ``<path>.lock`` → sérialise les processus
+#     (service appmcp, routes de l'application, core TypeScript).
 
 _INTRA_LOCKS_GUARD = threading.Lock()
 _INTRA_LOCKS: Dict[str, threading.Lock] = {}
@@ -271,12 +270,12 @@ def _intra_lock_for(path: Path) -> threading.Lock:
     with _INTRA_LOCKS_GUARD:
         lk = _INTRA_LOCKS.get(key)
         if lk is None:
-            # AUDIT 2026-08-02 (m9) — éviction des verrous LIBRES au-delà du
+            # Éviction des verrous LIBRES au-delà du
             # cap (même patron que les verrous par cible du contrôle d'écran) : la
             # clé est un CHEMIN résolu, donc la cardinalité = users × scopes
             # mémoire — non bornée par le nombre d'utilisateurs. Évincer un
             # lock libre est sûr : un futur appelant en recrée un, et la
-            # sérialisation inter-process reste garantie par le flock.
+            # sérialisation inter-process reste garantie par le verrou de fichier.
             if len(_INTRA_LOCKS) >= 256:
                 for k in [k for k, v in _INTRA_LOCKS.items() if not v.locked()]:
                     _INTRA_LOCKS.pop(k, None)
@@ -288,29 +287,17 @@ def _intra_lock_for(path: Path) -> threading.Lock:
 @contextmanager
 def _file_lock(lock_path: Path,
                timeout_s: float = DEFAULT_LOCK_TIMEOUT_S) -> Iterator[None]:
-    """Cross-process flock LOCK_EX (non bloquant + retries) sur un sentinelle."""
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR, 0o644)
+    """Verrou inter-processus elpis.verrou.v1.1 sur ``lock_path`` ; délai dépassé → ``StoreBusyError``."""
+    verrou = VerrouFichier(lock_path, delai=max(0.0, timeout_s))
     try:
-        deadline = time.monotonic() + max(0.0, timeout_s)
-        while True:
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except BlockingIOError:
-                if time.monotonic() >= deadline:
-                    raise StoreBusyError(
-                        f"lock {lock_path.name} not acquired after {timeout_s:.1f}s")
-                time.sleep(0.1)
-        try:
-            yield
-        finally:
-            try:
-                fcntl.flock(fd, fcntl.LOCK_UN)
-            except Exception:
-                pass
+        verrou.acquerir()
+    except VerrouOccupe:
+        raise StoreBusyError(
+            f"lock {lock_path.name} not acquired after {timeout_s:.1f}s") from None
+    try:
+        yield
     finally:
-        os.close(fd)
+        verrou.rendre()
 
 
 @contextmanager
@@ -318,11 +305,11 @@ def _store_transaction(path: Path,
                        timeout_s: float = DEFAULT_LOCK_TIMEOUT_S) -> Iterator[None]:
     """Acquiert intra+inter locks (bornés) pour une transaction read-modify-write."""
     lock_path = path.with_suffix(path.suffix + ".lock")
-    # AUDIT 2026-08-02 (F6) — acquisition anti-éviction. ``_intra_lock_for`` rend
+    # Acquisition anti-éviction. ``_intra_lock_for`` rend
     # l'objet SOUS garde, mais ``acquire`` a lieu HORS garde : dans cette fenêtre
     # l'objet peut être évincé (256e clé) et un autre thread en recréer un AUTRE
-    # pour le même chemin → deux threads « tiennent » chacun le leur, la garantie
-    # intra-process est morte (aujourd'hui rattrapée par le flock, mais fragile).
+    # pour le même chemin → deux threads « tiennent » chacun le leur, et seule
+    # resterait l'exclusion du verrou de fichier.
     # On revérifie donc sous garde que le lock acquis est bien celui PUBLIÉ pour
     # la clé ; sinon on relâche l'orphelin et on reboucle (borné).
     key = str(path.resolve() if path.is_absolute() else path)

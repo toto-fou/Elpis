@@ -74,7 +74,7 @@ def validate_username(username: str) -> None:
     tolérés (déjà sur disque) mais ne peuvent PLUS être re-créés ni collisionnés."""
     if not username or not username.strip():
         raise ValueError("username vide")
-    if not _USERNAME_CANON_RE.match(username):
+    if not _USERNAME_CANON_RE.fullmatch(username):
         raise ValueError(
             "username invalide : seuls les caractères A-Z a-z 0-9 _ - sont "
             "autorisés (pas d'espace ni d'accent — ils créeraient une collision "

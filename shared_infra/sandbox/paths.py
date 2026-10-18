@@ -26,10 +26,7 @@ import stat
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterator, List, Optional, Tuple
 
-try:
-    import fcntl  # POSIX only
-except ImportError:  # pragma: no cover - non-POSIX
-    fcntl = None  # type: ignore[assignment]
+from shared_infra.runtime.verrou_fichier import VerrouFichier
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -400,11 +397,12 @@ def ensure_work_subdir(per_user_dir) -> Path:
     outside the mount. For an existing user this moves every top-level entry of
     ``P`` — EXCEPT the reserved set — into ``P/work/``.
 
-    Idempotent and resumable: ``.work-migrated`` is written LAST, under an
-    exclusive ``flock`` on ``P/.work-migrating.lock`` (fail-open if ``fcntl``
-    is unavailable). Each move is an intra-filesystem rename, so an interrupted
-    run resumes naturally — an already-moved entry is no longer a top-level
-    sibling — and an existing destination is never overwritten.
+    Idempotent and resumable: ``.work-migrated`` is written LAST, under the
+    ``elpis.verrou.v1.1`` lock ``P/.work-migrating.lock`` (shared with the other
+    processes, the TypeScript core included). Each move is an intra-filesystem
+    rename, so an interrupted run resumes naturally — an already-moved entry is
+    no longer a top-level sibling — and an existing destination is never
+    overwritten.
     """
     P = Path(per_user_dir)
     work = P / WORK_SUBDIR
@@ -418,15 +416,9 @@ def ensure_work_subdir(per_user_dir) -> Path:
 
     P.mkdir(parents=True, exist_ok=True)
 
-    fh = None
+    verrou = VerrouFichier(P / _WORK_LOCK, battement=True)
+    verrou.acquerir()  # no timeout: a peer finishing the migration is waited for
     try:
-        fh = open(P / _WORK_LOCK, "a")  # noqa: SIM115 (verrou flock tenu)
-        if fcntl is not None:
-            try:
-                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)  # blocking: peer waits
-            except OSError:
-                pass  # fail-open (lock unsupported on this FS)
-
         # Re-check under the lock: a peer worker may have just finished.
         if marker.exists():
             work.mkdir(parents=True, exist_ok=True)
@@ -444,7 +436,7 @@ def ensure_work_subdir(per_user_dir) -> Path:
         work.mkdir(parents=True, exist_ok=True)
 
         for entry in list(P.iterdir()):
-            if entry.name in _WORK_RESERVED:
+            if entry.name in _WORK_RESERVED or entry.name.startswith(_WORK_LOCK + "."):
                 continue
             dest = work / entry.name
             if dest.exists():  # partial prior run / clash — never overwrite
@@ -465,13 +457,7 @@ def ensure_work_subdir(per_user_dir) -> Path:
                            marker, e)
         return work
     finally:
-        if fh is not None:
-            try:
-                if fcntl is not None:
-                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
-            except Exception:
-                pass
-            fh.close()
+        verrou.rendre()
 
 
 __all__ = [

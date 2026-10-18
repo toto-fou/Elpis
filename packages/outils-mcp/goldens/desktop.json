@@ -1,0 +1,1074 @@
+{
+  "source": "server/local_mcp_server.py (tools/list, FastMCP)",
+  "famille": "desktop",
+  "outils": [
+    {
+      "name": "desktop_session",
+      "title": "Desktop Session",
+      "description": "Check the desktop control target (the one the user selected in the UI).\n\nYou never choose the machine \u2014 it's fixed by the user. Use this only to\nconfirm the agent is reachable before acting, or to list what's wired.\n\naction  \"ping\" (default) \u2192 health of the active target; \"list\" \u2192 all configured targets (info only).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "default": "ping",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    },
+    {
+      "name": "desktop_observe",
+      "title": "Desktop Observe",
+      "description": "Capture the screen and return ANNOTATED UI elements to act on.\n\nThe most useful tool: screenshots the active target, reads the\naccessibility tree (and/or the detection model), and returns elements as\n{id, label, role, center, auto_id, value, states, do}. Pass an element's\n`id` to desktop_act. `do` hints the primary action: do=\"set\" \u21d2\nop=\"set_value\"; otherwise op=\"click\" does the right thing. If `truncated`\nis true, only the most actionable elements are shown \u2014 narrow with\n`prompt` or scroll.\n\nLoop: desktop_launch \u2192 desktop_observe \u2192 desktop_act (which RETURNS the\nupdated elements, so you rarely re-observe between actions) \u2192 use\ndesktop_wait to block on an expected effect (window/element/text/value).\n\nExample: desktop_observe(prompt=\"the blue Login button\")\n\nprompt        optional grounding hint for the detection model \u2014 describe\n              the element(s) to find. Write it in ENGLISH: the grounding\n              model locates most accurately from English descriptions, even\n              when the UI itself is in another language.\nuse_vision    run the detection endpoint (default true).\nuse_tree      read the accessibility tree (default true).\nmax_elements  -1 (default) = server config (usually the full list); an\n              explicit 0 = full list; >0 caps it (most actionable kept).\nscope         \"focus\" (default) = the FOREGROUND window only; \"monitor\" =\n              all windows on the captured screen; \"desktop\" = all screens.\n              Widen ONLY to read another window's content (heavier/noisier);\n              to merely switch apps use desktop_windows + desktop_focus.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "prompt": {
+            "default": "",
+            "type": "string"
+          },
+          "use_vision": {
+            "default": true,
+            "type": "boolean"
+          },
+          "use_tree": {
+            "default": true,
+            "type": "boolean"
+          },
+          "max_elements": {
+            "default": -1,
+            "type": "integer"
+          },
+          "scope": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    },
+    {
+      "name": "desktop_read",
+      "title": "Desktop Read",
+      "description": "Read (OCR) the TEXT shown on the active target's screen \u2014 what the\naccessibility tree does NOT expose: a log panel, labels drawn on a\ncanvas/map, a field's content. Uses the vision model.\nReturns {text, region, box}.\n\nScope the read (most precise first):\n  region      [x1,y1,x2,y2] pixel box to read.\n  element_id  read inside an element from a prior desktop_observe.\n  query       locate the area first, then read it. Write it in ENGLISH\n              (most accurate for the grounding model), e.g. \"the log panel\".\n  (none)      read the whole screen.\n\nExamples:\n  desktop_read(query=\"the events log\")\n  desktop_read(element_id=\"el_7\")",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "default": "",
+            "type": "string"
+          },
+          "element_id": {
+            "default": "",
+            "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    },
+    {
+      "name": "desktop_clipboard",
+      "title": "Desktop Clipboard",
+      "description": "Read or write the active target's clipboard.\n\naction=\"get\" \u2192 {text} the current clipboard content.\naction=\"set\" \u2192 put `text` on the clipboard (then paste with\ndesktop_act(op=\"paste\"), or it's available for the app to use).\n\nFor typing into a field, op=\"paste\" is usually better than type:\nreliable for long or unicode text. To READ a field's exact value,\nselect it then desktop_act(op=\"copy\").",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "default": "get",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    },
+    {
+      "name": "desktop_act",
+      "title": "Desktop Act",
+      "description": "Perform ONE action on the active target, then return the UPDATED screen.\n\nTarget an element by `element_id` (from desktop_observe) \u2014 preferred \u2014 or\nby `query` (its label), or by raw `x`,`y` (last resort). The result\ncarries a FRESH element list, so chain actions WITHOUT re-observing each\ntime. `resolved_by` tells you how the target was hit.\n\nop:\n  click         click the element \u2014 a checkbox toggles, a list item\n                selects, a button activates, automatically (the agent\n                re-resolves the control live, so it survives small shifts)\n  set_value     set a field's value (text=\u2026) \u2014 use when an element's do=\"set\"\n  type          type text at the keyboard focus (text=\u2026)\n  key           press a key/combo (keys=\"ctrl+s\", keys=\"enter\")\n  paste         paste text (text=\u2026; better than type for long/accented)\n  scroll        wheel at the element/point (dy>0 up / dy<0 down)\n  double_click | right_click   click variants\n  drag          from the element/x,y to x2,y2\n\nExamples:\n  desktop_act(op=\"click\", element_id=\"el_4\")\n  desktop_act(op=\"set_value\", element_id=\"el_3\", text=\"42\")\n  desktop_act(op=\"key\", keys=\"ctrl+s\")\n\nbutton left|right \u00b7 clicks count \u00b7 modifiers e.g. \"ctrl+shift\" \u00b7\nsettle_ms wait for the screen to settle after acting (default 1000;\n0=off; for a precise sync use desktop_wait) \u00b7 observe_after attach the\nupdated screen + elements (default true).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "type": "string"
+          },
+          "element_id": {
+            "default": "",
+            "type": "string"
+          },
+          "query": {
+            "default": "",
+            "type": "string"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "y": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "x2": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "y2": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "text": {
+            "default": "",
+            "type": "string"
+          },
+          "keys": {
+            "default": "",
+            "type": "string"
+          },
+          "button": {
+            "default": "left",
+            "type": "string"
+          },
+          "clicks": {
+            "default": 1,
+            "type": "integer"
+          },
+          "dy": {
+            "default": 0,
+            "type": "integer"
+          },
+          "modifiers": {
+            "default": "",
+            "type": "string"
+          },
+          "settle_ms": {
+            "default": 1000,
+            "type": "integer"
+          },
+          "observe_after": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    },
+    {
+      "name": "desktop_wait",
+      "title": "Desktop Wait",
+      "description": "Wait until a UI condition holds before continuing \u2014 reliable sync for\nlong automations (same staged waits as scenario replay: dHash \u2192 a11y \u2192\nOCR \u2192 UIA). Prefer this over a blind sleep or re-screenshot loop.\n\nkind:\n  stable          screen stopped changing (default; e.g. after a click)\n  element         an element matching `query` (label) is present\n  element_gone    it has disappeared (spinner/dialog closed)\n  text            on-screen text contains `text` (OCR-backed)\n  text_gone       that text is gone\n  value           the field `query` has value `value` (substring; regex if match=true)\n  value_gone      that value is gone\n  state           element `query` has a11y `state` (checked/enabled/selected\u2026)\n  count           number of elements matching `query`/`role` satisfies `op count`\n  window_ready    a window matching `title_re`/`auto_id` is open AND ready (UIA)\n\nExamples:\n  desktop_wait(kind=\"window_ready\", title_re=\"Notepad\")\n  desktop_wait(kind=\"element\", query=\"Save\", timeout_ms=10000)\n  desktop_wait(kind=\"text_gone\", text=\"Loading\")\n  desktop_wait(kind=\"value\", query=\"Total\", value=\"42\")\nReturns {satisfied, waited_ms, detail} + a fresh frame.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "default": "stable",
+            "type": "string"
+          },
+          "query": {
+            "default": "",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "type": "string"
+          },
+          "value": {
+            "default": "",
+            "type": "string"
+          },
+          "state": {
+            "default": "",
+            "type": "string"
+          },
+          "role": {
+            "default": "",
+            "type": "string"
+          },
+          "auto_id": {
+            "default": "",
+            "type": "string"
+          },
+          "title_re": {
+            "default": "",
+            "type": "string"
+          },
+          "op": {
+            "default": "==",
+            "type": "string"
+          },
+          "count": {
+            "default": 0,
+            "type": "integer"
+          },
+          "match": {
+            "default": false,
+            "type": "boolean"
+          },
+          "timeout_ms": {
+            "default": 8000,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    },
+    {
+      "name": "desktop_launch",
+      "title": "Desktop Launch",
+      "description": "Launch a program/shortcut on the active target AND wait until it is\ninitialised (WaitForInputIdle + its new window ready) \u2014 reliable handling\nof load times, instead of clicking blindly and hoping. Returns the window\nthat appeared (title/auto_id/interaction_state) + a fresh frame.\n\napp   a common app NAME (\"calculatrice\", \"calculator\", \"notepad\",\n      \"bloc-notes\", \"param\u00e8tres\"\u2026), an executable (\"notepad.exe\"), a path\n      (\"C:\\\\app\\\\x.lnk\"), or a URI (\"https://\u2026\", \"ms-settings:\"). Friendly\n      names (FR/EN) are resolved automatically on Windows.\nargs  optional command-line arguments.\nExamples:\n  desktop_launch(app=\"calculatrice\")     # \u2192 calc.exe\n  desktop_launch(app=\"notepad.exe\")\n  desktop_launch(app=\"explorer.exe\", args=\"C:\\\\Users\")",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "type": "string"
+          },
+          "args": {
+            "default": "",
+            "type": "string"
+          },
+          "timeout_ms": {
+            "default": 15000,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "app"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    },
+    {
+      "name": "desktop_run_automation",
+      "title": "Desktop Run Automation",
+      "description": "Run an elpis_auto automation script (written in the Studio) ON one or\nseveral target machines, sequentially, and return the aggregated results\n(per target: ok, code, summary, steps ok/failed, healed targets). The\nscript is pushed to each agent (which runs inside the user's interactive\nsession) and executed there with ``python -m elpis_auto``.\n\nname       script name (slug) \u2014 used as the file name on the target.\ncode       the full Python script (from the Studio). If empty, the script\n           saved as automations/<name>.py in the user's sandbox is used.\ntargets    comma-separated target names (\"\" = the active/default target).\ndry_run    resolve every target without sending any input (pr\u00e9flight).\ntrace      screenshot + tree excerpt per step (viewer in rapport.html).\ntimeout_s  per-target bound, 30..3600 (default 600 s); lowered so that all\n           targets fit in the tool's one-hour ceiling (see ``note``).\nA notification summarises the run when it ends \u2014 usable from a routine.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "default": "",
+            "type": "string"
+          },
+          "targets": {
+            "default": "",
+            "type": "string"
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          },
+          "trace": {
+            "default": false,
+            "type": "boolean"
+          },
+          "timeout_s": {
+            "default": 600,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false,
+          "timeout_s": 3700.0
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    },
+    {
+      "name": "desktop_shell",
+      "title": "Desktop Shell",
+      "description": "Run a shell command ON the desktop target (default: PowerShell) \u2014 like\nexecute_shell, but on the VM. Returns {ok, returncode, stdout, stderr,\ntruncated, duration_ms}; ok is (returncode == 0), a non-zero code is a\nnormal result to reason about, not an error.\n\nUse this for scripted / file / registry / service / environment tasks that\nare far faster and more reliable than clicking through the UI (read a file,\nlist processes, set a registry value, query env). For genuine UI work,\nprefer the targeted tools (desktop_observe / desktop_act).\n\ncommand      the command/script to run.\nshell        powershell (default) | pwsh | cmd  (use bash on a Linux target).\ncwd          working directory on the target (optional).\ntimeout_sec  1..600, default 120. On timeout: returncode 124, ok=False.\nmax_output   per-stream char cap, tail-kept (the END is preserved). There\n             is NO file spill on the VM \u2014 for huge output, narrow the\n             command or redirect to a file on the target.\n\n\u26a0 SECURITY: runs with FULL privileges on the VM \u2014 there is NO sandbox here\n(unlike execute_shell's Docker isolation). Only run what you would run\nyourself on that machine; confirm before anything destructive.\n\nExamples:\n  desktop_shell(command=\"Get-Process | Select-Object -First 5 Name,Id\")\n  desktop_shell(command=\"Get-Content C:\\\\path\\\\file.txt -TotalCount 40\")\n  desktop_shell(command=\"ls -la /tmp\", shell=\"bash\")   # Linux target",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "shell": {
+            "default": "powershell",
+            "type": "string"
+          },
+          "cwd": {
+            "default": "",
+            "type": "string"
+          },
+          "timeout_sec": {
+            "default": 120,
+            "type": "integer"
+          },
+          "max_output": {
+            "default": 20000,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false,
+          "timeout_s": 610.0
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    },
+    {
+      "name": "desktop_windows",
+      "title": "Desktop Windows",
+      "description": "List the OPEN top-level windows on the active target \u2014 title, state\n(normal|minimized|maximized) and which one is in front. Cheap: no subtree.\n\ndesktop_observe shows ONLY the foreground window. To reach another app:\nlist windows here, then desktop_focus(action=\"activate\", window_id=\u2026) to\nbring it to the front (or minimize/maximize/restore/close it); or\ndesktop_launch to start a new one.\n\nReturns {windows:[{id, title, state, is_foreground}], count}.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    },
+    {
+      "name": "desktop_focus",
+      "title": "Desktop Focus",
+      "description": "Act on a top-level window by `window_id` (from desktop_windows): bring it\nto the front or change its state. After activating, the foreground changes,\nso a following desktop_observe shows THAT window.\n\naction     activate|focus (bring to front), minimize, maximize, restore, close.\nwindow_id  the window's id from desktop_windows.\n\nExample: desktop_focus(action=\"activate\", window_id=\"13310\")",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "default": "activate",
+            "type": "string"
+          },
+          "window_id": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    }
+  ],
+  "fonctions": {
+    "desktop_session": {
+      "fonction": "session",
+      "parametres": [
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "ping"
+        }
+      ]
+    },
+    "desktop_observe": {
+      "fonction": "observe",
+      "parametres": [
+        {
+          "nom": "prompt",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "use_vision",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "use_tree",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "max_elements",
+          "annotation": "int",
+          "requis": false,
+          "defaut": -1
+        },
+        {
+          "nom": "scope",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        }
+      ]
+    },
+    "desktop_read": {
+      "fonction": "read",
+      "parametres": [
+        {
+          "nom": "query",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "element_id",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "region",
+          "annotation": "Optional[List[int]]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    },
+    "desktop_clipboard": {
+      "fonction": "clipboard",
+      "parametres": [
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "get"
+        },
+        {
+          "nom": "text",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        }
+      ]
+    },
+    "desktop_act": {
+      "fonction": "act",
+      "parametres": [
+        {
+          "nom": "op",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "element_id",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "query",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "x",
+          "annotation": "Optional[int]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "y",
+          "annotation": "Optional[int]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "x2",
+          "annotation": "Optional[int]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "y2",
+          "annotation": "Optional[int]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "text",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "keys",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "button",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "left"
+        },
+        {
+          "nom": "clicks",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 1
+        },
+        {
+          "nom": "dy",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "modifiers",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "settle_ms",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 1000
+        },
+        {
+          "nom": "observe_after",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        }
+      ]
+    },
+    "desktop_wait": {
+      "fonction": "wait",
+      "parametres": [
+        {
+          "nom": "kind",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "stable"
+        },
+        {
+          "nom": "query",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "text",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "value",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "state",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "role",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "auto_id",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "title_re",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "op",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "=="
+        },
+        {
+          "nom": "count",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "match",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "timeout_ms",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 8000
+        }
+      ]
+    },
+    "desktop_launch": {
+      "fonction": "launch",
+      "parametres": [
+        {
+          "nom": "app",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "args",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "timeout_ms",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 15000
+        }
+      ]
+    },
+    "desktop_run_automation": {
+      "fonction": "run_automation",
+      "parametres": [
+        {
+          "nom": "name",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "code",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "targets",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "dry_run",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "trace",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "timeout_s",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 600
+        }
+      ]
+    },
+    "desktop_shell": {
+      "fonction": "run_shell",
+      "parametres": [
+        {
+          "nom": "command",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "shell",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "powershell"
+        },
+        {
+          "nom": "cwd",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "timeout_sec",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 120
+        },
+        {
+          "nom": "max_output",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 20000
+        }
+      ]
+    },
+    "desktop_windows": {
+      "fonction": "windows",
+      "parametres": []
+    },
+    "desktop_focus": {
+      "fonction": "focus",
+      "parametres": [
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "activate"
+        },
+        {
+          "nom": "window_id",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        }
+      ]
+    }
+  }
+}

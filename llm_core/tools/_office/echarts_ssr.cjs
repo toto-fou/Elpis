@@ -5,45 +5,20 @@
 //                   stockées par les outils chart_* (jetons « @nom », _elpis…).
 // Sortie (stdout) : JSON [{svg} | {error}, …], dans le même ordre.
 //
-// Jetons, thème et formateurs viennent de frontend/js/chat/_charts.js : le
-// graphique d'un document est celui du chat (thème clair, sans animation).
+// Jetons, thème et formateurs viennent du bundle `frontend/dist/echarts-ssr.cjs`
+// (construit avec le frontend, présent aussi dans la release : web/ = frontend/dist) :
+// le graphique d'un document est celui du chat (thème clair, sans animation).
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const root = path.resolve(__dirname, '..', '..', '..');
-const echarts = require(path.join(root, 'frontend', 'vendor', 'echarts.min.js'));
-const charts = require(path.join(root, 'frontend', 'js', 'chat', '_charts.js'));
-
-// Police sans guillemets : le SVG de rendu serveur ne les échappe pas dans
-// l'attribut style (XML invalide, refusé par LibreOffice).
-const FONT = 'Segoe UI, Liberation Sans, DejaVu Sans, Arial, sans-serif';
-const theme = charts.themeObject(charts.TOKENS.light);
-theme.textStyle = Object.assign({}, theme.textStyle, { fontFamily: FONT });
-echarts.registerTheme('elpis-light', theme);
-
-function renderOne(job) {
-    const raw = job.option || {};
-    const el = raw._elpis || {};
-    // 640 px de large pour ~16 cm : le texte garde une taille lisible une
-    // fois l'image posée dans la page (8 à 9 pt).
-    const width = job.width || 640;
-    const height = job.height || Math.round(width * (charts.HEIGHT[el.kind] || 360) / 640);
-    const chart = echarts.init(null, 'elpis-light', { renderer: 'svg', ssr: true, width, height });
-    try {
-        const o = charts.prepare(raw, {});
-        o.animation = false;
-        delete o.dataZoom;                 // pas de curseur de zoom sur une image
-        if (o.toolbox) delete o.toolbox;
-        // Fond blanc explicite : une image collée dans Word n'a pas de surface.
-        o.backgroundColor = charts.TOKENS.light.surface;
-        chart.setOption(o);
-        return { svg: chart.renderToSVGString() };
-    } catch (e) {
-        return { error: String((e && e.message) || e) };
-    } finally {
-        chart.dispose();
-    }
+const bundle = process.env.ELPIS_ECHARTS_SSR || path.join(root, 'frontend', 'dist', 'echarts-ssr.cjs');
+if (!fs.existsSync(bundle)) {
+    process.stderr.write('echarts_ssr: bundle introuvable (' + bundle + ') — construire le frontend (npm run build -w @elpis/web)\n');
+    process.exit(3);
 }
+const { renderOne } = require(bundle);
 
 let input = '';
 process.stdin.setEncoding('utf8');
@@ -61,5 +36,5 @@ process.stdin.on('end', () => {
         finir(JSON.stringify({ error: 'bad input: ' + e.message }), 2);
         return;
     }
-    finir(JSON.stringify(jobs.map(renderOne)), 0);
+    finir(JSON.stringify(jobs.map((j) => renderOne(j))), 0);
 });

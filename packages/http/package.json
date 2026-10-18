@@ -1,0 +1,19 @@
+{
+  "name": "@elpis/http",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Socle HTTP partagé du core et du toolhost : app Fastify comme uvicorn et Starlette (erreurs, routeur, HEAD, WebSocket), corps et formulaires, validation comme FastAPI et Pydantic, réponses, épinglage DNS, journal du process",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@elpis/commun": "0.1.0",
+    "@fastify/multipart": "10.1.2",
+    "@fastify/websocket": "11.3.3",
+    "fastify": "5.12.5",
+    "undici": "8.11.2",
+    "ws": "8.22.0"
+  }
+}

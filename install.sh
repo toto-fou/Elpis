@@ -18,13 +18,24 @@
 #  demande). Clavier : ↑↓ Espace Entrée, Tab pour changer de page.
 #
 #  Étapes :
-#    1. paquets système (apt) : Python, Node.js, Docker, outils de base
+#    1. prérequis système : les paquets apt de deploy/prerequis-apt.txt
+#       (socle, puis les groupes des composants choisis) sont VÉRIFIÉS,
+#       jamais installés ici : s'il en manque, le script s'arrête et
+#       affiche la commande apt à lancer
 #    2. environnement Python (venv/) : requirements*.txt
+#    2 bis. core : Node.js 24 dans node/ (l'archive officielle sans npm,
+#       npx ni corepack ; sommes et empreinte figées dans deploy/node/node.env)
+#       et bundle apps/core/dist (paquet hors ligne, sinon npm ci + npm run
+#       build avec le npm de l'archive, gardé le temps de la construction)
+#    2 ter. hôte d'outils : bundle apps/toolhost/dist (même source ; depuis
+#       les sources, npm ci compile node-pty : build-essential et python3)
 #    3. base de données : préparée (serveur local) et TESTÉE avant la suite
-#    4. service navigateur : npm ci + Chromium (Playwright)
+#    4. service navigateur : npm ci + Chromium (Playwright), sur le Node.js
+#       du core
 #    5. Qdrant (base vectorielle du RAG) : binaire officiel, sha256 vérifié
 #    6. image sandbox Docker : docker build (ou --pull / --offline)
-#    7. facultatif : LibreOffice, Caddy (HTTPS), extras AGPL, moteur vocal
+#    7. facultatif : configuration de Caddy (HTTPS ; son paquet est un
+#       prérequis), extras AGPL ; LibreOffice et bubblewrap vérifiés
 #    8. configuration (réponses de l'assistant), puis service ou démarrage
 #
 #  Usage :
@@ -40,18 +51,19 @@
 #    --with-caddy  | --no-caddy       frontal HTTPS Caddy
 #    --with-agpl   | --no-agpl        extras AGPL (PyMuPDF, pdf2docx)
 #    --with-browser | --no-browser    service navigateur (Chromium)
-#    --db sqlite|postgres-local|mariadb-local|external
+#    --db sqlite|postgres-local|external
 #                                     base de données : fichier SQLite (défaut),
-#                                     PostgreSQL ou MariaDB installés et préparés
-#                                     SUR CETTE MACHINE (paquets de l'OS), ou
-#                                     serveur existant
+#                                     PostgreSQL préparé SUR CETTE MACHINE
+#                                     (paquet postgresql : prérequis apt), ou
+#                                     serveur PostgreSQL existant
 #    --sandbox build|pull|none        image sandbox : construite (défaut),
 #                                     tirée d'un registre, ou aucune
 #    --pull [IMAGE]                   = --sandbox pull (ELPIS_SANDBOX_PULL_REF)
 #    --no-sandbox                     = --sandbox none
 #    --offline DIR                    sans réseau, depuis le paquet produit par
 #                                     make_release.sh
-#    --skip-system                    sans l'étape apt
+#    --skip-system                    sans vérifier les paquets apt (autre
+#                                     système : deploy/prerequis-apt.txt)
 #
 #  Après l'installation :
 #    --configure | --no-configure     configurer (défaut : oui)
@@ -83,6 +95,10 @@ PYBIN="${PYTHON_BIN:-python3}"
 
 # shellcheck source=deploy/qdrant/qdrant.env
 . "$ROOT/deploy/qdrant/qdrant.env"
+# shellcheck source=deploy/node/node.env
+. "$ROOT/deploy/node/node.env"
+# shellcheck source=deploy/prerequis-apt.sh
+. "$ROOT/deploy/prerequis-apt.sh"
 
 # ── Options ──────────────────────────────────────────────────────────────────
 # Vide = pas encore décidé (question posée en mode interactif).
@@ -99,7 +115,7 @@ while [ $# -gt 0 ]; do
                         echo "$1 ignorée : le moteur vocal s'installe sur une machine dédiée (deploy/voice/README.md)." >&2 ;;
         --with-browser) WITH_BROWSER=1 ;; --no-browser) WITH_BROWSER=0 ;;
         --no-sandbox)   SANDBOX_MODE=none ;;
-        --db)           DB_MODE="${2:?--db attend sqlite, postgres-local, mariadb-local ou external}"; shift ;;
+        --db)           DB_MODE="${2:?--db attend sqlite, postgres-local ou external}"; shift ;;
         --db=*)         DB_MODE="${1#*=}" ;;
         --sandbox)      SANDBOX_MODE="${2:?--sandbox attend build, pull ou none}"; shift ;;
         --sandbox=*)    SANDBOX_MODE="${1#*=}" ;;
@@ -117,18 +133,29 @@ while [ $# -gt 0 ]; do
         --start)        AFTER=start ;;
         --no-start)     AFTER=none ;;
         --)             shift; CONFIGURE_ARGS=("$@"); break ;;
-        -h|--help)      sed -n '3,67p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help)      sed -n '3,/^#  Journal complet/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Option inconnue : $1 (voir --help)" >&2; exit 2 ;;
     esac
     shift
 done
 case "$SANDBOX_MODE" in ""|build|pull|none) ;; *) echo "--sandbox : build, pull ou none." >&2; exit 2 ;; esac
 case "$DB_MODE" in
-    ""|sqlite|postgres-local|mariadb-local|external) ;;
+    ""|sqlite|postgres-local|external) ;;
     postgres|postgresql) DB_MODE=postgres-local ;;
-    mariadb|mysql) DB_MODE=mariadb-local ;;
-    *) echo "--db : sqlite, postgres-local, mariadb-local ou external." >&2; exit 2 ;;
+    mariadb|mariadb-local|mysql)
+        echo "--db : MariaDB/MySQL n'est plus pris en charge (sqlite, postgres-local ou external)." >&2; exit 2 ;;
+    *) echo "--db : sqlite, postgres-local ou external." >&2; exit 2 ;;
 esac
+# Base encore réglée sur un moteur retiré (config.json, APP_DB_BACKEND) : refus avant toute modification.
+DB_RETIRE="$( { printf '%s\n' "${APP_DB_BACKEND:-}"
+    if [ -f "$ROOT/config.json" ] && command -v python3 >/dev/null; then
+        python3 -c 'import json,sys; print((json.load(open(sys.argv[1])).get("database") or {}).get("backend") or "")' \
+            "$ROOT/config.json" 2>/dev/null
+    fi; } | tr -d ' ' | tr '[:upper:]' '[:lower:]' | grep -xE 'mysql|mariadb' | head -n1)"
+if [ -n "$DB_RETIRE" ]; then
+    echo "Base « $DB_RETIRE » : MariaDB/MySQL n'est plus pris en charge. Avec la version précédente d'Elpis, quittez-le d'abord (console › Base de données › « Revenir à SQLite », ou ./elpis db transfer puis ./elpis db use vers PostgreSQL), puis relancez l'installation (docs/exploitation.md, « Mettre à jour »)." >&2
+    exit 2
+fi
 if [ -n "$OFFLINE_DIR" ]; then
     OFFLINE_DIR="$(cd "$OFFLINE_DIR" 2>/dev/null && pwd)" \
         || { echo "Dossier hors-ligne introuvable." >&2; exit 2; }
@@ -187,11 +214,12 @@ ask_choice() {
     done
 }
 
-# Nettoyage : le fichier de réponses porte des secrets (mots de passe, clé API).
-ANSWERS=""; SUDO_KEEPALIVE=""
+# Nettoyage : le fichier de réponses porte des secrets (mots de passe, clé API) ; l'archive de Node.js n'a servi qu'à cette installation.
+ANSWERS=""; SUDO_KEEPALIVE=""; ELPIS_NODE_CACHE=""
 cleanup() {
     [ -n "$SUDO_KEEPALIVE" ] && kill "$SUDO_KEEPALIVE" 2>/dev/null
     [ -n "$ANSWERS" ] && rm -f "$ANSWERS"
+    [ -n "$ELPIS_NODE_CACHE" ] && rm -rf "$ELPIS_NODE_CACHE"
     return 0
 }
 trap cleanup EXIT
@@ -217,14 +245,58 @@ info "=== Installation d'Elpis dans $ROOT ==="
 info "Système : $OS_NAME"
 if ! os_supported; then
     warn "Système non testé : Debian 12/13 et Ubuntu 24.04 sont pris en charge."
-    warn "Sur un autre système, installez à la main Python 3.11+, Node.js 18+, Docker, puis relancez avec --skip-system."
+    warn "Sur un autre système, installez l'équivalent de deploy/prerequis-apt.txt, puis relancez avec --skip-system."
     if [ "$DO_SYSTEM" -eq 1 ] && [ "$(ask_yn "Continuer quand même ?" 0)" -eq 0 ]; then
         exit 1
     fi
 fi
 
 # =============================================================================
-#  0 bis. Droits — vérifiés AVANT toute question
+#  0 bis. Prérequis système — vérifiés, jamais installés ici
+# =============================================================================
+# Option d'install.sh qui retire le composant d'un groupe de deploy/prerequis-apt.txt.
+option_sans() {
+    case "$1" in
+        sandbox) echo "--sandbox none" ;; apercus-office) echo "--no-office" ;; navigateur) echo "--no-browser" ;;
+        https) echo "--no-caddy" ;; postgresql-local) echo "--db sqlite" ;;
+        construction-hote) echo "--offline <paquet de cette version>" ;;
+    esac
+}
+
+# Paquets apt absents des groupes donnés : liste, commande apt, puis arrêt (--dry-run : affichage seul).
+verifier_prerequis() {
+    [ "$DO_SYSTEM" -eq 1 ] || return 0
+    if ! have dpkg-query; then
+        note_warn "dpkg-query absent : prérequis système non vérifiés (deploy/prerequis-apt.txt)."
+        return 0
+    fi
+    local manquants=() groupes=("$@") autres=() sans=() l
+    if ! prerequis_debian13; then
+        for l in "$@"; do [ "$l" = socle ] || autres+=("$l"); done
+        groupes=(socle)
+        [ "${#autres[@]}" -eq 0 ] \
+            || note_warn "Noms de paquets de Debian 13 : sur $OS_NAME, seul le socle est vérifié ; installez l'équivalent des groupes ${autres[*]} (deploy/prerequis-apt.txt)."
+    fi
+    mapfile -t manquants < <(prerequis_manquants "${groupes[@]}")
+    for l in "${groupes[@]}"; do
+        [ "$l" != socle ] && [ -n "$(prerequis_manquants "$l")" ] && sans+=("$(option_sans "$l")")
+    done
+    if [ "${#manquants[@]}" -eq 0 ]; then
+        ok "Prérequis système présents (paquets apt : ${groupes[*]})."
+        return 0
+    fi
+    warn "Paquets système manquants (deploy/prerequis-apt.txt, groupes : ${groupes[*]}) :"
+    for l in "${manquants[@]}"; do printf '    %s\n' "$(prerequis_libelle "$l")" >&2; done
+    warn "Installez-les, puis relancez ./install.sh (hors ligne, apt passe par le miroir du LAN ou le support de l'OS) :"
+    printf '    %s\n' "$(prerequis_commande "${manquants[@]}")" >&2
+    [ "${#sans[@]}" -eq 0 ] || warn "ou relancez sans le composant concerné : ${sans[*]}"
+    [ "$DRY_RUN" -eq 1 ] && return 0
+    die "Prérequis système manquants : rien n'a été installé."
+}
+verifier_prerequis socle
+
+# =============================================================================
+#  0 ter. Droits — vérifiés AVANT toute question
 # =============================================================================
 # Utilisateur normal : sudo demandé maintenant, une fois, puis gardé actif
 # pendant toute l'installation (la construction de l'image dure plus que les
@@ -261,22 +333,19 @@ if [ "$ADMIN_OK" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
             go="$(python3 "$ROOT/deploy/wizard.py" ask --title "Elpis — installation" \
                 --question "Pas de droits administrateur (sudo $(have sudo && echo refusé || echo absent))." \
                 "quit:Arrêter:relancer depuis un compte sudoer, ou sudo ./install.sh" \
-                "limited:Continuer sans:paquets système, LibreOffice, Caddy, base locale et services désactivés")" \
+                "limited:Continuer sans:Caddy, base locale et services désactivés")" \
                 || go=quit
         else
-            [ "$(ask_yn "Continuer SANS droits administrateur ? (paquets système, LibreOffice, Caddy, base locale et services systemd seront désactivés)" 0)" -eq 1 ] && go=limited
+            [ "$(ask_yn "Continuer SANS droits administrateur ? (Caddy, base locale et services systemd seront désactivés)" 0)" -eq 1 ] && go=limited
         fi
         [ "$go" = limited ] || die "Installation arrêtée : relancez depuis un compte autorisé à utiliser sudo, ou « sudo ./install.sh »."
     else
         needs=()
-        [ "$DO_SYSTEM" -eq 1 ] && needs+=("paquets système (--skip-system)")
-        [ "${WITH_OFFICE:-1}" = 1 ] && needs+=("LibreOffice (--no-office)")
         [ "$WITH_CADDY" = 1 ] && needs+=("Caddy")
-        case "$DB_MODE" in postgres-local|mariadb-local) needs+=("base locale") ;; esac
+        [ "$DB_MODE" = postgres-local ] && needs+=("base locale")
         [ "$AFTER" = service ] && needs+=("services systemd")
         [ "${#needs[@]}" -eq 0 ] || die "Pas de droits administrateur, or l'installation en demande pour : ${needs[*]}. Lancez avec sudo, ou retirez ces options."
     fi
-    DO_SYSTEM=0
 fi
 
 # Commande d'un utilisateur, lancée sous le compte de l'application quand le
@@ -295,13 +364,7 @@ as_app() {
 TUI=0
 ANSWERS_PATH="$ROOT/user_db/run/install-answers.json"
 
-ensure_python3() {
-    have python3 && return 0
-    [ "$ADMIN_OK" -eq 1 ] && [ -z "$OFFLINE_DIR" ] && have apt-get || return 1
-    info "python3 (nécessaire à l'assistant)…"
-    { $SUDO apt-get install -y python3 >/dev/null 2>&1 \
-        || { $SUDO apt-get update -y >/dev/null 2>&1 && $SUDO apt-get install -y python3 >/dev/null 2>&1; }; } && have python3
-}
+ensure_python3() { have python3; }
 preset_json() {
     python3 -c 'import json, sys
 keys = ["with_office", "with_caddy", "with_agpl", "with_browser",
@@ -356,20 +419,19 @@ if [ "$TUI" -eq 0 ]; then
         elif [ "$ADMIN_OK" -eq 1 ]; then
             DB_MODE="$(ask_choice "Base de données :" sqlite \
                 "sqlite:fichier SQLite (recommandé jusqu'à quelques dizaines d'utilisateurs)" \
-                "postgres-local:PostgreSQL sur cette machine (installé et préparé)" \
-                "mariadb-local:MariaDB sur cette machine (installé et préparé)" \
-                "external:serveur existant (PostgreSQL ou MariaDB/MySQL, questions ensuite)")"
+                "postgres-local:PostgreSQL sur cette machine (préparé ; paquet postgresql requis)" \
+                "external:serveur PostgreSQL existant (questions ensuite)")"
         else
             DB_MODE="$(ask_choice "Base de données :" sqlite \
                 "sqlite:fichier SQLite (recommandé jusqu'à quelques dizaines d'utilisateurs)" \
-                "external:serveur existant (PostgreSQL ou MariaDB/MySQL, questions ensuite)")"
+                "external:serveur PostgreSQL existant (questions ensuite)")"
         fi
     fi
+    [ -n "$WITH_OFFICE" ] || WITH_OFFICE="$(ask_yn "LibreOffice (aperçus Word, Excel, PowerPoint dans l'éditeur, ~400 Mo) ?" "$(have soffice && echo 1 || echo 0)")"
     if [ "$ADMIN_OK" -eq 1 ]; then
-        [ -n "$WITH_OFFICE" ] || WITH_OFFICE="$(ask_yn "LibreOffice (aperçus Word, Excel, PowerPoint dans l'éditeur, ~400 Mo) ?" 1)"
         [ -n "$WITH_CADDY" ]  || WITH_CADDY="$(ask_yn "Caddy (HTTPS devant l'application) ?" 0)"
     else
-        WITH_OFFICE=0; WITH_CADDY=0     # demandent root
+        WITH_CADDY=0     # sa configuration demande root
     fi
     [ -n "$WITH_AGPL" ]   || WITH_AGPL="$(ask_yn "Extras AGPL PyMuPDF/pdf2docx (conversion PDF → Word ; licence AGPL) ?" 0)"
     if [ -z "$DO_CONFIGURE" ]; then
@@ -390,27 +452,24 @@ if [ "$TUI" -eq 0 ]; then
         fi
     fi
 fi
-# Hors ligne : aucun serveur de base dans le paquet (licences, cf.
-# THIRD_PARTY_NOTICES.md) — seulement s'il est déjà installé sur la machine.
-if [ -n "$OFFLINE_DIR" ]; then
-    if [ "$DB_MODE" = postgres-local ] && ! have psql; then
-        die "--offline : PostgreSQL n'est pas installé et le paquet hors ligne n'en contient pas. Choisissez --db sqlite ou external."
-    fi
-    if [ "$DB_MODE" = mariadb-local ] && ! have mariadb; then
-        die "--offline : MariaDB n'est pas installé et le paquet hors ligne n'en contient pas. Choisissez --db sqlite ou external."
-    fi
-fi
+# Groupes de deploy/prerequis-apt.txt qu'exigent les composants choisis.
+GROUPES_APT=(socle)
+[ "$SANDBOX_MODE" != none ] && GROUPES_APT+=(sandbox)
+[ "$WITH_OFFICE" -eq 1 ] && GROUPES_APT+=(apercus-office)
+[ "$WITH_BROWSER" -eq 1 ] && GROUPES_APT+=(navigateur)
+[ "$WITH_CADDY" -eq 1 ] && GROUPES_APT+=(https)
+[ "$DB_MODE" = postgres-local ] && GROUPES_APT+=(postgresql-local)
+[ -z "$OFFLINE_DIR" ] && GROUPES_APT+=(construction-hote)
 
 yn() { [ "$1" -eq 1 ] && echo oui || echo non; }
-APT_PKGS=(python3 python3-venv python3-dev build-essential
-          git curl jq ca-certificates unzip openssl bubblewrap
-          fonts-dejavu fonts-liberation)
 cat <<EOF
 
   Récapitulatif
     droits            : $([ "$AS_ROOT" -eq 1 ] && echo "root (application sous $APP_USER)" || { [ "$ADMIN_OK" -eq 1 ] && echo "sudo" || echo "aucun"; })
-    paquets système   : $([ "$DO_SYSTEM" -eq 1 ] && [ -z "$OFFLINE_DIR" ] && echo "apt (${#APT_PKGS[@]}+ paquets, Docker, Node.js)" || echo "ignorés")
+    prérequis apt     : $([ "$DO_SYSTEM" -eq 1 ] && echo "vérifiés (${GROUPES_APT[*]})" || echo "non vérifiés (--skip-system)")
     Python            : venv/ + requirements-rag.txt$([ "$WITH_AGPL" -eq 1 ] && echo " + extras AGPL")
+    core (Node.js)    : Node ${NODE_VERSION:-?} dans node/ + $([ -n "$OFFLINE_DIR" ] && echo "bundle du paquet hors ligne" || echo "npm ci, npm run build")
+    hôte d'outils     : $([ -n "$OFFLINE_DIR" ] && echo "bundle du paquet hors ligne" || echo "construit sur place (node-pty compilé)")
     navigateur        : $(yn "$WITH_BROWSER")
     Qdrant            : $QDRANT_VERSION
     sandbox           : $SANDBOX_MODE${PULL_REF:+ ($PULL_REF)}
@@ -421,6 +480,8 @@ cat <<EOF
     démarrage         : $AFTER
     source            : ${OFFLINE_DIR:-en ligne}
 EOF
+echo
+verifier_prerequis "${GROUPES_APT[@]}"
 if [ "$DRY_RUN" -eq 1 ]; then
     echo
     info "--dry-run : rien n'a été modifié."
@@ -448,49 +509,14 @@ chown_depot() {
 [ "$AS_ROOT" -eq 1 ] && chown_depot
 
 # =============================================================================
-#  2. Paquets système
+#  2. Docker — le paquet est un prérequis ; ici, son service et le groupe
 # =============================================================================
-node_major() { node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/'; }
-
-install_system() {
-    if ! have apt-get; then
-        note_warn "apt-get absent : installez à la main python3-venv, nodejs, npm, git, curl, docker."
-        return 0
-    fi
-    if [ -n "$OFFLINE_DIR" ]; then
-        info "Mode hors-ligne : étape apt ignorée (paquets de base supposés présents)."
-        return 0
-    fi
-    local pkgs=("${APT_PKGS[@]}")
-    have node || pkgs+=(nodejs npm)
-    have docker || pkgs+=(docker.io)
-    [ "$WITH_OFFICE" -eq 1 ] && pkgs+=(libreoffice-writer-nogui libreoffice-calc-nogui
-                                       libreoffice-impress-nogui fonts-crosextra-carlito
-                                       fonts-crosextra-caladea)
-    # Serveurs de base : paquets de l'OS uniquement, jamais livrés par Elpis.
-    [ "$DB_MODE" = postgres-local ] && pkgs+=(postgresql)
-    [ "$DB_MODE" = mariadb-local ] && pkgs+=(mariadb-server)
-    $SUDO apt-get update -y >/dev/null || note_warn "apt-get update a échoué."
-    # Debian 13 : le client « docker » est dans docker-cli, simple recommandation
-    # de docker.io (écartée par --no-install-recommends).
-    have docker || { apt-cache show docker-cli >/dev/null 2>&1 && pkgs+=(docker-cli); }
-    info "Paquets système (${#pkgs[@]})…"
-    if $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${pkgs[@]}"; then
-        ok "Paquets système installés."
-    else
-        note_warn "Certains paquets système n'ont pas pu être installés (voir ci-dessus)."
-    fi
-    local nm; nm="$(node_major)"
-    if [ -n "$nm" ] && [ "$nm" -lt 18 ]; then
-        note_warn "Node.js $nm trop ancien (18+ requis par le service navigateur) : installez Node.js 20 (https://nodejs.org)."
-    fi
-    # Docker : l'application pilote le daemon avec l'identité de son compte.
-    if have docker; then
-        $SUDO systemctl enable --now docker >/dev/null 2>&1 || true
-        if [ "$APP_USER" != root ] && ! id -nG "$APP_USER" | tr ' ' '\n' | grep -qx docker; then
-            if $SUDO usermod -aG docker "$APP_USER"; then
-                note_warn "$APP_USER ajouté au groupe docker : effectif à la prochaine connexion (les services systemd l'ont d'office)."
-            fi
+configurer_docker() {
+    have docker || return 0
+    $SUDO systemctl enable --now docker >/dev/null 2>&1 || true
+    if [ "$APP_USER" != root ] && ! id -nG "$APP_USER" | tr ' ' '\n' | grep -qx docker; then
+        if $SUDO usermod -aG docker "$APP_USER"; then
+            note_warn "$APP_USER ajouté au groupe docker : effectif à la prochaine connexion (les services systemd l'ont d'office)."
         fi
     fi
 }
@@ -531,6 +557,21 @@ install_python() {
     ok "Environnement Python prêt."
 }
 
+# Node.js, bundles du core et de l'hôte d'outils, sous le compte de l'application (comme le venv) ; en ligne, une seule archive officielle pour toute l'installation.
+install_core() {
+    local o=()
+    [ -n "$OFFLINE_DIR" ] && o=(--offline "$OFFLINE_DIR")
+    if [ -z "$OFFLINE_DIR" ] && [ -z "$ELPIS_NODE_CACHE" ]; then
+        ELPIS_NODE_CACHE="$(as_app mktemp -d "$ROOT/.node-cache.XXXXXX")" || ELPIS_NODE_CACHE=""
+    fi
+    as_app env ELPIS_NODE_CACHE="$ELPIS_NODE_CACHE" "$ROOT/deploy/node/installer.sh" node "${o[@]}" \
+        || die "Node.js du core non installé (voir ci-dessus)."
+    as_app env ELPIS_NODE_CACHE="$ELPIS_NODE_CACHE" "$ROOT/deploy/node/installer.sh" bundles "${o[@]}" \
+        || die "Core ou hôte d'outils non installé (voir ci-dessus)."
+    as_app env ELPIS_NODE_CACHE="$ELPIS_NODE_CACHE" "$ROOT/deploy/node/installer.sh" web "${o[@]}" \
+        || die "Frontend non installé (voir ci-dessus)."
+}
+
 # =============================================================================
 #  4. Base de données — préparée et TESTÉE avant les étapes longues
 # =============================================================================
@@ -551,15 +592,8 @@ as_user() {   # as_user COMPTE COMMANDE… (root : runuser ; sinon sudo -u)
     local u="$1"; shift
     if [ "$(id -u)" -eq 0 ]; then runuser -u "$u" -- "$@"; else $SUDO -u "$u" "$@"; fi
 }
-ensure_pkg() {   # ensure_pkg COMMANDE PAQUET
-    have "$1" && return 0
-    [ "$ADMIN_OK" -eq 1 ] && [ -z "$OFFLINE_DIR" ] && have apt-get || return 1
-    info "Paquet $2…"
-    $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$2" >/dev/null 2>&1 \
-        && have "$1"
-}
 provision_postgres() {
-    ensure_pkg psql postgresql || { DB_ERR="PostgreSQL absent (paquet postgresql non installable)"; return 1; }
+    have psql || { DB_ERR="PostgreSQL absent ($(prerequis_commande postgresql))"; return 1; }
     info "PostgreSQL : service, rôle et base « elpis »…"
     $SUDO systemctl enable --now postgresql >/dev/null 2>&1 || { DB_ERR="le service postgresql ne démarre pas"; return 1; }
     local pw; pw="$(db_password)"
@@ -576,35 +610,10 @@ SQL
     DB_CONFIGURE_ARGS=(--db postgres --db-host 127.0.0.1 --db-port 5432 --db-name elpis --db-user elpis)
     ok "PostgreSQL prêt (base elpis, utilisateur elpis)."
 }
-provision_mariadb() {
-    ensure_pkg mariadb mariadb-server || { DB_ERR="MariaDB absent (paquet mariadb-server non installable)"; return 1; }
-    info "MariaDB : réglages, service, utilisateur et base « elpis »…"
-    local confdir=/etc/mysql/mariadb.conf.d
-    [ -d "$confdir" ] || confdir=/etc/mysql/conf.d
-    # Gros messages JSON des conversations ; plein texte dès 2 lettres.
-    printf '%s\n' "# Elpis (install.sh) : conversations volumineuses, plein texte dès 2 lettres" \
-        "[mysqld]" "max_allowed_packet = 256M" "innodb_ft_min_token_size = 2" \
-        | $SUDO tee "$confdir/60-elpis.cnf" >/dev/null || { DB_ERR="écriture de $confdir/60-elpis.cnf refusée"; return 1; }
-    $SUDO systemctl enable mariadb >/dev/null 2>&1 || true
-    $SUDO systemctl restart mariadb || { DB_ERR="le service mariadb ne démarre pas"; return 1; }
-    local pw; pw="$(db_password)"
-    $SUDO mariadb <<SQL || { DB_ERR="création de l'utilisateur ou de la base refusée par MariaDB"; return 1; }
-CREATE DATABASE IF NOT EXISTS elpis CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
-CREATE USER IF NOT EXISTS 'elpis'@'localhost' IDENTIFIED BY '$pw';
-CREATE USER IF NOT EXISTS 'elpis'@'127.0.0.1' IDENTIFIED BY '$pw';
-ALTER USER 'elpis'@'localhost' IDENTIFIED BY '$pw';
-ALTER USER 'elpis'@'127.0.0.1' IDENTIFIED BY '$pw';
-GRANT ALL PRIVILEGES ON elpis.* TO 'elpis'@'localhost';
-GRANT ALL PRIVILEGES ON elpis.* TO 'elpis'@'127.0.0.1';
-FLUSH PRIVILEGES;
-SQL
-    DB_CONFIGURE_ARGS=(--db mysql --db-host 127.0.0.1 --db-port 3306 --db-name elpis --db-user elpis)
-    ok "MariaDB prêt (base elpis, utilisateur elpis)."
-}
 db_should_check() {
     case "$DB_MODE" in sqlite|keep|"") return 1 ;; esac
     [ "$TUI" -eq 1 ] && return 0
-    case "$DB_MODE" in postgres-local|mariadb-local) return 0 ;; esac
+    [ "$DB_MODE" = postgres-local ] && return 0
     # Serveur existant sans assistant : testable seulement si ses réglages
     # sont donnés après « -- » (sinon configure les demande plus tard).
     printf '%s\n' "${CONFIGURE_ARGS[@]}" | grep -qx -- "--db-host"
@@ -655,7 +664,6 @@ setup_database() {
         DB_ERR=""
         case "$DB_MODE" in
             postgres-local) provision_postgres || true ;;
-            mariadb-local)  provision_mariadb || true ;;
             sqlite)         DB_CONFIGURE_ARGS=(--db sqlite) ;;
             external)       [ "$TUI" -eq 1 ] || DB_CONFIGURE_ARGS=(--db external) ;;
         esac
@@ -671,32 +679,30 @@ setup_database() {
 # =============================================================================
 #  5 à 7. Navigateur, Qdrant, sandbox, options
 # =============================================================================
+# Navigateur sur le Node.js du core : hors ligne depuis le paquet (bibliothèques en prérequis apt), en ligne avec le npm de l'archive officielle, le temps de l'installation.
 install_browser() {
-    local bs="$ROOT/browser-service"
-    have node && have npm || { note_warn "Node.js/npm absents : service navigateur non installé."; return 0; }
+    local bs="$ROOT/browser-service" chemin="$ROOT/node/bin:$PATH"
+    [ -x "$ROOT/node/bin/node" ] || { note_warn "Node.js du core absent (node/) : service navigateur non installé."; return 0; }
     if [ -n "$OFFLINE_DIR" ]; then
         [ -d "$OFFLINE_DIR/browser" ] || { note_warn "$OFFLINE_DIR/browser absent : navigateur non installé."; return 0; }
         rm -rf "$bs/offline" && cp -a "$OFFLINE_DIR/browser" "$bs/offline"
         [ "$AS_ROOT" -eq 1 ] && chown -R "$APP_USER": "$bs/offline"
-        ( cd "$bs" && as_app ./install_offline.sh ) || note_warn "Installation hors-ligne du navigateur incomplète."
+        ( cd "$bs" && as_app env PATH="$chemin" ./install_offline.sh --no-apt ) || note_warn "Installation hors-ligne du navigateur incomplète."
         return 0
     fi
+    local npm_tmp rc=0
+    npm_tmp="$(as_app mktemp -d "$ROOT/.node-npm.XXXXXX")" || { note_warn "Dossier temporaire impossible : navigateur non installé."; return 0; }
     info "Service navigateur : npm ci…"
-    ( cd "$bs" && as_app npm ci --no-audit --no-fund ) || { note_warn "npm ci a échoué : navigateur indisponible."; return 0; }
-    info "Chromium + bibliothèques système (Playwright)…"
-    if [ "$AS_ROOT" -eq 1 ]; then
-        # Bibliothèques en root, navigateur dans le cache du compte applicatif.
-        ( cd "$bs" && npx --no-install playwright install-deps chromium ) \
-            && ( cd "$bs" && as_app npx --no-install playwright install chromium ) \
-            && { ok "Service navigateur prêt."; return 0; }
-    elif [ "$ADMIN_OK" -eq 1 ]; then
-        ( cd "$bs" && npx --no-install playwright install --with-deps chromium ) && { ok "Service navigateur prêt."; return 0; }
-    else
-        ( cd "$bs" && npx --no-install playwright install chromium ) && {
-            note_warn "Chromium installé sans ses bibliothèques système (pas de droits admin) : elles doivent déjà être présentes."
-            return 0; }
+    if ! as_app env ELPIS_NODE_CACHE="$ELPIS_NODE_CACHE" "$ROOT/deploy/node/installer.sh" npm "$npm_tmp" \
+            || ! ( cd "$bs" && as_app env PATH="$ROOT/node/bin:$npm_tmp/bin:$PATH" npm ci --no-audit --no-fund ); then
+        note_warn "npm ci a échoué (réseau ?) : navigateur indisponible."
+        rm -rf "$npm_tmp"
+        return 0
     fi
-    note_warn "Installation de Chromium incomplète (réseau ? droits ?)."
+    rm -rf "$npm_tmp"
+    info "Chromium (Playwright)…"
+    ( cd "$bs" && as_app env PATH="$chemin" ./node_modules/.bin/playwright install chromium ) || rc=$?
+    if [ "$rc" -eq 0 ]; then ok "Service navigateur prêt."; else note_warn "Installation de Chromium incomplète (réseau ?)."; fi
 }
 
 install_qdrant() {
@@ -768,20 +774,22 @@ install_sandbox_image() {
 }
 
 install_caddy() {
-    if [ -n "$OFFLINE_DIR" ] && compgen -G "$OFFLINE_DIR/caddy/*.deb" >/dev/null; then
-        cp "$OFFLINE_DIR"/caddy/*.deb "$ROOT/deploy/caddy/debs/"
-    fi
+    # Paquet installé à part (prérequis apt, groupe https) : jamais par install_caddy.sh depuis ici.
+    have caddy || { note_warn "Caddy absent : $(prerequis_commande caddy), puis relancez ./install.sh."; return 0; }
     info "Frontal HTTPS Caddy…"
     $SUDO "$ROOT/deploy/caddy/install_caddy.sh" || note_warn "Installation de Caddy incomplète."
 }
 
 # Les aperçus Office tournent dans une prison bubblewrap (Git, lui, tourne
-# dans la sandbox depuis L4.4) ; la sonde est celle de l'application (shared_infra/sandbox/bwrap.py), comme
-# ./elpis doctor. Ubuntu ≥ 23.10 réserve les user namespaces aux programmes
-# qui ont un profil AppArmor : avec les droits système, on en pose un pour
-# bwrap, seulement s'il est bloqué (compromis : docs/configuration.md).
+# dans la sandbox depuis L4.4) ; la sonde est celle de l'application (@elpis/bac,
+# par le core construit juste avant), comme ./elpis doctor. Ubuntu ≥ 23.10
+# réserve les user namespaces aux programmes qui ont un profil AppArmor : avec
+# les droits système, on en pose un pour bwrap, seulement s'il est bloqué
+# (compromis : docs/configuration.md).
 bwrap_ok() {
-    as_app "$VENV/bin/python" -c 'import sys; from shared_infra.sandbox.bwrap import probe; sys.exit(not probe(force=True))' >/dev/null 2>&1
+    local node="${ELPIS_NODE:-$ROOT/node/bin/node}"
+    [ -x "$node" ] || node="$(command -v node || echo node)"
+    as_app env ELPIS_RACINE="$ROOT" "$node" "$ROOT/apps/core/dist/exploitation.mjs" bwrap >/dev/null 2>&1
 }
 
 ensure_bwrap() {
@@ -790,7 +798,7 @@ ensure_bwrap() {
         return 0
     fi
     if bwrap_ok; then ok "bubblewrap utilisable (aperçus Office)."; return 0; fi
-    if [ "$DO_SYSTEM" -eq 1 ] && have apparmor_parser \
+    if [ "$DO_SYSTEM" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && have apparmor_parser \
             && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ]; then
         printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' '' \
             'profile elpis-bwrap /usr/bin/bwrap flags=(unconfined) {' '  userns,' \
@@ -808,8 +816,9 @@ check_office() {
 }
 
 # =============================================================================
-[ "$DO_SYSTEM" -eq 1 ] && install_system
+[ "$DO_SYSTEM" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && configurer_docker
 install_python
+install_core
 ensure_bwrap
 setup_database
 [ "$WITH_BROWSER" -eq 1 ] && install_browser
@@ -883,13 +892,13 @@ else
 fi
 host="$(hostname -I 2>/dev/null | awk '{print $1}')"; host="${host:-localhost}"
 # Adresse d'accès selon config.json : HTTPS (Caddy) ; sinon security.listen
-# (même règle que server/_bind_host.py : écoute locale → 127.0.0.1).
+# (même règle que apps/core/src/ecoute.ts : écoute locale → 127.0.0.1).
 access_mode="$(python3 -c 'import json, sys
-sys.path.insert(0, sys.argv[2])
-from _bind_host import host_for
-c = json.load(open(sys.argv[1]))
-print("https" if ((c.get("security") or {}).get("https") or {}).get("enabled") else host_for(c))' \
-    "$ROOT/config.json" "$ROOT/server" 2>/dev/null || echo "127.0.0.1")"
+sec = json.load(open(sys.argv[1])).get("security") or {}
+listen = sec.get("listen")
+print("https" if (sec.get("https") or {}).get("enabled") else "0.0.0.0"
+      if listen is None or str(listen).strip().lower() == "lan" else "127.0.0.1")' \
+    "$ROOT/config.json" 2>/dev/null || echo "127.0.0.1")"
 case "$access_mode" in
     https)     access="https://$host/   (administration : https://$host:8443/admin)" ;;
     0.0.0.0)   access="http://$host:8001/   (administration : http://$host:8002/admin)" ;;

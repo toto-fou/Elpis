@@ -1,0 +1,46 @@
+{
+  "name": "@elpis/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Core d'Elpis : serveurs main et admin (Fastify)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsx scripts/construire.ts",
+    "licences": "tsx scripts/construire.ts --licences"
+  },
+  "dependencies": {
+    "@elpis/auth": "0.1.0",
+    "@elpis/bac": "0.1.0",
+    "@elpis/bureau": "0.1.0",
+    "@elpis/commun": "0.1.0",
+    "@elpis/config": "0.1.0",
+    "@elpis/db": "0.1.0",
+    "@elpis/fichiers": "0.1.0",
+    "@elpis/http": "0.1.0",
+    "@elpis/images": "0.1.0",
+    "@elpis/mcp": "0.1.0",
+    "@elpis/navigateur": "0.1.0",
+    "@elpis/outils-mcp": "0.1.0",
+    "@elpis/securite": "0.1.0",
+    "@elpis/skills": "0.1.0",
+    "@elpis/verrous": "0.1.0",
+    "@fastify/multipart": "10.1.2",
+    "@fastify/send": "4.1.1",
+    "@fastify/websocket": "11.3.3",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "better-sqlite3": "13.0.3",
+    "fastify": "5.12.5",
+    "jpeg-js": "0.4.4",
+    "pngjs": "7.0.0",
+    "undici": "8.11.2",
+    "ws": "8.22.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "find-my-way": "9.9.0"
+  }
+}

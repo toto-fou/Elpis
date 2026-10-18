@@ -8,17 +8,22 @@
 #                                sandbox, voix, base, compte admin) ; avec des
 #                                options : sans assistant.  --yes = sans
 #                                question ; --help = toutes les options
-#  ./elpis start [--foreground]  démarre Qdrant, RAG, outils, app, admin, navigateur
+#  ./elpis start [--foreground]  démarre Qdrant, RAG, outils, app et admin (core
+#                                Node, apps/core/dist/main.mjs), navigateur ;
+#                                attend /api/health de main et admin (120 s au
+#                                plus, ELPIS_ATTENTE_SANTE), sinon code non nul
 #  ./elpis stop                  arrête les services lancés par « elpis start »
-#  ./elpis restart
+#                                (le core finit ses requêtes : 300 s au plus)
+#  ./elpis restart               migrations en attente, puis stop et start
 #  ./elpis status                état des services et des ports
-#  ./elpis logs [SERVICE] [-f]   journaux (qdrant rag toolhost main admin browser)
+#  ./elpis logs [SERVICE] [-f]   journaux (qdrant rag tools toolhost main admin browser)
 #  ./elpis service install       services systemd (sudo), démarrage au boot
 #  ./elpis service remove
 #  ./elpis service print         affiche les unités sans rien installer
 #  ./elpis doctor                diagnostic de l'installation
 #  ./elpis backup [full|db|sandboxes|mcp]   sauvegarde dans backups/ (0600)
 #  ./elpis upgrade [--no-backup] sauvegarde, git pull --ff-only, dépendances,
+#                                core et hôte d'outils Node reconstruits,
 #                                redémarrage (migrations au démarrage), doctor
 #  ./elpis browser states        états du navigateur enregistrés avant la 0.0.1
 #                                (sans compte) : identifiant, date, sites
@@ -44,10 +49,23 @@ VENV="$ROOT/venv"
 PY="$VENV/bin/python"
 RUN_DIR="$ROOT/user_db/run"
 LOG_DIR="$ROOT/logs"
-SERVICES=(qdrant rag toolhost main admin browser)
+SERVICES=(qdrant rag tools toolhost main admin browser)
+# Services retirés : leurs unités systemd sont supprimées par « service install » et « service remove ».
+SERVICES_RETIRES=(appmcp)
 UNIT_PREFIX="elpis"
+NODE_DIR="$ROOT/node"
+CORE_DIST="$ROOT/apps/core/dist"
+HOTE_DIST="$ROOT/apps/toolhost/dist"
+# shellcheck source=deploy/node/node.env
+. "$ROOT/deploy/node/node.env"
+# shellcheck source=deploy/prerequis-apt.sh
+. "$ROOT/deploy/prerequis-apt.sh"
+# shellcheck source=deploy/node/runtime.sh
+. "$ROOT/deploy/node/runtime.sh"
 
 MAIN_PORT=8001; ADMIN_PORT=8002; RAG_PORT=8000; MCP_PORT="${LOCAL_MCP_PORT:-8765}"
+# elpis-tools (Python, amont MCP de l'hôte d'outils TS) : loopback seulement.
+TOOLS_PORT="${ELPIS_TOOLS_PORT:-8767}"
 QDRANT_PORT=6333; BROWSER_PORT="${FIREFOX_SERVICE_PORT:-3000}"
 
 info() { printf '\033[1;34m[elpis]\033[0m %s\n' "$*"; }
@@ -58,6 +76,47 @@ usage() { sed -n '/^#  \.\/elpis configure/,/^#                                s
 
 need_venv() { [ -x "$PY" ] || die "venv/ absent : lancez d'abord ./install.sh"; }
 port_open() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null && { exec 3>&- 3<&-; return 0; }; return 1; }
+
+# Node du core : ELPIS_NODE, sinon node/ (installé par install.sh), sinon celui du PATH.
+node_bin() {
+    if [ -n "${ELPIS_NODE:-}" ]; then echo "$ELPIS_NODE"
+    elif [ -x "$NODE_DIR/bin/node" ]; then echo "$NODE_DIR/bin/node"
+    else command -v node || echo node; fi
+}
+version_ge() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n1)" = "$2" ]; }
+# Node 24.x, au moins NODE_MIN (shouldUpgradeCallback du relais WebSocket).
+node_ok() {
+    local v; v="$("$NODE" -v 2>/dev/null)" || return 1
+    v="${v#v}"
+    [ "${v%%.*}" = 24 ] && version_ge "$v" "$NODE_MIN"
+}
+need_core() {
+    [ -f "$CORE_DIST/main.mjs" ] || die "Core non construit ($CORE_DIST/main.mjs absent) : ./install.sh, ou ./install.sh --offline <paquet de cette version>"
+    node_ok || die "Node.js « $("$NODE" -v 2>/dev/null || echo "$NODE absent") » : le core demande Node 24.x, $NODE_MIN au moins (./install.sh installe $NODE_VERSION dans node/, ou ELPIS_NODE=chemin)."
+}
+# Commandes d'exploitation du core (sauvegarde…) : bundle construit et Node 24.
+need_exploitation() {
+    [ -f "$CORE_DIST/exploitation.mjs" ] || die "Core non construit ($CORE_DIST/exploitation.mjs absent) : ./install.sh, ou ./install.sh --offline <paquet de cette version>"
+    node_ok || die "Node.js « $("$NODE" -v 2>/dev/null || echo "$NODE absent") » : le core demande Node 24.x, $NODE_MIN au moins (./install.sh installe $NODE_VERSION dans node/, ou ELPIS_NODE=chemin)."
+}
+# Commande d'exploitation du core (natif, migrations, empreinte, backup…), avec la configuration des services.
+core_cmd() {
+    local e=("ELPIS_RACINE=$ROOT")
+    [ -n "${SANDBOX_DIR:-}" ] && e+=("APP_SANDBOX_DIR=$SANDBOX_DIR")
+    env "${e[@]}" "$NODE" "$CORE_DIST/exploitation.mjs" "$@"
+}
+# lanceur QUESTION : réglage lu par le core dans config.json et l'environnement (exploitation.mjs lanceur) ; rien si le core n'est pas construit.
+lanceur() {
+    [ -f "$CORE_DIST/exploitation.mjs" ] || return 0
+    ELPIS_RACINE="$ROOT" "${NODE:-$(node_bin)}" "$CORE_DIST/exploitation.mjs" lanceur "$1" 2>/dev/null \
+        || warn "Le core ne répond pas pour « $1 » (bundle d'une autre version ? ./install.sh) : valeur par défaut."
+}
+# Autorités de confiance de .env : SSL_CERT_FILE avec un certificat, sinon un seul dossier SSL_CERT_DIR (--use-system-ca ne lit pas de liste) aux noms hachés.
+ca_ok() {
+    if [ -n "${SSL_CERT_FILE:-}" ]; then grep -q -- '-----BEGIN CERTIFICATE-----' "$SSL_CERT_FILE"; return; fi
+    case "${SSL_CERT_DIR:-}" in *:*) return 1 ;; esac
+    compgen -G "${SSL_CERT_DIR:-}/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].[0-9]*" >/dev/null
+}
 
 # =============================================================================
 #  configure
@@ -93,45 +152,21 @@ cmd_configure() {
 #  Définition des services (commande, dossier, environnement)
 # =============================================================================
 _bind_default() {
-    # Même règle que server/_bind_host.py : HTTPS → 127.0.0.1 ; config absente
-    # ou illisible → 127.0.0.1 ; security.listen « lan » → 0.0.0.0, « local »
-    # → 127.0.0.1 ; clé absente (config d'avant le réglage) → 0.0.0.0.
-    "$PY" - <<'PYEOF' 2>/dev/null || echo "127.0.0.1"
-import json, os
-p = os.environ.get("APP_CONFIG_PATH") or "config.json"
-if not os.path.exists(p):
-    print("127.0.0.1")
-else:
-    try:
-        sec = (json.load(open(p)).get("security") or {})
-        if (sec.get("https") or {}).get("enabled"):
-            print("127.0.0.1")
-        elif sec.get("listen") is None:
-            print("0.0.0.0")
-        else:
-            print("0.0.0.0" if str(sec["listen"]).strip().lower() == "lan" else "127.0.0.1")
-    except Exception:
-        print("127.0.0.1")
-PYEOF
+    # Même règle que le core (apps/core/src/ecoute.ts) : HTTPS → 127.0.0.1 ;
+    # config absente ou illisible → 127.0.0.1 ; security.listen « lan » →
+    # 0.0.0.0, « local » → 127.0.0.1 ; clé absente (config d'avant le
+    # réglage) → 0.0.0.0. Core non construit : 127.0.0.1.
+    local h; h="$(lanceur ecoute)"
+    case "$h" in 0.0.0.0|127.0.0.1) echo "$h" ;; *) echo 127.0.0.1 ;; esac
 }
 
 # HTTPS actif (frontal Caddy) ? Distinct du bind : « listen local » donne aussi
 # 127.0.0.1 sans Caddy.
-_https_enabled() {
-    "$PY" - <<'PYEOF' 2>/dev/null
-import json, os, sys
-p = os.environ.get("APP_CONFIG_PATH") or "config.json"
-try:
-    sec = (json.load(open(p)).get("security") or {})
-    sys.exit(0 if (sec.get("https") or {}).get("enabled") else 1)
-except Exception:
-    sys.exit(1)
-PYEOF
-}
+_https_enabled() { [ "$(lanceur https)" = oui ]; }
 
-# svc_spec NOM → définit SPEC_DIR, SPEC_CMD (tableau), SPEC_ENV (tableau K=V)
+# svc_spec NOM → définit SPEC_DIR, SPEC_CMD (tableau), SPEC_ENV (tableau K=V), SPEC_LANCEUR (préfixe de relance, hors systemd)
 svc_spec() {
-    SPEC_DIR="$ROOT"; SPEC_CMD=(); SPEC_ENV=("PYTHONDONTWRITEBYTECODE=1")
+    SPEC_DIR="$ROOT"; SPEC_CMD=(); SPEC_ENV=("PYTHONDONTWRITEBYTECODE=1"); SPEC_LANCEUR=()
     local mcp_url="http://127.0.0.1:${MCP_PORT}/mcp"
     case "$1" in
         qdrant)
@@ -140,72 +175,117 @@ svc_spec() {
         rag)
             SPEC_DIR="$ROOT/rag_app"
             SPEC_CMD=("$VENV/bin/uvicorn" app:app --host "${RAG_HOST:-$BIND_DEFAULT}" --port "$RAG_PORT") ;;
+        tools)
+            SPEC_ENV+=("ELPIS_RACINE=$ROOT" "ELPIS_TOOLS_PORT=$TOOLS_PORT" "APP_SANDBOX_DIR=$SANDBOX_DIR"
+                       "CHART_CACHE_DIR=$CHART_DIR" "APP_NODE_BIN=$NODE")
+            SPEC_CMD=("$NODE" --enable-source-maps "$HOTE_DIST/main.mjs" --elpis-tools) ;;
         toolhost)
             SPEC_ENV+=(LOCAL_MCP_TRANSPORT=streamable-http "LOCAL_MCP_HOST=${LOCAL_MCP_HOST:-127.0.0.1}"
-                       "LOCAL_MCP_PORT=$MCP_PORT" "APP_SANDBOX_DIR=$SANDBOX_DIR")
-            SPEC_CMD=("$PY" -m toolhost) ;;
+                       "LOCAL_MCP_PORT=$MCP_PORT" "APP_SANDBOX_DIR=$SANDBOX_DIR" "CHART_CACHE_DIR=$CHART_DIR"
+                       "APP_NODE_BIN=$NODE")
+            # Rappels de l'hôte vers le core local (shell_job, identifiants git, PR, quota, notifications).
+            SPEC_ENV+=("ELPIS_RACINE=$ROOT" "TOOLHOST_MCP_UPSTREAM=http://127.0.0.1:$TOOLS_PORT/mcp"
+                       "TOOLHOST_APP_URL=${TOOLHOST_APP_URL:-http://127.0.0.1:$MAIN_PORT}")
+            SPEC_LANCEUR=(bash "$ROOT/deploy/node/relance.sh")
+            SPEC_CMD=("$NODE" --enable-source-maps --use-system-ca "$HOTE_DIST/main.mjs") ;;
         main)
-            SPEC_ENV+=(ENABLE_CLI=1 APP_MODE=main APP_SERVICE=main "LOCAL_MCP_URL=$mcp_url"
+            SPEC_ENV+=(ENABLE_CLI=1 APP_MODE=main APP_SERVICE=main "ELPIS_RACINE=$ROOT" "LOCAL_MCP_URL=$mcp_url"
                        "APP_SANDBOX_DIR=$SANDBOX_DIR" "MAIN_INTERNAL_URL=http://127.0.0.1:$MAIN_PORT"
+                       "CHART_CACHE_DIR=$CHART_DIR"
                        "ADMIN_PUBLIC_URL=${ADMIN_PUBLIC_URL:-http://localhost:$ADMIN_PORT/admin}"
                        "PLAYWRIGHT_API_URL=${PLAYWRIGHT_API_URL:-http://127.0.0.1:$BROWSER_PORT}")
-            SPEC_CMD=("$VENV/bin/gunicorn" -c server/gunicorn_conf.py server.app:app) ;;
+            SPEC_LANCEUR=(bash "$ROOT/deploy/node/relance.sh")
+            SPEC_CMD=("$NODE" --enable-source-maps --use-system-ca "$CORE_DIST/main.mjs") ;;
         admin)
-            SPEC_ENV+=(APP_MODE=admin APP_SERVICE=admin "LOCAL_MCP_URL=$mcp_url"
+            SPEC_ENV+=(APP_MODE=admin APP_SERVICE=admin "ELPIS_RACINE=$ROOT" "LOCAL_MCP_URL=$mcp_url"
                        "APP_SANDBOX_DIR=$SANDBOX_DIR" "MAIN_INTERNAL_URL=http://127.0.0.1:$MAIN_PORT"
-                       "MAIN_PUBLIC_URL=${MAIN_PUBLIC_URL:-http://localhost:$MAIN_PORT/}")
-            SPEC_CMD=("$VENV/bin/gunicorn" -c server/gunicorn_admin_conf.py server.admin_app:app) ;;
+                       "CHART_CACHE_DIR=$CHART_DIR" "MAIN_PUBLIC_URL=${MAIN_PUBLIC_URL:-http://localhost:$MAIN_PORT/}")
+            SPEC_LANCEUR=(bash "$ROOT/deploy/node/relance.sh")
+            SPEC_CMD=("$NODE" --enable-source-maps --use-system-ca "$CORE_DIST/main.mjs") ;;
         browser)
             SPEC_DIR="$ROOT/browser-service"
             SPEC_ENV+=(PLAYWRIGHT_HEADLESS=true "FIREFOX_SERVICE_PORT=$BROWSER_PORT")
-            SPEC_CMD=("$(command -v node || echo node)" server.js) ;;
+            SPEC_CMD=("$NODE" server.js) ;;
         *) die "service inconnu : $1" ;;
+    esac
+}
+
+# Base PostgreSQL réglée sur cette machine (config.json / APP_DB_*).
+_db_postgres_local() { [ "$(lanceur postgres-local)" = oui ]; }
+
+# Sauvegarde distante active par scp ou rsync (config.json, backup.remote).
+_sauvegarde_ssh() { [ "$(lanceur sauvegarde-ssh)" = oui ]; }
+
+# Groupe de deploy/prerequis-apt.txt dont cette installation se sert.
+apt_groupe_sert() {
+    case "$1" in
+        socle|sandbox) return 0 ;;
+        apercus-office) command -v soffice >/dev/null 2>&1 ;;
+        navigateur) [ -d "$ROOT/browser-service/node_modules" ] ;;
+        construction-hote) [ -d "$ROOT/node_modules" ] ;;
+        https) _https_enabled ;;
+        postgresql-local) _db_postgres_local ;;
+        sauvegarde-distante) _sauvegarde_ssh ;;
+        *) return 1 ;;
     esac
 }
 
 # Serveur de base sur CETTE machine (config.json / APP_DB_*) → son unité
 # systemd, que main, admin et l'hôte d'outils attendent au démarrage.
-_db_local_unit() {
-    "$PY" - <<'PYEOF' 2>/dev/null
-import json, os
-p = os.environ.get("APP_CONFIG_PATH") or "config.json"
-db = json.load(open(p)).get("database") or {}
-backend = (os.environ.get("APP_DB_BACKEND") or db.get("backend") or "sqlite").lower()
-host = os.environ.get("APP_DB_HOST") or db.get("host") or "127.0.0.1"
-if host in ("127.0.0.1", "localhost", "::1"):
-    for unit in {"postgres": ["postgresql.service"], "postgresql": ["postgresql.service"],
-                 "mysql": ["mariadb.service", "mysql.service"],
-                 "mariadb": ["mariadb.service", "mysql.service"]}.get(backend, []):
-        if any(os.path.exists(d + unit) for d in ("/lib/systemd/system/", "/usr/lib/systemd/system/",
-                                                  "/etc/systemd/system/")):
-            print(unit)
-            break
-PYEOF
+_db_local_unit() { lanceur unite-base; }
+
+# Migrations de mcp.json sans question (relais, familles manquantes, familles du compte servies en processus par le core).
+migrer_mcp() { "$PY" "$ROOT/deploy/configure.py" --migrer-mcp || warn "mcp.json non migré : ./elpis configure"; }
+# Hôte interrogé avec succès, aucune famille relayée : elpis-tools n'a rien à servir (ni processus ni port attendus).
+sans_famille_relayee() {
+    local f
+    f="$(ELPIS_RACINE="$ROOT" timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --familles-relayees 2>/dev/null)" && [ -z "$(printf '%s' "$f" | tail -n 1)" ]
 }
 
 svc_available() {
     case "$1" in
         qdrant)  [ -x "$ROOT/rag_app/qdrant/qdrant" ] ;;
-        browser) [ -d "$ROOT/browser-service/node_modules" ] && command -v node >/dev/null ;;
+        toolhost|tools) [ -f "$HOTE_DIST/main.mjs" ] ;;
+        main|admin) [ -f "$CORE_DIST/main.mjs" ] ;;
+        browser) [ -d "$ROOT/browser-service/node_modules" ] && command -v "$(node_bin)" >/dev/null ;;
         *)       return 0 ;;
     esac
 }
 
 svc_port() {
     case "$1" in
-        qdrant) echo "$QDRANT_PORT" ;; rag) echo "$RAG_PORT" ;; toolhost) echo "$MCP_PORT" ;;
+        qdrant) echo "$QDRANT_PORT" ;; rag) echo "$RAG_PORT" ;; toolhost) echo "$MCP_PORT" ;; tools) echo "$TOOLS_PORT" ;;
         main) echo "$MAIN_PORT" ;; admin) echo "$ADMIN_PORT" ;; browser) echo "$BROWSER_PORT" ;;
     esac
 }
 
+# .env : surcharges locales facultatives (KEY=VALUE, une par ligne), puis les ports qui en dépendent.
+charger_env() {
+    if [ -f "$ROOT/.env" ]; then set -a; . "$ROOT/.env"; set +a; fi
+    TOOLS_PORT="${ELPIS_TOOLS_PORT:-8767}"
+}
+
+# Instance : config.json, .env, Node, écoute et dossiers, lus par le core (sans le venv).
+charger_instance() {
+    [ -f "$ROOT/config.json" ] || die "config.json absent : lancez ./elpis configure"
+    charger_env
+    NODE="$(node_bin)"
+    BIND_DEFAULT="$(_bind_default)"
+    SANDBOX_DIR="${APP_SANDBOX_DIR:-}"
+    if [ -z "$SANDBOX_DIR" ] && [ -f "$CORE_DIST/exploitation.mjs" ]; then
+        SANDBOX_DIR="$(core_cmd config SANDBOX_DIR 2>/dev/null)" \
+            || die "Dossier des sandboxes illisible par le core (bundle d'une autre version, ou Node inutilisable) : ./install.sh, ou ./install.sh --offline <paquet de cette version>"
+    fi
+    [ -n "$SANDBOX_DIR" ] || SANDBOX_DIR="$ROOT/user_sandboxes"
+    # Cache des graphiques : écrit par le core, relu par l'hôte d'outils ; un même dossier privé pour tous.
+    CHART_DIR="${CHART_CACHE_DIR:-$RUN_DIR/charts}"
+    mkdir -p "$SANDBOX_DIR" "$RUN_DIR" "$LOG_DIR" "$ROOT/user_db/logs"
+}
+
+# Services : le venv sert encore au RAG et à elpis-tools.
 load_runtime() {
     need_venv
-    [ -f "$ROOT/config.json" ] || die "config.json absent : lancez ./elpis configure"
-    # .env : surcharges locales facultatives (KEY=VALUE, une par ligne).
-    if [ -f "$ROOT/.env" ]; then set -a; . "$ROOT/.env"; set +a; fi
-    BIND_DEFAULT="$(_bind_default)"
-    SANDBOX_DIR="${APP_SANDBOX_DIR:-$("$PY" -c 'from shared_infra.config import SANDBOX_DIR; print(SANDBOX_DIR)' 2>/dev/null || echo "$ROOT/user_sandboxes")}"
-    mkdir -p "$SANDBOX_DIR" "$RUN_DIR" "$LOG_DIR" "$ROOT/user_db/logs"
+    charger_instance
 }
 
 pid_of() { local f="$RUN_DIR/$1.pid"; [ -s "$f" ] && kill -0 "$(cat "$f")" 2>/dev/null && cat "$f"; }
@@ -219,6 +299,33 @@ wait_port() {
     return 1
 }
 
+# attendre SERVICE SECONDES COMMANDE… : réussit dès que la commande réussit ; échoue au délai, ou dès que le service s'arrête.
+attendre() {
+    local s="$1" fin=$((SECONDS + $2)); shift 2
+    until "$@" >/dev/null 2>&1; do
+        { pid_of "$s" >/dev/null && [ "$SECONDS" -lt "$fin" ]; } || return 1
+        sleep 0.5
+    done
+}
+
+# Santé de main et admin (/api/health) sous ELPIS_ATTENTE_SANTE secondes (120) ; sinon la fin de leur journal et un code non nul.
+attendre_sante() {
+    local s port rc=0 fin=$((SECONDS + ${ELPIS_ATTENTE_SANTE:-120}))
+    for s in main admin; do
+        port="$(svc_port "$s")"
+        attendre "$s" "$((fin - SECONDS))" curl --noproxy '*' -fsS -m 2 -o /dev/null "http://127.0.0.1:$port/api/health" && continue
+        if pid_of "$s" >/dev/null; then
+            warn "$s ne répond pas sur /api/health (port $port) après ${ELPIS_ATTENTE_SANTE:-120} s. Fin de son journal ($LOG_DIR/$s.log) :"
+        else
+            warn "$s s'est arrêté sans répondre sur /api/health (port $port). Fin de son journal ($LOG_DIR/$s.log) :"
+        fi
+        tail -n 20 "$LOG_DIR/$s.log" 2>/dev/null | sed 's/^/    /' >&2
+        rc=1
+    done
+    [ "$rc" -eq 0 ] && ok "main et admin répondent (/api/health)."
+    return "$rc"
+}
+
 # =============================================================================
 #  start / stop / status / logs
 # =============================================================================
@@ -227,22 +334,27 @@ cmd_start() {
     [ "${1:-}" = "--foreground" ] && foreground=1
     systemd_active && die "Les services systemd ${UNIT_PREFIX}.target tournent déjà (systemctl status ${UNIT_PREFIX}.target)."
     load_runtime
+    need_core
+    [ -f "$ROOT/deploy/node/relance.sh" ] || die "deploy/node/relance.sh absent (mise à jour incomplète) : ./install.sh, ou ./install.sh --offline <paquet de cette version>"
+    migrer_mcp
     local s started=()
     for s in "${SERVICES[@]}"; do
         if ! svc_available "$s"; then warn "$s non installé : ignoré."; continue; fi
+        if [ "$s" = tools ] && sans_famille_relayee; then info "tools : aucune famille relayée, rien à servir."; continue; fi
         if pid_of "$s" >/dev/null; then info "$s tourne déjà (pid $(pid_of "$s"))."; continue; fi
         svc_spec "$s"
         info "Démarrage de $s…"
-        ( cd "$SPEC_DIR" && exec env "${SPEC_ENV[@]}" setsid "${SPEC_CMD[@]}" ) \
+        ( cd "$SPEC_DIR" && exec env "${SPEC_ENV[@]}" setsid ${SPEC_LANCEUR[@]+"${SPEC_LANCEUR[@]}"} "${SPEC_CMD[@]}" ) \
             >>"$LOG_DIR/$s.log" 2>&1 </dev/null &
         echo $! > "$RUN_DIR/$s.pid"
         started+=("$s")
         # Les suivants dépendent de Qdrant et de l'hôte d'outils : on les attend.
         case "$s" in
-            qdrant|toolhost) wait_port "$(svc_port "$s")" 40 || warn "$s ne répond pas encore (voir ./elpis logs $s)." ;;
+            qdrant|tools|toolhost) attendre "$s" 20 port_open "$(svc_port "$s")" || warn "$s ne répond pas encore (voir ./elpis logs $s)." ;;
         esac
     done
-    sleep 2
+    local rc=0
+    attendre_sante || rc=1
     cmd_status
     local host="localhost"
     if _https_enabled; then
@@ -252,28 +364,73 @@ cmd_start() {
         [ "$BIND_DEFAULT" = "127.0.0.1" ] && info "Écoute locale (security.listen) : joignable depuis ce serveur seulement."
     fi
     if [ "$foreground" -eq 1 ]; then
+        [ "$rc" -eq 0 ] || { cmd_stop; return 1; }
         trap 'cmd_stop; exit 0' INT TERM
         info "Premier plan : Ctrl-C arrête tout."
         while :; do sleep 5; done
     fi
+    return "$rc"
 }
 
-cmd_stop() {
-    local i s pid
-    for (( i=${#SERVICES[@]}-1; i>=0; i-- )); do
-        s="${SERVICES[$i]}"
+# tuer_fils PID : SIGKILL aux groupes des fils directs (le core lancé par relance.sh a son propre groupe).
+tuer_fils() {
+    local c
+    for c in $(cat /proc/"$1"/task/*/children 2>/dev/null || pgrep -P "$1" 2>/dev/null); do
+        kill -KILL -- "-$c" 2>/dev/null || kill -KILL "$c" 2>/dev/null
+    done
+}
+
+# arreter SERVICE… : SIGTERM à chacun, attente commune (310 s si le core en est, 20 s sinon), SIGKILL au-delà.
+arreter() {
+    local s i n pid vivant attente=40 pids=() noms=()
+    for s in "$@"; do
         pid="$(pid_of "$s")" || { rm -f "$RUN_DIR/$s.pid"; continue; }
         info "Arrêt de $s (pid $pid)…"
         kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
-        for _ in $(seq 1 40); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+        pids+=("$pid"); noms+=("$s")
+        case "$s" in main|admin) attente=620 ;; esac
+    done
+    for (( n=1; n<=attente; n++ )); do
+        vivant=0
+        for pid in "${pids[@]}"; do kill -0 "$pid" 2>/dev/null && vivant=1; done
+        [ "$vivant" -eq 1 ] || break
+        [ "$n" -eq 20 ] && [ "$attente" -gt 40 ] && info "Le core finit ses requêtes en cours (300 s au plus)…"
+        sleep 0.5
+    done
+    for i in "${!pids[@]}"; do
+        pid="${pids[$i]}"
+        case "${noms[$i]}" in main|admin) kill -0 "$pid" 2>/dev/null && tuer_fils "$pid" ;; esac
         kill -0 "$pid" 2>/dev/null && { kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null; }
-        rm -f "$RUN_DIR/$s.pid"
+        rm -f "$RUN_DIR/${noms[$i]}.pid"
+    done
+}
+
+# Le core d'abord, main et admin ensemble : outils, RAG et navigateur servent encore pendant qu'il finit.
+cmd_stop() {
+    local i s
+    arreter main admin
+    for (( i=${#SERVICES[@]}-1; i>=0; i-- )); do
+        s="${SERVICES[$i]}"
+        case "$s" in main|admin) ;; *) arreter "$s" ;; esac
     done
     ok "Services arrêtés."
 }
 
+# Migrations de la base vues par le core : celles en attente s'appliquent au démarrage.
+cmd_migrations() {
+    local out rc
+    [ -f "$CORE_DIST/exploitation.mjs" ] || { warn "Base : core non construit, migrations non vérifiées."; return 0; }
+    out="$(core_cmd migrations 2>&1)"; rc=$?
+    case "$rc" in
+        0) info "Base : $out" ;;
+        *) warn "Base : ${out:-vérification impossible}" ;;
+    esac
+    return 0
+}
+
 cmd_status() {
     local s pid port state
+    charger_env
     if systemd_active; then info "Géré par systemd (${UNIT_PREFIX}.target)."; fi
     printf '  %-10s %-8s %-7s %s\n' SERVICE PID PORT ÉTAT
     for s in "${SERVICES[@]}"; do
@@ -305,9 +462,10 @@ cmd_logs() {
 # =============================================================================
 # _render_units DOSSIER UTILISATEUR → écrit les unités, remplit UNITS_WANTS
 _render_units() {
-    local unit_dir="$1" run_user="$2" s e
+    local unit_dir="$1" run_user="$2" s e w
     UNITS_WANTS=()
     load_runtime
+    need_core
     local db_unit; db_unit="$(_db_local_unit)"
     for s in "${SERVICES[@]}"; do
         svc_available "$s" || { warn "$s non installé : pas d'unité."; continue; }
@@ -315,14 +473,20 @@ _render_units() {
         {
             echo "[Unit]"
             echo "Description=Elpis — $s"
-            echo "PartOf=${UNIT_PREFIX}.target"
             case "$s" in
-                rag)        echo "After=${UNIT_PREFIX}-qdrant.service" ;;
-                toolhost)   echo "After=network-online.target docker.service${db_unit:+ $db_unit}" ;;
-                main|admin) echo "After=${UNIT_PREFIX}-toolhost.service ${UNIT_PREFIX}-rag.service${db_unit:+ $db_unit}" ;;
+                tools) echo "PartOf=${UNIT_PREFIX}.target ${UNIT_PREFIX}-toolhost.service" ;;
+                *)     echo "PartOf=${UNIT_PREFIX}.target" ;;
             esac
             case "$s" in
-                toolhost|main|admin) if [ -n "$db_unit" ]; then echo "Wants=$db_unit"; fi ;;
+                rag)        echo "After=${UNIT_PREFIX}-qdrant.service" ;;
+                tools)      echo "After=network-online.target docker.service${db_unit:+ $db_unit}" ;;
+                toolhost)   echo "After=network-online.target docker.service${db_unit:+ $db_unit}$(svc_available tools && echo " ${UNIT_PREFIX}-tools.service")" ;;
+                main|admin) echo "After=${UNIT_PREFIX}-toolhost.service ${UNIT_PREFIX}-rag.service ${UNIT_PREFIX}-browser.service caddy.service${db_unit:+ $db_unit}" ;;
+            esac
+            case "$s" in
+                toolhost) w="${db_unit}$(svc_available tools && echo " ${UNIT_PREFIX}-tools.service")"; w="${w# }"
+                          if [ -n "$w" ]; then echo "Wants=$w"; fi ;;
+                tools|main|admin) if [ -n "$db_unit" ]; then echo "Wants=$db_unit"; fi ;;
             esac
             echo
             echo "[Service]"
@@ -334,13 +498,19 @@ _render_units() {
             printf 'ExecStart='; printf '%q ' "${SPEC_CMD[@]}"; echo
             # Navigateur : relancé même après un arrêt « propre » inattendu
             # (un seul processus sert toutes les sessions de tous les comptes).
+            # Core : relancé après SIGHUP (sortie 75, tenue pour un succès) ; 310 s = 300 s de générations + 5 s de fermeture forcée.
+            # Hôte d'outils : relancé après SIGHUP (sortie 75) comme le core ; ses PTY sont tués à l'arrêt.
             case "$s" in
                 browser) echo "Restart=always" ;;
+                main|admin|toolhost) echo "Restart=always"; echo "SuccessExitStatus=75" ;;
                 *)       echo "Restart=on-failure" ;;
             esac
             echo "RestartSec=3"
             echo "KillMode=mixed"
-            echo "TimeoutStopSec=30"
+            case "$s" in
+                main|admin) echo "KillSignal=SIGTERM"; echo "TimeoutStopSec=310" ;;
+                *)          echo "TimeoutStopSec=30" ;;
+            esac
             echo
             echo "[Install]"
             echo "WantedBy=${UNIT_PREFIX}.target"
@@ -393,17 +563,23 @@ cmd_service() {
                 usermod -aG docker "$run_user" && info "$run_user ajouté au groupe docker."
             fi
             _render_units "$unit_dir" "$run_user"
+            for s in "${SERVICES[@]}" "${SERVICES_RETIRES[@]}"; do
+                case " ${UNITS_WANTS[*]} " in *" ${UNIT_PREFIX}-$s.service "*) continue ;; esac
+                [ -f "$unit_dir/${UNIT_PREFIX}-$s.service" ] || continue
+                systemctl disable --now "${UNIT_PREFIX}-$s.service" >/dev/null 2>&1 || true
+                rm -f "$unit_dir/${UNIT_PREFIX}-$s.service"
+            done
             chown -R "$run_user" "$ROOT/user_db" "$LOG_DIR" 2>/dev/null || true
             systemctl daemon-reload
             systemctl enable "${UNITS_WANTS[@]}" "${UNIT_PREFIX}.target" >/dev/null
-            # Les processus lancés à la main laisseraient les ports occupés.
-            cmd_stop >/dev/null 2>&1 || true
+            # Les processus lancés à la main laisseraient les ports occupés ; le core peut prendre 300 s.
+            cmd_stop || true
             systemctl restart "${UNIT_PREFIX}.target"
             ok "Services installés et démarrés (utilisateur $run_user) : systemctl status ${UNIT_PREFIX}.target"
             ;;
         remove)
             systemctl disable --now "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
-            for s in "${SERVICES[@]}"; do
+            for s in "${SERVICES[@]}" "${SERVICES_RETIRES[@]}"; do
                 systemctl disable --now "${UNIT_PREFIX}-$s.service" >/dev/null 2>&1 || true
                 rm -f "$unit_dir/${UNIT_PREFIX}-$s.service"
             done
@@ -419,52 +595,134 @@ cmd_service() {
 #  doctor
 # =============================================================================
 cmd_doctor() {
-    local bad=0
+    local bad=0 sortie
+    charger_env
+    NODE="$(node_bin)"
     check() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else warn "$1 : NON ($3)"; bad=$((bad+1)); fi; }
     # Facultatif : signalé, sans compter comme un problème.
     check_opt() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else info "$1 : absent ($3)"; fi; }
+    check_out() { if sortie="$(eval "$2" 2>&1)"; then ok "$1 : $sortie"; else warn "$1 : NON (${sortie:+$sortie ; }$3)"; bad=$((bad+1)); fi; }
+    # Paquets apt d'un groupe : manquants = problème si le groupe sert ici, sinon simple information.
+    check_apt() {
+        local manquants=() l liste="" cmd
+        mapfile -t manquants < <(prerequis_manquants "$1")
+        if [ "${#manquants[@]}" -eq 0 ]; then ok "paquets apt ($1)"; return 0; fi
+        for l in "${manquants[@]}"; do liste+="${liste:+, }$(prerequis_libelle "$l")"; done
+        cmd="$(prerequis_commande "${manquants[@]}")"
+        if apt_groupe_sert "$1"; then warn "paquets apt ($1) : NON (manquants : $liste ; $cmd)"; bad=$((bad+1))
+        else info "paquets apt ($1, facultatif) : absents : $liste ($cmd)"; fi
+    }
+    if command -v dpkg-query >/dev/null 2>&1; then
+        local groupe
+        for groupe in $(prerequis_groupes); do
+            if [ "$groupe" = socle ] || prerequis_debian13; then check_apt "$groupe"
+            else info "paquets apt ($groupe) : noms de Debian 13, non vérifiés sur ce système (deploy/prerequis-apt.txt)"; fi
+        done
+    else
+        info "paquets apt : dpkg-query absent, prérequis non vérifiés (deploy/prerequis-apt.txt)"
+    fi
     check "venv Python" "[ -x '$PY' ]" "./install.sh"
-    check "dépendances Python" "'$PY' -c 'import fastapi, fastmcp, httpx, gunicorn, uvicorn'" "./install.sh"
+    check "dépendances Python" "'$PY' -c 'import fastapi, fastmcp, httpx, uvicorn'" "./install.sh"
+    local v_runtime="NODE_RUNTIME_SHA256_$(uname -m)" runtime_attendu
+    runtime_attendu="${!v_runtime:-absente}"
+    if [ "$NODE" = "$NODE_DIR/bin/node" ]; then
+        check "runtime Node.js livré (node/, sans npm, empreinte ${runtime_attendu:0:12})" \
+            "[ \"\$(runtime_empreinte '$NODE_DIR')\" = '$runtime_attendu' ]" \
+            "./install.sh, ou ./install.sh --offline <paquet de cette version>"
+    else
+        info "runtime Node.js : $NODE (ELPIS_NODE ou PATH), empreinte non vérifiée"
+    fi
+    check "Node.js du core $("$NODE" -v 2>/dev/null || echo absent) ($NODE)" "node_ok" \
+        "24.x, $NODE_MIN au moins : ./install.sh installe $NODE_VERSION dans node/"
+    check "core construit (apps/core/dist/main.mjs)" "[ -f '$CORE_DIST/main.mjs' ]" "./install.sh, ou ./install.sh --offline <paquet de cette version>"
+    if [ -f "$CORE_DIST/exploitation.mjs" ]; then
+        check_out "module natif du core" "core_cmd natif" "./install.sh"
+        check_out "bundle du core" "core_cmd empreinte" "./install.sh, ou ./install.sh --offline <paquet de cette version>"
+    fi
+    # Hôte d'outils : construit, à jour des sources, node-pty (PTY du terminal) et better-sqlite3 chargés pour cette machine.
+    check "hôte d'outils construit (apps/toolhost/dist/main.mjs)" "[ -f '$HOTE_DIST/main.mjs' ]" "./install.sh, ou ./install.sh --offline <paquet de cette version>"
+    if [ -f "$HOTE_DIST/main.mjs" ]; then
+        check_out "bundle de l'hôte d'outils" "ELPIS_RACINE='$ROOT' '$NODE' '$HOTE_DIST/main.mjs' --empreinte" \
+            "./install.sh, ou ./install.sh --offline <paquet de cette version>"
+        check_out "modules natifs de l'hôte d'outils" "timeout 30 '$NODE' '$HOTE_DIST/main.mjs' --natif" \
+            "bundle incomplet ou d'une autre architecture : paquet hors ligne de cette architecture, ou construction sur place (build-essential, python3 : npm ci y compile node-pty)"
+    fi
+    if [ -n "${SSL_CERT_FILE:-}${SSL_CERT_DIR:-}" ]; then
+        check "autorités de confiance (${SSL_CERT_FILE:-SSL_CERT_DIR=$SSL_CERT_DIR})" "ca_ok" \
+            "fichier PEM, ou un seul dossier aux noms hachés (openssl rehash) : ./elpis configure --ca-file systeme|<fichier PEM>|aucun"
+    else
+        info "autorités de confiance : magasins par défaut (core : Node et /etc/ssl/certs ; httpx : certifi) ; PKI interne : ./elpis configure --ca-file systeme"
+    fi
     check "dépendances RAG" "'$PY' -c 'import pandas, pdfplumber, pypdfium2'" "pip install -r requirements-rag.txt"
     check "config.json" "[ -f '$ROOT/config.json' ]" "./elpis configure"
     check "mcp.json" "[ -f '$ROOT/mcp.json' ]" "./elpis configure"
     check "rag_config.json" "[ -f '$ROOT/rag_app/rag_config.json' ]" "./elpis configure"
     check "jeton MCP" "[ -s '$ROOT/user_db/.local_mcp_token' ]" "./elpis configure"
+    local th_host="${LOCAL_MCP_HOST:-127.0.0.1}"; [ "$th_host" = 0.0.0.0 ] && th_host=127.0.0.1
+    check "hôte d'outils ($th_host:$MCP_PORT)" "curl --noproxy '*' -fsS -m 3 -o /dev/null 'http://$th_host:$MCP_PORT/health'" "./elpis logs toolhost"
+    if [ -f "$HOTE_DIST/main.mjs" ]; then
+        local natives
+        natives="$(ELPIS_RACINE="$ROOT" timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --familles-natives 2>/dev/null | tail -n 1)"
+        info "hôte d'outils : familles natives ${natives:-aucune} (toolhost.json › familles_natives, absente = toutes les familles portées)"
+    fi
+    if svc_available tools && sans_famille_relayee; then
+        info "elpis-tools : aucune famille relayée par l'hôte d'outils, rien à servir"
+    elif svc_available tools; then
+        check "familles Python, elpis-tools (127.0.0.1:$TOOLS_PORT)" "(exec 3<>/dev/tcp/127.0.0.1/$TOOLS_PORT)" "./elpis logs tools"
+    fi
+    check "outils du compte servis par main (mcp.json sans URL d'appmcp)" "'$PY' '$ROOT/deploy/configure.py' --verifier-mcp" "./elpis configure"
+    check "familles d'outils de mcp.example.json présentes dans mcp.json" "'$PY' '$ROOT/deploy/configure.py' --verifier-familles-mcp" "./elpis configure"
+    local retire
+    for retire in ELPIS_TOOLHOST ELPIS_APPMCP ELPIS_CLI; do
+        [ "${!retire:-}" = python ] && info "$retire=python : ignoré depuis la 0.1.0 (retour à la version Python : tag python-final, docs/exploitation.md), à retirer de .env"
+    done
     check "Qdrant" "[ -x '$ROOT/rag_app/qdrant/qdrant' ]" "./install.sh"
-    check "Node.js" "command -v node" "apt install nodejs npm"
     check "service navigateur" "[ -d '$ROOT/browser-service/node_modules' ]" "./install.sh"
     # En marche : son /health doit répondre et dire le navigateur utilisable.
-    if curl -fsS -m 3 -o /dev/null "http://127.0.0.1:$BROWSER_PORT/health" 2>/dev/null; then
+    if curl --noproxy '*' -fsS -m 3 -o /dev/null "http://127.0.0.1:$BROWSER_PORT/health" 2>/dev/null; then
         check "service navigateur (/health)" \
-            "curl -fsS -m 3 'http://127.0.0.1:$BROWSER_PORT/health' | grep -q '\"ok\":true'" \
+            "curl --noproxy '*' -fsS -m 3 'http://127.0.0.1:$BROWSER_PORT/health' | grep -q '\"ok\":true'" \
             "./elpis logs browser"
     fi
-    local etats_sans_compte
-    if etats_sans_compte="$("$PY" -m shared_infra.ops.browser_states states --count 2>/dev/null)"; then
+    # Contrôles faits par le core (exploitation.mjs) : signalés non vérifiés s'il n'est pas construit.
+    local etats_sans_compte distants core_ok=0
+    [ -f "$CORE_DIST/exploitation.mjs" ] && core_ok=1
+    if [ "$core_ok" -eq 1 ] && etats_sans_compte="$(core_cmd browser states --count 2>/dev/null)" && [ -n "$etats_sans_compte" ]; then
         [ "$etats_sans_compte" = 0 ] || info "navigateur : $etats_sans_compte état(s) d'avant la 0.0.1, sans compte : à rattacher ou à supprimer (./elpis browser states)"
     else
         info "navigateur : états d'avant la 0.0.1 non vérifiés (./elpis browser states)"
+    fi
+    if [ "$core_ok" -eq 0 ]; then
+        info "verrous de fichiers : non vérifiés (core non construit)"
+    elif distants="$(core_cmd fs-local 2>/dev/null)"; then
+        ok "verrous de fichiers : dossiers de données sur disque local"
+    else
+        warn "verrous de fichiers : NON (${distants:-vérification impossible} ; NFS/CIFS non pris en charge)"
+        bad=$((bad+1))
     fi
     check "Docker joignable" "docker info" "installer docker, groupe docker"
     local image
     image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
     check "image sandbox $image" "docker image inspect '$image'" "./install.sh ou deploy/docker/sandbox/build_offline.sh"
-    check "bubblewrap (aperçus Office isolés)" \
-        "'$PY' -c 'import sys; from shared_infra.sandbox.bwrap import probe; sys.exit(not probe(force=True))'" \
-        "apt install bubblewrap ; user namespaces autorisés ; venv requis"
-    check_opt "LibreOffice (aperçus Office, facultatif)" "command -v soffice" "./install.sh --with-office"
+    check "bubblewrap (aperçus Office isolés)" "core_cmd bwrap" \
+        "apt install bubblewrap ; user namespaces autorisés ; core construit requis"
+    check_opt "LibreOffice (aperçus Office, facultatif)" "command -v soffice" "paquets apt du groupe apercus-office : deploy/prerequis-apt.txt"
     if _https_enabled; then
         check "Caddy actif (HTTPS)" "systemctl is-active --quiet caddy" "./install.sh --with-caddy puis ./elpis configure"
     fi
     if [ -f /etc/systemd/system/elpis-whisper.service ]; then
-        check "reconnaissance vocale (:8090)" "curl -fsS -m 3 -o /dev/null http://127.0.0.1:8090/health" "systemctl status elpis-whisper"
-        check "synthèse vocale (:8091)" "curl -fsS -m 3 -o /dev/null http://127.0.0.1:8091/health" "systemctl status elpis-tts"
+        check "reconnaissance vocale (:8090)" "curl --noproxy '*' -fsS -m 3 -o /dev/null http://127.0.0.1:8090/health" "systemctl status elpis-whisper"
+        check "synthèse vocale (:8091)" "curl --noproxy '*' -fsS -m 3 -o /dev/null http://127.0.0.1:8091/health" "systemctl status elpis-tts"
     fi
-    if [ -f "$ROOT/config.json" ] && [ -x "$PY" ]; then
-        check "base de données joignable" "'$PY' -m shared_infra.db info" \
-            "./elpis db info pour le détail ; ./elpis db use sqlite en secours"
+    if [ -f "$ROOT/config.json" ] && [ "$core_ok" -eq 1 ]; then
+        local db_hint="./elpis db info pour le détail ; ./elpis db use sqlite en secours"
+        if [ "$(core_cmd config base-retiree 2>/dev/null)" = oui ]; then
+            db_hint="MariaDB/MySQL n'est plus pris en charge : docs/exploitation.md, « Mettre à jour »"
+        fi
+        check "base de données joignable" "core_cmd db info" "$db_hint"
+        check_out "base vue par le core" "core_cmd migrations" "./elpis db info"
         local llm
-        llm="$("$PY" -c 'from shared_infra.config import LLAMA_URL; print(LLAMA_URL)' 2>/dev/null)"
+        llm="$(core_cmd config LLAMA_URL 2>/dev/null)"
         if [ -n "$llm" ]; then
             local base="${llm%%/v1/*}"
             check "serveur LLM ($base)" "curl -fsS -m 5 -o /dev/null '$base/v1/models' || curl -fsS -m 5 -o /dev/null '$base/health'" "./elpis configure --llm-url …"
@@ -479,7 +737,29 @@ cmd_doctor() {
 # =============================================================================
 #  backup / upgrade
 # =============================================================================
-cmd_backup() { load_runtime; "$PY" -m shared_infra.ops.backup_cli "$@"; }
+cmd_backup() {
+    charger_env
+    charger_instance
+    need_exploitation
+    core_cmd backup "$@"
+}
+
+# Base de données : état, test d'une cible, copie, choix du moteur (« use sqlite » ne touche à aucune base).
+cmd_db() {
+    charger_env
+    charger_instance
+    need_exploitation
+    core_cmd db "$@"
+}
+
+# États du navigateur enregistrés avant la 0.0.1 : liste, rattachement à un compte.
+cmd_browser() {
+    charger_env
+    charger_instance
+
+    need_exploitation
+    core_cmd browser "$@"
+}
 
 # Image de la sandbox attendue par le code : présente, sinon chargée depuis
 # son archive (deploy/docker/sandbox/elpis-sandbox-<version>.tar.gz), sinon
@@ -524,27 +804,47 @@ cmd_upgrade() {
     local before; before="$(git -C "$ROOT" rev-parse --short HEAD)"
     info "Code (git pull --ff-only)…"
     git -C "$ROOT" pull --ff-only || die "git pull --ff-only a échoué : rien n'a été modifié."
+    . "$ROOT/deploy/node/node.env"
     info "Code : $before → $(git -C "$ROOT" rev-parse --short HEAD)"
     # Extras AGPL déjà installés : ils restent à jour.
     "$PY" -c 'import fitz' >/dev/null 2>&1 && req="$ROOT/requirements-agpl-optional.txt"
     info "Dépendances Python…"
     "$PY" -m pip install -q -r "$req" || die "Échec pip : relancez ./elpis upgrade --no-backup une fois corrigé."
+    info "Node.js, core et hôte d'outils…"
+    # Archive officielle de Node.js téléchargée une fois pour le runtime et le npm de la construction (dossier global, supprimé à la sortie).
+    CACHE_NODE="$(mktemp -d "$ROOT/.node-cache.XXXXXX")"
+    trap 'rm -rf "$CACHE_NODE"' EXIT
+    if [ -z "${ELPIS_NODE:-}" ]; then
+        ELPIS_NODE_CACHE="$CACHE_NODE" "$ROOT/deploy/node/installer.sh" node \
+            || die "Node.js du core non installé : relancez ./elpis upgrade --no-backup une fois corrigé."
+        NODE="$(node_bin)"
+    fi
+    node_ok || die "Node.js du core absent ou trop ancien (24.x, $NODE_MIN au moins) : voir ELPIS_NODE."
+    ELPIS_NODE_CACHE="$CACHE_NODE" "$ROOT/deploy/node/installer.sh" bundles \
+        || die "Construction du core ou de l'hôte d'outils échouée : l'ancien bundle reste en place ; relancez ./elpis upgrade --no-backup une fois corrigé."
+    ELPIS_NODE_CACHE="$CACHE_NODE" "$ROOT/deploy/node/installer.sh" web \
+        || die "Construction du frontend échouée : relancez ./elpis upgrade --no-backup une fois corrigé."
     info "Image de la sandbox…"
     ensure_sandbox_image || die "Image de sandbox indisponible : chargez son archive \
 (deploy/docker/sandbox/load_image.sh <archive>) ou construisez-la (./install.sh --sandbox build), \
 puis ./elpis restart. Sans elle, fichiers, éditeur et git des sandboxes ne marchent pas."
+    migrer_mcp
     info "Redémarrage (les migrations de la base s'appliquent au démarrage)…"
     if systemd_installed; then
+        info "Unités systemd inchangées : sudo ./elpis service install quand le CHANGELOG le demande."
         sudo systemctl restart "${UNIT_PREFIX}.target" || die "Redémarrage systemd échoué."
+        { wait_port "$MAIN_PORT" 120 && wait_port "$ADMIN_PORT" 60; } \
+            || die "L'application ne répond pas après la mise à jour : ./elpis logs main"
     else
-        cmd_stop; cmd_start
+        cmd_stop
+        cmd_start || die "L'application ne répond pas après la mise à jour (voir ci-dessus) : ./elpis logs main"
     fi
-    { wait_port "$MAIN_PORT" 120 && wait_port "$ADMIN_PORT" 60; } \
-        || die "L'application ne répond pas après la mise à jour : ./elpis logs main"
-    local pending
-    pending="$("$PY" -c 'from shared_infra.db._connection import db_info; print(" ".join(db_info().get("pending_migrations") or []))' 2>/dev/null)" \
-        || die "Base injoignable après la mise à jour : ./elpis db info"
-    [ -z "$pending" ] || die "Migrations non appliquées ($pending) : ./elpis logs main"
+    local base
+    base="$(core_cmd migrations 2>&1)" || die "Base après la mise à jour : ${base:-injoignable} (./elpis db info, ./elpis logs main)"
+    case "$base" in
+        "à jour"*) ok "Base : $base" ;;
+        *) die "Migrations non appliquées après le redémarrage : $base (./elpis logs main)" ;;
+    esac
     ok "Mise à jour appliquée ; diagnostic :"
     cmd_doctor || true
 }
@@ -554,15 +854,15 @@ case "${1:-}" in
     configure) shift; cmd_configure "$@" ;;
     start)     shift; cmd_start "$@" ;;
     stop)      cmd_stop ;;
-    restart)   load_runtime; cmd_stop; cmd_start ;;
+    restart)   load_runtime; need_core; cmd_migrations; cmd_stop; cmd_start ;;
     status)    cmd_status ;;
     logs)      shift; cmd_logs "$@" ;;
     service)   shift; cmd_service "$@" ;;
     doctor)    cmd_doctor ;;
     backup)    shift; cmd_backup "$@" ;;
     upgrade)   shift; cmd_upgrade "$@" ;;
-    browser)   shift; load_runtime; exec "$PY" -m shared_infra.ops.browser_states "$@" ;;
-    db)        shift; load_runtime; exec "$PY" -m shared_infra.db "$@" ;;
+    browser)   shift; cmd_browser "$@" ;;
+    db)        shift; cmd_db "$@" ;;
     -h|--help|help|"") usage ;;
     *) usage; exit 2 ;;
 esac

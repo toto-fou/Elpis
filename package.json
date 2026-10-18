@@ -1,0 +1,49 @@
+{
+  "name": "elpis-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Elpis — espace de travail TypeScript (core, toolhost, paquets partagés)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "frontend"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && npm run typecheck -w @elpis/web",
+    "lint": "eslint --no-error-on-unmatched-pattern apps packages frontend/src frontend/test \"frontend/*.mts\"",
+    "format": "prettier --no-error-on-unmatched-pattern --write \"apps/**/*.{ts,mts,json}\" \"packages/**/*.{ts,mts,json}\" \"*.{mjs,mts}\" \"frontend/src/**/*.{ts,vue}\" \"frontend/test/**/*.ts\" \"frontend/*.{mts,json}\"",
+    "format:check": "prettier --no-error-on-unmatched-pattern --check \"apps/**/*.{ts,mts,json}\" \"packages/**/*.{ts,mts,json}\" \"*.{mjs,mts}\" \"frontend/src/**/*.{ts,vue}\" \"frontend/test/**/*.ts\" \"frontend/*.{mts,json}\"",
+    "test": "vitest run",
+    "build": "npm run build -w @elpis/core && npm run build -w @elpis/toolhost && npm run build -w @elpis/web",
+    "licences": "npm run licences -w @elpis/core && npm run licences -w @elpis/toolhost",
+    "goldens:rejeux": "node migration-kit/goldens_check.mjs --rejeux .vitest/rapport.json",
+    "verifier": "npm run typecheck && npm run lint && npm run format:check && npm run build:web && npm run test -- --reporter=default --reporter=json --outputFile.json=.vitest/rapport.json && npm run goldens:rejeux",
+    "build:web": "npm run build -w @elpis/web"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "24.19.1",
+    "@types/pg": "8.23.1",
+    "@types/ws": "8.18.2",
+    "esbuild": "0.28.2",
+    "eslint": "10.12.0",
+    "eslint-plugin-vue": "10.11.0",
+    "prettier": "3.9.9",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vite": "8.3.3",
+    "vitest": "5.0.3",
+    "vue-eslint-parser": "10.4.1"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "better-sqlite3": false,
+    "node-pty@1.1.0": true
+  }
+}

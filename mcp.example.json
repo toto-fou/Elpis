@@ -174,7 +174,8 @@
   "sandboxHosts": {
     "main": {
       "url": "http://127.0.0.1:8765",
-      "token": "${file:user_db/.local_mcp_token}"
+      "token": "${file:user_db/.local_mcp_token}",
+      "relay": true
     }
   },
   "placement": {

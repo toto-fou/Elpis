@@ -1,0 +1,1540 @@
+// SPDX-License-Identifier: MIT
+/** apps/core/src/outils/integres/taches-agents.ts — outil intégré `task` : sous-agents éphémères à contexte isolé (boucle enfant dans la file LLM), agents du compte, reprise par `task_id`, annulation ciblée. */
+import {
+  CancelledError,
+  ErreurPython,
+  estDict,
+  estErreurAnnulation,
+  estErreurPython,
+  intPy,
+  longueurPy,
+  lowerPy,
+  prefixePy,
+  pyJsonDumps,
+  splitPy,
+  strPy,
+  stripPy,
+  texteOu,
+  veritePy,
+} from "@elpis/commun";
+import {
+  masquerSecretsTexte,
+  SHELL_SOUS_AGENT_DELAI_DEFAUT_S,
+  SHELL_SOUS_AGENT_DELAI_MAX_S,
+  toContainer,
+} from "@elpis/securite";
+import type { SousAgent } from "@elpis/securite";
+
+import { emit } from "../../boucle/evenements";
+import type { SurEvenement } from "../../boucle/evenements";
+import { runChatMultiMcp } from "../../boucle/orchestrateur";
+import type { OptionsRun } from "../../boucle/orchestrateur";
+import { dansPorteeExecution, fileLlm, tokenHex } from "../../boucle/ports";
+import type { SortieRun } from "../../boucle/sortie";
+import { resultIsToolFailure } from "../../boucle/contrat-resultat";
+import { emitCapChars, truncateHeadTail } from "../../contexte/elagage";
+import {
+  TASK_CHILD_TIMEOUT_S,
+  TASK_MAX_ITERS_CUSTOM,
+  TASK_MAX_ITERS_EXPLORE,
+  TASK_MAX_ITERS_IMPLEMENT,
+  TASK_MAX_ITERS_PR,
+  TASK_MAX_ITERS_VERIFY,
+  TASK_MAX_ITERS_WEB,
+  TASK_RESULT_PERSIST_CAP,
+  TASK_RESUME_MAX,
+  TASK_RESUME_TTL_S,
+} from "../../llm/constantes";
+import { currentEngine } from "../../llm/moteurs";
+import type { Priorite } from "../../llm/ordonnanceur";
+import { journal } from "../../journal";
+import { buildSkillsIndexBlock, loadAgentPersona } from "../../prompts/systeme";
+import type { Dict } from "../../python";
+import type { AppelIntegre, OutilIntegre } from "../catalogue";
+import { toolsDeniedFor } from "../categories";
+import { err } from "../erreur-outil";
+import { manifesteMcp } from "../ports";
+import {
+  BUDGET_WARNINGS_MAX,
+  champsManquants,
+  chevauchements,
+  debutTrace,
+  finTrace,
+  lireArgsTache,
+  noteDebord,
+  preparerRapport,
+  rendreTache,
+  statutDeclare,
+  SuiviOutils,
+  texteAvertissement,
+  travailRestant,
+} from "./bilan-taches";
+import type { AvertissementBudget, Bilan, Statut } from "./bilan-taches";
+import { hoteTacheParDefaut } from "./controles-taches";
+import type { PortsHoteTache } from "./controles-taches";
+import { lectureSeuleEffective, reglagesAgents, typeReglable } from "./reglages-taches";
+import type { ReglagesAgents } from "./reglages-taches";
+import * as Store from "./reprise-taches";
+
+const log = journal("outils.taches-agents");
+
+// ── Registres in-process (un seul process génère : v9, décision 1) ───────────
+
+const ACTIFS = new Map<
+  string,
+  { agent: string; chatId: string | null; t0: number; arret: AbortController }
+>();
+const ANNULES = new Set<string>();
+const REPRISES = new Map<string, Dict>();
+
+const cle = (username: string, childId: string): string =>
+  JSON.stringify([String(username), String(childId)]);
+
+/** Pose l'annulation d'un enfant ACTIF sur ce process (et arrête ses appels) ; `false` s'il n'y est pas. */
+export function applyChildCancel(username: string, childId: string): boolean {
+  const k = cle(username, childId);
+  const actif = ACTIFS.get(k);
+  if (actif) {
+    ANNULES.add(k);
+    actif.arret.abort(new CancelledError("sub-agent cancelled"));
+  }
+  return Boolean(actif);
+}
+
+/** Annule UN sous-agent sans toucher au tour parent (endpoint `POST /api/chat/task-cancel`). */
+export function cancelChild(username: string, childId: string): boolean {
+  const actif = applyChildCancel(username, childId);
+  log.info(`[task_tool] cancel_child ${username}/${childId} (actif=${actif})`);
+  return actif;
+}
+
+/** Store de reprise : TTL depuis le plus ancien, cap d'entrées, puis le store disque. */
+export function pruneResumeStore(maintenant = Date.now() / 1000): void {
+  for (const [k, v] of REPRISES) {
+    if (maintenant - Number(v["ts"] || 0) > TASK_RESUME_TTL_S) REPRISES.delete(k);
+    else break;
+  }
+  while (REPRISES.size > TASK_RESUME_MAX) REPRISES.delete(REPRISES.keys().next().value as string);
+  try {
+    Store.prune(TASK_RESUME_TTL_S, TASK_RESUME_MAX, maintenant);
+  } catch {
+    // ramasse-miettes best-effort
+  }
+}
+
+/** Enregistrement de reprise : la mémoire, sauf si le disque en porte une version plus récente. */
+export function resumeLookup(username: string, childId: string): Dict | null {
+  const k = cle(username, childId);
+  const rec = REPRISES.get(k) ?? null;
+  if (rec !== null) {
+    let tsDisque: number | null;
+    try {
+      tsDisque = Store.peekTs(username, childId);
+    } catch {
+      tsDisque = null;
+    }
+    if (tsDisque === null || tsDisque <= Number(rec["ts"] || 0) + 1e-3) return rec;
+  }
+  let disque: Dict | null;
+  try {
+    disque = Store.get(username, childId, TASK_RESUME_TTL_S);
+  } catch {
+    disque = null;
+  }
+  if (disque === null) return rec;
+  if (rec !== null && Number(disque["ts"] || 0) <= Number(rec["ts"] || 0)) return rec;
+  REPRISES.delete(k);
+  REPRISES.set(k, disque);
+  return disque;
+}
+
+function memoriserReprise(username: string, childId: string, rec: Dict): void {
+  const k = cle(username, childId);
+  REPRISES.delete(k);
+  REPRISES.set(k, rec);
+}
+
+/** `tool_history` de la boucle → messages assistant(tool_calls)/tool/user. */
+export function expandChildHistory(hist: unknown): Dict[] {
+  const sortie: Dict[] = [];
+  for (const h of Array.isArray(hist) ? hist : []) {
+    if (!estDict(h)) continue;
+    const r = h["role"];
+    if (r !== "assistant" && r !== "tool" && r !== "user") continue;
+    const m: Dict = { role: r };
+    if (Object.hasOwn(h, "content")) m["content"] = h["content"] ?? null;
+    if (r === "assistant" && veritePy(h["tool_calls"])) m["tool_calls"] = h["tool_calls"];
+    if (r === "tool" && h["tool_call_id"]) m["tool_call_id"] = h["tool_call_id"];
+    sortie.push(m);
+  }
+  return sortie;
+}
+
+// ── Types d'agents ───────────────────────────────────────────────────────────
+
+const DENY_BASE = ["task", "todowrite", "ask_user"];
+
+export interface AgentSpec {
+  personaStem: string;
+  summary: string;
+  filterCategories: string[] | null;
+  allowedToolNames: Set<string> | null;
+  maxIters: number;
+  inheritConfig: boolean;
+  denyExtra: Set<string>;
+  personaText: string | null;
+  mcpServerIds: string[] | null;
+  /** Case « Lecture seule » du compte pour cet agent ; `null` : défaut de l'administrateur. */
+  readOnlyUser: boolean | null;
+}
+
+function spec(
+  s: Partial<AgentSpec> & Pick<AgentSpec, "personaStem" | "summary" | "filterCategories" | "maxIters">,
+): AgentSpec {
+  return {
+    allowedToolNames: null,
+    inheritConfig: false,
+    denyExtra: new Set(),
+    personaText: null,
+    mcpServerIds: null,
+    readOnlyUser: null,
+    ...s,
+  };
+}
+
+export const AGENTS: ReadonlyMap<string, AgentSpec> = new Map([
+  [
+    "explore",
+    spec({
+      personaStem: "AGENT_TASK_EXPLORE",
+      summary: "read-only codebase exploration — locate code, read it, judge it, git history",
+      filterCategories: ["fs", "git"],
+      maxIters: TASK_MAX_ITERS_EXPLORE,
+    }),
+  ],
+  [
+    "implement",
+    spec({
+      personaStem: "AGENT_TASK_IMPLEMENT",
+      summary: "writes the code change in the sandbox and verifies it (does not commit)",
+      filterCategories: ["fs", "shell", "git"],
+      maxIters: TASK_MAX_ITERS_IMPLEMENT,
+    }),
+  ],
+  [
+    "verify",
+    spec({
+      personaStem: "AGENT_TASK_VERIFY",
+      summary: "runs tests and commands, diagnoses failures, changes nothing",
+      filterCategories: ["shell", "fs", "git"],
+      maxIters: TASK_MAX_ITERS_VERIFY,
+    }),
+  ],
+  [
+    "web",
+    spec({
+      personaStem: "AGENT_TASK_WEB",
+      summary: "web research specialist driving a real browser (pw_* tools)",
+      filterCategories: ["browser", "fs"],
+      maxIters: TASK_MAX_ITERS_WEB,
+    }),
+  ],
+  [
+    "pr",
+    spec({
+      personaStem: "AGENT_TASK_PR",
+      summary: "branches, commits and opens the pull request for work already in the tree",
+      filterCategories: ["git", "fs"],
+      maxIters: TASK_MAX_ITERS_PR,
+    }),
+  ],
+]);
+
+// ── Agents du compte (settings_json.custom_agents) ───────────────────────────
+
+export const AGENT_NAME_RE = /^[a-z0-9](?:[a-z0-9_-]{0,30}[a-z0-9])?$/u;
+export const RESERVED_AGENT_NAMES: ReadonlySet<string> = new Set(["task"]);
+export const CUSTOM_AGENTS_MAX = 30;
+export const CUSTOM_DESC_MAX = 200;
+export const CUSTOM_ITERS_MAX = 200;
+export const CUSTOM_PROMPT_MAX = 16000;
+export const CUSTOM_CATS_MAX = 12;
+export const CUSTOM_MCP_MAX = 8;
+const CAT_SLUG_RE = /^[a-z0-9_-]{1,32}$/u;
+export const CUSTOM_DEFAULT_CATEGORIES: readonly string[] = ["fs", "shell", "git"];
+
+/** Socle d'un agent qui n'en demande aucune : `default_on` du manifeste, sinon fs/shell/git. */
+export function customDefaultCategories(): string[] {
+  let actives: string[];
+  try {
+    actives = [...manifesteMcp().defaultOnCategories()];
+  } catch {
+    actives = [];
+  }
+  return actives.length ? [...new Set(actives)].sort() : [...CUSTOM_DEFAULT_CATEGORIES];
+}
+
+const nomDe = (v: unknown): string => lowerPy(stripPy(texteOu(v, "")));
+
+/** Description sur UNE ligne (blancs repliés), bornée. */
+export function normDesc(raw: unknown): string {
+  return prefixePy(splitPy(texteOu(raw, "")).join(" "), CUSTOM_DESC_MAX);
+}
+
+/** Nom libre dérivé d'un nom devenu réservé. */
+export function freeAgentName(base: string, taken: ReadonlySet<string>): string {
+  const sansBords = (s: string): string => s.replace(/[-_]+$/u, "");
+  const stem = sansBords(prefixePy(base || "agent", 24)) || "agent";
+  for (const cand of [`${stem}-custom`, ...Array.from({ length: 18 }, (_, i) => `${stem}-custom${i + 2}`)])
+    if (!taken.has(cand) && !RESERVED_AGENT_NAMES.has(cand)) return cand;
+  return `${sansBords(prefixePy(stem, 20)) || "agent"}-${tokenHex(3)}`;
+}
+
+/** Budget d'itérations fixé par l'agent, borné à 1..200 ; `null` = suivre le défaut (TypeError et ValueError seuls, l'OverflowError d'un infini remonte). */
+export function normMaxIters(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  let v: number;
+  try {
+    v = intPy(raw);
+  } catch (e) {
+    if (estErreurPython(e, "TypeError", "ValueError")) return null;
+    throw e;
+  }
+  return v <= 0 ? null : Math.min(v, CUSTOM_ITERS_MAX);
+}
+
+function erreurValeur(message: string): never {
+  throw new ErreurPython("ValueError", message);
+}
+
+/** Liste `custom_agents` canonique pour PUT /api/settings ; lève (`ValueError`) les seules fautes saisissables. */
+export function validateCustomAgents(raw: unknown): Dict[] {
+  if (raw === null || raw === undefined) return [];
+  if (!Array.isArray(raw)) erreurValeur("custom_agents doit être une liste.");
+  const entrees = raw as unknown[];
+  if (entrees.length > CUSTOM_AGENTS_MAX)
+    erreurValeur(`custom_agents : maximum ${CUSTOM_AGENTS_MAX} agents.`);
+  const sortie: Dict[] = [];
+  const vus = new Set<string>();
+  const demandes = new Set(entrees.filter(estDict).map((e) => nomDe(e["name"])));
+  entrees.forEach((entry, idx) => {
+    const i = idx + 1;
+    if (!estDict(entry)) erreurValeur(`agent ${i} : entrée invalide (objet attendu).`);
+    const e = entry as Dict;
+    let name = nomDe(e["name"]);
+    if (!AGENT_NAME_RE.test(name))
+      erreurValeur(
+        `agent ${i} : nom invalide « ${name} » (1-32 caractères a-z 0-9 - _, commence et finit par un alphanumérique).`,
+      );
+    if (RESERVED_AGENT_NAMES.has(name)) {
+      const renomme = freeAgentName(name, new Set([...vus, ...demandes]));
+      log.warn(
+        `[task_tool] agent custom « ${name} » renommé en « ${renomme} » (nom devenu réservé par le casting intégré)`,
+      );
+      name = renomme;
+    }
+    if (vus.has(name)) erreurValeur(`agent ${i} : nom « ${name} » en double.`);
+    vus.add(name);
+    const surcharge = AGENTS.has(name);
+    const prompt = stripPy(texteOu(e["prompt"], ""));
+    if (!prompt && !surcharge) erreurValeur(`agent ${i} (${name}) : prompt système requis.`);
+    if (longueurPy(prompt) > CUSTOM_PROMPT_MAX)
+      erreurValeur(
+        `agent ${i} (${name}) : prompt trop long (${longueurPy(prompt)} > ${CUSTOM_PROMPT_MAX} caractères).`,
+      );
+    const catsBrut = veritePy(e["tool_categories"]) ? e["tool_categories"] : [];
+    if (!Array.isArray(catsBrut)) erreurValeur(`agent ${i} (${name}) : tool_categories doit être une liste.`);
+    if ((catsBrut as unknown[]).length > CUSTOM_CATS_MAX)
+      erreurValeur(`agent ${i} (${name}) : maximum ${CUSTOM_CATS_MAX} catégories.`);
+    let cats: string[] = [];
+    for (const c of catsBrut as unknown[]) {
+      const slug = nomDe(c);
+      if (!CAT_SLUG_RE.test(slug)) {
+        log.warn(`[task_tool] agent « ${name} » : catégorie invalide ${strPy(c)} ignorée`);
+        continue;
+      }
+      if (!cats.includes(slug)) cats.push(slug);
+    }
+    const mcpBrut = veritePy(e["mcp_server_ids"]) ? e["mcp_server_ids"] : [];
+    if (!Array.isArray(mcpBrut)) erreurValeur(`agent ${i} (${name}) : mcp_server_ids doit être une liste.`);
+    if ((mcpBrut as unknown[]).length > CUSTOM_MCP_MAX)
+      erreurValeur(`agent ${i} (${name}) : maximum ${CUSTOM_MCP_MAX} serveurs MCP.`);
+    const mcpIds: string[] = [];
+    for (const s of mcpBrut as unknown[]) {
+      const sid = stripPy(texteOu(s, ""));
+      if (!sid || longueurPy(sid) > 64) {
+        log.warn(`[task_tool] agent « ${name} » : id de serveur MCP invalide ${strPy(s)} ignoré`);
+        continue;
+      }
+      if (!mcpIds.includes(sid)) mcpIds.push(sid);
+    }
+    if (!cats.length && !mcpIds.length && !surcharge) cats = customDefaultCategories();
+    const canon: Dict = {
+      name,
+      description: normDesc(e["description"]),
+      prompt,
+      tool_categories: cats,
+      mcp_server_ids: mcpIds,
+    };
+    const iters = normMaxIters(e["max_iters"]);
+    if (iters !== null) canon["max_iters"] = iters;
+    if (e["enabled"] === false) canon["enabled"] = false;
+    const ro = e["read_only"];
+    if (ro !== undefined && ro !== null && typeof ro !== "boolean")
+      erreurValeur(`agent ${i} (${name}) : read_only doit être un booléen.`);
+    if (typeof ro === "boolean") canon["read_only"] = ro;
+    if (
+      surcharge &&
+      !canon["description"] &&
+      !prompt &&
+      !cats.length &&
+      !mcpIds.length &&
+      iters === null &&
+      !("enabled" in canon) &&
+      !("read_only" in canon)
+    )
+      return;
+    sortie.push(canon);
+  });
+  return sortie;
+}
+
+function catsOf(raw: unknown): string[] {
+  const cats: string[] = [];
+  for (const c of Array.isArray(raw) ? raw : []) {
+    const slug = nomDe(c);
+    if (CAT_SLUG_RE.test(slug) && !cats.includes(slug)) cats.push(slug);
+  }
+  return cats;
+}
+
+function mcpIdsOf(raw: unknown): string[] {
+  const ids: string[] = [];
+  for (const s of Array.isArray(raw) ? raw.slice(0, CUSTOM_MCP_MAX) : []) {
+    const sid = stripPy(texteOu(s, ""));
+    if (sid && longueurPy(sid) <= 64 && !ids.includes(sid)) ids.push(sid);
+  }
+  return ids;
+}
+
+/** Agents personnalisés (défensif : une entrée invalide est sautée, un nom réservé renommé). */
+export function specsFromCustom(customAgents: readonly unknown[] | null | undefined): Map<string, AgentSpec> {
+  const sortie = new Map<string, AgentSpec>();
+  const demandes = new Set((customAgents ?? []).filter(estDict).map((e) => nomDe(e["name"])));
+  for (const entry of customAgents ?? []) {
+    try {
+      if (!estDict(entry)) erreurValeur("entrée non-objet");
+      const e = entry as Dict;
+      let name = nomDe(e["name"]);
+      if (AGENTS.has(name)) continue;
+      if (e["enabled"] === false) continue;
+      if (AGENT_NAME_RE.test(name) && RESERVED_AGENT_NAMES.has(name))
+        name = freeAgentName(name, new Set([...sortie.keys(), ...demandes]));
+      const prompt = stripPy(texteOu(e["prompt"], ""));
+      if (!AGENT_NAME_RE.test(name) || RESERVED_AGENT_NAMES.has(name) || sortie.has(name))
+        erreurValeur(`nom invalide/réservé/dupliqué : '${name}'`);
+      if (!prompt) erreurValeur(`prompt vide : '${name}'`);
+      let cats = catsOf(e["tool_categories"]);
+      const mcpIds = mcpIdsOf(e["mcp_server_ids"]);
+      if (!cats.length && !mcpIds.length) cats = customDefaultCategories();
+      sortie.set(name, {
+        personaStem: "",
+        summary: normDesc(e["description"]) || "custom agent",
+        filterCategories: cats,
+        allowedToolNames: null,
+        maxIters: normMaxIters(e["max_iters"]) || TASK_MAX_ITERS_CUSTOM,
+        inheritConfig: false,
+        denyExtra: new Set(),
+        personaText: prefixePy(prompt, CUSTOM_PROMPT_MAX),
+        mcpServerIds: mcpIds,
+        readOnlyUser: typeof e["read_only"] === "boolean" ? e["read_only"] : null,
+      });
+    } catch (err) {
+      if (!(err instanceof ErreurPython)) throw err;
+      log.warn(`[task_tool] agent custom ignoré : ${err.message}`);
+    }
+  }
+  return sortie;
+}
+
+/** Roster effectif d'un compte : intégrés (surchargés en place, retirés si désactivés), puis agents personnalisés. */
+export function agentsRoster(customAgents: readonly unknown[] | null | undefined): Map<string, AgentSpec> {
+  const roster = new Map(AGENTS);
+  for (const entry of customAgents ?? []) {
+    if (!estDict(entry)) continue;
+    const name = nomDe(entry["name"]);
+    const base = AGENTS.get(name);
+    if (base === undefined) continue;
+    if (entry["enabled"] === false) {
+      roster.delete(name);
+      continue;
+    }
+    const prompt = prefixePy(stripPy(texteOu(entry["prompt"], "")), CUSTOM_PROMPT_MAX);
+    const cats = catsOf(entry["tool_categories"]);
+    const mcpIds = mcpIdsOf(entry["mcp_server_ids"]);
+    roster.set(name, {
+      ...base,
+      personaText: prompt || null,
+      summary: normDesc(entry["description"]) || base.summary,
+      filterCategories: cats.length ? cats : base.filterCategories,
+      maxIters: normMaxIters(entry["max_iters"]) || base.maxIters,
+      mcpServerIds: mcpIds.length ? mcpIds : null,
+      readOnlyUser: typeof entry["read_only"] === "boolean" ? entry["read_only"] : null,
+    });
+  }
+  for (const [k, v] of specsFromCustom(customAgents)) roster.set(k, v);
+  return roster;
+}
+
+export function hasActiveAgents(customAgents: readonly unknown[] | null | undefined): boolean {
+  return agentsRoster(customAgents).size > 0;
+}
+
+/** Les intégrés tels que livrés (persona entière comprise) et la lecture seule de l'administrateur, pour le formulaire. */
+export async function agentTemplates(r: ReglagesAgents = reglagesAgents()): Promise<Dict[]> {
+  const sortie: Dict[] = [];
+  for (const [name, s] of AGENTS)
+    sortie.push({
+      name,
+      summary: s.summary,
+      prompt: await loadAgentPersona(s.personaStem),
+      tool_categories: [...(s.filterCategories ?? [])],
+      max_iters: Math.trunc(s.maxIters),
+      read_only_default: Boolean(r.read_only.defaults[name]),
+      read_only_forced: Boolean(r.read_only.forced[name]),
+    });
+  return sortie;
+}
+
+/** Définition OpenAI de l'outil `task`, roster dans la description (ordre stable : byte-stable). */
+export function buildDefinition(
+  agents: ReadonlyMap<string, AgentSpec> = AGENTS,
+  enParallele: number = reglagesAgents().max_parallel,
+): Dict {
+  const roster = [...agents].map(([name, s]) => `- ${name}: ${s.summary}`).join("\n");
+  const noms = [...agents.keys()];
+  const description =
+    "Launch an ephemeral sub-agent to handle a well-scoped sub-mission autonomously and report back. The agent runs " +
+    "its OWN tool loop in an isolated context (on the same model) and returns a single final report; its intermediate " +
+    "steps stay out of this conversation.\n\n" +
+    "Available agent types (subagent_type):\n" +
+    `${roster}\n\n` +
+    "Usage notes:\n" +
+    "1. Fresh context by default: without task_id the agent starts blank, so the prompt MUST be a complete, autonomous " +
+    "brief — include all needed context and state EXPLICITLY what the final report must contain (paths, line numbers, " +
+    "quotes, links, values).\n" +
+    "2. The result carries an id: pass it back as task_id to CONTINUE the same agent with its previous context " +
+    "(follow-up questions, refinements). This also works after a timeout/failure/cancellation when the error envelope " +
+    "carries a task_id — the agent resumes from its partial work. Best effort — if it expired, you get an error and " +
+    "should start fresh.\n" +
+    "3. The agent's work is NOT shown to the user: always restate the result in your own answer.\n" +
+    "4. When NOT to use: reading one known file (read it directly), a trivial 1-2 call lookup, or anything needing user " +
+    "interaction mid-task.\n" +
+    `5. Several independent tasks requested in one message run IN PARALLEL (up to ${Math.trunc(enParallele)} at a time); ` +
+    "you coordinate them: give agents that write disjoint writable_paths, and check overlaps in their results.\n" +
+    "6. The result starts with a <task_meta> JSON block written by the harness, not by the agent: status (done, " +
+    "partial, blocked, budget_exhausted, timeout, unavailable, error, cancelled), tool_calls, files_changed " +
+    "(files_changed_candidates: seen by the shell while another agent of the account was running, author " +
+    "uncertain), git, errors, remaining_work. Trust it over the report's own claims.";
+  return {
+    type: "function",
+    function: {
+      name: "task",
+      description,
+      parameters: {
+        type: "object",
+        properties: {
+          description: { type: "string", description: "A short (5-6 word) description of the task." },
+          prompt: { type: "string", description: "The complete, autonomous brief for the agent to perform." },
+          subagent_type: {
+            type: "string",
+            enum: noms,
+            description: "Which agent type to use: " + noms.join(", ") + ".",
+          },
+          task_id: {
+            type: "string",
+            description:
+              "Only to resume: the id from a previous task result — continues that agent with its context. Omit to start fresh.",
+          },
+          ...PARAMETRES_TS,
+        },
+        required: ["description", "prompt", "subagent_type"],
+      },
+    },
+  };
+}
+
+/** Paramètres propres au TS (écart voulu au Python) : périmètre et budgets fixés par l'agent principal. */
+export const PARAMETRES_TS: Readonly<Dict> = {
+  read_only: {
+    type: "boolean",
+    description:
+      "Run the agent read-only: no write, commit, job or shell tool. It can only tighten: a read-only setting of the " +
+      "user or administrator is never lifted.",
+  },
+  max_iterations: {
+    type: "integer",
+    minimum: 1,
+    description: "Tool-iteration budget for this run, capped by the budget of the agent type.",
+  },
+  max_seconds: {
+    type: "integer",
+    minimum: 30,
+    description: "Wall-clock budget in seconds: the agent stops and reports before it.",
+  },
+  writable_paths: {
+    type: "array",
+    items: { type: "string" },
+    description:
+      "Path prefixes under /work where write_file, edit_file, manage_files and git_write may write; anything else " +
+      "is refused (path_not_writable). The shell is NOT bounded by this list.",
+  },
+  output_schema: {
+    type: "array",
+    items: { type: "string" },
+    description:
+      "Field names the final report must contain as 'field: value' lines; a missing field makes the status partial.",
+  },
+};
+
+/** Aperçu court d'arguments ou d'un résultat pour l'interface. */
+export function preview(args: unknown, maxlen = 120): string {
+  let s: string;
+  try {
+    s = typeof args === "string" ? args : pyJsonDumps(args, { ensureAscii: false, separators: [",", ":"] });
+  } catch {
+    s = strPy(args);
+  }
+  s = splitPy(s).join(" ");
+  return longueurPy(s) <= maxlen ? s : prefixePy(s, maxlen - 1) + "…";
+}
+
+function dateLocale(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function childEnvBlock(s: AgentSpec, timeoutS: number, budget = s.maxIters): string {
+  const duree = timeoutS >= 120 ? `${Math.floor(timeoutS / 60)} minutes` : `${Math.trunc(timeoutS)} seconds`;
+  return (
+    "<task_env>\n" +
+    `Date: ${dateLocale()}\n` +
+    `Budget: ${budget} tool iterations, up to ${duree} wall-clock. Finish with a clean ` +
+    "final report BEFORE the budget runs out.\n" +
+    "</task_env>"
+  );
+}
+
+/** Consigne commune de tout sous-agent : statut, réveil impossible, délai du shell, secrets, périmètre, gabarit de rapport. */
+export function subagentRulesBlock(sa: SousAgent, champs: readonly string[] = []): string {
+  const lignes = [
+    "<subagent_rules>",
+    "You are a sub-agent launched by a parent agent through the `task` tool. Only your final report reaches it: " +
+      "nobody reads your intermediate steps and nobody answers questions, so decide and state your assumptions.",
+    "- You cannot launch sub-agents (no task tool), and you cannot be woken: nothing may outlive you (no shell_job, " +
+      'no execute_shell background=true, no on_timeout="detach_and_wake"). ' +
+      `execute_shell stops a command after ${SHELL_SOUS_AGENT_DELAI_DEFAUT_S} s by default; pass timeout_sec up to ` +
+      `${SHELL_SOUS_AGENT_DELAI_MAX_S} for a long test suite, otherwise split the work or return Status: blocked.`,
+  ];
+  if (sa.read_only)
+    lignes.push(
+      "- You are READ-ONLY for this run: the write, commit and shell tools described above are NOT offered to you, " +
+        "whatever the role text says (no job tool either). If the mission needs a change or a command, do not work " +
+        "around it: describe it precisely under `## Left open` and return Status: blocked.",
+    );
+  else if (sa.writable_paths !== null)
+    lignes.push(
+      "- The file tools (write_file, edit_file, manage_files, git_write) may only write under: " +
+        (sa.writable_paths.length ? sa.writable_paths.map(toContainer).join(", ") : "(nowhere)") +
+        ". The shell is NOT bounded by this list: never use it to write anywhere else.",
+    );
+  lignes.push(
+    "- Never quote more than 4 characters of a secret (key, token, password, private key), in prose or in a diff.",
+    "- Report format (it replaces any other report format given above), in this order:",
+    "  Status: done | partial | blocked",
+    "  ## Answer",
+    "  ## Evidence",
+    '  ## Changes (files you changed, or "none")',
+    '  ## Left open (what remains to be done, or "nothing")',
+  );
+  if (champs.length)
+    lignes.push(
+      `- Required fields: your report must also contain each of these as a line "<field>: <value>": ${champs.join(", ")}.`,
+    );
+  lignes.push("</subagent_rules>");
+  return lignes.join("\n");
+}
+
+/** Ajoutée à la consigne de synthèse quand le budget du sous-agent s'épuise : le travail restant est demandé. */
+export const CONSIGNE_CLOTURE =
+  "You are a sub-agent: write your final report in the common format with `Status: partial`, and list precisely " +
+  "under `## Left open` the work that remains, so the parent can resume you (task_id) or hand it over.";
+
+/** Tête du message de reprise : périmètre durci et champs exigés rappelés. */
+function consigneReprise(sa: SousAgent, rec: Dict, champs: readonly string[]): string {
+  const notes: string[] = [];
+  if (sa.read_only && rec["read_only"] !== true)
+    notes.push(
+      "You are now READ-ONLY: no write, commit, job or shell tool is available; describe any needed change under `## Left open`.",
+    );
+  if (champs.length) notes.push(`Required fields in your report: ${champs.join(", ")}.`);
+  return notes.length ? `[harness] ${notes.join(" ")}\n\n` : "";
+}
+
+const echecSur = (r: unknown): boolean => {
+  try {
+    return Boolean(resultIsToolFailure(r));
+  } catch {
+    return false;
+  }
+};
+
+export interface OptionsTache {
+  parentMcpConfigs: readonly unknown[];
+  parentBuiltinTools: Readonly<Record<string, OutilIntegre>> | null;
+  username: string;
+  chatId: string | null;
+  model: string | null;
+  samplingOverride: Dict | null;
+  memoryEnabled: boolean;
+  isCancelled: (() => boolean) | null;
+  signal?: AbortSignal | undefined;
+  onEvent: SurEvenement;
+  usageSink?: Dict | null;
+  customAgents?: readonly unknown[] | null;
+  userMcpConfigs?: readonly unknown[] | null;
+  userId?: number | null;
+  priority?: Priorite;
+  /** Point de substitution des tests : la boucle enfant. */
+  runner?: (o: OptionsRun) => Promise<SortieRun>;
+  /** Appels du harnais à l'hôte d'outils (santé du navigateur, rapport sauvé) ; tests : doublure. */
+  hote?: PortsHoteTache;
+}
+
+/** Bloc d'un refus avant lancement (aucune boucle, aucun appel) ; `reason` dit pourquoi. */
+function bilanRefus(status: Statut, raison: string): Bilan {
+  return {
+    status,
+    tool_calls: 0,
+    tool_calls_total: 0,
+    tool_budget: 0,
+    iterations: 0,
+    resumed: false,
+    budget_reset: false,
+    duration_s: 0,
+    files_changed: [],
+    git: { commits: [] },
+    errors: 0,
+    read_only: false,
+    read_only_source: null,
+    report_chars: 0,
+    reason: raison,
+  };
+}
+
+/** `{task: {definition, handler}}` construit PAR TOUR (contexte du parent capturé) ; `{}` si aucun agent n'est actif. Un sous-agent ne reçoit jamais `task`. */
+export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilIntegre> {
+  let compteur = 0;
+  const priority = o.priority ?? "high";
+  const runner = o.runner ?? runChatMultiMcp;
+  const hote = o.hote ?? hoteTacheParDefaut;
+  const agentsMap = agentsRoster(o.customAgents);
+  if (!agentsMap.size) return {};
+
+  const handleTask = async (args: Dict, appel?: AppelIntegre): Promise<string> => {
+    const callId = appel?.callId ?? null;
+    const brut = estDict(args) ? args : {};
+    let agentType = stripPy(texteOu(brut["subagent_type"], ""));
+    const prompt = stripPy(texteOu(brut["prompt"], ""));
+    const taskId = stripPy(texteOu(brut["task_id"], ""));
+    const description = prefixePy(stripPy(texteOu(brut["description"], "")), 90) || agentType;
+    /** Refus avant lancement : la ligne de l'appel est close par une étape finale (même `call_id`), puis l'enveloppe rendue au modèle. */
+    const refuser = async (enveloppe: Dict, bilan: Bilan, ascii = true): Promise<string> => {
+      await emitFinalStep(o.onEvent, "", agentType, "failed", 0, {}, Date.now() / 1000, {
+        callId,
+        harness: bilan,
+      });
+      const sink = o.usageSink;
+      if (sink) {
+        if (!Array.isArray(sink["runs"])) sink["runs"] = [];
+        (sink["runs"] as Dict[]).push({
+          id: "",
+          agent: agentType,
+          label: description,
+          prompt: longueurPy(prompt) <= 2000 ? prompt : prefixePy(prompt, 2000) + "…",
+          result: "",
+          state: "failed",
+          steps_total: 0,
+          context_tokens: 0,
+          input_tokens: 0,
+          output_tokens: 0,
+          think_tokens: 0,
+          duration_ms: 0,
+          tools: [],
+          transcript: [],
+          depth: 0,
+          resumed: false,
+          harness: bilan,
+        });
+      }
+      return pyJsonDumps(enveloppe, { ensureAscii: ascii });
+    };
+    const refusSimple = (
+      code: string,
+      message: string,
+      extra: Parameters<typeof err>[2] = {},
+    ): Promise<string> => refuser(err(code, message, extra), bilanRefus("error", message));
+    if (!estDict(args)) return refusSimple("bad_args", "task expects an object argument");
+    if (!prompt)
+      return refusSimple("empty_prompt", "the task prompt is empty", {
+        fix: "pass a complete, autonomous brief in `prompt`",
+      });
+    let resumed: Dict | null = null;
+    if (taskId) {
+      pruneResumeStore();
+      resumed = resumeLookup(o.username, taskId);
+      if (resumed === null)
+        return refusSimple(
+          "unknown_task_id",
+          `no resumable agent '${taskId}' on this server (expired or never existed)`,
+          { fix: "omit task_id and start a fresh agent with a complete, autonomous brief" },
+        );
+      agentType = strPy(resumed["agent"]);
+    }
+    const s = agentsMap.get(agentType);
+    if (s === undefined)
+      return refusSimple("unknown_agent", `'${agentType}' is not a valid subagent_type`, {
+        fix: "pick one of the listed agent types",
+        valid_choices: [...agentsMap.keys()],
+      });
+    const lus = lireArgsTache(args, { maxIters: s.maxIters, maxSecondsCap: TASK_CHILD_TIMEOUT_S });
+    if ("erreur" in lus) return refusSimple("bad_args", lus.erreur, { fix: lus.fix });
+    const ro = lectureSeuleEffective(typeReglable(agentType), {
+      task: lus.readOnly || (resumed !== null && resumed["read_only"] === true),
+      utilisateur: s.readOnlyUser,
+    });
+    const cheminsAvant = Array.isArray(resumed?.["writable_paths"])
+      ? (resumed["writable_paths"] as unknown[]).map(strPy)
+      : null;
+    const sa: SousAgent = {
+      type: agentType,
+      read_only: ro.read_only,
+      writable_paths: ro.read_only ? null : (lus.writablePaths ?? cheminsAvant),
+    };
+    const budget = lus.maxIterations ?? s.maxIters;
+    const dureeMax = Math.min(TASK_CHILD_TIMEOUT_S, lus.maxSeconds ?? TASK_CHILD_TIMEOUT_S);
+    const murS = Math.max(1, dureeMax - Math.min(60, Math.floor(dureeMax / 5)));
+    const appelsAvant = intPy(resumed?.["tool_calls_total"] || 0);
+    const compte = { username: o.username, userId: o.userId ?? null, chatId: o.chatId, signal: o.signal };
+    const bilanDe = (b: Partial<Bilan> & Pick<Bilan, "status">): Bilan => ({
+      tool_calls: 0,
+      tool_calls_total: appelsAvant,
+      tool_budget: budget,
+      iterations: 0,
+      resumed: resumed !== null,
+      budget_reset: resumed !== null,
+      duration_s: 0,
+      files_changed: [],
+      git: { commits: [] },
+      errors: 0,
+      read_only: sa.read_only,
+      read_only_source: ro.source,
+      ...(sa.writable_paths !== null
+        ? {
+            writable_paths: sa.writable_paths.map(toContainer),
+            writable_paths_scope: "file_tools_only" as const,
+          }
+        : {}),
+      report_chars: 0,
+      ...b,
+    });
+
+    if (agentType === "web") {
+      let raison: string | null;
+      try {
+        raison = await hote.santeNavigateur(compte);
+      } catch (e) {
+        if (estErreurAnnulation(e)) throw e;
+        raison = `health check failed: ${prefixePy(String(e), 200)}`;
+      }
+      if (raison !== null) {
+        const bilan = bilanDe({ status: "unavailable", reason: raison });
+        return refuser(
+          err("task_unavailable", `sub-agent 'web' is unavailable: ${raison}`, {
+            fix: "do not launch it again now: answer without the browser, or tell the user the browser service is down",
+            harness: bilan,
+          }),
+          bilan,
+          false,
+        );
+      }
+    }
+
+    const childId = resumed !== null ? taskId : `t${++compteur}-${tokenHex(3)}`;
+    const childChatId = `${o.chatId || "chat"}#task-${childId}`;
+    const k = cle(o.username, childId);
+    const childIsCancelled = (): boolean => Boolean((o.isCancelled && o.isCancelled()) || ANNULES.has(k));
+
+    let childMcpConfigs: unknown[];
+    let childAllowed: Set<string> | null;
+    let childBuiltins: Record<string, OutilIntegre> | null;
+    let childMemory: boolean;
+    if (s.inheritConfig) {
+      childMcpConfigs = [...o.parentMcpConfigs];
+      childAllowed = null;
+      childBuiltins = o.parentBuiltinTools ? { ...o.parentBuiltinTools } : null;
+      childMemory = o.memoryEnabled;
+    } else {
+      childMcpConfigs = [];
+      if (s.filterCategories === null || s.filterCategories.length)
+        childMcpConfigs.push({
+          type: "stdio",
+          name: `task-${agentType}`,
+          command: "DEFAULT_LOCAL_PYTHON",
+          filter_categories: s.filterCategories,
+        });
+      if (s.mcpServerIds && s.mcpServerIds.length && o.userMcpConfigs && o.userMcpConfigs.length) {
+        const voulus = new Set(s.mcpServerIds);
+        childMcpConfigs.push(...o.userMcpConfigs.filter((c) => estDict(c) && voulus.has(strPy(c["id"]))));
+      }
+      if (!childMcpConfigs.length) {
+        log.warn(
+          `[task_tool] agent '${agentType}' : aucune source d'outils résolue (serveurs ${strPy(s.mcpServerIds)} introuvables) — repli sur le socle ${strPy([...CUSTOM_DEFAULT_CATEGORIES])}`,
+        );
+        childMcpConfigs.push({
+          type: "stdio",
+          name: `task-${agentType}`,
+          command: "DEFAULT_LOCAL_PYTHON",
+          filter_categories: customDefaultCategories(),
+        });
+      }
+      childAllowed = s.allowedToolNames && s.allowedToolNames.size ? new Set(s.allowedToolNames) : null;
+      childBuiltins = null;
+      childMemory = false;
+    }
+    const childDeny = new Set(["task", ...toolsDeniedFor("subagent", DENY_BASE), ...s.denyExtra]);
+
+    let childMessages: Dict[];
+    if (resumed !== null)
+      childMessages = [
+        ...((resumed["messages"] as Dict[]) ?? []),
+        { role: "user", content: consigneReprise(sa, resumed, lus.outputSchema) + prompt },
+      ];
+    else {
+      const persona = s.personaText !== null ? s.personaText : await loadAgentPersona(s.personaStem);
+      if (!persona) log.warn(`[task_tool] persona '${s.personaStem}' introuvable — enfant sans tête dédiée`);
+      let systeme = stripPy(
+        persona +
+          "\n\n" +
+          childEnvBlock(s, dureeMax, budget) +
+          "\n\n" +
+          subagentRulesBlock(sa, lus.outputSchema),
+      );
+      if (o.userId !== null && o.userId !== undefined && (s.filterCategories ?? []).includes("skill")) {
+        let index: string | null;
+        try {
+          index = await buildSkillsIndexBlock(o.userId);
+        } catch (e) {
+          if (estErreurAnnulation(e)) throw e;
+          log.warn(`[task_tool] index skills non construit (${String(e)})`);
+          index = null;
+        }
+        if (index) systeme = `${systeme}\n\n${index}`;
+      }
+      childMessages = [
+        { role: "system", content: systeme },
+        { role: "user", content: prompt },
+      ];
+    }
+    const childSampling: Dict = { ...(o.samplingOverride ?? {}), max_tool_iterations: budget };
+
+    let pas = 0;
+    const nonce = tokenHex(3);
+    let appelsVus = 0;
+    const iters = { n: 0, max: budget };
+    const tok = { v: 0, reel: false };
+    const suivi = new SuiviOutils();
+    const avertissements: AvertissementBudget[] = [];
+    let finDeBudgetAnnoncee = false;
+    const transcript: Dict[] = [];
+    const chat: Dict[] = [];
+    let tampon = "";
+    const histLive: Dict[] = [];
+    const liveParAppel = new Map<string, string>();
+    const liveEnAttente = new Map<string, string[]>();
+    const debutsAppels = new Map<string, number>();
+
+    const flushChat = async (emettre = true, dejaRendu = ""): Promise<void> => {
+      let t = stripPy(tampon);
+      tampon = "";
+      if (!t) return;
+      if (dejaRendu) {
+        const [a, b] = [stripPy(t), stripPy(dejaRendu)];
+        if (a && b && (b.includes(a) || a.includes(b))) return;
+      }
+      if (longueurPy(t) > 1500) t = truncateHeadTail(t, 1500, "task transcript bound");
+      if (chat.length < 120) chat.push({ text: t });
+      if (emettre)
+        await emit(o.onEvent, {
+          type: "task_step",
+          child_id: childId,
+          agent: agentType,
+          call_id: callId,
+          status: "text",
+          text: t,
+        });
+    };
+    const tick = async (): Promise<void> => {
+      if (o.onEvent)
+        await o.onEvent({
+          type: "task_step",
+          child_id: childId,
+          agent: agentType,
+          call_id: callId,
+          status: "tick",
+          tokens: tok.v,
+        });
+    };
+    const surEvenementEnfant = async (ev: Dict): Promise<void> => {
+      if (!estDict(ev)) return;
+      const t = ev["type"];
+      if (t === "kv_cache") {
+        const used = intPy(ev["used"] || 0);
+        if (used > 0) {
+          tok.v = used;
+          tok.reel = true;
+          await tick();
+        }
+      } else if (t === "iteration") {
+        const n = intPy(ev["n"] || 0);
+        if (n > 0) iters.n = n;
+        const m = intPy(ev["max"] || 0);
+        if (m > 0) iters.max = m;
+        if (!tok.reel) {
+          const c = intPy(ev["context_tokens"] || 0);
+          if (c > 0) {
+            tok.v = c;
+            await tick();
+          }
+        }
+      } else if (t === "content_token") {
+        if (longueurPy(tampon) < 6000) tampon += texteOu(ev["text"], "");
+      } else if (t === "tool_call") {
+        await flushChat();
+        const step = ++pas;
+        appelsVus = step;
+        suivi.appel(texteOu(ev["name"], ""), ev["args"]);
+        const cid = ev["call_id"] ?? null;
+        debutsAppels.set(cid ? strPy(cid) : texteOu(ev["name"], ""), Date.now());
+        if (transcript.length < 50)
+          transcript.push({
+            tool: ev["name"] ?? null,
+            call_id: cid,
+            args_preview: preview(ev["args"] ?? null),
+            status: "running",
+          });
+        if (chat.length < 120)
+          chat.push({
+            tool: ev["name"] ?? null,
+            call_id: cid,
+            args_preview: preview(ev["args"] ?? null, 200),
+            status: "running",
+            result_preview: "",
+          });
+        const liveId = `live_${nonce}_${step}`;
+        const brut = ev["args"];
+        let argsTexte: string;
+        try {
+          argsTexte = typeof brut === "string" ? brut : pyJsonDumps(brut || {}, { ensureAscii: false });
+        } catch {
+          argsTexte = "{}";
+        }
+        histLive.push({
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            { id: liveId, type: "function", function: { name: ev["name"] || "", arguments: argsTexte } },
+          ],
+        });
+        if (cid) liveParAppel.set(strPy(cid), liveId);
+        else {
+          const nom = texteOu(ev["name"], "");
+          liveEnAttente.set(nom, [...(liveEnAttente.get(nom) ?? []), liveId]);
+        }
+        if (o.onEvent)
+          await o.onEvent({
+            type: "task_step",
+            child_id: childId,
+            agent: agentType,
+            call_id: callId,
+            step: iters.n || 1,
+            max_steps: iters.max,
+            calls: step,
+            tool: ev["name"] ?? null,
+            args_preview: preview(ev["args"] ?? null),
+            tokens: tok.v,
+            status: "running",
+          });
+      } else if (t === "tool_result") {
+        const st = echecSur(ev["result"]) ? "error" : "done";
+        const nom = texteOu(ev["name"], "");
+        const cid = ev["call_id"] ? strPy(ev["call_id"]) : "";
+        const fichiers = sa.read_only || !Array.isArray(ev["files"]) ? [] : ev["files"];
+        const debutAppel = debutsAppels.get(cid || nom) ?? null;
+        debutsAppels.delete(cid || nom);
+        const chevauche =
+          fichiers.length > 0 && chevauchements(o.username, childId, debutAppel, Date.now(), true).length > 0;
+        suivi.resultat(nom, ev["result"], st === "error", fichiers, chevauche);
+        const apercu = preview(ev["result"] ?? null, 400);
+        const correspond = (e: Dict): boolean => {
+          if (e["status"] !== "running") return false;
+          if (cid && e["call_id"]) return strPy(e["call_id"]) === cid;
+          return e["tool"] === (ev["name"] ?? null);
+        };
+        for (let i = transcript.length - 1; i >= 0; i--)
+          if (correspond(transcript[i]!)) {
+            transcript[i]!["status"] = st;
+            break;
+          }
+        for (let i = chat.length - 1; i >= 0; i--)
+          if (correspond(chat[i]!)) {
+            chat[i]!["status"] = st;
+            chat[i]!["result_preview"] = apercu;
+            break;
+          }
+        let rid: string | null = null;
+        if (cid) {
+          rid = liveParAppel.get(cid) ?? null;
+          liveParAppel.delete(cid);
+        }
+        if (rid === null) {
+          const file = liveEnAttente.get(texteOu(ev["name"], ""));
+          if (file && file.length) rid = file.shift()!;
+        }
+        if (rid !== null) {
+          let rc = ev["result"];
+          if (typeof rc !== "string")
+            try {
+              rc = pyJsonDumps(rc, { ensureAscii: false });
+            } catch {
+              rc = strPy(rc);
+            }
+          const cap = emitCapChars(null);
+          let texte = rc as string;
+          if (longueurPy(texte) > cap) texte = truncateHeadTail(texte, cap, "live history bound");
+          histLive.push({ role: "tool", tool_call_id: rid, content: texte });
+        }
+        if (o.onEvent)
+          await o.onEvent({
+            type: "task_step",
+            child_id: childId,
+            agent: agentType,
+            call_id: callId,
+            step: iters.n || 1,
+            max_steps: iters.max,
+            calls: appelsVus,
+            tool: ev["name"] ?? null,
+            tokens: tok.v,
+            status: st,
+            result_preview: apercu,
+            ...(Array.isArray(ev["files"]) && ev["files"].length ? { files: ev["files"] } : {}),
+          });
+      }
+    };
+
+    /** Historique live remis en forme canonique : une vague = UN assistant et ses réponses dans l'ordre de ses appels. */
+    const resumableLiveHistory = (): Dict[] => {
+      const repondus = new Map<string, Dict>();
+      for (const m of histLive)
+        if (m["role"] === "tool" && m["tool_call_id"]) repondus.set(strPy(m["tool_call_id"]), m);
+      const sortie: Dict[] = [];
+      let i = 0;
+      while (i < histLive.length) {
+        const m = histLive[i]!;
+        if (m["role"] === "assistant" && Array.isArray(m["tool_calls"]) && m["tool_calls"].length) {
+          const appels: Dict[] = [];
+          let j = i;
+          while (
+            j < histLive.length &&
+            histLive[j]!["role"] === "assistant" &&
+            Array.isArray(histLive[j]!["tool_calls"]) &&
+            (histLive[j]!["tool_calls"] as unknown[]).length
+          ) {
+            appels.push(...(histLive[j]!["tool_calls"] as Dict[]));
+            j++;
+          }
+          const gardes = appels.filter((c) => repondus.has(texteOu((c ?? {})["id"], "")));
+          if (gardes.length) {
+            sortie.push({ role: "assistant", content: null, tool_calls: gardes });
+            for (const c of gardes) sortie.push(repondus.get(strPy(c["id"]))!);
+          }
+          i = j;
+          continue;
+        }
+        if (m["role"] === "tool") {
+          i++;
+          continue;
+        }
+        sortie.push(m);
+        i++;
+      }
+      return sortie;
+    };
+
+    const t0 = Date.now() / 1000;
+    let etat = "completed";
+    let finalText = "";
+    let childMetrics: Dict = {};
+    let statut: Statut = "done";
+    let stopReason: string | null = null;
+    let erreurMessage = "";
+
+    const storeResumeState = (): void => {
+      const hist = estDict(childMetrics) ? childMetrics["tool_history"] : null;
+      let suivants: Dict[] | null = null;
+      if (
+        (etat === "completed" || etat === "incomplete") &&
+        (finalText || (Array.isArray(hist) && hist.length))
+      ) {
+        suivants = [...childMessages, ...expandChildHistory(hist ?? [])];
+        if (finalText) suivants.push({ role: "assistant", content: finalText });
+      } else if (["timeout", "failed", "cancelled"].includes(etat)) {
+        const live = resumableLiveHistory();
+        if (live.length) suivants = [...childMessages, ...live];
+      }
+      if (suivants !== null) {
+        const rec: Dict = {
+          agent: agentType,
+          messages: suivants,
+          ts: Date.now() / 1000,
+          tool_calls_total: appelsAvant + appelsVus,
+          read_only: sa.read_only,
+          ...(sa.writable_paths !== null ? { writable_paths: [...sa.writable_paths] } : {}),
+        };
+        memoriserReprise(o.username, childId, rec);
+        try {
+          Store.put(o.username, childId, rec);
+        } catch {
+          // reprise limitée à la mémoire
+        }
+        pruneResumeStore();
+      }
+    };
+    const recordRun = (bilan: Bilan): void => {
+      const sink = o.usageSink;
+      if (!sink) return;
+      const entree = intPy(childMetrics["input_tokens"] || 0);
+      const sortie = intPy(childMetrics["output_tokens"] || 0);
+      const pensee = intPy(childMetrics["thinking_tokens"] || 0);
+      sink["tasks"] = intPy(sink["tasks"] || 0) + 1;
+      sink["input_tokens"] = intPy(sink["input_tokens"] || 0) + entree;
+      sink["output_tokens"] = intPy(sink["output_tokens"] || 0) + sortie;
+      if (!Array.isArray(sink["runs"])) sink["runs"] = [];
+      (sink["runs"] as Dict[]).push({
+        id: childId,
+        agent: agentType,
+        label: description,
+        prompt: longueurPy(prompt) <= 2000 ? prompt : prefixePy(prompt, 2000) + "…",
+        result: prefixePy(masquerSecretsTexte(finalText || "").texte, TASK_RESULT_PERSIST_CAP),
+        state: etat,
+        steps_total: appelsVus,
+        context_tokens: tok.v,
+        input_tokens: entree,
+        output_tokens: sortie,
+        think_tokens: pensee,
+        duration_ms: Math.trunc((Date.now() / 1000 - t0) * 1000),
+        tools: transcript,
+        transcript: chat,
+        depth: 0,
+        resumed: resumed !== null,
+        harness: bilan,
+      });
+    };
+    const avecReprise = (): boolean => resumed !== null || resumableLiveHistory().length > 0;
+    const traceParent = `${o.username}:${o.chatId || ""}`;
+
+    /** Bloc du harnais une fois l'enfant terminé (rapport masqué, plafonné et sauvé dans le bac s'il déborde). */
+    const conclure = async (): Promise<{ bilan: Bilan; rapport: string }> => {
+      const avec = finTrace(o.username, childId);
+      const depot = suivi.depotARelire();
+      if (suivi.gitOuShell && depot !== null && etat !== "cancelled" && !o.signal?.aborted) {
+        let relue: string | null;
+        try {
+          relue = await hote.brancheCourante({ ...compte, repo: depot });
+        } catch (e) {
+          if (estErreurAnnulation(e)) throw e;
+          relue = null;
+        }
+        if (relue) suivi.branche = relue;
+      }
+      const prepare = preparerRapport(finalText || "");
+      let rapport = prepare.rendu;
+      let sauve: string | null = null;
+      if (prepare.deborde) {
+        const rel = `.tool-output/task-${childId}.md`;
+        let fait: boolean;
+        try {
+          fait = await hote.sauverRapport({ ...compte, chemin: rel, texte: prepare.complet });
+        } catch (e) {
+          if (estErreurAnnulation(e)) throw e;
+          fait = false;
+        }
+        sauve = fait ? toContainer(rel) : null;
+        rapport += noteDebord(longueurPy(prepare.complet), sauve);
+      }
+      const manquants = finalText ? champsManquants(finalText, lus.outputSchema) : [...lus.outputSchema];
+      if (statut === "done") {
+        if (manquants.length) statut = "partial";
+        else statut = statutDeclare(finalText) ?? "done";
+      }
+      if (statut === "partial" && etat === "completed" && finDeBudgetAnnoncee && stopReason === null)
+        stopReason = "budget_wrap_up";
+      const reste = statut !== "done" ? travailRestant(prepare.complet) : null;
+      const candidats = suivi.fichiersCandidats();
+      const bilan = bilanDe({
+        status: statut,
+        ...(stopReason ? { stop_reason: stopReason } : {}),
+        tool_calls: appelsVus,
+        tool_calls_total: appelsAvant + appelsVus,
+        ...(avertissements.length ? { budget_warnings: [...avertissements] } : {}),
+        iterations: iters.n,
+        duration_s: Math.round((Date.now() / 1000 - t0) * 10) / 10,
+        files_changed: suivi.fichiersModifies(),
+        ...(candidats.length
+          ? { files_changed_candidates: candidats, files_changed_attribution: "uncertain" as const }
+          : {}),
+        ...(avec.length ? { overlapped_with: avec } : {}),
+        git: suivi.git(),
+        errors: suivi.erreurs,
+        ...(reste ? { remaining_work: reste } : {}),
+        ...(manquants.length && lus.outputSchema.length ? { missing_fields: manquants } : {}),
+        report_chars: longueurPy(prepare.complet),
+        ...(sauve ? { report_saved_to: sauve } : {}),
+        ...(prepare.masques ? { secrets_masked: prepare.masques } : {}),
+      });
+      return { bilan, rapport };
+    };
+
+    await emit(o.onEvent, {
+      type: "task_step",
+      child_id: childId,
+      agent: agentType,
+      call_id: callId,
+      status: "spawned",
+      resumed: resumed !== null,
+      depth: 0,
+    });
+    const arret = new AbortController();
+    const signalEnfant = o.signal ? AbortSignal.any([o.signal, arret.signal]) : arret.signal;
+    ACTIFS.set(k, { agent: agentType, chatId: o.chatId, t0: Date.now() / 1000, arret });
+    debutTrace(o.username, traceParent, childId, sa);
+    let delaiDepasse = false;
+    const minuterie = setTimeout(() => {
+      delaiDepasse = true;
+      arret.abort(new CancelledError("sub-agent timeout"));
+    }, dureeMax * 1000);
+    minuterie.unref();
+    try {
+      const boucle = (slot: OptionsRun["slot"]): Promise<SortieRun> =>
+        runner({
+          messages: childMessages,
+          mcpConfigs: childMcpConfigs,
+          onEvent: surEvenementEnfant,
+          username: o.username,
+          model: o.model,
+          builtinTools: childBuiltins,
+          isCancelled: childIsCancelled,
+          signal: signalEnfant,
+          chatId: childChatId,
+          samplingOverride: childSampling,
+          thinkingMode: false,
+          allowedToolNames: childAllowed,
+          memoryEnabled: childMemory,
+          denyToolNames: childDeny,
+          priority,
+          userId: o.userId ?? null,
+          slot: slot ?? null,
+          subagent: sa,
+          wallclockS: murS,
+          wrapupSuffix: CONSIGNE_CLOTURE,
+          surPointEtape: ({ texte, finDeBudget }) => {
+            if (avertissements.length < BUDGET_WARNINGS_MAX)
+              avertissements.push({ at: appelsVus, text: texteAvertissement(texte) });
+            if (finDeBudget) finDeBudgetAnnoncee = true;
+          },
+        });
+      const file = fileLlm();
+      [finalText, , childMetrics] = await dansPorteeExecution(
+        {
+          genre: "subagent",
+          userId: o.userId ?? null,
+          chatId: childChatId || childId,
+          model: texteOu(o.model, ""),
+          engine: currentEngine().key,
+          parentId: texteOu(o.chatId, ""),
+        },
+        () =>
+          file
+            ? file.withLLM(o.model, priority, signalEnfant, (slot) => boucle(slot), { outils: true })
+            : boucle(null),
+      );
+      if (childMetrics["ended_with_error"]) {
+        etat = "failed";
+        statut = "error";
+      } else if (childMetrics["tool_limit_reached"]) {
+        etat = "incomplete";
+        stopReason = strPy(childMetrics["tool_limit_stop_reason"] || "steps");
+        statut =
+          stopReason === "steps" || stopReason === "hard"
+            ? "budget_exhausted"
+            : stopReason === "wallclock"
+              ? "timeout"
+              : "partial";
+      }
+    } catch (e) {
+      if (delaiDepasse) {
+        etat = "timeout";
+        statut = "timeout";
+        stopReason = "wallclock_hard";
+      } else if (estErreurAnnulation(e) || signalEnfant.aborted) {
+        etat = "cancelled";
+        statut = "cancelled";
+        const enfantSeul = ANNULES.has(k) && !(o.isCancelled && o.isCancelled()) && !o.signal?.aborted;
+        if (!enfantSeul) {
+          clearTimeout(minuterie);
+          ACTIFS.delete(k);
+          ANNULES.delete(k);
+          const { bilan } = await conclure();
+          await flushChat(false);
+          await emitFinalStep(o.onEvent, childId, agentType, etat, appelsVus, childMetrics, t0, {
+            callId,
+            contextTokens: tok.v,
+            transcript: chat,
+            harness: bilan,
+          });
+          storeResumeState();
+          recordRun(bilan);
+          throw e;
+        }
+      } else {
+        etat = "failed";
+        statut = "error";
+        erreurMessage = prefixePy(e instanceof Error ? e.message : strPy(e), 300);
+        log.warn(`[task_tool] sous-agent '${agentType}' échoué : ${String(e)}`);
+      }
+    } finally {
+      clearTimeout(minuterie);
+      ACTIFS.delete(k);
+      ANNULES.delete(k);
+    }
+    const { bilan, rapport } = await conclure();
+    const reprise = (suite: string): Dict =>
+      avecReprise() || (Array.isArray(childMetrics["tool_history"]) && childMetrics["tool_history"].length)
+        ? { task_id: childId, nextAction: suite }
+        : {};
+    let out: string;
+    if (etat === "completed") out = rendreTache(childId, "completed", bilan, rapport);
+    else if (etat === "incomplete")
+      out = pyJsonDumps(
+        err(
+          "task_incomplete",
+          `sub-agent '${agentType}' stopped before finishing (harness limit: ${stopReason}); its work is unfinished`,
+          {
+            stop_reason: stopReason,
+            ...reprise("pass task_id to resume this agent from its partial work, with a narrower brief"),
+            ...(finalText ? { partial_report: rapport } : {}),
+            harness: bilan,
+          },
+        ),
+      );
+    else if (etat === "timeout")
+      out = pyJsonDumps(
+        err("task_timeout", `sub-agent '${agentType}' exceeded ${dureeMax}s`, {
+          fix: "split the mission into smaller, more targeted tasks",
+          ...reprise("pass task_id to resume this agent from its partial work, with a narrower brief"),
+          harness: bilan,
+        }),
+      );
+    else if (etat === "cancelled")
+      out = pyJsonDumps(
+        err("task_cancelled", `sub-agent '${agentType}' was cancelled by the user`, {
+          nextAction: "continue the turn without this sub-agent's report, or ask the user how to proceed",
+          ...(avecReprise() ? { task_id: childId } : {}),
+          harness: bilan,
+        }),
+      );
+    else
+      out = pyJsonDumps(
+        err(
+          "task_failed",
+          erreurMessage || `sub-agent '${agentType}' stopped on a model error before finishing`,
+          {
+            retryable: true,
+            ...(avecReprise()
+              ? {
+                  task_id: childId,
+                  ...(erreurMessage
+                    ? {}
+                    : { nextAction: "pass task_id to resume this agent from its partial work" }),
+                }
+              : {}),
+            ...(finalText ? { partial_report: rapport } : {}),
+            harness: bilan,
+          },
+        ),
+      );
+    await flushChat(false, finalText || "");
+    await emitFinalStep(o.onEvent, childId, agentType, etat, appelsVus, childMetrics, t0, {
+      callId,
+      contextTokens: tok.v,
+      transcript: chat,
+      result: prefixePy(masquerSecretsTexte(finalText || "").texte, TASK_RESULT_PERSIST_CAP),
+      harness: bilan,
+    });
+    storeResumeState();
+    recordRun(bilan);
+    return out;
+  };
+
+  return { task: { definition: buildDefinition(agentsMap), handler: handleTask as OutilIntegre["handler"] } };
+}
+
+/** Événement `task_step` FINAL : état, coût, durée, déroulé et résultat de l'enfant ; tout échec est tu. */
+async function emitFinalStep(
+  onEvent: SurEvenement,
+  childId: string,
+  agentType: string,
+  state: string,
+  stepsTotal: number,
+  metrics: Dict,
+  t0: number,
+  o: {
+    callId?: string | null;
+    contextTokens?: number;
+    transcript?: Dict[];
+    result?: string;
+    harness?: Bilan;
+  } = {},
+): Promise<void> {
+  if (!onEvent) return;
+  try {
+    await onEvent({
+      type: "task_step",
+      child_id: childId,
+      agent: agentType,
+      call_id: o.callId ?? null,
+      status: "final",
+      state,
+      steps_total: stepsTotal,
+      context_tokens: Math.trunc(o.contextTokens || 0),
+      input_tokens: intPy((metrics || {})["input_tokens"] || 0),
+      output_tokens: intPy((metrics || {})["output_tokens"] || 0),
+      duration_ms: Math.trunc((Date.now() / 1000 - t0) * 1000),
+      transcript: o.transcript ?? [],
+      result: o.result || "",
+      ...(o.harness ? { harness: o.harness } : {}),
+    });
+  } catch (e) {
+    if (estErreurAnnulation(e)) throw e;
+  }
+}

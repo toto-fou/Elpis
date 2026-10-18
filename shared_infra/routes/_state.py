@@ -334,36 +334,6 @@ def get_active_chat_task(user_id: int,
     return None
 
 
-def active_run_count() -> int:
-    """Travail LONG encore en vol sur CE worker (chat + routines + scénarios).
-
-    Le drain de recyclage (``server/uvicorn_worker``)
-    doit attendre la FIN NATURELLE des runs, pas la fin des connexions HTTP :
-      • un run DÉTACHÉ n'a plus de connexion (uvicorn le croit terminé) ;
-      • une mission de plusieurs heures dépasse tout ``timeout_graceful_shutdown``.
-    Ce compteur est la mesure que le drain interroge. Il ne compte QUE les
-    tâches vivantes de ce process (une task n'existe que dans son worker) —
-    c'est exactement ce que ce worker doit finir avant de sortir.
-    """
-    n = 0
-    for _t in list(_active_chat_tasks.values()):
-        try:
-            if not _t.done():
-                n += 1
-        except Exception:                                       # noqa: BLE001
-            continue
-    for _mod_path in ("shared_infra.scheduling.routines_scheduler",):
-        try:
-            import importlib as _importlib
-            _mod = _importlib.import_module(_mod_path)
-            for _t in list(getattr(_mod, "_running_tasks", {}).values()):
-                if not _t.done():
-                    n += 1
-        except Exception:                                       # noqa: BLE001
-            continue
-    return n
-
-
 def is_generation_active(user_id: int, chat_id: Optional[str] = None) -> bool:
     """Une génération tourne-t-elle pour ce (user, chat), DANS N'IMPORTE QUEL
     worker ?

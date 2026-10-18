@@ -1,0 +1,19 @@
+{
+  "name": "@elpis/bureau",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Bureau des postes du LAN, partagé par le core et le toolhost : agent de contrôle (cibles, transport), primitives desktop_*, session et éléments, détection, rejeu, automatisations, paquets de l'agent",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@elpis/commun": "0.1.0",
+    "@elpis/config": "0.1.0",
+    "@elpis/db": "0.1.0",
+    "@elpis/http": "0.1.0",
+    "@elpis/securite": "0.1.0",
+    "undici": "8.11.2"
+  }
+}

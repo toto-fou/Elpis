@@ -1,0 +1,23 @@
+{
+  "name": "@elpis/skills",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Lecture de la bibliothèque de skills partagée par le core et l'hôte d'outils : chemins à la pathlib, frontmatter maison, validation, verrou des écritures, découverte mise en cache et résolution d'un skill (port de llm_core/skills.py et de skill_tools.py)",
+  "exports": {
+    ".": "./src/index.ts",
+    "./chemins": "./src/chemins.ts",
+    "./frontmatter": "./src/frontmatter.ts",
+    "./validation": "./src/validation.ts",
+    "./verrou": "./src/verrou.ts"
+  },
+  "dependencies": {
+    "@elpis/commun": "0.1.0",
+    "@elpis/config": "0.1.0",
+    "@elpis/http": "0.1.0",
+    "@elpis/mcp": "0.1.0",
+    "@elpis/outils-mcp": "0.1.0",
+    "@elpis/verrous": "0.1.0"
+  }
+}

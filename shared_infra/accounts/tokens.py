@@ -121,7 +121,7 @@ _ready: set = set()
 
 def _prepare() -> None:
     """Table posée et anciens jetons en clair convertis, une fois par process
-    et par base. Sur PostgreSQL et MariaDB, la migration 0022 est tamponnée
+    et par base. Sur PostgreSQL, la migration 0022 est tamponnée
     sans être rejouée : la conversion se fait ici, en DML seul."""
     key = (os.getpid(), str(getattr(_dbc, "DB_PATH", "")))
     if key in _ready:
@@ -169,8 +169,8 @@ def convert_legacy() -> int:
                 (int(uid), "opencode", "opencode", h, tok[-4:], "", float(created or 0) or time.time()))
             n += 1
         if not rows and not c.execute("SELECT 1 FROM code_remote_tokens").fetchone():
-            # Rien d'ancien (cas de CHAQUE démarrage de process sur PostgreSQL /
-            # MariaDB, où la table vide subsiste) : aucune écriture — surtout
+            # Rien d'ancien (cas de CHAQUE démarrage de process sur PostgreSQL,
+            # où la table vide subsiste) : aucune écriture — surtout
             # pas de purge des appairages en cours.
             return 0
         c.execute("DELETE FROM code_remote_tokens")

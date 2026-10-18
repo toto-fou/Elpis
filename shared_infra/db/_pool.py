@@ -3,8 +3,8 @@
 shared_infra.db._pool — pool BORNÉ de connexions aux moteurs serveur.
 
 SQLite garde une connexion par thread (``_connection.db``) : elle ne coûte
-rien au serveur. Une connexion PostgreSQL ou MySQL, elle, est un processus ou
-un thread côté serveur (5 à 10 Mo) : avec ~40 threads par worker et 2 à 3
+rien au serveur. Une connexion PostgreSQL, elle, est un processus côté
+serveur (5 à 10 Mo) : avec ~40 threads par worker et 2 à 3
 workers, une connexion par thread dépasserait vite ``max_connections``. Le
 pool en garde au plus ``max_size`` par process ; un thread qui en demande une
 de plus attend qu'une se libère, puis échoue proprement au bout de
@@ -13,7 +13,7 @@ de plus attend qu'une se libère, puis échoue proprement au bout de
 LIFO : la connexion rendue en dernier ressert d'abord (chaude, et les autres
 peuvent vieillir). Une connexion inutilisée depuis plus de ``idle_check``
 secondes est vérifiée (``ping``) avant d'être resservie — le serveur a pu la
-couper (redémarrage, ``wait_timeout`` MySQL). Une connexion marquée
+couper (redémarrage, ``idle_session_timeout``). Une connexion marquée
 ``broken`` (erreur réseau) est détruite au lieu d'être rendue.
 """
 from __future__ import annotations

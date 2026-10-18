@@ -42,7 +42,7 @@
   - [Suivre le travail de l'assistant](#suivre-le-travail-de-lassistant)
   - [Métriques sous chaque réponse](#métriques-sous-chaque-réponse)
   - [Gérer ses conversations](#gérer-ses-conversations)
-- [Le panneau Outils](#le-panneau-outils)
+- [Le panneau MCP](#le-panneau-mcp)
 - [Le panneau Sampling](#le-panneau-sampling)
 - [Modèles et fournisseurs](#modèles-et-fournisseurs)
 - [Le mode RAG](#le-mode-rag)
@@ -143,12 +143,12 @@ et on ferme des panneaux au-dessus du chat.
 
 | Zone | Contenu |
 |---|---|
-| **Barre latérale (gauche)** | Nouveau chat, recherche, liste des conversations, notifications, accès aux vues (Outils, Éditeur, Routines, Studio, Remote code), Paramètres, Admin |
+| **Barre latérale (gauche)** | Nouveau chat, recherche, liste des conversations, notifications, accès aux vues (MCP, Sandbox, Routines, Studio, Remote code), Paramètres, Admin |
 | **Zone centrale** | La conversation |
 | **Panneau droit (optionnel)** | L'éditeur de code + le terminal |
 | **Barre de saisie (bas)** | Message, pièces jointes, sélecteur de modèle, réglages de génération, RAG, mode réflexion, chip des tâches en cours |
 
-Les vues **Éditeur**, **Routines**, **Studio** et **Remote code** s'ouvrent en
+Les vues **Sandbox**, **Routines**, **Studio** et **Remote code** s'ouvrent en
 plein écran par-dessus le chat ; `Échap` revient toujours d'un cran en arrière.
 
 [↑ Sommaire](#sommaire)
@@ -314,10 +314,10 @@ En plus des outils intégrés, on peut brancher des **serveurs MCP tiers** —
 n'importe quel service parlant le protocole (Jenkins, une base interne, une API
 maison).
 
-- **Vos serveurs** : ajoutés depuis le panneau Outils, bouton *Gérer / ajouter
+- **Vos serveurs** : ajoutés depuis le panneau MCP, bouton *Gérer / ajouter
   un serveur* de la section Externes (HTTP, SSE ou local).
 - **La bibliothèque partagée** : l'administrateur publie un serveur une fois,
-  et chacun choisit de l'afficher ou non dans son panneau Outils (icône œil).
+  et chacun choisit de l'afficher ou non dans son panneau MCP (icône œil).
   Les secrets d'authentification restent côté serveur — ils ne transitent
   jamais par votre navigateur.
 
@@ -436,7 +436,7 @@ paragraphes de conclusion au lieu de 40 000 tokens de fouille.
 | `web` | Recherche web en pilotant un vrai navigateur | Navigateur, Fichiers |
 | `pr` | Brancher, commiter, ouvrir la pull request du travail déjà en place | Git, Fichiers |
 
-Un sous-agent est **un chat dont les cases du panneau Outils sont déjà
+Un sous-agent est **un chat dont les cases du panneau MCP sont déjà
 cochées** : il reçoit des catégories entières. Sa spécialisation vient de sa
 **persona** (« tu es en lecture seule ») et de son **budget d'itérations**, pas
 d'une liste d'outils rognée.
@@ -615,7 +615,7 @@ Bouton trombone, ou **glisser-déposer** directement dans la fenêtre.
 |---|---|---|
 | Texte / code | 5 Mo | Contenu inséré dans le message |
 | Image | 15 Mo | Envoyée au modèle si celui-ci gère la vision |
-| Capture réseau (`.pcap`, `.pcapng`, `.cap`) | 50 Mo | Analysée côté serveur, résumé lisible injecté |
+| Capture réseau (`.pcap`, `.pcapng`, `.cap`) | — | Refusée (non prise en charge) |
 
 Maximum **10 fichiers** par message. Un fichier trop volumineux est refusé avec
 un message clair, sans bloquer les autres.
@@ -712,9 +712,9 @@ ou JSON.
 
 ---
 
-## Le panneau Outils
+## Le panneau MCP
 
-Accessible par l'icône **Outils** de la barre latérale :
+Accessible par l'icône **MCP** de la barre latérale :
 
 - **Locaux** — les catégories intégrées (Fichiers, Terminal, Git, Navigateur,
   Contrôle d'écran, Graphiques, Mémoire). Une case par catégorie.
@@ -726,7 +726,7 @@ Accessible par l'icône **Outils** de la barre latérale :
 **Les cases sont propres à chaque conversation** et persistées avec elle :
 rouvrir un chat d'hier restitue exactement les outils qui étaient actifs.
 
-Le module **Outils** (Paramètres → Fonctionnalités) coupe *tous* les outils
+Le module **MCP** (Paramètres → Fonctionnalités) coupe *tous* les outils
 d'un coup ; seule la mémoire reste.
 
 > **Moins, c'est souvent mieux.** Chaque catégorie active ajoute la
@@ -750,7 +750,7 @@ d'itérations d'outils.
   externe est sélectionné : il est retiré de la requête.
 - Un **mode debug** en bas du panneau affiche le JSON exact qui partira vers le
   modèle.
-- Le panneau Sampling et le panneau Outils sont mutuellement exclusifs.
+- Le panneau Sampling et le panneau MCP sont mutuellement exclusifs.
 
 [↑ Sommaire](#sommaire)
 
@@ -767,7 +767,9 @@ paramètres par défaut, capacités (vision, appels d'outils).
 
 **Vos fournisseurs** (Paramètres → Modèles IA). Si l'administrateur l'autorise,
 vous pouvez brancher vos propres fournisseurs — Anthropic, OpenAI, OpenRouter,
-Mistral, Moonshot… — avec **votre** clé API :
+Mistral, Moonshot… — avec **votre** clé API. Par défaut, aucun n'est ouvert
+aux comptes non administrateurs : seuls ceux que l'administrateur a ouverts
+sont proposés.
 
 - La clé est **chiffrée au repos** et n'est jamais renvoyée à votre navigateur.
 - Un bouton **Tester** vérifie la connexion et liste les modèles.
@@ -1142,12 +1144,12 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 
 | Onglet | Ce qu'on y règle |
 |---|---|
-| **Profil** | Vos informations, photo, changement de mot de passe |
+| **Profil** | Vos informations, photo (recadrée avant l'envoi : glisser, zoom, Ajuster, Remplir, quart de tour), changement de mot de passe |
 | **Chat** | Prompt système personnel, largeur de la zone de chat, masquer le raisonnement, terminal en direct, dictée et réponse vocale, notifications système, effacer les conversations |
 | **Compaction** | Compaction automatique, seuil, nombre maximal de compactions par conversation |
 | **Modèles IA** | Fournisseurs proposés par l'administrateur + vos propres fournisseurs |
-| **Apparence** | Mode sombre, habillage (skin : ceux que l'administrateur a activés), nom / icône / avatar de l'assistant |
-| **Fonctionnalités** | Les modules **Outils**, **RAG** et **Éditeur**. Quand l'éditeur est activé, ses réglages apparaissent dessous, en deux groupes : *affichage* (thème, police, indentation, retour à la ligne, minimap, numéros de ligne) et *comportement* (ouverture automatique, aperçu, surbrillance des modifications, sauvegarde auto, mémorisation des onglets) |
+| **Apparence** | Mode sombre, habillage (skin : ceux que l'administrateur a activés), nom de l'assistant (son avatar est le logo de l'application, choisi par l'administrateur) |
+| **Fonctionnalités** | Les modules **MCP**, **RAG** et **Sandbox**. Quand l'éditeur est activé, ses réglages apparaissent dessous, en deux groupes : *affichage* (thème, police, indentation, retour à la ligne, minimap, numéros de ligne) et *comportement* (ouverture automatique, aperçu, surbrillance des modifications, sauvegarde auto, mémorisation des onglets) |
 | **Utilisation** | Vos tokens sur 1, 7, 30 ou 90 jours, une barre par type : entrée (dont cache et outils), sortie (dont réflexion), et par origine ; conversations, messages, runs de routines |
 | **Mémoire** | Activer, consulter, **éditer** (corriger ou retirer une entrée) et tout effacer |
 | **Agents** | Activer les sous-agents, créer et éditer vos agents personnalisés |
@@ -1157,7 +1159,7 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | **Sandbox** | État du conteneur, profil réseau, redémarrage, vidage du dossier de travail |
 | **Connecteurs** | Vos accès aux forges Git |
 
-Vos serveurs MCP se gèrent depuis le [panneau Outils](#le-panneau-outils).
+Vos serveurs MCP se gèrent depuis le [panneau MCP](#le-panneau-mcp).
 
 Le prompt système personnel est **permanent** (il s'applique à toutes vos
 conversations) ; les réglages de sampling, eux, ne valent que pour la

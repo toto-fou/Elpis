@@ -7,8 +7,8 @@ multi-moteurs, lot D).
     transfer --to CIBLE [--from CIBLE] [--dry-run] [--report FICHIER]
     use sqlite | CIBLE           écrit la section « database » de config.json
 
-CIBLE : ``sqlite:/chemin/app.db``, ``postgres://user@hôte:5432/base``,
-``mysql://user@hôte:3306/base`` (``?tls=require|verify``). Le mot de passe
+CIBLE : ``sqlite:/chemin/app.db`` ou ``postgres://user@hôte:5432/base``
+(``?tls=require|verify``). Le mot de passe
 vient de ``--password-env VAR`` (nom d'une variable d'environnement) ou d'une
 saisie masquée ; jamais de la ligne de commande.
 
@@ -85,6 +85,10 @@ def cmd_transfer(args) -> int:
 def cmd_use(args) -> int:
     from shared_infra import config as cfg
     new = cfg.read_config_json()
+    if args.target == "sqlite" and cfg.DB_BACKEND in cfg.DB_BACKENDS_RETIRED and not args.force:
+        print("refusé : " + cfg.retired_backend_message(cfg.DB_BACKEND)
+              + " (--force : repartir quand même sur le fichier SQLite)", file=sys.stderr)
+        return 2
     if args.target == "sqlite":
         new.setdefault("database", {})["backend"] = "sqlite"
     else:
@@ -124,6 +128,7 @@ def main(argv=None) -> int:
     t.set_defaults(fn=cmd_transfer)
     u = sub.add_parser("use", help="choisir la base de l'application")
     u.add_argument("target", help="sqlite ou une CIBLE serveur")
+    u.add_argument("--force", action="store_true", help="quitter un moteur retiré sans transfert")
     u.set_defaults(fn=cmd_use)
     args = p.parse_args(argv)
     return args.fn(args)

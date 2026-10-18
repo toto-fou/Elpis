@@ -3,12 +3,13 @@
 Le système visuel d'Elpis : jetons, thèmes, typographie, composants et règles.
 Les intentions (public, ton, principes) sont dans [PRODUCT.md](PRODUCT.md) ; ce
 document décrit comment l'interface les applique, d'après le code
-(`frontend/css/style.css`, `frontend/css/skins/`, `frontend/js/app-settings.js`).
+(`frontend/css/style.css`, `frontend/css/skins/`, `frontend/src/features/reglages/apparence.ts`).
 
 ## En bref
 
-- **Pas d'étape de build** : Vue 3 (build global vendoré), gabarits dans le DOM,
-  feuilles servies telles quelles.
+- **Build Vite** : Vue 3 et TypeScript, composants en SFC compilés par Vite
+  (`frontend/dist`) ; les feuilles de `frontend/css/` sont servies telles
+  quelles.
 - **Tout passe par des jetons** (variables CSS) définis dans `style.css`. Un
   thème ne fait que redéfinir des jetons ; le mode sombre aussi.
 - **Tailwind précompilé** (`frontend/css/style.tailwind.css`, généré) ; les
@@ -47,7 +48,7 @@ natifs sur surface claire (≥ 4,5:1). Sur le rail sombre, utiliser
 
 ## Thèmes et mode sombre
 
-Trois classes sur `<body>`, posées par `app-settings.js` :
+Trois classes sur `<body>`, posées par `frontend/src/features/reglages/apparence.ts` :
 
 | Classe | Rôle |
 |---|---|
@@ -67,7 +68,7 @@ compte de la console.
 
 Ajouter un thème : un fichier `frontend/css/skins/<id>.css` qui redéfinit les
 jetons sous `body.elpis-skin-<id>` (et `.elpis-app-dark` pour le sombre), une
-entrée dans `APP_SKINS` (`app-settings.js`), le `<link>` dans `index.html` et
+entrée dans le registre `frontend/css/skins/skins.json` (servi par `/api/skins`), le `<link>` dans `index.html` et
 `admin.html` après `style.css`. Les polices restent locales (pas de
 téléchargement : l'application doit fonctionner hors ligne).
 
@@ -145,8 +146,7 @@ Règles de composition :
 - Jamais de classe de couleur sur `<body>` : le fond et le texte viennent de
   la règle `body` de `style.css`.
 - Après avoir ajouté des classes utilitaires dans un gabarit :
-  `node tools/generate_tailwind_css.mjs` (parité vérifiée par
-  `tests/frontend/tailwind-verify.mjs`).
+  `node tools/generate_tailwind_css.mjs` (la parité est vérifiée par les tests
+  des mainteneurs).
 - Vérifier chaque écran en clair et en sombre, et sur au moins un thème à base
-  sombre (Émeraude) : `tests/frontend/skins-verify.mjs` et
-  `tests/frontend/darkmode-verify.mjs`.
+  sombre (Émeraude).

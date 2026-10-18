@@ -64,6 +64,22 @@
         ]
       }
     },
+    "familles_natives": {
+      "description": "Familles servies par l'hôte TS lui-même (sous-ensemble de families) ; les autres sont relayées vers elpis-tools. Retour arrière : retirer la famille de la liste.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "browser",
+          "desktop",
+          "fs",
+          "git",
+          "shell",
+          "skill_run"
+        ]
+      }
+    },
     "sandbox_dir": {
       "type": "string"
     },
@@ -91,6 +107,14 @@
     "identity_max_skew_s": {
       "type": "number",
       "minimum": 1
+    },
+    "mcp_upstream": {
+      "type": "string",
+      "description": "Hôte TS : origine d'elpis-tools (MCP HTTP streamable ; un /mcp final est retiré) relayée sous /mcp[/<famille>] ; vide : façade MCP fermée."
+    },
+    "mcp_upstream_sse": {
+      "type": "string",
+      "description": "Hôte TS : origine d'elpis-tools en SSE (un /sse final est retiré) relayée sous /sse[/<famille>] et /messages/ ; vide : SSE non servi."
     }
   },
   "additionalProperties": true

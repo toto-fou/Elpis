@@ -613,15 +613,12 @@ DESKTOP_TARGETS = _coerce_desktop_targets(_deep_get(_RAW, "desktop.targets", [])
 MCP_SERVER_CMD = _as_str(os.environ.get("MCP_SERVER_CMD"), _as_str(_deep_get(_RAW, "mcp.server_cmd", "server/local_mcp_server.py"), "server/local_mcp_server.py"))
 TOOLS_CACHE_TTL_SEC = _as_float(os.environ.get("MCP_TOOLS_CACHE_TTL_SEC"), _as_float(_deep_get(_RAW, "mcp.tools_cache_ttl_sec", 360.0), 360.0))
 
-# ── Serveur MCP local PARTAGÉ (transport SSE) ────────────────────────────────
-# Par défaut le serveur d'outils locaux est spawné en stdio, UNE instance par
-# worker gunicorn (cold-start à la 1re requête de chaque worker). Pour le rendre
-# rapidement accessible à TOUS les utilisateurs, on peut le lancer comme un
-# service unique persistant (SSE) auquel tous les workers se connectent.
+# ── Serveur MCP local PARTAGÉ (hôte d'outils) ───────────────────────────────
+# Le serveur d'outils tourne comme un service unique (``python -m toolhost``)
+# que tous les workers joignent en réseau ; l'app ne le lance jamais elle-même.
 #
-#   LOCAL_MCP_URL  : si défini (ex. "http://127.0.0.1:8765/sse"), le resolver
-#                    se connecte à ce serveur partagé au lieu de spawn stdio.
-#                    Vide → stdio, un sous-process par worker.
+#   LOCAL_MCP_URL  : URL du service (ex. "http://127.0.0.1:8765/mcp") ; vide →
+#                    dérivée du descripteur intégré (loopback, port 8765).
 #   LOCAL_MCP_HOST/PORT/TRANSPORT : utilisés PAR le serveur lui-même quand il
 #                    est lancé en mode service (cf. server/local_mcp_server.py).
 #
@@ -713,11 +710,8 @@ def _builtin_local_mcp() -> Dict[str, Any]:
 
 
 def _builtin_local_mcp_url() -> str:
-    """URL en loopback du service intégré si son transport est réseau, "" en
-    stdio (rien à joindre : sous-process par worker)."""
+    """URL en loopback du service intégré (le core ne le lance jamais en sous-process)."""
     d = _builtin_local_mcp()
-    if d["transport"] not in ("sse", "streamable-http"):
-        return ""
     host = str(d.get("host") or "127.0.0.1")
     return f"http://{host}:{int(d.get('port') or 8765)}{d.get('mount')}"
 
@@ -730,23 +724,15 @@ LOCAL_MCP_TRANSPORT = (
 )
 
 # URL du service partagé, telle que les CLIENTS INTERNES (pool d'outils de
-# l'app) la joignent. Priorité : env (posée par le script — DE CONFIANCE) →
-# config ``mcp.local_url`` (explicite) → DÉRIVÉE du descripteur intégré.
-# ``LOCAL_MCP_URL_IS_DERIVED`` distingue une URL déduite (qu'il faut sonder
-# avant de s'y fier — le service peut ne pas tourner) d'une URL explicitement
-# posée (de confiance, aucune sonde).
+# l'app) la joignent. Priorité : env (posée par le script) → config
+# ``mcp.local_url`` (explicite) → DÉRIVÉE du descripteur intégré.
 _LOCAL_MCP_URL_EXPLICIT = _as_str(os.environ.get("LOCAL_MCP_URL"),
                                   _as_str(_deep_get(_RAW, "mcp.local_url", ""), "")).strip()
 # URL EXPLICITE (env/config), exposée à part : le SERVICE ne doit démarrer en
 # réseau que sur un signal explicite (env, registre, ou ``mcp.local_url``) — la
-# simple URL DÉRIVÉE, elle, ne concerne que les CLIENTS (qui la sondent).
+# simple URL DÉRIVÉE, elle, ne concerne que les CLIENTS.
 LOCAL_MCP_URL_EXPLICIT = _LOCAL_MCP_URL_EXPLICIT
-if _LOCAL_MCP_URL_EXPLICIT:
-    LOCAL_MCP_URL = _LOCAL_MCP_URL_EXPLICIT
-    LOCAL_MCP_URL_IS_DERIVED = False
-else:
-    LOCAL_MCP_URL = _builtin_local_mcp_url()
-    LOCAL_MCP_URL_IS_DERIVED = bool(LOCAL_MCP_URL)
+LOCAL_MCP_URL = _LOCAL_MCP_URL_EXPLICIT or _builtin_local_mcp_url()
 
 LOCAL_MCP_TOOL_FAMILIES = _as_str(os.environ.get("LOCAL_MCP_TOOL_FAMILIES"), _as_str(_deep_get(_RAW, "mcp.local_tool_families", "all"), "all")).strip() or "all"
 # ── Clients opencode ─────────────────────────────────────────────────────────
@@ -832,25 +818,27 @@ except Exception:
 DB_PATH = _resolve_rel(_as_str(os.environ.get("APP_DB_PATH"), _as_str(_deep_get(_RAW, "app.db_path", "user_db/app.db"), "user_db/app.db")))
 
 # ── Moteur de base de données ────────────────────────────────────────────────
-# ``sqlite`` (défaut : le fichier ``DB_PATH``), ``postgres`` ou ``mysql``
-# (MariaDB ou MySQL). Section ``database`` de config.json ; chaque clé peut
+# ``sqlite`` (défaut : le fichier ``DB_PATH``) ou ``postgres``. Section
+# ``database`` de config.json ; chaque clé peut
 # être imposée par l'environnement (``APP_DB_*``), qui prime. Le mot de passe
 # n'est JAMAIS dans config.json : ``APP_DB_PASSWORD`` ou le fichier
 # ``.db_password`` (0600) à côté de la base SQLite — cf. :func:`db_password`.
 # ``DB_PATH`` garde son sens dans tous les modes : fichier SQLite, cible d'un
 # retour à SQLite, et dossier des données (secrets, images…).
-_DB_ALIASES = {"postgresql": "postgres", "pg": "postgres", "mariadb": "mysql"}
+_DB_ALIASES = {"postgresql": "postgres", "pg": "postgres"}
+# Gardés tels quels (jamais de repli SQLite) : ``_connection.db`` refuse alors toute connexion.
+DB_BACKENDS_RETIRED = ("mysql", "mariadb")
 DB_BACKEND = _as_str(os.environ.get("APP_DB_BACKEND"),
                      _as_str(_deep_get(_RAW, "database.backend", "sqlite"), "sqlite")).strip().lower() or "sqlite"
 DB_BACKEND = _DB_ALIASES.get(DB_BACKEND, DB_BACKEND)
-if DB_BACKEND not in ("sqlite", "postgres", "mysql"):
+if DB_BACKEND not in ("sqlite", "postgres") and DB_BACKEND not in DB_BACKENDS_RETIRED:
     import logging as _logging
     _logging.getLogger("uvicorn.error").error(
         "[config] database.backend=%r inconnu — SQLite utilisé.", DB_BACKEND)
     DB_BACKEND = "sqlite"
 DB_HOST = _as_str(os.environ.get("APP_DB_HOST"), _as_str(_deep_get(_RAW, "database.host", "127.0.0.1"), "127.0.0.1"))
 DB_PORT = _as_int(os.environ.get("APP_DB_PORT"), _as_int(
-    _deep_get(_RAW, "database.port", 0), 0)) or {"postgres": 5432, "mysql": 3306}.get(DB_BACKEND, 0)
+    _deep_get(_RAW, "database.port", 0), 0)) or {"postgres": 5432}.get(DB_BACKEND, 0)
 DB_NAME = _as_str(os.environ.get("APP_DB_NAME"), _as_str(_deep_get(_RAW, "database.name", "elpis"), "elpis"))
 DB_USER = _as_str(os.environ.get("APP_DB_USER"), _as_str(_deep_get(_RAW, "database.user", "elpis"), "elpis"))
 DB_TLS = _as_str(os.environ.get("APP_DB_TLS"), _as_str(_deep_get(_RAW, "database.tls", "off"), "off")).lower()
@@ -860,6 +848,20 @@ DB_TIMEOUT = max(5.0, _as_float(os.environ.get("APP_DB_TIMEOUT"), _as_float(_dee
 # Un process plus ancien que config.json n'emprunte aucune connexion
 # (``_connection._generation_guard``) : il écrirait dans l'ancienne base.
 DB_GENERATION = _as_int(_deep_get(_RAW, "database.generation", 0), 0)
+
+
+def retired_backend_message(backend: str) -> str:
+    """Pourquoi une instance sur un moteur retiré ne démarre pas, et comment en sortir."""
+    return (f"moteur de base {backend!r} (config.json › database.backend ou APP_DB_BACKEND) : "
+            "MariaDB/MySQL n'est plus pris en charge. Revenir à la version précédente "
+            "d'Elpis, y quitter ce moteur (console › Base de données › « Revenir à SQLite », "
+            "ou « ./elpis db transfer » puis « ./elpis db use » vers PostgreSQL), puis "
+            "refaire la mise à jour (docs/exploitation.md, « Mettre à jour »).")
+
+
+if DB_BACKEND in DB_BACKENDS_RETIRED:
+    import logging as _logging
+    _logging.getLogger("uvicorn.error").error("[config] %s", retired_backend_message(DB_BACKEND))
 
 
 def db_password() -> str:
@@ -1407,8 +1409,9 @@ _session_env  = _as_str(os.environ.get("APP_SESSION_SECRET"), "")
 #  2. config.json › app.session_secret  → config explicite de l'admin.
 #
 #  3. Fichier dédié user_db/.session_secret  → fallback pour les lancements
-#     directs (uvicorn seul, tests). Créé une seule fois avec verrou fcntl
-#     pour éviter la race condition entre workers/process concurrents.
+#     directs (uvicorn seul, tests). Créé une seule fois sous le verrou
+#     ``elpis.verrou.v1.1`` ``.session_secret.lock``, publié par lien exclusif :
+#     le premier secret posé gagne, y compris face au core TypeScript.
 #     NE PAS modifier config.json depuis les workers (race condition I/O).
 #
 # Placeholders FAIBLES connus (committés dans config.json d'exemple) : s'ils
@@ -1451,7 +1454,6 @@ elif _session_json and not _session_json_is_placeholder:
     _warn_if_weak_session_secret(SESSION_SECRET, "config.json")
 
 else:
-    import fcntl as _fcntl
     import logging as _logging
     import sys as _sys
 
@@ -1475,6 +1477,23 @@ else:
                     "remis en 0600.", _SECRET_FILE, _mode)
         except OSError:
             pass
+
+    def _publish_secret(tmp: Path, s: str) -> str:
+        """Lien exclusif : un secret valide posé entre-temps (core TS, qui ne prend pas ce verrou) l'emporte."""
+        try:
+            os.link(tmp, _SECRET_FILE)
+        except OSError:
+            try:
+                other = _SECRET_FILE.read_text().strip()
+            except OSError:
+                other = ""
+            if len(other) >= 40:
+                tmp.unlink(missing_ok=True)
+                return other
+            tmp.replace(_SECRET_FILE)
+            return s
+        tmp.unlink(missing_ok=True)
+        return s
 
     def _load_or_create_secret() -> str:
         # Fast path : lire sans lock (le fichier existe déjà dans 99 % des cas)
@@ -1502,29 +1521,26 @@ else:
             return "EPHEMERAL_" + secrets.token_hex(16)
 
         try:
-            with open(_SECRET_LOCK, "w") as _lf:
-                _fcntl.flock(_lf.fileno(), _fcntl.LOCK_EX)
+            from shared_infra.runtime.verrou_fichier import VerrouFichier
+            with VerrouFichier(_SECRET_LOCK):
+                # Re-vérifier après le lock (un autre process l'a peut-être créé)
                 try:
-                    # Re-vérifier après le lock (un autre process l'a peut-être créé)
-                    try:
-                        s = _SECRET_FILE.read_text().strip()
-                        if len(s) >= 40:
-                            return s
-                    except (FileNotFoundError, OSError):
-                        pass
-                    # Ce process est bien le premier : générer et écrire
-                    s = "ELPIS_" + secrets.token_hex(32)
-                    # Écriture atomique via fichier temporaire
-                    _tmp = _SECRET_FILE.with_suffix(".tmp")
-                    _tmp.write_text(s)
-                    try:
-                        _tmp.chmod(0o600)
-                    except Exception:
-                        pass
-                    _tmp.replace(_SECRET_FILE)
-                    return s
+                    s = _SECRET_FILE.read_text().strip()
+                    if len(s) >= 40:
+                        return s
+                except (FileNotFoundError, OSError):
+                    pass
+                # Ce process est bien le premier : générer et écrire
+                s = "ELPIS_" + secrets.token_hex(32)
+                # Temporaire unique, créé en 0600, puis publié
+                _fd, _nom = tempfile.mkstemp(dir=str(_SECRET_FILE.parent), prefix=".session_secret.", suffix=".tmp")
+                _tmp = Path(_nom)
+                try:
+                    with os.fdopen(_fd, "w") as _fh:
+                        _fh.write(s)
+                    return _publish_secret(_tmp, s)
                 finally:
-                    _fcntl.flock(_lf.fileno(), _fcntl.LOCK_UN)
+                    _tmp.unlink(missing_ok=True)
         except Exception as _e:
             # Ne pas avaler l'erreur en silence : chaque worker repart
             # alors sur son propre secret aléatoire → les cookies de

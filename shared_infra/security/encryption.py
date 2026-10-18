@@ -12,7 +12,9 @@ Résolution de la clé maître (même esprit que ``SESSION_SECRET`` dans
      gunicorn ⇒ identique pour tous les workers (approche préférée en prod).
   2. ``config.json › app.encryption_key``  → config explicite de l'admin.
   3. Fichier dédié ``<user_db>/.encryption_key``  → fallback (uvicorn seul,
-     tests). Créé une seule fois avec verrou ``fcntl`` (anti-race workers).
+     tests). Créé une seule fois sous le verrou ``elpis.verrou.v1.1``
+     ``.encryption_key.lock`` et publié par lien exclusif (la première clé
+     posée gagne, y compris face au core TypeScript).
 
 La valeur fournie en 1/2 peut être :
   - une clé Fernet valide (44 chars base64 urlsafe) → utilisée telle quelle ;
@@ -30,9 +32,11 @@ import base64
 import hashlib
 import logging
 import os
+import tempfile
 import threading
+import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -47,6 +51,7 @@ class EncryptionUnavailable(RuntimeError):
 
 _KEY_FILE = Path(DB_PATH).parent / ".encryption_key"
 _KEY_LOCK = Path(DB_PATH).parent / ".encryption_key.lock"
+_ATTENTE_ECRITURE_S = 1.0
 
 _cipher: Optional[Fernet] = None
 _cipher_lock = threading.Lock()
@@ -70,30 +75,97 @@ def _coerce_to_fernet_key(value: str) -> bytes:
         return _derive_fernet_key(raw)
 
 
-def _load_or_create_key() -> Optional[bytes]:
-    """Résout la clé maître selon l'ordre de priorité documenté.
+def _lire_cle() -> Tuple[bool, Optional[str]]:
+    """(présent, contenu) : seuls ENOENT et ENOTDIR valent absence ; contenu ``None`` si illisible."""
+    try:
+        return True, _KEY_FILE.read_text().strip()
+    except (FileNotFoundError, NotADirectoryError):
+        return False, None
+    except (OSError, UnicodeDecodeError):
+        return True, None
 
-    Retourne la clé Fernet (bytes) ou ``None`` si elle ne peut être ni lue ni
-    créée (FS read-only sans env/config)."""
-    # 1. Env var
+
+def _relire_sous_verrou() -> Tuple[bool, Optional[str]]:
+    """Relecture sous le verrou ; un fichier présent mais vide peut être en cours d'écriture : 1 s de patience."""
+    fin = time.monotonic() + _ATTENTE_ECRITURE_S
+    present, s = _lire_cle()
+    while present and not s and time.monotonic() < fin:
+        time.sleep(0.05)
+        present, s = _lire_cle()
+    return present, s
+
+
+def _cle_inutilisable() -> None:
+    logger.critical(
+        "[encryption] %s est présent mais vide ou illisible : il n'est PAS remplacé (les secrets "
+        "chiffrés avec lui seraient perdus). Corriger ses droits ou le restaurer, ou définir "
+        "APP_ENCRYPTION_KEY.", _KEY_FILE)
+
+
+def _fsync_dossier(dossier: Path) -> None:
+    """Rend durable une entrée de dossier (lien, création) ; sans effet là où c'est impossible."""
+    try:
+        fd = os.open(dossier, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
+
+
+def _ecrire_exclusif(key: bytes) -> bool:
+    """Création exclusive du fichier de clé (système sans liens durs) ; faux s'il existe ; jamais laissé vide."""
+    try:
+        fd = os.open(_KEY_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        return False
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(key)
+            fh.flush()
+            os.fsync(fh.fileno())
+    except BaseException:
+        _KEY_FILE.unlink(missing_ok=True)
+        raise
+    _fsync_dossier(_KEY_FILE.parent)
+    return True
+
+
+def _publish_key(tmp: Path, key: bytes) -> Optional[bytes]:
+    """Publication exclusive : une clé posée entre-temps l'emporte ; un fichier vide ou illisible reste en place."""
+    try:
+        try:
+            os.link(tmp, _KEY_FILE)
+            _fsync_dossier(_KEY_FILE.parent)
+            return key
+        except FileExistsError:
+            pass
+        except OSError:
+            if _ecrire_exclusif(key):
+                return key
+    finally:
+        tmp.unlink(missing_ok=True)
+    present, autre = _lire_cle()
+    if present and autre:
+        return _coerce_to_fernet_key(autre)
+    _cle_inutilisable()
+    return None
+
+
+def _load_or_create_key() -> Optional[bytes]:
+    """Résout la clé maître (environnement, config.json, fichier) ; ne la crée que si le fichier est absent."""
     env_val = _as_str(os.environ.get("APP_ENCRYPTION_KEY"), "")
     if env_val:
         return _coerce_to_fernet_key(env_val)
-
-    # 2. config.json
     json_val = _as_str(_deep_get(_RAW, "app.encryption_key", ""), "")
     if json_val:
         return _coerce_to_fernet_key(json_val)
-
-    # 3. Fichier dédié (fast path : lecture sans lock)
-    try:
-        s = _KEY_FILE.read_text().strip()
-        if s:
-            return _coerce_to_fernet_key(s)
-    except (FileNotFoundError, OSError):
-        pass
-
-    # Slow path : génération avec verrou exclusif (premier démarrage).
+    present, s = _lire_cle()
+    if present and s:
+        return _coerce_to_fernet_key(s)
     try:
         _KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
     except Exception as e:
@@ -104,30 +176,26 @@ def _load_or_create_key() -> Optional[bytes]:
             _KEY_FILE.parent, e,
         )
         return None
-
     try:
-        import fcntl
-        with open(_KEY_LOCK, "w") as lf:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+        from shared_infra.runtime.verrou_fichier import VerrouFichier
+        with VerrouFichier(_KEY_LOCK):
+            present, s = _relire_sous_verrou()
+            if present:
+                if s:
+                    return _coerce_to_fernet_key(s)
+                _cle_inutilisable()
+                return None
+            key = Fernet.generate_key()
+            fd, nom = tempfile.mkstemp(dir=str(_KEY_FILE.parent), prefix=".encryption_key.", suffix=".tmp")
+            tmp = Path(nom)
             try:
-                # Re-vérifier après le lock (un autre process l'a peut-être créé).
-                try:
-                    s = _KEY_FILE.read_text().strip()
-                    if s:
-                        return _coerce_to_fernet_key(s)
-                except (FileNotFoundError, OSError):
-                    pass
-                key = Fernet.generate_key()  # 44 chars b64 urlsafe
-                tmp = _KEY_FILE.with_suffix(".tmp")
-                tmp.write_bytes(key)
-                try:
-                    tmp.chmod(0o600)
-                except Exception:
-                    pass
-                tmp.replace(_KEY_FILE)
-                return key
+                with os.fdopen(fd, "wb") as fh:
+                    fh.write(key)
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                return _publish_key(tmp, key)
             finally:
-                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+                tmp.unlink(missing_ok=True)
     except Exception as e:
         logger.critical(
             "[encryption] Échec d'écriture de la clé de chiffrement dans %s : "

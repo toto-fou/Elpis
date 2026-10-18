@@ -16,19 +16,21 @@ plafonnés), ce qui suffit à :
   écriture plus récente) ;
 - dater chaque note et retrouver le chat qui l'a écrite (Réglages → Mémoire).
 
-Borné à ``MAX_RECORDS`` lignes (rognage amorti). Écritures sous ``flock`` sur
-un sentinelle dédié : plusieurs chats d'un même compte peuvent écrire en
-parallèle. Pur : aucun import app / DB.
+Borné à ``MAX_RECORDS`` lignes (rognage amorti). Écritures sous verrou
+``elpis.verrou.v1.1`` (``.journal.jsonl.lock``) : plusieurs chats d'un même
+compte, l'application et le service appmcp peuvent écrire en parallèle. Pur :
+aucun import app / DB.
 """
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import secrets
 import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
+
+from shared_infra.runtime.verrou_fichier import VerrouFichier
 
 JOURNAL_NAME = ".journal.jsonl"
 MAX_RECORDS = 200
@@ -41,25 +43,17 @@ def journal_path(mem_dir: "str | Path") -> Path:
 
 
 class _Locked:
-    """flock exclusif sur ``.journal.jsonl.lock`` (bloquant, court)."""
+    """Verrou elpis.verrou.v1.1 sur ``.journal.jsonl.lock``, attente sans délai (sections courtes)."""
 
     def __init__(self, mem_dir: Path) -> None:
-        self._lock = Path(mem_dir) / (JOURNAL_NAME + ".lock")
-        self._fd: Optional[int] = None
+        self._verrou = VerrouFichier(Path(mem_dir) / (JOURNAL_NAME + ".lock"))
 
     def __enter__(self):
-        self._lock.parent.mkdir(parents=True, exist_ok=True)
-        self._fd = os.open(str(self._lock), os.O_CREAT | os.O_RDWR, 0o644)
-        fcntl.flock(self._fd, fcntl.LOCK_EX)
+        self._verrou.acquerir()
         return self
 
     def __exit__(self, *exc):
-        if self._fd is not None:
-            try:
-                fcntl.flock(self._fd, fcntl.LOCK_UN)
-            finally:
-                os.close(self._fd)
-                self._fd = None
+        self._verrou.rendre()
         return False
 
 
@@ -188,12 +182,13 @@ def origins(mem_dir: "str | Path", store: str,
 
 
 def purge(mem_dir: "str | Path") -> bool:
-    """Supprime le journal (effacement complet de la mémoire)."""
-    removed = False
-    for name in (JOURNAL_NAME, JOURNAL_NAME + ".lock"):
+    """Supprime le journal sous son verrou (effacement complet de la mémoire)."""
+    mem_dir = Path(mem_dir)
+    if not mem_dir.is_dir():
+        return False
+    with _Locked(mem_dir):
         try:
-            (Path(mem_dir) / name).unlink()
-            removed = True
+            journal_path(mem_dir).unlink()
+            return True
         except FileNotFoundError:
-            pass
-    return removed
+            return False

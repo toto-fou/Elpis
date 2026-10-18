@@ -149,8 +149,8 @@ _ready: set = set()
 
 
 def _prepare() -> None:
-    """Tables posées une fois par process et par base (sur PostgreSQL et
-    MariaDB, la migration 0023 est tamponnée sans être rejouée)."""
+    """Tables posées une fois par process et par base (sur PostgreSQL, la
+    migration 0023 est tamponnée sans être rejouée)."""
     key = (os.getpid(), str(getattr(_dbc, "DB_PATH", "")))
     if key in _ready:
         return

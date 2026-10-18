@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: MIT
 """
-shared_infra.db._server — socle commun des moteurs SERVEUR (PostgreSQL,
-MariaDB/MySQL) : une connexion et un curseur qui se comportent comme ceux de
-``sqlite3``, pour que les ~615 appels SQL de l'application n'aient pas à
+shared_infra.db._server — socle du moteur SERVEUR (PostgreSQL) : une
+connexion et un curseur qui se comportent comme ceux de ``sqlite3``, pour que les ~615 appels SQL de l'application n'aient pas à
 savoir à quel moteur ils parlent.
 
 Ce que l'on reproduit de sqlite3, et pourquoi
@@ -138,7 +137,6 @@ def _adapt_one(v: Any, strip_nul: bool) -> Any:
 
 _WORD = re.compile(r"\s*(?:--[^\n]*\n\s*|/\*.*?\*/\s*)*([A-Za-z]+)", re.S)
 _DML = {"INSERT", "UPDATE", "DELETE", "REPLACE", "MERGE"}
-_DDL = {"CREATE", "ALTER", "DROP", "TRUNCATE", "RENAME"}
 
 
 def first_word(sql: str) -> str:
@@ -160,7 +158,6 @@ class ServerCursor:
         self.rowcount = -1
         self.description = None
         self.arraysize = 1
-        self._lastrowid = None
 
     # Remplis par ServerConnection._run
     def _set(self, names: Optional[Sequence[str]], rows: Optional[List[Sequence[Any]]],
@@ -210,8 +207,6 @@ class ServerCursor:
 
     @property
     def lastrowid(self):
-        if self.connection.dialect == "mysql":
-            return self._lastrowid
         raise ServerProgrammingError(
             "lastrowid n'existe pas en PostgreSQL : utiliser "
             "shared_infra.db._dialect.insert_id() (RETURNING id).")
@@ -221,7 +216,7 @@ class ServerCursor:
 
 
 class ServerConnection:
-    """Base des connexions PostgreSQL / MySQL. Les sous-classes fournissent
+    """Base de la connexion PostgreSQL. La sous-classe fournit
     ``_exec(sql, params, many)`` → (noms de colonnes, lignes, rowcount),
     ``_raw_begin/_raw_commit/_raw_rollback`` et ``_map_error(exc)``."""
 
@@ -323,8 +318,6 @@ class ServerConnection:
             self._in_tx = False
         elif word == "ROLLBACK" and not re.match(r"\s*ROLLBACK\s+TO\b", sql, re.I):
             self._in_tx = False
-        elif word in _DDL and self.dialect == "mysql":
-            self._in_tx = False                 # le DDL valide implicitement en MySQL
 
     def _begin(self) -> None:
         try:
@@ -343,7 +336,6 @@ class ServerConnection:
             raise self._map_error(exc) from exc
         self._after(word, sql)
         cur._set(names, rows, rowcount)
-        cur._lastrowid = getattr(self, "_last_insert_id", None)
 
     def _run_many(self, cur: ServerCursor, sql: str, seq: Iterable[Any]) -> None:
         word = self._before(sql)

@@ -20,7 +20,7 @@ _AX_TABLES = ("ax_nodes", "ax_selectors", "ax_transitions", "ax_credentials")
 
 def upgrade_legacy_sqlite(c) -> None:
     """Met à niveau les anciennes formes des tables AX (SQLite seulement : une
-    base PostgreSQL ou MySQL naît toujours du schéma de référence).
+    base PostgreSQL naît toujours du schéma de référence).
 
     * v1 -> v2 : une vieille ``ax_nodes`` (colonne ``selector_json``) est
       renommée ``ax_nodes_v1_backup`` ; la v2 est créée à côté et l'arbre

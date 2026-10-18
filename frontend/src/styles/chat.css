@@ -1,0 +1,45 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/src/styles/chat.css — styles de la page de chat sortis d'index.html : détail d'outil, blocs pré-contenu repliables, plein écran de l'éditeur, puces de fichier. */
+.tool-detail-enter-active, .tool-detail-leave-active { transition: opacity 0.15s ease, transform 0.15s ease, max-height 0.2s ease; max-height: 400px; overflow: hidden; }
+.tool-detail-enter-from, .tool-detail-leave-to { opacity: 0; transform: translateY(-4px); max-height: 0; }
+@keyframes pcSlideIn { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 300px; } }
+.pc-details > .pc-body { overflow: hidden; }
+.pc-details summary { transition: color 0.15s ease; }
+/* Repli : ouverture seule animée. */
+.pc-details[open] > .pc-body { animation: pcSlideIn 0.18s ease-out both; }
+/* Ouverture et fermeture animées quand le moteur sait interpoler `height: auto`. */
+@supports (interpolate-size: allow-keywords) {
+    .pc-details { interpolate-size: allow-keywords; }
+    .pc-details[open] > .pc-body { animation: none; }
+    .pc-details::details-content {
+        height: 0; opacity: 0; overflow: clip;
+        transition: height 0.2s ease-out, opacity 0.15s ease-out, content-visibility 0.2s allow-discrete;
+    }
+    .pc-details[open]::details-content { height: auto; opacity: 1; }
+}
+.editor-fullscreen { position: fixed !important; inset: 0 !important; z-index: 60 !important; width: 100% !important; border: none !important; }
+
+/* Puce de fichier : forme de document à coin plié. */
+.file-chip {
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+    position: relative;
+}
+/* Coin plié : tokens obligatoires, le corps de la puce suit la surface du thème (mode sombre compris). */
+.file-chip::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    background: var(--surface-3);
+    border-left: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    pointer-events: none;
+    z-index: 1;
+}
+.file-chip.file-chip-mention::before {
+    background: var(--accent-surface-2);
+    border-left-color: var(--accent-border);
+    border-bottom-color: var(--accent-border);
+}

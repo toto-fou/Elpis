@@ -1,0 +1,18 @@
+{
+  "name": "@elpis/images",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Pixels des images comme Pillow, sans module natif, partagés par le core et l'hôte d'outils : dimensions lues sur l'en-tête, PNG, JPEG, WebP (libwebp en WebAssembly), rééchantillonnage, dHash, recadrage, dans un thread de travail",
+  "exports": {
+    ".": "./src/index.ts",
+    "./pixels": "./src/pixels.ts"
+  },
+  "dependencies": {
+    "@elpis/commun": "0.1.0",
+    "@elpis/http": "0.1.0",
+    "jpeg-js": "0.4.4",
+    "pngjs": "7.0.0"
+  }
+}

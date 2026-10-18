@@ -38,6 +38,8 @@ import zlib
 from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional
 
+from shared_infra.runtime.verrou_fichier import VerrouFichier, VerrouOccupe
+
 logger = logging.getLogger("uvicorn.error")
 
 MAX_FILE = 5 * 1024 * 1024          # au-delà : version notée, contenu non gardé
@@ -78,23 +80,18 @@ def norm_rel(rel: str) -> str:
 
 @contextlib.contextmanager
 def _user_lock(uid: int):
+    """Verrou elpis.verrou.v1.1 du compte (``<uid>/.lock``) ; au-delà de 5 s, on continue sans."""
     d = _user_dir(uid)
     d.mkdir(parents=True, exist_ok=True)
-    fd = os.open(str(d / ".lock"), os.O_CREAT | os.O_RDWR, 0o600)
+    verrou = VerrouFichier(d / ".lock", delai=5.0)
     try:
-        import fcntl
-        deadline = time.monotonic() + 5.0
-        while True:
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except OSError:
-                if time.monotonic() >= deadline:
-                    break                          # fail-open
-                time.sleep(0.02)
+        verrou.acquerir()
+    except VerrouOccupe:
+        pass
+    try:
         yield
     finally:
-        os.close(fd)
+        verrou.rendre()
 
 
 def _read_json(p: Path, default):
@@ -124,9 +121,8 @@ def _start_unlocked(uid: int) -> str:
 
 
 def _current_unlocked(uid: int) -> str:
-    """Session courante, créée au besoin — À APPELER VERROU TENU (le flock
-    n'est pas réentrant : le reprendre depuis un autre descripteur attendait
-    tout le délai)."""
+    """Session courante, créée au besoin — À APPELER VERROU TENU (le verrou
+    n'est pas réentrant : le reprendre attendrait tout le délai)."""
     cur = _read_json(_user_dir(uid) / "session.json", {})
     sid = cur.get("id") if isinstance(cur, dict) else None
     return sid if isinstance(sid, str) and sid else _start_unlocked(uid)

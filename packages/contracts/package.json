@@ -1,0 +1,18 @@
+{
+  "name": "@elpis/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "description": "Contrats partagés du core, du toolhost et du frontend : flux NDJSON, formes d'erreur, schémas JSON",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generer": "tsx scripts/generer.ts && tsc -p tsconfig.dts.json"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}

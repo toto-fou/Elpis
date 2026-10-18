@@ -94,7 +94,7 @@ BUILTIN_KEY = "builtin"
 ALL_KEY = "*"
 PRINCIPAL_TYPES = ("user", "group")
 
-_CONN_RE = re.compile(r"^conn:(\d+)$")
+_CONN_RE = re.compile(r"^conn:([0-9]+)$")
 _TTL_S = 3.0
 _MAX_KEYS = 200
 
@@ -222,6 +222,7 @@ def normalize_engine_keys(keys, *, check_exists: bool = True) -> Optional[List[s
             continue
         if p[0] == "conn":
             conn_ids.append(p[1])
+            k = connector_key(p[1])
         if k not in out:
             out.append(k)
     if bad:

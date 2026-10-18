@@ -311,7 +311,7 @@ def _console_cookie_value(token: str, exp: Optional[int] = None,
 
 def _parse_console_cookie(cookie: str):
     parts = (cookie or "").split(".")
-    if len(parts) != 3 or not parts[0].isdigit():
+    if len(parts) != 3 or not (parts[0].isascii() and parts[0].isdigit()):
         return None
     return int(parts[0]), parts[1], parts[2]
 

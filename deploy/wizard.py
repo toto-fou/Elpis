@@ -51,14 +51,13 @@ COMPONENTS = [
     ("caddy", "Caddy (HTTPS)", "frontal TLS devant l'application"),
     ("agpl", "Extras AGPL", "PyMuPDF, pdf2docx : conversion PDF → Word (licence AGPL)"),
 ]
-ROOT_COMPONENTS = {"office", "caddy"}
+ROOT_COMPONENTS = {"caddy"}
 DB_MODES = [
     ("sqlite", "SQLite", "fichier local, rien à installer (jusqu'à quelques dizaines d'utilisateurs)"),
-    ("postgres-local", "PostgreSQL sur cette machine", "installé depuis les dépôts de l'OS et préparé"),
-    ("mariadb-local", "MariaDB sur cette machine", "installé depuis les dépôts de l'OS et préparé"),
-    ("external", "Serveur existant", "PostgreSQL ou MariaDB/MySQL déjà en service"),
+    ("postgres-local", "PostgreSQL sur cette machine", "préparé (paquet postgresql : prérequis apt)"),
+    ("external", "Serveur existant", "PostgreSQL déjà en service"),
 ]
-LOCAL_DB = {"postgres-local": ("postgres", "psql"), "mariadb-local": ("mysql", "mariadb")}
+LOCAL_DB = {"postgres-local": ("postgres", "psql")}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -73,7 +72,7 @@ class Ctx:
         self.os_name = os.environ.get("ELPIS_WIZ_OS", "")
         self.reinstall = C.CONFIG.exists()
         self.have = {t: shutil.which(t) is not None
-                     for t in ("node", "npm", "docker", "caddy", "psql", "mariadb", "systemctl", "soffice")}
+                     for t in ("docker", "caddy", "psql", "systemctl", "soffice")}
         self.voice_local = Path("/etc/systemd/system/elpis-whisper.service").exists()
         self.tts_local = Path("/etc/systemd/system/elpis-tts.service").exists()
         self.db_password_stored = C.DB_PASSWORD_FILE.is_file()
@@ -84,15 +83,9 @@ class Ctx:
     def component_reason(self, key: str) -> Optional[str]:
         if key in ROOT_COMPONENTS and not self.admin:
             return "droits administrateur requis"
-        if self.offline:
-            if key == "office" and not self.have["soffice"]:
-                return "hors ligne : paquets absents"
-            if key == "caddy" and not (self.have["caddy"] or list(Path(self.offline).glob("caddy/*.deb"))):
-                return "hors ligne : paquet absent du bundle"
-            if key == "browser" and not self.offline_has("browser"):
-                return "hors ligne : navigateur absent du bundle"
-        if key == "browser" and not (self.have["node"] and self.have["npm"]) and not self.admin:
-            return "Node.js absent et pas de droits administrateur"
+        # Paquets apt absents : install.sh les liste ensuite, avec la commande à lancer.
+        if self.offline and key == "browser" and not self.offline_has("browser"):
+            return "hors ligne : navigateur absent du bundle"
         return None
 
     def db_reason(self, mode: str) -> Optional[str]:
@@ -102,8 +95,6 @@ class Ctx:
             return "à l'installation seulement (./install.sh --db)"
         if not self.admin:
             return "droits administrateur requis"
-        if self.offline and not self.have[LOCAL_DB[mode][1]]:
-            return "hors ligne : serveur non installé"
         return None
 
     def sandbox_reason(self, mode: str) -> Optional[str]:
@@ -111,8 +102,6 @@ class Ctx:
             return None
         if mode == "pull" and self.offline:
             return "hors ligne"
-        if not self.have["docker"] and not self.admin:
-            return "Docker absent et pas de droits administrateur"
         return None
 
 
@@ -145,7 +134,8 @@ def initial_state(ctx: Ctx) -> State:
     voice = cfg.get("voice") or {}
     ex = cfg.get("executors") or {}
     st: State = {
-        "components": [k for k in ("browser", "office") if not ctx.component_reason(k)],
+        "components": [k for k in ("browser", "office")
+                       if not ctx.component_reason(k) and (k != "office" or ctx.have["soffice"])],
         "sandbox": "build", "pull_ref": os.environ.get("ELPIS_SANDBOX_PULL_REF", ""),
         "sandbox_memory": str((ex.get("limits") or {}).get("memory_mb") or 2048),
         "sandbox_image": str(ex.get("image") or ""),
@@ -181,7 +171,7 @@ def initial_state(ctx: Ctx) -> State:
         "after": "service" if ctx.admin and ctx.have["systemctl"] else "start",
     }
     backend = str(db.get("backend") or "sqlite")
-    if backend in ("postgres", "mysql"):
+    if backend == "postgres":
         st["db_mode"] = "external"
         st["db_engine"] = backend
         st["db_host"] = str(db.get("host") or "127.0.0.1")
@@ -247,7 +237,7 @@ def _detect_installed(st: State, ctx: Ctx, backend: str, db: Dict[str, Any]) -> 
     st["after"] = ("service" if Path("/etc/systemd/system/elpis.target").exists() and ctx.admin
                    else st["after"])
     host = str(db.get("host") or "127.0.0.1")
-    local = {"postgres": ("postgres-local", "psql"), "mysql": ("mariadb-local", "mariadb")}.get(backend)
+    local = {"postgres": ("postgres-local", "psql")}.get(backend)
     if local and host in ("127.0.0.1", "localhost") and db.get("name", "elpis") == "elpis" \
             and db.get("user", "elpis") == "elpis" and ctx.have[local[1]] and not ctx.db_reason(local[0]):
         st["db_mode"] = local[0]                # préparé par install.sh : re-préparation idempotente
@@ -298,10 +288,10 @@ def _apply_presets(st: State, ctx: Ctx) -> None:
         st["cloud"], st["cloud_provider"] = True, a.cloud_provider
         st["cloud_model"] = a.cloud_model or ""
     if a.db:
-        d = {"postgresql": "postgres", "mariadb": "mysql"}.get(a.db, a.db)
-        if d in ("postgres", "mysql"):
+        d = {"postgresql": "postgres"}.get(a.db, a.db)
+        if d == "postgres":
             st["db_mode"], st["db_engine"] = "external", d
-        elif d in ("sqlite", "external", "postgres-local", "mariadb-local"):
+        elif d in ("sqlite", "external", "postgres-local"):
             st["db_mode"] = d
 
 
@@ -396,13 +386,11 @@ def db_note(st: State) -> Optional[str]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class PortSync(T.Field):
-    """Port par défaut du moteur choisi, tant que l'utilisateur ne l'a pas changé."""
+    """Port par défaut du moteur choisi, tant que l'utilisateur n'en a pas saisi."""
 
     def normalize(self, st: State) -> None:
-        port = str(st.get("db_port") or "")
-        want = str(C.DB_PORTS.get(st.get("db_engine"), 5432))
-        if port in ("", "5432", "3306") and port != want:
-            st["db_port"] = want
+        if not str(st.get("db_port") or ""):
+            st["db_port"] = str(C.DB_PORTS.get(st.get("db_engine"), 5432))
 
 
 def _has(st: State, comp: str) -> bool:
@@ -413,7 +401,7 @@ def build_pages(ctx: Ctx) -> List[T.Page]:
     install = ctx.mode == "install"
     caddy_ok = (lambda st: _has(st, "caddy") or ctx.have["caddy"]) if install else (lambda st: ctx.have["caddy"])
     no_caddy = ("cochez Caddy (page Composants)" if install
-                else "Caddy non installé (./install.sh --with-caddy)")
+                else "Caddy non installé (paquet caddy, puis ./install.sh --with-caddy)")
     pages: List[T.Page] = []
 
     if install:
@@ -448,9 +436,6 @@ def build_pages(ctx: Ctx) -> List[T.Page]:
             "Base « elpis », utilisateur « elpis », mot de passe aléatoire (user_db/.db_password).\n"
             "Rien à saisir : tout est préparé par l'installation.")
             if st.get("db_mode") in LOCAL_DB else None),
-        T.Radio("db_engine", "Moteur", options=[T.Opt("postgres", "PostgreSQL"),
-                                                T.Opt("mysql", "MariaDB / MySQL")],
-                visible=lambda st: st.get("db_mode") == "external"),
         T.Text("db_host", "Hôte", required=True, placeholder="db.example.lan",
                visible=lambda st: st.get("db_mode") == "external"),
         T.Text("db_port", "Port", required=True, validate=v_port,
@@ -822,6 +807,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     s.add_argument("options", nargs="+")
     a = ap.parse_args(argv)
     if a.cmd in ("install", "configure"):
+        try:
+            C.refuse_retired_db()
+        except SystemExit as exc:
+            return int(exc.code or 2)
         return run_wizard(a.cmd, Path(a.out), Path(a.previous) if a.previous else None, a.start, a.banner)
     if a.cmd == "export-sh":
         return cmd_export_sh(Path(a.file))

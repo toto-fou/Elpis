@@ -105,6 +105,8 @@ your summary, in a deterministic ledger (operation, path, size, status) pinned a
   mention at most its role in `## Relevant Files`;
 - keep your bullets for what the ledger cannot say (decisions, failure causes, logical state).
 
-Note: some tool outputs may appear as `[Old tool output cleared — use session_search to
-retrieve it]` — they were pruned from the context view; do not treat the marker itself as
-information.
+Note: some old tool outputs may appear as a one-line digest `[Old tool output cleared: <tool>
+<ok|error>, <main argument>, <size>, <key facts> — use session_search to retrieve it]`, and long
+arguments of old file writes as `[content elided: <size>, sha256 <hash> — …]` — they were
+pruned from the context view; keep the digest facts that matter, but never present a digest as
+the full output or as file content.

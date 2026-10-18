@@ -122,3 +122,168 @@ export function selectOptionArg(evt, fmt = 'playwright') {
     }
     return hasValue(label) ? String(label) : (hasValue(value) ? String(value) : '');
 }
+
+const ANSI = /\x1b\[[0-?]*[ -/]*[@-~]/g;
+
+/** Texte sans séquences ANSI (couleurs des journaux d'appel de Playwright). */
+export function sansAnsi(texte) {
+    return String(texte ?? '').replace(ANSI, '');
+}
+
+// Code stable d'un message d'erreur sans code : motif connu, sinon `browser_error` (jamais un morceau du message).
+const CODES_MESSAGE = [
+    [/^Navigation (échouée|failed)|net::ERR_|NS_ERROR_|NS_BINDING_/, 'navigation_failed'],
+    [/^Adresse refusée par la politique|^URL blocked/i, 'url_blocked'],
+    [/No <option> matching|^Option .+ (introuvable|not found)/, 'option_not_found'],
+    [/is not a native <select>/, 'not_a_select'],
+    [/select requires option_value/, 'option_required'],
+    [/strict mode violation/, 'ambiguous_target'],
+    [/^Ref expired or invalid/, 'ref_expired'],
+    [/Timeout \d+ms exceeded|TimeoutError/, 'timeout'],
+    [/Target (page, context or browser )?(has been )?closed|Browser has been closed/, 'page_closed'],
+    [/not attached to the DOM|Element is detached/i, 'element_detached'],
+    [/element is not visible/i, 'element_not_visible'],
+    [/element is not enabled|element is disabled/i, 'element_disabled'],
+    [/^Unknown chain action|^Type d'action inconnu|incompatible avec API Playwright/, 'unknown_action'],
+    [/^actions\[\] required/, 'actions_required'],
+    [/^Max \d+ actions per chain/, 'too_many_actions'],
+    [/^No target: provide/, 'target_required'],
+    [/^fill failed/, 'fill_failed'],
+    [/^smartClick failed/, 'click_failed'],
+    [/^drag failed/, 'drag_failed'],
+    [/^Unknown assertion/, 'unknown_assertion'],
+    [/^script \(string\) required/, 'script_required'],
+    [/^(page|frame)\.evaluate: /, 'script_error'],
+    [/^Session (introuvable|not found)/i, 'session_not_found'],
+    [/^Session expir/i, 'session_expired'],
+    [/^File d'attente de la session pleine|^Session occupée/, 'session_busy'],
+    [/PDF generation is only supported|Printing is not available/i, 'pdf_unsupported'],
+    [/Cannot (read|set) propert|is not a function|is not iterable|is not defined|undefined is not|null is not/, 'internal_error'],
+];
+
+/** Code machine court d'une erreur du service : code déjà propre gardé, sinon table des messages, sinon `browser_error`. */
+export function codeErreur(message) {
+    const m = sansAnsi(message).trim();
+    if (/^[a-z][a-z0-9_]*$/.test(m)) return m;
+    for (const [motif, code] of CODES_MESSAGE) if (motif.test(m)) return code;
+    return 'browser_error';
+}
+
+/** Racines du serveur à masquer, la plus longue d'abord : motif (racine en début de chemin, pas dans une URL, suivie de `/` ou d'une fin de nom) et remplacement. */
+export function racinesMasquees({ base = '', home = '' } = {}) {
+    const out = [];
+    for (const [r0, rempl] of [[base, ''], [home, '~']]) {
+        const r = String(r0 || '').replace(/\/+$/, '');
+        if (!r) continue;
+        out.push({ n: r.length, motif: new RegExp(`(?<![\\w.~%\\]-])${_escapeRegex(r)}(?:/|(?![\\w.-]))`, 'g'), rempl });
+    }
+    return out.sort((a, b) => b.n - a.n);
+}
+
+// Clés dont la valeur vient du service (message, chemin de l'hôte), jamais de la page ; `result` (evaluate) n'est jamais parcouru.
+const CLES_MESSAGES = new Set(['error', 'fix', 'warning', 'nav_warning', 'hint', 'note', 'tab_hint', 'fail_reason']);
+const estCleService = (k) => CLES_MESSAGES.has(k) || k === 'path' || k.endsWith('_path');
+
+/** Réponse JSON sans séquences ANSI ni chemins du serveur (dossier du service rendu relatif, dossier personnel en `~/`) dans ses messages et ses chemins ; contenu de la page et objets non simples (Date, URL) intacts. */
+export function nettoyerSortie(valeur, racines = [], profondeur = 0, cle = '') {
+    if (typeof valeur === 'string') {
+        if (!estCleService(cle)) return valeur;
+        let s = valeur.includes('\x1b') ? sansAnsi(valeur) : valeur;
+        for (const { motif, rempl } of racines)
+            s = s.replace(motif, (m) => (m.endsWith('/') ? (rempl ? `${rempl}/` : '') : (rempl || '.')));
+        return s;
+    }
+    if (profondeur > 40 || valeur === null || typeof valeur !== 'object') return valeur;
+    if (Array.isArray(valeur)) return valeur.map(v => nettoyerSortie(v, racines, profondeur + 1, cle));
+    const proto = Object.getPrototypeOf(valeur);
+    if (proto !== Object.prototype && proto !== null) return valeur;
+    const out = {};
+    for (const [k, v] of Object.entries(valeur)) out[k] = k === 'result' ? v : nettoyerSortie(v, racines, profondeur + 1, k);
+    return out;
+}
+
+/** Corps d'une réponse d'erreur : `code` stable ajouté s'il manque (sauf 404/410 sans code, enveloppes de session du client). */
+export function normaliserErreur(corps, status) {
+    if (status < 400 || !corps || typeof corps !== 'object' || Array.isArray(corps)) return corps;
+    if (typeof corps.error !== 'string' || (typeof corps.code === 'string' && corps.code)) return corps;
+    if (status === 404 || status === 410) return corps;
+    return { ...corps, code: corps.status === 'nav_error' ? 'navigation_failed' : codeErreur(corps.error) };
+}
+
+const ROLES_CIBLES = new Set([
+    'button', 'link', 'checkbox', 'radio', 'textbox', 'searchbox', 'combobox', 'listbox', 'option', 'menuitem',
+    'menuitemcheckbox', 'menuitemradio', 'tab', 'switch', 'slider', 'spinbutton', 'treeitem', 'gridcell',
+]);
+
+/** Nœuds `{role, name}` actionnables d'un instantané ARIA de Playwright (`locator.ariaSnapshot()`), sans doublon. */
+export function noeudsAria(yaml) {
+    const out = [];
+    const vus = new Set();
+    for (const ligne of String(yaml || '').split('\n')) {
+        let s = ligne.trim();
+        if (!s.startsWith('- ')) continue;
+        s = s.slice(2);
+        if (s.startsWith("'")) {
+            const fin = s.lastIndexOf("'");
+            if (fin <= 0) continue;
+            s = s.slice(1, fin).replace(/''/g, "'");
+        }
+        const m = /^([a-z]+)(?: "((?:[^"\\]|\\.)*)")?/.exec(s);
+        if (!m || !ROLES_CIBLES.has(m[1])) continue;
+        let name = m[2] || '';
+        try { name = JSON.parse(`"${name}"`); } catch (_) { /* nom gardé tel quel */ }
+        const cle = `${m[1]}\u0000${name}`;
+        if (vus.has(cle)) continue;
+        vus.add(cle);
+        out.push({ role: m[1], name });
+    }
+    return out;
+}
+
+function _plat(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function _distance(a, b) {
+    let prec = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+        const cour = [i];
+        for (let j = 1; j <= b.length; j++)
+            cour[j] = Math.min(prec[j] + 1, cour[j - 1] + 1, prec[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        prec = cour;
+    }
+    return prec[b.length];
+}
+
+/** Ressemblance de deux noms entre 0 et 1 : accents et casse ignorés ; égalité, inclusion, mots communs, distance d'édition. */
+export function ressemblance(a, b) {
+    const x = _plat(a).slice(0, 80), y = _plat(b).slice(0, 80);
+    if (!x || !y) return 0;
+    if (x === y) return 1;
+    if (x.includes(y) || y.includes(x)) return 0.8;
+    const mx = new Set(x.split(' ')), my = y.split(' ');
+    const communs = my.filter(w => w.length > 2 && mx.has(w)).length;
+    const mots = communs ? 0.5 + 0.3 * communs / Math.max(mx.size, my.length) : 0;
+    return Math.max(mots, 1 - _distance(x, y) / Math.max(x.length, y.length));
+}
+
+// `|` qui séparerait deux clés du DSL des cibles (packages/navigateur, parseTargetDsl) : non échappé, suivi d'une clé connue et de `=`.
+const SEPARATEUR_DSL = /(?<!\\)\|(?=\s*(?:role|name|text|label|placeholder|test_id|css|xpath|ref|alt|title|nth)\s*=)/gi;
+
+/** Valeur insérée dans une cible DSL : un `|` qui y annoncerait une clé est échappé (`\|`), les autres restent lisibles. */
+export function echapperDsl(valeur) {
+    return String(valeur ?? '').replace(SEPARATEUR_DSL, '\\|');
+}
+
+/** Cibles proposées pour une cible introuvable : noms proches d'abord (même rôle avantagé), sinon les éléments du rôle demandé. */
+export function classerSuggestions(noeuds, { name = '', role = '' } = {}, max = 5) {
+    const cible = (n) => ({ role: n.role, name: n.name, target: n.name ? `role=${n.role}|name=${echapperDsl(n.name)}` : `role=${n.role}` });
+    const liste = Array.isArray(noeuds) ? noeuds : [];
+    if (name) {
+        const notes = liste.map(n => ({ n, s: ressemblance(name, n.name) + (role && n.role === role ? 0.1 : 0) }))
+            .filter(x => x.s >= 0.5).sort((a, b) => b.s - a.s);
+        if (notes.length) return notes.slice(0, max).map(x => cible(x.n));
+    }
+    const memeRole = role ? liste.filter(n => n.role === role) : [];
+    return (memeRole.length ? memeRole : liste).slice(0, max).map(cible);
+}

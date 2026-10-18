@@ -7,6 +7,7 @@ or English.
 
 ```bash
 ./install.sh    # guidé : installe, configure et démarre
+npm ci          # Node ≥ 24 (.nvmrc) : outils de développement TypeScript
 ```
 
 - Carte du code : [ARCHITECTURE.md](ARCHITECTURE.md) (détails :
@@ -19,15 +20,15 @@ or English.
 
 | Je modifie… | Dossier |
 |---|---|
-| une route HTTP | le sous-paquet de sa famille dans `shared_infra/` (routes du chat : `chatbot_app/routes/`) ; l'ordre d'enregistrement est dans `shared_infra/routes/__init__.py` |
-| la boucle agentique | `llm_core/_chat_with_tools.py` (l'orchestrateur : compteurs, aiguillage de chaque tour) et ses sous-routines dans `llm_core/engine/` (carte dans `engine/__init__.py`) |
-| le flux d'un tour de chat | `chatbot_app/routes/` (handlers HTTP ; ordre des événements en tête de `chats.py`) et `chatbot_app/turn/` (préparation, exécution, enregistrement du tour) |
-| le contexte, l'ordonnancement | `llm_core/context/`, `llm_core/_scheduling/` |
-| un outil de l'agent | `llm_core/tools/` ; sa famille dans `shared_infra/mcp/families.py` |
-| une opération sur les fichiers d'une sandbox | l'agent du conteneur : `shared_infra/sandbox/agent/server.py` (API `/v1`), `agent_client.py` ; jamais un accès direct de l'hôte |
-| Git d'une sandbox | `shared_infra/sandbox/git_ops.py` (par l'agent), `git_relay.py` (réseau) |
-| la base de données | `shared_infra/db/` (schéma, migrations, dialectes) |
-| l'interface | `frontend/` (fragments dans `includes/`, scripts dans `js/`) |
+| une route HTTP du core | sa famille dans `apps/core/src/familles/` (montage : `apps/core/src/familles.ts`) ; routes de l'hôte d'outils : `apps/toolhost/src/` |
+| la boucle agentique | `apps/core/src/boucle/` (orchestrateur, tour LLM, exécution des outils) |
+| le flux d'un tour de chat | `apps/core/src/familles/chat.ts`, `chat-controle.ts` et `apps/core/src/tour/` (admission, exécution, enregistrement, NDJSON) |
+| le contexte, l'ordonnancement | `apps/core/src/contexte/`, `apps/core/src/llm/ordonnanceur/` |
+| un outil de l'agent | famille native : `apps/toolhost/src/mcp/` (+ `packages/outils-mcp`) ; famille Office, encore en Python : `llm_core/tools/`, servie par elpis-tools (`server/local_mcp_server.py`) |
+| une opération sur les fichiers d'une sandbox | côté hôte : `packages/bac`, `packages/fichiers`, `apps/toolhost/src/fichiers/` ; dans le conteneur : l'agent `shared_infra/sandbox/agent/server.py` (API `/v1`) ; jamais un accès direct de l'hôte |
+| Git d'une sandbox | `packages/fichiers/src/git.ts` (par l'agent), `relais-git.ts` (réseau), routes `apps/toolhost/src/git/` |
+| la base de données | `packages/db/` (schéma, migrations, dialectes) ; `shared_infra/db/` pour le Python restant |
+| l'interface | `frontend/src/` : `features/<domaine>/` (logique TS), `components/<domaine>/` (SFC Vue), `entries/` (points d'entrée), `app/racine/` ; styles `frontend/css/`, images `frontend/assets/` |
 | l'installation, le lancement | `install.sh`, `elpis`, `deploy/` |
 | la documentation d'exploitation | `docs/exploitation.md`, `docs/configuration.md` |
 
@@ -36,17 +37,29 @@ pièges : [AGENTS.md](AGENTS.md).
 
 ## Avant d'ouvrir une pull request
 
-- Tests Python : `venv/bin/pip install -r requirements-dev.txt` une fois, puis `venv/bin/pytest` (le pytest du venv, pas celui du PATH). La suite tourne en parallèle (`-n auto`) ; `venv/bin/pytest -n0` pour la lancer en série.
-- Tests unitaires front : `node tests/frontend/<fichier>.js` (aussi lancés
-  par pytest).
-- Lint et typage : `venv/bin/ruff check .` et `venv/bin/mypy`.
-- La CI (GitHub Actions) rejoue tout cela sur Python 3.11 et 3.13, puis la
-  suite complète sur PostgreSQL et MariaDB.
+Les tests vivent dans le dépôt de développement des mainteneurs, pas dans ce
+dépôt. Avant d'ouvrir une pull request, lancez :
+
+```bash
+npm ci
+npm run typecheck   # tsc et vue-tsc
+npm run lint        # ESLint
+npm run build       # core, hôte d'outils et frontend
+```
+
+La CI publique (GitHub Actions) lance les mêmes commandes sur Node 24. Les
+mainteneurs passent ensuite la suite complète (TypeScript, Python, parcours
+réels dans Chromium) avant de fusionner.
+
+- Python restant (RAG, elpis-tools, `deploy/`) : `venv/bin/ruff check .`.
+- Formatage : `npm run format` (Prettier).
 - Après avoir ajouté des classes utilitaires Tailwind :
   `node tools/generate_tailwind_css.mjs`.
-- Une pull request = un sujet ; décrivez le comportement avant/après.
+- Une pull request = un sujet ; décrivez le comportement avant/après et ce
+  que vous avez essayé à la main.
 - Pas de nouvelle dépendance sous licence copyleft forte (GPL/AGPL) dans le
   cœur : elle doit rester optionnelle (voir `requirements-agpl-optional.txt`).
+  Toute dépendance livrée est inscrite dans `THIRD_PARTY_NOTICES.md`.
 - Nouveaux fichiers source : en-tête `SPDX-License-Identifier: MIT`.
 
 ## Licence

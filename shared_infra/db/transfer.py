@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Transfert des données d'une base Elpis vers une autre, entre n'importe
-quels moteurs (SQLite, PostgreSQL, MariaDB/MySQL) — chantier multi-moteurs,
-lot D.
+quels moteurs (SQLite, PostgreSQL) — chantier multi-moteurs, lot D.
 
 Déroulé (``transfer``) :
 
@@ -13,7 +12,7 @@ Déroulé (``transfer``) :
    valeurs converties au type cible ; lignes orphelines (parent absent, que
    SQLite tolère sans contrainte active) écartées et comptées, jamais
    inventées ; tables inconnues du schéma (vestiges) listées et ignorées ;
-4. identités / ``AUTO_INCREMENT`` recalés au-delà du maximum ;
+4. identités recalées au-delà du maximum ;
 5. vérification : comptes par table + empreinte des premières lignes.
 
 Échec après l'étape 2 (erreur ou vérification ratée) : la cible, vierge au
@@ -25,15 +24,14 @@ process tué pendant la copie ne vide rien : la table témoin
 alors à la tentative suivante une cible qu'elle peut vider et reprendre.
 
 La source est lue dans UNE transaction en lecture (instantané cohérent : WAL
-en SQLite, REPEATABLE READ en PostgreSQL, instantané cohérent en MySQL).
+en SQLite, REPEATABLE READ en PostgreSQL).
 Geler les écritures des autres process (mode maintenance) reste l'affaire de
 l'appelant. ``dry_run`` s'arrête après les contrôles et les comptes.
 
 Une cible se décrit par un dict : ``{"backend": "sqlite", "path": …}`` ou les
 réglages d'un moteur serveur (``backend``, ``host``, ``port``, ``name``,
 ``user``, ``password``, ``tls``) ; ``parse_target`` lit la forme texte
-(``sqlite:/chemin/app.db``, ``postgres://user@hôte:5432/base``,
-``mysql://user@hôte:3306/base``).
+(``sqlite:/chemin/app.db``, ``postgres://user@hôte:5432/base``).
 """
 from __future__ import annotations
 
@@ -45,7 +43,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from shared_infra.db import _schema
-from shared_infra.db._dialect import MYSQL, POSTGRES, SQLITE, bytes_order, dialect_of, table_columns, table_names
+from shared_infra.db._dialect import POSTGRES, SQLITE, bytes_order, dialect_of, table_columns, table_names
 
 log = logging.getLogger("uvicorn.error")
 
@@ -63,13 +61,12 @@ class TransferError(RuntimeError):
 
 # ── Cibles ───────────────────────────────────────────────────────────────────
 
-_SCHEMES = {"postgres": POSTGRES, "postgresql": POSTGRES, "pg": POSTGRES,
-            "mysql": MYSQL, "mariadb": MYSQL}
+_SCHEMES = {"postgres": POSTGRES, "postgresql": POSTGRES, "pg": POSTGRES}
 
 
 def parse_target(text: str, password: Optional[str] = None) -> Dict[str, Any]:
-    """``sqlite:/chemin`` | ``postgres://user@hôte:port/base?tls=require`` |
-    ``mysql://…``. Le mot de passe se passe à part (jamais dans l'historique
+    """``sqlite:/chemin`` | ``postgres://user@hôte:port/base?tls=require``.
+    Le mot de passe se passe à part (jamais dans l'historique
     du shell) ; un mot de passe présent dans l'URL est toléré."""
     text = (text or "").strip()
     if text.startswith("sqlite:"):
@@ -82,10 +79,10 @@ def parse_target(text: str, password: Optional[str] = None) -> Dict[str, Any]:
     u = urlsplit(text)
     backend = _SCHEMES.get(u.scheme.lower())
     if backend is None or not u.hostname or not u.path.strip("/"):
-        raise ValueError(f"cible illisible : {text!r} (attendu sqlite:/…, postgres://… ou mysql://…)")
+        raise ValueError(f"cible illisible : {text!r} (attendu sqlite:/… ou postgres://…)")
     qs = parse_qs(u.query)
     return {"backend": backend, "host": u.hostname,
-            "port": u.port or (5432 if backend == POSTGRES else 3306),
+            "port": u.port or 5432,
             "name": unquote(u.path.strip("/")), "user": unquote(u.username or "elpis"),
             "password": password if password is not None else unquote(u.password or ""),
             "tls": (qs.get("tls") or ["off"])[0], "timeout": 60.0, "schema": None}
@@ -138,39 +135,28 @@ def server_version(conn) -> str:
     try:
         if d == SQLITE:
             return "SQLite " + conn.execute("SELECT sqlite_version()").fetchone()[0]
-        if d == POSTGRES:
-            return conn.execute("SELECT version()").fetchone()[0].split(" on ")[0]
-        return conn.execute("SELECT VERSION()").fetchone()[0]
+        return conn.execute("SELECT version()").fetchone()[0].split(" on ")[0]
     except Exception as exc:                          # pragma: no cover — diagnostic
         return f"? ({exc})"
 
 
 # ── Lecture ──────────────────────────────────────────────────────────────────
 
-def _q(conn, name: str) -> str:
-    return _schema._q_mysql(name) if dialect_of(conn) == MYSQL else _schema.q(name)
-
-
 def _begin_snapshot(conn, freeze: bool = False) -> None:
     """Instantané cohérent de la source. freeze (bascule) bloque en plus
     les écritures des autres process jusqu'à la fin de la lecture : verrou
-    d'écriture en SQLite, SHARE sur chaque table en PostgreSQL. MySQL n'a
-    pas d'équivalent sans privilège RELOAD : le mode maintenance et la
-    garde de génération y suffisent."""
+    d'écriture en SQLite, SHARE sur chaque table en PostgreSQL."""
     d = dialect_of(conn)
     if d == SQLITE:
         conn.execute("BEGIN IMMEDIATE" if freeze else "BEGIN")
-    elif d == POSTGRES:
-        if freeze:
-            conn.execute("BEGIN ISOLATION LEVEL REPEATABLE READ")
-            names = [n for n in table_names(conn) if n in {t.name for t in _schema.TABLES}]
-            if names:
-                conn.execute("LOCK TABLE " + ", ".join(_schema.q(n) for n in names)
-                             + " IN SHARE MODE")
-        else:
-            conn.execute("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY")
+    elif freeze:
+        conn.execute("BEGIN ISOLATION LEVEL REPEATABLE READ")
+        names = [n for n in table_names(conn) if n in {t.name for t in _schema.TABLES}]
+        if names:
+            conn.execute("LOCK TABLE " + ", ".join(_schema.q(n) for n in names)
+                         + " IN SHARE MODE")
     else:
-        conn.execute("START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY")
+        conn.execute("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY")
 
 
 def _end_snapshot(conn) -> None:
@@ -183,27 +169,23 @@ def _end_snapshot(conn) -> None:
 def _clear_target(conn, report: Dict[str, Any]) -> None:
     """Supprime toutes les tables de la cible — appelée seulement quand la
     copie a commencé sur une cible VÉRIFIÉE vierge : tout ce qui s'y trouve
-    vient d'elle. Plusieurs passes : clés étrangères (MySQL) et tables
-    internes des index plein texte (SQLite) tombent dans le désordre."""
+    vient d'elle. Plusieurs passes : les tables internes des index plein
+    texte (SQLite) tombent dans le désordre."""
     d = dialect_of(conn)
     try:
         if conn.in_transaction:
             conn.execute("ROLLBACK")
-        if d == MYSQL:
-            conn.execute("SET FOREIGN_KEY_CHECKS=0")
         for _ in range(3):
             names = table_names(conn)
             if not names:
                 break
             for name in names:
                 try:
-                    conn.execute(f"DROP TABLE IF EXISTS {_q(conn, name)}"
+                    conn.execute(f"DROP TABLE IF EXISTS {_schema.q(name)}"
                                  + (" CASCADE" if d == POSTGRES else ""))
                 except Exception:                          # noqa: BLE001 — passe suivante
                     if conn.in_transaction:
                         conn.execute("ROLLBACK")
-        if d == MYSQL:
-            conn.execute("SET FOREIGN_KEY_CHECKS=1")
         left = table_names(conn)
     except Exception as exc:                               # noqa: BLE001
         log.error("[transfer] cible non vidée après l'échec : %s", exc)
@@ -217,7 +199,7 @@ def _clear_target(conn, report: Dict[str, Any]) -> None:
 
 
 def _count(conn, table: str) -> int:
-    return int(conn.execute(f"SELECT COUNT(*) FROM {_q(conn, table)}").fetchone()[0])
+    return int(conn.execute(f"SELECT COUNT(*) FROM {_schema.q(table)}").fetchone()[0])
 
 
 def _order_key(t: "_schema.Table") -> Tuple[str, ...]:
@@ -231,9 +213,9 @@ def _order_key(t: "_schema.Table") -> Tuple[str, ...]:
 
 def _pages(conn, t, cols: Sequence[str]) -> Iterable[List[tuple]]:
     """Lignes de ``t`` par pages, dans l'ordre de la clé (reproductible)."""
-    qc = ", ".join(_q(conn, c) for c in cols)
-    order = ", ".join(_q(conn, c) for c in _order_key(t))
-    base = f"SELECT {qc} FROM {_q(conn, t.name)} ORDER BY {order}"
+    qc = ", ".join(_schema.q(c) for c in cols)
+    order = ", ".join(_schema.q(c) for c in _order_key(t))
+    base = f"SELECT {qc} FROM {_schema.q(t.name)} ORDER BY {order}"
     offset = 0
     while True:
         rows = conn.execute(f"{base} LIMIT {_BATCH_ROWS} OFFSET {offset}").fetchall()
@@ -254,10 +236,10 @@ def _sample(conn, t, cols: Sequence[str]) -> List[tuple]:
     d = dialect_of(conn)
     kinds = {c.name: c.type for c in t.cols}
     order = ", ".join(
-        bytes_order(_q(conn, c), d) if kinds.get(c) in (_schema.TEXT, _schema.TEXT_CI)
-        else _q(conn, c) for c in _order_key(t))
-    qc = ", ".join(_q(conn, c) for c in cols)
-    sql = f"SELECT {qc} FROM {_q(conn, t.name)} ORDER BY {order} LIMIT {int(_SAMPLE)}"
+        bytes_order(_schema.q(c), d) if kinds.get(c) == _schema.TEXT
+        else _schema.q(c) for c in _order_key(t))
+    qc = ", ".join(_schema.q(c) for c in cols)
+    sql = f"SELECT {qc} FROM {_schema.q(t.name)} ORDER BY {order} LIMIT {int(_SAMPLE)}"
     return [tuple(r) for r in conn.execute(sql).fetchall()]
 
 
@@ -270,7 +252,7 @@ def _col_kind(c, dialect: str) -> str:
 
 def _coerce(v: Any, kind: str) -> Any:
     """Valeur source → type cible. SQLite stocke ce qu'on lui donne (texte
-    dans une colonne entière…) ; PG et MySQL en mode strict refusent."""
+    dans une colonne entière…) ; PostgreSQL refuse."""
     if v is None:
         return None
     if kind == "int":
@@ -314,7 +296,7 @@ def _insert_rows(conn, table: str, cols: Sequence[str], rows: List[tuple]) -> No
     if not rows:
         return
     per = max(1, min(500, _MAX_PARAMS // max(1, len(cols))))
-    head = f"INSERT INTO {_q(conn, table)} ({', '.join(_q(conn, c) for c in cols)}) VALUES "
+    head = f"INSERT INTO {_schema.q(table)} ({', '.join(_schema.q(c) for c in cols)}) VALUES "
     one = "(" + ", ".join("?" for _ in cols) + ")"
     for i in range(0, len(rows), per):
         chunk = rows[i:i + per]
@@ -328,13 +310,11 @@ def _reset_identity(conn, t) -> None:
         return
     col = ids[0]
     d = dialect_of(conn)
-    top = conn.execute(f"SELECT MAX({_q(conn, col)}) FROM {_q(conn, t.name)}").fetchone()[0]
+    top = conn.execute(f"SELECT MAX({_schema.q(col)}) FROM {_schema.q(t.name)}").fetchone()[0]
     nxt = int(top or 0) + 1
     if d == POSTGRES:
         conn.execute(f"SELECT setval(pg_get_serial_sequence(?, ?), {nxt}, false)",
                      (_schema.q(t.name), col))
-    elif d == MYSQL:
-        conn.execute(f"ALTER TABLE {_q(conn, t.name)} AUTO_INCREMENT = {nxt}")
     # SQLite : ``sqlite_sequence`` suit tout seul les id explicites.
 
 
@@ -385,9 +365,6 @@ def check_target(target: Dict[str, Any]) -> Dict[str, Any]:
         out = {"ok": True, "target": describe(target), "version": server_version(conn),
                "tables": len(names), "empty": not names or partial, "partial": partial,
                "connect_ms": round(latency_ms, 1), "query_ms": round(rtt_ms, 2)}
-        if dialect_of(conn) == MYSQL:
-            out["max_allowed_packet"] = int(conn.execute(
-                "SELECT @@max_allowed_packet").fetchone()[0])
         if dialect_of(conn) == POSTGRES:
             out["unaccent"] = conn.execute(
                 "SELECT 1 FROM pg_available_extensions WHERE name='unaccent'").fetchone() is not None
@@ -454,7 +431,7 @@ def transfer(source: Dict[str, Any], target: Dict[str, Any], *, dry_run: bool = 
 
         # 2. Schéma + tampon (toutes les migrations connues de la source).
         wrote = True
-        dst.execute(f"CREATE TABLE {_q(dst, PARTIAL_MARK)} (n INTEGER)")
+        dst.execute(f"CREATE TABLE {_schema.q(PARTIAL_MARK)} (n INTEGER)")
         _schema.create_all(dst)
         if dst.in_transaction:
             dst.execute("COMMIT")
@@ -559,7 +536,7 @@ def transfer(source: Dict[str, Any], target: Dict[str, Any], *, dry_run: bool = 
         if mismatches:
             _clear_target(dst, report)
         else:
-            dst.execute(f"DROP TABLE {_q(dst, PARTIAL_MARK)}")
+            dst.execute(f"DROP TABLE {_schema.q(PARTIAL_MARK)}")
             if dst.in_transaction:
                 dst.execute("COMMIT")
         return report

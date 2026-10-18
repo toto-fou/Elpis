@@ -1,0 +1,8 @@
+# Vecteurs de parité : écrits par Python (migration-kit/vecteurs), comparés à l'octet.
+**/test/vecteurs/
+# Fichiers générés.
+**/*.gen.ts
+# Goldens : copiés à l'octet de tests/goldens (Python), jamais reformatés.
+**/goldens/
+# Greffon opencode : servi tel quel aux postes (GET /api/code/plugin.ts), version et octets suivis par ses tests.
+apps/core/greffon-opencode/

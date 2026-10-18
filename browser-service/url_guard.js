@@ -123,6 +123,53 @@ export function hoteDepuisInterfaces(interfaces) {
     return { adresses, reseaux };
 }
 
+/** IPv4 d'un champ hexadécimal de /proc/net/route (octets de la machine, petit-boutiste). */
+function _ipv4Proc(hex) {
+    const n = parseInt(hex, 16) >>> 0;
+    return [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, n >>> 24].join('.');
+}
+
+/**
+ * Interfaces vues par /proc (Linux), au format de ``os.networkInterfaces()``.
+ * libuv omet les interfaces sans porteuse (pont Docker sans conteneur) alors
+ * que leurs adresses restent celles de l'hôte : ``if_inet6`` (IPv6), les
+ * feuilles « /32 host LOCAL » de ``fib_trie`` (IPv4) et les routes directes
+ * des interfaces de conteneurs (``route``) les rendent.
+ */
+export function interfacesDepuisProc({ ifInet6 = '', fibTrie = '', route = '' } = {}) {
+    const sortie = {};
+    const ajouter = (nom, address, cidr) => { (sortie[nom] ||= []).push({ address, cidr }); };
+    for (const ligne of String(ifInet6).split('\n')) {
+        const [hex, , plen, , , nom] = ligne.trim().split(/\s+/);
+        if (!hex || hex.length !== 32 || !plen || !nom) continue;
+        const adr = hex.match(/.{4}/g).join(':');
+        ajouter(nom, adr, `${adr}/${parseInt(plen, 16)}`);
+    }
+    let derniere = '';
+    for (const ligne of String(fibTrie).split('\n')) {
+        const feuille = /^\s*\|-- (\S+)$/.exec(ligne);
+        if (feuille) derniere = feuille[1];
+        else if (/^\s*\/32 host LOCAL$/.test(ligne) && derniere) ajouter('', derniere, null);
+    }
+    for (const ligne of String(route).split('\n').slice(1)) {
+        const [nom, dest, passerelle, , , , , masque] = ligne.trim().split(/\s+/);
+        if (!nom || !dest || !masque || masque === '00000000' || passerelle !== '00000000') continue;
+        if (!_INTERFACES_CONTENEURS.test(nom)) continue;
+        const bits = (parseInt(masque, 16) >>> 0).toString(2).replace(/0/g, '').length;
+        ajouter(nom, _ipv4Proc(dest), `${_ipv4Proc(dest)}/${bits}`);
+    }
+    return sortie;
+}
+
+/** Plusieurs vues ``os.networkInterfaces()`` réunies interface par interface. */
+export function fusionnerInterfaces(...sources) {
+    const sortie = {};
+    for (const s of sources) {
+        for (const [nom, liste] of Object.entries(s || {})) (sortie[nom] ||= []).push(...(liste || []));
+    }
+    return sortie;
+}
+
 /**
  * Liste blanche du réseau local : noms d'hôte exacts, suffixes (``*.lan`` ou
  * ``.lan``), adresses et réseaux (``192.168.1.0/24``). Vide = tout le réseau

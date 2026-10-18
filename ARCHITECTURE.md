@@ -3,32 +3,32 @@
 Carte du code d'Elpis : les process, les paquets, où vit chaque chose et les
 invariants qui tiennent l'ensemble. Ce document reste court et suit le code ;
 le détail (API, schémas, séquences, sous-systèmes) est dans
-[docs/architecture.md](docs/architecture.md), dont certaines parties
-(arborescence, base de données) sont antérieures au rangement actuel : en cas
-d'écart, ce fichier et le code font foi. L'histoire des règles du cœur (boucle
-agentique, flux de chat) et la table de leur découpage en modules sont dans
-[docs/historique-coeur.md](docs/historique-coeur.md).
+[docs/architecture.md](docs/architecture.md) ; en cas d'écart, ce fichier et
+le code font foi. L'histoire des règles du cœur (boucle agentique, flux de
+chat) est dans l'historique git.
 
 ## Vue d'ensemble
 
-Elpis est une application **multi-process** auto-hébergée : un serveur
-applicatif Python sert l'interface et orchestre le LLM, un hôte d'outils
+Elpis est une application **multi-process** auto-hébergée : le core
+TypeScript (Node, Fastify) sert l'interface et orchestre le LLM, un hôte d'outils
 exécute les outils MCP, chaque utilisateur a son conteneur Docker, et des
 services satellites (RAG, navigateur, contrôle d'écran, voix) sont optionnels
 et reliés par HTTP.
 
 | Process | Port | Entrée | Rôle |
 |---|---|---|---|
-| **main** | 8001 | `server/app.py` (`APP_MODE=main`) | chat, éditeur, sandbox, routines, statiques ; Gunicorn, `min(4, cpu − 1)` workers au-delà de 2 cœurs (`APP_WORKERS`) |
-| **admin** | 8002 | `server/admin_app.py` (`APP_MODE=admin`) | console d'administration et `/api/admin/*` ; 1 worker |
-| **toolhost** | 8765 | `python -m toolhost` | hôte des outils MCP (HTTP streamable `/mcp[/<famille>]`, SSE), API sandbox et terminal ; sa propre base `user_db/toolhost.db` |
+| **main** | 8001 | `apps/core/dist/main.mjs` (Node, `APP_MODE=main`) | chat, éditeur, sandbox, routines, statiques ; un process |
+| **admin** | 8002 | `apps/core/dist/main.mjs` (Node, `APP_MODE=admin`) | console d'administration et `/api/admin/*` ; un process |
+| **toolhost** | 8765 | `apps/toolhost/dist/main.mjs` (Node) | hôte des outils MCP (HTTP streamable `/mcp[/<famille>]`, SSE), API sandbox et terminal ; sa propre base `user_db/toolhost.db` ; sert lui-même les familles portées en TypeScript, relaie les autres (Office) vers elpis-tools |
+| **elpis-tools** | 8767 (loopback) | `apps/toolhost/dist/main.mjs --elpis-tools` → `server/local_mcp_server.py` | famille d'outils Office (Python), amont MCP de l'hôte d'outils |
 | **rag_app** | 8000 | `rag_app/start.sh` | service RAG autonome (FastAPI + Qdrant :6333, OCR) — optionnel |
 | **browser-service** | 3000 | `browser-service/server.js` | navigateur piloté (Node + Playwright) — optionnel |
 | **desktop-agent** | 8765 (sur la machine pilotée) | `desktop-agent/` | contrôle d'écran Windows (pywinauto) / Linux (AT-SPI) — optionnel |
 | **llama-server** | 8080 | llama.cpp, hors dépôt | inférence locale ; ou tout moteur compatible OpenAI, ou un fournisseur distant |
 | **Caddy** | 443 / 8443 / 8444 | `deploy/caddy/` | frontal HTTPS — optionnel |
 
-`./elpis start` lance qdrant, rag, toolhost, main, admin et browser ;
+`./elpis start` lance qdrant, rag, tools (elpis-tools), toolhost, main, admin
+et browser ;
 `sudo ./elpis service install` en fait des services systemd (`elpis.target`).
 
 ## Le parcours d'un message
@@ -36,179 +36,153 @@ et reliés par HTTP.
 Un tour de chat, de la requête au dernier événement :
 
 1. **Entrée.** L'interface envoie `POST /api/chat-saved-stream3`
-   (`chatbot_app/routes/chats.py`). La route authentifie, puis refuse si une
-   compaction ou une génération tourne déjà sur cette conversation (409) ou si
-   l'utilisateur a trop d'exécutions en cours (429, `MAX_RUNS_PER_USER`).
-   `prepare_turn` (`chatbot_app/turn/preparation.py`) décide ensuite tout le
-   tour : cible, outils, historique, compaction, titre.
-2. **Cible.** `llm_core/_target.py` résout le moteur : `llama-server` intégré
-   par défaut, ou un connecteur (activé, clé lisible, fournisseur autorisé).
-   Les adresses des serveurs MCP sont résolues côté serveur, jamais reprises
-   du client.
-3. **Verrou et flux.** Un verrou par conversation (`flock` dans le répertoire
-   d'exécution, `shared_infra/runtime/chat_locks.py`) vaut pour tous les
-   workers ; la route le prend, `run_turn` le réclame
-   (`chatbot_app/turn/admission.py`). La réponse est un flux NDJSON
-   (`run_turn`, `chatbot_app/turn/execution.py`) alimenté par une tâche de
-   fond via une file, jetons regroupés toutes les 25 ms
-   (`chatbot_app/turn/events.py`). L'ordre des événements est écrit en tête
-   de `chatbot_app/routes/chats.py`.
-4. **Ordonnancement.** Pour une cible llama.cpp, `llm_core/_scheduling/`
+   (`apps/core/src/familles/chat.ts`). L'admission (`apps/core/src/tour/ouverture.ts`,
+   `admission.ts`) authentifie, puis refuse si une compaction ou une
+   génération tourne déjà sur cette conversation (409) ou si le compte a trop
+   d'exécutions en cours (429). La préparation (`tour/preparation.ts`) décide
+   ensuite tout le tour : cible, outils, historique, compaction, titre.
+2. **Cible.** `apps/core/src/llm/cible.ts` résout le moteur : `llama-server`
+   intégré par défaut, ou un connecteur (activé, clé lisible, fournisseur
+   autorisé). Les adresses des serveurs MCP sont résolues côté serveur,
+   jamais reprises du client.
+3. **Verrou et flux.** Un verrou de présence par conversation, en mémoire
+   (main est un seul process, `tour/etat.ts`) ; la route le prend, le tour le
+   réclame. La réponse est un flux NDJSON (`tour/execution.ts`) pompé par
+   `tour/evenements.ts`, jetons regroupés toutes les 25 ms. L'ordre des
+   événements et les invariants du flux sont écrits dans
+   [apps/core/src/tour/README.md](apps/core/src/tour/README.md).
+4. **Ordonnancement.** Pour une cible llama.cpp, `apps/core/src/llm/ordonnanceur/`
    applique l'exclusivité de modèle, les créneaux (slots) et le disjoncteur.
-5. **Boucle.** Sans outil : `_chat_classic.py`. Sinon la boucle agentique :
-   l'orchestrateur `llm_core/_chat_with_tools.py` collecte les outils dans le
-   pool MCP et assemble la tête système, puis, à chaque itération, appelle les
-   sous-routines de `llm_core/engine/`. Un tour LLM (`llm_turn.call_llm`) :
-   porte de compaction, élagage périodique, ajustement au contexte
-   (`fit_context`), appel du modèle (Anthropic natif ou compatible OpenAI).
-   Puis l'exécution du lot d'appels d'outils, la même pour les appels natifs
-   et les appels écrits en texte (`tool_dispatch.run_tool_batch`) : les outils
-   sériels — sandbox, dépôt, écran, sous-agent — un par un, les autres en
-   parallèle, shell compris, résultats remis dans l'ordre ; traits de chaque
-   outil dans `llm_core/_tool_traits.py`. Les compteurs d'itérations restent
-   à l'orchestrateur ; réponse finale, synthèse sur limite et sortie d'erreur
-   sont dans `engine/run_exit.py`.
-6. **Outils.** `_mcp_pool.call_tool` joint le **toolhost** (`python -m
-   toolhost`, :8765), qui héberge les familles d'outils de
-   `server/local_mcp_server.py` (repli : un sous-process stdio par worker).
-   L'identité de l'utilisateur voyage dans `_meta`.
+5. **Boucle.** Un seul chemin, avec outils : l'orchestrateur
+   (`apps/core/src/boucle/orchestrateur.ts`) collecte les outils dans le pool
+   MCP et assemble la tête système, puis, à chaque itération, un tour LLM
+   (`boucle/tour-llm.ts`) : porte de compaction, élagage périodique,
+   ajustement au contexte, appel du modèle (Anthropic natif ou compatible
+   OpenAI). Puis l'exécution du lot d'appels d'outils, la même pour les appels
+   natifs et les appels écrits en texte (`boucle/dispatch-outils.ts`,
+   `execution-outils.ts`) : les outils mutants un par un, les autres en
+   parallèle borné, résultats remis dans l'ordre ; traits de chaque outil dans
+   `apps/core/src/outils/traits.ts`. Réponse finale, synthèse sur limite et
+   sortie d'erreur sont dans `boucle/sortie.ts`.
+6. **Outils.** Le pool MCP (`apps/core/src/outils/mcp/clients.ts`) joint
+   l'**hôte d'outils** (`apps/toolhost`, :8765, service requis : le core ne le
+   lance jamais lui-même) ; l'identité du compte voyage dans `_meta`. Les
+   familles liées au compte (mémoire, tâches, skills, graphiques) sont servies
+   en processus par main (`outils/mcp/en-processus.ts`).
 7. **Exécution.** Les commandes shell tournent dans le conteneur de
    l'utilisateur (`docker exec`, privilèges abaissés à l'UID 10001). Les outils
    fichiers, l'éditeur et Git passent par l'agent de ce conteneur
-   (`shared_infra/sandbox/agent/`), sous le même UID ; les opérations Git
-   réseau lancées par Elpis passent par le relais authentifiant de l'hôte
-   (`shared_infra/sandbox/git_relay.py`).
-8. **Fin de tour.** Le tour est enregistré (`chatbot_app/turn/persistence.py`
-   puis `shared_infra/chat/store.py`, contrôle optimiste sur `updated_at` : un
+   (`shared_infra/sandbox/agent/`, client `@elpis/fichiers`), sous le même
+   UID ; les opérations Git réseau lancées par Elpis passent par le relais
+   authentifiant de l'hôte (`packages/fichiers/src/relais-git.ts`).
+8. **Fin de tour.** Le tour est enregistré (`tour/persistance.ts` puis
+   `apps/core/src/chats/stockage.ts`, contrôle optimiste sur `updated_at` : un
    conflit est signalé, rien n'est écrasé), puis les événements `kv_cache` et
    `final` partent. La consommation va dans `usage_events`, les appels
    d'outils dans `tool_call_metrics`, les compteurs dans `metric_events`.
 9. **Arrêt et reprise.** `POST /api/chat/cancel`
-   (`chatbot_app/routes/chat_control.py`) publie sur le bus
-   d'annulation (fichier JSONL suivi par tous les workers). Si le navigateur
-   se déconnecte, l'exécution continue détachée (dès qu'un outil a tourné, ou
-   si la reprise est activée) ou s'arrête en enregistrant le partiel ; tout
-   worker peut la rejoindre par `GET /api/chat/{id}/run/events`.
+   (`apps/core/src/familles/chat-controle.ts`) arrête le tour par son
+   AbortSignal. Si le navigateur se déconnecte, l'exécution continue détachée
+   (dès qu'un outil a tourné, ou si la reprise est activée) ou s'arrête en
+   enregistrant le partiel ; on la rejoint par `GET /api/chat/{id}/run/events`,
+   y compris après un redémarrage (`tour/journal-run.ts`).
 
 ## Carte du code
 
-### `server/` — points d'entrée
+### `server/` — elpis-tools
 
-- `app.py` : `create_app()` et `lifespan` ; choisit les routeurs selon
-  `APP_MODE` (`main`, `admin`, `full`), installe les middlewares (session,
-  CSRF, en-têtes de sécurité, journal des requêtes, maintenance, relais
-  sandbox) et démarre les tâches de fond.
-- `admin_app.py` : force `APP_MODE=admin`.
-- `gunicorn_conf.py`, `gunicorn_admin_conf.py`, `uvicorn_worker.py` (arrêt
-  gracieux borné, vidage des flux SSE), `_bind_host.py` (adresse d'écoute,
-  repli sur la boucle locale).
-- `local_mcp_server.py` : le registre FastMCP des outils locaux, importé par
-  `toolhost` (et repli stdio par worker).
+- `local_mcp_server.py` : le registre FastMCP des outils encore en Python
+  (elpis-tools), lancé par l'hôte d'outils (`--elpis-tools`).
 
-### `llm_core/` — le moteur LLM
+### `apps/core/` — le core TypeScript
 
-- **Transport** : `providers/` (`openai_compat`, `anthropic`, `llamacpp`,
-  `llama_stream` pour le flux reprenable, `llama_models`, `llama_caps`,
-  `discovery`), `_client.py`, `_llama_http.py`, `_llm_retry.py`, `_target.py`
-  (cible d'inférence par requête), `engines.py`, `_llm_params.py` (cascade des
-  paramètres d'échantillonnage).
-- **Boucles de chat** : `_chat_classic.py` (sans outils) ; la boucle
-  agentique, avec son orchestrateur `_chat_with_tools.py` (prélude, compteurs
-  d'itérations, aiguillage de chaque tour) et ses sous-routines dans
-  `engine/` (carte dans `engine/__init__.py`) : `llm_turn` (un tour LLM),
-  `llm_stream` (transport d'un appel), `live_text` (émission directe),
-  `resume` (reprises automatiques), `tool_catalog` (outils du tour),
-  `tool_dispatch` (exécution des appels d'outils, natifs ou écrits en texte),
-  `tool_exec` (ordonnancement d'un lot), `run_exit` (sorties du run), `run`
-  (état du run), `result_contract` (échecs d'outil), `stream_events`
-  (registre des événements NDJSON) ; `_tool_parsing.py` (appels écrits en
-  texte), `_stream_tag_parser.py`, `_think_*` et `_thinking_reconcile.py`
-  (raisonnement).
-- **Harnais de contexte** : `context/` — `tokens` (autorité de comptage),
-  `budget`, `compaction_gate`, `pruning` (`fit_context`), `assembly` (tête
-  système stable à l'octet), `compression/` ; plus
-  `conversation_compressor.py`, `context_config.py`, `_ctx_window.py`.
-- **Ordonnancement** : `_scheduling/` (files FIFO à deux niveaux, exclusivité
-  de modèle, disjoncteur, un ordonnanceur par serveur), `_queue.py`,
-  `_capabilities.py`.
-- **Outils** : `_mcp_pool.py`, `_mcp_wrappers.py`, `_mcp_categories.py` ;
-  `tools/` (fichiers, shell, Git, navigateur, bureau, graphiques, mémoire,
-  skills, tâches, sous-agents, RAG ; `app_mcp.py` pour les outils servis dans
-  le process) ; `tools/_exec_bridge.py` fait passer les outils synchrones par
+- `src/main.ts` (process, signaux), `composition.ts` (assemblage),
+  `familles/` (routes HTTP par famille, montées selon `APP_MODE` ; liste dans
+  `familles.ts`).
+- **Chat** : `tour/` (admission, préparation, exécution, pompe NDJSON,
+  persistance, historique d'un tour), `boucle/` (boucle agentique : dispatch
+  des outils, appels écrits en texte, balises du flux, contrat de résultat),
+  `chats/` (stockage, prompts, gabarits).
+- **LLM** : `llm/` (fournisseurs, cible par requête, paramètres, santé,
+  capacités, `ordonnanceur/`), `contexte/` (budget, élagage, assemblage,
+  compression).
+- **Outils** : `outils/` (catalogue, catégories, MCP, OpenAPI, outils
+  intégrés), `relais/` (vers l'hôte d'outils), `memoire/`, `skills/`,
+  `graphiques/`, `images/`, `rag/`, `voix/`.
+- **Exploitation** : `admin/` et `administration/` (console), `ops/`
+  (sauvegardes, bascule de base, entretien, redémarrage), `observabilite/`,
+  `evenements/`, `routines/`, `executions/`, `notifications/`, `interface/`
+  (pages, statiques).
+- `packages/` : paquets partagés avec l'hôte d'outils (`contracts` pour les
+  événements du flux, `db` pour le schéma et les moteurs, `http` pour le socle
+  Fastify, `auth`, `securite`, `config`, `mcp`, `outils-mcp`, `navigateur`,
+  `bureau`, `fichiers`, `images`, `skills`, `verrous`, `bac`, `commun`).
+- `apps/toolhost/` : hôte d'outils TS (familles natives, sandbox, terminal,
+  relais vers elpis-tools).
+
+### `llm_core/` — le Python d'elpis-tools
+
+- `tools/` : familles d'outils d'elpis-tools. Par défaut, l'hôte d'outils ne
+  lui relaie que la famille Office (`office_tools.py`, `_office/`) ; les autres
+  familles y restent et ne servent que si `toolhost.json › familles_natives`
+  les exclut. `tools/_exec_bridge.py` fait passer les outils synchrones par
   `docker exec` dans la sandbox.
-- **Mémoire et skills** : `memory/` (mémoire long terme en Markdown + index
-  FTS5), `skills.py`, `_skill_validate.py`, `_system_prompts.py` (assemblage
-  du prompt système depuis `system_prompts/`).
-- **Divers** : vision et bureau (`_vision.py`, `_detection_client.py`,
-  `_desktop_*`), client RAG (`_rag_client.py`), santé et capacités
-  (`_health.py`, `_model_info.py`, `_model_lifecycle.py`).
+- `memory/` (mémoire long terme en Markdown + index FTS5), `skills.py`,
+  `_skill_validate.py`, `_system_prompts.py`.
+- Transport, santé et vision utilisés par ces outils : `providers/`,
+  `_client.py`, `_llama_http.py`, `_health.py`, `_vision.py`,
+  `_desktop_*`. `__init__.py` est vide : importer depuis le module
+  propriétaire.
 
-### `shared_infra/` — l'infrastructure, rangée par famille
+### `shared_infra/` — le Python restant, rangé par famille
 
-Chaque sous-paquet réunit la logique, les routes et le stockage d'un sujet ;
-son `__init__.py` le décrit.
+Ce qu'importent elpis-tools, l'assistant de configuration (`deploy/`) et
+l'agent du bac ; son `__init__.py` décrit chaque sous-paquet. Les routes HTTP
+sont toutes dans le core TypeScript.
 
 | Famille | Contenu |
 |---|---|
-| `accounts` | utilisateurs, groupes, mots de passe, identité signée pour le toolhost, routes d'authentification et de paramètres |
-| `appearance` | skins (registre des intégrés, plugins importés dans `user_skins/`, état `config.json` › `skins`, `/api/skins`) et registre des mascottes |
-| `chat` | conversations, prompts et gabarits, routes skills |
-| `db` | persistance multi-moteurs (voir plus bas) |
-| `llm` | connecteurs de modèles, capture de débogage, file d'attente |
-| `mcp` | familles d'outils (source unique), serveurs, panneau `/api/mcp/*`, relais, manifeste `mcp.json` |
+| `accounts` | comptes, identité signée pour l'hôte d'outils, jetons |
+| `db` | persistance multi-moteurs du Python restant (`_dialect.py`, migrations historiques, `python -m shared_infra.db` pour la configuration) |
+| `llm`, `mcp` | connecteurs de modèles ; familles d'outils (source unique, `families.py`), manifeste `mcp.json`, OAuth |
 | `memory` | stockage de la mémoire, mémoire d'accessibilité (`ax/`) |
-| `observability` | journal d'accès, `swallow()`, consommation (`usage`), bus d'événements SSE, métriques (`metrics/`) |
-| `ops` | entretien quotidien, sauvegardes (locale, distante, planifiée), bascule de base |
-| `runtime` | canaux entre workers : annulation, verrous de chat, journal des exécutions |
-| `sandbox` | conteneurs par utilisateur (`executors/`), chemins, politique, placement, relais vers un toolhost, fichiers, Git, aperçus Office |
-| `scheduling` | élection du leader (`cron_lock`), routines, cron, webhooks |
-| `security` | CSRF, dépendances d'authentification, chiffrement Fernet, audit, en-têtes, requêtes locales |
-| `git`, `desktop`, `files`, `charts`, `notifications`, `opencode`, `terminal`, `toolhost`, `voice` | Git (fournisseurs, SSRF), contrôle d'écran, analyse de fichiers, graphiques, notifications, client opencode, terminal, rappels du toolhost, relais voix |
+| `observability` | `swallow()`, journal, consommation, métriques |
+| `runtime` | verrous de fichiers entre process (`elpis.verrou.v1.1`), annulation et verrous du Python restant |
+| `sandbox` | agent du conteneur (`agent/`) et son client, conteneurs (`executors/`), chemins, Git par l'agent, aperçus Office |
+| `security` | chiffrement Fernet, audit, URL du navigateur |
+| `chat`, `git`, `desktop`, `image`, `notifications`, `ops`, `terminal`, `toolhost` | stockage des conversations, Git (fournisseurs, SSRF), contrôle d'écran, images, notifications, bascule de base, PTY, rappels de l'hôte d'outils |
 
-`shared_infra/routes/` ne garde que l'orchestrateur (`__init__.py`, dont
-l'ordre d'import est l'ordre d'enregistrement), `_state.py`, `_helpers.py`,
-quelques routes transverses et la sous-application `admin/`
-(`admin_router`, `internal_router` ; `config.py` porte l'enregistrement champ
-par champ `PATCH /api/admin/config`, `overview.py` la Vue d'ensemble).
-`config.py` résout la configuration, fixe le `BUILD_ID` et note les chemins
-lus au démarrage (`BOOT_READ_PATHS`), d'où `ops/restart_pending.py` déduit
-les réglages qui attendent un redémarrage.
-
-### `chatbot_app/` — le chat
-
-- `routes/` : `chats.py` (`POST /api/chat-saved-stream3`, flux NDJSON ; son
-  en-tête écrit les invariants du flux et l'ordre des événements d'un tour),
-  `chat_control.py` (annulation, « Répondre maintenant », état d'une
-  génération, rattachement à une exécution), `chat_compression.py`
-  (compression manuelle), `saved_chats.py` (conversations enregistrées,
-  archives, recherche).
-- `turn/` : un tour de chat hors de la couche HTTP — `admission` (verrou de
-  présence, compactions manuelles en vol), `preparation` (`prepare_turn` →
-  `TurnPlan`, `TurnResources`, `PersistBaseline`), `execution` (`run_turn`,
-  générateur NDJSON, et son worker), `events` (pompe NDJSON), `persistence`
-  (enregistrement optimiste), `history` (historique client ↔ base ↔ modèle,
-  « Continuer »), `tasks` (tâches de fond). Ce paquet n'importe jamais les
-  routes.
+`config.py` résout la configuration du Python restant (variable
+d'environnement > `config.json` > défaut).
 
 ### `frontend/` — l'interface
 
-- `index.html` (application ; embarque aussi la console en mode `full`) et
-  `admin.html` (console seule, servie par le process admin).
-- `includes/` (`layout/`, `main/`, `admin/`, `modals/`) : fragments assemblés
-  côté serveur (`<!-- @include … -->`, `shared_infra/routes/system.py`).
-- `js/` : `app.js` (racine Vue, assemble les modules), `app-{auth,chat,editor,
-  admin,settings}.js`, dossiers `chat/`, `editor/`, `voice/`, `utils.js` ;
-  `admin/_registry.js` (arborescence de la console : pages, titres, liens
-  `#page`, chargeurs, blocs enregistrés) et `admin/_fields.js` (index des
-  réglages pour la recherche Ctrl+K, **généré** par
-  `tools/generate_admin_fields.py`).
+- Workspace npm `@elpis/web` (TypeScript, Vue 3.5, Vite) : `npm run build:web`
+  écrit `frontend/dist/` ; deux entrées `src/entries/main.ts` (application) et
+  `admin.ts` (console), posées dans `index.html` et `admin.html` par
+  `<!-- @entree … -->` (manifeste lu par `apps/core/src/interface/pages.ts`).
+- `src/platform/` (client HTTP, `ApiResult`, lecteur NDJSON),
+  `src/features/<domaine>/` (logique typée : auth, chat, editor, terminal,
+  admin, reglages, routines, studio, images, voix, mascotte, skills, code),
+  `src/components/<domaine>/` (SFC), `src/utils/`, `src/modeles/` ; contrats
+  réseau validés par `@elpis/contracts` (Zod). Console : registre
+  `features/admin/registre.ts`, index Ctrl+K `features/admin/champs.gen.ts`
+  (**généré** par `frontend/champs-admin.mts`).
+- Racines `src/components/racine/{App,AppConsole}.vue` sur `src/app/racine/`
+  (état partagé, session, montage des modules, clavier, notifications) ;
+  `index.html` et `admin.html` sont des coquilles. Le build embarque le
+  runtime Vue sans compilateur de gabarits ; les pages portent une CSP stricte
+  (`security.csp`).
 - `css/style.css` (jetons, composants), `css/style.tailwind.css` (**généré**),
-  `css/skins/` (skins intégrés et leur registre `skins.json`) ; `vendor/` (Vue, Monaco, xterm, ECharts, Chart.js, Marked,
-  highlight.js, Mermaid, DOMPurify, Phosphor).
+  `css/skins/` (skins intégrés et leur registre `skins.json`) ; `vendor/` :
+  Phosphor et le compilateur Tailwind du générateur ; les autres bibliothèques
+  (Vue, Monaco, xterm, ECharts, Chart.js, Marked, highlight.js, Mermaid,
+  DOMPurify, Zod) sont des paquets npm aux versions figées.
 
 ### Services et déploiement
 
-- `toolhost/` : hôte d'outils déployable (MCP, sandbox, terminal), jeton
+- `apps/toolhost/` : hôte d'outils déployable seul (MCP, sandbox, terminal ;
+  `deploy/toolhost/` pour une machine distante), jeton
   `user_db/.local_mcp_token` + en-tête d'identité signé.
 - `rag_app/` : service RAG autonome (sans `shared_infra`).
 - `browser-service/`, `desktop-agent/` : voir le tableau des process.
@@ -230,17 +204,18 @@ importés), `logs/`, et
 
 ## Base de données
 
-- Moteurs : **SQLite** (défaut), **PostgreSQL** (pg8000), **MariaDB/MySQL**
-  (PyMySQL), choisis par `database.backend` dans `config.json` ou `APP_DB_*` ;
-  le mot de passe vient de `APP_DB_PASSWORD` ou `user_db/.db_password`, jamais
-  de `config.json`.
-- `shared_infra/db/` : `_connection.py` (`db()`, `db_conn()`, `init_db` ;
-  une connexion par thread en SQLite, pool borné en serveur), `_pool.py`,
-  `_server.py` (fait se comporter les moteurs serveur comme `sqlite3`),
-  `_pg.py`, `_mysql.py`, `_dialect.py` (SQL propre à chaque moteur),
-  `_schema.py` (schéma de référence, `create_all`), `_migrations/` (suivies
-  dans `schema_migrations`), `transfer.py` (copie entre moteurs).
-- Bascule à chaud : `shared_infra/ops/db_switch.py` (mode maintenance, 503 sur
+- Moteurs : **SQLite** (défaut, better-sqlite3) et **PostgreSQL** (pg),
+  choisis par `database.backend` dans `config.json` ou `APP_DB_*` ; le mot de
+  passe vient de `APP_DB_PASSWORD` ou `user_db/.db_password`, jamais de
+  `config.json`.
+- `packages/db/src/` : `ouvrir.ts` (ouverture selon les réglages),
+  `sqlite.ts` (écritures et transactions sérialisées), `postgres.ts` (pool
+  borné, valeurs et erreurs relues comme en SQLite), `dialecte.ts` (SQL propre
+  à chaque moteur), `schema.ts` et `schema.gen.ts` (schéma de référence),
+  `init.ts` (pose du schéma, migrations suivies dans `schema_migrations`).
+  Transfert entre moteurs : `apps/core/src/ops/transfert.ts`. Le Python
+  restant (configuration, elpis-tools) passe par `shared_infra/db/`.
+- Bascule à chaud : `apps/core/src/ops/bascule.ts` (mode maintenance, 503 sur
   les écritures, génération incrémentée), pilotée par la console ou
   `./elpis db`.
 
@@ -256,31 +231,32 @@ exécute, par son agent (ci-dessous), sous l'UID du conteneur, seul à y
 écrire (fichiers 0644, dossiers 0755). L'hôte ne lit ni n'écrit `/work`
 (exceptions : `du` du quota, suppression d'un compte, création de
 `P/work` ; cf. `docs/sandbox-gateway.md`). Git tourne dans le conteneur, par l'agent
-(`sandbox/git_ops.py`) ; ses opérations réseau passent par le relais
-authentifiant de l'hôte (`sandbox/git_relay.py`) : un ticket par opération,
+(`packages/fichiers/src/git.ts`) ; ses opérations réseau passent par le relais
+authentifiant de l'hôte (`packages/fichiers/src/relais-git.ts`) : un ticket par opération,
 le seul dépôt de l'opération joignable, l'identifiant du connecteur ajouté
 par l'hôte, jamais dans la sandbox.
 
-Dans chaque conteneur, un **agent** (`sandbox/agent/server.py`, bibliothèque
-standard) exécute les opérations sur `/work` que l'hôte lui demande : HTTP sur
+Dans chaque conteneur, un **agent** (`shared_infra/sandbox/agent/server.py`,
+Python, bibliothèque standard) exécute les opérations sur `/work` que l'hôte lui demande : HTTP sur
 `/run/elpis/agent.sock` (dossier `<utilisateur>/.elpis-agent` monté), code monté en
 lecture seule depuis l'application, démarré à la demande sous l'UID du
 conteneur, relancé s'il n'a pas la version de l'application. L'hôte le joint
-par `sandbox/agent_client.py`, qui saisit le socket sans suivre de lien et
-tient toute réponse pour non fiable.
+par `@elpis/fichiers` (`packages/fichiers/src/agent.ts`), qui saisit le socket
+sans suivre de lien et tient toute réponse pour non fiable.
 
 ## Outils externes (MCP, OAuth, OpenAPI)
 
-Les familles d'outils de la sandbox sont servies par le **service d'outils**
-(`server/local_mcp_server.py`, `toolhost/`), en MCP par famille
+Les familles d'outils de la sandbox sont servies par l'**hôte d'outils**
+(`apps/toolhost`, Office relayé à elpis-tools), en MCP par famille
 (`/mcp/<famille>`). Les clients externes le joignent par l'origine de l'app :
-le **relais** `shared_infra/mcp/bridge.py` (`/api/mcp-bridge[/<famille>]`)
-vérifie le jeton du client — jeton personnel (`shared_infra/accounts/tokens.py`,
-en empreinte) ou jeton OAuth (`shared_infra/mcp/oauth.py`,
-`routes_oauth.py` : Elpis est son propre serveur d'autorisation) — puis
-présente au service un jeton de délégation signé (`mcp/delegation.py`) qui
-porte le compte et ses familles : le jeton du client ne quitte jamais le
-relais. La **façade OpenAPI** (`mcp/openapi.py`, `routes_openapi.py`)
+le **relais** `apps/core/src/familles/pont-mcp.ts` (`/api/mcp-bridge[/<famille>]`)
+vérifie le jeton du client — jeton personnel (`packages/auth/src/jetons.ts`,
+en empreinte) ou jeton OAuth (`packages/auth/src/oauth.ts`,
+`apps/core/src/familles/oauth.ts` : Elpis est son propre serveur
+d'autorisation) — puis présente à l'hôte un jeton de délégation signé
+(`packages/mcp/src/delegation.ts`) qui porte le compte et ses familles : le
+jeton du client ne quitte jamais le relais. Les familles liées au compte
+(mémoire, tâches, skills, graphiques) sont servies par main lui-même. La **façade OpenAPI** (`apps/core/src/outils/openapi.ts`)
 expose les mêmes outils en HTTP ordinaire. Le **navigateur** (`browser-service/`)
 passe par un relais local filtrant (`proxy_guard.js`, `url_guard.js`).
 
@@ -291,49 +267,44 @@ passe par un relais local filtrant (`proxy_guard.js`, `url_guard.js`).
   n'est pas un contrôle à l'exécution. Le process admin tourne sous le même
   compte non privilégié, jamais en root.
 - **Tête système stable à l'octet.** Un seul message `role: system`, dans un
-  ordre figé (`llm_core/context/assembly.py`), pour le cache de préfixe du
-  moteur ; le jeu d'outils ne varie pas d'un message à l'autre ; les résumés
-  de compaction ne sont jamais fusionnés dans le socle. Les charges utiles de
-  référence (`tests/goldens/`) ne changent que par `GOLDEN_UPDATE=1`.
-- **Une seule autorité de comptage** : `llm_core/context/tokens.py`. Aucune
-  décision ne repose sur un ratio caractères/token.
-- **Élagage** (`context/pruning.py`) : ne modifie jamais les messages de
-  travail, ne sépare jamais un appel d'outil de son résultat, ne tronque pas
-  la dernière perception de bureau, garde les messages système et les plus
-  récents.
+  ordre figé (`apps/core/src/contexte/assemblage.ts`), pour le cache de préfixe
+  du moteur ; le jeu d'outils ne varie pas d'un message à l'autre ; les
+  résumés de compaction ne sont jamais fusionnés dans le socle.
+- **Une seule autorité de comptage** : `apps/core/src/contexte/tokens.ts`.
+  Aucune décision ne repose sur un ratio caractères/token.
+- **Élagage** (`apps/core/src/contexte/elagage.ts`) : ne modifie jamais les
+  messages de travail, ne sépare jamais un appel d'outil de son résultat, ne
+  tronque pas la dernière perception de bureau, garde les messages système et
+  les plus récents.
 - **Outils** : l'exécution d'un appel ne lève jamais (erreur rendue en JSON) ;
   le pool MCP ne rejoue jamais un appel qui a peut-être déjà agi.
-- **Configuration** : variable d'environnement > `config.json` > défaut ; les
-  constantes de module sont figées à l'import ; un réglage modifiable depuis
-  la console se relit à chaud (`live_config_value()`, `config_view()`, ou les
-  rechargeurs `reload_*_from_disk`), sinon la console l'annonce comme
-  « Redémarrage nécessaire » ; ne jamais modifier le dictionnaire rendu par
-  `config_view()`.
-- **État partagé entre workers** : seulement la base, le répertoire
-  d'exécution (bus d'annulation, verrous de génération, leader des tâches
-  planifiées, journal d'exécution, reprise des sous-agents), le bus
-  d'événements fichier, ou Redis s'il est configuré. Un dictionnaire de module
-  vaut pour un seul worker. Une annulation ne passe jamais par les événements
-  système (fuite d'identifiants de conversation).
-- **Base** : tout `db()` a son `close()` ; SQL portable via `_dialect.py` ;
-  une migration met aussi à jour `_schema.py` et `BASELINE_COVERS`.
-- **Tâches planifiées** (routines, entretien, sauvegardes) : sur le seul
-  worker leader (`scheduling/cron_lock.py`), jamais dans le process admin.
+- **Configuration** : variable d'environnement > `config.json` > défaut ; un
+  réglage modifiable depuis la console se relit à chaud (`liveConfigValue()`,
+  `configView()` de `packages/config/src/vivant.ts`, règle de lint
+  `elpis/reglages-vifs`), sinon la console l'annonce comme « Redémarrage
+  nécessaire » ; ne jamais modifier le dictionnaire rendu par `configView()`.
+- **État partagé entre process** (main, admin, hôte d'outils, elpis-tools) :
+  seulement la base ou le canal interne. main est un seul process : ses tours
+  en cours, verrous de présence et annulations vivent en mémoire. Une
+  annulation ne passe jamais par les événements système (fuite
+  d'identifiants de conversation).
+- **Base** : SQL portable via `packages/db/src/dialecte.ts` ; une nouvelle
+  table ou colonne est une migration de `MIGRATIONS_TS`
+  (`packages/db/src/init.ts`) ; côté Python, tout `db()` a son `close()`.
+- **Tâches planifiées** (routines, entretien, sauvegardes) : dans main, un
+  seul planificateur actif entre les process (`apps/core/src/routines/meneur.ts`),
+  jamais dans le process admin.
 - **Sandbox** : le conteneur est la barrière ; toute opération sur `/work`
-  passe par l'agent du conteneur (`sandbox/agent_client.py`, `git_ops.py`),
-  jamais par un `open`, `os.walk`, `chmod` ou `unlink` de l'hôte (vérifié
-  pour les parcours principaux par `test_frontiere_interception_2026_09_30.py` ;
-  exceptions, métadonnées seules : `docs/sandbox-gateway.md`) ; aucun `git` côté hôte sur
-  un dépôt de sandbox ; tout conteneur passe par la résolution du profil
-  réseau (un profil imposé par l'administrateur l'emporte).
+  passe par l'agent du conteneur (`@elpis/fichiers`), jamais par un `open`,
+  `readdir`, `chmod` ou `rm` de l'hôte (exceptions, métadonnées seules :
+  `docs/sandbox-gateway.md`) ; aucun `git` côté hôte sur un dépôt de sandbox ;
+  tout conteneur passe par la résolution du profil réseau (un profil imposé
+  par l'administrateur l'emporte).
 
 ## Tests
 
-- `tests/` suit les paquets : `llm_core/`, `shared_infra/`, `db/`, `chatbot/`,
-  `memory/`, `sandbox/`, `rag_app/`, `desktop_agent/`, `toolhost/` ;
-  `goldens/` (charges utiles de référence, scénarios complets de la boucle
-  et du flux de chat), `load/` (charge, manuel).
-- `tests/frontend/` : tests unitaires JS (exécutés aussi par pytest), gardes
-  statiques (classes Tailwind, exports), et paires Playwright
-  `*-server.mjs` / `*-verify.mjs`.
-- Commandes et règles : [AGENTS.md](AGENTS.md).
+Les tests (Vitest pour le TypeScript, pytest pour le Python restant, parcours
+réels dans Chromium) vivent dans le dépôt de développement des mainteneurs,
+qui les passent avant chaque fusion. Dans ce dépôt : `npm run typecheck`,
+`npm run lint` et `npm run build` ([AGENTS.md](AGENTS.md),
+[CONTRIBUTING.md](CONTRIBUTING.md)).

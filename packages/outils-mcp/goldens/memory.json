@@ -1,0 +1,580 @@
+{
+  "source": "server/local_mcp_server.py (tools/list, FastMCP)",
+  "famille": "memory",
+  "outils": [
+    {
+      "name": "memory",
+      "title": "Memory",
+      "description": "Curate your long-term memory (persists across sessions).\n\nTwo stores: 'memory' (MEMORY.md \u2014 environment facts, project conventions,\ntechniques learned, work done) and 'user' (USER.md \u2014 who the user is: role,\npreferences, durable habits).\n\nActions:\n  \u2022 add     \u2014 append an entry (`content`). Idempotent for identical text.\n  \u2022 replace \u2014 replace the entry targeted by `target` with `content`.\n  \u2022 remove  \u2014 delete the entry targeted by `target`.\n  \u2022 rewrite \u2014 replace the WHOLE store with `content` (entries separated by a\n              --- line): one-call consolidation when the budget is full.\n\n`target` = the [a1f4] id shown before each entry (in the memory block and in\nresult `entries`) \u2014 the safe form \u2014 or an exact excerpt of ONE entry\n(case/whitespace tolerant).\n\nEach store has a character LIMIT: exceeding it \u2192 ok=false with usage stats;\nconsolidate, then retry. On failure read `error` (code), `message` and `fix`\n(the corrective move); `entries` lists the current ids and `closest` suggests\nthe likely target \u2014 never resend the same call unchanged. On success the\nresult is short: `id` of the entry written (use it to target that entry later\nin this turn; other entries keep their ids) and `usage`. A success is final:\ndo not repeat it.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "add | replace | remove | rewrite.",
+            "enum": [
+              "add",
+              "replace",
+              "remove",
+              "rewrite"
+            ],
+            "type": "string"
+          },
+          "store": {
+            "description": "'memory' = project/environment notes (MEMORY.md); 'user' = the user's durable profile (USER.md).",
+            "enum": [
+              "memory",
+              "user"
+            ],
+            "type": "string"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Entry text (add/replace). For rewrite: the ENTIRE new store content, entries separated by a --- line."
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target for replace/remove: the id shown in brackets (e.g. [a1f4]) \u2014 the safe form \u2014 or an exact excerpt of ONE entry."
+          },
+          "old_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Deprecated alias of target."
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Short first-person sentence IN THE USER'S LANGUAGE (French by default), shown to the user while writing (e.g. \u00ab Je retiens que tu pr\u00e9f\u00e8res des r\u00e9ponses concises \u00bb). Purely visual: does not affect what is memorized."
+          }
+        },
+        "required": [
+          "action",
+          "store"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "description": "Succ\u00e8s de l'outil ``memory`` \u2014 retour COURT.\n\nAucune liste d'entr\u00e9es : les autres entr\u00e9es gardent leur id (calcul\u00e9 sur\nleur texte) et restent lisibles dans le bloc syst\u00e8me ; seule l'entr\u00e9e\n\u00e9crite change d'id, et on le donne. Renvoyer tout le magasin \u00e0 chaque\n\u00e9criture co\u00fbterait des jetons et pousserait le mod\u00e8le \u00e0 \u00ab trouver autre\nchose \u00e0 corriger \u00bb. ``op`` identifie l'\u00e9criture dans le journal :\nl'interface y lit le d\u00e9tail (avant/apr\u00e8s) et peut l'annuler \u2014 le mod\u00e8le\nn'en paie pas le texte.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "action": {
+                    "type": "string"
+                  },
+                  "store": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "default": "",
+                    "type": "string"
+                  },
+                  "op": {
+                    "default": "",
+                    "type": "string"
+                  },
+                  "usage": {
+                    "default": "",
+                    "type": "string"
+                  },
+                  "note": {
+                    "default": "",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "action",
+                  "store"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "R\u00e9sultat de l'outil ``memory``. En \u00e9chec soft (ok=false), reprend la\nconvention ``ErrEnvelope`` : ``error`` = code machine stable, ``message`` =\nphrase FR, ``fix`` = geste correctif \u2014 un seul pattern d'\u00e9chec \u00e0 apprendre\nau mod\u00e8le. ``entries`` est le miroir compact de l'\u00e9tat : une ligne\n``[id] (Nc) extrait`` par entr\u00e9e (l'id est la cible s\u00fbre de replace/remove).",
+                "properties": {
+                  "ok": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "store": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "error": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "closest": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "chars": {
+                    "default": 0,
+                    "type": "integer"
+                  },
+                  "limit": {
+                    "default": 0,
+                    "type": "integer"
+                  },
+                  "usage_pct": {
+                    "default": 0.0,
+                    "type": "number"
+                  },
+                  "n_entries": {
+                    "default": 0,
+                    "type": "integer"
+                  },
+                  "entries": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "memory",
+          "label": "M\u00e9moire",
+          "icon": "ph-brain",
+          "color": "amber",
+          "hidden": true
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "memory"
+          ]
+        }
+      }
+    },
+    {
+      "name": "session_search",
+      "title": "Session Search",
+      "description": "Full-text search over your past sessions (messages and old tool outputs).\n\nTwo steps: (1) `query` \u2192 short excerpts around the matched words (marked \u00ab \u00bb),\neach with its date, chat title, role and a `ref`; (2) `ref` \u2192 the full text of\nthat one passage. Use it to recover an old exchange missing from your curated\nmemory, or a tool output that was cleared from the context. Refine the\nkeywords rather than raising `limit`. Useless for content already in front of\nyou.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "default": "",
+            "description": "Keywords to search for in past sessions.",
+            "type": "string"
+          },
+          "limit": {
+            "default": 5,
+            "description": "Max number of results (1-20).",
+            "type": "integer"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Read ONE passage in full: the `ref` of a previous result (then `query` is ignored)."
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "properties": {
+                  "ok": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "query": {
+                    "default": "",
+                    "type": "string"
+                  },
+                  "matches": {
+                    "items": {
+                      "description": "Un passage retrouv\u00e9. Recherche par ``query`` : un EXTRAIT autour des\nmots trouv\u00e9s (le message entier ferait ~14 000 caract\u00e8res). Lecture par\n``ref`` : le passage entier.",
+                      "properties": {
+                        "ref": {
+                          "default": 0,
+                          "type": "integer"
+                        },
+                        "date": {
+                          "default": "",
+                          "type": "string"
+                        },
+                        "chat": {
+                          "default": "",
+                          "type": "string"
+                        },
+                        "role": {
+                          "default": "",
+                          "type": "string"
+                        },
+                        "excerpt": {
+                          "default": "",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "count": {
+                    "default": 0,
+                    "type": "integer"
+                  },
+                  "error": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "memory",
+          "label": "M\u00e9moire",
+          "icon": "ph-brain",
+          "color": "amber",
+          "hidden": true
+        },
+        "fastmcp": {
+          "tags": [
+            "memory"
+          ]
+        }
+      }
+    }
+  ],
+  "fonctions": {
+    "memory": {
+      "fonction": "memory",
+      "parametres": [
+        {
+          "nom": "action",
+          "annotation": "Literal['add', 'replace', 'remove', 'rewrite']",
+          "requis": true
+        },
+        {
+          "nom": "store",
+          "annotation": "Literal['memory', 'user']",
+          "requis": true
+        },
+        {
+          "nom": "content",
+          "annotation": "Optional[str]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "target",
+          "annotation": "Optional[str]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "old_text",
+          "annotation": "Optional[str]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "title",
+          "annotation": "Optional[str]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    },
+    "session_search": {
+      "fonction": "session_search",
+      "parametres": [
+        {
+          "nom": "query",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "limit",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 5
+        },
+        {
+          "nom": "ref",
+          "annotation": "Optional[int]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    }
+  }
+}

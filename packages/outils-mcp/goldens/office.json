@@ -1,0 +1,2358 @@
+{
+  "source": "server/local_mcp_server.py (tools/list, FastMCP)",
+  "famille": "office",
+  "outils": [
+    {
+      "name": "docx_create",
+      "title": "Docx Create",
+      "description": "Create a Word document (.docx) in the sandbox from Markdown.\ncontent supports: # headings, paragraphs, **bold** / *italic*, lists, | tables |, > quotes, ```code```, ![caption](images/photo.png) from the sandbox, and:\n  !a1b2c3d4e5f6 alone on a line: a chart made first with a chart_<type> tool (native editable chart when possible, else an image); chart_table \u2192 a real table\n  > [!NOTE] Title  (TIP, IMPORTANT, WARNING, CAUTION): a callout box\n  [TOC]: table of contents \u00b7 \\newpage: page break\nAn existing file at path is replaced (the previous version stays in the file history, up to 5 MB). Returns path, outline (headings with paragraph numbers) and summary.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "File path in the sandbox, e.g. 'rapports/bilan-2026.docx' (relative to /work).",
+            "type": "string"
+          },
+          "content": {
+            "description": "The document body in Markdown.",
+            "type": "string"
+          },
+          "title": {
+            "default": null,
+            "description": "Document title (cover / first line, file properties).",
+            "type": "string"
+          },
+          "subtitle": {
+            "default": null,
+            "type": "string"
+          },
+          "author": {
+            "default": null,
+            "type": "string"
+          },
+          "date": {
+            "default": null,
+            "type": "string"
+          },
+          "cover": {
+            "default": null,
+            "description": "Start with a cover page (title, subtitle, author, date).",
+            "type": "boolean"
+          },
+          "toc": {
+            "default": null,
+            "description": "Add a table of contents after the title.",
+            "type": "boolean"
+          },
+          "template": {
+            "default": null,
+            "description": "A .dotx/.docx in the sandbox: its styles, header, footer and page layout are kept unless you set header/footer/page; its text is not.",
+            "type": "string"
+          },
+          "theme": {
+            "default": null,
+            "description": "Look: {accent: '#1F4E79', font: 'Calibri', heading_font: 'Calibri Light', font_size: 11}",
+            "properties": {
+              "accent": {
+                "type": "string"
+              },
+              "font": {
+                "type": "string"
+              },
+              "heading_font": {
+                "type": "string"
+              },
+              "font_size": {
+                "type": "number"
+              }
+            },
+            "type": "object"
+          },
+          "page": {
+            "default": null,
+            "properties": {
+              "size": {
+                "enum": [
+                  "A4",
+                  "A3",
+                  "A5",
+                  "Letter",
+                  "Legal"
+                ],
+                "type": "string"
+              },
+              "orientation": {
+                "enum": [
+                  "portrait",
+                  "landscape"
+                ],
+                "type": "string"
+              },
+              "margins_cm": {
+                "type": "number"
+              }
+            },
+            "type": "object"
+          },
+          "header": {
+            "default": null,
+            "description": "Text at the top of every page.",
+            "type": "string"
+          },
+          "footer": {
+            "default": null,
+            "description": "Text at the bottom of every page.",
+            "type": "string"
+          },
+          "page_numbers": {
+            "default": null,
+            "description": "Page X / Y in the footer (default true, false with a template).",
+            "type": "boolean"
+          },
+          "watermark": {
+            "default": null,
+            "description": "e.g. CONFIDENTIEL, BROUILLON",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of the ``docx_*`` / ``pptx_*`` / ``office_export`` tools (sandbox files).\n\nA write carries ``path`` + ``old_sha256`` / ``new_sha256`` (feeds the\nchanged-files card); a read carries the document's content (outline,\nnumbered paragraphs or slides) as extra fields.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The file, as /work/\u2026 ."
+                  },
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "One line: what was written."
+                  },
+                  "old_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 before the write (empty: new file)."
+                  },
+                  "new_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 after the write."
+                  },
+                  "fixes": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What was understood for you (no need to redo the call)."
+                  },
+                  "warnings": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What had to be ignored or chosen."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "office",
+          "label": "Documents Office",
+          "icon": "ph-file-doc",
+          "color": "sky"
+        },
+        "policy": {
+          "timeout_s": 180,
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "office"
+          ]
+        }
+      }
+    },
+    {
+      "name": "docx_read",
+      "title": "Docx Read",
+      "description": "Read a Word document of the sandbox: outline, numbered paragraphs (p), tables, header and footer, {{placeholders}} and unfinished marks (TODO, [XXX]\u2026). Use the p and table numbers with docx_edit. find = text to locate (case ignored). Long documents come in pages: call again with start=next_start.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "File path in the sandbox, e.g. 'rapports/bilan-2026.docx' (relative to /work).",
+            "type": "string"
+          },
+          "find": {
+            "default": null,
+            "description": "Text to locate.",
+            "type": "string"
+          },
+          "start": {
+            "default": null,
+            "description": "First paragraph number to list.",
+            "type": "integer"
+          },
+          "limit": {
+            "default": null,
+            "description": "Max items listed (default 200).",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of the ``docx_*`` / ``pptx_*`` / ``office_export`` tools (sandbox files).\n\nA write carries ``path`` + ``old_sha256`` / ``new_sha256`` (feeds the\nchanged-files card); a read carries the document's content (outline,\nnumbered paragraphs or slides) as extra fields.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The file, as /work/\u2026 ."
+                  },
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "One line: what was written."
+                  },
+                  "old_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 before the write (empty: new file)."
+                  },
+                  "new_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 after the write."
+                  },
+                  "fixes": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What was understood for you (no need to redo the call)."
+                  },
+                  "warnings": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What had to be ignored or chosen."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "office",
+          "label": "Documents Office",
+          "icon": "ph-file-doc",
+          "color": "sky"
+        },
+        "fastmcp": {
+          "tags": [
+            "office"
+          ]
+        }
+      }
+    },
+    {
+      "name": "docx_edit",
+      "title": "Docx Edit",
+      "description": "Edit a Word document of the sandbox with a list of operations, applied together in one save. Paragraph (p), table, row and column numbers start at 0 and refer to the document BEFORE this call, as docx_read shows it:\n  {op:'replace', find, replace}            everywhere, headers and tables included (exact case unless match_case:false)\n  {op:'fill', values:{client:'ACME'}}       fills {{client}} placeholders\n  {op:'set', p, text}                       rewrites one paragraph (style kept)\n  {op:'delete', p} \u00b7 {op:'delete', p, to} \u00b7 {op:'delete', table}\n  {op:'insert', after|before: p or heading text, content: Markdown}\n  {op:'insert', at_end_of: heading text, content}\n  {op:'append', content: Markdown}          at the end (charts !id allowed)\n  {op:'set_cell', table, row, col, text} \u00b7 {op:'add_row', table, values} \u00b7 {op:'delete_row', table, row}   (from 0, row 0 = header)\n  {op:'meta', title, author, subject}\nsave_as = write a copy instead of modifying the file. If the file changed since it was read, nothing is written (concurrent_modification): read it again.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "File path in the sandbox, e.g. 'rapports/bilan-2026.docx' (relative to /work).",
+            "type": "string"
+          },
+          "ops": {
+            "items": {
+              "properties": {
+                "op": {
+                  "enum": [
+                    "replace",
+                    "fill",
+                    "set",
+                    "delete",
+                    "insert",
+                    "append",
+                    "set_cell",
+                    "add_row",
+                    "delete_row",
+                    "meta"
+                  ],
+                  "type": "string"
+                },
+                "find": {
+                  "type": "string"
+                },
+                "replace": {
+                  "type": "string"
+                },
+                "match_case": {
+                  "description": "replace: default true (exact case)",
+                  "type": "boolean"
+                },
+                "values": {
+                  "description": "fill: {field: value} for {{field}}",
+                  "type": "object"
+                },
+                "p": {
+                  "description": "paragraph number(s) from docx_read (from 0)",
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": [
+                    "integer",
+                    "array"
+                  ]
+                },
+                "to": {
+                  "description": "delete: last paragraph of a range",
+                  "type": "integer"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "after": {
+                  "description": "insert: paragraph number, heading text, 'start' or 'end'",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "before": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "at_end_of": {
+                  "description": "insert: at the end of this heading's section",
+                  "type": "string"
+                },
+                "content": {
+                  "description": "insert / append: Markdown",
+                  "type": "string"
+                },
+                "table": {
+                  "type": "integer"
+                },
+                "row": {
+                  "type": "integer"
+                },
+                "col": {
+                  "type": "integer"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "author": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "op"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "save_as": {
+            "default": null,
+            "description": "Optional: save the result to this path.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "ops"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of the ``docx_*`` / ``pptx_*`` / ``office_export`` tools (sandbox files).\n\nA write carries ``path`` + ``old_sha256`` / ``new_sha256`` (feeds the\nchanged-files card); a read carries the document's content (outline,\nnumbered paragraphs or slides) as extra fields.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The file, as /work/\u2026 ."
+                  },
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "One line: what was written."
+                  },
+                  "old_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 before the write (empty: new file)."
+                  },
+                  "new_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 after the write."
+                  },
+                  "fixes": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What was understood for you (no need to redo the call)."
+                  },
+                  "warnings": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What had to be ignored or chosen."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "office",
+          "label": "Documents Office",
+          "icon": "ph-file-doc",
+          "color": "sky"
+        },
+        "policy": {
+          "timeout_s": 180,
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "office"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pptx_create",
+      "title": "Pptx Create",
+      "description": "Create a PowerPoint deck (.pptx) in the sandbox. Each slide is {layout, \u2026}:\n  title {title, subtitle, author, date} \u00b7 section {title, subtitle} \u00b7 agenda {items}\n  bullets {title, bullets, takeaway} \u00b7 two_content {title, left, right}\n  kpi {title, items:[{value:'18,4 M\u20ac', label, delta:'+12 %'}]}\n  chart {title, chart:'!id' from a chart_<type> tool, takeaway}\n  table {title, table} \u00b7 comparison {title, left:{title, items}, right:{title, items}}\n  timeline {title, milestones:[{date, title}]} \u00b7 process {title, steps}\n  image {title, image: sandbox path} \u00b7 quote {text, author} \u00b7 closing {title, contact}\nEvery slide accepts notes (speaker notes). Layouts are composed and text is fitted for you. An existing file at path is replaced (previous version kept in the file history, up to 5 MB).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "File path in the sandbox, e.g. 'presentations/comite.pptx' (relative to /work).",
+            "type": "string"
+          },
+          "slides": {
+            "default": null,
+            "items": {
+              "description": "One slide. Fields depend on the layout; fields the layout does not use are ignored (listed in fixes).",
+              "properties": {
+                "layout": {
+                  "enum": [
+                    "title",
+                    "section",
+                    "agenda",
+                    "bullets",
+                    "two_content",
+                    "kpi",
+                    "chart",
+                    "table",
+                    "comparison",
+                    "timeline",
+                    "process",
+                    "image",
+                    "quote",
+                    "closing"
+                  ],
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "subtitle": {
+                  "description": "title / section / closing slides",
+                  "type": "string"
+                },
+                "bullets": {
+                  "description": "bullets slide; a sub-point starts with two spaces: [\"Point\", \"  sub-point\"]",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "text": {
+                  "description": "prose instead of bullets, or the quote text",
+                  "type": "string"
+                },
+                "chart": {
+                  "description": "chart slide: the ref returned by a chart_<type> tool, e.g. '!a1b2c3d4e5f6'",
+                  "type": "string"
+                },
+                "items": {
+                  "description": "kpi: [{value, label, delta}] \u00b7 agenda: [\"Section 1\", \u2026]",
+                  "items": {
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  },
+                  "type": "array"
+                },
+                "milestones": {
+                  "description": "timeline: [{date, title, text, done}]",
+                  "items": {
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  },
+                  "type": "array"
+                },
+                "steps": {
+                  "description": "process: [\"Step 1\", \u2026] or [{title, text}]",
+                  "items": {
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  },
+                  "type": "array"
+                },
+                "table": {
+                  "description": "table slide: {header: [...], rows: [[...]]}, a list of row objects, or a chart_table ref '!id'"
+                },
+                "left": {
+                  "description": "comparison: {title, items: [...]} \u00b7 two_content: a list of bullets, a text, or a chart ref '!id'"
+                },
+                "right": {
+                  "description": "same as left"
+                },
+                "image": {
+                  "description": "image slide: an image file in the sandbox",
+                  "type": "string"
+                },
+                "takeaway": {
+                  "description": "the one line to remember, shown in a band",
+                  "type": "string"
+                },
+                "notes": {
+                  "description": "speaker notes",
+                  "type": "string"
+                },
+                "author": {
+                  "type": "string"
+                },
+                "date": {
+                  "type": "string"
+                },
+                "contact": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "layout"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "title": {
+            "default": null,
+            "description": "Deck title (file properties).",
+            "type": "string"
+          },
+          "author": {
+            "default": null,
+            "type": "string"
+          },
+          "theme": {
+            "default": null,
+            "description": "corporate, slate, emerald, plum, sand, midnight, carbon, or a brand colour '#00693C'.",
+            "type": "string"
+          },
+          "template": {
+            "default": null,
+            "description": "A corporate .potx/.pptx in the sandbox: its masters, theme and fonts are used.",
+            "type": "string"
+          },
+          "size": {
+            "default": null,
+            "enum": [
+              "16:9",
+              "4:3",
+              "16:10",
+              "a4",
+              "a4_landscape"
+            ],
+            "type": "string"
+          },
+          "footer": {
+            "default": null,
+            "description": "Footer text on content slides.",
+            "type": "string"
+          },
+          "slide_numbers": {
+            "default": null,
+            "description": "default true",
+            "type": "boolean"
+          },
+          "markdown": {
+            "default": null,
+            "description": "Alternative to slides: a Markdown outline (# deck title, ## one slide each, - bullets).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of the ``docx_*`` / ``pptx_*`` / ``office_export`` tools (sandbox files).\n\nA write carries ``path`` + ``old_sha256`` / ``new_sha256`` (feeds the\nchanged-files card); a read carries the document's content (outline,\nnumbered paragraphs or slides) as extra fields.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The file, as /work/\u2026 ."
+                  },
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "One line: what was written."
+                  },
+                  "old_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 before the write (empty: new file)."
+                  },
+                  "new_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 after the write."
+                  },
+                  "fixes": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What was understood for you (no need to redo the call)."
+                  },
+                  "warnings": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What had to be ignored or chosen."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "office",
+          "label": "Documents Office",
+          "icon": "ph-file-doc",
+          "color": "sky"
+        },
+        "policy": {
+          "timeout_s": 180,
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "office"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pptx_read",
+      "title": "Pptx Read",
+      "description": "Read a PowerPoint deck of the sandbox: per slide (numbered from 1) its title, its shapes with their text (shape numbers for pptx_edit set_text), tables, charts and speaker notes. slide = read only that slide; find = text to locate (case ignored).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "File path in the sandbox, e.g. 'presentations/comite.pptx' (relative to /work).",
+            "type": "string"
+          },
+          "slide": {
+            "default": null,
+            "description": "Only this slide (from 1).",
+            "type": "integer"
+          },
+          "find": {
+            "default": null,
+            "description": "Text to locate.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of the ``docx_*`` / ``pptx_*`` / ``office_export`` tools (sandbox files).\n\nA write carries ``path`` + ``old_sha256`` / ``new_sha256`` (feeds the\nchanged-files card); a read carries the document's content (outline,\nnumbered paragraphs or slides) as extra fields.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The file, as /work/\u2026 ."
+                  },
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "One line: what was written."
+                  },
+                  "old_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 before the write (empty: new file)."
+                  },
+                  "new_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 after the write."
+                  },
+                  "fixes": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What was understood for you (no need to redo the call)."
+                  },
+                  "warnings": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What had to be ignored or chosen."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "office",
+          "label": "Documents Office",
+          "icon": "ph-file-doc",
+          "color": "sky"
+        },
+        "fastmcp": {
+          "tags": [
+            "office"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pptx_edit",
+      "title": "Pptx Edit",
+      "description": "Edit a PowerPoint deck of the sandbox with a list of operations, applied together in one save. Slide numbers start at 1 and refer to the deck BEFORE this call; shape numbers come from pptx_read:\n  {op:'replace', find, replace} \u00b7 {op:'fill', values:{client:'ACME'}}\n  {op:'set_text', slide, shape, text}     shape number from pptx_read; one line per paragraph\n  {op:'add_slides', slides:[\u2026same objects as pptx_create\u2026], after|before: slide number}\n  {op:'delete_slide', slide} \u00b7 {op:'move_slide', slide, to} \u00b7 {op:'duplicate_slide', slide, to?}   (to = position in the deck at that point)\n  {op:'notes', slide, text} \u00b7 {op:'meta', title, author}\nsave_as = write a copy instead of modifying the file. If the file changed since it was read, nothing is written (concurrent_modification): read it again.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "File path in the sandbox, e.g. 'presentations/comite.pptx' (relative to /work).",
+            "type": "string"
+          },
+          "ops": {
+            "items": {
+              "properties": {
+                "op": {
+                  "enum": [
+                    "replace",
+                    "fill",
+                    "set_text",
+                    "add_slides",
+                    "delete_slide",
+                    "move_slide",
+                    "duplicate_slide",
+                    "notes",
+                    "meta"
+                  ],
+                  "type": "string"
+                },
+                "find": {
+                  "type": "string"
+                },
+                "replace": {
+                  "type": "string"
+                },
+                "match_case": {
+                  "type": "boolean"
+                },
+                "values": {
+                  "description": "fill: {field: value} for {{field}}",
+                  "type": "object"
+                },
+                "slide": {
+                  "description": "slide number(s), from 1",
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": [
+                    "integer",
+                    "array"
+                  ]
+                },
+                "shape": {
+                  "description": "set_text: shape number from pptx_read",
+                  "type": "integer"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "slides": {
+                  "description": "add_slides: new slides",
+                  "items": {
+                    "description": "One slide. Fields depend on the layout; fields the layout does not use are ignored (listed in fixes).",
+                    "properties": {
+                      "layout": {
+                        "enum": [
+                          "title",
+                          "section",
+                          "agenda",
+                          "bullets",
+                          "two_content",
+                          "kpi",
+                          "chart",
+                          "table",
+                          "comparison",
+                          "timeline",
+                          "process",
+                          "image",
+                          "quote",
+                          "closing"
+                        ],
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "subtitle": {
+                        "description": "title / section / closing slides",
+                        "type": "string"
+                      },
+                      "bullets": {
+                        "description": "bullets slide; a sub-point starts with two spaces: [\"Point\", \"  sub-point\"]",
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "text": {
+                        "description": "prose instead of bullets, or the quote text",
+                        "type": "string"
+                      },
+                      "chart": {
+                        "description": "chart slide: the ref returned by a chart_<type> tool, e.g. '!a1b2c3d4e5f6'",
+                        "type": "string"
+                      },
+                      "items": {
+                        "description": "kpi: [{value, label, delta}] \u00b7 agenda: [\"Section 1\", \u2026]",
+                        "items": {
+                          "type": [
+                            "object",
+                            "string"
+                          ]
+                        },
+                        "type": "array"
+                      },
+                      "milestones": {
+                        "description": "timeline: [{date, title, text, done}]",
+                        "items": {
+                          "type": [
+                            "object",
+                            "string"
+                          ]
+                        },
+                        "type": "array"
+                      },
+                      "steps": {
+                        "description": "process: [\"Step 1\", \u2026] or [{title, text}]",
+                        "items": {
+                          "type": [
+                            "object",
+                            "string"
+                          ]
+                        },
+                        "type": "array"
+                      },
+                      "table": {
+                        "description": "table slide: {header: [...], rows: [[...]]}, a list of row objects, or a chart_table ref '!id'"
+                      },
+                      "left": {
+                        "description": "comparison: {title, items: [...]} \u00b7 two_content: a list of bullets, a text, or a chart ref '!id'"
+                      },
+                      "right": {
+                        "description": "same as left"
+                      },
+                      "image": {
+                        "description": "image slide: an image file in the sandbox",
+                        "type": "string"
+                      },
+                      "takeaway": {
+                        "description": "the one line to remember, shown in a band",
+                        "type": "string"
+                      },
+                      "notes": {
+                        "description": "speaker notes",
+                        "type": "string"
+                      },
+                      "author": {
+                        "type": "string"
+                      },
+                      "date": {
+                        "type": "string"
+                      },
+                      "contact": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "layout"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "after": {
+                  "description": "add_slides: slide number, 'start' or 'end' (default)",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "before": {
+                  "description": "add_slides: insert before this slide",
+                  "type": "integer"
+                },
+                "to": {
+                  "description": "move_slide / duplicate_slide: position wanted in the deck at that point (from 1)",
+                  "type": "integer"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "author": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "op"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "save_as": {
+            "default": null,
+            "description": "Optional: save the result to this path.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "ops"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of the ``docx_*`` / ``pptx_*`` / ``office_export`` tools (sandbox files).\n\nA write carries ``path`` + ``old_sha256`` / ``new_sha256`` (feeds the\nchanged-files card); a read carries the document's content (outline,\nnumbered paragraphs or slides) as extra fields.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The file, as /work/\u2026 ."
+                  },
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "One line: what was written."
+                  },
+                  "old_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 before the write (empty: new file)."
+                  },
+                  "new_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 after the write."
+                  },
+                  "fixes": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What was understood for you (no need to redo the call)."
+                  },
+                  "warnings": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What had to be ignored or chosen."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "office",
+          "label": "Documents Office",
+          "icon": "ph-file-doc",
+          "color": "sky"
+        },
+        "policy": {
+          "timeout_s": 180,
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "office"
+          ]
+        }
+      }
+    },
+    {
+      "name": "office_export",
+      "title": "Office Export",
+      "description": "Convert an office file of the sandbox (.docx, .pptx, .xlsx, .odt, .odp, .ods) to PDF with LibreOffice. The PDF is written next to it (or to save_as).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "The office file to convert, e.g. 'rapports/bilan-2026.docx'.",
+            "type": "string"
+          },
+          "to": {
+            "default": null,
+            "enum": [
+              "pdf"
+            ],
+            "type": "string"
+          },
+          "save_as": {
+            "default": null,
+            "description": "Optional PDF path.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of the ``docx_*`` / ``pptx_*`` / ``office_export`` tools (sandbox files).\n\nA write carries ``path`` + ``old_sha256`` / ``new_sha256`` (feeds the\nchanged-files card); a read carries the document's content (outline,\nnumbered paragraphs or slides) as extra fields.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The file, as /work/\u2026 ."
+                  },
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "One line: what was written."
+                  },
+                  "old_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 before the write (empty: new file)."
+                  },
+                  "new_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 after the write."
+                  },
+                  "fixes": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What was understood for you (no need to redo the call)."
+                  },
+                  "warnings": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What had to be ignored or chosen."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "office",
+          "label": "Documents Office",
+          "icon": "ph-file-doc",
+          "color": "sky"
+        },
+        "policy": {
+          "timeout_s": 180,
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "office"
+          ]
+        }
+      }
+    }
+  ],
+  "fonctions": {
+    "docx_create": {
+      "fonction": "docx_create",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"File path in the sandbox, e.g. 'rapports/bilan-2026.docx' (relative to /work).\", json_schema_extra={'type': 'string'})]",
+          "requis": true
+        },
+        {
+          "nom": "content",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='The document body in Markdown.', json_schema_extra={'type': 'string'})]",
+          "requis": true
+        },
+        {
+          "nom": "title",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Document title (cover / first line, file properties).', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "subtitle",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "author",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "date",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "cover",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Start with a cover page (title, subtitle, author, date).', json_schema_extra={'type': 'boolean'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "toc",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Add a table of contents after the title.', json_schema_extra={'type': 'boolean'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "template",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='A .dotx/.docx in the sandbox: its styles, header, footer and page layout are kept unless you set header/footer/page; its text is not.', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "theme",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"Look: {accent: '#1F4E79', font: 'Calibri', heading_font: 'Calibri Light', font_size: 11}\", json_schema_extra={'type': 'object', 'properties': {'accent': {'type': 'string'}, 'font': {'type': 'string'}, 'heading_font': {'type': 'string'}, 'font_size': {'type': 'number'}}})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "page",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'object', 'properties': {'size': {'type': 'string', 'enum': ['A4', 'A3', 'A5', 'Letter', 'Legal']}, 'orientation': {'type': 'string', 'enum': ['portrait', 'landscape']}, 'margins_cm': {'type': 'number'}}})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "header",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Text at the top of every page.', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "footer",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Text at the bottom of every page.', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "page_numbers",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Page X / Y in the footer (default true, false with a template).', json_schema_extra={'type': 'boolean'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "watermark",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='e.g. CONFIDENTIEL, BROUILLON', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    },
+    "docx_read": {
+      "fonction": "docx_read",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"File path in the sandbox, e.g. 'rapports/bilan-2026.docx' (relative to /work).\", json_schema_extra={'type': 'string'})]",
+          "requis": true
+        },
+        {
+          "nom": "find",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Text to locate.', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "start",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='First paragraph number to list.', json_schema_extra={'type': 'integer'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "limit",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Max items listed (default 200).', json_schema_extra={'type': 'integer'})]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    },
+    "docx_edit": {
+      "fonction": "docx_edit",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"File path in the sandbox, e.g. 'rapports/bilan-2026.docx' (relative to /work).\", json_schema_extra={'type': 'string'})]",
+          "requis": true
+        },
+        {
+          "nom": "ops",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'array', 'items': {'type': 'object', 'properties': {'op': {'type': 'string', 'enum': ['replace', 'fill', 'set', 'delete', 'insert', 'append', 'set_cell', 'add_row', 'delete_row', 'meta']}, 'find': {'type': 'string'}, 'replace': {'type': 'string'}, 'match_case': {'type': 'boolean', 'description': 'replace: default true (exact case)'}, 'values': {'type': 'object', 'description': 'fill: {field: value} for {{field}}'}, 'p': {'type': ['integer', 'array'], 'items': {'type': 'integer'}, 'description': 'paragraph number(s) from docx_read (from 0)'}, 'to': {'type': 'integer', 'description': 'delete: last paragraph of a range'}, 'text': {'type': 'string'}, 'after': {'type': ['integer', 'string'], 'description': \"insert: paragraph number, heading text, 'start' or 'end'\"}, 'before': {'type': ['integer', 'string']}, 'at_end_of': {'type': 'string', 'description': \"insert: at the end of this heading's section\"}, 'content': {'type': 'string', 'description': 'insert / append: Markdown'}, 'table': {'type': 'integer'}, 'row': {'type': 'integer'}, 'col': {'type': 'integer'}, 'title': {'type': 'string'}, 'author': {'type': 'string'}, 'subject': {'type': 'string'}}, 'required': ['op']}, 'minItems': 1})]",
+          "requis": true
+        },
+        {
+          "nom": "save_as",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Optional: save the result to this path.', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    },
+    "pptx_create": {
+      "fonction": "pptx_create",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"File path in the sandbox, e.g. 'presentations/comite.pptx' (relative to /work).\", json_schema_extra={'type': 'string'})]",
+          "requis": true
+        },
+        {
+          "nom": "slides",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'array', 'items': {'type': 'object', 'description': 'One slide. Fields depend on the layout; fields the layout does not use are ignored (listed in fixes).', 'properties': {'layout': {'type': 'string', 'enum': ['title', 'section', 'agenda', 'bullets', 'two_content', 'kpi', 'chart', 'table', 'comparison', 'timeline', 'process', 'image', 'quote', 'closing']}, 'title': {'type': 'string'}, 'subtitle': {'type': 'string', 'description': 'title / section / closing slides'}, 'bullets': {'type': 'array', 'items': {'type': 'string'}, 'description': 'bullets slide; a sub-point starts with two spaces: [\"Point\", \"  sub-point\"]'}, 'text': {'type': 'string', 'description': 'prose instead of bullets, or the quote text'}, 'chart': {'type': 'string', 'description': \"chart slide: the ref returned by a chart_<type> tool, e.g. '!a1b2c3d4e5f6'\"}, 'items': {'type': 'array', 'description': 'kpi: [{value, label, delta}] \u00b7 agenda: [\"Section 1\", \u2026]', 'items': {'type': ['object', 'string']}}, 'milestones': {'type': 'array', 'description': 'timeline: [{date, title, text, done}]', 'items': {'type': ['object', 'string']}}, 'steps': {'type': 'array', 'description': 'process: [\"Step 1\", \u2026] or [{title, text}]', 'items': {'type': ['object', 'string']}}, 'table': {'description': \"table slide: {header: [...], rows: [[...]]}, a list of row objects, or a chart_table ref '!id'\"}, 'left': {'description': \"comparison: {title, items: [...]} \u00b7 two_content: a list of bullets, a text, or a chart ref '!id'\"}, 'right': {'description': 'same as left'}, 'image': {'type': 'string', 'description': 'image slide: an image file in the sandbox'}, 'takeaway': {'type': 'string', 'description': 'the one line to remember, shown in a band'}, 'notes': {'type': 'string', 'description': 'speaker notes'}, 'author': {'type': 'string'}, 'date': {'type': 'string'}, 'contact': {'type': 'array', 'items': {'type': 'string'}}}, 'required': ['layout']}, 'minItems': 1})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "title",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Deck title (file properties).', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "author",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "theme",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"corporate, slate, emerald, plum, sand, midnight, carbon, or a brand colour '#00693C'.\", json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "template",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='A corporate .potx/.pptx in the sandbox: its masters, theme and fonts are used.', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "size",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'string', 'enum': ['16:9', '4:3', '16:10', 'a4', 'a4_landscape']})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "footer",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Footer text on content slides.', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "slide_numbers",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='default true', json_schema_extra={'type': 'boolean'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "markdown",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Alternative to slides: a Markdown outline (# deck title, ## one slide each, - bullets).', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    },
+    "pptx_read": {
+      "fonction": "pptx_read",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"File path in the sandbox, e.g. 'presentations/comite.pptx' (relative to /work).\", json_schema_extra={'type': 'string'})]",
+          "requis": true
+        },
+        {
+          "nom": "slide",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Only this slide (from 1).', json_schema_extra={'type': 'integer'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "find",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Text to locate.', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    },
+    "pptx_edit": {
+      "fonction": "pptx_edit",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"File path in the sandbox, e.g. 'presentations/comite.pptx' (relative to /work).\", json_schema_extra={'type': 'string'})]",
+          "requis": true
+        },
+        {
+          "nom": "ops",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'array', 'items': {'type': 'object', 'properties': {'op': {'type': 'string', 'enum': ['replace', 'fill', 'set_text', 'add_slides', 'delete_slide', 'move_slide', 'duplicate_slide', 'notes', 'meta']}, 'find': {'type': 'string'}, 'replace': {'type': 'string'}, 'match_case': {'type': 'boolean'}, 'values': {'type': 'object', 'description': 'fill: {field: value} for {{field}}'}, 'slide': {'type': ['integer', 'array'], 'items': {'type': 'integer'}, 'description': 'slide number(s), from 1'}, 'shape': {'type': 'integer', 'description': 'set_text: shape number from pptx_read'}, 'text': {'type': 'string'}, 'slides': {'type': 'array', 'items': {'type': 'object', 'description': 'One slide. Fields depend on the layout; fields the layout does not use are ignored (listed in fixes).', 'properties': {'layout': {'type': 'string', 'enum': ['title', 'section', 'agenda', 'bullets', 'two_content', 'kpi', 'chart', 'table', 'comparison', 'timeline', 'process', 'image', 'quote', 'closing']}, 'title': {'type': 'string'}, 'subtitle': {'type': 'string', 'description': 'title / section / closing slides'}, 'bullets': {'type': 'array', 'items': {'type': 'string'}, 'description': 'bullets slide; a sub-point starts with two spaces: [\"Point\", \"  sub-point\"]'}, 'text': {'type': 'string', 'description': 'prose instead of bullets, or the quote text'}, 'chart': {'type': 'string', 'description': \"chart slide: the ref returned by a chart_<type> tool, e.g. '!a1b2c3d4e5f6'\"}, 'items': {'type': 'array', 'description': 'kpi: [{value, label, delta}] \u00b7 agenda: [\"Section 1\", \u2026]', 'items': {'type': ['object', 'string']}}, 'milestones': {'type': 'array', 'description': 'timeline: [{date, title, text, done}]', 'items': {'type': ['object', 'string']}}, 'steps': {'type': 'array', 'description': 'process: [\"Step 1\", \u2026] or [{title, text}]', 'items': {'type': ['object', 'string']}}, 'table': {'description': \"table slide: {header: [...], rows: [[...]]}, a list of row objects, or a chart_table ref '!id'\"}, 'left': {'description': \"comparison: {title, items: [...]} \u00b7 two_content: a list of bullets, a text, or a chart ref '!id'\"}, 'right': {'description': 'same as left'}, 'image': {'type': 'string', 'description': 'image slide: an image file in the sandbox'}, 'takeaway': {'type': 'string', 'description': 'the one line to remember, shown in a band'}, 'notes': {'type': 'string', 'description': 'speaker notes'}, 'author': {'type': 'string'}, 'date': {'type': 'string'}, 'contact': {'type': 'array', 'items': {'type': 'string'}}}, 'required': ['layout']}, 'description': 'add_slides: new slides'}, 'after': {'type': ['integer', 'string'], 'description': \"add_slides: slide number, 'start' or 'end' (default)\"}, 'before': {'type': 'integer', 'description': 'add_slides: insert before this slide'}, 'to': {'type': 'integer', 'description': 'move_slide / duplicate_slide: position wanted in the deck at that point (from 1)'}, 'title': {'type': 'string'}, 'author': {'type': 'string'}}, 'required': ['op']}, 'minItems': 1})]",
+          "requis": true
+        },
+        {
+          "nom": "save_as",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Optional: save the result to this path.', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    },
+    "office_export": {
+      "fonction": "office_export",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"The office file to convert, e.g. 'rapports/bilan-2026.docx'.\", json_schema_extra={'type': 'string'})]",
+          "requis": true
+        },
+        {
+          "nom": "to",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'string', 'enum': ['pdf']})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "save_as",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Optional PDF path.', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    }
+  }
+}

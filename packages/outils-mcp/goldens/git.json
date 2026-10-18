@@ -1,0 +1,2670 @@
+{
+  "source": "server/local_mcp_server.py (tools/list, FastMCP)",
+  "famille": "git",
+  "outils": [
+    {
+      "name": "git_query",
+      "title": "Git Query",
+      "description": "Git read-only queries. action:\nstatus        : porcelain + branch info\nlog           : oneline log (max_count). target=ref to log from.\ndiff          : target=ref or 'staged' or 'HEAD~1' (vs working tree).\n                target2 set \u2192 diff target..target2 (ranges).\nshow          : target=ref (commit/tag). Full patch + metadata.\nblame         : target=filepath (required). start_line/max_lines optional.\nbranches      : list branches. target='all' for remote too.\ntags          : list tags.\nremotes       : list remotes with URLs.\nconflicts     : list files with unresolved conflicts (rebase/merge state).\ngrep          : pattern=str, target=pathspec. ignore_case.\nfiles         : list tracked files. pattern=glob.\nfind_text     : pattern=text, target=glob. grep in files (incl. untracked).\nread          : target=filepath. start_line/max_lines slice.\nrepos         : v15 \u2014 list all git repos found in your sandbox (depth \u2264 3).\n                Does NOT require ``repo`` arg. Returns {repos: [...]} with\n                path + default_branch + is_clean for each.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "status",
+              "log",
+              "diff",
+              "show",
+              "blame",
+              "branches",
+              "tags",
+              "remotes",
+              "conflicts",
+              "grep",
+              "files",
+              "find_text",
+              "read",
+              "repos"
+            ],
+            "type": "string"
+          },
+          "target": {
+            "default": "",
+            "type": "string"
+          },
+          "target2": {
+            "default": "",
+            "type": "string"
+          },
+          "pattern": {
+            "default": "",
+            "type": "string"
+          },
+          "max_count": {
+            "default": 200,
+            "type": "integer"
+          },
+          "ignore_case": {
+            "default": true,
+            "type": "boolean"
+          },
+          "start_line": {
+            "default": 1,
+            "type": "integer"
+          },
+          "max_lines": {
+            "default": 200,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "repo",
+          "action"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of git_query (list/find/grep/show/blame/log/diff/status/branch/remote/tag).\n\nCarries action-specific extras (``hits``, ``files``, ``log``, ``diff``,\n``branches``, ``tags``, \u2026) via ``extra='allow'``. The common fields\ndeclared here are the ones the LLM benefits from seeing in the schema.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The query action that was dispatched."
+                  },
+                  "repo": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Repository path (absolute, host)."
+                  },
+                  "count": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Result count (where applicable: hits, files, branches, \u2026)."
+                  },
+                  "truncated": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff the result was capped."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "git",
+          "label": "Git",
+          "icon": "ph-git-branch",
+          "color": "slate"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "git"
+          ]
+        }
+      }
+    },
+    {
+      "name": "git_write",
+      "title": "Git Write",
+      "description": "Modify repo files (doesn't stage or commit). Actions: write|replace.\n\nwrite   : create / overwrite / append. mode=overwrite|append. content=text.\nreplace : find+replace in file. find=text, replace=text, regex=bool.\ndry_run : preview changes without writing.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "write",
+              "replace"
+            ],
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "content": {
+            "default": "",
+            "type": "string"
+          },
+          "find": {
+            "default": "",
+            "type": "string"
+          },
+          "replace": {
+            "default": "",
+            "type": "string"
+          },
+          "regex": {
+            "default": false,
+            "type": "boolean"
+          },
+          "mode": {
+            "default": "overwrite",
+            "enum": [
+              "overwrite",
+              "append"
+            ],
+            "type": "string"
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repo",
+          "action",
+          "path"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of git_write (create/edit/append/delete/find_replace files in a repo).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The write action that was dispatched."
+                  },
+                  "path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Absolute host path of the file written."
+                  },
+                  "repo": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Repository path."
+                  },
+                  "bytes": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Final file size in bytes."
+                  },
+                  "sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Final SHA-256 of the file."
+                  },
+                  "dry_run": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "git",
+          "label": "Git",
+          "icon": "ph-git-branch",
+          "color": "slate"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "git"
+          ]
+        }
+      }
+    },
+    {
+      "name": "git_action",
+      "title": "Git Action",
+      "description": "Safe git workflow (NO commit, NO push in this version).\n\nActions:\n  init          : initialize a new repo. repo=<n>. Fails if repo exists.\n                  Creates <repo>/ at your sandbox root (/work) with `.git/`\n                  inside, and MATERIALIZES the initial branch with an empty\n                  scaffold commit (so `switch`/`start_work` work right away).\n                  branch=<n> sets initial branch (default 'main').\n  clone         : clone an HTTPS git URL into <repo>. target=<https-url>\n                  (only https:// allowed for safety \u2014 no ssh, no file://).\n                  branch=<n> optional (clones a specific branch only).\n  switch        : switch branch. branch=name. create=True to create.\n  stage         : git add. paths=[...] or empty for -A.\n  unstage       : git reset HEAD -- <paths>. paths optional (all).\n  restore       : git restore <paths> (undo worktree changes). paths required.\n  fetch         : git fetch. target=remote (default 'origin').\n  pull          : git pull (ff-only by default). target=remote, branch=name.\n                  strategy='ff-only'|'merge'|'rebase'.\n  stash         : git stash push -u. message optional.\n  stash_pop     : git stash pop.\n  stash_list    : git stash list.\n  merge         : git merge <branch> --ff-only (safe). branch required.\n                  strategy='ff-only' (default) | 'no-ff' | 'squash'.\n  cherry_check  : dry-run check if `target`=ref can be cherry-picked cleanly.\n                  (Does not actually apply \u2014 inspect conflicts first.)\n\ndry_run=True   : show what would happen without executing side-effecting ops.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "init",
+              "clone",
+              "switch",
+              "stage",
+              "unstage",
+              "restore",
+              "fetch",
+              "pull",
+              "stash",
+              "stash_pop",
+              "stash_list",
+              "merge",
+              "cherry_check"
+            ],
+            "type": "string"
+          },
+          "branch": {
+            "default": "",
+            "type": "string"
+          },
+          "paths": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "create": {
+            "default": false,
+            "type": "boolean"
+          },
+          "message": {
+            "default": "",
+            "type": "string"
+          },
+          "target": {
+            "default": "",
+            "type": "string"
+          },
+          "strategy": {
+            "default": "ff-only",
+            "enum": [
+              "ff-only",
+              "merge",
+              "rebase",
+              "no-ff",
+              "squash"
+            ],
+            "type": "string"
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repo",
+          "action"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of git_action (branch/checkout/merge/rebase/pull/fetch/reset/restore/stash).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "repo": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "branch": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "dry_run": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "git",
+          "label": "Git",
+          "icon": "ph-git-branch",
+          "color": "slate"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "git"
+          ]
+        }
+      }
+    },
+    {
+      "name": "git_rf",
+      "title": "Git Rf",
+      "description": "Robot Framework tools. action: scan|find|settings.\nscan     : scan repo for RF libraries (with keywords + recommended imports).\nfind     : find a keyword by name. fuzzy=True for partial match.\nsettings : generate *** Settings *** block from keywords_used=[...].",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "scan",
+              "find",
+              "settings"
+            ],
+            "type": "string"
+          },
+          "subfolder": {
+            "default": "",
+            "type": "string"
+          },
+          "keyword_name": {
+            "default": "",
+            "type": "string"
+          },
+          "keywords_used": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "test_file_path": {
+            "default": "",
+            "type": "string"
+          },
+          "suite_doc": {
+            "default": "",
+            "type": "string"
+          },
+          "fuzzy": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repo",
+          "action"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of git_rf (scan | find | settings). Fields populated per action.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "count": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Match count (find)."
+                  },
+                  "libraries_found": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Number of RF libraries found (scan)."
+                  },
+                  "import_summary": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Per-library {library, import, keywords} (scan)."
+                  },
+                  "catalog_text": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable library/keyword catalog (scan)."
+                  },
+                  "found": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Whether the keyword was found (find)."
+                  },
+                  "query": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Echoed keyword_name (find)."
+                  },
+                  "matches": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Keyword matches {keyword, library, file, import, args, doc, exact} (find)."
+                  },
+                  "settings_block": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Generated *** Settings *** block (settings)."
+                  },
+                  "resolved": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Resolved keywords {keyword, library} (settings)."
+                  },
+                  "unresolved": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Keywords that couldn't be resolved (settings)."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "git",
+          "label": "Git",
+          "icon": "ph-git-branch",
+          "color": "slate"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "git"
+          ]
+        }
+      }
+    },
+    {
+      "name": "git_inspect",
+      "title": "Git Inspect",
+      "description": "v15 \u2014 One-call snapshot of a repo's state.\n\nReplaces ``git_query(action='status') + branches + log + remote``.\nReturns a structured dict the agent can read at a glance::\n\n  {\n    \"ok\": true,\n    \"branch\": \"agent/fix-login-a1b2c3d4\",\n    \"default_branch\": \"main\",\n    \"is_protected_branch\": false,\n    \"is_agent_branch\": true,\n    \"dirty\": {\"staged\": 0, \"unstaged\": 2, \"untracked\": 1, \"files\": [...]},\n    \"ahead\": 2,\n    \"behind\": 0,\n    \"recent_commits\": [{\"sha\": \"...\", \"subject\": \"...\"}],\n    \"remotes\": [{\"name\": \"origin\", \"url\": \"...\"}],\n    \"policy\": {\"protected_branches\": [...], \"allowed_agent_prefixes\": [...]}\n  }\n\nUse this BEFORE any write op to know where you stand.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "repo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "repo"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of git_inspect (config/hooks/remotes/auth/index inspection).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "repo": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "git",
+          "label": "Git",
+          "icon": "ph-git-branch",
+          "color": "slate"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "git"
+          ]
+        }
+      }
+    },
+    {
+      "name": "git_start_work",
+      "title": "Git Start Work",
+      "description": "v15 \u2014 Start working on a repo: setup + create agent branch.\n\nThis is the ONLY way an agent should prepare a repo for modification.\nBundles into one call:\n\n  1. Ensure git user.email / user.name are set (auto-fills if missing)\n  2. Switch to base branch (auto-detected: main / master / develop)\n  3. ``git pull --ff-only`` (silent unless conflict)\n  4. Create + switch to ``agent/<branch_intent>-<8hex>``\n  5. Returns the new branch name + base used",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "branch_intent": {
+            "type": "string"
+          },
+          "base": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repo",
+          "branch_intent"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of git_start_work (clone if missing \u2192 pull \u2192 branch off).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "repo": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "branch": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The newly-created agent/<intent>-<hash> branch."
+                  },
+                  "base_branch": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Branch we branched OFF of."
+                  },
+                  "cloned": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff the repo was newly cloned."
+                  },
+                  "pulled": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a pull happened (existing repo)."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "git",
+          "label": "Git",
+          "icon": "ph-git-branch",
+          "color": "slate"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "git"
+          ]
+        }
+      }
+    },
+    {
+      "name": "git_commit",
+      "title": "Git Commit",
+      "description": "v15 \u2014 Stage + commit in one shot. Refuses on protected branches.\n\nStaged changes are scanned for secrets (cloud keys, tokens, private keys, .env secrets): a hit refuses the commit with ``secrets_detected`` and masked ``findings``; ``allow_secrets=true`` commits anyway. Documentation example values are ignored, e.g. the AWS key ``AKIAIOSFODNN7EXAMPLE`` or values containing example, sample, dummy, fake, changeme or ``<...>``.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "scope": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "staged",
+              "paths"
+            ],
+            "type": "string"
+          },
+          "paths": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "allow_secrets": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repo",
+          "message"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of git_commit (stage selected paths + commit).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "repo": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "sha": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Commit SHA (full)."
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Commit message that was applied."
+                  },
+                  "files": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Paths included in the commit."
+                  },
+                  "dry_run": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "git",
+          "label": "Git",
+          "icon": "ph-git-branch",
+          "color": "slate"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "git"
+          ]
+        }
+      }
+    },
+    {
+      "name": "git_submit",
+      "title": "Git Submit",
+      "description": "v15 \u2014 Push current branch + open a PR/MR. Atomic ship-for-review.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "default": "",
+            "type": "string"
+          },
+          "base": {
+            "default": "",
+            "type": "string"
+          },
+          "draft": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repo",
+          "title"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of git_submit (push branch + open PR/MR upstream).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "repo": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "branch": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "pushed": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "pr_url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "URL of the pull/merge request."
+                  },
+                  "pr_number": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "git",
+          "label": "Git",
+          "icon": "ph-git-branch",
+          "color": "slate"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "git"
+          ]
+        }
+      }
+    },
+    {
+      "name": "git_abandon",
+      "title": "Git Abandon",
+      "description": "v15 \u2014 Escape hatch: drop the current agent branch and go back to base.\n\nUse when an agent realizes its approach is wrong and wants to start over.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "keep_branch": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repo"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of git_abandon (reset --hard + branch delete \u2014 destructive).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "repo": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "branch": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "deleted": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "git",
+          "label": "Git",
+          "icon": "ph-git-branch",
+          "color": "slate"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "git"
+          ]
+        }
+      }
+    },
+    {
+      "name": "git_clone",
+      "title": "Git Clone",
+      "description": "v15 \u2014 Clone a git repo (http/https) into the sandbox.\n\nThe clone lands DIRECTLY in the sandbox (or a relative subdir given by\n``into_path``), NOT in ``git_repos/`` anymore (legacy layout).\n\nCREDENTIALS (private repo): NEVER put a token in the URL (rejected). Either:\n  \u2022 pass ``username``/``token`` here (e.g. the user gave them in chat) \u2014 they're\n    used for the clone AND saved for this host, so push/pull/PR reuse them; OR\n  \u2022 register a Git Connector once (Settings \u2192 Git Connectors) for the host.\nTokens are applied via GIT_ASKPASS (never argv/URL/.git-config).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "into_path": {
+            "default": "",
+            "type": "string"
+          },
+          "branch": {
+            "default": "",
+            "type": "string"
+          },
+          "username": {
+            "default": "",
+            "type": "string"
+          },
+          "token": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of git_clone.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "repo": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "branch": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "git",
+          "label": "Git",
+          "icon": "ph-git-branch",
+          "color": "slate"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "git"
+          ]
+        }
+      }
+    },
+    {
+      "name": "git_set_credential",
+      "title": "Git Set Credential",
+      "description": "Save git credentials for a host so clone/push/pull/PR use them\nautomatically \u2014 the user provides them ONCE (here in chat, or in the editor),\nkeyed by the HOST of ``target``. No manual connector setup, no host-matching.\n\nUse this when the user hands you a git username + token/PAT for a repo or host.\nAfter this, every git op on that host authenticates without asking again.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "username": {
+            "default": "",
+            "type": "string"
+          },
+          "provider_type": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "token"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "git",
+          "label": "Git",
+          "icon": "ph-git-branch",
+          "color": "slate"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "git"
+          ]
+        }
+      }
+    }
+  ],
+  "fonctions": {
+    "git_query": {
+      "fonction": "git_query",
+      "parametres": [
+        {
+          "nom": "repo",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "action",
+          "annotation": "Literal['status', 'log', 'diff', 'show', 'blame', 'branches', 'tags', 'remotes', 'conflicts', 'grep', 'files', 'find_text', 'read', 'repos']",
+          "requis": true
+        },
+        {
+          "nom": "target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "target2",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "pattern",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "max_count",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 200
+        },
+        {
+          "nom": "ignore_case",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "start_line",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 1
+        },
+        {
+          "nom": "max_lines",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 200
+        }
+      ]
+    },
+    "git_write": {
+      "fonction": "git_write",
+      "parametres": [
+        {
+          "nom": "repo",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "action",
+          "annotation": "Literal['write', 'replace']",
+          "requis": true
+        },
+        {
+          "nom": "path",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "content",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "find",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "replace",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "regex",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "mode",
+          "annotation": "Literal['overwrite', 'append']",
+          "requis": false,
+          "defaut": "overwrite"
+        },
+        {
+          "nom": "dry_run",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "git_action": {
+      "fonction": "git_action",
+      "parametres": [
+        {
+          "nom": "repo",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "action",
+          "annotation": "Literal['init', 'clone', 'switch', 'stage', 'unstage', 'restore', 'fetch', 'pull', 'stash', 'stash_pop', 'stash_list', 'merge', 'cherry_check']",
+          "requis": true
+        },
+        {
+          "nom": "branch",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "paths",
+          "annotation": "List[str]",
+          "requis": false,
+          "defaut": []
+        },
+        {
+          "nom": "create",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "message",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "strategy",
+          "annotation": "Literal['ff-only', 'merge', 'rebase', 'no-ff', 'squash']",
+          "requis": false,
+          "defaut": "ff-only"
+        },
+        {
+          "nom": "dry_run",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "git_rf": {
+      "fonction": "git_rf",
+      "parametres": [
+        {
+          "nom": "repo",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "action",
+          "annotation": "Literal['scan', 'find', 'settings']",
+          "requis": true
+        },
+        {
+          "nom": "subfolder",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "keyword_name",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "keywords_used",
+          "annotation": "List[str]",
+          "requis": false,
+          "defaut": []
+        },
+        {
+          "nom": "test_file_path",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "suite_doc",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "fuzzy",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        }
+      ]
+    },
+    "git_inspect": {
+      "fonction": "git_inspect",
+      "parametres": [
+        {
+          "nom": "repo",
+          "annotation": "str",
+          "requis": true
+        }
+      ]
+    },
+    "git_start_work": {
+      "fonction": "git_start_work",
+      "parametres": [
+        {
+          "nom": "repo",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "branch_intent",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "base",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        }
+      ]
+    },
+    "git_commit": {
+      "fonction": "git_commit",
+      "parametres": [
+        {
+          "nom": "repo",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "message",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "scope",
+          "annotation": "Literal['auto', 'staged', 'paths']",
+          "requis": false,
+          "defaut": "auto"
+        },
+        {
+          "nom": "paths",
+          "annotation": "List[str]",
+          "requis": false,
+          "defaut": []
+        },
+        {
+          "nom": "allow_secrets",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "git_submit": {
+      "fonction": "git_submit",
+      "parametres": [
+        {
+          "nom": "repo",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "title",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "body",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "base",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "draft",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        }
+      ]
+    },
+    "git_abandon": {
+      "fonction": "git_abandon",
+      "parametres": [
+        {
+          "nom": "repo",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "keep_branch",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "git_clone": {
+      "fonction": "git_clone",
+      "parametres": [
+        {
+          "nom": "url",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "into_path",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "branch",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "username",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "token",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        }
+      ]
+    },
+    "git_set_credential": {
+      "fonction": "git_set_credential",
+      "parametres": [
+        {
+          "nom": "target",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "token",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "username",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "provider_type",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        }
+      ]
+    }
+  }
+}

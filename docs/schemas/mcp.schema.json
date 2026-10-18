@@ -29,6 +29,10 @@
           "token": {
             "type": "string"
           },
+          "relay": {
+            "type": "boolean",
+            "description": "main relaie /api/sandbox/*, /api/terminal/*, /ws/terminal*, captures et trames vers cet hôte, même en loopback"
+          },
           "families": {
             "$ref": "#/$defs/familyList"
           },
@@ -223,7 +227,7 @@
               "type": "string"
             },
             "fallback": {
-              "description": "Repli stdio. Absent sur une entrée toolhost réseau = dérivé (python -m toolhost --stdio --families …) ; false = aucun repli.",
+              "description": "Repli stdio. Absent sur une entrée toolhost réseau = dérivé (node apps/toolhost/dist/main.mjs --stdio --families …) ; false = aucun repli.",
               "oneOf": [
                 {
                   "type": "object",
@@ -260,9 +264,6 @@
                   "const": false
                 }
               ]
-            },
-            "probe": {
-              "type": "boolean"
             },
             "prompt_fragments": {
               "type": "object",

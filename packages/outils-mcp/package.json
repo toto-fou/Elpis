@@ -1,0 +1,22 @@
+{
+  "name": "@elpis/outils-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Serveur MCP des familles d'outils : boîte à outils, arguments à la pydantic, jetons et portée, transports HTTP streamable, SSE et en mémoire (port de server/local_mcp_server.py, llm_core/tools/_toolkit.py, _models.py et des middlewares)",
+  "exports": {
+    ".": "./src/index.ts",
+    "./goldens/*": "./goldens/*"
+  },
+  "dependencies": {
+    "@elpis/commun": "0.1.0",
+    "@elpis/config": "0.1.0",
+    "@elpis/http": "0.1.0",
+    "@elpis/mcp": "0.1.0",
+    "@elpis/securite": "0.1.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "fastify": "5.12.5",
+    "zod": "4.6.5"
+  }
+}

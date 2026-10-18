@@ -79,11 +79,6 @@ def _c_bg_tasks() -> float:
     return float(len(_bg_tasks))
 
 
-def _c_routine_tasks() -> float:
-    from shared_infra.scheduling.routines_scheduler import _running_tasks
-    return float(len(_running_tasks))
-
-
 def _c_rss_mb() -> float:
     if _PROC is None:
         raise RuntimeError("psutil indisponible")
@@ -110,28 +105,16 @@ def _c_sqlite_wal_mb() -> float:
     return round(os.path.getsize(wal) / (1024 * 1024), 2)
 
 
-def _c_scheduler_alive() -> float:
-    """1 si ce worker est le leader cron ET que sa boucle a tické récemment.
-    En multi-worker, seul le leader renvoie 1 ; les autres renvoient 0
-    (normal). Un leader dont la boucle est silencieusement morte renverra 0
-    → visible dans la tendance (le seul scénario « routines mortes jusqu'au
-    restart » restant)."""
-    from shared_infra.scheduling.routines_scheduler import scheduler_alive
-    return 1.0 if scheduler_alive() else 0.0
-
-
 # (event_type, accesseur) — l'ordre est cosmétique.
 _SAMPLES: List[Tuple[str, Callable[[], float]]] = [
     ("proc_active_chat_tasks", _c_active_chat_tasks),
     ("proc_pty_terminals",     _c_pty_terminals),
     ("proc_sse_clients",       _c_sse_clients),
     ("proc_bg_tasks",          _c_bg_tasks),
-    ("proc_routine_tasks",     _c_routine_tasks),
     ("proc_rss_mb",            _c_rss_mb),
     ("proc_num_fds",           _c_num_fds),
     ("proc_num_threads",       _c_num_threads),
     ("proc_sqlite_wal_mb",     _c_sqlite_wal_mb),
-    ("proc_scheduler_alive",   _c_scheduler_alive),
 ]
 
 

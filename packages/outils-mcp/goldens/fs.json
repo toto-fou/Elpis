@@ -1,0 +1,2460 @@
+{
+  "source": "server/local_mcp_server.py (tools/list, FastMCP)",
+  "famille": "fs",
+  "outils": [
+    {
+      "name": "read_file",
+      "title": "Read File",
+      "description": "Smart file reader \u2014 single or batch. Auto-truncates oversized text.\n\nSingle file:\n  read_file(path=\"src/main.py\")\n  read_file(path=\"big.log\", tail=200)\n  read_file(path=\"config.json\", format=\"json\")\n  read_file(path=\"src/main.py\", grep=\"def \", grep_context=2)\n\nBatch (one call, N files):\n  read_file(paths=[\"src/a.py\", \"src/b.py\", \"src/c.py\"])\n  \u2192 returns {ok, count, files: {<path>: <result_dict>, ...}}\n  All other params (head, grep, max_chars, \u2026) apply to EVERY path.\n  Independent failures don't abort siblings. Max 20 paths per call.\n  Use this whenever you'd otherwise chain \u22652 read_file calls.\n\nText modes (use ONE per call):\n  start_line/end_line : 1-based inclusive slice\n  head=N / tail=N     : first / last N lines\n  grep='pat'          : regex filter within THIS file (grep_context=N for\n                        surrounding lines). For cross-file search use\n                        list_files(search_text=\u2026); for structure use code().\n  line_ranges=[[s,e],...] : multi-span read in one call\n  format='json'|'yaml': validate + pretty-print structured data\n\nAuto-truncation:\n  When NO explicit mode is set and the file body exceeds max_chars\n  (default 20_000), the response is automatically a head+tail preview\n  (format=\"auto_truncated\") with a hint listing the ways to drill down.\n  Pass max_chars=<huge> to force the full content.\n\nBinary modes:\n  offset/length       : read byte range (returned as base64)\n  (huge bin, no args) : hexdump preview of first 512 bytes\n\nOptions:\n  with_line_numbers   : ON BY DEFAULT \u2014 each line is prefixed `number<TAB>`.\n                        NEVER include these prefixes in str_replace's\n                        old_str/new_str (everything after the tab is the real\n                        content). Pass with_line_numbers=false for raw text\n                        (e.g. before copying a whole block verbatim).\n  as_base64           : force base64 even for text (safe embedding)\n  encoding            : override encoding detection\n\nAlways returns: sha256, mime, size, type, encoding (text), total_lines (text).\nUse the returned sha256 as `expected_sha256` in edit_file/write_file for\nrace-free edits \u2014 the success returns also expose `next_expected_sha256`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "default": "",
+            "type": "string"
+          },
+          "paths": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "max_chars": {
+            "default": 20000,
+            "type": "integer"
+          },
+          "start_line": {
+            "default": 0,
+            "type": "integer"
+          },
+          "end_line": {
+            "default": 0,
+            "type": "integer"
+          },
+          "head": {
+            "default": 0,
+            "type": "integer"
+          },
+          "tail": {
+            "default": 0,
+            "type": "integer"
+          },
+          "grep": {
+            "default": "",
+            "type": "string"
+          },
+          "grep_context": {
+            "default": 0,
+            "type": "integer"
+          },
+          "ignore_case": {
+            "default": true,
+            "type": "boolean"
+          },
+          "with_line_numbers": {
+            "default": true,
+            "type": "boolean"
+          },
+          "line_ranges": {
+            "default": [],
+            "items": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "offset": {
+            "default": 0,
+            "type": "integer"
+          },
+          "length": {
+            "default": 0,
+            "type": "integer"
+          },
+          "encoding": {
+            "default": "",
+            "type": "string"
+          },
+          "format": {
+            "default": "",
+            "enum": [
+              "",
+              "json",
+              "yaml"
+            ],
+            "type": "string"
+          },
+          "as_base64": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of read_file in batch mode (paths=[...]).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "action": {
+                    "const": "batch_read",
+                    "default": "batch_read",
+                    "type": "string"
+                  },
+                  "count": {
+                    "description": "Number of paths requested.",
+                    "type": "integer"
+                  },
+                  "succeeded": {
+                    "description": "Number of reads that returned ok=true.",
+                    "type": "integer"
+                  },
+                  "failed": {
+                    "description": "Number of reads that returned ok=false.",
+                    "type": "integer"
+                  },
+                  "files": {
+                    "additionalProperties": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "description": "Per-path result dict (success OR error envelope).",
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "count",
+                  "succeeded",
+                  "failed",
+                  "files"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Result of read_file in single-file mode.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "description": "Absolute host path read.",
+                    "type": "string"
+                  },
+                  "rel_path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Path relative to sandbox root."
+                  },
+                  "content": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Decoded text content (None for binary/auto_truncated/error)."
+                  },
+                  "encoding": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Encoding used for text decode."
+                  },
+                  "mime": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Best-effort MIME type."
+                  },
+                  "size": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "File size in bytes."
+                  },
+                  "type": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "One of: file | dir | symlink."
+                  },
+                  "sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 of full file content."
+                  },
+                  "total_lines": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Total line count (text files)."
+                  },
+                  "format": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Output format: auto_truncated | head | tail | grep | range | summary | binary | json | yaml | b64."
+                  },
+                  "truncated": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff content was truncated to fit max_chars."
+                  },
+                  "base64": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Base64-encoded bytes (binary / as_base64=True)."
+                  },
+                  "next_expected_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Use as expected_sha256 on the next edit_file/write_file for race-free updates."
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "fs",
+          "label": "Fichiers",
+          "icon": "ph-folder",
+          "color": "orange"
+        },
+        "fastmcp": {
+          "tags": [
+            "fs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "write_file",
+      "title": "Write File",
+      "description": "Write a file atomically. Modes: write|append|b64.\nParent dirs are created automatically; for an EMPTY dir use\nmanage_files(action='mkdir').\n\nSafety:\n  expected_sha256 : if set AND file exists, fail on hash mismatch (optimistic lock).\n                     Use empty string for 'create new / accept any existing'.\n  backup=True     : copy existing file to <path>.bak before writing.\n  dry_run=True    : compute what would happen (bytes, sha, diff) without writing.\n\nOn success, the result includes `next_expected_sha256` \u2014 pass it as\n`expected_sha256` on your NEXT edit/write to this file to detect\nconcurrent modifications.\n\nFor surgical edits on large files, prefer edit_file.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "content": {
+            "default": "",
+            "type": "string"
+          },
+          "mode": {
+            "default": "write",
+            "enum": [
+              "write",
+              "append",
+              "b64"
+            ],
+            "type": "string"
+          },
+          "b64": {
+            "default": "",
+            "type": "string"
+          },
+          "encoding": {
+            "default": "utf-8",
+            "type": "string"
+          },
+          "expected_sha256": {
+            "default": "",
+            "type": "string"
+          },
+          "backup": {
+            "default": false,
+            "type": "boolean"
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of write_file (write/append/mkdir/b64).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "description": "Absolute host path written.",
+                    "type": "string"
+                  },
+                  "action": {
+                    "description": "write | append | mkdir | b64_write | noop.",
+                    "type": "string"
+                  },
+                  "bytes": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Final file size in bytes (write/append/b64)."
+                  },
+                  "old_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 BEFORE write (empty if new file)."
+                  },
+                  "new_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 AFTER write."
+                  },
+                  "next_expected_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Use as expected_sha256 on the NEXT edit/write to this file."
+                  },
+                  "lines_added": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Number of new lines vs. prior content."
+                  },
+                  "lines_removed": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Number of removed lines vs. prior content."
+                  },
+                  "unchanged": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff the new content equals the prior content (action=noop)."
+                  },
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable hint (esp. on noop)."
+                  },
+                  "dry_run": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff dry_run=True was passed."
+                  },
+                  "bytes_before": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "File size BEFORE write (dry_run only)."
+                  },
+                  "bytes_after": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "File size that WOULD result (dry_run only)."
+                  },
+                  "would_create": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "mkdir dry_run: whether the dir would be newly created."
+                  }
+                },
+                "required": [
+                  "path",
+                  "action"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "fs",
+          "label": "Fichiers",
+          "icon": "ph-folder",
+          "color": "orange"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "diff",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "fs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "edit_file",
+      "title": "Edit File",
+      "description": "Surgical file editor \u2014 precise changes without rewriting the whole file.\n\nActions:\n  str_replace     : replace `old_str` by `new_str`. count=1 (default) / -1 (all).\n                    Fails if old_str is ambiguous in the file.\n  str_replace_ctx : replace `old_str` disambiguated by surrounding context lines.\n                    Use when old_str alone matches multiple places. Provide\n                    before_context=[...] and/or after_context=[...] (whitespace\n                    is normalized for the context match; old_str itself is\n                    matched verbatim). Example:\n                      edit_file('str_replace_ctx',\n                        old_str='return None',\n                        new_str='return result',\n                        before_context=['result = process(data)'],\n                        after_context=['except ValueError:'])\n  regex           : replace `pattern` by `replacement` \u2014 ALL matches by default\n                    (count=N limits to the first N). flags: 'i','m','s'.\n  insert      : insert `content` at `start_line` (1-based). 0=prepend, -1=append.\n  delete      : remove lines start_line..end_line (1-based inclusive).\n  replace     : replace lines start_line..end_line with `content`.\n  anchor      : insert `content` before/after a regex or string anchor.\n                 Stable across previous edits (NO line numbers needed) \u2014 use this\n                 instead of `insert` when you want robustness against shifts.\n                 Params: anchor_str OR anchor_re, position='after'|'before',\n                         occurrence=N (1-based, default 1), content=text.\n                 Example: add an import after the last existing import \u2192\n                   anchor_re='^from .+ import', position='after', occurrence=-1\n                   (-1 = last match \u2014 see below).\n  indent      : re-indent lines start_line..end_line by `indent_delta` spaces.\n                 Positive=add, negative=remove (fails if not enough leading\n                 spaces \u2014 never silently corrupts).\n                 Useful after wrapping a block in `if`/`for`/`try`.\n  multi       : apply `edits=[{action:..., ...}, ...]` atomically.\n                 Line numbers refer to the file as READ (before the batch):\n                 line edits are applied bottom-up, then content edits\n                 (str_replace, regex, anchor\u2026) in the given order.\n                 If any edit fails, the file is NOT written.\n\nAuto-formatting:\n  auto_format=True : after the edit, run `black` (.py), `prettier` (.js/.ts/\n                      .json/.md), `shfmt` (.sh) or `yamlfmt` (.yaml) over the\n                      result if the binary is installed. Skipped silently\n                      otherwise. Avoids formatter-only diffs at commit time.\n\nSafety:\n  expected_sha256 : fail if file hash differs (optimistic lock).\n  dry_run=True    : compute diff only, don't write.\n\nReturns: diff (unified), old_sha256, new_sha256, bytes_before/after, lines_before/after.\nFor multi: returns `applied=[{action, ...info}]` with each edit's result.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "str_replace",
+              "str_replace_ctx",
+              "regex",
+              "insert",
+              "delete",
+              "replace",
+              "anchor",
+              "indent",
+              "multi"
+            ],
+            "type": "string"
+          },
+          "old_str": {
+            "default": "",
+            "type": "string"
+          },
+          "new_str": {
+            "default": "",
+            "type": "string"
+          },
+          "start_line": {
+            "default": 0,
+            "type": "integer"
+          },
+          "end_line": {
+            "default": 0,
+            "type": "integer"
+          },
+          "content": {
+            "default": "",
+            "type": "string"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "pattern": {
+            "default": "",
+            "type": "string"
+          },
+          "replacement": {
+            "default": "",
+            "type": "string"
+          },
+          "flags": {
+            "default": "",
+            "type": "string"
+          },
+          "edits": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          },
+          "expected_sha256": {
+            "default": "",
+            "type": "string"
+          },
+          "anchor_str": {
+            "default": "",
+            "type": "string"
+          },
+          "anchor_re": {
+            "default": "",
+            "type": "string"
+          },
+          "position": {
+            "default": "after",
+            "enum": [
+              "before",
+              "after"
+            ],
+            "type": "string"
+          },
+          "occurrence": {
+            "default": 1,
+            "type": "integer"
+          },
+          "indent_delta": {
+            "default": 0,
+            "type": "integer"
+          },
+          "auto_format": {
+            "default": false,
+            "type": "boolean"
+          },
+          "before_context": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "after_context": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "action"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of edit_file (str_replace / regex / insert / delete / replace / anchor / indent / multi).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "description": "Absolute host path edited.",
+                    "type": "string"
+                  },
+                  "action": {
+                    "description": "Edit action that was applied.",
+                    "type": "string"
+                  },
+                  "dry_run": {
+                    "default": false,
+                    "description": "True iff dry_run=True.",
+                    "type": "boolean"
+                  },
+                  "diff": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Unified diff (truncated to fit budget)."
+                  },
+                  "old_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 BEFORE edit."
+                  },
+                  "new_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 AFTER edit."
+                  },
+                  "next_expected_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Use as expected_sha256 on the NEXT edit to this file."
+                  },
+                  "bytes_before": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "File size BEFORE."
+                  },
+                  "bytes_after": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "File size AFTER."
+                  },
+                  "lines_before": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Line count BEFORE."
+                  },
+                  "lines_after": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Line count AFTER."
+                  },
+                  "lines_added": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Lines added by the edit."
+                  },
+                  "lines_removed": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Lines removed by the edit."
+                  },
+                  "applied": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Per-edit info (action=multi)."
+                  },
+                  "formatter": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Formatter name if auto_format ran."
+                  },
+                  "unchanged": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff the edit produced no net change."
+                  },
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable hint (esp. on unchanged)."
+                  }
+                },
+                "required": [
+                  "path",
+                  "action"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "fs",
+          "label": "Fichiers",
+          "icon": "ph-folder",
+          "color": "orange"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "diff",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "fs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "list_files",
+      "title": "List Files",
+      "description": "List directory / find by glob / grep file contents / stat one path.\n\nModes:\n  (default)           : list children. recursive=True walks subdirs.\n  pattern='*.py'      : glob filter (applies on relative path).\n  search_text='foo'   : grep text across files (always recursive under path).\n                        With path=<file>, greps inside that single file.\n  path=<FILE>         : metadata for that file (size, mtime, mime, encoding,\n                        text/binary; sha256 with details=True).\n\nTime filter:\n  since='1h'|'7d'|'30m'|'2025-01-01'|<epoch>  : keep only files modified\n    after that time. Useful for \"what changed recently\". Skipped silently\n    if the value can't be parsed.\n\nAnnotation:\n  include_git_status=True : annotate each file with its git porcelain status\n    code (e.g. ' M', '??', 'A '). Only adds entries for files actually\n    tracked or modified \u2014 clean files have no status field. Requires\n    `details=True` to be visible (status is added to per-item dicts).\n    If no status could be read (not a repo, repo refused, git unavailable),\n    `git_status_error` says why: the empty map then means nothing.\n\nOptions:\n  exclude=['node_modules','.git','*.pyc']  : skip matching paths/names.\n  sort_by='name'|'size'|'mtime'            : sort direction (asc by name, desc by size/mtime).\n  include_hidden=True                      : show dotfiles.\n  summary=True                             : add counts/total size/file-type breakdown.\n  cursor='<opaque>'                        : resume from previous truncated call.\n  details=True                             : include size/mtime/mode per item.\n\nReturns cursor for pagination when truncated. Pass it back to continue.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "default": ".",
+            "type": "string"
+          },
+          "pattern": {
+            "default": "",
+            "type": "string"
+          },
+          "search_text": {
+            "default": "",
+            "type": "string"
+          },
+          "recursive": {
+            "default": false,
+            "type": "boolean"
+          },
+          "ignore_case": {
+            "default": true,
+            "type": "boolean"
+          },
+          "max_results": {
+            "default": 200,
+            "type": "integer"
+          },
+          "details": {
+            "default": false,
+            "type": "boolean"
+          },
+          "exclude": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sort_by": {
+            "default": "name",
+            "enum": [
+              "name",
+              "size",
+              "mtime"
+            ],
+            "type": "string"
+          },
+          "include_hidden": {
+            "default": false,
+            "type": "boolean"
+          },
+          "summary": {
+            "default": false,
+            "type": "boolean"
+          },
+          "cursor": {
+            "default": "",
+            "type": "string"
+          },
+          "since": {
+            "default": "",
+            "type": "string"
+          },
+          "include_git_status": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of list_files.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "description": "Listed directory (absolute host).",
+                    "type": "string"
+                  },
+                  "items": {
+                    "description": "Listed entries: relative paths (str), or per-file stat dicts when details=True.",
+                    "items": {},
+                    "type": "array"
+                  },
+                  "count": {
+                    "default": 0,
+                    "description": "Number of entries returned.",
+                    "type": "integer"
+                  },
+                  "truncated": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff capped at MAX_LIST."
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "fs",
+          "label": "Fichiers",
+          "icon": "ph-folder",
+          "color": "orange"
+        },
+        "fastmcp": {
+          "tags": [
+            "fs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "manage_files",
+      "title": "Manage Files",
+      "description": "File operations. Actions: copy|move|delete|chmod|mkdir|batch_delete.\n\n  copy / move   : requires path + dest. overwrite=False fails if dest exists.\n  delete        : requires path. recursive=True for dirs.\n  chmod         : requires path. Makes the path executable, cross-UID (host +\n                  container can both run/edit it).\n  mkdir         : requires path. Creates the directory (and parents). No-op if it\n                  already exists; errors if path is an existing file.\n  batch_delete  : requires paths=[...]. All deleted atomically-ish.\n\nSafety:\n  dry_run=True  : preview what would be done without touching the filesystem.\n                  (recommended on delete / batch_delete).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "copy",
+              "move",
+              "delete",
+              "chmod",
+              "mkdir",
+              "batch_delete"
+            ],
+            "type": "string"
+          },
+          "path": {
+            "default": "",
+            "type": "string"
+          },
+          "dest": {
+            "default": "",
+            "type": "string"
+          },
+          "recursive": {
+            "default": false,
+            "type": "boolean"
+          },
+          "paths": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "overwrite": {
+            "default": true,
+            "type": "boolean"
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of manage_files (copy/move/delete/chmod/mkdir/batch_delete).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "action": {
+                    "description": "copy | move | delete | chmod | mkdir | batch_delete.",
+                    "type": "string"
+                  },
+                  "path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Operated path (single-target actions)."
+                  },
+                  "src": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Source (copy/move)."
+                  },
+                  "dest": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Destination (copy/move)."
+                  },
+                  "mode": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "New octal mode (chmod)."
+                  },
+                  "deleted": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Deleted paths (batch_delete)."
+                  },
+                  "count": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Number of items operated on."
+                  },
+                  "dry_run": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff dry_run=True."
+                  },
+                  "plan": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Planned actions (dry_run batch_delete)."
+                  },
+                  "created": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "mkdir: True iff the directory was newly created (False if it already existed)."
+                  },
+                  "would_create": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "mkdir dry_run: whether the directory would be newly created."
+                  }
+                },
+                "required": [
+                  "action"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "fs",
+          "label": "Fichiers",
+          "icon": "ph-folder",
+          "color": "orange"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "fs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "code",
+      "title": "Code",
+      "description": "Code intelligence \u2014 structure & navigation without reading whole files.\n\nActions:\n  outline    : hierarchical structure of a file (path=\u2026 or paths=[\u2026] batch).\n               Languages: Python (AST-precise), JS/TS, Robot Framework,\n               Bash, YAML/Ansible, JSON, Markdown. max_depth=N (default 4).\n  symbols    : FLAT list of symbols defined in `path` ({kind,name,line}).\n  definition : where `symbol` is DEFINED, under `scope` (default: sandbox\n               root), filtered by include_glob='*.py' / exclude=[...].\n  references : every line containing `symbol` as a word (same filters).\n\nExamples:\n  code(action='outline', path='src/app.py')\n  code(action='definition', symbol='handle_request', include_glob='*.py')\n  code(action='references', symbol='LLM_SEMAPHORE', scope='llm_core/')\n\nReturns: outline \u2192 {language, outline, summary} ; symbols \u2192 {matches} ;\ndefinition/references \u2192 {count, matches:[{file,line,\u2026}], truncated}.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "outline",
+              "symbols",
+              "definition",
+              "references"
+            ],
+            "type": "string"
+          },
+          "path": {
+            "default": "",
+            "type": "string"
+          },
+          "paths": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "symbol": {
+            "default": "",
+            "type": "string"
+          },
+          "scope": {
+            "default": "",
+            "type": "string"
+          },
+          "include_glob": {
+            "default": "",
+            "type": "string"
+          },
+          "exclude": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "max_depth": {
+            "default": 4,
+            "type": "integer"
+          },
+          "max_results": {
+            "default": 200,
+            "type": "integer"
+          },
+          "recursive": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of code_outline.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Single file path."
+                  },
+                  "outline": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "description": "One symbol in a code_outline result.",
+                          "properties": {
+                            "kind": {
+                              "description": "function | class | method | const | import \u2026",
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "line": {
+                              "description": "1-based line where the symbol starts.",
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "name",
+                            "line"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Flat list of symbols."
+                  },
+                  "files": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Per-path outline (batch mode)."
+                  },
+                  "language": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Detected language (py/js/ts/robot/sh/yaml/json/md)."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Result of code_navigate.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "matches": {
+                    "description": "Hits with {path, line, kind, name, preview}.",
+                    "items": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "count": {
+                    "default": 0,
+                    "description": "Number of hits returned.",
+                    "type": "integer"
+                  },
+                  "truncated": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff capped."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "fs",
+          "label": "Fichiers",
+          "icon": "ph-folder",
+          "color": "orange"
+        },
+        "fastmcp": {
+          "tags": [
+            "fs"
+          ]
+        }
+      }
+    }
+  ],
+  "fonctions": {
+    "read_file": {
+      "fonction": "read_file",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "paths",
+          "annotation": "List[str]",
+          "requis": false,
+          "defaut": []
+        },
+        {
+          "nom": "max_chars",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 20000
+        },
+        {
+          "nom": "start_line",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "end_line",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "head",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "tail",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "grep",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "grep_context",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "ignore_case",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "with_line_numbers",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "line_ranges",
+          "annotation": "List[List[int]]",
+          "requis": false,
+          "defaut": []
+        },
+        {
+          "nom": "offset",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "length",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "encoding",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "format",
+          "annotation": "Literal['', 'json', 'yaml']",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "as_base64",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "write_file": {
+      "fonction": "write_file",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "content",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "mode",
+          "annotation": "Literal['write', 'append', 'b64']",
+          "requis": false,
+          "defaut": "write"
+        },
+        {
+          "nom": "b64",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "encoding",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "utf-8"
+        },
+        {
+          "nom": "expected_sha256",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "backup",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "dry_run",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "edit_file": {
+      "fonction": "edit_file",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "action",
+          "annotation": "Literal['str_replace', 'str_replace_ctx', 'regex', 'insert', 'delete', 'replace', 'anchor', 'indent', 'multi']",
+          "requis": true
+        },
+        {
+          "nom": "old_str",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "new_str",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "start_line",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "end_line",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "content",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "count",
+          "annotation": "Optional[int]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "pattern",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "replacement",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "flags",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "edits",
+          "annotation": "List[Dict[str, Any]]",
+          "requis": false,
+          "defaut": []
+        },
+        {
+          "nom": "dry_run",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "expected_sha256",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "anchor_str",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "anchor_re",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "position",
+          "annotation": "Literal['before', 'after']",
+          "requis": false,
+          "defaut": "after"
+        },
+        {
+          "nom": "occurrence",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 1
+        },
+        {
+          "nom": "indent_delta",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "auto_format",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "before_context",
+          "annotation": "List[str]",
+          "requis": false,
+          "defaut": []
+        },
+        {
+          "nom": "after_context",
+          "annotation": "List[str]",
+          "requis": false,
+          "defaut": []
+        }
+      ]
+    },
+    "list_files": {
+      "fonction": "list_files",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "."
+        },
+        {
+          "nom": "pattern",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "search_text",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "recursive",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "ignore_case",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "max_results",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 200
+        },
+        {
+          "nom": "details",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "exclude",
+          "annotation": "List[str]",
+          "requis": false,
+          "defaut": []
+        },
+        {
+          "nom": "sort_by",
+          "annotation": "Literal['name', 'size', 'mtime']",
+          "requis": false,
+          "defaut": "name"
+        },
+        {
+          "nom": "include_hidden",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "summary",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "cursor",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "since",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "include_git_status",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "manage_files": {
+      "fonction": "manage_files",
+      "parametres": [
+        {
+          "nom": "action",
+          "annotation": "Literal['copy', 'move', 'delete', 'chmod', 'mkdir', 'batch_delete']",
+          "requis": true
+        },
+        {
+          "nom": "path",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "dest",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "recursive",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "paths",
+          "annotation": "List[str]",
+          "requis": false,
+          "defaut": []
+        },
+        {
+          "nom": "overwrite",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "dry_run",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "code": {
+      "fonction": "code",
+      "parametres": [
+        {
+          "nom": "action",
+          "annotation": "Literal['outline', 'symbols', 'definition', 'references']",
+          "requis": true
+        },
+        {
+          "nom": "path",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "paths",
+          "annotation": "List[str]",
+          "requis": false,
+          "defaut": []
+        },
+        {
+          "nom": "symbol",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "scope",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "include_glob",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "exclude",
+          "annotation": "List[str]",
+          "requis": false,
+          "defaut": []
+        },
+        {
+          "nom": "max_depth",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 4
+        },
+        {
+          "nom": "max_results",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 200
+        },
+        {
+          "nom": "recursive",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,4546 @@
+{
+  "source": "server/local_mcp_server.py (tools/list, FastMCP)",
+  "famille": "browser",
+  "outils": [
+    {
+      "name": "pw_session",
+      "title": "Pw Session",
+      "description": "Manage the Playwright browser session lifecycle (Chromium by default; the\nservice's BROWSER_ENGINE can select firefox or webkit - action=\"health\"\nreports the engine in use).\n\naction= :\n  start       : open a session. Required: url=.\n                HTTP AUTH (Basic AND Digest) \u2192 pass username= / password= HERE,\n                at start. Credentials are set at context creation\n                (httpCredentials) and can NOT be added afterwards via a goto.\n                If a page returns 401, (re)start WITH the credentials\n                (isolated=true for a fresh context). No popup is shown.\n                Use load_state_id= to resume cookies from a saved session.\n                IDEMPOTENT PER USER: one browser instance per user. If you\n                already have a session, start REUSES it and opens url= in a\n                NEW TAB (returns reused=true + tab_index). Use pw_page with\n                action=\"tabs\"/\"tab_switch\" to list/switch between your tabs.\n                EMULATION (optional): device=\"iPhone 13\"|\"Pixel 7\"|\"iPad Mini\"\u2026\n                OR viewport=\"1280x800\"; plus locale=, timezone=,\n                color_scheme=\"dark\", touch=true. Default: desktop 1920x1080.\n                TESTING (optional): isolated=true (FRESH context, no reuse \u2014\n                for reproducible tests) ; trace=true\n                (then action=\"trace_export\" \u2192 trace_url viewable via\n                `npx playwright show-trace`) ; record_video=true (video_urls\n                returned by action=\"stop\").\n  trace_export: stop le tracing et renvoie trace_url (si trace=true au start).\n  stop        : close session. Required: session_id=.\n  save_state  : save cookies/localStorage. Reusable via load_state_id.\n  list        : list active sessions. Optional url_filter= (substring match\n                on URL or domain) \u2014 returns matching sessions only.\n  cleanup     : close all sessions + kill zombie browser processes.\n  health      : browser service status: engine, uptime, your sessions\n                (sessions=[...]) and session_count (all accounts).\n\nPROTOCOL: you get a single instance. Call start whenever you need a URL \u2014\nit reuses your existing instance and opens a new tab rather than failing.\nSwitch between tabs with pw_page(action=\"tab_switch\", index=N).\n\nSYNONYMS (all pw_* tools): action= == op= == do=, value= == v=, target= == selector=.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "url": {
+            "default": "",
+            "type": "string"
+          },
+          "session_id": {
+            "default": "",
+            "type": "string"
+          },
+          "username": {
+            "default": null,
+            "type": "string"
+          },
+          "password": {
+            "default": null,
+            "type": "string"
+          },
+          "load_state_id": {
+            "default": null,
+            "type": "string"
+          },
+          "record_har": {
+            "default": false,
+            "type": "boolean"
+          },
+          "url_filter": {
+            "default": "",
+            "type": "string"
+          },
+          "device": {
+            "default": "",
+            "type": "string"
+          },
+          "viewport": {
+            "default": "",
+            "type": "string"
+          },
+          "locale": {
+            "default": "",
+            "type": "string"
+          },
+          "timezone": {
+            "default": "",
+            "type": "string"
+          },
+          "color_scheme": {
+            "default": "",
+            "type": "string"
+          },
+          "touch": {
+            "default": null,
+            "type": "boolean"
+          },
+          "isolated": {
+            "default": false,
+            "type": "boolean"
+          },
+          "trace": {
+            "default": false,
+            "type": "boolean"
+          },
+          "record_video": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_session \u2014 start/list/close/info on Playwright sessions.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "sessions": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Listing (action='list')."
+                  },
+                  "url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_find",
+      "title": "Pw Find",
+      "description": "Locate element(s). Returns {count, matches:[{tag,text,visible,ref}]}.\n\ninclude_frames=true : ALSO searches inside iframes (native Playwright\n  page.frames()). Each match then carries `frame:{name,url}` and its `ref`\n  stays actionable by pw_act (re-resolved on the right frame). Essential for\n  legacy UIs built on iframes (framed login forms, etc.).\n\nPREFERRED FORMAT \u2014 single target string (DSL):\n  pw_find(target=\"role=button|name=Login\")\n  pw_find(target=\"label=Email\")\n  pw_find(target=\"placeholder=Search\")\n  pw_find(target=\"text=Welcome\")\n  pw_find(target=\"test_id=cta\")\n  pw_find(target=\"role=row|nth=0\")\n  pw_find(target=\"css=div.product-card\", max=20)\n\nLEGACY (still supported): pw_find(role=\"button\", name=\"Login\").\n\nStrategy preference (most \u2192 least robust):\n  role+name > label > placeholder > test_id > text > css > xpath\n\nThe returned `ref` can be passed to pw_act(target=\"ref=loc_xxx\"). It stays\nvalid `ref_ttl_s` seconds (300) and is reusable \u2014 but on content that shifts\nor disappears, re-run pw_find right before acting.\nIf you call pw_find with no target/selector, it returns smart_inspect (lite).\n\nselector=  : raw CSS, synonym of target= (wrapped as \"css=\u2026\"). target wins.\n\nmax=       : cap on locator matches returned (default 5).\nmax_items= : pagination cap, same knob as pw_page/pw_act. >0 caps the\n             no-target smart_inspect fallback AND overrides `max` for\n             matches (one consistent name across the pw_* API).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "target": {
+            "default": "",
+            "type": "string"
+          },
+          "role": {
+            "default": "",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "type": "string"
+          },
+          "placeholder": {
+            "default": "",
+            "type": "string"
+          },
+          "test_id": {
+            "default": "",
+            "type": "string"
+          },
+          "css": {
+            "default": "",
+            "type": "string"
+          },
+          "xpath": {
+            "default": "",
+            "type": "string"
+          },
+          "alt": {
+            "default": "",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "type": "string"
+          },
+          "nth": {
+            "default": -1,
+            "type": "integer"
+          },
+          "max": {
+            "default": 5,
+            "type": "integer"
+          },
+          "max_items": {
+            "default": 0,
+            "type": "integer"
+          },
+          "include_frames": {
+            "default": false,
+            "type": "boolean"
+          },
+          "selector": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_find \u2014 locate one or many DOM elements via the DSL or selector.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "found": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "count": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "How many matches were returned (capped by max=)."
+                  },
+                  "total": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "How many elements matched before the cap."
+                  },
+                  "matches": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Each {tag, text, role, visible, enabled, ref, xpath, in_viewport, frame?}."
+                  },
+                  "ref_ttl_s": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Seconds a returned `ref` stays valid on the service \u2014 re-run pw_find after that, or sooner on content that shifts/disappears."
+                  },
+                  "ref_reusable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True: the same ref can be passed to several pw_act calls until it expires."
+                  },
+                  "usage_hint": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "node": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Single-match descriptor (tag, role, attributes, text\u2026)."
+                  },
+                  "nodes": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Multi-match descriptors."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_act",
+      "title": "Pw Act",
+      "description": "Act on an element or page.\n\nPREFERRED \u2014 target DSL (single string):\n  pw_act(sid, action=\"click\", target=\"role=button|name=Login\")\n  pw_act(sid, action=\"click\", target=\"text=Add to cart\")\n  pw_act(sid, action=\"fill\",  target=\"label=Email\",       value=\"me@x.com\")\n  pw_act(sid, action=\"fill\",  target=\"placeholder=Password\", value=\"hunter2\")\n  pw_act(sid, action=\"press\", value=\"Enter\")       # no target = current focus\n  pw_act(sid, action=\"select\", target=\"label=Country\", option_label=\"France\")\n  pw_act(sid, action=\"pick\",  target=\"css=#city\", option_label=\"Lyon\")  # ANY dropdown\n  pw_act(sid, action=\"scroll\", direction=\"down\", amount=800)   # page\n  pw_act(sid, action=\"goto\",  url=\"https://example.com\")\n  pw_act(sid, action=\"click\", target=\"ref=loc_abc\")  # ref from pw_find\n  pw_act(sid, action=\"drag\",   target=\"css=#column-a\", to=\"css=#column-b\")   # drag & drop\n  pw_act(sid, action=\"expand\", target=\"role=treeitem|name=Tables\")           # open a tree node\n\nSYNONYMS (all pw_* tools): action= == do=, value= == v=, selector= == target=.\n\nTARGET MATCHING: the target is counted before acting.\n  - no match after ~2 s -> element_not_found right away, with `suggestions`\n    (targets with a close name, else of the same role). Wait first with\n    pw_wait when the element shows up late.\n  - several matches -> acts on the FIRST, returns matched=N + warning.\n    strict=true refuses instead (ambiguous_target + `candidates`, each with\n    a ref). Add |nth=K (0-based) to the target to choose one.\n  - name= is matched as the WHOLE name first (case-insensitive), then as a\n    substring (\"Start\" may hit \"Restart\": name_match=\"substring\" + warning).\n  Each gesture waits up to 8 s for its element to be actionable (same\n  default as pw_chain), so the service error arrives before the tool timeout.\n\nAUTH NOTE: for a page behind HTTP auth (Basic/Digest), goto takes NO\ncredentials. Open the session with: pw_session(action=\"start\",\nurl=\u2026, username=\u2026, password=\u2026). A goto on such a page returns the\nauth_hint field as a reminder.\n\nActions (action=):\n  click | fill | press | hover | check | uncheck | focus | type | clear\n  dblclick | rclick | goto | back | forward | reload\n  upload     : put files in an <input type=file> (target=). files= : paths\n               inside your sandbox /work ([\"report.pdf\"], [\"/work/a.csv\"]) or\n               {\"name\", \"content_base64\", \"mime_type\"?} objects. Nothing\n               outside /work is readable (file_not_found, files_required).\n  select     : NATIVE <select> only. Prefer option_label= (what you SEE) or\n               option_value=. The options are listed in pw_page(\"inspect\").\n  pick       : ANY dropdown \u2014 native <select>, autocomplete input, or a custom\n               div/ul/role=listbox one. Opens it and clicks the option for you.\n               Use this when the control is not a real <select>.\n  scroll     : NO target  \u2192 scrolls the PAGE (direction=, amount=). When the\n               page itself cannot scroll (max_y=0 \u2014 GWT/desktop-like layouts\n               scroll INSIDE a panel), the largest scrollable container is\n               scrolled instead and named in `container` (strategy=\n               container-scroll); target it explicitly next time. The list\n               of scrollable panels is in pw_page(\"inspect\").scrollables.\n               target= + direction= \u2192 scrolls INSIDE that container.\n               target= alone \u2192 brings the element into view.\n  drag       : drag target= and drop it on to= (DSL). Pointer drag first\n               (Playwright dragTo), then synthetic HTML5 drag events when\n               the drop did not land. Without to=, direction=/amount= drag\n               by an offset in pixels.\n  expand | collapse : open / close a tree node or disclosure (GWT CellTree,\n               ARIA tree, accordion). A plain click on a tree item usually\n               only SELECTS it: this tries the toggle icon, then\n               focus + ArrowRight/ArrowLeft, then dblclick, and VERIFIES\n               aria-expanded. Result: expanded_before / expanded / method.\n               (A click on a tree item also reports `expanded` so you can\n               see it did not open.)\n\nwait_after= : \"network\" (wait networkidle, max 6s) | \"selector:#x\" |\n              \"text:Welcome\" | <int ms>. Use after navigation-triggering clicks.\n\nvalue= : text for fill/type, key for press (Enter/Tab/Escape/etc).\noption_label= / option_value= : for select/pick. option_label is the visible\n     text; option_value is the underlying value=. Passing the visible text as\n     value= still works but is guessed. Both return `selected` (the option\n     really chosen); option_not_found lists the available `options`.\ndirection= : down|up|left|right (scroll). amount= : pixels, default 500.\n\nobserve= : when true (default) the result carries `page_after` \u2014 a fresh\n     lite snapshot of the page AFTER the action, so you SEE the outcome in\n     THIS call (no separate pw_page(action=\"inspect\") needed). Set false only for\n     speed-critical sequences where you do not need to see the result.\n\nmax_items= : cap on the interactive elements listed in `page_after`\n     (default 25, clamped 1-200). Lower it (e.g. 5-10) to save tokens on\n     dense pages when you only need confirmation the action landed.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "do": {
+            "default": "",
+            "type": "string"
+          },
+          "target": {
+            "default": "",
+            "type": "string"
+          },
+          "ref": {
+            "default": "",
+            "type": "string"
+          },
+          "role": {
+            "default": "",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "type": "string"
+          },
+          "placeholder": {
+            "default": "",
+            "type": "string"
+          },
+          "test_id": {
+            "default": "",
+            "type": "string"
+          },
+          "css": {
+            "default": "",
+            "type": "string"
+          },
+          "xpath": {
+            "default": "",
+            "type": "string"
+          },
+          "alt": {
+            "default": "",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "type": "string"
+          },
+          "v": {
+            "default": "",
+            "type": "string"
+          },
+          "url": {
+            "default": "",
+            "type": "string"
+          },
+          "wait_after": {
+            "default": "",
+            "type": "string"
+          },
+          "observe": {
+            "default": true,
+            "type": "boolean"
+          },
+          "max_items": {
+            "default": 25,
+            "type": "integer"
+          },
+          "action": {
+            "default": "",
+            "type": "string"
+          },
+          "value": {
+            "default": "",
+            "type": "string"
+          },
+          "selector": {
+            "default": "",
+            "type": "string"
+          },
+          "option_label": {
+            "default": "",
+            "type": "string"
+          },
+          "option_value": {
+            "default": "",
+            "type": "string"
+          },
+          "direction": {
+            "default": "",
+            "type": "string"
+          },
+          "amount": {
+            "default": 0,
+            "type": "integer"
+          },
+          "to": {
+            "default": "",
+            "type": "string"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "upload: paths inside /work, or {name, content_base64, mime_type?} objects."
+          },
+          "strict": {
+            "default": false,
+            "type": "boolean",
+            "description": "Refuse a target that matches several elements (ambiguous_target with the candidates) instead of acting on the first."
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_act \u2014 click / fill / type / press / select / hover / drag / expand\u2026",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "target": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "DSL or selector that was acted upon."
+                  },
+                  "status": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Service outcome ('success')."
+                  },
+                  "strategy": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "How the element was reached: ref | by_official | smart:<strategy> | page-scroll | container-scroll | keyboard."
+                  },
+                  "resolved_selector": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The Playwright expression the service actually used (e.g. getByRole('button', { name: /Login/i }).first())."
+                  },
+                  "attempts": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Ordered resolution attempts {via, ok, error?, ms?} \u2014 shows when the official locator failed and a fallback landed."
+                  },
+                  "url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Page URL after the action."
+                  },
+                  "selected": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "select/pick: the option really chosen {value, label, index}."
+                  },
+                  "expanded": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "click/expand/collapse on a tree item or disclosure: aria-expanded AFTER the action (null when the element declares none)."
+                  },
+                  "page_after": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Lite snapshot of the page after the action (observe=true)."
+                  },
+                  "screenshot_url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "When action involved a screenshot."
+                  },
+                  "step": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Step number within the session."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_page",
+      "title": "Pw Page",
+      "description": "Page-level operations (no element target by default).\n\nOPERATIONS (action=):\n  inspect    : compact semantic map of the page.\n               level= lite|nav|full (default lite \u2014 saves ~70% tokens).\n                 lite : idx, type, role, name, text, selector, in_viewport\n                 nav  : + form structures + href + region\n                 full : all fields incl. colors, rect\n               Each interactive carries `role` + accessible `name`. PREFER\n               building targets from them \u2014 target=\"role=<role>|name=<name>\"\n               is the most robust locator (resolves via getByRole). Fall\n               back to `selector` only when role/name are empty.\n               A `<select>` always carries its `options` \u2014 pass one of those\n               labels to pw_act(action=\"select\", option_label=\u2026).\n               `detected_by` means the element was found by heuristic (cursor,\n               widget class) and has NO declared role: target it BY TEXT.\n               `expanded` tells you whether a dropdown is already open.\n               include_frames=True : ALSO lists what is inside <iframe>s\n                 (each item carries `frame`). Reach those via\n                 pw_find(include_frames=true) \u2192 ref \u2192 pw_act(target=\"ref=\u2026\").\n               since_step=N : returns ONLY elements changed since step N\n                              (use payload.screenshot_step from a previous\n                              call; cuts ~80% of tokens on stable pages).\n               viewport_only=True : drops offscreen elements. The result\n                 says what it DROPPED: `candidates_total` and\n                 `omitted:{offscreen,hidden,too_small,over_max}` \u2014 when the\n                 element you expect is missing, look there before\n                 concluding it does not exist (raise max_items, or\n                 viewport_only=False).\n               max_items=30 : caps returned interactives count.\n               skip_screenshot=True (default in lite) : no PNG written.\n               pierce_shadow=True : reaches inside open shadow roots.\n                 Interactive shadow elements are listed inline (each carries\n                 in_shadow + shadow_host); a shadow root that holds only TEXT\n                 (a web component with no controls) is listed as a\n                 `shadow-content` item (in_shadow=true, its text as name), and\n                 `shadow:[{host,text,interactive}]` summarizes every host.\n                 `shadow_hosts` counts the components seen.\n               `scrollables` is ALWAYS present ({selector, h, sh, top,\n                 in_viewport}). Empty [] = the page itself scrolls (or nothing\n                 does); non-empty = an inner panel scrolls \u2014 scroll INSIDE one\n                 with pw_act(action=\"scroll\", target=\"css=<selector>\",\n                 direction=\"down\"). A page scroll that hits max_y:0 auto-scrolls\n                 the largest panel and names it in `container`.\n  screenshot : viewport capture, OR element-cropped if target= provided.\n               full_page=True for full document (heavy, use sparingly).\n               Returns {screenshot, screenshot_url, screenshot_step}.\n  wait       : wait for an element to be visible. Required: target= (or selector=).\n  eval       : run JS (value=script). Result capped at ~50 KB; over \u2192 preview.\n  extract    : extract HTML TABLES (tables only \u2014 use \"text\" for prose).\n               target= narrows to ONE table; without it, the first one.\n  element    : everything about ONE element \u2014 all attributes, computed\n               cursor/pointer-events/z-index, readOnly, contentEditable, and\n               every <option> of a select. THE call to make when a click or a\n               fill did not do what you expected. Required: target=.\n  frames     : list the <iframe>s of the page (url, name, index).\n  text       : extract textContent. Optional target=/selector= (default: whole page).\n               include_frames=True : appends the text of each <iframe> (their\n               content NEVER appears in the parent document's text).\n  tabs       : list tabs (`active` = index of the tab actions run on).\n  tab_new    : open tab (value=url). It opens in the BACKGROUND: actions keep\n               running on the current tab unless switch=true. The result gives\n               the new tab_index and `active`.\n  tab_switch : index= required.\n  tab_close  : index= required.\n               A link or script that opens a new window (target=_blank,\n               window.open) adds a tab WITHOUT switching to it: the result of\n               that action carries opened_tab {index, url, switch_with} - call\n               pw_page(action=\"tab_switch\", index=...) to act on it.\n  network    : recent network requests log \u2014 document + XHR/fetch, each\n               {dir:REQ|RES, method, url, type, host, same_origin, status,\n               postData}. Same-origin and document entries are kept first\n               when the log exceeds max= (default 50); `by_host` counts\n               everything, `total` is the size before the cap.\n               value= filters on a URL substring.\n  pdf        : export PDF.\n\nSYNONYMS (all pw_* tools): action= == op=, value= == v=, target= == selector=.\n\nEXAMPLES:\n  pw_page(sid, action=\"inspect\")                          # lite, viewport only\n  pw_page(sid, action=\"inspect\", level=\"full\")            # exhaustive (heavy)\n  pw_page(sid, action=\"inspect\", since_step=3)            # diff since step 3\n  pw_page(sid, action=\"screenshot\", target=\"role=dialog\") # cropped to dialog\n  pw_page(sid, action=\"eval\", value=\"return document.title\")",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "op": {
+            "default": "",
+            "type": "string"
+          },
+          "selector": {
+            "default": "",
+            "type": "string"
+          },
+          "v": {
+            "default": "",
+            "type": "string"
+          },
+          "index": {
+            "default": -1,
+            "type": "integer"
+          },
+          "max": {
+            "default": 50,
+            "type": "integer"
+          },
+          "level": {
+            "default": "lite",
+            "type": "string"
+          },
+          "since_step": {
+            "default": 0,
+            "type": "integer"
+          },
+          "viewport_only": {
+            "default": true,
+            "type": "boolean"
+          },
+          "max_items": {
+            "default": 30,
+            "type": "integer"
+          },
+          "skip_screenshot": {
+            "default": false,
+            "type": "boolean"
+          },
+          "target": {
+            "default": "",
+            "type": "string"
+          },
+          "full_page": {
+            "default": false,
+            "type": "boolean"
+          },
+          "action": {
+            "default": "",
+            "type": "string"
+          },
+          "value": {
+            "default": "",
+            "type": "string"
+          },
+          "include_frames": {
+            "default": false,
+            "type": "boolean"
+          },
+          "pierce_shadow": {
+            "default": true,
+            "type": "boolean"
+          },
+          "switch": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_page \u2014 inspect / screenshot / wait / eval / extract / text / tabs / network / pdf.\n\nCONTRAT \u2014 ``status`` accepte un ENTIER (code HTTP d'une navigation) OU une\nCHA\u00ceNE : le service Node r\u00e9pond ``{\"status\": \"success\"}`` (screenshot,\nonglets, pdf) et ``{\"status\": \"found\"}`` (wait). Typ\u00e9 ``int`` seul, le\nsch\u00e9ma de sortie rejetterait ces r\u00e9ponses c\u00f4t\u00e9 client MCP (``-32602 \u2026\nstatus must be integer``) alors que l'action a r\u00e9ussi.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "title": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "status": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "HTTP status of the last navigation (int), or the service outcome ('success', 'found')."
+                  },
+                  "screenshot": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "screenshot: PNG file name on the browser service."
+                  },
+                  "screenshot_url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "screenshot: app-relative URL serving that PNG (/api/playwright/screenshot/<file>)."
+                  },
+                  "screenshot_step": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Step counter of the session (each call also writes step_<sid>_<N>.png)."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_dialog",
+      "title": "Pw Dialog",
+      "description": "Decide in advance how the next native dialog will be answered.\n\nNative dialogs (alert / confirm / prompt) freeze the page until they are\nanswered, so the browser answers them for you: it ACCEPTS everything by\ndefault. That default means you can never cancel a confirm, and never answer\na prompt (it gets an empty string). Arm a different answer BEFORE the click\nthat opens the dialog.\n\naction= :\n  accept : accept the next dialog. text= is the answer for a prompt.\n  dismiss: cancel it (the \"Cancel\" button of a confirm).\n  status : what is currently armed, and the last dialog seen\n           ({type, message, action}) \u2014 use it to READ what the page asked.\n  reset  : back to the default (accept).\n\ntimes= : how many dialogs this policy covers (default 1, max 20). Useful for\n         a flow that chains several confirms.\nsticky=true : keep the policy until action=\"reset\" (times= is then ignored).\n\nstatus returns {armed, last, seen, history (last 10 dialogs), last_policy\n(armed|default), default_when_unarmed:\"accept\", sticky}.\n\nThis call returns IMMEDIATELY \u2014 it arms a policy, it does not wait.\n\nEXAMPLE \u2014 cancel a deletion:\n  pw_dialog(sid, action=\"dismiss\")\n  pw_act(sid, action=\"click\", target=\"role=button|name=Delete\")\n  pw_dialog(sid, action=\"status\")   # \u2192 last: {type:\"confirm\", message:\"Sure?\"}",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "action": {
+            "default": "status",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "type": "string"
+          },
+          "times": {
+            "default": 1,
+            "type": "integer"
+          },
+          "sticky": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_wait",
+      "title": "Pw Wait",
+      "description": "Wait \u2014 for an element to DISAPPEAR, for a dynamic condition, or a fixed pause.\n\nTWO MODES:\n  1. Fixed pause \u2014 pw_wait(seconds=3)\n     Sleeps N seconds (max 300). No session/target needed. Use sparingly (for\n     an animation or a rate-limit); prefer a condition wait when you can.\n  2. Condition wait \u2014 pw_wait(session_id=..., target=..., condition=...)\n     Polls until the condition holds or max_wait_s elapses. Requires session_id\n     and target= (DSL) or selector= (CSS/text/xpath).\n\nCONDITIONS (default 'hidden'):\n  hidden            : element gone / invisible  \u2190 wait for a spinner/overlay/modal to vanish\n  visible           : element appears and is visible\n  attached          : element exists in the DOM (visible or not)\n  detached          : element removed from the DOM\n  text_contains     : element text contains expected_text=\n  text_changes      : element text differs from its value when the wait began\n  count_increases   : more elements match target= than at start\n  count_decreases   : fewer elements match target= than at start\n  attribute_changes : attribute= changes (or equals expected_value= when given)\n\nRETURNS {ok, mode, condition, status, elapsed_ms, via, polled_value}. If the\ncondition is not met within max_wait_s, returns ok=False with timed_out=True \u2014\na NORMAL outcome (the element simply never disappeared), not an error; decide\nyour next step from it. `polled_value` ({count, text, attr, visible}) is what\nthe element showed LAST \u2014 read it before retrying with another condition.\n\nEXAMPLES:\n  pw_wait(seconds=2)                                                       # fixed pause\n  pw_wait(session_id=s, target=\"css=.spinner\", condition=\"hidden\")         # wait to disappear\n  pw_wait(session_id=s, target=\"role=dialog\", condition=\"hidden\", max_wait_s=20)\n  pw_wait(session_id=s, selector=\"#status\", condition=\"text_contains\", expected_text=\"Done\")\n\nThe target is resolved EXACTLY like pw_expect (same by_*/ref locator on the\nservice, same fallback ladder on a raw selector), so a wait and the expect\nthat follows always look at the same element. Waits poll in short chunks, so\nthey never block other browser calls on the same session and never trip a\nrequest timeout.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "seconds": {
+            "default": 0.0,
+            "type": "number"
+          },
+          "session_id": {
+            "default": "",
+            "type": "string"
+          },
+          "target": {
+            "default": "",
+            "type": "string"
+          },
+          "selector": {
+            "default": "",
+            "type": "string"
+          },
+          "condition": {
+            "default": "hidden",
+            "type": "string"
+          },
+          "expected_text": {
+            "default": "",
+            "type": "string"
+          },
+          "attribute": {
+            "default": "",
+            "type": "string"
+          },
+          "expected_value": {
+            "default": "",
+            "type": "string"
+          },
+          "max_wait_s": {
+            "default": 60,
+            "type": "integer"
+          },
+          "poll_ms": {
+            "default": 300,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_wait \u2014 wait for a dynamic condition or a fixed duration.\n\n``ok`` overrides the base ``Literal[True]``: a wait that expires without\nthe condition being met returns ``ok=False`` with ``timed_out=True`` \u2014 it\nis a *normal* outcome (the element simply never disappeared), NOT an error\nenvelope. Transport/session failures still return an ErrEnvelope.",
+                "properties": {
+                  "ok": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "mode": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "'duration' (fixed sleep) or 'condition' (dynamic wait)."
+                  },
+                  "condition": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "visible|hidden|attached|detached|text_contains|text_changes|attribute_changes|count_increases|count_decreases."
+                  },
+                  "status": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Server outcome for a condition wait: found|hidden|attached|detached|matched|changed|timeout."
+                  },
+                  "selector": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Resolved Playwright selector used for the wait."
+                  },
+                  "via": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "How the target was resolved on the service: official (by_*/ref) | smart:<strategy> | raw."
+                  },
+                  "polled_value": {
+                    "anyOf": [
+                      {},
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Last value observed while polling ({count, text, attr, visible}) \u2014 on a timeout it tells you WHAT the element showed instead."
+                  },
+                  "elapsed_ms": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Wall-clock elapsed time in milliseconds."
+                  },
+                  "timed_out": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff the condition was not met before max_wait_s (ok=False)."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false,
+          "timeout_s": 330.0
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_expect",
+      "title": "Pw Expect",
+      "description": "Assert a condition. Returns {pass: bool, actual, expected, screenshot_on_fail?}.\n\nELEMENT ASSERTIONS (require target=):\n  visible      : element exists and is visible.\n  hidden       : element does not exist OR is invisible.\n  enabled      : element is interactable.\n  disabled     : element is disabled.\n  checked      : checkbox/radio is checked.\n  unchecked    : checkbox/radio is not checked.\n  text-equals  : element textContent == value (trimmed, normalized).\n  text-contains: element textContent contains value.\n  value-equals : input value == value.\n  count-eq     : exactly value (int) elements match the target.\n  count-gte    : at least value (int) elements match.\n  attr-equals  : attribute (value=\"attr=foo\") equals (value=\"attr=foo|val=bar\").\n                 Use compound DSL: target=\"role=link|name=Docs\",\n                 value=\"attr=href|val=/docs\".\n\nPAGE ASSERTIONS (no target):\n  url-equals    : page.url() == value.\n  url-contains  : page.url() contains value.\n  url-matches   : page.url() matches regex value.\n  title-contains: document.title contains value.\n\nEXAMPLES:\n  pw_expect(sid, action=\"visible\", target=\"role=alert|name=Saved\")\n  pw_expect(sid, action=\"text-equals\", target=\"css=h1.title\", value=\"Welcome John\")\n  pw_expect(sid, action=\"count-eq\", target=\"role=row\", value=\"5\")\n  pw_expect(sid, action=\"url-contains\", value=\"/dashboard\")\n  pw_expect(sid, action=\"disabled\", target=\"role=button|name=Submit\")\n\nSYNONYMS (all pw_* tools): action= == assertion=, value= == v=, target= == selector=.\n\nThis is the primitive for IHM testing. Combine multiple expects to build\nan assertion suite. Failures include a screenshot and a hint.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "assertion": {
+            "default": "",
+            "type": "string"
+          },
+          "target": {
+            "default": "",
+            "type": "string"
+          },
+          "value": {
+            "default": "",
+            "type": "string"
+          },
+          "timeout_ms": {
+            "default": 5000,
+            "type": "integer"
+          },
+          "action": {
+            "default": "",
+            "type": "string"
+          },
+          "selector": {
+            "default": "",
+            "type": "string"
+          },
+          "v": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_expect \u2014 assertion (visible, hidden, contains_text, \u2026).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "expectation": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "passed": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_chain",
+      "title": "Pw Chain",
+      "description": "Execute multiple actions in a single round-trip (max 30).\n\nactions= : list of {action, target?, value?, key?, url?, wait_after?, ms?}\n  action values: click | fill | type | press | select | check | wait | scroll | goto | hover\n  (per-step synonyms accepted: action|do|type, value|v)\n\nEXAMPLES:\n  # Login flow in one call:\n  pw_chain(session_id, actions=[\n    {\"action\": \"fill\", \"target\": \"label=Email\",    \"value\": \"me@x.com\"},\n    {\"action\": \"fill\", \"target\": \"label=Password\", \"value\": \"hunter2\"},\n    {\"action\": \"click\", \"target\": \"role=button|name=Login\", \"wait_after\": \"network\"},\n  ])\n\n  # Wait + verify pattern:\n  pw_chain(session_id, actions=[\n    {\"action\": \"wait\", \"ms\": 500},\n    {\"action\": \"click\", \"target\": \"test_id=continue\"},\n  ])\n\nReturns {ok, total, executed, failed, results:[{step, action, success, ...}],\npage_after}. ok=false when a step failed \u2014 read `results` (code, alternatives +\nscreenshot when enabled). Each step waits up to 8 s for its element (same\ndefault as pw_act); a step whose target matches nothing fails fast with\ncode=element_not_found and `alternatives` (targets with a close name). observe=true (default) attaches `page_after`, a\nlite snapshot taken AFTER the last step (max_items= caps it) \u2014 the same\ngrounding pw_act gives; set observe=false for speed-critical sequences.\nUse this when you have a deterministic sequence to save 5-10x tool-call latency.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "actions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "stop_on_error": {
+            "default": true,
+            "type": "boolean"
+          },
+          "screenshot_on_fail": {
+            "default": true,
+            "type": "boolean"
+          },
+          "observe": {
+            "default": true,
+            "type": "boolean"
+          },
+          "max_items": {
+            "default": 25,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "session_id",
+          "actions"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_chain \u2014 multi-step action sequence in one call.\n\n``ok`` overrides the base ``Literal[True]``: a chain whose step fails\nreturns ``ok=False`` with the per-step ``results`` \u2014 an ordinary outcome\nthe model must read, NOT an error envelope (typed ``Literal[True]``, a\nfailed step would become a ``-32602`` schema error).",
+                "properties": {
+                  "ok": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "total": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Steps requested."
+                  },
+                  "executed": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Steps actually run (stop_on_error halts the rest)."
+                  },
+                  "failed": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Steps that failed."
+                  },
+                  "results": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Per-step results {step, action, success, duration_ms, \u2026, error?, alternatives?}."
+                  },
+                  "page_after": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Lite snapshot of the page after the chain (observe=true)."
+                  },
+                  "steps": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Per-step results (legacy alias)."
+                  },
+                  "completed": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "failed_at": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "0-based index of the first failing step (if any)."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_mock",
+      "title": "Pw Mock",
+      "description": "Mock network responses to test UI under controlled backend conditions.\n\naction= :\n  add    : register a mock. url_pattern= (substring or regex), status=,\n           body= (string), content_type=, delay_ms=, times= (-1 = unlimited).\n  list   : list active mocks for this session.\n  clear  : remove all mocks for this session.\n  remove : remove mocks matching url_pattern=.\n\nEXAMPLES \u2014 testing UI under failure conditions:\n  pw_mock(sid, \"add\", url_pattern=\"/api/users\", status=500, body='{\"error\":\"DB down\"}')\n  pw_mock(sid, \"add\", url_pattern=\"/api/slow\", delay_ms=3000)\n  pw_mock(sid, \"add\", url_pattern=\"/api/login\", status=401, times=1,\n          body='{\"error\":\"bad creds\"}')\n\nReturns {status, mocks_count?, removed?}.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "url_pattern": {
+            "default": "",
+            "type": "string"
+          },
+          "status": {
+            "default": 200,
+            "type": "integer"
+          },
+          "body": {
+            "default": "",
+            "type": "string"
+          },
+          "content_type": {
+            "default": "application/json",
+            "type": "string"
+          },
+          "delay_ms": {
+            "default": 0,
+            "type": "integer"
+          },
+          "times": {
+            "default": -1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "session_id",
+          "action"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_mock \u2014 install/remove request mocks for the session.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "mock_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "active_mocks": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_recorder",
+      "title": "Pw Recorder",
+      "description": "Record session actions and dump them as a reproducible test script.\n\naction= :\n  start : begin recording (idempotent \u2014 restarts).\n  stop  : stop recording.\n  dump  : return the recorded sequence in `format`.\n          format= playwright | robot | cypress | json\n  clear : drop the recording.\n  status: returns {recording: bool, count: int}.\n\nEXAMPLES:\n  pw_recorder(sid, \"start\")\n  # ... user / agent does pw_act calls ...\n  pw_recorder(sid, \"dump\", format=\"playwright\")\n  \u2192 returns a runnable .spec.js file as text.\n\nSECRETS: values typed into password fields (or fields whose name / label says\npassword, token, secret, OTP, PIN, API key\u2026) are NEVER recorded. The script\nreads them from the environment instead \u2014 process.env.PASSWORD (playwright),\nCypress.env('PASSWORD'), Robot `Fill Secret    <sel>    $PASSWORD` with\n${PASSWORD} taken from %{PASSWORD} \u2014 and dump lists them in secret_variables.\npw_page eval calls are kept as COMMENTS, not replayed (arbitrary page scripts\nare not user gestures): dump says so in notes; port them by hand if needed.\n\nUse this to turn an exploratory agent run into a CI-ready regression test.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "format": {
+            "default": "playwright",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "action"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_recorder \u2014 start/stop interaction recording for replay.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "recording": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "steps_captured": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_observe",
+      "title": "Pw Observe",
+      "description": "Multi-mode page observation with explicit cost/robustness tradeoff.\n\naction= (synonym: mode=) :\n  indexed : compact text list \u2014 \"[0] button \"Login\"\", \"[1] input \"Email\"\",\n            ... Cheap on tokens. LLM responds with the index. Use as default\n            for new pages or when AX cache is empty.\n  ax      : same as pw_page(action=\"inspect\", level=\"lite\"). Returns role+name+selector.\n            Best when a stable selector matters (caching for AX memory).\n  som     : Set-of-Mark \u2014 annotated screenshot with numbered boxes overlaid\n            on every interactive element. Returns {screenshot, marks: [...]}.\n            Use when:\n              - the page has canvas/shadow DOM/custom widgets without ARIA\n              - AX inspect returned ambiguous results (12x same role+name)\n              - previous click attempts failed silently\n            Cost: one screenshot pass + numbered overlay rendering.\n\nOUTPUT (indexed mode):\n  {\n    \"mode\": \"indexed\",\n    \"url\": \"...\",\n    \"items\": [\n      {\"i\": 0, \"type\": \"button\", \"text\": \"Login\", \"selector\": \"...\"},\n      {\"i\": 1, \"type\": \"input\",  \"text\": \"Email\", \"placeholder\": \"you@x.com\", ...},\n      ...\n    ],\n    \"step\": 7        # use as since_step= for next call to get only diffs\n  }\n\nEvery item `selector` matches exactly ONE element (checked in the page; made\nunique with an :nth-of-type path when the readable one is ambiguous, e.g. four\n\"edit\" links). After the LLM picks an index, dispatch with\npw_act(target=item['target_dsl']) \u2014 `target_dsl` is always \"css=<selector>\".\n\nEXAMPLES:\n  pw_observe(sid)                              # indexed, viewport, top 30\n  pw_observe(sid, action=\"som\")                # for canvas / ambiguous\n  pw_observe(sid, since_step=12)               # only diffs since step 12",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "mode": {
+            "default": "indexed",
+            "type": "string"
+          },
+          "viewport_only": {
+            "default": true,
+            "type": "boolean"
+          },
+          "max_items": {
+            "default": 30,
+            "type": "integer"
+          },
+          "since_step": {
+            "default": 0,
+            "type": "integer"
+          },
+          "action": {
+            "default": "",
+            "type": "string"
+          },
+          "pierce_shadow": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_observe \u2014 multi-mode page observation (indexed/ax/som).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "mode": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "indexed | ax | som."
+                  },
+                  "url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "items": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Indexed items (mode=indexed/som)."
+                  },
+                  "count": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "screenshot_url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SoM annotated screenshot (mode=som)."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_a11y",
+      "title": "Pw A11Y",
+      "description": "WCAG accessibility audit of the page (built-in checker, no external lib).\n\nDetects the violations that break a UI for keyboard / screen-reader /\ncolor-blind users:\n  \u2022 image-alt      : <img> without an alt attribute\n  \u2022 label          : form field without a label/aria-label\n  \u2022 control-name   : button/link without an accessible name\n  \u2022 color-contrast : text/background contrast < AA (4.5:1, or 3:1 for large text)\n  \u2022 duplicate-id   : duplicated HTML id\n  \u2022 html-lang      : <html> without a lang attribute\n  \u2022 heading-order  : skipped heading level (h1\u2192h3)\n  \u2022 tabindex       : positive tabindex (breaks tab order)\n\nscope= : CSS selector to narrow the audit (default body = whole page).\n         Synonyms: selector= / target= (same knob as the other pw_* tools).\nReturns {violations:[{rule,impact,selector,message,text}], total, by_impact,\npassed}. Each `selector` matches exactly ONE element (duplicate-id: its first\noccurrence, plus `id` and `count`). Run it after navigation/actions to validate UI quality.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "scope": {
+            "default": "",
+            "type": "string"
+          },
+          "selector": {
+            "default": "",
+            "type": "string"
+          },
+          "target": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_a11y \u2014 WCAG audit (dependency-free in-page checker).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "scope": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "CSS scope audited."
+                  },
+                  "violations": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Each {rule, impact, selector, message, text} (capped at 100)."
+                  },
+                  "total": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Total violation count."
+                  },
+                  "truncated": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True when `violations` was capped (total > listed)."
+                  },
+                  "by_impact": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": {
+                          "type": "integer"
+                        },
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Counts per impact (serious/moderate)."
+                  },
+                  "by_rule": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": {
+                          "type": "integer"
+                        },
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Counts per rule \u2014 proves which checks fired, not just how many."
+                  },
+                  "rules_run": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Every rule the checker evaluated (a rule absent from by_rule passed)."
+                  },
+                  "contrast_sampled": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Text nodes sampled by the contrast check."
+                  },
+                  "contrast_capped": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True when the contrast sample hit its cap (page larger than sampled)."
+                  },
+                  "passed": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True if zero violations."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_visual",
+      "title": "Pw Visual",
+      "description": "Visual regression: compare the page (or one element) to a \"golden\" baseline.\n\nFirst call (or update=true) \u2192 records the baseline (baseline_created=true).\nSubsequent calls \u2192 pixel diff, returning: passed (diff_ratio<=threshold),\ndiff_ratio, diff_pixels + 3 image URLs (screenshot_url, baseline_url,\ndiff_url). diff_url is a RED heatmap of the changed pixels \u2014 inspect it if\nyou have vision capability. WHERE it changed: diff_regions = up to 10 boxes\n{x, y, w, h, pixels} (largest first; diff_regions_total, diff_regions_truncated)\nand diff_bbox = one box around all of them, in screenshot pixels of the page\n(or of the selector element).\n\nname=       : baseline key (one per screen/state under watch).\nselector=   : narrow to one element (otherwise full page). Synonym: target=.\nthreshold=  : tolerated ratio of differing pixels (default 0.01 = 1%).\nupdate=true : replace the baseline with the current state (after a deliberate UI change).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "name": {
+            "default": "default",
+            "type": "string"
+          },
+          "selector": {
+            "default": "",
+            "type": "string"
+          },
+          "threshold": {
+            "default": 0.01,
+            "type": "number"
+          },
+          "update": {
+            "default": false,
+            "type": "boolean"
+          },
+          "target": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_visual \u2014 visual regression vs a stored baseline.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Baseline name/key."
+                  },
+                  "baseline_created": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True if this call just created the baseline (no compare)."
+                  },
+                  "passed": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True if diff_ratio <= threshold."
+                  },
+                  "diff_ratio": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Fraction of differing pixels (0..1)."
+                  },
+                  "diff_pixels": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Number of differing pixels."
+                  },
+                  "threshold": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Allowed diff ratio."
+                  },
+                  "screenshot_url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Current screenshot URL."
+                  },
+                  "baseline_url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Baseline screenshot URL."
+                  },
+                  "diff_url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Diff heatmap URL (inspectable by a vision model)."
+                  },
+                  "size_mismatch": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True if current and baseline dimensions differ beyond tolerance."
+                  },
+                  "pixel_diff_failed": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True if diff_ratio exceeded the threshold (independent of size_mismatch)."
+                  },
+                  "fail_reason": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Why passed=false: 'pixel_diff', 'size_mismatch' or 'pixel_diff+size_mismatch' (null when passed)."
+                  },
+                  "dims": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "{baseline:{w,h}, current:{w,h}}."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_memory",
+      "title": "Pw Memory",
+      "description": "Query the accumulated AX memory of successfully-used UI paths.\n\nThis is how you REUSE what previous runs already learned about a UI\ninstead of re-discovering it from scratch. Every op returns a COMPACT,\nscoped payload \u2014 none of them ever dump the whole tree into context.\n\nWHEN TO USE: before navigating a site you may have visited before.\nCheck action=\"sites\"; if the site is known, ask for a \"path\" or \"find\"\nwhat you need rather than blindly inspecting page after page.\n\nOPERATIONS (action=, synonym: op=):\n  sites : list known sites + stats (elements, paths, transitions,\n          stored credentials). No args. Start here.\n  path  : shortest KNOWN click-path to reach a page. Learned from\n          every pw_act click / Enter and pw_chain step that changed\n          the page (a form submit, a link); direct goto/back/forward\n          are not learned (they are not reproducible gestures).\n          Required: site=, to_path=.\n          Optional: from_path= (default: any OTHER known page \u2014 the\n                    path always has at least one step),\n                    max_depth= (default 6).\n          Returns ordered steps {from, to, action_role, action_name,\n          action_target, action_selector, verified_count} \u2014 feed\n          action_target straight into pw_act(target=...).\n  find  : search elements by name/role across a site.\n          Required: site=, query=. Optional: limit= (default 20).\n          Returns compact matches {path, role, name, selector,\n          verified_count, stale}.\n  page  : known interactive elements of ONE page (not the whole site).\n          Required: site=, path=. Optional: limit= (default 50, here\n          passed as limit=).\n          Returns a flat, capped element list.\n\nsite= is the normalized site id from action=\"sites\" (host[:port]).\npath= / to_path= / from_path= are URL paths (\"/\", \"/admin/users\", \u2026).\n\nEXAMPLES:\n  pw_memory(action=\"sites\")\n  pw_memory(action=\"path\", site=\"app.local:8080\", to_path=\"/admin/users\")\n  pw_memory(action=\"path\", site=\"app.local:8080\", to_path=\"/billing\",\n            from_path=\"/dashboard\")\n  pw_memory(action=\"find\", site=\"app.local:8080\", query=\"export\")\n  pw_memory(action=\"page\", site=\"app.local:8080\", path=\"/settings\")",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "default": "",
+            "type": "string"
+          },
+          "action": {
+            "default": "",
+            "type": "string"
+          },
+          "site": {
+            "default": "",
+            "type": "string"
+          },
+          "path": {
+            "default": "",
+            "type": "string"
+          },
+          "to_path": {
+            "default": "",
+            "type": "string"
+          },
+          "from_path": {
+            "default": "",
+            "type": "string"
+          },
+          "query": {
+            "default": "",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "type": "integer"
+          },
+          "max_depth": {
+            "default": 6,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_memory \u2014 query the AX memory store (sites/paths/find/credentials).",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "op": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The memory operation that was dispatched."
+                  },
+                  "site": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "sites": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Known sites + stats (op='sites')."
+                  },
+                  "steps": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Ordered click-path steps (op='path')."
+                  },
+                  "hits": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Matches (op='find')."
+                  },
+                  "count": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    }
+  ],
+  "fonctions": {
+    "pw_session": {
+      "fonction": "session",
+      "parametres": [
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "url",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "username",
+          "annotation": "str",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "password",
+          "annotation": "str",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "load_state_id",
+          "annotation": "str",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "record_har",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "url_filter",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "device",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "viewport",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "locale",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "timezone",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "color_scheme",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "touch",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "isolated",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "trace",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "record_video",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "pw_find": {
+      "fonction": "find",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "role",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "name",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "text",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "label",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "placeholder",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "test_id",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "css",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "xpath",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "alt",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "title",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "nth",
+          "annotation": "int",
+          "requis": false,
+          "defaut": -1
+        },
+        {
+          "nom": "max",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 5
+        },
+        {
+          "nom": "max_items",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "include_frames",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "selector",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        }
+      ]
+    },
+    "pw_act": {
+      "fonction": "act",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "do",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "ref",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "role",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "name",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "text",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "label",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "placeholder",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "test_id",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "css",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "xpath",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "alt",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "title",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "v",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "url",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "wait_after",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "observe",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "max_items",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 25
+        },
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "value",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "selector",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "option_label",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "option_value",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "direction",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "amount",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "to",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "files",
+          "annotation": "Optional[List[Any]]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "strict",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "pw_page": {
+      "fonction": "page",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "op",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "selector",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "v",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "index",
+          "annotation": "int",
+          "requis": false,
+          "defaut": -1
+        },
+        {
+          "nom": "max",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 50
+        },
+        {
+          "nom": "level",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "lite"
+        },
+        {
+          "nom": "since_step",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "viewport_only",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "max_items",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 30
+        },
+        {
+          "nom": "skip_screenshot",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "full_page",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "value",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "include_frames",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "pierce_shadow",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "switch",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "pw_dialog": {
+      "fonction": "dialog",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "status"
+        },
+        {
+          "nom": "text",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "times",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 1
+        },
+        {
+          "nom": "sticky",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        }
+      ]
+    },
+    "pw_wait": {
+      "fonction": "wait",
+      "parametres": [
+        {
+          "nom": "seconds",
+          "annotation": "float",
+          "requis": false,
+          "defaut": {
+            "$f": "0.0"
+          }
+        },
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "selector",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "condition",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "hidden"
+        },
+        {
+          "nom": "expected_text",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "attribute",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "expected_value",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "max_wait_s",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 60
+        },
+        {
+          "nom": "poll_ms",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 300
+        }
+      ]
+    },
+    "pw_expect": {
+      "fonction": "expect",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "assertion",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "value",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "timeout_ms",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 5000
+        },
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "selector",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "v",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        }
+      ]
+    },
+    "pw_chain": {
+      "fonction": "chain",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "actions",
+          "annotation": "List[Dict[str, Any]]",
+          "requis": true
+        },
+        {
+          "nom": "stop_on_error",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "screenshot_on_fail",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "observe",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "max_items",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 25
+        }
+      ]
+    },
+    "pw_mock": {
+      "fonction": "mock",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "url_pattern",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "status",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 200
+        },
+        {
+          "nom": "body",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "content_type",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "application/json"
+        },
+        {
+          "nom": "delay_ms",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "times",
+          "annotation": "int",
+          "requis": false,
+          "defaut": -1
+        }
+      ]
+    },
+    "pw_recorder": {
+      "fonction": "recorder",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "format",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "playwright"
+        }
+      ]
+    },
+    "pw_observe": {
+      "fonction": "observe",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "mode",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "indexed"
+        },
+        {
+          "nom": "viewport_only",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "max_items",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 30
+        },
+        {
+          "nom": "since_step",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 0
+        },
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "pierce_shadow",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        }
+      ]
+    },
+    "pw_a11y": {
+      "fonction": "a11y",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "scope",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "selector",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        }
+      ]
+    },
+    "pw_visual": {
+      "fonction": "visual",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "name",
+          "annotation": "str",
+          "requis": false,
+          "defaut": "default"
+        },
+        {
+          "nom": "selector",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "threshold",
+          "annotation": "float",
+          "requis": false,
+          "defaut": {
+            "$f": "0.01"
+          }
+        },
+        {
+          "nom": "update",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
+        },
+        {
+          "nom": "target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        }
+      ]
+    },
+    "pw_memory": {
+      "fonction": "memory",
+      "parametres": [
+        {
+          "nom": "op",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "action",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "site",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "path",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "to_path",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "from_path",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "query",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "limit",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 20
+        },
+        {
+          "nom": "max_depth",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 6
+        }
+      ]
+    }
+  }
+}

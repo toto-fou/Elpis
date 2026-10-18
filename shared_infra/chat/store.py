@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 import time
 from typing import Any, Dict, List, Optional
 
@@ -16,7 +15,7 @@ from typing import Any, Dict, List, Optional
 # de ``max_recent_chats`` dans ``shared_infra/config.py``.
 from shared_infra.config import max_recent_chats
 from shared_infra.db._connection import db, db_conn
-from shared_infra.db._dialect import MYSQL, begin_write, ci_like, dialect_of
+from shared_infra.db._dialect import begin_write, ci_like
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -189,10 +188,7 @@ def upsert_chat(user_id: int, chat_id: str, title: str, messages: List[Dict[str,
     with db_conn() as conn:
         cur = conn.cursor()
         mj = json.dumps(messages, ensure_ascii=False)
-        if dialect_of(conn) == MYSQL:
-            _upsert_chat_mysql(cur, chat_id, user_id, title, mj, updated_at,
-                               expected_updated_at)
-        elif expected_updated_at is None:
+        if expected_updated_at is None:
             cur.execute("""
                 INSERT INTO chats(id, user_id, title, messages_json, updated_at, archived)
                 VALUES (?, ?, ?, ?, ?, 0)
@@ -235,35 +231,6 @@ def upsert_chat(user_id: int, chat_id: str, title: str, messages: List[Dict[str,
         raise ValueError(
             f"chat_id collision: chat {chat_id!r} exists for a different user"
         )
-
-
-def _upsert_chat_mysql(cur, chat_id: str, user_id: int, title: str, mj: str,
-                       updated_at: float, expected_updated_at: "Optional[float]") -> None:
-    """Branche MySQL/MariaDB de :func:`upsert_chat` : ``ON DUPLICATE KEY
-    UPDATE`` n'a pas de ``WHERE``, or la clause porte ici la PROPRIÉTÉ du chat
-    et la concurrence optimiste. Même contrat : ``cur.rowcount`` vaut 1 si le
-    tour est écrit, 0 sinon (l'appelant désambiguïse ensuite).
-
-    UPDATE conditionnel d'abord ; si rien ne correspond, INSERT. Deux
-    créations simultanées du même chat par le même compte : la seconde bute
-    sur la clé primaire et retente l'UPDATE, comme l'upsert SQLite l'aurait
-    fait. (``rowcount`` = lignes TROUVÉES, grâce à ``CLIENT.FOUND_ROWS``.)
-    """
-    if expected_updated_at is None:
-        upd = ("UPDATE chats SET title=?, messages_json=?, updated_at=? "
-               "WHERE id=? AND user_id=?", (title, mj, updated_at, chat_id, user_id))
-    else:
-        upd = ("UPDATE chats SET title=?, messages_json=?, updated_at=? "
-               "WHERE id=? AND user_id=? AND updated_at=?",
-               (title, mj, updated_at, chat_id, user_id, expected_updated_at))
-    cur.execute(*upd)
-    if cur.rowcount:
-        return
-    try:
-        cur.execute("INSERT INTO chats(id, user_id, title, messages_json, updated_at, archived) "
-                    "VALUES (?, ?, ?, ?, ?, 0)", (chat_id, user_id, title, mj, updated_at))
-    except sqlite3.IntegrityError:
-        cur.execute(*upd)                 # créé entre-temps : rowcount dit la suite
 
 
 def _merge_meta_json(user_id: int, chat_id: str, mutate) -> bool:

@@ -26,6 +26,7 @@ import argparse
 import getpass
 import json
 import os
+import re
 import secrets
 import shutil
 import socket
@@ -48,6 +49,7 @@ CLOUD_PROVIDERS = ["anthropic", "openai", "mistral", "groq", "openrouter",
                    "deepseek", "moonshot"]
 ENGINES = {"llamacpp": "llama.cpp", "vllm": "vLLM",
            "generic": "autre serveur OpenAI-compatible (Ollama, LM Studio, TGI…)"}
+APP_MCP_PORT = 8766
 PORTS = {"application": 8001, "administration": 8002, "RAG": 8000,
          "hôte d'outils MCP": 8765, "navigateur": 3000, "Qdrant": 6333}
 
@@ -465,6 +467,45 @@ def step_access(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any], env: Di
     return {"mode": mode, "domain": domain, "email": email, "host": host}
 
 
+SYSTEM_CA_FILES = ("/etc/ssl/certs/ca-certificates.crt", "/etc/pki/tls/certs/ca-bundle.crt")
+
+
+def _pem_error(path: str) -> Optional[str]:
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return f"illisible ({exc.strerror or exc})"
+    return None if "-----BEGIN CERTIFICATE-----" in text else "aucun certificat PEM"
+
+
+def step_ca(a: argparse.Namespace, env: Dict[str, str]) -> None:
+    """SSL_CERT_FILE dans .env (core et services) : magasin du système par défaut, autre PEM, ou « aucun » ; réglage existant gardé."""
+    choice = pick(a.ca_file, "ELPIS_CFG_CA_FILE", None, "").strip()
+    if not choice:
+        if env.get("SSL_CERT_FILE") or env.get("SSL_CERT_DIR"):
+            info("Autorités de confiance : réglage de .env gardé (SSL_CERT_FILE / SSL_CERT_DIR).")
+            return
+        choice = "systeme"
+    if choice.lower() in ("aucun", "none", "off"):
+        update_env_file({"SSL_CERT_FILE": None, "SSL_CERT_DIR": None})
+        ok("Autorités de confiance : magasins par défaut ; une PKI interne n'est reconnue par le core que via /etc/ssl/certs, et pas par httpx.")
+        return
+    if choice.lower() in ("systeme", "système", "system"):
+        path = next((f for f in SYSTEM_CA_FILES if Path(f).is_file()), "")
+        if not path:
+            warn("Magasin de certificats du système introuvable : SSL_CERT_FILE non posé (--ca-file <pem>).")
+            return
+    else:
+        path = str(Path(choice).expanduser().resolve())
+        err = None if re.fullmatch(r"[\w./+@:,-]+", path) else "espace, guillemet ou caractère spécial, illisible dans .env"
+        err = err or _pem_error(path)
+        if err:
+            warn(f"--ca-file {path} : {err} ; réglage inchangé.")
+            return
+    update_env_file({"SSL_CERT_FILE": path})
+    ok(f"Autorités de confiance : {path} (SSL_CERT_FILE de .env, lu par le core et les services).")
+
+
 def step_rag(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any], rag: Dict[str, Any]) -> None:
     title("4/8  RAG (recherche dans les documents)")
     rsec = section(cfg, "rag")
@@ -582,10 +623,24 @@ def step_voice(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> None:
 
 
 DB_ENGINES = [("sqlite", "SQLite — fichier local (défaut, rien à installer)"),
-              ("postgres", "PostgreSQL"),
-              ("mysql", "MariaDB / MySQL")]
-DB_PORTS = {"postgres": 5432, "mysql": 3306}
+              ("postgres", "PostgreSQL")]
+DB_PORTS = {"postgres": 5432}
 DB_PASSWORD_FILE = USER_DB / ".db_password"
+# Refusés clairement plutôt que basculés en silence sur une base SQLite vide.
+DB_RETIRED = ("mysql", "mariadb", "mariadb-local")
+DB_RETIRED_HELP = ("MariaDB/MySQL n'est plus pris en charge. Avec la version précédente d'Elpis, "
+                   "quittez-le d'abord (console › Base de données › « Revenir à SQLite », ou "
+                   "« ./elpis db transfer » puis « ./elpis db use » vers PostgreSQL), puis relancez "
+                   "la configuration (docs/exploitation.md, « Mettre à jour »).")
+
+
+def refuse_retired_db() -> None:
+    """Arrête tout, avant la moindre écriture, si la base réglée (config.json, APP_DB_BACKEND) est retirée."""
+    on_disk = (read_json(CONFIG).get("database") or {}).get("backend") if CONFIG.exists() else ""
+    for name in (os.environ.get("APP_DB_BACKEND"), on_disk):
+        if str(name or "").strip().lower() in DB_RETIRED:
+            warn(f"Base « {str(name).strip()} » : {DB_RETIRED_HELP}")
+            raise SystemExit(2)
 
 
 def _db_check(target: Dict[str, Any]) -> Dict[str, Any]:
@@ -628,14 +683,16 @@ def _sqlite_has_data(path: Path) -> bool:
 
 
 def step_database(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Moteur de base : SQLite (défaut) ou serveur PostgreSQL / MariaDB-MySQL.
+    """Moteur de base : SQLite (défaut) ou serveur PostgreSQL.
     Rend le plan de transfert des données SQLite existantes (ou None)."""
     title("7/8  Base de données")
     db = section(cfg, "database")
-    cur = str(db.get("backend") or "sqlite")
+    cur = str(db.get("backend") or "sqlite").strip().lower()
     choice = pick(a.db, "ELPIS_CFG_DB", cur, "sqlite").strip().lower()
-    choice = {"postgresql": "postgres", "pg": "postgres", "postgres-local": "postgres",
-              "mariadb": "mysql", "mariadb-local": "mysql"}.get(choice, choice)
+    if cur in DB_RETIRED or choice in DB_RETIRED:
+        warn(f"Base « {cur if cur in DB_RETIRED else choice} » : {DB_RETIRED_HELP}")
+        raise SystemExit(2)
+    choice = {"postgresql": "postgres", "pg": "postgres", "postgres-local": "postgres"}.get(choice, choice)
     if choice == "external":
         choice = "postgres" if cur == "sqlite" else cur
     if choice not in DB_PORTS and choice != "sqlite":
@@ -671,9 +728,6 @@ def step_database(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> Op
             ok(f"{res.get('version')} — {'base vide' if res.get('empty') else str(res.get('tables')) + ' tables'}.")
             if res.get("unaccent") is False:
                 warn("Extension unaccent absente : recherche d'historique sensible aux accents.")
-            mp = res.get("max_allowed_packet")
-            if mp and int(mp) < 64 * 1024 * 1024:
-                warn(f"max_allowed_packet = {int(mp) // 1048576} Mo : 64 Mo au moins conseillés.")
             break
         warn(f"Connexion impossible : {res.get('error')}")
         if not p.interactive:
@@ -761,6 +815,167 @@ def step_secrets(cfg: Dict[str, Any], force: bool) -> None:
             shutil.copy2(ROOT / src, ROOT / dst)
             os.chmod(ROOT / dst, 0o600)
             ok(f"{dst} créé depuis {src}.")
+    migrate_sandbox_relay(ROOT / "mcp.json")
+    migrate_missing_families(ROOT / "mcp.json")
+    migrate_app_entries(ROOT / "mcp.json")
+
+
+TOOLHOST_TOKEN_REF = "${file:user_db/.local_mcp_token}"
+
+
+def _loopback(url: str) -> bool:
+    from urllib.parse import urlsplit
+    return (urlsplit(url).hostname or "").lower() in ("127.0.0.1", "localhost", "::1")
+
+
+def migrate_sandbox_relay(path: Path) -> bool:
+    """Pose le relais vers l'hôte d'outils (``relay: true``, jeton local en loopback) dans un mcp.json existant."""
+    if not path.exists():
+        return False
+    doc = read_json(path)
+    if not doc:
+        warn(f"{path.name} illisible : relais vers l'hôte d'outils non posé.")
+        return False
+    changed = False
+    blocs = [doc[k] for k in ("sandboxHosts", "toolHosts") if isinstance(doc.get(k), dict) and doc[k]]
+    if not blocs:
+        doc["sandboxHosts"] = {"main": {"url": "http://127.0.0.1:8765"}}
+        doc.setdefault("placement", {"strategy": "single", "host": "main"})
+        blocs, changed = [doc["sandboxHosts"]], True
+    for hosts in blocs:
+        for spec in hosts.values():
+            if not isinstance(spec, dict):
+                continue
+            if "relay" not in spec:
+                spec["relay"] = True
+                changed = True
+            # Le jeton local ne part jamais vers un hôte distant.
+            if not str(spec.get("token") or "").strip() and _loopback(str(spec.get("url") or "")):
+                spec["token"] = TOOLHOST_TOKEN_REF
+                changed = True
+    if changed:
+        write_json(path, doc)
+        ok(f"{path.name} : relais vers l'hôte d'outils activé (sandboxHosts › relay).")
+    return changed
+
+
+SYSTEMD_DIR = Path("/etc/systemd/system")
+
+
+def _app_vers_appmcp(spec: Any) -> bool:
+    xe = spec.get("x-elpis") if isinstance(spec, dict) else None
+    url = spec.get("url") if isinstance(spec, dict) else None
+    if not (isinstance(xe, dict) and xe.get("role") == "app" and isinstance(url, str)):
+        return False
+    from urllib.parse import urlsplit
+    try:
+        return _loopback(url) and urlsplit(url).port == APP_MCP_PORT
+    except ValueError:
+        return False
+
+
+def migrate_app_entries(path: Path, ecrire: bool = True) -> bool:
+    """Familles du compte servies en processus par le core : URL loopback de l'ancien service appmcp retirées, URL distantes gardées."""
+    doc = read_json(path) if path.exists() else {}
+    servers = doc.get("mcpServers") if isinstance(doc.get("mcpServers"), dict) else doc.get("servers")
+    if not isinstance(servers, dict):
+        return False
+    retirees = [nom for nom, spec in servers.items() if _app_vers_appmcp(spec)]
+    if not ecrire:
+        return bool(retirees)
+    for nom in retirees:
+        spec = {k: v for k, v in servers[nom].items() if k not in ("url", "headers")}
+        servers[nom] = {**spec, "type": "inprocess"}
+    if retirees:
+        write_json(path, doc)
+        ok(f"{path.name} : familles liées au compte servies en processus par le core ({', '.join(retirees)}).")
+    if (SYSTEMD_DIR / "elpis-appmcp.service").exists():
+        warn("Unité elpis-appmcp encore installée : « sudo ./elpis service install » la retire.")
+    return bool(retirees)
+
+
+def _familles_declarees(servers: Dict[str, Any], connues: Sequence[str]) -> set:
+    """Familles décidées par une entrée intégrée (toolhost ou app, active ou non) ; « all » les couvre toutes, « -x » est un choix gardé."""
+    vues: set = set()
+    for spec in servers.values():
+        xe = spec.get("x-elpis") if isinstance(spec, dict) else None
+        if not isinstance(xe, dict) or xe.get("role") not in ("toolhost", "app"):
+            continue
+        brut = xe.get("families")
+        if isinstance(brut, str):
+            jetons = [j.strip().lower() for j in brut.split(",")]
+        elif isinstance(brut, list):
+            jetons = [str(j).strip().lower() for j in brut]
+        else:
+            continue
+        if "all" in jetons or (isinstance(brut, str) and not brut.strip()) or any(j.startswith("-") for j in jetons):
+            vues |= set(connues)
+        vues |= {j for j in jetons if j and j != "all" and not j.startswith("-")}
+    return vues
+
+
+def _modele_toolhost(servers: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Entrée toolhost d'une seule famille dont l'URL finit par cette famille (active de préférence) : modèle des ajouts."""
+    candidats = []
+    for spec in servers.values():
+        xe = spec.get("x-elpis") if isinstance(spec, dict) else None
+        fams = xe.get("families") if isinstance(xe, dict) else None
+        url = spec.get("url") if isinstance(spec, dict) else None
+        if (isinstance(xe, dict) and xe.get("role") == "toolhost" and isinstance(fams, list) and len(fams) == 1
+                and isinstance(url, str) and url.rstrip("/").endswith("/" + str(fams[0]))):
+            candidats.append(spec)
+    actifs = [c for c in candidats if c.get("enabled", True) is not False]
+    return (actifs or candidats or [None])[0]
+
+
+def migrate_missing_families(path: Path, ecrire: bool = True) -> List[str]:
+    """Ajoute les entrées de mcp.example.json dont la famille manque (office, ajoutée le 04/10…) : toolhost sur le modèle d'une entrée toolhost existante (hôte, port, en-têtes), compte telles quelles ; rien d'existant n'est modifié."""
+    exemple = read_json(ROOT / "mcp.example.json").get("mcpServers")
+    doc = read_json(path) if path.exists() else {}
+    cle = "mcpServers" if isinstance(doc.get("mcpServers"), dict) else "servers"
+    servers = doc.get(cle)
+    if not isinstance(servers, dict) or not isinstance(exemple, dict):
+        return []
+    connues = [f for spec in exemple.values() for f in ((spec.get("x-elpis") or {}).get("families") or [])]
+    declarees = _familles_declarees(servers, connues)
+    modele = _modele_toolhost(servers)
+    ajouts: Dict[str, Dict[str, Any]] = {}
+    for nom, spec in exemple.items():
+        xe = spec.get("x-elpis") or {}
+        fams = [f for f in (xe.get("families") or []) if isinstance(f, str)]
+        if not fams or set(fams) <= declarees:
+            continue
+        if nom in servers:
+            warn(f"{path.name} : {nom} existe déjà sans la famille {', '.join(fams)} — entrée non ajoutée.")
+            continue
+        entree = json.loads(json.dumps(spec))
+        if xe.get("role") == "toolhost" and modele is not None:
+            xm = modele["x-elpis"]
+            base = {k: v for k, v in modele.items() if k not in ("description", "enabled", "x-elpis", "url")}
+            fusion = {**json.loads(json.dumps(base)), **({"description": spec["description"]} if "description" in spec else {}),
+                      "url": modele["url"].rstrip("/")[: -len(str(xm["families"][0]))] + fams[0],
+                      "x-elpis": {**{k: v for k, v in entree["x-elpis"].items() if k != "host"},
+                                  **({"host": xm["host"]} if "host" in xm else {})}}
+            entree = {**{k: fusion[k] for k in spec if k in fusion}, **{k: v for k, v in fusion.items() if k not in spec}}
+        ajouts[nom] = entree
+        declarees |= set(fams)
+    if not ajouts or not ecrire:
+        return [f for e in ajouts.values() for f in e["x-elpis"]["families"]]
+    ordre = list(exemple)
+    rangees: Dict[str, Any] = {}
+    for nom, spec in servers.items():
+        rangees[nom] = spec
+        for suivant in ordre[ordre.index(nom) + 1:] if nom in ordre else []:
+            if suivant in servers:
+                break
+            if suivant in ajouts:
+                rangees[suivant] = ajouts.pop(suivant)
+    rangees.update(ajouts)
+    doc[cle] = rangees
+    write_json(path, doc)
+    familles = [f for nom in rangees if nom not in servers for f in rangees[nom]["x-elpis"]["families"]]
+    ok(f"{path.name} : familles ajoutées depuis mcp.example.json ({', '.join(familles)}).")
+    return familles
 
 
 def step_admin(p: Prompter, a: argparse.Namespace) -> None:
@@ -890,6 +1105,12 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--force", action="store_true", help="repart de config.example.json et régénère les secrets")
     g.add_argument("--answers", metavar="FICHIER",
                    help="réponses de l'assistant (deploy/wizard.py) : aucune question")
+    g.add_argument("--migrer-mcp", action="store_true",
+                   help="migrations de mcp.json seules (relais, familles manquantes, familles du compte), sans question (./elpis start et upgrade)")
+    g.add_argument("--verifier-mcp", action="store_true",
+                   help="code 1 si mcp.json vise encore l'ancien service appmcp (:8766) (./elpis doctor)")
+    g.add_argument("--verifier-familles-mcp", action="store_true",
+                   help="code 1 si mcp.json n'a pas toutes les familles de mcp.example.json (./elpis doctor)")
     g.add_argument("--check-db", action="store_true",
                    help="teste seulement la connexion à la base retenue, sans rien écrire")
     g = ap.add_argument_group("LLM")
@@ -907,6 +1128,8 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--public-host", help="nom d'hôte ou IP d'accès")
     g.add_argument("--domain", help="domaine public (HTTPS acme)")
     g.add_argument("--acme-email", help="e-mail Let's Encrypt")
+    g.add_argument("--ca-file", help="autorités de confiance HTTPS sortant (PKI interne) : systeme (défaut), "
+                                     "fichier PEM, ou aucun — SSL_CERT_FILE de .env")
     g = ap.add_argument_group("RAG")
     g.add_argument("--rag", help="on | off")
     g.add_argument("--embed-url", help="serveur d'embeddings")
@@ -920,7 +1143,7 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--stt-url")
     g.add_argument("--tts-url")
     g = ap.add_argument_group("base de données")
-    g.add_argument("--db", help="sqlite | postgres | mysql (MariaDB) | external")
+    g.add_argument("--db", help="sqlite | postgres | external")
     g.add_argument("--db-host")
     g.add_argument("--db-port")
     g.add_argument("--db-name")
@@ -944,8 +1167,10 @@ def check_db(a: argparse.Namespace) -> int:
     """``--check-db`` : teste la base retenue, sans rien écrire. La dernière
     ligne affichée résume le résultat (install.sh la reprend)."""
     choice = str(a.db or os.environ.get("ELPIS_CFG_DB") or "sqlite").lower()
-    choice = {"postgresql": "postgres", "pg": "postgres", "postgres-local": "postgres",
-              "mariadb": "mysql", "mariadb-local": "mysql"}.get(choice, choice)
+    if choice in DB_RETIRED:
+        print(DB_RETIRED_HELP)
+        return 2
+    choice = {"postgresql": "postgres", "pg": "postgres", "postgres-local": "postgres"}.get(choice, choice)
     if choice not in DB_PORTS:
         print("SQLite : rien à tester.")
         return 0
@@ -975,6 +1200,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         os.environ.update(secrets_env)
         # Les options données en plus sur la ligne de commande priment.
         a = build_parser().parse_args(extra + argv)
+    if a.migrer_mcp or a.verifier_mcp or a.verifier_familles_mcp:
+        chemin = ROOT / "mcp.json"
+        if a.verifier_mcp:
+            return 1 if migrate_app_entries(chemin, ecrire=False) else 0
+        if a.verifier_familles_mcp:
+            manquantes = migrate_missing_families(chemin, ecrire=False)
+            if manquantes:
+                print(f"familles absentes de mcp.json : {', '.join(manquantes)}")
+            return 1 if manquantes else 0
+        migrate_sandbox_relay(chemin)
+        migrate_missing_families(chemin)
+        migrate_app_entries(chemin)
+
+        return 0
+    refuse_retired_db()
     if a.check_db:
         os.chdir(ROOT)
         return check_db(a)
@@ -1008,6 +1248,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     step_llm(p, a, cfg)
     cloud = step_cloud(p, a)
     https = step_access(p, a, cfg, env)
+    step_ca(a, env)
     step_rag(p, a, cfg, rag)
     step_sandbox(p, a, cfg)
     step_voice(p, a, cfg)

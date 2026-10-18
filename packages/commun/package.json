@@ -1,0 +1,12 @@
+{
+  "name": "@elpis/commun",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Utilitaires partagés du core et du toolhost (JSON au format Python, forme canonique)",
+  "exports": {
+    ".": "./src/index.ts",
+    "./empreinte": "./src/empreinte.ts"
+  }
+}

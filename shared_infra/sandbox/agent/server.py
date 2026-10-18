@@ -24,12 +24,15 @@ corps de requête par Content-Length seulement :
 
   GET  /v1/hello
   POST /v1/stat   {"paths": [...], "hash": bool, "hash_max": n}
-                  → {"entries": [...]} ; une entrée en échec : kind "error"
+                  → {"entries": [...]} ; une entrée en échec : kind "error" ; kind
+                  "other" (fichier spécial) : "special" = fifo, socket, char_device
+                  ou block_device (S_IFMT, fichier jamais ouvert)
   GET  /v1/read   ?path= &offset= &length= &max= &expect_size= &expect_mtime_ns=
                   &expect_ino=  → octets, en-tête X-Elpis-Stat
   POST /v1/list   {"path", "depth", "max_entries", "hidden", "prune": [motifs],
                    "exclude": [motifs], "deadline_s", "name_contains", "kinds": [genres],
-                   "name_glob"}  → NDJSON, dernière ligne {"done": true, …}
+                   "name_glob"}  → NDJSON {"path", "kind", "size", "mtime_ns", "mode"
+                   [, "special"]}, dernière ligne {"done": true, …}
   POST /v1/grep   {"paths": [...], "needle", "ignore_case", "max_file_bytes",
                    "max_hits", "files_only", "width", "deadline_s", "regex",
                    "context", "max_line"} → {"file", "line", "col", "text"
@@ -42,10 +45,13 @@ corps de requête par Content-Length seulement :
   POST /v1/readmany {"paths": [...], "max_file", "max_total"} → NDJSON
                   {"path", "b64"} ou {"path", "skip": code}, dans l'ordre, arrêté
                   avant de dépasser max_total ; dernière ligne {"done": true}
-  POST /v1/changes/begin {"skip": [noms], "max_entries", "deadline_s"}
-                  → {"id", "complete", "files"} (relevé avant une commande)
+  POST /v1/changes/begin {"skip": [noms], "max_entries", "deadline_s", "all_kinds"}
+                  → {"id", "complete", "files"} (relevé avant une commande ;
+                  all_kinds : liens et fichiers spéciaux aussi, jamais suivis)
   POST /v1/changes/end {"id", "max_files", "max_bytes", "max_file"} → NDJSON
-                  {"path", "change", "before", "after"} ({"b64"} ou {"state"}),
+                  {"path", "change", "before", "after"} ({"b64"} ou {"state"}) ;
+                  lien ou fichier spécial (all_kinds) : en plus "kind", et
+                  before/after = {"kind"[, "target"]} ou {"state": "absent"} ;
                   dernière ligne {"done": true, "total", "complete"}
   POST /v1/git    {"cwd", "args": [...], "timeout_s", "max_out", "env": {…},
                    "relay": {"socket", "ticket", "origin"}}
@@ -64,10 +70,28 @@ corps de requête par Content-Length seulement :
   PUT  /v1/extract ?path= &keep= &leave= &max_bytes= &max_file= &max_members=
                   (corps = archive tar, gzip ou non) → {"files", "dirs", "bytes",
                   "omitted", "conflicts"} : le contenu de path est remplacé
+  POST /v1/jobs/start {"id", "command", "cwd", "env", "label", "wake_on", "chain_depth"}
+                  → {"id", "pid", "state", "log", "started_at", "wake_on"} : job de
+                  fond (``bash -c`` en nouvelle session, sortie dans .bg/job-<id>.log,
+                  code dans .bg/job-<id>.exit) ; chain_depth (profondeur du tour qui
+                  le lance, facultative) gardée dans sa fiche et écrite dans chacun de
+                  ses événements, absente sinon ; 409 job_exists, 403 outside_root,
+                  400 bad_request, 429 too_many_jobs
+  POST /v1/jobs/kill {"id", "signal": "TERM|KILL|INT", "grace_s", "by", "purge"}
+                  → {"id", "killed_pids", "state", "exit_code", "signal"} : groupe
+                  et processus marqués ELPIS_JOB_ID ; 409 job_not_running
+  GET  /v1/jobs/status ?id=  → {"jobs": [{"id", "state", "pid", "alive", "runtime_s",
+                  "log_bytes", "log_lines", "last_line", "wake_on", "fired",
+                  "exit_code", "signal", "started_at", "ended_at", "disarmed"}]} (sans
+                  id : tous) ; disarmed : regex retirées, [{"spec", "reason"}]
+  GET  /v1/jobs/list  → même forme, fiches de .bg/ inconnues comprises
+  POST /v1/jobs/watch {"since_seq", "wait_s"} → NDJSON : {"tick"} au moins toutes
+                  les 2 s, les événements de seq > since_seq (jobs-events.ndjson),
+                  dernière ligne {"done", "last_seq", "running", "reset"}
   POST /v1/shutdown {"if_version": v}
 
 En-tête ``X-Elpis-Passive: 1`` : requête de l'hôte qui ne compte pas comme une
-activité de la sandbox (sondage périodique de l'éditeur).
+activité de la sandbox (sondage périodique de l'éditeur, veille des jobs).
 """
 from __future__ import annotations
 
@@ -84,6 +108,7 @@ import json
 import os
 import re
 import secrets
+import select
 import shutil
 import signal
 import socket
@@ -96,6 +121,7 @@ import threading
 import time
 import zipfile
 import zlib
+from collections import deque
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Dict, Iterable, Iterator, Optional, Tuple
 from urllib.parse import parse_qs, urlsplit
@@ -113,6 +139,7 @@ _RELEVE_GARDE = 512 * 1024           # relevé : contenu gardé par fichier
 _RELEVE_CACHE = 24 << 20             # relevé : contenus gardés en tout
 _RELEVES_OUVERTS = 16                # relevés ouverts en même temps
 _RELEVE_DUREE_S = 3600               # un relevé jamais clos est oublié
+_CIBLE_RELEVEE = 256                 # relevé : texte d'un lien gardé (au-delà : début + empreinte)
 _PROFONDEUR_MAX = 4096               # list : profondeur (au-delà, PATH_MAX)
 _SIGNE_S = 2.0                       # flux NDJSON : signe de vie au moins toutes les 2 s
 _PROGRES_S = 0.5                     # archive : progression au moins toutes les 0,5 s
@@ -234,13 +261,13 @@ def _est_dossier(p: str) -> bool:
 
 
 @contextlib.contextmanager
-def _dossier_sans_lien(p: str, attendu: Optional[Tuple[int, int]]) -> Iterator[Any]:
-    """``os.scandir`` du dossier ``p`` ouvert SANS suivre de lien, puis
-    comparé (``st_dev``, ``st_ino``) à ce que le parcours a relevé : un dossier
-    remplacé entre le relevé et l'ouverture — par un lien (``ELOOP``) ou par
-    un autre dossier (``ESTALE``) — n'est pas parcouru. Les entrées sont
-    relatives au descripteur : ``entree.path`` vaut ``entree.name``,
-    ``entree.stat`` reste dans ce dossier."""
+def _dossier_et_fd(p: str, attendu: Optional[Tuple[int, int]]) -> Iterator[Tuple[int, Any]]:
+    """(descripteur, ``os.scandir``) du dossier ``p`` ouvert SANS suivre de
+    lien, puis comparé (``st_dev``, ``st_ino``) à ce que le parcours a relevé :
+    un dossier remplacé entre le relevé et l'ouverture — par un lien
+    (``ELOOP``) ou par un autre dossier (``ESTALE``) — n'est pas parcouru. Les
+    entrées sont relatives au descripteur : ``entree.path`` vaut
+    ``entree.name``, ``entree.stat`` reste dans ce dossier."""
     fd = os.open(p, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
     try:
         if attendu is not None:
@@ -248,9 +275,33 @@ def _dossier_sans_lien(p: str, attendu: Optional[Tuple[int, int]]) -> Iterator[A
             if (vu.st_dev, vu.st_ino) != attendu:
                 raise OSError(errno.ESTALE, "dossier remplacé pendant le parcours")
         with os.scandir(fd) as it:
-            yield it
+            yield fd, it
     finally:
         os.close(fd)
+
+
+@contextlib.contextmanager
+def _dossier_sans_lien(p: str, attendu: Optional[Tuple[int, int]]) -> Iterator[Any]:
+    """``_dossier_et_fd`` sans le descripteur."""
+    with _dossier_et_fd(p, attendu) as (_fd, it):
+        yield it
+
+
+def _cible_relevee(cible: str) -> str:
+    """Texte d'un lien pour le relevé : au-delà de ``_CIBLE_RELEVEE``, son début et une empreinte."""
+    if len(cible) <= _CIBLE_RELEVEE:
+        return cible
+    empreinte = hashlib.sha256(cible.encode("utf-8", "surrogateescape")).hexdigest()[:16]
+    return f"{cible[:_CIBLE_RELEVEE]}…#{empreinte}"
+
+
+def _etat_autre(v: Optional[Tuple[str, str]]) -> Dict[str, Any]:
+    """État relevé d'un lien ou d'un fichier spécial : genre (et texte du lien) ou absent."""
+    if v is None:
+        return {"state": "absent"}
+    if v[0] != "link":
+        return {"kind": v[0]}
+    return {"kind": "link", "target": v[1].encode("utf-8", "surrogateescape").decode("utf-8", "replace")}
 
 
 def _ouvrir_fichier(p: str) -> int:
@@ -287,6 +338,15 @@ def _genre(mode: int) -> str:
     if stat.S_ISLNK(mode):
         return "link"
     return "other"
+
+
+_SPECIAUX = {stat.S_IFIFO: "fifo", stat.S_IFSOCK: "socket", stat.S_IFCHR: "char_device",
+             stat.S_IFBLK: "block_device"}
+
+
+def _special(mode: int) -> Optional[str]:
+    """Genre exact d'un fichier spécial, lu dans ``S_IFMT`` (jamais ouvert) ; ``None`` sinon."""
+    return _SPECIAUX.get(stat.S_IFMT(mode))
 
 
 def _creer_dossier(p: str, parents: bool = True) -> None:
@@ -698,6 +758,7 @@ class Agent:
         self._contenus: Dict[str, Tuple[Cle, bytes]] = {}
         self._octets_gardes = 0
         self._releves: Dict[str, tuple] = {}
+        self.jobs = _Jobs(self)
 
     def chemin(self, rel: str) -> str:
         return os.path.join(self.racine, rel) if rel else self.racine
@@ -750,6 +811,8 @@ class Agent:
             return d
         d.update(kind=_genre(st.st_mode), size=st.st_size, mtime_ns=st.st_mtime_ns,
                  mode=stat.S_IMODE(st.st_mode), ino=st.st_ino, dev=st.st_dev)
+        if _special(st.st_mode):
+            d["special"] = _special(st.st_mode)
         if hacher and d["kind"] == "file" and st.st_size <= hash_max:
             d["sha256"] = _sha256_chemin(p)
         return d
@@ -828,8 +891,11 @@ class Agent:
                         if ((not contient or contient in entree.name.lower())
                                 and (not genres or genre in genres)
                                 and (not motif or fnmatch.fnmatchcase(entree.name, motif))):
-                            yield {"path": erel, "kind": genre, "size": st.st_size,
-                                   "mtime_ns": st.st_mtime_ns, "mode": stat.S_IMODE(st.st_mode)}
+                            vu = {"path": erel, "kind": genre, "size": st.st_size,
+                                  "mtime_ns": st.st_mtime_ns, "mode": stat.S_IMODE(st.st_mode)}
+                            if _special(st.st_mode):
+                                vu["special"] = _special(st.st_mode)
+                            yield vu
                             n += 1
                         if genre == "dir" and niveau < profondeur and not any(
                                 fnmatch.fnmatchcase(entree.name, m) for m in elaguer):
@@ -1185,25 +1251,28 @@ class Agent:
 
 
     # ── relevé avant / après une commande ──────────────────────────────────
-    def _parcourir(self, sautes: frozenset, max_entrees: int, delai_s: float
-                   ) -> Tuple[Dict[str, Cle], bool]:
+    def _parcourir(self, sautes: frozenset, max_entrees: int, delai_s: float, tous: bool = False
+                   ) -> Tuple[Dict[str, Cle], Dict[str, Tuple[str, str]], bool]:
         """{rel: (mtime_ns, taille, inode)} des fichiers ordinaires sous la
-        racine ; bool : parcours complet. Aucun lien suivi ; dossiers nommés
-        dans ``sautes`` et noms non UTF-8 ignorés."""
+        racine ; avec ``tous``, {rel: (genre, texte du lien)} des liens et
+        fichiers spéciaux ; bool : parcours complet. Aucun lien suivi (ni lu
+        au-delà de son texte) ; dossiers nommés dans ``sautes`` et noms non
+        UTF-8 ignorés ; ``max_entrees`` compte toutes les entrées."""
         vus: Dict[str, Cle] = {}
+        autres: Dict[str, Tuple[str, str]] = {}
         echeance = time.monotonic() + delai_s
         n = 0
         pile: list[Tuple[str, str, Optional[Tuple[int, int]]]] = [(self.racine, "", None)]
         while pile:
             if time.monotonic() > echeance:
-                return vus, False
+                return vus, autres, False
             dossier, drel, attendu = pile.pop()
             try:
-                with _dossier_sans_lien(dossier, attendu) as it:
+                with _dossier_et_fd(dossier, attendu) as (fd, it):
                     for e in it:
                         n += 1
                         if n > max_entrees or (n & 255) == 0 and time.monotonic() > echeance:
-                            return vus, False
+                            return vus, autres, False
                         try:
                             e.name.encode("utf-8")
                             st = e.stat(follow_symlinks=False)
@@ -1216,9 +1285,14 @@ class Agent:
                                              (st.st_dev, st.st_ino)))
                         elif stat.S_ISREG(st.st_mode):
                             vus[rel] = (st.st_mtime_ns, st.st_size, st.st_ino)
+                        elif tous and stat.S_ISLNK(st.st_mode):
+                            with contextlib.suppress(OSError):
+                                autres[rel] = ("link", _cible_relevee(os.readlink(e.name, dir_fd=fd)))
+                        elif tous:
+                            autres[rel] = (_special(st.st_mode) or "other", "")
             except OSError:
                 continue
-        return vus, True
+        return vus, autres, True
 
     def _lire_borne(self, rel: str, limite: int) -> Optional[bytes]:
         """Octets du fichier ordinaire ``rel`` ; ``None`` : absent, spécial,
@@ -1255,18 +1329,19 @@ class Agent:
             self._octets_gardes += len(data)
 
     def releve_debut(self, sautes: Iterable[str], max_entrees: int,
-                     delai_s: float) -> Dict[str, Any]:
-        """Relevé AVANT une commande : clés de stat gardées sous un
-        identifiant ; contenus des petits fichiers texte mis à jour."""
+                     delai_s: float, tous: bool = False) -> Dict[str, Any]:
+        """Relevé AVANT une commande : clés de stat (et, avec ``tous``, liens
+        et fichiers spéciaux) gardées sous un identifiant ; contenus des
+        petits fichiers texte mis à jour."""
         sautes = frozenset(sautes)
         with self._verrou_releve:
-            vus, complet = self._parcourir(sautes, max_entrees, delai_s)
+            vus, autres, complet = self._parcourir(sautes, max_entrees, delai_s, tous)
             self._rafraichir(vus)
             ident = secrets.token_hex(8)
             maintenant = time.monotonic()
-            for k in [k for k, v in self._releves.items() if maintenant - v[5] > _RELEVE_DUREE_S]:
+            for k in [k for k, v in self._releves.items() if maintenant - v[-1] > _RELEVE_DUREE_S]:
                 del self._releves[k]
-            self._releves[ident] = (vus, complet, sautes, max_entrees, delai_s, maintenant)
+            self._releves[ident] = (vus, autres, complet, sautes, max_entrees, delai_s, tous, maintenant)
             while len(self._releves) > _RELEVES_OUVERTS:
                 del self._releves[next(iter(self._releves))]     # le plus ancien
         return {"id": ident, "complete": complet, "files": len(vus)}
@@ -1275,24 +1350,26 @@ class Agent:
                    max_fichier: int) -> Iterator[Dict[str, Any]]:
         """Fichiers créés, modifiés ou supprimés depuis ``releve_debut`` :
         contenu d'avant (gardé, si sa clé n'a pas bougé) et d'après (relu),
-        ``max_octets`` en tout ; au-delà, l'état seul."""
+        ``max_octets`` en tout ; au-delà, l'état seul. Liens et fichiers
+        spéciaux (``tous``) : genre et texte du lien d'avant et d'après."""
         with self._verrou_releve:
             debut = self._releves.pop(ident, None)
             if debut is None:
                 raise Refus(404, "not_found", "relevé inconnu ou expiré")
-            avant, complet_avant, sautes, max_entrees, delai_s, _t = debut
-            apres, complet = self._parcourir(sautes, max_entrees, delai_s)
+            avant, autres_avant, complet_avant, sautes, max_entrees, delai_s, tous, _t = debut
+            apres, autres_apres, complet = self._parcourir(sautes, max_entrees, delai_s, tous)
             changes = []
-            for rel, cle in apres.items():
-                ancienne = avant.get(rel)
-                if ancienne is None:
-                    if complet_avant:                     # sinon : hors du premier parcours
-                        changes.append((rel, "created"))
-                elif ancienne != cle:
-                    changes.append((rel, "modified"))
-            if complet and complet_avant:
-                changes.extend((rel, "deleted") for rel in avant if rel not in apres)
-            changes.sort()
+            for vus_avant, vus_apres, autre in ((avant, apres, False), (autres_avant, autres_apres, True)):
+                for rel, cle in vus_apres.items():
+                    ancienne = vus_avant.get(rel)
+                    if ancienne is None:
+                        if complet_avant:                 # sinon : hors du premier parcours
+                            changes.append((rel, "created", autre))
+                    elif ancienne != cle:
+                        changes.append((rel, "modified", autre))
+                if complet and complet_avant:
+                    changes.extend((rel, "deleted", autre) for rel in vus_avant if rel not in vus_apres)
+            changes.sort(key=lambda x: (x[0], x[2]))      # même chemin : le fichier, puis le lien
             budget = max_octets
 
             def etat(x: Any, trop: str) -> Dict[str, Any]:
@@ -1307,7 +1384,12 @@ class Agent:
                 return {"b64": base64.b64encode(x).decode("ascii")}
 
             rendu = []
-            for rel, genre in changes[:max_fichiers]:
+            for rel, genre, autre in changes[:max_fichiers]:
+                if autre:
+                    av_, ap_ = autres_avant.get(rel), autres_apres.get(rel)
+                    rendu.append({"path": rel, "change": genre, "kind": (ap_ or av_ or ("other",))[0],
+                                  "before": _etat_autre(av_), "after": _etat_autre(ap_)})
+                    continue
                 vu = self._contenus.get(rel)
                 av: Any = (None if genre == "created"
                            else vu[1] if vu is not None and vu[0] == avant.get(rel) else _INCONNU)
@@ -1330,6 +1412,7 @@ class Agent:
         if (not isinstance(args, list) or not args or len(args) > 4096
                 or not all(isinstance(a, str) and "\0" not in a for a in args)):
             raise Refus(400, "bad_request", "args : liste de chaînes sans NUL")
+        args = _neutraliser_diff_externe(args)
         cwd = self.reel(normaliser(d.get("cwd")))
         if not _est_dossier(cwd):
             raise Refus(404, "not_found", "dossier de travail absent")
@@ -1743,14 +1826,49 @@ class Agent:
 # Clés imposées à chaque git de l'agent (portée « command », au-dessus de la
 # config du dépôt et de /work/.gitconfig) : ni hook, ni moniteur, ni
 # signature, ni identifiants demandés ; ``safe.directory`` : dépôts écrits
-# par l'ancien git de l'hôte (autre UID).
+# par l'ancien git de l'hôte (autre UID). Les réglages exécutables qu'on peut
+# vider sans casser git (``core.sshCommand``, les éditeurs, ``gpg.program``)
+# le sont ici : un ``.git/config`` hostile ne les lance plus.
 _GIT_CONFIG = (("core.hooksPath", "/dev/null"), ("core.fsmonitor", "false"),
                ("credential.helper", ""), ("core.askPass", ""), ("core.pager", "cat"),
                ("commit.gpgsign", "false"), ("tag.gpgsign", "false"),
+               ("core.sshCommand", ""), ("core.editor", ""), ("sequence.editor", ""),
+               ("gpg.program", ""), ("gpg.ssh.program", ""),
                ("safe.directory", "*"),
                # Dépôts créés par l'ancien git de l'hôte : ``core.sharedRepository
                # = 0666`` gravé dans leur config rouvrait .git à tous (relecture).
                ("core.sharedRepository", "false"))
+# ``diff.external`` et ``diff.<pilote>.textconv`` lancent un programme au diff,
+# mais un ``diff.external`` VIDE en config casse TOUT diff (git tente une
+# commande vide) : git n'offre aucune valeur « désactivé », seule l'option
+# ``--no-ext-diff`` / ``--no-textconv`` le fait. L'agent les injecte donc après
+# la sous-commande qui rend un diff. LIMITE : les pilotes NOMMÉS de filtre
+# (``filter.<n>.clean/smudge/process``) n'ont pas de joker ; ils exigent que
+# l'agent écrive lui-même ``.gitattributes`` ET ``.git/config``, or clone
+# n'importe pas la config du distant et ``git_write`` refuse d'écrire dans
+# ``.git``.
+_GIT_SOUS_CMD_DIFF = frozenset({"diff", "log", "show", "whatchanged", "format-patch",
+                                "range-diff", "diff-tree", "diff-index", "diff-files"})
+_GIT_GLOBALES_VALEUR = frozenset({"-c", "-C", "--git-dir", "--work-tree", "--namespace",
+                                  "--exec-path", "--config-env"})
+
+
+def _neutraliser_diff_externe(args: list) -> list:
+    """``--no-ext-diff --no-textconv`` après la sous-commande qui rend un diff
+    (``diff.external`` n'a pas de désactivation en config)."""
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in _GIT_GLOBALES_VALEUR:
+            i += 2
+            continue
+        if a.startswith("-"):
+            i += 1
+            continue
+        if a in _GIT_SOUS_CMD_DIFF:
+            return [*args[: i + 1], "--no-ext-diff", "--no-textconv", *args[i + 1:]]
+        return args
+    return args
 # Portée « system » (la plus basse) : identité par défaut des commits, puis
 # la config de l'image.
 _GIT_SYSTEME = "[user]\n\tname = Elpis\n\temail = elpis@localhost\n[include]\n\tpath = /etc/gitconfig\n"
@@ -1934,6 +2052,1142 @@ def _ecrire_config_git(dossier: str) -> str:
         return ""
 
 
+# ── jobs de fond (shell_job) ───────────────────────────────────────────────
+_JOB_ID = re.compile(r"j-[0-9a-f]{8}")
+_JOB_FICHE = re.compile(r"job-(j-[0-9a-f]{8})\.json")
+_JOBS_BG = ".bg"                          # fichiers des jobs, à plat
+_JOBS_EVENEMENTS = "jobs-events.ndjson"
+_JOBS_VIVANTS_MAX = 16                    # jobs vivants par conteneur
+_JOBS_PROFONDEUR_MAX = 1000               # chain_depth reçu de l'hôte, au plus
+_JOBS_TOUR_S = 0.5                        # superviseur : un tour toutes les 0,5 s
+_JOBS_BATTEMENT_S = 600.0                 # fiche touchée tant que le job tourne (GC d'inactivité)
+_JOBS_JOURNAL_MAX = 512 << 20             # au-delà : journal ramené à sa tête
+_JOBS_JOURNAL_TETE = 1 << 20
+_JOBS_BUDGET_S = 0.05                     # lecture du journal : temps par job et par tour
+_JOBS_MORCEAU = 1 << 20                   # morceau lu quand les lignes sont seulement comptées
+_JOBS_MORCEAU_LENT = 64 << 10             # morceau lu quand chaque ligne passe par Python
+_JOBS_LOT_REGEX = 40 << 10                # lot du trieur : sa requête tient dans un tube vide
+_JOBS_REGEX_VUE = 1024                    # caractères d'une ligne testés par une regex
+_JOBS_REGEX_LIBRES = 2                    # quantificateurs non bornés par regex
+_JOBS_REGEX_MAX_S = 2.0                   # lot sans réponse : trieur tué, regex désarmées
+_JOBS_TRIEURS_MAX = 16                    # processus de regex vivants
+_JOBS_REPRISE_TEST = 16 << 20             # reprise : fin du journal retestée (match, regex)
+_JOBS_LIGNE_TEST = 4096                   # ligne coupée avant match / regex
+_JOBS_LIGNE_VUE = 200                     # ligne coupée pour l'affichage
+_JOBS_QUEUE = 20                          # lignes de fin dans un événement
+_JOBS_CONTEXTE = 5                        # match / regex : lignes avant et après
+_JOBS_APRES_S = 1.0                       # attente des lignes d'après
+_JOBS_EVENEMENT_MAX = 4096                # événement sérialisé, en octets
+_JOBS_GARDES = 1000                       # événements gardés (mémoire et fichier)
+_JOBS_VEILLE_LOT = 256                    # événements par réponse de watch
+_JOBS_VEILLE_MAX_S = 25.0
+_JOBS_GROUPE_S = 0.2                      # watch : fenêtre de regroupement
+_JOBS_GRACE_MAX_S = 30.0
+_JOBS_COMMANDE_MAX = 100_000
+_JOBS_DECLENCHEURS_MAX = 6
+_JOBS_MOTIF_MAX = 2000
+_JOBS_ENV_MAX = 128
+_JOBS_BORNES = {"port": (1, 65535), "idle": (10, 3600), "timeout": (1, 86400)}
+_CLE_ENV = re.compile(r"[A-Z_][A-Z0-9_]*")
+_REDOS = re.compile(r"\([^()]*[+*][^()]*\)[+*]")   # verifierRegexSure de l'hôte d'outils
+_TERMINAUX = frozenset({"exited", "killed", "lost", "failed"})
+_SIGNAUX = {"TERM": signal.SIGTERM, "KILL": signal.SIGKILL, "INT": signal.SIGINT}
+_PROC = "/proc"
+_BASH = shutil.which("bash") or "/bin/bash"
+# La commande arrive en $0 et le fichier .exit en $1 : ni l'une ni l'autre n'est interpolée.
+_ENVELOPPE = ('"$BASH" -c -- "$0"; rc=$?; printf \'%s\\n\' "$rc" > "$1.tmp" '
+              '&& PATH=/usr/local/bin:/usr/bin:/bin mv -f -- "$1.tmp" "$1"; exit "$rc"')
+# Trieur : par requête, l'indice de la première ligne trouvée par chaque motif (-1 : aucune).
+_TRIEUR = """
+import base64, json, re, sys
+for requete in iter(sys.stdin.buffer.readline, b""):
+    d = json.loads(requete)
+    lignes = [x[:d["t"]].rstrip(b"\\r").decode("utf-8", "replace")[:d["v"]]
+              for x in base64.b64decode(d["l"]).split(b"\\n")]
+    rendu = []
+    for motif in d["p"]:
+        r = re.compile(motif)
+        rendu.append(next((i for i, t in enumerate(lignes) if r.search(t)), -1))
+    sys.stdout.buffer.write(json.dumps(rendu).encode() + b"\\n")
+    sys.stdout.buffer.flush()
+"""
+
+
+def _lire_petit(p: str, maxi: int, fin: bool = False) -> Optional[bytes]:
+    """Début (ou fin, lignes entières) d'un fichier ordinaire, lien non suivi ; ``None`` sinon."""
+    try:
+        fd = os.open(p, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except OSError:
+        return None
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            return None
+        debut = max(0, st.st_size - maxi) if fin else 0
+        morceaux, pos = [], debut
+        while pos - debut < maxi:
+            b = os.pread(fd, min(maxi - (pos - debut), _BLOC), pos)
+            if not b:
+                break
+            morceaux.append(b)
+            pos += len(b)
+        brut = b"".join(morceaux)
+        return brut[brut.find(b"\n") + 1:] if debut else brut
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def _stat_processus(pid: int) -> Optional[Tuple[str, int, int]]:
+    """(état, groupe, starttime) d'après /proc/<pid>/stat ; ``None`` si le processus n'existe pas."""
+    try:
+        with open(f"{_PROC}/{pid}/stat", "rb") as f:
+            b = f.read()
+        champs = b[b.rindex(b")") + 2:].split()
+        return champs[0].decode("ascii", "replace"), int(champs[2]), int(champs[19])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _processus() -> Iterator[Tuple[int, int]]:
+    """(pid, groupe) des processus vivants, zombies exclus."""
+    try:
+        noms = os.listdir(_PROC)
+    except OSError:
+        return
+    for nom in noms:
+        if nom.isdigit():
+            s = _stat_processus(int(nom))
+            if s is not None and s[0] not in ("Z", "X", "x"):
+                yield int(nom), s[1]
+
+
+def _porte_marqueur(pid: int, marqueur: bytes) -> bool:
+    try:
+        with open(f"{_PROC}/{pid}/environ", "rb") as f:
+            return marqueur in b"\0" + f.read(1 << 20)
+    except OSError:
+        return False
+
+
+def _ports_en_ecoute() -> frozenset:
+    """Ports TCP en écoute (état 0A) d'après /proc/net/tcp et tcp6."""
+    ports = set()
+    for nom in ("tcp", "tcp6"):
+        try:
+            with open(f"{_PROC}/net/{nom}", "rb") as f:
+                lignes = f.read(16 << 20).splitlines()[1:]
+        except OSError:
+            continue
+        for ligne in lignes:
+            c = ligne.split()
+            if len(c) > 3 and c[3] == b"0A":
+                with contextlib.suppress(ValueError, IndexError):
+                    ports.add(int(c[1].rsplit(b":", 1)[1], 16))
+    return frozenset(ports)
+
+
+def _vue(brut: bytes) -> str:
+    """Ligne pour l'affichage : ce qui suit le dernier retour chariot, 200 caractères au plus."""
+    brut = brut.rstrip(b"\r")
+    s = brut[brut.rfind(b"\r") + 1:][:_JOBS_LIGNE_VUE * 4].decode("utf-8", "replace")
+    return s if len(s) <= _JOBS_LIGNE_VUE else s[:_JOBS_LIGNE_VUE - 1] + "…"
+
+
+def _nom_signal(code: Optional[int]) -> Optional[str]:
+    try:
+        return signal.Signals(code - 128).name if code is not None and code > 128 else None
+    except ValueError:
+        return None
+
+
+def _entier_sur(v: Any) -> Optional[int]:
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
+
+
+def _reel_sur(v: Any) -> Optional[float]:
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def _env_job(extra: Any, racine: str, ident: str) -> Dict[str, str]:
+    """Environnement de l'agent, HOME, ``env`` vérifié (règles d'execute_shell), marqueur ELPIS_JOB_ID."""
+    env = dict(os.environ)
+    env["HOME"] = racine
+    if extra is not None:
+        if not isinstance(extra, dict) or len(extra) > _JOBS_ENV_MAX:
+            raise Refus(400, "bad_request", f"env : objet de {_JOBS_ENV_MAX} variables au plus")
+        for k, v in extra.items():
+            if (not _CLE_ENV.fullmatch(k) or len(k) > 64 or not isinstance(v, str)
+                    or len(v) > 4000 or "\0" in v):
+                raise Refus(400, "bad_request", f"env : {k[:64]} refusée")
+            env[k] = v
+    env["ELPIS_JOB_ID"] = ident
+    return env
+
+
+def _borner_evenement(e: Dict[str, Any]) -> None:
+    """Événement sérialisé sous ``_JOBS_EVENEMENT_MAX`` : fin du journal, puis contexte, raccourcis."""
+    def taille() -> int:
+        return len(json.dumps(e, separators=(",", ":"))) + 16      # seq à venir
+    while taille() > _JOBS_EVENEMENT_MAX and e["tail"]:
+        e["tail"].pop(0)
+    while taille() > _JOBS_EVENEMENT_MAX and e["context"]:
+        e["context"].pop(0 if len(e["context"]) % 2 else -1)
+    if taille() > _JOBS_EVENEMENT_MAX and e["line"]:
+        e["line"] = e["line"][:_JOBS_LIGNE_VUE // 4]
+
+
+def _quantificateurs_libres(motif: str) -> int:
+    """Quantificateurs non bornés (*, +, {n,}) d'une regex, hors classes et échappements ; *? ou *+ en est un seul."""
+    n = i = 0
+    while i < len(motif):
+        c = motif[i]
+        if c == "\\":
+            i += 2
+            continue
+        if c == "[":
+            i += 2 if motif[i + 1:i + 2] == "^" else 1
+            i += 1 if motif[i:i + 1] == "]" else 0      # « ] » en tête de classe : littéral
+            while i < len(motif) and motif[i] != "]":
+                i += 2 if motif[i] == "\\" else 1
+            i += 1
+            continue
+        m = re.match(r"\{[0-9]*,\}", motif[i:]) if c == "{" else None
+        if c in "*+" or m:
+            n += 1
+            i += m.end() if m else 1
+            i += 1 if motif[i:i + 1] in ("?", "+") else 0
+            continue
+        i += 1
+    return n
+
+
+class _Trieur:
+    """Processus à part (``python3 -I -S``) où sont évaluées les regex d'un job : une regex lente n'y fige que lui."""
+
+    def __init__(self) -> None:
+        self.proc = subprocess.Popen([sys.executable or "python3", "-I", "-S", "-c", _TRIEUR],
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                     env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")})
+        self._tampon = b""
+        for f in (self.proc.stdin, self.proc.stdout):
+            if f is not None:
+                os.set_blocking(f.fileno(), False)
+
+    def demander(self, motifs: list, octets: bytes) -> None:
+        """Une requête, écrite d'un coup dans le tube vide (jamais d'attente) ; sinon OSError."""
+        requete = json.dumps({"p": motifs, "t": _JOBS_LIGNE_TEST, "v": _JOBS_REGEX_VUE,
+                              "l": base64.b64encode(octets).decode("ascii")}).encode() + b"\n"
+        if self.proc.stdin is None or os.write(self.proc.stdin.fileno(), requete) != len(requete):
+            raise OSError(errno.EAGAIN, "requête du trieur tronquée")
+
+    def reponse(self, attente: float) -> Optional[list]:
+        """Réponse à la requête en cours, ou ``None`` si elle n'est pas là au bout d'``attente`` secondes."""
+        if self.proc.stdout is None:
+            raise OSError(errno.EPIPE, "trieur sans sortie")
+        fd = self.proc.stdout.fileno()
+        fin = time.monotonic() + attente
+        veille = select.poll()                           # poll : aucune borne sur le numéro du descripteur
+        veille.register(fd, select.POLLIN)
+        while b"\n" not in self._tampon:
+            if not veille.poll(max(0, int((fin - time.monotonic()) * 1000))):
+                return None
+            b = os.read(fd, 1 << 16)
+            if not b:
+                raise OSError(errno.EPIPE, "trieur arrêté")
+            self._tampon += b
+        ligne, _, self._tampon = self._tampon.partition(b"\n")
+        rendu = json.loads(ligne)
+        if not isinstance(rendu, list):
+            raise ValueError("réponse du trieur invalide")
+        return rendu
+
+    def fermer(self) -> None:
+        with contextlib.suppress(OSError):
+            self.proc.kill()
+        with contextlib.suppress(OSError, subprocess.TimeoutExpired):
+            self.proc.wait(2)
+        for f in (self.proc.stdin, self.proc.stdout):
+            if f is not None:
+                with contextlib.suppress(OSError):
+                    f.close()
+
+
+class _Job:
+    """Un job de fond : sa fiche (``job-<id>.json``) et l'état de sa surveillance."""
+
+    CHAMPS = ("id", "pid", "starttime", "command", "cwd", "label", "wake_on", "created_at",
+              "started_at", "state", "ended_at", "exit_code", "signal", "fired", "chain_depth")
+
+    def __init__(self, ident: str) -> None:
+        self.id = ident
+        self.pid = self.starttime = 0
+        self.command = self.cwd = self.label = ""
+        self.wake_on: list = []
+        self.created_at = self.started_at = 0.0
+        self.ended_at: Optional[float] = None
+        self.state = "running"
+        self.exit_code: Optional[int] = None
+        self.signal: Optional[str] = None
+        self.fired: list = []
+        self.chain_depth: Optional[int] = None           # profondeur du tour qui l'a lancé (hôte)
+        self.declencheurs: list = []                     # (entrée, genre, valeur)
+        self.proc: Optional[subprocess.Popen] = None     # lancé par CET agent
+        self.fd: Optional[int] = None                    # journal, en lecture
+        self.pos = self.taille = self.lignes = self.test_depuis = 0
+        self.partiel = self.partiel_fin = b""            # ligne en cours : tête (tests), fin (affichage)
+        self.derniers: deque = deque(maxlen=_JOBS_QUEUE)
+        self.attentes: list = []                         # match / regex qui attendent leurs lignes d'après
+        self.desarmes: list = []                         # regex retirées : {"spec", "reason"}
+        self.trieur: Optional[_Trieur] = None            # processus de ses regex
+        self.lot: Optional[tuple] = None                 # (octets, envoi, entrées) en attente du trieur
+        self.fin: Optional[tuple] = None                 # fin constatée, journal pas encore rattrapé
+        self.fin_pos = 0
+        self.t0 = self.sortie = self.battement = time.monotonic()
+        self.arret = False
+
+    @classmethod
+    def depuis(cls, d: Dict[str, Any]) -> "_Job":
+        """Fiche relue, types vérifiés : le code de /work peut l'avoir réécrite."""
+        j = cls(d["id"])
+        j.pid, j.starttime = _entier_sur(d.get("pid")) or 0, _entier_sur(d.get("starttime")) or 0
+        j.command, j.cwd, j.label = (str(d.get(k) or "")[:_JOBS_COMMANDE_MAX]
+                                     for k in ("command", "cwd", "label"))
+        for k in ("wake_on", "fired"):
+            v = d.get(k)
+            setattr(j, k, [s for s in v if isinstance(s, str)][:16] if isinstance(v, list) else [])
+        j.created_at = _reel_sur(d.get("created_at")) or 0.0
+        j.started_at = _reel_sur(d.get("started_at")) or j.created_at
+        j.ended_at = _reel_sur(d.get("ended_at"))
+        j.state = d["state"] if isinstance(d.get("state"), str) and d["state"] in _TERMINAUX else "running"
+        j.exit_code = _entier_sur(d.get("exit_code"))
+        j.signal = d["signal"] if isinstance(d.get("signal"), str) else None
+        p = _entier_sur(d.get("chain_depth"))
+        j.chain_depth = p if p is not None and 0 <= p <= _JOBS_PROFONDEUR_MAX else None
+        j.lignes, j.taille = _entier_sur(d.get("log_lines")) or 0, _entier_sur(d.get("log_bytes")) or 0
+        v = d.get("disarmed")
+        j.desarmes = [{"spec": x["spec"], "reason": str(x.get("reason") or "")[:80]} for x in v
+                      if isinstance(x, dict) and isinstance(x.get("spec"), str)][:16] if isinstance(v, list) else []
+        j.t0 = time.monotonic() - max(0.0, time.time() - j.started_at)
+        return j
+
+    def fiche(self) -> Dict[str, Any]:
+        return {**{k: getattr(self, k) for k in self.CHAMPS},
+                "log_lines": self.nb_lignes(), "log_bytes": self.taille, "disarmed": self.desarmes}
+
+    def duree(self) -> float:
+        if self.ended_at is not None:
+            return max(0.0, self.ended_at - self.started_at)
+        return max(0.0, time.monotonic() - self.t0)
+
+    def nb_lignes(self) -> int:
+        return self.lignes + (1 if self.partiel else 0)
+
+    def queue(self) -> list:
+        """Fin du journal (ligne en cours comprise), 20 lignes au plus."""
+        q = list(self.derniers)
+        if self.partiel:
+            q.append(_vue(self.partiel_fin))
+        return q[-_JOBS_QUEUE:]
+
+
+class _Jobs:
+    """Jobs de fond du conteneur (shell_job) : lancement, superviseur, événements, arrêt, reprise."""
+
+    def __init__(self, agent: Agent) -> None:
+        self.agent = agent
+        self._jv = threading.RLock()                     # les jobs et leur état
+        self._ev = threading.Condition()                 # les événements ; réveille les watch
+        self._jobs: Dict[str, _Job] = {}
+        self._evenements: deque = deque(maxlen=_JOBS_GARDES)
+        self._seq = self._lignes_fichier = 0
+        self._fil: Optional[threading.Thread] = None
+        self._arret = threading.Event()
+
+    # ── chemins et entrées ─────────────────────────────────────────────────
+    def _bg(self, creer: bool = False) -> str:
+        """Le dossier .bg, vrai dossier sous la racine, créé au besoin."""
+        p = os.path.join(self.agent.racine, _JOBS_BG)
+        if creer:
+            try:
+                os.mkdir(p, _MODE_DOSSIER)
+            except FileExistsError:
+                pass
+            except OSError as e:
+                raise _refus_os(e) from None
+        if not _est_dossier(p):
+            raise Refus(409, "not_dir", ".bg absent, ou qui n'est pas un dossier")
+        return p
+
+    def _fichier(self, ident: str, ext: str) -> str:
+        return os.path.join(self.agent.racine, _JOBS_BG, f"job-{ident}.{ext}")
+
+    def _ident(self, v: Any) -> str:
+        if not isinstance(v, str) or not _JOB_ID.fullmatch(v):
+            raise Refus(400, "bad_request", "id : « j- » suivi de 8 chiffres hexadécimaux")
+        return v
+
+    def _rel_confine(self, v: Any) -> str:
+        """Chemin relatif à la racine ; « .. », absolu hors /work ou lien qui sort : outside_root."""
+        if isinstance(v, str) and (".." in v.split("/") or (
+                v.startswith("/") and v != "/work" and not v.startswith("/work/"))):
+            raise Refus(403, "outside_root", "chemin hors de /work")
+        rel = normaliser(v)
+        self.agent.reel(rel)
+        return rel
+
+    def _declencheur(self, s: str) -> Tuple[str, str, Any]:
+        """(entrée, genre, valeur) d'une entrée de wake_on vérifiée (grammaire de la SPEC §1)."""
+        if s == "exit":
+            return s, s, None
+        genre, _, val = s.partition(":")
+        if genre == "match" and val and len(val) <= _JOBS_MOTIF_MAX:
+            return s, genre, val
+        if genre == "regex" and val:
+            if len(val) > _JOBS_MOTIF_MAX or _REDOS.search(val):
+                raise Refus(400, "bad_request", "regex: too long, or nested quantifier (catastrophic backtracking)")
+            if _quantificateurs_libres(val) > _JOBS_REGEX_LIBRES:
+                raise Refus(400, "bad_request",
+                            f"regex: at most {_JOBS_REGEX_LIBRES} unbounded quantifiers (*, +, {{n,}})")
+            try:
+                return s, genre, re.compile(val)
+            except (re.error, RecursionError, OverflowError) as e:
+                raise Refus(400, "bad_request", f"invalid regex: {str(e)[:200]}") from None
+        if genre in _JOBS_BORNES and re.fullmatch(r"[0-9]{1,6}", val):
+            mini, maxi = _JOBS_BORNES[genre]
+            if mini <= int(val) <= maxi:
+                return s, genre, int(val)
+        if genre == "file" and val:
+            rel = self._rel_confine(val)
+            if rel:
+                return s, genre, rel
+        raise Refus(400, "bad_request", f"wake_on: invalid entry '{s[:80]}'")
+
+    def _declencheurs(self, v: Any) -> list:
+        """wake_on vérifié, sans doublon, « exit » toujours armé et en tête."""
+        if v is None:
+            v = []
+        if not isinstance(v, list) or not all(isinstance(s, str) and "\0" not in s for s in v):
+            raise Refus(400, "bad_request", "wake_on: list of strings expected")
+        entrees = list(dict.fromkeys(["exit", *v]))
+        if len(entrees) > _JOBS_DECLENCHEURS_MAX + 1:
+            raise Refus(400, "bad_request", f"wake_on: at most {_JOBS_DECLENCHEURS_MAX} entries")
+        return [self._declencheur(s) for s in entrees]
+
+    def _existe(self, rel: str) -> bool:
+        try:
+            return os.path.exists(self.agent.reel(rel))
+        except Refus:
+            return False
+
+    # ── fiches et journaux ─────────────────────────────────────────────────
+    def _ecrire_fiche(self, job: _Job) -> None:
+        """``job-<id>.json`` écrit de façon atomique ; une panne est ignorée (la mémoire fait foi)."""
+        try:
+            bg = self._bg(creer=True)
+        except Refus:
+            return
+        tmp = _nom_provisoire(bg)
+        try:
+            with open(tmp, "x", encoding="ascii") as f:
+                json.dump(job.fiche(), f, separators=(",", ":"))
+            os.replace(tmp, os.path.join(bg, f"job-{job.id}.json"))
+            job.battement = time.monotonic()
+        except (OSError, ValueError):
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
+
+    def _toucher(self, job: _Job) -> None:
+        """Battement : la fiche d'un job qui tourne reste récente pour le GC d'inactivité."""
+        job.battement = time.monotonic()
+        with contextlib.suppress(OSError, Refus):
+            self._bg()
+            os.utime(self._fichier(job.id, "json"), follow_symlinks=False)
+
+    def _job_du_disque(self, ident: str) -> Optional[_Job]:
+        """Fiche relue et vérifiée ; ``None`` si elle manque ou ne tient pas."""
+        b = _lire_petit(self._fichier(ident, "json"), 1 << 20)
+        try:
+            d = json.loads(b) if b else None
+        except (ValueError, RecursionError):
+            return None
+        if not isinstance(d, dict) or d.get("id") != ident:
+            return None
+        job = _Job.depuis(d)
+        for s in job.wake_on:
+            with contextlib.suppress(Refus):
+                job.declencheurs.append(self._declencheur(s))
+        return job
+
+    def _ouvrir_journal(self, job: _Job) -> None:
+        try:
+            fd = os.open(self._fichier(job.id, "log"), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        except OSError:
+            return
+        if stat.S_ISREG(os.fstat(fd).st_mode):
+            job.fd = fd
+        else:
+            os.close(fd)
+
+    def _fermer_journal(self, job: _Job) -> None:
+        if job.fd is not None:
+            with contextlib.suppress(OSError):
+                os.close(job.fd)
+            job.fd = None
+
+    def _queue_disque(self, job: _Job) -> None:
+        """Job fini relu : taille et dernières lignes du journal (le compte de lignes vient de la fiche)."""
+        with contextlib.suppress(OSError):
+            job.taille = os.stat(self._fichier(job.id, "log"), follow_symlinks=False).st_size
+        b = _lire_petit(self._fichier(job.id, "log"), 16 << 10, fin=True) or b""
+        for brut in b.rstrip(b"\n").split(b"\n")[-_JOBS_QUEUE:] if b else []:
+            job.derniers.append(_vue(brut))
+
+    def _lire_journal(self, job: _Job, budget_s: Optional[float], tester: bool = True) -> None:
+        """Journal lu dans le budget du tour (``None`` : jusqu'au bout) ; les regex vont au trieur du job."""
+        if job.fd is None:
+            return
+        if budget_s is None:
+            with contextlib.suppress(OSError):
+                job.taille = os.fstat(job.fd).st_size
+        if job.taille < job.pos:                         # tronqué par le code de /work
+            self._fermer_trieur(job)
+            job.pos, job.partiel, job.partiel_fin = job.taille, b"", b""
+        if not tester:
+            self._fermer_trieur(job)                     # arrêt : le lot en cours est relu sans regex
+        echeance = None if budget_s is None else time.monotonic() + budget_s
+        limite = min(job.taille, job.fin_pos) if job.fin is not None else job.taille
+        while echeance is None or time.monotonic() < echeance:
+            if job.lot is not None and not self._recevoir(job, echeance):
+                return
+            if job.pos >= limite:
+                return
+            armes = self._armes(job) if tester else []
+            regex = [x for x in armes if x[1] == "regex"]
+            morceau = (_JOBS_LOT_REGEX if regex else
+                       _JOBS_MORCEAU_LENT if armes or self._attend_apres(job) else _JOBS_MORCEAU)
+            try:
+                b = os.pread(job.fd, min(limite - job.pos, morceau), job.pos)
+            except OSError:
+                return
+            if not b:
+                return
+            dernier = b.rfind(b"\n")
+            if regex and dernier >= 0 and job.pos + len(b) > job.test_depuis:
+                if not self._envoyer(job, regex, b, dernier):
+                    return                               # aucun trieur libre : le morceau attend
+                continue
+            job.pos += len(b)
+            self._ajouter(job, b, {}, tester)
+
+    def _armes(self, job: _Job) -> list:
+        """match / regex encore armés : ni déclenchés ni désarmés."""
+        hors = set(job.fired) | {d["spec"] for d in job.desarmes}
+        return [(s, g, v) for s, g, v in job.declencheurs if g in ("match", "regex") and s not in hors]
+
+    def _attend_apres(self, job: _Job) -> bool:
+        return any(len(a["apres"]) < _JOBS_CONTEXTE for a in job.attentes)
+
+    def _envoyer(self, job: _Job, regex: list, b: bytes, dernier: int) -> bool:
+        """Lignes complètes du morceau envoyées au trieur du job ; ``False`` si aucun trieur n'est libre."""
+        specs = [x[0] for x in regex]
+        try:
+            if job.trieur is None:
+                if sum(j.trieur is not None for j in self._jobs.values()) >= _JOBS_TRIEURS_MAX:
+                    return False
+                job.trieur = _Trieur()
+            job.trieur.demander([x[2].pattern for x in regex], job.partiel + b[:dernier])
+        except (OSError, ValueError, subprocess.SubprocessError):
+            self._desarmer(job, specs, "regex disarmed: evaluator failed")
+            return True                                  # le morceau est relu sans ces regex
+        job.lot = (b, time.monotonic(), specs)
+        return True
+
+    def _recevoir(self, job: _Job, echeance: Optional[float]) -> bool:
+        """Réponse du trieur au lot en cours, lignes traitées ; ``False`` tant qu'elle n'est pas là."""
+        assert job.lot is not None
+        b, envoi, specs = job.lot
+        panne = None
+        try:
+            attente = 0.0 if echeance is None else max(0.0, echeance - time.monotonic())
+            rendu = job.trieur.reponse(attente) if job.trieur is not None else None
+        except (OSError, ValueError):
+            rendu, panne = None, "regex disarmed: evaluator failed"
+        if rendu is None:
+            if panne is None and time.monotonic() - envoi < _JOBS_REGEX_MAX_S:
+                return False
+            self._desarmer(job, specs, panne or "regex disarmed: too slow")
+            return True                                  # le lot est relu sans ces regex : aucune ligne perdue
+        job.lot = None
+        touches = {s: k for s, k in zip(specs, rendu) if _entier_sur(k) is not None and k >= 0}
+        job.pos += len(b)
+        self._ajouter(job, b, touches, True)
+        if not any(g == "regex" for _, g, _ in self._armes(job)):
+            self._fermer_trieur(job)
+        return True
+
+    def _desarmer(self, job: _Job, specs: list, raison: str) -> None:
+        """Regex retirées du job (trieur trop lent ou en panne), raison gardée dans la fiche et l'état."""
+        for spec in specs:
+            if all(d["spec"] != spec for d in job.desarmes):
+                job.desarmes.append({"spec": spec, "reason": raison})
+        self._fermer_trieur(job)
+        self._ecrire_fiche(job)
+
+    def _fermer_trieur(self, job: _Job) -> None:
+        """Trieur du job tué ; un lot en attente sera relu (sa position n'a pas avancé)."""
+        if job.trieur is not None:
+            job.trieur.fermer()
+            job.trieur = None
+        job.lot = None
+
+    def _ajouter(self, job: _Job, b: bytes, touches: Dict[str, int], tester: bool) -> None:
+        """Un morceau du journal : lignes passées une à une s'il y a de quoi tester, sinon seulement comptées."""
+        litteraux = ([(s, v) for s, g, v in self._armes(job) if g == "match"]
+                     if tester and job.pos > job.test_depuis else [])
+        dernier = b.rfind(b"\n")
+        if dernier < 0:
+            self._prolonger(job, b)
+            return
+        if litteraux and all("\ufffd" not in v for _, v in litteraux):
+            vu = job.partiel + b                         # aucun texte cherché dans le morceau : comptage seul
+            if not any(v.encode() in vu for _, v in litteraux):
+                litteraux = []
+        if litteraux or touches or self._attend_apres(job):
+            par_ligne: Dict[int, list] = {}
+            for spec, k in touches.items():
+                par_ligne.setdefault(k, []).append(spec)
+            lignes = b[:dernier].split(b"\n")
+            lignes[0] = job.partiel + lignes[0][:_JOBS_LIGNE_TEST]
+            for k, brut in enumerate(lignes):
+                self._ligne(job, brut[:_JOBS_LIGNE_TEST], litteraux, par_ligne.get(k, []))
+        else:
+            job.lignes += b.count(b"\n")
+            debut = dernier
+            for _ in range(_JOBS_QUEUE):
+                debut = b.rfind(b"\n", 0, debut)
+                if debut < 0:
+                    break
+            bloc = job.partiel + b[:dernier] if debut < 0 else b[debut + 1:dernier]
+            for brut in bloc.split(b"\n")[-_JOBS_QUEUE:]:
+                job.derniers.append(_vue(brut[:_JOBS_LIGNE_TEST]))
+        job.partiel = job.partiel_fin = b""
+        self._prolonger(job, b[dernier + 1:])
+
+    def _prolonger(self, job: _Job, b: bytes) -> None:
+        if len(job.partiel) < _JOBS_LIGNE_TEST:
+            job.partiel += b[:_JOBS_LIGNE_TEST - len(job.partiel)]
+        job.partiel_fin = (job.partiel_fin + b[-1024:])[-1024:]
+
+    def _ligne(self, job: _Job, brut: bytes, litteraux: list, regex: list) -> None:
+        """Une ligne complète : lignes d'après des correspondances en attente, puis match (ici) et regex (trieur)."""
+        job.lignes += 1
+        vue = _vue(brut)
+        for a in job.attentes:
+            if len(a["apres"]) < _JOBS_CONTEXTE:
+                a["apres"].append(vue)
+        trouves = list(regex)
+        if litteraux:
+            texte = brut.rstrip(b"\r").decode("utf-8", "replace")
+            trouves += [s for s, v in litteraux if v in texte]
+        for spec in trouves:
+            if spec not in job.fired:
+                job.fired.append(spec)
+                job.attentes.append({"spec": spec, "genre": spec.partition(":")[0], "ligne": vue, "apres": [],
+                                     "avant": list(job.derniers)[-_JOBS_CONTEXTE:],
+                                     "echeance": time.monotonic() + _JOBS_APRES_S})
+        job.derniers.append(vue)
+
+    def _vider_attentes(self, job: _Job, forcer: bool) -> None:
+        """Événements match/regex dont les lignes d'après sont là, ou dont l'attente a expiré."""
+        maintenant = time.monotonic()
+        restent: list = []
+        prets: list = []
+        for a in job.attentes:
+            pret = forcer or len(a["apres"]) >= _JOBS_CONTEXTE or maintenant >= a["echeance"]
+            (prets if pret else restent).append(a)
+        job.attentes = restent
+        for a in prets:
+            self._evenement(job, a["genre"], a["spec"], encore=job.state == "running" and job.fin is None,
+                            ligne=a["ligne"],
+                            contexte=[*a["avant"], a["ligne"], *a["apres"]])
+        if prets:
+            self._ecrire_fiche(job)
+
+    def _rotation(self, job: _Job) -> None:
+        """Journal de plus de 512 Mo ramené à sa tête (1 Mo), suivie d'une ligne qui le dit."""
+        lecture = job.fd
+        try:
+            st = os.fstat(lecture) if lecture is not None else None
+            if lecture is None or st is None or st.st_size <= _JOBS_JOURNAL_MAX:
+                return
+            fd = os.open(self._fichier(job.id, "log"), os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW | os.O_CLOEXEC)
+        except OSError:
+            return
+        self._fermer_trieur(job)                         # un lot en cours ne tient plus : relu après
+        try:
+            vu = os.fstat(fd)
+            if (vu.st_dev, vu.st_ino) != (st.st_dev, st.st_ino):
+                return                                   # remplacé : plus le journal du job
+            tete = os.pread(lecture, _JOBS_JOURNAL_TETE, 0)
+            marque = b"" if not tete or tete.endswith(b"\n") else b"\n"
+            marque += b"[elpis: log truncated, %d bytes dropped]\n" % (st.st_size - len(tete))
+            os.ftruncate(fd, len(tete))
+            os.write(fd, marque)
+        except OSError:
+            return
+        finally:
+            os.close(fd)
+        job.pos = job.taille = len(tete) + len(marque)
+        job.lignes = (tete + marque).count(b"\n")
+        job.partiel = job.partiel_fin = b""
+        job.derniers.clear()
+        job.derniers.append(_vue(marque.strip(b"\n")))
+
+    # ── événements ─────────────────────────────────────────────────────────
+    def _evenement(self, job: _Job, trigger: str, spec: Optional[str], encore: bool,
+                   ligne: Optional[str] = None, contexte: Optional[list] = None,
+                   par: Optional[str] = None) -> None:
+        e = {"seq": 0, "job_id": job.id, "ts": round(time.time(), 3), "trigger": trigger, "spec": spec,
+             "state": job.state, "exit_code": job.exit_code, "signal": job.signal,
+             "duration_s": round(job.duree(), 1), "line": ligne, "context": contexte, "tail": job.queue(),
+             "log_lines": job.nb_lignes(), "log_bytes": job.taille, "by": par, "still_running": encore}
+        if job.chain_depth is not None:
+            e["chain_depth"] = job.chain_depth
+        _borner_evenement(e)
+        with self._ev:
+            self._seq += 1
+            e["seq"] = self._seq
+            self._evenements.append(e)
+            self._consigner(e)
+            self._ev.notify_all()
+
+    def _consigner(self, e: Dict[str, Any]) -> None:
+        """Ligne ajoutée à jobs-events.ndjson, réécrit avec les derniers gardés quand il déborde."""
+        try:
+            bg = self._bg(creer=True)
+            chemin = os.path.join(bg, _JOBS_EVENEMENTS)
+            if self._lignes_fichier < _JOBS_GARDES + _JOBS_GARDES // 5:
+                fd = os.open(chemin, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC,
+                             _MODE_FICHIER)
+                try:
+                    os.write(fd, json.dumps(e, separators=(",", ":")).encode() + b"\n")
+                finally:
+                    os.close(fd)
+                self._lignes_fichier += 1
+                return
+            tmp = _nom_provisoire(bg)
+            try:
+                with open(tmp, "x", encoding="ascii") as f:
+                    f.writelines(json.dumps(x, separators=(",", ":")) + "\n" for x in self._evenements)
+                os.replace(tmp, chemin)
+            finally:
+                with contextlib.suppress(FileNotFoundError):
+                    os.unlink(tmp)
+            self._lignes_fichier = len(self._evenements)
+        except (OSError, Refus):
+            pass                                         # gardé en mémoire : watch le rend quand même
+
+    def _relire_evenements(self, bg: str) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, list]]:
+        """jobs-events.ndjson relu : seq continué, derniers gardés ; fins et déclenchements par job."""
+        evenements = []
+        for ligne in (_lire_petit(os.path.join(bg, _JOBS_EVENEMENTS), 8 << 20, fin=True) or b"").split(b"\n"):
+            try:
+                e = json.loads(ligne)
+            except (ValueError, RecursionError):
+                continue
+            if (isinstance(e, dict) and (_entier_sur(e.get("seq")) or 0) > 0
+                    and isinstance(e.get("job_id"), str) and _JOB_ID.fullmatch(e["job_id"])):
+                evenements.append(e)
+        fins: Dict[str, Dict[str, Any]] = {}
+        declenches: Dict[str, list] = {}
+        for e in evenements:
+            if e.get("trigger") in ("exit", "lost", "killed"):
+                fins[e["job_id"]] = e
+            if isinstance(e.get("spec"), str):
+                declenches.setdefault(e["job_id"], []).append(e["spec"])
+        with self._ev:
+            self._seq = max([self._seq, *(e["seq"] for e in evenements)])
+            self._evenements.extend(evenements[-_JOBS_GARDES:])
+            self._lignes_fichier = len(evenements)
+        return fins, declenches
+
+    # ── superviseur ────────────────────────────────────────────────────────
+    def _demarrer_superviseur(self) -> None:
+        if self._fil is None and not self._arret.is_set():
+            self._fil = threading.Thread(target=self._superviser, name="elpis-jobs", daemon=True)
+            self._fil.start()
+
+    def _superviser(self) -> None:
+        """Toutes les 0,5 s : fin et déclencheurs de TOUS les jobs, puis leurs journaux, chacun dans son budget."""
+        while not self._arret.wait(_JOBS_TOUR_S):
+            with self._jv:
+                suivis = [j for j in self._jobs.values() if j.state == "running" and not j.arret]
+                if not suivis and not any(j.arret for j in self._jobs.values()):
+                    self._fil = None
+                    return
+                ports = _ports_en_ecoute() if any(
+                    g == "port" and s not in j.fired for j in suivis for s, g, _ in j.declencheurs) else frozenset()
+                for job in suivis:
+                    try:
+                        self._evaluer(job, ports)
+                    except Exception:                    # noqa: BLE001 — un job en panne n'arrête pas les autres
+                        continue
+                for job in suivis:
+                    try:
+                        self._avancer(job)
+                    except Exception:                    # noqa: BLE001
+                        continue
+
+    def _vivant(self, job: _Job) -> bool:
+        if job.proc is not None:
+            return job.proc.poll() is None
+        s = _stat_processus(job.pid) if job.pid > 0 else None
+        return s is not None and s[2] == job.starttime and s[0] not in ("Z", "X", "x")
+
+    def _fin(self, job: _Job) -> Optional[Tuple[str, Optional[int], Optional[str]]]:
+        """(état, code, signal) d'un job fini, ``None`` s'il tourne ; ni .exit ni code connu : lost."""
+        if self._vivant(job):
+            return None
+        b = _lire_petit(self._fichier(job.id, "exit"), 32)
+        code = int(b) if b and re.fullmatch(rb"[0-9]{1,3}\s*", b) else None
+        if code is None and job.proc is not None and job.proc.returncode is not None:
+            rc = job.proc.returncode
+            code = rc if rc >= 0 else 128 - rc
+        if code is None:
+            return "lost", None, None
+        return "exited", code, _nom_signal(code)
+
+    def _evaluer(self, job: _Job, ports: frozenset) -> None:
+        """Phase 1, sans lire le journal : fin, taille (idle), port, fichier, idle, timeout, battement."""
+        fin = self._fin(job) if job.fin is None else None
+        if job.fd is not None:
+            with contextlib.suppress(OSError):
+                taille = os.fstat(job.fd).st_size
+                if taille > job.taille:                  # idle : sortie vue grandir
+                    job.sortie = time.monotonic()
+                job.taille = taille
+        if fin is not None:
+            job.fin, job.fin_pos = fin, job.taille       # clos quand le journal est rattrapé jusque-là
+        if job.fin is not None:
+            return
+        maintenant = time.monotonic()
+        for spec, genre, val in job.declencheurs:
+            if spec not in job.fired and (
+                    (genre == "port" and val in ports)
+                    or (genre == "file" and self._existe(val))
+                    or (genre == "idle" and maintenant - job.sortie >= val)
+                    or (genre == "timeout" and maintenant - job.t0 >= val)):
+                job.fired.append(spec)
+                self._evenement(job, genre, spec, encore=True)
+                self._ecrire_fiche(job)
+        if maintenant - job.battement >= _JOBS_BATTEMENT_S:
+            self._toucher(job)
+
+    def _avancer(self, job: _Job) -> None:
+        """Phase 2 : journal lu dans le budget, correspondances mûres émises, puis fin ou rotation."""
+        self._lire_journal(job, _JOBS_BUDGET_S)
+        self._vider_attentes(job, forcer=False)
+        if job.fin is None:
+            self._rotation(job)
+        elif job.lot is None and job.pos >= min(job.taille, job.fin_pos):
+            self._clore(job, *job.fin)
+
+    def _clore(self, job: _Job, etat: str, code: Optional[int], sig: Optional[str]) -> None:
+        """Fin constatée : état, correspondances en attente, événement exit ou lost, fiche, journal fermé."""
+        fin = time.time()
+        if etat == "exited":
+            with contextlib.suppress(OSError):
+                fin = min(fin, os.stat(self._fichier(job.id, "exit"), follow_symlinks=False).st_mtime)
+            if "exit" not in job.fired:
+                job.fired.append("exit")
+        job.state, job.exit_code, job.signal, job.ended_at = etat, code, sig, round(fin, 3)
+        self._vider_attentes(job, forcer=True)
+        self._fermer_trieur(job)
+        self._rotation(job)
+        self._evenement(job, "exit" if etat == "exited" else "lost", "exit" if etat == "exited" else None,
+                        encore=False)
+        self._ecrire_fiche(job)
+        self._fermer_journal(job)
+
+    # ── routes ─────────────────────────────────────────────────────────────
+    def lancer(self, d: Dict[str, Any]) -> Dict[str, Any]:
+        """POST /v1/jobs/start : la commande, en tâche de fond surveillée."""
+        ident = self._ident(d.get("id"))
+        commande = d.get("command")
+        if (not isinstance(commande, str) or not commande.strip() or "\0" in commande
+                or len(commande) > _JOBS_COMMANDE_MAX):
+            raise Refus(400, "bad_request", f"command : non vide, sans NUL, {_JOBS_COMMANDE_MAX} caractères au plus")
+        rel = self._rel_confine(d.get("cwd"))
+        cwd = self.agent.reel(rel)
+        if not os.path.isdir(cwd):
+            raise Refus(404, "not_found", "dossier de travail absent")
+        env = _env_job(d.get("env"), self.agent.racine, ident)
+        etiquette = d.get("label")
+        if not isinstance(etiquette, str) or not etiquette:
+            etiquette = commande[:40]
+        declencheurs = self._declencheurs(d.get("wake_on"))
+        profondeur = d.get("chain_depth")
+        if profondeur is not None and not (_entier_sur(profondeur) is not None
+                                           and 0 <= profondeur <= _JOBS_PROFONDEUR_MAX):
+            raise Refus(400, "bad_request", f"chain_depth : entier de 0 à {_JOBS_PROFONDEUR_MAX}")
+        with self._jv:
+            bg = self._bg(creer=True)
+            if ident in self._jobs or any(os.path.lexists(self._fichier(ident, x)) for x in ("json", "log")):
+                raise Refus(409, "job_exists", "job déjà connu")
+            if sum(j.state == "running" for j in self._jobs.values()) >= _JOBS_VIVANTS_MAX:
+                raise Refus(429, "too_many_jobs", f"{_JOBS_VIVANTS_MAX} jobs vivants au plus",
+                            max=_JOBS_VIVANTS_MAX)
+            for ext in ("exit", "exit.tmp"):
+                with contextlib.suppress(OSError):
+                    os.unlink(self._fichier(ident, ext))
+            journal = os.path.join(bg, f"job-{ident}.log")
+            try:
+                ecriture = os.open(journal, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_APPEND | os.O_NOFOLLOW
+                                   | os.O_CLOEXEC, _MODE_FICHIER)
+            except OSError as e:
+                raise _refus_os(e) from None
+            job = _Job(ident)
+            job.created_at = round(time.time(), 3)
+            try:
+                job.fd = os.open(journal, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+                job.proc = subprocess.Popen(
+                    [_BASH, "-c", _ENVELOPPE, commande, os.path.join(bg, f"job-{ident}.exit")],
+                    cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=ecriture, stderr=ecriture,
+                    start_new_session=True, umask=0o022)
+            except (OSError, ValueError) as e:
+                self._fermer_journal(job)
+                with contextlib.suppress(OSError):
+                    os.unlink(journal)
+                raise Refus(500, "exec_failed", f"lancement du job : {e}"[:300]) from None
+            finally:
+                os.close(ecriture)
+            job.t0 = job.sortie = time.monotonic()
+            job.started_at = round(time.time(), 3)
+            job.pid = job.proc.pid
+            job.starttime = (_stat_processus(job.pid) or ("", 0, 0))[2]
+            job.command, job.cwd, job.label = commande, rel, etiquette[:60].replace("\0", "")
+            job.declencheurs = declencheurs
+            job.wake_on = [x[0] for x in declencheurs]
+            job.chain_depth = profondeur
+            self._jobs[ident] = job
+            self._ecrire_fiche(job)
+            self._demarrer_superviseur()
+            return {"id": ident, "pid": job.pid, "state": "running", "log": f"{_JOBS_BG}/job-{ident}.log",
+                    "started_at": job.started_at, "wake_on": list(job.wake_on)}
+
+    def arreter(self, d: Dict[str, Any]) -> Dict[str, Any]:
+        """POST /v1/jobs/kill : groupe et processus marqués arrêtés, événement killed ; purge au besoin."""
+        ident = self._ident(d.get("id"))
+        nom = str(d.get("signal") or "TERM").upper()
+        par = d.get("by") or "agent"
+        if nom not in _SIGNAUX or par not in ("agent", "user", "core"):
+            raise Refus(400, "bad_request", "signal : TERM, KILL ou INT ; by : agent, user ou core")
+        grace = max(0.0, min(float(d.get("grace_s", 5)), _JOBS_GRACE_MAX_S))
+        purge = _vrai(d.get("purge"))
+        with self._jv:
+            job = self._jobs.get(ident)
+            if job is None:
+                with contextlib.suppress(Refus):
+                    self._bg()
+                    job = self._job_du_disque(ident)
+            if job is None and purge:                    # fiche disparue : marqués balayés, fichiers retirés
+                job = _Job(ident)
+                job.state = "lost"
+            if job is None:
+                raise Refus(404, "job_not_found", "job inconnu")
+            if job.arret:
+                raise Refus(409, "busy", "arrêt déjà en cours")
+            actif = job.state == "running"
+            groupe = job.pid if actif and self._vivant(job) else 0
+            job.arret = True
+        try:
+            tues = self._tuer(job, groupe, _SIGNAUX[nom], grace)
+        except BaseException:
+            with self._jv:
+                job.arret = False
+            raise
+        with self._jv:
+            job.arret = False                            # sous le verrou : le superviseur ne la clôt pas
+            if actif:
+                fin = self._fin(job) or ("", None, None)
+                self._lire_journal(job, None, tester=False)
+                job.state, job.ended_at = "killed", round(time.time(), 3)
+                job.exit_code, job.signal = fin[1], fin[2] or "SIG" + nom
+                self._vider_attentes(job, forcer=True)
+                self._evenement(job, "killed", None, encore=False, par=par)
+                self._ecrire_fiche(job)
+                self._fermer_journal(job)
+            elif not tues and not purge:
+                raise Refus(409, "job_not_running", "job déjà fini", state=job.state)
+            rendu = {"id": job.id, "killed_pids": tues, "state": job.state, "exit_code": job.exit_code,
+                     "signal": job.signal}
+            if purge:
+                self._purger(job)
+            return rendu
+
+    def _tuer(self, job: _Job, groupe: int, sig: int, grace: float) -> list:
+        """Signal au groupe et aux processus marqués (sortis du groupe par setsid), KILL après la grâce."""
+        marqueur = b"\0ELPIS_JOB_ID=" + job.id.encode() + b"\0"
+        moi = os.getpid()
+
+        def membres() -> Dict[int, int]:
+            return {pid: g for pid, g in _processus()
+                    if pid != moi and ((groupe and g == groupe) or _porte_marqueur(pid, marqueur))}
+
+        def signaler(cibles: Dict[int, int], s: int) -> None:
+            if groupe:
+                with contextlib.suppress(OSError):
+                    os.killpg(groupe, s)
+            for pid, g in cibles.items():
+                if not groupe or g != groupe:
+                    with contextlib.suppress(OSError):
+                        os.kill(pid, s)
+
+        restants = membres()
+        touches = set(restants)
+        signaler(restants, sig)
+        echeance, essais = time.monotonic() + grace, 0
+        while restants and essais < 40:
+            time.sleep(0.05)
+            if job.proc is not None:
+                job.proc.poll()                          # l'enveloppe, enfant de l'agent : récoltée
+            restants = membres()
+            touches.update(restants)
+            if restants and time.monotonic() >= echeance:
+                signaler(restants, signal.SIGKILL)
+                essais += 1
+        return sorted(touches)
+
+    def _purger(self, job: _Job) -> None:
+        """``.bg/job-<id>.*`` retirés, job oublié (conversation supprimée, JB-20)."""
+        self._fermer_trieur(job)
+        self._fermer_journal(job)
+        with contextlib.suppress(Refus):
+            self._bg()
+            for ext in ("log", "json", "exit", "exit.tmp"):
+                with contextlib.suppress(OSError):
+                    os.unlink(self._fichier(job.id, ext))
+        self._jobs.pop(job.id, None)
+
+    def _resume(self, job: _Job) -> Dict[str, Any]:
+        return {"id": job.id, "state": job.state, "pid": job.pid,
+                "alive": job.state == "running" and self._vivant(job), "runtime_s": round(job.duree(), 1),
+                "log_bytes": job.taille, "log_lines": job.nb_lignes(), "last_line": (job.queue() or [""])[-1],
+                "wake_on": list(job.wake_on), "fired": list(job.fired), "exit_code": job.exit_code,
+                "signal": job.signal, "started_at": job.started_at, "ended_at": job.ended_at,
+                "disarmed": [dict(d) for d in job.desarmes]}
+
+    def etat(self, ident: str) -> Dict[str, Any]:
+        """GET /v1/jobs/status : un job, ou tous ceux que l'agent suit."""
+        with self._jv:
+            if not ident:
+                return {"jobs": [self._resume(j) for j in self._jobs.values()]}
+            job = self._jobs.get(self._ident(ident))
+            if job is None:
+                raise Refus(404, "job_not_found", "job inconnu")
+            return {"jobs": [self._resume(job)]}
+
+    def liste(self) -> Dict[str, Any]:
+        """GET /v1/jobs/list : les jobs suivis, et les fiches de .bg qu'il ne connaît pas."""
+        with self._jv:
+            rendu = [self._resume(j) for j in self._jobs.values()]
+            connus = set(self._jobs)
+        try:
+            noms = sorted(n for n in os.listdir(self._bg()) if _JOB_FICHE.fullmatch(n))[:_JOBS_GARDES]
+        except (OSError, Refus):
+            noms = []
+        for nom in noms:
+            m = _JOB_FICHE.fullmatch(nom)
+            job = self._job_du_disque(m.group(1)) if m and m.group(1) not in connus else None
+            if job is not None:
+                self._queue_disque(job)
+                rendu.append(self._resume(job))
+        return {"jobs": rendu}
+
+    def _depuis(self, depuis: int) -> Tuple[list, int]:
+        """Événements de seq > depuis (un lot au plus) et le dernier seq qu'ils couvrent ; sous ``_ev``."""
+        nouveaux = [e for e in self._evenements if e["seq"] > depuis][:_JOBS_VEILLE_LOT]
+        return nouveaux, nouveaux[-1]["seq"] if len(nouveaux) == _JOBS_VEILLE_LOT else self._seq
+
+    def veiller(self, depuis: int, attente_s: float) -> Iterator[Dict[str, Any]]:
+        """POST /v1/jobs/watch : événements de seq > depuis dès qu'il y en a, signes de vie, bilan."""
+        echeance = signe = time.monotonic()
+        echeance += attente_s
+        with self._ev:
+            reset = depuis > self._seq
+            nouveaux, dernier = self._depuis(0 if reset else depuis)
+        if reset:
+            depuis = 0
+        attendu = False
+        while not nouveaux and not self._arret.is_set() and time.monotonic() < echeance:
+            if time.monotonic() - signe >= _SIGNE_S:
+                signe = time.monotonic()
+                yield {"tick": True}
+            with self._ev:
+                self._ev.wait(max(0.0, min(echeance, signe + _SIGNE_S) - time.monotonic()))
+                nouveaux, dernier = self._depuis(depuis)
+            attendu = True
+        if nouveaux and attendu:
+            time.sleep(_JOBS_GROUPE_S)                   # les événements proches partent ensemble
+            with self._ev:
+                nouveaux, dernier = self._depuis(depuis)
+        yield from nouveaux
+        with self._jv:
+            vivants = sum(j.state == "running" for j in self._jobs.values())
+        yield {"done": True, "last_seq": dernier, "running": vivants, "reset": reset}
+
+    # ── cycle de vie ───────────────────────────────────────────────────────
+    def reprendre(self) -> None:
+        """Agent (re)lancé : seq continué ; job vivant (starttime vérifié) suivi, sinon exit (.exit) ou lost."""
+        try:
+            bg = self._bg()
+            noms = sorted(n for n in os.listdir(bg) if _JOB_FICHE.fullmatch(n))[:_JOBS_GARDES]
+        except (OSError, Refus):
+            return
+        fins, declenches = self._relire_evenements(bg)
+        with self._jv:
+            for nom in noms:
+                m = _JOB_FICHE.fullmatch(nom)
+                job = self._job_du_disque(m.group(1)) if m and m.group(1) not in self._jobs else None
+                if job is None:
+                    continue
+                self._jobs[job.id] = job
+                job.fired += [s for s in dict.fromkeys(declenches.get(job.id, ())) if s not in job.fired]
+                fin = fins.get(job.id)
+                if job.state == "running" and fin is not None:     # événement émis, fiche en retard
+                    job.state = fin["state"] if isinstance(fin.get("state"), str) and fin["state"] in _TERMINAUX \
+                        else "lost"
+                    job.exit_code, job.ended_at = _entier_sur(fin.get("exit_code")), _reel_sur(fin.get("ts"))
+                    job.signal = fin["signal"] if isinstance(fin.get("signal"), str) else None
+                    self._ecrire_fiche(job)
+                if job.state != "running":
+                    self._queue_disque(job)
+                    continue
+                self._ouvrir_journal(job)                # relu depuis le début : lignes recomptées
+                job.lignes = 0
+                if job.fd is not None:
+                    st = os.fstat(job.fd)
+                    job.taille, job.test_depuis = st.st_size, max(0, st.st_size - _JOBS_REPRISE_TEST)
+                    job.sortie = time.monotonic() - max(0.0, time.time() - st.st_mtime)
+            if any(j.state == "running" for j in self._jobs.values()):
+                self._demarrer_superviseur()
+
+    def fermer(self) -> None:
+        """Arrêt de l'agent : superviseur et watch arrêtés ; les jobs, eux, continuent."""
+        self._arret.set()
+        with self._ev:
+            self._ev.notify_all()
+        fil = self._fil
+        if fil is not None:
+            fil.join(5)
+        with self._jv:
+            for job in self._jobs.values():
+                self._fermer_trieur(job)
+                self._fermer_journal(job)
+
+
 class _Gestionnaire(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     timeout = 600                                        # connexion inactive
@@ -2061,7 +3315,7 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                 raise Refus(400, "bad_request", "skip : liste attendue")
             self._json(200, agent.releve_debut(
                 [str(x) for x in sautes], max(1, min(int(d.get("max_entries") or 20000), 200000)),
-                max(0.1, min(float(d.get("deadline_s") or 1.5), 30.0))))
+                max(0.1, min(float(d.get("deadline_s") or 1.5), 30.0)), _vrai(d.get("all_kinds"))))
         elif cle == ("POST", "/v1/changes/end"):
             d = self._corps_json()
             lignes = agent.releve_fin(
@@ -2087,6 +3341,21 @@ class _Gestionnaire(BaseHTTPRequestHandler):
                 for _bloc in corps:                      # lu jusqu'au bout : l'erreur part
                     pass                                 # sur une connexion synchronisée
                 raise
+        elif cle == ("POST", "/v1/jobs/start"):
+            self._json(200, agent.jobs.lancer(self._corps_json()))
+        elif cle == ("POST", "/v1/jobs/kill"):
+            self._json(200, agent.jobs.arreter(self._corps_json()))
+        elif cle == ("GET", "/v1/jobs/status"):
+            self._json(200, agent.jobs.etat(q.get("id") or ""))
+        elif cle == ("GET", "/v1/jobs/list"):
+            self._json(200, agent.jobs.liste())
+        elif cle == ("POST", "/v1/jobs/watch"):
+            d = self._corps_json()
+            depuis = d.get("since_seq") or 0
+            if isinstance(depuis, bool) or not isinstance(depuis, int) or depuis < 0:
+                raise Refus(400, "bad_request", "since_seq : entier positif")
+            attente = max(0.0, min(float(d.get("wait_s", _JOBS_VEILLE_MAX_S)), _JOBS_VEILLE_MAX_S))
+            self._ndjson({"tick": True}, agent.jobs.veiller(depuis, attente))
         elif cle == ("POST", "/v1/shutdown"):
             attendue = self._corps_json().get("if_version")
             if attendue and attendue != VERSION:         # déjà remplacé par un autre
@@ -2243,6 +3512,10 @@ class _Serveur(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
         super().__init__(chemin_socket, _Gestionnaire)
         os.chmod(chemin_socket, 0o666)                   # l'hôte n'a pas l'UID du conteneur
 
+    def server_close(self) -> None:
+        super().server_close()
+        self.agent.jobs.fermer()
+
 
 def servir(racine: str, chemin_socket: str, relais: str = "") -> _Serveur:
     """Serveur lié à ``chemin_socket`` (remplace un socket orphelin) ; à faire
@@ -2253,7 +3526,9 @@ def servir(racine: str, chemin_socket: str, relais: str = "") -> _Serveur:
     except FileNotFoundError:
         pass
     config_git = _ecrire_config_git(os.path.dirname(chemin_socket) or ".")
-    return _Serveur(chemin_socket, Agent(racine, relais, config_git))
+    serveur = _Serveur(chemin_socket, Agent(racine, relais, config_git))
+    serveur.agent.jobs.reprendre()                       # jobs d'un agent précédent : suivis, finis ou perdus
+    return serveur
 
 
 def _verrou_instance(dossier: str, attente_s: float) -> Optional[int]:
@@ -2289,7 +3564,11 @@ def main(argv: Optional[list] = None) -> int:
     if _verrou_instance(os.path.dirname(args.socket), args.lock_wait) is None:
         return 0
     # Le socket reste en place à l'arrêt : le suivant le remplace (servir).
-    servir(args.root, args.socket, args.relay_dir).serve_forever(poll_interval=0.2)
+    serveur = servir(args.root, args.socket, args.relay_dir)
+    try:
+        serveur.serve_forever(poll_interval=0.2)
+    finally:
+        serveur.server_close()                           # superviseur arrêté entre deux tours
     return 0
 
 

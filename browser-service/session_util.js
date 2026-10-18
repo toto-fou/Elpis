@@ -12,6 +12,9 @@
 //     l'âge (orphan 5 min / stale 4 h) : une session active de longue durée
 //     pouvait accumuler des milliers de PNG sans limite.
 
+// Rejet d'une page VIVANTE dont le contexte d'exécution change (navigation, page d'erreur après un goto échoué).
+const _CONTEXTE_EN_NAVIGATION = /Execution context was destroyed|Cannot find context with specified id|most likely because of a navigation/i;
+
 /**
  * Sonde une page Playwright avec un timeout dur.
  * @returns {'ok'|'crashed'|'frozen'}
@@ -20,18 +23,30 @@
  *   - frozen  : pas de réponse sous `ms` — la page est peut-être juste
  *               occupée (script long) : à traiter en fail-open côté requête,
  *               et en « N strikes » côté reaper.
+ *   Un contexte détruit par une navigation n'est pas un crash : la page est resondée dans le même délai.
  */
 export async function pingPage(page, ms = 5000) {
+    const fin = Date.now() + ms;
     let timer;
     try {
-        // NB : pas de timer.unref() — si l'evaluate ne répond jamais, le
-        // timer DOIT pouvoir tirer même s'il est le dernier handle vivant
-        // (sinon la race reste pendante à jamais). Il est de toute façon
-        // clearTimeout-é dès que l'evaluate répond (finally).
-        return await Promise.race([
-            page.evaluate(() => true).then(() => 'ok', () => 'crashed'),
-            new Promise(resolve => { timer = setTimeout(() => resolve('frozen'), ms); }),
-        ]);
+        for (;;) {
+            const reste = fin - Date.now();
+            if (reste <= 0) return 'frozen';
+            // NB : pas de timer.unref() — si l'evaluate ne répond jamais, le
+            // timer DOIT pouvoir tirer même s'il est le dernier handle vivant
+            // (sinon la race reste pendante à jamais). Il est de toute façon
+            // clearTimeout-é dès que l'evaluate répond (finally).
+            const verdict = await Promise.race([
+                page.evaluate(() => true).then(() => 'ok', (e) => {
+                    const ferme = typeof page.isClosed === 'function' && page.isClosed();
+                    return !ferme && _CONTEXTE_EN_NAVIGATION.test(String(e && e.message)) ? 'navigating' : 'crashed';
+                }),
+                new Promise(resolve => { timer = setTimeout(() => resolve('frozen'), reste); }),
+            ]);
+            clearTimeout(timer);
+            if (verdict !== 'navigating') return verdict;
+            await new Promise(resolve => setTimeout(resolve, Math.min(100, Math.max(0, fin - Date.now()))));
+        }
     } finally {
         clearTimeout(timer);
     }

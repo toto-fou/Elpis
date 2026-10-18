@@ -49,7 +49,7 @@ def _recover_docs(queued: Set[str]) -> List[str]:
     to_prepare: List[str] = []
     for child in ocr_store.ocr_root().iterdir():
         doc_id = child.name
-        if doc_id in queued or not ocr_store._DOC_ID_RE.match(doc_id):
+        if doc_id in queued or not ocr_store._DOC_ID_RE.fullmatch(doc_id):
             continue
         try:
             meta = ocr_store.read_meta(child)

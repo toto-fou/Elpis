@@ -97,7 +97,7 @@ def _user_skills_dir(user_id: Optional[int]):
         from llm_core.skills import ensure_user_skills_store
         from shared_infra.accounts.users import get_username_by_id
         from shared_infra.config import USER_SKILLS_DIR, safe_sandbox_name
-        from shared_infra.routes._legacy import _get_sandbox_path
+        from shared_infra.routes._helpers import _get_sandbox_path
         username = get_username_by_id(user_id) or f"user_{user_id}"
         store = Path(USER_SKILLS_DIR) / safe_sandbox_name(username)
         try:

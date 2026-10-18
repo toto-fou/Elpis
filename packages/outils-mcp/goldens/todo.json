@@ -1,0 +1,152 @@
+{
+  "source": "server/local_mcp_server.py (tools/list, FastMCP)",
+  "famille": "todo",
+  "outils": [
+    {
+      "name": "todowrite",
+      "title": "Todowrite",
+      "description": "Create and maintain the task list for the current session. Replaces the WHOLE list on every call: send every item, each with its `content` AND its `status`.\n\nWhen to use \u2014 proactively when:\n- the task needs 3+ distinct steps, or the user gives multiple tasks;\n- new instructions arrive mid-task (capture them as todos);\n- you start a step \u2192 mark it `in_progress` (exactly ONE at a time);\n- you finish a step \u2192 mark it `completed` IMMEDIATELY (never batch\n  completions), and add any follow-up discovered along the way.\n\nWhen NOT to use: single straightforward task, purely informational\nrequest, <3 trivial steps. When in doubt, use it.\n\nRules:\n- status: pending | in_progress | completed | cancelled \u2014 required on\n  EVERY item, including the ones that did not change.\n- `completed` only when the work is actually done and verified \u2014 never\n  on intent. If blocked, keep it `in_progress` and add a todo\n  describing the blocker.\n- Items are short (a few words), specific and actionable. Copy\n  unchanged items verbatim from the latest `checklist` (or the\n  <todo_status> block); keep user-provided commands verbatim.\n- Do not resend an unchanged list.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "todos": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "content": {
+                  "description": "The task, short and actionable (a few words). Copy it verbatim from the previous list when it has not changed.",
+                  "type": "string"
+                },
+                "status": {
+                  "description": "pending | in_progress | completed | cancelled",
+                  "enum": [
+                    "pending",
+                    "in_progress",
+                    "completed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "content",
+                "status"
+              ],
+              "type": "object"
+            },
+            "type": "array",
+            "description": "the COMPLETE updated list (max 50 items)."
+          }
+        },
+        "required": [
+          "todos"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "type": "boolean"
+          },
+          "done": {
+            "description": "Completed todos",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Total number of todos",
+            "type": "integer"
+          },
+          "remaining": {
+            "description": "Todos still pending or in progress",
+            "type": "integer"
+          },
+          "in_progress": {
+            "default": "",
+            "description": "The task in progress, if any",
+            "type": "string"
+          },
+          "completed_now": {
+            "description": "Tasks completed by THIS call",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "checklist": {
+            "description": "The list as stored \u2014 copy items verbatim next time",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Warnings and hints",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "persisted": {
+            "description": "True if saved to the chat (survives reload)",
+            "type": "boolean"
+          },
+          "todos": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "done",
+          "total",
+          "remaining",
+          "checklist",
+          "persisted"
+        ],
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "task",
+          "label": "T\u00e2ches",
+          "icon": "ph-list-checks",
+          "color": "emerald",
+          "hidden": true
+        },
+        "policy": {
+          "deny_for": [
+            "subagent"
+          ],
+          "serial": true,
+          "replay_safe": true
+        },
+        "fastmcp": {
+          "tags": [
+            "task"
+          ]
+        }
+      }
+    }
+  ],
+  "fonctions": {
+    "todowrite": {
+      "fonction": "todowrite",
+      "parametres": [
+        {
+          "nom": "todos",
+          "annotation": "List[llm_core.tools.todo_tools.TodoItem]",
+          "requis": true
+        }
+      ]
+    }
+  }
+}

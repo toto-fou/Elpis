@@ -691,7 +691,7 @@ pre code {
    streamé dans le fil de conversation. Même doctrine que .code-wrapper :
    sombre EN DUR dans les 5 skins (un terminal est toujours sombre), palette
    ANSI alignée sur le thème VS-Code Dark du terminal de l'éditeur
-   (_TERM_XTERM_OPTIONS, app-editor.js).
+   (OPTIONS_XTERM, src/features/terminal/sessions.ts).
    ========================================================================= */
 .shell-live {
     border-radius: 0.75rem;
@@ -935,7 +935,7 @@ aside.elpis-slide-panel .elpis-notif-pop .text-slate-500 { color: var(--text-500
    Changed-lines flash highlight (Monaco decorations)
    Applied by _flashChangedLines() after an LLM rewrite or any
    minimal-diff edit — visible UNIQUEMENT si le réglage
-   ``editor_edit_highlight`` est actif (cf. app-editor.js). Deux
+   ``editor_edit_highlight`` est actif (cf. flux-assistant.ts). Deux
    décorations s'animent en parallèle :
      - une teinte ÉMERAUDE discrète sur tout le corps de la ligne
        (sémantique « ligne éditée », cohérente avec les ajouts +N
@@ -1533,7 +1533,7 @@ body.elpis-dark-surface .elpis-code-tool-row:not(.elpis-code-tool-err) {
 
 /* ================================================================
  *  Editor light theme — overrides Tailwind dark utilities used in
- *  static/includes/main/editor.html when the user toggles
+ *  the editor SFCs (src/components/editor) when the user toggles
  *  "Thème sombre" OFF in Settings → Apparence.
  *
  *  Palette matches the rest of the app's white UI (cf. panel_mcp.html,
@@ -1547,7 +1547,7 @@ body.elpis-dark-surface .elpis-code-tool-row:not(.elpis-code-tool-err) {
  *  No transparent overlays — they looked dirty on white. Solid
  *  Tailwind palette colors only. Monaco's own editor area is
  *  themed separately by ``monaco.editor.setTheme('vs')`` (see
- *  app-editor.js watcher).
+ *  watcher in src/features/editor/editeur.ts).
  *
  *  Specificity (0,2,0) > Tailwind base utilities (0,1,0), so no
  *  !important needed.
@@ -3687,6 +3687,109 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     color: var(--accent-text);
     background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
+/* Ligne du bilan sous le titre du run fini, alignée sur « Reste » et les détails. */
+.task-run-bilan {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.1rem 0.45rem;
+    margin: 0 0 0.1rem 1.6rem;
+    max-width: min(680px, 88vw);
+    user-select: none;
+}
+/* Bilan du harnais (fin du run) : badge de statut coloré par son ton,
+   appels/budget et durée en méta, pastille « lecture seule », détails
+   dépliables (fichiers, git, droits) sous la ligne. */
+.task-run-badge {
+    flex: none;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    color: var(--text-600);
+    background: color-mix(in srgb, var(--text-500) 12%, transparent);
+}
+.task-run-badge.is-ok    { color: var(--ok-text);     background: color-mix(in srgb, var(--ok-text) 12%, transparent); }
+.task-run-badge.is-warn  { color: var(--warn-text-strong); background: color-mix(in srgb, var(--warn-text) 14%, transparent); }
+.task-run-badge.is-error { color: var(--danger-text); background: color-mix(in srgb, var(--danger-text) 12%, transparent); }
+.task-run-ro {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 11px;
+    color: var(--text-500);
+    white-space: nowrap;
+}
+.task-run-more {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.05rem 0.3rem;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-500);
+    font-size: 11.5px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color .15s ease, background-color .15s ease;
+}
+.task-run-more:hover,
+.task-run-more:focus-visible {
+    color: var(--accent-text);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.task-run-caret { font-size: 10px; transition: transform .15s ease; }
+.task-run-caret.is-open { transform: rotate(90deg); }
+/* « Reste : … » : deux lignes, en entier une fois les détails ouverts. */
+.task-run-reste {
+    margin: 0 0 0.15rem 1.6rem;
+    max-width: min(680px, 88vw);
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-500);
+    white-space: pre-wrap;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+.task-run-reste.is-open { display: block; -webkit-line-clamp: unset; line-clamp: unset; }
+.task-run-details {
+    margin: 0.15rem 0 0.4rem 1.6rem;
+    padding: 0.35rem 0 0.35rem 0.75rem;
+    max-width: min(680px, 88vw);
+    border-left: 2px solid var(--border);
+}
+/* Liste du bilan : intitulé court en gras, valeur dessous ; chemins en mono. */
+.task-bilan { font-size: 12px; line-height: 1.45; color: var(--text-600); }
+.task-bilan dt { font-weight: 600; color: var(--text-700); margin-top: 0.35rem; }
+.task-bilan dt:first-child { margin-top: 0; }
+.task-bilan dd { margin: 0.05rem 0 0; }
+.task-bilan-files { list-style: none; margin: 0; padding: 0; }
+.task-bilan-files li { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; }
+.task-bilan-path {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 11.5px;
+    color: var(--text-700);
+    overflow-wrap: anywhere;
+}
+.task-bilan-muted { color: var(--text-500); }
+.task-bilan-add { color: var(--ok-text); font-variant-numeric: tabular-nums; }
+.task-bilan-del { color: var(--danger-text); font-variant-numeric: tabular-nums; }
+.task-bilan-note {
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    margin-top: 0.2rem;
+    color: var(--warn-text-strong);
+}
+.task-bilan-text { white-space: pre-wrap; }
 
 /* ================================================================
  *  TOASTS / SURLIGNAGE / RÔLES — classes token-drivées (correctif skins)

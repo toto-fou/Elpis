@@ -1,4 +1,4 @@
-# requirements.txt — application principale Elpis (chat, admin, hôte d'outils MCP)
+# requirements.txt — Python restant d'Elpis : elpis-tools (famille office), configuration et assistant d'installation
 # Python 3.11+. Installé par ./install.sh (pip install -r requirements.txt).
 # Versions figées : celles de l'environnement validé par la suite de tests.
 
@@ -9,7 +9,6 @@ pydantic==2.13.4
 sse-starlette==3.4.4
 uvicorn[standard]==0.47.0     # uvloop + websockets importés par le code
 websockets==16.0
-gunicorn==26.0.0
 python-multipart==0.0.28      # formulaires / envois de fichiers (UploadFile)
 itsdangerous==2.2.0           # cookies de session (SessionMiddleware)
 
@@ -27,7 +26,6 @@ cryptography==48.0.0          # Fernet : clés API des connecteurs LLM
 PyYAML==6.0.3
 jsonschema==4.26.0
 psutil==7.2.2
-dpkt==1.9.8
 Pillow==12.2.0
 python-docx==1.2.0
 python-pptx==1.0.2           # outils PowerPoint (llm_core/tools/_office)
@@ -35,7 +33,6 @@ XlsxWriter==3.2.9             # données des graphiques natifs (dépendance de p
 
 # ---- Base de données : moteurs serveur (facultatifs, SQLite par défaut) ----
 pg8000==1.31.5                # PostgreSQL, pur Python (+ scramp, asn1crypto, python-dateutil, six)
-PyMySQL==1.2.3                # MariaDB / MySQL, pur Python
 
 # ---- Intelligence de code (tree-sitter) ----
 tree-sitter==0.25.2

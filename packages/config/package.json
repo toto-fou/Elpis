@@ -1,0 +1,15 @@
+{
+  "name": "@elpis/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Configuration d'instance : env > config.json > défaut, relecture à chaud, secret de session (port de shared_infra/config.py)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@elpis/commun": "0.1.0",
+    "@elpis/verrous": "0.1.0"
+  }
+}

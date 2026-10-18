@@ -4,7 +4,106 @@ Les changements notables d'Elpis, du plus récent au plus ancien. Format inspir�
 de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; numéros de version
 selon [SemVer](https://semver.org/lang/fr/).
 
-## Non publié
+## 0.1.0 — 2026-10-18
+
+**Le core d'Elpis est réécrit en TypeScript.** L'application (main), la
+console d'administration et l'hôte d'outils tournent sur Node.js 24, avec la
+même API, la même base et les mêmes fichiers de configuration que la 0.0.1.
+L'interface est en TypeScript et en composants Vue précompilés, sans
+compilateur Vue au chargement, sous une politique de sécurité du contenu
+(CSP). Restent en Python : le service RAG, elpis-tools (documents Word et
+PowerPoint), l'agent des sandboxes, l'agent de bureau Windows et l'assistant
+d'installation (`./elpis configure`). Les écarts de comportement voulus avec
+la version Python sont listés dans docs/ecarts-python.md.
+
+### Pour l'exploitant
+
+- **Node.js 24 installé par Elpis.** `install.sh` place le runtime officiel
+  Node.js 24.21 dans `node/` (somme SHA-256 figée dans
+  `deploy/node/node.env`, sans npm) et construit les bundles du core
+  (`apps/core/dist`), de l'hôte d'outils (`apps/toolhost/dist`) et du
+  frontend. Sans paquet hors ligne, la construction demande `build-essential`
+  et `python3` (groupe apt `construction-hote`). Le paquet hors ligne de
+  `make_release.sh` contient le runtime et les bundles construits pour son
+  architecture.
+- **Mise à jour depuis la 0.0.1** : `./elpis upgrade`, puis
+  `deploy/node/installer.sh node` et `deploy/node/installer.sh core` (ou
+  `./install.sh`, idempotent), `sudo ./elpis service install` et
+  `./elpis doctor` ; hors ligne, `./install.sh --offline <paquet>`. Détail :
+  docs/exploitation.md, « Mettre à jour ».
+- **Une connexion à refaire.** Le cookie de session change de format : celui
+  de la 0.0.1 est ignoré sans erreur (page de connexion), une connexion
+  suffit ; de même au retour vers la version Python. Jetons d'API et
+  d'opencode et accès OAuth restent valides.
+- **Services** : `tools` (elpis-tools, `127.0.0.1:8767`) rejoint `qdrant`,
+  `rag`, `toolhost`, `main`, `admin` et `browser` ; plus de gunicorn.
+  Après la mise à jour, `sudo ./elpis service install` réécrit les unités.
+- **Fournisseurs cloud fermés par défaut aux comptes non administrateurs.**
+  Sans `llm.allowed_provider_types`, ces comptes ne branchent plus de
+  fournisseur cloud avec leur propre clé, et leurs connecteurs cloud
+  personnels cessent de servir. Les connecteurs partagés et ceux des
+  administrateurs ne changent pas. Pour garder l'ancien comportement :
+  Console › Modèles › Accès utilisateurs › Fournisseurs autorisés.
+- **Retour à la version Python** : tag `python-final`, procédure dans
+  docs/exploitation.md, « Revenir à la version Python (tag `python-final`) ».
+
+### Changements
+
+- **Le core Python est retiré.** main et admin ne tournent plus que sur le
+  core TypeScript (`apps/core/dist/main.mjs`) : `server/app.py`,
+  `admin_app.py`, les confs Gunicorn, `chatbot_app/` et le moteur Python
+  (boucle, contexte, ordonnancement, routes) sont supprimés, `gunicorn` quitte
+  `requirements.txt`. L'ancien hôte d'outils Python (`python -m toolhost`) et
+  les routes Python de la sandbox, du terminal et du bureau partent aussi ;
+  `ELPIS_TOOLHOST=python` et `ELPIS_CLI=python` dans `.env` sont ignorés
+  (`./elpis doctor` le signale).
+- **Familles d'outils natives par défaut** : sans clé `familles_natives`
+  dans `toolhost.json` (ou sans ce fichier), l'hôte d'outils Node.js sert
+  lui-même toutes les familles portées en TypeScript (browser, desktop, fs,
+  git, shell, skill_run) ; elpis-tools ne garde que les autres (office). Une
+  liste explicite, même vide, est respectée : une famille portée qui n'y
+  figure pas est relayée à elpis-tools. `./elpis doctor` affiche les
+  familles natives effectives.
+- **Commandes d'exploitation par le core Node.js.** `./elpis backup`,
+  `./elpis db`, `./elpis browser`, la sauvegarde de `./elpis upgrade` et les
+  contrôles de `./elpis doctor` (base joignable, verrous de fichiers,
+  bubblewrap, serveur LLM, états du navigateur) passent par
+  `apps/core/dist/exploitation.mjs` ; options, sorties et codes de sortie
+  inchangés. La sauvegarde de la console et l'envoi distant planifié lisent
+  le `/work` des comptes par l'agent de leur sandbox. Détail :
+  docs/exploitation.md.
+- **L'hôte d'outils est le bundle Node.js (`apps/toolhost`).** `./elpis`,
+  les unités systemd et le déploiement distant (`deploy/toolhost/`) lancent
+  `apps/toolhost/dist/main.mjs` au lieu de `python -m toolhost`. Les familles
+  d'outils encore en Python lui sont servies par elpis-tools (service
+  `tools`, `127.0.0.1:8767`). Construction : node-pty est compilé par
+  `npm ci` (build-essential, python3), le paquet hors ligne contient le bundle
+  de l'hôte pour son architecture. **Mise à jour** : après
+  `./elpis upgrade`, `sudo ./elpis service install` (unités `elpis-tools` et
+  hôte Node.js) ; hôte distant : relancer `install_toolhost.sh` (deux unités).
+- **Les outils liés au compte (mémoire, tâches, skills, graphiques) sont
+  servis par main lui-même** : l'hôte d'outils ne les sert plus, et
+  `/api/mcp-bridge/<famille>` les sert directement. `mcp.example.json` les
+  déclare en entrées `inprocess`. Les familles relayées ne sont plus servies
+  en SSE (`mcp_upstream_sse` non lancé) : l'export SSE de la console les
+  signale omises. Détail : docs/exploitation.md.
+- **Connecteurs LLM : fournisseurs cloud fermés par défaut aux comptes non
+  administrateurs** (`llm.allowed_provider_types` absente ou vide = aucun ;
+  la 0.0.1 les ouvrait tous). Les administrateurs ne sont pas soumis à la
+  liste, les types locaux restent réservés aux connecteurs partagés.
+  Réglages › Modèles IA ne propose que les types ouverts et marque « fermé
+  par l'administrateur » un connecteur existant d'un type fermé. Détail :
+  docs/configuration.md, « Fournisseurs cloud des comptes ».
+- **Identifiants git posés par l'agent** (famille `git` native de l'hôte
+  d'outils) : `git_set_credential` et `git_clone` avec identifiant
+  n'enregistrent un connecteur que pour un hôte (port compris) déjà présent
+  dans les Connecteurs Git du compte ou d'un administrateur ; sinon l'agent
+  reçoit `host_not_registered` et demande d'ajouter le connecteur dans
+  Réglages → Connecteurs Git. Ils ne mettent à jour que les connecteurs créés
+  automatiquement (`auto`), jamais un connecteur saisi dans Réglages ou importé
+  (`connector_exists`). Un ancien `.git-credentials.json` du bac suit la
+  même règle (le fichier est gardé si un hôte est refusé). Le clone de
+  l'éditeur n'est pas concerné.
 
 ### Ajouts
 
@@ -34,8 +133,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   - Moteurs repris des serveurs MCP docx-mcp et pptx-mcp (MIT), sans état,
     sans réseau, sans Jinja ni matplotlib. Nouvelles dépendances :
     python-pptx (MIT), XlsxWriter (BSD-2-Clause).
-  - Installation existante : ajouter l'entrée `elpis-office` de
-    `mcp.example.json` à `mcp.json`.
+  - Installation existante : `./elpis configure`, `./elpis start` et
+    `./elpis upgrade` ajoutent à `mcp.json` toute famille de
+    `mcp.example.json` qui y manque (`elpis-office` ici), sur le modèle de
+    ses entrées d'hôte d'outils (même hôte, même port, mêmes en-têtes) ; une
+    famille éteinte, renommée ou exclue reste telle quelle, et
+    `./elpis doctor` signale une famille absente.
 - **Graphiques : un outil par type, rendu Apache ECharts.** Les quatre outils
   Chart.js et `generate_table` sont remplacés par 30 outils `chart_<type>`
   (barres, courbes, aires, flux, radar, cascade, secteurs, anneau, rose,
@@ -56,8 +159,46 @@ selon [SemVer](https://semver.org/lang/fr/).
   - Banc ornith-1.5-9B (14 demandes × 2) : 28/28 graphiques justes au premier
     appel, contre 16/28 avec les outils précédents.
 
-### Changements
+### Autres changements
 
+- **Base de données : MariaDB/MySQL n'est plus pris en charge** ; SQLite et
+  PostgreSQL restent. Le pilote PyMySQL, le choix `--db mariadb-local`
+  d'`install.sh` et l'option MariaDB/MySQL de l'assistant, de
+  `./elpis configure` et de la console sont retirés. Une instance encore sur
+  ce moteur refuse de démarrer, au lieu de repartir sur un fichier SQLite
+  vide. **Mise à jour** : en sortir avant, avec la version en place
+  (Console › Base de données › « Revenir à SQLite », ou « Migrer et
+  basculer » vers PostgreSQL). Détail : docs/exploitation.md, « Mettre à
+  jour ».
+- **Pièces jointes : les captures réseau (`.pcap`, `.pcapng`, `.cap`) ne sont
+  plus analysées.** La route `POST /api/tools/parse-file` et la dépendance
+  `dpkt` sont retirées ; une capture déposée dans le chat est refusée avec un
+  message.
+- **Hôte d'outils : service requis, relais partout.** L'application joint
+  toujours l'hôte d'outils en réseau et ne lance plus
+  de sous-process stdio du serveur d'outils ; hôte arrêté = outils
+  indisponibles (`./elpis doctor` le signale). `relay: true` est posé par
+  défaut dans `mcp.json › sandboxHosts` : main relaie vers l'hôte la sandbox,
+  le terminal, les captures et les trames, même sur la même machine.
+  **Mise à jour** : `./elpis configure` ajoute le relais à un `mcp.json`
+  existant. Détail : docs/exploitation.md, « Mettre à jour ».
+- **Verrous de fichiers partagés entre processus : nouveau format.** Mémoire
+  (`MEMORY.md.lock`, `USER.md.lock`, `.journal.jsonl.lock`), skills
+  (`.skills_write.lock`), historique des fichiers, cycle de vie et migration
+  `/work` des sandboxes, pose du schéma de la base et nettoyage au démarrage,
+  création du secret de session et de la clé de chiffrement : le `flock`
+  laisse la place à un fichier créé en exclusif qui porte le PID, la
+  machine et l'heure de prise (protocole `elpis.verrou.v1.1`, commun au core
+  TypeScript et au Python restant). Le fichier n'existe que pendant la prise ; les anciens
+  fichiers vides sont repris à la première écriture ; le verrou d'un
+  processus tué est repris aussitôt sur la même machine (ou après un
+  redémarrage), sinon après sa péremption (2 min ; les opérations longues,
+  comme le cycle de vie des sandboxes ou la pose du schéma, la prolongent
+  tant qu'elles travaillent). Une attente de plus de 30 s est journalisée
+  avec le détenteur du verrou. Les dossiers de données doivent être sur un
+  disque local : `./elpis doctor` signale un NFS ou un CIFS.
+  **Mise à jour** : redémarrer ensemble les services d'une même machine
+  (`./elpis upgrade` le fait).
 - Les graphiques enregistrés avant cette version (configurations Chart.js) ne
   sont plus tracés : la carte invite à les redemander. Chart.js reste utilisé
   par le tableau de bord de la console.
@@ -80,6 +221,46 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Corrections
 
+- **Réinstallation d'un hôte d'outils distant** : `install_toolhost.sh`
+  relancé depuis une autre copie du dépôt effaçait `toolhost.json`,
+  `Caddyfile.toolhost` et le runtime `node/` de la machine (copie en
+  `rsync --delete`). Ils sont maintenant gardés.
+- **Historique des fichiers avec un hôte d'outils distant** : la connexion
+  ouvre la nouvelle session d'historique sur l'hôte, là où l'éditeur et
+  l'assistant notent leurs écritures. Elle était ouverte sur la machine de
+  l'application : la session du compte sur l'hôte n'était jamais renouvelée.
+  **Mise à jour** : mettre aussi à jour l'hôte d'outils distant ; un hôte
+  plus ancien répond 404 (avertissement au journal à chaque connexion,
+  session non renouvelée).
+- **Relais vers l'hôte d'outils** : l'URL amont est construite depuis le
+  chemin brut de la requête ; les segments `..` et les séparateurs encodés
+  sont refusés. Les aperçus (`/api/sandbox/pv/…`, `/pvs/…`) relayés portent
+  l'identité de leur jeton ; le code de fermeture d'un terminal (session
+  expirée, session inconnue) arrive au navigateur.
+- **Profil réseau imposé avec un hôte d'outils distant** : l'application
+  transmet à l'hôte, dans l'enveloppe d'identité, le profil imposé par
+  l'administrateur. Le panneau du bac à sable l'affiche et verrouille le
+  sélecteur, et l'hôte refuse tout autre profil, même quand il a sa propre
+  base. **Mise à jour** : mettre aussi à jour l'hôte d'outils distant ; un
+  hôte plus ancien ignore l'imposition transmise et garde sa base.
+- **Ordonnanceur LLM : priorités et routines.**
+  - Sur un même modèle, un chat passe avant une routine qui attend un
+    créneau. Une routine qui attend depuis plus de 30 s reprend son rang
+    d'arrivée.
+  - Une routine retenue par la grâce d'un chat (8 s après chaque message)
+    passe au plus 30 s après son premier blocage, même sous un flux continu
+    de messages. Elle ne subit plus une seconde grâce une fois passée.
+  - Un réglage de connecteur modifié à chaud (`max_concurrency`,
+    `max_models`) sert les demandes déjà en attente, dans l'ordre de la file
+    (chats d'abord).
+- **Complétion de l'éditeur (`/api/llm/infill`)** : elle passe par
+  l'ordonnanceur complet et ne fait plus changer de modèle sous un chat ou
+  une routine.
+  - Au-delà de 20 s d'attente, elle répond « Modèle occupé par une autre
+    génération — réessayez plus tard. ».
+  - Serveur jugé hors service (disjoncteur ouvert) : réponse `ok: false`
+    avec l'explication, au lieu d'une erreur 500. Ses échecs de connexion
+    comptent pour le disjoncteur.
 - **Studio** : quitter le Studio sans action en cours n'affiche plus « Arrêt
   demandé — l'action en cours sur la VM se termine » ; le message reste
   quand une action était réellement en cours.
@@ -260,8 +441,7 @@ installation et configuration interactives en deux commandes.
   sorties du run vivent dans `llm_core/engine/`. La route du flux de chat
   n'enchaîne plus que des étapes : préparation, exécution, enregistrement et
   historique du tour sont dans `chatbot_app/turn/`, l'annulation et la
-  compression manuelle dans leurs propres modules de routes. Table des
-  déplacements : `docs/historique-coeur.md`.
+  compression manuelle dans leurs propres modules de routes.
 - **Tests** : la suite s'isole de l'instance (configuration absente, moteur
   LLM injoignable, données de l'instance et journaux dans un dossier
   temporaire : elle n'écrit plus dans `user_db/` ni `user_sandboxes/`) et

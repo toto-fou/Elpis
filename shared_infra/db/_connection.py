@@ -15,9 +15,16 @@ from contextlib import contextmanager
 from pathlib import Path as _Path
 from typing import Any, Dict, Iterator, Optional
 
-# Moteur de la base (sqlite | postgres | mysql) — relu à chaque emprunt, les
+# Moteur de la base (sqlite | postgres) — relu à chaque emprunt, les
 # tests le re-pointent comme DB_PATH.
-from shared_infra.config import DB_BACKEND, DB_PATH, METRICS_RETENTION_DAYS, PROJECT_ROOT as _PROJECT_ROOT
+from shared_infra.config import (
+    DB_BACKEND,
+    DB_BACKENDS_RETIRED,
+    DB_PATH,
+    METRICS_RETENTION_DAYS,
+    PROJECT_ROOT as _PROJECT_ROOT,
+    retired_backend_message as _retired_backend_message,
+)
 from shared_infra.observability.tracing import swallow as _swallow
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -166,6 +173,8 @@ def db() -> sqlite3.Connection:
     ``_POOL_DEPTH_ALARM``.
     """
     _generation_guard()
+    if DB_BACKEND in DB_BACKENDS_RETIRED:
+        raise RuntimeError(_retired_backend_message(DB_BACKEND))
     if DB_BACKEND != "sqlite":
         return _db_server()
     # La clé porte le PID — une connexion héritée d'un fork gunicorn
@@ -240,7 +249,7 @@ def reset_pool() -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Moteurs serveur (PostgreSQL, MariaDB/MySQL) — pool borné par process
+#  Moteur serveur (PostgreSQL) — pool borné par process
 # ─────────────────────────────────────────────────────────────────────────────
 # Même contrat que SQLite pour les appelants : ``db()`` réentrant par thread
 # (la connexion d'un appel imbriqué est la même), ``close()`` rend. La
@@ -262,8 +271,8 @@ def server_settings() -> Dict[str, Any]:
 
 
 def _test_schema() -> Optional[str]:
-    """Mode test ``ELPIS_TEST_DB`` : chaque ``DB_PATH`` distinct reçoit sa
-    propre base (MySQL) ou son propre schéma (PostgreSQL), comme chaque
+    """Mode test ``ELPIS_TEST_DB`` : chaque ``DB_PATH`` distinct reçoit son
+    propre schéma PostgreSQL, comme chaque
     fichier SQLite temporaire était une base neuve. Hors test : None."""
     if not os.environ.get("ELPIS_TEST_DB"):
         return None
@@ -282,9 +291,6 @@ def connect_server(settings: Dict[str, Any]):
     if settings["backend"] == "postgres":
         from shared_infra.db import _pg
         return _pg.connect(**kwargs)
-    if settings["backend"] == "mysql":
-        from shared_infra.db import _mysql
-        return _mysql.connect(**kwargs)
     raise ValueError(f"moteur serveur inconnu : {settings['backend']!r}")
 
 
@@ -302,15 +308,11 @@ def _server_pool(key: tuple, settings: Dict[str, Any]):
 
 
 def _ensure_test_schema(settings: Dict[str, Any]) -> None:
-    """Crée le schéma (PG) ou la base (MySQL) de test s'il manque."""
+    """Crée le schéma PostgreSQL de test s'il manque."""
     admin = dict(settings, schema=None)
     conn = connect_server(admin)
     try:
-        if settings["backend"] == "postgres":
-            conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{settings["schema"]}"')
-        else:
-            conn.execute(f'CREATE DATABASE IF NOT EXISTS "{settings["schema"]}" '
-                         "CHARACTER SET utf8mb4 COLLATE utf8mb4_bin")
+        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{settings["schema"]}"')
     finally:
         conn.hard_close()
 
@@ -374,7 +376,7 @@ def db_info() -> Dict[str, Any]:
     """État de la base active (page admin, ``python -m shared_infra.db info``) :
     moteur, version, emplacement, taille, schéma, pool."""
     from shared_infra.db import transfer as _t
-    from shared_infra.db._dialect import MYSQL, POSTGRES, dialect_of, has_table
+    from shared_infra.db._dialect import POSTGRES, dialect_of, has_table
     out: Dict[str, Any] = {"backend": DB_BACKEND, "location": _t.describe(_t.active_target()),
                            "generation": _db_generation()}
     with db_conn() as conn:
@@ -386,10 +388,6 @@ def db_info() -> Dict[str, Any]:
                     "SELECT COALESCE(SUM(pg_total_relation_size(c.oid)), 0) FROM pg_class c "
                     "JOIN pg_namespace n ON n.oid = c.relnamespace "
                     "WHERE n.nspname = current_schema() AND c.relkind = 'r'").fetchone()[0])
-            elif d == MYSQL:
-                out["size_bytes"] = int(conn.execute(
-                    "SELECT COALESCE(SUM(data_length + index_length), 0) "
-                    "FROM information_schema.tables WHERE table_schema = DATABASE()").fetchone()[0])
             else:
                 out["size_bytes"] = sum(os.path.getsize(p) for p in
                                         (DB_PATH, f"{DB_PATH}-wal") if os.path.exists(p))
@@ -571,28 +569,27 @@ def init_db() -> None:
     _run_startup_cleanup()
 
 
+# Migrations comprises, la pose du schéma peut durer : le battement garde la péremption courte.
+_SCHEMA_PEREMPTION_S = 120.0
+
+
 @contextmanager
 def _schema_lock():
-    """Un seul process à la fois pose le schéma : les workers gunicorn
-    démarrent ensemble et, sur une base NEUVE, leurs DDL concurrents
-    échouaient (SQLite « database schema has changed », course connue de
-    PostgreSQL sur ``CREATE TABLE IF NOT EXISTS``). Verrou fichier bloquant
-    à côté de la base, libéré par le noyau si le process meurt ; sans lui
-    (dossier en lecture seule…), on continue comme avant."""
-    fh = None
+    """Un seul process pose le schéma (DDL concurrents en échec) : verrou v1.1 ``.init_db.lock``, sans délai."""
+    verrou = None
     try:
-        import fcntl as _fcntl
-        path = _Path(DB_PATH).parent / ".init_db.lock"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fh = open(path, "a+")  # noqa: SIM115 (verrou flock tenu)
-        _fcntl.flock(fh.fileno(), _fcntl.LOCK_EX)
+        from shared_infra.runtime.verrou_fichier import VerrouFichier
+        candidat = VerrouFichier(_Path(DB_PATH).parent / ".init_db.lock", peremption=_SCHEMA_PEREMPTION_S,
+                                 battement=True)
+        candidat.acquerir()
+        verrou = candidat
     except (OSError, ImportError) as exc:
         logger.warning("[init_db] verrou de schéma indisponible : %s", exc)
     try:
         yield
     finally:
-        if fh is not None:
-            fh.close()
+        if verrou is not None:
+            verrou.rendre()
 
 
 def _portable_migration(name: str) -> bool:
@@ -669,24 +666,15 @@ def _init_schema() -> None:
 
 
 def _run_startup_cleanup() -> None:
-    """Exécute purge_old_metrics / wal_checkpoint une seule fois parmi tous les
-    workers Gunicorn grâce à un verrou fichier non-bloquant.
+    """Purge et checkpoint WAL par un seul process : verrou v1.1 ``.startup_cleanup.lock``, déjà pris → on passe."""
+    from shared_infra.runtime.verrou_fichier import VerrouFichier, VerrouOccupe
 
-    Si un autre worker détient déjà le verrou (il fait le travail), on passe
-    silencieusement — le nettoyage sera fait par ce premier worker.
-    """
-    import fcntl as _fcntl
-    from pathlib import Path as _Path
-
-    lock_path = _Path(DB_PATH).parent / ".startup_cleanup.lock"
+    verrou = VerrouFichier(_Path(DB_PATH).parent / ".startup_cleanup.lock", delai=0,
+                           peremption=_SCHEMA_PEREMPTION_S, battement=True)
     try:
-        lf = open(lock_path, "w")  # noqa: SIM115 (verrou flock tenu)
         try:
-            # LOCK_EX | LOCK_NB : échoue immédiatement si déjà pris
-            _fcntl.flock(lf.fileno(), _fcntl.LOCK_EX | _fcntl.LOCK_NB)
-        except (BlockingIOError, OSError):
-            # Un autre worker est en train de faire le nettoyage → on skip
-            lf.close()
+            verrou.acquerir()
+        except VerrouOccupe:
             return
         try:
             # Purge old metric events to prevent unbounded table growth.
@@ -700,12 +688,7 @@ def _run_startup_cleanup() -> None:
             # Compact the WAL file to prevent it from growing indefinitely.
             wal_checkpoint()
         finally:
-            _fcntl.flock(lf.fileno(), _fcntl.LOCK_UN)
-            lf.close()
-            try:
-                lock_path.unlink(missing_ok=True)
-            except Exception:
-                pass
+            verrou.rendre()
     except Exception as _e:
         logger.warning(f"[startup] _run_startup_cleanup: verrou inaccessible ({_e}), "
                        "nettoyage exécuté quand même en fallback.")

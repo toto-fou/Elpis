@@ -28,7 +28,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 
-from shared_infra.accounts.users import get_user_settings, get_username_by_id
+from shared_infra.accounts.users import get_username_by_id
 from shared_infra.sandbox.agent_client import AgentError
 from shared_infra.sandbox.executors import get_user_sandbox
 from shared_infra.sandbox.paths import strip_work_prefix
@@ -44,11 +44,11 @@ def _get_sandbox_for_user(user_id: int):
     """Resolve a UserSandbox for ``user_id`` using the user's EFFECTIVE
     network profile (admin override > user choice), mirroring
     routes.user_sandbox._user_sandbox_for without importing it (would cycle)."""
+    from shared_infra.accounts.identity import resolve_username
     from shared_infra.routes._helpers import _get_work_path
-    from shared_infra.sandbox.executors import resolve_network_profile_id
-    settings = get_user_settings(user_id) or {}
-    profile_id = resolve_network_profile_id(settings)
-    username = get_username_by_id(user_id) or f"user_{user_id}"
+    from shared_infra.sandbox.executors._user_sandbox import user_network_profile_id
+    profile_id = user_network_profile_id(user_id)
+    username = resolve_username(user_id) or get_username_by_id(user_id) or f"user_{user_id}"
     # The mount source is the WORK root ``P/work`` (resolved BEFORE building
     # the UserSandbox, so the one-time flat→work migration runs first).
     sandbox_dir = _get_work_path(user_id)

@@ -1,0 +1,4 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/src/styles/racine.css — transitions communes de la racine (chat et console). */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s, transform 0.2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(6px); }

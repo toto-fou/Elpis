@@ -1,0 +1,20 @@
+{
+  "name": "@elpis/navigateur",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Navigateur partagé du core et de l'hôte d'outils : propriété des sessions Playwright, garde des destinations, mémoire AX des sites, client du service navigateur (port de llm_core/_pw_session.py, shared_infra/security/browser_url.py, shared_infra/memory/ax/ et des fonctions de llm_core/tools/firefox_tools.py)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@elpis/commun": "0.1.0",
+    "@elpis/config": "0.1.0",
+    "@elpis/db": "0.1.0",
+    "@elpis/mcp": "0.1.0",
+    "@elpis/outils-mcp": "0.1.0",
+    "@elpis/securite": "0.1.0",
+    "undici": "8.11.2"
+  }
+}

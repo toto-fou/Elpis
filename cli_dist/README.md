@@ -76,7 +76,7 @@ L'installeur **propose** (choix `y/N`, surchargeable par
 **elpis-remote** — du **TypeScript natif** (opencode/Bun charge `*.{ts,js}`
 sans build) : `~/.config/opencode/plugin/elpis-remote.ts`, servi par
 `GET /api/code/plugin.ts` avec l'URL de l'app bakée (source :
-`shared_infra/opencode/plugin/`). Refuser le plugin **retire** un éventuel
+`apps/core/greffon-opencode/`). Refuser le plugin **retire** un éventuel
 plugin déjà installé. `GET /api/code/plugin.js` ne sert plus qu'un shim de
 migration pour les anciens `.js` (≤ v8) qui font `/remote update`.
 

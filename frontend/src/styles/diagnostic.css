@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/src/styles/diagnostic.css — masquage avant montage (v-cloak) et fenêtre d'erreur de démarrage, communs au chat et à la console. */
+[v-cloak] { display: none !important; }
+#vue-error-overlay { display: none; position: fixed; inset: 0; z-index: 99999; background: #f8fafc; justify-content: center; align-items: center; font-family: system-ui, sans-serif; }
+#vue-error-overlay.active { display: flex; }
+#vue-error-overlay .box { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,.1); padding: 2rem; max-width: 560px; width: 90%; text-align: center; }
+#vue-error-overlay h2 { font-size: 18px; font-weight: 700; color: #ef4444; margin-bottom: 12px; }
+#vue-error-overlay p { color: #475569; font-size: 14px; }
+#vue-error-overlay pre { text-align: left; background: #1e293b; color: #e2e8f0; padding: 12px; border-radius: 8px; font-size: 12px; overflow: auto; max-height: 200px; margin-top: 12px; white-space: pre-wrap; word-break: break-all; }
+#vue-error-overlay .tip { font-size: 13px; color: #64748b; margin-top: 16px; }

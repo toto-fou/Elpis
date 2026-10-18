@@ -1,0 +1,20 @@
+{
+  "name": "@elpis/fichiers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Fichiers et Git d'un bac à sable côté hôte, partagés par les routes et les familles d'outils de l'hôte : client de l'agent du conteneur, verrou d'écriture par fichier, historique de session, git par l'agent et relais Git authentifiant (shared_infra/sandbox : agent_client, file_lock, file_history, exec_bridge, git_ops, git_relay)",
+  "exports": {
+    ".": "./src/index.ts",
+    "./test": "./test/aides.ts"
+  },
+  "dependencies": {
+    "@elpis/bac": "0.1.0",
+    "@elpis/commun": "0.1.0",
+    "@elpis/config": "0.1.0",
+    "@elpis/securite": "0.1.0",
+    "@elpis/verrous": "0.1.0",
+    "undici": "8.11.2"
+  }
+}

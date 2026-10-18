@@ -24,7 +24,7 @@ et par la modale d'aide de l'application, onglet *Développeur*).
 ### Architecture interne
 - [Organisation modulaire du backend](#organisation-modulaire-du-backend)
 - [Base de données](#base-de-données)
-- [État cross-worker : les quatre canaux](#état-cross-worker--les-quatre-canaux)
+- [État partagé entre process](#état-partagé-entre-process)
 - [Le harnais de contexte](#le-harnais-de-contexte)
 - [La boucle agentique](#la-boucle-agentique)
 - [Le flux d'un tour de chat](#le-flux-dun-tour-de-chat)
@@ -101,22 +101,24 @@ Application multi-process :
 
 | Process | Port | Rôle |
 |---|---|---|
-| **main** | 8001 | Chat, sandbox, éditeur, routines, Studio, Remote code, statiques. Gunicorn multi-worker, compte non privilégié |
-| **admin** | 8002 | Uniquement `/api/admin/*` + la console. 1 worker, **même compte non privilégié** que main (jamais root) |
-| **toolhost** | 8765 | Hôte des outils MCP locaux (`python -m toolhost`) : HTTP streamable `/mcp[/<famille>]` et SSE, API sandbox et terminal |
+| **main** | 8001 | Chat, sandbox, éditeur, routines, Studio, Remote code, statiques. Core TypeScript (`apps/core/dist/main.mjs`), un process, compte non privilégié |
+| **admin** | 8002 | Uniquement `/api/admin/*` + la console. Même core, un process, **même compte non privilégié** que main (jamais root) |
+| **toolhost** | 8765 | Hôte des outils MCP locaux (`apps/toolhost`, bundle Node) : HTTP streamable `/mcp[/<famille>]` et SSE, API sandbox et terminal ; famille Office relayée vers elpis-tools |
+| **elpis-tools** | 8767 | Famille d'outils Office, en Python (`server/local_mcp_server.py`), en loopback, amont de l'hôte d'outils |
 | **llama-server** | 8080 | Moteur d'inférence local, autonome |
 | **browser-service** | 3000 | Node + Playwright (outils `pw_*`) — optionnel |
 | **rag_app** | 8000 | FastAPI + Qdrant (6333) + OCR — optionnel |
 | **Caddy** | 443/8443/8444/80 | Frontal TLS local — optionnel |
 | **desktop-agent** | 8765 (sur la machine pilotée) | Contrôle d'écran Windows/Linux — optionnel |
 
-Les process main et admin partagent le **même secret de session** (injecté avant
-le fork), ce qui rend un cookie valide indifféremment sur les deux ports.
+Les process main et admin partagent le **même secret de session** (injecté par
+`./elpis` ou l'unité systemd), ce qui rend un cookie valide indifféremment sur les deux ports.
 
-Le code Python est rangé en trois paquets : **`llm_core/`** (moteur LLM, outils,
-contexte, mémoire, skills), **`shared_infra/`** (infrastructure rangée par
-famille : routes, base, sandbox, observabilité, ordonnancement…) et
-**`chatbot_app/`** (routes du chat et déroulé d'un tour, `turn/`).
+Le core est en TypeScript (`apps/core/`, paquets partagés dans `packages/`).
+Les outils liés au compte (mémoire, tâches, skills, graphiques) sont servis
+par main lui-même. Le Python restant sert elpis-tools, l'agent des sandboxes,
+l'assistant de configuration et le RAG : **`llm_core/`** (familles d'outils,
+mémoire, skills) et **`shared_infra/`** (infrastructure rangée par famille).
 
 ---
 
@@ -124,26 +126,28 @@ famille : routes, base, sandbox, observabilité, ordonnancement…) et
 
 | Composant | Technologie |
 |---|---|
-| Backend | Python 3.10+, FastAPI, Uvicorn, Gunicorn |
-| Base de données | SQLite 3 (WAL) par défaut ; PostgreSQL (pg8000) ou MariaDB/MySQL (PyMySQL) au choix |
-| Client HTTP | httpx (appels LLM asynchrones) |
-| Protocole outils | `fastmcp` (stdio + SSE + HTTP) |
+| Backend | Core et hôte d'outils : Node 24, TypeScript, Fastify ; elpis-tools, RAG, configuration : Python 3.11+ |
+| Base de données | SQLite 3 (WAL) par défaut ; PostgreSQL au choix (core : better-sqlite3, pg ; Python : pg8000) |
+| Client HTTP | undici (core, appels LLM) ; httpx (Python) |
+| Protocole outils | `@modelcontextprotocol/sdk` (TS), `fastmcp` (Python) : stdio + SSE + HTTP |
 | Chiffrement au repos | `cryptography` / Fernet (clés API, secrets MCP) |
 | Monitoring | psutil |
-| Frontend | Vue 3 (Composition API, vendoré), pas de build |
-| Styles | Tailwind (vendoré) + `style.css` (tokens, skins) |
-| Éditeur | Monaco (vendoré) |
-| Terminal | xterm.js (vendoré) |
-| Graphiques | Apache ECharts (chat), Chart.js (tableau de bord admin) — vendorés |
-| Markdown | Marked + Highlight.js |
+| Frontend | Vue 3.5 + TypeScript strict, SFC compilés par Vite (`@elpis/web`, `frontend/dist`), contrats Zod (`@elpis/contracts`), tests Vitest ; racines SFC `App.vue` / `AppConsole.vue` |
+| Styles | Tailwind précompilé (`style.tailwind.css`, généré par `tools/generate_tailwind_css.mjs`) + `style.css` (tokens, skins) |
+| Éditeur | Monaco (paquet npm, ESM et workers, chargé à l'ouverture) |
+| Terminal | xterm.js (paquet npm, chargé à l'ouverture) |
+| Graphiques | Apache ECharts (chat), Chart.js (tableau de bord admin) — paquets npm, chargés à la demande |
+| Markdown | Marked + Highlight.js, purifié par DOMPurify |
 | Icônes | Phosphor |
 | Navigateur | Node 18+, Playwright/Firefox (`browser-service`) |
 | Contrôle d'écran | `desktop-agent` (pywinauto / AT-SPI) |
 | RAG | FastAPI + Qdrant + embeddings locaux + OCR |
 | Frontal TLS | Caddy + PKI openssl locale (10 ans) |
 
-**Aucune étape de build** : le frontend est servi tel quel en fichiers
-statiques, avec cache-busting par `BUILD_ID` (sentinel partagé entre workers).
+**Build du frontend** : Vite construit `frontend/dist/` à la préparation de la
+release (`make_release.sh`) ; le core sert les entrées par leur manifeste (noms
+hachés, cache long). Les autres statiques (CSS, skins, assets) gardent le
+cache-busting par `BUILD_ID`.
 
 ---
 
@@ -159,11 +163,11 @@ flowchart TB
         Caddy["Caddy :443/:8443/:8444<br/>PKI locale · catch-all"]
     end
 
-    subgraph AppServer["Serveur applicatif (Python / FastAPI)"]
-        Main["main :8001<br/>Gunicorn min(4, cpu-1) workers<br/>chat · sandbox · routines · code"]
-        Admin["admin :8002<br/>1 worker<br/>/api/admin/*"]
-        DB[("SQLite WAL (défaut)<br/>ou PostgreSQL / MariaDB")]
-        Spool[["Canaux inter-workers<br/>/tmp ou ELPIS_RUNTIME_DIR<br/>métriques · annulation · verrous"]]
+    subgraph AppServer["Serveur applicatif (core TypeScript)"]
+        Main["main :8001<br/>un process<br/>chat · sandbox · routines · code"]
+        Admin["admin :8002<br/>un process<br/>/api/admin/*"]
+        DB[("SQLite WAL (défaut)<br/>ou PostgreSQL")]
+        Spool[["Canaux inter-process<br/>/tmp ou ELPIS_RUNTIME_DIR<br/>métriques · annulation · verrous"]]
         MCP["toolhost :8765<br/>/mcp[/famille] · SSE"]
     end
 
@@ -216,9 +220,9 @@ flowchart LR
     subgraph host1["Hôte applicatif"]
         direction TB
         c["Caddy :443 · :8443 · :8444 · :80"]
-        m["main :8001 · N workers"]
-        a["admin :8002 · 1 worker"]
-        s["toolhost :8765<br/>(python -m toolhost)"]
+        m["main :8001"]
+        a["admin :8002"]
+        s["toolhost :8765<br/>(apps/toolhost, Node)<br/>→ elpis-tools :8767"]
         b["browser-service :3000"]
         d[["user_db/ · user_sandboxes/<br/>user_skills/ · mcp_custom_servers/ · cli_dist/"]]
         dk[["dockerd — elpis-sb-&lt;user&gt;"]]
@@ -247,23 +251,24 @@ flowchart LR
 
 **Rôle de chaque process :**
 
-- **main** (`server/app.py`) — cœur applicatif ; sert aussi les statiques.
-  Workers Gunicorn = `min(4, cpu - 1)` au-delà de 2 vCPU (`server/gunicorn_conf.py`),
-  surchargeable par `APP_WORKERS`.
-- **admin** (`server/admin_app.py`) — isolation des endpoints sensibles, sous
-  le même compte non privilégié que main (aucune opération admin n'exige root).
-  `admin_router` n'est monté **qu'**en `APP_MODE in (admin, full)` : en mode
-  `main`, les routes admin sont physiquement absentes de la table de routage,
-  ce n'est pas un contrôle d'autorisation runtime.
-- **toolhost** (`python -m toolhost`, `toolhost/`) — héberge une fois pour tous
-  les workers le registre d'outils de `server/local_mcp_server.py`, en HTTP
-  streamable (`/mcp[/<famille>]`) et SSE, plus l'API sandbox et terminal ;
-  évite N cold-starts et N jeux de subprocess (repli : un subprocess stdio par
-  worker). Le même service sert les clients **opencode** des utilisateurs
+- **main** (`apps/core/dist/main.mjs`, `APP_MODE=main`) — cœur applicatif ;
+  sert aussi les statiques. Un process, sans workers.
+- **admin** (même bundle, `APP_MODE=admin`) — isolation des endpoints sensibles,
+  sous le même compte non privilégié que main (aucune opération admin n'exige
+  root). Les routes d'administration ne sont montées **qu'**en `APP_MODE=admin` :
+  en mode `main`, elles sont physiquement absentes de la table de routage, ce
+  n'est pas un contrôle d'autorisation runtime.
+- **toolhost** (`apps/toolhost`, bundle `apps/toolhost/dist/main.mjs`) — sert
+  une fois pour main et admin les outils MCP en HTTP streamable
+  (`/mcp[/<famille>]`) et SSE, plus l'API sandbox et terminal ; les familles
+  portées en TypeScript (`familles_natives`, toutes par défaut) sont servies par lui, les autres
+  relayées vers **elpis-tools** (`server/local_mcp_server.py`, loopback :8767) ;
+  évite N cold-starts et N jeux de subprocess ; l'app ne le lance jamais en
+  sous-process : c'est un service requis, comme la base. Le même service sert les clients **opencode** des utilisateurs
   (jeton elpis-remote en Bearer, familles fs/shell cachées pour eux).
 - **llama-server** — `--jinja` **requis** pour le tool-calling natif.
 - **Caddy** — catch-all, PKI locale stable ; le basculement HTTPS ↔ HTTP direct
-  se pilote depuis la console admin (re-bind gunicorn au SIGHUP).
+  se pilote depuis la console admin (le core redémarre et relit son bind).
 
 ---
 
@@ -276,23 +281,19 @@ d'ensemble :
 
 ```
 elpis/
-├── server/          # points d'entrée : app.py, admin_app.py, gunicorn_*, local_mcp_server.py
-├── toolhost/        # hôte d'outils MCP (python -m toolhost) : app, auth, config
-├── llm_core/        # moteur LLM : _chat_with_tools.py + engine/ (boucle agentique), providers/,
-│                    #   context/, _scheduling/, tools/, memory/
-├── shared_infra/    # infra par famille : accounts, chat, db, llm, mcp, memory, observability,
-│                    #   ops, routes, runtime, sandbox, scheduling, security, desktop, git,
-│                    #   opencode, terminal, toolhost, voice…
-├── chatbot_app/     # chat : routes/ (chats, chat_control, chat_compression, saved_chats),
-│                    #   turn/ (préparation, exécution, enregistrement d'un tour)
-├── frontend/        # SPA Vue 3 sans build : index.html, admin.html, js/, css/, includes/, vendor/
+├── apps/            # core/ (core TS, main et admin), toolhost/ (hôte d'outils TS)
+├── packages/        # paquets TS partagés : contracts, db, outils-mcp, navigateur…
+├── server/          # elpis-tools (local_mcp_server.py)
+├── llm_core/        # Python d'elpis-tools : tools/ (familles d'outils), memory/, skills
+├── shared_infra/    # infra Python par famille : db, mcp, memory, runtime,
+│                    #   sandbox (dont l'agent du conteneur), security, git…
+├── frontend/        # interface (@elpis/web, Vite) : src/ (TS, SFC), css/, assets/, coquilles index.html et admin.html
 ├── browser-service/ # Node + Playwright (:3000)
 ├── desktop-agent/   # agent de contrôle d'écran (Windows/Linux)
 ├── rag_app/         # service RAG : ingestion, requête, reranker, sparse, OCR
 ├── system_prompts/  # socle, FRAGMENT_*, AGENT_TASK_*…
 ├── skills/          # skills globaux livrés
-├── deploy/          # caddy/, voice/, docker/sandbox/, qdrant/, toolhost/, assistant d'installation
-├── tests/           # pytest + harnais frontend
+├── deploy/          # caddy/, voice/, docker/sandbox/, node/, qdrant/, toolhost/, assistant d'installation
 ├── user_db/         # données d'instance (base SQLite, secrets, logs) — hors git
 ├── user_sandboxes/  # un dossier par utilisateur, monté sur /work — hors git
 └── install.sh · elpis · make_release.sh · config.example.json
@@ -306,44 +307,68 @@ elpis/
 
 ## Organisation modulaire du backend
 
-Couches :
+Un espace de travail npm à la racine (Node 24, TypeScript strict, ESM) :
 
-1. **Routes** (`shared_infra/*/routes*.py`, `shared_infra/routes/`,
-   `chatbot_app/routes/`) — adaptation HTTP : validation, sérialisation, auth
-   (`require_user_id`). Tout pend du `router` partagé
-   (`shared_infra/routes/_state.py`) ; `admin_router` est monté
-   conditionnellement.
-2. **`llm_core/`** — moteur réutilisable, sans dépendance HTTP, découplé de
-   `shared_infra` quand c'est possible (testable seul).
-3. **`shared_infra/db/`** — persistance multi-moteurs (voir ci-dessous).
-4. **`shared_infra/sandbox/`** (dont `executors/`) — exécution conteneurisée.
-5. **`shared_infra/observability/`** — journal d'accès, `swallow()`,
-   consommation, bus d'événements, moteur du dashboard (`metrics/`).
+1. **`apps/core/`** — le core, un bundle (`dist/main.mjs`) lancé deux fois :
+   `APP_MODE=main` (chat, éditeur, sandbox, routines, statiques) et
+   `APP_MODE=admin` (console, `/api/admin/*`). `src/main.ts` (process,
+   signaux), `composition.ts` (assemblage des dépendances), `familles/`
+   (routes HTTP par famille, montées selon `APP_MODE`, liste dans
+   `familles.ts`) ; chat : `tour/` (admission, préparation, exécution, pompe
+   NDJSON, persistance) et `boucle/` (boucle agentique) ; LLM : `llm/`
+   (fournisseurs, ordonnanceur, santé) et `contexte/` (budget, élagage,
+   compression, tokens) ; outils : `outils/`, `relais/` (vers l'hôte d'outils),
+   `memoire/`, `skills/`, `graphiques/`, `images/`, `rag/`, `voix/` ;
+   exploitation : `admin/`, `administration/`, `ops/`, `observabilite/`,
+   `evenements/`, `routines/`, `executions/`, `notifications/`, `interface/`
+   (pages, statiques, manifeste Vite).
+2. **`apps/toolhost/`** — l'hôte d'outils (`dist/main.mjs`) : familles MCP
+   natives, API sandbox (`bac/`, `fichiers/`, `git/`, `office/`, aperçus),
+   terminal (`terminal/`, node-pty), relais des familles encore en Python vers
+   elpis-tools (`elpis-tools.ts`).
+3. **`packages/`** — paquets partagés par les deux applications :
+   `contracts` (schémas Zod du flux NDJSON, des routes REST, du SSE système et
+   du WS terminal, consommés aussi par le frontend), `db` (schéma, dialectes
+   SQLite/PostgreSQL, migrations), `http` (socle Fastify), `auth` (session,
+   gardes de rôle), `securite` (confinement, chiffrement, jetons internes),
+   `config` (configuration et réglages vifs), `mcp` et `outils-mcp` (clients,
+   serveurs et catalogue d'outils), `bac` et `fichiers` (agent du bac, accès à
+   `/work`), `navigateur`, `bureau`, `images`, `skills`, `verrous`, `commun`
+   (JSON compatible Python, erreurs).
+4. **Python restant** — `server/local_mcp_server.py` (elpis-tools : la famille
+   Office de `llm_core/tools/` ; les autres familles n'y servent que si
+   `toolhost.json › familles_natives` les exclut), `shared_infra/`
+   (infrastructure de ces outils, agent du bac, accès à la base pour la
+   configuration), `rag_app/`, `desktop-agent/`, `deploy/`.
 
 ---
 
 ## Base de données
 
-SQLite 3 en WAL (`user_db/app.db`) par défaut ; PostgreSQL et MariaDB/MySQL
-au choix (section `database`, cf. [configuration](configuration.md#base-de-données)).
+SQLite 3 en WAL (`user_db/app.db`) par défaut ; PostgreSQL au choix
+(section `database`, cf. [configuration](configuration.md#base-de-données)).
 Pas d'ORM : le code écrit du SQL avec des `?` et lit les lignes par nom ou par
-position, comme avec `sqlite3`.
+position.
 
-| Module (`shared_infra/db/`) | Rôle |
+| Module (`packages/db/src/`) | Rôle |
 |---|---|
-| `_connection.py` | `db()` / `db_conn()` / `db_tx()` : connexion réentrante par thread, pool par process ; `init_db()` |
-| `_schema.py` | schéma de référence déclaratif (tables, index, clés étrangères), rendu pour chaque moteur ; plein texte |
-| `_dialect.py` | ce qui diffère d'un moteur à l'autre : `begin_write`, `insert_id`, `ci_like`, dates locales, JSON… |
-| `_server.py`, `_pool.py`, `_pg.py`, `_mysql.py` | enveloppes façon `sqlite3` des pilotes pg8000 et PyMySQL (BEGIN différé, lignes `ElpisRow`, erreurs relevées en sous-classes de `sqlite3`), pool borné |
-| `_migrations/` | migrations numérotées, runner transactionnel sous verrou (table `schema_migrations`) |
-| `transfer.py`, `__main__.py` | copie entre moteurs et CLI `python -m shared_infra.db` |
+| `base.ts`, `ouvrir.ts` | contrat commun (exécution, transactions réentrantes par contexte async, points de sauvegarde) ; ouverture selon les réglages |
+| `sqlite.ts` | better-sqlite3 : lectures libres, écritures et transactions sérialisées, verrou des autres processus attendu sans bloquer |
+| `postgres.ts`, `sql.ts` | pg : pool borné, `?` → `$n`, valeurs et erreurs relues comme en SQLite |
+| `schema.ts`, `schema.gen.ts` | schéma de référence déclaratif (tables, index, clés étrangères), rendu pour chaque moteur ; plein texte |
+| `dialecte.ts` | ce qui diffère d'un moteur à l'autre : début d'écriture, identifiant inséré, `LIKE` sans casse, dates locales, JSON… |
+| `init.ts`, `demarrage.ts` | pose du schéma et migrations sous verrou (table `schema_migrations`, `MIGRATIONS_TS`), droits, nettoyage au démarrage |
+| `erreurs.ts` | erreurs classées comme celles de `sqlite3` (intégrité, opération, données…) |
+
+Copie entre moteurs : `apps/core/src/ops/transfert.ts` (`./elpis db transfer`).
+Le Python restant (assistant de configuration, elpis-tools) lit la même base
+par `shared_infra/db/`, qui garde le même dialecte.
 
 Une base vide reçoit le schéma de référence d'un coup, et les migrations qu'il
 couvre sont tamponnées ; une base existante reçoit ses tables et colonnes
 manquantes, puis ses migrations en attente. Plein texte : FTS5 (SQLite),
-`tsvector` + GIN avec `unaccent` (PostgreSQL), `FULLTEXT` (MariaDB/MySQL).
-La suite de tests tourne sur chaque moteur
-(`ELPIS_TEST_DB=1 APP_DB_BACKEND=postgres|mysql APP_DB_HOST=…`).
+`tsvector` + GIN avec `unaccent` (PostgreSQL).
+Les tests des mainteneurs tournent sur chaque moteur.
 
 ```mermaid
 erDiagram
@@ -386,7 +411,7 @@ Schémas de référence :
 | `is_admin` | INTEGER | |
 | `must_change_pwd` | INTEGER | Posé par une réinitialisation admin |
 | `avatar` | TEXT | |
-| `settings_json` | TEXT | Réglages per-user (voir `_USER_SETTINGS_ALLOWED`) |
+| `settings_json` | TEXT | Réglages per-user (clés permises : `apps/core/src/comptes/reglages.ts`) |
 
 #### `chats`
 
@@ -419,78 +444,84 @@ NULL = intégré), `system_prompt`, `task_prompt`, `mcp_snapshot`,
 - Isolation tenant **applicative** : chaque requête porte `user_id`.
   Pas de filtrage côté base : une requête qui oublie `user_id` lit les données de tous les comptes.
   Les clés étrangères du schéma de référence sont actives (PRAGMA
-  `foreign_keys=ON` sur le pool SQLite, natives en PostgreSQL et MySQL).
-- SQL **portable** : identifiants réservés en MySQL cités (`"groups"`,
+  `foreign_keys=ON` sur le pool SQLite, natives en PostgreSQL).
+- SQL **portable** : identifiants cités dans le DDL (`"groups"`,
   `"key"`, `"trigger"`), dans un upsert les colonnes de la ligne existante
   qualifiées (`table.col`), identifiant d'insertion par `insert_id()`.
 - Suppression d'un utilisateur = **cascade applicative** : chats, prompts,
   partages, sandbox, conteneur, connecteurs, routines, notifications, mémoire,
   images générées (lignes et fichiers).
-- **Secrets chiffrés au repos** (Fernet, `shared_infra/security/encryption.py`) pour les
+- **Secrets chiffrés au repos** (Fernet, `@elpis/securite`, format partagé avec `shared_infra/security/encryption.py`) pour les
   clés API de connecteurs LLM, du moteur d'images et les secrets d'auth MCP partagés. Les fonctions
   exposées aux routes ne rendent jamais le secret — seulement `has_key` /
   `has_auth`. Seuls les résolveurs host-side lisent la valeur déchiffrée.
 
 ---
 
-## État cross-worker : les quatre canaux
+## État partagé entre process
 
-C'est **le** piège récurrent de cette base de code : un `threading.Lock`, un
-`dict` ou un `set` module-level ne synchronise qu'**un** worker, et gunicorn
-distribue les requêtes sans aucune affinité.
-
-```mermaid
-flowchart LR
-    subgraph canaux["Quatre canaux légitimes"]
-        A["① Base de données<br/>état durable"]
-        B["② Spool JSONL + flock<br/>(/tmp ou ELPIS_RUNTIME_DIR)<br/>événements volatils"]
-        C["③ flock fichier<br/>exclusion mutuelle"]
-        D["④ Cache disque JSON<br/>partage de découverte"]
-    end
-    A --- a1["chats · routines · sessions révoquées<br/>store de reprise des sous-agents"]
-    B --- b1["metrics/broadcast (métriques, restart, cache_invalidated)<br/>cancel_bus (Stop chat + ✕ sous-agent)<br/>chat_locks (génération/compaction en vol)"]
-    C --- c1["cron_lock (élection de leader)<br/>skills (écritures)<br/>.session_secret (création)"]
-    D --- d1["_mcp_categories (registre d'outils)<br/>BUILD_ID (sentinel /tmp)"]
-```
+main est **un seul process** : les tours en cours, les verrous de présence des
+conversations, les annulations, le bus d'événements système et celui de la page
+Code vivent en mémoire (`apps/core/src/tour/etat.ts`,
+`apps/core/src/evenements/`). Entre process (main, admin, hôte d'outils,
+elpis-tools), un état partagé passe par l'un de ces canaux, jamais par une
+variable de module :
 
 | Canal | Module | Ce qu'il résout |
 |---|---|---|
-| **Base de données** | `shared_infra/db/` | Tout état devant survivre au process |
-| **Spool JSONL + flock** | `shared_infra/observability/metrics/broadcast.py`, `shared_infra/runtime/cancel_bus.py`, `shared_infra/runtime/chat_locks.py` | Un événement émis sur le worker A doit atteindre les workers B et C en ~100 ms |
-| **flock** | `shared_infra/scheduling/cron_lock.py`, `llm_core/skills.py` | Un seul worker doit agir (leader), ou sérialiser une écriture |
-| **Cache disque** | `llm_core/_mcp_categories.py` | Un worker a découvert les outils : les autres réutilisent sans re-connecter |
+| **Base de données** | `packages/db` | Tout état devant survivre au process (chats, routines, sessions révoquées, reprise des sous-agents) |
+| **Canal interne main → admin** | `apps/core/src/evenements/canal.ts` (`/api/internal/events`) | Métriques en direct, journaux du staff, « Redémarrage nécessaire » : SSE à tampon circulaire, reprise par `Last-Event-ID` |
+| **Verrou `elpis.verrou.v1.1`** | `@elpis/verrous` (`packages/verrous/src/verrou.ts`), `shared_infra/runtime/verrou_fichier.py` côté Python | Un seul planificateur actif (`apps/core/src/routines/meneur.ts`) ; écritures partagées avec un service Python (mémoire, skills, historique des fichiers, cycle de vie des sandboxes) |
+| **Fichiers d'exécution** | `ELPIS_RUNTIME_DIR` : journal des runs (`tour/journal-run.ts`), journal JSONL commun (`evenements/journal-commun.ts`), cache des catégories d'outils (`outils/categories.ts`) | Se rattacher à un run après un redémarrage ; journal lu par la console ; outils découverts par un autre process |
 
-Cas d'école résolus par ces canaux :
+Une annulation ne passe jamais par les événements système : un Stop arrête le
+tour par son AbortSignal ; le ✕ d'un sous-agent vise l'enfant, jamais le tour
+parent.
 
-- **Stop du chat** — la génération vit dans le worker qui tient le stream, mais
-  `POST /api/chat/cancel` atterrit n'importe où. Sans `cancel_bus`, l'UI
-  affichait « annulé » pendant que le tour continuait à consommer des tokens et
-  finissait par se persister.
-- **✕ sur un sous-agent** — même canal (`kind="child"`), aiguillé vers
-  `task_tool.apply_child_cancel` : un enfant n'est pas un chat, la demande ne
-  doit surtout pas tuer le tour parent.
-- **Pré-vol 409** (`generation_running` / `compression_running`) — `chat_locks`
-  rend l'activité d'un chat visible de tous les workers ; sinon un `/compact`
-  lancé pendant une génération hébergée ailleurs passait, et le stream se
-  terminait sur un conflit sans être persisté.
-- **Élection du leader** — `cron_lock` est **re-sondé à chaque tick** : si le
-  leader meurt ou est recyclé, le flock se libère et un autre worker reprend.
+Verrou `elpis.verrou.v1.1` (`@elpis/verrous`, commun avec le Python restant ;
+disque local seulement, vérifié par `./elpis doctor`) : la prise crée le
+fichier `R.lock` en `O_EXCL` (0600) avec une ligne JSON
+`{"v":1,"pid","hote","debut" (ms),"proc","boot","nspid","peremption" (ms)}`.
+Un verrou est périmé si, sur la même machine, le même démarrage et le même
+espace de PID, son PID n'existe plus (ou est le nôtre sans que ce processus
+l'ait pris), si la machine a redémarré depuis, si son fichier n'a pas été
+modifié depuis plus que sa péremption (la plus longue du lecteur et du
+détenteur), ou si son contenu reste illisible plus de 5 s. Toute suppression
+de `R.lock` (reprise d'un périmé comme rendu par son détenteur) se fait sous
+`R.lock.reprise`, après relecture : un verrou vivant n'est jamais effacé, et
+`R.lock` n'est jamais renommé. Une opération longue déclare un battement : le
+détenteur rafraîchit le mtime toutes les péremption / 3. Une erreur d'E/S à la
+lecture est remontée, jamais prise pour un verrou illisible. Attente de 10 ms
+doublée jusqu'à 200 ms, dans la limite du délai de la ressource ; une attente
+de plus de 30 s est journalisée avec le détenteur.
+
+| Ressource | Verrou | Délai | Péremption | Battement |
+|---|---|---|---|---|
+| Mémoire `USER.md`, `MEMORY.md` | `<fichier>.lock` | 5 s, puis erreur « occupé » | 120 s | non |
+| Journal de la mémoire | `.journal.jsonl.lock` | aucun | 120 s | non |
+| Skills | `<skills>/.skills_write.lock` | 5 s, puis sans verrou | 120 s | non |
+| Historique des fichiers | `file_history/<uid>/.lock` | 5 s, puis sans verrou | 120 s | non |
+| Cycle de vie du conteneur | `<sandboxes>/.lifecycle_locks/u<uid>.lock` | 120 s, puis sans verrou | 120 s | oui |
+| Migration `P` → `P/work` | `P/.work-migrating.lock` | aucun | 120 s | oui |
+| Pose du schéma | `<dossier de la base>/.init_db.lock` | aucun | 120 s | oui |
+| Nettoyage au démarrage | `<dossier de la base>/.startup_cleanup.lock` | un essai (pris : on passe) | 120 s | oui |
+| Secret de session, clé de chiffrement | `<dossier de la base>/.session_secret.lock`, `.encryption_key.lock` | aucun | 120 s | non |
 
 ---
 
 ## Le harnais de contexte
 
-Le paquet `llm_core/context/` est né du constat qu'« combien pèse ce prompt et
-que doit-il contenir ? » était répondu par cinq chemins de code avec trois
-ratios différents. Une responsabilité par module :
+Le dossier `apps/core/src/contexte/` répond à « combien pèse ce prompt et que
+doit-il contenir ? » par un seul chemin de code. Une responsabilité par
+module :
 
 | Module | Responsabilité |
 |---|---|
-| `tokens.py` | **L'autorité de comptage.** Exact d'abord (`/tokenize` + `/apply-template` du llama-server, cache LRU), repli heuristique **unique** 3,3 c./token. Personne d'autre ne compte des tokens |
-| `budget.py` | **Tous** les ratios et planchers (réserve de sortie, tiers de compaction, tail protégée) dans une dataclass gelée, surchargeable à froid |
-| `pruning.py` | Pipeline ordonné de réduction : élagage des sorties d'outils → élagage vision → budget dur |
-| `assembly.py` | Assemblage **byte-stable** de la tête système (invariant prefix-cache) |
-| `compression/` | Porte + sérialiseur + résumeur + état persisté |
+| `tokens.ts` | **L'autorité de comptage.** Exact d'abord (`/tokenize` + `/apply-template` du serveur de la cible, cache), repli estimé **unique**. Personne d'autre ne compte des tokens |
+| `budget.ts` | **Tous** les ratios et planchers (réserve de sortie, tiers de compaction, queue protégée), lus dans `context_config.json › budgets` |
+| `elagage.ts` | Réduction ordonnée : élagage des sorties d'outils → élagage vision → budget dur |
+| `assemblage.ts` | Assemblage **byte-stable** de la tête système (invariant du cache de préfixe) |
+| `compresseur.ts`, `porte-compaction.ts`, `etat-compression.ts`, `compression/` | Porte, sérialiseur, résumeur et état persisté de la compaction |
 
 ### La tête système, byte-stable
 
@@ -507,8 +538,8 @@ flowchart LR
 Règles à respecter absolument :
 
 - **Un seul `role:system`.** Certains templates Jinja renvoient 400 au deuxième.
-  `fold_operational_block` (`context/assembly.py`) fusionne ;
-  `_coalesce_system_messages` (`_chat_classic.py`) coalesce à l'envoi.
+  `foldOperationalBlock` (`contexte/assemblage.ts`) fusionne ;
+  `coalesceSystemMessages` (`boucle/chat-commun.ts`) coalesce à l'envoi.
 - **Ordre figé** — un golden test vérifie que la tête système est byte-identique
   entre itérations. Un ordre variable détruit le prefix-cache KV.
 - **Exception structurelle** : les messages portant un résumé de compression
@@ -554,68 +585,67 @@ flowchart TB
 
 ## La boucle agentique
 
-`run_chat_multi_mcp` (`llm_core/_chat_with_tools.py`) enchaîne LLM ↔ outils
-jusqu'au budget d'itérations ; `run_chat_multi_mcp_v2` force le mode
-`optimized` (créneau LLM rendu pendant les outils). Ce module est
-l'**orchestrateur** : prélude (vision, catalogue d'outils, assemblage de la
-tête système, rappel todo), boucle et compteurs, aiguillage de chaque tour,
-point d'étape budget (`<harness_status>`, message éphémère en queue). Une
-enveloppe (`_run_chat_multi_mcp_wrapper`) garantit, même sur annulation, la
-purge de la dernière capture d'écran et l'enregistrement de l'usage consommé.
+`runChatMultiMcp` (`apps/core/src/boucle/orchestrateur.ts`) enchaîne LLM ↔
+outils jusqu'au budget d'itérations ; c'est la seule fonction de chat (un
+tour sans outil passe par le même chemin). Le mode `optimized` rend le créneau
+LLM pendant les outils. L'**orchestrateur** tient : prélude (vision, catalogue
+d'outils, assemblage de la tête système, rappel todo), boucle et compteurs,
+aiguillage de chaque tour, point d'étape budget (`<harness_status>`, message
+éphémère en queue). Même sur annulation, il purge la dernière capture d'écran
+et enregistre l'usage consommé.
 
-Le reste vit dans des sous-routines de `llm_core/engine/` (carte dans
-`engine/__init__.py`). Aucune n'importe l'orchestrateur : c'est lui qui les
-importe.
+Le reste vit dans des modules de `apps/core/src/boucle/`. Aucun n'importe
+l'orchestrateur : c'est lui qui les importe.
 
-| Module (`llm_core/engine/`) | Rôle | Interface |
+| Module (`apps/core/src/boucle/`) | Rôle | Interface |
 |---|---|---|
-| `run.py` | état d'un run | `RunContext` (constantes du run, gelé), `RunRecord` (trace : événements, delta de `tool_history`, raisonnement, usage, lot en cours, fenêtre de contexte, marques d'élagage), `LoopDeps` (dépendances injectées), `llm_slot(ctx)` (créneau du mode `optimized`) |
-| `tool_catalog.py` | outils du tour | `_collect_mcp_tools` : outils MCP et intégrés en une charge utile `tools[]`, puis filtres (refus, catégories cochées, mode plan, mémoire) |
-| `llm_turn.py` | un tour LLM | `call_llm(…) → LLMTurn` ; état privé `LLMTurnState` (mesure du contexte, compactions, séries de récupération) |
-| `llm_stream.py` | transport d'un appel | `_llama_chat_with_tools_stream` : flux SSE → réponse au format OpenAI, replis (sans flux, puis analyse du texte), reprise d'un flux coupé, arrêt côté moteur |
-| `live_text.py` | émission directe | `LiveText` (`on_token`, `flush`, `emit_rest`) : fenêtre de retenue et portail anti-balisage |
-| `resume.py` | reprises automatiques | `ResumeState` (`take`, `restore`, `reset_chain`, `plan`), `ResumeRequest` |
-| `tool_dispatch.py` | exécution des appels d'outils | `open_native_round`, `classify_text_reply`, `relaunch_unparsed_call`, `open_text_round`, `run_tool_batch → BatchOutcome`, `ChannelSpec` (`NATIF`, `TEXTE`), `CycleGuard`, `TruncationGuard`, un appel isolé (`_execute_single_tool_call`) |
-| `tool_exec.py` | ordonnancement d'un lot | `execute_tool_batch` : série pour les outils mutants, parallèle borné sinon, ordre du modèle préservé |
-| `run_exit.py` | sorties du run | `finish_ok`, `finish_on_limit`, `finish_on_error` |
-| `result_contract.py` | échecs d'outil | `result_is_error`, `result_is_tool_failure` |
-| `stream_events.py` | registre du flux NDJSON | `STREAM_EVENTS`, `LOOP_EVENTS`, `NOT_DISPLAYED` |
+| `run.ts` | état d'un run | `RunContext` (constantes du run), `RunRecord` (trace : événements, delta de l'historique d'outils, raisonnement, usage, lot en cours, fenêtre de contexte, marques d'élagage), `LoopDeps` (dépendances injectées) |
+| `apps/core/src/outils/catalogue.ts` | outils du tour | `collectMcpTools` : outils MCP et intégrés en une charge utile `tools[]`, puis filtres (refus, catégories cochées, mode plan, mémoire) |
+| `tour-llm.ts` | un tour LLM | `callLlm(…) → LLMTurn` (mesure du contexte, compactions, séries de récupération) |
+| `flux-llm.ts` | transport d'un appel | flux SSE → réponse au format OpenAI, replis (sans flux, puis analyse du texte), reprise d'un flux coupé, arrêt côté moteur, disjoncteur |
+| `texte-direct.ts` | émission directe | `LiveText` : fenêtre de retenue et portail anti-balisage |
+| `reprise.ts`, `reprise-raisonnement.ts` | reprises automatiques | `ResumeState` (`take`, `restore`, `resetChain`, `plan`) |
+| `dispatch-outils.ts` | exécution des appels d'outils | `openNativeRound`, `classifyTextReply`, `relaunchUnparsedCall`, `openTextRound`, `runToolBatch → BatchOutcome`, `ChannelSpec` (`NATIF`, `TEXTE`), `CycleGuard`, `TruncationGuard`, un appel isolé (`executeSingleToolCall`) |
+| `execution-outils.ts` | ordonnancement d'un lot | `executeToolBatch` : série pour les outils mutants, parallèle borné sinon, ordre du modèle préservé |
+| `sortie.ts` | sorties du run | `finishOk`, `finishOnLimit`, `finishOnError` |
+| `contrat-resultat.ts` | échecs d'outil | `resultIsError`, `resultIsToolFailure` |
+| `@elpis/contracts` (`stream-events.gen.ts`) | registre du flux NDJSON | `STREAM_EVENTS`, `LOOP_EVENTS`, `NOT_DISPLAYED` |
 
-Les appels écrits en texte se lisent dans `llm_core/_tool_parsing.py`
-(`extract_tool_calls`, `_strip_tool_call_markup`).
+Les appels écrits en texte se lisent dans `boucle/analyse-appels.ts`
+(`extractToolCalls`, `stripToolCallMarkup`).
 
 ```mermaid
 flowchart TB
-    P["prélude<br/>vision · catalogue · tête système · rappel todo"] --> W{"effective_iter &lt; budget<br/>et hard_iter &lt; plafond dur ?"}
-    W -- non --> L["finish_on_limit<br/>tour de synthèse sans outils"]
-    W -- oui --> T["call_llm → LLMTurn"]
+    P["prélude<br/>vision · catalogue · tête système · rappel todo"] --> W{"effectiveIter &lt; budget<br/>et hardIter &lt; plafond dur ?"}
+    W -- non --> L["finishOnLimit<br/>tour de synthèse sans outils"]
+    W -- oui --> T["callLlm → LLMTurn"]
     T -- "retry" --> W
-    T -- "retry_counted : hard_iter + 1" --> W
+    T -- "retry_counted : hardIter + 1" --> W
     T -- "stop_empty" --> L
-    T -- "fatal" --> E["finish_on_error"]
+    T -- "fatal" --> E["finishOnError"]
     T -- "ok" --> K{"tool_calls natifs ?"}
-    K -- oui --> N["open_native_round"]
-    K -- non --> C["classify_text_reply"]
-    C -- "appels lus" --> X["open_text_round"]
+    K -- oui --> N["openNativeRound"]
+    K -- non --> C["classifyTextReply"]
+    C -- "appels lus" --> X["openTextRound"]
     C -- "aucun appel" --> R{"ResumeState.plan :<br/>reprise ?"}
-    R -- "oui : hard_iter + 1" --> W
-    R -- non --> F["finish_ok"]
-    N --> B["run_tool_batch(NATIF ou TEXTE)<br/>→ BatchOutcome"]
+    R -- "oui : hardIter + 1" --> W
+    R -- non --> F["finishOk"]
+    N --> B["runToolBatch(NATIF ou TEXTE)<br/>→ BatchOutcome"]
     X --> B
-    B -- "hard_iter + 1<br/>effective_iter + 1 si un appel a réussi" --> W
+    B -- "hardIter + 1<br/>effectiveIter + 1 si un appel a réussi" --> W
 ```
 
 Deux détours ne figurent pas sur le schéma : un appel d'outil coupé par la
 limite de génération (`finish=length`) n'est pas exécuté
-(`TruncationGuard.cut`, `hard_iter + 1`) ; une tentative d'appel illisible ou
+(`TruncationGuard`, `hardIter + 1`) ; une tentative d'appel illisible ou
 perdue dans le raisonnement est relancée, en nombre borné
-(`relaunch_unparsed_call`, `hard_iter + 1`).
+(`relaunchUnparsedCall`, `hardIter + 1`).
 
 **Interfaces principales**
 
-- **`call_llm` → `LLMTurn`.** Tout ce qui sépare la tête d'itération de la
+- **`callLlm` → `LLMTurn`.** Tout ce qui sépare la tête d'itération de la
   réponse décodée : porte de compaction, élagage intra-run, ajustement au
-  budget (`fit_context`), consommation de la reprise en attente, créneau LLM,
+  budget (`fitContext`), consommation de la reprise en attente, créneau LLM,
   appel, récupération des échecs, usage et jauge (`kv_cache`), décodage.
   L'issue est explicite, et `LLMTurn.messages` est TOUJOURS la liste de
   travail à reprendre (la compaction et l'aplatissement la réaffectent) :
@@ -624,36 +654,35 @@ perdue dans le raisonnement est relancée, en nombre borné
   |---|---|---|
   | `ok` | réponse décodée | appels natifs, appels écrits en texte, reprise ou réponse finale |
   | `retry` | contexte dépassé puis compacté, historique refusé puis aplati, hoquet du moteur | relance l'itération sans rien compter |
-  | `retry_counted` | réponse sans `choices` (série bornée) | `hard_iter + 1`, puis relance |
-  | `stop_empty` | réponses vides en série | sortie par `finish_on_limit` avec cette cause |
-  | `fatal` | échec après les récupérations (`error`, `err_kind`) | `finish_on_error` |
+  | `retry_counted` | réponse sans `choices` (série bornée) | `hardIter + 1`, puis relance |
+  | `stop_empty` | réponses vides en série | sortie par `finishOnLimit` avec cette cause |
+  | `fatal` | échec après les récupérations (`error`, `err_kind`) | `finishOnError` |
 
-- **`run_tool_batch` → `BatchOutcome`.** Le noyau commun aux deux canaux :
-  annulation, événements `tool_call`, exécution du lot (`tool_exec`, série ou
-  parallèle), post-traitement dans l'ordre du modèle, anti-boucle
-  (`CycleGuard`). Il complète `working_messages` en place et rend
-  `had_success` (au moins un appel a réussi) et `cycle_hard_stopped` (boucle
-  d'action persistante).
+- **`runToolBatch` → `BatchOutcome`.** Le noyau commun aux deux canaux :
+  annulation, événements `tool_call`, exécution du lot (`executeToolBatch`,
+  série ou parallèle), post-traitement dans l'ordre du modèle, anti-boucle
+  (`CycleGuard`). Il complète la liste de travail en place et dit si au moins
+  un appel a réussi et si une boucle d'action persistante a été arrêtée.
 - **`ChannelSpec` : `NATIF` et `TEXTE`.** Ce qui diffère volontairement entre
   les `tool_calls` de l'API et les appels écrits dans la prose : la vision
   (natif seulement : suivi des captures, injection différée de la capture
   après le dernier résultat du lot, élagage des vieilles trames), le gabarit
   `result_formatting.fallback_wrapper` (texte seulement), la consigne
   anti-boucle et les libellés de journal. La préparation du lot diffère
-  aussi : `open_native_round` (prose nettoyée, arguments invalides non
-  exécutés) et `open_text_round` (`tool_calls` synthétiques, identifiants
+  aussi : `openNativeRound` (prose nettoyée, arguments invalides non
+  exécutés) et `openTextRound` (`tool_calls` synthétiques, identifiants
   `legacy_*` rendus uniques).
 - **`ResumeState`.** Les reprises automatiques d'une génération coupée,
   raisonnement ou rédaction. `take` consomme la demande en attente juste
   avant l'appel, `restore` la rend si l'appel est relancé (sinon la partie
-  déjà écrite serait perdue), `reset_chain` remet la série à zéro dès qu'un
+  déjà écrite serait perdue), `resetChain` remet la série à zéro dès qu'un
   lot d'appels est lu, `plan` décide en fin de tour sans appel d'outil.
-- **`finish_ok`, `finish_on_limit`, `finish_on_error`.** Les trois sorties
-  d'un run. Chacune rend le triple de la boucle (texte, événements,
-  métriques), dépose le delta de `tool_history` dans les métriques et
-  enregistre l'usage du tour, une ligne par tour, ici et nulle part
-  ailleurs. `finish_on_limit` rédige la synthèse par un dernier appel sans
-  outils, avec une consigne propre à la cause réelle de l'arrêt.
+- **`finishOk`, `finishOnLimit`, `finishOnError`.** Les trois sorties
+  d'un run. Chacune rend le texte, les événements et les métriques, dépose le
+  delta de l'historique d'outils dans les métriques et enregistre l'usage du
+  tour, une ligne par tour, ici et nulle part ailleurs. `finishOnLimit`
+  rédige la synthèse par un dernier appel sans outils, avec une consigne
+  propre à la cause réelle de l'arrêt.
 
 **Compteurs tenus par l'orchestrateur.** Ce sont des entiers de la boucle,
 jamais d'un objet partagé : les sous-routines rendent une décision, la boucle
@@ -661,124 +690,116 @@ l'applique.
 
 | Compteur | Avance quand | Rôle |
 |---|---|---|
-| `effective_iter` | un lot compte au moins un appel réussi (`BatchOutcome.had_success`) | comparé au budget (`LLAMA_MAX_TOOL_ITERATIONS`, ou `sampling_override.max_tool_iterations`) ; affiché « tour n/max » |
-| `hard_iter` | chaque lot exécuté, appel coupé, relance d'un appel illisible, reprise automatique, issue `retry_counted` | plafond dur `_hard_iter_cap` (le plus grand de 2 × budget et budget + 10) : arrête une cascade d'échecs |
-| `_malformed_retry` | chaque relance d'un appel illisible ou perdu | budget de relances, réarmé par une itération productive ou un appel texte lisible |
+| `effectiveIter` | un lot compte au moins un appel réussi | comparé au budget (`LLAMA_MAX_TOOL_ITERATIONS`, ou `sampling_override.max_tool_iterations`) ; affiché « tour n/max » |
+| `hardIter` | chaque lot exécuté, appel coupé, relance d'un appel illisible, reprise automatique, issue `retry_counted` | plafond dur `hardIterCap` (le plus grand de 2 × budget et budget + 10) : arrête une cascade d'échecs |
+| `malformedRetry` | chaque relance d'un appel illisible ou perdu | budget de relances, réarmé par une itération productive ou un appel texte lisible |
 
 Les arrêts volontaires (mur d'horloge `LLAMA_TOOL_LOOP_MAX_S`, appels coupés
-en série — `TruncationGuard.stop` vaut `ctx_saturated` ou `gen_cap` —,
-boucle d'action, réponses vides) sortent de la boucle sans toucher à
-`effective_iter` : le compteur affiché reste vrai, et `finish_on_limit`
-reçoit la cause réelle.
+en série — cause `ctx_saturated` ou `gen_cap` —, boucle d'action, réponses
+vides) sortent de la boucle sans toucher à `effectiveIter` : le compteur
+affiché reste vrai, et `finishOnLimit` reçoit la cause réelle.
 
-**Points de substitution des tests.** La fonction de flux
-(`_llama_chat_with_tools_stream`) et la métrique d'appel d'outil
-(`_record_tool_call_metric_safe`) sont lues dans les globales de
-l'orchestrateur au début du run, puis injectées (`LoopDeps`) : elles se
-patchent sur `llm_core._chat_with_tools`. Le reste (taille de contexte, pool
-MCP, élagage, registre d'usage) se lit à l'appel dans son module propriétaire
-(`_model_info`, `_mcp_pool`, `context.pruning`, `usage_ctx`), où on le
-patche.
+**Dépendances injectées.** La fonction de flux et la métrique d'appel d'outil
+(`recordToolCallMetricSafe`) passent par `LoopDeps`, posé au démarrage
+(`boucle/branchements.ts`) ; les ports encore ouverts sont dans
+`boucle/ports.ts`.
 
 ---
 
 ## Le flux d'un tour de chat
 
-`POST /api/chat-saved-stream3` (`chatbot_app/routes/chats.py`) n'enchaîne que
-des étapes. Le tour lui-même vit dans le paquet `chatbot_app/turn/`, qui
-n'importe jamais les routes.
+`POST /api/chat-saved-stream3` (`apps/core/src/familles/chat.ts`) n'enchaîne
+que des étapes. Le tour lui-même vit dans `apps/core/src/tour/`, qui n'importe
+jamais les routes ; ses invariants et l'ordre de ses événements sont écrits
+dans [apps/core/src/tour/README.md](../apps/core/src/tour/README.md).
 
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant H as api_chat_saved_stream3
-    participant P as prepare_turn
-    participant R as run_turn
-    participant W as worker
-    participant B as boucle ou chemin classique
+    participant H as route du flux
+    participant P as prepareTurn
+    participant R as runTurn
+    participant B as boucle
     C->>H: POST /api/chat-saved-stream3
     H->>H: admission (409 compaction ou génération en cours, 429 plafond du compte)
     H->>P: payload client
     P-->>H: TurnPlan, TurnResources, PersistBaseline
     H->>H: verrou de présence (+ recalage après une passation)
-    H-->>C: StreamingResponse(run_turn(...))
+    H-->>C: flux NDJSON (runTurn)
     R->>R: réclame le verrou réservé
-    R->>W: tâche de fond + file
-    W->>B: attente du moteur, puis génération
-    B-->>W: événements (on_event)
-    W->>W: enregistrement optimiste, puis kv_cache et final
+    R->>B: attente du moteur, puis génération (tâche de fond + file)
+    B-->>R: événements
+    R->>R: enregistrement optimiste, puis kv_cache et final
     R-->>C: NDJSON drainé (jetons regroupés toutes les 25 ms)
     Note over R: flux fermé, run détaché ou clos
 ```
 
-| Module (`chatbot_app/`) | Rôle |
+| Module (`apps/core/src/`) | Rôle |
 |---|---|
-| `routes/chats.py` | la route du flux ; son en-tête écrit les invariants et l'ordre des événements |
-| `routes/chat_control.py` | « Répondre maintenant », Stop, Stop d'un sous-agent, état d'une génération, exécutions actives, rattachement (`/run/events`) |
-| `routes/chat_compression.py` | compression manuelle et son état |
-| `turn/admission.py` | verrou de présence (`_acquire_gen_presence`, réservation jusqu'à `run_turn`), compactions manuelles en vol |
-| `turn/preparation.py` | `prepare_turn` |
-| `turn/execution.py` | `run_turn` (générateur NDJSON) et son worker : attente du moteur, chemin classique ou boucle, titre, enregistrement, `final`, détachement |
-| `turn/events.py` | pompe NDJSON (`_drain_coalesced`), filtre des événements après un Stop, suivi du chargement d'un modèle (`queue_status`) |
-| `turn/persistence.py` | message du tour ou partiel (`_message_assistant`, `_message_partiel`), écriture optimiste (`_persist_turn`), écritures `meta_json` de fin de tour |
-| `turn/history.py` | historique client ↔ base ↔ modèle (`_normalize_client_messages`, `_expand_history_for_llm`), « Continuer » (`_split_for_continue`) |
-| `turn/tasks.py` | références fortes des tâches de fond (`keep`, `_BG_TASKS`, drainé à l'arrêt du worker) |
-| `turn/image.py` | tour « Images » (corps avec `image_gen`) : après les mêmes gardes que le tour du modèle, confié au moteur d'images (`llm_core/imagegen/`) ; même verrou de présence, même journal reprenable, exécution `kind=image` ; événements `image_progress`, `image`, `image_prompt`, `image_error` |
+| `familles/chat.ts` | la route du flux, ouverture commune au tour « Images » et au réveilleur des tâches de fond |
+| `familles/chat-controle.ts` | « Répondre maintenant », Stop, Stop d'un sous-agent, état d'une génération, exécutions actives, rattachement (`/run/events`) |
+| `familles/chat-compression.ts` | compression manuelle et son état |
+| `tour/ouverture.ts`, `tour/admission.ts` | admission ; verrou de présence (`acquireGenPresence`, réservation jusqu'à `runTurn`), compactions manuelles en vol |
+| `tour/preparation.ts` | `prepareTurn` |
+| `tour/execution.ts` | `runTurn` (générateur NDJSON) : attente du moteur, boucle, titre, enregistrement, `final`, détachement |
+| `tour/evenements.ts` | pompe NDJSON (`drainCoalesced`), filtre des événements après un Stop, suivi du chargement d'un modèle (`queue_status`) |
+| `tour/persistance.ts` | message du tour ou partiel (`messageAssistant`, `messagePartiel`), écriture optimiste, écritures `meta_json` de fin de tour |
+| `tour/historique.ts` | historique client ↔ base ↔ modèle (`normalizeClientMessages`, `expandHistoryForLlm`), « Continuer » (`splitForContinue`) |
+| `tour/journal-run.ts`, `tour/suivi-run.ts` | journal des événements d'un run, relisible pour s'y rattacher, y compris après un redémarrage |
+| `tour/image.ts` | tour « Images » (corps avec `image_gen`) : après les mêmes gardes que le tour du modèle, confié au moteur d'images (`apps/core/src/images/`) ; même verrou de présence, même journal reprenable, exécution `kind=image` ; événements `image_progress`, `image`, `image_prompt`, `image_error` |
 
 **Interfaces principales**
 
-- **`prepare_turn(request, data, user_id, chat_id)`** rend
-  `(TurnPlan, TurnResources, PersistBaseline)`. Elle résout la cible et les
-  serveurs MCP côté serveur, lit le chat, applique les interrupteurs du
-  compte (outils, mémoire, sous-agents, compaction, mode plan), développe
-  l'historique, branche le RAG et calcule le titre. Elle lève encore des
-  `HTTPException` (400, 409) : rien n'est parti vers le client.
-- **`TurnPlan`** (gelé) : tout ce que la préparation a décidé — identité,
-  cible et modèle, outils et refus, compaction et marques d'élagage,
-  historique (`messages`, `msgs`, `msgs_for_llm`), titre. Le gel est
-  superficiel : listes et dictionnaires ne sont pas copiés.
-- **`TurnResources`** (gelé) : fonction de persistance (vide en session
-  éphémère), gestionnaire de mémoire, outils RAG intégrés.
+- **`prepareTurn`** rend `(TurnPlan, TurnResources, PersistBaseline)`. Elle
+  résout la cible et les serveurs MCP côté serveur, lit le chat, applique les
+  interrupteurs du compte (outils, mémoire, sous-agents, compaction, mode
+  plan), développe l'historique, branche le RAG et calcule le titre. Elle peut
+  encore refuser (400, 409) : rien n'est parti vers le client.
+- **`TurnPlan`** : tout ce que la préparation a décidé — identité, cible et
+  modèle, outils et refus, compaction et marques d'élagage, historique, titre.
+- **`TurnResources`** : fonction de persistance (vide en session éphémère),
+  gestionnaire de mémoire, outils RAG intégrés.
 - **`PersistBaseline`** : base de l'enregistrement optimiste (`updated_at`,
-  `messages`, `title`) et état de compression précédent. Le handler la recale
-  après une passation (Stop puis régénération) ; `run_turn` la déballe.
-- **`run_turn(plan, res, base)`** : réclame le verrou de présence avant tout
-  `await`, lance le worker, draine sa file vers le client ; à la fermeture du
-  flux, détache le run ou le clôt (`_should_detach_run`, `_cloturer_run`).
+  `messages`, `title`) et état de compression précédent. La route la recale
+  après une passation (Stop puis régénération).
+- **`runTurn`** : réclame le verrou de présence avant tout `await`, lance la
+  génération, draine sa file vers le client ; à la fermeture du flux, détache
+  le run ou le clôt (`shouldDetachRun`, `cloturerRun`).
 
-Invariants (détail en tête de `chats.py`) : une génération à la fois par
-conversation, tous workers confondus ; aucune instruction ne peut lever entre
-la prise du verrou et le `StreamingResponse` ; adresses MCP résolues côté
-serveur ; annulation publiée sur le bus d'annulation, partiel enregistré ;
-enregistrement optimiste, qui précède `kv_cache` et `final`. L'ordre des
-événements est recopié dans la
-[référence API](#ordre-des-événements-dun-tour) et figé par
-`tests/chatbot/test_flux_route.py`.
+Invariants : une génération à la fois par conversation ; aucune instruction ne
+peut lever entre la prise du verrou et l'ouverture du flux ; adresses MCP
+résolues côté serveur ; annulation par l'AbortSignal du tour, partiel
+enregistré ; enregistrement optimiste, qui précède `kv_cache` et `final`.
+L'ordre des événements est recopié dans la
+[référence API](#ordre-des-événements-dun-tour).
 
 ---
 
 ## Scheduling LLM et résilience
 
-Tout appel de génération passe par le chokepoint unique
-`llm_scheduling_guard(model, …)` :
+Tout appel de génération passe par l'ordonnanceur du process
+(`apps/core/src/llm/ordonnanceur/`, `LLMQueue` et `withLLM`), une file par
+serveur d'inférence :
 
-| Composant | Fichier | Rôle |
-|---|---|---|
-| `MODEL_EXCLUSIVITY` | `llm_core/_scheduling/_locks.py` | Empêche un switch de modèle côté serveur pendant une génération. Priorité `high` (chats) vs `low` (compaction, routines) |
-| `LLM_SEMAPHORE` | `llm_core/_scheduling/_concurrency.py` | Limite la concurrence par modèle (dérivée de `/props.total_slots`, repli `LLAMA_MAX_CONCURRENCY`) |
-| Disjoncteur | `llm_core/_scheduling/_breaker.py` | ≥ `LLM_BREAKER_FAILS` échecs **transport** consécutifs → circuit ouvert `LLM_BREAKER_COOLDOWN_S` → fail-fast sans occuper de slot |
+| Niveau | Rôle |
+|---|---|
+| Modèle (niveau 1) | Empêche un changement de modèle côté serveur pendant une génération : le modèle tenu accueille toute demande, un changement attend la fin des tours. Priorité `high` (chats) avant `low` (compaction, routines), avec une grâce de 8 s et un rang rendu à une demande `low` qui attend depuis plus de 30 s |
+| Créneaux (niveau 2) | Limite la concurrence par modèle (`/props.total_slots`, repli `LLAMA_MAX_CONCURRENCY`, ou réglages du connecteur) |
+| Disjoncteur (`disjoncteur.ts`) | ≥ `LLM_BREAKER_FAILS` échecs **transport** consécutifs → circuit ouvert `LLM_BREAKER_COOLDOWN_S` → échec immédiat sans occuper de créneau |
+
+Détail : [apps/core/src/llm/ordonnanceur/README.md](../apps/core/src/llm/ordonnanceur/README.md).
 
 **Modes de scheduling** (`llm.scheduling_mode`) :
 
-- `classic` — sémaphore autour de **toute** la boucle outillée. Pendant un
+- `classic` — créneau tenu pendant **toute** la boucle outillée. Pendant un
   `execute_shell` de 30 s, le slot est réservé côté backend même s'il est
   physiquement libre.
-- `optimized` — sémaphore **inline** autour de chaque appel LLM. Le slot est
-  libéré pendant les outils ; au retour, le serveur restaure le cache KV
+- `optimized` — créneau pris puis rendu autour de chaque appel LLM, le modèle
+  restant tenu pendant les outils ; au retour, le serveur restaure le cache KV
   (`--cache-ram`). Requiert `/slots`.
 - `auto` — sonde `/props` et `/slots` au démarrage et résout vers l'un des deux.
 
-**Taxonomie d'erreur** (`_llm_retry.py`) : chaque échec est classé en
+**Taxonomie d'erreur** (`llmErrorKind`, `apps/core/src/llm/reprises.ts`) : chaque échec est classé en
 `context_overflow`, `invalid_request`, `rate_limited`, `loading`, `unreachable`,
 `timeout`, `unknown`. Chaque genre a un message utilisateur dédié et une
 politique de retry propre (backoff exponentiel full-jitter plafonné à
@@ -786,18 +807,17 @@ politique de retry propre (backoff exponentiel full-jitter plafonné à
 local ne brûle pas les retries : on sonde `/health` jusqu'à
 `LLAMA_LOADING_WAIT_S`.
 
-> ⚠ `raise_for_status()` en streaming **perd le corps** de la réponse : sur le
-> chemin streaming, lire le corps AVANT de lever, sinon le diagnostic disparaît.
+> ⚠ En streaming, lire le corps d'une réponse en erreur AVANT de lever,
+> sinon le diagnostic du fournisseur disparaît.
 
 ---
 
 ## Cibles d'inférence et fournisseurs
 
-`LlmTarget` (`llm_core/_target.py`) décrit le backend à utiliser **pour la
-requête courante** : format wire, base_url, clé, modèle. Il est posé dans un
-`contextvars.ContextVar` en tête de `run_chat_*` et lu par le transport — les
-contextvars se propagent naturellement aux tâches asyncio, pas besoin de
-threader N signatures.
+`LlmTarget` (`apps/core/src/llm/cible.ts`) décrit le backend à utiliser
+**pour la requête courante** : format wire, base_url, clé, modèle. Il est porté
+par un `AsyncLocalStorage` posé en tête du tour et lu par le transport — il se
+propage aux tâches asynchrones, pas besoin de le passer à N signatures.
 
 ```mermaid
 flowchart LR
@@ -806,24 +826,29 @@ flowchart LR
     Res -- oui --> Conn["résolution en base<br/>+ déchiffrement de la clé"]
     Def --> W1["wire openai"]
     Conn --> W2{"wire"}
-    W2 -- openai --> P1["providers/openai_compat"]
-    W2 -- anthropic --> P2["providers/anthropic (/v1/messages)"]
+    W2 -- openai --> P1["fournisseurs/openai-compat"]
+    W2 -- anthropic --> P2["fournisseurs/anthropic (/v1/messages)"]
 ```
 
-- **`is_default`** = moteur local (`LLAMA_URL`), quel que soit son type.
-- **`is_local_llamacpp`** = local **ET** dialecte llama.cpp. Plus restrictive,
+- **`isDefault`** = moteur local (`LLAMA_URL`), quel que soit son type.
+- **`isLocalLlamacpp`** = local **ET** dialecte llama.cpp. Plus restrictive,
   elle garde les appels aux endpoints **spécifiques** au llama-server :
   `/props` (sampling + `n_ctx`), `/slots` (pinning), `/tokenize`, jauge KV live,
   auto-chargement routeur. Un moteur local vLLM/générique ne les expose pas → on
   les saute et on parle OpenAI-standard.
-- **Connecteurs** (`shared_infra/llm/connectors.py`) : portée `user`
+- **Connecteurs** (`apps/core/src/llm/connecteurs.ts`) : portée `user`
   (clé perso) ou `shared` (publié par l'admin). Types : `llamacpp`, `vllm`,
   `openai`, `anthropic`, `mistral`, `groq`, `openrouter`, `deepseek`,
-  `moonshot`, `opencode`, `generic`. L'admin restreint les types autorisés
-  (`llm.allowed_provider_types`). La `base_url` d'un connecteur utilisateur
-  vient du preset (anti-SSRF) ; seul l'admin en saisit une libre.
+  `moonshot`, `opencode`, `generic`. Les types locaux (`llamacpp`, `vllm`,
+  `generic`) sont réservés aux connecteurs partagés. Un compte non
+  administrateur ne branche que les types cloud de
+  `llm.allowed_provider_types` : absente ou vide, **aucun** ; un compte
+  administrateur n'est pas concerné. La liste est revérifiée à chaque
+  résolution : un connecteur personnel d'un type fermé n'est plus utilisé. La
+  `base_url` d'un connecteur utilisateur vient du preset (anti-SSRF) ; seul
+  l'admin en saisit une libre.
 - **OpenCode Zen** (`opencode`) : passerelle du projet opencode,
-  compatible OpenAI, `https://opencode.ai/zen/v1`. `providers/discovery.py`
+  compatible OpenAI, `https://opencode.ai/zen/v1`. `llm/fournisseurs/decouverte.ts`
   repère les modèles gratuits (suffixe `-free`, convention du fournisseur —
   `GET /v1/models` ne porte aucun prix), les remonte en tête de liste et les
   renvoie dans `free`, que le sélecteur marque d'une pastille « gratuit ».
@@ -836,13 +861,13 @@ flowchart LR
   d'erreur du fournisseur, remonté tel quel, qui dit à l'utilisateur qu'il lui
   faut une clé ouvrant le modèle.
   La fenêtre de contexte de ces modèles ne correspondant à aucune famille connue,
-  `_ctx_window._PROVIDER_DEFAULT_WINDOWS` donne un défaut conservateur
+  `PROVIDER_DEFAULT_WINDOWS` (`llm/fenetre-contexte.ts`) donne un défaut conservateur
   (131 072) : sans lui la fenêtre resterait « inconnue » et compaction, élagage
   et budget dur seraient inactifs sur ces modèles.
-- **Refus du fournisseur ≠ requête invalide** (`_llm_retry`) :
-  `KIND_FORBIDDEN` couvre 401/403 et tout 4xx dont le corps parle d'accès
-  (`_ACCESS_MARKERS`). Et `llm_error_user_message` fait suivre son conseil du
-  message DU FOURNISSEUR quand il en donne un (`provider_message` : JSON
+- **Refus du fournisseur ≠ requête invalide** (`llm/reprises.ts`) :
+  `KIND_FORBIDDEN` couvre 401/403 et tout 4xx dont le corps parle d'accès.
+  Et `llmErrorUserMessage` fait suivre son conseil du message DU FOURNISSEUR
+  quand il en donne un (`providerMessage` : JSON
   `error.message`, une ligne, 220 caractères, jamais une page HTML). Sans ça,
   un refus précis arrivait en « la génération a échoué pour une raison
   inattendue ».
@@ -860,24 +885,19 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    A["Defaults du modèle<br/>GET /props (cache _props_cache)"] --> B["Profil de tâche<br/>chat · tools · thinking · infill"]
+    A["Defaults du modèle<br/>GET /props (en cache)"] --> B["Profil de tâche<br/>chat · tools · thinking · infill"]
     B --> C["Override utilisateur<br/>panneau d'échantillonnage (champs vides ignorés)"]
-    C --> D["Params effectifs<br/>resolve_sampling()"]
+    C --> D["Params effectifs<br/>resolveSampling()"]
 ```
 
-```python
-from llm_core._llm_params import (
-    resolve_sampling, get_model_context_size, get_model_total_slots, invalidate_caches,
-)
-params = resolve_sampling(model_id="GLM-4.7", task="chat", request_override={"temperature": 0.7})
-n_ctx  = get_model_context_size(model_id="GLM-4.7")
-slots  = get_model_total_slots(model_id="GLM-4.7")
-```
+`resolveSampling` (`apps/core/src/llm/parametres.ts`) rend les paramètres
+effectifs ; `getModelContextSize` et `getModelTotalSlots` donnent la fenêtre et
+les créneaux d'un modèle.
 
 1. **Defaults du modèle** — `GET /props?model=xxx`, mis en cache. Accessibles
    via `default_generation_settings.params.*` (mode routeur) ou
    `.default_generation_settings.*` (mono-modèle). Repli sur les valeurs de
-   `shared_infra/config.py` si `/props` est indisponible.
+   la configuration si `/props` est indisponible.
 2. **Profil de tâche** — chaque type de requête peut surcharger (le profil
    `tools` force une température basse pour des appels déterministes ; les
    profils vivent dans `context_config.json › model_profiles`).
@@ -888,9 +908,8 @@ slots  = get_model_total_slots(model_id="GLM-4.7")
 > rien et pourquoi la config OpenCode générée propage les `n_ctx` **déjà connus**
 > du cache au lieu de sonder.
 
-**Invalidation des caches** : au `load_llm_model` / `unload_llm_model`, via
-`POST /api/admin/cache/invalidate`, ou par le bouton admin (diffusé à tous les
-workers par le spool).
+**Invalidation des caches** : au chargement ou au déchargement d'un modèle,
+via `POST /api/admin/cache/invalidate`, ou par le bouton admin.
 
 ---
 
@@ -900,8 +919,8 @@ workers par le spool).
 
 | Table | Ce qu'elle répond | Écrite par |
 |---|---|---|
-| **`usage_events`** | « Qui a consommé quoi, quand, par quel chemin ? » — **une ligne par tour LLM**, usage RÉEL du backend, avec `user_id`, `source`, `model`, `status` | `record_turn_usage()` (`shared_infra/observability/usage_ctx.py`), appelée **dans la boucle LLM** |
-| `metric_events` | Compteurs non-LLM : connexions, écritures sandbox, RAG, latence, débit, `proc_*` | `log_metric()` |
+| **`usage_events`** | « Qui a consommé quoi, quand, par quel chemin ? » — **une ligne par tour LLM**, usage RÉEL du backend, avec `user_id`, `source`, `model`, `status` | `recordTurnUsage()` (`apps/core/src/observabilite/usage-contexte.ts`), appelée **dans la boucle LLM** |
+| `metric_events` | Compteurs non-LLM : connexions, écritures sandbox, RAG, latence, débit, `proc_*` | `logMetric()` (`observabilite/metriques-evenements.ts`) |
 
 **Pourquoi ce découpage.** La conso était mesurée *chez l'appelant* : la route
 de chat journalisait les métriques du tour. Deux conséquences, toutes deux
@@ -916,37 +935,34 @@ visibles dans la console :
    seule route interactive. Tout ce qui tournait sans navigateur affichait 0.
 
 La responsabilité est donc inversée : **la boucle mesure, l'appelant se nomme**
-via un `usage_scope(...)` (contextvar, même idiome que `LlmTarget`). Un chemin
-qui oublie de se nommer n'est pas perdu — il apparaît en `source="unknown"`.
+via un `usageScope(...)` (contexte asynchrone, même idiome que `LlmTarget`).
+Un chemin qui oublie de se nommer n'est pas perdu — il apparaît en
+`source="unknown"`.
 
-```python
-from shared_infra.observability.usage_ctx import usage_scope
-with usage_scope("routine", user_id=uid, origin_id=run_key):
-    ...   # tout appel LLM sous ce bloc est enregistré une fois, attribué
+```ts
+await usageScope("routine", { userId: uid, originId: runKey }, async () => {
+  // tout appel LLM sous ce bloc est enregistré une fois, attribué
+});
 ```
 
 ### Providers
 
 `GET /api/admin/stats-dynamic` retourne `layout` (liste ordonnée de widgets) +
 `data` (indexée par id) ; `?ids=a,b` ne recalcule que les widgets demandés
-(chemin de la boucle « live »). `MetricsRegistry.get_dashboard_config()`
-exécute tous les providers **en parallèle** (`ThreadPoolExecutor`).
+(chemin de la boucle « live »). Le registre (`apps/core/src/observabilite/registre.ts`)
+calcule tous les widgets **en parallèle**, en nombre borné.
 
 **Fenêtre d'observation** (`scope_hours` = 24 / 168 / 720, soit 1 j / 7 j /
 30 j) : tout widget dont la valeur dépend d'une période la lit, via
-`_scope_hours()` / `_scope_label()`. Le sélecteur ne touchait auparavant que
-quatre providers sur soixante — un opérateur passé en « 30 j » lisait toujours
-des chiffres à 24 h, et plusieurs titres annonçaient « (24h) » en dur. Les
-jauges instantanées (RAM, disque, taille de base, état du moteur, charge live)
-l'ignorent, à raison ; le test `test_la_fenetre_pilote_vraiment_les_widgets`
-garde cette frontière.
+`scopeHours()` / `scopeLabel()`. Les jauges instantanées (RAM, disque,
+taille de base, état du moteur, charge live) l'ignorent, à raison.
 
-Trois familles : `metrics/engine.py` (adoption, perf, système),
-`_usage_providers.py` (conso, attribution, exploitation — lit `usage_events` et
-`editor_routine_runs`), `_v17_providers.py` (outils). Chaque entrée de `layout`
-porte `default` (appartenance au **set curé** affiché d'emblée, cf.
-`DEFAULT_WIDGETS`) et `purge` (périmètre de réinitialisation, cf.
-`MetricProvider.purge_spec`) — l'IHM n'a donc jamais à connaître le schéma.
+Trois familles dans `apps/core/src/observabilite/fournisseurs/` : `moteur.ts`
+(adoption, perf, système), `usage.ts` (conso, attribution, exploitation — lit
+`usage_events` et `editor_routine_runs`), `outils.ts` (outils). Chaque entrée
+de `layout` porte `default` (appartenance au **set curé** affiché d'emblée, cf.
+`DEFAULT_WIDGETS`) et `purge` (périmètre de réinitialisation, cf. `purgeSpec`)
+— l'IHM n'a donc jamais à connaître le schéma.
 
 | Type | Format `data` |
 |---|---|
@@ -956,76 +972,172 @@ porte `default` (appartenance au **set curé** affiché d'emblée, cf.
 
 ### Séries temporelles
 
-`metrics/series.py` construit d'abord **le calendrier** de la fenêtre, puis y
-verse les agrégats : un seau sans données vaut `0` et chaque libellé porte sa
-date (ISO). Les graphiques horaires groupaient auparavant par `strftime('%H:00')`
-— une fenêtre à cheval sur minuit fusionnait hier-14 h avec aujourd'hui-14 h, et
-les heures creuses (la nuit) disparaissaient au lieu de valoir zéro. Fuseau :
+`observabilite/series.ts` construit d'abord **le calendrier** de la fenêtre,
+puis y verse les agrégats : un seau sans données vaut `0` et chaque libellé
+porte sa date (ISO) ; une fenêtre à cheval sur minuit ne fusionne pas deux
+jours, et les heures creuses valent zéro au lieu de disparaître. Fuseau :
 `metrics.timezone` (vide = serveur), annoncé dans `data.meta.timezone`.
 
 La plage « heures de bureau » (`metrics.business_hours`, défaut 8 h–19 h
 lun–ven) sépare ce qui tourne pendant qu'on regarde de ce qui tourne seul.
 
-Ajouter un widget :
+Ajouter un widget : une entrée de plus dans l'une des familles de
+`observabilite/fournisseurs/`, sur le contrat de `fournisseurs/base.ts` :
 
-```python
-from shared_infra.observability.metrics.engine import MetricProvider, registry
-
-class MonProvider(MetricProvider):
-    id = "mon_id"
-    title = "Mon Widget"
-    type = "bar"        # value | line | bar | doughnut
-    width = "1/2"       # 1/4 | 1/2 | full
-    def get_data(self):
-        return {"labels": [...], "datasets": [...]}
-
-registry.register(MonProvider())
+```ts
+fournisseur({
+  id: "mon_id",
+  title: "Mon widget",
+  type: "bar",        // value | line | bar | doughnut | bar_stacked | table
+  width: "1/2",       // 1/4 | 1/2 | full
+  getData: async (ctx, scope) => ({ labels: [], datasets: [] }),
+});
 ```
 
 ---
 
 ## Frontend
 
-SPA Vue 3 servie en statique. **Aucun bundler, aucune étape de build.**
+Interface Vue 3.5 en TypeScript, workspace npm `@elpis/web` (`frontend/`),
+construite par Vite dans `frontend/dist/` (`npm run build:web`, à la
+préparation de la release ; jamais sur le serveur de production, qui est hors
+ligne). Entrées : `src/entries/main.ts` (application : chat, éditeur,
+routines, Studio…) et `src/entries/admin.ts` (console), précédées de
+`diagnostic.ts` (fenêtre d'erreur si rien n'est monté). `index.html` et
+`admin.html` les posent par `<!-- @entree … -->`, que
+`apps/core/src/interface/pages.ts` remplace par les balises du manifeste Vite
+(noms hachés, cache long).
 
-| Fichier | Rôle |
+| Zone | Rôle |
 |---|---|
-| `app.js` | Orchestrateur : `createApp`, refs racines, chaîne `Échap`, piège de focus a11y, lifecycle, restauration de session |
-| `app-auth.js` | Connexion, déconnexion, config publique |
-| `app-chat.js` | Chat, streaming NDJSON, reconnexion, panneaux |
-| `app-editor.js` | Monaco, arborescence, langages, aperçu, terminal |
-| `app-admin.js` | Console d'administration : navigation, chargement des pages, sauvegarde unifiée |
-| `admin/_registry.js` | Arborescence de la console (source unique : barre latérale, titres, liens profonds, chargeurs de chaque page) |
-| `app-settings.js` | Paramètres, prompts, archives, serveurs MCP, connecteurs |
-| `chat/*.js` | Sous-modules : composeur, menu « / », historique, sampling, rendu, segments d'outils, diff cards, Remote code, Studio d'automatisation, skills, routines, voix |
-| `chat/_slash.js` | Menu « / » du composeur : registre de commandes, arguments, niveaux (commandes / valeurs / skills / prompts). Monté par `_compose.js` |
-| `editor/*.js` | FIM, Git, langages, sandbox FS, aperçus Office, diffs, redimensionnement |
+| `src/platform/http/` | Client REST typé : `ApiResult<T>` (succès, expiration, refus, conflit, annulation, réseau, erreur serveur, payload invalide), décodage `{"detail"}`/422, XHR rattaché à la session ; `fetchAuth`/`fetchJsonAuth` pour les derniers appelants historiques |
+| `src/platform/streams/ndjson.ts` | Lecteur NDJSON du flux de chat |
+| `src/features/auth/` | Session (machine d'état, génération, propriétaires de ressources), connexion, déconnexion, config publique, SSE système (`sse-systeme.ts`) |
+| `src/features/chat/` | Cœur du chat (`coeur/` : `setupChat`, vue du flux `vue-flux.ts`, envoi, reprise, arrêt, rattachement aux runs, parties reliées par `liens.ts`), reducer exhaustif sur `EvenementFlux`, composeur (`composeur/` : menu « / », templates, dépôt), historique et recherche, défilement virtuel, rendu Markdown/SVG purifié (`rendu/`), segments d'outils, modèles |
+| `src/components/chat/` | SFC du chat : colonne (`PageChat`), barre latérale, message, fenêtres (`modales/`) |
+| `src/features/editor/`, `src/components/editor/` | Éditeur : Monaco (ESM, workers), arborescence, onglets, vue scindée, sauvegarde (409/412/503), Git, terminal, aperçus, Office ; `src/features/terminal/` (xterm, sessions) |
+| `src/features/admin/`, `src/components/admin/` | Console : registre des pages (`registre.ts`), navigation, enregistrement par page, palette Ctrl+K (`champs.gen.ts`, généré), pages en SFC (`Page*.vue`) |
+| `src/features/reglages/`, `src/components/reglages/` | Paramètres : apparence et skins, prompts, archives, serveurs MCP, connecteurs, échantillonnage, mémoire |
+| `src/features/{routines,studio,images,voix,mascotte,skills,code}/` et `src/components/` du même nom | Routines, Studio d'automatisation, génération d'images, voix (AudioWorklet), mascottes, skills, page Remote code |
+| `src/utils/`, `src/modeles/` | Fonctions pures (JSON, ANSI, diff de lignes, édition minimale, modèle Office, scénarios et automatisations) |
+| `src/app/racine/`, `src/components/racine/` | Racine de la page : `creerRacine()` (état partagé, session et HTTP, montage des modules), couche commune (toasts, fenêtres de confirmation, menu contextuel), clavier (piège de focus, cascade d'Échap, raccourcis), clic extérieur, défilement du fil, notifications, reprise d'onglet ; `App.vue` (chat) et `AppConsole.vue` (console) |
+| `frontend/test/` | Tests Vitest (projet `web`, happy-dom), même découpage |
 
 ### Règles d'architecture
 
-- **Un seul `ref` racine par concept partagé** (`user`, `settings`, `messages`,
-  `liveLogs`…). Chaque module reçoit ces refs via `sharedRefs` et un `ctx` avec
-  des **getters lazy** pour les références croisées.
-- Le spread des exports dans le `return` est **ordonné** : modules de plus basse
-  priorité d'abord, refs racines en dernier — la ref racine gagne toujours.
+- **Contrats aux frontières.** Tout JSON reçu est `unknown` et validé par les
+  schémas Zod de `@elpis/contracts` (`packages/contracts`, aussi testés contre
+  les réponses du core réel) avant d'entrer dans un modèle. Les événements du
+  flux sont une union discriminée ; le reducer les traite tous, les événements
+  internes ou ignorés sont listés, un événement inconnu est journalisé sans
+  être appliqué.
+- **Domaines injectés.** Chaque fonctionnalité expose un domaine typé, fourni
+  par `provide` sous une clé (`features/chat/page/domaines.ts`,
+  `features/editor/domaine.ts`, `features/admin/domaine.ts`…) et lu par ses
+  composants ; une clé absente est nommée au montage. Pas de `$root`, pas de
+  store global ; état local pour les fenêtres et contrôles.
+- **Objets tiers hors réactivité.** Monaco, xterm, modèles d'éditeur :
+  `shallowRef`/`markRaw` et notifications explicites.
 - **Chat entrelacé** : texte et outils alternent dans l'ordre réel (`segTexts` +
   `step.seg`) ; `tool_history` est envoyé en **delta**, pas en cumul.
+- **Messages gelés** : les messages persistés ne sont pas rendus réactifs
+  (`features/chat/historique/historique.ts`) ; mutations par `setMsgUi`
+  uniquement.
 - **Sérialisation unique** : un seul sérialiseur par payload complexe (ex.
-  `execConfigPayload()` côté admin) — trois sérialiseurs divergents ont déjà
-  causé des régressions silencieuses.
-- **Messages figés** : `Object.freeze` sur les messages persistés, mutations via
-  `setMsgUi` uniquement.
+  `execConfigPayload()` de la console).
+- **Rendu HTML purifié** : Markdown, SVG et aperçus passent par DOMPurify ;
+  aucun `v-html` sur du contenu non purifié.
+- **Hors ligne** : aucune ressource externe ; Monaco et xterm sont des chunks
+  chargés à l'ouverture, Mermaid, ECharts, Chart.js et highlight.js leurs
+  fichiers de distribution copiés par Vite et chargés à la demande
+  (`frontend/vendor.config.mts`, `src/platform/vendor.ts`).
 
-### Pièges connus (templates in-DOM)
+### Racine, pages coquilles et build sans compilateur
 
-- Un `@event` écrit en IIFE **plante** ; utiliser une méthode nommée.
-- Les attributs SVG camelCase doivent passer par un `v-bind` objet.
+- **Pages coquilles.** `index.html` et `admin.html` ne contiennent qu'un point
+  de montage (`<div id="app">`), la fenêtre de diagnostic et deux marqueurs
+  `<!-- @entree … -->` : `diagnostic` (affiche les erreurs capturées si rien
+  n'est monté) puis `main` ou `admin`. Aucun script ni style en ligne : les
+  styles de page vivent dans `src/styles/`. `apps/core/src/interface/pages.ts`
+  développe les marqueurs depuis le manifeste Vite et versionne les statiques
+  (`?v=`).
+- **Racines SFC.** `src/entries/main.ts` et `admin.ts` montent
+  `components/racine/App.vue` (chat) et `AppConsole.vue` (console) par
+  `createApp(…).mount("#app")`. Les deux appellent `creerRacine()`
+  (`src/app/racine/racine.ts`) : état partagé (`user`, `settings`,
+  `messages`…), session et client HTTP, montage des modules (`setupChat`,
+  `setupEditor`, `setupAdmin`, `setupReglages`… ; la console n'embarque ni
+  l'éditeur ni les pages du chat), contexte passé aux modules, cycle de vie
+  (connexion, purge à la déconnexion, reprise d'onglet). L'objet rendu est
+  fourni aux domaines injectés. Parties communes : `chrome.ts` (toasts,
+  annonces, fenêtres de confirmation, de saisie et de choix, menu contextuel),
+  `clavier.ts` (cascade d'Échap, piège Tab des grandes fenêtres, Alt+I,
+  Ctrl+Maj+O), `clic-exterieur.ts`, `notifications.ts`, `opencode.ts`,
+  `defilement.ts`, `session-onglet.ts`. Aucun global n'est publié pour d'autres
+  scripts ; seuls des drapeaux de page (`window.__ADMIN_ONLY_MODE__`, adresses
+  de l'autre processus) sont posés avant le montage (`src/app/page.ts`).
+- **Vue sans compilateur.** `vue` est résolu vers `vue.runtime.esm-bundler.js`
+  (`frontend/vite.config.mts`) : tous les gabarits sont des SFC compilés au
+  build ; un test des mainteneurs échoue si le compilateur revient dans un
+  chunk.
+- **Chargements à la demande.** `src/platform/vendor.ts` (`ensureVendor`)
+  charge Mermaid, highlight.js, Chart.js et ECharts depuis leurs fichiers
+  hachés (carte `virtual:elpis-vendor` posée par l'entrée) ; Monaco, xterm et
+  le moteur d'accueil sont des chunks importés.
+
+### Politique de sécurité du contenu (CSP)
+
+Les pages `/` (chat), `/` et `/admin` (console) reçoivent `POLITIQUE_CSP`
+(`apps/core/src/interface/pages.ts`), posée par
+`apps/core/src/familles/interface.ts` selon `security.csp` de `config.json`,
+relu à chaque page ([configuration](configuration.md#politique-de-sécurité-du-contenu-securitycsp)) :
+
+```
+default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
+img-src 'self' data: blob:; media-src 'self' blob:; object-src 'none';
+base-uri 'self'; frame-ancestors 'self'; form-action 'self'
+```
+
+Aucun script en ligne ni évalué (`eval`, `new Function`) : Zod tourne en mode
+`jitless`, posé par `src/platform/zod-sans-eval.ts`, importé en premier par
+les entrées (un schéma construit avant lirait `jitless` à faux et sonderait
+`new Function`). Chaque ouverture est justifiée par un relevé des violations :
+`'unsafe-inline'` pour les styles (Monaco, Mermaid, xterm, ECharts posent des
+attributs `style` et des `<style>`), `data:` pour les images jointes, les
+logos et les skins, `blob:` pour les captures du navigateur et du Studio et
+pour la lecture vocale. Les aperçus du bac et l'écran de consentement OAuth
+gardent leur propre politique.
+
+Un document `about:srcdoc`, `about:blank`, `blob:` ou `data:` ouvert par la page
+hérite de cette politique : ses scripts en ligne y sont bloqués. Deux cas :
+
+- **Aperçu HTML d'un bloc de code** (`features/chat/rendu/enrichissement.ts`) :
+  l'iframe (`sandbox="allow-scripts"`, origine opaque) charge `/apercu-code`,
+  page fixe du core avec sa propre politique (`POLITIQUE_APERCU_CODE` : bac à
+  sable même ouverte seule, `default-src 'none'`, scripts et styles en ligne,
+  images et médias `data:`/`blob:`, `frame-ancestors 'self'`). Son amorce
+  annonce « prête » à la fenêtre parente, qui lui envoie le HTML par
+  `postMessage` ; elle n'accepte qu'un message de `parent` et l'écrit par
+  `document.write`.
+- **Export PDF** (`features/chat/export.ts`) : la fenêtre d'impression ne
+  contient aucun script ; la page appelle `print()` une fois son document
+  chargé. Relevé dans les vérifications navigateur :
+`ELPIS_CSP_JOURNAL=<fichier>` ;
+`ELPIS_CSP=report-only` pour signaler sans bloquer ; `ELPIS_CSP_POLITIQUE` pose
+la politique sur les pages des faux serveurs.
+
+### Pièges connus
+
 - Ne jamais poser de classe de couleur sur `<body>` (le moteur de skins pose
   `body.elpis-skin-<id>`).
 - Un `sr-only` focusable dans un conteneur scrollable crée un piège de scroll :
   `overflow: clip` + input en `absolute`.
 - Le listener global `Échap` est en **capture** : un `stopPropagation` de
-  composant ne suffit pas, il faut s'insérer dans la chaîne de `app.js`.
+  composant ne suffit pas, il faut s'insérer dans la cascade de
+  `src/app/racine/clavier.ts`.
+- Une ressource d'un nouveau type (police, worker, iframe d'une autre origine,
+  image ou son `blob:`) doit passer la CSP : la relever (`ELPIS_CSP_JOURNAL`)
+  avant d'ouvrir une directive dans `POLITIQUE_CSP`.
 
 ### Styles
 
@@ -1046,7 +1158,7 @@ les autres couleurs sont sémantiques (statut).
   `<id>/skin.json` (`id, label, description, version, author, license,
   darkBase, swatch, tokens: {light, dark}, css?, brand?`), `skin.css`
   facultatif, `assets/` (png, jpg, webp, gif). Validation stricte
-  (`shared_infra/appearance/skins.py`) : jetons `--[a-z0-9-]`, valeurs sans
+  (`apps/core/src/apparence/skins.ts`) : jetons `--[a-z0-9-]`, valeurs sans
   `; { } < > \`, `url(` ni `@` ; feuille sans `@import`, sans URL externe (seuls
   `url(assets/…)` et `data:image/…`), images vérifiées par leurs octets. Le
   serveur génère la feuille (`body.elpis-skin-<id>{…}`, variante
@@ -1076,14 +1188,14 @@ les autres couleurs sont sémantiques (statut).
 ```mermaid
 sequenceDiagram
     participant C as Client (Vue)
-    participant A as main (FastAPI)
-    participant G as llm_scheduling_guard
+    participant A as main (core TS)
+    participant G as ordonnanceur (withLLM)
     participant L as Moteur d'inférence
     participant D as Base
     C->>A: POST /api/chat-saved-stream3
-    A->>A: pré-vol (chat_locks) → 409 si génération en vol
-    A->>A: assemblage contexte + resolve_sampling()
-    A->>G: acquire (exclusivité modèle + sémaphore + breaker)
+    A->>A: admission (verrou de présence) → 409 si génération en vol
+    A->>A: assemblage contexte + resolveSampling()
+    A->>G: acquire (modèle tenu + créneau + disjoncteur)
     G->>L: POST /v1/chat/completions (stream, include_usage)
     loop tokens
         L-->>A: chunk SSE
@@ -1100,8 +1212,8 @@ sequenceDiagram
 - Le streaming est en **NDJSON** (un objet JSON par ligne), lu au `getReader()`.
 - `stream_options.include_usage: true` est obligatoire pour récupérer les tokens
   en streaming.
-- La persistance utilise `expected_updated_at` — un conflit signifie qu'un autre
-  onglet a écrit entre-temps.
+- La persistance compare `updated_at` (concurrence optimiste) — un conflit
+  signifie qu'un autre onglet a écrit entre-temps.
 
 ---
 
@@ -1110,17 +1222,17 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant A as run_chat_multi_mcp (orchestrateur)
-    participant T as call_llm (engine.llm_turn)
+    participant A as runChatMultiMcp (orchestrateur)
+    participant T as callLlm (boucle/tour-llm)
     participant L as Moteur
-    participant D as run_tool_batch (engine.tool_dispatch)
+    participant D as runToolBatch (boucle/dispatch-outils)
     participant M as Pool MCP
     participant S as Conteneur user
     C->>A: POST + catégories/serveurs actifs
-    A->>A: _collect_mcp_tools() (engine.tool_catalog) + tête système byte-stable
+    A->>A: collectMcpTools() (outils/catalogue) + tête système byte-stable
     loop ≤ LLAMA_MAX_TOOL_ITERATIONS (productives)
         A->>T: itération
-        T->>T: porte de compaction · élagage · fit_context
+        T->>T: porte de compaction · élagage · fitContext
         T->>L: chat/completions (tools[], tool_choice=auto)
         L-->>T: flux SSE
         T-->>C: NDJSON {content_token} (émission directe)
@@ -1128,27 +1240,27 @@ sequenceDiagram
         alt appels d'outils (natifs ou écrits en texte)
             A->>D: lot préparé + ChannelSpec (NATIF ou TEXTE)
             D-->>C: NDJSON {tool_call}
-            D->>M: call_tool (timeout LLAMA_TOOL_TIMEOUT_S)
+            D->>M: appel de l'outil (timeout LLAMA_TOOL_TIMEOUT_S)
             M->>S: docker exec (shell) ou agent de la sandbox (fs/git)
             S-->>M: résultat
             M-->>D: résultat (enveloppe ok/err)
             D-->>C: NDJSON {tool_result}
             D-->>A: BatchOutcome → compteurs
         else réponse finale
-            A->>A: finish_ok (engine.run_exit)
+            A->>A: finishOk (boucle/sortie)
         end
     end
 ```
 
 - Le pool MCP **réutilise** les connexions (pas de spawn par requête).
 - Seules les itérations **productives** consomment le budget ; le plafond dur
-  `_hard_iter_cap` (le plus grand de 2 × budget et budget + 10) arrête une
+  `hardIterCap` (le plus grand de 2 × budget et budget + 10) arrête une
   cascade d'échecs. Compteurs et issues :
   [La boucle agentique](#la-boucle-agentique).
 - Si le moteur ne produit pas de `tool_calls` natifs, le canal texte lit les
-  appels écrits dans la réponse avec `extract_tool_calls()` (JSON natif,
-  backticks, multi-objets, XML GLM ; `classify_text_reply`) ; le lot passe
-  ensuite par le même noyau (`run_tool_batch`) que les appels natifs.
+  appels écrits dans la réponse avec `extractToolCalls()` (JSON natif,
+  backticks, multi-objets, XML GLM ; `classifyTextReply`) ; le lot passe
+  ensuite par le même noyau (`runToolBatch`) que les appels natifs.
 - Chaque appel est chronométré et journalisé dans `tool_call_metrics` (base des
   pages Observabilité).
 
@@ -1159,8 +1271,8 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant P as Tour parent
-    participant T as build_task_builtin_tool
-    participant E as Enfant (run_chat_multi_mcp)
+    participant T as buildTaskBuiltinTool
+    participant E as Enfant (runChatMultiMcp)
     participant C as Client
     P->>T: task(agent="explore", prompt="…")
     T->>T: persona AGENT_TASK_EXPLORE + catégories pré-cochées<br/>deny = {task, todowrite, ask_user}
@@ -1174,17 +1286,17 @@ sequenceDiagram
     Note over T,P: seul le rapport remonte — pas le contexte de l'enfant
 ```
 
-- **Isolation à deux couches** : `deny_tool_names` s'applique aussi aux
-  catégories cachées et aux builtins (contrairement à `allowed_tool_names`).
+- **Isolation à deux couches** : `denyToolNames` s'applique aussi aux
+  catégories cachées et aux builtins (contrairement à `allowedToolNames`).
 - **Reprise** : re-passer le `task_id` continue le **même** enfant avec son
   historique (store partagé, TTL `TASK_RESUME_TTL_S`, cap `TASK_RESUME_MAX`).
   Vaut aussi pour les runs interrompus : le travail partiel est reconstruit
   depuis les events et l'enveloppe d'erreur porte le `task_id` à reprendre.
-- **Annulation par-enfant** : `POST /api/chat/task-cancel` → application locale
-  + diffusion sur `cancel_bus`. Sans la diffusion, le ✕ n'agissait qu'une fois
-  sur N.
-- **Récursion opt-in** : un enfant à profondeur *d* reçoit `task` ssi
-  *d+1 < `TASK_SUBAGENT_DEPTH`*.
+- **Annulation par-enfant** : `POST /api/chat/task-cancel` annule UN
+  sous-agent sans toucher au tour parent (`outils/integres/taches-agents.ts`).
+- **Aucune récursion** : un sous-agent ne reçoit jamais `task`, quel que soit
+  `TASK_SUBAGENT_DEPTH` (sans effet) ; le core et l'hôte d'outils refusent un
+  appel `task` venu d'un sous-agent.
 
 ---
 
@@ -1205,12 +1317,12 @@ sequenceDiagram
     end
 ```
 
-- Le RAG est un **service séparé** : aucun import direct de `rag_app.*` dans le
-  chatbot, tout passe par HTTP.
+- Le RAG est un **service séparé** (Python) : le core le joint en HTTP
+  (`apps/core/src/rag/`).
 - L'enrichissement **préfixe** le dernier message utilisateur.
 - Les sources partent en NDJSON **avant** les tokens pour que l'UI puisse les
   afficher immédiatement.
-- Le RAG est aussi exposé comme **outil** (`build_rag_builtin_tools`) pour que
+- Le RAG est aussi exposé comme **outil** (`buildRagBuiltinTools`) pour que
   le modèle puisse interroger une collection de sa propre initiative.
 
 ---
@@ -1235,9 +1347,9 @@ sequenceDiagram
   rien — le modèle voit qu'il a commencé et poursuit.
 - **Pas de bouton pour les modèles thinking** : reprendre une chaîne de pensée
   incomplète donne des résultats incohérents.
-- ⚠ La régression « Génération interrompue » venait du calcul de la
-  `tool_history` du run (`RunRecord.run_tool_history`, `llm_core/engine/run.py`) :
-  elle doit être un **delta**, pas un cumul.
+- ⚠ L'historique d'outils d'un run (`RunRecord.runToolHistory`,
+  `boucle/run.ts`) est un **delta**, pas un cumul : un cumul faisait
+  apparaître « Génération interrompue ».
 
 ---
 
@@ -1249,8 +1361,8 @@ sequenceDiagram
     participant M as main :8001
     participant Adm as admin :8002
     C->>M: POST /api/login-lite
-    M->>M: verify_user ; sinon bootstrap admin (1er compte "admin" seulement)
-    M->>M: session.clear() — anti-fixation
+    M->>M: verifyUser ; sinon bootstrap admin (1er compte "admin" seulement)
+    M->>M: session vidée — anti-fixation
     M-->>C: Set-Cookie session (scope HOST)
     C->>Adm: clic bouclier → :8002 (même cookie)
     Note over M,Adm: même APP_SESSION_SECRET → cookies interopérables
@@ -1264,14 +1376,14 @@ sequenceDiagram
   il faut le mot de passe initial de `user_db/.bootstrap_admin` (0600, créé au
   premier besoin, à changer à la connexion). Tout le reste → 401, avec un audit
   distinguant `bootstrap_locked`, `bootstrap_denied` et `bad_password`.
-- **Anti-fixation de session** : `request.session.clear()` **avant** d'associer
+- **Anti-fixation de session** : la session est vidée **avant** d'associer
   le compte.
 - **Révocation** : `revoked_sessions` + `security.session.global_min_ts`
   permettent de couper toutes les sessions d'un utilisateur, ou toutes.
 - Les attributs du cookie viennent d'une **source unique**
-  (`session_cookie_attrs()`) — sans quoi le middleware émettait des cookies avec
-  d'anciens attributs pendant que le logout tentait de les supprimer avec les
-  nouveaux, et Chrome/Safari refusaient la suppression.
+  (`sessionCookieAttrs()`, `packages/config/src/vivant.ts`) : la pose et
+  l'effacement du cookie utilisent toujours les mêmes, sinon Chrome et Safari
+  refusent la suppression.
 
 ---
 
@@ -1280,37 +1392,38 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant T as Tick (60 s)
-    participant K as cron_lock
-    participant S as routines_scheduler
+    participant K as meneur (verrou)
+    participant S as planificateur
     participant D as Base
-    participant R as run_chat_multi_mcp
-    T->>K: try_acquire_cron_lock() (re-sondé à CHAQUE tick)
+    participant R as runChatMultiMcp
+    T->>K: prise du verrou elpis.verrou.v1.1 (re-sondé à CHAQUE tick)
     K-->>S: leader ? sinon on ne fait rien
-    S->>D: list_enabled_routines + évaluation cron (minute COURANTE seulement)
-    S->>D: claim_minute_fire (anti double-fire au handoff)
-    S->>D: admit_and_insert_run (BEGIN IMMEDIATE — cap par user)
+    S->>D: listEnabledRoutines + évaluation cron (minute COURANTE seulement)
+    S->>D: claimMinuteFire (anti double-fire au handoff)
+    S->>D: admitAndInsertRun (transaction d'écriture — cap par user)
     S->>R: exécution headless, priority="low"
     loop
-        S->>D: heartbeat_run (60 s)
+        S->>D: heartbeatRun (60 s)
     end
     R-->>S: résumé + fichiers + tokens
-    S->>D: mark_run_ok / mark_run_error
-    S->>D: list_chained_routines → déclenche les routines aval
+    S->>D: markRunOk / markRunError
+    S->>D: listChainedRoutines → déclenche les routines aval
 ```
 
 - **Skip-catch-up** : seule la minute courante est évaluée — un leader qui
   reprend après une coupure ne rejoue pas les heures manquées.
-- **Admission atomique** en `BEGIN IMMEDIATE` : correcte même cross-worker et
-  même mêlée aux « run-now » servis par d'autres workers.
+- **Admission atomique** dans une transaction d'écriture : correcte même
+  mêlée aux « run-now » lancés depuis l'interface.
 - **Réconciliation** : un run dont le heartbeat est figé > 5 min est marqué
   orphelin.
 - **Reprise bornée** : une exception qui s'échappe de la boucle est presque
   toujours un échec **précoce** (moteur injoignable) avant tout effet de bord —
   une reprise est donc sûre. On ne retente **jamais** une annulation.
-- **Enchaînement** : profondeur bornée (`CHAIN_MAX_DEPTH`) pour couper les
-  cycles.
-- **Drain au shutdown** : `drain_running_runs()` est appelé dans le lifespan
-  **avant** la fermeture du pool MCP et du client LLM.
+- **Enchaînement** : profondeur bornée (`ROUTINES_CHAIN_MAX_DEPTH`, 5) pour
+  couper les cycles.
+- **Drain à l'arrêt** : le planificateur annule et attend ses runs
+  (`drainer()`, `apps/core/src/routines/planificateur.ts`) **avant** la
+  fermeture du pool MCP et du client LLM.
 
 [↑ Sommaire](#sommaire)
 
@@ -1372,13 +1485,13 @@ Réponse : `{"ok": true, "is_admin": false, "must_change_pwd": false}`
 **Plafond des conversations actives** — `app.max_recent_chats` (défaut `100`,
 champ admin « Conversations récentes », surchargeable par `APP_MAX_RECENT_CHATS`)
 borne la liste `archived=0` **et** le nombre de résultats de recherche. Ce n'est
-pas qu'un plafond d'affichage : `enforce_recent_chats_cap` (`shared_infra/chat/store.py`)
+pas qu'un plafond d'affichage : `enforceRecentChatsCap` (`apps/core/src/chats/stockage.ts`)
 **SUPPRIME** les conversations au-delà, les plus anciennes d'abord, à chaque
 création / (dés)archivage / fin de tour. Baisser ce réglage détruit donc des
 conversations — l'archivage est le seul moyen de sortir un chat du décompte sans
-le perdre. La valeur est relue à chaud (`shared_infra.config.max_recent_chats()`,
-même patron que `feature_enabled`) : un changement admin s'applique sans
-redémarrage et sur tous les workers.
+le perdre. La valeur est relue à chaud (`maxRecentChats()`,
+`packages/config/src/vivant.ts`, même patron que `featureEnabled`) : un
+changement admin s'applique sans redémarrage.
 
 ---
 
@@ -1406,7 +1519,7 @@ redémarrage et sur tous les workers.
 | Champ | Type | Description |
 |---|---|---|
 | `chat_id` | string | Vide → création |
-| `messages` | array | Historique `[{role, content}]` — rôles acceptés : `user`, `assistant`, `system`, `tool`, `notice` (`_CLIENT_ROLES`, `chatbot_app/turn/history.py`) |
+| `messages` | array | Historique `[{role, content}]` — rôles acceptés : `user`, `assistant`, `system`, `tool`, `notice` (`CLIENT_ROLES`, `apps/core/src/tour/historique.ts`) |
 | `active_mcp_servers` | array | Catégories locales + `ext:<id>` + `shared:<n>` |
 | `use_rag` + `rag_*` | — | Mode RAG et ses réglages |
 | `model` / `connector_id` | string / int | Couple atomique (modèle, connecteur) |
@@ -1419,7 +1532,7 @@ redémarrage et sur tous les workers.
 
 > La **lecture seule** (`/plan`) n'est volontairement PAS dans ce tableau : elle
 > est relue en base (`meta_json["plan_mode"]`) par la préparation du tour
-> (`prepare_turn`), jamais reçue du client. Un onglet resté ouvert ne doit pas
+> (`prepareTurn`), jamais reçue du client. Un onglet resté ouvert ne doit pas
 > pouvoir récupérer les outils d'écriture en envoyant un état périmé. La seule
 > entrée côté client est le corps du `POST /api/saved/chats/new` (mode
 > **armé** sur un chat vierge, scellé à la création — le pré-vol de
@@ -1427,8 +1540,8 @@ redémarrage et sur tous les workers.
 > `system_prompts/PLAN_MODE.md` (repli en dur si absent).
 >
 > Le mode est **ONE-SHOT** : le plan rendu, le serveur coupe lui-même
-> `meta_json["plan_mode"]` en fin de tour abouti (`_plan_mode_should_end`,
-> `chatbot_app/turn/persistence.py`) et le signale au front par
+> `meta_json["plan_mode"]` en fin de tour abouti (`planModeShouldEnd`,
+> `apps/core/src/tour/persistance.ts`) et le signale au front par
 > `plan_mode_done` dans l'event `final`. Une
 > **troncature** (plafond tokens / limite d'outils) ne coupe PAS : le
 > « Continuer » doit reprendre EN mode plan. Annulation, erreur, persist en
@@ -1436,16 +1549,17 @@ redémarrage et sur tous les workers.
 >
 > Le rôle **`notice`** est un marqueur d'INTERFACE (« conversation compactée »)
 > qui doit traverser le round-trip client pour rester dans le fil, mais qui
-> n'atteint **jamais** le modèle (`_expand_history_for_llm`,
-> `chatbot_app/turn/history.py`, l'exclut ; un rôle inconnu vaut un 400 côté
-> template). Corollaire à ne pas oublier : `msgs` peut se terminer par une
-> notice — la fusion « Continue » passe donc par `_split_for_continue`, pas
-> par `msgs[-1]`.
+> n'atteint **jamais** le modèle (`expandHistoryForLlm`,
+> `apps/core/src/tour/historique.ts`, l'exclut ; un rôle inconnu vaut un 400
+> côté template). Corollaire à ne pas oublier : l'historique peut se terminer
+> par une notice — la fusion « Continue » passe donc par `splitForContinue`,
+> pas par le dernier message.
 
 ### Types d'événements NDJSON
 
-Registre de référence : `llm_core/engine/stream_events.py` (un test vérifie
-que l'interface ne lit et que la route n'émet aucun type hors registre).
+Registre de référence : `packages/contracts/src/stream-events.gen.ts`
+(`@elpis/contracts` ; l'interface ne lit et la route n'émet aucun type hors
+registre).
 
 | `type` | Description |
 |---|---|
@@ -1479,41 +1593,42 @@ que l'interface ne lit et que la route n'émet aucun type hors registre).
 
 ### Ordre des événements d'un tour
 
-Recopié de l'en-tête de `chatbot_app/routes/chats.py`, qui fait foi ; figé
-par `tests/chatbot/test_flux_route.py` :
+Écrit et tenu à jour dans [apps/core/src/tour/README.md](../apps/core/src/tour/README.md) :
 
-1. avec RAG : `mode`, puis `rag_sources` ou `info` (service en panne) ;
-2. `mode` (« Génération en cours… » ou serveurs MCP actifs) ;
+1. avec RAG : `mode`, puis `rag_sources` s'il y a des sources, ou `info`
+   seul (service en panne) ;
+2. `mode` (serveurs MCP actifs et/ou « RAG Outils ») ;
 3. `queue_status` si le moteur n'est pas prêt, puis éventuellement
    `thinking` « En attente… » et d'autres `queue_status` pendant l'attente
    d'un créneau ;
 4. `queue_cleared` (seulement si un `queue_status` est parti) ;
-5. chemin classique : jetons (`thinking_token`, `content_token`), puis
-   `thinking_content` / `content_replace` si le raisonnement est
-   réattribué ; chemin outils : `mode` « Outils prêts… » puis les événements
-   de la boucle (`tool_call`, `tool_result`, jetons…) ;
+5. `mode` « Outils prêts… » puis les événements de la boucle (`tool_call`,
+   `tool_result`, jetons, compression…) ;
 6. `kv_cache`, seulement si l'occupation du contexte a pu être mesurée ;
+   `error` en cas de panne ;
 7. `final` (réponse, métriques, `persisted`), puis fin du flux.
 
-Variantes : panne → `queue_cleared` si besoin, `error`, puis `final`
-partiel ; Stop pendant l'attente du moteur → `queue_cleared` puis `final`
-partiel ; Stop pendant la génération → plus aucun événement sauf le `final`
-partiel. `ping` peut s'intercaler à tout moment (flux inactif).
+Variantes : panne → `error`, puis `final` partiel ; Stop pendant l'attente du
+moteur → `final` partiel ; Stop pendant la génération → plus aucun événement
+sauf le `final` partiel (et le `task_step` final d'un sous-agent). Pendant le
+chargement d'un modèle, `queue_status` est republié à chaque pas puis suivi
+de son propre `queue_cleared`. `ping` peut s'intercaler à tout moment (flux
+inactif).
 
 ### Contrôle
 
-Routes de `chatbot_app/routes/chat_control.py`, sauf la compression manuelle
-(`chat_compression.py`) et la lecture seule (`saved_chats.py`).
+Routes de `apps/core/src/familles/chat-controle.ts`, sauf la compression
+manuelle (`chat-compression.ts`) et la lecture seule (`chats.ts`).
 
 | Endpoint | Description |
 |---|---|
-| `POST /api/chat/cancel` | Annule la génération (diffusé sur `cancel_bus`) |
+| `POST /api/chat/cancel` | Annule la génération (AbortSignal du tour) |
 | `POST /api/chat/reasoning-end` | « Répondre maintenant » : coupe le raisonnement en cours |
 | `POST /api/chat/task-cancel` | Annule **un** sous-agent sans tuer le tour |
 | `POST /api/chat/{id}/compress` | Compaction manuelle (`/compact`) ; `POST /api/chat/compress` (sans identifiant) est obsolète et sans effet |
 | `PUT /api/saved/chats/{id}/plan-mode` | Bascule la **lecture seule** du chat (`/plan`) — booléen strict, 422 sinon |
 | `GET /api/chat/{id}/compression-state` | État de compaction |
-| `GET /api/chat/{id}/generation-status` | Génération en vol ? (visible cross-worker) + de quoi s'y rattacher : `run_id`, `resumable`, `base_count`, `user_message`, `is_continue`, `engine_key`. Un journal clos (`final` émis) vaut « fini » même si le worker tient encore le verrou |
+| `GET /api/chat/{id}/generation-status` | Génération en vol ? + de quoi s'y rattacher : `run_id`, `resumable`, `base_count`, `user_message`, `is_continue`, `engine_key`. Un journal clos (`final` émis) vaut « fini » même si le tour tient encore le verrou |
 | `GET /api/chat/{id}/run/events?run_id=&from=` | **Rattachement** : rejoue le journal du run puis suit le direct (NDJSON, même format que le flux d'envoi). `replay_done` marque le passage au direct ; `run_end` / `run_lost` terminent |
 | `GET /api/chats/active-runs` | Conversations de l'utilisateur dont un run tourne (pastilles de la barre latérale) |
 
@@ -1521,7 +1636,7 @@ Routes de `chatbot_app/routes/chat_control.py`, sauf la compression manuelle
 
 Quitter une conversation qui génère **arrête la lecture** de son flux ; le run
 continue côté serveur (`resumable` ⇒ détachement) et journalise ses événements
-dans `shared_infra/runtime/run_journal.py` :
+dans `apps/core/src/tour/journal-run.ts` :
 
 ```
 <RUNTIME_DIR>/chat_runs/u<uid>-<sha(chat)>/current.json    pointeur (run_id, base_count, user_message, engine_key…)
@@ -1529,8 +1644,8 @@ dans `shared_infra/runtime/run_journal.py` :
 <RUNTIME_DIR>/chat_runs/u<uid>-<sha(chat)>/<run_id>.end    marque de fin
 ```
 
-Un seul écrivain (le worker du run, lots de 100 ms en thread) ; n'importe quel
-worker relit. Plafond `llm.run_journal_max_mb` (64 Mo, puis seuls les
+Un seul écrivain (le tour, lots de 100 ms qui ne bloquent jamais) ; toute
+lecture repart du disque, y compris après un redémarrage. Plafond `llm.run_journal_max_mb` (64 Mo, puis seuls les
 événements structurants), rétention 10 min après la fin (24 h pour un
 orphelin), racine refusée si elle n'est pas privée au compte. Revenir sur la
 conversation (`loadChat`), recharger la page ou ouvrir le chat sur un autre
@@ -1566,27 +1681,29 @@ et un conflit dû à un simple renommage est rattrapé (`_persist_turn`).
 
 ### Plusieurs serveurs d'inférence
 
-`llm_core/engines.py` — `EngineRef` (`builtin` | `conn:<id>`) : les appels propres
-à llama.cpp (`/props`, `/tokenize`, `/apply-template`, `/slots`, `/models`,
-`/models/load|unload|sse`, contrôle du raisonnement, arrêt de flux) visent le
-serveur de la **cible courante** (`current_engine()`, dérivée du contextvar de
-`_target`), avec son en-tête d'authentification ; hors tour de chat, l'intégré.
+`apps/core/src/llm/moteurs.ts` — `EngineRef` (`builtin` | `conn:<id>`) : les
+appels propres à llama.cpp (`/props`, `/tokenize`, `/apply-template`, `/slots`,
+`/models`, `/models/load|unload|sse`, contrôle du raisonnement, arrêt de flux)
+visent le serveur de la **cible courante** (`currentEngine()`, dérivée de la
+cible du tour), avec son en-tête d'authentification ; hors tour de chat,
+l'intégré.
 Un fournisseur qui n'est pas llama.cpp ne reçoit aucune de ces sondes. Les
 caches par modèle sont indexés par serveur (`EngineRef.cache_key` : clé
 inchangée pour l'intégré, `conn:<id>|<modèle>` sinon). Chaque connecteur
-llama.cpp a son ordonnanceur (`llm_core/_scheduling/_engines.py` › `scheduling_for` : verrou
-d'exclusivité dans son espace Redis, gestionnaire dimensionné par
-`max_models` / `max_concurrency`, migration 0019) et son disjoncteur.
+llama.cpp a sa file dans l'ordonnanceur du process
+(`apps/core/src/llm/ordonnanceur/process.ts`, dimensionnée par `max_models` /
+`max_concurrency`, relue en base) et son disjoncteur.
 
 ⚠ Avant : un tour destiné à un second serveur envoyait `/tokenize` et
 `/props?model=` à l'**intégré** avec le nom du modèle distant — sur un routeur
 llama.cpp, nommer un modèle le charge (autoload) : deux serveurs aux mêmes noms
-de modèles, et l'intégré chargeait le modèle homonyme à chaque tour. Test de
-non-régression : `tests/llm_core/test_moteurs_sans_fuite_2026_09_16.py`.
+de modèles, et l'intégré chargeait le modèle homonyme à chaque tour. Les
+tests des mainteneurs gardent cette non-régression.
 
 La route de chat résout la cible en **strict** : connecteur supprimé, désactivé,
-illisible, d'un fournisseur retiré de `llm.allowed_provider_types` (connecteurs
-PERSO) ou refusé par la politique d'accès ⇒ `409 {code: engine_unavailable}`,
+illisible, d'un type cloud que `llm.allowed_provider_types` n'ouvre pas aux
+comptes non administrateurs (connecteurs PERSO) ou refusé par la politique
+d'accès ⇒ `409 {code: engine_unavailable}`,
 jamais de repli silencieux sur l'intégré.
 
 **Qui porte le serveur choisi** : le chat (`connector_id` du POST),
@@ -1596,10 +1713,10 @@ serveur du chat), et les **routines** via leur colonne `connector_id` — valid�
 posée dans le contexte de la tâche à l'exécution, donc suivie par les sondes,
 l'ordonnanceur, le disjoncteur et les appels.
 
-Politiques d'accès (`engine_access`) : cache par process de 3 s, **plus** une
-empreinte partagée (mtime d'un témoin du répertoire d'exécution) touchée à
-chaque écriture de politique ou changement de groupes — les autres workers
-rechargent à la lecture suivante au lieu d'attendre le TTL.
+Politiques d'accès (`apps/core/src/llm/acces-moteurs.ts`) : cache par process
+de 3 s, **plus** une empreinte partagée (mtime d'un témoin du répertoire
+d'exécution) touchée à chaque écriture de politique ou changement de groupes —
+main et admin rechargent à la lecture suivante au lieu d'attendre le TTL.
 
 ---
 
@@ -1607,21 +1724,21 @@ rechargent à la lecture suivante au lieu d'attendre le TTL.
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/settings` · `PUT /api/settings` | Réglages per-user (whitelist `_USER_SETTINGS_ALLOWED`) |
+| `GET /api/settings` · `PUT /api/settings` | Réglages per-user (clés permises : `apps/core/src/comptes/reglages.ts`) |
 | `GET /api/config` · `PUT /api/config` | Copie personnelle de la config d'application |
 | `POST /api/settings/avatar` · `DELETE` | Avatar utilisateur (max 5 Mo) |
-| `POST /api/settings/assistant-avatar` | Avatar de l'assistant |
+| `POST /api/settings/assistant-avatar` | Refusée (403) : l'avatar de l'assistant est le logo de l'application ([écart](ecarts-python.md#avatar-de-lassistant-et-logo-de-lapplication)) |
 | `GET /avatars/{filename}` | Service des avatars (garde cross-site) |
 | `GET /api/users/lite` | Annuaire léger (partages) |
 | `GET /api/skins` | Skins activés par l'administrateur, défaut d'instance, mascottes (voir [Skins](#skins)) |
 | `GET /api/usage/me?days=7\|30\|90` | Consommation personnelle |
 
-Le `PUT /api/settings` applique une **fusion atomique** (`merge_user_settings`
-sous `BEGIN IMMEDIATE`) : un PUT partiel n'efface jamais les autres réglages, et
+Le `PUT /api/settings` applique une **fusion atomique** (`mergeUserSettings`
+dans une transaction d'écriture) : un PUT partiel n'efface jamais les autres réglages, et
 il n'y a pas de course lecture-modification-écriture. `sandbox_mode` et
 `network_profile_id` sont **retirés du payload** (ils ne se modifient que par
 `/api/sandbox/me`). `custom_agents` est validé par la **source de vérité unique**
-`llm_core.tools.task_tool.validate_custom_agents`.
+`validateCustomAgents` (`apps/core/src/outils/integres/taches-agents.ts`).
 
 ---
 
@@ -1659,18 +1776,12 @@ il n'y a pas de course lecture-modification-écriture. `sandbox_mode` et
 | `POST /api/sandbox/clear` | Purge |
 | `GET/POST/DELETE /api/sandbox/me` · `POST /api/sandbox/me/restart` | Conteneur : état, profil réseau, redémarrage |
 
-> **Toutes les mutations passent par le conteneur.** `shared_infra/sandbox/exec_bridge.py`
-> route les écritures/suppressions/renommages via `UserSandbox.exec()`
-> (`docker exec --user 10001:10001`), pour que **tout** fichier appartienne au
-> même UID que ce que crée le terminal. Sans ça : « je crée le dossier dans le
-> terminal, je ne peux pas le supprimer depuis l'éditeur » (et inversement). Les
-> **lectures** restent host-side (elles n'ont pas besoin de droits d'écriture) ;
-> repli `docker exec cat` pour un fichier en 0600.
->
-> `fs_tools` et `git_tools` passent par l'agent de la
-> sandbox (`shared_infra/sandbox/agent/`) : fichiers et commandes Git
-> s'exécutent dans le conteneur, sous son UID ; le réseau Git passe par le
-> relais de l'hôte (`git_relay`).
+> **Toutes les opérations sur `/work` passent par le conteneur.** Fichiers,
+> éditeur, archives et Git sont exécutés par l'agent de la sandbox
+> (`shared_infra/sandbox/agent/`, joint par `@elpis/fichiers`), le terminal et
+> le shell par `docker exec --user 10001:10001` : **tout** fichier appartient au
+> même UID, qu'il soit créé par le terminal, l'éditeur ou l'agent. Le réseau
+> Git passe par le relais de l'hôte (`packages/fichiers/src/relais-git.ts`).
 
 ---
 
@@ -1687,13 +1798,15 @@ service depuis une URL), `POST /{id}/test`, `GET /{id}/repos`.
 
 - Store **host-only**, keyé par `(owner_user_id, host[, label])` → self-hosted +
   multi-comptes.
-- Le token n'est **jamais** renvoyé par le listing ; seuls `find_for_host` /
-  `find_for_provider` (résolveur host-side) le déchiffrent.
+- Le token n'est **jamais** renvoyé par le listing ; seuls les résolveurs
+  côté hôte (`findForHost`, `resolveGitCredential`,
+  `apps/core/src/git/connecteurs.ts`) le déchiffrent.
 - Providers : `github`, `gitlab`, `bitbucket-cloud`, `bitbucket-server`,
   `gitea`, `generic`. Chacun sait ouvrir une PR/MR.
-- **Anti-SSRF** (`shared_infra/git/ssrf.py`) sur les URLs distantes.
+- **Anti-SSRF** (`packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts`)
+  sur les URLs distantes.
 - L'authentification est ajoutée par le relais Git de l'hôte
-  (`shared_infra/sandbox/git_relay.py`) — aucun identifiant n'entre dans la
+  (`packages/fichiers/src/relais-git.ts`) — aucun identifiant n'entre dans la
   sandbox.
 
 ---
@@ -1719,9 +1832,10 @@ service depuis une URL), `POST /{id}/test`, `GET /{id}/repos`.
 | `POST /api/terminal/input` · `/resize` · `/kill` | Session par défaut (legacy) |
 | `GET /api/admin/terminal/stats` | Statistiques (admin) |
 
-`pty.fork()` côté serveur, `umask 0022` (fichiers 0644, dossiers 0755, comme
-l'agent et les commandes), quota vérifié pendant l'exécution (le PTY est tué si le
-quota explose), reaper des sessions inactives par worker.
+PTY servi par l'hôte d'outils (`apps/toolhost/src/terminal/`, node-pty),
+`umask 0022` (fichiers 0644, dossiers 0755, comme l'agent et les commandes),
+quota vérifié pendant l'exécution (le PTY est tué si le quota explose), reaper
+des sessions inactives.
 
 ---
 
@@ -1770,7 +1884,7 @@ quota explose), reaper des sessions inactives par worker.
 | Endpoint | Description |
 |---|---|
 | `GET /api/skills` · `GET /api/skills/{name}` | Lister / détail (scope `user`/`learned`/`global`) |
-| `POST /api/skills` · `PUT /{name}` · `DELETE /{name}` | CRUD (learned/global ⇒ admin) — check+write atomiques (RLock + `flock`) |
+| `POST /api/skills` · `PUT /{name}` · `DELETE /{name}` | CRUD (learned/global ⇒ admin) — check+write atomiques (RLock + verrou de fichier) |
 | `GET /api/skills/file` · `GET /api/skills/{name}/export` | Ressources bundlées / export |
 | `POST /api/skills/import` · `/import-folder` | Import (`?overwrite=1` pour écraser) |
 | `POST /api/skills/promote` | `learned` → `global` (curation admin) |
@@ -1802,10 +1916,10 @@ quota explose), reaper des sessions inactives par worker.
 | `POST /api/webhooks/routines/{id}` | **Point d'entrée public** (secret + dédup + filtre) |
 
 Le secret webhook est généré côté serveur, montré **une seule fois**, et
-strippé de toutes les lectures. La dédup des livraisons est en base (un dict
-in-process serait faux en multi-worker) avec purge TTL.
+strippé de toutes les lectures. La dédup des livraisons est en base, avec
+purge TTL.
 
-> Le webhook applique un rate-limit grossier par IP et par worker
+> Le webhook applique un rate-limit grossier par IP
 > (120 requêtes / 60 s, 429 au-delà) ; une borne globale relève du frontal.
 
 ---
@@ -1882,8 +1996,8 @@ a de `-k` nulle part. Trois temps :
    le magasin de l'OS**, donc le greffon a besoin du chemin explicite même sur un
    poste où la CA est installée.
 
-Contrat verrouillé par `tests/shared_infra/test_install_bootstrap_contract.py`
-et `test_cli_route.py` ; l'installeur desktop partage les deux mêmes sources.
+Contrat verrouillé par les tests des mainteneurs ; l'installeur desktop
+partage les deux mêmes sources.
 
 **Démarrage instantané hors ligne (correctif des 30 s – 1 min 30).** Dès qu'un
 greffon est présent, opencode lance un `npm install @opencode-ai/plugin` dans
@@ -1904,9 +2018,9 @@ Sessions opencode **remontées et pilotables** depuis la page « Remote code ».
 L'utilisateur lance `opencode` où il veut avec le greffon `elpis-remote` (déposé
 par l'installeur, servi par `GET /api/code/plugin.js`) ; la commande
 `/remote <jeton>` active la remontée. Gaté par `features.opencode`.
-Backend : `shared_infra/opencode/routes_code.py` + store `shared_infra/opencode/store.py`.
+Backend : `apps/core/src/familles/code.ts` + magasin `apps/core/src/code/magasin.ts`.
 
-### Architecture (multi-worker safe)
+### Architecture
 
 - Le greffon **pousse** les events opencode bruts (`session.*`,
   `message.updated`, `message.part.updated` avec coalescing 150 ms,
@@ -1917,10 +2031,9 @@ Backend : `shared_infra/opencode/routes_code.py` + store `shared_infra/opencode/
   `code_messages`, `code_parts`, `code_clients` (tombstone `bye`),
   `code_commands`, `code_meta`, `code_notes` (traces de commandes),
   `code_permissions`, `code_questions`. Transactions courtes ; le **claim** des commandes est
-  atomique (`BEGIN IMMEDIATE`) avec routage par propriétaire de session → deux
-  pulls concurrents ne consomment jamais deux fois la même commande. Le
-  long-poll fait du polling DB court (0,4 s) — les `asyncio.Event` ne traversent
-  pas les workers. Pruning throttlé.
+  atomique (transaction d'écriture) avec routage par propriétaire de session →
+  deux pulls concurrents ne consomment jamais deux fois la même commande. Le
+  long-poll fait du polling DB court (0,4 s). Pruning throttlé.
 - **Déconnexion propre** : à la fermeture, le greffon envoie
   `POST /api/code/bye`. ⚠ En mode serve, le hook `dispose` n'est **pas** invoqué
   sur SIGINT/SIGTERM → le greffon écoute les signaux et lance un **curl
@@ -1975,10 +2088,10 @@ Backend : `shared_infra/opencode/routes_code.py` + store `shared_infra/opencode/
   d'un SDK futur est préféré s'il existe, fetch brut sur `serverUrl` en dernier
   recours. Un client hey-api ne throw pas sur 4xx : `{error}` est traduit en
   échec + toast TUI. Vérifié E2E sur le binaire 1.18.16 (mock LLM appelant
-  l'outil `question`) ; Bun smoke `tests/opencode_plugin/smoke.ts` § 5b.
-- **SSE** : `GET /api/code/stream` filtre les events `code.event` du bus
-  multi-worker — l'ingest peut arriver sur n'importe quel worker.
-- **Epoch persisté** (`code_meta`) : stable entre workers et redéploiements — le
+  l'outil `question`) et par un essai Bun des mainteneurs.
+- **SSE** : `GET /api/code/stream` filtre les events `code.event` du bus par
+  compte (`apps/core/src/evenements/pipeline.ts`).
+- **Epoch persisté** (`code_meta`) : stable entre redémarrages et redéploiements — le
   greffon ne re-snapshotte que si la base a réellement été réinitialisée.
 - **Sessions VIDES** (v13) : le greffon publie aussi les sessions sans message.
   Les versions ≤ v12 les retenaient pour éviter des entrées fantômes au
@@ -2005,7 +2118,7 @@ Backend : `shared_infra/opencode/routes_code.py` + store `shared_infra/opencode/
   clients actifs) + `plugin_current` → pastille « greffon à mettre à jour ».
   Version courante du greffon : **v14** (source unique : `const PLUGIN_VERSION`
   parsé du `.ts` ; le shim de migration doit répliquer le même nombre, sinon
-  `routes_code.py` refuse de s'importer).
+  le core refuse de servir le greffon, `apps/core/src/code/greffon.ts`).
 - **`/remote status` dit la vérité** (v12) : il fait un vrai aller-retour
   `/hello` et affiche l'état local **et** celui du lien (app injoignable, jeton
   refusé, identité). Auparavant il ne rapportait que `enabled`, qui reste vrai
@@ -2022,7 +2135,7 @@ barre de prompt du chat, largeur = réglage `chat_width`.
   du modèle (remonté par le greffon ; `_generate_opencode_config` propage aussi
   les `n_ctx` **déjà connus** du cache — jamais de sonde, `/props?model=X`
   chargerait le modèle). Limite inconnue → chip « N tk » sans %.
-- **Rendu riche** (`js/chat/_code_render.js`) : markdown, thinking **replié par
+- **Rendu riche** (`frontend/src/features/code/rendu.ts`, `components/code/PageCode.vue`) : markdown, thinking **replié par
   défaut**, erreurs en tokens de danger, et une **ligne par appel d'outil** —
   celle du TUI : état, nom, *sujet* et *métrique* tirés des métadonnées que
   l'outil publie réellement (`filepath`/`filediff`, `command`+`exitCode`,
@@ -2076,9 +2189,7 @@ barre de prompt du chat, largeur = réglage `chat_width`.
   dépliable. Un `write` ne produit aucun diff côté opencode (il n'y a pas
   d'avant) : la carte « tout en ajouts » est fabriquée depuis `input.content`,
   bornée à 200 k. Les quatre surfaces partagent **un seul composant**
-  (`code-diff`, template in-DOM `#code-diff-template`, enregistré dans `app.js`
-  — enregistrement conditionnel : `admin.html` charge `app.js` sans les modules
-  du chat).
+  (SFC `frontend/src/components/code/CarteDiff.vue`).
 - **Traces de commandes** : chaque slash command laisse une pill persistante
   (table `code_notes`, rôle synthétique `note`, survit aux re-snapshots).
 - **Commandes `/`** : celles du CLI + les actions app — `/model` (validé contre
@@ -2088,8 +2199,7 @@ barre de prompt du chat, largeur = réglage `chat_width`.
 - Chaîne `Échap` : renommage → picker session → picker modèle → slash → drawer →
   session → liste → chat (`codeEscape()`).
 
-Tests : `tests/shared_infra/test_code_route.py` (dont cross-worker à deux
-`TestClient` sur la même base) ; harnais Playwright `tests/frontend/code-*.mjs`.
+Tests : routes et parcours navigateur dans la suite des mainteneurs.
 
 ---
 
@@ -2113,8 +2223,8 @@ Codes d'erreur de `/transcribe` : `403` désactivée (instance ou compte) ·
 c'est exactement le format attendu par whisper, donc aucun transcodage côté
 serveur. Le découpage de la réponse en phrases vit lui aussi dans le navigateur :
 il travaille sur un flux en cours de génération. Le serveur, lui, nettoie le
-markdown de chaque morceau (`shared_infra/voice/text.py`) et filtre les
-hallucinations de whisper (`filtre.py`) — deux garanties d'exécution valables
+markdown de chaque morceau (`apps/core/src/voix/texte.ts`) et filtre les
+hallucinations de whisper (`voix/filtre.ts`) — deux garanties d'exécution valables
 pour tout appelant.
 
 **Lecture d'un tour outillé.** Dès qu'un `tool_call` est passé, le front route
@@ -2126,7 +2236,7 @@ COMPLET : le module aligne par **préfixe** (et non par longueur) ce qu'il a dé
 prononcé, et se tait plutôt que de relire toute la réponse quand l'alignement
 échoue.
 
-**Anti-écho** (`frontend/js/chat/_voice.js`) : semi-duplex d'abord (le micro est
+**Anti-écho** (`frontend/src/features/voix/`) : semi-duplex d'abord (le micro est
 suspendu pendant une lecture, repris 400 ms après), annulation d'écho du
 navigateur ensuite, et enfin une garde textuelle qui jette toute transcription
 arrivée moins de 800 ms après une lecture et contenue dans ce qui venait d'être
@@ -2144,9 +2254,9 @@ prononcé.
 | `GET /api/usage/me?days=` | Usage personnel (chats, tokens + origines, messages, routines) |
 | `GET /api/system-events` | Flux SSE consolidé |
 | `GET /api/health` · `GET /api/public-config` | Sondes publiques |
+| `GET /api/app-logo?v=…` | Logo de l'application (`app_info.logo_b64`), avatar de l'assistant ; adresse à empreinte donnée par `app_logo_url` de `/api/public-config` |
 | `GET /api/help/readme?doc=user\|dev` | Sert ce document et le guide utilisateur à la modale d'aide |
 | `POST /api/tools/extract-text` | Extraction texte d'un upload (**max 2 Mo**) |
-| `POST /api/tools/parse-file` | Parsing binaire (`.pcap`, `.pcapng`, `.cap`) |
 | `GET /api/rag/collections` | Collections Qdrant (repli `[]`) |
 | `GET /api/playwright/screenshot/{filename}` | Capture, avec contrôle de propriété et suppression anti-rejeu |
 | `GET /api/charts/{chart_id}` | Graphique généré |
@@ -2206,7 +2316,7 @@ data: {"type": "code.event", ...}
 | `GET /api/admin/system-prompts[/{category}\|/_template\|/_preview]` · `PUT /{category}` | Prompts système |
 | `POST /api/admin/restart` · `/cache/invalidate` | Redémarrage, caches |
 | `GET /api/admin/backup?scope=` · `POST /api/admin/restore` | Sauvegarde / restauration |
-| `GET/POST /api/admin/backup/remote[/key\|/password\|/send\|/test]` | Sauvegarde distante (SFTP par clé, rsync par mot de passe, dossier monté) + planification « toutes les N heures/jours » (`shared_infra/ops/backup_scheduler.py`, worker leader) |
+| `GET/POST /api/admin/backup/remote[/key\|/password\|/send\|/test]` | Sauvegarde distante (SFTP par clé, rsync par mot de passe, dossier monté) + planification « toutes les N heures/jours » (`apps/core/src/ops/sauvegarde-distante.ts`, dans main) |
 | `GET/POST /api/admin/executors` · `GET /healthcheck` | Config sandbox |
 | `GET /api/admin/sandbox/containers` · `POST /{id}/stop` · `DELETE /{id}` · `POST /api/admin/sandbox/gc` | Conteneurs |
 | `GET /api/admin/llm-capabilities` · `POST /probe` · `POST /api/admin/llm-scheduling-mode` | Capacités et planification |
@@ -2225,28 +2335,31 @@ data: {"type": "code.event", ...}
 
 ## Outils MCP locaux
 
-`server/local_mcp_server.py` assemble les modules d'outils ; le toolhost
-(`python -m toolhost`) le sert à tous les workers. Chaque module tague ses
-outils (`@mcp.tool(tags={"fs"}, meta={"category": …})`) : la correspondance
-catégorie → outils voyage **dans le protocole** et le backend la lit
-directement sur `list_tools()`.
+L'hôte d'outils (`apps/toolhost`) sert lui-même les familles portées en
+TypeScript (`apps/toolhost/src/mcp/<famille>/`, sur le serveur MCP de
+`packages/outils-mcp/src/serveur.ts`) : `fs`, `shell`, `git`, `browser`,
+`desktop`, `skill_run`. Il relaie les autres (Office) à elpis-tools
+(`server/local_mcp_server.py`, Python, `llm_core/tools/`). Les familles liées au
+compte (`chart`, `memory`, `skill`, `todo`) sont servies en processus par
+main. Les définitions publiées des outils (nom, description, schéma) sont
+figées dans `packages/outils-mcp/goldens/<famille>.json`, lues à l'exécution.
+Chaque outil porte sa catégorie (`meta.category`) : la correspondance
+catégorie → outils voyage **dans le protocole** et le core la lit directement
+sur `tools/list`.
 
-**Middlewares serveur** (ordre) : `ServerLoopCapture` (enregistre la loop
-asyncio pour les notifications live shell) → `ToolRateLimit` → `OkFalseAsIsError`
-(arme `isError: true` sur `{ok: false}` en conservant l'enveloppe) →
-`TitleFiller`.
+**Pile de traitement** d'un appel : limite de débit → enveloppe `{ok: false}`
+rendue avec `isError: true` (l'enveloppe est conservée) → titre complété.
 
-**Contrat unique** (`tools/_toolkit.py`) — une seule enveloppe de résultat, une
-seule forme d'erreur, une seule règle de troncature, un seul jeu de coercitions
-d'entrée :
+**Contrat unique** (`packages/outils-mcp/src/boite.ts`, et
+`llm_core/tools/_toolkit.py` côté Python) — une seule enveloppe de résultat,
+une seule forme d'erreur, une seule règle de troncature, un seul jeu de
+coercitions d'entrée :
 
-```python
-ok(todos=[...], total=3)
-# → {"ok": True, "todos": [...], "total": 3}
-
-err("bad_path", "path is outside the sandbox",
-    fix="pass a path relative to the project root",
-    next_action="call list_files to see what's available")
+```
+{"ok": true, "todos": [...], "total": 3}
+{"ok": false, "error": "bad_path", "message": "path is outside the sandbox",
+ "fix": "pass a path relative to the project root",
+ "next_action": "call list_files to see what's available"}
 ```
 
 Une erreur doit **enseigner comment se corriger** : `code` machine-lisible,
@@ -2262,35 +2375,34 @@ d'outil est du contexte **permanent** pour le reste du run.
 
 **Catalogue** (~55 outils exposés) :
 
-| Module | Catégorie | Outils |
+| Famille (servie par) | Catégorie | Outils |
 |---|---|---|
-| `fs_tools` | `fs` | `read_file`, `write_file`, `edit_file`, `list_files`, `manage_files`, `code` |
-| `shell_tools` | `shell` | `execute_shell` |
-| `git_tools` | `git` | `git_query`, `git_write`, `git_action`, `git_rf`, `git_inspect`, `git_start_work`, `git_commit`, `git_submit`, `git_abandon`, `git_clone`, `git_set_credential` |
-| `firefox_tools` | `browser` | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory` |
-| `desktop_tools` | `desktop` | `desktop_session`, `desktop_observe`, `desktop_read`, `desktop_clipboard`, `desktop_act`, `desktop_wait`, `desktop_launch`, `desktop_shell`, `desktop_windows`, `desktop_focus` (+ `desktop_screenshot`/`_inspect` en opt-in) |
-| `chart_tools` | `chart` | un outil par type : `chart_bar`, `chart_line`, `chart_heatmap`, `chart_sankey`, `chart_gantt`… `chart_table` (30) |
-| `office_tools` | `office` | `docx_create`, `docx_read`, `docx_edit`, `pptx_create`, `pptx_read`, `pptx_edit`, `office_export` |
-| `memory_tools` | `memory` | `memory`, `session_search` |
-| `skill_tools` | `skill` | `skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`, `skill_run_script`, `ask_user` |
-| `todo_tools` | `task` (cachée) | `todowrite` |
-| `task_tool` | builtin | `task` (construit **par tour**, pas enregistré sur le serveur MCP) |
-| `rag_tools` | builtin | Recherche RAG (construit par tour si le mode est actif) |
+| `fs` (hôte d'outils) | `fs` | `read_file`, `write_file`, `edit_file`, `list_files`, `manage_files`, `code` |
+| `shell` (hôte d'outils) | `shell` | `execute_shell` |
+| `git` (hôte d'outils) | `git` | `git_query`, `git_write`, `git_action`, `git_rf`, `git_inspect`, `git_start_work`, `git_commit`, `git_submit`, `git_abandon`, `git_clone`, `git_set_credential` |
+| `browser` (hôte d'outils) | `browser` | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory` |
+| `desktop` (hôte d'outils) | `desktop` | `desktop_session`, `desktop_observe`, `desktop_read`, `desktop_clipboard`, `desktop_act`, `desktop_wait`, `desktop_launch`, `desktop_shell`, `desktop_windows`, `desktop_focus` (+ `desktop_screenshot`/`_inspect` en opt-in) |
+| `chart` (main) | `chart` | un outil par type : `chart_bar`, `chart_line`, `chart_heatmap`, `chart_sankey`, `chart_gantt`… `chart_table` (30) |
+| `office` (elpis-tools, Python) | `office` | `docx_create`, `docx_read`, `docx_edit`, `pptx_create`, `pptx_read`, `pptx_edit`, `office_export` |
+| `memory` (main) | `memory` | `memory`, `session_search` |
+| `skill` (main) et `skill_run` (hôte d'outils) | `skill` | `skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`, `skill_run_script`, `ask_user` |
+| `todo` (main) | `task` (cachée) | `todowrite` |
+| `task` (core) | builtin | `task` (construit **par tour**, pas enregistré sur le serveur MCP) |
+| RAG (core) | builtin | Recherche RAG (construit par tour si le mode est actif) |
 
-### Fichiers (`fs_tools`)
+### Fichiers (`fs`)
 
 Six outils volontairement larges plutôt que quinze étroits : `read_file`,
 `write_file`, `edit_file` (remplacement de chaîne tolérant CRLF/BOM),
 `list_files`, `manage_files` (copier/déplacer/supprimer/mkdir/chmod), et `code`
-(intelligence de code — définitions, références, symboles — via
-`FileSystemLib/code_intel*` avec tree-sitter quand disponible).
+(intelligence de code — définitions, références, symboles,
+`apps/toolhost/src/mcp/fs/code/`).
 
 Toutes les opérations s'exécutent dans la sandbox de l'utilisateur, par
-l'agent de son conteneur (`llm_core/tools/_espace.py`) ; les chemins sont
-ramenés sous `/work` par `shared_infra/sandbox/paths.py` › `lexical_rel`,
-les liens résolus par l'agent.
+l'agent de son conteneur ; les chemins sont ramenés sous `/work` par l'hôte
+d'outils, les liens résolus par l'agent.
 
-### Terminal (`shell_tools`)
+### Terminal (`shell`)
 
 `execute_shell(command, cwd?, timeout_sec?, stdin?, env?, save_stdout?)` —
 exécution **dans le conteneur Docker de l'utilisateur** via `bash -c`.
@@ -2298,14 +2410,13 @@ exécution **dans le conteneur Docker de l'utilisateur** via `bash -c`.
 **Aucune policy applicative.** La gate de validation shell a été **retirée** :
 le conteneur *est* la frontière (`docker exec -u 10001:10001`, réseau selon profil,
 seules les capacités nécessaires, limites mémoire/CPU/PIDs).
-Un registre in-process d'autorisations serait de toute façon faux en
-multi-worker. Toutes les fonctionnalités bash sont disponibles.
+Toutes les fonctionnalités bash sont disponibles.
 
 **Terminal en direct** : la sortie est diffusée au fil de l'eau via `ctx.info`
 (events `stdio`). ⚠ Le batcher doit être fermé (`batcher.close()`) **avant** de
 retourner le résultat de l'outil, sinon les derniers chunks sont perdus.
 
-### Git (`git_tools`)
+### Git (`git`)
 
 Dépôts dans la sandbox de l'utilisateur. Outils regroupés par intention plutôt
 que par commande : interrogation (`git_query`, `git_inspect`), écriture
@@ -2319,7 +2430,7 @@ réseau ont leur propre budget (120 s).
 > Git tourne dans le conteneur, par l'agent (`git_ops`) : les dépôts sont
 > créés sous l'UID de la sandbox, sans élargissement de droits côté hôte.
 
-### Navigateur (`firefox_tools`)
+### Navigateur (`browser`)
 
 Playwright/Firefox via `browser-service` (Node, port 3000).
 
@@ -2336,8 +2447,8 @@ Clés : `role`, `name`, `text`, `label`, `placeholder`, `test_id`, `css`,
 **Noms d'arguments unifiés** — le geste s'appelle `action=` sur
 TOUS les `pw_*`, la valeur `value=`, la cible `target=`. Les anciens noms
 (`op=`, `do=`, `assertion=`, `mode=`, `v=`, `selector=`) restent acceptés et
-convergent vers le même appel ; `firefox_tools.pw_verb()` est l'unique
-résolveur (les hooks du harnais l'utilisent aussi, cf. « Gotchas »).
+convergent vers le même appel, par un seul résolveur
+(`apps/toolhost/src/mcp/browser/`).
 
 ```python
 pw_find(session_id="abc", target="role=button|name=Login")
@@ -2374,8 +2485,7 @@ Gotchas :
 
 #### Précision : listes déroulantes, GWT, iframes
 
-Six écarts mesurés sur banc réel, tous corrigés — voir
-`tests/llm_core/test_pw_gwt_dropdowns_2026_08_08.py` :
+Six écarts mesurés sur banc réel, tous corrigés :
 
 | Symptôme | Cause | Correctif |
 |---|---|---|
@@ -2395,7 +2505,7 @@ par attribut) ne tourne jamais. Le repli est lui-même plafonné à 5 s.
 session (`pw_dialog`). Ne pas re-poser de `page.on('dialog', … accept())` sur
 une nouvelle page — c'est ce qui rendait impossible de refuser un confirm.
 
-### Contrôle d'écran (`desktop_tools`)
+### Contrôle d'écran (`desktop`)
 
 Pilote un `desktop-agent` installé sur une VM (Windows pywinauto / Linux
 AT-SPI). Cycle : `desktop_session` → `desktop_observe` → `desktop_act` →
@@ -2420,12 +2530,14 @@ AT-SPI). Cycle : `desktop_session` → `desktop_observe` → `desktop_act` →
 
 ### Graphiques, mémoire, skills, todo, RAG
 
-- **`chart_tools`** — un outil par type de graphique (`chart_<type>`, 30 dont
-  `chart_table`). Le modèle donne des lignes ; `llm_core/tools/_chart` lit
+- **`chart`** — un outil par type de graphique (`chart_<type>`, 30 dont
+  `chart_table`), servi par main. Le modèle donne des lignes ;
+  `apps/core/src/graphiques/moteur/` lit
   tolérant (casse, synonymes, nombres en texte), construit une option Apache
-  ECharts en JSON pur et renvoie un `!id` ; rendu par `frontend/js/chat/_charts.js`
-  (ECharts vendoré, chargé au premier graphique).
-- **`office_tools`** — documents Word et PowerPoint **de la sandbox**, sept
+  ECharts en JSON pur et renvoie un `!id` ; rendu par
+  `frontend/src/features/chat/rendu/graphiques.ts` (ECharts, chargé au premier
+  graphique).
+- **`office`** (elpis-tools, Python) — documents Word et PowerPoint **de la sandbox**, sept
   outils par intention (`docx_create` / `docx_read` / `docx_edit`,
   `pptx_create` / `pptx_read` / `pptx_edit`, `office_export`). Moteur sans
   état `llm_core/tools/_office` : chaque appel lit le fichier par l'agent,
@@ -2439,61 +2551,41 @@ AT-SPI). Cycle : `desktop_session` → `desktop_observe` → `desktop_act` →
   `chart_*` : natifs éditables (barres, courbes, aires, secteurs, anneau,
   radar, nuage, bulles, histogramme), `chart_table` / `chart_kpi` en tableau
   ou tuiles, les autres en image ECharts rendue côté serveur
-  (`_office/echarts_ssr.cjs`, Node + `frontend/js/chat/_charts.js`) puis
+  (`_office/echarts_ssr.cjs`, Node, qui charge `frontend/dist/echarts-ssr.cjs`,
+  bundle construit par `frontend/build-ssr.mjs` avec le thème et les formateurs
+  du chat) puis
   PNG par LibreOffice isolé (`office_preview.convert_bytes`) ; sans Node ou
   LibreOffice, tableau des données. Images et modèles : chemins de la sandbox
   seulement ; archive contrôlée avant ouverture (bombe zip), macros retirées.
-  Les graphiques sont lus dans le cache de `chart_tools` (`<tmp>/elpis_charts`,
+  Les graphiques sont lus dans le cache de la famille `chart` (`<tmp>/elpis_charts`,
   ou `CHART_CACHE_DIR`) : un hôte d'outils déporté doit partager ce dossier
   avec l'app, sinon un `!id` est introuvable.
-- **`memory_tools`** — `memory` (add/replace/remove/rewrite avec ciblage par id
+- **`memory`** (main) — `memory` (add/replace/remove/rewrite avec ciblage par id
   court ou sous-chaîne normalisée) et `session_search` (FTS5 sur l'historique).
-- **`skill_tools`** — `skill_save`, `skill_add_file`, `skill_get`,
+- **`skill`** (main) et **`skill_run`** (hôte d'outils) — `skill_save`, `skill_add_file`, `skill_get`,
   `skill_read_file`, `skill_run_script` (cwd `/work`, env propagé), plus
   `ask_user` (question non bloquante ; **refusée** aux sous-agents).
-- **`todo_tools`** — `todowrite` : todo-list de session, catégorie **cachée**,
+- **`todo`** (main) — `todowrite` : todo-list de session, catégorie **cachée**,
   incluse d'office dès qu'un serveur d'outils est actif. Un
   `<todo_status>` éphémère est réinjecté par tour tant que des tâches sont
   ouvertes.
-- **`rag_tools`** — recherche dans les collections, construite par tour.
+- **RAG** — recherche dans les collections, construite par tour
+  (`apps/core/src/outils/integres/rag.ts`).
 
-### Ajouter un module d'outils
+### Ajouter un outil
 
-```python
-from __future__ import annotations
-from fastmcp import FastMCP
-from llm_core.tools._toolkit import (
-    ok, err, tool_kw_readonly, tool_kw_mutating, tool_kw_destructive,
-)
-
-CATEGORY = {
-    "name":  "mon_domaine",     # ← le tag protocolaire (= la catégorie)
-    "label": "Mon domaine",
-    "icon":  "ph-package",
-    "color": "slate",
-    # PAS de liste "tools" : la carte voyage dans le protocole.
-}
-
-_TOOL_KW_RO  = tool_kw_readonly(CATEGORY)
-_TOOL_KW_MUT = tool_kw_mutating(CATEGORY)
-
-def register(mcp: FastMCP, sandbox_root=None) -> None:
-    @mcp.tool(**_TOOL_KW_RO, name="my_tool_example")
-    def my_tool_example(x: str, _username: str = "") -> dict:
-        """Retourne x en majuscules.
-
-        QUAND : … / QUAND PAS : … (vs. l'outil frère Y)
-        EXEMPLE : my_tool_example(x="abc")
-        """
-        if not x:
-            return err("empty_input", "x est vide", fix="passe une chaîne non vide")
-        return ok(result=x.upper())
-```
-
-1. Créer `llm_core/tools/mon_module_tools.py` avec un `register(mcp, …)`.
-2. L'importer et l'appeler dans `server/local_mcp_server.py`.
-3. Optionnel : ajouter un `system_prompts/FRAGMENT_<X>.md` et le câbler dans
-   `_system_prompts._CAPABILITY_FRAGMENTS` ou `_CONTENT_FRAGMENTS`.
+- **Famille native (TypeScript)** : le code va dans
+  `apps/toolhost/src/mcp/<famille>/`, sur la boîte à outils de
+  `packages/outils-mcp/src/boite.ts` (enveloppes `ok` / `err`, coupes,
+  tolérance d'entrée) ; sa définition publiée (nom, description, schéma,
+  annotations) s'ajoute à `packages/outils-mcp/goldens/<famille>.json`. Une
+  famille liée au compte se branche dans le core
+  (`apps/core/src/outils/mcp/en-processus.ts`).
+- **Famille Office (Python, elpis-tools)** : un module de `llm_core/tools/`
+  avec un `register(mcp, …)`, appelé dans `server/local_mcp_server.py`.
+- Optionnel : un `system_prompts/FRAGMENT_<X>.md` pour la consigne de
+  capacité, câblé dans l'assemblage de la tête système
+  (`apps/core/src/contexte/assemblage.ts`).
 
 **Annotations de comportement.** Chaque outil choisit le jeu de kwargs qui
 décrit ce qu'il fait — les hints MCP (`readOnlyHint`, `destructiveHint`,
@@ -2503,23 +2595,23 @@ destructeur, ou de rejouer un échec idempotent :
 
 | Jeu | Sémantique |
 |---|---|
-| `tool_kw_readonly` | Lecture pure |
-| `tool_kw_idempotent` | Mutant mais idempotent (mêmes arguments → même résultat) |
-| `tool_kw_mutating` | Mutant, non idempotent |
-| `tool_kw_destructive` | Destructeur (suppression, force-push) — l'UI le signale |
-| `tool_kw_openworld` | Touche un réseau / service externe |
+| lecture seule | Lecture pure |
+| idempotent | Mutant mais idempotent (mêmes arguments → même résultat) |
+| mutant | Mutant, non idempotent |
+| destructeur | Destructeur (suppression, force-push) — l'UI le signale |
+| monde ouvert | Touche un réseau / service externe |
 
 Les paramètres `_username` et `_chat_id` sont **injectés automatiquement** par
 le backend pour tout outil dont le préfixe est reconnu comme local.
 
-**Convention de docstring** (c'est la seule chose que le modèle voit) : ligne 1
+**Convention de description** (c'est la seule chose que le modèle voit) : ligne 1
 = une phrase impérative ; puis quand l'utiliser et quand **ne pas** l'utiliser
 (vs. les outils frères) ; puis un exemple concret ; puis les paramètres avec
 leurs contraintes et limites.
 
-> ⚠ **Gotcha FastMCP.** Une closure annotée peut lever un `NameError` à
-> l'enregistrement avec le vrai FastMCP (résolution des annotations). Les tests
-> utilisent un `FakeMCP` — vérifier avec le vrai serveur avant de livrer.
+> ⚠ **Python, FastMCP.** Une closure annotée peut lever un `NameError` à
+> l'enregistrement avec le vrai FastMCP (résolution des annotations) : vérifier
+> avec le vrai serveur avant de livrer.
 
 ---
 
@@ -2581,7 +2673,7 @@ hérité de l'ancien élargissement 0666 / 0777 (`chown -R`, `chmod -R go-w`,
 
 Voir [le diagramme](#sous-agents-outil-task) pour le flux. Points de conception :
 
-- **Un sous-agent est un chat dont les toggles du panneau Outils sont
+- **Un sous-agent est un chat dont les toggles du panneau MCP sont
   pré-cochés.** Il reçoit des **catégories entières** (`allowed_tool_names=None`
   partout). Les allowlists par outil ont été supprimées : le casting précédent
   donnait 6 à 9 outils nommés à la main, et c'était **la** cause des enfants qui
@@ -2605,9 +2697,9 @@ Voir [le diagramme](#sous-agents-outil-task) pour le flux. Points de conception 
   le blob de réglages. Un agent custom sans catégorie reçoit le socle
   d'`implement`, **écrit** dans l'agent (donc visible et modifiable), jamais
   appliqué en douce au lancement.
-- **Registres in-process** : `_ACTIVE_CHILDREN` et `_CANCELLED_CHILDREN` sont
-  par worker ; tout état inter-requêtes passe par `cancel_bus` (annulation) ou
-  le store partagé `_task_resume` (reprise).
+- **Registres en mémoire** : les sous-agents actifs et annulés vivent dans
+  main (un seul process) ; la reprise passe par un magasin partagé, qui
+  survit au tour parent.
 - **Opt-in** : per-user `settings.agents_enabled` (défaut OFF), per-routine
   `agents_enabled` (défaut OFF, **jamais** hérité du chat), interrupteur maître
   d'instance `llm.task.enabled` exposé au front comme `features.agents`.
@@ -2616,7 +2708,7 @@ Voir [le diagramme](#sous-agents-outil-task) pour le flux. Points de conception 
 
 ## Skills : le loader
 
-`llm_core/skills.py` — trois sources fusionnées par précédence **user >
+`apps/core/src/skills/bibliotheque.ts` — trois sources fusionnées par précédence **user >
 learned > global** ; matching **lexical déterministe** contre les `description`
 du frontmatter ; injection des top-N corps dans le prompt système.
 
@@ -2638,8 +2730,8 @@ chaque écriture et auto-réparée par `skill_get`. Auparavant les skills vivaie
 dans `<sandbox>/skills/`, montés RW dans le conteneur — un `rm -rf` du modèle
 détruisait la bibliothèque.
 
-**Écritures atomiques** : `RLock` in-process + `fcntl.flock` cross-worker
-(`SKILLS_FILELOCK=1`). Le check et l'écriture sont dans la même section
+**Écritures atomiques** : `RLock` in-process + verrou `elpis.verrou.v1.1` entre
+processus (`SKILLS_FILELOCK=1`). Le check et l'écriture sont dans la même section
 critique.
 
 Bibliothèque livrée : `ansible`, `python`, `robotframework` (packages), plus
@@ -2650,7 +2742,8 @@ Bibliothèque livrée : `ansible`, `python`, `robotframework` (packages), plus
 
 ## Mémoire long terme
 
-`llm_core/memory/` — un `MarkdownStore` est une vue fichier sur une liste
+`apps/core/src/memoire/` (format partagé avec `llm_core/memory/`) — un
+`MarkdownStore` est une vue fichier sur une liste
 d'**entrées** séparées par `§` (seul sur sa ligne). Deux magasins :
 `MEMORY.md` (environnement/projets) et `USER.md` (profil).
 
@@ -2672,7 +2765,7 @@ d'**entrées** séparées par `§` (seul sur sa ligne). Deux magasins :
   corriger sans tout effacer. Elle emprunte le même store (donc le même verrou
   et la même limite) et laisse une ligne d'audit `source:"settings"` — sinon le
   journal laisserait croire que tout le contenu vient de l'assistant.
-- Verrou `flock` avec délai (`StoreBusyError` si contention).
+- Verrou `elpis.verrou.v1.1` avec délai (`StoreBusyError` si contention).
 - Store **host-owned**, hors sandbox.
 - **Opt-in** per-user (`settings.memory_enabled`, défaut OFF) ; interrupteur
   d'instance `memory.enabled`.
@@ -2692,15 +2785,16 @@ Voir [le diagramme](#exécution-dune-routine). Compléments :
 | `HEARTBEAT_SECONDS` | 60 |
 | `ORPHAN_STALE_AFTER_S` | 300 |
 | `RUN_MAX_ATTEMPTS` / `RUN_RETRY_BACKOFF_S` | 2 / 3,0 s |
-| `CHAIN_MAX_DEPTH` | 5 |
+| `ROUTINES_CHAIN_MAX_DEPTH` | 5 |
 
-- Le scheduler démarre sur **chaque** worker du chatbot, mais seul le **leader**
-  agit. Il n'est **pas** démarré en mode admin (le process admin exécuterait des
-  runs LLM d'utilisateurs chez lui, avec 1 worker et sans prewarm MCP).
-- **Watchdog** : `scheduler_alive()` détecte un leader dont la boucle est morte
-  mais qui garde le flock.
+- Le planificateur (`apps/core/src/routines/planificateur.ts`) démarre dans
+  main seulement, et n'agit que s'il tient le verrou de leader
+  (`routines/meneur.ts`). Il n'est **pas** démarré en mode admin (le process
+  admin exécuterait des runs LLM d'utilisateurs chez lui).
+- **Watchdog** : `schedulerAlive()` détecte un leader dont la boucle est morte
+  mais qui garde le verrou.
 - Le **snapshot MCP** d'une routine est dépouillé de tout secret
-  (`_MCP_SECRET_KEYS` : `auth`, `authorization`, `headers`, `token`, `api_key`,
+  (`MCP_SECRET_KEYS` : `auth`, `authorization`, `headers`, `token`, `api_key`,
   `password`, `secret`…) **avant persistance**. À l'exécution,
   `_rehydrate_mcp_secrets` reconstruit la configuration complète depuis les
   réglages de l'utilisateur et, pour un id `shared:<n>`, depuis
@@ -2714,7 +2808,7 @@ Voir [le diagramme](#exécution-dune-routine). Compléments :
 
 
 
-- Les cinq intégrés (`_AGENTS` dans `llm_core/tools/task_tool.py`) sont des
+- Les cinq intégrés (`AGENTS` dans `apps/core/src/outils/integres/taches-agents.ts`) sont des
   **modèles**. Une entrée de `settings.custom_agents` qui porte le nom de l'un
   d'eux est une **surcharge** champ par champ (prompt, catégories, budget,
   serveurs MCP, `enabled`), jamais une collision : `RESERVED_AGENT_NAMES` ne
@@ -2735,18 +2829,17 @@ Voir [le diagramme](#exécution-dune-routine). Compléments :
   Réinitialiser (modèle modifié seulement), Supprimer (personnalisés seulement).
   Le catalogue se charge à l'ouverture de l'onglet (`loadAgentTemplates`,
   repli sur `ELPIS_BUILTIN_AGENTS` si l'API ne répond pas).
-- Harnais : `tests/frontend/agents-verify.mjs` (S5).
 
 ---
 
 ## Studio et agent desktop
 
-- **Le code est le document** (`frontend/js/chat/_studio_automation.js`) :
+- **Le code est le document** (`frontend/src/features/studio/automatisation.ts`) :
   l'éditeur contient un script Python pour le runtime `elpis_auto`
   (`desktop-agent/elpis_auto/`) ; chaque action faite sur la capture (mode
   REC) ou depuis le mini-chat y insère sa ligne au curseur. Les scripts sont des
   fichiers de la sandbox (`automations/`).
-- **Exécution** (`shared_infra/desktop/routes.py`) : le script, ses `lib/` et
+- **Exécution** (`apps/core/src/familles/bureau.ts`, `/api/desktop/run-automation`) : le script, ses `lib/` et
   `assets/` sont poussés à l'agent de la cible et lancés dans la session
   interactive ; le rapport (captures, étapes) se relit par
   `/api/desktop/run-file`.
@@ -2773,7 +2866,7 @@ Service FastAPI autonome (port 8000) + Qdrant (6333).
 | `contextual.py` | Enrichissement contextuel des chunks |
 | `ocr/` | Pipeline OCR : upload, conversion, file d'attente, jobs, événements, indexation |
 
-Le chatbot ne l'importe **jamais** : tout passe par HTTP
+Le core ne l'importe **jamais** : tout passe par HTTP
 (`rag.service_url` + `service_token`). Indisponible → dégradation gracieuse
 (`{"enabled": false}`).
 
@@ -2784,24 +2877,22 @@ Le chatbot ne l'importe **jamais** : tout passe par HTTP
 
 ## Maintenance périodique
 
-`shared_infra/ops/maintenance.py` — l'application est faite pour tourner **des
-mois** sans redémarrage, or l'entretien de la base n'était fait qu'**au boot**
-(donc jamais). Une passe quotidienne tourne sur le worker leader :
+`apps/core/src/ops/entretien.ts` — l'application est faite pour tourner **des
+mois** sans redémarrage : l'entretien de la base ne peut pas attendre le
+démarrage. Une passe quotidienne tourne dans main :
 
 1. Purge `metric_events` (90 j), `usage_events` (180 j — plus léger, c'est
    l'historique de conso), `tool_call_metrics` (90 j),
    `editor_routine_runs` (180 j), `daily_usage_reports` (400 j) — rétentions
    configurables, `0` désactive. La passe dépose un marqueur
-   `maintenance_pass` : sans lui, un exploitant n'avait aucun moyen de savoir
-   si l'entretien tournait encore (`_last_run_date` est une variable de
-   process, invisible aux autres workers et perdue au redémarrage).
+   `maintenance_pass`, qui dit à l'exploitant que l'entretien tourne encore.
 2. Purge des dédups webhook périmées.
 3. `wal_checkpoint(TRUNCATE)` **en dernier** — fusionne les DELETE dans le `.db`
    et remet le `-wal` à zéro (sans quoi il grossit indéfiniment).
 4. Digest quotidien d'usage (notification admin + snapshot persisté).
 
-La boucle survit à toute exception. Démarrée inconditionnellement dans le
-lifespan — indépendante de l'état de la feature Routines.
+La boucle survit à toute exception. Démarrée inconditionnellement avec main —
+indépendante de l'état de la feature Routines.
 
 ---
 
@@ -2809,18 +2900,19 @@ lifespan — indépendante de l'état de la feature Routines.
 
 | Mécanisme | Module | Note |
 |---|---|---|
-| **CSRF** | `shared_infra/security/csrf.py` | Middleware **ASGI pur** (pas `BaseHTTPMiddleware`) sur les mutantes ; `Sec-Fetch-Site` primaire, `Origin` en repli ; sans cookie ⇒ toléré ; exemptions `/api/sandbox/preview/`, `/api/webhooks/`. Scope `http` seul — les handshakes WS passent par `ws_is_cross_site()` |
-| **Erreurs avalées** | `shared_infra/observability/tracing.py` | `swallow(tag)` = `except Exception: pass` + compteur + log DEBUG avec pile. `BaseException` remonte (ne jamais avaler une `CancelledError`) |
-| **Sessions** | `shared_infra/config.py` › `session_cookie_attrs()` | Source **unique** des attributs de cookie ; `max_age` aligné sur l'expiration logique (sinon Starlette applique 14 j glissants) |
+| **CSRF** | `packages/auth/src/csrf.ts` | Sur les requêtes mutantes ; `Sec-Fetch-Site` primaire, `Origin` en repli ; sans cookie ⇒ toléré ; exemptions `/api/sandbox/preview/`, `/api/webhooks/` ; les handshakes WebSocket sont contrôlés à part |
+| **Erreurs avalées** | `apps/core/src/observabilite/traces.ts` ; `shared_infra/observability/tracing.py` côté Python | Erreur volontairement avalée : comptée et journalisée avec sa pile, sans changer le flot ; jamais une annulation |
+| **Sessions** | `packages/config/src/vivant.ts` › `sessionCookieAttrs()` ; cookie signé `packages/auth/src/cookie.ts` | Source **unique** des attributs de cookie ; `max_age` aligné sur l'expiration logique |
 | **Révocation** | `revoked_sessions` + `security.session.global_min_ts` | Le logout révoque réellement côté serveur |
-| **Anti-fixation** | `shared_infra/accounts/routes_auth.py` | `session.clear()` avant association du compte |
-| **Audit** | `shared_infra/security/audit.py` | Toute tentative de login (succès/échec, IP réelle derrière proxies de confiance, motif) |
-| **Chiffrement au repos** | `shared_infra/security/encryption.py` | Fernet pour clés API LLM et secrets MCP partagés |
-| **En-têtes de sécurité** | `shared_infra/security/headers.py` | `nosniff`, `Referrer-Policy`, `frame-ancestors` posés s'ils sont absents |
-| **Anti-SSRF** | `shared_infra/git/ssrf.py`, `shared_infra/routes/tools.py` | URLs Git distantes, diagnostic AX |
-| **Uploads bornés** | `shared_infra/files/uploads.py` | Lecture par chunks avec interruption au dépassement |
-| **Path traversal** | `shared_infra/sandbox/paths.py` › `lexical_rel` ; liens résolus par l'agent du conteneur | Point de passage unique |
-| **Toolhost** | `toolhost/auth.py` | Hors `/health`, deux preuves : jeton de service en Bearer (`user_db/.local_mcp_token`) et identité signée (`X-Elpis-Identity`, HMAC du jeton, horodatage borné, `shared_infra/accounts/identity.py`). `/mcp*` exige le Bearer |
+| **Anti-fixation** | `apps/core/src/familles/comptes.ts` | Session vidée avant association du compte |
+| **Audit** | `packages/securite/src/audit.ts` | Toute tentative de login (succès/échec, IP réelle derrière proxies de confiance, motif) |
+| **Chiffrement au repos** | `packages/securite/src/chiffrement.ts` | Fernet pour clés API LLM et secrets MCP partagés (format lu aussi par le Python restant) |
+| **En-têtes de sécurité** | `packages/http/src/entetes.ts` | `nosniff`, `Referrer-Policy`, `frame-ancestors` posés s'ils sont absents, erreurs comprises |
+| **CSP des pages** | `apps/core/src/interface/pages.ts` › `POLITIQUE_CSP`, `POLITIQUE_APERCU_CODE` ; posées par `apps/core/src/familles/interface.ts` | Chat et console : `script-src 'self'`, ni script en ligne ni `eval`, selon `security.csp` (`enforce` par défaut). Aperçu HTML des blocs de code (`/apercu-code`) : sa propre politique, toujours posée (bac à sable `allow-scripts`, scripts du contenu en ligne, aucun accès réseau) |
+| **Anti-SSRF** | `packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts` | URLs Git distantes, diagnostic AX |
+| **Corps bornés** | `packages/http/src/app.ts` (`limiteCorps` par route) | Un envoi au-delà de la limite de sa route est refusé |
+| **Path traversal** | chemins de l'éditeur normalisés par l'hôte d'outils (`apps/toolhost/src/fichiers/`) ; liens résolus par l'agent du conteneur | Point de passage unique |
+| **Toolhost** | `apps/toolhost/src/porte.ts` | Hors `/health`, deux preuves : jeton de service en Bearer (`user_db/.local_mcp_token`) et identité signée (`X-Elpis-Identity`, HMAC du jeton, horodatage borné, `packages/securite/src/identite.ts`). `/mcp*` exige le Bearer |
 | **Frontière shell** | conteneur Docker | Le sandbox **est** la frontière ; pas de policy applicative |
 
 > ⚠ **Agent desktop non authentifié.** `desktop-agent` n'a aucune couche
@@ -2835,48 +2927,22 @@ lifespan — indépendante de l'état de la feature Routines.
 
 ## Tests
 
+Les tests vivent dans le dépôt de développement des mainteneurs : Vitest pour
+le core, l'hôte d'outils, les paquets et le frontend (contrats testés contre
+le core réel), pytest pour le Python restant, parcours réels dans Chromium
+contre le core TS, et des scénarios figés (« goldens ») de la boucle et du
+flux de chat. Ils passent avant chaque fusion. Dans ce dépôt, une contribution
+se vérifie par :
+
 ```bash
-venv/bin/pytest                      # suite complète (pytest du venv)
-venv/bin/pytest tests/llm_core -x    # un paquet
-node tests/frontend/<fichier>.js     # tests unitaires front
+npm ci
+npm run typecheck   # tsc et vue-tsc
+npm run lint        # ESLint
+npm run build       # core, hôte d'outils et frontend
 ```
 
-> `tests/conftest.py` isole la suite de l'instance : configuration absente
-> (`APP_CONFIG_PATH` vers un fichier inexistant) et moteur injoignable
-> (`LLAMA_IP=127.0.0.1`, `LLAMA_PORT=1`), sauf si ces variables sont déjà
-> posées. Le `config.json` réel ne fausse donc pas les tests, et aucun test ne
-> joint le vrai moteur.
-
-| Répertoire | Portée |
-|---|---|
-| `tests/llm_core/` | Moteur, contexte, outils, scheduling, sous-agents |
-| `tests/shared_infra/` | Routes, sécurité, schedulers, connecteurs, code remote |
-| `tests/rag_app/` | RAG, OCR |
-| `tests/memory/` | Magasins Markdown, FTS5 |
-| `tests/db/` · `tests/sandbox/` · `tests/chatbot/` · `tests/desktop_agent/` · `tests/toolhost/` | Persistance, sandbox, chat, agent, hôte d'outils |
-| `tests/frontend/` | Harnais Playwright (route-mock) et tests unitaires front |
-| `tests/perf/` · `tests/load/` | Perf, jank, charge |
-| `tests/goldens/` | Golden files : tête système byte-stable, contrats, scénarios complets de la boucle (`boucle_*`) et du flux de chat (`flux_route_*`) |
-
-Pièges connus des tests :
-
-- `merge_user_settings` doit être **mocké** dans les tests de settings.
-- `sqlite3.Row` n'a **pas** de `.get()`.
-- Le harnais frontend repose sur une recette **route-mock** (`@include` +
-  `/static`) : il ne demande **pas** de llama-server.
-- Le sélecteur de modèle mocké exige `enable_model_selector: true`.
-- Deux liaisons doivent être patchées pour simuler un `n_ctx` donné :
-  `llm_core._model_info.get_model_context_size` (boucle, fonction de flux,
-  charge utile) et la copie de façade `llm_core.get_model_context_size`
-  (compresseur) — cf. `tests/llm_core/ctx_scale_harness.py`.
-- Une substitution vise le module qui **lit** le nom
-  (`tests/llm_core/test_seams_effectifs.py` refuse un patch sans effet) ;
-  seules la fonction de flux et la métrique d'outil de la boucle se patchent
-  sur `llm_core._chat_with_tools` (`LoopDeps`).
-- Un test structurel lit le code d'un sujet entier par `tests/_sources.py`
-  (`source_boucle()`, `source_flux_chat()`), jamais un seul fichier.
-- Tester l'UI **aussi** avec `reducedMotion: 'reduce'`.
-- Les balayages FS sont sautés sous pytest.
+Pour essayer l'interface à la main, tester **aussi** avec
+`prefers-reduced-motion: reduce`.
 
 ---
 
@@ -2890,8 +2956,8 @@ tool-calls non extraits.
 (`<tool_call>NAME<arg_key>K</arg_key><arg_value>V</arg_value></tool_call>`) ; les
 anciennes versions de llama.cpp le parsaient comme du JSON.
 **Solution** : mettre à jour llama.cpp.
-**Contournement** : repli Python `extract_tool_calls()` + seconde requête sans
-tools — fonctionne mais double les appels.
+**Contournement** : repli `extractToolCalls()` (`apps/core/src/boucle/analyse-appels.ts`)
++ seconde requête sans tools — fonctionne mais double les appels.
 
 ### Slot `id_slot` non exposé
 
@@ -2904,10 +2970,10 @@ Certaines quantifications ne supportent pas la parallélisation du cache KV →
 instabilité quand plusieurs instances partagent le GPU. Réduire `max_instances`
 à 1 pour le modèle concerné, ou changer de quantification.
 
-### Cache `/props` par worker
+### Cache `/props` par process
 
-Le log `Props caches` apparaît une fois par worker : normal, chaque worker a son
-process Python.
+Le log `Props caches` apparaît une fois par process (main, admin) : normal,
+chaque process a son cache.
 
 ### Template GLM : warning upstream
 
@@ -2923,8 +2989,8 @@ Reaper automatique côté Node (TTL 15 min).
 ### Streaming : « shorter than Content-Length »
 
 Ce message masque presque toujours une **exception levée dans le générateur**
-de réponse. Chercher la vraie erreur dans `run_turn`
-(`chatbot_app/turn/execution.py`), pas dans le middleware.
+de réponse. Chercher la vraie erreur dans `runTurn`
+(`apps/core/src/tour/execution.ts`), pas dans le socle HTTP.
 
 ### Markup de tool-call dans la bulle
 
@@ -2962,9 +3028,16 @@ Certains modèles laissent leur conclusion dans la phase de réflexion.
 ## Licences
 
 Elpis est distribué sous licence **MIT** (voir [`LICENSE`](../LICENSE)
-et [`NOTICE`](../NOTICE)). L'inventaire des composants tiers vendorisés et des
-dépendances installées se trouve dans
-[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
+et [`NOTICE`](../NOTICE)). L'inventaire des composants tiers embarqués (bundle
+web `frontend/dist`, bundles du core et de l'hôte d'outils, fichiers vendorisés)
+et des dépendances installées se trouve dans
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md), les textes dans
+[`LICENSES/`](../LICENSES/). Politique : MIT, ISC, Apache-2.0, BSD (et 0BSD,
+Unlicense) pour ce qui est livré, MPL-2.0 ou BlueOak pour les seuls outils de
+développement (`migration-kit/deps.map.json`). `npm run licences` réécrit les
+tables du core et de l'hôte d'outils et refuse un paquet hors politique
+(le build vérifie qu'elles sont à jour) ; le tableau du
+bundle web se tient à la main à chaque dépendance ajoutée à `frontend/package.json`.
 
 Les dépendances sous licence AGPL (PyMuPDF, pdf2docx) ne sont **pas
 installées par défaut** : elles ne s'ajoutent qu'avec `./install.sh --with-agpl`

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """shared_infra/accounts/identity.py — enveloppe d'identité.
 
-L'hôte d'outils (``toolhost/``) n'ouvre JAMAIS la base de l'app : il reçoit
+Avec un ``toolhost.json`` (hôte distant), l'hôte d'outils n'ouvre pas la base de l'app : il reçoit
 l'identité de l'utilisateur DE L'APP, par deux canaux :
 
 * le ``_meta`` d'un appel d'outil MCP (``username``, ``user_id``, ``chat_id``,
@@ -42,9 +42,14 @@ class Identity:
     network_profile_id: str = ""
     chat_id: str = ""
     is_admin: bool = False   # admin PLEIN (is_admin == 1), jamais le modérateur
+    forced_network_profile_id: Optional[str] = None   # imposition de l'admin vue par main ; None = non transmise
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        """Forme signée ; sans imposition transmise, elle reste celle d'avant le champ."""
+        d = asdict(self)
+        if self.forced_network_profile_id is None:
+            del d["forced_network_profile_id"]
+        return d
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> Optional["Identity"]:
@@ -56,13 +61,15 @@ class Identity:
         if uid <= 0 or not username:
             return None
         roles = d.get("roles") if isinstance(d.get("roles"), list) else []
+        impose = d.get("forced_network_profile_id")
         return cls(user_id=uid, username=username,
                    roles=[str(r) for r in roles],
                    network_profile_id=str(d.get("network_profile_id") or ""),
                    chat_id=str(d.get("chat_id") or ""),
                    # ``== 1`` (True == 1 aussi) : un modérateur (2)
                    # n'est pas admin.
-                   is_admin=(d.get("is_admin") == 1))
+                   is_admin=(d.get("is_admin") == 1),
+                   forced_network_profile_id=None if impose is None else str(impose or ""))
 
     # Vue « ligne users » minimale pour les appelants écrits pour ``sqlite3.Row``
     def as_row(self) -> Dict[str, Any]:
@@ -137,19 +144,28 @@ def resolve_user(username: str) -> Optional[Identity]:
         return _by_name.get(name)
 
 
-def resolve_network_profile_id(user_id: Any) -> Optional[str]:
+def _identite_du_compte(user_id: Any) -> Optional[Identity]:
+    """Identité d'un id : contexte courant, puis registre."""
     try:
         uid = int(user_id)
     except (TypeError, ValueError):
         return None
     cur = _current.get()
-    ident = cur if (cur is not None and cur.user_id == uid) else None
-    if ident is None:
-        with _lock:
-            ident = _by_id.get(uid)
-    if ident is None:
-        return None
-    return ident.network_profile_id or None
+    if cur is not None and cur.user_id == uid:
+        return cur
+    with _lock:
+        return _by_id.get(uid)
+
+
+def resolve_network_profile_id(user_id: Any) -> Optional[str]:
+    ident = _identite_du_compte(user_id)
+    return (ident.network_profile_id or None) if ident is not None else None
+
+
+def resolve_forced_network_profile_id(user_id: Any) -> Optional[str]:
+    """Imposition portée par l'enveloppe de main (``""`` : aucune) ; ``None`` = non transmise, l'hôte lit sa base."""
+    ident = _identite_du_compte(user_id)
+    return ident.forced_network_profile_id if ident is not None else None
 
 
 # ── Enveloppe signée (en-tête HTTP/WS) ──────────────────────────────────────

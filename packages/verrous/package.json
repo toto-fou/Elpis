@@ -1,0 +1,15 @@
+{
+  "name": "@elpis/verrous",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Verrous de fichiers partagés avec les services Python (elpis.verrou.v1.1 : O_EXCL, PID, péremption, reprise, battement), port de shared_infra/runtime/verrou_fichier.py",
+  "exports": {
+    ".": "./src/index.ts",
+    "./test": "./src/test.ts"
+  },
+  "dependencies": {
+    "@elpis/commun": "0.1.0"
+  }
+}

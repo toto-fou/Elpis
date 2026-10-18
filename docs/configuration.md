@@ -10,11 +10,12 @@
 - [Démarrage](#démarrage)
 - [Configuration](#configuration)
   - [Fichier `config.json`](#fichier-configjson)
+  - [Fournisseurs cloud des comptes](#fournisseurs-cloud-des-comptes-llmallowed_provider_types)
   - [Variables d'environnement](#variables-denvironnement)
   - [`context_config.json` — textes injectés au LLM](#context_configjson--textes-injectés-au-llm)
   - [Priorité de résolution et hot-reload](#priorité-de-résolution-et-hot-reload)
 - [Multi-process : séparation main / admin](#multi-process--séparation-main--admin)
-- [Multi-worker Gunicorn](#multi-worker-gunicorn)
+- [Process du core](#process-du-core)
 - [HTTPS : frontal Caddy](#https--frontal-caddy)
 - [Tracing et debug multi-utilisateur](#tracing-et-debug-multi-utilisateur)
 
@@ -28,8 +29,14 @@
 - **Un moteur d'inférence** : `llama-server` (llama.cpp) ou tout serveur
   compatible OpenAI (vLLM, TGI, Ollama, LM Studio), ou un fournisseur distant
   (connecteurs OpenAI-compatibles, Anthropic).
-- `install.sh` installe le reste : Python 3 + venv, Node.js (service
-  navigateur), Qdrant (RAG), image sandbox.
+- **Paquets système** : ceux de
+  [deploy/prerequis-apt.txt](../deploy/prerequis-apt.txt) (socle, plus un
+  groupe par composant), installés **avant** `install.sh`, qui les vérifie
+  sans rien installer ; commandes apt :
+  [exploitation.md](exploitation.md#prérequis-système-paquets-apt).
+- `install.sh` installe le reste : le venv Python et ses dépendances, Node.js
+  24 sans npm dans `node/` (core et service navigateur) et le bundle du core
+  (`apps/core/dist`), Qdrant (RAG), Chromium, image sandbox.
 
 ### Moteur d'inférence
 
@@ -149,8 +156,8 @@ l'assistant et les mots de passe (écrits sur le terminal seulement).
 
 **Droits.** Depuis un compte normal : `sudo -v` au lancement (une seule
 saisie), jeton entretenu pendant toute l'installation. Sans sudo : on arrête,
-ou on continue sans rien de ce qui demande root (paquets système,
-LibreOffice, Caddy, base locale, services). Par `sudo ./install.sh` : les
+ou on continue sans rien de ce qui demande root (Caddy, base locale,
+services). Par `sudo ./install.sh` : les
 étapes système en root, l'application (venv, Chromium, configuration,
 démarrage) sous le compte qui a lancé sudo (`SUDO_USER`, ou `ELPIS_USER`, ou
 le propriétaire du dépôt) — jamais en root.
@@ -174,9 +181,9 @@ réglages (retour à la page Base), passer à SQLite ou abandonner.
 |---|---|---|
 | Service navigateur (`--with-browser`, `--no-browser`) | oui | `npm ci` + Chromium (Playwright) |
 | Image sandbox (`--sandbox build\|pull\|none`, `--pull IMAGE`) | build | `docker build` de `deploy/docker/sandbox/`, ou `docker pull` + étiquette |
-| Base de données (`--db sqlite\|postgres-local\|mariadb-local\|external`) | sqlite (1re fois ; inchangée ensuite) | voir [Base de données](#base-de-données) |
-| LibreOffice (`--with-office`, `--no-office`) | oui | aperçus docx/xlsx/pptx (LibreOffice nogui + bubblewrap) |
-| Caddy (`--with-caddy`, `--no-caddy`) | non | frontal HTTPS (voir [HTTPS](#https--frontal-caddy)) |
+| Base de données (`--db sqlite\|postgres-local\|external`) | sqlite (1re fois ; inchangée ensuite) | voir [Base de données](#base-de-données) |
+| LibreOffice (`--with-office`, `--no-office`) | oui s'il est déjà installé | aperçus docx/xlsx/pptx (LibreOffice nogui + bubblewrap, prérequis apt vérifiés) |
+| Caddy (`--with-caddy`, `--no-caddy`) | non | frontal HTTPS (paquet `caddy` en prérequis apt, configuré par install.sh ; voir [HTTPS](#https--frontal-caddy)) |
 | Extras AGPL (`--with-agpl`, `--no-agpl`) | non | PyMuPDF et pdf2docx |
 | Configuration (`--configure`, `--no-configure`) | oui (1re fois) | `./elpis configure` |
 | Démarrage (`--service`, `--start`, `--no-start`) | service | `sudo ./elpis service install` ou `./elpis start` |
@@ -193,7 +200,8 @@ ELPIS_CFG_ADMIN_PASSWORD='…' ./install.sh --yes --with-caddy --service -- \
 Dépendances Python : `requirements.txt` (cœur), `requirements-rag.txt` (service
 RAG), `requirements-agpl-optional.txt` (optionnel, AGPL),
 `requirements-dev.txt` (tests). Hors-ligne : `./install.sh --offline <dir>`
-avec le paquet produit par `make_release.sh`.
+avec le paquet produit par `make_release.sh` (voir
+[exploitation.md](exploitation.md#installer-un-serveur-hors-ligne)).
 
 ### `./elpis configure`
 
@@ -213,7 +221,7 @@ seulement la connexion à la base retenue.
 | 4. RAG | activation, serveur d'embeddings (sondé) et modèle, reranker, OCR vision | `rag`, `rag_app/rag_config.json` |
 | 5. Sandbox | image Docker (présence vérifiée), mémoire par sandbox | `executors` |
 | 6. Voix | activation, URL whisper-server et elpis-tts (locales si installées, jeton repris) | `voice` |
-| 7. Base de données | moteur (SQLite, PostgreSQL, MariaDB/MySQL), hôte, port, base, utilisateur, mot de passe (masqué), TLS ; connexion testée ; copie des données d'une base SQLite existante vers une base vide | `config.json › database`, `user_db/.db_password` (0600) |
+| 7. Base de données | moteur (SQLite, PostgreSQL), hôte, port, base, utilisateur, mot de passe (masqué), TLS ; connexion testée ; copie des données d'une base SQLite existante vers une base vide | `config.json › database`, `user_db/.db_password` (0600) |
 | 8. Admin | nom et mot de passe (masqué, confirmé, 8 caractères min. ; vide = généré, à changer à la 1re connexion) ; si des comptes existent : changement de mot de passe proposé | base `user_db/app.db` |
 
 Secrets générés (fichiers 0600) : `app.session_secret`,
@@ -226,18 +234,18 @@ aucune question.
 ### Base de données
 
 SQLite (fichier `user_db/app.db`) reste le défaut et suffit jusqu'à quelques
-dizaines d'utilisateurs. PostgreSQL ou MariaDB/MySQL se justifient pour une
-base managée existante, des sauvegardes point-in-time, de la réplication ou de
-la BI sur les tables de télémétrie. Pilotes Python pur, sous licence
-permissive : pg8000 (BSD-3) et PyMySQL (MIT) ; les serveurs viennent des
-dépôts de l'OS et ne sont jamais livrés avec Elpis.
+dizaines d'utilisateurs. PostgreSQL se justifie pour une base managée
+existante, des sauvegardes point-in-time, de la réplication ou de la BI sur
+les tables de télémétrie. Pilote Python pur, sous licence permissive :
+pg8000 (BSD-3) ; le serveur vient des dépôts de l'OS et n'est jamais livré
+avec Elpis. MariaDB/MySQL n'est plus pris en charge (voir
+[exploitation](exploitation.md#mettre-à-jour) pour en sortir).
 
 | Choix d'`install.sh` | Ce qui est fait |
 |---|---|
 | `sqlite` | rien à installer |
 | `postgres-local` | paquet `postgresql`, rôle et base `elpis` (UTF-8, `template0`), extension `unaccent`, mot de passe aléatoire dans `user_db/.db_password` |
-| `mariadb-local` | paquet `mariadb-server`, `/etc/mysql/mariadb.conf.d/60-elpis.cnf` (`max_allowed_packet = 256M`, `innodb_ft_min_token_size = 2`), utilisateur et base `elpis` (`utf8mb4_bin`), mot de passe aléatoire |
-| `external` | questions de `./elpis configure` : moteur, hôte, port, base, utilisateur, mot de passe, TLS |
+| `external` | questions de `./elpis configure` : hôte, port, base, utilisateur, mot de passe, TLS d'un serveur PostgreSQL |
 
 Hors ligne (`--offline`), aucun serveur de base n'est dans le paquet : seuls
 `sqlite`, `external` ou un serveur déjà installé sont possibles.
@@ -247,8 +255,8 @@ variable, qui prime) :
 
 | Clé | Variable | Défaut |
 |---|---|---|
-| `backend` | `APP_DB_BACKEND` | `sqlite` (`postgres`, `mysql` = MariaDB ou MySQL) |
-| `host`, `port` | `APP_DB_HOST`, `APP_DB_PORT` | `127.0.0.1`, 5432 / 3306 |
+| `backend` | `APP_DB_BACKEND` | `sqlite` (ou `postgres`) |
+| `host`, `port` | `APP_DB_HOST`, `APP_DB_PORT` | `127.0.0.1`, 5432 |
 | `name`, `user` | `APP_DB_NAME`, `APP_DB_USER` | `elpis` |
 | `tls` | `APP_DB_TLS` | `off` (`require`, `verify`) |
 | `pool_max`, `timeout` | `APP_DB_POOL_MAX`, `APP_DB_TIMEOUT` | 8 connexions par process, 60 s |
@@ -258,11 +266,11 @@ variable, qui prime) :
 
 Au premier démarrage, une base vide reçoit le schéma complet ; une base
 existante reçoit ses tables et colonnes manquantes puis ses migrations en
-attente. Une base PostgreSQL ou MariaDB/MySQL naît toujours de ce schéma :
+attente. Une base PostgreSQL naît toujours de ce schéma :
 les migrations qu'il contient y sont inscrites sans être rejouées. Un seul process à la fois pose le schéma (verrou fichier), les
 workers peuvent donc démarrer ensemble.
 
-Exploitation (`./elpis db …` = `python -m shared_infra.db …`) :
+Exploitation (`./elpis db …`, servi par le core : `apps/core/dist/exploitation.mjs db …`) :
 
 ```bash
 ./elpis db info                                   # moteur, version, taille, schéma, pool
@@ -304,8 +312,9 @@ foulée. Si Elpis tourne déjà, redémarrez-le ensuite (`./elpis restart` ou
 ./elpis doctor     # diagnostic de l'installation
 ```
 
-`start` enchaîne : Qdrant (6333) → RAG (8000) → hôte d'outils MCP (8765) →
-main (8001) → admin (8002) → service navigateur (3000). Main, admin et RAG
+`start` enchaîne : Qdrant (6333) → RAG (8000) → elpis-tools (8767) → hôte
+d'outils MCP (8765) → main (8001) → admin (8002) → service navigateur (3000) ;
+les outils du compte sont servis par main lui-même. Main, admin et RAG
 écoutent selon [`security.listen`](#écoute-securitylisten) (`127.0.0.1` derrière
 Caddy dans tous les cas).
 
@@ -322,7 +331,7 @@ Hors HTTPS, adresse d'écoute de main (8001), admin (8002) et RAG (8000) :
 | clé absente d'une config existante | `0.0.0.0` (installations d'avant le réglage, inchangées) |
 | variable `BIND` (main, admin) / `RAG_HOST` (RAG) | prioritaire (break-glass) |
 
-Règle unique : `server/_bind_host.py` (confs gunicorn), dupliquée dans
+Règle unique : `apps/core/src/ecoute.ts` (core), dupliquée dans
 `./elpis › _bind_default` (RAG). Écrivains : `./elpis configure` (question
 « Accès » de la page Accès, `--listen local|lan`, `ELPIS_CFG_LISTEN`) et
 Console admin › Sécurité › Accès HTTPS › Écoute (redémarre l'application ;
@@ -330,13 +339,35 @@ Console admin › Sécurité › Accès HTTPS › Écoute (redémarre l'applicat
 couper l'accès). L'éditeur brut ne le réécrit pas (`_OWNED_PATHS`).
 Réinstallation : la valeur en place (ou son absence) est conservée.
 
+### Politique de sécurité du contenu (`security.csp`)
+
+Les pages de l'application (`/` du chat, `/` et `/admin` de la console)
+portent un en-tête de politique de sécurité du contenu (CSP) : scripts de
+l'origine seulement, aucun script en ligne ni évalué, aucun objet embarqué, pas
+d'encadrement par un autre site (`apps/core/src/interface/pages.ts ›
+POLITIQUE_CSP`). Réglage de repli, relu à chaque page (sans redémarrage) :
+
+| Valeur | Effet |
+|---|---|
+| `"enforce"` (défaut, clé absente ou valeur inconnue) | `Content-Security-Policy` : la politique est appliquée |
+| `"report-only"` | `Content-Security-Policy-Report-Only` : les violations sont signalées dans la console du navigateur, rien n'est bloqué |
+| `"off"` | politique retirée (repli d'urgence si une extension du navigateur ou un mandataire réécrit les pages) ; reste l'en-tête commun à toutes les réponses, `frame-ancestors 'self'` |
+
+```json
+{ "security": { "csp": "report-only" } }
+```
+
+Les aperçus du bac, l'aperçu HTML des blocs de code du chat (`/apercu-code`) et
+l'écran de consentement OAuth gardent leur propre politique, indépendante de ce
+réglage.
+
 ### Mode production (systemd)
 
 ```bash
 sudo ./elpis service install    # ou : service remove ; ./elpis service print pour voir les unités
 ```
 
-- Une unité par service (`elpis-qdrant`, `elpis-rag`, `elpis-toolhost`,
+- Une unité par service (`elpis-qdrant`, `elpis-rag`, `elpis-tools`, `elpis-toolhost`,
   `elpis-main`, `elpis-admin`, `elpis-browser`), regroupées sous
   `elpis.target`, démarrées au boot, relancées en cas d'échec, journaux dans
   journald (`./elpis logs main -f`).
@@ -351,9 +382,8 @@ sudo ./elpis service install    # ou : service remove ; ./elpis service print po
 ### Lancement minimal
 
 ```bash
-source venv/bin/activate
 export APP_SESSION_SECRET="$(cat user_db/.session_secret)"
-gunicorn -c server/gunicorn_conf.py server.app:app
+ELPIS_RACINE=$PWD APP_MODE=main node/bin/node apps/core/dist/main.mjs
 ```
 
 > **Secret de session.** Ordre : `APP_SESSION_SECRET` > `config.json ›
@@ -389,20 +419,54 @@ Sections :
 | `mcp` | `server_cmd`, `tools_cache_ttl_sec`, `servers_dir`, `local_url`/`local_host`/`local_port`/`local_transport` |
 | `app` | `db_path`, `session_secret`, `max_recent_chats`, `sandbox_dir`, `enable_model_selector`, `sandbox_quota_mb`, `max_upload_mb`, chemins `system_prompts.*` |
 | `llm` | `scheduling_mode`, `compression.*`, `compaction.*`, `prune.*`, `task.*` (sous-agents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
+| `agents` | Sous-agents (`task`), propre au TS, relu à chaud et écrit par `POST /api/admin/agents` seulement (Console › Sandbox › Sous-agents ; l'éditeur brut et les écritures champ par champ ne l'écrivent pas) : `read_only.defaults.<type>` (lecture seule par défaut ; `explore` vrai, les autres faux), `read_only.forced.<type>` (imposée : ni le compte ni l'agent principal ne la lèvent ; faux par défaut), `max_parallel` (sous-agents d'un même tour lancés ensemble, 1 à 10, défaut 3). Types : `explore`, `implement`, `verify`, `web`, `pr` et `custom` (tous les agents personnels). Lecture seule effective = imposée, OU demandée par `task(read_only=true)`, OU case du compte (si posée, sinon défaut). Une valeur illisible ou hors bornes retombe sur son défaut |
 | `memory` | `enabled`, `memory_char_limit`, `user_char_limit` |
 | `skills` | `dir`, `user_dir`, `top_n`, `min_score`, `char_budget`, `index_max` |
-| `executors` | `image` (image tierce seulement ; sans elle, celle de la version), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]` |
-| `security` | `password_policy.*`, `session.*` (cookie, `max_age_sec`, `same_site`, `https_only`, `global_min_ts`), `https.*` (`enabled`, ports, `ca_file`), `listen` (`local` \| `lan`, voir [Écoute](#écoute-securitylisten)) — ⚠ `https.*` + `listen` + `session.https_only` + `session.global_min_ts` appartiennent à leurs endpoints, l'éditeur brut ne les écrit pas |
+| `executors` | `image` (image tierce seulement ; sans elle, celle de la version), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]`, `jobs.*` (tâches de fond), `disk.warn_pct` / `disk.refuse_pct` (espace disque des bacs en %, 85 et 97 par défaut, relus à chaud : alerte des outils qui écrivent, puis refus des écritures et des nouvelles tâches ; Console › Sandbox › Limites) |
+| `security` | `password_policy.*`, `session.*` (cookie, `max_age_sec`, `same_site`, `https_only`, `global_min_ts`), `https.*` (`enabled`, ports, `ca_file`), `listen` (`local` \| `lan`, voir [Écoute](#écoute-securitylisten)), `csp` (`enforce` \| `report-only` \| `off`, voir [CSP](#politique-de-sécurité-du-contenu-securitycsp)) — ⚠ `https.*` + `listen` + `session.https_only` + `session.global_min_ts` appartiennent à leurs endpoints, l'éditeur brut ne les écrit pas |
 | `vision` / `desktop` | Endpoint d'annotation, format, modèle, passes ; cibles desktop, scopes, budgets |
 | `rag` | `service_url`, `service_token`, collection par défaut, `top_k`, seuils |
 | `maintenance` | Rétentions, heure de passe, digest quotidien |
 | `features` | Flags globaux (`opencode`, `office_preview`) |
-| `welcome` / `app_info` / `login_page` | Branding (édité depuis la console admin) |
+| `welcome` / `app_info` / `login_page` | Branding (édité depuis la console admin) ; `app_info.logo_b64` est le logo de l'application et l'avatar de l'assistant pour tous les comptes |
 | `skins` | `dir` (dossier des skins importés ou créés, défaut `user_skins`, surchargeable par `APP_SKINS_DIR`, lu au démarrage), `enabled` (`{id: booléen}`, relu à chaud : un intégré absent prend sa valeur de `frontend/css/skins/skins.json`, Kiki désactivé ; un skin importé absent est désactivé ; Ardoise et le skin par défaut restent actifs), `default` (défaut `elpis` : skin des comptes sans choix ou dont le skin a été désactivé). Réglé depuis Console › Système › Apparence ; le dossier est inclus dans les sauvegardes complètes |
-| `voice` | Moteur vocal — `enabled`, puis deux sous-blocs indépendants : `stt.*` (adresse, `format` parmi `whisper.cpp`/`openai`/`llama-audio`, langue, vocabulaire, `logprob_min`, plafonds) et `tts.*` (adresse, `format`, voix, vitesse, plafonds). Coercition et bornes dans `shared_infra/voice/config.py`, relues à CHAQUE appel |
+| `voice` | Moteur vocal — `enabled`, puis deux sous-blocs indépendants : `stt.*` (adresse, `format` parmi `whisper.cpp`/`openai`/`llama-audio`, langue, vocabulaire, `logprob_min`, plafonds) et `tts.*` (adresse, `format`, voix, vitesse, plafonds). Coercition et bornes dans `apps/core/src/voix/config.ts`, relues à CHAQUE appel |
 | `image` | Génération d'images — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. ⚠ `api_key_enc` appartient à `PUT /api/admin/image/key` : l'éditeur brut ne l'écrit pas. Voir [Génération d'images](#génération-dimages) |
 
+### Fournisseurs cloud des comptes (`llm.allowed_provider_types`)
+
+Un compte branche un fournisseur cloud avec sa propre clé dans Réglages › Modèles
+IA. `llm.allowed_provider_types` liste les types que les comptes **non
+administrateurs** (modérateurs compris) peuvent y choisir : `anthropic`, `openai`,
+`mistral`, `groq`, `openrouter`, `deepseek`, `moonshot`, `opencode`.
+
+- **Absente, vide ou illisible : aucun** (défaut depuis la 0.1.0 ; avant, tous
+  les types cloud étaient ouverts). Une instance hors ligne ne laisse ainsi partir
+  aucune donnée vers un service cloud sans décision de l'administrateur.
+- Les comptes **administrateurs** ne sont pas concernés : leurs connecteurs
+  personnels gardent tous les types cloud, et les connecteurs partagés
+  (Console › Modèles, y compris `llamacpp`, `vllm` et `generic`) ne changent pas.
+- Les types locaux (`llamacpp`, `vllm`, `generic`) restent réservés aux connecteurs
+  partagés : un compte non administrateur s'en sert par les serveurs que
+  l'administrateur partage et par le moteur intégré.
+- La liste est relue à chaque création et à chaque génération : un connecteur
+  personnel d'un type fermé reste en base, marqué « fermé par l'administrateur »
+  dans les Réglages, mais n'est plus utilisable (« Ce fournisseur n'est plus
+  autorisé sur cette instance. ») tant que son type n'est pas rouvert.
+
+Réglage : Console › Modèles › Accès utilisateurs › Fournisseurs autorisés, ou à
+la main :
+
+```json
+{ "llm": { "allowed_provider_types": ["anthropic", "mistral"] } }
+```
+
+**Mise à jour depuis la 0.0.1** : sans cette clé, les connecteurs cloud
+personnels des comptes non administrateurs cessent de servir après la mise à
+jour ; cochez les types à garder dans la console.
+
 Chaque utilisateur a en plus ses réglages en base (`users.settings_json`) ;
+
 `user_db/configs/{user_id}.json` conserve une copie personnelle de la config
 d'application.
 
@@ -482,7 +546,7 @@ comme absente.
 | Variable | Clé JSON | Défaut |
 |---|---|---|
 | `APP_TASK_CHILD_TIMEOUT_S` | `llm.task.child_timeout_s` | `3600` |
-| `APP_TASK_SUBAGENT_DEPTH` | `llm.task.subagent_depth` | `1` |
+| `APP_TASK_SUBAGENT_DEPTH` | `llm.task.subagent_depth` | `1` — **sans effet** en TS : un sous-agent ne lance jamais de sous-agent (lu pour la compatibilité de `config.json`) |
 | `APP_TASK_RESUME_TTL_S` | `llm.task.resume_ttl_s` | `21600` |
 | `APP_TASK_RESUME_MAX` | `llm.task.resume_max` | `200` |
 | `APP_TASK_MAX_ITERS_EXPLORE` / `_IMPLEMENT` / `_VERIFY` / `_WEB` / `_PR` | `llm.task.max_iters.*` | `60` / `100` / `60` / `60` / `40` |
@@ -517,14 +581,14 @@ comme absente.
 **Manifeste `mcp.json`.** Les serveurs d'outils par défaut se
 déclarent dans `mcp.json` à la racine (format `mcpServers` des clients MCP +
 bloc `x-elpis` par entrée : rôle, familles, `default_on`, familles publiées à
-opencode, repli stdio). Schéma : `docs/schemas/mcp.schema.json`. Chargeur :
+opencode, commande stdio exportée). Schéma : `docs/schemas/mcp.schema.json`. Chargeur :
 `shared_infra/mcp/manifest.py`. Sans fichier, le manifeste est synthétisé depuis
 les variables ci-dessous (comportement hérité). Avec un fichier, `LOCAL_MCP_URL`,
 `LOCAL_MCP_TOKEN`, `LOCAL_MCP_TOOL_FAMILIES` et `LOCAL_MCP_OPENCODE_FAMILIES`
 restent des SURCHARGES. Console admin → Connexions →
 « Outils par défaut » : état des entrées + Recharger (`POST /api/admin/mcp/manifest/reload`,
 sans redémarrage). Les serveurs `x-elpis.role: external` apparaissent dans le
-panneau Outils (bloc « Déclarés », état per-chat `mf:<nom>`).
+panneau MCP (bloc « Déclarés », état per-chat `mf:<nom>`).
 
 **Un serveur = une entrée = un endpoint.** `mcp.json` déclare UNE
 entrée par famille d'outils, chacune avec son endpoint : `elpis-git` →
@@ -536,17 +600,43 @@ transports en parallèle pour chaque famille :
 |---|---|
 | HTTP streamable | `…:8765/mcp/<famille>` |
 | SSE | `…:8765/sse/<famille>` (messages sur `/messages/`) |
-| stdio | `python -m toolhost --stdio --families <famille>` |
+| stdio | `node apps/toolhost/dist/main.mjs --stdio --families <famille>` |
 
 Sans segment de famille, `/mcp` et `/sse` servent toutes les familles
-enregistrées. Une entrée `role: toolhost` sans `x-elpis.fallback` reçoit un repli
-stdio DÉRIVÉ (`${python} -m toolhost --stdio --families <ses familles>`) ;
-`"fallback": false` le refuse. Les familles liées au compte (`chart`, `memory`,
-`skill`, `todo`) sont des entrées `role: app` (`type: inprocess`), servies en
-mémoire par l'app ; en mode local l'hôte les enregistre aussi, donc `/mcp/memory`
-reste joignable par un applicatif tiers. L'origine et le jeton de l'hôte vivent
+enregistrées. L'app joint toujours l'hôte en réseau : elle ne lance jamais de
+sous-process stdio, et un hôte arrêté rend les outils indisponibles (message
+dans le journal ; `./elpis doctor` le signale). La commande stdio d'une entrée
+`role: toolhost` (`x-elpis.fallback`, dérivée par défaut :
+`<node> apps/toolhost/dist/main.mjs --stdio --families <ses familles>`, `"fallback": false`
+pour la retirer) ne sert qu'à l'export vers un applicatif tiers. En stdio, l'hôte
+sert lui-même ses familles natives, sans jeton ni port : le client est un process
+local de confiance, le compte est le `_meta.username` de chaque appel (`guest`
+sans lui), comme `python -m toolhost --stdio` ; une famille relayée est confiée à
+elpis-tools (`server/local_mcp_server.py` en stdio, entrée et sortie héritées). Une
+entrée qui mêle familles natives et relayées est refusée (code 2) : une entrée
+par famille, comme `mcp.example.json`. L'export signale dans `omis` (et la console
+dans son message) les entrées sans le transport demandé ; en SSE, il demande à l'hôte
+(`/manifest`, jeton de service et enveloppe de l'administrateur) quelles familles le
+servent et omet celles qui ne le servent pas (hôte muet : rien n'est retiré). Les familles liées au compte (`chart`, `memory`,
+`skill`, `todo`) sont des entrées `role: app` `type: inprocess` (sans URL) servies
+par main lui-même : elles écrivent dans la base et les dossiers de l'app ;
+`/api/mcp-bridge/<famille>` les sert directement et l'hôte d'outils ne les
+enregistre pas. `./elpis configure`, `start` et `upgrade` retirent les URL
+`http://127.0.0.1:8766/...` de l'ancien service `appmcp` d'un `mcp.json` existant (URL
+distantes gardées), et `./elpis doctor` signale celles qui restent. L'origine et le jeton de l'hôte vivent
 dans `toolHosts` (alias de `sandboxHosts`), avec un bloc `serve`
-(`host`/`port`/`transports`). Export prêt à coller dans un autre applicatif :
+(`host`/`port`/`transports`). `relay: true` (posé par défaut, ajouté aux
+`mcp.json` existants par `./elpis configure`) fait relayer par main, même en
+loopback, `/api/sandbox/*`, `/api/terminal/*`, `/ws/terminal*`, les captures
+(`/api/playwright/screenshot/*`) et les trames (`/api/desktop/frame/*`) vers
+l'hôte, avec son jeton et l'identité signée de la session : main ne sert plus
+ces routes lui-même. À la connexion, main ouvre aussi la session d'historique
+des fichiers du compte sur l'hôte (`POST /internal/file-history/session`, mêmes
+jeton et identité), là où l'éditeur et l'assistant notent leurs écritures :
+3 s d'attente au plus ; en cas d'échec, la connexion passe, un avertissement
+est journalisé et la session précédente continue. Hôte en loopback arrêté ou
+relais inactif : la session s'ouvre sur place (même disque). Export prêt à
+coller dans un autre applicatif :
 Console admin → Connexions → « Outils par défaut » → Exporter, ou
 `GET /api/admin/mcp/manifest/export?transport=http|sse|stdio&with_token=1`, ou
 `GET /manifest?transport=…` sur l'hôte.
@@ -579,7 +669,7 @@ Authentification par jeton d'outils `ept_` seul ; portée = familles du jeton �
 (404). L'appel part avec le jeton de SERVICE et l'identité du propriétaire du
 jeton dans le `_meta` MCP, avec le délai propre à l'outil ; au plus 4 appels
 simultanés par compte et par worker (429). Code :
-`shared_infra/mcp/openapi.py`, `shared_infra/mcp/routes_openapi.py`.
+`apps/core/src/outils/openapi.ts`, `apps/core/src/familles/openapi.ts`.
 
 **Conformité MCP.** Le service d'outils suit la spécification
 MCP (révisions 2024-11-05 à 2025-11-25, transport HTTP streamable), vérifiée par
@@ -599,8 +689,8 @@ d'outils : un en-tête absent (clients natifs) passe, sinon l'origine doit figur
 dans `mcp.allowed_origins` (relue à chaud, motif `scheme://hôte:*` accepté),
 `app.cors_origins` ou `LOCAL_MCP_ALLOWED_ORIGINS` (jamais déduite de l'en-tête
 `Host`, relais compris). Le relais ne retransmet jamais le jeton du client : il le vérifie
-(`CLIENT_VERIFIERS`, `shared_infra/mcp/bridge.py`) puis présente au service un
-jeton de DÉLÉGATION `dlg_…` (`shared_infra/mcp/delegation.py`) — enveloppe HMAC
+(`apps/core/src/familles/pont-mcp.ts`) puis présente au service un
+jeton de DÉLÉGATION `dlg_…` (`packages/mcp/src/delegation.ts`) — enveloppe HMAC
 signée avec le jeton de service, d'audience `elpis-mcp`, valable ±60 s, qui porte
 le compte, le type de client et ses familles. Le service en tire les restrictions
 qu'aurait eues le jeton du client, jamais la confiance de l'app ; un service qui
@@ -647,32 +737,104 @@ corrélées par ``log_token``/``call_id`` dans ``extra``) ; la sentinelle JSON
 skills, ``pw_wait``, ``desktop_wait``) ; le client le consomme sans événement.
 ``skill_run_script`` streame sa sortie comme ``execute_shell``.
 
-**Hôte d'outils déportable.** ``python -m toolhost`` = le
-service MCP + l'API sandbox (``/api/sandbox/*``, git, cycle de vie, instantanés),
+**Hôte d'outils déportable.** L'hôte d'outils (``apps/toolhost``, bundle Node
+``apps/toolhost/dist/main.mjs``) = le service MCP + l'API sandbox (``/api/sandbox/*``, git, cycle de vie, instantanés),
 le terminal (``/api/terminal/*``, ``/ws/terminal*``) et les actifs (captures,
 trames) sur UN port, derrière le jeton de service et une enveloppe d'identité
 signée (``X-Elpis-Identity``, ``shared_infra/accounts/identity.py``). Mode local :
 ``./elpis start`` le lance en loopback, l'app sert ses routeurs en direct
 (aucun relais). Mode distant : ``mcp.json › sandboxHosts.<id>.url`` hors loopback
-(ou ``relay: true``) → le middleware ``shared_infra/sandbox/relay.py`` relaie ces
+(ou ``relay: true``) → le relais du core (``apps/core/src/relais/``) relaie ces
 chemins tels quels vers l'hôte (HTTP + WebSocket), fabrique l'enveloppe depuis la
 session (jamais depuis un en-tête du navigateur), pousse le miroir des skills
-(``POST /api/sandbox/skills-mirror``) et rapatrie captures/trames pour la vision.
-L'hôte n'ouvre jamais ``app.db`` : identité par enveloppe/``_meta``
+(``POST /api/sandbox/skills-mirror``), rapatrie captures/trames pour la vision et
+ouvre au login la session d'historique des fichiers (``POST /internal/file-history/session``).
+Avec un ``toolhost.json`` (hôte distant), l'hôte n'ouvre pas ``app.db`` : identité par enveloppe/``_meta``
 (``IdentityCapture``), rappels ``/api/internal/*`` (introspection des jetons
-``pcr_``, identité, identifiants git) avec le jeton de service, base LOCALE
+``pcr_``, identité, identifiants git ; pour la famille ``desktop`` servie par l'hôte TS :
+notification de fin d'automatisation et mémoire des ancres, compte tiré de
+l'enveloppe d'identité signée) avec le jeton de service, base LOCALE
 (``toolhost.json › db_path``) pour ses sessions de terminal et la mémoire AX.
 Familles liées au COMPTE (``memory``, ``todo``, ``chart``, ``skill`` = bibliothèque)
-= entrée ``role: app`` du manifeste, servie EN PROCESSUS par la boucle de chat
-(``llm_core/tools/app_mcp.py``, transport mémoire fastmcp) ; ``skill_run``
+= entrées ``role: app`` du manifeste, servies par main, jamais par un hôte
+distant (elles écrivent dans sa base) ; ``skill_run``
 (exécution dans le sandbox) reste sur l'hôte. Déploiement :
 ``deploy/toolhost/`` (``install_toolhost.sh``, ``toolhost.example.json``,
-``elpis-toolhost.service``, ``Caddyfile.toolhost``), schéma
+``elpis-toolhost.service``, ``elpis-tools.service``,
+``Caddyfile.toolhost``), schéma
 ``docs/schemas/toolhost.schema.json``. ``toolhost.json › bind.host`` vaut
 ``127.0.0.1`` dans l'exemple : l'app joint l'hôte par ``Caddyfile.toolhost``
 (TLS, ``reverse_proxy 127.0.0.1:8765``). Sans ce frontal, ``0.0.0.0`` (ou l'IP
 privée) est nécessaire, port filtré à l'hôte Elpis. ``app.memory_dir`` / ``APP_MEMORY_DIR`` :
 racine du magasin mémoire (défaut : racine des sandboxes).
+
+**Hôte d'outils TypeScript et elpis-tools.** Le service ``toolhost`` de
+``./elpis`` (unité ``elpis-toolhost``) est le bundle Node ``apps/toolhost/dist/main.mjs`` ;
+il lit ``toolhost.json`` et les variables ``LOCAL_MCP_*`` / ``TOOLHOST_*`` (schéma
+vérifié au démarrage, écarts journalisés, jamais bloquants) et, après un ``SIGHUP``,
+s'arrête proprement puis sort en 75 pour être relancé, comme le core. Il sert
+lui-même les familles de ``familles_natives`` (portées en TypeScript : ``browser``,
+``desktop``, ``fs``, ``git``, ``shell``, ``skill_run``) : ``/mcp/<famille>`` et ``/sse/<famille>`` de ces familles, mêmes
+jetons, portée et délégation qu'``elpis-tools`` ; ``/health`` et ``/manifest`` agrègent
+les deux côtés. Clé absente (ou pas de ``toolhost.json``) : toutes les familles portées
+sont natives ; une liste explicite, même vide, est respectée ; ``./elpis doctor`` affiche
+les familles natives effectives (``main.mjs --familles-natives``). Une famille portée
+absente d'une liste explicite est relayée à elpis-tools, qui la sert encore en Python.
+Famille ``skill_run`` native : les skills du compte sont lus dans son magasin protégé
+(``skills.user_dir``, hôte local) ou, à défaut, dans le miroir
+``<sandbox_dir>/<compte>/skills`` que l'app pousse après chaque modification (hôte
+distant) ; un ancien magasin laissé sur un hôte distant par le Python prime sur le
+miroir : le supprimer.
+Famille ``git`` native : le réseau (clone, fetch, pull, push) passe par le relais
+authentifiant, le jeton d'un Connecteur Git n'est donné qu'à l'hôte exact du dépôt ;
+``git_submit`` pousse la branche d'agent puis demande la PR au core
+(``POST /api/internal/git/pr``, compte de l'enveloppe signée) qui résout le
+connecteur, garde son ``api_base`` et appelle l'API de PR : le jeton de cette API
+ne quitte pas le core. Core injoignable après le push : erreur
+``pr_service_unavailable`` (branche poussée, PR à rouvrir) ; ``git_set_credential``
+et le jeton saisi au clone sont enregistrés par le core
+(``credential_store_unavailable`` s'il ne répond pas). Avec cette famille native,
+un outil de l'agent ne crée de connecteur que pour un hôte (port compris) déjà
+enregistré par le compte ou par un administrateur : sinon ``host_not_registered``,
+le connecteur s'ajoute dans Réglages → Connecteurs Git ; il ne met à jour que les
+connecteurs qu'il a créés (``auto``), jamais un connecteur saisi dans Réglages ou
+importé (``connector_exists``) ; un ancien
+``.git-credentials.json`` du bac suit la même règle (gardé si un hôte est refusé) ;
+le clone de l'éditeur n'a pas cette limite.
+``/mcp[/<famille>]`` des autres familles est relayé en flux vers **elpis-tools** :
+service ``tools`` (unité ``elpis-tools``, démarrée avant l'hôte, relancée avec lui),
+``main.mjs --elpis-tools`` : l'hôte lance ``server/local_mcp_server.py`` en HTTP
+streamable sur ``127.0.0.1:8767`` (``ELPIS_TOOLS_PORT``), sur ses familles relayées
+(``families`` moins ``familles_natives`` : ``main.mjs --familles-relayees``), dans
+l'environnement de ``toolhost.json`` (dossiers, base, jeton, URL du core : ce que
+``python -m toolhost`` posait), relu à chaque démarrage. Changer ``familles_natives`` :
+``./elpis restart`` (ou ``systemctl restart elpis-toolhost``, qui relance aussi
+elpis-tools). Aucune famille relayée : elpis-tools ne démarre pas. ``./elpis`` pose
+``TOOLHOST_MCP_UPSTREAM`` vers lui (l'unité distante aussi), et ``TOOLHOST_APP_URL``
+vers le core local (``http://127.0.0.1:8001``, sauf valeur déjà posée dans
+l'environnement) : sans URL du core, les rappels ``/api/internal/*`` sont inactifs
+(``shell_job`` répond ``not_available_here``, identifiants git, PR, quota et
+notifications sont ignorés). ``/sse[/<famille>]`` +
+``/messages/`` des familles relayées passent par ``mcp_upstream_sse``
+(``TOOLHOST_MCP_UPSTREAM_SSE``, un ``elpis-tools`` en transport ``sse``, non lancé par
+``./elpis`` : un client tiers en SSE ne joint que les familles natives, l'export SSE de
+la console omet les autres). Sans amont, ``/mcp``
+répond 503 et ``/sse`` n'est pas servi (``/sse`` exige aussi ``sse`` dans
+``bind.transports``). Avant de relayer, l'hôte vérifie l'amont : il doit refuser un
+appel sans jeton (sondé toutes les 10 s au plus ; le refus sondé est rejoué tel quel
+à un appel sans ``Bearer``) et ne servir aucune famille hors de ``families`` ni aucune
+famille native ; sinon le relais répond 503 : la racine ``/mcp`` relayée n'expose
+jamais la version Python d'une famille native. Le core ouvre une connexion MCP par
+famille (``/mcp/<famille>``) vers une entrée ``toolhost`` à plusieurs familles et
+fusionne leurs outils dans l'ordre canonique ; une famille coupée est rouverte seule,
+une famille injoignable est retirée sans priver les autres et relistée 15 s plus tard.
+L'ancien hôte Python (``python -m toolhost``) n'existe plus depuis la 0.1.0 :
+``ELPIS_TOOLHOST=python`` dans ``.env`` est ignoré (``./elpis doctor`` le signale).
+**Construction** : ``npm run build`` (core et hôte) ; node-pty, sans binaire Linux
+précompilé, est compilé par ``npm ci`` (build-essential, python3 : groupe apt
+``construction-hote``) ; le paquet hors ligne de ``make_release.sh`` contient le
+bundle de l'hôte pour son architecture (``toolhost/``). ``./elpis doctor`` vérifie
+le bundle (``main.mjs --empreinte``, ``--natif``) et la santé d'elpis-tools.
 
 **Plusieurs hôtes d'outils.** ``mcp.json › sandboxHosts`` peut
 déclarer N hôtes ; ``placement.strategy`` = ``single`` (tout le monde sur
@@ -687,6 +849,10 @@ l'être). Routes :
 ``GET /api/admin/toolhosts``, ``POST /api/admin/toolhosts/placements/{uid}``
 (``{host_id}``), ``…/migrate``, ``DELETE …``. Ajouter un hôte = une entrée
 ``sandboxHosts`` dans ``mcp.json`` + ``toolhost.json`` sur la machine.
+Supprimer un compte avec son bac (``DELETE /api/admin/users/{id}?delete_sandbox=true``)
+supprime aussi celui d'un hôte distant, par la route interne
+``POST /api/internal/sandbox/delete`` de cet hôte (enveloppe signée, jamais relayée),
+avant le dossier local ; un profil réseau imposé détruit le conteneur sur l'hôte du compte.
 
 
 | Variable | Défaut | Description |
@@ -694,8 +860,9 @@ l'être). Routes :
 | `MCP_SERVER_CMD` | `server/local_mcp_server.py` | Commande de démarrage |
 | `MCP_TOOLS_CACHE_TTL_SEC` | `360` | TTL du cache `list_tools` |
 | `MCP_SERVERS_DIR` | `../mcp_custom_servers` | Serveurs uploadés |
-| `LOCAL_MCP_URL` | — | Si défini, on se connecte au service partagé (`…/mcp` = HTTP streamable, `…/sse` = SSE) au lieu de spawner en stdio |
+| `LOCAL_MCP_URL` | dérivée (`http://127.0.0.1:8765/mcp`) | Adresse de l'hôte d'outils (`…/mcp` = HTTP streamable, `…/sse` = SSE) ; l'app ne le lance jamais en sous-process |
 | `LOCAL_MCP_HOST` / `LOCAL_MCP_PORT` / `LOCAL_MCP_TRANSPORT` | `127.0.0.1` / `8765` / `sse` | Utilisés **par** le serveur en mode service (`./elpis start` : `streamable-http`) |
+
 | `LOCAL_MCP_TOKEN` | — | Jeton de **service** de l'app (Bearer, **vérifié** côté serveur sur SSE/HTTP) ; `./elpis configure` le génère dans `user_db/.local_mcp_token` |
 | `LOCAL_MCP_CLIENT_TOKENS` | — | Jetons de **clients externes** configurés à la main, chacun lié à un compte : `tok1:alice,tok2:bob` (toutes les familles) |
 | `LOCAL_MCP_TOOL_FAMILIES` | `all` | Familles enregistrées : `fs,shell,git` ou `all,-desktop,-browser` |
@@ -738,7 +905,7 @@ l'être). Routes :
 | `LLM_BREAKER` | `1` | Disjoncteur LLM (`0` = désactivé) |
 | `LLM_BREAKER_FAILS` | `5` | Échecs transport consécutifs avant ouverture |
 | `LLM_BREAKER_COOLDOWN_S` | `15` | Durée du fail-fast |
-| `SKILLS_FILELOCK` | `1` | Verrou `flock` cross-worker des écritures skills |
+| `SKILLS_FILELOCK` | `1` | Verrou de fichier entre processus (`elpis.verrou.v1.1`) des écritures skills |
 | `ROUTINES_PER_USER_CAP` | `5` | Runs simultanés par utilisateur |
 | `ROUTINES_RUN_MAX_ATTEMPTS` / `_RETRY_BACKOFF_S` | `2` / `3.0` | Reprise bornée d'un run |
 | `PTY_MAX_PER_USER` | dérivé | Terminaux par utilisateur |
@@ -803,7 +970,7 @@ Un seul moteur, réglé dans Console › Modèles & services › Images
   fichier a disparu, et applique la rétention à tous les comptes. Les images
   sont comprises dans `./elpis backup` (portées `full` et `db`), avec
   `user_db/` ou à part si la base est ailleurs.
-- ⚠ **Plusieurs hôtes** sur une même base PostgreSQL/MySQL : chaque fichier
+- ⚠ **Plusieurs hôtes** sur une même base PostgreSQL : chaque fichier
   reste sur l'hôte qui l'a écrit.
 
 ### `context_config.json` — textes injectés au LLM
@@ -870,18 +1037,9 @@ Les chemins relatifs sont résolus depuis `PROJECT_ROOT`.
 | Prewarm MCP | oui | non (première ouverture d'onglet paie ~500 ms) |
 | Cookie | scopé HOST — valide sur les deux ports | idem |
 
-```python
-# server/app.py (extrait)
-APP_MODE = _resolve_app_mode(os.environ.get("APP_MODE"))   # absent/invalide → "main"
-if APP_MODE in ("main", "full"):
-    app.include_router(router)          # routes utilisateur
-if APP_MODE in ("admin", "full"):
-    app.include_router(admin_router)    # routes admin
-app.include_router(internal_router)     # restart-self / broadcast-restart (loopback)
-```
-
-L'isolation est faite **au mount** : en `APP_MODE=main`, `admin_router` n'entre
-jamais dans la table de routage FastAPI.
+Le core monte ses familles de routes selon `APP_MODE` (absent ou invalide :
+`main`). L'isolation est faite **au montage** : en `APP_MODE=main`, les routes
+d'administration n'entrent jamais dans la table de routage.
 
 Les cookies étant scopés HOST (pas port), une session créée sur `:8001` vaut sur
 `:8002` — à condition que les deux process partagent `APP_SESSION_SECRET`.
@@ -892,59 +1050,15 @@ réécriture automatique des `localhost` pour un client distant).
 
 ---
 
-## Multi-worker Gunicorn
+## Process du core
 
-```mermaid
-flowchart TB
-    LB["Gunicorn master :8001<br/>reuse_port · SIGHUP re-bind"]
-    subgraph W["Workers Uvicorn (process séparés)"]
-        W1["worker 1<br/>caches · pool MCP · locks"]
-        W2["worker 2<br/>caches · pool MCP · locks"]
-        W3["worker 3<br/>caches · pool MCP · locks"]
-    end
-    LB --> W1 & W2 & W3
-    W1 & W2 & W3 --> DB[("Base<br/>SQLite / PostgreSQL / MariaDB")]
-    W1 & W2 & W3 -.-> SP[["/tmp spools JSONL<br/>+ flock"]]
-    note["⚠️ Locks & dicts module-level = PAR worker.<br/>Tout état partagé passe par la DB,<br/>un spool JSONL, ou un flock."]
-```
-
-### Configuration (`server/gunicorn_conf.py`)
-
-| Paramètre | Valeur | Commentaire |
-|---|---|---|
-| `workers` | `min(4, cpu - 1)` au-delà de 2 cœurs, sinon `cpu` ; `APP_WORKERS=N` l'impose ; admin : 1 | 4 vCPU → 3 workers, 8 vCPU et plus → 4 |
-| `worker_class` | `server.uvicorn_worker.ElpisUvicornWorker` | Durci : `timeout_graceful_shutdown` borné + annonce du shutdown aux flux SSE |
-| `bind` | suit `security.https.enabled` puis `security.listen` (voir [Écoute](#écoute-securitylisten)) ; `BIND` prioritaire | Break-glass : `BIND=0.0.0.0:8001` |
-| `reuse_port` | `True` | **Indispensable** au re-bind à chaud : pendant le SIGHUP, anciens et nouveaux workers coexistent sur le même port |
-| `on_reload` | ferme les sockets héritées | Sans ça, ~1/(workers+1) des connexions pendaient indéfiniment |
-| `keepalive` | `120` | Connexions SSE longues |
-| `timeout` | `600` | Requêtes LLM longues (`murder_workers` en ultime recours) |
-| `graceful_timeout` | `330` | Doit excéder le drain des flux infinis |
-| `max_requests` | `0` (recyclage désactivé ; `APP_MAX_REQUESTS=N` le réactive, jitter N/10) ; admin : `ADMIN_MAX_REQUESTS`, défaut `50000` | Un recyclage pendant un long run d'agent l'interromprait |
-| `preload_app` | `False` | Les ressources asyncio (pool MCP, sémaphores) ne survivent pas au fork |
-
-### Conséquences
-
-- Chaque worker a **ses propres caches** (`n_ctx`, slots, `/props`, pool MCP,
-  registre de catégories d'outils).
-- Les **créneaux du llama-server** (`-np`) sont communs à tous les process, admin
-  compris : un créneau = un fichier verrouillé (`flock`) dans le répertoire
-  d'exécution (`ELPIS_LLM_SLOTS_DIR`, défaut `/tmp/elpis_llm_slots`). Le nombre de
-  workers ne change donc ni le nombre de générations simultanées ni leur partage.
-- Le bouton « Rafraîchir les caches » diffuse un événement à tous les workers.
-- Recyclage désactivé par défaut côté main. S'il est réactivé
-  (`APP_MAX_REQUESTS`) ou lors d'un reload, **le recyclage d'un worker reste
-  invisible** : quand `should_exit` est posé, les
-  flux infinis sont évacués proprement (précédés d'un `worker_recycling`) et les
-  clients se rebranchent en ~1 s sur un worker sain grâce à `SO_REUSEPORT`. La
-  bannière « redémarrage » est réservée au **vrai** restart complet.
-
-### Cleanup atexit
-
-`app.py` enregistre `_kill_mcp_subprocesses_sync()` (via psutil) qui tue les
-subprocess MCP orphelins après un crash — sans quoi ils sont reparentés à init
-et consomment de la RAM jusqu'au reboot. `_kill_all_terminals()` fait de même
-pour les PTY.
+Le core TypeScript tourne en **un process par mode** (`apps/core/dist/main.mjs` :
+`APP_MODE=main` sur 8001, `APP_MODE=admin` sur 8002), sans workers : les confs
+Gunicorn et `uvicorn_worker.py` sont retirées avec le Python du core.
+`SIGTERM`, `SIGINT` et `SIGHUP` déclenchent un arrêt gracieux (générations en
+cours jusqu'à 300 s) ; après un `SIGHUP`, le process sort en 75 pour être
+relancé par `./elpis` ou systemd. L'adresse d'écoute suit la règle d'[Écoute](#écoute-securitylisten)
+(`BIND` prioritaire).
 
 ---
 
@@ -969,8 +1083,8 @@ Points de conception :
   Main et admin partagent le hostname (ports différents) → le cookie host-scopé
   reste partagé.
 - Caddy tourne **en permanence** ; la bascule HTTPS ↔ HTTP direct se fait depuis
-  la console admin, qui écrit `security.https.enabled` puis déclenche un reload
-  gunicorn (les fichiers de conf relisent le flag au SIGHUP). Une **garde
+  la console admin, qui écrit `security.https.enabled` puis redémarre le core
+  (`SIGHUP`, relance par `./elpis` ou systemd), qui relit le flag au démarrage. Une **garde
   anti-lockout** sonde les ports avant de couper l'accès direct.
 - `@bootstrap` : les routes d'installation restent en clair sur `:80` — la
   machine cible ne connaît pas encore la CA. Voir
@@ -981,7 +1095,7 @@ Points de conception :
 Le bind (`127.0.0.1` en mode HTTPS) est l'unique barrière : `security.https`,
 `session.https_only` et `session.global_min_ts` appartiennent à leur endpoint,
 et l'éditeur « Config principale » ne les réécrit jamais
-(`shared_infra/routes/admin/config.py › _OWNED_PATHS`), sans quoi une copie
+(`apps/core/src/admin/config.ts › OWNED_PATHS`), sans quoi une copie
 périmée du formulaire rouvrirait le bind public au redémarrage suivant.
 
 À savoir :
@@ -990,9 +1104,6 @@ périmée du formulaire rouvrirait le bind public au redémarrage suivant.
   Caddy avant d'écrire (garde anti-lockout).
 - Le **RAG (`:8000`)** est un uvicorn autonome : il ne suit le toggle qu'au
   relancement de `./elpis start`.
-- Chaîne verrouillée de bout en bout par
-  `tests/shared_infra/test_https_toggle.py ›
-  test_a_stale_form_save_cannot_reopen_the_public_bind`.
 
 ---
 

@@ -19,12 +19,12 @@ Les personnages de l'écran d'accueil et des avatars, en pixel art.
 - `socle-mascottes.json` : la même description, en données (fenêtre, états,
   animations de chaque personnage).
 - `<perso>/source.json` : les images et les points d'ancrage que lit le moteur
-  de l'écran d'accueil (`accueil.js`).
+  de l'écran d'accueil (`src/features/mascotte/accueil.ts`).
 - `<perso>/*.png`, `<perso>/atlas.webp` : les planches. Chaque planche porte une
   copie de sa première image à la fin, ce qui rend l'animation indépendante de
   la taille d'affichage.
 - `kiki/marionnette.json` : les membres articulés de la scène Kiki.
-- `accueil.js`, `accueil.css`, `motifs.js` : l'écran d'accueil animé (le mot
+- `accueil.css` (le moteur est dans `src/features/mascotte/`) : l'écran d'accueil animé (le mot
   ELPIS et la mascotte qui vit dedans).
 
 ## Contrainte d'usage

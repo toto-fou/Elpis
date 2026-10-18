@@ -552,7 +552,7 @@ async def _get_cached_props(model_id: Optional[str], *,
     # Import tardif : services.py importe ce module plus tard dans son exécution,
     # et on veut éviter un cycle à l'import initial.
     try:
-        from llm_core import _llama_get  # type: ignore
+        from llm_core._llama_http import _llama_get  # type: ignore
     except ImportError:
         logger.warning("[llm_params] Impossible d'importer _llama_get")
         return {}
@@ -676,7 +676,7 @@ async def _fetch_raw_props(model_id: Optional[str], *,
 
 async def _read_raw_props(model_id: Optional[str], autoload: bool) -> Dict[str, Any]:
     try:
-        from llm_core import _llama_get  # type: ignore
+        from llm_core._llama_http import _llama_get  # type: ignore
         if model_id:
             from urllib.parse import quote
             raw = await _llama_get(

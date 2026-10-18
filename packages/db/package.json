@@ -1,0 +1,19 @@
+{
+  "name": "@elpis/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Base de données du core : SQLite (better-sqlite3) et PostgreSQL (pg), dialectes, transactions",
+  "exports": {
+    ".": "./src/index.ts",
+    "./test": "./src/test.ts"
+  },
+  "dependencies": {
+    "@elpis/commun": "0.1.0",
+    "@elpis/config": "0.1.0",
+    "@elpis/verrous": "0.1.0",
+    "better-sqlite3": "13.0.3",
+    "pg": "8.23.1"
+  }
+}

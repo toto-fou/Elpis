@@ -39,9 +39,9 @@ sens d'OpenAI :
   résumée ou masquée). Elpis ne re-soumet pas la réflexion des tours
   précédents : elle ne pèse qu'une fois, en sortie.
 
-Postes affichés — `token_breakdown` côté serveur
-(`shared_infra/observability/usage_store.py`), `tokenBreakdown` côté front
-(`frontend/js/utils.js`) :
+Postes affichés — `tokenBreakdown` côté serveur
+(`apps/core/src/observabilite/usage-registre.ts`), `tokenBreakdown` côté front
+(`frontend/src/utils/utils-purs.ts`) :
 
 | Poste | Sens | Calcul |
 |---|---|---|
@@ -56,9 +56,9 @@ Postes affichés — `token_breakdown` côté serveur
 Bornes : cache et outils ≤ entrée, réflexion ≤ sortie (cache et outils se
 recouvrent : un résultat d'outil relu du cache compte dans les deux). Le cache
 **créé** (Anthropic) fait partie de l'entrée utile et n'est montré qu'en détail.
-Les outils ne sont déclarés par aucun fournisseur : `tool_prompt_tokens`
-(`llm_core/context/tokens.py`) les estime à chaque appel, sans I/O, et
-`RunRecord.note_tool_input` les cumule sur le tour comme l'entrée, bornés par
+Les outils ne sont déclarés par aucun fournisseur : `toolPromptTokens`
+(`apps/core/src/contexte/tokens.ts`) les estime à chaque appel, sans I/O, et
+`RunRecord.noteToolInput` les cumule sur le tour comme l'entrée, bornés par
 l'entrée réelle de l'appel. Pendant le prefill (lecture du prompt), la pastille
 du message affiche « Prefill… N % · cache M % » : N porte sur l'entrée
 UTILE (`processed` de llama.cpp part de la part relue du cache). Format
@@ -83,7 +83,7 @@ constatés dans le code :
   modèle mentait dès qu'un connecteur externe servait le tour.
 
 La mesure est donc faite **dans la boucle**, une seule fois, avec le contexte
-(`source`, `user_id`, `origin_id`) posé par l'appelant via `usage_scope(...)`.
+(`source`, `user_id`, `origin_id`) posé par l'appelant via `usageScope(...)`.
 Le split entrée/sortie est toujours connu (la boucle a `cumul_in`/`cumul_out`),
 donc le flag `estimated` de l'onglet Utilisation a disparu. Les tokens de cache
 sont cumulés sur le tour et stockés à part (`cache_read_tokens`), et COMPRIS
@@ -97,7 +97,7 @@ Chaque ligne porte aussi le moteur (`connector` : `builtin`, `conn:<id>`,
 `url:<racine>`) et l'exécution (`run_id`, table `runs`) : une exécution —
 tour de chat, run de routine, sous-agent, compaction manuelle — regroupe ce
 qu'elle a consommé (tokens, temps LLM, outils, fichiers, pics de la
-sandbox), cf. `shared_infra/observability/runs.py`.
+sandbox), cf. `apps/core/src/executions/registre.ts`.
 
 ## La sortie se lit en deux : réflexion et réponse
 
@@ -108,7 +108,7 @@ réflexion peut donc représenter l'essentiel du coût de sortie d'un tour sans
 qu'aucune vue ne puisse le nommer : « pourquoi ce tour a-t-il coûté 8 000
 tokens de sortie ? » n'avait pas de réponse.
 
-`llm_core/_think_tokens.py` produit ce chiffre manquant, **une fois par tour**,
+`apps/core/src/llm/jetons-raisonnement.ts` produit ce chiffre manquant, **une fois par tour**,
 avec un ordre de vérité explicite (même idiome que le reste des comptages :
 exact d'abord, repli portable) :
 
@@ -179,7 +179,7 @@ tour » (tooltip de la ligne métriques du message).
 ## Comptage exact : prompt RENDU par le template
 
 Base commune des comptages exacts :
-`count_rendered_prompt_tokens_exact` (`llm_core/_llama_http.py`) demande à
+`countRenderedPromptTokensExact` (`apps/core/src/contexte/tokens.ts`) demande à
 llama-server de RENDRE le prompt exactement comme pour `/v1/chat/completions`
 (`POST /apply-template` : tokens spéciaux `<|im_start|>`/`<|im_end|>`, prompt
 de génération, embedding des tools) puis le tokenise avec `add_special` (BOS).
@@ -234,14 +234,14 @@ llama.cpp) ; les blocs image (non tokenisables) ajoutent leur forfait par-dessus
   dans la liste au fil des cycles d'outils et finissait droppable : l'agent
   gardait son dernier `grep` et avait oublié ce qu'on lui demandait. Relâchée
   si elle pèse > 15 % du budget (pièce jointe géante).
-- **Fenêtre de contexte par CIBLE** (`llm_core/_ctx_window.py`) : sur connecteur
+- **Fenêtre de contexte par CIBLE** (`apps/core/src/llm/fenetre-contexte.ts`) : sur connecteur
   distant, le `/props` local décrivait un autre modèle — ou rien, et `ctx=0`
   mettait tout le pipeline en veille. Résolution : connecteur > famille connue >
   `LLM_REMOTE_N_CTX` > 0 (tracé).
 
 ## Ratio MESURÉ (harnais v4 — plus d'heuristique statique dans les décisions)
 
-`llm_core/context/tokens.py` : ratio **chars/token MESURÉ par modèle** (EWMA
+`apps/core/src/contexte/tokens.ts` : ratio **chars/token MESURÉ par modèle** (EWMA
 alimentée par chaque réponse réelle : chars du prompt envoyé ÷
 `prompt_tokens` facturés ; amorce froide 3,3, bornes [1.5, 8]). Tous les
 seuils de l'app sont en TOKENS ; les longueurs de chaîne ne sont plus que

@@ -35,7 +35,6 @@ from typing import Any, Callable, Dict, Optional
 log = logging.getLogger("uvicorn.error")
 
 _JOB_LOCK = threading.Lock()
-_WAIT_GENERATIONS_S = 120.0
 _JOB_STALE_S = 600.0
 _MUTATING = {"POST", "PUT", "PATCH", "DELETE"}
 _ALLOWED_PREFIXES = ("/api/admin/database", "/api/auth/", "/api/admin/internal/")
@@ -205,7 +204,11 @@ def save_password(password: str, *, pending: bool = False) -> None:
 
 
 def pending_password() -> str:
-    """Mot de passe de la cible enregistrée sans bascule, ou ``""``."""
+    """Mot de passe de la cible enregistrée sans bascule (aucun pour un moteur retiré), ou ``""``."""
+    from shared_infra import config as cfg
+    pending = (cfg.read_config_json().get("database") or {}).get("pending") or {}
+    if str(pending.get("backend") or "").strip().lower() in cfg.DB_BACKENDS_RETIRED:
+        return ""
     try:
         return _password_path(True).read_text(encoding="utf-8").strip()
     except OSError:
@@ -267,20 +270,6 @@ def start_job(kind: str, target: Dict[str, Any], reload: Callable[[], None]) -> 
     return {"ok": True}
 
 
-def _wait_generations() -> None:
-    from shared_infra.routes.admin.lifecycle import active_generations
-    deadline = time.monotonic() + _WAIT_GENERATIONS_S
-    while True:
-        n = active_generations()
-        if not n:
-            return
-        if time.monotonic() > deadline:
-            raise RuntimeError(f"{n} génération(s) toujours en cours après "
-                               f"{int(_WAIT_GENERATIONS_S)} s — réessayer plus tard")
-        _write_job(step=f"attente de {n} génération(s)")
-        time.sleep(2)
-
-
 def _run(kind: str, target: Dict[str, Any], reload: Callable[[], None]) -> None:
     from shared_infra import config as cfg
     from shared_infra.config import write_text_atomic
@@ -289,7 +278,6 @@ def _run(kind: str, target: Dict[str, Any], reload: Callable[[], None]) -> None:
     swap: Optional[Dict[str, Path]] = None
     try:
         write_text_atomic(_flag_path(), json.dumps({"generation": new_gen, "since": time.time()}))
-        _wait_generations()
         source = T.active_target()
         if kind == "sqlite":
             live = Path(cfg.DB_PATH)

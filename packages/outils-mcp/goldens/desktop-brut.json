@@ -1,0 +1,104 @@
+{
+  "source": "server/local_mcp_server.py (tools/list, FastMCP), APP_DESKTOP_EXPOSE_RAW_TOOLS=1",
+  "famille": "desktop",
+  "outils": [
+    {
+      "name": "desktop_screenshot",
+      "title": "Desktop Screenshot",
+      "description": "Capture the current screen of the active target (no analysis).\n\nUse for a quick look. To get clickable element ids, use desktop_observe\ninstead. The image streams to the Annotation Studio; you get a token,\nnot the raw bytes.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    },
+    {
+      "name": "desktop_inspect",
+      "title": "Desktop Inspect",
+      "description": "Return the raw accessibility tree of the active target (no detection).\n\nUse when you need roles/names/values directly from the OS (pywinauto /\nAT-SPI). For clickable element ids overlaid on the screen, prefer\ndesktop_observe.\n\nmax_nodes  cap (default 300).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "max_nodes": {
+            "default": 300,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "desktop",
+          "label": "Contr\u00f4le d'\u00e9cran",
+          "icon": "ph-desktop",
+          "color": "teal"
+        },
+        "policy": {
+          "serial": true,
+          "prune": "desktop",
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "desktop"
+          ]
+        }
+      }
+    }
+  ],
+  "fonctions": {
+    "desktop_screenshot": {
+      "fonction": "screenshot",
+      "parametres": []
+    },
+    "desktop_inspect": {
+      "fonction": "inspect",
+      "parametres": [
+        {
+          "nom": "max_nodes",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 300
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@elpis/bac",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Bac à sable d'Elpis partagé par le core et l'hôte d'outils : CLI Docker, noms et étiquettes, profils réseau, image, verrou de cycle de vie par compte (shared_infra/sandbox/executors)",
+  "exports": {
+    ".": "./src/index.ts",
+    "./test": "./src/test.ts"
+  },
+  "dependencies": {
+    "@elpis/commun": "0.1.0",
+    "@elpis/config": "0.1.0",
+    "@elpis/securite": "0.1.0",
+    "@elpis/verrous": "0.1.0"
+  }
+}

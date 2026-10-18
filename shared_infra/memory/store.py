@@ -17,12 +17,11 @@ système n'a pas FTS5 (les écritures/recherches deviennent des no-op silencieux
 from __future__ import annotations
 
 import logging
-import re
 import time
 from typing import Any, Dict, List, Optional
 
 from shared_infra.db._connection import db_conn
-from shared_infra.db._dialect import MYSQL, POSTGRES, backend, ci_like, insert_id
+from shared_infra.db._dialect import POSTGRES, backend, ci_like, insert_id
 from shared_infra.db._schema import FTS_PUNCT
 
 log = logging.getLogger("uvicorn.error")
@@ -151,10 +150,8 @@ SEARCH_ROLES = ("user", "assistant", "tool", "tool_call")
 MESSAGE_MAX_CHARS = 6000
 
 
-def _manual_excerpt(content: str, tokens: List[str], mark: bool = False) -> str:
-    """Repli sans FTS5 : ~220 caractères autour de la première occurrence.
-    ``mark`` : mots trouvés encadrés de « », comme ``snippet()`` de FTS5 et
-    ``ts_headline`` (MySQL, dont le plein texte ne rend pas d'extrait)."""
+def _manual_excerpt(content: str, tokens: List[str]) -> str:
+    """Repli sans FTS5 : ~220 caractères autour de la première occurrence."""
     text = " ".join(str(content or "").split())
     low = text.casefold()
     pos = -1
@@ -167,10 +164,6 @@ def _manual_excerpt(content: str, tokens: List[str], mark: bool = False) -> str:
     start = max(0, pos - _EXCERPT_CHARS // 2)
     end = min(len(text), start + _EXCERPT_CHARS)
     out = text[start:end].strip()
-    if mark:
-        words = [re.escape(t) for t in tokens if t.strip()]
-        if words:
-            out = re.sub(r"(?<!\w)(" + "|".join(words) + r")(?!\w)", r"«\1»", out, flags=re.I)
     return ("… " if start > 0 else "") + out + (" …" if end < len(text) else "")
 
 
@@ -197,11 +190,9 @@ def session_search_snippets(user_id: int, query: str, limit: int = 5,
             sql, params = _fts_snippet_sql(raw_tokens, int(user_id), roles, lim)
             cur.execute(sql, params)
             for r in cur.fetchall():
-                snip = (r["snip"] if "snip" in r.keys()
-                        else _manual_excerpt(r["content"], raw_tokens, mark=True))
                 out.append({"ref": r["id"], "app": r["app"], "session_id": r["session_id"],
                             "role": r["role"], "ts": r["ts"],
-                            "snippet": " ".join(str(snip or "").split())})
+                            "snippet": " ".join(str(r["snip"] or "").split())})
         except Exception:
             try:
                 cur.execute(
@@ -274,8 +265,6 @@ def session_message_by_ref(user_id: int, ref: int) -> Optional[Dict[str, Any]]:
 #  SQLite : FTS5 (``MATCH``, ``bm25`` croissant = meilleur, ``snippet``).
 #  PostgreSQL : ``websearch_to_tsquery`` (mots reliés par « or »), colonne
 #  générée ``content_tsv``, ``ts_rank_cd`` décroissant, ``ts_headline``.
-#  MySQL/MariaDB : ``MATCH … AGAINST`` en mode booléen (mots entre guillemets,
-#  OU implicite), extraits calculés ici (``_manual_excerpt``).
 
 _PG_PUNCT = str.maketrans({c: " " for c in FTS_PUNCT})
 
@@ -286,8 +275,6 @@ def _fts_terms(raw_tokens: List[str], dialect: str) -> str:
         # la phrase « plan md », comme en FTS5.
         phrases = (" ".join(t.translate(_PG_PUNCT).split()) for t in raw_tokens)
         return " or ".join('"' + p + '"' for p in phrases if p)
-    if dialect == MYSQL:
-        return " ".join('"' + t.replace('"', " ") + '"' for t in raw_tokens)
     return " OR ".join('"' + t.replace('"', '""') + '"' for t in raw_tokens)
 
 
@@ -299,12 +286,6 @@ def _fts_search_sql(raw_tokens: List[str], user_id: int, lim: int):
                 "ts_rank_cd(sm.content_tsv, websearch_to_tsquery('elpis_simple', ?)) AS rank_score "
                 "FROM session_messages sm "
                 "WHERE sm.content_tsv @@ websearch_to_tsquery('elpis_simple', ?) AND sm.user_id = ? "
-                "ORDER BY rank_score DESC LIMIT ?", (q, q, user_id, lim))
-    if d == MYSQL:
-        return ("SELECT app, session_id, scope_key, role, content, ts, "
-                "MATCH(content) AGAINST (? IN BOOLEAN MODE) AS rank_score "
-                "FROM session_messages "
-                "WHERE MATCH(content) AGAINST (? IN BOOLEAN MODE) AND user_id = ? "
                 "ORDER BY rank_score DESC LIMIT ?", (q, q, user_id, lim))
     return ("SELECT sm.app, sm.session_id, sm.scope_key, sm.role, sm.content, sm.ts, "
             "bm25(session_messages_fts) AS rank_score "
@@ -329,12 +310,6 @@ def _fts_snippet_sql(raw_tokens: List[str], user_id: int, roles: tuple, lim: int
                 f"AND sm.user_id = ? AND sm.role IN ({ph}) "
                 "ORDER BY ts_rank_cd(sm.content_tsv, websearch_to_tsquery('elpis_simple', ?)) DESC "
                 "LIMIT ?", (q, q, user_id, *roles, q, lim))
-    if d == MYSQL:
-        return ("SELECT id, app, session_id, role, ts, content "
-                "FROM session_messages "
-                f"WHERE MATCH(content) AGAINST (? IN BOOLEAN MODE) AND user_id = ? AND role IN ({ph}) "
-                "ORDER BY MATCH(content) AGAINST (? IN BOOLEAN MODE) DESC LIMIT ?",
-                (q, user_id, *roles, q, lim))
     return ("SELECT sm.id, sm.app, sm.session_id, sm.role, sm.ts, "
             f"snippet(session_messages_fts, 0, '«', '»', ' … ', {_SNIPPET_TOKENS}) AS snip "
             "FROM session_messages_fts "

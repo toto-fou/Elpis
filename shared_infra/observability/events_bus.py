@@ -57,7 +57,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from llm_core import get_llm_health, get_remote_models_with_status
+from llm_core._health import get_llm_health, get_remote_models_with_status
 from shared_infra.observability.file_bus import FileBus, FileTail
 from shared_infra.observability.tracing import swallow
 from shared_infra.runtime.runtime_dir import runtime_path
@@ -1001,10 +1001,8 @@ def _ensure_model_poller():
         # Tâche enregistrée via _register_bg_task : sans référence tenue,
         # Python peut la collecter à chaud (RuntimeWarning "coroutine was
         # never awaited"), et elle ne serait jamais annulée au shutdown
-        # (poll jusqu'à la mort du worker). Import via le réexport de
-        # ``shared_infra.routes._legacy``.
-        from shared_infra.routes._legacy import _register_bg_task as _reg
-        _reg(asyncio.create_task(_model_poll_loop()))
+        # (poll jusqu'à la mort du worker).
+        _register_bg_task(asyncio.create_task(_model_poll_loop()))
         logger.info("[model_cache] Background model poller started (10s interval)")
     except RuntimeError:
         _model_poller_started = False

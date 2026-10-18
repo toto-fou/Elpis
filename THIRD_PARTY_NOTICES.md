@@ -2,7 +2,8 @@
 
 Elpis itself is licensed under the MIT License (see `LICENSE`).
 This file lists the third-party components that are **bundled in this
-repository** (vendored front-end files), then the dependencies that
+repository** (vendored front-end files) or **built into the TypeScript core
+bundle** shipped by the offline package, then the dependencies that
 `./install.sh` **downloads and installs** (not redistributed here), and
 finally the **optional** dependencies under copyleft licenses.
 
@@ -19,29 +20,78 @@ file per component, named after the upstream package).
 
 | Component | Version | License | Files | Upstream |
 |---|---|---|---|---|
-| Vue.js | 3.5.27 | MIT | `vue.global.prod.js` | https://github.com/vuejs/core |
-| marked | 15.0.12 | MIT | `marked.min.js` | https://github.com/markedjs/marked |
-| DOMPurify | 3.1.6 | Apache-2.0 OR MPL-2.0 | `purify.min.js` | https://github.com/cure53/DOMPurify |
-| highlight.js | 11.7.0 | BSD-3-Clause | `highlight.min.js`, `github-dark.min.css` | https://github.com/highlightjs/highlight.js |
-| Mermaid | 11.13.0 | MIT | `mermaid.min.js` | https://github.com/mermaid-js/mermaid |
-| Monaco Editor | 0.45.0 | MIT | `monaco/` | https://github.com/microsoft/monaco-editor |
-| TypeScript (language service bundled in Monaco) | 5.0.2 | Apache-2.0 | `monaco/vs/language/typescript/` | https://github.com/microsoft/TypeScript — text in `LICENSES/monaco-editor-ThirdPartyNotices.txt` |
-| Codicons (font in Monaco) | bundled with Monaco 0.45.0 | CC-BY-4.0 (font), MIT (code) | `monaco/vs/base/browser/ui/codicons/codicon/codicon.ttf` | https://github.com/microsoft/vscode-codicons |
-| xterm.js | 5.x (version not stated in the minified file) | MIT | `xterm/xterm.js`, `xterm/xterm.css` | https://github.com/xtermjs/xterm.js |
-| xterm-addon-fit | matching xterm.js 5.x | MIT | `xterm/xterm-addon-fit.js` | https://github.com/xtermjs/xterm.js |
 | Phosphor Icons (web font, Regular) | 2.x (≈1 530 icons; version not stated in the files) | MIT | `src/regular/` | https://github.com/phosphor-icons/web |
 | Tailwind CSS (standalone browser build, used by `tools/generate_tailwind_css.mjs` to precompile `frontend/css/style.tailwind.css`) | 3.4.17 | MIT | `tailwind.js` | https://github.com/tailwindlabs/tailwindcss |
-| Apache ECharts (chat charts) | 6.1.0 | Apache-2.0 (NOTICE and embedded d3.js BSD-3-Clause parts in `LICENSES/echarts.txt`) | `echarts.min.js`, `echarts-langFR.js` | https://github.com/apache/echarts |
-| ZRender (bundled in `echarts.min.js`) | 6.1.0 | BSD-3-Clause | `echarts.min.js` | https://github.com/ecomfe/zrender |
-| Chart.js (admin dashboard) | 4.4.1 | MIT | `chart.js` | https://github.com/chartjs/Chart.js |
-| chartjs-adapter-date-fns (bundle, includes date-fns) | 3.0.0 | MIT | `chartjs-adapter-date-fns.bundle.min.js` | https://github.com/chartjs/chartjs-adapter-date-fns |
-| chartjs-chart-boxplot (@sgratzl) | 4.x (version not stated in the minified file) | MIT | `chartjs-chart-boxplot.umd.min.js` | https://github.com/sgratzl/chartjs-chart-boxplot |
-| chartjs-chart-financial | 0.2.1 | MIT | `chartjs-chart-financial.js` | https://github.com/chartjs/chartjs-chart-financial |
-| chartjs-chart-matrix | 2.0.1 | MIT | `chartjs-chart-matrix.min.js` | https://github.com/kurkle/chartjs-chart-matrix |
-| chartjs-chart-sankey | 0.14.0 | MIT | `chartjs-chart-sankey.min.js` | https://github.com/kurkle/chartjs-chart-sankey |
-| chartjs-chart-treemap | 3.1.0 | MIT | `chartjs-chart-treemap.min.js` | https://github.com/kurkle/chartjs-chart-treemap |
-| chartjs-plugin-annotation | 3.0.1 | MIT | `chartjs-plugin-annotation.min.js` | https://github.com/chartjs/chartjs-plugin-annotation |
-| chartjs-plugin-datalabels | 2.2.0 | MIT | `chartjs-plugin-datalabels.min.js` | https://github.com/chartjs/chartjs-plugin-datalabels |
+
+### `frontend/dist/` (web bundle, built by Vite)
+
+`npm run build -w @elpis/web` (and `make_release.sh`) builds the two entries of
+the web interface into `frontend/dist/` from the exact npm versions of
+`frontend/package.json` (lock file at the root). The bundle is not versioned in
+this repository; it is redistributed in the offline package (`web/`). Vue,
+marked, DOMPurify and Zod (through `@elpis/contracts`) are bundled into the
+entry chunks; the other libraries are
+their upstream distribution files, copied unmodified (hashed file names) and
+loaded on demand. Monaco Editor is bundled from its ESM build into separate
+chunks (editor, language workers) imported only when the editor opens. License texts: [`LICENSES/`](LICENSES/) (one file per component).
+
+| Component | Version | License | Files (npm package) | Upstream |
+|---|---|---|---|---|
+| Vue.js (esm-bundler build with the template compiler; `@vue/*` packages) | 3.5.27 | MIT | entry chunk (`vue`) | https://github.com/vuejs/core |
+| marked | 15.0.12 | MIT | entry chunk (`marked`) | https://github.com/markedjs/marked |
+| DOMPurify | 3.1.6 | Apache-2.0 OR MPL-2.0 (Apache-2.0 retained) | entry chunk (`dompurify`) | https://github.com/cure53/DOMPurify |
+| Zod (schemas of `@elpis/contracts`, network validation) | 4.6.5 | MIT | entry chunks (`zod`) | https://github.com/colinhacks/zod — text in `LICENSES/npm-web.txt` |
+| highlight.js (browser build and `github-dark` theme) | 11.7.0 | BSD-3-Clause | `highlight.min.js`, `styles/github-dark.min.css` (`@highlightjs/cdn-assets`) | https://github.com/highlightjs/highlight.js |
+| Mermaid | 11.13.0 | MIT | `dist/mermaid.min.js` (`mermaid`) | https://github.com/mermaid-js/mermaid |
+| Apache ECharts (chat charts) | 6.1.0 | Apache-2.0 (NOTICE and embedded d3.js BSD-3-Clause parts in `LICENSES/echarts.txt`) | `dist/echarts.min.js`, `i18n/langFR.js` (`echarts`) | https://github.com/apache/echarts |
+| ZRender (bundled in `echarts.min.js`) | 6.1.0 | BSD-3-Clause | `dist/echarts.min.js` (`echarts`) | https://github.com/ecomfe/zrender |
+| Chart.js (admin dashboard) | 4.4.1 | MIT | `dist/chart.umd.js` (`chart.js`) | https://github.com/chartjs/Chart.js |
+| chartjs-adapter-date-fns (bundle, includes date-fns) | 3.0.0 | MIT | `dist/chartjs-adapter-date-fns.bundle.min.js` | https://github.com/chartjs/chartjs-adapter-date-fns |
+| chartjs-chart-boxplot (@sgratzl) | 4.4.4 | MIT | `build/index.umd.min.js` (`@sgratzl/chartjs-chart-boxplot`) | https://github.com/sgratzl/chartjs-chart-boxplot |
+| chartjs-chart-financial | 0.2.1 | MIT | `dist/chartjs-chart-financial.js` | https://github.com/chartjs/chartjs-chart-financial |
+| chartjs-chart-matrix | 2.0.1 | MIT | `dist/chartjs-chart-matrix.min.js` | https://github.com/kurkle/chartjs-chart-matrix |
+| chartjs-chart-sankey | 0.14.0 | MIT | `dist/chartjs-chart-sankey.min.js` | https://github.com/kurkle/chartjs-chart-sankey |
+| chartjs-chart-treemap | 3.1.0 | MIT | `dist/chartjs-chart-treemap.min.js` | https://github.com/kurkle/chartjs-chart-treemap |
+| chartjs-plugin-annotation | 3.0.1 | MIT | `dist/chartjs-plugin-annotation.min.js` | https://github.com/chartjs/chartjs-plugin-annotation |
+| chartjs-plugin-datalabels | 2.2.0 | MIT | `dist/chartjs-plugin-datalabels.min.js` | https://github.com/chartjs/chartjs-plugin-datalabels |
+| xterm.js | 5.4.0 | MIT | `lib/xterm.js`, `css/xterm.css` (`@xterm/xterm`) | https://github.com/xtermjs/xterm.js |
+| xterm addon-fit | 0.9.0 | MIT | `lib/addon-fit.js` (`@xterm/addon-fit`) | https://github.com/xtermjs/xterm.js |
+| Monaco Editor (ESM build, its workers and CSS; loaded on demand when the editor opens) | 0.45.0 | MIT | `esm/vs/` (`monaco-editor`): chunks `monaco-*.js`, `editor.api-*.js`, `*.worker-*.js`, `monaco-*.css` | https://github.com/microsoft/monaco-editor |
+| TypeScript (language service bundled in Monaco) | 5.0.2 | Apache-2.0 | `esm/vs/language/typescript/` (`monaco-editor`), chunk `ts.worker-*.js` | https://github.com/microsoft/TypeScript — text in `LICENSES/monaco-editor-ThirdPartyNotices.txt` |
+| Codicons (font in Monaco) | bundled with Monaco 0.45.0 | CC-BY-4.0 (font), MIT (code) | `codicon-*.ttf` (`monaco-editor`) | https://github.com/microsoft/vscode-codicons |
+
+The upstream distribution files above, copied unmodified, embed their own
+dependencies at the versions their upstream build resolved: the versions below
+are those of the license banner of the file when it prints one, otherwise the
+range declared by the host package. License texts:
+[`LICENSES/npm-web.txt`](LICENSES/npm-web.txt) (copied from the packages
+installed by the lock file; same licenses and copyright holders).
+
+| Embedded in | Component | Version | License |
+|---|---|---|---|
+| `echarts.min.js` | tslib (TypeScript helpers) | 2.3.0 | **0BSD** (BSD family, public-domain equivalent; admitted by `migration-kit/deps.map.json`) |
+| `echarts-ssr.cjs` (server-side chart rendering of the docx/pptx tools, built by `frontend/build-ssr.mjs` from the npm packages) | Apache ECharts, ZRender, tslib | 6.1.0, 6.1.0, 2.3.0 | Apache-2.0, BSD-3-Clause, **0BSD** — texts in `LICENSES/echarts.txt`, `LICENSES/zrender.txt`, `LICENSES/npm-web.txt` |
+| `chart.umd.js` | @kurkle/color | ^0.3.0 | MIT |
+| `index.umd.min.js` (boxplot) | @sgratzl/boxplots | ^2.0.0 | MIT |
+| `chartjs-adapter-date-fns.bundle.min.js` | date-fns | bundled by the adapter 3.0.0 | MIT — text in `LICENSES/date-fns.txt` |
+| `mermaid.min.js` | DOMPurify | 3.3.1 (banner) | Apache-2.0 OR MPL-2.0 (Apache-2.0 retained) — text in `LICENSES/dompurify.txt` |
+| `mermaid.min.js` | js-yaml | 4.1.1 (banner) | MIT (text not shipped by an installed package: https://github.com/nodeca/js-yaml) |
+| `mermaid.min.js` | marked | ^16.3.0 | MIT — text in `LICENSES/marked.txt` |
+| `mermaid.min.js` | @mermaid-js/parser, with Langium (4.2.1) and Chevrotain (~11.1.2) bundled | ^1.0.1 | MIT; Langium MIT (https://github.com/eclipse-langium/langium); Chevrotain Apache-2.0 |
+| `mermaid.min.js` | d3 (the d3-* modules used by the diagrams), internmap | ^7.9.0 | ISC |
+| `mermaid.min.js` | d3-sankey, with d3-array 2, d3-shape 1, d3-path 1 | ^0.12.3 | BSD-3-Clause |
+| `mermaid.min.js` | dagre-d3-es | 7.0.14 | MIT |
+| `mermaid.min.js` | cytoscape, cytoscape-cose-bilkent, cytoscape-fcose, cose-base, layout-base | ^3.33.1, ^4.1.0, ^2.2.0 | MIT |
+| `mermaid.min.js` | KaTeX | ^0.16.25 | MIT |
+| `mermaid.min.js` | khroma | ^2.1.0 | MIT (license file; its `package.json` has no `license` field) |
+| `mermaid.min.js` | lodash-es | ^4.17.23 | MIT |
+| `mermaid.min.js` | roughjs, with hachure-fill, path-data-parser, points-on-curve, points-on-path | ^4.6.6 | MIT |
+| `mermaid.min.js` | stylis, dayjs, uuid, ts-dedent, @braintree/sanitize-url, @upsetjs/venn.js, @iconify/utils | ^4.3.6, ^1.11.19, ^11.1.0, ^2.2.0, ^7.1.1, ^2.0.0, ^3.0.2 | MIT |
+
+Present in the lock file under these packages but **not** embedded (checked
+in `mermaid.min.js`): d3-delaunay, delaunator, robust-predicates (Unlicense),
+and the Node-only dependencies of @iconify/utils, KaTeX and d3-dsv (CLI tools,
+package manager helpers).
 
 ### `rag_app/static/lib/`
 
@@ -52,6 +102,237 @@ file per component, named after the upstream package).
 | DOMPurify | 3.1.6 | Apache-2.0 OR MPL-2.0 | https://github.com/cure53/DOMPurify |
 | highlight.js | 11.7.0 | BSD-3-Clause | https://github.com/highlightjs/highlight.js |
 | Tailwind CSS (standalone browser build) | 3.4.17 | MIT | https://github.com/tailwindlabs/tailwindcss |
+
+### `apps/core/dist/` (TypeScript core bundle)
+
+`npm run build` (and `make_release.sh`) bundles the core and the npm packages it
+uses into `dist/main.mjs`, `dist/exploitation.mjs` and the image worker
+`dist/pixels.mjs` (esbuild). The bundle is not versioned in this repository; it
+is redistributed in the offline package. better-sqlite3 is shipped beside it in
+`dist/node_modules/`, with its prebuilt binary for the target (it embeds
+SQLite, public domain). The WebAssembly codecs of libwebp 1.6.0 (BSD-3-Clause,
+with its patent grant), built from the signed source release by
+`deploy/codecs/webp/construire.sh` (pinned Emscripten, checksums in
+`deploy/codecs/webp/SHA256SUMS`), are shipped in
+`dist/webp/`; they also embed what Emscripten compiles into them (its system
+libraries, MIT; musl, MIT; compiler-rt, Apache-2.0 WITH LLVM-exception;
+dlmalloc, public domain), all cited under `libwebp`. The license texts are
+in [`LICENSES/npm-core.txt`](LICENSES/npm-core.txt), also shipped as
+`dist/LICENCES-TIERS.txt`. Only the licenses of
+`migration-kit/deps.map.json` (MIT, Apache-2.0, ISC, BSD-2-Clause,
+BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
+
+<!-- npm-core : table écrite par `npm run licences`, ne pas modifier à la main -->
+
+| Package | Version | License |
+|---|---|---|
+| @fastify/ajv-compiler | 4.0.6 | MIT |
+| @fastify/busboy | 3.2.2 | MIT |
+| @fastify/deepmerge | 3.2.2 | MIT |
+| @fastify/error | 4.2.0 | MIT |
+| @fastify/fast-json-stringify-compiler | 5.1.0 | MIT |
+| @fastify/forwarded | 3.0.2 | MIT |
+| @fastify/merge-json-schemas | 0.2.1 | MIT |
+| @fastify/multipart | 10.1.2 | MIT |
+| @fastify/proxy-addr | 5.1.1 | MIT |
+| @fastify/send | 4.1.1 | MIT |
+| @fastify/websocket | 11.3.3 | MIT |
+| @lukeed/ms | 2.0.2 | MIT |
+| @modelcontextprotocol/sdk | 1.32.1 | MIT |
+| @pinojs/redact | 0.4.0 | MIT |
+| abstract-logging | 2.0.1 | MIT |
+| ajv | 8.20.0 | MIT |
+| ajv-formats | 3.0.1 | MIT |
+| atomic-sleep | 1.0.0 | MIT |
+| avvio | 9.3.0 | MIT |
+| better-sqlite3 | 13.0.3 | MIT |
+| content-type | 1.0.5 | MIT |
+| cookie | 1.1.1 | MIT |
+| depd | 2.0.0 | MIT |
+| dequal | 2.0.3 | MIT |
+| duplexify | 4.1.3 | MIT |
+| end-of-stream | 1.4.5 | MIT |
+| escape-html | 1.0.3 | MIT |
+| eventsource | 3.0.7 | MIT |
+| eventsource-parser | 3.1.1 | MIT |
+| fast-decode-uri-component | 1.0.1 | MIT |
+| fast-deep-equal | 3.1.3 | MIT |
+| fast-json-stringify | 7.0.1 | MIT |
+| fast-querystring | 1.1.2 | MIT |
+| fast-uri | 3.1.8 | BSD-3-Clause |
+| fast-uri | 4.2.1 | BSD-3-Clause |
+| fastify | 5.12.5 | MIT |
+| fastify-plugin | 6.0.0 | MIT |
+| fastq | 1.20.3 | ISC |
+| find-my-way | 9.9.0 | MIT |
+| http-errors | 2.0.1 | MIT |
+| inherits | 2.0.4 | ISC |
+| ipaddr.js | 2.5.0 | MIT |
+| jpeg-js | 0.4.4 | BSD-3-Clause AND Apache-2.0 |
+| json-schema-ref-resolver | 3.0.0 | MIT |
+| json-schema-traverse | 1.0.0 | MIT |
+| libwebp | 1.6.0 | BSD-3-Clause AND MIT AND Apache-2.0 WITH LLVM-exception |
+| light-my-request | 6.6.0 | BSD-3-Clause |
+| mime | 3.0.0 | MIT |
+| node-addon-api | 8.9.2 | MIT |
+| on-exit-leak-free | 2.1.2 | MIT |
+| once | 1.4.0 | ISC |
+| pg | 8.23.1 | MIT |
+| pg-cloudflare | 1.4.1 | MIT |
+| pg-connection-string | 2.14.1 | MIT |
+| pg-int8 | 1.0.1 | ISC |
+| pg-pool | 3.14.0 | MIT |
+| pg-protocol | 1.16.1 | MIT |
+| pg-types | 2.2.0 | MIT |
+| pgpass | 1.0.5 | MIT |
+| pino | 10.4.0 | MIT |
+| pino-std-serializers | 7.1.0 | MIT |
+| pkce-challenge | 5.0.1 | MIT |
+| pngjs | 7.0.0 | MIT |
+| postgres-array | 2.0.0 | MIT |
+| postgres-bytea | 1.0.1 | MIT |
+| postgres-date | 1.0.7 | MIT |
+| postgres-interval | 1.2.0 | MIT |
+| process-warning | 5.1.0 | MIT |
+| process-warning | 4.0.1 | MIT |
+| quick-format-unescaped | 4.0.4 | MIT |
+| readable-stream | 3.6.2 | MIT |
+| ret | 0.5.0 | MIT |
+| reusify | 1.1.0 | MIT |
+| rfdc | 1.4.1 | MIT |
+| safe-buffer | 5.2.1 | MIT |
+| safe-regex2 | 5.1.1 | MIT |
+| safe-stable-stringify | 2.5.0 | MIT |
+| secure-json-parse | 4.1.0 | BSD-3-Clause |
+| semver | 7.8.5 | ISC |
+| set-cookie-parser | 2.7.2 | MIT |
+| setprototypeof | 1.2.0 | ISC |
+| sonic-boom | 4.2.1 | MIT |
+| split2 | 4.2.0 | ISC |
+| statuses | 2.0.2 | MIT |
+| stream-shift | 1.0.3 | MIT |
+| string_decoder | 1.3.0 | MIT |
+| thread-stream | 4.2.0 | MIT |
+| toad-cache | 3.7.4 | MIT |
+| toidentifier | 1.0.1 | MIT |
+| undici | 8.11.2 | MIT |
+| util-deprecate | 1.0.2 | MIT |
+| wrappy | 1.0.2 | ISC |
+| ws | 8.22.0 | MIT |
+| xtend | 4.0.2 | MIT |
+| zod | 4.6.5 | MIT |
+| zod-to-json-schema | 3.25.2 | ISC |
+
+<!-- /npm-core -->
+
+### `apps/toolhost/dist/` (TypeScript tool host bundle)
+
+`npm run build -w @elpis/toolhost` bundles the tool host and the npm packages
+it uses into `dist/main.mjs` (esbuild). The bundle is not versioned in this
+repository; it is redistributed in the offline package. better-sqlite3 and
+node-pty are shipped beside it in `dist/node_modules/`, with their binary for
+the target: better-sqlite3's prebuilt one, and node-pty's compiled by `npm ci`
+on a build machine of the target (node-addon-api headers compiled in). The
+license texts are in [`LICENSES/npm-toolhost.txt`](LICENSES/npm-toolhost.txt),
+also shipped as `dist/LICENCES-TIERS.txt`, under the same license policy as
+the core bundle.
+
+<!-- npm-toolhost : table écrite par `npm run licences`, ne pas modifier à la main -->
+
+| Package | Version | License |
+|---|---|---|
+| @fastify/ajv-compiler | 4.0.6 | MIT |
+| @fastify/busboy | 3.2.2 | MIT |
+| @fastify/deepmerge | 3.2.2 | MIT |
+| @fastify/error | 4.2.0 | MIT |
+| @fastify/fast-json-stringify-compiler | 5.1.0 | MIT |
+| @fastify/forwarded | 3.0.2 | MIT |
+| @fastify/merge-json-schemas | 0.2.1 | MIT |
+| @fastify/multipart | 10.1.2 | MIT |
+| @fastify/proxy-addr | 5.1.1 | MIT |
+| @fastify/websocket | 11.3.3 | MIT |
+| @modelcontextprotocol/sdk | 1.32.1 | MIT |
+| @pinojs/redact | 0.4.0 | MIT |
+| abstract-logging | 2.0.1 | MIT |
+| ajv | 8.20.0 | MIT |
+| ajv-formats | 3.0.1 | MIT |
+| atomic-sleep | 1.0.0 | MIT |
+| avvio | 9.3.0 | MIT |
+| better-sqlite3 | 13.0.3 | MIT |
+| content-type | 1.0.5 | MIT |
+| cookie | 1.1.1 | MIT |
+| dequal | 2.0.3 | MIT |
+| duplexify | 4.1.3 | MIT |
+| end-of-stream | 1.4.5 | MIT |
+| eventsource | 3.0.7 | MIT |
+| eventsource-parser | 3.1.1 | MIT |
+| fast-decode-uri-component | 1.0.1 | MIT |
+| fast-deep-equal | 3.1.3 | MIT |
+| fast-json-stringify | 7.0.1 | MIT |
+| fast-querystring | 1.1.2 | MIT |
+| fast-uri | 3.1.8 | BSD-3-Clause |
+| fast-uri | 4.2.1 | BSD-3-Clause |
+| fastify | 5.12.5 | MIT |
+| fastify-plugin | 6.0.0 | MIT |
+| fastq | 1.20.3 | ISC |
+| find-my-way | 9.9.0 | MIT |
+| inherits | 2.0.4 | ISC |
+| ipaddr.js | 2.5.0 | MIT |
+| jpeg-js | 0.4.4 | BSD-3-Clause AND Apache-2.0 |
+| json-schema-ref-resolver | 3.0.0 | MIT |
+| json-schema-traverse | 1.0.0 | MIT |
+| light-my-request | 6.6.0 | BSD-3-Clause |
+| node-addon-api | 8.9.2 | MIT |
+| node-addon-api | 7.1.1 | MIT |
+| node-pty | 1.1.0 | MIT |
+| on-exit-leak-free | 2.1.2 | MIT |
+| once | 1.4.0 | ISC |
+| pg | 8.23.1 | MIT |
+| pg-cloudflare | 1.4.1 | MIT |
+| pg-connection-string | 2.14.1 | MIT |
+| pg-int8 | 1.0.1 | ISC |
+| pg-pool | 3.14.0 | MIT |
+| pg-protocol | 1.16.1 | MIT |
+| pg-types | 2.2.0 | MIT |
+| pgpass | 1.0.5 | MIT |
+| pino | 10.4.0 | MIT |
+| pino-std-serializers | 7.1.0 | MIT |
+| pkce-challenge | 5.0.1 | MIT |
+| pngjs | 7.0.0 | MIT |
+| postgres-array | 2.0.0 | MIT |
+| postgres-bytea | 1.0.1 | MIT |
+| postgres-date | 1.0.7 | MIT |
+| postgres-interval | 1.2.0 | MIT |
+| process-warning | 5.1.0 | MIT |
+| process-warning | 4.0.1 | MIT |
+| quick-format-unescaped | 4.0.4 | MIT |
+| readable-stream | 3.6.2 | MIT |
+| ret | 0.5.0 | MIT |
+| reusify | 1.1.0 | MIT |
+| rfdc | 1.4.1 | MIT |
+| safe-buffer | 5.2.1 | MIT |
+| safe-regex2 | 5.1.1 | MIT |
+| safe-stable-stringify | 2.5.0 | MIT |
+| secure-json-parse | 4.1.0 | BSD-3-Clause |
+| semver | 7.8.5 | ISC |
+| set-cookie-parser | 2.7.2 | MIT |
+| sonic-boom | 4.2.1 | MIT |
+| split2 | 4.2.0 | ISC |
+| stream-shift | 1.0.3 | MIT |
+| string_decoder | 1.3.0 | MIT |
+| thread-stream | 4.2.0 | MIT |
+| toad-cache | 3.7.4 | MIT |
+| undici | 8.11.2 | MIT |
+| util-deprecate | 1.0.2 | MIT |
+| wrappy | 1.0.2 | ISC |
+| ws | 8.22.0 | MIT |
+| xtend | 4.0.2 | MIT |
+| yaml | 2.9.1 | ISC |
+| zod | 4.6.5 | MIT |
+| zod-to-json-schema | 3.25.2 | ISC |
+| libwebp | 1.6.0 | BSD-3-Clause AND MIT AND Apache-2.0 WITH LLVM-exception |
+
+<!-- /npm-toolhost -->
 
 ---
 
@@ -70,7 +351,6 @@ and pinned versions are in `requirements.txt`, `requirements-rag.txt`,
 | pydantic | MIT |
 | sse-starlette | BSD-3-Clause |
 | uvicorn (+ uvloop, httptools, websockets, watchfiles) | BSD-3-Clause / MIT / Apache-2.0 |
-| gunicorn | MIT |
 | httpx | BSD-3-Clause |
 | requests | Apache-2.0 |
 | itsdangerous | BSD-3-Clause |
@@ -87,11 +367,9 @@ and pinned versions are in `requirements.txt`, `requirements-rag.txt`,
 | jsonschema | MIT |
 | cryptography | Apache-2.0 OR BSD-3-Clause |
 | PyYAML | MIT |
-| dpkt | BSD-3-Clause |
 | psutil | BSD-3-Clause |
 | pg8000 (PostgreSQL driver) | BSD-3-Clause |
 | scramp, asn1crypto, python-dateutil, six (pg8000 dependencies) | MIT-0 / MIT / Apache-2.0 OR BSD-3-Clause / MIT |
-| PyMySQL (MariaDB / MySQL driver) | MIT |
 | ruff | MIT |
 | pytest, pytest-asyncio, pytest-xdist (tests) | MIT / Apache-2.0 / MIT |
 | mypy, mypy-extensions, librt, ast-serialize, typing-extensions, pathspec (typage, développement) | MIT / MIT / MIT / MIT / PSF-2.0 / MPL-2.0 |
@@ -134,15 +412,28 @@ and pinned versions are in `requirements.txt`, `requirements-rag.txt`,
 | express | MIT |
 | uuid | MIT |
 
+### Node.js — TypeScript workspace (development tools, not redistributed)
+
+| Package | License |
+|---|---|
+| typescript | Apache-2.0 |
+| eslint, @eslint/js, typescript-eslint | MIT |
+| prettier | MIT |
+| vitest, vite (with rolldown), tsx, esbuild, @types/node, @types/ws, @types/better-sqlite3, @types/pg, find-my-way (core tests) | MIT |
+| @vitejs/plugin-vue, vue-tsc (with @volar/*, @vue/language-core), happy-dom | MIT |
+| eslint-plugin-vue, vue-eslint-parser | MIT |
+| lightningcss (dependency of vite) | MPL-2.0 |
+| minimatch (dependency of the lint tooling) | BlueOak-1.0.0 |
+
 ### Services and tools downloaded by `install.sh`
 
 | Component | License |
 |---|---|
 | Qdrant (vector database binary) | Apache-2.0 |
-| Caddy (HTTPS front end, `--with-caddy`) | Apache-2.0 |
-| LibreOffice (Office previews, `--with-office`) | MPL-2.0 |
+| Node.js runtime of the TypeScript core and of the browser service (`node/`): the official archive from nodejs.org (SHA-256 from the signed `SHASUMS256.txt`, pinned in `deploy/node/node.env`) **without npm, npx and corepack**, pinned in turn by its own fingerprint (`NODE_RUNTIME_SHA256_*`, `deploy/node/runtime.sh`); shipped in the offline package as a platform component, like the Python interpreter. Online installs borrow npm from the official archive for the build only; it is never installed | MIT for Node.js itself. The `node` binary also contains V8 and others under BSD-style licenses, OpenSSL, LIEF and swc under Apache-2.0, libuv, undici and amaro under MIT, HdrHistogram under BSD-2-Clause (its BSD option), and four components outside the MIT/ISC/Apache/BSD policy, **accepted as an exception for this runtime only**: ICU (Unicode-3.0), minimatch (BlueOak-1.0.0), zlib (Zlib) and SipHash, inside V8 (dedicated to the public domain by its authors). Texts: [`LICENSES/node-runtime.txt`](LICENSES/node-runtime.txt), which is also the runtime's `LICENSE`. |
+| Caddy (HTTPS front end, `--with-caddy`; installed from the OS repositories as a prerequisite, configured by `install.sh`, never redistributed) | Apache-2.0 |
+| LibreOffice (Office previews, `--with-office`; installed from the OS repositories as a prerequisite, never redistributed) | MPL-2.0 |
 | PostgreSQL server (`--db postgres-local`; installed from the OS repositories, never redistributed) | PostgreSQL License |
-| MariaDB server (`--db mariadb-local`; installed from the OS repositories, never redistributed — a separate program Elpis talks to over the network protocol only) | GPL-2.0 |
 | bubblewrap (isolation of Office previews; installed from the OS repositories, never redistributed) | LGPL-2.0-or-later |
 | OpenCode CLI (optional, dropped in `cli_dist/` by the administrator) | MIT |
 | Sandbox image (`deploy/docker/sandbox/Dockerfile`) | built from Debian packages, each under its own license, plus binaries fetched by `build_offline.sh`: Firefox ESR and geckodriver (MPL-2.0), yq, gh, duckdb, delta (MIT), shfmt (BSD-3-Clause), hadolint (GPL-3.0), upx (GPL-2.0-or-later), radare2 (LGPL-3.0) |

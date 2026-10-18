@@ -18,7 +18,7 @@ Cette migration :
   le temps d'un appairage (5 min au plus) : le jeton est désormais créé au
   moment où la CLI le récupère, jamais stocké.
 
-Sur PostgreSQL et MariaDB, les migrations couvertes par le schéma de
+Sur PostgreSQL, les migrations couvertes par le schéma de
 référence sont tamponnées sans être rejouées : la même conversion y est faite
 à l'exécution, en DML seul (``tokens.convert_legacy``).
 

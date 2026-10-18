@@ -114,7 +114,7 @@ def run_pending(conn: sqlite3.Connection) -> int:
     if not pending:
         return 0
 
-    from shared_infra.db._dialect import MYSQL, POSTGRES, dialect_of
+    from shared_infra.db._dialect import POSTGRES, dialect_of
     dialect = dialect_of(conn)
 
     n = 0
@@ -122,13 +122,11 @@ def run_pending(conn: sqlite3.Connection) -> int:
     if conn.in_transaction:
         conn.commit()
     conn.isolation_level = None             # transactions pilotées ici
-    # Moteurs serveur : verrou de SESSION pour toute la passe (le DDL de MySQL
-    # valide implicitement et romprait un verrou de transaction), relâché en
+    # PostgreSQL : verrou de SESSION pour toute la passe (une migration peut
+    # valider elle-même et romprait un verrou de transaction), relâché en
     # sortie ; SQLite : ``BEGIN IMMEDIATE`` par migration suffit.
     if dialect == POSTGRES:
         conn.execute("SELECT pg_advisory_lock(727733001)")
-    elif dialect == MYSQL:
-        conn.execute("SELECT GET_LOCK('elpis_migrations', 300)")
     try:
         for name in pending:
             full = f"{__name__}.{name}"
@@ -167,8 +165,6 @@ def run_pending(conn: sqlite3.Connection) -> int:
         try:
             if dialect == POSTGRES:
                 conn.execute("SELECT pg_advisory_unlock(727733001)")
-            elif dialect == MYSQL:
-                conn.execute("SELECT RELEASE_LOCK('elpis_migrations')")
         except Exception:
             pass
         try:

@@ -2,14 +2,17 @@
 # SPDX-License-Identifier: MIT
 # =====================================================================
 #  install_toolhost.sh — installe l'hôte d'outils Elpis sur une machine
-#  DÉDIÉE (VM, serveur) : venv + roues hors-ligne, image sandbox, jeton,
-#  toolhost.json, unité systemd. À lancer DEPUIS une copie du dépôt.
+#  DÉDIÉE (VM, serveur) : Node.js et bundle de l'hôte TS, venv d'elpis-tools
+#  (familles encore en Python), image sandbox, jeton, toolhost.json, unités
+#  systemd (elpis-toolhost, elpis-tools). À lancer DEPUIS une copie du dépôt.
 #
 #    sudo bash deploy/toolhost/install_toolhost.sh /opt/elpis toolhost.example.lan
 #
 #  Ce que la machine doit avoir : python3 (3.11+), docker (l'utilisateur
-#  `elpis` dans le groupe docker). Sans réseau : WHEELS_DIR=<paquet>/wheels
-#  (paquet hors-ligne de make_release.sh).
+#  `elpis` dans le groupe docker). Sans réseau : OFFLINE_DIR=<paquet extrait>
+#  (paquet hors-ligne de make_release.sh, même architecture : node/, toolhost/,
+#  wheels/). Bundle construit sur place (sans paquet) : build-essential et
+#  python3 (npm ci compile node-pty), accès au registre npm.
 #  Aperçus Office de l'éditeur (optionnel) : le relais transfère /api/sandbox/*
 #  ici, la conversion tourne donc sur CETTE machine —
 #  apt install libreoffice-writer-nogui libreoffice-calc-nogui
@@ -20,20 +23,33 @@ DEST="${1:-/opt/elpis}"
 HOSTNAME_TLS="${2:-}"
 SRC="$(cd "$(dirname "$0")/../.." && pwd)"
 
+# Copie du dépôt SRC vers DEST : configuration de la machine (toolhost.json, Caddyfile.toolhost), runtime node/, données et dépendances gardés.
+copier_depot() {
+    rsync -a --delete --exclude 'user_db' --exclude 'user_sandboxes' --exclude '.git' \
+          --exclude 'venv' --exclude 'node_modules' \
+          --exclude '/toolhost.json' --exclude '/Caddyfile.toolhost' --exclude '/node' "$1/" "$2/"
+}
+
 echo "--- Copie du dépôt vers $DEST ---"
 mkdir -p "$DEST"
-rsync -a --delete --exclude 'user_db' --exclude 'user_sandboxes' --exclude '.git' \
-      --exclude 'venv' --exclude 'node_modules' "$SRC/" "$DEST/"
+copier_depot "$SRC" "$DEST"
 mkdir -p "$DEST/user_db" "$DEST/../user_sandboxes"
 
 echo "--- Environnement Python (roues hors-ligne si présentes) ---"
 cd "$DEST"
 python3 -m venv venv
+WHEELS_DIR="${WHEELS_DIR:-${OFFLINE_DIR:+$OFFLINE_DIR/wheels}}"
 if [ -n "${WHEELS_DIR:-}" ]; then
     venv/bin/pip install --no-index --find-links "$WHEELS_DIR" -r requirements.txt
 else
     venv/bin/pip install -r requirements.txt
 fi
+
+echo "--- Node.js et bundle de l'hôte d'outils TS ---"
+o=()
+[ -n "${OFFLINE_DIR:-}" ] && o=(--offline "$OFFLINE_DIR")
+bash deploy/node/installer.sh node "${o[@]}"
+bash deploy/node/installer.sh hote "${o[@]}"
 
 echo "--- Image sandbox ---"
 IMAGE="$(deploy/docker/sandbox/build_offline.sh --print-image)"
@@ -65,8 +81,10 @@ if [ -n "$HOSTNAME_TLS" ]; then
     echo "  Caddyfile.toolhost prêt pour $HOSTNAME_TLS (caddy run --config Caddyfile.toolhost)"
 fi
 
-echo "--- Unité systemd ---"
-sed "s#/opt/elpis#$DEST#g" deploy/toolhost/elpis-toolhost.service > /etc/systemd/system/elpis-toolhost.service
+echo "--- Unités systemd ---"
+for unite in elpis-tools elpis-toolhost; do
+    sed "s#/opt/elpis#$DEST#g" "deploy/toolhost/$unite.service" > "/etc/systemd/system/$unite.service"
+done
 systemctl daemon-reload
-systemctl enable elpis-toolhost.service
-echo "  systemctl start elpis-toolhost   puis   curl http://127.0.0.1:8765/health"
+systemctl enable elpis-tools.service elpis-toolhost.service
+echo "  systemctl start elpis-toolhost   (elpis-tools démarre avec lui)   puis   curl http://127.0.0.1:8765/health"

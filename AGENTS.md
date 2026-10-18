@@ -1,18 +1,22 @@
 # AGENTS.md
 
 Consignes pour les agents de code (et les humains) qui modifient Elpis :
-commandes vérifiées, conventions que les tests imposent, pièges connus.
-Pour la carte du code, lire [ARCHITECTURE.md](ARCHITECTURE.md) ; pour l'interface,
+commandes, conventions, pièges connus. Pour la carte du code, lire
+[ARCHITECTURE.md](ARCHITECTURE.md) ; pour l'interface,
 [PRODUCT.md](PRODUCT.md) et [DESIGN.md](DESIGN.md).
 
 ## Le projet en bref
 
 Assistant LLM **auto-hébergé** : chat agentique (outils MCP, sous-agents,
 mémoire, skills), éditeur de code sur une sandbox Docker par utilisateur,
-routines, service RAG, console d'administration. Backend Python (FastAPI,
-Gunicorn), frontend Vue 3 **sans étape de build**, inférence `llama-server`
-(llama.cpp) ou tout moteur compatible OpenAI. Interface et documentation en
-français. Licence MIT.
+routines, service RAG, console d'administration. Core (main, admin) et hôte
+d'outils en TypeScript (Node 24, Fastify) ; interface en TypeScript et Vue 3
+(SFC compilés par Vite). Restent en Python : le service RAG (`rag_app/`),
+elpis-tools (`server/local_mcp_server.py`, qui sert la famille d'outils
+Office), `desktop-agent/`, l'agent du bac (`shared_infra/sandbox/agent/`) et
+l'installation (`deploy/configure.py`, `deploy/wizard.py`). Inférence
+`llama-server` (llama.cpp) ou tout moteur compatible OpenAI. Interface et
+documentation en français. Licence MIT.
 
 `docs/architecture.md` est détaillé ; en cas de doute, le code fait foi, puis
 ARCHITECTURE.md.
@@ -20,10 +24,9 @@ ARCHITECTURE.md.
 ## Installer et lancer
 
 ```bash
-./install.sh                                  # Debian 12/13, Ubuntu 24.04 ; venv dans ./venv
-venv/bin/pip install -r requirements-dev.txt  # une fois : pytest, pytest-asyncio, pytest-xdist
+./install.sh                                  # Debian 12/13, Ubuntu 24.04 : Node 24 dans node/, venv dans venv/
 ./elpis start | stop | restart | status       # tous les services
-./elpis logs [qdrant|rag|toolhost|main|admin|browser] [-f]
+./elpis logs [qdrant|rag|tools|toolhost|main|admin|browser] [-f]
 ./elpis doctor                                # diagnostic
 ./elpis db info | check CIBLE | transfer --to CIBLE | use sqlite|CIBLE
 ```
@@ -32,89 +35,80 @@ Lancement manuel (depuis la racine : le serveur lit `frontend/` relativement
 au répertoire courant) :
 
 ```bash
-LOCAL_MCP_TRANSPORT=streamable-http venv/bin/python -m toolhost          # outils MCP :8765
-APP_MODE=main LOCAL_MCP_URL=http://127.0.0.1:8765/mcp APP_WORKERS=1 \
-  venv/bin/gunicorn -c server/gunicorn_conf.py server.app:app            # chat :8001
-APP_MODE=admin venv/bin/gunicorn -c server/gunicorn_admin_conf.py server.admin_app:app  # console :8002
+npm ci && npm run build                                                    # bundles du core, de l'hôte d'outils et du front (frontend/dist)
+ELPIS_RACINE=$PWD node/bin/node apps/toolhost/dist/main.mjs --elpis-tools # famille Office (elpis-tools, Python) :8767
+ELPIS_RACINE=$PWD TOOLHOST_MCP_UPSTREAM=http://127.0.0.1:8767/mcp \
+  node/bin/node apps/toolhost/dist/main.mjs                              # hôte d'outils MCP :8765
+ELPIS_RACINE=$PWD APP_MODE=main LOCAL_MCP_URL=http://127.0.0.1:8765/mcp \
+  node/bin/node apps/core/dist/main.mjs                                  # chat :8001
+ELPIS_RACINE=$PWD APP_MODE=admin LOCAL_MCP_URL=http://127.0.0.1:8765/mcp \
+  node/bin/node apps/core/dist/main.mjs                                  # console :8002
 ```
 
 Ports par défaut : main 8001, admin 8002, outils MCP (`toolhost`) 8765,
-RAG 8000, Qdrant 6333, navigateur 3000, `llama-server` 8080. La configuration
-d'instance est `config.json` à la racine (non versionné ; modèle :
-`config.example.json`). Les versions `?v=` des ressources sont réécrites au
-`BUILD_ID` du process : redémarrer Gunicorn pour invalider les caches.
+elpis-tools 8767 (loopback), RAG 8000, Qdrant 6333, navigateur 3000,
+`llama-server` 8080. La configuration d'instance est `config.json` à la racine
+(non versionné ; modèle : `config.example.json`). Les versions `?v=` des
+ressources sont réécrites au `BUILD_ID` du process : redémarrer le core pour
+invalider les caches.
 
-## Tests
+## Vérifier une contribution
 
 ```bash
-venv/bin/pytest                           # toute la suite, en parallèle (-n auto)
-venv/bin/pytest -n0 tests/db              # en série
-venv/bin/pytest -o addopts="" --pdb tests/x.py::test_y   # avec pdb
-node tests/frontend/<fichier>.js          # un test unitaire front (sans dépendance)
+npm ci                 # Node ≥ 24 (.nvmrc) ; dépendances exactes, un seul package-lock.json
+npm run typecheck      # tsc (core, hôte d'outils, paquets) et vue-tsc (interface)
+npm run lint           # ESLint
+npm run build          # bundles du core, de l'hôte d'outils et du frontend
+npm run format         # applique Prettier (npm run format:check pour vérifier)
 ```
 
-- Toujours le **pytest du venv** : sans `pytest-xdist`, l'option `-n auto` de
-  `pytest.ini` échoue.
-- `tests/conftest.py` isole la suite de l'instance : `APP_CONFIG_PATH` vise
-  un fichier absent (configuration vide, comme en CI), `LLAMA_IP`/`LLAMA_PORT`
-  un port fermé, et `ELPIS_AUDIT_DIR`, `APP_DB_PATH`, `APP_SANDBOX_DIR`,
-  `APP_FILE_HISTORY_DIR`, `APP_USER_SKILLS_DIR`, `SKILLS_LOCK_PATH` ainsi que le
-  journal applicatif un dossier temporaire : la suite n'écrit rien dans
-  `user_db/`, `user_sandboxes/`, `logs/` ni `skills/` (ce sont les données de
-  l'instance dans la copie principale), sauf si vous posez ces variables
-  vous-même. Le `config.json` réel
-  (HTTPS, moteur du réseau local) ne fausse donc plus les tests, et la suite
-  donne le même résultat dans la copie de travail, un worktree et la CI : un
-  échec signale un vrai défaut.
-- Les fixtures `autouse` de `tests/conftest.py` isolent aussi la base (SQLite
-  temporaire), les spools, le manifeste MCP : aucun test ne doit écrire dans
-  `user_db/`. Un `swallow` du harnais ou du flux de chat qui avale un
-  `ImportError`, `NameError` ou `AttributeError` fait échouer le test.
-- Un test ne lit pas le source pour y chercher du texte : il vérifie un
-  comportement. Pour un invariant vraiment structurel, `tests/_sources.py`
-  (`source_boucle()`, `source_flux_chat()`, `compter_appels()`) lit le code
-  de tout le paquet concerné, commentaires et docstrings retirés.
-- Substituer une dépendance : patcher le module qui **lit** le nom
-  (`tests/llm_core/test_seams_effectifs.py` refuse un patch sans effet). La
-  boucle injecte elle-même sa fonction de flux et sa métrique d'outil
-  (`LoopDeps`) : ces deux noms se patchent sur `llm_core._chat_with_tools`.
-- Aucun test n'exige Docker (il est simulé). Moteurs serveur, sur demande :
-  `ELPIS_TEST_PG=hôte:port:base:user:mdp` (idem `ELPIS_TEST_MARIADB`,
-  `ELPIS_TEST_MYSQL`) pour `tests/db`, ou `ELPIS_TEST_DB=1 APP_DB_BACKEND=postgres …`
-  pour toute la suite (les tests `sqlite_only` sont alors ignorés).
-- Identifiants de `parametrize` **déterministes** : xdist compare les
-  collectes des workers.
-- Charges utiles de référence du harnais : `GOLDEN_UPDATE=1 venv/bin/pytest
-  tests/llm_core/test_golden_payload.py`, puis relire le diff JSON. Goldens
-  complets de la boucle (`tests/goldens/boucle_*.json`,
-  `tests/llm_core/test_boucle_scenarios.py` et
-  `test_boucle_chemins_critiques.py`) et du flux de chat
-  (`tests/goldens/flux_route_*.json`, `tests/chatbot/test_flux_route.py`) :
-  même commande ; une réorganisation du code ne doit en changer aucun.
-- Tests front : `tests/frontend/test_*.js` (CommonJS) et `*-unit.mjs` (ESM),
-  exécutés aussi par `tests/frontend/test_js_units.py` ; les nouveaux tests
-  utilisent `tests/frontend/lib/harnais.js`.
-- Tests navigateur (Playwright, à la main) : une paire
-  `tests/frontend/<x>-server.mjs` (serveur simulé) + `<x>-verify.mjs`, recette
-  en tête de chaque fichier, par exemple
-  `PERF_PORT=8940 node tests/frontend/tailwind-server.mjs &` puis
-  `PERF_PORT=8940 node tests/frontend/tailwind-verify.mjs`. Playwright est
-  résolu dans `browser-service/node_modules` (ou `ELPIS_NODE_MODULES`).
+Les tests vivent dans le dépôt de développement des mainteneurs, pas dans ce
+dépôt : ils passent la suite complète (TypeScript, Python, parcours réels dans
+Chromium) avant de fusionner une pull request. Décrivez dans la pull request
+ce que vous avez essayé à la main (écran, commande, cas limite).
 
-## Lint et fichiers générés
+Python restant (RAG, elpis-tools, `deploy/`) : `venv/bin/ruff check .`
+(règles dans `pyproject.toml`, ruff est installé par `requirements.txt`).
 
-- `venv/bin/ruff check .` et `venv/bin/mypy` (règles et périmètre typé dans
-  `pyproject.toml`) : la base est propre et la CI (`.github/workflows/ci.yml`,
-  lancée à la main pour l'instant) les exige, comme la suite de tests. Un `# noqa` porte sa raison ; un bloc
-  d'imports dont l'ordre compte est exclu du tri (voir `pyproject.toml`).
-- `frontend/css/style.tailwind.css` est **généré** : après avoir ajouté des
-  classes utilitaires dans un gabarit ou un script,
-  `node tools/generate_tailwind_css.mjs` (Playwright requis, comme ci-dessus).
-  Ne jamais l'éditer à la main.
-- `frontend/js/admin/_fields.js` est **généré** depuis les gabarits de la
-  console : après avoir ajouté ou renommé un réglage (`data-field`),
-  `python3 tools/generate_admin_fields.py`
-  (`tests/frontend/test_admin_fields_index.py` échoue sinon).
+## TypeScript
+
+Espace de travail npm à la racine : applications dans `apps/` (`apps/core` :
+main et admin ; `apps/toolhost` : hôte d'outils), paquets partagés dans
+`packages/` (`@elpis/auth`, `bac`, `commun`, `config`, `contracts`, `db`,
+`fichiers`, `http`, `mcp`, `outils-mcp`, `securite`…), interface dans
+`frontend/` (workspace `@elpis/web`).
+
+- **Code** : en-tête `// SPDX-License-Identifier: MIT` puis `/** chemin — rôle */` ;
+  commentaires réduits au maximum : une ligne au plus par fonction, en français,
+  sans trace d'audit (le pourquoi long va dans le message de commit ou `docs/`) ;
+  ESM, TypeScript strict, syntaxe effaçable seulement (ni `enum` ni `namespace`),
+  `import type` pour les types ; aucune promesse flottante (lint).
+- **Contrats partagés** : `@elpis/contracts` (schémas Zod des routes et du flux ;
+  `npm run generer -w @elpis/contracts` écrit `.d.ts` et schémas JSON dans `dist/`).
+- **JSON** : `@elpis/commun` écrit comme `json.dumps` de Python (`pyJsonDumps`)
+  là où la forme sur le disque ou sur le réseau est partagée avec le Python
+  restant ; `JSON.stringify` n'écrit ni ne trie comme Python.
+- **Dépendances** : versions exactes (`.npmrc`) ; licences permissives (MIT,
+  Apache-2.0, ISC, BSD) pour tout ce qui est livré, MPL-2.0 ou BlueOak admis
+  pour les seuls outils de développement non distribués ; le build refuse un
+  paquet livré hors de la politique de `migration-kit/deps.map.json`. npm 11
+  bloque les scripts d'installation non approuvés : `npm install-scripts approve
+  <paquet>` après relecture (champ `allowScripts`). Une dépendance d'exécution
+  est inscrite dans `THIRD_PARTY_NOTICES.md` (`npm run licences` réécrit
+  `LICENSES/npm-*.txt`).
+
+## Fichiers générés
+
+- `frontend/css/style.tailwind.css` : après avoir ajouté des classes
+  utilitaires dans un SFC, un module TS ou un gabarit (`.vue`, `.ts`, `.html`,
+  `.js`), `node tools/generate_tailwind_css.mjs` (Playwright requis, résolu dans
+  `browser-service/node_modules` ou `ELPIS_NODE_MODULES`). Ne jamais l'éditer à
+  la main.
+- `frontend/src/features/admin/champs.gen.ts` est généré depuis les pages de la
+  console (`frontend/src/components/admin/Page*.vue`) : après avoir ajouté ou
+  renommé un réglage (`data-field`), `node frontend/champs-admin.mts`.
+- `frontend/dist/`, `apps/core/dist/`, `apps/toolhost/dist/` : produits par
+  `npm run build`, jamais versionnés.
 
 ## Conventions
 
@@ -124,123 +118,153 @@ node tests/frontend/<fichier>.js          # un test unitaire front (sans dépend
   détail va dans `title`, le texte indicatif ou la documentation.
 - **Aucun emoji** dans l'interface (✓ ✗ ⚠ tolérés) ; icônes Phosphor.
 - Les prompts système (`system_prompts/*.md`) sont en **anglais**, sans emoji,
-  dans leurs budgets de caractères (tests dédiés).
+  dans leurs budgets de caractères.
 
-**Code Python**
+**Code Python** (services restants : RAG, elpis-tools, desktop-agent, agent du bac, deploy)
 
-- Nouveau fichier source : première ligne
-  `# SPDX-License-Identifier: MIT` (`// …` en JS), puis une docstring
-  d'en-tête « chemin — rôle », souvent avec le « pourquoi ».
-- Commentaires et docstrings plutôt en français, au présent : la règle, sa
-  raison, le danger de l'alternative évidente. Pas de trace d'audit dans le
-  code (date de constat, passe, identifiant de constat ou de lot, récit de
-  l'ancien comportement) : l'historique d'une règle va dans
-  `docs/historique-coeur.md` et dans le message de commit
-  (`tests/test_commentaires_sans_audit.py` garde les fichiers nettoyés).
+- Nouveau fichier source : première ligne `# SPDX-License-Identifier: MIT`,
+  puis une docstring d'en-tête « chemin — rôle » sur une ligne.
+- Commentaires en français, au présent, une ligne au plus par fonction : la
+  règle, sa raison. Pas de trace d'audit dans le code (date de constat,
+  identifiant de lot, récit de l'ancien comportement) : l'historique va dans le
+  message de commit.
 - `from __future__ import annotations` ; journal via
   `logging.getLogger("uvicorn.error")`, messages préfixés `[domaine]`.
 - Erreurs : `with swallow("domaine.action"):`
   (`shared_infra/observability/tracing.py`) plutôt qu'un `except Exception: pass` ;
   ne jamais avaler `BaseException` ni `asyncio.CancelledError` ; un `except`
   large volontaire porte `# noqa: BLE001`.
-- Réglage de configuration : constante dans `shared_infra/config.py` sur le
-  modèle `_as_str(os.environ.get("APP_…"), _deep_get(_RAW, "section.clé", défaut))`
-  (priorité : variable d'environnement > `config.json` > défaut). Un réglage
-  modifiable depuis la console se relit à chaud (`live_config_value()`,
-  `config_view()`), sinon il n'agit qu'au redémarrage. Le documenter dans
-  `docs/configuration.md`.
+- Réglage lu par le Python restant : constante dans `shared_infra/config.py`
+  (priorité : variable d'environnement > `config.json` > défaut), documentée
+  dans `docs/configuration.md`.
 
 **Base de données**
 
-- SQL **portable** SQLite / PostgreSQL / MariaDB-MySQL : passer par
-  `shared_infra/db/_dialect.py` pour ce qui diffère.
-- Tout `db()` est suivi de son `close()` (ou `with db_conn()`).
-- Nouvelle table ou colonne : migration dans `shared_infra/db/_migrations/`
-  **et** mise à jour de `_schema.py` et `BASELINE_COVERS` ; aucun DDL ailleurs
-  (`tests/db/test_schema_reference_2026_09_26.py`).
+- SQL **portable** SQLite / PostgreSQL : passer par
+  `packages/db/src/dialecte.ts` pour ce qui diffère (`shared_infra/db/_dialect.py`
+  côté Python restant).
+- Schéma : `packages/db/src/schema.ts` (tables dans `schema.gen.ts`) ; nouvelle
+  table ou colonne = migration ajoutée à `MIGRATIONS_TS`
+  (`packages/db/src/init.ts`) ; pas de DDL hors de `packages/db` (seule
+  exception : le transfert de base, `apps/core/src/ops/transfert.ts`).
+- Python : tout `db()` est suivi de son `close()` (ou `with db_conn()`).
 
 **Organisation**
 
-- `shared_infra/` est rangé **par famille** (accounts, chat, db, llm, mcp,
-  observability, sandbox, security…) : la logique, les routes et le stockage
-  d'un sujet vivent ensemble. `routes/` et `db/` ont des listes de fichiers
-  fermées (`tests/shared_infra/test_familles_rangement.py`).
-- Routes d'administration : `_require_admin` (administrateur) ou
-  `_require_staff` (administrateur ou modérateur) de
-  `shared_infra/routes/_helpers.py`. `is_admin` vaut 0, 1 (admin) ou 2
-  (modérateur) : jamais `not me["is_admin"]` (test dédié).
+- Core TS : routes HTTP par famille (`apps/core/src/familles/`, liste dans
+  `apps/core/src/familles.ts`), montées selon `APP_MODE` ; la logique d'un sujet
+  vit dans son dossier de `apps/core/src/` ou dans un paquet de `packages/`
+  partagé avec l'hôte d'outils.
+- `shared_infra/` (Python restant) est rangé **par famille** (accounts, chat,
+  db, llm, mcp, observability, sandbox, security…).
+- Routes d'administration : familles `admin-*` de `apps/core/src/familles/`
+  (process admin seulement) ; rôle vérifié par `exigerRole`
+  (`packages/auth/src/garde.ts`). `is_admin` vaut 0, 1 (admin) ou 2
+  (modérateur) : toujours comparer la valeur (`Number(is_admin) === 1`), jamais
+  un simple test de vérité.
 - Console d'administration : une page = une entrée du registre
-  `frontend/js/admin/_registry.js` (titre, lien `#page`, chargeurs, blocs
-  enregistrés) ; un champ de `config.json` porte
-  `data-field="config:chemin"` et part par `PATCH /api/admin/config` avec la
-  barre d'enregistrement de sa page. Vérification :
-  `tests/frontend/admin-verify.mjs` (avec `admin-server.mjs`).
+  `frontend/src/features/admin/registre.ts` (titre, lien `#page`, chargeurs,
+  blocs enregistrés) et un SFC `frontend/src/components/admin/Page*.vue` ; un
+  champ de `config.json` porte `data-field="config:chemin"` et part par
+  `PATCH /api/admin/config` avec la barre d'enregistrement de sa page.
 
 **Frontend**
 
-- Pas de build : Vue 3 global, gabarits dans le DOM, assemblés côté serveur
-  par `<!-- @include includes/… -->`.
-- Pièges des gabarits dans le DOM : pas de fonction immédiatement appelée ni
-  de gestionnaire à plusieurs instructions dans un attribut ; les attributs
-  SVG en camelCase passent par un objet `v-bind` ; `@click="fn"` reçoit
-  l'événement en premier argument.
+- Build Vite : `frontend/` est le workspace `@elpis/web` ; `npm run build:web`
+  écrit `frontend/dist/` (à relancer après toute modification de
+  `frontend/src`). Entrées `src/entries/main.ts` (chat, éditeur, routines…) et
+  `admin.ts` (console), précédées de `diagnostic.ts` (fenêtre d'erreur si rien
+  n'est monté), posées par `<!-- @entree … -->`, que
+  `apps/core/src/interface/pages.ts` remplace par les balises du manifeste
+  (noms hachés, cache long).
+- Rangement de `frontend/src/` : `platform/` (client HTTP et `ApiResult`,
+  lecteur NDJSON), `features/<domaine>/` (logique et état en TS strict : auth,
+  chat, editor, terminal, admin, reglages, routines, studio, images, voix,
+  mascotte, skills, code), `components/<domaine>/` (SFC
+  `<script setup lang="ts">`, contrôlés par `vue-tsc`), `utils/` et `modeles/`
+  (fonctions pures), `app/racine/` (racine : état partagé, session, montage des
+  modules, clavier).
+- Réseau : JSON reçu en `unknown` et validé aux frontières par les schémas Zod
+  de `@elpis/contracts` ; erreurs `{"detail"}` et 422 décodées par `ApiResult` ;
+  flux de chat typé par `EvenementFlux`, reducer exhaustif (un événement inconnu
+  est journalisé, jamais appliqué). Un cast n'est pas une validation. Nouvelle
+  route consommée = son schéma dans `packages/contracts`.
+- État : un domaine par fonctionnalité, transmis par injection typée (clé
+  `provide` / `inject`, ex. `features/chat/page/domaines.ts`,
+  `features/editor/domaine.ts`), clés absentes nommées au montage ; ni `$root`,
+  ni store global. Monaco, xterm et objets tiers en `shallowRef`/`markRaw`.
+- Racines : `src/components/racine/App.vue` (chat) et `AppConsole.vue`
+  (console), sur `creerRacine()` (`src/app/racine/racine.ts`) ; elles
+  fournissent les domaines injectés. `index.html` et `admin.html` ne sont que
+  des coquilles (`<div id="app">`) : aucun gabarit dans le DOM, aucun script
+  classique. Le build embarque le runtime Vue sans compilateur de gabarits
+  (alias `vue.runtime.esm-bundler.js` de `vite.config.mts`) et les pages portent
+  une CSP stricte (`security.csp`) : tout gabarit est un SFC précompilé.
+- Vendor : paquets npm aux versions figées, aucun CDN (production hors ligne).
+  Monaco (ESM et workers) et xterm sont des chunks chargés à l'ouverture de
+  l'éditeur ou du terminal ; Mermaid, ECharts, Chart.js et highlight.js sont
+  leurs fichiers de distribution, copiés par Vite et chargés à la demande
+  (`frontend/vendor.config.mts`, `src/platform/vendor.ts`).
+- HTML rendu (Markdown, SVG, aperçus) : toujours purifié par DOMPurify ; pas de
+  `v-html` sur du contenu non purifié.
 - Jamais de nom de classe Tailwind composé à l'exécution (le générateur ne le
   verrait pas) ; jamais de classe de couleur sur `<body>` ; couleurs par
   jetons (DESIGN.md).
 - Toute transition Vue nommée est déclarée en CSS **et** dans le bloc
-  `prefers-reduced-motion` (`tests/shared_infra/test_transitions_declarees.py`).
+  `prefers-reduced-motion`.
 
 **Dépendances et licences**
 
 - Pas de dépendance copyleft forte (GPL, AGPL) dans le cœur : optionnelle
   seulement (`requirements-agpl-optional.txt`).
-- Tout paquet ajouté à un `requirements*.txt` est inscrit dans
-  `THIRD_PARTY_NOTICES.md` (test dédié).
+- Tout paquet ajouté à un `requirements*.txt` ou livré par npm est inscrit dans
+  `THIRD_PARTY_NOTICES.md`.
 
 ## Invariants à ne pas casser
 
 Le détail et le pourquoi sont dans [ARCHITECTURE.md](ARCHITECTURE.md). En
 résumé, une modification ne doit jamais :
 
-- monter une route d'administration dans le process main (la séparation se
-  fait au montage, par `APP_MODE`) ;
+- monter une route de la console (`/api/admin/*`) dans le process main : la
+  séparation se fait au montage, par `APP_MODE` ;
 - faire varier la tête système entre deux itérations (un seul `role: system`,
-  ordre figé, même jeu d'outils) : le cache de préfixe du moteur en dépend et
-  `tests/llm_core/test_golden_payload.py` le vérifie ;
-- compter des tokens ailleurs que dans `llm_core/context/tokens.py` ;
+  ordre figé, même jeu d'outils) : le cache de préfixe du moteur en dépend ;
+- compter des tokens ailleurs que dans `apps/core/src/contexte/tokens.ts`
+  (requête `/tokenize` ou `/apply-template`, `new URL("tokenize", base)`
+  compris), ni redéfinir le ratio chars/token (`@elpis/config`) ;
 - séparer un appel d'outil de son résultat, ni modifier les messages de
   travail pendant l'élagage ;
 - faire lever l'exécution d'un outil (erreur rendue en JSON), ni rejouer un
   appel MCP qui a peut-être agi ;
-- garder dans une variable de module un état qui doit être partagé : chaque
-  worker a la sienne ; passer par la base, le répertoire d'exécution ou le
-  bus fichier ;
-- faire passer une annulation par les événements système ;
+- garder dans une variable de module un état qui doit être partagé entre
+  process (main, admin, hôte d'outils, elpis-tools) : passer par la base ou
+  le canal interne ;
+- faire passer une annulation par les événements système : un Stop passe par
+  l'AbortSignal du tour ;
 - lire un réglage modifiable depuis la console dans une constante figée à
-  l'import, ni modifier le dictionnaire de `config_view()` ;
-- réorganiser le flux de chat (`chatbot_app/routes/chats.py` et le paquet
-  `chatbot_app/turn/`) sans relire ses invariants (verrou, annulation,
-  enregistrement) et l'ordre des événements NDJSON, écrits en tête de
-  `chats.py` et figés par `tests/chatbot/test_flux_route.py` ;
+  l'import (clé de `config` rechargée par `packages/config/src/vivant.ts`,
+  `liveConfigValue()`, `maxRecentChats()`…) : règle de lint
+  `elpis/reglages-vifs` ;
+- réorganiser le flux de chat (`apps/core/src/familles/chat.ts` et
+  `apps/core/src/tour/`) sans relire `apps/core/src/tour/README.md` : ses
+  invariants (verrou, annulation, enregistrement) et l'ordre des événements
+  NDJSON ;
 - toucher au contenu de `/work` depuis l'hôte : tout passe par l'agent du
-  conteneur (`shared_infra/sandbox/agent_client.py`, `llm_core/tools/_espace.py`,
-  `git_ops` pour Git) — un `open`, `os.walk`, `chmod` ou `unlink` de l'hôte
-  sur un chemin suivrait les liens que le conteneur peut poser à tout moment.
-  `test_frontiere_interception_2026_09_30.py` le vérifie pour les parcours
-  principaux et les fonctions de fichiers courantes (pas `stat`, `glob`,
-  `tarfile` ni les sous-processus) : ce n'est pas une preuve, relire les
-  appels à `_get_work_path` / `sandbox_path` ; exceptions listées dans
-  `docs/sandbox-gateway.md`.
+  bac (`@elpis/bac`, `@elpis/fichiers`) ; un `open`, `readdir`, `rm` ou
+  `chmod` de l'hôte sur un chemin suivrait les liens que le conteneur peut
+  poser à tout moment. Les seules exceptions (création de `P/work`,
+  occupation, dernière activité, suppression d'un compte) passent par les
+  primitives à descripteurs de `@elpis/securite` (`confinement.ts`). Voir
+  aussi [docs/sandbox-gateway.md](docs/sandbox-gateway.md).
 
 ## Git et pull requests
 
 - Une pull request = un sujet ; décrire l'avant et l'après.
 - Messages de commit en français, sujet `Domaine : résumé` (espace avant les
-  deux-points : `Base :`, `Chat :`, `Sandbox :`, `Tests :`, `Docs :`…), corps
-  en puces.
-- Ne jamais versionner : `venv/`, `node_modules/`, `config.json*`, `.env`,
-  `mcp.json`, `rag_app/rag_config.json`, `user_*/` (base, secrets de session,
-  jetons, mot de passe de la base), `logs/`, `dist/`, les archives.
+  deux-points : `Base :`, `Chat :`, `Sandbox :`, `Docs :`…), corps en puces.
+- Ne jamais versionner : `venv/`, `node/`, `node_modules/`, `config.json*`,
+  `.env`, `mcp.json`, `rag_app/rag_config.json`, `user_*/` (base, secrets de
+  session, jetons, mot de passe de la base), `logs/`, `dist/`, les archives.
 - Publication hors ligne : `./make_release.sh [VERSION]` produit
-  `dist/elpis-offline-<version>-<arch>/`, installé par
+  `dist/elpis-offline-<version>-<arch>/` (et son `.tar`), installé par
   `./install.sh --offline DOSSIER` ; la version vient de `pyproject.toml`.

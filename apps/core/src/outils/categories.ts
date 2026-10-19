@@ -269,6 +269,18 @@ export function mergeRegistries(ancien: Registre, neuf: Registre): Registre {
   };
 }
 
+/** Union des registres des services intégrés : une catégorie servie par deux d'entre eux (`skill` et `skill_run`) garde les outils des deux (écart : le Python ne gardait que ceux du dernier listé). */
+function unirSources(registres: readonly Registre[]): Registre {
+  return registres.reduce((fusion, partie) => {
+    const reg = mergeRegistries(fusion, partie);
+    for (const [nom, ancien] of Object.entries(fusion.descriptors)) {
+      const d = Object.hasOwn(partie.descriptors, nom) ? reg.descriptors[nom] : undefined;
+      if (d !== undefined) d.tools = [...new Set([...ancien.tools, ...d.tools])];
+    }
+    return reg;
+  });
+}
+
 /** Registre en mémoire si ce process a connecté le pool, sinon le cache disque d'un autre process (mémorisé 5 s), sinon vide. */
 export function getRegistry(): Registre {
   if (registre !== null) return registre;
@@ -323,7 +335,7 @@ export function ingestTools(
   };
   if (source) {
     sources.set(source, reg);
-    reg = [...sources.values()].reduce((fusion, partie) => mergeRegistries(fusion, partie));
+    reg = unirSources([...sources.values()]);
   }
   const existant = getRegistry();
   if (

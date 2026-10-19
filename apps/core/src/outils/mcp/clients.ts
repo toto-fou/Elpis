@@ -8,6 +8,7 @@ import {
   adresseIpOuNul,
   dansReseau,
   delaiMinuterie,
+  dormirMs,
   ErreurPython,
   estGlobaleIp,
   fixePy,
@@ -25,6 +26,7 @@ import { config, parseJsonPy } from "@elpis/config";
 import {
   brancherInvalidationPool,
   BUILTIN_SENTINEL,
+  builtinClientCfgs,
   codeMessageMcp,
   compilerSchema,
   course,
@@ -1159,6 +1161,52 @@ let desabonnerPool: (() => void) | null = null;
 /** Pool du process abonné une seule fois aux invalidations (réglages d'un compte, bibliothèque partagée, manifeste). */
 export function brancherInvalidationOutils(): void {
   desabonnerPool ??= brancherInvalidationPool(poolMcp);
+}
+
+/** Attentes (s) avant chaque nouvel essai des entrées intégrées encore injoignables au pré-chauffage. */
+export const RELANCES_PRECHAUFFAGE_S: readonly number[] = [2, 5, 15, 30, 60];
+
+export interface BilanPrechauffage {
+  connectees: number;
+  outils: number;
+  injoignables: string[];
+}
+
+/** `prewarm_mcp_pool` : une connexion par entrée intégrée remplit le registre des catégories, sans quoi aucun compte ne voit d'outil local ; les injoignables sont retentées. */
+export async function prechaufferOutilsMcp(
+  options: { pool?: PoolMcp; signal?: AbortSignal; relancesS?: readonly number[] } = {},
+): Promise<BilanPrechauffage> {
+  const pool = options.pool ?? poolMcp;
+  const signal = options.signal;
+  const bilan: BilanPrechauffage = { connectees: 0, outils: 0, injoignables: [] };
+  let restantes = builtinClientCfgs(null);
+  for (const attente of [0, ...(options.relancesS ?? RELANCES_PRECHAUFFAGE_S)]) {
+    if (restantes.length === 0) break;
+    if (attente > 0) await dormirMs(attente * 1000, signal);
+    const issues = await Promise.allSettled(
+      restantes.map((cfg) => pool.getOrConnect(cfg, resoudreClientMcp, { signal })),
+    );
+    if (signal?.aborted) throw raisonAnnulation(signal);
+    const suivantes: ConfigMcp[] = [];
+    bilan.injoignables = [];
+    for (const [i, issue] of issues.entries()) {
+      const cfg = restantes[i] ?? {};
+      if (issue.status === "fulfilled") {
+        bilan.connectees++;
+        bilan.outils += issue.value[1].length;
+        continue;
+      }
+      suivantes.push(cfg);
+      bilan.injoignables.push(`${strPy(lire(cfg, "name") ?? "?")} (${messageDe(issue.reason)})`);
+    }
+    restantes = suivantes;
+  }
+  log.info(
+    `[startup] outils MCP pré-chauffés (pid=${process.pid}) : ${bilan.connectees} entrée(s), ${bilan.outils} outil(s)`,
+  );
+  if (bilan.injoignables.length > 0)
+    log.warn(`[startup] entrées d'outils injoignables : ${bilan.injoignables.join("; ")}`);
+  return bilan;
 }
 
 // ── Exécution d'un appel MCP rendue en JSON (jamais levée vers la boucle) ────

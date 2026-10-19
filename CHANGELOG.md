@@ -26,11 +26,14 @@ la version Python sont listés dans docs/ecarts-python.md.
   et `python3` (groupe apt `construction-hote`). Le paquet hors ligne de
   `make_release.sh` contient le runtime et les bundles construits pour son
   architecture.
-- **Mise à jour depuis la 0.0.1** : `./elpis upgrade`, puis
-  `deploy/node/installer.sh node` et `deploy/node/installer.sh core` (ou
-  `./install.sh`, idempotent), `sudo ./elpis service install` et
-  `./elpis doctor` ; hors ligne, `./install.sh --offline <paquet>`. Détail :
-  docs/exploitation.md, « Mettre à jour ».
+- **Mise à jour depuis la 0.0.1** : pas par `./elpis upgrade`, dont le
+  script de la 0.0.1 relance le core Python retiré et sort en erreur (service
+  arrêté). Commit de départ noté (`git rev-parse --short HEAD`),
+  `./elpis backup full`, services arrêtés (`sudo systemctl stop elpis.target`
+  ou `./elpis stop`), `git pull --ff-only`, puis
+  `./install.sh --yes --service` (`--start` sans systemd ; hors ligne,
+  `--offline <paquet>`), qui garde `config.json`, `.env` et la base, et
+  `./elpis doctor`. Détail : docs/exploitation.md, « Mettre à jour ».
 - **Une connexion à refaire.** Le cookie de session change de format : celui
   de la 0.0.1 est ignoré sans erreur (page de connexion), une connexion
   suffit ; de même au retour vers la version Python. Jetons d'API et

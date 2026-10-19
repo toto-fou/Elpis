@@ -222,6 +222,16 @@ reporter à la main.
 - **Mise à jour depuis la 0.0.1** : pour garder les fournisseurs cloud des comptes, les ouvrir dans Console ›
   Modèles › Accès utilisateurs › Fournisseurs autorisés (ou `llm.allowed_provider_types` dans `config.json`).
 
+## Outils MCP : catégories vues par les comptes
+
+- **Pré-chauffage** : comme le Python (`prewarm_mcp_pool`), main se connecte au démarrage à chaque entrée intégrée
+  de `mcp.json` ; le registre des catégories, donc les familles visibles des comptes (Paramètres › MCP, sélecteur
+  d'outils du chat), se remplit sans attendre un tour. Une entrée encore injoignable (hôte d'outils pas encore à
+  l'écoute) est retentée pendant environ deux minutes au lieu d'un seul essai ; `MCP_PREWARM=0` le coupe toujours.
+- **Catégorie servie par deux entrées** (`skill` : `elpis-skill` et `elpis-skill-run`) : ses outils sont l'union de
+  ceux des deux. Le Python ne gardait que ceux de l'entrée listée en dernier : le panneau ne montrait qu'une partie
+  des outils de la catégorie, sans pouvoir décocher les autres.
+
 ## Exploitation : retours arrière retirés
 
 Les interrupteurs de retour arrière de la migration (`ELPIS_TOOLHOST=python`, `ELPIS_APPMCP=python`,

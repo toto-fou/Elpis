@@ -104,11 +104,12 @@ l'un ni l'autre n'authentifie le serveur), pour une commande sans piège.
 
 ## Paquet `caddy` : un prérequis apt
 
-`install.sh` n'installe pas Caddy : le paquet `caddy` est un prérequis apt
-(groupe `https` de [`deploy/prerequis-apt.txt`](../prerequis-apt.txt), par le
-miroir du LAN ou le support de l'OS hors ligne), et le paquet hors ligne de
-`make_release.sh` n'en contient pas. `install.sh --with-caddy` et
-`./elpis configure` le configurent seulement.
+Le paquet `caddy` est un prérequis apt (groupe `https` de
+[`deploy/prerequis-apt.txt`](../prerequis-apt.txt)) : `install.sh --with-caddy`
+l'installe par apt (dépôts de Debian 12 et 13, universe sur Ubuntu 24.04 ;
+hors ligne, miroir du LAN ou support de l'OS), puis le configure ;
+`./elpis configure` le configure seulement. Le paquet hors ligne de
+`make_release.sh` n'en contient pas.
 
 ### Bundle de .deb (outil manuel, hors d'install.sh)
 

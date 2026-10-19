@@ -31,8 +31,8 @@
   (connecteurs OpenAI-compatibles, Anthropic).
 - **Paquets système** : ceux de
   [deploy/prerequis-apt.txt](../deploy/prerequis-apt.txt) (socle, plus un
-  groupe par composant), installés **avant** `install.sh`, qui les vérifie
-  sans rien installer ; commandes apt :
+  groupe par composant), qu'`install.sh` installe par apt (sudo) ;
+  `--no-apt` les vérifie seulement, commandes apt :
   [exploitation.md](exploitation.md#prérequis-système-paquets-apt).
 - `install.sh` installe le reste : le venv Python et ses dépendances, Node.js
   24 sans npm dans `node/` (core et service navigateur) et le bundle du core
@@ -182,8 +182,8 @@ réglages (retour à la page Base), passer à SQLite ou abandonner.
 | Service navigateur (`--with-browser`, `--no-browser`) | oui | `npm ci` + Chromium (Playwright) |
 | Image sandbox (`--sandbox build\|pull\|none`, `--pull IMAGE`) | build | `docker build` de `deploy/docker/sandbox/`, ou `docker pull` + étiquette |
 | Base de données (`--db sqlite\|postgres-local\|external`) | sqlite (1re fois ; inchangée ensuite) | voir [Base de données](#base-de-données) |
-| LibreOffice (`--with-office`, `--no-office`) | oui s'il est déjà installé | aperçus docx/xlsx/pptx (LibreOffice nogui + bubblewrap, prérequis apt vérifiés) |
-| Caddy (`--with-caddy`, `--no-caddy`) | non | frontal HTTPS (paquet `caddy` en prérequis apt, configuré par install.sh ; voir [HTTPS](#https--frontal-caddy)) |
+| LibreOffice (`--with-office`, `--no-office`) | oui s'il est déjà installé | aperçus docx/xlsx/pptx (LibreOffice nogui + bubblewrap, installés par apt) |
+| Caddy (`--with-caddy`, `--no-caddy`) | non | frontal HTTPS (paquet `caddy` installé par apt, puis configuré par install.sh ; voir [HTTPS](#https--frontal-caddy)) |
 | Extras AGPL (`--with-agpl`, `--no-agpl`) | non | PyMuPDF et pdf2docx |
 | Configuration (`--configure`, `--no-configure`) | oui (1re fois) | `./elpis configure` |
 | Démarrage (`--service`, `--start`, `--no-start`) | service | `sudo ./elpis service install` ou `./elpis start` |

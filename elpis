@@ -219,7 +219,8 @@ _sauvegarde_ssh() { [ "$(lanceur sauvegarde-ssh)" = oui ]; }
 # Groupe de deploy/prerequis-apt.txt dont cette installation se sert.
 apt_groupe_sert() {
     case "$1" in
-        socle|sandbox) return 0 ;;
+        socle) return 0 ;;
+        sandbox) command -v docker >/dev/null 2>&1 || command -v dockerd >/dev/null 2>&1 ;;
         apercus-office) command -v soffice >/dev/null 2>&1 ;;
         navigateur) [ -d "$ROOT/browser-service/node_modules" ] ;;
         construction-hote) [ -d "$ROOT/node_modules" ] ;;
@@ -615,8 +616,8 @@ cmd_doctor() {
     if command -v dpkg-query >/dev/null 2>&1; then
         local groupe
         for groupe in $(prerequis_groupes); do
-            if [ "$groupe" = socle ] || prerequis_debian13; then check_apt "$groupe"
-            else info "paquets apt ($groupe) : noms de Debian 13, non vérifiés sur ce système (deploy/prerequis-apt.txt)"; fi
+            if [ "$groupe" = socle ] || prerequis_os_connu; then check_apt "$groupe"
+            else info "paquets apt ($groupe) : noms de Debian 12/13 et Ubuntu 24.04, non vérifiés sur ce système (deploy/prerequis-apt.txt)"; fi
         done
     else
         info "paquets apt : dpkg-query absent, prérequis non vérifiés (deploy/prerequis-apt.txt)"
@@ -704,8 +705,13 @@ cmd_doctor() {
     local image
     image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
     check "image sandbox $image" "docker image inspect '$image'" "./install.sh ou deploy/docker/sandbox/build_offline.sh"
-    check "bubblewrap (aperçus Office isolés)" "core_cmd bwrap" \
-        "apt install bubblewrap ; user namespaces autorisés ; core construit requis"
+    # bubblewrap ne sert qu'aux aperçus Office : facultatif sans LibreOffice.
+    if command -v soffice >/dev/null 2>&1; then
+        check "bubblewrap (aperçus Office isolés)" "core_cmd bwrap" \
+            "apt install bubblewrap ; user namespaces autorisés ; core construit requis"
+    else
+        check_opt "bubblewrap (aperçus Office isolés)" "core_cmd bwrap" "facultatif sans LibreOffice : ./install.sh --with-office"
+    fi
     check_opt "LibreOffice (aperçus Office, facultatif)" "command -v soffice" "paquets apt du groupe apercus-office : deploy/prerequis-apt.txt"
     if _https_enabled; then
         check "Caddy actif (HTTPS)" "systemctl is-active --quiet caddy" "./install.sh --with-caddy puis ./elpis configure"

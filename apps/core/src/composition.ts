@@ -119,7 +119,7 @@ import { brancherObservabilite } from "./observabilite/branchements";
 import { brancherMoteurMetriques } from "./observabilite/demarrage";
 import { brancherHistoriqueJournal, ecrivainDuProcess, journalAcces } from "./observabilite/journal-acces";
 import { getCategories } from "./outils/categories";
-import { brancherInvalidationOutils, brancherOutilsMcp } from "./outils/mcp/clients";
+import { brancherInvalidationOutils, brancherOutilsMcp, prechaufferOutilsMcp } from "./outils/mcp/clients";
 import {
   creerServeurEnProcessus,
   enregistrerFamillesEnProcessus,
@@ -324,6 +324,27 @@ export function brancherPlanificateur(mode: ModeApp, base: Base, cycle: CycleDeV
   return planificateur;
 }
 
+/** Pré-chauffage des outils MCP au démarrage de main seul, en arrière-plan (`prewarm_mcp_pool`) ; `MCP_PREWARM=0` le coupe. */
+export function brancherPrechauffageMcp(
+  mode: ModeApp,
+  cycle: CycleDeVie,
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  if (mode !== "main" || ["0", "false", "no", ""].includes((env["MCP_PREWARM"] ?? "1").trim().toLowerCase()))
+    return;
+  cycle.auDemarrage(
+    "pré-chauffage des outils MCP",
+    async () => {
+      try {
+        await prechaufferOutilsMcp({ signal: cycle.signalArret });
+      } catch (e) {
+        if (!cycle.signalArret.aborted) throw e;
+      }
+    },
+    { modes: ["main"], arrierePlan: true },
+  );
+}
+
 /** Ce que `creerApp` monte pour ce mode ; les familles et extensions des autres lots s'ajoutent ici. */
 export async function composer(
   mode: ModeApp,
@@ -357,6 +378,7 @@ export async function composer(
   };
   const cycle = options.cycle ?? new CycleDeVie(journal.child({ domaine: "cycle" }));
   const planificateur = brancherPlanificateur(mode, base, cycle);
+  brancherPrechauffageMcp(mode, cycle);
   const relais = mode === "main" ? creerRelais({ journal: jr, arret: cycle.signalArret, auth }) : undefined;
   if (relais !== undefined) cycle.alArret("relais vers l'hôte d'outils", () => relais.fermer());
   cycle.alArret("connexions aux agents bureau", () => fermerAgentsBureau());

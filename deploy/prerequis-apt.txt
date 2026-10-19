@@ -1,5 +1,5 @@
 ## SPDX-License-Identifier: MIT
-## deploy/prerequis-apt.txt — paquets Debian 13 à installer avant ./install.sh : « # groupe — rôle » ouvre un groupe, « a | b » accepte l'un ou l'autre.
+## deploy/prerequis-apt.txt — paquets apt qu'installe ./install.sh (Debian 12 et 13, Ubuntu 24.04) : « # groupe — rôle » ouvre un groupe, « a | b » accepte l'un ou l'autre et installe le premier que proposent les dépôts.
 
 # socle — Python et son venv, téléchargements, certificats, mises à jour par git
 python3
@@ -11,7 +11,8 @@ openssl
 
 # sandbox — Docker pour la sandbox des utilisateurs (terminal, exécution de code)
 docker.io | docker-ce
-docker-cli | docker-ce-cli
+## le client : docker-cli sur Debian 13, dans docker.io sur Debian 12 et Ubuntu 24.04
+docker-cli | docker-ce-cli | docker.io
 xz-utils
 
 # apercus-office — LibreOffice dans une prison bubblewrap (aperçus Word, Excel, PowerPoint)
@@ -24,7 +25,7 @@ fonts-liberation
 fonts-crosextra-carlito
 fonts-crosextra-caladea
 
-# navigateur — bibliothèques de Chromium pour le service navigateur (liste de Playwright 1.58)
+# navigateur — bibliothèques de Chromium pour le service navigateur (liste de Playwright 1.58 ; Debian 12 : noms sans t64)
 xvfb
 fonts-noto-color-emoji
 fonts-unifont
@@ -36,16 +37,16 @@ fonts-ipafont-gothic
 fonts-wqy-zenhei
 fonts-tlwg-loma-otf
 fonts-freefont-ttf
-libasound2t64
-libatk-bridge2.0-0t64
-libatk1.0-0t64
-libatspi2.0-0t64
+libasound2t64 | libasound2
+libatk-bridge2.0-0t64 | libatk-bridge2.0-0
+libatk1.0-0t64 | libatk1.0-0
+libatspi2.0-0t64 | libatspi2.0-0
 libcairo2
-libcups2t64
+libcups2t64 | libcups2
 libdbus-1-3
 libdrm2
 libgbm1
-libglib2.0-0t64
+libglib2.0-0t64 | libglib2.0-0
 libnspr4
 libnss3
 libpango-1.0-0

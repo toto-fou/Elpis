@@ -54,7 +54,7 @@ COMPONENTS = [
 ROOT_COMPONENTS = {"caddy"}
 DB_MODES = [
     ("sqlite", "SQLite", "fichier local, rien à installer (jusqu'à quelques dizaines d'utilisateurs)"),
-    ("postgres-local", "PostgreSQL sur cette machine", "préparé (paquet postgresql : prérequis apt)"),
+    ("postgres-local", "PostgreSQL sur cette machine", "préparé (paquet postgresql installé par apt)"),
     ("external", "Serveur existant", "PostgreSQL déjà en service"),
 ]
 LOCAL_DB = {"postgres-local": ("postgres", "psql")}
@@ -76,6 +76,8 @@ class Ctx:
         self.voice_local = Path("/etc/systemd/system/elpis-whisper.service").exists()
         self.tts_local = Path("/etc/systemd/system/elpis-tts.service").exists()
         self.db_password_stored = C.DB_PASSWORD_FILE.is_file()
+        # Paquets apt absents par groupe de deploy/prerequis-apt.txt, et s'ils seront installés (install.sh).
+        self.apt: Dict[str, Any] = json.loads(os.environ.get("ELPIS_WIZ_APT") or "{}")
 
     def offline_has(self, *parts: str) -> bool:
         return bool(self.offline) and Path(self.offline, *parts).exists()
@@ -83,7 +85,7 @@ class Ctx:
     def component_reason(self, key: str) -> Optional[str]:
         if key in ROOT_COMPONENTS and not self.admin:
             return "droits administrateur requis"
-        # Paquets apt absents : install.sh les liste ensuite, avec la commande à lancer.
+        # Paquets apt absents : install.sh les installe après le résumé.
         if self.offline and key == "browser" and not self.offline_has("browser"):
             return "hors ligne : navigateur absent du bundle"
         return None
@@ -555,6 +557,14 @@ def build_pages(ctx: Ctx) -> List[T.Page]:
     return pages
 
 
+def apt_groups(st: State, ctx: Ctx) -> List[str]:
+    """Groupes de deploy/prerequis-apt.txt qu'exigent les choix, comme GROUPES_APT d'install.sh."""
+    groups = ["socle"] + (["sandbox"] if st.get("sandbox") != "none" else [])
+    groups += [g for k, g in (("office", "apercus-office"), ("browser", "navigateur"), ("caddy", "https")) if _has(st, k)]
+    groups += (["postgresql-local"] if st.get("db_mode") == "postgres-local" else [])
+    return groups + ([] if ctx.offline else ["construction-hote"])
+
+
 def summary(st: State, ctx: Ctx) -> List[Tuple[str, List[Tuple[str, str]]]]:
     yes = lambda b: "oui" if b else "non"  # noqa: E731
     out: List[Tuple[str, List[Tuple[str, str]]]] = []
@@ -563,6 +573,11 @@ def summary(st: State, ctx: Ctx) -> List[Tuple[str, List[Tuple[str, str]]]]:
         sb = {"build": "construite", "pull": f"tirée ({st.get('pull_ref')})", "none": "aucune"}[st["sandbox"]]
         out.append(("Composants", [("Installés", ", ".join(comps) or "aucun"), ("Sandbox", sb)]
                     + ([("Mémoire par sandbox", f"{st['sandbox_memory']} Mo")] if st["sandbox"] != "none" else [])))
+        if ctx.apt:
+            manquants = ctx.apt.get("manquants") or {}
+            noms = list(dict.fromkeys(n for g in apt_groups(st, ctx) for n in manquants.get(g, ())))
+            label = "À installer (apt-get)" if ctx.apt.get("installer") else "Manquants (à poser avant)"
+            out.append(("Paquets système", [(label, f"{len(noms)} : {', '.join(noms)}" if noms else "aucun")]))
     mode = st.get("db_mode")
     rows = [("Base", dict((v, lab) for v, lab, _d in DB_MODES)[mode])]
     if mode == "external":

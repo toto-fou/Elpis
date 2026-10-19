@@ -18,10 +18,11 @@
 #  demande). Clavier : ↑↓ Espace Entrée, Tab pour changer de page.
 #
 #  Étapes :
-#    1. prérequis système : les paquets apt de deploy/prerequis-apt.txt
-#       (socle, puis les groupes des composants choisis) sont VÉRIFIÉS,
-#       jamais installés ici : s'il en manque, le script s'arrête et
-#       affiche la commande apt à lancer
+#    1. prérequis système : les paquets apt de deploy/prerequis-apt.txt,
+#       installés par apt-get : le socle (Python, git, curl…) juste après
+#       sudo, avant l'assistant ; les groupes des composants choisis après
+#       le résumé. Sans droits administrateur, avec --no-apt ou si apt
+#       échoue : liste, commande apt à lancer, puis arrêt
 #    2. environnement Python (venv/) : requirements*.txt
 #    2 bis. core : Node.js 24 dans node/ (l'archive officielle sans npm,
 #       npx ni corepack ; sommes et empreinte figées dans deploy/node/node.env)
@@ -34,8 +35,8 @@
 #       du core
 #    5. Qdrant (base vectorielle du RAG) : binaire officiel, sha256 vérifié
 #    6. image sandbox Docker : docker build (ou --pull / --offline)
-#    7. facultatif : configuration de Caddy (HTTPS ; son paquet est un
-#       prérequis), extras AGPL ; LibreOffice et bubblewrap vérifiés
+#    7. facultatif : configuration de Caddy (HTTPS ; son paquet vient de
+#       l'étape 1), extras AGPL ; LibreOffice et bubblewrap vérifiés
 #    8. configuration (réponses de l'assistant), puis service ou démarrage
 #
 #  Usage :
@@ -44,7 +45,10 @@
 #    ./install.sh --yes               sans question : réponses par défaut
 #                                     (+ options ci-dessous), configure --yes,
 #                                     pas de démarrage sauf --start/--service
-#    ./install.sh --dry-run           affiche le plan, ne change rien
+#    ./install.sh --dry-run           affiche dans l'ordre ce qui serait fait
+#                                     (paquets apt compris), sans question, sans
+#                                     sudo et sans rien écrire ; code 0 si
+#                                     l'installation pourrait aller au bout
 #
 #  Composants (pré-remplissent l'assistant, ou répondent sans lui) :
 #    --with-office | --no-office      LibreOffice (aperçus Word/Excel/PowerPoint)
@@ -54,7 +58,7 @@
 #    --db sqlite|postgres-local|external
 #                                     base de données : fichier SQLite (défaut),
 #                                     PostgreSQL préparé SUR CETTE MACHINE
-#                                     (paquet postgresql : prérequis apt), ou
+#                                     (paquet postgresql installé par apt), ou
 #                                     serveur PostgreSQL existant
 #    --sandbox build|pull|none        image sandbox : construite (défaut),
 #                                     tirée d'un registre, ou aucune
@@ -62,8 +66,10 @@
 #    --no-sandbox                     = --sandbox none
 #    --offline DIR                    sans réseau, depuis le paquet produit par
 #                                     make_release.sh
-#    --skip-system                    sans vérifier les paquets apt (autre
-#                                     système : deploy/prerequis-apt.txt)
+#    --no-apt                         paquets apt vérifiés sans être installés :
+#                                     s'il en manque, commande apt puis arrêt
+#    --skip-system                    paquets apt ni vérifiés ni installés
+#                                     (autre système : deploy/prerequis-apt.txt)
 #
 #  Après l'installation :
 #    --configure | --no-configure     configurer (défaut : oui)
@@ -103,7 +109,7 @@ PYBIN="${PYTHON_BIN:-python3}"
 # ── Options ──────────────────────────────────────────────────────────────────
 # Vide = pas encore décidé (question posée en mode interactif).
 WITH_OFFICE=""; WITH_CADDY=""; WITH_AGPL=""; WITH_BROWSER=""
-SANDBOX_MODE=""; DB_MODE=""; DO_SYSTEM=1; OFFLINE_DIR=""; PULL_REF="${ELPIS_SANDBOX_PULL_REF:-}"
+SANDBOX_MODE=""; DB_MODE=""; DO_SYSTEM=1; DO_APT=1; OFFLINE_DIR=""; PULL_REF="${ELPIS_SANDBOX_PULL_REF:-}"
 ASSUME_YES=0; DRY_RUN=0; DO_CONFIGURE=""; AFTER=""; PLAIN=0   # AFTER : service | start | none
 CONFIGURE_ARGS=()
 while [ $# -gt 0 ]; do
@@ -123,6 +129,7 @@ while [ $# -gt 0 ]; do
                         if [ $# -gt 1 ] && [ "${2#-}" = "$2" ]; then PULL_REF="$2"; shift; fi ;;
         --pull=*)       SANDBOX_MODE=pull; PULL_REF="${1#*=}" ;;
         --skip-system)  DO_SYSTEM=0 ;;
+        --no-apt)       DO_APT=0 ;;
         --offline)      OFFLINE_DIR="${2:?--offline attend un dossier}"; shift ;;
         --offline=*)    OFFLINE_DIR="${1#*=}" ;;
         -y|--yes)       ASSUME_YES=1 ;;
@@ -161,11 +168,11 @@ if [ -n "$OFFLINE_DIR" ]; then
         || { echo "Dossier hors-ligne introuvable." >&2; exit 2; }
 fi
 INTERACTIVE=1
-{ [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; } && INTERACTIVE=0
+{ [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ] || [ "$DRY_RUN" -eq 1 ]; } && INTERACTIVE=0
 
 # ── Journal ──────────────────────────────────────────────────────────────────
-mkdir -p "$ROOT/logs"
 if [ "$DRY_RUN" -eq 0 ]; then
+    mkdir -p "$ROOT/logs"
     { echo; echo "===== install.sh $(date -Is) $* ====="; } >> "$ROOT/logs/install.log"
     # Tout ce qui s'affiche part aussi dans le journal. L'assistant, lui,
     # écrit sur /dev/tty : ses écrans (et les mots de passe) n'y passent pas.
@@ -177,6 +184,9 @@ warn() { printf '\033[1;33m[ warn  ]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[erreur ]\033[0m %s\n' "$*" >&2; exit 1; }
 WARNINGS=()
 note_warn() { warn "$*"; WARNINGS+=("$*"); }
+# --dry-run : raisons qui arrêteraient l'installation réelle ; ce que sudo y ferait, indispensable ou non.
+DRY_BLOQUANTS=(); DRY_SUDO_REQUIS=(); DRY_SUDO_FACULTATIF=(); DRY_SANS=(); DRY_RESEAU=()
+bloquer() { warn "$*"; DRY_BLOQUANTS+=("$*"); }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # ask_yn QUESTION DÉFAUT(0|1) → 0/1 sur stdout
@@ -228,9 +238,10 @@ trap cleanup EXIT
 #  0. Système
 # =============================================================================
 OS_ID=""; OS_VER=""; OS_NAME="inconnu"
-if [ -r /etc/os-release ]; then
-    # shellcheck disable=SC1091
-    . /etc/os-release
+# PREREQUIS_OS_RELEASE : le même fichier que deploy/prerequis-apt.sh (les tests y simulent un autre système).
+if [ -r "${PREREQUIS_OS_RELEASE:-/etc/os-release}" ]; then
+    # shellcheck disable=SC1090,SC1091
+    . "${PREREQUIS_OS_RELEASE:-/etc/os-release}"
     OS_ID="${ID:-}"; OS_VER="${VERSION_ID:-}"; OS_NAME="${PRETTY_NAME:-$OS_ID $OS_VER}"
 fi
 os_supported() {
@@ -246,57 +257,15 @@ info "Système : $OS_NAME"
 if ! os_supported; then
     warn "Système non testé : Debian 12/13 et Ubuntu 24.04 sont pris en charge."
     warn "Sur un autre système, installez l'équivalent de deploy/prerequis-apt.txt, puis relancez avec --skip-system."
-    if [ "$DO_SYSTEM" -eq 1 ] && [ "$(ask_yn "Continuer quand même ?" 0)" -eq 0 ]; then
+    if [ "$DO_SYSTEM" -eq 1 ] && [ "$DRY_RUN" -eq 1 ]; then
+        bloquer "Système non pris en charge : sans --skip-system, l'installation demande s'il faut continuer (--yes : non)."
+    elif [ "$DO_SYSTEM" -eq 1 ] && [ "$(ask_yn "Continuer quand même ?" 0)" -eq 0 ]; then
         exit 1
     fi
 fi
 
 # =============================================================================
-#  0 bis. Prérequis système — vérifiés, jamais installés ici
-# =============================================================================
-# Option d'install.sh qui retire le composant d'un groupe de deploy/prerequis-apt.txt.
-option_sans() {
-    case "$1" in
-        sandbox) echo "--sandbox none" ;; apercus-office) echo "--no-office" ;; navigateur) echo "--no-browser" ;;
-        https) echo "--no-caddy" ;; postgresql-local) echo "--db sqlite" ;;
-        construction-hote) echo "--offline <paquet de cette version>" ;;
-    esac
-}
-
-# Paquets apt absents des groupes donnés : liste, commande apt, puis arrêt (--dry-run : affichage seul).
-verifier_prerequis() {
-    [ "$DO_SYSTEM" -eq 1 ] || return 0
-    if ! have dpkg-query; then
-        note_warn "dpkg-query absent : prérequis système non vérifiés (deploy/prerequis-apt.txt)."
-        return 0
-    fi
-    local manquants=() groupes=("$@") autres=() sans=() l
-    if ! prerequis_debian13; then
-        for l in "$@"; do [ "$l" = socle ] || autres+=("$l"); done
-        groupes=(socle)
-        [ "${#autres[@]}" -eq 0 ] \
-            || note_warn "Noms de paquets de Debian 13 : sur $OS_NAME, seul le socle est vérifié ; installez l'équivalent des groupes ${autres[*]} (deploy/prerequis-apt.txt)."
-    fi
-    mapfile -t manquants < <(prerequis_manquants "${groupes[@]}")
-    for l in "${groupes[@]}"; do
-        [ "$l" != socle ] && [ -n "$(prerequis_manquants "$l")" ] && sans+=("$(option_sans "$l")")
-    done
-    if [ "${#manquants[@]}" -eq 0 ]; then
-        ok "Prérequis système présents (paquets apt : ${groupes[*]})."
-        return 0
-    fi
-    warn "Paquets système manquants (deploy/prerequis-apt.txt, groupes : ${groupes[*]}) :"
-    for l in "${manquants[@]}"; do printf '    %s\n' "$(prerequis_libelle "$l")" >&2; done
-    warn "Installez-les, puis relancez ./install.sh (hors ligne, apt passe par le miroir du LAN ou le support de l'OS) :"
-    printf '    %s\n' "$(prerequis_commande "${manquants[@]}")" >&2
-    [ "${#sans[@]}" -eq 0 ] || warn "ou relancez sans le composant concerné : ${sans[*]}"
-    [ "$DRY_RUN" -eq 1 ] && return 0
-    die "Prérequis système manquants : rien n'a été installé."
-}
-verifier_prerequis socle
-
-# =============================================================================
-#  0 ter. Droits — vérifiés AVANT toute question
+#  0 bis. Droits — vérifiés AVANT toute question
 # =============================================================================
 # Utilisateur normal : sudo demandé maintenant, une fois, puis gardé actif
 # pendant toute l'installation (la construction de l'image dure plus que les
@@ -315,17 +284,19 @@ if [ "$(id -u)" -eq 0 ]; then
     info "Lancé en root : étapes système en root, application sous « $APP_USER »."
 elif have sudo; then
     if [ "$DRY_RUN" -eq 1 ]; then
-        sudo -n true 2>/dev/null && ADMIN_OK=1
+        ADMIN_OK=1     # sudo serait demandé : jamais appelé en --dry-run
     else
         info "Droits administrateur : sudo est demandé maintenant, une seule fois."
-        if sudo -v; then
+        # sudo -n true d'abord : NOPASSWD dans sudoers.d et groupe sudo (images cloud), sudo -v exige quand même un mot de passe (verifypw).
+        if sudo -n true 2>/dev/null || sudo -v; then
             ADMIN_OK=1; SUDO="sudo"
-            ( while kill -0 "$$" 2>/dev/null; do sudo -n -v 2>/dev/null; sleep 60; done ) &
+            # Hors des sorties du script : son « sleep » ne retient pas le journal ni un tube après la fin.
+            ( while kill -0 "$$" 2>/dev/null; do sudo -n -v 2>/dev/null; sleep 60; done ) >/dev/null 2>&1 &
             SUDO_KEEPALIVE=$!
         fi
     fi
 fi
-if [ "$ADMIN_OK" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
+if [ "$ADMIN_OK" -eq 0 ]; then
     if have sudo; then warn "sudo refusé : pas de droits administrateur."; else warn "sudo absent : pas de droits administrateur."; fi
     if [ "$INTERACTIVE" -eq 1 ]; then
         go=""
@@ -333,10 +304,10 @@ if [ "$ADMIN_OK" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
             go="$(python3 "$ROOT/deploy/wizard.py" ask --title "Elpis — installation" \
                 --question "Pas de droits administrateur (sudo $(have sudo && echo refusé || echo absent))." \
                 "quit:Arrêter:relancer depuis un compte sudoer, ou sudo ./install.sh" \
-                "limited:Continuer sans:Caddy, base locale et services désactivés")" \
+                "limited:Continuer sans:paquets apt déjà posés ; Caddy, base locale et services désactivés")" \
                 || go=quit
         else
-            [ "$(ask_yn "Continuer SANS droits administrateur ? (Caddy, base locale et services systemd seront désactivés)" 0)" -eq 1 ] && go=limited
+            [ "$(ask_yn "Continuer SANS droits administrateur ? (paquets apt à poser avant ; Caddy, base locale et services systemd désactivés)" 0)" -eq 1 ] && go=limited
         fi
         [ "$go" = limited ] || die "Installation arrêtée : relancez depuis un compte autorisé à utiliser sudo, ou « sudo ./install.sh »."
     else
@@ -344,9 +315,166 @@ if [ "$ADMIN_OK" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
         [ "$WITH_CADDY" = 1 ] && needs+=("Caddy")
         [ "$DB_MODE" = postgres-local ] && needs+=("base locale")
         [ "$AFTER" = service ] && needs+=("services systemd")
-        [ "${#needs[@]}" -eq 0 ] || die "Pas de droits administrateur, or l'installation en demande pour : ${needs[*]}. Lancez avec sudo, ou retirez ces options."
+        if [ "${#needs[@]}" -gt 0 ]; then
+            [ "$DRY_RUN" -eq 1 ] || die "Pas de droits administrateur, or l'installation en demande pour : ${needs[*]}. Lancez avec sudo, ou retirez ces options."
+            bloquer "Pas de droits administrateur (sudo absent), or l'installation en demande pour : ${needs[*]}."
+        fi
     fi
 fi
+
+# =============================================================================
+#  0 ter. Prérequis système — paquets apt installés par apt-get
+# =============================================================================
+# Option d'install.sh qui retire le composant d'un groupe de deploy/prerequis-apt.txt.
+option_sans() {
+    case "$1" in
+        sandbox) echo "--sandbox none" ;; apercus-office) echo "--no-office" ;; navigateur) echo "--no-browser" ;;
+        https) echo "--no-caddy" ;; postgresql-local) echo "--db sqlite" ;;
+        construction-hote) echo "--offline <paquet de cette version>" ;;
+    esac
+}
+
+# Groupes dont les noms valent sur ce système : tous sur Debian 12/13 et Ubuntu 24.04, le socle seul ailleurs.
+apt_groupes() {
+    local g
+    for g in "$@"; do { [ "$g" = socle ] || prerequis_os_connu; } && echo "$g"; done
+}
+
+# apt-get sans question, sous sudo s'il le faut ; le verrou de dpkg (mises à jour automatiques du premier démarrage) est attendu 5 min.
+apt_get() {
+    $SUDO env DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1 apt-get -y -q -o DPkg::Lock::Timeout=300 \
+        -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "$@"
+}
+
+# apt-get update, réessayé 5 min tant que les listes sont verrouillées (DPkg::Lock::Timeout n'y vaut pas : mises à jour automatiques du premier démarrage).
+apt_mettre_a_jour() {
+    local essai sortie rc
+    for essai in $(seq 30); do
+        sortie="$(apt_get update 2>&1)"; rc=$?
+        printf '%s\n' "$sortie"
+        [ "$rc" -eq 0 ] && return 0
+        case "$sortie" in *"/var/lib/apt/lists/lock"*) ;; *) return "$rc" ;; esac
+        [ "$essai" -eq 1 ] && info "Listes apt verrouillées (mise à jour automatique en cours ?) : attente, 5 min au plus…"
+        sleep 10
+    done
+    return 1
+}
+
+# Installe les lignes données : apt-get update la première fois, puis la première alternative que proposent les dépôts.
+APT_A_JOUR=0; APT_MAJ_KO=0; APT_INTROUVABLES=()
+apt_installer() {
+    local choix=() paquets=() c
+    if [ "$APT_A_JOUR" -eq 0 ]; then
+        info "apt-get update…"
+        if ! apt_mettre_a_jour; then
+            APT_MAJ_KO=1
+            warn "apt-get update a échoué : listes de paquets déjà présentes utilisées."
+        fi
+        APT_A_JOUR=1
+    fi
+    mapfile -t choix < <(prerequis_choix "$@")
+    for c in "${choix[@]}"; do
+        case "$c" in
+            "!"*) APT_INTROUVABLES+=("$(prerequis_libelle "${c#!}")") ;;
+            *) case " ${paquets[*]} " in *" $c "*) ;; *) paquets+=("$c") ;; esac ;;
+        esac
+    done
+    [ "${#paquets[@]}" -gt 0 ] || return 1
+    info "apt-get install ${paquets[*]}"
+    apt_get install --no-install-recommends "${paquets[@]}"
+}
+
+# Paquets apt absents des groupes donnés, en une ligne : « aucun », ou leur nombre et leurs noms.
+apt_resume() {
+    local manquants=() groupes=() l liste=""
+    mapfile -t groupes < <(apt_groupes "$@")
+    mapfile -t manquants < <(prerequis_manquants "${groupes[@]}")
+    [ "${#manquants[@]}" -gt 0 ] || { echo aucun; return 0; }
+    for l in "${manquants[@]}"; do liste+="${liste:+, }$(prerequis_libelle "$l")"; done
+    echo "${#manquants[@]} : $liste"
+}
+
+# --dry-run : les commandes apt-get qui seraient lancées, avec les noms que proposent les dépôts (apt-cache, lecture seule).
+apt_dry_run() {
+    local groupes=() choix=() paquets=() absents=() c l
+    while [ "$1" != -- ]; do groupes+=("$1"); shift; done; shift
+    mapfile -t choix < <(prerequis_choix "$@")
+    for c in "${choix[@]}"; do
+        case "$c" in "!"*) l="${c#!}"; absents+=("$(prerequis_libelle "$l")"); c="${l%% *}" ;; esac
+        case " ${paquets[*]} " in *" $c "*) ;; *) paquets+=("$c") ;; esac
+    done
+    etape "paquets apt (groupes ${groupes[*]}) : $# manquant(s), apt-get update puis apt-get install --no-install-recommends ${paquets[*]}"
+    if ! compgen -G "/var/lib/apt/lists/*Packages*" >/dev/null; then
+        info "Listes apt vides : noms confirmés par apt-get update (ici, la première forme de chaque « a | b »)."
+    elif [ "${#absents[@]}" -gt 0 ]; then
+        warn "Absents des listes apt actuelles : ${absents[*]} (apt-get update les rafraîchira ; sinon l'installation s'arrêtera)."
+    fi
+    for l in "${groupes[@]}"; do
+        [ "$l" != socle ] && [ -n "$(prerequis_manquants "$l")" ] && DRY_SANS+=("$(option_sans "$l")")
+    done
+    [ "$AS_ROOT" -eq 1 ] || DRY_SUDO_REQUIS+=("paquets apt")
+    DRY_RESEAU+=("dépôts apt (ou miroir du LAN)")
+}
+
+# Paquets apt absents des groupes donnés : installés ; sans droits, avec --no-apt ou si apt échoue, liste, commande, puis arrêt (--dry-run : affichage seul).
+installer_prerequis() {
+    [ "$DO_SYSTEM" -eq 1 ] || return 0
+    if ! have dpkg-query; then
+        note_warn "dpkg-query absent : prérequis système ni vérifiés ni installés (deploy/prerequis-apt.txt)."
+        return 0
+    fi
+    local manquants=() groupes=() autres=() sans=() l raison=""
+    mapfile -t groupes < <(apt_groupes "$@")
+    for l in "$@"; do [ "$l" = socle ] || prerequis_os_connu || autres+=("$l"); done
+    [ "${#autres[@]}" -eq 0 ] \
+        || note_warn "Noms de paquets de Debian 12/13 et Ubuntu 24.04 : sur $OS_NAME, seul le socle est installé ; installez l'équivalent des groupes ${autres[*]} (deploy/prerequis-apt.txt)."
+    mapfile -t manquants < <(prerequis_manquants "${groupes[@]}")
+    if [ "${#manquants[@]}" -eq 0 ]; then
+        if [ "$DRY_RUN" -eq 1 ]; then etape "paquets apt (groupes ${groupes[*]}) : tous présents, rien à installer"
+        else ok "Prérequis système présents (paquets apt : ${groupes[*]})."; fi
+        return 0
+    fi
+    if [ "$DO_APT" -eq 0 ]; then raison="--no-apt"
+    elif [ "$ADMIN_OK" -eq 0 ]; then raison="pas de droits administrateur"
+    elif ! have apt-get; then raison="apt-get absent"
+    elif [ "$DRY_RUN" -eq 1 ]; then
+        apt_dry_run "${groupes[@]}" -- "${manquants[@]}"
+        return 0
+    else
+        info "Paquets système à installer (groupes ${groupes[*]}), par apt-get : $(apt_resume "${groupes[@]}")"
+        APT_INTROUVABLES=()
+        apt_installer "${manquants[@]}"
+        mapfile -t manquants < <(prerequis_manquants "${groupes[@]}")
+        if [ "${#manquants[@]}" -eq 0 ]; then
+            ok "Paquets système installés (groupes ${groupes[*]})."
+            return 0
+        fi
+        raison="apt-get"
+    fi
+    for l in "${groupes[@]}"; do
+        [ "$l" != socle ] && [ -n "$(prerequis_manquants "$l")" ] && sans+=("$(option_sans "$l")")
+    done
+    [ "$DRY_RUN" -eq 0 ] || etape "paquets apt (groupes ${groupes[*]}) : ${#manquants[@]} manquant(s), NON installés ($raison)"
+    warn "Paquets système manquants (deploy/prerequis-apt.txt, groupes : ${groupes[*]}) :"
+    for l in "${manquants[@]}"; do printf '    %s\n' "$(prerequis_libelle "$l")" >&2; done
+    if [ "$raison" = apt-get ]; then
+        if [ "$APT_MAJ_KO" -eq 1 ]; then
+            warn "apt-get update a échoué (réseau, miroir ou sources apt : voir ci-dessus) : les paquets n'ont pas pu être cherchés."
+        elif [ "${#APT_INTROUVABLES[@]}" -gt 0 ]; then
+            warn "Absents des dépôts apt de cette machine : ${APT_INTROUVABLES[*]}$([ "$OS_ID" = ubuntu ] && echo " (dépôt universe activé ?)")."
+        fi
+        warn "apt-get ne les a pas installés (voir ci-dessus)$([ -n "$OFFLINE_DIR" ] && echo " ; hors ligne, apt passe par le miroir du LAN ou le support de l'OS : vérifiez /etc/apt/sources.list.d") ; installez-les, puis relancez ./install.sh :"
+    else
+        warn "Installez-les, puis relancez ./install.sh (hors ligne, apt passe par le miroir du LAN ou le support de l'OS) :"
+    fi
+    printf '    %s\n' "$(prerequis_commande "${manquants[@]}")" >&2
+    [ "${#sans[@]}" -eq 0 ] || warn "ou relancez sans le composant concerné : ${sans[*]}"
+    if [ "$DRY_RUN" -eq 1 ]; then bloquer "Prérequis système manquants ($raison) : rien ne serait installé."; return 0; fi
+    if [ "$raison" = apt-get ]; then die "Prérequis système manquants : apt-get a échoué."; fi
+    die "Prérequis système manquants ($raison) : rien n'a été installé."
+}
+# Le socle d'abord : l'assistant tourne en Python (--dry-run : avec les autres groupes, dans son plan).
+[ "$DRY_RUN" -eq 1 ] || installer_prerequis socle
 
 # Commande d'un utilisateur, lancée sous le compte de l'application quand le
 # script tourne en root (venv, Chromium, démarrage).
@@ -373,12 +501,26 @@ print(json.dumps({k: v for k, v in zip(keys, sys.argv[1:]) if v}))' \
         "$WITH_OFFICE" "$WITH_CADDY" "$WITH_AGPL" "$WITH_BROWSER" \
         "$SANDBOX_MODE" "$PULL_REF" "$DB_MODE" "$AFTER"
 }
+# Paquets apt absents par groupe, en JSON, pour le résumé de l'assistant (vide avec --skip-system).
+apt_json() {
+    { [ "$DO_SYSTEM" -eq 1 ] && have dpkg-query; } || return 0
+    local g l
+    for g in $(apt_groupes $(prerequis_groupes)); do
+        while IFS= read -r l; do printf '%s\t%s\n' "$g" "$(prerequis_libelle "$l")"; done < <(prerequis_manquants "$g")
+    done | python3 -c 'import json, sys
+manquants = {}
+for ligne in sys.stdin.read().splitlines():
+    g, _, nom = ligne.partition("\t")
+    manquants.setdefault(g, []).append(nom)
+print(json.dumps({"installer": sys.argv[1] == "1", "manquants": manquants}))' \
+        "$([ "$DO_APT" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && echo 1 || echo 0)"
+}
 run_wizard() {   # run_wizard [--in FICHIER] [--start PAGE] [--banner TEXTE]
     mkdir -p "$ROOT/user_db/run"
     chmod 700 "$ROOT/user_db" "$ROOT/user_db/run" 2>/dev/null
     ANSWERS="$ANSWERS_PATH"
     ELPIS_WIZ_ADMIN="$ADMIN_OK" ELPIS_WIZ_OFFLINE="$OFFLINE_DIR" ELPIS_WIZ_OS="$OS_NAME" \
-    ELPIS_WIZ_PRESET="$(preset_json)" \
+    ELPIS_WIZ_PRESET="$(preset_json)" ELPIS_WIZ_APT="$(apt_json)" \
     ELPIS_WIZ_CONFIGURE_ARGS="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "${CONFIGURE_ARGS[@]}")" \
         python3 "$ROOT/deploy/wizard.py" install --out "$ANSWERS" "$@"
 }
@@ -395,14 +537,30 @@ if [ "$INTERACTIVE" -eq 1 ] && [ "$PLAIN" -eq 0 ] && ensure_python3; then
     esac
 fi
 
+# Sandbox proposée : réinstallation, celle en place (image elpis/sandbox ou conteneur elpis-sb-*, comme l'assistant) ; Docker injoignable, build.
+sandbox_defaut() {
+    local image
+    [ -f "$ROOT/config.json" ] || { echo build; return; }
+    have docker || { echo none; return; }
+    docker info >/dev/null 2>&1 || { echo build; return; }
+    image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
+    if [ -n "$(docker images -q "${image%:*}" 2>/dev/null)" ] || [ -n "$(docker ps -aq --filter 'name=^elpis-sb-' 2>/dev/null)" ]; then
+        echo build
+    else
+        echo none
+    fi
+}
+
 if [ "$TUI" -eq 0 ]; then
     if [ "$INTERACTIVE" -eq 1 ]; then
         echo
         echo "  Composants facultatifs — Entrée garde la réponse proposée."
     fi
-    [ -n "$WITH_BROWSER" ] || WITH_BROWSER="$(ask_yn "Service navigateur (Chromium piloté : navigation web par l'assistant) ?" 1)"
+    # Réinstallation : le navigateur reste comme il est, installé ou non.
+    [ -n "$WITH_BROWSER" ] || WITH_BROWSER="$(ask_yn "Service navigateur (Chromium piloté : navigation web par l'assistant) ?" \
+        "$([ -f "$ROOT/config.json" ] && [ ! -d "$ROOT/browser-service/node_modules" ] && echo 0 || echo 1)")"
     if [ -z "$SANDBOX_MODE" ]; then
-        SANDBOX_MODE="$(ask_choice "Image sandbox Docker (terminal, exécution de code) :" build \
+        SANDBOX_MODE="$(ask_choice "Image sandbox Docker (terminal, exécution de code) :" "$(sandbox_defaut)" \
             "build:construire l'image ici (10 à 20 min, recommandé)" \
             "pull:la tirer d'un registre (image déjà publiée)" \
             "none:pas de sandbox")"
@@ -461,12 +619,26 @@ GROUPES_APT=(socle)
 [ "$DB_MODE" = postgres-local ] && GROUPES_APT+=(postgresql-local)
 [ -z "$OFFLINE_DIR" ] && GROUPES_APT+=(construction-hote)
 
+# Prérequis apt du récapitulatif : ce qui sera fait, puis les paquets absents (sur plusieurs lignes s'il le faut).
+APT_GROUPES_TXT="$(apt_groupes "${GROUPES_APT[@]}" | paste -sd' ')"
+if [ "$DO_SYSTEM" -eq 0 ]; then APT_RECAP="ni vérifiés ni installés (--skip-system)"
+elif [ "$DO_APT" -eq 0 ]; then APT_RECAP="vérifiés seulement, --no-apt ($APT_GROUPES_TXT)"
+else APT_RECAP="installés par apt-get ($APT_GROUPES_TXT)"; fi
+APT_PAQUETS=""
+if [ "$DO_SYSTEM" -eq 1 ] && have dpkg-query; then
+    APT_PAQUETS="$(printf '    paquets système %s : %s\n' "$([ "$DO_APT" -eq 1 ] && echo "à installer" || echo manquants)" \
+        "$(apt_resume "${GROUPES_APT[@]}")" | fold -s -w 78 | sed -e 's/ *$//' -e '2,$s/^/        /')"
+fi
+
 yn() { [ "$1" -eq 1 ] && echo oui || echo non; }
 cat <<EOF
 
   Récapitulatif
-    droits            : $([ "$AS_ROOT" -eq 1 ] && echo "root (application sous $APP_USER)" || { [ "$ADMIN_OK" -eq 1 ] && echo "sudo" || echo "aucun"; })
-    prérequis apt     : $([ "$DO_SYSTEM" -eq 1 ] && echo "vérifiés (${GROUPES_APT[*]})" || echo "non vérifiés (--skip-system)")
+    droits            : $([ "$AS_ROOT" -eq 1 ] && echo "root (application sous $APP_USER)" || { [ "$ADMIN_OK" -eq 1 ] && echo "sudo$([ "$DRY_RUN" -eq 1 ] && echo " (demandé au départ, pas en --dry-run)")" || echo "aucun"; })
+    prérequis apt     : $APT_RECAP
+EOF
+[ -z "$APT_PAQUETS" ] || printf '%s\n' "$APT_PAQUETS"
+cat <<EOF
     Python            : venv/ + requirements-rag.txt$([ "$WITH_AGPL" -eq 1 ] && echo " + extras AGPL")
     core (Node.js)    : Node ${NODE_VERSION:-?} dans node/ + $([ -n "$OFFLINE_DIR" ] && echo "bundle du paquet hors ligne" || echo "npm ci, npm run build")
     hôte d'outils     : $([ -n "$OFFLINE_DIR" ] && echo "bundle du paquet hors ligne" || echo "construit sur place (node-pty compilé)")
@@ -481,10 +653,124 @@ cat <<EOF
     source            : ${OFFLINE_DIR:-en ligne}
 EOF
 echo
-verifier_prerequis "${GROUPES_APT[@]}"
-if [ "$DRY_RUN" -eq 1 ]; then
+ETAPE=0
+etape() { ETAPE=$((ETAPE+1)); printf '  %2d. %s\n' "$ETAPE" "$*"; }
+# --dry-run hors ligne : pièces du paquet sans lesquelles l'installation réelle s'arrêterait.
+dry_paquet_hors_ligne() {
+    local manque=() f va="NODE_ASSET_$(uname -m)" nom
+    [ -d "$OFFLINE_DIR/wheels" ] || manque+=(wheels/)
+    nom="${!va:-}"; nom="${nom%.tar.gz}-sans-npm.tar.gz"
+    [ -z "${!va:-}" ] || [ "$("$ROOT/node/bin/node" -v 2>/dev/null)" = "v$NODE_VERSION" ] \
+        || [ -f "$OFFLINE_DIR/node/$nom" ] || manque+=("node/$nom")
+    for f in core/main.mjs core/construction.json toolhost/main.mjs toolhost/construction.json web/.vite/manifest.json; do
+        [ -f "$OFFLINE_DIR/$f" ] || manque+=("$f")
+    done
+    [ "${#manque[@]}" -eq 0 ] \
+        || bloquer "Paquet hors ligne $OFFLINE_DIR incomplet, absents : ${manque[*]} (paquet d'une autre version ? make_release.sh)."
+}
+
+# --dry-run : chaque étape de l'installation sur cette machine, dans l'ordre, sans rien écrire ni appeler sudo.
+plan_dry_run() {
+    local src="en ligne" image="" v gardes=()
+    [ -n "$OFFLINE_DIR" ] && src="paquet $OFFLINE_DIR"
     echo
-    info "--dry-run : rien n'a été modifié."
+    info "--dry-run : ce que ferait l'installation, dans l'ordre$([ "$ASSUME_YES" -eq 1 ] || echo " (choix par défaut et options ; dans un terminal, sans --yes, l'assistant les demanderait)")"
+    installer_prerequis "${GROUPES_APT[@]}"
+    if [ "$DO_SYSTEM" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && [ "$SANDBOX_MODE" != none ]; then
+        if id -nG "$APP_USER" 2>/dev/null | tr ' ' '\n' | grep -qx docker; then
+            etape "Docker : service docker démarré (systemd) ; $APP_USER déjà dans le groupe docker"
+        else
+            etape "Docker : service docker démarré (systemd) ; $APP_USER ajouté au groupe docker (effectif à sa prochaine connexion)"
+        fi
+        [ "$AS_ROOT" -eq 1 ] || DRY_SUDO_FACULTATIF+=("service et groupe docker")
+    fi
+    if [ -x "$VENV/bin/python" ]; then v="venv/ gardé"; else v="venv/ créé par $PYBIN ($("$PYBIN" --version 2>/dev/null || echo "posé par apt"))"; fi
+    [ -n "$OFFLINE_DIR" ] || DRY_RESEAU+=(PyPI)
+    etape "Python : $v, pip install -r $([ "$WITH_AGPL" -eq 1 ] && echo requirements-agpl-optional.txt || echo requirements-rag.txt) ($([ -n "$OFFLINE_DIR" ] && echo "roues de $OFFLINE_DIR/wheels" || echo PyPI))"
+    if [ "$("$ROOT/node/bin/node" -v 2>/dev/null)" = "v$NODE_VERSION" ]; then
+        v="déjà dans node/ (empreinte revérifiée)"
+    else
+        v="installé dans node/ ($([ -n "$OFFLINE_DIR" ] && echo "$OFFLINE_DIR/node" || echo "archive officielle de nodejs.org, somme SHA-256"))"
+        [ -n "$OFFLINE_DIR" ] || DRY_RESEAU+=(nodejs.org)
+    fi
+    etape "Node.js $NODE_VERSION : $v"
+    etape "bundles du core, de l'hôte d'outils et de l'interface ($src) : $([ -f "$ROOT/apps/core/dist/main.mjs" ] && echo "gardés s'ils correspondent aux sources, sinon reconstruits" || echo "construits") $([ -z "$OFFLINE_DIR" ] && echo "(npm ci, npm run build, npm de l'archive retiré ensuite)")"
+    if [ -n "$OFFLINE_DIR" ]; then dry_paquet_hors_ligne; else DRY_RESEAU+=("registre npm"); fi
+    if [ "$WITH_OFFICE" -eq 1 ] || have bwrap; then
+        etape "bubblewrap : sondé pour les aperçus Office$([ "$AS_ROOT" -eq 1 ] || echo " (profil AppArmor posé par sudo s'il est bloqué)")"
+    fi
+    case "$DB_MODE" in
+        keep) etape "base de données : gardée (config.json inchangé, user_db/ en place)" ;;
+        sqlite) etape "base de données : SQLite (user_db/app.db, créée au premier démarrage)" ;;
+        postgres-local) etape "base de données : PostgreSQL local, service, rôle et base « elpis » (sudo), puis connexion testée"
+                        [ "$AS_ROOT" -eq 1 ] || DRY_SUDO_REQUIS+=("PostgreSQL local") ;;
+        external) etape "base de données : serveur existant, connexion testée avant la suite" ;;
+    esac
+    if [ "$WITH_BROWSER" -eq 1 ]; then
+        etape "navigateur : browser-service, npm ci et Chromium (Playwright$([ -n "$OFFLINE_DIR" ] && echo ", depuis $OFFLINE_DIR/browser"))"
+        [ -n "$OFFLINE_DIR" ] || DRY_RESEAU+=("CDN de Playwright")
+    fi
+    if [ -x "$ROOT/rag_app/qdrant/qdrant" ] && "$ROOT/rag_app/qdrant/qdrant" --version 2>/dev/null | grep -q "$QDRANT_VERSION"; then
+        etape "Qdrant $QDRANT_VERSION : déjà en place"
+    else
+        etape "Qdrant $QDRANT_VERSION : $([ -n "$OFFLINE_DIR" ] && echo "depuis $OFFLINE_DIR/qdrant" || echo "binaire officiel (GitHub)"), somme sha256 vérifiée"
+        [ -n "$OFFLINE_DIR" ] || DRY_RESEAU+=("GitHub (Qdrant)")
+    fi
+    if [ "$SANDBOX_MODE" != none ]; then
+        image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
+        if [ -n "$image" ] && docker image inspect "$image" >/dev/null 2>&1; then
+            etape "image sandbox $image : déjà présente"
+        else
+            case "$SANDBOX_MODE" in
+                pull) etape "image sandbox $image : tirée de ${PULL_REF:-?}"; DRY_RESEAU+=("registre de ${PULL_REF:-?}") ;;
+                *) etape "image sandbox $image : $([ -n "$OFFLINE_DIR" ] && echo "chargée depuis $OFFLINE_DIR/sandbox" || echo "construite (10 à 20 min)")"
+                   [ -n "$OFFLINE_DIR" ] || DRY_RESEAU+=("Docker Hub et dépôts Debian (image sandbox)") ;;
+            esac
+        fi
+    fi
+    [ "$WITH_OFFICE" -eq 1 ] && etape "LibreOffice : vérifié (aperçus Office)"
+    if [ "$WITH_CADDY" -eq 1 ]; then
+        etape "Caddy : frontal HTTPS configuré (deploy/caddy/install_caddy.sh, sudo)"
+        [ "$AS_ROOT" -eq 1 ] || DRY_SUDO_REQUIS+=("Caddy")
+    fi
+    if [ "$DO_CONFIGURE" = 1 ]; then
+        etape "configuration : ./elpis configure --yes${CONFIGURE_ARGS[*]:+ ${CONFIGURE_ARGS[*]}} (config.json, .env, mcp.json)"
+    elif [ -f "$ROOT/config.json" ]; then
+        etape "configuration : gardée (config.json et .env inchangés ; mcp.json suit la version : relais, familles d'outils)"
+    fi
+    case "$AFTER" in
+        service) etape "démarrage : services systemd (sudo ./elpis service install)"
+                 [ "$AS_ROOT" -eq 1 ] || DRY_SUDO_REQUIS+=("services systemd") ;;
+        start)   etape "démarrage : ./elpis start" ;;
+        *)       etape "démarrage : aucun (./elpis start ou sudo ./elpis service install ensuite)" ;;
+    esac
+    if [ -f "$ROOT/config.json" ]; then
+        [ "$DO_CONFIGURE" = 1 ] || gardes+=(config.json)
+        [ -e "$ROOT/.env" ] && gardes+=(.env)
+        [ -d "$ROOT/user_db" ] && gardes+=("user_db/ (base$([ -f "$ROOT/user_db/app.db" ] && echo " SQLite app.db"), jetons)")
+        [ -d "$ROOT/user_sandboxes" ] && gardes+=(user_sandboxes/)
+        info "Installation existante, gardés tels quels : $(printf '%s, ' "${gardes[@]}" | sed 's/, $//')$([ -f "$ROOT/mcp.json" ] && echo " ; mcp.json mis à jour (relais, familles d'outils)")."
+        [ "$ASSUME_YES" -eq 1 ] \
+            || info "Sans --yes, dans un terminal, ./install.sh rouvrirait l'assistant, pré-rempli avec cette configuration, et la réappliquerait (./elpis configure)."
+    fi
+    [ "${#DRY_RESEAU[@]}" -eq 0 ] || info "Réseau requis : $(printf '%s, ' "${DRY_RESEAU[@]}" | sed 's/, $//')."
+}
+
+if [ "$DRY_RUN" -eq 1 ]; then
+    plan_dry_run
+    if [ "${#DRY_SUDO_REQUIS[@]}" -gt 0 ] || [ "${#DRY_SUDO_FACULTATIF[@]}" -gt 0 ]; then
+        info "sudo serait demandé au départ (jamais en --dry-run)${DRY_SUDO_REQUIS[*]:+, indispensable pour : ${DRY_SUDO_REQUIS[*]}}${DRY_SUDO_FACULTATIF[*]:+ ; sans lui, sautés : ${DRY_SUDO_FACULTATIF[*]}}."
+        if [ "${#DRY_SUDO_REQUIS[@]}" -gt 0 ] && ! id -nG | tr ' ' '\n' | grep -qxE 'sudo|admin|wheel'; then
+            bloquer "Compte $(id -un) hors des groupes sudo, admin et wheel : sudo sera sans doute refusé (sudoers non lu), or il est indispensable pour : ${DRY_SUDO_REQUIS[*]}$([ "${#DRY_SANS[@]}" -eq 0 ] || echo " (ou sans le composant : ${DRY_SANS[*]})")."
+        fi
+    fi
+    echo
+    if [ "${#DRY_BLOQUANTS[@]}" -gt 0 ]; then
+        warn "--dry-run : l'installation réelle s'arrêterait (${#DRY_BLOQUANTS[@]} raison(s)) ; rien n'a été modifié :"
+        for w in "${DRY_BLOQUANTS[@]}"; do warn "  - $w"; done
+        exit 1
+    fi
+    ok "--dry-run : l'installation pourrait aller au bout ; rien n'a été modifié."
     exit 0
 fi
 # L'assistant a déjà fait confirmer son résumé.
@@ -492,6 +778,7 @@ if [ "$TUI" -eq 0 ] && [ "$INTERACTIVE" -eq 1 ] && [ "$(ask_yn "Lancer l'install
     info "Annulé."
     exit 0
 fi
+installer_prerequis "${GROUPES_APT[@]}"
 # Le dépôt revient au compte de l'application — SAUF le contenu des
 # sandboxes : chaque /work appartient à l'utilisateur du conteneur (seul
 # l'agent y écrit) ; seuls user_sandboxes et chaque dossier de compte, sans
@@ -509,14 +796,17 @@ chown_depot() {
 [ "$AS_ROOT" -eq 1 ] && chown_depot
 
 # =============================================================================
-#  2. Docker — le paquet est un prérequis ; ici, son service et le groupe
+#  2. Docker — le paquet vient des prérequis apt ; ici, son service et le groupe
 # =============================================================================
+# Groupe docker effectif à la prochaine connexion seulement : l'image se construit sous sudo, --start passe par « sg docker ».
 configurer_docker() {
     have docker || return 0
-    $SUDO systemctl enable --now docker >/dev/null 2>&1 || true
+    if [ -d /run/systemd/system ] && ! $SUDO systemctl enable --now docker >/dev/null 2>&1; then
+        note_warn "Service docker non démarré (systemctl status docker) : sandbox indisponible tant qu'il ne tourne pas."
+    fi
     if [ "$APP_USER" != root ] && ! id -nG "$APP_USER" | tr ' ' '\n' | grep -qx docker; then
         if $SUDO usermod -aG docker "$APP_USER"; then
-            note_warn "$APP_USER ajouté au groupe docker : effectif à la prochaine connexion (les services systemd l'ont d'office)."
+            note_warn "$APP_USER ajouté au groupe docker : effectif à sa prochaine connexion ; d'ici là, « sg docker -c './elpis start' » (les services systemd et --start l'ont d'office)."
         fi
     fi
 }
@@ -774,7 +1064,7 @@ install_sandbox_image() {
 }
 
 install_caddy() {
-    # Paquet installé à part (prérequis apt, groupe https) : jamais par install_caddy.sh depuis ici.
+    # Paquet posé avec les prérequis apt (groupe https) : install_caddy.sh ne fait ici que la configuration.
     have caddy || { note_warn "Caddy absent : $(prerequis_commande caddy), puis relancez ./install.sh."; return 0; }
     info "Frontal HTTPS Caddy…"
     $SUDO "$ROOT/deploy/caddy/install_caddy.sh" || note_warn "Installation de Caddy incomplète."
@@ -807,7 +1097,8 @@ ensure_bwrap() {
             && $SUDO apparmor_parser -r /etc/apparmor.d/elpis-bwrap \
             && bwrap_ok && { ok "bubblewrap autorisé (profil AppArmor elpis-bwrap)."; return 0; }
     fi
-    note_warn "bubblewrap bloqué (user namespaces) : aperçus Office indisponibles (./elpis doctor)."
+    if [ "$WITH_OFFICE" -eq 1 ]; then note_warn "bubblewrap bloqué (user namespaces) : aperçus Office indisponibles (./elpis doctor)."
+    else info "bubblewrap bloqué (user namespaces) : sans effet tant que LibreOffice n'est pas installé."; fi
 }
 
 check_office() {
@@ -816,10 +1107,11 @@ check_office() {
 }
 
 # =============================================================================
-[ "$DO_SYSTEM" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && configurer_docker
+# Sans sandbox, ni service docker ni groupe docker (équivalent root) : rien à configurer.
+[ "$DO_SYSTEM" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && [ "$SANDBOX_MODE" != none ] && configurer_docker
 install_python
 install_core
-ensure_bwrap
+{ [ "$WITH_OFFICE" -eq 1 ] || have bwrap; } && ensure_bwrap     # bubblewrap ne sert qu'aux aperçus Office
 setup_database
 [ "$WITH_BROWSER" -eq 1 ] && install_browser
 install_qdrant
@@ -853,6 +1145,9 @@ if [ "$DO_CONFIGURE" = 1 ]; then
             "$ROOT/elpis" configure "${cfg_args[@]}" || note_warn "Configuration incomplète : relancez ./elpis configure."
         fi
     fi
+elif [ -f "$ROOT/mcp.json" ]; then
+    # Configuration gardée : mcp.json suit tout de même la version (relais, familles d'outils), comme ./elpis start.
+    as_app "$VENV/bin/python" "$ROOT/deploy/configure.py" --migrer-mcp || note_warn "mcp.json non migré : ./elpis configure."
 fi
 # En root : tout ce que les étapes système ont créé revient au compte de
 # l'application (base SQLite, jetons, config, Qdrant, journaux), /work exclu.

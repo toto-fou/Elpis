@@ -21,11 +21,11 @@ et reliés par HTTP.
 | **admin** | 8002 | `apps/core/dist/main.mjs` (Node, `APP_MODE=admin`) | console d'administration et `/api/admin/*` ; un process |
 | **toolhost** | 8765 | `apps/toolhost/dist/main.mjs` (Node) | hôte des outils MCP (HTTP streamable `/mcp[/<famille>]`, SSE), API sandbox et terminal ; sa propre base `user_db/toolhost.db` ; sert lui-même les familles portées en TypeScript, relaie les autres (Office) vers elpis-tools |
 | **elpis-tools** | 8767 (loopback) | `apps/toolhost/dist/main.mjs --elpis-tools` → `server/local_mcp_server.py` | famille d'outils Office (Python), amont MCP de l'hôte d'outils |
-| **rag_app** | 8000 | `rag_app/start.sh` | service RAG autonome (FastAPI + Qdrant :6333, OCR) — optionnel |
+| **rag_app** | 8000 (loopback) | `rag_app/start.sh` | extracteur du RAG (FastAPI, sans état) : texte, pages, localisation, OCR ; le RAG lui-même (collections, droits, indexation, recherche) est dans le core, avec Qdrant :6333 |
 | **browser-service** | 3000 | `browser-service/server.js` | navigateur piloté (Node + Playwright) — optionnel |
 | **desktop-agent** | 8765 (sur la machine pilotée) | `desktop-agent/` | contrôle d'écran Windows (pywinauto) / Linux (AT-SPI) — optionnel |
 | **llama-server** | 8080 | llama.cpp, hors dépôt | inférence locale ; ou tout moteur compatible OpenAI, ou un fournisseur distant |
-| **Caddy** | 443 / 8443 / 8444 | `deploy/caddy/` | frontal HTTPS — optionnel |
+| **Caddy** | 443 / 8443 | `deploy/caddy/` | frontal HTTPS — optionnel |
 
 `./elpis start` lance qdrant, rag, tools (elpis-tools), toolhost, main, admin
 et browser ;
@@ -184,7 +184,7 @@ d'environnement > `config.json` > défaut).
 - `apps/toolhost/` : hôte d'outils déployable seul (MCP, sandbox, terminal ;
   `deploy/toolhost/` pour une machine distante), jeton
   `user_db/.local_mcp_token` + en-tête d'identité signé.
-- `rag_app/` : service RAG autonome (sans `shared_infra`).
+- `rag_app/` : extracteur du RAG (sans `shared_infra`), appelé par `apps/core/src/rag/`.
 - `browser-service/`, `desktop-agent/` : voir le tableau des process.
 - `deploy/` : Caddy, image sandbox (`docker/sandbox/`, `elpis/sandbox:1.7.0`),
   Qdrant, toolhost distant, voix (whisper.cpp :8090, Piper :8091),

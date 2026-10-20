@@ -17,6 +17,7 @@ import {
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 
+import { MASQUE_SECRET } from "../admin/config";
 import type { Journal } from "../journal";
 import { configVoix, drapeauxVoix } from "../voix/config";
 import type { ConfigVoix } from "../voix/config";
@@ -30,10 +31,19 @@ function messageDe(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+/** Jeton masqué revenu du formulaire : le jeton enregistré, pour la même adresse seulement ; pour une autre, aucun. */
+function sansMasque(enregistree: Dict, brut: Dict): Dict {
+  if (getPy(brut, "token") !== MASQUE_SECRET) return brut;
+  const envoyee = rstripPy(texteOu(getPy(brut, "endpoint_url"), ""), "/");
+  const memeAdresse = !envoyee || envoyee === rstripPy(texteOu(getPy(enregistree, "endpoint_url"), ""), "/");
+  return { ...brut, token: memeAdresse ? texteOu(getPy(enregistree, "token"), "") : "" };
+}
+
 /** `_fusion_voix` : config enregistrée + surcharges du formulaire (bornes gardées), délai d'un test plafonné à 30 s. */
 export function fusionVoix(enregistree: ConfigVoix, data: Dict, section: Section): Dict {
   const base: Dict = { ...enregistree[section] };
-  const brut = getPy(data, section);
+  const saisi = getPy(data, section);
+  const brut = estDict(saisi) ? sansMasque(enregistree[section], saisi) : saisi;
   if (estDict(brut)) {
     for (const cle of CHAMPS_VOIX) {
       const v = getPy(brut, cle);

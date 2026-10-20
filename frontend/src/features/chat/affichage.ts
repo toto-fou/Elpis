@@ -29,15 +29,24 @@ export function libelleChargementModele(c: ChargementAffiche | null | undefined)
   return pct === null ? `${base}${pas}…` : `${base}${pas} · ${pct} %`;
 }
 
-/** Sources RAG du tour (`rag_sources.text`, une par ligne), sans doublon ni ligne vide. */
-export function sourcesRag(texte: unknown): string[] {
-  if (typeof texte !== "string") return [];
-  return [
-    ...new Set(
-      texte
-        .split("\n")
-        .map((s) => s.trim())
-        .filter((s) => s !== ""),
-    ),
-  ];
+/** Documents des sources RAG (`rag_sources.sources`), dans l'ordre, sans doublon ni nom vide. */
+export function sourcesRag(sources: unknown): string[] {
+  if (!Array.isArray(sources)) return [];
+  const noms = sources.map((s: unknown) => {
+    const p = s !== null && typeof s === "object" ? (s as { passage?: unknown }).passage : null;
+    const nom = p !== null && typeof p === "object" ? (p as { document_name?: unknown }).document_name : null;
+    return typeof nom === "string" ? nom.trim() : "";
+  });
+  return [...new Set(noms.filter((n) => n !== ""))];
+}
+
+/** Sources d'un message complétées par celles d'un événement, un numéro gardé une fois (la plus récente l'emporte). */
+export function fusionnerSourcesRag<T extends { n: number }>(
+  avant: readonly T[] | null | undefined,
+  nouvelles: readonly T[],
+): T[] {
+  const parN = new Map<number, T>();
+  for (const s of avant ?? []) parN.set(s.n, s);
+  for (const s of nouvelles) parN.set(s.n, s);
+  return [...parN.values()];
 }

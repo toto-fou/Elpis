@@ -2,20 +2,12 @@
 /** frontend/src/features/chat/page/types.ts — domaines de la page de chat (en-tête, fil, composeur, modèles, images) lus et modifiés par ses composants. */
 import type { SurfaceChat } from "../coeur/chat";
 import type { PieceJointe } from "../composeur/composeur";
+import type { CollectionActiveChat } from "../../rag/collections-chat";
 
 export interface ReglagesPage {
   enable_model_selector?: boolean;
   enable_editor?: boolean;
-  enable_rag?: boolean;
   chat_width?: number;
-}
-
-export interface ConfigRag {
-  use_rag?: boolean;
-  rag_collection?: string;
-  rag_search_mode?: string;
-  rag_top_k?: number;
-  rag_use_mmr?: boolean;
 }
 
 export interface AccueilConfig {
@@ -112,6 +104,8 @@ export interface EntreeSlash {
   shared?: boolean;
   domain?: string;
   description?: string;
+  icone?: string;
+  indice?: string;
 }
 
 export interface SkillEpingle {
@@ -126,10 +120,9 @@ export interface PromptPartage {
   from_username?: string;
 }
 
-/** Composeur hors saisie : menus « / » et « + », RAG, partages, file d'attente, questionnaire, bandeaux, envoi. */
+/** Composeur hors saisie : menus « / » et « + », collections RAG actives, partages, file d'attente, questionnaire, bandeaux, envoi. */
 export interface DomaineComposeur {
   readonly settings: ReglagesPage;
-  readonly config: ConfigRag;
   readonly liveGen: unknown;
   readonly compressionState: EtatCompression | null;
   readonly showSlash: boolean;
@@ -139,6 +132,7 @@ export interface DomaineComposeur {
   readonly slashRaw: { name?: string } | null;
   readonly slashHeaderIcon: string;
   readonly slashHeaderLabel: string;
+  readonly slashHeaderCmd: string;
   selectSlash(item: EntreeSlash): unknown;
   slashSetIdx(i: number): void;
   slashRowKey(item: EntreeSlash, i: number): string;
@@ -161,14 +155,15 @@ export interface DomaineComposeur {
   readonly pinnedSkills: readonly SkillEpingle[];
   removePinnedSkill(nom: string): void;
   showComposerPlus: boolean;
-  showRagPanel: boolean;
   showSharedPrompts: boolean;
   sharedSelectMode: boolean;
   sharedSelected: (string | number)[];
   readonly inboxCount: number;
   readonly imageAvailable: boolean;
   readonly imageMode: boolean;
-  readonly ragCollections: readonly string[];
+  /** Pastilles des collections RAG actives du chat ; la croix les retire. */
+  readonly ragActives: readonly CollectionActiveChat[];
+  retirerCollectionRag(id: string): unknown;
   readonly sharedPromptsList: readonly PromptPartage[];
   refreshInboxCount(): unknown;
   triggerFileUpload(): void;
@@ -436,6 +431,9 @@ export type DomaineBarre = Pick<
   openContextMenu(e: Event, type: string, item: ChatResume): unknown;
   toggleEditor(): unknown;
   openRoutinesPage(): unknown;
+  /** Le compte a le droit RAG : l'entrée « RAG » du volet latéral n'existe que pour lui. */
+  readonly ragAllowed: boolean;
+  openRagPage(): unknown;
   openStudio(): unknown;
   openCodePage(): unknown;
   openSettings(): unknown;
@@ -485,7 +483,6 @@ export type DomainePage = Pick<
   | "mentionRecentCount"
   | "onMentionScroll"
   | "planMode"
-  | "ragDropdownRef"
   | "removeAttachedFile"
   | "selectMention"
   | "setPlanMode"

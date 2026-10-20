@@ -23,7 +23,6 @@ export function creerClicExterieur(s: EtatClicExterieur): (e: MouseEvent) => voi
     if (s.menuOuvert()) s.fermerMenu();
     const chat = s.modules.chat;
     if (chat) {
-      if (chat.showRagPanel.value && horsDe(chat.ragDropdownRef.value)) chat.showRagPanel.value = false;
       // Le panneau des partages reçus ne se ferme pas au clic extérieur (Échap ou sa croix seulement).
       if (chat.showComposerPlus.value && horsDe(chat.composerPlusRef.value))
         chat.showComposerPlus.value = false;

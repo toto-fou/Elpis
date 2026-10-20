@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/message/types.ts — message affiché et adaptateur de données et d'actions des composants Message (l'app historique pendant la coexistence). */
-import type { ResumeReveil } from "@elpis/contracts";
+import type { ResumeReveil, SourceCiteeRag } from "@elpis/contracts";
 import type { MessageMarkdown } from "../../../components/chat/ContenuMarkdown.vue";
 import type { MessageNarration } from "../../../components/chat/NarrationVivante.vue";
 import type {
@@ -58,6 +58,8 @@ export interface MessageAffiche extends MessageMarkdown, MessageNarration, Messa
   wake?: ResumeReveil | null;
   content?: string | null;
   isError?: boolean;
+  /** Genre d'une notice du fil : « compaction » (défaut) ou « rag_search » (`/rag search`). */
+  kind?: string;
   errorMessage?: string | null;
   isTruncated?: boolean;
   toolLoopTruncated?: boolean;
@@ -90,7 +92,10 @@ export interface MessageAffiche extends MessageMarkdown, MessageNarration, Messa
   tool_history?: readonly unknown[] | null;
   run_ids?: readonly string[] | null;
   _journalTruncated?: boolean;
+  /** Documents des sources RAG du tour en cours (ligne « Sources » pendant le flux). */
   _ragSources?: readonly string[] | null;
+  /** Sources structurées du message (passages numérotés `[n]` par les outils `rag_*`), enregistrées avec lui. */
+  rag_sources?: readonly SourceCiteeRag[] | null;
   toolSteps?: readonly EtapeOutil[] | null;
 }
 

@@ -133,6 +133,20 @@ onBeforeUnmount(() => brancherFondu(null));
         <span v-if="b.showEditor" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-400"></span>
       </button>
       <button
+        v-if="b.ragAllowed"
+        title="RAG"
+        :aria-pressed="b.currentView === 'rag' ? 'true' : 'false'"
+        class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+        :class="
+          b.currentView === 'rag'
+            ? 'bg-blue-600/20 text-blue-300'
+            : 'text-slate-400 hover:bg-white/10 hover:text-white'
+        "
+        @click="b.openRagPage"
+      >
+        <i class="ph ph-books text-lg"></i>
+      </button>
+      <button
         title="Routines"
         class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
         :class="
@@ -336,6 +350,25 @@ onBeforeUnmount(() => brancherFondu(null));
               class="w-2 h-2 rounded-full shrink-0 transition-colors"
               :class="b.showEditor ? 'bg-blue-400' : 'bg-transparent ring-1 ring-inset ring-slate-500'"
             ></span>
+          </button>
+
+          <button
+            v-if="b.ragAllowed"
+            title="RAG"
+            :aria-pressed="b.currentView === 'rag' ? 'true' : 'false'"
+            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
+            :class="
+              b.currentView === 'rag'
+                ? 'bg-blue-600/20 text-white'
+                : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+            "
+            @click="b.openRagPage"
+          >
+            <i
+              class="ph ph-books text-base shrink-0 transition-colors"
+              :class="b.currentView === 'rag' ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'"
+            ></i>
+            <span class="flex-1 truncate">RAG</span>
           </button>
 
           <button

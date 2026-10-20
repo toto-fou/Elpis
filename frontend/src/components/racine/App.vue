@@ -10,6 +10,9 @@ import { fournirDomaineSkills } from "../../features/skills/domaine";
 import { creerCode } from "../../features/code/code";
 import { fournirDomaineCode } from "../../features/code/domaine";
 import { creerMascotte } from "../../features/mascotte/mascotte";
+import { creerApiRag } from "../../features/rag/api";
+import { fournirDomaineRag } from "../../features/rag/domaine";
+import { creerRag } from "../../features/rag/rag";
 import { lireJsonBureau } from "../../features/studio/api";
 import { creerAutomatisationStudio } from "../../features/studio/automatisation";
 import type { MonacoMinimal } from "../../features/studio/automatisation";
@@ -50,6 +53,9 @@ import ModaleMcp from "../reglages/ModaleMcp.vue";
 import ModaleReglages from "../reglages/ModaleReglages.vue";
 import PanneauEchantillonnage from "../reglages/PanneauEchantillonnage.vue";
 import PanneauMcp from "../reglages/PanneauMcp.vue";
+import BulleSource from "../rag/BulleSource.vue";
+import PageRag from "../rag/PageRag.vue";
+import VisionneuseSource from "../rag/VisionneuseSource.vue";
 import PageRoutines from "../routines/PageRoutines.vue";
 import PageStudio from "../studio/PageStudio.vue";
 import CartesConnexion from "./CartesConnexion.vue";
@@ -84,6 +90,7 @@ const r = creerRacine({
         refs as unknown as Arg<typeof creerMascotte, 0>,
         ctx as unknown as Arg<typeof creerMascotte, 1>,
       ),
+    rag: ({ http, refs, ctx }) => creerRag(creerApiRag(http), refs, ctx),
     studio: ({ refs, ctx }) => creerMenuStudio(refs, { ...ctx, lireJson: lireJsonBureau }),
     studioChat: ({ ctx }, menu) =>
       creerDialogueStudio({ ...ctx, lireJson: lireJsonBureau }, menu as Arg<typeof creerDialogueStudio, 1>),
@@ -104,6 +111,7 @@ fournirDomainesRacine(r);
 fournirDomainesChat(r);
 fournirDomaineEditeur(r);
 fournirDomaineRoutines(r);
+fournirDomaineRag(r);
 fournirDomaineSkills(r);
 fournirDomaineCode(r);
 fournirDomaineReglages(r);
@@ -137,15 +145,19 @@ fournirDomaineModales(r, false);
          overflow:hidden et tronquerait toute la colonne sans retour ; repli hidden dans style.css. -->
     <div class="flex-1 flex min-w-0 bg-white overflow-clip relative z-40">
       <PageChat />
+      <!-- Source citée d'une réponse du RAG : volet à droite du chat, à la place de l'éditeur de la sandbox. -->
+      <VisionneuseSource v-if="!(r.showEditor && r.settings.enable_editor)" />
       <PanneauMcp />
       <PanneauEchantillonnage />
       <PageEditeur />
       <PageRoutines />
+      <PageRag v-if="r.ragPage" />
       <PageStudio />
       <PageCode />
     </div>
   </div>
 
+  <BulleSource />
   <ModaleGit />
   <!-- Transfert (progression des imports et exports) : globale, la console s'en sert aussi. -->
   <ModaleTransfert />

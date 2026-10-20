@@ -22,6 +22,24 @@ export type CompressionConfig = z.infer<typeof schemaCompressionConfig>;
 /** Tout champ absent garde sa valeur courante ; le serveur borne les autres. */
 export const schemaCorpsCompressionConfig = schemaCompressionConfig.partial();
 
+/** Secrets de `config.json` jamais rendus par la console (masqués au serveur, « clé modifiée » à l'écran) ; `mcp.local_client_tokens` est un objet dont les clés sont les jetons. */
+export const CHEMINS_SECRETS_CONFIG = [
+  "llama.api_key",
+  "rag.embed.api_key",
+  "rag.ocr.api_key",
+  "rag.service_token",
+  "rag.qdrant_api_key",
+  "agent_memory.qdrant_api_key",
+  "agent_memory.embed_api_key",
+  "voice.stt.token",
+  "voice.tts.token",
+  "app.session_secret",
+  "app.encryption_key",
+  "mcp.local_token",
+  "mcp.local_client_tokens",
+  "image.api_key_enc",
+] as const;
+
 /** `type` : seul `main` existe ; `content` est le texte JSON de `config.json`. */
 export const schemaReponseFichierConfig = z.object({ content: z.string() });
 export const schemaCorpsFichierConfig = z.object({ type: z.literal("main"), content: z.string() });

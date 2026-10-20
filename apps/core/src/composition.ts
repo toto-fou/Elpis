@@ -97,6 +97,7 @@ import { creerFamilleUsage } from "./familles/usage";
 import { creerFamilleNotifications } from "./familles/notifications";
 import { creerFamilleCli } from "./familles/cli";
 import { creerFamilleCode } from "./familles/code";
+import { creerFamilleAdminRag } from "./familles/admin-rag";
 import { creerFamilleRag } from "./familles/rag";
 import { creerFamilleVoix } from "./familles/voix";
 import { creerFamillesExploitation } from "./familles/exploitation";
@@ -134,7 +135,8 @@ import { outilsTodo } from "./outils/todo/mcp";
 import { creerRelais, familleJetonApercu } from "./relais";
 import type { Relais } from "./relais";
 import { ouvrirSessionHistorique } from "./relais/services";
-import { installerMeneur, Meneur } from "./routines/meneur";
+import { brancherIndexationRag } from "./rag/service";
+import { installerMeneur, Meneur, meneur } from "./routines/meneur";
 import { installerPlanificateur, Planificateur } from "./routines/planificateur";
 import type { Famille, Gardes } from "./routes";
 import { installerComptesSkills } from "./skills/ports";
@@ -392,6 +394,10 @@ export async function composer(
     journal: journal.child({ domaine: "metrics" }),
   });
   installerPublicationNotifications(async (message) => void (await evenements.diffuserPartout(message)));
+  brancherIndexationRag(mode, base, cycle, {
+    diffuser: (message) => evenements.diffuserPartout(message),
+    meneur: mode === "main" ? meneur() : null,
+  });
   const jobs = mode === "main" ? brancherJobs(base, cycle, (m) => evenements.diffuserPartout(m)) : null;
   brancherHistoriqueJournal((niveau, message, date) =>
     evenements.systemEvents.noterLigneJournal(niveau, message, date),
@@ -481,7 +487,7 @@ export async function composer(
             creerFamilleCode(code),
             creerFamilleCli({ base, auth, journal: code.journal }),
             creerFamilleVoix({ base }),
-            creerFamilleRag(),
+            creerFamilleRag({ base }),
             creerFamilleBureau({ base, auth }),
           ]
         : []),
@@ -514,6 +520,7 @@ export async function composer(
       creerFamilleAdminExecuteurs({ base, journal: journal.child({ domaine: "admin" }) }),
       creerFamilleAdminAgents({ journal: journal.child({ domaine: "admin" }) }),
       creerFamilleAdminIntegrations({ journal: journal.child({ domaine: "admin" }) }),
+      creerFamilleAdminRag({ base }),
       creerFamilleUsage({ base }),
       creerFamilleMetriques({ base, auth, contexte: metriques.contexte }),
       ...creerFamillesExploitation({

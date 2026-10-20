@@ -1,29 +1,9 @@
 # SPDX-License-Identifier: MIT
-"""rag_app.ocr.client — client HTTP du modèle OCR + parseur grounding.
-
-Le modèle est servi derrière un endpoint OpenAI-compatible (llama-server,
-vLLM, SGLang…) : POST ``/v1/chat/completions`` avec un content multimodal
-[{text: prompt}, {image_url: data-URL PNG}] — même wire que
-``llm_core._detection_client.read_text``, mais en STREAMING (le texte
-reconnu alimente la vue live page par page).
-
-Format « grounding » de la famille DeepSeek-OCR / Unlimited-OCR : le Markdown
-est entrelacé de balises ::
-
-    <|ref|>texte<|/ref|><|det|>[[x1, y1, x2, y2]]<|/det|>
-
-coordonnées normalisées 0-1000 (origine haut-gauche). ``parse_grounding``
-extrait les boxes (converties en pixels page) et rend le Markdown nettoyé ;
-:class:`StreamSanitizer` fait le même nettoyage incrémentalement pour le
-live (retient un éventuel tag incomplet en fin de flux au lieu de
-l'afficher). Un modèle sans grounding dégrade proprement : aucun tag →
-texte inchangé, zéro box.
-"""
+# rag_app/ocr/client.py — client du modèle de vision (OpenAI-compatible, en flux) et parseur du format grounding.
 from __future__ import annotations
 
 import asyncio
 import base64
-import io
 import json
 import re
 from typing import Awaitable, Callable, Dict, List, Optional, Tuple
@@ -55,9 +35,7 @@ def _client(timeout) -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=timeout)
 
 
-# Un seul appel au modèle à la fois : le serveur OCR n'a qu'un slot GPU. La
-# lecture de ZONE (synchrone, à la demande) passait à côté du job en cours —
-# sur un serveur mono-slot, l'un ou l'autre finissait en délai dépassé.
+# Un seul appel au modèle à la fois par service : le serveur OCR n'a souvent qu'un slot GPU.
 _GPU_SLOT: list = [None]
 
 
@@ -93,14 +71,6 @@ _DET_BLOCK_RE = re.compile(
 _PLAIN_RE = re.compile(
     r"(?:(?<=\n)|\A)([A-Za-z_][A-Za-z0-9_-]{0,24}) "
     r"\[(\d{1,4}), ?(\d{1,4}), ?(\d{1,4}), ?(\d{1,4})\]")
-# Fin de flux potentiellement en train d'écrire un préfixe plat → à retenir.
-_PLAIN_HOLD_RE = re.compile(
-    r"(?:^|\n)([A-Za-z_][A-Za-z0-9_-]{0,24}(?: (?:\[[\d, ]{0,24})?)?)\Z")
-
-# Au-delà de ce volume retenu sans fermeture de tag, on considère que ce
-# n'était PAS un tag (le modèle a émis un « <| » littéral) et on relâche.
-_HOLD_MAX = 4000
-
 
 def _parse_det(raw: str) -> List[List[int]]:
     """``[[x1, y1, x2, y2], …]`` (0-1000) — liste vide si illisible."""
@@ -182,89 +152,6 @@ def parse_grounding(raw: str, page_w: int, page_h: int
     md, plain_boxes = _extract_prefixes(md, _PLAIN_RE, page_w, page_h)
     boxes.extend(plain_boxes)
     return md.strip(), boxes
-
-
-def stable_prefix_len(raw: str) -> int:
-    """Longueur du préfixe de ``raw`` dont le nettoyage ne changera plus.
-
-    Balaye les ouvertures « <| » (et « <｜ » pleine-chasse) : un jeton sans
-    fermeture, ou un bloc ``<|ref|>``/``<|det|>`` sans son ``<|/det|>``,
-    rend la suite instable (le tag peut encore se compléter). Garde-fou
-    ``_HOLD_MAX`` : un « <| » littéral jamais fermé ne bloque pas le live.
-    """
-    pos = 0
-    n = len(raw)
-    while True:
-        a, b = raw.find("<|", pos), raw.find("<｜", pos)
-        i = a if b == -1 else (b if a == -1 else min(a, b))
-        if i == -1:
-            return n
-        ja, jb = raw.find("|>", i + 2), raw.find("｜>", i + 2)
-        closes = [x for x in (ja, jb) if x != -1]
-        if not closes:
-            return n if n - i > _HOLD_MAX else i
-        j = min(closes)
-        tok = raw[i:j + 2].replace("｜", "|")
-        if tok in ("<|ref|>", "<|det|>"):
-            # bloc apparié : instable tant que <|/det|> n'est pas arrivé
-            k = raw.find("<|/det|>", j + 2)
-            if k == -1:
-                return n if n - i > _HOLD_MAX else i
-            pos = k + len("<|/det|>")
-        else:
-            pos = j + 2
-
-
-def _clean_text(raw: str) -> str:
-    """Nettoyage SANS extraction de boxes (affichage live) : balises DeepSeek,
-    blocs det (--special) et préfixes plats ``label [coords]`` retirés."""
-    text = _TAG_RE.sub(lambda m: m.group(1).strip(), raw)
-    text = _DET_BLOCK_RE.sub("", text)
-    text = _STRAY_RE.sub("", text)
-    return _PLAIN_RE.sub("", text)
-
-
-class StreamSanitizer:
-    """Nettoyage incrémental du flux grounding pour l'affichage live.
-
-    ``feed(chunk)`` retourne le texte PROPRE nouvellement émissible (souvent
-    vide pendant qu'un tag se complète) ; ``flush()`` vide le reliquat en fin
-    de flux. Le nettoyage n'est appliqué qu'au préfixe STABLE du brut, donc
-    ce qui a été émis ne change jamais rétroactivement.
-    """
-
-    def __init__(self) -> None:
-        self._raw = ""
-        self._emitted = 0
-
-    def feed(self, chunk: str) -> str:
-        self._raw += chunk or ""
-        stable = stable_prefix_len(self._raw)
-        # Un « < » terminal peut devenir « <| »/« <｜ » au chunk suivant : le
-        # retenir un instant — émis trop tôt, il décalerait tout le flux
-        # (le garde anti-ré-émission interdit de le reprendre).
-        if stable == len(self._raw) and self._raw.endswith("<"):
-            stable -= 1
-        # Retenir aussi un éventuel préfixe PLAT en cours d'écriture en fin
-        # de flux (« table [141, 8 » ) — sinon il s'afficherait puis
-        # « disparaîtrait » au nettoyage suivant. Un simple mot en début de
-        # ligne n'est retenu qu'un instant : le premier caractère qui casse
-        # le motif le libère.
-        m = _PLAIN_HOLD_RE.search(self._raw[:stable])
-        if m and stable - m.start(1) <= 40:
-            stable = m.start(1)
-        clean = _clean_text(self._raw[:stable])
-        # Ne jamais ré-émettre : si le point stable a reculé (retenue), on
-        # n'avance simplement pas.
-        out = clean[self._emitted:] if len(clean) > self._emitted else ""
-        self._emitted = max(self._emitted, len(clean))
-        return out
-
-    def flush(self) -> str:
-        clean = _clean_text(self._raw)
-        out = clean[self._emitted:]
-        self._emitted = len(clean)
-        return out
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -370,54 +257,6 @@ async def ensure_model(cfg: Dict) -> Dict:
                        if (m.get("state") or "") == "loaded"), "")
         cfg["model"] = loaded or models[0]["id"]
     return cfg
-
-
-async def _lifecycle_post(cfg: Dict, action: str, model: str) -> None:
-    """POST ``/models/{load|unload}`` du ROUTEUR llama-server (repli ``/v1/…``).
-
-    Même wire que le serveur llama principal (``llm_core._model_lifecycle``).
-    :raises OcrError: refus ou serveur injoignable.
-    """
-    endpoint = (cfg.get("endpoint_url") or "").rstrip("/")
-    if not endpoint:
-        raise OcrError("Serveur OCR non configuré.")
-    if not model:
-        raise OcrError("Modèle requis.")
-    base = endpoint[: -len("/v1")] if endpoint.endswith("/v1") else endpoint
-    body = {"model": model}
-    headers = _headers(cfg.get("api_key") or "")
-    # load = jusqu'à 3 min (chargement GGUF) ; unload = rapide.
-    timeout = httpx.Timeout(10.0, read=180.0 if action == "load" else 30.0)
-    last = None
-    try:
-        async with _client(timeout) as client:
-            for path in (f"{base}/models/{action}", f"{base}/v1/models/{action}"):
-                last = await client.post(path, json=body, headers=headers)
-                if last.status_code in (200, 201, 204):
-                    return
-                if last.status_code != 404:
-                    break
-    except _NET_ERRORS as e:
-        raise OcrError(f"Serveur OCR injoignable ({e.__class__.__name__}).")
-    detail = ""
-    try:
-        err = (last.json() or {}).get("error") if last is not None else None
-        detail = (err.get("message") if isinstance(err, dict) else str(err or "")).strip()
-    except (ValueError, AttributeError):
-        pass
-    raise OcrError(
-        f"{'Chargement' if action == 'load' else 'Déchargement'} refusé "
-        f"(HTTP {last.status_code if last is not None else '?'}"
-        + (f" : {detail[:160]}" if detail else "")
-        + ") — serveur en mode routeur requis.")
-
-
-async def load_model(cfg: Dict, model: str) -> None:
-    await _lifecycle_post(cfg, "load", model)
-
-
-async def unload_model(cfg: Dict, model: str) -> None:
-    await _lifecycle_post(cfg, "unload", model)
 
 
 def _body(png_bytes: bytes, prompt: str, model: str,
@@ -539,36 +378,3 @@ async def stream_ocr(png_bytes: bytes, *, cfg: Dict,
         raise OcrError("Flux OCR interrompu avant la fin (serveur arrêté ou "
                        "connexion coupée) — relancez.")
     return raw
-
-
-def _crop_zone_png(png_path, bbox: List[int]) -> bytes:
-    """Crop PNG d'une zone (Pillow, SYNCHRONE — à appeler depuis un thread)."""
-    try:
-        from PIL import Image  # import tardif (optionnel au boot)
-    except ImportError:
-        raise OcrError("Pillow absent du serveur — lecture de zone impossible.")
-    try:
-        with Image.open(png_path) as im:
-            x1, y1, x2, y2 = [int(v) for v in bbox]
-            x1, x2 = sorted((max(0, min(x1, im.width)), max(0, min(x2, im.width))))
-            y1, y2 = sorted((max(0, min(y1, im.height)), max(0, min(y2, im.height))))
-            if x2 - x1 < 4 or y2 - y1 < 4:
-                raise OcrError("Zone trop petite.")
-            buf = io.BytesIO()
-            im.crop((x1, y1, x2, y2)).save(buf, format="PNG")
-    except OSError:
-        # Aperçu absent (préparation en cours, document supprimé) ou illisible.
-        raise OcrError("Image de la page indisponible — attendez la fin de la "
-                       "préparation.")
-    return buf.getvalue()
-
-
-async def ocr_zone(png_path, bbox: List[int], *, cfg: Dict) -> str:
-    """OCR d'une ZONE d'une page (crop Pillow) — réponse nettoyée, non live."""
-    png = await asyncio.to_thread(_crop_zone_png, png_path, bbox)
-    try:
-        raw = await stream_ocr(png, cfg=cfg,
-                               prompt=cfg.get("zone_prompt") or "Free OCR.")
-    except OcrTruncated as e:
-        raw = e.raw          # zone : le texte reçu reste utile tel quel
-    return _clean_text(raw).strip()

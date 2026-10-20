@@ -12,6 +12,8 @@ export interface PieceJointe {
   content?: string;
   isMention?: boolean;
   isImage?: boolean;
+  /** Fichier d'origine d'un dépôt ou d'un sélecteur : `/rag add` le dépose tel quel dans une collection. */
+  fichier?: File;
   _uid?: string | number;
 }
 

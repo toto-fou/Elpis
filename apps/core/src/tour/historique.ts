@@ -20,6 +20,7 @@ import type { Dict } from "@elpis/commun";
 import { clipResumeThinking, RESUME_AFTER_THINK_INSTRUCTION } from "../boucle/reprise-raisonnement";
 import { AppelsParId, mergeUserSuffix, pruneKey, userSuffixSig } from "../contexte/elagage";
 import { copyFields } from "../images/messages";
+import { fusionnerSourcesRag, sourcesRagPropres } from "../rag/sources-message";
 
 /** `_msg_text` : texte d'un contenu, parts `text` d'un contenu multimodal jointes par une espace. */
 export function msgText(contenu: unknown): string {
@@ -234,6 +235,8 @@ export function mergePrevSegmentLists(prev: Dict, msg: Dict): void {
     const neuf = Array.isArray(msg[k]) ? (msg[k] as unknown[]) : [];
     msg[k] = [...anc, ...neuf.filter((x) => !anc.some((a) => egalPy(a, x)))];
   }
+  if (Array.isArray(prev["rag_sources"]) && prev["rag_sources"].length)
+    msg["rag_sources"] = fusionnerSourcesRag(prev["rag_sources"], msg["rag_sources"]);
   const ancFc = fcList(prev);
   if (ancFc.length) {
     const acc = new Map(ancFc.map((e) => [e["path"] as string, e]));
@@ -268,6 +271,7 @@ const GRAFT_KEYS = [
   "run_ids",
   "compactions",
   "tool_images",
+  "rag_sources",
 ];
 
 /** Recolle aux assistants TRONQUÉS du payload l'état d'outils que seule la base connaît (même position, même question, même texte) ; rend le nombre de messages complétés. */
@@ -303,6 +307,23 @@ export function graftStoppedTurnState(filtres: Dict[], persistables: Dict[], dbM
     persistables[i] = { ...persistables[i], ...ajout };
     n += 1;
   }
+  return n;
+}
+
+/** Sources RAG qu'un client a perdues (instantané d'onglet, ancienne version) reprises de la base : même position, même rôle, même texte. */
+export function greffeSourcesRag(persistables: Dict[], dbMsgs: unknown): number {
+  if (!Array.isArray(dbMsgs)) return 0;
+  let n = 0;
+  persistables.forEach((m, i) => {
+    const d: unknown = dbMsgs[i];
+    if (m["role"] !== "assistant" || veritePy(m["rag_sources"]) || !estDict(d) || d["role"] !== "assistant")
+      return;
+    if (!egalPy(m["content"] ?? null, d["content"] ?? null)) return;
+    const sources = sourcesRagPropres(d["rag_sources"]);
+    if (!sources.length) return;
+    m["rag_sources"] = sources;
+    n += 1;
+  });
   return n;
 }
 
@@ -348,6 +369,10 @@ export function normalizeClientMessages(messages: unknown): [Dict[], Dict[]] {
     const met = metricsForPersist(m["metrics"]);
     if (Object.keys(met).length) mm["metrics"] = met;
     copyFields(m, mm);
+    if (m["role"] === "assistant" && Array.isArray(m["rag_sources"])) {
+      const sources = sourcesRagPropres(m["rag_sources"]);
+      if (sources.length) mm["rag_sources"] = sources;
+    }
     if (m["role"] === "user" && m["origin"] === "job_wake") {
       mm["origin"] = "job_wake";
       if (estDict(m["wake"])) mm["wake"] = m["wake"];

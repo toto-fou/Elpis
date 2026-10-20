@@ -62,6 +62,9 @@ export interface LiensChat {
   doGenerate(continuation: boolean): Promise<void>;
   generateResponse(): Promise<void>;
   sendMessage(): Promise<void>;
+  /** Collections RAG à sceller à la création d'un chat neuf (vide pour un chat existant). */
+  ragEnAttente(): string[];
+  ragCreation(ids: unknown): void;
   stopGeneration(): void;
   closeToolStreamsFor(chatId: string | null): void;
   purgeToolStreams(chatId: string): void;

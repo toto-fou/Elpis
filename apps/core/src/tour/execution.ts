@@ -46,6 +46,8 @@ import { LLMFailure, llmErrorKind } from "../llm/reprises";
 import type { OutilIntegre } from "../outils/catalogue";
 import { buildImageBuiltinTool } from "../outils/integres/image";
 import { buildTaskBuiltinTool } from "../outils/integres/taches-agents";
+import { creerOutilsChatRag } from "../rag/outils-chat";
+import type { OutilsChatRag } from "../rag/outils-chat";
 import { reclamerVerrou } from "./admission";
 import {
   clearChatCancellation,
@@ -72,7 +74,7 @@ import {
   suffixeQuestion,
 } from "./persistance";
 import { jobsTour } from "./ports-jobs";
-import { agentMcpConfigs } from "./preparation";
+import { agentMcpConfigs, suffixeDeQuestion } from "./preparation";
 import type { PersistBaseline, TurnPlan, TurnResources } from "./preparation";
 
 const log = journal("uvicorn.error");
@@ -257,6 +259,7 @@ export function payloadFinal(
     ...(veritePy(msg["compactions"]) ? { compactions: msg["compactions"] } : {}),
     ...(veritePy(msg["pruned"]) ? { pruned: msg["pruned"] } : {}),
     ...(veritePy(msg["tool_images"]) ? { tool_images: msg["tool_images"] } : {}),
+    ...(veritePy(msg["rag_sources"]) ? { rag_sources: msg["rag_sources"] } : {}),
     chat_id: o.chatId,
     ...(o.planDone ? { plan_mode_done: true } : {}),
     ...(o.titleWasGenerated ? { title: o.finalTitle } : {}),
@@ -359,7 +362,8 @@ export async function* runTurn(
   let historiquePartiel: unknown[] = [];
   let nouvelEtatCompression: Dict = {};
   let nouvellesClesElaguees: string[] = [];
-  const nouveauSuffixe: Dict = plan.jobSuffix ? { text: plan.jobSuffix } : {};
+  const suffixeTour = suffixeDeQuestion(plan.ragSuffix, plan.jobSuffix);
+  const nouveauSuffixe: Dict = suffixeTour ? { text: suffixeTour } : {};
   const issueJobs = { message: false, reponse: false, suffixe: false };
   const drapeaux = { detache: false, lecteurParti: false, outils: false, finalEnvoye: false };
   let { updatedAt: baselineUpdatedAt, messages: baselineMessages, title: baselineTitle } = base;
@@ -373,7 +377,7 @@ export async function* runTurn(
     }
     if (t === "llm_user_suffix") {
       if (typeof ev["text"] === "string" && ev["text"])
-        nouveauSuffixe["text"] = plan.jobSuffix ? `${plan.jobSuffix}\n\n${ev["text"]}` : ev["text"];
+        nouveauSuffixe["text"] = suffixeTour ? `${suffixeTour}\n\n${ev["text"]}` : ev["text"];
       return;
     }
     if (t === "prune_state") {
@@ -512,28 +516,15 @@ export async function* runTurn(
     const fileAnnoncee = { v: false };
     const taskUsage: Dict = {};
     const imageSink: Dict = {};
+    const rag: { outils: OutilsChatRag | null } = { outils: null };
     let titre: { promesse: Promise<string | null>; fini: boolean; valeur: string | null } | null = null;
     const titreArret = new AbortController();
     try {
       await persisterQuestion();
-      const rag = plan.ragMeta;
-      if (rag && veritePy(rag["used"])) {
-        const libelle = res.ragBuiltinTools ? "RAG Outils" : "RAG";
-        await onEvent({
-          type: "mode",
-          text: `${libelle} ON` + (veritePy(plan.ragCollection) ? ` (${strPy(plan.ragCollection)})` : ""),
-        });
-        if (veritePy(rag["sources"]))
-          await onEvent({ type: "rag_sources", text: (rag["sources"] as string[]).join("\n") });
-      } else if (rag && veritePy(rag["enabled"]) && veritePy(rag["error"]))
-        await onEvent({
-          type: "info",
-          text: "Recherche documentaire indisponible — réponse sans les documents.",
-        });
       const parts: string[] = [];
       if (plan.activeMcpServers.length)
         parts.push("MCP: " + plan.activeMcpServers.map((s) => strPy(s["name"] ?? "?")).join(", "));
-      if (res.ragBuiltinTools) parts.push("RAG Outils");
+      if (plan.rag) parts.push("Documents");
       if (plan.imageToolOn) parts.push("Images");
       await onEvent({ type: "mode", text: parts.length ? parts.join(" + ") : "Génération en cours…" });
 
@@ -603,10 +594,24 @@ export async function* runTurn(
               titre = t;
             }
             await onEvent({ type: "mode", text: "Outils prêts…" });
+            rag.outils = plan.rag
+              ? creerOutilsChatRag({
+                  base: db,
+                  uid,
+                  chatId,
+                  collections: plan.rag.collections,
+                  mode: plan.rag.mode,
+                  topK: plan.rag.topK,
+                  precedentes: plan.rag.precedentes,
+                  ecriture: !plan.planMode,
+                  onEvent,
+                  signal: controleur.signal,
+                })
+              : null;
             const taskBuiltin = plan.agentsOn
               ? buildTaskBuiltinTool({
                   parentMcpConfigs: plan.activeMcpServers,
-                  parentBuiltinTools: res.ragBuiltinTools,
+                  parentBuiltinTools: rag.outils?.outils ?? null,
                   username: plan.username,
                   chatId,
                   model: selectedModel,
@@ -634,7 +639,7 @@ export async function* runTurn(
                   prefs: plan.userSettings["image_prefs"],
                 })
               : {};
-            const tous = { ...(res.ragBuiltinTools ?? {}), ...taskBuiltin, ...imageBuiltin };
+            const tous = { ...(rag.outils?.outils ?? {}), ...taskBuiltin, ...imageBuiltin };
             [assistant, , metrics] = await reglages.boucle({
               messages: plan.msgsForLlm,
               mcpConfigs: plan.activeMcpServers,
@@ -690,6 +695,7 @@ export async function* runTurn(
         msgs: plan.msgs,
         isContinue: plan.isContinue,
         toolImages: Array.isArray(imageSink["images"]) ? (imageSink["images"] as unknown[]) : null,
+        ragSources: rag.outils?.numerotation.sources() ?? null,
       });
       assistant = contenu;
       let full = await avecEtatCompression([...avant, msg, ...apres]);
@@ -872,6 +878,7 @@ export async function* runTurn(
             msgs: plan.msgs,
             isContinue: plan.isContinue,
             toolImages: Array.isArray(imageSink["images"]) ? (imageSink["images"] as unknown[]) : null,
+            ragSources: rag.outils?.numerotation.sources() ?? null,
           });
           let persiste = false;
           let erreur: string | null = null;
@@ -902,6 +909,7 @@ export async function* runTurn(
             assistant: p.message["content"],
             run_ids: veritePy(p.message["run_ids"]) ? p.message["run_ids"] : [plan.execId],
             ...(veritePy(p.message["tool_images"]) ? { tool_images: p.message["tool_images"] } : {}),
+            ...(veritePy(p.message["rag_sources"]) ? { rag_sources: p.message["rag_sources"] } : {}),
             chat_id: chatId,
             metrics: null,
             thinking: "thinking" in p.message ? p.message["thinking"] : p.raisonnement,

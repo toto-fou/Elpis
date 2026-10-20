@@ -19,6 +19,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
+import { COLLECTIONS_CHAT_RAG_MAX, REGLAGE_RAG_CHAT_DEFAUT } from "@elpis/contracts";
 import type { Base } from "@elpis/db";
 
 import {
@@ -46,6 +47,7 @@ import {
   stripSummaryMessages,
 } from "../contexte/etat-compression";
 import { embedChartConfigs } from "../graphiques/incrustation";
+import { ecrireReglageRagChat, idsLisiblesRag, reglageRagDe } from "../rag/chat";
 import { journal } from "../journal";
 import type { Famille } from "../routes";
 import { utilisateur } from "./comptes";
@@ -180,13 +182,26 @@ export function creerFamilleChats(dep: DependancesChats): Famille {
               throw new HttpError(422, "plan_mode doit être un booléen");
             planMode = corps["plan_mode"];
           }
+          const ragDemande = estDict(corps) && Object.hasOwn(corps, "rag_collections");
+          const ragIds = ragDemande && estDict(corps) ? corps["rag_collections"] : null;
+          if (ragDemande && (!Array.isArray(ragIds) || ragIds.length > COLLECTIONS_CHAT_RAG_MAX))
+            throw new HttpError(422, "rag_collections doit être une liste d'au plus 10 collections");
           const chatId = randomBytes(12).toString("hex");
           await upsertChat(base, uid, chatId, TITRE_PAR_DEFAUT, [], maintenant());
           if (planMode) await setChatPlanMode(base, uid, chatId, true);
+          let ragActives: string[] | null = null;
+          if (ragDemande) {
+            ragActives = await idsLisiblesRag(base, uid, ragIds as unknown[]);
+            if (ragActives.length)
+              await ecrireReglageRagChat(base, uid, chatId, {
+                ...REGLAGE_RAG_CHAT_DEFAUT,
+                collections: ragActives,
+              });
+          }
           await enforceRecentChatsCap(base, uid);
           const nom = (await getUsernameById(base, uid)) || `user_${uid}`;
           dep.logMetric?.("new_chat", 1, { user: nom });
-          return { id: chatId };
+          return ragActives === null ? { id: chatId } : { id: chatId, rag_collections: ragActives };
         },
       },
       {
@@ -200,6 +215,10 @@ export function creerFamilleChats(dep: DependancesChats): Famille {
           if (!c) throw new HttpError(404, "chat not found");
           const coupe = dep.reveilCoupe ? await dep.reveilCoupe(uid, String(c["id"])) : null;
           if (coupe !== null) c["wake_disabled"] = coupe;
+          if ("rag" in c) {
+            const reglage = reglageRagDe(c["rag"]);
+            c["rag"] = { ...reglage, collections: await idsLisiblesRag(base, uid, reglage.collections) };
+          }
           return reponseJsonPy(rep, c, SANS_CACHE_STRICT);
         },
       },

@@ -159,6 +159,7 @@ export async function getChat(x: Executeur, uid: number, chatId: string): Promis
     throw new ErreurPython("TypeError", "the JSON object must be str, bytes or bytearray");
   const usage = getOu(meta, "ctx_usage", null);
   const suffixes = getOu(meta, "llm_user_suffixes", null);
+  const rag = getOu(meta, "rag", null);
   return {
     id: r.id,
     title: r.title,
@@ -171,6 +172,7 @@ export async function getChat(x: Executeur, uid: number, chatId: string): Promis
     ctx_pruned_keys: listeOu(getOu(meta, "ctx_pruned_keys", null), []),
     ctx_usage: estDict(usage) ? usage : null,
     llm_user_suffixes: estDict(suffixes) ? suffixes : {},
+    ...(estDict(rag) ? { rag } : {}),
   };
 }
 

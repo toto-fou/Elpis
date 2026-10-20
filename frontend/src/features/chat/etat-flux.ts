@@ -378,7 +378,7 @@ function appliquer(etat: EtatRendu, ev: EvenementFlux): EtatRendu {
     case "rag_sources":
       return {
         ...etat,
-        sourcesRag: sourcesRag(ev.text),
+        sourcesRag: [...new Set([...etat.sourcesRag, ...sourcesRag(ev.sources)])],
       };
     case "image_progress":
       return { ...etat, image: true, imageProgressionPct: ev.pct };

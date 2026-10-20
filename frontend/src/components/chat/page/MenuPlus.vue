@@ -1,15 +1,14 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/MenuPlus.vue — menu « + » du composeur : joindre, images, sources RAG, partages reçus. -->
+<!-- frontend/src/components/chat/page/MenuPlus.vue — menu « + » du composeur : joindre, images, partages reçus. -->
 <script setup lang="ts">
 import { useTemplateRef } from "vue";
 
 import { CLE_COMPOSEUR, domaine } from "../../../features/chat/page/domaines";
 import { publierElement } from "../../../features/chat/page/element";
 
-const emit = defineEmits<{ ancre: [el: HTMLDivElement | null]; rag: [el: HTMLDivElement | null] }>();
+const emit = defineEmits<{ ancre: [el: HTMLDivElement | null] }>();
 const comp = domaine(CLE_COMPOSEUR);
 publierElement(useTemplateRef<HTMLDivElement>("ancre"), (el) => emit("ancre", el));
-publierElement(useTemplateRef<HTMLDivElement>("rag"), (el) => emit("rag", el));
 </script>
 
 <template>
@@ -33,7 +32,7 @@ publierElement(useTemplateRef<HTMLDivElement>("rag"), (el) => emit("rag", el));
 
     <Transition name="popover-up">
       <div
-        v-if="comp.showComposerPlus && !comp.showSharedPrompts && !comp.showRagPanel"
+        v-if="comp.showComposerPlus && !comp.showSharedPrompts"
         class="absolute bottom-full left-0 mb-2 w-60 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 space-y-0.5"
       >
         <button
@@ -69,29 +68,6 @@ publierElement(useTemplateRef<HTMLDivElement>("rag"), (el) => emit("rag", el));
         <div class="h-px bg-slate-100 my-1"></div>
 
         <button
-          v-if="comp.settings.enable_rag"
-          class="w-full text-left px-3 py-2 text-sm rounded-lg flex items-center gap-2.5 transition-colors"
-          :class="
-            comp.config.use_rag
-              ? 'bg-blue-50 text-blue-800 hover:bg-blue-100'
-              : 'text-slate-700 hover:bg-slate-100'
-          "
-          @click.stop="
-            comp.showComposerPlus = false;
-            comp.showRagPanel = true;
-          "
-        >
-          <i
-            class="ph ph-books text-base"
-            :class="comp.config.use_rag ? 'text-blue-600' : 'text-slate-400'"
-          ></i>
-          <span class="flex-1">Sources RAG</span>
-          <span v-if="comp.config.use_rag" class="text-[10px] font-mono opacity-80">on</span>
-        </button>
-
-        <div v-if="comp.settings.enable_rag" class="h-px bg-slate-100 my-1"></div>
-
-        <button
           class="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2.5 transition-colors"
           @click.stop="
             comp.showComposerPlus = false;
@@ -108,121 +84,6 @@ publierElement(useTemplateRef<HTMLDivElement>("rag"), (el) => emit("rag", el));
             >{{ comp.inboxCount > 99 ? "99+" : comp.inboxCount }}</span
           >
         </button>
-      </div>
-    </Transition>
-
-    <Transition name="popover-up">
-      <div
-        v-if="comp.showRagPanel"
-        ref="rag"
-        class="absolute bottom-full left-0 mb-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] p-4"
-      >
-        <div class="flex items-center justify-between mb-4">
-          <span class="text-sm font-bold text-slate-800 flex items-center gap-2">
-            <i class="ph ph-database text-blue-600"></i> Mode RAG
-          </span>
-          <div class="flex items-center gap-1">
-            <div
-              class="relative inline-flex items-center cursor-pointer mr-1"
-              @click="comp.config.use_rag = !comp.config.use_rag"
-            >
-              <input v-model="comp.config.use_rag" type="checkbox" class="sr-only peer" />
-              <div
-                class="w-9 h-5 bg-slate-200 border border-slate-300 rounded-full peer peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-colors after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"
-              ></div>
-            </div>
-            <button
-              class="text-slate-400 hover:text-slate-800 p-0.5 rounded hover:bg-slate-100"
-              @click.stop="comp.showRagPanel = false"
-            >
-              <i class="ph ph-x text-sm"></i>
-            </button>
-          </div>
-        </div>
-
-        <div
-          class="space-y-3.5 transition-opacity"
-          :class="comp.config.use_rag ? 'opacity-100' : 'opacity-50 pointer-events-none'"
-        >
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1.5">Collection</label>
-            <select
-              v-model="comp.config.rag_collection"
-              class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-semibold text-slate-700 focus:ring-1 focus:ring-blue-500 outline-none transition-colors cursor-pointer"
-            >
-              <option value="">Défaut</option>
-              <option v-for="c in comp.ragCollections" :key="c" :value="c">{{ c }}</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1.5">Mode de recherche</label>
-            <div class="grid grid-cols-3 gap-1 bg-slate-100 rounded-lg p-0.5">
-              <button
-                v-for="m in [
-                  { v: 'classic', l: 'Vectoriel' },
-                  { v: 'hybrid', l: 'Hybride' },
-                  { v: 'bm25', l: 'BM25' },
-                ]"
-                :key="m.v"
-                :class="
-                  comp.config.rag_search_mode === m.v
-                    ? 'bg-white text-blue-700 shadow-sm font-bold'
-                    : 'text-slate-500 hover:text-slate-700'
-                "
-                class="px-1 py-1.5 text-[10px] rounded-md transition-all text-center leading-tight"
-                @click="comp.config.rag_search_mode = m.v"
-              >
-                {{ m.l }}
-              </button>
-            </div>
-            <p class="text-[10px] text-slate-400 mt-1 leading-snug">
-              <span v-if="comp.config.rag_search_mode === 'hybrid'">Vecteurs + BM25 fusionnés (RRF)</span>
-              <span v-else-if="comp.config.rag_search_mode === 'bm25'">Mots-clés uniquement</span>
-              <span v-else>Similarité vectorielle pure</span>
-            </p>
-          </div>
-
-          <div>
-            <label class="flex items-center justify-between text-xs font-semibold text-slate-600 mb-1.5">
-              <span>Résultats (top-K)</span>
-              <span class="text-blue-700 font-mono normal-case text-[11px]">{{
-                comp.config.rag_top_k || 8
-              }}</span>
-            </label>
-            <input
-              type="range"
-              min="2"
-              max="20"
-              step="1"
-              :value="comp.config.rag_top_k || 8"
-              class="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-blue-600"
-              @input="comp.config.rag_top_k = +($event.target as HTMLInputElement).value"
-            />
-            <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
-              <span>2</span><span>20</span>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-0.5 border-t border-slate-100">
-            <div>
-              <span class="text-xs font-semibold text-slate-700">Déduplication MMR</span>
-              <p class="text-[10px] text-slate-400 leading-snug">Filtre les chunks similaires</p>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                class="sr-only peer"
-                :checked="comp.config.rag_use_mmr !== false"
-                aria-label="Déduplication MMR"
-                @change="comp.config.rag_use_mmr = ($event.target as HTMLInputElement).checked"
-              />
-              <div
-                class="w-9 h-5 rounded-full transition-colors bg-slate-200 border border-slate-300 peer-checked:bg-blue-600 peer-checked:border-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-1 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all after:shadow-sm peer-checked:after:translate-x-full"
-              ></div>
-            </label>
-          </div>
-        </div>
       </div>
     </Transition>
 

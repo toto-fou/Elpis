@@ -10,6 +10,7 @@
 - [Démarrage](#démarrage)
 - [Configuration](#configuration)
   - [Fichier `config.json`](#fichier-configjson)
+  - [RAG](#rag-rag)
   - [Fournisseurs cloud des comptes](#fournisseurs-cloud-des-comptes-llmallowed_provider_types)
   - [Variables d'environnement](#variables-denvironnement)
   - [`context_config.json` — textes injectés au LLM](#context_configjson--textes-injectés-au-llm)
@@ -199,8 +200,9 @@ ELPIS_CFG_ADMIN_PASSWORD='…' ./install.sh --yes --with-caddy --service -- \
     --llm-url http://gpu.example.lan:8080 --https local --embed-url http://gpu.example.lan:8081
 ```
 
-Dépendances Python : `requirements.txt` (cœur), `requirements-rag.txt` (service
-RAG), `requirements-agpl-optional.txt` (optionnel, AGPL),
+Dépendances Python : `requirements.txt` (cœur), `requirements-rag.txt`
+(extracteur du RAG), `requirements-agpl-optional.txt` (optionnel, AGPL, plus
+utilisé),
 `requirements-dev.txt` (tests). Hors-ligne : `./install.sh --offline <dir>`
 avec le paquet produit par `make_release.sh` (voir
 [exploitation.md](exploitation.md#installer-un-serveur-hors-ligne)).
@@ -220,7 +222,7 @@ seulement la connexion à la base retenue.
 | 1. LLM | type (llama.cpp, vLLM, SGLang, autre OpenAI-compatible) ; adresse, dont le port suit le type tant qu'aucune adresse n'est saisie (8080, 8000, 30000) ; clé API facultative (`--api-key` du serveur, saisie masquée) ; sonde `GET /v1/models` avec la clé en Bearer (401 : « clé refusée »), jamais `/props?model=` qui chargerait un modèle ; modèle choisi dans la liste annoncée ; drapeaux de lancement conseillés pour vLLM et SGLang | `config.json › llama` : `engine`, `url` (base du serveur), `api_key`, `model` ; seules les valeurs changées sont réécrites |
 | 2. Cloud | fournisseur (Anthropic, OpenAI, Mistral, Groq, OpenRouter, DeepSeek, Moonshot), clé API masquée, modèle | connecteur **partagé** en base, clé chiffrée (Fernet) |
 | 3. Accès | HTTPS : non / certificat local (`install_caddy.sh`) / domaine public Let's Encrypt (`Caddyfile.acme.template`) ; sans HTTPS, écoute (`--listen local\|lan` : ce serveur seulement ou réseau local, voir [Écoute](#écoute-securitylisten)) ; nom d'hôte d'accès ; ports déjà occupés signalés | `security.https`, `security.listen`, `.env` (`MAIN_PUBLIC_URL`, `ADMIN_PUBLIC_URL`) |
-| 4. RAG | activation, serveur d'embeddings (sondé) et modèle, reranker, OCR vision | `rag`, `rag_app/rag_config.json` |
+| 4. RAG | activation, serveur d'embeddings (sondé) et modèle, reranker, OCR vision | `config.json › rag` (`embed`, `reranker`, `ocr`), voir [RAG](#rag-rag) |
 | 5. Sandbox | image Docker (présence vérifiée), mémoire par sandbox | `executors` |
 | 6. Voix | activation, URL whisper-server et elpis-tts (locales si installées, jeton repris) | `voice` |
 | 7. Base de données | moteur (SQLite, PostgreSQL), hôte, port, base, utilisateur, mot de passe (masqué), TLS ; connexion testée ; copie des données d'une base SQLite existante vers une base vide | `config.json › database`, `user_db/.db_password` (0600) |
@@ -324,13 +326,13 @@ foulée. Si Elpis tourne déjà, redémarrez-le ensuite (`./elpis restart` ou
 
 `start` enchaîne : Qdrant (6333) → RAG (8000) → elpis-tools (8767) → hôte
 d'outils MCP (8765) → main (8001) → admin (8002) → service navigateur (3000) ;
-les outils du compte sont servis par main lui-même. Main, admin et RAG
+les outils du compte sont servis par main lui-même. Main et admin
 écoutent selon [`security.listen`](#écoute-securitylisten) (`127.0.0.1` derrière
-Caddy dans tous les cas).
+Caddy dans tous les cas) ; l'extracteur du RAG et Qdrant n'écoutent qu'en local.
 
 ### Écoute (`security.listen`)
 
-Hors HTTPS, adresse d'écoute de main (8001), admin (8002) et RAG (8000) :
+Hors HTTPS, adresse d'écoute de main (8001) et admin (8002) :
 
 | Situation | Écoute |
 |---|---|
@@ -339,10 +341,12 @@ Hors HTTPS, adresse d'écoute de main (8001), admin (8002) et RAG (8000) :
 | `"listen": "local"` (défaut d'une installation neuve) | `127.0.0.1` : ce serveur seulement |
 | `"listen": "lan"` | `0.0.0.0` : ports ouverts **en clair** au réseau |
 | clé absente d'une config existante | `0.0.0.0` (installations d'avant le réglage, inchangées) |
-| variable `BIND` (main, admin) / `RAG_HOST` (RAG) | prioritaire (break-glass) |
+| variable `BIND` | prioritaire (break-glass) |
 
-Règle unique : `apps/core/src/ecoute.ts` (core), dupliquée dans
-`./elpis › _bind_default` (RAG). Écrivains : `./elpis configure` (question
+Règle unique : `apps/core/src/ecoute.ts` (core), lue par
+`./elpis › _bind_default` pour son message de démarrage. L'extracteur du RAG
+écoute sur `127.0.0.1` quel que soit ce réglage (`RAG_HOST` pour un core sur
+une autre machine). Écrivains : `./elpis configure` (question
 « Accès » de la page Accès, `--listen local|lan`, `ELPIS_CFG_LISTEN`) et
 Console admin › Sécurité › Accès HTTPS › Écoute (redémarre l'application ;
 « local » n'y est accepté que depuis la machine elle-même, pour ne pas se
@@ -435,13 +439,70 @@ Sections :
 | `executors` | `image` (image tierce seulement ; sans elle, celle de la version), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]`, `jobs.*` (tâches de fond), `disk.warn_pct` / `disk.refuse_pct` (espace disque des bacs en %, 85 et 97 par défaut, relus à chaud : alerte des outils qui écrivent, puis refus des écritures et des nouvelles tâches ; Console › Sandbox › Limites) |
 | `security` | `password_policy.*`, `session.*` (cookie, `max_age_sec`, `same_site`, `https_only`, `global_min_ts`), `https.*` (`enabled`, ports, `ca_file`), `listen` (`local` \| `lan`, voir [Écoute](#écoute-securitylisten)), `csp` (`enforce` \| `report-only` \| `off`, voir [CSP](#politique-de-sécurité-du-contenu-securitycsp)) — ⚠ `https.*` + `listen` + `session.https_only` + `session.global_min_ts` appartiennent à leurs endpoints, l'éditeur brut ne les écrit pas |
 | `vision` / `desktop` | Endpoint d'annotation, format, modèle, passes ; cibles desktop, scopes, budgets |
-| `rag` | `service_url`, `service_token`, collection par défaut, `top_k`, seuils |
+| `rag` | Extracteur, magasin, Qdrant, embeddings, reclassement, OCR, groupes, quotas, indexation : voir [RAG](#rag-rag) |
 | `maintenance` | Rétentions, heure de passe, digest quotidien |
 | `features` | Flags globaux (`opencode`, `office_preview`) |
 | `welcome` / `app_info` / `login_page` | Branding (édité depuis la console admin) ; `app_info.logo_b64` est le logo de l'application et l'avatar de l'assistant pour tous les comptes |
 | `skins` | `dir` (dossier des skins importés ou créés, défaut `user_skins`, surchargeable par `APP_SKINS_DIR`, lu au démarrage), `enabled` (`{id: booléen}`, relu à chaud : un intégré absent prend sa valeur de `frontend/css/skins/skins.json`, Kiki désactivé ; un skin importé absent est désactivé ; Ardoise et le skin par défaut restent actifs), `default` (défaut `elpis` : skin des comptes sans choix ou dont le skin a été désactivé). Réglé depuis Console › Système › Apparence ; le dossier est inclus dans les sauvegardes complètes |
 | `voice` | Moteur vocal — `enabled`, puis deux sous-blocs indépendants : `stt.*` (adresse, `format` parmi `whisper.cpp`/`openai`/`llama-audio`, langue, vocabulaire, `logprob_min`, plafonds) et `tts.*` (adresse, `format`, voix, vitesse, plafonds). Coercition et bornes dans `apps/core/src/voix/config.ts`, relues à CHAQUE appel |
 | `image` | Génération d'images — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. ⚠ `api_key_enc` appartient à `PUT /api/admin/image/key` : l'éditeur brut ne l'écrit pas. Voir [Génération d'images](#génération-dimages) |
+
+### RAG (`rag`)
+
+Relue à chaque appel par le core (`packages/config/src/rag.ts`) : un
+changement s'applique sans redémarrage. Console › Modèles & services › RAG
+l'écrit champ par champ ; `./elpis configure` (page RAG) pose l'adresse et le
+modèle des embeddings, le reclassement et l'OCR. Sans `embed.url`, le RAG est
+désactivé (la page RAG le dit, aucune indexation).
+
+```json
+"rag": {
+  "service_url": "http://127.0.0.1:8000",
+  "qdrant_url": "http://127.0.0.1:6333",
+  "embed": { "url": "http://gpu.lan:8081", "model": "bge-m3", "api_key": "", "batch": 32, "timeout_s": 60 },
+  "reranker": { "enabled": false, "url": "", "model": "bge-reranker-v2-m3" },
+  "ocr": { "url": "", "model": "", "api_key": "", "timeout_s": 180, "max_side_px": 1280, "max_tokens": 8192 },
+  "groups": [],
+  "quotas": { "storage_mb": 2048, "collections": 10, "file_mb": 200, "docs_per_collection": 2000 },
+  "indexation": { "concurrence": 2, "par_compte": 1 }
+}
+```
+
+| Clé | Rôle | Défaut |
+|---|---|---|
+| `service_url` | Extracteur `rag_app` (variable `RAG_SERVICE_URL` prioritaire) | `http://127.0.0.1:8000` |
+| `service_token` | Jeton de l'extracteur ; sans lui, `RAG_SERVICE_TOKEN` puis `user_db/.rag_service_token` (écrit par `./elpis configure`, lu aussi par l'extracteur) | — |
+| `store_dir` | Magasin des fichiers (`RAG_STORE_DIR` prioritaire) : originaux, extraits, pages rendues, par compte et par collection ; `./elpis` donne le même dossier à l'extracteur | `<dossier de la base>/rag` (`user_db/rag`) |
+| `qdrant_url` | Qdrant, local et sans clé (`./elpis` le lance sur `127.0.0.1:6333`) | `http://127.0.0.1:6333` |
+| `embed.*` | Serveur d'embeddings compatible OpenAI (`/v1/embeddings`), modèle, clé, taille des lots (1 à 512), délai (1 à 600 s). Changer de modèle lance la réindexation de toutes les collections (console) | modèle `bge-m3` |
+| `reranker.*` | Reclassement facultatif (`/v1/rerank`) | désactivé |
+| `ocr.*` | Modèle de vision compatible OpenAI qui lit les pages scannées (format « grounding » de la famille DeepSeek-OCR) ; `url` vide = pas d'OCR. Le core envoie ces réglages à l'extracteur à chaque extraction d'une collection où l'OCR est activé | désactivé |
+| `groups` | Identifiants des groupes qui ont le droit RAG ; vide = tous les comptes ; l'admin l'a toujours | `[]` |
+| `quotas.*` | Par compte : stockage (Mo), collections, taille d'un fichier (Mo), documents par collection ; une surcharge par compte (Console › RAG › Quotas par compte, `settings_json.rag_quota`) remplace clé par clé | 2048, 10, 200, 2000 |
+| `indexation.*` | Documents indexés en même temps sur l'instance (1 à 16) et par compte (au plus `concurrence`) | 2, 1 |
+
+Une valeur illisible ou hors bornes retombe sur son défaut.
+
+- **Droits.** Le compte qui crée une collection en est le propriétaire et le
+  seul à la modifier. Il la publie aux groupes dont il est membre ; seul un
+  admin publie à « Tous les comptes ». Les comptes qui la lisent (lecteurs)
+  cherchent dedans et voient les passages ; ils n'ouvrent l'original que si le
+  propriétaire l'a permis. La publication garde sa valeur si son auteur quitte
+  le groupe ou perd le droit RAG, jusqu'à la suppression de son compte. L'admin
+  voit les métadonnées de toutes les collections et peut en supprimer une ; il
+  ne lit jamais le contenu d'une collection qui ne lui est pas ouverte.
+- **Secrets.** `embed.api_key`, `ocr.api_key` et `service_token` sont masqués
+  (`********`) dans la console et l'éditeur brut, absents des journaux et des
+  copies de configuration des comptes (`user_db/configs/`).
+- **Extracteur.** Ses propres réglages (délais, mémoire, tailles, isolation
+  `RAG_ISOLATION`) sont des variables d'environnement :
+  [`rag_app/README.md`](../rag_app/README.md). `RAG_EXTRACT_TIMEOUT_S` sert aussi
+  au délai du core. Il écoute sur `127.0.0.1:8000` (`RAG_HOST` pour un core sur
+  une autre machine, qui doit alors voir le même magasin).
+- **Ancien RAG.** Les réglages d'embeddings, de reclassement et d'OCR de
+  `rag_app/rag_config.json` ont été repris une fois dans `rag.*`, sans écraser
+  une valeur déjà posée, à la mise à jour qui a supprimé l'ancien RAG
+  ([exploitation.md](exploitation.md#passage-au-rag-intégré)).
 
 ### Moteur d'inférence déclaré (`llama.engine`)
 
@@ -527,7 +588,7 @@ python -m sglang.launch_server --model-path Qwen/Qwen3-8B --host 0.0.0.0 --port 
 - **Clé d'API** : la `--api-key` de vLLM ne protège que `/v1/*` (`/tokenize`,
   `/metrics`, `/version` restent ouverts) ; celle de SGLang tout sauf
   `/health`, `/ready` et `/metrics`. Gardez ces serveurs sur un réseau fermé.
-- **Port** : sur la machine d'Elpis, le port 8000 est celui du service RAG ;
+- **Port** : sur la machine d'Elpis, le port 8000 est celui de l'extracteur du RAG ;
   lancez vLLM ailleurs ou sur un autre port (`--port`). L'assistant et
   `configure` le signalent.
 
@@ -1191,7 +1252,6 @@ Voir [`deploy/caddy/README.md`](../deploy/caddy/README.md) pour le détail.
 navigateur ──https──▶ Caddy (même hôte, catch-all) ──http 127.0.0.1──▶ services
    :443  ────────────────────────────────────────▶ 127.0.0.1:8001  (main)
    :8443 ────────────────────────────────────────▶ 127.0.0.1:8002  (admin)
-   :8444 ────────────────────────────────────────▶ 127.0.0.1:8000  (RAG)
    :80   ─ redirige 302 vers https + sert /ca.crt
          └ EXCEPTION @bootstrap : installeurs servis EN CLAIR ─▶ :8001
 ```
@@ -1223,8 +1283,10 @@ périmée du formulaire rouvrirait le bind public au redémarrage suivant.
 
 - On **n'active pas** le HTTPS depuis l'éditeur brut — seul le toggle sonde
   Caddy avant d'écrire (garde anti-lockout).
-- Le **RAG (`:8000`)** est un uvicorn autonome : il ne suit le toggle qu'au
-  relancement de `./elpis start`.
+- L'**extracteur du RAG (`:8000`)** n'a pas de site Caddy : il écoute sur
+  `127.0.0.1` quel que soit le toggle (`RAG_HOST` pour un core sur une autre
+  machine). Après une mise à jour, `sudo deploy/caddy/install_caddy.sh` retire
+  l'ancien site `:8444`.
 
 ---
 

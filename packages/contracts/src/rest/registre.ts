@@ -24,6 +24,7 @@ import * as adminConfig from "./admin-config";
 import * as adminMetriques from "./admin-metriques";
 import * as git from "./git";
 import * as rag from "./rag";
+import * as ragAdmin from "./rag-admin";
 import * as chats from "./chats";
 import * as jobs from "./jobs";
 import * as bacInstantanes from "./bac-instantanes";
@@ -75,7 +76,82 @@ export function c(
 export const CONTRATS_REST: readonly ContratRoute[] = [
   c("usage", "GET", "/api/usage/me", usage.schemaReponseUsageMoi),
   c("apercu-bac", "GET", "/api/sandbox/preview-token", bacInstantanes.schemaReponseJetonApercu),
+  c("rag", "GET", "/api/rag/etat", rag.schemaReponseEtatRag),
   c("rag", "GET", "/api/rag/collections", rag.schemaReponseCollectionsRag),
+  c(
+    "rag",
+    "POST",
+    "/api/rag/collections",
+    rag.schemaReponseCollectionRag,
+    rag.schemaCorpsCreationCollectionRag,
+  ),
+  c("rag", "GET", "/api/rag/collections/:collection_id", rag.schemaReponseCollectionRag),
+  c(
+    "rag",
+    "PATCH",
+    "/api/rag/collections/:collection_id",
+    rag.schemaReponseMajCollectionRag,
+    rag.schemaCorpsMajCollectionRag,
+  ),
+  c("rag", "DELETE", "/api/rag/collections/:collection_id", schemaOk),
+  c(
+    "rag",
+    "PUT",
+    "/api/rag/collections/:collection_id/publication",
+    rag.schemaReponsePublicationRag,
+    rag.schemaCorpsPublicationRag,
+  ),
+  c(
+    "rag",
+    "PUT",
+    "/api/rag/collections/:collection_id/masquage",
+    rag.schemaReponseCollectionRag,
+    rag.schemaCorpsMasquageRag,
+  ),
+  c("rag", "GET", "/api/rag/groupes-publication", rag.schemaReponseGroupesPublicationRag),
+  c("rag", "GET", "/api/rag/collections/:collection_id/documents", rag.schemaReponseDocumentsRag),
+  c("rag", "POST", "/api/rag/collections/:collection_id/documents", rag.schemaReponseDepotRag),
+  c("rag", "GET", "/api/rag/collections/:collection_id/documents/:doc_id", rag.schemaReponseDocumentRag),
+  c(
+    "rag",
+    "POST",
+    "/api/rag/collections/:collection_id/import-sandbox",
+    rag.schemaReponseDepotRag,
+    rag.schemaCorpsImportSandboxRag,
+  ),
+  c("rag", "DELETE", "/api/rag/collections/:collection_id/documents/:doc_id", schemaOk),
+  c(
+    "rag",
+    "POST",
+    "/api/rag/collections/:collection_id/reindexer",
+    rag.schemaReponseReindexationRag,
+    rag.schemaCorpsReindexationRag,
+  ),
+  c("rag", "POST", "/api/rag/collections/:collection_id/vider", rag.schemaReponseViderRag),
+  c("rag", "GET", "/api/rag/travaux", rag.schemaReponseTravauxRag),
+  c("rag", "POST", "/api/rag/travaux/:job_id/suspendre", rag.schemaReponseTravailRag),
+  c("rag", "POST", "/api/rag/travaux/:job_id/reprendre", rag.schemaReponseTravailRag),
+  c("rag", "POST", "/api/rag/travaux/:job_id/annuler", rag.schemaReponseTravailRag),
+  c(
+    "rag",
+    "POST",
+    "/api/rag/collections/:collection_id/recherche",
+    rag.schemaReponseRechercheRag,
+    rag.schemaCorpsRechercheRag,
+  ),
+  c(
+    "rag",
+    "GET",
+    "/api/rag/collections/:collection_id/documents/:doc_id/passages",
+    rag.schemaReponsePassagesDocumentRag,
+  ),
+  c(
+    "rag",
+    "POST",
+    "/api/rag/collections/:collection_id/documents/:doc_id/localiser",
+    rag.schemaReponseLocalisationRag,
+    rag.schemaCorpsLocalisationRag,
+  ),
   c("git", "GET", "/api/git/connectors", git.schemaReponseConnecteursGit),
   c("git", "POST", "/api/git/connectors/parse", git.schemaReponseAnalyseUrlGit, git.schemaCorpsAnalyseUrlGit),
   c("git", "POST", "/api/git/connectors", git.schemaReponseConnecteurGitCree, git.schemaCorpsConnecteurGit),
@@ -165,6 +241,7 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     chats.schemaReponseModePlan,
     chats.schemaCorpsModePlan,
   ),
+  c("chats", "PUT", "/api/saved/chats/:chat_id/rag", rag.schemaReponseRagChat, rag.schemaCorpsRagChat),
   c(
     "chats",
     "PUT",
@@ -915,6 +992,42 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     bureau.schemaReponseChoixEcran,
     bureau.schemaCorpsChoixEcran,
   ),
+  c("rag-admin", "GET", "/api/admin/rag/etat", ragAdmin.schemaReponseEtatAdminRag),
+  c(
+    "rag-admin",
+    "POST",
+    "/api/admin/rag/essai/:service",
+    ragAdmin.schemaReponseEssaiServiceRag,
+    ragAdmin.schemaCorpsEssaiServiceRag,
+  ),
+  c("rag-admin", "GET", "/api/admin/rag/collections", ragAdmin.schemaReponseCollectionsAdminRag),
+  c(
+    "rag-admin",
+    "DELETE",
+    "/api/admin/rag/collections/:collection_id",
+    ragAdmin.schemaReponseSuppressionAdminRag,
+    ragAdmin.schemaCorpsSuppressionAdminRag,
+  ),
+  c("rag-admin", "GET", "/api/admin/rag/comptes", ragAdmin.schemaReponseComptesRag),
+  c(
+    "rag-admin",
+    "PUT",
+    "/api/admin/rag/comptes/:user_id/quota",
+    ragAdmin.schemaReponseQuotaCompteRag,
+    ragAdmin.schemaCorpsQuotaCompteRag,
+  ),
+  c("rag-admin", "GET", "/api/admin/rag/reindexation", ragAdmin.schemaReponseReindexationGlobaleRag),
+  c(
+    "rag-admin",
+    "POST",
+    "/api/admin/rag/reindexer",
+    ragAdmin.schemaReponseReindexerToutRag,
+    ragAdmin.schemaCorpsReindexerToutRag,
+  ),
+  c("rag-admin", "GET", "/api/admin/rag/travaux", ragAdmin.schemaReponseTravauxAdminRag),
+  c("rag-admin", "POST", "/api/admin/rag/travaux/:job_id/suspendre", ragAdmin.schemaReponseTravailAdminRag),
+  c("rag-admin", "POST", "/api/admin/rag/travaux/:job_id/reprendre", ragAdmin.schemaReponseTravailAdminRag),
+  c("rag-admin", "POST", "/api/admin/rag/travaux/:job_id/annuler", ragAdmin.schemaReponseTravailAdminRag),
 ];
 
 export function motif(chemin: string): RegExp {

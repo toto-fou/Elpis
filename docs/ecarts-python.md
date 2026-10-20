@@ -260,6 +260,38 @@ main et traitait tout autre moteur comme un service distant sans capacité.
   Python.
 - **Connecteurs** : type `sglang` en plus ; `?sonde=1` sur leur test. Sans `?sonde=1`, réponses inchangées.
 
+## Console : secrets de config.json masqués
+
+`GET /api/admin/config-file` remplace par `********` la valeur de chaque secret de `config.json`
+(`CHEMINS_SECRETS_CONFIG` de `packages/contracts/src/rest/admin-config.ts`, d'où viennent `SECRETS_MASQUES` du core et la
+liste du formulaire : clé du moteur, clés des embeddings et de l'OCR du RAG, jeton de l'extracteur, clés de Qdrant et de la
+mémoire des agents, jetons de la voix, jeton et jetons clients du pont MCP local, secret de session, clé de chiffrement,
+clé des images) ; le Python rendait le fichier tel quel. Un secret rangé dans un objet (`mcp.local_client_tokens`) a chaque
+valeur masquée. `********` revenu par l'écriture du fichier ou par `PATCH /api/admin/config` garde la valeur du disque, et
+les essais du formulaire (extracteur, embeddings, OCR, voix) la remplacent par le secret enregistré pour l'adresse
+enregistrée seulement. Le jeton de scrape Prometheus n'est pas masqué : sa page le montre à l'administrateur.
+`/api/config` d'un compte vide ces secrets d'instance et le jeton de scrape (`SECRET_PATHS`, `apps/core/src/familles/config.ts`).
+
+## RAG intégré au core
+
+Le RAG de la version Python (service `rag_app` avec sa console, sa collection active, `rag_config.json`, ses routes
+`/api/tools/*`, l'enrichissement `rag_inline` du dernier message) est **remplacé** par le RAG intégré : collections par
+compte, droits et publication, indexation, recherche et outils du chat dans le core TS (`apps/core/src/rag/`,
+`docs/architecture.md`, « RAG intégré »). La mise à jour supprime l'ancien RAG sans rien importer
+(`docs/exploitation.md`, « Passage au RAG intégré »).
+
+- **Extracteur** : `rag_app` ne garde que `/api/extract`, `/api/render`, `/api/locate` et `/api/health` (jeton
+  exigé sauf pour la santé, écoute sur `127.0.0.1`) ; l'ancienne console et ses routes répondent 404 (ou 405). Caddy n'a plus de
+  site `:8444`.
+- **Chat** : `use_rag`, `rag_collection`, `rag_search_mode`, `rag_top_k` et `rag_use_mmr` du corps de
+  `POST /api/chat-saved-stream3` sont ignorés ; les collections actives vivent dans `chats.meta_json.rag`
+  (`PUT /api/saved/chats/{id}/rag`). Aucun passage n'est plus injecté avant la question : l'assistant cherche par les
+  outils `rag_*`, et `rag_sources` porte les passages qu'ils ont numérotés.
+- **Routes** : `GET /api/rag/collections` liste les collections lisibles par le compte (plus les noms Qdrant) ;
+  `GET/POST /api/admin/config-file?type=rag` répond 400 (`type=main` seul).
+- **Réglage du compte** : `enable_rag` reste accepté mais n'a aucun effet ; son interrupteur a quitté Paramètres ›
+  Fonctionnalités (le RAG d'un chat dépend de ses collections actives).
+
 ## Outils MCP : catégories vues par les comptes
 
 - **Pré-chauffage** : comme le Python (`prewarm_mcp_pool`), main se connecte au démarrage à chaque entrée intégrée

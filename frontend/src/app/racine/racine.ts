@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/app/racine/racine.ts — racine de la page (chat ou console) : état partagé, session et HTTP, montage des modules, liens entre modules, cycle de vie ; rend l'objet que les domaines injectés lisent. */
 import * as Vue from "vue";
-import { computed, nextTick, onMounted, onUnmounted, proxyRefs, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, proxyRefs, reactive, ref, watch } from "vue";
 import type { Ref } from "vue";
 
 import { setupAdmin } from "../../features/admin/console";
@@ -139,10 +139,6 @@ export interface ReglagesRacine {
 }
 
 export interface ConfigRacine {
-  use_rag: boolean;
-  rag_collection: string;
-  rag_search_mode: string;
-  rag_use_mmr: boolean;
   active_mcp_ids: unknown[];
   [cle: string]: unknown;
 }
@@ -179,6 +175,7 @@ export interface ModulesFacultatifs {
   routines?(c: ContexteModule): NonNullable<Modules["routines"]>;
   code?(c: ContexteModule): NonNullable<Modules["code"]>;
   mascotte?(c: ContexteModule): NonNullable<Modules["mascotte"]>;
+  rag?(c: ContexteModule): NonNullable<Modules["rag"]>;
   studio?(c: ContexteModule): NonNullable<Modules["studio"]>;
   studioChat?(c: ContexteModule, menu: Modules["studio"]): NonNullable<Modules["studioChat"]>;
   studioAuto?(
@@ -205,6 +202,7 @@ const MODULES_VIDES = (): Modules => ({
   studioAuto: null,
   code: null,
   mascotte: null,
+  rag: null,
 });
 
 /** Monte un module ; une exception le laisse absent sans empêcher la page de démarrer. */
@@ -333,9 +331,6 @@ function creerCtx(l: LiensCtx) {
     get pinnedServers() {
       return m.reglages ? m.reglages.pinnedServers : undefined;
     },
-    get ragCollections() {
-      return m.chat ? m.chat.ragCollections : undefined;
-    },
     get chats() {
       return m.chat ? m.chat.chats : undefined;
     },
@@ -450,6 +445,29 @@ function creerCtx(l: LiensCtx) {
     openHelp(doc?: string): unknown {
       return m.reglages?.openHelp(doc);
     },
+    /** Commande `/rag` du module RAG, lue par le menu « / » du composeur. */
+    get ragCommande() {
+      return m.rag ? m.rag.commande : null;
+    },
+    /** Ce que le RAG lit du chat : collections actives, pièces jointes, fil. */
+    chatPourRag() {
+      const c = m.chat;
+      return c
+        ? {
+            ragChat: c.ragChat,
+            attachedFiles: c.attachedFiles,
+            messages: refs.messages,
+            defilerEnBas: () => c.scrollToBottom(true),
+          }
+        : null;
+    },
+    /** La visionneuse de source prend la place de l'éditeur de la sandbox. */
+    fermerEditeur(): void {
+      if (m.editeur) m.editeur.showEditor.value = false;
+    },
+    enGeneration(): boolean {
+      return refs.isStreaming.value;
+    },
     onMemoryChanged(): unknown {
       return m.reglages?.loadUserMemory();
     },
@@ -548,10 +566,6 @@ export function creerRacine(options: OptionsRacine = {}) {
     enable_model_selector: false,
   });
   const config = ref<ConfigRacine>({
-    use_rag: false,
-    rag_collection: "",
-    rag_search_mode: "classic",
-    rag_use_mmr: false,
     active_mcp_ids: [],
   });
   const messages = ref<MessageChat[]>([]) as Ref<MessageChat[]>;
@@ -759,6 +773,7 @@ export function creerRacine(options: OptionsRacine = {}) {
   m.code = monter("setupCodeMenu", facultatifs.code && (() => facultatifs.code?.(contexte) ?? null)) ?? null;
   m.mascotte =
     monter("setupMascotte", facultatifs.mascotte && (() => facultatifs.mascotte?.(contexte) ?? null)) ?? null;
+  m.rag = monter("setupRag", facultatifs.rag && (() => facultatifs.rag?.(contexte) ?? null)) ?? null;
   m.studioChat =
     monter(
       "setupStudioChat",
@@ -940,7 +955,6 @@ export function creerRacine(options: OptionsRacine = {}) {
     m.reglages?.startInboxPolling();
     void n.loadNotifications();
     so.restaurerSession();
-    so.lienInterroger(consoleSeule);
   });
 
   onUnmounted(() => {
@@ -973,7 +987,6 @@ export function creerRacine(options: OptionsRacine = {}) {
       m.reglages?.startInboxPolling();
       void n.loadNotifications();
       so.restaurerSession();
-      so.lienInterroger(consoleSeule);
       return;
     }
     m.reglages?.stopInboxPolling();
@@ -1081,6 +1094,10 @@ export function creerRacine(options: OptionsRacine = {}) {
     ...m.studio,
     ...m.code,
     ...m.mascotte,
+    ragPage: m.rag ? reactive(m.rag) : null,
+    openRagPage: m.rag ? m.rag.ouvrir : () => undefined,
+    closeRagPage: m.rag ? m.rag.fermer : () => undefined,
+    ragAllowed: m.rag ? m.rag.autorise : ref(false),
     ...m.studioChat,
     ...m.studioAuto,
     ...m.editeur,

@@ -20,6 +20,7 @@ import { setupAdminMcp } from "./outils-mcp";
 import { creerPalette } from "./palette";
 import { setupAdminPrometheus } from "./prometheus";
 import { creerPrompts } from "./prompts";
+import { setupAdminRag } from "./rag";
 import { setupAdminRapport } from "./rapport";
 import { NAV_ADMIN } from "./registre";
 import { creerSandboxAdmin } from "./sandbox";
@@ -137,6 +138,7 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
   const prometheus = setupAdminPrometheus(ctx, http);
   const outilsMcp = setupAdminMcp(ctx, http);
   const hotes = setupAdminHotesOutils(ctx, http);
+  const rag = setupAdminRag(b, http);
 
   vue.onUnmounted(() => {
     libererMetriques();
@@ -168,6 +170,7 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
     ...prometheus,
     ...outilsMcp,
     ...hotes,
+    ...rag,
     adminTab: e.adminTab,
     adminMeOpen: e.adminMeOpen,
     adminChangesOpen: e.adminChangesOpen,

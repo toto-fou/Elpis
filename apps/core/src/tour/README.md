@@ -39,6 +39,11 @@ autres routes du chat :
 - **Enregistrement optimiste** sur `updated_at` (`apps/core/src/tour/persistance.ts`) : un conflit est signalé, rien
   n'est écrasé. La persistance précède `kv_cache` et `final`.
 - **Types du flux NDJSON** : registre `packages/contracts/src/stream-events.gen.ts`.
+- **RAG et cache du préfixe** (`apps/core/src/rag/chat.ts`, `apps/core/src/rag/outils-chat.ts`) : la tête système ne
+  dépend jamais des collections actives (outils `rag_*` et `FRAGMENT_RAG` statiques ; seuls 0 → 1 et 1 → 0 collection
+  changent la liste d'outils) ; le bloc `<rag_context>` est un suffixe de la question du tour où la sélection change,
+  enregistré dans `llm_user_suffixes` et rejoué à l'identique ; les passages n'arrivent que par les résultats
+  d'outils, numérotés une fois pour toutes ; les sources du message (`rag_sources`) ne repartent jamais au modèle.
 - **Chemin outils seul** : le chemin classique sans outils de la version Python n'est pas repris.
 
 ## Ordre des événements d'un tour
@@ -49,27 +54,25 @@ types ; `<boucle>` désigne les autres événements de la boucle
 (`LOOP_EVENTS` du registre) : un type cité dans le bloc n'est permis qu'à ses étapes.
 
 ```ordre-du-flux
-1 mode rag_sources info
-2 mode
-3 queue_status thinking
-4 queue_cleared
-5 mode <boucle>
-6 kv_cache error
-7 final
+1 mode
+2 queue_status thinking
+3 queue_cleared
+4 mode <boucle>
+5 kv_cache error
+6 final
 ```
 
-1. **RAG utilisé** : `mode` « RAG ON » (« RAG Outils ON » quand le RAG passe par ses outils), puis `rag_sources`
-   s'il y a des sources. RAG en panne : `info` seul.
-2. **`mode`** : serveurs MCP actifs et/ou « RAG Outils ».
-3. **Attente du moteur** :
+1. **`mode`** : serveurs MCP actifs et/ou « Documents » (collections RAG actives dans le chat).
+2. **Attente du moteur** :
    - `queue_status` si le moteur n'est pas prêt ;
    - `thinking` « En attente… » si la requête doit attendre un créneau du serveur ;
    - d'autres `queue_status` pendant l'attente.
-4. **`queue_cleared`** : seulement si un `queue_status` est parti.
-5. **Boucle** : `mode` « Outils prêts… », puis les événements de la boucle (`tool_call`, `tool_result`, jetons,
-   compression…).
-6. **Fin du travail** : `kv_cache` si l'occupation du contexte a pu être mesurée ; `error` en cas de panne.
-7. **`final`** : réponse, métriques et `persisted`, puis fin du flux.
+3. **`queue_cleared`** : seulement si un `queue_status` est parti.
+4. **Boucle** : `mode` « Outils prêts… », puis les événements de la boucle (`tool_call`, `tool_result`, jetons,
+   compression, `rag_sources` après un outil `rag_*` qui a numéroté des passages…).
+5. **Fin du travail** : `kv_cache` si l'occupation du contexte a pu être mesurée ; `error` en cas de panne.
+6. **`final`** : réponse, métriques, `persisted` et `rag_sources` (sources du message, `cited` posé d'après la
+   réponse), puis fin du flux.
 
 Ce qui peut s'intercaler, et les variantes :
 

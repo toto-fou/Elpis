@@ -7,6 +7,7 @@ import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
 import { resumeReveil } from "../../../features/chat/jobs/format";
 import { estReveil } from "../../../features/chat/liste/regroupement";
 
+import NoticeRecherche from "../../rag/NoticeRecherche.vue";
 import CorpsMessage from "./CorpsMessage.vue";
 import LigneReveil from "./LigneReveil.vue";
 
@@ -46,6 +47,13 @@ function ouvert(e: Event): boolean {
 <template>
   <div v-if="entry.msg.origin === 'job_wake'" :data-vs-idx="entry.idx" class="elpis-msg-wake">
     <LigneReveil :wake="entry.msg.wake" :content="entry.msg.content || ''" />
+  </div>
+  <div
+    v-else-if="entry.msg.role === 'notice' && entry.msg.kind === 'rag_search'"
+    :data-vs-idx="entry.idx"
+    class="elpis-msg-notice"
+  >
+    <NoticeRecherche :entry="entry" />
   </div>
   <div
     v-else

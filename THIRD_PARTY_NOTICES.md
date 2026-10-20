@@ -93,16 +93,6 @@ in `mermaid.min.js`): d3-delaunay, delaunator, robust-predicates (Unlicense),
 and the Node-only dependencies of @iconify/utils, KaTeX and d3-dsv (CLI tools,
 package manager helpers).
 
-### `rag_app/static/lib/`
-
-| Component | Version | License | Upstream |
-|---|---|---|---|
-| Alpine.js | 3.13.3 | MIT | https://github.com/alpinejs/alpine |
-| marked | 15.0.12 | MIT | https://github.com/markedjs/marked |
-| DOMPurify | 3.1.6 | Apache-2.0 OR MPL-2.0 | https://github.com/cure53/DOMPurify |
-| highlight.js | 11.7.0 | BSD-3-Clause | https://github.com/highlightjs/highlight.js |
-| Tailwind CSS (standalone browser build) | 3.4.17 | MIT | https://github.com/tailwindlabs/tailwindcss |
-
 ### `apps/core/dist/` (TypeScript core bundle)
 
 `npm run build` (and `make_release.sh`) bundles the core and the npm packages it
@@ -374,18 +364,16 @@ and pinned versions are in `requirements.txt`, `requirements-rag.txt`,
 | pytest, pytest-asyncio, pytest-xdist (tests) | MIT / Apache-2.0 / MIT |
 | mypy, mypy-extensions, librt, ast-serialize, typing-extensions, pathspec (typage, développement) | MIT / MIT / MIT / MIT / PSF-2.0 / MPL-2.0 |
 
-### Python — RAG service
+### Python — RAG extractor (rag_app)
 
 | Package | License |
 |---|---|
-| pandas | BSD-3-Clause |
 | python-docx | MIT |
 | pypdf | BSD-3-Clause |
 | pdfplumber | MIT |
 | pypdfium2 (includes PDFium) | Apache-2.0 OR BSD-3-Clause (PDFium: BSD-3-Clause / Apache-2.0) |
 | charset-normalizer | MIT |
 | openpyxl | MIT |
-| tabulate | MIT |
 | fpdf2 | **LGPL-3.0** — see § 3 |
 
 ### Python — desktop agent (optional, installed on the controlled machine)

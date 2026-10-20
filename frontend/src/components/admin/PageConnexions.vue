@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/admin/PageConnexions.vue — pages Modèles et services (inférence, RAG, vision, voix, images, MCP). -->
+<!-- frontend/src/components/admin/PageConnexions.vue — pages Modèles et services (inférence, compression, vision, voix, images, MCP). -->
 <script setup lang="ts">
 import { computed } from "vue";
 
@@ -18,7 +18,7 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
 
 <template>
   <div
-    v-if="['inference', 'compression', 'vision', 'rag', 'voice', 'images', 'mcp'].includes(adm.adminTab)"
+    v-if="['inference', 'compression', 'vision', 'voice', 'images', 'mcp'].includes(adm.adminTab)"
     class="animate-[fadeIn_0.2s]"
   >
     <div class="space-y-6 min-w-0">
@@ -872,150 +872,6 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               large (60 à 120 s).
             </p>
           </details>
-        </div>
-      </section>
-
-      <section v-if="adm.adminTab === 'rag'" id="rag-service" class="adm-card scroll-mt-32">
-        <header class="adm-card__head">
-          <i class="ph ph-database adm-card__icon" aria-hidden="true"></i>
-          <div>
-            <h3 class="adm-card__title">Service RAG</h3>
-            <span class="sr-only">Service séparé interrogé par les outils de recherche documentaire.</span>
-          </div>
-        </header>
-        <div v-if="adm.configForm && adm.configForm.rag" class="adm-rows">
-          <div class="adm-row">
-            <div>
-              <label class="adm-row__label" title="Sans barre oblique finale." for="cnx-rag-url"
-                >Adresse</label
-              >
-              <span class="sr-only">Sans barre oblique finale.</span>
-            </div>
-            <input
-              id="cnx-rag-url"
-              v-model="adm.configForm.rag.service_url"
-              data-field="config:rag.service_url"
-              placeholder="http://127.0.0.1:8000"
-              class="set-input font-mono text-xs"
-            />
-          </div>
-
-          <div class="adm-row">
-            <div>
-              <label
-                class="adm-row__label"
-                title="Vide si le service est en accès ouvert."
-                for="cnx-rag-token"
-                >Jeton</label
-              >
-              <span class="sr-only">Vide si le service est en accès ouvert.</span>
-            </div>
-            <input
-              id="cnx-rag-token"
-              v-model="adm.configForm.rag.service_token"
-              data-field="config:rag.service_token"
-              type="password"
-              autocomplete="new-password"
-              placeholder="facultatif"
-              class="set-input font-mono text-xs"
-            />
-          </div>
-
-          <div class="adm-row">
-            <div>
-              <label
-                class="adm-row__label"
-                title="Au-delà, l'outil renvoie une erreur récupérable."
-                for="cnx-rag-timeout"
-                >Délai maximal</label
-              >
-              <span class="sr-only">Au-delà, l'outil renvoie une erreur récupérable.</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-rag-timeout"
-                v-model.number="adm.configForm.rag.service_timeout"
-                data-field="config:rag.service_timeout"
-                type="number"
-                min="1"
-                max="300"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">s</span>
-            </div>
-          </div>
-
-          <div class="adm-row adm-row--top">
-            <div>
-              <span class="adm-row__label" title="Teste les valeurs ci-dessus sans les enregistrer."
-                >Vérification</span
-              >
-              <span class="sr-only">Teste les valeurs ci-dessus sans les enregistrer.</span>
-            </div>
-            <div>
-              <button
-                type="button"
-                :disabled="adm.ragServiceTest.state === 'busy'"
-                class="adm-btn adm-tool"
-                @click="adm.testRagServiceConnection"
-              >
-                <i
-                  class="ph"
-                  :class="adm.ragServiceTest.state === 'busy' ? 'ph-circle-notch animate-spin' : 'ph-pulse'"
-                  aria-hidden="true"
-                ></i>
-                {{ adm.ragServiceTest.state === "busy" ? "Test en cours…" : "Tester la connexion" }}
-              </button>
-
-              <div
-                v-if="adm.ragServiceTest.state === 'ok'"
-                class="mt-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200"
-              >
-                <div class="flex items-start gap-2">
-                  <i
-                    class="ph ph-check-circle text-emerald-600 text-base shrink-0 mt-0.5"
-                    aria-hidden="true"
-                  ></i>
-                  <div class="min-w-0">
-                    <div class="text-sm font-medium text-emerald-900">Connexion établie</div>
-                    <dl
-                      class="mt-1.5 text-xs grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-emerald-800"
-                    >
-                      <dt class="font-medium">Service</dt>
-                      <dd class="font-mono">{{ adm.ragServiceTest.detail.service || "—" }}</dd>
-                      <dt class="font-medium">Version</dt>
-                      <dd class="font-mono">{{ adm.ragServiceTest.detail.version || "—" }}</dd>
-                      <dt class="font-medium">Collection</dt>
-                      <dd class="font-mono">{{ adm.ragServiceTest.detail.collection || "(par défaut)" }}</dd>
-                      <dt class="font-medium">Accès</dt>
-                      <dd>{{ adm.ragServiceTest.detail.auth_required ? "jeton requis" : "ouvert" }}</dd>
-                      <template v-if="adm.ragServiceTest.detail.qdrant_ok !== undefined">
-                        <dt class="font-medium">Qdrant</dt>
-                        <dd>{{ adm.ragServiceTest.detail.qdrant_ok ? "joignable" : "injoignable" }}</dd>
-                      </template>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                v-else-if="adm.ragServiceTest.state === 'err'"
-                class="mt-3 p-3 rounded-lg bg-rose-50 border border-rose-200"
-              >
-                <div class="flex items-start gap-2">
-                  <i class="ph ph-x-circle text-rose-600 text-base shrink-0 mt-0.5" aria-hidden="true"></i>
-                  <div class="min-w-0">
-                    <div class="text-sm font-medium text-rose-900">Connexion impossible</div>
-                    <p class="mt-1 text-xs text-rose-800 break-words">{{ adm.ragServiceTest.detail }}</p>
-                    <p class="mt-1.5 text-xs text-rose-700/90">
-                      Vérifiez que le service tourne à cette adresse, que le port est ouvert, et que le jeton
-                      correspond.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 

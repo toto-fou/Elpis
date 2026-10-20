@@ -14,10 +14,12 @@ import {
   versFlottantPy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
+import type { SourceCiteeRag } from "@elpis/contracts";
 
 import { clipResumeThinking } from "../boucle/reprise-raisonnement";
 import { estCleArguments, userSuffixSig } from "../contexte/elagage";
 import { journal } from "../journal";
+import { marquerCiteesRag, sourcesRagPropres } from "../rag/sources-message";
 import {
   CANCEL_PLACEHOLDER,
   mergeContinueToolHistory,
@@ -140,6 +142,8 @@ export interface AccumulateursTour {
   readonly msgs: Dict[];
   readonly isContinue: boolean;
   readonly toolImages?: readonly unknown[] | null | undefined;
+  /** Passages numérotés par les outils `rag_*` pendant le tour (sources du message). */
+  readonly ragSources?: readonly SourceCiteeRag[] | null | undefined;
 }
 
 function champsDuTour(msg: Dict, a: AccumulateursTour): void {
@@ -147,6 +151,13 @@ function champsDuTour(msg: Dict, a: AccumulateursTour): void {
   if (a.filesChanged.size) msg["files_changed"] = [...a.filesChanged.values()];
   if (a.compactions.length) msg["compactions"] = [...a.compactions];
   if (a.toolImages?.length) msg["tool_images"] = [...a.toolImages];
+  if (a.ragSources?.length) msg["rag_sources"] = [...a.ragSources];
+}
+
+/** Sources du message marquées d'après sa réponse finale (renvois `[n]`). */
+function marquerSources(msg: Dict): void {
+  if (Array.isArray(msg["rag_sources"]))
+    msg["rag_sources"] = marquerCiteesRag(sourcesRagPropres(msg["rag_sources"]), msg["content"]);
 }
 
 /** Message assistant du tour COMPLET : `[message, avant, après, contenu]`, `avant + [message] + après` étant la conversation à persister. */
@@ -223,6 +234,7 @@ export function messageAssistant(
       stop_reason: veritePy(metrics["tool_limit_stop_reason"]) ? metrics["tool_limit_stop_reason"] : "",
     };
   } else if (avecMetriques && veritePy(metrics["truncated"])) msg["isTruncated"] = true;
+  marquerSources(msg);
   return [msg, avant, apres, assistant];
 }
 
@@ -275,6 +287,7 @@ export function messagePartiel(
   );
   champsDuTour(msg, a);
   if (Object.keys(prev).length) mergePrevSegmentLists(prev, msg);
+  marquerSources(msg);
   return {
     message: msg,
     avant,

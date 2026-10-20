@@ -4,7 +4,8 @@ import { journal } from "../../../platform/journal";
 import { nextTick } from "vue";
 
 import { decoderTexte } from "../../editor/lecture";
-import { sourcesRag } from "../affichage";
+import { fusionnerSourcesRag, sourcesRag } from "../affichage";
+import { sourcesRagValides } from "../../rag/sources";
 import { lireBilanTache } from "../outils/bilan-tache";
 import { ragCallLabel, ragResultLabel, resultIsError, shellFieldsFromResult } from "../outils/segments";
 import { comprSkipLabel } from "./formats";
@@ -495,6 +496,8 @@ export function creerVueFlux(c: CoeurChat) {
       toolLoopStats: statsBoucle(d),
     });
     const image = finImage(t, cur);
+    const sourcesFinales = sourcesRagValides(d["rag_sources"]);
+    if (sourcesFinales.length) l.patch(t.idx, { rag_sources: sourcesFinales });
     const imagesOutil = d["tool_images"];
     if (Array.isArray(imagesOutil) && imagesOutil.length)
       l.patch(t.idx, { tool_images: imagesOutil, _toolImageProgress: null });
@@ -1269,8 +1272,11 @@ export function creerVueFlux(c: CoeurChat) {
       case "info":
         return surAvis(t);
       case "rag_sources": {
-        const sources = sourcesRag(data.text);
-        if (sources.length) l.patch(idx, { _ragSources: sources });
+        const recues = sourcesRagValides(data["sources"]);
+        if (!recues.length) return;
+        const cur = l.getStreamMsgs()[idx];
+        const sources = fusionnerSourcesRag(cur?.rag_sources, recues);
+        l.patch(idx, { rag_sources: sources, _ragSources: sourcesRag(sources) });
         return;
       }
       case "journal_truncated":

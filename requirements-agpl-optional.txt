@@ -6,9 +6,9 @@
 # le service à des tiers, les obligations de l'AGPL s'appliquent à ces
 # composants. Installation : ./install.sh --with-agpl
 #
-# Ce qu'ils ajoutent :
-#   - pdf2docx : conversion PDF → DOCX dans la console RAG ;
-#   - PyMuPDF  : rendu de pages OCR de secours (pypdfium2 est utilisé par défaut).
+# Ils servaient à l'ancienne console RAG (conversion PDF → DOCX, rendu OCR de
+# secours), retirée avec le RAG intégré : plus aucun code d'Elpis ne les importe.
+# L'option reste acceptée pour ne pas casser les scripts d'installation existants.
 
 -r requirements-rag.txt
 

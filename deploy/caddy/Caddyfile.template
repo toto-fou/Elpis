@@ -1,7 +1,7 @@
 # =====================================================================
 #  Caddyfile — frontal TLS Elpis (LAN, sans domaine, « actionless »)
 #
-#  Sites en CATCH-ALL (:443/:8443/:8444) : n'importe quelle IP ou nom
+#  Sites en CATCH-ALL (:443/:8443) : n'importe quelle IP ou nom
 #  qui atteint la machine fonctionne — aucune adresse à configurer ici.
 #  Ce fichier est copié tel quel par install_caddy.sh (pas de sed).
 #
@@ -13,7 +13,8 @@
 #  UNE fois par poste/port et ne revoit plus d'avertissement.
 #
 #  Ports upstream : alignés avec config.json › security.https.* (garde
-#  anti-lockout du toggle admin) et les binds gunicorn/uvicorn.
+#  anti-lockout du toggle admin) et les binds du core. L'extracteur du RAG
+#  (:8000) n'a pas de site : seul le core l'appelle, en local.
 #
 #  PAS de header HSTS et redirect :80 en 302 : le toggle admin permet
 #  de revenir en HTTP direct — un HSTS mémorisé rendrait ce retour
@@ -34,13 +35,6 @@
 :8443 {
 	tls /etc/caddy/elpis-pki/fullchain.pem /etc/caddy/elpis-pki/server.key
 	reverse_proxy 127.0.0.1:8002 {
-		flush_interval -1
-	}
-}
-
-:8444 {
-	tls /etc/caddy/elpis-pki/fullchain.pem /etc/caddy/elpis-pki/server.key
-	reverse_proxy 127.0.0.1:8000 {
 		flush_interval -1
 	}
 }

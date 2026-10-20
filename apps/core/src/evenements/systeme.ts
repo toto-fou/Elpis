@@ -81,8 +81,8 @@ function destinataire(message: Message): number | null {
   }
 }
 
-/** Événements remis au seul compte de `data.user_id` : notifications, jobs et réveils des tâches de fond. */
-const TYPES_DU_COMPTE: ReadonlySet<unknown> = new Set(["notification", "chat_job", "chat_wake"]);
+/** Événements remis au seul compte de `data.user_id` : notifications, jobs et réveils des tâches de fond, indexation RAG. */
+const TYPES_DU_COMPTE: ReadonlySet<unknown> = new Set(["notification", "chat_job", "chat_wake", "rag_job"]);
 
 function deux(n: number): string {
   return String(n).padStart(2, "0");

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/app/racine/session-onglet.ts — reprise après rechargement de l'onglet (instantané de la conversation par compte), liens profonds « Interroger » (#ask) et retour vers une autorisation OAuth. */
+/** frontend/src/app/racine/session-onglet.ts — reprise après rechargement de l'onglet (instantané de la conversation par compte) et retour vers une autorisation OAuth. */
 import type { Ref } from "vue";
 
 import { copyImageFields } from "../../features/images/formats";
@@ -24,12 +24,7 @@ export interface ChatSession {
   applyChatTools?(cats: unknown[]): unknown;
   scrollToBottom?(force?: boolean): unknown;
   loadChat?(id: string, opts?: { force?: boolean }): unknown;
-  startDocumentChat?(opts: {
-    collection: string;
-    docName: string;
-    ragName: string;
-    question: string;
-  }): unknown;
+  readonly ragChat?: { recharger(chatId: string): unknown };
 }
 
 export interface DependancesSessionOnglet {
@@ -97,6 +92,7 @@ export function creerSessionOnglet(dep: DependancesSessionOnglet) {
             tokens_after: m.tokens_after,
             summary: m.summary,
             files_changed: m.files_changed,
+            rag_sources: m.rag_sources,
             origin: m.origin,
             wake: m.wake,
             ...copyImageFields(m),
@@ -184,6 +180,7 @@ export function creerSessionOnglet(dep: DependancesSessionOnglet) {
       }, 200);
       // Rechargement pendant un tour : si le run tourne encore, le chat est relu depuis la base pour s'y rattacher.
       const id = data.chatId;
+      if (id) void chat?.ragChat?.recharger(id);
       if (id && chat?.loadChat) {
         void dep
           .fetchAuth("/api/chat/" + encodeURIComponent(id) + "/generation-status", {}, true)
@@ -215,25 +212,6 @@ export function creerSessionOnglet(dep: DependancesSessionOnglet) {
     }
   }
 
-  /** `#ask?collection=…&doc=…&rag=…[&q=…]` (onglet Documents de rag_app) : chat documentaire, hash consommé ; sans session il reste pour après la connexion. */
-  function lienInterroger(consoleSeule: boolean): void {
-    if (consoleSeule) return;
-    const h = window.location.hash || "";
-    if (!h.startsWith("#ask")) return;
-    const chat = dep.chat();
-    if (!chat?.startDocumentChat) return;
-    const params = new URLSearchParams(h.includes("?") ? h.slice(h.indexOf("?") + 1) : "");
-    const collection = (params.get("collection") || "").trim();
-    if (!collection) return;
-    history.replaceState(null, "", window.location.pathname);
-    void chat.startDocumentChat({
-      collection,
-      docName: (params.get("doc") || "").trim() || "document",
-      ragName: (params.get("rag") || "").trim(),
-      question: (params.get("q") || "").trim(),
-    });
-  }
-
   /** Retour vers `/oauth/authorize?…` de cette origine une fois connecté (jamais une redirection ouverte). */
   function reprendreOAuth(): boolean {
     if (!dep.user.value) return false;
@@ -248,5 +226,5 @@ export function creerSessionOnglet(dep: DependancesSessionOnglet) {
     return true;
   }
 
-  return { sauverSession, restaurerSession, purgerSession, lienInterroger, reprendreOAuth };
+  return { sauverSession, restaurerSession, purgerSession, reprendreOAuth };
 }

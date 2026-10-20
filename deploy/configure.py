@@ -4,15 +4,14 @@
 Chaque réglage suit le même ordre de priorité :
 
     option en ligne de commande  >  variable d'environnement ``ELPIS_CFG_*``
-    >  valeur actuelle (config.json, rag_config.json)  >  défaut
+    >  valeur actuelle (config.json)  >  défaut
 
 En mode interactif, la valeur retenue est proposée entre crochets et Entrée
 la garde. En mode non interactif (``--yes``, ou pas de terminal), aucune
 question n'est posée : l'ordre ci-dessus suffit, ce qui rend le script
 utilisable en CI.
 
-Ordre des étapes : les fichiers (config.json, jetons, mcp.json,
-rag_config.json) sont écrits AVANT d'importer le code de l'application,
+Ordre des étapes : les fichiers (config.json, jetons, mcp.json) sont écrits AVANT d'importer le code de l'application,
 parce que ``shared_infra.config`` lit config.json à l'import. Les étapes qui
 touchent la base (compte admin, connecteur cloud) viennent donc en dernier.
 
@@ -39,6 +38,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "config.json"
+# Configuration de l'ancien RAG : seulement relue par la mise à jour (deploy/rag_ancien.py), puis supprimée.
 RAG_CONFIG = ROOT / "rag_app" / "rag_config.json"
 ENV_FILE = ROOT / ".env"
 USER_DB = ROOT / "user_db"
@@ -612,21 +612,24 @@ def step_ca(a: argparse.Namespace, env: Dict[str, str]) -> None:
     ok(f"Autorités de confiance : {path} (SSL_CERT_FILE de .env, lu par le core et les services).")
 
 
-def step_rag(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any], rag: Dict[str, Any]) -> None:
+def step_rag(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> None:
     title("4/8  RAG (recherche dans les documents)")
     rsec = section(cfg, "rag")
+    emb, rr, ocr = section(rsec, "embed"), section(rsec, "reranker"), section(rsec, "ocr")
+    deja = str(emb.get("url") or "").strip()
     enabled = as_bool(pick(a.rag, "ELPIS_CFG_RAG", rsec.get("enabled"), True))
     enabled = p.yes("Activer le RAG ?", enabled)
     rsec["enabled"] = enabled
     rsec.setdefault("service_url", "http://127.0.0.1:8000")
     if not enabled:
-        info("RAG désactivé.")
+        emb["url"] = ""
+        info("RAG désactivé (aucun serveur d'embeddings).")
         return
-    embed = norm_base(pick(a.embed_url, "ELPIS_CFG_EMBED_URL", rag.get("embed_base_url"), "http://127.0.0.1:8081"))
+    embed = norm_base(pick(a.embed_url, "ELPIS_CFG_EMBED_URL", deja, "http://127.0.0.1:8081"))
     embed = norm_base(p.ask("URL du serveur d'embeddings (OpenAI-compatible, /v1/embeddings)",
                             embed, validate=valid_url, allow_empty=False))
     models, err = list_models(embed)
-    emodel = pick(a.embed_model, "ELPIS_CFG_EMBED_MODEL", rag.get("embed_model"), "bge-m3")
+    emodel = pick(a.embed_model, "ELPIS_CFG_EMBED_MODEL", emb.get("model"), "bge-m3")
     if models:
         ok(f"{embed} répond : {len(models)} modèle(s).")
         if emodel not in models:
@@ -638,28 +641,35 @@ def step_rag(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any], rag: Dict[
     else:
         warn(f"{embed}/v1/models ne répond pas ({err}) : l'indexation échouera tant qu'il est arrêté.")
         emodel = p.ask("Modèle d'embeddings", emodel, allow_empty=False)
-    rag["embed_base_url"] = embed
-    rag["embed_model"] = emodel
+    emb["url"], emb["model"] = embed, emodel
 
-    rr = section(rag, "reranker")
     rr_url = pick(a.reranker_url, "ELPIS_CFG_RERANKER_URL", rr.get("url") if rr.get("enabled") else "", "")
     rr_url = p.ask("URL du reranker (facultatif, vide = aucun)", rr_url, validate=valid_url)
     rr["enabled"] = bool(rr_url)
     rr["url"] = norm_base(rr_url) if rr_url else ""
 
-    ocr = section(rag, "ocr")
-    cur_ocr = ((f"http://{ocr.get('host')}:{ocr.get('port')}" if ocr.get("host") else ocr.get("endpoint_url") or "")
-               if ocr.get("enabled") else "")
-    ocr_url = pick(a.ocr_url, "ELPIS_CFG_OCR_URL", cur_ocr, "")
+    ocr_url = pick(a.ocr_url, "ELPIS_CFG_OCR_URL", ocr.get("url"), "")
     ocr_url = p.ask("URL du serveur OCR vision (facultatif, vide = aucun)", ocr_url, validate=valid_url)
-    ocr["enabled"] = bool(ocr_url)
-    if ocr_url:
-        # ``host``/``port`` priment sur ``endpoint_url`` (rag_app/ocr/config.py).
-        from urllib.parse import urlsplit
-        u = urlsplit(norm_base(ocr_url))
-        ocr["host"], ocr["port"], ocr["endpoint_url"] = u.hostname or "", u.port or 80, ""
+    ocr["url"] = norm_base(ocr_url) if ocr_url else ""
     ok(f"RAG : embeddings {embed} ({emodel})"
-       + (", reranker" if rr["enabled"] else "") + (", OCR" if ocr["enabled"] else ""))
+       + (", reranker" if rr["enabled"] else "") + (", OCR" if ocr["url"] else ""))
+
+
+def migrer_rag(silencieux: bool = False) -> bool:
+    """Passage au RAG intégré (une fois) : jamais bloquant, un échec est signalé et retenté au lancement suivant."""
+    try:
+        import rag_ancien
+    except ImportError:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import rag_ancien
+    try:
+        rapport = rag_ancien.migrer(ROOT, journal=(lambda _m: None) if silencieux else info)
+    except Exception as e:                                      # noqa: BLE001
+        warn(f"Ancien RAG non nettoyé ({e.__class__.__name__} : {str(e)[:200]}) : retenté au prochain ./elpis start.")
+        return False
+    if not rapport.get("deja_fait") and not silencieux and not (rapport.get("supprimes") or rapport.get("reglages")):
+        info("RAG : aucun ancien RAG à supprimer.")
+    return True
 
 
 def step_sandbox(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> None:
@@ -1212,7 +1222,11 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--answers", metavar="FICHIER",
                    help="réponses de l'assistant (deploy/wizard.py) : aucune question")
     g.add_argument("--migrer-mcp", action="store_true",
-                   help="migrations de mcp.json seules (relais, familles manquantes, familles du compte), sans question (./elpis start et upgrade)")
+                   help="migrations sans question : mcp.json (relais, familles manquantes, familles du compte) et passage au RAG "
+                        "intégré (./elpis start et upgrade)")
+    g.add_argument("--migrer-rag", action="store_true",
+                   help="passage au RAG intégré seul, une fois : réglages repris dans config.json, ancien RAG supprimé "
+                        "(./install.sh, ./elpis upgrade)")
     g.add_argument("--verifier-mcp", action="store_true",
                    help="code 1 si mcp.json vise encore l'ancien service appmcp (:8766) (./elpis doctor)")
     g.add_argument("--verifier-familles-mcp", action="store_true",
@@ -1360,8 +1374,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         migrate_sandbox_relay(chemin)
         migrate_missing_families(chemin)
         migrate_app_entries(chemin)
-
+        migrer_rag()
         return 0
+    if a.migrer_rag:
+        return 0 if migrer_rag() else 1
     if a.check_llm:
         return check_llm(a)
     if a.conseils_moteur:
@@ -1382,6 +1398,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     p = Prompter(interactive)
     os.chdir(ROOT)
 
+    migrer_rag()
     if CONFIG.exists() and not a.force:
         cfg = read_json(CONFIG)
         info("config.json existant : les valeurs actuelles sont proposées par défaut.")
@@ -1390,9 +1407,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             shutil.copy2(CONFIG, ROOT / "config.json.bak")
             info("Ancienne configuration sauvegardée dans config.json.bak.")
         cfg = read_json(ROOT / "config.example.json")
-    if not RAG_CONFIG.exists():
-        shutil.copy2(ROOT / "rag_app" / "rag_config.example.json", RAG_CONFIG)
-    rag = read_json(RAG_CONFIG)
     env = read_env_file()
 
     if interactive:
@@ -1401,15 +1415,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     cloud = step_cloud(p, a)
     https = step_access(p, a, cfg, env)
     step_ca(a, env)
-    step_rag(p, a, cfg, rag)
+    step_rag(p, a, cfg)
     step_sandbox(p, a, cfg)
     step_voice(p, a, cfg)
     transfer = step_database(p, a, cfg)
     step_secrets(cfg, a.force)
 
     write_json(CONFIG, cfg)
-    write_json(RAG_CONFIG, rag)
-    ok("config.json et rag_app/rag_config.json écrits (0600).")
+    ok("config.json écrit (0600).")
     # Avant le compte admin : init_db() poserait le schéma dans la base vide,
     # et le transfert exige une cible vierge.
     if transfer and not apply_db_transfer(transfer):

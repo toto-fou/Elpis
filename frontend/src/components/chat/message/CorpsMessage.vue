@@ -4,6 +4,7 @@
 import { computed } from "vue";
 
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
+import { domaineRagOptionnel } from "../../../features/rag/domaine";
 
 import ReflexionMessage from "./ReflexionMessage.vue";
 import TravailAssistant from "./TravailAssistant.vue";
@@ -15,6 +16,7 @@ import FichiersModifies from "./FichiersModifies.vue";
 import ImageGrid from "../../images/ImageGrid.vue";
 import ImageTile from "../../images/ImageTile.vue";
 import PiedMessage from "./PiedMessage.vue";
+import PiedSources from "../../rag/PiedSources.vue";
 
 import type { EntreeMessage, FichierJoint } from "../../../features/chat/message/types";
 
@@ -23,6 +25,11 @@ const props = withDefaults(defineProps<{ entry: EntreeMessage; pied?: boolean; t
   texte: undefined,
 });
 const fil = domaine(CLE_FIL);
+const rag = domaineRagOptionnel();
+// Renvois [n] : seulement une réponse de l'assistant dans une conversation qui a affaire au RAG.
+const renvois = computed(() =>
+  props.entry.msg.role === "assistant" ? (rag?.sources.renvoisPour(props.entry.idx) ?? null) : null,
+);
 const emit = defineEmits<{ "zoom-image": [url: string] }>();
 
 const phase = computed(() =>
@@ -162,6 +169,7 @@ function masquerBouton(e: Event): void {
       v-else
       :msg="entry.msg"
       :recherche="fil.messageSearchQ && fil.messageSearchActive ? fil.messageSearchQ : ''"
+      :renvois="renvois"
       @click-markdown="fil.handleMarkdownClick"
     ></ContenuMarkdown>
     <div
@@ -216,6 +224,8 @@ function masquerBouton(e: Event): void {
     </div>
   </div>
 
+  <PiedSources v-if="rag && entry.msg.role === 'assistant' && entry.msg.rag_sources?.length" :entry="entry" />
+
   <FichiersModifies :entry="entry" />
 
   <PiedMessage v-if="pied" :entry="entry" :texte="texte" />
@@ -231,7 +241,7 @@ function masquerBouton(e: Event): void {
   </div>
 
   <div
-    v-if="entry.msg._ragSources && entry.msg._ragSources.length"
+    v-if="!rag && entry.msg._ragSources && entry.msg._ragSources.length"
     class="mt-2 flex items-start gap-1.5 text-[11.5px] text-slate-500"
     :title="entry.msg._ragSources.join('\n')"
   >

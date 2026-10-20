@@ -4460,6 +4460,26 @@ mark.elpis-search-hit {
     background: rgba(15, 23, 42, 0.6); color: #fff; font-size: 0.5625rem; font-weight: 500;
 }
 
+/* Collection RAG active, au-dessus de la saisie (comme un skill épinglé). */
+.elpis-rag-chip {
+    display: inline-flex; align-items: center; gap: 0.375rem; max-width: 280px;
+    padding: 0.25rem 0.25rem 0.25rem 0.5rem; border-radius: var(--radius-lg);
+    border: 1px solid var(--accent-border); background: var(--accent-surface);
+    color: var(--accent-text-strong); font-size: 0.6875rem; line-height: 1rem;
+}
+.elpis-rag-chip__icone { font-size: 0.75rem; color: var(--accent-text); flex: none; }
+.elpis-rag-chip__nom { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.elpis-rag-chip__auteur {
+    color: var(--text-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; max-width: 6rem;
+}
+.elpis-rag-chip__retirer {
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: 1.125rem; height: 1.125rem; border-radius: var(--radius-sm);
+    color: var(--accent-text); font-size: 0.6875rem; background: transparent;
+}
+.elpis-rag-chip__retirer:hover { color: var(--accent-text-strong); background: var(--accent-surface-2); }
+.elpis-rag-chip__retirer:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
+
 /* Ligne de la demande, sous la bulle utilisateur. */
 .elpis-img-reqline {
     margin-top: 0.375rem; display: flex; align-items: center; gap: 0.35rem;
@@ -4661,3 +4681,49 @@ mark.elpis-search-hit {
     grid-column: 1 / -1; padding: 2rem 0; text-align: center; font-size: 0.8125rem; color: var(--text-500);
 }
 .elpis-img-gallery__empty.is-err { color: var(--danger-text); }
+
+/* ── Console › RAG ─────────────────────────────────────────────────
+   Jetons du thème seulement : services, droits, quotas, collections,
+   réindexation. Les cartes, lignes, boutons et champs sont ceux de la console. */
+.adm-rag-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; min-width: 0; }
+.adm-rag-resultat { margin-top: 0.5rem; font-size: 0.8125rem; line-height: 1.25rem; overflow-wrap: anywhere; }
+.adm-rag-resultat[data-state="ok"] { color: var(--ok-text-strong); }
+.adm-rag-resultat[data-state="down"] { color: var(--danger-text); }
+.adm-rag-note { font-size: 0.75rem; line-height: 1.125rem; color: var(--text-500); max-width: 68ch; }
+.adm-rag-regles { margin: 0; padding-left: 1.1rem; font-size: 0.8125rem; line-height: 1.25rem; color: var(--text-600); max-width: 68ch; }
+.adm-rag-regles li + li { margin-top: 0.25rem; }
+.adm-rag-avert {
+    display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.625rem 0.875rem;
+    border: 1px solid var(--warn-border); background: var(--warn-surface); color: var(--warn-text-strong);
+    border-radius: var(--radius-lg); font-size: 0.8125rem; line-height: 1.25rem;
+}
+.adm-rag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.75rem 1rem; min-width: 0; }
+.adm-rag-champ { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.adm-rag-champ label { font-size: 0.75rem; font-weight: 500; color: var(--text-600); }
+.adm-rag-outils {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem;
+    padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border-soft);
+}
+.adm-rag-outils .set-input,
+.adm-rag-outils .set-select { width: auto; min-width: 11rem; padding-block: 0.375rem; }
+.adm-rag-panneau { background: var(--surface-2); padding: 0.875rem 1.25rem; white-space: normal !important; }
+.adm-table tbody tr.adm-rag-panneau-ligne:hover td { background: var(--surface-2); }
+.adm-rag-pied {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    padding: 0.625rem 1.25rem; border-top: 1px solid var(--border-soft); font-size: 0.75rem; color: var(--text-500);
+}
+th.adm-rag-num, td.adm-rag-num { text-align: right; font-variant-numeric: tabular-nums; }
+.adm-rag-depasse { color: var(--danger-text); font-weight: 600; }
+.adm-rag-pastille {
+    display: inline-flex; align-items: center; padding: 0.0625rem 0.5rem; border: 1px solid var(--border);
+    border-radius: 9999px; font-size: 0.6875rem; line-height: 1.125rem; font-weight: 500;
+    color: var(--text-600); background: var(--surface); white-space: nowrap;
+}
+.adm-rag-pastille[data-state="ok"] { color: var(--ok-text-strong); border-color: var(--ok-border); background: var(--ok-surface); }
+.adm-rag-pastille[data-state="travail"] { color: var(--accent-text-strong); border-color: var(--accent-border); background: var(--accent-surface); }
+.adm-rag-pastille[data-state="erreur"] { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-surface); }
+.adm-rag-barre { height: 0.5rem; border-radius: 9999px; background: var(--surface-3); overflow: hidden; }
+.adm-rag-barre > span { display: block; height: 100%; background: var(--accent); transition: width .3s ease; }
+@media (prefers-reduced-motion: reduce) { .adm-rag-barre > span { transition: none; } }
+.adm-rag-valeur { font-size: 0.875rem; color: var(--text-700); }
+.peer:checked ~ .set-switch-track.adm-rag-sw { background: var(--accent); border-color: var(--accent); }

@@ -17,6 +17,7 @@ import { _thinkingTitle } from "../flux/titre-reflexion";
 import { creerHistoriqueChat } from "../historique/historique";
 import { creerJobs } from "../jobs/jobs";
 import { imageInitialProgress } from "../../images/formats";
+import { creerCollectionsChat, ecouterEvenementsRag } from "../../rag/collections-chat";
 import type { DemandeImage } from "../../images/formats";
 import type { CtxImages, RefsImages, SurfaceImages } from "../../images/images";
 import type {
@@ -105,7 +106,6 @@ export function setupChat(
   );
   const panneaux: Record<string, { value: boolean }> = {
     mcp: e.showMcpPanel,
-    rag: e.showRagPanel,
     sampling: echantillonnage.showSamplingPanel,
   };
   // Un seul panneau du chat ouvert à la fois ; l'ouverture charge ce qu'il affiche.
@@ -119,6 +119,11 @@ export function setupChat(
   }
 
   const outils = creerOutilsChat(c);
+  const ragChat = creerCollectionsChat({
+    fetchAuth: ctx.fetchAuth,
+    showToast: ctx.showToast,
+    currentChatId,
+  });
   let images: SurfaceImages | null = null;
   const composeur = creerComposeur(
     Vue,
@@ -145,6 +150,9 @@ export function setupChat(
       imageSlash: (raw: unknown) => envoi.runImageSlash(raw),
       get jobs() {
         return jobs.jobsSlash;
+      },
+      get rag() {
+        return ctx.ragCommande ?? null;
       },
       get userName() {
         const u = user.value;
@@ -319,6 +327,7 @@ export function setupChat(
       resetAskUser: questionnaire.resetAskUser,
       closeTaskModal: segments.closeTaskModal,
       applyChatPlanMode: outils.applyChatPlanMode,
+      applyChatRag: (rag: unknown) => ragChat.appliquerDuChat(rag),
       applyChatCtxUsage: (u: unknown, id: string) => outils.applyChatCtxUsage(u, id),
     } as unknown as DepsHistorique,
     session,
@@ -482,6 +491,8 @@ export function setupChat(
     excludedNames: outils.excludedNames,
     pinnedServers: outils.pinnedServers,
     pinnedSkillNames: () => (composeurTyped.pinnedSkills.value || []).map((s) => s.name),
+    ragEnAttente: () => ragChat.enAttente(),
+    ragCreation: (ids: unknown) => ragChat.confirmerCreation(ids),
     clearPinnedSkills: () => {
       composeurTyped.pinnedSkills.value = [];
     },
@@ -514,6 +525,7 @@ export function setupChat(
     e.attachedFiles.value = [];
     inputMessage.value = "";
     composeurTyped.pinnedSkills.value = [];
+    ragChat.vider();
     questionnaire.resetAskUser();
     e.todoList.value = [];
     e.queueStatus.value = null;
@@ -549,6 +561,18 @@ export function setupChat(
     e.editingChatTitle.value = false;
     e.chatTitleDraft.value = "";
   }
+
+  ecouterEvenementsRag(ragChat, {
+    nouveauChat: () => historique.startNewChat(),
+    apres: () => void nextTick(() => inputRef.value?.focus()),
+  });
+  watch(
+    user,
+    (u, avant) => {
+      if (u && !avant) void ragChat.rafraichir();
+    },
+    { immediate: true },
+  );
 
   const composerPlaceholder =
     window.innerWidth < 640 ? "Envoyer un message..." : "Envoyer un message... (@ pour insérer un fichier)";
@@ -602,9 +626,9 @@ export function setupChat(
     localTools: e.localTools,
     mcpUserCategories: e.mcpUserCategories,
     showMcpPanel: e.showMcpPanel,
-    showRagPanel: e.showRagPanel,
-    ragDropdownRef: e.ragDropdownRef,
-    ragCollections: e.ragCollections,
+    ragChat,
+    ragActives: ragChat.actives,
+    retirerCollectionRag: (id: string) => ragChat.retirer(id),
     manifestServers: e.manifestServers,
     manifestTools: e.manifestTools,
     loadManifestServers: outils.loadManifestServers,
@@ -715,6 +739,7 @@ export function setupChat(
     promptPreview: composeur.promptPreview,
     slashHeaderIcon: composeur.slashHeaderIcon,
     slashHeaderLabel: composeur.slashHeaderLabel,
+    slashHeaderCmd: composeur.slashHeaderCmd,
     templatesAll: composeur.templatesAll,
     loadTemplates: composeur.loadTemplates,
     openTemplate: composeur.openTemplate,
@@ -736,7 +761,6 @@ export function setupChat(
     startSkillAssistantChat: envoi.startSkillAssistantChat,
     launchSkillAssistantChat: envoi.launchSkillAssistantChat,
     skillAssistForm: e.skillAssistForm,
-    startDocumentChat: envoi.startDocumentChat,
     renderMarkdown: renduChat.renderMarkdown,
     renderMarkdownHighlight: renduChat.renderMarkdownHighlight,
     handleMarkdownClick: renduChat.handleMarkdownClick,

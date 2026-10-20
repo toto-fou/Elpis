@@ -14,6 +14,11 @@ réflexion des modèles servis par vLLM ou SGLang s'affiche dans le chat. Les
 anciens `config.json` marchent tels quels. Détail : docs/configuration.md,
 « Moteur d'inférence déclaré ».
 
+**RAG intégré.** Le RAG passe dans le core : chaque compte range ses
+documents dans des collections, les publie à ses groupes ou à tous les
+comptes, et les interroge depuis le chat, sources citées à l'appui. Seule la
+lecture des documents reste en Python, dans l'extracteur `rag_app`.
+
 ### Pour l'exploitant
 
 - **`llama.engine` : `vllm` et `sglang`.** Valeurs admises : `llamacpp`
@@ -64,6 +69,34 @@ anciens `config.json` marchent tels quels. Détail : docs/configuration.md,
   (HTTP 401) » le cas échéant), rappelle les drapeaux conseillés pour vLLM
   et SGLang et, si `main` tourne, affiche sa dernière sonde du moteur (lignes
   `[moteur]` du journal, depuis le dernier démarrage).
+- **L'ancien RAG est supprimé à la mise à jour, sans import** : collections
+  Qdrant qui ne sont pas `elpis_*`, `rag_app/DATA/`, `rag_app/OCR_STORE/`,
+  `rag_config.json`, `rag_state.json`, `rag_ocr_state.json`,
+  `rag_traces.json`. Avant la mise à jour : `./elpis backup full`, et une copie
+  de `rag_app/DATA/` pour garder ces documents (ils n'ont jamais été dans les
+  archives). Les réglages d'embeddings, de reclassement et d'OCR passent dans
+  `config.json › rag`. Procédure : docs/exploitation.md, « Passage au RAG
+  intégré » (`./install.sh --yes --service` ; après un `./elpis upgrade`,
+  `sudo apt install bubblewrap` puis `sudo ./elpis service install`).
+- **Configuration** dans `config.json › rag`, relue à chaud : magasin,
+  Qdrant, embeddings, reclassement, OCR, groupes autorisés, quotas par compte,
+  indexation (docs/configuration.md, « RAG »). La console (Modèles & services ›
+  RAG) teste les services, règle droits et quotas, liste toutes les
+  collections sans en montrer le contenu, relance la réindexation après un
+  changement de modèle d'embedding et suit les travaux.
+- **Extracteur** : même service `elpis-rag` et même port 8000, en local
+  seulement ; ses analyses et LibreOffice tournent dans une prison bubblewrap
+  (le paquet rejoint le socle des prérequis). Caddy n'a plus de site `:8444`
+  (`sudo deploy/caddy/install_caddy.sh` le retire d'une installation
+  existante).
+- `./elpis doctor` vérifie l'extracteur et son isolation, le magasin partagé
+  et le jeton, Qdrant, le serveur d'embeddings et l'OCR.
+- **Sauvegardes** : le magasin `user_db/rag` (documents et textes extraits)
+  entre dans l'archive complète ; ni le cache de l'extracteur ni l'index
+  Qdrant, que la réindexation de la console reconstruit après une
+  restauration sur une autre machine.
+- **Suppression d'un compte** : ses collections, ses fichiers et ses vecteurs
+  disparaissent ; les comptes qui lisaient ses publications sont prévenus.
 
 ### Pour l'utilisateur
 
@@ -85,6 +118,33 @@ anciens `config.json` marchent tels quels. Détail : docs/configuration.md,
 - **Barre de saisie : le nom du modèle seul.** Le serveur (vLLM, SGLang,
   connecteur…) n'y est plus accolé : les sections du menu le montrent déjà,
   et il reste dans l'infobulle.
+- **Page RAG** (barre latérale, sous Sandbox) : collections, dépôt de
+  fichiers et de dossiers, import depuis la sandbox, progression de
+  l'indexation, onglet Tester (passages que l'assistant recevrait), réglages
+  (description lue par l'assistant, découpage, OCR des documents scannés).
+- **Publication** : privée, groupes dont on est membre, ou tous les comptes
+  (administrateurs) ; ouverture des documents sources au choix ; les lecteurs
+  cherchent sans rien modifier et peuvent masquer une collection de leur liste.
+- **Chat** : collections actives en pastilles au-dessus de la saisie,
+  « Discuter avec », commande `/rag` (`use`, `off`, `search`, `add`, `new`,
+  `status`, `open`), outils `rag_search`, `rag_read`, `rag_list` et
+  `rag_index`. Les renvois deviennent des pastilles numérotées, avec une bulle,
+  un pied de sources et une visionneuse (page réelle avec le passage surligné,
+  texte extrait, original si le propriétaire l'a permis).
+- Le panneau « Sources RAG » de la saisie et l'interrupteur RAG des
+  Paramètres disparaissent.
+
+### Sécurité
+
+- Droits vérifiés par une seule fonction pour chaque route et chaque outil ;
+  une collection invisible répond 404 ; l'administrateur ne lit jamais une
+  collection qui ne lui est pas ouverte.
+- Passages, noms et descriptions neutralisés avant d'atteindre le modèle
+  (balises, jetons de rôle) ; les passages d'un autre compte portent son nom.
+- Dépôts bornés par le quota de stockage du compte ; lectures passage par
+  passage plafonnées pour un lecteur qui n'a pas accès aux sources.
+- Secrets de `config.json` : une seule liste pour le masque du serveur et de
+  la console, clé de l'OCR et jetons clients du pont MCP compris.
 
 ## 0.1.0 — 2026-10-18
 

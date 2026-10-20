@@ -3,7 +3,6 @@
 import { getUserSettings, getUsernameById, ligneUtilisateur } from "@elpis/auth";
 import {
   BLANC_PY,
-  ErreurPython,
   estDict,
   FlottantPy,
   getOu,
@@ -16,6 +15,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
+import type { ReglageRagChat, SourceCiteeRag } from "@elpis/contracts";
 import { config } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import {
@@ -45,15 +45,21 @@ import { continueFinalSupport } from "../llm/parametres";
 import { diffusion, ErreurPortAbsent } from "../llm/ports";
 import { buildDefaultManager } from "../memoire/gestionnaire";
 import type { MemoryManager } from "../memoire/gestionnaire";
-import type { OutilIntegre } from "../outils/catalogue";
-import { buildRagBuiltinTools } from "../outils/integres/rag";
 import { hasActiveAgents } from "../outils/integres/taches-agents";
 import { assembleSystemMessages } from "../prompts/systeme";
-import { applyRag } from "../rag/rag";
-import { moduleRequeteRag } from "../rag/requete";
+import {
+  annonceRagDuTour,
+  annonceVisibleRag,
+  collectionsActivesRag,
+  derniereAnnonceRag,
+  lireReglageRagChat,
+  reglageRagDe,
+} from "../rag/chat";
+import { sourcesRagDesMessages } from "../rag/sources-message";
 import {
   expandHistoryForLlm,
   graftStoppedTurnState,
+  greffeSourcesRag,
   lastUserText,
   msgText,
   normalizeClientMessages,
@@ -81,8 +87,8 @@ export interface TurnPlan {
   readonly thinkingMode: boolean;
   readonly samplingOverride: Dict | null;
   readonly activeMcpServers: Dict[];
-  readonly ragMeta: Dict | null;
-  readonly ragCollection: unknown;
+  /** RAG du tour : collections actives lisibles au début du tour (aucune = aucun outil `rag_*`), réglage et sources déjà numérotées. */
+  readonly rag: PlanRag | null;
   readonly mcpOn: boolean;
   readonly agentsOn: boolean;
   readonly memoryOn: boolean;
@@ -113,15 +119,23 @@ export interface TurnPlan {
   readonly depth?: number;
   /** Événements de jobs joints à la question (suffixe persisté, rejoué octet pour octet). */
   readonly jobSuffix?: string | null;
+  /** Bloc `<rag_context>` joint à la question, devant les événements de jobs (même suffixe persisté). */
+  readonly ragSuffix?: string | null;
   /** Instantané sans secret ni adresse, porté par le registre des tours pendant le tour. */
   readonly instantane?: Readonly<Dict>;
 }
 
-/** Persistance (vide en session éphémère), mémoire (fermée par le worker), outils RAG intégrés. */
+/** Persistance (vide en session éphémère), mémoire (fermée par le worker). */
 export interface TurnResources {
   readonly persistChat: Persister;
   readonly memManager: MemoryManager | null;
-  readonly ragBuiltinTools: Record<string, OutilIntegre> | null;
+}
+
+export interface PlanRag {
+  readonly collections: readonly string[];
+  readonly mode: ReglageRagChat["mode"];
+  readonly topK: number;
+  readonly precedentes: readonly SourceCiteeRag[];
 }
 
 /** Base de l'enregistrement optimiste et état de compression précédent ; recalée après une passation et par le tour. */
@@ -185,16 +199,6 @@ const egal0 = (v: unknown): boolean =>
 const nombre = (v: unknown): number | null =>
   typeof v === "number" ? v : v instanceof FlottantPy ? v.valeur : null;
 
-function entierBorne(v: unknown): number {
-  try {
-    return intPy(v);
-  } catch (e) {
-    if (e instanceof ErreurPython && (e.type === "TypeError" || e.type === "ValueError"))
-      throw new HttpError(400, "rag_top_k / ctx_size doivent être des entiers");
-    throw e;
-  }
-}
-
 /** Serveurs MCP actifs résolus CÔTÉ SERVEUR (jamais repris du client), catégories demandées gardées. */
 async function resoudreServeurs(base: Base, uid: number, settings: Dict, actifs: unknown[]): Promise<Dict[]> {
   const stdioOk = await stdioAllowedFor(base, uid);
@@ -249,6 +253,14 @@ function refsServeurs(actifs: unknown): Dict[] {
   return refs;
 }
 
+/** Suffixe de la question du tour : bloc `<rag_context>` puis événements de jobs, comme il sera enregistré et rejoué. */
+export function suffixeDeQuestion(
+  ragSuffix: string | null | undefined,
+  jobSuffix: string | null | undefined,
+): string {
+  return [ragSuffix, jobSuffix].filter((s): s is string => typeof s === "string" && s !== "").join("\n\n");
+}
+
 /** Événements de jobs joints à la dernière question vue par le modèle (même fusion que le rappel des tâches). */
 function joindreALaQuestion(msgs: Dict[], texte: string): void {
   for (let i = msgs.length - 1; i >= 0; i--) {
@@ -286,13 +298,6 @@ export async function prepareTurn(
     .map((t) => prefixePy(stripPy(t), 64))
     .slice(0, 96);
   const exclusDemandes = [...uiExcl];
-  const useRag = veritePy(getOu(data, "use_rag", false));
-  const ragCollection = getOu(data, "rag_collection", "");
-  let ragSearchMode = getOu(data, "rag_search_mode", "classic");
-  if (!["classic", "hybrid", "bm25"].includes(ragSearchMode as string)) ragSearchMode = "classic";
-  const ragTopK = Math.max(1, Math.min(entierBorne(getOu(data, "rag_top_k", 8)), 20));
-  const ragUseMmr = veritePy(getOu(data, "rag_use_mmr", true));
-  const ragCtxSize = Math.max(0, entierBorne(getOu(data, "ctx_size", 0)));
   const selectedModel = typeof data["model"] === "string" ? data["model"] : null;
   const thinkingMode = veritePy(getOu(data, "thinking_mode", false));
   let cidInt: number | null;
@@ -416,6 +421,7 @@ export async function prepareTurn(
     } catch (e) {
       log.debug(`[chat.graft_stopped_tool_history] ${String(e)}`);
     }
+    greffeSourcesRag(msgs, existingChat["messages"]);
   }
   if (messages.every((m) => m["role"] === "notice"))
     throw new HttpError(400, "messages: aucun message valide dans le payload");
@@ -499,25 +505,33 @@ export async function prepareTurn(
     comprPrevState = null;
   }
 
-  let ragMeta: Dict | null = null;
-  let ragBuiltinTools: Record<string, OutilIntegre> | null = null;
-  if (useRag) {
-    ragBuiltinTools = buildRagBuiltinTools({
-      module: moduleRequeteRag(),
-      collection: strPy(ragCollection ?? ""),
-      searchMode: ragSearchMode as string,
-      topK: ragTopK,
-      useMmr: ragUseMmr,
-      ctxSize: ragCtxSize,
-    });
-    if (Object.keys(ragBuiltinTools).length) ragMeta = { enabled: true, used: true, mode: "tools" };
-    else {
-      [msgsForLlm, ragMeta] = await applyRag(
-        msgsForLlm,
-        veritePy(ragCollection) ? strPy(ragCollection) : null,
-        ragSearchMode as string,
+  let rag: PlanRag | null = null;
+  let ragSuffix: string | null = null;
+  if (!ephemeral && (existingChat || chatReadFailed)) {
+    const reglage = chatReadFailed
+      ? await lireReglageRagChat(base, uid, chatId)
+      : reglageRagDe((existingChat ?? {})["rag"]);
+    const actives = reglage ? await collectionsActivesRag(base, uid, reglage.collections) : [];
+    if (actives.length && reglage)
+      rag = {
+        collections: actives.map((c) => c.id),
+        mode: reglage.mode,
+        topK: reglage.top_k,
+        precedentes: sourcesRagDesMessages([
+          ...(Array.isArray((existingChat ?? {})["messages"])
+            ? ((existingChat ?? {})["messages"] as unknown[])
+            : []),
+          ...messages,
+        ]),
+      };
+    if (!isContinue && reveil === null && !chatReadFailed) {
+      const rang = messages.filter((m) => m["role"] === "user").length - 1;
+      const derniere = derniereAnnonceRag(messages, (existingChat ?? {})["llm_user_suffixes"], rang);
+      // Annonce résumée par la compaction : le modèle ne la voit plus, elle est refaite.
+      ragSuffix = annonceRagDuTour(
+        actives,
+        derniere !== null && !annonceVisibleRag(msgsForLlm, derniere) ? null : derniere,
       );
-      ragBuiltinTools = null;
     }
   }
 
@@ -550,8 +564,9 @@ export async function prepareTurn(
     } catch (e) {
       log.warn(`[jobs] événements non joints au message : ${String(e)}`);
     }
-    if (jobSuffix) joindreALaQuestion(msgsForLlm, jobSuffix);
   }
+  const suffixe = suffixeDeQuestion(ragSuffix, jobSuffix);
+  if (suffixe) joindreALaQuestion(msgsForLlm, suffixe);
   const plan: TurnPlan = {
     userId: uid,
     chatId,
@@ -567,8 +582,7 @@ export async function prepareTurn(
     thinkingMode,
     samplingOverride,
     activeMcpServers,
-    ragMeta,
-    ragCollection,
+    rag,
     mcpOn,
     agentsOn,
     memoryOn,
@@ -596,6 +610,7 @@ export async function prepareTurn(
     wake: reveil?.wake ?? null,
     depth: reveil?.depth ?? 0,
     jobSuffix,
+    ragSuffix,
     instantane: {
       run_id: runId,
       model: selectedModel,
@@ -612,7 +627,7 @@ export async function prepareTurn(
   const ex = existingChat;
   return [
     plan,
-    { persistChat, memManager, ragBuiltinTools },
+    { persistChat, memManager },
     {
       updatedAt: ex ? ex["updated_at"] : null,
       messages: ex ? ex["messages"] : null,

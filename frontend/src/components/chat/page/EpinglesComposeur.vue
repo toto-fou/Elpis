@@ -1,13 +1,47 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/EpinglesComposeur.vue — skills épinglés par /skill et image à modifier, au-dessus de la saisie. -->
+<!-- frontend/src/components/chat/page/EpinglesComposeur.vue — collections RAG actives, skills épinglés par /skill et image à modifier, au-dessus de la saisie. -->
 <script setup lang="ts">
 import { CLE_COMPOSEUR, CLE_IMAGE, domaine } from "../../../features/chat/page/domaines";
 
 const comp = domaine(CLE_COMPOSEUR);
 const img = domaine(CLE_IMAGE);
+
+// Bulle d'une pastille : auteur d'une collection partagée, puis sa description.
+function titreCollection(c: { description: string; auteur: string | null }): string {
+  return [c.auteur ? `Partagée par ${c.auteur}` : "", c.description].filter(Boolean).join("\n");
+}
 </script>
 
 <template>
+  <div
+    v-if="comp.ragActives.length > 0"
+    class="flex flex-wrap gap-1.5 px-3 pt-3 pb-1"
+    role="list"
+    aria-label="Collections interrogées dans cette conversation"
+    data-rag-actives
+  >
+    <span
+      v-for="c in comp.ragActives"
+      :key="c.id"
+      class="elpis-rag-chip"
+      role="listitem"
+      :title="titreCollection(c) || undefined"
+      :data-rag-collection="c.id"
+    >
+      <i class="ph ph-books elpis-rag-chip__icone" aria-hidden="true"></i>
+      <span class="elpis-rag-chip__nom">{{ c.name }}</span>
+      <span v-if="c.auteur" class="elpis-rag-chip__auteur">{{ c.auteur }}</span>
+      <button
+        type="button"
+        class="elpis-rag-chip__retirer"
+        :aria-label="`Ne plus interroger ${c.name}`"
+        title="Retirer"
+        @click="comp.retirerCollectionRag(c.id)"
+      >
+        <i class="ph ph-x" aria-hidden="true"></i>
+      </button>
+    </span>
+  </div>
   <div v-if="comp.pinnedSkills.length > 0" class="flex flex-wrap gap-1.5 px-3 pt-3 pb-1">
     <span
       v-for="sk in comp.pinnedSkills"

@@ -58,7 +58,8 @@ export function creerClavier(s: EtatClavier) {
       vrai(a?.resetTarget) ||
       vrai(m.auth?.showNewUserModal) ||
       !!a?.groupModal.value.show ||
-      !!a?.groupMembersModal.value.show
+      !!a?.groupMembersModal.value.show ||
+      vrai(m.rag?.dialogueOuvert)
     );
   });
 
@@ -87,6 +88,8 @@ export function creerClavier(s: EtatClavier) {
       s.handleModalCancel();
       return;
     }
+    // Boîtes de la page RAG (Publier, Nouvelle collection, import du bac) : au-dessus de la page.
+    if (m.rag?.fermerDialogue()) return;
     if (c?.imageViewer.value) {
       c.closeImageViewer();
       return;
@@ -239,7 +242,7 @@ export function creerClavier(s: EtatClavier) {
       c.closeMentionDropdown();
       return;
     }
-    for (const panneau of [c?.showSamplingPanel, c?.showMcpPanel, c?.showRagPanel, c?.showComposerPlus]) {
+    for (const panneau of [c?.showSamplingPanel, c?.showMcpPanel, c?.showComposerPlus]) {
       if (panneau?.value) {
         panneau.value = false;
         return;
@@ -272,6 +275,8 @@ export function creerClavier(s: EtatClavier) {
       s.closeContextMenu();
       return;
     }
+    // Bulle puis visionneuse d'une source du RAG : volet du chat, avant les pages plein écran.
+    if (s.currentView.value === "chat" && m.rag?.sources.echap()) return;
     // Pages plein écran en dernier : une fenêtre ouverte par-dessus se ferme d'abord.
     const vue = s.currentView.value;
     if (vue === "routines") {
@@ -279,6 +284,12 @@ export function creerClavier(s: EtatClavier) {
       // En pleine édition, Échap revient à la lecture (même geste que la flèche) au lieu de tout jeter.
       if (ro?.routineIsEditing.value) ro.cancelRoutineEdit();
       else if (ro) ro.closeRoutinesPage();
+      else s.currentView.value = "chat";
+      return;
+    }
+    if (vue === "rag") {
+      if (m.rag?.echapPage()) return;
+      if (m.rag) m.rag.fermer();
       else s.currentView.value = "chat";
       return;
     }

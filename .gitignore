@@ -35,6 +35,7 @@ Mo/
 .code/
 .opencode-runtime/
 .load-instance
+# Ancien RAG : supprimé par la mise à jour (deploy/rag_ancien.py), ignoré tant qu'une installation n'est pas montée.
 rag_app/DATA/
 rag_app/logs/
 rag_app/OCR_STORE/

@@ -148,7 +148,9 @@ export function creerDepotChat(vue: Pick<typeof Vue, "ref">, refs: RefsDepot, ct
         const content = lecteur.result as string;
         ajouter(
           proprietaire,
-          image ? { name: f.name, content, isImage: true, mimeType: f.type } : { name: f.name, content },
+          image
+            ? { name: f.name, content, isImage: true, mimeType: f.type, fichier: f }
+            : { name: f.name, content, fichier: f },
         );
       };
       if (image) lecteur.readAsDataURL(f);

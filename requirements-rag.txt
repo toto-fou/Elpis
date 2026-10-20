@@ -1,14 +1,12 @@
-# requirements-rag.txt — service RAG (rag_app/) : ingestion, recherche, OCR
-# S'installe dans le MÊME venv que requirements.txt (./install.sh).
-# Sans PyMuPDF ni pdf2docx (AGPL) : voir requirements-agpl-optional.txt.
+# requirements-rag.txt — extracteur du RAG intégré (rag_app/) : PDF, Word, Excel, PowerPoint, HTML, rendu des pages, OCR
+# S'installe dans le MÊME venv que requirements.txt (./install.sh). python-docx, python-pptx,
+# Pillow et httpx viennent de requirements.txt. Sans PyMuPDF ni pdf2docx (AGPL) : voir requirements-agpl-optional.txt.
 
 -r requirements.txt
 
-pandas==3.0.3
-openpyxl==3.1.5               # lecture/écriture .xlsx via pandas
-tabulate==0.9.0               # DataFrame.to_markdown
+openpyxl==3.1.5               # lecture des .xlsx (lecture seule, en flux)
 pypdf==6.11.0
-pdfplumber==0.11.9            # tire pypdfium2 (rendu des pages pour l'OCR)
-pypdfium2==5.8.0
-fpdf2==2.8.7                  # LGPL-3.0, installé sans modification
-charset-normalizer==3.4.7
+pdfplumber==0.11.9            # mots, lignes et tableaux des PDF avec leurs positions ; tire pypdfium2
+pypdfium2==5.8.0              # rendu des pages (visionneuse, OCR)
+fpdf2==2.8.7                  # LGPL-3.0, installé sans modification (documents de test)
+charset-normalizer==3.4.7     # encodage des fichiers texte

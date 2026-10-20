@@ -76,6 +76,8 @@ export function configParDefaut(): Dict {
 /** `_SECRET_PATHS` : secrets d'instance jamais rendus ni recopiés dans la configuration d'un compte. */
 export const SECRET_PATHS: readonly string[] = [
   "llama.api_key",
+  "rag.embed.api_key",
+  "rag.ocr.api_key",
   "app.session_secret",
   "app.encryption_key",
   "rag.qdrant_api_key",

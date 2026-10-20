@@ -8,6 +8,7 @@ import type { setupAdminSkins } from "../../features/admin/skins";
 import type { SurfaceCode } from "../../features/code/code";
 import type { SurfaceEditeur } from "../../features/editor/editeur";
 import type { SurfaceMascotte } from "../../features/mascotte/mascotte";
+import type { SurfaceRag } from "../../features/rag/rag";
 import type { SurfaceReglages } from "../../features/reglages/reglages";
 import type { SurfaceRoutines } from "../../features/routines/routines";
 import type { SurfaceSkills } from "../../features/skills/skills";
@@ -36,4 +37,5 @@ export interface Modules {
   studioAuto: SurfaceAutomatisationStudio | null;
   code: SurfaceCode | null;
   mascotte: SurfaceMascotte | null;
+  rag: SurfaceRag | null;
 }

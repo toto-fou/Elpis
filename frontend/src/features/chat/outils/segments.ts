@@ -44,8 +44,13 @@ export function ragCallLabel(name: unknown, args: unknown): string {
     const q = String(a["query"] || "");
     return "Recherche : " + (q.length > 45 ? q.substring(0, 45) + "..." : q);
   }
-  if (nom === "rag_get_document") return "Lecture : " + String(a["filename"] || "");
-  if (nom === "rag_list_collections") return "Exploration des collections";
+  if (nom === "rag_read") {
+    if (a["source"] !== undefined && a["source"] !== null)
+      return "Lecture autour de [" + String(a["source"]) + "]";
+    return "Lecture : " + String(a["document"] || "document");
+  }
+  if (nom === "rag_list") return a["collection"] ? "Documents de la collection" : "Collections actives";
+  if (nom === "rag_index") return "Indexation de fichiers du bac à sable";
   return "Consultation documentaire";
 }
 
@@ -56,14 +61,20 @@ export function ragResultLabel(name: unknown, resultStr: unknown): string {
   try {
     const p: unknown = JSON.parse(typeof resultStr === "string" && resultStr ? resultStr : "{}");
     const o = estObjet(p) ? p : {};
-    const res = o["results"];
-    const n = Number(o["count"]) || (Array.isArray(res) ? res.length : 0) || 0;
-    const s = n > 1 ? "s" : "";
-    if (nom === "rag_search") return n > 0 ? `${n} source${s} trouvée${s}` : "Aucun résultat";
-    if (nom === "rag_get_document") return n > 0 ? `${n} section${s} chargée${s}` : "Document vide";
-    if (nom === "rag_list_collections") {
-      const cols = Array.isArray(o["collections"]) ? o["collections"] : [];
-      return cols.length + " collection" + (cols.length > 1 ? "s" : "");
+    if (o["ok"] === false) return "Échec";
+    const passages = Array.isArray(o["passages"]) ? o["passages"].length : 0;
+    const s = passages > 1 ? "s" : "";
+    if (nom === "rag_search") return passages > 0 ? `${passages} passage${s} trouvé${s}` : "Aucun résultat";
+    if (nom === "rag_read") return passages > 0 ? `${passages} passage${s} lu${s}` : "Rien à lire";
+    if (nom === "rag_list") {
+      const liste = Array.isArray(o["collections"]) ? o["collections"] : o["documents"];
+      const n = Array.isArray(liste) ? liste.length : 0;
+      const quoi = Array.isArray(o["collections"]) ? "collection" : "document";
+      return `${n} ${quoi}${n > 1 ? "s" : ""}`;
+    }
+    if (nom === "rag_index") {
+      const n = Number(o["added"] || 0) + Number(o["replaced"] || 0);
+      return n > 0 ? `${n} fichier${n > 1 ? "s" : ""} en indexation` : "Aucun fichier ajouté";
     }
     return "";
   } catch {

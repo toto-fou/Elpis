@@ -46,7 +46,7 @@ import {
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { readConfigJson } from "@elpis/config";
-import type { Base } from "@elpis/db";
+import type { Base, Executeur } from "@elpis/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { auditer, entierBase, entierPy, exigerTexte, niveauDuRole } from "../admin/aides";
@@ -65,6 +65,7 @@ import {
   listPolicies,
   setPolicy,
 } from "../llm/acces-moteurs";
+import { invaliderAccesRag, purgerGroupeRag } from "../rag/acces";
 import { profilReseauDesReglages } from "../relais/identite";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { utilisateur } from "./comptes";
@@ -184,6 +185,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     if (cible === uid && niveau !== 1)
       throw new HttpError(400, "Impossible de retirer vos propres droits admin");
     await base.run("UPDATE users SET is_admin=? WHERE id=?", [niveau, cible]);
+    invaliderAccesRag(base);
     return reponseJsonPy(rep, { ok: true, role });
   }
 
@@ -437,8 +439,13 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
 
   async function supprimerGroupe(req: FastifyRequest): Promise<Dict> {
     const gid = cheminEntier(req, "group_id");
-    if (!(await deleteGroup(base, gid, (x) => deletePrincipalRows(x, "group", gid, base))))
-      throw new HttpError(404, "Groupe introuvable");
+    const purger = async (x: Executeur): Promise<void> => {
+      await deletePrincipalRows(x, "group", gid, base);
+      await purgerGroupeRag(x, gid);
+    };
+    const supprime = await deleteGroup(base, gid, purger);
+    invaliderAccesRag(base);
+    if (!supprime) throw new HttpError(404, "Groupe introuvable");
     return { ok: true };
   }
 
@@ -466,6 +473,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     } catch (e) {
       dep.journal.debug({ err: e }, "[groups] invalidation du cache d'accès échouée");
     }
+    invaliderAccesRag(base);
     return { ok: true, group_ids: [...new Set(entiers)] };
   }
 

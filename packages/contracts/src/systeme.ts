@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { schemaResumeJob, schemaResumeReveil } from "./rest/jobs";
+import { schemaDocumentRag, schemaTravailRag, schemaUuidRag } from "./rest/rag";
 
 const entier = z.number().int();
 const dict = z.record(z.string(), z.unknown());
@@ -107,6 +108,17 @@ export const schemaSystemeReveil = z.object({
   }),
 });
 
+/** Progression d'un travail d'indexation RAG, au seul propriétaire (`data.user_id`) ; `document` : la ligne qui vient de changer. */
+export const schemaSystemeTravailRag = z.object({
+  type: z.literal("rag_job"),
+  data: z.object({
+    user_id: entier.positive(),
+    collection_id: schemaUuidRag,
+    job: schemaTravailRag,
+    document: schemaDocumentRag.optional(),
+  }),
+});
+
 export const schemaEvenementSysteme = z.discriminatedUnion("type", [
   schemaSystemeSessionExpiree,
   schemaSystemeRecyclage,
@@ -118,6 +130,7 @@ export const schemaEvenementSysteme = z.discriminatedUnion("type", [
   schemaSystemeNotification,
   schemaSystemeJob,
   schemaSystemeReveil,
+  schemaSystemeTravailRag,
 ]);
 export type EvenementSysteme = z.infer<typeof schemaEvenementSysteme>;
 export type TypeEvenementSysteme = EvenementSysteme["type"];
@@ -133,6 +146,7 @@ export const TYPES_EVENEMENTS_SYSTEME: readonly TypeEvenementSysteme[] = [
   "notification",
   "chat_job",
   "chat_wake",
+  "rag_job",
 ];
 
 export type DecodageSysteme =

@@ -64,6 +64,7 @@ et par la modale d'aide de l'application, onglet *Développeur*).
 - [Page Remote code (`/api/code/*`)](#page-remote-code-apicode)
 - [Moteur vocal](#moteur-vocal)
 - [Notifications, usage, événements](#notifications-usage-événements)
+- [RAG](#rag-api)
 - [Administration](#administration-api)
 
 ### Sous-systèmes
@@ -81,7 +82,7 @@ et par la modale d'aide de l'application, onglet *Développeur*).
 - [Mémoire long terme](#mémoire-long-terme)
 - [Routines : le scheduler](#routines--le-scheduler)
 - [Studio et agent desktop](#studio-et-agent-desktop)
-- [Service RAG (`rag_app`)](#service-rag-rag_app)
+- [RAG intégré : collections, indexation, extracteur](#rag-intégré--collections-indexation-extracteur)
 - [Maintenance périodique](#maintenance-périodique)
 - [Sécurité transverse](#sécurité-transverse)
 
@@ -107,8 +108,9 @@ Application multi-process :
 | **elpis-tools** | 8767 | Famille d'outils Office, en Python (`server/local_mcp_server.py`), en loopback, amont de l'hôte d'outils |
 | **llama-server** | 8080 | Moteur d'inférence local, autonome |
 | **browser-service** | 3000 | Node + Playwright (outils `pw_*`) — optionnel |
-| **rag_app** | 8000 | FastAPI + Qdrant (6333) + OCR — optionnel |
-| **Caddy** | 443/8443/8444/80 | Frontal TLS local — optionnel |
+| **rag_app** | 8000 (loopback) | Extracteur du RAG (Python, FastAPI, sans état) : texte structuré, pages rendues, localisation, OCR par un modèle de vision ; appelé par le core seul |
+| **qdrant** | 6333 (loopback) | Base vectorielle du RAG (binaire officiel) |
+| **Caddy** | 443/8443/80 | Frontal TLS local — optionnel |
 | **desktop-agent** | 8765 (sur la machine pilotée) | Contrôle d'écran Windows/Linux — optionnel |
 
 Les process main et admin partagent le **même secret de session** (injecté par
@@ -117,7 +119,7 @@ Les process main et admin partagent le **même secret de session** (injecté par
 Le core est en TypeScript (`apps/core/`, paquets partagés dans `packages/`).
 Les outils liés au compte (mémoire, tâches, skills, graphiques) sont servis
 par main lui-même. Le Python restant sert elpis-tools, l'agent des sandboxes,
-l'assistant de configuration et le RAG : **`llm_core/`** (familles d'outils,
+l'assistant de configuration et l'extracteur du RAG : **`llm_core/`** (familles d'outils,
 mémoire, skills) et **`shared_infra/`** (infrastructure rangée par famille).
 
 ---
@@ -126,7 +128,7 @@ mémoire, skills) et **`shared_infra/`** (infrastructure rangée par famille).
 
 | Composant | Technologie |
 |---|---|
-| Backend | Core et hôte d'outils : Node 24, TypeScript, Fastify ; elpis-tools, RAG, configuration : Python 3.11+ |
+| Backend | Core et hôte d'outils : Node 24, TypeScript, Fastify ; elpis-tools, extracteur du RAG, configuration : Python 3.11+ |
 | Base de données | SQLite 3 (WAL) par défaut ; PostgreSQL au choix (core : better-sqlite3, pg ; Python : pg8000) |
 | Client HTTP | undici (core, appels LLM) ; httpx (Python) |
 | Protocole outils | `@modelcontextprotocol/sdk` (TS), `fastmcp` (Python) : stdio + SSE + HTTP |
@@ -141,7 +143,7 @@ mémoire, skills) et **`shared_infra/`** (infrastructure rangée par famille).
 | Icônes | Phosphor |
 | Navigateur | Node 18+, Playwright/Firefox (`browser-service`) |
 | Contrôle d'écran | `desktop-agent` (pywinauto / AT-SPI) |
-| RAG | FastAPI + Qdrant + embeddings locaux + OCR |
+| RAG | Core TS (collections, droits, découpage, BM25, embeddings, Qdrant, recherche, outils du chat) ; extracteur Python (pdfplumber, pypdfium2, LibreOffice, OCR par modèle de vision) dans une prison bubblewrap |
 | Frontal TLS | Caddy + PKI openssl locale (10 ans) |
 
 **Build du frontend** : Vite construit `frontend/dist/` à la préparation de la
@@ -160,7 +162,7 @@ flowchart TB
     end
 
     subgraph Edge["Frontal (optionnel)"]
-        Caddy["Caddy :443/:8443/:8444<br/>PKI locale · catch-all"]
+        Caddy["Caddy :443/:8443<br/>PKI locale · catch-all"]
     end
 
     subgraph AppServer["Serveur applicatif (core TypeScript)"]
@@ -182,7 +184,7 @@ flowchart TB
 
     subgraph Optional["Services optionnels"]
         Browser["browser-service :3000"]
-        RAG["rag_app :8000 + Qdrant :6333"]
+        RAG["extracteur rag_app :8000 + Qdrant :6333"]
         Desk["desktop-agent (VM)"]
     end
 
@@ -198,7 +200,7 @@ flowchart TB
     Admin -- "load/unload · caps" --> Llama
     MCP -- "pw_*" --> Browser
     MCP -- "desktop_*" --> Desk
-    Main -- "RAG inline" --> RAG
+    Main -- "extraction · vecteurs" --> RAG
 ```
 
 Quatre rôles distincts coexistent :
@@ -208,8 +210,8 @@ Quatre rôles distincts coexistent :
    et/ou des connecteurs externes résolus par requête.
 3. **Exécution** — un conteneur Docker par utilisateur ; c'est la frontière de
    sécurité du shell.
-4. **Services satellites** — navigateur, RAG, contrôle d'écran : tous optionnels
-   et découplés par HTTP.
+4. **Services satellites** — navigateur, extracteur du RAG et Qdrant, contrôle
+   d'écran : découplés par HTTP (le RAG reste éteint sans serveur d'embeddings).
 
 ---
 
@@ -219,33 +221,31 @@ Quatre rôles distincts coexistent :
 flowchart LR
     subgraph host1["Hôte applicatif"]
         direction TB
-        c["Caddy :443 · :8443 · :8444 · :80"]
+        c["Caddy :443 · :8443 · :80"]
         m["main :8001"]
         a["admin :8002"]
         s["toolhost :8765<br/>(apps/toolhost, Node)<br/>→ elpis-tools :8767"]
         b["browser-service :3000"]
-        d[["user_db/ · user_sandboxes/<br/>user_skills/ · mcp_custom_servers/ · cli_dist/"]]
+        r["extracteur rag_app :8000"]
+        q[("Qdrant :6333")]
+        d[["user_db/ (dont rag/) · user_sandboxes/<br/>user_skills/ · mcp_custom_servers/ · cli_dist/"]]
         dk[["dockerd — elpis-sb-&lt;user&gt;"]]
         c --> m & a
         m --- d
         a --- d
         m --> s --> dk
         s --> b
+        m --> r & q
+        r -. "lecture" .- d
     end
     subgraph host2["Hôte LLM"]
         l["llama-server :8080<br/>mode routeur · N modèles · slots"]
-    end
-    subgraph host3["Hôte RAG (optionnel)"]
-        r["rag_app :8000"]
-        q[("Qdrant :6333")]
-        r --- q
     end
     subgraph host4["VM pilotées (optionnel)"]
         ag["desktop-agent :8765"]
     end
     m -- HTTP stream --> l
     a -- "load/unload" --> l
-    m -- "RAG inline" --> r
     s -- "desktop_*" --> ag
 ```
 
@@ -290,7 +290,7 @@ elpis/
 ├── frontend/        # interface (@elpis/web, Vite) : src/ (TS, SFC), css/, assets/, coquilles index.html et admin.html
 ├── browser-service/ # Node + Playwright (:3000)
 ├── desktop-agent/   # agent de contrôle d'écran (Windows/Linux)
-├── rag_app/         # service RAG : ingestion, requête, reranker, sparse, OCR
+├── rag_app/         # extracteur du RAG (Python) : texte, pages, localisation, OCR
 ├── system_prompts/  # socle, FRAGMENT_*, AGENT_TASK_*…
 ├── skills/          # skills globaux livrés
 ├── deploy/          # caddy/, voice/, docker/sandbox/, node/, qdrant/, toolhost/, assistant d'installation
@@ -395,6 +395,7 @@ erDiagram
 | **Studio** | `editor_action_cache` (mémoire des ancres du ciblage live) — les scripts d'automatisation sont des fichiers de la sandbox (`automations/`), pas des lignes en base |
 | **Remote code** | `code_sessions`, `code_messages`, `code_parts`, `code_clients`, `code_commands`, `code_notes`, `code_permissions`, `code_questions`, `code_meta`, `code_remote_tokens`, `code_pairings` |
 | **Connecteurs** | `git_connectors`, `llm_connectors`, `llm_engine_policies`, `mcp_shared_servers` |
+| **RAG** | `rag_collections` (propriétaire, visibilité, modèle d'embedding, compteurs), `rag_grants` (groupes d'une publication), `rag_documents`, `rag_jobs` (file d'indexation), `rag_hidden` (« Masquer de ma liste ») ; collections actives d'un chat dans `chats.meta_json.rag` |
 | **Images** | `generated_images` (une ligne par image : compte, conversation, modèle, chemin relatif du fichier et de sa vignette, mesures de durée) |
 | **Divers** | `notifications`, `terminal_sessions`, `sandbox_placements`, `ax_nodes` / `ax_selectors` / `ax_transitions` / `ax_credentials` |
 
@@ -1310,26 +1311,37 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    participant U as navigateur
     participant A as main
-    participant R as rag_app (HTTP)
-    A->>R: POST rag_inline (question + collection + mode)
-    alt service disponible
-        R-->>A: passages pertinents + sources
-        A->>A: préfixe le DERNIER message user
-        A-->>A: NDJSON {rag_sources} AVANT les tokens
-    else indisponible
-        R-->>A: erreur
-        A->>A: dégradation gracieuse {enabled: false}
-    end
+    participant M as modèle
+    participant Q as Qdrant
+    U->>A: question (chat aux collections actives)
+    A->>M: tête système fixe + historique + question (+ <rag_context> si la sélection change)
+    M->>A: appel rag_search {query}
+    A->>A: droits (acces.ts) sur les collections actives du chat
+    A->>Q: recherche dense + BM25 (fusion RRF), une requête par collection
+    Q-->>A: passages
+    A-->>U: NDJSON rag_sources (numéros [n] stables)
+    A->>M: résultat d'outil (passages numérotés, ceux d'autrui balisés)
+    M-->>A: réponse qui cite [n]
+    A-->>U: final (sources du message, `cited` posé)
 ```
 
-- Le RAG est un **service séparé** (Python) : le core le joint en HTTP
-  (`apps/core/src/rag/`).
-- L'enrichissement **préfixe** le dernier message utilisateur.
-- Les sources partent en NDJSON **avant** les tokens pour que l'UI puisse les
-  afficher immédiatement.
-- Le RAG est aussi exposé comme **outil** (`buildRagBuiltinTools`) pour que
-  le modèle puisse interroger une collection de sa propre initiative.
+- **Aucun passage dans la tête système** : `FRAGMENT_RAG` et les outils `rag_*`
+  sont statiques ; les passages n'arrivent que par les résultats d'outils, en fin
+  de fil ; le bloc `<rag_context>` (collections actives) est un suffixe de la
+  question du tour où la sélection change, reposé si la compaction l'a résumé.
+  Le préfixe du prompt reste donc réutilisable par le cache du moteur.
+- **Outils** (`apps/core/src/rag/outils-chat.ts`) : `rag_search`, `rag_read`,
+  `rag_list` (lecture, présents si au moins une collection est active, limités
+  à ces collections) et `rag_index` (écriture, exclu du mode plan).
+- **Données, pas consignes** : le texte des passages, des noms et des
+  descriptions est neutralisé avant d'atteindre le modèle (chevrons, jetons de
+  rôle entre crochets comme `[INST]`) ; les passages d'un autre compte portent
+  le nom de leur auteur.
+- **Sources** : `rag_sources` part dès qu'un outil a numéroté des passages ;
+  les sources sont enregistrées avec le message et ne repartent jamais au
+  modèle (`apps/core/src/tour/README.md`).
 
 ---
 
@@ -1510,8 +1522,6 @@ changement admin s'applique sans redémarrage.
   "chat_id": "a1b2c3d4e5f6",
   "messages": [{"role": "user", "content": "Bonjour"}],
   "active_mcp_servers": [],
-  "use_rag": false,
-  "rag_collection": "", "rag_search_mode": "hybrid", "rag_top_k": 8, "rag_use_mmr": true,
   "model": null, "connector_id": null,
   "thinking_mode": false,
   "is_continue": false,
@@ -1527,7 +1537,6 @@ changement admin s'applique sans redémarrage.
 | `chat_id` | string | Vide → création |
 | `messages` | array | Historique `[{role, content}]` — rôles acceptés : `user`, `assistant`, `system`, `tool`, `notice` (`CLIENT_ROLES`, `apps/core/src/tour/historique.ts`) |
 | `active_mcp_servers` | array | Catégories locales + `ext:<id>` + `shared:<n>` |
-| `use_rag` + `rag_*` | — | Mode RAG et ses réglages |
 | `model` / `connector_id` | string / int | Couple atomique (modèle, connecteur) |
 | `thinking_mode` | bool | Phase de réflexion |
 | `is_continue` | bool | Reprise d'une réponse tronquée |
@@ -1588,7 +1597,7 @@ registre).
 | `compression_state` / `prune_state` | État de compaction (persisté par la route) ; état de l'élagage |
 | `llm_user_suffix` | Suffixe ajouté au message de l'utilisateur |
 | `queue_status` / `queue_cleared` | Attente d'un créneau du moteur ; créneau obtenu |
-| `rag_sources` | Sources RAG du tour |
+| `rag_sources` | Passages numérotés par un outil `rag_*` (sources du tour) |
 | `notice` / `info` / `warning` / `log` | Messages d'état |
 | `final` | Réponse finale `{assistant, chat_id, metrics}` |
 | `error` | Erreur (avec le genre de la taxonomie) |
@@ -1601,18 +1610,17 @@ registre).
 
 Écrit et tenu à jour dans [apps/core/src/tour/README.md](../apps/core/src/tour/README.md) :
 
-1. avec RAG : `mode`, puis `rag_sources` s'il y a des sources, ou `info`
-   seul (service en panne) ;
-2. `mode` (serveurs MCP actifs et/ou « RAG Outils ») ;
-3. `queue_status` si le moteur n'est pas prêt, puis éventuellement
+1. `mode` (serveurs MCP actifs et/ou « Documents » : collections RAG actives) ;
+2. `queue_status` si le moteur n'est pas prêt, puis éventuellement
    `thinking` « En attente… » et d'autres `queue_status` pendant l'attente
    d'un créneau ;
-4. `queue_cleared` (seulement si un `queue_status` est parti) ;
-5. `mode` « Outils prêts… » puis les événements de la boucle (`tool_call`,
-   `tool_result`, jetons, compression…) ;
-6. `kv_cache`, seulement si l'occupation du contexte a pu être mesurée ;
+3. `queue_cleared` (seulement si un `queue_status` est parti) ;
+4. `mode` « Outils prêts… » puis les événements de la boucle (`tool_call`,
+   `tool_result`, jetons, compression, `rag_sources` après un outil `rag_*`…) ;
+5. `kv_cache`, seulement si l'occupation du contexte a pu être mesurée ;
    `error` en cas de panne ;
-7. `final` (réponse, métriques, `persisted`), puis fin du flux.
+6. `final` (réponse, métriques, `persisted`, `rag_sources` du message), puis
+   fin du flux.
 
 Variantes : panne → `error`, puis `final` partiel ; Stop pendant l'attente du
 moteur → `final` partiel ; Stop pendant la génération → plus aucun événement
@@ -2263,7 +2271,6 @@ prononcé.
 | `GET /api/app-logo?v=…` | Logo de l'application (`app_info.logo_b64`), avatar de l'assistant ; adresse à empreinte donnée par `app_logo_url` de `/api/public-config` |
 | `GET /api/help/readme?doc=user\|dev` | Sert ce document et le guide utilisateur à la modale d'aide |
 | `POST /api/tools/extract-text` | Extraction texte d'un upload (**max 2 Mo**) |
-| `GET /api/rag/collections` | Collections Qdrant (repli `[]`) |
 | `GET /api/playwright/screenshot/{filename}` | Capture, avec contrôle de propriété et suppression anti-rejeu |
 | `GET /api/charts/{chart_id}` | Graphique généré |
 
@@ -2279,6 +2286,37 @@ data: {"type": "code.event", ...}
 
 > ⚠ En headless, la boucle `events` peut renvoyer un flux **vide** : ne pas en
 > conclure que le bus est cassé.
+
+---
+
+## RAG (API)
+
+> Servies par main (`apps/core/src/familles/rag*.ts`). Chaque route passe par
+> `apps/core/src/rag/acces.ts` : droit RAG du compte (`rag.groups`), puis rôle
+> sur la collection (`proprietaire` ou `lecteur`). Une collection que le compte
+> ne lit pas répond **404**, comme une collection absente ; l'admin n'a aucun
+> rôle implicite. Erreurs : `{detail, code}` (`CODES_ERREUR_ROUTES_RAG`,
+> `packages/contracts/src/rest/rag.ts`).
+
+| Endpoint | Rôle | Description |
+|---|---|---|
+| `GET /api/rag/etat` | compte | Droit RAG, services (extracteur, Qdrant, embeddings) et raison d'une panne, quotas et usage |
+| `GET /api/rag/collections[?masquees=1]` · `GET /{id}` | lecteur | Mes collections puis celles partagées avec moi (`hidden` pour celles que j'ai masquées) |
+| `POST /api/rag/collections` · `PATCH /{id}` · `DELETE /{id}` | propriétaire | Création sous quota ; nom, description, découpage, OCR (un changement relance l'indexation des documents concernés) ; suppression |
+| `PUT /{id}/publication` · `GET /api/rag/groupes-publication` | propriétaire | Privée, groupes dont je suis membre, ou tous les comptes (admin seulement) ; `allow_source_open` ; `notified` = comptes prévenus |
+| `PUT /{id}/masquage` | lecteur | « Masquer de ma liste » une collection partagée |
+| `GET /{id}/documents` · `GET /{id}/documents/{doc}` | lecteur | Documents (filtre, état, tri, pagination par 500) |
+| `POST /{id}/documents` | propriétaire | Dépôt multipart (1000 fichiers au plus, corps total borné par le quota du fichier) : `ajoute`, `remplace`, `deja_present` (même sha256) ou `refuse` par fichier |
+| `POST /{id}/import-sandbox` | propriétaire | Copie de fichiers de `/work` par l'hôte d'outils (500 chemins) |
+| `DELETE /{id}/documents/{doc}` · `POST /{id}/vider` · `POST /{id}/reindexer` | propriétaire | Suppression, vidage, réindexation |
+| `POST /{id}/recherche` | lecteur | Onglet Tester : passages comme l'assistant les recevra, carte des documents, estimation en jetons |
+| `GET /{id}/documents/{doc}/passages` · `/pages/{n}` · `POST /localiser` | lecteur | Visionneuse : fenêtre de passages, page rendue (WebP, cache), rectangles d'un passage ; débit borné par compte |
+| `GET /{id}/documents/{doc}/original` | propriétaire, ou lecteur si `allow_source_open` | Fichier d'origine |
+| `GET /api/rag/travaux` | compte | Mes travaux d'indexation (progression aussi par l'événement système `rag_job`) |
+| `PUT /api/saved/chats/{chat_id}/rag` | compte | Collections actives d'un chat (10 au plus, toutes lisibles), mode, `top_k` |
+
+Formats acceptés : pdf, docx, pptx, xlsx, html, md, txt, csv, json, yaml.
+Routes de la console : voir [Administration](#administration-api).
 
 ---
 
@@ -2317,7 +2355,7 @@ data: {"type": "code.event", ...}
 
 | Endpoint | Description |
 |---|---|
-| `GET/POST /api/admin/config-file?type=main\|rag` | Édition JSON (backup `.bak` automatique) |
+| `GET/POST /api/admin/config-file?type=main` | Édition JSON (backup `.bak` automatique) |
 | `GET/POST /api/admin/compression-config` | Règles de compaction |
 | `GET /api/admin/system-prompts[/{category}\|/_template\|/_preview]` · `PUT /{category}` | Prompts système |
 | `POST /api/admin/restart` · `/cache/invalidate` | Redémarrage, caches |
@@ -2330,7 +2368,12 @@ data: {"type": "code.event", ...}
 | `GET/PUT /api/admin/llm/allowed-providers` | Types de fournisseurs autorisés aux utilisateurs |
 | `GET/POST /api/admin/security/https` | Toggle HTTPS (avec garde anti-lockout) |
 | `GET /api/admin/security/sessions` · `POST /revoke-all` · `/revoke-user/{id}` · `/clear-user-revocation/{id}` | Sessions |
-| `POST /api/admin/rag-service/test` | Santé du service RAG |
+| `POST /api/admin/rag-service/test` | Santé de l'extracteur du RAG (URL et jeton du formulaire ou enregistrés) |
+| `GET /api/admin/rag/etat` · `POST /api/admin/rag/essai/{service}` | État et essai des services du RAG (extracteur, Qdrant, embeddings, reclassement, OCR) |
+| `GET /api/admin/rag/collections` · `DELETE /{id}` | Métadonnées de toutes les collections ; suppression (jamais le contenu) |
+| `GET /api/admin/rag/comptes` · `PUT /{user_id}/quota` | Usage et quota RAG par compte |
+| `GET /api/admin/rag/travaux` · `POST /{job_id}/suspendre\|reprendre\|annuler` | Travaux d'indexation de l'instance |
+| `GET /api/admin/rag/reindexation` · `POST /api/admin/rag/reindexer` | Réindexation de toutes les collections (changement de modèle d'embedding) |
 | `POST /api/admin/internal/restart-self` | Contrôle interne (loopback) |
 
 [↑ Sommaire](#sommaire)
@@ -2394,7 +2437,7 @@ d'outil est du contexte **permanent** pour le reste du run.
 | `skill` (main) et `skill_run` (hôte d'outils) | `skill` | `skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`, `skill_run_script`, `ask_user` |
 | `todo` (main) | `task` (cachée) | `todowrite` |
 | `task` (core) | builtin | `task` (construit **par tour**, pas enregistré sur le serveur MCP) |
-| RAG (core) | builtin | Recherche RAG (construit par tour si le mode est actif) |
+| `rag` (core) | builtin | `rag_search`, `rag_read`, `rag_list` (si une collection est active dans le chat), `rag_index` (écriture) |
 
 ### Fichiers (`fs`)
 
@@ -2575,8 +2618,9 @@ AT-SPI). Cycle : `desktop_session` → `desktop_observe` → `desktop_act` →
   incluse d'office dès qu'un serveur d'outils est actif. Un
   `<todo_status>` éphémère est réinjecté par tour tant que des tâches sont
   ouvertes.
-- **RAG** — recherche dans les collections, construite par tour
-  (`apps/core/src/outils/integres/rag.ts`).
+- **`rag`** (main) — `rag_search`, `rag_read`, `rag_list` sur les collections
+  actives du chat, `rag_index` vers une collection du compte
+  (`apps/core/src/rag/outils-chat.ts`, voir [Mode RAG](#mode-rag)).
 
 ### Ajouter un outil
 
@@ -2859,25 +2903,42 @@ Voir [le diagramme](#exécution-dune-routine). Compléments :
 
 ---
 
-## Service RAG (`rag_app`)
+## RAG intégré : collections, indexation, extracteur
 
-Service FastAPI autonome (port 8000) + Qdrant (6333).
+Le RAG vit dans le core (`apps/core/src/rag/`, `packages/rag/` pour les
+clients Qdrant, embeddings et reclassement) ; seule la lecture des documents
+reste en Python, dans l'extracteur `rag_app`.
 
-| Module | Rôle |
-|---|---|
-| `app.py` | API HTTP |
-| `rag_engine.py` | Ingestion, chunking, embeddings |
-| `rag_query.py` | Requête (dense, sparse, hybride) |
-| `sparse.py` · `reranker.py` | BM25 et reranking |
-| `contextual.py` | Enrichissement contextuel des chunks |
-| `ocr/` | Pipeline OCR : upload, conversion, file d'attente, jobs, événements, indexation |
+| Brique | Où | Rôle |
+|---|---|---|
+| Droits | `rag/acces.ts` | Droit RAG du compte (`rag.groups` ; l'admin l'a toujours), rôle propriétaire ou lecteur, collections lisibles ; cache de 3 s invalidé entre processus |
+| Collections, publication | `rag/collections.ts`, `familles/rag.ts` | Une collection appartient à un compte ; visibilité privée, groupes ou tous ; un lecteur ne modifie rien |
+| Magasin | `rag/magasin.ts` | `<rag.store_dir>/<uid>/<collection>/sources/<doc>.<ext>` (original), `extraits/<doc>.json` (texte structuré, réindexation sans réextraire), `pages/<doc>/<n>.webp` (cache de rendus) ; chemins construits d'identifiants validés, aucun lien suivi ; `.purges/` garde les purges à refaire |
+| Dépôt | `rag/depot.ts` | Écriture en flux (`.part`, sha256, plafonds), quotas et doublons sous verrou |
+| Indexation | `rag/travailleur.ts`, `rag/indexeur.ts` | Meneur unique dans main ; file en base (`rag_jobs`), 2 documents à la fois sur l'instance et 1 par compte (`rag.indexation`), reprise après redémarrage ; extraction, découpage (512 jetons, chevauchement 64), embeddings par lots, BM25, écriture Qdrant puis retrait des anciens passages |
+| Qdrant | `rag/qdrant.ts` | Une collection `elpis_<uuid>` par collection (vecteurs `dense` et `bm25`) ; un changement de modèle d'embedding construit une nouvelle génération pendant que l'ancienne sert |
+| Recherche | `@elpis/rag`, `rag/essai.ts` | Mixte (dense + BM25, fusion RRF), par le sens ou mots exacts ; plusieurs collections fusionnées par RRF ; reclassement facultatif |
+| Chat | `rag/chat.ts`, `rag/outils-chat.ts` | Voir [Mode RAG](#mode-rag) |
+| Visionneuse | `rag/sources.ts`, `rag/rendu.ts` | Passages voisins, page rendue avec le passage surligné, original si permis |
+| Suppression d'un compte | `rag/nettoyage.ts`, `rag/avis.ts` | Lignes en base (cascade), puis fichiers du magasin et collections Qdrant ; les lecteurs de ses collections publiées sont prévenus |
+| Console | `rag/admin.ts` | Services, essais, quotas par compte, métadonnées de toutes les collections (jamais leur contenu), réindexation globale |
 
-Le core ne l'importe **jamais** : tout passe par HTTP
-(`rag.service_url` + `service_token`). Indisponible → dégradation gracieuse
-(`{"enabled": false}`).
+### Extracteur (`rag_app`)
 
-> `pdf2docx` et PyMuPDF (AGPL) sont optionnels (`./install.sh --with-agpl`) :
-> sans eux, la rastérisation et l'extraction de texte passent par `pypdfium2`.
+Service FastAPI **sans état** (port 8000, `127.0.0.1`), appelé par le core seul
+avec le jeton de `user_db/.rag_service_token` : `POST /api/extract` (flux NDJSON
+de blocs avec page et rectangles), `/api/render` (page en WebP), `/api/locate`
+(rectangles d'un passage), `GET /api/health`. Il lit le magasin du core
+(`RAG_STORE_DIR`, chemins relatifs, sans lien) et n'écrit que dans son cache
+(`RAG_CACHE_DIR`). Chaque analyse tourne dans un processus enfant borné
+(mémoire, CPU, délai) ; cet enfant et LibreOffice (conversion des Word, Excel et
+PowerPoint pour leurs pages) tournent dans une prison bubblewrap sans réseau.
+L'OCR des pages scannées passe par un modèle de vision compatible OpenAI dont
+le core envoie les réglages (`rag.ocr`) à chaque extraction. Détail :
+[`rag_app/README.md`](../rag_app/README.md).
+
+> `pdf2docx` et PyMuPDF (AGPL, `./install.sh --with-agpl`) servaient à
+> l'ancienne console RAG ; plus aucun code d'Elpis ne les importe.
 
 ---
 

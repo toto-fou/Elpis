@@ -69,6 +69,8 @@ export {
   writeTextAtomic,
 } from "./vivant";
 export type { AttributsCookie, PortsHttps } from "./vivant";
+export { configRag, lireQuotasRag, QUOTAS_RAG_DEFAUT, QUOTAS_RAG_MAX } from "./rag";
+export type { ConfigRag, QuotasRag } from "./rag";
 
 /** Recalcule `config` depuis l'env et le disque, caches remis à neuf, comme `importlib.reload` (l'env déjà propagée prime). */
 export function rechargerConfig(): void {

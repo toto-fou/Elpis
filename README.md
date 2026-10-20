@@ -3,8 +3,8 @@
 > **Elpis is a self-hosted agentic engineering workspace for teams sharing
 > local LLM infrastructure.** It combines an agentic chat
 > (tools, sub-agents, long-term memory, skills), a code editor with a per-user
-> Docker sandbox and terminal, scheduled routines, a RAG service and an admin
-> console. Its core is written in TypeScript and runs on Node.js 24. It talks
+> Docker sandbox and terminal, scheduled routines, document collections
+> searched by the chat with cited sources (RAG) and an admin console. Its core is written in TypeScript and runs on Node.js 24. It talks
 > to `llama-server` (llama.cpp) or any OpenAI-compatible
 > endpoint. Install on Debian 12/13 or Ubuntu 24.04 with two commands: clone,
 > then `./install.sh`, which asks its questions and configures everything (below).
@@ -20,7 +20,8 @@ qui partagent une infrastructure LLM locale. Tout tourne sur votre serveur.
 - **Éditeur de code** : Monaco, sandbox Docker par utilisateur, terminal,
   Git intégré, aperçus (HTML, PDF, Office).
 - **Routines** : tâches planifiées ou déclenchées par webhook.
-- **RAG** : indexation de documents (Qdrant), OCR.
+- **RAG** : collections de documents par compte, publiées aux groupes,
+  interrogées par le chat avec sources citées et visionneuse ; OCR.
 - **Administration** : utilisateurs et groupes, connecteurs LLM, métriques.
 
 ## Pourquoi Elpis
@@ -50,8 +51,8 @@ flowchart LR
     nav --> admin["admin :8002<br/>console"]
     main --> llm["llama-server<br/>ou compatible OpenAI"]
     main --> toolhost["toolhost :8765<br/>outils MCP"]
-    main --> rag["rag_app :8000<br/>RAG, OCR"]
-    rag --> qdrant[("Qdrant")]
+    main --> rag["rag_app :8000<br/>extracteur du RAG"]
+    main --> qdrant[("Qdrant")]
     toolhost --> sandbox["sandbox Docker<br/>par utilisateur"]
     toolhost --> browser["browser-service :3000"]
     main --> db[("SQLite<br/>ou PostgreSQL")]
@@ -60,7 +61,7 @@ flowchart LR
 
 main et admin sont deux process du même core TypeScript (Node.js 24,
 Fastify) ; `toolhost` est l'hôte d'outils, en TypeScript lui aussi. Restent en
-Python : le service RAG, elpis-tools (la famille d'outils Office, servie à
+Python : l'extracteur du RAG (lecture des documents), elpis-tools (la famille d'outils Office, servie à
 l'hôte d'outils sur `127.0.0.1:8767`), l'agent qui tourne dans chaque sandbox
 et l'assistant d'installation. Détail : [ARCHITECTURE.md](ARCHITECTURE.md).
 

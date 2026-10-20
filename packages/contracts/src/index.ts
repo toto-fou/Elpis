@@ -27,6 +27,7 @@ export * from "./rest/admin-config";
 export * from "./rest/admin-metriques";
 export * from "./rest/git";
 export * from "./rest/rag";
+export * from "./rest/rag-admin";
 export * from "./rest/ax";
 export * from "./rest/chats";
 export * from "./rest/cli";

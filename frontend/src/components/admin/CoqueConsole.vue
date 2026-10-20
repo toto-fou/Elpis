@@ -13,6 +13,7 @@ import PageGeneral from "./PageGeneral.vue";
 import PageApparence from "./PageApparence.vue";
 import PageConnexions from "./PageConnexions.vue";
 import PageModeles from "./PageModeles.vue";
+import PageRag from "./PageRag.vue";
 import PageSecurite from "./PageSecurite.vue";
 import PageComptes from "./PageComptes.vue";
 import PagePrompts from "./PagePrompts.vue";
@@ -74,6 +75,7 @@ const adm = domaineAdmin();
         <PageApparence />
         <PageConnexions />
         <PageModeles />
+        <PageRag />
         <PageSecurite />
         <PageComptes />
         <PagePrompts />
@@ -147,7 +149,7 @@ const adm = domaineAdmin();
                     aria-label="Pris en compte au redémarrage"
                   ></i
                 ></span>
-                <span v-if="c.path === 'llama.api_key'" class="adm-changes__vals">clé modifiée</span>
+                <span v-if="adm.adminChangeSecret(c)" class="adm-changes__vals">clé modifiée</span>
                 <span v-else-if="c.store !== 'prompt'" class="adm-changes__vals">
                   <s>{{ adm.adminChangeValue(c.before) }}</s> → <b>{{ adm.adminChangeValue(c.after) }}</b>
                 </span>

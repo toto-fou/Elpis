@@ -32,7 +32,6 @@ export interface CtxAuth {
   readonly adminAppUrl?: Ref<unknown>;
   readonly mainAppUrl?: Ref<unknown>;
   readonly features?: Ref<unknown>;
-  readonly ragCollections?: Ref<unknown>;
   readonly chats?: Ref<unknown[]>;
   readonly showEditor?: Ref<boolean>;
   readonly openTabs?: Ref<unknown[]>;
@@ -78,8 +77,6 @@ const schemaConfigPublique = z.looseObject({
   app_mode: z.unknown().optional(),
   features: objet.nullish(),
 });
-const schemaCollectionsRag = z.looseObject({ collections: z.unknown().optional() });
-
 function ou(v: unknown, defaut: unknown): unknown {
   return v ? v : defaut;
 }
@@ -182,11 +179,6 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     }
   }
 
-  async function loadRagCollections(): Promise<void> {
-    const r = await http.requete("/api/rag/collections", {}, { schema: schemaCollectionsRag });
-    if (r.type === "ok" && ctx.ragCollections) ctx.ragCollections.value = ou(r.valeur.collections, []);
-  }
-
   /** Relit `/api/me-lite` ; une réponse partie avant un changement de session est ignorée (génération). */
   async function checkAuth(): Promise<void> {
     const adminOnly = !!fen().__ADMIN_ONLY_MODE__;
@@ -211,7 +203,6 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
         await ctx.loadChatsList?.();
         lancer(ctx.loadSettingsData);
         lancer(ctx.loadSandboxFiles);
-        void loadRagCollections();
       }
     } else if ("must_change_password" in data) {
       session.motDePasseAChanger();
@@ -435,7 +426,6 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
     newUserForm,
     welcomeConfig,
     loadPublicConfig,
-    loadRagCollections,
     checkAuth,
     login,
     loginConfig,

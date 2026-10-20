@@ -178,7 +178,19 @@ export interface ConfigAdmin {
     oauth: { enabled: boolean; dcr_enabled: boolean; access_ttl_s: number; refresh_days: number };
     [cle: string]: unknown;
   };
-  rag: { service_url: string; service_token: string; service_timeout: number; [cle: string]: unknown };
+  rag: {
+    service_url: string;
+    service_token: string;
+    service_timeout: number;
+    qdrant_url: string;
+    embed: { url: string; model: string; api_key: string; batch: number; timeout_s: number };
+    reranker: { enabled: boolean; url: string; model: string };
+    ocr: { url: string; model: string; api_key: string; timeout_s: number };
+    groups: number[];
+    quotas: { storage_mb: number; collections: number; file_mb: number; docs_per_collection: number };
+    indexation: { concurrence: number; par_compte: number };
+    [cle: string]: unknown;
+  };
   app: {
     upload_dir: string;
     sandbox_dir: string;

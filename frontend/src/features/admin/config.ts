@@ -185,7 +185,24 @@ function completerConfig(brut: Noeud): ConfigAdmin {
     refresh_days: 30,
   });
 
-  completer(section(c, "rag"), { service_url: "", service_token: "", service_timeout: 60 });
+  const rag = section(c, "rag");
+  completer(rag, {
+    service_url: "",
+    service_token: "",
+    service_timeout: 60,
+    qdrant_url: "http://127.0.0.1:6333",
+    groups: [],
+  });
+  completer(section(rag, "embed"), { url: "", model: "bge-m3", api_key: "", batch: 32, timeout_s: 60 });
+  completer(section(rag, "reranker"), { enabled: false, url: "", model: "bge-reranker-v2-m3" });
+  completer(section(rag, "ocr"), { url: "", model: "", api_key: "", timeout_s: 180 });
+  completer(section(rag, "quotas"), {
+    storage_mb: 2048,
+    collections: 10,
+    file_mb: 200,
+    docs_per_collection: 2000,
+  });
+  completer(section(rag, "indexation"), { concurrence: 2, par_compte: 1 });
 
   if (c["app"])
     completer(section(c, "app"), { upload_dir: "user_db/uploads", sandbox_dir: "../user_sandboxes" });

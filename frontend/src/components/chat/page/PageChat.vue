@@ -154,7 +154,7 @@ function surFichiers(e: Event): void {
                                            du réglage est dans les paramètres du modèle, où on le pose
                                            UNE FOIS en connaissance de cause. -->
 
-                <MenuPlus @ancre="p.composerPlusRef = $event" @rag="p.ragDropdownRef = $event" />
+                <MenuPlus @ancre="p.composerPlusRef = $event" />
 
                 <!-- Micro : visible si l'instance a la reconnaissance vocale et que la dictée est activée ; l'envoi reste manuel. -->
                 <BoutonMicro

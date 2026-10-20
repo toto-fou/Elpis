@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/coeur/types.ts — formes du cœur du chat : message et étape d'outil mutables, événement de flux appliqué à la vue, refs et contexte fournis par la racine (app.js). */
-import type { BilanTache, ResumeReveil } from "@elpis/contracts";
+import type { BilanTache, ResumeReveil, SourceCiteeRag } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import type { FetchAuth } from "../flux/aides.ts";
+import type { RagSlash } from "../composeur/slash.ts";
 
 export type Objet = Record<string, unknown>;
 
@@ -139,6 +140,8 @@ export interface MessageChat {
   files_changed?: unknown[] | null;
   compactions?: unknown[] | null;
   pruned?: number;
+  /** Sources RAG du message (passages numérotés `[n]`), enregistrées avec lui, jamais renvoyées au modèle. */
+  rag_sources?: SourceCiteeRag[] | null;
   kind?: string;
   ts?: number | null;
   round?: number | null;
@@ -204,11 +207,6 @@ export interface ReglagesChat {
 
 export interface ConfigChat {
   active_mcp_ids: string[];
-  use_rag?: boolean;
-  rag_collection?: string;
-  rag_search_mode?: string;
-  rag_top_k?: number;
-  rag_use_mmr?: boolean;
   [cle: string]: unknown;
 }
 
@@ -289,5 +287,7 @@ export interface CtxChat {
   updateEditor?: (chemin: string, contenu: string, disque?: unknown) => Promise<unknown>;
   editorIsViewerPath?: (chemin: string) => boolean;
   editorRefreshViewer?: (chemin: string) => Promise<unknown>;
+  /** Commande `/rag` (module RAG de la racine, monté après le chat). */
+  readonly ragCommande?: RagSlash | null;
   [cle: string]: unknown;
 }

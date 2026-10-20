@@ -48,6 +48,7 @@ import {
   estSecretMasque,
   MASQUE_SECRET,
   masquerSecrets,
+  masquerSecretsTexte,
   PATCH_MAX_CHANGES,
   PATCH_PATH_RE,
   plant,
@@ -261,13 +262,13 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
     return reponseJsonPy(rep, { content: contenuSansSecret(contenu) });
   }
 
-  /** Le texte tel quel, sauf la clé du moteur remplacée par un masque (réécrit au format des écritures de la console). */
+  /** Le texte tel quel, sauf les secrets de `SECRETS_MASQUES` remplacés par un masque (réécrit au format des écritures de la console). */
   function contenuSansSecret(contenu: string): string {
     let cfg: unknown;
     try {
       cfg = pyJsonLoads(contenu);
     } catch {
-      return contenu.replace(/("api_key"\s*:\s*")(?:[^"\\]|\\.)+(")/gu, `$1${MASQUE_SECRET}$2`);
+      return masquerSecretsTexte(contenu);
     }
     if (!estDict(cfg)) return contenu;
     const [masque, change] = masquerSecrets(cfg);

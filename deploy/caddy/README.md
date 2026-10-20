@@ -1,7 +1,7 @@
 # HTTPS via Caddy (LAN, sans domaine, « actionless » côté client)
 
-Elpis est servi en HTTP direct par le core (`:8001` main, `:8002` admin,
-`:8000` RAG). Ce dossier fournit le frontal TLS : un Caddy local en
+Elpis est servi en HTTP direct par le core (`:8001` main, `:8002` admin ;
+l'extracteur du RAG, `:8000`, n'écoute qu'en local). Ce dossier fournit le frontal TLS : un Caddy local en
 systemd + une PKI locale **stable** générée côté serveur. Aucun domaine,
 aucun Let's Encrypt, et **rien à installer sur les postes clients**.
 
@@ -34,7 +34,6 @@ Importer → cocher « Confirmer cette AC pour identifier des sites web ».
 navigateur ──https──▶ Caddy (même hôte, catch-all) ──http 127.0.0.1──▶ services
    :443  ─────────────────────────────────────────▶ 127.0.0.1:8001  (main)
    :8443 ─────────────────────────────────────────▶ 127.0.0.1:8002  (admin)
-   :8444 ─────────────────────────────────────────▶ 127.0.0.1:8000  (UI RAG)
    :80   ─ redirige 302 vers https + sert /ca.crt (import optionnel)
          └ EXCEPTION @bootstrap : installeurs servis EN CLAIR ─▶ :8001
 ```
@@ -147,8 +146,8 @@ Debian ; pour un bundle complet, `sudo apt-get update` puis relancez.
 - **Ne jamais régénérer la CA** (`/etc/caddy/elpis-pki/ca.*`) : les
   postes qui l'ont importée perdraient la confiance. Le script la
   préserve ; ne pas supprimer le dossier à la main.
-- **Ports en double** : `443/8443/8444` existent dans le Caddyfile ET
-  dans `config.json › security.https.{main_port,admin_port,rag_port}`
+- **Ports en double** : `443/8443` existent dans le Caddyfile ET
+  dans `config.json › security.https.{main_port,admin_port}`
   (garde anti-lockout du toggle + synthèse d'URLs). Les garder alignés.
 - **`security.https` appartient au toggle, à personne d'autre.** L'éditeur
   « Config principale » de la console renvoie config.json ENTIER : sans
@@ -167,10 +166,9 @@ Debian ; pour un bundle complet, `sudo apt-get update` puis relancez.
     (l'env `BIND` est prioritaire sur le toggle) ;
   - soit éditer `config.json` (racine du dépôt) → `security.https.enabled: false`
     (+ `security.session.https_only: false`) et relancer l'app.
-- **Le RAG (`:8000`) ne suit le toggle qu'au (re)lancement** de
-  `./elpis start` — c'est un uvicorn autonome, sans hook de reload.
-  Après une bascule, relancez la pile, sinon son port reste ouvert en
-  clair. Le script lit le MÊME fichier que le core
-  (`APP_CONFIG_PATH` d'abord) : ne pas réintroduire de chemin en dur.
+- **L'extracteur du RAG (`:8000`) n'a pas de site Caddy** : seul le core
+  l'appelle, sur `127.0.0.1` quel que soit le toggle (`RAG_HOST` pour un
+  core sur une autre machine). Une installation mise à jour garde l'ancien
+  site `:8444` jusqu'à `sudo deploy/caddy/install_caddy.sh`.
 - **Cookies** : HTTP→HTTPS conserve la session ; HTTPS→HTTP force une
   reconnexion (le cookie `Secure` n'est plus envoyé en clair). Normal.

@@ -2,6 +2,7 @@
 /** apps/core/src/admin/config.ts — propriété des sections de config.json et écritures champ par champ de la console (admin/config.py). */
 import { egalPy, estDict, FlottantPy, poserCle, pyJsonDumps } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
+import { CHEMINS_SECRETS_CONFIG } from "@elpis/contracts";
 
 /** `_OWNED_PATHS` : un seul endpoint en est l'auteur, la valeur du disque gagne toujours. */
 export const OWNED_PATHS: readonly (readonly string[])[] = [
@@ -125,16 +126,36 @@ export function sameValue(a: unknown, b: unknown): boolean {
   return texte(a) === texte(b);
 }
 
-/** Secrets de `config.json` jamais rendus à la console : remplacés par `MASQUE_SECRET`, restaurés à l'écriture. */
-export const SECRETS_MASQUES: readonly (readonly string[])[] = [["llama", "api_key"]];
+/** Secrets de `config.json` jamais rendus à la console : remplacés par `MASQUE_SECRET`, restaurés à l'écriture (liste de @elpis/contracts, commune au front) ; le jeton de scrape Prometheus en est exclu, sa page le montre à l'administrateur. */
+export const SECRETS_MASQUES: readonly (readonly string[])[] = CHEMINS_SECRETS_CONFIG.map((c) =>
+  c.split("."),
+);
 export const MASQUE_SECRET = "********";
+
+/** Repli d'un `config.json` illisible : toute valeur non vide d'une clé de secret est masquée au texte. */
+export const CLES_SECRETES_TEXTE = new RegExp(
+  `("(?:${[...new Set(SECRETS_MASQUES.map((c) => c.at(-1)))].join("|")})"\\s*:\\s*")(?:[^"\\\\]|\\\\.)+(")`,
+  "gu",
+);
+
+/** Secrets rangés dans un objet (jetons clients du pont MCP) : l'objet entier, sans accolade imbriquée, est masqué au texte. */
+const OBJETS_SECRETS_TEXTE = /("local_client_tokens"\s*:\s*)\{[^{}]*\}/gu;
+
+/** Texte d'un `config.json` illisible avec les valeurs de secrets masquées, chaînes comme objets. */
+export function masquerSecretsTexte(contenu: string): string {
+  return contenu
+    .replace(CLES_SECRETES_TEXTE, `$1${MASQUE_SECRET}$2`)
+    .replace(OBJETS_SECRETS_TEXTE, `$1"${MASQUE_SECRET}"`);
+}
 
 /** Copie où chaque secret masqué non vide vaut `MASQUE_SECRET` (seul le chemin est copié : flottants et grands entiers intacts). */
 export function masquerSecrets(cfg: Dict): [Dict, boolean] {
   let sortie = cfg;
   for (const chemin of SECRETS_MASQUES) {
     const [trouve, valeur] = dig(sortie, chemin);
-    if (trouve && typeof valeur === "string" && valeur) sortie = avecValeur(sortie, chemin, MASQUE_SECRET);
+    const garni =
+      typeof valeur === "string" ? valeur !== "" : estDict(valeur) && Object.keys(valeur).length > 0;
+    if (trouve && garni) sortie = avecValeur(sortie, chemin, MASQUE_SECRET);
   }
   return [sortie, sortie !== cfg];
 }

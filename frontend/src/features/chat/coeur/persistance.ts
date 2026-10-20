@@ -46,6 +46,7 @@ export function projeterPourPersistance(m: MessageChat): Objet {
   if (m.run_ids && m.run_ids.length) o["run_ids"] = m.run_ids;
   if (m.files_changed && m.files_changed.length) o["files_changed"] = m.files_changed;
   if (m.compactions && m.compactions.length) o["compactions"] = m.compactions;
+  if (m.rag_sources && m.rag_sources.length) o["rag_sources"] = m.rag_sources;
   if (m.pruned) o["pruned"] = m.pruned;
   if (m.metrics && typeof m.metrics === "object") {
     const { thinking: _t, tool_history: _h, ...pied } = m.metrics;

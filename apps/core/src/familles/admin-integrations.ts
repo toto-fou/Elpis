@@ -31,6 +31,7 @@ import {
 } from "@elpis/mcp";
 import type { FastifyRequest } from "fastify";
 
+import { MASQUE_SECRET } from "../admin/config";
 import {
   ecrirePrompt,
   estFichier,
@@ -81,7 +82,8 @@ async function testerRag(dep: DependancesAdminIntegrations, req: FastifyRequest)
   const url = veritePy(brute) ? brute : "";
   if (typeof url !== "string")
     throw new ErreurPython("AttributeError", `'${nomTypePy(url)}' object has no attribute 'strip'`);
-  const jeton = getPy(data, "token");
+  const envoye = getPy(data, "token");
+  const jeton = envoye === MASQUE_SECRET ? null : envoye;
   let delai = 5.0;
   try {
     const t = getPy(data, "timeout");

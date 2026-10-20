@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { schemaOrigineTour, schemaResumeReveil } from "./rest/jobs";
+import { schemaSourceCiteeRag } from "./rest/rag";
 import type { StreamEventType } from "./stream-events.gen";
 
 const entier = z.number().int();
@@ -287,7 +288,7 @@ export const SCHEMAS_EVENEMENTS = {
     progress_pct: z.number().optional(),
   }),
   queue_cleared: ev("queue_cleared", {}),
-  rag_sources: ev("rag_sources", texte),
+  rag_sources: ev("rag_sources", { sources: z.array(schemaSourceCiteeRag) }),
   image_progress: ev("image_progress", {
     state: z.string(),
     queue_position: entier.nullable(),
@@ -343,6 +344,7 @@ export const SCHEMAS_EVENEMENTS = {
     compactions: z.array(dict).optional(),
     pruned: entier.optional(),
     tool_images: z.array(schemaImageRef).optional(),
+    rag_sources: z.array(schemaSourceCiteeRag).optional(),
     plan_mode_done: z.literal(true).optional(),
     generated_images: z.array(schemaImageRef).optional(),
     image: z.literal(true).optional(),

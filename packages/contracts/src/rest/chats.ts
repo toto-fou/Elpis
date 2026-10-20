@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { dictionnaire, entier, horodatage } from "./commun";
+import { COLLECTIONS_CHAT_RAG_MAX, schemaReglageRagChat, schemaUuidRag } from "./rag";
 
 export const schemaResumeChat = z.object({
   id: z.string(),
@@ -32,11 +33,21 @@ export const schemaChat = z.object({
   llm_user_suffixes: dictionnaire,
   /** « Ne pas me réveiller » posé sur la conversation (tâches de fond) ; absent : défaut du compte (valeur effective dans `GET /api/jobs`). */
   wake_disabled: z.boolean().optional(),
+  /** RAG du chat (`meta_json.rag`), collections réduites à celles que le compte lit encore ; absent si jamais réglé. */
+  rag: schemaReglageRagChat.optional(),
 });
 export type Chat = z.infer<typeof schemaChat>;
 
-export const schemaCorpsNouveauChat = z.object({ plan_mode: z.boolean().optional() });
-export const schemaReponseNouveauChat = z.object({ id: z.string() });
+/** `rag_collections` : collections actives scellées à la création (celles que le compte ne lit pas sont écartées). */
+export const schemaCorpsNouveauChat = z.object({
+  plan_mode: z.boolean().optional(),
+  rag_collections: z.array(schemaUuidRag).max(COLLECTIONS_CHAT_RAG_MAX).optional(),
+});
+/** `rag_collections` : collections effectivement actives, rendu seulement si le corps en portait. */
+export const schemaReponseNouveauChat = z.object({
+  id: z.string(),
+  rag_collections: z.array(schemaUuidRag).optional(),
+});
 
 export const schemaCorpsRenommage = z.object({ title: z.string() });
 export const schemaCorpsOutilsChat = z.object({ tools: z.array(z.string()) });

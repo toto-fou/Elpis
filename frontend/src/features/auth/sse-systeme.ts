@@ -238,6 +238,10 @@ export function setupChatSystemSSE(
       case "chat_wake":
         rappels.onChatWake?.(ev.data);
         return;
+      case "rag_job":
+        // Progression d'une indexation : la page RAG l'écoute sur `window`, sans rappel à câbler dans le chat.
+        doc.defaultView?.dispatchEvent(new CustomEvent("rag:job", { detail: ev.data }));
+        return;
     }
   }
 

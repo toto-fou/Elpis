@@ -107,6 +107,16 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
         return;
       }
     }
+    // Collections RAG choisies sur un chat vierge : scellées à sa création, avant le flux.
+    if (!r.currentChatId.value && l.ragEnAttente().length) {
+      if (!(await dep.ensureServerChat(r.inputMessage.value.trim()))) {
+        ctx.showToast(
+          "Conversation non créée : collections non activées, message non envoyé. Réessayez.",
+          "error",
+        );
+        return;
+      }
+    }
     let texte = r.inputMessage.value.trim();
     let fichiers: { name: string; lines: number }[] = [];
     let images: { name: string; dataUrl: string; mimeType?: string }[] = [];
@@ -287,45 +297,6 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     await sendMessage();
   }
 
-  /** « Interroger ce document » (lien #ask) : chat neuf, RAG activé sur la collection, consigne au premier message. */
-  async function startDocumentChat(
-    p: { docName?: string; ragName?: string; collection?: string; question?: string } | null,
-  ): Promise<void> {
-    const doc = p?.docName || "document";
-    const ragName = p?.ragName || "";
-    const collection = p?.collection || "";
-    const question = (p?.question || "").trim();
-    r.currentView.value = "chat";
-    await dep.startNewChat();
-    const cfg = r.config.value;
-    cfg.use_rag = true;
-    cfg.rag_collection = collection;
-    cfg.rag_search_mode = cfg.rag_search_mode || "classic";
-    ctx.showToast(
-      "Consultation documentaire activée (collection " + (collection || "par défaut") + ")",
-      "info",
-    );
-    const lignes = [
-      "Vous répondez UNIQUEMENT à partir du document « " +
-        doc +
-        " », indexé sous le fichier « " +
-        ragName +
-        " » de la collection « " +
-        collection +
-        " ».",
-      'Méthode : rag_search avec filters={"file_glob": "' +
-        ragName +
-        '"} pour chercher, puis rag_cite pour sourcer vos réponses.',
-      "Chaque extrait commence par « [" +
-        doc +
-        " — page N] » : citez SYSTÉMATIQUEMENT les pages dans vos réponses.",
-      "",
-      question || "Présentez ce document : objet, structure, points clés.",
-    ];
-    r.inputMessage.value = lignes.join("  \n");
-    await sendMessage();
-  }
-
   return {
     sendMessage,
     imagePromptFor,
@@ -335,6 +306,5 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     copyAssistantMessage,
     startSkillAssistantChat,
     launchSkillAssistantChat,
-    startDocumentChat,
   };
 }

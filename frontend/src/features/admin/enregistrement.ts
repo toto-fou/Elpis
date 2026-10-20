@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/enregistrement.ts — enregistrement unifié par page : instantanés « propres » des blocs, diff champ par champ, barre d'enregistrement, garde de sortie et raccourci Ctrl+S. */
+import { CHEMINS_SECRETS_CONFIG } from "@elpis/contracts";
+
 import { IDS_BLOCS, diffFeuilles, poserChemin } from "./etat";
 import type { BaseAdmin, IdBloc } from "./etat";
 import type { FeuilleModifiee } from "./etat";
@@ -33,6 +35,13 @@ const estBlocReversible = (c: ModificationPage): boolean =>
   c.store === "allowed" ||
   c.store === "agents" ||
   (c.store === "exec" && !/^network_profiles/.test(c.path));
+
+const RE_CLE_SECRETE = /(^|[_-])(api_?key(_enc)?|encryption_key|token|secret|password|passwd|jeton)$/iu;
+
+/** Secret de la liste commune au serveur, ou dernier segment qui en nomme un (`voice.stt.token`) : sa valeur n'est jamais affichée ; `max_tokens` n'en est pas un. */
+const estCleSecrete = (chemin: string): boolean =>
+  (CHEMINS_SECRETS_CONFIG as readonly string[]).includes(chemin) ||
+  RE_CLE_SECRETE.test(chemin.split(".").pop() ?? "");
 
 export function creerEnregistrement(b: BaseAdmin) {
   const { vue, ctx, e, nav, lien } = b;
@@ -162,6 +171,9 @@ export function creerEnregistrement(b: BaseAdmin) {
     const dernier = String(c.path).split(".").pop() || c.path;
     return dernier.charAt(0).toUpperCase() + dernier.slice(1).replace(/_/g, " ");
   }
+
+  /** Modification d'un secret : la barre dit « clé modifiée » sans montrer ni l'ancienne ni la nouvelle valeur. */
+  const adminChangeSecret = (c: Pick<ModificationPage, "path">): boolean => estCleSecrete(c.path);
 
   function adminChangeValue(v: unknown): string {
     if (v === undefined || v === null || v === "") return "(vide)";
@@ -298,6 +310,7 @@ export function creerEnregistrement(b: BaseAdmin) {
     adminPageChanges,
     adminChangeLabel,
     adminChangeValue,
+    adminChangeSecret,
     adminChangeRevertable: estBlocReversible,
     revertAdminChange,
     adminConfirmLeave,

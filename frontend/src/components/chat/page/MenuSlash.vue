@@ -18,23 +18,28 @@ suivreLigneActive(useTemplateRef<HTMLUListElement>("liste"), () => comp.slashIdx
       class="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden"
     >
       <div
-        class="px-3 py-2 text-xs font-semibold text-slate-500 border-b border-slate-100 flex items-center gap-2 bg-slate-50"
+        class="elpis-slash-head px-3 py-2 text-xs font-semibold border-b border-slate-100 flex items-center gap-2 bg-slate-50"
       >
         <i class="ph text-blue-500" :class="comp.slashHeaderIcon"></i>
         {{ comp.slashHeaderLabel }}
-        <span v-if="comp.slashRaw && comp.slashRaw.name" class="text-blue-600 font-mono"
-          >/{{ comp.slashRaw.name }}</span
-        >
-        <span class="ml-auto text-slate-300 normal-case font-normal">↑↓ Tab/Entrée · Échap</span>
+        <span v-if="comp.slashRaw && comp.slashRaw.name" class="elpis-slash-cmd font-mono">{{
+          comp.slashHeaderCmd
+        }}</span>
+        <span class="ml-auto normal-case font-normal">↑↓ Tab/Entrée · Échap</span>
       </div>
-      <ul id="slash-list" ref="liste" class="max-h-52 overflow-y-auto custom-scrollbar py-1">
+      <ul
+        id="slash-list"
+        ref="liste"
+        class="max-h-52 overflow-y-auto custom-scrollbar py-1"
+        :style="comp.slashLevel === 'values' ? { maxHeight: '20rem' } : undefined"
+      >
         <li
           v-for="(item, i) in comp.slashList"
           :key="comp.slashRowKey(item, i)"
           data-slash-row
           :title="comp.slashRowTitle(item)"
           :class="[
-            comp.slashIdx === i ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50',
+            comp.slashIdx === i ? 'bg-blue-50 elpis-slash-on' : 'text-slate-700 hover:bg-slate-50',
             comp.slashCmdOk(item) ? '' : 'opacity-50',
           ]"
           class="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer transition-colors text-sm"
@@ -46,20 +51,29 @@ suivreLigneActive(useTemplateRef<HTMLUListElement>("liste"), () => comp.slashIdx
             <div class="flex-1 min-w-0 leading-tight">
               <div class="font-mono text-xs font-medium truncate">
                 /{{ item.name
-                }}<span v-if="item.args && item.args.length" class="text-[10px] text-slate-400 font-normal">
+                }}<span
+                  v-if="item.args && item.args.length"
+                  class="elpis-slash-detail text-[10px] font-normal"
+                >
                   ⟨{{ item.args[0]?.label }}⟩</span
-                ><span class="text-[10px] text-slate-400 font-normal"> · {{ item.label }}</span>
+                ><span class="elpis-slash-detail text-[10px] font-normal"> · {{ item.label }}</span>
               </div>
-              <div class="text-[10px] text-slate-400 truncate">{{ item.desc }}</div>
+              <div class="elpis-slash-detail text-[10px] truncate">{{ item.desc }}</div>
             </div>
           </template>
 
           <template v-else-if="comp.slashLevel === 'values'">
-            <i class="ph ph-caret-right shrink-0 text-blue-400" style="font-size: 16px"></i>
+            <i
+              class="ph shrink-0 text-blue-400"
+              :class="item.icone || 'ph-caret-right'"
+              style="font-size: 16px"
+            ></i>
             <div class="flex-1 min-w-0 leading-tight">
               <div class="font-mono text-xs font-medium truncate">
                 {{ item.value
-                }}<span class="text-[10px] text-slate-400 font-normal"> · {{ item.label }}</span>
+                }}<span v-if="item.indice" class="elpis-slash-detail text-[10px] font-normal">
+                  ({{ item.indice }})</span
+                ><span class="elpis-slash-detail text-[10px] font-normal"> · {{ item.label }}</span>
               </div>
             </div>
           </template>

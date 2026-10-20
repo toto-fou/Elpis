@@ -9,9 +9,9 @@ commandes, conventions, pièges connus. Pour la carte du code, lire
 
 Assistant LLM **auto-hébergé** : chat agentique (outils MCP, sous-agents,
 mémoire, skills), éditeur de code sur une sandbox Docker par utilisateur,
-routines, service RAG, console d'administration. Core (main, admin) et hôte
+routines, RAG intégré (collections de documents), console d'administration. Core (main, admin) et hôte
 d'outils en TypeScript (Node 24, Fastify) ; interface en TypeScript et Vue 3
-(SFC compilés par Vite). Restent en Python : le service RAG (`rag_app/`),
+(SFC compilés par Vite). Restent en Python : l'extracteur du RAG (`rag_app/`),
 elpis-tools (`server/local_mcp_server.py`, qui sert la famille d'outils
 Office), `desktop-agent/`, l'agent du bac (`shared_infra/sandbox/agent/`) et
 l'installation (`deploy/configure.py`, `deploy/wizard.py`). Inférence
@@ -263,7 +263,7 @@ résumé, une modification ne doit jamais :
 - Messages de commit en français, sujet `Domaine : résumé` (espace avant les
   deux-points : `Base :`, `Chat :`, `Sandbox :`, `Docs :`…), corps en puces.
 - Ne jamais versionner : `venv/`, `node/`, `node_modules/`, `config.json*`,
-  `.env`, `mcp.json`, `rag_app/rag_config.json`, `user_*/` (base, secrets de
+  `.env`, `mcp.json`, `user_*/` (base, magasin du RAG, secrets de
   session, jetons, mot de passe de la base), `logs/`, `dist/`, les archives.
 - Publication hors ligne : `./make_release.sh [VERSION]` produit
   `dist/elpis-offline-<version>-<arch>/` (et son `.tar`), installé par

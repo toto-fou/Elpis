@@ -70,7 +70,7 @@ function _groupes6(s) {
 }
 
 /**
- * IPv4 mappée en IPv6 (``::ffff:a.b.c.d`` comme ``::ffff:c0a8:184``, forme
+ * IPv4 mappée en IPv6 (``::ffff:a.b.c.d`` comme ``::ffff:c0a8:128``, forme
  * que le parseur d'URL produit) → ``a.b.c.d`` ; sinon l'adresse telle quelle
  * (sans crochets ni zone).
  */

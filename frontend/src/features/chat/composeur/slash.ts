@@ -18,6 +18,10 @@ export interface ValeurArgument {
   value: string;
   label: string;
   last?: boolean;
+  /** Icône de la rangée (classe Phosphor) à la place du chevron. */
+  icone?: string;
+  /** Argument attendu après la valeur, écrit entre parenthèses : `(collection)`. */
+  indice?: string;
 }
 
 interface SpecArgument {
@@ -28,6 +32,10 @@ interface SpecArgument {
   /** Garde l'ordre déclaré (la valeur par défaut en tête) au lieu du tri par nom. */
   readonly ordreDonne?: boolean;
   readonly valuesFor?: (avant: readonly string[]) => readonly ValeurArgument[];
+  /** Titre de l'en-tête du menu des valeurs (par défaut « Valeurs »). */
+  readonly titre?: (avant: readonly string[]) => string;
+  /** L'argument prend le reste de la ligne (un nom de plusieurs mots) : le choix le remplace en entier. */
+  readonly libre?: boolean;
 }
 
 export interface CommandeSlash {
@@ -83,6 +91,14 @@ export interface RefsSlash {
   templates?: TemplatesChat | null;
 }
 
+/** Commande `/rag` : sous-commandes et collections des menus, exécution (features/rag/commande.ts). */
+export interface RagSlash {
+  disponible(): boolean;
+  valeurs(avant: readonly string[]): readonly ValeurArgument[];
+  actualiser(): void;
+  lancer(raw: string): Promise<ResultatCommande>;
+}
+
 export interface CtxSlash {
   fetchAuth(url: string, options?: Record<string, unknown>, soft?: boolean): Promise<Response | null>;
   showToast(message: string, type?: string): void;
@@ -94,6 +110,7 @@ export interface CtxSlash {
   setPlanMode?: (on: boolean) => unknown;
   imageSlash?: (raw: string) => Promise<ResultatCommande> | ResultatCommande;
   jobs?: JobsSlash;
+  rag?: RagSlash | null;
 }
 
 export interface Commande {
@@ -129,6 +146,8 @@ export interface MenuSlash {
   slashRowTitle(item: Rangee | null | undefined): string;
   slashHeaderIcon: ComputedRef<string>;
   slashHeaderLabel: ComputedRef<string>;
+  /** Commande écrite dans l'en-tête : `/rag use` quand le menu liste les valeurs d'une sous-commande. */
+  slashHeaderCmd: ComputedRef<string>;
 }
 
 const CACHE_MS = 30000;
@@ -335,6 +354,45 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
         ctx.imageSlash ? ctx.imageSlash(raw) : { ok: false, msg: "Génération d’images indisponible." },
     },
     {
+      name: "rag",
+      label: "RAG",
+      icon: "ph-books",
+      desc: "Interroger vos collections : /rag use, off, search, add, new, status, open",
+      args: [
+        {
+          name: "action",
+          label: "action",
+          ordreDonne: true,
+          titre: () => "RAG",
+          get values(): ValeurArgument[] {
+            return [...(ctx.rag?.valeurs([]) ?? [])];
+          },
+        },
+        {
+          name: "cible",
+          label: "collection",
+          values: [],
+          ordreDonne: true,
+          libre: true,
+          titre: (avant) =>
+            avant[0] === "use"
+              ? "Collection à interroger"
+              : avant[0] === "add"
+                ? "Collection à enrichir"
+                : "Collection à ouvrir",
+          valuesFor: (avant) => [...(ctx.rag?.valeurs(avant) ?? [])],
+        },
+      ],
+      // « off », « status » et « open » se lancent d'eux-mêmes ; les autres attendent leur argument.
+      complet: (mots) =>
+        mots[0] === "off" ||
+        mots[0] === "status" ||
+        mots[0] === "open" ||
+        ((mots[0] === "use" || mots[0] === "add") && mots.length >= 2),
+      hidden: () => !ctx.rag || !ctx.rag.disponible(),
+      run: async (_a, raw) => (ctx.rag ? ctx.rag.lancer(raw) : { ok: false, msg: "RAG indisponible." }),
+    },
+    {
       name: "jobs",
       label: "Tâches de fond",
       icon: "ph-timer",
@@ -525,17 +583,43 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     if (!q) return prompts.value.slice();
     return prompts.value.filter((p) => (p.title + " " + p.content).toLowerCase().includes(q));
   });
-  const slashValueList = computed((): ValeurArgument[] => {
+  interface PositionArgument {
+    cmd: CommandeSlash;
+    spec: SpecArgument;
+    mots: string[];
+    /** Rang du mot en cours de saisie. */
+    i: number;
+    /** Rang de la spécification d'argument qui s'applique. */
+    rang: number;
+  }
+
+  function positionArgument(): PositionArgument | null {
     const c = slashRaw.value;
     const cmd = c && c.head ? trouver(c.name) : null;
-    if (!c || !cmd || !(cmd.args || []).length) return [];
+    if (!c || !cmd || !(cmd.args || []).length) return null;
     const args = cmd.args || [];
     const mots = c.words.filter(Boolean);
     const i = c.trailing ? mots.length : Math.max(0, mots.length - 1);
-    const spec = args[Math.min(i, args.length - 1)];
-    if (!spec || !(spec.values || spec.valuesFor)) return [];
+    const rang = Math.min(i, args.length - 1);
+    const spec = args[rang];
+    return spec ? { cmd, spec, mots, i, rang } : null;
+  }
+
+  const slashValueList = computed((): ValeurArgument[] => {
+    const c = slashRaw.value;
+    const pos = positionArgument();
+    if (!c || !pos) return [];
+    const { spec, mots, i, rang } = pos;
+    if (!(spec.values || spec.valuesFor)) return [];
     const valeurs = spec.valuesFor ? spec.valuesFor(mots.slice(0, i)) : spec.values;
-    const q = (c.trailing ? "" : mots[mots.length - 1] || "").toLowerCase();
+    // Un argument libre est filtré par tout ce qui a été tapé depuis son rang (un nom de plusieurs mots).
+    const q = (
+      spec.libre && i >= rang
+        ? mots.slice(rang).join(" ") + (c.trailing && mots.length > rang ? " " : "")
+        : c.trailing
+          ? ""
+          : mots[mots.length - 1] || ""
+    ).toLowerCase();
     // La rangée d'action (« Nouveau template ») reste en dernier, hors filtre.
     const tries = spec.ordreDonne
       ? valeurs.filter((v) => !v.last && v.value.toLowerCase().includes(q))
@@ -666,8 +750,15 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     if (!c || !c.head || !v) return;
     const cmd = trouver(c.name);
     if (!cmd) return;
+    const pos = positionArgument();
     const saisis = c.words.filter(Boolean);
-    const mots = c.trailing ? saisis : saisis.slice(0, -1);
+    // Argument libre : le choix remplace tout ce qui a été tapé depuis son rang (« Procédures ré » devient « Procédures réseau »).
+    const mots =
+      pos && pos.spec.libre && pos.i >= pos.rang
+        ? saisis.slice(0, pos.rang)
+        : c.trailing
+          ? saisis
+          : saisis.slice(0, -1);
     mots.push(v.value);
     if (cmd.complet ? cmd.complet(mots) : mots.length >= (cmd.args || []).length) {
       await consommerPuisLancer(cmd, mots, mots.join(" "));
@@ -750,6 +841,7 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     if (niveau === "prompts" || slashSub.value === "prompts") void chargerPrompts();
     if (c.head && "jobs".startsWith(String(c.name || "").toLowerCase()) && String(c.name || "").length >= 2)
       ctx.jobs?.actualiser();
+    if (c.head && c.name.toLowerCase() === "rag") ctx.rag?.actualiser();
     if (
       templates &&
       c.head &&
@@ -788,7 +880,18 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
   }
 
   const slashHeaderIcon = computed(() => HEADER_ICON[slashLevel.value] || "ph-terminal");
-  const slashHeaderLabel = computed(() => HEADER_LABEL[slashLevel.value] || "Commandes");
+  const slashHeaderLabel = computed(() => {
+    const pos = slashLevel.value === "values" ? positionArgument() : null;
+    const titre = pos?.spec.titre?.(pos.mots.slice(0, pos.rang));
+    return titre || HEADER_LABEL[slashLevel.value] || "Commandes";
+  });
+  const slashHeaderCmd = computed(() => {
+    const c = slashRaw.value;
+    if (!c || !c.name) return "";
+    const pos = slashLevel.value === "values" ? positionArgument() : null;
+    const avant = pos && pos.spec.titre ? pos.mots.slice(0, pos.rang) : [];
+    return "/" + [c.name, ...avant].join(" ");
+  });
 
   function slashRowKey(item: Rangee | null | undefined, i: number): string {
     const r = item as unknown as Record<string, unknown> | null | undefined;
@@ -844,5 +947,6 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     slashRowTitle,
     slashHeaderIcon,
     slashHeaderLabel,
+    slashHeaderCmd,
   };
 }

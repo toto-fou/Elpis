@@ -45,7 +45,7 @@
 - [Le panneau MCP](#le-panneau-mcp)
 - [Le panneau Sampling](#le-panneau-sampling)
 - [Modèles et fournisseurs](#modèles-et-fournisseurs)
-- [Le mode RAG](#le-mode-rag)
+- [Vos collections (RAG)](#vos-collections-rag)
 - [L'éditeur de code](#léditeur-de-code)
 - [Le terminal](#le-terminal)
 - [Les routines (tâches planifiées)](#les-routines-tâches-planifiées)
@@ -86,7 +86,8 @@ propre :
   spécialisé qui travaille dans son propre contexte.
 - **Des routines** : la même mécanique, mais planifiée (cron) ou déclenchée par
   un webhook.
-- **Un mode RAG** optionnel qui enrichit les réponses avec vos documents.
+- **Un RAG** optionnel : l'assistant répond à partir de vos collections de
+  documents et cite ses sources.
 
 L'application s'utilise dans un navigateur. Rien à installer côté poste client.
 
@@ -146,7 +147,7 @@ et on ferme des panneaux au-dessus du chat.
 | **Barre latérale (gauche)** | Nouveau chat, recherche, liste des conversations, notifications, accès aux vues (MCP, Sandbox, Routines, Studio, Remote code), Paramètres, Admin |
 | **Zone centrale** | La conversation |
 | **Panneau droit (optionnel)** | L'éditeur de code + le terminal |
-| **Barre de saisie (bas)** | Message, pièces jointes, sélecteur de modèle, réglages de génération, RAG, mode réflexion, chip des tâches en cours |
+| **Barre de saisie (bas)** | Message, pièces jointes, sélecteur de modèle, réglages de génération, collections RAG actives (pastilles), mode réflexion, chip des tâches en cours |
 
 Les vues **Sandbox**, **Routines**, **Studio** et **Remote code** s'ouvrent en
 plein écran par-dessus le chat ; `Échap` revient toujours d'un cran en arrière.
@@ -513,22 +514,27 @@ consulter et éditer le profil et les notes, tout effacer.
 
 ## Le RAG
 
-Le mode RAG ajoute à votre question des passages tirés de vos documents :
+Le RAG laisse l'assistant répondre à partir de **vos documents**, en citant
+ses sources :
 
-1. Une **base de connaissances** est préparée en amont : chaque document est
-   découpé en morceaux, chaque morceau converti en vecteur qui capture son sens.
-2. Votre question est convertie en vecteur à son tour.
-3. Une recherche par similarité trouve les passages les plus proches.
-4. Ces passages sont **injectés dans le contexte** avant votre question.
-5. Le modèle répond en s'appuyant dessus — et les **sources** sont affichées
-   sous la réponse.
+1. Vous rangez des documents dans une **collection** (page RAG). Chacun est
+   lu (texte, titres, tableaux, pages), découpé en passages, et chaque passage
+   est converti en un vecteur qui capture son sens.
+2. Dans un chat, vous activez une ou plusieurs collections. Quand la question
+   le demande, l'assistant y cherche les passages utiles (outil `rag_search`)
+   et lit au besoin leurs voisins (`rag_read`).
+3. Il répond en citant chaque passage par son numéro (①, ②…), qui mène à
+   l'endroit exact du document.
 
-Trois modes de recherche sont proposés : vectoriel pur, mots-clés (BM25), ou
-**hybride** (les deux fusionnés) — le plus robuste dans la plupart des cas.
+Trois modes de recherche : **Mixte** (le sens et les mots, par défaut), **Par
+le sens**, **Mots exacts**. Les passages restent des **données** : l'assistant
+ne suit pas les consignes qu'un document contiendrait, et un passage tiré de
+la collection d'un autre compte porte le nom de son auteur.
 
-> Le RAG est **optionnel** : il n'apparaît que si votre administrateur a
-> configuré le service. Le service gère aussi l'**OCR** de documents scannés
-> avant indexation.
+> Le RAG n'apparaît que si votre administrateur l'a configuré (serveur
+> d'embeddings) ; il peut le réserver à certains groupes. Les documents
+> scannés sont lus par OCR quand l'administrateur a branché un modèle de
+> vision et que vous l'activez pour la collection.
 
 [↑ Sommaire](#sommaire)
 
@@ -603,6 +609,7 @@ Tapez `/` en début de saisie :
 | `/template` | Insérer un [template de prompt](#templates-de-prompt) (variables demandées avant l'insertion) |
 | `/compact` | Compacter la conversation maintenant (résume l'historique ancien) |
 | `/image [16:9] [x2] description` | Générer une image directement, sans ouvrir le mode Images |
+| `/rag …` | Collections de documents du chat : voir [Dans le chat](#dans-le-chat) |
 
 Si votre saisie ne correspond à aucune commande, le menu bascule
 automatiquement sur la recherche de skills.
@@ -783,19 +790,86 @@ sont proposés.
 
 ---
 
-## Le mode RAG
-
-Le bouton **Sources RAG** de la barre de saisie ouvre le panneau :
-
-- **Collection** — quelle base interroger (ou *Défaut*).
-- **Mode de recherche** — hybride (vecteurs + BM25 fusionnés), mots-clés, ou
-  similarité vectorielle pure.
-- **Nombre de passages** et diversification des résultats.
-
-Une fois activé, chaque question est enrichie avant d'atteindre le modèle. Les
-**sources utilisées** s'affichent sous la réponse, dépliables.
+## Vos collections (RAG)
 
 Voir [Le RAG](#le-rag) pour le fonctionnement.
+
+### La page RAG
+
+Entrée **RAG** de la barre latérale, sous Sandbox. À gauche : **Mes
+collections**, **Partagées avec moi** (avec la pastille de l'auteur), la
+progression des indexations et votre quota de stockage. À la première visite,
+déposez des fichiers : la collection se crée.
+
+Formats acceptés : PDF, Word (docx), PowerPoint (pptx), Excel (xlsx), HTML,
+Markdown, texte, CSV, JSON et YAML. Quotas par défaut (l'administrateur peut
+les changer) : 2 Go, 10 collections, 200 Mo par fichier, 2 000 documents par
+collection.
+
+Une collection a trois onglets :
+
+- **Documents** : glissez des fichiers ou un dossier, ou **Importer depuis la
+  sandbox**. Chaque ligne montre la bande de ses passages et son état (en
+  attente, extraction, indexation, prêt, ou échec avec sa raison, par exemple
+  « Sans texte : activez l'OCR »). Le bandeau d'indexation propose Suspendre
+  et Annuler. Un fichier déjà présent (même contenu) est ignoré.
+- **Tester** : une question montre les passages que l'assistant recevrait,
+  où ils se trouvent dans les documents, et leur coût estimé en jetons.
+- **Réglages** (propriétaire) : nom, **description** (l'assistant la lit pour
+  savoir quand chercher), découpage, OCR des documents scannés, et la zone de
+  danger (vider, ou supprimer après avoir tapé le nom).
+
+### Publier
+
+**Publier…** ouvre la boîte de publication : **Privée**, **Groupes** (ceux dont
+vous êtes membre) ou **Tous les comptes** (administrateurs seulement). Les
+comptes qui gagnent l'accès reçoivent une notification. L'interrupteur
+**Ouvrir les documents sources** décide s'ils peuvent ouvrir vos fichiers
+d'origine ; sans lui, ils ne voient que les passages trouvés.
+
+Une collection publiée par un autre compte est en **lecture seule** : vous
+pouvez chercher dedans (**Discuter avec**, onglets Documents et Tester) ou la
+**Masquer de ma liste**, rien d'autre. L'administrateur voit le nom, l'auteur
+et la taille de toutes les collections et peut en supprimer une ; il ne lit
+jamais le contenu d'une collection qui ne lui est pas ouverte.
+
+### Dans le chat
+
+**Discuter avec** ouvre un chat neuf, la collection déjà active. Les
+collections actives s'affichent en pastilles au-dessus de la saisie ; la croix
+en retire une. Sans collection active, l'assistant ne cherche dans aucun
+document. La commande `/rag` fait le reste :
+
+| Commande | Effet |
+|---|---|
+| `/rag use <collection>` | Interroger cette collection dans ce chat (plusieurs possibles ; le menu liste les vôtres, puis celles partagées avec vous) |
+| `/rag off` | Ne plus interroger de collection |
+| `/rag search <question>` | Montrer les passages trouvés dans une notice du fil, sans réponse de l'assistant |
+| `/rag add <collection>` | Indexer les fichiers joints ou les `@fichiers` de la sandbox dans une de vos collections |
+| `/rag new <nom>` | Créer une collection avec les fichiers joints |
+| `/rag status` | Voir les indexations en cours |
+| `/rag open [collection]` | Ouvrir la page RAG |
+
+**Les sources.** Dans la réponse, chaque renvoi devient une pastille
+numérotée ; au survol (ou au clavier), une bulle montre le document, la page,
+la section, la collection, l'extrait avec les mots de votre question surlignés
+et la pertinence. Sous la réponse, le pied de sources liste les documents
+cités et, dans « N passages lus, non cités », ce que l'assistant a écarté.
+
+**La visionneuse.** « Voir dans le document » ouvre un volet à droite :
+**Page** montre la page réelle avec le passage surligné à son emplacement,
+**Texte** le texte extrait avec les passages voisins. Les flèches passent
+d'une source citée à l'autre ; une bande montre où se trouvent les passages
+dans le document. **Ouvrir l'original** n'apparaît que si vous y avez droit.
+
+### Départ d'un compte
+
+Quand un compte est supprimé, ses collections le sont aussi (fichiers et
+passages). Les comptes qui lisaient une de ses collections publiées reçoivent
+une notification ; les réponses déjà données gardent leurs extraits cités,
+mais le document ne s'ouvre plus. Tant que le compte existe, ses publications
+restent valables même s'il quitte un groupe ou perd le droit RAG ; ses
+collections privées ne sont alors plus lisibles par personne.
 
 [↑ Sommaire](#sommaire)
 
@@ -811,7 +885,7 @@ ou l'icône de la barre latérale.
 
 Arborescence de votre sandbox. Clic gauche pour ouvrir ou déplier, clic droit
 pour le menu contextuel : nouveau fichier, nouveau dossier, renommer,
-supprimer, télécharger, indexer pour le RAG. Une barre de recherche filtre par
+supprimer, télécharger. Une barre de recherche filtre par
 nom ; une recherche de contenu retrouve un texte dans tous les fichiers.
 
 **Import / export** : glisser-déposer de fichiers ou de dossiers entiers
@@ -1149,7 +1223,7 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | **Compaction** | Compaction automatique, seuil, nombre maximal de compactions par conversation |
 | **Modèles IA** | Fournisseurs proposés par l'administrateur + vos propres fournisseurs |
 | **Apparence** | Mode sombre, habillage (skin : ceux que l'administrateur a activés), nom de l'assistant (son avatar est le logo de l'application, choisi par l'administrateur) |
-| **Fonctionnalités** | Les modules **MCP**, **RAG** et **Sandbox**. Quand l'éditeur est activé, ses réglages apparaissent dessous, en deux groupes : *affichage* (thème, police, indentation, retour à la ligne, minimap, numéros de ligne) et *comportement* (ouverture automatique, aperçu, surbrillance des modifications, sauvegarde auto, mémorisation des onglets) |
+| **Fonctionnalités** | Les modules **MCP** et **Sandbox**. Quand l'éditeur est activé, ses réglages apparaissent dessous, en deux groupes : *affichage* (thème, police, indentation, retour à la ligne, minimap, numéros de ligne) et *comportement* (ouverture automatique, aperçu, surbrillance des modifications, sauvegarde auto, mémorisation des onglets) |
 | **Utilisation** | Vos tokens sur 1, 7, 30 ou 90 jours, une barre par type : entrée (dont cache et outils), sortie (dont réflexion), et par origine ; conversations, messages, runs de routines |
 | **Mémoire** | Activer, consulter, **éditer** (corriger ou retirer une entrée) et tout effacer |
 | **Agents** | Activer les sous-agents, créer et éditer vos agents personnalisés |
@@ -1266,7 +1340,8 @@ Oui, si le sélecteur est activé. Le nouveau modèle s'applique au prochain
 message ; les anciens messages restent attribués au modèle qui les a produits.
 
 **Le modèle se trompe ou invente. Que faire ?**
-1. Activez le **RAG** si la question porte sur des documents internes.
+1. Activez une **collection RAG** (`/rag use`) si la question porte sur des
+   documents internes.
 2. Activez les **outils** : avec l'outil Fichiers, le modèle lit le fichier au
    lieu de supposer son contenu.
 3. Passez en **mode réflexion**.
@@ -1331,7 +1406,7 @@ archives ne comptent pas dans la limite.
 | Un serveur MCP est en rouge | Le serveur ne démarre pas ou a planté | Vérifiez son URL / sa commande ; pour un serveur partagé, prévenez l'administrateur |
 | Réponses très lentes (< 5 t/s) | Beaucoup d'utilisateurs simultanés, ou modèle trop gros | Patientez (la file est affichée) ou contactez l'administrateur |
 | Le modèle ignore mon prompt système | Prompt trop long ou contradictoire avec l'historique | Raccourcissez-le ; ouvrez une conversation neuve |
-| Le mode RAG répond « service indisponible » | Le service RAG n'est pas démarré | Contactez l'administrateur |
+| La page RAG dit « Le RAG est indisponible » ou un document affiche « Extracteur indisponible » | Serveur d'embeddings, extracteur ou Qdrant arrêté | Contactez l'administrateur (`./elpis doctor` les vérifie) ; l'indexation reprend d'elle-même ensuite |
 | L'aperçu de serveur affiche une erreur de connexion | Port non autorisé par le profil réseau, ou serveur non démarré | Vérifiez le profil réseau et que le service écoute bien sur ce port |
 | Une commande échoue en « connexion refusée » | Profil réseau isolé | Changez de profil, ou demandez l'ouverture de la destination |
 | Un fichier créé au terminal ne s'efface pas depuis l'éditeur | Ancien problème de propriété de fichiers | Ne devrait plus se produire ; signalez-le, c'est un bug |

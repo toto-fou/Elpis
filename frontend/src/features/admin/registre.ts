@@ -81,7 +81,14 @@ const ENTREES: readonly EntreeAdmin[] = [
         paths: ["llama."],
       },
       { id: "compression", label: "Compression", stores: ["compression"], loaders: [["loadCompressionCfg"]] },
-      { id: "rag", label: "RAG", stores: ["config"], loaders: [CONFIG] },
+      {
+        id: "rag",
+        label: "RAG",
+        wide: true,
+        stores: ["config"],
+        loaders: [CONFIG, ["loadGroups"], ["loadUsers"], ["loadRagAdmin"]],
+        paths: ["rag."],
+      },
       { id: "vision", label: "Vision & machines", stores: ["config"], loaders: [CONFIG, ["loadAxSites"]] },
       { id: "voice", label: "Voix", stores: ["config"], loaders: [CONFIG] },
       {

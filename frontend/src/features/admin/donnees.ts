@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/admin/donnees.ts — console › Données et services : base de données (test, simulation, bascule, retour SQLite), moteur vocal (test, modèles chargés), moteur d'images (test, modèles, clé scellée, groupes, tailles) et service RAG. */
+/** frontend/src/features/admin/donnees.ts — console › Données et services : base de données (test, simulation, bascule, retour SQLite), moteur vocal (test, modèles chargés) et moteur d'images (test, modèles, clé scellée, groupes, tailles). */
 import { schemaReponseBase } from "@elpis/contracts";
 import type { ReponseBase } from "@elpis/contracts";
 import type { Ref } from "vue";
@@ -32,14 +32,6 @@ export interface DetailTestBase {
 export interface DetailSimulation {
   tables: Record<string, { source?: number; [cle: string]: unknown }>;
   ignored?: Record<string, unknown>;
-  [cle: string]: unknown;
-}
-export interface DetailRag {
-  service?: string;
-  version?: string;
-  collection?: string;
-  auth_required?: boolean;
-  qdrant_ok?: boolean;
   [cle: string]: unknown;
 }
 /** Issue d'un test lancé depuis la page : repos, en cours, réussie avec détail ou en erreur avec message. */
@@ -242,35 +234,6 @@ export function creerDonnees(b: BaseAdmin) {
     }
     dbJob.value = { state: "running", step: "préparation" };
     sonderTache();
-  }
-
-  // ── Service RAG ──────────────────────────────────────────────────────────
-  const ragServiceTest: Ref<EtatEssai<DetailRag>> = ref({ state: "idle", detail: null });
-  async function testRagServiceConnection(): Promise<void> {
-    const cfg = e.configForm.value?.rag;
-    const corps = {
-      url: (cfg?.service_url || "").trim(),
-      token: cfg?.service_token || "",
-      timeout: cfg?.service_timeout || 5,
-    };
-    ragServiceTest.value = { state: "busy", detail: null };
-    try {
-      const r = await fetchAuth("/api/admin/rag-service/test", {
-        method: "POST",
-        headers: ENTETES_JSON,
-        body: JSON.stringify(corps),
-      });
-      if (!r) {
-        ragServiceTest.value = { state: "err", detail: "Session expirée ou réseau indisponible" };
-        return;
-      }
-      const data = objet(await corpsJson(r));
-      ragServiceTest.value = data["ok"]
-        ? { state: "ok", detail: objet(data["status"]) as DetailRag }
-        : { state: "err", detail: texte(data["error"]) || "Erreur inconnue" };
-    } catch (err) {
-      ragServiceTest.value = { state: "err", detail: String(err instanceof Error ? err.message : err) };
-    }
   }
 
   // ── Moteur vocal ─────────────────────────────────────────────────────────
@@ -672,8 +635,6 @@ export function creerDonnees(b: BaseAdmin) {
     simulateDatabase,
     migrateDatabase,
     revertDatabaseToSqlite,
-    ragServiceTest,
-    testRagServiceConnection,
     voiceTest,
     testVoiceConnection,
     voiceModels,

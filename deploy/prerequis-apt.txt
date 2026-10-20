@@ -1,13 +1,15 @@
 ## SPDX-License-Identifier: MIT
 ## deploy/prerequis-apt.txt — paquets apt qu'installe ./install.sh (Debian 12 et 13, Ubuntu 24.04) : « # groupe — rôle » ouvre un groupe, « a | b » accepte l'un ou l'autre et installe le premier que proposent les dépôts.
 
-# socle — Python et son venv, téléchargements, certificats, mises à jour par git
+# socle — Python et son venv, téléchargements, certificats, mises à jour par git, prison bubblewrap
 python3
 python3-venv
 git
 curl
 ca-certificates
 openssl
+## prison des analyses de l'extracteur du RAG et des aperçus Office
+bubblewrap
 
 # sandbox — Docker pour la sandbox des utilisateurs (terminal, exécution de code)
 docker.io | docker-ce
@@ -15,8 +17,7 @@ docker.io | docker-ce
 docker-cli | docker-ce-cli | docker.io
 xz-utils
 
-# apercus-office — LibreOffice dans une prison bubblewrap (aperçus Word, Excel, PowerPoint)
-bubblewrap
+# apercus-office — LibreOffice dans une prison bubblewrap (aperçus Word, Excel, PowerPoint) ; aussi le rendu des pages de ces formats par l'extracteur du RAG
 libreoffice-writer-nogui | libreoffice-writer
 libreoffice-calc-nogui | libreoffice-calc
 libreoffice-impress-nogui | libreoffice-impress

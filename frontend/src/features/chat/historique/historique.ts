@@ -6,6 +6,7 @@ import type { Ref } from "vue";
 import { copyImageFields } from "../../images/formats.ts";
 import { lireBilanTache } from "../outils/bilan-tache.ts";
 import { parseToolHistorySegments } from "../outils/segments.ts";
+import { sourcesRagValides } from "../../rag/sources.ts";
 import type { FetchAuth, VueFabrique } from "./recherche";
 
 export interface ResumeChat {
@@ -76,6 +77,7 @@ export interface DepsHistorique {
   defaultToolKeys?: () => unknown;
   resetSlash?: Rappel;
   applyChatPlanMode?: (actif: unknown) => void;
+  applyChatRag?: (rag: unknown) => void;
   applyChatCtxUsage?: (usage: unknown, id: string) => void;
   clearPinnedSkills?: Rappel;
   resetAskUser?: Rappel;
@@ -257,6 +259,10 @@ export function construireMessages(
     if (m.errorMessage) msg.errorMessage = m.errorMessage;
     if (Array.isArray(m.files_changed) && m.files_changed.length) msg.files_changed = m.files_changed;
     if (Array.isArray(m.run_ids) && m.run_ids.length) msg.run_ids = m.run_ids;
+    if (m.role === "assistant") {
+      const sources = sourcesRagValides(m.rag_sources);
+      if (sources.length) msg.rag_sources = sources;
+    }
     if (m.role === "assistant" && Array.isArray(m.compactions) && m.compactions.length) {
       msg.compactions = m.compactions;
       placerCompactions(msg, m.compactions);
@@ -345,6 +351,7 @@ export function creerHistoriqueChat(
     deps.setTodoList?.([]);
     deps.applyChatTools?.(typeof deps.defaultToolKeys === "function" ? deps.defaultToolKeys() : []);
     deps.applyChatPlanMode?.(false);
+    deps.applyChatRag?.(null);
     isUserScrolling.value = false;
     try {
       ctx.clearSavedSession?.();
@@ -401,6 +408,7 @@ export function creerHistoriqueChat(
         }
         deps.applyChatTools?.(d.tools);
         deps.applyChatPlanMode?.(d.plan_mode);
+        deps.applyChatRag?.(d.rag);
         const bruts = (Array.isArray(d.messages) ? d.messages : []).filter(
           (m): m is Message => enregistrement(m) && m.role !== "system",
         );

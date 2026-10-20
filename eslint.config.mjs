@@ -55,6 +55,7 @@ const CLES_VIVES = new Set(
   }),
 );
 const LECTEURS_CONFIG = [
+  "configRag",
   "configView",
   "featureEnabled",
   "getDesktopTarget",
@@ -70,7 +71,7 @@ const LECTEURS_CONFIG = [
 ];
 /** Source d'import → lecteurs vivants qu'elle exporte (chemins relatifs : à l'intérieur du paquet). */
 const LECTEURS_VIFS = new Map([
-  ...["@elpis/config", "./instance", "./vivant", "./config-json"].map((src) => [
+  ...["@elpis/config", "./instance", "./vivant", "./config-json", "./rag"].map((src) => [
     src,
     new Set(LECTEURS_CONFIG),
   ]),

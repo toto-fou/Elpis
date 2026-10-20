@@ -6,6 +6,9 @@ import type { Base, Executeur } from "@elpis/db";
 
 import { deleteUserDir } from "../images/magasin";
 import { deletePrincipalRows } from "../llm/acces-moteurs";
+import { invaliderAccesRag, purgerCompteRag } from "../rag/acces";
+import { nettoyerRagCompte } from "../rag/nettoyage";
+import type { CollectionPartieRag } from "../rag/nettoyage";
 
 /** Point de sauvegarde dont l'échec « table absente » (base antérieure à la migration) est avalé. */
 async function toleree(base: Base, f: (x: Executeur) => Promise<unknown>): Promise<void> {
@@ -16,8 +19,9 @@ async function toleree(base: Base, f: (x: Executeur) => Promise<unknown>): Promi
   }
 }
 
-/** `delete_user_full` : conversations, prompts, groupes, accès aux moteurs, jetons, OAuth et images dans une transaction, puis le dossier d'images. */
+/** `delete_user_full` : conversations, prompts, groupes, accès aux moteurs, jetons, OAuth, images et RAG dans une transaction, puis les fichiers. */
 export async function deleteUserFull(base: Base, uid: number): Promise<boolean> {
+  let rag: CollectionPartieRag[] = [];
   const supprime = await base.ecriture(async (x) => {
     await x.run("DELETE FROM chats WHERE user_id=?", [uid]);
     await x.run("DELETE FROM saved_prompts WHERE user_id=?", [uid]);
@@ -27,8 +31,14 @@ export async function deleteUserFull(base: Base, uid: number): Promise<boolean> 
     await toleree(base, (tx) => supprimerJetonsCompte(tx, uid));
     await toleree(base, (tx) => supprimerOauthCompte(tx, uid));
     await toleree(base, (tx) => tx.run("DELETE FROM generated_images WHERE user_id=?", [uid]));
+    await toleree(base, async (tx) => {
+      rag = await purgerCompteRag(tx, uid);
+    });
     return (await x.run("DELETE FROM users WHERE id=?", [uid])).changes > 0;
   });
-  if (supprime) await deleteUserDir(uid);
-  return supprime;
+  if (!supprime) return false;
+  invaliderAccesRag(base);
+  await deleteUserDir(uid);
+  await nettoyerRagCompte(uid, rag);
+  return true;
 }

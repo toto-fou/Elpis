@@ -27,6 +27,7 @@ Codes de sortie : 0 validé, 1 abandon, 3 terminal inutilisable.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import secrets
@@ -42,6 +43,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import configure as C  # noqa: E402  (constantes, sondes, lecture de config)
+import rag_ancien  # noqa: E402  (réglages de l'ancien RAG, repris par la mise à jour)
 import tui as T  # noqa: E402
 
 ROOT = C.ROOT
@@ -49,9 +51,9 @@ State = Dict[str, Any]
 
 COMPONENTS = [
     ("browser", "Navigateur piloté", "Chromium : navigation web par l'assistant"),
-    ("office", "LibreOffice", "aperçus Word, Excel, PowerPoint (~400 Mo)"),
+    ("office", "LibreOffice", "aperçus Word, Excel, PowerPoint ; pages de ces documents dans la visionneuse du RAG (~400 Mo)"),
     ("caddy", "Caddy (HTTPS)", "frontal TLS devant l'application"),
-    ("agpl", "Extras AGPL", "PyMuPDF, pdf2docx : conversion PDF → Word (licence AGPL)"),
+    ("agpl", "Extras AGPL", "PyMuPDF, pdf2docx (licence AGPL) : plus utilisés depuis le RAG intégré"),
 ]
 ROOT_COMPONENTS = {"caddy"}
 DB_MODES = [
@@ -128,11 +130,15 @@ def _sqlite_admins(path: Path) -> Optional[List[str]]:
 
 def initial_state(ctx: Ctx) -> State:
     cfg = C.read_json(C.CONFIG) if ctx.reinstall else C.read_json(ROOT / "config.example.json")
-    rag = C.read_json(C.RAG_CONFIG) if C.RAG_CONFIG.exists() else C.read_json(
-        ROOT / "rag_app" / "rag_config.example.json")
+    # Installation pas encore montée : réglages de l'ancien rag_config.json, comme les reprendra la mise à jour.
+    vue_rag = copy.deepcopy(cfg)
+    if C.RAG_CONFIG.exists():
+        rag_ancien.reprendre_reglages(vue_rag, C.read_json(C.RAG_CONFIG))
+    rag = vue_rag.get("rag") if isinstance(vue_rag.get("rag"), dict) else {}
     env = C.read_env_file()
     llama = cfg.get("llama") or {}
     db = cfg.get("database") or {}
+    emb = rag.get("embed") or {}
     rr = rag.get("reranker") or {}
     ocr = rag.get("ocr") or {}
     voice = cfg.get("voice") or {}
@@ -154,13 +160,12 @@ def initial_state(ctx: Ctx) -> State:
         "listen": _listen_default(cfg, ctx),
         "public_host": env.get("ELPIS_PUBLIC_HOST", ""), "domain": env.get("ELPIS_DOMAIN", ""),
         "acme_email": env.get("ELPIS_ACME_EMAIL", ""),
-        "rag": bool((cfg.get("rag") or {}).get("enabled", True)),
-        "embed_url": C.norm_base(str(rag.get("embed_base_url") or "http://127.0.0.1:8081")),
-        "embed_model": str(rag.get("embed_model") or "bge-m3"),
-        "embed_model_name": str(rag.get("embed_model") or "bge-m3"),
+        "rag": bool(rag.get("enabled", True)),
+        "embed_url": C.norm_base(str(emb.get("url") or "http://127.0.0.1:8081")),
+        "embed_model": str(emb.get("model") or "bge-m3"),
+        "embed_model_name": str(emb.get("model") or "bge-m3"),
         "reranker_url": str(rr.get("url") or "") if rr.get("enabled") else "",
-        "ocr_url": (f"http://{ocr.get('host')}:{ocr.get('port')}" if ocr.get("host")
-                    else str(ocr.get("endpoint_url") or "")) if ocr.get("enabled") else "",
+        "ocr_url": str(ocr.get("url") or ""),
         "voice": bool(voice.get("enabled", ctx.voice_local or ctx.tts_local)),
         "stt_url": str((voice.get("stt") or {}).get("endpoint_url") or "") or (
             "http://127.0.0.1:8090" if ctx.voice_local else ""),

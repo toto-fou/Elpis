@@ -2554,22 +2554,6 @@ const rg = domaineReglages();
                     </div>
                   </label>
 
-                  <label class="set-row cursor-pointer hover:bg-white/60 transition-colors">
-                    <i class="ph ph-database text-slate-400 text-lg w-5"></i>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-sm text-slate-800">RAG</div>
-                      <div class="text-[11px] text-slate-500">
-                        Cherche dans vos documents pour enrichir les réponses.
-                      </div>
-                    </div>
-                    <div class="relative inline-flex items-center shrink-0">
-                      <input v-model="rg.settings.enable_rag" type="checkbox" class="sr-only peer" />
-                      <div
-                        class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                      ></div>
-                    </div>
-                  </label>
-
                   <label
                     v-if="rg.settings.image_ready"
                     class="set-row cursor-pointer hover:bg-white/60 transition-colors"

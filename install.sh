@@ -51,9 +51,10 @@
 #                                     l'installation pourrait aller au bout
 #
 #  Composants (pré-remplissent l'assistant, ou répondent sans lui) :
-#    --with-office | --no-office      LibreOffice (aperçus Word/Excel/PowerPoint)
+#    --with-office | --no-office      LibreOffice (aperçus Word/Excel/PowerPoint, pages
+#                                     de ces documents dans la visionneuse du RAG)
 #    --with-caddy  | --no-caddy       frontal HTTPS Caddy
-#    --with-agpl   | --no-agpl        extras AGPL (PyMuPDF, pdf2docx)
+#    --with-agpl   | --no-agpl        extras AGPL (PyMuPDF, pdf2docx ; plus utilisés)
 #    --with-browser | --no-browser    service navigateur (Chromium)
 #    --db sqlite|postgres-local|external
 #                                     base de données : fichier SQLite (défaut),
@@ -602,13 +603,13 @@ if [ "$TUI" -eq 0 ]; then
                 "external:serveur PostgreSQL existant (questions ensuite)")"
         fi
     fi
-    [ -n "$WITH_OFFICE" ] || WITH_OFFICE="$(ask_yn "LibreOffice (aperçus Word, Excel, PowerPoint dans l'éditeur, ~400 Mo) ?" "$(have soffice && echo 1 || echo 0)")"
+    [ -n "$WITH_OFFICE" ] || WITH_OFFICE="$(ask_yn "LibreOffice (aperçus Word, Excel, PowerPoint dans l'éditeur et dans la visionneuse du RAG, ~400 Mo) ?" "$(have soffice && echo 1 || echo 0)")"
     if [ "$ADMIN_OK" -eq 1 ]; then
         [ -n "$WITH_CADDY" ]  || WITH_CADDY="$(ask_yn "Caddy (HTTPS devant l'application) ?" 0)"
     else
         WITH_CADDY=0     # sa configuration demande root
     fi
-    [ -n "$WITH_AGPL" ]   || WITH_AGPL="$(ask_yn "Extras AGPL PyMuPDF/pdf2docx (conversion PDF → Word ; licence AGPL) ?" 0)"
+    [ -n "$WITH_AGPL" ]   || WITH_AGPL="$(ask_yn "Extras AGPL PyMuPDF/pdf2docx (licence AGPL ; plus utilisés depuis le RAG intégré) ?" 0)"
     if [ -z "$DO_CONFIGURE" ]; then
         if [ -f "$ROOT/config.json" ]; then
             DO_CONFIGURE="$(ask_yn "Revoir la configuration (./elpis configure) ?" 0)"
@@ -713,9 +714,7 @@ plan_dry_run() {
     etape "Node.js $NODE_VERSION : $v"
     etape "bundles du core, de l'hôte d'outils et de l'interface ($src) : $([ -f "$ROOT/apps/core/dist/main.mjs" ] && echo "gardés s'ils correspondent aux sources, sinon reconstruits" || echo "construits") $([ -z "$OFFLINE_DIR" ] && echo "(npm ci, npm run build, npm de l'archive retiré ensuite)")"
     if [ -n "$OFFLINE_DIR" ]; then dry_paquet_hors_ligne; else DRY_RESEAU+=("registre npm"); fi
-    if [ "$WITH_OFFICE" -eq 1 ] || have bwrap; then
-        etape "bubblewrap : sondé pour les aperçus Office$([ "$AS_ROOT" -eq 1 ] || echo " (profil AppArmor posé par sudo s'il est bloqué)")"
-    fi
+    etape "bubblewrap : sondé pour les analyses du RAG et les aperçus Office$([ "$AS_ROOT" -eq 1 ] || echo " (profil AppArmor posé par sudo s'il est bloqué)")"
     case "$DB_MODE" in
         keep) etape "base de données : gardée (config.json inchangé, user_db/ en place)" ;;
         sqlite) etape "base de données : SQLite (user_db/app.db, créée au premier démarrage)" ;;
@@ -749,6 +748,9 @@ plan_dry_run() {
     if [ "$WITH_CADDY" -eq 1 ]; then
         etape "Caddy : frontal HTTPS configuré (deploy/caddy/install_caddy.sh, sudo)"
         [ "$AS_ROOT" -eq 1 ] || DRY_SUDO_REQUIS+=("Caddy")
+    fi
+    if [ -f "$ROOT/rag_app/rag_config.json" ] || [ -d "$ROOT/rag_app/DATA" ] || [ -d "$ROOT/rag_app/OCR_STORE" ]; then
+        etape "RAG intégré : ancien RAG SUPPRIMÉ (rag_app/DATA, OCR_STORE, états, collections Qdrant hors elpis_*), réglages d'embeddings, de reclassement et d'OCR repris dans config.json ; aucun import (sauvegardez rag_app/DATA avant si vous voulez garder ces fichiers)"
     fi
     if [ "$DO_CONFIGURE" = 1 ]; then
         etape "configuration : ./elpis configure --yes${CONFIGURE_ARGS[*]:+ $(args_masques "${CONFIGURE_ARGS[@]}")} (config.json, .env, mcp.json)"
@@ -1087,8 +1089,8 @@ install_caddy() {
     $SUDO "$ROOT/deploy/caddy/install_caddy.sh" || note_warn "Installation de Caddy incomplète."
 }
 
-# Les aperçus Office tournent dans une prison bubblewrap (Git, lui, tourne
-# dans la sandbox depuis L4.4) ; la sonde est celle de l'application (@elpis/bac,
+# Les aperçus Office et les analyses de l'extracteur du RAG tournent dans une
+# prison bubblewrap ; la sonde est celle de l'application (@elpis/bac,
 # par le core construit juste avant), comme ./elpis doctor. Ubuntu ≥ 23.10
 # réserve les user namespaces aux programmes qui ont un profil AppArmor : avec
 # les droits système, on en pose un pour bwrap, seulement s'il est bloqué
@@ -1101,10 +1103,10 @@ bwrap_ok() {
 
 ensure_bwrap() {
     if ! have bwrap; then
-        note_warn "bubblewrap absent : aperçus Office indisponibles (apt install bubblewrap)."
+        note_warn "bubblewrap absent : analyses du RAG non isolées, aperçus Office indisponibles (apt install bubblewrap)."
         return 0
     fi
-    if bwrap_ok; then ok "bubblewrap utilisable (aperçus Office)."; return 0; fi
+    if bwrap_ok; then ok "bubblewrap utilisable (analyses du RAG, aperçus Office)."; return 0; fi
     if [ "$DO_SYSTEM" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && have apparmor_parser \
             && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ]; then
         printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' '' \
@@ -1114,8 +1116,7 @@ ensure_bwrap() {
             && $SUDO apparmor_parser -r /etc/apparmor.d/elpis-bwrap \
             && bwrap_ok && { ok "bubblewrap autorisé (profil AppArmor elpis-bwrap)."; return 0; }
     fi
-    if [ "$WITH_OFFICE" -eq 1 ]; then note_warn "bubblewrap bloqué (user namespaces) : aperçus Office indisponibles (./elpis doctor)."
-    else info "bubblewrap bloqué (user namespaces) : sans effet tant que LibreOffice n'est pas installé."; fi
+    note_warn "bubblewrap bloqué (user namespaces) : analyses du RAG non isolées, aperçus Office indisponibles (./elpis doctor)."
 }
 
 check_office() {
@@ -1128,7 +1129,7 @@ check_office() {
 [ "$DO_SYSTEM" -eq 1 ] && [ "$ADMIN_OK" -eq 1 ] && [ "$SANDBOX_MODE" != none ] && configurer_docker
 install_python
 install_core
-{ [ "$WITH_OFFICE" -eq 1 ] || have bwrap; } && ensure_bwrap     # bubblewrap ne sert qu'aux aperçus Office
+ensure_bwrap
 setup_database
 [ "$WITH_BROWSER" -eq 1 ] && install_browser
 install_qdrant
@@ -1144,6 +1145,12 @@ chmod +x "$ROOT/elpis" 2>/dev/null || true
 # =============================================================================
 #  8. Configuration et démarrage
 # =============================================================================
+# Passage au RAG intégré, une fois : réglages de l'ancien RAG repris, ancien RAG supprimé ; rien à faire sur une installation neuve.
+if [ ! -e "$ROOT/user_db/.rag_ancien_supprime" ] && { [ -f "$ROOT/config.json" ] || [ -f "$ROOT/rag_app/rag_config.json" ]; }; then
+    info "RAG intégré : passage depuis l'ancien RAG (une seule fois, sans import)…"
+    as_app "$VENV/bin/python" "$ROOT/deploy/configure.py" --migrer-rag \
+        || note_warn "Ancien RAG non supprimé : retenté par ./elpis start ; ./elpis doctor le signale."
+fi
 if [ "$DO_CONFIGURE" = 1 ]; then
     echo
     if [ "$TUI" -eq 1 ]; then

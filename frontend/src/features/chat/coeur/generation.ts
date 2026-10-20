@@ -129,14 +129,18 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     startGenTicker();
   }
 
-  /** Crée le chat côté serveur s'il n'existe pas (le mode plan armé est scellé dans le même appel). */
+  /** Crée le chat côté serveur s'il n'existe pas (le mode plan armé et les collections RAG choisies sont scellés dans le même appel). */
   async function ensureServerChat(source: string, run?: RunLu): Promise<string | false> {
     if (r.currentChatId.value) return r.currentChatId.value;
+    const rag = l.ragEnAttente();
     try {
       const res = await ctx.fetchAuth("/api/saved/chats/new", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan_mode: !!e.planMode.value }),
+        body: JSON.stringify({
+          plan_mode: !!e.planMode.value,
+          ...(rag.length ? { rag_collections: rag } : {}),
+        }),
       });
       if (!res || !res.ok) return false;
       const d: unknown = await res.json();
@@ -150,6 +154,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       if (!run || !run.detached) {
         r.currentChatId.value = id;
         e.currentChatTitle.value = titre;
+        if (rag.length) l.ragCreation(estObjet(d) ? d["rag_collections"] : null);
       }
       e.chats.value.unshift({ id, title: titre, updated_at: Date.now() / 1000 });
       return id;
@@ -397,17 +402,11 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     imageGen: Objet | null,
     mcp: boolean,
   ): string {
-    const cfg = r.config.value;
     const budget = l.thinkingBudget();
     return JSON.stringify({
       messages: payload,
       chat_id: run.chatId && !run.chatId.startsWith("__") ? run.chatId : "",
       resumable: true,
-      use_rag: cfg.use_rag,
-      rag_collection: cfg.rag_collection,
-      rag_search_mode: cfg.rag_search_mode || "classic",
-      rag_top_k: cfg.rag_top_k || 8,
-      rag_use_mmr: cfg.rag_use_mmr === true,
       ctx_size: getCtxSize(),
       active_mcp_servers: serveursActifs(mcp),
       excluded_tools: mcp ? l.excludedNames() : [],

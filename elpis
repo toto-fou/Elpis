@@ -173,8 +173,10 @@ svc_spec() {
             SPEC_DIR="$ROOT/rag_app/qdrant"
             SPEC_CMD=("$ROOT/rag_app/qdrant/qdrant" --config-path "$ROOT/rag_app/qdrant/config.yaml") ;;
         rag)
+            # Extracteur : seul le core l'appelle, en local (RAG_HOST pour un core sur une autre machine).
             SPEC_DIR="$ROOT/rag_app"
-            SPEC_CMD=("$VENV/bin/uvicorn" app:app --host "${RAG_HOST:-$BIND_DEFAULT}" --port "$RAG_PORT") ;;
+            SPEC_ENV+=("RAG_STORE_DIR=$RAG_STORE" "RAG_CACHE_DIR=$RAG_CACHE" "RAG_SERVICE_TOKEN_FILE=$ROOT/user_db/.rag_service_token")
+            SPEC_CMD=("$VENV/bin/uvicorn" app:app --host "${RAG_HOST:-127.0.0.1}" --port "$RAG_PORT") ;;
         tools)
             SPEC_ENV+=("ELPIS_RACINE=$ROOT" "ELPIS_TOOLS_PORT=$TOOLS_PORT" "APP_SANDBOX_DIR=$SANDBOX_DIR"
                        "CHART_CACHE_DIR=$CHART_DIR" "APP_NODE_BIN=$NODE")
@@ -191,7 +193,7 @@ svc_spec() {
         main)
             SPEC_ENV+=(ENABLE_CLI=1 APP_MODE=main APP_SERVICE=main "ELPIS_RACINE=$ROOT" "LOCAL_MCP_URL=$mcp_url"
                        "APP_SANDBOX_DIR=$SANDBOX_DIR" "MAIN_INTERNAL_URL=http://127.0.0.1:$MAIN_PORT"
-                       "CHART_CACHE_DIR=$CHART_DIR"
+                       "CHART_CACHE_DIR=$CHART_DIR" "RAG_STORE_DIR=$RAG_STORE"
                        "ADMIN_PUBLIC_URL=${ADMIN_PUBLIC_URL:-http://localhost:$ADMIN_PORT/admin}"
                        "PLAYWRIGHT_API_URL=${PLAYWRIGHT_API_URL:-http://127.0.0.1:$BROWSER_PORT}")
             SPEC_LANCEUR=(bash "$ROOT/deploy/node/relance.sh")
@@ -199,7 +201,7 @@ svc_spec() {
         admin)
             SPEC_ENV+=(APP_MODE=admin APP_SERVICE=admin "ELPIS_RACINE=$ROOT" "LOCAL_MCP_URL=$mcp_url"
                        "APP_SANDBOX_DIR=$SANDBOX_DIR" "MAIN_INTERNAL_URL=http://127.0.0.1:$MAIN_PORT"
-                       "CHART_CACHE_DIR=$CHART_DIR" "MAIN_PUBLIC_URL=${MAIN_PUBLIC_URL:-http://localhost:$MAIN_PORT/}")
+                       "CHART_CACHE_DIR=$CHART_DIR" "RAG_STORE_DIR=$RAG_STORE" "MAIN_PUBLIC_URL=${MAIN_PUBLIC_URL:-http://localhost:$MAIN_PORT/}")
             SPEC_LANCEUR=(bash "$ROOT/deploy/node/relance.sh")
             SPEC_CMD=("$NODE" --enable-source-maps --use-system-ca "$CORE_DIST/main.mjs") ;;
         browser)
@@ -281,6 +283,20 @@ charger_instance() {
     # Cache des graphiques : écrit par le core, relu par l'hôte d'outils ; un même dossier privé pour tous.
     CHART_DIR="${CHART_CACHE_DIR:-$RUN_DIR/charts}"
     mkdir -p "$SANDBOX_DIR" "$RUN_DIR" "$LOG_DIR" "$ROOT/user_db/logs"
+    dossiers_rag
+}
+
+# Magasin du RAG (lu par le core et l'extracteur, le même pour les deux) et cache de l'extracteur, calculés par le core.
+dossiers_rag() {
+    RAG_STORE="${RAG_STORE_DIR:-}"; RAG_CACHE="${RAG_CACHE_DIR:-}"
+    if [ -f "$CORE_DIST/exploitation.mjs" ]; then
+        [ -n "$RAG_STORE" ] || RAG_STORE="$(core_cmd config RAG_STORE_DIR 2>/dev/null)" || RAG_STORE=""
+        [ -n "$RAG_CACHE" ] || RAG_CACHE="$(core_cmd config RAG_CACHE_DIR 2>/dev/null)" || RAG_CACHE=""
+    fi
+    [ -n "$RAG_STORE" ] || RAG_STORE="$ROOT/user_db/rag"
+    [ -n "$RAG_CACHE" ] || RAG_CACHE="${RAG_STORE%/}-cache"
+    # Sous root (service install), jamais : un dossier créé par root serait illisible pour le compte des services.
+    if [ "$(id -u)" -ne 0 ]; then mkdir -p -m 700 "$RAG_STORE" "$RAG_CACHE" 2>/dev/null || true; fi
 }
 
 # Services : le venv sert encore au RAG et à elpis-tools.
@@ -571,6 +587,8 @@ cmd_service() {
                 rm -f "$unit_dir/${UNIT_PREFIX}-$s.service"
             done
             chown -R "$run_user" "$ROOT/user_db" "$LOG_DIR" 2>/dev/null || true
+            install -d -m 700 -o "$run_user" "$RAG_STORE" "$RAG_CACHE" 2>/dev/null \
+                || warn "Dossiers du RAG ($RAG_STORE, $RAG_CACHE) non préparés pour $run_user."
             systemctl daemon-reload
             systemctl enable "${UNITS_WANTS[@]}" "${UNIT_PREFIX}.target" >/dev/null
             # Les processus lancés à la main laisseraient les ports occupés ; le core peut prendre 300 s.
@@ -682,11 +700,15 @@ cmd_doctor() {
     else
         info "autorités de confiance : magasins par défaut (core : Node et /etc/ssl/certs ; httpx : certifi) ; PKI interne : ./elpis configure --ca-file systeme"
     fi
-    check "dépendances RAG" "'$PY' -c 'import pandas, pdfplumber, pypdfium2'" "pip install -r requirements-rag.txt"
+    check "dépendances de l'extracteur du RAG" "'$PY' -c 'import pdfplumber, pypdfium2, pypdf, openpyxl, docx, pptx'" "venv/bin/pip install -r requirements-rag.txt"
     check "config.json" "[ -f '$ROOT/config.json' ]" "./elpis configure"
     check "mcp.json" "[ -f '$ROOT/mcp.json' ]" "./elpis configure"
-    check "rag_config.json" "[ -f '$ROOT/rag_app/rag_config.json' ]" "./elpis configure"
     check "jeton MCP" "[ -s '$ROOT/user_db/.local_mcp_token' ]" "./elpis configure"
+    check "jeton du service RAG" "[ -s '$ROOT/user_db/.rag_service_token' ]" "./elpis configure"
+    if [ -f "$ROOT/rag_app/rag_config.json" ] || [ -d "$ROOT/rag_app/DATA" ]; then
+        warn "ancien RAG : NON (rag_app/rag_config.json ou rag_app/DATA encore là ; ./elpis restart ou ./install.sh le suppriment)"
+        bad=$((bad+1))
+    fi
     local th_host="${LOCAL_MCP_HOST:-127.0.0.1}"; [ "$th_host" = 0.0.0.0 ] && th_host=127.0.0.1
     check "hôte d'outils ($th_host:$MCP_PORT)" "curl --noproxy '*' -fsS -m 3 -o /dev/null 'http://$th_host:$MCP_PORT/health'" "./elpis logs toolhost"
     if [ -f "$HOTE_DIST/main.mjs" ]; then
@@ -733,13 +755,8 @@ cmd_doctor() {
     local image
     image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
     check "image sandbox $image" "docker image inspect '$image'" "./install.sh ou deploy/docker/sandbox/build_offline.sh"
-    # bubblewrap ne sert qu'aux aperçus Office : facultatif sans LibreOffice.
-    if command -v soffice >/dev/null 2>&1; then
-        check "bubblewrap (aperçus Office isolés)" "core_cmd bwrap" \
-            "apt install bubblewrap ; user namespaces autorisés ; core construit requis"
-    else
-        check_opt "bubblewrap (aperçus Office isolés)" "core_cmd bwrap" "facultatif sans LibreOffice : ./install.sh --with-office"
-    fi
+    check "bubblewrap (analyses du RAG et aperçus Office isolés)" "core_cmd bwrap" \
+        "apt install bubblewrap ; user namespaces autorisés ; core construit requis"
     check_opt "LibreOffice (aperçus Office, facultatif)" "command -v soffice" "paquets apt du groupe apercus-office : deploy/prerequis-apt.txt"
     if _https_enabled; then
         check "Caddy actif (HTTPS)" "systemctl is-active --quiet caddy" "./install.sh --with-caddy puis ./elpis configure"
@@ -768,6 +785,20 @@ cmd_doctor() {
             while IFS= read -r conseil; do info "$conseil"; done \
                 < <(ELPIS_CFG_LLM_API_KEY="$cle" "$py" "$ROOT/deploy/configure.py" --conseils-moteur --engine "${moteur:-llamacpp}" 2>/dev/null)
         fi
+    fi
+    if [ -f "$ROOT/config.json" ] && [ "$core_ok" -eq 1 ]; then
+        local niveau texte
+        # Extracteur, jeton et magasin partagés, Qdrant, embeddings, reclassement et OCR : vus par le core.
+        while IFS=$'\t' read -r niveau texte; do
+            case "$niveau" in
+                ok) ok "$texte" ;;
+                warn) warn "$texte"; bad=$((bad+1)) ;;
+                info) info "$texte" ;;
+                *) [ -n "$niveau$texte" ] && { warn "RAG : NON ($niveau $texte)"; bad=$((bad+1)); } ;;
+            esac
+        done < <(ELPIS_RACINE="$ROOT" timeout 120 "$NODE" --use-system-ca "$CORE_DIST/exploitation.mjs" rag 2>&1)
+    else
+        info "RAG : non vérifié (core non construit ou config.json absent)"
     fi
     sonde_du_core
     echo

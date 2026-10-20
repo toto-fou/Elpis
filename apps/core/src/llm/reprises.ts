@@ -459,7 +459,7 @@ export async function cancelAwareSleep(
 async function sondeSante(): Promise<number | null> {
   try {
     const eng = currentEngine();
-    const [url, entetes] = engineUrlHeaders("/health", eng);
+    const [url, entetes] = engineUrlHeaders(eng.profil.chemins.sante ?? eng.profil.chemins.modeles, eng);
     const client = eng.isBuiltin ? getLlmClient() : getLlmClient(eng.baseRoot);
     const r = await client.get(url, { timeout: 3.0, headers: entetes });
     return r.statusCode;
@@ -510,7 +510,7 @@ export async function retryPause(
   const tag = options.label ? `[${options.label}] ` : "";
   let local: boolean;
   try {
-    local = Boolean(currentTarget().isLlamacpp);
+    local = currentTarget().profil.capacites.attenteSante;
   } catch {
     local = true;
   }

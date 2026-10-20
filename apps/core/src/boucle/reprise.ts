@@ -127,7 +127,7 @@ export class ResumeState {
         let natifOk = false;
         try {
           natifOk = Boolean(
-            currentTarget().isLlamacpp &&
+            currentTarget().profil.capacites.props &&
             continueFinalSupport(ctx.c.model || config.LLAMA_MODEL || null) !== false,
           );
         } catch (e) {

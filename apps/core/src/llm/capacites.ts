@@ -32,9 +32,13 @@ function texte(e: unknown): string {
 }
 
 /** Premier modèle à l'état `loaded` dans `/v1/models` d'un routeur. */
-async function loadedModel(client: ClientHttp, baseUrl: string): Promise<string | null> {
+async function loadedModel(
+  client: ClientHttp,
+  baseUrl: string,
+  headers: Record<string, string> | null,
+): Promise<string | null> {
   try {
-    const r = await client.get(`${baseUrl}/v1/models`);
+    const r = await client.get(`${baseUrl}/v1/models`, { headers });
     if (r.statusCode !== 200) return null;
     const corps = r.json();
     const donnees = getPy(veritePy(corps) ? corps : {}, "data");
@@ -59,9 +63,13 @@ export function nomSansExtension(chemin: string): string {
 }
 
 /** Un `/slots` qui répond une liste non vide, ou un objet qui n'est pas celui d'un routeur. */
-async function essayerSlots(client: ClientHttp, url: string): Promise<boolean> {
+async function essayerSlots(
+  client: ClientHttp,
+  url: string,
+  headers: Record<string, string> | null,
+): Promise<boolean> {
   try {
-    const r = await client.get(url);
+    const r = await client.get(url, { headers });
     if (r.statusCode !== 200) return false;
     const corps = r.json();
     if (Array.isArray(corps)) return corps.length > 0;
@@ -72,7 +80,7 @@ async function essayerSlots(client: ClientHttp, url: string): Promise<boolean> {
   }
 }
 
-/** Sonde le serveur intégré : rôle, `total_slots`, modèle chargé, `/slots` ; jamais d'exception. */
+/** Sonde le serveur intégré : rôle, `total_slots`, modèle chargé, `/slots` ; jamais d'exception ; hors llama.cpp, rien à sonder. */
 export async function detectLlamaCapabilities(timeoutS = 3.0): Promise<Dict> {
   const caps: Dict = {
     probed: true,
@@ -84,13 +92,17 @@ export async function detectLlamaCapabilities(timeoutS = 3.0): Promise<Dict> {
     probe_error: null,
     recommended_mode: "classic",
   };
-  let baseUrl = builtinEngine().baseRoot;
+  const moteur = builtinEngine();
+  if (!moteur.profil.capacites.props) return poserCapacites({ ...caps, engine: moteur.profil.type }, false);
+  let baseUrl = moteur.baseRoot;
   if (!baseUrl) baseUrl = `http://${config.LLAMA_IP}:${config.LLAMA_PORT}`;
+  const auth = moteur.headerDict();
+  const headers = Object.keys(auth).length > 0 ? auth : null;
   let client: ClientHttp | null = null;
   try {
     client = new ClientHttp({ delais: delais(timeoutS) });
     try {
-      const r = await client.get(`${baseUrl}/props`);
+      const r = await client.get(`${baseUrl}/props`, { headers });
       if (r.statusCode === 200) {
         const brut = r.json();
         const data = veritePy(brut) ? brut : {};
@@ -110,15 +122,16 @@ export async function detectLlamaCapabilities(timeoutS = 3.0): Promise<Dict> {
       caps["probe_error"] = `/props: ${texte(e)}`;
     }
     if (caps["role"] === "router") {
-      const charge = await loadedModel(client, baseUrl);
+      const charge = await loadedModel(client, baseUrl, headers);
       if (charge) {
         caps["loaded_model"] = charge;
         caps["slots_endpoint"] = await essayerSlots(
           client,
           `${baseUrl}/slots?model=${quotePy(charge, "")}&autoload=false`,
+          headers,
         );
       } else caps["slots_pending"] = true;
-    } else caps["slots_endpoint"] = await essayerSlots(client, `${baseUrl}/slots`);
+    } else caps["slots_endpoint"] = await essayerSlots(client, `${baseUrl}/slots`, headers);
     if (!caps["slots_endpoint"] && !veritePy(caps["probe_error"]) && !veritePy(caps["slots_pending"]))
       caps["probe_error"] =
         "/slots non accessible — en mode router, vérifie que le modèle par défaut est chargeable, et que " +
@@ -133,13 +146,18 @@ export async function detectLlamaCapabilities(timeoutS = 3.0): Promise<Dict> {
     (caps["role"] !== null && caps["role"] !== undefined) ||
     (caps["total_slots"] !== null && caps["total_slots"] !== undefined);
   if (serveurPresent) caps["recommended_mode"] = "optimized";
+  return poserCapacites(caps, true);
+}
+
+function poserCapacites(caps: Dict, journaliser: boolean): Dict {
   for (const cle of Object.keys(LLAMA_CAPABILITIES)) Reflect.deleteProperty(LLAMA_CAPABILITIES, cle);
   Object.assign(LLAMA_CAPABILITIES, caps);
-  log.info(
-    `probe done — role=${strPy(caps["role"])} slots=${strPy(caps["slots_endpoint"])} ` +
-      `total_slots=${strPy(caps["total_slots"])} max_instances=${strPy(caps["max_instances"])} ` +
-      `recommended=${strPy(caps["recommended_mode"])}`,
-  );
+  if (journaliser)
+    log.info(
+      `probe done — role=${strPy(caps["role"])} slots=${strPy(caps["slots_endpoint"])} ` +
+        `total_slots=${strPy(caps["total_slots"])} max_instances=${strPy(caps["max_instances"])} ` +
+        `recommended=${strPy(caps["recommended_mode"])}`,
+    );
   return { ...caps };
 }
 

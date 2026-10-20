@@ -45,10 +45,12 @@ import { invalidateCache as oublierFenetres } from "../llm/fenetre-contexte";
 import { testConnector } from "../llm/fournisseurs/decouverte";
 import { invalidate as oublierCapacites } from "../llm/fournisseurs/llama-capacites";
 import { invalidateStatuses } from "../llm/fournisseurs/llama-modeles";
+import { builtinEngine } from "../llm/moteurs";
 import { oublierServeur } from "../llm/ordonnanceur/process";
+import { dernierRapportIntegre, sonderMoteur } from "../llm/sonde-moteur";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { utilisateur } from "./comptes";
-import { corpsJsonValeurs, entrees, py, reponseJsonPy } from "@elpis/http";
+import { corpsJsonValeurs, entrees, parametreRequete, py, reponseJsonPy } from "@elpis/http";
 
 export interface DependancesAdminLlm {
   readonly base: Base;
@@ -209,7 +211,7 @@ async function testerConnecteur(dep: DependancesAdminLlm, req: FastifyRequest): 
   const { cid } = entrees(req, { path: { cid: py.int() } }).path;
   const ligne = await getSharedSecret(dep.base, cid);
   if (!ligne) throw new HttpError(404, "Connecteur introuvable");
-  return testConnector(ligne);
+  return testConnector(ligne, { sonde: sondeDemandee(req) });
 }
 
 async function definirAutorises(req: FastifyRequest): Promise<Dict> {
@@ -247,6 +249,26 @@ function capacites(rep: FastifyReply): FastifyReply {
 async function sonderCapacites(rep: FastifyReply): Promise<FastifyReply> {
   const caps = await detectLlamaCapabilities(3.0);
   return reponseJsonPy(rep, { capabilities: caps }, SANS_CACHE);
+}
+
+/** `?sonde=1` : le test d'un connecteur rend aussi le rapport du profil de son moteur. */
+function sondeDemandee(req: FastifyRequest): boolean {
+  const v = parametreRequete(req, "sonde");
+  return v === "1" || v === "true";
+}
+
+/** Moteur intégré : dernier rapport de ce process, sinon une sonde sans génération. */
+async function rapportIntegre(rep: FastifyReply): Promise<FastifyReply> {
+  const rapport = dernierRapportIntegre() ?? (await sonderMoteur(builtinEngine()));
+  return reponseJsonPy(rep, { rapport }, SANS_CACHE);
+}
+
+/** Bouton « Tester » : sonde complète du moteur intégré, complétion d'un jeton comprise (jetons en cache de vLLM). */
+async function testerIntegre(req: FastifyRequest, rep: FastifyReply): Promise<FastifyReply> {
+  const uid = utilisateur(req);
+  const rapport = await sonderMoteur(builtinEngine(), { generation: true });
+  auditer(req, uid, "llm.engine.test", { type: rapport.type, joignable: rapport.joignable });
+  return reponseJsonPy(rep, { rapport }, SANS_CACHE);
 }
 
 /** `body.get("mode") or ""` puis `.lower().strip()` : AttributeError (500) hors dict ou pour un mode non textuel. */
@@ -335,6 +357,8 @@ export function creerFamilleAdminLlm(dep: DependancesAdminLlm): Famille {
         presets: presetsPublics(),
       })),
       route("PUT", "/api/admin/llm/allowed-providers", "admin", (req) => definirAutorises(req)),
+      route("GET", "/api/admin/llm/engine", "admin", (_req, rep) => rapportIntegre(rep)),
+      route("POST", "/api/admin/llm/engine/test", "admin", (req, rep) => testerIntegre(req, rep)),
       route("GET", "/api/admin/llm-capabilities", "staff", (_req, rep) => capacites(rep)),
       route("POST", "/api/admin/llm-capabilities/probe", "admin", (_req, rep) => sonderCapacites(rep)),
       route("POST", "/api/admin/llm-scheduling-mode", "admin", (req) => changerMode(dep, req)),

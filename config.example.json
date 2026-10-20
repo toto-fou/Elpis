@@ -4,7 +4,8 @@
     "ip": "127.0.0.1",
     "port": "8080",
     "model": "local-model",
-    "engine": "llamacpp"
+    "engine": "llamacpp",
+    "api_key": ""
   },
   "app": {
     "db_path": "user_db/app.db",

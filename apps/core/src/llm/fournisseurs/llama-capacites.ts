@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/llm/fournisseurs/llama-capacites.ts — ce que le llama-server en face sait faire (build et rôle lus sur `/props`), mis en cache avec un TTL. */
 import { intPy, strPy, veritePy } from "@elpis/commun";
-import { config } from "@elpis/config";
 
 import { journal } from "../../journal";
 import { exigerDict } from "../../python";
@@ -108,7 +107,7 @@ export function parseBuild(buildInfo: unknown): number {
 const cache = new Map<string, [number, EngineCaps]>();
 const prevenus = new Set<string>();
 
-/** `[racine, en-têtes]` sondés : `baseUrl`, sinon `engine`, sinon le serveur de la cible courante ; non llama.cpp = racine vide. */
+/** `[racine, en-têtes]` sondés : `baseUrl`, sinon `engine`, sinon le serveur de la cible courante ; moteur sans `/props` = racine vide. */
 function resoudre(
   baseUrl: string,
   engine: EngineRef | null | undefined,
@@ -122,8 +121,7 @@ function resoudre(
     }
   }
   if (eng !== null) {
-    if (!eng.isLlamacpp) return ["", null];
-    if (eng.isBuiltin) return [baseServeur(config.LLAMA_URL), null];
+    if (!eng.profil.capacites.props) return ["", null];
     const h = eng.headerDict();
     return [baseServeur(eng.baseRoot), Object.keys(h).length > 0 ? h : null];
   }

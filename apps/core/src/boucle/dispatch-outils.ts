@@ -32,6 +32,8 @@ import type { SousAgent } from "@elpis/securite";
 import { CTX } from "../contexte/config-contexte";
 import { ephemeral, prepareToolResultForModel, pruneOldVisionFrames } from "../contexte/elagage";
 import { LLAMA_TOOL_TIMEOUT_S } from "../llm/constantes";
+import { currentEngine } from "../llm/moteurs";
+import { noterObservation } from "../llm/sonde-moteur";
 import { journal } from "../journal";
 import type { OutilIntegre } from "../outils/catalogue";
 import { categorize, isHidden, toolPolicy } from "../outils/categories";
@@ -792,6 +794,7 @@ export function classifyTextReply(
       legacy = null;
     } else legacy = retenus;
   }
+  if (legacy) noterObservation(currentEngine(), "outils_en_texte");
   return { rawText, iterClean, calls: legacy, unknownText, unknownNames };
 }
 

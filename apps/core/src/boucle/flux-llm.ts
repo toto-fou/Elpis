@@ -45,6 +45,7 @@ import {
   sanitizeReasoningEffort,
 } from "../llm/parametres";
 import { disjoncteur } from "../llm/ports";
+import { aDialecteEtendu, texteReflexion } from "../llm/profils";
 import {
   KIND_TIMEOUT,
   KIND_UNREACHABLE,
@@ -320,7 +321,8 @@ async function repli500(
     r.raiseForStatus();
     const data = r.json();
     const msg = champ(premierChoix(data), "message") || {};
-    let rc = stripPy(strPy(champ(msg, "reasoning_content") || ""));
+    let rc = stripPy(texteReflexion(msg));
+    if (rc && estDict(msg) && !veritePy(msg["reasoning_content"])) msg["reasoning_content"] = rc;
     let ct = stripPy(strPy(champ(msg, "content") || ""));
     if (!rc) {
       [rc, ct] = extractThinking(ct);
@@ -476,7 +478,7 @@ export async function llamaChatWithToolsStream(
         thinkingMode ? "thinking" : (o.samplingTask ?? "tools"),
         o.samplingOverride ?? null,
       )
-    : oai.remoteSampling(o.samplingOverride);
+    : oai.remoteSampling(o.samplingOverride, target);
 
   const [client, reqUrl, entetesCible] = oai.endpoint(target);
   let reqHeaders = entetesCible;
@@ -512,6 +514,7 @@ export async function llamaChatWithToolsStream(
       samplingParams,
       llamaNative,
       localLlamacpp: llamacppSrv,
+      dialecteEtendu: aDialecteEtendu(target.providerType),
       thinkingMode: tm,
       chatId,
       reasoningEffort: sanitizeReasoningEffort(o.samplingOverride),

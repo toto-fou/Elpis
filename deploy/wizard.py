@@ -35,6 +35,8 @@ import shutil
 import socket
 import sqlite3
 import sys
+import textwrap
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -141,10 +143,8 @@ def initial_state(ctx: Ctx) -> State:
         "sandbox": "build", "pull_ref": os.environ.get("ELPIS_SANDBOX_PULL_REF", ""),
         "sandbox_memory": str((ex.get("limits") or {}).get("memory_mb") or 2048),
         "sandbox_image": str(ex.get("image") or ""),
-        "engine": {"openai": "generic", "openai-compatible": "generic", "llama.cpp": "llamacpp"}.get(
-            str(llama.get("engine") or "llamacpp"), str(llama.get("engine") or "llamacpp")),
-        "llm_url": C.norm_base(str(llama.get("url") or "")) or (
-            f"http://{llama.get('ip') or '127.0.0.1'}:{llama.get('port') or '8080'}"),
+        "engine": C.canon_engine(llama.get("engine")), "llm_url": C.llm_base(llama),
+        "llm_api_key": str(llama.get("api_key") or "").strip(),
         "llm_model": str(llama.get("model") or ""), "llm_model_name": str(llama.get("model") or ""),
         "cloud": False, "cloud_provider": "anthropic", "cloud_key": "", "cloud_model": "",
         "https": env.get("ELPIS_HTTPS_MODE") or ("local" if (cfg.get("security") or {}).get(
@@ -184,12 +184,20 @@ def initial_state(ctx: Ctx) -> State:
         st["listen"] = "local"
     if ctx.reinstall and ctx.mode == "install":
         _detect_installed(st, ctx, backend, db)
+    llm_url_auto(st)
     _apply_presets(st, ctx)
     st["_admins"] = _sqlite_admins(ROOT / str((cfg.get("app") or {}).get("db_path") or "user_db/app.db")) \
         if backend == "sqlite" else None
     st["_sqlite_data"] = C._sqlite_has_data(ROOT / str((cfg.get("app") or {}).get("db_path") or "user_db/app.db"))
     st["_current_db"] = backend
     return st
+
+
+def llm_url_auto(st: State) -> None:
+    """L'adresse suit le port du type choisi tant qu'elle est l'adresse locale par défaut du type courant."""
+    st["_llm_engine_seen"] = st.get("engine")
+    url = C.norm_base(str(st.get("llm_url") or ""))
+    st["_llm_url_auto"] = url if url == C.default_llm_url(str(st.get("engine"))) else None
 
 
 def _listen_default(cfg: Dict[str, Any], ctx: Ctx) -> str:
@@ -276,6 +284,10 @@ def _apply_presets(st: State, ctx: Ctx) -> None:
         v = getattr(a, attr, None)
         if v is not None:
             st[key] = str(v)
+    st["engine"] = C.canon_engine(st.get("engine"))
+    key = a.llm_api_key if a.llm_api_key is not None else os.environ.get("ELPIS_CFG_LLM_API_KEY")
+    if key is not None:
+        st["llm_api_key"] = key.strip()
     if a.llm_model:
         st["llm_model_name"] = a.llm_model
     if a.https:
@@ -327,13 +339,20 @@ def v_username(v: str, _st: State) -> Optional[str]:
 
 
 def probe_models(prefix: str):
-    """Sonde ``GET /v1/models`` (ne charge rien) en tâche de fond."""
-    def start(st: State, wiz: T.Wizard) -> None:
+    """Sonde ``GET /v1/models`` (ne charge rien) en tâche de fond, avec la clé API du serveur LLM."""
+    def target(st: State) -> Tuple[str, Dict[str, str]]:
         url = C.norm_base(str(st.get(f"{prefix}_url") or ""))
+        return url, C.llm_headers(str(st.get("llm_api_key") or "").strip()) if prefix == "llm" else {}
+
+    def start(st: State, wiz: T.Wizard) -> None:
         st[f"_{prefix}_probe"] = "busy"
 
         def run() -> None:
-            models, err = C.list_models(url) if url else ([], "adresse vide")
+            while True:                     # adresse ou clé changée pendant la sonde : on la refait
+                url, headers = target(st)
+                models, err = C.list_models(url, headers) if url else ([], "adresse vide")
+                if target(st) == (url, headers):
+                    break
             st[f"_{prefix}_models"] = models[:30]
             st[f"_{prefix}_probe"] = (f"ok:{len(models)}" if models else f"err:{err}")
             if models and st.get(f"{prefix}_model") not in models:
@@ -347,6 +366,8 @@ def probe_note(prefix: str, what: str):
         p = str(st.get(f"_{prefix}_probe") or "")
         if p.startswith("ok:"):
             return f"✓ {st.get(prefix + '_url')} répond : {p[3:]} modèle(s)."
+        if p.startswith("err:clé") and prefix == "llm":
+            return f"✗ {p[4].upper()}{p[5:]} : saisissez la valeur de --api-key du serveur."
         if p.startswith("err:"):
             return (f"✗ {what} ne répond pas ({p[4:]}) : adresse gardée, "
                     "vérifiable plus tard (./elpis doctor).")
@@ -354,6 +375,15 @@ def probe_note(prefix: str, what: str):
             return "Sonde en cours…"
         return None
     return text
+
+
+def _wrap(text: str) -> Optional[str]:
+    return textwrap.fill(text, 74, break_on_hyphens=False) if text else None
+
+
+def llm_clash_note(st: State) -> Optional[str]:
+    clash = C.rag_port_clash(C.norm_base(str(st.get("llm_url") or "")))
+    return _wrap(f"⚠ {clash[0].upper()}{clash[1:]}.") if clash else None
 
 
 def probe_db(st: State, wiz: T.Wizard) -> None:
@@ -393,6 +423,26 @@ class PortSync(T.Field):
     def normalize(self, st: State) -> None:
         if not str(st.get("db_port") or ""):
             st["db_port"] = str(C.DB_PORTS.get(st.get("db_engine"), 5432))
+
+
+@dataclass
+class EngineRadio(T.Radio):
+    """Type de serveur LLM ; l'adresse proposée suit son port tant que l'utilisateur n'en a pas saisi."""
+    wiz: Optional[T.Wizard] = None
+
+    def normalize(self, st: State) -> None:
+        super().normalize(st)
+        engine = str(st.get("engine"))
+        if engine == st.get("_llm_engine_seen"):
+            return
+        st["_llm_engine_seen"] = engine
+        url = C.norm_base(str(st.get("llm_url") or ""))
+        if url and url != st.get("_llm_url_auto"):
+            return
+        st["llm_url"] = st["_llm_url_auto"] = C.default_llm_url(engine)
+        st["_llm_probe"], st["_llm_models"] = "", []
+        if self.wiz is not None:
+            probe_models("llm")(st, self.wiz)
 
 
 def _has(st: State, comp: str) -> bool:
@@ -459,10 +509,14 @@ def build_pages(ctx: Ctx) -> List[T.Page]:
     ]))
 
     pages.append(T.Page("llm", "LLM", "Quel serveur de modèle de langage utiliser ?", [
-        T.Radio("engine", "Type de serveur", options=[T.Opt(k, v) for k, v in C.ENGINES.items()]),
+        EngineRadio("engine", "Type de serveur", options=[T.Opt(k, v) for k, v in C.ENGINES.items()]),
         T.Text("llm_url", "Adresse (sans /v1)", required=True, validate=v_url,
-               on_commit=probe_models("llm"), placeholder="http://127.0.0.1:8080"),
+               on_commit=probe_models("llm"), placeholder=lambda st: C.default_llm_url(str(st.get("engine")))),
+        T.Text("llm_api_key", "Clé du serveur", secret=True, placeholder="aucune",
+               hint="facultative : --api-key du serveur", on_commit=probe_models("llm")),
         T.Note("_llm_note", text=probe_note("llm", "le serveur")),
+        T.Note("_llm_clash", text=llm_clash_note, style="w"),
+        T.Note("_llm_flags", text=lambda st: _wrap(C.launch_short(str(st.get("engine"))))),
         T.Radio("llm_model", "Modèle par défaut",
                 options=lambda st: [T.Opt(m, m) for m in st.get("_llm_models") or []],
                 visible=lambda st: bool(st.get("_llm_models"))),
@@ -587,7 +641,9 @@ def summary(st: State, ctx: Ctx) -> List[Tuple[str, List[Tuple[str, str]]]]:
         rows.append(("Copie des données SQLite", yes(st.get("db_transfer"))))
     out.append(("Base de données", rows))
     model = st.get("llm_model") if st.get("_llm_models") else st.get("llm_model_name")
-    rows = [("Serveur", f"{C.ENGINES.get(st['engine'], st['engine'])} — {st['llm_url']}"), ("Modèle", model or "?")]
+    rows = [("Serveur", f"{C.engine_name(st['engine'])} — {st['llm_url']}"),
+            ("Clé du serveur", "définie (masquée)" if str(st.get("llm_api_key") or "").strip() else "aucune"),
+            ("Modèle", model or "?")]
     rows.append(("Fournisseur cloud", f"{st['cloud_provider']} (clé saisie)" if st.get("cloud") else "aucun"))
     out.append(("LLM", rows))
     https = {"off": "non (HTTP direct)", "local": "certificat local", "acme": f"Let's Encrypt ({st.get('domain')})"}
@@ -630,7 +686,8 @@ def build_outputs(ans: State, mode: str, reinstall: bool) -> Dict[str, Any]:
     }
     argv: List[str] = ["--yes", "--engine", ans["engine"], "--llm-url", C.norm_base(ans["llm_url"]),
                        "--llm-model", ans.get("llm_model_final") or ans.get("llm_model_name", "")]
-    env: Dict[str, str] = {}
+    # Clé du serveur LLM par l'environnement, jamais sur la ligne de commande (ps) ; vide = aucune.
+    env: Dict[str, str] = {"ELPIS_CFG_LLM_API_KEY": str(ans.get("llm_api_key") or "").strip()}
     if ans.get("cloud"):
         argv += ["--cloud-provider", ans["cloud_provider"]]
         if ans.get("cloud_model"):
@@ -725,6 +782,7 @@ def run_wizard(mode: str, out: Path, previous: Optional[Path], start: Optional[s
     st = initial_state(ctx)
     if previous and previous.exists():
         merge_previous(st, load(previous).get("answers") or {})
+        llm_url_auto(st)
     # Adresse du port par défaut du moteur quand elle n'a pas été donnée.
     if not st.get("db_port"):
         st["db_port"] = str(C.DB_PORTS.get(st.get("db_engine"), 5432))
@@ -734,6 +792,8 @@ def run_wizard(mode: str, out: Path, previous: Optional[Path], start: Optional[s
                                      "réinstallation" if ctx.reinstall else "") if x)
     pages = build_pages(ctx)
     wiz = T.Wizard(title, pages, st, context=context, start=start, banner=banner)
+    for f in (f for p in pages for f in p.fields if isinstance(f, EngineRadio)):
+        f.wiz = wiz
     # Sondes des adresses déjà connues : listes de modèles prêtes à l'arrivée.
     if st.get("llm_url"):
         probe_models("llm")(st, wiz)

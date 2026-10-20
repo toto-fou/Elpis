@@ -34,6 +34,23 @@ export const schemaSystemeJournal = z.object({
   ts: z.unknown().optional(),
 });
 export const schemaModeleAvecStatut = z.looseObject({ id: z.string() });
+/** Profil du moteur déclaré (`llama.engine` ou type du connecteur) tel que l'interface le lit. */
+export const schemaMoteurDeclare = z.object({
+  type: z.string(),
+  libelle: z.string(),
+  chargement: z.boolean(),
+  file: z.boolean(),
+  contexte: z.boolean(),
+});
+export type MoteurDeclare = z.infer<typeof schemaMoteurDeclare>;
+const nombreNul = z.number().nullable();
+/** Charge lue sur les métriques du moteur ; `null` = non exposée. */
+export const schemaChargeMoteur = z.object({
+  en_cours: nombreNul,
+  en_attente: nombreNul,
+  debit_tps: nombreNul,
+  cache_prefixe_pct: nombreNul,
+});
 export const schemaEtatModeles = z.object({
   models: z.array(z.string()),
   models_with_status: z.array(schemaModeleAvecStatut),
@@ -42,6 +59,8 @@ export const schemaEtatModeles = z.object({
   server_reachable: z.boolean(),
   status: z.string(),
   props: dict,
+  moteur: schemaMoteurDeclare.optional(),
+  charge: schemaChargeMoteur.optional(),
 });
 export type EtatModeles = z.infer<typeof schemaEtatModeles>;
 export const schemaSystemeEtatModeles = z.object({

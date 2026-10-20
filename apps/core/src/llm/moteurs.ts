@@ -9,6 +9,8 @@ import { entierPy } from "../python";
 import { cibleDuContexte, resolveLlmTarget } from "./cible";
 import { sansBarresFinales } from "./client-http";
 import { connecteurs } from "./ports";
+import { profilDuType } from "./profils";
+import type { ProfilMoteur } from "./profils";
 
 export const BUILTIN_KEY = "builtin";
 const CONN_PREFIX = "conn:";
@@ -45,9 +47,13 @@ export class EngineRef {
     return this.key === BUILTIN_KEY;
   }
 
-  /** Dialecte llama.cpp : `/props`, `/tokenize`, `/slots`… existent. */
+  /** Profil du type déclaré : adresses, capacités, métriques. */
+  get profil(): ProfilMoteur {
+    return profilDuType(this.providerType);
+  }
+
   get isLlamacpp(): boolean {
-    return this.providerType === "llamacpp";
+    return this.profil.type === "llamacpp";
   }
 
   headerDict(): Record<string, string> {
@@ -109,7 +115,23 @@ export function baseRoot(url: string | null | undefined): string {
   return sansBarresFinales(u);
 }
 
-/** Serveur intégré : `scheme://hôte:port` de `LLAMA_URL`, relu à chaque appel. */
+/** Racine du serveur intégré : `scheme://hôte:port` de `LLAMA_URL` (vide si illisible), relue à chaque appel. */
+export function racineIntegre(): string {
+  try {
+    const p = urlsplit(config.LLAMA_URL || "");
+    return p.scheme && p.netloc ? `${p.scheme}://${p.netloc}` : "";
+  } catch {
+    return "";
+  }
+}
+
+/** En-tête Bearer du serveur intégré (`llama.api_key` ou `LLAMA_API_KEY`) ; jamais journalisé. */
+export function entetesIntegre(): [string, string][] {
+  const cle = stripPy(config.LLAMA_API_KEY || "");
+  return cle ? [["Authorization", `Bearer ${cle}`]] : [];
+}
+
+/** Serveur intégré, du type déclaré par `llama.engine` (llama.cpp si `LLAMA_URL` est illisible), relu à chaque appel. */
 export function builtinEngine(): EngineRef {
   let racine: string;
   let type: string;
@@ -121,7 +143,13 @@ export function builtinEngine(): EngineRef {
     racine = "";
     type = "llamacpp";
   }
-  return new EngineRef({ key: BUILTIN_KEY, baseRoot: racine, providerType: type, label: "Serveur intégré" });
+  return new EngineRef({
+    key: BUILTIN_KEY,
+    baseRoot: racine,
+    providerType: type,
+    headers: entetesIntegre(),
+    label: "Serveur intégré",
+  });
 }
 
 /** Ce que `engineForTarget` lit d'une cible (une `LlmTarget` ou tout objet de même forme). */

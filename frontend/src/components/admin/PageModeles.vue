@@ -1,9 +1,18 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/admin/PageModeles.vue — page Inférence : connecteurs partagés. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
 import { domaineAdmin } from "../../features/admin/domaine";
+import { profilConsole, typeDeclare } from "../../features/admin/moteurs";
 
 const adm = domaineAdmin();
+
+// Hors llama.cpp, le moteur intégré regroupe lui-même les requêtes : la planification d'Elpis ne s'y applique pas.
+const sansFile = computed(() => {
+  const p = profilConsole(typeDeclare(adm.configForm?.llama?.engine));
+  return p.file ? "" : p.concurrence;
+});
 </script>
 
 <template>
@@ -17,6 +26,9 @@ const adm = domaineAdmin();
             <span class="sr-only">Comment les requêtes se partagent le moteur intégré.</span>
           </div>
         </header>
+        <p v-if="sansFile" class="px-5 pt-3 text-xs text-slate-600" data-planification-moteur>
+          {{ sansFile }} La planification ci-dessous ne concerne que les serveurs llama.cpp.
+        </p>
         <div v-if="adm.llmScheduling" class="adm-rows">
           <div class="adm-row adm-row--top">
             <div>

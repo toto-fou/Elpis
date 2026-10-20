@@ -11,7 +11,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { getChat } from "../chats/stockage";
 import { journal } from "../journal";
 import { getLlmClient } from "../llm/client-http";
-import { baseServeur, engineCaps } from "../llm/fournisseurs/llama-capacites";
+import { engineCaps } from "../llm/fournisseurs/llama-capacites";
 import { endReasoning } from "../llm/fournisseurs/llama-flux";
 import { BUILTIN_KEY, resolveEngineForUser } from "../llm/moteurs";
 import { cancelChild } from "../outils/integres/taches-agents";
@@ -76,9 +76,9 @@ async function reasoningEnd(dep: DependancesChatControle, req: FastifyRequest): 
   const entree = controleRaisonnementDuProcess.getCompletion(chatId);
   if (entree === null) return { ok: false, reason: "no_active_completion" };
   const engine = await resolveEngineForUser(uid, entree.engine_key || BUILTIN_KEY);
-  if (engine === null || !engine.isLlamacpp) return { ok: false, reason: "unsupported" };
+  if (engine === null || !engine.profil.capacites.fluxReprenable) return { ok: false, reason: "unsupported" };
   if (!(await engineCaps("", { engine })).reasoningControl) return { ok: false, reason: "unsupported" };
-  const base = engine.isBuiltin ? baseServeur(config.LLAMA_URL) : engine.baseRoot;
+  const base = engine.baseRoot;
   const client = engine.isBuiltin ? getLlmClient() : getLlmClient(base);
   const auth = engine.headerDict();
   const ok = await endReasoning(client, base, entree.completion_id || "", entree.model || "", {

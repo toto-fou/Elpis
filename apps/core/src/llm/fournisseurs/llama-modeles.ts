@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/llm/fournisseurs/llama-modeles.ts — modèles d'un llama-server en mode routeur : inventaire (cache 3 s), chargement, déchargement, suivi réel d'un chargement. */
 import { intPy, stripPy, strPy, veritePy } from "@elpis/commun";
-import { config, parseJsonPy } from "@elpis/config";
+import { parseJsonPy } from "@elpis/config";
 
 import { journal } from "../../journal";
 import { estDict } from "../../python";
 import { avecFlux, ClientHttp, delais, getLlmClient } from "../client-http";
 import { getPy, iterExige } from "../dict-py";
 import { monotonic } from "../llama-http";
-import { currentEngine } from "../moteurs";
+import { builtinEngine, currentEngine } from "../moteurs";
 import type { EngineRef } from "../moteurs";
 import { baseServeur, engineCaps } from "./llama-capacites";
 import type { EngineCaps } from "./llama-capacites";
@@ -39,7 +39,11 @@ function resoudre(baseUrl = "", engine: EngineRef | null = null): Resolu {
       eng = null;
     }
   }
-  if (eng === null || eng.isBuiltin) return [baseServeur(config.LLAMA_URL), null, cacheIntegre, eng];
+  if (eng === null || eng.isBuiltin) {
+    const integre = eng ?? builtinEngine();
+    const h = integre.headerDict();
+    return [baseServeur(integre.baseRoot), Object.keys(h).length > 0 ? h : null, cacheIntegre, eng];
+  }
   let c = cachesAutres.get(eng.key);
   if (c === undefined) {
     c = { ts: 0.0, data: new Map() };
@@ -79,7 +83,7 @@ export async function modelStatuses(
   options: { engine?: EngineRef | null } = {},
 ): Promise<Map<string, string>> {
   const [racine, headers, cacheV, eng] = resoudre(baseUrl, options.engine ?? null);
-  if (eng !== null && !eng.isLlamacpp) return new Map();
+  if (!(eng ?? builtinEngine()).profil.capacites.chargement && !baseUrl) return new Map();
   const maintenant = monotonic();
   if (!force && maintenant - cacheV.ts < CACHE_TTL_S) return new Map(cacheV.data);
   try {

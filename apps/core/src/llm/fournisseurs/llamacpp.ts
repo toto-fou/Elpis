@@ -26,8 +26,10 @@ import { getPy, isdigitPy, iterExige } from "../dict-py";
 import { getModelContextSize } from "../modeles";
 import { getPreserveReasoningSupport, getReasoningEffortValues } from "../parametres";
 import { executions } from "../ports";
+import { texteReflexion } from "../profils";
 import { providerHttpError } from "../reprises";
 import type { ProviderError } from "../reprises";
+import { observerUsage } from "../sonde-moteur";
 import { engineCaps } from "./llama-capacites";
 
 const log = journal("llama_payload");
@@ -91,6 +93,8 @@ export interface OptionsPayload {
   samplingParams: Dict;
   llamaNative: boolean;
   localLlamacpp: boolean;
+  /** vLLM ou SGLang : réflexion par `chat_template_kwargs`, effort au premier niveau. */
+  dialecteEtendu?: boolean;
   thinkingMode: boolean;
   chatId: string | null;
   reasoningEffort?: string | null;
@@ -98,7 +102,7 @@ export interface OptionsPayload {
   slotAvoidOwn?: boolean;
 }
 
-/** Corps COMMUN aux deux moteurs : squelette, cache KV, plafond adapté au n_ctx, kwargs de gabarit, épinglage de slot. */
+/** Corps COMMUN aux moteurs : squelette, cache KV, plafond adapté au n_ctx, kwargs de gabarit (llama.cpp, vLLM, SGLang), épinglage de slot. */
 export async function buildLlamaPayload(msgsEntree: unknown[], o: OptionsPayload): Promise<Dict> {
   const msgs = coalesceTrailingAssistants(ensureUserQuery(msgsEntree));
   const payload: Dict = {
@@ -130,7 +134,8 @@ export async function buildLlamaPayload(msgsEntree: unknown[], o: OptionsPayload
       uncapOutput: Boolean(o.thinkingMode && LLAMA_THINKING_OUTPUT_UNCAPPED),
     });
   }
-  if (o.llamaNative) {
+  if (o.dialecteEtendu && o.reasoningEffort) payload["reasoning_effort"] = o.reasoningEffort;
+  if (o.llamaNative || o.dialecteEtendu) {
     const kwargs: Dict = { enable_thinking: Boolean(o.thinkingMode) };
     payload["chat_template_kwargs"] = kwargs;
     if (o.reasoningEffort && o.localLlamacpp) {
@@ -316,7 +321,7 @@ async function auMieux(fn: () => unknown): Promise<void> {
   }
 }
 
-/** Consomme le flux SSE de llama-server ou d'un OpenAI-compatible : annulation, usage, raisonnement, appels d'outils, contenu. */
+/** Consomme le flux SSE de llama-server ou d'un OpenAI-compatible : annulation, usage, raisonnement (`reasoning_content` ou `reasoning`), appels d'outils, contenu. */
 export async function consumeLlamaSse(resp: FluxSse, o: OptionsConsommation): Promise<SseStreamResult> {
   const r = o.sink ?? new SseStreamResult();
   let slotJournalise = false;
@@ -373,11 +378,11 @@ export async function consumeLlamaSse(resp: FluxSse, o: OptionsConsommation): Pr
     if (veritePy(getPy(choice, "finish_reason"))) r.finishReason = getPy(choice, "finish_reason");
     const d = getPy(choice, "delta");
     const delta = veritePy(d) ? d : {};
-    const rc = getPy(delta, "reasoning_content");
-    if (veritePy(rc)) {
+    const rc = texteReflexion(delta);
+    if (rc) {
       r.streamPreEmittedThinking = true;
-      r.thinkingParts.push(rc as string);
-      if (o.onThinkingToken) await o.onThinkingToken(rc as string);
+      r.thinkingParts.push(rc);
+      if (o.onThinkingToken) await o.onThinkingToken(rc);
     }
     const tcDeltas = getPy(delta, "tool_calls");
     if (veritePy(tcDeltas)) {
@@ -449,6 +454,7 @@ export async function consumeLlamaSse(resp: FluxSse, o: OptionsConsommation): Pr
 /** Jetons repris du cache KV sous `cache_read_input_tokens` (inclus dans `prompt_tokens`) ; appel versé à l'exécution courante. */
 export function finDeFlux(r: SseStreamResult): void {
   const u = r.usage;
+  observerUsage(u);
   if (estDict(u) && Object.keys(u).length > 0 && !Object.hasOwn(u, "cache_read_input_tokens")) {
     const det = getPy(u, "prompt_tokens_details");
     let cache: unknown = estDict(det) ? getPy(det, "cached_tokens") : null;

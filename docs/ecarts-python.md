@@ -222,6 +222,44 @@ reporter à la main.
 - **Mise à jour depuis la 0.0.1** : pour garder les fournisseurs cloud des comptes, les ouvrir dans Console ›
   Modèles › Accès utilisateurs › Fournisseurs autorisés (ou `llm.allowed_provider_types` dans `config.json`).
 
+## Moteurs vLLM et SGLang : réflexion et dialecte
+
+Le type déclaré du moteur (`llama.engine` de `config.json`, ou type d'un connecteur) fait foi : aucun moteur ni
+aucune capacité n'est deviné.
+
+- **Réflexion lue** dans `reasoning` (seul champ de vLLM 0.31) comme dans `reasoning_content` (llama.cpp, SGLang),
+  en flux et dans les réponses entières, pour tout fournisseur compatible OpenAI ; un serveur qui envoie les deux
+  n'est compté qu'une fois. Le Python ne lisait que `reasoning_content` : la réflexion de vLLM n'apparaissait pas.
+- **Dialecte de requête** de `vllm` et de `sglang` (accepté comme `llama.engine`) : `chat_template_kwargs`
+  (`enable_thinking` suit l'interrupteur Réflexion), `reasoning_effort` (puce Effort), `top_k`, `min_p` et
+  `repetition_penalty` (la pénalité de répétition des réglages ; un `top_k` nul devient -1). Le Python retirait ces
+  champs : la réflexion ne pouvait pas être coupée. Les fournisseurs du nuage et `generic` restent au standard.
+- **Capacités** : pour ces deux moteurs, `effective-params` déclare la réflexion et l'effort (`none` à `xhigh`)
+  sans `/props`, au lieu de `null` ; l'interrupteur et la puce sont offerts (sans effet sur un modèle qui ne
+  raisonne pas).
+- **`</think>` orphelin** (serveur sans `--reasoning-parser`, gabarit qui ouvre `<think>` dans le prompt) : le texte
+  qui le précède devient la réflexion en fin d'itération, comme dans le Python ; en plus, la bulle en direct est
+  resynchronisée (`content_replace`), la narration d'un round d'outils ne garde ni la réflexion ni la balise, et le
+  résumé d'un point de terminaison de compression dédié retire ce raisonnement.
+
+## Moteurs : profils déclarés (llama.cpp, vLLM, SGLang, générique)
+
+Une table unique (`apps/core/src/llm/profils.ts`) décrit chaque type déclaré : adresses, capacités, métriques,
+options de lancement à conseiller et dialecte (celui de la section précédente). Le Python testait `llamacpp` à la
+main et traitait tout autre moteur comme un service distant sans capacité.
+
+- **Configuration** : `llama.engine` accepte `sglang` ; `llama.url` peut être la base du serveur (ou finir par
+  `/v1`) ; `llama.api_key` (ou `LLAMA_API_KEY`) part en `Authorization: Bearer` sur chaque appel au moteur par
+  défaut, n'est jamais journalisée ni rendue à la console (`********`). Le Python n'envoyait aucune clé.
+- **vLLM et SGLang** : fenêtre lue sur `max_model_len`, jetons comptés exactement par leur tokenisation
+  (`/tokenize`, `/v1/tokenize`, conversation rendue en un appel), cache KV et charge lus sur leurs métriques, aucun
+  chargement, et plus de file d'Elpis : le moteur regroupe lui-même les requêtes (le Python les sérialisait une à
+  une). `llama.max_concurrency` ne vaut plus que pour llama.cpp.
+- **Sonde** au démarrage et sur « Tester » (console) : adresses du profil, version, modèle servi, contexte,
+  métriques, jetons en cache, parseurs, avec l'option exacte à ajouter quand une capacité manque. Sans équivalent
+  Python.
+- **Connecteurs** : type `sglang` en plus ; `?sonde=1` sur leur test. Sans `?sonde=1`, réponses inchangées.
+
 ## Outils MCP : catégories vues par les comptes
 
 - **Pré-chauffage** : comme le Python (`prewarm_mcp_pool`), main se connecte au démarrage à chaque entrée intégrée

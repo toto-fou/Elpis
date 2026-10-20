@@ -77,7 +77,7 @@ export async function measureThinkingTokens(
   if (!stripPy(texte)) return [0, false];
   let local: boolean;
   try {
-    local = currentTarget().isLlamacpp;
+    local = currentTarget().profil.capacites.tokenisation !== null;
   } catch {
     local = false;
   }

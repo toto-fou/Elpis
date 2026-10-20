@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { dictionnaire, entier, horodatage } from "./commun";
-import { schemaEtatModeles } from "../systeme";
+import { schemaChargeMoteur, schemaEtatModeles, schemaMoteurDeclare } from "../systeme";
 
 const entierNul = entier.nullable();
 
@@ -65,6 +65,44 @@ export const schemaCorpsMajConnecteurLlm = z.object({
   api_key: z.string().optional(),
 });
 
+/** Sonde d'un moteur d'après son profil : adresses attendues, version, modèle servi, contexte, métriques, conseils (drapeau exact). */
+export const schemaRapportMoteur = z.object({
+  cle: z.string(),
+  type: z.string(),
+  libelle: z.string(),
+  base_url: z.string(),
+  joignable: z.boolean(),
+  version: z.string().nullable(),
+  modeles: z.array(z.object({ id: z.string(), max_model_len: entier.nullable() })),
+  modele_declare: z.string(),
+  modele_servi: z.string().nullable(),
+  contexte: entier.nullable(),
+  metriques: z.boolean().nullable(),
+  tokenisation: z.boolean().nullable(),
+  jetons_en_cache: z.boolean().nullable(),
+  parseurs_connus: z.boolean(),
+  parseur_reflexion: z.string().nullable(),
+  parseur_outils: z.string().nullable(),
+  concurrence: z.object({ mode: z.enum(["file", "moteur"]), max: entier.nullable() }),
+  chargement: z.boolean(),
+  cle_api: z.boolean(),
+  adresses: z.array(z.object({ role: z.string(), chemin: z.string(), statut: entier, ok: z.boolean() })),
+  charge: z
+    .object({
+      kv: z.object({ used: entier, total: entier, pct: z.number() }).nullable(),
+      en_cours: z.number().nullable(),
+      en_attente: z.number().nullable(),
+      debit_tps: z.number().nullable(),
+      cache_prefixe_pct: z.number().nullable(),
+    })
+    .nullable(),
+  conseils: z.array(
+    z.object({ code: z.string(), niveau: z.enum(["erreur", "avertissement", "info"]), message: z.string() }),
+  ),
+  sonde_a: z.number(),
+});
+export type RapportMoteur = z.infer<typeof schemaRapportMoteur>;
+
 export const schemaReponseTestConnecteurLlm = z.object({
   ok: z.boolean(),
   status: entier,
@@ -72,6 +110,7 @@ export const schemaReponseTestConnecteurLlm = z.object({
   fallback: z.string().optional(),
   error: z.string().optional(),
   hint: z.string().optional(),
+  sonde: schemaRapportMoteur.optional(),
 });
 
 /** Modèles d'un connecteur : liste ordonnée (gratuits en tête) ; `fallback` signale une liste saisie à la main ou le catalogue du fournisseur. */
@@ -88,6 +127,10 @@ export const schemaReponseModelesConnecteur = z.object({
   free: z.array(z.string()).optional(),
   fallback: z.string().optional(),
   error: z.string().optional(),
+  moteur: schemaMoteurDeclare.optional(),
+  kv_cache: z.object({ used: entier, total: entier, pct: z.number() }).optional(),
+  n_ctx: entier.optional(),
+  charge: schemaChargeMoteur.optional(),
 });
 
 /** Catalogue du serveur intégré (état poussé aussi par SSE) ou d'un serveur nommé (`engine`, `router`, `can_manage`) ; `allowed: false` si le compte n'y a pas droit. */
@@ -105,6 +148,10 @@ export const schemaReponseSanteLlm = z.object({
   models_loaded: z.array(z.looseObject({ id: z.string() })),
   kv_cache: z.object({ used: entier, total: entier, pct: z.number() }),
   metrics: dictionnaire,
+  /** Fenêtre (`/props` de llama.cpp ou `max_model_len`) et créneaux, quand le moteur les annonce. */
+  props: z.looseObject({ n_ctx: entier.optional(), total_slots: entier.optional() }).optional(),
+  moteur: schemaMoteurDeclare.optional(),
+  charge: schemaChargeMoteur.optional(),
 });
 
 export const schemaCorpsChargementModele = z.object({

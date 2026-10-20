@@ -2,15 +2,14 @@
 /** apps/core/src/llm/llama-http.ts — appels courts au serveur d'inférence (client d'administration partagé) : GET, POST, DELETE, routes par modèle d'un routeur. */
 import { setTimeout as attendre } from "node:timers/promises";
 
-import { quotePy, raisonAnnulation, urlsplit } from "@elpis/commun";
-import { config } from "@elpis/config";
+import { quotePy, raisonAnnulation } from "@elpis/commun";
 
 import { journal } from "../journal";
 import { estDict, prefixePy } from "../python";
 import type { Dict } from "../python";
 import { CancelledError, ClientHttp } from "./client-http";
 import { engineCaps } from "./fournisseurs/llama-capacites";
-import { currentEngine } from "./moteurs";
+import { currentEngine, racineIntegre } from "./moteurs";
 import type { EngineRef } from "./moteurs";
 import { getCurrentlyLoadedModel } from "./sante";
 
@@ -31,10 +30,9 @@ export async function dormir(secondes: number, signal?: AbortSignal): Promise<vo
   }
 }
 
-/** `scheme://hôte:port` de `LLAMA_URL`. */
+/** Racine du serveur intégré (`llama.url` sans `/v1…`). */
 export function llamaBaseUrl(): string {
-  const p = urlsplit(config.LLAMA_URL);
-  return `${p.scheme}://${p.netloc}`;
+  return racineIntegre();
 }
 
 let clientAdmin: ClientHttp | null = null;
@@ -70,15 +68,14 @@ export function engineUrlHeaders(
   engine?: EngineRef | null,
 ): [string, Record<string, string> | null] {
   const eng = moteur(engine);
-  const racine = eng.isBuiltin ? llamaBaseUrl() : eng.baseRoot;
   const entetes = eng.headerDict();
-  return [`${racine}${path}`, Object.keys(entetes).length > 0 ? entetes : null];
+  return [`${eng.baseRoot}${path}`, Object.keys(entetes).length > 0 ? entetes : null];
 }
 
 /** Routes qu'un routeur ne sert que pour UN modèle nommé. */
 export const PER_MODEL_PATHS: readonly string[] = ["/metrics", "/slots"];
 
-/** Modèle lancé sans `--metrics` (501) : plus de demande pendant ce délai. */
+/** Serveur lancé sans métriques (statut du profil : 501 llama.cpp, 404 vLLM et SGLang) : plus de demande pendant ce délai. */
 export const METRICS_OFF_S = 300.0;
 export const metricsOffUntil = new Map<string, number>();
 
@@ -139,7 +136,7 @@ export async function llamaGet(
   return null;
 }
 
-/** GET → texte brut (`/metrics` Prometheus) ; un 501 sur `/metrics` coupe la demande pendant `METRICS_OFF_S`. */
+/** GET → texte brut (`/metrics` Prometheus) ; le statut « métriques désactivées » du profil coupe la demande pendant `METRICS_OFF_S`. */
 export async function llamaGetText(
   path: string,
   timeout = 5.0,
@@ -151,10 +148,12 @@ export async function llamaGetText(
   try {
     const r = await getAdminClient().get(url, { timeout, headers });
     if (r.statusCode === 200) return r.text;
-    if (r.statusCode === 501 && path === "/metrics") {
+    const profil = moteur(options.engine).profil;
+    if (path === profil.chemins.metriques && r.statusCode === profil.metriques.statutDesactivees) {
       metricsOffUntil.set(metricsKey(options.engine, routed), monotonic() + METRICS_OFF_S);
       log.info(
-        `/metrics non activé sur le serveur (option --metrics) : relu dans ${Math.trunc(METRICS_OFF_S)} s`,
+        `/metrics non activé sur ${profil.libelle} (${profil.drapeaux.metriques ?? "option du serveur"}) : ` +
+          `relu dans ${Math.trunc(METRICS_OFF_S)} s`,
       );
     }
   } catch {

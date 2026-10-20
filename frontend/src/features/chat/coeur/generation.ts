@@ -53,11 +53,11 @@ class Erreur401 extends Error {}
 export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
   const { r, ctx, e, f, l } = c;
 
-  // La jauge n'a de sens que pour l'intégré, ou un connecteur llama.cpp (sa propre fenêtre).
+  // La jauge n'a de sens que pour l'intégré, ou un connecteur dont le moteur annonce sa fenêtre (llama.cpp, vLLM, SGLang).
   function ctxGaugeApplicable(): boolean {
     if (!e.selectedConnector.value) return true;
-    const meta = e.selectedEngineMeta.value as { llamacpp?: unknown } | null;
-    return !!meta?.llamacpp;
+    const meta = e.selectedEngineMeta.value as { llamacpp?: unknown; contexte?: unknown } | null;
+    return !!meta?.llamacpp || !!meta?.contexte;
   }
 
   function getCtxSize(): number {

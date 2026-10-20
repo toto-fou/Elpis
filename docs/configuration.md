@@ -41,9 +41,11 @@
 ### Moteur d'inférence
 
 Conçu pour `llama-server` en **mode routeur** (plusieurs modèles, plusieurs
-slots). D'autres moteurs OpenAI-compatibles (vLLM, TGI, Ollama, LM Studio)
-fonctionnent via `llama.engine` — voir
-[Cibles d'inférence](architecture.md#cibles-dinférence-et-fournisseurs).
+slots), **vLLM** et **SGLang** : le type déclaré dans `llama.engine` fait foi et
+Elpis en utilise toutes les adresses et capacités (voir
+[Moteur d'inférence déclaré](#moteur-dinférence-déclaré-llamaengine)). D'autres
+moteurs OpenAI-compatibles (TGI, Ollama, LM Studio) fonctionnent en `generic` —
+voir [Cibles d'inférence](architecture.md#cibles-dinférence-et-fournisseurs).
 
 > **Version minimale recommandée** : une version incluant le parser tool-calls
 > XML GLM (chercher `arg_key` / `arg_value` dans `common/chat-auto-parser.h`).
@@ -215,7 +217,7 @@ seulement la connexion à la base retenue.
 
 | Étape | Questions | Écrit dans |
 |---|---|---|
-| 1. LLM | type (llama.cpp, vLLM, autre OpenAI-compatible), URL — sondée par `GET /v1/models`, jamais `/props?model=` qui chargerait un modèle —, modèle choisi dans la liste annoncée | `config.json › llama` |
+| 1. LLM | type (llama.cpp, vLLM, SGLang, autre OpenAI-compatible) ; adresse, dont le port suit le type tant qu'aucune adresse n'est saisie (8080, 8000, 30000) ; clé API facultative (`--api-key` du serveur, saisie masquée) ; sonde `GET /v1/models` avec la clé en Bearer (401 : « clé refusée »), jamais `/props?model=` qui chargerait un modèle ; modèle choisi dans la liste annoncée ; drapeaux de lancement conseillés pour vLLM et SGLang | `config.json › llama` : `engine`, `url` (base du serveur), `api_key`, `model` ; seules les valeurs changées sont réécrites |
 | 2. Cloud | fournisseur (Anthropic, OpenAI, Mistral, Groq, OpenRouter, DeepSeek, Moonshot), clé API masquée, modèle | connecteur **partagé** en base, clé chiffrée (Fernet) |
 | 3. Accès | HTTPS : non / certificat local (`install_caddy.sh`) / domaine public Let's Encrypt (`Caddyfile.acme.template`) ; sans HTTPS, écoute (`--listen local\|lan` : ce serveur seulement ou réseau local, voir [Écoute](#écoute-securitylisten)) ; nom d'hôte d'accès ; ports déjà occupés signalés | `security.https`, `security.listen`, `.env` (`MAIN_PUBLIC_URL`, `ADMIN_PUBLIC_URL`) |
 | 4. RAG | activation, serveur d'embeddings (sondé) et modèle, reranker, OCR vision | `rag`, `rag_app/rag_config.json` |
@@ -227,9 +229,17 @@ seulement la connexion à la base retenue.
 Secrets générés (fichiers 0600) : `app.session_secret`,
 `user_db/.local_mcp_token` (hôte d'outils, référencé par `mcp.json`),
 `user_db/.rag_service_token`. Chaque réponse peut être donnée par option
-(`./elpis configure --help`) ou variable `ELPIS_CFG_*` (`ELPIS_CFG_LLM_URL`,
-`ELPIS_CFG_CLOUD_API_KEY`, `ELPIS_CFG_ADMIN_PASSWORD`…) ; `--yes` ne pose
-aucune question.
+(`./elpis configure --help`) ou variable `ELPIS_CFG_*` (`ELPIS_CFG_ENGINE`,
+`ELPIS_CFG_LLM_URL`, `ELPIS_CFG_LLM_API_KEY`, `ELPIS_CFG_CLOUD_API_KEY`,
+`ELPIS_CFG_ADMIN_PASSWORD`…) ; `--yes` ne pose aucune question. Les secrets
+passent par ces variables (l'assistant les transmet ainsi) : une option comme
+`--llm-api-key` se voit dans la liste des processus. Aucune clé n'apparaît
+dans le résumé, les journaux (`logs/install.log` les masque) ni `export-sh`.
+
+Une configuration existante reste valide telle quelle : sans `engine`
+(llama.cpp), avec `ip` et `port` seuls, ou avec une URL complète
+`…/v1/chat/completions`. `configure` n'y réécrit que ce qui change ; une
+nouvelle adresse est écrite en base du serveur (`url`).
 
 ### Base de données
 
@@ -415,7 +425,7 @@ Sections :
 
 | Section | Contenu |
 |---|---|
-| `llama` | `ip`/`port`/`url`, `model`, `engine`, timeouts, retries, `max_concurrency`, `max_models`, `n_ctx`, `max_tool_iterations`, `tool_timeout_s`, `thinking_budget_tokens`, `max_tokens_chat`/`max_tokens_thinking`, `thinking_output_uncapped`, `think_resume_max`/`think_resume_total_tokens` |
+| `llama` | `engine`, `url` (base du serveur) ou `ip`/`port`, `api_key`, `model`, timeouts, retries, `max_concurrency`, `max_models`, `n_ctx`, `max_tool_iterations`, `tool_timeout_s`, `thinking_budget_tokens`, `max_tokens_chat`/`max_tokens_thinking`, `thinking_output_uncapped`, `think_resume_max`/`think_resume_total_tokens` |
 | `mcp` | `server_cmd`, `tools_cache_ttl_sec`, `servers_dir`, `local_url`/`local_host`/`local_port`/`local_transport` |
 | `app` | `db_path`, `session_secret`, `max_recent_chats`, `sandbox_dir`, `enable_model_selector`, `sandbox_quota_mb`, `max_upload_mb`, chemins `system_prompts.*` |
 | `llm` | `scheduling_mode`, `compression.*`, `compaction.*`, `prune.*`, `task.*` (sous-agents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
@@ -432,6 +442,116 @@ Sections :
 | `skins` | `dir` (dossier des skins importés ou créés, défaut `user_skins`, surchargeable par `APP_SKINS_DIR`, lu au démarrage), `enabled` (`{id: booléen}`, relu à chaud : un intégré absent prend sa valeur de `frontend/css/skins/skins.json`, Kiki désactivé ; un skin importé absent est désactivé ; Ardoise et le skin par défaut restent actifs), `default` (défaut `elpis` : skin des comptes sans choix ou dont le skin a été désactivé). Réglé depuis Console › Système › Apparence ; le dossier est inclus dans les sauvegardes complètes |
 | `voice` | Moteur vocal — `enabled`, puis deux sous-blocs indépendants : `stt.*` (adresse, `format` parmi `whisper.cpp`/`openai`/`llama-audio`, langue, vocabulaire, `logprob_min`, plafonds) et `tts.*` (adresse, `format`, voix, vitesse, plafonds). Coercition et bornes dans `apps/core/src/voix/config.ts`, relues à CHAQUE appel |
 | `image` | Génération d'images — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. ⚠ `api_key_enc` appartient à `PUT /api/admin/image/key` : l'éditeur brut ne l'écrit pas. Voir [Génération d'images](#génération-dimages) |
+
+### Moteur d'inférence déclaré (`llama.engine`)
+
+Le type écrit dans `config.json` fait foi : Elpis n'essaie pas de deviner le
+moteur. Il applique le profil du type déclaré (une table unique,
+`apps/core/src/llm/profils.ts`) : adresses, capacités, métriques et options de
+lancement conseillées. Une adresse attendue qui ne répond pas est signalée
+(journal du démarrage, Console › Inférence › Capacités) sans changer de
+comportement.
+
+```json
+"llama": {
+  "engine": "vllm",
+  "url": "http://gpu.lan:8000",
+  "api_key": "",
+  "model": "Qwen/Qwen3-8B"
+}
+```
+
+- **`engine`** : `llamacpp` (alias `llama.cpp`, `llama-cpp`, `llama`), `vllm`,
+  `sglang` ou `generic` (alias `openai`, `tgi`, `ollama`, `lmstudio` ; toute
+  autre valeur vaut `generic`). Pris en compte au redémarrage.
+- **`url`** : la base du serveur (`http://hôte:port`) ; une adresse qui finit par
+  `/v1` ou `/v1/chat/completions` est acceptée et normalisée. Sans `url`,
+  `ip` et `port` donnent `http://ip:port`. Les configurations existantes
+  (URL complète) continuent de marcher.
+- **`api_key`** : facultative, la valeur de `--api-key` du serveur, envoyée en
+  `Authorization: Bearer` sur chaque appel au moteur par défaut (`LLAMA_API_KEY`
+  la remplace). Elle n'est jamais renvoyée à l'interface : la console affiche
+  `********` et l'éditeur brut la garde quand ce masque revient tel quel ; un
+  champ vidé la retire. Elle n'apparaît dans aucun journal.
+- **`model`** : pour vLLM, un nom servi (`--served-model-name`, sinon le chemin
+  du modèle) ; vLLM refuse un autre nom, la sonde le signale.
+
+Ce que fait chaque profil :
+
+| | llama.cpp | vLLM 0.31 | SGLang 0.5.21 | generic |
+|---|---|---|---|---|
+| Santé | `/health` | `/health` | `/health` | `/v1/models` |
+| Version | `/props` (`build_info`) | `/version` | `/server_info` | — |
+| Contexte | `/props` (par slot) | `max_model_len` de `/v1/models` | `max_model_len` de `/v1/models` | déclaré ou deviné |
+| Jetons exacts | `/apply-template` puis `/tokenize` | `/tokenize` (`messages` en un appel) | `/v1/tokenize` (`messages` en un appel) | estimés |
+| Métriques | `/metrics` (`--metrics`) | `/metrics` (`vllm:*`) | `/metrics` (`--enable-metrics`) | — |
+| Cache KV de la jauge | `llamacpp:kv_cache_tokens` ÷ `n_ctx_total` | `vllm:kv_cache_usage_perc` × blocs de `vllm:cache_config_info` | `sglang:token_usage`, capacité `max_total_num_tokens` | — |
+| Jetons repris du cache | `usage.prompt_tokens_details` ou `timings.cache_n` | `usage.prompt_tokens_details.cached_tokens` (`--enable-prompt-tokens-details`) | idem (`--enable-cache-report`) | si fourni |
+| Concurrence | file d'Elpis (slots) | lots continus du moteur | lots continus du moteur | requêtes en parallèle |
+| Charger / décharger | mode routeur | non (modèle choisi au lancement) | non | non |
+
+Avec vLLM et SGLang, les requêtes partent en parallèle : le moteur les
+regroupe lui-même (`--max-num-seqs`, `--max-running-requests`) et
+`llama.max_concurrency` ne s'applique qu'à llama.cpp. Le sélecteur de modèle du
+chat n'affiche ni « Charger » ni « Décharger » ; la jauge du cache KV et la
+ligne de charge (requêtes en cours et en attente, débit, cache de préfixe)
+viennent des métriques du moteur.
+
+Lancements conseillés (options vérifiées dans le code de ces versions) :
+
+```bash
+# vLLM 0.31 — le cache de préfixe est actif par défaut ; ne pas passer --disable-log-stats (métriques)
+vllm serve Qwen/Qwen3-8B --host 0.0.0.0 --port 8000 \
+  --max-model-len 32768 \
+  --reasoning-parser qwen3 \
+  --enable-auto-tool-choice --tool-call-parser hermes \
+  --enable-prompt-tokens-details \
+  --api-key "$CLE"
+
+# SGLang 0.5.21
+python -m sglang.launch_server --model-path Qwen/Qwen3-8B --host 0.0.0.0 --port 30000 \
+  --context-length 32768 \
+  --reasoning-parser qwen3 \
+  --tool-call-parser qwen25 \
+  --enable-metrics --enable-cache-report \
+  --api-key "$CLE"
+```
+
+- **Réflexion** : sans `--reasoning-parser`, la réflexion d'un modèle qui
+  réfléchit arrive dans la réponse. Noms : `qwen3`, `deepseek_r1`,
+  `openai_gptoss` (vLLM) ; `qwen3`, `deepseek-r1`, `gpt-oss` (SGLang).
+- **Outils** : sans parseur d'appels d'outils, le modèle ne peut pas appeler les
+  outils d'Elpis : `--enable-auto-tool-choice --tool-call-parser hermes`
+  (vLLM, Qwen ; `llama3_json` pour Llama) ou `--tool-call-parser qwen25`
+  (SGLang ; `llama3` pour Llama).
+- **Clé d'API** : la `--api-key` de vLLM ne protège que `/v1/*` (`/tokenize`,
+  `/metrics`, `/version` restent ouverts) ; celle de SGLang tout sauf
+  `/health`, `/ready` et `/metrics`. Gardez ces serveurs sur un réseau fermé.
+- **Port** : sur la machine d'Elpis, le port 8000 est celui du service RAG ;
+  lancez vLLM ailleurs ou sur un autre port (`--port`). L'assistant et
+  `configure` le signalent.
+
+L'installeur (`./install.sh`, `./elpis configure`) propose ces quatre types,
+la clé et le port par défaut de chacun ; sa note finale et `./elpis doctor`
+rappellent ces drapeaux pour vLLM et SGLang. `./elpis doctor` sonde aussi
+`GET /v1/models` avec la clé (« clé refusée » sur un 401) et, si `main` tourne,
+affiche la dernière sonde du core (lignes `[moteur]` de son journal, depuis le
+dernier démarrage).
+
+**Sonde.** Au démarrage, le process `main` sonde le moteur déclaré et écrit une
+ligne de résumé (`[moteur] vLLM 0.31.0 sur http://…, modèle …, contexte …
+jetons, métriques oui, tokenisation exacte oui, concurrence gérée par le
+moteur`), puis chaque option manquante avec le drapeau exact à ajouter. Console ›
+Inférence › Capacités affiche le même rapport ; « Tester » le refait, avec une
+réponse d'un jeton pour vérifier le détail des jetons en cache de vLLM. Pendant
+le chat, une réflexion reçue en balises, des appels d'outils reçus en texte ou
+une réponse de vLLM sans `prompt_tokens_details` ajoutent le conseil
+correspondant (journal et console), une fois par moteur. Le test d'un connecteur
+`llamacpp`, `vllm` ou `sglang` montre le même rapport.
+
+**Connecteurs.** Les types `vllm` et `sglang` (préréglages « vLLM (local) » et
+« SGLang (local) ») utilisent le même profil que le moteur par défaut ; leur
+adresse est la base du serveur suivie de `/v1`.
 
 ### Fournisseurs cloud des comptes (`llm.allowed_provider_types`)
 
@@ -492,15 +612,16 @@ comme absente.
 |---|---|---|---|
 | `LLAMA_IP` | `llama.ip` | `127.0.0.1` | Adresse du moteur |
 | `LLAMA_PORT` | `llama.port` | `8080` | Port |
-| `LLAMA_URL` | `llama.url` | dérivée | URL complète — prioritaire sur IP/PORT |
+| `LLAMA_URL` | `llama.url` | dérivée | Base du serveur (`/v1` ou `/v1/chat/completions` acceptés) — prioritaire sur IP/PORT |
+| `LLAMA_API_KEY` | `llama.api_key` | vide | Clé du moteur par défaut (`Authorization: Bearer`), jamais affichée |
 | `LLAMA_MODEL` | `llama.model` | `local-model` | Modèle par défaut |
-| `LLAMA_ENGINE` | `llama.engine` | `llamacpp` | `llamacpp` \| `vllm` \| `generic` |
+| `LLAMA_ENGINE` | `llama.engine` | `llamacpp` | `llamacpp` \| `vllm` \| `sglang` \| `generic` (le type déclaré fait foi) |
 | `LLAMA_TIMEOUT_SEC` | `llama.timeout_sec` | `600` | Timeout requête |
 | `LLAMA_RETRIES` | `llama.retries` | `3` | Tentatives |
 | `LLAMA_RETRY_BACKOFF_SEC` | `llama.retry_backoff_sec` | `0.6` | Base du backoff |
 | `LLAMA_RETRY_BACKOFF_CAP_S` | `llama.retry_backoff_cap_s` | `15` | Plafond full-jitter |
 | `LLAMA_LOADING_WAIT_S` | `llama.loading_wait_s` | `90` | Attente « modèle en chargement » (503 → sonde `/health`) |
-| `LLAMA_MAX_CONCURRENCY` | `llama.max_concurrency` | `4` | Repli si `/props.total_slots` indisponible |
+| `LLAMA_MAX_CONCURRENCY` | `llama.max_concurrency` | `4` | llama.cpp : repli si `/props.total_slots` indisponible (vLLM et SGLang regroupent eux-mêmes les requêtes) |
 | `ELPIS_LLM_SLOTS_DIR` | — | `/tmp/elpis_llm_slots` | Créneaux du llama-server communs à tous les process (un fichier verrouillé par créneau) ; doit appartenir au compte du service |
 | `LLAMA_MAX_MODELS` | `llama.max_models` | `1` | Modèles simultanés côté serveur |
 | `LLAMA_MAX_TOOL_ITERATIONS` | `llama.max_tool_iterations` | `200` | Itérations **productives** max par tour |

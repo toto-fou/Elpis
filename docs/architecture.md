@@ -831,16 +831,22 @@ flowchart LR
 ```
 
 - **`isDefault`** = moteur local (`LLAMA_URL`), quel que soit son type.
-- **`isLocalLlamacpp`** = local **ET** dialecte llama.cpp. Plus restrictive,
-  elle garde les appels aux endpoints **spécifiques** au llama-server :
-  `/props` (sampling + `n_ctx`), `/slots` (pinning), `/tokenize`, jauge KV live,
-  auto-chargement routeur. Un moteur local vLLM/générique ne les expose pas → on
-  les saute et on parle OpenAI-standard.
+- **Profil du moteur** (`apps/core/src/llm/profils.ts`) : le type déclaré
+  (`llama.engine` du moteur local, `provider_type` d'un connecteur) donne
+  `EngineRef.profil` / `LlmTarget.profil` — adresses (`/props`, `/slots`,
+  `/tokenize`, `/v1/tokenize`, `/version`, `/server_info`, `/metrics`…),
+  capacités (fenêtre lue sur `/props` ou `max_model_len`, tokenisation exacte,
+  file d'Elpis ou lots continus du moteur, chargement à la demande, slots),
+  métriques et dialecte (champs étendus de vLLM et SGLang, champs de réflexion lus). Le code LLM lit ces capacités au lieu de tester `llamacpp` ; aucun
+  type n'est deviné. `isLlamacpp` / `isLocalLlamacpp` restent des raccourcis.
+  Une sonde (`llm/sonde-moteur.ts`) vérifie au démarrage et sur « Tester » les
+  adresses du profil et conseille l'option de lancement qui manque. Voir
+  [configuration.md](configuration.md#moteur-dinférence-déclaré-llamaengine).
 - **Connecteurs** (`apps/core/src/llm/connecteurs.ts`) : portée `user`
   (clé perso) ou `shared` (publié par l'admin). Types : `llamacpp`, `vllm`,
-  `openai`, `anthropic`, `mistral`, `groq`, `openrouter`, `deepseek`,
+  `sglang`, `openai`, `anthropic`, `mistral`, `groq`, `openrouter`, `deepseek`,
   `moonshot`, `opencode`, `generic`. Les types locaux (`llamacpp`, `vllm`,
-  `generic`) sont réservés aux connecteurs partagés. Un compte non
+  `sglang`, `generic`) sont réservés aux connecteurs partagés. Un compte non
   administrateur ne branche que les types cloud de
   `llm.allowed_provider_types` : absente ou vide, **aucun** ; un compte
   administrateur n'est pas concerné. La liste est revérifiée à chaque

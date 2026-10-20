@@ -77,7 +77,7 @@ const ENTREES: readonly EntreeAdmin[] = [
         label: "Inférence",
         wide: true,
         stores: ["config", "scheduling"],
-        loaders: [CONFIG, ["loadAdminLlmConnectors"], ["loadLlmScheduling"]],
+        loaders: [CONFIG, ["loadAdminLlmConnectors"], ["loadLlmScheduling"], ["loadRapportMoteur"]],
         paths: ["llama."],
       },
       { id: "compression", label: "Compression", stores: ["compression"], loaders: [["loadCompressionCfg"]] },

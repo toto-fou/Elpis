@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/contexte/tokens.ts — SEUL compteur de tokens : exact via `/tokenize` et `/apply-template` du serveur de la cible, repli estimé (chars pondérés, ratio mesuré). */
+/** apps/core/src/contexte/tokens.ts — SEUL compteur de tokens : exact via la tokenisation du moteur de la cible (selon son profil), repli estimé (chars pondérés, ratio mesuré). */
 import { createHash } from "node:crypto";
 
 import { arrondiEntierPy, intPy, pyJsonDumps, strPy, utf8Remplace, veritePy } from "@elpis/commun";
@@ -301,7 +301,9 @@ export async function countTokensExact(
   const useCache = options.useCache ?? true;
   const addSpecial = options.addSpecial ?? false;
   const eng = currentEngine();
-  if (!eng.isLlamacpp) return null;
+  const forme = eng.profil.capacites.tokenisation;
+  const chemin = eng.profil.chemins.tokenisation;
+  if (forme === null || chemin === null) return null;
   const cle = useCache ? cleTokenize(text, modelId, addSpecial, eng) : null;
   if (cle !== null) {
     const v = tokenizeCache.get(cle);
@@ -312,9 +314,12 @@ export async function countTokensExact(
     }
   }
   if (tokenizeBackoffActive(eng)) return null;
-  const corps: Dict = { content: text, add_special: addSpecial };
-  if (modelId) corps["model"] = modelId;
-  const r = await llamaPost("/tokenize", corps, options.timeout ?? 5.0, {
+  const corps: Dict =
+    forme === "llamacpp"
+      ? { content: text, add_special: addSpecial }
+      : { prompt: text, add_special_tokens: addSpecial };
+  if (modelId && forme === "llamacpp") corps["model"] = modelId;
+  const r = await llamaPost(chemin, corps, options.timeout ?? 5.0, {
     engine: eng,
     signal: options.signal,
   });
@@ -322,9 +327,8 @@ export async function countTokensExact(
     noteEchecTokenize(r, eng, longueurPy(text));
     return null;
   }
-  const jetons = r["tokens"];
-  if (!Array.isArray(jetons)) return null;
-  const n = jetons.length;
+  const n = nombreDeJetons(r);
+  if (n === null) return null;
   if (cle !== null) {
     tokenizeCache.delete(cle);
     tokenizeCache.set(cle, n);
@@ -335,6 +339,28 @@ export async function countTokensExact(
     }
   }
   return n;
+}
+
+/** Sonde de la tokenisation d'un moteur (démarrage, « Tester ») : statut HTTP et réponse lisible, hors cache ; `null` sans tokenisation. */
+export async function sonderTokenisation(engine: EngineRef): Promise<{ statut: number; ok: boolean } | null> {
+  const forme = engine.profil.capacites.tokenisation;
+  const chemin = engine.profil.chemins.tokenisation;
+  if (forme === null || chemin === null) return null;
+  const corps: Dict =
+    forme === "llamacpp"
+      ? { content: "Elpis", add_special: false }
+      : { prompt: "Elpis", add_special_tokens: false };
+  const r = await llamaPost(chemin, corps, 8.0, { engine });
+  const statut = typeof r["_status"] === "number" ? r["_status"] : 0;
+  return { statut, ok: statut === 200 && nombreDeJetons(r) !== null };
+}
+
+/** Jetons d'une réponse de tokenisation : `count` (vLLM, SGLang) sinon la longueur de `tokens`. */
+function nombreDeJetons(r: Dict): number | null {
+  const compte = r["count"];
+  if (typeof compte === "number" && Number.isInteger(compte) && compte >= 0) return compte;
+  const jetons = r["tokens"];
+  return Array.isArray(jetons) ? jetons.length : null;
 }
 
 /** Content multimodal aplati en texte pour `/apply-template` (les images ont leur forfait à part). */
@@ -350,7 +376,7 @@ export function messagesTextOnly(messages: readonly unknown[]): unknown[] {
   });
 }
 
-/** Compte EXACT du prompt rendu (`/apply-template` puis `/tokenize` avec `add_special`), égal au `prompt_tokens` de llama.cpp. */
+/** Compte EXACT du prompt rendu : un appel `messages` (vLLM, SGLang) ou `/apply-template` puis `/tokenize` (llama.cpp), égal au `prompt_tokens` du moteur. */
 export async function countRenderedPromptTokensExact(
   messages: readonly unknown[],
   tools: readonly unknown[] | null = null,
@@ -359,13 +385,27 @@ export async function countRenderedPromptTokensExact(
 ): Promise<number | null> {
   if (messages.length === 0) return 0;
   const eng = currentEngine();
-  if (!eng.isLlamacpp) return null;
+  const profil = eng.profil;
+  if (profil.capacites.tokenisation === null) return null;
   if (tokenizeBackoffActive(eng)) return null;
   const corps: Dict = { messages: messagesTextOnly(messages) };
   if (tools && tools.length > 0) corps["tools"] = tools;
-  if (modelId) corps["model"] = modelId;
   const timeout = options.timeout ?? 5.0;
-  const r = await llamaPost("/apply-template", corps, timeout, { engine: eng, signal: options.signal });
+  if (profil.capacites.tokenisationMessages && profil.chemins.tokenisation !== null) {
+    if (profil.type === "vllm") corps["add_generation_prompt"] = true;
+    const r = await llamaPost(profil.chemins.tokenisation, corps, timeout, {
+      engine: eng,
+      signal: options.signal,
+    });
+    if (r["_status"] !== 200) {
+      noteEchecTokenize(r, eng, 0);
+      return null;
+    }
+    return nombreDeJetons(r);
+  }
+  if (profil.chemins.gabarit === null) return null;
+  if (modelId) corps["model"] = modelId;
+  const r = await llamaPost(profil.chemins.gabarit, corps, timeout, { engine: eng, signal: options.signal });
   if (r["_status"] !== 200) {
     noteEchecTokenize(r, eng, 0);
     return null;

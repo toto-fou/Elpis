@@ -124,3 +124,40 @@ export function sameValue(a: unknown, b: unknown): boolean {
   const texte = (v: unknown): string => pyJsonDumps(v, { sortKeys: true, ensureAscii: false });
   return texte(a) === texte(b);
 }
+
+/** Secrets de `config.json` jamais rendus à la console : remplacés par `MASQUE_SECRET`, restaurés à l'écriture. */
+export const SECRETS_MASQUES: readonly (readonly string[])[] = [["llama", "api_key"]];
+export const MASQUE_SECRET = "********";
+
+/** Copie où chaque secret masqué non vide vaut `MASQUE_SECRET` (seul le chemin est copié : flottants et grands entiers intacts). */
+export function masquerSecrets(cfg: Dict): [Dict, boolean] {
+  let sortie = cfg;
+  for (const chemin of SECRETS_MASQUES) {
+    const [trouve, valeur] = dig(sortie, chemin);
+    if (trouve && typeof valeur === "string" && valeur) sortie = avecValeur(sortie, chemin, MASQUE_SECRET);
+  }
+  return [sortie, sortie !== cfg];
+}
+
+function avecValeur(d: Dict, chemin: readonly string[], valeur: unknown): Dict {
+  const [tete = "", ...reste] = chemin;
+  const copie: Dict = { ...d };
+  poserCle(copie, tete, reste.length ? avecValeur(copie[tete] as Dict, reste, valeur) : valeur);
+  return copie;
+}
+
+/** Chemin d'un secret masqué ? */
+export function estSecretMasque(parties: readonly string[]): boolean {
+  return SECRETS_MASQUES.some((c) => c.length === parties.length && c.every((p, i) => p === parties[i]));
+}
+
+/** Secret revenu masqué de la console : la valeur du disque est gardée (supprimé si le disque n'en a pas). */
+export function restaurerSecretsMasques(entrant: Dict, disque: Dict): void {
+  for (const chemin of SECRETS_MASQUES) {
+    const [trouve, valeur] = dig(entrant, chemin);
+    if (!trouve || valeur !== MASQUE_SECRET) continue;
+    const [surDisque, ancienne] = dig(disque, chemin);
+    if (surDisque) plant(entrant, chemin, ancienne);
+    else removePath(entrant, chemin);
+  }
+}

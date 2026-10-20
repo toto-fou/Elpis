@@ -180,6 +180,8 @@ const COMPRESSOR_SYSTEM_PROMPT = chargerPromptCompresseur();
 const THINK = "[tT][hH][iI\\u0130\\u0131][nN][kK\\u212A](?:[iI\\u0130\\u0131][nN][gG])?";
 const RE_THINK_BLOCK = new RegExp(`<${THINK}>[\\s\\S]*?</${THINK}>`, "gu");
 const RE_THINK_OPEN = new RegExp(`<${THINK}>`, "u");
+/** Raisonnement sans balise ouvrante (gabarit qui l'ouvre, serveur sans parseur) : tout jusqu'à la dernière fermante. */
+const RE_THINK_ORPHELIN = new RegExp(`^[\\s\\S]*</${THINK}>`, "u");
 const PARTIAL_TARGET_RATIO = 0.6;
 const EXPECTED_SUMMARY_TOKENS = 600;
 const ANCHOR_PIN_MAX_CHARS = 6000;
@@ -591,7 +593,7 @@ export class ConversationCompressor {
     o.signal?.throwIfAborted();
     const durationMs = Date.now() - tStart;
 
-    summaryText = stripPy((summaryText || "").replace(RE_THINK_BLOCK, ""));
+    summaryText = stripPy((summaryText || "").replace(RE_THINK_BLOCK, "").replace(RE_THINK_ORPHELIN, ""));
     const ouvrant = RE_THINK_OPEN.exec(summaryText);
     if (ouvrant) summaryText = stripPy(summaryText.slice(0, ouvrant.index));
     if (!summaryText || Array.from(summaryText).length < 30) {
@@ -789,9 +791,10 @@ function resynchroniser(logPrefix: string): void {
   }
 }
 
-function cibleLlamacpp(): boolean {
+/** Le moteur de la cible compte les jetons exactement (sinon l'estimation mesurée suffit). */
+function cibleTokenisationExacte(): boolean {
   try {
-    return currentTarget().isLlamacpp;
+    return currentTarget().profil.capacites.tokenisation !== null;
   } catch {
     return true;
   }
@@ -852,7 +855,7 @@ export async function maybeCompressConversation(
         }
       }
     }
-    const countExact = cibleLlamacpp();
+    const countExact = cibleTokenisationExacte();
     const [tokensBefore, tokensBeforeEst] = countExact
       ? await countTokensAsyncEx(messages, modelForCount || null, o.signal)
       : [measuredPromptTokens(messages, { modelId: modelForCount || null }), true];

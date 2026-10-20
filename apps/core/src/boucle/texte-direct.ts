@@ -84,6 +84,17 @@ export class LiveText {
     this.parts.length = 0;
   }
 
+  /** Réflexion reclassée en fin d'itération (balise fermante orpheline dans le contenu) : la bulle repart du texte nettoyé. */
+  async remplacer(texte: string): Promise<void> {
+    const emis = this.n > 0;
+    this.parts.length = 0;
+    this.n = 0;
+    this.pend = "";
+    this.gated = false;
+    if (emis) await emit(this.onEvent, { type: "content_replace", text: "" });
+    if (texte) await this.onToken(texte);
+  }
+
   /** TERMINAL : émet la queue nettoyée non reçue, ou `content_replace` si le nettoyage a touché la partie émise et que c'est voulu. */
   async emitRest(text: string, o: { replaceOnDivergence: boolean }): Promise<void> {
     const rest = liveStreamRest(text, this.parts.join(""), this.n);

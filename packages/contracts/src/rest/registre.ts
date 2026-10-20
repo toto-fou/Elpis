@@ -558,6 +558,8 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     adminLlm.schemaReponseFournisseursEcrits,
     adminLlm.schemaCorpsFournisseursAutorises,
   ),
+  c("admin-llm", "GET", "/api/admin/llm/engine", adminLlm.schemaReponseRapportMoteur),
+  c("admin-llm", "POST", "/api/admin/llm/engine/test", adminLlm.schemaReponseRapportMoteur),
   c("admin-llm", "GET", "/api/admin/llm-capabilities", adminLlm.schemaReponseCapacitesLlm),
   c("admin-llm", "POST", "/api/admin/llm-capabilities/probe", adminLlm.schemaReponseSondeCapacites),
   c(

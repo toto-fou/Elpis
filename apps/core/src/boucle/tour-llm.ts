@@ -327,7 +327,12 @@ export async function callLlm(
     if (!rec.ctxSize || rec.ctxSize <= 0) {
       try {
         rec.ctxSize = await getModelContextSize(modele || "");
-        if (rec.ctxSize && rec.ctxSize > 0 && rec.gaugeCtxTotal <= 0 && currentTarget().isLlamacpp)
+        if (
+          rec.ctxSize &&
+          rec.ctxSize > 0 &&
+          rec.gaugeCtxTotal <= 0 &&
+          currentTarget().profil.capacites.contexte !== "aucune"
+        )
           rec.gaugeCtxTotal = rec.ctxSize;
       } catch (e) {
         if (estErreurAnnulation(e)) throw e;
@@ -717,7 +722,10 @@ export async function callLlm(
   const rawContentExact = rc !== null && rc !== undefined ? strPy(rc) : "";
   if (!iterThinking) {
     [iterThinking, rawContent] = extractThinking(rawContent, { truncated: strPy(finish || "") === "length" });
-    if (iterThinking) await emit(onEvent, { type: "thinking_content", text: iterThinking });
+    if (iterThinking) {
+      await emit(onEvent, { type: "thinking_content", text: iterThinking });
+      await live.remplacer(rawContent);
+    }
   }
   let iterClean = rawContent;
   if (iterThinking) {

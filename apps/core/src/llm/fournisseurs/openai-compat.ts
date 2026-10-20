@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/llm/fournisseurs/openai-compat.ts — transport OpenAI-compatible : endpoint, en-têtes, sampling distant validé, payload assaini hors llama.cpp. */
+/** apps/core/src/llm/fournisseurs/openai-compat.ts — transport OpenAI-compatible : endpoint, en-têtes, sampling distant validé, payload assaini hors llama.cpp (dialecte étendu de vLLM et SGLang gardé). */
 import { ErreurPython, intPy, stripPy, strPy, urlsplit, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
 
@@ -9,13 +9,12 @@ import type { LlmTarget } from "../cible";
 import { getLlmClient, sansBarresFinales } from "../client-http";
 import type { ClientHttp } from "../client-http";
 import { sanitizeOverride } from "../parametres";
+import { aDialecteEtendu, profilDuType } from "../profils";
 
 /** Ce qu'un adaptateur lit d'une cible. */
 export type CibleTransport = Pick<LlmTarget, "isDefault" | "baseUrl" | "apiKey" | "providerType" | "model">;
 
-const LLAMA_NATIVE_PROVIDERS: ReadonlySet<string> = new Set(["llamacpp"]);
-
-/** Champs standard de l'API chat/completions : seuls gardés hors llama.cpp. */
+/** Champs standard de l'API chat/completions : seuls gardés hors llama.cpp, vLLM et SGLang. */
 export const OPENAI_STD_FIELDS: ReadonlySet<string> = new Set([
   "model",
   "messages",
@@ -41,7 +40,7 @@ export const OPENAI_STD_FIELDS: ReadonlySet<string> = new Set([
 
 /** Dialecte llama.cpp = type du fournisseur seul (un moteur local vLLM est assaini). */
 export function isLlamaNative(target: Pick<LlmTarget, "providerType">): boolean {
-  return LLAMA_NATIVE_PROVIDERS.has(target.providerType);
+  return profilDuType(target.providerType).dialecte.natif;
 }
 
 function joindre(base: string, suffixe: string): string {
@@ -65,10 +64,11 @@ export function modelsUrl(target: CibleTransport): string {
   return sansBarresFinales(base) + "/models";
 }
 
-/** En-tête Bearer d'un fournisseur distant ; rien pour le local. */
+/** En-tête Bearer : clé du connecteur, ou `llama.api_key` du moteur intégré s'il en déclare une. */
 export function headers(target: Pick<CibleTransport, "isDefault" | "apiKey">): Record<string, string> {
   const h: Record<string, string> = {};
-  if (!target.isDefault && target.apiKey) h["Authorization"] = `Bearer ${target.apiKey}`;
+  const cle = target.isDefault ? stripPy(config.LLAMA_API_KEY || "") : target.apiKey;
+  if (cle) h["Authorization"] = `Bearer ${cle}`;
   return h;
 }
 
@@ -89,8 +89,11 @@ const REMOTE_SAMPLING_KEYS = [
   "seed",
 ];
 
-/** Sous-ensemble OpenAI-standard de la surcharge UI, VALIDÉ, pour une cible distante (« 0 = illimité » retiré). */
-export function remoteSampling(samplingOverride: unknown): Dict {
+/** Sous-ensemble OpenAI-standard de la surcharge UI, VALIDÉ, pour une cible distante (« 0 = illimité » retiré) ; vLLM et SGLang reçoivent aussi l'échantillonnage étendu. */
+export function remoteSampling(
+  samplingOverride: unknown,
+  target: Pick<CibleTransport, "providerType"> | null = null,
+): Dict {
   const sortie: Dict = {};
   if (!estDict(samplingOverride)) return sortie;
   let propre: Dict;
@@ -120,6 +123,17 @@ export function remoteSampling(samplingOverride: unknown): Dict {
     }
     sortie[k] = v;
   }
+  if (target !== null && aDialecteEtendu(target.providerType)) Object.assign(sortie, samplingEtendu(propre));
+  return sortie;
+}
+
+/** `top_k` (0 = désactivé chez llama.cpp, refusé par SGLang : -1), `min_p`, `repeat_penalty` → `repetition_penalty`. */
+function samplingEtendu(propre: Dict): Dict {
+  const sortie: Dict = {};
+  const topK = propre["top_k"];
+  if (typeof topK === "number") sortie["top_k"] = topK > 0 ? topK : -1;
+  if (typeof propre["min_p"] === "number") sortie["min_p"] = propre["min_p"];
+  if (typeof propre["repeat_penalty"] === "number") sortie["repetition_penalty"] = propre["repeat_penalty"];
   return sortie;
 }
 
@@ -140,10 +154,12 @@ export function isOpenaiReasoningModel(model: unknown): boolean {
   return veritePy(model) && OPENAI_REASONING_RE.test(stripPy(strPy(model)));
 }
 
-/** Retire en place les champs propres à llama.cpp pour un fournisseur non llama.cpp ; `max_completion_tokens` pour les modèles de raisonnement OpenAI. */
+/** Retire en place les champs hors standard pour un fournisseur non llama.cpp (vLLM et SGLang gardent leur dialecte étendu) ; `max_completion_tokens` pour les modèles de raisonnement OpenAI. */
 export function sanitizePayload(payload: Dict, target: Pick<CibleTransport, "providerType" | "model">): Dict {
   if (isLlamaNative(target)) return payload;
-  for (const k of Object.keys(payload)) if (!OPENAI_STD_FIELDS.has(k)) Reflect.deleteProperty(payload, k);
+  const etendus = profilDuType(target.providerType).dialecte.champsEtendus;
+  for (const k of Object.keys(payload))
+    if (!OPENAI_STD_FIELDS.has(k) && !etendus.has(k)) Reflect.deleteProperty(payload, k);
   const modele = veritePy(payload["model"]) ? payload["model"] : target.model;
   if (isOpenaiReasoningModel(modele)) {
     if (Object.hasOwn(payload, "max_tokens")) {

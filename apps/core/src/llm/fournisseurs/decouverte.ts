@@ -8,6 +8,8 @@ import type { Dict } from "../../python";
 import { LlmTarget } from "../cible";
 import { getLlmClient } from "../client-http";
 import { getPy, iterExige } from "../dict-py";
+import { engineForTarget } from "../moteurs";
+import { sonderMoteur } from "../sonde-moteur";
 import { apiRoot, buildHeaders } from "./anthropic";
 import { headers as enTetesOpenai, modelsUrl } from "./openai-compat";
 
@@ -112,8 +114,11 @@ export async function fetchModels(row: Dict, options: { timeout?: number } = {})
   }
 }
 
-/** Test de connexion léger (lister les modèles) : `{ok, status, models_count, error?, hint?}`, jamais la clé. */
-export async function testConnector(row: Dict, options: { timeout?: number } = {}): Promise<Dict> {
+/** Test de connexion (lister les modèles ; `sonde` : rapport du profil hors générique) : `{ok, status, models_count, error?, hint?, sonde?}`, jamais la clé. */
+export async function testConnector(
+  row: Dict,
+  options: { timeout?: number; sonde?: boolean } = {},
+): Promise<Dict> {
   const res = await fetchModels(row, options);
   const statut = res["status"];
   const sortie: Dict = {
@@ -130,5 +135,8 @@ export async function testConnector(row: Dict, options: { timeout?: number } = {
       sortie["hint"] = "Aucune réponse : base_url injoignable depuis l'app (réseau / port).";
     else if (statut === 404) sortie["hint"] = "404 : base_url probablement faux (chemin /v1 attendu).";
   }
+  const cible = rowToTarget(row);
+  if (options.sonde && cible.wire !== "anthropic" && cible.profil.type !== "generic")
+    sortie["sonde"] = await sonderMoteur(engineForTarget(cible), { generation: true, modele: cible.model });
   return sortie;
 }

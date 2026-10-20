@@ -1,9 +1,19 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/admin/PageConnexions.vue — pages Modèles et services (inférence, RAG, vision, voix, images, MCP). -->
 <script setup lang="ts">
+import { computed } from "vue";
+
 import { domaineAdmin } from "../../features/admin/domaine";
+import { profilConsole, typeDeclare } from "../../features/admin/moteurs";
+import CapacitesMoteur from "./CapacitesMoteur.vue";
 
 const adm = domaineAdmin();
+
+// Type déclaré dans le formulaire (alias compris) et son profil : ce que la console montre et masque.
+const typeMoteur = computed(() => typeDeclare(adm.configForm?.llama?.engine));
+const profil = computed(() => profilConsole(typeMoteur.value));
+// Le rapport décrit le moteur en service : un autre type dans le formulaire attend le redémarrage.
+const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.type !== typeMoteur.value);
 </script>
 
 <template>
@@ -203,24 +213,55 @@ const adm = domaineAdmin();
               <div>
                 <label
                   class="adm-row__label"
-                  title="Hors llama.cpp, l'app parle en OpenAI standard. Pris en compte au redémarrage."
+                  title="Le type déclaré fait foi : Elpis en utilise les adresses et les capacités. Pris en compte au redémarrage."
                   for="cnx-llama-engine"
                   >Type</label
                 >
                 <span class="sr-only"
-                  >Hors llama.cpp, l'app parle en OpenAI standard. Pris en compte au redémarrage.</span
+                  >Le type déclaré fait foi : Elpis en utilise les adresses et les capacités. Pris en compte
+                  au redémarrage.</span
                 >
               </div>
-              <select
-                id="cnx-llama-engine"
-                v-model="adm.configForm.llama.engine"
-                data-field="config:llama.engine"
-                class="set-select w-full max-w-sm"
-              >
-                <option value="llamacpp">llama.cpp — optimisé (KV-cache, slots)</option>
-                <option value="vllm">vLLM — OpenAI standard</option>
-                <option value="generic">OpenAI-compatible (TGI, Ollama, LM Studio…)</option>
-              </select>
+              <div class="min-w-0 space-y-1">
+                <select
+                  id="cnx-llama-engine"
+                  v-model="adm.configForm.llama.engine"
+                  data-field="config:llama.engine"
+                  class="set-select w-full max-w-sm"
+                >
+                  <option value="llamacpp">llama.cpp — slots, chargement de modèles</option>
+                  <option value="vllm">vLLM — métriques, jetons exacts, lots continus</option>
+                  <option value="sglang">SGLang — métriques, jetons exacts, lots continus</option>
+                  <option value="generic">OpenAI-compatible (TGI, Ollama, LM Studio…)</option>
+                </select>
+                <p class="text-[11px] text-slate-500">{{ profil.resume }}</p>
+              </div>
+            </div>
+
+            <div class="adm-row adm-row--top">
+              <div>
+                <span
+                  class="adm-row__label"
+                  title="Sonde du moteur en service : adresses, version, modèle, contexte, métriques, options manquantes."
+                  >Capacités</span
+                >
+                <span class="sr-only"
+                  >Sonde du moteur en service : adresses, version, modèle, contexte, métriques, options
+                  manquantes.</span
+                >
+              </div>
+              <div class="min-w-0 space-y-1">
+                <p v-if="typeEnAttente" class="text-[11px] text-amber-700" data-type-en-attente>
+                  Le moteur en service est {{ adm.rapportMoteur?.libelle }} : le type choisi s'applique au
+                  redémarrage.
+                </p>
+                <CapacitesMoteur
+                  :rapport="adm.rapportMoteur"
+                  :en-cours="adm.rapportMoteurTest"
+                  testable
+                  @tester="adm.testerMoteurIntegre()"
+                />
+              </div>
             </div>
 
             <div class="adm-row">
@@ -296,17 +337,44 @@ const adm = domaineAdmin();
                 <div>
                   <label
                     class="adm-row__label"
-                    title="Si renseignée, remplace hôte et port."
+                    title="Base du serveur ; « /v1 » ou « /v1/chat/completions » en fin d'adresse sont acceptés. Si renseignée, remplace hôte et port."
                     for="cnx-llama-url"
-                    >URL complète</label
+                    >URL du serveur</label
                   >
-                  <span class="sr-only">Si renseignée, remplace hôte et port.</span>
+                  <span class="sr-only"
+                    >Base du serveur ; « /v1 » ou « /v1/chat/completions » en fin d'adresse sont acceptés. Si
+                    renseignée, remplace hôte et port.</span
+                  >
                 </div>
                 <input
                   id="cnx-llama-url"
                   v-model="adm.configForm.llama.url"
                   data-field="config:llama.url"
-                  placeholder="http://hote:port/v1/chat/completions"
+                  :placeholder="'http://hote:' + profil.port"
+                  class="set-input font-mono text-xs"
+                />
+              </div>
+
+              <div class="adm-row">
+                <div>
+                  <label
+                    class="adm-row__label"
+                    title="Valeur de --api-key du serveur, envoyée en Authorization: Bearer ; jamais réaffichée. Vide = aucune."
+                    for="cnx-llama-key"
+                    >Clé API</label
+                  >
+                  <span class="sr-only"
+                    >Valeur de --api-key du serveur, envoyée en Authorization: Bearer ; jamais réaffichée.
+                    Vide = aucune.</span
+                  >
+                </div>
+                <input
+                  id="cnx-llama-key"
+                  v-model="adm.configForm.llama.api_key"
+                  data-field="config:llama.api_key"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="Aucune"
                   class="set-input font-mono text-xs"
                 />
               </div>
@@ -345,7 +413,18 @@ const adm = domaineAdmin();
                 </div>
               </div>
 
-              <div v-if="(adm.configForm.llama.engine || 'llamacpp') === 'llamacpp'" class="adm-row">
+              <div v-if="!profil.file" class="adm-row" data-concurrence-moteur>
+                <div>
+                  <span
+                    class="adm-row__label"
+                    title="Le moteur regroupe lui-même les requêtes (lots continus)."
+                    >Capacité</span
+                  >
+                  <span class="sr-only">Le moteur regroupe lui-même les requêtes (lots continus).</span>
+                </div>
+                <p class="text-xs text-slate-600">{{ profil.concurrence }}</p>
+              </div>
+              <div v-if="typeMoteur === 'llamacpp'" class="adm-row">
                 <div>
                   <span
                     class="adm-row__label"
@@ -459,6 +538,13 @@ const adm = domaineAdmin();
                     }}</span
                   >
                 </p>
+
+                <CapacitesMoteur
+                  v-if="
+                    adm.admLlmForm.id && adm.engineConnector && adm.admLlmTest[adm.engineConnector.id]?.sonde
+                  "
+                  :rapport="adm.admLlmTest[adm.engineConnector.id]?.sonde ?? null"
+                />
 
                 <label v-if="!adm.admLlmForm.id" class="adm-field">
                   <span class="adm-field__label">Fournisseur</span>

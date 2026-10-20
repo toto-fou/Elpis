@@ -595,6 +595,34 @@ cmd_service() {
 # =============================================================================
 #  doctor
 # =============================================================================
+# Sonde du moteur faite par main au démarrage : lignes [moteur] de son journal depuis le dernier résumé ; main arrêté : dit, sans échec.
+sonde_du_core() {
+    local journal lignes l msg n=0
+    if systemd_active; then
+        journal="$(journalctl -u "${UNIT_PREFIX}-main" -n 5000 --no-pager -o cat 2>/dev/null)"
+    elif pid_of main >/dev/null; then
+        journal="$(tail -n 5000 "$LOG_DIR/main.log" 2>/dev/null)"
+    else
+        info "sonde du moteur par le core : main arrêté, pas de rapport (./elpis start, puis ./elpis doctor)"
+        return 0
+    fi
+    lignes="$(printf '%s\n' "$journal" | awk '
+        index($0, "[moteur] ") == 0 { next }
+        / injoignable sur |, concurrence gérée par le moteur|, file d.Elpis/ { n = 0 }
+        { b[n++] = $0 }
+        END { for (i = 0; i < n && i < 12; i++) print b[i] }')"
+    if [ -z "$lignes" ]; then
+        info "sonde du moteur par le core : aucune ligne [moteur] dans le journal de main (sonde en cours, ou ./elpis logs main)"
+        return 0
+    fi
+    while IFS= read -r l; do
+        msg="${l#*"[moteur] "}"
+        if [ "$n" -eq 0 ]; then info "sonde du moteur par le core (${l%% *}) : $msg"
+        else case "$l" in *" WARNING "*|*" ERROR "*) warn "  $msg" ;; *) info "  $msg" ;; esac; fi
+        n=$((n+1))
+    done <<< "$lignes"
+}
+
 cmd_doctor() {
     local bad=0 sortie
     charger_env
@@ -727,13 +755,21 @@ cmd_doctor() {
         fi
         check "base de données joignable" "core_cmd db info" "$db_hint"
         check_out "base vue par le core" "core_cmd migrations" "./elpis db info"
-        local llm
+        local llm moteur cle py="$PY"
+        [ -x "$py" ] || py=python3
         llm="$(core_cmd config LLAMA_URL 2>/dev/null)"
         if [ -n "$llm" ]; then
-            local base="${llm%%/v1/*}"
-            check "serveur LLM ($base)" "curl -fsS -m 5 -o /dev/null '$base/v1/models' || curl -fsS -m 5 -o /dev/null '$base/health'" "./elpis configure --llm-url …"
+            moteur="$(core_cmd config LLAMA_ENGINE 2>/dev/null)"
+            cle="$(core_cmd config LLAMA_API_KEY 2>/dev/null)"
+            # Clé passée par l'environnement : jamais sur une ligne de commande (ps), jamais affichée.
+            check_out "serveur LLM" "ELPIS_CFG_LLM_API_KEY=\"\$cle\" '$py' '$ROOT/deploy/configure.py' --check-llm --engine '${moteur:-llamacpp}' --llm-url '$llm'" \
+                "./elpis configure"
+            local conseil
+            while IFS= read -r conseil; do info "$conseil"; done \
+                < <(ELPIS_CFG_LLM_API_KEY="$cle" "$py" "$ROOT/deploy/configure.py" --conseils-moteur --engine "${moteur:-llamacpp}" 2>/dev/null)
         fi
     fi
+    sonde_du_core
     echo
     cmd_status
     [ "$bad" -eq 0 ] && ok "Aucun problème détecté." || warn "$bad point(s) à corriger."

@@ -87,6 +87,7 @@ const ALIAS_MOTEUR_LLAMA: ReadonlyMap<string, string> = new Map([
   ["llama_cpp", "llamacpp"],
   ["llama", "llamacpp"],
   ["vllm", "vllm"],
+  ["sglang", "sglang"],
   ["generic", "generic"],
   ["openai", "generic"],
   ["openai_compat", "generic"],
@@ -95,6 +96,18 @@ const ALIAS_MOTEUR_LLAMA: ReadonlyMap<string, string> = new Map([
   ["ollama", "generic"],
   ["lmstudio", "generic"],
 ]);
+
+/** Type de moteur d'un `llama.engine` (alias compris) : `llamacpp`, `vllm`, `sglang`, sinon `generic`. */
+export function typeMoteurLlama(brut: string): string {
+  return ALIAS_MOTEUR_LLAMA.get(stripPy(brut).toLowerCase()) ?? "generic";
+}
+
+/** URL `…/v1/chat/completions` d'un `llama.url` donné en base (`http://h:p`), en `…/v1` ou déjà complet ; vide si vide. */
+export function urlChatLlama(brut: string): string {
+  const u = rstripPy(stripPy(brut), "/");
+  if (!u || u.endsWith("/chat/completions")) return u;
+  return u.endsWith("/v1") ? `${u}/chat/completions` : `${u}/v1/chat/completions`;
+}
 
 const ALIAS_BASE: ReadonlyMap<string, string> = new Map([
   ["postgresql", "postgres"],
@@ -446,10 +459,11 @@ export function calculerReglages(env: Env, brut: Dict, racine: string, cheminCon
   const LLAMA_PORT = envStr("LLAMA_PORT", "llama.port", "8080");
   const urlLlamaJson = asStr(lire("llama.url", ""), "");
   const urlLlamaEnv = asStr(env["LLAMA_URL"], "");
-  const LLAMA_URL = urlLlamaEnv || urlLlamaJson || `http://${LLAMA_IP}:${LLAMA_PORT}/v1/chat/completions`;
+  const LLAMA_URL =
+    urlChatLlama(urlLlamaEnv || urlLlamaJson) || `http://${LLAMA_IP}:${LLAMA_PORT}/v1/chat/completions`;
+  const LLAMA_API_KEY = stripPy(asStr(env["LLAMA_API_KEY"], "") || asStr(lire("llama.api_key", ""), ""));
   const LLAMA_MODEL = envStr("LLAMA_MODEL", "llama.model", "local-model");
-  const moteurBrut = stripPy(envStr("LLAMA_ENGINE", "llama.engine", "llamacpp")).toLowerCase();
-  const LLAMA_PROVIDER_TYPE = ALIAS_MOTEUR_LLAMA.get(moteurBrut) ?? "generic";
+  const LLAMA_PROVIDER_TYPE = typeMoteurLlama(envStr("LLAMA_ENGINE", "llama.engine", "llamacpp"));
   const LLAMA_ENGINE = LLAMA_PROVIDER_TYPE;
   const LLAMA_TIMEOUT_SEC = envInt("LLAMA_TIMEOUT_SEC", "llama.timeout_sec", 600);
   const LLAMA_RETRIES = envInt("LLAMA_RETRIES", "llama.retries", 3);
@@ -865,6 +879,7 @@ export function calculerReglages(env: Env, brut: Dict, racine: string, cheminCon
     LLAMA_IP,
     LLAMA_PORT,
     LLAMA_URL,
+    LLAMA_API_KEY,
     LLAMA_MODEL,
     LLAMA_PROVIDER_TYPE,
     LLAMA_ENGINE,

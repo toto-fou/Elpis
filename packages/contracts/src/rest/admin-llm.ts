@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { dictionnaire, entier, horodatage } from "./commun";
-import { schemaConnecteurLlm, schemaPresetFournisseur } from "./llm";
+import { schemaConnecteurLlm, schemaPresetFournisseur, schemaRapportMoteur } from "./llm";
 
 export const schemaReponseConnecteursPartages = z.object({
   connectors: z.array(schemaConnecteurLlm),
@@ -38,6 +38,9 @@ export const schemaReponseFournisseursEcrits = z.object({
   ok: z.literal(true),
   allowed: z.array(z.string()),
 });
+
+/** Moteur intégré : dernier rapport de sonde (démarrage ou « Tester »), `null` avant la première. */
+export const schemaReponseRapportMoteur = z.object({ rapport: schemaRapportMoteur.nullable() });
 
 const schemaModeOrdonnancement = z.enum(["auto", "classic", "optimized"]);
 export const schemaReponseCapacitesLlm = z.object({

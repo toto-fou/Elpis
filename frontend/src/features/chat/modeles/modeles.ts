@@ -20,6 +20,29 @@ export interface ConnecteurModele {
   [cle: string]: unknown;
 }
 
+/** Profil du moteur déclaré, tel que le serveur le décrit (`llama.engine` ou type du connecteur). */
+export interface MoteurDeclare {
+  type: string;
+  libelle: string;
+  chargement: boolean;
+  file: boolean;
+  contexte: boolean;
+}
+
+/** Charge lue sur les métriques du moteur ; `null` = non exposée. */
+export interface ChargeMoteur {
+  en_cours: number | null;
+  en_attente: number | null;
+  debit_tps: number | null;
+  cache_prefixe_pct: number | null;
+}
+
+export interface JaugeKv {
+  used: number;
+  total: number;
+  pct: number;
+}
+
 export interface EtatConnecteurModele {
   ok: boolean;
   at: number;
@@ -28,18 +51,27 @@ export interface EtatConnecteurModele {
   statuses: Record<string, string>;
   canManage: boolean;
   providerType?: string;
+  moteur?: MoteurDeclare | null;
+  kv?: JaugeKv | null;
+  nCtx?: number;
+  charge?: ChargeMoteur | null;
 }
 
 export interface SanteLlm {
   server_reachable?: unknown;
   status?: unknown;
-  kv_cache: { used: number; total: number; pct: number };
+  kv_cache: JaugeKv;
   props: { n_ctx?: number; [cle: string]: unknown };
+  charge?: ChargeMoteur | null;
 }
 
 export interface MetaMoteur {
   key: string;
   llamacpp: boolean;
+  /** Type déclaré du connecteur (`vllm`, `sglang`…) ; vide pour le serveur intégré. */
+  providerType?: string;
+  /** Le moteur annonce sa fenêtre (`/props` de llama.cpp, `max_model_len` de vLLM et SGLang). */
+  contexte?: boolean;
   label: string;
   loaded: string[];
   n_ctx: number;
@@ -68,6 +100,35 @@ export interface CtxModeles {
 
 type Objet = Record<string, unknown>;
 const estObjet = (v: unknown): v is Objet => !!v && typeof v === "object" && !Array.isArray(v);
+
+function lireMoteur(v: unknown): MoteurDeclare | null {
+  if (!estObjet(v) || typeof v["type"] !== "string") return null;
+  return {
+    type: v["type"],
+    libelle: typeof v["libelle"] === "string" ? v["libelle"] : v["type"],
+    chargement: v["chargement"] === true,
+    file: v["file"] === true,
+    contexte: v["contexte"] === true,
+  };
+}
+
+function lireKv(v: unknown): JaugeKv | null {
+  if (!estObjet(v)) return null;
+  const used = Number(v["used"]) || 0;
+  const total = Number(v["total"]) || 0;
+  return total > 0 ? { used, total, pct: Number(v["pct"]) || Math.round((used / total) * 100) } : null;
+}
+
+function lireCharge(v: unknown): ChargeMoteur | null {
+  if (!estObjet(v)) return null;
+  const n = (x: unknown): number | null => (typeof x === "number" && Number.isFinite(x) ? x : null);
+  return {
+    en_cours: n(v["en_cours"]),
+    en_attente: n(v["en_attente"]),
+    debit_tps: n(v["debit_tps"]),
+    cache_prefixe_pct: n(v["cache_prefixe_pct"]),
+  };
+}
 const chaines = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 
@@ -175,6 +236,11 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
   const pickerConnState = ref<Record<string, EtatConnecteurModele>>({});
   const builtinAllowed = ref(true);
   const canManageModels = ref(true);
+  // Profil du moteur intégré lu sur le catalogue ; inconnu tant que le serveur ne l'a pas dit.
+  const moteurIntegre = ref<MoteurDeclare | null>(null);
+  const chargementIntegre = computed(
+    () => canManageModels.value && moteurIntegre.value?.chargement !== false,
+  );
   const connectorsLoaded = ref(false);
   const modelsLoading = ref(false);
   const modelsError = ref("");
@@ -284,6 +350,10 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
           statuses: estObjet(statuts) ? (statuts as Record<string, string>) : {},
           canManage: !!d["can_manage"],
           providerType: typeof d["provider_type"] === "string" ? d["provider_type"] : "",
+          moteur: lireMoteur(d["moteur"]),
+          kv: lireKv(d["kv_cache"]),
+          nCtx: Number(d["n_ctx"]) || 0,
+          charge: lireCharge(d["charge"]),
         };
         // Un échec n'efface pas une liste déjà connue (coupure brève) ; une réussite la remplace.
         const avant = pickerConnModels.value[cle];
@@ -352,8 +422,7 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
   const selectedModelLabel = computed(() => {
     const m = selectedModel.value;
     if (!m) return noEngineAllowed.value ? "Aucun serveur" : "Aucun modèle";
-    const c = selectedConnectorObj.value;
-    return c ? m + " · " + (c.label || c.provider_type || "") : m;
+    return m;
   });
 
   // Métadonnées du serveur choisi, lues par le panneau de sampling et la jauge de contexte.
@@ -361,9 +430,11 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
     if (!selectedEngineMeta) return;
     const c = selectedConnectorObj.value;
     if (!c) {
+      const m = moteurIntegre.value;
       selectedEngineMeta.value = {
         key: "builtin",
-        llamacpp: true,
+        llamacpp: !m || m.type === "llamacpp",
+        contexte: !m || m.contexte,
         label: "",
         loaded: (activeModelIds.value || []).slice(),
         n_ctx: 0,
@@ -371,21 +442,31 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
       return;
     }
     const st = pickerConnState.value[String(c.id)];
-    const llama = (st?.providerType || c.provider_type) === "llamacpp";
+    const type = st?.providerType || c.provider_type || "";
+    const llama = type === "llamacpp";
     const statuts = st?.statuses || {};
     const charges = Object.keys(statuts).filter((k) => statuts[k] === "loaded");
     if (llama && st?.ok && !st.router)
       for (const m of pickerConnModels.value[String(c.id)] || []) charges.push(m);
     const key = "conn:" + c.id;
     const ck = key + "|" + selectedModel.value;
+    const contexte = llama || !!st?.moteur?.contexte;
     selectedEngineMeta.value = {
       key,
       llamacpp: llama,
+      providerType: type,
+      contexte,
       label: c.label || c.provider_type || "",
       loaded: charges,
-      n_ctx: ctxModeles[ck] || 0,
+      n_ctx: ctxModeles[ck] || st?.nCtx || 0,
     };
-    if (llama && selectedModel.value && charges.includes(selectedModel.value) && !ctxModeles[ck])
+    if (
+      contexte &&
+      selectedModel.value &&
+      charges.includes(selectedModel.value) &&
+      !ctxModeles[ck] &&
+      !st?.nCtx
+    )
       void lireCtxConnecteur(key, selectedModel.value);
   }
 
@@ -421,14 +502,17 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
       pickerConnState,
       pickerConnModels,
       activeModelIds,
+      moteurIntegre,
     ],
     rafraichirMetaMoteur,
     { immediate: true },
   );
 
+  // `/props` de llama.cpp (par slot), ou fenêtre annoncée par vLLM et SGLang (`n_ctx`, `max_model_len`).
   function nCtxDe(d: unknown): number {
-    const g = estObjet(d) ? d["default_generation_settings"] : null;
-    return (estObjet(g) && Number(g["n_ctx"])) || 0;
+    if (!estObjet(d)) return 0;
+    const g = d["default_generation_settings"];
+    return (estObjet(g) && Number(g["n_ctx"])) || Number(d["n_ctx"]) || Number(d["max_model_len"]) || 0;
   }
 
   // Fenêtre du modèle lue une fois par chargement, pas à chaque sondage.
@@ -463,6 +547,8 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
       if (!connecteurChoisi()) premierConnecteurAutorise();
       return;
     }
+    const moteur = lireMoteur(json["moteur"]);
+    if (moteur) moteurIntegre.value = moteur;
     const entrants = chaines(json["models"]);
     if (entrants.length === 0 && Array.isArray(availableModels.value) && availableModels.value.length > 0)
       return;
@@ -485,14 +571,13 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
       }
     }
     activeModelIds.value = [...new Set(charges)];
-    const kv = estObjet(json["kv_cache"])
-      ? (json["kv_cache"] as SanteLlm["kv_cache"])
-      : { used: 0, total: 0, pct: 0 };
+    const kv = lireKv(json["kv_cache"]) ?? { used: 0, total: 0, pct: 0 };
     const sante: SanteLlm = {
       server_reachable: json["server_reachable"],
       status: json["status"],
       kv_cache: kv,
       props: estObjet(json["props"]) ? (json["props"] as SanteLlm["props"]) : {},
+      charge: lireCharge(json["charge"]),
     };
     if (sante.kv_cache.total > 0)
       sante.kv_cache.pct = Math.round((sante.kv_cache.used / sante.kv_cache.total) * 100) || 0;
@@ -601,7 +686,7 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
   }
 
   async function toggleLlmModel(modelId: string): Promise<void> {
-    if (!modelId || isLoadingModel.value) return;
+    if (!modelId || isLoadingModel.value || !chargementIntegre.value) return;
     if (isModelLoaded(modelId)) await unloadLlmModel(modelId);
     else await loadLlmModel(modelId);
   }
@@ -910,5 +995,7 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
     builtinAllowed,
     canManageModels,
     noEngineAllowed,
+    moteurIntegre,
+    chargementIntegre,
   };
 }

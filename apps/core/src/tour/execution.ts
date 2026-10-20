@@ -107,10 +107,10 @@ function dormirReel(s: number, signal?: AbortSignal): Promise<void> {
   return dormirMs(s * 1000, signal).catch(() => undefined);
 }
 
-/** `llm_scheduling_guard` du tour : attente rapportée (3 s puis toutes les 10 s), le corps n'entre qu'après le rapport en cours ; abandon sur le drapeau d'annulation ; hors llama.cpp, sans file. */
+/** `llm_scheduling_guard` du tour : attente rapportée (3 s puis toutes les 10 s), le corps n'entre qu'après le rapport en cours ; abandon sur le drapeau d'annulation ; moteur hors file, sans attente. */
 async function admissionRapportee<T>(o: OptionsAdmission, fn: (slot: Slot | null) => Promise<T>): Promise<T> {
   const engine = engineForTarget(o.target);
-  if (!engine.isLlamacpp) return fn(null);
+  if (!engine.profil.capacites.file) return fn(null);
   const admission = new AbortController();
   const relais = (): void => admission.abort(o.signal.reason);
   if (o.signal.aborted) relais();
@@ -200,13 +200,14 @@ export function kvGaugeUsedTokens(metrics: unknown): number {
   }
 }
 
-/** Occupation RÉELLE du contexte en fin de tour (`{used, total, pct, model, ts}`), sur un serveur llama.cpp seulement. */
+/** Occupation RÉELLE du contexte en fin de tour (`{used, total, pct, model, ts}`), sur un moteur qui annonce sa fenêtre. */
 export async function ctxUsageSnapshot(
   metrics: unknown,
   model: string | null,
   target: LlmTarget,
 ): Promise<Dict | null> {
-  if (!estDict(metrics) || !Object.keys(metrics).length || !target.isLlamacpp) return null;
+  if (!estDict(metrics) || !Object.keys(metrics).length || target.profil.capacites.contexte === "aucune")
+    return null;
   let used = kvGaugeUsedTokens(metrics);
   if (used <= 0) return null;
   let total: number;
@@ -546,7 +547,7 @@ export async function* runTurn(
         fileAnnoncee.v = true;
       }
       if (qstatus["kind"] === "loading") startLoadWatch(selectedModel ?? "", onEvent, uid, chatId, qstatus);
-      if (target.isLlamacpp) {
+      if (target.profil.capacites.file) {
         const effectif = ordonnanceur().modeleEffectif(engine.key, selectedModel);
         const pools = (ordonnanceur().stats(engine.key) as Dict)["active_models"];
         if (
@@ -666,7 +667,7 @@ export async function* runTurn(
           },
         ),
       );
-      if (target.isLlamacpp) {
+      if (target.profil.capacites.file) {
         try {
           ordonnanceur().recordLlmDuration(engine.key, selectedModel, Date.now() - debutLlm);
         } catch (e) {

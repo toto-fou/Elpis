@@ -8,6 +8,8 @@ import { config } from "@elpis/config";
 import { entierPy, estChiffresPy } from "../python";
 import { connecteurs } from "./ports";
 import type { ConnecteurSecret, PortConnecteurs } from "./ports";
+import { profilDuType } from "./profils";
+import type { ProfilMoteur } from "./profils";
 
 export interface ChampsCible {
   wire?: string;
@@ -39,13 +41,17 @@ export class LlmTarget {
     this.isDefault = champs.isDefault ?? true;
   }
 
-  /** Intégré local ET dialecte llama.cpp : seul cas où `/props`, `/slots`, `/tokenize` de `LLAMA_URL` existent. */
+  /** Profil du type déclaré (moteur intégré : `llama.engine` ; connecteur : son `provider_type`). */
+  get profil(): ProfilMoteur {
+    return profilDuType(this.providerType);
+  }
+
   get isLocalLlamacpp(): boolean {
-    return this.isDefault && this.providerType === "llamacpp";
+    return this.isDefault && this.isLlamacpp;
   }
 
   get isLlamacpp(): boolean {
-    return this.providerType === "llamacpp";
+    return this.profil.type === "llamacpp";
   }
 }
 

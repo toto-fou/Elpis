@@ -20,6 +20,8 @@ export {
   parseClientTokens,
   propagerEnv,
   retiredBackendMessage,
+  typeMoteurLlama,
+  urlChatLlama,
   WEAK_SESSION_SECRETS,
 } from "./reglages";
 export type { CibleDesktop, Reglages } from "./reglages";

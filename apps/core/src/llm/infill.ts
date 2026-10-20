@@ -38,6 +38,14 @@ export async function llmInfill(
   inputSuffix: string,
   model: string | null = null,
 ): Promise<Dict> {
+  const profil = currentEngine().profil;
+  const chemin = profil.chemins.infill;
+  if (chemin === null)
+    return {
+      ok: false,
+      error: `Complétion de code (FIM) indisponible sur ${profil.libelle}.`,
+      hint: "Elle demande un serveur llama.cpp (route /infill).",
+    };
   const sampling = await resolveSampling(model, "infill");
   const corps: Dict = {
     input_prefix: inputPrefix,
@@ -46,7 +54,7 @@ export async function llmInfill(
     stop: [...FIM_STOP],
   };
   if (model) corps["model"] = model;
-  const r = await llamaPost("/infill", corps, 60.0);
+  const r = await llamaPost(chemin, corps, 60.0);
   if (r["_status"] === 0) signalerServeurMuet(r, model);
   if (r["_status"] === 200) {
     let contenu = getPy(r, "content", "");

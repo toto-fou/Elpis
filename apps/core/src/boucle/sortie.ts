@@ -6,7 +6,9 @@ import { estErreurAnnulation, intPy, longueurPy, splitPy, strPy, stripPy } from 
 import { indexPrunedToolOutputs } from "../contexte/compresseur";
 import { fitContext, selectPruneKeys } from "../contexte/elagage";
 import { measureThinkingTokens, nativeReasoningTokens } from "../llm/jetons-raisonnement";
+import { currentEngine } from "../llm/moteurs";
 import { llmErrorUserMessage, LLMFailure } from "../llm/reprises";
+import { noterObservation } from "../llm/sonde-moteur";
 import { journal } from "../journal";
 import type { Dict } from "../python";
 import { stripToolCallMarkup } from "./analyse-appels";
@@ -159,6 +161,7 @@ export async function finishOk(
   }
   if (streame) {
     const [stThink, stClean] = extractThinking(streame, { truncated: coupe });
+    if (stThink) noterObservation(currentEngine(), "reflexion_en_ligne");
     if (stThink && !new Set(rec.allThinking.map(normThinking)).has(normThinking(stThink))) {
       rec.allThinking.push(stThink);
       clipThinkingHistory(rec.allThinking);
@@ -167,6 +170,7 @@ export async function finishOk(
   } else finalClean = finalClean || o.rawText || "";
   const avantNettoyage = finalClean;
   finalClean = stripToolCallMarkup(finalClean);
+  if (finalClean !== avantNettoyage) noterObservation(currentEngine(), "outils_en_texte");
   if (finalClean !== avantNettoyage)
     log.warn(
       `[run_chat_multi_mcp] markup d'appel d'outil nettoyé du flux final (iter ${o.iteration}, model=${modeleDe(ctx)}) — le modèle a émis un tool call en TEXTE non capté par le canal natif. Vérifier que llama-server tourne avec --jinja + un chat template tool-aware.`,

@@ -7,12 +7,14 @@ import {
   schemaReponseFournisseursAutorises,
   schemaReponseFournisseursEcrits,
   schemaReponseModeOrdonnancement,
+  schemaReponseRapportMoteur,
   schemaReponseSondeCapacites,
+  schemaReponseTestConnecteurLlm,
 } from "@elpis/contracts";
-import type { ConnecteurLlm, ReponseConnecteursPartages } from "@elpis/contracts";
+import type { ConnecteurLlm, RapportMoteur, ReponseConnecteursPartages } from "@elpis/contracts";
 import type { Ref } from "vue";
 
-import { corpsJson, detailErreur, lireSchema, objet } from "../../utils/lecture-json";
+import { corpsJson, detailErreur, lireSchema } from "../../utils/lecture-json";
 import type { BaseAdmin } from "./etat";
 import { journal } from "../../platform/journal";
 import { gardeFocus as creerGardeFocus, piegerTab } from "../../utils/focus";
@@ -32,7 +34,13 @@ export interface FormulaireConnecteurPartage {
   max_concurrency: number | null;
 }
 
-type ResultatTest = { testing?: boolean; ok?: boolean; error?: string; [cle: string]: unknown };
+type ResultatTest = {
+  testing?: boolean;
+  ok?: boolean;
+  error?: string;
+  sonde?: RapportMoteur;
+  [cle: string]: unknown;
+};
 
 export function creerInference(b: BaseAdmin) {
   const { vue, ctx, e, lien } = b;
@@ -96,6 +104,38 @@ export function creerInference(b: BaseAdmin) {
       return false;
     } finally {
       llmSchedulingSaving.value = false;
+    }
+  }
+
+  // ── Moteur intégré : sonde du profil déclaré ─────────────────────────────
+  const rapportMoteur: Ref<RapportMoteur | null> = ref(null);
+  const rapportMoteurTest = ref(false);
+  async function loadRapportMoteur(): Promise<void> {
+    try {
+      const d = await lireSchema(
+        await fetchAuth("/api/admin/llm/engine", {}, true),
+        schemaReponseRapportMoteur,
+      );
+      if (d) rapportMoteur.value = d.rapport;
+    } catch (err) {
+      journal.avertir("[admin] loadRapportMoteur failed", err);
+    }
+  }
+  /** « Tester » : sonde complète (adresses, version, modèle, contexte, métriques, options manquantes). */
+  async function testerMoteurIntegre(): Promise<void> {
+    if (rapportMoteurTest.value) return;
+    rapportMoteurTest.value = true;
+    try {
+      const d = await lireSchema(
+        await fetchAuth("/api/admin/llm/engine/test", { method: "POST" }),
+        schemaReponseRapportMoteur,
+      );
+      if (d) rapportMoteur.value = d.rapport;
+      else showToast("Sonde du moteur impossible", "error");
+    } catch (err) {
+      showToast("Erreur: " + (err instanceof Error ? err.message : String(err)), "error");
+    } finally {
+      rapportMoteurTest.value = false;
     }
   }
 
@@ -291,8 +331,12 @@ export function creerInference(b: BaseAdmin) {
   async function testAdmLlmConnector(c: ConnecteurLlm): Promise<void> {
     admLlmTest.value = { ...admLlmTest.value, [c.id]: { testing: true } };
     try {
-      const r = await fetchAuth("/api/admin/llm/connectors/" + c.id + "/test", { method: "POST" });
-      const d = r ? objet(await r.json().catch(() => ({ ok: false }))) : { ok: false };
+      const r = await fetchAuth("/api/admin/llm/connectors/" + c.id + "/test?sonde=1", { method: "POST" });
+      const brut: unknown = r ? await r.json().catch(() => ({ ok: false })) : { ok: false };
+      const lu = schemaReponseTestConnecteurLlm.safeParse(brut);
+      const d: ResultatTest = lu.success
+        ? { ...lu.data }
+        : { ok: false, error: detailErreur(brut) || "Réponse illisible" };
       admLlmTest.value = { ...admLlmTest.value, [c.id]: d };
     } catch (err) {
       admLlmTest.value = { ...admLlmTest.value, [c.id]: { ok: false, error: String(err) } };
@@ -324,6 +368,10 @@ export function creerInference(b: BaseAdmin) {
   }
 
   return {
+    rapportMoteur,
+    rapportMoteurTest,
+    loadRapportMoteur,
+    testerMoteurIntegre,
     llmScheduling,
     llmSchedulingProbing,
     llmSchedulingSaving,

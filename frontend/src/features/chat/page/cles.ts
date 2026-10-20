@@ -214,6 +214,8 @@ const MODELES: Cles<DomaineModeles> = {
   builtinAllowed: true,
   noEngineAllowed: true,
   canManageModels: true,
+  moteurIntegre: true,
+  chargementIntegre: true,
   llmHealth: true,
   availableModels: true,
   modelsLoading: true,

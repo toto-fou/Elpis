@@ -69,14 +69,14 @@ export function installerOrdonnanceur(q: LLMQueue | null): void {
   inventaires.clear();
 }
 
-/** Seuls les serveurs llama.cpp passent par la file (cloud, vLLM, générique : hors file). */
+/** Seuls les moteurs dont le profil le demande passent par la file (llama.cpp) ; vLLM et SGLang regroupent eux-mêmes les requêtes. */
 export function moteurDeFile(engine: EngineRef): Moteur {
-  return { id: engine.key, enFile: engine.isLlamacpp };
+  return { id: engine.key, enFile: engine.profil.capacites.file };
 }
 
 /** `scheduling_for` + `_resolve_effective_max_convs` : politique du connecteur (5 s) et créneaux de `/props`, relus avant d'entrer en file ; jamais d'erreur. */
 export async function preparerServeur(engine: EngineRef): Promise<void> {
-  if (!engine.isLlamacpp) return;
+  if (!engine.profil.capacites.file) return;
   try {
     if (!engine.isBuiltin) {
       const t = performance.now() / 1000;
@@ -108,7 +108,7 @@ export async function avecLLM<T>(
   fn: (slot: Slot) => Promise<T>,
   options: { outils?: boolean } = {},
 ): Promise<T> {
-  if (engine.isLlamacpp) {
+  if (engine.profil.capacites.file) {
     const q = ordonnanceur();
     q.disjoncteur(engine.key).allow(q.modeleEffectif(engine.key, model));
   }
@@ -135,7 +135,7 @@ export async function etatFile(
   model: string | null | undefined,
   engine: EngineRef = currentEngine(),
 ): Promise<Dict> {
-  if (!engine.isLlamacpp) return { kind: "ready", model: model || "" };
+  if (!engine.profil.capacites.file) return { kind: "ready", model: model || "" };
   inventaires.set(
     engine.key,
     await useEngine(engine, () => modelStatuses()).catch(() => new Map<string, string>()),

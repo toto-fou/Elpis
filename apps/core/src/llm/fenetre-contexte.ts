@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/llm/fenetre-contexte.ts — fenêtre de contexte de la cible courante : `/props` en local, sinon déclarée, famille connue, défaut du fournisseur ou `LLM_REMOTE_N_CTX`. */
+/** apps/core/src/llm/fenetre-contexte.ts — fenêtre de contexte de la cible courante : lue sur le moteur selon son profil (`/props`, `max_model_len`), sinon déclarée, famille connue, défaut du fournisseur ou `LLM_REMOTE_N_CTX`. */
 import { ErreurPython, intPy, stripPy, veritePy } from "@elpis/commun";
 
 import { journal } from "../journal";
@@ -11,6 +11,8 @@ import { getModelContextSize } from "./modeles";
 import { engineForTarget, useEngine } from "./moteurs";
 import type { CibleMoteur } from "./moteurs";
 import { connecteurs } from "./ports";
+import { profilDe } from "./profils";
+import type { SourceContexte } from "./profils";
 import { surInvalidationGlobale } from "./registre-caches";
 
 const log = journal("ctx_window");
@@ -158,6 +160,12 @@ export interface CibleFenetre extends CibleMoteur {
   model?: string | null;
 }
 
+/** Source de la fenêtre d'après le type déclaré de la cible (`/props`, `/v1/models` ou aucune). */
+function sourceContexte(c: CibleFenetre): SourceContexte {
+  if (c.isLlamacpp ?? false) return "props";
+  return profilDe(c.providerType || "generic").capacites.contexte;
+}
+
 /** Fenêtre utilisable pour la cible, en tokens ; 0 = inconnue. Ne lève jamais. */
 export async function resolveContextWindow(
   modelId: string | null = null,
@@ -178,14 +186,14 @@ export async function resolveContextWindow(
   }
   const modele = stripPy(modelId || cible.model || "");
   const cid = cible.connectorId ?? null;
-  if (cible.isLlamacpp ?? false) {
+  if (sourceContexte(cible) !== "aucune") {
     const declaree = await declaredWindow(cid);
     if (declaree > 0) return declaree;
     try {
       const vivante = await useEngine(engineForTarget(cible), () => getModelContextSize(modele));
       if (vivante > 0) return vivante;
     } catch (e) {
-      log.debug(`/props du connecteur muet (${String(e)}) — la suite décide`);
+      log.debug(`fenêtre du moteur muette (${String(e)}) — la suite décide`);
     }
   }
   const cle = JSON.stringify([cid, modele]);

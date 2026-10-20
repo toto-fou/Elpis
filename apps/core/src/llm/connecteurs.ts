@@ -23,6 +23,7 @@ import type { ConnecteurPublic, ConnecteurSecret, PortConnecteurs } from "./port
 export const PROVIDER_TYPES = [
   "llamacpp",
   "vllm",
+  "sglang",
   "openai",
   "anthropic",
   "mistral",
@@ -69,6 +70,7 @@ export const PROVIDER_PRESETS: Readonly<Record<string, Preset>> = Object.freeze(
   opencode: nuage("openai", "https://opencode.ai/zen/v1", "OpenCode Zen"),
   llamacpp: local("llama.cpp (local)"),
   vllm: local("vLLM (local)"),
+  sglang: local("SGLang (local)"),
   generic: local("OpenAI-compatible (custom)"),
 });
 

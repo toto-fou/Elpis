@@ -185,11 +185,28 @@ export interface DomaineComposeur {
   sendMessage(): unknown;
 }
 
+export interface ChargeVisible {
+  en_cours: number | null;
+  en_attente: number | null;
+  debit_tps: number | null;
+  cache_prefixe_pct: number | null;
+}
+
 export interface SanteMoteur {
   status?: string;
   server_reachable?: boolean;
   kv_cache?: { used: number; total: number; pct: number } | null;
   props?: { n_ctx?: number } | null;
+  charge?: ChargeVisible | null;
+}
+
+/** Profil du moteur déclaré, décrit par le serveur. */
+export interface MoteurVisible {
+  type: string;
+  libelle: string;
+  chargement: boolean;
+  file: boolean;
+  contexte: boolean;
 }
 
 export interface ConnecteurLlm {
@@ -205,6 +222,10 @@ export interface EtatConnecteur {
   error?: string;
   router?: boolean;
   canManage?: boolean;
+  moteur?: MoteurVisible | null;
+  kv?: { used: number; total: number; pct: number } | null;
+  nCtx?: number;
+  charge?: ChargeVisible | null;
 }
 
 export interface StatsDirect {
@@ -232,6 +253,9 @@ export interface DomaineModeles {
   readonly builtinAllowed: boolean;
   readonly noEngineAllowed: boolean;
   readonly canManageModels: boolean;
+  readonly moteurIntegre: MoteurVisible | null;
+  /** Boutons charger et décharger du moteur intégré : droit de gérer ET moteur qui charge à la demande. */
+  readonly chargementIntegre: boolean;
   readonly llmHealth: SanteMoteur | null;
   readonly availableModels: readonly string[];
   readonly modelsLoading: boolean;

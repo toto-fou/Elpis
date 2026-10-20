@@ -9,6 +9,8 @@ import pluginVue from "eslint-plugin-vue";
 
 /** Invariant 3 : seul apps/core/src/contexte/tokens.ts compte les tokens (requêtes /tokenize, /apply-template) ; le ratio chars/token n'est défini que dans @elpis/config. */
 const COMPTEUR = "apps/core/src/contexte/tokens.ts";
+/** La table des profils de moteur déclare les adresses de tokenisation ; seul COMPTEUR les appelle (sonde comprise). */
+const PROFILS = "apps/core/src/llm/profils.ts";
 const RATIO = "packages/config/src/contexte.ts";
 const MOTIF_REQUETE = "/^[^\\s]*\\/((de)?tokenize|apply-template)\\/?([?#].*)?$/";
 const MOTIF_NU = "/^((de)?tokenize|apply-template)\\/?([?#].*)?$/";
@@ -200,10 +202,10 @@ export default defineConfig(
   },
   {
     files: ["apps/**/*.ts", "packages/**/*.ts"],
-    ignores: [COMPTEUR, RATIO, ...TESTS],
+    ignores: [COMPTEUR, PROFILS, RATIO, ...TESTS],
     rules: { "no-restricted-syntax": ["error", ...requeteJetons, ...ratioJetons] },
   },
-  { files: [COMPTEUR], rules: { "no-restricted-syntax": ["error", ...ratioJetons] } },
+  { files: [COMPTEUR, PROFILS], rules: { "no-restricted-syntax": ["error", ...ratioJetons] } },
   {
     files: ["apps/*/src/**/*.ts", "packages/*/src/**/*.ts"],
     plugins: { elpis: { rules: { "reglages-vifs": regleReglagesVifs } } },

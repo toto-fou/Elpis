@@ -326,7 +326,12 @@ export async function prepareTurn(
     ? async () => null
     : (u, c, titre, messages, ts, attendu) => upsertChat(base, u, c, titre, messages, ts, attendu);
   const samplingOverride = estDict(data["sampling_override"]) ? data["sampling_override"] : null;
-  if (target.isLocalLlamacpp && selectedModel && !CURRENT_LOADED_MODELS.has(selectedModel)) {
+  if (
+    target.isDefault &&
+    target.profil.capacites.chargement &&
+    selectedModel &&
+    !CURRENT_LOADED_MODELS.has(selectedModel)
+  ) {
     CURRENT_LOADED_MODELS.add(selectedModel);
     void refreshModelCache().catch(() => undefined);
     diffuserLog(`[LLM] Modèle auto-chargé par requête chat: ${selectedModel}`, "INFO");
@@ -462,7 +467,7 @@ export async function prepareTurn(
     ? ((existingChat ?? {})["ctx_pruned_keys"] as unknown[])
     : [];
   let resumeNative = false;
-  if (isContinue && target.isLlamacpp) {
+  if (isContinue && target.profil.capacites.props) {
     try {
       resumeNative = continueFinalSupport(selectedModel || target.model) === true;
     } catch (e) {

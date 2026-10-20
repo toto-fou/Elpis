@@ -12,7 +12,7 @@ import { llamaGet, llamaGetText, monotonic } from "./llama-http";
 import { currentEngine, engineLimits } from "./moteurs";
 import type { EngineRef } from "./moteurs";
 import { viderAuChangement, viderInscrit } from "./registre-caches";
-import { parsePrometheusMetrics } from "./sante";
+import { contexteAnnonce, parsePrometheusMetrics } from "./sante";
 
 const log = journal("model_info");
 
@@ -58,10 +58,12 @@ function cheminProps(modelId: string, suffixe: string): string {
   return `/props?model=${quotePy(modelId, "")}${suffixe}`;
 }
 
-/** Fenêtre PAR SLOT (tokens d'une requête) : surcharge `LLAMA_N_CTX_PER_SLOT`, `/props`, puis `/metrics` ÷ slots ; 0 = inconnue. */
+/** Fenêtre d'une requête d'après le profil : `/props` de llama.cpp (par slot), `max_model_len` de vLLM et SGLang ; 0 = inconnue. */
 export async function getModelContextSize(modelId?: string | null): Promise<number> {
   const eng = currentEngine();
-  if (!eng.isLlamacpp) return 0;
+  const source = eng.profil.capacites.contexte;
+  if (source === "aucune") return 0;
+  if (source === "modeles") return contexteAnnonceDuMoteur(eng, modelId);
   const cle = eng.cacheKey(modelId);
   const hit = cachedContextSize.get(cle) ?? 0;
   if (hit > 0) {
@@ -135,6 +137,19 @@ export async function getModelContextSize(modelId?: string | null): Promise<numb
   return 0;
 }
 
+/** `max_model_len` de `/v1/models` (vLLM, SGLang) pour ce modèle, sinon le premier annoncé ; mémorisé comme `/props`. */
+async function contexteAnnonceDuMoteur(eng: EngineRef, modelId?: string | null): Promise<number> {
+  const cle = eng.cacheKey(modelId);
+  const hit = cachedContextSize.get(cle) ?? 0;
+  if (hit > 0 && monotonic() - (cachedContextSizeTs.get(cle) ?? 0.0) < CTX_CACHE_TTL_S) return hit;
+  const n = contexteAnnonce(await llamaGet(eng.profil.chemins.modeles, 3.0, { engine: eng }), modelId || "");
+  if (n > 0) {
+    setCtxCache(cle, n);
+    log.info(`[context_size] n_ctx=${n} (max_model_len de ${eng.profil.libelle}, ${modelId || "défaut"})`);
+  }
+  return n;
+}
+
 /** Sans argument : tout le cache ; avec `modelId` : cette clé brute seulement (`""` = défaut). */
 export function invalidateContextSizeCache(modelId?: string | null): void {
   if (modelId === undefined || modelId === null) {
@@ -174,10 +189,10 @@ export function extractSlots(props: unknown): number {
   return 0;
 }
 
-/** Slots parallèles (`-np`) du serveur de la cible, cache par modèle à TTL ; 0 si injoignable. */
+/** Slots parallèles (`-np`) du serveur de la cible, cache par modèle à TTL ; 0 si injoignable ou sans slots. */
 export async function getModelTotalSlots(modelId?: string | null): Promise<number> {
   const eng = currentEngine();
-  if (!eng.isLlamacpp) return 0;
+  if (!eng.profil.capacites.slots) return 0;
   const cle = eng.cacheKey(modelId);
   const hit = totalSlotsCache.get(cle);
   if (hit && monotonic() - hit[1] < CTX_CACHE_TTL_S && hit[0] > 0) {
@@ -265,11 +280,11 @@ export function parseBusy(slots: readonly unknown[]): ReadonlySet<number> {
   return occupes;
 }
 
-/** Slots occupés du serveur de la cible (TTL 2 s, échec mémorisé 30 s) ; `null` hors llama.cpp. */
+/** Slots occupés du serveur de la cible (TTL 2 s, échec mémorisé 30 s) ; `null` pour un moteur sans slots. */
 export async function getBusySlotsSnapshot(): Promise<ReadonlySet<number> | null> {
   const maintenant = monotonic();
   const eng = currentEngine();
-  if (!eng.isLlamacpp) return null;
+  if (!eng.profil.capacites.slots) return null;
   if (!eng.isBuiltin) return busySlotsOther(eng, maintenant);
   if (slotsBusyCache !== null && maintenant - slotsBusyTs < SLOTS_SNAPSHOT_TTL) return slotsBusyCache;
   const slots = await llamaGet("/slots", 2.0);

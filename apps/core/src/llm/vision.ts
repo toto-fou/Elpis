@@ -3,12 +3,11 @@
 import { readFile } from "node:fs/promises";
 
 import { strPy } from "@elpis/commun";
-import { config } from "@elpis/config";
 
 import { journal } from "../journal";
 import { estDict } from "../python";
 import type { Dict } from "../python";
-import { ClientHttp, delais, sansBarresFinales } from "./client-http";
+import { ClientHttp, delais } from "./client-http";
 import {
   LAST_SCREENSHOT,
   VISION_CAPABILITY_CACHE,
@@ -17,7 +16,7 @@ import {
   VISION_MODEL_PATTERNS,
 } from "./constantes";
 import { getPy, inPy, iterExige } from "./dict-py";
-import { currentEngine } from "./moteurs";
+import { builtinEngine, currentEngine } from "./moteurs";
 import type { EngineRef } from "./moteurs";
 import { images } from "./ports";
 
@@ -88,20 +87,12 @@ export async function modelSupportsVision(modelName: string): Promise<boolean> {
   if (connu !== undefined) return connu;
   let vision = false;
   try {
-    let baseV1: string;
-    let entetes: Record<string, string> | null = null;
-    if (eng === null || eng.isBuiltin) {
-      let base = sansBarresFinales(config.LLAMA_URL);
-      if (base.endsWith("/chat/completions")) base = base.slice(0, -"/chat/completions".length);
-      baseV1 = base.endsWith("/v1") ? base : base + "/v1";
-    } else {
-      baseV1 = eng.baseRoot + "/v1";
-      const h = eng.headerDict();
-      entetes = Object.keys(h).length > 0 ? h : null;
-    }
+    const moteur = eng === null || eng.isBuiltin ? builtinEngine() : eng;
+    const h = moteur.headerDict();
+    const entetes = Object.keys(h).length > 0 ? h : null;
     const c = new ClientHttp({ delais: delais(3.0) });
     try {
-      const r = await c.get(`${baseV1}/models`, { headers: entetes });
+      const r = await c.get(moteur.url(moteur.profil.chemins.modeles), { headers: entetes });
       if (r.statusCode === 200) {
         for (const m of iterExige(getPy(r.json(), "data", []))) {
           if (getPy(m, "id") === modelName) {

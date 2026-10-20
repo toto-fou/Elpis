@@ -45,10 +45,14 @@ import { entierPy, exigerTexte, lireConfigPourEcrire } from "../admin/aides";
 import {
   applySectionOwnership,
   dig,
+  estSecretMasque,
+  MASQUE_SECRET,
+  masquerSecrets,
   PATCH_MAX_CHANGES,
   PATCH_PATH_RE,
   plant,
   removePath,
+  restaurerSecretsMasques,
   sameValue,
   touchesOwned,
 } from "../admin/config";
@@ -254,7 +258,20 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
     } catch (e) {
       throw new HttpError(500, `Error reading file: ${messageDe(e, chemin)}`);
     }
-    return reponseJsonPy(rep, { content: contenu });
+    return reponseJsonPy(rep, { content: contenuSansSecret(contenu) });
+  }
+
+  /** Le texte tel quel, sauf la clé du moteur remplacée par un masque (réécrit au format des écritures de la console). */
+  function contenuSansSecret(contenu: string): string {
+    let cfg: unknown;
+    try {
+      cfg = pyJsonLoads(contenu);
+    } catch {
+      return contenu.replace(/("api_key"\s*:\s*")(?:[^"\\]|\\.)+(")/gu, `$1${MASQUE_SECRET}$2`);
+    }
+    if (!estDict(cfg)) return contenu;
+    const [masque, change] = masquerSecrets(cfg);
+    return change ? pyJsonDumps(masque, { ensureAscii: false, indent: 2 }) : contenu;
   }
 
   async function ecrireFichier(req: FastifyRequest): Promise<Dict> {
@@ -288,6 +305,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
           }
           if (!estDict(disque)) disque = {};
         }
+        restaurerSecretsMasques(entrant, disque as Dict);
         if (Object.hasOwn(entrant, "llm") && !estDict(entrant["llm"])) poserCle(entrant, "llm", {});
         const restaures = applySectionOwnership(entrant, disque as Dict);
         if (restaures.length)
@@ -353,6 +371,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
       if (!force) {
         const conflits: Dict[] = [];
         for (const [parties, c] of lus) {
+          if (estSecretMasque(parties)) continue;
           const [trouve, actuel] = dig(d, parties);
           if (veritePy(getPy(c, "from_absent", null))) {
             if (trouve) conflits.push({ path: parties.join("."), current: actuel });
@@ -365,7 +384,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
       }
       for (const [parties, c] of lus) {
         if (veritePy(getPy(c, "delete", null))) removePath(d, parties);
-        else plant(d, parties, c["to"]);
+        else if (!(estSecretMasque(parties) && c["to"] === MASQUE_SECRET)) plant(d, parties, c["to"]);
       }
       if (existePy(chemin)) copyFileSync(chemin, cheminSauvegarde(chemin));
       writeTextAtomic(chemin, pyJsonDumps(d, { ensureAscii: false, indent: 2 }));

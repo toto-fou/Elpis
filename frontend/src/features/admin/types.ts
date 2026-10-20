@@ -166,6 +166,8 @@ export interface ConfigAdmin {
     ip: string;
     port: number;
     timeout_sec: number;
+    /** `********` quand une clé est enregistrée (jamais la valeur), vide sinon. */
+    api_key?: string;
     [cle: string]: unknown;
   };
   mcp: {

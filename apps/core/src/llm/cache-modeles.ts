@@ -42,7 +42,10 @@ export async function refreshModelCache(): Promise<void> {
       server_reachable: getPy(sante, "server_reachable", false),
       status: getPy(sante, "status", "unreachable"),
       props: getPy(sante, "props", {}),
+      moteur: getPy(sante, "moteur", null),
+      charge: getPy(sante, "charge", null),
     };
+    for (const cle of ["moteur", "charge"]) if (nouveau[cle] === null) Reflect.deleteProperty(nouveau, cle);
     const nouvelle = pyJsonDumps(
       {
         ids: triable(ids),

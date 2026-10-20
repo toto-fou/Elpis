@@ -16,9 +16,9 @@ rag_config.json) sont écrits AVANT d'importer le code de l'application,
 parce que ``shared_infra.config`` lit config.json à l'import. Les étapes qui
 touchent la base (compte admin, connecteur cloud) viennent donc en dernier.
 
-Sondes réseau : uniquement ``GET /v1/models`` et ``/health``. Jamais
-``/props?model=…`` : sur un llama-server en mode routeur, cette requête
-CHARGE le modèle demandé en mémoire.
+Sondes réseau : uniquement ``GET /v1/models`` et ``/health`` (clé API du
+serveur LLM en Bearer). Jamais ``/props?model=…`` : sur un llama-server en
+mode routeur, cette requête CHARGE le modèle demandé en mémoire.
 """
 from __future__ import annotations
 
@@ -47,8 +47,26 @@ USER_DB = ROOT / "user_db"
 # (PROVIDER_PRESETS) ; relus depuis ce module quand il est importable.
 CLOUD_PROVIDERS = ["anthropic", "openai", "mistral", "groq", "openrouter",
                    "deepseek", "moonshot"]
-ENGINES = {"llamacpp": "llama.cpp", "vllm": "vLLM",
+ENGINES = {"llamacpp": "llama.cpp", "vllm": "vLLM", "sglang": "SGLang",
            "generic": "autre serveur OpenAI-compatible (Ollama, LM Studio, TGI…)"}
+# Alias de llama.engine, ceux de ALIAS_MOTEUR_LLAMA (packages/config/src/reglages.ts) ; toute autre valeur vaut generic.
+ENGINE_ALIASES = {"": "llamacpp", "llamacpp": "llamacpp", "llama.cpp": "llamacpp", "llama-cpp": "llamacpp",
+                  "llama_cpp": "llamacpp", "llama": "llamacpp", "vllm": "vllm", "sglang": "sglang",
+                  "generic": "generic", "openai": "generic", "openai_compat": "generic",
+                  "openai-compatible": "generic", "tgi": "generic", "ollama": "generic", "lmstudio": "generic"}
+# Port d'écoute par défaut de chaque serveur (llama-server, vllm serve, sglang.launch_server).
+LLM_PORTS = {"llamacpp": 8080, "vllm": 8000, "sglang": 30000}
+# (sujet, options à ajouter, précision) : drapeaux conseillés, ceux des profils du core (apps/core/src/llm/profils.ts).
+LAUNCH_FLAGS = {
+    "vllm": [("réflexion", "--reasoning-parser <nom>", "qwen3, deepseek_r1, openai_gptoss…"),
+             ("outils", "--enable-auto-tool-choice --tool-call-parser <nom>", "hermes, llama3_json, qwen3_coder…"),
+             ("jetons en cache", "--enable-prompt-tokens-details", ""),
+             ("métriques", "", "actives par défaut, ne passez pas --disable-log-stats")],
+    "sglang": [("réflexion", "--reasoning-parser <nom>", "qwen3, deepseek-r1, gpt-oss…"),
+               ("outils", "--tool-call-parser <nom>", "qwen25, llama3, qwen3_coder…"),
+               ("jetons en cache", "--enable-cache-report", ""),
+               ("métriques", "--enable-metrics", "")],
+}
 APP_MCP_PORT = 8766
 PORTS = {"application": 8001, "administration": 8002, "RAG": 8000,
          "hôte d'outils MCP": 8765, "navigateur": 3000, "Qdrant": 6333}
@@ -264,9 +282,12 @@ def http_json(url: str, headers: Optional[Dict[str, str]] = None,
 
 
 def list_models(base: str, headers: Optional[Dict[str, str]] = None) -> Tuple[List[str], str]:
-    """Modèles annoncés par ``GET <base>/v1/models`` (ne charge rien)."""
+    """Modèles annoncés par ``GET <base>/v1/models`` (ne charge rien) ; un refus 401/403 dit si une clé est partie."""
     data, err = http_json(base.rstrip("/") + "/v1/models", headers)
     if data is None:
+        if err in ("HTTP 401", "HTTP 403"):
+            sent = any(k.lower() in ("authorization", "x-api-key") for k in (headers or {}))
+            err = f"clé refusée ({err})" if sent else f"clé API demandée ({err})"
         return [], err
     items = data.get("data") if isinstance(data, dict) else data
     ids = []
@@ -275,6 +296,63 @@ def list_models(base: str, headers: Optional[Dict[str, str]] = None) -> Tuple[Li
         if isinstance(mid, str) and mid and mid not in ids:
             ids.append(mid)
     return ids, "" if ids else "aucun modèle annoncé"
+
+
+def canon_engine(value: Any) -> str:
+    """Type de moteur d'un ``llama.engine``, alias compris (``typeMoteurLlama`` du core)."""
+    return ENGINE_ALIASES.get(str(value if value is not None else "").strip().lower(), "generic")
+
+
+def engine_name(engine: str) -> str:
+    return "OpenAI-compatible" if engine == "generic" else ENGINES.get(engine, engine)
+
+
+def default_llm_url(engine: str) -> str:
+    return f"http://127.0.0.1:{LLM_PORTS.get(engine, 8080)}"
+
+
+def llm_base(llama: Dict[str, Any]) -> str:
+    """Base du serveur en place : ``url`` (base, ``/v1`` ou ``/v1/chat/completions``), sinon ``ip`` et ``port``, comme le core."""
+    return norm_base(str(llama.get("url") or "")) or (
+        f"http://{llama.get('ip') or '127.0.0.1'}:{llama.get('port') or 8080}")
+
+
+def llm_headers(key: str) -> Dict[str, str]:
+    return {"Authorization": f"Bearer {key}"} if key else {}
+
+
+def rag_port_clash(base: str) -> Optional[str]:
+    """Adresse locale sur le port du service RAG d'Elpis (8000, aussi celui de vLLM par défaut)."""
+    from urllib.parse import urlsplit
+    try:
+        port = urlsplit(base).port
+    except ValueError:
+        return None
+    if _loopback(base) and port == PORTS["RAG"]:
+        return (f"le port {port} de cette machine est celui du service RAG d'Elpis : "
+                "lancez le serveur LLM sur un autre port (--port) ou sur une autre machine")
+    return None
+
+
+def launch_advice(engine: str, key: bool = False) -> List[str]:
+    """Drapeaux de lancement conseillés pour vLLM et SGLang (rien pour les autres)."""
+    flags = LAUNCH_FLAGS.get(engine)
+    if not flags:
+        return []
+    lines = [f"{ENGINES[engine]} : drapeaux de lancement conseillés (docs/configuration.md, « Moteur d'inférence déclaré »)"]
+    for what, opt, detail in flags:
+        lines.append(f"  {what:<16}{opt}{' — ' if opt and detail else ''}{detail}")
+    if key:
+        lines.append(f"  {'clé API':<16}--api-key <valeur de llama.api_key>")
+    return lines
+
+
+def launch_short(engine: str) -> str:
+    """Les options à ajouter, en une phrase (page LLM de l'assistant)."""
+    opts = [opt.replace(" <nom>", "") for _w, opt, _d in LAUNCH_FLAGS.get(engine, ()) if opt]
+    if not opts:
+        return ""
+    return f"Lancez {ENGINES[engine]} avec {', '.join(opts[:-1])} et {opts[-1]} (./elpis doctor les détaille)."
 
 
 def port_in_use(port: int) -> bool:
@@ -332,29 +410,47 @@ def sudo_prefix() -> List[str]:
 # =============================================================================
 #  Étapes
 # =============================================================================
+def ask_llm_key(p: Prompter, key: str) -> str:
+    """Clé API du serveur en saisie masquée : Entrée garde la clé, « - » la retire."""
+    hint = "Entrée = inchangée, - = aucune" if key else "Entrée = aucune"
+    typed = p.secret(f"Clé API du serveur (--api-key, facultative ; {hint})").strip()
+    return "" if typed == "-" else (typed or key)
+
+
 def step_llm(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> None:
+    """Type, adresse, clé et modèle ; seul ce qui change est écrit (config ancienne sans engine, ip/port, URL complète : intacte)."""
     title("1/8  Serveur LLM principal")
     llama = section(cfg, "llama")
-    engine = pick(a.engine, "ELPIS_CFG_ENGINE", llama.get("engine"), "llamacpp")
-    engine = {"openai-compatible": "generic", "openai": "generic", "llama.cpp": "llamacpp"}.get(engine, engine)
-    if engine not in ENGINES:
-        engine = "generic"
+    cur_engine = canon_engine(llama.get("engine"))
+    engine = canon_engine(pick(a.engine, "ELPIS_CFG_ENGINE", llama.get("engine"), "llamacpp"))
     engine = p.choose("Type de serveur", list(ENGINES.items()), engine)
 
-    cur_base = norm_base(str(llama.get("url") or "")) or (
-        f"http://{llama.get('ip') or '127.0.0.1'}:{llama.get('port') or '8080'}")
-    base = norm_base(pick(a.llm_url, "ELPIS_CFG_LLM_URL", cur_base, "http://127.0.0.1:8080"))
+    cur_base = llm_base(llama)
+    proposed = default_llm_url(engine) if cur_base == default_llm_url(cur_engine) else cur_base
+    base = norm_base(pick(a.llm_url, "ELPIS_CFG_LLM_URL", proposed, default_llm_url(engine)))
+    cur_key = str(llama.get("api_key") or "").strip()
+    key = pick(a.llm_api_key, "ELPIS_CFG_LLM_API_KEY", cur_key, "").strip()
+    key_given = a.llm_api_key is not None or os.environ.get("ELPIS_CFG_LLM_API_KEY") is not None
     while True:
         base = norm_base(p.ask("URL du serveur (sans /v1)", base, validate=valid_url, allow_empty=False))
-        models, err = list_models(base)
+        clash = rag_port_clash(base)
+        if clash:
+            warn(f"{base} : {clash}.")
+        if not key_given:
+            key = ask_llm_key(p, key)
+        models, err = list_models(base, llm_headers(key))
         if models:
             ok(f"{base} répond : {len(models)} modèle(s).")
             break
-        warn(f"{base}/v1/models ne répond pas ({err}).")
-        if not p.interactive or not p.yes("Saisir une autre URL ?", False):
+        if err.startswith("clé"):
+            warn(f"{base}/v1/models : {err} — la clé API est la valeur de --api-key du serveur.")
+        else:
+            warn(f"{base}/v1/models ne répond pas ({err}).")
+        if not p.interactive or not p.yes("Saisir une autre URL ou une autre clé ?", False):
             info("URL gardée : le serveur pourra être démarré plus tard (./elpis doctor le vérifie).")
             break
 
+    cur_model = str(llama.get("model") or "local-model")
     model = pick(a.llm_model, "ELPIS_CFG_LLM_MODEL", llama.get("model"), "")
     if models:
         default = model if model in models else models[0]
@@ -364,8 +460,18 @@ def step_llm(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> None:
             model = p.choose("Modèle par défaut", [(m, m) for m in models[:30]], default)
     else:
         model = p.ask("Nom du modèle", model or "local-model", allow_empty=False)
-    llama.update({"url": base + "/v1/chat/completions", "engine": engine, "model": model})
-    ok(f"LLM : {ENGINES[engine]} — {base} — modèle « {model} ».")
+    changes: Dict[str, Any] = {}
+    if engine != cur_engine:
+        changes["engine"] = engine
+    if base != cur_base:
+        changes["url"] = base
+    if model != cur_model:
+        changes["model"] = model
+    if key != cur_key:
+        changes["api_key"] = key
+    llama.update(changes)
+    ok(f"LLM : {engine_name(engine)} — {base} — modèle « {model} »" + (" — clé API définie" if key else "")
+       + ("" if changes else " (inchangé)") + ".")
 
 
 def step_cloud(p: Prompter, a: argparse.Namespace) -> Optional[Dict[str, str]]:
@@ -1113,9 +1219,15 @@ def build_parser() -> argparse.ArgumentParser:
                    help="code 1 si mcp.json n'a pas toutes les familles de mcp.example.json (./elpis doctor)")
     g.add_argument("--check-db", action="store_true",
                    help="teste seulement la connexion à la base retenue, sans rien écrire")
+    g.add_argument("--check-llm", action="store_true",
+                   help="sonde seulement le serveur LLM retenu (GET /v1/models, clé en Bearer), sans rien écrire (./elpis doctor)")
+    g.add_argument("--conseils-moteur", action="store_true",
+                   help="affiche les drapeaux de lancement conseillés pour vLLM et SGLang, sans rien écrire")
     g = ap.add_argument_group("LLM")
-    g.add_argument("--engine", help="llamacpp | vllm | generic")
-    g.add_argument("--llm-url", help="URL du serveur (ex. http://127.0.0.1:8080)")
+    g.add_argument("--engine", help="llamacpp | vllm | sglang | generic (alias : llama.cpp, openai, tgi, ollama…)")
+    g.add_argument("--llm-url", help="URL du serveur (ex. http://127.0.0.1:8080 ; vLLM 8000, SGLang 30000)")
+    g.add_argument("--llm-api-key", help="clé API du serveur (--api-key de vLLM ou SGLang ; vide = aucune ; "
+                                         "préférez ELPIS_CFG_LLM_API_KEY)")
     g.add_argument("--llm-model", help="modèle par défaut")
     g.add_argument("--cloud-provider", help="|".join(CLOUD_PROVIDERS))
     g.add_argument("--cloud-api-key", help="clé API (préférez ELPIS_CFG_CLOUD_API_KEY)")
@@ -1192,6 +1304,42 @@ def check_db(a: argparse.Namespace) -> int:
     return 1
 
 
+def llm_target(a: argparse.Namespace) -> Tuple[str, str, str]:
+    """(type, base, clé) retenus : options, variables ``ELPIS_CFG_*``, sinon config.json."""
+    llama = read_json(CONFIG).get("llama") or {}
+    engine = canon_engine(pick(a.engine, "ELPIS_CFG_ENGINE", llama.get("engine"), "llamacpp"))
+    base = norm_base(pick(a.llm_url, "ELPIS_CFG_LLM_URL", llm_base(llama), ""))
+    return engine, base, pick(a.llm_api_key, "ELPIS_CFG_LLM_API_KEY", llama.get("api_key"), "").strip()
+
+
+def check_llm(a: argparse.Namespace) -> int:
+    """``--check-llm`` : une ligne sans secret ; code 1 si le serveur ne répond pas ou refuse la clé."""
+    engine, base, key = llm_target(a)
+    where = f"{engine_name(engine)} sur {base}"
+    sent = ", clé API envoyée" if key else ""
+    models, err = list_models(base, llm_headers(key))
+    if models:
+        shown = ", ".join(models[:3]) + ("…" if len(models) > 3 else "")
+        print(f"{where} : {len(models)} modèle(s) ({shown}){sent}")
+        return 0
+    if err == "aucun modèle annoncé" or (not err.startswith("clé") and not http_json(
+            base + "/health", llm_headers(key), timeout=5)[1]):
+        print(f"{where} : joignable, /v1/models : {err or 'réponse vide'}{sent}")
+        return 0
+    hint = " — renseignez llama.api_key avec la valeur de --api-key du serveur" if err.startswith("clé") else ""
+    clash = rag_port_clash(base)
+    print(f"{where} : {err}{hint}" + (f" ; {clash}" if clash else ""))
+    return 1
+
+
+def conseils_moteur(a: argparse.Namespace) -> int:
+    """``--conseils-moteur`` : drapeaux conseillés du type retenu (rien pour llama.cpp et generic)."""
+    engine, _base, key = llm_target(a)
+    for line in launch_advice(engine, bool(key or os.environ.get("LLAMA_API_KEY"))):
+        print(line)
+    return 0
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     a = build_parser().parse_args(argv)
@@ -1214,6 +1362,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         migrate_app_entries(chemin)
 
         return 0
+    if a.check_llm:
+        return check_llm(a)
+    if a.conseils_moteur:
+        return conseils_moteur(a)
     refuse_retired_db()
     if a.check_db:
         os.chdir(ROOT)

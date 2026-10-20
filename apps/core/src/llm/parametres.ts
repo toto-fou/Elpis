@@ -10,6 +10,7 @@ import { getPy } from "./dict-py";
 import { llamaGet, monotonic } from "./llama-http";
 import { autoloadSuffix } from "./modeles";
 import { currentEngine } from "./moteurs";
+import { profilDuType } from "./profils";
 import { surChangementDeModele, surInvalidationGlobale } from "./registre-caches";
 
 const log = journal("llm_params");
@@ -251,7 +252,7 @@ export async function getCachedProps(
   options: { autoload?: boolean } = {},
 ): Promise<Dict> {
   const eng = currentEngine();
-  if (!eng.isLlamacpp) return {};
+  if (!eng.profil.capacites.props) return {};
   const cle = eng.cacheKey(modelId);
   const enCache = propsCache.get(cle);
   if (enCache !== undefined && cacheFrais(propsCacheTs, cle)) return enCache;
@@ -321,7 +322,7 @@ export async function fetchRawProps(
 ): Promise<Dict> {
   const autoload = options.autoload ?? true;
   try {
-    if (!currentEngine().isLlamacpp) return {};
+    if (!currentEngine().profil.capacites.props) return {};
   } catch (e) {
     log.debug(`_fetch_raw_props: moteur inconnu (${String(e)})`);
     return {};
@@ -473,16 +474,27 @@ function agentDefaults(): Dict {
   };
 }
 
-/** Vue SANS réseau du panneau Sampling (modèle non chargé ou connecteur) : profil de tâche seul, capacités inconnues. */
-export function describeEffectiveParamsDegraded(modelId: string | null = null, task = "chat"): Dict {
+/** Valeurs d'effort de vLLM et SGLang, qui acceptent toujours l'interrupteur de réflexion et l'effort (sans effet sur un modèle qui ne raisonne pas) ; `null` hors de ces moteurs. */
+export function effortsDuDialecte(providerType: string | null | undefined): string[] | null {
+  const efforts = profilDuType(providerType || "").dialecte.efforts;
+  return efforts === null ? null : [...efforts];
+}
+
+/** Vue SANS réseau du panneau Sampling (modèle non chargé ou connecteur) : profil de tâche seul, capacités inconnues sauf celles du dialecte du moteur. */
+export function describeEffectiveParamsDegraded(
+  modelId: string | null = null,
+  task = "chat",
+  providerType: string | null = null,
+): Dict {
   const tache = profil(task);
+  const efforts = effortsDuDialecte(providerType);
   return {
     model_id: modelId,
     task,
     degraded: true,
-    supports_thinking: null,
-    supports_reasoning_effort: null,
-    reasoning_effort_values: [],
+    supports_thinking: efforts ? true : null,
+    supports_reasoning_effort: efforts ? true : null,
+    reasoning_effort_values: efforts ?? [],
     supports_preserve_reasoning: null,
     supports_continue_final_message: null,
     sources: { props: {}, task_profile: { ...tache }, user_override: {} },
@@ -503,8 +515,9 @@ export async function describeEffectiveParams(
   const props = degrade ? { ...HARDCODED_FALLBACK } : reels;
   const tache = profil(task);
   const surcharge = sanitizeOverride(requestOverride);
-  const pense = await getThinkingSupport(modelId, { autoload: false });
-  const efforts = await getReasoningEffortValues(modelId, { autoload: false });
+  const dialecte = effortsDuDialecte(currentEngine().providerType);
+  const pense = dialecte ? true : await getThinkingSupport(modelId, { autoload: false });
+  const efforts = dialecte ?? (await getReasoningEffortValues(modelId, { autoload: false }));
   const conserve = await getPreserveReasoningSupport(modelId, { autoload: false });
   const effectif: Dict = {};
   const sources: Dict = {};

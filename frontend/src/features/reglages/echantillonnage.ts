@@ -15,6 +15,8 @@ const SPECIFIQUES_LLAMACPP: readonly string[] = [
   "repeat_penalty",
   "thinking_budget_tokens",
 ];
+/** vLLM et SGLang acceptent `top_k`, `min_p` et la pénalité de répétition ; seul le budget de réflexion reste propre à llama.cpp. */
+const DIALECTE_ETENDU: readonly string[] = ["vllm", "sglang"];
 
 export interface SurchargeEchantillonnage {
   temperature: number | null;
@@ -35,6 +37,7 @@ export type SurchargeCompacte = Partial<{ [K in CleSurcharge]: NonNullable<Surch
 export interface MetaMoteur {
   key: string;
   llamacpp?: boolean;
+  providerType?: string;
   loaded?: string[];
   [cle: string]: unknown;
 }
@@ -192,9 +195,12 @@ export function setupEchantillonnage(
   }
   watch(samplingOverride, persister, { deep: true });
 
-  const ignoredByEngine = computed<readonly string[]>(() =>
-    connecteurNonLlama() ? SPECIFIQUES_LLAMACPP : [],
-  );
+  const ignoredByEngine = computed<readonly string[]>(() => {
+    if (!connecteurNonLlama()) return [];
+    return DIALECTE_ETENDU.includes(meta()?.providerType ?? "")
+      ? ["thinking_budget_tokens"]
+      : SPECIFIQUES_LLAMACPP;
+  });
   const isIgnoredByEngine = (cle: string): boolean => ignoredByEngine.value.includes(cle);
 
   /** Valeurs du modèle indisponibles : connecteur cloud, ou modèle local non chargé (lire /props le chargerait). */
@@ -332,10 +338,10 @@ export function setupEchantillonnage(
     },
   });
 
+  // Le serveur ne déclare l'effort que là où il est connu : props de llama.cpp, ou dialecte de vLLM et SGLang.
   const reasoningEffortValues = computed<string[]>(() => {
-    if (connecteurNonLlama()) return [];
     const d = effectiveParamsData.value;
-    if (!d || d.degraded || !d.supports_reasoning_effort) return [];
+    if (!d || !d.supports_reasoning_effort) return [];
     if (d.model_id !== selectedModel.value) return [];
     return Array.isArray(d.reasoning_effort_values) ? d.reasoning_effort_values : [];
   });

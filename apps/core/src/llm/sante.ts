@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/llm/sante.ts — santé du serveur d'inférence : préflight de la cible, modèle chargé (cache 5 s), inventaire, métriques Prometheus. */
-import { arrondiPy, floatPy, intPy, quotePy, stripPy, strPy, urlsplit, veritePy } from "@elpis/commun";
-import { config } from "@elpis/config";
+import { floatPy, intPy, quotePy, stripPy, strPy, urlsplit, veritePy } from "@elpis/commun";
 
 import { journal } from "../journal";
 import { estDict, splitlinesPy, splitPy } from "../python";
@@ -12,16 +11,14 @@ import { ClientHttp, ConnectError, delais, getLlmClient } from "./client-http";
 import { getPy, inPy, itemPy, iterExige, poserCle } from "./dict-py";
 import { buildHeaders as enTetesAnthropic } from "./fournisseurs/anthropic";
 import { headers as enTetesOpenai } from "./fournisseurs/openai-compat";
-import {
-  llamaBaseUrl,
-  llamaGet,
-  llamaGetText,
-  METRICS_OFF_S,
-  metricsOffUntil,
-  monotonic,
-} from "./llama-http";
+import { llamaGet, llamaGetText, METRICS_OFF_S, metricsOffUntil, monotonic } from "./llama-http";
+import { etatCharge } from "./metriques-moteur";
+import type { EtatCharge } from "./metriques-moteur";
 import { getModelTotalSlots } from "./modeles";
-import { BUILTIN_KEY } from "./moteurs";
+import { BUILTIN_KEY, builtinEngine, racineIntegre, useEngine } from "./moteurs";
+import type { EngineRef } from "./moteurs";
+import { vuePubliqueProfil } from "./profils";
+import { capaciteKvConnue } from "./sonde-moteur";
 import { visionFlagFromEntry } from "./vision";
 
 const log = journal("models");
@@ -37,32 +34,34 @@ export async function verifyLlmAvailability(): Promise<void> {
   } catch {
     target = null;
   }
-  let url = config.LLAMA_URL;
+  let baseUrl = racineIntegre();
   let label = "Serveur LLM injoignable.";
   if (target !== null && !target.isDefault) {
     const base = stripPy(target.baseUrl || "");
     if (!base) return;
-    url = base;
-    label =
-      `Connecteur LLM injoignable (${urlsplit(base).netloc}). ` +
-      "Vérifiez l'URL du connecteur et le réseau.";
+    const p = urlsplit(base);
+    baseUrl = `${p.scheme}://${p.netloc}`;
+    label = `Connecteur LLM injoignable (${p.netloc}). ` + "Vérifiez l'URL du connecteur et le réseau.";
   }
   try {
-    const p = urlsplit(url);
-    const baseUrl = `${p.scheme}://${p.netloc}`;
     if (monotonic() - (preflightOkAt.get(baseUrl) ?? -Infinity) < PREFLIGHT_OK_TTL_S) return;
-    const externe = target !== null && !target.isLocalLlamacpp;
+    const externe = target !== null && !target.isDefault;
     const client = getLlmClient(externe ? baseUrl : null);
     let entetes: Record<string, string> | null = null;
     if (target !== null && !target.isDefault) {
       const h = target.wire === "anthropic" ? enTetesAnthropic(target) : enTetesOpenai(target);
       entetes = Object.keys(h).length > 0 ? h : null;
-    }
+    } else entetes = entetesDe(builtinEngine());
     await client.get(baseUrl, { timeout: 3.0, headers: entetes });
     preflightOkAt.set(baseUrl, monotonic());
   } catch (e) {
     throw new ConnectError(label, { cause: e });
   }
+}
+
+function entetesDe(engine: EngineRef): Record<string, string> | null {
+  const h = engine.headerDict();
+  return Object.keys(h).length > 0 ? h : null;
 }
 
 export const LOADED_MODEL_TTL_S = 5.0;
@@ -96,49 +95,55 @@ export function setLoadedModelCache(modelId: string | null): void {
   loadedModelCache.ts = monotonic();
 }
 
-function urlModelesIntegre(): string {
-  const p = urlsplit(config.LLAMA_URL);
-  return `${p.scheme}://${p.netloc}/v1/models`;
-}
-
-/** Statut d'une entrée `/v1/models` : `status.value`, sinon `unknown`. */
-function statutEntree(m: unknown): [unknown, unknown] {
+/** Statut d'une entrée `/v1/models` : `status.value`, sinon `loaded` pour un moteur qui sert tout ce qu'il annonce, sinon `unknown`. */
+function statutEntree(m: unknown, servisCharges: boolean): [unknown, unknown] {
   const brut = getPy(m, "status");
   const st = brut === null || brut === undefined || brut === false || brut === 0 || brut === "" ? {} : brut;
-  return [estDict(st) ? getPy(st, "value", "unknown") : "unknown", st];
+  const defaut = servisCharges ? "loaded" : "unknown";
+  return [estDict(st) ? getPy(st, "value", defaut) : defaut, st];
 }
 
 /** `(modèles, joignable)` d'un corps `/v1/models` : réponse sans liste = joignable mais vide ; forme cassée = lève. */
-export function analyserSondeModeles(data: unknown): [Dict[], boolean] {
+export function analyserSondeModeles(data: unknown, servisCharges = false): [Dict[], boolean] {
   if (!inPy("data", data) || !Array.isArray(itemPy(data, "data"))) return [[], true];
   const result: Dict[] = [];
   for (const m of iterExige(itemPy(data, "data"))) {
     if (!inPy("id", m)) continue;
-    const [valeur] = statutEntree(m);
+    const [valeur] = statutEntree(m, servisCharges);
     result.push({ id: itemPy(m, "id"), status: valeur });
   }
   return [result, true];
 }
 
+/** `GET /v1/models` du serveur intégré, avec sa clé ; lève sur panne de transport. */
+async function modelesIntegre(): Promise<[number, () => unknown, EngineRef]> {
+  const eng = builtinEngine();
+  const resp = await getLlmClient().get(eng.url(eng.profil.chemins.modeles), {
+    timeout: 3.0,
+    headers: entetesDe(eng),
+  });
+  return [resp.statusCode, () => resp.json(), eng];
+}
+
 /** `(modèles, serveur_joignable)` : distingue « liste vide » de « pas de réponse ». */
 export async function remoteModelsProbe(): Promise<[Dict[], boolean]> {
   try {
-    const resp = await getLlmClient().get(urlModelesIntegre(), { timeout: 3.0 });
-    if (resp.statusCode !== 200) return [[], false];
-    return analyserSondeModeles(resp.json());
+    const [statut, corps, eng] = await modelesIntegre();
+    if (statut !== 200) return [[], false];
+    return analyserSondeModeles(corps(), eng.profil.capacites.modelesServisCharges);
   } catch (e) {
-    log.debug(`llama-server injoignable ou timeout : ${String(e)}`);
+    log.debug(`serveur d'inférence injoignable ou timeout : ${String(e)}`);
     return [[], false];
   }
 }
 
 /** Liste `{id, status, vision}` d'un corps `/v1/models` (`failed` si le dernier chargement a échoué). */
-export function analyserModelesDistants(data: unknown): Dict[] | null {
+export function analyserModelesDistants(data: unknown, servisCharges = false): Dict[] | null {
   if (!(inPy("data", data) && Array.isArray(itemPy(data, "data")))) return null;
   const result: Dict[] = [];
   for (const m of iterExige(itemPy(data, "data"))) {
     if (!inPy("id", m)) continue;
-    const [valeur0, st] = statutEntree(m);
+    const [valeur0, st] = statutEntree(m, servisCharges);
     let valeur = valeur0;
     if (valeur === "unloaded" && estDict(st) && veritePy(getPy(st, "failed"))) valeur = "failed";
     result.push({ id: itemPy(m, "id"), status: valeur, vision: visionFlagFromEntry(m as Dict) });
@@ -149,13 +154,13 @@ export function analyserModelesDistants(data: unknown): Dict[] | null {
 /** `/v1/models` de l'intégré avec statut (3 s au plus) ; `[]` sur toute panne. */
 export async function getRemoteModelsWithStatus(): Promise<Dict[]> {
   try {
-    const resp = await getLlmClient().get(urlModelesIntegre(), { timeout: 3.0 });
-    if (resp.statusCode === 200) {
-      const r = analyserModelesDistants(resp.json());
+    const [statut, corps, eng] = await modelesIntegre();
+    if (statut === 200) {
+      const r = analyserModelesDistants(corps(), eng.profil.capacites.modelesServisCharges);
       if (r !== null) return r;
     }
   } catch (e) {
-    log.debug(`llama-server injoignable ou timeout : ${String(e)}`);
+    log.debug(`serveur d'inférence injoignable ou timeout : ${String(e)}`);
   }
   return [];
 }
@@ -181,7 +186,7 @@ export function parsePrometheusMetrics(text: string | null | undefined): Record<
 }
 
 export function llamaBaseUrlSync(): string {
-  return llamaBaseUrl();
+  return racineIntegre();
 }
 
 /** Chemin `/metrics` d'après `/v1/models` : routeur → le modèle chargé (`autoload=false`), aucun → `null`. */
@@ -197,16 +202,35 @@ export function routerMetricsPath(models: unknown): string | null {
   return null;
 }
 
-function kvDepuis(pm: Record<string, number>): Dict | null {
-  const kvUsed = pm["llamacpp_kv_cache_tokens"] ?? 0;
-  const nCtx = pm["llamacpp_n_ctx_total"] ?? 0;
-  if (!(nCtx > 0)) return null;
-  return { used: intPy(kvUsed), total: intPy(nCtx), pct: arrondiPy((kvUsed / nCtx) * 100, 1) };
+/** Fenêtre annoncée par `/v1/models` (`max_model_len` de vLLM et SGLang) pour `modele`, sinon la première connue. */
+export function contexteAnnonce(data: unknown, modele = ""): number {
+  const entrees = estDict(data) ? getPy(data, "data") : null;
+  if (!Array.isArray(entrees)) return 0;
+  const lire = (m: unknown): number => {
+    const v = estDict(m) ? getPy(m, "max_model_len") : null;
+    return typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0;
+  };
+  const exact = entrees.find((m) => estDict(m) && (getPy(m, "id") === modele || getPy(m, "root") === modele));
+  if (exact !== undefined && lire(exact) > 0) return lire(exact);
+  for (const m of entrees) if (lire(m) > 0) return lire(m);
+  return 0;
+}
+
+function chargeVisible(charge: EtatCharge): Dict {
+  return {
+    en_cours: charge.en_cours,
+    en_attente: charge.en_attente,
+    debit_tps: charge.debit_tps,
+    cache_prefixe_pct: charge.cache_prefixe_pct,
+  };
 }
 
 /** Santé directe pour le moteur de métriques (le `get_llm_health_sync` de Python, asynchrone ici) : client neuf, 4 s. */
 export async function getLlmHealthSync(): Promise<Dict> {
-  const base = llamaBaseUrlSync();
+  const eng = builtinEngine();
+  const profil = eng.profil;
+  const base = eng.baseRoot;
+  const headers = entetesDe(eng);
   const result: Dict = {
     server_reachable: false,
     status: "unreachable",
@@ -218,26 +242,26 @@ export async function getLlmHealthSync(): Promise<Dict> {
   try {
     c = new ClientHttp({ delais: delais(4.0) });
     try {
-      const r = await c.get(`${base}/health`);
+      const r = await c.get(`${base}${profil.chemins.sante ?? profil.chemins.modeles}`, { headers });
       if (r.statusCode === 200) {
         result["server_reachable"] = true;
         const h = (r.headers.get("content-type") ?? "").startsWith("application/json") ? r.json() : {};
-        result["status"] = getPy(h, "status", "ok");
+        result["status"] = profil.chemins.sante ? getPy(h, "status", "ok") : "ok";
       }
     } catch (e) {
-      log.debug(`/health illisible : ${String(e)}`);
+      log.debug(`santé illisible : ${String(e)}`);
     }
     if (!result["server_reachable"]) return result;
-    let metricsPath: string | null = "/metrics";
+    let metricsPath: string | null = profil.chemins.metriques;
     try {
-      const r = await c.get(`${base}/v1/models`);
+      const r = await c.get(`${base}${profil.chemins.modeles}`, { headers });
       if (r.statusCode === 200) {
         const data = r.json();
         result["models_loaded"] = iterExige(getPy(data, "data", [])).map((m) => ({
           id: getPy(m, "id", "?"),
           meta: getPy(m, "meta", {}),
         }));
-        metricsPath = routerMetricsPath(data);
+        if (profil.capacites.chargement && metricsPath !== null) metricsPath = routerMetricsPath(data);
       }
     } catch (e) {
       log.debug(`/v1/models illisible : ${String(e)}`);
@@ -245,12 +269,15 @@ export async function getLlmHealthSync(): Promise<Dict> {
     const cle = `${BUILTIN_KEY}${metricsPath}`;
     if (metricsPath === null || (metricsOffUntil.get(cle) ?? 0) > monotonic()) return result;
     try {
-      const r = await c.get(`${base}${metricsPath}`);
-      if (r.statusCode === 501) metricsOffUntil.set(cle, monotonic() + METRICS_OFF_S);
+      const r = await c.get(`${base}${metricsPath}`, { headers });
+      if (r.statusCode === profil.metriques.statutDesactivees)
+        metricsOffUntil.set(cle, monotonic() + METRICS_OFF_S);
       if (r.statusCode === 200) {
-        const m = parsePrometheusMetrics(r.text);
-        result["metrics"] = m;
-        const kv = kvDepuis(m);
+        result["metrics"] = parsePrometheusMetrics(r.text);
+        const kv = etatCharge(profil, r.text, {
+          cle: `sync|${BUILTIN_KEY}`,
+          capaciteKv: await capaciteKvConnue(eng),
+        }).kv;
         if (kv !== null) result["kv_cache"] = kv;
       }
     } catch (e) {
@@ -264,16 +291,19 @@ export async function getLlmHealthSync(): Promise<Dict> {
   return result;
 }
 
-/** Santé agrégée : `/health`, puis en parallèle `/v1/models`, `/metrics` et `total_slots`. */
-export async function getLlmHealth(): Promise<Dict> {
+/** Santé agrégée d'un moteur (l'intégré par défaut) d'après son profil : santé, puis en parallèle modèles, métriques et créneaux. */
+export async function getLlmHealth(engine: EngineRef | null = null): Promise<Dict> {
+  const eng = engine ?? builtinEngine();
+  const profil = eng.profil;
   const result: Dict = {
     server_reachable: false,
     status: "unreachable",
     models_loaded: [],
     kv_cache: { used: 0, total: 0, pct: 0 },
     metrics: {},
+    moteur: vuePubliqueProfil(profil),
   };
-  const health = await llamaGet("/health", 3.0);
+  const health = profil.chemins.sante ? await llamaGet(profil.chemins.sante, 3.0, { engine: eng }) : null;
   if (health !== null) {
     result["server_reachable"] = true;
     result["status"] = getPy(health, "status", "ok");
@@ -281,7 +311,7 @@ export async function getLlmHealth(): Promise<Dict> {
     let c: ClientHttp | null = null;
     try {
       c = new ClientHttp({ delais: delais(3.0) });
-      const r = await c.get(llamaBaseUrl());
+      const r = await c.get(eng.baseRoot, { headers: entetesDe(eng) });
       result["server_reachable"] = r.statusCode < 500;
       result["status"] = r.statusCode < 500 ? "ok" : "error";
     } catch {
@@ -291,16 +321,18 @@ export async function getLlmHealth(): Promise<Dict> {
     }
   }
   const sondeSlots = async (): Promise<number> => {
+    if (!profil.capacites.slots) return 0;
     try {
-      return intPy((await getModelTotalSlots()) || 0);
+      return intPy((await useEngine(eng.isBuiltin ? null : eng, () => getModelTotalSlots())) || 0);
     } catch {
       return 0;
     }
   };
-  const [modelsData, metricsText, totalSlots] = await Promise.all([
-    llamaGet("/v1/models", 3.0),
-    llamaGetText("/metrics", 3.0),
+  const [modelsData, metricsText, totalSlots, capaciteKv] = await Promise.all([
+    llamaGet(profil.chemins.modeles, 3.0, { engine: eng }),
+    profil.chemins.metriques ? llamaGetText(profil.chemins.metriques, 3.0, { engine: eng }) : null,
     sondeSlots(),
+    capaciteKvConnue(eng),
   ]);
   if (estVrai(modelsData) && inPy("data", modelsData)) {
     result["models_loaded"] = iterExige(itemPy(modelsData, "data")).map((m) => ({
@@ -310,16 +342,21 @@ export async function getLlmHealth(): Promise<Dict> {
       meta: getPy(m, "meta", {}),
     }));
   }
+  const charge = etatCharge(profil, metricsText, { cle: eng.key, capaciteKv });
   if (metricsText) {
-    const pm = parsePrometheusMetrics(metricsText);
-    result["metrics"] = pm;
-    const kv = kvDepuis(pm);
-    if (kv !== null) result["kv_cache"] = kv;
+    result["metrics"] = parsePrometheusMetrics(metricsText);
+    if (charge.kv !== null) result["kv_cache"] = charge.kv;
   }
+  const visible = chargeVisible(charge);
+  if (Object.values(visible).some((v) => v !== null)) result["charge"] = visible;
   const metriques = result["metrics"] as Record<string, number>;
-  if (Object.keys(metriques).length > 0) {
+  if (profil.capacites.contexte === "props" && Object.keys(metriques).length > 0) {
     const nCtx = metriques["llamacpp_n_ctx_total"] ?? 0;
     if (nCtx > 0) result["props"] = { ...(result["props"] as Dict | undefined), n_ctx: intPy(nCtx) };
+  }
+  if (profil.capacites.contexte === "modeles") {
+    const nCtx = contexteAnnonce(modelsData);
+    if (nCtx > 0) result["props"] = { ...(result["props"] as Dict | undefined), n_ctx: nCtx };
   }
   if (totalSlots > 0) result["props"] = { ...(result["props"] as Dict | undefined), total_slots: totalSlots };
   return result;

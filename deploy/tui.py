@@ -134,7 +134,7 @@ class Toggle(Field):
 @dataclass
 class Text(Field):
     secret: bool = False
-    placeholder: str = ""
+    placeholder: Union[str, Callable[[State], str]] = ""
     required: bool = False
     validate: Optional[Callable[[str, State], Optional[str]]] = None
     on_commit: Optional[Callable[[State, "Wizard"], None]] = None
@@ -142,6 +142,10 @@ class Text(Field):
 
     def slots(self, st: State) -> List[int]:
         return [] if self.disabled(st) else [0]
+
+    def hint_text(self, st: State) -> str:
+        """Texte indicatif du champ vide, fixe ou calculé selon l'état."""
+        return self.placeholder(st) if callable(self.placeholder) else self.placeholder
 
     def error(self, st: State) -> Optional[str]:
         if self.disabled(st):
@@ -781,12 +785,12 @@ class Wizard:
                     start = max(0, pos - room + 1)
                     seg_v = shown_v[start:start + room]
                     p = pos - start
-                    if not v and f.placeholder:
-                        segs += [(g.caret, "a"), (f.placeholder, "d")]
+                    if not v and f.hint_text(st):
+                        segs += [(g.caret, "a"), (f.hint_text(st), "d")]
                     else:
                         segs += [(seg_v[:p], "u"), (g.caret, "a"), (seg_v[p:], "u")]
                 else:
-                    segs.append((shown_v, "") if v else (f.placeholder, "d"))
+                    segs.append((shown_v, "") if v else (f.hint_text(st), "d"))
                 if err:
                     segs.append((f"  {g.bad} {err}", "e"))
                 elif focused and f.hint:

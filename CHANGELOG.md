@@ -4,6 +4,88 @@ Les changements notables d'Elpis, du plus récent au plus ancien. Format inspir�
 de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; numéros de version
 selon [SemVer](https://semver.org/lang/fr/).
 
+## Non publié
+
+**Moteurs vLLM et SGLang.** Le type de moteur écrit dans `config.json`
+(`llama.engine`) fait foi : Elpis applique le profil de ce moteur (adresses,
+capacités, métriques, dialecte de requête) au lieu de traiter tout ce qui
+n'est pas llama.cpp comme un service OpenAI-compatible sans capacité. La
+réflexion des modèles servis par vLLM ou SGLang s'affiche dans le chat. Les
+anciens `config.json` marchent tels quels. Détail : docs/configuration.md,
+« Moteur d'inférence déclaré ».
+
+### Pour l'exploitant
+
+- **`llama.engine` : `vllm` et `sglang`.** Valeurs admises : `llamacpp`
+  (défaut ; alias `llama.cpp`, `llama-cpp`, `llama`), `vllm`, `sglang` et
+  `generic` (alias `openai`, `tgi`, `ollama`, `lmstudio` ; toute autre
+  valeur vaut `generic`). Aucun moteur n'est deviné. Pris en compte au
+  redémarrage ; variable `LLAMA_ENGINE`.
+- **`llama.url` : la base du serveur** (`http://hôte:port`). Une adresse
+  qui finit par `/v1` ou `/v1/chat/completions` reste acceptée et
+  normalisée ; sans `url`, `ip` et `port` servent comme avant.
+- **`llama.api_key`** (facultative, `LLAMA_API_KEY` prioritaire) : la valeur
+  de `--api-key` du serveur, envoyée en `Authorization: Bearer` sur chaque
+  appel au moteur par défaut. Elle n'apparaît dans aucun journal, n'est
+  jamais recopiée dans la configuration d'un compte et la console ne la
+  rend jamais : `********` à l'écran et dans l'éditeur brut, valeur du disque
+  gardée quand ce masque revient, « clé modifiée » dans le détail des
+  modifications.
+- **Sonde du moteur et conseils de lancement.** Au démarrage, `main` sonde
+  le moteur déclaré et journalise une ligne `[moteur]` (version, modèle
+  servi, contexte, métriques, tokenisation exacte, concurrence), puis chaque
+  option manquante avec le drapeau exact : `--reasoning-parser`,
+  `--enable-auto-tool-choice --tool-call-parser`,
+  `--enable-prompt-tokens-details` (vLLM), `--enable-cache-report` et
+  `--enable-metrics` (SGLang), clé refusée, modèle non servi. Console ›
+  Inférence › Capacités montre le même rapport, et « Tester » le refait.
+  Pendant le chat, une réflexion reçue en balises, des appels d'outils reçus
+  en texte ou des jetons en cache non rapportés ajoutent leur conseil, une
+  fois par moteur.
+- **Concurrence** : vLLM et SGLang regroupent eux-mêmes les requêtes
+  (`--max-num-seqs`, `--max-running-requests`) ; Elpis ne les met plus en
+  file, ni pour le moteur par défaut ni pour un connecteur (fin du « une
+  requête à la fois » d'un connecteur vLLM au champ « Requêtes » vide).
+  `llama.max_concurrency` ne s'applique qu'à llama.cpp.
+- **Connecteurs `sglang`** : préréglage « SGLang (local) », réservé aux
+  connecteurs partagés comme `vllm`. Les connecteurs `vllm` et `sglang`
+  suivent le même profil que le moteur par défaut (contexte, jetons exacts,
+  métriques, pas de file) ; leur test peut joindre le rapport de la sonde.
+- **Installeur** (`./install.sh`, `./elpis configure`) : type SGLang ; port
+  par défaut qui suit le type tant qu'aucune adresse n'est saisie (8080,
+  8000, 30000 ; le 8000 local, aussi celui du service RAG, est signalé) ;
+  clé API facultative, saisie masquée (`--llm-api-key`,
+  `ELPIS_CFG_LLM_API_KEY`), écrite sous `llama.api_key` ; nouvelle adresse
+  écrite en base du serveur, seules les valeurs changées sont réécrites.
+  La note finale rappelle les drapeaux conseillés pour vLLM et SGLang, et
+  `logs/install.log` comme le plan `--dry-run` masquent désormais les
+  valeurs de `--llm-api-key`, `--cloud-api-key` et `--admin-password`.
+- **`./elpis doctor`** sonde `GET /v1/models` avec la clé (« clé refusée
+  (HTTP 401) » le cas échéant), rappelle les drapeaux conseillés pour vLLM
+  et SGLang et, si `main` tourne, affiche sa dernière sonde du moteur (lignes
+  `[moteur]` du journal, depuis le dernier démarrage).
+
+### Pour l'utilisateur
+
+- **Réflexion visible avec vLLM et SGLang.** La réflexion envoyée par vLLM
+  (champ `reasoning`) s'affiche dans son bloc, en direct, comme celle de
+  SGLang et de llama.cpp. L'interrupteur Réflexion et le choix de l'effort
+  sont offerts sur ces moteurs, et la réflexion se coupe vraiment quand
+  l'interrupteur est éteint (`enable_thinking` envoyé au gabarit). `top_k`,
+  `min_p` et la pénalité de répétition sont transmis au lieu d'être retirés.
+- **Serveur lancé sans `--reasoning-parser`** : la réflexion d'un modèle qui
+  n'écrit que `</think>` s'affiche d'abord dans la réponse, puis passe dans
+  son bloc à la fin de l'étape, dans la bulle comme dans le message
+  enregistré.
+- **Sélecteur de modèle selon le moteur** : ni « Charger » ni « Décharger »
+  sur vLLM et SGLang ; contexte lu sur le moteur (`max_model_len`), jauge du
+  cache KV et ligne de charge (requêtes en cours et en attente, débit, cache
+  de préfixe), aussi pour un connecteur vLLM ou SGLang ; pied « En ligne ·
+  vLLM ».
+- **Barre de saisie : le nom du modèle seul.** Le serveur (vLLM, SGLang,
+  connecteur…) n'y est plus accolé : les sections du menu le montrent déjà,
+  et il reste dans l'infobulle.
+
 ## 0.1.0 — 2026-10-18
 
 **Le core d'Elpis est réécrit en TypeScript.** L'application (main), la

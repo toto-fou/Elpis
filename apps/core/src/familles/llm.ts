@@ -6,6 +6,7 @@ import type { DependancesAuth } from "@elpis/auth";
 import {
   arrondiPy,
   ErreurPython,
+  estDict,
   FlottantPy,
   getPy,
   intPy,
@@ -70,7 +71,9 @@ import { LLMCircuitOpen, LLMQueueAborted } from "../llm/ordonnanceur";
 import { avecLLM, occupation, oublierServeur, ordonnanceur, tenirModele } from "../llm/ordonnanceur/process";
 import { describeEffectiveParams, describeEffectiveParamsDegraded } from "../llm/parametres";
 import { diffusion, ErreurPortAbsent } from "../llm/ports";
-import { getLlmHealth, setLoadedModelCache } from "../llm/sante";
+import { profilDe, vuePubliqueProfil } from "../llm/profils";
+import { contexteAnnonce, getLlmHealth, setLoadedModelCache } from "../llm/sante";
+import { infosServeur } from "../llm/sonde-moteur";
 import type { Famille } from "../routes";
 import { utilisateur } from "./comptes";
 import { corpsJson, entrees, ouvrirFlux, parametreRequete, py, reponseJsonPy } from "@elpis/http";
@@ -365,7 +368,8 @@ async function testerConnecteur(dep: DependancesLlm, req: FastifyRequest): Promi
   const { cid } = entrees(req, { path: { cid: py.int() } }).path;
   const ligne = await getUserSecret(dep.base, uid, cid);
   if (!ligne) throw new HttpError(404, "Connecteur introuvable");
-  const res = await testConnector(ligne);
+  const sonde = parametreRequete(req, "sonde");
+  const res = await testConnector(ligne, { sonde: sonde === "1" || sonde === "true" });
   auditer(req, uid, "llm.connector.test", {
     connector_id: cid,
     ok: veritePy(res["ok"]),
@@ -382,15 +386,22 @@ async function modelesDuConnecteur(dep: DependancesLlm, req: FastifyRequest): Pr
     throw new HttpError(404, "Connecteur introuvable");
   if (!(await canUseEngine(dep.base, uid, connectorKey(cid))))
     throw new HttpError(403, "Serveur non autorisé");
+  const type = veritePy(ligne["provider_type"]) ? strPy(ligne["provider_type"]) : "";
+  const profil = profilDe(type || "generic");
   const out: Dict = {
     connector_id: cid,
     default_model: veritePy(ligne["default_model"]) ? ligne["default_model"] : "",
-    provider_type: veritePy(ligne["provider_type"]) ? ligne["provider_type"] : "",
+    provider_type: type,
     router: false,
     statuses: {},
     can_manage: false,
   };
-  if ((veritePy(ligne["provider_type"]) ? ligne["provider_type"] : "") === "llamacpp") {
+  if (profil.capacites.modelesServisCharges) {
+    out["moteur"] = vuePubliqueProfil(profil);
+    const servi = await catalogueServi(uid, cid);
+    if (servi !== null) return { ...out, ...servi, ...decorate(ligne, servi["models"] as string[]) };
+  }
+  if (profil.capacites.chargement) {
     const eng = await resolveEngineForUser(uid, connectorKey(cid));
     if (eng !== null) {
       const force = frais(req);
@@ -411,6 +422,32 @@ async function modelesDuConnecteur(dep: DependancesLlm, req: FastifyRequest): Pr
     }
   }
   return { ...out, ...(await fetchModels(ligne)) };
+}
+
+/** Identifiants des modèles annoncés par une santé agrégée (`models_loaded`). */
+function idsAnnonces(sante: Dict): string[] {
+  const liste = sante["models_loaded"];
+  if (!Array.isArray(liste)) return [];
+  return liste.map((m) => strPy(getPy(m, "id", ""))).filter((id) => id && id !== "?");
+}
+
+/** Modèles d'un connecteur vLLM ou SGLang lus sur le moteur lui-même : tous servis donc en mémoire, fenêtre, cache KV et charge. */
+async function catalogueServi(uid: number, cid: number): Promise<Dict | null> {
+  const eng = await resolveEngineForUser(uid, connectorKey(cid));
+  if (eng === null) return null;
+  const sante = await getLlmHealth(eng);
+  const ids = idsAnnonces(sante);
+  if (!veritePy(sante["server_reachable"]) || ids.length === 0) return null;
+  const props = estDict(sante["props"]) ? sante["props"] : {};
+  return {
+    ok: true,
+    status: 200,
+    models: ids,
+    statuses: Object.fromEntries(ids.map((id) => [id, "loaded"])),
+    kv_cache: sante["kv_cache"],
+    n_ctx: typeof props["n_ctx"] === "number" ? props["n_ctx"] : 0,
+    charge: sante["charge"],
+  };
 }
 
 // ── Modèles du serveur (routes.py) ───────────────────────────────────────────
@@ -476,7 +513,8 @@ async function modelesDuServeur(dep: DependancesLlm, req: FastifyRequest, uid: n
     router: false,
     can_manage: false,
   };
-  if (!eng.isLlamacpp) return { ...vide, status: "unsupported" };
+  if (eng.profil.capacites.modelesServisCharges) return catalogueSansChargement(eng, vide);
+  if (!eng.profil.capacites.chargement) return { ...vide, status: "unsupported" };
   const force = frais(req);
   const caps = await engineCaps("", { engine: eng, force });
   if (!caps.known) return vide;
@@ -494,6 +532,42 @@ async function modelesDuServeur(dep: DependancesLlm, req: FastifyRequest, uid: n
     out["models_loaded"] = [...st].filter(([, v]) => v === "loaded").map(([m]) => m);
   }
   return out;
+}
+
+/** Même forme que l'intégré pour un moteur qui sert ce qu'il annonce (vLLM, SGLang) : son `/v1/models`, sa santé, ses métriques. */
+async function catalogueSansChargement(eng: EngineRef, vide: Dict): Promise<Dict> {
+  const sante = await getLlmHealth(eng);
+  const ids = idsAnnonces(sante);
+  return {
+    ...vide,
+    server_reachable: veritePy(sante["server_reachable"]),
+    status: strPy(sante["status"] ?? "unreachable"),
+    models: ids,
+    models_with_status: ids.map((id) => ({ id, status: "loaded" })),
+    models_loaded: ids,
+    kv_cache: sante["kv_cache"],
+    props: estDict(sante["props"]) ? sante["props"] : {},
+    charge: sante["charge"],
+    moteur: sante["moteur"],
+  };
+}
+
+/** Propriétés d'un modèle d'après `/v1/models` (`max_model_len` de vLLM, SGLang) et les informations du moteur ; jamais la clé d'API. */
+async function proprietesAnnoncees(eng: EngineRef, modelId: string): Promise<Dict> {
+  const data = await llamaGet(eng.profil.chemins.modeles, 5.0, { engine: eng });
+  const entrees = estDict(data) && Array.isArray(data["data"]) ? data["data"].filter(estDict) : [];
+  const entree =
+    entrees.find((m) => m["id"] === modelId || m["root"] === modelId) ?? (entrees.length ? entrees[0] : null);
+  if (!estDict(entree)) throw new HttpError(404, "Could not retrieve model properties");
+  const inf = await infosServeur(eng);
+  const n = contexteAnnonce(data, modelId);
+  return {
+    ...entree,
+    moteur: eng.profil.libelle,
+    ...(inf.version ? { version: inf.version } : {}),
+    ...(n > 0 ? { n_ctx: n } : {}),
+    ...(inf.maxRequetes ? { max_running_requests: inf.maxRequetes } : {}),
+  };
 }
 
 /** Les deux routes Starlette derrière le joker `/api/llm/models/*` (`{model_id:path}` = `.*` de Python, saut de ligne exclu). */
@@ -520,8 +594,9 @@ async function proprietes(
   const uid = utilisateur(req);
   const eng = await moteurPour(dep, req, uid);
   void rep.headers(SANS_CACHE);
+  if (eng.profil.capacites.contexte === "modeles") return proprietesAnnoncees(eng, modelId);
   if (!eng.isBuiltin) {
-    if (!eng.isLlamacpp) throw new HttpError(404, "Propriétés indisponibles pour ce serveur");
+    if (!eng.profil.capacites.props) throw new HttpError(404, "Propriétés indisponibles pour ce serveur");
     const props = await llamaGet(`/props?model=${quotePy(modelId, "")}&autoload=false`, 5.0, { engine: eng });
     if (!veritePy(props)) throw new HttpError(404, "Could not retrieve model properties");
     return props;
@@ -595,10 +670,12 @@ async function parametresEffectifs(
     }
   };
   if (!eng.isBuiltin) {
-    if (degrade || !eng.isLlamacpp) return describeEffectiveParamsDegraded(modelId, task);
+    if (degrade || !eng.profil.capacites.props)
+      return describeEffectiveParamsDegraded(modelId, task, eng.providerType);
     return resoudre(eng);
   }
-  if (degrade || !estModeleLocal(modelId)) return describeEffectiveParamsDegraded(modelId, task);
+  if (degrade || !estModeleLocal(modelId))
+    return describeEffectiveParamsDegraded(modelId, task, eng.providerType);
   return resoudre(null);
 }
 
@@ -617,6 +694,7 @@ async function chargerModele(dep: DependancesLlm, req: FastifyRequest): Promise<
     strPy(veritePy(getPy(data, "engine")) ? getPy(data, "engine") : ""),
   );
   await exigerGestion(dep, uid);
+  if (!eng.profil.capacites.chargement) return sansChargement(eng);
   if (!eng.isBuiltin) return chargerSurConnecteur(dep, eng, modelPath, nom);
   diffuserLog(`[LLM] Chargement modèle: ${modelPath} (par ${nom})`, "INFO");
   const tenu = await tenirModele(eng, modelPath);
@@ -652,7 +730,6 @@ async function chargerSurConnecteur(
   modelPath: string,
   nom: string,
 ): Promise<Dict> {
-  if (!eng.isLlamacpp) return { ok: false, error: "Serveur sans gestion de modèles." };
   const tenu = await tenirModele(eng, modelPath);
   let resultat: Dict;
   try {
@@ -686,6 +763,7 @@ async function dechargerModele(dep: DependancesLlm, req: FastifyRequest): Promis
   );
   await exigerGestion(dep, uid);
   const force = veritePy(getPy(data, "force"));
+  if (!eng.profil.capacites.chargement) return sansChargement(eng);
   if (!eng.isBuiltin) return dechargerSurConnecteur(dep, eng, modelId, nom, force);
   if (!force) {
     const etat = occupation(eng);
@@ -711,6 +789,16 @@ async function dechargerModele(dep: DependancesLlm, req: FastifyRequest): Promis
   return resultat;
 }
 
+/** Chargement demandé à un moteur qui n'en a pas (vLLM, SGLang : modèle choisi au lancement du serveur). */
+function sansChargement(eng: EngineRef): Dict {
+  if (!eng.profil.capacites.modelesServisCharges)
+    return { ok: false, error: "Serveur sans gestion de modèles." };
+  return {
+    ok: false,
+    error: `${eng.profil.libelle} ne charge ni ne décharge de modèle : le modèle est choisi au lancement du serveur.`,
+  };
+}
+
 function refusOccupe(occupe: string, actifs: number): Dict {
   return {
     ok: false,
@@ -727,7 +815,6 @@ async function dechargerSurConnecteur(
   nom: string,
   force: boolean,
 ): Promise<Dict> {
-  if (!eng.isLlamacpp) return { ok: false, error: "Serveur sans gestion de modèles." };
   if (!force) {
     const etat = occupation(eng);
     if (etat.active_count > 0) return refusOccupe(etat.current_model || "?", etat.active_count);

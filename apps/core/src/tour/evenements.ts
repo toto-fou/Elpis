@@ -6,10 +6,10 @@ import { config } from "@elpis/config";
 
 import { journal } from "../journal";
 import { getLlmClient } from "../llm/client-http";
-import { baseServeur, cachedCaps } from "../llm/fournisseurs/llama-capacites";
+import { cachedCaps } from "../llm/fournisseurs/llama-capacites";
 import { cancelStream, conversationId } from "../llm/fournisseurs/llama-flux";
 import { watchLoad } from "../llm/fournisseurs/llama-modeles";
-import { resolveEngineForUser } from "../llm/moteurs";
+import { builtinEngine, resolveEngineForUser } from "../llm/moteurs";
 import type { EngineRef } from "../llm/moteurs";
 import { isChatCancelled } from "./etat";
 import { currentRun } from "./journal-run";
@@ -20,29 +20,33 @@ const log = journal("uvicorn.error");
 export async function cancelEngineStream(uid: number, chatId: string): Promise<void> {
   try {
     if (!config.LLAMA_RESUMABLE_STREAM) return;
-    let engine: EngineRef | null = null;
+    let engine: EngineRef = builtinEngine();
     try {
       const cur = currentRun(uid, chatId);
       const cle = String((cur?.["engine_key"] as string | undefined) || "builtin");
       if (cle !== "builtin") {
-        engine = await resolveEngineForUser(uid, cle);
-        if (engine === null || !engine.isLlamacpp) return;
+        const resolu = await resolveEngineForUser(uid, cle);
+        if (resolu === null) return;
+        engine = resolu;
       }
     } catch (e) {
       log.debug(`[chat.cancel_engine.resolve] ${String(e).slice(0, 120)}`);
     }
-    const caps = engine !== null ? cachedCaps("", { engine }) : cachedCaps();
+    if (!engine.profil.capacites.fluxReprenable) return;
+    const caps = engine.isBuiltin ? cachedCaps() : cachedCaps("", { engine });
     if (caps.known && !caps.resumableStream) return;
     const conv = conversationId(uid, chatId);
     if (!conv) return;
-    if (engine !== null) {
-      const auth = engine.headerDict();
-      await cancelStream(getLlmClient(engine.baseRoot), engine.baseRoot, conv, "", {
+    const auth = engine.headerDict();
+    await cancelStream(
+      engine.isBuiltin ? getLlmClient() : getLlmClient(engine.baseRoot),
+      engine.baseRoot,
+      conv,
+      "",
+      {
         headers: Object.keys(auth).length ? auth : null,
-      });
-      return;
-    }
-    await cancelStream(getLlmClient(), baseServeur(config.LLAMA_URL), conv);
+      },
+    );
   } catch (e) {
     log.debug(`[chat_cancel] arrêt moteur indisponible : ${String(e).slice(0, 120)}`);
   }

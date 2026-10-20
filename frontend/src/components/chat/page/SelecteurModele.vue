@@ -1,9 +1,27 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/page/SelecteurModele.vue — sélecteur de modèle : serveur intégré et connecteurs, chargement, infos, pied d'état. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
 import { CLE_MODELES, domaine } from "../../../features/chat/page/domaines";
+import { resumeCharge } from "../../../features/chat/modeles/charge";
 
 const mod = domaine(CLE_MODELES);
+
+// Jauge du cache KV du moteur visé : l'intégré, ou le connecteur choisi s'il expose ses métriques.
+const jauge = computed(() => {
+  if (mod.selectedConnector) {
+    const kv = mod.pickerConnState[mod.selectedConnector]?.kv;
+    return kv && kv.total > 0 ? kv : null;
+  }
+  const kv = mod.builtinAllowed ? mod.llmHealth?.kv_cache : null;
+  return kv && kv.total > 0 ? kv : null;
+});
+const ligneCharge = computed(() =>
+  resumeCharge(
+    mod.selectedConnector ? mod.pickerConnState[mod.selectedConnector]?.charge : mod.llmHealth?.charge,
+  ),
+);
 </script>
 
 <template>
@@ -15,7 +33,15 @@ const mod = domaine(CLE_MODELES);
       :class="mod.showModelManager ? 'bg-slate-100 text-slate-700' : ''"
       @click="mod.toggleModelMenu()"
     >
-      <span class="max-w-[150px] truncate" :title="mod.selectedModelLabel">{{ mod.selectedModelLabel }}</span>
+      <span
+        class="max-w-[150px] truncate"
+        :title="
+          mod.selectedConnector && mod.selectedEngineMeta?.label
+            ? mod.selectedModelLabel + ' · ' + mod.selectedEngineMeta.label
+            : mod.selectedModelLabel
+        "
+        >{{ mod.selectedModelLabel }}</span
+      >
       <i
         class="ph ph-caret-down text-[10px] transition-transform"
         :class="mod.showModelManager && 'rotate-180'"
@@ -29,31 +55,25 @@ const mod = domaine(CLE_MODELES);
         @keydown="mod.onModelMenuKeydown"
         @click.stop
       >
-        <div
-          v-if="
-            !mod.selectedConnector &&
-            mod.builtinAllowed &&
-            mod.llmHealth &&
-            mod.llmHealth.kv_cache &&
-            mod.llmHealth.kv_cache.total > 0
-          "
-          class="px-3 py-2 bg-slate-50 border-b"
-        >
+        <div v-if="jauge" class="px-3 py-2 bg-slate-50 border-b" data-jauge-kv>
           <div class="flex items-center justify-between text-[10px] text-slate-500 mb-1">
             <span>KV Cache</span>
-            <span class="font-mono font-semibold" :class="mod.kvTextClass(mod.llmHealth.kv_cache.pct)"
-              >{{ mod.llmHealth.kv_cache.used }} / {{ mod.llmHealth.kv_cache.total }}</span
+            <span class="font-mono font-semibold" :class="mod.kvTextClass(jauge.pct)"
+              >{{ jauge.used }} / {{ jauge.total }}</span
             >
           </div>
           <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
             <div
               class="h-full w-full rounded-full transition-transform duration-500"
-              :class="mod.kvBarClass(mod.llmHealth.kv_cache.pct)"
+              :class="mod.kvBarClass(jauge.pct)"
               :style="{
                 transformOrigin: 'left',
-                transform: 'scaleX(' + mod.llmHealth.kv_cache.pct / 100 + ')',
+                transform: 'scaleX(' + jauge.pct / 100 + ')',
               }"
             ></div>
+          </div>
+          <div v-if="ligneCharge" class="mt-1 text-[10px] text-slate-500 font-mono" data-charge-moteur>
+            {{ ligneCharge }}
           </div>
         </div>
 
@@ -133,7 +153,7 @@ const mod = domaine(CLE_MODELES);
                 <i class="ph ph-info text-xs"></i>
               </button>
               <button
-                v-if="mod.canManageModels"
+                v-if="mod.chargementIntegre"
                 class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-xs transition-all border"
                 :class="
                   mod.isLoadingModel === m
@@ -250,15 +270,15 @@ const mod = domaine(CLE_MODELES);
                   >gratuit</span
                 >
               </div>
+              <button
+                v-if="mod.isConnModelLoaded(conn.id, cm)"
+                class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-xs transition-all border border-slate-200 text-slate-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
+                title="Infos modèle"
+                @click.stop="mod.fetchModelProps(cm, 'conn:' + conn.id)"
+              >
+                <i class="ph ph-info text-xs"></i>
+              </button>
               <template v-if="mod.pickerConnState[conn.id] && mod.pickerConnState[conn.id]?.router">
-                <button
-                  v-if="mod.isConnModelLoaded(conn.id, cm)"
-                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-xs transition-all border border-slate-200 text-slate-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
-                  title="Infos modèle"
-                  @click.stop="mod.fetchModelProps(cm, 'conn:' + conn.id)"
-                >
-                  <i class="ph ph-info text-xs"></i>
-                </button>
                 <button
                   v-if="mod.pickerConnState[conn.id]?.canManage"
                   class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-xs transition-all border"
@@ -298,6 +318,7 @@ const mod = domaine(CLE_MODELES);
             >
               <i class="ph" :class="mod.llmHealth.server_reachable ? 'ph-check-circle' : 'ph-wifi-slash'"></i>
               {{ mod.llmHealth.status === "ok" ? "En ligne" : mod.llmHealth.status || "" }}
+              <template v-if="mod.moteurIntegre"> · {{ mod.moteurIntegre.libelle }}</template>
             </span>
             <span
               v-if="mod.builtinAllowed && mod.llmHealth && mod.llmHealth.props && mod.llmHealth.props.n_ctx"

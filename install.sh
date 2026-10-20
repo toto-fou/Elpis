@@ -81,7 +81,10 @@
 #      ./install.sh --yes --db external -- --db postgres --db-host db.lan
 #      ./install.sh --yes -- --listen lan   (HTTP ouvert au réseau ; défaut :
 #                                          127.0.0.1, ce serveur seulement)
-#      (mots de passe : ELPIS_CFG_ADMIN_PASSWORD, ELPIS_CFG_DB_PASSWORD)
+#      ./install.sh --yes -- --engine vllm --llm-url http://gpu:8000
+#                                         (llamacpp, vllm, sglang ou generic)
+#      (secrets par l'environnement : ELPIS_CFG_ADMIN_PASSWORD,
+#       ELPIS_CFG_DB_PASSWORD, ELPIS_CFG_LLM_API_KEY)
 #
 #  Journal complet : logs/install.log (les écrans de l'assistant n'y passent
 #  pas, les mots de passe non plus).
@@ -170,10 +173,24 @@ fi
 INTERACTIVE=1
 { [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ] || [ "$DRY_RUN" -eq 1 ]; } && INTERACTIVE=0
 
+# Options de configure pour l'écran et le journal : valeurs des secrets masquées.
+args_masques() {
+    local a masquer=0 out=()
+    for a in "$@"; do
+        if [ "$masquer" -eq 1 ]; then out+=("********"); masquer=0; continue; fi
+        case "$a" in
+            --llm-api-key|--cloud-api-key|--admin-password) out+=("$a"); masquer=1 ;;
+            --llm-api-key=*|--cloud-api-key=*|--admin-password=*) out+=("${a%%=*}=********") ;;
+            *) out+=("$a") ;;
+        esac
+    done
+    printf '%s' "${out[*]}"
+}
+
 # ── Journal ──────────────────────────────────────────────────────────────────
 if [ "$DRY_RUN" -eq 0 ]; then
     mkdir -p "$ROOT/logs"
-    { echo; echo "===== install.sh $(date -Is) $* ====="; } >> "$ROOT/logs/install.log"
+    { echo; echo "===== install.sh $(date -Is) $(args_masques "$@") ====="; } >> "$ROOT/logs/install.log"
     # Tout ce qui s'affiche part aussi dans le journal. L'assistant, lui,
     # écrit sur /dev/tty : ses écrans (et les mots de passe) n'y passent pas.
     exec > >(tee -a "$ROOT/logs/install.log") 2>&1
@@ -734,7 +751,7 @@ plan_dry_run() {
         [ "$AS_ROOT" -eq 1 ] || DRY_SUDO_REQUIS+=("Caddy")
     fi
     if [ "$DO_CONFIGURE" = 1 ]; then
-        etape "configuration : ./elpis configure --yes${CONFIGURE_ARGS[*]:+ ${CONFIGURE_ARGS[*]}} (config.json, .env, mcp.json)"
+        etape "configuration : ./elpis configure --yes${CONFIGURE_ARGS[*]:+ $(args_masques "${CONFIGURE_ARGS[@]}")} (config.json, .env, mcp.json)"
     elif [ -f "$ROOT/config.json" ]; then
         etape "configuration : gardée (config.json et .env inchangés ; mcp.json suit la version : relais, familles d'outils)"
     fi
@@ -1209,6 +1226,9 @@ cat <<EOF
   Journal       : logs/install.log
 
 EOF
+# vLLM ou SGLang : drapeaux de lancement conseillés, les mêmes que ./elpis doctor.
+conseils="$(python3 "$ROOT/deploy/configure.py" --conseils-moteur 2>/dev/null)"
+[ -n "$conseils" ] && printf '%s\n\n' "$conseils" | sed 's/^/  /'
 # Mot de passe administrateur généré : à l'écran seulement, jamais au journal.
 if [ "$TUI" -eq 1 ] && [ -n "$ANSWERS" ] && [ -f "$ANSWERS" ]; then
     python3 "$ROOT/deploy/wizard.py" final-note "$ANSWERS" > /dev/tty 2>/dev/null || true

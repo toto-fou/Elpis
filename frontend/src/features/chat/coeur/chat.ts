@@ -646,6 +646,8 @@ export function setupChat(
     builtinAllowed: modeles.builtinAllowed,
     canManageModels: modeles.canManageModels,
     noEngineAllowed: modeles.noEngineAllowed,
+    moteurIntegre: modeles.moteurIntegre,
+    chargementIntegre: modeles.chargementIntegre,
     selectedEngineMeta: e.selectedEngineMeta,
     pickLocalModel: modeles.pickLocalModel,
     pickConnectorModel: modeles.pickConnectorModel,

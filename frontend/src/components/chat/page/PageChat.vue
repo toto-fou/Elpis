@@ -121,6 +121,7 @@ function surFichiers(e: Event): void {
                                        (cf. handleInputKeydown). Pas de file d'attente. -->
             <ZoneSaisie
               v-model:texte="p.inputMessage"
+              :nouveau-chat="p.messages.length === 0"
               :placeholder="
                 p.isStreaming
                   ? 'Préparez votre prochain message… (envoi possible une fois la génération terminée)'

@@ -118,7 +118,7 @@ lecture des documents reste en Python, dans l'extracteur `rag_app`.
 - **Barre de saisie : le nom du modèle seul.** Le serveur (vLLM, SGLang,
   connecteur…) n'y est plus accolé : les sections du menu le montrent déjà,
   et il reste dans l'infobulle.
-- **Page RAG** (barre latérale, sous Sandbox) : collections, dépôt de
+- **Page RAG** (barre latérale, sous-menu « Plus ») : collections, dépôt de
   fichiers et de dossiers, import depuis la sandbox, progression de
   l'indexation, onglet Tester (passages que l'assistant recevrait), réglages
   (description lue par l'assistant, découpage, OCR des documents scannés).
@@ -133,6 +133,11 @@ lecture des documents reste en Python, dans l'extracteur `rag_app`.
   texte extrait, original si le propriétaire l'a permis).
 - Le panneau « Sources RAG » de la saisie et l'interrupteur RAG des
   Paramètres disparaissent.
+- **Barre latérale** : RAG, Studio et Remote code rangés dans le sous-menu
+  « Plus » ; liste des chats plus nette (titres sur toute la largeur, section
+  « Conversations » avec recherche et sélection), coins arrondis côté chat.
+- **Nouveau chat** : zone de saisie sur deux lignes. Panneau MCP : la section
+  « Locaux » devient « Internes ».
 
 ### Sécurité
 

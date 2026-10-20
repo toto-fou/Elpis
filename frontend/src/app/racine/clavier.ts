@@ -15,6 +15,7 @@ export interface EtatClavier {
   readonly showOpenCodeModal: Ref<boolean>;
   readonly imgZoom: Ref<string | null>;
   readonly showNotifPanel: Ref<boolean>;
+  readonly menuPagesOuvert: Ref<boolean>;
   readonly currentView: Ref<string>;
   readonly inputMessage: Ref<string>;
   readonly inputRef: Ref<HTMLTextAreaElement | null>;
@@ -265,6 +266,10 @@ export function creerClavier(s: EtatClavier) {
     }
     if (s.showNotifPanel.value) {
       s.showNotifPanel.value = false;
+      return;
+    }
+    if (s.menuPagesOuvert.value) {
+      s.menuPagesOuvert.value = false;
       return;
     }
     if (r?.showSharedPrompts.value) {

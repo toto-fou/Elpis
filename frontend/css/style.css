@@ -876,6 +876,10 @@ aside.elpis-slide-panel input {
     color: var(--rail-text-strong);
 }
 aside.elpis-slide-panel .focus\:border-blue-500\/60:focus { border-color: color-mix(in srgb, var(--accent-500) 60%, transparent); }
+/* Sélection multiple : cases et « Supprimer » lisibles sur rail clair comme sombre */
+aside.elpis-slide-panel .border-white\/25 { border-color: color-mix(in srgb, var(--rail-muted) 75%, transparent); }
+aside.elpis-slide-panel .hover\:border-white\/50:hover { border-color: var(--rail-muted); }
+aside.elpis-slide-panel .text-red-300 { color: color-mix(in srgb, #dc2626 45%, var(--rail-text-strong)); }
 /* Bouton Admin (privilège, vert sémantique) — adapté au rail via --rail-ok */
 aside.elpis-slide-panel .text-emerald-400 { color: var(--rail-ok); }
 aside.elpis-slide-panel .hover\:text-emerald-300:hover { color: var(--rail-ok-strong); }
@@ -889,6 +893,28 @@ aside.elpis-slide-panel .custom-scrollbar::-webkit-scrollbar-thumb:hover { backg
 aside.elpis-slide-panel .elpis-notif-pop .text-slate-300 { color: var(--text-300); }
 aside.elpis-slide-panel .elpis-notif-pop .text-slate-400 { color: var(--text-400); }
 aside.elpis-slide-panel .elpis-notif-pop .text-slate-500 { color: var(--text-500); }
+/* Chat en cours de génération (volet) : point d'accent dont le halo respire.
+   Indicateur d'activité, pas une décoration : il garde son pouls même en
+   mouvement réduit (une pastille figée se lit comme un gel), sans déplacement. */
+.elpis-run-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+    animation: elpis-run-dot 1.8s ease-in-out infinite;
+}
+@keyframes elpis-run-dot {
+    50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 6%, transparent); }
+}
+/* Sous-menu « Plus » (RAG, Studio, Remote code) : enfant DOM du rail posé en
+   fixed à sa droite ; même fond et mêmes remaps que le rail, qu'il prolonge. */
+aside.elpis-slide-panel .elpis-rail-flyout {
+    --sb-ring-offset: var(--rail-bg);
+    background: var(--rail-bg);
+    border-color: var(--rail-border);
+    color: var(--rail-text);
+}
 
 /* Fondu de scroll sur la liste d'historique : le contenu se dissout en haut/bas
    au lieu d'être coupé net. Les classes .fade-top / .fade-bottom sont posées
@@ -905,7 +931,10 @@ aside.elpis-slide-panel .elpis-notif-pop .text-slate-500 { color: var(--text-500
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--sb-fade-top), #000 calc(100% - var(--sb-fade-bottom)), transparent 100%);
           mask-image: linear-gradient(to bottom, transparent 0, #000 var(--sb-fade-top), #000 calc(100% - var(--sb-fade-bottom)), transparent 100%);
   transition: --sb-fade-top 0.18s ease, --sb-fade-bottom 0.18s ease;
+  /* Pas de barre de défilement : la molette, le pavé et le clavier défilent, le fondu signale la suite. */
+  scrollbar-width: none;
 }
+.chat-history-scroll::-webkit-scrollbar { display: none; }
 .chat-history-scroll.fade-top    { --sb-fade-top: 22px; }
 .chat-history-scroll.fade-bottom { --sb-fade-bottom: 28px; }
 @media (prefers-reduced-motion: reduce) {

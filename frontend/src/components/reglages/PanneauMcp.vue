@@ -26,7 +26,7 @@ const rg = domaineReglages();
 
     <div class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-6">
       <div class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200">
-        <div class="text-xs font-semibold text-slate-500 mb-3">Locaux</div>
+        <div class="text-xs font-semibold text-slate-500 mb-3">Internes</div>
 
         <div v-if="rg.mcpUserCategories.length === 0" class="text-center py-3 text-xs text-slate-400 italic">
           Aucune catégorie d'outils active pour le moment.<br />Un administrateur peut en activer via la

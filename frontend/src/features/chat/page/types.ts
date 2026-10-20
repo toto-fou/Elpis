@@ -431,7 +431,9 @@ export type DomaineBarre = Pick<
   openContextMenu(e: Event, type: string, item: ChatResume): unknown;
   toggleEditor(): unknown;
   openRoutinesPage(): unknown;
-  /** Le compte a le droit RAG : l'entrée « RAG » du volet latéral n'existe que pour lui. */
+  /** Sous-menu « Plus » du volet ouvert (RAG, Studio, Remote code). */
+  menuPagesOuvert: boolean;
+  /** Le compte a le droit RAG : l'entrée « RAG » du sous-menu « Plus » n'existe que pour lui. */
   readonly ragAllowed: boolean;
   openRagPage(): unknown;
   openStudio(): unknown;

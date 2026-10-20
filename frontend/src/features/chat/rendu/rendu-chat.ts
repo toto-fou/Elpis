@@ -55,7 +55,7 @@ export function creerRenduChat(
     });
   }
 
-  // Plancher de deux lignes : la barre grandit jusqu'à 150 px avant de défiler.
+  // Plancher d'une ligne (deux sur la page de nouveau chat, par la min-height de ZoneSaisie) : la barre grandit jusqu'à 150 px avant de défiler.
   function autoResize(): void {
     const el = inputRef.value;
     if (!el) return;

@@ -581,6 +581,8 @@ export function creerRacine(options: OptionsRacine = {}) {
   const systemAlert = ref("");
   const showInfoModal = ref(false);
   const showExportMenu = ref(false);
+  // Sous-menu « Plus » du volet latéral (RAG, Studio, Remote code) : la cascade d'Échap le referme.
+  const menuPagesOuvert = ref(false);
   const imgZoom = ref<string | null>(null);
   // Un seul journal en direct : le flux système y écrit, la console le lit.
   const liveLogs = ref<unknown[]>([]);
@@ -927,6 +929,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     showOpenCodeModal: opencode.showOpenCodeModal,
     imgZoom,
     showNotifPanel: n.showNotifPanel,
+    menuPagesOuvert,
     currentView,
     inputMessage,
     inputRef,
@@ -1125,6 +1128,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     imgZoom,
     liveLogs,
     showExportMenu,
+    menuPagesOuvert,
     notifications: n.notifications,
     notifUnread: n.notifUnread,
     showNotifPanel: n.showNotifPanel,

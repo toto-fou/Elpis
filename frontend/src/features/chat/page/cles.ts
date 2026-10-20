@@ -343,6 +343,7 @@ const BARRE: Cles<DomaineBarre> = {
   openContextMenu: true,
   toggleEditor: true,
   openRoutinesPage: true,
+  menuPagesOuvert: true,
   ragAllowed: true,
   openRagPage: true,
   openStudio: true,

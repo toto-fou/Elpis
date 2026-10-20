@@ -144,7 +144,7 @@ et on ferme des panneaux au-dessus du chat.
 
 | Zone | Contenu |
 |---|---|
-| **Barre latérale (gauche)** | Nouveau chat, recherche, liste des conversations, notifications, accès aux vues (MCP, Sandbox, Routines, Studio, Remote code), Paramètres, Admin |
+| **Barre latérale (gauche)** | Nouveau chat, recherche, liste des conversations, notifications, accès aux vues (MCP, Sandbox, Routines ; RAG, Studio et Remote code dans le sous-menu **Plus**), Paramètres, Admin |
 | **Zone centrale** | La conversation |
 | **Panneau droit (optionnel)** | L'éditeur de code + le terminal |
 | **Barre de saisie (bas)** | Message, pièces jointes, sélecteur de modèle, réglages de génération, collections RAG actives (pastilles), mode réflexion, chip des tâches en cours |
@@ -723,7 +723,7 @@ ou JSON.
 
 Accessible par l'icône **MCP** de la barre latérale :
 
-- **Locaux** — les catégories intégrées (Fichiers, Terminal, Git, Navigateur,
+- **Internes** — les catégories intégrées (Fichiers, Terminal, Git, Navigateur,
   Contrôle d'écran, Graphiques, Mémoire). Une case par catégorie.
 - **Déclarés** — les serveurs installés avec l'application, s'il y en a.
 - **Externes** — vos serveurs MCP et ceux de la bibliothèque partagée que vous
@@ -796,7 +796,7 @@ Voir [Le RAG](#le-rag) pour le fonctionnement.
 
 ### La page RAG
 
-Entrée **RAG** de la barre latérale, sous Sandbox. À gauche : **Mes
+Entrée **RAG** du sous-menu **Plus** de la barre latérale. À gauche : **Mes
 collections**, **Partagées avec moi** (avec la pastille de l'auteur), la
 progression des indexations et votre quota de stockage. À la première visite,
 déposez des fichiers : la collection se crée.

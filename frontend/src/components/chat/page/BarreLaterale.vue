@@ -7,6 +7,7 @@ import type { ComponentPublicInstance } from "vue";
 import { LOGO_ELPIS } from "../../../features/communs/logo";
 import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
 import { fonduDefilement } from "../../../features/chat/page/fondu-defilement";
+import MenuPagesPlus from "./MenuPagesPlus.vue";
 
 const b = domaine(CLE_BARRE);
 let detacherFondu: (() => void) | null = null;
@@ -35,9 +36,10 @@ onBeforeUnmount(() => brancherFondu(null));
     @click="b.showSidebar = false"
   ></div>
   <!-- Fond/texte/bordure du rail : tokens --rail-* (style.css), plus de
-               bg-[#0f172a] en dur — chaque skin re-teinte via ses tokens. -->
+               bg-[#0f172a] en dur — chaque skin re-teinte via ses tokens.
+               Coins côté chat arrondis (10 px) ; overflow-hidden y découpe le pied. -->
   <aside
-    class="elpis-slide-panel h-full flex flex-col shrink-0 border-r z-50 overflow-hidden"
+    class="elpis-slide-panel h-full flex flex-col shrink-0 border-r rounded-r-[10px] z-50 overflow-hidden"
     :class="[
       b.editorFullscreen ? 'pointer-events-none border-none' : '',
       !b.editorFullscreen && b.showSidebar ? 'fixed lg:relative shadow-2xl' : '',
@@ -133,20 +135,6 @@ onBeforeUnmount(() => brancherFondu(null));
         <span v-if="b.showEditor" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-400"></span>
       </button>
       <button
-        v-if="b.ragAllowed"
-        title="RAG"
-        :aria-pressed="b.currentView === 'rag' ? 'true' : 'false'"
-        class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
-        :class="
-          b.currentView === 'rag'
-            ? 'bg-blue-600/20 text-blue-300'
-            : 'text-slate-400 hover:bg-white/10 hover:text-white'
-        "
-        @click="b.openRagPage"
-      >
-        <i class="ph ph-books text-lg"></i>
-      </button>
-      <button
         title="Routines"
         class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
         :class="
@@ -158,31 +146,7 @@ onBeforeUnmount(() => brancherFondu(null));
       >
         <i class="ph ph-clock-countdown text-lg"></i>
       </button>
-      <button
-        title="Studio d'annotation — captures d'écran et annotation (vision)"
-        class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
-        :class="
-          b.currentView === 'studio'
-            ? 'bg-blue-600/20 text-blue-300'
-            : 'text-slate-400 hover:bg-white/10 hover:text-white'
-        "
-        @click="b.openStudio"
-      >
-        <i class="ph ph-bounding-box text-lg"></i>
-      </button>
-      <button
-        v-if="b.features.opencode"
-        title="Remote code — sessions opencode déportées"
-        class="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
-        :class="
-          b.currentView === 'code'
-            ? 'bg-blue-600/20 text-blue-300'
-            : 'text-slate-400 hover:bg-white/10 hover:text-white'
-        "
-        @click="b.openCodePage"
-      >
-        <i class="ph ph-terminal-window text-lg"></i>
-      </button>
+      <MenuPagesPlus :compact="true" />
       <div class="mt-auto flex flex-col items-center gap-1">
         <div class="w-6 h-px bg-white/10 my-0.5"></div>
         <button
@@ -249,10 +213,10 @@ onBeforeUnmount(() => brancherFondu(null));
     <!--  VUE DÉPLOYÉE (260px)                                         -->
     <!-- ============================================================ -->
     <div v-show="b.showSidebar" class="w-[260px] flex flex-col flex-1 min-h-0">
-      <!-- En-tête : MARQUE (assistant). Icône en chip NEUTRE pour réserver
-                   le bleu plein au seul bouton d'action. Le compte utilisateur est
+      <!-- En-tête : MARQUE (assistant) et repli du volet ; la recherche vit
+                   dans la section « Conversations ». Le compte utilisateur est
                    en pied (pattern produit : app en haut, compte en bas). -->
-      <div class="px-3 h-16 flex justify-between items-center shrink-0 border-b border-white/[0.06]">
+      <div class="pl-3.5 pr-2.5 h-14 flex justify-between items-center shrink-0">
         <div class="elpis-kiki-hote flex items-center gap-2.5 min-w-0">
           <span
             v-if="b.skinCourant.mascot === 'kiki' && b.logoApp === LOGO_ELPIS"
@@ -265,46 +229,41 @@ onBeforeUnmount(() => brancherFondu(null));
           <img v-else :src="b.logoApp" alt="" class="w-8 h-8 rounded-lg object-cover shadow-sm shrink-0" />
           <span class="font-semibold text-[15px] text-white tracking-tight truncate">{{ b.nomMarque }}</span>
         </div>
-        <div class="flex items-center gap-0.5 shrink-0">
-          <button
-            title="Rechercher un chat"
-            class="w-7 h-7 rounded-md hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-            @click="b.openChatSearch"
-          >
-            <i class="ph ph-magnifying-glass"></i>
-          </button>
-          <button
-            title="Réduire le panneau"
-            class="w-7 h-7 rounded-md hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-            @click="b.showSidebar = false"
-          >
-            <i class="ph ph-caret-double-left"></i>
-          </button>
-        </div>
+        <button
+          title="Réduire le panneau"
+          class="w-[30px] h-[30px] rounded-lg hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0"
+          @click="b.showSidebar = false"
+        >
+          <i class="ph ph-caret-double-left"></i>
+        </button>
       </div>
 
       <!-- Action primaire + MENU vertical (items empilés, à la claude.ai).
                    "Nouveau chat" = seul élément plein bleu (action principale).
-                   Puis Skills (nav page) et MCP / Éditeur (toggles) en
-                   lignes pleine largeur, même langage visuel, rythme serré.
+                   Puis MCP / Sandbox (bascules) et Routines en lignes pleine
+                   largeur, même langage visuel, rythme serré ; « Plus » range RAG,
+                   Studio et Remote code dans un sous-menu (MenuPagesPlus.vue).
                    MCP/Éditeur basculent currentView -> 'chat' pour ne pas ouvrir
                    le panneau caché derrière une vue pleine page. -->
-      <div class="p-3 shrink-0">
-        <button
-          title="Nouveau chat (Ctrl+Maj+O)"
-          class="w-full px-3 py-2 mb-2 rounded-lg bg-blue-700 hover:bg-blue-600 active:scale-[0.99] ring-1 ring-inset ring-white/10 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-sm shadow-blue-950/50 transition-all"
-          @click="b.startNewChat"
-        >
-          <i class="ph ph-plus text-base"></i>
-          <span>Nouveau chat</span>
-        </button>
+      <div class="px-2 pt-0.5 shrink-0">
+        <!-- Bouton d'origine, inchangé : px-1 lui rend son retrait de 12 px. -->
+        <div class="px-1">
+          <button
+            title="Nouveau chat (Ctrl+Maj+O)"
+            class="w-full px-3 py-2 mb-2 rounded-lg bg-blue-700 hover:bg-blue-600 active:scale-[0.99] ring-1 ring-inset ring-white/10 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-sm shadow-blue-950/50 transition-all"
+            @click="b.startNewChat"
+          >
+            <i class="ph ph-plus text-base"></i>
+            <span>Nouveau chat</span>
+          </button>
+        </div>
 
-        <div class="flex flex-col gap-0.5">
+        <div class="flex flex-col gap-px">
           <button
             v-if="b.settings.enable_mcp"
             :title="b.showMcpPanel ? 'MCP — activés' : 'MCP'"
             :aria-pressed="b.showMcpPanel ? 'true' : 'false'"
-            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
+            class="w-full text-left px-3 h-8 rounded-lg flex items-center gap-2.5 text-[13.5px] font-medium transition-colors group"
             :class="
               b.showMcpPanel
                 ? 'bg-white/[0.08] text-white'
@@ -320,17 +279,14 @@ onBeforeUnmount(() => brancherFondu(null));
               :class="b.showMcpPanel ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'"
             ></i>
             <span class="flex-1 truncate">MCP</span>
-            <span
-              class="w-2 h-2 rounded-full shrink-0 transition-colors"
-              :class="b.showMcpPanel ? 'bg-blue-400' : 'bg-transparent ring-1 ring-inset ring-slate-500'"
-            ></span>
+            <span v-if="b.showMcpPanel" class="w-1.5 h-1.5 rounded-full shrink-0 bg-blue-400"></span>
           </button>
 
           <button
             v-if="b.settings.enable_editor"
             :title="b.showEditor ? 'Sandbox — ouvert' : 'Sandbox'"
             :aria-pressed="b.showEditor ? 'true' : 'false'"
-            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
+            class="w-full text-left px-3 h-8 rounded-lg flex items-center gap-2.5 text-[13.5px] font-medium transition-colors group"
             :class="
               b.showEditor
                 ? 'bg-white/[0.08] text-white'
@@ -346,34 +302,12 @@ onBeforeUnmount(() => brancherFondu(null));
               :class="b.showEditor ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'"
             ></i>
             <span class="flex-1 truncate">Sandbox</span>
-            <span
-              class="w-2 h-2 rounded-full shrink-0 transition-colors"
-              :class="b.showEditor ? 'bg-blue-400' : 'bg-transparent ring-1 ring-inset ring-slate-500'"
-            ></span>
-          </button>
-
-          <button
-            v-if="b.ragAllowed"
-            title="RAG"
-            :aria-pressed="b.currentView === 'rag' ? 'true' : 'false'"
-            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
-            :class="
-              b.currentView === 'rag'
-                ? 'bg-blue-600/20 text-white'
-                : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
-            "
-            @click="b.openRagPage"
-          >
-            <i
-              class="ph ph-books text-base shrink-0 transition-colors"
-              :class="b.currentView === 'rag' ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'"
-            ></i>
-            <span class="flex-1 truncate">RAG</span>
+            <span v-if="b.showEditor" class="w-1.5 h-1.5 rounded-full shrink-0 bg-blue-400"></span>
           </button>
 
           <button
             title="Routines"
-            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
+            class="w-full text-left px-3 h-8 rounded-lg flex items-center gap-2.5 text-[13.5px] font-medium transition-colors group"
             :class="
               b.currentView === 'routines'
                 ? 'bg-blue-600/20 text-white'
@@ -389,54 +323,49 @@ onBeforeUnmount(() => brancherFondu(null));
             ></i>
             <span class="flex-1 truncate">Routines</span>
           </button>
-
-          <button
-            title="Studio d'annotation — captures d'écran et annotation (vision)"
-            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
-            :class="
-              b.currentView === 'studio'
-                ? 'bg-blue-600/20 text-white'
-                : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
-            "
-            @click="b.openStudio"
-          >
-            <i
-              class="ph ph-bounding-box text-base shrink-0 transition-colors"
-              :class="
-                b.currentView === 'studio' ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'
-              "
-            ></i>
-            <span class="flex-1 truncate">Studio</span>
-          </button>
-          <button
-            v-if="b.features.opencode"
-            title="Remote code — sessions opencode déportées"
-            class="w-full text-left px-3 py-1.5 rounded-lg flex items-center gap-2.5 text-sm font-medium transition-colors group"
-            :class="
-              b.currentView === 'code'
-                ? 'bg-blue-600/20 text-white'
-                : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
-            "
-            @click="b.openCodePage"
-          >
-            <i
-              class="ph ph-terminal-window text-base shrink-0 transition-colors"
-              :class="
-                b.currentView === 'code' ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'
-              "
-            ></i>
-            <span class="flex-1 truncate">Remote code</span>
-          </button>
+          <MenuPagesPlus :compact="false" />
         </div>
       </div>
 
-      <!-- Séparateur entre le menu et la recherche + l'historique. -->
-      <div class="mx-3 border-t border-white/[0.06] shrink-0"></div>
+      <!-- Section « Conversations » : filet sous le menu, titre (ou nombre de chats
+                   cochés en mode sélection), loupe et sélection multiple en icônes. -->
+      <div
+        class="mx-2 mt-3.5 pt-2.5 pl-3 pr-1 border-t border-white/[0.06] flex items-center gap-0.5 shrink-0"
+      >
+        <span class="flex-1 truncate text-xs font-semibold text-white">{{
+          b.chatSelectMode ? b.chatSelected.length + " sélectionné(s)" : "Conversations"
+        }}</span>
+        <button
+          title="Rechercher un chat"
+          :aria-pressed="b.searchOpen ? 'true' : 'false'"
+          class="w-[26px] h-[26px] rounded-md flex items-center justify-center transition-colors"
+          :class="
+            b.searchOpen ? 'bg-white/[0.08] text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'
+          "
+          @click="b.searchOpen ? b.closeChatSearch() : b.openChatSearch()"
+        >
+          <i class="ph ph-magnifying-glass text-sm"></i>
+        </button>
+        <button
+          v-if="!b.chatSearch && b.groupedHistory.length > 0"
+          :title="b.chatSelectMode ? 'Terminer la sélection' : 'Sélectionner'"
+          :aria-pressed="b.chatSelectMode ? 'true' : 'false'"
+          class="w-[26px] h-[26px] rounded-md flex items-center justify-center transition-colors"
+          :class="
+            b.chatSelectMode
+              ? 'bg-white/[0.08] text-white'
+              : 'text-slate-400 hover:bg-white/10 hover:text-white'
+          "
+          @click="b.toggleChatSelectMode()"
+        >
+          <i class="ph text-sm" :class="b.chatSelectMode ? 'ph-x' : 'ph-check-square'"></i>
+        </button>
+      </div>
 
-      <!-- Recherche : déclenchée par l'icône loupe de l'en-tête (ou par le
+      <!-- Recherche : déclenchée par la loupe de la section (ou par le
                    rail réduit). Pas de barre permanente au-dessus des chats — le
                    champ n'apparaît QUE quand searchOpen. État : src/features/chat/historique/recherche.ts. -->
-      <div v-show="b.searchOpen" class="px-3 pt-3 pb-1 shrink-0">
+      <div v-show="b.searchOpen" class="px-2 pt-2 pb-1 shrink-0">
         <div class="relative">
           <i
             class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 text-base"
@@ -458,35 +387,15 @@ onBeforeUnmount(() => brancherFondu(null));
         </div>
       </div>
 
-      <!-- Sélection multiple (bulk) — tri en masse des conversations.
-                   Masqué tant qu'aucun chat. État : chatSelectMode/chatSelected
-                   (src/features/chat/historique/historique.ts). -->
-      <div
-        v-if="!b.chatSearch && b.groupedHistory.length > 0"
-        class="px-3 pt-2 pb-0.5 shrink-0 flex items-center justify-between"
-      >
-        <button
-          class="text-[11px] font-medium text-slate-400 hover:text-white transition-colors flex items-center gap-1"
-          @click="b.toggleChatSelectMode()"
-        >
-          <i class="ph text-xs" :class="b.chatSelectMode ? 'ph-x' : 'ph-check-square'"></i>
-          {{ b.chatSelectMode ? "Terminer" : "Sélectionner" }}
-        </button>
-        <span v-if="b.chatSelectMode" class="text-[11px] text-slate-500"
-          >{{ b.chatSelected.length }} sélectionné(s)</span
-        >
-      </div>
-
       <!-- Historique : contenu central (flex-1, scroll), texte le + clair.
                    `chat-history-scroll` = masque dégradé haut/bas (fondu de
                    scroll) ; les classes fade-top/fade-bottom sont posées par
                    features/chat/page/fondu-defilement.ts selon la position. -->
-      <div
-        :ref="brancherFondu"
-        class="chat-history-scroll flex-1 overflow-y-auto px-2 pt-2 custom-scrollbar pb-1 min-h-0"
-      >
+      <div :ref="brancherFondu" class="chat-history-scroll flex-1 overflow-y-auto px-2 pt-1 pb-2 min-h-0">
         <div v-if="b.chatSearch" class="mb-2 space-y-px">
-          <div class="text-xs font-semibold text-slate-400 px-3 mb-1.5 mt-1">Résultats</div>
+          <div class="text-[11px] font-semibold tracking-[0.02em] text-slate-400 px-3 pt-1.5 pb-1.5">
+            Résultats
+          </div>
           <div v-if="b.isSearchingChats" class="text-center py-3">
             <i class="ph ph-spinner animate-spin text-slate-400 text-lg"></i>
           </div>
@@ -501,11 +410,11 @@ onBeforeUnmount(() => brancherFondu(null));
             :key="'s' + chat.id"
             role="button"
             tabindex="0"
-            class="px-3 py-1.5 mx-1 text-slate-300 hover:bg-white/[0.05] hover:text-white rounded-lg cursor-pointer truncate flex items-center transition-colors select-none"
+            class="px-3 h-[30px] text-slate-300 hover:bg-white/[0.05] hover:text-white rounded-lg cursor-pointer truncate flex items-center transition-colors select-none"
             @click="b.loadChat(String(chat.id))"
             @keydown.enter="b.loadChat(String(chat.id))"
           >
-            <span class="truncate flex-1 font-medium text-sm">{{ chat.title }}</span>
+            <span class="truncate flex-1 text-[13.5px]">{{ chat.title }}</span>
           </div>
         </div>
 
@@ -530,10 +439,13 @@ onBeforeUnmount(() => brancherFondu(null));
           <!-- Liste groupée par date. groupedHistory (app.js) :
                            [{ key, label, items: [chat,…] }, …] (buckets non-vides).
                            Le label de groupe a clairement plus d'espace au-dessus
-                           que l'écart inter-item -> il sert d'épine dorsale. -->
+                           que l'écart inter-item -> il sert d'épine dorsale ; il
+                           est aligné sur les titres (même retrait de 12 px). -->
           <!-- Historique des chats, regroupé par date. -->
           <template v-for="group in b.groupedHistory" :key="group.key">
-            <div class="text-xs font-semibold text-slate-400 px-3 mt-4 mb-1 first:mt-1">
+            <div
+              class="text-[11px] font-semibold tracking-[0.02em] text-slate-400 px-3 pt-4 pb-1.5 first:pt-1.5"
+            >
               {{ group.label }}
             </div>
             <!-- Ligne d'historique : la barre est un composant à part, rendu seulement quand ce qu'elle lit change (plus de v-memo contre le rendu de la racine à chaque flush). -->
@@ -542,7 +454,7 @@ onBeforeUnmount(() => brancherFondu(null));
               :key="chat.id"
               role="button"
               tabindex="0"
-              class="px-3 py-1.5 mx-1 rounded-lg cursor-pointer flex items-center gap-2 group transition-colors select-none"
+              class="relative px-3 h-[30px] hover:pr-9 focus-within:pr-9 rounded-lg cursor-pointer flex items-center gap-2 group transition-colors select-none"
               :class="
                 b.currentView === 'chat' && b.currentChatId === chat.id && !b.chatSelectMode
                   ? 'bg-blue-600/20 text-white font-medium'
@@ -565,24 +477,28 @@ onBeforeUnmount(() => brancherFondu(null));
               >
                 <i v-if="b.chatSelected.includes(chat.id)" class="ph ph-check text-white text-[10px]"></i>
               </div>
-              <span class="truncate flex-1 text-sm" :class="chat._renamed ? 'elpis-title-flash' : ''">{{
+              <span class="truncate flex-1 text-[13.5px]" :class="chat._renamed ? 'elpis-title-flash' : ''">{{
                 chat.title
               }}</span>
-              <!-- Run en cours (tous onglets, tous appareils) : chantier C 2026-09-16. -->
-              <i
+              <!-- Run en cours (tous onglets, tous appareils) : point d'accent qui respire (immobile en mouvement réduit). -->
+              <span
                 v-if="b.activeRunIds.includes(String(chat.id))"
-                class="ph ph-spinner-gap animate-spin text-blue-400 text-xs shrink-0"
+                class="elpis-run-dot shrink-0"
+                role="img"
+                aria-label="Génération en cours"
                 title="Génération en cours…"
-              ></i>
+              ></span>
               <!-- a11y (WCAG 2.1.1) — bouton "…" focusable : ouvre le MÊME menu
                                    (Renommer / Archiver / Supprimer) que le clic droit, mais
                                    atteignable au clavier et sur tablette (pas de clic droit).
+                                   Posé en absolu : le titre garde toute la largeur et ne
+                                   cède la place qu'au survol ou au focus (pr-9 de la ligne).
                                    @click.stop pour ne pas déclencher loadChat de la ligne. -->
               <button
                 title="Actions"
                 aria-label="Actions sur la conversation"
                 aria-haspopup="menu"
-                class="opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none shrink-0 w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+                class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:outline-none w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-opacity"
                 @click.stop="b.openContextMenu($event, 'chat', chat)"
                 @keydown.enter.stop.prevent="b.openContextMenu($event, 'chat', chat)"
               >

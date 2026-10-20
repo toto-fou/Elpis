@@ -147,6 +147,11 @@ body.elpis-skin-pingouins aside.elpis-slide-panel {
     background: linear-gradient(160deg, #2b0a3d 0%, #0a2b3d 100%) !important;
     border-right: 3px dashed var(--tr-lime) !important;
 }
+/* Sous-menu « Plus » : le même dégradé et le même pointillé que le rail qu'il prolonge. */
+body.elpis-skin-pingouins aside.elpis-slide-panel .elpis-rail-flyout {
+    background: linear-gradient(160deg, #2b0a3d 0%, #0a2b3d 100%);
+    border: 2px dashed var(--tr-lime);
+}
 
 /* ───────────────────────────── BULLES PENCHÉES ──────────────────────────── */
 body.elpis-skin-pingouins .elpis-msg-user > .flex-1 {

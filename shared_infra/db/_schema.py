@@ -629,7 +629,7 @@ TABLES: List[Table] = [
     ),
     # Exécutions (L5.2, migration 0021) : une ligne par tour de chat, run de
     # routine, sous-agent ou compaction manuelle — ressources consommées et
-    # issue (cf. shared_infra/observability/runs.py).
+    # issue (cf. apps/core/src/executions/registre.ts).
     Table('runs', [
         Col('id', TEXT, primary=True),
         Col('kind', TEXT, null=False, default='chat'),
@@ -761,7 +761,7 @@ TABLES: List[Table] = [
     # automatisation de bureau (``evt_``). Seule l'EMPREINTE SHA-256 est gardée :
     # un jeton se montre une fois, à sa création, puis se régénère. Remplace
     # ``code_remote_tokens`` (un jeton par compte, en clair). Cf.
-    # ``shared_infra/accounts/tokens.py``.
+    # ``packages/auth/src/jetons.ts``.
     Table('tool_tokens', [
         Col('id', ID),
         Col('user_id', INT, null=False),
@@ -782,7 +782,7 @@ TABLES: List[Table] = [
     # Autorisation OAuth 2.1 des clients MCP (EXT.4, migration 0023) : clients
     # (enregistrés dynamiquement, par document de métadonnées ou à la main),
     # codes d'autorisation à usage unique et jetons opaques — empreintes
-    # SHA-256 seules (cf. shared_infra/mcp/oauth.py).
+    # SHA-256 seules (cf. packages/auth/src/oauth.ts).
     Table('oauth_clients', [
         Col('client_id', TEXT, primary=True),
         Col('kind', TEXT, null=False, default='dcr'),
@@ -1018,7 +1018,7 @@ def ensure_fts(conn: Any) -> bool:
 
 
 # Ponctuation ramenée à des espaces avant l'analyse, côté index ET côté requête
-# (``memory.store._fts_terms``) : FTS5 ``unicode61`` coupe sur tout ce qui n'est
+# (``apps/core/src/memoire/sessions.ts``) : FTS5 ``unicode61`` coupe sur tout ce qui n'est
 # ni lettre ni chiffre, alors que l'analyseur de PostgreSQL garde entiers les
 # chemins, hôtes et versions (« notes/plan.md » = un seul lexème, introuvable
 # par « plan.md »).

@@ -1,21 +1,13 @@
 # SPDX-License-Identifier: MIT
-"""
-AX-memory database initialisation (idempotent table creation).
-
-Auto-extracted from the former monolithic ``backend/ax_memory/_legacy.py``.
-Depuis le 2026-09-26, le DDL vient du schéma de référence de ``shared_infra.db``.
-"""
+"""shared_infra/memory/ax/init.py — mise à niveau des anciennes tables de la mémoire AX, appelée par ``init_db`` sur une base SQLite existante."""
 from __future__ import annotations
 
 import logging
 
+from shared_infra.db._dialect import SQLITE
+from shared_infra.db._schema import TABLES_BY_NAME, create_table_sql
+
 log = logging.getLogger(__name__)
-
-from shared_infra.db._dialect import SQLITE, dialect_of
-from shared_infra.db._schema import TABLES_BY_NAME, create_table_sql, ensure_tables
-from shared_infra.memory.ax._connection import _conn, _resolve_db_path
-
-_AX_TABLES = ("ax_nodes", "ax_selectors", "ax_transitions", "ax_credentials")
 
 
 def upgrade_legacy_sqlite(c) -> None:
@@ -59,18 +51,3 @@ def upgrade_legacy_sqlite(c) -> None:
                 "reinjecte(s) (on ignore a qui ils appartenaient). "
                 "A re-enregistrer via pw_session(action='start', "
                 "username=..., password=...).", _n)
-
-
-def init_db() -> None:
-    """Crée les tables AX (nœuds, sélecteurs, transitions, identifiants) si
-    elles manquent. Idempotent.
-
-    (2026-09-26) Le DDL vient du schéma de référence
-    (``shared_infra/db/_schema.py``) ; seules les mises à niveau d'anciennes
-    formes SQLite restent ici (``upgrade_legacy_sqlite``).
-    """
-    with _conn() as c:
-        if dialect_of(c) == SQLITE:
-            upgrade_legacy_sqlite(c)
-        ensure_tables(c, _AX_TABLES)
-    log.info("[ax] init_db OK at %s", _resolve_db_path())

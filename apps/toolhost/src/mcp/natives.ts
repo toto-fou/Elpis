@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/natives.ts — familles servies par l'hôte lui-même (@elpis/outils-mcp) à côté de la façade : serveur, jetons et portée comme elpis-tools, routage des requêtes MCP, agrégats de /health et /manifest. */
+/** apps/toolhost/src/mcp/natives.ts — familles servies par l'hôte lui-même (@elpis/outils-mcp) derrière la façade : serveur, jetons et portée, routage des requêtes MCP, agrégats de /health et /manifest. */
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { cheminContextConfig, deepGet, outilsEteints, readJsonFile } from "@elpis/config";
@@ -43,7 +43,6 @@ export class ServiceNatif {
   readonly serveur: ServeurOutils;
   readonly service: ServiceMcpHttp;
   private readonly configures: readonly string[];
-  private readonly sansAmont: { readonly http: boolean; readonly sse: boolean };
 
   constructor(
     familles: readonly FamilleNative[],
@@ -55,14 +54,13 @@ export class ServiceNatif {
     this.serveur = serveur;
     this.service = service;
     this.configures = tc.transports;
-    this.sansAmont = { http: !tc.mcp_upstream, sse: !tc.mcp_upstream_sse };
   }
 
-  /** Requête MCP d'une famille native (`/mcp/<f>`, `/sse/<f>`), d'une session SSE ouverte ici (`/messages/`), ou racine `/mcp` (`/sse`) sans amont elpis-tools : toutes les familles natives, comme le point d'entrée agrégé du Python. */
+  /** Requête MCP d'une famille native (`/mcp/<f>`, `/sse/<f>`), d'une session SSE ouverte ici (`/messages/`), ou racine `/mcp` (`/sse`) : toutes les familles natives, comme le point d'entrée agrégé du Python. */
   prend(chemin: string, requete: string): boolean {
     if (chemin === "/messages" || chemin.startsWith("/messages/")) return this.service.aSessionSse(requete);
-    if (chemin === HTTP_MOUNT_PATH) return this.sansAmont.http;
-    if (chemin === SSE_MOUNT_PATH) return this.sansAmont.sse && this.configures.includes("sse");
+    if (chemin === HTTP_MOUNT_PATH) return true;
+    if (chemin === SSE_MOUNT_PATH) return this.configures.includes("sse");
     const fam = familleDuChemin(chemin);
     return typeof fam === "string" && this.sert(fam);
   }
@@ -94,7 +92,7 @@ export class ServiceNatif {
   }
 }
 
-/** Familles natives demandées et servies (`families`) qui ont une implémentation ; les autres restent relayées. */
+/** Familles natives demandées et servies (`families`) qui ont une implémentation ; les autres sont signalées et ignorées. */
 export function famillesNativesActives(
   tc: ToolhostConfig,
   fabriques: Readonly<Record<string, FabriqueNative>>,
@@ -102,21 +100,25 @@ export function famillesNativesActives(
 ): string[] {
   const actives: string[] = [];
   for (const f of tc.familles_natives) {
-    if (!tc.families.includes(f)) journal.warn(`famille native ${f} hors de families : relayée`);
-    else if (fabriques[f] === undefined) journal.warn(`famille native ${f} sans implémentation TS : relayée`);
+    if (!tc.families.includes(f)) journal.warn(`famille native ${f} hors de families : ignorée`);
+    else if (fabriques[f] === undefined) journal.warn(`famille native ${f} sans implémentation TS : ignorée`);
     else actives.push(f);
   }
   return FAMILY_NAMES.filter((f) => actives.includes(f));
 }
 
-/** `families` réparties entre l'hôte (natives actives) et elpis-tools (relayées : `--familles-relayees`, `--elpis-tools`, `--stdio`). */
-export function repartirFamilles(
+/** Familles de `families` que l'hôte ne sert pas : signalées (celles du compte sont servies par main d'après mcp.json). */
+export function avertirFamillesIgnorees(
   tc: ToolhostConfig,
-  fabriques: Readonly<Record<string, FabriqueNative>>,
+  natives: readonly string[],
   journal: Journal,
-): { natives: string[]; relayees: string[] } {
-  const natives = famillesNativesActives(tc, fabriques, journal);
-  return { natives, relayees: tc.families.filter((f) => !natives.includes(f)) };
+): string[] {
+  const ignorees = tc.families.filter((f) => !natives.includes(f));
+  for (const f of ignorees)
+    journal.warn(
+      `famille ${f} non servie par l'hôte d'outils : ignorée (chart, memory, skill et todo sont servies par main, d'après mcp.json)`,
+    );
+  return ignorees;
 }
 
 /** Outils des familles natives `noms` : identité par rappel au core, outils éteints et libellés d'erreur de context_config. */

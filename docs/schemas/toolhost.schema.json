@@ -65,19 +65,10 @@
       }
     },
     "familles_natives": {
-      "description": "Familles servies par l'hôte TS lui-même (sous-ensemble de families) ; les autres sont relayées vers elpis-tools. Retour arrière : retirer la famille de la liste.",
+      "description": "Obsolète : elpis-tools n'existe plus, l'hôte sert toutes les familles portées en TypeScript de families (la clé est ignorée avec un avertissement).",
       "type": "array",
-      "uniqueItems": true,
       "items": {
-        "type": "string",
-        "enum": [
-          "browser",
-          "desktop",
-          "fs",
-          "git",
-          "shell",
-          "skill_run"
-        ]
+        "type": "string"
       }
     },
     "sandbox_dir": {
@@ -110,11 +101,11 @@
     },
     "mcp_upstream": {
       "type": "string",
-      "description": "Hôte TS : origine d'elpis-tools (MCP HTTP streamable ; un /mcp final est retiré) relayée sous /mcp[/<famille>] ; vide : façade MCP fermée."
+      "description": "Obsolète, ignorée avec un avertissement : elpis-tools n'existe plus, toutes les familles sont servies par l'hôte."
     },
     "mcp_upstream_sse": {
       "type": "string",
-      "description": "Hôte TS : origine d'elpis-tools en SSE (un /sse final est retiré) relayée sous /sse[/<famille>] et /messages/ ; vide : SSE non servi."
+      "description": "Obsolète, ignorée avec un avertissement : voir mcp_upstream."
     }
   },
   "additionalProperties": true

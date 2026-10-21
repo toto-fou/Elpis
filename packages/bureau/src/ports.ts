@@ -5,7 +5,7 @@ import type { Dict } from "@elpis/commun";
 /** Ancre épinglée pour une requête (`lookup_action_anchor`). */
 export type AncreEpinglee = { auto_id?: unknown; role?: unknown; center?: unknown };
 
-/** `shared_infra/desktop/anchors.py` : best-effort, une panne n'empêche jamais la résolution. */
+/** Ancres de ciblage (`ancres.ts`) : best-effort, une panne n'empêche jamais la résolution. */
 export interface PortAncres {
   lookupActionAnchor(scope: string, query: string): Promise<AncreEpinglee | null>;
   recordActionAnchor(

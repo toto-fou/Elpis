@@ -9,7 +9,6 @@ import json
 import logging
 import math
 import os
-import re
 import secrets
 import socket
 import threading
@@ -17,7 +16,7 @@ import time
 import weakref
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -37,11 +36,6 @@ _ESSAIS = 8
 _ILLISIBLES_MAX = 256
 _O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
 _O_CLOEXEC = getattr(os, "O_CLOEXEC", 0)
-SYSTEMES_DISTANTS = frozenset((
-    "nfs", "nfs4", "cifs", "smb3", "smbfs", "9p", "ceph", "glusterfs", "afs", "lustre", "gpfs", "vboxsf",
-    "davfs", "fuse.sshfs", "fuse.glusterfs", "fuse.s3fs", "fuse.rclone", "fuse.davfs2", "fuse.vmhgfs-fuse",
-    "fuse.ceph-fuse", "fuse.gcsfuse",
-))
 
 Chemin = Union[str, "os.PathLike[str]"]
 
@@ -578,54 +572,8 @@ class VerrouFichier:
                        "(tenu au-delà de sa péremption ?)", self.chemin)
 
 
-def chemins_de_donnees() -> List[Path]:
-    """Dossiers où vivent des verrous partagés : base, bacs à sable, mémoire, skills, historique, exécution."""
-    from shared_infra import config as cfg
-    out = [Path(cfg.DB_PATH).parent, Path(cfg.SANDBOX_DIR), Path(cfg.MEMORY_DIR), Path(cfg.SKILLS_DIR),
-           Path(cfg.USER_SKILLS_DIR),
-           Path(os.environ.get("APP_FILE_HISTORY_DIR") or Path(cfg.PROJECT_ROOT) / "user_db" / "file_history")]
-    if (os.environ.get("ELPIS_RUNTIME_DIR") or "").strip():
-        out.append(Path(os.environ["ELPIS_RUNTIME_DIR"].strip()))
-    return out
-
-
-def _decoder_montage(champ: str) -> str:
-    return re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), champ)
-
-
-def systemes_distants(chemins: Sequence[Chemin], montages_texte: Optional[str] = None) -> List[Tuple[str, str]]:
-    """(chemin, type) des chemins sur un système réseau ou contenant un montage réseau (``/proc/self/mounts``)."""
-    try:
-        texte = montages_texte if montages_texte is not None else Path("/proc/self/mounts").read_text()
-    except OSError:
-        return []
-    points = sorted(((_decoder_montage(m[1]), m[2]) for m in (ligne.split() for ligne in texte.splitlines())
-                     if len(m) > 2), key=lambda x: -len(x[0]))
-    out: set[Tuple[str, str]] = set()
-    for c in chemins:
-        reel = os.path.realpath(str(c))
-        for point, fs in points:
-            if reel == point or reel.startswith(point.rstrip("/") + "/"):
-                if fs in SYSTEMES_DISTANTS:
-                    out.add((str(c), fs))
-                break
-        out.update((point, fs) for point, fs in points
-                   if fs in SYSTEMES_DISTANTS and point.startswith(reel.rstrip("/") + "/"))
-    return sorted(out)
-
-
 __all__ = [
     "ATTENTE_MAX_S", "ATTENTE_MIN_S", "ILLISIBLE_S", "PEREMPTION_DEFAUT_S", "REPRISE_PEREMPTION_S",
     "SUFFIXE_PERIME", "SUFFIXE_REPRISE", "VERSION", "VerrouFichier", "VerrouOccupe", "chemin_verrou",
-    "chemins_de_donnees", "definir_processus", "identite_machine", "nom_processus", "pid_vivant",
-    "systemes_distants",
+    "definir_processus", "identite_machine", "nom_processus", "pid_vivant",
 ]
-
-
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) < 2 or sys.argv[1] != "fs-local":
-        sys.exit("usage : python -m shared_infra.runtime.verrou_fichier fs-local [CHEMIN…]")
-    distants = systemes_distants(sys.argv[2:] or chemins_de_donnees())
-    print("; ".join(f"{chemin} sur {fs}" for chemin, fs in distants) or "disques locaux")
-    sys.exit(1 if distants else 0)

@@ -21,6 +21,56 @@ lecture des documents reste en Python, dans l'extracteur `rag_app`.
 
 ### Pour l'exploitant
 
+- **Python allégé.** Les modules Python des familles `shell`, `git`, `memory`,
+  `skill`, `todo`, `browser` et `desktop`, la mémoire et les skills de
+  `llm_core`, le stockage des conversations, les notifications et le contrôle
+  d'écran de `shared_infra` partent, ils n'étaient plus appelés. Les familles du
+  compte (`chart`, `memory`, `skill`, `todo`) sont servies par main d'après `mcp.json` : sans ce fichier (`./elpis configure`
+  l'écrit), l'hôte d'outils ne les sert plus non plus, et le dit au démarrage.
+  `--stdio` refuse (code 2) quand aucune famille demandée n'est servie.
+- **Moteur Office dans `office/`.** Le moteur des documents Word et PowerPoint
+  (`office/elpis_office/`, anciennement `llm_core/tools/_office` et `_chart`)
+  est un paquet Python autonome, avec ses dépendances dans
+  `office/requirements.txt` (incluses par `requirements.txt`).
+- **Office servi par l'hôte d'outils.** La famille `office` rejoint les familles
+  portées en TypeScript : l'hôte lance un worker
+  Python (`python -m elpis_office`) pour construire les documents, et fait
+  lui-même la lecture et l'écriture des fichiers du bac (écriture gardée,
+  historique, verrou de l'éditeur), les graphiques, l'export PDF et le rendu
+  ECharts. Même contrat d'outils, mêmes erreurs. `./elpis doctor` vérifie les
+  dépendances du moteur. `ELPIS_OFFICE_PARALLELE` borne les appels simultanés
+  du worker.
+- **elpis-tools retiré.** Le service `tools` (port 8767, `--elpis-tools`,
+  `server/local_mcp_server.py`), `llm_core/` (hors `imagegen/`) et les modules
+  de `shared_infra` que seul il appelait partent, ainsi que le relais de l'hôte
+  d'outils vers lui. `mcp_upstream`, `mcp_upstream_sse` et
+  `TOOLHOST_MCP_UPSTREAM[_SSE]` sont ignorés avec un avertissement, l'unité
+  `elpis-tools` est retirée par `./elpis service install` et
+  `install_toolhost.sh`. Sous systemd, relancer `sudo ./elpis service install`
+  après `./elpis upgrade`. `--familles-relayees` (aucune famille) et
+  `--elpis-tools` (sort aussitôt) restent acceptés pour qu'un ancien `./elpis`
+  ou une ancienne unité n'y lance pas un second hôte. `familles_natives` de
+  `toolhost.json` est ignoré avec un avertissement : l'hôte sert toute famille
+  portée en TypeScript de `families` (un hôte distant installé depuis l'ancien
+  exemple, dont la liste omettait `office`, sert donc Office après la mise à
+  jour : `office/requirements.txt` doit être installé dans son venv, ce que
+  `install_toolhost.sh` fait) ; pour ne pas servir une famille, la retirer de
+  `families`. Le réglage `mcp.server_cmd`, que rien n'utilisait, quitte la
+  console. `requirements.txt` ne garde que ce que le Python restant importe.
+- **Python sans appelant retiré.** `llm_core/imagegen/` et `shared_infra/image/`,
+  `shared_infra/mcp/`, `git/`, `accounts/tokens.py`, `llm/engine_access.py`,
+  `runtime/runtime_dir.py`, `security/browser_url.py`, `memory/store.py` et le
+  code de la mémoire AX hors mise à niveau des anciennes tables partent : seule
+  `delete_user_full`, que rien n'appelait (la suppression d'un compte est dans
+  le core TypeScript), les atteignait. `psutil` et `jsonschema` quittent
+  `requirements.txt`.
+- **Python : réglages et fonctions sans lecteur retirés.** `shared_infra/config.py`
+  ne garde que `config.json` (lecture en cache, écriture atomique) et les
+  réglages de la base ; les quelque 150 autres réglages, que seuls lisaient des
+  modules déjà retirés, partent, ainsi que la création du secret de session à
+  l'import (le core TypeScript et `./elpis configure` s'en chargent), l'assistant
+  de bascule de base de `ops/` (porté dans le core), les fonctions de comptes,
+  de connecteurs et de dialecte SQL sans appelant, et `env_compat`.
 - **`llama.engine` : `vllm` et `sglang`.** Valeurs admises : `llamacpp`
   (défaut ; alias `llama.cpp`, `llama-cpp`, `llama`), `vllm`, `sglang` et
   `generic` (alias `openai`, `tgi`, `ollama`, `lmstudio` ; toute autre

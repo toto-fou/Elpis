@@ -8,7 +8,7 @@ de chat il fallait tout réactiver. On range désormais les préférences PAR CH
 dans un JSON extensible (``{"tools": ["fs", "shell"]}`` aujourd'hui ; d'autres
 réglages par-chat pourront s'y loger).
 
-CRUD : ``shared_infra/chat/store.py`` (``get_chat`` expose ``tools``,
+CRUD : ``apps/core/src/chats/stockage.ts`` (``get_chat`` expose ``tools``,
 ``set_chat_tools`` écrit). Idempotent via inspection de ``pragma table_info``.
 Ne commit PAS : le runner de migrations commit en fin d'application.
 """

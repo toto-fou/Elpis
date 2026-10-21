@@ -6,13 +6,11 @@ export {
   DEFAULT_OPENCODE_FAMILIES,
   FAMILY_CATEGORY,
   FAMILY_NAMES,
-  FAMILY_REGISTER_FN,
   isFamilyName,
   opencodeFamilies,
   parseFamilies,
   parseFamilySet,
   SANDBOX_FAMILIES,
-  TOOL_FAMILIES,
 } from "./familles";
 export type { Avertir, OptionsOpencode } from "./familles";
 export {

@@ -11,7 +11,7 @@ import type { Journal } from "./journal";
 import { familleDuChemin, installerPorte, sansRoute } from "./porte";
 
 export type ModeToolhost = "toolhost";
-/** `enveloppe` : jeton de service et enveloppe d'identité (porte de l'API) ; `mcp` : portes du service MCP, jeton vérifié par elpis-tools. */
+/** `enveloppe` : jeton de service et enveloppe d'identité (porte de l'API) ; `mcp` : portes du service MCP des familles natives. */
 export type AccesToolhost = "public" | "enveloppe" | "mcp";
 export type DefinitionRoute = DefinitionRouteHttp<ModeToolhost, AccesToolhost>;
 export type Famille = FamilleHttp<ModeToolhost, AccesToolhost>;

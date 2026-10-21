@@ -61,9 +61,9 @@ flowchart LR
 
 main et admin sont deux process du même core TypeScript (Node.js 24,
 Fastify) ; `toolhost` est l'hôte d'outils, en TypeScript lui aussi. Restent en
-Python : l'extracteur du RAG (lecture des documents), elpis-tools (la famille d'outils Office, servie à
-l'hôte d'outils sur `127.0.0.1:8767`), l'agent qui tourne dans chaque sandbox
-et l'assistant d'installation. Détail : [ARCHITECTURE.md](ARCHITECTURE.md).
+Python : l'extracteur du RAG (lecture des documents), le moteur Office
+(`office/`, un worker que lance l'hôte d'outils), l'agent qui tourne dans chaque
+sandbox et l'assistant d'installation. Détail : [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Sécurité
 
@@ -135,7 +135,7 @@ l'application :
 - les bundles du core (`apps/core/dist`), de l'hôte d'outils
   (`apps/toolhost/dist`) et de l'interface (`frontend/dist`), construits par
   `npm ci` puis `npm run build` avec le npm de l'archive, retiré ensuite ;
-- `venv/` : l'environnement Python du RAG, d'elpis-tools et de la
+- `venv/` : l'environnement Python du RAG, du moteur Office et de la
   configuration (`requirements-rag.txt`) ;
 - le service navigateur (`browser-service/`, `npm ci` et Chromium par
   Playwright), Qdrant (binaire officiel, somme vérifiée), l'image Docker de la

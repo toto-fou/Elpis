@@ -171,7 +171,6 @@ export interface ConfigAdmin {
     [cle: string]: unknown;
   };
   mcp: {
-    server_cmd: string;
     servers_dir: string;
     tools_cache_ttl_sec: number;
     tokens: { tools_enabled: boolean; tools_families: string; max_days: number; max_per_user: number };

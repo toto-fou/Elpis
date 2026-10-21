@@ -15,7 +15,7 @@ export interface VueHote {
   readonly port: number;
   /** Transports réseau servis (`http`, `sse`). */
   readonly transports: readonly string[];
-  /** Transports d'une famille (native ou relayée) ; défaut : `transports`. */
+  /** Transports d'une famille ; défaut : `transports`. */
   readonly transportsDe?: (famille: string) => readonly string[];
   /** Familles vivantes, ordre canonique. */
   readonly familles: readonly string[];

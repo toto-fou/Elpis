@@ -8,7 +8,7 @@ export type GardeUrl = (url: string, allowSchemes: readonly string[]) => Promise
 
 let gardeUrl: GardeUrl | null = null;
 
-/** Posée par le lot qui porte `shared_infra/git/ssrf.py` ; tant qu'elle manque, les URL des serveurs perso des non-admins sont refusées. */
+/** Garde SSRF des URL de serveurs perso (`@elpis/securite`, `ssrf.ts`) ; tant qu'elle manque, les URL des serveurs perso des non-admins sont refusées. */
 export function brancherGardeUrl(g: GardeUrl | null): void {
   gardeUrl = g;
 }

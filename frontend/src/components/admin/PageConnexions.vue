@@ -1895,21 +1895,6 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
         <div v-if="adm.configForm && adm.configForm.mcp" class="adm-rows">
           <div class="adm-row">
             <div>
-              <label class="adm-row__label" title="Exécutable lancé en sous-processus." for="cnx-mcp-cmd"
-                >Commande</label
-              >
-              <span class="sr-only">Exécutable lancé en sous-processus.</span>
-            </div>
-            <input
-              id="cnx-mcp-cmd"
-              v-model="adm.configForm.mcp.server_cmd"
-              data-field="config:mcp.server_cmd"
-              class="set-input font-mono text-xs"
-            />
-          </div>
-
-          <div class="adm-row">
-            <div>
               <label
                 class="adm-row__label"
                 title="Scanné au démarrage pour les serveurs MCP téléversés."

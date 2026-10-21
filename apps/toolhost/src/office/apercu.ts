@@ -4,7 +4,9 @@ import { createHash, randomBytes } from "node:crypto";
 import {
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   readdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   statSync,
@@ -1126,6 +1128,98 @@ function conversionFailed(job: string): ErreurOffice {
   const fin = readLogTail(path.join(job, "lo.log"));
   if (fin) log.warn(`[office] conversion échouée : ${fin}`);
   return new ErreurOffice("failed", 500, "Conversion échouée");
+}
+
+const NOM_CONVERSION = /^[A-Za-z0-9_-]{1,40}\.[a-z0-9]{2,5}$/u;
+
+/** `convert_bytes` : conversion d'octets à octets pour les outils Office (export PDF, PNG des graphiques), même prison, mêmes créneaux, profils et contrôles que l'aperçu ; `{nom d'entrée: octets produits}`, un fichier non converti est absent, aucun produit : « failed ». */
+export async function convertBytes(o: {
+  uid: number;
+  kind: string;
+  files: Readonly<Record<string, Uint8Array>>;
+  convertTo: string;
+  outExt: string;
+  timeoutS?: number;
+  signal?: AbortSignal;
+}): Promise<Record<string, Buffer>> {
+  const soffice = sofficeBin();
+  if (!soffice) throw new ErreurOffice("unavailable", 503, "LibreOffice n'est pas installé sur le serveur");
+  const entrees = Object.entries(o.files);
+  if (entrees.length === 0) return {};
+  const isolation = await isolationMode();
+  const timeoutS = o.timeoutS || intCfg("timeout_s", 5, 600);
+  const echeance = monotone() + intCfg("wait_s", 1, 300);
+  const jobs = path.join(cacheRoot(), "jobs");
+  mkdirSync(jobs, { recursive: true, mode: 0o700 });
+  const job = mkdtempSync(path.join(jobs, "tool-"));
+  try {
+    const noms: string[] = [];
+    for (const [nom, donnees] of entrees) {
+      if (!NOM_CONVERSION.test(nom))
+        throw new ErreurOffice("failed", 400, "Nom de fichier de conversion invalide");
+      writeFileSync(path.join(job, nom), donnees);
+      if (MAIN_TYPES[o.kind] !== undefined) await checkOoxml(path.join(job, nom), o.kind);
+      noms.push(nom);
+    }
+    mkdirSync(path.join(job, "out"), { mode: 0o700 });
+    const slots = intCfg("slots", 1, 16);
+    const parCompte = intCfg("slots_per_user", 1, 16);
+    let userFd: number | null = null;
+    let slotFd: number | null = null;
+    try {
+      [userFd] = await acquireFirst(
+        Array.from({ length: parCompte }, (_, j) => `user-u${Math.trunc(o.uid)}-${j}`),
+        echeance,
+      );
+      let slotNom: string;
+      [slotFd, slotNom] = await acquireFirst(
+        Array.from({ length: slots }, (_, i) => `slot-${i}`),
+        echeance,
+      );
+      const profil = path.join(cacheRoot(), "profiles", slotNom);
+      ensureProfile(profil);
+      const argv = buildArgv({
+        isolation,
+        soffice,
+        profil,
+        job,
+        kind: o.kind,
+        inName: noms[0] as string,
+        convertTo: o.convertTo,
+        timeoutS,
+        autres: noms.slice(1),
+      });
+      const env = childEnv(isolation, profil, job);
+      const t0 = monotone();
+      const rc = await runSoffice(argv, env, {
+        cwd: job,
+        logPath: path.join(job, "lo.log"),
+        timeoutS,
+        signal: o.signal ? AbortSignal.any([o.signal, arret.signal]) : arret.signal,
+      });
+      log.info(
+        `[office] outils : ${noms.length} ${o.kind} → ${o.outExt} en ${(monotone() - t0).toFixed(2)} s (rc=${rc}, ${isolation})`,
+      );
+    } finally {
+      releaseLock(slotFd);
+      releaseLock(userFd);
+    }
+    const sorties: Record<string, Buffer> = {};
+    const plafond = intCfg("max_pdf_mb", 1, 4096) * 1024 * 1024;
+    for (const nom of noms) {
+      const p = path.join(job, "out", nom.slice(0, nom.lastIndexOf(".")) + o.outExt);
+      if (!estFichier(p)) continue;
+      if (o.outExt === ".pdf") {
+        await checkPdf(p);
+        if (statSync(p).size > plafond) throw new ErreurOffice("too_large", 413, "PDF trop volumineux");
+      }
+      sorties[nom] = readFileSync(p);
+    }
+    if (Object.keys(sorties).length === 0) throw conversionFailed(job);
+    return sorties;
+  } finally {
+    rmSync(job, { recursive: true, force: true });
+  }
 }
 
 /** `_schedule_full_pdf` : document entier converti en fond après l'aperçu de tête (une passe par document). */

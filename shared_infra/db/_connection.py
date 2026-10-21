@@ -2,7 +2,6 @@
 import logging
 
 logger = logging.getLogger("uvicorn.error")
-import json
 import os
 import sqlite3
 import threading
@@ -225,29 +224,6 @@ def db() -> sqlite3.Connection:
     return conn
 
 
-def reset_pool() -> None:
-    """Ferme RÉELLEMENT la connexion du thread courant — et, pour un moteur
-    serveur, TOUTES les connexions inactives des pools du process.
-
-    Pour les tests qui suppriment le fichier de base, et pour le shutdown.
-    """
-    conn = getattr(_pool, "conn", None)
-    if conn is not None:
-        try:
-            if hasattr(conn, "_hard_close"):
-                conn._hard_close()
-            else:
-                conn.hard_close()
-        except Exception:
-            pass
-    _pool.key, _pool.conn, _pool.depth = None, None, 0
-    with _server_pools_lock:
-        pools = list(_server_pools.values())
-        _server_pools.clear()
-    for p in pools:
-        p.close_all()
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 #  Moteur serveur (PostgreSQL) — pool borné par process
 # ─────────────────────────────────────────────────────────────────────────────
@@ -369,7 +345,6 @@ def pool_stats() -> Optional[Dict[str, Any]]:
         for k, v in p.stats().items():
             agg[k] += v
     return agg
-
 
 
 def db_info() -> Dict[str, Any]:
@@ -644,13 +619,8 @@ def _init_schema() -> None:
                 conn.commit()
             except Exception as _e:
                 logger.warning("[init_db] mise à niveau AX héritée : %s", _e)
-        fts_ok = _schema.create_all(conn)
+        _schema.create_all(conn)
         conn.commit()
-        try:
-            from shared_infra.memory import store as _memory_store
-            _memory_store._FTS_OK = fts_ok
-        except Exception:
-            pass
 
         # ── Migrations DB versionnées ───────────────────────────────────────────
         # Idempotent via la table schema_migrations ; les erreurs sont loggées
@@ -699,132 +669,23 @@ def _run_startup_cleanup() -> None:
         wal_checkpoint()
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ``get_global_stats()`` RETIRÉE : importée par 9 modules de routes admin,
 # appelée par zéro. Elle agrégeait ``total_tokens`` / ``input_tokens`` /
 # ``output_tokens`` de ``metric_events`` — trois séries que plus personne
 # n'émet depuis que la consommation vit dans ``usage_events``. La ranimer
 # aurait donc rendu des zéros. Les agrégats de conso : voir
-# ``shared_infra/observability/usage_store.py``.
+# ``apps/core/src/observabilite/usage-registre.ts``.
 
-
-
-
-_UID_BY_NAME: Dict[str, Optional[int]] = {}
-
-
-def _uid_for_username(name: Any) -> Optional[int]:
-    """Résout un username → user_id, avec cache borné.
-
-    Le tag ``user`` des métriques a toujours été le *username* : un rename
-    orphelinait tout l'historique de l'utilisateur. On remplit désormais une
-    colonne ``user_id`` en plus du tag (l'un n'invalide pas l'autre : les
-    lignes antérieures gardent NULL). Le cache évite un SELECT par métrique
-    sur le chemin chaud d'un tour de chat ; il est borné pour ne pas devenir
-    une fuite sur une instance à beaucoup de comptes.
-    """
-    if not name or not isinstance(name, str):
-        return None
-    if name in _UID_BY_NAME:
-        return _UID_BY_NAME[name]
-    uid: Optional[int] = None
-    try:
-        conn = db()
-        try:
-            row = conn.execute("SELECT id FROM users WHERE username=?", (name,)).fetchone()
-            uid = int(row[0]) if row else None
-        finally:
-            conn.close()
-    except Exception:
-        return None          # DB indisponible : on ne cache pas un faux négatif
-    if len(_UID_BY_NAME) > 512:
-        _UID_BY_NAME.clear()
-    _UID_BY_NAME[name] = uid
-    return uid
-
-
-def log_metric(event_type: str, value: float = 1.0, tags: Dict[str, Any] | None = None,
-               user_id: Optional[int] = None):
-    """
-    Append one row to ``metric_events``. Best-effort : une métrique ne doit
-    JAMAIS casser une requête (erreurs journalisées puis avalées). Le tableau
-    de bord relit la base à son propre rythme.
-    """
-    # ``db()`` lui-même peut lever (DB inaccessible) : on le garde DANS le try, sinon
-    # l'exception remonterait au caller (chemin de chat) au lieu d'être avalée — une
-    # métrique best-effort ne doit JAMAIS casser une requête.
-    try:
-        conn = db()
-    except Exception as e:
-        logger.error(f"Metric DB open error: {e}")
-        return
-    try:
-        uid = user_id if user_id is not None else _uid_for_username((tags or {}).get("user"))
-        cur = conn.cursor()
-        cur.execute("INSERT INTO metric_events(event_type, value, tags_json, created_at, user_id) VALUES(?,?,?,?,?)", (event_type, value, json.dumps(tags or {}), time.time(), uid))
-        conn.commit()
-    except Exception as e: logger.error(f"Metric Error: {e}")
-    finally:
-        try: conn.close()
-        except Exception: pass
 
     # (2026-09-25) Plus de ``metric_dirty`` diffusé ici : aucun consommateur
     # front, et l'événement partait vers TOUS les utilisateurs connectés à
     # chaque métrique (cf. metrics/broadcast.py).
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ── Pipeline reports (V&V) ────────────────────────────────────────────────
 # Stockage des rapports d'exécution générés. Rétention : 5 par utilisateur.
 # Le contenu HTML est stocké en TEXT, le contenu PDF en BLOB. La signature
 # HMAC est conservée séparément pour vérification d'intégrité.
-
-
-
-
 
 
 # ── User groups CRUD + membership moved to backend.db.groups ──
@@ -836,16 +697,7 @@ def log_metric(event_type: str, value: float = 1.0, tags: Dict[str, Any] | None 
 # ── Pipeline Versions ────────────────────────────────────────────────────────
 
 
-
-
-
 # ── Pipeline Schedules ───────────────────────────────────────────────────────
-
-
-
-
-
-
 
 
 # ── Startup cleanup ───────────────────────────────────────────────────────────

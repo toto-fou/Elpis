@@ -249,13 +249,10 @@ the core bundle.
 | atomic-sleep | 1.0.0 | MIT |
 | avvio | 9.3.0 | MIT |
 | better-sqlite3 | 13.0.3 | MIT |
-| content-type | 1.0.5 | MIT |
 | cookie | 1.1.1 | MIT |
 | dequal | 2.0.3 | MIT |
 | duplexify | 4.1.3 | MIT |
 | end-of-stream | 1.4.5 | MIT |
-| eventsource | 3.0.7 | MIT |
-| eventsource-parser | 3.1.1 | MIT |
 | fast-decode-uri-component | 1.0.1 | MIT |
 | fast-deep-equal | 3.1.3 | MIT |
 | fast-json-stringify | 7.0.1 | MIT |
@@ -287,7 +284,6 @@ the core bundle.
 | pgpass | 1.0.5 | MIT |
 | pino | 10.4.0 | MIT |
 | pino-std-serializers | 7.1.0 | MIT |
-| pkce-challenge | 5.0.1 | MIT |
 | pngjs | 7.0.0 | MIT |
 | postgres-array | 2.0.0 | MIT |
 | postgres-bytea | 1.0.1 | MIT |
@@ -329,7 +325,7 @@ the core bundle.
 ## 2. Installed dependencies (not redistributed)
 
 `./install.sh` installs these from their official sources. The exact list
-and pinned versions are in `requirements.txt`, `requirements-rag.txt`,
+and pinned versions are in `requirements.txt`, `office/requirements.txt`, `requirements-rag.txt`,
 `desktop-agent/requirements-*.txt` and `browser-service/package.json`.
 
 ### Python — application
@@ -339,25 +335,16 @@ and pinned versions are in `requirements.txt`, `requirements-rag.txt`,
 | fastapi | MIT |
 | starlette | BSD-3-Clause |
 | pydantic | MIT |
-| sse-starlette | BSD-3-Clause |
-| uvicorn (+ uvloop, httptools, websockets, watchfiles) | BSD-3-Clause / MIT / Apache-2.0 |
+| uvicorn (+ uvloop, httptools, websockets, watchfiles, python-dotenv) | BSD-3-Clause / MIT / Apache-2.0 |
+| PyYAML | MIT |
 | httpx | BSD-3-Clause |
-| requests | Apache-2.0 |
-| itsdangerous | BSD-3-Clause |
-| fastmcp | Apache-2.0 |
-| mcp (Model Context Protocol SDK) | MIT |
-| redis (redis-py) | MIT |
 | Pillow | MIT-CMU (HPND) |
 | python-docx | MIT |
 | python-pptx | MIT |
 | XlsxWriter | BSD-2-Clause |
-| tree-sitter, tree-sitter-bash, tree-sitter-javascript, tree-sitter-typescript | MIT |
-| tree-sitter-robot | ISC |
-| python-multipart | Apache-2.0 |
-| jsonschema | MIT |
+| lxml | BSD-3-Clause |
+| markdown-it-py | MIT |
 | cryptography | Apache-2.0 OR BSD-3-Clause |
-| PyYAML | MIT |
-| psutil | BSD-3-Clause |
 | pg8000 (PostgreSQL driver) | BSD-3-Clause |
 | scramp, asn1crypto, python-dateutil, six (pg8000 dependencies) | MIT-0 / MIT / Apache-2.0 OR BSD-3-Clause / MIT |
 | ruff | MIT |

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/main.ts — point d'entrée de l'hôte d'outils (`node apps/toolhost/dist/main.mjs`) : configuration, porte, routes, façade MCP, arrêt gracieux ; `--stdio` pour un applicatif tiers ; `--elpis-tools` (amont des familles relayées), `--natif`, `--empreinte`, `--familles-relayees` et `--familles-natives` pour le lanceur. */
+/** apps/toolhost/src/main.ts — point d'entrée de l'hôte d'outils (`node apps/toolhost/dist/main.mjs`) : configuration, porte, routes, façade MCP, arrêt gracieux ; `--stdio` pour un applicatif tiers ; `--natif`, `--empreinte` et `--familles-natives` pour le lanceur ; `--familles-relayees` (aucune) et `--elpis-tools` (sans effet) pour les anciens `./elpis` et unités systemd d'une mise à jour. */
 import path from "node:path";
 
 import { brancherJournal as brancherJournalCommun } from "@elpis/commun";
@@ -17,8 +17,7 @@ import { composer } from "./composition";
 import { CycleDeVie, DELAI_ARRET_MS } from "./cycle";
 import { journal } from "./journal";
 import { niveauDuJournal, parseFamiliesArgv } from "./lanceur";
-import { servirElpisTools } from "./elpis-tools";
-import { repartirFamilles } from "./mcp/natives";
+import { avertirFamillesIgnorees, famillesNativesActives } from "./mcp/natives";
 import { FABRIQUES_NATIVES } from "./mcp/registre";
 import { verifierNatifs } from "./natif";
 import { servirStdio } from "./stdio";
@@ -31,6 +30,16 @@ const CODE_RELANCE = 75;
 async function principal(argv: readonly string[]): Promise<number | null> {
   const ecrire = (l: string): boolean => process.stdout.write(`${l}\n`);
   if (argv.includes("--natif")) return verifierNatifs(ecrire);
+  if (argv.includes("--familles-relayees")) {
+    ecrire("");
+    return 0;
+  }
+  if (argv.includes("--elpis-tools")) {
+    process.stderr.write(
+      "elpis-tools est retiré : rien à servir (sudo ./elpis service install retire son unité).\n",
+    );
+    return 0;
+  }
   if (argv.includes("--empreinte"))
     return verifierEmpreinteBundle(
       import.meta.dirname,
@@ -48,19 +57,14 @@ async function principal(argv: readonly string[]): Promise<number | null> {
   const fams = parseFamiliesArgv(argv);
   if (fams !== null) {
     tc.families = parseFamilies(fams, (w) => log.warn(w));
-    tc.familles_natives = tc.natives_par_defaut
-      ? nativesPortees(tc.families)
-      : tc.familles_natives.filter((f) => tc.families.includes(f));
-  }
-  if (argv.includes("--familles-relayees")) {
-    ecrire(repartirFamilles(tc, FABRIQUES_NATIVES, log).relayees.join(","));
-    return 0;
+    tc.familles_natives = nativesPortees(tc.families);
   }
   if (argv.includes("--familles-natives")) {
-    ecrire(repartirFamilles(tc, FABRIQUES_NATIVES, log).natives.join(","));
+    const natives = famillesNativesActives(tc, FABRIQUES_NATIVES, log);
+    avertirFamillesIgnorees(tc, natives, log);
+    ecrire(natives.join(","));
     return 0;
   }
-  if (argv.includes("--elpis-tools")) return servirElpisTools(tc, log);
   if (argv.includes("--stdio") || tc.transport === "stdio") return servirStdio(tc, { journal: log });
   appliquerEnvironnement(tc);
   rechargerConfig();
@@ -82,9 +86,10 @@ async function principal(argv: readonly string[]): Promise<number | null> {
   });
   await cycle.demarrer();
   await app.listen({ host: tc.host, port: tc.port });
-  const servis = composition.service.transports();
+  const servis = composition.natif?.transports() ?? [];
   const mcp =
-    servis.map((t) => (t === "http" ? "/mcp[/<famille>]" : "/sse[/<famille>]")).join(" + ") || "aucun amont";
+    servis.map((t) => (t === "http" ? "/mcp[/<famille>]" : "/sse[/<famille>]")).join(" + ") ||
+    "aucune famille";
   log.info(
     `hôte d'outils : http://${tc.host}:${tc.port}  (MCP ${mcp}, familles ${tc.families.join(", ")}` +
       `${composition.natif ? ` dont natives ${composition.natif.familles.map((f) => f.famille).join(", ")}` : ""}, ` +

@@ -6,7 +6,7 @@ Pose les tables ``oauth_clients`` (clients enregistrés dynamiquement, par
 document de métadonnées ou à la main), ``oauth_codes`` (codes d'autorisation à
 usage unique) et ``oauth_tokens`` (jetons d'accès et de rafraîchissement
 opaques). Seules des empreintes SHA-256 sont stockées (cf.
-``shared_infra/mcp/oauth.py``).
+``packages/auth/src/oauth.ts``).
 
 Sur PostgreSQL, les migrations couvertes par le schéma de référence
 sont tamponnées sans être rejouées : les tables y sont posées au démarrage par

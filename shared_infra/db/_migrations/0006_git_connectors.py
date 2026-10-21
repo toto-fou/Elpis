@@ -13,7 +13,7 @@ existante (``ax_credentials`` est déjà en clair, outil interne). La colonne
 ``token_scheme`` est réservée pour basculer vers un chiffrement Fernet plus tard
 SANS changement de schéma (juste re-wrap des lignes ``plain``).
 
-CRUD : ``shared_infra/git/connectors.py``. Idempotent (``IF NOT EXISTS``).
+CRUD : ``apps/core/src/git/connecteurs.ts``. Idempotent (``IF NOT EXISTS``).
 Ne commit PAS (le runner de migrations commit à la fin).
 """
 from __future__ import annotations

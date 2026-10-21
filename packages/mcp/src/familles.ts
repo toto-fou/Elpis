@@ -5,26 +5,20 @@ import { config } from "@elpis/config";
 
 import { repr } from "./outils";
 
-/** `(nom, module register, register attend la racine sandbox ?)` */
-export const TOOL_FAMILIES: readonly (readonly [string, string, boolean])[] = [
-  ["fs", "llm_core.tools.fs_tools", true],
-  ["shell", "llm_core.tools.shell_tools", true],
-  ["git", "llm_core.tools.git_tools", true],
-  ["chart", "llm_core.tools.chart_tools", true],
-  ["office", "llm_core.tools.office_tools", true],
-  ["memory", "llm_core.tools.memory_tools", true],
-  ["skill", "llm_core.tools.skill_tools", false],
-  ["skill_run", "llm_core.tools.skill_tools", false],
-  ["todo", "llm_core.tools.todo_tools", false],
-  ["browser", "llm_core.tools.firefox_tools", false],
-  ["desktop", "llm_core.tools.desktop_tools", false],
+/** Noms de toutes les familles d'outils, dans l'ordre canonique. */
+export const FAMILY_NAMES: readonly string[] = [
+  "fs",
+  "shell",
+  "git",
+  "chart",
+  "office",
+  "memory",
+  "skill",
+  "skill_run",
+  "todo",
+  "browser",
+  "desktop",
 ];
-export const FAMILY_NAMES: readonly string[] = TOOL_FAMILIES.map((f) => f[0]);
-
-export const FAMILY_REGISTER_FN: Readonly<Record<string, string>> = {
-  skill: "register_library",
-  skill_run: "register_run",
-};
 
 export const SANDBOX_FAMILIES = ["fs", "shell", "git", "office", "skill_run", "browser", "desktop"] as const;
 export const APP_FAMILIES = ["chart", "memory", "skill", "todo"] as const;

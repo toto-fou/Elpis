@@ -16,8 +16,7 @@ et trompeuse.
 
 **2. Fragments de capacité — `FRAGMENT_*.md` (CONDITIONNELS).**
 Injectés automatiquement, et seulement quand la capacité correspondante est active, par
-`build_capability_block()` (`llm_core/_system_prompts.py`), à partir des catégories d'outils du tour
-(`llm_core/_mcp_categories.categorize`). Deux étages :
+`buildCapabilityBlock()` (`apps/core/src/prompts/systeme.ts`), à partir des catégories d'outils du tour. Deux étages :
 
 - **Action** — cadrage sandbox / agentique. `FRAGMENT_TOOLS` dès qu'une catégorie d'action est présente,
   + un fragment spécialisé selon la catégorie. Pilote aussi `<runtime_context>` (fs/shell/git).

@@ -18,7 +18,7 @@ export class CycleDeVie {
     this.journal = journal;
   }
 
-  /** Levé au début de l'arrêt : flux longs (SSE relayés) et boucles de fond s'arrêtent. */
+  /** Levé au début de l'arrêt : flux longs (SSE) et boucles de fond s'arrêtent. */
   get signalArret(): AbortSignal {
     return this.controleurArret.signal;
   }

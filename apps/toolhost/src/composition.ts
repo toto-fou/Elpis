@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/composition.ts — composition de l'hôte : configuration, service MCP amont, familles natives, client de rappel, familles de routes et tâches du cycle de vie. */
+/** apps/toolhost/src/composition.ts — composition de l'hôte : configuration, familles natives, client de rappel, familles de routes et tâches du cycle de vie. */
 import { setTimeout as attendre } from "node:timers/promises";
 
 import {
@@ -34,14 +34,14 @@ import { metriqueHote } from "./fichiers/metrique";
 import type { Journal } from "./journal";
 import { creerFamilleMandataireApercu } from "./mandataire-apercu";
 import type { CommandeStdio } from "./manifeste";
-import { arreterFlux, CHEMINS_FACADE, contexteFacade, METHODES, traiterFacade } from "./mcp/facade";
+import { CHEMINS_FACADE, contexteFacade, METHODES, traiterFacade } from "./mcp/facade";
 import type { ContexteFacade } from "./mcp/facade";
-import { creerServiceNatif } from "./mcp/natives";
+import { avertirFamillesIgnorees, creerServiceNatif } from "./mcp/natives";
 import { creerFamilleJobs } from "./mcp/shell/jobs/routes";
 import { agentVeilleDuCompte, installerVeilleurJobs, VeilleurJobs } from "./mcp/shell/jobs/veilleur";
 import type { FabriqueNative, ServiceNatif } from "./mcp/natives";
 import { FABRIQUES_NATIVES } from "./mcp/registre";
-import { ServiceMcp } from "./mcp/service";
+import { arreterWorkerOffice } from "./mcp/office/famille";
 import { arreterOffice } from "./office/apercu";
 import { ClientRappel } from "./rappel";
 import { creerFamilleSocle } from "./socle";
@@ -78,7 +78,6 @@ export interface OptionsComposition {
 export interface Composition {
   readonly tc: ToolhostConfig;
   readonly familles: Famille[];
-  readonly service: ServiceMcp;
   readonly natif: ServiceNatif | null;
   readonly rappel: ClientRappel;
   readonly terminaux: Terminaux;
@@ -94,7 +93,7 @@ export function stdioParDefaut(famille: string): CommandeStdio {
 }
 
 function familleFacade(ctx: ContexteFacade): Famille {
-  const traiter = traiterFacade(ctx);
+  const traiter = traiterFacade();
   return {
     nom: "mcp",
     contexte: contexteFacade(ctx),
@@ -129,24 +128,8 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
     rappel,
     journal: o.journal,
   });
-  const service = new ServiceMcp({
-    amont: tc.mcp_upstream,
-    amontSse: tc.mcp_upstream_sse,
-    jeton: tc.token,
-    familles: tc.families,
-    natives: natif?.familles.map((f) => f.famille) ?? [],
-    transports: tc.transports,
-    journal: o.journal,
-    agent,
-  });
-  const facade: ContexteFacade = {
-    service,
-    natif,
-    agent,
-    journal: o.journal,
-    flux: new Set(),
-    arret: o.cycle?.signalArret,
-  };
+  avertirFamillesIgnorees(tc, natif?.familles.map((f) => f.famille) ?? [], o.journal);
+  const facade: ContexteFacade = { natif, journal: o.journal };
   definirFabriqueAgent((bac) => new AgentClient(bac));
   const fixe = o.base;
   const base = (): Promise<Base> => (fixe === undefined ? baseDuTerminal() : Promise.resolve(fixe));
@@ -167,13 +150,12 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
   installerUsageTerminal((uid, racine, quota) => sandboxUsageBytes(uid, racine, { quotaBytes: quota }));
   const cycle = o.cycle;
   if (cycle !== undefined) {
-    cycle.auDemarrage("service MCP amont", () => service.boucle(cycle.signalArret), { arrierePlan: true });
     cycle.auDemarrage("balayage des envois abandonnés", () => boucleBalayage(o.journal, cycle.signalArret), {
       arrierePlan: true,
     });
     cycle.alArret("threads de calcul (remplacements, .docx)", arreterFilsCalcul);
     cycle.alArret("conversions Office", arreterOffice);
-    cycle.signalArret.addEventListener("abort", () => arreterFlux(facade), { once: true });
+    cycle.alArret("worker Office", arreterWorkerOffice);
     cycle.alArret("abonnement docker events", arreterReadinessCache);
     cycle.auDemarrage(
       "nettoyage des terminaux",
@@ -190,13 +172,11 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
   }
   return {
     tc,
-    service,
     natif,
     rappel,
     familles: [
       creerFamilleSocle({
         tc,
-        service,
         natif,
         stdio: o.stdio ?? stdioParDefaut,
         ...(o.demarreA !== undefined ? { demarreA: o.demarreA } : {}),
@@ -226,10 +206,10 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
     sessions,
     nettoyerTerminaux,
     async fermer() {
-      arreterFlux(facade);
       veilleur.arreter();
       installerVeilleurJobs(null);
       await natif?.fermer();
+      await arreterWorkerOffice();
       arreterReadinessCache();
       definirFabriqueAgent(null);
       terminaux.tuerTout();

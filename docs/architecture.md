@@ -104,8 +104,7 @@ Application multi-process :
 |---|---|---|
 | **main** | 8001 | Chat, sandbox, éditeur, routines, Studio, Remote code, statiques. Core TypeScript (`apps/core/dist/main.mjs`), un process, compte non privilégié |
 | **admin** | 8002 | Uniquement `/api/admin/*` + la console. Même core, un process, **même compte non privilégié** que main (jamais root) |
-| **toolhost** | 8765 | Hôte des outils MCP locaux (`apps/toolhost`, bundle Node) : HTTP streamable `/mcp[/<famille>]` et SSE, API sandbox et terminal ; famille Office relayée vers elpis-tools |
-| **elpis-tools** | 8767 | Famille d'outils Office, en Python (`server/local_mcp_server.py`), en loopback, amont de l'hôte d'outils |
+| **toolhost** | 8765 | Hôte des outils MCP locaux (`apps/toolhost`, bundle Node) : HTTP streamable `/mcp[/<famille>]` et SSE, API sandbox et terminal ; famille Office par un worker Python (`office/`) |
 | **llama-server** | 8080 | Moteur d'inférence local, autonome |
 | **browser-service** | 3000 | Node + Playwright (outils `pw_*`) — optionnel |
 | **rag_app** | 8000 (loopback) | Extracteur du RAG (Python, FastAPI, sans état) : texte structuré, pages rendues, localisation, OCR par un modèle de vision ; appelé par le core seul |
@@ -118,9 +117,9 @@ Les process main et admin partagent le **même secret de session** (injecté par
 
 Le core est en TypeScript (`apps/core/`, paquets partagés dans `packages/`).
 Les outils liés au compte (mémoire, tâches, skills, graphiques) sont servis
-par main lui-même. Le Python restant sert elpis-tools, l'agent des sandboxes,
-l'assistant de configuration et l'extracteur du RAG : **`llm_core/`** (familles d'outils,
-mémoire, skills) et **`shared_infra/`** (infrastructure rangée par famille).
+par main lui-même. Le Python restant sert le moteur Office (**`office/`**, un worker de
+l'hôte d'outils), l'agent des sandboxes, l'assistant de configuration et l'extracteur du
+RAG : **`shared_infra/`** (infrastructure rangée par famille).
 
 ---
 
@@ -128,12 +127,11 @@ mémoire, skills) et **`shared_infra/`** (infrastructure rangée par famille).
 
 | Composant | Technologie |
 |---|---|
-| Backend | Core et hôte d'outils : Node 24, TypeScript, Fastify ; elpis-tools, extracteur du RAG, configuration : Python 3.11+ |
+| Backend | Core et hôte d'outils : Node 24, TypeScript, Fastify ; moteur Office, extracteur du RAG, configuration : Python 3.11+ |
 | Base de données | SQLite 3 (WAL) par défaut ; PostgreSQL au choix (core : better-sqlite3, pg ; Python : pg8000) |
 | Client HTTP | undici (core, appels LLM) ; httpx (Python) |
-| Protocole outils | `@modelcontextprotocol/sdk` (TS), `fastmcp` (Python) : stdio + SSE + HTTP |
+| Protocole outils | `@modelcontextprotocol/sdk` (TS) : stdio + SSE + HTTP |
 | Chiffrement au repos | `cryptography` / Fernet (clés API, secrets MCP) |
-| Monitoring | psutil |
 | Frontend | Vue 3.5 + TypeScript strict, SFC compilés par Vite (`@elpis/web`, `frontend/dist`), contrats Zod (`@elpis/contracts`), tests Vitest ; racines SFC `App.vue` / `AppConsole.vue` |
 | Styles | Tailwind précompilé (`style.tailwind.css`, généré par `tools/generate_tailwind_css.mjs`) + `style.css` (tokens, skins) |
 | Éditeur | Monaco (paquet npm, ESM et workers, chargé à l'ouverture) |
@@ -224,7 +222,7 @@ flowchart LR
         c["Caddy :443 · :8443 · :80"]
         m["main :8001"]
         a["admin :8002"]
-        s["toolhost :8765<br/>(apps/toolhost, Node)<br/>→ elpis-tools :8767"]
+        s["toolhost :8765<br/>(apps/toolhost, Node)<br/>+ worker Office (Python)"]
         b["browser-service :3000"]
         r["extracteur rag_app :8000"]
         q[("Qdrant :6333")]
@@ -261,8 +259,7 @@ flowchart LR
 - **toolhost** (`apps/toolhost`, bundle `apps/toolhost/dist/main.mjs`) — sert
   une fois pour main et admin les outils MCP en HTTP streamable
   (`/mcp[/<famille>]`) et SSE, plus l'API sandbox et terminal ; les familles
-  portées en TypeScript (`familles_natives`, toutes par défaut) sont servies par lui, les autres
-  relayées vers **elpis-tools** (`server/local_mcp_server.py`, loopback :8767) ;
+  portées en TypeScript de `families` sont servies par lui ;
   évite N cold-starts et N jeux de subprocess ; l'app ne le lance jamais en
   sous-process : c'est un service requis, comme la base. Le même service sert les clients **opencode** des utilisateurs
   (jeton elpis-remote en Bearer, familles fs/shell cachées pour eux).
@@ -283,10 +280,9 @@ d'ensemble :
 elpis/
 ├── apps/            # core/ (core TS, main et admin), toolhost/ (hôte d'outils TS)
 ├── packages/        # paquets TS partagés : contracts, db, outils-mcp, navigateur…
-├── server/          # elpis-tools (local_mcp_server.py)
-├── llm_core/        # Python d'elpis-tools : tools/ (familles d'outils), memory/, skills
-├── shared_infra/    # infra Python par famille : db, mcp, memory, runtime,
-│                    #   sandbox (dont l'agent du conteneur), security, git…
+├── office/          # moteur Office (Python, elpis_office/) : worker de l'hôte d'outils
+├── shared_infra/    # infra Python par famille : accounts, db, llm, memory, ops,
+│                    #   observability, runtime, sandbox (agent du conteneur), security
 ├── frontend/        # interface (@elpis/web, Vite) : src/ (TS, SFC), css/, assets/, coquilles index.html et admin.html
 ├── browser-service/ # Node + Playwright (:3000)
 ├── desktop-agent/   # agent de contrôle d'écran (Windows/Linux)
@@ -324,8 +320,8 @@ Un espace de travail npm à la racine (Node 24, TypeScript strict, ESM) :
    (pages, statiques, manifeste Vite).
 2. **`apps/toolhost/`** — l'hôte d'outils (`dist/main.mjs`) : familles MCP
    natives, API sandbox (`bac/`, `fichiers/`, `git/`, `office/`, aperçus),
-   terminal (`terminal/`, node-pty), relais des familles encore en Python vers
-   elpis-tools (`elpis-tools.ts`).
+   terminal (`terminal/`, node-pty), worker Python du moteur Office
+   (`mcp/office/`).
 3. **`packages/`** — paquets partagés par les deux applications :
    `contracts` (schémas Zod du flux NDJSON, des routes REST, du SSE système et
    du WS terminal, consommés aussi par le frontend), `db` (schéma, dialectes
@@ -335,11 +331,9 @@ Un espace de travail npm à la racine (Node 24, TypeScript strict, ESM) :
    serveurs et catalogue d'outils), `bac` et `fichiers` (agent du bac, accès à
    `/work`), `navigateur`, `bureau`, `images`, `skills`, `verrous`, `commun`
    (JSON compatible Python, erreurs).
-4. **Python restant** — `server/local_mcp_server.py` (elpis-tools : la famille
-   Office de `llm_core/tools/` ; les autres familles n'y servent que si
-   `toolhost.json › familles_natives` les exclut), `shared_infra/`
-   (infrastructure de ces outils, agent du bac, accès à la base pour la
-   configuration), `rag_app/`, `desktop-agent/`, `deploy/`.
+4. **Python restant** — `office/` (moteur Office, worker de l'hôte d'outils),
+   `shared_infra/` (agent du bac, accès à la base pour la configuration),
+   `rag_app/`, `desktop-agent/`, `deploy/`.
 
 ---
 
@@ -361,7 +355,7 @@ position.
 | `erreurs.ts` | erreurs classées comme celles de `sqlite3` (intégrité, opération, données…) |
 
 Copie entre moteurs : `apps/core/src/ops/transfert.ts` (`./elpis db transfer`).
-Le Python restant (assistant de configuration, elpis-tools) lit la même base
+Le Python restant (assistant de configuration) lit la même base
 par `shared_infra/db/`, qui garde le même dialecte.
 
 Une base vide reçoit le schéma de référence d'un coup, et les migrations qu'il
@@ -464,15 +458,15 @@ NULL = intégré), `system_prompt`, `task_prompt`, `mcp_snapshot`,
 main est **un seul process** : les tours en cours, les verrous de présence des
 conversations, les annulations, le bus d'événements système et celui de la page
 Code vivent en mémoire (`apps/core/src/tour/etat.ts`,
-`apps/core/src/evenements/`). Entre process (main, admin, hôte d'outils,
-elpis-tools), un état partagé passe par l'un de ces canaux, jamais par une
+`apps/core/src/evenements/`). Entre process (main, admin, hôte d'outils),
+un état partagé passe par l'un de ces canaux, jamais par une
 variable de module :
 
 | Canal | Module | Ce qu'il résout |
 |---|---|---|
 | **Base de données** | `packages/db` | Tout état devant survivre au process (chats, routines, sessions révoquées, reprise des sous-agents) |
 | **Canal interne main → admin** | `apps/core/src/evenements/canal.ts` (`/api/internal/events`) | Métriques en direct, journaux du staff, « Redémarrage nécessaire » : SSE à tampon circulaire, reprise par `Last-Event-ID` |
-| **Verrou `elpis.verrou.v1.1`** | `@elpis/verrous` (`packages/verrous/src/verrou.ts`), `shared_infra/runtime/verrou_fichier.py` côté Python | Un seul planificateur actif (`apps/core/src/routines/meneur.ts`) ; écritures partagées avec un service Python (mémoire, skills, historique des fichiers, cycle de vie des sandboxes) |
+| **Verrou `elpis.verrou.v1.1`** | `@elpis/verrous` (`packages/verrous/src/verrou.ts`), `shared_infra/runtime/verrou_fichier.py` côté Python | Un seul planificateur actif (`apps/core/src/routines/meneur.ts`) ; côté Python, nettoyage de démarrage de la base, création du schéma et de la clé de chiffrement |
 | **Fichiers d'exécution** | `ELPIS_RUNTIME_DIR` : journal des runs (`tour/journal-run.ts`), journal JSONL commun (`evenements/journal-commun.ts`), cache des catégories d'outils (`outils/categories.ts`) | Se rattacher à un run après un redémarrage ; journal lu par la console ; outils découverts par un autre process |
 
 Une annulation ne passe jamais par les événements système : un Stop arrête le
@@ -2387,8 +2381,8 @@ Routes de la console : voir [Administration](#administration-api).
 L'hôte d'outils (`apps/toolhost`) sert lui-même les familles portées en
 TypeScript (`apps/toolhost/src/mcp/<famille>/`, sur le serveur MCP de
 `packages/outils-mcp/src/serveur.ts`) : `fs`, `shell`, `git`, `browser`,
-`desktop`, `skill_run`. Il relaie les autres (Office) à elpis-tools
-(`server/local_mcp_server.py`, Python, `llm_core/tools/`). Les familles liées au
+`desktop`, `skill_run`, `office` (moteur Python `office/`, lancé en worker
+par l'hôte). Les familles liées au
 compte (`chart`, `memory`, `skill`, `todo`) sont servies en processus par
 main. Les définitions publiées des outils (nom, description, schéma) sont
 figées dans `packages/outils-mcp/goldens/<famille>.json`, lues à l'exécution.
@@ -2399,8 +2393,7 @@ sur `tools/list`.
 **Pile de traitement** d'un appel : limite de débit → enveloppe `{ok: false}`
 rendue avec `isError: true` (l'enveloppe est conservée) → titre complété.
 
-**Contrat unique** (`packages/outils-mcp/src/boite.ts`, et
-`llm_core/tools/_toolkit.py` côté Python) — une seule enveloppe de résultat,
+**Contrat unique** (`packages/outils-mcp/src/boite.ts`) — une seule enveloppe de résultat,
 une seule forme d'erreur, une seule règle de troncature, un seul jeu de
 coercitions d'entrée :
 
@@ -2432,7 +2425,7 @@ d'outil est du contexte **permanent** pour le reste du run.
 | `browser` (hôte d'outils) | `browser` | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory` |
 | `desktop` (hôte d'outils) | `desktop` | `desktop_session`, `desktop_observe`, `desktop_read`, `desktop_clipboard`, `desktop_act`, `desktop_wait`, `desktop_launch`, `desktop_shell`, `desktop_windows`, `desktop_focus` (+ `desktop_screenshot`/`_inspect` en opt-in) |
 | `chart` (main) | `chart` | un outil par type : `chart_bar`, `chart_line`, `chart_heatmap`, `chart_sankey`, `chart_gantt`… `chart_table` (30) |
-| `office` (elpis-tools, Python) | `office` | `docx_create`, `docx_read`, `docx_edit`, `pptx_create`, `pptx_read`, `pptx_edit`, `office_export` |
+| `office` (worker Python) | `office` | `docx_create`, `docx_read`, `docx_edit`, `pptx_create`, `pptx_read`, `pptx_edit`, `office_export` |
 | `memory` (main) | `memory` | `memory`, `session_search` |
 | `skill` (main) et `skill_run` (hôte d'outils) | `skill` | `skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`, `skill_run_script`, `ask_user` |
 | `todo` (main) | `task` (cachée) | `todowrite` |
@@ -2586,10 +2579,10 @@ AT-SPI). Cycle : `desktop_session` → `desktop_observe` → `desktop_act` →
   ECharts en JSON pur et renvoie un `!id` ; rendu par
   `frontend/src/features/chat/rendu/graphiques.ts` (ECharts, chargé au premier
   graphique).
-- **`office`** (elpis-tools, Python) — documents Word et PowerPoint **de la sandbox**, sept
+- **`office`** (worker Python de l'hôte) — documents Word et PowerPoint **de la sandbox**, sept
   outils par intention (`docx_create` / `docx_read` / `docx_edit`,
   `pptx_create` / `pptx_read` / `pptx_edit`, `office_export`). Moteur sans
-  état `llm_core/tools/_office` : chaque appel lit le fichier par l'agent,
+  état `office/elpis_office` : chaque appel lit le fichier par l'agent,
   le transforme en mémoire (python-docx, python-pptx) et le réécrit avec
   l'écriture gardée de `write_file` (verrou de l'éditeur, historique) ; une
   modification n'écrit que si le fichier n'a pas changé depuis sa lecture
@@ -2600,10 +2593,10 @@ AT-SPI). Cycle : `desktop_session` → `desktop_observe` → `desktop_act` →
   `chart_*` : natifs éditables (barres, courbes, aires, secteurs, anneau,
   radar, nuage, bulles, histogramme), `chart_table` / `chart_kpi` en tableau
   ou tuiles, les autres en image ECharts rendue côté serveur
-  (`_office/echarts_ssr.cjs`, Node, qui charge `frontend/dist/echarts-ssr.cjs`,
+  (`office/elpis_office/echarts_ssr.cjs`, Node, qui charge `frontend/dist/echarts-ssr.cjs`,
   bundle construit par `frontend/build-ssr.mjs` avec le thème et les formateurs
   du chat) puis
-  PNG par LibreOffice isolé (`office_preview.convert_bytes`) ; sans Node ou
+  PNG par LibreOffice isolé (`convertBytes`, `apps/toolhost/src/office/apercu.ts`) ; sans Node ou
   LibreOffice, tableau des données. Images et modèles : chemins de la sandbox
   seulement ; archive contrôlée avant ouverture (bombe zip), macros retirées.
   Les graphiques sont lus dans le cache de la famille `chart` (`<tmp>/elpis_charts`,
@@ -2631,8 +2624,9 @@ AT-SPI). Cycle : `desktop_session` → `desktop_observe` → `desktop_act` →
   annotations) s'ajoute à `packages/outils-mcp/goldens/<famille>.json`. Une
   famille liée au compte se branche dans le core
   (`apps/core/src/outils/mcp/en-processus.ts`).
-- **Famille Office (Python, elpis-tools)** : un module de `llm_core/tools/`
-  avec un `register(mcp, …)`, appelé dans `server/local_mcp_server.py`.
+- **Famille Office** : un outil du moteur `office/elpis_office/` (`TOOLS`), sa
+  définition publiée dans `packages/outils-mcp/goldens/office.json` ; fichiers
+  et conversions côté hôte, `apps/toolhost/src/mcp/office/`.
 - Optionnel : un `system_prompts/FRAGMENT_<X>.md` pour la consigne de
   capacité, câblé dans l'assemblage de la tête système
   (`apps/core/src/contexte/assemblage.ts`).
@@ -2792,7 +2786,7 @@ Bibliothèque livrée : `ansible`, `python`, `robotframework` (packages), plus
 
 ## Mémoire long terme
 
-`apps/core/src/memoire/` (format partagé avec `llm_core/memory/`) — un
+`apps/core/src/memoire/` — un
 `MarkdownStore` est une vue fichier sur une liste
 d'**entrées** séparées par `§` (seul sur sa ligne). Deux magasins :
 `MEMORY.md` (environnement/projets) et `USER.md` (profil).

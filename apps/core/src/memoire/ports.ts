@@ -18,7 +18,7 @@ export interface MessageIndexe {
   ts: number;
 }
 
-/** `shared_infra.memory.store.session_index_message` (porté avec les routes mémoire, B1-22). */
+/** Ligne de l'index de session d'un message (`sessions.ts`). */
 export interface PortIndexSessions {
   indexerMessage(message: MessageIndexe): Promise<void>;
 }

@@ -9,7 +9,7 @@
 #  --------------------
 #   * Première image construite avec l'entrypoint « réseau fin » :
 #     ELPIS_ALLOWLIST_PORTS (ports TCP autorisés) et ELPIS_DNS (résolveurs)
-#     sont enfin appliqués (ignorés par 1.5.0, cf. _user_sandbox.py).
+#     sont enfin appliqués (ignorés par 1.5.0, cf. packages/bac/src/conteneur.ts).
 #
 #  Changements vs 1.4.0
 #  --------------------
@@ -158,7 +158,7 @@ RUN apt-get update \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-# Le conteneur tourne sans NET_RAW (_user_sandbox.CAPABILITIES) : la capacité
+# Le conteneur tourne sans NET_RAW (CAPABILITIES de packages/bac/src/conteneur.ts) : la capacité
 # fichier cap_net_raw de ping ferait échouer son exécution ; sans elle, ping
 # passe par les sockets ICMP ordinaires que Docker ouvre à tous
 # (net.ipv4.ping_group_range).
@@ -265,7 +265,7 @@ RUN if [ "$PIP_ONLINE" = "1" ]; then \
 # NOPASSWD : dans son propre container il peut donc tout faire (apt,
 # pip système, chmod, chown, monter un service…) sans avoir besoin d'un
 # accès root "host". L'isolation host reste assurée par Docker (namespaces,
-# seccomp, pas de socket Docker monté) — cf. _user_sandbox.py.
+# seccomp, pas de socket Docker monté) — cf. packages/bac/src/conteneur.ts.
 RUN groupadd -g 10001 elpis \
  && useradd -m -u 10001 -g 10001 -s /bin/bash elpis \
  && echo 'elpis ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/elpis \

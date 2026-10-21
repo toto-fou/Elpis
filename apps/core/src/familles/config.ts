@@ -54,7 +54,7 @@ export function configParDefaut(): Dict {
       retries: 1,
       retry_backoff_sec: 0.6,
     },
-    mcp: { server_cmd: "server/local_mcp_server.py", tools_cache_ttl_sec: new FlottantPy(360) },
+    mcp: { tools_cache_ttl_sec: new FlottantPy(360) },
     app: {
       db_path: "user_db/app.db",
       session_secret: "",

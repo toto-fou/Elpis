@@ -13,7 +13,7 @@ raisonnement sans qu'aucune vue — ni l'onglet Utilisation, ni la zone Métriqu
 n'avait pas de réponse.
 
 Cette colonne porte la part de raisonnement du tour, mesurée dans la boucle
-(``llm_core._think_tokens`` : déclarée par le backend quand il le fait, sinon
+(``apps/core/src/llm/jetons-raisonnement.ts`` : déclarée par le backend quand il le fait, sinon
 ``/tokenize`` exact en local, sinon estimée au ratio mesuré).
 
 Invariant

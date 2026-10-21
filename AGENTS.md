@@ -12,8 +12,7 @@ mémoire, skills), éditeur de code sur une sandbox Docker par utilisateur,
 routines, RAG intégré (collections de documents), console d'administration. Core (main, admin) et hôte
 d'outils en TypeScript (Node 24, Fastify) ; interface en TypeScript et Vue 3
 (SFC compilés par Vite). Restent en Python : l'extracteur du RAG (`rag_app/`),
-elpis-tools (`server/local_mcp_server.py`, qui sert la famille d'outils
-Office), `desktop-agent/`, l'agent du bac (`shared_infra/sandbox/agent/`) et
+le moteur Office (`office/`, worker de l'hôte d'outils), `desktop-agent/`, l'agent du bac (`shared_infra/sandbox/agent/`) et
 l'installation (`deploy/configure.py`, `deploy/wizard.py`). Inférence
 `llama-server` (llama.cpp) ou tout moteur compatible OpenAI. Interface et
 documentation en français. Licence MIT.
@@ -26,7 +25,7 @@ ARCHITECTURE.md.
 ```bash
 ./install.sh                                  # Debian 12/13, Ubuntu 24.04 : Node 24 dans node/, venv dans venv/
 ./elpis start | stop | restart | status       # tous les services
-./elpis logs [qdrant|rag|tools|toolhost|main|admin|browser] [-f]
+./elpis logs [qdrant|rag|toolhost|main|admin|browser] [-f]
 ./elpis doctor                                # diagnostic
 ./elpis db info | check CIBLE | transfer --to CIBLE | use sqlite|CIBLE
 ```
@@ -36,9 +35,7 @@ au répertoire courant) :
 
 ```bash
 npm ci && npm run build                                                    # bundles du core, de l'hôte d'outils et du front (frontend/dist)
-ELPIS_RACINE=$PWD node/bin/node apps/toolhost/dist/main.mjs --elpis-tools # famille Office (elpis-tools, Python) :8767
-ELPIS_RACINE=$PWD TOOLHOST_MCP_UPSTREAM=http://127.0.0.1:8767/mcp \
-  node/bin/node apps/toolhost/dist/main.mjs                              # hôte d'outils MCP :8765
+ELPIS_RACINE=$PWD node/bin/node apps/toolhost/dist/main.mjs              # hôte d'outils MCP :8765 (Office : worker Python)
 ELPIS_RACINE=$PWD APP_MODE=main LOCAL_MCP_URL=http://127.0.0.1:8765/mcp \
   node/bin/node apps/core/dist/main.mjs                                  # chat :8001
 ELPIS_RACINE=$PWD APP_MODE=admin LOCAL_MCP_URL=http://127.0.0.1:8765/mcp \
@@ -46,7 +43,7 @@ ELPIS_RACINE=$PWD APP_MODE=admin LOCAL_MCP_URL=http://127.0.0.1:8765/mcp \
 ```
 
 Ports par défaut : main 8001, admin 8002, outils MCP (`toolhost`) 8765,
-elpis-tools 8767 (loopback), RAG 8000, Qdrant 6333, navigateur 3000,
+RAG 8000, Qdrant 6333, navigateur 3000,
 `llama-server` 8080. La configuration d'instance est `config.json` à la racine
 (non versionné ; modèle : `config.example.json`). Les versions `?v=` des
 ressources sont réécrites au `BUILD_ID` du process : redémarrer le core pour
@@ -67,7 +64,7 @@ dépôt : ils passent la suite complète (TypeScript, Python, parcours réels da
 Chromium) avant de fusionner une pull request. Décrivez dans la pull request
 ce que vous avez essayé à la main (écran, commande, cas limite).
 
-Python restant (RAG, elpis-tools, `deploy/`) : `venv/bin/ruff check .`
+Python restant (RAG, moteur Office, `deploy/`) : `venv/bin/ruff check .`
 (règles dans `pyproject.toml`, ruff est installé par `requirements.txt`).
 
 ## TypeScript
@@ -120,7 +117,7 @@ main et admin ; `apps/toolhost` : hôte d'outils), paquets partagés dans
 - Les prompts système (`system_prompts/*.md`) sont en **anglais**, sans emoji,
   dans leurs budgets de caractères.
 
-**Code Python** (services restants : RAG, elpis-tools, desktop-agent, agent du bac, deploy)
+**Code Python** (restant : RAG, moteur Office, desktop-agent, agent du bac, deploy)
 
 - Nouveau fichier source : première ligne `# SPDX-License-Identifier: MIT`,
   puis une docstring d'en-tête « chemin — rôle » sur une ligne.
@@ -155,8 +152,8 @@ main et admin ; `apps/toolhost` : hôte d'outils), paquets partagés dans
   `apps/core/src/familles.ts`), montées selon `APP_MODE` ; la logique d'un sujet
   vit dans son dossier de `apps/core/src/` ou dans un paquet de `packages/`
   partagé avec l'hôte d'outils.
-- `shared_infra/` (Python restant) est rangé **par famille** (accounts, chat,
-  db, llm, mcp, observability, sandbox, security…).
+- `shared_infra/` (Python restant) est rangé **par famille** (accounts,
+  db, llm, memory, observability, ops, runtime, sandbox, security).
 - Routes d'administration : familles `admin-*` de `apps/core/src/familles/`
   (process admin seulement) ; rôle vérifié par `exigerRole`
   (`packages/auth/src/garde.ts`). `is_admin` vaut 0, 1 (admin) ou 2
@@ -237,7 +234,7 @@ résumé, une modification ne doit jamais :
 - faire lever l'exécution d'un outil (erreur rendue en JSON), ni rejouer un
   appel MCP qui a peut-être agi ;
 - garder dans une variable de module un état qui doit être partagé entre
-  process (main, admin, hôte d'outils, elpis-tools) : passer par la base ou
+  process (main, admin, hôte d'outils) : passer par la base ou
   le canal interne ;
 - faire passer une annulation par les événements système : un Stop passe par
   l'AbortSignal du tour ;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/stdio.ts — `main.mjs --stdio --families <f>` : familles natives servies sur stdio comme `python -m toolhost --stdio` (identité du `_meta`, aucun jeton, aucun port), familles relayées confiées à elpis-tools en stdio. */
+/** apps/toolhost/src/stdio.ts — `main.mjs --stdio --families <f>` : familles natives servies sur stdio comme `python -m toolhost --stdio` (identité du `_meta`, aucun jeton, aucun port). */
 import type { Readable, Writable } from "node:stream";
 
 import { arreterReadinessCache, definirFabriqueAgent } from "@elpis/bac";
@@ -11,12 +11,13 @@ import { Agent } from "undici";
 import { fermerBaseHote, ouvrirBaseHote } from "./base-hote";
 import { appliquerEnvironnement } from "./config";
 import type { ToolhostConfig } from "./config";
-import { lancerElpisTools } from "./elpis-tools";
 import { journal as fabriqueJournal } from "./journal";
 import type { Journal } from "./journal";
-import { creerServeurNatif, repartirFamilles } from "./mcp/natives";
+import { avertirFamillesIgnorees, creerServeurNatif, famillesNativesActives } from "./mcp/natives";
 import type { FabriqueNative } from "./mcp/natives";
+import { arreterWorkerOffice } from "./mcp/office/famille";
 import { FABRIQUES_NATIVES } from "./mcp/registre";
+import { arreterOffice } from "./office/apercu";
 import { ClientRappel } from "./rappel";
 
 const SIGNAUX: readonly NodeJS.Signals[] = ["SIGTERM", "SIGINT", "SIGHUP"];
@@ -29,15 +30,13 @@ export interface OptionsStdio {
   readonly sortie?: Writable;
 }
 
-/** Sert `tc.families` sur stdio jusqu'à la fermeture de l'entrée ; familles natives et relayées mêlées : refus (code 2). */
+/** Sert les familles natives de `tc.families` sur stdio jusqu'à la fermeture de l'entrée ; aucune servie : refus (code 2). */
 export async function servirStdio(tc: ToolhostConfig, o: OptionsStdio): Promise<number> {
   const fabriques = o.fabriques ?? FABRIQUES_NATIVES;
-  const { natives, relayees } = repartirFamilles(tc, fabriques, o.journal);
-  if (natives.length > 0 && relayees.length > 0) {
-    o.journal.error(
-      `stdio : familles natives (${natives.join(", ")}) et relayées à elpis-tools (${relayees.join(", ")}) ` +
-        "mêlées : une entrée stdio par famille (--families <famille>)",
-    );
+  const natives = famillesNativesActives(tc, fabriques, o.journal);
+  avertirFamillesIgnorees(tc, natives, o.journal);
+  if (natives.length === 0) {
+    o.journal.error("stdio : aucune des familles demandées n'est servie (--families <famille>)");
     return 2;
   }
   tc.transport = "stdio";
@@ -45,9 +44,7 @@ export async function servirStdio(tc: ToolhostConfig, o: OptionsStdio): Promise<
   appliquerEnvironnement(tc);
   rechargerConfig();
   for (const w of tc.warnings) o.journal.warn(w);
-  return relayees.length > 0
-    ? lancerElpisTools(relayees, { LOCAL_MCP_TRANSPORT: "stdio" }, o.journal)
-    : servirNatives(tc, natives, fabriques, o);
+  return servirNatives(tc, natives, fabriques, o);
 }
 
 /** Familles natives sur stdio : session sans jeton (identité du `_meta`, rappel au core pour l'id), toutes les familles enregistrées visibles. */
@@ -74,6 +71,8 @@ async function servirNatives(
   await ferme;
   for (const s of SIGNAUX) process.off(s, fermer);
   arreterReadinessCache();
+  await arreterOffice();
+  await arreterWorkerOffice();
   definirFabriqueAgent(null);
   await fermerBaseHote();
   await agent.destroy();

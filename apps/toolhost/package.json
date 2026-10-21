@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "Hôte d'outils d'Elpis (Fastify) : porte à jeton de service et enveloppe d'identité, API du bac à sable, familles MCP natives et façade MCP vers elpis-tools",
+  "description": "Hôte d'outils d'Elpis (Fastify) : porte à jeton de service et enveloppe d'identité, API du bac à sable, familles MCP natives, dont Office (worker Python)",
   "exports": {
     ".": "./src/index.ts"
   },

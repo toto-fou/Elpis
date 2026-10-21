@@ -6,7 +6,7 @@
 par les outils — définitions, appels et résultats re-soumis à chaque appel du
 modèle (convention OpenAI / Anthropic : tout cela est de l'entrée). Sous-
 ensemble de ``input_tokens``, estimé au ratio mesuré
-(``llm_core.context.tokens.tool_prompt_tokens``). Pas de reprise : 0 sur
+(``apps/core/src/contexte/tokens.ts``, ``toolPromptTokens``). Pas de reprise : 0 sur
 l'historique.
 
 Le DDL est celui du schéma de référence : ``create_all`` a déjà posé les

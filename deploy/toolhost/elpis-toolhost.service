@@ -1,7 +1,7 @@
 [Unit]
 Description=Elpis — hôte d'outils TS (MCP + sandbox + terminal + actifs)
-After=network-online.target docker.service elpis-tools.service
-Wants=network-online.target elpis-tools.service
+After=network-online.target docker.service
+Wants=network-online.target
 Requires=docker.service
 
 [Service]
@@ -11,7 +11,7 @@ WorkingDirectory=/opt/elpis
 Environment=TOOLHOST_CONFIG=/opt/elpis/toolhost.json
 Environment=TOOLHOST_LOG_LEVEL=info
 Environment=ELPIS_RACINE=/opt/elpis
-Environment=TOOLHOST_MCP_UPSTREAM=http://127.0.0.1:8767/mcp
+Environment=ELPIS_PYTHON=/opt/elpis/venv/bin/python
 ExecStart=/opt/elpis/node/bin/node --enable-source-maps --use-system-ca /opt/elpis/apps/toolhost/dist/main.mjs
 Restart=always
 SuccessExitStatus=75

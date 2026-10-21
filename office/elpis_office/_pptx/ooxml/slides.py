@@ -133,7 +133,15 @@ def delete_slide(presentation, index: int) -> None:
     entries = list(id_list)
     entry = entries[index]
     rel_id = entry.get(f"{R_NS}id")
+    gone = presentation.part.related_part(rel_id)
     id_list.remove(entry)
+    # links from the other slides to the deleted one are dropped, or the part would survive under a reused name
+    for other in presentation.slides:
+        for rid, rel in list(other.part.rels.items()):
+            if not rel.is_external and rel.target_part is gone:
+                for el in other._element.xpath(f'.//*[@r:id="{rid}"]'):
+                    el.getparent().remove(el)
+                other.part.drop_rel(rid)
     # drop_rel also prunes the part when nothing else references it
     presentation.part.drop_rel(rel_id)
     # renumber the survivors: the next added slide would otherwise reuse a taken partname

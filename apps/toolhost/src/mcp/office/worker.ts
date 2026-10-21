@@ -191,6 +191,8 @@ export class CanalOffice {
       enfant.stdin?.on("error", () => undefined);
       const protocole = enfant.stdio[3] as Readable | null | undefined;
       if (!protocole) {
+        clearTimeout(delai);
+        enfant.once("error", () => undefined);
         abandonner(new ErreurWorker("worker Office lancé sans canal de protocole (descripteur 3)"));
         return;
       }

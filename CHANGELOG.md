@@ -150,6 +150,10 @@ lecture des documents reste en Python, dans l'extracteur `rag_app`.
 
 ### Pour l'utilisateur
 
+- **PowerPoint : supprimer puis ajouter des diapositives.** `pptx_edit` ne
+  produit plus de fichier que PowerPoint propose de réparer (une diapositive
+  écrite deux fois dans le paquet) après une suppression suivie d'un ajout ; les
+  liens internes vers une diapositive supprimée sont retirés des autres.
 - **Réflexion visible avec vLLM et SGLang.** La réflexion envoyée par vLLM
   (champ `reasoning`) s'affiche dans son bloc, en direct, comme celle de
   SGLang et de llama.cpp. L'interrupteur Réflexion et le choix de l'effort

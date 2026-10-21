@@ -198,37 +198,13 @@ def db_password() -> str:
 # Rétentions (jours) — 0 désactive la purge de la table concernée.
 METRICS_RETENTION_DAYS = max(0, _as_int(os.environ.get("APP_METRICS_RETENTION_DAYS"), _as_int(_deep_get(_RAW, "maintenance.metrics_retention_days", 90), 90)))
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Lecture de config.json — cache invalidé par le disque
-# ─────────────────────────────────────────────────────────────────────────────
-# ``config.json`` pèse ~400 Ko (la section ``welcome`` en représente 96 %) :
-# le rouvrir ET le reparser INTÉGRALEMENT coûte 825 µs (mesuré). Or il est lu
-# sur le chemin de CHAQUE requête
-# authentifiée (``deps._session_validity_checks`` y prend ``security.session``),
-# plus à chaque ``feature_enabled`` / ``https_enabled`` / ``live_config_value``.
-#
-# On garde la sémantique qui fait tout l'intérêt de ces helpers — LE FICHIER est
-# la source de vérité partagée entre workers, donc un POST admin sur un worker
-# est vu par tous les autres — en n'y touchant pas : on ne remplace pas la
-# lecture disque par un état mémoire, on remplace la RELECTURE par un ``stat``
-# (2 µs). Même patron que ``reload_desktop_config_from_disk`` /
-# ``reload_compression_config_from_disk`` plus bas dans ce module.
-#
-# Deux garde-fous, parce qu'un cache sur mtime seul serait FAUX ici :
-#
-#   1. L'INODE fait partie de la clé. Mesuré sur ce déploiement : six écritures
-#      consécutives partagent le même ``st_mtime_ns`` (granularité = tick
-#      noyau), et une modification de même taille passerait donc au travers.
-#      Or les écrivains du fichier passent tous par ``write_text_atomic``, qui
-#      écrit un temporaire puis ``replace()`` : l'inode change à CHAQUE écriture. Il en va
-#      de même de tout éditeur (``vi``) ou de ``sed -i``, qui procèdent par
-#      rename. L'inode est donc le signal fiable, le mtime la ceinture.
-#
-#   2. Un PLAFOND DE PÉREMPTION de 1 s. Un écrivain exotique qui modifierait le
-#      fichier en place, à taille constante et dans le même tick, échapperait
-#      encore aux deux. On relit donc systématiquement passé une seconde : le
-#      pire cas de retard est borné à 1 s (au lieu d'être infini), pour un coût
-#      de 825 µs par seconde et par process — 0,08 % d'un cœur.
+# ── Lecture de config.json : cache invalidé par le disque ─────────────────────
+# Le fichier (~400 Ko) est la source de vérité partagée entre process ; la
+# relecture complète coûte 825 µs, un ``stat`` 2 µs. La clé du cache est
+# (mtime_ns, taille, inode) : les écrivains passent par ``write_text_atomic``
+# (temporaire puis ``replace``), l'inode change donc à chaque écriture. Un
+# plafond de péremption de 1 s borne le retard d'un écrivain qui modifierait le
+# fichier en place, à taille constante et dans le même tick.
 _CONFIG_MAX_STALE_S = 1.0
 
 _config_cache_key: Optional[tuple] = None

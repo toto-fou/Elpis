@@ -13,8 +13,7 @@ avant lui.
 from __future__ import annotations
 
 import sqlite3
-from contextlib import contextmanager
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
 SQLITE = "sqlite"
 POSTGRES = "postgres"
@@ -77,34 +76,6 @@ def begin_write(conn: Any) -> None:
     conn.execute("BEGIN")
     conn.execute("SELECT name FROM elpis_locks WHERE name = 'write' FOR UPDATE").fetchone()
 
-
-@contextmanager
-def savepoint(conn: Any, name: str = "sp") -> Iterator[Any]:
-    """Point de sauvegarde : une erreur dans le bloc n'annule que le bloc.
-
-    Indispensable autour d'une instruction dont on AVALE l'erreur au milieu
-    d'une transaction d'écriture : en PostgreSQL, toute erreur avorte la
-    transaction entière et les instructions suivantes échouent. En SQLite, le
-    bloc se comporte comme avant.
-    """
-    conn.execute(f"SAVEPOINT {name}")
-    try:
-        yield conn
-    except BaseException:
-        conn.execute(f"ROLLBACK TO SAVEPOINT {name}")
-        conn.execute(f"RELEASE SAVEPOINT {name}")
-        raise
-    conn.execute(f"RELEASE SAVEPOINT {name}")
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Erreurs
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Introspection du schéma
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _row_value(row: Any, name: str, index: int) -> Any:
     try:
@@ -182,6 +153,6 @@ def bytes_order(expr: str, dialect: Optional[str] = None) -> str:
 
 
 __all__ = [
-    "SQLITE", "POSTGRES", "backend", "dialect_of", "begin_write", "savepoint",
+    "SQLITE", "POSTGRES", "backend", "dialect_of", "begin_write",
     "has_table", "table_names", "table_columns", "insert_id", "bytes_order",
 ]

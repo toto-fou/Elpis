@@ -696,7 +696,8 @@ cmd_doctor() {
         local natives
         natives="$(ELPIS_RACINE="$ROOT" timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --familles-natives 2>/dev/null | tail -n 1)"
         info "hôte d'outils : familles servies ${natives:-aucune} (toolhost.json › families)"
-        if [ -f "$ROOT/toolhost.json" ] && grep -qE '"(familles_natives|mcp_upstream|mcp_upstream_sse)"' "$ROOT/toolhost.json"; then
+        local th_conf="${TOOLHOST_CONFIG:-$ROOT/toolhost.json}"; case "$th_conf" in /*) ;; *) th_conf="$ROOT/$th_conf" ;; esac
+        if [ -f "$th_conf" ] && grep -qE '"(familles_natives|mcp_upstream|mcp_upstream_sse)"[[:space:]]*:[[:space:]]*([^[:space:]"]|"[^"])' "$th_conf"; then
             warn "toolhost.json : familles_natives / mcp_upstream sont obsolètes (elpis-tools n'existe plus), ignorés : à retirer"
         fi
     fi

@@ -8,4 +8,4 @@ XlsxWriter==3.2.9             # données des graphiques natifs (dépendance de p
 lxml==6.1.3                   # OOXML (dépendance de python-docx et python-pptx, importé par le moteur)
 markdown-it-py==4.2.0         # Markdown des documents
 Pillow==13.0.0
-pydantic==2.13.4
+pydantic==2.14.1

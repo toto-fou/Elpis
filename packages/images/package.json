@@ -1,6 +1,6 @@
 {
   "name": "@elpis/images",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -10,8 +10,8 @@
     "./pixels": "./src/pixels.ts"
   },
   "dependencies": {
-    "@elpis/commun": "0.1.0",
-    "@elpis/http": "0.1.0",
+    "@elpis/commun": "0.1.1",
+    "@elpis/http": "0.1.1",
     "jpeg-js": "0.4.4",
     "pngjs": "7.0.0"
   }

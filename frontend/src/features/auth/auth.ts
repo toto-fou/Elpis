@@ -146,7 +146,7 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
       const a = data.app_info;
       ctx.appInfo.value = {
         name: ou(a.name, "Elpis"),
-        version: ou(a.version, "0.1.0"),
+        version: ou(a.version, "0.1.1"),
         teamName: ou(a.team_name, ""),
         engine: ou(a.engine, "llama.cpp"),
         description: ou(a.description, ""),

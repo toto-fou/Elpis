@@ -56,7 +56,7 @@ const adm = domaineAdmin();
               id="cfg-app-version"
               v-model="adm.configForm.app_info.version"
               data-field="config:app_info.version"
-              placeholder="0.1.0"
+              placeholder="0.1.1"
               class="set-input max-w-[12rem]"
             />
           </div>

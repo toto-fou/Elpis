@@ -4,7 +4,7 @@ Les changements notables d'Elpis, du plus récent au plus ancien. Format inspir�
 de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; numéros de version
 selon [SemVer](https://semver.org/lang/fr/).
 
-## Non publié
+## 0.1.1 — 2026-10-22
 
 **Moteurs vLLM et SGLang.** Le type de moteur écrit dans `config.json`
 (`llama.engine`) fait foi : Elpis applique le profil de ce moteur (adresses,

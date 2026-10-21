@@ -1,6 +1,6 @@
 {
   "name": "@elpis/http",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -9,7 +9,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@elpis/commun": "0.1.0",
+    "@elpis/commun": "0.1.1",
     "@fastify/multipart": "10.1.2",
     "@fastify/websocket": "11.3.3",
     "fastify": "5.12.5",

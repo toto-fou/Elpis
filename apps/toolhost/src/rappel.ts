@@ -10,7 +10,7 @@ import type { Dispatcher } from "undici";
 import type { Journal } from "./journal";
 import type { IdentifiantEnregistre } from "./mcp/git/clone";
 import type { IssuePr } from "./mcp/git/travail";
-import { decrire } from "./mcp/service";
+import { decrire } from "./decrire";
 
 export const TTL_MS = 15_000;
 export const TTL_NEGATIF_MS = 5_000;

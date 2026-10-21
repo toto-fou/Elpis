@@ -1,7 +1,7 @@
 {
   "meta": {
     "version": 1,
-    "note": "Textes/réglages de contexte LLM éditables à froid. Chargé une fois au boot par llm_core/context_config.py (helper CTX). Convention: \"\"=>l'appelant garde son fallback (=texte actuel) ; {\"file\":\"x.md\"}=>charge un .md ; {\"inline\":\"...\"}=>texte inline ; clé absente=>fallback. Défauts = comportement ACTUEL (zéro changement tant que non édité), SAUF tool_gating.enabled (true : active seulement le kill-switch par outil tools.<nom>.enabled ; la map tool_gating.gated reste inerte).",
+    "note": "Textes/réglages de contexte LLM éditables à froid. Chargé une fois au boot par apps/core/src/contexte/config-contexte.ts. Convention: \"\"=>l'appelant garde son fallback (=texte actuel) ; {\"file\":\"x.md\"}=>charge un .md ; {\"inline\":\"...\"}=>texte inline ; clé absente=>fallback. Défauts = comportement ACTUEL (zéro changement tant que non édité), SAUF tool_gating.enabled (true : active seulement le kill-switch par outil tools.<nom>.enabled ; la map tool_gating.gated reste inerte).",
     "wired": [
       "tool_gating",
       "tools.<name>.enabled (kill-switch)",

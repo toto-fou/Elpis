@@ -24,7 +24,7 @@ npm ci          # Node ≥ 24 (.nvmrc) : outils de développement TypeScript
 | la boucle agentique | `apps/core/src/boucle/` (orchestrateur, tour LLM, exécution des outils) |
 | le flux d'un tour de chat | `apps/core/src/familles/chat.ts`, `chat-controle.ts` et `apps/core/src/tour/` (admission, exécution, enregistrement, NDJSON) |
 | le contexte, l'ordonnancement | `apps/core/src/contexte/`, `apps/core/src/llm/ordonnanceur/` |
-| un outil de l'agent | famille native : `apps/toolhost/src/mcp/` (+ `packages/outils-mcp`) ; famille Office, encore en Python : `llm_core/tools/`, servie par elpis-tools (`server/local_mcp_server.py`) |
+| un outil de l'agent | famille native : `apps/toolhost/src/mcp/` (+ `packages/outils-mcp`) ; famille Office : `apps/toolhost/src/mcp/office/` (hôte, fichiers et conversions) et le moteur Python `office/elpis_office/` |
 | une opération sur les fichiers d'une sandbox | côté hôte : `packages/bac`, `packages/fichiers`, `apps/toolhost/src/fichiers/` ; dans le conteneur : l'agent `shared_infra/sandbox/agent/server.py` (API `/v1`) ; jamais un accès direct de l'hôte |
 | Git d'une sandbox | `packages/fichiers/src/git.ts` (par l'agent), `relais-git.ts` (réseau), routes `apps/toolhost/src/git/` |
 | la base de données | `packages/db/` (schéma, migrations, dialectes) ; `shared_infra/db/` pour le Python restant |
@@ -51,7 +51,7 @@ La CI publique (GitHub Actions) lance les mêmes commandes sur Node 24. Les
 mainteneurs passent ensuite la suite complète (TypeScript, Python, parcours
 réels dans Chromium) avant de fusionner.
 
-- Python restant (RAG, elpis-tools, `deploy/`) : `venv/bin/ruff check .`.
+- Python restant (RAG, moteur Office, `deploy/`) : `venv/bin/ruff check .`.
 - Formatage : `npm run format` (Prettier).
 - Après avoir ajouté des classes utilitaires Tailwind :
   `node tools/generate_tailwind_css.mjs`.

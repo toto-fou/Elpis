@@ -53,7 +53,7 @@ import logging
 import threading
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -102,20 +102,6 @@ def record(tag: str, exc: BaseException) -> None:
         # Une comptabilité qui casse le chemin qu'elle observe serait pire que
         # l'absence de comptabilité.
         pass
-
-
-def snapshot(limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Palmarès des tags déclenchés, du plus fréquent au moins fréquent.
-
-    Compteurs PAR PROCESS et en mémoire : ils repartent de zéro au
-    redémarrage, et en multi-worker chaque worker a les siens. C'est
-    volontaire — l'objectif est de savoir CE QUI se déclenche et à quel ordre
-    de grandeur, pas de tenir une comptabilité durable.
-    """
-    with _lock:
-        rows = [{"tag": tag, **slot} for tag, slot in _counts.items()]
-    rows.sort(key=lambda r: (-r["n"], r["tag"]))
-    return rows[:limit] if limit else rows
 
 
 def reset() -> None:

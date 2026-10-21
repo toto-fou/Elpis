@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// frontend/build-ssr.mjs — bundle CommonJS autonome du rendu ECharts serveur (frontend/dist/echarts-ssr.cjs), chargé par llm_core/tools/_office/echarts_ssr.cjs.
+// frontend/build-ssr.mjs — bundle CommonJS autonome du rendu ECharts serveur (frontend/dist/echarts-ssr.cjs), chargé par office/elpis_office/echarts_ssr.cjs.
 import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";

@@ -13,7 +13,6 @@ import { currentSession, startSession } from "@elpis/fichiers";
 import { endpointsView, exportMcpServers } from "./manifeste";
 import type { CommandeStdio, VueHote } from "./manifeste";
 import type { ServiceNatif } from "./mcp/natives";
-import type { ServiceMcp } from "./mcp/service";
 import { HTTP_MOUNT_PATH, SSE_MOUNT_PATH } from "./porte";
 
 export const FILE_HISTORY_SESSION_PATH = "/internal/file-history/session";
@@ -35,25 +34,23 @@ export function reponseJson(rep: FastifyReply, valeur: unknown): FastifyReply {
 
 export interface ContexteSocle {
   readonly tc: ToolhostConfig;
-  readonly service: ServiceMcp;
   readonly natif?: ServiceNatif | null;
   readonly stdio: (famille: string) => CommandeStdio;
   readonly demarreA?: number;
 }
 
-/** Transports servis, relayés ou natifs, dans l'ordre de la configuration. */
+/** Transports servis par les familles natives, dans l'ordre de la configuration. */
 function transports(ctx: ContexteSocle): string[] {
-  const servis = new Set([...ctx.service.transports(), ...(ctx.natif?.transports() ?? [])]);
+  const servis = new Set(ctx.natif?.transports() ?? []);
   return ctx.tc.transports.filter((t) => servis.has(t));
 }
 
-/** Outils de l'amont et des familles natives, dans l'ordre canonique des familles (celui d'un seul serveur). */
+/** Outils des familles natives, dans l'ordre canonique des familles (celui d'un seul serveur). */
 function outils(ctx: ContexteSocle): Map<string, string> {
-  const sources = [ctx.service.outils(), ctx.natif?.outils() ?? new Map<string, string>()];
+  const source = ctx.natif?.outils() ?? new Map<string, string>();
   const carte = new Map<string, string>();
   for (const fam of FAMILY_NAMES)
-    for (const source of sources)
-      for (const [nom, f] of source) if (f === fam && !carte.has(nom)) carte.set(nom, f);
+    for (const [nom, f] of source) if (f === fam && !carte.has(nom)) carte.set(nom, f);
   return carte;
 }
 
@@ -67,13 +64,13 @@ function vue(ctx: ContexteSocle): VueHote {
     host: ctx.tc.host,
     port: ctx.tc.port,
     transports: transports(ctx),
-    transportsDe: (f) => (ctx.natif?.sert(f) ? ctx.natif.transports() : ctx.service.transports()),
+    transportsDe: (f) => (ctx.natif?.sert(f) ? ctx.natif.transports() : []),
     familles: famillesVivantes(ctx),
     stdio: ctx.stdio,
   };
 }
 
-/** Chemins de montage : `/mcp` toujours (monté sans condition en Python), `/sse` seulement s'il est relayé ou natif. */
+/** Chemins de montage : `/mcp` toujours (monté sans condition en Python), `/sse` seulement s'il est servi. */
 function chemins(ctx: ContexteSocle): { mcp_path: string; sse_path: string } {
   return {
     mcp_path: HTTP_MOUNT_PATH,

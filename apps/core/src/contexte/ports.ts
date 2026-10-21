@@ -21,13 +21,13 @@ export interface PortMemoireAx {
   ): string | Promise<string>;
 }
 
-/** `llm_core._system_prompts` (B1-19b) : runtime_context et fragments de capacité. */
+/** Prompts système : runtime_context et fragments de capacité. */
 export interface PortPromptsCapacites {
   capabilityWantsRuntimeContext(activeCategories: ReadonlySet<string>): boolean;
   buildCapabilityBlock(activeCategories: ReadonlySet<string>): string | null | Promise<string | null>;
 }
 
-/** Ligne de l'index de session (`shared_infra.memory.store.session_index_messages`). */
+/** Ligne de l'index de session. */
 export interface LigneIndexSession {
   user_id: number;
   app: string;

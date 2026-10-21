@@ -15,6 +15,7 @@ authors = [{ name = "Elpis contributors" }]
 [tool.ruff]
 target-version = "py311"
 line-length = 120
+src = [".", "office"]
 extend-exclude = ["venv", "node_modules", "user_*", "frontend/vendor"]
 
 [tool.ruff.lint]
@@ -40,38 +41,13 @@ combine-as-imports = true
 # ASYNC : un test asynchrone peut bloquer sa propre boucle.
 "tests/**" = ["F401", "F841", "ASYNC", "RUF012", "SIM115"]
 "**/__init__.py" = ["F401"]
-# Ordre d'import = ordre d'enregistrement des routes, ou de chargement des
-# sous-modules : jamais trié.
-"shared_infra/memory/ax/__init__.py" = ["F401", "I001"]
-# Signatures d'outils MCP : défauts (``[]``, ``None``) et types sont dans le
-# schéma vu par le modèle, et FastMCP (pydantic) passe une copie des défauts à
-# chaque appel ; aucun outil ne modifie ses arguments (vérifié le 2026-09-29).
-"llm_core/tools/*.py" = ["B006", "RUF013"]
-# Crochets optionnels d'un fournisseur de mémoire, vides par défaut.
-"llm_core/memory/_provider.py" = ["B027"]
-# Fixtures pytest importées d'un autre module de tests, puis reçues en paramètre.
-"tests/llm_core/test_agent_tooling_missions_2026_08_08.py" = ["F811"]
-"tests/llm_core/test_pw_gwt_dropdowns_2026_08_08.py" = ["F811"]
-"tests/llm_core/test_pw_naming_harmonization_2026_08_08.py" = ["F811"]
-"tests/llm_core/test_pw_robustesse_2026_09_05.py" = ["F811"]
 
 [tool.mypy]
 # Typage (2026-09-29) : un premier périmètre, élargi au fil des lots.
 python_version = "3.11"
 files = [
-    "shared_infra/sandbox/paths.py",
-    "shared_infra/sandbox/git_ops.py",
-    "shared_infra/sandbox/git_relay.py",
     "shared_infra/sandbox/agent",
-    "shared_infra/sandbox/agent_client.py",
     "shared_infra/runtime",
-    "llm_core/context/tokens.py",
-    "shared_infra/security/browser_url.py",
-    "shared_infra/mcp/oauth.py",
-    "shared_infra/mcp/origins.py",
-    "shared_infra/mcp/delegation.py",
-    "shared_infra/image",
-    "llm_core/imagegen",
 ]
 explicit_package_bases = true
 follow_imports = "silent"

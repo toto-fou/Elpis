@@ -7,7 +7,7 @@ une source backend (v1 : fin de run de routine, succès/échec) et poussée en t
 réel via le bus SSE. Schéma générique (``kind`` + ``ref_type``/``ref_id``) pour
 accueillir d'autres sources plus tard.
 
-CRUD : ``shared_infra/notifications/store.py``. Idempotent (``IF NOT EXISTS``).
+CRUD : ``apps/core/src/notifications/stockage.ts``. Idempotent (``IF NOT EXISTS``).
 Ne commit PAS : le runner de migrations commit en fin d'application.
 """
 from __future__ import annotations

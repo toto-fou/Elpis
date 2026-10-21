@@ -75,7 +75,6 @@ export const CHAMPS_ADMIN: readonly ChampAdmin[] = Object.freeze([
     {"control": "", "hint": "Crédit affiché dans « À propos ».", "label": "Équipe", "page": "instance", "path": "app_info.team_name", "store": "config"},
     {"control": "", "hint": "Coupée : découverte, consentement et jetons OAuth refusés ; les accès déjà accordés cessent de fonctionner. Suit aussi l'interrupteur des jetons d'outils.", "label": "Autorisation OAuth", "page": "mcp", "path": "mcp.oauth.enabled", "store": "config"},
     {"control": "", "hint": "0 = relire à chaque appel.", "label": "Cache de la liste d'outils", "page": "mcp", "path": "mcp.tools_cache_ttl_sec", "store": "config"},
-    {"control": "", "hint": "Exécutable lancé en sous-processus.", "label": "Commande", "page": "mcp", "path": "mcp.server_cmd", "store": "config"},
     {"control": "", "hint": "Scanné au démarrage pour les serveurs MCP téléversés.", "label": "Dossier des serveurs ajoutés", "page": "mcp", "path": "mcp.servers_dir", "store": "config"},
     {"control": "", "hint": "Entre 300 et 86 400 secondes.", "label": "Durée d'un jeton d'accès", "page": "mcp", "path": "mcp.oauth.access_ttl_s", "store": "config"},
     {"control": "", "hint": "Borné par la durée maximale des jetons d'outils.", "label": "Durée d'une autorisation", "page": "mcp", "path": "mcp.oauth.refresh_days", "store": "config"},

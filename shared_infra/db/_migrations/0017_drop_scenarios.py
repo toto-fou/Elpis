@@ -6,7 +6,7 @@ Les onglets Scénario / Bibliothèque n'ont jamais servi ; le Studio devient un
 environnement de code d'automatisation dont les scripts vivent en FICHIERS dans
 la sandbox (``automations/``), pas en base. Les quatre tables partent avec leur
 contenu (jamais rempli en usage réel). ``editor_action_cache`` RESTE : c'est la
-mémoire des ancres du ciblage live (``shared_infra/desktop/anchors.py``).
+mémoire des ancres du ciblage live (``packages/bureau/src/ancres.ts``).
 Idempotent. Ne commit PAS (le runner commit à la fin).
 """
 from __future__ import annotations

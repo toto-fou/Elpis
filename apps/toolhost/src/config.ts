@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/config.ts — configuration de l'hôte d'outils (`toolhost.json`, env, config de l'app) : port de toolhost/config.py, schéma validé par Ajv, amont MCP (elpis-tools). */
+/** apps/toolhost/src/config.ts — configuration de l'hôte d'outils (`toolhost.json`, env, config de l'app) : port de toolhost/config.py, schéma validé par Ajv. */
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -43,10 +43,8 @@ export interface ToolhostConfig {
   token: string;
   token_file: string;
   families: string[];
-  /** Familles servies par l'hôte lui-même (sous-ensemble de `families`) ; les autres sont relayées vers elpis-tools. */
+  /** Familles servies par l'hôte lui-même : celles de `families` portées en TypeScript ; les autres sont ignorées. */
   familles_natives: string[];
-  /** `familles_natives` absente de toolhost.json : toutes les portées, recalculées si `families` change (`--families`). */
-  natives_par_defaut?: boolean;
   sandbox_dir: string;
   db_path: string;
   app_url: string;
@@ -54,10 +52,6 @@ export interface ToolhostConfig {
   pw_dir: string;
   desktop_dir: string;
   identity_max_skew_s: number;
-  /** Amont MCP HTTP streamable (elpis-tools) relayé sous `/mcp` ; vide : façade fermée. */
-  mcp_upstream: string;
-  /** Amont MCP SSE relayé sous `/sse` et `/messages/` ; vide : SSE non servi. */
-  mcp_upstream_sse: string;
   source: "file" | "defaults";
   path: string | null;
   warnings: string[];
@@ -82,8 +76,6 @@ export function configParDefaut(): ToolhostConfig {
     pw_dir: "",
     desktop_dir: "",
     identity_max_skew_s: 60,
-    mcp_upstream: "",
-    mcp_upstream_sse: "",
     source: "defaults",
     path: null,
     warnings: [],
@@ -231,33 +223,24 @@ export const FAMILLES_NATIVES_PORTEES: readonly string[] = [
   "desktop",
   "fs",
   "git",
+  "office",
   "shell",
   "skill_run",
 ];
 
-/** Familles portées et servies (`families`), ordre canonique : `familles_natives` par défaut. */
+/** Familles portées et servies (`families`), ordre canonique. */
 export function nativesPortees(servies: readonly string[]): string[] {
   return FAMILY_NAMES.filter((f) => servies.includes(f) && FAMILLES_NATIVES_PORTEES.includes(f));
 }
 
-/** `familles_natives` : clé absente (ou pas de toolhost.json) → toutes les familles portées et servies ; liste explicite (même vide) respectée, ordre canonique ; le reste est signalé et ignoré. */
+/** Toutes les familles portées de `families` sont natives ; `familles_natives` de toolhost.json (elpis-tools n'existe plus) est signalé et ignoré. */
 function famillesNatives(raw: Dict, servies: readonly string[], warnings: string[]): string[] {
   const brut = lire(raw, "familles_natives");
-  if (brut === undefined || brut === null) return nativesPortees(servies);
-  if (!Array.isArray(brut)) {
-    warnings.push("familles_natives ignoré : liste de familles attendue");
-    return [];
-  }
-  const voulues = new Set(brut.map((x) => stripPy(strPy(x)).toLowerCase()));
-  for (const f of [...voulues].sort()) {
-    if (!FAMILY_NAMES.includes(f)) warnings.push(`famille native inconnue ignorée : ${reprPy(f)}`);
-    else if (!FAMILLES_NATIVES_PORTEES.includes(f))
-      warnings.push(`famille native sans implémentation TypeScript ignorée (relayée) : ${reprPy(f)}`);
-    else if (!servies.includes(f)) warnings.push(`famille native hors de families ignorée : ${reprPy(f)}`);
-  }
-  return FAMILY_NAMES.filter(
-    (f) => voulues.has(f) && servies.includes(f) && FAMILLES_NATIVES_PORTEES.includes(f),
-  );
+  if (brut !== undefined && brut !== null)
+    warnings.push(
+      "familles_natives ignoré : toute famille portée en TypeScript de families est servie par l'hôte (retirez une famille de families pour ne pas la servir)",
+    );
+  return nativesPortees(servies);
 }
 
 /** `float(x or 60.0)` ; TypeError/ValueError → 60. */
@@ -290,34 +273,14 @@ export function erreursDuSchema(raw: Dict): string[] {
   );
 }
 
-/** URL d'amont MCP : env, sinon clé du fichier, barre finale et point de montage final (`montage`, comme `…:8767/mcp` du lanceur) retirés : l'origine ; http(s) sans requête ni identifiants, sinon ignorée. */
-function amont(
-  env: NodeJS.ProcessEnv,
-  variable: string,
-  raw: Dict,
-  cle: string,
-  montage: string,
-  warnings: string[],
-): string {
-  const v = env[variable] || lire(raw, cle);
-  let brut = rstripPy(stripPy(veritePy(v) ? strPy(v) : ""), "/");
-  if (brut.endsWith(montage) && /^[a-z]+:\/\/[^/]+\//iu.test(brut))
-    brut = rstripPy(brut.slice(0, -montage.length), "/");
-  if (!brut) return "";
-  let url: URL;
-  try {
-    url = new URL(brut);
-  } catch {
-    warnings.push(`${cle} ignoré : URL illisible`);
-    return "";
-  }
-  if (!["http:", "https:"].includes(url.protocol) || url.search || url.hash || url.username || url.password) {
-    warnings.push(`${cle} ignoré : URL http(s) sans requête, fragment ni identifiants attendue`);
-    return "";
-  }
-  if (url.protocol === "http:" && !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname))
-    warnings.push(`${cle} en http hors de la boucle locale : le jeton de service y circule en clair`);
-  return brut;
+/** `mcp_upstream*` : elpis-tools n'existe plus, un amont déclaré (env ou fichier) est signalé et ignoré. */
+function signalerAmontObsolete(env: NodeJS.ProcessEnv, raw: Dict, warnings: string[]): void {
+  for (const [variable, cle] of [
+    ["TOOLHOST_MCP_UPSTREAM", "mcp_upstream"],
+    ["TOOLHOST_MCP_UPSTREAM_SSE", "mcp_upstream_sse"],
+  ] as const)
+    if (veritePy(env[variable] || lire(raw, cle)))
+      warnings.push(`${cle} ignoré : elpis-tools n'existe plus, les familles sont servies par l'hôte`);
 }
 
 /** `json.loads` sur un texte : messages de CPython, BOM refusé comme lui. */
@@ -385,6 +348,7 @@ export function chargerConfig(chemin?: string, env: NodeJS.ProcessEnv = process.
   const assets: Dict = estDict(assetsBrut) ? assetsBrut : {};
   const texte = (variable: string, valeur: unknown): string =>
     stripPy(env[variable] || (veritePy(valeur) ? strPy(valeur) : ""));
+  signalerAmontObsolete(env, raw, warnings);
   return {
     host,
     port: port(env, bind),
@@ -394,7 +358,6 @@ export function chargerConfig(chemin?: string, env: NodeJS.ProcessEnv = process.
     token_file: tokenFile,
     families: fams,
     familles_natives: famillesNatives(raw, fams, warnings),
-    natives_par_defaut: lire(raw, "familles_natives") === undefined || lire(raw, "familles_natives") === null,
     sandbox_dir: sandboxDir,
     db_path: dbPath,
     app_url: rstripPy(texte("TOOLHOST_APP_URL", lire(raw, "app_url")), "/"),
@@ -402,8 +365,6 @@ export function chargerConfig(chemin?: string, env: NodeJS.ProcessEnv = process.
     pw_dir: texte("PW_SCREENS_DIR", lire(assets, "pw_dir")),
     desktop_dir: texte("DESKTOP_SCREENS_DIR", lire(assets, "desktop_dir")),
     identity_max_skew_s: decalage(raw, warnings),
-    mcp_upstream: amont(env, "TOOLHOST_MCP_UPSTREAM", raw, "mcp_upstream", "/mcp", warnings),
-    mcp_upstream_sse: amont(env, "TOOLHOST_MCP_UPSTREAM_SSE", raw, "mcp_upstream_sse", "/sse", warnings),
     source,
     path: source === "file" ? p : null,
     warnings,
@@ -418,10 +379,7 @@ export function bindAutorise(hote: string, avecJeton: boolean): boolean {
 
 /** `apply_environment` : la configuration de l'hôte propagée à l'environnement que lisent les modules partagés (avant leur usage). */
 export function appliquerEnvironnement(tc: ToolhostConfig, env: NodeJS.ProcessEnv = process.env): void {
-  if (tc.sandbox_dir) {
-    env["APP_SANDBOX_DIR"] = tc.sandbox_dir;
-    env["MCP_SANDBOX_ROOT"] = tc.sandbox_dir;
-  }
+  if (tc.sandbox_dir) env["APP_SANDBOX_DIR"] = tc.sandbox_dir;
   if (tc.db_path) {
     env["APP_DB_PATH"] = tc.db_path;
     env["APP_DB_BACKEND"] = "sqlite";
@@ -434,11 +392,4 @@ export function appliquerEnvironnement(tc: ToolhostConfig, env: NodeJS.ProcessEn
   env["LOCAL_MCP_TRANSPORT"] = tc.transport;
   env["LOCAL_MCP_HOST"] = tc.host;
   env["LOCAL_MCP_PORT"] = String(tc.port);
-  const relayees = tc.families.filter((f) => !tc.familles_natives.includes(f));
-  env["LOCAL_MCP_TOOL_FAMILIES"] = relayees.length
-    ? relayees.join(",")
-    : tc.familles_natives.length
-      ? FAMILY_NAMES.map((f) => `-${f}`).join(",")
-      : "all";
-  env["ELPIS_TOOLHOST"] = "1";
 }

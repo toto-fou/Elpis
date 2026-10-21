@@ -13,7 +13,7 @@
 # ------------------------
 #   L'image 1.2.0 est volontairement plus permissive : l'user 10001 a
 #   `sudo` NOPASSWD et le container ne tourne plus en --read-only ni en
-#   no-new-privileges (cf. _user_sandbox.py). Concrètement, à l'intérieur
+#   no-new-privileges (cf. packages/bac/src/conteneur.ts). Concrètement, à l'intérieur
 #   de SON container, l'user/le LLM peut tout faire (chmod +x, apt, pip
 #   système, lancer un service…). L'isolation qui compte reste en place :
 #     - pas de socket Docker monté (pas d'évasion DinD),

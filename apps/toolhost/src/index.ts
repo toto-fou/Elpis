@@ -24,7 +24,6 @@ export type { CommandeStdio, VueHote } from "./manifeste";
 export { creerServiceNatif, famillesNativesActives, ServiceNatif } from "./mcp/natives";
 export type { FabriqueNative, FamilleNative } from "./mcp/natives";
 export { FABRIQUES_NATIVES } from "./mcp/registre";
-export { ServiceMcp } from "./mcp/service";
 export { bearerMatches, familleDuChemin, MCP_PREFIXES, OPEN_PATHS } from "./porte";
 export { ClientRappel } from "./rappel";
 export { FILE_HISTORY_SESSION_PATH, manifeste, sante, SERVED_PREFIXES } from "./socle";

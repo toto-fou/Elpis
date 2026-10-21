@@ -4,7 +4,7 @@
 
 Une ligne par image : le message du chat ne porte qu'une référence (id), le
 fichier vit sous ``user_db/generated_images/<user_id>/`` et la ligne garde son
-chemin RELATIF à cette racine (``shared_infra/image/store.py``). Rétention
+chemin RELATIF à cette racine (``apps/core/src/images/magasin.ts``). Rétention
 glissante par compte (``image.keep_per_user``).
 
 Le DDL est celui du schéma de référence (``shared_infra/db/_schema.py``) : sur

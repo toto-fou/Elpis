@@ -19,15 +19,14 @@ et reliés par HTTP.
 |---|---|---|---|
 | **main** | 8001 | `apps/core/dist/main.mjs` (Node, `APP_MODE=main`) | chat, éditeur, sandbox, routines, statiques ; un process |
 | **admin** | 8002 | `apps/core/dist/main.mjs` (Node, `APP_MODE=admin`) | console d'administration et `/api/admin/*` ; un process |
-| **toolhost** | 8765 | `apps/toolhost/dist/main.mjs` (Node) | hôte des outils MCP (HTTP streamable `/mcp[/<famille>]`, SSE), API sandbox et terminal ; sa propre base `user_db/toolhost.db` ; sert lui-même les familles portées en TypeScript, relaie les autres (Office) vers elpis-tools |
-| **elpis-tools** | 8767 (loopback) | `apps/toolhost/dist/main.mjs --elpis-tools` → `server/local_mcp_server.py` | famille d'outils Office (Python), amont MCP de l'hôte d'outils |
+| **toolhost** | 8765 | `apps/toolhost/dist/main.mjs` (Node) | hôte des outils MCP (HTTP streamable `/mcp[/<famille>]`, SSE), API sandbox et terminal ; sa propre base `user_db/toolhost.db` ; sert lui-même ses familles d'outils, dont Office (worker Python `office/`) |
 | **rag_app** | 8000 (loopback) | `rag_app/start.sh` | extracteur du RAG (FastAPI, sans état) : texte, pages, localisation, OCR ; le RAG lui-même (collections, droits, indexation, recherche) est dans le core, avec Qdrant :6333 |
 | **browser-service** | 3000 | `browser-service/server.js` | navigateur piloté (Node + Playwright) — optionnel |
 | **desktop-agent** | 8765 (sur la machine pilotée) | `desktop-agent/` | contrôle d'écran Windows (pywinauto) / Linux (AT-SPI) — optionnel |
 | **llama-server** | 8080 | llama.cpp, hors dépôt | inférence locale ; ou tout moteur compatible OpenAI, ou un fournisseur distant |
 | **Caddy** | 443 / 8443 | `deploy/caddy/` | frontal HTTPS — optionnel |
 
-`./elpis start` lance qdrant, rag, tools (elpis-tools), toolhost, main, admin
+`./elpis start` lance qdrant, rag, toolhost, main, admin
 et browser ;
 `sudo ./elpis service install` en fait des services systemd (`elpis.target`).
 
@@ -89,11 +88,6 @@ Un tour de chat, de la requête au dernier événement :
 
 ## Carte du code
 
-### `server/` — elpis-tools
-
-- `local_mcp_server.py` : le registre FastMCP des outils encore en Python
-  (elpis-tools), lancé par l'hôte d'outils (`--elpis-tools`).
-
 ### `apps/core/` — le core TypeScript
 
 - `src/main.ts` (process, signaux), `composition.ts` (assemblage),
@@ -117,40 +111,39 @@ Un tour de chat, de la requête au dernier événement :
   événements du flux, `db` pour le schéma et les moteurs, `http` pour le socle
   Fastify, `auth`, `securite`, `config`, `mcp`, `outils-mcp`, `navigateur`,
   `bureau`, `fichiers`, `images`, `skills`, `verrous`, `bac`, `commun`).
-- `apps/toolhost/` : hôte d'outils TS (familles natives, sandbox, terminal,
-  relais vers elpis-tools).
+- `apps/toolhost/` : hôte d'outils TS (familles natives, dont Office et son
+  worker Python `mcp/office/`, sandbox, terminal).
 
-### `llm_core/` — le Python d'elpis-tools
+### `office/` — le moteur Office
 
-- `tools/` : familles d'outils d'elpis-tools. Par défaut, l'hôte d'outils ne
-  lui relaie que la famille Office (`office_tools.py`, `_office/`) ; les autres
-  familles y restent et ne servent que si `toolhost.json › familles_natives`
-  les exclut. `tools/_exec_bridge.py` fait passer les outils synchrones par
-  `docker exec` dans la sandbox.
-- `memory/` (mémoire long terme en Markdown + index FTS5), `skills.py`,
-  `_skill_validate.py`, `_system_prompts.py`.
-- Transport, santé et vision utilisés par ces outils : `providers/`,
-  `_client.py`, `_llama_http.py`, `_health.py`, `_vision.py`,
-  `_desktop_*`. `__init__.py` est vide : importer depuis le module
-  propriétaire.
+- `elpis_office/` : paquet Python autonome (python-docx, python-pptx, lxml,
+  Pillow, pydantic, markdown-it-py ; aucun import de `shared_infra`) qui porte les sept outils Word et PowerPoint (`word.py`,
+  `powerpoint.py`, `_docx/`, `_pptx/`, `_chart/`, rendu ECharts `echarts_ssr.cjs`).
+  Il ne voit le monde que par l'`Env` (`commun.py`) que lui branche l'hôte :
+  lecture et écriture de fichiers, graphiques, conversion PDF.
+- `canal.py` et `__main__.py` : le worker (`python -m elpis_office`), lancé par
+  `apps/toolhost/src/mcp/office/worker.ts` ; cadres JSON et corps binaire sur
+  stdin (appels) et descripteur 3 (réponses), stdout et stderr au journal,
+  plusieurs appels en parallèle, rappels vers l'hôte.
+- `requirements.txt` : ses dépendances, incluses par `requirements.txt`.
 
 ### `shared_infra/` — le Python restant, rangé par famille
 
-Ce qu'importent elpis-tools, l'assistant de configuration (`deploy/`) et
-l'agent du bac ; son `__init__.py` décrit chaque sous-paquet. Les routes HTTP
-sont toutes dans le core TypeScript.
+Ce qu'importe l'assistant de configuration (`deploy/`), plus l'agent du bac
+(`sandbox/agent/`, bibliothèque standard seulement). Les routes HTTP sont
+toutes dans le core TypeScript.
 
 | Famille | Contenu |
 |---|---|
-| `accounts` | comptes, identité signée pour l'hôte d'outils, jetons |
+| `accounts` | comptes (`users.py`) |
 | `db` | persistance multi-moteurs du Python restant (`_dialect.py`, migrations historiques, `python -m shared_infra.db` pour la configuration) |
-| `llm`, `mcp` | connecteurs de modèles ; familles d'outils (source unique, `families.py`), manifeste `mcp.json`, OAuth |
-| `memory` | stockage de la mémoire, mémoire d'accessibilité (`ax/`) |
-| `observability` | `swallow()`, journal, consommation, métriques |
-| `runtime` | verrous de fichiers entre process (`elpis.verrou.v1.1`), annulation et verrous du Python restant |
-| `sandbox` | agent du conteneur (`agent/`) et son client, conteneurs (`executors/`), chemins, Git par l'agent, aperçus Office |
-| `security` | chiffrement Fernet, audit, URL du navigateur |
-| `chat`, `git`, `desktop`, `image`, `notifications`, `ops`, `terminal`, `toolhost` | stockage des conversations, Git (fournisseurs, SSRF), contrôle d'écran, images, notifications, bascule de base, PTY, rappels de l'hôte d'outils |
+| `llm` | connecteurs de modèles |
+| `memory` | mise à niveau des anciennes tables de la mémoire AX (`ax/`) |
+| `observability` | `swallow()` |
+| `runtime` | verrous de fichiers entre process (`elpis.verrou.v1.1`) |
+| `sandbox` | agent du conteneur (`agent/`) |
+| `security` | chiffrement Fernet |
+| `ops` | bascule de base |
 
 `config.py` résout la configuration du Python restant (variable
 d'environnement > `config.json` > défaut).
@@ -214,7 +207,7 @@ importés), `logs/`, et
   à chaque moteur), `schema.ts` et `schema.gen.ts` (schéma de référence),
   `init.ts` (pose du schéma, migrations suivies dans `schema_migrations`).
   Transfert entre moteurs : `apps/core/src/ops/transfert.ts`. Le Python
-  restant (configuration, elpis-tools) passe par `shared_infra/db/`.
+  restant (configuration) passe par `shared_infra/db/`.
 - Bascule à chaud : `apps/core/src/ops/bascule.ts` (mode maintenance, 503 sur
   les écritures, génération incrémentée), pilotée par la console ou
   `./elpis db`.
@@ -247,7 +240,7 @@ sans suivre de lien et tient toute réponse pour non fiable.
 ## Outils externes (MCP, OAuth, OpenAPI)
 
 Les familles d'outils de la sandbox sont servies par l'**hôte d'outils**
-(`apps/toolhost`, Office relayé à elpis-tools), en MCP par famille
+(`apps/toolhost` ; Office par un worker Python), en MCP par famille
 (`/mcp/<famille>`). Les clients externes le joignent par l'origine de l'app :
 le **relais** `apps/core/src/familles/pont-mcp.ts` (`/api/mcp-bridge[/<famille>]`)
 vérifie le jeton du client — jeton personnel (`packages/auth/src/jetons.ts`,
@@ -283,7 +276,7 @@ passe par un relais local filtrant (`proxy_guard.js`, `url_guard.js`).
   `configView()` de `packages/config/src/vivant.ts`, règle de lint
   `elpis/reglages-vifs`), sinon la console l'annonce comme « Redémarrage
   nécessaire » ; ne jamais modifier le dictionnaire rendu par `configView()`.
-- **État partagé entre process** (main, admin, hôte d'outils, elpis-tools) :
+- **État partagé entre process** (main, admin, hôte d'outils) :
   seulement la base ou le canal interne. main est un seul process : ses tours
   en cours, verrous de présence et annulations vivent en mémoire. Une
   annulation ne passe jamais par les événements système (fuite

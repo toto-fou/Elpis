@@ -2,7 +2,7 @@
 # rag_app/app.py — extracteur du RAG intégré (service elpis-rag) : /api/extract, /api/render, /api/locate, /api/health.
 import os
 
-# Avant l'import de fastapi : le venv porte un greffon pydantic (logfire) qui ne sert à rien ici (cf. shared_infra/runtime/pyruntime.py).
+# Avant l'import de fastapi : le venv porte un greffon pydantic (logfire) qui ne sert à rien ici.
 os.environ.setdefault("PYDANTIC_DISABLE_PLUGINS", "1")
 
 import asyncio

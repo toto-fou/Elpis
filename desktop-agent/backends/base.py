@@ -48,8 +48,8 @@ def png_size(png: bytes) -> Tuple[int, int]:
 def tail_truncate(s: str, max_chars: int) -> Tuple[str, bool]:
     """Keep the TAIL of an oversized string — for a command's output the END
     (exit status, last error, build/test summary) is the decisive part. Mirrors
-    execute_shell's contract (llm_core/tools/_exec_bridge._format_result), so
-    desktop_shell and execute_shell truncate identically. Returns (text, truncated)."""
+    the shell tool's contract (apps/toolhost/src/mcp/shell), so
+    desktop_shell and the shell tool truncate identically. Returns (text, truncated)."""
     if max_chars > 0 and len(s) > max_chars:
         cut = len(s) - max_chars
         return (f"...[TRUNCATED — {cut} chars omitted, showing the tail]\n" + s[-max_chars:], True)

@@ -18,6 +18,7 @@ import { config, parseJsonPy } from "@elpis/config";
 import type { ValidateFunction } from "ajv/dist/2020.js";
 
 import {
+  APP_FAMILIES,
   brancherManifesteFamilles,
   DEFAULT_OPENCODE_EXCLUDE,
   FAMILY_CATEGORY,
@@ -90,7 +91,7 @@ export function interpreteurPython(): string {
   return existsSync(venv) ? venv : "python3";
 }
 
-/** Repli stdio de familles de l'hôte : `main.mjs --stdio` de l'hôte TS, qui sert ses familles natives et confie les autres à elpis-tools (écart : `python -m toolhost --stdio` en Python). */
+/** Repli stdio de familles de l'hôte : `main.mjs --stdio` de l'hôte TS (écart : `python -m toolhost --stdio` en Python). */
 export function commandeStdioHote(familles: readonly string[]): RepliStdio {
   return {
     type: TYPE_STDIO,
@@ -776,24 +777,25 @@ function toolhostHerite(warnings: string[]): Dict {
   const url = texteNet(config.LOCAL_MCP_URL);
   const token = texteNet(config.LOCAL_MCP_TOKEN);
   const famsBrut = texte(config.LOCAL_MCP_TOOL_FAMILIES) || "all";
+  const familles = parseFamilies(famsBrut, (m) => warnings.push(m));
+  const compte = familles.filter((f) => (APP_FAMILIES as readonly string[]).includes(f));
+  if (compte.length > 0)
+    warnings.push(
+      `sans mcp.json, l'hôte d'outils ne sert plus les familles du compte (${compte.join(", ")}) : ./elpis configure écrit mcp.json, qui les fait servir par main`,
+    );
   const entry: Dict = {
     type: url ? (url.replace(/\/+$/, "").endsWith("/sse") ? TYPE_SSE : TYPE_HTTP) : TYPE_STDIO,
     description: "Outils intégrés (service local d'outils)",
     "x-elpis": {
       role: ROLE_TOOLHOST,
       identity: IDENTITY_META,
-      families: parseFamilies(famsBrut, (m) => warnings.push(m)),
+      families: familles,
       default_on: [],
       opencode: {
         families: opencodeFamilies({ warn: (m) => warnings.push(m), useManifest: false }),
         prefix: OPENCODE_PREFIX_DEFAULT,
       },
-      fallback: {
-        type: TYPE_STDIO,
-        command: interpreteurPython(),
-        args: [joindre(racineProjet(), "server/local_mcp_server.py")],
-        env: { LOCAL_MCP_TRANSPORT: "stdio" },
-      },
+      fallback: commandeStdioHote(familles),
     },
   };
   if (url) entry["url"] = url;

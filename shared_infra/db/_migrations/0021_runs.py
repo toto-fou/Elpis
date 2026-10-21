@@ -7,7 +7,7 @@ Ajoute :
 * la table ``runs`` : une ligne par exécution (tour de chat, run de routine,
   sous-agent, compaction manuelle) — jetons, temps LLM, appels d'outils,
   fichiers modifiés, pics CPU/RAM de la sandbox, statut final
-  (``shared_infra/observability/runs.py``) ;
+  (``apps/core/src/executions/registre.ts``) ;
 * ``usage_events.run_id`` : l'exécution à laquelle rattacher un tour ;
 * ``tool_call_metrics`` : ``call_id``, ``started_at``, ``category``,
   ``exit_code``, ``args_bytes``, ``result_bytes`` (NULL = non mesuré, lignes

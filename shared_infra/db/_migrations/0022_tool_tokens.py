@@ -6,7 +6,7 @@ Avant : ``code_remote_tokens`` gardait EN CLAIR un jeton ``pcr_`` par compte,
 réaffiché à la demande (page Code, installeur, ``opencode.json``). Désormais
 ``tool_tokens`` garde plusieurs jetons nommés par compte, dont seule
 l'empreinte SHA-256 est stockée : un jeton se montre une fois, à sa création,
-puis se régénère (cf. ``shared_infra/accounts/tokens.py``).
+puis se régénère (cf. ``packages/auth/src/jetons.ts``).
 
 Cette migration :
 

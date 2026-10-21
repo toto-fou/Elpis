@@ -8,8 +8,8 @@ C'est la troisième mémoire de l'agent, complémentaire des deux autres :
 
 | Mémoire | Où | Quoi |
 |---|---|---|
-| Factuelle / long-terme | `llm_core/memory/` (Markdown auto-curé + FTS5) | faits, profil utilisateur |
-| De travail | `llm_core/tools/memory_tools.py` (todos) | étapes de la tâche en cours |
+| Factuelle / long-terme | `apps/core/src/memoire/` (Markdown auto-curé + FTS5) | faits, profil utilisateur |
+| De travail | `apps/core/src/outils/todo/` (todos) | étapes de la tâche en cours |
 | **Procédurale (skills)** | **ici** | **comment faire X** |
 
 Inspiré du pattern Agent Skills (Claude), appliqué aux *procédures*.
@@ -54,10 +54,10 @@ regroupement de l'index.
 
 On n'injecte **jamais** tous les corps dans le contexte. À chaque requête :
 
-1. `llm_core/skills.py:discover_skills()` scanne récursivement les sources et
+1. `discoverSkills()` (`packages/skills/src/decouverte.ts`) scanne récursivement les sources et
    fusionne. L'injection passe `include_learned=False` : `learned/` est un SAS
    admin, jamais injecté.
-2. `llm_core/_system_prompts.py:_build_skills_block()` injecte un **index
+2. `buildSkillsIndexBlock()` (`apps/core/src/prompts/systeme.ts`) injecte un **index
    léger** des skills de niveau 0 (user+global), **groupé par domaine**
    (`name — description`), borné par `SKILLS_INDEX_MAX`, avec marqueurs :
    `· sub-skills` (package) et `· files/scripts` (bundle).

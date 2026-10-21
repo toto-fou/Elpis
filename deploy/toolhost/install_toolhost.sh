@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: MIT
 # =====================================================================
 #  install_toolhost.sh — installe l'hôte d'outils Elpis sur une machine
-#  DÉDIÉE (VM, serveur) : Node.js et bundle de l'hôte TS, venv d'elpis-tools
-#  (familles encore en Python), image sandbox, jeton, toolhost.json, unités
-#  systemd (elpis-toolhost, elpis-tools). À lancer DEPUIS une copie du dépôt.
+#  DÉDIÉE (VM, serveur) : Node.js et bundle de l'hôte TS, venv du moteur Office
+#  (worker Python de l'hôte), image sandbox, jeton, toolhost.json, unité
+#  systemd elpis-toolhost. À lancer DEPUIS une copie du dépôt.
 #
 #    sudo bash deploy/toolhost/install_toolhost.sh /opt/elpis toolhost.example.lan
 #
@@ -82,9 +82,10 @@ if [ -n "$HOSTNAME_TLS" ]; then
 fi
 
 echo "--- Unités systemd ---"
-for unite in elpis-tools elpis-toolhost; do
-    sed "s#/opt/elpis#$DEST#g" "deploy/toolhost/$unite.service" > "/etc/systemd/system/$unite.service"
-done
+sed "s#/opt/elpis#$DEST#g" deploy/toolhost/elpis-toolhost.service > /etc/systemd/system/elpis-toolhost.service
+# Unité d'une version précédente : elpis-tools n'existe plus.
+systemctl disable --now elpis-tools.service 2>/dev/null || true
+rm -f /etc/systemd/system/elpis-tools.service
 systemctl daemon-reload
-systemctl enable elpis-tools.service elpis-toolhost.service
-echo "  systemctl start elpis-toolhost   (elpis-tools démarre avec lui)   puis   curl http://127.0.0.1:8765/health"
+systemctl enable elpis-toolhost.service
+echo "  systemctl start elpis-toolhost   puis   curl http://127.0.0.1:8765/health"

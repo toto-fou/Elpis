@@ -171,7 +171,7 @@ function completerConfig(brut: Noeud): ConfigAdmin {
   }
 
   const mcp = section(c, "mcp");
-  completer(mcp, { server_cmd: "", servers_dir: "../mcp_custom_servers", tools_cache_ttl_sec: 0 });
+  completer(mcp, { servers_dir: "../mcp_custom_servers", tools_cache_ttl_sec: 0 });
   completer(section(mcp, "tokens"), {
     tools_enabled: true,
     tools_families: "fs,shell,git,desktop,browser,skill_run",

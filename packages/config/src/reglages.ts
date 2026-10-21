@@ -598,7 +598,6 @@ export function calculerReglages(env: Env, brut: Dict, racine: string, cheminCon
     envVrai(env["APP_DESKTOP_DISABLE_SHELL"]) || veritePy(lire("desktop.disable_shell", false));
   const DESKTOP_TARGETS = coerceDesktopTargets(lire("desktop.targets", []));
 
-  const MCP_SERVER_CMD = envStr("MCP_SERVER_CMD", "mcp.server_cmd", "server/local_mcp_server.py");
   const TOOLS_CACHE_TTL_SEC = envFloat("MCP_TOOLS_CACHE_TTL_SEC", "mcp.tools_cache_ttl_sec", 360.0);
   const LOCAL_MCP_HOST = envStr("LOCAL_MCP_HOST", "mcp.local_host", "127.0.0.1");
   const LOCAL_MCP_PORT = envInt("LOCAL_MCP_PORT", "mcp.local_port", 8765);
@@ -935,7 +934,6 @@ export function calculerReglages(env: Env, brut: Dict, racine: string, cheminCon
     DESKTOP_EXPOSE_RAW_TOOLS,
     DESKTOP_DISABLE_SHELL,
     DESKTOP_TARGETS,
-    MCP_SERVER_CMD,
     TOOLS_CACHE_TTL_SEC,
     LOCAL_MCP_HOST,
     LOCAL_MCP_PORT,

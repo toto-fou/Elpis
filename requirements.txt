@@ -1,47 +1,24 @@
-# requirements.txt — Python restant d'Elpis : elpis-tools (famille office), configuration et assistant d'installation
+# requirements.txt — Python restant d'Elpis : extracteur du RAG, moteur Office, configuration et assistant d'installation
 # Python 3.11+. Installé par ./install.sh (pip install -r requirements.txt).
 # Versions figées : celles de l'environnement validé par la suite de tests.
 
-# ---- Web & serveur ASGI ----
+# ---- Service HTTP de l'extracteur du RAG ----
 fastapi==0.136.1
 starlette==1.0.0
 pydantic==2.13.4
-sse-starlette==3.4.4
-uvicorn[standard]==0.47.0     # uvloop + websockets importés par le code
-websockets==16.0
-python-multipart==0.0.28      # formulaires / envois de fichiers (UploadFile)
-itsdangerous==2.2.0           # cookies de session (SessionMiddleware)
-
-# ---- Clients HTTP ----
-httpx==0.28.1
-requests==2.34.2
-
-# ---- MCP ----
-fastmcp==3.2.4
-mcp==1.27.1
-
-# ---- Données, sécurité, documents ----
-redis==7.4.0
-cryptography==48.0.0          # Fernet : clés API des connecteurs LLM
+uvicorn[standard]==0.47.0
+websockets==16.0              # installés par uvicorn[standard] : versions figées
 PyYAML==6.0.3
-jsonschema==4.26.0
-psutil==7.2.2
-Pillow==12.2.0
-python-docx==1.2.0
-python-pptx==1.0.2           # outils PowerPoint (llm_core/tools/_office)
-XlsxWriter==3.2.9             # données des graphiques natifs (dépendance de python-pptx)
+httpx==0.28.1
+
+# ---- Documents Office (famille office) ----
+-r office/requirements.txt
+
+# ---- Données et sécurité ----
+cryptography==48.0.0          # Fernet : clés API des connecteurs LLM
 
 # ---- Base de données : moteurs serveur (facultatifs, SQLite par défaut) ----
 pg8000==1.31.5                # PostgreSQL, pur Python (+ scramp, asn1crypto, python-dateutil, six)
 
-# ---- Intelligence de code (tree-sitter) ----
-tree-sitter==0.25.2
-tree-sitter-bash==0.25.1
-tree-sitter-javascript==0.25.0
-tree-sitter-typescript==0.23.2
-tree-sitter-robot==1.1.2
-
 # ---- Outils appelés en sous-processus ----
 ruff==0.15.13                 # lint de l'éditeur (/api/sandbox/lint)
-
-# ---- Tests ----

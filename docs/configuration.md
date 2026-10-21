@@ -78,7 +78,7 @@ cmake --build build --config Release -j$(nproc)
 docx et pptx s'affichent dans l'éditeur après conversion par LibreOffice
 **sur l'hôte**, dans une prison `bubblewrap` sans réseau ni fichiers de l'hôte.
 Les PDF n'ont besoin de rien, et les xlsx sont lus directement en flux
-(`shared_infra/sandbox/office_xlsx.py`) : LibreOffice ne sert qu'à la vue
+(`apps/toolhost/src/office/xlsx.ts`) : LibreOffice ne sert qu'à la vue
 « Pages » d'un tableur. Un document lourd affiche ses premières pages tout de
 suite, puis le document complet quand la conversion est terminée.
 
@@ -324,7 +324,7 @@ foulée. Si Elpis tourne déjà, redémarrez-le ensuite (`./elpis restart` ou
 ./elpis doctor     # diagnostic de l'installation
 ```
 
-`start` enchaîne : Qdrant (6333) → RAG (8000) → elpis-tools (8767) → hôte
+`start` enchaîne : Qdrant (6333) → RAG (8000) → hôte
 d'outils MCP (8765) → main (8001) → admin (8002) → service navigateur (3000) ;
 les outils du compte sont servis par main lui-même. Main et admin
 écoutent selon [`security.listen`](#écoute-securitylisten) (`127.0.0.1` derrière
@@ -381,7 +381,7 @@ réglage.
 sudo ./elpis service install    # ou : service remove ; ./elpis service print pour voir les unités
 ```
 
-- Une unité par service (`elpis-qdrant`, `elpis-rag`, `elpis-tools`, `elpis-toolhost`,
+- Une unité par service (`elpis-qdrant`, `elpis-rag`, `elpis-toolhost`,
   `elpis-main`, `elpis-admin`, `elpis-browser`), regroupées sous
   `elpis.target`, démarrées au boot, relancées en cas d'échec, journaux dans
   journald (`./elpis logs main -f`).
@@ -430,7 +430,7 @@ Sections :
 | Section | Contenu |
 |---|---|
 | `llama` | `engine`, `url` (base du serveur) ou `ip`/`port`, `api_key`, `model`, timeouts, retries, `max_concurrency`, `max_models`, `n_ctx`, `max_tool_iterations`, `tool_timeout_s`, `thinking_budget_tokens`, `max_tokens_chat`/`max_tokens_thinking`, `thinking_output_uncapped`, `think_resume_max`/`think_resume_total_tokens` |
-| `mcp` | `server_cmd`, `tools_cache_ttl_sec`, `servers_dir`, `local_url`/`local_host`/`local_port`/`local_transport` |
+| `mcp` | `tools_cache_ttl_sec`, `servers_dir`, `local_url`/`local_host`/`local_port`/`local_transport` |
 | `app` | `db_path`, `session_secret`, `max_recent_chats`, `sandbox_dir`, `enable_model_selector`, `sandbox_quota_mb`, `max_upload_mb`, chemins `system_prompts.*` |
 | `llm` | `scheduling_mode`, `compression.*`, `compaction.*`, `prune.*`, `task.*` (sous-agents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
 | `agents` | Sous-agents (`task`), propre au TS, relu à chaud et écrit par `POST /api/admin/agents` seulement (Console › Sandbox › Sous-agents ; l'éditeur brut et les écritures champ par champ ne l'écrivent pas) : `read_only.defaults.<type>` (lecture seule par défaut ; `explore` vrai, les autres faux), `read_only.forced.<type>` (imposée : ni le compte ni l'agent principal ne la lèvent ; faux par défaut), `max_parallel` (sous-agents d'un même tour lancés ensemble, 1 à 10, défaut 3). Types : `explore`, `implement`, `verify`, `web`, `pr` et `custom` (tous les agents personnels). Lecture seule effective = imposée, OU demandée par `task(read_only=true)`, OU case du compte (si posée, sinon défaut). Une valeur illisible ou hors bornes retombe sur son défaut |
@@ -764,7 +764,7 @@ comme absente.
 déclarent dans `mcp.json` à la racine (format `mcpServers` des clients MCP +
 bloc `x-elpis` par entrée : rôle, familles, `default_on`, familles publiées à
 opencode, commande stdio exportée). Schéma : `docs/schemas/mcp.schema.json`. Chargeur :
-`shared_infra/mcp/manifest.py`. Sans fichier, le manifeste est synthétisé depuis
+`packages/mcp/src/manifeste.ts`. Sans fichier, le manifeste est synthétisé depuis
 les variables ci-dessous (comportement hérité). Avec un fichier, `LOCAL_MCP_URL`,
 `LOCAL_MCP_TOKEN`, `LOCAL_MCP_TOOL_FAMILIES` et `LOCAL_MCP_OPENCODE_FAMILIES`
 restent des SURCHARGES. Console admin → Connexions →
@@ -793,10 +793,8 @@ dans le journal ; `./elpis doctor` le signale). La commande stdio d'une entrée
 pour la retirer) ne sert qu'à l'export vers un applicatif tiers. En stdio, l'hôte
 sert lui-même ses familles natives, sans jeton ni port : le client est un process
 local de confiance, le compte est le `_meta.username` de chaque appel (`guest`
-sans lui), comme `python -m toolhost --stdio` ; une famille relayée est confiée à
-elpis-tools (`server/local_mcp_server.py` en stdio, entrée et sortie héritées). Une
-entrée qui mêle familles natives et relayées est refusée (code 2) : une entrée
-par famille, comme `mcp.example.json`. L'export signale dans `omis` (et la console
+sans lui), comme `python -m toolhost --stdio` ; aucune famille servie : refus (code 2).
+Une entrée par famille, comme `mcp.example.json`. L'export signale dans `omis` (et la console
 dans son message) les entrées sans le transport demandé ; en SSE, il demande à l'hôte
 (`/manifest`, jeton de service et enveloppe de l'administrateur) quelles familles le
 servent et omet celles qui ne le servent pas (hôte muet : rien n'est retiré). Les familles liées au compte (`chart`, `memory`,
@@ -923,7 +921,7 @@ skills, ``pw_wait``, ``desktop_wait``) ; le client le consomme sans événement.
 ``apps/toolhost/dist/main.mjs``) = le service MCP + l'API sandbox (``/api/sandbox/*``, git, cycle de vie, instantanés),
 le terminal (``/api/terminal/*``, ``/ws/terminal*``) et les actifs (captures,
 trames) sur UN port, derrière le jeton de service et une enveloppe d'identité
-signée (``X-Elpis-Identity``, ``shared_infra/accounts/identity.py``). Mode local :
+signée (``X-Elpis-Identity``, ``packages/securite/src/identite.ts``). Mode local :
 ``./elpis start`` le lance en loopback, l'app sert ses routeurs en direct
 (aucun relais). Mode distant : ``mcp.json › sandboxHosts.<id>.url`` hors loopback
 (ou ``relay: true``) → le relais du core (``apps/core/src/relais/``) relaie ces
@@ -942,7 +940,7 @@ Familles liées au COMPTE (``memory``, ``todo``, ``chart``, ``skill`` = biblioth
 distant (elles écrivent dans sa base) ; ``skill_run``
 (exécution dans le sandbox) reste sur l'hôte. Déploiement :
 ``deploy/toolhost/`` (``install_toolhost.sh``, ``toolhost.example.json``,
-``elpis-toolhost.service``, ``elpis-tools.service``,
+``elpis-toolhost.service``,
 ``Caddyfile.toolhost``), schéma
 ``docs/schemas/toolhost.schema.json``. ``toolhost.json › bind.host`` vaut
 ``127.0.0.1`` dans l'exemple : l'app joint l'hôte par ``Caddyfile.toolhost``
@@ -950,18 +948,22 @@ distant (elles écrivent dans sa base) ; ``skill_run``
 privée) est nécessaire, port filtré à l'hôte Elpis. ``app.memory_dir`` / ``APP_MEMORY_DIR`` :
 racine du magasin mémoire (défaut : racine des sandboxes).
 
-**Hôte d'outils TypeScript et elpis-tools.** Le service ``toolhost`` de
+**Hôte d'outils TypeScript.** Le service ``toolhost`` de
 ``./elpis`` (unité ``elpis-toolhost``) est le bundle Node ``apps/toolhost/dist/main.mjs`` ;
 il lit ``toolhost.json`` et les variables ``LOCAL_MCP_*`` / ``TOOLHOST_*`` (schéma
 vérifié au démarrage, écarts journalisés, jamais bloquants) et, après un ``SIGHUP``,
 s'arrête proprement puis sort en 75 pour être relancé, comme le core. Il sert
-lui-même les familles de ``familles_natives`` (portées en TypeScript : ``browser``,
-``desktop``, ``fs``, ``git``, ``shell``, ``skill_run``) : ``/mcp/<famille>`` et ``/sse/<famille>`` de ces familles, mêmes
-jetons, portée et délégation qu'``elpis-tools`` ; ``/health`` et ``/manifest`` agrègent
-les deux côtés. Clé absente (ou pas de ``toolhost.json``) : toutes les familles portées
-sont natives ; une liste explicite, même vide, est respectée ; ``./elpis doctor`` affiche
-les familles natives effectives (``main.mjs --familles-natives``). Une famille portée
-absente d'une liste explicite est relayée à elpis-tools, qui la sert encore en Python.
+lui-même les familles de ``families`` portées en TypeScript (``browser``,
+``desktop``, ``fs``, ``git``, ``office``, ``shell``, ``skill_run``) : ``/mcp/<famille>`` et ``/sse/<famille>`` de ces familles, mêmes
+jetons, portée et délégation ; ``/health`` et ``/manifest`` les agrègent. Pour ne pas
+servir une famille, la retirer de ``families``. L'ancienne clé ``familles_natives`` est
+ignorée avec un avertissement (elpis-tools n'existe plus) ; ``./elpis doctor`` affiche
+les familles servies (``main.mjs --familles-natives``).
+Famille ``office`` native : l'hôte lance un worker Python partagé (``python -m elpis_office``
+depuis ``office/``, relancé à l'appel suivant s'il disparaît) qui construit les documents Word et
+PowerPoint en mémoire ; les fichiers du bac, l'historique, le verrou de l'éditeur, les graphiques
+du cache du core, LibreOffice (``office_preview``) et le rendu ECharts sont faits par l'hôte.
+``ELPIS_OFFICE_PARALLELE`` borne les appels simultanés du worker (8 par défaut).
 Famille ``skill_run`` native : les skills du compte sont lus dans son magasin protégé
 (``skills.user_dir``, hôte local) ou, à défaut, dans le miroir
 ``<sandbox_dir>/<compte>/skills`` que l'app pousse après chaque modification (hôte
@@ -983,30 +985,15 @@ connecteurs qu'il a créés (``auto``), jamais un connecteur saisi dans Réglage
 importé (``connector_exists``) ; un ancien
 ``.git-credentials.json`` du bac suit la même règle (gardé si un hôte est refusé) ;
 le clone de l'éditeur n'a pas cette limite.
-``/mcp[/<famille>]`` des autres familles est relayé en flux vers **elpis-tools** :
-service ``tools`` (unité ``elpis-tools``, démarrée avant l'hôte, relancée avec lui),
-``main.mjs --elpis-tools`` : l'hôte lance ``server/local_mcp_server.py`` en HTTP
-streamable sur ``127.0.0.1:8767`` (``ELPIS_TOOLS_PORT``), sur ses familles relayées
-(``families`` moins ``familles_natives`` : ``main.mjs --familles-relayees``), dans
-l'environnement de ``toolhost.json`` (dossiers, base, jeton, URL du core : ce que
-``python -m toolhost`` posait), relu à chaque démarrage. Changer ``familles_natives`` :
-``./elpis restart`` (ou ``systemctl restart elpis-toolhost``, qui relance aussi
-elpis-tools). Aucune famille relayée : elpis-tools ne démarre pas. ``./elpis`` pose
-``TOOLHOST_MCP_UPSTREAM`` vers lui (l'unité distante aussi), et ``TOOLHOST_APP_URL``
-vers le core local (``http://127.0.0.1:8001``, sauf valeur déjà posée dans
-l'environnement) : sans URL du core, les rappels ``/api/internal/*`` sont inactifs
-(``shell_job`` répond ``not_available_here``, identifiants git, PR, quota et
-notifications sont ignorés). ``/sse[/<famille>]`` +
-``/messages/`` des familles relayées passent par ``mcp_upstream_sse``
-(``TOOLHOST_MCP_UPSTREAM_SSE``, un ``elpis-tools`` en transport ``sse``, non lancé par
-``./elpis`` : un client tiers en SSE ne joint que les familles natives, l'export SSE de
-la console omet les autres). Sans amont, ``/mcp``
-répond 503 et ``/sse`` n'est pas servi (``/sse`` exige aussi ``sse`` dans
-``bind.transports``). Avant de relayer, l'hôte vérifie l'amont : il doit refuser un
-appel sans jeton (sondé toutes les 10 s au plus ; le refus sondé est rejoué tel quel
-à un appel sans ``Bearer``) et ne servir aucune famille hors de ``families`` ni aucune
-famille native ; sinon le relais répond 503 : la racine ``/mcp`` relayée n'expose
-jamais la version Python d'une famille native. Le core ouvre une connexion MCP par
+``TOOLHOST_APP_URL`` pointe vers le core local (``http://127.0.0.1:8001``, posé par
+``./elpis`` sauf valeur déjà dans l'environnement) : sans URL du core, les rappels
+``/api/internal/*`` sont inactifs (``shell_job`` répond ``not_available_here``,
+identifiants git, PR, quota et notifications sont ignorés). Une requête MCP qu'aucune
+famille native ne prend répond 503 (``/sse`` n'est servi que si ``sse`` figure dans
+``bind.transports``). ``mcp_upstream`` et ``mcp_upstream_sse`` (ou
+``TOOLHOST_MCP_UPSTREAM[_SSE]``), qui désignaient elpis-tools, sont ignorés avec un
+avertissement : le service ``tools`` n'existe plus, ``./elpis service install`` et
+``install_toolhost.sh`` retirent son unité. Le core ouvre une connexion MCP par
 famille (``/mcp/<famille>``) vers une entrée ``toolhost`` à plusieurs familles et
 fusionne leurs outils dans l'ordre canonique ; une famille coupée est rouverte seule,
 une famille injoignable est retirée sans priver les autres et relistée 15 s plus tard.
@@ -1016,7 +1003,7 @@ L'ancien hôte Python (``python -m toolhost``) n'existe plus depuis la 0.1.0 :
 précompilé, est compilé par ``npm ci`` (build-essential, python3 : groupe apt
 ``construction-hote``) ; le paquet hors ligne de ``make_release.sh`` contient le
 bundle de l'hôte pour son architecture (``toolhost/``). ``./elpis doctor`` vérifie
-le bundle (``main.mjs --empreinte``, ``--natif``) et la santé d'elpis-tools.
+le bundle (``main.mjs --empreinte``, ``--natif``) et l'import du moteur Office.
 
 **Plusieurs hôtes d'outils.** ``mcp.json › sandboxHosts`` peut
 déclarer N hôtes ; ``placement.strategy`` = ``single`` (tout le monde sur
@@ -1039,7 +1026,6 @@ avant le dossier local ; un profil réseau imposé détruit le conteneur sur l'h
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `MCP_SERVER_CMD` | `server/local_mcp_server.py` | Commande de démarrage |
 | `MCP_TOOLS_CACHE_TTL_SEC` | `360` | TTL du cache `list_tools` |
 | `MCP_SERVERS_DIR` | `../mcp_custom_servers` | Serveurs uploadés |
 | `LOCAL_MCP_URL` | dérivée (`http://127.0.0.1:8765/mcp`) | Adresse de l'hôte d'outils (`…/mcp` = HTTP streamable, `…/sse` = SSE) ; l'app ne le lance jamais en sous-process |

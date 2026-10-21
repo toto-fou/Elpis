@@ -16,7 +16,7 @@
 #                                (le core finit ses requêtes : 300 s au plus)
 #  ./elpis restart               migrations en attente, puis stop et start
 #  ./elpis status                état des services et des ports
-#  ./elpis logs [SERVICE] [-f]   journaux (qdrant rag tools toolhost main admin browser)
+#  ./elpis logs [SERVICE] [-f]   journaux (qdrant rag toolhost main admin browser)
 #  ./elpis service install       services systemd (sudo), démarrage au boot
 #  ./elpis service remove
 #  ./elpis service print         affiche les unités sans rien installer
@@ -49,9 +49,9 @@ VENV="$ROOT/venv"
 PY="$VENV/bin/python"
 RUN_DIR="$ROOT/user_db/run"
 LOG_DIR="$ROOT/logs"
-SERVICES=(qdrant rag tools toolhost main admin browser)
+SERVICES=(qdrant rag toolhost main admin browser)
 # Services retirés : leurs unités systemd sont supprimées par « service install » et « service remove ».
-SERVICES_RETIRES=(appmcp)
+SERVICES_RETIRES=(appmcp tools)
 UNIT_PREFIX="elpis"
 NODE_DIR="$ROOT/node"
 CORE_DIST="$ROOT/apps/core/dist"
@@ -64,8 +64,6 @@ HOTE_DIST="$ROOT/apps/toolhost/dist"
 . "$ROOT/deploy/node/runtime.sh"
 
 MAIN_PORT=8001; ADMIN_PORT=8002; RAG_PORT=8000; MCP_PORT="${LOCAL_MCP_PORT:-8765}"
-# elpis-tools (Python, amont MCP de l'hôte d'outils TS) : loopback seulement.
-TOOLS_PORT="${ELPIS_TOOLS_PORT:-8767}"
 QDRANT_PORT=6333; BROWSER_PORT="${FIREFOX_SERVICE_PORT:-3000}"
 
 info() { printf '\033[1;34m[elpis]\033[0m %s\n' "$*"; }
@@ -177,17 +175,11 @@ svc_spec() {
             SPEC_DIR="$ROOT/rag_app"
             SPEC_ENV+=("RAG_STORE_DIR=$RAG_STORE" "RAG_CACHE_DIR=$RAG_CACHE" "RAG_SERVICE_TOKEN_FILE=$ROOT/user_db/.rag_service_token")
             SPEC_CMD=("$VENV/bin/uvicorn" app:app --host "${RAG_HOST:-127.0.0.1}" --port "$RAG_PORT") ;;
-        tools)
-            SPEC_ENV+=("ELPIS_RACINE=$ROOT" "ELPIS_TOOLS_PORT=$TOOLS_PORT" "APP_SANDBOX_DIR=$SANDBOX_DIR"
-                       "CHART_CACHE_DIR=$CHART_DIR" "APP_NODE_BIN=$NODE")
-            SPEC_CMD=("$NODE" --enable-source-maps "$HOTE_DIST/main.mjs" --elpis-tools) ;;
         toolhost)
             SPEC_ENV+=(LOCAL_MCP_TRANSPORT=streamable-http "LOCAL_MCP_HOST=${LOCAL_MCP_HOST:-127.0.0.1}"
-                       "LOCAL_MCP_PORT=$MCP_PORT" "APP_SANDBOX_DIR=$SANDBOX_DIR" "CHART_CACHE_DIR=$CHART_DIR"
-                       "APP_NODE_BIN=$NODE")
+                       "LOCAL_MCP_PORT=$MCP_PORT" "APP_SANDBOX_DIR=$SANDBOX_DIR" "CHART_CACHE_DIR=$CHART_DIR")
             # Rappels de l'hôte vers le core local (shell_job, identifiants git, PR, quota, notifications).
-            SPEC_ENV+=("ELPIS_RACINE=$ROOT" "TOOLHOST_MCP_UPSTREAM=http://127.0.0.1:$TOOLS_PORT/mcp"
-                       "TOOLHOST_APP_URL=${TOOLHOST_APP_URL:-http://127.0.0.1:$MAIN_PORT}")
+            SPEC_ENV+=("ELPIS_RACINE=$ROOT" "TOOLHOST_APP_URL=${TOOLHOST_APP_URL:-http://127.0.0.1:$MAIN_PORT}")
             SPEC_LANCEUR=(bash "$ROOT/deploy/node/relance.sh")
             SPEC_CMD=("$NODE" --enable-source-maps --use-system-ca "$HOTE_DIST/main.mjs") ;;
         main)
@@ -239,16 +231,11 @@ _db_local_unit() { lanceur unite-base; }
 
 # Migrations de mcp.json sans question (relais, familles manquantes, familles du compte servies en processus par le core).
 migrer_mcp() { "$PY" "$ROOT/deploy/configure.py" --migrer-mcp || warn "mcp.json non migré : ./elpis configure"; }
-# Hôte interrogé avec succès, aucune famille relayée : elpis-tools n'a rien à servir (ni processus ni port attendus).
-sans_famille_relayee() {
-    local f
-    f="$(ELPIS_RACINE="$ROOT" timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --familles-relayees 2>/dev/null)" && [ -z "$(printf '%s' "$f" | tail -n 1)" ]
-}
 
 svc_available() {
     case "$1" in
         qdrant)  [ -x "$ROOT/rag_app/qdrant/qdrant" ] ;;
-        toolhost|tools) [ -f "$HOTE_DIST/main.mjs" ] ;;
+        toolhost) [ -f "$HOTE_DIST/main.mjs" ] ;;
         main|admin) [ -f "$CORE_DIST/main.mjs" ] ;;
         browser) [ -d "$ROOT/browser-service/node_modules" ] && command -v "$(node_bin)" >/dev/null ;;
         *)       return 0 ;;
@@ -257,7 +244,7 @@ svc_available() {
 
 svc_port() {
     case "$1" in
-        qdrant) echo "$QDRANT_PORT" ;; rag) echo "$RAG_PORT" ;; toolhost) echo "$MCP_PORT" ;; tools) echo "$TOOLS_PORT" ;;
+        qdrant) echo "$QDRANT_PORT" ;; rag) echo "$RAG_PORT" ;; toolhost) echo "$MCP_PORT" ;;
         main) echo "$MAIN_PORT" ;; admin) echo "$ADMIN_PORT" ;; browser) echo "$BROWSER_PORT" ;;
     esac
 }
@@ -265,7 +252,6 @@ svc_port() {
 # .env : surcharges locales facultatives (KEY=VALUE, une par ligne), puis les ports qui en dépendent.
 charger_env() {
     if [ -f "$ROOT/.env" ]; then set -a; . "$ROOT/.env"; set +a; fi
-    TOOLS_PORT="${ELPIS_TOOLS_PORT:-8767}"
 }
 
 # Instance : config.json, .env, Node, écoute et dossiers, lus par le core (sans le venv).
@@ -299,7 +285,7 @@ dossiers_rag() {
     if [ "$(id -u)" -ne 0 ]; then mkdir -p -m 700 "$RAG_STORE" "$RAG_CACHE" 2>/dev/null || true; fi
 }
 
-# Services : le venv sert encore au RAG et à elpis-tools.
+# Services : le venv sert encore au RAG, au moteur Office de l'hôte d'outils et à l'installation.
 load_runtime() {
     need_venv
     charger_instance
@@ -357,7 +343,6 @@ cmd_start() {
     local s started=()
     for s in "${SERVICES[@]}"; do
         if ! svc_available "$s"; then warn "$s non installé : ignoré."; continue; fi
-        if [ "$s" = tools ] && sans_famille_relayee; then info "tools : aucune famille relayée, rien à servir."; continue; fi
         if pid_of "$s" >/dev/null; then info "$s tourne déjà (pid $(pid_of "$s"))."; continue; fi
         svc_spec "$s"
         info "Démarrage de $s…"
@@ -367,7 +352,7 @@ cmd_start() {
         started+=("$s")
         # Les suivants dépendent de Qdrant et de l'hôte d'outils : on les attend.
         case "$s" in
-            qdrant|tools|toolhost) attendre "$s" 20 port_open "$(svc_port "$s")" || warn "$s ne répond pas encore (voir ./elpis logs $s)." ;;
+            qdrant|toolhost) attendre "$s" 20 port_open "$(svc_port "$s")" || warn "$s ne répond pas encore (voir ./elpis logs $s)." ;;
         esac
     done
     local rc=0
@@ -430,6 +415,7 @@ cmd_stop() {
         s="${SERVICES[$i]}"
         case "$s" in main|admin) ;; *) arreter "$s" ;; esac
     done
+    arreter "${SERVICES_RETIRES[@]}"
     ok "Services arrêtés."
 }
 
@@ -490,20 +476,14 @@ _render_units() {
         {
             echo "[Unit]"
             echo "Description=Elpis — $s"
-            case "$s" in
-                tools) echo "PartOf=${UNIT_PREFIX}.target ${UNIT_PREFIX}-toolhost.service" ;;
-                *)     echo "PartOf=${UNIT_PREFIX}.target" ;;
-            esac
+            echo "PartOf=${UNIT_PREFIX}.target"
             case "$s" in
                 rag)        echo "After=${UNIT_PREFIX}-qdrant.service" ;;
-                tools)      echo "After=network-online.target docker.service${db_unit:+ $db_unit}" ;;
-                toolhost)   echo "After=network-online.target docker.service${db_unit:+ $db_unit}$(svc_available tools && echo " ${UNIT_PREFIX}-tools.service")" ;;
+                toolhost)   echo "After=network-online.target docker.service${db_unit:+ $db_unit}" ;;
                 main|admin) echo "After=${UNIT_PREFIX}-toolhost.service ${UNIT_PREFIX}-rag.service ${UNIT_PREFIX}-browser.service caddy.service${db_unit:+ $db_unit}" ;;
             esac
             case "$s" in
-                toolhost) w="${db_unit}$(svc_available tools && echo " ${UNIT_PREFIX}-tools.service")"; w="${w# }"
-                          if [ -n "$w" ]; then echo "Wants=$w"; fi ;;
-                tools|main|admin) if [ -n "$db_unit" ]; then echo "Wants=$db_unit"; fi ;;
+                toolhost|main|admin) if [ -n "$db_unit" ]; then echo "Wants=$db_unit"; fi ;;
             esac
             echo
             echo "[Service]"
@@ -669,7 +649,7 @@ cmd_doctor() {
         info "paquets apt : dpkg-query absent, prérequis non vérifiés (deploy/prerequis-apt.txt)"
     fi
     check "venv Python" "[ -x '$PY' ]" "./install.sh"
-    check "dépendances Python" "'$PY' -c 'import fastapi, fastmcp, httpx, uvicorn'" "./install.sh"
+    check "dépendances Python" "'$PY' -c 'import fastapi, httpx, uvicorn, cryptography'" "./install.sh"
     local v_runtime="NODE_RUNTIME_SHA256_$(uname -m)" runtime_attendu
     runtime_attendu="${!v_runtime:-absente}"
     if [ "$NODE" = "$NODE_DIR/bin/node" ]; then
@@ -701,6 +681,7 @@ cmd_doctor() {
         info "autorités de confiance : magasins par défaut (core : Node et /etc/ssl/certs ; httpx : certifi) ; PKI interne : ./elpis configure --ca-file systeme"
     fi
     check "dépendances de l'extracteur du RAG" "'$PY' -c 'import pdfplumber, pypdfium2, pypdf, openpyxl, docx, pptx'" "venv/bin/pip install -r requirements-rag.txt"
+    check "moteur Office (worker de l'hôte d'outils)" "cd '$ROOT/office' && '$PY' -c 'import elpis_office.word, elpis_office.powerpoint, markdown_it'" "venv/bin/pip install -r requirements.txt"
     check "config.json" "[ -f '$ROOT/config.json' ]" "./elpis configure"
     check "mcp.json" "[ -f '$ROOT/mcp.json' ]" "./elpis configure"
     check "jeton MCP" "[ -s '$ROOT/user_db/.local_mcp_token' ]" "./elpis configure"
@@ -714,12 +695,10 @@ cmd_doctor() {
     if [ -f "$HOTE_DIST/main.mjs" ]; then
         local natives
         natives="$(ELPIS_RACINE="$ROOT" timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --familles-natives 2>/dev/null | tail -n 1)"
-        info "hôte d'outils : familles natives ${natives:-aucune} (toolhost.json › familles_natives, absente = toutes les familles portées)"
-    fi
-    if svc_available tools && sans_famille_relayee; then
-        info "elpis-tools : aucune famille relayée par l'hôte d'outils, rien à servir"
-    elif svc_available tools; then
-        check "familles Python, elpis-tools (127.0.0.1:$TOOLS_PORT)" "(exec 3<>/dev/tcp/127.0.0.1/$TOOLS_PORT)" "./elpis logs tools"
+        info "hôte d'outils : familles servies ${natives:-aucune} (toolhost.json › families)"
+        if [ -f "$ROOT/toolhost.json" ] && grep -qE '"(familles_natives|mcp_upstream|mcp_upstream_sse)"' "$ROOT/toolhost.json"; then
+            warn "toolhost.json : familles_natives / mcp_upstream sont obsolètes (elpis-tools n'existe plus), ignorés : à retirer"
+        fi
     fi
     check "outils du compte servis par main (mcp.json sans URL d'appmcp)" "'$PY' '$ROOT/deploy/configure.py' --verifier-mcp" "./elpis configure"
     check "familles d'outils de mcp.example.json présentes dans mcp.json" "'$PY' '$ROOT/deploy/configure.py' --verifier-familles-mcp" "./elpis configure"

@@ -18,7 +18,7 @@ Une ligne par principal :
 
 L'absence de ligne équivaut à une ligne tout-``NULL``. La résolution
 (utilisateur > union des groupes > tous) vit dans
-``shared_infra/llm/engine_access.py``. Idempotent. Ne commit PAS (le runner de
+``apps/core/src/llm/acces-moteurs.ts``. Idempotent. Ne commit PAS (le runner de
 migrations commit à la fin).
 """
 from __future__ import annotations

@@ -16,7 +16,7 @@ import type { Acces, DefinitionRoute, Famille, Traitement } from "../routes";
 import { utilisateur } from "./comptes";
 import { entrees, parametreRequete, py, reponseJsonPy } from "@elpis/http";
 
-/** `_PTY_IDLE_TIMEOUT_SEC` et `MAX_SESSIONS_PER_USER` de shared_infra/terminal/pty.py. */
+/** Délai d'inactivité d'un terminal et nombre maximal de sessions par compte (hôte d'outils). */
 export const PTY_IDLE_TIMEOUT_SEC = 1800;
 export const MAX_SESSIONS_PER_USER = 4;
 

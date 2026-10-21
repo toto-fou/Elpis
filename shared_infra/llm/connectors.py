@@ -25,13 +25,7 @@ from typing import Any, Dict, List, Optional
 
 from shared_infra.db._connection import db_conn
 from shared_infra.db._dialect import insert_id
-from shared_infra.security.encryption import decrypt, encrypt
-
-# Types de provider supportés (l'UI propose ce menu).
-PROVIDER_TYPES = (
-    "llamacpp", "vllm", "openai", "anthropic",
-    "mistral", "groq", "openrouter", "deepseek", "moonshot", "opencode", "generic",
-)
+from shared_infra.security.encryption import encrypt
 
 # Métadonnées par provider (source unique pour routes + frontend) :
 #   wire             : format « wire » (openai-compatible vs anthropic natif)
@@ -65,32 +59,6 @@ PROVIDER_PRESETS = {
 }
 
 
-def cloud_provider_types() -> list:
-    """Types ajoutables par un UTILISATEUR (base_url verrouillée par preset)."""
-    return [p for p, v in PROVIDER_PRESETS.items() if not v.get("admin_only")]
-
-
-def allowed_provider_types(cfg: "Optional[Dict[str, Any]]" = None) -> list:
-    """Fournisseurs ouverts aux connecteurs PERSO (``llm.allowed_provider_types``
-    de config.json ; liste vide ou absente = tous les fournisseurs cloud).
-
-    SOURCE UNIQUE : la route de création ET la résolution de cible passent par
-    ici — sans quoi retirer un fournisseur de la liste empêchait d'en créer un
-    nouveau mais laissait servir ceux déjà créés (AUDIT 2026-09-16, A8). La
-    route fournit la config qu'elle a déjà lue ; les autres appelants la
-    laissent lire ici."""
-    if cfg is None:
-        try:
-            from shared_infra.config import read_config_json
-            cfg = read_config_json() or {}
-        except Exception:                                       # noqa: BLE001
-            return cloud_provider_types()
-    val = ((cfg.get("llm") or {}).get("allowed_provider_types"))
-    if isinstance(val, list) and val:
-        return [p for p in val if p in PROVIDER_PRESETS]
-    return cloud_provider_types()
-
-
 # ── Clé API : chiffrement (fernet) avec repli lecture 'plain' ─────────────────
 def _encode_key(api_key: str) -> tuple[str, str]:
     """(api_key_enc, scheme) à stocker. Vide → ('', 'plain'). Sinon Fernet.
@@ -101,14 +69,6 @@ def _encode_key(api_key: str) -> tuple[str, str]:
     if not api_key:
         return "", "plain"
     return encrypt(api_key), "fernet"
-
-
-def _decode_key(api_key_enc: str, scheme: str) -> str:
-    if not api_key_enc:
-        return ""
-    if scheme == "fernet":
-        return decrypt(api_key_enc)
-    return api_key_enc  # 'plain' / legacy
 
 
 _PUBLIC_COLS = ("id", "owner_user_id", "scope", "provider_type", "wire",
@@ -140,26 +100,6 @@ def _public(row) -> Dict[str, Any]:
     return d
 
 
-def _with_key(row) -> Dict[str, Any]:
-    """Vue AVEC clé déchiffrée (host-side uniquement — jamais sérialisée HTTP)."""
-    d = {k: row[k] for k in _PUBLIC_COLS}
-    d["enabled"] = bool(row["enabled"])
-    d.update(_limits_of(row))
-    d["api_key"] = _decode_key(row["api_key_enc"], row["key_scheme"])
-    return d
-
-
-# ── Lectures publiques (token-free) ───────────────────────────────────────────
-def list_user_connectors(owner_user_id: int) -> List[Dict[str, Any]]:
-    """Connecteurs perso de ce user (scope='user')."""
-    with db_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT * FROM llm_connectors WHERE owner_user_id=? AND scope='user' "
-            "ORDER BY label ASC, id ASC", (owner_user_id,))
-        return [_public(r) for r in cur.fetchall()]
-
-
 def list_shared_connectors() -> List[Dict[str, Any]]:
     """Connecteurs partagés (admin), visibles par tous."""
     with db_conn() as conn:
@@ -168,28 +108,6 @@ def list_shared_connectors() -> List[Dict[str, Any]]:
             "SELECT * FROM llm_connectors WHERE scope='shared' "
             "ORDER BY label ASC, id ASC")
         return [_public(r) for r in cur.fetchall()]
-
-
-def connector_ids_by_wire(wire: str) -> List[int]:
-    """Identifiants des connecteurs (toutes portées) qui parlent ``wire``
-    (``openai`` ou ``anthropic``) — les compteurs d'usage en dépendent."""
-    with db_conn() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT id FROM llm_connectors WHERE wire=? ORDER BY id", (str(wire),))
-        return [int(r[0]) for r in cur.fetchall()]
-
-
-def get_meta(connector_id: int) -> Optional[Dict[str, Any]]:
-    """Vue publique (SANS clé) d'un connecteur, quelle que soit sa portée.
-
-    Réservé aux lectures host-side de réglages (fenêtre de contexte, capacité
-    d'ordonnancement) : n'expose rien qu'une route ne renvoie déjà, et ne
-    contrôle PAS l'accès — l'appelant a déjà résolu la cible pour ce user."""
-    with db_conn() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM llm_connectors WHERE id=?", (int(connector_id),))
-        r = cur.fetchone()
-        return _public(r) if r else None
 
 
 # ── Écritures ─────────────────────────────────────────────────────────────────
@@ -271,75 +189,7 @@ def _update(connector_id: int, where_extra: str, where_vals: tuple,
         return cur.rowcount > 0
 
 
-def update_user_connector(owner_user_id: int, connector_id: int, **fields) -> bool:
-    return _update(connector_id, "AND owner_user_id=? AND scope='user'",
-                   (owner_user_id,), fields)
-
-
 def update_shared_connector(connector_id: int, **fields) -> bool:
     return _update(connector_id, "AND scope='shared'", (), fields)
 
 
-def delete_user_connector(owner_user_id: int, connector_id: int) -> bool:
-    with db_conn() as conn:
-        cur = conn.cursor()
-        cur.execute("DELETE FROM llm_connectors WHERE id=? AND owner_user_id=? AND scope='user'",
-                    (connector_id, owner_user_id))
-        conn.commit()
-        return cur.rowcount > 0
-
-
-def delete_shared_connector(connector_id: int) -> bool:
-    with db_conn() as conn:
-        cur = conn.cursor()
-        cur.execute("DELETE FROM llm_connectors WHERE id=? AND scope='shared'",
-                    (connector_id,))
-        conn.commit()
-        return cur.rowcount > 0
-
-
-# ── Résolution host-side (clé INCLUSE — jamais sérialisée HTTP) ───────────────
-def get_secret_for_user(user_id: int, connector_id: int) -> Optional[Dict[str, Any]]:
-    """Connecteur utilisable par ce user (perso OU partagé) AVEC clé déchiffrée.
-
-    Sert ``resolve_llm_target`` au moment du chat. Ne JAMAIS sérialiser HTTP."""
-    with db_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT * FROM llm_connectors WHERE id=? AND "
-            "(scope='shared' OR (scope='user' AND owner_user_id=?))",
-            (connector_id, user_id))
-        r = cur.fetchone()
-        return _with_key(r) if r else None
-
-
-def get_user_secret(owner_user_id: int, connector_id: int) -> Optional[Dict[str, Any]]:
-    """Connecteur perso AVEC clé (test de connexion côté user)."""
-    with db_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT * FROM llm_connectors WHERE id=? AND owner_user_id=? AND scope='user'",
-            (connector_id, owner_user_id))
-        r = cur.fetchone()
-        return _with_key(r) if r else None
-
-
-def get_shared_secret(connector_id: int) -> Optional[Dict[str, Any]]:
-    """Connecteur partagé AVEC clé (test de connexion côté admin)."""
-    with db_conn() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM llm_connectors WHERE id=? AND scope='shared'",
-                    (connector_id,))
-        r = cur.fetchone()
-        return _with_key(r) if r else None
-
-
-def bump_last_used(connector_id: int) -> None:
-    """Best-effort (jamais bloquant)."""
-    try:
-        with db_conn() as conn:
-            conn.execute("UPDATE llm_connectors SET last_used=? WHERE id=?",
-                         (time.time(), connector_id))
-            conn.commit()
-    except Exception:
-        pass

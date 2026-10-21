@@ -35,10 +35,10 @@ WIN_BINARY=(fastapi uvicorn Pillow mss pywinauto comtypes pywin32 colorama numpy
 # Pur-python SANS wheel publiée : pyautogui + ses dépendances PERMISSIVES. pyautogui
 # s'installe en --no-deps (requirements-*-nodeps.txt) : mouseinfo et pymsgbox
 # (GPL-3.0, imports optionnels) ne sont ni construits ni livrés.
-WIN_PUREPY=(pyautogui==0.9.54 pyscreeze pygetwindow pyrect pytweening pyperclip)
+WIN_PUREPY=(pyautogui==0.9.54 pyscreeze==1.0.1 pygetwindow==0.0.9 pyrect==0.2.0 pytweening==1.2.0 pyperclip==1.11.0)
 LINUX_PKGS=(fastapi "uvicorn[standard]" Pillow mss numpy python-xlib)
 # Linux : python-xlib (LGPL-2.1+, wheel publiée) remplace python3-Xlib (GPL-2.0).
-LINUX_PUREPY=(pyautogui==0.9.54 pyscreeze pytweening pyperclip)
+LINUX_PUREPY=(pyautogui==0.9.54 pyscreeze==1.0.1 pytweening==1.2.0 pyperclip==1.11.0)
 
 echo "==> Wheels Windows (cp${PYVER//./}/win_amd64) → wheels/windows ..."
 rm -rf wheels/windows && mkdir -p wheels/windows

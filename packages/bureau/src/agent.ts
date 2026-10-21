@@ -166,6 +166,7 @@ async function envoyer(
   methode: string,
   corps: Buffer | null,
   delaiS: number,
+  jeton = "",
 ): Promise<Reponse> {
   const url = validerUrl(brute);
   verifierSchema(url);
@@ -181,6 +182,7 @@ async function envoyer(
     "x-elpis-timeout": strPy(delaiS),
   };
   if (corps !== null) entetes["content-type"] = "application/json";
+  if (jeton) entetes["authorization"] = `Bearer ${jeton}`;
   let recues = false;
   try {
     const r = await request(url, {
@@ -220,6 +222,11 @@ export function agentErrMessage(r: Reponse): string | null {
   return null;
 }
 
+/** Jeton de l'agent : `agent_token` de la machine, sinon `DESKTOP_AGENT_TOKEN` de l'environnement ; lu à chaque appel. */
+function jetonAgent(cible: Cible): string {
+  return stripPy(cible.agent_token || (process.env["DESKTOP_AGENT_TOKEN"] ?? ""));
+}
+
 /** `_agent_req` : appel de l'agent ; rejeu borné (`desktop.transport_retries`) des seules lectures sur erreur réseau, réponse JSON ou `err()` harmonisé. */
 export async function agentReq(
   cible: Cible,
@@ -235,7 +242,13 @@ export async function agentReq(
   let r: Reponse;
   for (;;) {
     try {
-      r = await envoyer(url, methode, methode === "GET" ? null : corpsJsonRequests(payload ?? {}), t);
+      r = await envoyer(
+        url,
+        methode,
+        methode === "GET" ? null : corpsJsonRequests(payload ?? {}),
+        t,
+        jetonAgent(cible),
+      );
       break;
     } catch (e) {
       const nom = e instanceof Error ? e.name : "";
@@ -271,6 +284,11 @@ export async function agentReq(
         "this op may be unavailable on the target's session (e.g. Wayland " +
         "input blocked), OR the control-agent on the VM is OUTDATED and does " +
         "not implement this op yet — redeploy desktop-agent and restart it",
+      endpoint,
+    });
+  if (r.statut === 401)
+    return err("agent_auth", agentErrMessage(r) || "the control-agent refused the token", {
+      fix: "set the machine's agent token (DESKTOP_AGENT_TOKEN) to the one in agent_token.txt on the target",
       endpoint,
     });
   if (r.statut === 503)

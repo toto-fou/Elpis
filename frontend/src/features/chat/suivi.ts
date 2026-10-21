@@ -4,6 +4,7 @@ import { journal } from "../../platform/journal";
 import { decoderEvenement } from "./evenements";
 import { etatInitial, peutRejouer, reduire, refus } from "./etat-flux";
 import type { EtatRendu, Refus } from "./etat-flux";
+import type { EvenementFlux } from "@elpis/contracts";
 
 export interface OptionsSuivi {
   readonly chatId: string | null;
@@ -15,6 +16,8 @@ export interface OptionsSuivi {
 }
 
 export interface Recu {
+  /** Événement décodé à transmettre à la vue : présent seulement si l'entrée est valide et non refusée. */
+  readonly ev: EvenementFlux | null;
   readonly appliquer: boolean;
   readonly refus: Refus;
   readonly type: string | null;
@@ -45,7 +48,7 @@ export class SuiviFlux {
     journal.avertir(...details);
   }
 
-  /** Une valeur du flux : `appliquer` dit si la vue historique doit la traiter. */
+  /** Une valeur du flux : `ev` est l'événement décodé que la vue peut traiter (jamais hors contrat). */
   recevoir(brut: unknown): Recu {
     const decode = decoderEvenement(brut);
     const actif = this.#opts.actif ? this.#opts.actif() : true;
@@ -63,7 +66,8 @@ export class SuiviFlux {
     const type =
       decode.statut === "valide" ? decode.ev.type : decode.statut === "invalide" ? null : decode.type;
     return {
-      appliquer: r === null,
+      ev: r === null && decode.statut === "valide" ? decode.ev : null,
+      appliquer: r === null && decode.statut === "valide",
       refus: r,
       type,
       terminal: avant === null && this.#etat.terminal !== null,

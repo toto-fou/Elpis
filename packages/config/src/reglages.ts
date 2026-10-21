@@ -48,6 +48,8 @@ export interface CibleDesktop {
   name: string;
   os: string;
   agent_url: string;
+  /** Jeton partagé avec l'agent de bureau (`agent_token.txt` de la machine) ; vide : `DESKTOP_AGENT_TOKEN` du processus. */
+  agent_token: string;
   default: boolean;
   access: string;
   allowed_users: string[];
@@ -167,6 +169,7 @@ export function coerceDesktopTargets(brut: unknown): CibleDesktop[] {
       name,
       os: stripPy(asStr(getPy(t, "os"), "linux")).toLowerCase() || "linux",
       agent_url: rstripPy(url, "/"),
+      agent_token: stripPy(asStr(getPy(t, "agent_token"), "")),
       default: veritePy(getPy(t, "default")),
       access: access === "all" || access === "list" ? access : "all",
       allowed_users: Array.isArray(autorises)

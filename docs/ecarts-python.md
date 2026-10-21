@@ -10,9 +10,9 @@ du bac (dernière section).
 Les tests vivent dans le dépôt de développement des mainteneurs : les chemins `apps/*/test/`, `packages/*/test/`,
 `browser-service/test/` et `tests/` cités ci-dessous y renvoient, ils ne sont pas dans le dépôt public. Chaque écart
 y est déclaré dans les tests qui comparent au Python (`apps/toolhost/test/ecart-anglais-shell-git.ts`,
-`apps/core/test/skills/ecart-anglais.ts`, les fonctions `normaliser` des tests différentiels
-`apps/toolhost/test/interop/*-differentiel.test.ts`, les commentaires des vecteurs adaptés) ; un test qui rejoue un
-vecteur Python sans passer par ces déclarations reste strict.
+`apps/core/test/skills/ecart-anglais.ts`, `apps/core/test/ecart-*.ts`, les commentaires des vecteurs adaptés,
+`migration-kit/vecteurs/FIGES.md`) ; un test qui rejoue un vecteur Python sans passer par ces déclarations reste
+strict. Les tests différentiels qui lançaient le vrai elpis-tools sont retirés avec lui.
 
 Pour revenir à la version Python : docs/exploitation.md, « Revenir à la version Python (tag `python-final`) ».
 
@@ -309,6 +309,26 @@ Les interrupteurs de retour arrière de la migration (`ELPIS_TOOLHOST=python`, `
 d'exploitation Python) sont retirés en 0.1.0 : core, hôte d'outils, familles du compte et `./elpis backup`, `db`,
 `browser` passent toujours par Node.js. Le retour complet à la version Python passe par le tag `python-final`
 (docs/exploitation.md).
+
+## Sécurité : durcissements de l'audit de publication
+
+- **Mots de passe** : PBKDF2-SHA256 à 600 000 itérations, au format `pbkdf2_sha256$itérations$sel$empreinte` ;
+  l'empreinte historique du Python (150 000 itérations, sel dans `pass_salt`) reste acceptée et le mot de passe est
+  rehaché au format courant à la connexion suivante.
+- **Enveloppe d'identité** signée avec `"typ": "identite"` ; un corps qui porte une audience (`aud`, enveloppe de
+  revendications) ou un autre type n'est jamais lu comme une identité. Une enveloppe sans type (hôte plus ancien)
+  reste acceptée.
+- **Accès aux moteurs fermé en cas d'erreur** : politiques ou connecteur illisibles = aucun serveur hors
+  administrateur déclaré, `503 access_check_failed` au chat et aux images (le Python ouvrait tout).
+- **Cookie de session** effacé sous une seule forme (`path=/`, `Max-Age=0`, `HttpOnly`, mêmes `SameSite` et
+  `Secure` que la pose) au lieu des deux formes de Starlette.
+- **Clé d'audit** mesurée après retrait des blancs : moins de 32 octets, audit sans HMAC et avertissement (le Python
+  signait avec ce qui restait, même vide).
+- **SQL** : les `?` des commentaires `/* */` ne sont plus pris pour des paramètres (pg8000 les numérotait).
+- **Installeurs de poste** : le script servi porte l'empreinte SHA-256 (DER) de la CA ; une CA d'une autre empreinte
+  est refusée et, sans empreinte, aucune CA n'est installée.
+- **Erreurs du flux** : l'événement `error` d'une panne du tour ne porte plus le message brut de l'exception.
+- **Feuilles de style** livrées avec un en-tête SPDX d'une ligne (empreinte, taille et ETag servis changent d'autant).
 
 ## Tâches de fond (`shell_job`), propres au TS
 

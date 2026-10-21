@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/comptes/aides.ts — aides des routes de comptes : politique de mot de passe, garde cross-site, images, cookie effacé, URL de base. */
-import { netlocUrl } from "@elpis/auth";
+import { enteteEffacement, netlocUrl } from "@elpis/auth";
 import { getPy, HttpError, intPy, stripPy, veritePy } from "@elpis/commun";
 import type { AttributsCookie } from "@elpis/config";
 import type { FastifyRequest } from "fastify";
@@ -71,10 +71,9 @@ export function extensionImage(tete: Buffer): string | null {
   return null;
 }
 
-/** `Response.delete_cookie(nom, path="/", samesite, secure)` de Starlette, octet pour octet. */
+/** En-tête d'effacement du cookie de session (source unique : `@elpis/auth`). */
 export function enteteSuppressionCookie(a: AttributsCookie, maintenant: number): string {
-  const date = new Date(Math.floor(maintenant) * 1000).toUTCString();
-  return `${a.cookie_name}=""; expires=${date}; Max-Age=0; Path=/; SameSite=${a.same_site}${a.https_only ? "; Secure" : ""}`;
+  return enteteEffacement(a, maintenant);
 }
 
 /** `_base_url` : schéma (X-Forwarded-Proto des mandataires de confiance) et Host contactés, validés contre une forme stricte. */

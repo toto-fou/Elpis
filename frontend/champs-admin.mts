@@ -212,7 +212,9 @@ function ligne(f: ChampAdmin): string {
 
 export function rendre(champs: ChampAdmin[]): string {
   return (
+    // REUSE-IgnoreStart
     "// SPDX-License-Identifier: MIT\n" +
+    // REUSE-IgnoreEnd
     "/** frontend/src/features/admin/champs.gen.ts — GÉNÉRÉ par frontend/champs-admin.mts (node frontend/champs-admin.mts ; test : frontend/test/champs-admin.test.ts) : index des réglages de la recherche Ctrl+K, page, bloc:chemin et libellé. */\n" +
     "\n" +
     "export interface ChampAdmin {\n" +

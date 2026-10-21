@@ -43,6 +43,7 @@ import {
   setRoutineWebhook,
   updateRoutine,
 } from "../routines/magasin";
+import { journal } from "../journal";
 import type { ChampsRoutine } from "../routines/magasin";
 import { ORPHAN_STALE_AFTER_S } from "../routines/planificateur";
 import type { Planificateur } from "../routines/planificateur";
@@ -50,6 +51,8 @@ import { discoverSkills, userSkillsDir } from "../skills/bibliotheque";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { utilisateur } from "./comptes";
 import { corpsJsonValeurs, entrees, horsBornes, py, reponseJsonPy } from "@elpis/http";
+
+const log = journal("routines");
 
 export interface DependancesRoutines {
   readonly base: Base;
@@ -116,7 +119,8 @@ async function skillsConnus(uid: number): Promise<Set<string> | null> {
   let specs;
   try {
     specs = await discoverSkills(await userSkillsDir(uid), { includeLearned: false });
-  } catch {
+  } catch (e) {
+    log.warn(`[routines.skills] compétences illisibles (${String(e)})`);
     return null;
   }
   const ids = new Set<string>();
@@ -247,8 +251,9 @@ async function validerConnecteur(base: Base, data: Dict, uid: number): Promise<n
   let ouvert: boolean;
   try {
     ouvert = await canUseEngine(base, uid, connectorKey(cid));
-  } catch {
-    ouvert = true;
+  } catch (e) {
+    log.warn(`[routines.access] contrôle d'accès au moteur impossible (${String(e)}) — refus`);
+    ouvert = false;
   }
   if (!ouvert) throw new HttpError(403, "Ce serveur ne vous est pas ouvert.");
   return cid;

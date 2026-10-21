@@ -42,7 +42,7 @@ export function remember(conteneur: string, execUser: string, ok: boolean): void
   if (!ok)
     journalDe("sandbox").warn(
       `[sandbox] privdrop indisponible sur ${conteneur} (exec_user=${execUser}) : ` +
-        "`setpriv --bounding-set=-net_admin` a échoué — exec en mode historique, net_admin reste dans le bounding set des exec.",
+        "`setpriv --bounding-set=-net_admin` a échoué — exec en mode historique (refusé en liste blanche IP), net_admin reste dans le bounding set des exec.",
     );
 }
 
@@ -51,14 +51,33 @@ export function forget(conteneur: string): void {
   for (const k of [...sondes.keys()]) if (k.startsWith(`${conteneur}\0`)) sondes.delete(k);
 }
 
+/** Verdict d'un couple conteneur / exec_user oublié : la prochaine sonde le recalcule. */
+export function oublierVerdict(conteneur: string, execUser: string): void {
+  sondes.delete(cle(conteneur, execUser));
+}
+
 /** Pour les tests : tous les verdicts oubliés. */
 export function oublierSondes(): void {
   sondes.clear();
 }
 
-/** `resolve` : (`--user` de docker, préfixe) d'après le cache seul ; verdict inconnu ou négatif : forme historique. */
-export function resolve(conteneur: string, execUser: string): [string, string[]] {
+/** Retrait de `net_admin` non garanti alors que le profil l'exige (liste blanche IP). */
+export class RetraitNetAdminAbsent extends Error {
+  constructor(conteneur: string) {
+    super(
+      `Isolation réseau : le retrait de net_admin n'est pas garanti dans ${conteneur} ` +
+        "(`setpriv --bounding-set=-net_admin` indisponible ou exec_user invalide) ; " +
+        "commande refusée pour ne pas laisser modifier la liste blanche IP. " +
+        "Vérifiez que l'image du bac fournit `setpriv` (util-linux) et que `exec_user` est de la forme uid:gid.",
+    );
+    this.name = "RetraitNetAdminAbsent";
+  }
+}
+
+/** `resolve` : (`--user` de docker, préfixe) d'après le cache seul ; sans retrait garanti, forme historique, ou refus si `exigerRetrait`. */
+export function resolve(conteneur: string, execUser: string, exigerRetrait = false): [string, string[]] {
   const prefixe = privdropArgv(execUser);
   if (prefixe !== null && cached(conteneur, execUser)) return ["0:0", prefixe];
+  if (exigerRetrait) throw new RetraitNetAdminAbsent(conteneur);
   return [execUser, []];
 }

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/tour/ouverture.ts — ouverture d'un tour, par la route de chat ou par le réveilleur des jobs : admission (409 compression ou génération en cours, 429 plafond du compte), préparation, verrou de présence et passation (chatbot_app/routes/chats.py). */
-import { HttpError, intPy, stripPy, strPy, veritePy } from "@elpis/commun";
+import { HttpError, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { config } from "@elpis/config";
 import type { Base } from "@elpis/db";
 
 import { getChat } from "../chats/stockage";
@@ -13,8 +12,9 @@ import {
   manualCompressionActive,
   reserverVerrou,
   sweepPendingGenLocks,
+  verifierPlafondRuns,
 } from "./admission";
-import { isChatCancelled, isGenerationActive, verrousChat } from "./etat";
+import { isChatCancelled, isGenerationActive } from "./etat";
 import { jobsTour } from "./ports-jobs";
 import type { OrigineReveil } from "./ports-jobs";
 import { prepareTurn } from "./preparation";
@@ -49,19 +49,7 @@ export async function admettreTour(dep: DependancesOuverture, uid: number, data:
     }
     if (!libre) throw new HttpError(409, "generation_running");
   }
-  let maxRuns: number;
-  try {
-    maxRuns = intPy(veritePy(config.MAX_RUNS_PER_USER) ? config.MAX_RUNS_PER_USER : 0);
-  } catch {
-    maxRuns = 0;
-  }
-  if (maxRuns > 0) {
-    const n = verrousChat.countHeld("gen", uid);
-    if (n >= maxRuns) {
-      log.info(`[chat_stream] user=${uid} a déjà ${n} génération(s) en cours (plafond ${maxRuns}) — refus`);
-      throw new HttpError(429, "too_many_runs");
-    }
-  }
+  verifierPlafondRuns(uid, chatId || null);
   return chatId;
 }
 
@@ -76,6 +64,7 @@ export async function ouvrirTour(
   const [plan, res, base] = await prepareTurn({ base: dep.base }, data, uid, chatId, reveil);
   try {
     const passation: boolean[] = [];
+    verifierPlafondRuns(uid, plan.chatId);
     const jeton = await acquireGenPresence(uid, plan.chatId, passation);
     if (passation.length && !plan.ephemeral && !plan.chatReadFailed) {
       try {

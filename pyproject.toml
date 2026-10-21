@@ -16,7 +16,8 @@ authors = [{ name = "Elpis contributors" }]
 target-version = "py311"
 line-length = 120
 src = [".", "office"]
-extend-exclude = ["venv", "node_modules", "user_*", "frontend/vendor"]
+# migration-kit/vecteurs : générateurs de vecteurs écrits pour le core Python retiré, hors du Python restant.
+extend-exclude = ["venv", "node_modules", "user_*", "frontend/vendor", "migration-kit/vecteurs"]
 
 [tool.ruff.lint]
 # Phase 1 (2026-09-29) : erreurs réelles (syntaxe, noms indéfinis, imports et
@@ -25,7 +26,7 @@ extend-exclude = ["venv", "node_modules", "user_*", "frontend/vendor"]
 # référence, attributs de classe mutables, ``Optional`` implicite, fichiers
 # ouverts hors ``with``. ``BLE`` et les règles de style ``SIM`` attendront
 # (~1 500 ``except Exception`` souvent voulus ; réécritures sans gain).
-select = ["E9", "F", "B", "ASYNC", "I", "RUF006", "RUF012", "RUF013", "SIM115"]
+select = ["E9", "F", "B", "ASYNC", "I", "RUF006", "RUF012", "RUF013", "SIM115", "BLE"]
 ignore = [
     "B008",      # Depends(…) de FastAPI en valeur par défaut
     "B904",      # « raise … from err » : à reprendre à part
@@ -38,9 +39,15 @@ ignore = [
 combine-as-imports = true
 
 [tool.ruff.lint.per-file-ignores]
-# ASYNC : un test asynchrone peut bloquer sa propre boucle.
-"tests/**" = ["F401", "F841", "ASYNC", "RUF012", "SIM115"]
 "**/__init__.py" = ["F401"]
+# BLE001 : appliquée à office/ et rag_app/ seulement (un except large voulu y porte « # noqa: BLE001 »).
+"shared_infra/**" = ["BLE"]
+"deploy/**" = ["BLE"]
+"desktop-agent/**" = ["BLE"]
+"skills/**" = ["BLE"]
+"tools/**" = ["BLE"]
+# ASYNC : un test asynchrone peut bloquer sa propre boucle.
+"tests/**" = ["F401", "F841", "ASYNC", "RUF012", "SIM115", "BLE"]
 
 [tool.mypy]
 # Typage (2026-09-29) : un premier périmètre, élargi au fil des lots.

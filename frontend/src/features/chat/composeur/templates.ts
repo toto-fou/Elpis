@@ -235,7 +235,8 @@ export const elpisTemplates = Object.freeze({
   SYSTEM_NAMES,
 });
 
-export type VueTemplates = Pick<typeof Vue, "ref" | "reactive" | "nextTick">;
+export type VueTemplates = Pick<typeof Vue, "ref" | "reactive" | "nextTick"> &
+  Partial<Pick<typeof Vue, "onScopeDispose">>;
 
 export interface RefsTemplates {
   inputRef: Ref<HTMLTextAreaElement | null>;
@@ -289,6 +290,7 @@ const VIDE = (): SaisieTemplate => ({
 
 interface Fenetre {
   addEventListener?: (type: string, f: () => void) => void;
+  removeEventListener?: (type: string, f: () => void) => void;
   document?: { querySelector(sel: string): { focus(): void } | null };
   navigator?: { clipboard?: { readText?: () => Promise<string> } };
 }
@@ -296,14 +298,17 @@ interface Fenetre {
 /** Même contrat que l'ancien `setupChatTemplates(vue, refs, ctx)` de chat/_templates.js. */
 export function creerTemplates(vue: VueTemplates, refs: RefsTemplates, ctx: CtxTemplates): TemplatesChat {
   const { ref, reactive, nextTick } = vue;
+  const onScopeDispose = vue.onScopeDispose ?? ((_fn: () => void): void => undefined);
   const { inputRef, inputMessage } = refs;
   const fenetre = globalThis as Fenetre;
   const templatesAll = ref<Template[]>([]);
   let cacheAt = 0;
-  fenetre.addEventListener?.("templates:changed", () => {
+  const surTemplates = (): void => {
     cacheAt = 0;
     templatesAll.value = [];
-  });
+  };
+  fenetre.addEventListener?.("templates:changed", surTemplates);
+  onScopeDispose(() => fenetre.removeEventListener?.("templates:changed", surTemplates));
 
   async function loadTemplates(force?: boolean): Promise<Template[]> {
     if (!force && Date.now() - cacheAt < CACHE_MS && templatesAll.value.length) return templatesAll.value;

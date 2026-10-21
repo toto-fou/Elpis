@@ -25,6 +25,10 @@ function tailleNaturelle(svg: SVGElement): { w: number; h: number } {
 export function ouvrirZoomDiagramme(svgMarkup: string, nettoyer: (svg: string) => string | null): void {
   const overlay: Superposition = document.createElement("div");
   overlay.className = "elpis-diagram-zoom-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Diagramme agrandi");
+  const precedent = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   overlay.style.cssText =
     "position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.85);" +
     "display:flex;flex-direction:column;backdrop-filter:blur(2px);";
@@ -32,10 +36,10 @@ export function ouvrirZoomDiagramme(svgMarkup: string, nettoyer: (svg: string) =
   bar.style.cssText =
     "display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;flex-shrink:0;";
   bar.innerHTML =
-    '<button data-act="out" class="elpis-zoom-btn">−</button>' +
-    '<button data-act="reset" class="elpis-zoom-btn" style="width:auto;padding:0 12px;">Réinitialiser</button>' +
-    '<button data-act="in" class="elpis-zoom-btn">+</button>' +
-    '<button data-act="close" class="elpis-zoom-btn" style="margin-left:16px;">✕</button>';
+    '<button data-act="out" class="elpis-zoom-btn" aria-label="Dézoomer">−</button>' +
+    '<button data-act="reset" class="elpis-zoom-btn" aria-label="Réinitialiser le zoom" style="width:auto;padding:0 12px;">Réinitialiser</button>' +
+    '<button data-act="in" class="elpis-zoom-btn" aria-label="Zoomer">+</button>' +
+    '<button data-act="close" class="elpis-zoom-btn" aria-label="Fermer" style="margin-left:16px;">✕</button>';
   overlay.appendChild(bar);
   const stage = document.createElement("div");
   stage.style.cssText =
@@ -57,6 +61,7 @@ export function ouvrirZoomDiagramme(svgMarkup: string, nettoyer: (svg: string) =
   stage.appendChild(inner);
   overlay.appendChild(stage);
   document.body.appendChild(overlay);
+  bar.querySelector<HTMLElement>('[data-act="close"]')?.focus();
 
   let scale = 1;
   let tx = 0;
@@ -94,7 +99,15 @@ export function ouvrirZoomDiagramme(svgMarkup: string, nettoyer: (svg: string) =
     inner.style.transition = "transform 0.08s ease-out";
   };
   const onKey = (e: KeyboardEvent): void => {
-    if (e.key === "Escape") close();
+    if (e.key === "Tab") {
+      const boutons = [...bar.querySelectorAll<HTMLButtonElement>("button")];
+      const i = boutons.indexOf(document.activeElement as HTMLButtonElement);
+      const suivant = boutons[(i + (e.shiftKey ? -1 : 1) + boutons.length) % boutons.length];
+      if (suivant) {
+        e.preventDefault();
+        suivant.focus();
+      }
+    } else if (e.key === "Escape") close();
     else if (e.key === "+" || e.key === "=") {
       scale = Math.min(scale * 1.25, 8);
       apply();
@@ -108,6 +121,7 @@ export function ouvrirZoomDiagramme(svgMarkup: string, nettoyer: (svg: string) =
     window.removeEventListener("mousemove", onDragMove);
     window.removeEventListener("mouseup", onDragUp);
     overlay.remove();
+    if (precedent?.isConnected) precedent.focus();
   }
   overlay._elpisClose = close;
   document.addEventListener("keydown", onKey);

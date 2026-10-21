@@ -4,7 +4,12 @@ Copyright 2026 Elpis contributors
 This product is licensed under the MIT License
 (see the LICENSE file).
 
+Elpis was distributed under the Apache License 2.0 before version 0.0.1
+(see CHANGELOG.md). The author, sole holder of the rights in the code at that
+date, placed it under the MIT License from version 0.0.1. Copies obtained
+before that version remain under the license they were distributed with.
+
 This product bundles third-party components (JavaScript libraries, fonts and
-icons under frontend/vendor/ and rag_app/static/lib/) that are distributed
-under their own licenses. See THIRD_PARTY_NOTICES.md for the full inventory
-and LICENSES/ for their license texts.
+icons under frontend/vendor/) that are distributed under their own licenses.
+See THIRD_PARTY_NOTICES.md for the full inventory and THIRD_PARTY_LICENSES/ for their
+license texts.

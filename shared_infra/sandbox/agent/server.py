@@ -1027,6 +1027,7 @@ class Agent:
         if not rel:
             raise Refus(400, "bad_path", "chemin de fichier requis")
         p = self.reel(rel)                               # écrit à travers un lien
+        # La course realpath -> open est sans enjeu : même UID que les processus du conteneur, qui écrivent déjà partout dans /work.
         dossier = os.path.dirname(p)
         droits = None if mode in (None, "", "keep") else _mode(mode)
         try:
@@ -3370,7 +3371,10 @@ class _Gestionnaire(BaseHTTPRequestHandler):
         """Corps de la requête par blocs ; Content-Length obligatoire."""
         if self.headers.get("Transfer-Encoding"):
             raise Refus(411, "length_required", "Content-Length requis")
-        reste = int(self.headers.get("Content-Length") or 0)
+        brut = (self.headers.get("Content-Length") or "0").strip()
+        if not (brut.isascii() and brut.isdigit()):
+            raise Refus(400, "bad_request", "Content-Length : entier positif attendu")
+        reste = int(brut)
         if limite is not None and reste > limite:
             raise Refus(413, "too_large", "corps trop volumineux", max=limite)
         while reste:
@@ -3503,14 +3507,66 @@ class _Gestionnaire(BaseHTTPRequestHandler):
             os.close(fd)
 
 
+_MAX_CONNEXIONS = 128                                    # connexions simultanées au plus
+
+
+def _vider_requete(request: Any) -> None:
+    """Lit et jette l'en-tête et le corps annoncé (borné, délai court) pour que le refus ne soit pas un RST."""
+    limite = time.monotonic() + 0.5
+    tampon = b""
+    try:
+        while b"\r\n\r\n" not in tampon and len(tampon) < 16384:
+            request.settimeout(max(limite - time.monotonic(), 0.01))
+            bloc = request.recv(4096)
+            if not bloc:
+                return
+            tampon += bloc
+        tete, sep, reste = tampon.partition(b"\r\n\r\n")
+        m = re.search(rb"(?im)^content-length:[ \t]*(\d+)[ \t]*$", tete)
+        if not sep or not m or int(m.group(1)) > _MAX_JSON:
+            return
+        restant = int(m.group(1)) - len(reste)
+        while restant > 0 and time.monotonic() < limite:
+            request.settimeout(max(limite - time.monotonic(), 0.01))
+            bloc = request.recv(min(restant, 65536))
+            if not bloc:
+                return
+            restant -= len(bloc)
+    except (OSError, ValueError):
+        return
+
+
 class _Serveur(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     daemon_threads = True
     block_on_close = False
 
     def __init__(self, chemin_socket: str, agent: Agent) -> None:
         self.agent = agent
+        self._places = threading.BoundedSemaphore(_MAX_CONNEXIONS)
         super().__init__(chemin_socket, _Gestionnaire)
+        # Seul l'hôte joint le socket : la protection est le dossier <P>/.elpis-agent, sous la racine privée SANDBOX_DIR (racinePrivee, packages/bac/src/conteneur.ts).
         os.chmod(chemin_socket, 0o666)                   # l'hôte n'a pas l'UID du conteneur
+
+    def process_request(self, request: Any, client_address: Any) -> None:
+        if not self._places.acquire(blocking=False):
+            corps = b'{"error":"busy","message":"trop de connexions"}'
+            _vider_requete(request)
+            with contextlib.suppress(OSError):
+                request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\n"
+                                b"Connection: close\r\nContent-Length: %d\r\n\r\n%s" % (len(corps), corps))
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._places.release()
+            raise
+
+    def process_request_thread(self, request: Any, client_address: Any) -> None:
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._places.release()
 
     def server_close(self) -> None:
         super().server_close()

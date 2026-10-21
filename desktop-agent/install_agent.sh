@@ -22,21 +22,37 @@ python -m pip install --quiet --upgrade pip 2>/dev/null || true
 # pyautogui est installé SANS ses dépendances (--no-deps) : il déclare mouseinfo et
 # pymsgbox (GPL-3.0, imports optionnels) et python3-Xlib (GPL-2.0). Ses dépendances
 # utiles sont installées explicitement (python-xlib LGPL, le reste MIT/BSD).
-DEPS=(fastapi "uvicorn[standard]" Pillow mss python-xlib pyscreeze pytweening pyperclip)
+# PyGObject (compilation native) est exclu : AT-SPI vient des paquets système.
+grep -vi '^PyGObject' requirements-linux.txt > .requirements-pip.tmp
 if ls wheels/linux/*.whl >/dev/null 2>&1; then
     echo "→ Installation HORS-LIGNE depuis wheels/linux ..."
-    { python -m pip install --quiet --no-index --find-links wheels/linux "${DEPS[@]}" \
+    { python -m pip install --quiet --no-index --find-links wheels/linux -r .requirements-pip.tmp \
       && python -m pip install --quiet --no-index --find-links wheels/linux --no-deps -r requirements-linux-nodeps.txt; } \
         || echo "[!] des deps offline manquent → l'agent tournera en mode dégradé (observe seul)"
 else
     echo "→ Installation EN LIGNE (aucune wheel embarquée — lance fetch_offline_deps.sh côté serveur pour l'offline) ..."
-    { python -m pip install --quiet "${DEPS[@]}" \
+    { python -m pip install --quiet -r .requirements-pip.tmp \
       && python -m pip install --quiet --no-deps -r requirements-linux-nodeps.txt; } || true
 fi
+rm -f .requirements-pip.tmp
 # Arbre d'accessibilité (optionnel) : paquet SYSTÈME, pas pip.
 python -c "import gi" 2>/dev/null || echo "[i] AT-SPI absent (a11y optionnel) → sudo apt install -y python3-gi gir1.2-atspi-2.0"
 
 PORT="${DESKTOP_AGENT_PORT:-8765}"
+
+# -- Jeton partagé avec Elpis : généré s'il manque (fichier lu par server.py), jamais écrasé --
+TOKEN_FILE="$HERE/agent_token.txt"
+# Un jeton fourni à l'installation est écrit dans le fichier : l'unité systemd ne transmet pas l'environnement.
+if [ -n "${DESKTOP_AGENT_TOKEN:-}" ]; then
+    ( umask 077; printf '%s\n' "$DESKTOP_AGENT_TOKEN" > "$TOKEN_FILE" )
+elif [ "${DESKTOP_AGENT_INSECURE:-}" != "1" ] && [ ! -s "$TOKEN_FILE" ]; then
+    ( umask 077; python -c "import secrets; print(secrets.token_hex(32))" > "$TOKEN_FILE" )
+fi
+SVC_ENV=""
+[ "${DESKTOP_AGENT_INSECURE:-}" = "1" ] && SVC_ENV="Environment=DESKTOP_AGENT_INSECURE=1"
+if [ -s "$TOKEN_FILE" ]; then
+    echo "[✓] Jeton de l'agent (à saisir côté Elpis) : $(cat "$TOKEN_FILE")"
+fi
 
 # -- Auto-démarrage (session graphique) : service systemd UTILISATEUR --
 SVC="${DESKTOP_SERVICE:-}"
@@ -55,6 +71,7 @@ After=graphical-session.target
 [Service]
 ExecStart=$HERE/.venv/bin/python $HERE/server.py
 Environment=DESKTOP_AGENT_PORT=$PORT
+$SVC_ENV
 # DISPLAY requis pour piloter le GUI (X11). Ajuste si ta session diffère.
 Environment=DISPLAY=:0
 Restart=on-failure

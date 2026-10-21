@@ -26,6 +26,12 @@ from .base import DesktopBackend, NotSupported, PartialInput, encode_screenshot,
 if not hasattr(_sys, "coinit_flags"):
     _sys.coinit_flags = 0   # COINIT_MULTITHREADED
 
+try:
+    from _ctypes import COMError  # exception de comtypes, sans importer comtypes
+except ImportError:  # hors Windows : jamais levée
+    class COMError(Exception):  # type: ignore[no-redef]
+        pass
+
 
 # Codes d'erreur ShellExecute (valeur de retour ≤ 32). Pur (sans ctypes) → testable
 # sous Linux. Sert à transformer un échec numérique opaque en message actionnable.
@@ -227,7 +233,7 @@ def _uia_rect(el):
     try:
         r = el.CurrentBoundingRectangle
         return int(r.left), int(r.top), int(r.right) - int(r.left), int(r.bottom) - int(r.top)
-    except Exception:
+    except (COMError, ValueError, TypeError, OSError):
         return None
 
 
@@ -239,25 +245,25 @@ def _uia_node(el, depth):
     if w <= 0 or h <= 0:
         return None
     try:    role = _UIA_CONTROLTYPE.get(int(el.CurrentControlType), "")
-    except Exception: role = ""
+    except (COMError, ValueError, TypeError, OSError): role = ""
     try:    name = el.CurrentName or ""
-    except Exception: name = ""
+    except (COMError, ValueError, TypeError, OSError): name = ""
     try:    auto_id = el.CurrentAutomationId or ""
-    except Exception: auto_id = ""
+    except (COMError, ValueError, TypeError, OSError): auto_id = ""
     try:    class_name = el.CurrentClassName or ""
-    except Exception: class_name = ""
+    except (COMError, ValueError, TypeError, OSError): class_name = ""
     try:    runtime_id = _rid_to_hex(el.GetRuntimeId())
-    except Exception: runtime_id = ""
+    except (COMError, ValueError, TypeError, OSError): runtime_id = ""
     states = []
     try:
         if el.CurrentIsEnabled: states.append("enabled")
-    except Exception: pass
+    except (COMError, ValueError, TypeError, OSError): pass
     try:
         if el.CurrentHasKeyboardFocus: states.append("focused")
-    except Exception: pass
+    except (COMError, ValueError, TypeError, OSError): pass
     try:
         if el.CurrentIsOffscreen: states.append("offscreen")
-    except Exception: pass
+    except (COMError, ValueError, TypeError, OSError): pass
     return make_node(role or "", name or "", x, y, w, h, value=None,
                      states=states, depth=int(depth), auto_id=auto_id,
                      runtime_id=runtime_id, class_name=class_name)

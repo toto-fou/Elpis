@@ -6,13 +6,14 @@ Runs ON the target machine/VM. Exposes a uniform API the backend's
 ``desktop_tools`` calls: /health, /screenshot, /ui_tree, /click, /type, /key,
 /scroll, /move, /drag.
 
-LAN deployment: no auth. This agent is a full remote-control surface — only run
-it on machines you intend to be controlled, on a trusted local network.
-(Décision 2026-06 : déploiement full local assumé — pas de couche token,
-surface de complexité inutile ici.)
+This agent is a full remote-control surface. Every request except /health must
+carry ``Authorization: Bearer <token>``; requests with an ``Origin`` header
+(browsers) and POST/PUT bodies that are not ``application/json`` are refused.
 
-    DESKTOP_AGENT_HOST    bind host (default 0.0.0.0)
-    DESKTOP_AGENT_PORT    bind port (default 8765)
+    DESKTOP_AGENT_HOST      bind host (default 0.0.0.0)
+    DESKTOP_AGENT_PORT      bind port (default 8765)
+    DESKTOP_AGENT_TOKEN     shared token (or the file ``agent_token.txt`` next to server.py)
+    DESKTOP_AGENT_INSECURE  1 = start without a token (trusted network only, discouraged)
 
 Start:  python server.py     (or)   uvicorn server:app --host 0.0.0.0 --port 8765
 """
@@ -21,6 +22,8 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextvars as _contextvars
+import hmac
+import json
 import logging
 import os
 import queue as _queue
@@ -81,6 +84,96 @@ class _ClientDeadline:
 app.add_middleware(_ClientDeadline)
 
 
+_TOKEN_FILE = _HERE / "agent_token.txt"
+
+
+def _load_token() -> str:
+    """Jeton partagé : variable d'environnement, sinon fichier ``agent_token.txt``."""
+    tok = (os.environ.get("DESKTOP_AGENT_TOKEN") or "").strip()
+    if not tok:
+        try:
+            tok = _TOKEN_FILE.read_text(encoding="utf-8").strip()
+        except OSError:
+            tok = ""
+    return tok
+
+
+_TOKEN = _load_token()
+_INSECURE = os.environ.get("DESKTOP_AGENT_INSECURE", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _generate_token_file() -> str:
+    """Crée ``agent_token.txt`` (0600) avec un jeton aléatoire ; vide si l'écriture échoue."""
+    import secrets
+
+    tok = secrets.token_hex(32)
+    try:
+        fd = os.open(_TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(tok + "\n")
+    except OSError as exc:
+        logger.error("desktop-agent : écriture de %s impossible (%s)", _TOKEN_FILE, exc)
+        return ""
+    return tok
+
+
+if not _TOKEN and not _INSECURE:
+    _TOKEN = _generate_token_file()
+    if not _TOKEN:
+        raise SystemExit(
+            "desktop-agent : aucun jeton configuré. Définir DESKTOP_AGENT_TOKEN (ou créer "
+            f"{_TOKEN_FILE.name}) et saisir le même jeton côté Elpis. "
+            "DESKTOP_AGENT_INSECURE=1 démarre sans authentification (déconseillé)."
+        )
+    logger.warning(
+        "desktop-agent : aucun jeton configuré, jeton généré dans %s : %s. "
+        "À saisir côté Elpis (jeton de la machine).", _TOKEN_FILE, _TOKEN,
+    )
+if not _TOKEN:
+    logger.warning("DESKTOP_AGENT_INSECURE=1 : agent SANS authentification, tout hôte du réseau peut commander cette machine")
+
+
+class _Garde:
+    """Middleware ASGI : refuse Origin (403), jeton absent ou faux (401), POST/PUT non JSON (415) ; /health exempté."""
+    def __init__(self, app_):
+        self.app = app_
+
+    async def __call__(self, scope, receive, send):
+        kind = scope.get("type")
+        if kind == "websocket":
+            await send({"type": "websocket.close", "code": 1008})
+            return
+        if kind != "http" or scope.get("path") == "/health":
+            await self.app(scope, receive, send)
+            return
+        h = {k: v for k, v in (scope.get("headers") or [])}
+        code, detail = 0, ""
+        if b"origin" in h:
+            code, detail = 403, "requête de navigateur refusée (en-tête Origin)"
+        elif _TOKEN:
+            auth = h.get(b"authorization", b"").decode("latin-1")
+            ok = auth[:7].lower() == "bearer " and hmac.compare_digest(
+                auth[7:].strip().encode("utf-8"), _TOKEN.encode("utf-8"))
+            if not ok:
+                code, detail = 401, "jeton absent ou invalide"
+        if not code and scope.get("method") in ("POST", "PUT", "PATCH"):
+            ctype = h.get(b"content-type", b"").decode("latin-1").split(";", 1)[0].strip().lower()
+            if ctype != "application/json":
+                code, detail = 415, "Content-Type application/json requis"
+        if code:
+            body = json.dumps({"detail": detail}).encode("utf-8")
+            hdrs = [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]
+            if code == 401:
+                hdrs.append((b"www-authenticate", b"Bearer"))
+            await send({"type": "http.response.start", "status": code, "headers": hdrs})
+            await send({"type": "http.response.body", "body": body})
+            return
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(_Garde)
+
+
 def _int(v, default=0):
     """Entier d'un corps JSON sans 500 : ``"abc"``, ``{}``, ``null`` → ``default``."""
     try:
@@ -108,9 +201,11 @@ def _backend():
 async def _body(request: Request) -> dict:
     try:
         data = await request.json()
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+    except ValueError:
+        raise HTTPException(400, "corps JSON invalide")
+    if not isinstance(data, dict):
+        raise HTTPException(400, "corps JSON : objet attendu")
+    return data
 
 
 # ── Sérialisation UIA sur UN worker dédié (R2) ────────────────────────────────
@@ -760,6 +855,7 @@ async def run_script(request: Request):
         if isinstance(a, str) and a.startswith("--") and "=" in a and len(a) < 500:
             cmd.append(a)
     env = dict(os.environ)
+    env.pop("DESKTOP_AGENT_TOKEN", None)
     env["PYTHONPATH"] = str(_HERE) + os.pathsep + env.get("PYTHONPATH", "")
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONSAFEPATH"] = "1"        # 3.11+ : le dossier courant (automations/) n'est pas mis en tête des imports

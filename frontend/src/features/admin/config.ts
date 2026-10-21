@@ -513,6 +513,7 @@ export function creerConfig(b: BaseAdmin) {
       name: "",
       os: "win",
       agent_url: "",
+      agent_token: "",
       default: false,
       access: "all",
       allowed_users: [],

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/reglages/apparence.ts — apparence du compte : skins serveur, mode sombre (système, clair, sombre), classes posées sur le body et nom de marque du rail. */
+import { getCurrentScope, onScopeDispose } from "vue";
 import type { Ref } from "vue";
 
 import { corpsJson, estObjet, liste, objet, texte } from "../../utils/lecture-json";
@@ -88,9 +89,12 @@ export function creerApparence(
   try {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     prefereSombre.value = !!mq.matches;
-    mq.addEventListener("change", (e: MediaQueryListEvent) => {
+    const surChangement = (e: MediaQueryListEvent): void => {
       prefereSombre.value = !!e.matches;
-    });
+    };
+    mq.addEventListener("change", surChangement);
+    if (getCurrentScope() !== undefined)
+      onScopeDispose(() => mq.removeEventListener("change", surChangement));
   } catch {
     /* matchMedia indisponible */
   }

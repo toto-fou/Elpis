@@ -25,7 +25,7 @@ import type { FileHandle } from "node:fs/promises";
 import { pyPath, realpathPy, reprPy, stripPy } from "@elpis/commun";
 
 /** `O_PATH` de Linux : saisit une entrée sans l'ouvrir (droit de traverser suffisant). */
-const O_PATH = 0o10000000;
+export const O_PATH = 0o10000000;
 /** `O_CLOEXEC` de Linux (absent de `fs.constants`, libuv le pose déjà). */
 const O_CLOEXEC = 0o2000000;
 const { O_RDONLY, O_DIRECTORY, O_NOFOLLOW, O_WRONLY, O_CREAT, O_EXCL } = constants;

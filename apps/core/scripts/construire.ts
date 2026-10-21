@@ -81,7 +81,7 @@ const LICENCES_INTERNES: Readonly<
 };
 const NOMS_LICENCE = /^(licen[cs]e|copying)([-._].*)?$/i;
 const NOTICES = path.join(RACINE, "THIRD_PARTY_NOTICES.md");
-const LICENCES_DEPOT = path.join(RACINE, "LICENSES", "npm-core.txt");
+const LICENCES_DEPOT = path.join(RACINE, "THIRD_PARTY_LICENSES", "npm-core.txt");
 const DEBUT_TABLE = "<!-- npm-core : table écrite par `npm run licences`, ne pas modifier à la main -->";
 const FIN_TABLE = "<!-- /npm-core -->";
 
@@ -318,7 +318,7 @@ export function verifierLicences(paquets: readonly PaquetLivre[], autorisees: re
   }
 }
 
-/** Textes des licences de tous les paquets livrés : `dist/LICENCES-TIERS.txt` et `LICENSES/npm-core.txt`. */
+/** Textes des licences de tous les paquets livrés : `dist/LICENCES-TIERS.txt` et `THIRD_PARTY_LICENSES/npm-core.txt`. */
 export function texteLicences(paquets: readonly PaquetLivre[]): string {
   const filet = "=".repeat(78);
   const blocs = paquets.map(
@@ -463,7 +463,7 @@ export async function construire(
   }
 }
 
-/** `--licences` : réécrit LICENSES/npm-core.txt et la table de THIRD_PARTY_NOTICES.md d'après les paquets livrés. */
+/** `--licences` : réécrit THIRD_PARTY_LICENSES/npm-core.txt et la table de THIRD_PARTY_NOTICES.md d'après les paquets livrés. */
 export function ecrireLicencesDuDepot(paquets: readonly PaquetLivre[]): void {
   writeFileSync(LICENCES_DEPOT, texteLicences(paquets));
   const notices = readFileSync(NOTICES, "utf-8");

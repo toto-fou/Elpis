@@ -76,6 +76,7 @@ export interface CibleBureauConfig {
   name: string;
   os: string;
   agent_url: string;
+  agent_token?: string;
   default: boolean;
   access: string;
   allowed_users: string[];

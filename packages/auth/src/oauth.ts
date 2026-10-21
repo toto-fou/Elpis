@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/auth/src/oauth.ts — autorisation OAuth 2.1 des clients MCP (mcp/oauth.py) : politique, ressource, clients, codes, jetons, autorisations. */
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { request } from "node:https";
 
@@ -35,7 +35,7 @@ import {
 } from "@elpis/commun";
 import type { Dict, UrlDecoupee } from "@elpis/commun";
 import type { Base, Executeur } from "@elpis/db";
-import { blockRemoteUrlReason } from "@elpis/securite";
+import { blockRemoteUrlReason, egauxEnTempsConstant } from "@elpis/securite";
 import type { Resolveur } from "@elpis/securite";
 
 import { valeur } from "./dict";
@@ -598,10 +598,8 @@ export async function resolveClient(dep: DependancesOAuth, clientId: unknown): P
 }
 
 /** `secrets.compare_digest` de deux textes ASCII. */
-function egauxEnTempsConstant(a: string, b: string): boolean {
-  const x = Buffer.from(a, "latin1");
-  const y = Buffer.from(b, "latin1");
-  return x.length === y.length && timingSafeEqual(x, y);
+function egauxTextes(a: string, b: string): boolean {
+  return egauxEnTempsConstant(Buffer.from(a, "latin1"), Buffer.from(b, "latin1"));
 }
 
 /** `authenticate_client` : secret vérifié s'il en a un ; un client public n'en présente pas. */
@@ -612,7 +610,7 @@ export async function authenticateClient(
 ): Promise<ClientOAuth> {
   const c = await getClient(x, clientId);
   if (!c) throw new ErreurOAuth("invalid_client", "Client inconnu.", 401);
-  if (c.has_secret && (!veritePy(secret) || !egauxEnTempsConstant(empreinte(strPy(secret)), c.secret_hash)))
+  if (c.has_secret && (!veritePy(secret) || !egauxTextes(empreinte(strPy(secret)), c.secret_hash)))
     throw new ErreurOAuth("invalid_client", "Authentification du client refusée.", 401);
   return c;
 }
@@ -633,7 +631,7 @@ export function pkceOk(verifier: unknown, challenge: unknown): boolean {
   const attendu = strPy(challenge);
   if (Array.from(attendu).some((c) => c.charCodeAt(0) > 0x7f))
     throw new ErreurPython("TypeError", "comparing strings with non-ASCII characters is not supported");
-  return egauxEnTempsConstant(calcule, attendu);
+  return egauxTextes(calcule, attendu);
 }
 
 export interface DemandeCode {

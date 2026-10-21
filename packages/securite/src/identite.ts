@@ -216,6 +216,9 @@ export async function userNetworkProfileId(userId: number): Promise<string> {
   }
 }
 
+/** Type de l'enveloppe d'identité : l'absence de type reste acceptée (hôte d'outils distant plus ancien). */
+const TYPE_IDENTITE = "identite";
+
 function maintenant(): number {
   return Date.now() / 1000;
 }
@@ -298,7 +301,7 @@ export interface OptionsVerification {
 /** `<charge b64>.<hmac-sha256 b64>` : identité + `ts`, signée avec le jeton de service. */
 export function sign(identity: Identity, key: string, options: OptionsSignature = {}): string {
   if (!key) throw new ErreurPython("ValueError", "jeton de service absent : impossible de signer l'identité");
-  return signer(identityToDict(identity), key, options.now);
+  return signer({ ...identityToDict(identity), typ: TYPE_IDENTITE }, key, options.now);
 }
 
 export function verify(
@@ -307,7 +310,9 @@ export function verify(
   options: OptionsVerification = {},
 ): Identity | null {
   const corps = corpsVerifie(header, key, options.now, options.maxSkewS ?? MAX_SKEW_S, null);
-  return corps === null ? null : identityFromDict(corps);
+  if (corps === null || Object.hasOwn(corps, "aud")) return null;
+  if (Object.hasOwn(corps, "typ") && corps["typ"] !== TYPE_IDENTITE) return null;
+  return identityFromDict(corps);
 }
 
 /** `claims` + `aud` + `ts`, signés comme `sign` : l'audience lie l'enveloppe à son usage. */

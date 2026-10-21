@@ -163,11 +163,11 @@ async function compresser(dep: DependancesChatCompression, req: FastifyRequest, 
       throw new HttpError(409, { code: "engine_unavailable", reason: e.reason, message: e.message });
     throw e;
   }
-  let autorise = true;
+  let autorise = false;
   try {
     autorise = await canUseEngine(dep.base, uid, cid ? connectorKey(cid) : BUILTIN_KEY);
   } catch (e) {
-    log.debug(`[chat.manual_compress.access] ${String(e)}`);
+    log.warn(`[chat.manual_compress.access] contrôle d'accès impossible (${String(e)}) — refus`);
   }
   if (!autorise)
     throw new HttpError(409, {

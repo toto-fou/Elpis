@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/cli.ts — distribution LAN d'OpenCode : installeurs, opencode.json généré à chaud, familles MCP, bundles et CA locale (shared_infra/opencode/routes_cli.py). */
-import { readdirSync, statSync } from "node:fs";
+import { createHash, X509Certificate } from "node:crypto";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
 
 import { exigerUtilisateur, getUserSettings, resoudreJeton } from "@elpis/auth";
@@ -53,6 +54,7 @@ import { modelCache } from "../llm/cache-modeles";
 import { llamaBaseUrl } from "../llm/llama-http";
 import { cachedContextSize } from "../llm/modeles";
 import { getCategories, getToolCategoriesDict } from "../outils/categories";
+import { journal } from "../journal";
 import type { Journal } from "../journal";
 import type { Famille } from "../routes";
 import { MCP_PROXY_PREFIX } from "./pont-mcp";
@@ -103,6 +105,7 @@ export const MODEL_DISPLAY_NAMES: Readonly<Record<string, string>> = {
 const DEFAULT_MODEL_FALLBACK = "qwen3-coder-30b";
 export const OPENCODE_MCP_PREFIX = "elpis-";
 export const TOKEN_PLACEHOLDER = "pcr_REMPLACEZ_PAR_VOTRE_JETON";
+const log = journal("cli");
 const CA_DEFAULT = "/etc/caddy/elpis-pki/ca.crt";
 const CA = "/api/cli/ca.crt";
 const INACTIF = "OpenCode est désactivé par l'administrateur.";
@@ -162,10 +165,38 @@ export function urlApplication(req: FastifyRequest): string {
   return port === 443 ? `https://${hote}` : `https://${hote}:${port}`;
 }
 
-/** `_render` : seules substitutions, l'origine contactée validée (`__BASE__`) et l'URL de l'app (`__APP_URL__`). */
+/** Chemin de la CA locale (`ELPIS_CA_FILE`, sinon `security.https.ca_file`, sinon celui de Caddy). */
+function cheminCa(): string {
+  const env = process.env["ELPIS_CA_FILE"];
+  const https = ouPy(getPy(ouPy(getPy(ouPy(configView(), {}), "security"), {}), "https"), {});
+  const brut = stripPy(veritePy(env) ? (env as string) : strPy(ouPy(getPy(https, "ca_file"), "")));
+  return brut || CA_DEFAULT;
+}
+
+/** Empreinte SHA-256 (hex, forme DER) de la CA locale lue côté serveur ; chaîne vide si absente, illisible ou si la configuration `security` est mal formée. */
+export function empreinteCa(): string {
+  try {
+    const chemin = cheminCa();
+    if (!estFichier(chemin)) return "";
+    return createHash("sha256")
+      .update(new X509Certificate(readFileSync(chemin)).raw)
+      .digest("hex");
+  } catch (e) {
+    log.warn(`[cli] CA locale illisible, aucune empreinte publiée (${String(e)})`);
+    return "";
+  }
+}
+
+/** `_render` : substitutions de l'origine contactée validée (`__BASE__`), de l'URL de l'app (`__APP_URL__`) et de l'empreinte de la CA (`__CA_SHA256__`). */
 export function rendreInstalleur(gabarit: string, req: FastifyRequest): string {
   const base = urlDeBase(req);
-  return gabarit.split("__BASE__").join(base).split("__APP_URL__").join(urlApplication(req));
+  return gabarit
+    .split("__BASE__")
+    .join(base)
+    .split("__APP_URL__")
+    .join(urlApplication(req))
+    .split("__CA_SHA256__")
+    .join(empreinteCa());
 }
 
 function nombreSur(v: unknown): number {
@@ -276,7 +307,8 @@ function famillesVivantes(): Set<string> | null {
         .filter(([, outils]) => veritePy(outils))
         .map(([c]) => c),
     );
-  } catch {
+  } catch (e) {
+    log.warn(`[cli] catégories d'outils illisibles (${String(e)})`);
     return null;
   }
   if (categories.size === 0) return null;
@@ -460,10 +492,7 @@ export function creerFamilleCli(dep: DependancesCli): Famille {
         processus: ["main"],
         acces: "public",
         traiter: async (req, rep) => {
-          const env = process.env["ELPIS_CA_FILE"];
-          const https = ouPy(getPy(ouPy(getPy(ouPy(configView(), {}), "security"), {}), "https"), {});
-          const brut = stripPy(veritePy(env) ? (env as string) : strPy(ouPy(getPy(https, "ca_file"), "")));
-          const chemin = brut || CA_DEFAULT;
+          const chemin = cheminCa();
           if (!estFichier(chemin))
             throw new HttpError(404, "Aucune CA locale (HTTPS non déployé sur cette instance).");
           return servirFichier(req, rep, chemin, "ca.crt", "application/x-pem-file");

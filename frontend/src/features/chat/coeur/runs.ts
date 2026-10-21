@@ -454,7 +454,8 @@ export function creerRuns(c: CoeurChat, session: GestionnaireSession) {
         for await (const evt of lireNdjson(rep.body)) {
           const res = suivi.recevoir(evt);
           if (mien !== f.activeGen) break;
-          if (!res.appliquer) continue;
+          const ev = res.ev;
+          if (!res.appliquer || !ev) continue;
           const t = res.type;
           if (t === "replay_done") {
             f.replaying = false;
@@ -462,7 +463,7 @@ export function creerRuns(c: CoeurChat, session: GestionnaireSession) {
             continue;
           }
           if (t === "run_started") {
-            marquerReveil(evt);
+            marquerReveil(ev);
             continue;
           }
           if (t === "ping") continue;
@@ -473,7 +474,7 @@ export function creerRuns(c: CoeurChat, session: GestionnaireSession) {
           }
           if (t === "final") finalVu = true;
           try {
-            await l.handleStreamEvent(evt as DonneesFlux);
+            await l.handleStreamEvent(ev as unknown as DonneesFlux);
           } catch (err) {
             journal.erreur("[chat] rattachement : événement en échec", err, t);
           }

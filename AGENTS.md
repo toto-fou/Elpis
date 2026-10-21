@@ -75,11 +75,13 @@ main et admin ; `apps/toolhost` : hôte d'outils), paquets partagés dans
 `fichiers`, `http`, `mcp`, `outils-mcp`, `securite`…), interface dans
 `frontend/` (workspace `@elpis/web`).
 
+<!-- REUSE-IgnoreStart -->
 - **Code** : en-tête `// SPDX-License-Identifier: MIT` puis `/** chemin — rôle */` ;
   commentaires réduits au maximum : une ligne au plus par fonction, en français,
   sans trace d'audit (le pourquoi long va dans le message de commit ou `docs/`) ;
   ESM, TypeScript strict, syntaxe effaçable seulement (ni `enum` ni `namespace`),
   `import type` pour les types ; aucune promesse flottante (lint).
+<!-- REUSE-IgnoreEnd -->
 - **Contrats partagés** : `@elpis/contracts` (schémas Zod des routes et du flux ;
   `npm run generer -w @elpis/contracts` écrit `.d.ts` et schémas JSON dans `dist/`).
 - **JSON** : `@elpis/commun` écrit comme `json.dumps` de Python (`pyJsonDumps`)
@@ -92,7 +94,7 @@ main et admin ; `apps/toolhost` : hôte d'outils), paquets partagés dans
   bloque les scripts d'installation non approuvés : `npm install-scripts approve
   <paquet>` après relecture (champ `allowScripts`). Une dépendance d'exécution
   est inscrite dans `THIRD_PARTY_NOTICES.md` (`npm run licences` réécrit
-  `LICENSES/npm-*.txt`).
+  `THIRD_PARTY_LICENSES/npm-*.txt`).
 
 ## Fichiers générés
 
@@ -119,8 +121,10 @@ main et admin ; `apps/toolhost` : hôte d'outils), paquets partagés dans
 
 **Code Python** (restant : RAG, moteur Office, desktop-agent, agent du bac, deploy)
 
+<!-- REUSE-IgnoreStart -->
 - Nouveau fichier source : première ligne `# SPDX-License-Identifier: MIT`,
   puis une docstring d'en-tête « chemin — rôle » sur une ligne.
+<!-- REUSE-IgnoreEnd -->
 - Commentaires en français, au présent, une ligne au plus par fonction : la
   règle, sa raison. Pas de trace d'audit dans le code (date de constat,
   identifiant de lot, récit de l'ancien comportement) : l'historique va dans le

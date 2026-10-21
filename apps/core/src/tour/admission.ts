@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/tour/admission.ts — gardes d'entrée d'un tour : verrou de présence « une génération à la fois par conversation », passation après un Stop, réservation jusqu'à la réclamation par le tour, compressions manuelles en vol (chatbot_app/turn/admission.py). */
-import { egalPy, estDict, HttpError, veritePy } from "@elpis/commun";
+import { egalPy, estDict, HttpError, intPy, veritePy } from "@elpis/commun";
+import { config } from "@elpis/config";
 import { performance } from "node:perf_hooks";
 
 import { journal } from "../journal";
@@ -88,6 +89,28 @@ export function handoverRebaselineOk(old: unknown, fresh: unknown): boolean {
   return false;
 }
 
+/** 429 si le compte tient déjà `MAX_RUNS_PER_USER` générations (verrou du chat en cours d'annulation non compté ; `apresPrise` : le verrou du chat est déjà pris) ; sans attente avant la prise du verrou, pour que deux requêtes simultanées ne dépassent pas le plafond. */
+export function verifierPlafondRuns(uid: number, chatId: string | null = null, apresPrise = false): void {
+  let maxRuns: number;
+  try {
+    maxRuns = intPy(veritePy(config.MAX_RUNS_PER_USER) ? config.MAX_RUNS_PER_USER : 0);
+  } catch {
+    maxRuns = 0;
+  }
+  if (maxRuns <= 0) return;
+  let n = verrousChat.countHeld("gen", uid);
+  if (
+    !apresPrise &&
+    chatId !== null &&
+    isChatCancelled(uid, chatId) &&
+    verrousChat.isHeld("gen", uid, chatId)
+  )
+    n -= 1;
+  if (apresPrise ? n <= maxRuns : n < maxRuns) return;
+  log.info(`[chat_stream] user=${uid} a déjà ${n} génération(s) en cours (plafond ${maxRuns}) — refus`);
+  throw new HttpError(429, "too_many_runs");
+}
+
 /** Verrou « gen » du chat, ou 409 ; après un Stop, attend jusqu'à 12 s l'unwind du run précédent (`attendu` reçoit alors `true`). */
 export async function acquireGenPresence(
   uid: number,
@@ -103,13 +126,16 @@ export async function acquireGenPresence(
       await dormir(HANDOVER_PAS_S);
       jeton = verrousChat.acquire("gen", uid, chatId);
       if (jeton !== null) {
+        try {
+          verifierPlafondRuns(uid, chatId, true);
+        } catch (e) {
+          verrousChat.release(jeton);
+          throw e;
+        }
         attendu?.push(true);
         return jeton;
       }
     }
-  } else {
-    jeton = verrousChat.acquire("gen", uid, chatId);
-    if (jeton !== null) return jeton;
   }
   throw new HttpError(409, "generation_running");
 }

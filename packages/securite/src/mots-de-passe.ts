@@ -6,8 +6,11 @@ import { ErreurPython, intPy } from "@elpis/commun";
 
 import { encoderUtf8Py, estAscii, estErreurPython, ouPy } from "./outils";
 
-/** Choix de sécurité délibéré (users.py) : ne pas le baisser pour gagner du temps. */
-export const PASSWORD_ITERATIONS = 150_000;
+/** Itérations des nouveaux hachages : ne pas les baisser pour gagner du temps. */
+export const PASSWORD_ITERATIONS = 600_000;
+/** Itérations du format historique (empreinte hexadécimale seule, sel dans `pass_salt`). */
+const ITERATIONS_HISTORIQUES = 150_000;
+const PREFIXE_HACHAGE = "pbkdf2_sha256";
 const LONGUEUR_EMPREINTE = 32;
 
 const BLANCS_HEX = new Set([0x20, 0x09, 0x0a, 0x0b, 0x0c, 0x0d]);
@@ -53,8 +56,13 @@ export function compareDigest(a: string | Uint8Array, b: string | Uint8Array): b
   throw new ErreurPython("TypeError", "a bytes-like object is required, not 'str'");
 }
 
-function egauxEnTempsConstant(a: Uint8Array, b: Uint8Array): boolean {
-  return a.length === b.length && timingSafeEqual(a, b);
+/** Octets égaux à temps constant ; longueurs différentes → faux, après une comparaison factice. */
+export function egauxEnTempsConstant(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) {
+    timingSafeEqual(a, a);
+    return false;
+  }
+  return timingSafeEqual(a, b);
 }
 
 /** `secrets.token_hex` : sel d'un mot de passe (16 octets). */
@@ -130,14 +138,13 @@ export function shutdownPasswordPool(): void {
   file = null;
 }
 
-/** `_hash_password` : PBKDF2-HMAC-SHA256, 150 000 itérations, sel et empreinte (32 octets) en hexadécimal. */
-export async function hashPassword(password: string, saltHex: string): Promise<string> {
+function pbkdf2Hex(password: string, saltHex: string, iterations: number): Promise<string> {
   const sel = bytesFromHex(saltHex);
   const motDePasse = encoderUtf8Py(password);
   return runPasswordOp(
     () =>
       new Promise<string>((resoudre, rejeter) => {
-        pbkdf2(motDePasse, sel, PASSWORD_ITERATIONS, LONGUEUR_EMPREINTE, "sha256", (erreur, cle) => {
+        pbkdf2(motDePasse, sel, iterations, LONGUEUR_EMPREINTE, "sha256", (erreur, cle) => {
           if (erreur) rejeter(erreur);
           else resoudre(cle.toString("hex"));
         });
@@ -145,11 +152,40 @@ export async function hashPassword(password: string, saltHex: string): Promise<s
   );
 }
 
-/** Le calcul de `verify_user` : `compare_digest` entre l'empreinte recalculée et celle de la base. */
+/** `pbkdf2_sha256$<itérations>$<sel hex>$<empreinte hex>`, ou `null` si la forme est autre. */
+function decouperHachage(stocke: string): { iterations: number; sel: string; empreinte: string } | null {
+  const parties = stocke.split("$");
+  if (parties.length !== 4 || parties[0] !== PREFIXE_HACHAGE) return null;
+  const [, brut = "", sel = "", empreinte = ""] = parties;
+  if (!/^[1-9][0-9]{0,8}$/u.test(brut)) return null;
+  return { iterations: Number(brut), sel, empreinte };
+}
+
+/** Hachage versionné (`pbkdf2_sha256$600000$sel$empreinte`) : PBKDF2-HMAC-SHA256, empreinte de 32 octets en hexadécimal. */
+export async function hashPassword(password: string, saltHex: string): Promise<string> {
+  const empreinte = await pbkdf2Hex(password, saltHex, PASSWORD_ITERATIONS);
+  return `${PREFIXE_HACHAGE}$${PASSWORD_ITERATIONS}$${saltHex}$${empreinte}`;
+}
+
+/** Vrai si le hachage porte au moins le nombre d'itérations courant ; faux : à rehacher après une connexion réussie. */
+export function hachageAJour(stocke: string): boolean {
+  const h = decouperHachage(stocke);
+  return h !== null && h.iterations >= PASSWORD_ITERATIONS;
+}
+
+/** Le calcul de `verify_user` : format versionné ou historique (150 000 itérations, sel de `pass_salt`), comparé à temps constant. */
 export async function verifyPassword(
   password: string,
   saltHex: string,
   storedHash: string,
 ): Promise<boolean> {
-  return compareDigest(await hashPassword(password, saltHex), storedHash);
+  const h = decouperHachage(storedHash);
+  if (h === null)
+    return compareDigest(await pbkdf2Hex(password, saltHex, ITERATIONS_HISTORIQUES), storedHash);
+  try {
+    return compareDigest(await pbkdf2Hex(password, h.sel, h.iterations), h.empreinte);
+  } catch (e) {
+    if (e instanceof ErreurPython) return false;
+    throw e;
+  }
 }

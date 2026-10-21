@@ -23,6 +23,7 @@ import { getCACertificates, rootCertificates } from "node:tls";
 
 import { adresseIpOuNul, hostname, journalDe, port, rstripPy, stripPy, urlsplit } from "@elpis/commun";
 import type { UrlDecoupee } from "@elpis/commun";
+import { O_PATH } from "@elpis/securite";
 import { Agent } from "undici";
 import type { Dispatcher } from "undici";
 
@@ -66,7 +67,6 @@ const ENTETES_REPONSE: ReadonlySet<string> = new Set([
   "www-authenticate",
 ]);
 const SEGMENT_INTERDIT = /(^|\/)(\.|\.\.|%2e|%2e%2e|\.%2e|%2e\.)(\/|$)/iu;
-const O_PATH = 0o10000000;
 const O_CLOEXEC = 0o2000000;
 
 /** Opération réseau refusée avant tout transfert (URL, schéma, dépôt). */

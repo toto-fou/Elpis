@@ -74,7 +74,8 @@ function cheminEmpreinte(): string {
 function empreinteCourante(): bigint {
   try {
     return statSync(cheminEmpreinte(), { bigint: true }).mtimeNs;
-  } catch {
+  } catch (e) {
+    log.debug(`[engine_access] empreinte de politiques illisible (${String(e)})`);
     return 0n;
   }
 }
@@ -154,7 +155,8 @@ export function decodeRow(engineKeysRaw: unknown, manageRaw: unknown): Politique
       if (typeof engineKeysRaw !== "string") throw new TypeError("JSON object must be str");
       const lu = pyJsonLoads(engineKeysRaw, { mode: "natif" });
       keys = Array.isArray(lu) ? lu.filter((k): k is string => typeof k === "string") : [];
-    } catch {
+    } catch (e) {
+      log.debug(`[engine_access] liste de serveurs illisible, aucun serveur retenu (${String(e)})`);
       keys = [];
     }
   }
@@ -411,7 +413,7 @@ async function chargerContexte(base: Executeur, uid: number): Promise<Contexte |
     );
   } catch (e) {
     avertir(
-      `[engine_access] lecture des politiques impossible (${String(e)}) — aucune restriction appliquée`,
+      `[engine_access] lecture des politiques impossible (${String(e)}) — accès refusé hors administrateur`,
     );
     return null;
   }
@@ -441,9 +443,20 @@ function resoudre(ctx: Contexte | null, isAdmin: boolean | null | undefined): Ac
   return resolveAccess(ctx.user, ctx.groups, { isAdmin: admin });
 }
 
+/** Politiques illisibles pour un compte non administrateur : aucun serveur, pas de gestion des modèles. */
+const ACCES_REFUSE: Acces = {
+  engine_keys: new Set<string>(),
+  engine_source: "unreadable",
+  can_manage_models: false,
+  manage_source: "unreadable",
+};
+
 async function resolu(base: Executeur, userId: unknown, isAdmin?: boolean | null): Promise<Acces> {
   const uid = uidOuNul(userId);
-  return resoudre(uid === null ? null : await chargerContexte(base, uid), isAdmin);
+  if (uid === null) return resoudre(null, isAdmin);
+  const ctx = await chargerContexte(base, uid);
+  if (ctx === null && isAdmin !== true) return ACCES_REFUSE;
+  return resoudre(ctx, isAdmin);
 }
 
 /** Clés autorisées pour ce compte ; `null` = tous les serveurs. */
@@ -463,7 +476,15 @@ export async function canManageModels(
   return (await resolu(base, userId, options.isAdmin)).can_manage_models;
 }
 
-/** Ce compte peut-il utiliser ce moteur ? Connecteur personnel : son propriétaire seul ; sinon la politique (`enabled` ignoré). */
+/** Politiques ou connecteur illisibles : le contrôle d'accès n'a pas pu conclure (panne transitoire, pas un refus). */
+export class PolitiquesIllisibles extends Error {
+  constructor(detail: string) {
+    super(`contrôle d'accès au moteur impossible : ${detail}`);
+    this.name = "PolitiquesIllisibles";
+  }
+}
+
+/** Ce compte peut-il utiliser ce moteur (lève `PolitiquesIllisibles` si la lecture échoue) ? Connecteur personnel : son propriétaire seul ; sinon la politique (`enabled` ignoré). */
 export async function canUseEngine(
   base: Executeur,
   userId: unknown,
@@ -480,14 +501,20 @@ export async function canUseEngine(
       portee = ligne === undefined ? null : [ligne[0], ligne[1] === null ? null : intPy(ligne[1])];
     } catch (e) {
       avertir(`[engine_access] lecture du connecteur ${p[1]} impossible (${String(e)})`);
-      portee = ["shared", null];
+      throw new PolitiquesIllisibles(`connecteur ${p[1]} illisible`);
     }
     if (portee === null) return false;
     const [scope, owner] = portee;
     if (scope === "user") return owner !== null && uidOuNul(userId) === owner;
     if (scope !== "shared") return false;
   }
-  const keys = await effectiveEngineKeys(base, userId, options);
+  const uid = uidOuNul(userId);
+  const ctx = uid === null ? null : await chargerContexte(base, uid);
+  if (ctx === null && options.isAdmin !== true) {
+    avertir("[engine_access] politiques illisibles");
+    throw new PolitiquesIllisibles("politiques illisibles");
+  }
+  const keys = resoudre(ctx, options.isAdmin).engine_keys;
   return keys === null || keys.has(stripPy(key as string));
 }
 

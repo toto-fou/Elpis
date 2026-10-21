@@ -11,7 +11,7 @@ python-xlib==0.33           # module Xlib (LGPL-2.1+), remplace python3-Xlib
 pyscreeze==1.0.1            # MIT
 pytweening==1.2.0           # MIT
 pyperclip==1.11.0           # BSD-3-Clause, presse-papiers
-numpy==2.4.6                # elpis_auto : repli visuel (corrélation de vignette)
+numpy==2.5.4                # elpis_auto : repli visuel (corrélation de vignette)
 
 # Accessibility tree (element roles/names) needs PyGObject + AT-SPI.
 # Best installed as SYSTEM packages, not pip, e.g. on Debian/Ubuntu:

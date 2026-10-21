@@ -12,4 +12,4 @@ pygetwindow==0.0.9          # BSD-3-Clause
 pyrect==0.2.0               # BSD-3-Clause
 pyperclip==1.11.0           # BSD-3-Clause
 pywinauto==0.6.9            # UI Automation element tree + (fallback) input
-numpy==2.4.6                # elpis_auto : repli visuel (corrélation de vignette)
+numpy==2.5.4                # elpis_auto : repli visuel (corrélation de vignette)

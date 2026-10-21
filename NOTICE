@@ -11,5 +11,5 @@ before that version remain under the license they were distributed with.
 
 This product bundles third-party components (JavaScript libraries, fonts and
 icons under frontend/vendor/) that are distributed under their own licenses.
-See THIRD_PARTY_NOTICES.md for the full inventory and LICENSES/ for their
+See THIRD_PARTY_NOTICES.md for the full inventory and THIRD_PARTY_LICENSES/ for their
 license texts.

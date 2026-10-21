@@ -94,7 +94,7 @@ main et admin ; `apps/toolhost` : hôte d'outils), paquets partagés dans
   bloque les scripts d'installation non approuvés : `npm install-scripts approve
   <paquet>` après relecture (champ `allowScripts`). Une dépendance d'exécution
   est inscrite dans `THIRD_PARTY_NOTICES.md` (`npm run licences` réécrit
-  `LICENSES/npm-*.txt`).
+  `THIRD_PARTY_LICENSES/npm-*.txt`).
 
 ## Fichiers générés
 

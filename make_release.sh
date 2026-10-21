@@ -26,7 +26,7 @@
 #                  sources/ avec --with-sources
 #      browser/    dépendances npm + Chromium (ses bibliothèques système sont
 #                  des prérequis apt : deploy/prerequis-apt.txt)
-#      LICENSE, NOTICE, THIRD_PARTY_NOTICES.md, LICENSES/   notices d'Elpis et des composants
+#      LICENSE, NOTICE, THIRD_PARTY_NOTICES.md, LICENSES/, THIRD_PARTY_LICENSES/   notices d'Elpis et des composants
 #      wheels/LICENCES-PYTHON.txt   licences des roues (lues dans leurs *.dist-info)
 #      sbom/       SBOM CycloneDX JSON : npm (npm sbom), Python (roues), image sandbox (syft)
 #      MANIFEST.txt   (+ MANIFEST.txt.asc avec --sign)
@@ -154,7 +154,8 @@ OFFRE
 copier_notices() {
     cp -a "$ROOT/LICENSE" "$ROOT/NOTICE" "$ROOT/THIRD_PARTY_NOTICES.md" "$OUT/"
     cp -a "$ROOT/LICENSES" "$OUT/LICENSES"
-    ok "LICENSE, NOTICE, THIRD_PARTY_NOTICES.md et LICENSES/ copiés à la racine du paquet."
+    cp -a "$ROOT/THIRD_PARTY_LICENSES" "$OUT/THIRD_PARTY_LICENSES"
+    ok "LICENSE, NOTICE, THIRD_PARTY_NOTICES.md, LICENSES/ et THIRD_PARTY_LICENSES/ copiés à la racine du paquet."
 }
 
 # Licences et SBOM CycloneDX des roues, lus dans leurs *.dist-info ; cyclonedx-py prend la main s'il est installé.
@@ -407,8 +408,8 @@ vr="NODE_RUNTIME_SHA256_$ARCH"
 empreinte="$(runtime_empreinte "$NODE_ARBRE")"
 [ "$empreinte" = "${!vr:-}" ] \
     || die "Runtime Node.js sans npm : empreinte $empreinte, différente de $vr dans deploy/node/node.env (nouvelle version de Node.js : vérifiez-la, puis figez-la)."
-sed '1,/^$/d' "$ROOT/LICENSES/node-runtime.txt" | cmp -s - "$NODE_ARBRE/LICENSE" \
-    || die "LICENSES/node-runtime.txt ne correspond plus au LICENSE du runtime : régénérez-le (runtime_licence de deploy/node/runtime.sh)."
+sed '1,/^$/d' "$ROOT/THIRD_PARTY_LICENSES/node-runtime.txt" | cmp -s - "$NODE_ARBRE/LICENSE" \
+    || die "THIRD_PARTY_LICENSES/node-runtime.txt ne correspond plus au LICENSE du runtime : régénérez-le (runtime_licence de deploy/node/runtime.sh)."
 tar -C "$NODE_TMP" --sort=name --owner=0 --group=0 --numeric-owner -cf - "${node_asset%.tar.gz}" \
     | gzip -n -9 > "$OUT/node/$(runtime_archive "$ARCH")"
 ok "Runtime Node.js $NODE_VERSION sans npm, npx ni corepack (empreinte ${empreinte:0:12})."

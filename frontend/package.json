@@ -23,12 +23,12 @@
     "chartjs-chart-treemap": "3.1.0",
     "chartjs-plugin-annotation": "3.0.1",
     "chartjs-plugin-datalabels": "2.2.0",
-    "dompurify": "3.1.6",
+    "dompurify": "3.4.17",
     "echarts": "6.1.0",
     "marked": "15.0.12",
-    "mermaid": "11.13.0",
+    "mermaid": "11.17.2",
     "monaco-editor": "0.45.0",
-    "vue": "3.5.27"
+    "vue": "3.5.44"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "6.0.9",

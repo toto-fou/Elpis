@@ -80,6 +80,8 @@ dist.ancien-*/
 release/
 # Outillage de publication du dépôt public (versionné, jamais publié).
 !tools/release/
+# Copie figée de tools/release/surcharges/ dans le corpus YAML de l'hôte d'outils.
+!apps/toolhost/test/vecteurs/fs-yaml-corpus/tools/release/
 
 # ---- Verrous d’exécution ----
 *.lock

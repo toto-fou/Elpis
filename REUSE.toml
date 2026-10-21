@@ -18,21 +18,21 @@ precedence = "override"
 SPDX-FileCopyrightText = "2026 Elpis contributors"
 SPDX-License-Identifier = "MIT"
 
-# Tailwind CSS, build navigateur autonome (LICENSES/tailwindcss.txt).
+# Tailwind CSS, build navigateur autonome (THIRD_PARTY_LICENSES/tailwindcss.txt).
 [[annotations]]
 path = "frontend/vendor/tailwind.js"
 precedence = "override"
 SPDX-FileCopyrightText = "Tailwind Labs, Inc."
 SPDX-License-Identifier = "MIT"
 
-# Phosphor Icons, police web Regular (LICENSES/phosphor-icons-web.txt).
+# Phosphor Icons, police web Regular (THIRD_PARTY_LICENSES/phosphor-icons-web.txt).
 [[annotations]]
 path = "frontend/vendor/src/regular/**"
 precedence = "override"
 SPDX-FileCopyrightText = "Phosphor Icons"
 SPDX-License-Identifier = "MIT"
 
-# libwebp compilée en WebAssembly (textes : apps/core/scripts/licences/ et LICENSES/npm-core.txt).
+# libwebp compilée en WebAssembly (textes : apps/core/scripts/licences/ et THIRD_PARTY_LICENSES/npm-core.txt).
 [[annotations]]
 path = "packages/images/src/webp/**"
 precedence = "override"
@@ -41,7 +41,7 @@ SPDX-License-Identifier = "BSD-3-Clause"
 
 # Textes de licence de composants tiers : copies fidèles, non couvertes par le copyright du projet.
 [[annotations]]
-path = ["LICENSES/**", "apps/core/scripts/licences/**"]
+path = ["THIRD_PARTY_LICENSES/**", "apps/core/scripts/licences/**"]
 precedence = "override"
 SPDX-FileCopyrightText = "Auteurs respectifs des textes (voir chaque fichier)"
 SPDX-License-Identifier = "MIT"

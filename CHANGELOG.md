@@ -250,6 +250,10 @@ lecture des documents reste en Python, dans l'extracteur `rag_app`.
   passage plafonnées pour un lecteur qui n'a pas accès aux sources.
 - Secrets de `config.json` : une seule liste pour le masque du serveur et de
   la console, clé de l'OCR et jetons clients du pont MCP compris.
+- Dépendances aux failles connues mises à jour : Vue 3.5.44 (XSS du rendu
+  serveur), Mermaid 11.17.2, DOMPurify 3.4.17, pypdf 6.21.2, Pillow 13.0.0,
+  cryptography 50.0.2 et starlette 1.3.1 ; `npm audit` et `pip-audit` ne
+  signalent plus de faille haute.
 
 ### Conformité
 
@@ -258,6 +262,8 @@ lecture des documents reste en Python, dans l'extracteur `rag_app`.
   `CONTRIBUTING.md`.
 - CI : Dependabot, CodeQL, jobs `audit` et `reuse` non bloquants, actions
   épinglées par SHA.
+- Textes de licence des composants tiers déplacés dans `THIRD_PARTY_LICENSES/` ;
+  `LICENSES/` ne garde que les licences SPDX du projet (conformité REUSE 3.3).
 
 ## 0.1.0 — 2026-10-18
 

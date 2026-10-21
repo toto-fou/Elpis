@@ -9,8 +9,9 @@ finally the **optional** dependencies under copyleft licenses.
 
 Each bundled file keeps its original copyright header when the upstream
 distribution ships one. The license texts of the bundled components, with
-their copyright notices, are reproduced in [`LICENSES/`](LICENSES/) (one
-file per component, named after the upstream package).
+their copyright notices, are reproduced in [`THIRD_PARTY_LICENSES/`](THIRD_PARTY_LICENSES/) (one
+file per component, named after the upstream package). [`LICENSES/`](LICENSES/)
+holds the SPDX texts of the licenses used by the project itself (REUSE).
 
 ---
 
@@ -42,17 +43,17 @@ marked, DOMPurify and Zod (through `@elpis/contracts`) are bundled into the
 entry chunks; the other libraries are
 their upstream distribution files, copied unmodified (hashed file names) and
 loaded on demand. Monaco Editor is bundled from its ESM build into separate
-chunks (editor, language workers) imported only when the editor opens. License texts: [`LICENSES/`](LICENSES/) (one file per component).
+chunks (editor, language workers) imported only when the editor opens. License texts: [`THIRD_PARTY_LICENSES/`](THIRD_PARTY_LICENSES/) (one file per component).
 
 | Component | Version | License | Files (npm package) | Upstream |
 |---|---|---|---|---|
-| Vue.js (esm-bundler build with the template compiler; `@vue/*` packages) | 3.5.27 | MIT | entry chunk (`vue`) | https://github.com/vuejs/core |
+| Vue.js (esm-bundler build with the template compiler; `@vue/*` packages) | 3.5.44 | MIT | entry chunk (`vue`) | https://github.com/vuejs/core |
 | marked | 15.0.12 | MIT | entry chunk (`marked`) | https://github.com/markedjs/marked |
-| DOMPurify | 3.1.6 | Apache-2.0 OR MPL-2.0 (Apache-2.0 retained) | entry chunk (`dompurify`) | https://github.com/cure53/DOMPurify |
-| Zod (schemas of `@elpis/contracts`, network validation) | 4.6.5 | MIT | entry chunks (`zod`) | https://github.com/colinhacks/zod — text in `LICENSES/npm-web.txt` |
+| DOMPurify | 3.4.17 | Apache-2.0 OR MPL-2.0 (Apache-2.0 retained) | entry chunk (`dompurify`) | https://github.com/cure53/DOMPurify |
+| Zod (schemas of `@elpis/contracts`, network validation) | 4.6.5 | MIT | entry chunks (`zod`) | https://github.com/colinhacks/zod — text in `THIRD_PARTY_LICENSES/npm-web.txt` |
 | highlight.js (browser build and `github-dark` theme) | 11.7.0 | BSD-3-Clause | `highlight.min.js`, `styles/github-dark.min.css` (`@highlightjs/cdn-assets`) | https://github.com/highlightjs/highlight.js |
-| Mermaid | 11.13.0 | MIT | `dist/mermaid.min.js` (`mermaid`) | https://github.com/mermaid-js/mermaid |
-| Apache ECharts (chat charts) | 6.1.0 | Apache-2.0 (NOTICE and embedded d3.js BSD-3-Clause parts in `LICENSES/echarts.txt`) | `dist/echarts.min.js`, `i18n/langFR.js` (`echarts`) | https://github.com/apache/echarts |
+| Mermaid | 11.17.2 | MIT | `dist/mermaid.min.js` (`mermaid`) | https://github.com/mermaid-js/mermaid |
+| Apache ECharts (chat charts) | 6.1.0 | Apache-2.0 (NOTICE and embedded d3.js BSD-3-Clause parts in `THIRD_PARTY_LICENSES/echarts.txt`) | `dist/echarts.min.js`, `i18n/langFR.js` (`echarts`) | https://github.com/apache/echarts |
 | ZRender (bundled in `echarts.min.js`) | 6.1.0 | BSD-3-Clause | `dist/echarts.min.js` (`echarts`) | https://github.com/ecomfe/zrender |
 | Chart.js (admin dashboard) | 4.4.1 | MIT | `dist/chart.umd.js` (`chart.js`) | https://github.com/chartjs/Chart.js |
 | chartjs-adapter-date-fns (bundle, includes date-fns) | 3.0.0 | MIT | `dist/chartjs-adapter-date-fns.bundle.min.js` | https://github.com/chartjs/chartjs-adapter-date-fns |
@@ -66,39 +67,41 @@ chunks (editor, language workers) imported only when the editor opens. License t
 | xterm.js | 5.4.0 | MIT | `lib/xterm.js`, `css/xterm.css` (`@xterm/xterm`) | https://github.com/xtermjs/xterm.js |
 | xterm addon-fit | 0.9.0 | MIT | `lib/addon-fit.js` (`@xterm/addon-fit`) | https://github.com/xtermjs/xterm.js |
 | Monaco Editor (ESM build, its workers and CSS; loaded on demand when the editor opens) | 0.45.0 | MIT | `esm/vs/` (`monaco-editor`): chunks `monaco-*.js`, `editor.api-*.js`, `*.worker-*.js`, `monaco-*.css` | https://github.com/microsoft/monaco-editor |
-| TypeScript (language service bundled in Monaco) | 5.0.2 | Apache-2.0 | `esm/vs/language/typescript/` (`monaco-editor`), chunk `ts.worker-*.js` | https://github.com/microsoft/TypeScript — text in `LICENSES/monaco-editor-ThirdPartyNotices.txt` |
+| TypeScript (language service bundled in Monaco) | 5.0.2 | Apache-2.0 | `esm/vs/language/typescript/` (`monaco-editor`), chunk `ts.worker-*.js` | https://github.com/microsoft/TypeScript — text in `THIRD_PARTY_LICENSES/monaco-editor-ThirdPartyNotices.txt` |
 | Codicons (font in Monaco) | bundled with Monaco 0.45.0 | CC-BY-4.0 (font), MIT (code) | `codicon-*.ttf` (`monaco-editor`) | https://github.com/microsoft/vscode-codicons |
 
 The upstream distribution files above, copied unmodified, embed their own
 dependencies at the versions their upstream build resolved: the versions below
 are those of the license banner of the file when it prints one, otherwise the
 range declared by the host package. License texts:
-[`LICENSES/npm-web.txt`](LICENSES/npm-web.txt) (copied from the packages
+[`THIRD_PARTY_LICENSES/npm-web.txt`](THIRD_PARTY_LICENSES/npm-web.txt) (copied from the packages
 installed by the lock file; same licenses and copyright holders).
 
 | Embedded in | Component | Version | License |
 |---|---|---|---|
 | `echarts.min.js` | tslib (TypeScript helpers) | 2.3.0 | **0BSD** (BSD family, public-domain equivalent; admitted by `migration-kit/deps.map.json`) |
-| `echarts-ssr.cjs` (server-side chart rendering of the docx/pptx tools, built by `frontend/build-ssr.mjs` from the npm packages) | Apache ECharts, ZRender, tslib | 6.1.0, 6.1.0, 2.3.0 | Apache-2.0, BSD-3-Clause, **0BSD** — texts in `LICENSES/echarts.txt`, `LICENSES/zrender.txt`, `LICENSES/npm-web.txt` |
+| `echarts-ssr.cjs` (server-side chart rendering of the docx/pptx tools, built by `frontend/build-ssr.mjs` from the npm packages) | Apache ECharts, ZRender, tslib | 6.1.0, 6.1.0, 2.3.0 | Apache-2.0, BSD-3-Clause, **0BSD** — texts in `THIRD_PARTY_LICENSES/echarts.txt`, `THIRD_PARTY_LICENSES/zrender.txt`, `THIRD_PARTY_LICENSES/npm-web.txt` |
 | `chart.umd.js` | @kurkle/color | ^0.3.0 | MIT |
 | `index.umd.min.js` (boxplot) | @sgratzl/boxplots | ^2.0.0 | MIT |
-| `chartjs-adapter-date-fns.bundle.min.js` | date-fns | bundled by the adapter 3.0.0 | MIT — text in `LICENSES/date-fns.txt` |
-| `mermaid.min.js` | DOMPurify | 3.3.1 (banner) | Apache-2.0 OR MPL-2.0 (Apache-2.0 retained) — text in `LICENSES/dompurify.txt` |
-| `mermaid.min.js` | js-yaml | 4.1.1 (banner) | MIT — text in `LICENSES/js-yaml.txt` (copied from https://github.com/nodeca/js-yaml; not shipped by an installed package) |
-| `mermaid.min.js` | marked | ^16.3.0 | MIT — text in `LICENSES/marked.txt` |
-| `mermaid.min.js` | @mermaid-js/parser, with Langium (4.2.1) and Chevrotain (~11.1.2) bundled | ^1.0.1 | MIT; Langium MIT (https://github.com/eclipse-langium/langium); Chevrotain Apache-2.0 |
+| `chartjs-adapter-date-fns.bundle.min.js` | date-fns | bundled by the adapter 3.0.0 | MIT — text in `THIRD_PARTY_LICENSES/date-fns.txt` |
+| `mermaid.min.js` | DOMPurify | 3.4.12 (banner) | Apache-2.0 OR MPL-2.0 (Apache-2.0 retained) — text in `THIRD_PARTY_LICENSES/dompurify.txt` |
+| `mermaid.min.js` | js-yaml | 4.x (no version banner) | MIT — text in `THIRD_PARTY_LICENSES/js-yaml.txt` (copied from https://github.com/nodeca/js-yaml; not shipped by an installed package) |
+| `mermaid.min.js` | marked | ^16.3.0 | MIT — text in `THIRD_PARTY_LICENSES/marked.txt` |
+| `mermaid.min.js` | @mermaid-js/parser, with Langium (4.2.1) and Chevrotain (~11.1.2) bundled | ^1.2.1 | MIT; Langium MIT (https://github.com/eclipse-langium/langium); Chevrotain Apache-2.0 |
 | `mermaid.min.js` | d3 (the d3-* modules used by the diagrams), internmap | ^7.9.0 | ISC |
 | `mermaid.min.js` | d3-sankey, with d3-array 2, d3-shape 1, d3-path 1 | ^0.12.3 | BSD-3-Clause |
 | `mermaid.min.js` | dagre-d3-es | 7.0.14 | MIT |
-| `mermaid.min.js` | cytoscape, cytoscape-cose-bilkent, cytoscape-fcose, cose-base, layout-base | ^3.33.1, ^4.1.0, ^2.2.0 | MIT |
-| `mermaid.min.js` | KaTeX | ^0.16.25 | MIT |
-| `mermaid.min.js` | khroma | 2.1.0 | MIT (license file of the package, text in `LICENSES/npm-web.txt`; its `package.json` has no `license` field, so the license is declared in `migration-kit/deps.map.json`, `politique.surcharges`) |
-| `mermaid.min.js` | lodash-es | ^4.17.23 | MIT |
+| `mermaid.min.js` | cytoscape, cytoscape-cose-bilkent, cytoscape-fcose, cose-base, layout-base | ^3.34.0, ^4.1.0, ^2.2.0 | MIT |
+| `mermaid.min.js` | KaTeX | ^0.16.47 | MIT |
+| `mermaid.min.js` | khroma | 2.1.0 | MIT (license file of the package, text in `THIRD_PARTY_LICENSES/npm-web.txt`; its `package.json` has no `license` field, so the license is declared in `migration-kit/deps.map.json`, `politique.surcharges`) |
+| `mermaid.min.js` | lodash-es (through dagre-d3-es) | 4.18.1 (banner) | MIT |
+| `mermaid.min.js` | es-toolkit, fastdom | ^1.45.1, 1.0.12 | MIT — texts in `THIRD_PARTY_LICENSES/npm-web.txt` |
 | `mermaid.min.js` | roughjs, with hachure-fill, path-data-parser, points-on-curve, points-on-path | ^4.6.6 | MIT |
-| `mermaid.min.js` | stylis, dayjs, uuid, ts-dedent, @braintree/sanitize-url, @upsetjs/venn.js, @iconify/utils | ^4.3.6, ^1.11.19, ^11.1.0, ^2.2.0, ^7.1.1, ^2.0.0, ^3.0.2 | MIT |
+| `mermaid.min.js` | stylis, dayjs, uuid, ts-dedent, @braintree/sanitize-url, @upsetjs/venn.js, @iconify/utils | ^4.3.6, ^1.11.21, ^11.1.0 to ^14.0.0, ^2.2.0, ^7.1.2, ^2.0.0, ^3.0.2 | MIT |
 
 Present in the lock file under these packages but **not** embedded (checked
 in `mermaid.min.js`): d3-delaunay, delaunator, robust-predicates (Unlicense),
+strictdom (MIT, used only by the strict mode of fastdom),
 and the Node-only dependencies of @iconify/utils, KaTeX and d3-dsv (CLI tools,
 package manager helpers).
 
@@ -116,7 +119,7 @@ with its patent grant), built from the signed source release by
 `dist/webp/`; they also embed what Emscripten compiles into them (its system
 libraries, MIT; musl, MIT; compiler-rt, Apache-2.0 WITH LLVM-exception;
 dlmalloc, public domain), all cited under `libwebp`. The license texts are
-in [`LICENSES/npm-core.txt`](LICENSES/npm-core.txt), also shipped as
+in [`THIRD_PARTY_LICENSES/npm-core.txt`](THIRD_PARTY_LICENSES/npm-core.txt), also shipped as
 `dist/LICENCES-TIERS.txt`. Only the licenses of
 `migration-kit/deps.map.json` (MIT, Apache-2.0, ISC, BSD-2-Clause,
 BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
@@ -232,7 +235,7 @@ repository; it is redistributed in the offline package. better-sqlite3 and
 node-pty are shipped beside it in `dist/node_modules/`, with their binary for
 the target: better-sqlite3's prebuilt one, and node-pty's compiled by `npm ci`
 on a build machine of the target (node-addon-api headers compiled in). The
-license texts are in [`LICENSES/npm-toolhost.txt`](LICENSES/npm-toolhost.txt),
+license texts are in [`THIRD_PARTY_LICENSES/npm-toolhost.txt`](THIRD_PARTY_LICENSES/npm-toolhost.txt),
 also shipped as `dist/LICENCES-TIERS.txt`, under the same license policy as
 the core bundle.
 
@@ -418,7 +421,7 @@ and pinned versions are in `requirements.txt`, `office/requirements.txt`, `requi
 | Component | License |
 |---|---|
 | Qdrant (vector database binary) | Apache-2.0 |
-| Node.js runtime of the TypeScript core and of the browser service (`node/`): the official archive from nodejs.org (SHA-256 from the signed `SHASUMS256.txt`, pinned in `deploy/node/node.env`) **without npm, npx and corepack**, pinned in turn by its own fingerprint (`NODE_RUNTIME_SHA256_*`, `deploy/node/runtime.sh`); shipped in the offline package as a platform component, like the Python interpreter. Online installs borrow npm from the official archive for the build only; it is never installed | MIT for Node.js itself. The `node` binary also contains V8 and others under BSD-style licenses, OpenSSL, LIEF and swc under Apache-2.0, libuv, undici and amaro under MIT, HdrHistogram under BSD-2-Clause (its BSD option), and four components outside the MIT/ISC/Apache/BSD policy, **accepted as an exception for this runtime only**: ICU (Unicode-3.0), minimatch (BlueOak-1.0.0), zlib (Zlib) and SipHash, inside V8 (dedicated to the public domain by its authors). Texts: [`LICENSES/node-runtime.txt`](LICENSES/node-runtime.txt), which is also the runtime's `LICENSE`. |
+| Node.js runtime of the TypeScript core and of the browser service (`node/`): the official archive from nodejs.org (SHA-256 from the signed `SHASUMS256.txt`, pinned in `deploy/node/node.env`) **without npm, npx and corepack**, pinned in turn by its own fingerprint (`NODE_RUNTIME_SHA256_*`, `deploy/node/runtime.sh`); shipped in the offline package as a platform component, like the Python interpreter. Online installs borrow npm from the official archive for the build only; it is never installed | MIT for Node.js itself. The `node` binary also contains V8 and others under BSD-style licenses, OpenSSL, LIEF and swc under Apache-2.0, libuv, undici and amaro under MIT, HdrHistogram under BSD-2-Clause (its BSD option), and four components outside the MIT/ISC/Apache/BSD policy, **accepted as an exception for this runtime only**: ICU (Unicode-3.0), minimatch (BlueOak-1.0.0), zlib (Zlib) and SipHash, inside V8 (dedicated to the public domain by its authors). Texts: [`THIRD_PARTY_LICENSES/node-runtime.txt`](THIRD_PARTY_LICENSES/node-runtime.txt), which is also the runtime's `LICENSE`. |
 | Caddy (HTTPS front end, `--with-caddy`; installed from the OS repositories as a prerequisite, configured by `install.sh`, never redistributed) | Apache-2.0 |
 | LibreOffice (Office previews, `--with-office`; installed from the OS repositories as a prerequisite, never redistributed) | MPL-2.0 |
 | PostgreSQL server (`--db postgres-local`; installed from the OS repositories, never redistributed) | PostgreSQL License |

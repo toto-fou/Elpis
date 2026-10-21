@@ -25,6 +25,7 @@ import {
   ipClient,
   leverMinSession,
   ligneUtilisateur,
+  rehacherSiAncien,
   resetUserPassword,
   revoquerSid,
   revoquerTousAcces,
@@ -241,7 +242,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             logged_in: true,
             id: ligne.id,
             username: ligne.username,
-            is_admin: veritePy(ligne.is_admin),
+            is_admin: [1, 2].includes(Number(ligne.is_admin)),
             role: ROLES[Number(ligne.is_admin)] ?? "user",
             avatar: ligne.avatar ?? null,
           };
@@ -282,6 +283,10 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           let uid = (await getUser(base, username))
             ? await verifyUser(base, username, textePy(motDePasse))
             : null;
+          if (uid !== null) {
+            const verifie = uid;
+            await sansEchec(() => rehacherSiAncien(base, verifie, textePy(motDePasse)));
+          }
           if (uid === null) {
             uid = await sousVerrouAmorcage(async () => {
               const comptes = await getAllUsers(base);
@@ -318,7 +323,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           auditLogin({ userId: uid, username, ip, userAgent: ua, success: true });
           return {
             ok: true,
-            is_admin: ligne ? veritePy(ligne.is_admin) : false,
+            is_admin: ligne ? [1, 2].includes(Number(ligne.is_admin)) : false,
             must_change_password: veritePy(ligne?.must_change_pwd),
           };
         },

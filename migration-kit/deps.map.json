@@ -5,6 +5,9 @@
       "livrees": ["MIT", "Apache-2.0", "ISC", "BSD-2-Clause", "BSD-3-Clause", "0BSD", "Unlicense"],
       "developpement": ["MPL-2.0", "BlueOak-1.0.0"]
     },
+    "surcharges": {
+      "khroma@2.1.0": {"licence": "MIT", "raison": "package.json sans champ license ; fichier license du paquet : MIT (Fabio Spampinato, Andrew Maney) ; embarqué dans mermaid.min.js du bundle web"}
+    },
     "fraicheur_mois": 12,
     "telechargements_hebdo_min": 10000
   },

@@ -9,7 +9,6 @@ import {
   openSync,
   readFileSync,
   realpathSync,
-  statSync,
   unlinkSync,
   writeSync,
 } from "node:fs";
@@ -92,7 +91,7 @@ function stripAscii(b: Buffer): Buffer {
   return b.subarray(debut, fin);
 }
 
-/** `configure` : service, dossier (créé, 0750 si possible) et clé HMAC (≥ 32 octets, blancs ASCII retirés ; illisible = sans HMAC). */
+/** `configure` : service, dossier (créé, 0750 si possible) et clé HMAC (≥ 32 octets après retrait des blancs ASCII ; illisible = sans HMAC). */
 export function configureAudit(r: ReglagesAudit): void {
   mkdirSync(r.auditDir, { recursive: true });
   try {
@@ -102,8 +101,14 @@ export function configureAudit(r: ReglagesAudit): void {
   }
   let cle: Buffer | null = null;
   try {
-    if (existsSync(r.hmacKeyPath) && statSync(r.hmacKeyPath).size >= 32)
-      cle = stripAscii(readFileSync(r.hmacKeyPath));
+    if (existsSync(r.hmacKeyPath)) {
+      const brute = stripAscii(readFileSync(r.hmacKeyPath));
+      if (brute.length >= 32) cle = brute;
+      else
+        journalDe("audit").warn(
+          `clé HMAC de ${r.hmacKeyPath} trop courte (${brute.length} octet(s) < 32) : audit sans HMAC`,
+        );
+    }
   } catch (e) {
     if (!erreurDeDroits(e)) throw e;
   }

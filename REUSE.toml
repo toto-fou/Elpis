@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: MIT
+# Déclarations REUSE : fichiers sans commentaire possible (JSON, images, polices) et composants tiers copiés.
+version = 1
+SPDX-PackageName = "Elpis"
+SPDX-PackageDownloadLocation = "https://github.com/toto-fou/Elpis"
+
+# Base : tout fichier sans mention propre est du projet (MIT). Les mentions présentes dans un fichier s'ajoutent.
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Elpis contributors"
+SPDX-License-Identifier = "MIT"
+
+# Mascottes et logos d'Elpis (dessins du projet, voir frontend/assets/mascotte/README.md).
+[[annotations]]
+path = ["frontend/assets/mascotte/**", "frontend/*.png"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Elpis contributors"
+SPDX-License-Identifier = "MIT"
+
+# Tailwind CSS, build navigateur autonome (LICENSES/tailwindcss.txt).
+[[annotations]]
+path = "frontend/vendor/tailwind.js"
+precedence = "override"
+SPDX-FileCopyrightText = "Tailwind Labs, Inc."
+SPDX-License-Identifier = "MIT"
+
+# Phosphor Icons, police web Regular (LICENSES/phosphor-icons-web.txt).
+[[annotations]]
+path = "frontend/vendor/src/regular/**"
+precedence = "override"
+SPDX-FileCopyrightText = "Phosphor Icons"
+SPDX-License-Identifier = "MIT"
+
+# libwebp compilée en WebAssembly (textes : apps/core/scripts/licences/ et LICENSES/npm-core.txt).
+[[annotations]]
+path = "packages/images/src/webp/**"
+precedence = "override"
+SPDX-FileCopyrightText = "Google Inc."
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# Textes de licence de composants tiers : copies fidèles, non couvertes par le copyright du projet.
+[[annotations]]
+path = ["LICENSES/**", "apps/core/scripts/licences/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "Auteurs respectifs des textes (voir chaque fichier)"
+SPDX-License-Identifier = "MIT"
+
+# Code de conduite : Contributor Covenant 2.1, repris tel quel.
+[[annotations]]
+path = "CODE_OF_CONDUCT.md"
+precedence = "override"
+SPDX-FileCopyrightText = "Organization for Ethical Source (Contributor Covenant)"
+SPDX-License-Identifier = "CC-BY-4.0"

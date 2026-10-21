@@ -44,6 +44,8 @@ export type { ChampsIdentite, Identity, OptionsSignature, OptionsVerification } 
 export {
   bytesFromHex,
   compareDigest,
+  egauxEnTempsConstant,
+  hachageAJour,
   hashPassword,
   maxWorkers,
   PASSWORD_ITERATIONS,
@@ -80,6 +82,7 @@ export {
   lexicalRel,
   lireDossierBrut,
   modeEntree,
+  O_PATH,
   ouvrirDossierSous,
   ouvrirFeuille,
   parcourirSous,

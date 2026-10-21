@@ -37,11 +37,26 @@ CA_FILE=""
 # décisive pour la suite : une fois la CA en main, TOUT ce qui parle à l'app est
 # réellement vérifié — au lieu de désactiver la vérification à demeure.
 ca_looks_valid() { grep -q 'BEGIN CERTIFICATE' "$1" 2>/dev/null; }
+# Empreinte SHA-256 (hex, forme DER) inscrite par le serveur : seule une CA qui
+# la porte est épinglée ou installée ; sans empreinte, aucune CA n'est retenue.
+CA_SHA256="__CA_SHA256__"
+ca_fingerprint() {
+  _fp=$(openssl x509 -in "$1" -outform DER 2>/dev/null | openssl dgst -sha256 2>/dev/null | sed 's/^.*= *//') || _fp=""
+  if [ -z "$_fp" ]; then
+    _fp=$(awk '/BEGIN CERTIFICATE/{f=1;next} /END CERTIFICATE/{exit} f' "$1" | tr -d '\\r\\n ' | { base64 -d 2>/dev/null || base64 -D 2>/dev/null; } | { sha256sum 2>/dev/null || shasum -a 256 2>/dev/null; } | cut -d' ' -f1) || _fp=""
+  fi
+  printf '%s' "$_fp" | tr 'A-F' 'a-f'
+}
+ca_matches() { [ -n "$CA_SHA256" ] && [ "$(ca_fingerprint "$1")" = "$CA_SHA256" ]; }
 CA_DST="$CFG_DIR/elpis-ca.crt"
 fetch_ca() {
   _h="\${APP_URL#*://}"; _h="\${_h%%[:/]*}"
   for _u in "http://$_h/ca.crt" "$BASE/api/cli/ca.crt" "$APP_URL/api/cli/ca.crt"; do
     if curl -fsSk -m 5 "$_u" -o "$TMP/ca.crt" 2>/dev/null && ca_looks_valid "$TMP/ca.crt"; then
+      if ! ca_matches "$TMP/ca.crt"; then
+        echo "⚠ CA reçue de $_u refusée : empreinte SHA-256 différente de celle publiée par le serveur."
+        continue
+      fi
       # Emplacement DURABLE tout de suite : $TMP disparaît à la sortie du script,
       # or c'est ce chemin que le plugin épingle (\`ca_file\`) et que l'utilisateur
       # peut réutiliser (\`curl --cacert\`, git, etc.).
@@ -55,7 +70,12 @@ fetch_ca() {
   return 1
 }
 case "$BASE $APP_URL" in
-  *https://*) fetch_ca || echo "⚠ CA locale introuvable (ni :80, ni /api/cli/ca.crt)." ;;
+  *https://*)
+    if [ -z "$CA_SHA256" ]; then
+      echo "⚠ Ce serveur ne publie pas de CA locale : aucune CA n'est récupérée ni installée dans le magasin."
+    else
+      fetch_ca || echo "⚠ CA locale introuvable ou non conforme à l'empreinte du serveur (ni :80, ni /api/cli/ca.crt)."
+    fi ;;
 esac
 # ── Confiance SYSTÈME — comportement PAR DÉFAUT ──────────────────────────────
 # C'est LE bon geste sur un réseau local sans Internet : l'amorçage se fait en
@@ -457,7 +477,18 @@ if (($Base -like 'https://*') -or ($AppUrl -like 'https://*')) {
 $CfgDir = Join-Path $env:USERPROFILE '.config\\opencode'
 New-Item -ItemType Directory -Force -Path $CfgDir | Out-Null
 $CaFile = $null
-if (($AppUrl -like 'https://*') -or ($Base -like 'https://*')) {
+# Empreinte SHA-256 (hex, forme DER) inscrite par le serveur : sans elle, aucune CA n'est retenue.
+$CaSha256 = '__CA_SHA256__'
+function Get-ElpisCaSha256([string]$Path) {
+  try {
+    $c = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList $Path
+    $h = [System.Security.Cryptography.SHA256]::Create()
+    return (($h.ComputeHash($c.RawData) | ForEach-Object { $_.ToString('x2') }) -join '')
+  } catch { return '' }
+}
+if ((($AppUrl -like 'https://*') -or ($Base -like 'https://*')) -and (-not $CaSha256)) {
+  Write-Host "Attention : ce serveur ne publie pas de CA locale -- aucune CA n'est recuperee ni installee."
+} elseif (($AppUrl -like 'https://*') -or ($Base -like 'https://*')) {
   # Emplacement DURABLE tout de suite : c'est ce chemin que le greffon epingle
   # (ca_file) et que l'utilisateur peut reutiliser ensuite.
   $CaDst = Join-Path $CfgDir 'elpis-ca.crt'
@@ -465,13 +496,16 @@ if (($AppUrl -like 'https://*') -or ($Base -like 'https://*')) {
     try {
       Invoke-WebRequest -UseBasicParsing -Uri $u -OutFile $CaDst -TimeoutSec 10
       if ((Get-Content $CaDst -Raw) -match 'BEGIN CERTIFICATE') {
-        $CaFile = $CaDst; Write-Host "CA locale recuperee ($u) -> $CaDst"; break
+        if ((Get-ElpisCaSha256 $CaDst) -eq $CaSha256.ToLower()) {
+          $CaFile = $CaDst; Write-Host "CA locale recuperee ($u) -> $CaDst"; break
+        }
+        Write-Host "Attention : CA recue de $u refusee (empreinte SHA-256 differente de celle du serveur)."
       }
     } catch {}
   }
   if (-not $CaFile) {
     Remove-Item -Force -ErrorAction SilentlyContinue $CaDst
-    Write-Host "Attention : CA locale introuvable (ni :80, ni /api/cli/ca.crt)."
+    Write-Host "Attention : CA locale introuvable ou non conforme a l'empreinte du serveur (ni :80, ni /api/cli/ca.crt)."
   }
 }
 # --- Confiance du poste : comportement PAR DEFAUT (opt-out ELPIS_TRUST_CA=n).

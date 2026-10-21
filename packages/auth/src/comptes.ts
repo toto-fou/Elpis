@@ -3,7 +3,7 @@
 import { ErreurLecturePy, pyJsonDumps, pyJsonLoads, stripPy } from "@elpis/commun";
 import { groupConcat } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
-import { hashPassword, tokenHex, verifyPassword } from "@elpis/securite";
+import { hachageAJour, hashPassword, tokenHex, verifyPassword } from "@elpis/securite";
 
 import type { LigneUtilisateur } from "./session";
 
@@ -103,6 +103,20 @@ export async function verifyUser(x: Executeur, username: string, password: strin
   return (await verifyPassword(password, String(ligne.pass_salt), String(ligne.pass_hash)))
     ? Number(ligne.id)
     : null;
+}
+
+/** Rehache au format courant un mot de passe vérifié ; sans effet si la ligne a changé entre-temps. */
+export async function rehacherSiAncien(x: Executeur, uid: number, motDePasse: string): Promise<void> {
+  const ligne = await x.get<LigneUtilisateur>("SELECT * FROM users WHERE id=?", [uid]);
+  if (!ligne || hachageAJour(String(ligne.pass_hash))) return;
+  const sel = String(ligne.pass_salt);
+  const empreinte = await hashPassword(motDePasse, sel);
+  await x.run("UPDATE users SET pass_hash=? WHERE id=? AND pass_hash=? AND pass_salt=?", [
+    empreinte,
+    uid,
+    String(ligne.pass_hash),
+    sel,
+  ]);
 }
 
 export async function resetUserPassword(x: Executeur, uid: number, motDePasse: string): Promise<boolean> {

@@ -73,6 +73,7 @@ export {
   getUsersLite,
   mergeUserSettings,
   nomCanonique,
+  rehacherSiAncien,
   reglagesDepuis,
   reglagesEnJson,
   resetUserPassword,

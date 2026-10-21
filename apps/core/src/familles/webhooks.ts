@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/webhooks.ts — livraison publique d'un webhook de routine (scheduling/routes_webhooks.py) : signature HMAC du corps brut ou jeton, réponses indifférenciées, filtres, dédup, débit par IP. */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { Readable } from "node:stream";
 
 import {
@@ -26,6 +26,7 @@ import {
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
+import { egauxEnTempsConstant } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { journal } from "../journal";
@@ -91,15 +92,6 @@ function idDuChemin(req: FastifyRequest): number | null {
   }
 }
 
-/** `hmac.compare_digest` sur octets : longueurs différentes = faux, sans court-circuit sur le contenu. */
-function egalConstant(a: Buffer, b: Buffer): boolean {
-  if (a.length !== b.length) {
-    timingSafeEqual(a, a);
-    return false;
-  }
-  return timingSafeEqual(a, b);
-}
-
 /** `(x or "").strip()` d'une valeur du filtre : autre chose qu'une chaîne lève comme Python. */
 function texteFiltre(v: unknown): string {
   const t = ouPy(v, "");
@@ -153,9 +145,9 @@ function authentifier(req: FastifyRequest, secret: string, brut: Buffer): [boole
   const nature = sig ? "signature" : jeton ? "token" : "absent";
   if (sig) {
     const attendu = createHmac("sha256", Buffer.from(secret, "utf8")).update(brut).digest("hex");
-    return [egalConstant(Buffer.from(attendu, "ascii"), Buffer.from(lowerPy(sig), "utf8")), nature];
+    return [egauxEnTempsConstant(Buffer.from(attendu, "ascii"), Buffer.from(lowerPy(sig), "utf8")), nature];
   }
-  if (jeton) return [egalConstant(Buffer.from(secret, "utf8"), Buffer.from(jeton, "utf8")), nature];
+  if (jeton) return [egauxEnTempsConstant(Buffer.from(secret, "utf8"), Buffer.from(jeton, "utf8")), nature];
   return [false, nature];
 }
 

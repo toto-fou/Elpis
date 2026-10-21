@@ -60,9 +60,48 @@ réels dans Chromium) avant de fusionner.
 - Pas de nouvelle dépendance sous licence copyleft forte (GPL/AGPL) dans le
   cœur : elle doit rester optionnelle (voir `requirements-agpl-optional.txt`).
   Toute dépendance livrée est inscrite dans `THIRD_PARTY_NOTICES.md`.
+<!-- REUSE-IgnoreStart -->
 - Nouveaux fichiers source : en-tête `SPDX-License-Identifier: MIT`.
+<!-- REUSE-IgnoreEnd -->
+- Signez vos commits (`git commit -s`) : voir « Certificat d'origine » ci-dessous.
+
+## Certificat d'origine (DCO)
+
+Chaque commit porte une ligne `Signed-off-by: Prénom Nom <identité Git>`,
+ajoutée par `git commit -s`. Elle atteste le
+[Developer Certificate of Origin 1.1](https://developercertificate.org) : vous
+avez écrit la contribution, ou vous avez le droit de la publier sous la licence
+MIT du projet. Pas de CLA. Oubli : `git commit --amend -s` (dernier commit) ou
+`git rebase --signoff` (plusieurs). Le sign-off n'est pas encore vérifié en CI.
+
+Le texte du DCO fait foi en anglais ; il n'est pas recopié ici.
+
+## Code assisté par IA
+
+Vous pouvez utiliser un assistant de code (Claude Code, Copilot, etc.), sous
+ces conditions :
+
+- Vous restez l'**auteur** et le **responsable** de la contribution : le
+  sign-off (DCO) est le vôtre, jamais celui de l'outil.
+- Vous **relisez et comprenez** chaque ligne proposée, et vous l'avez essayée
+  vous-même ; une pull request que son auteur ne sait pas expliquer est refusée.
+- Vous **garantissez les droits** sur le résultat : pas de code généré qui
+  reproduit du code tiers sous une licence incompatible avec la licence MIT
+  (copyleft, licence inconnue, source sans licence), pas de texte ou d'image
+  copiés d'une œuvre protégée, pas de secret ni de donnée personnelle dans les
+  invites.
+- Dites-le dans la description de la pull request lorsqu'une part importante a
+  été générée (nom de l'outil, étendue) ; une trace `Co-Authored-By` dans le
+  message de commit est bienvenue.
+- Les mêmes règles valent pour les images, les icônes et les textes.
+
+## Code de conduite
+
+La participation au projet suppose le respect du
+[code de conduite](CODE_OF_CONDUCT.md) (Contributor Covenant 2.1).
 
 ## Licence
 
 En contribuant, vous acceptez que votre contribution soit distribuée sous
-licence MIT (voir [LICENSE](LICENSE)).
+licence MIT (voir [LICENSE](LICENSE)). Le nom et le logo « Elpis » ne sont pas
+couverts par cette licence : voir [TRADEMARKS.md](TRADEMARKS.md).

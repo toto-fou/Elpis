@@ -768,9 +768,14 @@ export class UserSandbox implements BacPourAgent {
     return this.ensureRunning();
   }
 
-  /** Sonde une fois par (conteneur, exec_user) la chaîne `docker exec -u 0:0 → setpriv → exec_user`. */
+  /** Sonde une fois par (conteneur, exec_user) la chaîne `docker exec -u 0:0 → setpriv → exec_user` ; une sonde en échec transitoire ne mémorise rien, un refus mémorisé est resondé une fois quand le profil l'exige. */
   private async ensurePrivdropProbed(execUser: string, signal?: AbortSignal): Promise<void> {
-    if (privdrop.cached(this.containerName, execUser) !== null) return;
+    const verdict = privdrop.cached(this.containerName, execUser);
+    if (verdict === true) return;
+    if (verdict === false) {
+      if (this.networkProfile.mode !== "allowlist_ip") return;
+      privdrop.oublierVerdict(this.containerName, execUser);
+    }
     const argv = privdrop.probeArgv(this.containerName, execUser);
     if (argv === null) return;
     let rc: number;
@@ -778,9 +783,19 @@ export class UserSandbox implements BacPourAgent {
       [rc] = await this.appel(argv, 10, signal);
     } catch (e) {
       if (estAnnulation(e, signal)) throw e;
-      rc = 1;
+      return;
     }
     privdrop.remember(this.containerName, execUser, rc === 0);
+  }
+
+  /** Utilisateur et préfixe d'exec ; en liste blanche IP, échoue fermé si `net_admin` pourrait rester. */
+  private resoudreUtilisateur(execUser: string): [string, string[]] {
+    try {
+      return privdrop.resolve(this.containerName, execUser, this.networkProfile.mode === "allowlist_ip");
+    } catch (e) {
+      if (e instanceof privdrop.RetraitNetAdminAbsent) throw new ExecError(e.message);
+      throw e;
+    }
   }
 
   /** Client de l'agent de ce bac (fabrique posée par la composition) ; sans fabrique : `agent_unavailable`. */
@@ -803,7 +818,7 @@ export class UserSandbox implements BacPourAgent {
       );
     const execUser = this.cfg.exec_user || "10001:10001";
     await this.ensurePrivdropProbed(execUser);
-    const [utilisateur, prefixe] = privdrop.resolve(this.containerName, execUser);
+    const [utilisateur, prefixe] = this.resoudreUtilisateur(execUser);
     const [rc, , err] = await this.appel(
       [
         "exec",
@@ -847,7 +862,7 @@ export class UserSandbox implements BacPourAgent {
     this.activite();
     const execUser = this.cfg.exec_user || "10001:10001";
     await this.ensurePrivdropProbed(execUser, signal);
-    const [utilisateur, prefixe] = privdrop.resolve(this.containerName, execUser);
+    const [utilisateur, prefixe] = this.resoudreUtilisateur(execUser);
     const args = ["exec", "--user", utilisateur, "--workdir", options.workdirInContainer ?? "/work"];
     if (options.stdin !== undefined) args.push("-i");
     const env = new Map(Object.entries(options.env ?? {}));

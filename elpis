@@ -250,8 +250,29 @@ svc_port() {
 }
 
 # .env : surcharges locales facultatives (KEY=VALUE, une par ligne), puis les ports qui en dépendent.
+# Lu comme des données, jamais sourcé : clé validée, valeur littérale (ni substitution ni commande), guillemets de bordure retirés.
 charger_env() {
-    if [ -f "$ROOT/.env" ]; then set -a; . "$ROOT/.env"; set +a; fi
+    [ -f "$ROOT/.env" ] || return 0
+    local ligne cle val
+    while IFS= read -r ligne || [ -n "$ligne" ]; do
+        ligne="${ligne%$'\r'}"
+        ligne="${ligne#"${ligne%%[![:space:]]*}"}"
+        case "$ligne" in ''|'#'*) continue ;; esac
+        ligne="${ligne#export[[:space:]]}"
+        ligne="${ligne#"${ligne%%[![:space:]]*}"}"
+        case "$ligne" in *=*) ;; *) continue ;; esac
+        cle="${ligne%%=*}"; val="${ligne#*=}"
+        cle="${cle%"${cle##*[![:space:]]}"}"
+        [[ "$cle" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+        val="${val#"${val%%[![:space:]]*}"}"
+        val="${val%"${val##*[![:space:]]}"}"
+        if [[ "$val" =~ ^\"([^\"]*)\"([[:space:]]+#.*)?$ ]] || [[ "$val" =~ ^\'([^\']*)\'([[:space:]]+#.*)?$ ]]; then
+            val="${BASH_REMATCH[1]}"
+        else
+            val="${val%%[[:space:]]#*}"; val="${val%"${val##*[![:space:]]}"}"
+        fi
+        export "$cle=$val"
+    done < "$ROOT/.env"
 }
 
 # Instance : config.json, .env, Node, écoute et dossiers, lus par le core (sans le venv).
@@ -557,6 +578,7 @@ cmd_service() {
             sudo -u "$run_user" test -r "$ROOT/config.json" \
                 || die "$run_user ne peut pas lire $ROOT/config.json : choisissez le propriétaire du dépôt."
             if getent group docker >/dev/null && ! id -nG "$run_user" | tr ' ' '\n' | grep -qx docker; then
+                warn "Le groupe docker équivaut à root sur l'hôte : $run_user en deviendra membre. Machine dédiée conseillée (SECURITY.md)."
                 usermod -aG docker "$run_user" && info "$run_user ajouté au groupe docker."
             fi
             _render_units "$unit_dir" "$run_user"
@@ -625,10 +647,16 @@ cmd_doctor() {
     local bad=0 sortie
     charger_env
     NODE="$(node_bin)"
-    check() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else warn "$1 : NON ($3)"; bad=$((bad+1)); fi; }
+    # Contrôles : check LIBELLÉ CONSEIL COMMANDE [ARGUMENTS...] (la commande est un argv, jamais évaluée par un shell).
+    check() { local lib="$1" conseil="$2"; shift 2; if "$@" >/dev/null 2>&1; then ok "$lib"; else warn "$lib : NON ($conseil)"; bad=$((bad+1)); fi; }
     # Facultatif : signalé, sans compter comme un problème.
-    check_opt() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else info "$1 : absent ($3)"; fi; }
-    check_out() { if sortie="$(eval "$2" 2>&1)"; then ok "$1 : $sortie"; else warn "$1 : NON (${sortie:+$sortie ; }$3)"; bad=$((bad+1)); fi; }
+    check_opt() { local lib="$1" conseil="$2"; shift 2; if "$@" >/dev/null 2>&1; then ok "$lib"; else info "$lib : absent ($conseil)"; fi; }
+    check_out() { local lib="$1" conseil="$2"; shift 2; if sortie="$("$@" 2>&1)"; then ok "$lib : $sortie"; else warn "$lib : NON (${sortie:+$sortie ; }$conseil)"; bad=$((bad+1)); fi; }
+    doctor_runtime() { [ "$(runtime_empreinte "$NODE_DIR")" = "$1" ]; }
+    doctor_office() { (cd "$ROOT/office" && "$PY" -c 'import elpis_office.word, elpis_office.powerpoint, markdown_it'); }
+    doctor_navigateur() { curl --noproxy '*' -fsS -m 3 "http://127.0.0.1:$BROWSER_PORT/health" | grep -q '"ok":true'; }
+    doctor_hote_empreinte() { ELPIS_RACINE="$ROOT" "$NODE" "$HOTE_DIST/main.mjs" --empreinte; }
+    doctor_llm() { ELPIS_CFG_LLM_API_KEY="$4" "$1" "$ROOT/deploy/configure.py" --check-llm --engine "${2:-llamacpp}" --llm-url "$3"; }
     # Paquets apt d'un groupe : manquants = problème si le groupe sert ici, sinon simple information.
     check_apt() {
         local manquants=() l liste="" cmd
@@ -648,50 +676,50 @@ cmd_doctor() {
     else
         info "paquets apt : dpkg-query absent, prérequis non vérifiés (deploy/prerequis-apt.txt)"
     fi
-    check "venv Python" "[ -x '$PY' ]" "./install.sh"
-    check "dépendances Python" "'$PY' -c 'import fastapi, httpx, uvicorn, cryptography'" "./install.sh"
+    check "venv Python" "./install.sh" test -x "$PY"
+    check "dépendances Python" "./install.sh" "$PY" -c 'import fastapi, httpx, uvicorn, cryptography' 
     local v_runtime="NODE_RUNTIME_SHA256_$(uname -m)" runtime_attendu
     runtime_attendu="${!v_runtime:-absente}"
     if [ "$NODE" = "$NODE_DIR/bin/node" ]; then
         check "runtime Node.js livré (node/, sans npm, empreinte ${runtime_attendu:0:12})" \
-            "[ \"\$(runtime_empreinte '$NODE_DIR')\" = '$runtime_attendu' ]" \
-            "./install.sh, ou ./install.sh --offline <paquet de cette version>"
+            "./install.sh, ou ./install.sh --offline <paquet de cette version>" \
+            doctor_runtime "$runtime_attendu"
     else
         info "runtime Node.js : $NODE (ELPIS_NODE ou PATH), empreinte non vérifiée"
     fi
-    check "Node.js du core $("$NODE" -v 2>/dev/null || echo absent) ($NODE)" "node_ok" \
-        "24.x, $NODE_MIN au moins : ./install.sh installe $NODE_VERSION dans node/"
-    check "core construit (apps/core/dist/main.mjs)" "[ -f '$CORE_DIST/main.mjs' ]" "./install.sh, ou ./install.sh --offline <paquet de cette version>"
+    check "Node.js du core $("$NODE" -v 2>/dev/null || echo absent) ($NODE)" \
+        "24.x, $NODE_MIN au moins : ./install.sh installe $NODE_VERSION dans node/" node_ok
+    check "core construit (apps/core/dist/main.mjs)" "./install.sh, ou ./install.sh --offline <paquet de cette version>" test -f "$CORE_DIST/main.mjs"
     if [ -f "$CORE_DIST/exploitation.mjs" ]; then
-        check_out "module natif du core" "core_cmd natif" "./install.sh"
-        check_out "bundle du core" "core_cmd empreinte" "./install.sh, ou ./install.sh --offline <paquet de cette version>"
+        check_out "module natif du core" "./install.sh" core_cmd natif
+        check_out "bundle du core" "./install.sh, ou ./install.sh --offline <paquet de cette version>" core_cmd empreinte
     fi
     # Hôte d'outils : construit, à jour des sources, node-pty (PTY du terminal) et better-sqlite3 chargés pour cette machine.
-    check "hôte d'outils construit (apps/toolhost/dist/main.mjs)" "[ -f '$HOTE_DIST/main.mjs' ]" "./install.sh, ou ./install.sh --offline <paquet de cette version>"
+    check "hôte d'outils construit (apps/toolhost/dist/main.mjs)" "./install.sh, ou ./install.sh --offline <paquet de cette version>" test -f "$HOTE_DIST/main.mjs"
     if [ -f "$HOTE_DIST/main.mjs" ]; then
-        check_out "bundle de l'hôte d'outils" "ELPIS_RACINE='$ROOT' '$NODE' '$HOTE_DIST/main.mjs' --empreinte" \
-            "./install.sh, ou ./install.sh --offline <paquet de cette version>"
-        check_out "modules natifs de l'hôte d'outils" "timeout 30 '$NODE' '$HOTE_DIST/main.mjs' --natif" \
-            "bundle incomplet ou d'une autre architecture : paquet hors ligne de cette architecture, ou construction sur place (build-essential, python3 : npm ci y compile node-pty)"
+        check_out "bundle de l'hôte d'outils" "./install.sh, ou ./install.sh --offline <paquet de cette version>" \
+            doctor_hote_empreinte
+        check_out "modules natifs de l'hôte d'outils" "bundle incomplet ou d'une autre architecture : paquet hors ligne de cette architecture, ou construction sur place (build-essential, python3 : npm ci y compile node-pty)" \
+            timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --natif
     fi
     if [ -n "${SSL_CERT_FILE:-}${SSL_CERT_DIR:-}" ]; then
-        check "autorités de confiance (${SSL_CERT_FILE:-SSL_CERT_DIR=$SSL_CERT_DIR})" "ca_ok" \
-            "fichier PEM, ou un seul dossier aux noms hachés (openssl rehash) : ./elpis configure --ca-file systeme|<fichier PEM>|aucun"
+        check "autorités de confiance (${SSL_CERT_FILE:-SSL_CERT_DIR=$SSL_CERT_DIR})" \
+            "fichier PEM, ou un seul dossier aux noms hachés (openssl rehash) : ./elpis configure --ca-file systeme|<fichier PEM>|aucun" ca_ok
     else
         info "autorités de confiance : magasins par défaut (core : Node et /etc/ssl/certs ; httpx : certifi) ; PKI interne : ./elpis configure --ca-file systeme"
     fi
-    check "dépendances de l'extracteur du RAG" "'$PY' -c 'import pdfplumber, pypdfium2, pypdf, openpyxl, docx, pptx'" "venv/bin/pip install -r requirements-rag.txt"
-    check "moteur Office (worker de l'hôte d'outils)" "cd '$ROOT/office' && '$PY' -c 'import elpis_office.word, elpis_office.powerpoint, markdown_it'" "venv/bin/pip install -r requirements.txt"
-    check "config.json" "[ -f '$ROOT/config.json' ]" "./elpis configure"
-    check "mcp.json" "[ -f '$ROOT/mcp.json' ]" "./elpis configure"
-    check "jeton MCP" "[ -s '$ROOT/user_db/.local_mcp_token' ]" "./elpis configure"
-    check "jeton du service RAG" "[ -s '$ROOT/user_db/.rag_service_token' ]" "./elpis configure"
+    check "dépendances de l'extracteur du RAG" "venv/bin/pip install -r requirements-rag.txt" "$PY" -c 'import pdfplumber, pypdfium2, pypdf, openpyxl, docx, pptx' 
+    check "moteur Office (worker de l'hôte d'outils)" "venv/bin/pip install -r requirements.txt" doctor_office
+    check "config.json" "./elpis configure" test -f "$ROOT/config.json"
+    check "mcp.json" "./elpis configure" test -f "$ROOT/mcp.json"
+    check "jeton MCP" "./elpis configure" test -s "$ROOT/user_db/.local_mcp_token"
+    check "jeton du service RAG" "./elpis configure" test -s "$ROOT/user_db/.rag_service_token"
     if [ -f "$ROOT/rag_app/rag_config.json" ] || [ -d "$ROOT/rag_app/DATA" ]; then
         warn "ancien RAG : NON (rag_app/rag_config.json ou rag_app/DATA encore là ; ./elpis restart ou ./install.sh le suppriment)"
         bad=$((bad+1))
     fi
     local th_host="${LOCAL_MCP_HOST:-127.0.0.1}"; [ "$th_host" = 0.0.0.0 ] && th_host=127.0.0.1
-    check "hôte d'outils ($th_host:$MCP_PORT)" "curl --noproxy '*' -fsS -m 3 -o /dev/null 'http://$th_host:$MCP_PORT/health'" "./elpis logs toolhost"
+    check "hôte d'outils ($th_host:$MCP_PORT)" "./elpis logs toolhost" curl --noproxy '*' -fsS -m 3 -o /dev/null "http://$th_host:$MCP_PORT/health"
     if [ -f "$HOTE_DIST/main.mjs" ]; then
         local natives
         natives="$(ELPIS_RACINE="$ROOT" timeout 30 "$NODE" "$HOTE_DIST/main.mjs" --familles-natives 2>/dev/null | tail -n 1)"
@@ -701,19 +729,18 @@ cmd_doctor() {
             warn "toolhost.json : familles_natives / mcp_upstream sont obsolètes (elpis-tools n'existe plus), ignorés : à retirer"
         fi
     fi
-    check "outils du compte servis par main (mcp.json sans URL d'appmcp)" "'$PY' '$ROOT/deploy/configure.py' --verifier-mcp" "./elpis configure"
-    check "familles d'outils de mcp.example.json présentes dans mcp.json" "'$PY' '$ROOT/deploy/configure.py' --verifier-familles-mcp" "./elpis configure"
+    check "outils du compte servis par main (mcp.json sans URL d'appmcp)" "./elpis configure" "$PY" "$ROOT/deploy/configure.py" --verifier-mcp
+    check "familles d'outils de mcp.example.json présentes dans mcp.json" "./elpis configure" "$PY" "$ROOT/deploy/configure.py" --verifier-familles-mcp
     local retire
     for retire in ELPIS_TOOLHOST ELPIS_APPMCP ELPIS_CLI; do
         [ "${!retire:-}" = python ] && info "$retire=python : ignoré depuis la 0.1.0 (retour à la version Python : tag python-final, docs/exploitation.md), à retirer de .env"
     done
-    check "Qdrant" "[ -x '$ROOT/rag_app/qdrant/qdrant' ]" "./install.sh"
-    check "service navigateur" "[ -d '$ROOT/browser-service/node_modules' ]" "./install.sh"
+    check "Qdrant" "./install.sh" test -x "$ROOT/rag_app/qdrant/qdrant"
+    check "service navigateur" "./install.sh" test -d "$ROOT/browser-service/node_modules"
     # En marche : son /health doit répondre et dire le navigateur utilisable.
     if curl --noproxy '*' -fsS -m 3 -o /dev/null "http://127.0.0.1:$BROWSER_PORT/health" 2>/dev/null; then
         check "service navigateur (/health)" \
-            "curl --noproxy '*' -fsS -m 3 'http://127.0.0.1:$BROWSER_PORT/health' | grep -q '\"ok\":true'" \
-            "./elpis logs browser"
+            "./elpis logs browser" doctor_navigateur
     fi
     # Contrôles faits par le core (exploitation.mjs) : signalés non vérifiés s'il n'est pas construit.
     local etats_sans_compte distants core_ok=0
@@ -731,27 +758,27 @@ cmd_doctor() {
         warn "verrous de fichiers : NON (${distants:-vérification impossible} ; NFS/CIFS non pris en charge)"
         bad=$((bad+1))
     fi
-    check "Docker joignable" "docker info" "installer docker, groupe docker"
+    check "Docker joignable" "installer docker, groupe docker" docker info
     local image
     image="$("$ROOT/deploy/docker/sandbox/build_offline.sh" --print-image 2>/dev/null)"
-    check "image sandbox $image" "docker image inspect '$image'" "./install.sh ou deploy/docker/sandbox/build_offline.sh"
-    check "bubblewrap (analyses du RAG et aperçus Office isolés)" "core_cmd bwrap" \
-        "apt install bubblewrap ; user namespaces autorisés ; core construit requis"
-    check_opt "LibreOffice (aperçus Office, facultatif)" "command -v soffice" "paquets apt du groupe apercus-office : deploy/prerequis-apt.txt"
+    check "image sandbox $image" "./install.sh ou deploy/docker/sandbox/build_offline.sh" docker image inspect "$image"
+    check "bubblewrap (analyses du RAG et aperçus Office isolés)" \
+        "apt install bubblewrap ; user namespaces autorisés ; core construit requis" core_cmd bwrap
+    check_opt "LibreOffice (aperçus Office, facultatif)" "paquets apt du groupe apercus-office : deploy/prerequis-apt.txt" command -v soffice
     if _https_enabled; then
-        check "Caddy actif (HTTPS)" "systemctl is-active --quiet caddy" "./install.sh --with-caddy puis ./elpis configure"
+        check "Caddy actif (HTTPS)" "./install.sh --with-caddy puis ./elpis configure" systemctl is-active --quiet caddy
     fi
     if [ -f /etc/systemd/system/elpis-whisper.service ]; then
-        check "reconnaissance vocale (:8090)" "curl --noproxy '*' -fsS -m 3 -o /dev/null http://127.0.0.1:8090/health" "systemctl status elpis-whisper"
-        check "synthèse vocale (:8091)" "curl --noproxy '*' -fsS -m 3 -o /dev/null http://127.0.0.1:8091/health" "systemctl status elpis-tts"
+        check "reconnaissance vocale (:8090)" "systemctl status elpis-whisper" curl --noproxy '*' -fsS -m 3 -o /dev/null http://127.0.0.1:8090/health
+        check "synthèse vocale (:8091)" "systemctl status elpis-tts" curl --noproxy '*' -fsS -m 3 -o /dev/null http://127.0.0.1:8091/health
     fi
     if [ -f "$ROOT/config.json" ] && [ "$core_ok" -eq 1 ]; then
         local db_hint="./elpis db info pour le détail ; ./elpis db use sqlite en secours"
         if [ "$(core_cmd config base-retiree 2>/dev/null)" = oui ]; then
             db_hint="MariaDB/MySQL n'est plus pris en charge : docs/exploitation.md, « Mettre à jour »"
         fi
-        check "base de données joignable" "core_cmd db info" "$db_hint"
-        check_out "base vue par le core" "core_cmd migrations" "./elpis db info"
+        check "base de données joignable" "$db_hint" core_cmd db info
+        check_out "base vue par le core" "./elpis db info" core_cmd migrations
         local llm moteur cle py="$PY"
         [ -x "$py" ] || py=python3
         llm="$(core_cmd config LLAMA_URL 2>/dev/null)"
@@ -759,8 +786,7 @@ cmd_doctor() {
             moteur="$(core_cmd config LLAMA_ENGINE 2>/dev/null)"
             cle="$(core_cmd config LLAMA_API_KEY 2>/dev/null)"
             # Clé passée par l'environnement : jamais sur une ligne de commande (ps), jamais affichée.
-            check_out "serveur LLM" "ELPIS_CFG_LLM_API_KEY=\"\$cle\" '$py' '$ROOT/deploy/configure.py' --check-llm --engine '${moteur:-llamacpp}' --llm-url '$llm'" \
-                "./elpis configure"
+            check_out "serveur LLM" "./elpis configure" doctor_llm "$py" "$moteur" "$llm" "$cle"
             local conseil
             while IFS= read -r conseil; do info "$conseil"; done \
                 < <(ELPIS_CFG_LLM_API_KEY="$cle" "$py" "$ROOT/deploy/configure.py" --conseils-moteur --engine "${moteur:-llamacpp}" 2>/dev/null)

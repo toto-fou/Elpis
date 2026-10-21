@@ -54,9 +54,10 @@ export function firstWord(sql: string): string {
   return PREMIER_MOT.exec(sql)?.[1]?.toUpperCase() ?? "";
 }
 
-/** Placeholders `?` → `$1…$n` hors littéraux, identifiants cités, E'…', $$…$$ et `--`, pas dans les commentaires en bloc (comme pg8000). */
+/** Placeholders `?` → `$1…$n` hors littéraux, identifiants cités, E'…', $$…$$, commentaires `--` et commentaires en bloc (imbriqués comme PostgreSQL). */
 export function qmarkVersDollar(sql: string): string {
-  let etat: "dehors" | "sq" | "qi" | "es" | "co" | "dq" = "dehors";
+  let etat: "dehors" | "sq" | "qi" | "es" | "co" | "dq" | "bloc" = "dehors";
+  let profondeur = 0;
   let echappe = false;
   let n = 0;
   let out = "";
@@ -71,6 +72,13 @@ export function qmarkVersDollar(sql: string): string {
       } else if (c === '"') {
         out += c;
         etat = "qi";
+      } else if (c === "/" && suiv === "*") {
+        out += "/*";
+        i += 1;
+        etat = "bloc";
+        profondeur = 1;
+        prec = null;
+        continue;
       } else if (c === "-") {
         out += c;
         if (prec === "-") etat = "co";
@@ -98,6 +106,23 @@ export function qmarkVersDollar(sql: string): string {
       out += c;
     } else if (etat === "dq") {
       if (c === "$" && prec === "$") etat = "dehors";
+      out += c;
+    } else if (etat === "bloc") {
+      if (c === "/" && suiv === "*") {
+        out += "/*";
+        i += 1;
+        profondeur += 1;
+        prec = null;
+        continue;
+      }
+      if (c === "*" && suiv === "/") {
+        out += "*/";
+        i += 1;
+        profondeur -= 1;
+        if (profondeur === 0) etat = "dehors";
+        prec = null;
+        continue;
+      }
       out += c;
     } else {
       out += c;

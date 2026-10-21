@@ -41,7 +41,13 @@ import { canUseEngine } from "../llm/acces-moteurs";
 import { EngineUnavailable, resolveLlmTarget, useLlmTarget } from "../llm/cible";
 import type { LlmTarget } from "../llm/cible";
 import { BUILTIN_KEY, connectorKey } from "../llm/moteurs";
-import { acquireGenPresence, handoverRebaselineOk, reclamerVerrou, reserverVerrou } from "./admission";
+import {
+  acquireGenPresence,
+  handoverRebaselineOk,
+  reclamerVerrou,
+  reserverVerrou,
+  verifierPlafondRuns,
+} from "./admission";
 import {
   clearChatCancellation,
   isChatCancelled,
@@ -149,7 +155,18 @@ async function resolveEnhanceTarget(base: Base, uid: number, data: Dict): Promis
       throw new HttpError(409, { code: "engine_unavailable", reason: e.reason, message: e.message });
     throw e;
   }
-  if (!(await canUseEngine(base, uid, cid ? connectorKey(cid) : BUILTIN_KEY)))
+  let autorise: boolean;
+  try {
+    autorise = await canUseEngine(base, uid, cid ? connectorKey(cid) : BUILTIN_KEY);
+  } catch (e) {
+    log.warn(`[image.engine_access] contrôle d'accès au moteur impossible (${String(e)}) — refus`);
+    throw new HttpError(503, {
+      code: "engine_unavailable",
+      reason: "access_check_failed",
+      message: "Contrôle d'accès au serveur indisponible, réessayez.",
+    });
+  }
+  if (!autorise)
     throw new HttpError(409, {
       code: "engine_unavailable",
       reason: "forbidden",
@@ -280,6 +297,7 @@ export async function imageTurn(
   const runId = randomBytes(8).toString("hex");
 
   const passation: boolean[] = [];
+  verifierPlafondRuns(uid, chatId);
   const jeton = await acquireGenPresence(uid, chatId, passation);
   if (passation.length && !ephemeral)
     try {

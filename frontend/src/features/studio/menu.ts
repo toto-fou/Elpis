@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/studio/menu.ts — Annotation Studio : capture annotée d'une cible desktop (live par SSE ou à la demande), plans, inspecteur, arbre UIA en colonne, zoom et déplacement de la scène. */
-import { computed, nextTick, ref } from "vue";
+import { computed, getCurrentScope, nextTick, onScopeDispose, ref } from "vue";
 import type { Ref } from "vue";
 
 import { anchorQuality, targetKwargs } from "../../modeles/automation-model.ts";
@@ -736,9 +736,9 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     return n > 0 ? `${Math.round(n * 100)}%` : "—";
   }
   function boxStroke(el: ElementUi | null | undefined): string {
-    if (el && el.id === selectedElementId.value) return "#2563eb";
-    if (el && el.id === hoveredElementId.value) return "#f59e0b";
-    return "#93c5fd";
+    if (el && el.id === selectedElementId.value) return "var(--accent)";
+    if (el && el.id === hoveredElementId.value) return "var(--warn-soft)";
+    return "var(--accent-300)";
   }
 
   const studioZoom = ref<"fit" | number>("fit");
@@ -759,14 +759,16 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   }
   if (typeof window !== "undefined") {
     let enFile = false;
-    window.addEventListener("resize", () => {
+    const surRedim = (): void => {
       if (enFile || currentView.value !== "studio") return;
       enFile = true;
       requestAnimationFrame(() => {
         enFile = false;
         measureStage();
       });
-    });
+    };
+    window.addEventListener("resize", surRedim);
+    if (getCurrentScope() !== undefined) onScopeDispose(() => window.removeEventListener("resize", surRedim));
   }
 
   const studioFitScale = computed(() => {

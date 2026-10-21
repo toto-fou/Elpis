@@ -61,9 +61,9 @@ export function ptyMaxParCompte(env: NodeJS.ProcessEnv = process.env): number {
   }
 }
 
-/** `_build_pty_docker_cmd` : argv `docker exec -it` du terminal ; root puis `setpriv` (net_admin retiré) si la sonde du conteneur a réussi, sinon forme historique. */
-export function construireCommandePty(conteneur: string): string[] {
-  const [utilisateur, prefixe] = privdrop.resolve(conteneur, PTY_EXEC_USER);
+/** `_build_pty_docker_cmd` : argv `docker exec -it` du terminal ; root puis `setpriv` (net_admin retiré) si la sonde a réussi, sinon forme historique, refusée si `exigerRetrait`. */
+export function construireCommandePty(conteneur: string, exigerRetrait = false): string[] {
+  const [utilisateur, prefixe] = privdrop.resolve(conteneur, PTY_EXEC_USER, exigerRetrait);
   const queue = prefixe.length
     ? [
         "/bin/sh",
@@ -360,9 +360,17 @@ export class Terminaux {
     const racine = await racineTravail(nom);
     const conteneur = containerName(safeSandboxName(nom));
     if (!(await enMarche(conteneur))) throw new HttpError(503, { ...CONTAINER_NOT_READY });
-    await sonderPrivdrop(conteneur);
+    const exigerRetrait = await aNetAdmin(conteneur);
+    await sonderPrivdrop(conteneur, exigerRetrait);
     if (this.marque(uid, cle) !== marque) throw new Error("terminal fermé pendant sa création");
-    const argv = construireCommandePty(conteneur);
+    let argv: string[];
+    try {
+      argv = construireCommandePty(conteneur, exigerRetrait);
+    } catch (e) {
+      if (e instanceof privdrop.RetraitNetAdminAbsent)
+        throw new HttpError(503, { error: "privdrop_unavailable", message: e.message });
+      throw e;
+    }
     const mien = this.duCompte(uid);
     if (mien.length >= this.maxParCompte) {
       const victime = mien.reduce((a, b) => (b.lastIo < a.lastIo ? b : a));
@@ -435,16 +443,32 @@ async function enMarche(conteneur: string): Promise<boolean> {
   }
 }
 
-/** `_probe_privdrop` : une sonde (10 s) par conteneur de la chaîne root + setpriv, verdict retenu. */
-async function sonderPrivdrop(conteneur: string): Promise<void> {
-  if (privdrop.cached(conteneur, PTY_EXEC_USER) !== null) return;
+/** Conteneur lancé avec `NET_ADMIN` (liste blanche IP) ; inspection impossible : supposé oui, pour échouer fermé. */
+async function aNetAdmin(conteneur: string): Promise<boolean> {
+  try {
+    const r = await appelDocker(["inspect", "--format", "{{json .HostConfig.CapAdd}}", conteneur], 5_000);
+    if (r.code !== 0) return true;
+    return /NET_ADMIN/i.test(decoderRemplace(r.sortie));
+  } catch {
+    return true;
+  }
+}
+
+/** `_probe_privdrop` : une sonde (10 s) par conteneur, verdict retenu sauf erreur ou délai ; un refus mémorisé est resondé une fois si le retrait est exigé. */
+async function sonderPrivdrop(conteneur: string, exigerRetrait = false): Promise<void> {
+  const verdict = privdrop.cached(conteneur, PTY_EXEC_USER);
+  if (verdict === true) return;
+  if (verdict === false) {
+    if (!exigerRetrait) return;
+    privdrop.oublierVerdict(conteneur, PTY_EXEC_USER);
+  }
   const argv = privdrop.probeArgv(conteneur, PTY_EXEC_USER);
   if (argv === null) return;
   let ok: boolean;
   try {
     ok = (await appelDocker(argv, 10_000)).code === 0;
   } catch {
-    ok = false;
+    return;
   }
   privdrop.remember(conteneur, PTY_EXEC_USER, ok);
 }

@@ -21,6 +21,8 @@
 #    ./build_offline.sh --load-only    Skip le build, charge uniquement le
 #                                      .tar.gz existant.
 #    ./build_offline.sh --print-image  Affiche le tag de l'image et sort.
+#    ./build_offline.sh --print-sources  Liste nom|licence|version|URL source des
+#                                      binaires GPL de l'image et sort.
 #    ./build_offline.sh --help   (-h)  Affiche cette aide.
 #
 #  Correctif vs version précédente
@@ -60,13 +62,20 @@ MIN_WHEELS=100
 
 cd "$(dirname "$0")"
 
+# Binaires sous GPL / LGPL de l'image : nom|licence|version|archive source exacte (lue par make_release.sh).
+print_sources() {
+    echo "hadolint|GPL-3.0-only|${HADOLINT_VERSION}|https://github.com/hadolint/hadolint/archive/refs/tags/${HADOLINT_VERSION}.tar.gz"
+    echo "upx|GPL-2.0-or-later (exception UPX)|${UPX_VERSION}|https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-src.tar.xz"
+    echo "radare2|LGPL-3.0-only (certains modules GPL)|${RADARE2_VERSION}|https://github.com/radareorg/radare2/archive/refs/tags/${RADARE2_VERSION}.tar.gz"
+}
+
 # ─── CLI parsing ─────────────────────────────────────────────────────
 DO_BUILD=1
 DO_LOAD=0
 DO_ARCHIVE=0
 
 usage() {
-    sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 while [[ $# -gt 0 ]]; do
@@ -81,6 +90,8 @@ while [[ $# -gt 0 ]]; do
             DO_ARCHIVE=0; shift ;;
         --print-image)
             echo "$IMAGE"; exit 0 ;;
+        --print-sources)
+            print_sources; exit 0 ;;
         --load-only)
             DO_BUILD=0; DO_LOAD=1; shift ;;
         *)

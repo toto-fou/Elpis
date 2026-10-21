@@ -10,6 +10,66 @@ const ATTRIBUTS_INTERDITS = ["onerror", "onload", "onclick", "onmouseover", "onf
 const MEDIAS = /<(img|video|audio|source|track|input)\b|style\s*=/i;
 const POSITION_FLOTTANTE = /position\s*:\s*(fixed|sticky)/gi;
 const crochets = new WeakSet<object>();
+const PROPRIETES_STYLE_SURES = new Set([
+  "color",
+  "background",
+  "background-color",
+  "opacity",
+  "text-align",
+  "vertical-align",
+  "text-decoration",
+  "text-decoration-line",
+  "text-decoration-color",
+  "text-transform",
+  "text-indent",
+  "text-overflow",
+  "white-space",
+  "word-break",
+  "overflow-wrap",
+  "font-weight",
+  "font-style",
+  "font-size",
+  "font-family",
+  "line-height",
+  "letter-spacing",
+  "margin",
+  "margin-top",
+  "margin-right",
+  "margin-bottom",
+  "margin-left",
+  "padding",
+  "padding-top",
+  "padding-right",
+  "padding-bottom",
+  "padding-left",
+  "border",
+  "border-top",
+  "border-right",
+  "border-bottom",
+  "border-left",
+  "border-color",
+  "border-style",
+  "border-width",
+  "border-radius",
+  "border-collapse",
+  "border-spacing",
+  "width",
+  "max-width",
+  "min-width",
+  "display",
+  "gap",
+  "list-style-type",
+  "flex",
+  "flex-direction",
+  "flex-wrap",
+  "flex-grow",
+  "flex-shrink",
+  "flex-basis",
+  "align-items",
+  "align-self",
+  "justify-content",
+  "grid-template-columns",
+]);
 
 export type Purify = typeof DOMPurify;
 interface DonneeAttribut {
@@ -83,14 +143,47 @@ export function neutraliserMediasDistants(html: string): string {
   }
 }
 
-/** Crochets de tous les passages DOMPurify : `position:fixed|sticky` ramené à `static`, lien à `target` sans accès à `window.opener`. */
+/** Ne garde du style en ligne que les déclarations de présentation sûres (liste blanche, sans `url(`, `expression` ni échappement). */
+export function filtrerStyle(valeur: string): string {
+  const sortie: string[] = [];
+  let depth = 0;
+  let debut = 0;
+  const decls: string[] = [];
+  for (let i = 0; i < valeur.length; i++) {
+    const c = valeur[i];
+    if (c === "(") depth++;
+    else if (c === ")") depth = Math.max(0, depth - 1);
+    else if (c === ";" && depth === 0) {
+      decls.push(valeur.slice(debut, i));
+      debut = i + 1;
+    }
+  }
+  decls.push(valeur.slice(debut));
+  for (const d of decls) {
+    const k = d.indexOf(":");
+    if (k < 1) continue;
+    const prop = d.slice(0, k).trim().toLowerCase();
+    const val = d.slice(k + 1).trim();
+    if (!PROPRIETES_STYLE_SURES.has(prop) || !val) continue;
+    if (
+      /url\s*\(|image-set|cross-fade|element\s*\(|expression|@import|javascript:|\\|\/\*|var\s*\(/i.test(val)
+    )
+      continue;
+    sortie.push(prop + ":" + val);
+  }
+  return sortie.join(";");
+}
+
+/** Crochets de tous les passages DOMPurify : `style` hors SVG filtré par liste blanche (`position:fixed|sticky` ramené à `static` ailleurs), lien à `target` sans accès à `window.opener`. */
 export function installerCrochets(purify: Purify): void {
   if (crochets.has(purify)) return;
   crochets.add(purify);
-  purify.addHook("uponSanitizeAttribute", (_noeud, brut) => {
+  purify.addHook("uponSanitizeAttribute", (noeud, brut) => {
     const data = brut as DonneeAttribut;
     if (data.attrName === "style" && data.attrValue) {
       data.attrValue = data.attrValue.replace(POSITION_FLOTTANTE, "position:static");
+      const dansSvg = noeud instanceof Element && noeud.closest("svg") !== null;
+      if (!dansSvg) data.attrValue = filtrerStyle(data.attrValue);
     }
   });
   purify.addHook("afterSanitizeAttributes", (noeud) => {

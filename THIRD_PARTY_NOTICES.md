@@ -23,6 +23,15 @@ file per component, named after the upstream package).
 | Phosphor Icons (web font, Regular) | 2.x (≈1 530 icons; version not stated in the files) | MIT | `src/regular/` | https://github.com/phosphor-icons/web |
 | Tailwind CSS (standalone browser build, used by `tools/generate_tailwind_css.mjs` to precompile `frontend/css/style.tailwind.css`) | 3.4.17 | MIT | `tailwind.js` | https://github.com/tailwindlabs/tailwindcss |
 
+### `frontend/assets/mascotte/` and `frontend/*.png` (project artwork)
+
+Not third-party code: drawings created for Elpis by the author, distributed
+under the project license (MIT). Part of them (the Elpis and Kiki
+illustrations) was produced with an image-generation tool and then cut with the
+tools of the folder; the copyright protection of such images is uncertain in
+some jurisdictions. Origin and reservation:
+[`frontend/assets/mascotte/README.md`](frontend/assets/mascotte/README.md).
+
 ### `frontend/dist/` (web bundle, built by Vite)
 
 `npm run build -w @elpis/web` (and `make_release.sh`) builds the two entries of
@@ -75,7 +84,7 @@ installed by the lock file; same licenses and copyright holders).
 | `index.umd.min.js` (boxplot) | @sgratzl/boxplots | ^2.0.0 | MIT |
 | `chartjs-adapter-date-fns.bundle.min.js` | date-fns | bundled by the adapter 3.0.0 | MIT — text in `LICENSES/date-fns.txt` |
 | `mermaid.min.js` | DOMPurify | 3.3.1 (banner) | Apache-2.0 OR MPL-2.0 (Apache-2.0 retained) — text in `LICENSES/dompurify.txt` |
-| `mermaid.min.js` | js-yaml | 4.1.1 (banner) | MIT (text not shipped by an installed package: https://github.com/nodeca/js-yaml) |
+| `mermaid.min.js` | js-yaml | 4.1.1 (banner) | MIT — text in `LICENSES/js-yaml.txt` (copied from https://github.com/nodeca/js-yaml; not shipped by an installed package) |
 | `mermaid.min.js` | marked | ^16.3.0 | MIT — text in `LICENSES/marked.txt` |
 | `mermaid.min.js` | @mermaid-js/parser, with Langium (4.2.1) and Chevrotain (~11.1.2) bundled | ^1.0.1 | MIT; Langium MIT (https://github.com/eclipse-langium/langium); Chevrotain Apache-2.0 |
 | `mermaid.min.js` | d3 (the d3-* modules used by the diagrams), internmap | ^7.9.0 | ISC |
@@ -83,7 +92,7 @@ installed by the lock file; same licenses and copyright holders).
 | `mermaid.min.js` | dagre-d3-es | 7.0.14 | MIT |
 | `mermaid.min.js` | cytoscape, cytoscape-cose-bilkent, cytoscape-fcose, cose-base, layout-base | ^3.33.1, ^4.1.0, ^2.2.0 | MIT |
 | `mermaid.min.js` | KaTeX | ^0.16.25 | MIT |
-| `mermaid.min.js` | khroma | ^2.1.0 | MIT (license file; its `package.json` has no `license` field) |
+| `mermaid.min.js` | khroma | 2.1.0 | MIT (license file of the package, text in `LICENSES/npm-web.txt`; its `package.json` has no `license` field, so the license is declared in `migration-kit/deps.map.json`, `politique.surcharges`) |
 | `mermaid.min.js` | lodash-es | ^4.17.23 | MIT |
 | `mermaid.min.js` | roughjs, with hachure-fill, path-data-parser, points-on-curve, points-on-path | ^4.6.6 | MIT |
 | `mermaid.min.js` | stylis, dayjs, uuid, ts-dedent, @braintree/sanitize-url, @upsetjs/venn.js, @iconify/utils | ^4.3.6, ^1.11.19, ^11.1.0, ^2.2.0, ^7.1.1, ^2.0.0, ^3.0.2 | MIT |
@@ -322,9 +331,13 @@ the core bundle.
 
 ---
 
-## 2. Installed dependencies (not redistributed)
+## 2. Installed dependencies
 
-`./install.sh` installs these from their official sources. The exact list
+`./install.sh` installs these from their official sources. The offline package
+built by `make_release.sh` redistributes the Python packages of
+`requirements-rag.txt` as wheels (`wheels/`); each wheel carries its license
+files in its `*.dist-info`, and `wheels/LICENCES-PYTHON.txt` (generated) sums
+up their names, versions and license texts. The exact list
 and pinned versions are in `requirements.txt`, `office/requirements.txt`, `requirements-rag.txt`,
 `desktop-agent/requirements-*.txt` and `browser-service/package.json`.
 
@@ -361,7 +374,7 @@ and pinned versions are in `requirements.txt`, `office/requirements.txt`, `requi
 | pypdfium2 (includes PDFium) | Apache-2.0 OR BSD-3-Clause (PDFium: BSD-3-Clause / Apache-2.0) |
 | charset-normalizer | MIT |
 | openpyxl | MIT |
-| fpdf2 | **LGPL-3.0** — see § 3 |
+| fpdf2 | **LGPL-3.0** — redistributed as a wheel in the offline package, see § 3 |
 
 ### Python — desktop agent (optional, installed on the controlled machine)
 
@@ -446,7 +459,10 @@ network, the AGPL obligations of those packages apply to your deployment.**
 
 These libraries are installed by pip as separate, unmodified packages and are
 dynamically imported; they can be replaced by the user, which is compatible
-with distributing Elpis under the MIT License.
+with distributing Elpis under the MIT License. fpdf2 is pure Python and
+unmodified: its wheel, redistributed in `wheels/` of the offline package,
+contains its source and its LGPL-3.0 license text, which satisfies the
+obligation to provide them.
 
 ### Separate programs under GPL — never part of the default install
 
@@ -461,4 +477,10 @@ built by `make_release.sh` or `deploy/voice/fetch_offline.sh` contain
 them (the desktop-agent bundle from `desktop-agent/fetch_offline_deps.sh`
 contains no GPL component): if you redistribute
 such a bundle, you must comply with the GPL for those components (license
-text and corresponding source, or a written offer).**
+text and corresponding source, or a written offer).** `make_release.sh` helps:
+it writes `sandbox/SOURCES.txt` (package list of the image, version and exact
+source URL of hadolint, upx and radare2) and `sandbox/OFFRE-SOURCES.txt`
+(written offer), and `--with-sources` downloads the source archives of those
+three programs; `deploy/voice/fetch_offline.sh --with-sources` does the same
+for piper-tts. The Debian packages of the image have their sources on
+https://snapshot.debian.org (see `docs/exploitation.md`).

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Intégration continue du dépôt public : installation, typage, lint et construction sur Node 24.
 # La suite de tests vit dans le dépôt de développement des mainteneurs, qui la passent avant de fusionner.
+# Les actions sont épinglées par SHA de commit (le tag est en commentaire) ; Dependabot les met à jour.
 name: CI
 
 on:
@@ -21,8 +22,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -30,3 +31,28 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
+
+  # Non bloquant : npm audit remonte des failles hautes déjà connues (katex, via mermaid) ; résultat à lire dans le journal.
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm audit --omit=dev --audit-level=high
+      - run: pipx install pip-audit
+      - run: pip-audit -r requirements-rag.txt
+
+  # Non bloquant : conformité REUSE (en-têtes SPDX et REUSE.toml).
+  reuse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0

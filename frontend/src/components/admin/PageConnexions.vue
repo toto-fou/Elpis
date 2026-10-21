@@ -2375,7 +2375,16 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                   v-model="t.agent_url"
                   placeholder="http://10.0.0.5:8765"
                   aria-label="Adresse de l'agent"
-                  class="md:col-span-3 set-input font-mono text-xs"
+                  class="md:col-span-2 set-input font-mono text-xs"
+                />
+                <input
+                  v-model="t.agent_token"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="Jeton"
+                  aria-label="Jeton de l'agent"
+                  title="Contenu de agent_token.txt sur la machine (affiché à l'installation de l'agent)"
+                  class="md:col-span-2 set-input font-mono text-xs"
                 />
 
                 <select
@@ -2397,7 +2406,7 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                   <option value="all">Tous</option>
                   <option value="list">Liste ({{ (t.allowed_users || []).length }})</option>
                 </select>
-                <div class="md:col-span-3 flex items-center justify-end gap-2">
+                <div class="md:col-span-2 flex items-center justify-end gap-2">
                   <label
                     class="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer"
                     title="Machine utilisée par défaut"

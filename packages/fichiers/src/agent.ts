@@ -36,6 +36,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
+import { O_PATH } from "@elpis/securite";
 import { Client } from "undici";
 import type { Dispatcher } from "undici";
 
@@ -60,7 +61,6 @@ export const PETIT = 1 << 16;
 export const TRAME_D = 1 << 22;
 export const TRAME_J = 1 << 18;
 export const LIGNE_MAX = 1 << 15;
-const O_PATH = 0o10000000;
 const O_CLOEXEC = 0o2000000;
 const EN_TETES: Readonly<Record<string, string>> = { "accept-encoding": "identity" };
 const PASSIF: Readonly<Record<string, string>> = { "x-elpis-passive": "1" };

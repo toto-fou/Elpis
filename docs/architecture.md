@@ -3100,6 +3100,16 @@ tables du core et de l'hôte d'outils et refuse un paquet hors politique
 (le build vérifie qu'elles sont à jour) ; le tableau du
 bundle web se tient à la main à chaque dépendance ajoutée à `frontend/package.json`.
 
+Le paquet hors ligne (`make_release.sh`) porte `LICENSE`, `NOTICE`,
+`THIRD_PARTY_NOTICES.md` et `LICENSES/` à sa racine, `wheels/LICENCES-PYTHON.txt`
+(licences des roues Python), une SBOM CycloneDX dans `sbom/` et, pour l'image
+sandbox (hadolint, upx, radare2 : GPL ou LGPL) et le lot vocal (piper-tts :
+GPL), la liste des sources et une offre écrite (`docs/exploitation.md`). La
+licence de `khroma` (sans champ `license` dans son `package.json`) est déclarée
+dans `migration-kit/deps.map.json` (`politique.surcharges`). Elpis était sous
+Apache-2.0 avant la 0.0.1 (voir `NOTICE`). Le nom et le logo « Elpis » ne sont
+pas couverts par la licence : [`TRADEMARKS.md`](../TRADEMARKS.md).
+
 Les dépendances sous licence AGPL (PyMuPDF, pdf2docx) ne sont **pas
 installées par défaut** : elles ne s'ajoutent qu'avec `./install.sh --with-agpl`
 (`requirements-agpl-optional.txt`). Sans elles, le RAG utilise `pypdfium2`.

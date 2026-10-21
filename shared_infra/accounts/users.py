@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""shared_infra/accounts/users.py — comptes utilisés par l'installation : création, lecture, réinitialisation du mot de passe (PBKDF2-HMAC-SHA256, 150 000 itérations, sel de 16 octets par compte)."""
+"""shared_infra/accounts/users.py — comptes utilisés par l'installation : création, lecture, réinitialisation du mot de passe (PBKDF2-HMAC-SHA256, 600 000 itérations, format versionné du core, sel de 16 octets par compte)."""
 from __future__ import annotations
 
 import hashlib
@@ -11,11 +11,14 @@ from typing import Any, Dict, List, Optional
 from shared_infra.db._connection import db_conn
 from shared_infra.db._dialect import insert_id
 
+_ITERATIONS = 600_000
+
 
 def _hash_password(password: str, salt_hex: str) -> str:
+    # Même format que packages/securite/src/mots-de-passe.ts (hashPassword).
     salt = bytes.fromhex(salt_hex)
-    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 150_000)
-    return dk.hex()
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, _ITERATIONS)
+    return f"pbkdf2_sha256${_ITERATIONS}${salt_hex}${dk.hex()}"
 
 
 def get_user(username: str) -> Optional[sqlite3.Row]:

@@ -1064,6 +1064,7 @@ avant le dossier local ; un profil réseau imposé détruit le conteneur sur l'h
 | `APP_VISION_ENDPOINT_URL` / `APP_VISION_FORMAT` / `APP_VISION_MODEL` | — / `omniparser` / — | Endpoint d'annotation visuelle |
 | `APP_VISION_PASSES` / `APP_VISION_TIMEOUT_SEC` / `APP_VISION_PROMPT` | `2` (1-3) / `30` (5-300) / — | Passes, timeout, prompt d'annotation |
 | `APP_DESKTOP_*` | voir `config.py` | Agents de contrôle : timeouts, scope d'observation, format de capture, plafonds |
+| `DESKTOP_AGENT_TOKEN` | — | Jeton envoyé aux agents de bureau (`Authorization: Bearer`) quand la machine n'a pas son propre `agent_token` (`desktop.targets[].agent_token`, Console › Connexions › Machines, rechargé à chaud). Côté machine pilotée : `DESKTOP_AGENT_TOKEN` ou `agent_token.txt`, généré par l'installation de l'agent ; sans jeton ni fichier, l'agent génère `agent_token.txt` au démarrage et écrit le jeton dans son journal ; `DESKTOP_AGENT_INSECURE=1` le fait démarrer sans jeton. Le jeton est visible des administrateurs dans la console (champ masqué à la saisie seulement) |
 | `OPENCODE_DIST_DIR` | `cli_dist/` | Binaires OpenCode servis sur le LAN |
 
 #### Résilience et verrous

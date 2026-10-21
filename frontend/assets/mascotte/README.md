@@ -61,3 +61,9 @@ Dessins créés pour Elpis par l'auteur du projet (pixel art généré par scrip
 illustrations d'Elpis et du skin Kiki produites par génération d'images puis
 découpées avec les outils du dossier). Distribués sous la licence du projet
 (MIT).
+
+Réserve : une image produite par génération d'images peut ne pas être
+protégeable par le droit d'auteur selon les juridictions, et sa ressemblance
+avec des œuvres existantes n'est pas contrôlée. Le skin Kiki est désactivé par
+défaut ; un déploiement sensible peut garder les seuls dessins générés par
+script.

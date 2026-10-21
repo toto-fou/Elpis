@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/observabilite/prometheus.ts — exposition Prometheus de `/api/admin/metrics/prometheus` : jauges de la base, de l'usage par fenêtre, du système, du process et du serveur LLM (routes/admin/metrics.py). */
-import { timingSafeEqual } from "node:crypto";
-
 import { arrondiPy, intPy, prefixePy, reprFlottant, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Executeur, Valeur } from "@elpis/db";
+import { egauxEnTempsConstant } from "@elpis/securite";
 
 import { lastHeartbeatAt } from "./echantillonneur";
 import type { Echantillons } from "./echantillonneur";
@@ -30,12 +29,7 @@ export function scrapeAutorise(
   if (!presente) return false;
   const ascii = (t: string): boolean => [...t].every((c) => c.charCodeAt(0) < 0x80);
   if (!ascii(jeton) || !ascii(presente)) return false;
-  const [a, b] = [Buffer.from(jeton), Buffer.from(presente)];
-  if (a.length !== b.length) {
-    timingSafeEqual(a, a);
-    return false;
-  }
-  return timingSafeEqual(a, b);
+  return egauxEnTempsConstant(Buffer.from(jeton), Buffer.from(presente));
 }
 
 /** `_esc` : valeur de label sans antislash ni guillemet, « unknown » si vide, 120 caractères au plus. */

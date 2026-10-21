@@ -1227,7 +1227,7 @@ def render_element(ctx: RenderContext, slide, element, default_frame: Frame):
     if element.alt_text and shape is not None:
         try:
             shape_ooxml.set_alt_text(shape, element.alt_text)
-        except Exception:  # pragma: no cover — a few shape kinds have no cNvPr
+        except Exception:  # noqa: BLE001  # pragma: no cover — a few shape kinds have no cNvPr
             pass
     return shape
 

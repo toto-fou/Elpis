@@ -284,10 +284,6 @@ async function auPlus<T>(p: Promise<T>, s: number): Promise<T | undefined> {
   }
 }
 
-function nomErreur(e: unknown): string {
-  return e instanceof ErreurPython ? e.type : e instanceof Error ? e.name : typeof e;
-}
-
 /** Clôture du run sans détachement : déconnexion en plein travail (Stop, attente de l'unwind) ou fin normale (verrou rendu). */
 async function cloturerRun(
   tache: Promise<void>,
@@ -849,7 +845,7 @@ export async function* runTurn(
           kind = llmErrorKind(e);
           texte =
             "La génération s'est interrompue sur une erreur interne. Relancez-la ; si le problème persiste, ouvrez un nouveau chat ou signalez le détail ci-dessous.";
-          detail = `${nomErreur(e)}: ${prefixePy(e instanceof Error ? e.message : strPy(e), 300)}`;
+          detail = "Le détail figure dans le journal du serveur.";
         }
         issueDuTour("error", kind);
         await onEvent({ type: "error", text: texte, detail, kind });
@@ -980,7 +976,7 @@ export async function* runTurn(
     for await (const ev of drainCoalesced(q, { signal, dormir: (s) => reglages.dormir(s) })) yield ev;
   } catch (e) {
     log.error(`[chat_stream] erreur dans le drain du flux: ${String(e)}`);
-    yield { type: "error", text: `Flux interrompu: ${e instanceof Error ? e.message : strPy(e)}` };
+    yield { type: "error", text: "Flux interrompu : erreur interne du serveur." };
   } finally {
     stopLoadWatch(uid, chatId);
     const stoppe = isChatCancelled(uid, chatId);

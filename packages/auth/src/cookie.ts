@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** packages/auth/src/cookie.ts — cookie de session au format TS : base64url(JSON) « . » base64url(HMAC-SHA256), attributs de Starlette. */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 import { stripPy } from "@elpis/commun";
 import type { AttributsCookie } from "@elpis/config";
+import { egauxEnTempsConstant } from "@elpis/securite";
 
 const CONTEXTE = "elpis.session.v1.";
 
@@ -30,7 +31,7 @@ export function lireSession(
   const charge = valeur.slice(0, point);
   const attendue = Buffer.from(signature(secret, charge));
   const recue = Buffer.from(valeur.slice(point + 1));
-  if (attendue.length !== recue.length || !timingSafeEqual(attendue, recue)) return null;
+  if (!egauxEnTempsConstant(attendue, recue)) return null;
   try {
     const { d, t } = JSON.parse(Buffer.from(charge, "base64url").toString("utf8")) as {
       d?: unknown;
@@ -52,8 +53,10 @@ export function enteteCookie(a: AttributsCookie, valeur: string): string {
   return `${a.cookie_name}=${valeur}; path=/; Max-Age=${a.max_age}; ${drapeaux(a)}`;
 }
 
-export function enteteEffacement(a: AttributsCookie): string {
-  return `${a.cookie_name}=null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${drapeaux(a)}`;
+/** Effacement : mêmes Path, SameSite, Secure et HttpOnly que la pose ; `maintenant` (epoch) date l'expiration, sinon 1970. */
+export function enteteEffacement(a: AttributsCookie, maintenant?: number): string {
+  const date = new Date(maintenant === undefined ? 0 : Math.floor(maintenant) * 1000).toUTCString();
+  return `${a.cookie_name}=""; path=/; expires=${date}; Max-Age=0; ${drapeaux(a)}`;
 }
 
 /** `http.cookies._unquote` : guillemets retirés, échappements `\ooo` et `\c` résolus. */

@@ -119,7 +119,8 @@ export interface Commande {
   args: string[];
 }
 
-export type VueSlash = Pick<typeof Vue, "ref" | "computed" | "nextTick">;
+export type VueSlash = Pick<typeof Vue, "ref" | "computed" | "nextTick"> &
+  Partial<Pick<typeof Vue, "onScopeDispose">>;
 
 export interface MenuSlash {
   showSlash: ComputedRef<boolean>;
@@ -198,6 +199,7 @@ function paquets<T>(src: readonly T[], q: string, texte: (x: T) => string): T[] 
 /** Même contrat que l'ancien `setupChatSlash(vue, refs, ctx)` de chat/_slash.js. */
 export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): MenuSlash {
   const { ref, computed, nextTick } = vue;
+  const onScopeDispose = vue.onScopeDispose ?? ((_fn: () => void): void => undefined);
   const { inputRef, inputMessage, showMentionDropdown } = refs;
   const templates = refs.templates || null;
   const { fetchAuth, showToast } = ctx;
@@ -216,14 +218,23 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
   let skillsAt = 0;
   let promptsAt = 0;
 
-  const fenetre = globalThis as { addEventListener?: (type: string, f: () => void) => void };
-  fenetre.addEventListener?.("skills:changed", () => {
+  const fenetre = globalThis as {
+    addEventListener?: (type: string, f: () => void) => void;
+    removeEventListener?: (type: string, f: () => void) => void;
+  };
+  const surSkills = (): void => {
     skillsAt = 0;
     skills.value = [];
-  });
-  fenetre.addEventListener?.("prompts:changed", () => {
+  };
+  const surPrompts = (): void => {
     promptsAt = 0;
     prompts.value = [];
+  };
+  fenetre.addEventListener?.("skills:changed", surSkills);
+  fenetre.addEventListener?.("prompts:changed", surPrompts);
+  onScopeDispose(() => {
+    fenetre.removeEventListener?.("skills:changed", surSkills);
+    fenetre.removeEventListener?.("prompts:changed", surPrompts);
   });
 
   async function lireJson(url: string): Promise<Record<string, unknown> | null> {

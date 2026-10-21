@@ -147,11 +147,9 @@ def _generation_guard() -> None:
     # Seconde source : le drapeau de bascule, marqué « publié » juste après
     # l'écriture de config.json. Un config.json devenu illisible (rendu vide)
     # ne fait donc plus écrire un ancien process dans l'ancienne base.
-    try:
+    with _swallow("db.published_generation"):
         from shared_infra.ops.db_switch import published_generation
         published = max(published, published_generation())
-    except Exception:
-        pass
     if published > _db_generation():
         _gen_stale = True
         logger.error("[db] base basculée (génération %d > %d) : emprunts refusés "
@@ -201,15 +199,13 @@ def db() -> sqlite3.Connection:
         return conn
 
     if conn is not None:
-        try:
+        with _swallow("db.pool_hard_close"):
             conn._hard_close()
-        except Exception:
-            pass
 
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH, timeout=30, factory=_PooledConnection)
     conn.row_factory = sqlite3.Row
-    try:
+    with _swallow("db.pragmas"):
         # ``journal_mode`` est une propriété PERSISTANTE du fichier : la poser
         # ici ne sert qu'au tout premier boot sur une base neuve. Les trois
         # autres sont bien par-connexion, donc posées une fois par connexion
@@ -218,8 +214,6 @@ def db() -> sqlite3.Connection:
         conn.execute("PRAGMA synchronous=NORMAL;")
         conn.execute("PRAGMA foreign_keys=ON;")
         conn.execute("PRAGMA busy_timeout=10000;")
-    except Exception:
-        pass
     _pool.key, _pool.conn, _pool.depth = key, conn, 1
     return conn
 

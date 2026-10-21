@@ -421,7 +421,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     });
   }
 
-  /** Lit le flux d'une réponse acceptée ; une fin propre sans conclusion arme le rattachement. */
+  /** Lit le flux d'une réponse acceptée ; une fin propre sans conclusion appliquée (absente ou hors contrat) arme le rattachement. */
   async function lireFlux(rep: Response, run: RunLu, mien: number): Promise<void> {
     if (!rep.body) throw new Error("HTTP " + rep.status);
     const suivi = new SuiviFlux({
@@ -432,15 +432,18 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       rejeu: false,
     });
     let finPropre = true;
+    let conclu = false;
     for await (const evt of lireNdjson(rep.body)) {
       const res = suivi.recevoir(evt);
       if (mien !== f.activeGen) {
         finPropre = false;
         break;
       }
-      if (!res.appliquer) continue;
+      const ev = res.ev;
+      if (!res.appliquer || !ev) continue;
+      if (ev.type === "final" || ev.type === "error") conclu = true;
       try {
-        await l.handleStreamEvent(evt as DonneesFlux);
+        await l.handleStreamEvent(ev as unknown as DonneesFlux);
       } catch (err) {
         journal.erreur("[chat] handleStreamEvent a échoué :", err, res.type);
       }
@@ -449,7 +452,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
         break;
       }
     }
-    if (finPropre && suivi.etat.terminal === null && mien === f.activeGen) {
+    if (finPropre && (suivi.etat.terminal === null || !conclu) && mien === f.activeGen) {
       const fin = idFinal();
       if (fin) f.pendingReattach = String(fin);
     }

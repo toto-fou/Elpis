@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/relais/apercu.ts — jeton d'URL de l'aperçu « Web » (`/api/sandbox/pv|pvs/<jeton>/…`), port de preview_token.py. */
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 import { ErreurPython, intPy } from "@elpis/commun";
 import { config } from "@elpis/config";
+import { egauxEnTempsConstant } from "@elpis/securite";
 
 import { utilisateur } from "../familles/comptes";
 import type { Famille } from "../routes";
@@ -39,9 +40,7 @@ function compareTextes(a: string, b: string): boolean {
   if (!estAscii(a) || !estAscii(b)) {
     throw new ErreurPython("TypeError", "comparing strings with non-ASCII characters is not supported");
   }
-  const x = Buffer.from(a, "latin1");
-  const y = Buffer.from(b, "latin1");
-  return x.length === y.length && timingSafeEqual(x, y);
+  return egauxEnTempsConstant(Buffer.from(a, "latin1"), Buffer.from(b, "latin1"));
 }
 
 /** `(jeton, expiration epoch)`, signé avec la clé dérivée du secret de session. */

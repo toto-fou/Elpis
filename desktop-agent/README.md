@@ -8,9 +8,31 @@ model") and the chatbot's **Bureau** (`desktop_*`) tools + **Annotation Studio**
 - **Linux** — element tree via **AT-SPI** (`pyatspi`/PyGObject), input via `pyautogui`
   (X11) or `ydotool` (Wayland), screenshots via `mss`/`grim`.
 
-It runs **on the target machine**, binds `0.0.0.0`, and has **no auth** — intended
-for a trusted **local network** only. It is a full remote-control surface, so
-don't expose it to untrusted networks.
+It runs **on the target machine** and binds `0.0.0.0`. It is a full remote-control
+surface (commands, files, input), so it is protected by a **shared token** and meant
+for a trusted **local network** only: don't expose it to untrusted networks.
+
+## Token (authentication)
+Every request except `GET /health` must carry `Authorization: Bearer <token>`
+(compared in constant time → `401` otherwise). The agent also refuses any request
+with an `Origin` header (`403`, i.e. a web page in a browser) and any `POST`/`PUT`
+whose `Content-Type` is not `application/json` (`415`).
+
+- The token is read from `DESKTOP_AGENT_TOKEN`, else from `agent_token.txt` next to
+  `server.py`. `install_agent.sh` and `run.ps1` generate that file on first run if
+  both are missing, and print the token (`install_agent.ps1` prints it again).
+- A `DESKTOP_AGENT_TOKEN` set at install time is written to `agent_token.txt` (the
+  systemd unit and the Windows task do not forward the environment).
+- **Updating without reinstalling.** If no token is configured and `agent_token.txt`
+  does not exist, the agent generates it (mode 0600, next to `server.py`), logs the
+  token once (`journalctl --user -u desktop-agent`) and starts requiring it: enter
+  it on the Elpis side. Re-running `install_agent.sh` / `install_agent.ps1` prints it too.
+- `DESKTOP_AGENT_INSECURE=1` starts without authentication (a warning is logged; any
+  host of the network can then control the machine). Discouraged. Set at install
+  time, it is written into the systemd unit (`Environment=`) or the Windows task.
+- Elpis side: give the same token to the toolhost, either per machine (`agent_token`
+  next to `agent_url` in `desktop.targets`, when supported) or through the
+  `DESKTOP_AGENT_TOKEN` environment variable of the toolhost process.
 
 ## Install
 
@@ -40,6 +62,8 @@ scheduled task → `run.ps1 -Background`).
 |-----|---------|---------|
 | `DESKTOP_AGENT_HOST` | `0.0.0.0` | bind host |
 | `DESKTOP_AGENT_PORT` | `8765`    | bind port |
+| `DESKTOP_AGENT_TOKEN` | — (or `agent_token.txt`) | shared bearer token, required unless insecure mode |
+| `DESKTOP_AGENT_INSECURE` | unset | `1` = start without a token (trusted network only) |
 | `DESKTOP_AGENT_QUEUE_MAX` | `4` | UIA worker queue depth; beyond it, new UIA calls get `503` (agent busy) instead of piling up |
 | `DESKTOP_AGENT_HUNG_AFTER_SEC` | `60` | if the current UIA op has run longer than this, new UIA calls fail fast with `503` |
 | `DESKTOP_AGENT_OP_TIMEOUT_SEC` | `120` | server-side wait cap per UIA op (`/wait_*` and `/launch` use `timeout_ms + 10s`) |

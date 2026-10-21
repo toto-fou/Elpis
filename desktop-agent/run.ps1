@@ -132,6 +132,22 @@ if (-not (Test-PyImport 'pywinauto')) {
 
 $ErrorActionPreference = $prevEAP
 
+# -- 2c. Jeton partages avec Elpis : genere au premier lancement, jamais ecrase ----
+$TokenFile = Join-Path $Here 'agent_token.txt'
+if ($env:DESKTOP_AGENT_TOKEN) {
+    [System.IO.File]::WriteAllText($TokenFile, $env:DESKTOP_AGENT_TOKEN.Trim())
+    & icacls $TokenFile /inheritance:r /grant:r "$($env:USERNAME):(R,W)" *> $null
+} elseif (($env:DESKTOP_AGENT_INSECURE -ne '1') -and (-not (Test-Path $TokenFile))) {
+    $bytes = New-Object 'System.Byte[]' 32
+    $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+    $rng.GetBytes($bytes)
+    $tok = ($bytes | ForEach-Object { $_.ToString('x2') }) -join ''
+    [System.IO.File]::WriteAllText($TokenFile, $tok)
+    & icacls $TokenFile /inheritance:r /grant:r "$($env:USERNAME):(R,W)" *> $null
+    Write-Host "[OK] Jeton de l'agent genere : $tok"
+    Write-Host "     A saisir cote Elpis (jeton de la machine). Fichier : $TokenFile"
+}
+
 if ($SetupOnly) {
     Write-Host "[OK] Pret. Double-clic sur run.bat pour demarrer l'agent."
     exit 0

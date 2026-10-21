@@ -658,7 +658,8 @@ export class Planificateur {
       try {
         const proprietaire = await ligneUtilisateur(this.base, compte);
         stdioOk = proprietaire !== undefined && Number(proprietaire["is_admin"]) === 1;
-      } catch {
+      } catch (e) {
+        log.warn(`[routines.stdio] compte illisible (${String(e)}) — stdio refusé`);
         stdioOk = false;
       }
       const mcpConfigs = await rehydrateMcpSecrets(
@@ -676,8 +677,9 @@ export class Planificateur {
           compte,
           connId !== null ? connectorKey(connId) : BUILTIN_KEY,
         );
-      } catch {
-        autorise = true;
+      } catch (e) {
+        log.warn(`[routines.access] contrôle d'accès au moteur impossible (${String(e)}) — refus`);
+        autorise = false;
       }
       if (!autorise) {
         await markRunError(this.base, runId, {

@@ -195,6 +195,7 @@ function erreurAdmission(e: unknown): boolean {
   return (
     e instanceof HttpError &&
     (e.statusCode === 429 ||
+      (e.statusCode === 503 && estDict(e.detail) && e.detail["reason"] === "access_check_failed") ||
       (e.statusCode === 409 && (e.detail === "generation_running" || e.detail === "compression_running")))
   );
 }

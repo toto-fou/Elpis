@@ -15,6 +15,11 @@ Write-Host "-> Preparation hors-ligne (Python embarque + venv + dependances) ...
 & powershell -NoProfile -ExecutionPolicy Bypass -File "$Here\run.ps1" -SetupOnly
 if ($LASTEXITCODE -ne 0) { Write-Error "La preparation a echoue (voir messages ci-dessus)."; exit 1 }
 
+$TokenFile = Join-Path $Here 'agent_token.txt'
+if (Test-Path $TokenFile) {
+    Write-Host "[OK] Jeton de l'agent (a saisir cote Elpis) : $((Get-Content $TokenFile -Raw).Trim())"
+}
+
 $Port = if ($env:DESKTOP_AGENT_PORT) { $env:DESKTOP_AGENT_PORT } else { '8765' }
 
 # -- Auto-demarrage : tache planifiee ONLOGON (session interactive) --
@@ -25,6 +30,7 @@ if (-not $Svc -and [Environment]::UserInteractive) {
 }
 if ($Svc -eq '1') {
     $tr = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$Here\run.ps1`" -Background"
+    if ($env:DESKTOP_AGENT_INSECURE -eq '1') { $tr = "cmd /c set DESKTOP_AGENT_INSECURE=1&& $tr" }
     schtasks /Create /TN "desktop-agent" /SC ONLOGON /RL LIMITED /TR $tr /F | Out-Null
     Write-Host "[OK] Tache 'desktop-agent' creee (demarre a chaque ouverture de session)."
     schtasks /Run /TN "desktop-agent" | Out-Null

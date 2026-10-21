@@ -182,7 +182,10 @@ if (!css || css.length < 20000) {
     console.error(`CSS produit suspect (${css.length} octets) — on n'écrase pas.`);
     process.exit(1);
 }
-const header = `/* GÉNÉRÉ par tools/generate_tailwind_css.mjs — NE PAS ÉDITER À LA MAIN.\n`
+// REUSE-IgnoreStart
+const header = `/* SPDX-License-Identifier: MIT */\n`
+// REUSE-IgnoreEnd
+    + `/* GÉNÉRÉ par tools/generate_tailwind_css.mjs — NE PAS ÉDITER À LA MAIN.\n`
     + ` * Régénérer après avoir ajouté des classes utilitaires :\n`
     + ` *     node tools/generate_tailwind_css.mjs\n`
     + ` * Couverture prouvée par tests/frontend/tailwind-verify.mjs. */\n`;

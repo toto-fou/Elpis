@@ -1,4 +1,5 @@
-/* static/style.css */
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/style.css — jetons, thèmes et composants de l'interface */
 
 /* ================================================================
  *  DESIGN TOKENS  (moteur de skins)
@@ -11,7 +12,7 @@
  *    - ``body.elpis-app-dark`` → valeurs du mode SOMBRE (= les anciennes
  *                                surcharges hardcodées, déplacées ici).
  *
- *  TROIS classes body pilotent le rendu (posées par app-settings.js) :
+ *  TROIS classes body pilotent le rendu (posées par features/reglages/apparence.ts) :
  *    - ``elpis-skin-<id>``     → le skin choisi (fichier css/skins/<id>.css) ;
  *    - ``elpis-app-dark``      → le TOGGLE mode sombre (bloc de tokens
  *                                neutres ci-dessous + blocs sombres des skins) ;
@@ -87,10 +88,8 @@
        sans condition. C'est une décision produit — mais le bloc doit alors se
        lire comme UNE surface.
 
-       ⚠ Défaut corrigé le 2026-09-07 : le cadre était #1e1e1e (VS Code),
-       l'en-tête #252526 et la zone de code #0d1117 (github-dark, ré-imposé en
-       sombre) — trois gris empilés, donc une bordure parasite bien visible
-       entre le texte et le bloc. Les valeurs ci-dessous sont la palette
+       Cadre, en-tête et zone de code partagent un même gris : trois gris
+       empilés dessineraient une bordure parasite entre le texte et le bloc. Les valeurs ci-dessous sont la palette
        github-dark COMPLÈTE, celle pour laquelle les couleurs de coloration
        syntaxique sont calibrées ; l'en-tête n'est qu'un relief de la même
        famille. Un skin peut redéfinir ces cinq tokens. */
@@ -117,7 +116,7 @@
     --scrollbar-thumb-hover:  #94a3b8;
     --scrollbar-thumb-custom: #cbd5e1;
 
-    /* ── Familles SÉMANTIQUES (correctif skins 2026-07) ──────────────────
+    /* ── Familles SÉMANTIQUES ──────────────────
        Même doctrine que --danger-* : valeur CLAIRE ici == couleur Tailwind
        native (parité pixel en Ardoise clair), variante claire-sur-sombre
        dans le bloc ``body.elpis-dark-surface`` plus bas, overrides par
@@ -172,7 +171,7 @@
     --role-admin-border:  #e9d5ff;           /* purple-200 */
 
     /* Rampe texte : cran « décor » (chevrons, séparateurs) — bridgé sur
-       text-slate-300 (phase rail du correctif). */
+       text-slate-300. */
     --text-300: #94a3b8;                     /* slate-400 natif */
 
     /* Rail latéral (sidebar chat + console admin) — sombre en Ardoise dans
@@ -251,7 +250,7 @@ body.elpis-app-dark {
 
 /* ── Familles sémantiques : valeurs CLAIRE-SUR-SOMBRE ────────────────────
    Portées par ``elpis-dark-surface`` : classe MARQUEUR posée par
-   app-settings.js quand (mode sombre ON) OU (skin à base sombre, flag
+   apparence.ts quand (mode sombre ON) OU (skin à base sombre, flag
    ``darkBase`` dans APP_SKINS — ex. Émeraude). Distincte de
    ``elpis-app-dark`` (le toggle) pour qu'Émeraude-clair reçoive ces
    valeurs SANS hériter du bloc de tokens neutres du mode sombre
@@ -315,7 +314,7 @@ body .text-slate-300    { color: var(--text-300); }
 .bg-\[\#1e1e1e\] .text-slate-300 { color: #cbd5e1; }
 .bg-\[\#1e1e1e\] .text-slate-400 { color: #94a3b8; }
 
-/* ── Bridge SÉMANTIQUE (correctif skins 2026-07) ─────────────────────────
+/* ── Bridge SÉMANTIQUE ─────────────────────────
    Utilitaires accent/statut re-mappés sur les familles --accent / --ok /
    --warn / --danger (valeurs claires == Tailwind natif → parité pixel en
    Ardoise clair ; valeurs sombres via ``body.elpis-dark-surface``). Les
@@ -471,8 +470,7 @@ body {
 .markdown-body a { color: var(--prose-link); text-decoration: none; font-weight: 500; }
 .markdown-body a:hover { color: var(--prose-link-hover); text-decoration: underline; }
 
-/* Image EXTERNE neutralisée dans le markdown (anti-exfiltration, cf. utils.js
-   _neutralizeRemoteMedia) : rendue comme un chip-lien cliquable au lieu d'un
+/* Image EXTERNE neutralisée dans le markdown (anti-exfiltration, cf. rendu/purification.ts) : rendue comme un chip-lien cliquable au lieu d'un
    chargement automatique. Hérite des couleurs de lien du skin. */
 .elpis-ext-img {
     display: inline-flex;
@@ -559,7 +557,7 @@ body {
 /* Le ``<code>`` d'un bloc n'a PAS de fond propre : il hérite de celui du bloc.
    Le thème vendorisé pose ``.hljs { background: #0d1117 }`` — sans cette
    ré-assertion, la zone de texte se repeint d'un gris différent de son cadre
-   et dessine une bordure parasite (défaut signalé le 2026-09-07). Il faut
+   et dessine une bordure parasite (bordure parasite). Il faut
    ``pre code.hljs`` : ``pre code`` seul (0,0,2) perd contre ``.hljs`` (0,1,0).
    Vaut dans les DEUX modes — le bloc est sombre dans les deux. */
 pre code.hljs,
@@ -806,7 +804,7 @@ pre code {
    Ciblé sur `aside.elpis-slide-panel` : SEULS les rails chat/admin sont des
    <aside> avec cette classe (les panneaux MCP/sampling/mémoire la partagent
    mais sont des <div> clairs — on ne veut pas les toucher).
-   Correctif skins 2026-07 : le rail est piloté par les tokens --rail-*
+   Le rail est piloté par les tokens --rail-*
    (:root + skins) au lieu de ``bg-[#0f172a]`` en dur dans le markup et
    d'une pile de sélecteurs par skin. Les remaps (0,2,1) couvrent les
    utilitaires du markup hérités de l'époque « rail toujours slate-900 »
@@ -1074,18 +1072,11 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 }
 
 /* ─── Éditeur plein écran ─────────────────────────────────────────────
-   v3 — Transition fluide via inline style uniquement.
+   Transition fluide via inline style uniquement : une valeur posée par
+   `!important` dans une classe court-circuite la transition du style
+   inline (la largeur saute sans interpolation).
 
-   Les versions v1 (position: fixed + fade opacity) et v2 (flex + width
-   avec !important) avaient le même défaut : une valeur CSS appliquée
-   via `!important` dans une classe court-circuite la transition du
-   style inline. Le browser considère que c'est une NOUVELLE valeur
-   qui override, sans interpolation → width snappe instantanément à
-   100% → flex recalcule → bord gauche à 0 direct → seule la sidebar
-   continue son animation → impression "bord droit qui s'étire vers
-   la droite" après un jump à gauche.
-
-   Maintenant : la classe `.editor-fullscreen` ne sert plus qu'à
+   La classe `.editor-fullscreen` ne sert plus qu'à
    retirer la bordure et monter le z-index. Tout le reste (width,
    flex-grow) passe par le :style inline du template, qui est
    correctement transitionné par `.elpis-slide-panel`.
@@ -1187,15 +1178,6 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 }
 
 /* ─── Transition « toast » ─────────────────────────────────────────────────
-   AUDIT 2026-08-15 — `<transition-group name="toast">` était en place dans
-   app_chrome.html, mais AUCUNE classe `.toast-*` n'était définie : seule la
-   liste de neutralisation reduced-motion les mentionnait. Le groupe ne
-   faisait donc rien, et l'apparition tenait à un `animate-[slideUp_0.2s]`
-   qui, lui, ne compilait plus. Résultat à l'écran : les toasts surgissaient
-   et disparaissaient d'un coup — sur l'élément le plus fugace de l'interface,
-   celui où le mouvement porte l'information « quelque chose vient de se
-   passer / de se terminer ».
-
    Ancrage bas-droite, empilement en colonne : on entre par le bas (sens de
    la pile) et on sort par la droite (sens de la sortie d'écran). `.toast-move`
    existe pour que les toasts restants GLISSENT vers leur nouvelle place
@@ -1262,7 +1244,7 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
     /* Shimmer « écriture en mémoire » : indicateur d'activité → conservé, ralenti. */
     .mem-wave { animation-duration: 3.4s !important; }
     .editor-fullscreen { animation: none !important; }
-    /* AUDIT 2026-06 — les classes de <Transition> Vue NOMMÉES (.modal-*,
+    /* Les classes de <Transition> Vue NOMMÉES (.modal-*,
        .toast-*, .fade-*, …) ne matchent PAS les sélecteurs [class*=…]
        ci-dessus (pas de préfixe "transition-"/"animate-") : modales et
        toasts continuaient d'animer malgré la préférence OS. Liste tenue
@@ -1285,8 +1267,8 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 }
 
 /* ─── Flash de cible après scrollToMessage (sommaire, recherche) ──────
-   Surlignage bref du message vers lequel on a sauté (AUDIT 2026-06).
-   Posé/retiré par _virtual_scroll.js (classe .vs-jump-flash, ~1,2 s). */
+   Surlignage bref du message vers lequel on a sauté.
+   Posé/retiré par le défilement virtuel (classe .vs-jump-flash, 1,2 s). */
 @keyframes elpisJumpFlash {
     0%   { background-color: color-mix(in srgb, var(--accent-500) 16%, transparent); }
     100% { background-color: transparent; }
@@ -1297,7 +1279,7 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
 }
 
 /* ─── Flash de renommage de chat (titre auto-généré par le modèle) ────
-   Posé 1,6 s par app-chat.js sur le titre du header ET l'entrée sidebar
+   Posé 1,6 s sur le titre du header ET l'entrée sidebar
    quand l'event 'final' porte un `title` (re)généré — feedback visuel du
    renommage. Même famille que .vs-jump-flash (pulse de fond, pas de
    transform → sans danger vestibulaire ; version statique en
@@ -1317,7 +1299,7 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
     }
 }
 
-/* ─── Widget file d'attente (passe 9) ─────────────────────────────────
+/* ─── Widget file d'attente ─────────────────────────────────
    Apparait/disparait sur event SSE "queue_status"/"queue_cleared".
    Barre de progression animée qui se remplit sur la durée estimée
    (--animation-duration passé via :style inline sur la barre).
@@ -1361,7 +1343,7 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
      [icône]  filename.ext                                    [⬇ Download]
               +X -Y · path/to/dir
 
-   Comportement (piloté par js/chat/_diff_card.js + chat.html) :
+   Comportement (piloté par le composant de diff du chat) :
      * settings.enable_editor === true  -> ligne entière cliquable, ouvre
                                           la diff Monaco plein écran
      * settings.enable_editor === false -> ligne non cliquable (curseur
@@ -1397,7 +1379,7 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
  *  ENCART D'ERREUR  (.elpis-error-*)  — cf. chat.html isError
  * ----------------------------------------------------------------
  *  Piloté par les tokens SÉMANTIQUES ``--danger-*`` (au lieu du rouge
- *  Tailwind cru bg-red-*/text-red-*, qui n'était ni bridgé en sombre ni
+ *  Tailwind cru bg-red-* et text-red-*, qui n'était ni bridgé en sombre ni
  *  décliné par skin → encart désaligné). Les parties NEUTRES (fond du bloc
  *  détail et du bouton) reprennent ``--surface`` générique → elles suivent
  *  automatiquement chaque skin ; seul l'ACCENT danger vient des tokens
@@ -1689,7 +1671,7 @@ body.elpis-dark-surface .elpis-code-tool-row:not(.elpis-code-tool-err) {
 /* ================================================================
  *  SURFACE SOMBRE — remaps utilitaires (chat + sidebar + modaux)
  * ================================================================
- *  Gated sur ``elpis-dark-surface`` (marqueur posé par app-settings.js
+ *  Gated sur ``elpis-dark-surface`` (marqueur posé par apparence.ts
  *  si mode sombre ON **ou** skin à base sombre, ex. Émeraude) — et non
  *  plus sur le toggle ``elpis-app-dark`` : Émeraude-clair reçoit ainsi
  *  les remaps claire-sur-sombre sans hériter des tokens du toggle.
@@ -1830,17 +1812,6 @@ body.elpis-dark-surface .bg-slate-700.elpis-splitter-light:hover {
     background-color: var(--accent-500);
     border-left-color: transparent;
 }
-
-/* ── Code blocks dans les messages (rendered markdown) ───────── *
- * RETIRÉ le 2026-09-07. Cette règle repeignait le ``<code>`` en #0d1117
- * alors que son cadre restait #1e1e1e et son en-tête #252526 : trois gris
- * empilés, une bordure parasite visible entre le texte et le bloc. Elle
- * datait d'une époque où le thème highlight.js clair était chargé en mode
- * clair ; depuis, github-dark est le SEUL thème servi (index.html), donc le
- * bloc est déjà sombre dans les deux modes. La couleur du bloc vient
- * désormais des tokens --code-* (haut du fichier) et le ``<code>`` est
- * transparent — voir « Le <code> d'un bloc n'a PAS de fond propre ».
- */
 
 /* ── Anti-shadow excessif ─────────────────────────────────────
  * Les ombres lourdes (shadow-lg, shadow-xl) sur fond sombre rendent
@@ -2101,7 +2072,7 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-700      { color: 
 body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: var(--text-900); }
 
 /* ================================================================
- *  Modale de zoom des diagrammes (Mermaid) — passe 15
+ *  Modale de zoom des diagrammes (Mermaid)
  * ================================================================ */
 .elpis-zoom-btn {
     width: 34px;
@@ -2255,7 +2226,6 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
 /* ================================================================
  *  COMPOSANTS CONSOLE ADMIN  (.adm-*)
  * ================================================================
- *  Refonte des menus de Configuration (2026-08-01).
  *  Même contrat que .set-* / .skl-* : la GÉOMÉTRIE et les couleurs
  *  NEUTRES passent par les tokens (skins + mode sombre gratuits),
  *  les couleurs d'ACCENT restent des utilitaires Tailwind sur le
@@ -2389,13 +2359,11 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
     white-space: nowrap;
 }
 
-/* ── Coquille de la console (refonte 2026-09-27) ────────────────────
+/* ── Coquille de la console ────────────────────
    L'en-tête de page vit HORS de la zone qui défile et partage la colonne
    du contenu : formulaire (56rem) ou large (72rem, tableaux et graphiques),
-   selon le registre (frontend/js/admin/_registry.js › wide). L'ancien
-   en-tête collant débordait de −24 px (défilement horizontal sur les neuf
-   pages de configuration) et s'étalait sur 72rem au-dessus de cartes de
-   56rem : titre et boutons ne s'alignaient sur rien. */
+   selon le registre (registre de la console, `wide`) : titre et boutons s'alignent
+   sur la colonne. */
 .adm-col {
     width: 100%;
     max-width: calc(56rem + 3rem);
@@ -2733,8 +2701,7 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
 }
 .adm-btn:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
 /* Primaire : l'accent (bleu Ardoise, redéfini par chaque skin), un seul par
-   écran — comme les dialogues de l'application. L'ancienne inversion de la
-   rampe (quasi-noir) faisait deux « primaires » différents sur la même page. */
+   écran — comme les dialogues de l'application. */
 .adm-btn--primary { background: var(--accent); color: var(--accent-fg); }
 .adm-btn--primary:hover:not(:disabled) { background: var(--accent-strong); }
 .adm-btn--primary:disabled { background: var(--surface-3); color: var(--text-400); border-color: var(--border); cursor: not-allowed; }
@@ -2794,7 +2761,7 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
     outline-offset: 2px;
     border-radius: var(--radius-sm);
 }
-/* « Avancé » dans une liste de rangées (refonte 2026-09-27) : le repli a
+/* « Avancé » dans une liste de rangées : le repli a
    la hauteur d'une rangée, ses rangées gardent leur filet ; le filet du
    haut vient déjà de .adm-rows. */
 .adm-details--rows { border-top: 0; padding: 0; }
@@ -2992,16 +2959,13 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
 /* ================================================================
  *  ZONE MÉTRIQUES  (.adm-seg / .adm-kpi / .adm-pop / .adm-table…)
  * ================================================================
- *  Cette zone était la dernière de la console à peindre ses surfaces en
- *  dur (`bg-white`, `text-slate-*`) : elle ignorait donc les skins ET le
- *  mode sombre — un tableau de bord blanc au milieu d'une application
- *  sombre. Tout passe désormais par les tokens ; seule la sémantique de
- *  statut (danger) garde ses variables dédiées.
+ *  Tout passe par les tokens (skins et mode sombre compris) ; seule la
+ *  sémantique de statut (danger) garde ses variables dédiées.
  * ================================================================ */
 
 /* Bouton secondaire (barre d'outils, actions de ligne) : même gabarit que
-   .adm-btn, avec un contour. Famille UNIQUE de la console (refonte
-   2026-09-27) : principal (accent, un par écran), secondaire (.adm-tool),
+   .adm-btn, avec un contour. Famille UNIQUE de la console : principal (accent, un par écran),
+   secondaire (.adm-tool),
    discret (--quiet), icône (--icon), danger, attention. */
 .adm-tool {
     background: var(--surface);
@@ -3041,7 +3005,7 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
 .adm-seg__btn:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: -2px; }
 .adm-seg--sm .adm-seg__btn { padding: 0.25rem 0.625rem; font-size: 0.75rem; }
 
-/* ── Comptes : résumé en table + éditeur en ligne (2026-09-23) ──────
+/* ── Comptes : résumé en table + éditeur en ligne ──────
    La table ne fait que LIRE (valeurs effectives) ; toute modification
    passe par l'éditeur déplié sous la ligne, avec un seul Enregistrer. */
 .adm-users th { font-weight: 500; border-bottom: 1px solid var(--border); }
@@ -3207,7 +3171,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 }
 .adm-tag--soft { background: var(--surface-3); color: var(--text-500); }
 
-/* ── Vue d'ensemble (page d'arrivée, lot 6) ─────────────────────────── */
+/* ── Vue d'ensemble (page d'arrivée) ─────────────────────────── */
 .adm-ov { display: flex; flex-direction: column; gap: 1.25rem; }
 .adm-ov__alerts { list-style: none; margin: 0; padding: 0; }
 .adm-ov__alert {
@@ -3295,7 +3259,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     background: var(--warn-text-strong);
 }
 
-/* ── Recherche Ctrl+K (lot 7) ─────────────────────────────────────────── */
+/* ── Recherche Ctrl+K ─────────────────────────────────────────── */
 .adm-rail__search {
     display: flex; align-items: center; gap: 0.5rem;
     margin: 0 0.5rem 0.5rem; padding: 0.4375rem 0.625rem;
@@ -3393,7 +3357,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 .adm-zone .adm-card__icon,
 .adm-zone .adm-card__title { color: var(--danger-text); }
 
-/* Supervision › Métriques (refonte 2026-09-27) : barre = période + « ⋯ ». */
+/* Supervision › Métriques : barre = période + « ⋯ ». */
 .adm-dash { display: flex; flex-direction: column; gap: 1.25rem; }
 .adm-dash__bar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .adm-dash__menu { width: 20rem; }
@@ -3616,7 +3580,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     align-items: center;
     gap: 0.45rem;
     padding: 0.15rem 0;
-    /* 680px : les libellés passent à 5-6 mots (UX 2026-07-24) — l'ellipse
+    /* 680px : les libellés passent à 5-6 mots — l'ellipse
        du titre reste le garde-fou au-delà. */
     max-width: min(680px, 88vw);
     font-size: 13px;
@@ -3693,7 +3657,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     color: var(--danger-text);
     background: color-mix(in srgb, var(--danger-text) 10%, transparent);
 }
-/* Œil « déroulé de l'agent » (UX 2026-07-24) : même gabarit que le ✕,
+/* Œil « déroulé de l'agent » : même gabarit que le ✕,
    hover accent (consultation, pas destruction). Ouvre la modale transcript. */
 .task-run-eye {
     flex: none;
@@ -3821,7 +3785,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 .task-bilan-text { white-space: pre-wrap; }
 
 /* ================================================================
- *  TOASTS / SURLIGNAGE / RÔLES — classes token-drivées (correctif skins)
+ *  TOASTS / SURLIGNAGE / RÔLES — classes token-drivées
  * ================================================================ */
 /* Toast : surface inversée stable (un toast flotte au-dessus de tout, il
    ne suit pas la surface locale). Les skins peuvent redéfinir --toast-*. */
@@ -3981,9 +3945,9 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     color: #fca5a5;
 }
 
-/* ── Caret de streaming (AUDIT 2026-08-31) ──────────────────────────────
- * Injecté DANS le dernier bloc rendu du message en cours (app-chat.js,
- * _injectCaret) : un span frère d'un élément de bloc tomberait dans une
+/* ── Caret de streaming ──────────────────────────────
+ * Injecté DANS le dernier bloc rendu du message en cours (rendu du message,
+ * injection du caret) : un span frère d'un élément de bloc tomberait dans une
  * boîte anonyme une ligne SOUS le texte (+1em de marge de paragraphe).
  * Reprend le visuel historique w-1.5/h-4/bg-blue-500/animate-pulse, sur le
  * token d'accent. */
@@ -4003,9 +3967,9 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 }
 
 /* =========================================================================
-   MODE SOMBRE — ZONES NON COUVERTES (audit 2026-09-07)
+   MODE SOMBRE — ZONES NON COUVERTES
    -------------------------------------------------------------------------
-   Trois familles de trous relevées par l'audit, toutes avec le même symptôme :
+   Trois familles de trous, toutes avec le même symptôme :
    « certains éléments restent clairs en mode sombre ».
 
      1. des surfaces peintes en dur hors de tout token (damier SVG, canevas de
@@ -4024,8 +3988,7 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 
 /* ── 1. Surfaces peintes en dur ─────────────────────────────────────────── */
 
-/* Damier de transparence des aperçus SVG. Était en #f1f5f9 EN DUR dans le JS
-   (_rendering.js) : une dalle claire sous chaque illustration en sombre. */
+/* Damier de transparence des aperçus SVG. Il suit les jetons (pas de dalle claire en sombre). */
 .svg-canvas {
     background-image:
         linear-gradient(45deg, var(--surface-3) 25%, transparent 25%),
@@ -4153,7 +4116,7 @@ body.elpis-dark-surface .hover\:text-orange-800:hover { color: #fdba74; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   ÉDITEUR — PASSE UX 2026-09-19 (docs/editeur-ux-design-2026-09-19.md)
+   ÉDITEUR
    Classes propres (pas d'utilitaire Tailwind composé : la feuille
    Tailwind est précompilée). Variantes « éditeur clair » en fin de bloc.
    ══════════════════════════════════════════════════════════════════════ */
@@ -4179,7 +4142,7 @@ body.elpis-dark-surface .hover\:text-orange-800:hover { color: #fdba74; }
 /* Onglet survolé pendant un glisser (réordonner). */
 .elpis-tab-drop { box-shadow: inset 2px 0 0 #3b82f6; }
 
-/* Onglets de l'éditeur (2026-09-20) : largeur du NOM. Le plafond de 180 px
+/* Onglets de l'éditeur : largeur du NOM. Le plafond de 180 px
    coupait l'extension et le suffixe (« test_editeur_ux_rou… ») alors que la
    barre défile et que le badge « +N » liste les onglets cachés. Plafond de
    sécurité à 360 px : au-delà, coupure au MILIEU — la tête porte l'ellipse,
@@ -4292,10 +4255,9 @@ mark.elpis-search-hit {
 @container (max-width: 470px) { .elpis-sb-opt { display: none; } }
 
 /* ================================================================
- * CHAT — LIGNES D'EFFETS (2026-09-19) : mémoire
+ * CHAT — LIGNES D'EFFETS : mémoire
  *   Écritures en mémoire, visibles dans le fil HORS du conteneur « Travail
- *   de l'assistant » (les tâches vivent dans le chip de la barre de prompt,
- *   2026-09-21). Registre calme (même gabarit que
+ *   de l'assistant » (les tâches vivent dans le chip de la barre de prompt). Registre calme (même gabarit que
  *   les lignes de sous-agents) : icône + libellé au passé + extrait ; la
  *   ligne mémoire se déplie (ajouté / retiré, Annuler, Gérer la mémoire).
  *   Couleur = état seulement : rouge = échec, ambre = mémoire pleine.
@@ -4368,10 +4330,10 @@ mark.elpis-search-hit {
 .mem-origin-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
 
 /* ================================================================
- *  CONSOLE › SYSTÈME › APPARENCE — éditeur de skin (2026-09-28)
+ *  CONSOLE › SYSTÈME › APPARENCE — éditeur de skin
  * ================================================================
  *  L'aperçu (.skn-prev) porte les jetons du skin édité en style
- *  INLINE (frontend/js/admin/skins.js › skinPreviewStyle) : tout ce
+ *  INLINE (aperçu de skin de la console) : tout ce
  *  qui suit ne lit que des var(), la page elle-même n'est pas touchée.
  */
 .skn-ed { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1.25rem; padding: 1rem 1.25rem 1.25rem; }
@@ -4424,7 +4386,7 @@ mark.elpis-search-hit {
     background: var(--accent); color: var(--accent-fg); border-radius: var(--radius-md);
 }
 
-/* ── Génération d'images (chat/_image.js) ──────────────────────────────────
+/* ── Génération d'images ──────────────────────────────────
    Classes sémantiques sur les jetons du thème : elles suivent les skins et
    le mode sombre sans remap d'utilitaires. Seuls les boutons posés SUR une
    image gardent des couleurs fixes claires (l'image n'a pas de thème). */

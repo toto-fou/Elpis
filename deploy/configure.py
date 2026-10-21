@@ -254,6 +254,36 @@ def valid_url(v: str) -> Optional[str]:
     return None if host else "URL invalide."
 
 
+_LABEL_DNS = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?")
+_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+)")
+
+
+def valid_domain(v: str) -> Optional[str]:
+    """Nom d'hôte DNS ou adresse IP, rien d'autre : la valeur entre dans le Caddyfile."""
+    import ipaddress
+    try:
+        if ipaddress.ip_address(v).version == 6:
+            return f"Adresse IPv6 {v!r} refusée : le Caddyfile attend un nom d'hôte ou une adresse IPv4."
+        return None
+    except ValueError:
+        pass
+    try:
+        nom = v.rstrip(".").encode("idna").decode("ascii")
+    except UnicodeError:
+        nom = ""
+    if nom and len(nom) <= 253 and all(_LABEL_DNS.fullmatch(x) for x in nom.split(".")):
+        return None
+    return f"Domaine {v!r} invalide : nom d'hôte (lettres, chiffres, tirets, points) ou adresse IP attendu."
+
+
+def valid_email(v: str) -> Optional[str]:
+    """Forme simple ``nom@domaine`` (ni espace, ni accolade, ni saut de ligne) : la valeur entre dans le Caddyfile."""
+    m = _EMAIL.fullmatch(v)
+    if m and "." in m.group(1) and all(_LABEL_DNS.fullmatch(x) for x in m.group(1).split(".")):
+        return None
+    return f"E-mail {v!r} invalide : forme nom@domaine attendue, sans espace ni accolade."
+
+
 def norm_base(url: str) -> str:
     """``http://h:8080/v1/chat/completions`` → ``http://h:8080``."""
     url = (url or "").strip().rstrip("/")
@@ -543,9 +573,16 @@ def step_access(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any], env: Di
     domain = email = ""
     if mode == "acme":
         domain = p.ask("Nom de domaine (DNS pointant vers cette machine)",
-                       pick(a.domain, "ELPIS_CFG_DOMAIN", env.get("ELPIS_DOMAIN"), ""), allow_empty=False)
+                       pick(a.domain, "ELPIS_CFG_DOMAIN", env.get("ELPIS_DOMAIN"), ""),
+                       validate=valid_domain, allow_empty=False).strip()
         email = p.ask("E-mail pour Let's Encrypt (facultatif)",
-                      pick(a.acme_email, "ELPIS_CFG_ACME_EMAIL", env.get("ELPIS_ACME_EMAIL"), ""))
+                      pick(a.acme_email, "ELPIS_CFG_ACME_EMAIL", env.get("ELPIS_ACME_EMAIL"), ""),
+                      validate=valid_email).strip()
+        for err in (valid_domain(domain) if domain else "Domaine requis pour HTTPS acme.",
+                    valid_email(email) if email else None):
+            if err:
+                warn(err)
+                raise SystemExit(2)
         host = domain
     else:
         host = p.ask("Nom d'hôte ou IP pour accéder à Elpis (vide = automatique)", host or "")
@@ -1195,6 +1232,10 @@ def apply_https(https: Dict[str, Any]) -> None:
                             + ([https["host"]] if https.get("host") else [])).returncode
         (ok if rc == 0 else warn)("Caddy configuré." if rc == 0 else "install_caddy.sh a échoué.")
         return
+    for err in (valid_domain(https["domain"]), valid_email(https["email"]) if https.get("email") else None):
+        if err:
+            warn(err)
+            return
     tpl = (ROOT / "deploy/caddy/Caddyfile.acme.template").read_text(encoding="utf-8")
     email_block = "{\n\t__EMAIL_LINE__\n}\n"
     tpl = tpl.replace(email_block, f"{{\n\temail {https['email']}\n}}\n" if https.get("email") else "")
@@ -1203,9 +1244,13 @@ def apply_https(https: Dict[str, Any]) -> None:
     tmp.parent.mkdir(parents=True, exist_ok=True)
     tmp.write_text(body, encoding="utf-8")
     info("Caddyfile Let's Encrypt (sudo)…")
-    rc = subprocess.run(sudo_prefix() + ["sh", "-c",
-                        f"install -m 0644 '{tmp}' /etc/caddy/Caddyfile && caddy validate --config /etc/caddy/Caddyfile "
-                        f"&& systemctl reload-or-restart caddy"]).returncode
+    rc = 1
+    for cmd in (["install", "-m", "0644", str(tmp), "/etc/caddy/Caddyfile"],
+                ["caddy", "validate", "--config", "/etc/caddy/Caddyfile"],
+                ["systemctl", "reload-or-restart", "caddy"]):
+        rc = subprocess.run(sudo_prefix() + cmd).returncode
+        if rc != 0:
+            break
     (ok if rc == 0 else warn)(f"Caddy : https://{https['domain']}/" if rc == 0 else "Configuration de Caddy échouée.")
 
 

@@ -11,6 +11,7 @@
 #                                       [--target cpu|cuda|vulkan|rocm]
 #                                       [--python python3]
 #                                       [--skip-build] [--with-debs]
+#                                       [--with-sources]
 #
 #  Produit deploy/voice/offline/ :
 #      bin/       whisper-server COMPILÉ ICI + ses bibliothèques
@@ -19,6 +20,9 @@
 #      wheels/    les roues Python du service de synthèse
 #      debs/      python3 + python3-venv (seulement avec --with-debs)
 #      src/       la source whisper.cpp (repli si le binaire ne tourne pas)
+#      SOURCES-GPL.txt, OFFRE-SOURCES.txt   piper-tts (GPL-3.0-or-later) : version,
+#                 source correspondante, offre écrite de 3 ans ; sources/ avec
+#                 --with-sources (archive source de piper-tts téléchargée de PyPI)
 #      MANIFEST.txt
 #
 #  La cible n'a alors besoin d'AUCUN accès réseau, ni compilateur, ni pip.
@@ -39,6 +43,7 @@ PY="python3"
 IMAGE=""
 SANS_BUILD=0
 AVEC_DEBS=0
+AVEC_SOURCES=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --model)  MODELE="$2"; shift 2 ;;
@@ -61,7 +66,10 @@ while [ $# -gt 0 ]; do
         # n a vocation a porter que ce qui ne se trouve pas dans un depot
         # (le binaire whisper, ses libs, les roues piper/onnxruntime).
         --with-debs) AVEC_DEBS=1; shift ;;
-        -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
+        # Télécharge l'archive source de piper-tts (GPL) dans sources/ : à joindre
+        # au lot s'il est redistribué (sinon, l'offre écrite OFFRE-SOURCES.txt).
+        --with-sources) AVEC_SOURCES=1; shift ;;
+        -h|--help) sed -n '2,34p' "$0"; exit 0 ;;
         *) echo "Option inconnue : $1" >&2; exit 2 ;;
     esac
 done
@@ -267,6 +275,38 @@ echo "    python : $("$PY" -V 2>&1) — la cible doit avoir le même x.y"
     || { echo "pip download a échoué — pip est-il à jour ?" >&2; exit 1; }
 fi
 
+echo "--- Sources GPL (piper-tts) ---"
+PIPER_VERSION="$(ls "$LOT/wheels" 2>/dev/null | sed -n 's/^piper_tts-\([^-]*\)-.*/\1/p' | head -1)"
+PIPER_VERSION="${PIPER_VERSION:-inconnue}"
+{
+    echo "piper-tts $PIPER_VERSION : GPL-3.0-or-later, livré sous forme de roue dans wheels/ (avec ses dépendances sous leurs licences)."
+    echo "Source correspondante : https://pypi.org/project/piper-tts/$PIPER_VERSION/#files (archive sdist) et https://github.com/OHF-Voice/piper1-gpl."
+    echo "La roue de piper-tts embarque aussi espeak-ng (GPL-3.0-or-later) : https://github.com/espeak-ng/espeak-ng."
+    echo "Archives téléchargées avec --with-sources : sources/."
+} > "$LOT/SOURCES-GPL.txt"
+cat > "$LOT/OFFRE-SOURCES.txt" <<'OFFRE'
+Offre écrite de fourniture de la source correspondante / Written offer for source code
+
+Ce lot contient piper-tts et espeak-ng, sous GPL-3.0-or-later. Pendant trois (3)
+ans à compter de la réception du lot, toute personne qui le détient peut obtenir
+la source correspondante complète de ces programmes (pour le coût matériel de sa
+fourniture, ou gratuitement par téléchargement), en la demandant au mainteneur :
+toto-fou, https://github.com/toto-fou (issue sur le dépôt Elpis, ou demande privée
+par GitHub). SOURCES-GPL.txt indique la version et l'origine de chaque source.
+
+For three (3) years from receipt, anyone holding this package may obtain the
+complete corresponding source code of piper-tts and espeak-ng by asking the
+maintainer (toto-fou, https://github.com/toto-fou).
+OFFRE
+if [ "$AVEC_SOURCES" = "1" ]; then
+    mkdir -p "$LOT/sources"
+    [ "$PIPER_VERSION" != "inconnue" ] || { echo "Version de piper-tts introuvable dans wheels/ : --with-sources impossible." >&2; exit 1; }
+    url="$(curl -fsSL "https://pypi.org/pypi/piper-tts/$PIPER_VERSION/json" \
+        | "$PY" -c 'import json,sys; print(next(u["url"] for u in json.load(sys.stdin)["urls"] if u["packagetype"] == "sdist"))')" \
+        || { echo "Archive source de piper-tts $PIPER_VERSION introuvable sur PyPI." >&2; exit 1; }
+    telecharge "$url" "$LOT/sources/$(basename "$url")"
+fi
+
 echo "--- MANIFEST ---"
 {
     echo "# Lot hors-ligne du moteur vocal Elpis"
@@ -284,7 +324,7 @@ echo "--- MANIFEST ---"
     fi
     echo
     ( cd "$LOT" && PARTIES=""
-      for d in bin models voices wheels debs; do [ -d "$d" ] && PARTIES="$PARTIES $d"; done
+      for d in bin models voices wheels debs sources; do [ -d "$d" ] && PARTIES="$PARTIES $d"; done
       find $PARTIES -type f -print0 | sort -z | xargs -0 sha256sum )
 } > "$LOT/MANIFEST.txt"
 

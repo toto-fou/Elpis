@@ -393,7 +393,7 @@ export function renderTable(hote: HTMLElement, table: Tableau, titre?: string): 
       cols
         .map(
           (c, i) =>
-            `<th data-i="${i}" class="sticky top-0 ${th} px-2 py-1 font-semibold ${numerique[i] ? "text-right" : "text-left"}" aria-sort="${colTri === i ? (sens > 0 ? "ascending" : "descending") : "none"}"><button type="button" class="font-semibold">${echapper(c)}${colTri === i ? (sens > 0 ? " ↑" : " ↓") : ""}</button></th>`,
+            `<th data-i="${i}" class="sticky top-0 ${th} px-2 py-1 font-semibold ${numerique[i] ? "text-right" : "text-left"}" aria-sort="${colTri === i ? (sens > 0 ? "ascending" : "descending") : "none"}"><button type="button" class="font-semibold">${echapper(c)}${colTri === i ? `<span aria-hidden="true">${sens > 0 ? " ↑" : " ↓"}</span>` : ""}</button></th>`,
         )
         .join("") +
       `</tr></thead><tbody>${corps}</tbody></table></div>` +
@@ -409,6 +409,7 @@ export function renderTable(hote: HTMLElement, table: Tableau, titre?: string): 
           return (x > y ? 1 : x < y ? -1 : 0) * sens;
         });
         dessiner();
+        hote.querySelector<HTMLElement>(`th[data-i="${i}"] button`)?.focus();
       }),
     );
   }

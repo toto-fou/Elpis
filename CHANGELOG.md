@@ -21,6 +21,36 @@ lecture des documents reste en Python, dans l'extracteur `rag_app`.
 
 ### Pour l'exploitant
 
+- **Agent de bureau : jeton obligatoire.** L'agent exige
+  `Authorization: Bearer <jeton>`, refuse toute requête portant un en-tête
+  `Origin` et tout corps qui n'est pas `application/json`. Sur chaque machine
+  pilotée, relancez l'installation (`install_agent.sh`, `run.bat` ou `run.ps1`) :
+  elle génère `agent_token.txt` et affiche le jeton, à saisir dans Console ›
+  Connexions › Machines (champ « Jeton ») ou, pour toutes les machines, dans la
+  variable `DESKTOP_AGENT_TOKEN` du service d'outils. Un agent mis à jour sans
+  réinstallation génère `agent_token.txt` à son démarrage et écrit le jeton dans
+  son journal (`journalctl --user -u desktop-agent`). `DESKTOP_AGENT_INSECURE=1`
+  (déconseillé) démarre sans jeton. Ses dépendances sont figées (`==`).
+- **`.env` lu comme des données.** `./elpis` lit chaque ligne `CLE=VALEUR`
+  (clé en majuscules, chiffres et `_`) sans l'exécuter : `$VAR` et `$(…)` ne
+  sont plus développés. Vérifiez vos `.env` s'ils en contenaient.
+- **Liste blanche IP du bac.** En profil réseau `allowlist_ip`, une commande, le
+  terminal ou l'agent du bac sont refusés si `setpriv` ne peut pas retirer
+  `net_admin`. L'image du bac doit fournir `setpriv` (util-linux) et
+  `exec_user` doit être de la forme `uid:gid`.
+- **Installeurs de poste.** Ils vérifient l'empreinte SHA-256 de la CA locale
+  publiée par le serveur avant de l'épingler ou de l'installer. Si
+  `ELPIS_CA_FILE` ou `security.https.ca_file` ne désigne pas la CA réellement
+  servie, le script la refuse ; sans CA lisible côté serveur, rien n'est installé.
+- **`./elpis configure`** refuse un domaine ou une adresse Let's Encrypt
+  invalides.
+- **Paquet hors ligne.** Notices et licences à la racine,
+  `wheels/LICENCES-PYTHON.txt`, `sbom/` (CycloneDX), `sandbox/SOURCES.txt` et
+  offre écrite pour les composants GPL ; options `--with-sources` et `--sign`
+  (clé : `ELPIS_SIGN_KEY`). Détail : docs/exploitation.md.
+- **Mots de passe** : un retour à une version antérieure rend illisibles les
+  comptes déjà rehachés (réinitialiser leur mot de passe).
+
 - **Python allégé.** Les modules Python des familles `shell`, `git`, `memory`,
   `skill`, `todo`, `browser` et `desktop`, la mémoire et les skills de
   `llm_core`, le stockage des conversations, les notifications et le contrôle
@@ -195,6 +225,22 @@ lecture des documents reste en Python, dans l'extracteur `rag_app`.
 
 ### Sécurité
 
+- Un contrôle d'accès aux moteurs (chat, compression, routines) qui échoue
+  refuse l'accès (503 au chat) au lieu de l'accorder ; des politiques
+  illisibles ne donnent plus accès à tous les serveurs.
+- Mots de passe hachés en PBKDF2-SHA256 à 600 000 itérations, au format
+  `pbkdf2_sha256$600000$sel$empreinte` ; les anciens hachages restent valides
+  et sont rehachés à la connexion.
+- Enveloppe d'identité interne typée ; un corps portant une audience est
+  refusé (un hôte d'outils distant plus ancien reste accepté).
+- Le plafond `MAX_RUNS_PER_USER` est recontrôlé à la prise du verrou ; l'erreur
+  de flux ne renvoie plus le message d'exception brut.
+- L'agent de la sandbox refuse un `Content-Length` invalide (400) et limite les
+  connexions simultanées (503).
+- Le style en ligne du HTML rendu dans les messages est limité à des
+  propriétés de présentation (le SVG est inchangé).
+- Cookie de session effacé avec `HttpOnly` et `Max-Age=0` ; clé HMAC d'audit
+  mesurée après retrait des blancs.
 - Droits vérifiés par une seule fonction pour chaque route et chaque outil ;
   une collection invisible répond 404 ; l'administrateur ne lit jamais une
   collection qui ne lui est pas ouverte.
@@ -204,6 +250,14 @@ lecture des documents reste en Python, dans l'extracteur `rag_app`.
   passage plafonnées pour un lecteur qui n'a pas accès aux sources.
 - Secrets de `config.json` : une seule liste pour le masque du serveur et de
   la console, clé de l'OCR et jetons clients du pont MCP compris.
+
+### Conformité
+
+- `CODE_OF_CONDUCT.md`, `AUTHORS`, `TRADEMARKS.md`, `REUSE.toml`, DCO
+  (`git commit -s`) et politique sur le code assisté par IA dans
+  `CONTRIBUTING.md`.
+- CI : Dependabot, CodeQL, jobs `audit` et `reuse` non bloquants, actions
+  épinglées par SHA.
 
 ## 0.1.0 — 2026-10-18
 

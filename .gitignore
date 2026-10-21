@@ -91,3 +91,6 @@ release/
 *.tsbuildinfo
 coverage/
 /.vitest/
+
+# Jeton de l'agent de bureau (généré par install_agent.sh / run.ps1)
+desktop-agent/agent_token.txt

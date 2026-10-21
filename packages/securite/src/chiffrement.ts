@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/securite/src/chiffrement.ts — secrets chiffrés au repos : Fernet et clé maître. */
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  createHmac,
-  randomBytes,
-  timingSafeEqual,
-} from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "node:crypto";
 import {
   closeSync,
   fsyncSync,
@@ -24,6 +17,7 @@ import { ErreurPython, stripPy } from "@elpis/commun";
 import { avecVerrouSync } from "@elpis/verrous";
 
 import { ErreurBase64, urlsafeB64Decode, urlsafeB64Encode } from "./base64";
+import { egauxEnTempsConstant } from "./mots-de-passe";
 import { decoderUtf8Py, encoderUtf8Py, estAscii, estErreurPython } from "./outils";
 import { journalDe } from "./ports";
 
@@ -110,7 +104,7 @@ function verifierSignature(cles: ClesFernet, data: Buffer): void {
   const fin = Math.max(0, data.length - 32);
   const attendu = createHmac("sha256", cles.signature).update(data.subarray(0, fin)).digest();
   const recu = data.subarray(fin);
-  if (recu.length !== attendu.length || !timingSafeEqual(recu, attendu)) throw new InvalidToken();
+  if (!egauxEnTempsConstant(recu, attendu)) throw new InvalidToken();
 }
 
 /** Unpadder PKCS7 de `cryptography` : dernier octet n dans 1..16 et n octets égaux à n. */

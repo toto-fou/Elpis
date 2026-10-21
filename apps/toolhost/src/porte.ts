@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/porte.ts — porte d'entrée de l'hôte (toolhost/auth.py + portes MCP de local_mcp_server.py) : jeton de service, enveloppe d'identité, Origin et famille des chemins MCP. */
 import { AsyncResource } from "node:async_hooks";
-import { timingSafeEqual } from "node:crypto";
 
 import { lowerPy, pyJsonDumps, stripPy } from "@elpis/commun";
 import { cheminDecode, premierEntete } from "@elpis/http";
 import { FAMILY_NAMES, originAllowed } from "@elpis/mcp";
-import { avecIdentite, IDENTITY_HEADER, verify } from "@elpis/securite";
+import { avecIdentite, egauxEnTempsConstant, IDENTITY_HEADER, verify } from "@elpis/securite";
 import type { Identity } from "@elpis/securite";
 import type { FastifyInstance, FastifyReply, FastifyRequest, HookHandlerDoneFunction } from "fastify";
 
@@ -39,7 +38,7 @@ export function bearerMatches(autorisation: string | undefined, jeton: string): 
   if (!estAscii(recuTexte)) return false;
   const recu = Buffer.from(recuTexte, "latin1");
   const attendu = Buffer.from(jeton, "latin1");
-  return recu.length === attendu.length && timingSafeEqual(recu, attendu);
+  return egauxEnTempsConstant(recu, attendu);
 }
 
 export function estAscii(texte: string): boolean {

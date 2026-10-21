@@ -155,7 +155,8 @@ async function stdioAllowedFor(base: Base, uid: number): Promise<boolean> {
   try {
     const moi = await ligneUtilisateur(base, uid);
     return moi !== undefined && moi !== null && Number(moi.is_admin) === 1;
-  } catch {
+  } catch (e) {
+    log.warn(`[chat.stdio_gate] compte illisible (${String(e)}) — stdio refusé`);
     return false;
   }
 }
@@ -317,8 +318,13 @@ export async function prepareTurn(
   let autorise: boolean;
   try {
     autorise = await canUseEngine(base, uid, cidInt ? connectorKey(cidInt) : BUILTIN_KEY);
-  } catch {
-    autorise = true;
+  } catch (e) {
+    log.warn(`[chat.engine_access] contrôle d'accès au moteur impossible (${String(e)}) — refus`);
+    throw new HttpError(503, {
+      code: "engine_unavailable",
+      reason: "access_check_failed",
+      message: "Contrôle d'accès au serveur indisponible, réessayez.",
+    });
   }
   if (!autorise)
     throw new HttpError(409, {
@@ -374,7 +380,8 @@ export async function prepareTurn(
   let chatReadFailed = false;
   try {
     existingChat = await getChat(base, uid, chatId);
-  } catch {
+  } catch (e) {
+    log.warn(`[chat.get_chat] lecture de la conversation impossible (${String(e)})`);
     chatReadFailed = true;
   }
   if (chatReadFailed) {
@@ -441,7 +448,8 @@ export async function prepareTurn(
       await memManager.initialize(chatId);
       memoryBlock = await memManager.systemPromptBlock();
     }
-  } catch {
+  } catch (e) {
+    log.warn(`[chat.memory] mémoire indisponible (${String(e)})`);
     memManager = null;
     memoryBlock = "";
   }

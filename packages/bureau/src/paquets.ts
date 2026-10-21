@@ -31,6 +31,8 @@ const EXCLUS = new Set([
   ".mypy_cache",
   ".ruff_cache",
 ]);
+/** Secrets d'un agent déjà lancé depuis ce dossier : jamais dans l'archive publique. */
+const FICHIERS_EXCLUS = new Set(["agent_token.txt", ".env"]);
 const DOSSIERS_RUNTIME = ["elpis_auto", "backends"];
 const FICHIERS_RUNTIME = ["normalize.py"];
 const PAQUETS_SERVEUR = ["fastapi", "uvicorn"];
@@ -75,7 +77,7 @@ async function entreeFichier(chemin: string, nom: string, stocke = false): Promi
   };
 }
 
-/** `os.walk` élagué : fichiers (hors .pyc/.pyo) d'un dossier, relatifs, dossiers exclus ignorés. */
+/** `os.walk` élagué : fichiers (hors .pyc/.pyo et secrets) d'un dossier, relatifs, dossiers exclus ignorés. */
 async function fichiersAgent(base: string, rel = ""): Promise<string[]> {
   const entrees = await readdir(path.join(base, rel), { withFileTypes: true });
   const fichiers: string[] = [];
@@ -90,7 +92,7 @@ async function fichiersAgent(base: string, rel = ""): Promise<string[]> {
     if (lienVersDossier) continue;
     if (e.isDirectory()) {
       if (!EXCLUS.has(e.name)) dossiers.push(e.name);
-    } else if (!e.name.endsWith(".pyc") && !e.name.endsWith(".pyo"))
+    } else if (!e.name.endsWith(".pyc") && !e.name.endsWith(".pyo") && !FICHIERS_EXCLUS.has(e.name))
       fichiers.push(path.posix.join(rel, e.name));
   }
   for (const d of dossiers) fichiers.push(...(await fichiersAgent(base, path.posix.join(rel, d))));

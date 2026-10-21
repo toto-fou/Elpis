@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** packages/auth/src/garde.ts — require_user_id, rôles, et gardes d'accès du socle (session, staff, admin, loopback, service, interne). */
-import { timingSafeEqual } from "node:crypto";
 
 import { HttpError, intPy, stripPy, veritePy } from "@elpis/commun";
 import type { AttributsCookie } from "@elpis/config";
 import type { Executeur } from "@elpis/db";
-import { jetonInterne } from "@elpis/securite";
+import { egauxEnTempsConstant, jetonInterne } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { estLocalDirect } from "./local";
@@ -132,11 +131,7 @@ function bearerAccepte(requete: FastifyRequest, jeton: string): boolean {
   const auth = stripPy(String(requete.headers.authorization ?? ""));
   const recu = Buffer.from(stripPy(auth.slice(7)));
   const attendu = Buffer.from(jeton);
-  return (
-    auth.toLowerCase().startsWith("bearer ") &&
-    recu.length === attendu.length &&
-    timingSafeEqual(recu, attendu)
-  );
+  return auth.toLowerCase().startsWith("bearer ") && egauxEnTempsConstant(recu, attendu);
 }
 
 /** `require_service_token` : Bearer égal au jeton de service (503 s'il n'y en a pas, 401 sinon). */

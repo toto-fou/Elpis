@@ -279,6 +279,7 @@ def main() -> None:
     except OSError:
         logger.error("[office] descripteur %d absent : le worker se lance par l'hôte d'outils", FD_PROTOCOLE)
         sys.exit(2)
+    os.set_inheritable(FD_PROTOCOLE, False)
     try:
         paralleles = int(os.environ.get("ELPIS_OFFICE_PARALLELE", "") or 8)
     except ValueError:

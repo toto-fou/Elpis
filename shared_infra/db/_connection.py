@@ -423,76 +423,6 @@ def db_conn() -> "Iterator[sqlite3.Connection]":
             # l'exception réelle remontant du bloc ``with``.
             pass
 
-@contextmanager
-def db_tx() -> "Iterator[sqlite3.Connection]":
-    """Transaction à commit implicite sur la connexion du pool : l'équivalent
-    de ``with sqlite3.connect(...) as c`` (commit à la sortie normale, rollback
-    sur exception), la connexion étant rendue au pool à la fin.
-
-    Remplace les connexions privées qui comptaient sur ce comportement
-    (``opencode/store.py``). Imbriquée dans une transaction déjà ouverte sur ce
-    thread — la connexion est réentrante —, elle devient un point de
-    sauvegarde : elle ne valide pas le travail de l'appelant et n'annule que
-    le sien.
-    """
-    conn = db()
-    savepoint = None
-    try:
-        if conn.in_transaction:
-            savepoint = f"db_tx_{getattr(_pool, 'depth', 0)}"
-            conn.execute(f"SAVEPOINT {savepoint}")
-        yield conn
-        if savepoint is None:
-            conn.commit()
-        elif conn.in_transaction:
-            # Un ``commit()`` explicite dans le bloc a pu clore la transaction
-            # de l'appelant (et le point de sauvegarde avec elle).
-            conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-    except BaseException:
-        with _swallow("db.tx_rollback"):
-            if savepoint is None:
-                conn.rollback()
-            elif conn.in_transaction:
-                conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
-                conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-        raise
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
-
-
-@contextmanager
-def db_autocommit() -> "Iterator[sqlite3.Connection]":
-    """Connexion du pool en autocommit : chaque instruction est validée
-    aussitôt, comme le faisait la connexion privée de la mémoire AX
-    (``isolation_level=None``).
-
-    Imbriquée dans une transaction ouverte sur ce thread, elle la REJOINT :
-    passer ``isolation_level`` à None validerait de force la transaction de
-    l'appelant. Le mode précédent est rétabli à la sortie, pour qu'un
-    appelant extérieur ne se retrouve pas en autocommit à son insu.
-    """
-    conn = db()
-    previous = conn.isolation_level
-    switched = False
-    try:
-        if not conn.in_transaction and previous is not None:
-            conn.isolation_level = None
-            switched = True
-        yield conn
-    finally:
-        if switched:
-            with _swallow("db.autocommit_restore"):
-                if conn.in_transaction:
-                    conn.rollback()
-                conn.isolation_level = previous
-        try:
-            conn.close()
-        except Exception:
-            pass
-
 
 def _harden_data_perms() -> None:
     """Ferme la base aux autres comptes locaux : ``app.db`` et ses fichiers
@@ -504,8 +434,7 @@ def _harden_data_perms() -> None:
     car SQLite recopie le mode de la base sur ``-wal``/``-shm`` en les créant.
     Le dossier n'est touché que s'il est bien ``<projet>/user_db`` : une base
     placée ailleurs (tmp de test, chemin personnalisé) ne fait jamais changer
-    les droits du dossier qui la contient. Même motif que
-    ``_harden_secret_file_mode`` (config.py)."""
+    les droits du dossier qui la contient."""
     db_file = _Path(DB_PATH)
     cibles = [(db_file, 0o600)] + [
         (db_file.with_name(db_file.name + suffixe), 0o600)
@@ -667,37 +596,6 @@ def _run_startup_cleanup() -> None:
         if METRICS_RETENTION_DAYS > 0:
             purge_old_metrics(METRICS_RETENTION_DAYS)
         wal_checkpoint()
-
-
-# ``get_global_stats()`` RETIRÉE : importée par 9 modules de routes admin,
-# appelée par zéro. Elle agrégeait ``total_tokens`` / ``input_tokens`` /
-# ``output_tokens`` de ``metric_events`` — trois séries que plus personne
-# n'émet depuis que la consommation vit dans ``usage_events``. La ranimer
-# aurait donc rendu des zéros. Les agrégats de conso : voir
-# ``apps/core/src/observabilite/usage-registre.ts``.
-
-
-    # (2026-09-25) Plus de ``metric_dirty`` diffusé ici : aucun consommateur
-    # front, et l'événement partait vers TOUS les utilisateurs connectés à
-    # chaque métrique (cf. metrics/broadcast.py).
-
-
-# ── Pipeline reports (V&V) ────────────────────────────────────────────────
-# Stockage des rapports d'exécution générés. Rétention : 5 par utilisateur.
-# Le contenu HTML est stocké en TEXT, le contenu PDF en BLOB. La signature
-# HMAC est conservée séparément pour vérification d'intégrité.
-
-
-# ── User groups CRUD + membership moved to backend.db.groups ──
-# Functions: create_group, list_groups, get_group, update_group, delete_group,
-# get_group_members, get_user_groups, set_user_groups, add_user_to_group,
-# remove_user_from_group, get_all_users_with_groups
-# Still importable via backend.db.<n> thanks to the package façade.
-
-# ── Pipeline Versions ────────────────────────────────────────────────────────
-
-
-# ── Pipeline Schedules ───────────────────────────────────────────────────────
 
 
 # ── Startup cleanup ───────────────────────────────────────────────────────────

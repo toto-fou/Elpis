@@ -1,14 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""
-backend.db.users — Users, authentication, settings, avatars.
-
-Tables: ``users`` (primary), plus cascading deletes into ``chats``,
-``saved_prompts``, ``shared_prompts``, ``user_groups`` when a user is deleted.
-
-Password hashing: PBKDF2-HMAC-SHA256 with 150,000 iterations and per-user
-16-byte salt. Verification uses :func:`secrets.compare_digest` to resist
-timing attacks.
-"""
+"""shared_infra/accounts/users.py — comptes utilisés par l'installation : création, lecture, réinitialisation du mot de passe (PBKDF2-HMAC-SHA256, 150 000 itérations, sel de 16 octets par compte)."""
 from __future__ import annotations
 
 import hashlib
@@ -45,9 +36,8 @@ def get_all_users() -> List[Dict[str, Any]]:
 
 import re as _re
 
-# Charset canonique d'un username : EXACTEMENT celui que ``safe_sandbox_name``
-# / ``safe_username`` conservent (``[^A-Za-z0-9_-]`` supprimé, sémantique
-# delete). Imposer ce charset à la CRÉATION rend le mapping username → dossier
+# Charset canonique d'un username : EXACTEMENT celui que le nom de dossier de
+# sandbox conserve (``[^A-Za-z0-9_-]`` supprimé, sémantique delete). Imposer ce charset à la CRÉATION rend le mapping username → dossier
 # sandbox/mémoire **injectif** : sinon « jean dupont » (espace) et « jeandupont »,
 # ou « José » et « Jos », partagent le même ``{sandbox}/jeandupont`` → mémoire
 # lue/écrite/effacée en croisé entre deux comptes distincts (audit F16).

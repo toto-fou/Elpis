@@ -1,23 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""
-shared_infra.llm.connectors — CRUD des Connecteurs LLM.
-
-Permet de router le chat vers d'autres backends que l'unique llama-server global.
-
-Portées (``scope``) :
-  - ``user``   : connecteur perso (``owner_user_id`` renseigné) — clé API propre.
-  - ``shared`` : connecteur partagé géré par l'admin (``owner_user_id`` NULL) —
-                 typiquement un backend local (llama.cpp / vLLM) visible par tous.
-
-INVARIANT DE SÉCURITÉ : la clé API n'est JAMAIS renvoyée par les fonctions
-exposées aux routes (``list_*`` / ``get_*`` publiques → ``_public`` = ``has_key``
-seulement). Seuls ``get_*_secret`` — appelés host-side (résolution du target,
-test de connexion) — renvoient la clé déchiffrée, et ne sont jamais sérialisés
-vers HTTP.
-
-Clés chiffrées au repos via Fernet (``shared_infra/security/encryption.py``,
-``key_scheme='fernet'``). ``'plain'`` reste géré en lecture (legacy / FS sans clé).
-"""
+"""shared_infra/llm/connectors.py — connecteurs LLM (liste des partagés, création, mise à jour) pour l'installation ; la clé API est chiffrée au repos (Fernet, ``key_scheme='fernet'``) et n'est jamais renvoyée par ``_public`` (``has_key`` seulement)."""
 from __future__ import annotations
 
 import time

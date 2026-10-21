@@ -5,8 +5,7 @@ shared_infra.security.encryption — Chiffrement symétrique au repos (Fernet).
 Sert à chiffrer les **clés API des connecteurs LLM** (Anthropic / OpenAI / …)
 avant stockage en base. Cf. ``shared_infra/llm/connectors.py``.
 
-Résolution de la clé maître (même esprit que ``SESSION_SECRET`` dans
-``config.py``), par ordre de priorité :
+Résolution de la clé maître, par ordre de priorité :
 
   1. Env var ``APP_ENCRYPTION_KEY``   → posée par le startup avant le fork
      gunicorn ⇒ identique pour tous les workers (approche préférée en prod).

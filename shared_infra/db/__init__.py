@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """shared_infra/db — couche SQLite et PostgreSQL : pool, ``init_db``, schéma de référence, migrations, transfert entre moteurs."""
 
-# ``_connection`` porte ``db``, ``db_conn``, ``init_db``, ``log_metric``… que
+# ``_connection`` porte ``db``, ``db_conn``, ``init_db``… que
 # tout le dépôt importe via cette façade. Alias ``_legacy`` conservé.
 from typing import TYPE_CHECKING
 

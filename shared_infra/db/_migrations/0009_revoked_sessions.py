@@ -16,8 +16,8 @@ ce que « se déconnecter » veut dire. On révoque donc par identifiant de sess
 (``_sid``, posé au login), ce qui laisse les autres appareils intacts.
 
 Purge : une ligne devient inutile passé ``max_age`` (le gate ``_login_ts``
-rejette alors la session de toute façon) — cf. ``purge_expired_revocations``
-dans ``shared_infra/accounts/users.py``, appelé par la maintenance.
+rejette alors la session de toute façon) — cf. ``purgerRevocations`` dans
+``packages/auth/src/revocations.ts``.
 
 Ne commit PAS : le runner de migrations commit en fin d'application.
 """

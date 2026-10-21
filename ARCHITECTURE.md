@@ -143,7 +143,7 @@ toutes dans le core TypeScript.
 | `runtime` | verrous de fichiers entre process (`elpis.verrou.v1.1`) |
 | `sandbox` | agent du conteneur (`agent/`) |
 | `security` | chiffrement Fernet |
-| `ops` | bascule de base |
+| `ops` | génération de base publiée par la bascule |
 
 `config.py` résout la configuration du Python restant (variable
 d'environnement > `config.json` > défaut).

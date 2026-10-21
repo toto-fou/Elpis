@@ -13,6 +13,6 @@
     "generer": "tsx scripts/generer.ts && tsc -p tsconfig.dts.json"
   },
   "dependencies": {
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   }
 }

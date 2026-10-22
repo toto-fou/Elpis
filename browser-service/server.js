@@ -35,6 +35,8 @@ const LOCK_MAX_W   = parseInt(process.env.PW_LOCK_MAX_WAITERS || '8', 10);
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
+// Express 5 laisse req.body indéfini sans corps JSON : les routes le lisent comme un objet, comme sous Express 4.
+app.use((req, _res, next) => { req.body ??= {}; next(); });
 
 // ════════════════════════════════════════════════════════════════════
 //  SÉCURITÉ — bind interface

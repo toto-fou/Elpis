@@ -7,6 +7,6 @@
 openpyxl==3.1.5               # lecture des .xlsx (lecture seule, en flux)
 pypdf==6.21.2
 pdfplumber==0.11.10            # mots, lignes et tableaux des PDF avec leurs positions ; tire pypdfium2
-pypdfium2==5.8.0              # rendu des pages (visionneuse, OCR)
+pypdfium2==5.9.0              # rendu des pages (visionneuse, OCR)
 fpdf2==2.8.7                  # LGPL-3.0, installé sans modification (documents de test)
 charset-normalizer==3.4.7     # encodage des fichiers texte

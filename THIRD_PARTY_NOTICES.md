@@ -50,7 +50,7 @@ chunks (editor, language workers) imported only when the editor opens. License t
 | Vue.js (esm-bundler build with the template compiler; `@vue/*` packages) | 3.5.44 | MIT | entry chunk (`vue`) | https://github.com/vuejs/core |
 | marked | 15.0.12 | MIT | entry chunk (`marked`) | https://github.com/markedjs/marked |
 | DOMPurify | 3.4.17 | Apache-2.0 OR MPL-2.0 (Apache-2.0 retained) | entry chunk (`dompurify`) | https://github.com/cure53/DOMPurify |
-| Zod (schemas of `@elpis/contracts`, network validation) | 4.6.5 | MIT | entry chunks (`zod`) | https://github.com/colinhacks/zod — text in `THIRD_PARTY_LICENSES/npm-web.txt` |
+| Zod (schemas of `@elpis/contracts`, network validation) | 4.6.7 | MIT | entry chunks (`zod`) | https://github.com/colinhacks/zod — text in `THIRD_PARTY_LICENSES/npm-web.txt` |
 | highlight.js (browser build and `github-dark` theme) | 11.7.0 | BSD-3-Clause | `highlight.min.js`, `styles/github-dark.min.css` (`@highlightjs/cdn-assets`) | https://github.com/highlightjs/highlight.js |
 | Mermaid | 11.17.2 | MIT | `dist/mermaid.min.js` (`mermaid`) | https://github.com/mermaid-js/mermaid |
 | Apache ECharts (chat charts) | 6.1.0 | Apache-2.0 (NOTICE and embedded d3.js BSD-3-Clause parts in `THIRD_PARTY_LICENSES/echarts.txt`) | `dist/echarts.min.js`, `i18n/langFR.js` (`echarts`) | https://github.com/apache/echarts |
@@ -222,7 +222,7 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | wrappy | 1.0.2 | ISC |
 | ws | 8.22.0 | MIT |
 | xtend | 4.0.2 | MIT |
-| zod | 4.6.5 | MIT |
+| zod | 4.6.7 | MIT |
 | zod-to-json-schema | 3.25.2 | ISC |
 
 <!-- /npm-core -->
@@ -326,7 +326,7 @@ the core bundle.
 | ws | 8.22.0 | MIT |
 | xtend | 4.0.2 | MIT |
 | yaml | 2.9.1 | ISC |
-| zod | 4.6.5 | MIT |
+| zod | 4.6.7 | MIT |
 | zod-to-json-schema | 3.25.2 | ISC |
 | libwebp | 1.6.0 | BSD-3-Clause AND MIT AND Apache-2.0 WITH LLVM-exception |
 

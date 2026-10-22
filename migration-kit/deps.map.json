@@ -71,7 +71,7 @@
     "undici": {"version": "8.11.2", "role": "execution"},
     "eventsource-parser": {"version": "4.1.1", "role": "execution"},
     "@modelcontextprotocol/sdk": {"version": "1.32.1", "role": "execution"},
-    "zod": {"version": "4.6.5", "role": "execution"},
+    "zod": {"version": "4.6.7", "role": "execution"},
     "ajv": {"version": "8.20.0", "role": "execution"},
     "better-sqlite3": {"version": "13.0.3", "role": "execution"},
     "pg": {"version": "8.23.1", "role": "execution"},

@@ -26,7 +26,7 @@ fonts-liberation
 fonts-crosextra-carlito
 fonts-crosextra-caladea
 
-# navigateur — bibliothèques de Chromium pour le service navigateur (liste de Playwright 1.58 ; Debian 12 : noms sans t64)
+# navigateur — bibliothèques de Chromium pour le service navigateur (liste de Playwright 1.64 ; Debian 12 : noms sans t64)
 xvfb
 fonts-noto-color-emoji
 fonts-unifont

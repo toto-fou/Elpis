@@ -30,6 +30,7 @@ import {
   relExtraitRag,
   relSourceRag,
 } from "./magasin";
+import { purgerAvantReutilisation } from "./qdrant";
 import type { PortQdrantRag } from "./qdrant";
 import {
   ecrireParamsTravail,
@@ -431,6 +432,7 @@ async function indexerEtape(
   );
   try {
     if ((await lireCollection(ctx.base, coll.id)) === null) return { genre: "perime" };
+    if (migration) await purgerAvantReutilisation(ctx.qdrant, nom);
     try {
       await ctx.qdrant.assurerCollection(nom, { dimension }, signal);
     } catch (e) {

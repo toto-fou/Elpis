@@ -4,7 +4,7 @@ distribution files (mermaid.min.js, echarts.min.js, chart.umd.js…) embed the v
 their licenses and copyright holders are the same.
 
 ==============================================================================
-zod 4.6.5 — MIT — frontend/dist entry chunk (through @elpis/contracts)
+zod 4.6.7 — MIT — frontend/dist entry chunk (through @elpis/contracts)
 (from LICENSE)
 
 MIT License

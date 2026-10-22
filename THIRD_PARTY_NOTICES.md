@@ -61,7 +61,7 @@ chunks (editor, language workers) imported only when the editor opens. License t
 | chartjs-chart-financial | 0.2.1 | MIT | `dist/chartjs-chart-financial.js` | https://github.com/chartjs/chartjs-chart-financial |
 | chartjs-chart-matrix | 2.0.1 | MIT | `dist/chartjs-chart-matrix.min.js` | https://github.com/kurkle/chartjs-chart-matrix |
 | chartjs-chart-sankey | 0.14.0 | MIT | `dist/chartjs-chart-sankey.min.js` | https://github.com/kurkle/chartjs-chart-sankey |
-| chartjs-chart-treemap | 3.1.0 | MIT | `dist/chartjs-chart-treemap.min.js` | https://github.com/kurkle/chartjs-chart-treemap |
+| chartjs-chart-treemap | 4.2.2 | MIT | `dist/chartjs-chart-treemap.min.js` | https://github.com/kurkle/chartjs-chart-treemap |
 | chartjs-plugin-annotation | 3.0.1 | MIT | `dist/chartjs-plugin-annotation.min.js` | https://github.com/chartjs/chartjs-plugin-annotation |
 | chartjs-plugin-datalabels | 2.2.0 | MIT | `dist/chartjs-plugin-datalabels.min.js` | https://github.com/chartjs/chartjs-plugin-datalabels |
 | xterm.js | 5.4.0 | MIT | `lib/xterm.js`, `css/xterm.css` (`@xterm/xterm`) | https://github.com/xtermjs/xterm.js |

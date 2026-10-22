@@ -2,8 +2,10 @@
 /** apps/core/src/ops/redemarrage.ts — rechargement gracieux du process (`schedule_self_reload`), générations en cours et appel de `restart-self` de main. */
 import { setTimeout as attendre } from "node:timers/promises";
 
+import type { PortCycleVie } from "../admin/securite";
 import type { CycleDeVie } from "../cycle";
 import { DELAI_ARRET_MS } from "../cycle";
+import type { AppelInterne } from "../evenements/canal";
 import type { Journal } from "../journal";
 import { verrousChat } from "../tour/etat";
 
@@ -188,4 +190,21 @@ export async function redemarrerMainPuisSoi(
   }
   planifierRechargement(dep.cycle, dep.journal, DELAI_RECHARGEMENT_MS, dep.generations);
   return mainOk;
+}
+
+/** Cycle de vie de la console Sécurité (HTTPS, écoute) : `restart-self` de main depuis l'admin, puis rechargement de soi. */
+export function portCycleVie(cycle: CycleDeVie, journal: Journal, versMain?: AppelInterne): PortCycleVie {
+  return {
+    redemarrerMain: async () =>
+      versMain === undefined ||
+      (await appelerRestartSelf(urlMainInterneBrute(), versMain.jeton(), { fetch: versMain.fetch }))
+        .statut === 200,
+    programmerRechargement: (delaiS) =>
+      planifierRechargement(
+        cycle,
+        journal,
+        delaiS * 1000,
+        versMain ? () => lireGenerationsMain(versMain) : activeGenerations,
+      ),
+  };
 }

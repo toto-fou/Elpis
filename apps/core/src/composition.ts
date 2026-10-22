@@ -103,6 +103,7 @@ import { creerFamilleVoix } from "./familles/voix";
 import { creerFamillesExploitation } from "./familles/exploitation";
 import { brancherJobs } from "./jobs/branchements";
 import { installerMaintenance } from "./ops/bascule";
+import { portCycleVie } from "./ops/redemarrage";
 import type { Journal } from "./journal";
 import { brancherDiffusionLlm, brancherLlm } from "./llm/branchement";
 import {
@@ -511,6 +512,7 @@ export async function composer(
         journal: journal.child({ domaine: "admin" }),
         revoquer: (uid) => evenements.revoquer(uid),
         diffuser: (message) => evenements.diffuserPartout(message),
+        cycleVie: portCycleVie(cycle, journal.child({ domaine: "admin" }), evenements.versMain),
       }),
       creerFamilleAdminConfig({ journal: journal.child({ domaine: "admin" }) }),
       creerFamilleAdminVue(vueAdmin(base, journal.child({ domaine: "admin" }), racine, evenements, auth)),

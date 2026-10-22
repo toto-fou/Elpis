@@ -11,6 +11,8 @@ import { poserChemin } from "./etat";
 
 type VueSessions = typeof schemaReponseSessionsConsole._output;
 const ENTETES_JSON = { "Content-Type": "application/json" };
+export const REDEMARRAGE_MANUEL =
+  "Réglage enregistré, mais le redémarrage automatique a échoué : redémarrez Elpis (./elpis restart)";
 
 export function creerSecurite(b: BaseAdmin) {
   const { vue, ctx, e, lien } = b;
@@ -114,6 +116,10 @@ export function creerSecurite(b: BaseAdmin) {
       if (res?.ok) {
         const data = objet(await corpsJson(res));
         realignerFormulaireHttps(activation);
+        if (data["ok"] === false) {
+          showToast(REDEMARRAGE_MANUEL, "error");
+          return;
+        }
         showToast(
           activation ? "HTTPS activé — redémarrage en cours" : "Retour en HTTP direct — redémarrage en cours",
           "success",
@@ -168,7 +174,8 @@ export function creerSecurite(b: BaseAdmin) {
       });
       if (res?.ok && httpsStatus.value) {
         httpsStatus.value = { ...httpsStatus.value, listen };
-        showToast("Écoute modifiée — redémarrage en cours", "success");
+        if (objet(await corpsJson(res))["ok"] === false) showToast(REDEMARRAGE_MANUEL, "error");
+        else showToast("Écoute modifiée — redémarrage en cours", "success");
       } else {
         showToast(detailErreur(await corpsJson(res)) || "Échec du changement d'écoute", "error");
         await loadHttpsStatus();

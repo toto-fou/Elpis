@@ -55,7 +55,7 @@ chunks (editor, language workers) imported only when the editor opens. License t
 | Mermaid | 11.17.2 | MIT | `dist/mermaid.min.js` (`mermaid`) | https://github.com/mermaid-js/mermaid |
 | Apache ECharts (chat charts) | 6.1.0 | Apache-2.0 (NOTICE and embedded d3.js BSD-3-Clause parts in `THIRD_PARTY_LICENSES/echarts.txt`) | `dist/echarts.min.js`, `i18n/langFR.js` (`echarts`) | https://github.com/apache/echarts |
 | ZRender (bundled in `echarts.min.js`) | 6.1.0 | BSD-3-Clause | `dist/echarts.min.js` (`echarts`) | https://github.com/ecomfe/zrender |
-| Chart.js (admin dashboard) | 4.4.1 | MIT | `dist/chart.umd.js` (`chart.js`) | https://github.com/chartjs/Chart.js |
+| Chart.js (admin dashboard) | 4.5.1 | MIT | `dist/chart.umd.js` (`chart.js`) | https://github.com/chartjs/Chart.js |
 | chartjs-adapter-date-fns (bundle, includes date-fns) | 3.0.0 | MIT | `dist/chartjs-adapter-date-fns.bundle.min.js` | https://github.com/chartjs/chartjs-adapter-date-fns |
 | chartjs-chart-boxplot (@sgratzl) | 4.4.4 | MIT | `build/index.umd.min.js` (`@sgratzl/chartjs-chart-boxplot`) | https://github.com/sgratzl/chartjs-chart-boxplot |
 | chartjs-chart-financial | 0.2.1 | MIT | `dist/chartjs-chart-financial.js` | https://github.com/chartjs/chartjs-chart-financial |

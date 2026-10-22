@@ -152,6 +152,19 @@ export async function effacerNomQdrant(q: PortQdrantRag, nom: string): Promise<b
   return tenter(`q.${nom}`, async () => void (await q.supprimerCollection(nom)));
 }
 
+/** Génération qu'une migration va remplir : sa purge notée est faite maintenant, jamais après coup sur la collection pleine. */
+export async function purgerAvantReutilisation(q: PortQdrantRag, nom: string): Promise<void> {
+  const marqueur = `q.${nom}`;
+  if (!purgesEnAttente().includes(marqueur)) return;
+  retirerMarqueur(marqueur);
+  try {
+    await q.supprimerCollection(nom);
+  } catch (e) {
+    noterPurgeQdrant(marqueur);
+    throw e;
+  }
+}
+
 /** Collections de l'ancien RAG notées par la mise à jour quand Qdrant était arrêté (deploy/rag_ancien.py). */
 const MARQUEUR_ANCIEN_RAG = "ancien-rag.json";
 const MARQUEUR_ANCIEN_MAX = 1024 * 1024;
@@ -219,6 +232,7 @@ export async function traiterPurgesQdrant(q: PortQdrantRag): Promise<{ faites: n
   let faites = 0;
   let restantes = 0;
   for (const m of purgesEnAttente()) {
+    if (!purgesEnAttente().includes(m)) continue;
     const [genre, a = "", b = ""] = m.split(".");
     try {
       if (genre === "c") await effacerCollection(q, a);

@@ -583,6 +583,10 @@ export async function runSend(base: Base, scope: unknown, options: OptionsEnvoi 
   if (!pris) return { ok: false, error: "Un envoi est déjà en cours." };
   try {
     return await envoyer(base, scope, options.trigger ?? "manual", options.journal);
+  } catch (e) {
+    const erreur = e instanceof Error ? e.message : String(e);
+    await recordLastSend(false, "", erreur, options.trigger ?? "manual", false, options.journal);
+    return { ok: false, error: erreur };
   } finally {
     await verrou.rendre();
   }

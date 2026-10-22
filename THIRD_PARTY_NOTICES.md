@@ -59,7 +59,7 @@ chunks (editor, language workers) imported only when the editor opens. License t
 | chartjs-adapter-date-fns (bundle, includes date-fns) | 3.0.0 | MIT | `dist/chartjs-adapter-date-fns.bundle.min.js` | https://github.com/chartjs/chartjs-adapter-date-fns |
 | chartjs-chart-boxplot (@sgratzl) | 4.4.4 | MIT | `build/index.umd.min.js` (`@sgratzl/chartjs-chart-boxplot`) | https://github.com/sgratzl/chartjs-chart-boxplot |
 | chartjs-chart-financial | 0.2.1 | MIT | `dist/chartjs-chart-financial.js` | https://github.com/chartjs/chartjs-chart-financial |
-| chartjs-chart-matrix | 2.0.1 | MIT | `dist/chartjs-chart-matrix.min.js` | https://github.com/kurkle/chartjs-chart-matrix |
+| chartjs-chart-matrix | 3.1.0 | MIT | `dist/chartjs-chart-matrix.min.js` | https://github.com/kurkle/chartjs-chart-matrix |
 | chartjs-chart-sankey | 0.14.0 | MIT | `dist/chartjs-chart-sankey.min.js` | https://github.com/kurkle/chartjs-chart-sankey |
 | chartjs-chart-treemap | 3.1.0 | MIT | `dist/chartjs-chart-treemap.min.js` | https://github.com/kurkle/chartjs-chart-treemap |
 | chartjs-plugin-annotation | 3.0.1 | MIT | `dist/chartjs-plugin-annotation.min.js` | https://github.com/chartjs/chartjs-plugin-annotation |

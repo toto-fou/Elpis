@@ -4,6 +4,16 @@ Les changements notables d'Elpis, du plus récent au plus ancien. Format inspir�
 de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; numéros de version
 selon [SemVer](https://semver.org/lang/fr/).
 
+## Non publié
+
+### Pour l'exploitant
+
+- **Service navigateur : Playwright 1.64** (Chromium 156, révision 1248). Le
+  Chromium de la version précédente ne convient plus : relancez `./install.sh`
+  (réseau requis) ou, hors ligne, installez le paquet hors ligne de la nouvelle
+  version (`make_release.sh` y place le Chromium attendu). Les paquets apt
+  requis ne changent pas.
+
 ## 0.1.1 — 2026-10-22
 
 **Moteurs vLLM et SGLang.** Le type de moteur écrit dans `config.json`

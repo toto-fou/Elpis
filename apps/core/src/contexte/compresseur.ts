@@ -584,6 +584,7 @@ export class ConversationCompressor {
           usageScope: "compression",
           signal: o.signal,
         });
+        if (lire(meta, "error")) throw new Error(summaryText);
       }
     } catch (e) {
       if (estAnnulation(e) || o.signal?.aborted) throw e;

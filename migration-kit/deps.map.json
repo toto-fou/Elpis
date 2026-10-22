@@ -121,7 +121,7 @@
     "monaco-editor": {"version": "0.45.0", "role": "execution", "pour": "frontend (@elpis/web), lot L06 : éditeur de code en ESM (workers déclarés à Vite), chargé à la demande ; version de frontend/vendor/monaco (AMD retiré)"},
     "@vitejs/plugin-vue": {"version": "6.0.9", "role": "dev", "pour": "SFC Vue dans le build Vite du frontend"},
     "vue-tsc": {"version": "3.3.11", "role": "dev", "pour": "typage des SFC (vue-tsc --noEmit) dans npm run verifier"},
-    "happy-dom": {"version": "20.14.5", "role": "dev", "pour": "DOM des tests Vitest du frontend (Q11)"},
+    "happy-dom": {"version": "21.0.3", "role": "dev", "pour": "DOM des tests Vitest du frontend (Q11)"},
     "eslint-plugin-vue": {"version": "10.11.0", "role": "dev", "pour": "lint des SFC du frontend"},
     "vue-eslint-parser": {"version": "10.4.1", "role": "dev", "pour": "analyseur des SFC pour ESLint (pair de eslint-plugin-vue)"}
   }

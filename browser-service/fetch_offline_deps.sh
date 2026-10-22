@@ -105,7 +105,7 @@ for e in "${ENGINES[@]}"; do for n in $(json_names_for "$e"); do WANT_JSON+=("$n
 info "Téléchargement/validation des navigateurs (${ENGINES[*]}) via Playwright…"
 node "$PW_CLI" install "${ENGINES[@]}" || die "playwright install a échoué (réseau ?)."
 
-# browsers.json → dossiers de cache exacts (chromium-1208, chromium_headless_shell-1208, …)
+# browsers.json → dossiers de cache exacts (chromium-1248, chromium_headless_shell-1248, …)
 mapfile -t WANT_DIRS < <(node -e '
 const j = require("./node_modules/playwright-core/browsers.json");
 const want = new Set(process.argv.slice(1));

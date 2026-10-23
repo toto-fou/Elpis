@@ -766,7 +766,9 @@ class Agent:
     def reel(self, rel: str) -> str:
         """Chemin résolu, liens suivis : il doit rester sous la racine."""
         p = os.path.realpath(self.chemin(rel))
-        if p != self.racine and not p.startswith(self.racine + os.sep):
+        if p == self.racine:
+            return self.racine
+        if not p.startswith(self.racine + os.sep):
             raise Refus(403, "outside_root", "un lien sort de /work")
         return p
 
@@ -776,7 +778,13 @@ class Agent:
         if not rel:
             return self.racine
         parent, nom = os.path.split(rel)
-        return os.path.join(self.reel(parent), nom)
+        base = self.reel(parent)
+        p = os.path.normpath(os.path.join(base, nom))
+        if p == base:
+            return base
+        if not p.startswith(base + os.sep):
+            raise Refus(400, "bad_path", "nom hors du dossier")
+        return p
 
     def signaler_activite(self) -> None:
         """Le ramasse-miettes d'inactivité lit le mtime de la racine."""

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/rappel.ts — rappels de l'hôte vers l'API interne du core (`/api/internal/*`, shared_infra/toolhost/client.py) : jeton de service, cache court, jamais d'exception. */
-import { estDict, getPy, intPy, pyJsonLoads, strPy, veritePy } from "@elpis/commun";
+import { estDict, getPy, intPy, pyJsonLoads, rstripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { IMPORT_GARDE } from "@elpis/fichiers";
 import { creerIdentite, IDENTITY_HEADER, sign } from "@elpis/securite";
@@ -52,7 +52,7 @@ export class ClientRappel {
   private readonly quotasConnus = new Map<number, number | null>();
 
   constructor(o: OptionsRappel) {
-    this.appUrl = o.appUrl.replace(/\/+$/u, "");
+    this.appUrl = rstripPy(o.appUrl, "/");
     this.jeton = o.jeton;
     this.journal = o.journal;
     this.agent = o.agent;

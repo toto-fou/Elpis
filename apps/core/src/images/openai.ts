@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/images/openai.ts — moteur « OpenAI-compatible » : `/v1/images/generations` et `/edits`, appel synchrone sans file visible. */
-import { comparePointsDeCode, strPy, veritePy } from "@elpis/commun";
+import { comparePointsDeCode, rstripPy, strPy, veritePy } from "@elpis/commun";
 
 import { CancelledError } from "../llm/client-http";
 import { estDict, lire } from "../python";
@@ -45,7 +45,7 @@ export class OpenAIProvider implements ImageProvider {
   private readonly horloges: Horloges;
 
   constructor(url: string, options: OptionsOpenAI = {}) {
-    this.url = (url || "").replace(/\/+$/, "");
+    this.url = rstripPy(url || "", "/");
     this.model = options.model ?? "";
     this.timeoutSec = Math.trunc(options.timeoutSec ?? 180);
     this.verify = options.verify ?? true;

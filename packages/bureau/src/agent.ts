@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/bureau/src/agent.ts — agent bureau des postes du LAN : cibles permises au compte, résolution par nom (jamais d'URL venue du client), transport HTTP et erreurs harmonisées (desktop_tools, desktop/access). */
-import { estDict, getPy, pyJsonLoads, stripPy, strPy, veritePy } from "@elpis/commun";
+import { estDict, getPy, pyJsonLoads, rstripPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { config, getDesktopTargets, reloadDesktopConfigFromDisk } from "@elpis/config";
 import type { CibleDesktop } from "@elpis/config";
@@ -235,7 +235,7 @@ export async function agentReq(
   methode: "GET" | "POST" = "POST",
   timeout: number | null = null,
 ): Promise<Dict> {
-  const url = cible.agent_url.replace(/\/+$/, "") + endpoint;
+  const url = rstripPy(cible.agent_url, "/") + endpoint;
   const t = timeout ?? config.DESKTOP_AGENT_TIMEOUT_SEC;
   const essais = config.DESKTOP_TRANSPORT_RETRIES;
   let tentative = 0;

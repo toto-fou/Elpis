@@ -4,7 +4,7 @@ import { execFile } from "node:child_process";
 import { lstat, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
-import { strPy } from "@elpis/commun";
+import { rstripPy, strPy } from "@elpis/commun";
 import { config, pyPath, realpathPy } from "@elpis/config";
 
 import { appelDocker, decoderRemplace, labelFilter, which } from "./docker";
@@ -119,7 +119,7 @@ export function oublierOccupations(): void {
 /** Conteneurs dont le montage `/work` est sous `racine` (bacs de CETTE instance) ; inspection en échec : aucun. */
 async function conteneursDeLInstance(noms: readonly string[], racine: string): Promise<string[]> {
   if (noms.length === 0 || !racine) return [];
-  const bases = new Set([pyPath(racine), realpathPy(racine)].map((b) => b.replace(/\/+$/u, "")));
+  const bases = new Set([pyPath(racine), realpathPy(racine)].map((b) => rstripPy(b, "/")));
   const sous = (source: string): boolean => [...bases].some((b) => b && source.startsWith(`${b}/`));
   try {
     const r = await appelDocker(

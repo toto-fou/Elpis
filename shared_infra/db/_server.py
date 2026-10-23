@@ -135,7 +135,7 @@ def _adapt_one(v: Any, strip_nul: bool) -> Any:
 #  Classification des instructions
 # ─────────────────────────────────────────────────────────────────────────────
 
-_WORD = re.compile(r"\s*(?:--[^\n]*\n\s*|/\*.*?\*/\s*)*([A-Za-z]+)", re.S)
+_WORD = re.compile(r"\s*(?:--[^\n]*\n\s*|/\*[^*]*\*+(?:[^/*][^*]*\*+)*/\s*)*([A-Za-z]+)")
 _DML = {"INSERT", "UPDATE", "DELETE", "REPLACE", "MERGE"}
 
 

@@ -8,7 +8,11 @@ import { estErreurPython, intPy, prefixePy, reprPy } from "@elpis/commun";
 import { racineDepot } from "@elpis/config";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 
-import { cheminJournalCommun, ecrivainJournalCommun } from "../evenements/journal-commun";
+import {
+  cheminJournalCommun,
+  ecrivainJournalCommun,
+  masquerJetonsApercu,
+} from "../evenements/journal-commun";
 import type { EcrivainJournal } from "../evenements/journal-commun";
 import type { EcrireJournal } from "../evenements/systeme";
 import { installerCrochetJournal } from "../journal";
@@ -81,7 +85,7 @@ let historique: CrochetJournal | null = null;
 /** Crochet des journaux du process : historique du bus (`SSELogHandler`) et fichier commun (`FileEventHandler`), chacun au mieux. */
 function relayer(niveau: string, message: string, date: Date): void {
   try {
-    historique?.(niveau, message, date);
+    historique?.(niveau, masquerJetonsApercu(message), date);
   } finally {
     processus?.ecrire({
       level: niveau,

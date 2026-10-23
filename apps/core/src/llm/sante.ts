@@ -222,6 +222,8 @@ function chargeVisible(charge: EtatCharge): Dict {
     en_attente: charge.en_attente,
     debit_tps: charge.debit_tps,
     cache_prefixe_pct: charge.cache_prefixe_pct,
+    ttft_s: charge.ttft_s,
+    prefill_tps: charge.prefill_tps,
   };
 }
 

@@ -49,6 +49,8 @@ export interface CapacitesMoteur {
   readonly modelesServisCharges: boolean;
   /** `usage.prompt_tokens_details.cached_tokens` : toujours rendu, sur option du serveur, ou jamais connu. */
   readonly jetonsEnCache: "toujours" | "option" | "inconnu";
+  /** Aucun `timings` en flux : Elpis mesure le délai du premier jeton et la génération (vLLM, SGLang). */
+  readonly timingsMesures: boolean;
 }
 
 /** Noms Prometheus normalisés (`:` → `_`) lus par la jauge et l'état du moteur. */
@@ -66,6 +68,13 @@ export interface MetriquesMoteur {
   readonly tauxCache: string | null;
   readonly cacheRequetes: string | null;
   readonly cacheSucces: string | null;
+  /** Histogramme du délai du premier jeton : base du nom, `_sum` et `_count` lus. */
+  readonly ttft: string | null;
+  /** Compteur des jetons de prefill calculés, restreint aux échantillons portant `etiquettesPrefill`. */
+  readonly prefillJetons: string | null;
+  readonly etiquettesPrefill: Readonly<Record<string, string>> | null;
+  /** Étiquette d'une réplique de données (`dp_rank` de SGLang) : sommée entre répliques, maximum dans une réplique (rangs TP en double). */
+  readonly etiquetteReplique: string | null;
   /** Statut HTTP de `/metrics` quand le serveur est lancé sans métriques (501 llama.cpp, 404 vLLM et SGLang). */
   readonly statutDesactivees: number | null;
 }
@@ -157,6 +166,10 @@ const SANS_METRIQUES: MetriquesMoteur = {
   tauxCache: null,
   cacheRequetes: null,
   cacheSucces: null,
+  ttft: null,
+  prefillJetons: null,
+  etiquettesPrefill: null,
+  etiquetteReplique: null,
   statutDesactivees: null,
 };
 
@@ -199,6 +212,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       attenteSante: true,
       modelesServisCharges: false,
       jetonsEnCache: "toujours",
+      timingsMesures: false,
     },
     metriques: {
       ...SANS_METRIQUES,
@@ -249,6 +263,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       attenteSante: true,
       modelesServisCharges: true,
       jetonsEnCache: "option",
+      timingsMesures: true,
     },
     metriques: {
       ...SANS_METRIQUES,
@@ -259,6 +274,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       jetonsGeneres: "vllm_generation_tokens_total",
       cacheRequetes: "vllm_prefix_cache_queries_total",
       cacheSucces: "vllm_prefix_cache_hits_total",
+      ttft: "vllm_time_to_first_token_seconds",
       statutDesactivees: 404,
     },
     drapeaux: {
@@ -302,6 +318,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       attenteSante: true,
       modelesServisCharges: true,
       jetonsEnCache: "option",
+      timingsMesures: true,
     },
     metriques: {
       ...SANS_METRIQUES,
@@ -309,10 +326,15 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       enAttente: "sglang_num_queue_reqs",
       kvRatio: "sglang_token_usage",
       kvUtilises: "sglang_kv_used_tokens",
+      kvTotal: "sglang_max_total_num_tokens",
       debit: "sglang_gen_throughput",
       statutDesactivees: 404,
       jetonsGeneres: "sglang_generation_tokens_total",
       tauxCache: "sglang_cache_hit_rate",
+      ttft: "sglang_time_to_first_token_seconds",
+      prefillJetons: "sglang_realtime_tokens_total",
+      etiquettesPrefill: { mode: "prefill_compute" },
+      etiquetteReplique: "dp_rank",
     },
     drapeaux: {
       metriques: "ajoutez --enable-metrics",
@@ -355,6 +377,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       attenteSante: false,
       modelesServisCharges: false,
       jetonsEnCache: "inconnu",
+      timingsMesures: false,
     },
     metriques: SANS_METRIQUES,
     drapeaux: {

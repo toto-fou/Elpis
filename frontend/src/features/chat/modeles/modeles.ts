@@ -35,6 +35,8 @@ export interface ChargeMoteur {
   en_attente: number | null;
   debit_tps: number | null;
   cache_prefixe_pct: number | null;
+  ttft_s: number | null;
+  prefill_tps: number | null;
 }
 
 export interface JaugeKv {
@@ -127,6 +129,8 @@ function lireCharge(v: unknown): ChargeMoteur | null {
     en_attente: n(v["en_attente"]),
     debit_tps: n(v["debit_tps"]),
     cache_prefixe_pct: n(v["cache_prefixe_pct"]),
+    ttft_s: n(v["ttft_s"]),
+    prefill_tps: n(v["prefill_tps"]),
   };
 }
 const chaines = (v: unknown): string[] =>

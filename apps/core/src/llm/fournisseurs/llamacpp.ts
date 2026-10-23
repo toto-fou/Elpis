@@ -16,6 +16,7 @@ import {
 } from "../constantes";
 import { getPy, isdigitPy, iterExige } from "../dict-py";
 import { getModelContextSize } from "../modeles";
+import { currentEngine } from "../moteurs";
 import { getPreserveReasoningSupport, getReasoningEffortValues } from "../parametres";
 import { executions } from "../ports";
 import { texteReflexion } from "../profils";
@@ -244,6 +245,10 @@ export class SseStreamResult {
   reroutedThinkWarned = false;
   completionId: string | null = null;
   promptProgress: Dict = {};
+  /** Instants (`performance.now()`) : envoi de la requête (posé par l'appelant), premier delta utile, fin du flux. */
+  debutMs: number | null = null;
+  premierMs: number | null = null;
+  finMs: number | null = null;
 
   content(): string {
     return this.contentParts.join("");
@@ -389,12 +394,14 @@ export async function consumeLlamaSse(resp: FluxSse, o: OptionsConsommation): Pr
     const d = getPy(choice, "delta");
     const delta = veritePy(d) ? d : {};
     const rc = texteReflexion(delta);
+    const tcDeltas = getPy(delta, "tool_calls");
+    if (r.premierMs === null && (rc || veritePy(tcDeltas) || veritePy(getPy(delta, "content"))))
+      r.premierMs = performance.now();
     if (rc) {
       r.streamPreEmittedThinking = true;
       r.thinkingParts.push(rc);
       if (o.onThinkingToken) await o.onThinkingToken(rc);
     }
-    const tcDeltas = getPy(delta, "tool_calls");
     if (veritePy(tcDeltas)) {
       for (const tcd of iterExige(tcDeltas)) {
         const fb = getPy(tcd, "function");
@@ -477,9 +484,45 @@ export function finDeFlux(r: SseStreamResult): void {
     }
     if (n > 0) u["cache_read_input_tokens"] = n;
   }
+  r.finMs ??= performance.now();
+  if (Object.keys(r.timings).length === 0 && moteurSansTimings()) {
+    const t = timingsMesures(r);
+    if (t !== null) r.timings = t;
+  }
   try {
     executions().ajouterAppelLlm(r.timings);
   } catch {
     log.debug("[runs] appel LLM non compté");
   }
+}
+
+function moteurSansTimings(): boolean {
+  try {
+    return currentEngine().profil.capacites.timingsMesures;
+  } catch {
+    return false;
+  }
+}
+
+function entierUsage(u: Dict, cle: string): number {
+  const v = getPy(u, cle);
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0;
+}
+
+/** `timings` à la forme de llama.cpp mesurés par Elpis : prefill = délai du premier delta (file du moteur comprise), génération = la suite. */
+export function timingsMesures(r: SseStreamResult): Dict | null {
+  if (r.debutMs === null || r.premierMs === null || !estDict(r.usage)) return null;
+  const entree = entierUsage(r.usage, "prompt_tokens");
+  const sortie = entierUsage(r.usage, "completion_tokens");
+  if (entree <= 0 && sortie <= 0) return null;
+  const cache = Math.min(entree, entierUsage(r.usage, "cache_read_input_tokens"));
+  const fin = r.finMs ?? performance.now();
+  return {
+    prompt_n: entree - cache,
+    prompt_ms: Math.round(Math.max(0, r.premierMs - r.debutMs) * 10) / 10,
+    predicted_n: sortie,
+    predicted_ms: Math.round(Math.max(0, fin - r.premierMs) * 10) / 10,
+    cache_n: cache,
+    source: "elpis",
+  };
 }

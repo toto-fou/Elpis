@@ -23,6 +23,10 @@ export interface EtatCharge {
   en_attente: number | null;
   debit_tps: number | null;
   cache_prefixe_pct: number | null;
+  /** Délai moyen du premier jeton (s) depuis la lecture précédente, sinon depuis le démarrage du moteur. */
+  ttft_s: number | null;
+  /** Jetons de prefill calculés par seconde entre deux lectures (hors cache de préfixe). */
+  prefill_tps: number | null;
 }
 
 const RE_LIGNE = /^([A-Za-z_:][A-Za-z0-9_:]*)(\{(.*)\})?\s+(\S+)/u;
@@ -55,15 +59,37 @@ export function lireEchantillons(texte: string | null | undefined): Echantillon[
   return sortie;
 }
 
-/** Échantillons d'un nom ; le détail par priorité de SGLang (étiquette `priority` non vide) est écarté, le total suffit. */
-function serie(echantillons: readonly Echantillon[], nom: string | null): Echantillon[] {
+/** Échantillons d'un nom (et des étiquettes demandées) ; le détail par priorité de SGLang (étiquette `priority` non vide) est écarté, le total suffit. */
+function serie(
+  echantillons: readonly Echantillon[],
+  nom: string | null,
+  etiquettes: Readonly<Record<string, string>> | null = null,
+): Echantillon[] {
   if (!nom) return [];
-  return echantillons.filter((e) => e.nom === nom && !e.etiquettes["priority"]);
+  return echantillons.filter(
+    (e) =>
+      e.nom === nom &&
+      !e.etiquettes["priority"] &&
+      Object.entries(etiquettes ?? {}).every(([k, v]) => e.etiquettes[k] === v),
+  );
 }
 
-function somme(echantillons: readonly Echantillon[], nom: string | null): number | null {
-  const s = serie(echantillons, nom);
-  return s.length ? s.reduce((t, e) => t + e.valeur, 0) : null;
+/** Somme d'un nom ; avec `replique`, maximum des échantillons d'une même réplique (rangs TP qui répètent la valeur) puis somme des répliques. */
+function somme(
+  echantillons: readonly Echantillon[],
+  nom: string | null,
+  replique: string | null = null,
+  etiquettes: Readonly<Record<string, string>> | null = null,
+): number | null {
+  const s = serie(echantillons, nom, etiquettes);
+  if (!s.length) return null;
+  if (replique === null) return s.reduce((t, e) => t + e.valeur, 0);
+  const parReplique = new Map<string, number>();
+  for (const e of s) {
+    const k = e.etiquettes[replique] ?? "";
+    parReplique.set(k, Math.max(parReplique.get(k) ?? -Infinity, e.valeur));
+  }
+  return [...parReplique.values()].reduce((t, v) => t + v, 0);
 }
 
 function moyenne(echantillons: readonly Echantillon[], nom: string | null): number | null {
@@ -98,9 +124,22 @@ function debitDepuisCompteur(cle: string, jetons: number | null, maintenant: num
   return (jetons - avant.jetons) / (maintenant - avant.t);
 }
 
+const derniersTtft = new Map<string, { somme: number; compte: number }>();
+
+/** Délai moyen du premier jeton : sur les requêtes finies depuis la lecture précédente de la même clé, sinon depuis le démarrage. */
+function ttftMoyen(cle: string, sommeS: number | null, compte: number | null): number | null {
+  if (sommeS === null || compte === null || !(compte > 0)) return null;
+  const avant = derniersTtft.get(cle);
+  derniersTtft.set(cle, { somme: sommeS, compte });
+  if (avant !== undefined && compte > avant.compte && sommeS >= avant.somme)
+    return (sommeS - avant.somme) / (compte - avant.compte);
+  return sommeS / compte;
+}
+
 /** Oublie les compteurs mémorisés (tests, changement de moteur). */
 export function oublierDebits(): void {
   derniers.clear();
+  derniersTtft.clear();
 }
 
 function arrondi1(v: number | null): number | null {
@@ -115,8 +154,11 @@ export function jaugeKv(
 ): JaugeKv | null {
   const n = profil.metriques;
   const ratio = moyenne(echantillons, n.kvRatio);
-  let utilises = somme(echantillons, n.kvUtilises);
-  const total = somme(echantillons, n.kvTotal) ?? capaciteKvInfo(echantillons, n.kvInfo) ?? capaciteConnue;
+  let utilises = somme(echantillons, n.kvUtilises, n.etiquetteReplique);
+  const total =
+    somme(echantillons, n.kvTotal, n.etiquetteReplique) ??
+    capaciteKvInfo(echantillons, n.kvInfo) ??
+    capaciteConnue;
   if (!(total > 0)) return null;
   utilises ??= ratio !== null ? Math.round(ratio * total) : 0;
   const pct = ratio !== null ? ratio * 100 : (utilises / total) * 100;
@@ -131,32 +173,58 @@ export function etatCharge(
 ): EtatCharge {
   const ech = lireEchantillons(texte);
   const n = profil.metriques;
-  let debit = somme(ech, n.debit);
+  const rep = n.etiquetteReplique;
+  const cle = options.cle ?? profil.type;
+  const maintenant = options.maintenant ?? performance.now() / 1000;
+  let debit = somme(ech, n.debit, rep);
   if (debit === null && n.jetonsGeneres)
-    debit = debitDepuisCompteur(
-      `${options.cle ?? profil.type}|${n.jetonsGeneres}`,
-      somme(ech, n.jetonsGeneres),
-      options.maintenant ?? performance.now() / 1000,
-    );
+    debit = debitDepuisCompteur(`${cle}|${n.jetonsGeneres}`, somme(ech, n.jetonsGeneres, rep), maintenant);
   let cache = moyenne(ech, n.tauxCache);
   if (cache === null) {
     const requetes = somme(ech, n.cacheRequetes);
     const succes = somme(ech, n.cacheSucces);
     if (requetes !== null && succes !== null && requetes > 0) cache = succes / requetes;
   }
-  const enCours = somme(ech, n.enCours);
-  const enAttente = somme(ech, n.enAttente);
+  const enCours = somme(ech, n.enCours, rep);
+  const enAttente = somme(ech, n.enAttente, rep);
+  const prefill = n.prefillJetons
+    ? debitDepuisCompteur(
+        `${cle}|${n.prefillJetons}`,
+        somme(ech, n.prefillJetons, rep, n.etiquettesPrefill),
+        maintenant,
+      )
+    : null;
+  const ttft = n.ttft ? ttftMoyen(cle, somme(ech, `${n.ttft}_sum`), somme(ech, `${n.ttft}_count`)) : null;
   return {
     kv: jaugeKv(profil, ech, options.capaciteKv ?? 0),
     en_cours: enCours === null ? null : Math.trunc(enCours),
     en_attente: enAttente === null ? null : Math.trunc(enAttente),
     debit_tps: arrondi1(debit),
     cache_prefixe_pct: cache === null ? null : arrondi1(cache * 100),
+    ttft_s: ttft === null || !Number.isFinite(ttft) ? null : arrondiPy(ttft, 2),
+    prefill_tps: arrondi1(prefill),
   };
 }
 
 /** Le moteur expose-t-il au moins une des métriques que son profil attend ? */
 export function metriquesReconnues(profil: ProfilMoteur, texte: string | null | undefined): boolean {
-  const attendus = new Set(Object.values(profil.metriques).filter((v): v is string => typeof v === "string"));
+  const n = profil.metriques;
+  const attendus = new Set(
+    [
+      n.enCours,
+      n.enAttente,
+      n.kvRatio,
+      n.kvUtilises,
+      n.kvTotal,
+      n.kvInfo,
+      n.debit,
+      n.jetonsGeneres,
+      n.tauxCache,
+      n.cacheRequetes,
+      n.cacheSucces,
+      n.prefillJetons,
+      n.ttft ? `${n.ttft}_count` : null,
+    ].filter((v): v is string => typeof v === "string"),
+  );
   return lireEchantillons(texte).some((e) => attendus.has(e.nom));
 }

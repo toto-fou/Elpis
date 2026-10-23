@@ -269,6 +269,12 @@ main et traitait tout autre moteur comme un service distant sans capacité.
   Qwen3-Coder…), et une réponse vide après la réflexion alors que des outils étaient offerts est signalée. Sans
   équivalent Python.
 - **Connecteurs** : type `sglang` en plus ; `?sonde=1` sur leur test. Sans `?sonde=1`, réponses inchangées.
+- **Débits sans `timings`** (vLLM, SGLang) : Elpis mesure le délai du premier jeton et la génération et en tire des
+  `timings` à la forme de llama.cpp (`source: "elpis"`) : débit de lecture de la bulle, durées de prefill et de
+  génération des exécutions, durée du journal des appels. Le Python n'affichait aucun débit de lecture pour ces
+  moteurs et comptait le prefill dans le débit d'écriture.
+- **Charge de SGLang** : délai moyen du premier jeton et débit de prefill lus sur ses métriques ; jauge KV additionnée
+  entre répliques `--dp` (rangs TP comptés une fois).
 
 ## Console : secrets de config.json masqués
 

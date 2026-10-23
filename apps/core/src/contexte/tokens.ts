@@ -91,11 +91,18 @@ function ouVide(v: unknown, vide: unknown): unknown {
   return veritePy(v) ? v : vide;
 }
 
-/** Chars pondérés comptables (content texte, nom et arguments des tool_calls) : numérateur du ratio mesuré. */
+/** Réflexion rendue au moteur avec un message assistant (`reasoning_content`, SGLang) : comptée comme le contenu. */
+function reflexionRenvoyee(m: Dict): string {
+  const r = getPy(m, "reasoning_content");
+  return typeof r === "string" ? r : "";
+}
+
+/** Chars pondérés comptables (content texte, réflexion rendue, nom et arguments des tool_calls) : numérateur du ratio mesuré. */
 export function payloadChars(messages: readonly unknown[] | null | undefined): number {
   let total = 0;
   for (const m of messages ?? []) {
     if (!estDict(m)) continue;
+    total += weightedLen(reflexionRenvoyee(m));
     const c = getPy(m, "content");
     if (typeof c === "string") total += weightedLen(c);
     else if (Array.isArray(c)) {
@@ -200,9 +207,9 @@ export function imageForfaitTokens(messages: readonly unknown[] | null | undefin
   return n ? n * imageTokenCost() : 0;
 }
 
-/** Estimation d'UN message OpenAI complet (texte, blocs, forfait image, tool_calls, surcoût). */
+/** Estimation d'UN message OpenAI complet (texte, réflexion rendue, blocs, forfait image, tool_calls, surcoût). */
 export function estTokensMessage(m: Dict): number {
-  let total = MSG_OVERHEAD_TOKENS;
+  let total = MSG_OVERHEAD_TOKENS + estTokensText(reflexionRenvoyee(m));
   let cout: number | null = null;
   const c = getPy(m, "content");
   if (typeof c === "string") total += estTokensText(c);
@@ -505,6 +512,7 @@ function signatureMemo(m: Dict, modelId: string | null): string {
     modelId || "",
     appels,
     empreinte,
+    longueurPy(reflexionRenvoyee(m)),
   ]);
 }
 
@@ -556,11 +564,12 @@ function memoStore(m: Dict, modelId: string | null, tokens: number): void {
   }
 }
 
-/** Texte brut d'UN message pour `/tokenize` : rôle, contenu texte, nom et arguments des tool_calls. */
+/** Texte brut d'UN message pour `/tokenize` : rôle, réflexion rendue, contenu texte, nom et arguments des tool_calls. */
 export function messageTextForTokenize(m: Dict): string {
   const parts: string[] = [];
   const role = getPy(m, "role");
   if (veritePy(role)) parts.push(strPy(role));
+  parts.push(reflexionRenvoyee(m));
   const c = getPy(m, "content");
   if (typeof c === "string") parts.push(c);
   else if (Array.isArray(c)) {

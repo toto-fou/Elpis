@@ -11,6 +11,7 @@ import { llamaGet, monotonic } from "./llama-http";
 import { autoloadSuffix } from "./modeles";
 import { currentEngine } from "./moteurs";
 import { profilDuType } from "./profils";
+import type { ProfilMoteur } from "./profils";
 import { surChangementDeModele, surInvalidationGlobale } from "./registre-caches";
 
 const log = journal("llm_params");
@@ -467,6 +468,11 @@ export function sanitizePreserveReasoning(samplingOverride: unknown): boolean | 
   return typeof v === "boolean" ? v : null;
 }
 
+/** Réflexion des tours d'outils rendue au moteur : profil qui la transmet au gabarit (SGLang) et « Raisonnement conservé » non désactivé (actif par défaut). */
+export function reflexionDuTourRendue(profil: ProfilMoteur, samplingOverride: unknown): boolean {
+  return profil.capacites.reflexionRenvoyee && sanitizePreserveReasoning(samplingOverride) !== false;
+}
+
 function agentDefaults(): Dict {
   return {
     max_tool_iterations: LLAMA_MAX_TOOL_ITERATIONS,
@@ -495,7 +501,7 @@ export function describeEffectiveParamsDegraded(
     supports_thinking: efforts ? true : null,
     supports_reasoning_effort: efforts ? true : null,
     reasoning_effort_values: efforts ?? [],
-    supports_preserve_reasoning: null,
+    supports_preserve_reasoning: profilDuType(providerType || "").capacites.reflexionRenvoyee ? true : null,
     supports_continue_final_message: null,
     sources: { props: {}, task_profile: { ...tache }, user_override: {} },
     effective: { ...tache },
@@ -518,7 +524,9 @@ export async function describeEffectiveParams(
   const dialecte = effortsDuDialecte(currentEngine().providerType);
   const pense = dialecte ? true : await getThinkingSupport(modelId, { autoload: false });
   const efforts = dialecte ?? (await getReasoningEffortValues(modelId, { autoload: false }));
-  const conserve = await getPreserveReasoningSupport(modelId, { autoload: false });
+  const conserve = currentEngine().profil.capacites.reflexionRenvoyee
+    ? true
+    : await getPreserveReasoningSupport(modelId, { autoload: false });
   const effectif: Dict = {};
   const sources: Dict = {};
   for (const [k, v] of Object.entries(props)) {

@@ -33,6 +33,7 @@ import { CTX } from "../contexte/config-contexte";
 import { ephemeral, prepareToolResultForModel, pruneOldVisionFrames } from "../contexte/elagage";
 import { LLAMA_TOOL_TIMEOUT_S } from "../llm/constantes";
 import { currentEngine } from "../llm/moteurs";
+import { reflexionDuTourRendue } from "../llm/parametres";
 import { noterObservation } from "../llm/sonde-moteur";
 import { journal } from "../journal";
 import type { OutilIntegre } from "../outils/catalogue";
@@ -699,19 +700,28 @@ function argumentsNatifs(brut: unknown): unknown {
   }
 }
 
-/** Canal natif : message assistant du tour (reste du texte direct émis d'abord) et lot préparé. */
+/** Canal natif : message assistant du tour (reste du texte direct émis d'abord, réflexion rendue au moteur qui la reçoit, jamais persistée) et lot préparé. */
 export async function openNativeRound(
   ctx: RunContext,
   rec: RunRecord,
   workingMessages: Dict[],
-  o: { live: LiveText; msg: Dict; toolCalls: unknown[]; iterClean: string; iteration: number },
+  o: {
+    live: LiveText;
+    msg: Dict;
+    toolCalls: unknown[];
+    iterClean: string;
+    iteration: number;
+    iterThinking?: string;
+  },
 ): Promise<Dict[]> {
   rec.deltaPendingIter = null;
   const avant = stripToolCallMarkup(o.live.parts.join(""));
   if (avant) await o.live.emitRest(avant, { replaceOnDivergence: false });
   const round: Dict = { role: "assistant", content: o.iterClean || null, tool_calls: o.toolCalls };
   if (o.msg["_anthropic_thinking"]) round["_anthropic_thinking"] = o.msg["_anthropic_thinking"];
-  workingMessages.push(round);
+  const pensee = stripPy(o.iterThinking || "");
+  const rendue = pensee !== "" && reflexionDuTourRendue(currentEngine().profil, ctx.c.samplingOverride);
+  workingMessages.push(rendue ? { ...round, reasoning_content: pensee } : round);
   rec.runToolHistory.push(round);
   const prepared: Dict[] = [];
   o.toolCalls.forEach((tc, idx) => {

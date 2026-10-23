@@ -27,6 +27,11 @@ selon [SemVer](https://semver.org/lang/fr/).
   `kimi_k2`…) ; la sonde signale un parseur qui ne correspond pas au modèle
   servi et une réponse vide après la réflexion alors que des outils étaient
   offerts.
+- **Débits de prefill.** Pour vLLM et SGLang, qui ne rendent pas de `timings`,
+  Elpis mesure le délai du premier jeton et la génération : la bulle affiche le
+  débit de lecture et le débit d'écriture n'inclut plus le prefill. La ligne de
+  charge de SGLang ajoute le débit de prefill et le délai du premier jeton
+  (`--enable-metrics`) ; sa jauge KV additionne les répliques `--dp`.
 
 ## 0.1.1 — 2026-10-22
 

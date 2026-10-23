@@ -51,6 +51,8 @@ export interface CapacitesMoteur {
   readonly jetonsEnCache: "toujours" | "option" | "inconnu";
   /** Aucun `timings` en flux : Elpis mesure le délai du premier jeton et la génération (vLLM, SGLang). */
   readonly timingsMesures: boolean;
+  /** Le gabarit reçoit `reasoning_content` des messages assistant (SGLang) : la réflexion des tours d'outils lui est rendue. */
+  readonly reflexionRenvoyee: boolean;
 }
 
 /** Noms Prometheus normalisés (`:` → `_`) lus par la jauge et l'état du moteur. */
@@ -213,6 +215,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       modelesServisCharges: false,
       jetonsEnCache: "toujours",
       timingsMesures: false,
+      reflexionRenvoyee: false,
     },
     metriques: {
       ...SANS_METRIQUES,
@@ -264,6 +267,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       modelesServisCharges: true,
       jetonsEnCache: "option",
       timingsMesures: true,
+      reflexionRenvoyee: false,
     },
     metriques: {
       ...SANS_METRIQUES,
@@ -319,6 +323,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       modelesServisCharges: true,
       jetonsEnCache: "option",
       timingsMesures: true,
+      reflexionRenvoyee: true,
     },
     metriques: {
       ...SANS_METRIQUES,
@@ -378,6 +383,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       modelesServisCharges: false,
       jetonsEnCache: "inconnu",
       timingsMesures: false,
+      reflexionRenvoyee: false,
     },
     metriques: SANS_METRIQUES,
     drapeaux: {

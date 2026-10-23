@@ -583,6 +583,14 @@ python -m sglang.launch_server --model-path Qwen/Qwen3-8B --host 0.0.0.0 --port 
 - **Réflexion** : sans `--reasoning-parser`, la réflexion d'un modèle qui
   réfléchit arrive dans la réponse. Noms : `qwen3`, `deepseek_r1`,
   `openai_gptoss` (vLLM) ; `qwen3`, `deepseek-r1`, `gpt-oss` (SGLang).
+- **Raisonnement conservé** (SGLang) : la réflexion de chaque appel d'outil du
+  tour est rendue au moteur (`reasoning_content` du message assistant), activé
+  par défaut, interrupteur dans les réglages de génération. Le gabarit du
+  modèle décide de ce qu'il garde (Qwen3, GLM-4.5/4.6 et MiniMax-M2 : la
+  réflexion qui suit la dernière question) ; le prompt s'allonge d'autant
+  dans un tour d'outils, et le cache de préfixe reprend les jetons déjà
+  générés. Cette réflexion n'est jamais enregistrée dans l'historique ; vLLM
+  ne la reçoit pas.
 - **Outils** : sans parseur d'appels d'outils, le modèle ne peut pas appeler les
   outils d'Elpis : `--enable-auto-tool-choice --tool-call-parser hermes`
   (vLLM, Qwen ; `llama3_json` pour Llama) ou `--tool-call-parser qwen25`

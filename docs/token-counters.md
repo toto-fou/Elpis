@@ -260,7 +260,10 @@ est exact ; un compte partiellement estimé reste flaggé `tokens_estimated`.
   en fin de tour » vs ~800 au prompt suivant) ; pendant la génération, la
   jauge en direct affiche à part les jetons reçus depuis la dernière mesure
   (« 131k + 49k / 262k ») : ils occupent le cache du moteur, qui peut
-  atteindre la fenêtre avant la mesure suivante.
+  atteindre la fenêtre avant la mesure suivante. Exception, SGLang avec
+  « Raisonnement conservé » : la réflexion de chaque appel d'outil du tour
+  repart au moteur (`reasoning_content`), comptée par `payloadChars` et
+  l'estimation par message, donc incluse dans le prompt suivant du tour.
 - **Anthropic** : son `input_tokens` ne compte que les tokens neufs ; il est
   ramené au sens commun (cache compris) par `_normalize_usage`, et
   `cache_read/creation_input_tokens` restent exposés à part dans les

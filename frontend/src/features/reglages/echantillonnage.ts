@@ -325,10 +325,10 @@ export function setupEchantillonnage(
       v <= 0 ? 0 : Math.min(Math.max(Math.round(v), 512), 131072);
   }
 
+  // Le serveur ne déclare `true` que là où c'est su : gabarit lu sur /props (llama.cpp), ou moteur qui rend la réflexion (SGLang).
   const preserveReasoningSupported = computed(() => {
-    if (connecteurNonLlama()) return false;
     const d = effectiveParamsData.value;
-    if (!d || d.degraded || !d.supports_preserve_reasoning) return false;
+    if (!d || d.supports_preserve_reasoning !== true) return false;
     return d.model_id === selectedModel.value;
   });
   const preserveReasoningEnabled = computed({

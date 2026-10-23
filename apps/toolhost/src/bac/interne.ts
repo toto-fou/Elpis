@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/bac/interne.ts — routes internes du bac pour la console (hors des préfixes relayés par main : jamais atteintes depuis un navigateur) : suppression du bac d'un compte supprimé. */
+/** apps/toolhost/src/bac/interne.ts — routes internes du bac pour la console (hors des préfixes relayés par main : jamais atteintes depuis un navigateur) : suppression du bac et des identifiants de sites d'un compte supprimé. */
 import {
   forgetPreviewIp,
   getUserSandbox,
@@ -10,10 +10,12 @@ import {
 } from "@elpis/bac";
 import { HttpError } from "@elpis/commun";
 import { config, pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
+import { deleteOwnerCredentials } from "@elpis/navigateur";
 import { auditEvent, usernameFor } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import type { DefinitionRoute } from "../app";
+import { baseHote } from "../base-hote";
 import { reponseJson } from "../socle";
 import { uidDe } from "./routes-me";
 
@@ -42,6 +44,17 @@ async function supprimerBac(requete: FastifyRequest, reponse: FastifyReply): Pro
   }
 }
 
+/** Identifiants de sites du compte de l'enveloppe retirés de la base de l'hôte (distincte de celle du core quand `db_path` est posé). */
+async function purgerCompte(requete: FastifyRequest, reponse: FastifyReply): Promise<FastifyReply> {
+  const uid = uidDe(requete);
+  const username = await usernameFor(uid);
+  const base = baseHote();
+  if (base === null) throw new HttpError(503, "base de l'hôte indisponible");
+  const credentials = await deleteOwnerCredentials(base, username);
+  auditEvent({ userId: uid, username, action: "user.toolhost.purge", details: { credentials } });
+  return reponseJson(reponse, { ok: true, credentials });
+}
+
 export function routesInternes(): DefinitionRoute[] {
   return [
     {
@@ -50,6 +63,13 @@ export function routesInternes(): DefinitionRoute[] {
       processus: ["toolhost"],
       acces: "enveloppe",
       traiter: supprimerBac,
+    },
+    {
+      methode: "POST",
+      chemin: "/api/internal/account/purge",
+      processus: ["toolhost"],
+      acces: "enveloppe",
+      traiter: purgerCompte,
     },
   ];
 }

@@ -52,6 +52,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { auditer, entierBase, entierPy, exigerTexte, niveauDuRole } from "../admin/aides";
 import { racineBac, sandboxUsageBytes, supprimerBac, travailBac } from "../admin/bac";
 import type { PortBac } from "../admin/bac";
+import { purgerCompteSurHotes } from "../admin/pilote-bac";
 import { definirAccesBureau, lireCorpsAccesLlm, vueAccesLlm, vueCiblesBureau } from "../admin/comptes";
 import { validerMotDePasse } from "../comptes/aides";
 import { deleteUserFull } from "../comptes/suppression";
@@ -137,6 +138,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     }
     const parti = await getUsernameById(base, cible);
     if (!(await deleteUserFull(base, cible))) throw new HttpError(404, "Utilisateur introuvable");
+    const purgeHotes: Promise<string[]> = parti ? purgerCompteSurHotes(cible, parti) : Promise.resolve([]);
     if (parti) {
       try {
         await definirAccesBureau(parti, new Set());
@@ -148,8 +150,11 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     let erreur: string | null = null;
     if (avecBac && dossier !== null)
       [supprime, erreur] = await supprimerBac(cible, parti ?? "", dossier, dep.bac);
+    const echecsHotes = await purgeHotes;
+    for (const echec of echecsHotes) dep.journal.error(`[admin] purge du compte échouée : ${echec}`);
     const reponse: Dict = { ok: true, sandbox_deleted: supprime };
     if (erreur) reponse["sandbox_error"] = erreur;
+    if (echecsHotes.length) reponse["hosts_purge_errors"] = echecsHotes;
     return reponse;
   }
 

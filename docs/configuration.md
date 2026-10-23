@@ -1022,6 +1022,11 @@ Supprimer un compte avec son bac (``DELETE /api/admin/users/{id}?delete_sandbox=
 supprime aussi celui d'un hôte distant, par la route interne
 ``POST /api/internal/sandbox/delete`` de cet hôte (enveloppe signée, jamais relayée),
 avant le dossier local ; un profil réseau imposé détruit le conteneur sur l'hôte du compte.
+Toute suppression de compte appelle aussi ``POST /api/internal/account/purge`` sur
+chaque hôte déclaré (même enveloppe signée) : les identifiants de sites de la mémoire AX
+du compte sont retirés de la base de l'hôte. Un hôte injoignable ou sans jeton est
+signalé dans ``hosts_purge_errors`` de la réponse et au journal : ses identifiants
+restent alors à retirer avant de recréer un compte du même nom.
 
 
 | Variable | Défaut | Description |

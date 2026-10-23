@@ -238,6 +238,12 @@ export function creerComptes(b: BaseAdmin) {
         } else {
           showToast("Utilisateur supprimé" + (avecBac ? " (sandbox introuvable)" : ""));
         }
+        const hotes = data["hosts_purge_errors"];
+        if (Array.isArray(hotes) && hotes.length)
+          showToast(
+            `Identifiants de sites non purgés sur un hôte d'outils (${hotes.map(String).join(" ; ")}). Retirez-les avant de recréer un compte de ce nom.`,
+            "warning",
+          );
         void loadUsers();
         void lien.loadAdminStats();
       }

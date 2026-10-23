@@ -61,8 +61,11 @@ export function creerVueFlux(c: CoeurChat) {
   function surReflexion(t: Tour): void {
     l.stopPreContentFlush();
     f.thinkBuf += t.data.text || "";
-    // Débit seulement : la réflexion ne compte pas dans le contexte du tour suivant.
-    if (f.ctxLive) f.ctxLive.gen += t.data.n || 1;
+    // Débit, et part « en génération » de la jauge : la réflexion occupe le cache du moteur jusqu'à la mesure suivante.
+    if (f.ctxLive) {
+      f.ctxLive.gen += t.data.n || 1;
+      f.ctxLive.enCours += t.data.n || 1;
+    }
     f.inThinkPhase = true;
     if (!f.thinkFlushTimer) f.thinkFlushTimer = setInterval(() => l.flushThinkBuf(), 100);
     if (t.idx >= 0) effacerAttente(t.idx);
@@ -99,7 +102,10 @@ export function creerVueFlux(c: CoeurChat) {
       if (cur && cur._thinkingStartedAt && !cur._thinkingEndedAt)
         l.patch(t.idx, { _thinkingEndedAt: Date.now() });
     }
-    if (f.ctxLive) f.ctxLive.gen += t.data.n || 1;
+    if (f.ctxLive) {
+      f.ctxLive.gen += t.data.n || 1;
+      f.ctxLive.enCours += t.data.n || 1;
+    }
     if (f.streamToolPhase) {
       f.preContentBuf += t.data.text || "";
       if (!f.preContentFlushTimer) f.preContentFlushTimer = setInterval(() => l.flushPreContentBuf(), 40);
@@ -166,7 +172,10 @@ export function creerVueFlux(c: CoeurChat) {
       } as typeof e.llmHealth.value;
     if (f.ctxLive) {
       f.ctxLive.total = total;
-      if (utilise > 0) f.ctxLive.base = utilise;
+      if (utilise > 0) {
+        f.ctxLive.base = utilise;
+        f.ctxLive.enCours = 0;
+      }
     }
     if (utilise > 0) {
       e.ctxRealPct.value = pct;
@@ -350,9 +359,10 @@ export function creerVueFlux(c: CoeurChat) {
   // Instantané du contexte figé dans le message : dernier réel serveur du tour, sinon le dernier prompt.
   function instantaneContexte(metriques: Objet): { used: number; total: number; pct: number } | null {
     const sante = e.llmHealth.value;
+    const kvFenetre = sante?.kvEstFenetre !== false ? sante?.kv_cache?.total : 0;
     const nCtx = !l.ctxGaugeApplicable()
       ? 0
-      : l.getCtxSize() || sante?.kv_cache?.total || Number(sante?.props?.n_ctx) || 0;
+      : l.getCtxSize() || kvFenetre || Number(sante?.props?.n_ctx) || 0;
     let utilise = f.lastCtxUsed > 0 ? f.lastCtxUsed : 0;
     if (!utilise) {
       if (typeof metriques["last_prompt_tokens"] === "number") utilise = metriques["last_prompt_tokens"];
@@ -360,7 +370,7 @@ export function creerVueFlux(c: CoeurChat) {
     }
     if (!(utilise > 0) || !(nCtx > 0)) return null;
     return {
-      used: Math.min(utilise, nCtx),
+      used: utilise,
       total: nCtx,
       pct: Math.min(100, Math.round((utilise / nCtx) * 100)),
     };

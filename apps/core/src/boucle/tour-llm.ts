@@ -163,6 +163,7 @@ export class LLMTurnState {
   lastCompressionIter = -1_000_000;
   comprFailStreak = 0;
   compactionThresholdLogged = false;
+  fenetreDepasseeSignalee = false;
   fitDropped = false;
   lastRealCtxTok: number | null = null;
   realCtxMsgCount: number | null = null;
@@ -691,6 +692,20 @@ export async function callLlm(
       total: kvTotal,
       pct: minPy(100, arrondiEntierPy((ptReel / kvTotal) * 100)),
     });
+  if (ptReel > kvTotal && kvTotal > 0 && !st.fenetreDepasseeSignalee) {
+    st.fenetreDepasseeSignalee = true;
+    log.warn(
+      `[run_chat_multi_mcp] prompt réel ${ptReel} tk > fenêtre connue ${kvTotal} tk (iter ${iteration}) — fenêtre ` +
+        "déclarée ou lue trop petite : jauge et compaction se fondent sur une valeur fausse",
+    );
+    await emit(onEvent, {
+      type: "notice",
+      level: "warn",
+      message:
+        `Le moteur a traité ${ptReel} jetons, plus que la fenêtre connue (${kvTotal}) : vérifiez la fenêtre ` +
+        "déclarée du connecteur (context_window) ou celle du moteur (--context-length).",
+    });
+  }
 
   const choices = (raw["choices"] || []) as unknown[];
   if (!choices.length) {

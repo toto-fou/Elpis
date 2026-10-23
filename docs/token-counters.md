@@ -256,8 +256,11 @@ est exact ; un compte partiellement estimé reste flaggé `tokens_estimated`.
 
 - **Thinking** : compté dans `output_tokens` du tour qui le génère, mais
   strippé de l'historique persisté → il n'apparaît PAS dans le prompt du
-  tour suivant. La jauge l'exclut volontairement (sinon « 4,7k en fin de
-  tour » vs ~800 au prompt suivant).
+  tour suivant. La valeur de la jauge l'exclut volontairement (sinon « 4,7k
+  en fin de tour » vs ~800 au prompt suivant) ; pendant la génération, la
+  jauge en direct affiche à part les jetons reçus depuis la dernière mesure
+  (« 131k + 49k / 262k ») : ils occupent le cache du moteur, qui peut
+  atteindre la fenêtre avant la mesure suivante.
 - **Anthropic** : son `input_tokens` ne compte que les tokens neufs ; il est
   ramené au sens commun (cache compris) par `_normalize_usage`, et
   `cache_read/creation_input_tokens` restent exposés à part dans les
@@ -273,7 +276,13 @@ est exact ; un compte partiellement estimé reste flaggé `tokens_estimated`.
   construit depuis l'usage réel de la réponse. Pendant la toute première
   requête d'un chat (ou après une compression manuelle), la jauge est
   masquée : afficher rien plutôt qu'imaginer. Le contenu généré au tour N
-  apparaît dans le `prompt_tokens` réel du tour N+1.
+  apparaît dans le `prompt_tokens` réel du tour N+1. L'occupation n'est
+  jamais bornée à la fenêtre connue : un prompt réel plus long que la
+  fenêtre (déclarée trop petite ou devinée) s'affiche tel quel, avec un
+  avis `notice` une fois par tour. Un moteur qui annonce sa fenêtre
+  (llama.cpp, vLLM, SGLang) n'est jamais deviné au nom du modèle, et la
+  capacité de son cache KV ne remplace la fenêtre que pour llama.cpp (pool
+  partagé entre requêtes chez vLLM et SGLang).
 - **Continue** : la reprise re-soumet le tronc du tour précédent → les
   tokens soumis du tour de reprise incluent ce re-prefill (fidèle à la
   réalité API). Les métriques du message ADDITIONNENT ses segments

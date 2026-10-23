@@ -13,6 +13,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   (réseau requis) ou, hors ligne, installez le paquet hors ligne de la nouvelle
   version (`make_release.sh` y place le Chromium attendu). Les paquets apt
   requis ne changent pas.
+- **Formulaires : taille totale bornée.** Un envoi multipart (avatar,
+  transcription, extraction de texte, import de skills, restauration…) est
+  refusé (413, connexion fermée) quand ses parties réunies dépassent le
+  plafond du corps (100 Mo), augmenté du plafond par fichier propre à la
+  route. Le dépôt d'un serveur MCP par l'administrateur, fait en une seule
+  requête, garde son plafond par fichier (`APP_MAX_UPLOAD_MB`) sans total.
 
 ## 0.1.1 — 2026-10-22
 

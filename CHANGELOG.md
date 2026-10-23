@@ -39,6 +39,11 @@ selon [SemVer](https://semver.org/lang/fr/).
   plus deviné au nom du modèle : s'il n'annonce pas `max_model_len`, la
   compaction reste inactive (avertissement au journal) au lieu de se fier à
   une valeur devinée.
+- **Raisonnement conservé avec SGLang**, actif par défaut : la réflexion de
+  chaque appel d'outil du tour repart au moteur, comme l'attendent les gabarits
+  Qwen3, GLM-4.5/4.6 et MiniMax-M2. Le prompt d'un tour d'outils s'allonge
+  d'autant ; l'interrupteur des réglages de génération le coupe. Cette
+  réflexion n'est jamais enregistrée.
 
 ## 0.1.1 — 2026-10-22
 

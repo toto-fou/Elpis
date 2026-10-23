@@ -1,14 +1,22 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/comptes/suppression.ts — suppression complète d'un compte et de ce qui lui appartient en base (users.delete_user_full). */
-import { supprimerJetonsCompte, supprimerOauthCompte } from "@elpis/auth";
+import { nomCanonique, supprimerJetonsCompte, supprimerOauthCompte } from "@elpis/auth";
+import { pyJoin } from "@elpis/commun";
+import { config, safeSandboxName } from "@elpis/config";
 import { estTableAbsente } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
+import { supprimerEntreeSous } from "@elpis/securite";
 
+import { purgerCacheGraphique } from "../graphiques/incrustation";
 import { deleteUserDir } from "../images/magasin";
+import { journal } from "../journal";
 import { deletePrincipalRows } from "../llm/acces-moteurs";
 import { invaliderAccesRag, purgerCompteRag } from "../rag/acces";
 import { nettoyerRagCompte } from "../rag/nettoyage";
 import type { CollectionPartieRag } from "../rag/nettoyage";
+import { LEGACY_MEMORY_SUBDIR, MEMORY_SUBDIR } from "../memoire/portee";
+
+const log = journal("users");
 
 /** Point de sauvegarde dont l'échec « table absente » (base antérieure à la migration) est avalé. */
 async function toleree(base: Base, f: (x: Executeur) => Promise<unknown>): Promise<void> {
@@ -19,10 +27,47 @@ async function toleree(base: Base, f: (x: Executeur) => Promise<unknown>): Promi
   }
 }
 
-/** `delete_user_full` : conversations, prompts, groupes, accès aux moteurs, jetons, OAuth, images et RAG dans une transaction, puis les fichiers. */
+/** Dossiers du nom à purger : ni repliés sur « guest » (nom ancien sans caractère admis), ni partagés avec un compte restant (même nom sûr), relu juste avant la purge. */
+async function dossiersAPurger(base: Base, nom: string): Promise<boolean> {
+  if (!nomCanonique(nom)) return false;
+  const sur = safeSandboxName(nom);
+  const comptes = await base.all<{ username: string | null }>("SELECT username FROM users");
+  return !comptes.some((u) => safeSandboxName(u.username) === sur);
+}
+
+/** Magasins rangés par nom de compte (skills perso et leur miroir hors /work, mémoire, cache des graphiques) : purgés, sinon un compte recréé sous ce nom en hériterait. */
+async function purgerDossiersDuNom(nom: string): Promise<void> {
+  const sur = safeSandboxName(nom);
+  const bac = pyJoin(config.SANDBOX_DIR, sur);
+  const memoire = pyJoin(config.MEMORY_DIR, sur);
+  const entrees = [
+    pyJoin(config.USER_SKILLS_DIR, sur),
+    pyJoin(bac, "skills"),
+    pyJoin(bac, ".skills-mirror.tmp"),
+    pyJoin(memoire, MEMORY_SUBDIR),
+    pyJoin(memoire, LEGACY_MEMORY_SUBDIR),
+  ];
+  for (const entree of entrees) {
+    try {
+      await supprimerEntreeSous(entree);
+    } catch (e) {
+      log.error({ err: e }, `[users] purge de ${entree} échouée`);
+    }
+  }
+  try {
+    await purgerCacheGraphique(nom);
+  } catch (e) {
+    log.error({ err: e }, "[users] purge du cache des graphiques échouée");
+  }
+}
+
+/** `delete_user_full` : conversations, prompts, groupes, accès aux moteurs, jetons, OAuth, images, RAG et identifiants de sites dans une transaction, puis les fichiers. */
 export async function deleteUserFull(base: Base, uid: number): Promise<boolean> {
   let rag: CollectionPartieRag[] = [];
+  let nom = "";
   const supprime = await base.ecriture(async (x) => {
+    const ligne = await x.get("SELECT username FROM users WHERE id=?", [uid]);
+    nom = typeof ligne?.["username"] === "string" ? ligne["username"] : "";
     await x.run("DELETE FROM chats WHERE user_id=?", [uid]);
     await x.run("DELETE FROM saved_prompts WHERE user_id=?", [uid]);
     await x.run("DELETE FROM shared_prompts WHERE to_user_id=? OR from_user_id=?", [uid, uid]);
@@ -34,11 +79,13 @@ export async function deleteUserFull(base: Base, uid: number): Promise<boolean> 
     await toleree(base, async (tx) => {
       rag = await purgerCompteRag(tx, uid);
     });
+    if (nom) await toleree(base, (tx) => tx.run("DELETE FROM ax_credentials WHERE owner=?", [nom]));
     return (await x.run("DELETE FROM users WHERE id=?", [uid])).changes > 0;
   });
   if (!supprime) return false;
   invaliderAccesRag(base);
   await deleteUserDir(uid);
   await nettoyerRagCompte(uid, rag);
+  if (nom && (await dossiersAPurger(base, nom))) await purgerDossiersDuNom(nom);
   return true;
 }

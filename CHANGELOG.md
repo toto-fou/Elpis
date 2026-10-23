@@ -8,6 +8,11 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Pour l'exploitant
 
+- **Suppression d'un compte : données rangées par nom effacées.** Ses skills
+  personnelles (et leur copie dans le bac), sa mémoire, son cache de
+  graphiques et ses identifiants de sites enregistrés dans la base du core
+  sont effacés, même quand son bac est conservé, pour qu'un compte recréé
+  sous le même nom n'en hérite pas.
 - **Service navigateur : Playwright 1.64** (Chromium 156, révision 1248). Le
   Chromium de la version précédente ne convient plus : relancez `./install.sh`
   (réseau requis) ou, hors ligne, installez le paquet hors ligne de la nouvelle

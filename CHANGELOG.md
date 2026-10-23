@@ -22,6 +22,11 @@ selon [SemVer](https://semver.org/lang/fr/).
   (« read_filelist_dir ») aux arguments invalides. La progression et les
   journaux d'un outil lancé plusieurs fois en parallèle s'affichent sous le bon
   appel. Rechargez les onglets ouverts après la mise à jour.
+- **Parseur d'appels d'outils.** La documentation donne le parseur SGLang de
+  chaque format (`qwen25`, `qwen3_coder` pour Qwen3-Coder, `glm45`, `glm47`,
+  `kimi_k2`…) ; la sonde signale un parseur qui ne correspond pas au modèle
+  servi et une réponse vide après la réflexion alors que des outils étaient
+  offerts.
 
 ## 0.1.1 — 2026-10-22
 

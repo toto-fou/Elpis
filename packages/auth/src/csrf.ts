@@ -80,3 +80,6 @@ export function estInterSite(e: Entetes, hoteParDefaut = ""): boolean {
 
 /** Préfixes laissés libres (webhooks signés appelables cross-origin). */
 export const PREFIXES_EXEMPTES_CSRF: readonly string[] = ["/api/webhooks/"];
+
+/** Routes qui ouvrent une session : contrôlées même sans cookie (CSRF de connexion). */
+export const CHEMINS_CSRF_SANS_COOKIE: ReadonlySet<string> = new Set(["/api/login-lite"]);

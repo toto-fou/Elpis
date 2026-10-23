@@ -202,11 +202,18 @@ export const SCHEMAS_EVENEMENTS = {
   }),
   tool_progress: ev("tool_progress", {
     name: z.string(),
+    call_id: z.string().optional(),
     progress: z.number(),
     total: z.number().nullable(),
     message: z.string(),
   }),
-  tool_log: ev("tool_log", { name: z.string(), level: z.string(), logger: z.string(), message: z.string() }),
+  tool_log: ev("tool_log", {
+    name: z.string(),
+    call_id: z.string().optional(),
+    level: z.string(),
+    logger: z.string(),
+    message: z.string(),
+  }),
   tool_limit: ev("tool_limit", {
     iterations: entier,
     effective_iterations: entier,

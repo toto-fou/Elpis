@@ -132,6 +132,7 @@ async function relayerJournal(
   await emit(onEvent, {
     type: "tool_log",
     name: nom,
+    ...(callId !== null && callId !== undefined ? { call_id: strPy(callId) } : {}),
     level: strPy(level),
     logger: strPy(loggerName),
     message: msg,
@@ -209,6 +210,7 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
               await emit(o.onEvent, {
                 type: "tool_progress",
                 name: nom,
+                ...(callId !== null ? { call_id: callId } : {}),
                 progress: Number(pr.progress),
                 total: pr.total !== undefined && pr.total !== null ? Number(pr.total) : null,
                 message: pr.message || "",

@@ -310,12 +310,18 @@ function appliquer(etat: EtatRendu, ev: EvenementFlux): EtatRendu {
     case "tool_progress": {
       const pct =
         ev.total !== null && ev.total > 0 ? borne(Math.round((ev.progress / ev.total) * 100)) : null;
-      return { ...etat, outils: majOutil(etat.outils, null, ev.name, (o) => ({ ...o, progression: pct })) };
+      return {
+        ...etat,
+        outils: majOutil(etat.outils, ev.call_id ?? null, ev.name, (o) => ({ ...o, progression: pct })),
+      };
     }
     case "tool_log":
       return {
         ...etat,
-        outils: majOutil(etat.outils, null, ev.name, (o) => ({ ...o, journaux: o.journaux + 1 })),
+        outils: majOutil(etat.outils, ev.call_id ?? null, ev.name, (o) => ({
+          ...o,
+          journaux: o.journaux + 1,
+        })),
       };
     case "shell_output":
       return {

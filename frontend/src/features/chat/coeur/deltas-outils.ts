@@ -7,7 +7,7 @@ import {
   reEsc,
 } from "../../../utils/helpers-json.ts";
 import type { EtatChampChaine } from "../../../utils/helpers-json.ts";
-import { PREFIXE_STATUT_DELTA } from "./formats.ts";
+import { fmtTokens, PREFIXE_STATUT_DELTA } from "./formats.ts";
 import type { CoeurChat } from "./liens.ts";
 import type { DonneesFlux } from "./types.ts";
 
@@ -46,6 +46,7 @@ export function creerDeltasOutils(c: CoeurChat) {
   // File par clé : un fragment ne s'exécute qu'après le précédent (ordre du curseur Monaco).
   const files = new Map<string, Promise<void>>();
   const nomsDelta = new Map<string, string>();
+  const taillesDelta = new Map<string, number>();
   let libelleDelta = "";
 
   function finaliserSansSucces(st: EtatEcriture): void {
@@ -329,12 +330,15 @@ export function creerDeltasOutils(c: CoeurChat) {
     }
   }
 
-  // Arguments d'un appel en génération : libellé de statut posé seulement quand il change.
+  // Arguments d'un appel en génération (nom, taille reçue dès 1000 caractères) : libellé posé seulement quand il change.
   function noteDeltaStatus(data: DonneesFlux, idx: number): void {
     const k = String(data.iter) + ":" + String(data.index);
     const nom = (nomsDelta.get(k) || "") + (data.name_delta || "");
     if (data.name_delta) nomsDelta.set(k, nom);
-    const libelle = PREFIXE_STATUT_DELTA + (nom ? " · " + nom : "") + "…";
+    const taille = (taillesDelta.get(k) || 0) + (data.args_delta || "").length;
+    taillesDelta.set(k, taille);
+    const volume = taille >= 1000 ? " (" + fmtTokens(taille) + " caractères)" : "";
+    const libelle = PREFIXE_STATUT_DELTA + (nom ? " · " + nom : "") + volume + "…";
     if (libelle === libelleDelta) return;
     const cur = l.getStreamMsgs()[idx];
     if (!cur) return;
@@ -344,12 +348,14 @@ export function creerDeltasOutils(c: CoeurChat) {
   }
 
   function forgetDeltaNames(iter: unknown): void {
-    for (const k of Array.from(nomsDelta.keys())) if (k.startsWith(String(iter) + ":")) nomsDelta.delete(k);
+    for (const carte of [nomsDelta, taillesDelta])
+      for (const k of Array.from(carte.keys())) if (k.startsWith(String(iter) + ":")) carte.delete(k);
     libelleDelta = "";
   }
 
   function resetDeltaStatus(): void {
     nomsDelta.clear();
+    taillesDelta.clear();
     libelleDelta = "";
   }
 

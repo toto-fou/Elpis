@@ -691,6 +691,7 @@ _AUTOMATIONS = _HERE / "automations"
 _RUNS: dict = {}            # run_id → état (proc, journal, code, dossier de rapport)
 _RUNS_MAX = 20
 _LOG_MAX_LINES = 400
+_RUNNER_OPTS = ("--data=", "--repeat=")   # options du lanceur : réservées aux champs data / repeat (bornés)
 
 
 _RESERVED_MODULES = frozenset({"elpis_auto", "backends", "normalize", "lib", "server",
@@ -852,7 +853,7 @@ async def run_script(request: Request):
         cmd += ["--data", str(_auto_path(data))]
     cmd.append(str(script))
     for a in (b.get("args") or []):
-        if isinstance(a, str) and a.startswith("--") and "=" in a and len(a) < 500:
+        if isinstance(a, str) and a.startswith("--") and "=" in a and len(a) < 500 and not a.startswith(_RUNNER_OPTS):
             cmd.append(a)
     env = dict(os.environ)
     env.pop("DESKTOP_AGENT_TOKEN", None)
@@ -867,7 +868,7 @@ async def run_script(request: Request):
     try:
         # Synchrone : aucun ``await`` entre le contrôle « une exécution à la
         # fois » et l'enregistrement dans ``_RUNS`` (lancement quasi immédiat).
-        proc = _subprocess.Popen(cmd, cwd=str(_AUTOMATIONS), env=env,  # noqa: ASYNC220
+        proc = _subprocess.Popen(cmd, executable=sys.executable, cwd=str(_AUTOMATIONS), env=env,  # noqa: ASYNC220
                                  stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT)
     except Exception as e:          # noqa: BLE001
         raise HTTPException(500, f"lancement impossible : {e}")

@@ -63,7 +63,7 @@ LAUNCH_FLAGS = {
              ("jetons en cache", "--enable-prompt-tokens-details", ""),
              ("métriques", "", "actives par défaut, ne passez pas --disable-log-stats")],
     "sglang": [("réflexion", "--reasoning-parser <nom>", "qwen3, deepseek-r1, gpt-oss…"),
-               ("outils", "--tool-call-parser <nom>", "qwen25, llama3, qwen3_coder…"),
+               ("outils", "--tool-call-parser <nom>", "qwen25 pour Qwen3, qwen3_coder pour Qwen3-Coder, glm45, kimi_k2…"),
                ("jetons en cache", "--enable-cache-report", ""),
                ("métriques", "--enable-metrics", "")],
 }

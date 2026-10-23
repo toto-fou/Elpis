@@ -584,7 +584,13 @@ python -m sglang.launch_server --model-path Qwen/Qwen3-8B --host 0.0.0.0 --port 
 - **Outils** : sans parseur d'appels d'outils, le modèle ne peut pas appeler les
   outils d'Elpis : `--enable-auto-tool-choice --tool-call-parser hermes`
   (vLLM, Qwen ; `llama3_json` pour Llama) ou `--tool-call-parser qwen25`
-  (SGLang ; `llama3` pour Llama).
+  (SGLang ; `llama3` pour Llama). Le parseur suit le format d'appel du modèle,
+  pas seulement sa famille ; noms SGLang : `qwen25` (Qwen2.5, Qwen3 : JSON dans
+  `<tool_call>`), `qwen3_coder` (Qwen3-Coder et modèles au format XML
+  `<function=…>`), `glm45` (GLM-4.5, 4.6), `glm47`, `kimi_k2`, `deepseekv31`,
+  `deepseekv32`, `minimax-m2`, `gpt-oss`. Un parseur inadapté avale les appels
+  (réponse vide après la réflexion) ou les livre en texte ; la sonde le
+  signale quand le nom du modèle le permet.
 - **Clé d'API** : la `--api-key` de vLLM ne protège que `/v1/*` (`/tokenize`,
   `/metrics`, `/version` restent ouverts) ; celle de SGLang tout sauf
   `/health`, `/ready` et `/metrics`. Gardez ces serveurs sur un réseau fermé.
@@ -605,8 +611,9 @@ jetons, métriques oui, tokenisation exacte oui, concurrence gérée par le
 moteur`), puis chaque option manquante avec le drapeau exact à ajouter. Console ›
 Inférence › Capacités affiche le même rapport ; « Tester » le refait, avec une
 réponse d'un jeton pour vérifier le détail des jetons en cache de vLLM. Pendant
-le chat, une réflexion reçue en balises, des appels d'outils reçus en texte ou
-une réponse de vLLM sans `prompt_tokens_details` ajoutent le conseil
+le chat, une réflexion reçue en balises, des appels d'outils reçus en texte, une
+réponse vide après la réflexion alors que des outils étaient offerts ou une
+réponse de vLLM sans `prompt_tokens_details` ajoutent le conseil
 correspondant (journal et console), une fois par moteur. Le test d'un connecteur
 `llamacpp`, `vllm` ou `sglang` montre le même rapport.
 

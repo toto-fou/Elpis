@@ -138,13 +138,15 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     }
     const parti = await getUsernameById(base, cible);
     if (!(await deleteUserFull(base, cible))) throw new HttpError(404, "Utilisateur introuvable");
+    let echecsHotes: string[] = [];
     if (parti) {
       try {
         await definirAccesBureau(parti, new Set());
       } catch (e) {
         dep.journal.error({ err: e }, "[admin] nettoyage des accès desktop (delete) échoué");
       }
-      for (const echec of await purgerCompteSurHotes(cible, parti))
+      echecsHotes = await purgerCompteSurHotes(cible, parti);
+      for (const echec of echecsHotes)
         dep.journal.error(`[admin] purge du compte sur un hôte d'outils échouée : ${echec}`);
     }
     let supprime = false;
@@ -153,6 +155,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       [supprime, erreur] = await supprimerBac(cible, parti ?? "", dossier, dep.bac);
     const reponse: Dict = { ok: true, sandbox_deleted: supprime };
     if (erreur) reponse["sandbox_error"] = erreur;
+    if (echecsHotes.length) reponse["hosts_purge_errors"] = echecsHotes;
     return reponse;
   }
 

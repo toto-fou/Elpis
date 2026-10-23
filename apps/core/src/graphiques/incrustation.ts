@@ -179,6 +179,7 @@ export async function purgerCacheGraphique(nom: string): Promise<void> {
     throw e;
   }
   if (base === null) return;
+  if (nomSur(nom) === "guest" && nom !== "guest") return closeSync(base);
   const dossier = sous(base, nomSur(nom));
   try {
     await supprimerArbreSous(dossier);

@@ -57,13 +57,16 @@ export async function purgerCompteSurHotes(uid: number, username: string): Promi
   } catch (e) {
     return [`manifeste des hôtes illisible : ${e instanceof Error ? e.message : String(e)}`];
   }
+  const sansJeton = hotes.filter((h) => !h.token).map((h) => `hôte d'outils ${h.id} : sans jeton de service`);
   const essais = await Promise.allSettled(
     hotes
       .filter((h) => h.token)
-      .map((h) => appelerHote(h, uid, username, "POST", "/api/internal/account/purge", { delaiS: 30 })),
+      .map((h) => appelerHote(h, uid, username, "POST", "/api/internal/account/purge", { delaiS: 15 })),
   );
-  return essais.flatMap((r) =>
-    r.status === "rejected" ? [String(r.reason instanceof Error ? r.reason.message : r.reason)] : [],
+  return sansJeton.concat(
+    essais.flatMap((r) =>
+      r.status === "rejected" ? [String(r.reason instanceof Error ? r.reason.message : r.reason)] : [],
+    ),
   );
 }
 

@@ -14,6 +14,37 @@ selon [SemVer](https://semver.org/lang/fr/).
   version (`make_release.sh` y place le Chromium attendu). Les paquets apt
   requis ne changent pas.
 
+### Moteurs vLLM et SGLang
+
+- **Appels d'outils multiples : plus d'étape fantôme.** Quand SGLang réutilise
+  le numéro d'un appel (nom d'outil inconnu au milieu d'un lot, parseurs qui
+  numérotent par outil), deux appels ne fusionnent plus en un nom collé
+  (« read_filelist_dir ») aux arguments invalides. La progression et les
+  journaux d'un outil lancé plusieurs fois en parallèle s'affichent sous le bon
+  appel. Rechargez les onglets ouverts après la mise à jour.
+- **Parseur d'appels d'outils.** La documentation donne le parseur SGLang de
+  chaque format (`qwen25`, `qwen3_coder` pour Qwen3-Coder, `glm45`, `glm47`,
+  `kimi_k2`…) ; la sonde signale un parseur qui ne correspond pas au modèle
+  servi et une réponse vide après la réflexion alors que des outils étaient
+  offerts.
+- **Débits de prefill.** Pour vLLM et SGLang, qui ne rendent pas de `timings`,
+  Elpis mesure le délai du premier jeton et la génération : la bulle affiche le
+  débit de lecture et le débit d'écriture n'inclut plus le prefill. La ligne de
+  charge de SGLang ajoute le débit de prefill et le délai du premier jeton
+  (`--enable-metrics`) ; sa jauge KV additionne les répliques `--dp`.
+- **Jauge de contexte fidèle.** L'occupation n'est plus bornée à la fenêtre
+  connue (un prompt réel plus long s'affichait « 131k / 131k ») et un avis
+  signale le dépassement ; pendant la génération, les jetons reçus depuis la
+  dernière mesure s'affichent à part. Un moteur qui annonce sa fenêtre n'est
+  plus deviné au nom du modèle : s'il n'annonce pas `max_model_len`, la
+  compaction reste inactive (avertissement au journal) au lieu de se fier à
+  une valeur devinée.
+- **Raisonnement conservé avec SGLang**, actif par défaut : la réflexion de
+  chaque appel d'outil du tour repart au moteur, comme l'attendent les gabarits
+  Qwen3, GLM-4.5/4.6 et MiniMax-M2. Le prompt d'un tour d'outils s'allonge
+  d'autant ; l'interrupteur des réglages de génération le coupe. Cette
+  réflexion n'est jamais enregistrée.
+
 ## 0.1.1 — 2026-10-22
 
 **Moteurs vLLM et SGLang.** Le type de moteur écrit dans `config.json`

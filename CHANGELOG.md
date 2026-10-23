@@ -32,6 +32,13 @@ selon [SemVer](https://semver.org/lang/fr/).
   débit de lecture et le débit d'écriture n'inclut plus le prefill. La ligne de
   charge de SGLang ajoute le débit de prefill et le délai du premier jeton
   (`--enable-metrics`) ; sa jauge KV additionne les répliques `--dp`.
+- **Jauge de contexte fidèle.** L'occupation n'est plus bornée à la fenêtre
+  connue (un prompt réel plus long s'affichait « 131k / 131k ») et un avis
+  signale le dépassement ; pendant la génération, les jetons reçus depuis la
+  dernière mesure s'affichent à part. Un moteur qui annonce sa fenêtre n'est
+  plus deviné au nom du modèle : s'il n'annonce pas `max_model_len`, la
+  compaction reste inactive (avertissement au journal) au lieu de se fier à
+  une valeur devinée.
 
 ## 0.1.1 — 2026-10-22
 

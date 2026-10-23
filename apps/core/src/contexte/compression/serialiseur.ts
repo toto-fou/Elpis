@@ -142,14 +142,15 @@ export function renderArtifactLedger(lines: readonly string[], cap = LEDGER_MAX_
   return `${head}\n${kept.join("\n")}\n${LEDGER_END}`;
 }
 
-const LEDGER_RE = /\[ARTIFACTS v=1\]([\s\S]*?)\[\/ARTIFACTS\]/;
-
 /** Lignes d'entrées du bloc présent dans `text` (porteur précédent) ; `[]` sans bloc. */
 export function parseLedgerLines(text: string | null | undefined): string[] {
-  if (!text || !text.includes(LEDGER_START)) return [];
-  const m = LEDGER_RE.exec(text);
-  if (!m) return [];
-  return splitlinesPy(m[1]!).filter((l) => stripPy(l).startsWith("- "));
+  if (!text) return [];
+  const debut = text.indexOf(LEDGER_START);
+  const fin = debut < 0 ? -1 : text.indexOf(LEDGER_END, debut + LEDGER_START.length);
+  if (fin < 0) return [];
+  return splitlinesPy(text.slice(debut + LEDGER_START.length, fin)).filter((l) =>
+    stripPy(l).startsWith("- "),
+  );
 }
 
 const NON_BLANC = BLANC_PY.replace(/^\[/, "[^");

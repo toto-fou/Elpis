@@ -24,6 +24,13 @@ const CONTROLE_TOUTES_LES = 256;
 /** Revalidation de l'inode au plus tard toutes les 2 s (`_REVAL_EVERY_S`). */
 const REVALIDATION_MS = 2_000;
 
+/** Segment porteur d'un chemin d'aperçu (`/api/sandbox/pv|pvs/<jeton>`) : un secret, jamais écrit au journal lu par le staff. */
+const JETON_APERCU = /(\/api\/sandbox\/pvs?\/)[^/\s"'?#\\]+/gu;
+
+export function masquerJetonsApercu(texte: string): string {
+  return texte.replace(JETON_APERCU, "$1<jeton>");
+}
+
 /** `user_db/logs/app.log.jsonl` sous la racine du dépôt : chaque process le suit pour son staff. */
 export function cheminJournalCommun(racine: string): string {
   return path.join(racine, "user_db", "logs", "app.log.jsonl");
@@ -88,7 +95,7 @@ export function ligneJournal(entree: LigneJournal, service: string): string {
   if (entree.live === false) enregistrement["live"] = false;
   if (entree.extras && Object.keys(entree.extras).length)
     enregistrement["extras"] = extrasSurs(entree.extras);
-  const ligne = pyJsonDumps(enregistrement, { ensureAscii: false }) + "\n";
+  const ligne = masquerJetonsApercu(pyJsonDumps(enregistrement, { ensureAscii: false })) + "\n";
   return ligne.isWellFormed() ? ligne : ligne.replace(/[\uD800-\uDFFF]/gu, "?");
 }
 

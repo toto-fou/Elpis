@@ -53,6 +53,7 @@ interface Temporaires {
   ferme: boolean;
   envoye: boolean;
   readonly journal: FastifyBaseLogger;
+  readonly limiteCorps: number;
 }
 
 const formulaires = new WeakMap<FastifyRequest, Promise<Formulaire>>();
@@ -70,9 +71,15 @@ function nettoyer(t: Temporaires): Promise<void> {
 }
 
 /** `close` de la réponse est toujours émis (envoyée, coupée ou détournée), `onSend` suit la fin du traitement. */
-function suivre(requete: FastifyRequest, reponse: FastifyReply): void {
+function suivre(requete: FastifyRequest, reponse: FastifyReply, limiteCorps: number): void {
   if (typeDeContenu(requete.headers["content-type"]).type !== "multipart/form-data") return;
-  const t: Temporaires = { dossier: undefined, ferme: false, envoye: false, journal: requete.log };
+  const t: Temporaires = {
+    dossier: undefined,
+    ferme: false,
+    envoye: false,
+    journal: requete.log,
+    limiteCorps,
+  };
   temporaires.set(requete, t);
   reponse.raw.once("close", () => {
     t.ferme = true;
@@ -81,7 +88,7 @@ function suivre(requete: FastifyRequest, reponse: FastifyReply): void {
   });
 }
 
-/** Greffon multipart aux limites de Starlette (1000 champs, 1000 fichiers, 1 Mo par champ) ; fichier au-delà du plafond du corps = 413 ; temporaires suivis par requête. */
+/** Greffon multipart aux limites de Starlette (1000 champs, 1000 fichiers, 1 Mo par champ) ; fichier ou formulaire au-delà du plafond du corps = 413 ; temporaires suivis par requête. */
 export async function installerMultipart(app: FastifyInstance, limiteFichier: number): Promise<void> {
   await app.register(multipart, {
     preservePath: true,
@@ -98,7 +105,7 @@ export async function installerMultipart(app: FastifyInstance, limiteFichier: nu
     },
   } as Parameters<typeof multipart>[1]);
   app.addHook("onRequest", (requete, reponse, fait) => {
-    suivre(requete, reponse);
+    suivre(requete, reponse, limiteFichier);
     fait();
   });
   app.addHook("onSend", (requete, _reponse, charge, fait) => {
@@ -154,7 +161,7 @@ function traduire(e: unknown): HttpError {
   return new HttpError(400, ERREUR_ANALYSE);
 }
 
-/** Plafond propre à une route : un fichier plus gros est tronqué à `limiteFichier` octets (sans 413), la route juge sa taille. */
+/** Plafond propre à une route : un fichier plus gros est tronqué à `limiteFichier` octets (sans 413), la route juge sa taille ; il s'ajoute au plafond du corps pour le total du formulaire. */
 export interface OptionsFormulaire {
   readonly limiteFichier?: number;
 }
@@ -169,6 +176,18 @@ async function analyser(requete: FastifyRequest, options: OptionsFormulaire): Pr
   if (t === undefined) throw new Error("formulaire multipart sans suivi de ses temporaires");
   const entrees: [string, ValeurFormulaire][] = [];
   let commencees = 0;
+  const plafond = t.limiteCorps + (options.limiteFichier ?? 0);
+  let total = 0;
+  const compter = (octets: number): void => {
+    total += octets;
+    if (total > plafond) throw new HttpError(413, "Request body is too large");
+  };
+  const compteur = async function* (source: AsyncIterable<Buffer>): AsyncGenerator<Buffer> {
+    for await (const morceau of source) {
+      compter(morceau.length);
+      yield morceau;
+    }
+  };
   try {
     const parts =
       options.limiteFichier === undefined
@@ -190,7 +209,7 @@ async function analyser(requete: FastifyRequest, options: OptionsFormulaire): Pr
         }
         const chemin = join(t.dossier, String(commencees));
         try {
-          await pipeline(partie.file, createWriteStream(chemin, { flags: "wx", mode: 0o600 }));
+          await pipeline(partie.file, compteur, createWriteStream(chemin, { flags: "wx", mode: 0o600 }));
         } finally {
           await nettoyer(t);
         }
@@ -206,6 +225,7 @@ async function analyser(requete: FastifyRequest, options: OptionsFormulaire): Pr
       } else {
         if (partie.valueTruncated)
           throw new HttpError(400, `Part exceeded maximum size of ${MAX_PARTIE / 1024}KB.`);
+        compter(typeof partie.value === "string" ? Buffer.byteLength(partie.value, "latin1") : 0);
         entrees.push([
           champ,
           typeof partie.value === "string" ? decodageSur(partie.value) : JSON.stringify(partie.value),

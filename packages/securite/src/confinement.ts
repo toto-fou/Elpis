@@ -19,7 +19,7 @@ import {
   unlinkSync,
   writeSync,
 } from "node:fs";
-import { open, readdir, rmdir, unlink } from "node:fs/promises";
+import { lstat, open, readdir, rmdir, unlink } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 
 import { pyPath, realpathPy, reprPy, stripPy } from "@elpis/commun";
@@ -299,6 +299,20 @@ export async function supprimerArbreSous(chemin: string): Promise<void> {
     await h.close();
   }
   await rmdir(chemin);
+}
+
+/** Entrée retirée sans suivre de lien : dossier vidé par descripteurs, lien ou fichier à sa place supprimé lui-même ; faux si elle n'existe pas. */
+export async function supprimerEntreeSous(chemin: string): Promise<boolean> {
+  try {
+    await supprimerArbreSous(chemin);
+    return true;
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return false;
+    if ((code !== "ELOOP" && code !== "ENOTDIR") || (await lstat(chemin)).isDirectory()) throw e;
+    await unlink(chemin);
+    return true;
+  }
 }
 
 /** `_short_leaf` : préfixe d'au plus `max` octets UTF-8 sans couper un caractère. */

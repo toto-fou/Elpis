@@ -49,25 +49,26 @@ export async function appelerHote(
   }
 }
 
-/** Compte supprimé purgé sur chaque hôte d'outils déclaré (sa base peut être distincte de celle du core) ; échecs rendus, jamais levés. */
+/** Compte supprimé purgé sur chaque hôte d'outils déclaré (sa base peut être distincte de celle du core) ; un échec par hôte nommé, jamais levé. */
 export async function purgerCompteSurHotes(uid: number, username: string): Promise<string[]> {
-  let hotes: SandboxHost[];
+  let declares: [string, SandboxHost | null][];
   try {
-    hotes = [...lireHotes().hotes].flatMap(([id, spec]) => hostFromSpec(id, spec) ?? []);
+    declares = [...lireHotes().hotes].map(([id, spec]) => [id, hostFromSpec(id, spec)]);
   } catch (e) {
     return [`manifeste des hôtes illisible : ${e instanceof Error ? e.message : String(e)}`];
   }
-  const sansJeton = hotes.filter((h) => !h.token).map((h) => `hôte d'outils ${h.id} : sans jeton de service`);
-  const essais = await Promise.allSettled(
-    hotes
-      .filter((h) => h.token)
-      .map((h) => appelerHote(h, uid, username, "POST", "/api/internal/account/purge", { delaiS: 15 })),
-  );
-  return sansJeton.concat(
-    essais.flatMap((r) =>
-      r.status === "rejected" ? [String(r.reason instanceof Error ? r.reason.message : r.reason)] : [],
-    ),
-  );
+  const essais = declares.map(async ([id, hote]): Promise<string | null> => {
+    if (hote === null) return `hôte d'outils ${id} : sans URL`;
+    if (!hote.token) return `hôte d'outils ${id} : sans jeton de service`;
+    try {
+      await appelerHote(hote, uid, username, "POST", "/api/internal/account/purge", { delaiS: 15 });
+      return null;
+    } catch (e) {
+      const raison = e instanceof Error ? e.message : String(e);
+      return raison.startsWith(`hôte d'outils ${id} `) ? raison : `hôte d'outils ${id} : ${raison}`;
+    }
+  });
+  return (await Promise.all(essais)).filter((m): m is string => m !== null);
 }
 
 /** PortBac de la console : `P` d'un hôte distant supprimé par l'hôte, conteneur et purge locaux par @elpis/bac. */

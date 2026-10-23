@@ -92,6 +92,7 @@ export {
   saisirEntree,
   stripWorkPrefix,
   supprimerArbreSous,
+  supprimerEntreeSous,
   toContainer,
 } from "./confinement";
 export type { DossierParcouru, EntreeBrute, OptionsEcritureSous, OptionsLexical } from "./confinement";

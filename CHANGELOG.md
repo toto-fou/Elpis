@@ -14,6 +14,15 @@ selon [SemVer](https://semver.org/lang/fr/).
   version (`make_release.sh` y place le Chromium attendu). Les paquets apt
   requis ne changent pas.
 
+### Moteurs vLLM et SGLang
+
+- **Appels d'outils multiples : plus d'étape fantôme.** Quand SGLang réutilise
+  le numéro d'un appel (nom d'outil inconnu au milieu d'un lot, parseurs qui
+  numérotent par outil), deux appels ne fusionnent plus en un nom collé
+  (« read_filelist_dir ») aux arguments invalides. La progression et les
+  journaux d'un outil lancé plusieurs fois en parallèle s'affichent sous le bon
+  appel. Rechargez les onglets ouverts après la mise à jour.
+
 ## 0.1.1 — 2026-10-22
 
 **Moteurs vLLM et SGLang.** Le type de moteur écrit dans `config.json`

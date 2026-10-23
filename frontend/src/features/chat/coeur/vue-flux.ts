@@ -943,29 +943,41 @@ export function creerVueFlux(c: CoeurChat) {
     void nextTick(() => l.scrollToBottom());
   }
 
+  // Étape en cours visée par une progression ou un journal : par call_id (lots parallèles d'un même outil), sinon la dernière de ce nom.
+  function etapeEnCours(steps: readonly EtapeChat[], d: DonneesFlux): number {
+    const nom = d.name || "";
+    const essais: ((s: EtapeChat) => boolean)[] = [];
+    if (d.call_id) essais.push((s) => s.callId === d.call_id && s.status === "running");
+    essais.push((s) => s.name === nom && s.status === "running");
+    for (const essai of essais)
+      for (let i = steps.length - 1; i >= 0; i--) {
+        const s = steps[i];
+        if (s && essai(s)) return i;
+      }
+    return -1;
+  }
+
   function surProgressionOutil(t: Tour): void {
     const d = t.data;
     const cur = t.msgs[t.idx];
     if (!cur) return;
     const steps = etapes(cur);
-    for (let i = steps.length - 1; i >= 0; i--) {
-      const s = steps[i];
-      if (!s || s.name !== (d.name || "") || s.status !== "running") continue;
-      const total = typeof d["total"] === "number" && d["total"] > 0 ? d["total"] : null;
-      const progression = Number(d["progress"]);
-      steps[i] = {
-        ...s,
-        progressInfo: {
-          value: progression || 0,
-          total,
-          pct: total ? Math.max(0, Math.min(100, Math.round((progression / total) * 100))) : null,
-          message: chaine(d["message"]),
-          at: Date.now(),
-        },
-      };
-      l.patch(t.idx, { toolSteps: steps });
-      return;
-    }
+    const i = etapeEnCours(steps, d);
+    const s = steps[i];
+    if (!s) return;
+    const total = typeof d["total"] === "number" && d["total"] > 0 ? d["total"] : null;
+    const progression = Number(d["progress"]);
+    steps[i] = {
+      ...s,
+      progressInfo: {
+        value: progression || 0,
+        total,
+        pct: total ? Math.max(0, Math.min(100, Math.round((progression / total) * 100))) : null,
+        message: chaine(d["message"]),
+        at: Date.now(),
+      },
+    };
+    l.patch(t.idx, { toolSteps: steps });
   }
 
   function surJournalOutil(t: Tour): void {
@@ -973,20 +985,18 @@ export function creerVueFlux(c: CoeurChat) {
     const cur = t.msgs[t.idx];
     if (!cur) return;
     const steps = etapes(cur);
-    for (let i = steps.length - 1; i >= 0; i--) {
-      const s = steps[i];
-      if (!s || s.name !== (d.name || "") || s.status !== "running") continue;
-      const avant = s.logs || [];
-      const ligne = {
-        level: chaine(d["level"]) || "info",
-        message: chaine(d["message"]),
-        logger: chaine(d["logger"]),
-        at: Date.now(),
-      };
-      steps[i] = { ...s, logs: avant.length >= 50 ? [...avant.slice(-49), ligne] : [...avant, ligne] };
-      l.patch(t.idx, { toolSteps: steps });
-      return;
-    }
+    const i = etapeEnCours(steps, d);
+    const s = steps[i];
+    if (!s) return;
+    const avant = s.logs || [];
+    const ligne = {
+      level: chaine(d["level"]) || "info",
+      message: chaine(d["message"]),
+      logger: chaine(d["logger"]),
+      at: Date.now(),
+    };
+    steps[i] = { ...s, logs: avant.length >= 50 ? [...avant.slice(-49), ligne] : [...avant, ligne] };
+    l.patch(t.idx, { toolSteps: steps });
   }
 
   function indexEtapeShell(steps: EtapeChat[], d: DonneesFlux): number {

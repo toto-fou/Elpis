@@ -4,7 +4,7 @@ import type { VecteurCreux } from "./bm25";
 import type { BoitesPage, Passage } from "./decoupage";
 import { ErreurRag } from "./erreurs";
 import type { CodeErreurRag } from "./erreurs";
-import { appeler, estObjet, extrait, jsonOuNul } from "./reseau";
+import { appeler, estObjet, extrait, jsonOuNul, sansBarresFinales } from "./reseau";
 import type { FetchRag, ReponseHttp } from "./reseau";
 import { idPoint } from "./uuid";
 
@@ -279,7 +279,7 @@ export class ClientQdrant {
   private readonly fetchImpl: FetchRag;
 
   constructor(options: OptionsQdrant) {
-    this.url = options.url.replace(/\/+$/, "");
+    this.url = sansBarresFinales(options.url);
     this.cleApi = options.cleApi && options.cleApi !== "" ? options.cleApi : undefined;
     this.delaiMs = options.delaiMs ?? DELAI_LECTURE_MS;
     this.delaiEcritureMs = options.delaiEcritureMs ?? DELAI_ECRITURE_MS;

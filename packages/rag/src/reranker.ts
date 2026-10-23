@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/rag/src/reranker.ts — client `/v1/rerank` (llama.cpp, Jina, Cohere : `results[].relevance_score` ; TEI : `[{index, score}]`). */
 import { ErreurRag } from "./erreurs";
-import { appeler, estObjet, extrait, jsonOuNul } from "./reseau";
+import { appeler, estObjet, extrait, jsonOuNul, sansBarresFinales } from "./reseau";
 import type { FetchRag } from "./reseau";
 
 export interface OptionsReranker {
@@ -54,7 +54,7 @@ export class ClientReranker {
   private readonly fetchImpl: FetchRag;
 
   constructor(options: OptionsReranker) {
-    this.adresse = `${options.url.replace(/\/+$/, "").replace(/\/v1$/, "")}/v1/rerank`;
+    this.adresse = `${sansBarresFinales(options.url).replace(/\/v1$/, "")}/v1/rerank`;
     this.modele = options.modele && options.modele !== "" ? options.modele : MODELE_DEFAUT;
     this.cleApi = options.cleApi && options.cleApi !== "" ? options.cleApi : undefined;
     this.delaiMs = options.delaiMs ?? DELAI_DEFAUT_MS;

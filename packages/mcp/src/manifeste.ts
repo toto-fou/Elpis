@@ -8,6 +8,7 @@ import {
   comparePointsDeCode,
   ErreurPython,
   intPy,
+  rstripPy,
   strPy,
   stripPy,
   urlsplit,
@@ -314,7 +315,7 @@ export class ServerEntry {
   /** Les façons de joindre cette entrée depuis un applicatif tiers (HTTP streamable, SSE, stdio du repli). */
   endpoints(baseUrl = ""): Dict {
     const fam = this.families.length === 1 ? (this.families[0] ?? "") : "";
-    let base = (baseUrl || "").replace(/\/+$/, "");
+    let base = rstripPy(baseUrl || "", "/");
     if (!base && this.url) base = stripMcpPath(this.url);
     const seg = fam ? `/${fam}` : "";
     const out: Dict = {};

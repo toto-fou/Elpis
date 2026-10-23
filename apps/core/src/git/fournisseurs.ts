@@ -13,6 +13,7 @@ import {
   nomTypePy,
   ouPy,
   quotePy,
+  rstripPy,
   stripPy,
   strPy,
   veritePy,
@@ -69,7 +70,7 @@ export function basicAuthHeader(user: string, token: string): string {
 }
 
 function sansBarreFinale(s: string): string {
-  return s.replace(/\/+$/u, "");
+  return rstripPy(s, "/");
 }
 
 /** `_host_is_private` (Gitea) : IP non globale, `localhost` ou suffixe interne, port et crochets IPv6 retirés. */

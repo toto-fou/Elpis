@@ -53,6 +53,13 @@ export async function appeler(a: AppelHttp): Promise<ReponseHttp> {
   }
 }
 
+/** `url.rstrip("/")` sans regex. */
+export function sansBarresFinales(url: string): string {
+  let fin = url.length;
+  while (fin > 0 && url.charCodeAt(fin - 1) === 0x2f) fin--;
+  return url.slice(0, fin);
+}
+
 /** Chemin d'une URL sans l'hôte ni les paramètres (messages d'erreur). */
 export function chemin(url: string): string {
   try {

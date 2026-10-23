@@ -23,6 +23,7 @@ import {
   prefixePy,
   pyJsonLoads,
   reprPy,
+  rstripPy,
   stripPy,
   strPy,
   veritePy,
@@ -333,7 +334,7 @@ export function scoreOf(item: unknown, cles: readonly unknown[]): number {
 
 /** Adresse de base, `…/v1` ou route complète → `…/v1/chat/completions`. */
 export function chatCompletionsUrl(endpoint: string | null | undefined): string {
-  const url = (endpoint || "").replace(/\/+$/, "");
+  const url = rstripPy(endpoint || "", "/");
   if (url.includes("/chat/completions")) return url;
   if (url.endsWith("/v1")) return url + "/chat/completions";
   return url + "/v1/chat/completions";

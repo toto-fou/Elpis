@@ -27,6 +27,7 @@ import {
   intPy,
   ouPy,
   prefixePy,
+  rstripPy,
   stripPy,
   strPy,
   veritePy,
@@ -364,7 +365,7 @@ function sshOpts(cfg: Dict): string[] {
 }
 
 function rstripBarres(s: string): string {
-  return s.replace(/\/+$/u, "");
+  return rstripPy(s, "/");
 }
 
 export function buildTestArgv(cfg: Dict): string[] {

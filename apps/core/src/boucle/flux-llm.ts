@@ -10,6 +10,7 @@ import {
   longueurPy,
   prefixePy,
   pyJsonDumps,
+  rstripPy,
   strPy,
   stripPy,
   veritePy,
@@ -103,7 +104,7 @@ function detacher(p: Promise<unknown>): void {
 
 /** Racine du serveur à partir de l'URL de complétion (suffixes les plus longs d'abord). */
 export function endpointBase(url: string | null | undefined): string {
-  const u = (url || "").replace(/\/+$/u, "");
+  const u = rstripPy(url || "", "/");
   for (const suffixe of ["/v1/chat/completions", "/chat/completions", "/v1/completions", "/v1"])
     if (u.endsWith(suffixe)) return u.slice(0, -suffixe.length);
   return u;

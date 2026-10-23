@@ -2,7 +2,7 @@
 /** apps/core/src/images/sdcpp.ts — API native `/sdcpp/v1` de sd-server : soumission, sondage du job (file, avancée réelle), annulation. */
 import { randomInt } from "node:crypto";
 
-import { arrondiPy, FlottantPy, maxPy, minPy, strPy, veritePy } from "@elpis/commun";
+import { arrondiPy, FlottantPy, maxPy, minPy, rstripPy, strPy, veritePy } from "@elpis/commun";
 
 import { journal } from "../journal";
 import { CancelledError } from "../llm/client-http";
@@ -153,7 +153,7 @@ export class SdcppProvider implements ImageProvider {
   private readonly tirerGraine: () => number;
 
   constructor(url: string, options: OptionsSdcpp = {}) {
-    this.url = (url || "").replace(/\/+$/, "");
+    this.url = rstripPy(url || "", "/");
     this.timeoutSec = Math.trunc(options.timeoutSec ?? 180);
     this.verify = options.verify ?? true;
     this.caPem = options.caPem ?? "";

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/rag/src/embeddings.ts — client `/v1/embeddings` (OpenAI, llama.cpp) : lots, reprises sur 408/429/5xx, sonde de dimension, préfixe de contexte. */
 import { ErreurRag, estAbandon } from "./erreurs";
-import { appeler, dormir, estObjet, extrait, jsonOuNul } from "./reseau";
+import { appeler, dormir, estObjet, extrait, jsonOuNul, sansBarresFinales } from "./reseau";
 import type { FetchRag, ReponseHttp } from "./reseau";
 
 export interface OptionsEmbeddings {
@@ -105,7 +105,7 @@ export class ClientEmbeddings {
 
   constructor(options: OptionsEmbeddings) {
     this.modele = options.modele;
-    this.adresse = `${options.url.replace(/\/+$/, "").replace(/\/v1$/, "")}/v1/embeddings`;
+    this.adresse = `${sansBarresFinales(options.url).replace(/\/v1$/, "")}/v1/embeddings`;
     this.cleApi = options.cleApi && options.cleApi !== "" ? options.cleApi : undefined;
     this.tailleLot = Math.max(1, Math.floor(options.tailleLot ?? LOT_DEFAUT));
     this.delaiMs = options.delaiMs ?? DELAI_DEFAUT_MS;

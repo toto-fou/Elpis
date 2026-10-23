@@ -196,6 +196,8 @@ export type EtatChat = ReturnType<typeof creerEtatChat>;
 export interface CompteurDirect {
   base: number;
   gen: number;
+  /** Jetons générés depuis la dernière occupation réelle (`base`) : réflexion et réponse encore dans le cache du moteur. */
+  enCours: number;
   total: number;
 }
 

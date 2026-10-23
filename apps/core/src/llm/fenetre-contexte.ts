@@ -186,7 +186,9 @@ export async function resolveContextWindow(
   }
   const modele = stripPy(modelId || cible.model || "");
   const cid = cible.connectorId ?? null;
-  if (sourceContexte(cible) !== "aucune") {
+  // Un moteur qui annonce sa fenêtre n'est jamais deviné au nom : une fenêtre trop petite fausse jauge et compaction.
+  const annoncee = sourceContexte(cible) !== "aucune";
+  if (annoncee) {
     const declaree = await declaredWindow(cid);
     if (declaree > 0) return declaree;
     try {
@@ -205,11 +207,11 @@ export async function resolveContextWindow(
   }
   let fenetre = await declaredWindow(cid);
   let source = "connecteur";
-  if (fenetre <= 0) {
+  if (fenetre <= 0 && !annoncee) {
     fenetre = fromKnownFamily(modele);
     source = "famille connue";
   }
-  if (fenetre <= 0) {
+  if (fenetre <= 0 && !annoncee) {
     const pt = cible.providerType || "";
     fenetre = Object.hasOwn(PROVIDER_DEFAULT_WINDOWS, pt) ? (PROVIDER_DEFAULT_WINDOWS[pt] ?? 0) : 0;
     source = "défaut du fournisseur";
@@ -226,9 +228,10 @@ export async function resolveContextWindow(
   if (!prevenus.has(modele)) {
     prevenus.add(modele);
     log.warn(
-      `fenêtre de contexte INCONNUE pour '${modele || "?"}' (cible distante) — compaction, ` +
-        "élagage et budget dur restent inactifs sur ce modèle. Déclarez ``context_window`` sur le connecteur ou " +
-        "posez LLM_REMOTE_N_CTX.",
+      `fenêtre de contexte INCONNUE pour '${modele || "?"}' ` +
+        (annoncee ? "(le moteur n'a pas annoncé max_model_len)" : "(cible distante)") +
+        " — compaction, élagage et budget dur restent inactifs sur ce modèle. Déclarez ``context_window`` sur le " +
+        "connecteur ou posez LLM_REMOTE_N_CTX.",
     );
   }
   cache.set(cle, 0);

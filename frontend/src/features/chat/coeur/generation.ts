@@ -94,14 +94,22 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       const sec = Math.max(0, (Date.now() - f.genStartMs) / 1000);
       const brut = vivant.base;
       if (brut > 0) f.lastCtxUsed = brut;
-      const utilise = vivant.total && brut > 0 ? Math.min(vivant.total, brut) : 0;
+      // Occupation réelle, jamais bornée à la fenêtre ; la part en génération s'ajoute au dernier prompt mesuré.
+      const utilise = vivant.total && brut > 0 ? brut : 0;
+      const enCours = utilise > 0 ? vivant.enCours : 0;
       const suite = {
         model: e.selectedModel.value || "",
         sec,
         secLabel: fmtElapsed(sec, { live: true }),
         tokPerSec: f.inThinkPhase || !vivant.gen ? null : sec > 0.3 ? Math.round(vivant.gen / sec) : 0,
-        ctxLabel: vivant.total > 0 ? fmtTokens(utilise) + " / " + fmtTokens(vivant.total) : "",
-        pct: utilise > 0 ? Math.min(100, Math.round((utilise / vivant.total) * 100)) : 0,
+        ctxLabel:
+          vivant.total > 0
+            ? fmtTokens(utilise) +
+              (enCours > 0 ? " + " + fmtTokens(enCours) : "") +
+              " / " +
+              fmtTokens(vivant.total)
+            : "",
+        pct: utilise > 0 ? Math.min(100, Math.round(((utilise + enCours) / vivant.total) * 100)) : 0,
       };
       const cur = e.liveGen.value;
       if (
@@ -118,12 +126,16 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     f.genTicker = setInterval(tic, 200);
   }
 
-  // Base = dernière occupation réelle connue ; aucune estimation n'est jamais affichée.
+  // Base = dernière occupation réelle connue (aucune estimation) ; les jetons reçus depuis s'y ajoutent en « en génération ».
   function seedLiveCtx(): void {
     const applicable = ctxGaugeApplicable();
-    const kv = applicable && !e.selectedConnector.value ? e.llmHealth.value?.kv_cache || null : null;
+    const sante = e.llmHealth.value;
+    const kv =
+      applicable && !e.selectedConnector.value && sante?.kvEstFenetre !== false
+        ? sante?.kv_cache || null
+        : null;
     const total = applicable ? getCtxSize() || kv?.total || 0 : 0;
-    f.ctxLive = { base: f.lastCtxUsed > 0 ? f.lastCtxUsed : 0, gen: 0, total };
+    f.ctxLive = { base: f.lastCtxUsed > 0 ? f.lastCtxUsed : 0, gen: 0, enCours: 0, total };
     f.inThinkPhase = false;
     f.genStartMs = Date.now();
     startGenTicker();

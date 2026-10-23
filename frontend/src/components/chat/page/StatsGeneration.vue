@@ -23,7 +23,13 @@ const mod = domaine(CLE_MODELES);
         <span
           class="flex items-center gap-1"
           :class="mod.kvTextClass(mod.liveGen.pct)"
-          :title="'Contexte : ' + mod.liveGen.ctxLabel + ' tokens (' + mod.liveGen.pct + '%)'"
+          :title="
+            'Contexte : ' +
+            mod.liveGen.ctxLabel +
+            ' tokens (' +
+            mod.liveGen.pct +
+            '%) — dernier prompt mesuré par le moteur, + jetons générés depuis (réflexion comprise), / fenêtre'
+          "
         >
           <i class="ph ph-database text-[10px]"></i>{{ mod.liveGen.ctxLabel }} ctx
         </span>

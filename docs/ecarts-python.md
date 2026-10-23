@@ -275,6 +275,10 @@ main et traitait tout autre moteur comme un service distant sans capacité.
   moteurs et comptait le prefill dans le débit d'écriture.
 - **Charge de SGLang** : délai moyen du premier jeton et débit de prefill lus sur ses métriques ; jauge KV additionnée
   entre répliques `--dp` (rangs TP comptés une fois).
+- **Jauge de contexte** : l'occupation n'est plus bornée à la fenêtre connue (un prompt réel plus long s'affiche tel
+  quel, avec un avis une fois par tour) ; la jauge en direct ajoute les jetons reçus depuis la dernière mesure ; un
+  moteur qui annonce sa fenêtre n'est jamais deviné au nom (`qwen3*` valait 131 072 même pour un modèle à 262 144), et
+  la capacité du cache KV de vLLM ou SGLang ne sert plus de fenêtre.
 
 ## Console : secrets de config.json masqués
 

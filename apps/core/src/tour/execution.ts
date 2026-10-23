@@ -210,7 +210,7 @@ export async function ctxUsageSnapshot(
 ): Promise<Dict | null> {
   if (!estDict(metrics) || !Object.keys(metrics).length || target.profil.capacites.contexte === "aucune")
     return null;
-  let used = kvGaugeUsedTokens(metrics);
+  const used = kvGaugeUsedTokens(metrics);
   if (used <= 0) return null;
   let total: number;
   try {
@@ -219,7 +219,7 @@ export async function ctxUsageSnapshot(
     total = 0;
   }
   if (total <= 0) return null;
-  used = Math.min(used, total);
+  // Occupation réelle même au-delà de la fenêtre connue (fenêtre mal déclarée) ; seul le pourcentage est borné.
   return {
     used,
     total,

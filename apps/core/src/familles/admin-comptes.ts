@@ -52,6 +52,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { auditer, entierBase, entierPy, exigerTexte, niveauDuRole } from "../admin/aides";
 import { racineBac, sandboxUsageBytes, supprimerBac, travailBac } from "../admin/bac";
 import type { PortBac } from "../admin/bac";
+import { purgerCompteSurHotes } from "../admin/pilote-bac";
 import { definirAccesBureau, lireCorpsAccesLlm, vueAccesLlm, vueCiblesBureau } from "../admin/comptes";
 import { validerMotDePasse } from "../comptes/aides";
 import { deleteUserFull } from "../comptes/suppression";
@@ -143,6 +144,8 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       } catch (e) {
         dep.journal.error({ err: e }, "[admin] nettoyage des accès desktop (delete) échoué");
       }
+      for (const echec of await purgerCompteSurHotes(cible, parti))
+        dep.journal.error(`[admin] purge du compte sur un hôte d'outils échouée : ${echec}`);
     }
     let supprime = false;
     let erreur: string | null = null;

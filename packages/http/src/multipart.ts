@@ -171,6 +171,8 @@ function traduire(e: unknown): HttpError {
 /** Plafond propre à une route : un fichier plus gros est tronqué à `limiteFichier` octets (sans 413), la route juge sa taille ; il s'ajoute au plafond du corps pour le total du formulaire. */
 export interface OptionsFormulaire {
   readonly limiteFichier?: number;
+  /** Total du formulaire propre à la route, à la place du plafond du corps augmenté de `limiteFichier`. */
+  readonly limiteTotale?: number;
 }
 
 async function analyser(requete: FastifyRequest, options: OptionsFormulaire): Promise<Formulaire> {
@@ -183,7 +185,7 @@ async function analyser(requete: FastifyRequest, options: OptionsFormulaire): Pr
   if (t === undefined) throw new Error("formulaire multipart sans suivi de ses temporaires");
   const entrees: [string, ValeurFormulaire][] = [];
   let commencees = 0;
-  const plafond = t.limiteCorps + (options.limiteFichier ?? 0);
+  const plafond = options.limiteTotale ?? t.limiteCorps + (options.limiteFichier ?? 0);
   let total = 0;
   const compter = (octets: number): void => {
     total += octets;

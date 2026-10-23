@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/graphiques/incrustation.ts — configs de graphiques recopiées dans la conversation sauvée (embed_chart_configs, shared_infra/charts/routes.py). */
 import { closeSync, constants, existsSync, fstatSync, lstatSync, openSync, readFileSync } from "node:fs";
+import { unlink } from "node:fs/promises";
 import type { Stats } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -21,6 +22,7 @@ import {
 import type { Dict } from "@elpis/commun";
 import { pyPath } from "@elpis/config";
 import type { Base } from "@elpis/db";
+import { supprimerArbreSous } from "@elpis/securite";
 
 import { getChat } from "../chats/stockage";
 import { journal } from "../journal";
@@ -164,6 +166,29 @@ function parcoursPossible(): boolean {
       log.warn("[charts] /proc/self/fd absent : cache des graphiques jamais lu (copie durable seule)");
   }
   return procPresent;
+}
+
+/** Cache d'un compte supprimé : son dossier retiré sous la base validée, par descripteur, sans suivre de lien. */
+export async function purgerCacheGraphique(nom: string): Promise<void> {
+  if (!parcoursPossible()) return;
+  let base: number | null;
+  try {
+    base = ouvrirDossier(pyPath(baseGraphiques()));
+  } catch (e) {
+    if (e instanceof Ecarte) return void log.warn(`[charts] purge du cache écartée : ${e.message}`);
+    throw e;
+  }
+  if (base === null) return;
+  const dossier = sous(base, nomSur(nom));
+  try {
+    await supprimerArbreSous(dossier);
+  } catch (e) {
+    if (codeErreur(e) === "ENOENT") return;
+    if (!["ELOOP", "ENOTDIR"].includes(codeErreur(e)) || lstatSync(dossier).isDirectory()) throw e;
+    await unlink(dossier);
+  } finally {
+    closeSync(base);
+  }
 }
 
 /** Fichier du cache du compte, lu par descripteurs (base, dossier du compte, fichier) sans suivre de lien, seulement s'il appartient à l'uid du process ; `null` si absent ou écarté. */

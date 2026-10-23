@@ -4,7 +4,7 @@ import { getUserSandbox, resetUserSandboxCache, which } from "@elpis/bac";
 import { getOu, getPy } from "@elpis/commun";
 
 import { ClientHttp, delais } from "../llm/client-http";
-import { isLoopback, sandboxHostFor } from "../relais/hotes";
+import { hostFromSpec, isLoopback, lireHotes, sandboxHostFor } from "../relais/hotes";
 import type { SandboxHost } from "../relais/hotes";
 import { entetesRelais } from "../relais/identite";
 import type { PortBac } from "./bac";
@@ -47,6 +47,24 @@ export async function appelerHote(
   } finally {
     await client.aclose();
   }
+}
+
+/** Compte supprimé purgé sur chaque hôte d'outils déclaré (sa base peut être distincte de celle du core) ; échecs rendus, jamais levés. */
+export async function purgerCompteSurHotes(uid: number, username: string): Promise<string[]> {
+  let hotes: SandboxHost[];
+  try {
+    hotes = [...lireHotes().hotes].flatMap(([id, spec]) => hostFromSpec(id, spec) ?? []);
+  } catch (e) {
+    return [`manifeste des hôtes illisible : ${e instanceof Error ? e.message : String(e)}`];
+  }
+  const essais = await Promise.allSettled(
+    hotes
+      .filter((h) => h.token)
+      .map((h) => appelerHote(h, uid, username, "POST", "/api/internal/account/purge", { delaiS: 30 })),
+  );
+  return essais.flatMap((r) =>
+    r.status === "rejected" ? [String(r.reason instanceof Error ? r.reason.message : r.reason)] : [],
+  );
 }
 
 /** PortBac de la console : `P` d'un hôte distant supprimé par l'hôte, conteneur et purge locaux par @elpis/bac. */

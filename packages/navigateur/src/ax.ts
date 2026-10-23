@@ -726,6 +726,13 @@ export async function deleteCredentials(
   }
 }
 
+/** Identifiants de sites d'un compte supprimé, tous sites confondus ; nombre de lignes retirées. */
+export async function deleteOwnerCredentials(x: Executeur, proprietaire: string): Promise<number> {
+  if (!proprietaire) return 0;
+  return (await verrouAx.avec(() => x.run("DELETE FROM ax_credentials WHERE owner = ?", [proprietaire])))
+    .changes;
+}
+
 /** `wipe_all` : toutes les tables AX vidées (administration). */
 export async function wipeAll(x: Executeur): Promise<{ deleted: Suppressions } | { error: string }> {
   try {

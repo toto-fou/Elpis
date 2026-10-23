@@ -9,6 +9,7 @@ import { estTableAbsente } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
 import { supprimerArbreSous } from "@elpis/securite";
 
+import { purgerCacheGraphique } from "../graphiques/incrustation";
 import { deleteUserDir } from "../images/magasin";
 import { journal } from "../journal";
 import { deletePrincipalRows } from "../llm/acces-moteurs";
@@ -41,7 +42,7 @@ async function supprimerEntree(chemin: string): Promise<void> {
   }
 }
 
-/** Magasins rangés par nom de compte (skills perso et leur miroir hors /work, mémoire) : purgés, sinon un compte recréé sous ce nom en hériterait. */
+/** Magasins rangés par nom de compte (skills perso et leur miroir hors /work, mémoire, cache des graphiques) : purgés, sinon un compte recréé sous ce nom en hériterait. */
 async function purgerDossiersDuNom(nom: string): Promise<void> {
   const sur = safeSandboxName(nom);
   const bac = pyJoin(config.SANDBOX_DIR, sur);
@@ -59,6 +60,11 @@ async function purgerDossiersDuNom(nom: string): Promise<void> {
     } catch (e) {
       log.error({ err: e }, `[users] purge de ${entree} échouée`);
     }
+  }
+  try {
+    await purgerCacheGraphique(nom);
+  } catch (e) {
+    log.error({ err: e }, "[users] purge du cache des graphiques échouée");
   }
 }
 

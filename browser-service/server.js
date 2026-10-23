@@ -5918,16 +5918,14 @@ app.post('/poll_until', getSession, autoSnapshot, async (req, res) => {
             poll_interval = 300,
         } = req.body;
 
-        if (!script) return res.status(400).json({ error: 'script requis' });
+        if (!script || typeof script !== 'string') return res.status(400).json({ error: 'script (string) required' });
 
+        // Le corps n'est compilé que dans la page, comme pour /evaluate.
+        const condition = (body) => new Function(body)();
         try {
-            await page.waitForFunction(
-                new Function(script),
-                {},
-                { timeout, polling: poll_interval }
-            );
+            await page.waitForFunction(condition, script, { timeout, polling: poll_interval });
             // Capturer le résultat final
-            const finalValue = await page.evaluate(new Function(script)).catch(() => null);
+            const finalValue = await page.evaluate(condition, script).catch(() => null);
             return res.json({ status: 'success', result: finalValue, elapsed_ms: timeout });
         } catch (e) {
             return res.status(408).json({ error: `Timeout après ${timeout}ms — condition non atteinte`, script });

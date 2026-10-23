@@ -280,9 +280,13 @@ function listesDuDepot(f: Formulaire): { fichiers: FichierRecu[]; chemins: strin
   return { fichiers, chemins };
 }
 
-/** Dépôt d'un dossier (admin) : chaque chemin reste sous le dossier créé, sinon tout est retiré ; jamais de dépôt partiel. */
+/** Dépôt d'un dossier (admin, en une requête) : plafond par fichier seulement ; chaque chemin reste sous le dossier créé, sinon tout est retiré ; jamais de dépôt partiel. */
 async function deposer(req: FastifyRequest): Promise<Dict> {
-  const { fichiers, chemins } = listesDuDepot(await lireFormulaire(req));
+  const formulaire = await lireFormulaire(req, {
+    limiteFichier: config.MAX_UPLOAD_BYTES + 1,
+    limiteTotale: Number.POSITIVE_INFINITY,
+  });
+  const { fichiers, chemins } = listesDuDepot(formulaire);
   if (fichiers.length !== chemins.length) throw new HttpError(400, "Données invalides");
   const premier = partiesChemin(chemins[0] ?? "");
   let nom = nomDeDossier(premier.length > 1 ? (premier[0] ?? "") : "mcp_server");

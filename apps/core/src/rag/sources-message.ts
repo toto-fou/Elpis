@@ -53,8 +53,8 @@ export function numerosCitesRag(texte: unknown): Set<number> {
   const vus = new Set<number>();
   if (typeof texte !== "string") return vus;
   for (const m of texte.matchAll(RENVOI)) {
-    for (const morceau of (m[1] ?? "").split(/\s*[,;]\s*/u)) {
-      const [a, b] = morceau.split(/\s*[\u2013-]\s*/u).map(Number);
+    for (const morceau of (m[1] ?? "").split(/[,;]/u)) {
+      const [a, b] = morceau.split(/[\u2013-]/u).map(Number);
       if (a === undefined || !Number.isInteger(a)) continue;
       if (b !== undefined && Number.isInteger(b) && b >= a && b - a <= 50)
         for (let i = a; i <= b; i++) vus.add(i);

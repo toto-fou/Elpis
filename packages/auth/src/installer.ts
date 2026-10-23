@@ -4,7 +4,7 @@ import { HttpError } from "@elpis/commun";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { enteteCookie, enteteEffacement, lireSession, signerSession, valeurCookie } from "./cookie";
-import { estInterSite, METHODES_MUTANTES, PREFIXES_EXEMPTES_CSRF } from "./csrf";
+import { CHEMINS_CSRF_SANS_COOKIE, estInterSite, METHODES_MUTANTES, PREFIXES_EXEMPTES_CSRF } from "./csrf";
 import { maintenant } from "./garde";
 import type { DependancesAuth } from "./garde";
 import { Session } from "./session";
@@ -32,7 +32,7 @@ export function installerAuth(app: FastifyInstance, dep: DependancesAuth): void 
     if (!METHODES_MUTANTES.has(requete.method)) return;
     const url = requete.url.split("?")[0] ?? "";
     if (PREFIXES_EXEMPTES_CSRF.some((p) => url.startsWith(p))) return;
-    if (!valeurCookie(requete.headers.cookie, a.cookie_name)) return;
+    if (!valeurCookie(requete.headers.cookie, a.cookie_name) && !CHEMINS_CSRF_SANS_COOKIE.has(url)) return;
     if (estInterSite(requete.headers, requete.host)) {
       requete.log.warn(
         `[csrf] ${requete.method} ${url} refusée — origin=${String(requete.headers.origin)} sec-fetch-site=${String(requete.headers["sec-fetch-site"])}`,

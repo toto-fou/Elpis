@@ -25,6 +25,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   route. Le dépôt d'un serveur MCP par l'administrateur, fait en une seule
   requête, garde son plafond par fichier (`APP_MAX_UPLOAD_MB`) sans total.
 
+- **Suppression d'un compte : identifiants de sites purgés sur les hôtes
+  d'outils.** La console appelle la route interne
+  `POST /api/internal/account/purge` de chaque hôte d'outils déclaré, dont la
+  base peut être distincte de celle du core : mettez à jour les hôtes distants
+  avec le core. Un hôte qui n'a pas pu être purgé est signalé par la console.
+
 ## 0.1.1 — 2026-10-22
 
 **Moteurs vLLM et SGLang.** Le type de moteur écrit dans `config.json`

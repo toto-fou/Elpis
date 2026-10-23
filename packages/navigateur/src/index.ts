@@ -19,6 +19,7 @@ export type { HoteNavigateur, OptionsGardeNavigateur } from "./url";
 export {
   AX_INJECT_MIN_SIGNAL,
   deleteCredentials,
+  deleteOwnerCredentials,
   deleteSite,
   deleteSitesBulk,
   detectSessionUrl,

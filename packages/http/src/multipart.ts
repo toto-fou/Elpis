@@ -52,6 +52,8 @@ interface Temporaires {
   dossier: string | undefined;
   ferme: boolean;
   envoye: boolean;
+  /** Plafond total dépassé : le reste du corps ne sera jamais lu, la connexion est fermée après la réponse. */
+  depasse: boolean;
   readonly journal: FastifyBaseLogger;
   readonly limiteCorps: number;
 }
@@ -77,6 +79,7 @@ function suivre(requete: FastifyRequest, reponse: FastifyReply, limiteCorps: num
     dossier: undefined,
     ferme: false,
     envoye: false,
+    depasse: false,
     journal: requete.log,
     limiteCorps,
   };
@@ -108,10 +111,14 @@ export async function installerMultipart(app: FastifyInstance, limiteFichier: nu
     suivre(requete, reponse, limiteFichier);
     fait();
   });
-  app.addHook("onSend", (requete, _reponse, charge, fait) => {
+  app.addHook("onSend", (requete, reponse, charge, fait) => {
     const t = temporaires.get(requete);
     if (t === undefined) return fait(null, charge);
     t.envoye = true;
+    if (t.depasse) {
+      void reponse.header("connection", "close");
+      reponse.raw.once("finish", () => requete.raw.destroy());
+    }
     void nettoyer(t).then(() => fait(null, charge));
   });
   app.addHook("onClose", async () => {
@@ -180,7 +187,9 @@ async function analyser(requete: FastifyRequest, options: OptionsFormulaire): Pr
   let total = 0;
   const compter = (octets: number): void => {
     total += octets;
-    if (total > plafond) throw new HttpError(413, "Request body is too large");
+    if (total <= plafond) return;
+    t.depasse = true;
+    throw new HttpError(413, "Request body is too large");
   };
   const compteur = async function* (source: AsyncIterable<Buffer>): AsyncGenerator<Buffer> {
     for await (const morceau of source) {

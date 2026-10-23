@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/comptes/suppression.ts — suppression complète d'un compte et de ce qui lui appartient en base (users.delete_user_full). */
-import { supprimerJetonsCompte, supprimerOauthCompte } from "@elpis/auth";
+import { lstat, unlink } from "node:fs/promises";
+
+import { nomCanonique, supprimerJetonsCompte, supprimerOauthCompte } from "@elpis/auth";
 import { pyJoin } from "@elpis/commun";
 import { config, safeSandboxName } from "@elpis/config";
 import { estTableAbsente } from "@elpis/db";
@@ -26,20 +28,36 @@ async function toleree(base: Base, f: (x: Executeur) => Promise<unknown>): Promi
   }
 }
 
-/** Magasins rangés par nom de compte (skills perso, mémoire) : supprimés sans suivre de lien, sinon un compte recréé sous ce nom en hériterait. */
+/** Dossier supprimé sans suivre de lien ; un lien ou un fichier à sa place est retiré lui-même. */
+async function supprimerEntree(chemin: string): Promise<void> {
+  try {
+    await supprimerArbreSous(chemin);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return;
+    if ((code === "ELOOP" || code === "ENOTDIR") && !(await lstat(chemin)).isDirectory())
+      return unlink(chemin);
+    throw e;
+  }
+}
+
+/** Magasins rangés par nom de compte (skills perso et leur miroir hors /work, mémoire) : purgés, sinon un compte recréé sous ce nom en hériterait. */
 async function purgerDossiersDuNom(nom: string): Promise<void> {
   const sur = safeSandboxName(nom);
-  const dossiers = [
+  const bac = pyJoin(config.SANDBOX_DIR, sur);
+  const memoire = pyJoin(config.MEMORY_DIR, sur);
+  const entrees = [
     pyJoin(config.USER_SKILLS_DIR, sur),
-    pyJoin(pyJoin(config.MEMORY_DIR, sur), MEMORY_SUBDIR),
-    pyJoin(pyJoin(config.MEMORY_DIR, sur), LEGACY_MEMORY_SUBDIR),
+    pyJoin(bac, "skills"),
+    pyJoin(bac, ".skills-mirror.tmp"),
+    pyJoin(memoire, MEMORY_SUBDIR),
+    pyJoin(memoire, LEGACY_MEMORY_SUBDIR),
   ];
-  for (const dossier of dossiers) {
+  for (const entree of entrees) {
     try {
-      await supprimerArbreSous(dossier);
+      await supprimerEntree(entree);
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "ENOENT")
-        log.error({ err: e }, `[users] purge de ${dossier} échouée`);
+      log.error({ err: e }, `[users] purge de ${entree} échouée`);
     }
   }
 }
@@ -48,6 +66,7 @@ async function purgerDossiersDuNom(nom: string): Promise<void> {
 export async function deleteUserFull(base: Base, uid: number): Promise<boolean> {
   let rag: CollectionPartieRag[] = [];
   let nom = "";
+  let partage = false;
   const supprime = await base.ecriture(async (x) => {
     const ligne = await x.get("SELECT username FROM users WHERE id=?", [uid]);
     nom = typeof ligne?.["username"] === "string" ? ligne["username"] : "";
@@ -63,12 +82,15 @@ export async function deleteUserFull(base: Base, uid: number): Promise<boolean> 
       rag = await purgerCompteRag(tx, uid);
     });
     if (nom) await toleree(base, (tx) => tx.run("DELETE FROM ax_credentials WHERE owner=?", [nom]));
-    return (await x.run("DELETE FROM users WHERE id=?", [uid])).changes > 0;
+    const efface = (await x.run("DELETE FROM users WHERE id=?", [uid])).changes > 0;
+    const restants = await x.all<{ username: string | null }>("SELECT username FROM users");
+    partage = restants.some((u) => nomCanonique(u.username) === nomCanonique(nom));
+    return efface;
   });
   if (!supprime) return false;
   invaliderAccesRag(base);
   await deleteUserDir(uid);
   await nettoyerRagCompte(uid, rag);
-  if (nom) await purgerDossiersDuNom(nom);
+  if (nom && !partage) await purgerDossiersDuNom(nom);
   return true;
 }

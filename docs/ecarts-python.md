@@ -248,6 +248,12 @@ Une table unique (`apps/core/src/llm/profils.ts`) décrit chaque type déclaré 
 options de lancement à conseiller et dialecte (celui de la section précédente). Le Python testait `llamacpp` à la
 main et traitait tout autre moteur comme un service distant sans capacité.
 
+- **Débits sans `timings`** (vLLM, SGLang) : Elpis mesure le délai du premier jeton et la génération et en tire des
+  `timings` à la forme de llama.cpp (`source: "elpis"`) : débit d'écriture de la bulle, durée de génération des
+  exécutions et du journal des appels. Débit de lecture et durée de prefill seulement quand le serveur rapporte les
+  jetons repris du cache (`--enable-prompt-tokens-details`, `--enable-cache-report`) : sans eux, le cache de préfixe,
+  actif par défaut, ferait passer des jetons repris pour des jetons lus. Le Python n'affichait aucun débit de lecture
+  pour ces moteurs et comptait le prefill dans le débit d'écriture.
 - **Configuration** : `llama.engine` accepte `sglang` ; `llama.url` peut être la base du serveur (ou finir par
   `/v1`) ; `llama.api_key` (ou `LLAMA_API_KEY`) part en `Authorization: Bearer` sur chaque appel au moteur par
   défaut, n'est jamais journalisée ni rendue à la console (`********`). Le Python n'envoyait aucune clé.

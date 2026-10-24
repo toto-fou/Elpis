@@ -549,6 +549,7 @@ Ce que fait chaque profil :
 | Cache KV de la jauge | `llamacpp:kv_cache_tokens` ÷ `n_ctx_total` | `vllm:kv_cache_usage_perc` × blocs de `vllm:cache_config_info` | `sglang:token_usage`, capacité `max_total_num_tokens` | — |
 | Jetons repris du cache | `usage.prompt_tokens_details` ou `timings.cache_n` | `usage.prompt_tokens_details.cached_tokens` (`--enable-prompt-tokens-details`) | idem (`--enable-cache-report`) | si fourni |
 | Concurrence | file d'Elpis (slots) | lots continus du moteur | lots continus du moteur | requêtes en parallèle |
+| Débits d'un appel (bulle) | `timings` du flux | mesurés par Elpis : génération = après le premier jeton ; lecture (prefill = délai du premier jeton, file du moteur comprise) seulement avec les jetons en cache rapportés (`--enable-prompt-tokens-details`) | idem (`--enable-cache-report`) | — |
 | Charger / décharger | mode routeur | non (modèle choisi au lancement) | non | non |
 
 Avec vLLM et SGLang, les requêtes partent en parallèle : le moteur les

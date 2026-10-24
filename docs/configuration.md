@@ -546,7 +546,8 @@ Ce que fait chaque profil :
 | Contexte | `/props` (par slot) | `max_model_len` de `/v1/models` | `max_model_len` de `/v1/models` | déclaré ou deviné |
 | Jetons exacts | `/apply-template` puis `/tokenize` | `/tokenize` (`messages` en un appel) | `/v1/tokenize` (`messages` en un appel) | estimés |
 | Métriques | `/metrics` (`--metrics`) | `/metrics` (`vllm:*`) | `/metrics` (`--enable-metrics`) | — |
-| Cache KV de la jauge | `llamacpp:kv_cache_tokens` ÷ `n_ctx_total` | `vllm:kv_cache_usage_perc` × blocs de `vllm:cache_config_info` | `sglang:token_usage`, capacité `max_total_num_tokens` | — |
+| Cache KV de la jauge | `llamacpp:kv_cache_tokens` ÷ `n_ctx_total` | `vllm:kv_cache_usage_perc` × blocs de `vllm:cache_config_info` | `sglang:kv_used_tokens` ÷ `sglang:max_total_num_tokens` (répliques `--dp` additionnées, rangs TP comptés une fois ; sinon `sglang:token_usage` et `max_total_num_tokens` de `/server_info`) | — |
+| Prefill du moteur (charge) | — | délai du premier jeton (`vllm:time_to_first_token_seconds`) | délai du premier jeton (`sglang:time_to_first_token_seconds`), débit de prefill (`sglang:realtime_tokens_total{mode="prefill_compute"}`) | — |
 | Jetons repris du cache | `usage.prompt_tokens_details` ou `timings.cache_n` | `usage.prompt_tokens_details.cached_tokens` (`--enable-prompt-tokens-details`) | idem (`--enable-cache-report`) | si fourni |
 | Concurrence | file d'Elpis (slots) | lots continus du moteur | lots continus du moteur | requêtes en parallèle |
 | Débits d'un appel (bulle) | `timings` du flux | mesurés par Elpis : génération = après le premier jeton ; lecture (prefill = délai du premier jeton, file du moteur comprise) seulement avec les jetons en cache rapportés (`--enable-prompt-tokens-details`) | idem (`--enable-cache-report`) | — |
@@ -556,8 +557,10 @@ Avec vLLM et SGLang, les requêtes partent en parallèle : le moteur les
 regroupe lui-même (`--max-num-seqs`, `--max-running-requests`) et
 `llama.max_concurrency` ne s'applique qu'à llama.cpp. Le sélecteur de modèle du
 chat n'affiche ni « Charger » ni « Décharger » ; la jauge du cache KV et la
-ligne de charge (requêtes en cours et en attente, débit, cache de préfixe)
-viennent des métriques du moteur.
+ligne de charge (requêtes en cours et en attente, débit, débit de prefill,
+délai du premier jeton, cache de préfixe) viennent des métriques du moteur. Le
+délai du premier jeton est la moyenne des requêtes finies entre deux lectures ;
+sans requête nouvelle, la dernière moyenne reste affichée.
 
 Lancements conseillés (options vérifiées dans le code de ces versions) :
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/skills/bibliotheque.ts — bibliothèque de skills (mémoire procédurale) : découverte global/learned/user, matching lexical, écritures folder-aware sous verrou, magasin perso protégé et son miroir, paquets .zip ; port de llm_core/skills.py. */
+import { randomBytes } from "node:crypto";
 import { lstat, mkdir, readdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 
 import {
@@ -1128,13 +1129,30 @@ export async function installSkillZip(
     const existants: string[] = [];
     for (const [r, c] of cibles) if (await existe(c)) existants.push(r);
     if (existants.length > 0 && !options.overwrite) throw new SkillExistsError(existants);
-    for (const [, c] of cibles) if (await existe(c)) await rmtree(c, true);
-    for (const [arc, info] of garder) {
-      const sortie = resoudre(pyJoin(racine, arc));
-      if (!estSous(sortie, racine)) throw new SkillSaveError(`chemin d'extraction hors cible : ${arc}`);
-      await mkdir(parentDe(sortie), { recursive: true });
-      await writeFile(sortie, zf.lire(info));
+    const miseDeCote: [string, string][] = [];
+    const presentes = new Set<string>();
+    for (const [, c] of cibles) if (await existe(c)) presentes.add(c);
+    try {
+      for (const [, c] of cibles)
+        if (presentes.has(c)) {
+          const bak = pyJoin(parentDe(c), `.${nomDe(c)}.bak-${randomBytes(4).toString("hex")}`);
+          await rename(c, bak);
+          miseDeCote.push([c, bak]);
+        }
+      for (const [arc, info] of garder) {
+        const sortie = resoudre(pyJoin(racine, arc));
+        if (!estSous(sortie, racine)) throw new SkillSaveError(`chemin d'extraction hors cible : ${arc}`);
+        await mkdir(parentDe(sortie), { recursive: true });
+        await writeFile(sortie, zf.lire(info));
+      }
+    } catch (e) {
+      const deCote = new Set(miseDeCote.map(([c]) => c));
+      for (const [, c] of cibles)
+        if (!presentes.has(c) || deCote.has(c)) await rmtree(c, true).catch(() => undefined);
+      for (const [c, bak] of miseDeCote) await rename(bak, c).catch(() => undefined);
+      throw e;
     }
+    for (const [, bak] of miseDeCote) await rmtree(bak, true);
   });
   log().info(`installed ${dossiersSkills.length} skill(s) (${source}) → ${reprPy(dossiersSkills)}`);
   invalidateSkillsScanCache();

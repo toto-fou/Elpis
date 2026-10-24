@@ -340,13 +340,23 @@ export function chatCompletionsUrl(endpoint: string | null | undefined): string 
   return url + "/v1/chat/completions";
 }
 
-const THINK = /<think>[\s\S]*?<\/think>/g;
+/** Retire les blocs `<think>…</think>` (comme /<think>[\s\S]*?<\/think>/g) en temps linéaire. */
+function sansThink(texte: string): string {
+  let sortie = "";
+  for (let i = 0; ; ) {
+    const debut = texte.indexOf("<think>", i);
+    const fin = debut === -1 ? -1 : texte.indexOf("</think>", debut + 7);
+    if (fin === -1) return sortie + texte.slice(i);
+    sortie += texte.slice(i, debut);
+    i = fin + 8;
+  }
+}
 const FENCE_JSON = /```(?:json)?/g;
 
 /** Tableau JSON d'une réponse de LLM (bloc `<think>`, clôtures markdown et texte autour tolérés). */
 export function extractJsonArray(texte: unknown): unknown[] | null {
   if (typeof texte !== "string" || !stripPy(texte)) return null;
-  const t = texte.replace(THINK, "").replace(FENCE_JSON, "");
+  const t = sansThink(texte).replace(FENCE_JSON, "");
   const debut = t.indexOf("[");
   const fin = t.lastIndexOf("]");
   if (debut === -1 || fin <= debut) return null;
@@ -855,7 +865,7 @@ export async function readText(
   }
   if (lu === null) return { texte: null, erreur: "réponse LLM inattendue (pas un chat/completions ?)" };
   const brut = Array.isArray(lu.contenu) ? joindreParties(lu.contenu) : lu.contenu;
-  let texte = stripPy(strPy(brut).replace(THINK, ""));
+  let texte = stripPy(sansThink(strPy(brut)));
   if (texte.startsWith("```")) texte = stripPy(texte.replace(/^```[a-zA-Z]*\n?|\n?```$/g, ""));
   return { texte: texte === "(no text)" ? "" : texte, erreur: "" };
 }

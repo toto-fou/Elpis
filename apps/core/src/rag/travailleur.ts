@@ -565,6 +565,7 @@ export class TravailleurRag {
     }
     const doc = await documentAMigrer(this.base, t.collection_id, t.params.curseur ?? null);
     if (doc === null) return "fini";
+    if ((this.retards.get(doc.id)?.jusqua ?? 0) > Date.now()) return null;
     if (this.enPause("extracteur") && !(await this.extraitDispo(doc))) return null;
     return doc;
   }
@@ -635,7 +636,7 @@ export class TravailleurRag {
       log.warn({ err: e }, `document ${doc.id} : erreur inattendue (essai ${essais + 1})`);
       this.essais.set(doc.id, essais + 1);
       this.retarder(doc, essais + 1);
-      if (essais + 1 >= this.r.essaisDouteux && t.kind !== "migrate") {
+      if (essais + 1 >= this.r.essaisDouteux) {
         this.essais.delete(doc.id);
         await echouerDocument(this.ctx, t, doc, "internal");
       } else if (t.kind !== "migrate") await libererDocument(this.base, doc, null, null);
@@ -715,7 +716,7 @@ export class TravailleurRag {
     if (fini) await this.annoncerFin(fini);
   }
 
-  /** Bascule d'une migration : la collection sert la nouvelle génération, l'ancienne est supprimée. */
+  /** Bascule d'une migration : la collection sert la nouvelle génération, l'ancienne est supprimée ; aucun document migré et des échecs : pas de bascule, la nouvelle est supprimée. */
   private async basculer(t: LigneTravailRag): Promise<void> {
     const modele = t.params.modele ?? "";
     if (modele !== configRag().embed.model) return;
@@ -732,22 +733,29 @@ export class TravailleurRag {
       if (j === null || coll === null || (j.status !== "queued" && j.status !== "running")) return null;
       if ((await documentAMigrer(x, t.collection_id, j.params.curseur ?? null)) !== null) return null;
       const generation = j.params.generation ?? coll.meta.generation + 1;
-      await x.run("UPDATE rag_collections SET embed_model=?, embed_dim=?, meta_json=? WHERE id=?", [
-        modele,
-        dimension,
-        metaAvecGeneration(coll.meta_json, generation),
-        coll.id,
+      const abandon = j.done === 0 && j.failed > 0;
+      if (!abandon)
+        await x.run("UPDATE rag_collections SET embed_model=?, embed_dim=?, meta_json=? WHERE id=?", [
+          modele,
+          dimension,
+          metaAvecGeneration(coll.meta_json, generation),
+          coll.id,
+        ]);
+      await x.run("UPDATE rag_jobs SET status=?, finished_at=?, total = done + failed, error=? WHERE id=?", [
+        abandon ? "failed" : "done",
+        maintenant(),
+        abandon ? "aucun document migré : l'ancienne génération reste servie" : null,
+        t.id,
       ]);
-      await x.run(
-        "UPDATE rag_jobs SET status='done', finished_at=?, total = done + failed, error=NULL WHERE id=?",
-        [maintenant(), t.id],
-      );
       await rafraichirCollection(x, t.collection_id);
-      return { ancienne: nomQdrantRag(coll.id, coll.meta.generation), travail: await lireTravail(x, t.id) };
+      const aEffacer = nomQdrantRag(coll.id, abandon ? generation : coll.meta.generation);
+      return { aEffacer, abandon, travail: await lireTravail(x, t.id) };
     });
     if (issue === null) return;
-    await effacerNomQdrant(this.qdrant(), issue.ancienne);
-    log.info(`migration de ${t.collection_id} terminée : modèle ${modele}, dimension ${dimension}`);
+    await effacerNomQdrant(this.qdrant(), issue.aEffacer);
+    if (issue.abandon)
+      log.warn(`migration de ${t.collection_id} abandonnée : aucun document migré, modèle inchangé`);
+    else log.info(`migration de ${t.collection_id} terminée : modèle ${modele}, dimension ${dimension}`);
     if (issue.travail) await this.annoncerFin(issue.travail);
   }
 

@@ -2,7 +2,7 @@
 /** apps/toolhost/src/porte.ts — porte d'entrée de l'hôte (toolhost/auth.py + portes MCP de local_mcp_server.py) : jeton de service, enveloppe d'identité, Origin et famille des chemins MCP. */
 import { AsyncResource } from "node:async_hooks";
 
-import { lowerPy, pyJsonDumps, stripPy } from "@elpis/commun";
+import { lowerPy, lstripPy, pyJsonDumps, rstripPy, stripPy } from "@elpis/commun";
 import { cheminDecode, premierEntete } from "@elpis/http";
 import { FAMILY_NAMES, originAllowed } from "@elpis/mcp";
 import { avecIdentite, egauxEnTempsConstant, IDENTITY_HEADER, verify } from "@elpis/securite";
@@ -71,7 +71,7 @@ export function introuvable(reponse: FastifyReply): FastifyReply {
 function segmentFamille(chemin: string): string | undefined {
   for (const base of [HTTP_MOUNT_PATH, SSE_MOUNT_PATH]) {
     if (!chemin.startsWith(base + "/")) continue;
-    return lowerPy(chemin.slice(base.length + 1).replace(/^\/+|\/+$/gu, "")) || undefined;
+    return lowerPy(lstripPy(rstripPy(chemin.slice(base.length + 1), "/"), "/")) || undefined;
   }
   return undefined;
 }

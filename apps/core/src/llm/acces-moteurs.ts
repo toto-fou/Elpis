@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
   comparePointsDeCode,
   ErreurPython,
+  HttpError,
   intPy,
   pyJsonDumps,
   pyJsonLoads,
@@ -516,6 +517,20 @@ export async function canUseEngine(
   }
   const keys = resoudre(ctx, options.isAdmin).engine_keys;
   return keys === null || keys.has(stripPy(key as string));
+}
+
+/** `canUseEngine` pour une route : un contrôle qui n'a pas pu conclure rend 503 `access_check_failed` (à réessayer), ni 500 ni refus. */
+export async function exigerMoteurOuvert(base: Executeur, userId: unknown, key: unknown): Promise<boolean> {
+  try {
+    return await canUseEngine(base, userId, key);
+  } catch (e) {
+    log.warn(`[engine_access] contrôle d'accès au moteur impossible (${String(e)}) — refus`);
+    throw new HttpError(503, {
+      code: "engine_unavailable",
+      reason: "access_check_failed",
+      message: "Contrôle d'accès au serveur indisponible, réessayez.",
+    });
+  }
 }
 
 /** Filtre de connecteurs publics : les personnels du compte passent, les partagés selon la politique. */

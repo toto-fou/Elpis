@@ -33,6 +33,7 @@ import {
   payloadChars,
 } from "../contexte/tokens";
 import { currentTarget } from "../llm/cible";
+import { declaredWindow } from "../llm/fenetre-contexte";
 import { nativeReasoningTokens } from "../llm/jetons-raisonnement";
 import { getModelContextSize } from "../llm/modeles";
 import {
@@ -163,6 +164,7 @@ export class LLMTurnState {
   lastCompressionIter = -1_000_000;
   comprFailStreak = 0;
   compactionThresholdLogged = false;
+  fenetreDepasseeSignalee = false;
   fitDropped = false;
   lastRealCtxTok: number | null = null;
   realCtxMsgCount: number | null = null;
@@ -235,6 +237,13 @@ export function autoCompactionOn(ctx: RunContext): boolean {
 function nombre(v: unknown): number {
   return typeof v === "number" ? v : Number(v || 0) || 0;
 }
+
+/** Option de lancement qui fixe la fenêtre de chaque moteur, citée par l'avis de dépassement. */
+const OPTION_FENETRE: Readonly<Partial<Record<string, string>>> = {
+  llamacpp: " (--ctx-size)",
+  vllm: " (--max-model-len)",
+  sglang: " (--context-length)",
+};
 
 /** Un tour LLM (tête d'itération → réponse décodée) ; une panne devient une issue, une annulation remonte après l'instantané. */
 export async function callLlm(
@@ -691,6 +700,22 @@ export async function callLlm(
       total: kvTotal,
       pct: minPy(100, arrondiEntierPy((ptReel / kvTotal) * 100)),
     });
+  if (ptReel > kvTotal && kvTotal > 0 && !st.fenetreDepasseeSignalee) {
+    st.fenetreDepasseeSignalee = true;
+    log.warn(
+      `[run_chat_multi_mcp] prompt réel ${ptReel} tk > fenêtre connue ${kvTotal} tk (iter ${iteration}) — fenêtre ` +
+        "déclarée, lue ou devinée trop petite : jauge et compaction se fondent sur une valeur fausse",
+    );
+    const cible = currentTarget();
+    if (cible.profil.capacites.contexte !== "aucune" || (await declaredWindow(cible.connectorId)) > 0)
+      await emit(onEvent, {
+        type: "notice",
+        level: "warn",
+        message:
+          `Le moteur a traité ${ptReel} jetons, plus que la fenêtre connue (${kvTotal}) : vérifiez la fenêtre ` +
+          `déclarée du connecteur (context_window) ou celle du moteur${OPTION_FENETRE[cible.profil.type] ?? ""}.`,
+      });
+  }
 
   const choices = (raw["choices"] || []) as unknown[];
   if (!choices.length) {

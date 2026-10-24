@@ -323,13 +323,12 @@ export async function addChatPrunedKeys(
   return mergeMetaJson(base, uid, chatId, (meta) => fusionnerClesElaguees(meta, cles, cap));
 }
 
-/** `clean_ctx_usage` : `{used, total, pct, model, ts}` nettoyé, `null` si la mesure est inexploitable. */
+/** `clean_ctx_usage` : `{used, total, pct, model, ts}` nettoyé (occupation réelle, seul `pct` borné), `null` si la mesure est inexploitable. */
 export function cleanCtxUsage(brut: unknown): Dict | null {
   if (!estDict(brut)) return null;
-  const used0 = entierOuNulPy(veritePy(getOu(brut, "used", null)) ? getOu(brut, "used", null) : 0);
+  const used = entierOuNulPy(veritePy(getOu(brut, "used", null)) ? getOu(brut, "used", null) : 0);
   const total = entierOuNulPy(veritePy(getOu(brut, "total", null)) ? getOu(brut, "total", null) : 0);
-  if (used0 === null || total === null || used0 <= 0 || total <= 0) return null;
-  const used = Math.min(used0, total);
+  if (used === null || total === null || used <= 0 || total <= 0) return null;
   const pctBrut = getOu(brut, "pct", null);
   let pct = pctBrut === null ? null : entierOuNulPy(pctBrut);
   if (pct === null || !(pct >= 0 && pct <= 100)) pct = Math.min(100, arrondiEntierPy((used / total) * 100));

@@ -94,7 +94,8 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       const sec = Math.max(0, (Date.now() - f.genStartMs) / 1000);
       const brut = vivant.base;
       if (brut > 0) f.lastCtxUsed = brut;
-      const utilise = vivant.total && brut > 0 ? Math.min(vivant.total, brut) : 0;
+      // Occupation réelle, jamais bornée à la fenêtre ; seul le pourcentage l'est.
+      const utilise = vivant.total && brut > 0 ? brut : 0;
       const suite = {
         model: e.selectedModel.value || "",
         sec,

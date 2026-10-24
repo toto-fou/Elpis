@@ -273,7 +273,12 @@ est exact ; un compte partiellement estimé reste flaggé `tokens_estimated`.
   construit depuis l'usage réel de la réponse. Pendant la toute première
   requête d'un chat (ou après une compression manuelle), la jauge est
   masquée : afficher rien plutôt qu'imaginer. Le contenu généré au tour N
-  apparaît dans le `prompt_tokens` réel du tour N+1.
+  apparaît dans le `prompt_tokens` réel du tour N+1. L'occupation n'est
+  jamais bornée à la fenêtre connue : un prompt réel plus long que la
+  fenêtre (déclarée trop petite ou devinée) s'affiche tel quel, en direct
+  comme au rechargement (`ctx_usage`) ; seul le pourcentage est borné. Un
+  avis `notice` part une fois par tour si cette fenêtre est lue sur le
+  moteur ou déclarée sur le connecteur ; devinée, le journal seul le signale.
 - **Continue** : la reprise re-soumet le tronc du tour précédent → les
   tokens soumis du tour de reprise incluent ce re-prefill (fidèle à la
   réalité API). Les métriques du message ADDITIONNENT ses segments

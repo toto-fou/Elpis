@@ -360,7 +360,7 @@ export function creerVueFlux(c: CoeurChat) {
     }
     if (!(utilise > 0) || !(nCtx > 0)) return null;
     return {
-      used: Math.min(utilise, nCtx),
+      used: utilise,
       total: nCtx,
       pct: Math.min(100, Math.round((utilise / nCtx) * 100)),
     };

@@ -424,7 +424,7 @@ export class Planificateur {
     }
   }
 
-  /** `_evaluate_due_routines` : cron, prise atomique de la minute, santé du LLM (une sonde par tick au plus), lancement. */
+  /** `_evaluate_due_routines` : cron, prise atomique de la minute, santé du moteur intégré (routines sans connecteur, une sonde par tick au plus), lancement. */
   async evaluer(
     routines: readonly Dict[],
     maintenant: Date,
@@ -437,8 +437,9 @@ export class Planificateur {
       try {
         if (!cronMatches(strPy(ouPy(r["cron_expr"], "")), maintenant)) continue;
         if (!(await claimMinuteFire(this.base, intPy(r["id"]), cle))) continue;
-        llmUp ??= await this.sonde();
-        if (!llmUp) {
+        const integre = !veritePy(r["connector_id"]);
+        if (integre) llmUp ??= await this.sonde();
+        if (integre && llmUp === false) {
           await insertSkippedRun(this.base, intPy(r["id"]), intPy(r["owner_user_id"]), {
             trigger: "schedule",
             reason: "LLM injoignable au déclenchement (démarrage en cours ?)",

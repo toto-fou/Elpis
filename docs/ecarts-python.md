@@ -256,8 +256,10 @@ main et traitait tout autre moteur comme un service distant sans capacité.
   chargement, et plus de file d'Elpis : le moteur regroupe lui-même les requêtes (le Python les sérialisait une à
   une). `llama.max_concurrency` ne vaut plus que pour llama.cpp.
 - **Sonde** au démarrage et sur « Tester » (console) : adresses du profil, version, modèle servi, contexte,
-  métriques, jetons en cache, parseurs, avec l'option exacte à ajouter quand une capacité manque. Sans équivalent
-  Python.
+  métriques, jetons en cache, parseurs, avec l'option exacte à ajouter quand une capacité manque ; le parseur
+  d'appels d'outils de SGLang est comparé au format du modèle quand son nom le permet (`qwen3_coder` pour
+  Qwen3-Coder…), et une réponse vide après la réflexion alors que des outils étaient offerts est signalée. Sans
+  équivalent Python.
 - **Connecteurs** : type `sglang` en plus ; `?sonde=1` sur leur test. Sans `?sonde=1`, réponses inchangées.
 
 ## Console : secrets de config.json masqués

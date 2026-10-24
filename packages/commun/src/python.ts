@@ -51,9 +51,11 @@ function estBlanc(c: string): boolean {
   return UN_BLANC.test(c);
 }
 
-export function lstripPy(s: string): string {
+/** `s.lstrip()` ou `s.lstrip(caracteres)`. */
+export function lstripPy(s: string, caracteres?: string): string {
   let debut = 0;
-  while (debut < s.length && estBlanc(s.charAt(debut))) debut++;
+  const retirer = (c: string): boolean => (caracteres === undefined ? estBlanc(c) : caracteres.includes(c));
+  while (debut < s.length && retirer(s.charAt(debut))) debut++;
   return s.slice(debut);
 }
 

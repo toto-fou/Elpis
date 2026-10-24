@@ -10,10 +10,12 @@ import {
   FlottantPy,
   journalDe,
   lowerPy,
+  lstripPy,
   objetNu,
   pyJsonDumps,
   pyJsonLoads,
   pyJsonLoadsOctets,
+  rstripPy,
   texteJsonPy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
@@ -412,11 +414,8 @@ function idSessionSse(requete: string): string | null {
   const valeurs = analyserRequete(requete).filter(([k]) => k === "session_id");
   const brut = valeurs.length > 0 ? (valeurs[valeurs.length - 1] as [string, string])[1] : null;
   if (brut === null) return null;
-  const hex = brut
-    .replace("urn:", "")
-    .replace("uuid:", "")
-    .replace(/^[{}]+|[{}]+$/gu, "")
-    .replaceAll("-", "");
+  const uuid = brut.replace("urn:", "").replace("uuid:", "");
+  const hex = lstripPy(rstripPy(uuid, "{}"), "{}").replaceAll("-", "");
   return /^[0-9a-fA-F]{32}$/u.test(hex) ? hex.toLowerCase() : "";
 }
 
@@ -499,7 +498,7 @@ export class ServiceMcpHttp {
     let famille: string | null = null;
     for (const base of this.bases()) {
       if (!chemin.startsWith(base + "/")) continue;
-      const fam = lowerPy(chemin.slice(base.length + 1).replace(/^\/+|\/+$/gu, ""));
+      const fam = lowerPy(lstripPy(rstripPy(chemin.slice(base.length + 1), "/"), "/"));
       if (!fam) break;
       if (!FAMILY_NAMES.includes(fam)) {
         json(res, 404, pyJsonDumps({ error: `famille d'outils inconnue : ${fam}` }, { ensureAscii: false }), {

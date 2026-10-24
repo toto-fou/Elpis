@@ -6508,7 +6508,7 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                         let attrName = req.body.attr;
                         let attrVal  = req.body.attr_value;
                         if (!attrName) {
-                            const m = String(value || '').match(/attr=([^|]+)\|val=(.*)$/);
+                            const m = String(value || '').match(/^attr=([^|]+)\|val=(.*)$/);
                             if (m) { attrName = m[1]; attrVal = m[2]; }
                         }
                         if (!attrName) return false;

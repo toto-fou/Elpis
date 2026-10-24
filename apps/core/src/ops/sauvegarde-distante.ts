@@ -128,7 +128,7 @@ export function normalizeRemoteConfig(brut: unknown): Dict {
     schedule_unit: Object.hasOwn(SCHEDULE_UNITS, unit) ? unit : "days",
     key_path: s("key_path") || defaultKeyPath(),
     known_hosts: s("known_hosts") || defaultKnownHosts(),
-    timeout_sec: Math.max(10, Math.min(3600, intPy(ouPy(get(r, "timeout_sec", 300), 300)))),
+    timeout_sec: Math.max(10, Math.min(3600, entier("timeout_sec", 300))),
     last_send: {
       at: get(last, "at", 0),
       ok: get(last, "ok", null),

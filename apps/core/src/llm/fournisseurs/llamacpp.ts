@@ -1,14 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/llm/fournisseurs/llamacpp.ts — étages partagés des deux moteurs de flux : corps de requête llama.cpp et consommation du flux SSE (lu ligne à ligne). */
-import {
-  comparePointsDeCode,
-  ErreurPython,
-  intPy,
-  pyJsonDumps,
-  stripPy,
-  strPy,
-  veritePy,
-} from "@elpis/commun";
+import { ErreurPython, intPy, pyJsonDumps, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config, parseJsonPy } from "@elpis/config";
 
 import { journal } from "../../journal";
@@ -227,9 +219,10 @@ export function sseError(errEntree: unknown): ProviderError {
   });
 }
 
-/** Accumulateur d'un appel d'outil en cours de flux. */
+/** Accumulateur d'un appel d'outil en cours de flux ; `idMoteur` : id annoncé par le moteur (`null` s'il n'en a pas donné). */
 interface AppelEnCours {
   id: unknown;
+  idMoteur: unknown;
   type: "function";
   function: { name: string; arguments_parts: string[] };
 }
@@ -238,7 +231,10 @@ interface AppelEnCours {
 export class SseStreamResult {
   contentParts: string[] = [];
   thinkingParts: string[] = [];
-  toolCallsAcc = new Map<unknown, AppelEnCours>();
+  /** Appels par numéro d'Elpis (ordre d'ouverture) ; `slotParIndex` : appel en cours pour chaque `index` du moteur. */
+  toolCallsAcc = new Map<number, AppelEnCours>();
+  slotParIndex = new Map<unknown, number>();
+  indexReutilise = false;
   usage: Dict = {};
   timings: Dict = {};
   finishReason: unknown = null;
@@ -257,26 +253,40 @@ export class SseStreamResult {
     return this.thinkingParts.join("");
   }
 
-  /** `tool_calls` assemblés (deltas → structure OpenAI), dans l'ordre des index. */
+  /** `tool_calls` assemblés (deltas → structure OpenAI), dans l'ordre d'ouverture des appels. */
   builtToolCalls(): Dict[] {
-    return trierIndex([...this.toolCallsAcc.keys()]).map((i) => {
-      const acc = this.toolCallsAcc.get(i) as AppelEnCours;
-      return {
-        id: veritePy(acc.id) ? acc.id : `call_${strPy(i)}`,
-        type: "function",
-        function: { name: acc.function.name, arguments: acc.function.arguments_parts.join("") },
-      };
-    });
+    return [...this.toolCallsAcc.entries()].map(([i, acc]) => ({
+      id: veritePy(acc.id) ? acc.id : `call_${strPy(i)}`,
+      type: "function",
+      function: { name: acc.function.name, arguments: acc.function.arguments_parts.join("") },
+    }));
   }
-}
 
-/** `sorted()` des index : nombres entre eux, textes entre eux, mélange refusé (TypeError). */
-function trierIndex(cles: unknown[]): unknown[] {
-  if (cles.every((c) => typeof c === "number"))
-    return [...cles].sort((a, b) => (a as number) - (b as number));
-  if (cles.every((c) => typeof c === "string"))
-    return [...cles].sort((a, b) => comparePointsDeCode(a as string, b as string));
-  throw new ErreurPython("TypeError", "'<' not supported between instances of 'str' and 'int'");
+  /** Appel visé par un delta : un nouvel id du moteur portant un nom, sur un index dont l'appel est déjà nommé, ouvre un appel distinct. */
+  appelPour(index: unknown, idMoteur: unknown, nomDelta: string): [number, AppelEnCours] {
+    const slot = this.slotParIndex.get(index);
+    const acc = slot === undefined ? undefined : this.toolCallsAcc.get(slot);
+    if (slot !== undefined && acc !== undefined) {
+      const autreAppel =
+        veritePy(idMoteur) &&
+        nomDelta !== "" &&
+        acc.function.name !== "" &&
+        veritePy(acc.idMoteur) &&
+        idMoteur !== acc.idMoteur;
+      if (!autreAppel) return [slot, acc];
+      this.indexReutilise = true;
+    }
+    const neuf = this.toolCallsAcc.size;
+    const appel: AppelEnCours = {
+      id: veritePy(idMoteur) ? idMoteur : `call_${neuf}`,
+      idMoteur: veritePy(idMoteur) ? idMoteur : null,
+      type: "function",
+      function: { name: "", arguments_parts: [] },
+    };
+    this.toolCallsAcc.set(neuf, appel);
+    this.slotParIndex.set(index, neuf);
+    return [neuf, appel];
+  }
 }
 
 /** Découpeur `<think>` fourni par l'appelant (son état survit d'un morceau à l'autre). */
@@ -387,21 +397,20 @@ export async function consumeLlamaSse(resp: FluxSse, o: OptionsConsommation): Pr
     const tcDeltas = getPy(delta, "tool_calls");
     if (veritePy(tcDeltas)) {
       for (const tcd of iterExige(tcDeltas)) {
-        const i = getPy(tcd, "index", 0);
-        let acc = r.toolCallsAcc.get(i);
-        if (acc === undefined) {
-          acc = {
-            id: getPy(tcd, "id", `call_${strPy(i)}`),
-            type: "function",
-            function: { name: "", arguments_parts: [] },
-          };
-          r.toolCallsAcc.set(i, acc);
-        }
-        if (veritePy(getPy(tcd, "id"))) acc.id = getPy(tcd, "id");
         const fb = getPy(tcd, "function");
         const fn = veritePy(fb) ? fb : {};
         const n = getPy(fn, "name");
         const nomDelta = (veritePy(n) ? n : "") as string;
+        const idMoteur = getPy(tcd, "id");
+        const dejaReutilise = r.indexReutilise;
+        const [i, acc] = r.appelPour(getPy(tcd, "index", 0), idMoteur, nomDelta);
+        if (r.indexReutilise && !dejaReutilise)
+          log.warn(
+            `[LLM_REQ ${o.reqId}] le moteur réutilise l'index d'un appel d'outil déjà nommé — appel distinct ouvert ` +
+              "(sinon deux appels fusionnés en un nom collé)",
+          );
+        if (veritePy(idMoteur) && !veritePy(acc.idMoteur)) acc.idMoteur = idMoteur;
+        if (veritePy(idMoteur)) acc.id = idMoteur;
         const a = getPy(fn, "arguments");
         let argsDelta: unknown = veritePy(a) ? a : "";
         if (typeof argsDelta !== "string") argsDelta = pyJsonDumps(argsDelta, { ensureAscii: false });

@@ -553,7 +553,7 @@ export async function llamaChatWithToolsStream(
   for (let attempt = 0; attempt < retries + 1; attempt++) {
     let contentParts: string[] = [];
     let thinkingParts: string[] = [];
-    let toolCallsAcc = new Map<unknown, unknown>() as SseStreamResult["toolCallsAcc"];
+    let toolCallsAcc: SseStreamResult["toolCallsAcc"] = new Map();
     let usage: Dict = {};
     let timings: Dict = {};
     try {

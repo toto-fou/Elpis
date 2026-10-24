@@ -47,6 +47,7 @@ import {
 } from "../llm/parametres";
 import { disjoncteur } from "../llm/ports";
 import { aDialecteEtendu, texteReflexion } from "../llm/profils";
+import { noterObservation } from "../llm/sonde-moteur";
 import {
   KIND_TIMEOUT,
   KIND_UNREACHABLE,
@@ -646,7 +647,7 @@ export async function llamaChatWithToolsStream(
           log.warn(
             `[LLM_REQ ${reqId}] ${builtTcs.length} tool-call(s) récupéré(s) depuis le reasoning (canal tool_calls natif manqué — modèle thinking)`,
           );
-        }
+        } else if (stripPy(thinkingParts.join(""))) noterObservation(currentEngine(), "outils_avales");
       }
       log.info(
         `[LLM_REQ ${reqId}] END_TOOLS user=${strPy(userId)} n_tool_calls=${builtTcs.length} content_chars=${longueurPy(finalContent)} finish=${strPy(finishReason || "stop")}`,

@@ -174,7 +174,8 @@ export async function capaciteKvConnue(engine: EngineRef): Promise<number> {
 }
 
 /** Ce que le flux révèle d'une option manquante (réflexion en balises, appels d'outils en texte), retenu par serveur. */
-export type ObservationMoteur = "reflexion_en_ligne" | "outils_en_texte" | "jetons_en_cache_absents";
+export type ObservationMoteur =
+  "reflexion_en_ligne" | "outils_en_texte" | "outils_avales" | "jetons_en_cache_absents";
 
 export function noterObservation(engine: EngineRef, code: ObservationMoteur): void {
   if (engine.profil.type !== "vllm" && engine.profil.type !== "sglang") return;
@@ -192,8 +193,27 @@ export function noterObservation(engine: EngineRef, code: ObservationMoteur): vo
         ? `réflexion reçue dans la réponse, ${d.reflexion ?? "parseur de réflexion à activer"}`
         : code === "outils_en_texte"
           ? `appels d'outils reçus en texte, ${d.outils ?? "parseur d'outils à activer"}`
-          : `jetons repris du cache non rapportés, ${d.jetonsEnCache ?? "option du serveur à activer"}`),
+          : code === "outils_avales"
+            ? "réponse vide après la réflexion alors que des outils étaient offerts : le parseur d'appels d'outils " +
+              "ou le parseur de réflexion ne correspond peut-être pas au modèle"
+            : `jetons repris du cache non rapportés, ${d.jetonsEnCache ?? "option du serveur à activer"}`),
   );
+}
+
+/** Parseurs d'appels d'outils SGLang attendus d'après le nom du modèle, pour les formats sans ambiguïté ; `null` = rien à conclure. */
+export function parseursOutilsAttendus(modele: string | null | undefined): string[] | null {
+  const m = (modele || "").toLowerCase();
+  const coder = (segment: string): boolean => {
+    const i = segment.indexOf("qwen3");
+    return i >= 0 && segment.indexOf("coder", i) >= 0;
+  };
+  if (m.split("/").some(coder)) return ["qwen3_coder"];
+  if (/glm-?4\.7/u.test(m)) return ["glm47"];
+  if (/glm-?4\.[56]/u.test(m)) return ["glm45", "glm"];
+  if (/kimi-?k2/u.test(m)) return ["kimi_k2"];
+  if (/minimax-?m2/u.test(m)) return ["minimax-m2"];
+  if (/gpt-oss/u.test(m)) return ["gpt-oss"];
+  return null;
 }
 
 /** Usage d'une réponse de vLLM sans `prompt_tokens_details` : serveur lancé sans l'option des jetons en cache (observé une fois). */
@@ -305,6 +325,22 @@ function conseils(engine: EngineRef, r: RapportMoteur, observees: ReadonlySet<st
       "outils",
       "avertissement",
       `Appels d'outils non séparés par le serveur : ${d.outils}, sinon le modèle n'appelle pas les outils d'Elpis.`,
+    );
+  else if (observees.has("outils_avales") && d.outils)
+    ajouter(
+      "outils",
+      "avertissement",
+      `Réponse vide après la réflexion alors que des outils étaient offerts : le parseur d'appels d'outils ou le ` +
+        `parseur de réflexion ne correspond peut-être pas au modèle (outils : ${d.outils} ; réflexion : ` +
+        `${d.reflexion ?? "parseur du modèle"}).`,
+    );
+  const attendus = r.parseurs_connus && r.parseur_outils ? parseursOutilsAttendus(r.modele_servi) : null;
+  if (attendus !== null && r.parseur_outils && !attendus.includes(r.parseur_outils))
+    ajouter(
+      "parseur_outils",
+      "info",
+      `Parseur d'appels d'outils « ${r.parseur_outils} » pour ${r.modele_servi ?? "ce modèle"} : son format ` +
+        `attend --tool-call-parser ${attendus[0] ?? ""} (un parseur inadapté avale les appels ou les livre en texte).`,
     );
   if (
     profil.capacites.modelesServisCharges &&

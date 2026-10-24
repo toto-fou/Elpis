@@ -18,6 +18,7 @@ import {
   pyJsonDumps,
   quotePy,
   reprPy,
+  rstripPy,
   urljoin,
   urlparse,
   urlunparse,
@@ -151,6 +152,9 @@ export function validerEntetes(entetes: Readonly<Record<string, string>>): void 
   }
 }
 
+/** `s.strip(caracteres)` de Python, en temps linéaire. */
+const sansBords = (s: string, caracteres: string): string => lstripPy(rstripPy(s, caracteres), caracteres);
+
 /** `_parse_content_type_header` puis `get_encoding_from_headers`. */
 export function encodageReponse(typeContenu: string | null): string | null {
   if (!typeContenu) return null;
@@ -161,10 +165,10 @@ export function encodageReponse(typeContenu: string | null): string | null {
     const p = brut.trim();
     if (!p) continue;
     const i = p.indexOf("=");
-    const cle = (i === -1 ? p : p.slice(0, i)).replace(/^["' ]+|["' ]+$/g, "").toLowerCase();
-    if (cle === "charset" && i !== -1) charset = p.slice(i + 1).replace(/^["' ]+|["' ]+$/g, "");
+    const cle = sansBords(i === -1 ? p : p.slice(0, i), "\"' ").toLowerCase();
+    if (cle === "charset" && i !== -1) charset = sansBords(p.slice(i + 1), "\"' ");
   }
-  if (charset !== undefined) return charset.replace(/^["']+|["']+$/g, "");
+  if (charset !== undefined) return sansBords(charset, "\"'");
   if (type.includes("text")) return "ISO-8859-1";
   if (type.includes("application/json")) return "utf-8";
   return null;

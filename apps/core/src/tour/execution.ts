@@ -214,7 +214,7 @@ export async function ctxUsageSnapshot(
   if (used <= 0) return null;
   let total: number;
   try {
-    total = Math.trunc((await reglages.contexteModele(model || "")) || 0);
+    total = Math.trunc((await useLlmTarget(target, () => reglages.contexteModele(model || ""))) || 0);
   } catch {
     total = 0;
   }
@@ -533,7 +533,8 @@ export async function* runTurn(
         await onEvent({ type: "queue_status", ...qstatus });
         fileAnnoncee.v = true;
       }
-      if (qstatus["kind"] === "loading") startLoadWatch(selectedModel ?? "", onEvent, uid, chatId, qstatus);
+      if (qstatus["kind"] === "loading")
+        useLlmTarget(target, () => startLoadWatch(selectedModel ?? "", onEvent, uid, chatId, qstatus));
       if (target.profil.capacites.file) {
         const effectif = ordonnanceur().modeleEffectif(engine.key, selectedModel);
         const pools = (ordonnanceur().stats(engine.key) as Dict)["active_models"];

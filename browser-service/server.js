@@ -23,7 +23,7 @@ import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hos
          noeudsAria, classerSuggestions } from './result_util.js';
 import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
-import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript } from './recorder_util.js';
+import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
 // Sérialise les requêtes qui opèrent sur la même page Playwright (non
@@ -6992,7 +6992,7 @@ app.get('/recorder/dump', getSession, async (req, res) => {
                 case 'check': lines.push(`  await ${t}.check();`); break;
                 case 'uncheck': lines.push(`  await ${t}.uncheck();`); break;
                 case 'hover': lines.push(`  await ${t}.hover();`); break;
-                default: lines.push(`  // ${e.action}: ${escape(JSON.stringify(e))}`);
+                default: lines.push(`  // ${e.action}: ${escape(JSON.stringify(e)).replace(/[\u2028\u2029]/g, ' ')}`);
             }
         }
         lines.push('});');
@@ -7021,14 +7021,14 @@ app.get('/recorder/dump', getSession, async (req, res) => {
         if (aFournir.length) lines.push('*** Variables ***', ...aFournir.map(v => `\${${v}}    %{${v}}`), '');
         lines.push('*** Test Cases ***', 'Recorded Session');
         for (const e of events) {
-            const t = targetExpr(e, 'robot');
+            const t = celluleRobot(targetExpr(e, 'robot'));
             switch (e.action) {
-                case 'goto':  lines.push(`    New Page    ${e.url}`); break;
+                case 'goto':  lines.push(`    New Page    ${celluleRobot(e.url)}`); break;
                 case 'click': lines.push(`    Click    ${t}`); break;
-                case 'fill':  lines.push(e.secret ? `    Fill Secret    ${t}    $${e.secret}` : `    Fill Text    ${t}    ${e.value}`); break;
-                case 'type':  lines.push(e.secret ? `    Type Secret    ${t}    $${e.secret}` : `    Type Text    ${t}    ${e.value}`); break;
+                case 'fill':  lines.push(e.secret ? `    Fill Secret    ${t}    $${e.secret}` : `    Fill Text    ${t}    ${celluleRobot(e.value)}`); break;
+                case 'type':  lines.push(e.secret ? `    Type Secret    ${t}    $${e.secret}` : `    Type Text    ${t}    ${celluleRobot(e.value)}`); break;
                 case 'eval':  lines.push(`    # eval not replayed: ${commentaireEval(e.script)}`); break;
-                case 'press': lines.push(`    Keyboard Key    press    ${e.key || e.value}`); break;
+                case 'press': lines.push(`    Keyboard Key    press    ${celluleRobot(e.key || e.value)}`); break;
                 case 'select': lines.push(`    Select Options By    ${t}    ${selectOptionArg(e, 'robot')}`); break;
                 default: lines.push(`    # ${e.action}`);
             }

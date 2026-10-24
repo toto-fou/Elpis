@@ -31,6 +31,42 @@ selon [SemVer](https://semver.org/lang/fr/).
   base peut être distincte de celle du core : mettez à jour les hôtes distants
   avec le core. Un hôte qui n'a pas pu être purgé est signalé par la console.
 
+### Moteurs vLLM et SGLang
+
+- **Appels d'outils multiples : plus d'étape fantôme.** Quand SGLang réutilise
+  le numéro d'un appel (nom d'outil inconnu au milieu d'un lot, parseurs qui
+  numérotent par outil), deux appels ne fusionnent plus en un nom collé
+  (« read_filelist_dir ») aux arguments invalides. La progression et les
+  journaux d'un outil lancé plusieurs fois en parallèle s'affichent sous le bon
+  appel, et le statut « Appel d'outil » donne la taille des arguments reçus.
+  Rechargez les onglets ouverts après la mise à jour.
+- **Parseur d'appels d'outils.** La documentation donne le parseur SGLang de
+  chaque format (`qwen25`, `qwen3_coder` pour Qwen3-Coder, `glm45`, `glm47`,
+  `kimi_k2`…) ; la sonde signale un parseur qui ne correspond pas au modèle
+  servi, et une réponse vide après la réflexion alors que des outils étaient
+  offerts (parseur d'outils ou de réflexion à vérifier).
+- **Débits d'un appel.** Pour vLLM et SGLang, qui ne rendent pas de `timings`,
+  Elpis mesure le délai du premier jeton et la génération : le débit
+  d'écriture n'inclut plus le prefill, et le débit de lecture s'affiche quand
+  le serveur rapporte les jetons repris du cache
+  (`--enable-prompt-tokens-details`, `--enable-cache-report`).
+- **Charge de SGLang.** La ligne de charge ajoute le débit de prefill et le
+  délai du premier jeton (`--enable-metrics`) ; la jauge KV additionne les
+  répliques `--dp`.
+- **Jauge de contexte fidèle.** L'occupation n'est plus bornée à la fenêtre
+  connue (un prompt réel plus long s'affichait « 131k / 131k »), en direct
+  comme après rechargement ; un avis signale le dépassement quand la fenêtre
+  vient du moteur ou du connecteur. Pendant la génération, les jetons reçus
+  depuis la dernière mesure s'affichent à part. Un moteur qui annonce sa
+  fenêtre n'est plus deviné au nom du modèle : s'il ne l'annonce pas, la
+  compaction reste inactive (avertissement au journal).
+- **Raisonnement conservé avec SGLang**, désactivé par défaut : l'interrupteur
+  des réglages de génération est offert quand le serveur a un
+  `--reasoning-parser`. Activé, la réflexion de chaque appel d'outil du tour
+  repart au moteur, comme l'attendent les gabarits Qwen3, GLM-4.5/4.6 et
+  MiniMax-M2 ; le prompt d'un tour d'outils s'allonge d'autant et la question
+  suivante recalcule ces appels. Cette réflexion n'est jamais enregistrée.
+
 ## 0.1.1 — 2026-10-22
 
 **Moteurs vLLM et SGLang.** Le type de moteur écrit dans `config.json`

@@ -3316,7 +3316,7 @@ app.post('/locate', getSession, autoSnapshot, async (req, res) => {
                 }
                 return '/html/' + parts.join('/');
             }
-            function escapeAttr(v) { return String(v).replace(/"/g, '\\"'); }
+            function escapeAttr(v) { return String(v).replace(/[\\"]/g, '\\$&'); }
             function escapeCssIdent(v) {
                 // Escape pour utilisation dans un sélecteur CSS class (.xxx)
                 return String(v).replace(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1');
@@ -4075,21 +4075,21 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 // 2. data-testid / data-cy / data-qa / data-test (attributs QA stables)
                 for (const attr of ['data-testid','data-cy','data-qa','data-test','data-automation-id','data-e2e']) {
                     const v = el.getAttribute(attr);
-                    if (v && v.length < 100) return `[${attr}="${v.replace(/"/g,'\\"')}"]`;
+                    if (v && v.length < 100) return `[${attr}="${v.replace(/[\\"]/g, '\\$&')}"]`;
                 }
                 // 3. name (inputs, selects)
                 if (['input','select','textarea'].includes(tag)) {
                     const name = el.getAttribute('name');
-                    if (name) return `${tag}[name="${name.replace(/"/g,'\\"')}"]`;
+                    if (name) return `${tag}[name="${name.replace(/[\\"]/g, '\\$&')}"]`;
                     // type+placeholder pour les inputs sans nom
                     const ph = el.getAttribute('placeholder');
-                    if (ph) return `${tag}[placeholder="${ph.replace(/"/g,'\\"').substring(0,50)}"]`;
+                    if (ph) return `${tag}[placeholder="${ph.substring(0,50).replace(/[\\"]/g, '\\$&')}"]`;
                     if (el.id) return `#${el.id}`;
                 }
                 // 4. aria-label (boutons et éléments interactifs sans texte)
                 const ariaLabel = el.getAttribute('aria-label');
                 if (ariaLabel && ariaLabel.length < 80) {
-                    return `[aria-label="${ariaLabel.replace(/"/g,'\\"')}"]`;
+                    return `[aria-label="${ariaLabel.replace(/[\\"]/g, '\\$&')}"]`;
                 }
                 // 5. Pour les boutons et liens : texte exact si unique et court
                 if (['button','a'].includes(tag)) {
@@ -4098,17 +4098,17 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         // Vérifier l'unicité dans la page
                         const all = document.querySelectorAll(tag);
                         const matches = Array.from(all).filter(e => e.textContent.trim().replace(/\s+/g,' ') === text);
-                        if (matches.length === 1) return `${tag}:text-is("${text.replace(/"/g,'\\"')}")`;
-                        if (matches.length <= 3) return `${tag}:has-text("${text.replace(/"/g,'\\"').substring(0,30)}")`;
+                        if (matches.length === 1) return `${tag}:text-is("${text.replace(/[\\"]/g, '\\$&')}")`;
+                        if (matches.length <= 3) return `${tag}:has-text("${text.substring(0,30).replace(/[\\"]/g, '\\$&')}")`;
                     }
                 }
                 // 6. role + attribut discriminant
                 const role = el.getAttribute('role');
                 if (role) {
                     const ariaL = el.getAttribute('aria-label');
-                    if (ariaL) return `[role="${role}"][aria-label="${ariaL.replace(/"/g,'\\"').substring(0,50)}"]`;
+                    if (ariaL) return `[role="${role.replace(/[\\"]/g, '\\$&')}"][aria-label="${ariaL.substring(0,50).replace(/[\\"]/g, '\\$&')}"]`;
                     const ariaDesc = el.getAttribute('aria-describedby') || el.getAttribute('aria-controls');
-                    if (ariaDesc) return `[role="${role}"][aria-describedby="${ariaDesc}"]`;
+                    if (ariaDesc) return `[role="${role.replace(/[\\"]/g, '\\$&')}"][aria-describedby="${ariaDesc.replace(/[\\"]/g, '\\$&')}"]`;
                 }
                 // 7. Classes CSS stables (sans hash, sans chiffres aléatoires, sans états)
                 if (el.className && typeof el.className === 'string') {
@@ -4214,7 +4214,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         if (txt) return txt.substring(0, 80);
                     }
                     if (el.id) {
-                        const lf = document.querySelector('label[for="' + el.id.replace(/"/g, '\\"') + '"]');
+                        const lf = document.querySelector('label[for="' + el.id.replace(/[\\"]/g, '\\$&') + '"]');
                         if (lf && lf.textContent.trim()) return lf.textContent.trim().substring(0, 80);
                     }
                     const wrap = el.closest('label');
@@ -4721,7 +4721,7 @@ async function inspectFrame(frame, label) {
                 }
                 for (const a of ['name', 'data-testid', 'data-cy', 'data-automation', 'data-qa', 'aria-label', 'placeholder', 'title']) {
                     const val = node.getAttribute(a);
-                    if (val && val.length < 80) attrs.push(`[${a}="${val.replace(/"/g, '\\"')}"]`);
+                    if (val && val.length < 80) attrs.push(`[${a}="${val.replace(/[\\"]/g, '\\$&')}"]`);
                 }
                 return attrs.join('').substring(0, 150);
             }
@@ -6589,17 +6589,17 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 if (el.id && !/^\d/.test(el.id) && !/^:r/.test(el.id) && el.id.length < 60) return `#${el.id}`;
                 for (const a of ['data-testid','data-cy','data-qa','data-test']) {
                     const v = el.getAttribute(a);
-                    if (v && v.length < 100) return `[${a}="${v.replace(/"/g,'\\"')}"]`;
+                    if (v && v.length < 100) return `[${a}="${v.replace(/[\\"]/g, '\\$&')}"]`;
                 }
                 if (['input','select','textarea'].includes(tag)) {
                     const n = el.getAttribute('name');
-                    if (n) return `${tag}[name="${n.replace(/"/g,'\\"')}"]`;
+                    if (n) return `${tag}[name="${n.replace(/[\\"]/g, '\\$&')}"]`;
                 }
                 const al = el.getAttribute('aria-label');
-                if (al && al.length < 80) return `[aria-label="${al.replace(/"/g,'\\"')}"]`;
+                if (al && al.length < 80) return `[aria-label="${al.replace(/[\\"]/g, '\\$&')}"]`;
                 if (['button','a'].includes(tag)) {
                     const t = (el.textContent || '').trim().replace(/\s+/g,' ');
-                    if (t && t.length <= 30) return `${tag}:has-text("${t.replace(/"/g,'\\"').substring(0,30)}")`;
+                    if (t && t.length <= 30) return `${tag}:has-text("${t.substring(0,30).replace(/[\\"]/g, '\\$&')}")`;
                 }
                 return tag;
             }

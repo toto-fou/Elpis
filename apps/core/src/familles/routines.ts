@@ -25,7 +25,7 @@ import type { Base } from "@elpis/db";
 import { clientBuiltinRef } from "@elpis/mcp";
 import type { FastifyRequest } from "fastify";
 
-import { canUseEngine } from "../llm/acces-moteurs";
+import { exigerMoteurOuvert } from "../llm/acces-moteurs";
 import { EngineUnavailable, resolveLlmTarget } from "../llm/cible";
 import { connectorKey } from "../llm/moteurs";
 import { validateCron } from "../routines/cron";
@@ -248,14 +248,8 @@ async function validerConnecteur(base: Base, data: Dict, uid: number): Promise<n
     if (e instanceof EngineUnavailable) throw new HttpError(400, e.message);
     throw e;
   }
-  let ouvert: boolean;
-  try {
-    ouvert = await canUseEngine(base, uid, connectorKey(cid));
-  } catch (e) {
-    log.warn(`[routines.access] contrôle d'accès au moteur impossible (${String(e)}) — refus`);
-    ouvert = false;
-  }
-  if (!ouvert) throw new HttpError(403, "Ce serveur ne vous est pas ouvert.");
+  if (!(await exigerMoteurOuvert(base, uid, connectorKey(cid))))
+    throw new HttpError(403, "Ce serveur ne vous est pas ouvert.");
   return cid;
 }
 

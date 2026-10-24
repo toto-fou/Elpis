@@ -30,8 +30,8 @@ import type { Journal } from "../journal";
 import {
   BUILTIN_KEY,
   canManageModels,
-  canUseEngine,
   connectorKey,
+  exigerMoteurOuvert,
   filterSharedConnectors,
 } from "../llm/acces-moteurs";
 import {
@@ -240,7 +240,7 @@ async function moteurPour(
   const k = stripPy(cle || parametreRequete(requete, "engine") || BUILTIN_KEY);
   const eng = await resolveEngineForUser(uid, k);
   if (eng === null) throw new HttpError(404, "Serveur introuvable");
-  if (!(await canUseEngine(dep.base, uid, eng.key))) throw new HttpError(403, "Serveur non autorisé");
+  if (!(await exigerMoteurOuvert(dep.base, uid, eng.key))) throw new HttpError(403, "Serveur non autorisé");
   return eng;
 }
 
@@ -288,7 +288,7 @@ async function listerConnecteurs(dep: DependancesLlm, req: FastifyRequest): Prom
     shared: await filterSharedConnectors(dep.base, uid, await listSharedConnectors(dep.base)),
     presets: presetsPublics(),
     allowed_provider_types: ouverts,
-    builtin_allowed: await canUseEngine(dep.base, uid, BUILTIN_KEY),
+    builtin_allowed: await exigerMoteurOuvert(dep.base, uid, BUILTIN_KEY),
     can_manage_models: await canManageModels(dep.base, uid),
   };
 }
@@ -384,7 +384,7 @@ async function modelesDuConnecteur(dep: DependancesLlm, req: FastifyRequest): Pr
   const ligne = await getSecretForUser(dep.base, uid, cid);
   if (!ligne || !veritePy(Object.hasOwn(ligne, "enabled") ? ligne["enabled"] : true))
     throw new HttpError(404, "Connecteur introuvable");
-  if (!(await canUseEngine(dep.base, uid, connectorKey(cid))))
+  if (!(await exigerMoteurOuvert(dep.base, uid, connectorKey(cid))))
     throw new HttpError(403, "Serveur non autorisé");
   const type = veritePy(ligne["provider_type"]) ? strPy(ligne["provider_type"]) : "";
   const profil = profilDe(type || "generic");
@@ -478,7 +478,7 @@ async function listerModeles(dep: DependancesLlm, req: FastifyRequest, rep: Fast
   const uid = utilisateur(req);
   void rep.headers(SANS_CACHE);
   if ((parametreRequete(req, "engine") || "builtin") !== "builtin") return modelesDuServeur(dep, req, uid);
-  if (!(await canUseEngine(dep.base, uid, BUILTIN_KEY))) return CATALOGUE_REFUSE;
+  if (!(await exigerMoteurOuvert(dep.base, uid, BUILTIN_KEY))) return CATALOGUE_REFUSE;
   ensureModelPoller();
   if (Object.keys(modelCache).length > 0) return modelCache;
   let delai: NodeJS.Timeout | undefined;

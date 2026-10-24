@@ -33,7 +33,7 @@ import { resolveMaxRounds } from "../contexte/porte-compaction";
 import { measuredPromptTokens } from "../contexte/tokens";
 import { runScope } from "../executions/registre";
 import { journal } from "../journal";
-import { canUseEngine } from "../llm/acces-moteurs";
+import { exigerMoteurOuvert } from "../llm/acces-moteurs";
 import { EngineUnavailable, resolveLlmTarget, useLlmTarget } from "../llm/cible";
 import type { LlmTarget } from "../llm/cible";
 import { resolveContextWindow } from "../llm/fenetre-contexte";
@@ -163,13 +163,7 @@ async function compresser(dep: DependancesChatCompression, req: FastifyRequest, 
       throw new HttpError(409, { code: "engine_unavailable", reason: e.reason, message: e.message });
     throw e;
   }
-  let autorise = false;
-  try {
-    autorise = await canUseEngine(dep.base, uid, cid ? connectorKey(cid) : BUILTIN_KEY);
-  } catch (e) {
-    log.warn(`[chat.manual_compress.access] contrôle d'accès impossible (${String(e)}) — refus`);
-  }
-  if (!autorise)
+  if (!(await exigerMoteurOuvert(dep.base, uid, cid ? connectorKey(cid) : BUILTIN_KEY)))
     throw new HttpError(409, {
       code: "engine_unavailable",
       reason: "forbidden",

@@ -196,6 +196,10 @@ export type EtatChat = ReturnType<typeof creerEtatChat>;
 export interface CompteurDirect {
   base: number;
   gen: number;
+  /** Jetons générés hors de la dernière occupation réelle (`base`) : réflexion et réponse encore dans le cache du moteur. */
+  enCours: number;
+  /** Jetons reçus depuis le dernier `kv_cache` : ceux de l'appel que la prochaine mesure couvrira. */
+  appel: number;
   total: number;
 }
 

@@ -9,7 +9,7 @@
 //   3. s'efface (elpis-remote.js supprimé) — au prochain run, seul le .ts charge.
 // Les NOUVELLES installations n'en passent jamais par ici : install.sh pose
 // directement le .ts. Doit rester du JS pur (les vieux plugins l'écrivent en .js).
-const PLUGIN_VERSION = 15;
+const PLUGIN_VERSION = 16;
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

@@ -37,7 +37,7 @@ import { spawn } from "node:child_process";
 const APP_DEFAULT = "__APP_URL__";
 // Version du plugin (envoyée à chaque ingest) : l'app compare à sa version
 // courante et propose la MAJ (/remote update, qui écrase ce fichier).
-const PLUGIN_VERSION = 15;
+const PLUGIN_VERSION = 16;
 const CONF_PATH = path.join(os.homedir(), ".config", "opencode", "elpis-remote.json");
 const FORWARD = new Set<string>([
   "session.created", "session.updated", "session.deleted", "session.idle", "session.error",
@@ -475,6 +475,7 @@ export const ElpisRemote = async ({ client, directory, serverUrl }: PluginInput)
     } catch {
       if (!warnedDown) { warnedDown = true; toast("App injoignable (" + appBase() + ") — remontée en pause.", "warning"); }
     }
+    for (const e of events) { const sid = e.properties?.sessionID || e.properties?.info?.sessionID || e.properties?.part?.sessionID; if (sid) snapshotted.delete(sid); }
     return false;
   };
 
@@ -506,7 +507,7 @@ export const ElpisRemote = async ({ client, directory, serverUrl }: PluginInput)
         ]);
         const msgs = (m && m.data) || [];
         if (!s || !s.data) { snapshotted.delete(sid); return; }
-        await pushBatch([{ type: "session.snapshot", properties: { session: s.data, messages: msgs } }]);
+        if (!(await pushBatch([{ type: "session.snapshot", properties: { session: s.data, messages: msgs } }]))) snapshotted.delete(sid);
       } catch {
         // Échec transitoire : sans ce retrait, la session restait marquée
         // « snapshottée » et n'était JAMAIS republiée de tout le run.

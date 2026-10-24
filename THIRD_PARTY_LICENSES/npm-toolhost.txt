@@ -698,7 +698,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-fast-uri 3.1.8 — BSD-3-Clause
+fast-uri 3.1.9 — BSD-3-Clause
 ==============================================================================
 
 Copyright (c) 2011-2021, Gary Court until https://github.com/garycourt/uri-js/commit/a1acf730b4bba3f1097c9f52e7d9d3aba8cdcaae
@@ -733,7 +733,7 @@ The complete list of contributors can be found at:
 - https://github.com/garycourt/uri-js/graphs/contributors
 
 ==============================================================================
-fast-uri 4.2.1 — BSD-3-Clause
+fast-uri 4.2.3 — BSD-3-Clause
 ==============================================================================
 
 Copyright (c) 2011-2021, Gary Court until https://github.com/garycourt/uri-js/commit/a1acf730b4bba3f1097c9f52e7d9d3aba8cdcaae
@@ -768,7 +768,7 @@ The complete list of contributors can be found at:
 - https://github.com/garycourt/uri-js/graphs/contributors
 
 ==============================================================================
-fastify 5.12.5 — MIT
+fastify 5.12.7 — MIT
 ==============================================================================
 
 MIT License
@@ -2110,7 +2110,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
-undici 8.11.2 — MIT
+undici 8.12.3 — MIT
 ==============================================================================
 
 MIT License

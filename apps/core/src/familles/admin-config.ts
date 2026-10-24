@@ -111,20 +111,20 @@ function texteNettoye(corps: unknown, cle: string): string {
   return stripPy(exigerTexte(ouPy(getPy(corps, cle, null), "")));
 }
 
-function champsCompression(): Dict {
+function champsCompression(c: typeof config = config): Dict {
   return {
-    enabled: config.COMPRESSION_ENABLED,
-    keep_recent_turns: config.COMPRESSION_KEEP_RECENT,
-    keep_bridge_turns: config.COMPRESSION_KEEP_BRIDGE,
-    external_model: config.COMPRESSION_EXTERNAL_MODEL,
-    endpoint_url: config.COMPRESSION_ENDPOINT_URL,
-    endpoint_model: config.COMPRESSION_ENDPOINT_MODEL,
-    endpoint_timeout_sec: config.COMPRESSION_ENDPOINT_TIMEOUT_SEC,
-    max_per_chat: config.COMPRESSION_MAX_PER_CHAT,
-    buffer_tokens: config.COMPACTION_BUFFER_TOKENS,
-    partial_target_ratio: versFlottantPy(config.COMPACTION_PARTIAL_TARGET_RATIO),
-    threshold_pct: config.COMPACTION_THRESHOLD_PCT,
-    threshold_tokens: config.COMPACTION_THRESHOLD_TOKENS,
+    enabled: c.COMPRESSION_ENABLED,
+    keep_recent_turns: c.COMPRESSION_KEEP_RECENT,
+    keep_bridge_turns: c.COMPRESSION_KEEP_BRIDGE,
+    external_model: c.COMPRESSION_EXTERNAL_MODEL,
+    endpoint_url: c.COMPRESSION_ENDPOINT_URL,
+    endpoint_model: c.COMPRESSION_ENDPOINT_MODEL,
+    endpoint_timeout_sec: c.COMPRESSION_ENDPOINT_TIMEOUT_SEC,
+    max_per_chat: c.COMPRESSION_MAX_PER_CHAT,
+    buffer_tokens: c.COMPACTION_BUFFER_TOKENS,
+    partial_target_ratio: versFlottantPy(c.COMPACTION_PARTIAL_TARGET_RATIO),
+    threshold_pct: c.COMPACTION_THRESHOLD_PCT,
+    threshold_tokens: c.COMPACTION_THRESHOLD_TOKENS,
   };
 }
 
@@ -167,7 +167,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
       throw new HttpError(400, "JSON body requis");
     }
     recharger("reload avant POST échoué");
-    const c = config;
+    const c = { ...config };
     c.COMPRESSION_ENABLED = veritePy(getPy(corps, "enabled", c.COMPRESSION_ENABLED));
     c.COMPRESSION_KEEP_RECENT = borneEntier(
       getPy(corps, "keep_recent_turns"),
@@ -221,7 +221,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         const cfg = lireConfigPourEcrire();
         const llm = sectionDict(cfg, "llm");
         const comp = sectionDict(llm, "compression");
-        const champs = champsCompression();
+        const champs = champsCompression(c);
         for (const cle of [
           "enabled",
           "keep_recent_turns",
@@ -241,10 +241,13 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
       });
       marquerCompressionAJour();
     } catch (e) {
+      if (e instanceof HttpError) throw e;
       dep.journal.warn(
         `[admin] persist compression_config échoué : ${e instanceof Error ? e.message : String(e)}`,
       );
     }
+    for (const k of Object.keys(c))
+      if (k.startsWith("COMPRESSION_") || k.startsWith("COMPACTION_")) (config as Dict)[k] = (c as Dict)[k];
     return reponseJsonPy(rep, champsCompression());
   }
 

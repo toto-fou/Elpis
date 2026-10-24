@@ -30,7 +30,7 @@ import {
   relExtraitRag,
   relSourceRag,
 } from "./magasin";
-import { purgerAvantReutilisation } from "./qdrant";
+import { effacerPassagesPerimesQdrant, purgerAvantReutilisation } from "./qdrant";
 import type { PortQdrantRag } from "./qdrant";
 import {
   ecrireParamsTravail,
@@ -218,7 +218,7 @@ export async function libererDocument(
   );
 }
 
-/** Échec propre au document, compté dans le travail ; une migration avance son curseur. */
+/** Échec propre au document, compté dans le travail ; une migration avance son curseur ; une version jamais indexée perd les passages restés. */
 export async function echouerDocument(
   ctx: ContexteIndexeur,
   travail: LigneTravailRag,
@@ -226,7 +226,7 @@ export async function echouerDocument(
   code: string,
 ): Promise<void> {
   const migration = travail.kind === "migrate";
-  await ctx.base.ecriture(async (x) => {
+  const echoue = await ctx.base.ecriture(async (x) => {
     const r = await x.run(
       "UPDATE rag_documents SET status='error', error_code=?, error_message=? WHERE id=? AND sha256=? AND " +
         (migration ? "status='ready'" : "status IN ('extracting', 'indexing')"),
@@ -235,7 +235,10 @@ export async function echouerDocument(
     if (r.changes > 0) await x.run("UPDATE rag_jobs SET failed = failed + 1 WHERE id=?", [travail.id]);
     if (migration) await avancerCurseur(x, travail.id, doc.id);
     await rafraichirCollection(x, doc.collection_id);
+    return r.changes > 0;
   });
+  if (echoue && !migration && doc.indexed_at === null)
+    await effacerPassagesPerimesQdrant(ctx.qdrant, doc.collection_id, [doc.id]);
   const apres = await lireDocument(ctx.base, doc.id);
   if (apres !== null) ctx.surEtat((await lireTravail(ctx.base, travail.id)) ?? travail, apres);
 }

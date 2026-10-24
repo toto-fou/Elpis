@@ -468,13 +468,13 @@ export class ClientQdrant {
     return points.length;
   }
 
-  /** Supprime les passages d'un document, sauf ceux dont le `chunk_index` est dans `sauf` (remplacement : on insère puis on supprime les anciens). */
+  /** Supprime les passages d'un document (ou d'un lot), sauf ceux dont le `chunk_index` est dans `sauf` (remplacement : on insère puis on supprime les anciens). */
   async supprimerDocument(
     nom: string,
-    docId: string,
+    docId: string | readonly string[],
     options: { sauf?: readonly number[]; signal?: AbortSignal } = {},
   ): Promise<void> {
-    const filtre = filtreQdrant({ docIds: [docId] }, options.sauf);
+    const filtre = filtreQdrant({ docIds: typeof docId === "string" ? [docId] : docId }, options.sauf);
     const rep = await this.appel(
       "POST",
       `/collections/${nomValide(nom)}/points/delete?wait=true`,

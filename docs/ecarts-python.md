@@ -251,6 +251,8 @@ main et traitait tout autre moteur comme un service distant sans capacité.
 - **Configuration** : `llama.engine` accepte `sglang` ; `llama.url` peut être la base du serveur (ou finir par
   `/v1`) ; `llama.api_key` (ou `LLAMA_API_KEY`) part en `Authorization: Bearer` sur chaque appel au moteur par
   défaut, n'est jamais journalisée ni rendue à la console (`********`). Le Python n'envoyait aucune clé.
+- **Charge de SGLang** : délai moyen du premier jeton et débit de prefill lus sur ses métriques ; jauge KV additionnée
+  entre répliques `--dp` (rangs TP comptés une fois).
 - **vLLM et SGLang** : fenêtre lue sur `max_model_len`, jetons comptés exactement par leur tokenisation
   (`/tokenize`, `/v1/tokenize`, conversation rendue en un appel), cache KV et charge lus sur leurs métriques, aucun
   chargement, et plus de file d'Elpis : le moteur regroupe lui-même les requêtes (le Python les sérialisait une à

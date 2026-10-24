@@ -51,6 +51,8 @@ export const schemaChargeMoteur = z.object({
   en_attente: nombreNul,
   debit_tps: nombreNul,
   cache_prefixe_pct: nombreNul,
+  ttft_s: nombreNul.optional(),
+  prefill_tps: nombreNul.optional(),
 });
 export const schemaEtatModeles = z.object({
   models: z.array(z.string()),

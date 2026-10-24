@@ -185,6 +185,8 @@ export interface ChargeVisible {
   en_attente: number | null;
   debit_tps: number | null;
   cache_prefixe_pct: number | null;
+  ttft_s?: number | null;
+  prefill_tps?: number | null;
 }
 
 export interface SanteMoteur {

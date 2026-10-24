@@ -94,6 +94,8 @@ export const schemaRapportMoteur = z.object({
       en_attente: z.number().nullable(),
       debit_tps: z.number().nullable(),
       cache_prefixe_pct: z.number().nullable(),
+      ttft_s: z.number().nullable().optional(),
+      prefill_tps: z.number().nullable().optional(),
     })
     .nullable(),
   conseils: z.array(

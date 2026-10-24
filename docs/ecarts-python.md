@@ -278,6 +278,9 @@ main et traitait tout autre moteur comme un service distant sans capacité.
   Qwen3-Coder…), et une réponse vide après la réflexion alors que des outils étaient offerts est signalée. Sans
   équivalent Python.
 - **Connecteurs** : type `sglang` en plus ; `?sonde=1` sur leur test. Sans `?sonde=1`, réponses inchangées.
+- **Jauge de contexte** : l'occupation n'est plus bornée à la fenêtre connue (un prompt réel plus long s'affiche tel
+  quel, en direct comme au rechargement) ; seul le pourcentage l'est. Un avis part une fois par tour si cette fenêtre
+  est lue sur le moteur ou déclarée sur le connecteur.
 
 ## Console : secrets de config.json masqués
 

@@ -157,9 +157,9 @@ export function creerOutilsChat(c: CoeurChat) {
       const total = Number(u["total"]) || 0;
       if (!(used > 0) || !(total > 0)) return;
       const pct = typeof u["pct"] === "number" ? u["pct"] : Math.min(100, Math.round((used / total) * 100));
-      c.f.lastCtxUsed = Math.min(used, total);
+      c.f.lastCtxUsed = used;
       e.ctxRealPct.value = pct;
-      e.ctxUsage.value = { used: Math.min(used, total), total, pct, persisted: true };
+      e.ctxUsage.value = { used, total, pct, persisted: true };
     });
   }
 

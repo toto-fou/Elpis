@@ -26,7 +26,37 @@ export interface EtatCharge {
 }
 
 const RE_LIGNE = /^([A-Za-z_:][A-Za-z0-9_:]*)(\{(.*)\})?\s+(\S+)/u;
-const RE_ETIQUETTE = /([A-Za-z_][A-Za-z0-9_]*)="((?:[^"\\]|\\.)*)"/gu;
+const DEBUT_NOM = /^[A-Za-z_]$/u;
+const SUITE_NOM = /^[A-Za-z0-9_]$/u;
+
+/** Paires `nom="valeur"` comme un matchAll de /([A-Za-z_]\w*)="((?:[^"\\]|\\.)*)"/gu, en temps linéaire. */
+function pairesEtiquettes(bloc: string): [string, string][] {
+  const paires: [string, string][] = [];
+  let i = 0;
+  while (i < bloc.length) {
+    if (!DEBUT_NOM.test(bloc.charAt(i))) {
+      i++;
+      continue;
+    }
+    let fin = i + 1;
+    while (fin < bloc.length && SUITE_NOM.test(bloc.charAt(fin))) fin++;
+    if (bloc.startsWith('="', fin)) {
+      let j = fin + 2;
+      while (j < bloc.length && bloc.charAt(j) !== '"') {
+        if (bloc.charAt(j) !== "\\") j++;
+        else if (j + 1 < bloc.length && !"\n\r\u2028\u2029".includes(bloc.charAt(j + 1))) j += 2;
+        else break;
+      }
+      if (bloc.charAt(j) === '"') {
+        paires.push([bloc.slice(i, fin), bloc.slice(fin + 2, j)]);
+        i = j + 1;
+        continue;
+      }
+    }
+    i = fin;
+  }
+  return paires;
+}
 
 function valeurPrometheus(brut: string): number | null {
   if (brut === "+Inf") return Infinity;
@@ -48,8 +78,8 @@ export function lireEchantillons(texte: string | null | undefined): Echantillon[
     const valeur = valeurPrometheus(m[4] ?? "");
     if (valeur === null || Number.isNaN(valeur)) continue;
     const etiquettes: Record<string, string> = {};
-    for (const e of (m[3] ?? "").matchAll(RE_ETIQUETTE))
-      etiquettes[e[1] ?? ""] = (e[2] ?? "").replace(/\\(.)/gu, (_t, c: string) => (c === "n" ? "\n" : c));
+    for (const [nom, brut] of pairesEtiquettes(m[3] ?? ""))
+      etiquettes[nom] = brut.replace(/\\(.)/gu, (_t, c: string) => (c === "n" ? "\n" : c));
     sortie.push({ nom: (m[1] ?? "").replaceAll(":", "_"), etiquettes, valeur });
   }
   return sortie;

@@ -250,7 +250,7 @@ const TITRE = (nom: string): RegExp =>
 
 /** Statut déclaré par la ligne `Status:` du rapport (`blocked`, `partial`), sinon `null`. */
 export function statutDeclare(rapport: string): "blocked" | "partial" | null {
-  const m = /^\s{0,3}(?:\*\*)?status(?:\*\*)?\s*:\s*\**\s*([a-z_]+)/imu.exec(rapport);
+  const m = /^\s{0,3}(?:\*\*)?status(?:\*\*)?\s*:\s*(?:\*+\s*)?([a-z_]+)/imu.exec(rapport);
   const v = m?.[1]?.toLowerCase();
   return v === "blocked" || v === "partial" ? v : null;
 }

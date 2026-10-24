@@ -237,7 +237,10 @@ llama.cpp) ; les blocs image (non tokenisables) ajoutent leur forfait par-dessus
 - **Fenêtre de contexte par CIBLE** (`apps/core/src/llm/fenetre-contexte.ts`) : sur connecteur
   distant, le `/props` local décrivait un autre modèle — ou rien, et `ctx=0`
   mettait tout le pipeline en veille. Résolution : connecteur > famille connue >
-  `LLM_REMOTE_N_CTX` > 0 (tracé).
+  `LLM_REMOTE_N_CTX` > 0 (tracé). La fenêtre d'un moteur qui l'annonce
+  (llama.cpp, vLLM, SGLang) n'est jamais devinée au nom du modèle : connecteur >
+  moteur > `LLM_REMOTE_N_CTX` > 0 (`qwen3*` valait 131 072 même pour un modèle
+  à 262 144).
 
 ## Ratio MESURÉ (harnais v4 — plus d'heuristique statique dans les décisions)
 

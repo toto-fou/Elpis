@@ -166,7 +166,7 @@ function sourceContexte(c: CibleFenetre): SourceContexte {
   return profilDe(c.providerType || "generic").capacites.contexte;
 }
 
-/** Fenêtre utilisable pour la cible, en tokens ; 0 = inconnue. Ne lève jamais. */
+/** Fenêtre utilisable pour la cible, en tokens ; 0 = inconnue, jamais devinée au nom si le moteur l'annonce. Ne lève jamais. */
 export async function resolveContextWindow(
   modelId: string | null = null,
   target: CibleFenetre | null = null,
@@ -186,7 +186,8 @@ export async function resolveContextWindow(
   }
   const modele = stripPy(modelId || cible.model || "");
   const cid = cible.connectorId ?? null;
-  if (sourceContexte(cible) !== "aucune") {
+  const annoncee = sourceContexte(cible) !== "aucune";
+  if (annoncee) {
     const declaree = await declaredWindow(cid);
     if (declaree > 0) return declaree;
     try {
@@ -205,11 +206,11 @@ export async function resolveContextWindow(
   }
   let fenetre = await declaredWindow(cid);
   let source = "connecteur";
-  if (fenetre <= 0) {
+  if (fenetre <= 0 && !annoncee) {
     fenetre = fromKnownFamily(modele);
     source = "famille connue";
   }
-  if (fenetre <= 0) {
+  if (fenetre <= 0 && !annoncee) {
     const pt = cible.providerType || "";
     fenetre = Object.hasOwn(PROVIDER_DEFAULT_WINDOWS, pt) ? (PROVIDER_DEFAULT_WINDOWS[pt] ?? 0) : 0;
     source = "défaut du fournisseur";
@@ -226,9 +227,10 @@ export async function resolveContextWindow(
   if (!prevenus.has(modele)) {
     prevenus.add(modele);
     log.warn(
-      `fenêtre de contexte INCONNUE pour '${modele || "?"}' (cible distante) — compaction, ` +
-        "élagage et budget dur restent inactifs sur ce modèle. Déclarez ``context_window`` sur le connecteur ou " +
-        "posez LLM_REMOTE_N_CTX.",
+      `fenêtre de contexte INCONNUE pour '${modele || "?"}' ` +
+        (annoncee ? "(le moteur n'a pas annoncé sa fenêtre)" : "(cible distante)") +
+        " — compaction, élagage et budget dur restent inactifs sur ce modèle. Déclarez ``context_window`` sur le " +
+        "connecteur ou posez LLM_REMOTE_N_CTX.",
     );
   }
   cache.set(cle, 0);

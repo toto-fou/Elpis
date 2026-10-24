@@ -255,6 +255,9 @@ main et traitait tout autre moteur comme un service distant sans capacité.
   (`/tokenize`, `/v1/tokenize`, conversation rendue en un appel), cache KV et charge lus sur leurs métriques, aucun
   chargement, et plus de file d'Elpis : le moteur regroupe lui-même les requêtes (le Python les sérialisait une à
   une). `llama.max_concurrency` ne vaut plus que pour llama.cpp.
+- **Fenêtre annoncée** : la fenêtre d'un moteur qui l'annonce (llama.cpp, vLLM, SGLang) n'est jamais devinée au nom
+  du modèle, même moteur muet (`qwen3*` valait 131 072 même pour un modèle à 262 144) : sans fenêtre déclarée ni
+  `LLM_REMOTE_N_CTX`, elle reste inconnue.
 - **Sonde** au démarrage et sur « Tester » (console) : adresses du profil, version, modèle servi, contexte,
   métriques, jetons en cache, parseurs, avec l'option exacte à ajouter quand une capacité manque. Sans équivalent
   Python.

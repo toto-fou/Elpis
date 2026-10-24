@@ -42,6 +42,7 @@ import {
   truncateHeadTail,
 } from "./elagage";
 import {
+  buildStateSystemMessage,
   countTurns,
   extractPreviousSummary,
   formatSummaryAsSystemMessage,
@@ -961,6 +962,9 @@ export async function maybeCompressConversation(
       stats["max_rounds"] = maxRounds;
       const summaryXml = extractPreviousSummary(compressed) ?? "";
       const ledger = veritePy(stats["ledger_block"]) ? stats["ledger_block"] : "";
+      const porteur = compressed.findIndex(isSummaryCarrier);
+      if (summaryXml && porteur >= 0)
+        compressed[porteur] = buildStateSystemMessage(summaryXml, newRound, newCovered, null, strPy(ledger));
       stats["new_state"] = {
         round: newRound,
         covered_turns: newCovered,

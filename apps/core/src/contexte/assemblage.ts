@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/contexte/assemblage.ts — message système de tête byte-stable : socle, mémoire AX, runtime_context, manifeste et fragments de capacité. */
+/** apps/core/src/contexte/assemblage.ts — message système de tête byte-stable : socle, runtime_context, manifeste et fragments de capacité ; mémoire AX rendue à part (suffixe de la question). */
 import { comparePointsDeCode, estErreurAnnulation, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
 
@@ -155,8 +155,8 @@ export function buildActiveToolsManifest(allowedToolNames: Iterable<unknown>): s
 
 class SautAx extends Error {}
 
-/** Connaissance d'interface des sites connus (mémoire AX) ajoutée au premier message system ; best-effort, mute la liste. */
-export async function injectAxMemoryIntoMessages(workingMessages: unknown[], owner = ""): Promise<void> {
+/** Connaissance d'interface des sites connus (mémoire AX), texte du suffixe de la question ; "" sans site ni tête system, best-effort. */
+export async function buildAxMemoryBlock(workingMessages: readonly unknown[], owner = ""): Promise<string> {
   try {
     const port = portMemoireAx();
     const recent = workingMessages
@@ -194,27 +194,23 @@ export async function injectAxMemoryIntoMessages(workingMessages: unknown[], own
       });
       if (block) blocks.push(block);
     }
-    if (!blocks.length) return;
+    if (!blocks.length) return "";
     const header = stripPy(config.SYSTEM_PROMPT_AX_MEMORY_HEADER || "");
     if (!header) {
       log.debug("[ax] header prompt vide/absent → skip injection");
       throw new SautAx();
     }
-    const axText = `\n\n${header}\n\n${blocks.join("\n\n")}`;
-    const i = workingMessages.findIndex((m) => lire(m, "role") === "system");
-    if (i >= 0) {
-      const c = lire(workingMessages[i], "content");
-      if (veritePy(c) && typeof c !== "string")
-        throw new TypeError('can only concatenate list (not "str") to list');
-      workingMessages[i] = { role: "system", content: (veritePy(c) ? (c as string) : "") + axText };
-    }
+    if (!workingMessages.some((m) => lire(m, "role") === "system")) return "";
+    const axText = `${header}\n\n${blocks.join("\n\n")}`;
     log.info(
-      `[ax] injected ${blocks.length} site(s) into system prompt (${Array.from(axText).length} chars, ` +
+      `[ax] ${blocks.length} site(s) for the question suffix (${Array.from(axText).length} chars, ` +
         `mode=${iteration ? "focused" : "full"})${currentPath ? ` (focus on ${currentPath})` : ""}: ${sites.join(", ")}`,
     );
+    return axText;
   } catch (e) {
     if (estErreurAnnulation(e)) throw e;
     if (!(e instanceof SautAx)) log.debug(`[ax] inject failed (non-fatal): ${String(e)}`);
+    return "";
   }
 }
 
@@ -261,11 +257,11 @@ function contientRuntimeContext(m: unknown): boolean {
   return Array.isArray(contenu) && contenu.includes("<runtime_context>");
 }
 
-/** `working_messages` du tour : socle par défaut, hygiène, mémoire AX, puis bloc opérationnel (manifeste, runtime_context, fragments). */
+/** `[working_messages, bloc AX]` du tour : socle par défaut, hygiène, bloc opérationnel (manifeste, runtime_context, fragments) ; AX hors tête. */
 export async function assembleOperationalContext(
   messages: readonly unknown[],
   options: { allowedToolNames: Iterable<unknown>; username: string },
-): Promise<unknown[]> {
+): Promise<[unknown[], string]> {
   const allowed = [...options.allowedToolNames];
   const username = options.username;
   const hasSystem = messages.some((m) => lire(m, "role") === "system");
@@ -294,7 +290,7 @@ export async function assembleOperationalContext(
 
   working.push(...messages);
   working = sanitizeMessageHistory(working);
-  await injectAxMemoryIntoMessages(working, username || "");
+  const ax = await buildAxMemoryBlock(working, username || "");
 
   let capBlock: string | null;
   try {
@@ -310,5 +306,5 @@ export async function assembleOperationalContext(
   }
   const opParts = [manifest, runtimeCtx, capBlock].filter((p): p is string => veritePy(p));
   if (opParts.length) foldOperationalBlock(working, opParts.join(SEP));
-  return working;
+  return [working, ax];
 }

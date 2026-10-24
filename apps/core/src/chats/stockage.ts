@@ -368,6 +368,9 @@ export interface FinTour {
   suffixDropFromRank?: number | null;
 }
 
+/** Longueur enregistrée d'un suffixe LLM de question (au-delà, coupé : le tour doit envoyer la même borne). */
+export const SUFFIXE_LLM_MAX = 8000;
+
 /** Suffixes LLM des questions : rangs réécrits retirés, ajouts et retraits, 40 derniers gardés. */
 function fusionnerSuffixes(
   meta: Dict,
@@ -388,7 +391,7 @@ function fusionnerSuffixes(
       if (!k) continue;
       delete fusion[k];
       const v = ajouts[k];
-      if (typeof v === "string" && v) poserCle(fusion, prefixePy(k, 64), prefixePy(v, 8000));
+      if (typeof v === "string" && v) poserCle(fusion, prefixePy(k, 64), prefixePy(v, SUFFIXE_LLM_MAX));
     }
   }
   const garde: Dict = {};

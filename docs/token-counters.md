@@ -256,8 +256,12 @@ est exact ; un compte partiellement estimé reste flaggé `tokens_estimated`.
 
 - **Thinking** : compté dans `output_tokens` du tour qui le génère, mais
   strippé de l'historique persisté → il n'apparaît PAS dans le prompt du
-  tour suivant. La jauge l'exclut volontairement (sinon « 4,7k en fin de
-  tour » vs ~800 au prompt suivant).
+  tour suivant. La valeur de la jauge l'exclut volontairement (sinon « 4,7k
+  en fin de tour » vs ~800 au prompt suivant) ; pendant la génération, la
+  jauge en direct affiche à part les jetons générés que le dernier prompt
+  mesuré ne compte pas (ceux de l'appel qu'il mesure, puis ceux reçus
+  depuis : « 131k + 49k / 262k ») : ils occupent le cache du moteur, qui
+  peut atteindre la fenêtre avant la mesure suivante.
 - **Anthropic** : son `input_tokens` ne compte que les tokens neufs ; il est
   ramené au sens commun (cache compris) par `_normalize_usage`, et
   `cache_read/creation_input_tokens` restent exposés à part dans les
@@ -279,6 +283,8 @@ est exact ; un compte partiellement estimé reste flaggé `tokens_estimated`.
   comme au rechargement (`ctx_usage`) ; seul le pourcentage est borné. Un
   avis `notice` part une fois par tour si cette fenêtre est lue sur le
   moteur ou déclarée sur le connecteur ; devinée, le journal seul le signale.
+  La capacité du cache KV ne remplace la fenêtre que pour llama.cpp (pool
+  partagé entre requêtes chez vLLM et SGLang).
 - **Continue** : la reprise re-soumet le tronc du tour précédent → les
   tokens soumis du tour de reprise incluent ce re-prefill (fidèle à la
   réalité API). Les métriques du message ADDITIONNENT ses segments

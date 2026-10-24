@@ -63,6 +63,8 @@ export interface SanteLlm {
   kv_cache: JaugeKv;
   props: { n_ctx?: number; [cle: string]: unknown };
   charge?: ChargeMoteur | null;
+  /** La capacité de la jauge KV est la fenêtre d'une requête (llama.cpp) ; faux pour un pool partagé (vLLM, SGLang). */
+  kvEstFenetre?: boolean;
 }
 
 export interface MetaMoteur {
@@ -572,12 +574,14 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
     }
     activeModelIds.value = [...new Set(charges)];
     const kv = lireKv(json["kv_cache"]) ?? { used: 0, total: 0, pct: 0 };
+    const typeMoteur = (moteur ?? moteurIntegre.value)?.type;
     const sante: SanteLlm = {
       server_reachable: json["server_reachable"],
       status: json["status"],
       kv_cache: kv,
       props: estObjet(json["props"]) ? (json["props"] as SanteLlm["props"]) : {},
       charge: lireCharge(json["charge"]),
+      kvEstFenetre: typeMoteur === undefined || typeMoteur === "llamacpp",
     };
     if (sante.kv_cache.total > 0)
       sante.kv_cache.pct = Math.round((sante.kv_cache.used / sante.kv_cache.total) * 100) || 0;

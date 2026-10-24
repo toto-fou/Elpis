@@ -261,7 +261,8 @@ main et traitait tout autre moteur comme un service distant sans capacité.
 - **Connecteurs** : type `sglang` en plus ; `?sonde=1` sur leur test. Sans `?sonde=1`, réponses inchangées.
 - **Jauge de contexte** : l'occupation n'est plus bornée à la fenêtre connue (un prompt réel plus long s'affiche tel
   quel, en direct comme au rechargement) ; seul le pourcentage l'est. Un avis part une fois par tour si cette fenêtre
-  est lue sur le moteur ou déclarée sur le connecteur.
+  est lue sur le moteur ou déclarée sur le connecteur. La jauge en direct ajoute à part les jetons générés que le
+  dernier prompt mesuré ne compte pas, et la capacité du cache KV de vLLM ou SGLang ne sert plus de fenêtre.
 
 ## Console : secrets de config.json masqués
 

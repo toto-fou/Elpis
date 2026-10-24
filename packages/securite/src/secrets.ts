@@ -45,14 +45,14 @@ const CLE_PRIVEE = /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----/u;
 const CORPS_CLE = /^[A-Za-z0-9+/=]{40,}$/u;
 /** Valeurs d'exemple évidentes : jamais signalées. */
 const EXEMPLE =
-  /example|sample|dummy|fake|placeholder|changeme|redacted|your[_-]|x{6,}|\*{3,}|0{8,}|\.\.\.|<[^>]*>|\$\{|\{\{/iu;
+  /example|sample|dummy|fake|placeholder|changeme|redacted|your[_-]|x{6,}|\*{3,}|0{8,}|\.\.\.|<[^<>]*>|\$\{|\{\{/iu;
 /** Préfixes publics montrés dans l'aperçu. */
 const PREFIXE_PUBLIC = /^(?:AKIA|ASIA|gh[pousr]_|github_pat_|glpat-|xox[abposr]-|[sr]k_live_|AIza)/u;
 /** Fichier `.env*` hors modèles (`.env.example`, `.env.sample`…). */
 const FICHIER_ENV = /(?:^|\/)\.env(?:\.[^/]*)?$/u;
 const MODELE_ENV = /\.(?:example|sample|template|dist|defaults?)$/iu;
 /** Affectation `NOM=valeur` d'un `.env`, nom évocateur d'un secret. */
-const AFFECTATION = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/u;
+const AFFECTATION = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\S.*)?$/u;
 const NOM_SECRET = /SECRET|TOKEN|PASSW(?:OR)?D|PWD|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIAL|AUTH/iu;
 
 /** Aperçu masqué : préfixe public éventuel, puis la longueur ; jamais un caractère secret. */
@@ -66,7 +66,10 @@ function valeurEnv(brute: string): string {
   let v = brute.trim();
   const q = v[0];
   if ((q === '"' || q === "'") && v.indexOf(q, 1) > 0) v = v.slice(1, v.indexOf(q, 1));
-  else v = v.replace(/\s+#.*$/u, "");
+  else {
+    const i = v.search(/\s#/u);
+    if (i >= 0) v = v.slice(0, i).trimEnd();
+  }
   return /^\$\w|^\$\{/u.test(v) ? "" : v;
 }
 
@@ -78,7 +81,10 @@ function trouverDansLigne(fichier: string, texte: string, suite: readonly string
   }
   const cle = CLE_PRIVEE.exec(texte);
   if (cle && !EXEMPLE.test(texte)) {
-    const reste = texte.slice(cle.index + cle[0].length).split(/\\+n|\s+/u);
+    const reste = texte
+      .slice(cle.index + cle[0].length)
+      .replace(/\\+/gu, "\\")
+      .split(/\\n|\s+/u);
     if (reste.some((x) => CORPS_CLE.test(x)) || suite.some((l) => CORPS_CLE.test(l.trim())))
       return ["private_key", cle[0]];
     return ["private_key_header", cle[0]];
@@ -149,8 +155,9 @@ function masqueCourt(valeur: string): string {
   return `${(PREFIXE_PUBLIC.exec(valeur)?.[0] ?? "").slice(0, 4)}****`;
 }
 
-/** Affectation `NOM=valeur` ou `NOM: valeur` dans un texte libre, nom évocateur d'un secret. */
-const AFFECTATION_TEXTE = /\b([A-Za-z_][A-Za-z0-9_.-]*)(["']?\s*[:=]\s*["']?)([^\s"'`,;)\]}]{4,})/gu;
+/** Affectation `NOM=valeur` ou `NOM: valeur` dans un texte libre, nom évocateur d'un secret ; un seul essai par suite de caractères de nom (à son premier début de mot), en temps linéaire. */
+const AFFECTATION_TEXTE =
+  /\b(?=[A-Za-z_])(?<!\b[A-Za-z_][\w.-]*?)([A-Za-z_][A-Za-z0-9_.-]*)(["']?\s*[:=]\s*["']?)([^\s"'`,;)\]}]{4,})/gu;
 /** Nom d'une affectation de texte libre qui désigne un secret (finit par le mot : `DB_PASSWORD`, `api_key`, pas `author`). */
 const NOM_SECRET_TEXTE =
   /(?:SECRET|TOKEN|PASSW(?:OR)?D|PWD|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIALS?)$/iu;

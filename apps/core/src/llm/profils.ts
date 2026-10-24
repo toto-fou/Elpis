@@ -45,6 +45,8 @@ export interface CapacitesMoteur {
   readonly fluxReprenable: boolean;
   /** Un 503 ou un redémarrage s'attend en sondant la santé. */
   readonly attenteSante: boolean;
+  /** Le gabarit reçoit le `reasoning_content` des messages assistant (SGLang) : « Raisonnement conservé » peut lui rendre la réflexion des tours d'outils. */
+  readonly reflexionRenvoyee: boolean;
   /** Tout modèle annoncé par `/v1/models` est en mémoire (un seul modèle servi, pas de chargement à la demande). */
   readonly modelesServisCharges: boolean;
   /** `usage.prompt_tokens_details.cached_tokens` : toujours rendu, sur option du serveur, ou jamais connu. */
@@ -197,6 +199,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       file: true,
       fluxReprenable: true,
       attenteSante: true,
+      reflexionRenvoyee: false,
       modelesServisCharges: false,
       jetonsEnCache: "toujours",
     },
@@ -247,6 +250,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       file: false,
       fluxReprenable: false,
       attenteSante: true,
+      reflexionRenvoyee: false,
       modelesServisCharges: true,
       jetonsEnCache: "option",
     },
@@ -300,6 +304,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       file: false,
       fluxReprenable: false,
       attenteSante: true,
+      reflexionRenvoyee: true,
       modelesServisCharges: true,
       jetonsEnCache: "option",
     },
@@ -352,6 +357,7 @@ export const PROFILS: Readonly<Record<TypeMoteur, ProfilMoteur>> = figer({
       file: false,
       fluxReprenable: false,
       attenteSante: false,
+      reflexionRenvoyee: false,
       modelesServisCharges: false,
       jetonsEnCache: "inconnu",
     },

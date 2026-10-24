@@ -100,6 +100,8 @@ export function lireParametres(brut: unknown): DonneesParametres | null {
   sortie.supports_thinking = bool(brut["supports_thinking"]) ?? null;
   sortie.supports_reasoning_effort = bool(brut["supports_reasoning_effort"]) ?? null;
   sortie.supports_preserve_reasoning = bool(brut["supports_preserve_reasoning"]) ?? null;
+  const conserveDefaut = bool(brut["preserve_reasoning_default"]);
+  if (typeof conserveDefaut === "boolean") sortie.preserve_reasoning_default = conserveDefaut;
   sortie.reasoning_effort_values = Array.isArray(efforts)
     ? efforts.filter((e): e is string => typeof e === "string")
     : [];
@@ -325,14 +327,17 @@ export function setupEchantillonnage(
       v <= 0 ? 0 : Math.min(Math.max(Math.round(v), 512), 131072);
   }
 
+  // Le serveur ne déclare `true` que là où c'est su : gabarit lu sur /props (llama.cpp), ou SGLang avec un parseur de réflexion.
   const preserveReasoningSupported = computed(() => {
-    if (connecteurNonLlama()) return false;
     const d = effectiveParamsData.value;
-    if (!d || d.degraded || !d.supports_preserve_reasoning) return false;
+    if (!d || d.supports_preserve_reasoning !== true) return false;
     return d.model_id === selectedModel.value;
   });
   const preserveReasoningEnabled = computed({
-    get: () => samplingOverride.value.preserve_reasoning !== false,
+    get: () =>
+      samplingOverride.value.preserve_reasoning ??
+      effectiveParamsData.value?.preserve_reasoning_default ??
+      true,
     set: (actif: boolean) => {
       samplingOverride.value.preserve_reasoning = !!actif;
     },

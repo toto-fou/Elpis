@@ -237,6 +237,11 @@ aucune capacité n'est deviné.
 - **Capacités** : pour ces deux moteurs, `effective-params` déclare la réflexion et l'effort (`none` à `xhigh`)
   sans `/props`, au lieu de `null` ; l'interrupteur et la puce sont offerts (sans effet sur un modèle qui ne
   raisonne pas).
+- **Raisonnement conservé avec SGLang** (désactivé par défaut) : `effective-params` déclare
+  `supports_preserve_reasoning` quand `/server_info` annonce un parseur de réflexion, avec
+  `preserve_reasoning_default: false` ; activé, la réflexion de chaque appel d'outil du tour repart au moteur dans le
+  `reasoning_content` du message assistant, sans le balisage d'appel, comptée par `tokens.ts` pendant ce tour et jamais
+  enregistrée. Le Python ne la rendait à aucun moteur.
 - **`</think>` orphelin** (serveur sans `--reasoning-parser`, gabarit qui ouvre `<think>` dans le prompt) : le texte
   qui le précède devient la réflexion en fin d'itération, comme dans le Python ; en plus, la bulle en direct est
   resynchronisée (`content_replace`), la narration d'un round d'outils ne garde ni la réflexion ni la balise, et le

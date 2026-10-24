@@ -1315,18 +1315,28 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       return { bilan, rapport };
     };
 
-    await emit(o.onEvent, {
-      type: "task_step",
-      child_id: childId,
-      agent: agentType,
-      call_id: callId,
-      status: "spawned",
-      resumed: resumed !== null,
-      depth: 0,
-    });
+    if (ACTIFS.has(k))
+      return refusSimple("task_busy", `agent '${childId}' is still running`, {
+        fix: "wait for its result or start a fresh agent",
+      });
     const arret = new AbortController();
-    const signalEnfant = o.signal ? AbortSignal.any([o.signal, arret.signal]) : arret.signal;
     ACTIFS.set(k, { agent: agentType, chatId: o.chatId, t0: Date.now() / 1000, arret });
+    try {
+      await emit(o.onEvent, {
+        type: "task_step",
+        child_id: childId,
+        agent: agentType,
+        call_id: callId,
+        status: "spawned",
+        resumed: resumed !== null,
+        depth: 0,
+      });
+    } catch (e) {
+      ACTIFS.delete(k);
+      ANNULES.delete(k);
+      throw e;
+    }
+    const signalEnfant = o.signal ? AbortSignal.any([o.signal, arret.signal]) : arret.signal;
     debutTrace(o.username, traceParent, childId, sa);
     let delaiDepasse = false;
     const minuterie = setTimeout(() => {
@@ -1402,8 +1412,10 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         const enfantSeul = ANNULES.has(k) && !(o.isCancelled && o.isCancelled()) && !o.signal?.aborted;
         if (!enfantSeul) {
           clearTimeout(minuterie);
-          ACTIFS.delete(k);
-          ANNULES.delete(k);
+          if (ACTIFS.get(k)?.arret === arret) {
+            ACTIFS.delete(k);
+            ANNULES.delete(k);
+          }
           const { bilan } = await conclure();
           await flushChat(false);
           await emitFinalStep(o.onEvent, childId, agentType, etat, appelsVus, childMetrics, t0, {
@@ -1424,8 +1436,10 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       }
     } finally {
       clearTimeout(minuterie);
-      ACTIFS.delete(k);
-      ANNULES.delete(k);
+      if (ACTIFS.get(k)?.arret === arret) {
+        ACTIFS.delete(k);
+        ANNULES.delete(k);
+      }
     }
     const { bilan, rapport } = await conclure();
     const reprise = (suite: string): Dict =>

@@ -85,10 +85,17 @@ export function masquerUrl(url) {
     return change ? u.href : url;
 }
 
-/** Script d'une évaluation en une ligne de commentaire sûre (retours à la ligne aplatis, 120 caractères au plus). */
+/** Script d'une évaluation en une ligne de commentaire sûre (retours à la ligne et caractères de contrôle aplatis, 120 caractères au plus). */
 export function commentaireEval(script) {
-    const ligne = String(script ?? '').replace(/[\r\n\u2028\u2029\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const ligne = String(script ?? '').replace(/[\x00-\x1f\x7f-\x9f\u2028\u2029]+/g, ' ').replace(/\s+/g, ' ').trim();
     return ligne.length > 120 ? `${ligne.slice(0, 117)}...` : ligne;
+}
+
+/** Cellule Robot Framework rejouée telle quelle : blancs (hors espace simple) et contrôles codés \uXXXX, rien ne coupe la ligne ni la cellule ; \ $ @ & % * # = | échappés ; vide = ${EMPTY}. */
+export function celluleRobot(v) {
+    const s = String(v ?? '').replace(/[\\$@&%#=|*]/g, '\\$&')
+        .replace(/[^\S ]|[\x00-\x1f\x7f-\x9f]|^ | $| (?= )/gu, (c) => `\\u${c.codePointAt(0).toString(16).padStart(4, '0')}`);
+    return s || '${EMPTY}';
 }
 
 /** Notes du script : variables secrètes à fournir, évaluations non rejouées, URL masquées. */

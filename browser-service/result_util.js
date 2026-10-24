@@ -6,6 +6,7 @@
 // correctifs perdus par le retour de version du 04/09. Les sortir du monolithe
 // permet de les verrouiller par un test unitaire Node — la régression n'était
 // visible qu'en rejouant une session navigateur complète.
+import { celluleRobot } from './recorder_util.js';
 
 /** Hôte d'une URL (host:port), '' si illisible. */
 export function hostOf(url) {
@@ -117,8 +118,8 @@ export function selectOptionArg(evt, fmt = 'playwright') {
     }
     if (fmt === 'cypress') return _q(hasValue(label) ? label : (hasValue(value) ? value : ''));
     if (fmt === 'robot') {
-        if (hasValue(label)) return `label    ${label}`;
-        return `value    ${hasValue(value) ? value : ''}`;
+        if (hasValue(label)) return `label    ${celluleRobot(label)}`;
+        return `value    ${celluleRobot(hasValue(value) ? value : '')}`;
     }
     return hasValue(label) ? String(label) : (hasValue(value) ? String(value) : '');
 }

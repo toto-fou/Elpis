@@ -35,7 +35,13 @@ import {
 } from "./magasin";
 import { inscrireNettoyageRag } from "./nettoyage";
 import type { CollectionPartieRag } from "./nettoyage";
-import { clientQdrantRag, effacerCollectionQdrant, effacerDocumentQdrant, effacerNomQdrant } from "./qdrant";
+import {
+  clientQdrantRag,
+  effacerCollectionQdrant,
+  effacerDocumentQdrant,
+  effacerNomQdrant,
+  effacerPassagesPerimesQdrant,
+} from "./qdrant";
 import type { PortQdrantRag } from "./qdrant";
 import {
   assurerMigration,
@@ -283,9 +289,10 @@ export class ServiceIndexationRag {
     return this.annoncer(jobId);
   }
 
-  /** Annule un travail : documents déjà indexés auparavant gardés tels quels, les autres en échec « annulé » ; une migration annulée laisse servir l'ancienne génération. */
+  /** Annule un travail : documents déjà indexés auparavant gardés tels quels, les autres en échec « annulé » sans les passages restés ; une migration annulée laisse servir l'ancienne génération. */
   async annuler(qui: DemandeurRag, jobId: string): Promise<TravailRagPublic> {
     const t = await this.travailDe(qui, jobId);
+    let perimes: string[] = [];
     const fait = await this.base.ecriture(async (x) => {
       const j = await lireTravail(x, jobId);
       if (j === null) throw new RefusIndexationRag("travail_introuvable");
@@ -307,6 +314,13 @@ export class ServiceIndexationRag {
             `AND status IN ${ETATS_DOCUMENT_A_TRAITER} AND indexed_at IS NOT NULL`,
           [j.collection_id],
         );
+        perimes = (
+          await x.valeurs<[unknown]>(
+            `SELECT id FROM rag_documents WHERE collection_id=? AND status IN ${ETATS_DOCUMENT_A_TRAITER} ` +
+              "AND (chunk_count > 0 OR status IN ('extracting', 'indexing'))",
+            [j.collection_id],
+          )
+        ).map(([id]) => String(id));
         await x.run(
           `UPDATE rag_documents SET status='error', error_code='cancelled', error_message=? WHERE collection_id=? AND status IN ${ETATS_DOCUMENT_A_TRAITER}`,
           ["Indexation annulée : relancez-la pour indexer ce document.", j.collection_id],
@@ -316,6 +330,7 @@ export class ServiceIndexationRag {
       return j;
     });
     this.travailleur?.interrompre({ jobId }, "annulation");
+    await effacerPassagesPerimesQdrant(this.qdrant(), t.collection_id, perimes);
     if (fait !== null && fait.kind === "migrate") {
       const coll = await lireCollection(this.base, t.collection_id);
       const generation = fait.params.generation ?? (coll === null ? 0 : coll.meta.generation + 1);

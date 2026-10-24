@@ -24,7 +24,7 @@ export interface PortQdrantRag {
   inserer(nom: string, points: readonly PointAEcrire[], options?: { signal?: AbortSignal }): Promise<number>;
   supprimerDocument(
     nom: string,
-    docId: string,
+    docId: string | readonly string[],
     options?: { sauf?: readonly number[]; signal?: AbortSignal },
   ): Promise<void>;
   supprimerCollection(nom: string, signal?: AbortSignal): Promise<boolean>;
@@ -144,6 +144,29 @@ export async function effacerDocumentQdrant(
 ): Promise<boolean> {
   if (!estUuidRag(collectionId) || !estUuidRag(docId)) return false;
   return tenter(`d.${collectionId}.${docId}`, () => effacerDocument(q, collectionId, docId));
+}
+
+/** Identifiants de documents par effacement Qdrant (corps de requête borné). */
+const PAQUET_EFFACEMENT = 1000;
+
+/** Passages d'une version jamais indexée (ancienne version remplacée, écriture partielle) retirés ; injoignable : laissés sans marqueur, l'identifiant du document resservant. */
+export async function effacerPassagesPerimesQdrant(
+  q: PortQdrantRag,
+  collectionId: string,
+  docIds: readonly string[],
+): Promise<void> {
+  if (!docIds.length) return;
+  try {
+    for (const nom of await generationsQdrant(q, collectionId))
+      for (let i = 0; i < docIds.length; i += PAQUET_EFFACEMENT)
+        try {
+          await q.supprimerDocument(nom, docIds.slice(i, i + PAQUET_EFFACEMENT));
+        } catch (e) {
+          if (!absente(e)) throw e;
+        }
+  } catch (e) {
+    log.warn({ err: e }, `passages périmés non retirés (${collectionId})`);
+  }
 }
 
 /** Supprime une génération précise (l'ancienne après une bascule, la cible d'une migration annulée) ; injoignable : noté. */

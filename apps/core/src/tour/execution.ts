@@ -12,6 +12,7 @@ import {
   estErreurAnnulation,
   floatPy,
   intPy,
+  longueurPy,
   prefixePy,
   strPy,
   veritePy,
@@ -26,7 +27,7 @@ import { runChatMultiMcp } from "../boucle/orchestrateur";
 import type { OptionsRun } from "../boucle/orchestrateur";
 import { logMetric, tokenHex } from "../boucle/ports";
 import type { SortieRun } from "../boucle/sortie";
-import { enforceRecentChatsCap, finalizeTurnMeta, getChat } from "../chats/stockage";
+import { enforceRecentChatsCap, finalizeTurnMeta, getChat, SUFFIXE_LLM_MAX } from "../chats/stockage";
 import {
   buildStateSystemMessage,
   extractCompressionState,
@@ -659,6 +660,7 @@ export async function* runTurn(
               ephemeral: plan.ephemeral,
               denyToolNames: plan.denyTools,
               readOnly: plan.planMode,
+              userSuffixRoom: SUFFIXE_LLM_MAX - (suffixeTour ? longueurPy(suffixeTour) + 2 : 0),
               slot,
             });
             thinkingText =

@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/boucle/orchestrateur.ts — la boucle agentique (seule fonction de chat, E23) : prélude, itérations LLM ↔ outils, budgets, sorties. */
 import { config } from "@elpis/config";
-import { CancelledError, estDict, estErreurAnnulation, intPy, longueurPy, pyJsonDumps } from "@elpis/commun";
+import {
+  CancelledError,
+  estDict,
+  estErreurAnnulation,
+  intPy,
+  longueurPy,
+  prefixePy,
+  pyJsonDumps,
+} from "@elpis/commun";
 
 import { ephemeral, mergeUserSuffix } from "../contexte/elagage";
 import { assembleOperationalContext } from "../contexte/assemblage";
@@ -152,6 +160,8 @@ export interface OptionsRun {
   wallclockS?: number | null;
   /** Ajouté à la consigne de synthèse quand un budget s'épuise (rapport d'un sous-agent). */
   wrapupSuffix?: string | null;
+  /** Place (caractères) du suffixe de la question dans celui enregistré, pour un rejeu à l'octet ; absent = sans borne. */
+  userSuffixRoom?: number | null;
   /** Chaque `<harness_status>` envoyé au modèle ; `finDeBudget` : ligne « Wrap up » ou « LAST » (bilan d'un sous-agent). */
   surPointEtape?: ((p: { texte: string; finDeBudget: boolean }) => void) | null;
   /** Slot du tour (`withLLM(…, { outils: true })`) ; absent, les appels partent sans file. */
@@ -238,23 +248,25 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
       type: "mode",
       text: `Connecté : ${connectedServerNames.join(", ")} (${toolsPayload.length} outil(s))`,
     });
-  let workingMessages = (await assembleOperationalContext(o.messages, {
+  const [assemble, ax] = await assembleOperationalContext(o.messages, {
     allowedToolNames: allowed,
     username,
-  })) as Dict[];
-  if (allowed.includes("todowrite")) {
-    const rappel = await todoStatusReminder(username, chatId);
-    if (rappel) {
-      const queue = workingMessages[workingMessages.length - 1];
-      if (estDict(queue) && queue["role"] === "user") {
-        workingMessages[workingMessages.length - 1] = {
-          ...queue,
-          content: mergeUserSuffix(queue["content"], rappel),
-        };
-        await emit(onEvent, { type: "llm_user_suffix", text: rappel });
-      } else if (!(estDict(queue) && queue["role"] === "assistant"))
-        workingMessages.push(ephemeral("user", rappel));
-    }
+  });
+  let workingMessages = assemble as Dict[];
+  const rappel = allowed.includes("todowrite") ? await todoStatusReminder(username, chatId) : null;
+  const brut = [rappel, ax].filter(Boolean).join("\n\n");
+  const room = o.userSuffixRoom;
+  const suffixe = room === null || room === undefined ? brut : prefixePy(brut, Math.max(0, room));
+  if (suffixe) {
+    const queue = workingMessages[workingMessages.length - 1];
+    if (estDict(queue) && queue["role"] === "user") {
+      workingMessages[workingMessages.length - 1] = {
+        ...queue,
+        content: mergeUserSuffix(queue["content"], suffixe),
+      };
+      await emit(onEvent, { type: "llm_user_suffix", text: suffixe });
+    } else if (!(estDict(queue) && queue["role"] === "assistant"))
+      workingMessages.push(ephemeral("user", suffixe));
   }
   const rec = new RunRecord();
   rec.usageAcc = acc;

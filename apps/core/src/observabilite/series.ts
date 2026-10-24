@@ -128,6 +128,12 @@ export function planBuckets(
 function expressionSeau(plan: PlanSeaux, tsCol: string, x: Executeur): [string, Valeur[]] {
   if (plan.granularity === "day") {
     if (plan.isServerTz) return [localStrftime("%Y-%m-%d", tsCol, x.dialecte), []];
+    if (plan.fuseau.zone && plan.edges.length > 1) {
+      // Zone nommée : clé du jour par les bornes du calendrier, donc avec le décalage de chaque jour.
+      const quand = plan.edges.slice(1).map(() => `WHEN ${tsCol} < ? THEN ?`);
+      const params = plan.edges.slice(1).flatMap((e, i): Valeur[] => [e, String(plan.keys[i])]);
+      return [`CASE ${quand.join(" ")} ELSE ? END`, [...params, String(plan.keys[plan.keys.length - 1])]];
+    }
     const off = plan.fuseau.zone ? plan.fuseau.zone.versLocal(Math.floor(Date.now() / 1000)).decalage : 0;
     return [utcStrftime("%Y-%m-%d", `${tsCol} + ?`, x.dialecte), [off]];
   }

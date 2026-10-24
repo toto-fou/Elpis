@@ -51,10 +51,14 @@ const LITTERAUX = /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
 const SAISIE_DANS_SCRIPT = new RegExp(String.raw`\.value\s*\+?=(?!=)|\b(?:fill|type|insertText|setRangeText|sendKeys|setValue|execCommand)\s*\(|`
     + String.raw`pass(?:word|wd|phrase)?|pwd|secret|token|api.?key|(?<![a-z])(?:otp|pin|cvc|cvv)(?![a-z])|auth|session|credential|bearer`, 'i');
 
+// Au-delà, un script qui saisit ou cite un secret est masqué en entier : LITTERAUX est quadratique sur un littéral non fermé.
+const MAX_SCRIPT_MASQUE = 8192;
+
 /** Script d'une évaluation sans secret : s'il saisit une valeur (`.value =`, `fill(`, `type(`…) ou cite un secret, ses littéraux et la valeur affectée deviennent `***`. */
 export function masquerScript(script) {
     const s = String(script ?? '');
     if (!SAISIE_DANS_SCRIPT.test(s)) return s;
+    if (s.length > MAX_SCRIPT_MASQUE) return "'***'";
     return s.replace(LITTERAUX, "'***'").replace(/(\.value\s*\+?=(?!=)\s*)[\w.$-]+/g, '$1***');
 }
 

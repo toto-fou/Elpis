@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/http/src/routeur-starlette.ts — route introuvable comme le routeur Starlette : 405 + Allow si seule la méthode diffère, 307 vers la forme avec ou sans barre finale, sinon 404. */
-import { quotePy, stripPy } from "@elpis/commun";
+import { quotePy, rstripPy, stripPy } from "@elpis/commun";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import type { RouteMontee } from "./routes";
@@ -134,7 +134,7 @@ export function routeIntrouvable(requete: FastifyRequest, reponse: FastifyReply)
       .send({ detail: "Method Not Allowed" });
   }
   if (partielle === undefined && chemin !== "/") {
-    const autre = chemin.endsWith("/") ? chemin.replace(/\/+$/u, "") : `${chemin}/`;
+    const autre = chemin.endsWith("/") ? rstripPy(chemin, "/") : `${chemin}/`;
     if (autre.startsWith("/") && candidats.some((m) => m.regex.test(autre))) {
       return reponse
         .code(307)

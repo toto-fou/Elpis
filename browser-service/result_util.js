@@ -275,6 +275,19 @@ export function echapperDsl(valeur) {
     return String(valeur ?? '').replace(SEPARATEUR_DSL, '\\|');
 }
 
+/** Valeur entre guillemets doubles d'un sélecteur CSS ou Playwright : antislash et guillemet échappés (comme Playwright). */
+export function echapperCss(valeur) {
+    return String(valeur ?? '').replace(/[\\"]/g, '\\$&');
+}
+
+/** Littéral XPath 1.0, qui n'a pas d'échappement : entre apostrophes, entre guillemets, sinon concat(). */
+export function litteralXPath(valeur) {
+    const s = String(valeur ?? '');
+    if (!s.includes("'")) return `'${s}'`;
+    if (!s.includes('"')) return `"${s}"`;
+    return `concat('${s.split("'").join(`', "'", '`)}')`;
+}
+
 /** Cibles proposées pour une cible introuvable : noms proches d'abord (même rôle avantagé), sinon les éléments du rôle demandé. */
 export function classerSuggestions(noeuds, { name = '', role = '' } = {}, max = 5) {
     const cible = (n) => ({ role: n.role, name: n.name, target: n.name ? `role=${n.role}|name=${echapperDsl(n.name)}` : `role=${n.role}` });

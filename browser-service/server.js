@@ -20,7 +20,7 @@ import { lirePs, orphelins } from './proc_util.js';
 import { demarrerRelais, verifierDepuisPolitique } from './proxy_guard.js';
 import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf,
          codeErreur, racinesMasquees, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
-         noeudsAria, classerSuggestions } from './result_util.js';
+         noeudsAria, classerSuggestions, echapperCss, litteralXPath } from './result_util.js';
 import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript } from './recorder_util.js';
@@ -1006,7 +1006,7 @@ async function smartResolveLocator(page, selector, opts = {}) {
     // text="X" en début / standalone → has-text. Note : on garde si combiné avec tag:.
     if (/^text=["']/.test(selector)) {
         const m = selector.match(/^text=(["'])(.+)\1$/);
-        if (m) selector = `*:has-text("${m[2].replace(/"/g, '\\"')}")`;
+        if (m) selector = `*:has-text("${echapperCss(m[2].replace(/\\(.)/gs, '$1'))}")`;
     }
     if (selector !== origSelector) {
         console.log(`[smartResolve] Auto-rewrite: ${origSelector} → ${selector}`);
@@ -1039,7 +1039,7 @@ async function smartResolveLocator(page, selector, opts = {}) {
         // Critical for: <div class="btn"><span>Valider</span></div>
         try {
             for (const tag of ['button', 'a', '[role="button"]', '[onclick]', 'div', 'span', 'li', 'td', 'label']) {
-                const ht = page.locator(`${tag}:has-text("${selector.replace(/"/g, '\\"')}")`).first();
+                const ht = page.locator(`${tag}:has-text("${echapperCss(selector)}")`).first();
                 if (await ht.count().catch(() => 0) > 0 && await ht.isVisible({ timeout: VIS_T }).catch(() => false))
                     return { locator: ht, frame: page, strategy: `has-text(${tag})` };
             }
@@ -1056,10 +1056,9 @@ async function smartResolveLocator(page, selector, opts = {}) {
 
         // 2d. XPath normalize-space contains — handles whitespace, nested text, case variations
         try {
-            const escaped = selector.replace(/'/g, "\\'");
             const xpaths = [
-                `//*[contains(normalize-space(), '${escaped}')]`,
-                `//*[contains(translate(normalize-space(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÀÂÄÉÈÊËÏÎÔÙÛÜÇ', 'abcdefghijklmnopqrstuvwxyzàâäéèêëïîôùûüç'), '${escaped.toLowerCase()}')]`,
+                `//*[contains(normalize-space(), ${litteralXPath(selector)})]`,
+                `//*[contains(translate(normalize-space(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÀÂÄÉÈÊËÏÎÔÙÛÜÇ', 'abcdefghijklmnopqrstuvwxyzàâäéèêëïîôùûüç'), ${litteralXPath(selector.toLowerCase())})]`,
             ];
             for (const xp of xpaths) {
                 const xl = page.locator(`xpath=${xp}`).first();
@@ -1096,7 +1095,7 @@ async function smartResolveLocator(page, selector, opts = {}) {
 
     // ─── Strategy 4 : Attribute matching (aria-label, placeholder, name, title) ───
     if (!isXPath && !isPlaywrightSyntax) {
-        const escapedSel = selector.replace(/"/g, '\\"');
+        const escapedSel = echapperCss(selector);
         const attrChecks = [
             { sel: `[aria-label="${escapedSel}"]`, name: 'aria-label' },
             { sel: `[placeholder="${escapedSel}"]`, name: 'placeholder' },

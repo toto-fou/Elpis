@@ -559,6 +559,7 @@ export async function llamaChatWithToolsStream(
     let timings: Dict = {};
     try {
       o.signal?.throwIfAborted();
+      const debutMs = performance.now();
       const resp: ReponseFlux = await client.stream("POST", reqUrl, {
         json: payload,
         headers: reqHeaders,
@@ -566,6 +567,7 @@ export async function llamaChatWithToolsStream(
         signal: o.signal,
       });
       let sse = new SseStreamResult();
+      sse.debutMs = debutMs;
       try {
         if (resp.statusCode >= 400) await auMieux("lecture du corps d'erreur", () => resp.aread());
         if (resp.statusCode === 500) return await repli500(client, reqUrl, reqHeaders, payload, o);

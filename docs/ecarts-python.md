@@ -241,6 +241,11 @@ aucune capacité n'est deviné.
   qui le précède devient la réflexion en fin d'itération, comme dans le Python ; en plus, la bulle en direct est
   resynchronisée (`content_replace`), la narration d'un round d'outils ne garde ni la réflexion ni la balise, et le
   résumé d'un point de terminaison de compression dédié retire ce raisonnement.
+- **Appels d'outils en flux** : un delta qui apporte un nouvel `id` et un nom sur un `index` dont l'appel est déjà
+  nommé ouvre un appel distinct (SGLang réutilise l'index après un nom d'outil inconnu, certains parseurs mettent la
+  position de l'outil dans `tools`) ; Elpis numérote les appels dans leur ordre d'ouverture et transmet ce numéro
+  dans `tool_call_delta`. Le Python, comme le TS avant, fusionnait les deux appels sous un nom collé
+  (`read_filelist_dir`) aux arguments invalides.
 
 ## Moteurs : profils déclarés (llama.cpp, vLLM, SGLang, générique)
 

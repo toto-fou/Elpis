@@ -208,6 +208,7 @@ export const schemaParametresEffectifs = z.looseObject({
   supports_reasoning_effort: z.boolean().nullable(),
   reasoning_effort_values: z.array(z.string()),
   supports_preserve_reasoning: z.boolean().nullable(),
+  preserve_reasoning_default: z.boolean().optional(),
   supports_continue_final_message: z.boolean().nullable(),
   sources: z.looseObject({
     props: dictionnaire,

@@ -270,6 +270,11 @@ est exact ; un compte partiellement estimé reste flaggé `tokens_estimated`.
   `cache_read/creation_input_tokens` restent exposés à part dans les
   metrics. La jauge de contexte reste masquée pour les cibles distantes (pas
   de `/tokenize` fiable, tokenizer local ≠ tokenizer distant).
+- **Raisonnement conservé (SGLang)** : désactivé par défaut. Activé, la
+  réflexion de chaque appel d'outil du tour repart au moteur
+  (`reasoning_content`) : elle occupe alors la fenêtre du moteur et compte
+  dans `payloadChars` et l'estimation par message pendant ce tour. Elle reste
+  absente de l'historique persisté, donc du prompt du tour suivant.
 - **`prompt_n` (timings llama.cpp)** : n'alimente PLUS rien côté contexte —
   avec le prefix-cache il ne compte que les tokens réévalués (excluait
   system + tools + tours cachés). Les timings ne servent qu'aux métriques

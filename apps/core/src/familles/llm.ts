@@ -671,12 +671,19 @@ async function parametresEffectifs(
   };
   if (!eng.isBuiltin) {
     if (degrade || !eng.profil.capacites.props)
-      return describeEffectiveParamsDegraded(modelId, task, eng.providerType);
+      return avecReflexionRenvoyee(eng, describeEffectiveParamsDegraded(modelId, task, eng.providerType));
     return resoudre(eng);
   }
   if (degrade || !estModeleLocal(modelId))
-    return describeEffectiveParamsDegraded(modelId, task, eng.providerType);
-  return resoudre(null);
+    return avecReflexionRenvoyee(eng, describeEffectiveParamsDegraded(modelId, task, eng.providerType));
+  return avecReflexionRenvoyee(eng, await resoudre(null));
+}
+
+/** Moteur qui rend la réflexion des tours d'outils (SGLang) : « Raisonnement conservé » offert si un parseur de réflexion la sépare, éteint par défaut. */
+export async function avecReflexionRenvoyee(eng: EngineRef, d: Dict): Promise<Dict> {
+  if (!eng.profil.capacites.reflexionRenvoyee) return d;
+  const parseur = (await infosServeur(eng)).parseurReflexion;
+  return { ...d, supports_preserve_reasoning: parseur !== null, preserve_reasoning_default: false };
 }
 
 // ── Cycle de vie ─────────────────────────────────────────────────────────────

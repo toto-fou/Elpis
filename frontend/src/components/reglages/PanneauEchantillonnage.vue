@@ -150,11 +150,11 @@ const rg = domaineReglages();
           </label>
           <p class="text-[10px] text-slate-400 mt-1 leading-tight">
             <template v-if="rg.preserveReasoningEnabled">
-              Activé · la réflexion des tours passés reste dans le prompt. Plus cohérent, prompt plus long.
+              Activé · la réflexion déjà produite est rendue au modèle, son gabarit décide de ce qu'il garde.
+              Plus cohérent, prompt plus long ; avec SGLang, la question suivante recalcule les appels
+              d'outils du tour.
             </template>
-            <template v-else>
-              Désactivé · seule la réflexion du tour courant est gardée. Prompt plus court.
-            </template>
+            <template v-else> Désactivé · seule la réflexion en cours compte. Prompt plus court. </template>
             Changer en cours de conversation force un re-calcul du cache une fois.
           </p>
         </div>

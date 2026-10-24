@@ -11,6 +11,7 @@ import { llamaGet, monotonic } from "./llama-http";
 import { autoloadSuffix } from "./modeles";
 import { currentEngine } from "./moteurs";
 import { profilDuType } from "./profils";
+import type { ProfilMoteur } from "./profils";
 import { surChangementDeModele, surInvalidationGlobale } from "./registre-caches";
 
 const log = journal("llm_params");
@@ -465,6 +466,11 @@ export function sanitizePreserveReasoning(samplingOverride: unknown): boolean | 
   if (!estDict(samplingOverride)) return null;
   const v = getPy(samplingOverride, "preserve_reasoning");
   return typeof v === "boolean" ? v : null;
+}
+
+/** Réflexion des tours d'outils rendue au moteur : profil qui la transmet au gabarit (SGLang) et « Raisonnement conservé » activé explicitement (éteint par défaut). */
+export function reflexionDuTourRendue(profil: ProfilMoteur, samplingOverride: unknown): boolean {
+  return profil.capacites.reflexionRenvoyee && sanitizePreserveReasoning(samplingOverride) === true;
 }
 
 function agentDefaults(): Dict {

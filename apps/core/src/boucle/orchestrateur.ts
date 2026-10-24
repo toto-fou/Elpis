@@ -456,6 +456,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
         toolCalls,
         iterClean,
         iteration,
+        iterThinking,
       });
     } else {
       const reply = classifyTextReply(ctx, live, iterClean, iteration);

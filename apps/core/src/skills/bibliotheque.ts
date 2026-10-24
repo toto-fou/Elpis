@@ -607,6 +607,12 @@ async function enregistrerEntree(
     const precedente = slugifyName(o.prevName.split("/").at(-1));
     if (precedente && precedente !== slug) {
       const ancien = await trouverEntree(racine, source, o.prevName, exclusions);
+      const pris = ancien ? await trouverEntree(racine, source, slug, exclusions) : null;
+      if (pris && pris.id !== ancien?.id)
+        throw new SkillSaveError(
+          `'${slug}' existe déjà ailleurs — renommage refusé`,
+          `'${slug}' already exists elsewhere: rename refused`,
+        );
       if (ancien?.skillDir) {
         const nouveau = pyJoin(parentDe(ancien.skillDir), slug);
         if (await existe(nouveau))

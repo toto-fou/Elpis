@@ -5982,6 +5982,8 @@ app.post('/handle_next_dialog', getSession, autoSnapshot, async (req, res) => {
             input_text = '',     // Pour les prompt() dialogs
             timeout = 10000,
         } = req.body;
+        const attente = Number(timeout);
+        if (!(attente >= 0 && attente <= 60000)) return res.status(400).json({ error: 'timeout must be 0 to 60000 ms' });
 
         // Remplacer le handler dialog par défaut pour la prochaine occurrence seulement
         let resolved = false;
@@ -6010,7 +6012,7 @@ app.post('/handle_next_dialog', getSession, autoSnapshot, async (req, res) => {
                 page.off('dialog', handler);
                 res.json({ status: 'no_dialog', timeout_ms: timeout });
             }
-        }, timeout);
+        }, attente);
 
     } catch (e) { res.status(500).json({ error: e.message }); }
 });

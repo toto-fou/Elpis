@@ -230,6 +230,10 @@ aucune capacité n'est deviné.
 - **Réflexion lue** dans `reasoning` (seul champ de vLLM 0.31) comme dans `reasoning_content` (llama.cpp, SGLang),
   en flux et dans les réponses entières, pour tout fournisseur compatible OpenAI ; un serveur qui envoie les deux
   n'est compté qu'une fois. Le Python ne lisait que `reasoning_content` : la réflexion de vLLM n'apparaissait pas.
+- **Progression et journaux d'un outil** : `tool_progress` et `tool_log` portent le `call_id` de l'appel ; l'interface
+  les rattache à cette seule étape (une progression tardive d'un appel fini n'est plus affichée sous un autre), et au
+  dernier appel en cours du même nom seulement quand le `call_id` manque (lots parallèles d'un même outil : la
+  progression de l'un s'affichait sous l'autre).
 - **Dialecte de requête** de `vllm` et de `sglang` (accepté comme `llama.engine`) : `chat_template_kwargs`
   (`enable_thinking` suit l'interrupteur Réflexion), `reasoning_effort` (puce Effort), `top_k`, `min_p` et
   `repetition_penalty` (la pénalité de répétition des réglages ; un `top_k` nul devient -1). Le Python retirait ces

@@ -1,9 +1,15 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/composeur/ZoneSaisie.vue — zone de saisie du composeur : texte (v-model:texte), élément publié au parent (focus, curseur, hauteur), touches et saisie transmises ; deux lignes au moins (60 px) sur la page de nouveau chat. -->
+<!-- frontend/src/components/chat/composeur/ZoneSaisie.vue — zone de saisie du composeur (combobox des menus « / » et « @ ») : texte (v-model:texte), élément publié au parent (focus, curseur, hauteur), touches et saisie transmises ; deux lignes au moins (60 px) sur la page de nouveau chat. -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, useTemplateRef, watch } from "vue";
 
-const props = defineProps<{ texte: string; placeholder: string; nouveauChat?: boolean }>();
+const props = defineProps<{
+  texte: string;
+  placeholder: string;
+  nouveauChat?: boolean;
+  listeId?: string | null;
+  optionActive?: string | null;
+}>();
 const emit = defineEmits<{
   "update:texte": [texte: string];
   element: [el: HTMLTextAreaElement | null];
@@ -34,6 +40,14 @@ onBeforeUnmount(() => emit("element", null));
     ref="zone"
     v-model="valeur"
     rows="1"
+    role="combobox"
+    aria-label="Message"
+    aria-autocomplete="list"
+    aria-haspopup="listbox"
+    aria-multiline="true"
+    :aria-expanded="props.listeId ? 'true' : 'false'"
+    :aria-controls="props.listeId || undefined"
+    :aria-activedescendant="props.listeId && props.optionActive ? props.optionActive : undefined"
     :placeholder="props.placeholder"
     class="w-full bg-transparent px-3 py-2 outline-none resize-none max-h-40 text-slate-800 placeholder:text-slate-500 disabled:opacity-50 text-sm font-medium"
     :style="{ minHeight: props.nouveauChat ? '60px' : '40px' }"

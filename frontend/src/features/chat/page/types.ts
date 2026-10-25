@@ -45,6 +45,10 @@ export interface DomaineEntete {
   togglePanel(nom: string): void;
   exportChatAs(format: string): unknown;
   openHelp(): void;
+  loadChat(id: string): unknown;
+  renameChat(id: string, titre: string): unknown;
+  archiveChat(id: string): unknown;
+  deleteChat(id: string): unknown;
 }
 
 /** Fil : conteneur de défilement, accueil, recherche dans la conversation, bouton « bas », dépôt de fichiers. */
@@ -65,6 +69,8 @@ export interface DomaineConversation {
   isUserScrolling: boolean;
   readonly scrollBtnBottom: number;
   scrollToBottom(force?: boolean): void;
+  /** Saut fiable vers un message, même hors de la fenêtre rendue des longues conversations. */
+  scrollToMessage(idx: number): void;
 }
 
 export interface EtatCompression {
@@ -152,7 +158,7 @@ export interface DomaineComposeur {
   isAskOptionOn(opt: string): boolean;
   askUserNext(): unknown;
   askUserPrev(): void;
-  readonly pinnedSkills: readonly SkillEpingle[];
+  pinnedSkills: readonly SkillEpingle[];
   removePinnedSkill(nom: string): void;
   showComposerPlus: boolean;
   showSharedPrompts: boolean;
@@ -178,6 +184,36 @@ export interface DomaineComposeur {
   readonly attachedFiles: readonly PieceJointe[];
   readonly noEngineAllowed: boolean;
   sendMessage(): unknown;
+  readonly currentChatId: string | null;
+  readonly planMode: boolean;
+  setPlanMode(on: boolean): unknown;
+  manualCompress(): unknown;
+  /** Catalogue du « + » : skills du compte par portée, prompts enregistrés, gabarits. */
+  readonly skillsByScope: Readonly<Record<string, readonly SkillCatalogue[]>>;
+  loadAllSkills(): unknown;
+  readonly savedPromptsList: readonly PromptCatalogue[];
+  loadSavedPrompts(): unknown;
+  readonly templatesAll: readonly GabaritCatalogue[];
+  loadTemplates(): unknown;
+  openTemplate(gabarit: GabaritCatalogue): unknown;
+}
+
+export interface SkillCatalogue {
+  name: string;
+  description?: string;
+  domain?: string;
+}
+
+export interface PromptCatalogue {
+  id: string | number;
+  title: string;
+  content: string;
+}
+
+export interface GabaritCatalogue {
+  name: string;
+  title?: string;
+  content: string;
 }
 
 export interface ChargeVisible {
@@ -386,6 +422,7 @@ export type DomaineBarre = Pick<
   | "isSearchingChats"
   | "loadChat"
   | "openChatSearch"
+  | "renameChat"
   | "searchOpen"
   | "showMcpPanel"
   | "startNewChat"
@@ -443,6 +480,10 @@ export type DomaineBarre = Pick<
   openSettings(): unknown;
   goToAdmin(tab?: unknown): unknown;
   logout(): unknown;
+  /** Menu du compte (interface nouvelle) : aide, informations, installation d'opencode. */
+  openHelp(): void;
+  showInfoModal: boolean;
+  showOpenCodeModal: boolean;
 };
 
 /** Colonne du chat : dépôt de fichiers, composeur (saisie, mentions, micro, mode plan, tâches), perchoir de la mascotte. */
@@ -514,4 +555,11 @@ export type DomainePage = Pick<
   readonly percheAnim: string;
   readonly percheDort: boolean;
   readonly mascotteId: string;
+  showToast(
+    message: string,
+    type?: string,
+    opts?: { duration?: number; actionLabel?: string; onAction?: () => void },
+  ): unknown;
+  /** Ouvre le déroulé d'un sous-agent (entrée de message et rang de l'exécution). */
+  openTaskModal(entree: { idx?: number; msg: unknown }, ri: number): void;
 };

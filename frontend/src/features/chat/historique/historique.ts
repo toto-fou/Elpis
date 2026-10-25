@@ -447,18 +447,46 @@ export function creerHistoriqueChat(
     }
   }
 
+  /** Désarchive après « Annuler » : la conversation reprend sa place, ou la liste est relue si le serveur refuse. */
+  async function desarchiver(ids: readonly string[], remettre: () => void): Promise<void> {
+    const reponses = await Promise.all(
+      ids.map((i) => fetchAuth("/api/saved/chats/" + i + "/unarchive", { method: "POST" }).catch(() => null)),
+    );
+    if (reponses.every((r) => r && r.ok)) {
+      remettre();
+      showToast(ids.length > 1 ? "Conversations restaurées" : "Conversation restaurée");
+    } else {
+      void loadChatsList();
+      showToast("Restauration impossible", "error");
+    }
+  }
+
+  // Réversible : l'archivage part sans question, « Annuler » le défait.
   async function archiveChat(id: string): Promise<void> {
     if (!id) return;
-    if (!(await openConfirm("Archiver la conversation ?", "", false, "Archiver"))) return;
+    const idStr = String(id);
     try {
       const res = await fetchAuth("/api/saved/chats/" + id + "/archive", { method: "POST" });
-      if (res && res.ok) {
-        chats.value = chats.value.filter((c) => String(c.id) !== String(id));
-        if (String(currentChatId.value) === String(id)) void startNewChat();
-        showToast("Conversation archivée");
+      if (!res || !res.ok) {
+        showToast("Archivage impossible", "error");
+        return;
       }
+      const idx = chats.value.findIndex((c) => String(c.id) === idStr);
+      const retire = idx >= 0 ? (chats.value[idx] as ResumeChat) : null;
+      chats.value = chats.value.filter((c) => String(c.id) !== idStr);
+      if (String(currentChatId.value) === idStr) void startNewChat();
+      const titre = retire?.title ? `« ${retire.title} » archivée` : "Conversation archivée";
+      showToast(titre, "success", {
+        duration: 6000,
+        actionLabel: "Annuler",
+        onAction: () =>
+          void desarchiver([idStr], () => {
+            if (retire && !chats.value.some((c) => String(c.id) === idStr))
+              chats.value.splice(Math.min(idx, chats.value.length), 0, retire);
+          }),
+      });
     } catch {
-      /* non fatal */
+      showToast("Archivage impossible", "error");
     }
   }
 
@@ -510,7 +538,15 @@ export function creerHistoriqueChat(
 
   async function deleteChat(id: string): Promise<void> {
     if (!id) return;
-    if (!(await openConfirm("Supprimer définitivement ?", await avertissementJobs([String(id)]), true)))
+    // Irréversible une fois le toast passé : la confirmation reste.
+    if (
+      !(await openConfirm(
+        "Supprimer la conversation ?",
+        await avertissementJobs([String(id)]),
+        true,
+        "Supprimer",
+      ))
+    )
       return;
     const idStr = String(id);
     if (typeof deps.stopRunForChat === "function") {
@@ -573,8 +609,9 @@ export function creerHistoriqueChat(
     else chatSelected.value.push(id);
   }
 
-  function finirGroupe(message: string, type = "success"): void {
-    if (message) showToast(message, type);
+  function finirGroupe(message: string, type = "success", annuler?: () => void): void {
+    if (message)
+      showToast(message, type, annuler ? { duration: 6000, actionLabel: "Annuler", onAction: annuler } : {});
     ctx.announce?.(message || "");
     chatSelected.value = [];
     chatSelectMode.value = false;
@@ -587,6 +624,7 @@ export function creerHistoriqueChat(
     cle: string,
     reussite: (n: number) => string,
     echec: string,
+    annuler?: () => void,
   ): Promise<void> {
     const ensemble = new Set(ids.map(String));
     chats.value = chats.value.filter((c) => !ensemble.has(String(c.id)));
@@ -599,7 +637,7 @@ export function creerHistoriqueChat(
       });
       if (res && res.ok) {
         const n = (await lireJson(res))[cle];
-        finirGroupe(reussite(n != null ? Number(n) : ids.length));
+        finirGroupe(reussite(n != null ? Number(n) : ids.length), "success", annuler);
       } else {
         void loadChatsList();
         finirGroupe(echec, "error");
@@ -613,13 +651,21 @@ export function creerHistoriqueChat(
   async function bulkArchiveChats(): Promise<void> {
     const ids = chatSelected.value.slice();
     if (!ids.length) return;
-    if (!(await openConfirm(`Archiver ${ids.length} conversation(s) ?`, "", false, "Archiver"))) return;
+    const avant = chats.value.slice();
     await groupe(
       ids,
       "/api/saved/chats/archive-batch",
       "archived",
       (n) => `${n} conversation(s) archivée(s)`,
       "Échec de l'archivage",
+      () =>
+        void desarchiver(ids, () => {
+          const presents = new Set(chats.value.map((c) => String(c.id)));
+          chats.value = [
+            ...chats.value,
+            ...avant.filter((c) => ids.includes(String(c.id)) && !presents.has(String(c.id))),
+          ];
+        }),
     );
   }
 

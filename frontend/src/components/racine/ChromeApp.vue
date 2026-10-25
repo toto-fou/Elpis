@@ -1,11 +1,36 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/racine/ChromeApp.vue — couche commune à toutes les vues (connexion, console, chat) : bandeau de redémarrage, annonceur, toasts, fenêtre de confirmation/saisie/choix, menu contextuel. -->
+<!-- frontend/src/components/racine/ChromeApp.vue — couche commune à toutes les vues (connexion, console, chat) : bandeau de redémarrage, annonceur, toasts, fenêtre de confirmation/saisie/choix, menu contextuel, marque de défilement des barres discrètes. -->
 <script setup lang="ts">
+import { inject } from "vue";
+
 import { CLE_CHROME, domaineRacine } from "../../app/racine/domaine";
+import { suivreDefilement } from "../../features/chat/page/barres-defilement";
+import { executerConversation } from "../../features/chat/page/conversation";
+import type { ActionConversation } from "../../features/chat/page/conversation";
+import { CLE_ENTETE } from "../../features/chat/page/domaines";
+import { interfaceApp } from "../../features/reglages/interface";
 import AnnonceurA11y from "../AnnonceurA11y.vue";
+import MenuConversation from "../chat/page/MenuConversation.vue";
 
 const c = domaineRacine(CLE_CHROME);
+const ui = interfaceApp();
 const multi = (item: unknown): number => c.explorerMultiCount?.(item) ?? 0;
+suivreDefilement(() => !ui.classique);
+// Domaines du chat : absents de la console, qui n'a pas de conversations.
+const conv = inject(CLE_ENTETE, null);
+
+/** Menu « Conversation » du clic droit : Renommer, Archiver, Supprimer passent par la racine ; Rechercher, Exporter par le chat. */
+function agirConversation(action: ActionConversation): void {
+  const item = c.contextMenu.item;
+  if (action === "renommer" || action === "archiver" || action === "supprimer") {
+    c.handleContextAction({ renommer: "rename", archiver: "archive", supprimer: "delete" }[action]);
+    return;
+  }
+  // Une action inconnue de la racine ferme seulement le menu, garde du focus comprise.
+  c.handleContextAction("fermer");
+  if (conv && item)
+    void executerConversation(action, { id: String(item.id ?? ""), title: String(item.title ?? "") }, conv);
+}
 </script>
 
 <template>
@@ -196,7 +221,10 @@ const multi = (item: unknown): number => c.explorerMultiCount?.(item) ?? 0;
       :style="{ top: c.contextMenu.y + 'px', left: c.contextMenu.x + 'px' }"
       @keydown="c.onContextMenuKeydown"
     >
-      <div v-if="c.contextMenu.type === 'chat'" class="px-1">
+      <div v-if="c.contextMenu.type === 'chat' && !ui.classique" class="px-1 w-56">
+        <MenuConversation @action="agirConversation" />
+      </div>
+      <div v-else-if="c.contextMenu.type === 'chat'" class="px-1">
         <button
           role="menuitem"
           class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"

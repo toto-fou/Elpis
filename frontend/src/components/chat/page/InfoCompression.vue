@@ -24,7 +24,7 @@ const comp = domaine(CLE_COMPOSEUR);
           comp.compressionState.round +
           ' fois' +
           (comp.compressionState.max > 0 ? ' (maximum ' + comp.compressionState.max + ')' : '') +
-          ' — tape /compact pour relancer.'
+          ' ; /compact pour relancer.'
         "
       >
         <i class="ph ph-arrows-in-simple" style="font-size: 10px"></i>{{ comp.compressionState.round

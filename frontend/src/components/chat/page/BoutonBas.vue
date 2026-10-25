@@ -10,6 +10,9 @@ const conv = domaine(CLE_CONVERSATION);
   <transition name="fade">
     <button
       v-if="conv.messages.length >= 3 && conv.chatAwayFromBottom"
+      type="button"
+      title="Aller en bas"
+      aria-label="Aller en bas"
       :style="{ bottom: conv.scrollBtnBottom + 'px' }"
       class="absolute left-1/2 -translate-x-1/2 z-30 w-9 h-9 bg-white border border-slate-200 rounded-full shadow-lg flex items-center justify-center text-slate-500 hover:text-blue-600 hover:border-blue-300 transition-all"
       @click="
@@ -17,7 +20,7 @@ const conv = domaine(CLE_CONVERSATION);
         conv.scrollToBottom(true);
       "
     >
-      <i class="ph ph-arrow-down text-base"></i>
+      <i class="ph ph-arrow-down text-base" aria-hidden="true"></i>
     </button>
   </transition>
 </template>

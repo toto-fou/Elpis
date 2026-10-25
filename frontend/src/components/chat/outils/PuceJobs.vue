@@ -6,7 +6,8 @@ import { computed } from "vue";
 import type { ReponseJobs, ResumeJob } from "@elpis/contracts";
 
 import { utiliserHorloge } from "../../../features/chat/jobs/horloge";
-import { dureeJob, jobActif, libelleArme, libelleEtat } from "../../../features/chat/jobs/format";
+import { dureeJob, issueJob, jobActif, libelleArme, libelleJob } from "../../../features/chat/jobs/format";
+import type { IssueJob } from "../../../features/chat/jobs/format";
 import type { PorteeJobs } from "../../../features/chat/jobs/jobs";
 
 const props = defineProps<{
@@ -33,9 +34,12 @@ const emit = defineEmits<{
 
 const maintenant = utiliserHorloge(() => props.ouvert);
 
-const compte = computed(() => (props.actifsChat > 0 ? props.actifsChat : props.actifsTotal));
-const titre = computed(
-  () => `Tâches de fond : ${props.actifsChat} dans cette conversation, ${props.actifsTotal} au total`,
+// Le compteur dit de quoi il parle : la conversation ouverte (« ici »), sinon le compte.
+const compte = computed(() => (props.chatId ? `${props.actifsChat} ici` : String(props.actifsTotal)));
+const titre = computed(() =>
+  props.chatId
+    ? `Tâches de fond actives : ${props.actifsChat} ici, ${props.actifsTotal} sur le compte`
+    : `Tâches de fond actives : ${props.actifsTotal} sur le compte`,
 );
 const nActifsVue = computed(() => props.jobs.filter(jobActif).length);
 const enAttente = computed(() => props.fileReveil.length);
@@ -48,21 +52,19 @@ const affichees = computed(() => {
 });
 const masquees = computed(() => props.jobs.length - affichees.value.length);
 
-const CLASSE_ETAT: Readonly<Record<ResumeJob["state"], string>> = {
-  starting: "text-blue-600",
-  running: "text-blue-600",
-  exited: "text-emerald-600",
-  killed: "text-slate-500",
-  lost: "text-amber-700",
-  failed: "text-red-600",
+const CLASSE_ISSUE: Readonly<Record<IssueJob, string>> = {
+  actif: "text-blue-600",
+  reussi: "text-emerald-600",
+  arrete: "text-slate-500",
+  perdu: "text-amber-700",
+  echec: "text-red-600",
 };
-const ICONE_ETAT: Readonly<Record<ResumeJob["state"], string>> = {
-  starting: "ph-circle-notch animate-spin motion-reduce:animate-none",
-  running: "ph-circle-notch animate-spin motion-reduce:animate-none",
-  exited: "ph-check-circle",
-  killed: "ph-stop-circle",
-  lost: "ph-warning",
-  failed: "ph-x-circle",
+const ICONE_ISSUE: Readonly<Record<IssueJob, string>> = {
+  actif: "ph-circle-notch animate-spin motion-reduce:animate-none",
+  reussi: "ph-check-circle",
+  arrete: "ph-stop-circle",
+  perdu: "ph-warning",
+  echec: "ph-x-circle",
 };
 </script>
 
@@ -148,11 +150,18 @@ const ICONE_ETAT: Readonly<Record<ResumeJob["state"], string>> = {
             class="border border-slate-100 rounded-lg px-2 py-1.5"
           >
             <div class="flex items-center gap-2 min-w-0">
-              <i class="ph text-sm shrink-0" :class="[ICONE_ETAT[j.state], CLASSE_ETAT[j.state]]"></i>
+              <i
+                class="ph text-sm shrink-0"
+                :class="[ICONE_ISSUE[issueJob(j)], CLASSE_ISSUE[issueJob(j)]]"
+                aria-hidden="true"
+              ></i>
               <span class="font-medium text-slate-800 min-w-0 break-words">{{ j.label || j.command }}</span>
-              <span class="ml-auto shrink-0 text-slate-500" :class="CLASSE_ETAT[j.state]">{{
-                libelleEtat(j.state)
-              }}</span>
+              <span
+                class="ml-auto shrink-0 text-slate-500"
+                :class="CLASSE_ISSUE[issueJob(j)]"
+                :data-jobs-issue="issueJob(j)"
+                >{{ libelleJob(j) }}</span
+              >
               <span class="shrink-0 font-mono tabular-nums text-slate-500">{{
                 dureeJob(j, maintenant)
               }}</span>

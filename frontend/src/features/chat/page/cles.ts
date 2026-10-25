@@ -125,6 +125,10 @@ const ENTETE: Cles<DomaineEntete> = {
   togglePanel: true,
   exportChatAs: true,
   openHelp: true,
+  loadChat: true,
+  renameChat: true,
+  archiveChat: true,
+  deleteChat: true,
 };
 
 const CONVERSATION: Cles<DomaineConversation> = {
@@ -144,6 +148,7 @@ const CONVERSATION: Cles<DomaineConversation> = {
   isUserScrolling: true,
   scrollBtnBottom: true,
   scrollToBottom: true,
+  scrollToMessage: true,
 };
 
 const COMPOSEUR: Cles<DomaineComposeur> = {
@@ -202,6 +207,17 @@ const COMPOSEUR: Cles<DomaineComposeur> = {
   attachedFiles: true,
   noEngineAllowed: true,
   sendMessage: true,
+  currentChatId: true,
+  planMode: true,
+  setPlanMode: true,
+  manualCompress: true,
+  skillsByScope: true,
+  loadAllSkills: true,
+  savedPromptsList: true,
+  loadSavedPrompts: true,
+  templatesAll: true,
+  loadTemplates: true,
+  openTemplate: true,
 };
 
 const MODELES: Cles<DomaineModeles> = {
@@ -300,6 +316,7 @@ const BARRE: Cles<DomaineBarre> = {
   isSearchingChats: true,
   loadChat: true,
   openChatSearch: true,
+  renameChat: true,
   searchOpen: true,
   showMcpPanel: true,
   startNewChat: true,
@@ -351,6 +368,9 @@ const BARRE: Cles<DomaineBarre> = {
   openSettings: true,
   goToAdmin: true,
   logout: true,
+  openHelp: true,
+  showInfoModal: true,
+  showOpenCodeModal: true,
 };
 
 const PAGE: Cles<DomainePage> = {
@@ -419,6 +439,8 @@ const PAGE: Cles<DomainePage> = {
   percheAnim: true,
   percheDort: true,
   mascotteId: true,
+  showToast: true,
+  openTaskModal: true,
 };
 
 /** Clés lues par domaine ; la liste hérite de celles du fil. */

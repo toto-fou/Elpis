@@ -31,6 +31,34 @@ selon [SemVer](https://semver.org/lang/fr/).
   base peut être distincte de celle du core : mettez à jour les hôtes distants
   avec le core. Un hôte qui n'a pas pu être purgé est signalé par la console.
 
+### Interface
+
+- **Paramètres revus.** Rail en quatre groupes avec recherche ; chaque réglage
+  s'enregistre à la modification, avec Annuler ; aide d'une ligne à la
+  demande ; texte d'au moins 12 px et contraste AA dans tous les thèmes.
+- **Console d'administration.** Navigation dépliée avec recherche des pages,
+  Images et Voix en sous-onglets, tableau des comptes avec tri, filtres et
+  actions groupées ; un échec de chargement n'est plus lu comme une liste vide.
+- **Composeur.** Rangée courte avec puces d'état, « + » en catalogue, un seul
+  menu « Conversation », menu du compte dans le pied du volet ; Annuler après
+  un archivage, confirmation avant une suppression.
+- **Fil du tour.** Réflexion, texte et étapes de chaque appel du modèle à leur
+  place ; sous-agents en lignes, avec un volet (consigne, déroulé, bilan,
+  rendu) ; tâches de fond dans le fil, et la réponse reprend au réveil dans la
+  même bulle. Le rechargement montre ce que le direct montrait.
+- **Affichage du chat au choix** (Paramètres › Chat › Affichage) : déroulé
+  du tour (Classique par défaut, En bloc, Chronologie, Journal), contexte
+  (jetons utilisés / fenêtre par défaut, bloc, pourcentage, anneau),
+  réflexions, métriques du pied et densité. L'option « Interface classique »
+  disparaît : la nouvelle disposition est la seule.
+- **Captures web à la demande**, rattachées à leur étape ; réglage « Masquer
+  les captures web ».
+- **Graphiques** tracés seulement dans la réponse finale ; un graphique
+  qu'elle ne cite pas s'affiche à sa suite.
+- **Bibliothèque** : « Plus › Bibliothèque » ouvre directement les images
+  générées du compte.
+- **Menu du modèle** épuré ; réglages de génération en sections nommées.
+
 ### Moteurs vLLM et SGLang
 
 - **Appels d'outils multiples : plus d'étape fantôme.** Quand SGLang réutilise

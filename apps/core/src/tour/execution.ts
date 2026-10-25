@@ -574,10 +574,20 @@ export async function* runTurn(
             } catch {
               // attente non comptée
             }
-            if (fileAnnoncee.v) {
+            const attente = slot ? slot.attenteCreneau() : null;
+            if (fileAnnoncee.v && !attente) {
               await onEvent({ type: "queue_cleared" });
               fileAnnoncee.v = false;
             }
+            // Tour admis sans créneau (optimized, outils) : la file ne s'efface qu'au premier créneau du moteur.
+            if (fileAnnoncee.v && attente)
+              void attente
+                .then(async () => {
+                  if (!fileAnnoncee.v) return;
+                  fileAnnoncee.v = false;
+                  await onEvent({ type: "queue_cleared" });
+                })
+                .catch(() => undefined);
             debutLlm = Date.now();
             if (plan.titleWasGenerated && !plan.ephemeral && !plan.chatReadFailed) {
               const t = {

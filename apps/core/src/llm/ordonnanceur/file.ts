@@ -51,6 +51,8 @@ export interface Slot {
   yieldForTools(): void;
   reacquire(): Promise<void>;
   appelLLM<T>(fn: () => Promise<T>): Promise<T>;
+  /** Null si le slot tient ou a tenu un créneau ; sinon résolue au premier (optimized, chemin outils : au premier appel LLM). */
+  attenteCreneau(): Promise<void> | null;
 }
 
 /** `outils` (`use_mcp_path`) : en optimized, l'admission tient le modèle et chaque appel LLM prend son créneau ; `modeleSeul` : le niveau 1 seul (`MODEL_EXCLUSIVITY.acquire_for`), sans créneau ni disjoncteur. */
@@ -275,6 +277,8 @@ class SlotFile implements Slot {
   declare readonly signal: AbortSignal | undefined;
   private reprise: Promise<void> | null = null;
   private suite: Promise<unknown> = Promise.resolve();
+  private aEuCreneau = false;
+  private premierCreneau: { promesse: Promise<void>; resoudre: () => void } | null = null;
 
   constructor(fs: FileServeur, description: Description) {
     Object.assign(this, description);
@@ -331,10 +335,27 @@ class SlotFile implements Slot {
     if (this.etat !== "cede") return Promise.resolve();
     if (this.signal?.aborted) return Promise.reject(abandon(this.signal));
     this.etat = "creneau";
-    this.reprise = enfiler(this.fs, this, fileCreneaux(this.fs, this)).finally(() => {
-      this.reprise = null;
-    });
+    this.reprise = enfiler(this.fs, this, fileCreneaux(this.fs, this))
+      .then(() => this.noterCreneau())
+      .finally(() => {
+        this.reprise = null;
+      });
     return this.reprise;
+  }
+
+  attenteCreneau(): Promise<void> | null {
+    if (this.aEuCreneau || this.etat === "actif") return null;
+    if (!this.premierCreneau) {
+      let resoudre = (): void => undefined;
+      const promesse = new Promise<void>((r) => (resoudre = r));
+      this.premierCreneau = { promesse, resoudre };
+    }
+    return this.premierCreneau.promesse;
+  }
+
+  private noterCreneau(): void {
+    this.aEuCreneau = true;
+    this.premierCreneau?.resoudre();
   }
 
   /** Un appel au moteur : en optimized (chemin outils), créneau repris puis rendu, un appel à la fois ; imbriqué dans un appel, il y passe. */
@@ -360,6 +381,7 @@ const HORS_FILE = {
   yieldForTools: rien,
   reacquire: () => Promise.resolve(),
   appelLLM: <T>(f: () => T) => f(),
+  attenteCreneau: () => null,
 };
 const planifierParDefaut: Planifier = (delaiS, rappel) => {
   const minuterie = setTimeout(rappel, Math.max(1, Math.ceil(delaiS * 1000)));

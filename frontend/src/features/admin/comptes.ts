@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/comptes.ts — console › Utilisateurs & accès : table des comptes (tri, filtre, pages), éditeur de compte en ligne, groupes, accès aux serveurs d'inférence, réinitialisation de mot de passe. */
+import { suivreChargement } from "./suivi-chargement";
 import {
   schemaReponseAccesCompte,
   schemaReponseComptesConsole,
@@ -10,6 +11,7 @@ import type { CompteConsole, schemaMoteurChoisissable } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { corpsJson, detailErreur, listeObjets, lireSchema, objet } from "../../utils/lecture-json";
+import { confirmerParMot } from "./confirmation";
 import type { BaseAdmin, GroupeAffiche } from "./etat";
 import { lireChemin } from "./etat";
 import type { z } from "zod";
@@ -106,6 +108,32 @@ export function creerComptes(b: BaseAdmin) {
   const usersSearch = ref("");
   const usersSort: Ref<TriUtilisateurs> = ref({ field: "id", dir: 1 });
   const usersPage = ref(1);
+  const usersFilters: Ref<string[]> = ref([]);
+  const FILTRES_COMPTES: Readonly<Record<string, (u: CompteConsole) => boolean>> = {
+    admin: (u) => u.is_admin === 1,
+    "sans-groupe": (u) => !u.group_names,
+  };
+  /** Valeur de tri d'une colonne : texte ou nombre, comparés champ par champ. */
+  function valeurTri(u: CompteConsole, champ: string): string | number {
+    switch (champ) {
+      case "role":
+        return u.is_admin === 1 ? 0 : u.is_admin === 2 ? 1 : 2;
+      case "servers":
+        return u.is_admin === 1 || u.llm_effective_engine_keys == null
+          ? Number.MAX_SAFE_INTEGER
+          : u.llm_effective_engine_keys.length;
+      case "models":
+        return admLlmAccessManageLabel(u) === "Oui" ? 1 : 0;
+      case "sandbox":
+        return u.sandbox_quota_mb > 0 ? (u.sandbox_used_mb || 0) / u.sandbox_quota_mb : 0;
+      case "machines":
+        return machinesAutorisees(u).length;
+      default: {
+        const v = (u as Record<string, unknown>)[champ];
+        return typeof v === "string" ? v : Number(v) || 0;
+      }
+    }
+  }
   const filteredSortedUsers = computed(() => {
     const q = usersSearch.value.trim().toLowerCase();
     let items = usersList.value;
@@ -114,14 +142,18 @@ export function creerComptes(b: BaseAdmin) {
         (u) =>
           (u.username || "").toLowerCase().includes(q) || (u.group_names || "").toLowerCase().includes(q),
       );
+    for (const f of usersFilters.value) {
+      const test = FILTRES_COMPTES[f];
+      if (test) items = items.filter(test);
+    }
     const { field, dir } = usersSort.value;
     return [...items].sort((a, c) => {
-      const va = (a as Record<string, unknown>)[field];
-      const vb = (c as Record<string, unknown>)[field];
+      const va = valeurTri(a, field);
+      const vb = valeurTri(c, field);
       if (typeof va === "string" || typeof vb === "string") {
-        return String(va ?? "").localeCompare(String(vb ?? ""), undefined, { numeric: true }) * dir;
+        return String(va).localeCompare(String(vb), undefined, { numeric: true }) * dir;
       }
-      return ((Number(va) || 0) - (Number(vb) || 0)) * dir;
+      return (va - vb) * dir;
     });
   });
   const usersPageCount = computed(() =>
@@ -135,9 +167,105 @@ export function creerComptes(b: BaseAdmin) {
     const s = usersSort.value;
     usersSort.value = s.field === field ? { field, dir: s.dir === 1 ? -1 : 1 } : { field, dir: 1 };
   }
-  watch(usersSearch, () => {
+  function toggleUsersFilter(f: string): void {
+    usersFilters.value = usersFilters.value.includes(f)
+      ? usersFilters.value.filter((x) => x !== f)
+      : [...usersFilters.value, f];
+  }
+  watch([usersSearch, usersFilters], () => {
     usersPage.value = 1;
   });
+
+  // ── Sélection et actions groupées ────────────────────────────────────────
+  const comptesSelection: Ref<number[]> = ref([]);
+  const comptesChoisis = computed(() => usersList.value.filter((u) => comptesSelection.value.includes(u.id)));
+  const pageEntiereChoisie = computed(
+    () => pagedUsers.value.length > 0 && pagedUsers.value.every((u) => comptesSelection.value.includes(u.id)),
+  );
+  function toggleCompteChoisi(id: number): void {
+    comptesSelection.value = comptesSelection.value.includes(id)
+      ? comptesSelection.value.filter((x) => x !== id)
+      : [...comptesSelection.value, id];
+  }
+  function toggleToutesChoisies(): void {
+    const ids = pagedUsers.value.map((u) => u.id);
+    comptesSelection.value = pageEntiereChoisie.value
+      ? comptesSelection.value.filter((x) => !ids.includes(x))
+      : [...new Set([...comptesSelection.value, ...ids])];
+  }
+  const viderSelectionComptes = (): void => {
+    comptesSelection.value = [];
+  };
+  watch(usersList, (liste) => {
+    comptesSelection.value = comptesSelection.value.filter((id) => liste.some((u) => u.id === id));
+  });
+  const autresQueMoi = (): CompteConsole[] =>
+    comptesChoisis.value.filter((u) => u.id !== refs.user.value?.id);
+
+  /** Ajoute les comptes choisis au groupe, sans retirer leurs autres groupes. */
+  async function ajouterSelectionAuGroupe(idGroupe: number): Promise<void> {
+    const cibles = comptesChoisis.value.filter((u) => !u.group_ids.includes(idGroupe));
+    let echecs = 0;
+    for (const u of cibles) {
+      try {
+        const res = await fetchAuth(`/api/admin/users/${u.id}/groups`, {
+          method: "PUT",
+          headers: ENTETES_JSON,
+          body: JSON.stringify({ group_ids: [...u.group_ids, idGroupe] }),
+        });
+        if (!res?.ok) echecs += 1;
+      } catch {
+        echecs += 1;
+      }
+    }
+    await loadUsers();
+    await loadGroups();
+    const ok = cibles.length - echecs;
+    showToast(
+      echecs ? `${ok} compte(s) ajouté(s), ${echecs} échec(s)` : `${ok} compte(s) ajouté(s) au groupe`,
+      echecs ? "warning" : "success",
+    );
+  }
+  /** Supprime les comptes choisis (le vôtre excepté) après saisie du mot ; la sandbox suit le choix de la seconde question. */
+  async function supprimerSelection(): Promise<void> {
+    const cibles = autresQueMoi();
+    if (!cibles.length) return;
+    const noms = cibles.map((u) => u.username).join(", ");
+    const confirme = await confirmerParMot(
+      ctx,
+      `Supprimer ${cibles.length} compte(s) ?`,
+      `${noms}. Toutes leurs conversations seront supprimées. Action irréversible.`,
+      "SUPPRIMER",
+      "Supprimer",
+    );
+    if (!confirme) return;
+    const avecBac = await openConfirm(
+      "Supprimer également leurs sandboxes ?",
+      "Tous les fichiers des sandboxes de ces comptes seraient supprimés.",
+      true,
+      "Supprimer les sandboxes",
+      "Non, conserver",
+    );
+    let echecs = 0;
+    for (const u of cibles) {
+      try {
+        const res = await fetchAuth(`/api/admin/users/${u.id}` + (avecBac ? "?delete_sandbox=true" : ""), {
+          method: "DELETE",
+        });
+        if (!res?.ok) echecs += 1;
+      } catch {
+        echecs += 1;
+      }
+    }
+    viderSelectionComptes();
+    await loadUsers();
+    void lien.loadAdminStats();
+    const ok = cibles.length - echecs;
+    showToast(
+      echecs ? `${ok} compte(s) supprimé(s), ${echecs} échec(s)` : `${ok} compte(s) supprimé(s)`,
+      echecs ? "warning" : "success",
+    );
+  }
 
   // ── Accès aux serveurs d'inférence ───────────────────────────────────────
   const admLlmAccessOptions: Ref<MoteurChoisissable[]> = ref([]);
@@ -191,28 +319,35 @@ export function creerComptes(b: BaseAdmin) {
   // ── Chargement des comptes ───────────────────────────────────────────────
   async function loadUsers(notifier?: unknown): Promise<void> {
     if (!refs.user.value?.is_admin) return;
-    try {
-      const res = await fetchAuth("/api/admin/users-with-groups");
-      const d = await lireSchema(res, schemaReponseComptesConsole);
-      if (d) {
+    const ok = await suivreChargement(
+      "loadUsers",
+      async () => {
+        const d = await lireSchema(
+          await fetchAuth("/api/admin/users-with-groups"),
+          schemaReponseComptesConsole,
+        );
+        if (!d) return false;
         usersList.value = d.users;
         usersNetProfiles.value = d.network_profiles as typeof usersNetProfiles.value;
         usersDesktopTargets.value = d.desktop_targets;
         void loadAdmLlmAccessOptions(notifier === true);
-        if (notifier === true) showToast("Liste des utilisateurs rechargée", "success");
-      } else if (notifier === true) {
-        showToast("Échec du rechargement", "error");
-      }
-    } catch {
-      if (notifier === true) showToast("Erreur réseau", "error");
+        return true;
+      },
+      () => loadUsers(),
+    );
+    if (notifier === true) {
+      if (ok) showToast("Liste des utilisateurs rechargée", "success");
+      else showToast("Échec du rechargement", "error");
     }
   }
 
   async function deleteUser(u: CompteConsole): Promise<void> {
-    const confirme = await openConfirm(
+    const confirme = await confirmerParMot(
+      ctx,
       `Supprimer l'utilisateur "${u.username}" ?`,
       "Cette action est irréversible. Toutes ses conversations seront supprimées.",
-      true,
+      "SUPPRIMER",
+      "Supprimer",
     );
     if (!confirme) return;
     const avecBac = await openConfirm(
@@ -289,7 +424,7 @@ export function creerComptes(b: BaseAdmin) {
       const prof = usersNetProfiles.value.find((p) => p.id === pid);
       const ok = await openConfirm(
         `Imposer « ${prof ? prof.name : pid} » à ${u.username} ?`,
-        "L'utilisateur ne pourra plus changer de profil réseau, et son container sera recréé.",
+        "L'utilisateur ne pourra plus changer de profil réseau, et son conteneur sera recréé.",
         false,
         "Imposer",
       );
@@ -326,27 +461,58 @@ export function creerComptes(b: BaseAdmin) {
   // ── Réinitialisation du mot de passe ─────────────────────────────────────
   const resetTarget: Ref<CompteConsole | null> = ref(null);
   const newPasswordInput = ref("");
+  const resetCibles: Ref<CompteConsole[]> = ref([]);
   function openResetModal(u: CompteConsole): void {
+    resetCibles.value = [];
     resetTarget.value = u;
     newPasswordInput.value = "";
   }
+  /** Un compte à la fois : un mot de passe temporaire commun ouvrirait chaque compte aux autres titulaires. */
+  function reinitialiserSelection(): void {
+    const cibles = autresQueMoi();
+    if (cibles.length !== 1) return;
+    resetCibles.value = [];
+    resetTarget.value = cibles[0] ?? null;
+    newPasswordInput.value = "";
+  }
+  function fermerReset(): void {
+    resetTarget.value = null;
+    resetCibles.value = [];
+  }
+  const resetLibelle = computed(() =>
+    resetCibles.value.length ? `${resetCibles.value.length} comptes` : (resetTarget.value?.username ?? ""),
+  );
   async function confirmReset(): Promise<void> {
-    if (!resetTarget.value || !newPasswordInput.value) return;
-    try {
-      const res = await fetchAuth("/api/admin/reset-password", {
-        method: "POST",
-        headers: ENTETES_JSON,
-        body: JSON.stringify({ target_id: resetTarget.value.id, new_password: newPasswordInput.value }),
-      });
-      if (res?.ok) {
-        showToast("Ok");
-        resetTarget.value = null;
-        newPasswordInput.value = "";
-      } else {
-        showToast(detailErreur(await corpsJson(res)) || "Erreur", "error");
+    const cibles = resetCibles.value.length
+      ? resetCibles.value
+      : resetTarget.value
+        ? [resetTarget.value]
+        : [];
+    if (!cibles.length || !newPasswordInput.value) return;
+    let echecs = 0;
+    let detail = "";
+    for (const cible of cibles) {
+      try {
+        const res = await fetchAuth("/api/admin/reset-password", {
+          method: "POST",
+          headers: ENTETES_JSON,
+          body: JSON.stringify({ target_id: cible.id, new_password: newPasswordInput.value }),
+        });
+        if (!res?.ok) {
+          echecs += 1;
+          detail = detailErreur(await corpsJson(res)) || "Erreur";
+        }
+      } catch {
+        echecs += 1;
+        detail = "Erreur réseau";
       }
-    } catch {
-      /* réinitialisation non confirmée */
+    }
+    if (!echecs) {
+      showToast(cibles.length > 1 ? `Mot de passe changé pour ${cibles.length} comptes` : "Ok");
+      fermerReset();
+      newPasswordInput.value = "";
+    } else {
+      showToast(cibles.length > 1 ? `${echecs} échec(s) : ${detail}` : detail, "error");
     }
   }
 
@@ -367,12 +533,16 @@ export function creerComptes(b: BaseAdmin) {
   });
 
   async function loadGroups(): Promise<void> {
-    try {
-      const d = await lireSchema(await fetchAuth("/api/admin/groups"), schemaReponseGroupesConsole);
-      if (d) groupsList.value = d.groups;
-    } catch {
-      /* liste inchangée */
-    }
+    await suivreChargement(
+      "loadGroups",
+      async () => {
+        const d = await lireSchema(await fetchAuth("/api/admin/groups"), schemaReponseGroupesConsole);
+        if (!d) return false;
+        groupsList.value = d.groups;
+        return true;
+      },
+      () => loadGroups(),
+    );
   }
   async function loadAllUsersWithGroups(): Promise<void> {
     try {
@@ -676,6 +846,20 @@ export function creerComptes(b: BaseAdmin) {
     usersDesktopTargets,
     usersSearch,
     usersSort,
+    usersFilters,
+    toggleUsersFilter,
+    comptesSelection,
+    comptesChoisis,
+    pageEntiereChoisie,
+    toggleCompteChoisi,
+    toggleToutesChoisies,
+    viderSelectionComptes,
+    ajouterSelectionAuGroupe,
+    supprimerSelection,
+    reinitialiserSelection,
+    resetCibles,
+    resetLibelle,
+    fermerReset,
     usersPage,
     usersPageCount,
     pagedUsers,

@@ -4,6 +4,30 @@
 import { domaineAdmin } from "../../features/admin/domaine";
 
 const adm = domaineAdmin();
+
+const COLONNES = [
+  { champ: "username", label: "Compte", titre: "" },
+  { champ: "role", label: "Rôle", titre: "" },
+  { champ: "group_names", label: "Groupes", titre: "" },
+  { champ: "servers", label: "Serveurs", titre: "Serveurs d'inférence utilisables" },
+  { champ: "models", label: "Modèles", titre: "Charger / décharger les modèles" },
+  { champ: "sandbox", label: "Sandbox", titre: "" },
+  { champ: "machines", label: "Machines", titre: "Machines desktop pilotables" },
+] as const;
+const FILTRES = [
+  { id: "admin", label: "Admins" },
+  { id: "sans-groupe", label: "Sans groupe" },
+] as const;
+
+const ariaTri = (champ: string): "ascending" | "descending" | "none" =>
+  adm.usersSort.field !== champ ? "none" : adm.usersSort.dir > 0 ? "ascending" : "descending";
+
+function ajouterAuGroupe(ev: Event): void {
+  const sel = ev.target instanceof HTMLSelectElement ? ev.target : null;
+  const id = Number(sel?.value);
+  if (sel) sel.value = "";
+  if (id) void adm.ajouterSelectionAuGroupe(id);
+}
 </script>
 
 <template>
@@ -19,26 +43,99 @@ const adm = domaineAdmin();
           </div>
         </header>
 
-        <div v-if="!adm.filteredSortedUsers.length" class="px-5">
+        <div class="adm-users__outils">
+          <div class="adm-users__puces" role="group" aria-label="Filtrer les comptes">
+            <button
+              v-for="f in FILTRES"
+              :key="f.id"
+              type="button"
+              class="adm-chip"
+              :data-filtre="f.id"
+              :aria-pressed="adm.usersFilters.includes(f.id) ? 'true' : 'false'"
+              @click="adm.toggleUsersFilter(f.id)"
+            >
+              {{ f.label }}
+            </button>
+          </div>
+          <div
+            v-if="adm.comptesChoisis.length"
+            class="adm-users__masse"
+            role="toolbar"
+            aria-label="Actions groupées"
+            data-actions-groupees
+          >
+            <span class="text-sm" role="status">{{ adm.comptesChoisis.length }} sélectionné(s)</span>
+            <select
+              class="set-select"
+              aria-label="Ajouter au groupe"
+              data-masse-groupe
+              @change="ajouterAuGroupe($event)"
+            >
+              <option value="">Ajouter au groupe…</option>
+              <option v-for="g in adm.groupsList" :key="g.id" :value="g.id">{{ g.name }}</option>
+            </select>
+            <button
+              type="button"
+              class="adm-btn adm-tool"
+              data-masse-reset
+              :disabled="adm.comptesChoisis.length !== 1"
+              :title="adm.comptesChoisis.length !== 1 ? 'Un compte à la fois' : undefined"
+              @click="adm.reinitialiserSelection"
+            >
+              <i class="ph ph-key" aria-hidden="true"></i> Réinitialiser
+            </button>
+            <button
+              type="button"
+              class="adm-btn adm-tool"
+              data-masse-supprimer
+              @click="adm.supprimerSelection"
+            >
+              <i class="ph ph-trash" aria-hidden="true"></i> Supprimer
+            </button>
+            <button type="button" class="adm-btn adm-btn--quiet" @click="adm.viderSelectionComptes">
+              Désélectionner
+            </button>
+          </div>
+        </div>
+
+        <div v-if="!adm.filteredSortedUsers.length && !adm.chargementPage.echecs.length" class="px-5">
           <p class="adm-empty">
             {{ adm.usersSearch ? "Aucun compte ne correspond au filtre." : "Aucun compte enregistré." }}
           </p>
         </div>
 
-        <div v-else class="overflow-x-auto">
+        <div v-else-if="adm.filteredSortedUsers.length" class="overflow-x-auto">
           <table class="adm-users w-full text-sm text-left">
             <thead class="text-slate-500 text-xs">
               <tr>
-                <th scope="col" class="px-5 py-2.5">
+                <th scope="col" class="adm-users__sel">
+                  <input
+                    type="checkbox"
+                    data-comptes-tout
+                    aria-label="Sélectionner les comptes de la page"
+                    :checked="adm.pageEntiereChoisie"
+                    @change="adm.toggleToutesChoisies"
+                  />
+                </th>
+                <th
+                  v-for="c in COLONNES"
+                  :key="c.champ"
+                  scope="col"
+                  class="px-3 py-2.5"
+                  :title="c.titre"
+                  :aria-sort="ariaTri(c.champ)"
+                >
                   <button
+                    type="button"
                     class="flex items-center gap-1 hover:text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/40 rounded"
-                    @click="adm.toggleUsersSort('username')"
+                    :data-tri="c.champ"
+                    @click="adm.toggleUsersSort(c.champ)"
                   >
-                    Compte
+                    {{ c.label }}
                     <i
                       class="ph text-[10px]"
                       :class="
-                        adm.usersSort.field === 'username'
+                        adm.usersSort.field === c.champ
                           ? adm.usersSort.dir > 0
                             ? 'ph-caret-up'
                             : 'ph-caret-down'
@@ -48,12 +145,6 @@ const adm = domaineAdmin();
                     ></i>
                   </button>
                 </th>
-                <th scope="col" class="px-3 py-2.5">Rôle</th>
-                <th scope="col" class="px-3 py-2.5">Groupes</th>
-                <th scope="col" class="px-3 py-2.5" title="Serveurs d'inférence utilisables">Serveurs</th>
-                <th scope="col" class="px-3 py-2.5" title="Charger / décharger les modèles">Modèles</th>
-                <th scope="col" class="px-3 py-2.5">Sandbox</th>
-                <th scope="col" class="px-3 py-2.5" title="Machines desktop pilotables">Machines</th>
                 <th scope="col" class="px-5 py-2.5"><span class="sr-only">Actions</span></th>
               </tr>
             </thead>
@@ -63,7 +154,16 @@ const adm = domaineAdmin();
                   :class="adm.userEditOpen(u) ? 'adm-users__open' : 'hover:bg-slate-50'"
                   class="transition-colors"
                 >
-                  <td class="px-5 py-2.5">
+                  <td class="adm-users__sel">
+                    <input
+                      type="checkbox"
+                      data-compte-choisi
+                      :aria-label="'Sélectionner ' + u.username"
+                      :checked="adm.comptesSelection.includes(u.id)"
+                      @change="adm.toggleCompteChoisi(u.id)"
+                    />
+                  </td>
+                  <td class="px-3 py-2.5">
                     <div class="flex items-center gap-3">
                       <img
                         v-if="u.avatar"
@@ -105,9 +205,7 @@ const adm = domaineAdmin();
                     <span v-else class="adm-users__muted">—</span>
                   </td>
                   <td class="px-3 py-2.5" data-llm-servers :title="adm.admLlmAccessServersTitle(u)">
-                    <span
-                      class="adm-pill"
-                      :class="{ 'adm-pill--warn': adm.admLlmAccessServersLabel(u) === 'Aucun' }"
+                    <span class="adm-pill"
                       >{{ adm.admLlmAccessServersLabel(u)
                       }}<i
                         v-if="u.llm_engine_source === 'groups'"
@@ -117,9 +215,7 @@ const adm = domaineAdmin();
                     ></span>
                   </td>
                   <td class="px-3 py-2.5" data-llm-manage :title="adm.admLlmAccessManageTitle(u)">
-                    <span
-                      class="adm-pill"
-                      :class="{ 'adm-pill--warn': adm.admLlmAccessManageLabel(u) === 'Non' }"
+                    <span class="adm-pill"
                       >{{ adm.admLlmAccessManageLabel(u)
                       }}<i
                         v-if="u.llm_manage_source === 'groups'"
@@ -153,11 +249,7 @@ const adm = domaineAdmin();
                     </div>
                   </td>
                   <td class="px-3 py-2.5" data-desktop :title="adm.admDesktopTitle(u)">
-                    <span
-                      class="adm-pill"
-                      :class="{ 'adm-pill--warn': adm.admDesktopLabel(u) === 'Aucune' }"
-                      >{{ adm.admDesktopLabel(u) }}</span
-                    >
+                    <span class="adm-pill">{{ adm.admDesktopLabel(u) }}</span>
                   </td>
                   <td class="px-5 py-2.5">
                     <div class="flex items-center justify-end gap-1">
@@ -198,7 +290,7 @@ const adm = domaineAdmin();
                   </td>
                 </tr>
                 <tr v-if="adm.userEdit && adm.userEditOpen(u)" :id="'user-edit-' + u.id">
-                  <td colspan="8" class="p-0">
+                  <td colspan="9" class="p-0">
                     <form
                       class="adm-user-edit"
                       role="group"

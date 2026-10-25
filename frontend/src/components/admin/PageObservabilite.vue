@@ -98,7 +98,7 @@ const adm = domaineAdmin();
               <td class="text-right tabular-nums font-medium">{{ t.n }}</td>
               <td
                 class="text-right tabular-nums"
-                :class="t.n_failed > 0 ? 'text-rose-700 font-medium' : 'text-slate-400'"
+                :class="t.n_failed > 0 ? 'text-rose-700 font-medium' : 'text-slate-600'"
               >
                 {{ t.n_failed }}
               </td>
@@ -108,20 +108,28 @@ const adm = domaineAdmin();
                     t.n > 0 && t.n_failed / t.n >= 0.1
                       ? 'text-rose-700 font-medium'
                       : t.n > 0 && t.n_failed / t.n >= 0.03
-                        ? 'text-amber-600'
-                        : 'text-slate-500'
+                        ? 'text-slate-700'
+                        : 'text-slate-600'
                   "
                 >
+                  <i
+                    v-if="t.n > 0 && t.n_failed / t.n >= 0.03 && t.n_failed / t.n < 0.1"
+                    class="ph ph-warning text-amber-600"
+                    title="Taux d'échec élevé"
+                    aria-hidden="true"
+                  ></i>
                   {{ t.n > 0 ? Math.round((t.n_failed / t.n) * 1000) / 10 : 0 }}%
                 </span>
               </td>
               <td class="text-right tabular-nums">
-                <span
-                  :class="
-                    t.avg_ms >= 1000 ? 'text-rose-600' : t.avg_ms >= 200 ? 'text-amber-600' : 'text-slate-600'
-                  "
-                >
-                  {{ t.avg_ms }}<span class="text-slate-400">ms</span>
+                <span :class="t.avg_ms >= 1000 ? 'text-rose-700' : 'text-slate-700'">
+                  <i
+                    v-if="t.avg_ms >= 200 && t.avg_ms < 1000"
+                    class="ph ph-warning text-amber-600"
+                    title="Appel lent"
+                    aria-hidden="true"
+                  ></i>
+                  {{ t.avg_ms }}<span class="text-slate-500">ms</span>
                 </span>
               </td>
               <td class="text-right tabular-nums adm-muted">{{ Math.round(t.total_ms / 100) / 10 }}s</td>
@@ -165,7 +173,7 @@ const adm = domaineAdmin();
                     f.status === 'error'
                       ? 'bg-rose-100 text-rose-700'
                       : f.status === 'blocked'
-                        ? 'bg-amber-100 text-amber-700'
+                        ? 'bg-amber-100 text-amber-800'
                         : f.status === 'timeout'
                           ? 'bg-slate-200 text-slate-700'
                           : 'bg-slate-100 text-slate-600',
@@ -179,7 +187,7 @@ const adm = domaineAdmin();
                 {{ f.error_short || "—" }}
               </td>
               <td class="text-xs font-mono adm-muted">
-                <span class="text-slate-400">{{ f.run_id }}</span>
+                <span class="text-slate-500">{{ f.run_id }}</span>
                 <span v-if="f.node_id" class="text-slate-600">/{{ f.node_id }}</span>
               </td>
             </tr>
@@ -196,7 +204,7 @@ const adm = domaineAdmin();
 
           <span
             v-if="adm.obsScope > 168"
-            class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700"
+            class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800"
             title="La lecture du journal d'audit est bornée aux 7 derniers jours, même en scope 30 j."
           >
             limité aux 7 derniers jours
@@ -325,7 +333,7 @@ const adm = domaineAdmin();
           <span
             class="shrink-0 font-semibold"
             :class="
-              l.level === 'ERROR' ? 'text-rose-600' : l.level === 'WARNING' ? 'text-amber-600' : 'adm-muted'
+              l.level === 'ERROR' ? 'text-rose-600' : l.level === 'WARNING' ? 'text-amber-700' : 'adm-muted'
             "
             >{{ l.level }}</span
           >

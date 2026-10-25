@@ -1,13 +1,27 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/admin/PageConnexions.vue — pages Modèles et services (inférence, compression, vision, voix, images, MCP). -->
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 
 import { domaineAdmin } from "../../features/admin/domaine";
 import { profilConsole, typeDeclare } from "../../features/admin/moteurs";
+import { ONGLETS_IMAGES, ONGLETS_VOIX, ongletsAvecModifications } from "../../features/admin/onglets";
+import { interfaceApp } from "../../features/reglages/interface";
 import CapacitesMoteur from "./CapacitesMoteur.vue";
+import SousOngletsConsole from "./SousOngletsConsole.vue";
 
 const adm = domaineAdmin();
+const ui = interfaceApp();
+
+const ongletImages = ref("connexion");
+const ongletVoix = ref("dictee");
+const ongletsImages = computed(() =>
+  ongletsAvecModifications(ONGLETS_IMAGES, "image.", adm.adminPageChanges),
+);
+const ongletsVoix = computed(() => ongletsAvecModifications(ONGLETS_VOIX, "voice.", adm.adminPageChanges));
+/** Interface classique : tout est affiché ; sinon seul l'onglet choisi. */
+const surOnglet = (page: "images" | "voice", onglet: string): boolean =>
+  ui.classique || (page === "images" ? ongletImages.value : ongletVoix.value) === onglet;
 
 // Type déclaré dans le formulaire (alias compris) et son profil : ce que la console montre et masque.
 const typeMoteur = computed(() => typeDeclare(adm.configForm?.llama?.engine));
@@ -914,364 +928,390 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             </label>
           </div>
 
-          <div v-if="adm.configForm.voice.stt" class="adm-row adm-row--full">
-            <span class="text-xs uppercase tracking-wide text-slate-500">Reconnaissance</span>
+          <div v-if="!ui.classique" class="adm-row adm-row--full">
+            <SousOngletsConsole
+              v-model="ongletVoix"
+              label="Réglages de la voix"
+              page="voice"
+              :onglets="ongletsVoix"
+            />
+          </div>
+          <div
+            v-show="surOnglet('voice', 'dictee')"
+            id="onglet-voice-dictee"
+            class="adm-onglet"
+            :role="ui.classique ? undefined : 'tabpanel'"
+            :aria-labelledby="ui.classique ? undefined : 'onglet-bouton-voice-dictee'"
+          >
+            <div v-if="adm.configForm.voice.stt" class="adm-row adm-row--full">
+              <span class="text-sm font-medium text-slate-700">Reconnaissance</span>
+            </div>
+
+            <template v-if="adm.configForm.voice.stt">
+              <div class="adm-row">
+                <label class="adm-row__label" for="cnx-voice-stt-url">Adresse</label>
+                <input
+                  id="cnx-voice-stt-url"
+                  v-model="adm.configForm.voice.stt.endpoint_url"
+                  data-field="config:voice.stt.endpoint_url"
+                  placeholder="http://machine-stt:8090"
+                  title="Serveur whisper.cpp. Vide = dictée désactivée."
+                  class="set-input font-mono text-xs"
+                />
+              </div>
+
+              <div class="adm-row">
+                <label class="adm-row__label" for="cnx-voice-stt-fmt">Format</label>
+                <select
+                  id="cnx-voice-stt-fmt"
+                  v-model="adm.configForm.voice.stt.format"
+                  data-field="config:voice.stt.format"
+                  class="set-select w-full max-w-sm"
+                >
+                  <option value="whisper.cpp">whisper.cpp</option>
+                  <option value="openai">Compatible OpenAI</option>
+                  <option value="llama-audio">llama-server (GGUF audio)</option>
+                </select>
+              </div>
+
+              <div class="adm-row">
+                <label class="adm-row__label" for="cnx-voice-lang">Langue</label>
+                <input
+                  id="cnx-voice-lang"
+                  v-model="adm.configForm.voice.stt.language"
+                  data-field="config:voice.stt.language"
+                  placeholder="fr"
+                  title="Code ISO à deux lettres. « auto » laisse le modèle deviner, au prix d'un peu de latence."
+                  class="set-input adm-num font-mono text-xs"
+                />
+              </div>
+
+              <div v-if="adm.configForm.voice.stt.endpoint_url" class="adm-row">
+                <div>
+                  <label class="adm-row__label" title="Lu sur le serveur." for="cnx-voice-stt-model"
+                    >Modèle</label
+                  >
+                  <span class="sr-only">Lu sur le serveur.</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span
+                    v-if="adm.configForm.voice.stt.format === 'whisper.cpp'"
+                    class="text-sm text-slate-600"
+                    :title="adm.voiceModels.stt.detail"
+                  >
+                    {{
+                      adm.voiceModels.stt.state === "err"
+                        ? adm.voiceModels.stt.error
+                        : "Celui chargé au démarrage du serveur"
+                    }}
+                  </span>
+                  <template v-else>
+                    <select
+                      v-if="adm.voiceModels.stt.models.length"
+                      id="cnx-voice-stt-model"
+                      v-model="adm.configForm.voice.stt.model"
+                      data-field="config:voice.stt.model"
+                      class="set-select w-full max-w-sm font-mono text-xs"
+                    >
+                      <option
+                        v-if="
+                          adm.configForm.voice.stt.model &&
+                          !adm.voiceModels.stt.models.some((m) => m.id === adm.configForm?.voice.stt.model)
+                        "
+                        :value="adm.configForm.voice.stt.model"
+                      >
+                        {{ adm.configForm.voice.stt.model }} (absent du serveur)
+                      </option>
+                      <option v-for="m in adm.voiceModels.stt.models" :key="m.id" :value="m.id">
+                        {{ m.label || m.id }}
+                      </option>
+                    </select>
+                    <input
+                      v-else
+                      id="cnx-voice-stt-model"
+                      v-model="adm.configForm.voice.stt.model"
+                      data-field="config:voice.stt.model"
+                      placeholder="whisper-1"
+                      :title="adm.voiceModels.stt.error || 'Liste indisponible : saisie manuelle.'"
+                      class="set-input font-mono text-xs"
+                    />
+                  </template>
+                  <button
+                    type="button"
+                    :disabled="adm.voiceModels.stt.state === 'busy'"
+                    class="adm-btn adm-btn--icon"
+                    title="Relire sur le serveur"
+                    aria-label="Relire les modèles"
+                    @click="adm.loadVoiceModels('stt')"
+                  >
+                    <i
+                      class="ph ph-arrows-clockwise"
+                      :class="adm.voiceModels.stt.state === 'busy' ? 'animate-spin' : ''"
+                      aria-hidden="true"
+                    ></i>
+                  </button>
+                </div>
+              </div>
+              <div
+                v-if="
+                  adm.configForm.voice.stt.endpoint_url &&
+                  adm.configForm.voice.stt.endpoint_url.startsWith('https')
+                "
+                class="adm-row"
+              >
+                <label class="adm-row__label" for="cnx-voice-stt-verify">Certificat</label>
+                <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                  <input
+                    id="cnx-voice-stt-verify"
+                    v-model="adm.configForm.voice.stt.verify"
+                    type="checkbox"
+                    data-field="config:voice.stt.verify"
+                    class="sr-only peer"
+                  />
+                  <span
+                    class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
+                  ></span>
+                  <span class="text-sm text-slate-700">{{
+                    adm.configForm.voice.stt.verify ? "Vérifié" : "Non vérifié (auto-signé)"
+                  }}</span>
+                </label>
+              </div>
+
+              <div class="adm-row adm-row--top">
+                <div>
+                  <label
+                    class="adm-row__label"
+                    title="Termes à reconnaître, séparés par des virgules. Noms propres, jargon métier, sigles. Sur des termes spécialisés, ce champ divise le taux d'erreur par trois."
+                    for="cnx-voice-prompt"
+                    >Vocabulaire</label
+                  >
+                  <span class="sr-only"
+                    >Termes à reconnaître, séparés par des virgules. Noms propres, jargon métier, sigles. Sur
+                    des termes spécialisés, ce champ divise le taux d'erreur par trois.</span
+                  >
+                </div>
+                <textarea
+                  id="cnx-voice-prompt"
+                  v-model="adm.configForm.voice.stt.prompt"
+                  data-field="config:voice.stt.prompt"
+                  rows="2"
+                  placeholder="Elpis, Qdrant, bubblewrap"
+                  class="set-textarea font-mono text-xs"
+                ></textarea>
+              </div>
+
+              <div class="adm-row">
+                <label class="adm-row__label" for="cnx-voice-stt-token">Jeton</label>
+                <input
+                  id="cnx-voice-stt-token"
+                  v-model="adm.configForm.voice.stt.token"
+                  data-field="config:voice.stt.token"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="facultatif"
+                  class="set-input font-mono text-xs"
+                />
+              </div>
+            </template>
           </div>
 
-          <template v-if="adm.configForm.voice.stt">
-            <div class="adm-row">
-              <label class="adm-row__label" for="cnx-voice-stt-url">Adresse</label>
-              <input
-                id="cnx-voice-stt-url"
-                v-model="adm.configForm.voice.stt.endpoint_url"
-                data-field="config:voice.stt.endpoint_url"
-                placeholder="http://machine-stt:8090"
-                title="Serveur whisper.cpp. Vide = dictée désactivée."
-                class="set-input font-mono text-xs"
-              />
+          <div
+            v-show="surOnglet('voice', 'lecture')"
+            id="onglet-voice-lecture"
+            class="adm-onglet"
+            :role="ui.classique ? undefined : 'tabpanel'"
+            :aria-labelledby="ui.classique ? undefined : 'onglet-bouton-voice-lecture'"
+          >
+            <div v-if="adm.configForm.voice.tts" class="adm-row adm-row--full">
+              <span class="text-sm font-medium text-slate-700">Synthèse</span>
             </div>
 
-            <div class="adm-row">
-              <label class="adm-row__label" for="cnx-voice-stt-fmt">Format</label>
-              <select
-                id="cnx-voice-stt-fmt"
-                v-model="adm.configForm.voice.stt.format"
-                data-field="config:voice.stt.format"
-                class="set-select w-full max-w-sm"
-              >
-                <option value="whisper.cpp">whisper.cpp</option>
-                <option value="openai">Compatible OpenAI</option>
-                <option value="llama-audio">llama-server (GGUF audio)</option>
-              </select>
-            </div>
-
-            <div class="adm-row">
-              <label class="adm-row__label" for="cnx-voice-lang">Langue</label>
-              <input
-                id="cnx-voice-lang"
-                v-model="adm.configForm.voice.stt.language"
-                data-field="config:voice.stt.language"
-                placeholder="fr"
-                title="Code ISO à deux lettres. « auto » laisse le modèle deviner, au prix d'un peu de latence."
-                class="set-input adm-num font-mono text-xs"
-              />
-            </div>
-
-            <div v-if="adm.configForm.voice.stt.endpoint_url" class="adm-row">
-              <div>
-                <label class="adm-row__label" title="Lu sur le serveur." for="cnx-voice-stt-model"
-                  >Modèle</label
-                >
-                <span class="sr-only">Lu sur le serveur.</span>
+            <template v-if="adm.configForm.voice.tts">
+              <div class="adm-row">
+                <label class="adm-row__label" for="cnx-voice-tts-url">Adresse</label>
+                <input
+                  id="cnx-voice-tts-url"
+                  v-model="adm.configForm.voice.tts.endpoint_url"
+                  data-field="config:voice.tts.endpoint_url"
+                  placeholder="http://machine-tts:8091"
+                  title="Service Piper de deploy/voice/tts. Vide = lecture désactivée."
+                  class="set-input font-mono text-xs"
+                />
               </div>
-              <div class="flex items-center gap-2">
-                <span
-                  v-if="adm.configForm.voice.stt.format === 'whisper.cpp'"
-                  class="text-sm text-slate-600"
-                  :title="adm.voiceModels.stt.detail"
+
+              <div class="adm-row">
+                <label class="adm-row__label" for="cnx-voice-tts-fmt">Format</label>
+                <select
+                  id="cnx-voice-tts-fmt"
+                  v-model="adm.configForm.voice.tts.format"
+                  data-field="config:voice.tts.format"
+                  class="set-select w-full max-w-sm"
                 >
-                  {{
-                    adm.voiceModels.stt.state === "err"
-                      ? adm.voiceModels.stt.error
-                      : "Celui chargé au démarrage du serveur"
-                  }}
-                </span>
-                <template v-else>
+                  <option value="elpis-tts">Service Elpis (Piper)</option>
+                  <option value="piper-http">Piper (piper.http_server)</option>
+                  <option value="openai">Compatible OpenAI</option>
+                </select>
+              </div>
+
+              <div v-if="adm.configForm.voice.tts.format === 'openai'" class="adm-row">
+                <label class="adm-row__label" for="cnx-voice-tts-model">Modèle</label>
+                <div class="flex items-center gap-2">
                   <select
-                    v-if="adm.voiceModels.stt.models.length"
-                    id="cnx-voice-stt-model"
-                    v-model="adm.configForm.voice.stt.model"
-                    data-field="config:voice.stt.model"
+                    v-if="adm.voiceModels.tts.models.length"
+                    id="cnx-voice-tts-model"
+                    v-model="adm.configForm.voice.tts.model"
+                    data-field="config:voice.tts.model"
                     class="set-select w-full max-w-sm font-mono text-xs"
                   >
-                    <option
-                      v-if="
-                        adm.configForm.voice.stt.model &&
-                        !adm.voiceModels.stt.models.some((m) => m.id === adm.configForm?.voice.stt.model)
-                      "
-                      :value="adm.configForm.voice.stt.model"
-                    >
-                      {{ adm.configForm.voice.stt.model }} (absent du serveur)
-                    </option>
-                    <option v-for="m in adm.voiceModels.stt.models" :key="m.id" :value="m.id">
+                    <option v-if="!adm.configForm.voice.tts.model" value="" disabled>Choisir…</option>
+                    <option v-for="m in adm.voiceModels.tts.models" :key="m.id" :value="m.id">
                       {{ m.label || m.id }}
                     </option>
                   </select>
                   <input
                     v-else
-                    id="cnx-voice-stt-model"
-                    v-model="adm.configForm.voice.stt.model"
-                    data-field="config:voice.stt.model"
-                    placeholder="whisper-1"
-                    :title="adm.voiceModels.stt.error || 'Liste indisponible : saisie manuelle.'"
+                    id="cnx-voice-tts-model"
+                    v-model="adm.configForm.voice.tts.model"
+                    data-field="config:voice.tts.model"
+                    placeholder="tts-1"
+                    :title="adm.voiceModels.tts.error || 'Liste indisponible : saisie manuelle.'"
                     class="set-input font-mono text-xs"
                   />
-                </template>
-                <button
-                  type="button"
-                  :disabled="adm.voiceModels.stt.state === 'busy'"
-                  class="adm-btn adm-btn--icon"
-                  title="Relire sur le serveur"
-                  aria-label="Relire les modèles"
-                  @click="adm.loadVoiceModels('stt')"
-                >
-                  <i
-                    class="ph ph-arrows-clockwise"
-                    :class="adm.voiceModels.stt.state === 'busy' ? 'animate-spin' : ''"
-                    aria-hidden="true"
-                  ></i>
-                </button>
-              </div>
-            </div>
-            <div
-              v-if="
-                adm.configForm.voice.stt.endpoint_url &&
-                adm.configForm.voice.stt.endpoint_url.startsWith('https')
-              "
-              class="adm-row"
-            >
-              <label class="adm-row__label" for="cnx-voice-stt-verify">Certificat</label>
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="cnx-voice-stt-verify"
-                  v-model="adm.configForm.voice.stt.verify"
-                  type="checkbox"
-                  data-field="config:voice.stt.verify"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">{{
-                  adm.configForm.voice.stt.verify ? "Vérifié" : "Non vérifié (auto-signé)"
-                }}</span>
-              </label>
-            </div>
-
-            <div class="adm-row adm-row--top">
-              <div>
-                <label
-                  class="adm-row__label"
-                  title="Termes à reconnaître, séparés par des virgules. Noms propres, jargon métier, sigles. Sur des termes spécialisés, ce champ divise le taux d'erreur par trois."
-                  for="cnx-voice-prompt"
-                  >Vocabulaire</label
-                >
-                <span class="sr-only"
-                  >Termes à reconnaître, séparés par des virgules. Noms propres, jargon métier, sigles. Sur
-                  des termes spécialisés, ce champ divise le taux d'erreur par trois.</span
-                >
-              </div>
-              <textarea
-                id="cnx-voice-prompt"
-                v-model="adm.configForm.voice.stt.prompt"
-                data-field="config:voice.stt.prompt"
-                rows="2"
-                placeholder="Elpis, Qdrant, bubblewrap"
-                class="set-textarea font-mono text-xs"
-              ></textarea>
-            </div>
-
-            <div class="adm-row">
-              <label class="adm-row__label" for="cnx-voice-stt-token">Jeton</label>
-              <input
-                id="cnx-voice-stt-token"
-                v-model="adm.configForm.voice.stt.token"
-                data-field="config:voice.stt.token"
-                type="password"
-                autocomplete="new-password"
-                placeholder="facultatif"
-                class="set-input font-mono text-xs"
-              />
-            </div>
-          </template>
-
-          <div v-if="adm.configForm.voice.tts" class="adm-row adm-row--full">
-            <span class="text-xs uppercase tracking-wide text-slate-500">Synthèse</span>
-          </div>
-
-          <template v-if="adm.configForm.voice.tts">
-            <div class="adm-row">
-              <label class="adm-row__label" for="cnx-voice-tts-url">Adresse</label>
-              <input
-                id="cnx-voice-tts-url"
-                v-model="adm.configForm.voice.tts.endpoint_url"
-                data-field="config:voice.tts.endpoint_url"
-                placeholder="http://machine-tts:8091"
-                title="Service Piper de deploy/voice/tts. Vide = lecture désactivée."
-                class="set-input font-mono text-xs"
-              />
-            </div>
-
-            <div class="adm-row">
-              <label class="adm-row__label" for="cnx-voice-tts-fmt">Format</label>
-              <select
-                id="cnx-voice-tts-fmt"
-                v-model="adm.configForm.voice.tts.format"
-                data-field="config:voice.tts.format"
-                class="set-select w-full max-w-sm"
-              >
-                <option value="elpis-tts">Service Elpis (Piper)</option>
-                <option value="piper-http">Piper (piper.http_server)</option>
-                <option value="openai">Compatible OpenAI</option>
-              </select>
-            </div>
-
-            <div v-if="adm.configForm.voice.tts.format === 'openai'" class="adm-row">
-              <label class="adm-row__label" for="cnx-voice-tts-model">Modèle</label>
-              <div class="flex items-center gap-2">
-                <select
-                  v-if="adm.voiceModels.tts.models.length"
-                  id="cnx-voice-tts-model"
-                  v-model="adm.configForm.voice.tts.model"
-                  data-field="config:voice.tts.model"
-                  class="set-select w-full max-w-sm font-mono text-xs"
-                >
-                  <option v-if="!adm.configForm.voice.tts.model" value="" disabled>Choisir…</option>
-                  <option v-for="m in adm.voiceModels.tts.models" :key="m.id" :value="m.id">
-                    {{ m.label || m.id }}
-                  </option>
-                </select>
-                <input
-                  v-else
-                  id="cnx-voice-tts-model"
-                  v-model="adm.configForm.voice.tts.model"
-                  data-field="config:voice.tts.model"
-                  placeholder="tts-1"
-                  :title="adm.voiceModels.tts.error || 'Liste indisponible : saisie manuelle.'"
-                  class="set-input font-mono text-xs"
-                />
-                <button
-                  type="button"
-                  :disabled="adm.voiceModels.tts.state === 'busy'"
-                  class="adm-btn adm-btn--icon"
-                  title="Relire sur le serveur"
-                  aria-label="Relire les modèles"
-                  @click="adm.loadVoiceModels('tts')"
-                >
-                  <i
-                    class="ph ph-arrows-clockwise"
-                    :class="adm.voiceModels.tts.state === 'busy' ? 'animate-spin' : ''"
-                    aria-hidden="true"
-                  ></i>
-                </button>
-              </div>
-            </div>
-
-            <div class="adm-row">
-              <div>
-                <label class="adm-row__label" for="cnx-voice-voix">Voix</label>
-                <p v-if="adm.configForm.voice.tts.format !== 'openai'" class="adm-row__hint">
-                  Lue sur le serveur.
-                </p>
-              </div>
-              <div class="flex items-center gap-2">
-                <select
-                  v-if="adm.configForm.voice.tts.format !== 'openai' && adm.voiceModels.tts.models.length"
-                  id="cnx-voice-voix"
-                  v-model="adm.configForm.voice.tts.voice"
-                  data-field="config:voice.tts.voice"
-                  class="set-select w-full max-w-sm font-mono text-xs"
-                >
-                  <option
-                    v-if="
-                      adm.configForm.voice.tts.voice &&
-                      !adm.voiceModels.tts.models.some((m) => m.id === adm.configForm?.voice.tts.voice)
-                    "
-                    :value="adm.configForm.voice.tts.voice"
+                  <button
+                    type="button"
+                    :disabled="adm.voiceModels.tts.state === 'busy'"
+                    class="adm-btn adm-btn--icon"
+                    title="Relire sur le serveur"
+                    aria-label="Relire les modèles"
+                    @click="adm.loadVoiceModels('tts')"
                   >
-                    {{ adm.configForm.voice.tts.voice }} (absente du serveur)
-                  </option>
-                  <option v-for="m in adm.voiceModels.tts.models" :key="m.id" :value="m.id">
-                    {{ m.label || m.id }}
-                  </option>
-                </select>
+                    <i
+                      class="ph ph-arrows-clockwise"
+                      :class="adm.voiceModels.tts.state === 'busy' ? 'animate-spin' : ''"
+                      aria-hidden="true"
+                    ></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="adm-row">
+                <div>
+                  <label class="adm-row__label" for="cnx-voice-voix">Voix</label>
+                  <p v-if="adm.configForm.voice.tts.format !== 'openai'" class="adm-row__hint">
+                    Lue sur le serveur.
+                  </p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <select
+                    v-if="adm.configForm.voice.tts.format !== 'openai' && adm.voiceModels.tts.models.length"
+                    id="cnx-voice-voix"
+                    v-model="adm.configForm.voice.tts.voice"
+                    data-field="config:voice.tts.voice"
+                    class="set-select w-full max-w-sm font-mono text-xs"
+                  >
+                    <option
+                      v-if="
+                        adm.configForm.voice.tts.voice &&
+                        !adm.voiceModels.tts.models.some((m) => m.id === adm.configForm?.voice.tts.voice)
+                      "
+                      :value="adm.configForm.voice.tts.voice"
+                    >
+                      {{ adm.configForm.voice.tts.voice }} (absente du serveur)
+                    </option>
+                    <option v-for="m in adm.voiceModels.tts.models" :key="m.id" :value="m.id">
+                      {{ m.label || m.id }}
+                    </option>
+                  </select>
+                  <input
+                    v-else
+                    id="cnx-voice-voix"
+                    v-model="adm.configForm.voice.tts.voice"
+                    data-field="config:voice.tts.voice"
+                    :placeholder="
+                      adm.configForm.voice.tts.format === 'openai' ? 'alloy' : 'fr_FR-siwis-medium'
+                    "
+                    :title="
+                      adm.configForm.voice.tts.format === 'openai'
+                        ? 'Nom de voix du service.'
+                        : adm.voiceModels.tts.error || 'Liste indisponible : saisie manuelle.'
+                    "
+                    class="set-input font-mono text-xs"
+                  />
+                  <button
+                    v-if="adm.configForm.voice.tts.format !== 'openai'"
+                    type="button"
+                    :disabled="adm.voiceModels.tts.state === 'busy'"
+                    class="adm-btn adm-btn--icon"
+                    title="Relire sur le serveur"
+                    aria-label="Relire les voix"
+                    @click="adm.loadVoiceModels('tts')"
+                  >
+                    <i
+                      class="ph ph-arrows-clockwise"
+                      :class="adm.voiceModels.tts.state === 'busy' ? 'animate-spin' : ''"
+                      aria-hidden="true"
+                    ></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="adm-row">
+                <label class="adm-row__label" for="cnx-voice-vitesse">Vitesse</label>
+                <div class="flex items-center gap-2">
+                  <input
+                    id="cnx-voice-vitesse"
+                    v-model.number="adm.configForm.voice.tts.speed"
+                    data-field="config:voice.tts.speed"
+                    type="number"
+                    min="0.5"
+                    max="2"
+                    step="0.1"
+                    title="Entre 0,5 et 2. Au-delà, la voix se dégrade."
+                    class="set-input adm-num"
+                  />
+                  <span class="adm-unit">×</span>
+                </div>
+              </div>
+
+              <div class="adm-row">
+                <label class="adm-row__label" for="cnx-voice-tts-token">Jeton</label>
                 <input
-                  v-else
-                  id="cnx-voice-voix"
-                  v-model="adm.configForm.voice.tts.voice"
-                  data-field="config:voice.tts.voice"
-                  :placeholder="adm.configForm.voice.tts.format === 'openai' ? 'alloy' : 'fr_FR-siwis-medium'"
-                  :title="
-                    adm.configForm.voice.tts.format === 'openai'
-                      ? 'Nom de voix du service.'
-                      : adm.voiceModels.tts.error || 'Liste indisponible : saisie manuelle.'
-                  "
+                  id="cnx-voice-tts-token"
+                  v-model="adm.configForm.voice.tts.token"
+                  data-field="config:voice.tts.token"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="facultatif"
+                  title="Service Elpis : contenu de token.env sur la machine de synthèse."
                   class="set-input font-mono text-xs"
                 />
-                <button
-                  v-if="adm.configForm.voice.tts.format !== 'openai'"
-                  type="button"
-                  :disabled="adm.voiceModels.tts.state === 'busy'"
-                  class="adm-btn adm-btn--icon"
-                  title="Relire sur le serveur"
-                  aria-label="Relire les voix"
-                  @click="adm.loadVoiceModels('tts')"
-                >
-                  <i
-                    class="ph ph-arrows-clockwise"
-                    :class="adm.voiceModels.tts.state === 'busy' ? 'animate-spin' : ''"
-                    aria-hidden="true"
-                  ></i>
-                </button>
               </div>
-            </div>
-
-            <div class="adm-row">
-              <label class="adm-row__label" for="cnx-voice-vitesse">Vitesse</label>
-              <div class="flex items-center gap-2">
-                <input
-                  id="cnx-voice-vitesse"
-                  v-model.number="adm.configForm.voice.tts.speed"
-                  data-field="config:voice.tts.speed"
-                  type="number"
-                  min="0.5"
-                  max="2"
-                  step="0.1"
-                  title="Entre 0,5 et 2. Au-delà, la voix se dégrade."
-                  class="set-input adm-num"
-                />
-                <span class="adm-unit">×</span>
+              <div
+                v-if="
+                  adm.configForm.voice.tts.endpoint_url &&
+                  adm.configForm.voice.tts.endpoint_url.startsWith('https')
+                "
+                class="adm-row"
+              >
+                <label class="adm-row__label" for="cnx-voice-tts-verify">Certificat</label>
+                <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                  <input
+                    id="cnx-voice-tts-verify"
+                    v-model="adm.configForm.voice.tts.verify"
+                    type="checkbox"
+                    data-field="config:voice.tts.verify"
+                    class="sr-only peer"
+                  />
+                  <span
+                    class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
+                  ></span>
+                  <span class="text-sm text-slate-700">{{
+                    adm.configForm.voice.tts.verify ? "Vérifié" : "Non vérifié (auto-signé)"
+                  }}</span>
+                </label>
               </div>
-            </div>
-
-            <div class="adm-row">
-              <label class="adm-row__label" for="cnx-voice-tts-token">Jeton</label>
-              <input
-                id="cnx-voice-tts-token"
-                v-model="adm.configForm.voice.tts.token"
-                data-field="config:voice.tts.token"
-                type="password"
-                autocomplete="new-password"
-                placeholder="facultatif"
-                title="Service Elpis : contenu de token.env sur la machine de synthèse."
-                class="set-input font-mono text-xs"
-              />
-            </div>
-            <div
-              v-if="
-                adm.configForm.voice.tts.endpoint_url &&
-                adm.configForm.voice.tts.endpoint_url.startsWith('https')
-              "
-              class="adm-row"
-            >
-              <label class="adm-row__label" for="cnx-voice-tts-verify">Certificat</label>
-              <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-                <input
-                  id="cnx-voice-tts-verify"
-                  v-model="adm.configForm.voice.tts.verify"
-                  type="checkbox"
-                  data-field="config:voice.tts.verify"
-                  class="sr-only peer"
-                />
-                <span
-                  class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-                ></span>
-                <span class="text-sm text-slate-700">{{
-                  adm.configForm.voice.tts.verify ? "Vérifié" : "Non vérifié (auto-signé)"
-                }}</span>
-              </label>
-            </div>
-          </template>
+            </template>
+          </div>
 
           <div class="adm-row adm-row--top">
             <div>
@@ -1386,499 +1426,537 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             </label>
           </div>
 
-          <div class="adm-row adm-row--full">
-            <span class="text-xs uppercase tracking-wide text-slate-500">Connexion</span>
-          </div>
-          <div class="adm-row">
-            <label class="adm-row__label" for="cnx-image-provider">Moteur</label>
-            <select
-              id="cnx-image-provider"
-              v-model="adm.configForm.image.provider"
-              data-field="config:image.provider"
-              class="set-select w-full max-w-sm"
-            >
-              <option value="sdcpp">sd-server (stable-diffusion.cpp)</option>
-              <option value="openai">Compatible OpenAI</option>
-            </select>
-          </div>
-          <div class="adm-row">
-            <label class="adm-row__label" for="cnx-image-url">Adresse</label>
-            <input
-              id="cnx-image-url"
-              v-model="adm.configForm.image.url"
-              data-field="config:image.url"
-              :placeholder="
-                adm.configForm.image.provider === 'openai'
-                  ? 'https://images.lan/v1'
-                  : 'http://machine-gpu:8083'
-              "
-              title="Vide = génération désactivée."
-              class="set-input font-mono text-xs"
+          <div v-if="!ui.classique" class="adm-row adm-row--full">
+            <SousOngletsConsole
+              v-model="ongletImages"
+              label="Réglages des images"
+              page="images"
+              :onglets="ongletsImages"
             />
           </div>
-
-          <div class="adm-row">
-            <label
-              class="adm-row__label"
-              for="cnx-image-key"
-              :title="
-                adm.configForm.image.provider === 'openai'
-                  ? 'Envoyée en Bearer au service.'
-                  : 'Facultative (proxy devant sd-server).'
-              "
-              >Clé</label
-            >
-            <div class="flex items-center gap-2 min-w-0">
-              <input
-                id="cnx-image-key"
-                v-model="adm.imageKey.draft"
-                type="password"
-                autocomplete="new-password"
-                :placeholder="
-                  adm.imageKey.has
-                    ? 'Enregistrée — saisir pour remplacer'
-                    : adm.imageKey.stale
-                      ? 'À ressaisir'
-                      : 'Aucune'
-                "
-                class="set-input font-mono text-xs"
-                @keydown.enter.prevent="adm.saveImageKey(false)"
-              />
-              <span
-                v-if="!adm.imageKey.has && adm.imageKey.stale"
-                class="elpis-img-status is-warn whitespace-nowrap"
-                title="Clé enregistrée pour une autre adresse"
-                data-image-key-stale
-                >À ressaisir</span
-              >
-              <button
-                type="button"
-                class="adm-btn"
-                :disabled="!adm.imageKey.draft || adm.imageKey.state === 'busy'"
-                data-image-key-save
-                @click="adm.saveImageKey(false)"
-              >
-                Enregistrer
-              </button>
-              <button
-                v-if="adm.imageKey.has"
-                type="button"
-                class="adm-btn adm-btn--icon"
-                :disabled="adm.imageKey.state === 'busy'"
-                title="Effacer la clé"
-                aria-label="Effacer la clé"
-                @click="adm.saveImageKey(true)"
-              >
-                <i class="ph ph-trash" aria-hidden="true"></i>
-              </button>
+          <div
+            v-show="surOnglet('images', 'connexion')"
+            id="onglet-images-connexion"
+            class="adm-onglet"
+            :role="ui.classique ? undefined : 'tabpanel'"
+            :aria-labelledby="ui.classique ? undefined : 'onglet-bouton-images-connexion'"
+          >
+            <div class="adm-row adm-row--full">
+              <span class="text-sm font-medium text-slate-700">Connexion</span>
             </div>
-          </div>
-          <p v-if="adm.imageKey.state === 'err'" class="elpis-img-status is-err px-1">
-            {{ adm.imageKey.error }}
-          </p>
-          <div v-if="adm.configForm.image.url" class="adm-row">
-            <label class="adm-row__label" for="cnx-image-model" title="Lu sur le serveur.">Modèle</label>
-            <div class="flex items-center gap-2 min-w-0">
-              <span
-                v-if="adm.configForm.image.provider === 'sdcpp'"
-                class="text-sm text-slate-600 font-mono truncate"
-                :title="adm.imageModels.error"
-              >
-                {{
-                  adm.imageModels.state === "err"
-                    ? adm.imageModels.error
-                    : (adm.imageModels.models[0] &&
-                        (adm.imageModels.models[0].label || adm.imageModels.models[0].id)) ||
-                      "Celui chargé au démarrage du serveur"
-                }}
-              </span>
-              <template v-else>
-                <select
-                  v-if="adm.imageModels.models.length"
-                  id="cnx-image-model"
-                  v-model="adm.configForm.image.model"
-                  data-field="config:image.model"
-                  class="set-select w-full max-w-sm font-mono text-xs"
-                >
-                  <option
-                    v-if="
-                      adm.configForm.image.model &&
-                      !adm.imageModels.models.some((m) => m.id === adm.configForm?.image.model)
-                    "
-                    :value="adm.configForm.image.model"
-                  >
-                    {{ adm.configForm.image.model }} (absent du serveur)
-                  </option>
-                  <option v-for="m in adm.imageModels.models" :key="m.id" :value="m.id">
-                    {{ m.label || m.id }}
-                  </option>
-                </select>
-                <input
-                  v-else
-                  id="cnx-image-model"
-                  v-model="adm.configForm.image.model"
-                  data-field="config:image.model"
-                  placeholder="gpt-image-1"
-                  :title="adm.imageModels.error || 'Liste indisponible : saisie manuelle.'"
-                  class="set-input font-mono text-xs"
-                />
-              </template>
-              <button
-                type="button"
-                :disabled="adm.imageModels.state === 'busy'"
-                class="adm-btn adm-btn--icon"
-                title="Relire sur le serveur"
-                aria-label="Relire les modèles"
-                @click="adm.loadImageModels()"
-              >
-                <i
-                  class="ph ph-arrows-clockwise"
-                  :class="adm.imageModels.state === 'busy' ? 'animate-spin' : ''"
-                  aria-hidden="true"
-                ></i>
-              </button>
-            </div>
-          </div>
-          <template v-if="adm.configForm.image.url && adm.configForm.image.url.startsWith('https')">
             <div class="adm-row">
-              <label class="adm-row__label" for="cnx-image-verify">Certificat</label>
+              <label class="adm-row__label" for="cnx-image-provider">Moteur</label>
+              <select
+                id="cnx-image-provider"
+                v-model="adm.configForm.image.provider"
+                data-field="config:image.provider"
+                class="set-select w-full max-w-sm"
+              >
+                <option value="sdcpp">sd-server (stable-diffusion.cpp)</option>
+                <option value="openai">Compatible OpenAI</option>
+              </select>
+            </div>
+            <div class="adm-row">
+              <label class="adm-row__label" for="cnx-image-url">Adresse</label>
+              <input
+                id="cnx-image-url"
+                v-model="adm.configForm.image.url"
+                data-field="config:image.url"
+                :placeholder="
+                  adm.configForm.image.provider === 'openai'
+                    ? 'https://images.lan/v1'
+                    : 'http://machine-gpu:8083'
+                "
+                title="Vide = génération désactivée."
+                class="set-input font-mono text-xs"
+              />
+            </div>
+
+            <div class="adm-row">
+              <label
+                class="adm-row__label"
+                for="cnx-image-key"
+                :title="
+                  adm.configForm.image.provider === 'openai'
+                    ? 'Envoyée en Bearer au service.'
+                    : 'Facultative (proxy devant sd-server).'
+                "
+                >Clé</label
+              >
+              <div class="flex items-center gap-2 min-w-0">
+                <input
+                  id="cnx-image-key"
+                  v-model="adm.imageKey.draft"
+                  type="password"
+                  autocomplete="new-password"
+                  :placeholder="
+                    adm.imageKey.has
+                      ? 'Enregistrée — saisir pour remplacer'
+                      : adm.imageKey.stale
+                        ? 'À ressaisir'
+                        : 'Aucune'
+                  "
+                  class="set-input font-mono text-xs"
+                  @keydown.enter.prevent="adm.saveImageKey(false)"
+                />
+                <span
+                  v-if="!adm.imageKey.has && adm.imageKey.stale"
+                  class="elpis-img-status is-warn whitespace-nowrap"
+                  title="Clé enregistrée pour une autre adresse"
+                  data-image-key-stale
+                  >À ressaisir</span
+                >
+                <button
+                  type="button"
+                  class="adm-btn"
+                  :disabled="!adm.imageKey.draft || adm.imageKey.state === 'busy'"
+                  data-image-key-save
+                  @click="adm.saveImageKey(false)"
+                >
+                  Enregistrer
+                </button>
+                <button
+                  v-if="adm.imageKey.has"
+                  type="button"
+                  class="adm-btn adm-btn--icon"
+                  :disabled="adm.imageKey.state === 'busy'"
+                  title="Effacer la clé"
+                  aria-label="Effacer la clé"
+                  @click="adm.saveImageKey(true)"
+                >
+                  <i class="ph ph-trash" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+            <p v-if="adm.imageKey.state === 'err'" class="elpis-img-status is-err px-1">
+              {{ adm.imageKey.error }}
+            </p>
+            <div v-if="adm.configForm.image.url" class="adm-row">
+              <label class="adm-row__label" for="cnx-image-model" title="Lu sur le serveur.">Modèle</label>
+              <div class="flex items-center gap-2 min-w-0">
+                <span
+                  v-if="adm.configForm.image.provider === 'sdcpp'"
+                  class="text-sm text-slate-600 font-mono truncate"
+                  :title="adm.imageModels.error"
+                >
+                  {{
+                    adm.imageModels.state === "err"
+                      ? adm.imageModels.error
+                      : (adm.imageModels.models[0] &&
+                          (adm.imageModels.models[0].label || adm.imageModels.models[0].id)) ||
+                        "Celui chargé au démarrage du serveur"
+                  }}
+                </span>
+                <template v-else>
+                  <select
+                    v-if="adm.imageModels.models.length"
+                    id="cnx-image-model"
+                    v-model="adm.configForm.image.model"
+                    data-field="config:image.model"
+                    class="set-select w-full max-w-sm font-mono text-xs"
+                  >
+                    <option
+                      v-if="
+                        adm.configForm.image.model &&
+                        !adm.imageModels.models.some((m) => m.id === adm.configForm?.image.model)
+                      "
+                      :value="adm.configForm.image.model"
+                    >
+                      {{ adm.configForm.image.model }} (absent du serveur)
+                    </option>
+                    <option v-for="m in adm.imageModels.models" :key="m.id" :value="m.id">
+                      {{ m.label || m.id }}
+                    </option>
+                  </select>
+                  <input
+                    v-else
+                    id="cnx-image-model"
+                    v-model="adm.configForm.image.model"
+                    data-field="config:image.model"
+                    placeholder="gpt-image-1"
+                    :title="adm.imageModels.error || 'Liste indisponible : saisie manuelle.'"
+                    class="set-input font-mono text-xs"
+                  />
+                </template>
+                <button
+                  type="button"
+                  :disabled="adm.imageModels.state === 'busy'"
+                  class="adm-btn adm-btn--icon"
+                  title="Relire sur le serveur"
+                  aria-label="Relire les modèles"
+                  @click="adm.loadImageModels()"
+                >
+                  <i
+                    class="ph ph-arrows-clockwise"
+                    :class="adm.imageModels.state === 'busy' ? 'animate-spin' : ''"
+                    aria-hidden="true"
+                  ></i>
+                </button>
+              </div>
+            </div>
+            <template v-if="adm.configForm.image.url && adm.configForm.image.url.startsWith('https')">
+              <div class="adm-row">
+                <label class="adm-row__label" for="cnx-image-verify">Certificat</label>
+                <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+                  <input
+                    id="cnx-image-verify"
+                    v-model="adm.configForm.image.verify"
+                    type="checkbox"
+                    data-field="config:image.verify"
+                    class="sr-only peer"
+                  />
+                  <span
+                    class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
+                  ></span>
+                  <span class="text-sm text-slate-700">{{
+                    adm.configForm.image.verify ? "Vérifié" : "Non vérifié"
+                  }}</span>
+                </label>
+              </div>
+              <div v-if="adm.configForm.image.verify" class="adm-row adm-row--top">
+                <label
+                  class="adm-row__label"
+                  for="cnx-image-ca"
+                  title="Autorité de l'infrastructure interne, au format PEM. Vide : magasin du système."
+                  >CA</label
+                >
+                <textarea
+                  id="cnx-image-ca"
+                  v-model="adm.configForm.image.ca_pem"
+                  data-field="config:image.ca_pem"
+                  rows="2"
+                  placeholder="-----BEGIN CERTIFICATE-----"
+                  class="set-textarea font-mono text-xs"
+                ></textarea>
+              </div>
+            </template>
+            <div class="adm-row adm-row--top">
+              <span class="adm-row__label" title="Teste les valeurs ci-dessus sans les enregistrer."
+                >Vérification</span
+              >
+              <div class="min-w-0">
+                <button
+                  type="button"
+                  :disabled="adm.imageTest.state === 'busy' || !adm.configForm.image.url"
+                  class="adm-btn adm-tool"
+                  data-image-test
+                  @click="adm.testImageEngine"
+                >
+                  <i
+                    class="ph"
+                    :class="adm.imageTest.state === 'busy' ? 'ph-circle-notch animate-spin' : 'ph-pulse'"
+                    aria-hidden="true"
+                  ></i>
+                  {{ adm.imageTest.state === "busy" ? "Test…" : "Tester" }}
+                </button>
+                <p
+                  v-if="adm.imageTest.state === 'done' && adm.imageTest.res"
+                  class="elpis-img-status mt-2"
+                  :class="adm.imageTest.res.ok ? 'is-ok' : 'is-err'"
+                  role="status"
+                  data-image-test-result
+                >
+                  {{ adm.imageTestLine(adm.imageTest.res) }}
+                </p>
+                <p
+                  v-else-if="adm.imageTest.state === 'err'"
+                  class="elpis-img-status is-err mt-2"
+                  role="status"
+                >
+                  ✗ {{ adm.imageTest.error }}
+                </p>
+                <ul
+                  v-if="
+                    adm.imageTest.state === 'done' &&
+                    adm.imageTest.res &&
+                    adm.imageTest.res.warnings &&
+                    adm.imageTest.res.warnings.length
+                  "
+                  class="mt-1 space-y-0.5"
+                >
+                  <li v-for="w in adm.imageTest.res.warnings" :key="w" class="elpis-img-status is-warn">
+                    ⚠ {{ w }}
+                  </li>
+                </ul>
+                <p v-if="adm.imageTest.adjusted" class="elpis-img-status mt-1">
+                  Limites ajustées au moteur, à enregistrer.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-show="surOnglet('images', 'limites')"
+            id="onglet-images-limites"
+            class="adm-onglet"
+            :role="ui.classique ? undefined : 'tabpanel'"
+            :aria-labelledby="ui.classique ? undefined : 'onglet-bouton-images-limites'"
+          >
+            <div class="adm-row adm-row--full">
+              <span class="text-sm font-medium text-slate-700">Limites</span>
+            </div>
+            <div class="adm-row">
+              <label
+                class="adm-row__label"
+                for="cnx-image-maxside"
+                title="Plus grand côté qu'un compte peut demander."
+                >Côté max</label
+              >
+              <div class="flex items-center gap-2">
+                <input
+                  id="cnx-image-maxside"
+                  v-model.number="adm.configForm.image.max_side"
+                  data-field="config:image.max_side"
+                  type="number"
+                  min="256"
+                  max="4096"
+                  step="64"
+                  class="set-input adm-num"
+                />
+                <span class="adm-unit">px</span>
+              </div>
+            </div>
+            <div class="adm-row">
+              <label
+                class="adm-row__label"
+                for="cnx-image-defside"
+                title="Taille proposée à un compte qui n'a rien choisi."
+                >Côté par défaut</label
+              >
+              <select
+                id="cnx-image-defside"
+                v-model.number="adm.configForm.image.default_side"
+                data-field="config:image.default_side"
+                class="set-select w-full max-w-[10rem] font-mono text-xs"
+              >
+                <option v-for="v in adm.imageSideChoices" :key="v" :value="v">{{ v }} px</option>
+              </select>
+            </div>
+            <div class="adm-row">
+              <label class="adm-row__label" for="cnx-image-n">Par demande</label>
+              <div class="flex items-center gap-2">
+                <input
+                  id="cnx-image-n"
+                  v-model.number="adm.configForm.image.max_n"
+                  data-field="config:image.max_n"
+                  type="number"
+                  min="1"
+                  max="8"
+                  class="set-input adm-num"
+                />
+                <span class="adm-unit">images</span>
+              </div>
+            </div>
+            <div v-if="adm.configForm.image.provider === 'openai'" class="adm-row">
+              <label
+                class="adm-row__label"
+                for="cnx-image-conc"
+                title="Générations simultanées vers ce service, tous processus confondus."
+                >Simultanées</label
+              >
+              <input
+                id="cnx-image-conc"
+                v-model.number="adm.configForm.image.max_concurrent"
+                data-field="config:image.max_concurrent"
+                type="number"
+                min="1"
+                max="8"
+                class="set-input adm-num"
+              />
+            </div>
+            <div class="adm-row">
+              <label
+                class="adm-row__label"
+                for="cnx-image-timeout"
+                title="Compté à partir du début du calcul (pas de l'attente en file)."
+                >Délai</label
+              >
+              <div class="flex items-center gap-2">
+                <input
+                  id="cnx-image-timeout"
+                  v-model.number="adm.configForm.image.timeout_sec"
+                  data-field="config:image.timeout_sec"
+                  type="number"
+                  min="10"
+                  max="1800"
+                  class="set-input adm-num"
+                />
+                <span class="adm-unit">s</span>
+              </div>
+            </div>
+            <div v-if="adm.configForm.image.provider === 'openai'" class="adm-row">
+              <label
+                class="adm-row__label"
+                for="cnx-image-policy"
+                title="Fixes : les vrais modèles OpenAI n'acceptent que quelques tailles."
+                >Tailles</label
+              >
+              <select
+                id="cnx-image-policy"
+                v-model="adm.configForm.image.size_policy"
+                data-field="config:image.size_policy"
+                class="set-select w-full max-w-[12rem]"
+              >
+                <option value="free">Libres (pas de 64)</option>
+                <option value="fixed">Fixes</option>
+              </select>
+            </div>
+            <div
+              v-if="
+                adm.configForm.image.provider === 'openai' && adm.configForm.image.size_policy === 'fixed'
+              "
+              class="adm-row"
+            >
+              <label class="adm-row__label" for="cnx-image-sizes" title="Séparées par des virgules."
+                >Liste</label
+              >
+              <input
+                id="cnx-image-sizes"
+                :value="(adm.configForm.image.sizes || []).join(', ')"
+                data-field="config:image.sizes"
+                placeholder="1024x1024, 1536x1024, 1024x1536"
+                class="set-input font-mono text-xs"
+                @change="adm.setImageSizesText(($event.target as HTMLInputElement).value)"
+              />
+            </div>
+            <div v-if="adm.configForm.image.provider === 'sdcpp'" class="adm-row">
+              <label
+                class="adm-row__label"
+                for="cnx-image-edit"
+                title="Comment le modèle chargé modifie une image."
+                >Édition</label
+              >
+              <select
+                id="cnx-image-edit"
+                v-model="adm.configForm.image.edit_mode"
+                data-field="config:image.edit_mode"
+                class="set-select w-full max-w-sm"
+              >
+                <option value="init">Image de départ (img2img, force)</option>
+                <option value="ref">Image de référence (FLUX.2 klein, Qwen-Image-Edit)</option>
+              </select>
+            </div>
+          </div>
+
+          <div
+            v-show="surOnglet('images', 'acces')"
+            id="onglet-images-acces"
+            class="adm-onglet"
+            :role="ui.classique ? undefined : 'tabpanel'"
+            :aria-labelledby="ui.classique ? undefined : 'onglet-bouton-images-acces'"
+          >
+            <div class="adm-row adm-row--full">
+              <span class="text-sm font-medium text-slate-700">Accès</span>
+            </div>
+            <div class="adm-row adm-row--top">
+              <span
+                class="adm-row__label"
+                title="Aucun groupe coché : tous les comptes. Les administrateurs ont toujours accès."
+                >Groupes</span
+              >
+              <div
+                class="flex flex-wrap gap-1.5"
+                role="group"
+                aria-label="Groupes autorisés"
+                data-field="config:image.groups"
+              >
+                <button
+                  type="button"
+                  class="elpis-img-chip"
+                  :aria-pressed="!(adm.configForm.image.groups || []).length ? 'true' : 'false'"
+                  @click="adm.setImageGroups([])"
+                >
+                  Tous
+                </button>
+                <button
+                  v-for="g in adm.groupsList"
+                  :key="g.id"
+                  type="button"
+                  class="elpis-img-chip"
+                  :aria-pressed="(adm.configForm.image.groups || []).includes(g.id) ? 'true' : 'false'"
+                  @click="adm.toggleImageGroup(g.id)"
+                >
+                  {{ g.name }}
+                </button>
+                <span
+                  v-for="gid in adm.imageGroupsMissing"
+                  :key="'x' + gid"
+                  class="elpis-img-chip is-gone"
+                  title="Groupe supprimé : ne donne accès à personne."
+                  >#{{ gid }}
+                  <button
+                    type="button"
+                    class="elpis-img-chip__x"
+                    aria-label="Retirer"
+                    @click="adm.toggleImageGroup(gid)"
+                  >
+                    <i class="ph ph-x" aria-hidden="true"></i>
+                  </button>
+                </span>
+              </div>
+            </div>
+            <div class="adm-row">
+              <label
+                class="adm-row__label"
+                for="cnx-image-tool"
+                title="Appels de l'outil generate_image permis par tour du modèle."
+                >Outil</label
+              >
+              <div class="flex items-center gap-2">
+                <input
+                  id="cnx-image-tool"
+                  v-model.number="adm.configForm.image.tool_max_calls"
+                  data-field="config:image.tool_max_calls"
+                  type="number"
+                  min="1"
+                  max="20"
+                  class="set-input adm-num"
+                />
+                <span class="adm-unit">appels/tour</span>
+              </div>
+            </div>
+            <div class="adm-row">
+              <label
+                class="adm-row__label"
+                for="cnx-image-enhance"
+                title="Le modèle du chat peut réécrire la description avant l'envoi au moteur."
+                >Enrichir</label
+              >
               <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
                 <input
-                  id="cnx-image-verify"
-                  v-model="adm.configForm.image.verify"
+                  id="cnx-image-enhance"
+                  v-model="adm.configForm.image.enhance_enabled"
                   type="checkbox"
-                  data-field="config:image.verify"
+                  data-field="config:image.enhance_enabled"
                   class="sr-only peer"
                 />
                 <span
                   class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
                 ></span>
                 <span class="text-sm text-slate-700">{{
-                  adm.configForm.image.verify ? "Vérifié" : "Non vérifié"
+                  adm.configForm.image.enhance_enabled ? "Proposé" : "Retiré"
                 }}</span>
               </label>
             </div>
-            <div v-if="adm.configForm.image.verify" class="adm-row adm-row--top">
+            <div class="adm-row">
               <label
                 class="adm-row__label"
-                for="cnx-image-ca"
-                title="Autorité de l'infrastructure interne, au format PEM. Vide : magasin du système."
-                >CA</label
+                for="cnx-image-keep"
+                title="Images gardées par compte ; les plus anciennes sont effacées."
+                >Conserver</label
               >
-              <textarea
-                id="cnx-image-ca"
-                v-model="adm.configForm.image.ca_pem"
-                data-field="config:image.ca_pem"
-                rows="2"
-                placeholder="-----BEGIN CERTIFICATE-----"
-                class="set-textarea font-mono text-xs"
-              ></textarea>
-            </div>
-          </template>
-          <div class="adm-row adm-row--top">
-            <span class="adm-row__label" title="Teste les valeurs ci-dessus sans les enregistrer."
-              >Vérification</span
-            >
-            <div class="min-w-0">
-              <button
-                type="button"
-                :disabled="adm.imageTest.state === 'busy' || !adm.configForm.image.url"
-                class="adm-btn adm-tool"
-                data-image-test
-                @click="adm.testImageEngine"
-              >
-                <i
-                  class="ph"
-                  :class="adm.imageTest.state === 'busy' ? 'ph-circle-notch animate-spin' : 'ph-pulse'"
-                  aria-hidden="true"
-                ></i>
-                {{ adm.imageTest.state === "busy" ? "Test…" : "Tester" }}
-              </button>
-              <p
-                v-if="adm.imageTest.state === 'done' && adm.imageTest.res"
-                class="elpis-img-status mt-2"
-                :class="adm.imageTest.res.ok ? 'is-ok' : 'is-err'"
-                role="status"
-                data-image-test-result
-              >
-                {{ adm.imageTestLine(adm.imageTest.res) }}
-              </p>
-              <p v-else-if="adm.imageTest.state === 'err'" class="elpis-img-status is-err mt-2" role="status">
-                ✗ {{ adm.imageTest.error }}
-              </p>
-              <ul
-                v-if="
-                  adm.imageTest.state === 'done' &&
-                  adm.imageTest.res &&
-                  adm.imageTest.res.warnings &&
-                  adm.imageTest.res.warnings.length
-                "
-                class="mt-1 space-y-0.5"
-              >
-                <li v-for="w in adm.imageTest.res.warnings" :key="w" class="elpis-img-status is-warn">
-                  ⚠ {{ w }}
-                </li>
-              </ul>
-              <p v-if="adm.imageTest.adjusted" class="elpis-img-status mt-1">
-                Limites ajustées au moteur, à enregistrer.
-              </p>
-            </div>
-          </div>
-
-          <div class="adm-row adm-row--full">
-            <span class="text-xs uppercase tracking-wide text-slate-500">Limites</span>
-          </div>
-          <div class="adm-row">
-            <label
-              class="adm-row__label"
-              for="cnx-image-maxside"
-              title="Plus grand côté qu'un compte peut demander."
-              >Côté max</label
-            >
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-image-maxside"
-                v-model.number="adm.configForm.image.max_side"
-                data-field="config:image.max_side"
-                type="number"
-                min="256"
-                max="4096"
-                step="64"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">px</span>
-            </div>
-          </div>
-          <div class="adm-row">
-            <label
-              class="adm-row__label"
-              for="cnx-image-defside"
-              title="Taille proposée à un compte qui n'a rien choisi."
-              >Côté par défaut</label
-            >
-            <select
-              id="cnx-image-defside"
-              v-model.number="adm.configForm.image.default_side"
-              data-field="config:image.default_side"
-              class="set-select w-full max-w-[10rem] font-mono text-xs"
-            >
-              <option v-for="v in adm.imageSideChoices" :key="v" :value="v">{{ v }} px</option>
-            </select>
-          </div>
-          <div class="adm-row">
-            <label class="adm-row__label" for="cnx-image-n">Par demande</label>
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-image-n"
-                v-model.number="adm.configForm.image.max_n"
-                data-field="config:image.max_n"
-                type="number"
-                min="1"
-                max="8"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">images</span>
-            </div>
-          </div>
-          <div v-if="adm.configForm.image.provider === 'openai'" class="adm-row">
-            <label
-              class="adm-row__label"
-              for="cnx-image-conc"
-              title="Générations simultanées vers ce service, tous processus confondus."
-              >Simultanées</label
-            >
-            <input
-              id="cnx-image-conc"
-              v-model.number="adm.configForm.image.max_concurrent"
-              data-field="config:image.max_concurrent"
-              type="number"
-              min="1"
-              max="8"
-              class="set-input adm-num"
-            />
-          </div>
-          <div class="adm-row">
-            <label
-              class="adm-row__label"
-              for="cnx-image-timeout"
-              title="Compté à partir du début du calcul (pas de l'attente en file)."
-              >Délai</label
-            >
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-image-timeout"
-                v-model.number="adm.configForm.image.timeout_sec"
-                data-field="config:image.timeout_sec"
-                type="number"
-                min="10"
-                max="1800"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">s</span>
-            </div>
-          </div>
-          <div v-if="adm.configForm.image.provider === 'openai'" class="adm-row">
-            <label
-              class="adm-row__label"
-              for="cnx-image-policy"
-              title="Fixes : les vrais modèles OpenAI n'acceptent que quelques tailles."
-              >Tailles</label
-            >
-            <select
-              id="cnx-image-policy"
-              v-model="adm.configForm.image.size_policy"
-              data-field="config:image.size_policy"
-              class="set-select w-full max-w-[12rem]"
-            >
-              <option value="free">Libres (pas de 64)</option>
-              <option value="fixed">Fixes</option>
-            </select>
-          </div>
-          <div
-            v-if="adm.configForm.image.provider === 'openai' && adm.configForm.image.size_policy === 'fixed'"
-            class="adm-row"
-          >
-            <label class="adm-row__label" for="cnx-image-sizes" title="Séparées par des virgules."
-              >Liste</label
-            >
-            <input
-              id="cnx-image-sizes"
-              :value="(adm.configForm.image.sizes || []).join(', ')"
-              data-field="config:image.sizes"
-              placeholder="1024x1024, 1536x1024, 1024x1536"
-              class="set-input font-mono text-xs"
-              @change="adm.setImageSizesText(($event.target as HTMLInputElement).value)"
-            />
-          </div>
-          <div v-if="adm.configForm.image.provider === 'sdcpp'" class="adm-row">
-            <label
-              class="adm-row__label"
-              for="cnx-image-edit"
-              title="Comment le modèle chargé modifie une image."
-              >Édition</label
-            >
-            <select
-              id="cnx-image-edit"
-              v-model="adm.configForm.image.edit_mode"
-              data-field="config:image.edit_mode"
-              class="set-select w-full max-w-sm"
-            >
-              <option value="init">Image de départ (img2img, force)</option>
-              <option value="ref">Image de référence (FLUX.2 klein, Qwen-Image-Edit)</option>
-            </select>
-          </div>
-
-          <div class="adm-row adm-row--full">
-            <span class="text-xs uppercase tracking-wide text-slate-500">Accès</span>
-          </div>
-          <div class="adm-row adm-row--top">
-            <span
-              class="adm-row__label"
-              title="Aucun groupe coché : tous les comptes. Les administrateurs ont toujours accès."
-              >Groupes</span
-            >
-            <div
-              class="flex flex-wrap gap-1.5"
-              role="group"
-              aria-label="Groupes autorisés"
-              data-field="config:image.groups"
-            >
-              <button
-                type="button"
-                class="elpis-img-chip"
-                :aria-pressed="!(adm.configForm.image.groups || []).length ? 'true' : 'false'"
-                @click="adm.setImageGroups([])"
-              >
-                Tous
-              </button>
-              <button
-                v-for="g in adm.groupsList"
-                :key="g.id"
-                type="button"
-                class="elpis-img-chip"
-                :aria-pressed="(adm.configForm.image.groups || []).includes(g.id) ? 'true' : 'false'"
-                @click="adm.toggleImageGroup(g.id)"
-              >
-                {{ g.name }}
-              </button>
-              <span
-                v-for="gid in adm.imageGroupsMissing"
-                :key="'x' + gid"
-                class="elpis-img-chip is-gone"
-                title="Groupe supprimé : ne donne accès à personne."
-                >#{{ gid }}
-                <button
-                  type="button"
-                  class="elpis-img-chip__x"
-                  aria-label="Retirer"
-                  @click="adm.toggleImageGroup(gid)"
-                >
-                  <i class="ph ph-x" aria-hidden="true"></i>
-                </button>
-              </span>
-            </div>
-          </div>
-          <div class="adm-row">
-            <label
-              class="adm-row__label"
-              for="cnx-image-tool"
-              title="Appels de l'outil generate_image permis par tour du modèle."
-              >Outil</label
-            >
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-image-tool"
-                v-model.number="adm.configForm.image.tool_max_calls"
-                data-field="config:image.tool_max_calls"
-                type="number"
-                min="1"
-                max="20"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">appels/tour</span>
-            </div>
-          </div>
-          <div class="adm-row">
-            <label
-              class="adm-row__label"
-              for="cnx-image-enhance"
-              title="Le modèle du chat peut réécrire la description avant l'envoi au moteur."
-              >Enrichir</label
-            >
-            <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
-              <input
-                id="cnx-image-enhance"
-                v-model="adm.configForm.image.enhance_enabled"
-                type="checkbox"
-                data-field="config:image.enhance_enabled"
-                class="sr-only peer"
-              />
-              <span
-                class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"
-              ></span>
-              <span class="text-sm text-slate-700">{{
-                adm.configForm.image.enhance_enabled ? "Proposé" : "Retiré"
-              }}</span>
-            </label>
-          </div>
-          <div class="adm-row">
-            <label
-              class="adm-row__label"
-              for="cnx-image-keep"
-              title="Images gardées par compte ; les plus anciennes sont effacées."
-              >Conserver</label
-            >
-            <div class="flex items-center gap-2">
-              <input
-                id="cnx-image-keep"
-                v-model.number="adm.configForm.image.keep_per_user"
-                data-field="config:image.keep_per_user"
-                type="number"
-                min="1"
-                max="1000"
-                class="set-input adm-num"
-              />
-              <span class="adm-unit">par compte</span>
+              <div class="flex items-center gap-2">
+                <input
+                  id="cnx-image-keep"
+                  v-model.number="adm.configForm.image.keep_per_user"
+                  data-field="config:image.keep_per_user"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  class="set-input adm-num"
+                />
+                <span class="adm-unit">par compte</span>
+              </div>
             </div>
           </div>
         </div>

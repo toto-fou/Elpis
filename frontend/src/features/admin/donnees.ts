@@ -5,6 +5,7 @@ import type { ReponseBase } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { corpsJson, detailErreur, listeObjets, objet, texte } from "../../utils/lecture-json";
+import { declarerBrouillon } from "./brouillons";
 import type { BaseAdmin } from "./etat";
 
 const ENTETES_JSON = { "Content-Type": "application/json" };
@@ -589,6 +590,19 @@ export function creerDonnees(b: BaseAdmin) {
       };
     }
   }
+  declarerBrouillon({
+    id: "cle-images",
+    page: "images",
+    label: "Clé du moteur d'images",
+    enCours: () => !!imageKey.value.draft,
+    enregistrer: async () => {
+      await saveImageKey();
+      return imageKey.value.state !== "err";
+    },
+    abandonner: () => {
+      imageKey.value = { ...imageKey.value, draft: "", error: "", state: "idle" };
+    },
+  });
   /** Un nouveau tableau à chaque geste (la barre d'enregistrement compare les valeurs) ; liste vide = tous les comptes. */
   function setImageGroups(ids: unknown): void {
     const form = e.configForm.value?.image;

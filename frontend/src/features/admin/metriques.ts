@@ -6,6 +6,7 @@ import type { Ref } from "vue";
 import { ensureVendor } from "../../platform/vendor";
 import { corpsJson, estObjet, listeObjets, objet } from "../../utils/lecture-json";
 import type { BaseAdmin } from "./etat";
+import { chargementEchoue, chargementReussi } from "./suivi-chargement";
 
 declare global {
   interface Window {
@@ -416,7 +417,10 @@ export function creerMetriques(b: BaseAdmin) {
     try {
       const res = await fetchAuth("/api/admin/stats-dynamic?scope_hours=" + (dashboardScope.value || 24));
       if (maSequence !== sequenceStats) return;
-      if (res?.ok) {
+      if (!res?.ok) {
+        chargementEchoue("loadAdminStats", "Réponse du serveur inattendue ou en échec.", loadAdminStats);
+      } else {
+        chargementReussi("loadAdminStats");
         const json = objet(await corpsJson(res));
         if (maSequence !== sequenceStats) return;
         dashboardData.value = {
@@ -431,7 +435,7 @@ export function creerMetriques(b: BaseAdmin) {
         }, 150);
       }
     } catch {
-      /* tableau inchangé */
+      chargementEchoue("loadAdminStats", "Erreur réseau.", loadAdminStats);
     }
   }
 

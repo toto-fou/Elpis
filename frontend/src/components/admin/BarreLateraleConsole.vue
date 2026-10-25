@@ -2,8 +2,11 @@
 <!-- frontend/src/components/admin/BarreLateraleConsole.vue — barre latérale sombre de navigation de la console. -->
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
+import { interfaceApp } from "../../features/reglages/interface";
+import NavigationConsoleDepliee from "./NavigationConsoleDepliee.vue";
 
 const adm = domaineAdmin();
+const ui = interfaceApp();
 </script>
 
 <template>
@@ -94,13 +97,21 @@ const adm = domaineAdmin();
         </button>
       </div>
 
-      <button type="button" class="adm-rail__search" aria-keyshortcuts="Control+K" @click="adm.openPalette">
+      <NavigationConsoleDepliee v-if="!ui.classique" />
+
+      <button
+        v-if="ui.classique"
+        type="button"
+        class="adm-rail__search"
+        aria-keyshortcuts="Control+K"
+        @click="adm.openPalette"
+      >
         <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
         <span class="flex-1 text-left">Rechercher</span>
         <kbd>Ctrl K</kbd>
       </button>
 
-      <nav class="adm-nav" aria-label="Console">
+      <nav v-if="ui.classique" class="adm-nav" aria-label="Console">
         <ul>
           <li v-for="e in adm.adminNav" :key="e.id">
             <button

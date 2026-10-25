@@ -4,6 +4,8 @@ import { schemaReponseEtatHttps, schemaReponseSessionsConsole } from "@elpis/con
 import type { ReponseEtatHttps } from "@elpis/contracts";
 import type { Ref } from "vue";
 
+import { confirmerParMot } from "./confirmation";
+
 import { corpsJson, detailErreur, lireSchema, objet } from "../../utils/lecture-json";
 import { estUrlHttp } from "../../utils/url-sure";
 import type { BaseAdmin } from "./etat";
@@ -38,12 +40,13 @@ export function creerSecurite(b: BaseAdmin) {
 
   /** Confirmation globale : tous les utilisateurs connectés (sauf l'opérateur) seront déconnectés à leur prochaine requête. */
   async function revokeAllSessions(): Promise<void> {
-    const confirme = await openConfirm(
+    const confirme = await confirmerParMot(
+      ctx,
       "Révoquer toutes les sessions ?",
       "Tous les utilisateurs connectés (sauf vous) seront déconnectés " +
         "à leur prochaine requête. Action immédiate, irréversible — les " +
         "utilisateurs devront se reconnecter.",
-      true,
+      "REVOQUER",
       "Révoquer",
     );
     if (!confirme) return;

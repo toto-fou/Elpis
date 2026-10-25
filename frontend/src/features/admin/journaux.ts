@@ -5,6 +5,7 @@ import type { Ref } from "vue";
 import { corpsJson, estObjet, listeObjets, objet } from "../../utils/lecture-json";
 import type { BaseAdmin } from "./etat";
 import type { EntreeJournal } from "./types";
+import { chargementEchoue, chargementReussi } from "./suivi-chargement";
 
 const CLE_FILTRES = "elpis_admin_log_filters";
 
@@ -98,7 +99,11 @@ export function creerJournaux(b: BaseAdmin) {
       if (f.levels.length) qs.set("levels", f.levels.join(","));
       if (f.categories.length) qs.set("categories", f.categories.join(","));
       const res = await ctx.fetchAuth("/api/admin/logs/recent?" + qs.toString(), {}, true);
-      if (!res || !res.ok) return;
+      if (!res || !res.ok) {
+        chargementEchoue("loadRecentLogs", "Réponse du serveur inattendue ou en échec.", loadRecentLogs);
+        return;
+      }
+      chargementReussi("loadRecentLogs");
       const items = listeObjets(objet(await corpsJson(res))["items"]) as EntreeJournal[];
       const vus = new Set((tampon.value || []).map((l) => `${l.ts}|${l.message}`));
       const neufs = items.filter((l) => !vus.has(`${l.ts}|${l.message}`));
@@ -106,7 +111,7 @@ export function creerJournaux(b: BaseAdmin) {
         .sort((a, c) => (a.ts || 0) - (c.ts || 0))
         .slice(-800);
     } catch {
-      /* tampon inchangé */
+      chargementEchoue("loadRecentLogs", "Erreur réseau.", loadRecentLogs);
     } finally {
       logsLoading.value = false;
     }

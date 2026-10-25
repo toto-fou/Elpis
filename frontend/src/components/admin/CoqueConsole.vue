@@ -24,6 +24,8 @@ import PageDonnees from "./PageDonnees.vue";
 import ModalesConsole from "./ModalesConsole.vue";
 
 const adm = domaineAdmin();
+
+const heure = (ms: number): string => new Date(ms).toLocaleTimeString("fr-FR", { timeStyle: "short" });
 </script>
 
 <template>
@@ -64,6 +66,28 @@ const adm = domaineAdmin();
       tabindex="-1"
     >
       <div class="adm-col adm-page" :class="{ 'adm-col--wide': adm.adminPage.wide }">
+        <div
+          v-if="adm.chargementPage.echecs.length"
+          class="adm-load-error"
+          role="alert"
+          data-chargement-impossible
+        >
+          <i class="ph ph-warning-circle" aria-hidden="true"></i>
+          <span class="flex-1 min-w-0">
+            <b>Chargement impossible</b>
+            <span class="adm-load-error__detail">
+              · {{ adm.chargementPage.echecs[0]?.message }}
+              {{
+                adm.chargementPage.fraicheur
+                  ? "Données de " + heure(adm.chargementPage.fraicheur) + "."
+                  : "Aucune donnée chargée."
+              }}
+            </span>
+          </span>
+          <button type="button" class="adm-btn adm-tool adm-btn--sm" @click="adm.reessayerChargement">
+            Réessayer
+          </button>
+        </div>
         <PageApercu />
 
         <PageMetriques />

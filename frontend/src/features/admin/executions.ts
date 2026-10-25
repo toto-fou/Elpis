@@ -5,6 +5,7 @@ import type { ExecutionListee } from "@elpis/contracts";
 import { ref } from "vue";
 import type { Ref } from "vue";
 
+import { chargementEchoue, chargementReussi } from "./suivi-chargement";
 import type { ClientHttp } from "../../platform/http/client";
 import { fmtTokenCount, tokenBreakdown } from "../../utils/utils-purs";
 
@@ -57,6 +58,8 @@ export function setupAdminRuns(http: ClientHttp) {
       if (moi !== seq) return;
       if (ra.type === "ok") admRunsAccounts.value = ra.valeur.items;
       if (rl.type === "ok") admRunsItems.value = rl.valeur.items;
+      if (ra.type === "ok" && rl.type === "ok") chargementReussi("loadAdminRuns");
+      else chargementEchoue("loadAdminRuns", "Réponse du serveur inattendue ou en échec.", loadAdminRuns);
     } finally {
       if (moi === seq) admRunsLoading.value = false;
     }

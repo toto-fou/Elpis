@@ -4,6 +4,7 @@ import type { Ref } from "vue";
 
 import { corpsJson, listeObjets, objet } from "../../utils/lecture-json";
 import type { BaseAdmin } from "./etat";
+import { chargementEchoue, chargementReussi } from "./suivi-chargement";
 
 export interface SyntheseOutils {
   totals: {
@@ -90,6 +91,13 @@ export function creerObservabilite(b: BaseAdmin) {
         ),
       ]);
       if (maSequence !== sequence) return;
+      if (rSynthese?.ok && rErreurs?.ok && rAudit?.ok) chargementReussi("loadObservability");
+      else
+        chargementEchoue(
+          "loadObservability",
+          "Réponse du serveur inattendue ou en échec.",
+          loadObservability,
+        );
       if (rSynthese?.ok) {
         const d = objet(await corpsJson(rSynthese));
         if (maSequence === sequence) {
@@ -112,7 +120,7 @@ export function creerObservabilite(b: BaseAdmin) {
       // Le tampon serveur amorce la console de journaux, puis le flux en direct l'alimente.
       await lien.loadRecentLogs();
     } catch {
-      /* anciennes valeurs conservées */
+      chargementEchoue("loadObservability", "Erreur réseau.", loadObservability);
     } finally {
       if (maSequence === sequence) obsLoading.value = false;
     }

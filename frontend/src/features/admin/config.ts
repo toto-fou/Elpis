@@ -10,6 +10,7 @@ import { diffFeuilles, lireChemin, poserChemin } from "./etat";
 import { journal } from "../../platform/journal";
 import { suivreHotePort } from "../../utils/llama-url";
 import type { ConfigAdmin } from "./types";
+import { chargementEchoue, chargementReussi } from "./suivi-chargement";
 
 type Noeud = Record<string, unknown>;
 
@@ -334,6 +335,11 @@ export function creerConfig(b: BaseAdmin) {
     try {
       const res = await fetchAuth(`/api/admin/config-file?type=${type}`);
       const d = await lireSchema(res, schemaReponseFichierConfig);
+      if (!d)
+        chargementEchoue("loadAdminConfig", "Réponse du serveur inattendue ou en échec.", () =>
+          loadAdminConfig(type),
+        );
+      else chargementReussi("loadAdminConfig");
       if (d) {
         try {
           // Copie de ce qui est sur disque, avant tout défaut rempli : c'est la valeur « from » du PATCH.
@@ -356,7 +362,7 @@ export function creerConfig(b: BaseAdmin) {
         lien.markAdminStoreClean("config");
       }
     } catch {
-      /* formulaire inchangé */
+      chargementEchoue("loadAdminConfig", "Erreur réseau.", () => loadAdminConfig(type));
     }
     void lien.loadSecurityOverview();
     void lien.loadHttpsStatus();

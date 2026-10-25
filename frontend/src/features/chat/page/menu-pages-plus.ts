@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/page/menu-pages-plus.ts — sous-menu « Plus » du volet latéral : pages secondaires (RAG, Studio, Remote code) selon les droits du compte, et sa position à droite du volet. */
+/** frontend/src/features/chat/page/menu-pages-plus.ts — sous-menu « Plus » du volet latéral : pages secondaires (RAG, Bibliothèque des images, Studio, Remote code) selon les droits du compte, et sa position à droite du volet. */
 
 /** Page rangée sous « Plus ». */
 export interface PagePlus {
-  readonly vue: "rag" | "studio" | "code";
+  readonly vue: "rag" | "bibliotheque" | "studio" | "code";
   readonly libelle: string;
   readonly titre: string;
   readonly icone: string;
@@ -12,12 +12,20 @@ export interface PagePlus {
 /** Droits qui font apparaître une page du sous-menu. */
 export interface DroitsPlus {
   readonly rag: boolean;
+  /** Génération d'images disponible : la Bibliothèque ouvre la galerie des images du compte. */
+  readonly images: boolean;
   readonly opencode: boolean;
 }
 
 /** Les pages du sous-menu, dans l'ordre d'affichage. */
 export const PAGES_PLUS: readonly PagePlus[] = [
   { vue: "rag", libelle: "RAG", titre: "RAG", icone: "ph-books" },
+  {
+    vue: "bibliotheque",
+    libelle: "Bibliothèque",
+    titre: "Bibliothèque — images générées",
+    icone: "ph-images",
+  },
   {
     vue: "studio",
     libelle: "Studio",
@@ -32,9 +40,15 @@ export const PAGES_PLUS: readonly PagePlus[] = [
   },
 ];
 
-/** Pages visibles pour ce compte : RAG avec le droit RAG, Remote code avec opencode, Studio toujours. */
+/** Pages visibles pour ce compte : RAG avec le droit RAG, Bibliothèque avec les images, Remote code avec opencode, Studio toujours. */
 export function pagesPlus(d: DroitsPlus): PagePlus[] {
-  return PAGES_PLUS.filter((p) => (p.vue === "rag" ? d.rag : p.vue === "code" ? d.opencode : true));
+  const visible: Record<PagePlus["vue"], boolean> = {
+    rag: d.rag,
+    bibliotheque: d.images,
+    studio: true,
+    code: d.opencode,
+  };
+  return PAGES_PLUS.filter((p) => visible[p.vue]);
 }
 
 /** Page du sous-menu affichée en ce moment, ou null. */

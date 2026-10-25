@@ -363,6 +363,8 @@ const BARRE: Cles<DomaineBarre> = {
   toggleEditor: true,
   openRoutinesPage: true,
   menuPagesOuvert: true,
+  imageAvailable: true,
+  openImageGallery: true,
   ragAllowed: true,
   openRagPage: true,
   openStudio: true,

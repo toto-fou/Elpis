@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/outils/LigneEtapes.vue — étapes consécutives d'un tour sur une ligne riche : vivante (« Étape 3 · Exécute npm test · 18 s » et deux lignes de sortie), puis résumé dépliable en liste numérotée sur le tour. -->
+<!-- frontend/src/components/chat/outils/LigneEtapes.vue — étapes consécutives d'un tour sur une ligne riche : vivante (« Étape 3 · Exécute npm test · 18 s » et deux lignes de sortie), puis résumé dépliable en liste numérotée sur le tour ; bouton appareil photo des étapes qui ont pris une capture. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
@@ -15,8 +15,15 @@ const props = defineProps<{
   detail: number | null;
   maintenant: number;
   compactOuvert: boolean;
+  /** Étape (`flat`) → rang de sa capture dans la visionneuse. */
+  captures?: ReadonlyMap<number, number>;
 }>();
-const emit = defineEmits<{ basculer: []; detail: [flat: number]; compact: [ouvert: boolean] }>();
+const emit = defineEmits<{
+  basculer: [];
+  detail: [flat: number];
+  compact: [ouvert: boolean];
+  capture: [rang: number];
+}>();
 
 type Signe = "cours" | "echec" | "arret" | "ok";
 
@@ -52,6 +59,12 @@ const ids = computed(() =>
     .join(" "),
 );
 const principale = computed(() => enCours.value ?? props.etapes[props.etapes.length - 1] ?? null);
+const rangs = computed(() =>
+  props.etapes.flatMap((e) => {
+    const r = props.captures?.get(e.flat);
+    return r === undefined ? [] : [{ numero: e.numero, rang: r }];
+  }),
+);
 
 /** Début (verbe, ou nom de l'outil tiers en police fixe) suivi d'une espace, puis l'objet. */
 function tete(s: EtapeOutil): { debut: string; mono: boolean; objet: string } {
@@ -93,38 +106,56 @@ const sortie = computed(() => {
 
 <template>
   <div class="mb-1" :data-etape="principale?.etape.callId || undefined" :data-etapes="ids || undefined">
-    <button
-      type="button"
-      class="w-full flex items-center gap-2 px-1.5 py-1 -mx-1.5 rounded-md text-left text-[13px] text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-      :aria-expanded="ouvert ? 'true' : 'false'"
-      :title="etapes.map((e) => e.etape.name).join(', ')"
-      data-ligne-etapes
-      @click="emit('basculer')"
-    >
-      <i class="ph shrink-0 text-[14px]" :class="ICONES[signeGroupe]" :aria-label="NOMS[signeGroupe]"></i>
-      <span v-if="enCours" class="flex-1 min-w-0 truncate" aria-live="polite"
-        >{{ "Étape " + enCours.numero + " · "
-        }}<span :class="tete(enCours.etape).mono ? 'font-mono' : ''">{{ tete(enCours.etape).debut }}</span
-        ><b class="font-semibold">{{ tete(enCours.etape).objet }}</b></span
+    <div class="flex items-center gap-0.5 -mx-1.5">
+      <button
+        type="button"
+        class="flex-1 min-w-0 flex items-center gap-2 px-1.5 py-1 rounded-md text-left text-[13px] text-slate-700 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        :aria-expanded="ouvert ? 'true' : 'false'"
+        :title="etapes.map((e) => e.etape.name).join(', ')"
+        data-ligne-etapes
+        @click="emit('basculer')"
       >
-      <span v-else-if="etapes.length === 1 && principale" class="flex-1 min-w-0 truncate"
-        ><span :class="tete(principale.etape).mono ? 'font-mono' : ''">{{
-          tete(principale.etape).debut
-        }}</span
-        ><b class="font-semibold">{{ tete(principale.etape).objet }}</b></span
+        <i class="ph shrink-0 text-[14px]" :class="ICONES[signeGroupe]" :aria-label="NOMS[signeGroupe]"></i>
+        <span v-if="enCours" class="flex-1 min-w-0 truncate" aria-live="polite"
+          >{{ "Étape " + enCours.numero + " · "
+          }}<span :class="tete(enCours.etape).mono ? 'font-mono' : ''">{{ tete(enCours.etape).debut }}</span
+          ><b class="font-semibold">{{ tete(enCours.etape).objet }}</b></span
+        >
+        <span v-else-if="etapes.length === 1 && principale" class="flex-1 min-w-0 truncate"
+          ><span :class="tete(principale.etape).mono ? 'font-mono' : ''">{{
+            tete(principale.etape).debut
+          }}</span
+          ><b class="font-semibold">{{ tete(principale.etape).objet }}</b></span
+        >
+        <span v-else class="flex-1 min-w-0 truncate"
+          >{{ etapes.length }} étapes<template v-if="objets"> · {{ objets }}</template></span
+        >
+        <span class="shrink-0 text-[12px] text-slate-500 tabular-nums">{{
+          enCours ? duree(enCours.etape) : total
+        }}</span>
+        <i
+          class="ph ph-caret-down shrink-0 text-[11px] text-slate-400 transition-transform"
+          :class="ouvert ? 'rotate-180' : ''"
+          aria-hidden="true"
+        ></i>
+      </button>
+      <button
+        v-if="!enCours && rangs.length"
+        type="button"
+        class="shrink-0 flex items-center gap-1 rounded-md p-1 text-[11.5px] text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        :title="rangs.length > 1 ? 'Voir les captures' : 'Voir la capture'"
+        :aria-label="
+          rangs.length > 1
+            ? 'Voir les ' + rangs.length + ' captures'
+            : 'Voir la capture de l’étape ' + rangs[0]!.numero
+        "
+        data-voir-capture
+        @click="emit('capture', rangs[0]!.rang)"
       >
-      <span v-else class="flex-1 min-w-0 truncate"
-        >{{ etapes.length }} étapes<template v-if="objets"> · {{ objets }}</template></span
-      >
-      <span class="shrink-0 text-[12px] text-slate-500 tabular-nums">{{
-        enCours ? duree(enCours.etape) : total
-      }}</span>
-      <i
-        class="ph ph-caret-down shrink-0 text-[11px] text-slate-400 transition-transform"
-        :class="ouvert ? 'rotate-180' : ''"
-        aria-hidden="true"
-      ></i>
-    </button>
+        <i class="ph ph-camera text-[14px]" aria-hidden="true"></i
+        ><span v-if="rangs.length > 1" class="tabular-nums">{{ rangs.length }}</span>
+      </button>
+    </div>
     <div
       v-if="enCours && sortie.length"
       class="pl-6 font-mono text-[11px] leading-relaxed text-slate-500 whitespace-pre overflow-hidden"
@@ -134,27 +165,40 @@ const sortie = computed(() => {
     </div>
     <ol v-if="ouvert" :start="etapes[0]?.numero" class="mt-0.5 mb-1 pl-6 flex flex-col gap-0.5 list-none">
       <li v-for="e in etapes" :key="e.flat" :data-etape="e.etape.callId || undefined">
-        <button
-          type="button"
-          class="w-full flex items-center gap-2 px-1.5 py-0.5 -mx-1.5 rounded-md text-left text-[12.5px] text-slate-600 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-          :aria-expanded="detail === e.flat ? 'true' : 'false'"
-          :title="e.etape.name"
-          @click="emit('detail', e.flat)"
-        >
-          <span class="w-5 shrink-0 text-right text-[11.5px] text-slate-500 tabular-nums"
-            >{{ e.numero }}.</span
+        <div class="flex items-center gap-0.5 -mx-1.5">
+          <button
+            type="button"
+            class="flex-1 min-w-0 flex items-center gap-2 px-1.5 py-0.5 rounded-md text-left text-[12.5px] text-slate-600 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            :aria-expanded="detail === e.flat ? 'true' : 'false'"
+            :title="e.etape.name"
+            @click="emit('detail', e.flat)"
           >
-          <i
-            class="ph shrink-0 text-[13px]"
-            :class="ICONES[signe(e.etape)]"
-            :aria-label="NOMS[signe(e.etape)]"
-          ></i>
-          <span class="flex-1 min-w-0 truncate"
-            ><span :class="tete(e.etape).mono ? 'font-mono' : ''">{{ tete(e.etape).debut }}</span
-            >{{ tete(e.etape).objet }}</span
+            <span class="w-5 shrink-0 text-right text-[11.5px] text-slate-500 tabular-nums"
+              >{{ e.numero }}.</span
+            >
+            <i
+              class="ph shrink-0 text-[13px]"
+              :class="ICONES[signe(e.etape)]"
+              :aria-label="NOMS[signe(e.etape)]"
+            ></i>
+            <span class="flex-1 min-w-0 truncate"
+              ><span :class="tete(e.etape).mono ? 'font-mono' : ''">{{ tete(e.etape).debut }}</span
+              >{{ tete(e.etape).objet }}</span
+            >
+            <span class="shrink-0 text-[11.5px] text-slate-500 tabular-nums">{{ duree(e.etape) }}</span>
+          </button>
+          <button
+            v-if="captures?.has(e.flat)"
+            type="button"
+            class="shrink-0 rounded-md p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            title="Voir la capture"
+            :aria-label="'Voir la capture de l’étape ' + e.numero"
+            data-voir-capture
+            @click="emit('capture', captures.get(e.flat)!)"
           >
-          <span class="shrink-0 text-[11.5px] text-slate-500 tabular-nums">{{ duree(e.etape) }}</span>
-        </button>
+            <i class="ph ph-camera text-[13px]" aria-hidden="true"></i>
+          </button>
+        </div>
         <CarteOutil
           v-if="detail === e.flat"
           :step="e.etape"

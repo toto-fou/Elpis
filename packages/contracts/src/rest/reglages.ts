@@ -64,6 +64,8 @@ const reglagesEcrivables = {
   jobs_wake: z.boolean(),
   /** « Interface classique » : disposition d'avant la revue d'interface ; absent = faux. */
   classic_ui: z.boolean(),
+  /** « Masquer les captures web » : captures du navigateur cachées dans le fil ; absent = faux. */
+  hide_web_screenshots: z.boolean(),
 };
 
 /** Corps du PUT : clés connues de la liste blanche, toutes facultatives ; le serveur ignore les autres. */

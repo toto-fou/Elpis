@@ -62,6 +62,7 @@ export interface ReglagesApp {
   dark_mode?: boolean;
   dark_mode_auto?: boolean;
   hide_thinking?: boolean;
+  hide_web_screenshots?: boolean;
   live_shell_enabled?: boolean;
   jobs_wake?: boolean;
   classic_ui?: boolean;

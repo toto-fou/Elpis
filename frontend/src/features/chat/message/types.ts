@@ -28,6 +28,8 @@ export interface CaptureWeb {
   blobUrl?: string | null;
   /** Adresse de la capture sur le serveur (relue au rechargement, peut avoir expiré). */
   serverUrl?: string;
+  /** Position dans `toolSteps` de l'étape qui l'a prise. */
+  stepIdx?: number;
   pending?: boolean;
 }
 
@@ -119,6 +121,7 @@ export interface EntreeMessage {
 
 export interface ReglagesAffichage {
   hide_thinking?: boolean;
+  hide_web_screenshots?: boolean;
   assistant_name?: string;
   live_shell_enabled?: boolean;
   skin?: string;

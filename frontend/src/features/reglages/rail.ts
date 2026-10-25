@@ -26,7 +26,12 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
         icone: "ph-palette",
         mots: "theme sombre clair couleur habillage skin interface classique ancienne disposition mode",
       },
-      { id: "chat", libelle: "Chat", icone: "ph-chat-circle", mots: "envoi entree reflexion saisie" },
+      {
+        id: "chat",
+        libelle: "Chat",
+        icone: "ph-chat-circle",
+        mots: "envoi entree reflexion saisie captures navigateur",
+      },
     ],
   },
   {

@@ -100,6 +100,7 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "image_prefs",
   "jobs_wake",
   "classic_ui",
+  "hide_web_screenshots",
 ]);
 
 /** Seules clés que le processus admin accepte en écriture (menu « Compte et apparence » de la console). */
@@ -125,6 +126,7 @@ const BOOLEENS = [
   "welcome_mascot_anime",
   "jobs_wake",
   "classic_ui",
+  "hide_web_screenshots",
 ] as const;
 const MUTABLES_MCP = new Set([
   "visible",

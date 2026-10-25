@@ -80,6 +80,7 @@ export interface VisionneuseImage {
   prompt: string;
   revised: string;
   meta: { model?: string; duration_s?: number } | null;
+  captures: boolean;
 }
 
 export interface GalerieImages {
@@ -594,6 +595,7 @@ export function creerImages(api: ApiImages, refs: RefsImages, ctx: CtxImages) {
       prompt: inf.prompt || "",
       revised: inf.revised || "",
       meta: inf.meta || null,
+      captures: !!inf.captures,
     };
     void nextTick(() => {
       const el = document.querySelector<HTMLElement>("[data-image-viewer]");

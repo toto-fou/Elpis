@@ -4,6 +4,7 @@ import { schemaMetaOutils } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { copyImageFields } from "../../features/images/formats";
+import { capturesRestituees } from "../../features/chat/historique/historique";
 import { segmentsOutils } from "../../features/chat/outils/segments";
 import type { MessageChat } from "../../features/chat/coeur/types";
 import type { FetchAuth } from "../../features/editor/etat";
@@ -178,6 +179,11 @@ export function creerSessionOnglet(dep: DependancesSessionOnglet) {
               // Étapes reconstruites : même forme que celles du flux (EtapeChat), typées à part par l'analyseur.
               msg.toolSteps = segs.toolSteps as unknown as MessageChat["toolSteps"];
               msg.segTexts = segs.segTexts;
+              // Captures relues sur le serveur, comme au chargement du chat (les blobs du direct sont perdus).
+              const captures = meta
+                ? capturesRestituees(segs.toolSteps as unknown as Record<string, unknown>[], meta)
+                : [];
+              if (captures.length) msg.webScreenshots = captures as unknown as MessageChat["webScreenshots"];
             }
             historiquePrecedent = m.tool_history;
           }

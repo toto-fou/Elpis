@@ -3,7 +3,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import ChoixSegmente from "../../communs/ChoixSegmente.vue";
 import AideOnglet from "../AideOnglet.vue";
 import { lirePreferencesChat, REGLAGES_AFFICHAGE } from "../../../features/reglages/affichage-chat";
 import type { ReglageAffichage } from "../../../features/reglages/affichage-chat";
@@ -58,16 +57,19 @@ function choisir(r: ReglageAffichage, valeur: string): void {
       <div v-for="r in REGLAGES_AFFICHAGE" :key="r.cle" class="space-y-1">
         <div class="flex items-center gap-3 flex-wrap">
           <i class="ph text-slate-400 text-lg w-5" :class="r.icone" aria-hidden="true"></i>
-          <span class="text-sm text-slate-800 flex-1 min-w-[6rem]">{{ r.libelle }}</span>
-          <ChoixSegmente
-            :model-value="r.lire(prefs)"
-            :choix="r.choix"
-            :libelle="r.libelle"
+          <label :for="'affichage-' + r.cle" class="text-sm text-slate-800 flex-1 min-w-[6rem]">{{
+            r.libelle
+          }}</label>
+          <select
+            :id="'affichage-' + r.cle"
+            class="set-select set-control--sm w-full sm:w-60"
+            :value="r.lire(prefs)"
             :data-reglage="r.cle"
             :aria-describedby="r.aides ? 'aide-affichage-' + r.cle : undefined"
-            class="w-full sm:w-[22rem]"
-            @update:model-value="(v: string) => choisir(r, v)"
-          />
+            @change="choisir(r, ($event.target as HTMLSelectElement).value)"
+          >
+            <option v-for="c in r.choix" :key="c.valeur" :value="c.valeur">{{ c.libelle }}</option>
+          </select>
         </div>
         <p v-if="r.aides" :id="'aide-affichage-' + r.cle" class="pl-8 text-xs text-slate-500">
           {{ r.aides[r.lire(prefs)] }}

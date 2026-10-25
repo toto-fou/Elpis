@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/PucesComposeur.vue — puces d'état de la rangée du composeur : mode plan, tâches de la session, mode Images, contexte (bloc, pourcentage ou anneau, selon les Paramètres) ; boutons discrets, abrégés quand la rangée est étroite. -->
+<!-- frontend/src/components/chat/page/PucesComposeur.vue — puces d'état de la rangée du composeur : mode plan, tâches de la session, mode Images, contexte (jetons, bloc, pourcentage ou anneau, selon les Paramètres) ; boutons discrets, abrégés quand la rangée est étroite. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
@@ -7,6 +7,7 @@ import { CLE_MODELES, CLE_PAGE, domaine } from "../../../features/chat/page/doma
 import { compteTaches, puceContexte } from "../../../features/chat/page/puces";
 import { preferencesChat } from "../../../features/reglages/affichage-chat";
 import BarreImage from "./BarreImage.vue";
+import ContexteJetons from "./ContexteJetons.vue";
 import JaugeContexte from "./JaugeContexte.vue";
 
 // `etroit` : rangée sous 420 px, libellés abrégés (les noms accessibles restent entiers).
@@ -15,9 +16,17 @@ const p = domaine(CLE_PAGE);
 const mod = domaine(CLE_MODELES);
 const pref = preferencesChat();
 
-const contexte = computed(() => (mod.imageMode ? null : puceContexte(mod.liveGen, mod.ctxUsage)));
+// Forme « jetons » : l'affichage d'origine, qui dit aussi durée et débit pendant le tour ; sinon la jauge.
+const jetons = computed(
+  () => pref.contexte === "tokens" && !mod.imageMode && (!!mod.liveGen || !!mod.ctxUsage?.total),
+);
+const contexte = computed(() =>
+  mod.imageMode || pref.contexte === "tokens" ? null : puceContexte(mod.liveGen, mod.ctxUsage),
+);
 const taches = computed(() => compteTaches(p.todoList ?? []));
-const visible = computed(() => p.planMode || taches.value.total > 0 || p.imageMode || !!contexte.value);
+const visible = computed(
+  () => p.planMode || taches.value.total > 0 || p.imageMode || !!contexte.value || jetons.value,
+);
 const PUCE =
   "inline-flex items-center gap-1 h-7 px-1.5 rounded-lg text-xs font-medium text-slate-500 transition-colors";
 </script>
@@ -110,6 +119,7 @@ const PUCE =
 
     <BarreImage />
 
-    <JaugeContexte v-if="contexte" :contexte="contexte" :forme="pref.contexte" :etroit="props.etroit" />
+    <ContexteJetons v-if="jetons" />
+    <JaugeContexte v-else-if="contexte" :contexte="contexte" :forme="pref.contexte" :etroit="props.etroit" />
   </div>
 </template>

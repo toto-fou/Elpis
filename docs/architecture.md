@@ -3107,8 +3107,7 @@ sandbox (hadolint, upx, radare2 : GPL ou LGPL) et le lot vocal (piper-tts :
 GPL), la liste des sources et une offre écrite (`docs/exploitation.md`). La
 licence de `khroma` (sans champ `license` dans son `package.json`) est déclarée
 dans `migration-kit/deps.map.json` (`politique.surcharges`). Elpis était sous
-Apache-2.0 avant la 0.0.1 (voir `NOTICE`). Le nom et le logo « Elpis » ne sont
-pas couverts par la licence : [`TRADEMARKS.md`](../TRADEMARKS.md).
+Apache-2.0 avant la 0.0.1 (voir `NOTICE`).
 
 Les dépendances sous licence AGPL (PyMuPDF, pdf2docx) ne sont **pas
 installées par défaut** : elles ne s'ajoutent qu'avec `./install.sh --with-agpl`

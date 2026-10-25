@@ -25,7 +25,6 @@ const {
   dernier,
   vivant,
   visionneuse,
-  graphiques,
   apercu,
   voirCapture,
   basculer,
@@ -65,6 +64,7 @@ const suiteDetachee = computed(() => {
         :class="nouvelAppel(i) ? 'mt-3' : ''"
         :msg="{ content: b.texte }"
         data-texte-tour
+        data-sans-graphiques
         @click-markdown="fil.handleMarkdownClick"
       ></ContenuMarkdown>
       <LigneReflexion
@@ -92,14 +92,6 @@ const suiteDetachee = computed(() => {
           @compact="(o: boolean) => fil.setMsgUi(entry, { _compactOpen: o })"
           @capture="voirCapture"
         />
-        <template v-for="e in b.etapes" :key="'g:' + e.flat">
-          <ContenuMarkdown
-            v-if="graphiques.get(e.flat)"
-            class="mb-1.5"
-            :msg="{ content: graphiques.get(e.flat) }"
-            data-graphique-etape
-          ></ContenuMarkdown>
-        </template>
         <div v-if="apercu && apercu.cle === b.cle" class="pl-6 mb-1.5" data-apercu-direct>
           <div
             class="elpis-on-media elpis-media-canvas relative rounded-xl overflow-hidden ring-1 ring-slate-900/5"
@@ -193,6 +185,7 @@ const suiteDetachee = computed(() => {
       :class="suiteDetachee ? 'mt-3' : ''"
       :msg="vivant"
       data-texte-vivant
+      data-sans-graphiques
       @click-markdown="fil.handleMarkdownClick"
     ></ContenuMarkdown>
   </div>

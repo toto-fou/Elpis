@@ -24,7 +24,6 @@ const {
   dernier,
   vivant,
   visionneuse,
-  graphiques,
   voirCapture,
   reflexionOuverte,
   basculerReflexion,
@@ -88,6 +87,7 @@ function puce(s: EtapeOutil): string {
           class="min-w-0"
           :msg="{ content: b.texte }"
           data-texte-tour
+          data-sans-graphiques
           @click-markdown="fil.handleMarkdownClick"
         ></ContenuMarkdown>
       </div>
@@ -150,12 +150,6 @@ function puce(s: EtapeOutil): string {
             @fermer="basculerDetail(e.flat)"
             @compact="(o: boolean) => fil.setMsgUi(entry, { _compactOpen: o })"
           />
-          <ContenuMarkdown
-            v-if="graphiques.get(e.flat)"
-            class="ml-5"
-            :msg="{ content: graphiques.get(e.flat) }"
-            data-graphique-etape
-          ></ContenuMarkdown>
         </div>
       </template>
 
@@ -187,6 +181,7 @@ function puce(s: EtapeOutil): string {
         class="min-w-0"
         :msg="vivant"
         data-texte-vivant
+        data-sans-graphiques
         @click-markdown="fil.handleMarkdownClick"
       ></ContenuMarkdown>
     </div>

@@ -6,6 +6,7 @@ import { computed } from "vue";
 import type { ResumeJob } from "@elpis/contracts";
 
 import { textesDuTour } from "../../../features/chat/message/chronologie";
+import { graphiquesNonCites } from "../../../features/chat/message/graphiques-tour";
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
 import { preferencesChat } from "../../../features/reglages/affichage-chat";
 import { domaineRagOptionnel } from "../../../features/rag/domaine";
@@ -45,6 +46,11 @@ const renvois = computed(() =>
   props.entry.msg.role === "assistant" ? (rag?.sources.renvoisPour(props.entry.idx) ?? null) : null,
 );
 const emit = defineEmits<{ "zoom-image": [url: string] }>();
+
+// Graphiques du tour que la réponse ne cite pas : tracés à sa suite, seul endroit où un graphique est rendu.
+const graphiquesFin = computed(() =>
+  props.entry.msg.role === "assistant" ? graphiquesNonCites(props.entry.msg).join("\n\n") : "",
+);
 
 const phase = computed(() =>
   props.entry.msg.isStreaming && props.entry.idx === fil.lastAssistantIdx && !fil.compressionStatus
@@ -203,6 +209,11 @@ function masquerBouton(e: Event): void {
       :recherche="fil.messageSearchQ && fil.messageSearchActive ? fil.messageSearchQ : ''"
       :renvois="renvois"
       @click-markdown="fil.handleMarkdownClick"
+    ></ContenuMarkdown>
+    <ContenuMarkdown
+      v-if="graphiquesFin"
+      :msg="{ content: graphiquesFin }"
+      data-graphiques-fin
     ></ContenuMarkdown>
     <div
       v-if="entry.msg.role === 'user' && entry.msg.image_request"

@@ -129,14 +129,8 @@ export function creerVueFlux(c: CoeurChat) {
     if (!(total > 0) || t.idx < 0) return;
     const cache = Math.min(Math.max(0, Number(t.data["cache"]) || 0), total);
     const utile = total - cache;
-    const traites = Math.min(total, Math.max(0, Number(t.data["processed"]) || 0));
-    const fait = Math.max(0, traites - cache);
-    // Jauge du contexte : l'entrée déjà lue par le moteur est dans son cache ; les jetons générés avant y sont compris.
-    if (f.ctxLive && traites > 0) {
-      f.ctxLive.base = traites;
-      f.ctxLive.enCours = 0;
-      f.ctxLive.appel = 0;
-    }
+    // La jauge du contexte n'en tient pas compte : elle ne montre que la taille renvoyée par le moteur (kv_cache).
+    const fait = Math.max(0, Math.min(total, Number(t.data["processed"]) || 0) - cache);
     l.patch(t.idx, {
       _prefillPct: utile > 0 ? Math.min(100, Math.round((fait / utile) * 100)) : 100,
       _prefillCachePct: Math.round((cache / total) * 100),

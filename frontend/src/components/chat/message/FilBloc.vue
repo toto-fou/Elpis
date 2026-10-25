@@ -30,7 +30,6 @@ const {
   dernier,
   vivant,
   visionneuse,
-  graphiques,
   apercu,
   voirCapture,
   reflexionOuverte,
@@ -167,6 +166,7 @@ const etapeDetail = (liste: readonly EtapeNumerotee[]): EtapeNumerotee | null =>
             class="flex-1 min-w-0"
             :msg="{ content: a.texte.texte }"
             data-texte-tour
+            data-sans-graphiques
             @click-markdown="fil.handleMarkdownClick"
           ></ContenuMarkdown>
         </div>
@@ -252,13 +252,6 @@ const etapeDetail = (liste: readonly EtapeNumerotee[]): EtapeNumerotee | null =>
                 />
               </div>
             </div>
-            <template v-for="e in b.etapes" :key="'g' + e.flat">
-              <ContenuMarkdown
-                v-if="graphiques.get(e.flat)"
-                :msg="{ content: graphiques.get(e.flat) }"
-                data-graphique-etape
-              ></ContenuMarkdown>
-            </template>
           </div>
           <LignesAgents
             v-else-if="b.k === 'agents'"
@@ -285,6 +278,7 @@ const etapeDetail = (liste: readonly EtapeNumerotee[]): EtapeNumerotee | null =>
         v-if="vivant"
         :msg="vivant"
         data-texte-vivant
+        data-sans-graphiques
         @click-markdown="fil.handleMarkdownClick"
       ></ContenuMarkdown>
     </div>

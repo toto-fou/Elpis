@@ -10,6 +10,8 @@
 > then `./install.sh`, which asks its questions and configures everything (below).
 > The documentation is written in French. Licensed under the MIT License.
 
+![Elpis demo: the agent charts a latency regression, then fixes it live in the sandbox editor and runs the tests](docs/media/elpis-demo.gif)
+
 ---
 
 Elpis est un **atelier d'ingénierie agentique auto-hébergé**, pour les équipes

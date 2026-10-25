@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/MenuModele.vue — menu du modèle (interface nouvelle) : recherche, modèles groupés par serveur avec capacités et état, actions « ⋯ » par ligne, effort de réflexion, paramètres de génération, cache du moteur. -->
+<!-- frontend/src/components/chat/page/MenuModele.vue — menu du modèle : recherche, modèles groupés par serveur avec capacités et état, actions « ⋯ » par ligne, effort de réflexion, paramètres de génération, cache du moteur. -->
 <script setup lang="ts">
 import { computed, nextTick, ref, useId, useTemplateRef, watch } from "vue";
 

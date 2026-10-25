@@ -1,19 +1,29 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/ReflexionMessage.vue — bloc Réflexion en tête d'un message : replié par défaut, verrouillé sous hide_thinking, « Répondre maintenant » pendant le flux. -->
+<!-- frontend/src/components/chat/message/ReflexionMessage.vue — bloc Réflexion en tête d'un message (déroulé classique) : replié ou déplié selon les Paramètres, absent s'il est masqué, « Répondre maintenant » pendant le flux. -->
 <script setup lang="ts">
-import { onUpdated, useTemplateRef } from "vue";
+import { computed, onUpdated, useTemplateRef } from "vue";
 
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
+import { preferencesChat } from "../../../features/reglages/affichage-chat";
 
 import { suivreReflexionOuverte } from "../../../utils/dom";
 import type { EntreeMessage } from "../../../features/chat/message/types";
 
 const props = defineProps<{ entry: EntreeMessage }>();
 const fil = domaine(CLE_FIL);
+const pref = preferencesChat();
+// Dépliées par défaut : seul un repli explicite ferme le bloc ; repliées : seule une ouverture explicite l'ouvre.
+const ouvert = computed(() =>
+  pref.reflexions === "expanded" ? !props.entry.msg._thinkingReplie : !!props.entry.msg.thinkingOpen,
+);
 
 function basculer(e: Event): void {
   const el = e.target as HTMLDetailsElement;
-  fil.setMsgUi(props.entry, { thinkingOpen: el.open });
+  if (el.open === ouvert.value) return;
+  fil.setMsgUi(
+    props.entry,
+    pref.reflexions === "expanded" ? { _thinkingReplie: !el.open } : { thinkingOpen: el.open },
+  );
   suivreReflexionOuverte(el);
 }
 
@@ -25,35 +35,13 @@ onUpdated(() => {
   const pre = bloc.value?.open ? bloc.value.querySelector("pre") : null;
   if (pre) pre.scrollTop = pre.scrollHeight;
 });
-
-function bloquer(e: MouseEvent): void {
-  if (fil.settings.hide_thinking && props.entry.msg.content) e.preventDefault();
-}
 </script>
 
 <template>
-  <div v-if="entry.msg.thinking" class="mb-2">
-    <details
-      ref="bloc"
-      data-think
-      :open="!(fil.settings.hide_thinking && entry.msg.content) && entry.msg.thinkingOpen"
-      class="group/think"
-      @toggle="basculer"
-    >
+  <div v-if="entry.msg.thinking && pref.reflexions !== 'hidden'" class="mb-2">
+    <details ref="bloc" data-think :open="ouvert" class="group/think" @toggle="basculer">
       <summary
-        class="list-none flex items-center gap-1.5 select-none w-fit py-0.5 text-slate-400 transition-colors"
-        :class="
-          fil.settings.hide_thinking && entry.msg.content
-            ? 'cursor-default'
-            : 'cursor-pointer hover:text-slate-600'
-        "
-        :aria-disabled="fil.settings.hide_thinking && entry.msg.content ? 'true' : undefined"
-        :title="
-          fil.settings.hide_thinking && entry.msg.content
-            ? 'Affichage du raisonnement désactivé (Paramètres)'
-            : undefined
-        "
-        @click="bloquer"
+        class="list-none flex items-center gap-1.5 select-none w-fit py-0.5 text-slate-400 transition-colors cursor-pointer hover:text-slate-600"
       >
         <i
           v-if="entry.msg.thinkingTruncated && !entry.msg.isStreaming"
@@ -88,11 +76,9 @@ function bloquer(e: MouseEvent): void {
           >· {{ fil.fmtThinkingMeta(entry.msg) }}</span
         >
         <i
-          v-if="!(fil.settings.hide_thinking && entry.msg.content)"
           class="ph ph-caret-right text-slate-300 transition-transform group-open/think:rotate-90"
           style="font-size: 9px"
         ></i>
-        <i v-else class="ph ph-lock-simple text-slate-300" style="font-size: 9px"></i>
 
         <button
           v-if="
@@ -109,10 +95,7 @@ function bloquer(e: MouseEvent): void {
           Répondre maintenant
         </button>
       </summary>
-      <div
-        v-if="!(fil.settings.hide_thinking && entry.msg.content)"
-        class="mt-1 pl-3 border-l-2 border-slate-200 ml-0.5"
-      >
+      <div class="mt-1 pl-3 border-l-2 border-slate-200 ml-0.5">
         <pre
           class="text-[11.5px] text-slate-600 leading-relaxed whitespace-pre-wrap break-words font-mono max-h-52 overflow-y-auto custom-scrollbar m-0 bg-transparent"
           >{{ entry.msg.thinking }}</pre>

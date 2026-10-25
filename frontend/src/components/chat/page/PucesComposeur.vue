@@ -1,23 +1,21 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/PucesComposeur.vue — puces d'état de la rangée du composeur (interface nouvelle) : mode plan, tâches de la session, mode Images, contexte (bloc « Contexte N % » qui se remplit pendant le tour) ; boutons discrets, abrégés quand la rangée est étroite. -->
+<!-- frontend/src/components/chat/page/PucesComposeur.vue — puces d'état de la rangée du composeur : mode plan, tâches de la session, mode Images, contexte (bloc, pourcentage ou anneau, selon les Paramètres) ; boutons discrets, abrégés quand la rangée est étroite. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
 import { CLE_MODELES, CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
-import { compteTaches, puceContexte, SEUIL_CONTEXTE } from "../../../features/chat/page/puces";
+import { compteTaches, puceContexte } from "../../../features/chat/page/puces";
+import { preferencesChat } from "../../../features/reglages/affichage-chat";
 import BarreImage from "./BarreImage.vue";
+import JaugeContexte from "./JaugeContexte.vue";
 
 // `etroit` : rangée sous 420 px, libellés abrégés (les noms accessibles restent entiers).
 const props = defineProps<{ etroit?: boolean }>();
 const p = domaine(CLE_PAGE);
 const mod = domaine(CLE_MODELES);
+const pref = preferencesChat();
 
 const contexte = computed(() => (mod.imageMode ? null : puceContexte(mod.liveGen, mod.ctxUsage)));
-// Remplissage de la pastille : visible dès qu'un jeton occupe la fenêtre.
-const largeurJauge = computed(() => {
-  const part = contexte.value?.part ?? 0;
-  return part > 0 ? Math.max(6, part * 100) + "%" : "0%";
-});
 const taches = computed(() => compteTaches(p.todoList ?? []));
 const visible = computed(() => p.planMode || taches.value.total > 0 || p.imageMode || !!contexte.value);
 const PUCE =
@@ -112,31 +110,6 @@ const PUCE =
 
     <BarreImage />
 
-    <span
-      v-if="contexte"
-      class="elpis-jauge-contexte relative inline-flex items-center gap-1 h-5 px-2 rounded border border-slate-200 text-xs font-medium tabular-nums text-slate-600 overflow-hidden select-none"
-      :class="contexte.pct >= SEUIL_CONTEXTE ? 'is-alerte' : ''"
-      :title="contexte.titre"
-      role="meter"
-      aria-label="Contexte"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      :aria-valuenow="contexte.pct"
-      data-puce-contexte
-    >
-      <span
-        class="elpis-jauge-contexte__plein absolute inset-y-0 left-0"
-        :style="{ width: largeurJauge }"
-        aria-hidden="true"
-        data-jauge-contexte
-      ></span>
-      <i
-        v-if="contexte.pct >= SEUIL_CONTEXTE"
-        class="ph ph-warning relative text-[12px]"
-        aria-hidden="true"
-      ></i>
-      <span :class="props.etroit ? 'sr-only' : 'relative'">Contexte </span>
-      <span class="relative">{{ contexte.pct }} %</span>
-    </span>
+    <JaugeContexte v-if="contexte" :contexte="contexte" :forme="pref.contexte" :etroit="props.etroit" />
   </div>
 </template>

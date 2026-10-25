@@ -202,17 +202,6 @@ export function creerApparence(
     });
   }
 
-  /** Interface classique, enregistrée dès le clic ; rétablie si l'écriture échoue. */
-  async function setClassicUi(actif: boolean): Promise<boolean> {
-    const prev = settings.value.classic_ui;
-    settings.value.classic_ui = actif;
-    return persistance.persistKeys(["classic_ui"], {
-      rollback: () => {
-        settings.value.classic_ui = prev;
-      },
-    });
-  }
-
   return {
     APP_SKINS,
     skinsDefaut,
@@ -225,6 +214,5 @@ export function creerApparence(
     setThemeMode,
     toggleThemeMode,
     setAppSkin,
-    setClassicUi,
   };
 }

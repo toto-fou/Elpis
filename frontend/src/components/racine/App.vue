@@ -24,7 +24,7 @@ import { fournirDomaineEditeur } from "../../features/editor/domaine";
 import { setupEditor } from "../../features/editor/editeur";
 import { fournirDomaineAdmin } from "../../features/admin/domaine";
 import { fournirDomaineReglages } from "../../features/reglages/domaine";
-import { fournirInterface } from "../../features/reglages/interface";
+import { fournirPreferencesChat } from "../../features/reglages/affichage-chat";
 import { fournirDomaineModales } from "../../features/chat/modales/domaine";
 import { fournirDomainesChat } from "../../features/chat/page/domaines";
 import { creerRacine } from "../../app/racine/racine";
@@ -44,7 +44,6 @@ import ModaleOpenCode from "../chat/modales/ModaleOpenCode.vue";
 import ModaleTransfert from "../chat/modales/ModaleTransfert.vue";
 import ProprietesModele from "../chat/modales/ProprietesModele.vue";
 import RemplissageTemplate from "../chat/modales/RemplissageTemplate.vue";
-import TranscriptionSousAgent from "../chat/modales/TranscriptionSousAgent.vue";
 import VoletAgent from "../chat/modales/VoletAgent.vue";
 import VisionneuseImages from "../chat/modales/VisionneuseImages.vue";
 import ZoomImage from "../chat/modales/ZoomImage.vue";
@@ -53,7 +52,6 @@ import ModaleGit from "../editor/ModaleGit.vue";
 import PageEditeur from "../editor/PageEditeur.vue";
 import ModaleMcp from "../reglages/ModaleMcp.vue";
 import ModaleReglages from "../reglages/ModaleReglages.vue";
-import PanneauEchantillonnage from "../reglages/PanneauEchantillonnage.vue";
 import PanneauGeneration from "../reglages/PanneauGeneration.vue";
 import PanneauMcp from "../reglages/PanneauMcp.vue";
 import BulleSource from "../rag/BulleSource.vue";
@@ -111,7 +109,7 @@ const r = creerRacine({
 });
 
 fournirDomainesRacine(r);
-const ui = fournirInterface(() => r.settings.classic_ui);
+fournirPreferencesChat(() => r.settings);
 fournirDomainesChat(r);
 fournirDomaineEditeur(r);
 fournirDomaineRoutines(r);
@@ -153,8 +151,7 @@ fournirDomaineModales(r, false);
       <VisionneuseSource v-if="!(r.showEditor && r.settings.enable_editor)" />
       <PanneauMcp />
       <VoletAgent />
-      <PanneauEchantillonnage v-if="ui.classique" />
-      <PanneauGeneration v-else />
+      <PanneauGeneration />
       <PageEditeur />
       <PageRoutines />
       <PageRag v-if="r.ragPage" />
@@ -171,7 +168,6 @@ fournirDomaineModales(r, false);
   <ModaleMcp />
   <ModalesGroupes />
   <ProprietesModele />
-  <TranscriptionSousAgent />
   <DetailsExecution />
   <ModaleAPropos />
   <ModaleOpenCode />

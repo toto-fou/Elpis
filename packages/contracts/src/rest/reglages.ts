@@ -62,10 +62,18 @@ const reglagesEcrivables = {
   image_prefs: dictionnaire,
   /** Défaut du compte de « Ne pas me réveiller » (tâches de fond) : absent = vrai (réveil actif). */
   jobs_wake: z.boolean(),
-  /** « Interface classique » : disposition d'avant la revue d'interface ; absent = faux. */
-  classic_ui: z.boolean(),
   /** « Masquer les captures web » : captures du navigateur cachées dans le fil ; absent = faux. */
   hide_web_screenshots: z.boolean(),
+  /** Déroulé d'un tour dans le fil : classique (défaut), travail en bloc, chronologie, journal. */
+  chat_workflow: z.enum(["classic", "work_block", "timeline", "terminal"]),
+  /** Puce de contexte du composeur : bloc qui se remplit (défaut), pourcentage, anneau. */
+  context_display: z.enum(["fill", "percent", "ring"]),
+  /** Réflexions dans le fil : repliées (défaut), dépliées, masquées. */
+  thinking_display: z.enum(["collapsed", "expanded", "hidden"]),
+  /** Métriques du pied de réponse : complètes (défaut), essentielles, masquées. */
+  footer_metrics: z.enum(["full", "essential", "hidden"]),
+  /** Densité du fil : confortable (défaut), compacte. */
+  thread_density: z.enum(["comfortable", "compact"]),
 };
 
 /** Corps du PUT : clés connues de la liste blanche, toutes facultatives ; le serveur ignore les autres. */

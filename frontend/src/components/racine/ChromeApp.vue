@@ -8,14 +8,12 @@ import { suivreDefilement } from "../../features/chat/page/barres-defilement";
 import { executerConversation } from "../../features/chat/page/conversation";
 import type { ActionConversation } from "../../features/chat/page/conversation";
 import { CLE_ENTETE } from "../../features/chat/page/domaines";
-import { interfaceApp } from "../../features/reglages/interface";
 import AnnonceurA11y from "../AnnonceurA11y.vue";
 import MenuConversation from "../chat/page/MenuConversation.vue";
 
 const c = domaineRacine(CLE_CHROME);
-const ui = interfaceApp();
 const multi = (item: unknown): number => c.explorerMultiCount?.(item) ?? 0;
-suivreDefilement(() => !ui.classique);
+suivreDefilement();
 // Domaines du chat : absents de la console, qui n'a pas de conversations.
 const conv = inject(CLE_ENTETE, null);
 
@@ -221,32 +219,8 @@ function agirConversation(action: ActionConversation): void {
       :style="{ top: c.contextMenu.y + 'px', left: c.contextMenu.x + 'px' }"
       @keydown="c.onContextMenuKeydown"
     >
-      <div v-if="c.contextMenu.type === 'chat' && !ui.classique" class="px-1 w-56">
+      <div v-if="c.contextMenu.type === 'chat'" class="px-1 w-56">
         <MenuConversation @action="agirConversation" />
-      </div>
-      <div v-else-if="c.contextMenu.type === 'chat'" class="px-1">
-        <button
-          role="menuitem"
-          class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"
-          @click="c.handleContextAction('rename')"
-        >
-          <i class="ph ph-pencil-simple text-slate-400"></i> Renommer
-        </button>
-        <button
-          role="menuitem"
-          class="w-full text-left px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"
-          @click="c.handleContextAction('archive')"
-        >
-          <i class="ph ph-archive text-slate-400"></i> Archiver
-        </button>
-        <div class="h-px bg-slate-100 my-1 mx-2"></div>
-        <button
-          role="menuitem"
-          class="w-full text-left px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none rounded-lg flex items-center gap-2 transition-colors"
-          @click="c.handleContextAction('delete')"
-        >
-          <i class="ph ph-trash text-red-400"></i> Supprimer
-        </button>
       </div>
       <div v-if="['file', 'folder', 'explorer-bg'].includes(c.contextMenu.type)" class="px-1">
         <!-- Sélection multiple (Ctrl/Maj + clic) : actions de groupe seulement. -->

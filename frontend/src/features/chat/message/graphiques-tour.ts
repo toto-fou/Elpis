@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/message/graphiques-tour.ts — graphiques tracés par un outil du tour que la réponse ne cite pas : affichés sous leur étape (nouvelle interface). */
+/** frontend/src/features/chat/message/graphiques-tour.ts — graphiques tracés par un outil du tour que la réponse ne cite pas : affichés sous leur étape. */
 import type { EtapeOutil } from "../outils/types.ts";
 import type { MessageFil } from "./chronologie.ts";
 

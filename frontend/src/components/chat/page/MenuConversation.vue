@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/MenuConversation.vue — entrées du menu « Conversation » (interface nouvelle) : Renommer… (F2), Rechercher, Exporter › (formats dépliés sur place), Archiver, Supprimer ; le parent porte le role="menu". -->
+<!-- frontend/src/components/chat/page/MenuConversation.vue — entrées du menu « Conversation » : Renommer… (F2), Rechercher, Exporter › (formats dépliés sur place), Archiver, Supprimer ; le parent porte le role="menu". -->
 <script setup lang="ts">
 import { ref } from "vue";
 

@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/EnteteConversation.vue — en-tête flottant du chat (interface nouvelle) : titre (double-clic pour le modifier) et menu « Conversation » ; mode plan et réglages vivent dans le composeur. -->
+<!-- frontend/src/components/chat/page/EnteteConversation.vue — en-tête flottant du chat : titre (double-clic pour le modifier) et menu « Conversation » ; mode plan et réglages vivent dans le composeur. -->
 <script setup lang="ts">
 import { nextTick, useTemplateRef } from "vue";
 

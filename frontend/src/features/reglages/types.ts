@@ -65,7 +65,11 @@ export interface ReglagesApp {
   hide_web_screenshots?: boolean;
   live_shell_enabled?: boolean;
   jobs_wake?: boolean;
-  classic_ui?: boolean;
+  chat_workflow?: "classic" | "work_block" | "timeline" | "terminal";
+  context_display?: "fill" | "percent" | "ring";
+  thinking_display?: "collapsed" | "expanded" | "hidden";
+  footer_metrics?: "full" | "essential" | "hidden";
+  thread_density?: "comfortable" | "compact";
   voice_input_enabled?: boolean;
   voice_reply_enabled?: boolean;
   voice_reply_tools_enabled?: boolean;

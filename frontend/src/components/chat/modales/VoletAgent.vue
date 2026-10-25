@@ -1,24 +1,29 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/modales/VoletAgent.vue — volet non modal d'un sous-agent, à droite du fil : nom, état, horloge, Arrêter ; dans l'ordre réel, la consigne reçue, sa chronologie dans la grammaire du fil, puis « Rendu à l'assistant » une fois fini. -->
+<!-- frontend/src/components/chat/modales/VoletAgent.vue — volet non modal d'un sous-agent, à droite du fil : nom, état, horloge, Arrêter ; dans l'ordre réel, la consigne reçue, sa chronologie dans la grammaire du fil, puis son bilan (statut, appels, reste à faire) et « Rendu à l'assistant » une fois fini. -->
 <script setup lang="ts">
 import { computed, inject, nextTick, onUnmounted, reactive, ref, useTemplateRef, watch } from "vue";
 
 import { domaineModales } from "../../../features/chat/modales/domaine";
 import { bilanCourtAgent, chronologieAgent } from "../../../features/chat/outils/agents";
-import { libelleEtatRun } from "../../../features/chat/outils/bilan-tache";
+import {
+  classeStatutTache,
+  fmtAppelsTache,
+  fmtDureeTache,
+  libelleEtatRun,
+  libelleStatutTache,
+} from "../../../features/chat/outils/bilan-tache";
 import { fmtDuree } from "../../../features/chat/outils/format";
 import type { ExecutionSousAgent } from "../../../features/chat/outils/types";
 import { CLE_FIL } from "../../../features/chat/page/domaines";
-import { interfaceApp } from "../../../features/reglages/interface";
 import { fmtTokenCount } from "../../../utils/utils-purs";
+import DetailsSousAgent from "../outils/DetailsSousAgent.vue";
 import LigneEtapes from "../outils/LigneEtapes.vue";
 
 const m = domaineModales();
 const fil = inject(CLE_FIL, null);
-const ui = interfaceApp();
 
 // Run relu à chaque patch du message : le volet suit le direct.
-const run = computed<ExecutionSousAgent | null>(() => (ui.classique ? null : m.taskModalRun()));
+const run = computed<ExecutionSousAgent | null>(() => m.taskModalRun());
 const blocs = computed(() => (run.value ? chronologieAgent(run.value) : []));
 const ouverts = reactive<Record<string, boolean>>({});
 const detail = ref<number | null>(null);
@@ -183,6 +188,19 @@ async function copierRendu(): Promise<void> {
         >
           Aucun déroulé enregistré
         </p>
+      </div>
+
+      <div v-if="run.harness" class="rounded-xl border border-slate-200 px-3 py-2" data-task-harness>
+        <div class="flex items-center gap-2 flex-wrap mb-1 text-xs">
+          <span class="font-semibold text-slate-700">Bilan</span>
+          <span class="task-run-badge" :class="classeStatutTache(run.harness.status)">{{
+            libelleStatutTache(run.harness.status)
+          }}</span>
+          <span class="font-mono text-slate-500"
+            >{{ fmtAppelsTache(run.harness) }} appels · {{ fmtDureeTache(run.harness) }}</span
+          >
+        </div>
+        <DetailsSousAgent :bilan="run.harness" />
       </div>
 
       <div

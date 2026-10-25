@@ -7,13 +7,11 @@ import type { ComponentPublicInstance } from "vue";
 import { LOGO_ELPIS } from "../../../features/communs/logo";
 import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
 import { fonduDefilement } from "../../../features/chat/page/fondu-defilement";
-import { interfaceApp } from "../../../features/reglages/interface";
 import MenuCompte from "./MenuCompte.vue";
 import MenuPagesPlus from "./MenuPagesPlus.vue";
 import NotificationsPied from "./NotificationsPied.vue";
 
 const b = domaine(CLE_BARRE);
-const ui = interfaceApp();
 let detacherFondu: (() => void) | null = null;
 // L'historique peut être recréé (rail replié puis déployé) : le fondu suit l'élément monté.
 function brancherFondu(el: Element | ComponentPublicInstance | null): void {
@@ -153,24 +151,7 @@ onBeforeUnmount(() => brancherFondu(null));
       <MenuPagesPlus :compact="true" />
       <div class="mt-auto flex flex-col items-center gap-1">
         <div class="w-6 h-px bg-white/10 my-0.5"></div>
-        <MenuCompte v-if="!ui.classique" :compact="true" />
-        <button
-          v-else
-          title="Compte"
-          class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-          @click="b.showSidebar = true"
-        >
-          <img
-            v-if="b.user.avatar"
-            :src="'/avatars/' + b.user.avatar"
-            class="w-8 h-8 rounded-full object-cover shadow-sm ring-1 ring-white/10 hover:ring-blue-500/60 transition-all"
-          />
-          <span
-            v-else
-            class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold shadow-sm ring-1 ring-white/10 hover:ring-blue-500/60 transition-all"
-            >{{ b.user.username.substring(0, 2).toUpperCase() }}</span
-          >
-        </button>
+        <MenuCompte :compact="true" />
         <button
           :title="b.notifUnread ? b.notifUnread + ' notification(s) non lue(s)' : 'Notifications'"
           class="relative w-9 h-9 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
@@ -204,14 +185,6 @@ onBeforeUnmount(() => brancherFondu(null));
           @click="b.goToAdmin"
         >
           <i class="ph ph-shield-check text-lg"></i>
-        </button>
-        <button
-          v-if="ui.classique"
-          title="Déconnexion"
-          class="w-9 h-9 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 flex items-center justify-center transition-colors"
-          @click="b.logout"
-        >
-          <i class="ph ph-sign-out text-lg"></i>
         </button>
       </div>
     </div>
@@ -550,21 +523,7 @@ onBeforeUnmount(() => brancherFondu(null));
                    Fond un cran plus sombre ; --sb-ring-offset adapte l'anneau de
                    focus à ce fond. -->
       <div class="elpis-rail-foot px-3 py-2.5 border-t border-white/[0.07] flex items-center gap-2 shrink-0">
-        <MenuCompte v-if="!ui.classique" />
-        <div v-else class="flex items-center gap-2.5 min-w-0 flex-1">
-          <img
-            v-if="b.user.avatar"
-            :src="'/avatars/' + b.user.avatar"
-            class="w-8 h-8 rounded-full object-cover shadow-sm ring-1 ring-white/10 shrink-0"
-          />
-          <div
-            v-else
-            class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-[11px] font-bold shadow-sm ring-1 ring-white/10 shrink-0"
-          >
-            {{ b.user.username.substring(0, 2).toUpperCase() }}
-          </div>
-          <span class="truncate text-sm font-medium text-slate-200 min-w-0">{{ b.user.username }}</span>
-        </div>
+        <MenuCompte />
         <div class="flex items-center gap-0.5 shrink-0">
           <NotificationsPied />
 
@@ -582,14 +541,6 @@ onBeforeUnmount(() => brancherFondu(null));
             @click="b.goToAdmin"
           >
             <i class="ph ph-shield-check text-base"></i>
-          </button>
-          <button
-            v-if="ui.classique"
-            title="Déconnexion"
-            class="w-8 h-8 rounded-md hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors flex items-center justify-center"
-            @click="b.logout"
-          >
-            <i class="ph ph-sign-out text-base"></i>
           </button>
         </div>
       </div>

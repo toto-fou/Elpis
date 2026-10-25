@@ -99,19 +99,26 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "image_tool_enabled",
   "image_prefs",
   "jobs_wake",
-  "classic_ui",
   "hide_web_screenshots",
+  "chat_workflow",
+  "context_display",
+  "thinking_display",
+  "footer_metrics",
+  "thread_density",
 ]);
 
 /** Seules clés que le processus admin accepte en écriture (menu « Compte et apparence » de la console). */
-export const ADMIN_PORT_SETTINGS: ReadonlySet<string> = new Set([
-  "skin",
-  "dark_mode",
-  "dark_mode_auto",
-  "classic_ui",
-]);
+export const ADMIN_PORT_SETTINGS: ReadonlySet<string> = new Set(["skin", "dark_mode", "dark_mode_auto"]);
 
 const SANDBOX_PROTECTED = ["sandbox_mode", "network_profile_id"] as const;
+/** Préférences d'affichage du chat à valeurs fermées : une valeur inconnue n'est pas enregistrée. */
+export const CHOIX_AFFICHAGE: Readonly<Record<string, readonly string[]>> = {
+  chat_workflow: ["classic", "work_block", "timeline", "terminal"],
+  context_display: ["fill", "percent", "ring"],
+  thinking_display: ["collapsed", "expanded", "hidden"],
+  footer_metrics: ["full", "essential", "hidden"],
+  thread_density: ["comfortable", "compact"],
+};
 /** Cases coercées en booléen strict au PUT. */
 const BOOLEENS = [
   "agents_enabled",
@@ -125,7 +132,6 @@ const BOOLEENS = [
   "compression_enabled",
   "welcome_mascot_anime",
   "jobs_wake",
-  "classic_ui",
   "hide_web_screenshots",
 ] as const;
 const MUTABLES_MCP = new Set([
@@ -380,6 +386,8 @@ export async function ecrireReglages(
   for (const k of SANDBOX_PROTECTED) delete data[k];
   const a = (k: string): boolean => Object.hasOwn(data, k);
   for (const k of BOOLEENS) if (a(k)) poserCle(data, k, veritePy(data[k]));
+  for (const [k, valeurs] of Object.entries(CHOIX_AFFICHAGE))
+    if (a(k) && !(typeof data[k] === "string" && valeurs.includes(data[k]))) delete data[k];
   if (a("opencode_mcp_families")) {
     const familles = data["opencode_mcp_families"];
     if (estDict(familles)) {

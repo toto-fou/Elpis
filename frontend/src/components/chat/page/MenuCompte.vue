@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/MenuCompte.vue — bouton du compte du volet (interface nouvelle) et son menu ouvert vers le haut : nom et rôle, Aide, Informations, Installer opencode, Se déconnecter ; avatar seul sur le rail réduit. -->
+<!-- frontend/src/components/chat/page/MenuCompte.vue — bouton du compte du volet et son menu ouvert vers le haut : nom et rôle, Aide, Informations, Installer opencode, Se déconnecter ; avatar seul sur le rail réduit. -->
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef } from "vue";
 

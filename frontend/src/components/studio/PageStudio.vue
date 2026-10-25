@@ -3,12 +3,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { interfaceApp } from "../../features/reglages/interface";
 import { domaineStudio } from "../../features/studio/domaine";
 
 const sd = domaineStudio();
-const ui = interfaceApp();
-const avance = computed(() => ui.classique || sd.studioExpert);
+const avance = computed(() => sd.studioExpert);
 
 function poserDefilement(el: unknown): void {
   sd.studioChatScrollEl = (el as HTMLElement | null) ?? null;
@@ -176,7 +174,6 @@ function poserSaisieModale(el: unknown): void {
       </div>
       <div class="flex items-center gap-1.5 shrink-0">
         <div
-          v-if="!ui.classique"
           role="group"
           aria-label="Niveau d'outillage"
           class="flex items-center h-8 rounded-md border border-slate-200 bg-white overflow-hidden text-xs shrink-0"

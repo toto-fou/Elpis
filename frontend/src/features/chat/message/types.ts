@@ -108,6 +108,8 @@ export interface MessageAffiche extends MessageMarkdown, MessageNarration, Messa
   /** Lignes dépliées du fil chronologique (réflexions, groupes d'étapes), par clé de bloc. */
   _filOuverts?: Readonly<Record<string, boolean>> | null;
   _thinkingMs?: number;
+  /** Réflexion repliée à la main quand le compte les veut dépliées (déroulé classique). */
+  _thinkingReplie?: boolean;
   _thinkingStartedAt?: number;
   _thinkingEndedAt?: number;
 }
@@ -120,8 +122,6 @@ export interface EntreeMessage {
 }
 
 export interface ReglagesAffichage {
-  hide_thinking?: boolean;
-  hide_web_screenshots?: boolean;
   assistant_name?: string;
   live_shell_enabled?: boolean;
   skin?: string;

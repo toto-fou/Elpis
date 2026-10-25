@@ -3,7 +3,6 @@
 <script setup lang="ts">
 import { fournirDomaineAdmin } from "../../features/admin/domaine";
 import { fournirDomaineModales } from "../../features/chat/modales/domaine";
-import { fournirInterface } from "../../features/reglages/interface";
 import { creerRacine } from "../../app/racine/racine";
 import { fournirDomainesRacine } from "../../app/racine/domaine";
 import CoqueConsole from "../admin/CoqueConsole.vue";
@@ -16,7 +15,6 @@ import ChromeApp from "./ChromeApp.vue";
 const r = creerRacine();
 
 fournirDomainesRacine(r);
-fournirInterface(() => r.settings.classic_ui);
 fournirDomaineAdmin(r);
 fournirDomaineModales(r, true);
 </script>

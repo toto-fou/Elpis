@@ -1,93 +1,42 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/message/FilTour.vue — le tour d'un message assistant en une liste chronologique : réflexions, textes à leur place, étapes groupées en ligne riche (et leurs captures, aperçu en direct pendant la navigation, graphique que la réponse oublie de citer), sous-agents, tâches de fond, mémoire, compression, puis le texte qui s'écrit. -->
 <script setup lang="ts">
-import { computed, inject, onUnmounted, ref, watch } from "vue";
+import { computed } from "vue";
 
-import type { ResumeJob } from "@elpis/contracts";
-
-import { capturesDuTour, visionneuseCaptures } from "../../../features/chat/message/captures-tour";
-import { chronologieTour } from "../../../features/chat/message/chronologie";
-import { graphiquesNonCites } from "../../../features/chat/message/graphiques-tour";
-import type { BlocFil } from "../../../features/chat/message/chronologie";
 import type { EntreeMessage } from "../../../features/chat/message/types";
-import { fmtCompression, fmtDuree } from "../../../features/chat/outils/format";
-import { CLE_MODALES } from "../../../features/chat/modales/domaine";
-import { jobDeLEtape } from "../../../features/chat/message/taches-fond";
-import type { EtapeOutil } from "../../../features/chat/outils/types";
-import { CLE_FIL, CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
+import { resumeCompression, utiliserTour } from "../../../features/chat/message/tour-affiche";
 
 import ContenuMarkdown from "../ContenuMarkdown.vue";
 import CarteOutil from "../outils/CarteOutil.vue";
 import LigneEtapes from "../outils/LigneEtapes.vue";
 import LigneJob from "../outils/LigneJob.vue";
 import LignesAgents from "../outils/LignesAgents.vue";
-import type { AgentLigne } from "../outils/LignesAgents.vue";
 import EffetMemoire from "./EffetMemoire.vue";
 import LigneReflexion from "./LigneReflexion.vue";
 
 const props = defineProps<{ entry: EntreeMessage }>();
-const fil = domaine(CLE_FIL);
-const modales = inject(CLE_MODALES, null);
-// Tâches de fond de la conversation (page du chat) ; absentes quand le fil est monté seul.
-const page = inject(CLE_PAGE, null);
-
-// Horloge des étapes vivantes : une seconde, seulement pendant le flux.
-const maintenant = ref(Date.now());
-let minuterie: ReturnType<typeof globalThis.setInterval> | null = null;
-watch(
-  () => !!props.entry.msg.isStreaming,
-  (vivant) => {
-    if (minuterie) globalThis.clearInterval(minuterie);
-    minuterie = vivant ? globalThis.setInterval(() => (maintenant.value = Date.now()), 1000) : null;
-    maintenant.value = Date.now();
-  },
-  { immediate: true },
-);
-onUnmounted(() => {
-  if (minuterie) globalThis.clearInterval(minuterie);
-});
-
-const blocs = computed(() => chronologieTour(props.entry.msg, maintenant.value));
-const ouverts = computed(() => props.entry.msg._filOuverts ?? {});
-const detail = computed(() => props.entry.msg._activeToolStep ?? null);
-const lignesMemoire = computed(() => fil.effectLinesFor(props.entry.msg, props.entry.idx));
-const dernier = computed(() => props.entry.idx === fil.lastAssistantIdx);
-const verrouillee = computed(() => !!fil.settings.hide_thinking && !!props.entry.msg.content);
-
-const vivant = computed(() => {
-  const m = props.entry.msg;
-  const texte = m._pendingPreContent || "";
-  if (!texte.trim() || !dernier.value) return null;
-  return m._ppBlocks || m._ppActiveHtml
-    ? {
-        isStreaming: true,
-        content: texte,
-        _mdBlocks: m._ppBlocks ?? null,
-        _mdActiveHtml: m._ppActiveHtml ?? "",
-      }
-    : { content: texte };
-});
-
-const captures = computed(() => (fil.settings.hide_web_screenshots ? [] : capturesDuTour(props.entry.msg)));
-const visionneuse = computed(() => visionneuseCaptures(captures.value));
-const graphiques = computed(() => graphiquesNonCites(props.entry.msg));
-
-function voirCapture(rang: number): void {
-  fil.openImageViewer(visionneuse.value.items, rang, { captures: true });
-}
-
-// Pendant la navigation : la dernière capture sous le dernier groupe d'étapes, tant que rien d'autre ne le suit.
-const apercu = computed(() => {
-  const c = captures.value[captures.value.length - 1];
-  if (!c || !props.entry.msg.isStreaming || !dernier.value || vivant.value) return null;
-  const i = blocs.value.findLastIndex((b) => b.k !== "reflexion");
-  const b = blocs.value[i];
-  if (b?.k !== "etapes") return null;
-  const lie = b.etapes.some(
-    (e) => e.flat === c.flat || (e.etape.status === "running" && (e.etape.name ?? "").startsWith("pw_")),
-  );
-  return lie ? { cle: b.cle, url: c.url, attente: c.attente } : null;
-});
+const {
+  fil,
+  maintenant,
+  blocs,
+  ouverts,
+  detail,
+  lignesMemoire,
+  dernier,
+  vivant,
+  visionneuse,
+  graphiques,
+  apercu,
+  voirCapture,
+  basculer,
+  reflexionOuverte,
+  basculerReflexion,
+  basculerDetail,
+  agentsDe,
+  jobDe,
+  ouvrirJob,
+  agentActif,
+} = utiliserTour(() => props.entry);
 
 // Un nouvel appel du modèle (sa réflexion, ou son texte s'il n'en a pas) se détache du précédent ; dans un appel, tout se suit.
 function nouvelAppel(i: number): boolean {
@@ -100,50 +49,6 @@ const suiteDetachee = computed(() => {
   const d = blocs.value[blocs.value.length - 1];
   return !!d && d.k !== "reflexion";
 });
-
-function basculer(cle: string): void {
-  fil.setMsgUi(props.entry, { _filOuverts: { ...ouverts.value, [cle]: !ouverts.value[cle] } });
-}
-
-function basculerDetail(flat: number): void {
-  fil.setMsgUi(props.entry, { _activeToolStep: detail.value === flat ? null : flat });
-}
-
-function agentsDe(b: Extract<BlocFil, { k: "agents" }>): AgentLigne[] {
-  const runs = props.entry.msg.taskRuns ?? [];
-  return b.agents.flatMap((a) => {
-    const run = runs[a.ri];
-    return run ? [{ run, ri: a.ri, callId: a.etape.callId ?? null }] : [];
-  });
-}
-
-type BlocJob = Extract<BlocFil, { k: "job" }>;
-
-function jobDe(b: BlocJob): ResumeJob | null {
-  return page ? jobDeLEtape(b.etape, page.jobsChat) : null;
-}
-
-// Journal dans l'éditeur, sinon le volet des tâches de fond ; job inconnu : détail de l'appel.
-function ouvrirJob(b: BlocJob): void {
-  const job = jobDe(b);
-  if (!page || !job) basculerDetail(b.flat);
-  else if (fil.settings.enable_editor) page.jobsOuvrirJournal(job);
-  else page.jobsBasculer(true);
-}
-
-// Agent dont le volet est ouvert : sa ligne reste marquée.
-const agentActif = computed(() => {
-  const tm = modales?.taskModal;
-  return tm && tm.idx === props.entry.idx ? tm.ri : null;
-});
-
-function resumeCompression(s: EtapeOutil): string {
-  if (s.status === "running") return "en cours…";
-  if (s.status === "skipped") return s.reasonLabel || "non appliquée";
-  const gain = fmtCompression(s.stats);
-  const ms = s.stats?.duration_ms;
-  return [gain, typeof ms === "number" && ms > 0 ? fmtDuree(ms) : ""].filter(Boolean).join(" · ");
-}
 </script>
 
 <template>
@@ -168,10 +73,10 @@ function resumeCompression(s: EtapeOutil): string {
         :texte="b.texte"
         :ms="b.ms"
         :vivante="b.vivante"
-        :ouvert="!!ouverts[b.cle]"
-        :verrouillee="verrouillee"
+        :ouvert="reflexionOuverte(b.cle)"
+        :verrouillee="false"
         :repondre="b.vivante && dernier && !!entry.msg.isStreaming"
-        @basculer="basculer(b.cle)"
+        @basculer="basculerReflexion(b.cle)"
         @repondre="fil.respondNow(entry.idx)"
       />
       <template v-else-if="b.k === 'etapes'">

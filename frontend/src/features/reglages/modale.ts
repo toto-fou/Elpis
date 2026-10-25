@@ -66,7 +66,6 @@ export function creerModale(
     d.hide_web_screenshots ??= false;
     d.live_shell_enabled ??= true;
     d.jobs_wake ??= true;
-    d.classic_ui ??= false;
     d.voice_input_enabled ??= false;
     d.voice_reply_enabled ??= false;
     d.voice_reply_tools_enabled ??= false;

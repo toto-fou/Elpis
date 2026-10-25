@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/jobs/format.ts — libellés français des tâches de fond : durée, état et issue (code de sortie), déclencheurs, résumé d'un réveil. */
-import type { DeclencheurJob, EtatJob, EvenementReveil, ResumeJob, ResumeReveil } from "@elpis/contracts";
+import type { EtatJob, ResumeJob } from "@elpis/contracts";
 
 const ETATS: Readonly<Record<EtatJob, string>> = {
   starting: "démarrage",
@@ -9,19 +9,6 @@ const ETATS: Readonly<Record<EtatJob, string>> = {
   killed: "arrêté",
   lost: "perdu",
   failed: "échec du lancement",
-};
-
-const DECLENCHEURS: Readonly<Record<DeclencheurJob, string>> = {
-  exit: "terminé",
-  match: "motif trouvé",
-  regex: "motif trouvé",
-  port: "port ouvert",
-  file: "fichier modifié",
-  idle: "plus de sortie",
-  timeout: "délai écoulé",
-  lost: "tâche perdue",
-  killed: "arrêtée",
-  max_runtime: "durée maximale atteinte",
 };
 
 export const libelleEtat = (etat: EtatJob): string => ETATS[etat];
@@ -84,20 +71,4 @@ export function libelleArme(entree: string): string {
     default:
       return entree;
   }
-}
-
-function texteEvenement(ev: EvenementReveil): string {
-  let quoi = DECLENCHEURS[ev.trigger];
-  if (ev.trigger === "exit" && ev.state === "exited") {
-    quoi = ev.signal ? `terminé (${ev.signal})` : `terminé, code ${ev.exit_code ?? "?"}`;
-  }
-  const duree = dureeFr(ev.duration_s);
-  return `${ev.label} ${quoi}${duree ? ", " + duree : ""}`;
-}
-
-/** Ligne du fil : le résumé du core, sinon reconstruit depuis les événements. */
-export function resumeReveil(wake: ResumeReveil | null | undefined): string {
-  if (!wake) return "Réveil";
-  const base = wake.summary.trim() || wake.events.map(texteEvenement).join(" ; ");
-  return base ? `Réveil : ${base}` : "Réveil";
 }

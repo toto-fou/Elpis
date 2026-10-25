@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/CataloguePlus.vue — « + » du composeur en catalogue (interface nouvelle) : joindre, partages reçus, insérer (skills, prompts, gabarits en sous-menus), mode plan et compactage, commande « / » en raccourci. -->
+<!-- frontend/src/components/chat/page/CataloguePlus.vue — « + » du composeur en catalogue : joindre, partages reçus, insérer (skills, prompts, gabarits en sous-menus), mode plan et compactage, commande « / » en raccourci. -->
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 

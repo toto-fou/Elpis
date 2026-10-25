@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/MessageChat.vue — une ligne du fil : avatar, en-tête et actions, notice, édition, corps ; les réveils qui continuent une réponse de l'agent s'ajoutent à sa bulle (nouveau fil : une seule réponse continue, un seul pied à la fin ; classique : ligne de réveil, un pied par réponse). -->
+<!-- frontend/src/components/chat/message/MessageChat.vue — une ligne du fil : avatar, en-tête et actions, notice, édition, corps ; les réveils qui continuent une réponse de l'agent s'ajoutent à sa bulle (une seule réponse continue, un seul pied à la fin). -->
 <script setup lang="ts">
 import { computed, inject } from "vue";
 
@@ -9,17 +9,14 @@ import { CLE_FIL, CLE_PAGE, domaine } from "../../../features/chat/page/domaines
 import { estReveil } from "../../../features/chat/liste/regroupement";
 import { textesDuTour } from "../../../features/chat/message/chronologie";
 import { attenteDeBulle } from "../../../features/chat/message/taches-fond";
-import { interfaceApp } from "../../../features/reglages/interface";
 
 import NoticeRecherche from "../../rag/NoticeRecherche.vue";
 import CorpsMessage from "./CorpsMessage.vue";
-import LigneReveil from "./LigneReveil.vue";
 
 import type { EntreeMessage } from "../../../features/chat/message/types";
 
 const props = defineProps<{ entry: EntreeMessage }>();
 const fil = domaine(CLE_FIL);
-const ui = interfaceApp();
 const emit = defineEmits<{ "zoom-image": [url: string]; edition: [texte: string] }>();
 
 const page = inject(CLE_PAGE, null);
@@ -27,11 +24,9 @@ const RIEN: readonly ResumeJob[] = [];
 
 const membres = computed(() => [props.entry, ...(props.entry.suite ?? [])]);
 const dernier = computed(() => membres.value[membres.value.length - 1]?.idx);
-// Nouveau fil : la fin de la bulle attend encore un réveil (pied caché, « En attente de … » ou « Reprise… »).
-const attente = computed(() =>
-  ui.classique || !page ? RIEN : attenteDeBulle(membres.value, page, page.messages),
-);
-// Nouveau fil : Copier, au pied final, prend les textes de toutes les réponses de la bulle, dans l'ordre.
+// La fin de la bulle attend encore un réveil (pied caché, « En attente de … » ou « Reprise… »).
+const attente = computed(() => (page ? attenteDeBulle(membres.value, page, page.messages) : RIEN));
+// Copier, au pied final, prend les textes de toutes les réponses de la bulle, dans l'ordre.
 const texteBulle = computed(() => {
   const reponses = membres.value.filter((m) => m.msg.role === "assistant");
   return reponses.length > 1
@@ -41,11 +36,11 @@ const texteBulle = computed(() => {
         .join("\n\n")
     : undefined;
 });
-const final = (e: EntreeMessage): boolean => ui.classique || e.idx === dernier.value;
+const final = (e: EntreeMessage): boolean => e.idx === dernier.value;
 const attenteDe = (e: EntreeMessage): readonly ResumeJob[] =>
-  !ui.classique && e.idx === dernier.value ? attente.value : RIEN;
+  e.idx === dernier.value ? attente.value : RIEN;
 const texteDe = (e: EntreeMessage): string | undefined =>
-  !ui.classique && e.idx === dernier.value ? texteBulle.value : undefined;
+  e.idx === dernier.value ? texteBulle.value : undefined;
 const attenuee = computed(() => {
   const q = fil.messageSearchQ && fil.messageSearchActive ? fil.messageSearchQ.toLowerCase() : "";
   const textes = q ? membres.value.map((m) => m.msg.content || "").filter(Boolean) : [];
@@ -63,14 +58,7 @@ function ouvert(e: Event): boolean {
 </script>
 
 <template>
-  <div
-    v-if="entry.msg.origin === 'job_wake'"
-    :data-vs-idx="entry.idx"
-    class="elpis-msg-wake"
-    :hidden="!ui.classique"
-  >
-    <LigneReveil v-if="ui.classique" :wake="entry.msg.wake" :content="entry.msg.content || ''" />
-  </div>
+  <div v-if="entry.msg.origin === 'job_wake'" :data-vs-idx="entry.idx" class="elpis-msg-wake" hidden></div>
   <div
     v-else-if="entry.msg.role === 'notice' && entry.msg.kind === 'rag_search'"
     :data-vs-idx="entry.idx"
@@ -212,10 +200,7 @@ function ouvert(e: Event): boolean {
           @zoom-image="(u: string) => emit('zoom-image', u)"
         />
         <template v-for="s in entry.suite" :key="s.idx">
-          <div v-if="estReveil(s.msg) && !ui.classique" :data-vs-part="s.idx"></div>
-          <div v-else-if="estReveil(s.msg)" :data-vs-part="s.idx" class="mt-3 mb-2">
-            <LigneReveil integree :wake="s.msg.wake" :content="s.msg.content || ''" />
-          </div>
+          <div v-if="estReveil(s.msg)" :data-vs-part="s.idx"></div>
           <div v-else :data-vs-part="s.idx">
             <CorpsMessage
               :entry="s"

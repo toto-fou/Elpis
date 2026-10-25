@@ -274,6 +274,7 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     routineSkillsLoading.value = false;
   }
 
+  const aucunSkillPerso = computed(() => !routineSkills.value.some((s) => (s.source || "user") === "user"));
   const routineSkillTree = computed(() => arbreSkills(routineSkills.value));
   function isSkillExpanded(id: string): boolean {
     return !collapsedSkillParents.value.includes(id);
@@ -484,15 +485,18 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     void loadRuns(r.id);
   }
 
+  /** Vrai si l'on peut quitter le formulaire : rien de modifié, ou abandon confirmé. */
+  async function confirmerAbandon(): Promise<boolean> {
+    if (!routineDirty.value) return true;
+    return openConfirm(
+      "Abandonner les modifications ?",
+      "Les changements de cette routine ne sont pas enregistrés.",
+      true,
+    );
+  }
+
   async function cancelRoutineEdit(): Promise<void> {
-    if (routineDirty.value) {
-      const ok = await openConfirm(
-        "Abandonner les modifications ?",
-        "Les changements de cette routine ne sont pas enregistrés.",
-        true,
-      );
-      if (!ok) return;
-    }
+    if (!(await confirmerAbandon())) return;
     if (routineEditMode.value === "edit" && viewed.value) {
       viewRoutine(viewed.value);
       return;
@@ -855,6 +859,8 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     isExternalOn,
     toggleRoutineExternal,
     routineSkills,
+    aucunSkillPerso,
+    confirmerAbandon,
     routineSkillsLoading,
     routineSkillsLoadedOk,
     reloadRoutineSkills,

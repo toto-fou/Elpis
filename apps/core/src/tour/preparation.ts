@@ -112,6 +112,8 @@ export interface TurnPlan {
   readonly titleWasGenerated: boolean;
   readonly titleContent: string | null;
   readonly imageToolOn: boolean;
+  readonly routineToolOn: boolean;
+  readonly questionToolOn: boolean;
   /** Tour de réveil ouvert par le serveur (`job_wake`), absent pour un message de l'utilisateur. */
   readonly origin?: "user" | "job_wake";
   readonly wake?: Readonly<Record<string, unknown>> | null;
@@ -399,7 +401,7 @@ export async function prepareTurn(
   const planMode = chatReadFailed
     ? await getChatPlanMode(base, uid, chatId)
     : veritePy((existingChat ?? {})["plan_mode"]);
-  if (planMode) denyTools = new Set([...(denyTools ?? []), "task", "generate_image"]);
+  if (planMode) denyTools = new Set([...(denyTools ?? []), "task", "generate_image", "routine_save"]);
   let imageToolOn = false;
   if (mcpOn && !planMode && toolEnabledIn(settings)) {
     try {
@@ -408,6 +410,8 @@ export async function prepareTurn(
       log.debug(`[chat.image_tool_gate] ${String(e)}`);
     }
   }
+  const routineToolOn =
+    mcpOn && !planMode && !ephemeral && getOu(settings, "routine_tool_enabled", null) !== false;
   const aServeurLocal = activeMcpServers.some((s) => estDict(s) && s["command"] === "DEFAULT_LOCAL_PYTHON");
   if (
     !aServeurLocal &&
@@ -614,6 +618,8 @@ export async function prepareTurn(
     titleWasGenerated,
     titleContent,
     imageToolOn,
+    routineToolOn,
+    questionToolOn: mcpOn && !ephemeral,
     origin: reveil === null ? "user" : "job_wake",
     wake: reveil?.wake ?? null,
     depth: reveil?.depth ?? 0,

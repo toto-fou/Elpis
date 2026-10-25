@@ -172,7 +172,7 @@ export function expandChildHistory(hist: unknown): Dict[] {
 
 // ── Types d'agents ───────────────────────────────────────────────────────────
 
-const DENY_BASE = ["task", "todowrite", "ask_user"];
+const DENY_BASE = ["task", "todowrite", "ask_user", "routine_save"];
 
 export interface AgentSpec {
   personaStem: string;
@@ -912,7 +912,13 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       childBuiltins = null;
       childMemory = false;
     }
-    const childDeny = new Set(["task", ...toolsDeniedFor("subagent", DENY_BASE), ...s.denyExtra]);
+    const childDeny = new Set([
+      "task",
+      "ask_user",
+      "routine_save",
+      ...toolsDeniedFor("subagent", DENY_BASE),
+      ...s.denyExtra,
+    ]);
 
     let childMessages: Dict[];
     if (resumed !== null)

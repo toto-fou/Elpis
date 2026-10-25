@@ -20,7 +20,8 @@ export function dernieresLignes(s: EtapeOutil, n = 2): string[] {
   return s.progressInfo?.message ? [s.progressInfo.message] : [];
 }
 
-function enObjet(r: unknown): Record<string, unknown> | null {
+/** Contenu objet d'un résultat (objet, ou chaîne JSON), `null` sinon. */
+export function enObjet(r: unknown): Record<string, unknown> | null {
   if (r && typeof r === "object") return r as Record<string, unknown>;
   if (typeof r !== "string") return null;
   try {

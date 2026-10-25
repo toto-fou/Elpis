@@ -609,6 +609,7 @@ Tapez `/` en début de saisie :
 | `/template` | Insérer un [template de prompt](#templates-de-prompt) (variables demandées avant l'insertion) |
 | `/compact` | Compacter la conversation maintenant (résume l'historique ancien) |
 | `/image [16:9] [x2] description` | Générer une image directement, sans ouvrir le mode Images |
+| `/routine [objectif]` | Ouvrir l'assistant de création de routine (cadrage, puis entretien dans le chat) |
 | `/rag …` | Collections de documents du chat : voir [Dans le chat](#dans-le-chat) |
 
 Si votre saisie ne correspond à aucune commande, le menu bascule
@@ -653,6 +654,13 @@ passe en mode Images.
   fixé par l'administrateur) ; une image purgée affiche « Expirée ».
   Paramètres › Fonctionnalités › Images : vos préférences, le compteur et la
   **Galerie** (toutes vos images, ou celles de la conversation).
+
+### Questionnaire du modèle
+
+Dans tout chat dont les outils sont actifs (mode plan compris), le modèle peut vous poser
+plusieurs questions d'un coup (outil `ask_user`) : un panneau s'ouvre au-dessus de la barre de saisie, avec des
+options à cliquer et un champ libre ; vos réponses partent en un seul message. Il n'existe ni en routine ni en
+sous-agent.
 
 ### Streaming, arrêt, reprise, régénération
 
@@ -985,7 +993,24 @@ webhook, ou la fin d'une autre routine.
 *« Chaque matin à 7 h : récupérer la branche `main`, lancer la suite de tests,
 me résumer les échecs. »*
 
-### Créer une routine
+### Créer une routine avec l'assistant
+
+Le plus simple : dites ce que vous voulez automatiser.
+
+- Sur la page **Routines**, bouton **Assistant** (à côté de « Nouvelle », ou dans l'état vide) ;
+- ou, dans le chat, la commande `/routine` (par exemple `/routine résumer les tickets chaque lundi`) : le texte
+  devient l'objectif du cadrage.
+
+L'assistant ouvre un chat, vous pose deux séries de questions au plus (but, fréquence, outils, notifications),
+rédige la routine, vous montre le brouillon complet, puis l'enregistre **après votre accord**. La routine est
+toujours créée **en pause** : relisez-la, puis activez-la depuis la page Routines (bouton « Ouvrir dans Routines »
+sous le résultat). Le jour de la semaine du cron compte de 1 (lundi) à 7 (dimanche).
+
+L'enregistrement par le modèle (outil `routine_save`) se règle dans Paramètres › Fonctionnalités › **Routines** ›
+« Créer des routines » (coché par défaut) : décoché, l'assistant rédige la routine mais ne peut pas l'enregistrer.
+L'outil n'existe ni en mode plan, ni dans une routine, ni dans un sous-agent.
+
+### Créer une routine à la main
 
 L'édition se fait en plein écran, par onglets :
 

@@ -3,6 +3,7 @@
 import { computed, ref, shallowRef, watch } from "vue";
 import type { Ref } from "vue";
 
+import type { EtatAssistant } from "./assistants.ts";
 import type { MetaMoteur, SanteLlm } from "../modeles/modeles.ts";
 import type { MessageChat, Objet, ResumeConversation } from "./types.ts";
 import type { TacheSession } from "../outils/types.ts";
@@ -83,14 +84,6 @@ export interface ServeurManifeste {
   name: string;
   default_on?: boolean;
   [cle: string]: unknown;
-}
-
-export interface FormulaireSkill {
-  open: boolean;
-  sujet: string;
-  objectif: string;
-  domaine: string;
-  scripts: string;
 }
 
 export interface ModaleTache {
@@ -186,7 +179,7 @@ export function creerEtatChat() {
     followedRunChatId: ref<string | null>(null),
     askUserPanel: ref<PanneauAsk | null>(null),
     toolInfo: ref<Objet | null>(null),
-    skillAssistForm: ref<FormulaireSkill>({ open: false, sujet: "", objectif: "", domaine: "", scripts: "" }),
+    assistantForm: ref<EtatAssistant>({ open: false, id: "", valeurs: {} }),
     editingChatTitle: ref(false),
     chatTitleDraft: ref(""),
   };

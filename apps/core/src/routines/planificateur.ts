@@ -204,12 +204,13 @@ export function minutesNonEvaluees(maintenant: Date, derniere: string): number {
   return Math.floor((apres - avant) / 60_000) - 1;
 }
 
-/** Outils retirés à une routine (politique `deny_for: ["routine"]`) ; `ask_user` en repli d'un registre vide. */
+/** Outils retirés à une routine : `ask_user` et `routine_save` en dur, plus ceux de la politique du registre. */
 export function deniedForRoutine(): Set<string> {
+  const dur = ["ask_user", "routine_save"];
   try {
-    return toolsDeniedFor("routine", ["ask_user"]);
+    return new Set([...dur, ...toolsDeniedFor("routine", dur)]);
   } catch {
-    return new Set(["ask_user"]);
+    return new Set(dur);
   }
 }
 

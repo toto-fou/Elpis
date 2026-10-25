@@ -2,7 +2,7 @@
 name: creer-un-skill
 description: Create a new skill through a guided interview — ask grouped, numbered questions (trigger, exact steps, commands, pitfalls, files to bundle), then draft the skill (kebab-case name, keyword-rich description, markdown procedure), save it with skill_save and verify it with skill_get
 tags: [skill, skills, creation, assistant, entretien, interview, procedure, scripts, documentation, capitalisation]
-compatibility: skill_save/skill_add_file/skill_get tools (Skills category)
+compatibility: skill_save/skill_add_file/skill_get tools (Skills category); ask_user is a general built-in tool
 ---
 
 # Create a skill — guided interview

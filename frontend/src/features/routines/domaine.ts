@@ -37,6 +37,7 @@ export interface RacineRoutines {
   features: { agents?: boolean; [cle: string]: unknown } | null;
   settings: { custom_agents?: AgentPerso[]; [cle: string]: unknown };
   renderMarkdown(source: string): string;
+  ouvrirAssistant(id: string, pre?: Record<string, string>): void;
 }
 
 export type DomaineRoutines = ShallowUnwrapRef<Omit<SurfaceRoutines, `_${string}`>> & RacineRoutines;
@@ -53,6 +54,7 @@ const CLES: Readonly<Record<keyof RacineRoutines | "routines", true>> = {
   features: true,
   settings: true,
   renderMarkdown: true,
+  ouvrirAssistant: true,
   routines: true,
 };
 

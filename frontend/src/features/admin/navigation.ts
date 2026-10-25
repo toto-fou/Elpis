@@ -4,6 +4,7 @@ import type { Ref } from "vue";
 
 import type { BaseAdmin } from "./etat";
 import type { PageAdmin } from "./registre";
+import { chargementDe } from "./suivi-chargement";
 
 const PAGE_PAR_DEFAUT = "overview";
 
@@ -43,6 +44,10 @@ export function creerNavigation(b: BaseAdmin) {
   const adminPage = computed<PageAdmin>(
     () => nav.pages[adminTab.value] ?? nav.pages[PAGE_PAR_DEFAUT] ?? pageInconnue(adminTab.value),
   );
+  const chargementPage = computed(() => chargementDe(adminPage.value.loaders.map((l) => l[0])));
+  const reessayerChargement = (): void => {
+    for (const echec of chargementPage.value.echecs) void echec.reessayer();
+  };
   const adminTabTitle = computed(() => adminPage.value.label);
 
   const dernierePageParEntree: Record<string, string> = {};
@@ -133,6 +138,8 @@ export function creerNavigation(b: BaseAdmin) {
     adminNav,
     adminPage,
     adminTabTitle,
+    chargementPage,
+    reessayerChargement,
     adminH1,
     adminScroller,
     goAdminPage,

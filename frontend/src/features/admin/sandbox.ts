@@ -400,8 +400,8 @@ export function creerSandboxAdmin(b: BaseAdmin) {
   }
   async function adminStopUserSandbox(userId: number | string | null): Promise<void> {
     const ok = await openConfirm(
-      "Arrêter ce container ?",
-      `Le container de l'utilisateur ${userId} sera arrêté. Les processus en cours seront tués.`,
+      "Arrêter ce conteneur ?",
+      `Le conteneur de l'utilisateur ${userId} sera arrêté. Les processus en cours seront tués.`,
       false,
       "Arrêter",
     );
@@ -409,7 +409,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
     try {
       const r = await fetchAuth(`/api/admin/sandbox/containers/${userId}/stop`, { method: "POST" });
       if (!r || !r.ok) throw new Error(r ? await r.text() : "no response");
-      showToast("Container arrêté.", "success");
+      showToast("Conteneur arrêté.", "success");
       await loadSandboxContainers();
     } catch (err) {
       showToast("Échec : " + (err instanceof Error ? err.message : String(err)), "error");
@@ -417,8 +417,8 @@ export function creerSandboxAdmin(b: BaseAdmin) {
   }
   async function adminDestroyUserSandbox(userId: number | string | null): Promise<void> {
     const ok = await openConfirm(
-      "Détruire ce container ?",
-      `Le container de l'utilisateur ${userId} sera supprimé. Son dossier de travail reste intact.`,
+      "Détruire ce conteneur ?",
+      `Le conteneur de l'utilisateur ${userId} sera supprimé. Son dossier de travail reste intact.`,
       true,
       "Détruire",
     );
@@ -426,7 +426,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
     try {
       const r = await fetchAuth(`/api/admin/sandbox/containers/${userId}`, { method: "DELETE" });
       if (!r || !r.ok) throw new Error(r ? await r.text() : "no response");
-      showToast("Container détruit.", "success");
+      showToast("Conteneur détruit.", "success");
       await loadSandboxContainers();
     } catch (err) {
       showToast("Échec : " + (err instanceof Error ? err.message : String(err)), "error");
@@ -435,7 +435,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
   async function triggerSandboxGc(): Promise<void> {
     const ok = await openConfirm(
       "Lancer le GC ?",
-      "Les containers Docker inactifs depuis plus de la durée configurée seront arrêtés.",
+      "Les conteneurs Docker inactifs depuis plus de la durée configurée seront arrêtés.",
       false,
       "Lancer le GC",
     );

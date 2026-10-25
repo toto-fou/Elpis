@@ -2,6 +2,7 @@
 /** frontend/src/features/admin/enregistrement.ts — enregistrement unifié par page : instantanés « propres » des blocs, diff champ par champ, barre d'enregistrement, garde de sortie et raccourci Ctrl+S. */
 import { CHEMINS_SECRETS_CONFIG } from "@elpis/contracts";
 
+import { brouillonsEnCours } from "./brouillons";
 import { IDS_BLOCS, diffFeuilles, poserChemin } from "./etat";
 import type { BaseAdmin, IdBloc } from "./etat";
 import type { FeuilleModifiee } from "./etat";
@@ -259,22 +260,34 @@ export function creerEnregistrement(b: BaseAdmin) {
   }
 
   /** Garde de sortie : vrai si l'on peut quitter la page. */
+  const adminBrouillons = computed(() => brouillonsEnCours(e.adminTab.value));
+
   async function adminConfirmLeave(): Promise<boolean> {
     const n = adminDirtyCount.value;
-    if (!n) return true;
+    const brouillons = adminBrouillons.value.slice();
+    if (!n && !brouillons.length) return true;
     const page = nav.pages[e.adminTab.value];
+    const lignes: string[] = [];
+    if (n) lignes.push(n + " modification" + (n > 1 ? "s" : "") + " sur « " + (page?.label ?? "") + " »");
+    if (brouillons.length)
+      lignes.push("Saisie hors de la barre : " + brouillons.map((x) => x.label).join(", "));
     const choix = await ctx.openChoice(
       "Modifications non enregistrées",
-      n + " modification" + (n > 1 ? "s" : "") + " sur « " + (page?.label ?? "") + " ».",
+      lignes.join(". ") + ".",
       [
         { id: "discard", label: "Ignorer", tone: "neutral" },
         { id: "save", label: "Enregistrer", tone: "primary" },
       ],
       "Rester",
     );
-    if (choix === "save") return saveAdminPage();
+    if (choix === "save") {
+      let ok = n ? await saveAdminPage() : true;
+      for (const x of brouillons) ok = (await x.enregistrer()) && ok;
+      return ok;
+    }
     if (choix === "discard") {
       await discardAdminPage(true);
+      for (const x of brouillons) x.abandonner();
       return true;
     }
     return false;
@@ -283,7 +296,7 @@ export function creerEnregistrement(b: BaseAdmin) {
   const vueAdminActive = (): boolean => !b.refs.isAdminView || b.refs.isAdminView.value;
 
   function garderAvantFermeture(ev: BeforeUnloadEvent): string | undefined {
-    if (!vueAdminActive() || !adminDirtyCount.value) return undefined;
+    if (!vueAdminActive() || (!adminDirtyCount.value && !adminBrouillons.value.length)) return undefined;
     ev.preventDefault();
     ev.returnValue = "";
     return "";
@@ -305,6 +318,7 @@ export function creerEnregistrement(b: BaseAdmin) {
   return {
     adminDirtyStores,
     adminDirtyCount,
+    adminBrouillons,
     adminPageSavable,
     isSavingAdminPage,
     adminPageChanges,

@@ -9,9 +9,9 @@ const adm = domaineAdmin();
 <template>
   <Transition name="modal">
     <div
-      v-if="adm.resetTarget"
+      v-if="adm.resetTarget || adm.resetCibles.length"
       class="fixed inset-0 z-[6000] flex items-center justify-center bg-slate-900/80 p-4"
-      @click.self="adm.resetTarget = null"
+      @click.self="adm.fermerReset"
     >
       <div
         class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl border border-slate-200"
@@ -22,7 +22,7 @@ const adm = domaineAdmin();
         data-a11y-modal
       >
         <h3 class="font-bold mb-4 text-lg text-slate-800">
-          Modifier <span class="text-blue-600">{{ adm.resetTarget.username }}</span>
+          Modifier <span class="text-blue-600">{{ adm.resetLibelle }}</span>
         </h3>
         <input
           v-model="adm.newPasswordInput"
@@ -32,7 +32,7 @@ const adm = domaineAdmin();
           @keydown.enter="adm.newPasswordInput && adm.confirmReset()"
         />
         <div class="flex justify-end gap-2">
-          <button class="adm-btn adm-btn--quiet" @click="adm.resetTarget = null">Annuler</button>
+          <button class="adm-btn adm-btn--quiet" @click="adm.fermerReset">Annuler</button>
           <button class="adm-btn adm-btn--primary" @click="adm.confirmReset">Appliquer</button>
         </div>
       </div>

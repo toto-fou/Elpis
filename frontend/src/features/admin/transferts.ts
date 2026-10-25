@@ -8,6 +8,7 @@ import {
 import type { Ref } from "vue";
 
 import { corpsJson, detailErreur, lireSchema, nombre, objet, texte } from "../../utils/lecture-json";
+import { declarerBrouillon } from "./brouillons";
 import type { BaseAdmin } from "./etat";
 
 const ENTETES_JSON = { "Content-Type": "application/json" };
@@ -365,6 +366,7 @@ export function creerTransferts(b: BaseAdmin) {
     return "Prochain envoi : " + remoteDateLabel(r.next_run_at) + ".";
   });
 
+  let sauvegardeDistantePropre = "";
   async function loadRemoteBackup(): Promise<void> {
     try {
       const d = await lireSchema(
@@ -374,11 +376,29 @@ export function creerTransferts(b: BaseAdmin) {
       if (d) {
         remoteBackup.value = d as unknown as ConfigSauvegardeDistante;
         remoteKeyFp.value = remoteBackup.value.key_present ? "Clé installée" : "";
+        sauvegardeDistantePropre = JSON.stringify(remoteBackup.value);
       }
     } catch {
       /* configuration inchangée */
     }
   }
+  declarerBrouillon({
+    id: "sauvegarde-distante",
+    page: "data",
+    label: "Sauvegarde distante",
+    enCours: () =>
+      !!remoteRsyncPassword.value ||
+      (sauvegardeDistantePropre !== "" && JSON.stringify(remoteBackup.value) !== sauvegardeDistantePropre),
+    enregistrer: async () => {
+      await saveRemoteBackup();
+      return !remoteRsyncPassword.value && JSON.stringify(remoteBackup.value) === sauvegardeDistantePropre;
+    },
+    abandonner: () => {
+      remoteRsyncPassword.value = "";
+      if (sauvegardeDistantePropre)
+        remoteBackup.value = JSON.parse(sauvegardeDistantePropre) as typeof remoteBackup.value;
+    },
+  });
   async function stockerMotDePasseRsync(motDePasse: string): Promise<boolean> {
     const res = await fetchAuth("/api/admin/backup/remote/password", {
       method: "POST",

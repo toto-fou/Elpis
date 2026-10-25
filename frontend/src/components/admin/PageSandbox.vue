@@ -239,7 +239,7 @@ const adm = domaineAdmin();
           <div>
             <h3 class="adm-card__title">Politique</h3>
             <span class="sr-only"
-              >Ce que les utilisateurs peuvent choisir, et quand les containers sont recyclés.</span
+              >Ce que les utilisateurs peuvent choisir, et quand les conteneurs sont recyclés.</span
             >
           </div>
         </header>
@@ -993,16 +993,16 @@ const adm = domaineAdmin();
           <i class="ph ph-cube adm-card__icon" aria-hidden="true"></i>
           <div class="min-w-0">
             <h3 class="adm-card__title">
-              Containers actifs
+              Conteneurs actifs
               <span class="font-normal text-slate-500">· {{ adm.sandboxContainers.length }}</span>
             </h3>
             <span class="sr-only"
-              >État en direct. Ces actions s'appliquent tout de suite, sans passer par « Sauvegarder ».</span
+              >État en direct. Ces actions s'appliquent tout de suite, sans passer par « Enregistrer ».</span
             >
           </div>
           <div class="adm-card__actions">
             <button
-              title="Stopper les containers inactifs au-delà du seuil"
+              title="Arrêter les conteneurs inactifs au-delà du seuil"
               class="adm-btn adm-tool"
               @click="adm.triggerSandboxGc"
             >
@@ -1018,14 +1018,14 @@ const adm = domaineAdmin();
           </div>
         </header>
         <div v-if="!adm.sandboxContainers.length" class="px-5">
-          <p class="adm-empty">Aucun container actif.</p>
+          <p class="adm-empty">Aucun conteneur actif.</p>
         </div>
         <div v-else class="overflow-x-auto">
           <table class="w-full text-xs">
             <thead class="text-slate-500 border-b border-slate-100">
               <tr>
                 <th scope="col" class="text-left px-5 py-2 font-medium">Utilisateur</th>
-                <th scope="col" class="text-left px-2 py-2 font-medium">Container</th>
+                <th scope="col" class="text-left px-2 py-2 font-medium">Conteneur</th>
                 <th scope="col" class="text-left px-2 py-2 font-medium w-20">État</th>
                 <th scope="col" class="text-left px-2 py-2 font-medium">Statut</th>
                 <th class="w-20"><span class="sr-only">Actions</span></th>

@@ -1,9 +1,15 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/admin/EnteteConsole.vue — en-tête de page de la console. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
+import { groupeDeplie } from "../../features/admin/arbre";
 import { domaineAdmin } from "../../features/admin/domaine";
+import { interfaceApp } from "../../features/reglages/interface";
 
 const adm = domaineAdmin();
+const ui = interfaceApp();
+const parent = computed(() => (ui.classique ? adm.adminPage.entryLabel : groupeDeplie(adm.adminPage.id)));
 </script>
 
 <template>
@@ -19,11 +25,8 @@ const adm = domaineAdmin();
         <i class="ph ph-list text-lg" aria-hidden="true"></i>
       </button>
       <div class="adm-page-head__titles">
-        <div
-          v-if="adm.adminPage.entryLabel && adm.adminPage.entryLabel !== adm.adminPage.label"
-          class="adm-page-head__parent"
-        >
-          {{ adm.adminPage.entryLabel }}
+        <div v-if="parent && parent !== adm.adminPage.label" class="adm-page-head__parent">
+          {{ parent }}
         </div>
         <h1
           :ref="

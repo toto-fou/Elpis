@@ -56,13 +56,23 @@ const ui = interfaceApp();
             </span>
             <h2 class="text-base font-semibold text-slate-800">Paramètres</h2>
           </div>
-          <button
-            aria-label="Fermer les paramètres"
-            class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center"
-            @click="rg.closeSettings()"
-          >
-            <i class="ph ph-x text-lg" aria-hidden="true"></i>
-          </button>
+          <div class="flex items-center gap-3 min-w-0">
+            <span role="status" class="text-xs text-slate-500 flex items-center gap-1.5" data-etat-parametres>
+              <template v-if="rg.settingsDirty || rg.memoryDirty">
+                <span class="w-1.5 h-1.5 rounded-full shrink-0 bg-amber-500" aria-hidden="true"></span>
+                Modifications non enregistrées
+              </template>
+            </span>
+            <button
+              type="button"
+              aria-label="Fermer les paramètres"
+              title="Fermer"
+              class="w-8 h-8 shrink-0 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center"
+              @click="rg.closeSettings()"
+            >
+              <i class="ph ph-x text-lg" aria-hidden="true"></i>
+            </button>
+          </div>
         </div>
 
         <div class="flex flex-1 min-h-0 overflow-hidden" :class="ui.classique ? '' : 'flex-col md:flex-row'">
@@ -331,25 +341,6 @@ const ui = interfaceApp();
 
             <OngletSandbox v-if="rg.settingsTab === 'sandbox'" />
           </div>
-        </div>
-
-        <div
-          class="px-5 py-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center gap-2 shrink-0"
-        >
-          <span
-            v-if="rg.settingsDirty || rg.memoryDirty"
-            role="status"
-            class="text-xs text-slate-500 flex items-center gap-1.5"
-            ><span class="w-1.5 h-1.5 rounded-full shrink-0 bg-amber-500" aria-hidden="true"></span>
-            Modifications non enregistrées</span
-          >
-          <span v-else aria-hidden="true"></span>
-          <button
-            class="px-4 py-1.5 text-slate-600 hover:bg-slate-200/60 rounded-lg font-medium text-sm transition-colors"
-            @click="rg.closeSettings()"
-          >
-            Fermer
-          </button>
         </div>
       </div>
     </div>

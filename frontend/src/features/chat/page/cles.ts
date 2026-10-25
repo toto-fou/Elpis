@@ -242,6 +242,8 @@ const MODELES: Cles<DomaineModeles> = {
   pickerConnModels: true,
   pickerConnFree: true,
   pickerConnLoading: true,
+  modelesVision: true,
+  effectiveParamsData: true,
   toggleModelMenu: true,
   onModelMenuKeydown: true,
   pickLocalModel: true,

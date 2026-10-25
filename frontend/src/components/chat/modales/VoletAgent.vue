@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/modales/VoletAgent.vue — volet non modal d'un sous-agent, à droite du fil : nom, état, horloge, Arrêter ; consigne reçue ; « Rendu à l'assistant » une fois fini ; sa chronologie dans la grammaire du fil. -->
+<!-- frontend/src/components/chat/modales/VoletAgent.vue — volet non modal d'un sous-agent, à droite du fil : nom, état, horloge, Arrêter ; dans l'ordre réel, la consigne reçue, sa chronologie dans la grammaire du fil, puis « Rendu à l'assistant » une fois fini. -->
 <script setup lang="ts">
 import { computed, inject, nextTick, onUnmounted, reactive, ref, useTemplateRef, watch } from "vue";
 
@@ -151,24 +151,6 @@ async function copierRendu(): Promise<void> {
 
     <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 py-3 flex flex-col gap-2">
       <div
-        v-if="run.state !== 'running' && run.result"
-        class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
-        data-rendu-agent
-      >
-        <div class="flex items-center gap-2 mb-1">
-          <span class="flex-1 text-xs font-semibold text-slate-700">Rendu à l'assistant</span>
-          <button
-            type="button"
-            class="min-h-6 px-2 rounded-md text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-            @click="copierRendu"
-          >
-            Copier
-          </button>
-        </div>
-        <div class="markdown-body bg-transparent text-[13px]" v-html="m.renderMarkdown(run.result)"></div>
-      </div>
-
-      <div
         v-if="run.prompt"
         class="self-end max-w-[90%] rounded-2xl bg-slate-100 px-3 py-2"
         data-consigne-agent
@@ -201,6 +183,24 @@ async function copierRendu(): Promise<void> {
         >
           Aucun déroulé enregistré
         </p>
+      </div>
+
+      <div
+        v-if="run.state !== 'running' && run.result"
+        class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+        data-rendu-agent
+      >
+        <div class="flex items-center gap-2 mb-1">
+          <span class="flex-1 text-xs font-semibold text-slate-700">Rendu à l'assistant</span>
+          <button
+            type="button"
+            class="min-h-6 px-2 rounded-md text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            @click="copierRendu"
+          >
+            Copier
+          </button>
+        </div>
+        <div class="markdown-body bg-transparent text-[13px]" v-html="m.renderMarkdown(run.result)"></div>
       </div>
     </div>
   </aside>

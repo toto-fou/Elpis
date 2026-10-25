@@ -3,7 +3,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { CLE_COMPOSEUR, CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
+import { CLE_COMPOSEUR, CLE_CONVERSATION, CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
+import { utiliserEchecsJobs } from "../../../features/chat/page/echecs-jobs";
 import { interfaceApp } from "../../../features/reglages/interface";
 import MascottePerchee from "../../mascotte/MascottePerchee.vue";
 import BoutonMicro from "../../voix/BoutonMicro.vue";
@@ -13,7 +14,6 @@ import ZoneSaisie from "../composeur/ZoneSaisie.vue";
 import PuceJobs from "../outils/PuceJobs.vue";
 import PuceTaches from "../outils/PuceTaches.vue";
 import AlerteContexte from "./AlerteContexte.vue";
-import BarreActivite from "./BarreActivite.vue";
 import BarreComposeur from "./BarreComposeur.vue";
 import BarreImage from "./BarreImage.vue";
 import BoutonBas from "./BoutonBas.vue";
@@ -28,7 +28,6 @@ import InfoCompression from "./InfoCompression.vue";
 import MenuPlus from "./MenuPlus.vue";
 import MenuSlash from "./MenuSlash.vue";
 import ProgressionModele from "./ProgressionModele.vue";
-import PucesComposeur from "./PucesComposeur.vue";
 import QuestionnaireAssistant from "./QuestionnaireAssistant.vue";
 import SelecteurModele from "./SelecteurModele.vue";
 import StatsGeneration from "./StatsGeneration.vue";
@@ -37,6 +36,8 @@ import SurvolDepot from "./SurvolDepot.vue";
 const p = domaine(CLE_PAGE);
 const comp = domaine(CLE_COMPOSEUR);
 const ui = interfaceApp();
+// Interface nouvelle : rien au-dessus du composeur, l'échec d'une tâche de fond reste signalé par un toast.
+utiliserEchecsJobs(p, domaine(CLE_CONVERSATION), () => !ui.classique);
 // Liste ouverte sous la saisie (combobox) et option active, pour le lecteur d'écran.
 const listeOuverte = computed(() => {
   if (comp.showSlash) return "slash-list";
@@ -116,8 +117,6 @@ function surFichiers(e: Event): void {
 
         <QuestionnaireAssistant />
 
-        <BarreActivite v-if="!ui.classique" />
-
         <div
           class="elpis-compose-card relative bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200 focus-within:border-slate-300 transition-colors flex flex-col"
         >
@@ -140,7 +139,6 @@ function surFichiers(e: Event): void {
                                        message, style chatbot classique) — l'ENVOI reste bloqué :
                                        le bouton devient Stop et Enter insère un retour à la ligne
                                        (cf. handleInputKeydown). Pas de file d'attente. -->
-            <PucesComposeur v-if="!ui.classique" />
             <ZoneSaisie
               v-model:texte="p.inputMessage"
               :nouveau-chat="p.messages.length === 0"

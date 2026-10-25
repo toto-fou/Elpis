@@ -54,6 +54,7 @@ import PageEditeur from "../editor/PageEditeur.vue";
 import ModaleMcp from "../reglages/ModaleMcp.vue";
 import ModaleReglages from "../reglages/ModaleReglages.vue";
 import PanneauEchantillonnage from "../reglages/PanneauEchantillonnage.vue";
+import PanneauGeneration from "../reglages/PanneauGeneration.vue";
 import PanneauMcp from "../reglages/PanneauMcp.vue";
 import BulleSource from "../rag/BulleSource.vue";
 import PageRag from "../rag/PageRag.vue";
@@ -110,7 +111,7 @@ const r = creerRacine({
 });
 
 fournirDomainesRacine(r);
-fournirInterface(() => r.settings.classic_ui);
+const ui = fournirInterface(() => r.settings.classic_ui);
 fournirDomainesChat(r);
 fournirDomaineEditeur(r);
 fournirDomaineRoutines(r);
@@ -152,7 +153,8 @@ fournirDomaineModales(r, false);
       <VisionneuseSource v-if="!(r.showEditor && r.settings.enable_editor)" />
       <PanneauMcp />
       <VoletAgent />
-      <PanneauEchantillonnage />
+      <PanneauEchantillonnage v-if="ui.classique" />
+      <PanneauGeneration v-else />
       <PageEditeur />
       <PageRoutines />
       <PageRag v-if="r.ragPage" />

@@ -3,6 +3,7 @@
 import type { SurfaceChat } from "../coeur/chat";
 import type { PieceJointe } from "../composeur/composeur";
 import type { CollectionActiveChat } from "../../rag/collections-chat";
+import type { DonneesParametres, SurchargeEchantillonnage } from "../../reglages/echantillonnage";
 
 export interface ReglagesPage {
   enable_model_selector?: boolean;
@@ -229,7 +230,7 @@ export interface SanteMoteur {
   status?: string;
   server_reachable?: boolean;
   kv_cache?: { used: number; total: number; pct: number } | null;
-  props?: { n_ctx?: number } | null;
+  props?: { n_ctx?: number; model?: unknown } | null;
   charge?: ChargeVisible | null;
 }
 
@@ -255,6 +256,8 @@ export interface EtatConnecteur {
   error?: string;
   router?: boolean;
   canManage?: boolean;
+  statuses?: Readonly<Record<string, string>>;
+  providerType?: string;
   moteur?: MoteurVisible | null;
   kv?: { used: number; total: number; pct: number } | null;
   nCtx?: number;
@@ -299,6 +302,9 @@ export interface DomaineModeles {
   readonly pickerConnModels: Readonly<Record<string, readonly string[] | undefined>>;
   readonly pickerConnFree: Readonly<Record<string, Readonly<Record<string, boolean>> | undefined>>;
   readonly pickerConnLoading: Readonly<Record<string, boolean | undefined>>;
+  /** Modèles de l'intégré que le serveur déclare capables de lire les images. */
+  readonly modelesVision: readonly string[];
+  readonly effectiveParamsData: DonneesParametres | null;
   toggleModelMenu(): void;
   onModelMenuKeydown(e: KeyboardEvent): void;
   pickLocalModel(m: string): unknown;
@@ -317,7 +323,7 @@ export interface DomaineModeles {
   readonly modelLoadPct: number | null;
   readonly modelLoadStage: string;
   readonly reasoningEffortValues: readonly string[];
-  readonly samplingOverride: { reasoning_effort?: string | null };
+  readonly samplingOverride: Partial<SurchargeEchantillonnage>;
   readonly showReasoningEffortMenu: boolean;
   toggleReasoningEffortMenu(): void;
   pickReasoningEffort(v: string | null): void;

@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/PucesComposeur.vue — puces d'état au-dessus de la saisie (interface nouvelle) : mode plan, tâches de la session, mode Images, contexte ; elles passent à la ligne. -->
+<!-- frontend/src/components/chat/page/PucesComposeur.vue — puces d'état de la rangée du composeur (interface nouvelle) : mode plan, tâches de la session, mode Images, contexte ; boutons discrets, abrégés quand la rangée est étroite. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
@@ -7,6 +7,8 @@ import { CLE_MODELES, CLE_PAGE, domaine } from "../../../features/chat/page/doma
 import { compteTaches, puceContexte, SEUIL_CONTEXTE } from "../../../features/chat/page/puces";
 import BarreImage from "./BarreImage.vue";
 
+// `etroit` : rangée sous 420 px, libellés abrégés (les noms accessibles restent entiers).
+const props = defineProps<{ etroit?: boolean }>();
 const p = domaine(CLE_PAGE);
 const mod = domaine(CLE_MODELES);
 
@@ -14,42 +16,43 @@ const contexte = computed(() => (mod.imageMode ? null : puceContexte(mod.liveGen
 const taches = computed(() => compteTaches(p.todoList ?? []));
 const visible = computed(() => p.planMode || taches.value.total > 0 || p.imageMode || !!contexte.value);
 const PUCE =
-  "inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600";
+  "inline-flex items-center gap-1 h-7 px-1.5 rounded-lg text-xs font-medium text-slate-500 transition-colors";
 </script>
 
 <template>
-  <div v-if="visible" class="flex flex-wrap items-center gap-1.5 px-1.5 pt-1" data-puces-composeur>
-    <span
-      v-if="p.planMode"
-      data-plan-chip
-      :class="PUCE"
-      title="Mode plan : outils d'écriture retirés jusqu'à la réponse ; se coupe seul une fois le plan rendu."
-    >
-      <i class="ph ph-binoculars text-sm" aria-hidden="true"></i>
-      <span>Mode plan</span>
+  <div v-if="visible" class="flex flex-wrap items-center gap-0.5 min-w-0" data-puces-composeur>
+    <span v-if="p.planMode" data-plan-chip>
       <button
         type="button"
-        title="Désactiver"
+        :class="[PUCE, 'hover:text-slate-700 hover:bg-slate-100']"
+        title="Mode plan : outils d'écriture retirés jusqu'à la réponse ; se coupe seul une fois le plan rendu. Cliquer pour le couper."
         aria-label="Désactiver le mode plan"
-        class="-mr-1 w-6 h-6 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100"
         @click="p.setPlanMode(false)"
       >
-        <i class="ph ph-x text-xs" aria-hidden="true"></i>
+        <i class="ph ph-binoculars text-sm" aria-hidden="true"></i>
+        <span v-if="!props.etroit">Mode plan</span>
+        <i class="ph ph-x text-[11px]" aria-hidden="true"></i>
       </button>
     </span>
 
     <div v-if="taches.total" class="relative" data-todo-flyout>
       <button
         type="button"
-        :class="[PUCE, p.todoPanelOpen ? 'bg-slate-100 text-slate-800' : 'hover:bg-slate-100']"
+        :class="[
+          PUCE,
+          p.todoPanelOpen ? 'bg-slate-100 text-slate-700' : 'hover:text-slate-700 hover:bg-slate-100',
+        ]"
         :title="taches.enCours || 'Tâches de la session'"
+        :aria-label="`Tâches ${taches.faites} sur ${taches.total}`"
         :aria-expanded="p.todoPanelOpen ? 'true' : 'false'"
         aria-haspopup="true"
         data-puce-taches
         @click="p.todoPanelOpen = !p.todoPanelOpen"
       >
         <i class="ph ph-list-checks text-sm" aria-hidden="true"></i>
-        <span>Tâches {{ taches.faites }}/{{ taches.total }}</span>
+        <span class="tabular-nums"
+          >{{ props.etroit ? "" : "Tâches " }}{{ taches.faites }}/{{ taches.total }}</span
+        >
         <span
           v-if="taches.enCours"
           class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse motion-reduce:animate-none"
@@ -110,7 +113,10 @@ const PUCE =
         class="ph ph-warning text-sm text-amber-600"
         aria-hidden="true"
       ></i>
-      <span>Contexte {{ contexte.pct }} %</span>
+      <i v-else-if="props.etroit" class="ph ph-database text-sm" aria-hidden="true"></i>
+      <span class="tabular-nums"
+        ><span :class="props.etroit ? 'sr-only' : ''">Contexte </span>{{ contexte.pct }} %</span
+      >
     </span>
   </div>
 </template>

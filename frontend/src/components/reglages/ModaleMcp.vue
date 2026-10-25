@@ -28,11 +28,13 @@ const rg = domaineReglages();
             Serveurs MCP externes
           </h3>
           <button
+            type="button"
             aria-label="Fermer"
-            class="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100 flex items-center justify-center transition-colors"
+            title="Fermer"
+            class="w-8 h-8 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors"
             @click="rg.closeMcpManager"
           >
-            <i class="ph ph-x"></i>
+            <i class="ph ph-x" aria-hidden="true"></i>
           </button>
         </div>
         <div class="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
@@ -752,14 +754,6 @@ const rg = domaineReglages();
               </button>
             </div>
           </div>
-        </div>
-        <div class="p-4 border-t border-slate-200 bg-white flex justify-end shrink-0">
-          <button
-            class="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-medium text-sm transition-colors shadow-sm"
-            @click="rg.closeMcpManager"
-          >
-            Fermer
-          </button>
         </div>
       </div>
     </div>

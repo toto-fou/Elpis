@@ -1,97 +1,113 @@
-# Elpis
+<p align="center">
+  <img src="frontend/elpis-256.png" alt="Elpis logo" width="128">
+</p>
 
-> **Elpis is a self-hosted agentic engineering workspace for teams sharing
-> local LLM infrastructure.** It combines an agentic chat
-> (tools, sub-agents, long-term memory, skills), a code editor with a per-user
-> Docker sandbox and terminal, scheduled routines, document collections
-> searched by the chat with cited sources (RAG) and an admin console. Its core is written in TypeScript and runs on Node.js 24. It talks
-> to `llama-server` (llama.cpp) or any OpenAI-compatible
-> endpoint. Install on Debian 12/13 or Ubuntu 24.04 with two commands: clone,
-> then `./install.sh`, which asks its questions and configures everything (below).
-> The documentation is written in French. Licensed under the MIT License.
+<h1 align="center">Elpis</h1>
 
----
+<p align="center">
+  <strong>A self-hosted agentic engineering workspace for teams sharing local LLM infrastructure.</strong>
+</p>
 
-Elpis est un **atelier d'ingénierie agentique auto-hébergé**, pour les équipes
-qui partagent une infrastructure LLM locale. Tout tourne sur votre serveur.
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  <a href="https://github.com/toto-fou/Elpis/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/toto-fou/Elpis?label=release"></a>
+  <img alt="Node.js 24" src="https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-core-3178C6?logo=typescript&logoColor=white">
+  <img alt="Debian 12/13, Ubuntu 24.04" src="https://img.shields.io/badge/Debian%2012%2F13%20%C2%B7%20Ubuntu%2024.04-amd64-A81D33?logo=debian&logoColor=white">
+</p>
 
-- **Chat agentique** : outils (fichiers, shell, Git, navigateur, graphiques),
-  sous-agents, mémoire long terme, skills, serveurs MCP externes.
-- **Éditeur de code** : Monaco, sandbox Docker par utilisateur, terminal,
-  Git intégré, aperçus (HTML, PDF, Office).
-- **Routines** : tâches planifiées ou déclenchées par webhook.
-- **RAG** : collections de documents par compte, publiées aux groupes,
-  interrogées par le chat avec sources citées et visionneuse ; OCR.
-- **Administration** : utilisateurs et groupes, connecteurs LLM, métriques.
+<p align="center">
+  <b>English</b> · <a href="README_FR.md">Français</a>
+</p>
 
-## Pourquoi Elpis
+<p align="center">
+  <img src="docs/media/elpis-demo.gif" alt="Elpis demo: the agent charts a latency regression, then fixes it live in the sandbox editor and runs the tests" width="100%">
+</p>
 
-- **Une sandbox Docker par utilisateur**, avec quotas : l'agent édite, lance
-  les tests et versionne dans un vrai environnement, isolé des autres.
-- **Un runtime agentique durable** : verrous entre process, annulation,
-  reprise d'une exécution détachée, enregistrement sans écrasement.
-- **Une inférence locale partagée** : ordonnanceur llama.cpp (exclusivité de
-  modèle, créneaux, disjoncteur) pour plusieurs utilisateurs sur les mêmes
-  GPU.
-- **Éditeur, Git et terminal dans la même sandbox** que l'agent : ce qu'il
-  fait se relit, se teste et se corrige au même endroit.
-- **Une console d'administration** : comptes, connecteurs, sandbox, base,
-  sauvegardes, métriques.
+Elpis brings everything you need to work on code with an agent onto your own
+server:
 
-Là où une interface de chat LLM généraliste s'arrête à la conversation,
-Elpis vise le travail sur du code, avec un environnement d'exécution par
-utilisateur et une inférence partagée. Suite prévue :
-[ROADMAP.md](ROADMAP.md).
+- **Agentic chat**: tools (files, shell, Git, browser, charts), sub-agents,
+  long-term memory, skills, external MCP servers.
+- **Code editor**: Monaco, a Docker sandbox per user, terminal, built-in Git,
+  previews (HTML, PDF, Office).
+- **Routines**: scheduled or webhook-triggered tasks.
+- **RAG**: per-account document collections, shared with groups, searched by
+  the chat with cited sources and a viewer; OCR.
+- **Administration**: users and groups, LLM connectors, metrics.
+
+The core is written in TypeScript and runs on Node.js 24. It talks to
+`llama-server` (llama.cpp) or any OpenAI-compatible endpoint. The interface
+and most of the documentation are still in French; the move to English has
+started with this README.
+
+## Why Elpis
+
+- **One Docker sandbox per user**, with quotas: the agent edits, runs the
+  tests and commits in a real environment, isolated from everyone else's.
+- **A durable agent runtime**: cross-process locks, cancellation, resuming a
+  detached run, saving without overwriting.
+- **Shared local inference**: a llama.cpp scheduler (model exclusivity, slots,
+  circuit breaker) for several users on the same GPUs.
+- **Editor, Git and terminal in the same sandbox** as the agent: what it does
+  can be reviewed, tested and fixed in one place.
+- **An admin console**: accounts, connectors, sandboxes, database, backups,
+  metrics.
+
+Where a general-purpose LLM chat stops at the conversation, Elpis targets
+work on code, with an execution environment per user and shared inference.
+What comes next: [ROADMAP.md](ROADMAP.md).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    nav([Navigateur]) --> main["main :8001<br/>chat, éditeur, routines"]
+    nav([Browser]) --> main["main :8001<br/>chat, editor, routines"]
     nav --> admin["admin :8002<br/>console"]
-    main --> llm["llama-server<br/>ou compatible OpenAI"]
-    main --> toolhost["toolhost :8765<br/>outils MCP"]
-    main --> rag["rag_app :8000<br/>extracteur du RAG"]
+    main --> llm["llama-server<br/>or OpenAI-compatible"]
+    main --> toolhost["toolhost :8765<br/>MCP tools"]
+    main --> rag["rag_app :8000<br/>RAG extractor"]
     main --> qdrant[("Qdrant")]
-    toolhost --> sandbox["sandbox Docker<br/>par utilisateur"]
+    toolhost --> sandbox["Docker sandbox<br/>per user"]
     toolhost --> browser["browser-service :3000"]
-    main --> db[("SQLite<br/>ou PostgreSQL")]
+    main --> db[("SQLite<br/>or PostgreSQL")]
     admin --> db
 ```
 
-main et admin sont deux process du même core TypeScript (Node.js 24,
-Fastify) ; `toolhost` est l'hôte d'outils, en TypeScript lui aussi. Restent en
-Python : l'extracteur du RAG (lecture des documents), le moteur Office
-(`office/`, un worker que lance l'hôte d'outils), l'agent qui tourne dans chaque
-sandbox et l'assistant d'installation. Détail : [ARCHITECTURE.md](ARCHITECTURE.md).
+main and admin are two processes of the same TypeScript core (Node.js 24,
+Fastify); `toolhost` is the tool host, also in TypeScript. Still in Python:
+the RAG extractor (document parsing), the Office engine (`office/`, a worker
+started by the tool host), the agent running inside each sandbox and the
+installation wizard. Details: [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Sécurité
+## Security
 
-Le conteneur de chaque utilisateur est la frontière de sécurité. Le serveur
-ne lit ni n'écrit le contenu d'une sandbox : fichiers, éditeur, archives et
-Git passent par un agent qui tourne dans le conteneur, sous l'utilisateur de
-la sandbox (le réseau de Git passe par un relais de l'hôte qui y ajoute les
-identifiants). Le compte de service pilote Docker : réservez à Elpis une
-machine ou une VM dédiée. Modèle de menace et signalement :
-[SECURITY.md](SECURITY.md).
+Each user's container is the security boundary. The server never reads or
+writes a sandbox's content directly: files, editor, archives and Git go
+through an agent running inside the container, as the sandbox user (Git
+network traffic goes through a relay on the host, which adds the
+credentials). The service account controls Docker: give Elpis a dedicated
+machine or VM. Threat model and reporting: [SECURITY.md](SECURITY.md).
 
-Par défaut, un compte non administrateur ne peut brancher aucun fournisseur
-cloud (Anthropic, OpenAI, Mistral…) avec sa propre clé : il utilise le moteur
-de l'instance et les connecteurs partagés par l'administrateur. L'administrateur
-ouvre les fournisseurs voulus dans Console › Modèles › Accès utilisateurs
-(`llm.allowed_provider_types`, [docs/configuration.md](docs/configuration.md)).
+By default, a non-admin account cannot connect any cloud provider
+(Anthropic, OpenAI, Mistral…) with its own key: it uses the instance's
+engine and the connectors shared by the administrator. The administrator
+opens the chosen providers in the console, under Modèles › Accès
+utilisateurs (`llm.allowed_provider_types`,
+[docs/configuration.md](docs/configuration.md)).
 
-## Prérequis
+## Requirements
 
-- Debian 12/13 ou Ubuntu 24.04 (amd64), avec `sudo` (ou lancé en root).
-- `git` pour cloner le dépôt (`sudo apt install git`), ou l'archive de la
-  version voulue.
-- Un moteur d'inférence : `llama-server` (llama.cpp) ou tout serveur
-  **compatible OpenAI** (vLLM, Ollama, LM Studio…), ou un fournisseur distant.
+- Debian 12/13 or Ubuntu 24.04 (amd64), with `sudo` (or run as root).
+- `git` to clone the repository (`sudo apt install git`), or the archive of
+  the release you want.
+- An inference engine: `llama-server` (llama.cpp) or any
+  **OpenAI-compatible** server (vLLM, Ollama, LM Studio…), or a remote
+  provider.
 
-Le reste vient d'`install.sh` : les paquets de l'OS par apt (Python, Docker,
-LibreOffice, bibliothèques de Chromium, Caddy, PostgreSQL selon les
-composants choisis), Node.js 24 dans `node/`, et ce qui suit.
+`install.sh` takes care of the rest: the OS packages through apt (Python,
+Docker, LibreOffice, Chromium libraries, Caddy, PostgreSQL depending on the
+components you pick), Node.js 24 in `node/`, and what follows.
 
 ## Installation
 
@@ -100,144 +116,147 @@ git clone https://github.com/toto-fou/Elpis.git elpis && cd elpis    # 1
 ./install.sh                                   # 2
 ```
 
-`install.sh` demande sudo tout de suite (une fois, gardé actif pendant
-l'installation), installe le socle système s'il manque, puis ouvre un
-**assistant par pages** dans le terminal : toutes les questions d'abord, un
-résumé, et l'installation se déroule ensuite sans autre question.
+`install.sh` asks for sudo right away (once, kept alive during the
+installation), installs the system base if it is missing, then opens a
+**paged wizard** in the terminal: all the questions first, a summary, then
+the installation runs with no further questions.
 
-Côté système, il installe par `apt-get` (sans question, `apt-get update`
-d'abord) les paquets de [deploy/prerequis-apt.txt](deploy/prerequis-apt.txt)
-qui manquent :
+On the system side, it installs with `apt-get` (no questions, `apt-get update`
+first) the packages from [deploy/prerequis-apt.txt](deploy/prerequis-apt.txt)
+that are missing:
 
-- le **socle**, avant l'assistant, qui tourne en Python : `python3`,
-  `python3-venv`, `git`, `curl`, `ca-certificates`, `openssl` ;
-- après le résumé, qui les liste, les **groupes des composants choisis** :
-  Docker (`docker.io`) pour la sandbox, LibreOffice et bubblewrap pour les
-  aperçus Office, les bibliothèques de Chromium pour le navigateur, Caddy pour
-  le HTTPS, PostgreSQL pour une base locale, `build-essential` pour construire
-  l'hôte d'outils (sans paquet hors ligne). Avec la sandbox, le compte de
-  l'application entre dans le groupe `docker`.
+- the **base**, before the wizard, which runs in Python: `python3`,
+  `python3-venv`, `git`, `curl`, `ca-certificates`, `openssl`;
+- after the summary, which lists them, the **groups for the chosen
+  components**: Docker (`docker.io`) for the sandbox, LibreOffice and
+  bubblewrap for Office previews, the Chromium libraries for the browser,
+  Caddy for HTTPS, PostgreSQL for a local database, `build-essential` to
+  build the tool host (without an offline package). With the sandbox, the
+  application account joins the `docker` group.
 
-Hors ligne, apt passe par le miroir du LAN ou le support de l'OS. Sans droits
-administrateur, ou si apt échoue, `install.sh` s'arrête sur la liste des
-paquets manquants et la commande apt à lancer. `--no-apt` vérifie les paquets
-sans les installer (même arrêt s'il en manque) ; `--skip-system` ne les
-vérifie ni ne les installe (autre système : installez l'équivalent du
-fichier). `./install.sh --dry-run` montre tout ce qui serait fait, sans
-question, sans sudo et sans rien écrire.
+Offline, apt goes through the LAN mirror or the OS media. Without admin
+rights, or if apt fails, `install.sh` stops with the list of missing
+packages and the apt command to run. `--no-apt` checks the packages without
+installing them (same stop if any is missing); `--skip-system` neither
+checks nor installs them (other systems: install the equivalent of the
+file). `./install.sh --dry-run` shows everything it would do, with no
+questions, no sudo and nothing written.
 
-Ce qu'il installe ensuite, dans le dossier du dépôt et sous le compte de
-l'application :
+It then installs, in the repository folder and under the application
+account:
 
-- `node/` : Node.js 24.21, l'archive officielle de nodejs.org vérifiée par sa
-  somme SHA-256 (figée dans `deploy/node/node.env`) et gardée sans npm, npx ni
-  corepack ;
-- les bundles du core (`apps/core/dist`), de l'hôte d'outils
-  (`apps/toolhost/dist`) et de l'interface (`frontend/dist`), construits par
-  `npm ci` puis `npm run build` avec le npm de l'archive, retiré ensuite ;
-- `venv/` : l'environnement Python du RAG, du moteur Office et de la
-  configuration (`requirements-rag.txt`) ;
-- le service navigateur (`browser-service/`, `npm ci` et Chromium par
-  Playwright), Qdrant (binaire officiel, somme vérifiée), l'image Docker de la
-  sandbox, puis la base de données et la configuration.
+- `node/`: Node.js 24.21, the official nodejs.org archive checked against
+  its SHA-256 (pinned in `deploy/node/node.env`) and kept without npm, npx or
+  corepack;
+- the bundles of the core (`apps/core/dist`), the tool host
+  (`apps/toolhost/dist`) and the interface (`frontend/dist`), built with
+  `npm ci` then `npm run build` using the archive's npm, removed afterwards;
+- `venv/`: the Python environment for the RAG, the Office engine and the
+  configuration (`requirements-rag.txt`);
+- the browser service (`browser-service/`, `npm ci` and Chromium through
+  Playwright), Qdrant (official binary, checksum verified), the sandbox
+  Docker image, then the database and the configuration.
 
-Une installation **en ligne** a besoin d'accéder à : nodejs.org (Node.js), au
-registre npm (dépendances du core, de l'interface et du navigateur), à PyPI
-(venv), à GitHub (Qdrant), au CDN de Playwright (Chromium). La construction
-de l'image de la sandbox tire en plus l'image `debian:bookworm-slim` de Docker
-Hub, des paquets des miroirs Debian et de PyPI, et des outils publiés sur
-GitHub et download.mozilla.org (Firefox ESR). Un serveur **sans accès à
-internet** s'installe depuis un paquet préparé sur une machine connectée :
+An **online** installation needs access to: nodejs.org (Node.js), the npm
+registry (dependencies of the core, the interface and the browser), PyPI
+(venv), GitHub (Qdrant) and the Playwright CDN (Chromium). Building the
+sandbox image also pulls the `debian:bookworm-slim` image from Docker Hub,
+packages from the Debian mirrors and PyPI, and tools published on GitHub and
+download.mozilla.org (Firefox ESR). A server **without internet access** is
+installed from a package prepared on a connected machine:
 [docs/exploitation.md](docs/exploitation.md), « Installer un serveur hors
 ligne ».
 
-| Page | Contenu |
+| Page | Content |
 |---|---|
-| Composants | navigateur piloté, LibreOffice, Caddy (HTTPS), moteur vocal local, extras AGPL (cases) ; image sandbox (construite, tirée d'un registre, aucune) |
-| Base | SQLite, PostgreSQL préparé sur la machine, ou serveur PostgreSQL existant (hôte, port, identifiants, TLS) |
-| LLM | type de serveur, adresse (sondée), modèle choisi parmi ceux annoncés, fournisseur cloud facultatif |
-| Accès | HTTP direct, HTTPS certificat local ou Let's Encrypt ; écoute (ce serveur seulement, par défaut, ou réseau local) ; nom d'hôte |
-| RAG · Voix · Admin | embeddings (sondés), reranker, OCR ; voix ; compte administrateur |
-| Résumé | tout ce qui sera fait ; démarrage (services systemd, maintenant, plus tard) |
+| Components | driven browser, LibreOffice, Caddy (HTTPS), local voice engine, AGPL extras (checkboxes); sandbox image (built, pulled from a registry, none) |
+| Database | SQLite, PostgreSQL set up on the machine, or an existing PostgreSQL server (host, port, credentials, TLS) |
+| LLM | server type, address (probed), model picked among the advertised ones, optional cloud provider |
+| Access | plain HTTP, HTTPS with a local certificate or Let's Encrypt; listening (this server only, the default, or the local network); host name |
+| RAG · Voice · Admin | embeddings (probed), reranker, OCR; voice; admin account |
+| Summary | everything that will be done; startup (systemd services, now, later) |
 
-Clavier : ↑↓ pour se déplacer, Espace coche, Entrée valide et avance, Tab
-change de page, Échap quitte sans rien modifier. Une réponse désactive ce
-qu'elle rend inutile : sans Caddy, pas de HTTPS ; base locale, rien à saisir ;
-moteur vocal local, adresses fixées ; sans droits administrateur, rien qui
-en demande. La base de données est préparée et **testée** juste après
-l'environnement Python : un échec arrête l'installation (ou propose
-réessayer, modifier, SQLite). `sudo ./install.sh` fonctionne aussi :
-l'application tourne alors sous le compte qui a lancé sudo, jamais en root.
-En root sans sudo (Debian minimale), elle tourne sous le propriétaire du
-dépôt : clonez-le avec ce compte, ou indiquez-le (`ELPIS_USER=nom ./install.sh`).
+Keyboard: ↑↓ to move, Space toggles, Enter confirms and moves on, Tab
+switches pages, Esc quits without changing anything. An answer disables what
+it makes useless: no Caddy, no HTTPS; local database, nothing to type; local
+voice engine, fixed addresses; no admin rights, nothing that needs them. The
+database is set up and **tested** right after the Python environment: a
+failure stops the installation (or offers to retry, edit, or use SQLite).
+`sudo ./install.sh` works too: the application then runs under the account
+that ran sudo, never as root. As root without sudo (minimal Debian), it runs
+under the owner of the repository: clone it with that account, or name it
+(`ELPIS_USER=name ./install.sh`).
 
-Puis ouvrez `http://<serveur>:8001` (ou `https://<serveur>/` en HTTPS) et
-connectez-vous avec le compte admin. Sans HTTPS, une installation neuve
-n'écoute que sur `127.0.0.1` : `http://127.0.0.1:8001` depuis le serveur, ou
-`./elpis configure --listen lan` pour ouvrir au réseau local (HTTP en clair).
+Then open `http://<server>:8001` (or `https://<server>/` with HTTPS) and sign
+in with the admin account. Without HTTPS, a fresh installation only listens
+on `127.0.0.1`: `http://127.0.0.1:8001` from the server, or
+`./elpis configure --listen lan` to open it to the local network (plain
+HTTP).
 
-Chaque étape reste disponible seule :
+Each step is also available on its own:
 
 ```bash
-./elpis configure              # revoir la configuration (valeurs actuelles proposées)
-sudo ./elpis service install   # services systemd
+./elpis configure              # review the configuration (current values offered)
+sudo ./elpis service install   # systemd services
 ./elpis start | stop | status | logs [service] | doctor
-./elpis backup | upgrade       # sauvegarde, mise à jour (docs/exploitation.md)
-./elpis db info | check | transfer | use       # base de données
+./elpis backup | upgrade       # backup, upgrade (docs/exploitation.md)
+./elpis db info | check | transfer | use       # database
 ```
 
-**Sans question** (automatisation, CI) : chaque question a son option.
+**Without questions** (automation, CI): every question has its option.
 
 ```bash
 ./install.sh --yes --with-office --service -- \
     --llm-url http://gpu.example.lan:8080 --admin-user admin --embed-url http://gpu.example.lan:8081
-# mot de passe admin : ELPIS_CFG_ADMIN_PASSWORD=… (sinon généré et affiché une fois)
+# admin password: ELPIS_CFG_ADMIN_PASSWORD=… (otherwise generated and shown once)
 ```
 
-| Option de `install.sh` | Effet |
+| `install.sh` option | Effect |
 |---|---|
-| `--yes` | aucune question (réponses par défaut + options) |
-| `--plain` | questions en lignes, sans l'assistant par pages |
-| `--dry-run` | affiche dans l'ordre ce qui serait fait, sans question, sans sudo et sans rien écrire ; code non nul si l'installation s'arrêterait |
-| `--with-office` / `--no-office` | aperçus docx/xlsx/pptx (LibreOffice et bubblewrap, installés par apt) |
-| `--with-caddy` / `--no-caddy` | frontal HTTPS Caddy (paquet `caddy` installé par apt, puis configuré) |
-| `--with-agpl` / `--no-agpl` | PyMuPDF et pdf2docx (licence AGPL, non installés par défaut) |
-| `--no-browser` | sans le service navigateur |
-| `--sandbox build\|pull\|none`, `--pull IMAGE` | image sandbox construite, tirée, ou aucune |
-| `--db sqlite\|postgres-local\|external` | base de données : fichier SQLite (défaut), PostgreSQL préparé sur la machine (paquet `postgresql` installé par apt), ou serveur PostgreSQL existant |
-| `--offline <dir>` | sans réseau, depuis un paquet produit par `make_release.sh` (apt : miroir du LAN ou support de l'OS) |
-| `--no-apt` | paquets apt vérifiés, jamais installés : s'il en manque, la commande apt à lancer, puis arrêt |
-| `--skip-system` | paquets apt ni vérifiés ni installés (autre système) |
-| `--service` / `--start` / `--no-start` | démarrage après installation |
-| `-- <options>` | transmises à `./elpis configure` (`./elpis configure --help`) |
+| `--yes` | no questions (defaults + options) |
+| `--plain` | line-by-line questions, without the paged wizard |
+| `--dry-run` | prints, in order, what would be done, with no questions, no sudo and nothing written; non-zero exit code if the installation would stop |
+| `--with-office` / `--no-office` | docx/xlsx/pptx previews (LibreOffice and bubblewrap, installed by apt) |
+| `--with-caddy` / `--no-caddy` | Caddy HTTPS front end (`caddy` package installed by apt, then configured) |
+| `--with-agpl` / `--no-agpl` | PyMuPDF and pdf2docx (AGPL license, not installed by default) |
+| `--no-browser` | without the browser service |
+| `--sandbox build\|pull\|none`, `--pull IMAGE` | sandbox image built, pulled, or none |
+| `--db sqlite\|postgres-local\|external` | database: SQLite file (default), PostgreSQL set up on the machine (`postgresql` package installed by apt), or an existing PostgreSQL server |
+| `--offline <dir>` | no network, from a package built by `make_release.sh` (apt: LAN mirror or OS media) |
+| `--no-apt` | apt packages checked, never installed: if any is missing, the apt command to run, then stop |
+| `--skip-system` | apt packages neither checked nor installed (other systems) |
+| `--service` / `--start` / `--no-start` | startup after installation |
+| `-- <options>` | passed to `./elpis configure` (`./elpis configure --help`) |
 
 ## Documentation
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — carte du code : process, paquets,
-  invariants.
-- [PRODUCT.md](PRODUCT.md) · [DESIGN.md](DESIGN.md) — public, principes,
-  système visuel.
-- [AGENTS.md](AGENTS.md) — consignes pour les agents de code (commandes,
-  conventions, pièges).
-- [CHANGELOG.md](CHANGELOG.md) — journal des modifications.
-- [Guide utilisateur](docs/guide-utilisateur.md)
-- [Installation et configuration](docs/configuration.md)
-- [Exploitation](docs/exploitation.md) — installation hors ligne, mise à
-  jour, retour à la version Python (tag `python-final`), sauvegardes,
-  supervision.
-- [Feuille de route](ROADMAP.md)
-- [Architecture, API, sous-systèmes](docs/architecture.md)
-- [Passerelle sandbox](docs/sandbox-gateway.md) ·
-  [Compteurs de tokens](docs/token-counters.md)
-- [Écarts voulus avec la version Python](docs/ecarts-python.md)
+Most of these documents are still in French.
 
-## Contribuer, sécurité, licence
+- [ARCHITECTURE.md](ARCHITECTURE.md): map of the code (processes, packages,
+  invariants).
+- [PRODUCT.md](PRODUCT.md) · [DESIGN.md](DESIGN.md): audience, principles,
+  visual system.
+- [AGENTS.md](AGENTS.md): instructions for coding agents (commands,
+  conventions, pitfalls).
+- [CHANGELOG.md](CHANGELOG.md): change log.
+- [User guide](docs/guide-utilisateur.md)
+- [Installation and configuration](docs/configuration.md)
+- [Operations](docs/exploitation.md): offline installation, upgrades,
+  rolling back to the Python version (tag `python-final`), backups,
+  monitoring.
+- [Roadmap](ROADMAP.md)
+- [Architecture, API, subsystems](docs/architecture.md)
+- [Sandbox gateway](docs/sandbox-gateway.md) ·
+  [Token counters](docs/token-counters.md)
+- [Intended differences from the Python version](docs/ecarts-python.md)
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) (sign-off DCO, code assisté par IA) ·
+## Contributing, security, license
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) (DCO sign-off, AI-assisted code) ·
   [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- Faille de sécurité : signalement privé, voir [SECURITY.md](SECURITY.md).
-- Licence **MIT** ([LICENSE](LICENSE), [NOTICE](NOTICE)). Composants
-  tiers : [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Nom et logo :
-  [TRADEMARKS.md](TRADEMARKS.md).
-- Mainteneur et titulaire des droits : [toto-fou](https://github.com/toto-fou)
+- Security issue: report it privately, see [SECURITY.md](SECURITY.md).
+- **MIT** license ([LICENSE](LICENSE), [NOTICE](NOTICE)). Third-party
+  components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Name and
+  logo: [TRADEMARKS.md](TRADEMARKS.md).
+- Maintainer and copyright holder: [toto-fou](https://github.com/toto-fou)
   ([AUTHORS](AUTHORS)).

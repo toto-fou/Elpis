@@ -53,6 +53,11 @@ export interface CtxEchantillonnage {
   fetchAuth(url: string, init: RequestInit, silencieux: boolean): Promise<Response | null>;
   /** Stockage des surcharges ; `localStorage` du navigateur par défaut. */
   stockage?: Pick<Storage, "getItem" | "removeItem" | "setItem">;
+  showToast?(
+    message: string,
+    type?: string,
+    opts?: { duration?: number; actionLabel?: string; onAction?: () => void },
+  ): unknown;
 }
 
 export type DonneesParametres = Partial<ParametresEffectifs>;
@@ -70,7 +75,7 @@ const vide = (): SurchargeEchantillonnage => ({
   preserve_reasoning: null,
 });
 
-type CleNombre = Exclude<CleSurcharge, "reasoning_effort" | "preserve_reasoning">;
+export type CleNombre = Exclude<CleSurcharge, "reasoning_effort" | "preserve_reasoning">;
 const CLES_NOMBRE: readonly CleNombre[] = [
   "temperature",
   "top_p",
@@ -84,6 +89,25 @@ const CLES_NOMBRE: readonly CleNombre[] = [
 
 const estObjet = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Réglages surchargés pour ce chat ; le budget de réflexion posé par défaut n'en est pas un. */
+export function clesModifiees(o: Partial<SurchargeEchantillonnage>): CleSurcharge[] {
+  return (Object.keys(vide()) as CleSurcharge[]).filter((k) => {
+    const v: unknown = o[k];
+    if (v === null || v === undefined || v === "") return false;
+    return !(k === "thinking_budget_tokens" && v === BUDGET_REFLEXION_DEFAUT);
+  });
+}
+
+/** Valeur du modèle (ou défaut de l'agent) donnée en indication ; `null` quand le serveur ne la dit pas. */
+export function valeurReference(d: DonneesParametres | null, cle: CleNombre): number | null {
+  if (!d) return null;
+  if (cle === "max_tool_iterations") return d.agent_defaults?.max_tool_iterations ?? 200;
+  if (cle === "thinking_budget_tokens")
+    return d.agent_defaults?.thinking_budget_tokens ?? BUDGET_REFLEXION_DEFAUT;
+  const v = d.sources?.props?.[cle];
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
 
 /** Réponse de `effective-params` relue champ par champ (contrat `schemaParametresEffectifs`) ; `null` si ce n'est pas un objet. */
 export function lireParametres(brut: unknown): DonneesParametres | null {
@@ -275,6 +299,28 @@ export function setupEchantillonnage(
     }
   }
 
+  /** Une clé revient à la valeur du modèle ; le budget de réflexion, à son défaut sur un modèle qui réfléchit. */
+  function retablirCle(cle: CleSurcharge): void {
+    const o = samplingOverride.value;
+    if (cle === "thinking_budget_tokens" && effectiveParamsData.value?.supports_thinking)
+      o.thinking_budget_tokens = BUDGET_REFLEXION_DEFAUT;
+    else o[cle] = null;
+  }
+
+  /** Toutes les valeurs du modèle ; « Annuler » du toast rend les réglages d'avant. */
+  function retablirModele(): void {
+    const avant = { ...samplingOverride.value };
+    if (!clesModifiees(avant).length) return;
+    resetSamplingOverride();
+    ctx.showToast?.("Valeurs du modèle rétablies", "success", {
+      duration: 6000,
+      actionLabel: "Annuler",
+      onAction: () => {
+        samplingOverride.value = { ...avant };
+      },
+    });
+  }
+
   let dernierChargement = "";
   /** Charge les paramètres du modèle sélectionné, une fois par modèle, moteur et mode (dégradé ou complet). */
   function chargerSiNouveau(): void {
@@ -380,6 +426,8 @@ export function setupEchantillonnage(
     clampThinkingBudget,
     loadEffectiveParams,
     resetSamplingOverride,
+    retablirCle,
+    retablirModele,
     openSamplingPanel,
     closeSamplingPanel,
     preserveReasoningSupported,

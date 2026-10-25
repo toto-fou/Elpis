@@ -21,6 +21,8 @@ const props = defineProps<{
   reveilDesactive: boolean;
   chatId: string | null;
   limite: number;
+  /** Puce calée à droite (rangée du composeur) : le volet s'ouvre vers la gauche. */
+  aDroite?: boolean;
 }>();
 const emit = defineEmits<{
   basculer: [ouvert: boolean];
@@ -95,7 +97,8 @@ const ICONE_ISSUE: Readonly<Record<IssueJob, string>> = {
     <Transition name="popover-up">
       <div
         v-if="props.ouvert"
-        class="absolute bottom-full left-0 mb-2 w-96 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden"
+        class="absolute bottom-full mb-2 w-96 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden"
+        :class="props.aDroite ? 'right-0 max-w-[calc(100vw-2rem)]' : 'left-0'"
         data-jobs-popover
       >
         <div class="px-3 py-2 flex items-center gap-2 border-b border-slate-100 bg-slate-50">

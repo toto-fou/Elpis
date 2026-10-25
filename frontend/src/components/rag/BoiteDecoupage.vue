@@ -142,9 +142,9 @@ function surClavierOnglets(e: KeyboardEvent): void {
         <p v-if="d.erreur" class="rag-error rag-dec__err" role="alert">
           <i class="ph ph-warning-circle" aria-hidden="true"></i><span>{{ d.erreur }}</span>
         </p>
-        <div class="rag-dialog__foot">
+        <div v-if="!d.lecture" class="rag-dialog__foot">
           <button
-            v-if="!d.lecture && d.propreAuDepart"
+            v-if="d.propreAuDepart"
             type="button"
             class="rag-btn"
             :disabled="!d.peutRevenir"
@@ -154,11 +154,8 @@ function surClavierOnglets(e: KeyboardEvent): void {
             collection
           </button>
           <span class="rag-tools__grow"></span>
-          <button type="button" class="rag-btn" @click="d.fermer()">
-            {{ d.lecture ? "Fermer" : "Annuler" }}
-          </button>
+          <button type="button" class="rag-btn" @click="d.fermer()">Annuler</button>
           <button
-            v-if="!d.lecture"
             type="button"
             class="rag-btn rag-btn--primary"
             :disabled="!d.peutAppliquer"

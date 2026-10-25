@@ -245,6 +245,13 @@ export function creerClavier(s: EtatClavier) {
       c.closeMentionDropdown();
       return;
     }
+    // Sous-menu ouvert dans le menu du modèle (actions « ⋯ », effort) : le menu le ferme seul, focus rendu à sa ligne.
+    if (
+      c?.showModelManager.value &&
+      document.querySelector("[data-sous-menu-modele]") &&
+      document.activeElement?.closest("[data-model-manager]")
+    )
+      return;
     for (const panneau of [c?.showSamplingPanel, c?.showMcpPanel, c?.showComposerPlus]) {
       if (panneau?.value) {
         panneau.value = false;

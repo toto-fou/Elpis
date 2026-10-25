@@ -233,6 +233,7 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
   const modelLoadPct = ref<number | null>(null);
   const modelLoadStage = ref("");
   const failedModelIds = ref<string[]>([]);
+  const modelesVision = ref<string[]>([]);
   // Modèle dont le CHARGEMENT est en cours ; la barre de progression n'appartient qu'à lui.
   const modelLoadingId = ref("");
   const pickerConnectors = ref<ConnecteurModele[]>([]);
@@ -564,12 +565,15 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
     const anciens = json["models_loaded"];
     if (Array.isArray(avecStatut)) {
       const echecs: string[] = [];
+      const vision: string[] = [];
       for (const m of avecStatut as unknown[]) {
         if (!estObjet(m) || typeof m["id"] !== "string" || !m["id"]) continue;
         if (m["status"] === "loaded") charges.push(m["id"]);
         if (m["status"] === "failed") echecs.push(m["id"]);
+        if (m["vision"] === true) vision.push(m["id"]);
       }
       failedModelIds.value = echecs;
+      modelesVision.value = vision;
     } else if (Array.isArray(anciens)) {
       for (const m of anciens as unknown[]) {
         const id = estObjet(m) ? m["id"] || m["model"] || m["name"] : m;
@@ -974,6 +978,7 @@ export function setupChatModels(vue: VueModeles, refs: RefsModeles, ctx: CtxMode
     loadAvailableModels,
     isModelLoaded,
     isModelFailed,
+    modelesVision,
     toggleLlmModel,
     loadLlmModel,
     unloadLlmModel,

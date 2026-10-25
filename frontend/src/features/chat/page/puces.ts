@@ -47,11 +47,12 @@ export function compteTaches(taches: readonly TacheSession[]): CompteTaches {
 }
 
 const EFFORTS: Readonly<Record<string, string>> = {
-  none: "Aucun",
-  minimal: "Minimal",
-  low: "Faible",
-  medium: "Moyen",
-  high: "Élevé",
+  none: "Aucune",
+  minimal: "Minimale",
+  low: "Basse",
+  medium: "Moyenne",
+  high: "Élevée",
+  xhigh: "Très élevée",
 };
 
 export const libelleEffort = (v: string): string => EFFORTS[v] ?? v;

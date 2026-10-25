@@ -102,7 +102,7 @@ export function setupChat(
       selectedConnector: e.selectedConnector,
       selectedEngineMeta: e.selectedEngineMeta,
     } as unknown as RefsEchantillonnage,
-    { fetchAuth: ctx.fetchAuth },
+    { fetchAuth: ctx.fetchAuth, showToast: ctx.showToast },
   );
   const panneaux: Record<string, { value: boolean }> = {
     mcp: e.showMcpPanel,
@@ -663,6 +663,7 @@ export function setupChat(
     pickerConnLoading: modeles.pickerConnLoading,
     pickerConnFree: modeles.pickerConnFree,
     pickerConnState: modeles.pickerConnState,
+    modelesVision: modeles.modelesVision,
     retryConnModels: modeles.retryConnModels,
     isConnModelLoaded: modeles.isConnModelLoaded,
     toggleConnModel: modeles.toggleConnModel,
@@ -690,6 +691,8 @@ export function setupChat(
     closeSamplingPanel: ech["closeSamplingPanel"],
     loadEffectiveParams: ech["loadEffectiveParams"],
     resetSamplingOverride: ech["resetSamplingOverride"],
+    retablirCle: ech["retablirCle"],
+    retablirModele: ech["retablirModele"],
     preserveReasoningSupported: ech["preserveReasoningSupported"],
     preserveReasoningEnabled: ech["preserveReasoningEnabled"],
     reasoningEffortValues: ech["reasoningEffortValues"],

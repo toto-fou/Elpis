@@ -1,43 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/page/activite.ts — barre « Activité » : ce qui tourne dans la conversation (sous-agents, étape en cours), étape d'un job dans le fil, retour à une ligne du fil avec un bref surlignage. */
-import type { ExecutionTache, MessageChat } from "../coeur/types";
-
-export interface SousAgentActif {
-  idx: number;
-  ri: number;
-  libelle: string;
-  titre: string;
-}
-
-export interface EtapeEnCours {
-  callId: string | null;
-  nom: string;
-}
+/** frontend/src/features/chat/page/activite.ts — retour à une ligne du fil : étape `shell_job` d'une tâche de fond, défilement jusqu'à la ligne avec un bref surlignage. */
+import type { MessageChat } from "../coeur/types";
 
 const messagesChat = (m: readonly unknown[]): readonly MessageChat[] => m as readonly MessageChat[];
-
-/** Sous-agents en cours, du plus récent message au plus ancien. */
-export function sousAgentsActifs(messages: readonly unknown[]): SousAgentActif[] {
-  const out: SousAgentActif[] = [];
-  messagesChat(messages).forEach((m, idx) => {
-    (m?.taskRuns ?? []).forEach((run: ExecutionTache, ri) => {
-      if (run.state !== "running") return;
-      const nom = run.label || run.agent || "Sous-agent";
-      const p = run.progress;
-      const etape = p && p.step ? ` · étape ${p.step}${p.max_steps ? "/" + p.max_steps : ""}` : "";
-      out.push({ idx, ri, libelle: nom + etape, titre: `Ouvrir le déroulé de ${nom}` });
-    });
-  });
-  return out.reverse();
-}
-
-/** Dernière étape d'outil qui tourne dans le message en cours de génération. */
-export function etapeEnCours(messages: readonly unknown[]): EtapeEnCours | null {
-  const dernier = messagesChat(messages).at(-1);
-  if (!dernier || dernier.role !== "assistant" || !dernier.isStreaming) return null;
-  const etape = [...(dernier.toolSteps ?? [])].reverse().find((s) => s.status === "running");
-  return etape ? { callId: etape.callId ?? null, nom: etape.name } : null;
-}
 
 /** Appel `shell_job` qui a lancé ce job : son identifiant figure dans le résultat de l'outil. */
 export function appelDuJob(messages: readonly unknown[], jobId: string): string | null {

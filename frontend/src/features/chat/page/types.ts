@@ -488,7 +488,7 @@ export type DomaineBarre = Pick<
   openSettings(): unknown;
   goToAdmin(tab?: unknown): unknown;
   logout(): unknown;
-  /** Menu du compte (interface nouvelle) : aide, informations, installation d'opencode. */
+  /** Menu du compte : aide, informations, installation d'opencode. */
   openHelp(): void;
   showInfoModal: boolean;
   showOpenCodeModal: boolean;

@@ -1,18 +1,18 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/PiedMessage.vue — pied d'une réponse terminée : métriques, captures du navigateur (nouvelle interface) et actions (copier, détails, régénérer, lire) ; `texte` remplace le contenu copié ou lu (bulle regroupée). -->
+<!-- frontend/src/components/chat/message/PiedMessage.vue — pied d'une réponse terminée : métriques (complètes, essentielles ou masquées selon les Paramètres), captures du navigateur (hors déroulé classique) et actions (copier, détails, régénérer, lire) ; `texte` remplace le contenu copié ou lu (bulle regroupée). -->
 <script setup lang="ts">
 import { computed } from "vue";
 
 import { capturesDuTour, visionneuseCaptures } from "../../../features/chat/message/captures-tour";
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
 import type { EntreeMessage } from "../../../features/chat/message/types";
-import { interfaceApp } from "../../../features/reglages/interface";
+import { preferencesChat } from "../../../features/reglages/affichage-chat";
 
 const props = defineProps<{ entry: EntreeMessage; texte?: string }>();
 const fil = domaine(CLE_FIL);
-const ui = interfaceApp();
+const pref = preferencesChat();
 const captures = computed(() =>
-  ui.classique || fil.settings.hide_web_screenshots
+  pref.deroule === "classic" || !pref.captures
     ? []
     : visionneuseCaptures(capturesDuTour(props.entry.msg)).items,
 );
@@ -27,12 +27,16 @@ const captures = computed(() =>
   >
     <div
       v-if="
+        pref.metriques !== 'hidden' &&
         !fil.isImageMessage(entry.msg) &&
         entry.msg.metrics &&
-        (entry.msg.metrics.model || entry.msg.metrics.duration || entry.msg.metrics.write_tps)
+        (entry.msg.metrics.model ||
+          entry.msg.metrics.duration ||
+          (pref.metriques === 'full' && entry.msg.metrics.write_tps))
       "
       class="flex flex-wrap items-center gap-x-2 gap-y-0.5 whitespace-nowrap text-[11px] text-slate-400 font-mono select-none min-w-0"
       :title="fil.metricsTooltip(entry.msg.metrics)"
+      data-metriques
     >
       <i class="ph ph-gauge text-slate-300" style="font-size: 11px"></i>
       <span v-if="entry.msg.metrics.model" class="truncate max-w-[200px]">{{ entry.msg.metrics.model }}</span>
@@ -44,56 +48,58 @@ const captures = computed(() =>
       <span v-if="entry.msg.metrics.duration" class="tabular-nums">{{
         fil.fmtElapsed(entry.msg.metrics.duration)
       }}</span>
-      <span v-if="entry.msg.metrics.duration && entry.msg.metrics.read_tps" class="text-slate-300">·</span>
-      <span v-if="entry.msg.metrics.read_tps" title="Vitesse de prefill"
-        >↓ {{ entry.msg.metrics.read_tps }} jetons/s</span
-      >
-      <span v-if="entry.msg.metrics.read_tps && entry.msg.metrics.write_tps" class="text-slate-300">·</span>
-      <span v-if="entry.msg.metrics.write_tps" title="Vitesse de génération"
-        >↑ {{ entry.msg.metrics.write_tps }} jetons/s</span
-      >
-      <span v-if="fil.thinkingTokensOf(entry.msg.metrics)" class="text-slate-300">·</span>
-      <span
-        v-if="fil.thinkingTokensOf(entry.msg.metrics)"
-        :title="
-          'Raisonnement : ' +
-          fil.fmtThinkingTokens(entry.msg.metrics) +
-          ' jetons sur les ' +
-          (entry.msg.metrics.output_tokens || 0).toLocaleString('fr-FR') +
-          ' générés' +
-          (entry.msg.metrics.thinking_tokens_estimated
-            ? ' (estimé — tokenizer du modèle non accessible)'
-            : '')
-        "
-        class="flex items-center gap-1"
-      >
-        <i class="ph ph-brain" style="font-size: 10px"></i>
-        {{ fil.fmtThinkingTokens(entry.msg.metrics) }} tk
-      </span>
-      <span v-if="fil.cachePctOf(entry.msg.metrics)" class="text-slate-300">·</span>
-      <span v-if="fil.cachePctOf(entry.msg.metrics)" :title="fil.cacheTitle(entry.msg.metrics)"
-        >cache {{ fil.cachePctOf(entry.msg.metrics) }} %</span
-      >
-      <span v-if="entry.msg.metrics.kv_cache && entry.msg.metrics.kv_cache.total" class="text-slate-300"
-        >·</span
-      >
-      <span
-        v-if="entry.msg.metrics.kv_cache && entry.msg.metrics.kv_cache.total"
-        :title="
-          'Contexte au moment de la réponse : ' +
-          entry.msg.metrics.kv_cache.used +
-          ' / ' +
-          entry.msg.metrics.kv_cache.total +
-          ' jetons (' +
-          entry.msg.metrics.kv_cache.pct +
-          '%)'
-        "
-        class="flex items-center gap-1"
-        :class="fil.kvDimClass(entry.msg.metrics.kv_cache.pct)"
-      >
-        <i class="ph ph-database" style="font-size: 10px"></i>
-        {{ fil.fmtKvCache(entry.msg.metrics) }}
-      </span>
+      <template v-if="pref.metriques === 'full'">
+        <span v-if="entry.msg.metrics.duration && entry.msg.metrics.read_tps" class="text-slate-300">·</span>
+        <span v-if="entry.msg.metrics.read_tps" title="Vitesse de prefill"
+          >↓ {{ entry.msg.metrics.read_tps }} jetons/s</span
+        >
+        <span v-if="entry.msg.metrics.read_tps && entry.msg.metrics.write_tps" class="text-slate-300">·</span>
+        <span v-if="entry.msg.metrics.write_tps" title="Vitesse de génération"
+          >↑ {{ entry.msg.metrics.write_tps }} jetons/s</span
+        >
+        <span v-if="fil.thinkingTokensOf(entry.msg.metrics)" class="text-slate-300">·</span>
+        <span
+          v-if="fil.thinkingTokensOf(entry.msg.metrics)"
+          :title="
+            'Raisonnement : ' +
+            fil.fmtThinkingTokens(entry.msg.metrics) +
+            ' jetons sur les ' +
+            (entry.msg.metrics.output_tokens || 0).toLocaleString('fr-FR') +
+            ' générés' +
+            (entry.msg.metrics.thinking_tokens_estimated
+              ? ' (estimé — tokenizer du modèle non accessible)'
+              : '')
+          "
+          class="flex items-center gap-1"
+        >
+          <i class="ph ph-brain" style="font-size: 10px"></i>
+          {{ fil.fmtThinkingTokens(entry.msg.metrics) }} tk
+        </span>
+        <span v-if="fil.cachePctOf(entry.msg.metrics)" class="text-slate-300">·</span>
+        <span v-if="fil.cachePctOf(entry.msg.metrics)" :title="fil.cacheTitle(entry.msg.metrics)"
+          >cache {{ fil.cachePctOf(entry.msg.metrics) }} %</span
+        >
+        <span v-if="entry.msg.metrics.kv_cache && entry.msg.metrics.kv_cache.total" class="text-slate-300"
+          >·</span
+        >
+        <span
+          v-if="entry.msg.metrics.kv_cache && entry.msg.metrics.kv_cache.total"
+          :title="
+            'Contexte au moment de la réponse : ' +
+            entry.msg.metrics.kv_cache.used +
+            ' / ' +
+            entry.msg.metrics.kv_cache.total +
+            ' jetons (' +
+            entry.msg.metrics.kv_cache.pct +
+            '%)'
+          "
+          class="flex items-center gap-1"
+          :class="fil.kvDimClass(entry.msg.metrics.kv_cache.pct)"
+        >
+          <i class="ph ph-database" style="font-size: 10px"></i>
+          {{ fil.fmtKvCache(entry.msg.metrics) }}
+        </span>
+      </template>
     </div>
     <div v-else></div>
 

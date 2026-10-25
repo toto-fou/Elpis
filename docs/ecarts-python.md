@@ -584,13 +584,14 @@ Actions et éléments, service `browser-service/` et famille `browser` de l'hôt
 - **Jetons d'état et d'accent** relevés au contraste AA (texte 4,5:1, icônes 3:1) : vert d'Elpis (olive plus
   foncé), bouton principal et texte d'accent de Parchemin, texte d'accent de Pingouins (clair ; le sombre garde le
   rose éclairci). `GET /api/skins/<id>/skin.css` sert ces valeurs ; le reste des feuilles est inchangé.
-- **`classic_ui`** (propre au TS) : préférence « Interface classique » du compte, booléen accepté par
-  `PUT /api/settings` (aussi depuis la console) ; absente du document tant que le compte ne l'a pas choisie.
-  Présentation seulement : aucune route ni aucun droit n'en dépend.
+- **Affichage du chat** (propre au TS) : `chat_workflow`, `context_display`, `thinking_display`, `footer_metrics` et
+  `thread_density`, valeurs fermées (une valeur inconnue n'est pas enregistrée), préférences du compte acceptées par
+  `PUT /api/settings` (pas depuis la console) ; absentes du document tant que le compte ne les a pas choisies.
+  La préférence « Interface classique » (`classic_ui`) n'existe plus : la clé n'est plus écrite.
 - **`hide_web_screenshots`** (propre au TS) : « Masquer les captures web » (Paramètres › Chat), même traitement ;
   cache les captures du navigateur dans le fil, l'outil continue de les prendre.
 - Tests des mainteneurs : `apps/core/test/ecart-contraste-skins.ts` (vecteurs des skins rejoués avec l'écart),
-  `apps/core/test/interface-classique.test.ts`, `frontend/test/css/contraste.test.ts`.
+  `apps/core/test/affichage-chat.test.ts`, `frontend/test/css/contraste.test.ts`.
 
 ## Sous-agents (`task`)
 

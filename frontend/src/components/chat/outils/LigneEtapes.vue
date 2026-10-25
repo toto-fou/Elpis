@@ -6,6 +6,7 @@ import { computed } from "vue";
 import type { EtapeNumerotee } from "../../../features/chat/message/chronologie";
 import { fmtDuree } from "../../../features/chat/outils/format";
 import type { EtapeOutil } from "../../../features/chat/outils/types";
+import { dernieresLignes } from "../../../features/chat/outils/sortie";
 import { libelleEtape } from "../../../features/chat/outils/verbes";
 import CarteOutil from "./CarteOutil.vue";
 
@@ -91,17 +92,7 @@ const objets = computed(() => {
 });
 
 /** Deux dernières lignes de sortie de l'étape en cours (console, journal ou progression). */
-const sortie = computed(() => {
-  const s = enCours.value?.etape;
-  if (!s) return [];
-  // eslint-disable-next-line no-control-regex -- séquences ANSI de la console retirées
-  const brut = (s.shellOut ?? "").replace(/\u001b\[[0-9;?]*[A-Za-z]/g, "");
-  const lignes = brut.split(/\r?\n/).filter((l) => l.trim());
-  if (lignes.length) return lignes.slice(-2);
-  const journal = (s.logs ?? []).map((l) => l.message).filter(Boolean);
-  if (journal.length) return journal.slice(-2);
-  return s.progressInfo?.message ? [s.progressInfo.message] : [];
-});
+const sortie = computed(() => (enCours.value ? dernieresLignes(enCours.value.etape) : []));
 </script>
 
 <template>

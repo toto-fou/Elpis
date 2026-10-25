@@ -5,11 +5,9 @@ import { computed } from "vue";
 
 import { groupeDeplie } from "../../features/admin/arbre";
 import { domaineAdmin } from "../../features/admin/domaine";
-import { interfaceApp } from "../../features/reglages/interface";
 
 const adm = domaineAdmin();
-const ui = interfaceApp();
-const parent = computed(() => (ui.classique ? adm.adminPage.entryLabel : groupeDeplie(adm.adminPage.id)));
+const parent = computed(() => groupeDeplie(adm.adminPage.id));
 </script>
 
 <template>

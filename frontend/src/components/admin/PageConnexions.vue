@@ -6,12 +6,10 @@ import { computed, ref } from "vue";
 import { domaineAdmin } from "../../features/admin/domaine";
 import { profilConsole, typeDeclare } from "../../features/admin/moteurs";
 import { ONGLETS_IMAGES, ONGLETS_VOIX, ongletsAvecModifications } from "../../features/admin/onglets";
-import { interfaceApp } from "../../features/reglages/interface";
 import CapacitesMoteur from "./CapacitesMoteur.vue";
 import SousOngletsConsole from "./SousOngletsConsole.vue";
 
 const adm = domaineAdmin();
-const ui = interfaceApp();
 
 const ongletImages = ref("connexion");
 const ongletVoix = ref("dictee");
@@ -19,9 +17,9 @@ const ongletsImages = computed(() =>
   ongletsAvecModifications(ONGLETS_IMAGES, "image.", adm.adminPageChanges),
 );
 const ongletsVoix = computed(() => ongletsAvecModifications(ONGLETS_VOIX, "voice.", adm.adminPageChanges));
-/** Interface classique : tout est affiché ; sinon seul l'onglet choisi. */
+/** Seul l'onglet choisi est affiché. */
 const surOnglet = (page: "images" | "voice", onglet: string): boolean =>
-  ui.classique || (page === "images" ? ongletImages.value : ongletVoix.value) === onglet;
+  (page === "images" ? ongletImages.value : ongletVoix.value) === onglet;
 
 // Type déclaré dans le formulaire (alias compris) et son profil : ce que la console montre et masque.
 const typeMoteur = computed(() => typeDeclare(adm.configForm?.llama?.engine));
@@ -928,7 +926,7 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             </label>
           </div>
 
-          <div v-if="!ui.classique" class="adm-row adm-row--full">
+          <div class="adm-row adm-row--full">
             <SousOngletsConsole
               v-model="ongletVoix"
               label="Réglages de la voix"
@@ -940,8 +938,8 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             v-show="surOnglet('voice', 'dictee')"
             id="onglet-voice-dictee"
             class="adm-onglet"
-            :role="ui.classique ? undefined : 'tabpanel'"
-            :aria-labelledby="ui.classique ? undefined : 'onglet-bouton-voice-dictee'"
+            role="tabpanel"
+            aria-labelledby="onglet-bouton-voice-dictee"
           >
             <div v-if="adm.configForm.voice.stt" class="adm-row adm-row--full">
               <span class="text-sm font-medium text-slate-700">Reconnaissance</span>
@@ -1119,8 +1117,8 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             v-show="surOnglet('voice', 'lecture')"
             id="onglet-voice-lecture"
             class="adm-onglet"
-            :role="ui.classique ? undefined : 'tabpanel'"
-            :aria-labelledby="ui.classique ? undefined : 'onglet-bouton-voice-lecture'"
+            role="tabpanel"
+            aria-labelledby="onglet-bouton-voice-lecture"
           >
             <div v-if="adm.configForm.voice.tts" class="adm-row adm-row--full">
               <span class="text-sm font-medium text-slate-700">Synthèse</span>
@@ -1426,7 +1424,7 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             </label>
           </div>
 
-          <div v-if="!ui.classique" class="adm-row adm-row--full">
+          <div class="adm-row adm-row--full">
             <SousOngletsConsole
               v-model="ongletImages"
               label="Réglages des images"
@@ -1438,8 +1436,8 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             v-show="surOnglet('images', 'connexion')"
             id="onglet-images-connexion"
             class="adm-onglet"
-            :role="ui.classique ? undefined : 'tabpanel'"
-            :aria-labelledby="ui.classique ? undefined : 'onglet-bouton-images-connexion'"
+            role="tabpanel"
+            aria-labelledby="onglet-bouton-images-connexion"
           >
             <div class="adm-row adm-row--full">
               <span class="text-sm font-medium text-slate-700">Connexion</span>
@@ -1689,8 +1687,8 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             v-show="surOnglet('images', 'limites')"
             id="onglet-images-limites"
             class="adm-onglet"
-            :role="ui.classique ? undefined : 'tabpanel'"
-            :aria-labelledby="ui.classique ? undefined : 'onglet-bouton-images-limites'"
+            role="tabpanel"
+            aria-labelledby="onglet-bouton-images-limites"
           >
             <div class="adm-row adm-row--full">
               <span class="text-sm font-medium text-slate-700">Limites</span>
@@ -1842,8 +1840,8 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
             v-show="surOnglet('images', 'acces')"
             id="onglet-images-acces"
             class="adm-onglet"
-            :role="ui.classique ? undefined : 'tabpanel'"
-            :aria-labelledby="ui.classique ? undefined : 'onglet-bouton-images-acces'"
+            role="tabpanel"
+            aria-labelledby="onglet-bouton-images-acces"
           >
             <div class="adm-row adm-row--full">
               <span class="text-sm font-medium text-slate-700">Accès</span>

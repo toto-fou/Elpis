@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/BarreComposeur.vue — rangée du composeur sous la saisie (interface nouvelle) : « + » (catalogue), micro et puces d'état à gauche ; tâches de fond, menu du modèle et Envoyer à droite ; sous 420 px, libellés abrégés et puces sur la ligne suivante. -->
+<!-- frontend/src/components/chat/page/BarreComposeur.vue — rangée du composeur sous la saisie : « + » (catalogue), micro et puces d'état à gauche ; tâches de fond, menu du modèle et Envoyer à droite ; sous 420 px, libellés abrégés et puces sur la ligne suivante. -->
 <script setup lang="ts">
 import { useTemplateRef } from "vue";
 

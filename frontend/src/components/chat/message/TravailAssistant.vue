@@ -4,6 +4,7 @@
 import { computed } from "vue";
 
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
+import { preferencesChat } from "../../../features/reglages/affichage-chat";
 
 import ContenuMarkdown from "../ContenuMarkdown.vue";
 import NarrationVivante from "../NarrationVivante.vue";
@@ -13,6 +14,7 @@ import type { EtapeOutil } from "../../../features/chat/outils/types";
 
 const props = defineProps<{ entry: EntreeMessage }>();
 const fil = domaine(CLE_FIL);
+const pref = preferencesChat();
 const pl = computed(() => fil.pipelineFor(props.entry.msg));
 
 /** Message chargé gelé : l'état replié de la réflexion d'étape n'y est pas mémorisé (comme avant). */
@@ -99,7 +101,7 @@ function ouvert(e: Event): boolean {
             :idx="entry.idx"
             :grp="grp"
             :console-shell="!!fil.settings.live_shell_enabled"
-            :masquer-reflexion="!!fil.settings.hide_thinking"
+            :masquer-reflexion="pref.reflexions === 'hidden'"
             @ui="fil.setMsgUi(entry, $event)"
             @basculer-etape="(f: number, g: number) => fil.toggleToolDetail(entry, f, g)"
             @reflexion-etape="reflexionEtape"

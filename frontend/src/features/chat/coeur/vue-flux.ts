@@ -674,7 +674,7 @@ export function creerVueFlux(c: CoeurChat) {
     const memoire =
       nom === "memory" && !!args && MUTANTS_MEMOIRE.includes(String(args["action"] || "").toLowerCase());
     const todo = nom === "todowrite";
-    // Étapes rendues hors liste (carte agent, lignes d'effets) : leur réflexion reste aussi sur le message (interface classique).
+    // Étapes rendues hors liste (carte agent, lignes d'effets) : leur réflexion reste aussi sur le message (déroulé Classique).
     const reflexionSurMessage = tache || memoire || todo;
     steps.push({
       name: nom,

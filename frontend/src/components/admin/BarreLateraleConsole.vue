@@ -2,11 +2,9 @@
 <!-- frontend/src/components/admin/BarreLateraleConsole.vue — barre latérale sombre de navigation de la console. -->
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
-import { interfaceApp } from "../../features/reglages/interface";
 import NavigationConsoleDepliee from "./NavigationConsoleDepliee.vue";
 
 const adm = domaineAdmin();
-const ui = interfaceApp();
 </script>
 
 <template>
@@ -97,58 +95,7 @@ const ui = interfaceApp();
         </button>
       </div>
 
-      <NavigationConsoleDepliee v-if="!ui.classique" />
-
-      <button
-        v-if="ui.classique"
-        type="button"
-        class="adm-rail__search"
-        aria-keyshortcuts="Control+K"
-        @click="adm.openPalette"
-      >
-        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
-        <span class="flex-1 text-left">Rechercher</span>
-        <kbd>Ctrl K</kbd>
-      </button>
-
-      <nav v-if="ui.classique" class="adm-nav" aria-label="Console">
-        <ul>
-          <li v-for="e in adm.adminNav" :key="e.id">
-            <button
-              type="button"
-              class="adm-nav__entry"
-              :class="{ 'is-open': adm.adminPage.entry === e.id }"
-              :aria-current="adm.adminPage.entry === e.id && e.pages.length === 1 ? 'page' : undefined"
-              :aria-expanded="
-                e.pages.length > 1 ? (adm.adminPage.entry === e.id ? 'true' : 'false') : undefined
-              "
-              @click="adm.goAdminEntry(e)"
-            >
-              <i class="ph adm-nav__icon" :class="e.icon" aria-hidden="true"></i>
-              <span class="adm-nav__label">{{ e.label }}</span>
-
-              <span
-                v-if="e.id === 'overview' && adm.overviewAttention"
-                class="adm-nav__count"
-                :title="adm.overviewAttention + ' à traiter'"
-                >{{ adm.overviewAttention }}<span class="sr-only"> à traiter</span></span
-              >
-            </button>
-            <ul v-if="e.pages.length > 1 && adm.adminPage.entry === e.id" class="adm-nav__subs">
-              <li v-for="p in e.pages" :key="p.id">
-                <button
-                  type="button"
-                  class="adm-nav__sub"
-                  :aria-current="adm.adminTab === p.id ? 'page' : undefined"
-                  @click="adm.goAdminPage(p.id)"
-                >
-                  <span class="adm-nav__label">{{ p.label }}</span>
-                </button>
-              </li>
-            </ul>
-          </li>
-        </ul>
-      </nav>
+      <NavigationConsoleDepliee />
 
       <div class="adm-rail__foot" data-adm-me>
         <a :href="adm.mainAppUrl || '/'" class="adm-rail__link" @click.prevent="adm.goToMainApp">
@@ -241,24 +188,6 @@ const ui = interfaceApp();
               aria-hidden="true"
             ></i>
           </button>
-          <button
-            type="button"
-            class="adm-menu__item"
-            role="switch"
-            data-interface-classique
-            title="Revient à l'ancienne disposition du composeur, des menus, du fil de travail, des Paramètres et de la console."
-            :aria-checked="adm.settings && adm.settings.classic_ui === true ? 'true' : 'false'"
-            @click="adm.setClassicUi(!(adm.settings && adm.settings.classic_ui === true))"
-          >
-            <i class="ph ph-layout" aria-hidden="true"></i>
-            <span class="flex-1">Interface classique</span>
-            <i
-              v-if="adm.settings && adm.settings.classic_ui === true"
-              class="ph ph-check adm-menu__check"
-              aria-hidden="true"
-            ></i>
-          </button>
-          <p class="adm-menu__note">Identique à vos Paramètres › Apparence.</p>
           <div class="adm-menu__sep" role="separator"></div>
           <button
             type="button"

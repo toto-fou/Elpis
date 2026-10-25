@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/message/captures-tour.ts — captures du navigateur rattachées aux étapes du tour (nouvelle interface) : numéro et libellé de l'étape, source lisible, éléments de la visionneuse. */
+/** frontend/src/features/chat/message/captures-tour.ts — captures du navigateur rattachées aux étapes du tour : numéro et libellé de l'étape, source lisible, éléments de la visionneuse. */
 import { libelleEtape } from "../outils/verbes.ts";
 import { chronologieTour } from "./chronologie.ts";
 import type { MessageFil } from "./chronologie.ts";

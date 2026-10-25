@@ -43,26 +43,6 @@ const rg = domaineReglages();
           </button>
         </div>
       </div>
-      <label
-        class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl"
-        title="Revient à l'ancienne disposition du composeur, des menus, du fil de travail, des Paramètres et de la console."
-      >
-        <i class="ph ph-layout text-slate-400 text-lg w-5" aria-hidden="true"></i>
-        <div class="flex-1 min-w-0">
-          <div class="text-sm text-slate-800">Interface classique</div>
-        </div>
-        <div class="relative inline-flex items-center shrink-0">
-          <input
-            type="checkbox"
-            role="switch"
-            class="sr-only peer"
-            data-interface-classique
-            :checked="rg.settings.classic_ui === true"
-            @change="rg.setClassicUi(($event.target as HTMLInputElement).checked)"
-          />
-          <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
-        </div>
-      </label>
     </div>
 
     <div>

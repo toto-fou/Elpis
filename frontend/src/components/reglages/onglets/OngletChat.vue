@@ -1,10 +1,20 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/reglages/onglets/OngletChat.vue — onglet « chat » des Paramètres. -->
+<!-- frontend/src/components/reglages/onglets/OngletChat.vue — onglet « chat » des Paramètres : prompt, largeur, affichage du fil (déroulé, contexte, réflexions, métriques, densité, captures), terminal, réveils, voix, notifications. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
+import ChoixSegmente from "../../communs/ChoixSegmente.vue";
 import AideOnglet from "../AideOnglet.vue";
+import { lirePreferencesChat, REGLAGES_AFFICHAGE } from "../../../features/reglages/affichage-chat";
+import type { ReglageAffichage } from "../../../features/reglages/affichage-chat";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
+// Valeurs affichées : lues normalisées (défauts compris) ; un choix écrit la clé, enregistrée comme les autres réglages.
+const prefs = computed(() => lirePreferencesChat(rg.settings));
+function choisir(r: ReglageAffichage, valeur: string): void {
+  (rg.settings as Record<string, unknown>)[r.cle] = valeur;
+}
 </script>
 
 <template>
@@ -43,21 +53,26 @@ const rg = domaineReglages();
       </p>
     </div>
 
-    <div class="bg-slate-50 rounded-xl">
-      <label class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl">
-        <i class="ph ph-brain text-slate-400 text-lg w-5"></i>
-        <div class="flex-1 min-w-0">
-          <div class="text-sm text-slate-800">Masquer le raisonnement</div>
-          <div class="text-xs text-slate-500">
-            Cache les blocs « thinking » des réponses. Le raisonnement reste produit, il n'est simplement plus
-            affiché.
-          </div>
+    <div class="bg-slate-50 rounded-xl p-3.5 space-y-3" data-affichage-chat>
+      <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Affichage</div>
+      <div v-for="r in REGLAGES_AFFICHAGE" :key="r.cle" class="space-y-1">
+        <div class="flex items-center gap-3 flex-wrap">
+          <i class="ph text-slate-400 text-lg w-5" :class="r.icone" aria-hidden="true"></i>
+          <span class="text-sm text-slate-800 flex-1 min-w-[6rem]">{{ r.libelle }}</span>
+          <ChoixSegmente
+            :model-value="r.lire(prefs)"
+            :choix="r.choix"
+            :libelle="r.libelle"
+            :data-reglage="r.cle"
+            :aria-describedby="r.aides ? 'aide-affichage-' + r.cle : undefined"
+            class="w-full sm:w-[22rem]"
+            @update:model-value="(v: string) => choisir(r, v)"
+          />
         </div>
-        <div class="relative inline-flex items-center shrink-0">
-          <input v-model="rg.settings.hide_thinking" type="checkbox" class="sr-only peer" />
-          <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
-        </div>
-      </label>
+        <p v-if="r.aides" :id="'aide-affichage-' + r.cle" class="pl-8 text-xs text-slate-500">
+          {{ r.aides[r.lire(prefs)] }}
+        </p>
+      </div>
     </div>
 
     <div class="bg-slate-50 rounded-xl">

@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/CorpsMessage.vue — corps d'un message du fil : réflexion, travail, captures, sous-agents, effets, statut, contenu et pièces jointes, fichiers modifiés, interruption, pied (ou l'attente d'un réveil, `attente`), incidents. -->
+<!-- frontend/src/components/chat/message/CorpsMessage.vue — corps d'un message du fil : le travail selon le déroulé choisi (classique, en bloc, chronologie, journal), statut, contenu et pièces jointes, fichiers modifiés, interruption, pied (ou l'attente d'un réveil, `attente`), incidents. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
@@ -7,9 +7,11 @@ import type { ResumeJob } from "@elpis/contracts";
 
 import { textesDuTour } from "../../../features/chat/message/chronologie";
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
-import { interfaceApp } from "../../../features/reglages/interface";
+import { preferencesChat } from "../../../features/reglages/affichage-chat";
 import { domaineRagOptionnel } from "../../../features/rag/domaine";
 
+import FilBloc from "./FilBloc.vue";
+import FilJournal from "./FilJournal.vue";
 import FilTour from "./FilTour.vue";
 import ReflexionMessage from "./ReflexionMessage.vue";
 import TravailAssistant from "./TravailAssistant.vue";
@@ -32,7 +34,11 @@ const props = withDefaults(
   { pied: true, texte: undefined, attente: () => [] },
 );
 const fil = domaine(CLE_FIL);
-const ui = interfaceApp();
+const pref = preferencesChat();
+// Déroulé classique : le premier affichage (réflexion en tête, travail replié, captures en carrousel).
+const classique = computed(() => pref.deroule === "classic");
+const DEROULES_FIL = { timeline: FilTour, work_block: FilBloc, terminal: FilJournal } as const;
+const deroule = computed(() => (pref.deroule === "classic" ? null : DEROULES_FIL[pref.deroule]));
 const rag = domaineRagOptionnel();
 // Renvois [n] : seulement une réponse de l'assistant dans une conversation qui a affaire au RAG.
 const renvois = computed(() =>
@@ -46,17 +52,17 @@ const phase = computed(() =>
     : null,
 );
 
-// Nouveau fil : la phase n'est dite que si aucune étape vivante ne la montre déjà.
+// Déroulés en fil : la phase n'est dite que si aucune étape ni réflexion visible ne la montre déjà.
 const phaseFil = computed(() => {
   const p = phase.value;
   if (!p) return null;
   const vivante = (props.entry.msg.toolSteps ?? []).some((s) => s.status === "running");
   if ((p.kind === "tool" || p.kind === "rag") && vivante) return null;
-  return p.kind === "think" && props.entry.msg.thinking ? null : p;
+  return p.kind === "think" && props.entry.msg.thinking && pref.reflexions !== "hidden" ? null : p;
 });
-// Copier : les textes du tour dans l'ordre (nouveau fil), sinon la réponse (ou la bulle regroupée).
+// Copier : les textes du tour dans l'ordre (déroulés en fil), sinon la réponse (ou la bulle regroupée).
 const texteCopie = computed(() =>
-  props.texte !== undefined || ui.classique || !props.entry.msg.segTexts?.length
+  props.texte !== undefined || classique.value || !props.entry.msg.segTexts?.length
     ? props.texte
     : textesDuTour(props.entry.msg),
 );
@@ -72,7 +78,7 @@ function masquerBouton(e: Event): void {
 </script>
 
 <template>
-  <template v-if="ui.classique">
+  <template v-if="classique">
     <ReflexionMessage :entry="entry" />
 
     <TravailAssistant :entry="entry" />
@@ -89,9 +95,9 @@ function masquerBouton(e: Event): void {
 
     <EffetsMessage :entry="entry" />
   </template>
-  <FilTour v-else :entry="entry" />
+  <component :is="deroule" v-else-if="deroule" :entry="entry" />
 
-  <template v-if="phase && ui.classique">
+  <template v-if="phase && classique">
     <div
       v-if="phase && !((phase.kind === 'tool' || phase.kind === 'rag') && fil.pipelineFor(entry.msg).show)"
       role="status"
@@ -250,7 +256,7 @@ function masquerBouton(e: Event): void {
     </div>
   </div>
 
-  <template v-if="!ui.classique">
+  <template v-if="!classique">
     <div
       v-if="phaseFil"
       role="status"

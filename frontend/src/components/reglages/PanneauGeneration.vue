@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/reglages/PanneauGeneration.vue — panneau « Génération » du chat (interface nouvelle) : sections Réponse, Réflexion, Outils et Avancé, valeurs du modèle en indication, réglages modifiés signalés et rétablissables. -->
+<!-- frontend/src/components/reglages/PanneauGeneration.vue — panneau « Génération » du chat : sections Réponse, Réflexion, Outils et Avancé, valeurs du modèle en indication, réglages modifiés signalés et rétablissables. -->
 <script setup lang="ts">
 import { computed, useId } from "vue";
 

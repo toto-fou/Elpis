@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/page/menu-modele.ts — menu du modèle (interface nouvelle) : nom lisible tiré de l'identifiant, groupes par serveur avec leur état, lignes avec les capacités connues, l'état en texte et les actions, recherche. */
+/** frontend/src/features/chat/page/menu-modele.ts — menu du modèle : nom lisible tiré de l'identifiant, groupes par serveur avec leur état, lignes avec les capacités connues, l'état en texte et les actions, recherche. */
 import { fmtTokenCount } from "../../../utils/utils-purs";
 import type { ConnecteurLlm, DomaineModeles } from "./types";
 

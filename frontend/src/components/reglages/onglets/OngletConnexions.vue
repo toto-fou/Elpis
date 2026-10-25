@@ -3,11 +3,9 @@
 <script setup lang="ts">
 import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
-import { interfaceApp } from "../../../features/reglages/interface";
 
 const rg = domaineReglages();
-const ui = interfaceApp();
-const titre = ui.classique ? "Connexions" : "Jetons d'accès";
+const titre = "Jetons d'accès";
 </script>
 
 <template>

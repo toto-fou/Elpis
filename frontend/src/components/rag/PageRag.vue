@@ -20,6 +20,13 @@ const peutDeposer = computed(
   () => rg.utilisable && (rg.premiereVisite || (rg.estProprietaire && rg.onglet === "documents")),
 );
 
+function motifRefusDepot(): string {
+  if (!rg.utilisable) return rg.etat?.reason?.message ?? "Le RAG est indisponible.";
+  if (!rg.estProprietaire)
+    return "Cette collection est en lecture seule : aucun document ne peut y être ajouté.";
+  return "Déposez les fichiers dans l’onglet Documents.";
+}
+
 function entre(e: DragEvent): void {
   if (!glissePorteDesFichiers(e.dataTransfer)) return;
   e.preventDefault();
@@ -43,7 +50,10 @@ async function depose(e: DragEvent): Promise<void> {
   e.preventDefault();
   compteur = 0;
   rg.documents.depot.survol = false;
-  if (!peutDeposer.value) return;
+  if (!peutDeposer.value) {
+    rg.informer(motifRefusDepot());
+    return;
+  }
   const entrees = await lireEntreesGlissees(e.dataTransfer);
   if (entrees.length === 0) return;
   if (rg.premiereVisite) rg.ouvrirNouvelle(entrees);

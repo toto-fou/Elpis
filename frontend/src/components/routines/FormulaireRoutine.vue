@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/routines/FormulaireRoutine.vue — formulaire de création et de modification par groupes (nom, déclencheurs, prompt, MCP, skills, agents). -->
+<!-- frontend/src/components/routines/FormulaireRoutine.vue — formulaire de création et de modification par onglets (général, planification, tâche, outils). -->
 <script setup lang="ts">
 import { domaineRoutines } from "../../features/routines/domaine";
 
@@ -9,12 +9,37 @@ const rt = domaineRoutines();
 <template>
   <!-- CREATE / EDIT form — UNE colonne compacte (max-w-2xl) : un seul GROUPE de champs à la fois -->
   <div class="flex-1 flex flex-col min-h-0">
+    <nav
+      aria-label="Sections de la configuration"
+      class="flex items-center gap-1 min-w-0 overflow-x-auto px-5 py-2 border-b border-slate-200 shrink-0"
+      data-routine-tabs
+    >
+      <button
+        v-for="t in rt.routineEditTabs"
+        :key="t.id"
+        type="button"
+        :aria-current="rt.routineEditTab === t.id ? 'true' : undefined"
+        class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5"
+        :class="
+          rt.routineEditTab === t.id
+            ? 'bg-slate-100 text-slate-900'
+            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+        "
+        @click="rt.routineEditTab = t.id"
+      >
+        <i
+          class="ph text-sm"
+          :class="[t.icon, rt.routineEditTab === t.id ? 'text-blue-600' : 'text-slate-400']"
+        ></i
+        >{{ t.label }}
+      </button>
+    </nav>
     <!-- Scroller pleine largeur (cf. vue lecture) + rythme vertical serré : le formulaire 2 colonnes tient SANS -->
     <div class="flex-1 overflow-y-auto custom-scrollbar min-h-0">
       <div class="px-5 py-5 max-w-2xl w-full mx-auto">
-        <!-- UN groupe à la fois, piloté par le menu du header (routineEditTab) -->
+        <!-- UN groupe à la fois, piloté par les onglets (routineEditTab) -->
 
-        <!-- ═══════ Nom ═══════ -->
+        <!-- ═══════ Général ═══════ -->
         <section v-show="rt.routineEditTab === 'general'" class="space-y-3">
           <div class="flex items-end gap-3">
             <div class="flex-1">
@@ -235,7 +260,7 @@ const rt = domaineRoutines();
                   class="text-xs px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                   @click="rt.rotateWebhook"
                 >
-                  <i class="ph ph-key"></i> Générer un token
+                  <i class="ph ph-key"></i> Générer un jeton
                 </button>
                 <button
                   v-if="rt.webhookEnabled"
@@ -248,10 +273,10 @@ const rt = domaineRoutines();
                 </button>
               </div>
 
-              <!-- Token : visible UNE seule fois, après génération -->
+              <!-- Jeton : visible UNE seule fois, après génération -->
               <div v-if="rt.webhookSecret">
                 <label class="text-[11px] font-medium text-amber-700 block mb-1"
-                  >Token <span class="font-normal">(affiché une seule fois)</span></label
+                  >Jeton <span class="font-normal">(affiché une seule fois)</span></label
                 >
                 <div class="flex items-center gap-1.5">
                   <code
@@ -363,7 +388,7 @@ const rt = domaineRoutines();
           </div>
         </section>
 
-        <!-- ═══════ Prompt (modèle, prompts, réflexion) ═══════ -->
+        <!-- ═══════ Tâche (modèle, prompts, réflexion) ═══════ -->
         <section v-show="rt.routineEditTab === 'prompt'" class="space-y-3">
           <!-- Serveur + modèle : le couple est ATOMIQUE (deux serveurs peuvent exposer le même nom de modèle), d'où deux -->
           <div class="grid grid-cols-2 gap-3">
@@ -391,10 +416,10 @@ const rt = domaineRoutines();
             </div>
           </div>
 
-          <!-- System prompt -->
+          <!-- Prompt système -->
           <div>
             <label class="text-[11px] font-medium text-slate-500 block mb-1"
-              >System prompt <span class="text-slate-400">(optionnel)</span></label
+              >Prompt système <span class="text-slate-400">(optionnel)</span></label
             >
             <textarea
               v-model="rt.routineForm.system_prompt"
@@ -427,8 +452,8 @@ const rt = domaineRoutines();
           </label>
         </section>
 
-        <!-- ═══════ MCP ═══════ -->
-        <section v-show="rt.routineEditTab === 'mcp'" class="space-y-3">
+        <!-- ═══════ Outils : MCP, skills, agents ═══════ -->
+        <section v-show="rt.routineEditTab === 'tools'" class="space-y-3">
           <!-- Serveurs MCP : UN seul conteneur, deux groupes séparés par un filet -->
           <div>
             <label class="text-[11px] font-medium text-slate-500 block mb-1.5"
@@ -491,7 +516,7 @@ const rt = domaineRoutines();
         </section>
 
         <!-- ═══════ Skills ═══════ -->
-        <section v-show="rt.routineEditTab === 'skills'" class="space-y-3">
+        <section v-show="rt.routineEditTab === 'tools'" class="space-y-3 mt-6 pt-5 border-t border-slate-100">
           <!-- Skills attachés : l'agent du run n'a pas l'index des skills — le corps des skills cochés est injecté dans son -->
           <div>
             <label class="text-[11px] font-medium text-slate-500 block mb-1.5">
@@ -624,7 +649,7 @@ const rt = domaineRoutines();
 
         <!-- ═══════ AGENTS ═══════ -->
         <!-- Opt-in PAR ROUTINE de l'outil ``task`` -->
-        <section v-show="rt.routineEditTab === 'agents'" class="space-y-3">
+        <section v-show="rt.routineEditTab === 'tools'" class="space-y-3 mt-6 pt-5 border-t border-slate-100">
           <!-- Interrupteur MAÎTRE d'instance coupé : on le DIT au lieu de laisser cocher une case que le serveur ignorera. -->
           <p
             v-if="!rt.features?.agents"
@@ -649,7 +674,7 @@ const rt = domaineRoutines();
             v-if="rt.routineForm.agents_enabled && rt.features?.agents"
             class="border border-slate-200 rounded-lg p-3 space-y-1.5"
           >
-            <div class="text-[11px] font-medium text-slate-500">Agents disponibles pendant le run</div>
+            <div class="text-[11px] font-medium text-slate-500">Agents disponibles pendant l’exécution</div>
             <div class="flex flex-wrap gap-1">
               <span
                 v-for="a in rt.ROUTINE_BUILTIN_AGENTS"
@@ -667,7 +692,7 @@ const rt = domaineRoutines();
               >
             </div>
             <p class="text-[10px] text-slate-400">
-              Contexte, tokens et écritures sandbox propres à chaque agent — comptés dans le journal du run.
+              Contexte, jetons et écritures sandbox propres à chaque agent — comptés dans le journal du run.
             </p>
           </div>
         </section>

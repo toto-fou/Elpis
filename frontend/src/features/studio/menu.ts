@@ -353,6 +353,11 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
   const studioTreeDock = ref(
     lireStockage("studioTreeDock") === null ? true : lireStockage("studioTreeDock") === "1",
   );
+  const studioExpert = ref(lireStockage("studioExpert") === "1");
+  function definirStudioExpert(actif: boolean): void {
+    studioExpert.value = actif;
+    ecrireStockage("studioExpert", actif ? "1" : "0");
+  }
   const studioTreeWidth = ref(
     (() => {
       const v = Number(lireStockage("studioTreeWidth"));
@@ -958,6 +963,8 @@ export function creerMenuStudio(refs: RefsMenuStudio, ctx: CtxMenuStudio) {
     revealInTree,
     roleIcon,
     studioTreeDock,
+    studioExpert,
+    definirStudioExpert,
     studioTreeWidth,
     toggleStudioTreeDock,
     openStudioTreeDock,

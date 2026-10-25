@@ -1,9 +1,14 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/studio/PageStudio.vue — page Studio : capture annotée d'une cible desktop, arbre UIA, inspecteur, mini-chat de pilotage, éditeur du script d'automatisation, exécution et rapport. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
+import { interfaceApp } from "../../features/reglages/interface";
 import { domaineStudio } from "../../features/studio/domaine";
 
 const sd = domaineStudio();
+const ui = interfaceApp();
+const avance = computed(() => ui.classique || sd.studioExpert);
 
 function poserDefilement(el: unknown): void {
   sd.studioChatScrollEl = (el as HTMLElement | null) ?? null;
@@ -35,10 +40,10 @@ function poserSaisieModale(el: unknown): void {
           <h2 class="font-bold text-base text-slate-900 tracking-tight leading-tight">Studio</h2>
         </div>
         <!-- Outil du stage (Inspecter / Zone / Glisser) : placé ICI, à côté du titre, plutôt qu'en surimpression sur -->
-        <template v-if="sd.studioFrame.imageUrl">
+        <template v-if="sd.studioFrame.imageUrl && avance">
           <div class="w-px h-5 bg-slate-200 shrink-0"></div>
           <div
-            class="flex items-center h-8 rounded-md border border-slate-200 bg-white overflow-hidden text-[11px] shrink-0"
+            class="flex items-center h-8 rounded-md border border-slate-200 bg-white overflow-hidden text-xs shrink-0"
           >
             <button
               title="Survoler / cliquer un élément"
@@ -81,7 +86,7 @@ function poserSaisieModale(el: unknown): void {
           <div class="relative shrink-0">
             <button
               title="Plans : n'afficher que certaines fenêtres, limiter la profondeur"
-              class="h-8 px-2.5 rounded-md border text-[11px] flex items-center gap-1.5 transition-colors"
+              class="h-8 px-2.5 rounded-md border text-xs flex items-center gap-1.5 transition-colors"
               :class="
                 sd.studioLayerActive
                   ? 'border-blue-300 bg-blue-50 text-blue-700'
@@ -90,7 +95,7 @@ function poserSaisieModale(el: unknown): void {
               @click="sd.toggleStudioLayers()"
             >
               <i class="ph ph-stack"></i> Plans
-              <span v-if="sd.studioLayerActive" class="text-[10px] px-1 rounded bg-blue-100 text-blue-700"
+              <span v-if="sd.studioLayerActive" class="text-xs px-1 rounded bg-blue-100 text-blue-700"
                 >{{ sd.studioLayerFiltered.length }}/{{ sd.studioElements.length }}</span
               >
             </button>
@@ -100,14 +105,14 @@ function poserSaisieModale(el: unknown): void {
                 class="absolute left-0 top-full mt-1 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 p-2 text-left"
               >
                 <div class="flex items-center justify-between mb-1">
-                  <span class="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5"
+                  <span class="text-xs font-semibold text-slate-700 flex items-center gap-1.5"
                     ><i class="ph ph-stack"></i> Fenêtres (ordre Z)</span
                   >
-                  <button class="text-[10.5px] text-blue-600 hover:underline" @click="sd.showAllLayers()">
+                  <button class="text-xs text-blue-600 hover:underline" @click="sd.showAllLayers()">
                     Tout afficher
                   </button>
                 </div>
-                <p v-if="!sd.studioLayers.length" class="text-[11px] text-slate-400 py-1">
+                <p v-if="!sd.studioLayers.length" class="text-xs text-slate-400 py-1">
                   Aucune fenêtre dans la capture.
                 </p>
                 <div
@@ -125,26 +130,26 @@ function poserSaisieModale(el: unknown): void {
                     "
                     @click="sd.toggleLayer(l.index)"
                   >
-                    <i class="ph ph-check text-[10px]"></i>
+                    <i class="ph ph-check text-xs"></i>
                   </button>
                   <button
-                    class="flex-1 min-w-0 text-left text-[11px] truncate"
+                    class="flex-1 min-w-0 text-left text-xs truncate"
                     :class="sd.isLayerOn(l.index) ? 'text-slate-700' : 'text-slate-400'"
                     :title="'Voir ce plan seul — ' + (l.label || '')"
                     @click="sd.soloLayer(l.index)"
                   >
                     {{ sd.layerLabel(l) }}
                   </button>
-                  <span class="text-[10px] text-slate-400 shrink-0">{{ l.count }}</span>
+                  <span class="text-xs text-slate-400 shrink-0">{{ l.count }}</span>
                   <button
                     title="Ce plan seul"
-                    class="text-[10px] px-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 shrink-0"
+                    class="text-xs px-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 shrink-0"
                     @click="sd.soloLayer(l.index)"
                   >
                     seul
                   </button>
                 </div>
-                <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-1 text-[10.5px]">
+                <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-1 text-xs">
                   <span
                     class="text-slate-500 mr-1"
                     title="Ne garder que les N premiers niveaux de chaque fenêtre"
@@ -170,7 +175,38 @@ function poserSaisieModale(el: unknown): void {
         </template>
       </div>
       <div class="flex items-center gap-1.5 shrink-0">
-        <span v-if="sd.studioLive" class="flex items-center gap-1 text-[11px] font-medium text-blue-600 mr-1">
+        <div
+          v-if="!ui.classique"
+          role="group"
+          aria-label="Niveau d'outillage"
+          class="flex items-center h-8 rounded-md border border-slate-200 bg-white overflow-hidden text-xs shrink-0"
+        >
+          <button
+            type="button"
+            title="Cible, capture, assistant et script"
+            :aria-pressed="!sd.studioExpert"
+            class="px-2.5 h-full transition-colors"
+            :class="
+              !sd.studioExpert ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
+            "
+            @click="sd.definirStudioExpert(false)"
+          >
+            Simple
+          </button>
+          <button
+            type="button"
+            title="Tous les outils : inspection, zone, glisser, plans, arbre des éléments, insertion"
+            :aria-pressed="sd.studioExpert"
+            class="px-2.5 h-full border-l border-slate-200 transition-colors"
+            :class="
+              sd.studioExpert ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
+            "
+            @click="sd.definirStudioExpert(true)"
+          >
+            Expert
+          </button>
+        </div>
+        <span v-if="sd.studioLive" class="flex items-center gap-1 text-xs font-medium text-blue-600 mr-1">
           <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> LIVE
         </span>
         <select
@@ -213,7 +249,7 @@ function poserSaisieModale(el: unknown): void {
               <button
                 :disabled="sd.studioReading || !sd.selectedTarget"
                 title="Lire le texte visible (OCR) — vide = plein écran, ou décris une zone dans la barre"
-                class="w-full text-left px-2 py-1.5 rounded-md text-[11px] flex items-center gap-2 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                class="w-full text-left px-2 py-1.5 rounded-md text-xs flex items-center gap-2 text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
                 @click="sd.studioActionRead()"
               >
                 <i class="ph" :class="sd.studioReading ? 'ph-spinner animate-spin' : 'ph-text-aa'"></i> Lire
@@ -222,7 +258,7 @@ function poserSaisieModale(el: unknown): void {
               <button
                 :disabled="!sd.studioFrame.imageUrl && !sd.studioError"
                 title="Vider la scène (image + annotations)"
-                class="w-full text-left px-2 py-1.5 rounded-md text-[11px] flex items-center gap-2 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                class="w-full text-left px-2 py-1.5 rounded-md text-xs flex items-center gap-2 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
                 @click="sd.studioActionClear()"
               >
                 <i class="ph ph-broom"></i> Vider
@@ -252,7 +288,7 @@ function poserSaisieModale(el: unknown): void {
             >
               <!-- Mode de capture : VRAI toggle (switch) -->
               <div class="flex items-center justify-between gap-2">
-                <span class="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5"
+                <span class="text-xs font-semibold text-slate-700 flex items-center gap-1.5"
                   ><i class="ph ph-eye"></i> Annoter par vision</span
                 >
                 <button
@@ -274,12 +310,12 @@ function poserSaisieModale(el: unknown): void {
                   ></span>
                 </button>
               </div>
-              <p class="text-[10px] text-slate-400 mt-1 mb-3 leading-snug">
+              <p class="text-xs text-slate-400 mt-1 mb-3 leading-snug">
                 Activé : boxes annotées par le modèle. Désactivé : capture + arbre d'éléments (a11y), plus
                 rapide.
               </p>
               <!-- Requête d'annotation : vide = tout détecter ; Entrée = capturer -->
-              <div class="text-[11px] font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+              <div class="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
                 <i class="ph ph-magnifying-glass"></i> Quoi annoter ?
               </div>
               <input
@@ -290,20 +326,18 @@ function poserSaisieModale(el: unknown): void {
                 @keydown.enter="sd.captureAndAnnotate"
               />
               <!-- Écran -->
-              <div class="text-[11px] font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+              <div class="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
                 <i class="ph ph-monitor"></i> Écran capturé / piloté
               </div>
-              <p v-if="!sd.selectedTarget" class="text-[11px] text-slate-400">
-                Choisissez d'abord une cible.
-              </p>
-              <p v-else-if="!sd.studioMonitors.length" class="text-[11px] text-slate-400">
+              <p v-if="!sd.selectedTarget" class="text-xs text-slate-400">Choisissez d'abord une cible.</p>
+              <p v-else-if="!sd.studioMonitors.length" class="text-xs text-slate-400">
                 Aucun écran détecté (agent injoignable ?).
               </p>
               <div v-else class="space-y-1">
                 <button
                   v-for="m in sd.studioMonitors"
                   :key="m.index"
-                  class="w-full text-left px-2 py-1.5 rounded-md border text-[11px] flex items-center gap-2 transition-colors"
+                  class="w-full text-left px-2 py-1.5 rounded-md border text-xs flex items-center gap-2 transition-colors"
                   :class="
                     sd.studioMonitor === m.index
                       ? 'border-blue-400 bg-blue-50 text-blue-700'
@@ -313,11 +347,11 @@ function poserSaisieModale(el: unknown): void {
                 >
                   <i class="ph shrink-0" :class="m.index === 0 ? 'ph-squares-four' : 'ph-monitor'"></i>
                   <span class="flex-1 truncate">{{ m.label }}</span>
-                  <span class="text-[10px] text-slate-400 shrink-0">{{ m.width }}×{{ m.height }}</span>
+                  <span class="text-xs text-slate-400 shrink-0">{{ m.width }}×{{ m.height }}</span>
                   <i v-if="sd.studioMonitor === m.index" class="ph ph-check text-blue-600 shrink-0"></i>
                 </button>
               </div>
-              <p class="text-[10px] text-slate-400 mt-2 leading-snug">
+              <p class="text-xs text-slate-400 mt-2 leading-snug">
                 « Tous les écrans » = vue d'ensemble ; un écran précis = capture + clics ciblés dessus.
               </p>
             </div>
@@ -343,8 +377,16 @@ function poserSaisieModale(el: unknown): void {
             Aucune machine cible configurée. Ajoutez un agent de contrôle dans
             <span class="font-medium text-slate-600">Admin → Vision &amp; Desktop</span>.
           </p>
+          <ol v-else-if="!avance" class="text-sm text-slate-600 text-left space-y-1.5 mt-1">
+            <li><span class="font-semibold text-blue-700">1.</span> Choisissez une cible</li>
+            <li><span class="font-semibold text-blue-700">2.</span> Cliquez sur « Capturer »</li>
+            <li>
+              <span class="font-semibold text-blue-700">3.</span> Demandez dans l'onglet
+              <span class="font-medium">Assistant</span> ou écrivez le <span class="font-medium">Script</span>
+            </li>
+          </ol>
           <template v-else>
-            <p class="text-sm text-slate-500">Choisissez une cible puis « Capturer &amp; annoter »,</p>
+            <p class="text-sm text-slate-500">Choisissez une cible puis « Capturer »,</p>
             <p class="text-sm text-slate-500">
               ou demandez une action dans l'onglet <span class="font-medium text-slate-600">Assistant</span>.
             </p>
@@ -475,7 +517,7 @@ function poserSaisieModale(el: unknown): void {
             class="absolute bottom-3 left-3 right-3 z-20 flex justify-center pointer-events-none"
           >
             <div
-              class="pointer-events-auto max-w-full bg-white/95 backdrop-blur border border-slate-200 shadow-lg rounded-lg text-[11px] elpis-studio-inspector"
+              class="pointer-events-auto max-w-full bg-white/95 backdrop-blur border border-slate-200 shadow-lg rounded-lg text-xs elpis-studio-inspector"
             >
               <div class="flex items-center gap-1 px-2.5 h-8 min-w-0">
                 <template v-for="c in sd.studioInspectInfo.crumbs" :key="c.id">
@@ -486,7 +528,7 @@ function poserSaisieModale(el: unknown): void {
                   >
                     {{ sd.elementDisplay(c) }}
                   </button>
-                  <i class="ph ph-caret-right text-slate-300 text-[9px] shrink-0"></i>
+                  <i class="ph ph-caret-right text-slate-300 text-xs shrink-0"></i>
                 </template>
                 <span
                   class="font-semibold text-slate-800 truncate max-w-[200px]"
@@ -496,13 +538,13 @@ function poserSaisieModale(el: unknown): void {
                 <span class="text-slate-400 shrink-0">· {{ sd.studioInspectInfo.el.role || "vision" }}</span>
                 <span class="w-px h-4 bg-slate-200 mx-1 shrink-0"></span>
                 <span
-                  class="text-[9px] font-semibold px-1 rounded shrink-0"
+                  class="text-xs font-semibold px-1 rounded shrink-0"
                   :class="sd.qualityClass(sd.studioInspectInfo.quality)"
                   :title="'Qualité de la cible : ' + sd.qualityLabel(sd.studioInspectInfo.quality)"
                   >{{ sd.qualityLabel(sd.studioInspectInfo.quality) }}</span
                 >
                 <code
-                  class="font-mono text-[10.5px] text-slate-700 truncate max-w-[380px]"
+                  class="font-mono text-xs text-slate-700 truncate max-w-[380px]"
                   :title="sd.studioInspectInfo.target"
                   >{{ sd.studioInspectInfo.target || "—" }}</code
                 >
@@ -540,7 +582,7 @@ function poserSaisieModale(el: unknown): void {
           <!-- Bandeau « armé » : clic droit → Glisser depuis ici → on attend la destination. -->
           <div
             v-if="sd.studioDragFrom"
-            class="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-600 text-white text-[11px] shadow-lg"
+            class="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-600 text-white text-xs shadow-lg"
           >
             <i class="ph ph-arrows-out-cardinal"></i>
             Cliquez la destination du glisser
@@ -553,7 +595,7 @@ function poserSaisieModale(el: unknown): void {
 
       <!-- ARBRE EN COLONNE : à côté de l'image et du code (env de code complet) -->
       <div
-        v-if="sd.studioTreeDock && sd.studioFrame.imageUrl"
+        v-if="avance && sd.studioTreeDock && sd.studioFrame.imageUrl"
         class="relative shrink-0 border-l border-slate-200 flex flex-col min-h-0 bg-white"
         :style="{ width: sd.studioTreeWidth + 'px' }"
       >
@@ -567,8 +609,8 @@ function poserSaisieModale(el: unknown): void {
         <!-- En-tête de la colonne -->
         <div class="h-11 shrink-0 flex items-center gap-1.5 px-3 border-b border-slate-200">
           <i class="ph ph-tree-structure text-slate-500 shrink-0"></i>
-          <span class="text-[11px] font-semibold text-slate-600">Arbre</span>
-          <span v-if="sd.studioElements.length" class="text-[10px] text-slate-400 shrink-0"
+          <span class="text-xs font-semibold text-slate-600">Arbre</span>
+          <span v-if="sd.studioElements.length" class="text-xs text-slate-400 shrink-0"
             >{{ sd.studioLayerActive ? sd.studioLayerFiltered.length + "/" : ""
             }}{{ sd.studioElements.length }}</span
           >
@@ -609,7 +651,7 @@ function poserSaisieModale(el: unknown): void {
           </button>
           <span
             v-if="sd.studioFrame.treeCapped"
-            class="text-[9px] font-semibold px-1 rounded bg-amber-100 text-amber-700 shrink-0"
+            class="text-xs font-semibold px-1 rounded bg-amber-100 text-amber-700 shrink-0"
             :title="
               'L\'agent a atteint son plafond de nœuds (' +
               sd.studioFrame.treeNodes +
@@ -620,7 +662,7 @@ function poserSaisieModale(el: unknown): void {
           <button
             v-if="sd.studioElements.length"
             title="Audit d'accessibilité : contrôles interactifs sans nom ni auto_id"
-            class="text-[10px] px-1.5 py-0.5 rounded border shrink-0 flex items-center gap-1"
+            class="text-xs px-1.5 py-0.5 rounded border shrink-0 flex items-center gap-1"
             :class="
               sd.studioAuditOpen
                 ? 'border-blue-300 bg-blue-50 text-blue-700'
@@ -639,57 +681,55 @@ function poserSaisieModale(el: unknown): void {
           v-if="sd.studioAuditOpen"
           class="border-b border-slate-200 bg-amber-50/40 shrink-0 max-h-56 overflow-y-auto custom-scrollbar elpis-studio-audit"
         >
-          <div class="px-2.5 py-1.5 flex items-center gap-2 text-[11px]">
+          <div class="px-2.5 py-1.5 flex items-center gap-2 text-xs">
             <span class="text-slate-700"
               ><b>{{ sd.studioAudit.rows.length }}</b> contrôle(s) à nommer sur
               {{ sd.studioAudit.interactive }} interactif(s)</span
             >
-            <span class="text-[10px] text-slate-400 truncate"
+            <span class="text-xs text-slate-400 truncate"
               >— sans nom ni auto_id, le script vise par chemin, voisin ou position</span
             >
             <button
               :disabled="!sd.studioAudit.rows.length"
               title="Exporter en CSV"
-              class="ml-auto text-[10px] px-1.5 py-0.5 rounded border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-40 shrink-0"
+              class="ml-auto text-xs px-1.5 py-0.5 rounded border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-40 shrink-0"
               @click="sd.exportStudioAudit()"
             >
               <i class="ph ph-download-simple"></i> CSV
             </button>
           </div>
-          <div v-if="!sd.studioAudit.rows.length" class="px-2.5 pb-2 text-[11px] text-emerald-700">
+          <div v-if="!sd.studioAudit.rows.length" class="px-2.5 pb-2 text-xs text-emerald-700">
             Tous les contrôles interactifs portent un nom et un auto_id.
           </div>
           <div
             v-for="r in sd.studioAudit.rows"
             :key="r.id"
-            class="px-2.5 py-1 text-[10.5px] flex items-center gap-2 cursor-pointer hover:bg-white/80 border-t border-amber-100/60"
+            class="px-2.5 py-1 text-xs flex items-center gap-2 cursor-pointer hover:bg-white/80 border-t border-amber-100/60"
             :class="r.id === sd.selectedElementId ? 'bg-blue-50' : ''"
             @click="sd.selectStudioElement(r.id, true)"
           >
             <i class="ph shrink-0 text-slate-400" :class="sd.roleIcon(r.role)"></i>
             <span class="text-slate-700 shrink-0">{{ r.role }}</span>
-            <span class="text-[9px] px-1 rounded bg-amber-100 text-amber-800 shrink-0"
+            <span class="text-xs px-1 rounded bg-amber-100 text-amber-800 shrink-0"
               >sans {{ r.missing }}</span
             >
             <span
               v-if="r.volatile"
               title="auto_id « view_N » de Chromium (Edge, Chrome, Electron) : réassigné à chaque relance, non fiable"
-              class="text-[9px] px-1 rounded bg-rose-100 text-rose-700 shrink-0"
+              class="text-xs px-1 rounded bg-rose-100 text-rose-700 shrink-0"
               >id volatil</span
             >
             <span v-if="r.near" class="text-slate-500 truncate">près de « {{ r.near }} »</span>
-            <code
-              class="ml-auto font-mono text-[9.5px] text-slate-400 truncate max-w-[45%]"
-              :title="r.path"
-              >{{ r.path }}</code
-            >
+            <code class="ml-auto font-mono text-xs text-slate-400 truncate max-w-[45%]" :title="r.path">{{
+              r.path
+            }}</code>
           </div>
         </div>
         <div class="flex-1 overflow-y-auto p-1 custom-scrollbar">
           <div v-if="sd.studioElements.length === 0" class="text-center py-10 px-4">
             <i class="ph ph-tree-structure text-slate-300 text-2xl block mb-2"></i>
             <p v-if="!sd.studioFrame.imageUrl" class="text-xs text-slate-400">
-              Capture la cible (« Capturer &amp; annoter ») pour explorer son arbre d'éléments.
+              Capture la cible (« Capturer ») pour explorer son arbre d'éléments.
             </p>
             <p v-else class="text-xs text-slate-400">
               Aucun élément d'accessibilité exposé par la cible.<br />Vérifiez l'agent (UIA / AT-SPI), ou
@@ -736,48 +776,46 @@ function poserSaisieModale(el: unknown): void {
             >
             <span
               v-if="row.el.auto_id"
-              class="text-[9px] font-mono text-blue-500 bg-blue-50 px-1 rounded shrink-0 max-w-[84px] truncate"
+              class="text-xs font-mono text-blue-500 bg-blue-50 px-1 rounded shrink-0 max-w-[84px] truncate"
               :title="'auto_id : ' + row.el.auto_id"
               >{{ row.el.auto_id }}</span
             >
             <i
               v-if="row.el.states && row.el.states.includes('focused')"
-              class="ph ph-keyboard text-emerald-500 text-[10px] shrink-0"
+              class="ph ph-keyboard text-emerald-500 text-xs shrink-0"
               title="focus clavier"
             ></i>
           </div>
         </div>
         <!-- Élément SÉLECTIONNÉ → actions (UIA-first via auto_id) -->
         <div v-if="sd.selectedElement" class="border-t border-slate-200 shrink-0 px-2.5 py-2 bg-slate-50/70">
-          <div class="text-[11px] mb-1.5 flex items-center gap-1 min-w-0">
+          <div class="text-xs mb-1.5 flex items-center gap-1 min-w-0">
             <i class="ph shrink-0 text-slate-400" :class="sd.roleIcon(sd.selectedElement.role)"></i>
             <span class="font-medium text-slate-700 truncate">{{
               sd.elementDisplay(sd.selectedElement)
             }}</span>
-            <span v-if="sd.selectedElement.role" class="text-[10px] text-slate-400 shrink-0"
+            <span v-if="sd.selectedElement.role" class="text-xs text-slate-400 shrink-0"
               >· {{ sd.selectedElement.role }}</span
             >
-            <span
-              v-if="sd.selectedElement.auto_id"
-              class="text-[9px] font-mono text-blue-500 truncate shrink-0"
+            <span v-if="sd.selectedElement.auto_id" class="text-xs font-mono text-blue-500 truncate shrink-0"
               >#{{ sd.selectedElement.auto_id }}</span
             >
           </div>
           <div class="flex flex-wrap gap-1">
             <button
-              class="text-[11px] px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-white hover:border-blue-300 flex items-center gap-1"
+              class="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-white hover:border-blue-300 flex items-center gap-1"
               @click="sd.actOnElement(sd.selectedElement, 'click')"
             >
-              <i class="ph ph-cursor-click text-[10px]"></i> Cliquer
+              <i class="ph ph-cursor-click text-xs"></i> Cliquer
             </button>
             <button
-              class="text-[11px] px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-white hover:border-blue-300"
+              class="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-white hover:border-blue-300"
               @click="sd.actOnElement(sd.selectedElement, 'double_click')"
             >
               Double-clic
             </button>
             <button
-              class="text-[11px] px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-white hover:border-blue-300"
+              class="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-white hover:border-blue-300"
               @click="sd.actOnElement(sd.selectedElement, 'right_click')"
             >
               Clic droit
@@ -790,29 +828,30 @@ function poserSaisieModale(el: unknown): void {
             <span class="text-xs font-semibold text-blue-700 flex items-center gap-1.5"
               ><i class="ph ph-text-aa"></i> Texte lu</span
             >
-            <span class="text-[10px] text-slate-400 truncate max-w-[140px]" :title="sd.studioText.region">{{
+            <span class="text-xs text-slate-400 truncate max-w-[140px]" :title="sd.studioText.region">{{
               sd.studioText.region
             }}</span>
           </div>
           <pre
-            class="flex-1 overflow-auto p-3 text-[11px] leading-snug text-slate-700 whitespace-pre-wrap break-words font-mono custom-scrollbar"
+            class="flex-1 overflow-auto p-3 text-xs leading-snug text-slate-700 whitespace-pre-wrap break-words font-mono custom-scrollbar"
             >{{ sd.studioText.text }}</pre>
         </div>
-        <div class="px-3 py-2 border-t border-slate-100 text-[11px] text-slate-400 shrink-0">
-          Survole = surligne · clic = sélectionne ·
-          <span class="font-medium text-slate-500">clic droit</span> = toutes les actions (glisser, molette,
-          touche…). Clic par <span class="font-medium text-slate-500">auto_id</span> UIA si dispo.
+        <div
+          class="px-3 py-2 border-t border-slate-100 text-xs text-slate-500 shrink-0 truncate"
+          title="Survol : surligne · clic : sélectionne · clic droit : toutes les actions (glisser, molette, touche…). Clic par auto_id UIA si disponible."
+        >
+          Clic droit : toutes les actions
         </div>
       </div>
       <!-- Arbre replié : fine bande pour le rouvrir -->
       <div
-        v-else-if="sd.studioFrame.imageUrl"
+        v-else-if="avance && sd.studioFrame.imageUrl"
         title="Afficher l'arbre d'éléments"
         class="shrink-0 w-7 border-l border-slate-200 bg-slate-50/60 hover:bg-slate-100 cursor-pointer flex flex-col items-center pt-2 gap-1"
         @click="sd.toggleStudioTreeDock()"
       >
         <i class="ph ph-tree-structure text-slate-400"></i>
-        <span v-if="sd.studioElements.length" class="text-[9px] font-semibold text-slate-400">{{
+        <span v-if="sd.studioElements.length" class="text-xs font-semibold text-slate-400">{{
           sd.studioElements.length
         }}</span>
       </div>
@@ -831,7 +870,7 @@ function poserSaisieModale(el: unknown): void {
           @dblclick="sd.autoRailReset()"
         ></div>
         <!-- Tab bar — 3 onglets à plat -->
-        <div class="h-11 shrink-0 flex items-stretch border-b border-slate-200 text-[11px] font-semibold">
+        <div class="h-11 shrink-0 flex items-stretch border-b border-slate-200 text-xs font-semibold">
           <button
             class="flex-1 min-w-0 flex items-center justify-center gap-1 px-1 transition-colors"
             :class="
@@ -856,7 +895,7 @@ function poserSaisieModale(el: unknown): void {
             "
           >
             <i class="ph ph-code shrink-0"></i> <span class="truncate">Script</span>
-            <span v-if="sd.autoLineCount" class="text-[10px] text-slate-400 shrink-0">{{
+            <span v-if="sd.autoLineCount" class="text-xs text-slate-400 shrink-0">{{
               sd.autoLineCount
             }}</span>
           </button>
@@ -892,7 +931,7 @@ function poserSaisieModale(el: unknown): void {
                   <span
                     v-for="(s, si) in m.steps"
                     :key="si"
-                    class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                    class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium"
                     :class="
                       s.status === 'error'
                         ? 'bg-red-100 text-red-600'
@@ -934,7 +973,7 @@ function poserSaisieModale(el: unknown): void {
                     ? 'Arrêter la composition par l\'IA'
                     : 'Composer par l\'IA : l\'assistant agit pas à pas, chaque action réussie devient une ligne du script, ce qui apparaît devient une attente nommée'
                 "
-                class="h-6 px-2 rounded-md text-[10.5px] font-medium flex items-center gap-1 transition-colors"
+                class="h-6 px-2 rounded-md text-xs font-medium flex items-center gap-1 transition-colors"
                 :class="
                   sd.autoComposeOn
                     ? 'bg-violet-600 text-white hover:bg-violet-700'
@@ -945,7 +984,7 @@ function poserSaisieModale(el: unknown): void {
                 <i class="ph ph-magic-wand"></i>
                 {{ sd.autoComposeOn ? "Composition en cours" : "Composer par l'IA" }}
               </button>
-              <span v-if="sd.autoComposeOn" class="text-[10px] text-slate-500 truncate"
+              <span v-if="sd.autoComposeOn" class="text-xs text-slate-500 truncate"
                 >Décrivez l'objectif : le script s'écrit dans l'onglet Script.</span
               >
             </div>
@@ -987,7 +1026,7 @@ function poserSaisieModale(el: unknown): void {
             class="w-[210px] shrink-0 border-r border-slate-200 flex flex-col min-h-0 bg-slate-50/60"
           >
             <div class="h-9 shrink-0 flex items-center justify-between pl-2 pr-1 border-b border-slate-200">
-              <span class="text-[10.5px] font-semibold text-slate-500 truncate">Mes scripts</span>
+              <span class="text-xs font-semibold text-slate-500 truncate">Mes scripts</span>
               <div class="flex items-center">
                 <button
                   title="Nouveau script"
@@ -1006,7 +1045,7 @@ function poserSaisieModale(el: unknown): void {
               </div>
             </div>
             <div class="max-h-44 overflow-y-auto custom-scrollbar p-1 border-b border-slate-200">
-              <div v-if="!sd.autoScripts.length" class="text-[10.5px] text-slate-400 italic px-1.5 py-2">
+              <div v-if="!sd.autoScripts.length" class="text-xs text-slate-400 italic px-1.5 py-2">
                 Aucun script enregistré.
               </div>
               <div
@@ -1021,28 +1060,29 @@ function poserSaisieModale(el: unknown): void {
               >
                 <button
                   :title="it.path"
-                  class="flex-1 min-w-0 text-left px-1.5 py-1 text-[11px] truncate"
+                  class="flex-1 min-w-0 text-left px-1.5 py-1 text-xs truncate"
                   @click="sd.autoOpen(it)"
                 >
                   {{ it.name }}
                 </button>
                 <button
                   title="Supprimer ce script"
-                  class="w-5 h-5 mr-0.5 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 items-center justify-center hidden group-hover:flex shrink-0"
+                  aria-label="Supprimer ce script"
+                  class="w-6 h-6 mr-0.5 rounded text-slate-500 hover:text-red-600 hover:bg-red-50 items-center justify-center hidden group-hover:flex group-focus-within:flex shrink-0"
                   @click="sd.autoDelete(it)"
                 >
-                  <i class="ph ph-trash text-[11px]"></i>
+                  <i class="ph ph-trash text-xs"></i>
                 </button>
               </div>
             </div>
             <div class="h-8 shrink-0 flex items-center justify-between px-2 border-b border-slate-200">
-              <span class="text-[10.5px] font-semibold text-slate-500">Plan</span>
-              <span class="text-[10px] text-slate-400"
+              <span class="text-xs font-semibold text-slate-500">Plan</span>
+              <span class="text-xs text-slate-400"
                 >{{ sd.autoLineCount }} ligne{{ sd.autoLineCount > 1 ? "s" : "" }}</span
               >
             </div>
             <div class="flex-1 overflow-y-auto custom-scrollbar p-1">
-              <div v-if="!sd.autoOutline.length" class="text-[10.5px] text-slate-400 italic px-1.5 py-2">
+              <div v-if="!sd.autoOutline.length" class="text-xs text-slate-400 italic px-1.5 py-2">
                 Le plan suit le code : une ligne par action.
               </div>
               <div
@@ -1053,7 +1093,7 @@ function poserSaisieModale(el: unknown): void {
                 :class="sd.autoCursorLine === row.line ? 'bg-blue-50' : 'hover:bg-slate-100'"
               >
                 <i
-                  class="ph text-[11px] shrink-0"
+                  class="ph text-xs shrink-0"
                   :class="{
                     'ph-git-branch text-violet-600': row.kind === 'block',
                     'ph-hourglass text-amber-500': row.kind === 'wait',
@@ -1066,7 +1106,7 @@ function poserSaisieModale(el: unknown): void {
                 ></i>
                 <button
                   :title="'Ligne ' + (row.line + 1)"
-                  class="flex-1 min-w-0 text-left py-0.5 text-[10.5px] text-slate-600 truncate font-mono"
+                  class="flex-1 min-w-0 text-left py-0.5 text-xs text-slate-600 truncate font-mono"
                   @click="sd.autoGotoLine(row.line)"
                 >
                   {{ row.text }}
@@ -1074,19 +1114,19 @@ function poserSaisieModale(el: unknown): void {
                 <span
                   v-if="row.anchor === 'uia'"
                   title="Élément exposé par Windows (AutomationId) : le plus fiable"
-                  class="text-[8.5px] px-1 rounded bg-emerald-100 text-emerald-700 shrink-0"
+                  class="text-xs px-1 rounded bg-emerald-100 text-emerald-700 shrink-0"
                   >UIA</span
                 >
                 <span
                   v-else-if="row.anchor === 'nom'"
                   title="Libellé + rôle de l'arbre d'accessibilité"
-                  class="text-[8.5px] px-1 rounded bg-blue-100 text-blue-700 shrink-0"
+                  class="text-xs px-1 rounded bg-blue-100 text-blue-700 shrink-0"
                   >nom</span
                 >
                 <span
                   v-else-if="row.anchor === 'coords'"
                   title="Coordonnées : dernier recours, fragile si l'écran change"
-                  class="text-[8.5px] px-1 rounded bg-amber-100 text-amber-700 shrink-0"
+                  class="text-xs px-1 rounded bg-amber-100 text-amber-700 shrink-0"
                   >x,y</span
                 >
                 <button
@@ -1094,7 +1134,7 @@ function poserSaisieModale(el: unknown): void {
                   class="w-4 h-4 mr-0.5 rounded text-slate-300 hover:text-red-500 items-center justify-center hidden group-hover:flex shrink-0"
                   @click="sd.autoDeleteLine(row.line)"
                 >
-                  <i class="ph ph-x text-[10px]"></i>
+                  <i class="ph ph-x text-xs"></i>
                 </button>
               </div>
             </div>
@@ -1121,7 +1161,7 @@ function poserSaisieModale(el: unknown): void {
                     ? 'Arrêter l\'enregistrement'
                     : 'Enregistrer : chaque action s\'écrit dans le code, au curseur'
                 "
-                class="h-7 px-2 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors shrink-0"
+                class="h-7 px-2 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors shrink-0"
                 :class="
                   sd.autoRecording
                     ? 'bg-red-600 text-white hover:bg-red-700'
@@ -1139,30 +1179,30 @@ function poserSaisieModale(el: unknown): void {
                 v-model="sd.autoName"
                 type="text"
                 placeholder="Nom du script"
-                class="flex-1 min-w-0 h-7 text-[11px] px-2 rounded-md border border-slate-200 outline-none focus:ring-1 focus:ring-blue-500"
+                class="flex-1 min-w-0 h-7 text-xs px-2 rounded-md border border-slate-200 outline-none focus:ring-1 focus:ring-blue-500"
               />
               <span
                 v-if="sd.autoDirty"
-                class="text-[10px] text-slate-400 shrink-0"
+                class="text-xs text-slate-400 shrink-0"
                 title="Modifications non enregistrées"
                 >·</span
               >
               <span
                 v-if="sd.autoIgnored"
-                class="text-[10px] text-amber-600 shrink-0"
+                class="text-xs text-amber-600 shrink-0"
                 :title="sd.autoIgnored + ' action(s) en échec technique, non écrite(s)'"
                 >{{ sd.autoIgnored }} ✗</span
               >
               <span
                 v-if="sd.autoNeedsVision"
-                class="text-[10px] text-amber-600 shrink-0"
+                class="text-xs text-amber-600 shrink-0"
                 title="Le script lit du texte à l'écran : il exige Elpis (ELPIS_URL) sur la VM"
                 >vision</span
               >
               <button
                 :disabled="sd.autoSaving"
                 title="Enregistrer dans la sandbox (automations/<nom>.py)"
-                class="h-7 px-2 rounded-md text-[11px] font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1 shrink-0"
+                class="h-7 px-2 rounded-md text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1 shrink-0"
                 @click="sd.autoSave()"
               >
                 <i class="ph" :class="sd.autoSaving ? 'ph-spinner animate-spin' : 'ph-floppy-disk'"></i>
@@ -1173,7 +1213,7 @@ function poserSaisieModale(el: unknown): void {
                   <button
                     :disabled="!sd.selectedTarget || !!sd.autoRun?.running"
                     title="Exécuter le script sur la machine cible (agent dans la session interactive)"
-                    class="px-2 text-[11px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1"
+                    class="px-2 text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1"
                     @click="sd.autoRunStart('run')"
                   >
                     <i class="ph" :class="!!sd.autoRun?.running ? 'ph-spinner animate-spin' : 'ph-play'"></i>
@@ -1181,26 +1221,26 @@ function poserSaisieModale(el: unknown): void {
                   </button>
                   <button
                     :disabled="!sd.selectedTarget"
-                    title="Autres modes : vol à blanc, trace, plusieurs machines"
+                    title="Autres modes : essai sans action, trace, plusieurs machines"
                     class="px-1 border-l border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 flex items-center"
                     @click="sd.autoRunMenuOpen = !sd.autoRunMenuOpen"
                   >
-                    <i class="ph ph-caret-down text-[10px]"></i>
+                    <i class="ph ph-caret-down text-xs"></i>
                   </button>
                 </div>
                 <template v-if="sd.autoRunMenuOpen">
                   <div class="fixed inset-0 z-[54]" @click="sd.autoRunMenuOpen = false"></div>
                   <!-- Ancré à DROITE (le rail est le bord de la page : left-0 + w-72 débordait). -->
                   <div
-                    class="absolute right-0 top-8 z-[55] w-72 max-h-[70vh] overflow-y-auto custom-scrollbar bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-[11px] elpis-run-menu"
+                    class="absolute right-0 top-8 z-[55] w-72 max-h-[70vh] overflow-y-auto custom-scrollbar bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-xs elpis-run-menu"
                   >
                     <button
                       :disabled="!!sd.autoRun?.running"
                       class="disabled:opacity-50 w-full text-left px-3 py-1.5 hover:bg-slate-50"
                       @click="sd.autoRunStart('dry')"
                     >
-                      <div class="font-medium text-slate-800">Vol à blanc</div>
-                      <div class="text-[10.5px] text-slate-500">
+                      <div class="font-medium text-slate-800">Essai sans action</div>
+                      <div class="text-xs text-slate-500">
                         Résout chaque cible sur la machine, n'envoie aucune entrée.
                       </div>
                     </button>
@@ -1210,7 +1250,7 @@ function poserSaisieModale(el: unknown): void {
                       @click="sd.autoRunStart('trace')"
                     >
                       <div class="font-medium text-slate-800">Exécuter avec trace</div>
-                      <div class="text-[10.5px] text-slate-500">
+                      <div class="text-xs text-slate-500">
                         Capture + arbre à chaque étape, visualiseur dans le rapport.
                       </div>
                     </button>
@@ -1228,11 +1268,11 @@ function poserSaisieModale(el: unknown): void {
                           @change="sd.autoRunToggleTargets(t.name)"
                         />
                         <span class="truncate">{{ t.name }}</span
-                        ><span class="text-[10px] text-slate-400">{{ t.os || "" }}</span>
+                        ><span class="text-xs text-slate-400">{{ t.os || "" }}</span>
                       </label>
                       <button
                         :disabled="!!sd.autoRun?.running"
-                        class="disabled:opacity-50 mt-1 w-full h-6 rounded border border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-[11px]"
+                        class="disabled:opacity-50 mt-1 w-full h-6 rounded border border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-xs"
                         @click="sd.autoRunMatrix()"
                       >
                         Lancer la matrice
@@ -1257,13 +1297,13 @@ function poserSaisieModale(el: unknown): void {
                 <template v-if="sd.autoDlOpen">
                   <div class="fixed inset-0 z-[54]" @click="sd.autoDlOpen = false"></div>
                   <div
-                    class="absolute right-0 top-8 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-[11px]"
+                    class="absolute right-0 top-8 z-[55] w-72 bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-xs"
                   >
                     <button class="w-full text-left px-3 py-2 hover:bg-slate-50" @click="sd.autoDownload()">
                       <div class="font-medium text-slate-800 flex items-center gap-1.5">
                         <i class="ph ph-file-py text-slate-400"></i> Script seul (.py)
                       </div>
-                      <div class="text-[10.5px] text-slate-500 mt-0.5">
+                      <div class="text-xs text-slate-500 mt-0.5">
                         Le runtime est déjà sur la machine (agent Elpis installé) : rien à retélécharger.
                       </div>
                     </button>
@@ -1274,7 +1314,7 @@ function poserSaisieModale(el: unknown): void {
                       <div class="font-medium text-slate-800 flex items-center gap-1.5">
                         <i class="ph ph-package text-slate-400"></i> Script + runtime (.zip)
                       </div>
-                      <div class="text-[10.5px] text-slate-500 mt-0.5">
+                      <div class="text-xs text-slate-500 mt-0.5">
                         elpis_auto, backends, requirements.txt, lanceurs run.bat / run.sh (venv local,
                         dépendances par pip). Pour un projet à part ou une machine sans l'agent.
                       </div>
@@ -1287,7 +1327,7 @@ function poserSaisieModale(el: unknown): void {
                         <i class="ph ph-package text-slate-400"></i> Script + runtime + wheels hors ligne
                         (.zip, ~18 Mo)
                       </div>
-                      <div class="text-[10.5px] text-slate-500 mt-0.5">
+                      <div class="text-xs text-slate-500 mt-0.5">
                         Idem, plus les dépendances Python (wheels cp311) pour une machine sans internet :
                         Python 3.11 ou python-win de l'agent.
                       </div>
@@ -1318,7 +1358,8 @@ function poserSaisieModale(el: unknown): void {
 
             <!-- Palette : insérer au curseur -->
             <div
-              class="shrink-0 px-2 py-1 border-b border-slate-100 flex items-center gap-1 flex-wrap text-[10.5px]"
+              v-if="avance"
+              class="shrink-0 px-2 py-1 border-b border-slate-100 flex items-center gap-1 flex-wrap text-xs"
             >
               <span class="text-slate-400 mr-0.5">Insérer</span>
               <button
@@ -1437,7 +1478,7 @@ function poserSaisieModale(el: unknown): void {
               v-if="sd.autoHelpOpen"
               class="shrink-0 max-h-40 overflow-y-auto custom-scrollbar border-b border-slate-200 bg-slate-50 px-3 py-2"
             >
-              <pre class="text-[10px] leading-4 text-slate-600 whitespace-pre-wrap font-mono">{{
+              <pre class="text-xs leading-4 text-slate-600 whitespace-pre-wrap font-mono">{{
                 sd.API_HELP
               }}</pre>
             </div>
@@ -1455,7 +1496,7 @@ function poserSaisieModale(el: unknown): void {
                 :value="sd.autoCode"
                 spellcheck="false"
                 aria-label="Code du script"
-                class="auto-code absolute inset-0 w-full h-full resize-none bg-slate-900 text-slate-100 font-mono text-[11.5px] leading-5 p-3 outline-none custom-scrollbar"
+                class="auto-code absolute inset-0 w-full h-full resize-none bg-slate-900 text-slate-100 font-mono text-xs leading-5 p-3 outline-none custom-scrollbar"
                 @input="sd.autoOnTextarea($event)"
                 @click="sd.autoOnTextarea($event)"
                 @keyup="sd.autoOnTextarea($event)"
@@ -1469,7 +1510,7 @@ function poserSaisieModale(el: unknown): void {
               class="shrink-0 border-t border-slate-200 bg-slate-50/70 elpis-run-panel"
               :class="sd.autoRunOpen ? 'max-h-64' : ''"
             >
-              <div class="px-2 py-1 flex items-center gap-2 text-[11px]">
+              <div class="px-2 py-1 flex items-center gap-2 text-xs">
                 <i
                   class="ph shrink-0"
                   :class="
@@ -1495,29 +1536,29 @@ function poserSaisieModale(el: unknown): void {
                 }}</span>
                 <span
                   v-if="sd.autoRun.mode === 'dry'"
-                  class="text-[9px] px-1 rounded bg-blue-100 text-blue-700 shrink-0"
-                  >vol à blanc</span
+                  class="text-xs px-1 rounded bg-blue-100 text-blue-700 shrink-0"
+                  >essai sans action</span
                 >
                 <span
                   v-if="sd.autoRun.mode === 'trace'"
-                  class="text-[9px] px-1 rounded bg-violet-100 text-violet-700 shrink-0"
+                  class="text-xs px-1 rounded bg-violet-100 text-violet-700 shrink-0"
                   >trace</span
                 >
                 <span
                   v-if="sd.autoRun.report && sd.autoRun.report.healed && sd.autoRun.report.healed.length"
-                  class="text-[9px] px-1 rounded bg-amber-100 text-amber-700 shrink-0"
+                  class="text-xs px-1 rounded bg-amber-100 text-amber-700 shrink-0"
                   >{{ sd.autoRun.report.healed.length }} réparation(s)</span
                 >
                 <button
                   v-if="sd.autoRun.running && sd.autoRun.run_id"
-                  class="ml-auto text-[10px] px-1.5 rounded border border-slate-200 text-slate-600 hover:bg-white shrink-0"
+                  class="ml-auto text-xs px-1.5 rounded border border-slate-200 text-slate-600 hover:bg-white shrink-0"
                   @click="sd.autoRunStop()"
                 >
                   Stop
                 </button>
                 <button
                   :class="sd.autoRun.running && sd.autoRun.run_id ? '' : 'ml-auto'"
-                  class="text-[10px] px-1.5 rounded text-slate-500 hover:bg-white shrink-0"
+                  class="text-xs px-1.5 rounded text-slate-500 hover:bg-white shrink-0"
                   @click="sd.autoRunOpen = !sd.autoRunOpen"
                 >
                   <i class="ph" :class="sd.autoRunOpen ? 'ph-caret-down' : 'ph-caret-up'"></i>
@@ -1538,7 +1579,7 @@ function poserSaisieModale(el: unknown): void {
                   <div
                     v-for="r in sd.autoRun.matrix.results"
                     :key="r.target"
-                    class="px-2 py-1 text-[10.5px] flex items-center gap-2 border-b border-slate-50"
+                    class="px-2 py-1 text-xs flex items-center gap-2 border-b border-slate-50"
                   >
                     <i
                       class="ph shrink-0"
@@ -1555,7 +1596,7 @@ function poserSaisieModale(el: unknown): void {
                   <div
                     v-for="st in sd.autoRunSteps"
                     :key="st.index"
-                    class="px-2 py-1 text-[10.5px] flex items-center gap-2 border-b border-slate-50"
+                    class="px-2 py-1 text-xs flex items-center gap-2 border-b border-slate-50"
                     :class="st.ok ? '' : 'bg-red-50'"
                   >
                     <i
@@ -1571,19 +1612,17 @@ function poserSaisieModale(el: unknown): void {
                       l.{{ st.line }}
                     </button>
                     <span class="text-slate-700 truncate">{{ st.label }}</span>
-                    <span
-                      v-if="st.method"
-                      class="text-[9px] px-1 rounded bg-slate-100 text-slate-500 shrink-0"
+                    <span v-if="st.method" class="text-xs px-1 rounded bg-slate-100 text-slate-500 shrink-0"
                       >{{ st.method }}{{ st.resolved_by ? " · " + st.resolved_by : "" }}</span
                     >
-                    <span v-if="st.waited_ms" class="text-[9px] text-amber-600 shrink-0"
+                    <span v-if="st.waited_ms" class="text-xs text-amber-600 shrink-0"
                       >attendu {{ st.waited_ms }} ms</span
                     >
                     <span class="text-slate-400 shrink-0">{{ st.ms }} ms</span>
                     <button
                       v-if="st.healed && st.healed.suggest"
                       :title="'Réparé par ' + st.healed.by + ' → ' + st.healed.suggest"
-                      class="text-[9px] px-1.5 rounded border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 shrink-0"
+                      class="text-xs px-1.5 rounded border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 shrink-0"
                       @click="sd.autoApplyHeal(st)"
                     >
                       Appliquer {{ st.healed.suggest }}
@@ -1593,7 +1632,7 @@ function poserSaisieModale(el: unknown): void {
                       :href="sd.autoRunFileUrl(st.screenshot)"
                       target="_blank"
                       title="Capture de l'échec"
-                      class="text-[9px] px-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
+                      class="text-xs px-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
                       ><i class="ph ph-image"></i> capture</a
                     >
                     <a
@@ -1601,14 +1640,14 @@ function poserSaisieModale(el: unknown): void {
                       :href="sd.autoRunFileUrl(st.trace_png)"
                       target="_blank"
                       title="Capture de l'étape (trace)"
-                      class="text-[9px] px-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
+                      class="text-xs px-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
                       ><i class="ph ph-image"></i
                     ></a>
                     <button
                       v-if="!st.ok && !st.dry"
                       :disabled="sd.autoRepairBusy"
                       title="Demander au modèle une ligne de remplacement (étape, erreur, arbre, éléments)"
-                      class="text-[9px] px-1.5 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 shrink-0 flex items-center gap-1"
+                      class="text-xs px-1.5 rounded border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 shrink-0 flex items-center gap-1"
                       @click="sd.autoRepairWithAi(st)"
                     >
                       <i class="ph" :class="sd.autoRepairBusy ? 'ph-spinner animate-spin' : 'ph-sparkle'"></i>
@@ -1620,7 +1659,7 @@ function poserSaisieModale(el: unknown): void {
                   </div>
                   <div
                     v-if="!sd.autoRunSteps.length && sd.autoRun.log && sd.autoRun.log.length"
-                    class="px-2 py-1 font-mono text-[9.5px] text-slate-500 whitespace-pre-wrap"
+                    class="px-2 py-1 font-mono text-xs text-slate-500 whitespace-pre-wrap"
                   >
                     {{ sd.autoRun.log.slice(-12).join("\n") }}
                   </div>
@@ -1630,7 +1669,7 @@ function poserSaisieModale(el: unknown): void {
                       !(sd.autoRun.log && sd.autoRun.log.length) &&
                       !sd.autoRun.running
                     "
-                    class="px-2 py-2 text-[10.5px] text-slate-400"
+                    class="px-2 py-2 text-xs text-slate-400"
                   >
                     Aucune étape rapportée.
                   </div>
@@ -1644,14 +1683,14 @@ function poserSaisieModale(el: unknown): void {
                 type="text"
                 :disabled="sd.autoAiBusy"
                 placeholder="Demander à l'IA : « clique sur Enregistrer puis attends la fenêtre Confirmation »"
-                class="flex-1 min-w-0 h-7 text-[11px] px-2 rounded-md border border-slate-200 outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+                class="flex-1 min-w-0 h-7 text-xs px-2 rounded-md border border-slate-200 outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
                 @keydown.enter.prevent="sd.autoAiAsk()"
               />
               <button
                 v-if="!sd.autoAiBusy"
                 :disabled="!sd.autoAiPrompt.trim()"
                 title="Insérer les lignes proposées au curseur"
-                class="h-7 px-2 rounded-md text-[11px] font-medium border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 shrink-0"
+                class="h-7 px-2 rounded-md text-xs font-medium border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50 shrink-0"
                 @click="sd.autoAiAsk()"
               >
                 Insérer
@@ -1659,7 +1698,7 @@ function poserSaisieModale(el: unknown): void {
               <button
                 v-else
                 title="Arrêter"
-                class="h-7 px-2 rounded-md text-[11px] border border-slate-200 text-slate-600 flex items-center gap-1 shrink-0"
+                class="h-7 px-2 rounded-md text-xs border border-slate-200 text-slate-600 flex items-center gap-1 shrink-0"
                 @click="sd.autoAiStop()"
               >
                 <i class="ph ph-spinner animate-spin"></i> Stop
@@ -1681,7 +1720,7 @@ function poserSaisieModale(el: unknown): void {
         class="fixed z-[61] min-w-[210px] bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-sm elpis-ctx-menu"
         :style="{ left: sd.studioCtxMenu.x + 'px', top: sd.studioCtxMenu.y + 'px' }"
       >
-        <div class="px-3 py-1 text-[11px] text-slate-400 border-b border-slate-100 mb-1 truncate">
+        <div class="px-3 py-1 text-xs text-slate-400 border-b border-slate-100 mb-1 truncate">
           {{
             sd.studioCtxMenu.el
               ? "« " +
@@ -1706,7 +1745,7 @@ function poserSaisieModale(el: unknown): void {
             class="absolute min-w-[230px] max-h-[70vh] overflow-y-auto custom-scrollbar bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[62]"
             :class="sd.ctxSubPos()"
           >
-            <div class="px-3 pt-0.5 pb-1 text-[10px] text-slate-400 truncate">
+            <div class="px-3 pt-0.5 pb-1 text-xs text-slate-400 truncate">
               S'insère au curseur{{
                 sd.studioCtxMenu.el ? " — cible : " + sd.elementDisplay(sd.studioCtxMenu.el) : ""
               }}
@@ -1744,7 +1783,7 @@ function poserSaisieModale(el: unknown): void {
             >
               <i class="ph ph-hourglass text-slate-400"></i>
               {{ sd.studioCtxMenu.el ? "Attendre l'élément" : "Attendre l'écran stable" }}
-              <span class="ml-auto text-[10px] text-slate-400" title="Délai (champ « Délai » de la palette)"
+              <span class="ml-auto text-xs text-slate-400" title="Délai (champ « Délai » de la palette)"
                 >{{ sd.autoWaitSec }} s</span
               >
             </button>
@@ -1753,7 +1792,7 @@ function poserSaisieModale(el: unknown): void {
               @click="sd.ctxScript('pause')"
             >
               <i class="ph ph-timer text-slate-400"></i> Pause
-              <span class="ml-auto text-[10px] text-slate-400">{{ sd.autoWaitSec }} s</span>
+              <span class="ml-auto text-xs text-slate-400">{{ sd.autoWaitSec }} s</span>
             </button>
             <template v-if="sd.studioCtxMenu.el">
               <button
@@ -1761,7 +1800,7 @@ function poserSaisieModale(el: unknown): void {
                 @click="sd.ctxScript('wait_gone')"
               >
                 <i class="ph ph-hourglass-low text-slate-400"></i> Attendre sa disparition
-                <span class="ml-auto text-[10px] text-slate-400">{{ sd.autoWaitSec }} s</span>
+                <span class="ml-auto text-xs text-slate-400">{{ sd.autoWaitSec }} s</span>
               </button>
               <button
                 class="w-full text-left px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
@@ -2092,7 +2131,7 @@ function poserSaisieModale(el: unknown): void {
           @keydown.meta.enter="sd.textModalOk()"
         ></textarea>
         <div class="flex items-center justify-between mt-3">
-          <span class="text-[10px] text-slate-400">Ctrl+Entrée pour valider · multi-ligne autorisé</span>
+          <span class="text-xs text-slate-400">Ctrl+Entrée pour valider · multi-ligne autorisé</span>
           <div class="flex items-center gap-2">
             <button
               class="text-sm px-3 py-1.5 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"

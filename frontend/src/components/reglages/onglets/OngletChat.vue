@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletChat.vue — onglet « chat » des Paramètres. -->
 <script setup lang="ts">
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -9,10 +10,7 @@ const rg = domaineReglages();
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-xl">
-    <div>
-      <h3 class="text-base font-semibold text-slate-800 mb-1">Chat</h3>
-      <p class="text-xs text-slate-500">Comportement et présentation des conversations.</p>
-    </div>
+    <AideOnglet titre="Chat">Comportement et présentation des conversations.</AideOnglet>
 
     <div>
       <label class="block text-xs font-medium text-slate-600 mb-1.5">Prompt système</label>
@@ -27,7 +25,7 @@ const rg = domaineReglages();
     <div class="bg-slate-50 rounded-lg p-3.5" :class="rg.settings.skin === 'llamacpp' ? 'opacity-50' : ''">
       <div class="flex justify-between items-center mb-2">
         <span class="text-sm text-slate-700">Largeur</span>
-        <span class="text-[11px] font-mono text-blue-600 bg-white px-2 py-0.5 rounded border border-slate-200"
+        <span class="text-xs font-mono text-blue-600 bg-white px-2 py-0.5 rounded border border-slate-200"
           >{{ rg.settings.chat_width }}%</span
         >
       </div>
@@ -40,7 +38,7 @@ const rg = domaineReglages();
         :disabled="rg.settings.skin === 'llamacpp'"
         class="set-range w-full"
       />
-      <p v-if="rg.settings.skin === 'llamacpp'" class="text-[10px] text-slate-500 mt-1.5">
+      <p v-if="rg.settings.skin === 'llamacpp'" class="text-xs text-slate-500 mt-1.5">
         Largeur fixe (colonne centrée) imposée par l'habillage llama.cpp.
       </p>
     </div>
@@ -50,7 +48,7 @@ const rg = domaineReglages();
         <i class="ph ph-brain text-slate-400 text-lg w-5"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-slate-800">Masquer le raisonnement</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Cache les blocs « thinking » des réponses. Le raisonnement reste produit, il n'est simplement plus
             affiché.
           </div>
@@ -67,7 +65,7 @@ const rg = domaineReglages();
         <i class="ph ph-terminal-window text-slate-400 text-lg w-5"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-slate-800">Terminal en direct</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Affiche la sortie des commandes shell exécutées par l'assistant en temps réel, dans la
             conversation. Désactivé, la sortie reste visible dans le détail de l'outil.
           </div>
@@ -89,7 +87,7 @@ const rg = domaineReglages();
         <i class="ph ph-timer text-slate-400 text-lg w-5"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-slate-800">Me réveiller quand une tâche de fond se termine</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Une tâche lancée par l'assistant peut relancer la conversation toute seule à sa fin ou sur un
             événement. Désactivé, le résultat est joint à votre prochain message. Réglable aussi conversation
             par conversation.
@@ -116,7 +114,7 @@ const rg = domaineReglages();
         <i class="ph ph-microphone text-slate-400 text-lg w-5"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-slate-800">Dictée</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Un bouton micro dans la zone de saisie. Le texte s'écrit phrase après phrase ; l'envoi reste
             manuel.
           </div>
@@ -136,7 +134,7 @@ const rg = domaineReglages();
         <i class="ph ph-speaker-high text-slate-400 text-lg w-5"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-slate-800">Réponse vocale</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Lit les réponses à voix haute pendant qu'elles s'écrivent. Le bouton « lire » de chaque message
             reste disponible sans cela.
           </div>
@@ -160,7 +158,7 @@ const rg = domaineReglages();
         <i class="ph ph-wrench text-slate-400 text-lg w-5"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-slate-800">Lire entre les outils</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Lit aussi ce que l'assistant annonce avant chaque appel d'outil, pas seulement la réponse finale.
           </div>
         </div>
@@ -177,19 +175,19 @@ const rg = domaineReglages();
 
       <p
         v-if="rg.features.voice_stt && !rg.voiceMicSupported"
-        class="text-[11px] text-amber-700 bg-amber-50 border-t border-amber-200 px-3 py-2"
+        class="text-xs text-amber-700 bg-amber-50 border-t border-amber-200 px-3 py-2"
       >
         Micro indisponible : {{ rg.voiceCompatInfo.dictee.raison }}
       </p>
       <p
         v-if="rg.features.voice_tts && !rg.voiceReadSupported"
-        class="text-[11px] text-amber-700 bg-amber-50 border-t border-amber-200 px-3 py-2"
+        class="text-xs text-amber-700 bg-amber-50 border-t border-amber-200 px-3 py-2"
       >
         {{ rg.voiceCompatInfo.lecture.raison }}
       </p>
       <p
         v-if="rg.voiceCompatInfo.avertissement && (rg.voiceMicSupported || rg.voiceReadSupported)"
-        class="text-[11px] text-slate-500 border-t border-slate-200 px-3 py-2"
+        class="text-xs text-slate-500 border-t border-slate-200 px-3 py-2"
       >
         {{ rg.voiceCompatInfo.avertissement }}
       </p>
@@ -207,7 +205,7 @@ const rg = domaineReglages();
         <i class="ph ph-bell-ringing text-slate-400 text-lg w-5"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-slate-800">Notifications système</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Affiche une notification du système d'exploitation (routines, scénarios, rapports…) quand cette
             fenêtre n'est pas au premier plan.
             <span v-if="!rg.notifyOSSupported" class="text-amber-600">Non supporté par ce navigateur.</span>
@@ -233,7 +231,7 @@ const rg = domaineReglages();
       <div class="flex items-center justify-between gap-3">
         <div class="text-xs min-w-0">
           <div class="font-medium text-slate-700">Effacer les conversations</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Supprime tous les chats actifs — irréversible. Les archives ne sont pas affectées.
           </div>
         </div>

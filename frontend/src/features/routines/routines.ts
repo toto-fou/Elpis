@@ -47,12 +47,10 @@ export const MODES_NOTIFICATION: ReadonlyArray<{ id: string; label: string }> = 
   { id: "none", label: "Aucune" },
 ];
 export const ONGLETS_EDITION: ReadonlyArray<{ id: string; label: string; icon: string }> = [
-  { id: "general", label: "Nom", icon: "ph-textbox" },
-  { id: "schedule", label: "Déclencheurs", icon: "ph-clock" },
-  { id: "prompt", label: "Prompt", icon: "ph-chat-text" },
-  { id: "mcp", label: "MCP", icon: "ph-plugs-connected" },
-  { id: "skills", label: "Skills", icon: "ph-graduation-cap" },
-  { id: "agents", label: "Agents", icon: "ph-user-gear" },
+  { id: "general", label: "Général", icon: "ph-textbox" },
+  { id: "schedule", label: "Planification", icon: "ph-clock" },
+  { id: "prompt", label: "Tâche", icon: "ph-chat-text" },
+  { id: "tools", label: "Outils", icon: "ph-plugs-connected" },
 ];
 
 type Identifiant = number | string;
@@ -228,6 +226,11 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     }
   }
   document.addEventListener("visibilitychange", auRetourDePremierPlan);
+
+  function cronLisible(expr: string): string {
+    const planif = planificationDepuisCron(expr);
+    return planif.freq === "custom" ? expr : resumerPlanification(planif);
+  }
 
   const builtCron = computed(() => cronDepuisPlanification(schedule.value));
   const scheduleSummary = computed(() => resumerPlanification(schedule.value));
@@ -432,6 +435,7 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     webhookFilterForm.value = { events: [], branch: "", repo: "" };
     routineEditTab.value = "general";
     routineEditMode.value = "create";
+    memoriserFormulaire();
   }
 
   function viewRoutine(r: RoutineListee): void {
@@ -476,10 +480,19 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     selectedRoutineId.value = r.id;
     routineEditTab.value = "general";
     routineEditMode.value = "edit";
+    memoriserFormulaire();
     void loadRuns(r.id);
   }
 
-  function cancelRoutineEdit(): void {
+  async function cancelRoutineEdit(): Promise<void> {
+    if (routineDirty.value) {
+      const ok = await openConfirm(
+        "Abandonner les modifications ?",
+        "Les changements de cette routine ne sont pas enregistrés.",
+        true,
+      );
+      if (!ok) return;
+    }
     if (routineEditMode.value === "edit" && viewed.value) {
       viewRoutine(viewed.value);
       return;
@@ -487,6 +500,17 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     const premiere = routines.value[0];
     if (premiere) viewRoutine(premiere);
     else reinitialiserEditeur();
+  }
+
+  const empreinteInitiale = ref("");
+  const routineDirty = computed(
+    () => routineIsEditing.value && empreinteInitiale.value !== empreinteFormulaire(),
+  );
+  function empreinteFormulaire(): string {
+    return JSON.stringify([chargeUtile(), webhookFilterForm.value, webhookEventsInput.value]);
+  }
+  function memoriserFormulaire(): void {
+    empreinteInitiale.value = empreinteFormulaire();
   }
 
   function chargeUtile() {
@@ -779,6 +803,7 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     routineForm,
     viewed,
     routineEditTab,
+    routineDirty,
     routineEditTabs: ONGLETS_EDITION,
     routineIsEditing,
     ROUTINE_BUILTIN_AGENTS: BUILTIN_AGENTS,
@@ -850,6 +875,7 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     fmtRunTime: formaterHeure,
     fmtDuration: formaterDuree,
     cronToHuman: cronEnTexte,
+    cronLisible,
     mcpSummary: resumeMcp,
     runStatusLabel: libelleStatut,
     runDetailText: texteDetailRun,

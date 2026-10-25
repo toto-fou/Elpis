@@ -1,21 +1,21 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletConnexions.vue — onglet « connexions » des Paramètres. -->
 <script setup lang="ts">
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
+import { interfaceApp } from "../../../features/reglages/interface";
 
 const rg = domaineReglages();
+const ui = interfaceApp();
+const titre = ui.classique ? "Connexions" : "Jetons d'accès";
 </script>
 
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-2xl">
-    <div>
-      <h3 class="text-base font-semibold text-slate-800 mb-1">Connexions</h3>
-      <p class="text-xs text-slate-500">
-        Jetons pour utiliser vos outils Elpis depuis un autre client (MCP, OpenAPI, opencode). Un jeton n'est
-        affiché qu'une fois : en cas de perte, régénérez-le.
-      </p>
-    </div>
+    <AideOnglet :titre="titre"
+      >Jetons pour utiliser vos outils Elpis depuis un autre client (MCP, OpenAPI, opencode).</AideOnglet
+    >
 
     <div
       v-if="rg.cnxState.reveal"
@@ -73,10 +73,10 @@ const rg = domaineReglages();
       <template v-for="b in rg.cnxBlocks()" :key="'blk' + b.id">
         <div v-if="rg.cnxState.tab === b.id" class="relative">
           <pre
-            class="font-mono text-[11px] leading-relaxed bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-64 overflow-auto custom-scrollbar whitespace-pre"
+            class="font-mono text-xs leading-relaxed bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-64 overflow-auto custom-scrollbar whitespace-pre"
             >{{ b.text }}</pre>
           <button
-            class="absolute top-2 right-2 px-2 py-1 text-[11px] rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            class="absolute top-2 right-2 px-2 py-1 text-xs rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
             @click="rg.cnxCopy(b.text)"
           >
             Copier
@@ -85,7 +85,7 @@ const rg = domaineReglages();
       </template>
       <div
         v-if="rg.cnxState.reveal.item.kind === 'tools'"
-        class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500"
+        class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500"
       >
         <span>Schémas :</span>
         <template v-for="f in rg.cnxState.reveal.item.families" :key="'sch' + f">
@@ -112,7 +112,7 @@ const rg = domaineReglages();
             {{ t.name }}
             <span class="text-slate-400 font-normal font-mono text-xs">…{{ t.hint }}</span>
           </div>
-          <div class="text-[11px] text-slate-500 truncate">
+          <div class="text-xs text-slate-500 truncate">
             {{ rg.cnxKindLabel(t.kind)
             }}<template v-if="t.families.length"> · {{ t.families.join(", ") }}</template> · créé le
             {{ rg.cnxDate(t.created_at) }} ·
@@ -153,7 +153,7 @@ const rg = domaineReglages();
       <div class="text-sm font-medium text-slate-700">Nouveau jeton</div>
       <div class="grid grid-cols-2 gap-2.5">
         <div>
-          <label for="cnx-name" class="text-[11px] font-medium text-slate-500">Nom</label>
+          <label for="cnx-name" class="text-xs font-medium text-slate-500">Nom</label>
           <input
             id="cnx-name"
             v-model="rg.cnxState.form.name"
@@ -163,7 +163,7 @@ const rg = domaineReglages();
           />
         </div>
         <div>
-          <label for="cnx-kind" class="text-[11px] font-medium text-slate-500">Type</label>
+          <label for="cnx-kind" class="text-xs font-medium text-slate-500">Type</label>
           <select id="cnx-kind" v-model="rg.cnxState.form.kind" class="set-select w-full mt-0.5">
             <option value="tools">Outils (MCP, OpenAPI)</option>
             <option v-if="rg.cnxState.opencode" value="opencode">opencode (plugin)</option>
@@ -172,7 +172,7 @@ const rg = domaineReglages();
       </div>
       <template v-if="rg.cnxState.form.kind === 'tools' && rg.cnxState.policy">
         <div>
-          <div class="text-[11px] font-medium text-slate-500 mb-1">Familles d'outils</div>
+          <div class="text-xs font-medium text-slate-500 mb-1">Familles d'outils</div>
           <div class="flex flex-wrap gap-x-4 gap-y-1.5">
             <label
               v-for="f in rg.cnxState.policy.families"
@@ -184,15 +184,15 @@ const rg = domaineReglages();
                 type="checkbox"
                 class="rounded border-slate-300"
               />
-              {{ f.label }} <span class="font-mono text-[11px] text-slate-400">{{ f.name }}</span>
+              {{ f.label }} <span class="font-mono text-xs text-slate-400">{{ f.name }}</span>
             </label>
           </div>
-          <p v-if="rg.cnxState.form.families.desktop" class="text-[11px] text-amber-700 mt-1">
+          <p v-if="rg.cnxState.form.families.desktop" class="text-xs text-amber-700 mt-1">
             « desktop » pilote vos machines hors de la sandbox.
           </p>
         </div>
         <div>
-          <label for="cnx-days" class="text-[11px] font-medium text-slate-500">Durée de validité</label>
+          <label for="cnx-days" class="text-xs font-medium text-slate-500">Durée de validité</label>
           <div class="flex items-center gap-2 mt-0.5">
             <input
               id="cnx-days"
@@ -235,13 +235,13 @@ const rg = domaineReglages();
     >
       <i class="ph ph-plus" aria-hidden="true"></i> Nouveau jeton
     </button>
-    <p v-if="rg.cnxState.policy && !rg.cnxState.policy.tools_enabled" class="text-[11px] text-slate-500">
+    <p v-if="rg.cnxState.policy && !rg.cnxState.policy.tools_enabled" class="text-xs text-slate-500">
       Les jetons d'outils sont désactivés par l'administrateur.
     </p>
 
     <div v-if="rg.cnxState.oauthEnabled || rg.cnxState.grants.length" class="pt-2 space-y-2">
       <div class="text-sm font-medium text-slate-700">Applications autorisées</div>
-      <p class="text-[11px] text-slate-500">
+      <p class="text-xs text-slate-500">
         Un client MCP peut aussi se connecter avec la seule adresse
         <span class="font-mono">{{ rg.cnxState.bridgeUrl || "/api/mcp-bridge" }}</span> : Elpis vous demande
         alors votre accord.
@@ -256,7 +256,7 @@ const rg = domaineReglages();
           <div class="text-sm font-medium text-slate-800 truncate" :title="g.client_id">
             {{ g.client_name }}
           </div>
-          <div class="text-[11px] text-slate-500 truncate">
+          <div class="text-xs text-slate-500 truncate">
             {{ g.families.join(", ") }}
             · autorisé le {{ rg.cnxDate(g.created_at) }} ·
             {{ g.last_used_at ? "utilisé le " + rg.cnxDate(g.last_used_at) : "jamais utilisé" }}

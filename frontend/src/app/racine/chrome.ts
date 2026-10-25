@@ -73,12 +73,15 @@ const fenetreFermee = (): EtatFenetre => ({
   resolve: null,
 });
 
+const MAX_ERREURS_PERSISTANTES = 5;
+
 export function creerToasts() {
   const toasts = ref<Toast[]>([]);
 
-  /** Deux toasts identiques sans action ne s'empilent pas : le premier est prolongé. */
+  /** Deux toasts identiques sans action ne s'empilent pas ; une erreur reste affichée jusqu'à sa fermeture, sauf durée explicite. */
   function showToast(message: string, type?: string, opts: OptionsToast = {}): number {
     const genre = type || "success";
+    const persistant = genre === "error" && typeof opts.duration !== "number";
     const duree = typeof opts.duration === "number" ? opts.duration : 4000;
     if (!opts.actionLabel && !opts.onExpire) {
       const meme = toasts.value.find(
@@ -86,9 +89,11 @@ export function creerToasts() {
       );
       if (meme) {
         if (meme._timer) clearTimeout(meme._timer);
-        meme._timer = setTimeout(() => {
-          toasts.value = toasts.value.filter((x) => x.id !== meme.id);
-        }, duree);
+        meme._timer = persistant
+          ? undefined
+          : setTimeout(() => {
+              toasts.value = toasts.value.filter((x) => x.id !== meme.id);
+            }, duree);
         return meme.id;
       }
     }
@@ -100,6 +105,11 @@ export function creerToasts() {
     }
     if (typeof opts.onExpire === "function") toast.onExpire = opts.onExpire;
     toasts.value.push(toast);
+    if (persistant) {
+      const erreurs = toasts.value.filter((x) => x.type === "error" && !x._timer);
+      if (erreurs.length > MAX_ERREURS_PERSISTANTES) removeToast(erreurs[0]?.id ?? id);
+      return id;
+    }
     toast._timer = setTimeout(() => {
       const t = toasts.value.find((x) => x.id === id);
       toasts.value = toasts.value.filter((x) => x.id !== id);

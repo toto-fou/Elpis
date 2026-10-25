@@ -147,14 +147,14 @@ const rg = domaineReglages();
 
               <div
                 v-if="rg.promptExtrait(p)"
-                class="text-[11px] text-slate-500 font-mono truncate"
+                class="text-xs text-slate-500 font-mono truncate"
                 data-prompt-excerpt
               >
                 {{ rg.promptExtrait(p) }}
               </div>
             </div>
             <span
-              class="text-[11px] text-slate-400 tabular-nums shrink-0"
+              class="text-xs text-slate-400 tabular-nums shrink-0"
               data-prompt-date
               :title="rg.promptDateFull(p.created_at)"
               >{{ rg.promptDate(p.created_at) }}</span
@@ -165,10 +165,10 @@ const rg = domaineReglages();
             >
               <button
                 title="Insérer"
-                class="px-2 py-1 text-[11px] font-medium bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-600 rounded-md flex items-center gap-1 transition-colors"
+                class="px-2 py-1 text-xs font-medium bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-600 rounded-md flex items-center gap-1 transition-colors"
                 @click.stop="rg.usePrompt(p.content)"
               >
-                <i class="ph ph-arrow-bend-up-left text-[10px]" aria-hidden="true"></i> Insérer
+                <i class="ph ph-arrow-bend-up-left text-xs" aria-hidden="true"></i> Insérer
               </button>
 
               <button
@@ -178,7 +178,7 @@ const rg = domaineReglages();
                 class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-500 rounded-md transition-colors"
                 @click.stop="rg.copyPrompt(p.content)"
               >
-                <i class="ph ph-copy text-[10px]" aria-hidden="true"></i>
+                <i class="ph ph-copy text-xs" aria-hidden="true"></i>
               </button>
               <button
                 title="En faire un template"
@@ -187,7 +187,7 @@ const rg = domaineReglages();
                 class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-500 rounded-md transition-colors"
                 @click.stop="rg.templateFromPrompt(p)"
               >
-                <i class="ph ph-brackets-curly text-[10px]" aria-hidden="true"></i>
+                <i class="ph ph-brackets-curly text-xs" aria-hidden="true"></i>
               </button>
               <button
                 title="Partager"
@@ -195,7 +195,7 @@ const rg = domaineReglages();
                 class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-500 rounded-md transition-colors"
                 @click.stop.prevent="rg.openShareModal(p)"
               >
-                <i class="ph ph-share-network text-[10px]" aria-hidden="true"></i>
+                <i class="ph ph-share-network text-xs" aria-hidden="true"></i>
               </button>
               <button
                 title="Supprimer"
@@ -203,7 +203,7 @@ const rg = domaineReglages();
                 class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-500 rounded-md transition-colors"
                 @click.stop="rg.deleteSavedPrompt(p.id, p.title)"
               >
-                <i class="ph ph-trash text-[10px]" aria-hidden="true"></i>
+                <i class="ph ph-trash text-xs" aria-hidden="true"></i>
               </button>
             </div>
           </div>
@@ -247,7 +247,7 @@ const rg = domaineReglages();
       <div v-if="rg.templateForm" class="bg-slate-50 rounded-xl p-3 space-y-2.5" data-template-form>
         <div class="flex gap-2">
           <div class="w-40 shrink-0">
-            <label for="tpl-name" class="text-[11px] font-medium text-slate-500 block mb-1">Raccourci</label>
+            <label for="tpl-name" class="text-xs font-medium text-slate-500 block mb-1">Raccourci</label>
             <div class="relative">
               <span
                 class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono pointer-events-none"
@@ -267,7 +267,7 @@ const rg = domaineReglages();
             </div>
           </div>
           <div class="flex-1 min-w-0">
-            <label for="tpl-title" class="text-[11px] font-medium text-slate-500 block mb-1">Titre</label>
+            <label for="tpl-title" class="text-xs font-medium text-slate-500 block mb-1">Titre</label>
             <input
               id="tpl-title"
               v-model="rg.templateForm.title"
@@ -281,7 +281,7 @@ const rg = domaineReglages();
         </div>
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label for="tpl-content" class="text-[11px] font-medium text-slate-500">Contenu</label>
+            <label for="tpl-content" class="text-xs font-medium text-slate-500">Contenu</label>
             <i
               class="ph ph-question text-slate-400 text-sm cursor-default"
               :title="rg.templateSyntaxHelp"
@@ -300,7 +300,7 @@ const rg = domaineReglages();
             class="set-textarea font-mono text-[12px] leading-relaxed"
           ></textarea>
         </div>
-        <div class="flex items-center gap-1.5 flex-wrap text-[11px]" data-template-vars>
+        <div class="flex items-center gap-1.5 flex-wrap text-xs" data-template-vars>
           <span class="text-slate-500">Variables</span>
           <span
             v-for="v in rg.templateFormVars.vars"
@@ -392,7 +392,7 @@ const rg = domaineReglages();
             <span class="flex-1 min-w-0 text-sm text-slate-800 truncate">{{ t.title }}</span>
             <span
               v-if="rg.templateVarsOf(t).vars.length"
-              class="text-[11px] text-slate-400 tabular-nums shrink-0"
+              class="text-xs text-slate-400 tabular-nums shrink-0"
               :title="
                 rg
                   .templateVarsOf(t)
@@ -407,10 +407,10 @@ const rg = domaineReglages();
               <button
                 title="Insérer"
                 data-template-insert-row
-                class="px-2 py-1 text-[11px] font-medium bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-600 rounded-md flex items-center gap-1 transition-colors"
+                class="px-2 py-1 text-xs font-medium bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-600 rounded-md flex items-center gap-1 transition-colors"
                 @click.stop="rg.insertTemplate(t)"
               >
-                <i class="ph ph-arrow-bend-up-left text-[10px]" aria-hidden="true"></i> Insérer
+                <i class="ph ph-arrow-bend-up-left text-xs" aria-hidden="true"></i> Insérer
               </button>
               <button
                 title="Éditer"
@@ -419,7 +419,7 @@ const rg = domaineReglages();
                 class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 text-slate-500 rounded-md transition-colors"
                 @click.stop="rg.editTemplate(t)"
               >
-                <i class="ph ph-pencil-simple text-[10px]" aria-hidden="true"></i>
+                <i class="ph ph-pencil-simple text-xs" aria-hidden="true"></i>
               </button>
               <button
                 title="Supprimer"
@@ -428,7 +428,7 @@ const rg = domaineReglages();
                 class="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-500 rounded-md transition-colors"
                 @click.stop="rg.deleteTemplate(t)"
               >
-                <i class="ph ph-trash text-[10px]" aria-hidden="true"></i>
+                <i class="ph ph-trash text-xs" aria-hidden="true"></i>
               </button>
             </div>
           </div>

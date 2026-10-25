@@ -39,7 +39,7 @@ const rg = domaineReglages();
           <div class="space-y-4">
             <div class="flex justify-between items-end">
               <h4 class="font-bold text-slate-800 text-sm">Connecteurs enregistrés</h4>
-              <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded"
+              <span class="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded"
                 >{{ rg.filteredMcpServers.length }} / {{ (rg.settings.mcp_servers || []).length }}</span
               >
             </div>
@@ -78,12 +78,12 @@ const rg = domaineReglages();
                     <span
                       v-if="rg.mcpHasCreds(srv)"
                       title="Identifiants gérés côté serveur"
-                      class="text-[9.5px] font-semibold px-1 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100"
+                      class="text-xs font-semibold px-1 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100"
                       >auth</span
                     >
                   </div>
                   <div
-                    class="text-[10px] text-slate-500 font-mono truncate"
+                    class="text-xs text-slate-500 font-mono truncate"
                     :class="!srv.visible && 'opacity-50'"
                   >
                     {{ srv.type === "stdio" ? "> " + srv.command : srv.url }}
@@ -132,7 +132,7 @@ const rg = domaineReglages();
             <div class="flex justify-between items-end">
               <div>
                 <h4 class="font-bold text-slate-800 text-sm">Bibliothèque partagée</h4>
-                <p class="text-[11px] text-slate-500">
+                <p class="text-xs text-slate-500">
                   Publiée pour tous. L'œil l'affiche dans votre panneau MCP.
                 </p>
               </div>
@@ -165,18 +165,18 @@ const rg = domaineReglages();
                     <span
                       v-if="rg.mcpHasCreds(srv)"
                       title="Identifiants gérés côté serveur"
-                      class="text-[9.5px] font-semibold px-1 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100"
+                      class="text-xs font-semibold px-1 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100"
                       >auth</span
                     >
                     <span
                       v-if="!srv.enabled"
-                      class="text-[9.5px] font-semibold px-1 py-0.5 rounded bg-slate-200 text-slate-600"
+                      class="text-xs font-semibold px-1 py-0.5 rounded bg-slate-200 text-slate-600"
                       >désactivé</span
                     >
                   </div>
 
                   <div
-                    class="text-[10px] text-slate-500 font-mono truncate"
+                    class="text-xs text-slate-500 font-mono truncate"
                     :class="!rg.isSharedVisible(srv.id) && 'opacity-50'"
                   >
                     {{
@@ -231,7 +231,7 @@ const rg = domaineReglages();
                 </div>
 
                 <select
-                  class="text-[10px] py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none text-slate-600"
+                  class="text-xs py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none text-slate-600"
                   @change="
                     rg.applyMcpPreset('shared', ($event.target as HTMLInputElement).value);
                     ($event.target as HTMLInputElement).value = '';
@@ -280,11 +280,11 @@ const rg = domaineReglages();
                   <span class="text-xs font-semibold text-slate-500">Authentification</span>
                   <select
                     v-model="rg.sharedMcpForm.auth_mode"
-                    class="text-[10px] py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none"
+                    class="text-xs py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none"
                   >
                     <option value="">Aucune</option>
                     <option value="bearer">Bearer (jeton)</option>
-                    <option value="basic">Basic (user + token)</option>
+                    <option value="basic">Basic (utilisateur + jeton)</option>
                     <option value="header">Clé d'API (en-tête)</option>
                     <option value="raw">Authorization brut</option>
                   </select>
@@ -293,13 +293,13 @@ const rg = domaineReglages();
                   <input
                     v-model="rg.sharedMcpForm.auth_user"
                     placeholder="username"
-                    class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                    class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                   />
                   <input
                     v-model="rg.sharedMcpForm.auth_secret"
                     type="password"
                     :placeholder="rg.sharedMcpForm.has_auth ? 'inchangé' : 'API token / password'"
-                    class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                    class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                   />
                 </div>
                 <div v-else-if="rg.sharedMcpForm.auth_mode === 'bearer'" class="flex gap-1.5">
@@ -307,20 +307,20 @@ const rg = domaineReglages();
                     v-model="rg.sharedMcpForm.auth_secret"
                     type="password"
                     :placeholder="rg.sharedMcpForm.has_auth ? 'inchangé' : 'jeton seul, sans « Bearer »'"
-                    class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                    class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                   />
                 </div>
                 <div v-else-if="rg.sharedMcpForm.auth_mode === 'header'" class="flex gap-1.5">
                   <input
                     v-model="rg.sharedMcpForm.auth_user"
                     placeholder="X-API-Key"
-                    class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                    class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                   />
                   <input
                     v-model="rg.sharedMcpForm.auth_secret"
                     type="password"
                     :placeholder="rg.sharedMcpForm.has_auth ? 'inchangé' : 'valeur de la clé'"
-                    class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                    class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                   />
                 </div>
                 <div v-else-if="rg.sharedMcpForm.auth_mode === 'raw'" class="flex gap-1.5">
@@ -330,21 +330,21 @@ const rg = domaineReglages();
                     :placeholder="
                       rg.sharedMcpForm.has_auth ? 'inchangé' : 'Bearer eyJ… ou Basic dXNlcjpwYXNz'
                     "
-                    class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                    class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                   />
                 </div>
-                <div v-else class="text-[10px] text-slate-400 italic px-1">Aucun header d'auth envoyé.</div>
+                <div v-else class="text-xs text-slate-400 italic px-1">Aucun header d'auth envoyé.</div>
 
                 <div class="mt-2 pt-2 border-t border-slate-100">
                   <div class="flex items-center justify-between mb-1">
-                    <span class="text-[11px] font-semibold text-slate-500">En-têtes</span>
+                    <span class="text-xs font-semibold text-slate-500">En-têtes</span>
                     <button
                       type="button"
                       title="Ajouter un en-tête"
                       class="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 border border-slate-200"
                       @click="rg.mcpAddPair(rg.sharedMcpForm, 'headers')"
                     >
-                      <i class="ph ph-plus text-[10px]"></i>
+                      <i class="ph ph-plus text-xs"></i>
                     </button>
                   </div>
                   <div
@@ -355,13 +355,13 @@ const rg = domaineReglages();
                     <input
                       v-model="h.name"
                       placeholder="X-API-Key"
-                      class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                      class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                     />
                     <input
                       v-model="h.value"
                       type="password"
                       :placeholder="h.has_value ? 'inchangé' : 'valeur'"
-                      class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                      class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                     />
                     <button
                       type="button"
@@ -369,12 +369,12 @@ const rg = domaineReglages();
                       class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-slate-400 hover:bg-red-50 hover:text-red-600"
                       @click="rg.mcpRemovePair(rg.sharedMcpForm, 'headers', hi)"
                     >
-                      <i class="ph ph-x text-[10px]"></i>
+                      <i class="ph ph-x text-xs"></i>
                     </button>
                   </div>
                   <div
                     v-if="!(rg.sharedMcpForm.headers || []).length"
-                    class="text-[10px] text-slate-400 italic px-1"
+                    class="text-xs text-slate-400 italic px-1"
                   >
                     Aucun.
                   </div>
@@ -390,20 +390,20 @@ const rg = domaineReglages();
                     class="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 border border-slate-200"
                     @click="rg.mcpAddPair(rg.sharedMcpForm, 'env')"
                   >
-                    <i class="ph ph-plus text-[10px]"></i>
+                    <i class="ph ph-plus text-xs"></i>
                   </button>
                 </div>
                 <div v-for="(e, ei) in rg.sharedMcpForm.env || []" :key="'se' + ei" class="flex gap-1.5 mb-1">
                   <input
                     v-model="e.name"
                     placeholder="WIKIJS_TOKEN"
-                    class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                    class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                   />
                   <input
                     v-model="e.value"
                     type="password"
                     :placeholder="e.has_value ? 'inchangé' : 'valeur'"
-                    class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                    class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                   />
                   <button
                     type="button"
@@ -411,33 +411,28 @@ const rg = domaineReglages();
                     class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-slate-400 hover:bg-red-50 hover:text-red-600"
                     @click="rg.mcpRemovePair(rg.sharedMcpForm, 'env', ei)"
                   >
-                    <i class="ph ph-x text-[10px]"></i>
+                    <i class="ph ph-x text-xs"></i>
                   </button>
                 </div>
-                <div
-                  v-if="!(rg.sharedMcpForm.env || []).length"
-                  class="text-[10px] text-slate-400 italic px-1"
-                >
+                <div v-if="!(rg.sharedMcpForm.env || []).length" class="text-xs text-slate-400 italic px-1">
                   Aucune.
                 </div>
               </div>
               <div class="flex items-center justify-between gap-2">
-                <label class="flex items-center gap-2 text-[11px] text-slate-600 cursor-pointer">
+                <label class="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
                   <input v-model="rg.sharedMcpForm.enabled" type="checkbox" class="accent-blue-600" />
                   Actif
                 </label>
                 <div class="flex items-center gap-2">
                   <span
                     v-if="rg.mcpTest.scope === 'shared' && rg.mcpTest.msg"
-                    class="text-[11px] font-medium"
+                    class="text-xs font-medium"
                     :class="rg.mcpTest.ok ? 'text-emerald-700' : 'text-red-600'"
                   >
                     <i class="ph" :class="rg.mcpTest.ok ? 'ph-check-circle' : 'ph-warning-circle'"></i>
                     {{ rg.mcpTest.msg }}
                   </span>
-                  <span v-if="rg.sharedMcpError" class="text-[11px] text-red-600">{{
-                    rg.sharedMcpError
-                  }}</span>
+                  <span v-if="rg.sharedMcpError" class="text-xs text-red-600">{{ rg.sharedMcpError }}</span>
                   <button
                     :disabled="rg.mcpTest.busy"
                     class="px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
@@ -475,7 +470,7 @@ const rg = domaineReglages();
             <div class="flex justify-between items-center">
               <div>
                 <h4 class="font-bold text-slate-800 text-sm">Serveurs Custom</h4>
-                <p class="text-[11px] text-slate-500">Hébergez vos propres outils.</p>
+                <p class="text-xs text-slate-500">Hébergez vos propres outils.</p>
               </div>
               <button
                 class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
@@ -540,7 +535,7 @@ const rg = domaineReglages();
               </div>
 
               <select
-                class="text-[10px] py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none text-slate-600"
+                class="text-xs py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none text-slate-600"
                 @change="
                   rg.applyMcpPreset('perso', ($event.target as HTMLInputElement).value);
                   ($event.target as HTMLInputElement).value = '';
@@ -590,11 +585,11 @@ const rg = domaineReglages();
                 <span class="text-xs font-semibold text-slate-500">Authentification</span>
                 <select
                   v-model="rg.newMcp.auth_mode"
-                  class="text-[10px] py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none"
+                  class="text-xs py-0.5 px-1.5 rounded border border-slate-200 bg-white outline-none"
                 >
                   <option value="">Aucune</option>
                   <option value="bearer">Bearer (jeton)</option>
-                  <option value="basic">Basic (user + token)</option>
+                  <option value="basic">Basic (utilisateur + jeton)</option>
                   <option value="header">Clé d'API (en-tête)</option>
                   <option value="raw">Authorization brut</option>
                 </select>
@@ -603,13 +598,13 @@ const rg = domaineReglages();
                 <input
                   v-model="rg.newMcp.auth_user"
                   placeholder="username"
-                  class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                  class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                 />
                 <input
                   v-model="rg.newMcp.auth_secret"
                   type="password"
                   :placeholder="rg.newMcp.has_auth ? 'inchangé' : 'API token / password'"
-                  class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                  class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                 />
               </div>
               <div v-else-if="rg.newMcp.auth_mode === 'bearer'" class="flex gap-1.5">
@@ -617,20 +612,20 @@ const rg = domaineReglages();
                   v-model="rg.newMcp.auth_secret"
                   type="password"
                   :placeholder="rg.newMcp.has_auth ? 'inchangé' : 'jeton seul, sans « Bearer »'"
-                  class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                  class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                 />
               </div>
               <div v-else-if="rg.newMcp.auth_mode === 'header'" class="flex gap-1.5">
                 <input
                   v-model="rg.newMcp.auth_user"
                   placeholder="X-API-Key"
-                  class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                  class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                 />
                 <input
                   v-model="rg.newMcp.auth_secret"
                   type="password"
                   :placeholder="rg.newMcp.has_auth ? 'inchangé' : 'valeur de la clé'"
-                  class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                  class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                 />
               </div>
               <div v-else-if="rg.newMcp.auth_mode === 'raw'" class="flex gap-1.5">
@@ -638,34 +633,34 @@ const rg = domaineReglages();
                   v-model="rg.newMcp.auth_secret"
                   type="password"
                   :placeholder="rg.newMcp.has_auth ? 'inchangé' : 'Bearer eyJ... ou Basic dXNlcjpwYXNz'"
-                  class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                  class="flex-1 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                 />
               </div>
-              <div v-else class="text-[10px] text-slate-400 italic px-1">Aucun header d'auth envoyé.</div>
+              <div v-else class="text-xs text-slate-400 italic px-1">Aucun header d'auth envoyé.</div>
 
               <div class="mt-2 pt-2 border-t border-slate-100">
                 <div class="flex items-center justify-between mb-1">
-                  <span class="text-[11px] font-semibold text-slate-500">En-têtes</span>
+                  <span class="text-xs font-semibold text-slate-500">En-têtes</span>
                   <button
                     type="button"
                     title="Ajouter un en-tête"
                     class="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 border border-slate-200"
                     @click="rg.mcpAddPair(rg.newMcp, 'headers')"
                   >
-                    <i class="ph ph-plus text-[10px]"></i>
+                    <i class="ph ph-plus text-xs"></i>
                   </button>
                 </div>
                 <div v-for="(h, hi) in rg.newMcp.headers || []" :key="'ph' + hi" class="flex gap-1.5 mb-1">
                   <input
                     v-model="h.name"
                     placeholder="X-API-Key"
-                    class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                    class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                   />
                   <input
                     v-model="h.value"
                     type="password"
                     :placeholder="h.has_value ? 'inchangé' : 'valeur'"
-                    class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                    class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                   />
                   <button
                     type="button"
@@ -673,10 +668,10 @@ const rg = domaineReglages();
                     class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-slate-400 hover:bg-red-50 hover:text-red-600"
                     @click="rg.mcpRemovePair(rg.newMcp, 'headers', hi)"
                   >
-                    <i class="ph ph-x text-[10px]"></i>
+                    <i class="ph ph-x text-xs"></i>
                   </button>
                 </div>
-                <div v-if="!(rg.newMcp.headers || []).length" class="text-[10px] text-slate-400 italic px-1">
+                <div v-if="!(rg.newMcp.headers || []).length" class="text-xs text-slate-400 italic px-1">
                   Aucun.
                 </div>
               </div>
@@ -691,20 +686,20 @@ const rg = domaineReglages();
                   class="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100 border border-slate-200"
                   @click="rg.mcpAddPair(rg.newMcp, 'env')"
                 >
-                  <i class="ph ph-plus text-[10px]"></i>
+                  <i class="ph ph-plus text-xs"></i>
                 </button>
               </div>
               <div v-for="(e, ei) in rg.newMcp.env || []" :key="'pe' + ei" class="flex gap-1.5 mb-1">
                 <input
                   v-model="e.name"
                   placeholder="WIKIJS_TOKEN"
-                  class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                  class="w-1/3 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                 />
                 <input
                   v-model="e.value"
                   type="password"
                   :placeholder="e.has_value ? 'inchangé' : 'valeur'"
-                  class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-mono outline-none focus:bg-white focus:border-blue-500"
+                  class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono outline-none focus:bg-white focus:border-blue-500"
                 />
                 <button
                   type="button"
@@ -712,17 +707,17 @@ const rg = domaineReglages();
                   class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-slate-400 hover:bg-red-50 hover:text-red-600"
                   @click="rg.mcpRemovePair(rg.newMcp, 'env', ei)"
                 >
-                  <i class="ph ph-x text-[10px]"></i>
+                  <i class="ph ph-x text-xs"></i>
                 </button>
               </div>
-              <div v-if="!(rg.newMcp.env || []).length" class="text-[10px] text-slate-400 italic px-1">
+              <div v-if="!(rg.newMcp.env || []).length" class="text-xs text-slate-400 italic px-1">
                 Aucune.
               </div>
             </div>
             <div class="flex justify-end items-center gap-2">
               <span
                 v-if="rg.mcpTest.scope === 'perso' && rg.mcpTest.msg"
-                class="text-[11px] font-medium mr-auto"
+                class="text-xs font-medium mr-auto"
                 :class="rg.mcpTest.ok ? 'text-emerald-700' : 'text-red-600'"
               >
                 <i class="ph" :class="rg.mcpTest.ok ? 'ph-check-circle' : 'ph-warning-circle'"></i>

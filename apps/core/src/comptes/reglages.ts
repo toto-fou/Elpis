@@ -99,10 +99,16 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "image_tool_enabled",
   "image_prefs",
   "jobs_wake",
+  "classic_ui",
 ]);
 
 /** Seules clés que le processus admin accepte en écriture (menu « Compte et apparence » de la console). */
-export const ADMIN_PORT_SETTINGS: ReadonlySet<string> = new Set(["skin", "dark_mode", "dark_mode_auto"]);
+export const ADMIN_PORT_SETTINGS: ReadonlySet<string> = new Set([
+  "skin",
+  "dark_mode",
+  "dark_mode_auto",
+  "classic_ui",
+]);
 
 const SANDBOX_PROTECTED = ["sandbox_mode", "network_profile_id"] as const;
 /** Cases coercées en booléen strict au PUT. */
@@ -118,6 +124,7 @@ const BOOLEENS = [
   "compression_enabled",
   "welcome_mascot_anime",
   "jobs_wake",
+  "classic_ui",
 ] as const;
 const MUTABLES_MCP = new Set([
   "visible",

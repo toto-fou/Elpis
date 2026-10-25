@@ -92,7 +92,7 @@ const rg = domaineReglages();
         </div>
         <div class="min-w-0 flex-1">
           <div class="font-medium text-slate-800 text-sm truncate">{{ c.title }}</div>
-          <div class="text-[11px] text-slate-500 mt-0.5">
+          <div class="text-xs text-slate-500 mt-0.5">
             {{ new Date(c.updated_at * 1000).toLocaleString("fr-FR") }}
           </div>
         </div>

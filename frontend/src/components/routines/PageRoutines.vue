@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/routines/PageRoutines.vue — page des routines : en-tête (retour, menu des groupes, actions), liste, vue lecture ou formulaire. -->
+<!-- frontend/src/components/routines/PageRoutines.vue — page des routines : en-tête (retour, actions), liste, vue lecture ou formulaire. -->
 <script setup lang="ts">
 import FormulaireRoutine from "./FormulaireRoutine.vue";
 import ListeRoutines from "./ListeRoutines.vue";
@@ -17,7 +17,6 @@ const rt = domaineRoutines();
     class="elpis-routines-page absolute inset-0 z-[45] bg-white flex flex-col"
   >
     <!-- == Header ================================================ -->
-    <!-- En création/édition : la flèche ANNULE (retour vue/liste), le titre devient celui du formulaire, et le header -->
     <header
       class="h-16 shrink-0 flex items-center justify-between gap-3 px-4 bg-white border-b border-slate-200"
     >
@@ -32,7 +31,14 @@ const rt = domaineRoutines();
         <i class="ph ph-clock-countdown text-blue-500 text-2xl shrink-0"></i>
         <div class="min-w-0">
           <h2 class="font-bold text-base text-slate-900 tracking-tight leading-tight">
-            {{
+            <span
+              v-if="rt.routineDirty"
+              class="text-amber-700"
+              title="Modifications non enregistrées"
+              aria-label="Modifications non enregistrées"
+              data-routine-dirty
+              >● </span
+            >{{
               !rt.routineIsEditing
                 ? "Routines"
                 : rt.routineEditMode === "edit"
@@ -40,43 +46,18 @@ const rt = domaineRoutines();
                   : "Nouvelle routine"
             }}
           </h2>
-          <p v-if="!rt.routineIsEditing" class="text-xs text-slate-500 truncate">
-            Tâches récurrentes automatisées : l'agent exécute une tâche planifiée avec les outils MCP et les
-            skills choisis.
+          <p
+            v-if="!rt.routineIsEditing"
+            class="text-xs text-slate-500 truncate"
+            title="L’assistant exécute une tâche planifiée avec les outils MCP et les skills choisis"
+          >
+            Tâches planifiées
           </p>
           <p v-else class="text-xs text-slate-500 truncate">
             {{ rt.routineForm.name || "Sans nom" }} · {{ rt.scheduleSummary }}
           </p>
         </div>
       </div>
-
-      <!-- Menu des groupes de configuration (création/édition seulement) -->
-      <nav
-        v-if="rt.routineIsEditing"
-        aria-label="Sections de la configuration"
-        class="flex items-center gap-1 min-w-0 overflow-x-auto"
-        data-routine-tabs
-      >
-        <button
-          v-for="t in rt.routineEditTabs"
-          :key="t.id"
-          type="button"
-          :aria-current="rt.routineEditTab === t.id ? 'true' : undefined"
-          class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5"
-          :class="
-            rt.routineEditTab === t.id
-              ? 'bg-slate-100 text-slate-900'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-          "
-          @click="rt.routineEditTab = t.id"
-        >
-          <i
-            class="ph text-sm"
-            :class="[t.icon, rt.routineEditTab === t.id ? 'text-blue-600' : 'text-slate-400']"
-          ></i
-          >{{ t.label }}
-        </button>
-      </nav>
 
       <div v-if="!rt.routineIsEditing" class="flex items-center gap-1.5 shrink-0">
         <button

@@ -65,6 +65,7 @@ export function creerModale(
     d.hide_thinking ??= false;
     d.live_shell_enabled ??= true;
     d.jobs_wake ??= true;
+    d.classic_ui ??= false;
     d.voice_input_enabled ??= false;
     d.voice_reply_enabled ??= false;
     d.voice_reply_tools_enabled ??= false;
@@ -178,6 +179,7 @@ export function creerModale(
   /** Seul `true` strict signifie « ne pas recharger » (un événement DOM, truthy, ne le signifie pas). */
   async function closeSettings(sauterRecharge?: unknown): Promise<void> {
     const saute = sauterRecharge === true;
+    await persistance.viderEnAttente();
     if (!saute && dep.etatsSales.some((e) => e.value)) {
       const ok = await openConfirm(
         "Abandonner les modifications ?",

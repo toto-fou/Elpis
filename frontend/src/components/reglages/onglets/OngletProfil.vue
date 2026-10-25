@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletProfil.vue — onglet « profile » des Paramètres. -->
 <script setup lang="ts">
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -9,10 +10,7 @@ const rg = domaineReglages();
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-xl">
-    <div>
-      <h3 class="text-base font-semibold text-slate-800 mb-1">Profil</h3>
-      <p class="text-xs text-slate-500">Vos informations de compte.</p>
-    </div>
+    <AideOnglet titre="Profil">Vos informations de compte.</AideOnglet>
 
     <div class="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
       <div class="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
@@ -27,7 +25,7 @@ const rg = domaineReglages();
       <div class="flex-1 min-w-0">
         <div class="font-semibold text-slate-800">{{ rg.user.username }}</div>
         <div
-          class="text-[11px] font-semibold mt-0.5"
+          class="text-xs font-semibold mt-0.5"
           :class="
             rg.user.role === 'admin'
               ? 'elpis-role-admin'

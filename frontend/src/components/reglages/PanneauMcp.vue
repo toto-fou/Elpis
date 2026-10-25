@@ -51,7 +51,7 @@ const rg = domaineReglages();
                 </div>
                 <span>{{ cat.label || cat.name }}</span>
               </div>
-              <span v-if="rg.catToolsCount(cat)" class="text-[10px] text-slate-400 shrink-0">{{
+              <span v-if="rg.catToolsCount(cat)" class="text-xs text-slate-400 shrink-0">{{
                 rg.catToolsCount(cat)
               }}</span>
               <span
@@ -100,7 +100,7 @@ const rg = domaineReglages();
                 </div>
                 <span class="truncate">{{ cat.label || cat.name }}</span>
               </span>
-              <span v-if="rg.catToolsCount(cat)" class="text-[10px] text-slate-400 shrink-0">{{
+              <span v-if="rg.catToolsCount(cat)" class="text-xs text-slate-400 shrink-0">{{
                 rg.catToolsCount(cat)
               }}</span>
 
@@ -135,7 +135,7 @@ const rg = domaineReglages();
               <div v-if="rg.catToolsCount(cat)" class="flex items-center pb-1">
                 <button
                   type="button"
-                  class="text-[10px] text-slate-400 hover:text-blue-600 transition-colors"
+                  class="text-xs text-slate-400 hover:text-blue-600 transition-colors"
                   @click="rg.resetCatTools(cat)"
                 >
                   Tout
@@ -153,7 +153,7 @@ const rg = domaineReglages();
                   @change="rg.toggleTool(t.name)"
                 />
                 <span
-                  class="text-[11px] truncate flex-1 min-w-0"
+                  class="text-xs truncate flex-1 min-w-0"
                   :class="rg.isToolOn(t.name) ? 'text-slate-600' : 'text-slate-400 line-through'"
                   >{{ t.title || t.name }}</span
                 >
@@ -167,17 +167,17 @@ const rg = domaineReglages();
                   @keydown.enter.prevent.stop="rg.openToolInfo(t, cat)"
                   @keydown.space.prevent.stop="rg.openToolInfo(t, cat)"
                 >
-                  <i class="ph ph-info text-[11px]"></i>
+                  <i class="ph ph-info text-xs"></i>
                 </span>
               </label>
             </div>
 
             <div v-if="cat.name === 'desktop' && rg.localTools[cat.name]" class="pl-9 pr-1.5 pb-2 -mt-0.5">
               <div class="flex items-center gap-2">
-                <span class="text-[10px] text-slate-400 shrink-0">Cible</span>
+                <span class="text-xs text-slate-400 shrink-0">Cible</span>
                 <select
                   v-model="rg.desktopActiveTarget"
-                  class="flex-1 min-w-0 text-[11px] bg-white border border-slate-200 rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-blue-500"
+                  class="flex-1 min-w-0 text-xs bg-white border border-slate-200 rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-blue-500"
                   @focus="rg.ensureDesktopTargets()"
                   @change="rg.setDesktopActiveTarget(rg.desktopActiveTarget)"
                 >
@@ -230,7 +230,7 @@ const rg = domaineReglages();
           <div class="flex items-center gap-1">
             <span
               v-if="rg.pinnedServers.length > 0"
-              class="bg-blue-50 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded"
+              class="bg-blue-50 text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded"
               >{{ rg.pinnedServers.length }}</span
             >
             <button

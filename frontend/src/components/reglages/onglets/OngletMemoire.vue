@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletMemoire.vue — onglet « memory » des Paramètres. -->
 <script setup lang="ts">
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -10,13 +11,10 @@ const rg = domaineReglages();
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-2xl">
     <div class="flex items-start justify-between gap-3">
-      <div>
-        <h3 class="text-base font-semibold text-slate-800 mb-1">Mémoire long-terme</h3>
-        <p class="text-xs text-slate-500">
-          Ce que l'assistant retient de vous entre les conversations. Il la cure lui-même ; « Éditer » corrige
-          ou retire ce qu'il a mal retenu.
-        </p>
-      </div>
+      <AideOnglet titre="Mémoire long-terme"
+        >Ce que l'assistant retient de vous entre les conversations ; « Éditer » corrige ou retire une
+        entrée.</AideOnglet
+      >
 
       <div class="shrink-0 flex items-center gap-2">
         <template v-if="!rg.memoryEditing">
@@ -74,7 +72,7 @@ const rg = domaineReglages();
         <i class="ph ph-notebook text-slate-400 text-lg w-5"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-slate-800">Activer la mémoire long-terme</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Désactivée par défaut — rien n'est mémorisé tant qu'elle est éteinte. Une fois activée,
             l'assistant retient des faits durables (profil, préférences, notes).
           </div>
@@ -105,7 +103,7 @@ const rg = domaineReglages();
             <i class="ph ph-user-circle text-slate-400" aria-hidden="true"></i> Profil utilisateur
           </div>
           <span
-            class="text-[11px] font-mono tabular-nums"
+            class="text-xs font-mono tabular-nums"
             data-mem-count-user
             :class="rg.memoryOver('user') ? 'text-red-500 font-semibold' : 'text-slate-400'"
             >{{ rg.memoryEditing ? rg.memoryDraftChars("user") : rg.userMemory.user_md.chars }} /
@@ -178,7 +176,7 @@ const rg = domaineReglages();
             <i class="ph ph-note text-slate-400" aria-hidden="true"></i> Notes
           </div>
           <span
-            class="text-[11px] font-mono tabular-nums"
+            class="text-xs font-mono tabular-nums"
             data-mem-count-memory
             :class="rg.memoryOver('memory') ? 'text-red-500 font-semibold' : 'text-slate-400'"
             >{{ rg.memoryEditing ? rg.memoryDraftChars("memory") : rg.userMemory.memory_md.chars }} /
@@ -265,7 +263,7 @@ const rg = domaineReglages();
       >
         <div class="min-w-0">
           <div class="text-sm font-medium text-slate-700">Effacer la mémoire</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Supprime définitivement tout ce que l'assistant a retenu (profil, notes, scopes). Irréversible.
           </div>
         </div>

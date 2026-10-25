@@ -254,18 +254,15 @@ export function setupAuth(refs: RefsAuth, ctx: CtxAuth, dep: DependancesAuth) {
       } else if (r.type === "reseau") {
         loginError.value = "Serveur injoignable — vérifiez votre connexion réseau.";
       } else if ((r.type === "requete" && r.statut === 401) || r.type === "refus") {
-        loginError.value = "Nom d’utilisateur ou mot de passe incorrect.";
-        showToast("Échec de la connexion", "error");
+        loginError.value = "Identifiant ou mot de passe incorrect.";
       } else if (r.type === "requete" && r.statut === 429) {
         loginError.value = "Trop de tentatives. Patientez une minute avant de réessayer.";
-        showToast("Trop de tentatives", "error");
       } else if (r.type !== "annulation" && r.type !== "perime" && r.type !== "expiration") {
         const statut = "statut" in r ? r.statut : 0;
         loginError.value =
           "Service momentanément indisponible (erreur " +
           statut +
           "). Vos identifiants n’ont pas été vérifiés — réessayez dans un instant.";
-        showToast("Service indisponible", "error");
       }
     } finally {
       isLoading.value = false;

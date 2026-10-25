@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletFonctionnalites.vue — onglet « features » des Paramètres. -->
 <script setup lang="ts">
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -9,24 +10,20 @@ const rg = domaineReglages();
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-xl">
-    <div>
-      <h3 class="text-base font-semibold text-slate-800 mb-1">Fonctionnalités</h3>
-      <p class="text-xs text-slate-500">Ce que l'assistant peut faire. Chaque module s'active séparément.</p>
-    </div>
+    <AideOnglet titre="Fonctionnalités"
+      >Ce que l'assistant peut faire. Chaque module s'active séparément.</AideOnglet
+    >
 
     <div>
-      <div class="text-[11px] font-semibold text-slate-500 px-0.5 mb-1.5">Modules</div>
+      <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Modules</div>
       <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
         <label class="set-row cursor-pointer hover:bg-white/60 transition-colors first:rounded-t-xl">
           <i class="ph ph-plug text-slate-400 text-lg w-5"></i>
           <div class="flex-1 min-w-0">
             <div class="text-sm text-slate-800">MCP</div>
-            <div class="text-[11px] text-slate-500">Shell, fichiers, git, navigateur, serveurs MCP.</div>
+            <div class="text-xs text-slate-500">Shell, fichiers, git, navigateur, serveurs MCP.</div>
 
-            <div
-              v-if="!rg.settings.enable_mcp"
-              class="text-[11px] text-amber-600 mt-1 flex items-start gap-1"
-            >
+            <div v-if="!rg.settings.enable_mcp" class="text-xs text-amber-600 mt-1 flex items-start gap-1">
               <i class="ph ph-warning-circle mt-px shrink-0" aria-hidden="true"></i>
               <span>L'assistant ne peut plus qu'écrire ; seule la mémoire reste.</span>
             </div>
@@ -45,7 +42,7 @@ const rg = domaineReglages();
           <i class="ph ph-image text-slate-400 text-lg w-5"></i>
           <div class="flex-1 min-w-0">
             <div class="text-sm text-slate-800">Images</div>
-            <div class="text-[11px] text-slate-500">Génération depuis le menu +.</div>
+            <div class="text-xs text-slate-500">Génération depuis le menu +.</div>
           </div>
           <div class="relative inline-flex items-center shrink-0">
             <input v-model="rg.settings.image_enabled" type="checkbox" class="sr-only peer" />
@@ -57,9 +54,7 @@ const rg = domaineReglages();
           <i class="ph ph-code-block text-slate-400 text-lg w-5"></i>
           <div class="flex-1 min-w-0">
             <div class="text-sm text-slate-800">Sandbox</div>
-            <div class="text-[11px] text-slate-500">
-              Panneau de code intégré, avec arborescence de fichiers.
-            </div>
+            <div class="text-xs text-slate-500">Panneau de code intégré, avec arborescence de fichiers.</div>
           </div>
           <div class="relative inline-flex items-center shrink-0">
             <input v-model="rg.settings.enable_editor" type="checkbox" class="sr-only peer" />
@@ -73,7 +68,7 @@ const rg = domaineReglages();
       v-if="rg.settings.image_ready && rg.settings.image_enabled !== false && rg.settings.image_prefs"
       data-feat-images
     >
-      <div class="text-[11px] font-semibold text-slate-500 px-0.5 mb-1.5">Images</div>
+      <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Images</div>
       <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
         <label
           v-if="!rg.imageStatus || rg.imageStatus.tool_enabled !== false"
@@ -185,13 +180,13 @@ const rg = domaineReglages();
 
     <template v-if="rg.settings.enable_editor">
       <div data-feat-editor-display>
-        <div class="text-[11px] font-semibold text-slate-500 px-0.5 mb-1.5">Éditeur · affichage</div>
+        <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Éditeur · affichage</div>
         <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
           <label class="set-row cursor-pointer hover:bg-white/60 transition-colors first:rounded-t-xl">
             <i class="ph ph-paint-roller text-slate-400 text-lg w-5"></i>
             <div class="flex-1 min-w-0">
               <div class="text-sm text-slate-800">Thème sombre</div>
-              <div class="text-[11px] text-slate-500">Indépendant du mode sombre de la page.</div>
+              <div class="text-xs text-slate-500">Indépendant du mode sombre de la page.</div>
             </div>
             <div class="relative inline-flex items-center shrink-0">
               <input v-model="rg.settings.editor_dark_mode" type="checkbox" class="sr-only peer" />
@@ -213,7 +208,7 @@ const rg = domaineReglages();
                 class="set-range w-28"
               />
               <span
-                class="text-[11px] font-mono tabular-nums text-blue-600 bg-white px-1.5 rounded border border-slate-200"
+                class="text-xs font-mono tabular-nums text-blue-600 bg-white px-1.5 rounded border border-slate-200"
                 >{{ rg.settings.editor_font_size || 14 }}px</span
               >
             </div>
@@ -279,7 +274,7 @@ const rg = domaineReglages();
             <i class="ph ph-map-trifold text-slate-400 text-lg w-5"></i>
             <div class="flex-1 min-w-0">
               <div class="text-sm text-slate-800">Minimap</div>
-              <div class="text-[11px] text-slate-500">Aperçu du fichier dans la marge droite.</div>
+              <div class="text-xs text-slate-500">Aperçu du fichier dans la marge droite.</div>
             </div>
             <div class="relative inline-flex items-center shrink-0">
               <input v-model="rg.settings.editor_minimap" type="checkbox" class="sr-only peer" />
@@ -299,15 +294,13 @@ const rg = domaineReglages();
       </div>
 
       <div data-feat-editor-behavior>
-        <div class="text-[11px] font-semibold text-slate-500 px-0.5 mb-1.5">Éditeur · comportement</div>
+        <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Éditeur · comportement</div>
         <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
           <label class="set-row cursor-pointer hover:bg-white/60 transition-colors first:rounded-t-xl">
             <i class="ph ph-magic-wand text-slate-400 text-lg w-5"></i>
             <div class="flex-1 min-w-0">
               <div class="text-sm text-slate-800">Ouverture automatique</div>
-              <div class="text-[11px] text-slate-500">
-                Ouvre l'éditeur quand l'assistant écrit un fichier.
-              </div>
+              <div class="text-xs text-slate-500">Ouvre l'éditeur quand l'assistant écrit un fichier.</div>
             </div>
             <div class="relative inline-flex items-center shrink-0">
               <input v-model="rg.settings.auto_open_editor_on_write" type="checkbox" class="sr-only peer" />
@@ -319,7 +312,7 @@ const rg = domaineReglages();
             <i class="ph ph-eye text-slate-400 text-lg w-5"></i>
             <div class="flex-1 min-w-0">
               <div class="text-sm text-slate-800">Aperçu</div>
-              <div class="text-[11px] text-slate-500">Onglet d'exécution HTML/JS.</div>
+              <div class="text-xs text-slate-500">Onglet d'exécution HTML/JS.</div>
             </div>
             <div class="relative inline-flex items-center shrink-0">
               <input v-model="rg.settings.enable_preview" type="checkbox" class="sr-only peer" />
@@ -331,9 +324,7 @@ const rg = domaineReglages();
             <i class="ph ph-highlighter text-slate-400 text-lg w-5"></i>
             <div class="flex-1 min-w-0">
               <div class="text-sm text-slate-800">Surbrillance des modifications</div>
-              <div class="text-[11px] text-slate-500">
-                Teinte brièvement les lignes éditées par l'assistant.
-              </div>
+              <div class="text-xs text-slate-500">Teinte brièvement les lignes éditées par l'assistant.</div>
             </div>
             <div class="relative inline-flex items-center shrink-0">
               <input v-model="rg.settings.editor_edit_highlight" type="checkbox" class="sr-only peer" />
@@ -361,7 +352,7 @@ const rg = domaineReglages();
             <i class="ph ph-crosshair text-slate-400 text-lg w-5"></i>
             <div class="flex-1 min-w-0">
               <div class="text-sm text-slate-800">Suivre le fichier ouvert</div>
-              <div class="text-[11px] text-slate-500">L'arbre se positionne sur l'onglet actif.</div>
+              <div class="text-xs text-slate-500">L'arbre se positionne sur l'onglet actif.</div>
             </div>
             <div class="relative inline-flex items-center shrink-0">
               <input v-model="rg.settings.editor_follow_active" type="checkbox" class="sr-only peer" />
@@ -373,9 +364,7 @@ const rg = domaineReglages();
             <i class="ph ph-browsers text-slate-400 text-lg w-5"></i>
             <div class="flex-1 min-w-0">
               <div class="text-sm text-slate-800">Mémoriser les onglets</div>
-              <div class="text-[11px] text-slate-500">
-                Rouvre ceux de la dernière session, curseur compris.
-              </div>
+              <div class="text-xs text-slate-500">Rouvre ceux de la dernière session, curseur compris.</div>
             </div>
             <div class="relative inline-flex items-center shrink-0">
               <input v-model="rg.settings.editor_persist_tabs" type="checkbox" class="sr-only peer" />
@@ -386,7 +375,7 @@ const rg = domaineReglages();
       </div>
     </template>
 
-    <p class="text-[11px] text-slate-500">
+    <p class="text-xs text-slate-500">
       <i class="ph ph-info text-slate-400 align-middle mr-1" aria-hidden="true"></i>Mémoire et sous-agents
       s'activent depuis
       <button

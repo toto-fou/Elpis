@@ -99,12 +99,12 @@ body.elpis-skin-elpis {
     --accent-ring:        var(--cl-clay);
 
     /* ── Succès → OLIVE doux (« never use saturated colors »). */
-    --ok:             #8a8b52;
-    --ok-strong:      #6f7040;
+    --ok:             #6f7040;
+    --ok-strong:      #5a5b33;
     --ok-soft:        #7c7a45;
     --ok-400:         #9fa065;
-    --ok-text:        #7c7a45;
-    --ok-text-strong: #666636;
+    --ok-text:        #6f7040;
+    --ok-text-strong: #5a5b33;
     --ok-surface:     rgba(124, 122, 69, 0.10);
     --ok-surface-2:   rgba(124, 122, 69, 0.16);
     --ok-border:      rgba(124, 122, 69, 0.40);

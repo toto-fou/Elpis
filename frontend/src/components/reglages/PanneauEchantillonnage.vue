@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/PanneauEchantillonnage.vue — panneau des réglages de génération (échantillonnage) de la page de chat. -->
 <script setup lang="ts">
+import AideLigne from "./AideLigne.vue";
 import { domaineReglages } from "../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -15,8 +16,8 @@ const rg = domaineReglages();
   >
     <div class="h-16 flex items-center justify-between px-4 border-b border-slate-200 shrink-0 bg-white">
       <h3 class="font-bold text-slate-800 flex items-baseline gap-2 text-sm">
-        <i class="ph ph-sliders-horizontal text-blue-600 text-lg self-center"></i> Réglages de génération
-        <span class="text-[11px] font-normal text-slate-400">sampling</span>
+        <i class="ph ph-sliders-horizontal text-blue-600 text-lg self-center"></i> Paramètres de génération
+        <span class="text-xs font-normal text-slate-400">sampling</span>
       </h3>
       <button
         class="text-slate-400 hover:text-slate-800 p-1 hover:bg-slate-100 rounded-md transition-colors"
@@ -33,23 +34,21 @@ const rg = domaineReglages();
       >
         <span class="text-xs font-semibold text-slate-500 shrink-0">Modèle</span>
         <span
-          class="text-[11px] font-mono text-slate-600 truncate"
+          class="text-xs font-mono text-slate-600 truncate"
           :title="rg.effectiveParamsData.model_id ?? undefined"
           >{{ rg.effectiveParamsData.model_id }}</span
         >
       </div>
 
-      <p class="flex gap-1.5 text-[10px] text-slate-400 leading-relaxed py-2.5 border-b border-slate-200/70">
-        <i class="ph ph-info text-blue-500 text-xs mt-px shrink-0"></i>
-        <span
-          >Les valeurs en gris viennent du modèle (<span class="font-mono">/props</span>). Laisser un champ
-          vide = garder la valeur du modèle.</span
-        >
-      </p>
+      <div class="py-2.5 border-b border-slate-200/70">
+        <AideLigne>
+          Les valeurs en gris viennent du modèle. Laisser un champ vide garde la valeur du modèle.
+        </AideLigne>
+      </div>
 
       <div
         v-if="rg.effectiveParamsData && rg.effectiveParamsData.degraded"
-        class="flex gap-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/60 rounded-md px-2.5 py-2 mt-2.5 leading-relaxed"
+        class="flex gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-md px-2.5 py-2 mt-2.5 leading-relaxed"
       >
         <i
           class="ph text-xs mt-px shrink-0"
@@ -78,7 +77,7 @@ const rg = domaineReglages();
           <div class="flex items-baseline justify-between gap-2 mb-1.5">
             <label class="text-[13px] text-slate-600">temperature</label>
             <div class="flex items-baseline gap-2 shrink-0">
-              <span class="text-[10px] text-slate-400 font-mono"
+              <span class="text-xs text-slate-400 font-mono"
                 >{{ rg.effectiveParamsData.props_unavailable ? "défaut" : "modèle" }}
                 <span class="font-bold text-slate-500">{{
                   rg.fmtPropVal(rg.effectiveParamsData.sources?.props?.temperature)
@@ -128,7 +127,7 @@ const rg = domaineReglages();
               <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
             </span>
           </label>
-          <p class="text-[10px] text-slate-400 mt-1 leading-tight">
+          <p class="text-xs text-slate-500 mt-1 leading-tight">
             <template v-if="rg.thinkingEnabled">Activée · budget dans « Avancé » (chat simple).</template>
             <template v-else>Désactivée.</template>
           </p>
@@ -148,7 +147,7 @@ const rg = domaineReglages();
               <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
             </span>
           </label>
-          <p class="text-[10px] text-slate-400 mt-1 leading-tight">
+          <p class="text-xs text-slate-500 mt-1 leading-tight">
             <template v-if="rg.preserveReasoningEnabled">
               Activé · la réflexion déjà produite est rendue au modèle, son gabarit décide de ce qu'il garde.
               Plus cohérent, prompt plus long ; avec SGLang, la question suivante recalcule les appels
@@ -172,9 +171,7 @@ const rg = domaineReglages();
               class="w-24 text-[12px] text-right font-medium text-slate-800 bg-transparent border-0 border-b border-slate-200 px-1 py-0.5 focus:outline-none focus:border-blue-500 placeholder:text-slate-300 placeholder:font-normal"
             />
           </div>
-          <p class="text-[10px] text-slate-400 leading-tight">
-            Limite de réponse (vide = illimité) · plafonnée selon la fenêtre de contexte du modèle
-          </p>
+          <AideLigne>Limite de réponse (vide = illimité), plafonnée par la fenêtre de contexte.</AideLigne>
         </div>
 
         <div class="py-2.5 border-b border-slate-200/70">
@@ -185,7 +182,7 @@ const rg = domaineReglages();
               >max_tool_iterations</label
             >
             <div class="flex items-baseline gap-2 shrink-0">
-              <span class="text-[10px] text-slate-400 font-mono"
+              <span class="text-xs text-slate-400 font-mono"
                 >défaut
                 <span class="font-bold text-slate-500">{{
                   rg.effectiveParamsData.agent_defaults?.max_tool_iterations ?? 200
@@ -217,18 +214,16 @@ const rg = domaineReglages();
               rg.samplingOverride.max_tool_iterations = parseInt(($event.target as HTMLInputElement).value)
             "
           />
-          <p class="text-[10px] text-slate-400 mt-1 leading-tight">
-            Tours d'outils max — un tour peut lancer plusieurs outils (web scraping : 100-150)
-          </p>
+          <AideLigne>
+            Tours d'outils maximum ; un tour peut lancer plusieurs outils (web scraping : 100-150).
+          </AideLigne>
         </div>
 
         <details class="group mt-4">
           <summary
             class="cursor-pointer text-xs font-semibold text-slate-500 hover:text-slate-700 select-none flex items-center gap-1 py-1"
           >
-            <i
-              class="ph ph-caret-right group-open:rotate-90 transition-transform inline-block text-[9px]"
-            ></i>
+            <i class="ph ph-caret-right group-open:rotate-90 transition-transform inline-block text-xs"></i>
             Avancé
           </summary>
 
@@ -237,7 +232,7 @@ const rg = domaineReglages();
               <div class="flex items-baseline justify-between gap-2 mb-1.5">
                 <label class="text-[13px] text-slate-600">top_p</label>
                 <div class="flex items-baseline gap-2 shrink-0">
-                  <span class="text-[10px] text-slate-400 font-mono"
+                  <span class="text-xs text-slate-400 font-mono"
                     >{{ rg.effectiveParamsData.props_unavailable ? "défaut" : "modèle" }}
                     <span class="font-bold text-slate-500">{{
                       rg.fmtPropVal(rg.effectiveParamsData.sources?.props?.top_p)
@@ -273,12 +268,12 @@ const rg = domaineReglages();
                 <label class="text-[13px] text-slate-600">top_k</label>
                 <span
                   v-if="rg.isIgnoredByEngine('top_k')"
-                  class="text-[9px] font-medium text-amber-700 bg-amber-50 border border-amber-200/70 rounded px-1 py-px"
+                  class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200/70 rounded px-1 py-px"
                   title="Ce réglage est propre à llama.cpp : le moteur externe sélectionné l'ignore (retiré du payload)."
                   >sans effet</span
                 >
                 <div class="flex items-baseline gap-2 shrink-0">
-                  <span class="text-[10px] text-slate-400 font-mono"
+                  <span class="text-xs text-slate-400 font-mono"
                     >{{ rg.effectiveParamsData.props_unavailable ? "défaut" : "modèle" }}
                     <span class="font-bold text-slate-500">{{
                       rg.fmtPropVal(rg.effectiveParamsData.sources?.props?.top_k)
@@ -316,12 +311,12 @@ const rg = domaineReglages();
                 <label class="text-[13px] text-slate-600">min_p</label>
                 <span
                   v-if="rg.isIgnoredByEngine('min_p')"
-                  class="text-[9px] font-medium text-amber-700 bg-amber-50 border border-amber-200/70 rounded px-1 py-px"
+                  class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200/70 rounded px-1 py-px"
                   title="Ce réglage est propre à llama.cpp : le moteur externe sélectionné l'ignore (retiré du payload)."
                   >sans effet</span
                 >
                 <div class="flex items-baseline gap-2 shrink-0">
-                  <span class="text-[10px] text-slate-400 font-mono"
+                  <span class="text-xs text-slate-400 font-mono"
                     >{{ rg.effectiveParamsData.props_unavailable ? "défaut" : "modèle" }}
                     <span class="font-bold text-slate-500">{{
                       rg.fmtPropVal(rg.effectiveParamsData.sources?.props?.min_p)
@@ -359,12 +354,12 @@ const rg = domaineReglages();
                 <label class="text-[13px] text-slate-600">repeat_penalty</label>
                 <span
                   v-if="rg.isIgnoredByEngine('repeat_penalty')"
-                  class="text-[9px] font-medium text-amber-700 bg-amber-50 border border-amber-200/70 rounded px-1 py-px"
+                  class="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200/70 rounded px-1 py-px"
                   title="Ce réglage est propre à llama.cpp : le moteur externe sélectionné l'ignore (retiré du payload)."
                   >sans effet</span
                 >
                 <div class="flex items-baseline gap-2 shrink-0">
-                  <span class="text-[10px] text-slate-400 font-mono"
+                  <span class="text-xs text-slate-400 font-mono"
                     >{{ rg.effectiveParamsData.props_unavailable ? "défaut" : "modèle" }}
                     <span class="font-bold text-slate-500">{{
                       rg.fmtPropVal(rg.effectiveParamsData.sources?.props?.repeat_penalty)
@@ -413,7 +408,7 @@ const rg = domaineReglages();
                   <span>Budget de réflexion</span>
                 </label>
                 <div class="flex items-baseline gap-2 shrink-0">
-                  <span class="text-[10px] text-slate-400 font-mono"
+                  <span class="text-xs text-slate-400 font-mono"
                     >défaut
                     <span class="font-bold text-slate-500">{{
                       rg.effectiveParamsData.agent_defaults?.thinking_budget_tokens ?? 8192
@@ -431,10 +426,9 @@ const rg = domaineReglages();
                   />
                 </div>
               </div>
-              <p class="text-[10px] text-slate-400 leading-tight">
-                Taille du budget reasoning (tokens), min 512. N'a d'effet qu'en <em>chat simple</em> (sans
-                outils) — en mode agent, seul l'interrupteur Réflexion s'applique. 0 = désactivé.
-              </p>
+              <AideLigne>
+                Budget de réflexion en jetons (min 512), seulement en chat simple ; 0 = désactivé.
+              </AideLigne>
             </div>
           </div>
         </details>
@@ -448,15 +442,13 @@ const rg = domaineReglages();
 
     <div class="px-4 py-3 border-t border-slate-200 bg-white flex items-center justify-between shrink-0">
       <button
-        class="text-[11px] text-slate-500 hover:text-red-600 transition-colors flex items-center gap-1"
+        class="text-xs text-slate-500 hover:text-red-600 transition-colors flex items-center gap-1"
         @click="rg.resetSamplingOverride"
       >
         <i class="ph ph-arrow-counter-clockwise text-xs"></i>
         Réinitialiser
       </button>
-      <span
-        class="text-[11px] text-slate-500"
-        title="Ces réglages ne s'appliquent qu'à la conversation en cours"
+      <span class="text-xs text-slate-500" title="Ces réglages ne s'appliquent qu'à la conversation en cours"
         >Appliqué à ce chat</span
       >
     </div>

@@ -20,7 +20,7 @@ const IMPOSE = "Imposé par l'administrateur";
 <template>
   <div class="mt-2 pl-8 flex items-center gap-2 flex-wrap">
     <label
-      class="inline-flex items-center gap-1.5 text-[11px] text-slate-600"
+      class="inline-flex items-center gap-1.5 text-xs text-slate-600"
       :class="props.agent.read_only_forced ? 'cursor-not-allowed' : 'cursor-pointer'"
       :title="props.agent.read_only_forced ? IMPOSE : undefined"
     >
@@ -36,7 +36,7 @@ const IMPOSE = "Imposé par l'administrateur";
       />
       Lecture seule
     </label>
-    <span class="text-[10.5px] text-slate-400" :data-agent-readonly-source="props.agent.name">{{
+    <span class="text-xs text-slate-400" :data-agent-readonly-source="props.agent.name">{{
       SOURCES[props.agent.read_only_source]
     }}</span>
   </div>

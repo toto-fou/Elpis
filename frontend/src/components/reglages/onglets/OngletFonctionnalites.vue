@@ -172,7 +172,7 @@ const rg = domaineReglages();
             data-pref-gallery
             @click="rg.openImageGallery('all')"
           >
-            <i class="ph ph-images" aria-hidden="true"></i><span>Galerie</span>
+            <i class="ph ph-images" aria-hidden="true"></i><span>Bibliothèque</span>
           </button>
         </div>
       </div>

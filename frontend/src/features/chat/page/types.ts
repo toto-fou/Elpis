@@ -478,8 +478,11 @@ export type DomaineBarre = Pick<
   openContextMenu(e: Event, type: string, item: ChatResume): unknown;
   toggleEditor(): unknown;
   openRoutinesPage(): unknown;
-  /** Sous-menu « Plus » du volet ouvert (RAG, Studio, Remote code). */
+  /** Sous-menu « Plus » du volet ouvert (RAG, Bibliothèque, Studio, Remote code). */
   menuPagesOuvert: boolean;
+  /** Génération d'images disponible : l'entrée « Bibliothèque » ouvre la galerie. */
+  readonly imageAvailable: boolean;
+  openImageGallery(filtre: string): unknown;
   /** Le compte a le droit RAG : l'entrée « RAG » du sous-menu « Plus » n'existe que pour lui. */
   readonly ragAllowed: boolean;
   openRagPage(): unknown;

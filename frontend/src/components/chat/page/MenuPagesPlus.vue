@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/MenuPagesPlus.vue — entrée « Plus » du volet latéral (rail réduit ou vue déployée) et son sous-menu à droite du volet : RAG, Studio, Remote code ; flèches, Échap par la cascade de la racine, clic extérieur, retour du focus. -->
+<!-- frontend/src/components/chat/page/MenuPagesPlus.vue — entrée « Plus » du volet latéral (rail réduit ou vue déployée) et son sous-menu à droite du volet : RAG, Bibliothèque (galerie des images), Studio, Remote code ; flèches, Échap par la cascade de la racine, clic extérieur, retour du focus. -->
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
 
@@ -21,13 +21,16 @@ const menu = useTemplateRef<HTMLElement>("menu");
 const position = ref({ left: 0, top: 0 });
 const idMenu = props.compact ? "elpis-menu-plus-rail" : "elpis-menu-plus";
 
-const pages = computed(() => pagesPlus({ rag: b.ragAllowed, opencode: !!b.features.opencode }));
+const pages = computed(() =>
+  pagesPlus({ rag: b.ragAllowed, images: b.imageAvailable, opencode: !!b.features.opencode }),
+);
 const active = computed(() => pagePlusActive(b.currentView, pages.value));
 // Les deux vues du volet restent montées : seule celle qui est affichée ouvre son sous-menu.
 const ouvert = computed(() => b.menuPagesOuvert && props.compact === !b.showSidebar);
 const titre = computed(() => "Plus — " + pages.value.map((p) => p.libelle).join(", "));
 const ouvrirPage: Record<PagePlus["vue"], () => unknown> = {
   rag: () => b.openRagPage(),
+  bibliotheque: () => b.openImageGallery("all"),
   studio: () => b.openStudio(),
   code: () => b.openCodePage(),
 };
@@ -62,9 +65,10 @@ function surClavier(e: KeyboardEvent): void {
   }
 }
 
-/** Ouvre la page choisie et referme le sous-menu. */
+/** Ouvre la page choisie et referme le sous-menu ; le focus passe au déclencheur, où la galerie le rendra. */
 function choisir(p: PagePlus): void {
   b.menuPagesOuvert = false;
+  declencheur.value?.focus();
   void ouvrirPage[p.vue]();
 }
 

@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/BarreImage.vue — barre du mode Images : format, taille, nombre, enrichir, graine, galerie, options avancées. -->
+<!-- frontend/src/components/chat/page/BarreImage.vue — barre du mode Images : format, taille, nombre, enrichir, graine, bibliothèque, options avancées. -->
 <script setup lang="ts">
 import { CLE_IMAGE, domaine } from "../../../features/chat/page/domaines";
 
@@ -145,8 +145,8 @@ function valeur(e: Event): string {
       type="button"
       class="elpis-img-chip elpis-img-chip--icon"
       data-image-gallery-open
-      title="Galerie"
-      aria-label="Ouvrir la galerie d’images"
+      title="Bibliothèque"
+      aria-label="Ouvrir la bibliothèque d’images"
       @click="img.openImageGallery('all')"
     >
       <i class="ph ph-images" aria-hidden="true"></i>

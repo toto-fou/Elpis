@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/modales/GalerieImages.vue — galerie personnelle des images générées : filtre compte ou conversation, pages au défilement, états expirée ou supprimée. -->
+<!-- frontend/src/components/chat/modales/GalerieImages.vue — bibliothèque des images générées (« Plus › Bibliothèque », mode Images, Paramètres) : filtre compte ou conversation, pages au défilement, états expirée ou supprimée. -->
 <script setup lang="ts">
 import { domaineModales } from "../../../features/chat/modales/domaine";
 
@@ -15,7 +15,7 @@ const m = domaineModales();
       class="elpis-img-gallery"
       role="dialog"
       aria-modal="true"
-      aria-label="Galerie d’images"
+      aria-label="Bibliothèque d’images"
       tabindex="-1"
       data-image-gallery
       @click.self="m.closeImageGallery()"
@@ -23,7 +23,7 @@ const m = domaineModales();
     >
       <div class="elpis-img-gallery__box">
         <header class="elpis-img-gallery__head">
-          <h2 class="elpis-img-gallery__title">Galerie</h2>
+          <h2 class="elpis-img-gallery__title">Bibliothèque</h2>
           <span
             v-if="m.imageGallery.keep"
             class="elpis-img-gallery__count"

@@ -11,12 +11,14 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Elpis contributors"
 SPDX-License-Identifier = "MIT"
 
-# Mascottes et logos d'Elpis (dessins du projet, voir frontend/assets/mascotte/README.md).
+# Logo d'Elpis et illustrations du skin Kiki : produits par génération d'images, protection par le droit d'auteur
+# incertaine ; aucun droit revendiqué, renonciation CC0 (voir frontend/assets/mascotte/README.md). Les mascottes en
+# pixel art générées par script restent sous la licence du projet (base ci-dessus).
 [[annotations]]
-path = ["frontend/assets/mascotte/**", "frontend/*.png"]
+path = ["frontend/*.png", "frontend/assets/mascotte/kiki*/**"]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Elpis contributors"
-SPDX-License-Identifier = "MIT"
+SPDX-License-Identifier = "CC0-1.0"
 
 # Tailwind CSS, build navigateur autonome (THIRD_PARTY_LICENSES/tailwindcss.txt).
 [[annotations]]

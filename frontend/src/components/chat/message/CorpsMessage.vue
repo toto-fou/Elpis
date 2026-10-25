@@ -1,7 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/CorpsMessage.vue — corps d'un message du fil : réflexion, travail, captures, sous-agents, effets, statut, contenu et pièces jointes, fichiers modifiés, interruption, pied, incidents. -->
+<!-- frontend/src/components/chat/message/CorpsMessage.vue — corps d'un message du fil : réflexion, travail, captures, sous-agents, effets, statut, contenu et pièces jointes, fichiers modifiés, interruption, pied (ou l'attente d'un réveil, `attente`), incidents. -->
 <script setup lang="ts">
 import { computed } from "vue";
+
+import type { ResumeJob } from "@elpis/contracts";
 
 import { textesDuTour } from "../../../features/chat/message/chronologie";
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
@@ -18,16 +20,17 @@ import EffetsMessage from "./EffetsMessage.vue";
 import FichiersModifies from "./FichiersModifies.vue";
 import ImageGrid from "../../images/ImageGrid.vue";
 import ImageTile from "../../images/ImageTile.vue";
+import LigneAttenteJob from "./LigneAttenteJob.vue";
 import LigneInterruption from "./LigneInterruption.vue";
 import PiedMessage from "./PiedMessage.vue";
 import PiedSources from "../../rag/PiedSources.vue";
 
 import type { EntreeMessage, FichierJoint } from "../../../features/chat/message/types";
 
-const props = withDefaults(defineProps<{ entry: EntreeMessage; pied?: boolean; texte?: string }>(), {
-  pied: true,
-  texte: undefined,
-});
+const props = withDefaults(
+  defineProps<{ entry: EntreeMessage; pied?: boolean; texte?: string; attente?: readonly ResumeJob[] }>(),
+  { pied: true, texte: undefined, attente: () => [] },
+);
 const fil = domaine(CLE_FIL);
 const ui = interfaceApp();
 const rag = domaineRagOptionnel();
@@ -274,7 +277,8 @@ function masquerBouton(e: Event): void {
 
   <FichiersModifies :entry="entry" />
 
-  <PiedMessage v-if="pied" :entry="entry" :texte="texteCopie" />
+  <LigneAttenteJob v-if="pied && attente.length" :jobs="attente" />
+  <PiedMessage v-else-if="pied" :entry="entry" :texte="texteCopie" />
 
   <div
     v-if="entry.msg._journalTruncated && entry.msg.isStreaming"

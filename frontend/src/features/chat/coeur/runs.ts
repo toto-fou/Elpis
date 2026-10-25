@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/coeur/runs.ts — runs en arrière-plan (portés d'`app-chat.js`) : pastilles des runs vivants, suivi par sondage d'un run non rejouable, détachement en quittant une conversation, rattachement au journal d'un run en cours. */
 import { schemaResumeReveil } from "@elpis/contracts";
+import type { ResumeReveil } from "@elpis/contracts";
 import { journal } from "../../../platform/journal";
 import { nextTick, watch } from "vue";
 
@@ -299,7 +300,7 @@ export function creerRuns(c: CoeurChat, session: GestionnaireSession) {
     return true;
   }
 
-  async function reattachOrFollow(chatId: string): Promise<void> {
+  async function reattachOrFollow(chatId: string, reveil?: ResumeReveil): Promise<void> {
     const id = String(chatId || "");
     if (!id) return;
     let st: StatutGeneration | null = null;
@@ -324,12 +325,12 @@ export function creerRuns(c: CoeurChat, session: GestionnaireSession) {
       }
       return;
     }
-    if (st.resumable && st.run_id) await attachRun(id, st);
+    if (st.resumable && st.run_id) await attachRun(id, st, reveil);
     else followRun(id, { silent: true });
   }
 
-  // Réconcilie le fil (la base est dans l'état d'avant le tour), puis pose la question et la bulle du tour.
-  function reconcilierFil(st: StatutGeneration): void {
+  // Réconcilie le fil (la base est dans l'état d'avant le tour), puis pose la question (déjà en réveil si connu) et la bulle du tour.
+  function reconcilierFil(st: StatutGeneration, reveil?: ResumeReveil): void {
     const msgs = r.messages.value;
     const base = Math.max(0, Number(st.base_count) || 0);
     const bulle = (): MessageChat => ({
@@ -372,7 +373,11 @@ export function creerRuns(c: CoeurChat, session: GestionnaireSession) {
       if (msgs.length > garder) msgs.splice(garder);
       if (st.user_message)
         msgs.push(
-          Object.assign({ role: "user", content: st.user_message }, ireq ? { image_request: ireq } : {}),
+          Object.assign(
+            { role: "user", content: st.user_message },
+            ireq ? { image_request: ireq } : {},
+            reveil ? { origin: "job_wake", wake: reveil } : {},
+          ),
         );
     }
     msgs.push(
@@ -396,7 +401,11 @@ export function creerRuns(c: CoeurChat, session: GestionnaireSession) {
   }
 
   /** Se rattache au run en cours de la conversation affichée : rejoue son journal puis suit le direct. */
-  async function attachRun(chatId: unknown, st: StatutGeneration | null | undefined): Promise<boolean> {
+  async function attachRun(
+    chatId: unknown,
+    st: StatutGeneration | null | undefined,
+    reveil?: ResumeReveil,
+  ): Promise<boolean> {
     const id = String(chatId || "");
     if (!id || !st || !st.run_id) return false;
     if (String(r.currentChatId.value) !== id) return false;
@@ -414,7 +423,7 @@ export function creerRuns(c: CoeurChat, session: GestionnaireSession) {
     f.currentRun = run;
     resetStreamState();
     l.clearToolStreams();
-    reconcilierFil(st);
+    reconcilierFil(st, reveil);
     r.isStreaming.value = true;
     e.isThinking.value = true;
     e.statusText.value = "";

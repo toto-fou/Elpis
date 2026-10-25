@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/jobs/horloge.ts — horloge d'une seconde (en secondes d'époque) qui ne tourne que tant que le volet est ouvert. */
+/** frontend/src/features/chat/jobs/horloge.ts — horloge d'une seconde (secondes d'époque à l'heure du serveur, comme les horodatages des tâches) qui ne tourne que tant que le volet est ouvert. */
 import { onBeforeUnmount, ref, watch } from "vue";
 import type { Ref } from "vue";
 
+import { maintenantServeurS } from "../../../platform/horloge";
+
 export function utiliserHorloge(actif: () => boolean): Ref<number> {
-  const maintenant = ref(Date.now() / 1000);
+  const maintenant = ref(maintenantServeurS());
   let minuterie: ReturnType<typeof setInterval> | null = null;
   const arreter = (): void => {
     if (minuterie) clearInterval(minuterie);
@@ -15,9 +17,9 @@ export function utiliserHorloge(actif: () => boolean): Ref<number> {
     (v) => {
       arreter();
       if (!v) return;
-      maintenant.value = Date.now() / 1000;
+      maintenant.value = maintenantServeurS();
       minuterie = setInterval(() => {
-        maintenant.value = Date.now() / 1000;
+        maintenant.value = maintenantServeurS();
       }, 1000);
     },
     { immediate: true },

@@ -3,6 +3,7 @@
 import type { GestionnaireSession } from "../../features/auth/session";
 import type { Fetch } from "./client";
 import { estAbandon } from "./client";
+import { noterHeureServeur } from "../horloge";
 
 export type Toast = (message: string, type?: string, options?: { duration?: number }) => void;
 
@@ -75,6 +76,7 @@ export function creerHttpLegacy(dep: DependancesHttpLegacy): HttpLegacy {
       if (!soft) dep.showToast("Erreur réseau", "error");
       return null;
     }
+    noterHeureServeur(res.headers?.get("date"));
     if (!dep.session.estCourante(generation)) return null;
     if (res.status === 401) {
       handleSessionExpired();

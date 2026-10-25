@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/coeur/liens.ts — liaisons entre les parties du cœur du chat : état partagé et table des fonctions croisées, remplie par `setupChat` et résolue à l'appel. */
+import type { ResumeReveil } from "@elpis/contracts";
+
 import type { MoteurMarkdown } from "../rendu/markdown.ts";
 import type { EtatChat, EtatFlux, QuestionAsk } from "./etat.ts";
 import type { CtxChat, DonneesFlux, MessageChat, Objet, RefsRacineChat } from "./types.ts";
@@ -57,7 +59,7 @@ export interface LiensChat {
   stopFollowRun(): void;
   followRun(chatId: unknown, opts?: { silent?: boolean }): void;
   setFollowBubble(on: boolean): void;
-  reattachOrFollow(chatId: string): Promise<void>;
+  reattachOrFollow(chatId: string, reveil?: ResumeReveil): Promise<void>;
   handleStreamEvent(data: DonneesFlux): Promise<void>;
   doGenerate(continuation: boolean): Promise<void>;
   generateResponse(): Promise<void>;

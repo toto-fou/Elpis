@@ -4,6 +4,7 @@ import { computed, ref, watch } from "vue";
 import type { Ref } from "vue";
 
 import type { FetchAuth } from "../../features/editor/etat";
+import { maintenantServeurS } from "../../platform/horloge";
 import type { OptionsToast } from "./chrome";
 
 export interface Notification {
@@ -51,7 +52,7 @@ async function corps(r: Response | null): Promise<Record<string, unknown> | null
 
 export function notifTimeAgo(ts: number | null | undefined, _tick?: number): string {
   if (!ts) return "";
-  const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+  const s = Math.max(0, Math.floor(maintenantServeurS() - ts));
   if (s < 60) return "à l'instant";
   if (s < 3600) return "il y a " + String(Math.floor(s / 60)) + " min";
   if (s < 86400) return "il y a " + String(Math.floor(s / 3600)) + " h";
@@ -97,7 +98,7 @@ function tranche(ts: number): string {
   hier.setDate(maintenant.getDate() - 1);
   if (memeJour(d, maintenant)) return "Aujourd'hui";
   if (memeJour(d, hier)) return "Hier";
-  if (Date.now() / 1000 - (ts || 0) < 7 * 86400) return "Cette semaine";
+  if (maintenantServeurS() - (ts || 0) < 7 * 86400) return "Cette semaine";
   return "Plus ancien";
 }
 
@@ -195,7 +196,7 @@ export function creerNotifications(dep: DependancesNotifications) {
 
   async function markNotifRead(id: Notification["id"]): Promise<void> {
     const n = notifications.value.find((x) => x.id === id);
-    if (n && !n.read_at) n.read_at = Date.now() / 1000;
+    if (n && !n.read_at) n.read_at = maintenantServeurS();
     lireNonLus(
       await corps(
         await dep.fetchAuth("/api/notifications/" + String(id) + "/read", { method: "PATCH" }, true),
@@ -207,7 +208,7 @@ export function creerNotifications(dep: DependancesNotifications) {
   async function toggleNotifReadState(n: Notification | null | undefined): Promise<void> {
     if (!n) return;
     const nonLu = !!n.read_at;
-    n.read_at = nonLu ? null : Date.now() / 1000;
+    n.read_at = nonLu ? null : maintenantServeurS();
     const suivant = new Set(notifNewIds.value);
     if (nonLu) suivant.add(n.id);
     else suivant.delete(n.id);
@@ -217,7 +218,7 @@ export function creerNotifications(dep: DependancesNotifications) {
   }
 
   async function markAllNotifsRead(): Promise<void> {
-    const now = Date.now() / 1000;
+    const now = maintenantServeurS();
     for (const n of notifications.value) if (!n.read_at) n.read_at = now;
     notifUnread.value = 0;
     notifNewIds.value = new Set();
@@ -259,7 +260,7 @@ export function creerNotifications(dep: DependancesNotifications) {
   // Ouvrir le panneau vaut « vu » : compteur soldé et read_at posé localement.
   async function soldeSilencieux(): Promise<void> {
     if (!notifUnread.value) return;
-    const now = Date.now() / 1000;
+    const now = maintenantServeurS();
     for (const n of notifications.value) if (!n.read_at) n.read_at = now;
     notifUnread.value = 0;
     await dep.fetchAuth("/api/notifications/read-all", { method: "POST" }, true);
@@ -371,7 +372,7 @@ export function creerNotifications(dep: DependancesNotifications) {
             ref_type: String(data["ref_type"] || ""),
             ref_id: data["ref_id"] != null ? (data["ref_id"] as Notification["ref_id"]) : null,
             read_at: null,
-            created_at: Date.now() / 1000,
+            created_at: maintenantServeurS(),
           }
         : null;
     if (notif && !notifications.value.some((n) => n.id === notif.id)) {

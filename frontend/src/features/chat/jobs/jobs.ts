@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/jobs/jobs.ts — état des tâches de fond du chat : listes, file de réveil, SSE `chat_job` / `chat_wake`, arrêt, interrupteur, ping de saisie. */
-import type { ReponseArretJobs, ReponseJobs, ResumeJob } from "@elpis/contracts";
+/** frontend/src/features/chat/jobs/jobs.ts — état des tâches de fond du chat : listes, file de réveil et réveils prévus (suivis en direct), SSE `chat_job` / `chat_wake`, arrêt, interrupteur, ping de saisie. */
+import type { ReponseArretJobs, ReponseJobs, ResumeJob, ResumeReveil } from "@elpis/contracts";
 import { ref, watch } from "vue";
 import type { Ref } from "vue";
 
 import type { ChatJobData, ChatWakeData } from "../../auth/sse-systeme";
+import { maintenantServeurS } from "../../../platform/horloge";
 
 import { arreterJobs, chargerJobs, reglerReveil, signalerSaisie } from "./client";
 import type { CorpsArret, FetchJobs } from "./client";
@@ -24,7 +25,7 @@ export interface CtxJobs {
   openConfirm(titre: string, texte?: string, danger?: boolean, libelle?: string): Promise<boolean>;
   openInEditor?: (chemin: string) => unknown;
   loadChat(id: string, opts?: { force?: boolean; noAttach?: boolean }): Promise<unknown>;
-  reattachOrFollow(id: string): Promise<void>;
+  reattachOrFollow(id: string, reveil?: ResumeReveil): Promise<void>;
 }
 
 export interface ResultatJobs {
@@ -70,6 +71,8 @@ export function creerJobs(refs: RefsJobs, ctx: CtxJobs) {
   const ouvert = ref(false);
   const fileReveil = ref<ReponseJobs["wake_queue"]>([]);
   const reveilEnCours = ref<ReponseJobs["wake_running"]>([]);
+  // Tâches de la conversation affichée dont le réveil est en route : fin vue en direct avec des événements à remettre, réveil en file ou en cours.
+  const reveilsPrevus = ref<string[]>([]);
   const reveilDesactive = ref(false);
   const limites = ref({ chat: 3, compte: 5 });
   const actifsChat = ref(0);
@@ -115,19 +118,51 @@ export function creerJobs(refs: RefsJobs, ctx: CtxJobs) {
     if (rep) appliquer(rep, true);
   }
 
+  function prevoir(ids: readonly string[], oui: boolean): void {
+    const reste = reveilsPrevus.value.filter((id) => !ids.includes(id));
+    if (oui) reveilsPrevus.value = [...reste, ...ids];
+    else if (reste.length !== reveilsPrevus.value.length) reveilsPrevus.value = reste;
+  }
+
   function surChatJob(d: ChatJobData): void {
     actifsTotal.value = d.active_total;
     jobsTous.value = fusionner(jobsTous.value, d.job);
     if (d.chat_id === chatCourant()) {
       jobsChat.value = fusionner(jobsChat.value, d.job);
       actifsChat.value = d.active;
+      // Fin réveillante (un arrêt par l'utilisateur ne réveille jamais) : le core décide du réveil après sa fenêtre de calme.
+      const j = d.job;
+      if (j.pending_events === 0) prevoir([j.id], false);
+      else if (!jobActif(j) && j.wake && j.state !== "killed") prevoir([j.id], true);
     }
+  }
+
+  /** File de réveil du compte et réveils en cours tenus à jour par `chat_wake`, sans relire la liste. */
+  function suivreFile(d: ChatWakeData): void {
+    const autres = <T extends { chat_id: string }>(l: readonly T[]): T[] =>
+      l.filter((x) => x.chat_id !== d.chat_id);
+    const t = maintenantServeurS();
+    const base = { chat_id: d.chat_id, chat_title: d.chat_title };
+    fileReveil.value =
+      d.status === "queued"
+        ? [...autres(fileReveil.value), { ...base, since: t, events: d.wake.events.length }]
+        : autres(fileReveil.value);
+    reveilEnCours.value =
+      d.status === "started" && d.run_id
+        ? [...autres(reveilEnCours.value), { ...base, run_id: d.run_id, started_at: t }]
+        : autres(reveilEnCours.value);
   }
 
   function surChatWake(d: ChatWakeData): void {
     const courant = d.chat_id === chatCourant();
+    suivreFile(d);
+    if (courant)
+      prevoir(
+        d.wake.events.map((e) => e.job_id),
+        d.status === "queued" || d.status === "started",
+      );
     if (d.status === "started" && courant) {
-      void ctx.reattachOrFollow(d.chat_id);
+      void ctx.reattachOrFollow(d.chat_id, d.wake);
     } else if (d.status === "done" && courant) {
       if (isStreaming.value) relirePour = d.chat_id;
       else void ctx.loadChat(d.chat_id, { force: true, noAttach: true });
@@ -145,6 +180,7 @@ export function creerJobs(refs: RefsJobs, ctx: CtxJobs) {
   watch(currentChatId, () => {
     jobsChat.value = [];
     actifsChat.value = 0;
+    reveilsPrevus.value = [];
     reveilDesactive.value = false;
     void recharger();
   });
@@ -303,6 +339,7 @@ export function creerJobs(refs: RefsJobs, ctx: CtxJobs) {
     jobsTous.value = [];
     fileReveil.value = [];
     reveilEnCours.value = [];
+    reveilsPrevus.value = [];
     actifsChat.value = 0;
     actifsTotal.value = 0;
     ouvert.value = false;
@@ -315,6 +352,7 @@ export function creerJobs(refs: RefsJobs, ctx: CtxJobs) {
     jobsOuvert: ouvert,
     jobsFileReveil: fileReveil,
     jobsReveilEnCours: reveilEnCours,
+    jobsReveilsPrevus: reveilsPrevus,
     jobsReveilDesactive: reveilDesactive,
     jobsLimites: limites,
     jobsActifsChat: actifsChat,

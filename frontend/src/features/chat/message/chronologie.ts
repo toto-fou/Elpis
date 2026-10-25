@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/message/chronologie.ts — un tour en une liste ordonnée, dans l'ordre d'arrivée : réflexion, texte, étapes consécutives groupées et numérotées sur le tour, sous-agents, mémoire, compression ; même liste en direct et au rechargement. */
+/** frontend/src/features/chat/message/chronologie.ts — un tour en une liste ordonnée, dans l'ordre d'arrivée : réflexion, texte, étapes consécutives groupées et numérotées sur le tour, sous-agents, tâches de fond, mémoire, compression ; même liste en direct et au rechargement. */
 import type { EtapeOutil, ExecutionSousAgent } from "../outils/types.ts";
 import { estEcritureMemoire } from "./effets.ts";
+import { estLancementJob } from "./taches-fond.ts";
 
 export interface EtapeNumerotee {
   etape: EtapeOutil;
@@ -23,6 +24,7 @@ export type BlocFil =
   | { k: "reflexion"; cle: string; texte: string; ms: number | null; vivante: boolean }
   | { k: "etapes"; cle: string; etapes: EtapeNumerotee[] }
   | { k: "agents"; cle: string; agents: AgentDuTour[] }
+  | { k: "job"; cle: string; etape: EtapeOutil; flat: number }
   | { k: "memoire"; cle: string; flat: number; rang: number }
   | { k: "compression"; cle: string; etape: EtapeOutil; flat: number };
 
@@ -86,8 +88,8 @@ export function chronologieTour(m: MessageFil, maintenant = Date.now()): BlocFil
       const agent = { etape: s, flat, ri };
       if (dernier?.k === "agents") dernier.agents.push(agent);
       else blocs.push({ k: "agents", cle: "a:" + flat, agents: [agent] });
-    } else if (estEcritureMemoire(s))
-      blocs.push({ k: "memoire", cle: "m:" + flat, flat, rang: rangMemoire++ });
+    } else if (estLancementJob(s)) blocs.push({ k: "job", cle: "j:" + flat, etape: s, flat });
+    else if (estEcritureMemoire(s)) blocs.push({ k: "memoire", cle: "m:" + flat, flat, rang: rangMemoire++ });
     else if (s._kind === "compression") blocs.push({ k: "compression", cle: "c:" + flat, etape: s, flat });
     else {
       const e = { etape: s, flat, numero: ++numero };

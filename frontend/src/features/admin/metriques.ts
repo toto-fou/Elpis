@@ -130,6 +130,8 @@ export function creerMetriques(b: BaseAdmin) {
   let minuterieRendu: ReturnType<typeof setTimeout> | null = null;
   let sondageVoulu = false;
   let sequenceStats = 0;
+  /** Chargement du tableau en vol : le sondage attend sa réponse au lieu de l'annuler. */
+  const dashboardLoading = ref(false);
 
   // ── Cadences ─────────────────────────────────────────────────────────────
   const nombreStocke = (cle: string, valides: readonly number[], defaut: number): number => {
@@ -414,6 +416,7 @@ export function creerMetriques(b: BaseAdmin) {
   /** Une réponse sans `layout` ne doit pas remplacer la forme attendue par tout le fichier : normalisée à la source. */
   async function loadAdminStats(): Promise<void> {
     const maSequence = ++sequenceStats;
+    dashboardLoading.value = true;
     try {
       const res = await fetchAuth("/api/admin/stats-dynamic?scope_hours=" + (dashboardScope.value || 24));
       if (maSequence !== sequenceStats) return;
@@ -436,6 +439,8 @@ export function creerMetriques(b: BaseAdmin) {
       }
     } catch {
       chargementEchoue("loadAdminStats", "Erreur réseau.", loadAdminStats);
+    } finally {
+      if (maSequence === sequenceStats) dashboardLoading.value = false;
     }
   }
 
@@ -589,7 +594,9 @@ export function creerMetriques(b: BaseAdmin) {
   function startDashboardPolling(): void {
     sondageVoulu = true;
     if (!minuterieSondage && !document.hidden)
-      minuterieSondage = setInterval(() => void loadAdminStats(), dashboardPollMs.value);
+      minuterieSondage = setInterval(() => {
+        if (!dashboardLoading.value) void loadAdminStats();
+      }, dashboardPollMs.value);
     startLivePolling();
   }
   function stopDashboardPolling(): void {
@@ -638,6 +645,7 @@ export function creerMetriques(b: BaseAdmin) {
 
   return {
     dashboardData,
+    dashboardLoading,
     dashboardScope,
     setDashboardScope,
     widgetPrefs,

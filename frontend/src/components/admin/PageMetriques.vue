@@ -250,6 +250,15 @@ const adm = domaineAdmin();
       </div>
     </div>
 
+    <p
+      v-if="adm.dashboardLoading && !(adm.dashboardData.layout || []).length"
+      class="adm-empty flex items-center gap-2"
+      role="status"
+      data-dash-chargement
+    >
+      <i class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i> Chargement des métriques…
+    </p>
+
     <section v-if="adm.kpiGroups.length" class="adm-kpis" aria-labelledby="dash-kpis-h">
       <h2 id="dash-kpis-h" class="sr-only">Indicateurs</h2>
       <div v-for="g in adm.kpiGroups" :key="'kg-' + g.id" class="adm-kpis__group">

@@ -180,12 +180,13 @@ body.elpis-skin-parchemin.elpis-app-dark .shadow-xl,
 body.elpis-skin-parchemin.elpis-app-dark .shadow-2xl { box-shadow: 0 8px 28px rgba(0,0,0,0.45) !important; }
 
 /* Titres en serif éditorial (Georgia, web-safe / offline). */
+body.elpis-skin-parchemin { --font-titre: Georgia, "Times New Roman", "Iowan Old Style", serif; }
 body.elpis-skin-parchemin .markdown-body h1,
 body.elpis-skin-parchemin .markdown-body h2,
 body.elpis-skin-parchemin .markdown-body h3,
 body.elpis-skin-parchemin .elpis-welcome h1,
 body.elpis-skin-parchemin .elpis-welcome h2 {
-    font-family: Georgia, "Times New Roman", "Iowan Old Style", serif;
+    font-family: var(--font-titre);
     letter-spacing: -0.01em;
 }
 

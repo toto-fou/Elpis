@@ -34,14 +34,21 @@ export type ModuleImages = Pick<
   | "setImageN"
 >;
 
+/** Redonne le focus à la saisie ; `seulSiLibre` le laisse là où il est s'il est ailleurs que dans la colonne du composeur. */
+export function focaliserSaisie(c: CoeurChat, seulSiLibre = false): void {
+  void nextTick(() => {
+    c.l.autoResize();
+    const actif = document.activeElement;
+    if (seulSiLibre && actif && actif !== document.body && !actif.closest(".elpis-compose-col")) return;
+    c.r.inputRef.value?.focus();
+  });
+}
+
 export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
   const { r, ctx, e, f, l } = c;
 
   function remettreFocus(): void {
-    void nextTick(() => {
-      l.autoResize();
-      r.inputRef.value?.focus();
-    });
+    focaliserSaisie(c);
   }
 
   function arreterDictee(): void {
@@ -81,6 +88,8 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
   }
 
   async function sendMessage(): Promise<void> {
+    const parQuestionnaire = f.envoiQuestionnaire;
+    f.envoiQuestionnaire = false;
     dep.closeMentionDropdown();
     // Commande « / » tapée à la main : avant la garde de génération (un refus est dit), sans toucher aux pièces jointes.
     const coup = dep.slashResolve ? dep.slashResolve(r.inputMessage.value) : null;
@@ -92,7 +101,7 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
       return;
     }
     if (r.isStreaming.value) return;
-    if (dep.images.imageMode.value) {
+    if (dep.images.imageMode.value && !parQuestionnaire) {
       await envoyerImage();
       return;
     }

@@ -39,6 +39,7 @@ puis par chaque thème.
 | Code | `--code-bg`, `--code-fg`, `--code-border`, `--code-header-bg/fg`, `--code-inline-*` | blocs de code (sombres dans les deux modes) et code en ligne |
 | Prose | `--prose-body`, `--prose-heading`, `--prose-strong`, `--prose-link(-hover)` | rendu Markdown des messages |
 | Divers | `--toast-*`, `--hl-bg/fg`, `--scrollbar-*` | toasts (surface inversée stable), surlignage de recherche, barres de défilement |
+| Titres | `--font-titre` (aucune valeur sur `:root`) | police serif des titres, posée par les thèmes Elpis et Parchemin ; à lire avec `var(--font-titre, inherit)` |
 | Rayons | `--radius` et `--radius-sm/md/lg/xl` (dérivés) | un thème change `--radius`, l'échelle suit |
 
 **Contraste.** La rampe de texte est recalibrée pour l'AA : `--text-400`
@@ -59,6 +60,9 @@ Trois classes sur `<body>`, posées par `frontend/src/features/reglages/apparenc
 Thème et mode se composent : `body.elpis-app-dark` (0,2,0) bat `:root` ; un
 thème (0,2,0, chargé après) bat `:root` ; sa variante sombre (0,3,0) bat le
 sombre par défaut.
+
+Un thème peut poser `--font-titre` (Elpis et Parchemin : Georgia) ; sans lui, les
+titres du questionnaire héritent de la police du thème (Pingouins garde la sienne).
 
 Thèmes livrés : **Ardoise** (défaut, sans classe de thème), **Elpis**,
 **llama.cpp**, **Émeraude** (base sombre), **Parchemin**, **Pingouins**, **Kiki**.

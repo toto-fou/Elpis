@@ -4811,6 +4811,49 @@ th.adm-rag-num, td.adm-rag-num { text-align: right; font-variant-numeric: tabula
 .adm-rag-valeur { font-size: 0.875rem; color: var(--text-700); }
 .peer:checked ~ .set-switch-track.adm-rag-sw { background: var(--accent); border-color: var(--accent); }
 
+/* ─── Questionnaire ask_user dans la carte du composeur (style « Palette ») ───
+   Jetons seuls ; l'état coché change la forme (rond / carré coché) et le remplissage, jamais la couleur seule. */
+.elpis-ask-haut { padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 10px; }
+.elpis-ask-sep { height: 1px; background: var(--border); margin: 6px 16px 0; }
+.elpis-ask-etape { font-size: 12px; font-weight: 600; color: var(--text-600); }
+.elpis-ask-question { font-family: var(--font-titre, inherit); font-size: 16px; font-weight: 600; line-height: 1.4; color: var(--text-900); }
+.elpis-ask-aide { font-size: 12px; color: var(--text-500); }
+.elpis-ask-pas { display: block; height: 4px; width: 10px; border-radius: 999px; background: var(--border); }
+.elpis-ask-pas.is-faite { background: var(--accent); opacity: 0.45; }
+.elpis-ask-pas.is-courante { background: var(--accent); width: 20px; }
+.elpis-ask-lien { background: transparent; border: 0; padding: 4px 6px; border-radius: var(--radius-sm); color: var(--text-600); font-size: 12px; cursor: pointer; }
+.elpis-ask-lien:hover { color: var(--text-900); background: var(--surface-2); }
+.elpis-ask-opt { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--text-700); font-size: 14px; line-height: 1.35; text-align: left; cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease; }
+.elpis-ask-opt:hover { background: var(--surface-2); }
+.elpis-ask-opt[aria-checked="true"] { background: var(--accent-surface); border-color: var(--accent-border); color: var(--text-900); }
+.elpis-ask-kbd { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: var(--radius-sm); font: 600 12px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-600); background: var(--surface); }
+.elpis-ask-opt[aria-checked="true"] .elpis-ask-kbd { border-color: var(--accent-border); color: var(--accent-text); }
+.elpis-ask-ind { flex: none; width: 18px; height: 18px; border: 1.5px solid var(--text-500); display: inline-flex; align-items: center; justify-content: center; color: var(--accent-fg); font-size: 12px; }
+.elpis-ask-ind.is-rond { border-radius: 999px; }
+.elpis-ask-ind.is-carre { border-radius: var(--radius-sm); }
+.elpis-ask-ind > * { opacity: 0; }
+.elpis-ask-point { width: 8px; height: 8px; border-radius: 999px; background: currentColor; }
+.elpis-ask-opt[aria-checked="true"] .elpis-ask-ind { background: var(--accent); border-color: var(--accent); }
+.elpis-ask-opt[aria-checked="true"] .elpis-ask-ind > * { opacity: 1; }
+.elpis-ask-btn { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: var(--radius-md); font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: background-color 0.15s ease; }
+.elpis-ask-btn-p { background: var(--accent); color: var(--accent-fg); }
+.elpis-ask-btn-p:hover:not(:disabled) { background: var(--accent-strong); }
+.elpis-ask-btn-p:disabled { opacity: 0.5; cursor: not-allowed; }
+.elpis-ask-btn-g { background: transparent; color: var(--text-600); border-color: var(--border); }
+.elpis-ask-btn-g:hover { background: var(--surface-2); color: var(--text-900); }
+.elpis-ask-reprendre { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--accent-border); background: var(--surface); color: var(--text-900); font-size: 13px; font-weight: 600; cursor: pointer; }
+.elpis-ask-reprendre i { color: var(--accent-text); }
+.elpis-ask-kbd.is-vide { visibility: hidden; }
+.elpis-ask-liste { display: flex; flex-direction: column; gap: 2px; max-height: 45dvh; overflow-y: auto; padding: 2px; margin: -2px; }
+.elpis-ask-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 12px 8px; }
+.elpis-compose-card.elpis-ask-ouvert:focus-within { border-color: var(--accent-border); }
+body.elpis-dark-surface .elpis-ask-opt[aria-checked="true"] .elpis-ask-ind { background: transparent; border-color: var(--accent-text); color: var(--accent-text); }
+@media (max-width: 640px), (pointer: coarse) { .elpis-ask-aide-clavier { display: none; } }
+.elpis-ask-opt:focus-visible, .elpis-ask-btn:focus-visible, .elpis-ask-lien:focus-visible, .elpis-ask-reprendre:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+    .elpis-ask-opt, .elpis-ask-btn { transition: none; }
+}
+
 /* Barres de défilement discrètes : invisibles au repos, visibles au survol, au focus dans la zone
    et une seconde après un défilement (.elpis-defile, features/chat/page/barres-defilement.ts) ; la gouttière reste réservée. */
 * { scrollbar-width: thin; scrollbar-color: transparent transparent; }

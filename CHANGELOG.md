@@ -47,6 +47,12 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Interface
 
+- **Questionnaire de l'assistant dans la barre de saisie.** Les questions
+  `ask_user` s'affichent dans la carte du composeur : options en lignes avec
+  leur touche (1 à 9), rond pour un choix, case pour plusieurs, la zone de
+  saisie comme réponse libre. Entrée pour avancer, Échap pour fermer, puce
+  « Reprendre le questionnaire » ; le brouillon en cours est mis de côté puis
+  rendu. « + » et dictée restent disponibles.
 - **Habillages personnels.** Paramètres › Apparence › « Mes habillages » : chaque
   compte crée ses habillages avec l'assistant (skill `apparence`). Le modèle
   propose un bloc de jetons ; une carte le vérifie, un aperçu isolé le montre en

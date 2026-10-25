@@ -17,6 +17,8 @@ export interface RefsJobs {
   readonly currentChatId: Ref<unknown>;
   readonly inputMessage: Ref<string>;
   readonly isStreaming: Ref<boolean>;
+  /** Questionnaire ouvert ou avec des réponses : compte comme une saisie en cours. */
+  readonly questionnaireActif?: Ref<boolean>;
 }
 
 export interface CtxJobs {
@@ -64,7 +66,7 @@ function fusionner(liste: readonly ResumeJob[], job: ResumeJob): ResumeJob[] {
 }
 
 export function creerJobs(refs: RefsJobs, ctx: CtxJobs) {
-  const { currentChatId, inputMessage, isStreaming } = refs;
+  const { currentChatId, inputMessage, isStreaming, questionnaireActif } = refs;
   const jobsChat = ref<ResumeJob[]>([]);
   const jobsTous = ref<ResumeJob[]>([]);
   const portee = ref<PorteeJobs>("chat");
@@ -320,15 +322,16 @@ export function creerJobs(refs: RefsJobs, ctx: CtxJobs) {
     if (minuterieSaisie) clearInterval(minuterieSaisie);
     minuterieSaisie = null;
   }
-  watch([inputMessage, currentChatId], ([texte]) => {
-    if (!texte.trim()) {
+  const saisieEnCours = (): boolean => !!inputMessage.value.trim() || !!questionnaireActif?.value;
+  watch([inputMessage, currentChatId, () => !!questionnaireActif?.value], () => {
+    if (!saisieEnCours()) {
       arreterPing();
       return;
     }
     if (minuterieSaisie) return;
     pingSaisie();
     minuterieSaisie = setInterval(() => {
-      if (!inputMessage.value.trim()) arreterPing();
+      if (!saisieEnCours()) arreterPing();
       else pingSaisie();
     }, PING_MS);
   });

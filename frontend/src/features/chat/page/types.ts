@@ -97,6 +97,8 @@ export interface QuestionAssistant {
 
 export interface Questionnaire {
   idx: number;
+  ouvert: boolean;
+  brouillon: string;
   items: readonly QuestionAssistant[];
 }
 
@@ -159,6 +161,9 @@ export interface DomaineComposeur {
   isAskOptionOn(opt: string): boolean;
   askUserNext(): unknown;
   askUserPrev(): void;
+  askUserKeydown(e: KeyboardEvent): boolean;
+  readonly askUserRepondues: number;
+  rouvrirAskUser(): void;
   pinnedSkills: readonly SkillEpingle[];
   removePinnedSkill(nom: string): void;
   showComposerPlus: boolean;

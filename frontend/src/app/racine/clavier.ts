@@ -27,6 +27,8 @@ export interface EtatClavier {
 /** Événement marqué par la cascade : le repli « plein écran » de l'éditeur ne rejoue pas le même Échap. */
 interface EvenementCascade extends KeyboardEvent {
   _elpisCascadeSaw?: boolean;
+  /** Posé quand la cascade a consommé l'Échap : le questionnaire du composeur ne se ferme pas aussi. */
+  _elpisEchapPris?: boolean;
 }
 
 const vrai = (r: { value: unknown } | null | undefined): boolean => !!r?.value;
@@ -101,7 +103,7 @@ export function creerClavier(s: EtatClavier) {
   );
 
   /** Échap : ferme l'élément du dessus et s'arrête ; vrai s'il a été consommé. */
-  function cascadeEchap(e: KeyboardEvent): void {
+  function cascadeEchap(e: KeyboardEvent): boolean {
     const c = m.chat;
     const r = m.reglages;
     const a = m.admin;
@@ -109,22 +111,22 @@ export function creerClavier(s: EtatClavier) {
     // Fenêtre de confirmation ou de saisie : au sommet de la pile, porte de toutes les actions destructrices.
     if (s.modalState.value.isOpen) {
       s.handleModalCancel();
-      return;
+      return true;
     }
     // Aperçu d'habillage : ouvert depuis le chat ou Paramètres, il se ferme avant eux.
     if (apercuSkin.value) {
       fermerApercuSkin();
-      return;
+      return true;
     }
     // Boîtes de la page RAG (Publier, Nouvelle collection, import du bac) : au-dessus de la page.
-    if (m.rag?.fermerDialogue()) return;
+    if (m.rag?.fermerDialogue()) return true;
     if (c?.imageViewer.value) {
       c.closeImageViewer();
-      return;
+      return true;
     }
     if (c?.imageGallery.value) {
       c.closeImageGallery();
-      return;
+      return true;
     }
     // Voix très haut (dictée, lecture), sauf si une fenêtre, un menu du composeur ou Monaco attend cet Échap.
     const actif = document.activeElement;
@@ -134,106 +136,106 @@ export function creerClavier(s: EtatClavier) {
       vrai(c?.showMentionDropdown) ||
       vrai(c?.showComposerPlus) ||
       !!actif?.closest(".monaco-editor");
-    if (!ailleurs && c?.voiceEscape()) return;
+    if (!ailleurs && c?.voiceEscape()) return true;
     // Handler en capture : les menus internes d'une fenêtre passent avant la fenêtre elle-même.
     const sk = m.skills;
     if (sk?.showSkillImportMenu.value) {
       sk.closeSkillImportMenu();
-      return;
+      return true;
     }
     if (r?.netMenuOpen.value) {
       r.closeNetMenu();
-      return;
+      return true;
     }
     if (a?.paletteOpen.value) {
       a.closePalette();
-      return;
+      return true;
     }
     if (a?.adminMeOpen.value) {
       a.adminMeOpen.value = false;
-      return;
+      return true;
     }
     if (a?.dashMenu.value) {
       a.dashMenu.value = null;
-      return;
+      return true;
     }
     if (a?.engineDrawer.value) {
       a.closeEngineDrawer();
-      return;
+      return true;
     }
     if (a?.groupModal.value.show) {
       a.groupModal.value.show = false;
-      return;
+      return true;
     }
     if (a?.groupMembersModal.value.show) {
       a.groupMembersModal.value.show = false;
-      return;
+      return true;
     }
     if (a?.resetTarget.value) {
       a.resetTarget.value = null;
-      return;
+      return true;
     }
     if (m.auth?.showNewUserModal.value) {
       m.auth.showNewUserModal.value = false;
-      return;
+      return true;
     }
     if (c?.assistantForm.value.open) {
       c.assistantForm.value.open = false;
-      return;
+      return true;
     }
     if (c?.toolInfo.value) {
       c.closeToolInfo();
-      return;
+      return true;
     }
     if (c?.runDetails.value) {
       c.closeRunDetails();
-      return;
+      return true;
     }
     // Transfert : fermable seulement une fois terminé.
     const tr = a?.transferModal.value;
     if (tr?.active && (tr.done || tr.error)) {
       a?.closeTransferModal();
-      return;
+      return true;
     }
     if (r?.showSettingsModal.value) {
       void r.closeSettings();
-      return;
+      return true;
     }
     if (r?.showMcpManagerModal.value) {
       void r.closeMcpManager();
-      return;
+      return true;
     }
     if (r?.isShareModalOpen.value) {
       r.isShareModalOpen.value = false;
-      return;
+      return true;
     }
     if (r?.showHelpModal.value) {
       r.showHelpModal.value = false;
-      return;
+      return true;
     }
     if (s.showInfoModal.value) {
       s.showInfoModal.value = false;
-      return;
+      return true;
     }
     if (s.showOpenCodeModal.value) {
       s.showOpenCodeModal.value = false;
-      return;
+      return true;
     }
     if (c?.showModelProps.value) {
       c.showModelProps.value = false;
-      return;
+      return true;
     }
     if (c?.taskModal.value) {
       c.closeTaskModal();
-      return;
+      return true;
     }
     if (a?.showAxModal.value) {
       a.showAxModal.value = false;
-      return;
+      return true;
     }
     if (ed?.shortcutsModalVisible.value) {
       ed.closeShortcutsModal();
-      return;
+      return true;
     }
     for (const fenetre of [
       ed?.showGitCloneModal,
@@ -244,31 +246,31 @@ export function creerClavier(s: EtatClavier) {
     ]) {
       if (fenetre?.value) {
         fenetre.value = false;
-        return;
+        return true;
       }
     }
     if (s.imgZoom.value) {
       s.imgZoom.value = null;
-      return;
+      return true;
     }
     for (const pop of [ed?.showEditorMore, ed?.showImportMenu, ed?.showTabsOverflow]) {
       if (pop?.value) {
         pop.value = false;
-        return;
+        return true;
       }
     }
     if (ed?.tabCtxMenu.value.show) {
       ed.closeTabCtxMenu();
-      return;
+      return true;
     }
     // Menus du composeur : la saisie les ferme trop tard (écoute en capture ici).
     if (c?.showSlash.value) {
       c.slashDismiss();
-      return;
+      return true;
     }
     if (c?.showMentionDropdown.value) {
       c.closeMentionDropdown();
-      return;
+      return true;
     }
     // Sous-menu ouvert dans le menu du modèle (actions « ⋯ », effort) : le menu le ferme seul, focus rendu à sa ligne.
     if (
@@ -276,46 +278,46 @@ export function creerClavier(s: EtatClavier) {
       document.querySelector("[data-sous-menu-modele]") &&
       document.activeElement?.closest("[data-model-manager]")
     )
-      return;
+      return true;
     for (const panneau of [c?.showSamplingPanel, c?.showMcpPanel, c?.showComposerPlus]) {
       if (panneau?.value) {
         panneau.value = false;
-        return;
+        return true;
       }
     }
     // Mode Images : popover d'abord, puis sortie du mode quand la saisie vide a le focus.
     if (c) {
       const ta = s.inputRef.value;
       const vide = !(s.inputMessage.value || "").trim();
-      if (c.imageEscape(vide, !!ta && document.activeElement === ta)) return;
+      if (c.imageEscape(vide, !!ta && document.activeElement === ta)) return true;
     }
     if (c?.showModelManager.value) {
       c.showModelManager.value = false;
-      return;
+      return true;
     }
     const effort = c?.showReasoningEffortMenu as Ref<boolean> | undefined;
     if (effort?.value) {
       effort.value = false;
-      return;
+      return true;
     }
     if (s.showNotifPanel.value) {
       s.showNotifPanel.value = false;
-      return;
+      return true;
     }
     if (s.menuPagesOuvert.value) {
       s.menuPagesOuvert.value = false;
-      return;
+      return true;
     }
     if (r?.showSharedPrompts.value) {
       r.showSharedPrompts.value = false;
-      return;
+      return true;
     }
     if (s.contextMenu.value.isOpen) {
       s.closeContextMenu();
-      return;
+      return true;
     }
     // Bulle puis visionneuse d'une source du RAG : volet du chat, avant les pages plein écran.
-    if (s.currentView.value === "chat" && m.rag?.sources.echap()) return;
+    if (s.currentView.value === "chat" && m.rag?.sources.echap()) return true;
     // Pages plein écran en dernier : une fenêtre ouverte par-dessus se ferme d'abord.
     const vue = s.currentView.value;
     if (vue === "routines") {
@@ -324,44 +326,46 @@ export function creerClavier(s: EtatClavier) {
       if (ro?.routineIsEditing.value) void ro.cancelRoutineEdit();
       else if (ro) ro.closeRoutinesPage();
       else s.currentView.value = "chat";
-      return;
+      return true;
     }
     if (vue === "rag") {
-      if (m.rag?.echapPage()) return;
+      if (m.rag?.echapPage()) return true;
       if (m.rag) m.rag.fermer();
       else s.currentView.value = "chat";
-      return;
+      return true;
     }
     if (vue === "studio") {
       const sc = m.studioChat;
       if (sc?.studioTextModal.value) {
         sc.textModalCancel();
-        return;
+        return true;
       }
       if (sc?.studioCtxMenu.value) {
         sc.closeStudioCtx();
-        return;
+        return true;
       }
       if (sc?.studioDragFrom.value) {
         sc.cancelStudioDrag();
-        return;
+        return true;
       }
       if (m.studio) m.studio.closeStudio();
       else s.currentView.value = "chat";
-      return;
+      return true;
     }
     if (vue === "code") {
       const co = m.code;
-      if (co?.codeEscape()) return;
+      if (co?.codeEscape()) return true;
       if (co) co.closeCodePage();
       else s.currentView.value = "chat";
-      return;
+      return true;
     }
     // Plein écran de l'éditeur en dernier ; Échap consommé par Monaco (recherche, suggestions) n'en sort pas.
     if (ed?.editorFullscreen.value) {
-      if (ed.monacoConsumesEscape(e)) return;
+      if (ed.monacoConsumesEscape(e)) return true;
       ed.exitEditorFullscreen();
+      return true;
     }
+    return false;
   }
 
   function onGlobalKeydown(ev: KeyboardEvent): void {
@@ -385,7 +389,7 @@ export function creerClavier(s: EtatClavier) {
     if (e.key === "Escape" && !e.ctrlKey && !e.metaKey) {
       // Pas de preventDefault : Monaco et les listes déroulantes en ont besoin aussi.
       e._elpisCascadeSaw = true;
-      cascadeEchap(e);
+      if (cascadeEchap(e)) e._elpisEchapPris = true;
       return;
     }
     // Alt+I : mode Images (Ctrl+Maj+I ouvre les outils de développement) ; e.key garde la touche morte de macOS.

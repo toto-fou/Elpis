@@ -231,6 +231,8 @@ body.elpis-skin-elpis.elpis-app-dark .shadow-lg,
 body.elpis-skin-elpis.elpis-app-dark .shadow-xl,
 body.elpis-skin-elpis.elpis-app-dark .shadow-2xl { box-shadow: 0 8px 30px rgba(0,0,0,0.42) !important; }
 
+body.elpis-skin-elpis { --font-titre: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif; }
+
 /* ───────────────────────────── TITRES SERIF ─────────────────────────────── */
 /*  Serif éditorial fin, chasse large. Georgia = web-safe / offline. */
 body.elpis-skin-elpis .markdown-body h1,
@@ -238,7 +240,7 @@ body.elpis-skin-elpis .markdown-body h2,
 body.elpis-skin-elpis .markdown-body h3,
 body.elpis-skin-elpis .elpis-welcome h1,
 body.elpis-skin-elpis .elpis-welcome h2 {
-    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    font-family: var(--font-titre);
     font-weight: 500;
     letter-spacing: 0.005em;
 }

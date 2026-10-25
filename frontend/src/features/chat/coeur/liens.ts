@@ -95,6 +95,7 @@ export interface LiensChat {
   loadAvailableModels(): Promise<void>;
   loadLlmConnectors(): Promise<void>;
   resetAskUser(): void;
+  ouvrirAskUser(items: QuestionAsk[]): void;
   normalizeAskUser(raw: unknown): QuestionAsk[] | null;
   flashRenamedTitle(entry: { _renamed?: boolean } | undefined): void;
   mergeFilesChanged(idx: number, files: unknown): void;

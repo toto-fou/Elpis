@@ -5,11 +5,10 @@ import { useTemplateRef } from "vue";
 
 import { CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
 import { suivreEtroit } from "../../../features/chat/page/largeur";
-import BoutonMicro from "../../voix/BoutonMicro.vue";
 import PuceJobs from "../outils/PuceJobs.vue";
 import BoutonsEnvoi from "./BoutonsEnvoi.vue";
-import CataloguePlus from "./CataloguePlus.vue";
 import MenuModele from "./MenuModele.vue";
+import OutilsSaisie from "./OutilsSaisie.vue";
 import ProgressionModele from "./ProgressionModele.vue";
 import PucesComposeur from "./PucesComposeur.vue";
 
@@ -19,15 +18,7 @@ const etroit = suivreEtroit(useTemplateRef<HTMLDivElement>("rangee"), 420);
 
 <template>
   <div ref="rangee" class="flex flex-wrap items-center w-full gap-1" data-barre-composeur>
-    <div class="shrink-0 flex items-center gap-0.5">
-      <CataloguePlus @ancre="p.composerPlusRef = $event" />
-      <BoutonMicro
-        v-if="p.voiceCanDictate"
-        :etat="p.voiceState"
-        :occupe="p.voiceBusy"
-        @basculer="p.toggleDictation"
-      />
-    </div>
+    <OutilsSaisie />
     <PucesComposeur :etroit="etroit" :class="etroit ? 'order-last basis-full' : ''" />
     <div class="flex-1"></div>
     <PuceJobs

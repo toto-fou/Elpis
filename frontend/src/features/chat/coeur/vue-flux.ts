@@ -485,7 +485,7 @@ export function creerVueFlux(c: CoeurChat) {
     const instant = instantaneContexte(metriquesFlux || {});
     const metriques = instant ? { ...base, kv_cache: instant } : base;
     if (f.pendingAskUser) {
-      e.askUserPanel.value = { items: f.pendingAskUser, idx: 0 };
+      l.ouvrirAskUser(f.pendingAskUser);
       f.pendingAskUser = null;
     }
     const runIds = d["run_ids"];

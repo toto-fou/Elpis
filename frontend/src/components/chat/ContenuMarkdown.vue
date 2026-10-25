@@ -37,8 +37,14 @@ const props = defineProps<{
 const emit = defineEmits<{ "click-markdown": [evenement: MouseEvent] }>();
 const moteur = moteurMarkdown();
 
-const blocs = computed(() => props.msg._mdBlocks ?? []);
 const actif = computed(() => props.msg._mdActiveHtml ?? "");
+// Aucun bloc en cours d'écriture : le caret entre dans le dernier bloc figé, au bout de son texte (jamais seul sur une ligne).
+const blocs = computed(() => {
+  const b = props.msg._mdBlocks ?? [];
+  const dernier = b[b.length - 1];
+  if (actif.value || !props.msg.content || !dernier) return b;
+  return [...b.slice(0, -1), { ...dernier, html: moteur.injecterCaret(dernier.html) }];
+});
 const html = computed(() => {
   const texte = props.msg.displayContent || props.msg.content || "";
   return props.recherche
@@ -130,7 +136,7 @@ onUnmounted(() => {
       <div style="display: contents" v-html="blk.html"></div>
     </template>
     <div v-if="actif" style="display: contents" v-html="actif"></div>
-    <span v-if="props.msg.content && !actif" class="elpis-stream-caret"></span>
+    <span v-if="props.msg.content && !actif && !blocs.length" class="elpis-stream-caret"></span>
   </div>
   <div
     v-else

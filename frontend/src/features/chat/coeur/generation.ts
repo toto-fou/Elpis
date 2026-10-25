@@ -111,6 +111,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
               fmtTokens(vivant.total)
             : "",
         pct: utilise > 0 ? Math.min(100, Math.round(((utilise + enCours) / vivant.total) * 100)) : 0,
+        part: utilise > 0 ? Math.min(1, (utilise + enCours) / vivant.total) : 0,
       };
       const cur = e.liveGen.value;
       if (
@@ -119,7 +120,8 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
         cur.secLabel !== suite.secLabel ||
         cur.tokPerSec !== suite.tokPerSec ||
         cur.ctxLabel !== suite.ctxLabel ||
-        cur.pct !== suite.pct
+        cur.pct !== suite.pct ||
+        cur.part !== suite.part
       )
         e.liveGen.value = suite;
     };

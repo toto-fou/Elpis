@@ -25,11 +25,18 @@ export class JournalEtapes {
   private pensee = "";
   private penseeDebut: number | null = null;
   private penseeFin: number | null = null;
+  /** Un appel d'outil est passé depuis la dernière réflexion : la suivante est celle d'un nouvel appel du modèle. */
+  private apresAppel = false;
 
   /** Note un événement transmis au client (les événements tus après un Stop n'y passent pas). */
   noter(ev: Dict, maintenant = Date.now()): void {
     const t = ev["type"];
     if (t === "thinking_token" || t === "thinking_content") {
+      if (this.apresAppel) {
+        this.pensee = "";
+        this.penseeDebut = this.penseeFin = null;
+        this.apresAppel = false;
+      }
       const texte = strPy(ev["text"] ?? "");
       this.pensee = t === "thinking_content" ? texte : this.pensee + texte;
       this.penseeDebut ??= maintenant;
@@ -44,11 +51,15 @@ export class JournalEtapes {
     const id = ev["call_id"];
     if (typeof id !== "string" || !id || this.etapes.has(id) || this.etapes.size >= ETAPES_MAX) return;
     const entree: Dict = {};
-    if (!reflexionGardee(strPy(ev["name"] ?? ""), ev["args"]) && this.pensee) {
+    // Outil rendu hors liste (tâches, mémoire, sous-agent) : la réflexion lui est aussi notée et reste en attente.
+    if (this.pensee) {
       Object.assign(entree, this.reflexion(maintenant));
-      this.pensee = "";
-      this.penseeDebut = this.penseeFin = null;
+      if (!reflexionGardee(strPy(ev["name"] ?? ""), ev["args"])) {
+        this.pensee = "";
+        this.penseeDebut = this.penseeFin = null;
+      }
     }
+    this.apresAppel = true;
     this.etapes.set(id, entree);
     this.debuts.set(id, maintenant);
   }

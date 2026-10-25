@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/FilTour.vue — le tour d'un message assistant en une liste chronologique : réflexions, textes à leur place, étapes groupées en ligne riche (et leurs captures, aperçu en direct pendant la navigation), sous-agents, tâches de fond, mémoire, compression, puis le texte qui s'écrit. -->
+<!-- frontend/src/components/chat/message/FilTour.vue — le tour d'un message assistant en une liste chronologique : réflexions, textes à leur place, étapes groupées en ligne riche (et leurs captures, aperçu en direct pendant la navigation, graphique que la réponse oublie de citer), sous-agents, tâches de fond, mémoire, compression, puis le texte qui s'écrit. -->
 <script setup lang="ts">
 import { computed, inject, onUnmounted, ref, watch } from "vue";
 
@@ -7,6 +7,7 @@ import type { ResumeJob } from "@elpis/contracts";
 
 import { capturesDuTour, visionneuseCaptures } from "../../../features/chat/message/captures-tour";
 import { chronologieTour } from "../../../features/chat/message/chronologie";
+import { graphiquesNonCites } from "../../../features/chat/message/graphiques-tour";
 import type { BlocFil } from "../../../features/chat/message/chronologie";
 import type { EntreeMessage } from "../../../features/chat/message/types";
 import { fmtCompression, fmtDuree } from "../../../features/chat/outils/format";
@@ -69,6 +70,7 @@ const vivant = computed(() => {
 
 const captures = computed(() => (fil.settings.hide_web_screenshots ? [] : capturesDuTour(props.entry.msg)));
 const visionneuse = computed(() => visionneuseCaptures(captures.value));
+const graphiques = computed(() => graphiquesNonCites(props.entry.msg));
 
 function voirCapture(rang: number): void {
   fil.openImageViewer(visionneuse.value.items, rang, { captures: true });
@@ -85,6 +87,18 @@ const apercu = computed(() => {
     (e) => e.flat === c.flat || (e.etape.status === "running" && (e.etape.name ?? "").startsWith("pw_")),
   );
   return lie ? { cle: b.cle, url: c.url, attente: c.attente } : null;
+});
+
+// Un nouvel appel du modèle (sa réflexion, ou son texte s'il n'en a pas) se détache du précédent ; dans un appel, tout se suit.
+function nouvelAppel(i: number): boolean {
+  const b = blocs.value[i];
+  const avant = blocs.value[i - 1];
+  return !!b && !!avant && (b.k === "reflexion" || (b.k === "texte" && avant.k !== "reflexion"));
+}
+// Ce qui suit le fil (texte vivant, réponse) : collé à la réflexion de son appel, détaché d'un appel précédent.
+const suiteDetachee = computed(() => {
+  const d = blocs.value[blocs.value.length - 1];
+  return !!d && d.k !== "reflexion";
 });
 
 function basculer(cle: string): void {
@@ -133,17 +147,24 @@ function resumeCompression(s: EtapeOutil): string {
 </script>
 
 <template>
-  <div v-if="blocs.length || vivant" class="mb-1 flex flex-col" data-fil-tour>
-    <template v-for="b in blocs" :key="b.cle">
+  <div
+    v-if="blocs.length || vivant"
+    class="flex flex-col"
+    :class="!vivant && suiteDetachee ? 'mb-3' : ''"
+    data-fil-tour
+  >
+    <template v-for="(b, i) in blocs" :key="b.cle">
       <ContenuMarkdown
         v-if="b.k === 'texte'"
-        class="mb-1.5"
+        class="mb-1"
+        :class="nouvelAppel(i) ? 'mt-3' : ''"
         :msg="{ content: b.texte }"
         data-texte-tour
         @click-markdown="fil.handleMarkdownClick"
       ></ContenuMarkdown>
       <LigneReflexion
         v-else-if="b.k === 'reflexion'"
+        :class="nouvelAppel(i) ? 'mt-3' : ''"
         :texte="b.texte"
         :ms="b.ms"
         :vivante="b.vivante"
@@ -166,6 +187,14 @@ function resumeCompression(s: EtapeOutil): string {
           @compact="(o: boolean) => fil.setMsgUi(entry, { _compactOpen: o })"
           @capture="voirCapture"
         />
+        <template v-for="e in b.etapes" :key="'g:' + e.flat">
+          <ContenuMarkdown
+            v-if="graphiques.get(e.flat)"
+            class="mb-1.5"
+            :msg="{ content: graphiques.get(e.flat) }"
+            data-graphique-etape
+          ></ContenuMarkdown>
+        </template>
         <div v-if="apercu && apercu.cle === b.cle" class="pl-6 mb-1.5" data-apercu-direct>
           <div
             class="elpis-on-media elpis-media-canvas relative rounded-xl overflow-hidden ring-1 ring-slate-900/5"
@@ -255,7 +284,8 @@ function resumeCompression(s: EtapeOutil): string {
     </template>
     <ContenuMarkdown
       v-if="vivant"
-      class="mb-1.5"
+      class="mb-1"
+      :class="suiteDetachee ? 'mt-3' : ''"
       :msg="vivant"
       data-texte-vivant
       @click-markdown="fil.handleMarkdownClick"

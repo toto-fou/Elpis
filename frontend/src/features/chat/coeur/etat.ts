@@ -54,6 +54,7 @@ export interface LigneDirect {
   tokPerSec: number | null;
   ctxLabel: string;
   pct: number;
+  part: number;
 }
 
 export interface QuestionAsk {

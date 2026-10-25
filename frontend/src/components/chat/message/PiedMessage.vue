@@ -31,7 +31,7 @@ const captures = computed(() =>
         entry.msg.metrics &&
         (entry.msg.metrics.model || entry.msg.metrics.duration || entry.msg.metrics.write_tps)
       "
-      class="flex items-center gap-2 text-[11px] text-slate-400 font-mono select-none min-w-0"
+      class="flex flex-wrap items-center gap-x-2 gap-y-0.5 whitespace-nowrap text-[11px] text-slate-400 font-mono select-none min-w-0"
       :title="fil.metricsTooltip(entry.msg.metrics)"
     >
       <i class="ph ph-gauge text-slate-300" style="font-size: 11px"></i>

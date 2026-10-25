@@ -5,6 +5,8 @@ import type { OccupationContexte, StatsDirect } from "./types";
 
 export interface PuceContexte {
   pct: number;
+  /** Part précise de la fenêtre (0 à 1) : largeur de la jauge. */
+  part: number;
   titre: string;
 }
 
@@ -19,12 +21,20 @@ export function puceContexte(
     ? [direct.tokPerSec !== null ? `${direct.tokPerSec} jetons/s` : "", direct.secLabel].filter(Boolean)
     : [];
   if (direct && direct.ctxLabel)
-    return { pct: Math.round(direct.pct), titre: [`${direct.ctxLabel} jetons`, ...vivant].join(" · ") };
+    return {
+      pct: Math.round(direct.pct),
+      part: direct.part ?? direct.pct / 100,
+      titre: [`${direct.ctxLabel} jetons`, ...vivant].join(" · "),
+    };
   if (repos && repos.total > 0) {
     const fin =
       `${fr(repos.used)} / ${fr(repos.total)} jetons à la fin du dernier tour` +
       (repos.persisted ? " (valeur enregistrée, restaurée au chargement)" : "");
-    return { pct: Math.round(repos.pct), titre: [fin, ...vivant].join(" · ") };
+    return {
+      pct: Math.round(repos.pct),
+      part: Math.min(1, repos.used / repos.total),
+      titre: [fin, ...vivant].join(" · "),
+    };
   }
   return null;
 }
